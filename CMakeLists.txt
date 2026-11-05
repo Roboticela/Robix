@@ -82,4 +82,21 @@ add_executable(Stage4DualEngineTests
 target_link_libraries(Stage4DualEngineTests PRIVATE RobixExecutionEngine)
 add_test(NAME Stage4DualEngineTests COMMAND Stage4DualEngineTests)
 
+# Stage 5: Unified Memory Architecture, GC/RC/Manual Coexistence, Pointers & Low-Level Systems
+add_library(RobixMemoryRuntime STATIC
+    Runtime/Memory/UnifiedMemory.cpp
+    Runtime/Memory/LowLevelSystems.cpp
+)
+target_include_directories(RobixMemoryRuntime PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Runtime/Memory
+)
+target_link_libraries(RobixMemoryRuntime PUBLIC RobixFrontend)
+
+# Stage 5 Conformance Test Executable
+add_executable(Stage5MemoryTests
+    Tests/Memory/Stage5MemoryTests.cpp
+)
+target_link_libraries(Stage5MemoryTests PRIVATE RobixMemoryRuntime)
+add_test(NAME Stage5MemoryTests COMMAND Stage5MemoryTests)
+
 
