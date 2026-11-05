@@ -58,4 +58,28 @@ add_executable(Stage3SemanticTests
 target_link_libraries(Stage3SemanticTests PRIVATE RobixFrontend)
 add_test(NAME Stage3SemanticTests COMMAND Stage3SemanticTests)
 
+# Stage 4: Dual Execution Architecture (Validated SSA IR, Optimizer Passes, Bytecode VM & LLVM IR CodeGen)
+add_library(RobixExecutionEngine STATIC
+    Compiler/IR/SSAIR.cpp
+    Compiler/Optimizer/IRPassManager.cpp
+    Compiler/CodeGen/LLVMIRGenerator.cpp
+    Interpreter/Bytecode/BytecodeGenerator.cpp
+    Interpreter/VM/BytecodeVM.cpp
+)
+target_include_directories(RobixExecutionEngine PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/IR
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/Optimizer
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/CodeGen
+    ${CMAKE_CURRENT_SOURCE_DIR}/Interpreter/Bytecode
+    ${CMAKE_CURRENT_SOURCE_DIR}/Interpreter/VM
+)
+target_link_libraries(RobixExecutionEngine PUBLIC RobixFrontend)
+
+# Stage 4 Conformance Test Executable
+add_executable(Stage4DualEngineTests
+    Tests/Interpreter/Stage4DualEngineTests.cpp
+)
+target_link_libraries(Stage4DualEngineTests PRIVATE RobixExecutionEngine)
+add_test(NAME Stage4DualEngineTests COMMAND Stage4DualEngineTests)
+
 
