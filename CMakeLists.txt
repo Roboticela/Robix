@@ -117,5 +117,29 @@ add_executable(Stage6TestingAndVerifierTests
 target_link_libraries(Stage6TestingAndVerifierTests PRIVATE RobixTestingAndVerifier)
 add_test(NAME Stage6TestingAndVerifierTests COMMAND Stage6TestingAndVerifierTests)
 
+# Stage 7: Built-In Types, Standard Library, Concurrency & Formal Security Architecture
+add_library(RobixStdLibAndConcurrency STATIC
+    StdLib/Core/CoreTypesAndRegex.cpp
+    StdLib/Data/JsonAndDataFormats.cpp
+    Runtime/Threading/ConcurrencyAndProcess.cpp
+    StdLib/Security/SecurityAndNetwork.cpp
+)
+target_include_directories(RobixStdLibAndConcurrency PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/StdLib/Core
+    ${CMAKE_CURRENT_SOURCE_DIR}/StdLib/Collections
+    ${CMAKE_CURRENT_SOURCE_DIR}/StdLib/Data
+    ${CMAKE_CURRENT_SOURCE_DIR}/Runtime/Threading
+    ${CMAKE_CURRENT_SOURCE_DIR}/StdLib/Security
+)
+target_link_libraries(RobixStdLibAndConcurrency PUBLIC RobixFrontend)
+
+# Stage 7 Conformance Test Executable
+add_executable(Stage7StdLibAndConcurrencyTests
+    Tests/StdLib/Stage7StdLibAndConcurrencyTests.cpp
+)
+target_link_libraries(Stage7StdLibAndConcurrencyTests PRIVATE RobixStdLibAndConcurrency)
+add_test(NAME Stage7StdLibAndConcurrencyTests COMMAND Stage7StdLibAndConcurrencyTests)
+
+
 
 
