@@ -238,8 +238,22 @@ std::string JsonCodec::Serialize(const JsonValue& val, JsonFormatOption fmt, int
             return std::to_string(val.intVal);
         case JsonKind::Float:
             return NumericOps::ToString(val.floatVal);
-        case JsonKind::String:
-            return "\"" + val.strVal + "\"";
+        case JsonKind::String: {
+            std::string escaped = "\"";
+            escaped.reserve(val.strVal.size() + 2);
+            for (char ch : val.strVal) {
+                switch (ch) {
+                    case '"':  escaped += "\\\""; break;
+                    case '\\': escaped += "\\\\"; break;
+                    case '\n': escaped += "\\n"; break;
+                    case '\r': escaped += "\\r"; break;
+                    case '\t': escaped += "\\t"; break;
+                    default:   escaped += ch; break;
+                }
+            }
+            escaped += "\"";
+            return escaped;
+        }
         case JsonKind::Array: {
             if (val.arrayVal.empty()) return "[]";
             std::string out = "[" + nl;

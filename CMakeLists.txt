@@ -140,6 +140,27 @@ add_executable(Stage7StdLibAndConcurrencyTests
 target_link_libraries(Stage7StdLibAndConcurrencyTests PRIVATE RobixStdLibAndConcurrency)
 add_test(NAME Stage7StdLibAndConcurrencyTests COMMAND Stage7StdLibAndConcurrencyTests)
 
+# Stage 8: Package Ecosystem & Binary Distribution (.rbxapi, .rbxp, robix)
+add_library(RobixPackageSystem STATIC
+    Packages/Manager/RbxApiAndPackageFormat.cpp
+    Packages/Resolver/DependencyResolver.cpp
+    Packages/Registry/PackageManagerAndRegistry.cpp
+)
+target_include_directories(RobixPackageSystem PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Packages/Manager
+    ${CMAKE_CURRENT_SOURCE_DIR}/Packages/Resolver
+    ${CMAKE_CURRENT_SOURCE_DIR}/Packages/Registry
+)
+target_link_libraries(RobixPackageSystem PUBLIC RobixStdLibAndConcurrency RobixFrontend)
+
+# Stage 8 Conformance Test Executable
+add_executable(Stage8PackageEcosystemTests
+    Tests/Packages/Stage8PackageEcosystemTests.cpp
+)
+target_link_libraries(Stage8PackageEcosystemTests PRIVATE RobixPackageSystem)
+add_test(NAME Stage8PackageEcosystemTests COMMAND Stage8PackageEcosystemTests)
+
+
 
 
 
