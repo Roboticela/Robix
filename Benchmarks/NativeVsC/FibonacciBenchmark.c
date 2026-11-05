@@ -23,9 +23,6 @@ int main(void) {
         k = k + 1;
     }
     int64_t fib45 = ComputeFib(45);
-    printf("C Native Fibonacci(45):\n");
-    printf("%lld\n", (long long)fib45);
-    printf("Checksum:\n");
-    printf("%lld\n", (long long)sum);
+    printf("Fibonacci(45): %lld, Checksum: %lld\n", (long long)fib45, (long long)sum);
     return 0;
 }

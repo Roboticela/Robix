@@ -109,7 +109,9 @@ struct ModuleCtx {
     Frontend::DiagnosticBag& diags;
     std::unordered_map<std::string, const IR::IRFunction*> byName;
     std::vector<std::string> stringLiterals;
-    explicit ModuleCtx(Frontend::DiagnosticBag& d) : diags(d) {}
+    const NativeEmitOptions& options;
+    explicit ModuleCtx(Frontend::DiagnosticBag& d, const NativeEmitOptions& opts)
+        : diags(d), options(opts) {}
 };
 
 bool FunctionSignature(const IR::IRFunction& fn, NTy& ret, std::vector<NTy>& params, std::string& why) {
@@ -306,10 +308,16 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             const NTy t = ArithPromote(a.ty, b.ty);
             a = Coerce(a, t, inst.location);
             b = Coerce(b, t, inst.location);
+            const bool fastFp = (m_ctx.options.profile == BuildProfile::Release);
             const char* op = nullptr;
             if (IsFloatTy(t)) {
-                op = (inst.opcode == IROpcode::Add) ? "fadd" : (inst.opcode == IROpcode::Sub) ? "fsub"
-                   : (inst.opcode == IROpcode::Mul) ? "fmul" : (inst.opcode == IROpcode::Div) ? "fdiv" : "frem";
+                if (fastFp) {
+                    op = (inst.opcode == IROpcode::Add) ? "fadd fast" : (inst.opcode == IROpcode::Sub) ? "fsub fast"
+                       : (inst.opcode == IROpcode::Mul) ? "fmul fast" : (inst.opcode == IROpcode::Div) ? "fdiv fast" : "frem fast";
+                } else {
+                    op = (inst.opcode == IROpcode::Add) ? "fadd" : (inst.opcode == IROpcode::Sub) ? "fsub"
+                       : (inst.opcode == IROpcode::Mul) ? "fmul" : (inst.opcode == IROpcode::Div) ? "fdiv" : "frem";
+                }
             } else {
                 op = (inst.opcode == IROpcode::Add) ? "add" : (inst.opcode == IROpcode::Sub) ? "sub"
                    : (inst.opcode == IROpcode::Mul) ? "mul" : (inst.opcode == IROpcode::Div) ? "sdiv" : "srem";
@@ -339,7 +347,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 const char* cc = (inst.opcode == IROpcode::Eq) ? "oeq" : (inst.opcode == IROpcode::Ne) ? "une"
                                : (inst.opcode == IROpcode::Lt) ? "olt" : (inst.opcode == IROpcode::Le) ? "ole"
                                : (inst.opcode == IROpcode::Gt) ? "ogt" : "oge";
-                m_body << "  " << vname << " = fcmp " << cc << " " << TyStr(t) << " " << a.repr << ", " << b.repr << "\n";
+                const char* fcmpOp = (m_ctx.options.profile == BuildProfile::Release) ? "fcmp fast " : "fcmp ";
+                m_body << "  " << vname << " = " << fcmpOp << cc << " " << TyStr(t) << " " << a.repr << ", " << b.repr << "\n";
             } else {
                 const char* cc = (inst.opcode == IROpcode::Eq) ? "eq" : (inst.opcode == IROpcode::Ne) ? "ne"
                                : (inst.opcode == IROpcode::Lt) ? "slt" : (inst.opcode == IROpcode::Le) ? "sle"
@@ -376,7 +385,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             }
             if (a.ty == NTy::I1) a = Coerce(a, NTy::I64, inst.location);
             if (IsFloatTy(a.ty)) {
-                m_body << "  " << vname << " = fneg " << TyStr(a.ty) << " " << a.repr << "\n";
+                const char* fnegOp = (m_ctx.options.profile == BuildProfile::Release) ? "fneg fast " : "fneg ";
+                m_body << "  " << vname << " = " << fnegOp << TyStr(a.ty) << " " << a.repr << "\n";
             } else {
                 m_body << "  " << vname << " = sub " << TyStr(a.ty) << " 0, " << a.repr << "\n";
             }
@@ -414,10 +424,10 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 args += std::string(TyStr(ptys[i])) + " " + a.repr;
             }
             if (ret == NTy::Void) {
-                m_body << "  call void @\"" << cit->second->mangledName << "\"(" << args << ")\n";
+                m_body << "  call fastcc void @\"" << cit->second->mangledName << "\"(" << args << ")\n";
                 m_vals[id] = Val{ "0", NTy::Void };
             } else {
-                m_body << "  " << vname << " = call " << TyStr(ret) << " @\"" << cit->second->mangledName
+                m_body << "  " << vname << " = call fastcc " << TyStr(ret) << " @\"" << cit->second->mangledName
                        << "\"(" << args << ")\n";
                 m_vals[id] = Val{ vname, ret };
             }
@@ -535,13 +545,27 @@ bool FnEmitter::Emit() {
 
     if (!m_ok) return false;
 
-    m_out << "define " << TyStr(ret) << " @\"" << m_fn.mangledName << "\"(";
+    m_out << "define fastcc " << TyStr(ret) << " @\"" << m_fn.mangledName << "\"(";
     for (std::size_t i = 0; i < ptys.size(); ++i) {
         if (i > 0) m_out << ", ";
         m_out << TyStr(ptys[i]) << " %a" << i;
     }
-    m_out << ") nounwind {\nentry:\n"
-          << m_allocas.str()
+    bool isRecursive = false;
+    for (const auto& blk : m_fn.blocks) {
+        for (const auto& inst : blk.instructions) {
+            if (inst.opcode == IR::IROpcode::CallDirect && inst.textImm == m_fn.name) {
+                isRecursive = true;
+                break;
+            }
+        }
+        if (isRecursive) break;
+    }
+    if (m_ctx.options.profile == BuildProfile::Release && m_fn.name != "Main" && !isRecursive) {
+        m_out << ") alwaysinline nounwind #0 {\nentry:\n";
+    } else {
+        m_out << ") nounwind #0 {\nentry:\n";
+    }
+    m_out << m_allocas.str()
           << paramStores.str()
           << m_body.str()
           << "}\n\n";
@@ -554,7 +578,7 @@ NativeLLVMEmitter::NativeLLVMEmitter(Frontend::DiagnosticBag& diagnostics, Nativ
     : m_diagnostics(diagnostics), m_options(options) {}
 
 std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
-    ModuleCtx ctx(m_diagnostics);
+    ModuleCtx ctx(m_diagnostics, m_options);
     for (const auto& fn : mod.functions) {
         if (!fn.isTestBlock) {
             ctx.byName[fn.name] = &fn;
@@ -609,6 +633,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     std::ostringstream out;
     out << "; Robix native LLVM IR - module '" << mod.moduleName << "' (profile: "
         << BuildProfileToString(m_options.profile) << ")\n";
+    out << "target datalayout = \"" << GetLLVMDataLayout(m_options.target) << "\"\n";
     out << "target triple = \"" << GetLLVMTargetTriple(m_options.target) << "\"\n\n";
     out << "declare void @rbx_print_i64(i64)\n";
     out << "declare void @rbx_print_f64(double)\n";
@@ -624,11 +649,11 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
 
     out << functions.str();
 
-    out << "define i32 @main() {\nentry:\n";
+    out << "define i32 @main() #0 {\nentry:\n";
     if (mainRet == NTy::Void) {
-        out << "  call void @\"" << mainFn->mangledName << "\"()\n  ret i32 0\n";
+        out << "  call fastcc void @\"" << mainFn->mangledName << "\"()\n  ret i32 0\n";
     } else if (IsIntTy(mainRet)) {
-        out << "  %r = call " << TyStr(mainRet) << " @\"" << mainFn->mangledName << "\"()\n";
+        out << "  %r = call fastcc " << TyStr(mainRet) << " @\"" << mainFn->mangledName << "\"()\n";
         if (mainRet == NTy::I32) {
             out << "  ret i32 %r\n";
         } else if (mainRet == NTy::I1) {
@@ -641,7 +666,12 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     } else {
         out << "  %r = call " << TyStr(mainRet) << " @\"" << mainFn->mangledName << "\"()\n  ret i32 0\n";
     }
-    out << "}\n";
+    out << "}\n\n";
+    if (m_options.profile == BuildProfile::Release) {
+        out << "attributes #0 = { nounwind \"no-trapping-math\"=\"true\" \"unsafe-fp-math\"=\"true\" \"approx-func-fp-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" hot \"tune-cpu\"=\"native\" }\n";
+    } else {
+        out << "attributes #0 = { nounwind \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" }\n";
+    }
 
     return out.str();
 }

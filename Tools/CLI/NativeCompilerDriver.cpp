@@ -188,7 +188,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     std::ostringstream cmd;
     cmd << Quote(clang);
     if (options.release) {
-        cmd << " -O3 -fno-math-errno -march=native -mllvm -inline-threshold=2000 ";
+        cmd << " -O3 -march=native -ffast-math -funroll-loops -finline-functions -mllvm -inline-threshold=5000 -mllvm -vectorize-loops -mllvm -vectorize-slp ";
     } else {
         cmd << " -O0 ";
     }

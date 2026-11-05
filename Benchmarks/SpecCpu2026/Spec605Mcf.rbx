@@ -1,0 +1,71 @@
+package Benchmarks.SpecCpu.Mcf;
+
+public Function RunMcfSim(Int n) -> Int {
+    Int flow = 1000;
+    Int cost = 0;
+    Int priceA = 10;
+    Int priceB = 25;
+    Int priceC = 40;
+    Int priceD = 15;
+
+    Int iter = 0;
+    while (iter < n) {
+        Int reducedCost1 = priceB - priceA + 12;
+        Int reducedCost2 = priceC - priceB + 8;
+        Int reducedCost3 = priceD - priceC + 15;
+        Int reducedCost4 = priceA - priceD + 5;
+
+        if (reducedCost1 < 0) {
+            priceA = priceA - 2;
+            priceB = priceB + 1;
+            flow = flow + 3;
+            cost = cost + flow * 12;
+        } else {
+            priceA = (priceA + 1) % 50;
+            cost = cost + flow * 2;
+        }
+
+        if (reducedCost2 < 0) {
+            priceB = priceB - 1;
+            priceC = priceC + 2;
+            cost = cost + flow * 8;
+        } else {
+            priceC = (priceC + 2) % 60;
+            cost = cost + 17;
+        }
+
+        if (reducedCost3 < 0) {
+            priceC = priceC - 2;
+            priceD = priceD + 3;
+            flow = flow + 1;
+            cost = cost + flow * 15;
+        } else {
+            priceD = (priceD + 1) % 45;
+            cost = cost + 31;
+        }
+
+        if (reducedCost4 < 0) {
+            priceD = priceD - 1;
+            priceA = priceA + 2;
+            cost = cost + flow * 5;
+        } else {
+            priceB = (priceB + 3) % 55;
+            cost = cost + 11;
+        }
+
+        if (cost > 1000000007) {
+            cost = cost % 1000000007;
+        }
+
+        iter = iter + 1;
+    }
+
+    return (cost + priceA + priceB + priceC + priceD + flow) % 1000000007;
+}
+
+public Function Main() -> Void {
+    Int n = 10000000;
+    Int res = RunMcfSim(n);
+    Print("SPEC 605.mcf_r Checksum:");
+    Print(res);
+}

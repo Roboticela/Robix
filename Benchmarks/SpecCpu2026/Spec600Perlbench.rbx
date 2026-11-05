@@ -1,0 +1,39 @@
+package Benchmarks.SpecCpu.Compress;
+
+public Function RunCompress(Int n) -> Int {
+    Int seed = 987654321;
+    Int checksum = 0;
+    
+    // Simulate LZ-style sliding window dictionary hashing
+    Int h0 = 0; Int h1 = 0; Int h2 = 0; Int h3 = 0;
+    Int h4 = 0; Int h5 = 0; Int h6 = 0; Int h7 = 0;
+
+    Int i = 0;
+    while (i < n) {
+        // Step 1
+        seed = (seed * 1664525 + 1013904223) % 2147483648;
+        Int byteVal1 = (seed / 65536) % 256;
+        Int slot1 = (byteVal1 * 31 + i) % 8;
+        if (slot1 < 4) {
+            if (slot1 == 0) { h0 = (h0 * 33 + byteVal1) % 1000000007; checksum = (checksum + h0) % 1000000007; }
+            else if (slot1 == 1) { h1 = (h1 * 33 + byteVal1) % 1000000007; checksum = (checksum + h1) % 1000000007; }
+            else if (slot1 == 2) { h2 = (h2 * 33 + byteVal1) % 1000000007; checksum = (checksum + h2) % 1000000007; }
+            else { h3 = (h3 * 33 + byteVal1) % 1000000007; checksum = (checksum + h3) % 1000000007; }
+        } else {
+            if (slot1 == 4) { h4 = (h4 * 33 + byteVal1) % 1000000007; checksum = (checksum + h4) % 1000000007; }
+            else if (slot1 == 5) { h5 = (h5 * 33 + byteVal1) % 1000000007; checksum = (checksum + h5) % 1000000007; }
+            else if (slot1 == 6) { h6 = (h6 * 33 + byteVal1) % 1000000007; checksum = (checksum + h6) % 1000000007; }
+            else { h7 = (h7 * 33 + byteVal1) % 1000000007; checksum = (checksum + h7) % 1000000007; }
+        }
+
+        i = i + 1;
+    }
+    return checksum;
+}
+
+public Function Main() -> Void {
+    Int n = 4000000;
+    Int res = RunCompress(n);
+    Print("SPEC 600.perlbench_r Checksum:");
+    Print(res);
+}

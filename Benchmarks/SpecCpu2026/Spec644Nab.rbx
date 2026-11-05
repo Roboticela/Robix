@@ -1,0 +1,51 @@
+package Benchmarks.SpecCpu.Nab;
+
+public Function RunNabSim(Int steps) -> Float {
+    Float r12 = 1.5;
+    Float r23 = 1.4;
+    Float r13 = 2.4;
+
+    Float v12 = 0.0;
+    Float v23 = 0.0;
+    Float v13 = 0.0;
+
+    Int step = 0;
+    while (step < steps) {
+        // Step 1
+        Float f12A = 350.0 * (1.45 - r12);
+        Float f23A = 350.0 * (1.45 - r23);
+        Float f13A = 14.4 / (r13 * r13);
+
+        v12 = v12 + f12A * 0.0005;
+        v23 = v23 + f23A * 0.0005;
+        v13 = v13 + f13A * 0.0005;
+
+        r12 = r12 + v12 * 0.0005;
+        r23 = r23 + v23 * 0.0005;
+        r13 = r13 + v13 * 0.0005;
+
+        // Step 2
+        Float f12B = 350.0 * (1.45 - r12);
+        Float f23B = 350.0 * (1.45 - r23);
+        Float f13B = 14.4 / (r13 * r13);
+
+        v12 = v12 + f12B * 0.0005;
+        v23 = v23 + f23B * 0.0005;
+        v13 = v13 + f13B * 0.0005;
+
+        r12 = r12 + v12 * 0.0005;
+        r23 = r23 + v23 * 0.0005;
+        r13 = r13 + v13 * 0.0005;
+
+        step = step + 2;
+    }
+
+    return r12 + r23 + r13 + v12 + v23 + v13;
+}
+
+public Function Main() -> Void {
+    Int n = 10000000;
+    Float res = RunNabSim(n);
+    Print("SPEC 644.nab_r Checksum:");
+    Print(res);
+}

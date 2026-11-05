@@ -1,0 +1,42 @@
+package Benchmarks.SpecCpu.Leela;
+
+public Function RunMCTSSim(Int numRollouts) -> Int {
+    Int wins = 0;
+    Int i = 0;
+    while (i < numRollouts) {
+        Int s = i * 7919 + 101;
+        Int blackStones = 0;
+        Int whiteStones = 0;
+
+        Int move = 0;
+        while (move < 24) {
+            // Unroll 4 moves per iteration
+            s = (s * 1103515245 + 12345) % 2147483648;
+            blackStones = blackStones + ((s / 65536) % 19);
+
+            s = (s * 1103515245 + 12345) % 2147483648;
+            whiteStones = whiteStones + ((s / 65536) % 19);
+
+            s = (s * 1103515245 + 12345) % 2147483648;
+            blackStones = blackStones + ((s / 65536) % 19);
+
+            s = (s * 1103515245 + 12345) % 2147483648;
+            whiteStones = whiteStones + ((s / 65536) % 19);
+
+            move = move + 4;
+        }
+
+        if (blackStones >= whiteStones) {
+            wins = wins + 1;
+        }
+        i = i + 1;
+    }
+    return wins;
+}
+
+public Function Main() -> Void {
+    Int n = 2000000;
+    Int res = RunMCTSSim(n);
+    Print("SPEC 641.leela_r Checksum:");
+    Print(res);
+}

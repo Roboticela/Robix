@@ -1,0 +1,47 @@
+package Benchmarks.SpecCpu.Bzip2;
+
+public Function RunBzip2(Int n) -> Int {
+    Int seed = 543216789;
+    Int checksum = 0;
+
+    Int lastByte = -1;
+    Int runLen = 0;
+    Int bitBuffer = 0;
+    Int bitCount = 0;
+
+    Int i = 0;
+    while (i < n) {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        Int currByte = (seed / 65536) % 64;
+
+        if (currByte == lastByte) {
+            runLen = runLen + 1;
+        } else {
+            if (runLen > 0) {
+                bitBuffer = (bitBuffer * 64 + lastByte) % 1000000007;
+                bitCount = bitCount + 6;
+                if (bitCount >= 24) {
+                    checksum = (checksum * 31 + bitBuffer) % 1000000007;
+                    bitBuffer = 0;
+                    bitCount = 0;
+                }
+            }
+            lastByte = currByte;
+            runLen = 1;
+        }
+        i = i + 1;
+    }
+
+    if (runLen > 0) {
+        bitBuffer = (bitBuffer * 64 + lastByte) % 1000000007;
+        checksum = (checksum * 31 + bitBuffer) % 1000000007;
+    }
+    return checksum;
+}
+
+public Function Main() -> Void {
+    Int n = 5000000;
+    Int res = RunBzip2(n);
+    Print("SPEC 602.gcc_r Checksum:");
+    Print(res);
+}

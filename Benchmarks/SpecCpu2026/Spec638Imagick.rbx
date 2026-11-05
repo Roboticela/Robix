@@ -1,0 +1,44 @@
+package Benchmarks.SpecCpu.Imagick;
+
+public Function RunImagickFilter(Int pixels) -> Int {
+    Int seed = 314159265;
+    Int checksum = 0;
+
+    Int p0 = 128; Int p1 = 64; Int p2 = 200;
+    Int p3 = 90;  Int p4 = 150; Int p5 = 30;
+    Int p6 = 180; Int p7 = 210; Int p8 = 45;
+
+    Int i = 0;
+    while (i < pixels) {
+        // Step 1
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        Int newPix1 = (seed / 65536) % 256;
+        p0 = p1; p1 = p2; p2 = p3;
+        p3 = p4; p4 = p5; p5 = p6;
+        p6 = p7; p7 = p8; p8 = newPix1;
+        Int sum1 = (p0 + p2 + p6 + p8) + 2 * (p1 + p3 + p5 + p7) + 4 * p4;
+        Int filtered1 = sum1 / 16;
+        checksum = (checksum * 33 + filtered1) % 1000000007;
+
+        // Step 2
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        Int newPix2 = (seed / 65536) % 256;
+        p0 = p1; p1 = p2; p2 = p3;
+        p3 = p4; p4 = p5; p5 = p6;
+        p6 = p7; p7 = p8; p8 = newPix2;
+        Int sum2 = (p0 + p2 + p6 + p8) + 2 * (p1 + p3 + p5 + p7) + 4 * p4;
+        Int filtered2 = sum2 / 16;
+        checksum = (checksum * 33 + filtered2) % 1000000007;
+
+        i = i + 2;
+    }
+
+    return checksum;
+}
+
+public Function Main() -> Void {
+    Int n = 5000000;
+    Int res = RunImagickFilter(n);
+    Print("SPEC 638.imagick_r Checksum:");
+    Print(res);
+}

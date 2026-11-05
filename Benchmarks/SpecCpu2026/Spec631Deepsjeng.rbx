@@ -1,0 +1,60 @@
+package Benchmarks.SpecCpu.DeepSJeng;
+
+public Function RunAlphaBeta(Int depth, Int alphaVal, Int betaVal, Int posVal) -> Int {
+    if (depth <= 1) {
+        // Base case at depth 1: immediate evaluation of best move
+        Int d0 = (depth * 13) % 29 - 14;
+        Int s0 = posVal + d0;
+        Int d1 = (37 + depth * 13) % 29 - 14;
+        Int s1 = posVal + d1;
+        if (s1 > s0) { s0 = s1; }
+        Int d2 = (74 + depth * 13) % 29 - 14;
+        Int s2 = posVal + d2;
+        if (s2 > s0) { s0 = s2; }
+        Int d3 = (111 + depth * 13) % 29 - 14;
+        Int s3 = posVal + d3;
+        if (s3 > s0) { s0 = s3; }
+        return s0;
+    }
+
+    Int bestScore = -1000000;
+    Int currentAlpha = alphaVal;
+    Int move = 0;
+    while (move < 4) {
+        Int delta = (move * 37 + depth * 13) % 29 - 14;
+        Int childVal = 0 - (posVal + delta);
+        
+        Int score = 0 - RunAlphaBeta(depth - 1, 0 - betaVal, 0 - currentAlpha, childVal);
+        if (score > bestScore) {
+            bestScore = score;
+        }
+        if (score > currentAlpha) {
+            currentAlpha = score;
+        }
+        if (currentAlpha >= betaVal) {
+            return bestScore;
+        }
+
+        move = move + 1;
+    }
+    return bestScore;
+}
+
+public Function RunDeepSJeng(Int numSearches) -> Int {
+    Int checksum = 0;
+    Int i = 0;
+    while (i < numSearches) {
+        Int rootPos = (i * 101 + 47) % 500 - 250;
+        Int eval = RunAlphaBeta(11, -100000, 100000, rootPos);
+        checksum = (checksum * 17 + eval) % 1000000007;
+        i = i + 1;
+    }
+    return checksum;
+}
+
+public Function Main() -> Void {
+    Int n = 120;
+    Int res = RunDeepSJeng(n);
+    Print("SPEC 631.deepsjeng_r Checksum:");
+    Print(res);
+}
