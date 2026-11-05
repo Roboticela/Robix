@@ -180,6 +180,34 @@ add_executable(Stage9HardwareRoboticsAndAITests
 target_link_libraries(Stage9HardwareRoboticsAndAITests PRIVATE RobixHardwareRoboticsAI)
 add_test(NAME Stage9HardwareRoboticsAndAITests COMMAND Stage9HardwareRoboticsAndAITests)
 
+# Stage 13: Developer Experience, CLI, Test Scaffold Generator, Tooling, Benchmarks & Documentation
+add_library(RobixCLIToolingAndBenchmarks STATIC
+    Tools/CLI/RobixCLIAndTestGenerator.cpp
+    Tools/CLI/ExamplesAndDocumentationCatalog.cpp
+    Tools/Debugger/LSPDebuggerProfilerAndBenchmarks.cpp
+)
+target_include_directories(RobixCLIToolingAndBenchmarks PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Tools/CLI
+    ${CMAKE_CURRENT_SOURCE_DIR}/Tools/Debugger
+)
+target_link_libraries(RobixCLIToolingAndBenchmarks PUBLIC
+    RobixTestingAndVerifier
+    RobixHardwareRoboticsAI
+    RobixPackageSystem
+    RobixExecutionEngine
+    RobixStdLibAndConcurrency
+    RobixMemoryRuntime
+    RobixFrontend
+)
+
+# Stage 13 Conformance Test Executable
+add_executable(Stage13CLIToolingAndBenchmarksTests
+    Tests/Compiler/Stage13CLIToolingAndBenchmarksTests.cpp
+)
+target_link_libraries(Stage13CLIToolingAndBenchmarksTests PRIVATE RobixCLIToolingAndBenchmarks)
+add_test(NAME Stage13CLIToolingAndBenchmarksTests COMMAND Stage13CLIToolingAndBenchmarksTests)
+
+
 
 
 

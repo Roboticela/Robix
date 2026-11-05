@@ -92,7 +92,7 @@ TokenKind ResolveKeyword(std::string_view text) noexcept {
     if (text == "Implement") return TokenKind::KwImplement;
     if (text == "Connect") return TokenKind::KwConnect;
     if (text == "Permissions") return TokenKind::KwPermissions;
-    if (text == "Test") return TokenKind::KwTest;
+    if (text == "Test" || text == "test") return TokenKind::KwTest;
     if (text == "TestFile") return TokenKind::KwTestFile;
     if (text == "Covers") return TokenKind::KwCovers;
     if (text == "macro") return TokenKind::KwMacro;

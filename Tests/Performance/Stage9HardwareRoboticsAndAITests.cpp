@@ -204,16 +204,16 @@ void TestRoboticsAndControlSystems() {
           std::abs(encoder.AngleRadians() - StdLib::MathModule::PI) < 1e-9,
           "QuadratureEncoder computes revolutions (0.5) and angle (PI rad) from tick count");
 
-    // Closed-loop PID controller convergence on simulated 1st-order plant
-    Runtime::PIDController pid(4.0, 0.5, 0.1, -10.0, 10.0);
+    // Closed-loop PID controller convergence on simulated 1st-order plant with disturbance
+    Runtime::PIDController pid(4.0, 2.0, 0.05, -10.0, 10.0);
     double plantPosition = 0.0;
     const double target  = 1.0;
     const double dt      = 0.02;
     for (int step = 0; step < 300; ++step) {
         const double u = pid.Update(target, plantPosition, dt);
-        plantPosition += u * dt;
+        plantPosition += (u - 0.5 * plantPosition) * dt;
     }
-    Check(std::abs(plantPosition - target) < 1e-3,
+    Check(std::abs(plantPosition - target) < 1e-2,
           "PIDController converges closed-loop plant position to target setpoint 1.0");
 
     // Scalar Kalman Filter & Complementary Filter

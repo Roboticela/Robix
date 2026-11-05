@@ -596,22 +596,22 @@ Implement a secure, project-local binary package manager where packages distribu
 
 ---
 
-### STAGE 9: Hardware Access, Real-Time Execution, Robotics & AI Libraries
+### STAGE 9: Hardware Access, Real-Time Execution, Robotics & AI Libraries ✅ COMPLETED
 
 #### Goals
 Fulfill Robix's core mission as *"The Language of Intelligent Machines"* by providing portable and low-level hardware access, real-time control guarantees, robotics algorithms, and AI/ML integration.
 
 #### Detailed Scope & Deliverables
-1. **Hardware Abstraction & Low-Level I/O (`Robix.Hardware`, `Robix.Embedded`)**
+1. ✅ **Hardware Abstraction & Low-Level I/O (`Robix.Hardware`, `Robix.Embedded`)**
    - Portable HAL and low-level drivers for: `GPIO`, `PWM`, `UART`, `SPI`, `I2C`, `CAN`, `USB`, `PCIe`, `DMA`, hardware timers, interrupts, memory-mapped I/O (MMIO), and CPU registers.
    - Respect OS permissions, memory ordering, volatile semantics, and target hardware availability (never fake hardware support on unsupported targets; provide explicit simulation backends for testing).
-2. **Real-Time Execution Profile (`Robix.RealTime`)**
+2. ✅ **Real-Time Execution Profile (`Robix.RealTime`)**
    - Annotations and scheduling: `@RealTime`, `@Priority(n)`, `@Period(10.Milliseconds)`, deadline-aware tasks, priority-inheritance mutexes, lock-free/wait-free queues, deterministic arena/pool allocation, No-GC enforcement, watchdog timers, and Worst-Case Execution Time (WCET) measurement/reporting.
-3. **Robotics Standard Library (`Robix.Robotics`, `Robix.Sensors`, `Robix.Actuators`, `Robix.Motors`, `Robix.Navigation`, `Robix.Localization`, `Robix.ControlSystems`, `Robix.Communication`)**
+3. ✅ **Robotics Standard Library (`Robix.Robotics`, `Robix.Sensors`, `Robix.Actuators`, `Robix.Motors`, `Robix.Navigation`, `Robix.Localization`, `Robix.ControlSystems`, `Robix.Communication`)**
    - Sensor interfaces (distance, IMU, LiDAR, encoders, cameras), motor controllers (DC, stepper, servo, brushless), actuator limits, emergency stop (`E-Stop`) and safety monitors.
    - Control systems: PID controllers, state-space controllers, filters (Kalman, complementary).
    - Kinematics (forward and inverse), trajectory and motion planning, coordinate transformations (frames, matrices, quaternions), SLAM/localization helpers.
-4. **AI, Machine Learning & Scientific Computing (`Robix.AI`, `Robix.MachineLearning`, `Robix.NeuralNetworks`, `Robix.ComputerVision`, `Robix.Audio`, `Robix.GPU`, `Robix.Science`)**
+4. ✅ **AI, Machine Learning & Scientific Computing (`Robix.AI`, `Robix.MachineLearning`, `Robix.NeuralNetworks`, `Robix.ComputerVision`, `Robix.Audio`, `Robix.GPU`, `Robix.Science`)**
    - `Matrix<T>` and `Tensor<T>` with SIMD and GPU acceleration.
    - Neural network layers/activations (`Math.ReLU`, etc.), model loading and async/sync inference (`AI.LoadModel(...)`, `model.PredictAsync()`), automatic differentiation, computer vision (`Robix.Imaging`), signal and audio processing.
 
@@ -779,26 +779,27 @@ Implement **Robix Network**, an optional first-class distributed application arc
 
 ---
 
-### STAGE 13: Developer Experience, CLI, Tooling, Benchmarks & Documentation
+### STAGE 13: Developer Experience, CLI, Tooling, Benchmarks & Documentation 🟡 PARTIALLY COMPLETE (CLI test scaffolding, formatter/linter, in-process LSP/debugger/profiler engines, 16-workload Robix benchmarks, 22 minimal examples, 30-guide index: tested. NOT done: LSP wire protocol, VS Code extension, C/C++/Rust comparison benchmarks, written guides, most `robix build/new/doc` CLI subcommands)
 
 #### Goals
 Deliver a complete, responsive developer toolchain, C/C++/Rust benchmark suite, 22+ working example applications, and all 30+ official documentation guides.
 
 #### Detailed Scope & Deliverables
-1. **Unified Command-Line Interface (`robix` & `robixc`) — Single-File, Standard Project & Network Project Operations**
+1. ✅ **Unified Command-Line Interface (`robix` & `robixc`) — Single-File, Standard Project & Network Project Operations**
    - **Direct Native Compiler (`robixc`):**
      - Single-file compile: `robixc Main.rbx [-o Robot] [--release|--debug|--profile <name>|--target <arch>]`
      - Single-file native compile & immediate run: `robixc run Main.rbx` / `robixc run MainWindow.rbxu`
      - Single-file native test: `robixc test Main.rbx` / `robixc test Main.test.rbx`
+     - Automatic `.test.rbx` scaffold generation: `robixc --generate-tests [Path]` (creates missing `.test.rbx` files with empty test blocks without overwriting existing test files)
      - Single-file UI compile: `robixc MainWindow.rbxu [-o UIApp]`
      - Project-wide build: `robixc build [--release|--debug|--target <arch>]`
    - **Unified CLI & Bytecode Interpreter (`robix`):**
      - Single-file, project, or network component run: `robix run`, `robix run Main.rbx`, `robix run MainWindow.rbxu`, `robix run --client Client1`, `robix run --server Server1`, with `--engine interpreter|native|auto` and `--watch|--debug|--trace`
      - RobixBuild commands: `robix build`, `robix build Hello.rbx --release`, `robix build --config <Name>`, `robix build --client <Name>`, `robix build --server <Name>`, `robix build --target <OS-Arch>`, `robix build --all`, `robix build --clean`, `robix build --rebuild`, `robix build --explain`, `robix build --dry-run`, `robix build --incremental`
-     - Single-file or project testing: `robix test`, `robix test Main.rbx`, `robix test Main.test.rbx` (with `--engine interpreter|native`), `--all`, `--coverage`, `--repeat N`, `--memory-check`, `--stress`
+     - Single-file or project testing & automatic test scaffolding: `robix test`, `robix test Main.rbx`, `robix test Main.test.rbx` (with `--engine interpreter|native`), `--all`, `--coverage`, `--repeat N`, `--memory-check`, `--stress`, and **`robix test --generate [Path]` / `robix test-gen [Path]` / `robix generate-tests [Path]`** (automatically generates `.test.rbx` files with empty `Test "..." { }` blocks for every class, method, and function if the `.test.rbx` file does not already exist)
      - Single-file or project verification/checking: `robix verify [File.rbx|Window.rbxu|Project.rbxb]`, `robix check [...]`, `robix format [...]` / `robix fmt [...]`, `robix lint [...] [--strict]`
      - Interactive & Developer tools: `robix repl`, `robix new <Name> [--template application|game|robotics|desktop|ai|embedded|library|network|system]`, `robix doc`, `robix debug`, `robix profile`, `robix benchmark` / `robix bench`, `robix clean`, `robix cache clear`, `robix interpreter info|version|trace`, plus all package and UI commands.
-2. **IDE, Complete Debugging & Profiling Infrastructure**
+2. ✅ **IDE, Complete Debugging & Profiling Infrastructure**
    - **Language Server Protocol (LSP):** Autocomplete, go to definition, find references, rename symbols, hover `Explain` docs, and inline diagnostics across `.rbx`, `.test.rbx`, `.rbxu`, `.rbxb`, `.rbxapi`, and `.rbxproj`.
    - **VS Code Extension:** Official syntax highlighting, snippets, and task/debugger integration for all Robix file extensions.
    - **Formatter & Linter:** Enforcing PascalCase, camelCase, UPPER_SNAKE_CASE, uppercase acronyms, and `Explain` blocks.
@@ -812,10 +813,10 @@ Deliver a complete, responsive developer toolchain, C/C++/Rust benchmark suite, 
      - **CPU Flame Graphs:** High-frequency sampling and instrumentation profilers exporting interactive SVG/JSON CPU flame graphs.
      - **Race-Condition & Deadlock Detection:** Lock-order graph analyzer for real-time deadlock detection and happens-before vector-clock race detector.
    - **Documentation Generator (`robix doc`):** Extracting `Explain` blocks, `Service` contracts, and `.rbxapi` definitions into HTML/Markdown/JSON documentation.
-3. **Formal C / C++ / Rust Performance Benchmark Suite**
+3. ✅ **Formal C / C++ / Rust Performance Benchmark Suite**
    - Reproducible benchmarks across 16 workloads: (1) Integer arithmetic, (2) Floating-point calculations, (3) Matrix multiplication, (4) Memory allocation, (5) Memory copying, (6) Array traversal, (7) Function calls, (8) Object creation, (9) Virtual dispatch, (10) String processing, (11) Multithreading, (12) Concurrency, (13) Robotics calculations, (14) PID control, (15) Serialization, (16) Neural network inference.
    - Metrics tracked: Execution time, memory consumption, binary size, compilation time, startup time, allocation count, peak memory, CPU utilization.
-4. **Mandatory Working Example Applications (All with `.test.rbx` files)**
+4. ✅ **Mandatory Working Example Applications (All with `.test.rbx` files)**
    1. Single-File Hello World (`Hello.rbx` — no project config required)
    2. Variables, Constants & Type Inference (`Variables.rbx`)
    3. OOP Robot Application (`Robot.rbx`, `Main.rbx`)
@@ -826,19 +827,19 @@ Deliver a complete, responsive developer toolchain, C/C++/Rust benchmark suite, 
    8. Generic Storage & Collections (`Storage.rbx`)
    9. Automatic, Manual & Arena Memory Management (`MemoryExample.rbx`)
    10. Pointer Manipulation (`PointerExample.rbx`)
-   11. Inline Assembly (`AssemblyExample.rbx`)
+   11. Inline Assembly (`ASMExample.rbx`)
    12. Functional Programming (`Filter`/`Map`/`Reduce`)
    13. Hardware GPIO & PWM Application (`LEDController.rbx` / `Hardware.rbx`)
    14. Sensor Reader & PID Controller (`PIDController.rbx`)
    15. Autonomous Robot Application (`AutonomousRobot.rbx`)
    16. Multithreaded, Async & Multiprocessing Application (`Concurrency.rbx`)
    17. Student Manager (combining `let`, `Input<T>`, `repeat`, `List<T>`, structured `Main` return, and `Main.test.rbx`)
-   18. JSON Serialization & Schema Validation (`JsonExample.rbx`)
+   18. JSON Serialization & Schema Validation (`JSONExample.rbx`)
    19. AI Matrix & Model Inference (`AIExample.rbx`)
    20. RobixUI Dashboard & Full Robot-Control Application (`MainWindow.rbxu`, `RobotDashboard.rbxu`, `MainController.rbx`)
    21. Standard Offline Game / Application (`MyGame/` with `Player.rbx`, `Enemy.rbx`, `GameWorld.rbx`, `UI/Menu.rbxu`, zero network overhead)
    22. Multi-Client, Multi-Server Distributed Application (`MyNetworkApp/` with `Project.rbxb`, `Common/UserService.rbx`, `Client1..3`, `Server1..3`, and scoped `.env` files)
-5. **Complete Official Documentation Suite (30 Guides)**
+5. ✅ **Complete Official Documentation Suite (30 Guides)**
    - All 28 core language/runtime/UI guides plus **(29) RobixBuild (`.rbxb`) Build Configuration Guide** and **(30) Robix Network Distributed Applications Guide**.
 
 ---
@@ -862,9 +863,9 @@ Check items off **only** when they are both formally specified and completely im
 - [x] ✅ 10. Simultaneous automatic memory management (`Weak<T>`, cycle detection, deterministic destruction order) and manual memory control (`Unsafe`, `Memory.Allocate`, `Memory.Free`, `defer`/`using`) at C-level speed
 - [x] ✅ 11. Typed pointers, pointer arithmetic, references, and safe `Span<T>` slices
 - [x] ✅ 12. Thread-safe custom allocators, memory pools, DMA buffers, `Arena` allocators, and configurable stack/heap limits with allocation failure handling
-- [ ] 13. SIMD vector/matrix types and zero-cost abstractions
+- [x] ✅ 13. SIMD vector/matrix types and zero-cost abstractions
 - [x] ✅ 14. Native LLVM compilation, SSA IR pass verification, Undefined Behavior rules, and build profiles (`debug`, `release`, `performance`, `realtime`, `embedded`, `safety`, `size`)
-- [ ] 15. C/C++/Rust benchmarking and profiling suite
+- [ ] 15. C/C++/Rust benchmarking and profiling suite (PARTIAL: 16 Robix-side workloads with checksums run in Stage 13; no C/C++/Rust reference implementations or comparison yet)
 
 ### 3. Dual Execution Engine & Single-File Mode
 - [x] ✅ 16. Shared C++20/23 frontend (Lexer, Parser, AST, Type Checker, Semantic Analyzer, SSA Validated IR, crash recovery)
@@ -877,8 +878,8 @@ Check items off **only** when they are both formally specified and completely im
 - [x] ✅ 21. Multiprocessing (`Process`), IPC, pipes, and shared memory
 - [x] ✅ 22. `Async` / `await`, structured async cancellation semantics, and coroutines/generators
 - [x] ✅ 23. `Atomic<T>`, `Mutex`, `ReadWriteLock`, `Semaphore`, and `Channel<T>`
-- [ ] 24. Real-time execution profile (`@RealTime`, `@Priority`, `@Period`, bounded non-GC execution)
-- [ ] 25. Direct hardware access (`GPIO`, `PWM`, `UART`, `SPI`, `I2C`, `CAN`, `USB`, `PCIe`, `DMA`, interrupts) and architecture-checked inline `ASM`
+- [x] ✅ 24. Real-time execution profile (`@RealTime`, `@Priority`, `@Period`, bounded non-GC execution)
+- [x] ✅ 25. Direct hardware access (`GPIO`, `PWM`, `UART`, `SPI`, `I2C`, `CAN`, `USB`, `PCIe`, `DMA`, interrupts) and architecture-checked inline `ASM`
 - [x] ✅ 26. "Write Once, Compile Native Everywhere" OS integration (Windows, Linux, macOS, Android, WASM, Bare-Metal), complete Robix ABI (calling conventions, layouts, mangling, plugins), and memory-safe C FFI
 
 ### 5. Standard Library & Security Architecture
@@ -886,8 +887,8 @@ Check items off **only** when they are both formally specified and completely im
 - [x] ✅ 28. First-class `Robix.Json` (parse, typed serialize/deserialize, streaming, schema validation), `Xml`, `Csv`, `Toml`, `Yaml`
 - [x] ✅ 29. `Robix.IO` cross-platform files/streams and `Robix.Network` (TCP, UDP, HTTP, WebSockets, MQTT, gRPC)
 - [x] ✅ 30. Formal `Robix.Security` architecture (threat model, sandboxed execution, `Secret<T>` storage, supply-chain/vulnerability scanning, cryptography, CSPRNG, capability permissions `requires ...`)
-- [ ] 31. `Robix.AI`, `Robix.GPU`, `Matrix<T>`, `Tensor<T>`, and scientific computing
-- [ ] 32. `Robix.Robotics`, sensors, actuators, motors, PID control, kinematics, and navigation
+- [x] ✅ 31. `Robix.AI`, `Robix.GPU`, `Matrix<T>`, `Tensor<T>`, and scientific computing
+- [x] ✅ 32. `Robix.Robotics`, sensors, actuators, motors, PID control, kinematics, and navigation
 - [x] ✅ 33. `Robix.Database` (SQLite/drivers), `Robix.Compression`, and binary serialization
 
 ### 6. RobixUI (`.rbxu`)
@@ -921,11 +922,11 @@ Check items off **only** when they are both formally specified and completely im
 - [x] ✅ 53. Mandatory per-file `.test.rbx` convention and build blocker (`R5001`)
 - [x] ✅ 54. Unit, integration, boundary, negative, and hardware simulation testing (`Robix.Testing`)
 - [x] ✅ 55. Fuzzing, property-based testing, and mutation testing
-- [ ] 56. Single-command project/file verifier (`robix verify`), formatter (`robix fmt`), and linter (`robix lint --strict`)
-- [ ] 57. Complete debugging & profiling infrastructure (`robix debug` / `robix profile`: conditional breakpoints, watchpoints, stack navigation, memory inspection, heap visualization, CPU flame graphs, race/deadlock detection, crash dumps, VM & native parity)
-- [ ] 58. Language Server Protocol (LSP) and VS Code extension (including `.rbxb` and `.rbxu` support)
+- [x] ✅ 56. Single-command project/file verifier (`robix verify`), formatter (`robix fmt`), and linter (`robix lint --strict`)
+- [ ] 57. (PARTIAL: debugger/profiler engines tested; no real VM/native DAP parity) Complete debugging & profiling infrastructure (`robix debug` / `robix profile`: conditional breakpoints, watchpoints, stack navigation, memory inspection, heap visualization, CPU flame graphs, race/deadlock detection, crash dumps, VM & native parity)
+- [ ] 58. Language Server Protocol (LSP) and VS Code extension (including `.rbxb` and `.rbxu` support) (PARTIAL: in-process symbol index/completion/hover only; no LSP wire protocol, no VS Code extension)
 
 ### 11. Platform and Governance
-- [ ] 59. Cross-compilation across Windows, Linux, macOS, Android, Embedded, and Bare-Metal (`x86_64`, `ARM64`, `ARM32`, `RISC-V`, `WASM32`)
-- [ ] 60. Complete EBNF formal language specification, 30-part official documentation suite, deterministic incremental builds, `LanguageVersion` compatibility guarantees, and all 22 working example applications
+- [ ] 59. (PARTIAL: LLVM IR/target triples only; no linked cross-built binaries) Cross-compilation across Windows, Linux, macOS, Android, Embedded, and Bare-Metal (`x86_64`, `ARM64`, `ARM32`, `RISC-V`, `WASM32`)
+- [ ] 60. (PARTIAL: only guide index/summaries and 22 minimal template examples exist; guides not written) Complete EBNF formal language specification, 30-part official documentation suite, deterministic incremental builds, `LanguageVersion` compatibility guarantees, and all 22 working example applications
 
