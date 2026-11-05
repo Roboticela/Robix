@@ -1,0 +1,66 @@
+(* ========================================================================== *)
+(* ROBIXUI DECLARATIVE MARKUP LANGUAGE — FORMAL EBNF GRAMMAR (v1.0)           *)
+(* Product of Roboticela — "The Language of Intelligent Machines."            *)
+(* Extension covered: .rbxu                                                   *)
+(* Encoding: UTF-8 (XML 1.0 Compatible)                                       *)
+(* ========================================================================== *)
+
+RobixUIDocument     = [ XMLProlog ] ,
+                      { Comment } ,
+                      RootElement ,
+                      { Comment } ,
+                      EOF ;
+
+XMLProlog           = "<?xml" , { Attribute } , "?>" ;
+
+RootElement         = "<RobixUI" , { Attribute } , ">" ,
+                      { UIChildNode } ,
+                      "</RobixUI>" ;
+
+UIChildNode         = ComponentElement | Comment ;
+
+ComponentElement    = "<" , ComponentTagName , { Attribute } ,
+                      ( "/>"
+                      | ">" , { UIChildNode } , "</" , ComponentTagName , ">" ) ;
+
+ComponentTagName    = BuiltInComponent | CustomComponent ;
+
+BuiltInComponent    = "Window" | "Page" | "View" | "Panel" | "Container"
+                    | "Column" | "Row" | "Grid" | "Stack"
+                    | "Button" | "Text" | "TextField" | "Image" | "Icon"
+                    | "List" | "Table" | "Menu" | "Dialog" | "Tabs"
+                    | "Slider" | "Switch" | "Checkbox" | "RadioButton"
+                    | "ProgressBar" | "Chart" | "Canvas"
+                    | "Template" | "Slot" | "Style" ;
+
+CustomComponent     = PascalIdentifier ;
+
+Attribute           = AttributeName , "=" , AttributeValue ;
+
+AttributeName       = PropertyAttribute | EventAttribute | BindingAttribute ;
+
+PropertyAttribute   = "Version" | "Name" | "Title" | "Value" | "Text"
+                    | "Width" | "Height" | "MinWidth" | "MinHeight" | "MaxWidth" | "MaxHeight"
+                    | "Spacing" | "Padding" | "Margin" | "Alignment"
+                    | "FontSize" | "FontWeight" | "FontFamily" | "Color" | "Background"
+                    | "Border" | "BorderRadius" | "Shadow" | "Theme"
+                    | "Visible" | "Enabled" | "If" | "ForEach"
+                    | PascalIdentifier ;
+
+EventAttribute      = "OnClick" | "OnDoubleClick"
+                    | "OnMouseEnter" | "OnMouseLeave"
+                    | "OnKeyDown" | "OnKeyUp"
+                    | "OnFocus" | "OnBlur"
+                    | "OnValueChanged"
+                    | "OnLoaded" | "OnClosed" ;
+
+BindingAttribute    = "Bind:" , PascalIdentifier
+                    | "BindTwoWay:" , PascalIdentifier ;
+
+AttributeValue      = "\"" , ( BindingExpression | LiteralText ) , "\"" ;
+
+(* One-way "{Property}", Two-way "{=Property}", Computed "{a + b}" *)
+BindingExpression   = "{" , [ "=" ] , RobixExpression , "}" ;
+LiteralText         = { SourceCharacter - ( "\"" | "<" | "&" ) } ;
+Comment             = "<!--" , { SourceCharacter - "-->" } , "-->" ;
+

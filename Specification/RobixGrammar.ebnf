@@ -1,0 +1,499 @@
+(* ========================================================================== *)
+(* ROBIX PROGRAMMING LANGUAGE — FORMAL EBNF GRAMMAR SPECIFICATION (v1.0)      *)
+(* Product of Roboticela — "The Language of Intelligent Machines."            *)
+(* Extensions covered: .rbx, .test.rbx, .rbxapi, .rbxb                        *)
+(* Encoding: UTF-8 (NFC Normalized per UAX #31)                               *)
+(* ========================================================================== *)
+
+(* -------------------------------------------------------------------------- *)
+(* 1. LEXICAL GRAMMAR & UNICODE IDENTIFIER POLICY                             *)
+(* -------------------------------------------------------------------------- *)
+
+SourceCharacter     = ? Any UTF-8 Unicode scalar value (U+0000 .. U+10FFFF) ? ;
+LineTerminator      = "\n" | "\r\n" | "\r" ;
+WhiteSpace          = " " | "\t" | "\v" | "\f" | LineTerminator ;
+
+SingleLineComment   = "//" , { SourceCharacter - LineTerminator } , LineTerminator ;
+MultiLineComment    = "/*" , { SourceCharacter - "*/" } , "*/" ;
+Comment             = SingleLineComment | MultiLineComment ;
+
+UnicodeLetter       = ? Unicode XID_Start (NFC normalized) ? ;
+UnicodeContinue     = ? Unicode XID_Continue (NFC normalized) ? ;
+ASCIILetter         = "A".."Z" | "a".."z" ;
+Digit               = "0".."9" ;
+HexDigit            = Digit | "A".."F" | "a".."f" ;
+BinaryDigit         = "0" | "1" ;
+OctalDigit          = "0".."7" ;
+
+Identifier          = ( ASCIILetter | UnicodeLetter | "_" ) , { ASCIILetter | UnicodeContinue | Digit | "_" } ;
+
+(* Naming Convention Subclasses Enforced by Compiler/Linter:
+   - PascalIdentifier      : Starts with uppercase letter; acronyms remain ALL CAPS (e.g., APIManager, HTTPClient, RobotController)
+   - CamelIdentifier       : Starts with lowercase letter; internal acronyms remain ALL CAPS (e.g., motorSpeed, isUSBConnected)
+   - UpperSnakeIdentifier  : All uppercase ASCII/digits separated by '_' (e.g., MAX_SPEED, PI_VALUE)
+*)
+
+QualifiedIdentifier = Identifier , { "." , Identifier } ;
+
+(* -------------------------------------------------------------------------- *)
+(* 2. LITERALS                                                                *)
+(* -------------------------------------------------------------------------- *)
+
+Literal             = IntegerLiteral
+                    | FloatLiteral
+                    | BoolLiteral
+                    | CharLiteral
+                    | StringLiteral
+                    | InterpolatedString
+                    | MultilineString
+                    | RegexLiteral
+                    | NullLiteral ;
+
+IntegerLiteral      = DecimalLiteral | HexLiteral | BinaryLiteral | OctalLiteral ;
+DecimalLiteral      = Digit , { Digit | "_" } , [ IntegerSuffix ] ;
+HexLiteral          = ( "0x" | "0X" ) , HexDigit , { HexDigit | "_" } , [ IntegerSuffix ] ;
+BinaryLiteral       = ( "0b" | "0B" ) , BinaryDigit , { BinaryDigit | "_" } , [ IntegerSuffix ] ;
+OctalLiteral        = ( "0o" | "0O" ) , OctalDigit , { OctalDigit | "_" } , [ IntegerSuffix ] ;
+IntegerSuffix       = "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" ;
+
+FloatLiteral        = Digit , { Digit | "_" } , "." , Digit , { Digit | "_" } , [ ExponentPart ] , [ FloatSuffix ]
+                    | Digit , { Digit | "_" } , ExponentPart , [ FloatSuffix ] ;
+ExponentPart        = ( "e" | "E" ) , [ "+" | "-" ] , Digit , { Digit | "_" } ;
+FloatSuffix         = "f16" | "f32" | "f64" | "d" ;
+
+BoolLiteral         = "true" | "false" ;
+NullLiteral         = "null" ;
+
+EscapeSequence      = "\\" , ( "n" | "r" | "t" | "0" | "\\" | "\"" | "'" | "{" | "}"
+                             | ( "x" , HexDigit , HexDigit )
+                             | ( "u{" , HexDigit , { HexDigit } , "}" ) ) ;
+
+CharLiteral         = "'" , ( ( SourceCharacter - ( "'" | "\\" | LineTerminator ) ) | EscapeSequence ) , "'" ;
+StringLiteral       = "\"" , { ( SourceCharacter - ( "\"" | "\\" | LineTerminator ) ) | EscapeSequence } , "\"" ;
+MultilineString     = "\"\"\"" , { SourceCharacter - "\"\"\"" } , "\"\"\"" ;
+InterpolatedString  = "$\"" , { ( SourceCharacter - ( "\"" | "\\" | "{" | LineTerminator ) )
+                              | EscapeSequence
+                              | ( "{" , Expression , "}" ) } , "\"" ;
+RegexLiteral        = "r\"" , { SourceCharacter - "\"" } , "\"" ;
+
+(* -------------------------------------------------------------------------- *)
+(* 3. KEYWORDS & PUNCTUATION                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+Keyword             = "package" | "Package" | "import" | "Import" | "export" | "Export"
+                    | "public" | "Public" | "private" | "Private" | "protected" | "Protected"
+                    | "internal" | "Internal"
+                    | "class" | "Class" | "abstract" | "Abstract" | "final" | "Final" | "partial" | "Partial"
+                    | "struct" | "Struct" | "enum" | "Enum" | "interface" | "Interface" | "trait" | "Trait"
+                    | "extends" | "implements" | "override" | "static" | "operator"
+                    | "function" | "Function" | "consteval" | "Async" | "async" | "await"
+                    | "Constructor" | "Destructor" | "Base" | "this"
+                    | "Explain" | "Description" | "Input" | "Processing" | "Output" | "Errors" | "SideEffects"
+                    | "let" | "var" | "const" | "type" | "where" | "requires"
+                    | "if" | "else" | "match" | "switch" | "case" | "default"
+                    | "for" | "in" | "while" | "do" | "repeat" | "loop"
+                    | "break" | "continue" | "return" | "yield" | "goto"
+                    | "try" | "catch" | "finally" | "throw" | "defer" | "using"
+                    | "Unsafe" | "ASM" | "Extern" | "new"
+                    | "Service" | "Implement" | "Connect" | "Permissions"
+                    | "Test" | "TestFile" | "Covers" | "macro" ;
+
+PrimitiveTypeName   = "Bool" | "Byte" | "Char"
+                    | "Int8" | "Int16" | "Int32" | "Int64" | "Int"
+                    | "UInt8" | "UInt16" | "UInt32" | "UInt64" | "UInt"
+                    | "Float16" | "Float32" | "Float64" | "Float" | "Double" | "Decimal"
+                    | "String" | "Void" ;
+
+(* -------------------------------------------------------------------------- *)
+(* 4. COMPILATION UNITS (.rbx, .test.rbx, .rbxapi)                            *)
+(* -------------------------------------------------------------------------- *)
+
+CompilationUnit     = [ PackageDeclaration ] ,
+                      { ImportDeclaration } ,
+                      { TopLevelDeclaration } ,
+                      EOF ;
+
+PackageDeclaration  = ( "package" | "Package" ) , QualifiedIdentifier , ( ";" | PackageBody ) ;
+PackageBody         = "{" , { PackageMetadataEntry | ImportDeclaration | TopLevelDeclaration } , "}" ;
+PackageMetadataEntry= Identifier , "=" , Literal , ";"
+                    | "Permissions" , "{" , { QualifiedIdentifier , ";" } , "}" ;
+
+ImportDeclaration   = ( "import" | "Import" ) , QualifiedIdentifier , [ "as" , Identifier ] , ";" ;
+
+TopLevelDeclaration = { Attribute } , [ AccessModifier ] ,
+                      ( ClassDeclaration
+                      | StructDeclaration
+                      | EnumDeclaration
+                      | InterfaceDeclaration
+                      | TraitDeclaration
+                      | ServiceDeclaration
+                      | ImplementDeclaration
+                      | ConnectDeclaration
+                      | FunctionDeclaration
+                      | ExternFunctionDecl
+                      | ConstantDeclaration
+                      | VariableDeclaration
+                      | TypeAliasDeclaration
+                      | MacroDeclaration
+                      | TestDeclaration
+                      | TestFileDeclaration ) ;
+
+Attribute           = "@" , Identifier , [ "(" , [ ArgumentList ] , ")" ] ;
+AccessModifier      = "public" | "Public" | "private" | "Private"
+                    | "protected" | "Protected" | "internal" | "Internal" | "package" ;
+
+(* -------------------------------------------------------------------------- *)
+(* 5. TYPE GRAMMAR & GENERICS                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+Type                = UnionType ;
+UnionType           = NullableType , { "|" , NullableType } ;
+NullableType        = PrimaryType , [ "?" ] ;
+
+PrimaryType         = PrimitiveTypeName
+                    | PointerType
+                    | ReferenceType
+                    | SliceType
+                    | FunctionType
+                    | TupleType
+                    | AnonymousObjectType
+                    | NamedType ;
+
+NamedType           = QualifiedIdentifier , [ TypeArguments ] , [ RefinementClause ] ;
+TypeArguments       = "<" , Type , { "," , Type } , ">" ;
+RefinementClause    = "where" , "(" , Expression , ")" ;
+
+PointerType         = "Pointer" , "<" , [ "const" | "mut" ] , Type , ">" ;
+ReferenceType       = "&" , [ "mut" ] , Type ;
+SliceType           = "Span" , "<" , Type , ">" | "[" , Type , [ ";" , Expression ] , "]" ;
+TupleType           = "(" , Type , "," , Type , { "," , Type } , ")" ;
+AnonymousObjectType = "{" , FieldTypeEntry , { "," , FieldTypeEntry } , "}" ;
+FieldTypeEntry      = Identifier , ":" , Type ;
+FunctionType        = "Function" , "(" , [ TypeList ] , ")" , "->" , Type ;
+TypeList            = Type , { "," , Type } ;
+
+TypeParameters      = "<" , TypeParameter , { "," , TypeParameter } , ">" ;
+TypeParameter       = Identifier , [ ":" , TypeConstraintList ] ;
+TypeConstraintList  = NamedType , { "+" , NamedType } ;
+WhereClause         = "where" , TypeParameter , { "," , TypeParameter } ;
+
+(* -------------------------------------------------------------------------- *)
+(* 6. CLASSES, STRUCTS, ENUMS, INTERFACES, TRAITS & SERVICES                  *)
+(* -------------------------------------------------------------------------- *)
+
+ClassDeclaration    = [ "abstract" | "Abstract" | "final" | "Final" | "partial" | "Partial" ] ,
+                      ( "class" | "Class" ) , Identifier , [ TypeParameters ] ,
+                      [ ( "extends" | ":" ) , NamedType ] ,
+                      [ "implements" , NamedType , { "," , NamedType } ] ,
+                      [ WhereClause ] ,
+                      "{" , { ClassMember } , "}" ;
+
+ClassMember         = { Attribute } , [ AccessModifier ] , [ "static" ] ,
+                      ( ConstructorDecl
+                      | DestructorDecl
+                      | FieldDeclaration
+                      | PropertyDeclaration
+                      | MethodDeclaration
+                      | OperatorDecl
+                      | ClassDeclaration
+                      | StructDeclaration
+                      | EnumDeclaration ) ;
+
+ConstructorDecl     = ( Identifier | "Constructor" ) , "(" , [ ParameterList ] , ")" ,
+                      [ ":" , "Base" , "(" , [ ArgumentList ] , ")" ] ,
+                      [ ExplainBlock ] ,
+                      ( Block | ";" ) ;
+
+DestructorDecl      = ( "~" , Identifier | "Destructor" ) , "(" , ")" , ( Block | ";" ) ;
+
+FieldDeclaration    = [ "const" ] , Type , Identifier , [ "=" , Expression ] , ";" ;
+
+PropertyDeclaration = Type , Identifier , "{" ,
+                      [ [ AccessModifier ] , "get" , ( Block | ";" ) ] ,
+                      [ [ AccessModifier ] , "set" , ( Block | ";" ) ] ,
+                      "}" ;
+
+MethodDeclaration   = [ "abstract" | "Abstract" | "override" | "consteval" | "Async" | "async" ] ,
+                      ( ( "function" | "Function" ) , Identifier , [ TypeParameters ] , "(" , [ ParameterList ] , ")" , [ "->" , Type ]
+                      | Type , Identifier , [ TypeParameters ] , "(" , [ ParameterList ] , ")" ) ,
+                      [ CapabilityClause ] ,
+                      [ WhereClause ] ,
+                      [ ExplainBlock ] ,
+                      ( Block | ";" ) ;
+
+OperatorDecl        = "operator" , OverloadableOp , "(" , ParameterList , ")" , "->" , Type ,
+                      [ ExplainBlock ] , Block ;
+OverloadableOp      = "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "[]" ;
+
+StructDeclaration   = ( "struct" | "Struct" ) , Identifier , [ TypeParameters ] ,
+                      [ "implements" , NamedType , { "," , NamedType } ] ,
+                      "{" , { StructMember } , "}" ;
+StructMember        = { Attribute } , [ AccessModifier ] ,
+                      ( FieldDeclaration | ConstructorDecl | MethodDeclaration | StructFieldShort ) ;
+StructFieldShort    = Type , Identifier , ";" ;
+
+EnumDeclaration     = ( "enum" | "Enum" ) , Identifier , [ TypeParameters ] ,
+                      "{" , EnumVariant , { "," , EnumVariant } , [ "," ] , "}" ;
+EnumVariant         = Identifier , [ "(" , TypeList , ")" ] , [ "=" , Expression ] ;
+
+InterfaceDeclaration= ( "interface" | "Interface" ) , Identifier , [ TypeParameters ] ,
+                      [ ":" , NamedType , { "," , NamedType } ] ,
+                      "{" , { InterfaceMember } , "}" ;
+InterfaceMember     = MethodDeclaration | PropertyDeclaration ;
+
+TraitDeclaration    = ( "trait" | "Trait" ) , Identifier , [ TypeParameters ] ,
+                      "{" , { MethodDeclaration } , "}" ;
+
+ServiceDeclaration  = "Service" , Identifier , "{" , { MethodDeclaration } , "}" ;
+ImplementDeclaration= "Implement" , QualifiedIdentifier , [ "for" , NamedType ] ,
+                      "{" , { MethodDeclaration } , "}" ;
+ConnectDeclaration  = "Connect" , Identifier , ";" ;
+
+TypeAliasDeclaration= "type" , Identifier , [ TypeParameters ] , "=" , Type , ";" ;
+
+MacroDeclaration    = "macro" , Identifier , "(" , [ ParameterList ] , ")" , Block ;
+
+(* -------------------------------------------------------------------------- *)
+(* 7. FUNCTIONS, PARAMETERS, CAPABILITIES & EXPLAIN BLOCKS                    *)
+(* -------------------------------------------------------------------------- *)
+
+FunctionDeclaration = [ "consteval" | "Async" | "async" ] ,
+                      ( ( "function" | "Function" ) , [ NamedType , "." ] , Identifier , [ TypeParameters ] ,
+                        "(" , [ ParameterList ] , ")" , [ "->" , Type ]
+                      | Type , Identifier , [ TypeParameters ] ,
+                        "(" , [ ParameterList ] , ")" ) ,
+                      [ CapabilityClause ] ,
+                      [ WhereClause ] ,
+                      [ ExplainBlock ] ,
+                      ( Block | ";" ) ;
+
+ExternFunctionDecl  = "Extern" , ( "function" | "Function" ) , Identifier ,
+                      "(" , [ ParameterList ] , [ "," , "..." ] , ")" , "->" , Type , ";" ;
+
+ParameterList       = Parameter , { "," , Parameter } ;
+Parameter           = [ "mut" | "ref" ] , Type , Identifier , [ "=" , Expression ]
+                    | "..." , Type , Identifier ;
+
+CapabilityClause    = "requires" , QualifiedIdentifier , { "," , QualifiedIdentifier } ;
+
+(* First-Class Explain Documentation Block *)
+ExplainBlock        = "Explain" , "{" ,
+                      ExplainDescription ,
+                      [ ExplainInput ] ,
+                      ExplainProcessing ,
+                      [ ExplainOutput ] ,
+                      [ ExplainErrors ] ,
+                      [ ExplainSideEffects ] ,
+                      "}" ;
+
+ExplainDescription  = "Description" , ":" , StringLiteral , [ ";" ] ;
+ExplainInput        = "Input" , ":" , ( ExplainParamList | { ExplainItem } ) ;
+ExplainParamList    = Identifier , "=" , StringLiteral , { "," , Identifier , "=" , StringLiteral } , [ ";" ] ;
+ExplainItem         = Identifier , ":" , StringLiteral , [ ";" ] ;
+ExplainProcessing   = "Processing" , ":" , StringLiteral , [ ";" ] ;
+ExplainOutput       = "Output" , ":" , StringLiteral , [ ";" ] ;
+ExplainErrors       = "Errors" , ":" , { ExplainItem } ;
+ExplainSideEffects  = "SideEffects" , ":" , StringLiteral , [ ";" ] ;
+
+(* -------------------------------------------------------------------------- *)
+(* 8. VARIABLES & CONSTANTS                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+ConstantDeclaration = "const" , [ Type ] , Identifier , "=" , Expression , ";" ;
+
+VariableDeclaration = ( ( "let" | "var" ) , Identifier , [ ":" , Type ] , "=" , Expression , ";" )
+                    | ( Type , Identifier , [ "=" , Expression ] , ";" ) ;
+
+(* -------------------------------------------------------------------------- *)
+(* 9. STATEMENTS & ALL 10 LOOP FORMS                                          *)
+(* -------------------------------------------------------------------------- *)
+
+Block               = "{" , { Statement } , "}" ;
+
+Statement           = Block
+                    | VariableDeclaration
+                    | ConstantDeclaration
+                    | IfStatement
+                    | MatchStatement
+                    | SwitchStatement
+                    | ForStatement
+                    | WhileStatement
+                    | DoWhileStatement
+                    | RepeatStatement
+                    | LoopStatement
+                    | ReturnStatement
+                    | BreakStatement
+                    | ContinueStatement
+                    | ThrowStatement
+                    | TryStatement
+                    | DeferStatement
+                    | UsingStatement
+                    | UnsafeBlock
+                    | ASMStatement
+                    | GotoStatement
+                    | LabelStatement
+                    | ConnectDeclaration
+                    | ExpressionStatement ;
+
+IfStatement         = "if" , ( "(" , Expression , ")" | Expression ) , Block ,
+                      [ "else" , ( IfStatement | Block ) ] ;
+
+MatchStatement      = "match" , Expression , "{" ,
+                      MatchArm , { "," , MatchArm } , [ "," ] , "}" ;
+MatchArm            = Pattern , [ "if" , Expression ] , "=>" , ( Statement | Expression ) ;
+
+Pattern             = "_"
+                    | Literal
+                    | QualifiedIdentifier , [ "(" , [ PatternList ] , ")" ]
+                    | "(" , PatternList , ")"
+                    | "{" , Identifier , { "," , Identifier } , "}"
+                    | Identifier ;
+PatternList         = Pattern , { "," , Pattern } ;
+
+SwitchStatement     = "switch" , "(" , Expression , ")" , "{" ,
+                      { "case" , Expression , ":" , { Statement } } ,
+                      [ "default" , ":" , { Statement } ] , "}" ;
+
+(* Loop Forms: Traditional C-style for, Exclusive range 0..10, Inclusive range 1..=10,
+   Collection iteration, and Enumerated tuple iteration *)
+ForStatement        = "for" ,
+                      ( "(" , [ ForInit ] , ";" , [ Expression ] , ";" , [ Expression ] , ")" , Block
+                      | ForBinding , "in" , Expression , Block ) ;
+ForInit             = VariableDeclarationWithoutSemi | Expression ;
+VariableDeclarationWithoutSemi = ( "let" | "var" ) , Identifier , [ ":" , Type ] , "=" , Expression
+                               | Type , Identifier , "=" , Expression ;
+ForBinding          = Identifier | "(" , Identifier , "," , Identifier , ")" ;
+
+WhileStatement      = "while" , ( "(" , Expression , ")" | Expression ) , Block ;
+DoWhileStatement    = "do" , Block , "while" , ( "(" , Expression , ")" | Expression ) , [ ";" ] ;
+RepeatStatement     = "repeat" , Expression , Block ;
+LoopStatement       = "loop" , Block ;
+
+ReturnStatement     = "return" , [ Expression ] , ";" ;
+BreakStatement      = "break" , ";" ;
+ContinueStatement   = "continue" , ";" ;
+ThrowStatement      = "throw" , Expression , ";" ;
+DeferStatement      = "defer" , Block ;
+UsingStatement      = "using" , ( Identifier | VariableDeclarationWithoutSemi ) , Block ;
+UnsafeBlock         = "Unsafe" , Block ;
+
+ASMStatement        = "ASM" , "(" , StringLiteral , { "," , ASMOperand } , ")" , ";" ;
+ASMOperand          = [ Identifier , ":" ] , StringLiteral , "(" , Expression , ")" ;
+
+TryStatement        = "try" , Block ,
+                      { "catch" , [ Type , Identifier | "(" , Type , Identifier , ")" ] , Block } ,
+                      [ "finally" , Block ] ;
+
+GotoStatement       = "goto" , Identifier , ";" ;
+LabelStatement      = Identifier , ":" , Statement ;
+ExpressionStatement = Expression , ";" ;
+
+(* -------------------------------------------------------------------------- *)
+(* 10. TESTING DECLARATIONS (.test.rbx)                                       *)
+(* -------------------------------------------------------------------------- *)
+
+TestDeclaration     = "Test" , StringLiteral , Block ;
+TestFileDeclaration = "TestFile" , StringLiteral , "{" ,
+                      "Covers" , "=" , StringLiteral , ";" ,
+                      { TestDeclaration } ,
+                      "}" ;
+
+(* -------------------------------------------------------------------------- *)
+(* 11. EXPRESSIONS (ORDERED BY OPERATOR PRECEDENCE: LOWEST TO HIGHEST)        *)
+(* -------------------------------------------------------------------------- *)
+
+Expression          = AssignmentExpr ;
+
+(* Precedence 1: Assignment (Right-Associative) *)
+AssignmentExpr      = ConditionalExpr , [ AssignmentOp , AssignmentExpr ] ;
+AssignmentOp        = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" ;
+
+(* Precedence 2: Lambda / Closure Expression *)
+ConditionalExpr     = LambdaExpr | TernaryExpr ;
+LambdaExpr          = ( Identifier | "(" , [ IdentifierList ] , ")" | "Function" , "(" , [ ParameterList ] , ")" ) ,
+                      "=>" , ( Block | Expression ) ;
+IdentifierList      = Identifier , { "," , Identifier } ;
+
+(* Precedence 3: Ternary Conditional (Right-Associative) *)
+TernaryExpr         = NullCoalesceExpr , [ "?" , Expression , ":" , TernaryExpr ] ;
+
+(* Precedence 4: Null-Coalescing (Left-Associative) *)
+NullCoalesceExpr    = LogicalOrExpr , { "??" , LogicalOrExpr } ;
+
+(* Precedence 5: Logical OR (Left-Associative) *)
+LogicalOrExpr       = LogicalAndExpr , { "||" , LogicalAndExpr } ;
+
+(* Precedence 6: Logical AND (Left-Associative) *)
+LogicalAndExpr      = BitwiseOrExpr , { "&&" , BitwiseOrExpr } ;
+
+(* Precedence 7: Bitwise OR (Left-Associative) *)
+BitwiseOrExpr       = BitwiseXorExpr , { "|" , BitwiseXorExpr } ;
+
+(* Precedence 8: Bitwise XOR (Left-Associative) *)
+BitwiseXorExpr      = BitwiseAndExpr , { "^" , BitwiseAndExpr } ;
+
+(* Precedence 9: Bitwise AND (Left-Associative) *)
+BitwiseAndExpr      = EqualityExpr , { "&" , EqualityExpr } ;
+
+(* Precedence 10: Equality (Left-Associative) *)
+EqualityExpr        = RelationalExpr , { ( "==" | "!=" ) , RelationalExpr } ;
+
+(* Precedence 11: Relational & Type Testing (Left-Associative) *)
+RelationalExpr      = RangeExpr , { ( "<" | "<=" | ">" | ">=" | "is" | "as" ) , RangeExpr } ;
+
+(* Precedence 12: Range (Non-Associative: 0..10, 1..=10) *)
+RangeExpr           = ShiftExpr , [ ( ".." | "..=" ) , ShiftExpr ] ;
+
+(* Precedence 13: Bitwise Shift (Left-Associative) *)
+ShiftExpr           = AdditiveExpr , { ( "<<" | ">>" ) , AdditiveExpr } ;
+
+(* Precedence 14: Additive (Left-Associative) *)
+AdditiveExpr        = MultiplicativeExpr , { ( "+" | "-" ) , MultiplicativeExpr } ;
+
+(* Precedence 15: Multiplicative (Left-Associative) *)
+MultiplicativeExpr  = UnaryExpr , { ( "*" | "/" | "%" ) , UnaryExpr } ;
+
+(* Precedence 16: Unary Prefix (Right-Associative) *)
+UnaryExpr           = ( "!" | "-" | "+" | "~" | "*" | "&" | "&mut" | "++" | "--" | "await" ) , UnaryExpr
+                    | "new" , NamedType , "(" , [ ArgumentList ] , ")"
+                    | PostfixExpr ;
+
+(* Precedence 17: Postfix & Member Access (Left-Associative) *)
+PostfixExpr         = PrimaryExpr , { PostfixOp } ;
+PostfixOp           = "." , Identifier , [ TypeArguments ]
+                    | "?." , Identifier , [ TypeArguments ]
+                    | "(" , [ ArgumentList ] , ")"
+                    | "[" , Expression , { "," , Expression } , "]"
+                    | "++"
+                    | "--"
+                    | "?" ;
+
+ArgumentList        = Argument , { "," , Argument } ;
+Argument            = [ Identifier , ":" ] , Expression ;
+
+(* Precedence 18: Primary Expressions *)
+PrimaryExpr         = Literal
+                    | "this"
+                    | "Base"
+                    | Identifier , [ TypeArguments ]
+                    | ArrayLiteral
+                    | ObjectLiteral
+                    | "(" , Expression , { "," , Expression } , ")"
+                    | MatchStatement ;
+
+ArrayLiteral        = "[" , [ Expression , { "," , Expression } , [ "," ] ] , "]" ;
+ObjectLiteral       = "{" , ObjectFieldInit , { "," , ObjectFieldInit } , [ "," ] , "}" ;
+ObjectFieldInit     = Identifier , ":" , Expression ;
+
+(* -------------------------------------------------------------------------- *)
+(* 12. ROBIXBUILD (.rbxb) & ROBIXPROJECT (.rbxproj) DECLARATIVE GRAMMAR       *)
+(* -------------------------------------------------------------------------- *)
+
+BuildFile           = "Project" , "{" , { BuildEntry } , "}" , EOF ;
+BuildEntry          = Identifier , "=" , BuildValue , ";"
+                    | Identifier , "{" , { BuildEntry | ConnectionRule } , "}" ;
+BuildValue          = Literal
+                    | "[" , [ BuildValue , { "," , BuildValue } ] , "]"
+                    | StringLiteral , "->" , StringLiteral ;
+ConnectionRule      = Identifier , "->" , Identifier , ";" ;
+
