@@ -409,6 +409,7 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
     bool isStatic    = false;
     bool isAbstract  = false;
     bool isFinal     = false;
+    bool isPartial   = false;
     bool isOverride  = false;
     bool isAsync     = false;
     bool isConsteval = false;
@@ -423,6 +424,8 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
             vis = Spec::AccessVisibility::Protected;
         } else if (Match(TokenKind::KwInternal)) {
             vis = Spec::AccessVisibility::Internal;
+        } else if (Match(TokenKind::KwPackage)) {
+            vis = Spec::AccessVisibility::Package;
         } else if (Match(TokenKind::KwStatic)) {
             isStatic = true;
         } else if (Match(TokenKind::KwAbstract)) {
@@ -430,7 +433,7 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
         } else if (Match(TokenKind::KwFinal)) {
             isFinal = true;
         } else if (Match(TokenKind::KwPartial)) {
-            // partial modifier
+            isPartial = true;
         } else if (Match(TokenKind::KwOverride)) {
             isOverride = true;
         } else if (Match(TokenKind::KwAsync)) {
@@ -451,7 +454,9 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
         return ParseTestFileDecl();
     }
     if (Match(TokenKind::KwClass)) {
-        return ParseClassOrStructOrInterface(DeclKind::Class, vis, isAbstract, isFinal, std::move(attrs));
+        auto cls = ParseClassOrStructOrInterface(DeclKind::Class, vis, isAbstract, isFinal, std::move(attrs));
+        if (cls) cls->isPartial = isPartial;
+        return cls;
     }
     if (Match(TokenKind::KwStruct)) {
         return ParseClassOrStructOrInterface(DeclKind::Struct, vis, false, false, std::move(attrs));
@@ -471,9 +476,66 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
     if (Match(TokenKind::KwImplement)) {
         return ParseServiceOrImplementDecl(DeclKind::Implement, vis, std::move(attrs));
     }
+    if (Match(TokenKind::KwMacro)) {
+        auto mac = std::make_unique<DeclNode>();
+        mac->kind       = DeclKind::Macro;
+        mac->visibility = vis;
+        mac->location   = Current().location;
+        mac->name       = std::string(Expect(TokenKind::Identifier, "P1018", "Expected macro name").lexeme);
+        Expect(TokenKind::LParen, "P1019", "Expected '(' after macro name");
+        mac->parameters = ParseParameterList();
+        Expect(TokenKind::RParen, "P1020", "Expected ')' after macro parameters");
+        if (Check(TokenKind::LBrace)) {
+            mac->body = ParseBlock();
+        } else {
+            Match(TokenKind::Semicolon);
+        }
+        return mac;
+    }
+    if (Match(TokenKind::KwDestructor) || Match(TokenKind::Tilde)) {
+        auto dtor = std::make_unique<DeclNode>();
+        dtor->kind       = DeclKind::Destructor;
+        dtor->visibility = vis;
+        dtor->location   = Current().location;
+        if (Check(TokenKind::Identifier)) {
+            dtor->name = "~" + std::string(Advance().lexeme);
+        } else {
+            dtor->name = "~" + std::string(enclosingClassName);
+        }
+        Expect(TokenKind::LParen, "P1008", "Expected '(' in destructor declaration");
+        Expect(TokenKind::RParen, "P1009", "Expected ')' in destructor declaration");
+        if (Check(TokenKind::LBrace)) {
+            dtor->body = ParseBlock();
+        } else {
+            Match(TokenKind::Semicolon);
+        }
+        return dtor;
+    }
+    if (Match(TokenKind::KwOperator)) {
+        auto opFn = std::make_unique<DeclNode>();
+        opFn->kind       = DeclKind::Function;
+        opFn->isOperator = true;
+        opFn->visibility = vis;
+        opFn->location   = Current().location;
+        opFn->name       = "operator" + std::string(Advance().lexeme);
+        Expect(TokenKind::LParen, "P1019", "Expected '(' after operator symbol");
+        opFn->parameters = ParseParameterList();
+        Expect(TokenKind::RParen, "P1020", "Expected ')' after operator parameters");
+        if (Match(TokenKind::Arrow)) {
+            opFn->returnType = ParseType();
+        }
+        if (Check(TokenKind::LBrace)) {
+            opFn->body = ParseBlock();
+        } else {
+            Match(TokenKind::Semicolon);
+        }
+        return opFn;
+    }
     if (Match(TokenKind::KwFunction)) {
-        return ParseFunctionOrMethodDecl(
+        auto fn = ParseFunctionOrMethodDecl(
             vis, isStatic, isAbstract, isOverride, isAsync, isConsteval, isExtern, std::move(attrs));
+        if (fn) fn->isFinal = isFinal;
+        return fn;
     }
 
     // Constructor inside class: `Constructor(...)` or `ClassName(...)`
@@ -534,27 +596,49 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
     // C/Java-style typed declaration: `Type Name(...)` (Method/Function), `Name(...)` (inferred return), or `Type name = ...;` (Field)
     if (Check(TokenKind::Identifier)) {
         if (Peek().kind == TokenKind::LParen) {
-            return ParseFunctionOrMethodDecl(vis,
-                                             isStatic,
-                                             isAbstract,
-                                             isOverride,
-                                             isAsync,
-                                             isConsteval,
-                                             isExtern,
-                                             std::move(attrs));
+            auto fn = ParseFunctionOrMethodDecl(vis,
+                                                isStatic,
+                                                isAbstract,
+                                                isOverride,
+                                                isAsync,
+                                                isConsteval,
+                                                isExtern,
+                                                std::move(attrs));
+            if (fn) fn->isFinal = isFinal;
+            return fn;
         }
         TypeNode firstType = ParseType();
+        if (Match(TokenKind::KwOperator)) {
+            auto opFn = std::make_unique<DeclNode>();
+            opFn->kind       = DeclKind::Function;
+            opFn->isOperator = true;
+            opFn->visibility = vis;
+            opFn->returnType = std::move(firstType);
+            opFn->location   = Current().location;
+            opFn->name       = "operator" + std::string(Advance().lexeme);
+            Expect(TokenKind::LParen, "P1019", "Expected '(' after operator symbol");
+            opFn->parameters = ParseParameterList();
+            Expect(TokenKind::RParen, "P1020", "Expected ')' after operator parameters");
+            if (Check(TokenKind::LBrace)) {
+                opFn->body = ParseBlock();
+            } else {
+                Match(TokenKind::Semicolon);
+            }
+            return opFn;
+        }
         if (Check(TokenKind::Identifier) &&
             (Peek().kind == TokenKind::LParen || Peek().kind == TokenKind::Less)) {
-            return ParseFunctionOrMethodDecl(vis,
-                                             isStatic,
-                                             isAbstract,
-                                             isOverride,
-                                             isAsync,
-                                             isConsteval,
-                                             isExtern,
-                                             std::move(attrs),
-                                             std::move(firstType));
+            auto fn = ParseFunctionOrMethodDecl(vis,
+                                                isStatic,
+                                                isAbstract,
+                                                isOverride,
+                                                isAsync,
+                                                isConsteval,
+                                                isExtern,
+                                                std::move(attrs),
+                                                std::move(firstType));
+            if (fn) fn->isFinal = isFinal;
+            return fn;
         }
         if (Check(TokenKind::Identifier)) {
             auto field = std::make_unique<DeclNode>();
@@ -1080,8 +1164,16 @@ StmtPtr Parser::ParseStatement() {
         auto stmt = std::make_unique<StmtNode>();
         stmt->kind     = StmtKind::UsingStmt;
         stmt->location = m_tokens[m_pos - 1].location;
+        Match(TokenKind::KwLet);
+        Match(TokenKind::KwVar);
+        if (Check(TokenKind::Identifier) && Peek().kind == TokenKind::Identifier) {
+            stmt->declaredType = ParseType();
+        }
         if (Check(TokenKind::Identifier)) {
             stmt->varName = std::string(Advance().lexeme);
+        }
+        if (Match(TokenKind::Equal)) {
+            stmt->initializer = ParseExpression();
         }
         stmt->thenBranch = ParseBlock();
         return stmt;
@@ -1436,6 +1528,37 @@ ExprPtr Parser::ParsePrimary() {
         id->text     = std::string(id->token.lexeme);
         id->location = id->token.location;
         return id;
+    }
+
+    // `match expr { Pattern => expr, ... }` expression
+    if (Match(TokenKind::KwMatch)) {
+        auto mExpr = std::make_unique<ExprNode>();
+        mExpr->kind     = ExprKind::MatchExpr;
+        mExpr->location = tok.location;
+        mExpr->left     = ParseExpression();
+        Expect(TokenKind::LBrace, "P1045", "Expected '{' after match expression");
+        while (!IsAtEnd() && !Check(TokenKind::RBrace)) {
+            MatchArmNode arm;
+            arm.location    = Current().location;
+            arm.patternName = ParseQualifiedName();
+            if (Match(TokenKind::LParen)) {
+                if (Check(TokenKind::Identifier)) {
+                    arm.bindingVar = std::string(Advance().lexeme);
+                }
+                Match(TokenKind::RParen);
+            }
+            Expect(TokenKind::FatArrow, "P1046", "Expected '=>' in match arm");
+            if (Check(TokenKind::LBrace)) {
+                arm.bodyStmt = ParseBlock();
+            } else {
+                arm.bodyExpr = ParseExpression();
+            }
+            mExpr->matchArms.push_back(std::move(arm));
+            Match(TokenKind::Comma);
+            Match(TokenKind::Semicolon);
+        }
+        Expect(TokenKind::RBrace, "P1047", "Expected '}' to close match expression");
+        return mExpr;
     }
 
     // `Function(msg) { ... }` anonymous function expression

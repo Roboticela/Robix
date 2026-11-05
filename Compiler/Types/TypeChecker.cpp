@@ -218,7 +218,8 @@ void TypeChecker::CollectTopLevelDeclarations(CompilationUnitAST& unit) {
 }
 
 void TypeChecker::ValidateNamingConventions(const DeclNode& decl) {
-    if (decl.name.empty() || decl.kind == DeclKind::Test || decl.kind == DeclKind::TestFile) {
+    if (decl.name.empty() || decl.isOperator ||
+        decl.kind == DeclKind::Test || decl.kind == DeclKind::TestFile || decl.kind == DeclKind::Destructor) {
         return;
     }
 
@@ -444,6 +445,7 @@ void TypeChecker::CheckDeclaration(DeclNode& decl) {
 
         case DeclKind::Enum:
         case DeclKind::TestFile:
+        case DeclKind::Macro:
             break;
     }
 }

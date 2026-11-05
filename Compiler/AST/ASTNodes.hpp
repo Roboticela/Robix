@@ -217,7 +217,8 @@ enum class DeclKind : std::uint8_t {
     Implement,
     Test,
     TestFile,
-    TopLevelVar
+    TopLevelVar,
+    Macro
 };
 
 struct DeclNode {
@@ -227,7 +228,9 @@ struct DeclNode {
     bool isStatic    = false;
     bool isAbstract  = false;
     bool isFinal     = false;
+    bool isPartial   = false;
     bool isOverride  = false;
+    bool isOperator  = false;
     bool isAsync     = false;
     bool isConsteval = false;
     bool isExtern    = false;

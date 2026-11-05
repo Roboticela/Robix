@@ -384,28 +384,28 @@ Implement a single, shared C++ frontend used by both the Bytecode Interpreter an
 
 ---
 
-### STAGE 3: Core Language Semantics (OOP, Procedural, Functional & Error Handling)
+### ✅ STAGE 3: Core Language Semantics (OOP, Procedural, Functional & Error Handling) — COMPLETED
 
 #### Goals
 Implement the full semantic analyzer, symbol table, access control, OOP object model, procedural execution, functional constructs, and deterministic resource management.
 
 #### Detailed Scope & Deliverables
-1. **Object-Oriented Programming (Primary Paradigm)**
+1. ✅ **Object-Oriented Programming (Primary Paradigm)** (`Compiler/Semantic/SemanticAnalyzer.hpp`, `Compiler/Semantic/SemanticAnalyzer.cpp`)
    - Classes, objects (`new ClassName(...)`), constructors, constructor chaining (`: Base(...)`), destructors.
    - Fields, properties, instance methods, static members, operator overloading (with strict rules), extension methods.
    - Access modifiers: `public`, `private`, `protected`, `internal`, `package` with strict visibility enforcement.
    - Single inheritance (`extends` / `:`), `abstract` classes and methods, `override` enforcement, method hiding rules, method overloading, `final` classes.
    - Interfaces and traits implementation, polymorphism, virtual dispatch tables (vtables), devirtualization analysis.
    - Nested classes and partial classes.
-2. **Procedural Programming**
+2. ✅ **Procedural Programming** (`Compiler/Semantic/SemanticAnalyzer.cpp`)
    - Top-level functions, procedures, module-level constants, and standalone executable entry points without requiring wrapper classes.
    - Named arguments (`MoveRobot(speed: 50.0, emergencyStop: true)`), default parameter values, variadic functions, recursion, and nested functions.
-3. **Functional Programming**
+3. ✅ **Functional Programming** (`Compiler/Semantic/SemanticAnalyzer.cpp`)
    - First-class function types, anonymous functions, lambdas, closures with environment capture rules.
    - Collection transformations (`Filter`, `Map`, `Reduce`) with stream fusion / allocation elimination optimizations.
    - Exhaustive `match` pattern matching on `Result<T, E>`, `Option<T>`, `Enum` variants, values, and destructuring of tuples/structs.
    - Coroutines and lazy generators.
-4. **Error Handling, Resource Lifetimes & Metaprogramming**
+4. ✅ **Error Handling, Resource Lifetimes & Metaprogramming** (`Compiler/Semantic/SemanticAnalyzer.cpp`, `Tests/Semantics/Stage3SemanticTests.cpp`)
    - Recoverable errors via `Result<T, E>` (`Success` / `Error`) and `Option<T>` / `T?`.
    - Exceptional failures via `try / catch / finally` and `throw`, plus unrecoverable `Panic` handling and hardware fault reporting.
    - Deterministic cleanup via `defer { ... }` and `using resource { ... }` (RAII), guaranteed to run on scope exit, early return, `Result` error propagation, exception unwinding, or task cancellation.
@@ -849,12 +849,12 @@ Check items off **only** when they are both formally specified and completely im
 
 ### 1. Language Fundamentals
 - [x] ✅ 1. Static typing, automatic type inference (`let`, `var`, `const`, inferred returns), operator precedence specification, and Unicode identifier policy
-- [ ] 2. OOP, procedural, and functional programming paradigms
-- [ ] 3. All loop forms (`for`, `0..10`, `1..=10`, `for in`, `Enumerate`, `while`, `do-while`, `repeat`, `loop`), formal `Iterator` protocol, and pattern matching (`match`)
-- [ ] 4. Generics, interfaces, traits, structs, and enums
-- [ ] 5. Null safety (`T?`, `Option<T>`), dual error handling (`Result<T, E>`, `try/catch/finally`), and resource lifetime rules
-- [ ] 6. Compile-time programming (`consteval`), opt-in reflection, attributes/annotations, and macros
-- [ ] 7. Modules, deterministic module initialization rules, namespaces, packages, and strict visibility (`public`, `private`, `protected`, `internal`, `package`)
+- [x] ✅ 2. OOP, procedural, and functional programming paradigms
+- [x] ✅ 3. All loop forms (`for`, `0..10`, `1..=10`, `for in`, `Enumerate`, `while`, `do-while`, `repeat`, `loop`), formal `Iterator` protocol, and pattern matching (`match`)
+- [x] ✅ 4. Generics, interfaces, traits, structs, and enums
+- [x] ✅ 5. Null safety (`T?`, `Option<T>`), dual error handling (`Result<T, E>`, `try/catch/finally`), and resource lifetime rules
+- [x] ✅ 6. Compile-time programming (`consteval`), opt-in reflection, attributes/annotations, and macros
+- [x] ✅ 7. Modules, deterministic module initialization rules, namespaces, packages, and strict visibility (`public`, `private`, `protected`, `internal`, `package`)
 - [x] ✅ 8. First-class `Explain { }` function documentation blocks and naming convention enforcement (PascalCase, camelCase, UPPER_SNAKE_CASE, uppercase acronyms)
 
 ### 2. Memory and Performance
