@@ -18,15 +18,15 @@ public Function RunDC(Int numRecords) -> Int {
 
         Int slot = d0 * 2 + d1;
         if (slot < 4) {
-            if (slot == 0) { agg0 = (agg0 + measure) % 1000000007; }
-            else if (slot == 1) { agg1 = (agg1 + measure) % 1000000007; }
-            else if (slot == 2) { agg2 = (agg2 + measure) % 1000000007; }
-            else { agg3 = (agg3 + measure) % 1000000007; }
+            if (slot == 0) { agg0 = agg0 + measure; if (agg0 >= 1000000007) { agg0 = agg0 - 1000000007; } }
+            else if (slot == 1) { agg1 = agg1 + measure; if (agg1 >= 1000000007) { agg1 = agg1 - 1000000007; } }
+            else if (slot == 2) { agg2 = agg2 + measure; if (agg2 >= 1000000007) { agg2 = agg2 - 1000000007; } }
+            else { agg3 = agg3 + measure; if (agg3 >= 1000000007) { agg3 = agg3 - 1000000007; } }
         } else {
-            if (slot == 4) { agg4 = (agg4 + measure) % 1000000007; }
-            else if (slot == 5) { agg5 = (agg5 + measure) % 1000000007; }
-            else if (slot == 6) { agg6 = (agg6 + measure) % 1000000007; }
-            else { agg7 = (agg7 + measure) % 1000000007; }
+            if (slot == 4) { agg4 = agg4 + measure; if (agg4 >= 1000000007) { agg4 = agg4 - 1000000007; } }
+            else if (slot == 5) { agg5 = agg5 + measure; if (agg5 >= 1000000007) { agg5 = agg5 - 1000000007; } }
+            else if (slot == 6) { agg6 = agg6 + measure; if (agg6 >= 1000000007) { agg6 = agg6 - 1000000007; } }
+            else { agg7 = agg7 + measure; if (agg7 >= 1000000007) { agg7 = agg7 - 1000000007; } }
         }
 
         i = i + 1;

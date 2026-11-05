@@ -4,8 +4,10 @@ public Function ComputeDot(Int n) -> Float {
     Float sum = 0.0;
     Int i = 0;
     while (i < n) {
-        Float a = (Float)(i % 100);
-        Float b = (Float)((i * 3 + 7) % 100);
+        Int modA = i % 100;
+        Int modB = (i * 3 + 7) % 100;
+        Float a = modA.ToFloat();
+        Float b = modB.ToFloat();
         sum = sum + a * b;
         i = i + 1;
     }
@@ -18,4 +20,3 @@ public Function Main() -> Void {
     Print("Robix Native Synthetic Dot Product Sum:");
     Print(total);
 }
-

@@ -99,7 +99,10 @@ public Function RunLuindex(Int numDocs) -> Int {
         else if (t7 == 6) { term6 = (term6 * 17 + docId) % 1000000007; }
         else { term7 = (term7 * 17 + docId) % 1000000007; }
 
-        checksum = (checksum + term0 + term1 + term2 + term3 + term4 + term5 + term6 + term7) % 1000000007;
+        checksum = checksum + term0 + term1 + term2 + term3 + term4 + term5 + term6 + term7;
+        if (checksum >= 1000000007) {
+            checksum = checksum % 1000000007;
+        }
         docId = docId + 1;
     }
 

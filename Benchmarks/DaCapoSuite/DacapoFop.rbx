@@ -19,7 +19,10 @@ public Function RunFopLayout(Int numPages) -> Int {
             Int wordLen = (seed / 65536) % 12 + 1;
             currentY = currentY + fontAscent + fontDescent;
             lineCount = lineCount + 1;
-            checksum = (checksum * 31 + wordLen + lineCount) % 1000000007;
+            checksum = checksum * 31 + wordLen + lineCount;
+            if (checksum >= 1000000007) {
+                checksum = checksum % 1000000007;
+            }
         }
 
         i = i + 1;

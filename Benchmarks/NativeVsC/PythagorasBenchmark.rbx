@@ -7,7 +7,7 @@ public Function Solve(Int limit) -> Int {
         Int b = a + 1;
         while (b < limit) {
             Int a2b2 = a * a + b * b;
-            Int c = 1;
+            Int c = b + 1;
             while (c * c < a2b2) {
                 c = c + 1;
             }
@@ -29,4 +29,3 @@ public Function Main() -> Void {
     Print("Robix Native Pythagorean Triples Sum:");
     Print(total);
 }
-

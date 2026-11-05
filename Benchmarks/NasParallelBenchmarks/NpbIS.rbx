@@ -33,7 +33,30 @@ public Function RunIS(Int numKeys) -> Int {
             else { b15 = b15 + 1; }
         }
 
-        i = i + 1;
+        seed = (seed * 1220703125 + 1013904223) % 2147483648;
+        Int key2 = (seed / 65536) % 16;
+
+        if (key2 < 8) {
+            if (key2 == 0) { b0 = b0 + 1; }
+            else if (key2 == 1) { b1 = b1 + 1; }
+            else if (key2 == 2) { b2 = b2 + 1; }
+            else if (key2 == 3) { b3 = b3 + 1; }
+            else if (key2 == 4) { b4 = b4 + 1; }
+            else if (key2 == 5) { b5 = b5 + 1; }
+            else if (key2 == 6) { b6 = b6 + 1; }
+            else { b7 = b7 + 1; }
+        } else {
+            if (key2 == 8) { b8 = b8 + 1; }
+            else if (key2 == 9) { b9 = b9 + 1; }
+            else if (key2 == 10) { b10 = b10 + 1; }
+            else if (key2 == 11) { b11 = b11 + 1; }
+            else if (key2 == 12) { b12 = b12 + 1; }
+            else if (key2 == 13) { b13 = b13 + 1; }
+            else if (key2 == 14) { b14 = b14 + 1; }
+            else { b15 = b15 + 1; }
+        }
+
+        i = i + 2;
     }
 
     Int checksum = b0 * 1 + b1 * 2 + b2 * 3 + b3 * 4 +

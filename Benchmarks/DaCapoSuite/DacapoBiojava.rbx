@@ -54,7 +54,51 @@ public Function RunBiojavaNeedlemanWunsch(Int seqLen) -> Int {
         dp2 = dp3;
         dp3 = nextDp1;
 
-        i = i + 2;
+        // Step 3
+        seedA = (seedA * 1103515245 + 12345) % 2147483648;
+        seedB = (seedB * 1103515245 + 12345) % 2147483648;
+        Int charA2 = (seedA / 65536) % 4;
+        Int charB2 = (seedB / 65536) % 4;
+
+        Int matchScore2 = -1;
+        if (charA2 == charB2) { matchScore2 = 2; }
+
+        Int diag2 = dp0 + matchScore2;
+        Int up2 = dp1 - 2;
+        Int left2 = dp2 - 2;
+
+        Int nextDp2 = diag2;
+        if (up2 > nextDp2) { nextDp2 = up2; }
+        if (left2 > nextDp2) { nextDp2 = left2; }
+
+        dp0 = dp1;
+        dp1 = dp2;
+        dp2 = dp3;
+        dp3 = nextDp2;
+
+        // Step 4
+        seedA = (seedA * 1103515245 + 12345) % 2147483648;
+        seedB = (seedB * 1103515245 + 12345) % 2147483648;
+        Int charA3 = (seedA / 65536) % 4;
+        Int charB3 = (seedB / 65536) % 4;
+
+        Int matchScore3 = -1;
+        if (charA3 == charB3) { matchScore3 = 2; }
+
+        Int diag3 = dp0 + matchScore3;
+        Int up3 = dp1 - 2;
+        Int left3 = dp2 - 2;
+
+        Int nextDp3 = diag3;
+        if (up3 > nextDp3) { nextDp3 = up3; }
+        if (left3 > nextDp3) { nextDp3 = left3; }
+
+        dp0 = dp1;
+        dp1 = dp2;
+        dp2 = dp3;
+        dp3 = nextDp3;
+
+        i = i + 4;
     }
 
     return dp0 + dp1 + dp2 + dp3;

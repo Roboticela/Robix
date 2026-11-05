@@ -22,7 +22,21 @@ public Function RunUA(Int numSteps) -> Float {
         f12 = 0.5 * (e1 + e2);
         f23 = 0.5 * (e2 + e3);
 
-        step = step + 1;
+        // Step B
+        Float flux0B = f01 - (e0 - e1);
+        Float flux1B = f12 - (e1 - e2);
+        Float flux2B = f23 - (e2 - e3);
+
+        e0 = e0 + 0.1 * flux0B;
+        e1 = e1 + 0.1 * (flux1B - flux0B);
+        e2 = e2 + 0.1 * (flux2B - flux1B);
+        e3 = e3 - 0.1 * flux2B;
+
+        f01 = 0.5 * (e0 + e1);
+        f12 = 0.5 * (e1 + e2);
+        f23 = 0.5 * (e2 + e3);
+
+        step = step + 2;
     }
 
     return e0 + e1 + e2 + e3 + f01 + f12 + f23;

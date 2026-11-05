@@ -24,7 +24,7 @@ public:
 };
 
 int main() {
-    std::int64_t n = 10000;
+    std::int64_t n = 3000;
     std::int64_t sumPhi = 0;
     for (std::int64_t k = 1; k <= n; ++k) {
         sumPhi += NumberTheory::Phi(k);

@@ -16,15 +16,18 @@ public Function RunXalanTransform(Int numNodes) -> Int {
         if (eventType == 0) {
             depth = depth + 1;
             tagCounter = tagCounter + 1;
-            checksum = (checksum * 33 + tagCounter + depth) % 1000000007;
+            checksum = checksum * 33 + tagCounter + depth;
         } else if (eventType == 1) {
             if (depth > 0) {
                 depth = depth - 1;
             }
-            checksum = (checksum * 31 + depth) % 1000000007;
+            checksum = checksum * 31 + depth;
         } else {
             Int textLen = (seed / 16384) % 64 + 1;
-            checksum = (checksum * 37 + textLen * depth) % 1000000007;
+            checksum = checksum * 37 + textLen * depth;
+        }
+        if (checksum >= 1000000007) {
+            checksum = checksum % 1000000007;
         }
 
         i = i + 1;

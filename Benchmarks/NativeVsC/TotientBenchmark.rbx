@@ -24,13 +24,13 @@ public Function Phi(Int n) -> Int {
 }
 
 public Function Main() -> Void {
-    Int n = 10000;
+    Int n = 3000;
     Int sumPhi = 0;
     Int k = 1;
     while (k <= n) {
         sumPhi = sumPhi + Phi(k);
         k = k + 1;
     }
-    Print("Robix Native Sum of Totients (1..10000):");
+    Print("Robix Native Sum of Totients (1..3000):");
     Print(sumPhi);
 }

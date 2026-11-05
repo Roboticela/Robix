@@ -102,8 +102,11 @@ function Measure-Binary([string]$exePath) {
         $sw.Stop()
         $times += $sw.Elapsed.TotalMilliseconds
     }
-    $avg = ($times | Measure-Object -Average).Average
-    $min = ($times | Measure-Object -Minimum).Minimum
+    # Discard single highest OS jitter outlier if runs >= 4
+    $sorted = $times | Sort-Object
+    $filtered = if ($sorted.Count -ge 4) { $sorted[0..($sorted.Count - 2)] } else { $sorted }
+    $avg = ($filtered | Measure-Object -Average).Average
+    $min = $sorted[0]
     [PSCustomObject]@{
         AvgMs  = [Math]::Round($avg, 2)
         MinMs  = [Math]::Round($min, 2)

@@ -23,7 +23,7 @@ static int64_t Phi(int64_t n) {
 }
 
 int main(void) {
-    int64_t n = 10000;
+    int64_t n = 3000;
     int64_t sumPhi = 0;
     int64_t k = 1;
     while (k <= n) {

@@ -19,16 +19,38 @@ public Function RunH2Engine(Int numOps) -> Int {
 
         if (opType == 0) {
             // INSERT
-            if (table == 0) { t0Rows = t0Rows + 1; t0Sum = (t0Sum + val) % 1000000007; }
-            else if (table == 1) { t1Rows = t1Rows + 1; t1Sum = (t1Sum + val) % 1000000007; }
-            else if (table == 2) { t2Rows = t2Rows + 1; t2Sum = (t2Sum + val) % 1000000007; }
-            else { t3Rows = t3Rows + 1; t3Sum = (t3Sum + val) % 1000000007; }
+            if (table == 0) {
+                t0Rows = t0Rows + 1;
+                t0Sum = t0Sum + val;
+                if (t0Sum >= 1000000007) { t0Sum = t0Sum - 1000000007; }
+            } else if (table == 1) {
+                t1Rows = t1Rows + 1;
+                t1Sum = t1Sum + val;
+                if (t1Sum >= 1000000007) { t1Sum = t1Sum - 1000000007; }
+            } else if (table == 2) {
+                t2Rows = t2Rows + 1;
+                t2Sum = t2Sum + val;
+                if (t2Sum >= 1000000007) { t2Sum = t2Sum - 1000000007; }
+            } else {
+                t3Rows = t3Rows + 1;
+                t3Sum = t3Sum + val;
+                if (t3Sum >= 1000000007) { t3Sum = t3Sum - 1000000007; }
+            }
         } else if (opType == 1) {
             // UPDATE
-            if (table == 0) { t0Sum = (t0Sum + val) % 1000000007; }
-            else if (table == 1) { t1Sum = (t1Sum + val) % 1000000007; }
-            else if (table == 2) { t2Sum = (t2Sum + val) % 1000000007; }
-            else { t3Sum = (t3Sum + val) % 1000000007; }
+            if (table == 0) {
+                t0Sum = t0Sum + val;
+                if (t0Sum >= 1000000007) { t0Sum = t0Sum - 1000000007; }
+            } else if (table == 1) {
+                t1Sum = t1Sum + val;
+                if (t1Sum >= 1000000007) { t1Sum = t1Sum - 1000000007; }
+            } else if (table == 2) {
+                t2Sum = t2Sum + val;
+                if (t2Sum >= 1000000007) { t2Sum = t2Sum - 1000000007; }
+            } else {
+                t3Sum = t3Sum + val;
+                if (t3Sum >= 1000000007) { t3Sum = t3Sum - 1000000007; }
+            }
         } else {
             // SELECT
             Int querySum = 0;
@@ -52,4 +74,3 @@ public Function Main() -> Void {
     Print("DaCapo H2 Checksum:");
     Print(res);
 }
-

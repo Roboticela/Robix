@@ -45,6 +45,18 @@ int IntBits(NTy t) noexcept {
     }
 }
 
+int AlignOf(NTy t) noexcept {
+    switch (t) {
+        case NTy::I64:
+        case NTy::F64:
+        case NTy::Ptr: return 8;
+        case NTy::I32:
+        case NTy::F32: return 4;
+        case NTy::I16: return 2;
+        default:       return 1;
+    }
+}
+
 // Maps a Robix type to a native scalar type. Returns false for unsupported types.
 bool MapType(const Frontend::TypeNode& t, NTy& out, std::string& why) {
     if (t.isPointer || t.isNullable || !t.typeArgs.empty()) {
@@ -209,7 +221,7 @@ private:
         auto it = m_varTy.find(name);
         if (it != m_varTy.end()) return it->second;
         m_varTy[name] = ty;
-        m_allocas << "  " << SlotName(name) << " = alloca " << TyStr(ty) << "\n";
+        m_allocas << "  " << SlotName(name) << " = alloca " << TyStr(ty) << ", align " << AlignOf(ty) << "\n";
         return ty;
     }
 
@@ -264,7 +276,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_vals[id] = Val{ "0", NTy::I64 };
                 break;
             }
-            m_body << "  " << vname << " = load " << TyStr(it->second) << ", ptr " << SlotName(inst.textImm) << "\n";
+            m_body << "  " << vname << " = load " << TyStr(it->second) << ", ptr " << SlotName(inst.textImm)
+                   << ", align " << AlignOf(it->second) << "\n";
             m_vals[id] = Val{ vname, it->second };
             break;
         }
@@ -289,7 +302,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             }
             const NTy slotTy = EnsureVar(inst.textImm, declared);
             Val cv = Coerce(v, slotTy, inst.location);
-            m_body << "  store " << TyStr(slotTy) << " " << cv.repr << ", ptr " << SlotName(inst.textImm) << "\n";
+            m_body << "  store " << TyStr(slotTy) << " " << cv.repr << ", ptr " << SlotName(inst.textImm)
+                   << ", align " << AlignOf(slotTy) << "\n";
             break;
         }
 
@@ -319,8 +333,13 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                        : (inst.opcode == IROpcode::Mul) ? "fmul" : (inst.opcode == IROpcode::Div) ? "fdiv" : "frem";
                 }
             } else {
-                op = (inst.opcode == IROpcode::Add) ? "add" : (inst.opcode == IROpcode::Sub) ? "sub"
-                   : (inst.opcode == IROpcode::Mul) ? "mul" : (inst.opcode == IROpcode::Div) ? "sdiv" : "srem";
+                if (m_ctx.options.profile == BuildProfile::Release) {
+                    op = (inst.opcode == IROpcode::Add) ? "add nsw" : (inst.opcode == IROpcode::Sub) ? "sub nsw"
+                       : (inst.opcode == IROpcode::Mul) ? "mul nsw" : (inst.opcode == IROpcode::Div) ? "sdiv" : "srem";
+                } else {
+                    op = (inst.opcode == IROpcode::Add) ? "add" : (inst.opcode == IROpcode::Sub) ? "sub"
+                       : (inst.opcode == IROpcode::Mul) ? "mul" : (inst.opcode == IROpcode::Div) ? "sdiv" : "srem";
+                }
             }
             m_body << "  " << vname << " = " << op << " " << TyStr(t) << " " << a.repr << ", " << b.repr << "\n";
             m_vals[id] = Val{ vname, t };
@@ -388,7 +407,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 const char* fnegOp = (m_ctx.options.profile == BuildProfile::Release) ? "fneg fast " : "fneg ";
                 m_body << "  " << vname << " = " << fnegOp << TyStr(a.ty) << " " << a.repr << "\n";
             } else {
-                m_body << "  " << vname << " = sub " << TyStr(a.ty) << " 0, " << a.repr << "\n";
+                const char* subOp = (m_ctx.options.profile == BuildProfile::Release) ? "sub nsw " : "sub ";
+                m_body << "  " << vname << " = " << subOp << TyStr(a.ty) << " 0, " << a.repr << "\n";
             }
             m_vals[id] = Val{ vname, a.ty };
             break;
@@ -523,7 +543,8 @@ bool FnEmitter::Emit() {
     for (std::size_t i = 0; i < m_fn.parameters.size(); ++i) {
         const std::string& pname = m_fn.parameters[i].name;
         EnsureVar(pname, ptys[i]);
-        paramStores << "  store " << TyStr(ptys[i]) << " %a" << i << ", ptr " << SlotName(pname) << "\n";
+        paramStores << "  store " << TyStr(ptys[i]) << " %a" << i << ", ptr " << SlotName(pname)
+                    << ", align " << AlignOf(ptys[i]) << "\n";
     }
 
     for (std::size_t bi = 0; bi < m_fn.blocks.size(); ++bi) {
@@ -545,7 +566,7 @@ bool FnEmitter::Emit() {
 
     if (!m_ok) return false;
 
-    m_out << "define fastcc " << TyStr(ret) << " @\"" << m_fn.mangledName << "\"(";
+    m_out << "define internal fastcc " << TyStr(ret) << " @\"" << m_fn.mangledName << "\"(";
     for (std::size_t i = 0; i < ptys.size(); ++i) {
         if (i > 0) m_out << ", ";
         m_out << TyStr(ptys[i]) << " %a" << i;
@@ -560,10 +581,10 @@ bool FnEmitter::Emit() {
         }
         if (isRecursive) break;
     }
-    if (m_ctx.options.profile == BuildProfile::Release && m_fn.name != "Main" && !isRecursive) {
-        m_out << ") alwaysinline nounwind #0 {\nentry:\n";
+    if (m_ctx.options.profile == BuildProfile::Release && !isRecursive) {
+        m_out << ") alwaysinline nounwind #0 align 64 {\nentry:\n";
     } else {
-        m_out << ") nounwind #0 {\nentry:\n";
+        m_out << ") nounwind #0 align 64 {\nentry:\n";
     }
     m_out << m_allocas.str()
           << paramStores.str()
@@ -668,7 +689,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     out << "}\n\n";
     if (m_options.profile == BuildProfile::Release) {
-        out << "attributes #0 = { nounwind \"no-trapping-math\"=\"true\" \"unsafe-fp-math\"=\"true\" \"approx-func-fp-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" hot \"tune-cpu\"=\"native\" }\n";
+        out << "attributes #0 = { nounwind \"target-cpu\"=\"skylake\" \"target-features\"=\"+64bit,+adx,+aes,+avx,+avx2,+bmi,+bmi2,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves\" \"no-trapping-math\"=\"true\" \"unsafe-fp-math\"=\"true\" \"approx-func-fp-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" hot }\n";
     } else {
         out << "attributes #0 = { nounwind \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" }\n";
     }
