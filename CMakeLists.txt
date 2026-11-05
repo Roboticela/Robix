@@ -160,6 +160,27 @@ add_executable(Stage8PackageEcosystemTests
 target_link_libraries(Stage8PackageEcosystemTests PRIVATE RobixPackageSystem)
 add_test(NAME Stage8PackageEcosystemTests COMMAND Stage8PackageEcosystemTests)
 
+# Stage 9: Hardware Access, Real-Time Execution, Robotics & AI Libraries
+add_library(RobixHardwareRoboticsAI STATIC
+    Runtime/Hardware/HardwareAndRealTime.cpp
+    Runtime/Robotics/RoboticsAndControl.cpp
+    StdLib/AI/AIAndScientificComputing.cpp
+)
+target_include_directories(RobixHardwareRoboticsAI PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Runtime/Hardware
+    ${CMAKE_CURRENT_SOURCE_DIR}/Runtime/Robotics
+    ${CMAKE_CURRENT_SOURCE_DIR}/StdLib/AI
+)
+target_link_libraries(RobixHardwareRoboticsAI PUBLIC RobixMemoryRuntime RobixStdLibAndConcurrency RobixFrontend)
+
+# Stage 9 Conformance Test Executable
+add_executable(Stage9HardwareRoboticsAndAITests
+    Tests/Performance/Stage9HardwareRoboticsAndAITests.cpp
+)
+target_link_libraries(Stage9HardwareRoboticsAndAITests PRIVATE RobixHardwareRoboticsAI)
+add_test(NAME Stage9HardwareRoboticsAndAITests COMMAND Stage9HardwareRoboticsAndAITests)
+
+
 
 
 
