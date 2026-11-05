@@ -347,10 +347,11 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             }
 
             IRInstruction store;
-            store.opcode     = IROpcode::StoreVar;
-            store.textImm    = stmt.varName;
-            store.operandIds = { initVal.ssaId };
-            store.location   = stmt.location;
+            store.opcode      = IROpcode::StoreVar;
+            store.textImm     = stmt.varName;
+            store.secondaryText = stmt.declaredType.IsEmpty() ? std::string{} : stmt.declaredType.baseName;
+            store.operandIds  = { initVal.ssaId };
+            store.location    = stmt.location;
             Emit(std::move(store));
             break;
         }
@@ -427,7 +428,9 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             Emit(std::move(br));
 
             m_currentBlockIdx = bodyIdx;
+            m_loopTargets.push_back(LoopTargets{ exitLabel, condLabel });
             if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
+            m_loopTargets.pop_back();
             if (!CurrentBlockHasTerminator()) {
                 IRInstruction backJmp;
                 backJmp.opcode   = IROpcode::Jump;
@@ -435,6 +438,256 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
                 backJmp.location = stmt.location;
                 Emit(std::move(backJmp));
             }
+
+            m_currentBlockIdx = exitIdx;
+            break;
+        }
+
+        case Frontend::StmtKind::DoWhileStmt: {
+            const std::size_t bodyIdx = CreateBasicBlock("do_body");
+            const std::size_t condIdx = CreateBasicBlock("do_cond");
+            const std::size_t exitIdx = CreateBasicBlock("do_exit");
+
+            const std::string bodyLabel = m_currentFn->blocks[bodyIdx].label;
+            const std::string condLabel = m_currentFn->blocks[condIdx].label;
+            const std::string exitLabel = m_currentFn->blocks[exitIdx].label;
+
+            IRInstruction jmpToBody;
+            jmpToBody.opcode   = IROpcode::Jump;
+            jmpToBody.textImm  = bodyLabel;
+            jmpToBody.location = stmt.location;
+            Emit(std::move(jmpToBody));
+
+            m_currentBlockIdx = bodyIdx;
+            m_loopTargets.push_back(LoopTargets{ exitLabel, condLabel });
+            if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
+            m_loopTargets.pop_back();
+            if (!CurrentBlockHasTerminator()) {
+                IRInstruction jmpCond;
+                jmpCond.opcode   = IROpcode::Jump;
+                jmpCond.textImm  = condLabel;
+                jmpCond.location = stmt.location;
+                Emit(std::move(jmpCond));
+            }
+
+            m_currentBlockIdx = condIdx;
+            IRValue condVal = stmt.condition ? LowerExpr(*stmt.condition) : IRValue{};
+            IRInstruction br;
+            br.opcode        = IROpcode::BranchCond;
+            br.operandIds    = { condVal.ssaId };
+            br.textImm       = bodyLabel;
+            br.secondaryText = exitLabel;
+            br.location      = stmt.location;
+            Emit(std::move(br));
+
+            m_currentBlockIdx = exitIdx;
+            break;
+        }
+
+        case Frontend::StmtKind::LoopStmt: {
+            const std::size_t bodyIdx = CreateBasicBlock("loop_body");
+            const std::size_t exitIdx = CreateBasicBlock("loop_exit");
+
+            const std::string bodyLabel = m_currentFn->blocks[bodyIdx].label;
+            const std::string exitLabel = m_currentFn->blocks[exitIdx].label;
+
+            IRInstruction jmpToBody;
+            jmpToBody.opcode   = IROpcode::Jump;
+            jmpToBody.textImm  = bodyLabel;
+            jmpToBody.location = stmt.location;
+            Emit(std::move(jmpToBody));
+
+            m_currentBlockIdx = bodyIdx;
+            m_loopTargets.push_back(LoopTargets{ exitLabel, bodyLabel });
+            if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
+            m_loopTargets.pop_back();
+            if (!CurrentBlockHasTerminator()) {
+                IRInstruction back;
+                back.opcode   = IROpcode::Jump;
+                back.textImm  = bodyLabel;
+                back.location = stmt.location;
+                Emit(std::move(back));
+            }
+
+            m_currentBlockIdx = exitIdx;
+            break;
+        }
+
+        case Frontend::StmtKind::RepeatStmt: {
+            // `repeat N { ... }` -> hidden counter loop evaluated once for N
+            IRValue countVal = stmt.condition ? LowerExpr(*stmt.condition) : IRValue{};
+            const std::string counterName = "__repeat_" + std::to_string(stmt.location.line) + "_" +
+                                            std::to_string(stmt.location.column);
+
+            IRInstruction zero;
+            zero.opcode   = IROpcode::ConstInt;
+            zero.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+            zero.intImm   = 0;
+            zero.location = stmt.location;
+            IRValue zeroVal = zero.dest;
+            Emit(std::move(zero));
+
+            IRInstruction storeZero;
+            storeZero.opcode     = IROpcode::StoreVar;
+            storeZero.textImm    = counterName;
+            storeZero.operandIds = { zeroVal.ssaId };
+            storeZero.location   = stmt.location;
+            Emit(std::move(storeZero));
+
+            const std::size_t condIdx = CreateBasicBlock("repeat_cond");
+            const std::size_t bodyIdx = CreateBasicBlock("repeat_body");
+            const std::size_t stepIdx = CreateBasicBlock("repeat_step");
+            const std::size_t exitIdx = CreateBasicBlock("repeat_exit");
+
+            const std::string condLabel = m_currentFn->blocks[condIdx].label;
+            const std::string bodyLabel = m_currentFn->blocks[bodyIdx].label;
+            const std::string stepLabel = m_currentFn->blocks[stepIdx].label;
+            const std::string exitLabel = m_currentFn->blocks[exitIdx].label;
+
+            IRInstruction jmpToCond;
+            jmpToCond.opcode   = IROpcode::Jump;
+            jmpToCond.textImm  = condLabel;
+            jmpToCond.location = stmt.location;
+            Emit(std::move(jmpToCond));
+
+            m_currentBlockIdx = condIdx;
+            IRInstruction loadCtr;
+            loadCtr.opcode   = IROpcode::LoadVar;
+            loadCtr.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+            loadCtr.textImm  = counterName;
+            loadCtr.location = stmt.location;
+            IRValue ctrVal   = loadCtr.dest;
+            Emit(std::move(loadCtr));
+
+            IRInstruction cmp;
+            cmp.opcode     = IROpcode::Lt;
+            cmp.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Bool") };
+            cmp.operandIds = { ctrVal.ssaId, countVal.ssaId };
+            cmp.location   = stmt.location;
+            IRValue cmpVal = cmp.dest;
+            Emit(std::move(cmp));
+
+            IRInstruction br;
+            br.opcode        = IROpcode::BranchCond;
+            br.operandIds    = { cmpVal.ssaId };
+            br.textImm       = bodyLabel;
+            br.secondaryText = exitLabel;
+            br.location      = stmt.location;
+            Emit(std::move(br));
+
+            m_currentBlockIdx = bodyIdx;
+            m_loopTargets.push_back(LoopTargets{ exitLabel, stepLabel });
+            if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
+            m_loopTargets.pop_back();
+            if (!CurrentBlockHasTerminator()) {
+                IRInstruction toStep;
+                toStep.opcode   = IROpcode::Jump;
+                toStep.textImm  = stepLabel;
+                toStep.location = stmt.location;
+                Emit(std::move(toStep));
+            }
+
+            m_currentBlockIdx = stepIdx;
+            IRInstruction loadCur;
+            loadCur.opcode   = IROpcode::LoadVar;
+            loadCur.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+            loadCur.textImm  = counterName;
+            loadCur.location = stmt.location;
+            IRValue curV     = loadCur.dest;
+            Emit(std::move(loadCur));
+
+            IRInstruction one;
+            one.opcode   = IROpcode::ConstInt;
+            one.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+            one.intImm   = 1;
+            one.location = stmt.location;
+            IRValue oneV = one.dest;
+            Emit(std::move(one));
+
+            IRInstruction nextAdd;
+            nextAdd.opcode     = IROpcode::Add;
+            nextAdd.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+            nextAdd.operandIds = { curV.ssaId, oneV.ssaId };
+            nextAdd.location   = stmt.location;
+            IRValue nextV      = nextAdd.dest;
+            Emit(std::move(nextAdd));
+
+            IRInstruction storeNext;
+            storeNext.opcode     = IROpcode::StoreVar;
+            storeNext.textImm    = counterName;
+            storeNext.operandIds = { nextV.ssaId };
+            storeNext.location   = stmt.location;
+            Emit(std::move(storeNext));
+
+            IRInstruction backJmp;
+            backJmp.opcode   = IROpcode::Jump;
+            backJmp.textImm  = condLabel;
+            backJmp.location = stmt.location;
+            Emit(std::move(backJmp));
+
+            m_currentBlockIdx = exitIdx;
+            break;
+        }
+
+        case Frontend::StmtKind::ForCStyle: {
+            if (stmt.initStmt) LowerStmt(*stmt.initStmt);
+
+            const std::size_t condIdx = CreateBasicBlock("for_cond");
+            const std::size_t bodyIdx = CreateBasicBlock("for_body");
+            const std::size_t stepIdx = CreateBasicBlock("for_step");
+            const std::size_t exitIdx = CreateBasicBlock("for_exit");
+
+            const std::string condLabel = m_currentFn->blocks[condIdx].label;
+            const std::string bodyLabel = m_currentFn->blocks[bodyIdx].label;
+            const std::string stepLabel = m_currentFn->blocks[stepIdx].label;
+            const std::string exitLabel = m_currentFn->blocks[exitIdx].label;
+
+            IRInstruction jmpToCond;
+            jmpToCond.opcode   = IROpcode::Jump;
+            jmpToCond.textImm  = condLabel;
+            jmpToCond.location = stmt.location;
+            Emit(std::move(jmpToCond));
+
+            m_currentBlockIdx = condIdx;
+            IRValue condVal;
+            if (stmt.condition) {
+                condVal = LowerExpr(*stmt.condition);
+            } else {
+                IRInstruction t;
+                t.opcode   = IROpcode::ConstBool;
+                t.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Bool") };
+                t.boolImm  = true;
+                t.location = stmt.location;
+                condVal    = t.dest;
+                Emit(std::move(t));
+            }
+            IRInstruction br;
+            br.opcode        = IROpcode::BranchCond;
+            br.operandIds    = { condVal.ssaId };
+            br.textImm       = bodyLabel;
+            br.secondaryText = exitLabel;
+            br.location      = stmt.location;
+            Emit(std::move(br));
+
+            m_currentBlockIdx = bodyIdx;
+            m_loopTargets.push_back(LoopTargets{ exitLabel, stepLabel });
+            if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
+            m_loopTargets.pop_back();
+            if (!CurrentBlockHasTerminator()) {
+                IRInstruction toStep;
+                toStep.opcode   = IROpcode::Jump;
+                toStep.textImm  = stepLabel;
+                toStep.location = stmt.location;
+                Emit(std::move(toStep));
+            }
+
+            m_currentBlockIdx = stepIdx;
+            if (stmt.stepExpr) (void)LowerExpr(*stmt.stepExpr);
+            IRInstruction backJmp;
+            backJmp.opcode   = IROpcode::Jump;
+            backJmp.textImm  = condLabel;
+            backJmp.location = stmt.location;
+            Emit(std::move(backJmp));
 
             m_currentBlockIdx = exitIdx;
             break;
@@ -458,7 +711,6 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
                     Emit(std::move(one));
                 }
 
-                // Store loop variable = startVal
                 IRInstruction storeInit;
                 storeInit.opcode     = IROpcode::StoreVar;
                 storeInit.textImm    = stmt.loopVar1;
@@ -468,10 +720,12 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
 
                 const std::size_t condIdx = CreateBasicBlock("for_cond");
                 const std::size_t bodyIdx = CreateBasicBlock("for_body");
+                const std::size_t stepIdx = CreateBasicBlock("for_step");
                 const std::size_t exitIdx = CreateBasicBlock("for_exit");
 
                 const std::string condLabel = m_currentFn->blocks[condIdx].label;
                 const std::string bodyLabel = m_currentFn->blocks[bodyIdx].label;
+                const std::string stepLabel = m_currentFn->blocks[stepIdx].label;
                 const std::string exitLabel = m_currentFn->blocks[exitIdx].label;
 
                 IRInstruction jmpToCond;
@@ -480,7 +734,6 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
                 jmpToCond.location = stmt.location;
                 Emit(std::move(jmpToCond));
 
-                // Condition block: load loopVar1, compare < or <= endVal
                 m_currentBlockIdx = condIdx;
                 IRInstruction loadIter;
                 loadIter.opcode   = IROpcode::LoadVar;
@@ -506,43 +759,101 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
                 br.location      = stmt.location;
                 Emit(std::move(br));
 
-                // Body block
                 m_currentBlockIdx = bodyIdx;
+                m_loopTargets.push_back(LoopTargets{ exitLabel, stepLabel });
                 if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
-
+                m_loopTargets.pop_back();
                 if (!CurrentBlockHasTerminator()) {
-                    IRInstruction loadCur;
-                    loadCur.opcode   = IROpcode::LoadVar;
-                    loadCur.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
-                    loadCur.textImm  = stmt.loopVar1;
-                    loadCur.location = stmt.location;
-                    IRValue curV     = loadCur.dest;
-                    Emit(std::move(loadCur));
-
-                    IRInstruction nextAdd;
-                    nextAdd.opcode     = IROpcode::Add;
-                    nextAdd.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
-                    nextAdd.operandIds = { curV.ssaId, stepVal.ssaId };
-                    nextAdd.location   = stmt.location;
-                    IRValue nextV      = nextAdd.dest;
-                    Emit(std::move(nextAdd));
-
-                    IRInstruction storeNext;
-                    storeNext.opcode     = IROpcode::StoreVar;
-                    storeNext.textImm    = stmt.loopVar1;
-                    storeNext.operandIds = { nextV.ssaId };
-                    storeNext.location   = stmt.location;
-                    Emit(std::move(storeNext));
-
-                    IRInstruction backJmp;
-                    backJmp.opcode   = IROpcode::Jump;
-                    backJmp.textImm  = condLabel;
-                    backJmp.location = stmt.location;
-                    Emit(std::move(backJmp));
+                    IRInstruction toStep;
+                    toStep.opcode   = IROpcode::Jump;
+                    toStep.textImm  = stepLabel;
+                    toStep.location = stmt.location;
+                    Emit(std::move(toStep));
                 }
 
+                m_currentBlockIdx = stepIdx;
+                IRInstruction loadCur;
+                loadCur.opcode   = IROpcode::LoadVar;
+                loadCur.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                loadCur.textImm  = stmt.loopVar1;
+                loadCur.location = stmt.location;
+                IRValue curV     = loadCur.dest;
+                Emit(std::move(loadCur));
+
+                IRInstruction nextAdd;
+                nextAdd.opcode     = IROpcode::Add;
+                nextAdd.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                nextAdd.operandIds = { curV.ssaId, stepVal.ssaId };
+                nextAdd.location   = stmt.location;
+                IRValue nextV      = nextAdd.dest;
+                Emit(std::move(nextAdd));
+
+                IRInstruction storeNext;
+                storeNext.opcode     = IROpcode::StoreVar;
+                storeNext.textImm    = stmt.loopVar1;
+                storeNext.operandIds = { nextV.ssaId };
+                storeNext.location   = stmt.location;
+                Emit(std::move(storeNext));
+
+                IRInstruction backJmp;
+                backJmp.opcode   = IROpcode::Jump;
+                backJmp.textImm  = condLabel;
+                backJmp.location = stmt.location;
+                Emit(std::move(backJmp));
+
                 m_currentBlockIdx = exitIdx;
+            } else {
+                m_diagnostics.ReportError(
+                    "I4010",
+                    "Collection iteration ('for x in collection') is not yet supported by the SSA IR backend.",
+                    stmt.location,
+                    "Use a numeric range loop ('for i in 0..N') or a 'while' loop.");
             }
+            break;
+        }
+
+        case Frontend::StmtKind::BreakStmt: {
+            if (m_loopTargets.empty()) {
+                m_diagnostics.ReportError(
+                    "I4012",
+                    "'break' used outside of a loop.",
+                    stmt.location,
+                    "Move 'break' inside a for, while, do-while, repeat, or loop statement.");
+            } else {
+                IRInstruction jmp;
+                jmp.opcode   = IROpcode::Jump;
+                jmp.textImm  = m_loopTargets.back().breakLabel;
+                jmp.location = stmt.location;
+                Emit(std::move(jmp));
+            }
+            break;
+        }
+
+        case Frontend::StmtKind::ContinueStmt: {
+            if (m_loopTargets.empty()) {
+                m_diagnostics.ReportError(
+                    "I4012",
+                    "'continue' used outside of a loop.",
+                    stmt.location,
+                    "Move 'continue' inside a for, while, do-while, repeat, or loop statement.");
+            } else {
+                IRInstruction jmp;
+                jmp.opcode   = IROpcode::Jump;
+                jmp.textImm  = m_loopTargets.back().continueLabel;
+                jmp.location = stmt.location;
+                Emit(std::move(jmp));
+            }
+            break;
+        }
+
+        case Frontend::StmtKind::MatchStmt:
+        case Frontend::StmtKind::TryCatchStmt:
+        case Frontend::StmtKind::ThrowStmt: {
+            m_diagnostics.ReportError(
+                "I4010",
+                "This statement kind (match/try/throw) is not yet supported by the SSA IR backend.",
+                stmt.location,
+                "Use if/else chains instead; match/try/throw lowering is not implemented yet.");
             break;
         }
 
@@ -661,9 +972,63 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
         }
 
         case Frontend::ExprKind::Unary: {
+            const std::string& uop = expr.text;
+
+            // Prefix/postfix increment and decrement on a plain variable
+            if ((uop == "++" || uop == "--") && expr.left &&
+                expr.left->kind == Frontend::ExprKind::Identifier) {
+                const auto& target = *expr.left;
+                const bool isPostfix =
+                    (expr.location.line > target.location.line) ||
+                    (expr.location.line == target.location.line && expr.location.column > target.location.column);
+
+                IRInstruction loadOld;
+                loadOld.opcode   = IROpcode::LoadVar;
+                loadOld.dest     = IRValue{ m_currentFn->AllocateSSAId(), target.inferredType.IsEmpty() ? MakePrim("Int") : target.inferredType };
+                loadOld.textImm  = target.text;
+                loadOld.location = expr.location;
+                IRValue oldVal   = loadOld.dest;
+                Emit(std::move(loadOld));
+
+                IRInstruction one;
+                one.opcode   = IROpcode::ConstInt;
+                one.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                one.intImm   = 1;
+                one.location = expr.location;
+                IRValue oneVal = one.dest;
+                Emit(std::move(one));
+
+                IRInstruction upd;
+                upd.opcode     = (uop == "++") ? IROpcode::Add : IROpcode::Sub;
+                upd.dest       = IRValue{ m_currentFn->AllocateSSAId(), oldVal.type };
+                upd.operandIds = { oldVal.ssaId, oneVal.ssaId };
+                upd.location   = expr.location;
+                IRValue newVal = upd.dest;
+                Emit(std::move(upd));
+
+                IRInstruction store;
+                store.opcode     = IROpcode::StoreVar;
+                store.textImm    = target.text;
+                store.operandIds = { newVal.ssaId };
+                store.location   = expr.location;
+                Emit(std::move(store));
+                return isPostfix ? oldVal : newVal;
+            }
+
+            if (uop != "!" && uop != "-" && uop != "+") {
+                m_diagnostics.ReportError(
+                    "I4011",
+                    "Unary operator '" + uop + "' is not yet supported by the SSA IR backend.",
+                    expr.location,
+                    "Use '-', '!', '++' or '--' on variables.");
+            }
+
             IRValue opVal = expr.left ? LowerExpr(*expr.left) : IRValue{};
+            if (uop == "+") {
+                return opVal;
+            }
             IRInstruction un;
-            un.opcode     = (expr.text == "!") ? IROpcode::Not : IROpcode::Neg;
+            un.opcode     = (uop == "!") ? IROpcode::Not : IROpcode::Neg;
             un.dest       = IRValue{ m_currentFn->AllocateSSAId(), opVal.type };
             un.operandIds = { opVal.ssaId };
             un.location   = expr.location;
@@ -692,6 +1057,13 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
             else if (t == ">=") { op = IROpcode::Ge; resType = MakePrim("Bool"); }
             else if (t == "&&") { op = IROpcode::And; resType = MakePrim("Bool"); }
             else if (t == "||") { op = IROpcode::Or; resType = MakePrim("Bool"); }
+            else {
+                m_diagnostics.ReportError(
+                    "I4011",
+                    "Binary operator '" + t + "' is not yet supported by the SSA IR backend.",
+                    expr.location,
+                    "Supported operators: + - * / % == != < <= > >= && ||");
+            }
 
             IRInstruction bin;
             bin.opcode     = op;
@@ -722,7 +1094,16 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     if (expr.text == "+=") opInst.opcode = IROpcode::Add;
                     else if (expr.text == "-=") opInst.opcode = IROpcode::Sub;
                     else if (expr.text == "*=") opInst.opcode = IROpcode::Mul;
-                    else opInst.opcode = IROpcode::Div;
+                    else if (expr.text == "/=") opInst.opcode = IROpcode::Div;
+                    else if (expr.text == "%=") opInst.opcode = IROpcode::Mod;
+                    else {
+                        m_diagnostics.ReportError(
+                            "I4011",
+                            "Compound assignment operator '" + expr.text + "' is not yet supported by the SSA IR backend.",
+                            expr.location,
+                            "Supported compound assignments: += -= *= /= %=");
+                        opInst.opcode = IROpcode::Add;
+                    }
                     opInst.dest       = IRValue{ m_currentFn->AllocateSSAId(), rhs.type };
                     opInst.operandIds = { oldVal.ssaId, rhs.ssaId };
                     opInst.location   = expr.location;
@@ -911,6 +1292,12 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
         default:
             break;
     }
+
+    m_diagnostics.ReportError(
+        "I4011",
+        "This expression form (index, array/object literal, lambda, match expression, range) is not yet supported by the SSA IR backend.",
+        expr.location,
+        "Rewrite using scalar arithmetic, calls, and variables.");
 
     IRInstruction fallback;
     fallback.opcode   = IROpcode::ConstInt;

@@ -148,6 +148,13 @@ private:
     void Emit(IRInstruction inst);
     bool CurrentBlockHasTerminator() const;
 
+    // Innermost-last stack of active loop jump targets for `break` / `continue` lowering
+    struct LoopTargets {
+        std::string breakLabel;
+        std::string continueLabel;
+    };
+    std::vector<LoopTargets> m_loopTargets;
+
     void LowerStmt(const Frontend::StmtNode& stmt);
     IRValue LowerExpr(const Frontend::ExprNode& expr);
 };
