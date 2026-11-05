@@ -27,3 +27,27 @@ add_executable(Stage1SpecTests
 target_link_libraries(Stage1SpecTests PRIVATE RobixSpec)
 add_test(NAME Stage1SpecTests COMMAND Stage1SpecTests)
 
+# Stage 2: Shared C++20 Frontend Library (Lexer, Parser, AST, Diagnostics, TypeChecker, ExplainValidator)
+add_library(RobixFrontend STATIC
+    Compiler/Semantic/Diagnostics.cpp
+    Compiler/Lexer/Lexer.cpp
+    Compiler/Parser/Parser.cpp
+    Compiler/Types/TypeChecker.cpp
+)
+target_include_directories(RobixFrontend PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/Lexer
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/AST
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/Parser
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/Semantic
+    ${CMAKE_CURRENT_SOURCE_DIR}/Compiler/Types
+)
+target_link_libraries(RobixFrontend PUBLIC RobixSpec)
+
+# Stage 2 Conformance Test Executable
+add_executable(Stage2FrontendTests
+    Tests/Compiler/Stage2FrontendTests.cpp
+)
+target_link_libraries(Stage2FrontendTests PRIVATE RobixFrontend)
+add_test(NAME Stage2FrontendTests COMMAND Stage2FrontendTests)
+
+
