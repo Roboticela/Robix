@@ -27,7 +27,7 @@ function Measure-Program($exePath, $name) {
 Write-Host "=========================================================="
 Write-Host "          ROBIX NATIVE vs C PRODUCTION BENCHMARKS         "
 Write-Host "=========================================================="
-Write-Host "Platform: Windows x64 | Compiler Backend: LLVM/Clang 18.1.8 (-O2)"
+Write-Host "Platform: Windows x64 | Toolchain: LLVM/Clang 18.1.8"
 Write-Host "Runs per benchmark: $runs (with initial warmup)"
 Write-Host ""
 
@@ -42,10 +42,11 @@ $results = @()
 foreach ($b in $benchmarks) {
     Write-Host "Benchmarking: $($b.Name)..."
     $cStats = Measure-Program $b.CExe "C (-O2)"
-    $rbxStats = Measure-Program $b.RobixExe "Robix Native (-O2)"
+    $rbxStats = Measure-Program $b.RobixExe "Robix Native"
     
     $ratio = [Math]::Round($rbxStats.AvgMs / $cStats.AvgMs, 3)
     $percentDiff = [Math]::Round((($rbxStats.AvgMs - $cStats.AvgMs) / $cStats.AvgMs) * 100.0, 2)
+    $winner = if ($rbxStats.AvgMs -lt $cStats.AvgMs) { "Robix Native" } else { "C" }
     
     $results += [PSCustomObject]@{
         Benchmark = $b.Name
@@ -55,9 +56,9 @@ foreach ($b in $benchmarks) {
         "Robix Native (Min ms)" = $rbxStats.MinMs
         "Robix / C Ratio" = "$($ratio)x"
         "Diff (%)" = "$($percentDiff)%"
+        "Winner" = $winner
     }
 }
 
 Write-Host ""
 $results | Format-Table -AutoSize
-

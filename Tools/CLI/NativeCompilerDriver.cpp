@@ -186,8 +186,13 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     }
 
     std::ostringstream cmd;
-    cmd << Quote(clang) << (options.release ? " -O2" : " -O0")
-        << " -fms-runtime-lib=static -Wno-override-module "
+    cmd << Quote(clang);
+    if (options.release) {
+        cmd << " -O3 -fno-math-errno -march=native -mllvm -inline-threshold=2000 ";
+    } else {
+        cmd << " -O0 ";
+    }
+    cmd << "-fms-runtime-lib=static -Wno-override-module "
         << Quote(runtimeObj) << " " << Quote(llPath.string()) << " -o " << Quote(exePath.string());
 
     const int code = RunProcess(cmd.str(), res.toolOutput);
