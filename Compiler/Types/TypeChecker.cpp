@@ -443,8 +443,16 @@ void TypeChecker::CheckDeclaration(DeclNode& decl) {
             break;
         }
 
+        case DeclKind::TestFile: {
+            for (auto& member : decl.members) {
+                if (member) {
+                    CheckDeclaration(*member);
+                }
+            }
+            break;
+        }
+
         case DeclKind::Enum:
-        case DeclKind::TestFile:
         case DeclKind::Macro:
             break;
     }
@@ -865,7 +873,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
 
         case ExprKind::Identifier: {
             if (expr.text == "Memory" || expr.text == "GPIO" || expr.text == "File" ||
-                expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" || expr.text == "Test") {
+                expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
+                expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1152,6 +1161,11 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                     "Cannot access member '" + expr.text + "' on potentially null value of type '" + recvType.ToString() + "'.",
                     expr.location,
                     "Check '!= null' in an 'if' condition or use the null-safe member operator '?.' instead.");
+            }
+
+            if (recvType.baseName == "Assert") {
+                expr.inferredType = MakePrimitiveType("Void");
+                return expr.inferredType;
             }
 
             if (recvType.baseName == "Memory" && (expr.text == "Allocate" || expr.text == "Free" || expr.text == "Copy")) {

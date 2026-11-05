@@ -85,7 +85,7 @@ private:
     [[nodiscard]] ExprPtr ParsePostfix();
     [[nodiscard]] ExprPtr ParsePrimary();
 
-    const std::vector<Token>& m_tokens;
+    std::vector<Token> m_tokens;
     std::string_view m_fileName;
     DiagnosticBag& m_diagnostics;
     std::size_t m_pos = 0;

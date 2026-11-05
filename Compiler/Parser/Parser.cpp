@@ -280,8 +280,9 @@ ExplainBlockNode Parser::ParseExplainBlock() {
             }
             Match(TokenKind::Semicolon);
         } else if (Match(TokenKind::KwInput)) {
+            const bool hasColon  = Match(TokenKind::Colon);
             const bool hasBraces = Match(TokenKind::LBrace);
-            if (!hasBraces) {
+            if (!hasColon && !hasBraces) {
                 Expect(TokenKind::Colon, "P1005", "Expected ':' or '{' after 'Input'");
             }
             // Parse compact form (a = "desc", b = "desc") or multiline form (a: "desc";)
@@ -302,8 +303,9 @@ ExplainBlockNode Parser::ParseExplainBlock() {
             }
             Match(TokenKind::Semicolon);
         } else if (Match(TokenKind::KwErrors)) {
+            const bool hasColon  = Match(TokenKind::Colon);
             const bool hasBraces = Match(TokenKind::LBrace);
-            if (!hasBraces) {
+            if (!hasColon && !hasBraces) {
                 Expect(TokenKind::Colon, "P1005", "Expected ':' or '{' after 'Errors'");
             }
             while (!IsAtEnd() && Check(TokenKind::Identifier) &&
@@ -370,7 +372,12 @@ CompilationUnitAST Parser::ParseCompilationUnit() {
     }
 
     while (!IsAtEnd()) {
-        if (Match(TokenKind::KwImport)) {
+        if (Check(TokenKind::KwPackage) && Peek().kind == TokenKind::Identifier &&
+            (Peek(2).kind == TokenKind::Dot || Peek(2).kind == TokenKind::Semicolon)) {
+            Advance();
+            (void)ParseQualifiedName();
+            Match(TokenKind::Semicolon);
+        } else if (Match(TokenKind::KwImport)) {
             unit.imports.push_back(ParseQualifiedName());
             if (Match(TokenKind::KwAs)) {
                 Advance();

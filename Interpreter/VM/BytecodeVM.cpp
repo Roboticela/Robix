@@ -350,8 +350,36 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
 
             case BCOpcode::AssertReg: {
                 bool ok = false;
-                if (inst.symbolImm == "AssertEqual" && inst.callArgRegs.size() >= 2) {
+                if ((inst.symbolImm == "AssertEqual" || inst.symbolImm == "Assert.Equal") && inst.callArgRegs.size() >= 2) {
                     ok = (regs[inst.callArgRegs[0]].ToString() == regs[inst.callArgRegs[1]].ToString());
+                } else if (inst.symbolImm == "Assert.NotEqual" && inst.callArgRegs.size() >= 2) {
+                    ok = (regs[inst.callArgRegs[0]].ToString() != regs[inst.callArgRegs[1]].ToString());
+                } else if (inst.symbolImm == "AssertFalse" || inst.symbolImm == "Assert.False") {
+                    ok = !inst.callArgRegs.empty() && !regs[inst.callArgRegs[0]].AsBool();
+                } else if (inst.symbolImm == "Assert.Null") {
+                    ok = !inst.callArgRegs.empty() &&
+                         (std::holds_alternative<std::monostate>(regs[inst.callArgRegs[0]].data) ||
+                          regs[inst.callArgRegs[0]].ToString() == "null");
+                } else if (inst.symbolImm == "Assert.NotNull") {
+                    ok = !inst.callArgRegs.empty() &&
+                         !std::holds_alternative<std::monostate>(regs[inst.callArgRegs[0]].data) &&
+                         regs[inst.callArgRegs[0]].ToString() != "null";
+                } else if (inst.symbolImm == "Assert.Contains" && inst.callArgRegs.size() >= 2) {
+                    const std::string haystack = regs[inst.callArgRegs[0]].ToString();
+                    const std::string needle   = regs[inst.callArgRegs[1]].ToString();
+                    ok = (haystack.find(needle) != std::string::npos);
+                } else if (inst.symbolImm == "Assert.Success") {
+                    ok = !inst.callArgRegs.empty() &&
+                         (regs[inst.callArgRegs[0]].AsBool() ||
+                          regs[inst.callArgRegs[0]].ToString().find("Error") == std::string::npos);
+                } else if (inst.symbolImm == "Assert.Error" ||
+                           inst.symbolImm == "Assert.Throws" ||
+                           inst.symbolImm == "Assert.ThrowsAsync") {
+                    ok = !inst.callArgRegs.empty() &&
+                         (!regs[inst.callArgRegs[0]].AsBool() ||
+                          regs[inst.callArgRegs[0]].ToString().find("Error") != std::string::npos);
+                } else if (inst.symbolImm == "Assert.Timeout") {
+                    ok = !inst.callArgRegs.empty() && (regs[inst.callArgRegs[0]].AsInt() > 0);
                 } else if (!inst.callArgRegs.empty()) {
                     ok = regs[inst.callArgRegs[0]].AsBool();
                 }

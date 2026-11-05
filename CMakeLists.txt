@@ -99,4 +99,23 @@ add_executable(Stage5MemoryTests
 target_link_libraries(Stage5MemoryTests PRIVATE RobixMemoryRuntime)
 add_test(NAME Stage5MemoryTests COMMAND Stage5MemoryTests)
 
+# Stage 6: Mandatory Testing System & Single-Command Verification Engine
+add_library(RobixTestingAndVerifier STATIC
+    StdLib/Testing/TestingFramework.cpp
+    Tools/Verifier/RobixVerifier.cpp
+)
+target_include_directories(RobixTestingAndVerifier PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/StdLib/Testing
+    ${CMAKE_CURRENT_SOURCE_DIR}/Tools/Verifier
+)
+target_link_libraries(RobixTestingAndVerifier PUBLIC RobixExecutionEngine RobixMemoryRuntime)
+
+# Stage 6 Conformance Test Executable
+add_executable(Stage6TestingAndVerifierTests
+    Tests/Compiler/Stage6TestingAndVerifierTests.cpp
+)
+target_link_libraries(Stage6TestingAndVerifierTests PRIVATE RobixTestingAndVerifier)
+add_test(NAME Stage6TestingAndVerifierTests COMMAND Stage6TestingAndVerifierTests)
+
+
 

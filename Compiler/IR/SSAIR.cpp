@@ -801,7 +801,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     Emit(std::move(pr));
                     return IRValue{ 0, MakePrim("Void") };
                 }
-                if ((fnName == "Assert" || fnName == "AssertTrue" || fnName == "AssertEqual") && !argIds.empty()) {
+                if ((fnName == "Assert" || fnName == "AssertTrue" || fnName == "AssertFalse" || fnName == "AssertEqual") && !argIds.empty()) {
                     IRInstruction asrt;
                     asrt.opcode     = IROpcode::AssertVal;
                     asrt.textImm    = fnName;
@@ -809,6 +809,26 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     asrt.location   = expr.location;
                     Emit(std::move(asrt));
                     return IRValue{ 0, MakePrim("Void") };
+                }
+                if (fnName == "Success") {
+                    IRInstruction res;
+                    res.opcode   = IROpcode::ConstString;
+                    res.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Result") };
+                    res.textImm  = "Success";
+                    res.location = expr.location;
+                    IRValue out  = res.dest;
+                    Emit(std::move(res));
+                    return out;
+                }
+                if (fnName == "Error") {
+                    IRInstruction res;
+                    res.opcode   = IROpcode::ConstString;
+                    res.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Result") };
+                    res.textImm  = "Error";
+                    res.location = expr.location;
+                    IRValue out  = res.dest;
+                    Emit(std::move(res));
+                    return out;
                 }
 
                 IRInstruction call;
@@ -826,6 +846,17 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
             if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left) {
                 const std::string& memberName = expr.left->text;
                 const auto& receiverExpr      = *expr.left->left;
+
+                // First-class Robix.Testing Assert.<Method>(...) lowering
+                if (receiverExpr.kind == Frontend::ExprKind::Identifier && receiverExpr.text == "Assert") {
+                    IRInstruction asrt;
+                    asrt.opcode     = IROpcode::AssertVal;
+                    asrt.textImm    = "Assert." + memberName;
+                    asrt.operandIds = std::move(argIds);
+                    asrt.location   = expr.location;
+                    Emit(std::move(asrt));
+                    return IRValue{ 0, MakePrim("Void") };
+                }
 
                 // Zero-cost OS-independent platform intrinsics (File, Thread, Time, GPIO)
                 if (receiverExpr.kind == Frontend::ExprKind::Identifier &&
