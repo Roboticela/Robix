@@ -143,6 +143,7 @@ private:
 
     std::unordered_map<std::string, SemanticClassInfo> m_classes;
     std::unordered_map<std::string, SemanticMethodInfo> m_globalFunctions;
+    std::unordered_map<std::string, std::vector<SemanticMethodInfo>> m_overloads;
     std::unordered_map<std::string, const DeclNode*> m_macros;
     std::vector<StreamFusionPipeline> m_fusedPipelines;
     std::vector<ScopeCleanupPlan> m_cleanupPlans;
@@ -171,6 +172,9 @@ private:
                                      SourceLocation loc);
     void ValidateCallArguments(const SemanticMethodInfo& callee,
                                const ExprNode& callExpr);
+    const SemanticMethodInfo* ResolveGlobalCall(const std::string& name,
+                                                std::size_t argc,
+                                                SourceLocation loc);
     void DetectStreamFusion(const ExprNode& callExpr);
     void CheckMemberAccessVisibility(const std::string& targetTypeName,
                                      const std::string& memberName,

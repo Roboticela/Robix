@@ -24,7 +24,25 @@ public Function RunFotonik3D(Int timeSteps) -> Float {
         hy1 = hy1 + 0.5 * (ez2 - ez1);
         hy2 = hy2 - 0.5 * ez2;
 
-        t = t + 2;
+        // Step 3: src = 1.0
+        Float nez3 = ez1 + 1.0;
+        ez0 = ez0 + 0.5 * hy0;
+        Float m3 = nez3 + 0.5 * (hy1 - hy0);
+        ez2 = ez2 + 0.5 * (hy2 - hy1);
+        hy0 = hy0 + 0.5 * (m3 - ez0);
+        hy1 = hy1 + 0.5 * (ez2 - m3);
+        hy2 = hy2 - 0.5 * ez2;
+
+        // Step 4: src = -1.0
+        Float nez4 = m3 - 1.0;
+        ez0 = ez0 + 0.5 * hy0;
+        ez1 = nez4 + 0.5 * (hy1 - hy0);
+        ez2 = ez2 + 0.5 * (hy2 - hy1);
+        hy0 = hy0 + 0.5 * (ez1 - ez0);
+        hy1 = hy1 + 0.5 * (ez2 - ez1);
+        hy2 = hy2 - 0.5 * ez2;
+
+        t = t + 4;
     }
 
     return ez0 + ez1 + ez2 + hy0 + hy1 + hy2;

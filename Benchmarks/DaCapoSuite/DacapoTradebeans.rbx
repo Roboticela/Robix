@@ -39,7 +39,36 @@ public Function RunTradebeansMarket(Int numTrades) -> Int {
             }
         }
 
-        i = i + 1;
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        Int orderSide2 = (seed / 65536) % 2;
+        Int price2 = 95 + ((seed / 16384) % 12);
+        Int qty2 = ((seed / 256) % 10) + 1;
+
+        if (orderSide2 == 0) {
+            if (price2 >= s0) {
+                totalExecutedVol = totalExecutedVol + qty2;
+                totalTurnover = totalTurnover + qty2 * s0;
+                if (totalTurnover >= 1000000007) {
+                    totalTurnover = totalTurnover - 1000000007;
+                }
+                s0 = s0 + 1;
+            } else {
+                b0 = price2;
+            }
+        } else {
+            if (price2 <= b0) {
+                totalExecutedVol = totalExecutedVol + qty2;
+                totalTurnover = totalTurnover + qty2 * b0;
+                if (totalTurnover >= 1000000007) {
+                    totalTurnover = totalTurnover - 1000000007;
+                }
+                b0 = b0 - 1;
+            } else {
+                s0 = price2;
+            }
+        }
+
+        i = i + 2;
     }
 
     return (totalTurnover + totalExecutedVol + b0 + s0) % 1000000007;

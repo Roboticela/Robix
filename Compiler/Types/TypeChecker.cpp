@@ -1,6 +1,7 @@
 #include "TypeChecker.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <sstream>
 
 namespace Robix::Frontend {
@@ -83,6 +84,9 @@ void TypeChecker::RegisterBuiltInTypesAndFunctions() {
     addBuiltInFn("AssertNear", { anyParam, anyParam, anyParam }, MakePrimitiveType("Void"));
     addBuiltInFn("Success", { anyParam }, MakePrimitiveType("Result"));
     addBuiltInFn("Error", { anyParam }, MakePrimitiveType("Result"));
+    addBuiltInFn("Some", { anyParam }, MakePrimitiveType("Option"));
+    addBuiltInFn("None", {}, MakePrimitiveType("Option"));
+    addBuiltInFn("Tuple", { anyParam, anyParam }, MakePrimitiveType("Tuple"));
 }
 
 const TypeDefinitionInfo* TypeChecker::FindTypeDefinition(const std::string& name) const {
@@ -241,7 +245,9 @@ void TypeChecker::ValidateNamingConventions(const DeclNode& decl) {
         decl.kind == DeclKind::Trait ||
         decl.kind == DeclKind::Service ||
         decl.kind == DeclKind::Function) {
-        if (!Spec::IsValidPascalCaseWithAcronyms(decl.name)) {
+        if (decl.isExtern) {
+            // C ABI names keep the spelling of the foreign symbol.
+        } else if (!Spec::IsValidPascalCaseWithAcronyms(decl.name)) {
             emitStyleDiag(
                 "L0002",
                 "Identifier '" + decl.name + "' violates Robix PascalCase and uppercase acronym naming rules.",
@@ -501,6 +507,32 @@ void TypeChecker::CheckFunctionOrMethod(DeclNode& decl, const std::string& enclo
     m_currentFunction = prevFunction;
 }
 
+bool NarrowIntegerLiteral(ExprNode& expr, const TypeNode& target) {
+    if (expr.kind != ExprKind::Literal || expr.token.kind != TokenKind::IntegerLiteral) return false;
+    if (target.isPointer || target.isNullable || target.baseName.empty()) return false;
+    if (expr.inferredType.baseName == target.baseName) return true;
+
+    std::string text = expr.text.empty() ? std::string(expr.token.lexeme) : expr.text;
+    text.erase(std::remove(text.begin(), text.end(), '_'), text.end());
+    char* end = nullptr;
+    const long long value = std::strtoll(text.c_str(), &end, 0);
+    if (end == text.c_str()) return false;
+
+    const std::string& b = target.baseName;
+    bool fits = false;
+    if (b == "Byte" || b == "UInt8") fits = value >= 0 && value <= 255;
+    else if (b == "Int8") fits = value >= -128 && value <= 127;
+    else if (b == "UInt16") fits = value >= 0 && value <= 65535;
+    else if (b == "Int16") fits = value >= -32768 && value <= 32767;
+    else if (b == "UInt32") fits = value >= 0 && value <= 4294967295LL;
+    else if (b == "Int32" || b == "Char") fits = value >= -2147483648LL && value <= 2147483647LL;
+    else if (b == "UInt" || b == "UInt64") fits = value >= 0;
+    else if (b == "Int" || b == "Int64") fits = true;
+    if (!fits) return false;
+    expr.inferredType = target;
+    return true;
+}
+
 void TypeChecker::CheckStatement(StmtNode& stmt) {
     switch (stmt.kind) {
         case StmtKind::Block: {
@@ -534,6 +566,9 @@ void TypeChecker::CheckStatement(StmtNode& stmt) {
                         stmt.declaredType = initType;
                     }
                 } else {
+                    if (NarrowIntegerLiteral(*stmt.initializer, stmt.declaredType)) {
+                        initType = stmt.initializer->inferredType;
+                    }
                     IsAssignable(stmt.declaredType, initType, stmt.location, stmt.varName);
                 }
             } else if (stmt.mutability == VarMutability::ImmutableLet || stmt.mutability == VarMutability::Constant) {
@@ -977,6 +1012,20 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                     return expr.inferredType;
                 }
 
+                if ((op == "+" || op == "-") &&
+                    (leftType.isPointer || leftType.baseName == "Pointer") &&
+                    IsIntegerType(rightType)) {
+                    if (m_unsafeDepth <= 0) {
+                        m_diagnostics.ReportError(
+                            "R1006",
+                            "Pointer arithmetic requires an explicit 'Unsafe { ... }' block.",
+                            expr.location,
+                            "Wrap pointer addition and subtraction in 'Unsafe { ... }'.");
+                    }
+                    expr.inferredType = leftType;
+                    return expr.inferredType;
+                }
+
                 if (leftType.isNullable || rightType.isNullable) {
                     m_diagnostics.ReportError(
                         "R1005",
@@ -1088,6 +1137,9 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 }
 
                 sym->isInitialized = true;
+                if (expr.right && NarrowIntegerLiteral(*expr.right, sym->type)) {
+                    rhsType = expr.right->inferredType;
+                }
                 if (!IsAssignable(sym->type, rhsType, expr.location, sym->name)) {
                     // Also tag R1004 specifically when a `var` variable is assigned an incompatible type
                     m_diagnostics.ReportError(
@@ -1165,6 +1217,21 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
 
             if (recvType.baseName == "Assert") {
                 expr.inferredType = MakePrimitiveType("Void");
+                return expr.inferredType;
+            }
+
+            if (recvType.baseName == "Result" || recvType.baseName == "Option") {
+                if (expr.text == "tag") {
+                    expr.inferredType = MakePrimitiveType("Int");
+                    return expr.inferredType;
+                }
+                if (expr.text == "value") {
+                    expr.inferredType = recvType.typeArgs.empty() ? MakePrimitiveType("Int") : recvType.typeArgs[0];
+                    return expr.inferredType;
+                }
+            }
+            if (recvType.baseName == "Tuple" && (expr.text == "t0" || expr.text == "t1")) {
+                expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }
 
@@ -1282,6 +1349,12 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             if (expr.right) {
                 CheckExpression(*expr.right);
             }
+            if (expr.right && expr.right->kind == ExprKind::Range) {
+                TypeNode slice = containerType;
+                if (slice.baseName.empty()) slice.baseName = "Array";
+                expr.inferredType = slice;
+                return expr.inferredType;
+            }
             if (!containerType.typeArgs.empty()) {
                 expr.inferredType = containerType.typeArgs.back();
             } else {
@@ -1367,7 +1440,9 @@ bool TypeChecker::IsAssignable(const TypeNode& target,
     }
 
     // Result<T, E> compatibility with Success(...) / Error(...)
-    if (target.baseName == "Result" && valueType.baseName == "Result") {
+    if ((target.baseName == "Result" && valueType.baseName == "Result") ||
+        (target.baseName == "Option" && valueType.baseName == "Option") ||
+        (target.baseName == "Tuple" && valueType.baseName == "Tuple")) {
         return true;
     }
 

@@ -87,7 +87,7 @@ TokenKind ResolveKeyword(std::string_view text) noexcept {
     if (text == "using") return TokenKind::KwUsing;
     if (text == "Unsafe") return TokenKind::KwUnsafe;
     if (text == "ASM") return TokenKind::KwASM;
-    if (text == "Extern") return TokenKind::KwExtern;
+    if (text == "Extern" || text == "extern") return TokenKind::KwExtern;
     if (text == "Service") return TokenKind::KwService;
     if (text == "Implement") return TokenKind::KwImplement;
     if (text == "Connect") return TokenKind::KwConnect;

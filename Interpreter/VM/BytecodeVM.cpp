@@ -1,9 +1,61 @@
 #include "BytecodeVM.hpp"
 #include "../../Compiler/Types/SpecValidator.hpp"
 
+#include <cstdio>
+#include <cstdlib>
 #include <sstream>
 
 namespace Robix::VM {
+
+namespace {
+
+[[noreturn]] void Fail(const char* message) {
+    std::fputs(message, stderr);
+    std::fputc('\n', stderr);
+    std::abort();
+}
+
+std::shared_ptr<VMObjectInstance> AsObj(const VMValue& value) {
+    if (!value.IsObject()) return nullptr;
+    return std::get<std::shared_ptr<VMObjectInstance>>(value.data);
+}
+
+std::int64_t ReadPointee(const VMObjectInstance& obj) {
+    if (obj.cell) return obj.cell->AsInt();
+    if (!obj.buffer || obj.buffer->freed) Fail("robix vm: use after free");
+    const int width = obj.width <= 0 ? 1 : obj.width;
+    if (obj.index < 0 || obj.index + width > static_cast<std::int64_t>(obj.buffer->bytes.size())) {
+        Fail("robix vm: pointer out of bounds");
+    }
+    std::uint64_t bits = 0;
+    for (int i = 0; i < width; ++i) {
+        bits |= static_cast<std::uint64_t>(obj.buffer->bytes[static_cast<std::size_t>(obj.index + i)]) << (8 * i);
+    }
+    if (obj.signedPointee && width < 8) {
+        const std::uint64_t sign = 1ull << (width * 8 - 1);
+        if (bits & sign) bits |= ~((1ull << (width * 8)) - 1);
+    }
+    return static_cast<std::int64_t>(bits);
+}
+
+void WritePointee(VMObjectInstance& obj, std::int64_t value) {
+    if (obj.cell) {
+        *obj.cell = VMValue{ value };
+        return;
+    }
+    if (!obj.buffer || obj.buffer->freed) Fail("robix vm: use after free");
+    const int width = obj.width <= 0 ? 1 : obj.width;
+    if (obj.index < 0 || obj.index + width > static_cast<std::int64_t>(obj.buffer->bytes.size())) {
+        Fail("robix vm: pointer out of bounds");
+    }
+    auto bits = static_cast<std::uint64_t>(value);
+    for (int i = 0; i < width; ++i) {
+        obj.buffer->bytes[static_cast<std::size_t>(obj.index + i)] =
+            static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFu);
+    }
+}
+
+} // namespace
 
 std::string VMValue::ToString() const {
     if (IsInt()) {
@@ -41,6 +93,12 @@ std::vector<std::string> BytecodeVM::GetHotJITCandidateFunctions() const {
 }
 
 VMValue BytecodeVM::ExecuteFunction(std::string_view fnName, const std::vector<VMValue>& args) {
+    if (fnName == "puts") {
+        if (!args.empty()) {
+            std::puts(args[0].ToString().c_str());
+        }
+        return VMValue{ std::int64_t{ 0 } };
+    }
     const BytecodeChunk* chunk = m_module.FindChunk(fnName);
     if (!chunk) {
         return VMValue{};
@@ -85,6 +143,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
 
     std::unordered_map<std::uint32_t, VMValue> regs;
     std::unordered_map<std::string, VMValue> locals;
+    std::unordered_map<std::string, std::shared_ptr<VMValue>> cells;
 
     // Bind `this` if executing a class method where arg[0] is an object
     std::size_t paramStartIdx = 0;
@@ -268,6 +327,9 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
             case BCOpcode::AllocObj: {
                 auto obj = std::make_shared<VMObjectInstance>();
                 obj->className = inst.symbolImm;
+                if (inst.symbolImm == "Array") {
+                    obj->fields["len"] = VMValue{ inst.intImm };
+                }
                 VMValue objVal{ obj };
                 regs[inst.destReg] = objVal;
 
@@ -289,6 +351,9 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
 
             case BCOpcode::StoreVar:
                 locals[inst.symbolImm] = regs[inst.srcReg1];
+                if (auto it = cells.find(inst.symbolImm); it != cells.end() && it->second) {
+                    *it->second = locals[inst.symbolImm];
+                }
                 break;
 
             case BCOpcode::GetField: {
@@ -327,7 +392,23 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
             }
 
             case BCOpcode::CallOSIntrinsic: {
-                if (inst.symbolImm == "File.WriteText" && inst.callArgRegs.size() >= 2) {
+                if (inst.symbolImm == "Memory.Allocate" && !inst.callArgRegs.empty()) {
+                    const std::int64_t bytes = regs[inst.callArgRegs[0]].AsInt();
+                    if (bytes < 0) Fail("robix vm: negative allocation");
+                    auto obj = std::make_shared<VMObjectInstance>();
+                    obj->className = "Mem";
+                    obj->buffer = std::make_shared<VMBuffer>();
+                    obj->buffer->bytes.assign(static_cast<std::size_t>(bytes), 0);
+                    obj->width = 1;
+                    obj->signedPointee = false;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ obj };
+                } else if (inst.symbolImm == "Memory.Free" && !inst.callArgRegs.empty()) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (!obj || !obj->buffer) Fail("robix vm: Memory.Free requires an allocated pointer");
+                    if (obj->buffer->freed) Fail("robix vm: double free");
+                    obj->buffer->freed = true;
+                    obj->buffer->bytes.clear();
+                } else if (inst.symbolImm == "File.WriteText" && inst.callArgRegs.size() >= 2) {
                     const std::string path    = regs[inst.callArgRegs[0]].ToString();
                     const std::string content = regs[inst.callArgRegs[1]].ToString();
                     m_virtualFileSystem[path] = content;
@@ -406,6 +487,96 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
 
             case BCOpcode::ReturnVoid:
                 return VMValue{};
+
+            case BCOpcode::LoadIndex: {
+                auto obj = AsObj(regs[inst.srcReg1]);
+                if (!obj) Fail("robix vm: index of a non-array");
+                const std::int64_t index = regs[inst.srcReg2].AsInt();
+                const std::int64_t len = obj->fields["len"].AsInt();
+                if (index < 0 || index >= len) Fail("robix vm: index out of bounds");
+                regs[inst.destReg] = obj->fields[std::to_string(index)];
+                break;
+            }
+
+            case BCOpcode::StoreIndex: {
+                if (inst.callArgRegs.size() < 3) Fail("robix vm: malformed store index");
+                auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                if (!obj) Fail("robix vm: index of a non-array");
+                const std::int64_t index = regs[inst.callArgRegs[1]].AsInt();
+                const std::int64_t len = obj->fields["len"].AsInt();
+                if (index < 0 || index >= len) Fail("robix vm: index out of bounds");
+                obj->fields[std::to_string(index)] = regs[inst.callArgRegs[2]];
+                break;
+            }
+
+            case BCOpcode::AddrOf: {
+                auto obj = std::make_shared<VMObjectInstance>();
+                obj->className = "Ptr";
+                if (!cells[inst.symbolImm]) {
+                    cells[inst.symbolImm] = std::make_shared<VMValue>(locals[inst.symbolImm]);
+                }
+                obj->cell = cells[inst.symbolImm];
+                obj->width = inst.intImm <= 0 ? 8 : static_cast<int>(inst.intImm);
+                obj->signedPointee = inst.boolImm;
+                regs[inst.destReg] = VMValue{ obj };
+                break;
+            }
+
+            case BCOpcode::PtrLoad: {
+                auto obj = AsObj(regs[inst.srcReg1]);
+                if (!obj) Fail("robix vm: dereference of a non-pointer");
+                obj->width = inst.intImm <= 0 ? obj->width : static_cast<int>(inst.intImm);
+                obj->signedPointee = inst.boolImm;
+                regs[inst.destReg] = VMValue{ ReadPointee(*obj) };
+                break;
+            }
+
+            case BCOpcode::PtrStore: {
+                auto obj = AsObj(regs[inst.srcReg1]);
+                if (!obj) Fail("robix vm: dereference of a non-pointer");
+                obj->width = inst.intImm <= 0 ? obj->width : static_cast<int>(inst.intImm);
+                obj->signedPointee = inst.boolImm;
+                WritePointee(*obj, regs[inst.srcReg2].AsInt());
+                if (obj->cell) {
+                    for (auto& entry : cells) {
+                        if (entry.second == obj->cell) locals[entry.first] = *obj->cell;
+                    }
+                }
+                break;
+            }
+
+            case BCOpcode::PtrOffset: {
+                auto obj = AsObj(regs[inst.srcReg1]);
+                if (!obj) Fail("robix vm: pointer arithmetic on a non-pointer");
+                const std::int64_t scale = inst.intImm <= 0 ? 1 : inst.intImm;
+                const std::int64_t delta = regs[inst.srcReg2].AsInt() * scale;
+                if (obj->cell && delta != 0) Fail("robix vm: cannot offset the address of a local");
+                auto copy = std::make_shared<VMObjectInstance>(*obj);
+                copy->index += delta;
+                copy->width = static_cast<int>(scale);
+                copy->signedPointee = inst.boolImm;
+                regs[inst.destReg] = VMValue{ copy };
+                break;
+            }
+
+            case BCOpcode::SliceCopy: {
+                if (inst.callArgRegs.size() < 3) Fail("robix vm: malformed slice");
+                auto src = AsObj(regs[inst.callArgRegs[0]]);
+                if (!src) Fail("robix vm: slice of a non-array");
+                std::int64_t start = regs[inst.callArgRegs[1]].AsInt();
+                std::int64_t end = regs[inst.callArgRegs[2]].AsInt();
+                if (inst.intImm != 0) end += 1;
+                const std::int64_t len = src->fields["len"].AsInt();
+                if (start < 0 || end < start || end > len) Fail("robix vm: slice out of bounds");
+                auto dst = std::make_shared<VMObjectInstance>();
+                dst->className = "Array";
+                dst->fields["len"] = VMValue{ end - start };
+                for (std::int64_t i = 0; i < end - start; ++i) {
+                    dst->fields[std::to_string(i)] = src->fields[std::to_string(start + i)];
+                }
+                regs[inst.destReg] = VMValue{ dst };
+                break;
+            }
         }
     }
 

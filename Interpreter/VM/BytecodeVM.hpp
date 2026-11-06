@@ -11,9 +11,19 @@
 
 namespace Robix::VM {
 
+struct VMBuffer {
+    std::vector<std::uint8_t> bytes;
+    bool freed = false;
+};
+
 struct VMObjectInstance {
     std::string className;
     std::unordered_map<std::string, struct VMValue> fields;
+    std::shared_ptr<struct VMValue> cell;
+    std::shared_ptr<VMBuffer> buffer;
+    std::int64_t index = 0;
+    int width = 8;
+    bool signedPointee = false;
 };
 
 struct VMValue {

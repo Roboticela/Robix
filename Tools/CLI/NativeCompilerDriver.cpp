@@ -185,17 +185,62 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
         return res;
     }
 
+    // Release IR uses wrapping integer arithmetic. Run LLVM's O3 pipeline, then
+    // reassociate once more: the first reassociate runs before instcombine folds
+    // (x * C1 + C2) * C3, and loop unrolling copies the unreduced add chain.
+    // A late reassociate pulls constants off the accumulator dependency chain.
+    // SLP vectorization is disabled: it packs short scalar reductions (4-wide
+    // conjugate gradient, n-body) into horizontal SIMD that is slower than scalar FMA.
+    fs::path codegenInput = llPath;
+    fs::path optIR = llPath;
+    optIR.replace_extension(".opt.ll");
+    fs::path reassocIR = llPath;
+    reassocIR.replace_extension(".reassoc.ll");
+    const fs::path optExe = fs::path(clang).parent_path() / "opt.exe";
+    if (options.release && FileExists(optExe)) {
+        std::string optLog;
+        std::ostringstream optCmd;
+        // Horizontal SLP reductions pack independent scalar FMAs into a
+        // shuffle-heavy tree (conjugate gradient, n-body). Vertical SLP still
+        // packs adjacent integer operations, which is what wins on EP.
+        optCmd << Quote(optExe.string()) << " -S -O3 -vectorize-slp=true -slp-vectorize-hor=false "
+               << Quote(llPath.string()) << " -o " << Quote(optIR.string());
+        if (RunProcess(optCmd.str(), optLog) == 0 && FileExists(optIR)) {
+            std::ostringstream reCmd;
+            reCmd << Quote(optExe.string())
+                  << " -S -passes=reassociate,instcombine,simplifycfg "
+                  << Quote(optIR.string()) << " -o " << Quote(reassocIR.string());
+            if (RunProcess(reCmd.str(), optLog) == 0 && FileExists(reassocIR)) {
+                codegenInput = reassocIR;
+            } else {
+                codegenInput = optIR;
+            }
+        }
+    }
+
     std::ostringstream cmd;
     cmd << Quote(clang);
     if (options.release) {
-        cmd << " -O3 -march=native -ffast-math -funroll-loops -finline-functions -mllvm -inline-threshold=5000 -mllvm -vectorize-loops -mllvm -vectorize-slp ";
+        // opt already applied vertical SLP. A second SLP pass here would
+        // rebuild the horizontal reductions that pass rejected.
+        // 32-byte loop alignment keeps tight loops (Collatz, perlbench) off
+        // the Kaby Lake 32-byte boundary penalty. Branch padding matches the
+        // assembler mitigation Clang applies to -march=native C.
+        cmd << " -O3 -march=native -fno-slp-vectorize "
+            << "-mllvm -x86-align-branch-boundary=32 -mllvm -x86-align-branch=fused+jcc+jmp "
+            << "-mllvm -x86-experimental-pref-innermost-loop-alignment=5 ";
     } else {
         cmd << " -O0 ";
     }
     cmd << "-fms-runtime-lib=static -Wno-override-module "
-        << Quote(runtimeObj) << " " << Quote(llPath.string()) << " -o " << Quote(exePath.string());
+        << Quote(runtimeObj) << " " << Quote(codegenInput.string()) << " -o " << Quote(exePath.string());
 
     const int code = RunProcess(cmd.str(), res.toolOutput);
+    {
+        std::error_code ec;
+        fs::remove(optIR, ec);
+        fs::remove(reassocIR, ec);
+    }
     if (!options.keepLLVMIR) {
         std::error_code ec;
         fs::remove(llPath, ec);

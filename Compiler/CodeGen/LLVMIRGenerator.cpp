@@ -6,7 +6,7 @@ namespace Robix::CodeGen {
 
 std::string_view GetLLVMTargetTriple(TargetPlatform target) noexcept {
     switch (target) {
-        case TargetPlatform::WindowsX64:  return "x86_64-pc-windows-msvc";
+        case TargetPlatform::WindowsX64:  return "x86_64-pc-windows-msvc19.43.34809";
         case TargetPlatform::LinuxX64:    return "x86_64-unknown-linux-gnu";
         case TargetPlatform::LinuxARM64:  return "aarch64-unknown-linux-gnu";
         case TargetPlatform::MacOSARM64:  return "arm64-apple-macos14.0";

@@ -49,7 +49,14 @@ enum class BCOpcode : std::uint8_t {
     ReturnReg,
     ReturnVoid,
     DeferCleanup,
-    InlineASM
+    InlineASM,
+    LoadIndex,
+    StoreIndex,
+    AddrOf,
+    PtrLoad,
+    PtrStore,
+    PtrOffset,
+    SliceCopy
 };
 
 struct BCInstruction {

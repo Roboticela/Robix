@@ -177,6 +177,7 @@ void SemanticAnalyzer::CollectAndMergeTypesAndFunctions(const CompilationUnitAST
                         "Provide 1 or 2 parameters and a valid return type for '" + decl.name + "'.");
                 }
             }
+            m_overloads[decl.name].push_back(fnInfo);
             m_globalFunctions[decl.name] = std::move(fnInfo);
             continue;
         }
@@ -720,7 +721,7 @@ void SemanticAnalyzer::AnalyzeExpression(const ExprNode& expr, bool isDiscardedS
             // Resolve target function or method metadata
             const SemanticMethodInfo* calleeMeta = nullptr;
             if (expr.left && expr.left->kind == ExprKind::Identifier) {
-                calleeMeta = FindGlobalFunction(expr.left->text);
+                calleeMeta = ResolveGlobalCall(expr.left->text, expr.arguments.size(), expr.location);
                 if (!calleeMeta && !m_currentClass.empty()) {
                     if (const auto* cls = FindClassOrType(m_currentClass)) {
                         auto mIt = cls->methods.find(expr.left->text);
@@ -871,6 +872,38 @@ void SemanticAnalyzer::CheckMemberAccessVisibility(const std::string& targetType
             loc,
             "Use a public accessor method or adjust the visibility of '" + memberName + "'.");
     }
+}
+
+const SemanticMethodInfo* SemanticAnalyzer::ResolveGlobalCall(const std::string& name,
+                                                               std::size_t argc,
+                                                               SourceLocation loc) {
+    auto it = m_overloads.find(name);
+    if (it == m_overloads.end() || it->second.empty()) {
+        return FindGlobalFunction(name);
+    }
+    const SemanticMethodInfo* match = nullptr;
+    int matches = 0;
+    for (const auto& sig : it->second) {
+        bool variadic = false;
+        for (const auto& p : sig.parameters) {
+            if (p.isVariadic) variadic = true;
+        }
+        if (variadic || sig.parameters.size() == argc) {
+            match = &sig;
+            ++matches;
+        }
+    }
+    if (matches > 1) {
+        m_diagnostics.ReportError(
+            "R2010",
+            "Call to '" + name + "' matches " + std::to_string(matches) + " overloads with " +
+                std::to_string(argc) + " argument(s).",
+            loc,
+            "Change the argument list so only one overload applies.");
+        return nullptr;
+    }
+    if (matches == 1) return match;
+    return FindGlobalFunction(name);
 }
 
 void SemanticAnalyzer::ValidateCallArguments(const SemanticMethodInfo& callee, const ExprNode& callExpr) {

@@ -14,6 +14,7 @@ bool IRPassManager::VerifyIRModule(const IRModule& mod) {
     bool valid = true;
 
     for (const auto& fn : mod.functions) {
+        if (fn.isExtern) continue;
         if (fn.blocks.empty()) {
             m_diagnostics.ReportError(
                 "I4001",

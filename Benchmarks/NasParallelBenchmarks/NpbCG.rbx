@@ -7,6 +7,7 @@ public Function RunCG(Int numIters) -> Float {
 
     Int iter = 0;
     while (iter < numIters) {
+        // Step 1
         Float q0 = 3.0 * p0 - p1;
         Float q1 = 3.0 * p1 - p0 - p2;
         Float q2 = 3.0 * p2 - p1 - p3;
@@ -34,7 +35,35 @@ public Function RunCG(Int numIters) -> Float {
         p2 = r2 + beta * p2;
         p3 = r3 + beta * p3;
 
-        iter = iter + 1;
+        // Step 2
+        Float q0B = 3.0 * p0 - p1;
+        Float q1B = 3.0 * p1 - p0 - p2;
+        Float q2B = 3.0 * p2 - p1 - p3;
+        Float q3B = 3.0 * p3 - p2;
+
+        Float ddotB = p0 * q0B + p1 * q1B + p2 * q2B + p3 * q3B;
+        Float rhoB = r0 * r0 + r1 * r1 + r2 * r2 + r3 * r3;
+        Float alphaB = rhoB / (ddotB + 0.0001);
+
+        x0 = x0 + alphaB * p0;
+        x1 = x1 + alphaB * p1;
+        x2 = x2 + alphaB * p2;
+        x3 = x3 + alphaB * p3;
+
+        r0 = r0 - alphaB * q0B;
+        r1 = r1 - alphaB * q1B;
+        r2 = r2 - alphaB * q2B;
+        r3 = r3 - alphaB * q3B;
+
+        Float rhoNextB = r0 * r0 + r1 * r1 + r2 * r2 + r3 * r3;
+        Float betaB = rhoNextB / (rhoB + 0.0001);
+
+        p0 = r0 + betaB * p0;
+        p1 = r1 + betaB * p1;
+        p2 = r2 + betaB * p2;
+        p3 = r3 + betaB * p3;
+
+        iter = iter + 2;
     }
 
     return x0 + x1 + x2 + x3 + r0 + r1 + r2 + r3;

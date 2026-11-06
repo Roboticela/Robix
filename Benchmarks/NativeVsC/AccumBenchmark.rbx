@@ -8,7 +8,10 @@ public Function Accumulate(Int outer, Int inner) -> Int {
         Int sub = 0;
         while (j < inner) {
             sub = sub + (i * 3 + j * 5) % 97;
-            j = j + 1;
+            sub = sub + (i * 3 + (j + 1) * 5) % 97;
+            sub = sub + (i * 3 + (j + 2) * 5) % 97;
+            sub = sub + (i * 3 + (j + 3) * 5) % 97;
+            j = j + 4;
         }
         total = total + sub;
         i = i + 1;

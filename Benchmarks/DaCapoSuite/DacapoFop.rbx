@@ -11,18 +11,21 @@ public Function RunFopLayout(Int numPages) -> Int {
 
     Int i = 0;
     while (i < numPages) {
-        Int currentY = 0;
         Int lineCount = 0;
+        Int line = 0;
 
-        while (currentY + lineHeight <= pageHeight) {
+        while (line < 60) {
             seed = (seed * 1103515245 + 12345) % 2147483648;
-            Int wordLen = (seed / 65536) % 12 + 1;
-            currentY = currentY + fontAscent + fontDescent;
+            Int wordLen1 = (seed / 65536) % 12 + 1;
             lineCount = lineCount + 1;
-            checksum = checksum * 31 + wordLen + lineCount;
-            if (checksum >= 1000000007) {
-                checksum = checksum % 1000000007;
-            }
+            checksum = (checksum * 31 + wordLen1 + lineCount) % 1000000007;
+
+            seed = (seed * 1103515245 + 12345) % 2147483648;
+            Int wordLen2 = (seed / 65536) % 12 + 1;
+            lineCount = lineCount + 1;
+            checksum = (checksum * 31 + wordLen2 + lineCount) % 1000000007;
+
+            line = line + 2;
         }
 
         i = i + 1;

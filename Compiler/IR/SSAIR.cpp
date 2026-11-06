@@ -1,6 +1,7 @@
 #include "SSAIR.hpp"
 #include "../Types/SpecValidator.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 
@@ -51,6 +52,24 @@ Frontend::TypeNode MakePrim(const std::string& name) {
     return t;
 }
 
+int PointeeBytes(const Frontend::TypeNode& ptr) {
+    if (ptr.typeArgs.empty()) return 8;
+    const std::string& b = ptr.typeArgs[0].baseName;
+    if (b == "Byte" || b == "Int8" || b == "UInt8" || b == "Bool") return 1;
+    if (b == "Int16" || b == "UInt16") return 2;
+    if (b == "Int32" || b == "UInt32" || b == "Char" || b == "Float32") return 4;
+    return 8;
+}
+
+bool PointeeSigned(const Frontend::TypeNode& ptr) {
+    if (ptr.typeArgs.empty()) return true;
+    const std::string& b = ptr.typeArgs[0].baseName;
+    if (b == "Byte" || b == "UInt8" || b == "UInt16" || b == "UInt32" || b == "UInt64" || b == "UInt" || b == "Bool") {
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 std::string_view IROpcodeToString(IROpcode op) noexcept {
@@ -93,6 +112,13 @@ std::string_view IROpcodeToString(IROpcode op) noexcept {
         case IROpcode::ReturnVoid:      return "ret.void";
         case IROpcode::DeferCleanup:    return "defer.cleanup";
         case IROpcode::InlineASM:       return "inline.asm";
+        case IROpcode::LoadIndex:       return "load.index";
+        case IROpcode::StoreIndex:      return "store.index";
+        case IROpcode::AddrOf:          return "addr";
+        case IROpcode::PtrLoad:         return "ptr.load";
+        case IROpcode::PtrStore:        return "ptr.store";
+        case IROpcode::PtrOffset:       return "ptr.offset";
+        case IROpcode::SliceCopy:       return "slice.copy";
     }
     return "unknown";
 }
@@ -189,10 +215,146 @@ void SSAIRBuilder::Emit(IRInstruction inst) {
     }
 }
 
+void SSAIRBuilder::NoteSig(const Frontend::DeclNode& decl, const std::string& enclosing) {
+    if (decl.kind != Frontend::DeclKind::Function && decl.kind != Frontend::DeclKind::Constructor) {
+        return;
+    }
+    FnSig sig;
+    sig.decl       = &decl;
+    sig.sourceName = decl.name;
+    sig.arity      = static_cast<int>(decl.parameters.size());
+    sig.isExtern   = decl.isExtern;
+    sig.irName     = enclosing.empty() ? decl.name : (enclosing + "." + decl.name);
+
+    std::string paramCodes;
+    for (const auto& p : decl.parameters) {
+        Spec::PrimitiveKind pk{};
+        if (Spec::TryResolvePrimitiveName(p.type.baseName, pk)) {
+            paramCodes += Spec::GetPrimitiveLayout(pk).mangleCode;
+        } else {
+            paramCodes += "v";
+        }
+    }
+    std::string retCode = "v";
+    Spec::PrimitiveKind retPk{};
+    if (Spec::TryResolvePrimitiveName(decl.returnType.baseName, retPk)) {
+        retCode = std::string(Spec::GetPrimitiveLayout(retPk).mangleCode);
+    }
+    sig.mangled = sig.isExtern
+        ? decl.name
+        : Spec::MangleRobixSymbol(m_package, enclosing, decl.name, paramCodes, retCode);
+    m_sigs.push_back(std::move(sig));
+}
+
+void SSAIRBuilder::CollectSigs(const Frontend::CompilationUnitAST& unit) {
+    m_sigs.clear();
+    m_package = unit.packageName.empty() ? "Default" : unit.packageName;
+
+    for (const auto& declPtr : unit.declarations) {
+        if (!declPtr) continue;
+        const auto& decl = *declPtr;
+        if (decl.kind == Frontend::DeclKind::Function) {
+            NoteSig(decl, "");
+        } else if (decl.kind == Frontend::DeclKind::Class || decl.kind == Frontend::DeclKind::Struct) {
+            for (const auto& memberPtr : decl.members) {
+                if (memberPtr) NoteSig(*memberPtr, decl.name);
+            }
+        }
+    }
+
+    std::unordered_map<std::string, int> counts;
+    for (const auto& sig : m_sigs) {
+        counts[sig.irName] += 1;
+    }
+    for (auto& sig : m_sigs) {
+        if (counts[sig.irName] > 1) {
+            sig.irName += "/" + std::to_string(sig.arity);
+        }
+    }
+}
+
+const SSAIRBuilder::FnSig* SSAIRBuilder::FindSig(const Frontend::DeclNode* decl) const {
+    for (const auto& sig : m_sigs) {
+        if (sig.decl == decl) return &sig;
+    }
+    return nullptr;
+}
+
+std::string SSAIRBuilder::ResolveCallable(const std::string& name, int arity, const Frontend::SourceLocation& loc) {
+    const FnSig* found = nullptr;
+    int matches = 0;
+    const std::string overload = name + "/" + std::to_string(arity);
+    for (const auto& sig : m_sigs) {
+        if (sig.sourceName == name && sig.arity == arity && (sig.irName == name || sig.irName == overload)) {
+            found = &sig;
+            ++matches;
+        }
+    }
+    if (matches > 1) {
+        m_diagnostics.ReportError(
+            "I4012",
+            "Call to '" + name + "' is ambiguous for " + std::to_string(arity) + " argument(s).",
+            loc,
+            "Give the overloads different names or different parameter lists.");
+    }
+    return (matches == 1 && found) ? found->irName : name;
+}
+
+bool SSAIRBuilder::IsRefType(const Frontend::TypeNode& type) const {
+    if (type.isPointer) return true;
+    const std::string& b = type.baseName;
+    if (b == "Pointer" || b == "Array" || b == "Slice" || b == "String" ||
+        b == "Result" || b == "Option" || b == "Tuple") {
+        return true;
+    }
+    if (const auto* cls = m_sema.FindClassOrType(b)) {
+        return cls->kind == Frontend::DeclKind::Struct || cls->kind == Frontend::DeclKind::Class;
+    }
+    return false;
+}
+
+std::string SSAIRBuilder::SlotTypeName(const Frontend::TypeNode& type) const {
+    if (IsRefType(type)) return "Pointer";
+    if (type.baseName.empty()) return "Int";
+    return type.baseName;
+}
+
+int SSAIRBuilder::FieldSlot(const std::string& typeName, const std::string& field) const {
+    if (const auto* cls = m_sema.FindClassOrType(typeName)) {
+        std::vector<std::string> names;
+        names.reserve(cls->fields.size());
+        for (const auto& entry : cls->fields) {
+            names.push_back(entry.first);
+        }
+        std::sort(names.begin(), names.end());
+        for (std::size_t i = 0; i < names.size(); ++i) {
+            if (names[i] == field) return static_cast<int>(i);
+        }
+    }
+    if (field == "tag" || field == "t0") return 0;
+    if (field == "value" || field == "t1") return 1;
+    return 0;
+}
+
+IRValue SSAIRBuilder::EmitAggregate(const std::string& kind, std::int64_t slots, Frontend::TypeNode type) {
+    m_currentFn->usesHeapOrGC = true;
+    if (type.baseName.empty()) type.baseName = kind;
+    type.isPointer = true;
+    IRInstruction alloc;
+    alloc.opcode   = IROpcode::AllocHeap;
+    alloc.dest     = IRValue{ m_currentFn->AllocateSSAId(), type };
+    alloc.textImm  = kind;
+    alloc.intImm   = slots < 1 ? 1 : slots;
+    IRValue out    = alloc.dest;
+    Emit(std::move(alloc));
+    return out;
+}
+
 IRModule SSAIRBuilder::LowerCompilationUnit(const Frontend::CompilationUnitAST& unit) {
     IRModule mod;
     mod.moduleName  = unit.fileName;
     mod.packageName = unit.packageName.empty() ? "Default" : unit.packageName;
+    CollectSigs(unit);
 
     for (const auto& declPtr : unit.declarations) {
         if (!declPtr) continue;
@@ -232,7 +394,8 @@ IRModule SSAIRBuilder::LowerCompilationUnit(const Frontend::CompilationUnitAST& 
 void SSAIRBuilder::LowerFunctionOrMethod(const Frontend::DeclNode& decl,
                                          const std::string& enclosingClass,
                                          IRModule& outModule) {
-    if (!decl.body) {
+    const FnSig* sig = FindSig(&decl);
+    if (!decl.body && !(sig && sig->isExtern)) {
         return; // Skip bodyless interface/abstract declarations
     }
 
@@ -241,13 +404,16 @@ void SSAIRBuilder::LowerFunctionOrMethod(const Frontend::DeclNode& decl,
     fn.enclosingClassName = enclosingClass;
     fn.returnType         = decl.returnType.IsEmpty() ? MakePrim("Void") : decl.returnType;
     fn.location           = decl.location;
+    if (IsRefType(fn.returnType)) fn.returnType.isPointer = true;
 
     (void)m_diagnostics;
     std::string paramCodes;
     for (const auto& p : decl.parameters) {
+        Frontend::TypeNode pty = p.type.IsEmpty() ? MakePrim("Int") : p.type;
+        if (IsRefType(pty)) pty.isPointer = true;
         fn.parameters.push_back(Frontend::FunctionParamInfo{
             p.name,
-            p.type.IsEmpty() ? MakePrim("Int") : p.type,
+            pty,
             p.defaultValue != nullptr,
             p.isMutable,
             p.isVariadic
@@ -272,11 +438,21 @@ void SSAIRBuilder::LowerFunctionOrMethod(const Frontend::DeclNode& decl,
         decl.name,
         paramCodes,
         retCode);
+    if (sig) {
+        fn.name        = sig->irName;
+        fn.mangledName = sig->mangled;
+        fn.isExtern    = sig->isExtern;
+    }
 
     for (const auto& attr : decl.attributes) {
         if (attr.name == "RealTime") {
             fn.isRealTime = true;
         }
+    }
+
+    if (!decl.body) {
+        outModule.functions.push_back(std::move(fn));
+        return;
     }
 
     outModule.functions.push_back(std::move(fn));
@@ -336,6 +512,12 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             IRValue initVal{};
             if (stmt.initializer) {
                 initVal = LowerExpr(*stmt.initializer);
+            } else if (IsRefType(stmt.declaredType)) {
+                int slots = 1;
+                if (const auto* cls = m_sema.FindClassOrType(stmt.declaredType.baseName)) {
+                    slots = std::max(1, static_cast<int>(cls->fields.size()));
+                }
+                initVal = EmitAggregate(stmt.declaredType.baseName, slots, stmt.declaredType);
             } else {
                 IRInstruction zero;
                 zero.opcode   = IROpcode::ConstInt;
@@ -349,7 +531,7 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             IRInstruction store;
             store.opcode      = IROpcode::StoreVar;
             store.textImm     = stmt.varName;
-            store.secondaryText = stmt.declaredType.IsEmpty() ? std::string{} : stmt.declaredType.baseName;
+            store.secondaryText = SlotTypeName(stmt.declaredType.IsEmpty() ? initVal.type : stmt.declaredType);
             store.operandIds  = { initVal.ssaId };
             store.location    = stmt.location;
             Emit(std::move(store));
@@ -1015,12 +1197,38 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 return isPostfix ? oldVal : newVal;
             }
 
+            if (uop == "&" && expr.left && expr.left->kind == Frontend::ExprKind::Identifier) {
+                IRInstruction addr;
+                addr.opcode   = IROpcode::AddrOf;
+                addr.dest     = IRValue{ m_currentFn->AllocateSSAId(), expr.inferredType };
+                addr.textImm  = expr.left->text;
+                addr.intImm   = PointeeBytes(expr.inferredType);
+                addr.boolImm  = PointeeSigned(expr.inferredType);
+                addr.location = expr.location;
+                IRValue out   = addr.dest;
+                Emit(std::move(addr));
+                return out;
+            }
+            if (uop == "*" && expr.left) {
+                IRValue ptr = LowerExpr(*expr.left);
+                IRInstruction load;
+                load.opcode     = IROpcode::PtrLoad;
+                load.dest       = IRValue{ m_currentFn->AllocateSSAId(), expr.inferredType.IsEmpty() ? MakePrim("Int") : expr.inferredType };
+                load.operandIds = { ptr.ssaId };
+                load.intImm     = PointeeBytes(expr.left->inferredType);
+                load.boolImm    = PointeeSigned(expr.left->inferredType);
+                load.location   = expr.location;
+                IRValue out     = load.dest;
+                Emit(std::move(load));
+                return out;
+            }
+
             if (uop != "!" && uop != "-" && uop != "+") {
                 m_diagnostics.ReportError(
                     "I4011",
                     "Unary operator '" + uop + "' is not yet supported by the SSA IR backend.",
                     expr.location,
-                    "Use '-', '!', '++' or '--' on variables.");
+                    "Use '-', '!', '&', '*', '++' or '--' on variables.");
             }
 
             IRValue opVal = expr.left ? LowerExpr(*expr.left) : IRValue{};
@@ -1041,9 +1249,36 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
             IRValue l = expr.left ? LowerExpr(*expr.left) : IRValue{};
             IRValue r = expr.right ? LowerExpr(*expr.right) : IRValue{};
 
+            const std::string& t = expr.text;
+            const bool leftPtr = expr.left && (expr.left->inferredType.isPointer || expr.left->inferredType.baseName == "Pointer");
+            if ((t == "+" || t == "-") && leftPtr) {
+                IRValue idx = r;
+                if (t == "-") {
+                    IRInstruction neg;
+                    neg.opcode     = IROpcode::Neg;
+                    neg.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                    neg.operandIds = { r.ssaId };
+                    neg.location   = expr.location;
+                    idx            = neg.dest;
+                    Emit(std::move(neg));
+                }
+                Frontend::TypeNode pty = expr.left->inferredType;
+                pty.isPointer = true;
+                IRInstruction off;
+                off.opcode     = IROpcode::PtrOffset;
+                off.dest       = IRValue{ m_currentFn->AllocateSSAId(), pty };
+                off.operandIds = { l.ssaId, idx.ssaId };
+                off.intImm     = PointeeBytes(expr.left->inferredType);
+                off.boolImm    = PointeeSigned(expr.left->inferredType);
+                off.location   = expr.location;
+                IRValue out    = off.dest;
+                Emit(std::move(off));
+                return out;
+            }
+
             IROpcode op = IROpcode::Add;
             Frontend::TypeNode resType = l.type;
-            const std::string& t = expr.text;
+            if (t == "+" && expr.inferredType.baseName == "String") resType = MakePrim("String");
             if (t == "+") op = IROpcode::Add;
             else if (t == "-") op = IROpcode::Sub;
             else if (t == "*") op = IROpcode::Mul;
@@ -1077,6 +1312,28 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
 
         case Frontend::ExprKind::Assignment: {
             IRValue rhs = expr.right ? LowerExpr(*expr.right) : IRValue{};
+            if (expr.left && expr.left->kind == Frontend::ExprKind::Index && expr.left->left &&
+                !(expr.left->right && expr.left->right->kind == Frontend::ExprKind::Range)) {
+                IRValue base = LowerExpr(*expr.left->left);
+                IRValue idx  = expr.left->right ? LowerExpr(*expr.left->right) : IRValue{};
+                IRInstruction st;
+                st.opcode     = IROpcode::StoreIndex;
+                st.operandIds = { base.ssaId, idx.ssaId, rhs.ssaId };
+                st.location   = expr.location;
+                Emit(std::move(st));
+                return rhs;
+            }
+            if (expr.left && expr.left->kind == Frontend::ExprKind::Unary && expr.left->text == "*" && expr.left->left) {
+                IRValue ptr = LowerExpr(*expr.left->left);
+                IRInstruction st;
+                st.opcode     = IROpcode::PtrStore;
+                st.operandIds = { ptr.ssaId, rhs.ssaId };
+                st.intImm     = PointeeBytes(expr.left->left->inferredType);
+                st.boolImm    = PointeeSigned(expr.left->left->inferredType);
+                st.location   = expr.location;
+                Emit(std::move(st));
+                return rhs;
+            }
             if (expr.left && expr.left->kind == Frontend::ExprKind::Identifier) {
                 const std::string& varName = expr.left->text;
                 IRValue finalVal = rhs;
@@ -1124,6 +1381,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 IRInstruction setF;
                 setF.opcode     = IROpcode::SetField;
                 setF.textImm    = expr.left->text;
+                setF.intImm     = FieldSlot(expr.left->left->inferredType.baseName, expr.left->text);
                 setF.operandIds = { objVal.ssaId, rhs.ssaId };
                 setF.location   = expr.location;
                 Emit(std::move(setF));
@@ -1141,9 +1399,16 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 }
             }
             IRInstruction alloc;
+            int slots = 1;
+            if (const auto* cls = m_sema.FindClassOrType(expr.targetType.baseName)) {
+                slots = std::max(1, static_cast<int>(cls->fields.size()));
+            }
+            Frontend::TypeNode objTy = expr.targetType;
+            objTy.isPointer = true;
             alloc.opcode     = IROpcode::AllocHeap;
-            alloc.dest       = IRValue{ m_currentFn->AllocateSSAId(), expr.targetType };
+            alloc.dest       = IRValue{ m_currentFn->AllocateSSAId(), objTy };
             alloc.textImm    = expr.targetType.baseName;
+            alloc.intImm     = slots;
             alloc.operandIds = std::move(argIds);
             alloc.location   = expr.location;
             IRValue out      = alloc.dest;
@@ -1152,11 +1417,30 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
         }
 
         case Frontend::ExprKind::MemberAccess: {
+            if (expr.left && expr.left->kind == Frontend::ExprKind::Identifier) {
+                if (const auto* cls = m_sema.FindClassOrType(expr.left->text)) {
+                    if (cls->kind == Frontend::DeclKind::Enum) {
+                        for (std::size_t i = 0; i < cls->enumVariants.size(); ++i) {
+                            if (cls->enumVariants[i] == expr.text) {
+                                IRInstruction tag;
+                                tag.opcode   = IROpcode::ConstInt;
+                                tag.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim(cls->name) };
+                                tag.intImm   = static_cast<std::int64_t>(i);
+                                tag.location = expr.location;
+                                IRValue out  = tag.dest;
+                                Emit(std::move(tag));
+                                return out;
+                            }
+                        }
+                    }
+                }
+            }
             IRValue objVal = expr.left ? LowerExpr(*expr.left) : IRValue{};
             IRInstruction getF;
             getF.opcode     = IROpcode::GetField;
             getF.dest       = IRValue{ m_currentFn->AllocateSSAId(), exprType };
             getF.textImm    = expr.text;
+            getF.intImm     = FieldSlot(expr.left ? expr.left->inferredType.baseName : std::string{}, expr.text);
             getF.operandIds = { objVal.ssaId };
             getF.location   = expr.location;
             IRValue out     = getF.dest;
@@ -1191,31 +1475,73 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     Emit(std::move(asrt));
                     return IRValue{ 0, MakePrim("Void") };
                 }
-                if (fnName == "Success") {
-                    IRInstruction res;
-                    res.opcode   = IROpcode::ConstString;
-                    res.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Result") };
-                    res.textImm  = "Success";
-                    res.location = expr.location;
-                    IRValue out  = res.dest;
-                    Emit(std::move(res));
-                    return out;
+                auto emitTagged = [&](const char* kind, std::int64_t tag, std::uint32_t valueId) {
+                    IRValue obj = EmitAggregate(kind, 2, MakePrim(kind));
+                    IRInstruction tagC;
+                    tagC.opcode   = IROpcode::ConstInt;
+                    tagC.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                    tagC.intImm   = tag;
+                    tagC.location = expr.location;
+                    IRValue tagV  = tagC.dest;
+                    Emit(std::move(tagC));
+                    IRInstruction setTag;
+                    setTag.opcode     = IROpcode::SetField;
+                    setTag.textImm    = "tag";
+                    setTag.intImm     = 0;
+                    setTag.operandIds = { obj.ssaId, tagV.ssaId };
+                    setTag.location   = expr.location;
+                    Emit(std::move(setTag));
+                    IRInstruction setVal;
+                    setVal.opcode     = IROpcode::SetField;
+                    setVal.textImm    = (std::string(kind) == "Tuple") ? "t0" : "value";
+                    setVal.intImm     = 1;
+                    setVal.operandIds = { obj.ssaId, valueId };
+                    setVal.location   = expr.location;
+                    Emit(std::move(setVal));
+                    return obj;
+                };
+
+                if (fnName == "Success" || fnName == "Error" || fnName == "Some" || fnName == "None") {
+                    const bool isNone = fnName == "None";
+                    const bool isOk = fnName == "Success" || fnName == "Some";
+                    std::uint32_t valueId = 0;
+                    if (!isNone && !argIds.empty()) {
+                        valueId = argIds[0];
+                    } else {
+                        IRInstruction zero;
+                        zero.opcode   = IROpcode::ConstInt;
+                        zero.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                        zero.intImm   = 0;
+                        zero.location = expr.location;
+                        valueId       = zero.dest.ssaId;
+                        Emit(std::move(zero));
+                    }
+                    const char* kind = (fnName == "Some" || fnName == "None") ? "Option" : "Result";
+                    return emitTagged(kind, isOk ? 1 : 0, valueId);
                 }
-                if (fnName == "Error") {
-                    IRInstruction res;
-                    res.opcode   = IROpcode::ConstString;
-                    res.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Result") };
-                    res.textImm  = "Error";
-                    res.location = expr.location;
-                    IRValue out  = res.dest;
-                    Emit(std::move(res));
-                    return out;
+                if (fnName == "Tuple" && argIds.size() >= 2) {
+                    IRValue obj = EmitAggregate("Tuple", 2, MakePrim("Tuple"));
+                    IRInstruction a;
+                    a.opcode = IROpcode::SetField;
+                    a.textImm = "t0";
+                    a.intImm = 0;
+                    a.operandIds = { obj.ssaId, argIds[0] };
+                    a.location = expr.location;
+                    Emit(std::move(a));
+                    IRInstruction b;
+                    b.opcode = IROpcode::SetField;
+                    b.textImm = "t1";
+                    b.intImm = 1;
+                    b.operandIds = { obj.ssaId, argIds[1] };
+                    b.location = expr.location;
+                    Emit(std::move(b));
+                    return obj;
                 }
 
                 IRInstruction call;
                 call.opcode          = IROpcode::CallDirect;
                 call.dest            = IRValue{ m_currentFn->AllocateSSAId(), exprType };
-                call.textImm         = fnName;
+                call.textImm         = ResolveCallable(fnName, static_cast<int>(argIds.size()), expr.location);
                 call.operandIds      = std::move(argIds);
                 call.isDevirtualized = true;
                 call.location        = expr.location;
@@ -1242,7 +1568,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 // Zero-cost OS-independent platform intrinsics (File, Thread, Time, GPIO)
                 if (receiverExpr.kind == Frontend::ExprKind::Identifier &&
                     (receiverExpr.text == "File" || receiverExpr.text == "Thread" ||
-                     receiverExpr.text == "Time" || receiverExpr.text == "GPIO")) {
+                     receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
+                     receiverExpr.text == "Memory")) {
                     IRInstruction osCall;
                     osCall.opcode     = IROpcode::CallOSIntrinsic;
                     osCall.dest       = IRValue{ m_currentFn->AllocateSSAId(), exprType };
@@ -1289,13 +1616,98 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
             break;
         }
 
+        case Frontend::ExprKind::ArrayLiteral: {
+            Frontend::TypeNode ty = expr.inferredType;
+            if (ty.baseName.empty()) ty.baseName = "Array";
+            ty.isPointer = true;
+            m_currentFn->usesHeapOrGC = true;
+            IRInstruction alloc;
+            alloc.opcode   = IROpcode::AllocHeap;
+            alloc.dest     = IRValue{ m_currentFn->AllocateSSAId(), ty };
+            alloc.textImm  = "Array";
+            alloc.intImm   = static_cast<std::int64_t>(expr.arguments.size());
+            alloc.location = expr.location;
+            IRValue arr    = alloc.dest;
+            Emit(std::move(alloc));
+            for (std::size_t i = 0; i < expr.arguments.size(); ++i) {
+                if (!expr.arguments[i]) continue;
+                IRValue elem = LowerExpr(*expr.arguments[i]);
+                IRInstruction idx;
+                idx.opcode   = IROpcode::ConstInt;
+                idx.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                idx.intImm   = static_cast<std::int64_t>(i);
+                idx.location = expr.location;
+                IRValue iv   = idx.dest;
+                Emit(std::move(idx));
+                IRInstruction st;
+                st.opcode     = IROpcode::StoreIndex;
+                st.operandIds = { arr.ssaId, iv.ssaId, elem.ssaId };
+                st.location   = expr.location;
+                Emit(std::move(st));
+            }
+            return arr;
+        }
+
+        case Frontend::ExprKind::Index: {
+            IRValue base = expr.left ? LowerExpr(*expr.left) : IRValue{};
+            if (expr.right && expr.right->kind == Frontend::ExprKind::Range) {
+                IRValue start;
+                if (expr.right->left) {
+                    start = LowerExpr(*expr.right->left);
+                } else {
+                    IRInstruction z;
+                    z.opcode   = IROpcode::ConstInt;
+                    z.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                    z.intImm   = 0;
+                    z.location = expr.location;
+                    start      = z.dest;
+                    Emit(std::move(z));
+                }
+                IRValue end;
+                if (expr.right->right) {
+                    end = LowerExpr(*expr.right->right);
+                } else {
+                    IRInstruction len;
+                    len.opcode     = IROpcode::GetField;
+                    len.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                    len.textImm    = "len";
+                    len.intImm     = -1;
+                    len.operandIds = { base.ssaId };
+                    len.location   = expr.location;
+                    end            = len.dest;
+                    Emit(std::move(len));
+                }
+                Frontend::TypeNode ty = expr.inferredType;
+                if (ty.baseName.empty()) ty.baseName = "Array";
+                ty.isPointer = true;
+                IRInstruction slice;
+                slice.opcode     = IROpcode::SliceCopy;
+                slice.dest       = IRValue{ m_currentFn->AllocateSSAId(), ty };
+                slice.operandIds = { base.ssaId, start.ssaId, end.ssaId };
+                slice.intImm     = expr.right->isInclusiveRange ? 1 : 0;
+                slice.location   = expr.location;
+                IRValue out      = slice.dest;
+                Emit(std::move(slice));
+                return out;
+            }
+            IRValue idx = expr.right ? LowerExpr(*expr.right) : IRValue{};
+            IRInstruction load;
+            load.opcode     = IROpcode::LoadIndex;
+            load.dest       = IRValue{ m_currentFn->AllocateSSAId(), expr.inferredType.IsEmpty() ? MakePrim("Int") : expr.inferredType };
+            load.operandIds = { base.ssaId, idx.ssaId };
+            load.location   = expr.location;
+            IRValue out     = load.dest;
+            Emit(std::move(load));
+            return out;
+        }
+
         default:
             break;
     }
 
     m_diagnostics.ReportError(
         "I4011",
-        "This expression form (index, array/object literal, lambda, match expression, range) is not yet supported by the SSA IR backend.",
+        "This expression form (object literal, lambda, match expression) is not yet supported by the SSA IR backend.",
         expr.location,
         "Rewrite using scalar arithmetic, calls, and variables.");
 

@@ -21,6 +21,7 @@ BytecodeModule BytecodeGenerator::GenerateFromIR(const IR::IRModule& irMod) {
     bcMod.moduleName = irMod.moduleName;
 
     for (const auto& irFn : irMod.functions) {
+        if (irFn.isExtern) continue;
         bcMod.chunks.push_back(LowerIRFunction(irFn));
     }
 
@@ -98,6 +99,13 @@ BytecodeChunk BytecodeGenerator::LowerIRFunction(const IR::IRFunction& irFn) {
                 case IR::IROpcode::ReturnVoid:      bc.opcode = BCOpcode::ReturnVoid; break;
                 case IR::IROpcode::DeferCleanup:    bc.opcode = BCOpcode::DeferCleanup; break;
                 case IR::IROpcode::InlineASM:       bc.opcode = BCOpcode::InlineASM; break;
+                case IR::IROpcode::LoadIndex:       bc.opcode = BCOpcode::LoadIndex; break;
+                case IR::IROpcode::StoreIndex:      bc.opcode = BCOpcode::StoreIndex; bc.callArgRegs = inst.operandIds; break;
+                case IR::IROpcode::AddrOf:          bc.opcode = BCOpcode::AddrOf; break;
+                case IR::IROpcode::PtrLoad:         bc.opcode = BCOpcode::PtrLoad; break;
+                case IR::IROpcode::PtrStore:        bc.opcode = BCOpcode::PtrStore; break;
+                case IR::IROpcode::PtrOffset:       bc.opcode = BCOpcode::PtrOffset; break;
+                case IR::IROpcode::SliceCopy:       bc.opcode = BCOpcode::SliceCopy; bc.callArgRegs = inst.operandIds; break;
 
                 case IR::IROpcode::Jump: {
                     bc.opcode = BCOpcode::Jump;

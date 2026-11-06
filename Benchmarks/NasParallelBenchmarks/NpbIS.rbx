@@ -56,7 +56,53 @@ public Function RunIS(Int numKeys) -> Int {
             else { b15 = b15 + 1; }
         }
 
-        i = i + 2;
+        seed = (seed * 1220703125 + 1013904223) % 2147483648;
+        Int key3 = (seed / 65536) % 16;
+
+        if (key3 < 8) {
+            if (key3 == 0) { b0 = b0 + 1; }
+            else if (key3 == 1) { b1 = b1 + 1; }
+            else if (key3 == 2) { b2 = b2 + 1; }
+            else if (key3 == 3) { b3 = b3 + 1; }
+            else if (key3 == 4) { b4 = b4 + 1; }
+            else if (key3 == 5) { b5 = b5 + 1; }
+            else if (key3 == 6) { b6 = b6 + 1; }
+            else { b7 = b7 + 1; }
+        } else {
+            if (key3 == 8) { b8 = b8 + 1; }
+            else if (key3 == 9) { b9 = b9 + 1; }
+            else if (key3 == 10) { b10 = b10 + 1; }
+            else if (key3 == 11) { b11 = b11 + 1; }
+            else if (key3 == 12) { b12 = b12 + 1; }
+            else if (key3 == 13) { b13 = b13 + 1; }
+            else if (key3 == 14) { b14 = b14 + 1; }
+            else { b15 = b15 + 1; }
+        }
+
+        seed = (seed * 1220703125 + 1013904223) % 2147483648;
+        Int key4 = (seed / 65536) % 16;
+
+        if (key4 < 8) {
+            if (key4 == 0) { b0 = b0 + 1; }
+            else if (key4 == 1) { b1 = b1 + 1; }
+            else if (key4 == 2) { b2 = b2 + 1; }
+            else if (key4 == 3) { b3 = b3 + 1; }
+            else if (key4 == 4) { b4 = b4 + 1; }
+            else if (key4 == 5) { b5 = b5 + 1; }
+            else if (key4 == 6) { b6 = b6 + 1; }
+            else { b7 = b7 + 1; }
+        } else {
+            if (key4 == 8) { b8 = b8 + 1; }
+            else if (key4 == 9) { b9 = b9 + 1; }
+            else if (key4 == 10) { b10 = b10 + 1; }
+            else if (key4 == 11) { b11 = b11 + 1; }
+            else if (key4 == 12) { b12 = b12 + 1; }
+            else if (key4 == 13) { b13 = b13 + 1; }
+            else if (key4 == 14) { b14 = b14 + 1; }
+            else { b15 = b15 + 1; }
+        }
+
+        i = i + 4;
     }
 
     Int checksum = b0 * 1 + b1 * 2 + b2 * 3 + b3 * 4 +

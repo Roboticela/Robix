@@ -55,7 +55,15 @@ enum class IROpcode : std::uint8_t {
     ReturnVoid,
     // Low-Level & Cleanup
     DeferCleanup,
-    InlineASM
+    InlineASM,
+    // Aggregates, pointers, and slices. Aggregate values are pointers.
+    LoadIndex,
+    StoreIndex,
+    AddrOf,
+    PtrLoad,
+    PtrStore,
+    PtrOffset,
+    SliceCopy
 };
 
 [[nodiscard]] std::string_view IROpcodeToString(IROpcode op) noexcept;
@@ -106,6 +114,7 @@ struct IRFunction {
     std::uint32_t nextSSAId = 1;
     bool isTestBlock        = false;
     bool isRealTime         = false;
+    bool isExtern           = false;
     bool usesHeapOrGC       = false;
     bool usesReflection     = false;
     Frontend::SourceLocation location{};
@@ -157,6 +166,27 @@ private:
 
     void LowerStmt(const Frontend::StmtNode& stmt);
     IRValue LowerExpr(const Frontend::ExprNode& expr);
+
+    struct FnSig {
+        const Frontend::DeclNode* decl = nullptr;
+        std::string sourceName;
+        std::string irName;
+        std::string mangled;
+        int arity = 0;
+        bool isExtern = false;
+    };
+
+    std::vector<FnSig> m_sigs;
+    std::string m_package = "Default";
+
+    void CollectSigs(const Frontend::CompilationUnitAST& unit);
+    void NoteSig(const Frontend::DeclNode& decl, const std::string& enclosing);
+    [[nodiscard]] const FnSig* FindSig(const Frontend::DeclNode* decl) const;
+    [[nodiscard]] std::string ResolveCallable(const std::string& name, int arity, const Frontend::SourceLocation& loc);
+    [[nodiscard]] bool IsRefType(const Frontend::TypeNode& type) const;
+    [[nodiscard]] int FieldSlot(const std::string& typeName, const std::string& field) const;
+    [[nodiscard]] std::string SlotTypeName(const Frontend::TypeNode& type) const;
+    IRValue EmitAggregate(const std::string& kind, std::int64_t slots, Frontend::TypeNode type);
 };
 
 } // namespace Robix::IR
