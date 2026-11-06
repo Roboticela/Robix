@@ -36,6 +36,7 @@ BytecodeChunk BytecodeGenerator::LowerIRFunction(const IR::IRFunction& irFn) {
     chunk.isTestChunk    = irFn.isTestBlock;
 
     for (const auto& p : irFn.parameters) {
+        if (p.name == "this") continue;
         chunk.paramNames.push_back(p.name);
     }
 
@@ -90,8 +91,14 @@ BytecodeChunk BytecodeGenerator::LowerIRFunction(const IR::IRFunction& irFn) {
                 case IR::IROpcode::StoreVar:        bc.opcode = BCOpcode::StoreVar; break;
                 case IR::IROpcode::GetField:        bc.opcode = BCOpcode::GetField; break;
                 case IR::IROpcode::SetField:        bc.opcode = BCOpcode::SetField; break;
-                case IR::IROpcode::CallDirect:
-                case IR::IROpcode::CallVirtual:     bc.opcode = BCOpcode::CallFn; bc.callArgRegs = inst.operandIds; break;
+                case IR::IROpcode::CallDirect:      bc.opcode = BCOpcode::CallFn; bc.callArgRegs = inst.operandIds; break;
+                case IR::IROpcode::CallVirtual: {
+                    bc.opcode = BCOpcode::CallVirtual;
+                    bc.callArgRegs = inst.operandIds;
+                    const auto dot = inst.textImm.rfind('.');
+                    bc.symbolImm = (dot == std::string::npos) ? inst.textImm : inst.textImm.substr(dot + 1);
+                    break;
+                }
                 case IR::IROpcode::CallOSIntrinsic: bc.opcode = BCOpcode::CallOSIntrinsic; bc.callArgRegs = inst.operandIds; break;
                 case IR::IROpcode::PrintVal:        bc.opcode = BCOpcode::PrintReg; break;
                 case IR::IROpcode::AssertVal:       bc.opcode = BCOpcode::AssertReg; bc.callArgRegs = inst.operandIds; break;

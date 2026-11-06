@@ -48,6 +48,7 @@ struct TypeDefinitionInfo {
     DeclKind kind = DeclKind::Class;
     std::string baseClassName;
     std::vector<std::string> implementedInterfaces;
+    std::vector<std::string> genericParams;
     std::unordered_map<std::string, SymbolInfo> fields;
     std::unordered_map<std::string, FunctionSignature> methods;
     std::unordered_set<std::string> enumVariants;
@@ -109,6 +110,8 @@ private:
 
     // Type compatibility & inference helpers
     bool IsAssignable(const TypeNode& target, const TypeNode& valueType, SourceLocation loc, const std::string& contextName);
+    [[nodiscard]] bool IsSubtype(const std::string& from, const std::string& to, int depth = 0) const;
+    [[nodiscard]] TypeNode SubstituteGenerics(TypeNode type, const TypeDefinitionInfo* def, const TypeNode& recv) const;
     static TypeNode MakePrimitiveType(const std::string& name, bool isNullable = false);
 };
 

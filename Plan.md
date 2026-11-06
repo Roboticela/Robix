@@ -203,6 +203,8 @@ Passed. `Examples/StageB/LibcShape.rbx` prints `ok`, `Hello`, and checksum `506`
 
 **Exit test:** the motor-controller sample (a class, a private field, a method call) is a native binary, and a virtual call sample matches the interpreter's output.
 
+Passed. `Examples/StageC/Machine.rbx` prints `150` and then `40` from `robix run` and from `robixc -O3` linked to `Build/StageC.exe`. The `40` is `Motor`'s destructor. `new` that the compiler can see is a direct call. `MakeRunner` returns a `Runner` through `Walker`, and that call is virtual in both engines. `Box<Int>` is a separate native instantiation. `Leaf` does not allocate. Reading `Motor.speed` from `Main` in `Examples/StageC/PrivateField.rbx` is `R2008`. There is no collector and no reference-counting runtime. A class with more than one interface does not get a correct combined vtable. Inbound C calls are still Stage H.
+
 ### Stage D — Programmer-friendly by default
 
 The core is useless if only the author of the compiler can satisfy it.

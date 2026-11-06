@@ -214,11 +214,12 @@ std::size_t IRPassManager::RunEscapeAnalysisPass(IRModule& mod) {
         for (const auto& bb : fn.blocks) {
             for (const auto& inst : bb.instructions) {
                 if (inst.isDead) continue;
-                if (inst.opcode == IROpcode::ReturnVal && !inst.operandIds.empty()) {
+                const bool freesHeap = inst.opcode == IROpcode::ReturnVal ||
+                    (inst.opcode == IROpcode::CallOSIntrinsic && inst.textImm == "Memory.Free");
+                if (freesHeap && !inst.operandIds.empty()) {
                     const std::uint32_t retId = inst.operandIds[0];
                     if (heapAllocIds.find(retId) != heapAllocIds.end()) {
                         escapedAllocIds.insert(retId);
-                        // Also mark root allocation if retId was loaded from a local variable
                         auto rootIt = varToAllocId.find("%" + std::to_string(retId));
                         if (rootIt != varToAllocId.end()) {
                             escapedAllocIds.insert(rootIt->second);
@@ -284,14 +285,18 @@ std::size_t IRPassManager::RunDevirtualizationPass(IRModule& mod) {
                     const std::uint32_t recvId = inst.operandIds[0];
                     auto it = exactSSATypes.find(recvId);
                     if (it != exactSSATypes.end()) {
-                        // Concrete allocation type is statically known -> devirtualize!
+                        // Concrete allocation type is statically known. The text may be
+                        // "Runner@Walker"; only the allocated class is the function owner.
+                        std::string concrete = it->second;
+                        const auto chain = concrete.find('@');
+                        if (chain != std::string::npos) concrete.resize(chain);
                         const std::size_t dotPos = inst.textImm.rfind('.');
                         const std::string methodOnly = (dotPos != std::string::npos)
                                                            ? inst.textImm.substr(dotPos + 1)
                                                            : inst.textImm;
                         inst.opcode          = IROpcode::CallDirect;
-                        inst.textImm         = it->second + "." + methodOnly;
-                        inst.secondaryText   = it->second;
+                        inst.textImm         = concrete + "." + methodOnly;
+                        inst.secondaryText   = concrete;
                         inst.isDevirtualized = true;
                         ++devirtCount;
                     } else if (!inst.secondaryText.empty()) {

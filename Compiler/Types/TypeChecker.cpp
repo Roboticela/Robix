@@ -175,6 +175,7 @@ void TypeChecker::CollectTopLevelDeclarations(CompilationUnitAST& unit) {
             info.kind                  = decl.kind;
             info.baseClassName         = decl.baseClassName;
             info.implementedInterfaces = decl.implementedInterfaces;
+            info.genericParams         = decl.genericParams;
             info.location              = decl.location;
 
             for (const auto& v : decl.enumVariants) {
@@ -1284,27 +1285,41 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
-            // Lookup member on user-defined class/struct/enum/service
-            if (const TypeDefinitionInfo* def = FindTypeDefinition(recvType.baseName)) {
-                auto fIt = def->fields.find(expr.text);
-                if (fIt != def->fields.end()) {
-                    expr.inferredType = fIt->second.type;
-                    if (expr.token.kind == TokenKind::QuestionDot) {
-                        expr.inferredType.isNullable = true;
+            // Lookup member on user-defined class/struct/enum/service, including bases.
+            if (const TypeDefinitionInfo* origin = FindTypeDefinition(recvType.baseName)) {
+                const TypeDefinitionInfo* def = origin;
+                for (int guard = 0; def != nullptr && guard < 16; ++guard) {
+                    auto fIt = def->fields.find(expr.text);
+                    if (fIt != def->fields.end()) {
+                        expr.inferredType = SubstituteGenerics(fIt->second.type, origin, recvType);
+                        if (expr.token.kind == TokenKind::QuestionDot) {
+                            expr.inferredType.isNullable = true;
+                        }
+                        return expr.inferredType;
                     }
-                    return expr.inferredType;
-                }
-                auto mIt = def->methods.find(expr.text);
-                if (mIt != def->methods.end()) {
-                    expr.inferredType = mIt->second.returnType;
-                    if (expr.token.kind == TokenKind::QuestionDot) {
-                        expr.inferredType.isNullable = true;
+                    auto mIt = def->methods.find(expr.text);
+                    if (mIt != def->methods.end()) {
+                        expr.inferredType = SubstituteGenerics(mIt->second.returnType, origin, recvType);
+                        if (expr.token.kind == TokenKind::QuestionDot) {
+                            expr.inferredType.isNullable = true;
+                        }
+                        return expr.inferredType;
                     }
-                    return expr.inferredType;
+                    if (def->enumVariants.find(expr.text) != def->enumVariants.end()) {
+                        expr.inferredType = MakePrimitiveType(def->name);
+                        return expr.inferredType;
+                    }
+                    if (def->baseClassName.empty()) break;
+                    def = FindTypeDefinition(def->baseClassName);
                 }
-                if (def->enumVariants.find(expr.text) != def->enumVariants.end()) {
-                    expr.inferredType = MakePrimitiveType(def->name);
-                    return expr.inferredType;
+                for (const auto& ifaceName : origin->implementedInterfaces) {
+                    const TypeDefinitionInfo* iface = FindTypeDefinition(ifaceName);
+                    if (!iface) continue;
+                    auto mIt = iface->methods.find(expr.text);
+                    if (mIt != iface->methods.end()) {
+                        expr.inferredType = SubstituteGenerics(mIt->second.returnType, origin, recvType);
+                        return expr.inferredType;
+                    }
                 }
             }
 
@@ -1465,16 +1480,9 @@ bool TypeChecker::IsAssignable(const TypeNode& target,
         return true;
     }
 
-    // Check class inheritance / interface implementation
-    if (const TypeDefinitionInfo* valDef = FindTypeDefinition(valueNonNull.baseName)) {
-        if (valDef->baseClassName == targetNonNull.baseName) {
-            return true;
-        }
-        for (const auto& iface : valDef->implementedInterfaces) {
-            if (iface == targetNonNull.baseName) {
-                return true;
-            }
-        }
+    if (valueNonNull.baseName != targetNonNull.baseName &&
+        IsSubtype(valueNonNull.baseName, targetNonNull.baseName)) {
+        return true;
     }
 
     std::string suggestion = "Change the type of '" + contextName + "' to '" + valueType.ToString() + "' or convert the value explicitly.";
@@ -1493,6 +1501,36 @@ bool TypeChecker::IsAssignable(const TypeNode& target,
         target.ToString(),
         valueType.ToString());
     return false;
+}
+
+bool TypeChecker::IsSubtype(const std::string& from, const std::string& to, int depth) const {
+    if (from.empty() || to.empty() || depth > 16) return false;
+    if (from == to) return true;
+    const TypeDefinitionInfo* def = FindTypeDefinition(from);
+    if (!def) return false;
+    for (const auto& iface : def->implementedInterfaces) {
+        if (iface == to || IsSubtype(iface, to, depth + 1)) return true;
+    }
+    if (!def->baseClassName.empty() && (def->baseClassName == to || IsSubtype(def->baseClassName, to, depth + 1))) {
+        return true;
+    }
+    return false;
+}
+
+TypeNode TypeChecker::SubstituteGenerics(TypeNode type, const TypeDefinitionInfo* def, const TypeNode& recv) const {
+    if (!def || def->genericParams.empty() || def->genericParams.size() != recv.typeArgs.size()) {
+        return type;
+    }
+    if (type.typeArgs.empty()) {
+        for (std::size_t i = 0; i < def->genericParams.size(); ++i) {
+            if (type.baseName == def->genericParams[i]) return recv.typeArgs[i];
+        }
+        return type;
+    }
+    for (auto& arg : type.typeArgs) {
+        arg = SubstituteGenerics(arg, def, recv);
+    }
+    return type;
 }
 
 } // namespace Robix::Frontend

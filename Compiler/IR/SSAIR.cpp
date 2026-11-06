@@ -308,7 +308,8 @@ bool SSAIRBuilder::IsRefType(const Frontend::TypeNode& type) const {
         return true;
     }
     if (const auto* cls = m_sema.FindClassOrType(b)) {
-        return cls->kind == Frontend::DeclKind::Struct || cls->kind == Frontend::DeclKind::Class;
+        return cls->kind == Frontend::DeclKind::Struct || cls->kind == Frontend::DeclKind::Class ||
+               cls->kind == Frontend::DeclKind::Interface || cls->kind == Frontend::DeclKind::Trait;
     }
     return false;
 }
@@ -320,20 +321,220 @@ std::string SSAIRBuilder::SlotTypeName(const Frontend::TypeNode& type) const {
 }
 
 int SSAIRBuilder::FieldSlot(const std::string& typeName, const std::string& field) const {
-    if (const auto* cls = m_sema.FindClassOrType(typeName)) {
+    std::string lookup = typeName;
+    const auto dollar = lookup.find('$');
+    if (dollar != std::string::npos) lookup.resize(dollar);
+    if (const auto* cls = m_sema.FindClassOrType(lookup)) {
         std::vector<std::string> names;
         names.reserve(cls->fields.size());
         for (const auto& entry : cls->fields) {
             names.push_back(entry.first);
         }
         std::sort(names.begin(), names.end());
+        const int header = cls->kind == Frontend::DeclKind::Class ? 1 : 0;
         for (std::size_t i = 0; i < names.size(); ++i) {
-            if (names[i] == field) return static_cast<int>(i);
+            if (names[i] == field) return static_cast<int>(i) + header;
         }
     }
     if (field == "tag" || field == "t0") return 0;
     if (field == "value" || field == "t1") return 1;
     return 0;
+}
+
+bool SSAIRBuilder::IsClassName(const std::string& name) const {
+    std::string lookup = name;
+    const auto dollar = lookup.find('$');
+    if (dollar != std::string::npos) lookup.resize(dollar);
+    const auto* cls = m_sema.FindClassOrType(lookup);
+    return cls != nullptr && cls->kind == Frontend::DeclKind::Class;
+}
+
+Frontend::TypeNode SSAIRBuilder::SubstType(Frontend::TypeNode type) const {
+    if (type.typeArgs.empty()) {
+        for (const auto& [name, repl] : m_subst) {
+            if (type.baseName == name) return repl;
+        }
+        return type;
+    }
+    for (auto& arg : type.typeArgs) {
+        arg = SubstType(arg);
+    }
+    return type;
+}
+
+std::string SSAIRBuilder::TypeKey(const Frontend::TypeNode& type) const {
+    if (type.typeArgs.empty()) return type.baseName;
+    std::string key = type.baseName;
+    for (const auto& arg : type.typeArgs) {
+        key.push_back('$');
+        key += TypeKey(arg);
+    }
+    return key;
+}
+
+std::string SSAIRBuilder::ClassChain(const std::string& irName) const {
+    std::string lookup = irName;
+    const auto dollar = lookup.find('$');
+    if (dollar != std::string::npos) lookup.resize(dollar);
+    std::string chain = irName;
+    const auto* cls = m_sema.FindClassOrType(lookup);
+    for (int guard = 0; cls != nullptr && !cls->baseClassName.empty() && guard < 16; ++guard) {
+        chain.push_back('@');
+        chain += cls->baseClassName;
+        cls = m_sema.FindClassOrType(cls->baseClassName);
+    }
+    return chain;
+}
+
+void SSAIRBuilder::NoteGenericUse(const Frontend::TypeNode& type) {
+    if (type.typeArgs.empty()) return;
+    auto it = m_classDecls.find(type.baseName);
+    if (it == m_classDecls.end() || it->second == nullptr || it->second->genericParams.empty()) return;
+    if (it->second->genericParams.size() != type.typeArgs.size()) return;
+    const std::string key = TypeKey(type);
+    if (!m_genericSeen.insert(key).second) return;
+    GenericInst inst;
+    inst.decl   = it->second;
+    inst.irName = key;
+    inst.args   = type.typeArgs;
+    m_genericQueue.push_back(std::move(inst));
+}
+
+std::vector<std::string> SSAIRBuilder::MethodOrder(const Frontend::SemanticClassInfo& cls) const {
+    std::vector<std::string> order;
+    if (!cls.baseClassName.empty()) {
+        if (const auto* base = m_sema.FindClassOrType(cls.baseClassName)) {
+            order = MethodOrder(*base);
+        }
+    } else {
+        for (const auto& ifaceName : cls.implementedInterfaces) {
+            const auto* iface = m_sema.FindClassOrType(ifaceName);
+            if (!iface) continue;
+            for (const auto& [name, method] : iface->methods) {
+                if (!method.isStatic) order.push_back(name);
+            }
+        }
+        std::sort(order.begin(), order.end());
+        order.erase(std::unique(order.begin(), order.end()), order.end());
+    }
+
+    std::vector<std::string> own;
+    for (const auto& [name, method] : cls.methods) {
+        if (method.isStatic || name == cls.name || name.empty() || name[0] == '~') continue;
+        own.push_back(name);
+    }
+    std::sort(own.begin(), own.end());
+    for (const auto& name : own) {
+        if (std::find(order.begin(), order.end(), name) == order.end()) {
+            order.push_back(name);
+        }
+    }
+    return order;
+}
+
+std::string SSAIRBuilder::DefiningClass(const Frontend::SemanticClassInfo& cls, const std::string& method) const {
+    if (cls.methods.find(method) != cls.methods.end()) return cls.name;
+    if (!cls.baseClassName.empty()) {
+        if (const auto* base = m_sema.FindClassOrType(cls.baseClassName)) {
+            return DefiningClass(*base, method);
+        }
+    }
+    return cls.name;
+}
+
+int SSAIRBuilder::VirtualSlot(const std::string& typeName, const std::string& method) const {
+    const auto* cls = m_sema.FindClassOrType(typeName);
+    if (!cls) return 0;
+    std::vector<std::string> order;
+    if (cls->kind == Frontend::DeclKind::Interface || cls->kind == Frontend::DeclKind::Trait) {
+        for (const auto& [name, info] : cls->methods) {
+            if (!info.isStatic) order.push_back(name);
+        }
+        std::sort(order.begin(), order.end());
+    } else {
+        order = MethodOrder(*cls);
+    }
+    for (std::size_t i = 0; i < order.size(); ++i) {
+        if (order[i] == method) return static_cast<int>(i);
+    }
+    return 0;
+}
+
+void SSAIRBuilder::RecordVTable(const std::string& irName, const std::string& lookupName) {
+    if (!m_module) return;
+    const auto* cls = m_sema.FindClassOrType(lookupName);
+    if (!cls || cls->kind != Frontend::DeclKind::Class) return;
+    IRVTable vt;
+    vt.typeName = irName;
+    const bool instantiated = irName != lookupName;
+    for (const auto& method : MethodOrder(*cls)) {
+        if (instantiated) {
+            vt.slots.push_back(irName + "." + method);
+        } else {
+            vt.slots.push_back(DefiningClass(*cls, method) + "." + method);
+        }
+    }
+    m_module->vtables.push_back(std::move(vt));
+}
+
+void SSAIRBuilder::EmitScopeCleanups(std::size_t scopes, bool clear) {
+    if (!m_currentFn || m_scopes.empty() || scopes == 0 || CurrentBlockHasTerminator()) return;
+    const std::size_t count = std::min(scopes, m_scopes.size());
+    const std::size_t start = m_scopes.size() - count;
+    for (std::size_t s = m_scopes.size(); s-- > start; ) {
+        auto& objs = m_scopes[s];
+        for (auto it = objs.rbegin(); it != objs.rend(); ++it) {
+            Frontend::TypeNode ty;
+            ty.baseName  = "Pointer";
+            ty.isPointer = true;
+            IRInstruction load;
+            load.opcode  = IROpcode::LoadVar;
+            load.dest    = IRValue{ m_currentFn->AllocateSSAId(), ty };
+            load.textImm = it->varName;
+            const std::uint32_t obj = load.dest.ssaId;
+            Emit(std::move(load));
+            if (!it->dtorIrName.empty()) {
+                IRInstruction call;
+                call.opcode     = IROpcode::CallDirect;
+                call.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Void") };
+                call.textImm    = it->dtorIrName;
+                call.operandIds = { obj };
+                Emit(std::move(call));
+            }
+            IRInstruction freeInst;
+            freeInst.opcode     = IROpcode::CallOSIntrinsic;
+            freeInst.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Void") };
+            freeInst.textImm    = "Memory.Free";
+            freeInst.operandIds = { obj };
+            Emit(std::move(freeInst));
+        }
+        if (clear) objs.clear();
+    }
+}
+
+void SSAIRBuilder::LowerClassBody(const Frontend::DeclNode& decl,
+                                  const std::string& irName,
+                                  const std::vector<Frontend::TypeNode>& args) {
+    const std::string prevClass = m_activeIrClass;
+    const auto prevSubst = m_subst;
+    m_activeIrClass = (irName == decl.name) ? std::string{} : irName;
+    m_subst.clear();
+    for (std::size_t i = 0; i < decl.genericParams.size() && i < args.size(); ++i) {
+        m_subst.emplace_back(decl.genericParams[i], args[i]);
+    }
+    for (const auto& memberPtr : decl.members) {
+        if (!memberPtr) continue;
+        if (memberPtr->kind == Frontend::DeclKind::Function ||
+            memberPtr->kind == Frontend::DeclKind::Constructor ||
+            memberPtr->kind == Frontend::DeclKind::Destructor) {
+            LowerFunctionOrMethod(*memberPtr, decl.name, *m_module);
+        }
+    }
+    if (decl.kind == Frontend::DeclKind::Class) {
+        RecordVTable(irName, decl.name);
+    }
+    m_activeIrClass = prevClass;
+    m_subst = std::move(prevSubst);
 }
 
 IRValue SSAIRBuilder::EmitAggregate(const std::string& kind, std::int64_t slots, Frontend::TypeNode type) {
@@ -354,22 +555,32 @@ IRModule SSAIRBuilder::LowerCompilationUnit(const Frontend::CompilationUnitAST& 
     IRModule mod;
     mod.moduleName  = unit.fileName;
     mod.packageName = unit.packageName.empty() ? "Default" : unit.packageName;
+    m_module = &mod;
+    m_classDecls.clear();
+    m_genericQueue.clear();
+    m_genericSeen.clear();
+    m_scopes.clear();
     CollectSigs(unit);
+
+    for (const auto& declPtr : unit.declarations) {
+        if (!declPtr) continue;
+        const auto& decl = *declPtr;
+        if (decl.kind == Frontend::DeclKind::Class || decl.kind == Frontend::DeclKind::Struct ||
+            decl.kind == Frontend::DeclKind::Interface || decl.kind == Frontend::DeclKind::Trait) {
+            m_classDecls[decl.name] = &decl;
+        }
+    }
 
     for (const auto& declPtr : unit.declarations) {
         if (!declPtr) continue;
         const auto& decl = *declPtr;
 
         if (decl.kind == Frontend::DeclKind::Function) {
+            if (!decl.genericParams.empty()) continue;
             LowerFunctionOrMethod(decl, "", mod);
         } else if (decl.kind == Frontend::DeclKind::Class || decl.kind == Frontend::DeclKind::Struct) {
-            for (const auto& memberPtr : decl.members) {
-                if (!memberPtr) continue;
-                if (memberPtr->kind == Frontend::DeclKind::Function ||
-                    memberPtr->kind == Frontend::DeclKind::Constructor) {
-                    LowerFunctionOrMethod(*memberPtr, decl.name, mod);
-                }
-            }
+            if (!decl.genericParams.empty()) continue;
+            LowerClassBody(decl, decl.name, {});
         } else if (decl.kind == Frontend::DeclKind::Test) {
             LowerTestDecl(decl, mod);
         } else if (decl.kind == Frontend::DeclKind::TestFile) {
@@ -381,6 +592,11 @@ IRModule SSAIRBuilder::LowerCompilationUnit(const Frontend::CompilationUnitAST& 
         }
     }
 
+    for (std::size_t i = 0; i < m_genericQueue.size(); ++i) {
+        const GenericInst& inst = m_genericQueue[i];
+        if (inst.decl) LowerClassBody(*inst.decl, inst.irName, inst.args);
+    }
+
     for (const auto& fn : mod.functions) {
         if (fn.usesHeapOrGC || fn.usesReflection) {
             mod.requiresFullRuntime = true;
@@ -388,6 +604,7 @@ IRModule SSAIRBuilder::LowerCompilationUnit(const Frontend::CompilationUnitAST& 
         }
     }
 
+    m_module = nullptr;
     return mod;
 }
 
@@ -399,17 +616,18 @@ void SSAIRBuilder::LowerFunctionOrMethod(const Frontend::DeclNode& decl,
         return; // Skip bodyless interface/abstract declarations
     }
 
+    const std::string irClass = m_activeIrClass.empty() ? enclosingClass : m_activeIrClass;
     IRFunction fn;
-    fn.name               = enclosingClass.empty() ? decl.name : (enclosingClass + "." + decl.name);
-    fn.enclosingClassName = enclosingClass;
-    fn.returnType         = decl.returnType.IsEmpty() ? MakePrim("Void") : decl.returnType;
+    fn.name               = irClass.empty() ? decl.name : (irClass + "." + decl.name);
+    fn.enclosingClassName = irClass;
+    fn.returnType         = SubstType(decl.returnType.IsEmpty() ? MakePrim("Void") : decl.returnType);
     fn.location           = decl.location;
     if (IsRefType(fn.returnType)) fn.returnType.isPointer = true;
 
     (void)m_diagnostics;
     std::string paramCodes;
     for (const auto& p : decl.parameters) {
-        Frontend::TypeNode pty = p.type.IsEmpty() ? MakePrim("Int") : p.type;
+        Frontend::TypeNode pty = SubstType(p.type.IsEmpty() ? MakePrim("Int") : p.type);
         if (IsRefType(pty)) pty.isPointer = true;
         fn.parameters.push_back(Frontend::FunctionParamInfo{
             p.name,
@@ -419,11 +637,20 @@ void SSAIRBuilder::LowerFunctionOrMethod(const Frontend::DeclNode& decl,
             p.isVariadic
         });
         Spec::PrimitiveKind pk{};
-        if (Spec::TryResolvePrimitiveName(p.type.baseName, pk)) {
+        if (Spec::TryResolvePrimitiveName(pty.baseName, pk)) {
             paramCodes += Spec::GetPrimitiveLayout(pk).mangleCode;
         } else {
             paramCodes += "v";
         }
+    }
+
+    if (!irClass.empty() && !decl.isStatic) {
+        Frontend::TypeNode selfTy;
+        selfTy.baseName  = irClass;
+        selfTy.isPointer = true;
+        fn.parameters.insert(fn.parameters.begin(), Frontend::FunctionParamInfo{
+            "this", selfTy, false, false, false
+        });
     }
 
     std::string retCode = "v";
@@ -434,11 +661,11 @@ void SSAIRBuilder::LowerFunctionOrMethod(const Frontend::DeclNode& decl,
 
     fn.mangledName = Spec::MangleRobixSymbol(
         outModule.packageName,
-        enclosingClass,
+        irClass,
         decl.name,
         paramCodes,
         retCode);
-    if (sig) {
+    if (sig && m_activeIrClass.empty()) {
         fn.name        = sig->irName;
         fn.mangledName = sig->mangled;
         fn.isExtern    = sig->isExtern;
@@ -502,9 +729,14 @@ void SSAIRBuilder::LowerTestDecl(const Frontend::DeclNode& testDecl, IRModule& o
 void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
     switch (stmt.kind) {
         case Frontend::StmtKind::Block: {
+            m_scopes.emplace_back();
             for (const auto& s : stmt.statements) {
                 if (s) LowerStmt(*s);
             }
+            if (!CurrentBlockHasTerminator()) {
+                EmitScopeCleanups(1, true);
+            }
+            if (!m_scopes.empty()) m_scopes.pop_back();
             break;
         }
 
@@ -512,6 +744,23 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             IRValue initVal{};
             if (stmt.initializer) {
                 initVal = LowerExpr(*stmt.initializer);
+            } else if (IsClassName(stmt.declaredType.baseName)) {
+                int fields = 0;
+                if (const auto* cls = m_sema.FindClassOrType(stmt.declaredType.baseName)) {
+                    fields = static_cast<int>(cls->fields.size());
+                }
+                Frontend::TypeNode objTy = stmt.declaredType;
+                objTy.isPointer = true;
+                IRInstruction alloc;
+                alloc.opcode  = IROpcode::AllocHeap;
+                alloc.dest    = IRValue{ m_currentFn->AllocateSSAId(), objTy };
+                alloc.textImm = ClassChain(TypeKey(stmt.declaredType));
+                alloc.boolImm = true;
+                alloc.intImm  = fields + 1;
+                alloc.location = stmt.location;
+                initVal = alloc.dest;
+                m_currentFn->usesHeapOrGC = true;
+                Emit(std::move(alloc));
             } else if (IsRefType(stmt.declaredType)) {
                 int slots = 1;
                 if (const auto* cls = m_sema.FindClassOrType(stmt.declaredType.baseName)) {
@@ -535,6 +784,17 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             store.operandIds  = { initVal.ssaId };
             store.location    = stmt.location;
             Emit(std::move(store));
+            if (!m_scopes.empty() && IsClassName(stmt.declaredType.baseName)) {
+                LiveObj live;
+                live.varName = stmt.varName;
+                if (const auto* cls = m_sema.FindClassOrType(stmt.declaredType.baseName)) {
+                    if (cls->hasCustomDestructor) {
+                        live.dtorIrName = TypeKey(stmt.declaredType) + ".~" + stmt.declaredType.baseName;
+                    }
+                }
+                m_scopes.back().push_back(std::move(live));
+            }
+            NoteGenericUse(stmt.declaredType);
             break;
         }
 
@@ -1042,12 +1302,14 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
         case Frontend::StmtKind::ReturnStmt: {
             if (stmt.condition) {
                 IRValue retVal = LowerExpr(*stmt.condition);
+                EmitScopeCleanups(m_scopes.size(), false);
                 IRInstruction ret;
                 ret.opcode     = IROpcode::ReturnVal;
                 ret.operandIds = { retVal.ssaId };
                 ret.location   = stmt.location;
                 Emit(std::move(ret));
             } else {
+                EmitScopeCleanups(m_scopes.size(), false);
                 IRInstruction ret;
                 ret.opcode   = IROpcode::ReturnVoid;
                 ret.location = stmt.location;
@@ -1398,21 +1660,40 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     argIds.push_back(LowerExpr(*arg).ssaId);
                 }
             }
-            IRInstruction alloc;
+            NoteGenericUse(expr.targetType);
+            const std::string lookup = expr.targetType.baseName;
+            const std::string irName = TypeKey(expr.targetType);
+            const auto* cls = m_sema.FindClassOrType(lookup);
+            const bool isClass = cls != nullptr && cls->kind == Frontend::DeclKind::Class;
             int slots = 1;
-            if (const auto* cls = m_sema.FindClassOrType(expr.targetType.baseName)) {
-                slots = std::max(1, static_cast<int>(cls->fields.size()));
+            if (cls) {
+                slots = isClass ? static_cast<int>(cls->fields.size()) + 1
+                                : std::max(1, static_cast<int>(cls->fields.size()));
             }
             Frontend::TypeNode objTy = expr.targetType;
             objTy.isPointer = true;
+            IRInstruction alloc;
             alloc.opcode     = IROpcode::AllocHeap;
             alloc.dest       = IRValue{ m_currentFn->AllocateSSAId(), objTy };
-            alloc.textImm    = expr.targetType.baseName;
+            alloc.textImm    = isClass ? ClassChain(irName) : lookup;
+            alloc.boolImm    = isClass;
             alloc.intImm     = slots;
-            alloc.operandIds = std::move(argIds);
             alloc.location   = expr.location;
             IRValue out      = alloc.dest;
             Emit(std::move(alloc));
+            if (cls) {
+                auto ctor = cls->methods.find(cls->name);
+                if (ctor != cls->methods.end() && ctor->second.astNode && ctor->second.astNode->body) {
+                    IRInstruction call;
+                    call.opcode     = IROpcode::CallDirect;
+                    call.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Void") };
+                    call.textImm    = irName + "." + lookup;
+                    call.operandIds = { out.ssaId };
+                    call.operandIds.insert(call.operandIds.end(), argIds.begin(), argIds.end());
+                    call.location   = expr.location;
+                    Emit(std::move(call));
+                }
+            }
             return out;
         }
 
@@ -1583,6 +1864,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
 
                 IRValue recvVal = LowerExpr(receiverExpr);
                 const std::string recvClass = receiverExpr.inferredType.baseName;
+                const std::string recvKey = TypeKey(receiverExpr.inferredType);
+                NoteGenericUse(receiverExpr.inferredType);
 
                 // Built-in numeric conversions (.ToFloat(), .ToInt())
                 if (memberName == "ToFloat" || memberName == "ToInt" || memberName == "ToString") {
@@ -1604,8 +1887,9 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 IRInstruction mCall;
                 mCall.opcode          = devirt ? IROpcode::CallDirect : IROpcode::CallVirtual;
                 mCall.dest            = IRValue{ m_currentFn->AllocateSSAId(), exprType };
-                mCall.textImm         = recvClass.empty() ? memberName : (recvClass + "." + memberName);
+                mCall.textImm         = recvKey.empty() ? memberName : (recvKey + "." + memberName);
                 mCall.secondaryText   = recvClass;
+                mCall.intImm          = VirtualSlot(recvClass, memberName);
                 mCall.operandIds      = std::move(methodArgs);
                 mCall.isDevirtualized = devirt;
                 mCall.location        = expr.location;

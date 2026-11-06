@@ -56,7 +56,8 @@ enum class BCOpcode : std::uint8_t {
     PtrLoad,
     PtrStore,
     PtrOffset,
-    SliceCopy
+    SliceCopy,
+    CallVirtual
 };
 
 struct BCInstruction {

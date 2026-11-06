@@ -141,6 +141,7 @@ struct ModuleCtx {
     Frontend::DiagnosticBag& diags;
     std::unordered_map<std::string, const IR::IRFunction*> byName;
     std::vector<std::string> stringLiterals;
+    const IR::IRModule* module = nullptr;
     const NativeEmitOptions& options;
     explicit ModuleCtx(Frontend::DiagnosticBag& d, const NativeEmitOptions& opts)
         : diags(d), options(opts) {}
@@ -884,11 +885,41 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             Err("N9001", "'defer'/'using' cleanup is not yet supported by the native backend.", inst.location);
             break;
 
-        case IROpcode::CallVirtual:
-            Err("N9001",
-                "Virtual calls are not yet supported by the native backend.",
-                inst.location);
+        case IROpcode::CallVirtual: {
+            if (inst.operandIds.empty()) {
+                Err("N9005", "Virtual call '" + inst.textImm + "' is missing its receiver.", inst.location);
+                m_vals[id] = Val{ "0", NTy::I64 };
+                break;
+            }
+            Val obj = Operand(inst, 0);
+            const std::string vt = NewTmp();
+            const std::string slotp = NewTmp();
+            const std::string fp = NewTmp();
+            m_body << "  " << vt << " = load ptr, ptr " << obj.repr << ", align 8\n";
+            m_body << "  " << slotp << " = getelementptr ptr, ptr " << vt << ", i64 " << inst.intImm << "\n";
+            m_body << "  " << fp << " = load ptr, ptr " << slotp << ", align 8\n";
+            NTy ret = NTy::Void;
+            std::string why;
+            if (!inst.dest.type.baseName.empty() && !MapType(inst.dest.type, ret, why)) {
+                ret = NTy::Void;
+            }
+            std::string args;
+            for (std::size_t i = 0; i < inst.operandIds.size(); ++i) {
+                Val a = Operand(inst, i);
+                NTy ty = a.ty == NTy::Void ? NTy::I64 : a.ty;
+                Val c = Coerce(a, ty, inst.location);
+                if (i > 0) args += ", ";
+                args += std::string(TyStr(ty)) + " " + c.repr;
+            }
+            if (ret == NTy::Void) {
+                m_body << "  call fastcc void " << fp << "(" << args << ")\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else {
+                m_body << "  " << vname << " = call fastcc " << TyStr(ret) << " " << fp << "(" << args << ")\n";
+                m_vals[id] = Val{ vname, ret };
+            }
             break;
+        }
 
         case IROpcode::CallOSIntrinsic: {
             if (inst.textImm == "Memory.Allocate" && !inst.operandIds.empty()) {
@@ -925,6 +956,24 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             m_body << "  call void @llvm.memset.p0.i64(ptr " << p << ", i8 0, i64 " << bytes << ", i1 false)\n";
             if (isArray) {
                 m_body << "  store i64 " << n << ", ptr " << p << ", align 8\n";
+            } else if (inst.boolImm) {
+                std::string concrete = inst.textImm;
+                const auto at = concrete.find('@');
+                if (at != std::string::npos) concrete.resize(at);
+                const IR::IRVTable* vt = nullptr;
+                if (m_ctx.module) {
+                    for (const auto& candidate : m_ctx.module->vtables) {
+                        if (candidate.typeName == concrete) {
+                            vt = &candidate;
+                            break;
+                        }
+                    }
+                }
+                if (vt && !vt->slots.empty()) {
+                    m_body << "  store ptr @\"vt." << concrete << "\", ptr " << p << ", align 8\n";
+                } else {
+                    m_body << "  store ptr null, ptr " << p << ", align 8\n";
+                }
             }
             m_vals[id] = Val{ p, NTy::Ptr };
             break;
@@ -1193,6 +1242,7 @@ NativeLLVMEmitter::NativeLLVMEmitter(Frontend::DiagnosticBag& diagnostics, Nativ
 
 std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     ModuleCtx ctx(m_diagnostics, m_options);
+    ctx.module = &mod;
     for (const auto& fn : mod.functions) {
         if (!fn.isTestBlock) {
             ctx.byName[fn.name] = &fn;
@@ -1205,15 +1255,6 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
 
     for (const auto& fn : mod.functions) {
         if (fn.isTestBlock) continue;
-        if (!fn.enclosingClassName.empty()) {
-            m_diagnostics.ReportError(
-                "N9001",
-                "Class method '" + fn.name + "' cannot be compiled natively: classes are not yet supported by the native backend.",
-                fn.location,
-                "Use top-level functions with scalar types for native builds.");
-            ok = false;
-            continue;
-        }
         FnEmitter emitter(fn, ctx, functions);
         if (!emitter.Emit()) {
             ok = false;
@@ -1260,6 +1301,26 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     out << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n";
     out << "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)\n";
     out << "declare void @llvm.trap()\n\n";
+    for (const auto& vt : mod.vtables) {
+        if (vt.slots.empty()) continue;
+        out << "@\"vt." << vt.typeName << "\" = private constant [" << vt.slots.size() << " x ptr] [";
+        for (std::size_t i = 0; i < vt.slots.size(); ++i) {
+            if (i > 0) out << ", ";
+            auto it = ctx.byName.find(vt.slots[i]);
+            if (it == ctx.byName.end()) {
+                m_diagnostics.ReportError(
+                    "N9004",
+                    "Vtable '" + vt.typeName + "' slot '" + vt.slots[i] + "' has no function.",
+                    Frontend::SourceLocation{});
+                ok = false;
+                out << "ptr null";
+            } else {
+                out << "ptr @\"" << it->second->mangledName << "\"";
+            }
+        }
+        out << "]\n";
+    }
+    if (!mod.vtables.empty()) out << "\n";
     out << "define internal ptr @rbx_strcat(ptr %a, ptr %b) {\n";
     out << "entry:\n";
     out << "  %na = call i64 @strlen(ptr %a)\n";
@@ -1308,6 +1369,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "attributes #0 = { nounwind \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" }\n";
     }
 
+    if (!ok) return std::nullopt;
     return out.str();
 }
 

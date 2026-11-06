@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace Robix::IR {
@@ -122,10 +123,16 @@ struct IRFunction {
     [[nodiscard]] std::uint32_t AllocateSSAId() noexcept { return nextSSAId++; }
 };
 
+struct IRVTable {
+    std::string typeName;
+    std::vector<std::string> slots;
+};
+
 struct IRModule {
     std::string moduleName;
     std::string packageName;
     std::vector<IRFunction> functions;
+    std::vector<IRVTable> vtables;
     bool requiresFullRuntime = false;
 
     [[nodiscard]] const IRFunction* FindFunction(std::string_view name) const noexcept;
@@ -187,6 +194,38 @@ private:
     [[nodiscard]] int FieldSlot(const std::string& typeName, const std::string& field) const;
     [[nodiscard]] std::string SlotTypeName(const Frontend::TypeNode& type) const;
     IRValue EmitAggregate(const std::string& kind, std::int64_t slots, Frontend::TypeNode type);
+
+    struct LiveObj {
+        std::string varName;
+        std::string dtorIrName;
+    };
+    struct GenericInst {
+        const Frontend::DeclNode* decl = nullptr;
+        std::string irName;
+        std::vector<Frontend::TypeNode> args;
+    };
+
+    std::vector<std::vector<LiveObj>> m_scopes;
+    std::string m_activeIrClass;
+    std::vector<std::pair<std::string, Frontend::TypeNode>> m_subst;
+    std::unordered_map<std::string, const Frontend::DeclNode*> m_classDecls;
+    std::vector<GenericInst> m_genericQueue;
+    std::unordered_set<std::string> m_genericSeen;
+    IRModule* m_module = nullptr;
+
+    void EmitScopeCleanups(std::size_t scopes, bool clear);
+    void NoteGenericUse(const Frontend::TypeNode& type);
+    void LowerClassBody(const Frontend::DeclNode& decl,
+                        const std::string& irName,
+                        const std::vector<Frontend::TypeNode>& args);
+    void RecordVTable(const std::string& irName, const std::string& lookupName);
+    [[nodiscard]] Frontend::TypeNode SubstType(Frontend::TypeNode type) const;
+    [[nodiscard]] std::string TypeKey(const Frontend::TypeNode& type) const;
+    [[nodiscard]] std::string ClassChain(const std::string& irName) const;
+    [[nodiscard]] bool IsClassName(const std::string& name) const;
+    [[nodiscard]] int VirtualSlot(const std::string& typeName, const std::string& method) const;
+    [[nodiscard]] std::vector<std::string> MethodOrder(const Frontend::SemanticClassInfo& cls) const;
+    [[nodiscard]] std::string DefiningClass(const Frontend::SemanticClassInfo& cls, const std::string& method) const;
 };
 
 } // namespace Robix::IR

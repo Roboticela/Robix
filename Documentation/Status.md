@@ -32,6 +32,19 @@ robixc -O3 Examples/StageB/LibcShape.rbx -o Build/StageB.exe
 
 Both printed `ok`, `Hello`, and `506`.
 
+Stage C exit run, both engines, `Examples/StageC/Machine.rbx`:
+
+```text
+robix run Examples/StageC/Machine.rbx
+robixc -O3 Examples/StageC/Machine.rbx -o Build/StageC.exe
+```
+
+Both printed `150` and then `40`. That program has a `Motor` class with a private field, a constructor, methods, and a destructor; `Drive`, `Walker`, and `Runner` with `override`; a `Box<Int>` instantiation; and `Leaf`, which adds one and returns. The `40` is the destructor printing the motor speed after `Main` prints the total. `Examples/StageC/PrivateField.rbx` is rejected with `R2008` because `Main` reads the private field.
+
+Class objects are a pointer. Word 0 is the vtable. Fields follow, in alphabetical order, one word each. A call whose `new` is visible in the same function is direct. `MakeRunner` returns a `Runner` as a `Walker`, and that call stays virtual: the unoptimized IR has `call fastcc i64 %t7(ptr %v28)`. The interpreter walks `Runner` then `Walker` for the same call. `Box<Int>` is lowered as its own functions (`Box$Int.Get`, `Box$Int.Set`), not as the open template. `Leaf` is `load`, `add`, `ret`. It does not call `malloc`. There is no collector. Class locals with a destructor are destroyed, then `free`d, at the end of the scope. Reference counting is not implemented.
+
+One interface's methods occupy the front of the vtable, sorted by name. A class with two interfaces is not a supported slot layout. C still cannot call a Robix function.
+
 ## Partial
 
 | Feature | What exists | What does not |
@@ -52,8 +65,7 @@ Both printed `ok`, `Hello`, and `506`.
 
 `robixc` reports `N9001` or `I4010` for these. They are not native-complete.
 
-- Classes, methods, fields, constructors, and virtual calls.
-- Global constants and class members.
+- Global constants.
 - `defer` and `using`.
 - Garbage collection. There is no collector in the native runtime. `Memory.Allocate` / `Memory.Free` are explicit `malloc` / `free`, not a collector.
 - OS intrinsics other than `Memory.Allocate` and `Memory.Free`.
@@ -68,7 +80,7 @@ Both printed `ok`, `Hello`, and `506`.
 | :--- | :--- |
 | `robixc File.rbx -o App -O3` | Implemented |
 | `robixc --version`, `robixc --help`, `robixc --emit-llvm`, `robixc --keep-ir` | Implemented |
-| `robix run File.rbx` | Interpreter. Recorded on `Examples/StageB/LibcShape.rbx` (checksum `506`) |
+| `robix run File.rbx` | Interpreter. Recorded on `Examples/StageB/LibcShape.rbx` (checksum `506`) and `Examples/StageC/Machine.rbx` (`150`, then `40`) |
 | `robix repl`, `robix test`, `robix new` | Not recorded as done |
 
 ## How to update this file

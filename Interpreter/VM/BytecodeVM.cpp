@@ -326,22 +326,13 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
 
             case BCOpcode::AllocObj: {
                 auto obj = std::make_shared<VMObjectInstance>();
-                obj->className = inst.symbolImm;
-                if (inst.symbolImm == "Array") {
+                const auto at = inst.symbolImm.find('@');
+                obj->className = (at == std::string::npos) ? inst.symbolImm : inst.symbolImm.substr(0, at);
+                obj->baseChain = (at == std::string::npos) ? std::string{} : inst.symbolImm.substr(at + 1);
+                if (obj->className == "Array") {
                     obj->fields["len"] = VMValue{ inst.intImm };
                 }
-                VMValue objVal{ obj };
-                regs[inst.destReg] = objVal;
-
-                // Invoke constructor `ClassName.ClassName` if present
-                const std::string ctorName = inst.symbolImm + "." + inst.symbolImm;
-                if (const BytecodeChunk* ctorChunk = m_module.FindChunk(ctorName)) {
-                    std::vector<VMValue> ctorArgs = { objVal };
-                    for (std::uint32_t rId : inst.callArgRegs) {
-                        ctorArgs.push_back(regs[rId]);
-                    }
-                    (void)ExecuteChunk(*ctorChunk, ctorArgs);
-                }
+                regs[inst.destReg] = VMValue{ obj };
                 break;
             }
 
@@ -391,6 +382,41 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 break;
             }
 
+            case BCOpcode::CallVirtual: {
+                std::vector<VMValue> callArgs;
+                for (std::uint32_t rId : inst.callArgRegs) {
+                    callArgs.push_back(regs[rId]);
+                }
+                std::shared_ptr<VMObjectInstance> obj = callArgs.empty() ? nullptr : AsObj(callArgs[0]);
+                if (!obj) {
+                    const std::string msg = "robix vm: virtual call '" + inst.symbolImm + "' needs an object";
+                    Fail(msg.c_str());
+                }
+                std::string cursor = obj->className;
+                std::string rest = obj->baseChain;
+                const BytecodeChunk* found = nullptr;
+                for (int guard = 0; guard < 16 && !cursor.empty(); ++guard) {
+                    found = m_module.FindChunk(cursor + "." + inst.symbolImm);
+                    if (found) break;
+                    const auto sep = rest.find('@');
+                    if (rest.empty()) break;
+                    if (sep == std::string::npos) {
+                        cursor = rest;
+                        rest.clear();
+                    } else {
+                        cursor = rest.substr(0, sep);
+                        rest = rest.substr(sep + 1);
+                    }
+                }
+                if (!found) {
+                    const std::string msg = "robix vm: no implementation of '" + inst.symbolImm + "'";
+                    Fail(msg.c_str());
+                }
+                VMValue ret = ExecuteChunk(*found, callArgs);
+                if (inst.destReg != 0) regs[inst.destReg] = ret;
+                break;
+            }
+
             case BCOpcode::CallOSIntrinsic: {
                 if (inst.symbolImm == "Memory.Allocate" && !inst.callArgRegs.empty()) {
                     const std::int64_t bytes = regs[inst.callArgRegs[0]].AsInt();
@@ -404,10 +430,17 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ obj };
                 } else if (inst.symbolImm == "Memory.Free" && !inst.callArgRegs.empty()) {
                     auto obj = AsObj(regs[inst.callArgRegs[0]]);
-                    if (!obj || !obj->buffer) Fail("robix vm: Memory.Free requires an allocated pointer");
-                    if (obj->buffer->freed) Fail("robix vm: double free");
-                    obj->buffer->freed = true;
-                    obj->buffer->bytes.clear();
+                    if (!obj) Fail("robix vm: Memory.Free requires an allocated pointer");
+                    if (obj->buffer) {
+                        if (obj->buffer->freed) Fail("robix vm: double free");
+                        obj->buffer->freed = true;
+                        obj->buffer->bytes.clear();
+                    } else if (obj->freed) {
+                        Fail("robix vm: double free");
+                    } else {
+                        obj->freed = true;
+                        obj->fields.clear();
+                    }
                 } else if (inst.symbolImm == "File.WriteText" && inst.callArgRegs.size() >= 2) {
                     const std::string path    = regs[inst.callArgRegs[0]].ToString();
                     const std::string content = regs[inst.callArgRegs[1]].ToString();

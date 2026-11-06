@@ -18,6 +18,8 @@ struct VMBuffer {
 
 struct VMObjectInstance {
     std::string className;
+    std::string baseChain;
+    bool freed = false;
     std::unordered_map<std::string, struct VMValue> fields;
     std::shared_ptr<struct VMValue> cell;
     std::shared_ptr<VMBuffer> buffer;

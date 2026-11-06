@@ -128,6 +128,9 @@ bool SemanticAnalyzer::CanDevirtualizeCall(const std::string& className, const s
     if (!cls) {
         return false;
     }
+    if (cls->kind == DeclKind::Interface || cls->kind == DeclKind::Trait || cls->isAbstract) {
+        return false;
+    }
     if (cls->isFinal || cls->kind == DeclKind::Struct || !cls->hasDerivedClasses) {
         return true;
     }
