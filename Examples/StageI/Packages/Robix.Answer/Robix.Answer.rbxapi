@@ -1,0 +1,3 @@
+package Robix.Answer;
+
+public Function Answer() -> Int;

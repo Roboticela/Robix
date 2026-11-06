@@ -1,0 +1,8 @@
+Output: Executable
+Target: x86_64-pc-windows-msvc
+Entry: Main
+Source: Source/Main.rbx
+Sources: Source/Add.rbx, Source/Main.rbx
+Order: Source/Add.rbx, Source/Main.rbx
+Config: release
+Profile: release

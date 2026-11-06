@@ -325,6 +325,8 @@ Kept from the previous plan, implemented only on top of Stage B and Stage H.
 - `.rbxb`: sources, `Order`, output kind, targets, configs, `--explain`, `--dry-run`.
 - Incremental build that rebuilds a file when that file or a file it imports changes.
 
+Passed. `robix add Robix.Answer Examples/StageI/Vendor/Answer.rbx --project Examples/StageI` wrote `StageI.rbxlock` with SHA-256 `d6a6c0a8516b9c10ef7dbb24e3d7245f66a1123ea4187ecb7d078af7f865a070` and an HMAC-SHA256 signature from the project `SignKey`. Appending a byte made `robix restore` exit 1 with `hash or signature does not match the lock`. `robix update` rehashed the restored file, `robix install` copied it to `Packages/Robix.Answer/` with `Robix.Answer.rbxapi` and `Robix.Answer.rbxp`, and `robix remove` deleted the lock entry. There is no network registry. `RequireTests: true` made `robix test` and `robix build` exit 1 while `Source/Gap.rbx` had no `Gap.test.rbx`. After that source was removed, `robix test Examples/StageI` printed `conformance: both engines passed`. `robix build Build/StageI-lone/Lone.rbx` compiled a file that has no test and no project, and `Lone.exe` printed `1`. `robixc Examples/StageI/App.rbxb --explain` and `--dry-run` printed `order Source/Add.rbx Source/Main.rbx` and `dry-run: compile was not started`. `Examples/StageF/Kernel.rbxb` still explains as a kernel whose entry is `Kernel.rbx`. The second `robix build` of `Source/Main.rbx` printed `incremental: unchanged`. Changing imported `Add.rbx` rebuilt `Build/StageI/stagei.exe`, which printed `42`.
+
 ### Stage J — RobixUI
 
 Kept. Starts when Stage C can call a method and Stage D can name a function from a document.

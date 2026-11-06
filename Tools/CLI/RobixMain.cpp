@@ -1,4 +1,5 @@
 #include "NativeCompilerDriver.hpp"
+#include "StageIBuild.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
 #include "../../Interpreter/Bytecode/BytecodeModule.hpp"
@@ -29,6 +30,11 @@ static void PrintHelp() {
         << "    generate-tests [path]               Generate companion .test.rbx scaffolds for all .rbx files\n"
         << "    verify [path]                       Run full semantic and static verification on files\n"
         << "    new <ProjectName>                   Initialize a new Robix project\n"
+        << "    add <name> <file.rbx>               Lock a local package with SHA-256 and an HMAC signature\n"
+        << "    remove <name>                       Remove a package from the lock\n"
+        << "    update <name>                       Rehash a locked package file\n"
+        << "    install                             Copy locked packages into Packages/ when the hash matches\n"
+        << "    restore                             Check every locked hash and signature\n"
         << "    examples [topic]                    List or extract official Robix code examples\n"
         << "    repl                                Start the interactive Robix REPL\n"
         << "    version                             Display version and toolchain info\n\n"
@@ -65,6 +71,9 @@ int main(int argc, char* argv[]) {
     } catch (...) {
         toolDir = ".";
     }
+
+    const int packageStatus = Robix::Tools::PackageCommand(args);
+    if (packageStatus >= 0) return packageStatus;
 
     // `robix build <file.rbx>` delegates to NativeCompilerDriver
     if (cmd == "build" && args.size() >= 2) {
@@ -110,6 +119,16 @@ int main(int argc, char* argv[]) {
             opts.outputPath = p.string();
         }
 
+        const std::string missingTest = Robix::Tools::MissingTestMessage(inputFile);
+        if (!missingTest.empty()) {
+            std::cerr << missingTest;
+            return 1;
+        }
+        if (Robix::Tools::IncrementalHit(inputFile, opts.outputPath)) {
+            std::cout << "incremental: unchanged " << opts.outputPath << "\n";
+            return 0;
+        }
+
         auto res = Robix::Tools::NativeCompilerDriver::CompileSource(inputFile, sourceText, opts);
         if (!res.diagnosticsText.empty()) std::cerr << res.diagnosticsText;
         if (!res.toolOutput.empty()) std::cout << res.toolOutput;
@@ -117,6 +136,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "robix build: compilation failed.\n";
             return 1;
         }
+        Robix::Tools::WriteIncrementalStamp(inputFile, res.executablePath);
         std::cout << "robix build: created executable -> " << res.executablePath << "\n";
         return 0;
     }
@@ -302,15 +322,24 @@ int main(int argc, char* argv[]) {
             int status = 0;
             std::error_code ec;
             if (fs::is_directory(target, ec)) {
+                const std::string missingTest = Robix::Tools::MissingTestMessage(target);
+                if (!missingTest.empty()) {
+                    std::cerr << missingTest;
+                    return 1;
+                }
                 status |= versionProbe();
                 std::vector<fs::path> files;
-                for (const auto& entry : fs::directory_iterator(target, ec)) {
-                    if (entry.path().extension() == ".rbx" &&
-                        entry.path().stem().string().size() > 5 &&
-                        entry.path().stem().string().ends_with(".test")) {
-                        files.push_back(entry.path());
+                auto collect = [&](const fs::path& dir) {
+                    for (const auto& entry : fs::directory_iterator(dir, ec)) {
+                        if (entry.path().extension() == ".rbx" &&
+                            entry.path().stem().string().size() > 5 &&
+                            entry.path().stem().string().ends_with(".test")) {
+                            files.push_back(entry.path());
+                        }
                     }
-                }
+                };
+                collect(target);
+                if (fs::is_directory(fs::path(target) / "Source", ec)) collect(fs::path(target) / "Source");
                 std::sort(files.begin(), files.end());
                 if (files.empty()) {
                     std::cerr << "robix test: no .test.rbx files in " << target << "\n";

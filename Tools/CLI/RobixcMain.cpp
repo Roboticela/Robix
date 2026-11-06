@@ -1,4 +1,5 @@
 #include "NativeCompilerDriver.hpp"
+#include "StageIBuild.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
@@ -34,6 +35,7 @@ static void PrintHelp() {
         << "    --keep-ir             Retain generated .ll file next to executable\n"
         << "    --clang <path>        Path to clang.exe\n"
         << "    --runtime-obj <path>  Path to RobixNativeRuntime.obj\n"
+        << "    --explain, --dry-run  Print the .rbxb plan and do not compile\n"
         << "    --generate-tests      Generate missing .test.rbx scaffolds\n"
         << "    --version, -v         Display robixc version information\n"
         << "    --help, -h            Show this help documentation\n";
@@ -120,6 +122,7 @@ static bool LoadRobixBuild(const fs::path& rbxb, std::string& sourcePath, Robix:
         else if (key == "Entry") options.entrySymbol = value;
         else if (key == "Source") source = value;
         else if (key == "Profile") profile = value;
+        else if (key == "Config") profile = profile.empty() && value == "debug" ? "debug" : profile;
     }
     if (source.empty()) {
         error = "robixc: " + rbxb.string() + " has no Source: entry.\n";
@@ -180,11 +183,14 @@ int main(int argc, char* argv[]) {
     Robix::Tools::NativeBuildOptions options;
     options.toolDirectory = toolDir;
     bool executeAfterBuild = false;
+    bool explainOnly = false;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& a = args[i];
         if (a == "-o" && i + 1 < args.size()) {
             options.outputPath = args[++i];
+        } else if (a == "--explain" || a == "--dry-run") {
+            explainOnly = true;
         } else if (a == "--emit-llvm") {
             options.emitLLVMOnly = true;
         } else if (a == "--keep-ir") {
@@ -251,6 +257,21 @@ int main(int argc, char* argv[]) {
     if (inputFilePath.empty()) {
         std::cerr << "robixc: error: no input file specified.\n";
         return 1;
+    }
+    if (explainOnly) {
+        Robix::Tools::RbxbPlan plan;
+        if (fs::path(inputFilePath).extension() == ".rbxb") {
+            plan = Robix::Tools::ReadRbxb(inputFilePath);
+            if (!plan.ok) {
+                std::cerr << plan.error;
+                return 1;
+            }
+        } else {
+            plan.ok = true;
+            plan.source = inputFilePath;
+        }
+        std::cout << Robix::Tools::ExplainRbxb(plan);
+        return 0;
     }
     if (fs::path(inputFilePath).extension() == ".rbxb") {
         std::string sourcePath;

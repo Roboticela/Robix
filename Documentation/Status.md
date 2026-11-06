@@ -112,8 +112,8 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 - Garbage collection. There is no collector in the native runtime. `Memory.Allocate` / `Memory.Free` are explicit `malloc` / `free`, not a collector.
 - OS intrinsics other than `Memory.Allocate` and `Memory.Free`.
 - PWM and other device drivers. `GPIO.Read` on Windows returns error code 1 and writes `GPIO.Read is not available on this target`. It does not return a pin level.
-- Packages as a shippable registry. `.rbxproj` / `.rbxp` tooling is not the native compile path.
-- RobixUI (`.rbxu`) and Robix Network. A `.rbxb` file is read only for `Output` (`Kernel` or `Firmware`), `Target`, `Entry`, `Source`, and `Profile`.
+- A network package registry. `robix add` records a local file, its SHA-256, and an HMAC-SHA256 made with the project `SignKey`. It does not download a package or prove a remote publisher.
+- RobixUI (`.rbxu`) and Robix Network. A `.rbxb` file is read for `Output`, `Target`, `Entry`, `Source`, `Profile`, and, on `--explain` or `--dry-run`, `Sources`, `Order`, and `Config`. Those two flags print the plan and do not compile.
 - LSP over the wire, a VS Code extension, and a debugger attached to the native binary.
 
 ## Commands that exist
@@ -130,6 +130,10 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 | `robix new Name` | Writes `Name/Main.rbx`. Recorded as `HelloApp`, which prints `Hello from Robix` |
 | `robix test Tests/Conformance` | Implemented. Interpreter and native both passed arithmetic, wrap, branches, calls, arrays, structs, and pointers. Bytecode version 99 was refused before execution. `NativeOnly.test.rbx` stopped on `Port.Write8` with the freestanding diagnostic. The native-only list is `Tests/Conformance/NATIVE_ONLY.md` |
 | `robix test StdLib/Robix` | Implemented. `conformance: both engines passed` for Core, Collections, Math, String, IO, Memory, Atomics, Threading, Hardware, Robotics, and Encoding. `Build/StageH-io.txt` contains `RobixIO`. Windows `GPIO.Read(13)` printed the not-available message on both engines and the test saw error tag 0, value 1. Native `Thread.AddPair` starts two Windows threads. The interpreter applies those two additions on the calling thread and returns the same sum |
+| `robix add`, `remove`, `update`, `install`, `restore` | Implemented for a local file. `Examples/StageI` locked `Vendor/Answer.rbx` at SHA-256 `d6a6c0a8516b9c10ef7dbb24e3d7245f66a1123ea4187ecb7d078af7f865a070` with an HMAC-SHA256 signature from `SignKey`. A changed file made `restore` exit 1. `install` wrote `Packages/Robix.Answer/Answer.rbx`, `Robix.Answer.rbxapi`, and `Robix.Answer.rbxp` |
+| `robix test Examples/StageI` | Implemented. With `RequireTests: true`, a source without `Gap.test.rbx` made `robix test` and `robix build` exit 1. After that file was removed, both engines passed `Add.test.rbx` and `Main.test.rbx`. `Build/StageI-lone/Lone.rbx` has no project and no test file; `robix build` produced `Lone.exe`, which printed `1` |
+| `robixc App.rbxb --explain` and `--dry-run` | Implemented. Printed `order Source/Add.rbx Source/Main.rbx` and `dry-run: compile was not started`. `Examples/StageF/Kernel.rbxb` still explains as `output Kernel`, `entry Kernel.rbx`. No output binary was written |
+| `robix build Examples/StageI/Source/Main.rbx` | Implemented. The second build printed `incremental: unchanged`. Changing `Add.rbx`, which `Main.rbx` imports, printed `robix build: created executable` and `Build/StageI/stagei.exe` printed `42` |
 | `robix repl` | Not recorded as done |
 
 ## How to update this file
