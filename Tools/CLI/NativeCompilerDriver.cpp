@@ -523,10 +523,22 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     } else {
         cmd << " -O0 ";
     }
+    if (options.linkNetwork) {
+        if (options.networkObjectPath.empty() || !FileExists(options.networkObjectPath)) {
+            res.diagnosticsText += "error: this project sets Network: true, and NetworkRuntime.obj was not found.\n";
+            return res;
+        }
+    }
     cmd << "-fms-runtime-lib=static -Wno-override-module "
-        << Quote(runtimeObj) << " " << Quote(codegenInput.string()) << " -o " << Quote(exePath.string());
+        << Quote(runtimeObj) << " ";
+    if (options.linkNetwork) {
+        cmd << Quote(options.networkObjectPath) << " -lws2_32 -lsecur32 -lcrypt32 ";
+    }
+    cmd << Quote(codegenInput.string()) << " -o " << Quote(exePath.string());
 
     const int code = RunProcess(cmd.str(), res.toolOutput);
+    if (options.linkNetwork) res.toolOutput += "network-runtime: linked " + options.networkObjectPath + "\n";
+    else res.toolOutput += "network-runtime: omitted\n";
     {
         std::error_code ec;
         fs::remove(optIR, ec);

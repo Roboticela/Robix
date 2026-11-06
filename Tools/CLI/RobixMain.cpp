@@ -1,5 +1,7 @@
 #include "NativeCompilerDriver.hpp"
 #include "StageIBuild.hpp"
+#include "../../RobixUI/Document.hpp"
+#include "../../Network/NetworkRuntime.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
 #include "../../Interpreter/Bytecode/BytecodeModule.hpp"
@@ -35,6 +37,10 @@ static void PrintHelp() {
         << "    update <name>                       Rehash a locked package file\n"
         << "    install                             Copy locked packages into Packages/ when the hash matches\n"
         << "    restore                             Check every locked hash and signature\n"
+        << "    ui validate <file.rbxu> --code <file.rbx>   Parse, lay out, and type-check event handlers\n"
+        << "    ui render <file.rbxu> -o <file.bmp>         Draw one software frame as a BMP\n"
+        << "    network check <project>             Check a Network block, contract, and env split\n"
+        << "    network run <project>               Run the local contract call, timeout, and TLS handshake\n"
         << "    examples [topic]                    List or extract official Robix code examples\n"
         << "    repl                                Start the interactive Robix REPL\n"
         << "    version                             Display version and toolchain info\n\n"
@@ -74,6 +80,10 @@ int main(int argc, char* argv[]) {
 
     const int packageStatus = Robix::Tools::PackageCommand(args);
     if (packageStatus >= 0) return packageStatus;
+    const int uiStatus = Robix::UI::RunUiCommand(args);
+    if (uiStatus >= 0) return uiStatus;
+    const int networkStatus = Robix::Network::RunNetworkCommand(args);
+    if (networkStatus >= 0) return networkStatus;
 
     // `robix build <file.rbx>` delegates to NativeCompilerDriver
     if (cmd == "build" && args.size() >= 2) {
@@ -119,6 +129,11 @@ int main(int argc, char* argv[]) {
             opts.outputPath = p.string();
         }
 
+        Robix::Tools::ProjectFile project;
+        if (Robix::Tools::FindProject(inputFile, project) && project.network) {
+            opts.linkNetwork = true;
+            opts.networkObjectPath = "Build/obj/NetworkRuntime.obj";
+        }
         const std::string missingTest = Robix::Tools::MissingTestMessage(inputFile);
         if (!missingTest.empty()) {
             std::cerr << missingTest;

@@ -1,0 +1,6 @@
+<RobixUI Version="1.0">
+  <Window Name="Broken" Width="200" Height="80">
+    <Button Name="SpeedButton" Text="Speed" OnClick="SetSpeed"/>
+    <Button Name="MissingButton" Text="Missing" OnClick="Missing"/>
+  </Window>
+</RobixUI>

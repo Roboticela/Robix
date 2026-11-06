@@ -118,6 +118,7 @@ bool LoadKeys(const fs::path& file, ProjectFile& project) {
         else if (key == "SignKey") project.signKey = value;
         else if (key == "SourceDir") project.sourceDir = value;
         else if (key == "RequireTests") project.requireTests = value == "true";
+        else if (key == "Network") project.network = value == "true";
     }
     if (project.name.empty()) project.name = file.stem().string();
     return true;

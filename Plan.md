@@ -335,12 +335,16 @@ Kept. Starts when Stage C can call a method and Stage D can name a function from
 - Bind `OnClick` to a Robix method with a type check.
 - One software renderer or one OS backend, named in the status file. No backend is described as cross-platform until that OS has been run.
 
+Passed. `robix ui validate Examples/StageJ/MainWindow.rbxu --code Examples/StageJ/Main.rbx` parsed the document, laid out the window, column, row, text, and buttons, and bound `OnClick` to `MainController.StartRobot() -> Void` and `MainController.StopRobot() -> Void`. `Examples/StageJ/BadWindow.rbxu` exited 1: `SetSpeed` has an `Int` parameter, and `Missing` is not a function. `robix ui render` wrote `Build/StageJ/light.bmp`. The file's pixel 0,0 is `F4F5F7` and pixel 18,44 inside Start is `1D4E89`. `--theme dark` wrote `Build/StageJ/dark.bmp` with 0,0 as `14161A` and the button pixel as `4C8DFF`. `--width 200` wrapped `StopButton` to y 80, and pixel 18,82 in `Build/StageJ/narrow.bmp` is `1D4E89`. The renderer is a software BMP writer run on Windows. It does not open a window and it is not a cross-platform backend. The click binding is the type check. The renderer does not call the method.
+
 ### Stage K — Robix Network
 
 Kept, and optional. A project with no `Network` block does not compile or link it.
 
 - `Common/` contracts, typed calls, events, `.env` split by client and server, TLS, timeouts.
 - Secrets do not ship inside client binaries.
+
+Passed. `robix network run Examples/StageK` parsed `Common/Status.rbx` as `GetStatus(Int) -> Int` and `BatteryLow(Int) -> Void`. The call on `127.0.0.1` returned `reply Int 42`, the event was `BatteryLow Int 7`, and `call GetStatus String fast` returned `error expected Int`. The hang connection timed out after 203 ms. Schannel completed a handshake with the local self-signed certificate whose subject is `robix-stagek`, and the typed call inside that session returned `reply Int 42`. This is not a public certificate authority and not an internet connection. `Examples/StageK-bad` exited 1 because `SERVER_TOKEN` is in both `.env.client` and `.env.server`. `Build/StageK/client.env` contains `APP_NAME` and `PUBLIC_HOST` only. `robix build Build/StageK-plain/Plain.rbx` printed `network-runtime: omitted`, and `Plain.exe` does not contain `rbx-network-runtime-marker`. `robix build Examples/StageK/Source/Client.rbx` printed `network-runtime: linked Build/obj/NetworkRuntime.obj`. `client.exe` contains that marker and does not contain `STAGEK_SERVER_TOKEN_9f3a` or `STAGEK_CERT_PASSWORD_c4e1`. The same run then exchanged UDP snapshots for `Move(Int, Int, Int, Int) -> Void`: two clients, 39 snapshots applied in 297 ms, player 1 at 60,40 and player 2 at 120,20. An older sequence was ignored and a non-integer snapshot was rejected. The packets stayed on `127.0.0.1`.
 
 ### Stage L — Tools
 
@@ -412,8 +416,8 @@ Boxes are empty until the exit test of that stage has been run and the command i
 - [ ] I. `.rbxproj`, lockfile, `.rbxapi`, `.rbxp`, `robix add`
 - [x] I. `.rbxb` outputs including `Firmware` and `Kernel`
 - [ ] I. Per-file tests
-- [ ] J. `.rbxu` parser, layout, type-checked events, one real renderer
-- [ ] K. Optional network contracts, env split, no client secrets
+- [x] J. `.rbxu` parser, layout, type-checked events, one real renderer
+- [x] K. Optional network contracts, env split, no client secrets
 - [ ] H. Hardware traits that fail clearly off-target
 - [ ] H. Pure robotics algorithms (PID, transforms) separate from drivers
 

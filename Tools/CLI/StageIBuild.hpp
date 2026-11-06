@@ -14,6 +14,7 @@ struct ProjectFile {
     std::string signKey;
     std::string sourceDir = "Source";
     bool requireTests = false;
+    bool network = false;
 };
 
 struct RbxbPlan {

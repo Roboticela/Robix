@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<RobixUI Version="1.0">
+  <Window Name="RobotDashboard" Title="Roboticela Robot Control" Width="320" Height="180" Theme="Light" Padding="16">
+    <Column Spacing="16">
+      <Text Name="Title" Value="Robot Dashboard" FontSize="16"/>
+      <Row Spacing="12">
+        <Button Name="StartButton" Text="Start Robot" OnClick="StartRobot"/>
+        <Button Name="StopButton" Text="Stop Robot" OnClick="StopRobot"/>
+      </Row>
+      <Text Name="RobotStatus" Value="Disconnected"/>
+    </Column>
+  </Window>
+</RobixUI>

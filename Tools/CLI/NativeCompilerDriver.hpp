@@ -27,6 +27,8 @@ struct NativeBuildOptions {
     std::string entrySymbol;      // Empty means Main, or Start when freestanding
     std::string asmArch = "x86_64";
     std::string imageRole = "Kernel"; // .rbxb Output: Kernel or Firmware
+    bool linkNetwork = false;
+    std::string networkObjectPath;
 };
 
 struct NativeBuildResult {
