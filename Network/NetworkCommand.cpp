@@ -9,7 +9,19 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <wincrypt.h>
+#include <iphlpapi.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -108,8 +120,132 @@ bool LoadContract(const fs::path& commonDir, std::vector<Method>& methods, std::
 
 namespace Robix::Network {
 
+#ifdef _WIN32
+int ProbeBeyondLoopback() {
+    WSADATA wsa{};
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        std::cerr << "network probe: Winsock did not start\n";
+        return 1;
+    }
+    ULONG size = 32 * 1024;
+    std::vector<unsigned char> buffer(size);
+    const ULONG flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
+    ULONG result = GetAdaptersAddresses(AF_INET, flags, nullptr,
+                                        reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data()), &size);
+    if (result == ERROR_BUFFER_OVERFLOW) {
+        buffer.resize(size);
+        result = GetAdaptersAddresses(AF_INET, flags, nullptr,
+                                      reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data()), &size);
+    }
+    std::string chosen;
+    if (result == NO_ERROR) {
+        for (auto* adapter = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data()); adapter != nullptr; adapter = adapter->Next) {
+            for (auto* address = adapter->FirstUnicastAddress; address != nullptr; address = address->Next) {
+                auto* ipv4 = reinterpret_cast<sockaddr_in*>(address->Address.lpSockaddr);
+                if (ipv4 == nullptr || ipv4->sin_family != AF_INET) continue;
+                char text[64]{};
+                if (!inet_ntop(AF_INET, &ipv4->sin_addr, text, sizeof(text))) continue;
+                const std::string ip = text;
+                if (ip == "127.0.0.1" || ip.rfind("169.254.", 0) == 0) continue;
+                chosen = ip;
+                break;
+            }
+            if (!chosen.empty()) break;
+        }
+    }
+    if (chosen.empty()) {
+        std::cerr << "network probe: no address other than 127.0.0.1\n";
+        WSACleanup();
+        return 1;
+    }
+
+    DWORD encoded = 0;
+    const char* subject = "CN=robix-stagen";
+    if (!CertStrToNameA(X509_ASN_ENCODING, subject, CERT_X500_NAME_STR, nullptr, nullptr, &encoded, nullptr)) {
+        std::cerr << "network probe: could not encode the certificate name\n";
+        WSACleanup();
+        return 1;
+    }
+    std::vector<BYTE> nameBytes(encoded);
+    CertStrToNameA(X509_ASN_ENCODING, subject, CERT_X500_NAME_STR, nullptr, nameBytes.data(), &encoded, nullptr);
+    CERT_NAME_BLOB name{};
+    name.cbData = encoded;
+    name.pbData = nameBytes.data();
+    PCCERT_CONTEXT cert = CertCreateSelfSignCertificate(0, &name, 0, nullptr, nullptr, nullptr, nullptr, nullptr);
+    if (cert == nullptr) {
+        std::cerr << "network probe: could not create a certificate\n";
+        WSACleanup();
+        return 1;
+    }
+    char display[256]{};
+    CertGetNameStringA(cert, CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, nullptr, display, sizeof(display));
+    const std::string shown = display;
+    if (shown.empty() || shown == "robix-stagek") {
+        std::cerr << "network probe: certificate subject was not a new name\n";
+        CertFreeCertificateContext(cert);
+        WSACleanup();
+        return 1;
+    }
+
+    SOCKET listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    sockaddr_in any{};
+    any.sin_family = AF_INET;
+    any.sin_addr.s_addr = htonl(INADDR_ANY);
+    any.sin_port = 0;
+    if (listener == INVALID_SOCKET || bind(listener, reinterpret_cast<sockaddr*>(&any), sizeof(any)) != 0 ||
+        listen(listener, 1) != 0) {
+        std::cerr << "network probe: could not listen\n";
+        if (listener != INVALID_SOCKET) closesocket(listener);
+        CertFreeCertificateContext(cert);
+        WSACleanup();
+        return 1;
+    }
+    sockaddr_in bound{};
+    int boundLength = sizeof(bound);
+    getsockname(listener, reinterpret_cast<sockaddr*>(&bound), &boundLength);
+    const unsigned short port = ntohs(bound.sin_port);
+    std::thread server([&] {
+        SOCKET accepted = accept(listener, nullptr, nullptr);
+        if (accepted == INVALID_SOCKET) return;
+        char request[8]{};
+        recv(accepted, request, 4, 0);
+        send(accepted, "pong", 4, 0);
+        closesocket(accepted);
+    });
+
+    SOCKET client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    sockaddr_in destination{};
+    destination.sin_family = AF_INET;
+    inet_pton(AF_INET, chosen.c_str(), &destination.sin_addr);
+    destination.sin_port = htons(port);
+    const bool connected = client != INVALID_SOCKET &&
+                           connect(client, reinterpret_cast<sockaddr*>(&destination), sizeof(destination)) == 0;
+    char reply[8]{};
+    int received = 0;
+    if (connected) {
+        send(client, "ping", 4, 0);
+        received = recv(client, reply, 4, 0);
+    }
+    if (client != INVALID_SOCKET) closesocket(client);
+    server.join();
+    closesocket(listener);
+    CertFreeCertificateContext(cert);
+    WSACleanup();
+    if (!connected || received != 4 || std::string(reply, 4) != "pong") {
+        std::cerr << "network probe: no reply from " << chosen << "\n";
+        return 1;
+    }
+    std::cout << "probe: connected " << chosen << " reply pong\n";
+    std::cout << "probe: certificate " << shown << "\n";
+    return 0;
+}
+#endif
+
 int RunNetworkCommand(const std::vector<std::string>& args) {
     if (args.empty() || args[0] != "network") return -1;
+#ifdef _WIN32
+    if (args.size() >= 2 && args[1] == "probe") return ProbeBeyondLoopback();
+#endif
     if (args.size() < 3 || (args[1] != "check" && args[1] != "run")) {
         std::cerr << "robix network: use check <project> or run <project>\n";
         return 1;

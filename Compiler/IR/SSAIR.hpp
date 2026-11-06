@@ -237,6 +237,7 @@ private:
     [[nodiscard]] std::string ClassChain(const std::string& irName) const;
     [[nodiscard]] bool IsClassName(const std::string& name) const;
     [[nodiscard]] int VirtualSlot(const std::string& typeName, const std::string& method) const;
+    [[nodiscard]] std::vector<std::string> InterfacePrefix() const;
     [[nodiscard]] std::vector<std::string> MethodOrder(const Frontend::SemanticClassInfo& cls) const;
     [[nodiscard]] std::string DefiningClass(const Frontend::SemanticClassInfo& cls, const std::string& method) const;
 };

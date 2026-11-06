@@ -9,6 +9,9 @@
 #include "../../Compiler/Semantic/SemanticAnalyzer.hpp"
 #include "../../Compiler/Types/TypeChecker.hpp"
 
+#include "../../StdLib/Security/SecurityAndNetwork.hpp"
+
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -108,6 +111,34 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
         res.toolOutput += "compile: " + compile.str() + "\n";
     }
     res.toolOutput += compileLog;
+
+    if (options.outputKind == NativeOutputKind::LinuxExecutable) {
+        const fs::path lld = binDir / "ld.lld.exe";
+        if (!FileExists(lld)) {
+            res.diagnosticsText += "error: ld.lld.exe was not found next to clang.\n";
+            return res;
+        }
+        const fs::path script = work / "linux.ld";
+        WriteText(script,
+                  "ENTRY(Start)\nSECTIONS {\n  . = 0x400000;\n"
+                  "  .text : { *(.text*) }\n  .rodata : { *(.rodata*) }\n"
+                  "  .data : { *(.data*) }\n  .bss : { *(.bss) *(COMMON) }\n}\n");
+        const std::string entry = options.entrySymbol.empty() ? "Start" : options.entrySymbol;
+        std::ostringstream link;
+        link << Quote(lld.string()) << " -m elf_x86_64 -nostdlib -static -e " << entry << " -T "
+             << Quote(script.string()) << " " << Quote(object.string()) << " -o " << Quote(output.string());
+        std::string linkLog;
+        if (RunProcess(link.str(), linkLog) != 0 || !FileExists(output)) {
+            res.toolOutput += linkLog;
+            res.diagnosticsText += "error: Linux link failed:\n" + res.toolOutput;
+            return res;
+        }
+        res.success = true;
+        res.executablePath = output.string();
+        res.toolOutput += "linux-executable: " + output.string() + "\n";
+        res.toolOutput += linkLog;
+        return res;
+    }
 
     if (options.outputKind == NativeOutputKind::BootImage && options.asmArch != "x86_64") {
         const fs::path lld = binDir / "ld.lld.exe";
@@ -333,6 +364,109 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
     return res;
 }
 
+NativeBuildResult FinishHostedArtifact(const std::string& clang,
+                                       const fs::path& llvmIR,
+                                       const fs::path& output,
+                                       std::string_view sourceText,
+                                       const NativeBuildOptions& options,
+                                       NativeBuildResult res) {
+    const fs::path binDir = fs::path(clang).parent_path();
+    const fs::path work = output.has_parent_path() ? output.parent_path() : fs::path(".");
+    std::error_code ec;
+    fs::create_directories(work, ec);
+    const fs::path object = work / (output.stem().string() + ".hosted.obj");
+    std::ostringstream compile;
+    compile << Quote(clang) << " -c -Wno-override-module " << Quote(llvmIR.string())
+            << " -o " << Quote(object.string());
+    std::string log;
+    if (RunProcess(compile.str(), log) != 0 || !FileExists(object)) {
+        res.toolOutput += log;
+        res.diagnosticsText += "error: hosted object compile failed:\n" + res.toolOutput;
+        return res;
+    }
+    res.toolOutput += log;
+
+    if (options.outputKind == NativeOutputKind::HostedObject) {
+        fs::copy_file(object, output, fs::copy_options::overwrite_existing, ec);
+        if (ec || !FileExists(output)) {
+            res.diagnosticsText += "error: could not write object '" + output.string() + "'\n";
+            return res;
+        }
+        res.success = true;
+        res.executablePath = output.string();
+        res.toolOutput += "output: object\n";
+        return res;
+    }
+
+    if (options.outputKind == NativeOutputKind::StaticLibrary) {
+        const fs::path ar = binDir / "llvm-ar.exe";
+        if (!FileExists(ar)) {
+            res.diagnosticsText += "error: llvm-ar.exe was not found next to clang.\n";
+            return res;
+        }
+        std::ostringstream cmd;
+        cmd << Quote(ar.string()) << " rcs " << Quote(output.string()) << " " << Quote(object.string());
+        std::string arLog;
+        if (RunProcess(cmd.str(), arLog) != 0 || !FileExists(output)) {
+            res.toolOutput += arLog;
+            res.diagnosticsText += "error: static library failed:\n" + res.toolOutput;
+            return res;
+        }
+        res.success = true;
+        res.executablePath = output.string();
+        res.toolOutput += "output: static-library\n";
+        return res;
+    }
+
+    if (options.outputKind == NativeOutputKind::SharedLibrary) {
+        const fs::path nm = binDir / "llvm-nm.exe";
+        std::string symbols;
+        if (FileExists(nm)) {
+            RunProcess(Quote(nm.string()) + " --defined-only " + Quote(object.string()), symbols);
+        }
+        std::string def = "EXPORTS\n";
+        std::istringstream symbolLines(symbols);
+        std::string symbolLine;
+        while (std::getline(symbolLines, symbolLine)) {
+            const auto mark = symbolLine.find(" T ");
+            if (mark == std::string::npos) continue;
+            std::string name = symbolLine.substr(mark + 3);
+            while (!name.empty() && (name.back() == '\r' || name.back() == ' ')) name.pop_back();
+            if (!name.empty() && name[0] != '.') def += name + "\n";
+        }
+        const fs::path defPath = work / (output.stem().string() + ".def");
+        WriteText(defPath, def);
+        std::ostringstream cmd;
+        cmd << Quote(clang) << " -shared -o " << Quote(output.string()) << " " << Quote(object.string())
+            << " -Wl,/DEF:" << defPath.string();
+        std::string linkLog;
+        if (RunProcess(cmd.str(), linkLog) != 0 || !FileExists(output)) {
+            res.toolOutput += linkLog;
+            res.diagnosticsText += "error: shared library failed:\n" + res.toolOutput;
+            return res;
+        }
+        res.success = true;
+        res.executablePath = output.string();
+        res.toolOutput += "output: shared-library\n";
+        return res;
+    }
+
+    const std::string sha = StdLib::CryptoEngine::ComputeSHA256Hex(sourceText);
+    std::string bytes = "RBXPKG 1\nsha256 " + sha + "\nsource " + std::to_string(sourceText.size()) + "\n";
+    bytes.append(sourceText.data(), sourceText.size());
+    bytes += "\n";
+    std::ofstream package(output, std::ios::binary | std::ios::trunc);
+    if (!package) {
+        res.diagnosticsText += "error: could not write package '" + output.string() + "'\n";
+        return res;
+    }
+    package << bytes;
+    res.success = true;
+    res.executablePath = output.string();
+    res.toolOutput += "output: package\npackage: sha256 " + sha + "\n";
+    return res;
+}
+
 } // namespace
 
 std::string NativeCompilerDriver::LocateClang(const std::string& hint, const std::string& toolDirectory) {
@@ -505,6 +639,13 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
                 codegenInput = optIR;
             }
         }
+    }
+
+    if (options.outputKind == NativeOutputKind::HostedObject ||
+        options.outputKind == NativeOutputKind::StaticLibrary ||
+        options.outputKind == NativeOutputKind::SharedLibrary ||
+        options.outputKind == NativeOutputKind::PackageArchive) {
+        return FinishHostedArtifact(clang, codegenInput, exePath, sourceText, options, res);
     }
 
     if (options.outputKind != NativeOutputKind::HostedExecutable) {

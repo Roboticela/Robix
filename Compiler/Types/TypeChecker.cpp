@@ -921,6 +921,9 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
         case ExprKind::Identifier: {
             if (expr.text == "Memory" || expr.text == "GPIO" || expr.text == "PWM" ||
                 expr.text == "UART" || expr.text == "SPI" || expr.text == "I2C" ||
+                expr.text == "CAN" || expr.text == "USB" || expr.text == "PCIe" ||
+                expr.text == "DMA" || expr.text == "Sensor" || expr.text == "Motor" ||
+                expr.text == "Interrupt" || expr.text == "HardwareTimer" ||
                 expr.text == "File" ||
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||

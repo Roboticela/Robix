@@ -422,22 +422,35 @@ void SSAIRBuilder::NoteGenericUse(const Frontend::TypeNode& type) {
     m_genericQueue.push_back(std::move(inst));
 }
 
+std::vector<std::string> SSAIRBuilder::InterfacePrefix() const {
+    std::vector<std::string> names;
+    for (const auto& [typeName, decl] : m_classDecls) {
+        (void)decl;
+        const auto* info = m_sema.FindClassOrType(typeName);
+        if (!info) continue;
+        if (info->kind != Frontend::DeclKind::Interface && info->kind != Frontend::DeclKind::Trait) continue;
+        for (const auto& [name, method] : info->methods) {
+            if (!method.isStatic && !name.empty()) names.push_back(name);
+        }
+    }
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+    return names;
+}
+
 std::vector<std::string> SSAIRBuilder::MethodOrder(const Frontend::SemanticClassInfo& cls) const {
     std::vector<std::string> order;
     if (!cls.baseClassName.empty()) {
         if (const auto* base = m_sema.FindClassOrType(cls.baseClassName)) {
             order = MethodOrder(*base);
         }
-    } else {
-        for (const auto& ifaceName : cls.implementedInterfaces) {
-            const auto* iface = m_sema.FindClassOrType(ifaceName);
-            if (!iface) continue;
-            for (const auto& [name, method] : iface->methods) {
-                if (!method.isStatic) order.push_back(name);
-            }
+    }
+    const std::vector<std::string> prefix = InterfacePrefix();
+    if (order.empty()) order.assign(prefix.size(), std::string{});
+    for (std::size_t i = 0; i < prefix.size() && i < order.size(); ++i) {
+        if (order[i].empty() && cls.methods.find(prefix[i]) != cls.methods.end()) {
+            order[i] = prefix[i];
         }
-        std::sort(order.begin(), order.end());
-        order.erase(std::unique(order.begin(), order.end()), order.end());
     }
 
     std::vector<std::string> own;
@@ -474,27 +487,7 @@ int SSAIRBuilder::VirtualSlot(const std::string& typeName, const std::string& me
         return 0;
     };
     if (cls->kind == Frontend::DeclKind::Interface || cls->kind == Frontend::DeclKind::Trait) {
-        int agreed = -1;
-        int implementers = 0;
-        for (const auto& entry : m_classDecls) {
-            const auto* info = m_sema.FindClassOrType(entry.first);
-            if (!info || info->kind != Frontend::DeclKind::Class) continue;
-            bool implements = false;
-            for (const auto& iface : info->implementedInterfaces) {
-                if (iface == typeName) implements = true;
-            }
-            if (!implements) continue;
-            ++implementers;
-            const int slot = indexOf(MethodOrder(*info));
-            if (agreed < 0) agreed = slot;
-        }
-        if (implementers >= 1 && agreed >= 0) return agreed;
-        std::vector<std::string> order;
-        for (const auto& [name, info] : cls->methods) {
-            if (!info.isStatic) order.push_back(name);
-        }
-        std::sort(order.begin(), order.end());
-        return indexOf(order);
+        return indexOf(InterfacePrefix());
     }
     return indexOf(MethodOrder(*cls));
 }
@@ -507,6 +500,10 @@ void SSAIRBuilder::RecordVTable(const std::string& irName, const std::string& lo
     vt.typeName = irName;
     const bool instantiated = irName != lookupName;
     for (const auto& method : MethodOrder(*cls)) {
+        if (method.empty()) {
+            vt.slots.push_back("");
+            continue;
+        }
         if (instantiated) {
             vt.slots.push_back(irName + "." + method);
         } else {
@@ -2428,6 +2425,10 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
                      receiverExpr.text == "PWM" || receiverExpr.text == "UART" ||
                      receiverExpr.text == "SPI" || receiverExpr.text == "I2C" ||
+                     receiverExpr.text == "CAN" || receiverExpr.text == "USB" ||
+                     receiverExpr.text == "PCIe" || receiverExpr.text == "DMA" ||
+                     receiverExpr.text == "Sensor" || receiverExpr.text == "Motor" ||
+                     receiverExpr.text == "Interrupt" || receiverExpr.text == "HardwareTimer" ||
                      receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
                      receiverExpr.text == "Cpu" || receiverExpr.text == "System" ||
@@ -2463,6 +2464,10 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                                (receiverExpr.text == "GPIO" && memberName == "Read") ||
                                receiverExpr.text == "PWM" || receiverExpr.text == "UART" ||
                                receiverExpr.text == "SPI" || receiverExpr.text == "I2C" ||
+                               receiverExpr.text == "CAN" || receiverExpr.text == "USB" ||
+                               receiverExpr.text == "PCIe" || receiverExpr.text == "DMA" ||
+                               receiverExpr.text == "Sensor" || receiverExpr.text == "Motor" ||
+                               receiverExpr.text == "Interrupt" || receiverExpr.text == "HardwareTimer" ||
                                (receiverExpr.text == "Atomic" && memberName == "FetchAdd") ||
                                (receiverExpr.text == "Thread" && memberName == "AddPair")) {
                         ty = MakePrim("Int");

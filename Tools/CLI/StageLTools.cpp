@@ -431,6 +431,10 @@ int DocCommand(const std::vector<std::string>& args) {
 }
 
 int DebugCommand(const std::vector<std::string>& args, const std::string& toolDir) {
+    bool attach = false;
+    for (const auto& arg : args) {
+        if (arg == "--attach") attach = true;
+    }
     const std::string file = FirstFile(args);
     if (file.empty() || !fs::exists(file)) {
         std::cerr << "robix debug: expected a .rbx file.\n";
@@ -456,6 +460,51 @@ int DebugCommand(const std::vector<std::string>& args, const std::string& toolDi
         std::cerr << "robix debug: native compilation failed.\n";
         return 1;
     }
+#ifdef _WIN32
+    if (attach) {
+        std::string exe = built.executablePath;
+        for (char& ch : exe) {
+            if (ch == '/') ch = '\\';
+        }
+        STARTUPINFOA startup{};
+        startup.cb = sizeof(startup);
+        PROCESS_INFORMATION process{};
+        std::vector<char> command(exe.begin(), exe.end());
+        command.push_back('\0');
+        if (!CreateProcessA(nullptr, command.data(), nullptr, nullptr, FALSE,
+                            DEBUG_ONLY_THIS_PROCESS, nullptr, nullptr, &startup, &process)) {
+            std::cerr << "robix debug: could not attach to the process.\n";
+            return 1;
+        }
+        bool sawCreate = false;
+        bool sawExit = false;
+        DWORD exitCode = 1;
+        for (int guard = 0; guard < 10000; ++guard) {
+            DEBUG_EVENT event{};
+            if (!WaitForDebugEvent(&event, 5000)) break;
+            if (event.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT) {
+                sawCreate = true;
+                std::cout << "debug: attached pid " << event.dwProcessId << "\n";
+                std::cout << "debug: event CREATE_PROCESS_DEBUG_EVENT\n";
+                if (event.u.CreateProcessInfo.hFile) CloseHandle(event.u.CreateProcessInfo.hFile);
+            } else if (event.dwDebugEventCode == EXIT_PROCESS_DEBUG_EVENT) {
+                sawExit = true;
+                exitCode = event.u.ExitProcess.dwExitCode;
+                std::cout << "debug: event EXIT_PROCESS_DEBUG_EVENT code " << exitCode << "\n";
+                ContinueDebugEvent(event.dwProcessId, event.dwThreadId, DBG_CONTINUE);
+                break;
+            }
+            ContinueDebugEvent(event.dwProcessId, event.dwThreadId, DBG_CONTINUE);
+        }
+        CloseHandle(process.hThread);
+        CloseHandle(process.hProcess);
+        if (!sawCreate || !sawExit || exitCode != 0) {
+            std::cerr << "robix debug: the attached process did not exit 0.\n";
+            return 1;
+        }
+        return 0;
+    }
+#endif
 #ifndef _WIN32
     std::cerr << "robix debug: native capture is implemented for Windows.\n";
     return 1;

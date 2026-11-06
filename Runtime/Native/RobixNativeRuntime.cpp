@@ -115,6 +115,14 @@ std::int64_t rbx_device_unavailable(std::int64_t code, std::int64_t id) {
     if (code == 2) name = "UART.Write";
     else if (code == 3) name = "SPI.Transfer";
     else if (code == 4) name = "I2C.Write";
+    else if (code == 5) name = "CAN.Send";
+    else if (code == 6) name = "USB.Write";
+    else if (code == 7) name = "PCIe.Read";
+    else if (code == 8) name = "DMA.Start";
+    else if (code == 9) name = "Sensor.Read";
+    else if (code == 10) name = "Motor.SetSpeed";
+    else if (code == 11) name = "Interrupt.Enable";
+    else if (code == 12) name = "HardwareTimer.Read";
     std::fprintf(stderr, "%s is not available on this target (%lld)\n", name, static_cast<long long>(id));
     return 1;
 }

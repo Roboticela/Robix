@@ -7,6 +7,14 @@
 #include <iostream>
 #include <sstream>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <winhttp.h>
+#endif
+
 namespace fs = std::filesystem;
 
 namespace Robix::Tools {
@@ -44,6 +52,66 @@ std::string HashFile(const fs::path& path) {
 std::string SignatureFor(const std::string& key, const std::string& name, const std::string& version, const std::string& sha) {
     return Robix::StdLib::CryptoEngine::ComputeHMACSHA256Hex(key, name + "@" + version + ":" + sha);
 }
+
+#ifdef _WIN32
+bool DownloadHttp(const std::string& url, std::string& body, std::string& error) {
+    const std::wstring wide(url.begin(), url.end());
+    URL_COMPONENTS parts{};
+    wchar_t host[256]{};
+    wchar_t path[1024]{};
+    parts.dwStructSize = sizeof(parts);
+    parts.lpszHostName = host;
+    parts.dwHostNameLength = 256;
+    parts.lpszUrlPath = path;
+    parts.dwUrlPathLength = 1024;
+    if (!WinHttpCrackUrl(wide.c_str(), 0, 0, &parts)) {
+        error = "could not parse " + url;
+        return false;
+    }
+    HINTERNET session = WinHttpOpen(L"robix", WINHTTP_ACCESS_TYPE_NO_PROXY, nullptr, nullptr, 0);
+    if (!session) {
+        error = "WinHTTP did not open";
+        return false;
+    }
+    HINTERNET connect = WinHttpConnect(session, host, parts.nPort, 0);
+    HINTERNET request = connect ? WinHttpOpenRequest(connect, L"GET", path, nullptr, WINHTTP_NO_REFERER,
+                                                     WINHTTP_DEFAULT_ACCEPT_TYPES, 0) : nullptr;
+    const bool sent = request && WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) &&
+                      WinHttpReceiveResponse(request, nullptr);
+    if (!sent) {
+        error = "download failed for " + url;
+        if (request) WinHttpCloseHandle(request);
+        if (connect) WinHttpCloseHandle(connect);
+        WinHttpCloseHandle(session);
+        return false;
+    }
+    DWORD status = 0;
+    DWORD statusSize = sizeof(status);
+    WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                        WINHTTP_HEADER_NAME_BY_INDEX, &status, &statusSize, WINHTTP_NO_HEADER_INDEX);
+    if (status != 200) {
+        error = "download status " + std::to_string(status) + " for " + url;
+        WinHttpCloseHandle(request);
+        WinHttpCloseHandle(connect);
+        WinHttpCloseHandle(session);
+        return false;
+    }
+    for (;;) {
+        DWORD available = 0;
+        if (!WinHttpQueryDataAvailable(request, &available)) break;
+        if (available == 0) break;
+        std::string chunk(available, '\0');
+        DWORD read = 0;
+        if (!WinHttpReadData(request, chunk.data(), available, &read)) break;
+        chunk.resize(read);
+        body += chunk;
+    }
+    WinHttpCloseHandle(request);
+    WinHttpCloseHandle(connect);
+    WinHttpCloseHandle(session);
+    return true;
+}
+#endif
 
 struct LockedPackage {
     std::string name;
@@ -423,10 +491,42 @@ int PackageCommand(const std::vector<std::string>& args) {
         return 0;
     }
 
-    const std::string path = cmd == "update" ? [&]() {
+    std::string path = cmd == "update" ? [&]() {
         for (const auto& package : packages) if (package.name == name) return package.path;
         return std::string{};
     }() : Positional(args, 1);
+    if (path.rfind("http://", 0) == 0 || path.rfind("https://", 0) == 0) {
+#ifndef _WIN32
+        std::cerr << "robix " << cmd << ": package download is implemented for Windows.\n";
+        return 1;
+#else
+        const std::string publisherKey = ArgValue(args, "--publisher-key");
+        if (publisherKey.empty()) {
+            std::cerr << "robix " << cmd << ": --publisher-key is required for a downloaded package.\n";
+            return 1;
+        }
+        std::string bytes;
+        std::string signature;
+        std::string downloadError;
+        if (!DownloadHttp(path, bytes, downloadError) || !DownloadHttp(path + ".sig", signature, downloadError)) {
+            std::cerr << "robix " << cmd << ": " << downloadError << "\n";
+            return 1;
+        }
+        signature = Trim(signature);
+        const std::string expected = Robix::StdLib::CryptoEngine::ComputeHMACSHA256Hex(publisherKey, bytes);
+        if (signature != expected) {
+            std::cerr << "robix " << cmd << ": publisher signature does not match.\n";
+            return 1;
+        }
+        const fs::path cache = project.directory / "Packages" / "cache" / (name + ".rbx");
+        if (!WriteFile(cache, bytes)) {
+            std::cerr << "robix " << cmd << ": could not store the download.\n";
+            return 1;
+        }
+        path = cache.string();
+        std::cout << "robix " << cmd << ": downloaded " << name << " publisher signature matched\n";
+#endif
+    }
     if (path.empty() || !fs::is_regular_file(path)) {
         std::cerr << "robix " << cmd << ": package file was not found.\n";
         return 1;

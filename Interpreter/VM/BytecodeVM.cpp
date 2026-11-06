@@ -583,7 +583,11 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                            inst.symbolImm == "Memory.At") {
                     Reject("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.");
                 } else if (inst.symbolImm == "PWM.SetDuty" || inst.symbolImm == "UART.Write" ||
-                           inst.symbolImm == "SPI.Transfer" || inst.symbolImm == "I2C.Write") {
+                           inst.symbolImm == "SPI.Transfer" || inst.symbolImm == "I2C.Write" ||
+                           inst.symbolImm == "CAN.Send" || inst.symbolImm == "USB.Write" ||
+                           inst.symbolImm == "PCIe.Read" || inst.symbolImm == "DMA.Start" ||
+                           inst.symbolImm == "Sensor.Read" || inst.symbolImm == "Motor.SetSpeed" ||
+                           inst.symbolImm == "Interrupt.Enable" || inst.symbolImm == "HardwareTimer.Read") {
                     std::int64_t id = 0;
                     if (!inst.callArgRegs.empty()) id = regs[inst.callArgRegs[0]].AsInt();
                     std::fprintf(stderr, "%s is not available on this target (%lld)\n",

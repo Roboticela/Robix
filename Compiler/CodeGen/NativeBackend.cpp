@@ -38,6 +38,22 @@ bool IsIntTy(NTy t) noexcept {
 
 bool IsFloatTy(NTy t) noexcept { return t == NTy::F32 || t == NTy::F64; }
 
+int UnavailableDevice(const std::string& name) noexcept {
+    if (name == "PWM.SetDuty") return 1;
+    if (name == "UART.Write") return 2;
+    if (name == "SPI.Transfer") return 3;
+    if (name == "I2C.Write") return 4;
+    if (name == "CAN.Send") return 5;
+    if (name == "USB.Write") return 6;
+    if (name == "PCIe.Read") return 7;
+    if (name == "DMA.Start") return 8;
+    if (name == "Sensor.Read") return 9;
+    if (name == "Motor.SetSpeed") return 10;
+    if (name == "Interrupt.Enable") return 11;
+    if (name == "HardwareTimer.Read") return 12;
+    return 0;
+}
+
 int IntBits(NTy t) noexcept {
     switch (t) {
         case NTy::I1:  return 1;
@@ -1586,9 +1602,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  " << vname << " = select i1 " << cmp << ", i64 " << a << ", i64 " << b << "\n";
                 }
                 m_vals[id] = Val{ vname, NTy::I64 };
-            } else if ((inst.textImm == "GPIO.Read" || inst.textImm == "PWM.SetDuty" ||
-                        inst.textImm == "UART.Write" || inst.textImm == "SPI.Transfer" ||
-                        inst.textImm == "I2C.Write") &&
+            } else if ((inst.textImm == "GPIO.Read" || UnavailableDevice(inst.textImm) != 0) &&
                        !inst.operandIds.empty()) {
                 Val pin = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 if (m_ctx.options.freestanding) {
@@ -1598,11 +1612,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  " << vname << " = call i64 @rbx_gpio_read(i64 " << pin.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 } else {
-                    const int code = inst.textImm == "UART.Write" ? 2 : inst.textImm == "SPI.Transfer" ? 3
-                                                                       : inst.textImm == "I2C.Write"  ? 4
-                                                                                                      : 1;
-                    m_body << "  " << vname << " = call i64 @rbx_device_unavailable(i64 " << code
-                           << ", i64 " << pin.repr << ")\n";
+                    m_body << "  " << vname << " = call i64 @rbx_device_unavailable(i64 "
+                           << UnavailableDevice(inst.textImm) << ", i64 " << pin.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 }
             } else if (inst.textImm == "Atomic.FetchAdd" && inst.operandIds.size() >= 2) {
@@ -2129,7 +2140,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         for (std::size_t i = 0; i < vt.slots.size(); ++i) {
             if (i > 0) out << ", ";
             auto it = ctx.byName.find(vt.slots[i]);
-            if (it == ctx.byName.end()) {
+            if (vt.slots[i].empty()) {
+                out << "ptr null";
+            } else if (it == ctx.byName.end()) {
                 m_diagnostics.ReportError(
                     "N9004",
                     "Vtable '" + vt.typeName + "' slot '" + vt.slots[i] + "' has no function.",

@@ -8,7 +8,12 @@ namespace Robix::Tools {
 enum class NativeOutputKind : std::uint8_t {
     HostedExecutable,
     BootImage,
-    ObjectFile
+    ObjectFile,
+    HostedObject,
+    StaticLibrary,
+    SharedLibrary,
+    PackageArchive,
+    LinuxExecutable
 };
 
 struct NativeBuildOptions {

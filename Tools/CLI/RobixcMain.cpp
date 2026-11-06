@@ -136,6 +136,34 @@ static bool LoadRobixBuild(const fs::path& rbxb, std::string& sourcePath, Robix:
             target == "arm-unknown-none" || target == "riscv64-unknown-none") {
             options.outputKind = Robix::Tools::NativeOutputKind::BootImage;
         }
+    } else if (outputRole == "Executable") {
+        if (target == "x86_64-unknown-linux-gnu") {
+            options.outputKind = Robix::Tools::NativeOutputKind::LinuxExecutable;
+            options.freestanding = true;
+            if (options.entrySymbol.empty()) options.entrySymbol = "Start";
+        } else {
+            options.outputKind = Robix::Tools::NativeOutputKind::HostedExecutable;
+            options.freestanding = false;
+        }
+    } else if (outputRole == "Library" || outputRole == "StaticLibrary") {
+        options.outputKind = Robix::Tools::NativeOutputKind::StaticLibrary;
+        options.omitMain = true;
+        options.freestanding = false;
+    } else if (outputRole == "SharedLibrary") {
+        options.outputKind = Robix::Tools::NativeOutputKind::SharedLibrary;
+        options.omitMain = true;
+        options.freestanding = false;
+    } else if (outputRole == "Object") {
+        options.outputKind = Robix::Tools::NativeOutputKind::HostedObject;
+        options.omitMain = true;
+        options.freestanding = false;
+    } else if (outputRole == "Package") {
+        options.outputKind = Robix::Tools::NativeOutputKind::PackageArchive;
+        options.omitMain = true;
+        options.freestanding = false;
+    } else if (!outputRole.empty()) {
+        error = "robixc: unknown Output '" + outputRole + "'.\n";
+        return false;
     }
     if (profile == "embedded") {
         options.freestanding = true;
@@ -299,10 +327,18 @@ int main(int argc, char* argv[]) {
     // Default output path if not specified
     if (options.outputPath.empty() && !options.emitLLVMOnly) {
         fs::path p(inputFilePath);
-        if (options.outputKind == Robix::Tools::NativeOutputKind::BootImage) {
+        if (options.outputKind == Robix::Tools::NativeOutputKind::BootImage ||
+            options.outputKind == Robix::Tools::NativeOutputKind::LinuxExecutable) {
             p.replace_extension(".elf");
-        } else if (options.outputKind == Robix::Tools::NativeOutputKind::ObjectFile) {
+        } else if (options.outputKind == Robix::Tools::NativeOutputKind::ObjectFile ||
+                   options.outputKind == Robix::Tools::NativeOutputKind::HostedObject) {
             p.replace_extension(".o");
+        } else if (options.outputKind == Robix::Tools::NativeOutputKind::StaticLibrary) {
+            p.replace_extension(".a");
+        } else if (options.outputKind == Robix::Tools::NativeOutputKind::SharedLibrary) {
+            p.replace_extension(".dll");
+        } else if (options.outputKind == Robix::Tools::NativeOutputKind::PackageArchive) {
+            p.replace_extension(".rbxlib");
         } else {
             p.replace_extension(".exe");
         }

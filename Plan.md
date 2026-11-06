@@ -124,7 +124,7 @@ Profiles:
 
 Official styles for `robix new`: `SingleFile`, `Application`, `Game`, `Library`, `Embedded`, `System`, `Network`, `Custom`.
 
-`.rbxb` output kinds still required: `Executable`, `Library`, `SharedLibrary`, `StaticLibrary`, `Object`, `Package`. `Firmware` and `Kernel` already link.
+`.rbxb` output kinds `Executable`, `Library`, `SharedLibrary`, `StaticLibrary`, `Object`, and `Package` are recorded in `Documentation/Status.md`. `Firmware` and `Kernel` already link.
 
 ---
 
@@ -147,15 +147,7 @@ Official styles for `robix new`: `SingleFile`, `Application`, `Game`, `Library`,
 
 ## 5. Still open
 
-- `.rbxb` can emit `Executable`, `Library`, `SharedLibrary`, `StaticLibrary`, `Object`, and `Package`.
-- A Linux executable, and boot images for QEMU machines other than the four boards already recorded.
-- A package registry that downloads a package and checks a remote publisher. `robix add` still records a local file.
-- A network path past `127.0.0.1`, and a certificate that is not the local self-signed `robix-stagek` certificate.
-- A debugger that attaches to a process. `robix debug` records the same source lines from both engines and does not open a debugger window.
-- The VS Code extension in `Editors/vscode` installed and used in the editor. The folder starts `robix lsp` for `.rbx`, `.rbxu`, and `.rbxb`.
-- Two classes that implement the same interface with different method slots. The call uses the first implementer's slot and does not report a diagnostic.
-- CAN, USB, PCIe, DMA, timers, interrupts, sensors, and motors. `PWM.SetDuty`, `UART.Write`, `SPI.Transfer`, and `I2C.Write` on Windows report that the device is not available and return 1.
-- An upstream benchmark suite whose manifest says `upstream: true`. The published score stays the local micro suite.
+- An upstream benchmark suite whose manifest says `upstream: true`. The published score stays the local micro suite. Do not set `upstream: true` on a local kernel, and do not name one after SPEC, DaCapo, NPB, or the Benchmarks Game.
 
 ---
 
