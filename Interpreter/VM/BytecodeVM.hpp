@@ -91,6 +91,7 @@ public:
     [[nodiscard]] std::size_t GetAssertionPassCount() const noexcept { return m_assertPassCount; }
     [[nodiscard]] std::size_t GetAssertionFailCount() const noexcept { return m_assertFailCount; }
     [[nodiscard]] std::vector<std::string> GetHotJITCandidateFunctions() const;
+    [[nodiscard]] const std::string& Fault() const noexcept { return m_fault; }
 
 private:
     const BytecodeModule& m_module;
@@ -98,10 +99,15 @@ private:
     std::string m_stdoutBuffer;
     std::size_t m_assertPassCount = 0;
     std::size_t m_assertFailCount = 0;
+    std::string m_fault;
+    bool m_gateChecked = false;
+    bool m_gateOk = false;
     std::unordered_map<std::string, std::uint32_t> m_callCounts;
     std::unordered_map<std::string, std::string> m_virtualFileSystem;
 
     VMValue ExecuteChunk(const BytecodeChunk& chunk, const std::vector<VMValue>& args);
+    [[nodiscard]] bool Gate();
+    void Reject(const std::string& message);
 };
 
 } // namespace Robix::VM

@@ -1,0 +1,5 @@
+Output: Kernel
+Target: riscv64-unknown-none
+Entry: Start
+Source: Board.rbx
+Profile: embedded

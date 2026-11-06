@@ -27,7 +27,8 @@ static void PrintHelp() {
         << "    -O2, -O3, --release   Build with release optimizations (default: -O2)\n"
         << "    --profile <name>      release, debug, or embedded (no hosted CRT)\n"
         << "    --target <triple>     x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu,\n"
-        << "                          x86_64-unknown-none, aarch64-unknown-none, riscv64-unknown-none\n"
+        << "                          x86_64-unknown-none, aarch64-unknown-none,\n"
+        << "                          arm-unknown-none, riscv64-unknown-none\n"
         << "    --entry <symbol>      Freestanding entry symbol (default: Start)\n"
         << "    --emit-llvm           Generate LLVM IR (.ll) and exit\n"
         << "    --keep-ir             Retain generated .ll file next to executable\n"
@@ -69,6 +70,13 @@ static bool ApplyTarget(const std::string& triple, Robix::Tools::NativeBuildOpti
         options.asmArch = "aarch64";
         options.dataLayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128";
         options.clangTarget = "aarch64-elf";
+        return true;
+    }
+    if (triple == "arm-unknown-none") {
+        options.outputKind = Robix::Tools::NativeOutputKind::ObjectFile;
+        options.asmArch = "arm";
+        options.dataLayout = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64";
+        options.clangTarget = "arm-none-eabi";
         return true;
     }
     if (triple == "riscv64-unknown-none") {
@@ -121,7 +129,8 @@ static bool LoadRobixBuild(const fs::path& rbxb, std::string& sourcePath, Robix:
     if (outputRole == "Kernel" || outputRole == "Firmware") {
         options.imageRole = outputRole;
         options.freestanding = true;
-        if (target.empty() || target == "x86_64-unknown-none") {
+        if (target.empty() || target == "x86_64-unknown-none" || target == "aarch64-unknown-none" ||
+            target == "arm-unknown-none" || target == "riscv64-unknown-none") {
             options.outputKind = Robix::Tools::NativeOutputKind::BootImage;
         }
     }

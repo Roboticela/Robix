@@ -264,6 +264,7 @@ struct DeclNode {
     // Test / TestFile
     std::string testDescription;
     std::string coversFile;
+    bool runOnNative = false;
 };
 
 struct CompilationUnitAST {

@@ -98,6 +98,69 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
         return res;
     }
 
+    if (options.outputKind == NativeOutputKind::BootImage && options.asmArch != "x86_64") {
+        const fs::path lld = binDir / "ld.lld.exe";
+        if (!FileExists(lld)) {
+            res.diagnosticsText += "error: ld.lld.exe was not found next to clang.\n";
+            return res;
+        }
+        const char* origin = "0x40080000";
+        const char* emulation = "aarch64elf";
+        std::string stub =
+            ".global _start\n_start:\n"
+            "    ldr x0, =stack_top\n    mov sp, x0\n    bl Start\n"
+            "1:  wfi\n    b 1b\n.section .bss\n.align 4\n.skip 16384\nstack_top:\n";
+        if (options.asmArch == "arm") {
+            emulation = "armelf";
+            stub =
+                ".syntax unified\n.arch armv7-a\n.global _start\n_start:\n"
+                "    ldr sp, =stack_top\n    bl Start\n"
+                "1:  wfi\n    b 1b\n.section .bss\n.align 4\n.skip 16384\nstack_top:\n";
+        } else if (options.asmArch == "riscv64") {
+            origin = "0x80000000";
+            emulation = "elf64lriscv";
+            stub =
+                ".global _start\n_start:\n"
+                "    la sp, stack_top\n    call Start\n"
+                "1:  wfi\n    j 1b\n.section .bss\n.align 4\n.skip 16384\nstack_top:\n";
+        } else if (options.asmArch != "aarch64") {
+            res.diagnosticsText += "error: no boot image for architecture " + options.asmArch + ".\n";
+            return res;
+        }
+        const fs::path script = work / "board.ld";
+        const fs::path bootAsm = work / "board.s";
+        const fs::path bootObj = work / "board.o";
+        WriteText(script,
+                  "ENTRY(_start)\nSECTIONS {\n  . = " + std::string(origin) + ";\n"
+                  "  .text : { *(.text.entry) *(.text) *(.text.*) }\n"
+                  "  .rodata : { *(.rodata*) }\n  .data : { *(.data*) }\n"
+                  "  .bss : { *(.bss) *(COMMON) }\n}\n");
+        WriteText(bootAsm, stub);
+        std::ostringstream asmCmd;
+        asmCmd << Quote(clang) << " --target=" << clangTarget << " -c " << Quote(bootAsm.string())
+               << " -o " << Quote(bootObj.string());
+        if (RunProcess(asmCmd.str(), res.toolOutput) != 0 || !FileExists(bootObj)) {
+            res.diagnosticsText += "error: board entry assemble failed:\n" + res.toolOutput;
+            return res;
+        }
+        const std::string entry = options.entrySymbol.empty() ? "Start" : options.entrySymbol;
+        std::ostringstream link;
+        link << Quote(lld.string()) << " -m " << emulation << " -nostdlib -e _start -T "
+             << Quote(script.string()) << " " << Quote(bootObj.string()) << " "
+             << Quote(object.string()) << " -o " << Quote(output.string());
+        (void)entry;
+        if (RunProcess(link.str(), res.toolOutput) != 0 || !FileExists(output)) {
+            res.diagnosticsText += "error: board link failed:\n" + res.toolOutput;
+            return res;
+        }
+        res.success = true;
+        res.executablePath = output.string();
+        res.toolOutput += "robixc: linked " + options.asmArch + " " + options.imageRole
+                          + " image " + output.string() + " at " + origin
+                          + ". This file is a QEMU image, not a hosted executable.\n";
+        return res;
+    }
+
     if (options.outputKind == NativeOutputKind::ObjectFile) {
         std::error_code moveEc;
         fs::rename(object, output, moveEc);

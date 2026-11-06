@@ -1,9 +1,13 @@
 #include "NativeCompilerDriver.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
+#include "../../Interpreter/Bytecode/BytecodeModule.hpp"
+#include "../../Interpreter/VM/BytecodeVM.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
+#include <algorithm>
 #include <cstdlib>
+#include <windows.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -21,7 +25,7 @@ static void PrintHelp() {
         << "COMMANDS:\n"
         << "    run <file.rbx> [--native | --vm]   Execute a Robix source program\n"
         << "    build <file.rbx> [-o <out.exe>]     Compile directly to a native executable\n"
-        << "    test [path] [--generate]            Run test suite (scaffolds missing tests if requested)\n"
+        << "    test [path] [--generate]            Run .test.rbx on the interpreter. Test native also compiles.\n"
         << "    generate-tests [path]               Generate companion .test.rbx scaffolds for all .rbx files\n"
         << "    verify [path]                       Run full semantic and static verification on files\n"
         << "    new <ProjectName>                   Initialize a new Robix project\n"
@@ -196,6 +200,128 @@ int main(int argc, char* argv[]) {
             << "}\n";
         std::cout << "robix new: wrote " << file.string() << "\n";
         return 0;
+    }
+
+    if (cmd == "test") {
+        bool generateOnly = false;
+        std::string target;
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--generate" || args[i] == "--init" || args[i] == "--auto-scaffold") {
+                generateOnly = args[i] == "--generate" && args.size() == 2;
+                continue;
+            }
+            if (!args[i].empty() && args[i][0] != '-') target = args[i];
+        }
+        if (target.empty()) target = "Tests/Main.test.rbx";
+        const bool wantGenerate = false;
+        (void)wantGenerate;
+        if (!generateOnly) {
+            auto versionProbe = []() {
+                Robix::VM::BytecodeModule bad;
+                bad.version = 99;
+                Robix::VM::BytecodeChunk chunk;
+                chunk.name = "Main";
+                chunk.returnTypeName = "Void";
+                Robix::VM::BCInstruction ret;
+                ret.opcode = Robix::VM::BCOpcode::ReturnVoid;
+                chunk.code.push_back(ret);
+                bad.chunks.push_back(std::move(chunk));
+                Robix::VM::BytecodeVM vm(bad);
+                const int code = vm.ExecuteMainAndGetExitCode();
+                const bool refused = code != 0 && vm.Fault().find("version") != std::string::npos;
+                std::cout << (refused ? "bytecode version 99 refused\n" : "bytecode version check did not refuse\n");
+                return refused ? 0 : 1;
+            };
+            auto runOne = [&](const fs::path& file) {
+                std::ifstream in(file, std::ios::binary);
+                if (!in) {
+                    std::cerr << file.string() << ": could not read\n";
+                    return 1;
+                }
+                const std::string source((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                const bool expectDiagnostic = source.find("expect: interpreter-diagnostic") != std::string::npos;
+                const bool runNative = source.find("Test native") != std::string::npos;
+                std::vector<std::string> one = { "test", file.string() };
+                auto interpreted = Robix::Tools::RobixCLIDispatcher::ExecuteCommand(
+                    Robix::Tools::CLIBinaryKind::RobixUnifiedCLI, one);
+                if (!interpreted.stdoutText.empty()) std::cout << interpreted.stdoutText;
+                if (!interpreted.stderrText.empty()) std::cerr << interpreted.stderrText;
+                if (expectDiagnostic) {
+                    const bool saw = interpreted.exitCode != 0 &&
+                                     (interpreted.stdoutText.find("native freestanding") != std::string::npos ||
+                                      interpreted.stdoutText.find("InlineASM") != std::string::npos);
+                    std::cout << file.string() << (saw ? ": interpreter diagnostic\n" : ": expected an interpreter diagnostic\n");
+                    return saw ? 0 : 1;
+                }
+                if (interpreted.exitCode != 0) {
+                    std::cout << file.string() << ": interpreter failed\n";
+                    return 1;
+                }
+                if (!runNative) {
+                    std::cout << file.string() << ": interpreter ok\n";
+                    return 0;
+                }
+                fs::create_directories("Build/Conformance");
+                const fs::path exe = fs::path("Build/Conformance") / (file.stem().string() + ".exe");
+                Robix::Tools::NativeBuildOptions opts;
+                opts.toolDirectory = toolDir;
+                opts.outputPath = exe.string();
+                opts.release = true;
+                auto built = Robix::Tools::NativeCompilerDriver::CompileSource(file.string(), source, opts);
+                if (!built.success) {
+                    std::cerr << file.string() << ": native compilation failed\n";
+                    if (!built.diagnosticsText.empty()) std::cerr << built.diagnosticsText;
+                    if (!built.toolOutput.empty()) std::cerr << built.toolOutput;
+                    std::cout << file.string() << ": interpreter passed, native failed\n";
+                    return 1;
+                }
+                STARTUPINFOA si{};
+                si.cb = sizeof(si);
+                PROCESS_INFORMATION pi{};
+                std::string exePath = built.executablePath;
+                for (char& ch : exePath) {
+                    if (ch == '/') ch = '\\';
+                }
+                int nativeCode = 1;
+                if (CreateProcessA(exePath.c_str(), nullptr, nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+                    WaitForSingleObject(pi.hProcess, INFINITE);
+                    DWORD processCode = 1;
+                    GetExitCodeProcess(pi.hProcess, &processCode);
+                    CloseHandle(pi.hProcess);
+                    CloseHandle(pi.hThread);
+                    nativeCode = static_cast<int>(processCode);
+                }
+                if (nativeCode != 0) {
+                    std::cout << file.string() << ": interpreter passed, native exit " << nativeCode << "\n";
+                    return 1;
+                }
+                std::cout << file.string() << ": interpreter ok, native ok\n";
+                return 0;
+            };
+
+            int status = 0;
+            std::error_code ec;
+            if (fs::is_directory(target, ec)) {
+                status |= versionProbe();
+                std::vector<fs::path> files;
+                for (const auto& entry : fs::directory_iterator(target, ec)) {
+                    if (entry.path().extension() == ".rbx" &&
+                        entry.path().stem().string().size() > 5 &&
+                        entry.path().stem().string().ends_with(".test")) {
+                        files.push_back(entry.path());
+                    }
+                }
+                std::sort(files.begin(), files.end());
+                if (files.empty()) {
+                    std::cerr << "robix test: no .test.rbx files in " << target << "\n";
+                    return 1;
+                }
+                for (const auto& file : files) status |= runOne(file);
+                std::cout << (status == 0 ? "conformance: both engines passed\n" : "conformance: failed\n");
+                return status == 0 ? 0 : 1;
+            }
+            return runOne(target);
+        }
     }
 
     // General commands dispatch via RobixCLIDispatcher

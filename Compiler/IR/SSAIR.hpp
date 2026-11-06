@@ -120,6 +120,7 @@ struct IRFunction {
     std::vector<IRBasicBlock> blocks;
     std::uint32_t nextSSAId = 1;
     bool isTestBlock        = false;
+    bool runOnNative        = false;
     bool isRealTime         = false;
     bool isExtern           = false;
     bool usesHeapOrGC       = false;

@@ -713,6 +713,7 @@ void SSAIRBuilder::LowerTestDecl(const Frontend::DeclNode& testDecl, IRModule& o
     fn.mangledName = "_RBX1_Test_" + std::to_string(outModule.functions.size() + 1);
     fn.returnType  = MakePrim("Void");
     fn.isTestBlock = true;
+    fn.runOnNative = testDecl.runOnNative;
     fn.location    = testDecl.location;
 
     outModule.functions.push_back(std::move(fn));
@@ -1754,8 +1755,44 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 expr.left->left->kind == Frontend::ExprKind::Identifier &&
                 ((expr.left->left->text == "Cpu" &&
                   (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Run")) ||
-                 (expr.left->left->text == "Timer" && expr.left->text == "Arm"))) {
+                 (expr.left->left->text == "Timer" && (expr.left->text == "Arm" || expr.left->text == "Preempt")))) {
                 const std::string member = expr.left->left->text + "." + expr.left->text;
+                if (member == "Timer.Preempt") {
+                    if (expr.arguments.size() < 2 || !expr.arguments[0] || !expr.arguments[1] ||
+                        expr.arguments[0]->kind != Frontend::ExprKind::Identifier ||
+                        expr.arguments[1]->kind != Frontend::ExprKind::Identifier) {
+                        m_diagnostics.ReportError(
+                            "I4011",
+                            "Timer.Preempt takes two function names.",
+                            expr.location,
+                            "Write Timer.Preempt(FirstTask, SecondTask).");
+                        return IRValue{};
+                    }
+                    auto known = [&](const std::string& name) {
+                        for (const auto& sig : m_sigs) {
+                            if (sig.sourceName == name && sig.arity == 0 && !sig.isExtern) return true;
+                        }
+                        return false;
+                    };
+                    const std::string first = expr.arguments[0]->text;
+                    const std::string second = expr.arguments[1]->text;
+                    if (!known(first) || !known(second)) {
+                        m_diagnostics.ReportError(
+                            "R1003",
+                            "Timer.Preempt cannot see both '" + first + "' and '" + second + "'.",
+                            expr.location,
+                            "Declare both as parameterless functions.");
+                        return IRValue{};
+                    }
+                    IRInstruction osCall;
+                    osCall.opcode = IROpcode::CallOSIntrinsic;
+                    osCall.textImm = "Timer.Preempt";
+                    osCall.secondaryText = first + "\n" + second;
+                    osCall.location = expr.location;
+                    osCall.dest = IRValue{ 0, MakePrim("Void") };
+                    Emit(std::move(osCall));
+                    return IRValue{ 0, MakePrim("Void") };
+                }
                 if (expr.arguments.empty() || !expr.arguments[0] ||
                     expr.arguments[0]->kind != Frontend::ExprKind::Identifier) {
                     m_diagnostics.ReportError(
@@ -1953,9 +1990,10 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
                      receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
-                     receiverExpr.text == "Cpu")) {
+                     receiverExpr.text == "Cpu" || receiverExpr.text == "System" ||
+                     receiverExpr.text == "Timer" || receiverExpr.text == "Console")) {
                     Frontend::TypeNode ty = exprType;
-                    if (receiverExpr.text == "Port" && memberName == "Read8") {
+                    if (receiverExpr.text == "Port" && (memberName == "Read8" || memberName == "Read16")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Cpu" &&
                                (memberName == "ReadCR3" || memberName == "ReadRSP" || memberName == "ExchangeRSP" ||

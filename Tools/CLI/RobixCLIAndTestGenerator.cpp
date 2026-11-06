@@ -296,6 +296,9 @@ CLICommandResult RunSingleSourceFile(
         res.stdoutText = vm.GetStdoutBuffer() +
                          "Executed test blocks: " + std::to_string(suiteRes.passedTests) +
                          " passed, " + std::to_string(suiteRes.failedTests) + " failed.\n";
+        for (const auto& message : suiteRes.failureMessages) {
+            res.stdoutText += message + "\n";
+        }
         res.exitCode   = (suiteRes.failedTests == 0) ? 0 : 1;
     } else {
         res.exitCode   = vm.ExecuteMainAndGetExitCode();

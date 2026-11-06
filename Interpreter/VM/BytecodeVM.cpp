@@ -92,7 +92,38 @@ std::vector<std::string> BytecodeVM::GetHotJITCandidateFunctions() const {
     return hot;
 }
 
+bool BytecodeVM::Gate() {
+    if (m_gateChecked) return m_gateOk;
+    m_gateChecked = true;
+    if (m_module.magic != std::string(BYTECODE_MAGIC) || m_module.version != BYTECODE_VERSION) {
+        Reject("robix vm: bytecode version " + std::to_string(m_module.version) +
+               " is not supported. This VM accepts version " + std::to_string(BYTECODE_VERSION) + ".");
+        m_gateOk = false;
+        return false;
+    }
+    for (const auto& chunk : m_module.chunks) {
+        for (const auto& inst : chunk.code) {
+            if ((inst.opcode == BCOpcode::Jump || inst.opcode == BCOpcode::JumpIfFalse) &&
+                inst.targetPC >= chunk.code.size()) {
+                Reject("robix vm: bytecode jump in '" + chunk.name + "' is outside the chunk.");
+                m_gateOk = false;
+                return false;
+            }
+        }
+    }
+    m_gateOk = true;
+    return true;
+}
+
+void BytecodeVM::Reject(const std::string& message) {
+    if (!m_fault.empty()) return;
+    m_fault = message;
+    std::fputs(message.c_str(), stderr);
+    std::fputc('\n', stderr);
+}
+
 VMValue BytecodeVM::ExecuteFunction(std::string_view fnName, const std::vector<VMValue>& args) {
+    if (!Gate()) return VMValue{};
     if (fnName == "puts") {
         if (!args.empty()) {
             std::puts(args[0].ToString().c_str());
@@ -107,11 +138,13 @@ VMValue BytecodeVM::ExecuteFunction(std::string_view fnName, const std::vector<V
 }
 
 std::int32_t BytecodeVM::ExecuteMainAndGetExitCode() {
+    if (!Gate()) return 1;
     const BytecodeChunk* mainChunk = m_module.FindChunk("Main");
     if (!mainChunk) {
         return 1;
     }
     VMValue ret = ExecuteChunk(*mainChunk, {});
+    if (!m_fault.empty()) return 1;
 
     if (mainChunk->returnTypeName == "Void") {
         return Spec::ComputeProcessExitCode(Spec::MainReturnCategory::VoidReturn, 0, true);
@@ -124,10 +157,20 @@ std::int32_t BytecodeVM::ExecuteMainAndGetExitCode() {
 
 VMTestSuiteResult BytecodeVM::ExecuteAllTests() {
     VMTestSuiteResult suite;
+    if (!Gate()) {
+        suite.failedTests = 1;
+        suite.failureMessages.push_back(m_fault);
+        return suite;
+    }
     for (const auto& chunk : m_module.chunks) {
         if (!chunk.isTestChunk) continue;
         const std::size_t failsBefore = m_assertFailCount;
         (void)ExecuteChunk(chunk, {});
+        if (!m_fault.empty()) {
+            ++suite.failedTests;
+            suite.failureMessages.push_back(m_fault);
+            break;
+        }
         if (m_assertFailCount == failsBefore) {
             ++suite.passedTests;
         } else {
@@ -139,6 +182,7 @@ VMTestSuiteResult BytecodeVM::ExecuteAllTests() {
 }
 
 VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<VMValue>& args) {
+    if (!Gate() || !m_fault.empty()) return VMValue{};
     ++m_callCounts[chunk.name];
 
     std::unordered_map<std::uint32_t, VMValue> regs;
@@ -158,13 +202,19 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
 
     std::size_t pc = 0;
     while (pc < chunk.code.size()) {
+        if (!m_fault.empty()) return VMValue{};
         const BCInstruction& inst = chunk.code[pc];
         ++pc;
 
         switch (inst.opcode) {
             case BCOpcode::Nop:
             case BCOpcode::DeferCleanup:
+                break;
+
             case BCOpcode::InlineASM:
+                if (!(inst.symbolImm.empty() || inst.symbolImm == "NOP" || inst.symbolImm == "nop")) {
+                    Reject("robix vm: InlineASM runs in a native build.");
+                }
                 break;
 
             case BCOpcode::LoadConstInt:
@@ -205,7 +255,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 } else if (l.IsFloat() || r.IsFloat()) {
                     regs[inst.destReg] = VMValue{ l.AsFloat() + r.AsFloat() };
                 } else {
-                    regs[inst.destReg] = VMValue{ l.AsInt() + r.AsInt() };
+                    regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(
+                        static_cast<std::uint64_t>(l.AsInt()) + static_cast<std::uint64_t>(r.AsInt())) };
                 }
                 break;
             }
@@ -216,7 +267,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 if (l.IsFloat() || r.IsFloat()) {
                     regs[inst.destReg] = VMValue{ l.AsFloat() - r.AsFloat() };
                 } else {
-                    regs[inst.destReg] = VMValue{ l.AsInt() - r.AsInt() };
+                    regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(
+                        static_cast<std::uint64_t>(l.AsInt()) - static_cast<std::uint64_t>(r.AsInt())) };
                 }
                 break;
             }
@@ -227,7 +279,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 if (l.IsFloat() || r.IsFloat()) {
                     regs[inst.destReg] = VMValue{ l.AsFloat() * r.AsFloat() };
                 } else {
-                    regs[inst.destReg] = VMValue{ l.AsInt() * r.AsInt() };
+                    regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(
+                        static_cast<std::uint64_t>(l.AsInt()) * static_cast<std::uint64_t>(r.AsInt())) };
                 }
                 break;
             }
@@ -514,10 +567,11 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t v = inst.symbolImm == "Math.Min" ? (a < b ? a : b) : (a > b ? a : b);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
                 } else if (inst.symbolImm.rfind("Port.", 0) == 0 || inst.symbolImm.rfind("Cpu.", 0) == 0 ||
-                           inst.symbolImm.rfind("Timer.", 0) == 0 ||
+                           inst.symbolImm.rfind("Timer.", 0) == 0 || inst.symbolImm.rfind("System.", 0) == 0 ||
+                           inst.symbolImm.rfind("Console.", 0) == 0 ||
                            inst.symbolImm == "Memory.Pages" || inst.symbolImm == "Memory.Address" ||
                            inst.symbolImm == "Memory.At") {
-                    Fail(("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.").c_str());
+                    Reject("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.");
                 } else if (inst.symbolImm == "Math.Clamp" && inst.callArgRegs.size() >= 3) {
                     std::int64_t v = regs[inst.callArgRegs[0]].AsInt();
                     const std::int64_t lo = regs[inst.callArgRegs[1]].AsInt();

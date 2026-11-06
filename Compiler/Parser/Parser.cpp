@@ -825,6 +825,10 @@ DeclPtr Parser::ParseTestDecl() {
     test->kind     = DeclKind::Test;
     test->location = Current().location;
     Expect(TokenKind::KwTest, "P1021", "Expected 'Test'");
+    if (Check(TokenKind::Identifier) && Current().lexeme == "native") {
+        Advance();
+        test->runOnNative = true;
+    }
     if (Check(TokenKind::StringLiteral)) {
         test->testDescription = UnquoteString(Advance().lexeme);
         test->name            = test->testDescription;

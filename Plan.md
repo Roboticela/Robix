@@ -287,7 +287,7 @@ A full BIOS image, a full kernel, and a full OS are programs written in Robix af
 
 **Exit test:** `robixc --target x86_64-unknown-none -O3` links the serial stub, QEMU prints the expected byte, and the hosted checksum test of the same pure functions still matches C. The status file says "QEMU" or "hardware" next to each systems sample. A sample that only ran on Windows is not marked as a BIOS.
 
-Passed. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o Build/StageF/serial.elf` linked the multiboot image. QEMU wrote serial byte 82 (`R`). `Examples/StageF/Checksum.rbx` and `Examples/StageF/Checksum.c` both printed `8503` on Windows. `Start` writes `R` only when that checksum is 8503. `Volatile.rbx` printed 65 on Windows and is not a board test. `BadMnemonic.rbx` is `N9010` on `aarch64-unknown-none`. AArch64, RISC-V, and Linux targets produced relocatable objects and were not booted. `Documentation/Status.md` lists QEMU or Windows on each row.
+Passed. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o Build/StageF/serial.elf` linked the multiboot image. QEMU wrote serial byte 82 (`R`). `Examples/StageF/Checksum.rbx` and `Examples/StageF/Checksum.c` both printed `8503` on Windows. `Start` writes `R` only when that checksum is 8503. `Volatile.rbx` printed 65 on Windows and is not a board test. `BadMnemonic.rbx` is `N9010` on `aarch64-unknown-none`. A plain `--target` for AArch64, ARM, RISC-V, and Linux still produces a relocatable object. A Kernel project for those three boards links a QEMU image: `Examples/StageF/Board.rbx` (`Console.Write(82); Cpu.Halt();`) wrote serial byte 82 on `qemu-system-x86_64`, `qemu-system-aarch64 -machine virt`, `qemu-system-arm -machine virt`, and `qemu-system-riscv64 -machine virt -bios none`. Linux was not booted. `Documentation/Status.md` lists QEMU or Windows on each row.
 
 ### Stage G — One semantics, two engines
 
@@ -297,6 +297,8 @@ Passed. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o B
 - `robix test` runs `.test.rbx` on the interpreter and, for tests marked native, on the compiled binary.
 
 **Exit test:** the conformance directory is green on both engines, and the list of "native only" operations is short and written down.
+
+Passed. `robix test Tests/Conformance` printed `conformance: both engines passed`. The interpreter and the native executables agreed on arithmetic, wrap (`1 << 62` added to itself and multiplied by 4), branches, calls, arrays, structs, and pointers. A module with bytecode version 99 was refused before any instruction ran. `NativeOnly.test.rbx` stopped in the interpreter on `Port.Write8`. `Tests/Conformance/NATIVE_ONLY.md` lists the operations the interpreter refuses. `Assert.Equal` and `Assert.True` compile. A native failure is reported even when the interpreter passed.
 
 ### Stage H — Libraries a programmer actually calls
 

@@ -923,7 +923,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "Volatile" ||
-                expr.text == "Port" || expr.text == "Cpu" || expr.text == "Timer") {
+                expr.text == "Port" || expr.text == "Cpu" || expr.text == "Timer" ||
+                expr.text == "System" || expr.text == "Console") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1293,14 +1294,14 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
-            if (recvType.baseName == "Port" && (expr.text == "Write8" || expr.text == "Read8")) {
+            if (recvType.baseName == "Port" && (expr.text == "Write8" || expr.text == "Read8" || expr.text == "Read16")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
                         "'Port." + expr.text + "' touches an I/O port and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
-                expr.inferredType = expr.text == "Read8" ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
+                expr.inferredType = (expr.text == "Read8" || expr.text == "Read16") ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
                 return expr.inferredType;
             }
             if (recvType.baseName == "Cpu" &&
@@ -1322,11 +1323,31 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.inferredType = MakePrimitiveType(returnsInt ? "Int" : "Void");
                 return expr.inferredType;
             }
-            if (recvType.baseName == "Timer" && expr.text == "Arm") {
+            if (recvType.baseName == "Timer" && (expr.text == "Arm" || expr.text == "Preempt")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
-                        "'Timer.Arm' installs the timer interrupt and requires 'Unsafe { ... }'.",
+                        "'Timer." + expr.text + "' installs an interrupt and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Void");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Console" && expr.text == "Write") {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'Console.Write' touches the board serial port and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Void");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "System" && expr.text == "Call") {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'System.Call' enters the kernel and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
                 expr.inferredType = MakePrimitiveType("Void");
