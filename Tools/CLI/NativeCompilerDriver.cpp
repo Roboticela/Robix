@@ -136,6 +136,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
               "  .text : { *(.text.entry) *(.text) *(.text.*) }\n"
               "  .rodata : { *(.rodata*) }\n"
               "  .data : { *(.data*) }\n"
+              "  .bss : { *(.bss) *(COMMON) }\n"
               "}\n");
     WriteText(lowLd,
               "/* Robix " + options.imageRole + " multiboot trampoline. */\n"
@@ -213,6 +214,8 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
               "    mov %ax, %es\n"
               "    mov %ax, %ss\n"
               "    mov $stack_top, %rsp\n"
+              "    movq $0x70000, %rdi\n"
+              "    movl %ebx, (%rdi)\n"
               "    mov $0x200000, %rax\n"
               "    jmp *%rax\n"
               ".align 8\n"

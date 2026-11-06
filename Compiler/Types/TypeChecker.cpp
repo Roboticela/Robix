@@ -1304,14 +1304,22 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (recvType.baseName == "Cpu" &&
-                (expr.text == "Halt" || expr.text == "Cli" || expr.text == "Sti")) {
+                (expr.text == "Halt" || expr.text == "Cli" || expr.text == "Sti" ||
+                 expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
+                 expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "Lgdt" ||
+                 expr.text == "Lidt" || expr.text == "BootInfo" || expr.text == "Function" ||
+                 expr.text == "Handler" || expr.text == "Run")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
                         "'Cpu." + expr.text + "' changes CPU state and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
-                expr.inferredType = MakePrimitiveType("Void");
+                const bool returnsInt = expr.text == "ReadCR3" || expr.text == "ReadRSP" ||
+                                        expr.text == "ExchangeRSP" || expr.text == "SavedRSP" ||
+                                        expr.text == "BootInfo" || expr.text == "Function" ||
+                                        expr.text == "Handler";
+                expr.inferredType = MakePrimitiveType(returnsInt ? "Int" : "Void");
                 return expr.inferredType;
             }
 
@@ -1326,7 +1334,9 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
-            if (recvType.baseName == "Memory" && (expr.text == "Allocate" || expr.text == "Free" || expr.text == "Copy")) {
+            if (recvType.baseName == "Memory" &&
+                (expr.text == "Allocate" || expr.text == "Free" || expr.text == "Copy" ||
+                 expr.text == "Pages" || expr.text == "Address" || expr.text == "At")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
@@ -1334,12 +1344,16 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                         expr.location,
                         "Wrap manual memory management calls inside 'Unsafe { ... }'.");
                 }
-                if (expr.text == "Allocate") {
+                if (expr.text == "Allocate" || expr.text == "Pages" || expr.text == "At") {
                     TypeNode ptr;
                     ptr.baseName  = "Pointer";
                     ptr.isPointer = true;
-                    ptr.typeArgs.push_back(MakePrimitiveType("Byte"));
+                    ptr.typeArgs.push_back(MakePrimitiveType(expr.text == "Pages" ? "Int" : "Byte"));
                     expr.inferredType = ptr;
+                    return expr.inferredType;
+                }
+                if (expr.text == "Address") {
+                    expr.inferredType = MakePrimitiveType("Int");
                     return expr.inferredType;
                 }
                 expr.inferredType = MakePrimitiveType("Void");

@@ -1750,6 +1750,60 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
         }
 
         case Frontend::ExprKind::Call: {
+            if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
+                expr.left->left->kind == Frontend::ExprKind::Identifier && expr.left->left->text == "Cpu" &&
+                (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Run")) {
+                const std::string member = expr.left->text;
+                if (expr.arguments.empty() || !expr.arguments[0] ||
+                    expr.arguments[0]->kind != Frontend::ExprKind::Identifier) {
+                    m_diagnostics.ReportError(
+                        "I4011",
+                        "Cpu." + member + " takes a function name.",
+                        expr.location,
+                        "Write Cpu." + member + "(FunctionName) for a parameterless function.");
+                    return IRValue{};
+                }
+                const std::string target = expr.arguments[0]->text;
+                bool found = false;
+                for (const auto& sig : m_sigs) {
+                    if (sig.sourceName == target && sig.arity == 0 && !sig.isExtern) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    m_diagnostics.ReportError(
+                        "R1003",
+                        "Cpu." + member + " cannot see a parameterless function named '" + target + "'.",
+                        expr.location,
+                        "Declare 'public Function " + target + "() -> Void' in this program.");
+                    return IRValue{};
+                }
+                IRInstruction osCall;
+                osCall.opcode   = IROpcode::CallOSIntrinsic;
+                osCall.textImm  = "Cpu." + member;
+                osCall.secondaryText = target;
+                osCall.location = expr.location;
+                if (member == "Run") {
+                    if (expr.arguments.size() < 2 || !expr.arguments[1]) {
+                        m_diagnostics.ReportError(
+                            "I4011",
+                            "Cpu.Run takes a function name and a stack address.",
+                            expr.location,
+                            "Write Cpu.Run(FunctionName, Memory.Address(stackTop)).");
+                        return IRValue{};
+                    }
+                    osCall.operandIds = { LowerExpr(*expr.arguments[1]).ssaId };
+                    osCall.dest = IRValue{ 0, MakePrim("Void") };
+                    Emit(std::move(osCall));
+                    return IRValue{ 0, MakePrim("Void") };
+                }
+                osCall.dest = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                IRValue out = osCall.dest;
+                Emit(std::move(osCall));
+                return out;
+            }
+
             std::vector<std::uint32_t> argIds;
             for (const auto& arg : expr.arguments) {
                 if (arg) {
@@ -1899,8 +1953,23 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "Port" && memberName == "Read8") {
                         ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Cpu" &&
+                               (memberName == "ReadCR3" || memberName == "ReadRSP" || memberName == "ExchangeRSP" ||
+                                memberName == "SavedRSP" || memberName == "BootInfo" || memberName == "Function" ||
+                                memberName == "Handler")) {
+                        ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Port" || receiverExpr.text == "Cpu") {
                         ty = MakePrim("Void");
+                    } else if (receiverExpr.text == "Memory" && memberName == "Pages") {
+                        ty = MakePrim("Pointer");
+                        ty.isPointer = true;
+                        ty.typeArgs.push_back(MakePrim("Int"));
+                    } else if (receiverExpr.text == "Memory" && memberName == "At") {
+                        ty = MakePrim("Pointer");
+                        ty.isPointer = true;
+                        ty.typeArgs.push_back(MakePrim("Byte"));
+                    } else if (receiverExpr.text == "Memory" && memberName == "Address") {
+                        ty = MakePrim("Int");
                     }
                     if (receiverExpr.text == "File" && memberName == "ReadText") {
                         ty = MakePrim("String");
