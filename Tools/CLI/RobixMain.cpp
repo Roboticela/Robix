@@ -4,6 +4,7 @@
 #include "../../Network/NetworkRuntime.hpp"
 #include "StageLTools.hpp"
 #include "ProjectScaffold.hpp"
+#include "NetworkRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
 #include "../../Interpreter/Bytecode/BytecodeModule.hpp"
@@ -29,6 +30,8 @@ static void PrintHelp() {
         << "    robix <command> [arguments]\n\n"
         << "COMMANDS:\n"
         << "    run <file.rbx> [--native | --vm]   Execute a Robix source program\n"
+        << "    run all [--separate]                Run every network client and server\n"
+        << "    run client <Name> | server <Name>   Run one service in this console\n"
         << "    build <file.rbx> [-o <out.exe>]     Compile directly to a native executable\n"
         << "    test [path] [--generate]            Run .test.rbx on the interpreter. Test native also compiles.\n"
         << "    generate-tests [path]               Generate companion .test.rbx scaffolds for all .rbx files\n"
@@ -224,6 +227,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (cmd == "new") return Robix::Tools::RunNewCommand(args);
+    if (cmd == "run") {
+        const int services = Robix::Tools::RunProjectServices(args, toolDir);
+        if (services >= 0) return services;
+    }
 
     if (cmd == "test") {
         bool generateOnly = false;

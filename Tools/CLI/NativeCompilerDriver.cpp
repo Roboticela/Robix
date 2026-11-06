@@ -713,7 +713,8 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     {
         std::ifstream ir(codegenInput, std::ios::binary);
         const std::string irText((std::istreambuf_iterator<char>(ir)), std::istreambuf_iterator<char>());
-        linkLoopback = irText.find("call ptr @rbx_network_send_text") != std::string::npos;
+        linkLoopback = irText.find("call ptr @rbx_network_send_text") != std::string::npos ||
+                       irText.find("call ptr @rbx_network_call") != std::string::npos;
     }
     cmd << "-fms-runtime-lib=static -Wno-override-module "
         << Quote(runtimeObj) << " ";

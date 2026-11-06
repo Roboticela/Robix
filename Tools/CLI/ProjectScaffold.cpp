@@ -76,6 +76,10 @@ bool WriteText(const fs::path& path, const std::string& text) {
     return static_cast<bool>(out);
 }
 
+bool WriteGitignore(const fs::path& root) {
+    return WriteText(root / ".gitignore", "Build/\n");
+}
+
 std::string HelloFile(const std::string& packageName) {
     return "package " + packageName + ";\n\n"
            "public Function Hello() -> Int {\n"
@@ -318,6 +322,10 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         std::cerr << "robix new: '" << (root / (name + ".rbxproj")).string() << "' already exists.\n";
         return false;
     }
+    if (!WriteGitignore(root)) {
+        std::cerr << "robix new: could not write .gitignore.\n";
+        return false;
+    }
     if (kind != "Network") {
         fs::create_directories(root / "Source", ec);
         fs::create_directories(root / "Tests", ec);
@@ -376,7 +384,21 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         fs::create_directories(root / "Common" / "Tests", ec);
         fs::create_directories(root / "Packages", ec);
         std::vector<std::string> order;
-        if (servers.empty()) {
+        auto writeInterface = [&](const std::string& serviceName, const std::string& definition) {
+            const std::string source =
+                "package " + name + ".Common;\n\n"
+                "public interface " + serviceName + " {\n"
+                "    " + definition + "\n"
+                "}\n";
+            if (!WriteSourceAndTest(root / "Common" / "Source", root / "Common" / "Tests", name + ".Common",
+                                    serviceName, "Common.Source." + serviceName, source,
+                                    "    Assert.Equal(1, 1);\n")) {
+                return false;
+            }
+            order.push_back("Common/Source/" + serviceName + ".rbx");
+            return true;
+        };
+        if (clients.empty() && servers.empty()) {
             const std::string shared =
                 "package " + name + ".Common;\n\npublic Function SharedReady() -> Int {\n    return 1;\n}\n";
             if (!WriteSourceAndTest(root / "Common" / "Source", root / "Common" / "Tests", name + ".Common",
@@ -385,69 +407,79 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                 return false;
             }
             order.push_back("Common/Source/Shared.rbx");
-        } else {
-            for (const auto& server : servers) {
-                const std::string service =
-                    "package " + name + ".Common;\n\n"
-                    "public class " + server.name + " {\n\n"
-                    "    public Function SendText(String text) -> String {\n"
-                    "        return Network.SendText(text);\n"
-                    "    }\n"
-                    "}\n";
-                const std::string serviceTest =
-                    "    " + server.name + " server1 = new " + server.name + "();\n"
-                    "    String reply = server1.SendText(\"How are you\");\n"
-                    "    Assert.Equal(reply.Length(), 18);\n";
-                if (!WriteSourceAndTest(root / "Common" / "Source", root / "Common" / "Tests", name + ".Common",
-                                        server.name, "Common.Source." + server.name, service, serviceTest)) {
-                    return false;
-                }
-                order.push_back("Common/Source/" + server.name + ".rbx");
-            }
+        }
+        for (const auto& client : clients) {
+            if (!writeInterface(client.name, "public Function Ask(String text) -> String;")) return false;
+        }
+        for (const auto& server : servers) {
+            if (!writeInterface(server.name, "public Function SendText(String text) -> String;")) return false;
         }
         auto writeEnv = [&](const fs::path& path, const std::string& text) {
             return WriteText(path, text);
         };
-        if (!writeEnv(root / ".env", "APP_NAME=" + name + "\n") ||
-            !writeEnv(root / ".env.client", "PUBLIC_HOST=127.0.0.1\n") ||
-            !writeEnv(root / ".env.server", "SERVER_TOKEN=local-dev-token\n") ||
-            !writeEnv(root / "exp.env.client", "PUBLIC_HOST=127.0.0.1\n") ||
-            !writeEnv(root / "exp.env.server", "SERVER_TOKEN=local-dev-token\n")) {
+        std::ostringstream commonEnv;
+        commonEnv << "SECRET=robix-local-secret\n";
+        int port = 4010;
+        for (const auto& client : clients) {
+            commonEnv << client.name << "_HOST=127.0.0.1\n" << client.name << "_PORT=" << port++ << "\n";
+        }
+        for (const auto& server : servers) {
+            commonEnv << server.name << "_HOST=127.0.0.1\n" << server.name << "_PORT=" << port++ << "\n";
+        }
+        const std::string commonText = commonEnv.str();
+        if (!writeEnv(root / ".env.client", "") ||
+            !writeEnv(root / ".env.server", "") ||
+            !writeEnv(root / "exp.env.client", "") ||
+            !writeEnv(root / "exp.env.server", "") ||
+            !writeEnv(root / ".env.common", commonText) ||
+            !writeEnv(root / "exp.env.common", commonText)) {
             std::cerr << "robix new: could not write the environment files.\n";
             return false;
         }
-        int port = 4010;
-        std::vector<std::string> serverNames;
-        for (const auto& server : servers) serverNames.push_back(server.name);
-        std::string imports;
-        for (const auto& serverName : serverNames) imports += "import Common.Source." + serverName + ";\n";
+        auto peerCalls = [&](const std::string& self) {
+            std::string calls;
+            for (const auto& client : clients) {
+                if (client.name == self) continue;
+                calls += "    Print(" + client.name + ".Ask(\"How are you\"));\n";
+            }
+            for (const auto& server : servers) {
+                if (server.name == self) continue;
+                calls += "    Print(" + server.name + ".SendText(\"How are you\"));\n";
+            }
+            if (calls.empty()) calls = "    Print(0);\n";
+            return calls;
+        };
+        auto peerImports = [&](const std::string& self) {
+            std::string imports;
+            for (const auto& client : clients) {
+                if (client.name == self) continue;
+                imports += "import Common.Source." + client.name + ";\n";
+            }
+            for (const auto& server : servers) {
+                if (server.name == self) continue;
+                imports += "import Common.Source." + server.name + ";\n";
+            }
+            return imports;
+        };
         std::vector<std::string> ui;
         for (const auto& client : clients) {
             const fs::path dir = root / client.name;
-            const std::string action = client.gui
-                ? "    public Function SendMessage() -> Void {\n" +
-                      (servers.empty() ? "        Print(0);\n" : ServerCall(serverNames)) +
-                      "    }\n\n"
-                : "";
             const std::string clientSource =
-                "package " + name + "." + client.name + ";\n\n" + imports +
-                "\npublic class " + client.name + " {\n\n" + action +
-                "    public Function Show() -> Int {\n" +
-                (servers.empty() ? "        Print(0);\n        return 0;\n"
-                                 : ServerCall(serverNames) + "        return 1;\n") +
-                "    }\n}\n\npublic Function Main() -> Void {\n    " + client.name + " client = new " + client.name +
-                "();\n    client." + (client.gui ? "SendMessage" : "Show") + "();\n}\n";
-            const std::string clientTest = servers.empty()
-                ? "    Assert.Equal(SharedReady(), 1);\n"
-                : "    " + serverNames[0] + " server1 = new " + serverNames[0] + "();\n"
-                  "    String reply = server1.SendText(\"How are you\");\n"
-                  "    Assert.Equal(reply.Length(), 18);\n";
-            const std::string clientImport = servers.empty() ? "Common.Source.Shared" : "Common.Source." + serverNames[0];
-            const std::string clientType = client.gui ? "GUI" : "CLI";
-            if (!WriteSourceAndTest(dir / "Source", dir / "Tests", name + "." + client.name, client.name, clientImport,
-                                    clientSource, clientTest) ||
-                !writeEnv(dir / ".env", "CLIENT_NAME=" + client.name + "\nCLIENT_TYPE=" + clientType + "\n") ||
-                !writeEnv(dir / "exp.env", "CLIENT_NAME=" + client.name + "\nCLIENT_TYPE=" + clientType + "\n")) {
+                "package " + name + "." + client.name + ";\n\n" + peerImports(client.name) +
+                "\npublic Function Ask(String text) -> String {\n"
+                "    return text;\n"
+                "}\n\n"
+                "public Function SendMessage() -> Void {\n" +
+                peerCalls(client.name) +
+                "}\n\n"
+                "public Function Main() -> Void {\n"
+                "    SendMessage();\n"
+                "}\n";
+            if (!WriteSourceAndTest(dir / "Source", dir / "Tests", name + "." + client.name, client.name,
+                                    client.name + ".Source." + client.name, clientSource,
+                                    "    Assert.Equal(Ask(\"How are you\").Length(), 10);\n") ||
+                !writeEnv(dir / ".env", "") ||
+                !writeEnv(dir / "exp.env", "")) {
                 std::cerr << "robix new: could not write client '" << client.name << "'.\n";
                 return false;
             }
@@ -464,35 +496,22 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         }
         for (const auto& server : servers) {
             const fs::path dir = root / server.name;
-            const std::string action = server.gui
-                ? "    public Function ShowReply() -> Void {\n"
-                  "        " + server.name + " server1 = new " + server.name + "();\n"
-                  "        Print(server1.SendText(\"How are you\"));\n"
-                  "    }\n\n"
-                : "";
             const std::string serverSource =
-                "package " + name + "." + server.name + ";\n\nimport Common.Source." + server.name + ";\n\n"
-                "public class " + server.name + "Program {\n\n" + action +
-                "    public Function Show() -> Int {\n"
-                "        " + server.name + " server1 = new " + server.name + "();\n"
-                "        Print(server1.SendText(\"How are you\"));\n"
-                "        return 1;\n"
-                "    }\n}\n\n"
+                "package " + name + "." + server.name + ";\n\n" + peerImports(server.name) +
+                "\npublic Function SendText(String text) -> String {\n"
+                "    return \"Hello, \" + text;\n"
+                "}\n\n"
+                "public Function ShowReply() -> Void {\n" +
+                peerCalls(server.name) +
+                "}\n\n"
                 "public Function Main() -> Void {\n"
-                "    " + server.name + "Program program = new " + server.name + "Program();\n"
-                "    program." + (server.gui ? "ShowReply" : "Show") + "();\n"
+                "    ShowReply();\n"
                 "}\n";
-            const std::string serverTest =
-                "    " + server.name + " server1 = new " + server.name + "();\n"
-                "    String reply = server1.SendText(\"How are you\");\n"
-                "    Assert.Equal(reply.Length(), 18);\n";
-            const std::string serverType = server.gui ? "GUI" : "CLI";
             if (!WriteSourceAndTest(dir / "Source", dir / "Tests", name + "." + server.name, server.name,
-                                    "Common.Source." + server.name, serverSource, serverTest) ||
-                !writeEnv(dir / ".env", "SERVER_NAME=" + server.name + "\nSERVER_PORT=" + std::to_string(port) +
-                          "\nSERVER_TYPE=" + serverType + "\n") ||
-                !writeEnv(dir / "exp.env", "SERVER_NAME=" + server.name + "\nSERVER_PORT=" + std::to_string(port) +
-                          "\nSERVER_TYPE=" + serverType + "\n")) {
+                                    server.name + ".Source." + server.name, serverSource,
+                                    "    Assert.Equal(SendText(\"How are you\").Length(), 18);\n") ||
+                !writeEnv(dir / ".env", "") ||
+                !writeEnv(dir / "exp.env", "")) {
                 std::cerr << "robix new: could not write server '" << server.name << "'.\n";
                 return false;
             }
@@ -506,7 +525,6 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                 ui.push_back(server.name + "/" + server.name + ".rbxu");
             }
             order.push_back(server.name + "/Source/" + server.name + ".rbx");
-            ++port;
         }
         const std::string entry = !clients.empty() ? clients[0].name + "/Source/" + clients[0].name + ".rbx"
                                  : !servers.empty() ? servers[0].name + "/Source/" + servers[0].name + ".rbx"

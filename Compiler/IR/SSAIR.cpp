@@ -2283,6 +2283,36 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 }
             }
 
+            if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
+                expr.left->left->kind == Frontend::ExprKind::Identifier) {
+                const auto declared = m_classDecls.find(expr.left->left->text);
+                if (declared != m_classDecls.end() && declared->second != nullptr &&
+                    declared->second->kind == Frontend::DeclKind::Interface) {
+                    auto constant = [&](const std::string& text) {
+                        IRInstruction value;
+                        value.opcode   = IROpcode::ConstString;
+                        value.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("String") };
+                        value.textImm  = text;
+                        value.location = expr.location;
+                        IRValue out    = value.dest;
+                        Emit(std::move(value));
+                        return out.ssaId;
+                    };
+                    if (argIds.empty()) argIds.push_back(constant(""));
+                    IRInstruction call;
+                    call.opcode     = IROpcode::CallOSIntrinsic;
+                    call.textImm    = "Network.Call";
+                    Frontend::TypeNode result = MakePrim("String");
+                    result.isPointer = true;
+                    call.dest       = IRValue{ m_currentFn->AllocateSSAId(), result };
+                    call.operandIds = { constant(expr.left->left->text), constant(expr.left->text), argIds[0] };
+                    call.location   = expr.location;
+                    IRValue out     = call.dest;
+                    Emit(std::move(call));
+                    return out;
+                }
+            }
+
             if (expr.left && expr.left->kind == Frontend::ExprKind::Lambda) {
                 return OutlineLambda(expr, *expr.left, argIds);
             }

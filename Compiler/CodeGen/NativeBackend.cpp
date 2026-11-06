@@ -1223,6 +1223,13 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call ptr @rbx_args_get(i64 " << index.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
+            } else if (inst.textImm == "Network.Call" && inst.operandIds.size() >= 3) {
+                Val service = Operand(inst, 0);
+                Val method = Operand(inst, 1);
+                Val text = Operand(inst, 2);
+                m_body << "  " << vname << " = call ptr @rbx_network_call(ptr " << service.repr
+                       << ", ptr " << method.repr << ", ptr " << text.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Network.SendText" && !inst.operandIds.empty()) {
                 Val text = Operand(inst, 0);
                 m_body << "  " << vname << " = call ptr @rbx_network_send_text(ptr " << text.repr << ")\n";
@@ -2139,6 +2146,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (needs("@rbx_network_send_text")) {
         out << "declare ptr @rbx_network_send_text(ptr)\n";
+    }
+    if (needs("@rbx_network_call")) {
+        out << "declare ptr @rbx_network_call(ptr, ptr, ptr)\n";
     }
     if (needs("@rbx_device_unavailable")) {
         out << "declare i64 @rbx_device_unavailable(i64, i64)\n";

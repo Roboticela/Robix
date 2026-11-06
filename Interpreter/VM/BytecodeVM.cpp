@@ -14,6 +14,8 @@
 #include <ws2tcpip.h>
 #endif
 
+extern "C" char* rbx_network_call(const char* service, const char* method, const char* text);
+
 namespace Robix::VM {
 
 namespace {
@@ -574,6 +576,14 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         text = g_programArguments[static_cast<std::size_t>(index)];
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ text };
+                } else if (inst.symbolImm == "Network.Call" && inst.callArgRegs.size() >= 3) {
+                    const std::string service = regs[inst.callArgRegs[0]].ToString();
+                    const std::string method = regs[inst.callArgRegs[1]].ToString();
+                    const std::string text = regs[inst.callArgRegs[2]].ToString();
+                    char* reply = rbx_network_call(service.c_str(), method.c_str(), text.c_str());
+                    std::string value = reply != nullptr ? reply : "";
+                    std::free(reply);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::move(value) };
                 } else if (inst.symbolImm == "Network.SendText" && !inst.callArgRegs.empty()) {
                     const std::string text = regs[inst.callArgRegs[0]].ToString();
                     std::string reply;
