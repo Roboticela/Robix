@@ -180,8 +180,11 @@ struct StmtNode {
     StmtPtr catchBranch;
     StmtPtr finallyBranch;
 
-    // Inline ASM
+    // Inline ASM. `in:` operands are expressions, `out:` names a local, `clobber:` is a register list.
     std::string asmInstruction;
+    std::string asmOutput;
+    std::string asmClobber;
+    std::vector<ExprPtr> asmInputs;
 };
 
 // ============================================================================

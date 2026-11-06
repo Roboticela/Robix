@@ -15,7 +15,7 @@ Implemented for top-level functions:
 - Integer add, sub, mul, div, rem, comparisons, `and` / `or` / `not`. Release integer math wraps. It is not `nsw`. A positive power-of-two divisor lowers to a shift or mask; a negative dividend uses the toward-zero adjustment instead of `sdiv`.
 - Floating-point arithmetic marked `fast` in release builds.
 - Direct calls, including overloads distinguished by argument count.
-- `extern` functions with the C calling convention. `Examples/StageB/LibcShape.rbx` calls `puts`. Robix functions themselves stay `fastcc` and are not exported for C to call.
+- `extern` functions with the C calling convention. `Examples/StageB/LibcShape.rbx` calls `puts`. Hosted Robix functions stay `fastcc`. A freestanding build exports the entry symbol, `Start` unless `--entry` says otherwise, with the C calling convention.
 - `Print` of booleans, integers, floats, and strings.
 - String concatenation. Two visible literals become one global; other concatenations call `rbx_strcat`. `==` and `!=` use `strcmp`.
 - Arrays, indexing, and slices (`..` and `..=`), with a bounds trap. Structs, enums, `Tuple`, `Result` (`Success` / `Error`), and `Option` (`Some` / `None`).
@@ -62,6 +62,23 @@ Stage D guide, `Documentation/Guide.md`. Both engines:
 
 Stage E, `Benchmarks/Micro/README.md`. `RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15` with `robixc -O3` and Clang 18.1.8 at `-O3 -march=native`. The starting language rotates each round. Checksums matched. Printed score: 1 win, 12 ties, 0 losses, 1 unconfirmed (MemCopy). Collatz is a tie at 18.18 ms against C at 17.34 ms. The Calls win did not repeat: the same binaries later ran in 9.53, 9.95, and 10.05 ms. `n % 2 == 0` is `(n & 1) == 0`, and division by 2 on that even branch is an arithmetic shift. Integer `Print` calls `printf`. The link drops runtime functions the program does not call.
 
+Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o Build/StageF/serial.elf` linked a multiboot ELF32. QEMU (`qemu-system-x86_64 -cpu qemu64 -kernel Build/StageF/serial.elf -serial file:... -display none -machine pc`) wrote one byte, 82 (`R`). That image is the QEMU sample. It is not a BIOS, and it was not run on hardware.
+
+`Start` is exported with the C calling convention and no hosted `main`. The image does not link `RobixNativeRuntime.obj`. `PageEntry`, `SwitchChecksum`, and `OnTimer` are in that image. `Start` writes `R` when their checksum is 8503 and `X` otherwise. The same three functions in `Examples/StageF/Checksum.rbx`, compiled with hosted `robixc -O3`, printed `8503`. `Examples/StageF/Checksum.c` compiled with `clang -O3` printed `8503`. That match is a Windows run, not QEMU.
+
+| Sample | Where it ran | Result |
+| :--- | :--- | :--- |
+| `Examples/StageF/Serial.rbx` | QEMU | Serial byte 82 |
+| `Examples/StageF/Serial.rbxb` (`Output: Kernel`) | QEMU, same image path | Serial byte 82 |
+| `Examples/StageF/Firmware.rbxb` (`Output: Firmware`) | QEMU | Serial byte 82. Same trampoline and linker script as Kernel |
+| `Examples/StageF/Checksum.rbx` and `Checksum.c` | Windows | Both printed 8503 |
+| `Examples/StageF/Volatile.rbx` | Windows | Printed 65. A local `Int` standing in for a device register. Not a board test |
+| `Examples/StageF/AsmIO.rbx` | Windows | `ASM("movq $1, $0", out: y, in: x)` printed 20 |
+| `Examples/StageF/Abort.rbx` | LLVM IR, then object files | `call void @llvm.trap()` and no `malloc`. Objects only for `aarch64-unknown-none` (AArch64 relocatable), `riscv64-unknown-none` (RISC-V relocatable, clang triple `riscv64-unknown-elf`), and `x86_64-unknown-linux-gnu` (x86-64 relocatable). No cross linker was run |
+| `Examples/StageF/BadMnemonic.rbx` | Diagnostic | `--target aarch64-unknown-none` reports `N9010` for `outb` |
+
+`ASM("...")` still works. `in:`, `out:`, and `clobber:` are optional. A `$` immediate is escaped for LLVM when the statement has no operands. `Abort()` and `Panic()` are `llvm.trap` and do not allocate. `Volatile.Load` and `Volatile.Store` are volatile `i64` memory operations and require `Unsafe`.
+
 ## Partial
 
 | Feature | What exists | What does not |
@@ -72,9 +89,9 @@ Stage E, `Benchmarks/Micro/README.md`. `RunBenchmarks.ps1 -Suite All -Runs 5 -Co
 | Ranges | Numeric range loops, array index, and slices | `for x in collection` is still an IR error |
 | `match`, `try`, `throw` | Parsed | SSA IR rejects them |
 | Lambdas and object literals | Parsed | SSA IR rejects them |
-| C ABI | Robix calls an `extern` C function | C cannot call a Robix function; there is no unmangled `ccc` export |
+| C ABI | Robix calls an `extern` C function. The freestanding entry is an unmangled C-convention symbol | Hosted Robix functions are still `fastcc`. C cannot call an arbitrary Robix function |
 | Build profiles | `-O0` debug and `-O2`/`-O3`/`--release` | `performance`, `realtime`, `embedded`, `safety`, and `size` are not separate compiler modes |
-| Targets | Host Windows x64 via the bundled Clang | No `*-unknown-none` freestanding link, no cross-built images |
+| Targets | Windows x64 hosted link. `x86_64-unknown-none` multiboot image boots in QEMU. `aarch64-unknown-none`, `riscv64-unknown-none`, and `x86_64-unknown-linux-gnu` produce relocatable objects | No AArch64 or RISC-V boot image. No Linux executable. Those rows are objects only |
 | Benchmarks | `Benchmarks/Micro/README.md`: 12 ties, 0 losses, MemCopy unconfirmed | No manifest sets `upstream: true`. Other suite names are refused |
 | Specification | `Specification/LanguageSpecification.md` and grammar files | The documents describe a larger language than this table |
 
@@ -88,7 +105,7 @@ Stage E, `Benchmarks/Micro/README.md`. `RunBenchmarks.ps1 -Suite All -Runs 5 -Co
 - OS intrinsics other than `Memory.Allocate` and `Memory.Free`.
 - GPIO, PWM, and any other hardware API. A call does not read a pin.
 - Packages as a shippable registry. `.rbxproj` / `.rbxp` tooling is not the native compile path.
-- RobixUI (`.rbxu`), RobixBuild (`.rbxb`), and Robix Network.
+- RobixUI (`.rbxu`) and Robix Network. A `.rbxb` file is read only for `Output` (`Kernel` or `Firmware`), `Target`, `Entry`, `Source`, and `Profile`.
 - LSP over the wire, a VS Code extension, and a debugger attached to the native binary.
 
 ## Commands that exist
@@ -96,6 +113,9 @@ Stage E, `Benchmarks/Micro/README.md`. `RunBenchmarks.ps1 -Suite All -Runs 5 -Co
 | Command | Status |
 | :--- | :--- |
 | `robixc File.rbx -o App -O3` | Implemented |
+| `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx` | Implemented. QEMU serial byte 82 |
+| `robixc --target aarch64-unknown-none`, `riscv64-unknown-none`, `x86_64-unknown-linux-gnu` | Object file only. Recorded for `Examples/StageF/Abort.rbx` |
+| `robixc Examples/StageF/Serial.rbxb` and `Firmware.rbxb` | Implemented. Both boot in QEMU and write byte 82 |
 | `robixc --version`, `robixc --help`, `robixc --emit-llvm`, `robixc --keep-ir` | Implemented |
 | `robix run File.rbx` | Interpreter. Recorded on Stage B (`506`), Stage C (`150`, then `40`), and the Stage D guide samples |
 | `robix new Name` | Writes `Name/Main.rbx`. Recorded as `HelloApp`, which prints `Hello from Robix` |

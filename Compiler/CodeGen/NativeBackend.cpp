@@ -1,8 +1,10 @@
 #include "NativeBackend.hpp"
 
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <map>
 #include <set>
 #include <sstream>
@@ -114,6 +116,45 @@ std::string HexDouble(double v) {
     char buf[40];
     std::snprintf(buf, sizeof(buf), "0x%016llX", static_cast<unsigned long long>(bits));
     return buf;
+}
+
+std::string FirstMnemonic(const std::string& text) {
+    std::size_t i = 0;
+    while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i]))) {
+        ++i;
+    }
+    const std::size_t begin = i;
+    while (i < text.size() && !std::isspace(static_cast<unsigned char>(text[i])) && text[i] != ',' && text[i] != ';') {
+        ++i;
+    }
+    std::string mnemonic = text.substr(begin, i - begin);
+    for (char& ch : mnemonic) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    return mnemonic;
+}
+
+bool AsmMnemonicAllowed(std::string_view arch, std::string_view mnemonic) {
+    auto listed = [&](std::initializer_list<const char*> names) {
+        for (const char* name : names) {
+            if (mnemonic == name) return true;
+        }
+        return false;
+    };
+    if (arch == "aarch64") {
+        return listed({ "nop", "ret", "mov", "add", "sub", "ldr", "str", "blr", "br",
+                        "svc", "mrs", "msr", "dsb", "isb", "wfi", "wfe" });
+    }
+    if (arch == "riscv64") {
+        return listed({ "nop", "ret", "li", "mv", "add", "sub", "lw", "sw", "ld", "sd",
+                        "jal", "jalr", "ecall", "ebreak", "wfi", "fence" });
+    }
+    return listed({ "nop", "cli", "sti", "hlt", "mov", "movb", "movw", "movl", "movq",
+                    "out", "outb", "outw", "outl", "in", "inb", "inw", "inl",
+                    "lgdt", "lidt", "ljmp", "ljmpl", "rdmsr", "wrmsr", "invlpg",
+                    "int", "iret", "iretq", "push", "pop", "ret", "jmp", "call",
+                    "add", "addq", "sub", "subq", "and", "or", "xor", "shl", "shr", "sar",
+                    "lea", "cmp", "test", "xchg", "cpuid", "pause", "mfence", "lfence", "sfence" });
 }
 
 std::string EscapeLLVMString(const std::string& s) {
@@ -941,9 +982,69 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             break;
         }
 
-        case IROpcode::InlineASM:
-            m_body << "  call void asm sideeffect \"" << EscapeLLVMString(inst.textImm) << "\", \"\"()\n";
+        case IROpcode::InlineASM: {
+            const std::string mnemonic = FirstMnemonic(inst.textImm);
+            if (mnemonic.empty() || !AsmMnemonicAllowed(m_ctx.options.asmArch, mnemonic)) {
+                Err("N9010",
+                    "Instruction '" + mnemonic + "' is not in the " + m_ctx.options.asmArch + " assembly allowlist.",
+                    inst.location);
+                break;
+            }
+            const auto split = inst.secondaryText.find('\n');
+            const std::string output = split == std::string::npos ? inst.secondaryText
+                                                                  : inst.secondaryText.substr(0, split);
+            const std::string clobber = split == std::string::npos ? std::string{}
+                                                                   : inst.secondaryText.substr(split + 1);
+            std::string text = inst.textImm;
+            if (inst.operandIds.empty() && output.empty()) {
+                std::string doubled;
+                doubled.reserve(text.size() + 4);
+                for (char ch : text) {
+                    if (ch == '$') doubled.push_back('$');
+                    doubled.push_back(ch);
+                }
+                text = std::move(doubled);
+            }
+            std::string constraints;
+            auto addConstraint = [&](const std::string& piece) {
+                if (!constraints.empty()) constraints += ",";
+                constraints += piece;
+            };
+            if (!output.empty()) addConstraint("=r");
+            for (std::size_t i = 0; i < inst.operandIds.size(); ++i) addConstraint("r");
+            std::size_t cursor = 0;
+            while (cursor < clobber.size()) {
+                const std::size_t comma = clobber.find(',', cursor);
+                std::string name = clobber.substr(cursor, comma == std::string::npos ? std::string::npos : comma - cursor);
+                const auto first = name.find_first_not_of(" \t");
+                const auto last = name.find_last_not_of(" \t");
+                if (first != std::string::npos) {
+                    name = name.substr(first, last - first + 1);
+                    addConstraint("~{" + name + "}");
+                }
+                if (comma == std::string::npos) break;
+                cursor = comma + 1;
+            }
+            std::string args;
+            for (std::size_t i = 0; i < inst.operandIds.size(); ++i) {
+                if (i > 0) args += ", ";
+                Val in = Coerce(Operand(inst, i), NTy::I64, inst.location);
+                args += "i64 " + in.repr;
+            }
+            const std::string escaped = EscapeLLVMString(text);
+            if (output.empty()) {
+                m_body << "  call void asm sideeffect \"" << escaped << "\", \"" << constraints << "\"(" << args << ")\n";
+            } else {
+                m_body << "  " << vname << " = call i64 asm sideeffect \"" << escaped << "\", \""
+                       << constraints << "\"(" << args << ")\n";
+                if (m_varTy.find(output) == m_varTy.end()) {
+                    EnsureVar(output, NTy::I64);
+                }
+                m_body << "  store i64 " << vname << ", ptr " << SlotName(output) << ", align 8\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            }
             break;
+        }
 
         case IROpcode::Jump:
             m_body << "  br label %" << inst.textImm << "\n";
@@ -1055,6 +1156,18 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val path = Operand(inst, 0);
                 m_body << "  " << vname << " = call ptr @rbx_read_text(ptr " << path.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
+            } else if (inst.textImm == "Volatile.Load" && !inst.operandIds.empty()) {
+                Val p = Operand(inst, 0);
+                m_body << "  " << vname << " = load volatile i64, ptr " << p.repr << ", align 1\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Volatile.Store" && inst.operandIds.size() >= 2) {
+                Val p = Operand(inst, 0);
+                Val stored = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  store volatile i64 " << stored.repr << ", ptr " << p.repr << ", align 1\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Abort" || inst.textImm == "Panic") {
+                m_body << "  call void @llvm.trap()\n";
+                m_vals[id] = Val{ "0", NTy::Void };
             } else if (inst.textImm == "Math.Abs" || inst.textImm == "Math.Min" ||
                        inst.textImm == "Math.Max" || inst.textImm == "Math.Clamp") {
                 auto asI64 = [&](std::size_t index) {
@@ -1361,7 +1474,12 @@ bool FnEmitter::Emit() {
 
     if (!m_ok) return false;
 
-    m_out << "define internal fastcc " << TyStr(ret) << " @\"" << m_fn.mangledName << "\"(";
+    const bool isEntry = m_ctx.options.freestanding && m_fn.name == m_ctx.options.entryName;
+    if (isEntry) {
+        m_out << "define dso_local " << TyStr(ret) << " @" << m_fn.name << "(";
+    } else {
+        m_out << "define internal fastcc " << TyStr(ret) << " @\"" << m_fn.mangledName << "\"(";
+    }
     for (std::size_t i = 0; i < ptys.size(); ++i) {
         if (i > 0) m_out << ", ";
         m_out << TyStr(ptys[i]) << " %a" << i;
@@ -1376,7 +1494,9 @@ bool FnEmitter::Emit() {
         }
         if (isRecursive) break;
     }
-    if (m_ctx.options.profile == BuildProfile::Release && !isRecursive) {
+    if (isEntry) {
+        m_out << ") nounwind #0 section \".text.entry\" {\nentry:\n";
+    } else if (m_ctx.options.profile == BuildProfile::Release && !isRecursive) {
         m_out << ") alwaysinline nounwind #0 align 64 {\nentry:\n";
     } else {
         m_out << ") nounwind #0 align 64 {\nentry:\n";
@@ -1405,25 +1525,58 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     std::ostringstream functions;
     bool ok = true;
     const IR::IRFunction* mainFn = nullptr;
+    const std::string& entryName = m_options.entryName;
+
+    std::set<std::string> reachable;
+    if (m_options.freestanding) {
+        std::vector<std::string> pending;
+        pending.push_back(entryName);
+        while (!pending.empty()) {
+            const std::string name = pending.back();
+            pending.pop_back();
+            if (!reachable.insert(name).second) continue;
+            const auto found = ctx.byName.find(name);
+            if (found == ctx.byName.end()) continue;
+            for (const auto& block : found->second->blocks) {
+                for (const auto& inst : block.instructions) {
+                    if (inst.opcode == IR::IROpcode::CallDirect || inst.opcode == IR::IROpcode::CallVirtual) {
+                        pending.push_back(inst.textImm);
+                    }
+                }
+            }
+        }
+    }
 
     for (const auto& fn : mod.functions) {
         if (fn.isTestBlock) continue;
+        if (m_options.freestanding && reachable.find(fn.name) == reachable.end()) continue;
         FnEmitter emitter(fn, ctx, functions);
         if (!emitter.Emit()) {
             ok = false;
         }
-        if (fn.name == "Main" && fn.parameters.empty()) {
+        const bool isEntry = m_options.freestanding
+                                 ? (fn.name == entryName && fn.parameters.empty())
+                                 : (fn.name == "Main" && fn.parameters.empty());
+        if (isEntry) {
             mainFn = &fn;
         }
     }
 
     NTy mainRet = NTy::Void;
     if (!mainFn) {
-        m_diagnostics.ReportError(
-            "N9002",
-            "No entry point: native executables require a parameterless 'Function Main()'.",
-            Frontend::SourceLocation{},
-            "Add 'public Function Main() -> Int { ... }'.");
+        if (m_options.freestanding) {
+            m_diagnostics.ReportError(
+                "N9002",
+                "No freestanding entry: expected a parameterless function named '" + entryName + "'.",
+                Frontend::SourceLocation{},
+                "Pass --entry Name or declare 'public Function " + entryName + "() -> Void'.");
+        } else {
+            m_diagnostics.ReportError(
+                "N9002",
+                "No entry point: native executables require a parameterless 'Function Main()'.",
+                Frontend::SourceLocation{},
+                "Add 'public Function Main() -> Int { ... }'.");
+        }
         ok = false;
     } else {
         NTy rt{};
@@ -1440,25 +1593,43 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
 
     std::ostringstream out;
     out << "; Robix native LLVM IR - module '" << mod.moduleName << "' (profile: "
-        << BuildProfileToString(m_options.profile) << ")\n";
-    out << "target datalayout = \"" << GetLLVMDataLayout(m_options.target) << "\"\n";
-    out << "target triple = \"" << GetLLVMTargetTriple(m_options.target) << "\"\n\n";
-    out << "declare void @rbx_print_i64(i64)\n";
-    out << "declare i32 @printf(ptr, ...)\n";
-    out << "declare void @rbx_print_f64(double)\n";
-    out << "declare void @rbx_print_bool(i32)\n";
-    out << "declare void @rbx_print_str(ptr)\n";
-    out << "declare ptr @malloc(i64)\n";
-    out << "declare void @free(ptr)\n";
-    out << "declare i64 @strlen(ptr)\n";
-    out << "declare i32 @strcmp(ptr, ptr)\n";
-    out << "declare ptr @rbx_input_line(ptr)\n";
-    out << "declare i64 @rbx_input_i64(ptr)\n";
-    out << "declare i32 @rbx_write_text(ptr, ptr)\n";
-    out << "declare ptr @rbx_read_text(ptr)\n";
-    out << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n";
-    out << "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)\n";
-    out << "declare void @llvm.trap()\n\n";
+        << BuildProfileToString(m_options.profile)
+        << (m_options.freestanding ? ", freestanding" : "") << ")\n";
+    const std::string layout = m_options.layoutOverride.empty()
+                                   ? std::string(GetLLVMDataLayout(m_options.target))
+                                   : m_options.layoutOverride;
+    const std::string triple = m_options.tripleOverride.empty()
+                                   ? std::string(GetLLVMTargetTriple(m_options.target))
+                                   : m_options.tripleOverride;
+    out << "target datalayout = \"" << layout << "\"\n";
+    out << "target triple = \"" << triple << "\"\n\n";
+    const std::string body = functions.str();
+    const auto needs = [&](const char* symbol) {
+        return body.find(symbol) != std::string::npos;
+    };
+    if (!m_options.freestanding || needs("@rbx_print_i64")) {
+        out << "declare void @rbx_print_i64(i64)\n";
+    }
+    if (!m_options.freestanding || needs("@printf")) {
+        out << "declare i32 @printf(ptr, ...)\n";
+        out << "declare void @rbx_print_f64(double)\n";
+        out << "declare void @rbx_print_bool(i32)\n";
+        out << "declare void @rbx_print_str(ptr)\n";
+        out << "declare ptr @malloc(i64)\n";
+        out << "declare void @free(ptr)\n";
+        out << "declare i64 @strlen(ptr)\n";
+        out << "declare i32 @strcmp(ptr, ptr)\n";
+        out << "declare ptr @rbx_input_line(ptr)\n";
+        out << "declare i64 @rbx_input_i64(ptr)\n";
+        out << "declare i32 @rbx_write_text(ptr, ptr)\n";
+        out << "declare ptr @rbx_read_text(ptr)\n";
+        out << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n";
+        out << "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)\n";
+    }
+    if (!m_options.freestanding || needs("@llvm.trap")) {
+        out << "declare void @llvm.trap()\n";
+    }
+    out << "\n";
     for (const auto& vt : mod.vtables) {
         if (vt.slots.empty()) continue;
         out << "@\"vt." << vt.typeName << "\" = private constant [" << vt.slots.size() << " x ptr] [";
@@ -1479,6 +1650,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "]\n";
     }
     if (!mod.vtables.empty()) out << "\n";
+    if (!m_options.freestanding || needs("@rbx_strcat")) {
     out << "define internal ptr @rbx_strcat(ptr %a, ptr %b) {\n";
     out << "entry:\n";
     out << "  %na = call i64 @strlen(ptr %a)\n";
@@ -1493,6 +1665,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     out << "  store i8 0, ptr %end, align 1\n";
     out << "  ret ptr %p\n";
     out << "}\n\n";
+    }
 
     for (std::size_t i = 0; i < ctx.stringLiterals.size(); ++i) {
         const std::string& s = ctx.stringLiterals[i];
@@ -1501,8 +1674,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (!ctx.stringLiterals.empty()) out << "\n";
 
-    out << functions.str();
+    out << body;
 
+    if (!m_options.freestanding) {
     out << "define i32 @main() #0 {\nentry:\n";
     if (mainRet == NTy::Void) {
         out << "  call fastcc void @\"" << mainFn->mangledName << "\"()\n  ret i32 0\n";
@@ -1521,7 +1695,15 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  %r = call " << TyStr(mainRet) << " @\"" << mainFn->mangledName << "\"()\n  ret i32 0\n";
     }
     out << "}\n\n";
-    if (m_options.profile == BuildProfile::Release) {
+    }
+    if (m_options.freestanding) {
+        const char* cpu = "x86-64";
+        if (m_options.asmArch == "aarch64") cpu = "generic";
+        else if (m_options.asmArch == "riscv64") cpu = "generic-rv64";
+        out << "attributes #0 = { nounwind "
+            << (m_options.asmArch == "x86_64" ? "\"no-red-zone\"=\"true\" " : "")
+            << "\"target-cpu\"=\"" << cpu << "\" \"no-trapping-math\"=\"true\" }\n";
+    } else if (m_options.profile == BuildProfile::Release) {
         out << "attributes #0 = { nounwind \"target-cpu\"=\"skylake\" \"target-features\"=\"+64bit,+adx,+aes,+avx,+avx2,+bmi,+bmi2,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves\" \"no-trapping-math\"=\"true\" \"unsafe-fp-math\"=\"true\" \"approx-func-fp-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" hot }\n";
     } else {
         out << "attributes #0 = { nounwind \"no-trapping-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" }\n";

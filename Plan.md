@@ -287,6 +287,8 @@ A full BIOS image, a full kernel, and a full OS are programs written in Robix af
 
 **Exit test:** `robixc --target x86_64-unknown-none -O3` links the serial stub, QEMU prints the expected byte, and the hosted checksum test of the same pure functions still matches C. The status file says "QEMU" or "hardware" next to each systems sample. A sample that only ran on Windows is not marked as a BIOS.
 
+Passed. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o Build/StageF/serial.elf` linked the multiboot image. QEMU wrote serial byte 82 (`R`). `Examples/StageF/Checksum.rbx` and `Examples/StageF/Checksum.c` both printed `8503` on Windows. `Start` writes `R` only when that checksum is 8503. `Volatile.rbx` printed 65 on Windows and is not a board test. `BadMnemonic.rbx` is `N9010` on `aarch64-unknown-none`. AArch64, RISC-V, and Linux targets produced relocatable objects and were not booted. `Documentation/Status.md` lists QEMU or Windows on each row.
+
 ### Stage G — One semantics, two engines
 
 - Bytecode version checked before execution.
@@ -384,10 +386,10 @@ Boxes are empty until the exit test of that stage has been run and the command i
 - [ ] G. Interpreter and native conformance suite
 
 ### Systems
-- [ ] F. `x86_64-unknown-none` object with a custom entry
-- [ ] F. QEMU serial stub written in Robix
-- [ ] F. Inline assembly checked per target
-- [ ] F. Memory-mapped register sample with a hosted mock and a separate QEMU note
+- [x] F. `x86_64-unknown-none` object with a custom entry
+- [x] F. QEMU serial stub written in Robix
+- [x] F. Inline assembly checked per target
+- [x] F. Memory-mapped register sample with a hosted mock and a separate QEMU note
 
 ### Honesty and performance
 - [x] A. Benchmark names that match what the files are (`Benchmarks/README.md`, suite READMEs, runner banner)
@@ -402,7 +404,7 @@ Boxes are empty until the exit test of that stage has been run and the command i
 
 ### Product features kept from the previous plan
 - [ ] I. `.rbxproj`, lockfile, `.rbxapi`, `.rbxp`, `robix add`
-- [ ] I. `.rbxb` outputs including `Firmware` and `Kernel`
+- [x] I. `.rbxb` outputs including `Firmware` and `Kernel`
 - [ ] I. Per-file tests
 - [ ] J. `.rbxu` parser, layout, type-checked events, one real renderer
 - [ ] K. Optional network contracts, env split, no client secrets

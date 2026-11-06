@@ -1201,7 +1201,36 @@ StmtPtr Parser::ParseStatement() {
             stmt->asmInstruction = UnquoteString(Advance().lexeme);
         }
         while (Match(TokenKind::Comma)) {
-            (void)ParseExpression();
+            const bool named = (Check(TokenKind::Identifier) || Check(TokenKind::KwIn))
+                && (m_pos + 1) < m_tokens.size()
+                && m_tokens[m_pos + 1].kind == TokenKind::Colon;
+            if (!named) {
+                (void)ParseExpression();
+                continue;
+            }
+            const std::string key(Advance().lexeme);
+            Expect(TokenKind::Colon, "P1051", "Expected ':' after an ASM operand name");
+            if (key == "clobber") {
+                if (!Check(TokenKind::StringLiteral)) {
+                    m_diagnostics.ReportError("P1052", "ASM clobber expects a string.", Current().location);
+                } else {
+                    stmt->asmClobber = UnquoteString(Advance().lexeme);
+                }
+            } else if (key == "out") {
+                if (!Check(TokenKind::Identifier)) {
+                    m_diagnostics.ReportError("P1053", "ASM out expects a variable name.", Current().location);
+                } else {
+                    stmt->asmOutput = std::string(Advance().lexeme);
+                }
+            } else if (key == "in") {
+                stmt->asmInputs.push_back(ParseExpression());
+            } else {
+                m_diagnostics.ReportError(
+                    "P1054",
+                    "Unknown ASM operand '" + key + "'. Use in:, out:, or clobber:.",
+                    Current().location);
+                (void)ParseExpression();
+            }
         }
         Expect(TokenKind::RParen, "P1050", "Expected ')' after ASM arguments");
         Match(TokenKind::Semicolon);

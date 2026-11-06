@@ -1349,9 +1349,15 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
 
         case Frontend::StmtKind::ASMStmt: {
             IRInstruction asmInst;
-            asmInst.opcode   = IROpcode::InlineASM;
-            asmInst.textImm  = stmt.asmInstruction;
-            asmInst.location = stmt.location;
+            asmInst.opcode        = IROpcode::InlineASM;
+            asmInst.textImm       = stmt.asmInstruction;
+            asmInst.secondaryText = stmt.asmOutput + "\n" + stmt.asmClobber;
+            asmInst.location      = stmt.location;
+            for (const auto& input : stmt.asmInputs) {
+                if (input) {
+                    asmInst.operandIds.push_back(LowerExpr(*input).ssaId);
+                }
+            }
             Emit(std::move(asmInst));
             break;
         }
@@ -1739,6 +1745,14 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
 
             if (expr.left && expr.left->kind == Frontend::ExprKind::Identifier) {
                 const std::string& fnName = expr.left->text;
+                if (fnName == "Abort" || fnName == "Panic") {
+                    IRInstruction trap;
+                    trap.opcode   = IROpcode::CallOSIntrinsic;
+                    trap.textImm  = fnName;
+                    trap.location = expr.location;
+                    Emit(std::move(trap));
+                    return IRValue{ 0, MakePrim("Void") };
+                }
                 if (fnName == "Input") {
                     const bool asInt = expr.left->targetType.baseName == "Int" ||
                                        expr.left->targetType.baseName == "Int64";
@@ -1865,7 +1879,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 if (receiverExpr.kind == Frontend::ExprKind::Identifier &&
                     (receiverExpr.text == "File" || receiverExpr.text == "Thread" ||
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
-                     receiverExpr.text == "Memory" || receiverExpr.text == "Math")) {
+                     receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
+                     receiverExpr.text == "Volatile")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "File" && memberName == "ReadText") {
                         ty = MakePrim("String");

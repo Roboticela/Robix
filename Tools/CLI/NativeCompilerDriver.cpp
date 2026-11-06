@@ -56,6 +56,205 @@ int RunProcess(const std::string& commandLine, std::string& capturedOutput) {
 
 std::string Quote(const std::string& s) { return "\"" + s + "\""; }
 
+std::string ForwardSlashes(std::string path) {
+    for (char& ch : path) {
+        if (ch == '\\') ch = '/';
+    }
+    return path;
+}
+
+void WriteText(const fs::path& path, const std::string& text) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out << text;
+}
+
+NativeBuildResult LinkFreestanding(const std::string& clang,
+                                   const fs::path& llvmIR,
+                                   const fs::path& output,
+                                   const NativeBuildOptions& options,
+                                   NativeBuildResult res) {
+    const fs::path binDir = fs::path(clang).parent_path();
+    const fs::path work = output.has_parent_path() ? output.parent_path() : fs::path(".");
+    std::error_code ec;
+    fs::create_directories(work, ec);
+
+    const bool optimize = options.release;
+    std::string clangTarget = options.clangTarget;
+    if (clangTarget.empty()) {
+        clangTarget = options.outputKind == NativeOutputKind::BootImage ? "x86_64-elf" : options.targetTriple;
+    }
+    std::ostringstream compile;
+    compile << Quote(clang) << " --target=" << clangTarget
+            << " -c -ffreestanding -fno-stack-protector -fno-asynchronous-unwind-tables "
+            << (optimize ? "-O3 " : "-O0 ");
+    if (options.asmArch == "x86_64") {
+        compile << "-mno-red-zone -mgeneral-regs-only -mno-sse -mno-mmx ";
+    }
+    const fs::path object = work / (output.stem().string() + ".payload.o");
+    compile << "-Wno-override-module " << Quote(llvmIR.string()) << " -o " << Quote(object.string());
+    if (RunProcess(compile.str(), res.toolOutput) != 0 || !FileExists(object)) {
+        res.diagnosticsText += "error: freestanding compile failed:\n" + res.toolOutput;
+        return res;
+    }
+
+    if (options.outputKind == NativeOutputKind::ObjectFile) {
+        std::error_code moveEc;
+        fs::rename(object, output, moveEc);
+        if (moveEc) {
+            fs::copy_file(object, output, fs::copy_options::overwrite_existing, moveEc);
+            fs::remove(object, moveEc);
+        }
+        if (!FileExists(output)) {
+            res.diagnosticsText += "error: could not write object '" + output.string() + "'\n";
+            return res;
+        }
+        res.success = true;
+        res.executablePath = output.string();
+        res.toolOutput += "robixc: freestanding object only. No cross linker was run for " + options.targetTriple + ".\n";
+        return res;
+    }
+
+    const fs::path lld = binDir / "ld.lld.exe";
+    const fs::path objcopy = binDir / "llvm-objcopy.exe";
+    if (!FileExists(lld) || !FileExists(objcopy)) {
+        res.diagnosticsText += "error: ld.lld.exe or llvm-objcopy.exe was not found next to clang.\n";
+        return res;
+    }
+
+    const fs::path highLd = work / "high.ld";
+    const fs::path lowLd = work / "low.ld";
+    const fs::path payloadElf = work / "kernel64.elf";
+    const fs::path payloadBin = work / "kernel64.bin";
+    const fs::path bootAsm = work / "boot32.s";
+    const fs::path bootObj = work / "boot32.o";
+    WriteText(highLd,
+              "/* Robix " + options.imageRole + " image. Linked at 2MB for the trampoline. */\n"
+              "ENTRY(" + (options.entrySymbol.empty() ? "Start" : options.entrySymbol) + ")\n"
+              "SECTIONS {\n"
+              "  . = 2M;\n"
+              "  .text : { *(.text.entry) *(.text) *(.text.*) }\n"
+              "  .rodata : { *(.rodata*) }\n"
+              "  .data : { *(.data*) }\n"
+              "}\n");
+    WriteText(lowLd,
+              "/* Robix " + options.imageRole + " multiboot trampoline. */\n"
+              "ENTRY(_start)\n"
+              "SECTIONS {\n"
+              "  . = 1M;\n"
+              "  .multiboot : { *(.multiboot) }\n"
+              "  .text : { *(.text) }\n"
+              "  .bss : { *(.bss) }\n"
+              "  . = 2M;\n"
+              "  .payload : { *(.payload) }\n"
+              "}\n");
+    std::ostringstream linkPayload;
+    linkPayload << Quote(lld.string()) << " -nostdlib -e "
+                << (options.entrySymbol.empty() ? "Start" : options.entrySymbol)
+                << " -T " << Quote(highLd.string()) << " " << Quote(object.string())
+                << " -o " << Quote(payloadElf.string());
+    if (RunProcess(linkPayload.str(), res.toolOutput) != 0 || !FileExists(payloadElf)) {
+        res.diagnosticsText += "error: freestanding link failed:\n" + res.toolOutput;
+        return res;
+    }
+    std::ostringstream copyCmd;
+    copyCmd << Quote(objcopy.string()) << " -O binary " << Quote(payloadElf.string()) << " " << Quote(payloadBin.string());
+    if (RunProcess(copyCmd.str(), res.toolOutput) != 0 || !FileExists(payloadBin)) {
+        res.diagnosticsText += "error: llvm-objcopy failed:\n" + res.toolOutput;
+        return res;
+    }
+
+    WriteText(bootAsm,
+              ".section .multiboot, \"a\"\n"
+              ".align 4\n"
+              ".long 0x1BADB002\n"
+              ".long 0\n"
+              ".long 0xE4524FFE\n"
+              ".section .text\n"
+              ".code32\n"
+              ".global _start\n"
+              "_start:\n"
+              "    cli\n"
+              "    mov $0xff, %al\n"
+              "    out %al, $0x21\n"
+              "    out %al, $0xa1\n"
+              "    lidt idt_desc\n"
+              "    lgdt gdt_desc\n"
+              "    mov $0x10, %ax\n"
+              "    mov %ax, %ds\n"
+              "    mov %ax, %es\n"
+              "    mov %ax, %ss\n"
+              "    mov $pml4, %edi\n"
+              "    mov $2048, %ecx\n"
+              "    xor %eax, %eax\n"
+              "    rep stosl\n"
+              "    mov $pdpt, %eax\n"
+              "    or $3, %eax\n"
+              "    mov %eax, pml4\n"
+              "    movl $0x83, pdpt\n"
+              "    mov $pml4, %eax\n"
+              "    mov %eax, %cr3\n"
+              "    mov %cr4, %eax\n"
+              "    or $0x30, %eax\n"
+              "    mov %eax, %cr4\n"
+              "    mov $0xC0000080, %ecx\n"
+              "    rdmsr\n"
+              "    or $0x100, %eax\n"
+              "    wrmsr\n"
+              "    mov %cr0, %eax\n"
+              "    or $0x80000001, %eax\n"
+              "    mov %eax, %cr0\n"
+              "    lgdt gdt_desc\n"
+              "    ljmp $0x08, $long_mode\n"
+              ".code64\n"
+              "long_mode:\n"
+              "    mov $0x10, %ax\n"
+              "    mov %ax, %ds\n"
+              "    mov %ax, %es\n"
+              "    mov %ax, %ss\n"
+              "    mov $stack_top, %rsp\n"
+              "    mov $0x200000, %rax\n"
+              "    jmp *%rax\n"
+              ".align 8\n"
+              "gdt:\n"
+              "    .quad 0\n"
+              "    .quad 0x00AF9A000000FFFF\n"
+              "    .quad 0x00CF92000000FFFF\n"
+              "gdt_desc:\n"
+              "    .word gdt_desc - gdt - 1\n"
+              "    .long gdt\n"
+              "idt_desc:\n"
+              "    .word 0\n"
+              "    .long 0\n"
+              ".section .bss\n"
+              ".align 4096\n"
+              "pml4: .skip 4096\n"
+              "pdpt: .skip 4096\n"
+              ".align 16\n"
+              ".skip 16384\n"
+              "stack_top:\n"
+              ".section .payload, \"ax\"\n"
+              ".incbin \"" + ForwardSlashes(payloadBin.string()) + "\"\n");
+
+    std::ostringstream asmCmd;
+    asmCmd << Quote(clang) << " --target=i386-elf -c " << Quote(bootAsm.string()) << " -o " << Quote(bootObj.string());
+    if (RunProcess(asmCmd.str(), res.toolOutput) != 0 || !FileExists(bootObj)) {
+        res.diagnosticsText += "error: trampoline assemble failed:\n" + res.toolOutput;
+        return res;
+    }
+    std::ostringstream bootLink;
+    bootLink << Quote(lld.string()) << " -m elf_i386 -T " << Quote(lowLd.string()) << " "
+             << Quote(bootObj.string()) << " -o " << Quote(output.string());
+    if (RunProcess(bootLink.str(), res.toolOutput) != 0 || !FileExists(output)) {
+        res.diagnosticsText += "error: boot image link failed:\n" + res.toolOutput;
+        return res;
+    }
+    res.success = true;
+    res.executablePath = output.string();
+    res.toolOutput += "robixc: linked " + options.imageRole + " image " + output.string()
+                      + " (multiboot ELF32, payload at 2MB). This file is a QEMU image, not a hosted executable.\n";
+    return res;
+}
+
 } // namespace
 
 std::string NativeCompilerDriver::LocateClang(const std::string& hint, const std::string& toolDirectory) {
@@ -140,6 +339,13 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     CodeGen::NativeEmitOptions emitOpts;
     emitOpts.profile = options.release ? CodeGen::BuildProfile::Release : CodeGen::BuildProfile::Debug;
     emitOpts.target  = CodeGen::TargetPlatform::WindowsX64;
+    emitOpts.freestanding = options.freestanding;
+    emitOpts.entryName = options.entrySymbol.empty()
+                             ? (options.freestanding ? "Start" : "Main")
+                             : options.entrySymbol;
+    emitOpts.asmArch = options.asmArch;
+    emitOpts.tripleOverride = options.targetTriple;
+    emitOpts.layoutOverride = options.dataLayout;
     CodeGen::NativeLLVMEmitter emitter(diags, emitOpts);
     std::optional<std::string> llvmIR = emitter.Emit(irMod);
     res.diagnosticsText = diags.FormatHumanReadable();
@@ -178,8 +384,10 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
             "error: clang.exe not found. Set ROBIX_CLANG, pass --clang <path>, or install LLVM (robixc uses clang as its native assembler/linker backend).\n";
         return res;
     }
-    const std::string runtimeObj = LocateRuntimeObject(options.runtimeObjectPath, options.toolDirectory);
-    if (runtimeObj.empty()) {
+    const std::string runtimeObj = options.outputKind == NativeOutputKind::HostedExecutable
+                                       ? LocateRuntimeObject(options.runtimeObjectPath, options.toolDirectory)
+                                       : std::string{};
+    if (options.outputKind == NativeOutputKind::HostedExecutable && runtimeObj.empty()) {
         res.diagnosticsText +=
             "error: RobixNativeRuntime.obj not found next to robixc.exe. Rebuild with Scripts\\BuildRelease.ps1.\n";
         return res;
@@ -216,6 +424,21 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
                 codegenInput = optIR;
             }
         }
+    }
+
+    if (options.outputKind != NativeOutputKind::HostedExecutable) {
+        NativeBuildResult linked = LinkFreestanding(clang, codegenInput, exePath, options, res);
+        {
+            std::error_code ec;
+            fs::remove(optIR, ec);
+            fs::remove(reassocIR, ec);
+        }
+        if (!options.keepLLVMIR) {
+            std::error_code ec;
+            fs::remove(llPath, ec);
+            linked.llvmIRPath.clear();
+        }
+        return linked;
     }
 
     std::ostringstream cmd;

@@ -12,6 +12,12 @@ namespace Robix::CodeGen {
 struct NativeEmitOptions {
     BuildProfile profile  = BuildProfile::Release;
     TargetPlatform target = TargetPlatform::WindowsX64;
+    // Freestanding images have no hosted main, no CRT, and one exported entry symbol.
+    bool freestanding = false;
+    std::string entryName;
+    std::string tripleOverride;
+    std::string layoutOverride;
+    std::string asmArch = "x86_64";
 };
 
 // Production LLVM IR emitter.

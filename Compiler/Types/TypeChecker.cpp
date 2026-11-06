@@ -834,6 +834,17 @@ void TypeChecker::CheckStatement(StmtNode& stmt) {
                     stmt.location,
                     "Wrap the inline assembly statement in 'Unsafe { ASM(...); }'.");
             }
+            for (auto& input : stmt.asmInputs) {
+                if (input) {
+                    CheckExpression(*input);
+                }
+            }
+            if (!stmt.asmOutput.empty() && LookupSymbol(stmt.asmOutput) == nullptr) {
+                m_diagnostics.ReportError(
+                    "R1003",
+                    "ASM out names '" + stmt.asmOutput + "', which is not a local variable.",
+                    stmt.location);
+            }
             break;
         }
 
@@ -911,7 +922,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             if (expr.text == "Memory" || expr.text == "GPIO" || expr.text == "File" ||
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
-                expr.text == "Math") {
+                expr.text == "Math" || expr.text == "Volatile") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1253,6 +1264,17 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
+            if (recvType.baseName == "Volatile" && (expr.text == "Load" || expr.text == "Store")) {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'Volatile." + expr.text + "' reads or writes a memory-mapped register and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = expr.text == "Load" ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
+                return expr.inferredType;
+            }
+
             if (recvType.baseName == "Memory" && (expr.text == "Allocate" || expr.text == "Free" || expr.text == "Copy")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
@@ -1350,6 +1372,18 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             }
             for (auto& [name, val] : expr.namedFields) {
                 if (val) CheckExpression(*val);
+            }
+
+            if (expr.left && expr.left->kind == ExprKind::Identifier &&
+                (expr.left->text == "Abort" || expr.left->text == "Panic")) {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'" + expr.left->text + "' stops the program and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Void");
+                return expr.inferredType;
             }
 
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Input") {
