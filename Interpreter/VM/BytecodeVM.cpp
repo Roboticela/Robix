@@ -572,6 +572,35 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                            inst.symbolImm == "Memory.Pages" || inst.symbolImm == "Memory.Address" ||
                            inst.symbolImm == "Memory.At") {
                     Reject("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.");
+                } else if (inst.symbolImm == "GPIO.Read") {
+                    std::int64_t pin = 0;
+                    if (!inst.callArgRegs.empty()) pin = regs[inst.callArgRegs[0]].AsInt();
+                    std::fprintf(stderr, "GPIO.Read is not available on this target (pin %lld)\n",
+                                 static_cast<long long>(pin));
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 1 } };
+                } else if (inst.symbolImm == "Atomic.FetchAdd" && inst.callArgRegs.size() >= 2) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (!obj) Fail("robix vm: Atomic.FetchAdd requires a pointer");
+                    const std::int64_t old = ReadPointee(*obj);
+                    WritePointee(*obj, old + regs[inst.callArgRegs[1]].AsInt());
+                    if (obj->cell) {
+                        for (auto& entry : cells) {
+                            if (entry.second == obj->cell) locals[entry.first] = *obj->cell;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ old };
+                } else if (inst.symbolImm == "Thread.AddPair" && inst.callArgRegs.size() >= 3) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (!obj) Fail("robix vm: Thread.AddPair requires a pointer");
+                    const std::int64_t sum = ReadPointee(*obj) + regs[inst.callArgRegs[1]].AsInt() +
+                                             regs[inst.callArgRegs[2]].AsInt();
+                    WritePointee(*obj, sum);
+                    if (obj->cell) {
+                        for (auto& entry : cells) {
+                            if (entry.second == obj->cell) locals[entry.first] = *obj->cell;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ sum };
                 } else if (inst.symbolImm == "Math.Clamp" && inst.callArgRegs.size() >= 3) {
                     std::int64_t v = regs[inst.callArgRegs[0]].AsInt();
                     const std::int64_t lo = regs[inst.callArgRegs[1]].AsInt();

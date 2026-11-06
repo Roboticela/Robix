@@ -111,7 +111,7 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 - `defer` and `using`.
 - Garbage collection. There is no collector in the native runtime. `Memory.Allocate` / `Memory.Free` are explicit `malloc` / `free`, not a collector.
 - OS intrinsics other than `Memory.Allocate` and `Memory.Free`.
-- GPIO, PWM, and any other hardware API. A call does not read a pin.
+- PWM and other device drivers. `GPIO.Read` on Windows returns error code 1 and writes `GPIO.Read is not available on this target`. It does not return a pin level.
 - Packages as a shippable registry. `.rbxproj` / `.rbxp` tooling is not the native compile path.
 - RobixUI (`.rbxu`) and Robix Network. A `.rbxb` file is read only for `Output` (`Kernel` or `Firmware`), `Target`, `Entry`, `Source`, and `Profile`.
 - LSP over the wire, a VS Code extension, and a debugger attached to the native binary.
@@ -129,6 +129,7 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 | `robix run File.rbx` | Interpreter. Recorded on Stage B (`506`), Stage C (`150`, then `40`), and the Stage D guide samples |
 | `robix new Name` | Writes `Name/Main.rbx`. Recorded as `HelloApp`, which prints `Hello from Robix` |
 | `robix test Tests/Conformance` | Implemented. Interpreter and native both passed arithmetic, wrap, branches, calls, arrays, structs, and pointers. Bytecode version 99 was refused before execution. `NativeOnly.test.rbx` stopped on `Port.Write8` with the freestanding diagnostic. The native-only list is `Tests/Conformance/NATIVE_ONLY.md` |
+| `robix test StdLib/Robix` | Implemented. `conformance: both engines passed` for Core, Collections, Math, String, IO, Memory, Atomics, Threading, Hardware, Robotics, and Encoding. `Build/StageH-io.txt` contains `RobixIO`. Windows `GPIO.Read(13)` printed the not-available message on both engines and the test saw error tag 0, value 1. Native `Thread.AddPair` starts two Windows threads. The interpreter applies those two additions on the calling thread and returns the same sum |
 | `robix repl` | Not recorded as done |
 
 ## How to update this file

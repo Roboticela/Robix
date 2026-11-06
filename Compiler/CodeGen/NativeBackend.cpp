@@ -1585,6 +1585,27 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  " << vname << " = select i1 " << cmp << ", i64 " << a << ", i64 " << b << "\n";
                 }
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "GPIO.Read" && !inst.operandIds.empty()) {
+                Val pin = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                if (m_ctx.options.freestanding) {
+                    m_vals[id] = Val{ "1", NTy::I64 };
+                    (void)pin;
+                } else {
+                    m_body << "  " << vname << " = call i64 @rbx_gpio_read(i64 " << pin.repr << ")\n";
+                    m_vals[id] = Val{ vname, NTy::I64 };
+                }
+            } else if (inst.textImm == "Atomic.FetchAdd" && inst.operandIds.size() >= 2) {
+                Val cell = Operand(inst, 0);
+                Val delta = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = atomicrmw add ptr " << cell.repr << ", i64 " << delta.repr << " seq_cst\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Thread.AddPair" && inst.operandIds.size() >= 3) {
+                Val cell = Operand(inst, 0);
+                Val left = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val right = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rbx_add_pair(ptr " << cell.repr << ", i64 " << left.repr
+                       << ", i64 " << right.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else {
                 Err("N9001",
                     "OS intrinsic '" + inst.textImm + "' is not yet supported by the native backend.",
@@ -2067,6 +2088,12 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (needs("@exit(")) {
         out << "declare void @exit(i32) noreturn\n";
+    }
+    if (needs("@rbx_gpio_read")) {
+        out << "declare i64 @rbx_gpio_read(i64)\n";
+    }
+    if (needs("@rbx_add_pair")) {
+        out << "declare i64 @rbx_add_pair(ptr, i64, i64)\n";
     }
     out << "\n";
     for (const auto& vt : mod.vtables) {

@@ -40,10 +40,25 @@ std::string Unquote(std::string_view text) {
     if (text.size() >= 3 && (text[0] == '$' || text[0] == 'r') && text[1] == '"' && text.back() == '"') {
         return std::string(text.substr(2, text.size() - 3));
     }
+    std::string body;
     if (text.size() >= 2 && text.front() == '"' && text.back() == '"') {
-        return std::string(text.substr(1, text.size() - 2));
+        body = std::string(text.substr(1, text.size() - 2));
+    } else {
+        body = std::string(text);
     }
-    return std::string(text);
+    std::string out;
+    out.reserve(body.size());
+    for (std::size_t i = 0; i < body.size(); ++i) {
+        if (body[i] == '\\' && i + 1 < body.size()) {
+            const char next = body[++i];
+            if (next == 'n') out.push_back('\n');
+            else if (next == 't') out.push_back('\t');
+            else out.push_back(next);
+        } else {
+            out.push_back(body[i]);
+        }
+    }
+    return out;
 }
 
 Frontend::TypeNode MakePrim(const std::string& name) {
@@ -1991,7 +2006,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
                      receiverExpr.text == "Cpu" || receiverExpr.text == "System" ||
-                     receiverExpr.text == "Timer" || receiverExpr.text == "Console")) {
+                     receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
+                     receiverExpr.text == "Atomic")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "Port" && (memberName == "Read8" || memberName == "Read16")) {
                         ty = MakePrim("Int");
@@ -2018,7 +2034,10 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty.isPointer = true;
                     } else if (receiverExpr.text == "File" && memberName == "WriteText") {
                         ty = MakePrim("Bool");
-                    } else if (receiverExpr.text == "Math") {
+                    } else if (receiverExpr.text == "Math" ||
+                               (receiverExpr.text == "GPIO" && memberName == "Read") ||
+                               (receiverExpr.text == "Atomic" && memberName == "FetchAdd") ||
+                               (receiverExpr.text == "Thread" && memberName == "AddPair")) {
                         ty = MakePrim("Int");
                     }
                     IRInstruction osCall;

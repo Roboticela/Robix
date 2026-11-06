@@ -8,6 +8,16 @@
 #include <cstdlib>
 #include <cstring>
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 extern "C" {
 
 void rbx_print_i64(std::int64_t value) {
@@ -93,6 +103,45 @@ char* rbx_read_text(const char* path) {
     text[got] = '\0';
     std::fclose(file);
     return text;
+}
+
+std::int64_t rbx_gpio_read(std::int64_t pin) {
+    std::fprintf(stderr, "GPIO.Read is not available on this target (pin %lld)\n",
+                 static_cast<long long>(pin));
+    return 1;
+}
+
+struct PairAdd {
+    std::int64_t* cell;
+    std::int64_t amount;
+};
+
+DWORD WINAPI PairAddProc(LPVOID raw) {
+    auto* job = static_cast<PairAdd*>(raw);
+    InterlockedExchangeAdd64(reinterpret_cast<LONG64*>(job->cell), job->amount);
+    return 0;
+}
+
+std::int64_t rbx_add_pair(std::int64_t* cell, std::int64_t left, std::int64_t right) {
+    if (cell == nullptr) return 0;
+    PairAdd jobs[2] = { { cell, left }, { cell, right } };
+    HANDLE threads[2] = { nullptr, nullptr };
+    for (int i = 0; i < 2; ++i) {
+        threads[i] = CreateThread(nullptr, 0, PairAddProc, &jobs[i], 0, nullptr);
+        if (threads[i] == nullptr) {
+            std::fputs("Thread.AddPair could not start an operating-system thread\n", stderr);
+            for (int j = 0; j < i; ++j) {
+                WaitForSingleObject(threads[j], INFINITE);
+                CloseHandle(threads[j]);
+            }
+            return -1;
+        }
+    }
+    WaitForSingleObject(threads[0], INFINITE);
+    WaitForSingleObject(threads[1], INFINITE);
+    CloseHandle(threads[0]);
+    CloseHandle(threads[1]);
+    return *cell;
 }
 
 } // extern "C"

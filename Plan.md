@@ -313,6 +313,8 @@ Build these as Robix source under `StdLib/`, each with `.test.rbx`, each compili
 
 AI, GPU, and database packages stay later. They are real dependencies with a test, or they are absent.
 
+Passed. `robix test StdLib/Robix` printed `conformance: both engines passed`. The Robix sources under `StdLib/Robix/` cover Core, Collections, Math, String, hosted IO, a manual byte buffer, `Atomic.FetchAdd`, `Thread.AddPair`, `GPIO.Read`, integer PID, quarter-turn rotation, a quaternion product, JSON `{"n":42}`, and a two-byte pack. Native `Thread.AddPair` starts two Windows threads and joins them. The interpreter performs those two additions on the calling thread. `GPIO.Read` on Windows returns 1 and writes `GPIO.Read is not available on this target (pin 13)`. The hardware test checks that error. It does not treat 1 as a pin level. `Build/StageH-io.txt` contains `RobixIO`.
+
 ### Stage I — Packages, tests, and RobixBuild
 
 Kept from the previous plan, implemented only on top of Stage B and Stage H.

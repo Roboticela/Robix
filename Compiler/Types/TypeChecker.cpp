@@ -924,7 +924,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "Volatile" ||
                 expr.text == "Port" || expr.text == "Cpu" || expr.text == "Timer" ||
-                expr.text == "System" || expr.text == "Console") {
+                expr.text == "System" || expr.text == "Console" || expr.text == "Atomic") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1341,6 +1341,36 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                         expr.location);
                 }
                 expr.inferredType = MakePrimitiveType("Void");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "GPIO" && expr.text == "Read") {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'GPIO.Read' asks the target for a pin and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Atomic" && expr.text == "FetchAdd") {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'Atomic.FetchAdd' updates shared memory and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Thread" && expr.text == "AddPair") {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'Thread.AddPair' starts operating-system threads and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }
             if (recvType.baseName == "System" && expr.text == "Call") {
