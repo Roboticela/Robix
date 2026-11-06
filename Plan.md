@@ -122,7 +122,7 @@ Profiles:
 2. **Application.** Games, desktop, CLI, libraries, firmware, kernels. No network runtime unless the project asks for it.
 3. **Network.** Optional. `Common/` contracts, clients, and servers. A normal program does not link it.
 
-Official styles for `robix new`: `SingleFile`, `Application`, `Game`, `Library`, `Embedded`, `System`, `Network`, `Custom`.
+Official kinds for `robix new`: `Blank`, `CLI`, and `Network`. `.` writes into the current directory. A missing name or kind is asked, and a folder name that the operating system cannot use is asked again. `robix new file` adds a `hello`, `empty`, `class`, or `package` source file. A Network project keeps each client and server folder in the project root. Each one is `CLI` or `GUI`. A GUI service also gets a `.rbxu` window. `Common` has `Source` and `Tests`. The project `.rbxb` lists the build order, with `Common` before the programs that import it, and lists the UI files.
 
 `.rbxb` output kinds `Executable`, `Library`, `SharedLibrary`, `StaticLibrary`, `Object`, and `Package` are recorded in `Documentation/Status.md`. `Firmware` and `Kernel` already link.
 

@@ -93,6 +93,7 @@ public:
     [[nodiscard]] std::vector<std::string> GetHotJITCandidateFunctions() const;
     [[nodiscard]] const std::string& Fault() const noexcept { return m_fault; }
     static void SetLineTrace(std::vector<std::uint32_t>* lines);
+    static void SetProgramArguments(const std::vector<std::string>& args);
 
 private:
     const BytecodeModule& m_module;

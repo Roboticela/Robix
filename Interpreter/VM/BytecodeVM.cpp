@@ -4,6 +4,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
+#include <thread>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
 
 namespace Robix::VM {
 
@@ -123,9 +132,14 @@ void BytecodeVM::Reject(const std::string& message) {
 }
 
 static std::vector<std::uint32_t>* g_lineTrace = nullptr;
+static std::vector<std::string> g_programArguments;
 
 void BytecodeVM::SetLineTrace(std::vector<std::uint32_t>* lines) {
     g_lineTrace = lines;
+}
+
+void BytecodeVM::SetProgramArguments(const std::vector<std::string>& args) {
+    g_programArguments = args;
 }
 
 VMValue BytecodeVM::ExecuteFunction(std::string_view fnName, const std::vector<VMValue>& args) {
@@ -549,6 +563,68 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         ? static_cast<std::int64_t>(std::get<std::string>(text.data).size())
                         : 0;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ n };
+                } else if (inst.symbolImm == "Args.Count") {
+                    if (inst.destReg != 0) {
+                        regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(g_programArguments.size()) };
+                    }
+                } else if (inst.symbolImm == "Args.Get" && !inst.callArgRegs.empty()) {
+                    const std::int64_t index = regs[inst.callArgRegs[0]].AsInt();
+                    std::string text;
+                    if (index >= 0 && static_cast<std::size_t>(index) < g_programArguments.size()) {
+                        text = g_programArguments[static_cast<std::size_t>(index)];
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ text };
+                } else if (inst.symbolImm == "Network.SendText" && !inst.callArgRegs.empty()) {
+                    const std::string text = regs[inst.callArgRegs[0]].ToString();
+                    std::string reply;
+#ifdef _WIN32
+                    WSADATA wsa{};
+                    if (WSAStartup(MAKEWORD(2, 2), &wsa) == 0) {
+                        SOCKET listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                        sockaddr_in address{};
+                        address.sin_family = AF_INET;
+                        address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+                        address.sin_port = 0;
+                        if (listener != INVALID_SOCKET &&
+                            bind(listener, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == 0 &&
+                            listen(listener, 1) == 0) {
+                            sockaddr_in bound{};
+                            int boundLength = sizeof(bound);
+                            getsockname(listener, reinterpret_cast<sockaddr*>(&bound), &boundLength);
+                            const unsigned short port = ntohs(bound.sin_port);
+                            std::thread server([&] {
+                                SOCKET accepted = accept(listener, nullptr, nullptr);
+                                if (accepted == INVALID_SOCKET) return;
+                                char buffer[4096];
+                                const int got = recv(accepted, buffer, static_cast<int>(sizeof buffer) - 1, 0);
+                                std::string inbound = got > 0 ? std::string(buffer, buffer + got) : std::string();
+                                while (!inbound.empty() && (inbound.back() == '\n' || inbound.back() == '\r')) inbound.pop_back();
+                                const std::string outbound = "Hello, " + inbound + "\n";
+                                send(accepted, outbound.data(), static_cast<int>(outbound.size()), 0);
+                                closesocket(accepted);
+                            });
+                            SOCKET client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                            sockaddr_in destination{};
+                            destination.sin_family = AF_INET;
+                            destination.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+                            destination.sin_port = htons(port);
+                            if (client != INVALID_SOCKET &&
+                                connect(client, reinterpret_cast<sockaddr*>(&destination), sizeof(destination)) == 0) {
+                                const std::string outbound = text + "\n";
+                                send(client, outbound.data(), static_cast<int>(outbound.size()), 0);
+                                char buffer[4096];
+                                const int got = recv(client, buffer, static_cast<int>(sizeof buffer) - 1, 0);
+                                if (got > 0) reply.assign(buffer, buffer + got);
+                                while (!reply.empty() && (reply.back() == '\n' || reply.back() == '\r')) reply.pop_back();
+                            }
+                            if (client != INVALID_SOCKET) closesocket(client);
+                            server.join();
+                        }
+                        if (listener != INVALID_SOCKET) closesocket(listener);
+                        WSACleanup();
+                    }
+#endif
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ reply };
                 } else if (inst.symbolImm == "Input" || inst.symbolImm == "Input.Int") {
                     if (!inst.callArgRegs.empty()) {
                         const VMValue& prompt = regs[inst.callArgRegs[0]];

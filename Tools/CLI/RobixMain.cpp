@@ -3,6 +3,7 @@
 #include "../../RobixUI/Document.hpp"
 #include "../../Network/NetworkRuntime.hpp"
 #include "StageLTools.hpp"
+#include "ProjectScaffold.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
 #include "../../Interpreter/Bytecode/BytecodeModule.hpp"
@@ -32,7 +33,9 @@ static void PrintHelp() {
         << "    test [path] [--generate]            Run .test.rbx on the interpreter. Test native also compiles.\n"
         << "    generate-tests [path]               Generate companion .test.rbx scaffolds for all .rbx files\n"
         << "    verify [path]                       Run full semantic and static verification on files\n"
-        << "    new <ProjectName>                   Initialize a new Robix project\n"
+        << "    new [.] [Name] [Blank|CLI|Network]  Create a project. . uses this directory. No name asks.\n"
+        << "    new Name Network --client Name CLI|GUI --server Name CLI|GUI\n"
+        << "    new file <Name> [hello|empty|class|package]   Add a source file and its test\n"
         << "    add <name> <file.rbx>               Lock a local package with SHA-256 and an HMAC signature\n"
         << "    remove <name>                       Remove a package from the lock\n"
         << "    update <name>                       Rehash a locked package file\n"
@@ -203,76 +206,24 @@ int main(int argc, char* argv[]) {
             std::cerr << "robix run: native compilation failed.\n";
             return 1;
         }
-        int code = std::system(tempExe.string().c_str());
+        std::string command = "\"" + tempExe.string() + "\"";
+        bool seenFile = false;
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--native" || args[i] == "--vm") continue;
+            if (!seenFile) {
+                seenFile = true;
+                continue;
+            }
+            if (!args[i].empty() && args[i][0] == '-') continue;
+            command += " \"" + args[i] + "\"";
+        }
+        int code = std::system(("\"" + command + "\"").c_str());
         std::error_code ec;
         fs::remove(tempExe, ec);
         return code;
     }
 
-    if (cmd == "new") {
-        std::string name = "App";
-        std::string style = "SingleFile";
-        bool tookName = false;
-        for (std::size_t i = 1; i < args.size(); ++i) {
-            if (args[i].empty() || args[i][0] == '-') continue;
-            if (!tookName) {
-                name = args[i];
-                tookName = true;
-            } else {
-                style = args[i];
-                break;
-            }
-        }
-        if (name.find('/') != std::string::npos || name.find('\\') != std::string::npos ||
-            name.find("..") != std::string::npos) {
-            std::cerr << "robix new: project name must be a single directory name.\n";
-            return 1;
-        }
-        const fs::path dir = fs::path(name);
-        const fs::path file = style == "SingleFile" ? dir / "Main.rbx" : dir / "Source" / "Main.rbx";
-        std::error_code ec;
-        if (fs::exists(file)) {
-            std::cerr << "robix new: '" << file.string() << "' already exists.\n";
-            return 1;
-        }
-        fs::create_directories(file.parent_path(), ec);
-        if (ec) {
-            std::cerr << "robix new: could not create '" << file.parent_path().string() << "'.\n";
-            return 1;
-        }
-        std::ofstream out(file, std::ios::binary | std::ios::trunc);
-        if (!out) {
-            std::cerr << "robix new: could not write '" << file.string() << "'.\n";
-            return 1;
-        }
-        const char* body = "    Print(\"Hello from Robix\");\n";
-        if (style == "Application") body = "    Print(1);\n";
-        else if (style == "Game") body = "    Int score = 3;\n    Print(score);\n";
-        else if (style == "Library") body = "    Print(LibraryValue());\n";
-        else if (style == "Embedded") body = "    Print(5);\n";
-        else if (style == "System") body = "    Print(Boot());\n";
-        else if (style == "Network") body = "    Print(7);\n";
-        else if (style == "Custom") body = "    Print(8);\n";
-        else if (style != "SingleFile") {
-            std::cerr << "robix new: unknown style '" << style << "'.\n";
-            return 1;
-        }
-        out << "package " << name << ";\n\n";
-        if (style == "Library") {
-            out << "public Function LibraryValue() -> Int {\n    return 4;\n}\n\n";
-        } else if (style == "System") {
-            out << "public Function Boot() -> Int {\n    return 6;\n}\n\n";
-        }
-        out << "public Function Main() -> Void {\n" << body << "}\n";
-        if (style != "SingleFile") {
-            std::ofstream project(dir / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
-            project << "Name: " << name << "\nSourceDir: Source\n";
-            if (style == "Network") project << "Network: true\n";
-            std::cout << "robix new: wrote " << (dir / (name + ".rbxproj")).string() << "\n";
-        }
-        std::cout << "robix new: wrote " << file.string() << " style " << style << "\n";
-        return 0;
-    }
+    if (cmd == "new") return Robix::Tools::RunNewCommand(args);
 
     if (cmd == "test") {
         bool generateOnly = false;
@@ -403,6 +354,21 @@ int main(int argc, char* argv[]) {
             }
             return runOne(target);
         }
+    }
+
+    if (cmd == "run") {
+        std::vector<std::string> programArgs;
+        bool seenFile = false;
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--native" || args[i] == "--vm" || args[i] == "--engine") continue;
+            if (!seenFile) {
+                seenFile = true;
+                continue;
+            }
+            if (!args[i].empty() && args[i][0] == '-') continue;
+            programArgs.push_back(args[i]);
+        }
+        Robix::VM::BytecodeVM::SetProgramArguments(programArgs);
     }
 
     // General commands dispatch via RobixCLIDispatcher

@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -164,6 +166,63 @@ std::int64_t rbx_add_pair(std::int64_t* cell, std::int64_t left, std::int64_t ri
     CloseHandle(threads[0]);
     CloseHandle(threads[1]);
     return *cell;
+}
+
+static std::vector<std::string> g_arguments;
+static bool g_argumentsReady = false;
+
+static std::string WideToUtf8(const wchar_t* text, int length) {
+    if (text == nullptr || length <= 0) return {};
+    const int bytes = WideCharToMultiByte(CP_UTF8, 0, text, length, nullptr, 0, nullptr, nullptr);
+    std::string out(bytes > 0 ? static_cast<std::size_t>(bytes) : 0, '\0');
+    if (bytes > 0) WideCharToMultiByte(CP_UTF8, 0, text, length, out.data(), bytes, nullptr, nullptr);
+    return out;
+}
+
+static void LoadProcessArguments() {
+    if (g_argumentsReady) return;
+    g_argumentsReady = true;
+    const wchar_t* command = GetCommandLineW();
+    if (command == nullptr) return;
+    std::vector<std::string> tokens;
+    std::wstring current;
+    bool quoted = false;
+    bool token = false;
+    for (const wchar_t* cursor = command; *cursor != L'\0'; ++cursor) {
+        if (*cursor == L'"') {
+            quoted = !quoted;
+            token = true;
+            continue;
+        }
+        if (!quoted && (*cursor == L' ' || *cursor == L'\t')) {
+            if (token) {
+                tokens.push_back(WideToUtf8(current.c_str(), static_cast<int>(current.size())));
+                current.clear();
+                token = false;
+            }
+            continue;
+        }
+        current.push_back(*cursor);
+        token = true;
+    }
+    if (token) tokens.push_back(WideToUtf8(current.c_str(), static_cast<int>(current.size())));
+    if (!tokens.empty()) tokens.erase(tokens.begin());
+    g_arguments = std::move(tokens);
+}
+
+std::int64_t rbx_args_count() {
+    LoadProcessArguments();
+    return static_cast<std::int64_t>(g_arguments.size());
+}
+
+char* rbx_args_get(std::int64_t index) {
+    LoadProcessArguments();
+    if (index < 0 || static_cast<std::size_t>(index) >= g_arguments.size()) return EmptyString();
+    const std::string& text = g_arguments[static_cast<std::size_t>(index)];
+    char* copy = static_cast<char*>(std::malloc(text.size() + 1));
+    if (copy == nullptr) return EmptyString();
+    std::memcpy(copy, text.data(), text.size() + 1);
+    return copy;
 }
 
 } // extern "C"

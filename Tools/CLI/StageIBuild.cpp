@@ -349,6 +349,7 @@ RbxbPlan ReadRbxb(const fs::path& file) {
         else if (key == "Source") plan.source = value;
         else if (key == "Sources") plan.sources = takeList(value);
         else if (key == "Order") plan.order = takeList(value);
+        else if (key == "UI") plan.ui = takeList(value);
     }
     plan.ok = true;
     return plan;
@@ -366,6 +367,11 @@ std::string ExplainRbxb(const RbxbPlan& plan) {
     if (order.empty() && !plan.source.empty()) out << " " << plan.source;
     for (const auto& item : order) out << " " << item;
     out << "\n";
+    if (!plan.ui.empty()) {
+        out << "ui";
+        for (const auto& item : plan.ui) out << " " << item;
+        out << "\n";
+    }
     out << "dry-run: compile was not started\n";
     return out.str();
 }

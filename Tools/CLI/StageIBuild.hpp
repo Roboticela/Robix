@@ -28,6 +28,7 @@ struct RbxbPlan {
     std::string source;
     std::vector<std::string> sources;
     std::vector<std::string> order;
+    std::vector<std::string> ui;
 };
 
 // Returns 0 or 1 when args[0] is add, remove, update, install, or restore.

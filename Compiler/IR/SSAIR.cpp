@@ -2421,7 +2421,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
 
                 // Zero-cost OS-independent platform intrinsics (File, Thread, Time, GPIO)
                 if (receiverExpr.kind == Frontend::ExprKind::Identifier &&
-                    (receiverExpr.text == "File" || receiverExpr.text == "Thread" ||
+                    (receiverExpr.text == "File" || receiverExpr.text == "Args" ||
+                     receiverExpr.text == "Network" || receiverExpr.text == "Thread" ||
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
                      receiverExpr.text == "PWM" || receiverExpr.text == "UART" ||
                      receiverExpr.text == "SPI" || receiverExpr.text == "I2C" ||
@@ -2455,9 +2456,13 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "Memory" && memberName == "Address") {
                         ty = MakePrim("Int");
                     }
-                    if (receiverExpr.text == "File" && memberName == "ReadText") {
+                    if ((receiverExpr.text == "File" && memberName == "ReadText") ||
+                        (receiverExpr.text == "Args" && memberName == "Get") ||
+                        (receiverExpr.text == "Network" && memberName == "SendText")) {
                         ty = MakePrim("String");
                         ty.isPointer = true;
+                    } else if (receiverExpr.text == "Args" && memberName == "Count") {
+                        ty = MakePrim("Int");
                     } else if (receiverExpr.text == "File" && memberName == "WriteText") {
                         ty = MakePrim("Bool");
                     } else if (receiverExpr.text == "Math" ||

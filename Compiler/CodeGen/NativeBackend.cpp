@@ -1216,6 +1216,17 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val s = Operand(inst, 0);
                 m_body << "  " << vname << " = call i64 @strlen(ptr " << s.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Args.Count") {
+                m_body << "  " << vname << " = call i64 @rbx_args_count()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Args.Get" && !inst.operandIds.empty()) {
+                Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call ptr @rbx_args_get(i64 " << index.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::Ptr };
+            } else if (inst.textImm == "Network.SendText" && !inst.operandIds.empty()) {
+                Val text = Operand(inst, 0);
+                m_body << "  " << vname << " = call ptr @rbx_network_send_text(ptr " << text.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Input" || inst.textImm == "Input.Int") {
                 const std::string promptRepr = inst.operandIds.empty() ? "null" : Operand(inst, 0).repr;
                 if (inst.textImm == "Input.Int") {
@@ -2110,6 +2121,8 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "declare i32 @strcmp(ptr, ptr)\n";
         out << "declare ptr @rbx_input_line(ptr)\n";
         out << "declare i64 @rbx_input_i64(ptr)\n";
+        out << "declare i64 @rbx_args_count()\n";
+        out << "declare ptr @rbx_args_get(i64)\n";
         out << "declare i32 @rbx_write_text(ptr, ptr)\n";
         out << "declare ptr @rbx_read_text(ptr)\n";
         out << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n";
@@ -2123,6 +2136,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (needs("@rbx_gpio_read")) {
         out << "declare i64 @rbx_gpio_read(i64)\n";
+    }
+    if (needs("@rbx_network_send_text")) {
+        out << "declare ptr @rbx_network_send_text(ptr)\n";
     }
     if (needs("@rbx_device_unavailable")) {
         out << "declare i64 @rbx_device_unavailable(i64, i64)\n";

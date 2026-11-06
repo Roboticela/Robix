@@ -924,7 +924,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "CAN" || expr.text == "USB" || expr.text == "PCIe" ||
                 expr.text == "DMA" || expr.text == "Sensor" || expr.text == "Motor" ||
                 expr.text == "Interrupt" || expr.text == "HardwareTimer" ||
-                expr.text == "File" ||
+                expr.text == "File" || expr.text == "Args" || expr.text == "Network" ||
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "Volatile" ||
@@ -1283,6 +1283,21 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Args") {
+                if (expr.text == "Count") {
+                    expr.inferredType = MakePrimitiveType("Int");
+                    return expr.inferredType;
+                }
+                if (expr.text == "Get") {
+                    expr.inferredType = MakePrimitiveType("String");
+                    return expr.inferredType;
+                }
+            }
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Network" &&
+                expr.text == "SendText") {
+                expr.inferredType = MakePrimitiveType("String");
+                return expr.inferredType;
+            }
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "File") {
                 if (expr.text == "ReadText") {
                     expr.inferredType = MakePrimitiveType("String");

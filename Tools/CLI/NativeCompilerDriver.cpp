@@ -709,8 +709,22 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
             return res;
         }
     }
+    bool linkLoopback = false;
+    {
+        std::ifstream ir(codegenInput, std::ios::binary);
+        const std::string irText((std::istreambuf_iterator<char>(ir)), std::istreambuf_iterator<char>());
+        linkLoopback = irText.find("call ptr @rbx_network_send_text") != std::string::npos;
+    }
     cmd << "-fms-runtime-lib=static -Wno-override-module "
         << Quote(runtimeObj) << " ";
+    if (linkLoopback) {
+        const fs::path loopback = fs::path(runtimeObj).parent_path() / "LoopbackText.obj";
+        if (!FileExists(loopback)) {
+            res.diagnosticsText += "error: LoopbackText.obj was not found next to RobixNativeRuntime.obj.\n";
+            return res;
+        }
+        cmd << Quote(loopback.string()) << " -lws2_32 ";
+    }
     if (options.linkNetwork) {
         cmd << Quote(options.networkObjectPath) << " -lws2_32 -lsecur32 -lcrypt32 ";
     }
