@@ -1,5 +1,6 @@
 #include "RobixCLIAndTestGenerator.hpp"
 
+#include "../../Compiler/Frontend/ImportResolver.hpp"
 #include "../../Compiler/CodeGen/LLVMIRGenerator.hpp"
 #include "../../Compiler/IR/SSAIR.hpp"
 #include "../../Compiler/Lexer/Lexer.hpp"
@@ -254,6 +255,7 @@ CLICommandResult RunSingleSourceFile(
     Frontend::Lexer lexer(sourceCode, fileName, diags);
     Frontend::Parser parser(lexer.TokenizeAll(), fileName, diags);
     auto ast = parser.ParseCompilationUnit();
+    Frontend::ResolveImports(ast, fileName, diags);
 
     Frontend::TypeCheckerOptions tcOpts;
     tcOpts.strictStyleMode = false;

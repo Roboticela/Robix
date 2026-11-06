@@ -83,8 +83,14 @@ BytecodeChunk BytecodeGenerator::LowerIRFunction(const IR::IRFunction& irFn) {
                 case IR::IROpcode::Ge:              bc.opcode = BCOpcode::Ge; break;
                 case IR::IROpcode::And:             bc.opcode = BCOpcode::And; break;
                 case IR::IROpcode::Or:              bc.opcode = BCOpcode::Or; break;
+                case IR::IROpcode::BitAnd:          bc.opcode = BCOpcode::BitAnd; break;
+                case IR::IROpcode::BitOr:           bc.opcode = BCOpcode::BitOr; break;
+                case IR::IROpcode::BitXor:          bc.opcode = BCOpcode::BitXor; break;
+                case IR::IROpcode::Shl:             bc.opcode = BCOpcode::Shl; break;
+                case IR::IROpcode::Shr:             bc.opcode = BCOpcode::Shr; break;
                 case IR::IROpcode::Neg:             bc.opcode = BCOpcode::Neg; break;
                 case IR::IROpcode::Not:             bc.opcode = BCOpcode::Not; break;
+                case IR::IROpcode::BitNot:          bc.opcode = BCOpcode::BitNot; break;
                 case IR::IROpcode::AllocStack:
                 case IR::IROpcode::AllocHeap:       bc.opcode = BCOpcode::AllocObj; bc.callArgRegs = inst.operandIds; break;
                 case IR::IROpcode::LoadVar:         bc.opcode = BCOpcode::LoadVar; break;

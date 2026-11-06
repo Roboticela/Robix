@@ -76,8 +76,12 @@ private:
     [[nodiscard]] ExprPtr ParseNullCoalesce();
     [[nodiscard]] ExprPtr ParseLogicalOr();
     [[nodiscard]] ExprPtr ParseLogicalAnd();
+    [[nodiscard]] ExprPtr ParseBitOr();
+    [[nodiscard]] ExprPtr ParseBitXor();
+    [[nodiscard]] ExprPtr ParseBitAnd();
     [[nodiscard]] ExprPtr ParseEquality();
     [[nodiscard]] ExprPtr ParseRelational();
+    [[nodiscard]] ExprPtr ParseShift();
     [[nodiscard]] ExprPtr ParseRange();
     [[nodiscard]] ExprPtr ParseAdditive();
     [[nodiscard]] ExprPtr ParseMultiplicative();

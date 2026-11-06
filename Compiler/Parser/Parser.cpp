@@ -1348,9 +1348,57 @@ ExprPtr Parser::ParseLogicalOr() {
 }
 
 ExprPtr Parser::ParseLogicalAnd() {
-    ExprPtr left = ParseEquality();
+    ExprPtr left = ParseBitOr();
     while (Match(TokenKind::AmpAmp)) {
         const Token op = m_tokens[m_pos - 1];
+        auto bin = std::make_unique<ExprNode>();
+        bin->kind     = ExprKind::Binary;
+        bin->token    = op;
+        bin->text     = std::string(op.lexeme);
+        bin->location = op.location;
+        bin->left     = std::move(left);
+        bin->right    = ParseBitOr();
+        left          = std::move(bin);
+    }
+    return left;
+}
+
+ExprPtr Parser::ParseBitOr() {
+    ExprPtr left = ParseBitXor();
+    while (Check(TokenKind::Pipe)) {
+        const Token op = Advance();
+        auto bin = std::make_unique<ExprNode>();
+        bin->kind     = ExprKind::Binary;
+        bin->token    = op;
+        bin->text     = std::string(op.lexeme);
+        bin->location = op.location;
+        bin->left     = std::move(left);
+        bin->right    = ParseBitXor();
+        left          = std::move(bin);
+    }
+    return left;
+}
+
+ExprPtr Parser::ParseBitXor() {
+    ExprPtr left = ParseBitAnd();
+    while (Check(TokenKind::Caret)) {
+        const Token op = Advance();
+        auto bin = std::make_unique<ExprNode>();
+        bin->kind     = ExprKind::Binary;
+        bin->token    = op;
+        bin->text     = std::string(op.lexeme);
+        bin->location = op.location;
+        bin->left     = std::move(left);
+        bin->right    = ParseBitAnd();
+        left          = std::move(bin);
+    }
+    return left;
+}
+
+ExprPtr Parser::ParseBitAnd() {
+    ExprPtr left = ParseEquality();
+    while (Check(TokenKind::Amp)) {
+        const Token op = Advance();
         auto bin = std::make_unique<ExprNode>();
         bin->kind     = ExprKind::Binary;
         bin->token    = op;
@@ -1380,9 +1428,25 @@ ExprPtr Parser::ParseEquality() {
 }
 
 ExprPtr Parser::ParseRelational() {
-    ExprPtr left = ParseRange();
+    ExprPtr left = ParseShift();
     while (Check(TokenKind::Less) || Check(TokenKind::LessEqual) ||
            Check(TokenKind::Greater) || Check(TokenKind::GreaterEqual)) {
+        const Token op = Advance();
+        auto bin = std::make_unique<ExprNode>();
+        bin->kind     = ExprKind::Binary;
+        bin->token    = op;
+        bin->text     = std::string(op.lexeme);
+        bin->location = op.location;
+        bin->left     = std::move(left);
+        bin->right    = ParseShift();
+        left          = std::move(bin);
+    }
+    return left;
+}
+
+ExprPtr Parser::ParseShift() {
+    ExprPtr left = ParseRange();
+    while (Check(TokenKind::ShiftLeft) || Check(TokenKind::ShiftRight)) {
         const Token op = Advance();
         auto bin = std::make_unique<ExprNode>();
         bin->kind     = ExprKind::Binary;

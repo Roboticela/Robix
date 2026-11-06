@@ -922,7 +922,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             if (expr.text == "Memory" || expr.text == "GPIO" || expr.text == "File" ||
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
-                expr.text == "Math" || expr.text == "Volatile") {
+                expr.text == "Math" || expr.text == "Volatile" ||
+                expr.text == "Port" || expr.text == "Cpu") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -994,6 +995,19 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 ptrType.isPointer = true;
                 ptrType.typeArgs.push_back(operandType);
                 expr.inferredType = ptrType;
+                return expr.inferredType;
+            }
+            if (expr.text == "~") {
+                if (!IsIntegerType(operandType) && operandType.baseName != "Any") {
+                    m_diagnostics.ReportError(
+                        "R1001",
+                        "Bitwise complement '~' requires an integer operand.",
+                        expr.location,
+                        "Use '~' on an Int, or '!' to negate a Bool.",
+                        "Int",
+                        operandType.ToString());
+                }
+                expr.inferredType = operandType;
                 return expr.inferredType;
             }
             if (expr.text == "!") {
@@ -1091,6 +1105,21 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
 
             if (op == "==" || op == "!=") {
                 expr.inferredType = MakePrimitiveType("Bool");
+                return expr.inferredType;
+            }
+
+            if (op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>") {
+                if ((!IsIntegerType(leftType) && leftType.baseName != "Any") ||
+                    (!IsIntegerType(rightType) && rightType.baseName != "Any")) {
+                    m_diagnostics.ReportError(
+                        "R1001",
+                        "Bitwise operator '" + op + "' requires integer operands.",
+                        expr.location,
+                        "Use '&&' and '||' for Bool values.",
+                        "Int",
+                        leftType.ToString());
+                }
+                expr.inferredType = leftType;
                 return expr.inferredType;
             }
 
@@ -1261,6 +1290,28 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Math" &&
                 (expr.text == "Abs" || expr.text == "Min" || expr.text == "Max" || expr.text == "Clamp")) {
                 expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+
+            if (recvType.baseName == "Port" && (expr.text == "Write8" || expr.text == "Read8")) {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'Port." + expr.text + "' touches an I/O port and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = expr.text == "Read8" ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Cpu" &&
+                (expr.text == "Halt" || expr.text == "Cli" || expr.text == "Sti")) {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'Cpu." + expr.text + "' changes CPU state and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Void");
                 return expr.inferredType;
             }
 

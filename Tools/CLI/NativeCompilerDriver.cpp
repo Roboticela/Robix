@@ -1,5 +1,6 @@
 #include "NativeCompilerDriver.hpp"
 
+#include "../../Compiler/Frontend/ImportResolver.hpp"
 #include "../../Compiler/CodeGen/NativeBackend.hpp"
 #include "../../Compiler/IR/SSAIR.hpp"
 #include "../../Compiler/Lexer/Lexer.hpp"
@@ -309,6 +310,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     Frontend::Lexer lexer(sourceText, fileName, diags);
     Frontend::Parser parser(lexer.TokenizeAll(), fileName, diags);
     auto ast = parser.ParseCompilationUnit();
+    Frontend::ResolveImports(ast, fileName, diags);
 
     Frontend::TypeCheckerOptions tcOpts;
     Frontend::TypeChecker typeChecker(diags, tcOpts);

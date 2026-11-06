@@ -33,9 +33,15 @@ enum class IROpcode : std::uint8_t {
     Ge,
     And,
     Or,
+    BitAnd,
+    BitOr,
+    BitXor,
+    Shl,
+    Shr,
     // Unary
     Neg,
     Not,
+    BitNot,
     // Memory & Objects
     AllocStack,
     AllocHeap,

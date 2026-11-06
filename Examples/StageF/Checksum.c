@@ -1,8 +1,7 @@
 #include <stdio.h>
 
 static long long PageEntry(long long phys, long long flags) {
-    long long aligned = phys / 4096;
-    return aligned * 4096 + flags;
+    return (phys & ~0xFFF) | flags;
 }
 
 static long long SwitchChecksum(long long savedSp, long long savedIp) {

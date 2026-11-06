@@ -1,8 +1,7 @@
 package Examples.StageF;
 
 public Int PageEntry(Int phys, Int flags) {
-    Int aligned = phys / 4096;
-    return aligned * 4096 + flags;
+    return (phys & ~0xFFF) | flags;
 }
 
 public Int SwitchChecksum(Int savedSp, Int savedIp) {

@@ -1,5 +1,6 @@
 package HelloApp;
 
 public Function Main() -> Void {
-    Print("Hello from Robix");
+    String data = Input("Enter your name: ");
+    Print("Hello, " + data + "!");
 }

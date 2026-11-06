@@ -1,0 +1,13 @@
+package Examples.StageF;
+
+public Function WriteByte(Int value) -> Void {
+    Unsafe {
+        Port.Write8(0x3F8, value);
+    }
+}
+
+public Function HaltCPU() -> Void {
+    Unsafe {
+        Cpu.Halt();
+    }
+}

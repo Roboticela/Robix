@@ -344,8 +344,14 @@ std::size_t IRPassManager::RunDeadCodeEliminationPass(IRModule& mod) {
                op == IROpcode::Ge ||
                op == IROpcode::And ||
                op == IROpcode::Or ||
+               op == IROpcode::BitAnd ||
+               op == IROpcode::BitOr ||
+               op == IROpcode::BitXor ||
+               op == IROpcode::Shl ||
+               op == IROpcode::Shr ||
                op == IROpcode::Neg ||
                op == IROpcode::Not ||
+               op == IROpcode::BitNot ||
                op == IROpcode::LoadVar;
     };
 

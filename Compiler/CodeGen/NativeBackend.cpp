@@ -896,6 +896,30 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             break;
         }
 
+        case IROpcode::BitAnd:
+        case IROpcode::BitOr:
+        case IROpcode::BitXor:
+        case IROpcode::Shl:
+        case IROpcode::Shr: {
+            Val a = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+            Val b = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+            const char* op = "and";
+            if (inst.opcode == IROpcode::BitOr) op = "or";
+            else if (inst.opcode == IROpcode::BitXor) op = "xor";
+            else if (inst.opcode == IROpcode::Shl) op = "shl";
+            else if (inst.opcode == IROpcode::Shr) op = OperandUnsigned(inst, 0) ? "lshr" : "ashr";
+            m_body << "  " << vname << " = " << op << " i64 " << a.repr << ", " << b.repr << "\n";
+            m_vals[id] = Val{ vname, NTy::I64, OperandUnsigned(inst, 0) };
+            break;
+        }
+
+        case IROpcode::BitNot: {
+            Val a = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+            m_body << "  " << vname << " = xor i64 " << a.repr << ", -1\n";
+            m_vals[id] = Val{ vname, NTy::I64, OperandUnsigned(inst, 0) };
+            break;
+        }
+
         case IROpcode::Neg: {
             Val a = Operand(inst, 0);
             if (a.ty == NTy::Ptr || a.ty == NTy::Void) {
@@ -1164,6 +1188,39 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val p = Operand(inst, 0);
                 Val stored = Coerce(Operand(inst, 1), NTy::I64, inst.location);
                 m_body << "  store volatile i64 " << stored.repr << ", ptr " << p.repr << ", align 1\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Port.Write8" && inst.operandIds.size() >= 2) {
+                if (m_ctx.options.asmArch != "x86_64") {
+                    Err("N9010", "Port.Write8 exists on x86_64 only.", inst.location);
+                    break;
+                }
+                Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val value = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string p16 = NewTmp();
+                const std::string v8 = NewTmp();
+                m_body << "  " << p16 << " = trunc i64 " << port.repr << " to i16\n";
+                m_body << "  " << v8 << " = trunc i64 " << value.repr << " to i8\n";
+                m_body << "  call void asm sideeffect \"outb $0, $1\", \"{ax},{dx}\"(i8 " << v8 << ", i16 " << p16 << ")\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Port.Read8" && !inst.operandIds.empty()) {
+                if (m_ctx.options.asmArch != "x86_64") {
+                    Err("N9010", "Port.Read8 exists on x86_64 only.", inst.location);
+                    break;
+                }
+                Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                const std::string p16 = NewTmp();
+                const std::string raw = NewTmp();
+                m_body << "  " << p16 << " = trunc i64 " << port.repr << " to i16\n";
+                m_body << "  " << raw << " = call i8 asm sideeffect \"inb $1, $0\", \"={ax},{dx}\"(i16 " << p16 << ")\n";
+                m_body << "  " << vname << " = zext i8 " << raw << " to i64\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Cpu.Halt" || inst.textImm == "Cpu.Cli" || inst.textImm == "Cpu.Sti") {
+                if (m_ctx.options.asmArch != "x86_64") {
+                    Err("N9010", inst.textImm + " exists on x86_64 only.", inst.location);
+                    break;
+                }
+                const char* mnemonic = inst.textImm == "Cpu.Halt" ? "hlt" : inst.textImm == "Cpu.Cli" ? "cli" : "sti";
+                m_body << "  call void asm sideeffect \"" << mnemonic << "\", \"\"()\n";
                 m_vals[id] = Val{ "0", NTy::Void };
             } else if (inst.textImm == "Abort" || inst.textImm == "Panic") {
                 m_body << "  call void @llvm.trap()\n";

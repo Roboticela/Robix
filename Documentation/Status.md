@@ -12,7 +12,7 @@ Implemented for top-level functions:
 - `Bool`, fixed-width integers (`Int8`, `Int16`, `Int32`, `Int64`, `UInt8` / `Byte`, `UInt16`, `UInt32`, `UInt64`), `Int`, `Float` / `Double`. Unsigned compares use unsigned predicates. A fitting integer literal may initialize a narrower integer.
 - `let`, `var`, `const`, and explicit types.
 - `if` / `else`, `while`, numeric `for` (including `..` and `..=`), `break`, `continue`, `return`.
-- Integer add, sub, mul, div, rem, comparisons, `and` / `or` / `not`. Release integer math wraps. It is not `nsw`. A positive power-of-two divisor lowers to a shift or mask; a negative dividend uses the toward-zero adjustment instead of `sdiv`.
+- Integer add, sub, mul, div, rem, comparisons, `and` / `or` / `not`, and the bitwise operators `&`, `|`, `^`, `<<`, `>>`, and `~`. Hex literals such as `0xFFF` are accepted. Release integer math wraps. It is not `nsw`. A positive power-of-two divisor lowers to a shift or mask; a negative dividend uses the toward-zero adjustment instead of `sdiv`. Signed `>>` is an arithmetic shift. `<<` and `>>` lower to LLVM `shl` and `ashr`, the same instructions Clang emits for those C operators.
 - Floating-point arithmetic marked `fast` in release builds.
 - Direct calls, including overloads distinguished by argument count.
 - `extern` functions with the C calling convention. `Examples/StageB/LibcShape.rbx` calls `puts`. Hosted Robix functions stay `fastcc`. A freestanding build exports the entry symbol, `Start` unless `--entry` says otherwise, with the C calling convention.
@@ -58,7 +58,7 @@ Stage D guide, `Documentation/Guide.md`. Both engines:
 | `robix new HelloApp` then `HelloApp/Main.rbx` | `Hello from Robix` |
 | `Examples/StageD/Mismatch.rbx` | `R1001`, `Expected: Int`, `Received: String` |
 
-`Math.Abs`, `Math.Min`, `Math.Max`, and `Math.Clamp` are integer intrinsics. `Length` on a `String` is `strlen`. `Length` on an `Array` is the length word. `StdLib/Hosted.rbx` is a real program: `Abs`, `Min`, `Max`, `Clamp`, and an `IntList` of four slots. `robix run` stores `File` in a map. The native `Hosted.exe` wrote `Build/StageDHosted.txt` containing `hosted`. One `.rbx` file cannot import another. `match` and `try` are not compiled.
+`Math.Abs`, `Math.Min`, `Math.Max`, and `Math.Clamp` are integer intrinsics. `Length` on a `String` is `strlen`. `Length` on an `Array` is the length word. `StdLib/Hosted.rbx` is a real program: `Abs`, `Min`, `Max`, `Clamp`, and an `IntList` of four slots. `robix run` stores `File` in a map. The native `Hosted.exe` wrote `Build/StageDHosted.txt` containing `hosted`. `import PageTable;` loads `PageTable.rbx` from the same directory. `Examples/StageF/Kernel.rbx` imports `PageTable.rbx` and `SerialPort.rbx`. `match` and `try` are not compiled.
 
 Stage E, `Benchmarks/Micro/README.md`. `RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15` with `robixc -O3` and Clang 18.1.8 at `-O3 -march=native`. The starting language rotates each round. Checksums matched. Printed score: 1 win, 12 ties, 0 losses, 1 unconfirmed (MemCopy). Collatz is a tie at 18.18 ms against C at 17.34 ms. The Calls win did not repeat: the same binaries later ran in 9.53, 9.95, and 10.05 ms. `n % 2 == 0` is `(n & 1) == 0`, and division by 2 on that even branch is an arithmetic shift. Integer `Print` calls `printf`. The link drops runtime functions the program does not call.
 
@@ -78,6 +78,10 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 | `Examples/StageF/BadMnemonic.rbx` | Diagnostic | `--target aarch64-unknown-none` reports `N9010` for `outb` |
 
 `ASM("...")` still works. `in:`, `out:`, and `clobber:` are optional. A `$` immediate is escaped for LLVM when the statement has no operands. `Abort()` and `Panic()` are `llvm.trap` and do not allocate. `Volatile.Load` and `Volatile.Store` are volatile `i64` memory operations and require `Unsafe`.
+
+`Examples/StageF/Kernel.rbx` is the freestanding program a programmer writes. It imports `PageTable` and `SerialPort`. `Start` calls `PageEntry(0x200000, 0x83)`, then `Port.Write8(0x3F8, 82)` and `Cpu.Halt()`. `robixc Examples/StageF/Kernel.rbxb -O3 -o Build/StageF/kernel.elf` linked that image. QEMU wrote serial byte 82. The same `PageEntry` through `Examples/StageF/KernelHost.rbx` printed `2097283` on the interpreter and on the hosted native build. `Port` and `Cpu` in the interpreter stop with a message that they run in the freestanding image. The GDT and the long-mode switch are still the assembly trampoline linked in front of `Start`.
+
+`Examples/StageF/Bits.rbx` and `Bits.c` both print `8195`, `4096`, `240`, `127`, and `-2` on the interpreter and on the native build. `PageEntry` is `(phys & ~0xFFF) | flags`. The QEMU image rebuilt from that formula still writes byte 82. A 50,000,000-iteration mix loop, `Examples/StageF/BitLoop.rbx` and `BitLoop.c`, printed the same checksum `1638366881728`. After one warmup the three Robix times were 60.9, 33.6, and 33.0 ms, and the three C times were 65.6, 36.3, and 39.5 ms. That is one loop on this machine, not a new suite score. The earlier micro-suite ties were not re-run.
 
 ## Partial
 

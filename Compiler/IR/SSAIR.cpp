@@ -93,8 +93,14 @@ std::string_view IROpcodeToString(IROpcode op) noexcept {
         case IROpcode::Ge:              return "cmp.ge";
         case IROpcode::And:             return "and";
         case IROpcode::Or:              return "or";
+        case IROpcode::BitAnd:          return "bit.and";
+        case IROpcode::BitOr:           return "bit.or";
+        case IROpcode::BitXor:          return "bit.xor";
+        case IROpcode::Shl:             return "shl";
+        case IROpcode::Shr:             return "shr";
         case IROpcode::Neg:             return "neg";
         case IROpcode::Not:             return "not";
+        case IROpcode::BitNot:          return "bit.not";
         case IROpcode::AllocStack:      return "alloc.stack";
         case IROpcode::AllocHeap:       return "alloc.heap";
         case IROpcode::LoadVar:         return "load.var";
@@ -1491,12 +1497,13 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 return out;
             }
 
-            if (uop != "!" && uop != "-" && uop != "+") {
+            if (uop != "!" && uop != "-" && uop != "+" && uop != "~") {
                 m_diagnostics.ReportError(
                     "I4011",
                     "Unary operator '" + uop + "' is not yet supported by the SSA IR backend.",
                     expr.location,
-                    "Use '-', '!', '&', '*', '++' or '--' on variables.");
+                    "Use '-', '!', '~', '&', '*', '++' or '--' on variables.");
+                return IRValue{};
             }
 
             IRValue opVal = expr.left ? LowerExpr(*expr.left) : IRValue{};
@@ -1504,7 +1511,9 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 return opVal;
             }
             IRInstruction un;
-            un.opcode     = (uop == "!") ? IROpcode::Not : IROpcode::Neg;
+            if (uop == "~") un.opcode = IROpcode::BitNot;
+            else if (uop == "!") un.opcode = IROpcode::Not;
+            else un.opcode = IROpcode::Neg;
             un.dest       = IRValue{ m_currentFn->AllocateSSAId(), opVal.type };
             un.operandIds = { opVal.ssaId };
             un.location   = expr.location;
@@ -1560,12 +1569,17 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
             else if (t == ">=") { op = IROpcode::Ge; resType = MakePrim("Bool"); }
             else if (t == "&&") { op = IROpcode::And; resType = MakePrim("Bool"); }
             else if (t == "||") { op = IROpcode::Or; resType = MakePrim("Bool"); }
+            else if (t == "&") op = IROpcode::BitAnd;
+            else if (t == "|") op = IROpcode::BitOr;
+            else if (t == "^") op = IROpcode::BitXor;
+            else if (t == "<<") op = IROpcode::Shl;
+            else if (t == ">>") op = IROpcode::Shr;
             else {
                 m_diagnostics.ReportError(
                     "I4011",
                     "Binary operator '" + t + "' is not yet supported by the SSA IR backend.",
                     expr.location,
-                    "Supported operators: + - * / % == != < <= > >= && ||");
+                    "Supported operators: + - * / % & | ^ << >> == != < <= > >= && ||");
             }
 
             IRInstruction bin;
@@ -1880,8 +1894,14 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     (receiverExpr.text == "File" || receiverExpr.text == "Thread" ||
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
                      receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
-                     receiverExpr.text == "Volatile")) {
+                     receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
+                     receiverExpr.text == "Cpu")) {
                     Frontend::TypeNode ty = exprType;
+                    if (receiverExpr.text == "Port" && memberName == "Read8") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Port" || receiverExpr.text == "Cpu") {
+                        ty = MakePrim("Void");
+                    }
                     if (receiverExpr.text == "File" && memberName == "ReadText") {
                         ty = MakePrim("String");
                         ty.isPointer = true;

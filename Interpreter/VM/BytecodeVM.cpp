@@ -314,6 +314,35 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 regs[inst.destReg] = VMValue{ regs[inst.srcReg1].AsBool() || regs[inst.srcReg2].AsBool() };
                 break;
 
+            case BCOpcode::BitAnd:
+                regs[inst.destReg] = VMValue{ regs[inst.srcReg1].AsInt() & regs[inst.srcReg2].AsInt() };
+                break;
+
+            case BCOpcode::BitOr:
+                regs[inst.destReg] = VMValue{ regs[inst.srcReg1].AsInt() | regs[inst.srcReg2].AsInt() };
+                break;
+
+            case BCOpcode::BitXor:
+                regs[inst.destReg] = VMValue{ regs[inst.srcReg1].AsInt() ^ regs[inst.srcReg2].AsInt() };
+                break;
+
+            case BCOpcode::Shl: {
+                const auto bits = static_cast<unsigned>(regs[inst.srcReg2].AsInt() & 63);
+                const auto value = static_cast<std::uint64_t>(regs[inst.srcReg1].AsInt());
+                regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(value << bits) };
+                break;
+            }
+
+            case BCOpcode::Shr: {
+                const auto bits = static_cast<unsigned>(regs[inst.srcReg2].AsInt() & 63);
+                regs[inst.destReg] = VMValue{ regs[inst.srcReg1].AsInt() >> bits };
+                break;
+            }
+
+            case BCOpcode::BitNot:
+                regs[inst.destReg] = VMValue{ ~regs[inst.srcReg1].AsInt() };
+                break;
+
             case BCOpcode::Neg: {
                 const VMValue& v = regs[inst.srcReg1];
                 regs[inst.destReg] = v.IsFloat() ? VMValue{ -v.AsFloat() } : VMValue{ -v.AsInt() };
@@ -484,6 +513,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t b = regs[inst.callArgRegs[1]].AsInt();
                     const std::int64_t v = inst.symbolImm == "Math.Min" ? (a < b ? a : b) : (a > b ? a : b);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
+                } else if (inst.symbolImm.rfind("Port.", 0) == 0 || inst.symbolImm.rfind("Cpu.", 0) == 0) {
+                    Fail(("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.").c_str());
                 } else if (inst.symbolImm == "Math.Clamp" && inst.callArgRegs.size() >= 3) {
                     std::int64_t v = regs[inst.callArgRegs[0]].AsInt();
                     const std::int64_t lo = regs[inst.callArgRegs[1]].AsInt();
