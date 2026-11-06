@@ -2,40 +2,20 @@ package Examples.StageF;
 
 import SerialPort;
 
-public Function OtherTask() -> Void {
-    Unsafe {
-        Int rsp = Cpu.ReadRSP();
-        if (rsp >= 2097152) {
-            WriteByte(83);
-        } else {
-            WriteByte(88);
-        }
-    }
+public Function TaskA() -> Void {
+    WriteByte(65);
 }
 
-public Function SwitchBack() -> Void {
-    WriteByte(67);
-    Unsafe {
-        Cpu.ExchangeRSP(Cpu.SavedRSP());
-    }
+public Function TaskB() -> Void {
+    WriteByte(66);
 }
 
-public Function TaskExit() -> Void {
-    HaltCPU();
-}
-
-public Function RunOtherTask() -> Void {
+public Function RunTasks() -> Void {
     Unsafe {
-        Pointer<Int> stack = Memory.Pages(1);
-        Cpu.Run(OtherTask, Memory.Address(stack + 512));
-    }
-}
-
-public Function ProveSwitch() -> Void {
-    Unsafe {
-        Pointer<Int> stack = Memory.Pages(1);
-        *(stack + 510) = Cpu.Function(SwitchBack);
-        *(stack + 511) = Cpu.Function(TaskExit);
-        Cpu.ExchangeRSP(Memory.Address(stack + 510));
+        Pointer<Int> stackA = Memory.Pages(1);
+        Pointer<Int> stackB = Memory.Pages(1);
+        Cpu.Run(TaskA, Memory.Address(stackA + 512));
+        Cpu.Run(TaskB, Memory.Address(stackB + 512));
+        Cpu.Run(TaskA, Memory.Address(stackA + 512));
     }
 }

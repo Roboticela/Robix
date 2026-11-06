@@ -514,6 +514,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t v = inst.symbolImm == "Math.Min" ? (a < b ? a : b) : (a > b ? a : b);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
                 } else if (inst.symbolImm.rfind("Port.", 0) == 0 || inst.symbolImm.rfind("Cpu.", 0) == 0 ||
+                           inst.symbolImm.rfind("Timer.", 0) == 0 ||
                            inst.symbolImm == "Memory.Pages" || inst.symbolImm == "Memory.Address" ||
                            inst.symbolImm == "Memory.At") {
                     Fail(("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.").c_str());

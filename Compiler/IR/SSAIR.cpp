@@ -1751,16 +1751,18 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
 
         case Frontend::ExprKind::Call: {
             if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
-                expr.left->left->kind == Frontend::ExprKind::Identifier && expr.left->left->text == "Cpu" &&
-                (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Run")) {
-                const std::string member = expr.left->text;
+                expr.left->left->kind == Frontend::ExprKind::Identifier &&
+                ((expr.left->left->text == "Cpu" &&
+                  (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Run")) ||
+                 (expr.left->left->text == "Timer" && expr.left->text == "Arm"))) {
+                const std::string member = expr.left->left->text + "." + expr.left->text;
                 if (expr.arguments.empty() || !expr.arguments[0] ||
                     expr.arguments[0]->kind != Frontend::ExprKind::Identifier) {
                     m_diagnostics.ReportError(
                         "I4011",
-                        "Cpu." + member + " takes a function name.",
+                        member + " takes a function name.",
                         expr.location,
-                        "Write Cpu." + member + "(FunctionName) for a parameterless function.");
+                        "Write " + member + "(FunctionName) for a parameterless function.");
                     return IRValue{};
                 }
                 const std::string target = expr.arguments[0]->text;
@@ -1774,17 +1776,17 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 if (!found) {
                     m_diagnostics.ReportError(
                         "R1003",
-                        "Cpu." + member + " cannot see a parameterless function named '" + target + "'.",
+                        member + " cannot see a parameterless function named '" + target + "'.",
                         expr.location,
                         "Declare 'public Function " + target + "() -> Void' in this program.");
                     return IRValue{};
                 }
                 IRInstruction osCall;
                 osCall.opcode   = IROpcode::CallOSIntrinsic;
-                osCall.textImm  = "Cpu." + member;
+                osCall.textImm  = member;
                 osCall.secondaryText = target;
                 osCall.location = expr.location;
-                if (member == "Run") {
+                if (member == "Cpu.Run") {
                     if (expr.arguments.size() < 2 || !expr.arguments[1]) {
                         m_diagnostics.ReportError(
                             "I4011",
@@ -1794,6 +1796,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         return IRValue{};
                     }
                     osCall.operandIds = { LowerExpr(*expr.arguments[1]).ssaId };
+                }
+                if (member == "Cpu.Run" || member == "Timer.Arm") {
                     osCall.dest = IRValue{ 0, MakePrim("Void") };
                     Emit(std::move(osCall));
                     return IRValue{ 0, MakePrim("Void") };

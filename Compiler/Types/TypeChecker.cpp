@@ -923,7 +923,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "Volatile" ||
-                expr.text == "Port" || expr.text == "Cpu") {
+                expr.text == "Port" || expr.text == "Cpu" || expr.text == "Timer") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1320,6 +1320,16 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                                         expr.text == "BootInfo" || expr.text == "Function" ||
                                         expr.text == "Handler";
                 expr.inferredType = MakePrimitiveType(returnsInt ? "Int" : "Void");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Timer" && expr.text == "Arm") {
+                if (m_unsafeDepth <= 0) {
+                    m_diagnostics.ReportError(
+                        "R1006",
+                        "'Timer.Arm' installs the timer interrupt and requires 'Unsafe { ... }'.",
+                        expr.location);
+                }
+                expr.inferredType = MakePrimitiveType("Void");
                 return expr.inferredType;
             }
 
