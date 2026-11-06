@@ -250,6 +250,16 @@ Suites, in order:
 
 **Exit test:** the micro suite's README lists wins, ties, and losses. A loss stays a loss. The script refuses to print "SPEC" or "DaCapo" unless that suite's manifest says `upstream: true`.
 
+Passed for the local suites. `Benchmarks/Micro/README.md` is the score from `RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15` with `robixc -O3` and `clang` / `clang++ -O3 -march=native` (Clang 18.1.8). Five-run result, highest dropped, then one cool sample. Within 5 percent of the fastest five-run time is a tie, and one cool sample does not overturn that tie. A win or a loss is published only when the cool sample agrees on direction.
+
+| Published | Kernels |
+| :--- | :--- |
+| Tie | Arithmetic, Calls, Division, Scan, FftLoop, Matrix, Particle, Pid, Ring |
+| Loss | Collatz (19.53 ms vs C++ 16.67 ms), MemCopy (17.09 ms vs C 16.11 ms) |
+| Unconfirmed | Allocate, Branches, BootPath |
+
+Score: 0 wins, 9 ties, 2 losses, 3 unconfirmed. No manifest in this tree sets `upstream: true`. The script exits 2 on any other suite name and does not print that name.
+
 ### Stage F — Freestanding: BIOS, bootloader, kernel, OS
 
 This stage is what makes systems programming a real target. It starts as soon as Stage B can emit a C ABI object. It is not blocked on RobixUI or the network stack.

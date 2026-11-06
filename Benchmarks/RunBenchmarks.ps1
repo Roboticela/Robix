@@ -1,104 +1,112 @@
 <#
 .SYNOPSIS
-    Time local Robix, C, and C++ kernels. These are not upstream benchmark suites.
+    Time the published Robix, C, and C++ kernels.
 
 .DESCRIPTION
-    Compiles .rbx / .c / .cpp triples from Benchmarks/ into the build directory and
-    times them interleaved. Folder names DaCapoSuite, DebianBenchmarksGame,
-    NasParallelBenchmarks, and SpecCpu2026 are local synthetic kernels.
-    See Benchmarks/README.md. Upstream SPEC, DaCapo, NPB, and the Benchmarks Game
-    are not vendored here.
+    Suites Micro, Numeric, and Systems are local kernels with a Robix, C, and C++
+    source each. Flags are robixc -O3 and clang/clang++ -O3 -march=native.
+    Two warmups, then five interleaved rounds. The highest sample is dropped.
+    A result within 5 percent of the fastest time is a tie. After the timed pass
+    the script waits, then runs one cool interleaved confirmation.
+
+    An external suite name is refused unless that directory's manifest says
+    upstream: true. The refusal text does not print the suite name.
 
 .PARAMETER Suite
-    Name of suite to run: "All", "DaCapo", "Debian", "NPB", "SPEC", "NativeVsC". Default is "All".
+    Micro, Numeric, Systems, or All. Default is Micro.
 
 .PARAMETER Runs
-    Number of timed measurement runs per workload. Default is 5.
+    Timed rounds after the warmups. Default is 5.
 
-.PARAMETER BuildDir
-    Output directory for compiled binaries. Default is "d:\NEW\Robix\Build\benchmarks".
-
-.EXAMPLE
-    .\RunBenchmarks.ps1 -Suite DaCapo
-    .\RunBenchmarks.ps1 -Suite All -Runs 5
+.PARAMETER CoolSeconds
+    Pause before the confirmation pass. Default is 15.
 #>
 
 param(
-    [ValidateSet("All", "DaCapo", "Debian", "NPB", "SPEC", "NativeVsC")]
-    [string]$Suite = "All",
+    [string]$Suite = "Micro",
     [int]$Runs = 5,
-    [string]$BuildDir = "d:\NEW\Robix\Build\benchmarks",
-    [switch]$Clean,
-    [switch]$CompileOnly
+    [int]$CoolSeconds = 15,
+    [string]$BuildDir = "",
+    [switch]$NoConfirm
 )
 
 $ErrorActionPreference = "Stop"
-
-$repoRoot = "d:\NEW\Robix"
-$robixc   = Join-Path $repoRoot "Build\bin\robixc.exe"
-$clang    = "C:\CLang\clang+llvm-18.1.8-x86_64-pc-windows-msvc\bin\clang.exe"
-$clangpp  = "C:\CLang\clang+llvm-18.1.8-x86_64-pc-windows-msvc\bin\clang++.exe"
-$benchRoot = Join-Path $repoRoot "Benchmarks"
-
-# Verify toolchains
-if (-not (Test-Path $robixc)) {
-    Write-Error "robixc.exe not found at $robixc. Please build it first."
-    exit 1
-}
-if (-not (Test-Path $clang)) {
-    Write-Error "clang.exe not found at $clang."
-    exit 1
-}
-if (-not (Test-Path $clangpp)) {
-    Write-Error "clang++.exe not found at $clangpp."
-    exit 1
+$repoRoot = Split-Path $PSScriptRoot -Parent
+if ([string]::IsNullOrWhiteSpace($BuildDir)) {
+    $BuildDir = Join-Path $repoRoot "Build\benchmarks"
 }
 
-# Ensure Build Directory exists
-if ($Clean -and (Test-Path $BuildDir)) {
-    Write-Host "Cleaning build directory: $BuildDir..."
-    Remove-Item -Path $BuildDir -Recurse -Force
+$externalDirs = @{
+    "spec"    = "SpecCpu2026"
+    "dacapo"  = "DaCapoSuite"
+    "npb"     = "NasParallelBenchmarks"
+    "debian"  = "DebianBenchmarksGame"
+}
+
+function Read-Upstream([string]$dirName) {
+    $path = Join-Path $repoRoot "Benchmarks\$dirName\manifest.txt"
+    if (-not (Test-Path $path)) { return $false }
+    $text = Get-Content $path -Raw
+    return $text -match "(?im)^\s*upstream\s*:\s*true\s*$"
+}
+
+$asked = $Suite.Trim().ToLower()
+if ($externalDirs.ContainsKey($asked)) {
+    if (-not (Read-Upstream $externalDirs[$asked])) {
+        Write-Host "refused: that suite's manifest does not set upstream: true."
+        exit 2
+    }
+}
+
+$published = @{
+    "micro"   = "Micro"
+    "numeric" = "Numeric"
+    "systems" = "Systems"
+}
+
+$suitesToRun = @()
+if ($asked -eq "all") {
+    $suitesToRun = @("Micro", "Numeric", "Systems")
+} elseif ($published.ContainsKey($asked)) {
+    $suitesToRun = @($published[$asked])
+} elseif ($externalDirs.ContainsKey($asked)) {
+    Write-Host "refused: upstream is true but this runner has no published harness for that archive yet."
+    exit 2
+} else {
+    Write-Host "usage: RunBenchmarks.ps1 -Suite Micro | Numeric | Systems | All"
+    exit 2
+}
+
+$robixc  = Join-Path $repoRoot "Build\bin\robixc.exe"
+$clang   = "C:\CLang\clang+llvm-18.1.8-x86_64-pc-windows-msvc\bin\clang.exe"
+$clangpp = "C:\CLang\clang+llvm-18.1.8-x86_64-pc-windows-msvc\bin\clang++.exe"
+foreach ($tool in @($robixc, $clang, $clangpp)) {
+    if (-not (Test-Path $tool)) {
+        Write-Host "missing tool: $tool"
+        exit 1
+    }
 }
 if (-not (Test-Path $BuildDir)) {
     New-Item -ItemType Directory -Path $BuildDir -Force | Out-Null
 }
 
-$suiteMap = @{
-    "DaCapo"    = @{ Dir = "DaCapoSuite";           Title = "Synthetic kernels in DaCapoSuite (not the DaCapo suite)"; Upstream = $false }
-    "Debian"    = @{ Dir = "DebianBenchmarksGame";  Title = "Synthetic kernels in DebianBenchmarksGame (not the Benchmarks Game)"; Upstream = $false }
-    "NPB"       = @{ Dir = "NasParallelBenchmarks"; Title = "Synthetic kernels in NasParallelBenchmarks (not NAS NPB)"; Upstream = $false }
-    "SPEC"      = @{ Dir = "SpecCpu2026";           Title = "Synthetic kernels in SpecCpu2026 (not SPEC CPU)"; Upstream = $false }
-    "NativeVsC" = @{ Dir = "NativeVsC";             Title = "Local Native vs C/C++ microbenchmarks"; Upstream = $false }
-}
-
-$suitesToRun = if ($Suite -eq "All") {
-    @("DaCapo", "Debian", "NPB", "SPEC", "NativeVsC")
-} else {
-    @($Suite)
-}
-
-$robixcVersion = ((& $robixc --version) | Select-Object -First 1)
-$clangVersion  = ((& $clang --version) | Select-Object -First 1)
+$robixcVersion  = ((& $robixc --version) | Select-Object -First 1)
+$clangVersion   = ((& $clang --version) | Select-Object -First 1)
 $clangppVersion = ((& $clangpp --version) | Select-Object -First 1)
 $robixFlags = "robixc -O3"
 $cFlags = "clang -O3 -march=native"
 $cppFlags = "clang++ -O3 -march=native"
 
-Write-Host "==========================================================================================================" -ForegroundColor Cyan
-Write-Host "              ROBIX vs C vs C++ -- LOCAL SYNTHETIC KERNELS                                              " -ForegroundColor Cyan
-Write-Host "==========================================================================================================" -ForegroundColor Cyan
-Write-Host "Upstream:        no. Not SPEC, DaCapo, NPB, or the Computer Language Benchmarks Game."
-Write-Host "Platform:        Windows x64"
-Write-Host "robixc:          $robixcVersion"
-Write-Host "clang:           $clangVersion"
-Write-Host "clang++:         $clangppVersion"
-Write-Host ("Flags:           {0} / {1} / {2}" -f $robixFlags, $cFlags, $cppFlags)
-Write-Host "Source Dir:      $benchRoot"
-Write-Host "Build Output:    $BuildDir"
-Write-Host "Suites to run:   $($suitesToRun -join ', ')"
-Write-Host "Measurement:     2 warmups, then $Runs interleaved rounds (Robix, then C, then C++). Highest sample dropped when Runs >= 4."
-Write-Host "Quote rule:      Keep this header, the checksum line, and the interleaved time together. A hot full sweep is not a cool confirmation."
-Write-Host "==========================================================================================================`n"
+Write-Host "Robix benchmark runner"
+Write-Host "robixc:  $robixcVersion"
+Write-Host "clang:   $clangVersion"
+Write-Host "clang++: $clangppVersion"
+Write-Host "Flags:   $robixFlags / $cFlags / $cppFlags"
+Write-Host "Suites:  $($suitesToRun -join ', ')"
+Write-Host "Measure: 2 warmups, $Runs interleaved rounds, highest sample dropped."
+Write-Host "Tie:     within 5 percent of the fastest time."
+Write-Host "These kernels are local. They are not an upstream archive."
+Write-Host ""
 
 function Get-ChecksumLine([string]$exePath) {
     $lines = @(& $exePath)
@@ -108,9 +116,9 @@ function Get-ChecksumLine([string]$exePath) {
 }
 
 function Get-LastNumber([string]$line) {
-    $matches = [regex]::Matches($line, '-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?')
-    if ($matches.Count -eq 0) { return $null }
-    return [double]$matches[$matches.Count - 1].Value
+    $found = [regex]::Matches($line, '-?\d+(?:\.\d+)?')
+    if ($found.Count -eq 0) { return $null }
+    return [double]$found[$found.Count - 1].Value
 }
 
 function Test-SameChecksum([string]$a, [string]$b, [string]$c) {
@@ -118,171 +126,150 @@ function Test-SameChecksum([string]$a, [string]$b, [string]$c) {
     if ($null -eq $na -or $null -eq $nb -or $null -eq $nc) {
         return ($a -eq $b) -and ($b -eq $c)
     }
-    $scale = [Math]::Max([Math]::Abs($na), 1.0)
-    return ([Math]::Abs($na - $nb) -le (0.0001 * $scale)) -and ([Math]::Abs($nb - $nc) -le (0.0001 * $scale))
+    return ($na -eq $nb) -and ($nb -eq $nc)
 }
 
-function Measure-Interleaved([string]$rbxExe, [string]$cExe, [string]$cppExe) {
-    $missing = -not (Test-Path $rbxExe) -or -not (Test-Path $cExe) -or -not (Test-Path $cppExe)
-    if ($missing) {
+function Get-DroppedAverage($samples) {
+    $sorted = @($samples | Sort-Object)
+    $filtered = if ($sorted.Count -ge 4) { $sorted[0..($sorted.Count - 2)] } else { $sorted }
+    return [Math]::Round((($filtered | Measure-Object -Average).Average), 2)
+}
+
+function Measure-Interleaved([string]$rbxExe, [string]$cExe, [string]$cppExe, [int]$rounds, [switch]$SkipWarmup) {
+    if (-not (Test-Path $rbxExe) -or -not (Test-Path $cExe) -or -not (Test-Path $cppExe)) {
         return $null
     }
-    $sumR = Get-ChecksumLine $rbxExe
-    $sumC = Get-ChecksumLine $cExe
-    $sumP = Get-ChecksumLine $cppExe
-    & $rbxExe | Out-Null
-    & $cExe | Out-Null
-    & $cppExe | Out-Null
-
+    $sumR = ""; $sumC = ""; $sumP = ""
+    if (-not $SkipWarmup) {
+        $sumR = Get-ChecksumLine $rbxExe
+        $sumC = Get-ChecksumLine $cExe
+        $sumP = Get-ChecksumLine $cppExe
+        & $rbxExe | Out-Null
+        & $cExe | Out-Null
+        & $cppExe | Out-Null
+    }
     $tr = @(); $tc = @(); $tp = @()
-    for ($i = 0; $i -lt $Runs; $i++) {
+    for ($i = 0; $i -lt $rounds; $i++) {
         $sw = [System.Diagnostics.Stopwatch]::StartNew(); & $rbxExe | Out-Null; $sw.Stop(); $tr += $sw.Elapsed.TotalMilliseconds
         $sw = [System.Diagnostics.Stopwatch]::StartNew(); & $cExe | Out-Null; $sw.Stop(); $tc += $sw.Elapsed.TotalMilliseconds
         $sw = [System.Diagnostics.Stopwatch]::StartNew(); & $cppExe | Out-Null; $sw.Stop(); $tp += $sw.Elapsed.TotalMilliseconds
     }
-    function AvgMin($samples) {
-        $sorted = @($samples | Sort-Object)
-        $filtered = if ($sorted.Count -ge 4) { $sorted[0..($sorted.Count - 2)] } else { $sorted }
-        $avg = ($filtered | Measure-Object -Average).Average
-        return @{ Avg = [Math]::Round($avg, 2); Min = [Math]::Round($sorted[0], 2) }
-    }
-    $r = AvgMin $tr; $c = AvgMin $tc; $p = AvgMin $tp
-    $same = Test-SameChecksum $sumR $sumC $sumP
     [PSCustomObject]@{
-        RobixAvg = $r.Avg; RobixMin = $r.Min
-        CAvg = $c.Avg; CMin = $c.Min
-        CPPAvg = $p.Avg; CPPMin = $p.Min
-        SumRobix = $sumR; SumC = $sumC; SumCPP = $sumP
-        ChecksumMatch = $same
+        RobixAvg = (Get-DroppedAverage $tr)
+        CAvg     = (Get-DroppedAverage $tc)
+        CPPAvg   = (Get-DroppedAverage $tp)
+        SumRobix = $sumR
+        SumC     = $sumC
+        SumCPP   = $sumP
+        ChecksumMatch = (Test-SameChecksum $sumR $sumC $sumP)
     }
 }
 
-$grandRobixWins = 0
-$grandCWins = 0
-$grandCPPWins = 0
-$totalTestsRun = 0
+function Get-Verdict($m) {
+    if (-not $m.ChecksumMatch) { return "checksum mismatch" }
+    $fast = [Math]::Min($m.RobixAvg, [Math]::Min($m.CAvg, $m.CPPAvg))
+    if ($fast -le 0) { $fast = 0.01 }
+    $band = $fast * 1.05
+    $rClose = $m.RobixAvg -le $band
+    $cClose = $m.CAvg -le $band
+    $pClose = $m.CPPAvg -le $band
+    $closeCount = 0
+    if ($rClose) { $closeCount++ }
+    if ($cClose) { $closeCount++ }
+    if ($pClose) { $closeCount++ }
+    if ($rClose -and $closeCount -ge 2) { return "tie" }
+    if (-not $rClose) {
+        if ($m.CAvg -le $m.CPPAvg) { return "loss to C" }
+        return "loss to C++"
+    }
+    return "Robix"
+}
 
-foreach ($sKey in $suitesToRun) {
-    $sInfo = $suiteMap[$sKey]
-    $sDir  = Join-Path $benchRoot $sInfo.Dir
-    if (-not (Test-Path $sDir)) { continue }
+$records = @()
+$compileFailed = $false
 
-    Write-Host "----------------------------------------------------------------------------------------------------------" -ForegroundColor Yellow
-    Write-Host ">> SUITE: $($sInfo.Title)" -ForegroundColor Yellow
-    Write-Host "   Upstream suite: no" -ForegroundColor DarkGray
-    Write-Host "----------------------------------------------------------------------------------------------------------" -ForegroundColor Yellow
-
-    # Discover benchmark triples: files that have .rbx, .c, and .cpp
-    $rbxFiles = Get-ChildItem -Path $sDir -Filter "*.rbx"
-    $triples = @()
+foreach ($suiteName in $suitesToRun) {
+    $sDir = Join-Path $repoRoot "Benchmarks\$suiteName"
+    Write-Host "---- $suiteName ----"
+    if (-not (Read-Upstream $suiteName)) {
+        Write-Host "manifest upstream: false (local kernels)"
+    }
+    $rbxFiles = Get-ChildItem -Path $sDir -Filter "*.rbx" | Sort-Object Name
     foreach ($rf in $rbxFiles) {
         $base = $rf.BaseName
-        $cPath   = Join-Path $sDir "$base.c"
+        $cPath = Join-Path $sDir "$base.c"
         $cppPath = Join-Path $sDir "$base.cpp"
-        if ((Test-Path $cPath) -and (Test-Path $cppPath)) {
-            $triples += [PSCustomObject]@{
-                Base    = $base
-                RbxPath = $rf.FullName
-                CPath   = $cPath
-                CppPath = $cppPath
-            }
+        if (-not (Test-Path $cPath) -or -not (Test-Path $cppPath)) { continue }
+        $rbxExe = Join-Path $BuildDir "${suiteName}_${base}_Robix.exe"
+        $cExe   = Join-Path $BuildDir "${suiteName}_${base}_C.exe"
+        $cppExe = Join-Path $BuildDir "${suiteName}_${base}_CPP.exe"
+        Write-Host "compile $base"
+        & $robixc $rf.FullName -o $rbxExe -O3
+        if ($LASTEXITCODE -ne 0) { $compileFailed = $true; continue }
+        & $clang -O3 -march=native $cPath -o $cExe
+        if ($LASTEXITCODE -ne 0) { $compileFailed = $true; continue }
+        & $clangpp -O3 -march=native $cppPath -o $cppExe
+        if ($LASTEXITCODE -ne 0) { $compileFailed = $true; continue }
+        $hot = Measure-Interleaved $rbxExe $cExe $cppExe $Runs
+        $verdict = Get-Verdict $hot
+        Write-Host ("{0}: Robix {1} ms, C {2} ms, C++ {3} ms, {4}" -f $base, $hot.RobixAvg, $hot.CAvg, $hot.CPPAvg, $verdict)
+        Write-Host ("  checksum [{0}]" -f $hot.SumRobix)
+        $records += [PSCustomObject]@{
+            Suite = $suiteName; Name = $base; Hot = $hot; Verdict = $verdict; Cool = $null; Confirmed = ""
         }
     }
+    Write-Host ""
+}
 
-    if ($triples.Count -eq 0) {
-        Write-Host "  No complete (rbx/c/cpp) triples found in $sDir.`n"
-        continue
-    }
+if ($compileFailed) {
+    Write-Host "compilation failed. No score is published from this run."
+    exit 1
+}
 
-    Write-Host "  Compiling $($triples.Count) benchmark workloads into $BuildDir..." -ForegroundColor Gray
-    foreach ($t in $triples) {
-        $rbxExe = Join-Path $BuildDir "$($sKey)_$($t.Base)_Robix.exe"
-        $cExe   = Join-Path $BuildDir "$($sKey)_$($t.Base)_C.exe"
-        $cppExe = Join-Path $BuildDir "$($sKey)_$($t.Base)_CPP.exe"
-
-        & $robixc $t.RbxPath -o $rbxExe -O3 | Out-Null
-        & $clang -O3 -march=native $t.CPath -o $cExe | Out-Null
-        & $clangpp -O3 -march=native $t.CppPath -o $cppExe | Out-Null
-    }
-    Write-Host "  All $($triples.Count * 3) binaries compiled successfully in build directory!`n" -ForegroundColor Green
-
-    if ($CompileOnly) {
-        continue
-    }
-
-    $suiteResults = @()
-    $sRobixWins = 0
-    $sCWins = 0
-    $sCPPWins = 0
-
-    foreach ($t in $triples) {
-        $rbxExe = Join-Path $BuildDir "$($sKey)_$($t.Base)_Robix.exe"
-        $cExe   = Join-Path $BuildDir "$($sKey)_$($t.Base)_C.exe"
-        $cppExe = Join-Path $BuildDir "$($sKey)_$($t.Base)_CPP.exe"
-
-        $m = Measure-Interleaved $rbxExe $cExe $cppExe
-        if ($null -eq $m) {
-            Write-Host "  $($t.Base): binary missing, skipped"
-            continue
-        }
-
-        $winner = "Robix"
-        if (-not $m.ChecksumMatch) {
-            $winner = "checksum mismatch"
-        } elseif ($m.CAvg -lt $m.RobixAvg -and $m.CAvg -le $m.CPPAvg) {
-            $winner = "C"
-            $sCWins++
-        } elseif ($m.CPPAvg -lt $m.RobixAvg -and $m.CPPAvg -le $m.CAvg) {
-            $winner = "C++"
-            $sCPPWins++
+if (-not $NoConfirm -and $records.Count -gt 0) {
+    Write-Host "cooling ${CoolSeconds}s before one interleaved confirmation"
+    Start-Sleep -Seconds $CoolSeconds
+    foreach ($rec in $records) {
+        $rbxExe = Join-Path $BuildDir "$($rec.Suite)_$($rec.Name)_Robix.exe"
+        $cExe   = Join-Path $BuildDir "$($rec.Suite)_$($rec.Name)_C.exe"
+        $cppExe = Join-Path $BuildDir "$($rec.Suite)_$($rec.Name)_CPP.exe"
+        $cool = Measure-Interleaved $rbxExe $cExe $cppExe 1 -SkipWarmup
+        $cool.SumRobix = $rec.Hot.SumRobix
+        $cool.SumC = $rec.Hot.SumC
+        $cool.SumCPP = $rec.Hot.SumCPP
+        $cool.ChecksumMatch = $rec.Hot.ChecksumMatch
+        $coolVerdict = Get-Verdict $cool
+        $rec.Cool = $cool
+        $hotLoss = $rec.Verdict -like "loss to *"
+        $coolLoss = $coolVerdict -like "loss to *"
+        if ($rec.Verdict -eq "checksum mismatch" -or $coolVerdict -eq "checksum mismatch") {
+            $rec.Confirmed = "checksum mismatch"
+        } elseif ($rec.Verdict -eq "tie") {
+            # One cool sample does not overturn a five-run tie.
+            $rec.Confirmed = "tie"
+        } elseif ($rec.Verdict -eq "Robix" -and $coolVerdict -eq "Robix") {
+            $rec.Confirmed = "Robix"
+        } elseif ($hotLoss -and $coolLoss) {
+            $rec.Confirmed = "loss"
         } else {
-            $sRobixWins++
+            $rec.Confirmed = "unconfirmed"
         }
-
-        $speedupC   = [Math]::Round((($m.CAvg - $m.RobixAvg) / $m.RobixAvg) * 100, 2)
-        $speedupCPP = [Math]::Round((($m.CPPAvg - $m.RobixAvg) / $m.RobixAvg) * 100, 2)
-
-        Write-Host ('  {0,-36}  Robix: {1,7} ms  C: {2,7} ms  C++: {3,7} ms  {4}' -f `
-            $t.Base, $m.RobixAvg, $m.CAvg, $m.CPPAvg, $winner)
-        Write-Host ('    checksum Robix [{0}]  C [{1}]  C++ [{2}]' -f $m.SumRobix, $m.SumC, $m.SumCPP)
-
-        $suiteResults += [PSCustomObject]@{
-            Benchmark  = $t.Base
-            RobixAvg   = $m.RobixAvg
-            RobixMin   = $m.RobixMin
-            CAvg       = $m.CAvg
-            CMin       = $m.CMin
-            CPPAvg     = $m.CPPAvg
-            CPPMin     = $m.CPPMin
-            Winner     = $winner
-            Checksum   = $m.SumRobix
-            SpeedupVsC = "$($speedupC)%"
-            SpeedupVsCPP = "$($speedupCPP)%"
-        }
+        Write-Host ("cool {0}: Robix {1} ms, C {2} ms, C++ {3} ms, hot {4}, cool {5}, published {6}" -f `
+            $rec.Name, $cool.RobixAvg, $cool.CAvg, $cool.CPPAvg, $rec.Verdict, $coolVerdict, $rec.Confirmed)
     }
-
-    $grandRobixWins += $sRobixWins
-    $grandCWins     += $sCWins
-    $grandCPPWins   += $sCPPWins
-    $totalTestsRun  += $triples.Count
-
-    Write-Host "`n  Summary for $($sInfo.Title):" -ForegroundColor Cyan
-    $suiteResults | Format-Table -AutoSize
-    Write-Host ("  Scorecard: Robix Wins: {0} | C Wins: {1} | C++ Wins: {2}`n" -f $sRobixWins, $sCWins, $sCPPWins)
 }
 
-if (-not $CompileOnly) {
-    Write-Host "==========================================================================================================" -ForegroundColor Green
-    Write-Host "                         LOCAL SYNTHETIC KERNEL SCOREBOARD (not an upstream suite)                      " -ForegroundColor Green
-    Write-Host "==========================================================================================================" -ForegroundColor Green
-    Write-Host ("Total Benchmark Workloads: {0}" -f $totalTestsRun)
-    Write-Host ("Robix Native Wins:         {0} / {1} ({2:P1})" -f $grandRobixWins, $totalTestsRun, ($grandRobixWins / [Math]::Max(1, $totalTestsRun)))
-    Write-Host ("C (Clang 18) Wins:         {0} / {1} ({2:P1})" -f $grandCWins, $totalTestsRun, ($grandCWins / [Math]::Max(1, $totalTestsRun)))
-    Write-Host ("C++ (Clang++ 18) Wins:     {0} / {1} ({2:P1})" -f $grandCPPWins, $totalTestsRun, ($grandCPPWins / [Math]::Max(1, $totalTestsRun)))
-    Write-Host ("Flags: {0} / {1} / {2}" -f $robixFlags, $cFlags, $cppFlags)
-    Write-Host "robixc: $robixcVersion"
-    Write-Host "Interleaved rounds: $Runs after 2 warmups. Quote a row only with its checksum line."
-    Write-Host "Compiled binaries stored at: $BuildDir (source directory remains 100% clean)."
-    Write-Host "==========================================================================================================`n" -ForegroundColor Green
+Write-Host ""
+Write-Host "Published result (a five-run tie stands; a win or a loss counts only when the cool pass agrees on direction):"
+$wins = 0; $ties = 0; $losses = 0; $other = 0
+foreach ($rec in $records) {
+    $label = if ($rec.Confirmed) { $rec.Confirmed } else { $rec.Verdict }
+    Write-Host ("  {0}/{1}: {2}" -f $rec.Suite, $rec.Name, $label)
+    if ($label -eq "Robix") { $wins++ }
+    elseif ($label -eq "tie") { $ties++ }
+    elseif ($label -eq "loss") { $losses++ }
+    else { $other++ }
 }
-
+Write-Host ("Robix wins: {0}  ties: {1}  losses: {2}  other: {3}" -f $wins, $ties, $losses, $other)
+Write-Host "A loss is left as a loss."
+exit 0

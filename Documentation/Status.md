@@ -60,6 +60,8 @@ Stage D guide, `Documentation/Guide.md`. Both engines:
 
 `Math.Abs`, `Math.Min`, `Math.Max`, and `Math.Clamp` are integer intrinsics. `Length` on a `String` is `strlen`. `Length` on an `Array` is the length word. `StdLib/Hosted.rbx` is a real program: `Abs`, `Min`, `Max`, `Clamp`, and an `IntList` of four slots. `robix run` stores `File` in a map. The native `Hosted.exe` wrote `Build/StageDHosted.txt` containing `hosted`. One `.rbx` file cannot import another. `match` and `try` are not compiled.
 
+Stage E, `Benchmarks/Micro/README.md`. `RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15` with `robixc -O3` and Clang 18.1.8 at `-O3 -march=native`. Checksums matched. Published: 0 wins, 9 ties, 2 losses (Collatz, MemCopy), 3 unconfirmed (Allocate, Branches, BootPath). A five-run tie stands. A win or a loss is kept only when the cool sample agrees on direction.
+
 ## Partial
 
 | Feature | What exists | What does not |
@@ -73,7 +75,7 @@ Stage D guide, `Documentation/Guide.md`. Both engines:
 | C ABI | Robix calls an `extern` C function | C cannot call a Robix function; there is no unmangled `ccc` export |
 | Build profiles | `-O0` debug and `-O2`/`-O3`/`--release` | `performance`, `realtime`, `embedded`, `safety`, and `size` are not separate compiler modes |
 | Targets | Host Windows x64 via the bundled Clang | No `*-unknown-none` freestanding link, no cross-built images |
-| Benchmarks | Local kernels with C and C++ twins, timed by `Benchmarks/RunBenchmarks.ps1` | Not SPEC, DaCapo, NPB, or the Benchmarks Game. See `Benchmarks/README.md` |
+| Benchmarks | `Benchmarks/Micro/README.md`: 0 wins, 9 ties, 2 losses (Collatz, MemCopy), 3 unconfirmed | No manifest sets `upstream: true`. Other suite names are refused |
 | Specification | `Specification/LanguageSpecification.md` and grammar files | The documents describe a larger language than this table |
 
 ## Unsupported on the native backend
