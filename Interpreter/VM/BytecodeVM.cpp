@@ -582,6 +582,13 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                            inst.symbolImm == "Memory.Pages" || inst.symbolImm == "Memory.Address" ||
                            inst.symbolImm == "Memory.At") {
                     Reject("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.");
+                } else if (inst.symbolImm == "PWM.SetDuty" || inst.symbolImm == "UART.Write" ||
+                           inst.symbolImm == "SPI.Transfer" || inst.symbolImm == "I2C.Write") {
+                    std::int64_t id = 0;
+                    if (!inst.callArgRegs.empty()) id = regs[inst.callArgRegs[0]].AsInt();
+                    std::fprintf(stderr, "%s is not available on this target (%lld)\n",
+                                 inst.symbolImm.c_str(), static_cast<long long>(id));
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 1 } };
                 } else if (inst.symbolImm == "GPIO.Read") {
                     std::int64_t pin = 0;
                     if (!inst.callArgRegs.empty()) pin = regs[inst.callArgRegs[0]].AsInt();

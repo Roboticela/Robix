@@ -15,7 +15,7 @@ Implemented for top-level functions:
 - Integer add, sub, mul, div, rem, comparisons, `and` / `or` / `not`, and the bitwise operators `&`, `|`, `^`, `<<`, `>>`, and `~`. Hex literals such as `0xFFF` are accepted. Release integer math wraps. It is not `nsw`. A positive power-of-two divisor lowers to a shift or mask; a negative dividend uses the toward-zero adjustment instead of `sdiv`. Signed `>>` is an arithmetic shift. `<<` and `>>` lower to LLVM `shl` and `ashr`, the same instructions Clang emits for those C operators.
 - Floating-point arithmetic marked `fast` in release builds.
 - Direct calls, including overloads distinguished by argument count.
-- `extern` functions with the C calling convention. `Examples/StageB/LibcShape.rbx` calls `puts`. Hosted Robix functions stay `fastcc`. A freestanding build exports the entry symbol, `Start` unless `--entry` says otherwise, with the C calling convention.
+- `extern` functions with the C calling convention. `Examples/StageB/LibcShape.rbx` calls `puts`. An `extern` function that has a body is exported under its source name with the C calling convention. Other hosted Robix functions stay `fastcc`. A freestanding build exports the entry symbol, `Start` unless `--entry` says otherwise, with the C calling convention.
 - `Print` of booleans, integers, floats, and strings.
 - String concatenation. Two visible literals become one global; other concatenations call `rbx_strcat`. `==` and `!=` use `strcmp`.
 - Arrays, indexing, and slices (`..` and `..=`), with a bounds trap. Structs, enums, `Tuple`, `Result` (`Success` / `Error`), and `Option` (`Some` / `None`).
@@ -43,7 +43,7 @@ Both printed `150` and then `40`. That program has a `Motor` class with a privat
 
 Class objects are a pointer. Word 0 is the vtable. Fields follow, in alphabetical order, one word each. A call whose `new` is visible in the same function is direct. `MakeRunner` returns a `Runner` as a `Walker`, and that call stays virtual: the unoptimized IR has `call fastcc i64 %t7(ptr %v28)`. The interpreter walks `Runner` then `Walker` for the same call. `Box<Int>` is lowered as its own functions (`Box$Int.Get`, `Box$Int.Set`), not as the open template. `Leaf` is `load`, `add`, `ret`. It does not call `malloc`. There is no collector. Class locals with a destructor are destroyed, then `free`d, at the end of the scope. Reference counting is not implemented.
 
-One interface's methods occupy the front of the vtable, sorted by name. A class with two interfaces is not a supported slot layout. C still cannot call a Robix function.
+One interface's methods occupy the front of the vtable, sorted by name. `Examples/StageM/Features.rbx` is the later run for one class that implements two interfaces.
 
 Stage D guide, `Documentation/Guide.md`. Both engines:
 
@@ -58,7 +58,7 @@ Stage D guide, `Documentation/Guide.md`. Both engines:
 | `robix new HelloApp` then `HelloApp/Main.rbx` | `Hello from Robix` |
 | `Examples/StageD/Mismatch.rbx` | `R1001`, `Expected: Int`, `Received: String` |
 
-`Math.Abs`, `Math.Min`, `Math.Max`, and `Math.Clamp` are integer intrinsics. `Length` on a `String` is `strlen`. `Length` on an `Array` is the length word. `StdLib/Hosted.rbx` is a real program: `Abs`, `Min`, `Max`, `Clamp`, and an `IntList` of four slots. `robix run` stores `File` in a map. The native `Hosted.exe` wrote `Build/StageDHosted.txt` containing `hosted`. `import PageTable;` loads `PageTable.rbx` from the same directory. `match` and `try` are not compiled.
+`Math.Abs`, `Math.Min`, `Math.Max`, and `Math.Clamp` are integer intrinsics. `Length` on a `String` is `strlen`. `Length` on an `Array` is the length word. `StdLib/Hosted.rbx` is a real program: `Abs`, `Min`, `Max`, `Clamp`, and an `IntList` of four slots. `robix run` stores `File` in a map. The native `Hosted.exe` wrote `Build/StageDHosted.txt` containing `hosted`. `import PageTable;` loads `PageTable.rbx` from the same directory.
 
 Stage E, `Benchmarks/Micro/README.md`. `RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15` with `robixc -O3` and Clang 18.1.8 at `-O3 -march=native`. The starting language rotates each round. Checksums matched. Printed score: 1 win, 12 ties, 0 losses, 1 unconfirmed (MemCopy). Collatz is a tie at 18.18 ms against C at 17.34 ms. The Calls win did not repeat: the same binaries later ran in 9.53, 9.95, and 10.05 ms. `n % 2 == 0` is `(n & 1) == 0`, and division by 2 on that even branch is an arithmetic shift. Integer `Print` calls `printf`. The link drops runtime functions the program does not call.
 
@@ -94,26 +94,23 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 | Shared frontend | Lexer, parser, type check, SSA IR for the scalar subset | The interpreter and the native compiler are not proven equivalent by a conformance suite |
 | Bytecode interpreter | `Interpreter/VM/BytecodeVM.hpp` and a bytecode module | Not the default proof of language behavior |
 | Strings | Literals, concatenation, `==` / `!=`, and `Print` | `.ToString()` is still a native error. Ordering comparisons are not implemented |
-| Ranges | Numeric range loops, array index, and slices | `for x in collection` is still an IR error |
-| `match`, `try`, `throw` | Parsed | SSA IR rejects them |
-| Lambdas and object literals | Parsed | SSA IR rejects them |
-| C ABI | Robix calls an `extern` C function. The freestanding entry is an unmangled C-convention symbol | Hosted Robix functions are still `fastcc`. C cannot call an arbitrary Robix function |
-| Build profiles | `-O0` debug and `-O2`/`-O3`/`--release` | `performance`, `realtime`, `embedded`, `safety`, and `size` are not separate compiler modes |
+| Ranges | Numeric range loops, array index, slices, and `for x in collection` on an array | A stored lambda is not lowered. `throw` does not leave the function |
+| C ABI | `extern` with a body is a C-convention definition. `Examples/StageM/AddMain.c` called `Add` | A Robix function that is not `extern` stays `fastcc` |
+| Build profiles | `performance`, `realtime`, `safety`, `size`, and host `embedded` select different clang flags. An empty profile stays the release `-O3` path | `embedded` on this machine is a freestanding object. It is not a new board image |
 | Targets | Windows x64 hosted link. Kernel projects boot in QEMU for `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, and `riscv64-unknown-none`. A plain `--target` for AArch64, ARM, RISC-V, or Linux still writes a relocatable object | No Linux executable. No boot image for the other QEMU machines |
 | Benchmarks | `Benchmarks/Micro/README.md`: 12 ties, 0 losses, MemCopy unconfirmed | No manifest sets `upstream: true`. Other suite names are refused |
 | Specification | `Specification/LanguageSpecification.md` and grammar files | The documents describe a larger language than this table |
 
 ## Unsupported on the native backend
 
-`robixc` reports `N9001` or `I4010` for these. They are not native-complete.
+These are not native-complete. A diagnostic is reported where one was actually produced.
 
 - Global constants.
-- `defer` and `using`.
-- Garbage collection. There is no collector in the native runtime. `Memory.Allocate` / `Memory.Free` are explicit `malloc` / `free`, not a collector.
+- Garbage collection. There is no collector, and one is not part of the language. `defer` runs its body when the scope exits. `using` runs its block. `Memory.Allocate` / `Memory.Free` are explicit `malloc` / `free`.
 - OS intrinsics other than `Memory.Allocate` and `Memory.Free`.
-- PWM and other device drivers. `GPIO.Read` on Windows returns error code 1 and writes `GPIO.Read is not available on this target`. It does not return a pin level.
+- CAN, USB, PCIe, DMA, timers, interrupts, sensors, and motors. `GPIO.Read`, `PWM.SetDuty`, `UART.Write`, `SPI.Transfer`, and `I2C.Write` on Windows return 1 and write that the device is not available. They do not return a pin level or transfer a byte.
 - A network package registry. `robix add` records a local file, its SHA-256, and an HMAC-SHA256 made with the project `SignKey`. It does not download a package or prove a remote publisher.
-- A window-system backend and a cross-platform UI. `robix ui render` writes a software BMP on this Windows machine. It does not open a window.
+- A UI backend on an operating system other than Windows. `robix ui render` still writes a software BMP. `robix ui window` opens one Win32 window, paints that frame, and closes it.
 - A network registry, a public certificate authority, and any connection beyond `127.0.0.1`. Stage K speaks to a local socket. The TLS certificate is a self-signed `robix-stagek` certificate created on this machine.
 - A debugger attached to a running process. `robix debug` records source lines from the interpreter and from a debug-only native build. It does not attach to a process and it does not open a debugger window. A normal `robix build` does not emit those line calls.
 
@@ -128,7 +125,7 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 | `robixc Examples/StageF/Serial.rbxb` and `Firmware.rbxb` | Implemented. Both boot in QEMU and write byte 82 |
 | `robixc --version`, `robixc --help`, `robixc --emit-llvm`, `robixc --keep-ir` | Implemented |
 | `robix run File.rbx` | Interpreter. Recorded on Stage B (`506`), Stage C (`150`, then `40`), and the Stage D guide samples |
-| `robix new Name` | Writes `Name/Main.rbx`. Recorded as `HelloApp`, which prints `Hello from Robix` |
+| `robix new Name` | Writes `Name/Main.rbx`. Recorded as `HelloApp`, which prints `Hello from Robix`. `robix new Application Application` through `Custom` in `Build/StageM/Projects` also wrote `Source/Main.rbx` and a project file. Those programs printed `1`, `3`, `4`, `5`, `6`, `7`, and `8`. `Network.rbxproj` contains `Network: true` |
 | `robix test Tests/Conformance` | Implemented. Interpreter and native both passed arithmetic, wrap, branches, calls, arrays, structs, and pointers. Bytecode version 99 was refused before execution. `NativeOnly.test.rbx` stopped on `Port.Write8` with the freestanding diagnostic. The native-only list is `Tests/Conformance/NATIVE_ONLY.md` |
 | `robix test StdLib/Robix` | Implemented. `conformance: both engines passed` for Core, Collections, Math, String, IO, Memory, Atomics, Threading, Hardware, Robotics, and Encoding. `Build/StageH-io.txt` contains `RobixIO`. Windows `GPIO.Read(13)` printed the not-available message on both engines and the test saw error tag 0, value 1. Native `Thread.AddPair` starts two Windows threads. The interpreter applies those two additions on the calling thread and returns the same sum |
 | `robix add`, `remove`, `update`, `install`, `restore` | Implemented for a local file. `Examples/StageI` locked `Vendor/Answer.rbx` at SHA-256 `d6a6c0a8516b9c10ef7dbb24e3d7245f66a1123ea4187ecb7d078af7f865a070` with an HMAC-SHA256 signature from `SignKey`. A changed file made `restore` exit 1. `install` wrote `Packages/Robix.Answer/Answer.rbx`, `Robix.Answer.rbxapi`, and `Robix.Answer.rbxp` |
@@ -136,14 +133,19 @@ Stage F. `robixc --target x86_64-unknown-none -O3 Examples/StageF/Serial.rbx -o 
 | `robixc App.rbxb --explain` and `--dry-run` | Implemented. Printed `order Source/Add.rbx Source/Main.rbx` and `dry-run: compile was not started`. `Examples/StageF/Kernel.rbxb` still explains as `output Kernel`, `entry Kernel.rbx`. No output binary was written |
 | `robix build Examples/StageI/Source/Main.rbx` | Implemented. The second build printed `incremental: unchanged`. Changing `Add.rbx`, which `Main.rbx` imports, printed `robix build: created executable` and `Build/StageI/stagei.exe` printed `42` |
 | `robix ui validate Examples/StageJ/MainWindow.rbxu --code Examples/StageJ/Main.rbx` | Implemented. Bound `OnClick StartRobot` to `MainController.StartRobot() -> Void` and `StopRobot` the same way. `BadWindow.rbxu` exited 1: `SetSpeed` is `(Int) -> Void`, and `Missing` names no function |
-| `robix ui render Examples/StageJ/MainWindow.rbxu -o Build/StageJ/light.bmp` | Implemented. Software BMP renderer. The file pixel at 0,0 is `F4F5F7` and the Start button pixel at 18,44 is `1D4E89`. `--theme dark` wrote 0,0 as `14161A` and the same button pixel as `4C8DFF`. `--width 200` placed `StopButton` at y 80, under `StartButton` at y 42, and pixel 18,82 in `narrow.bmp` is `1D4E89`. This is not a window and not a cross-platform backend |
+| `robix ui render Examples/StageJ/MainWindow.rbxu -o Build/StageJ/light.bmp` | Implemented. Software BMP renderer. The file pixel at 0,0 is `F4F5F7` and the Start button pixel at 18,44 is `1D4E89`. `--theme dark` wrote 0,0 as `14161A` and the same button pixel as `4C8DFF`. `--width 200` placed `StopButton` at y 80, under `StartButton` at y 42, and pixel 18,82 in `narrow.bmp` is `1D4E89` |
+| `robix ui window Examples/StageJ/MainWindow.rbxu` | Implemented on this Windows desktop. Printed `window: shown 320x180 title Roboticela Robot Control` and `window: closed after paint`, then exited 0. One Win32 window was created, painted, and destroyed. This is not a backend on another operating system |
 | `robix network check` and `robix network run Examples/StageK` | Implemented for a local project that sets `Network: true`. The contract parser read `GetStatus(Int) -> Int` and `BatteryLow(Int) -> Void`. A call on `127.0.0.1` returned `reply Int 42`, then the event `BatteryLow Int 7`. `String` was rejected with `error expected Int`. A receive timeout fired at 203 ms. Schannel completed a TLS 1.2 handshake whose peer subject is `robix-stagek`, and the same call inside that session returned `reply Int 42`. Two UDP clients then sent `Move` snapshots: 39 applied in 297 ms, player 1 ended at 60,40, player 2 at 120,20, one older sequence was dropped, and `state 1 late no 1` was rejected. This is localhost UDP, not an internet game session. `Examples/StageK-bad` exited 1 because `SERVER_TOKEN` is in both env files. `Build/StageK/client.env` has `APP_NAME` and `PUBLIC_HOST` only |
 | `robix build` with and without `Network: true` | Implemented. `Build/StageK-plain/Plain.rbx` printed `network-runtime: omitted`, and `Plain.exe` does not contain `rbx-network-runtime-marker`. `Examples/StageK/Source/Client.rbx` printed `network-runtime: linked Build/obj/NetworkRuntime.obj`. `client.exe` contains that marker and does not contain `STAGEK_SERVER_TOKEN_9f3a` or `STAGEK_CERT_PASSWORD_c4e1`. The executables printed `2` and `1` |
 | `robix format`, `robix lint`, `robix check` | Implemented. `format Examples/StageL/Messy.rbx --check` exited 1. After `format`, the `Print` line has 4 spaces and `--check` printed `format: already formatted`. `lint Bad.rbx --strict` exited 1 with `L0004` on `maxSpeed` and `D3001` for a missing `Explain` block. `lint Clean.rbx --strict` exited 0. `check TypeError.rbx` exited 1 with `R1001` (`String` assigned to `Int`). `check Clean.rbx` exited 0 |
 | `robix doc Examples/StageL/Clean.rbx` | Implemented. Wrote `Build/StageL/Clean.md` from the parser. `Add` has Description, Input, Processing, and Output. The nested method `Counter.Value` has Description `Read the counter.`, Processing `Return zero.`, and Output `Zero.` |
 | `robix debug Examples/StageL/Debug.rbx` | Implemented. The interpreter and the debug native build both reported source lines `4 5 3`. `Build/StageL/debug.ll` calls `rbx_debug_line`. `robix build` of the same file with `--keep-ir` wrote `Build/StageL/plain.ll` with no `rbx_debug_line` call. This is not a debugger attached to a process |
 | `robix lsp` | Implemented. `Examples/StageL/LspClient.ps1` sent Content-Length JSON-RPC for `initialize`, `textDocument/didOpen`, `textDocument/hover`, and `shutdown`. Hover on `Value` returned `Read the counter.`, Processing `Return zero.`, and Output `Zero.`. `Editors/vscode` names `.rbx`, `.rbxu`, and `.rbxb` and starts `robix lsp`. The extension was not installed in VS Code |
-| `robix repl` | Not recorded as done |
+| `robix repl` | Implemented. A piped session of `Print(40 + 2);` then `run` printed `42` and exited 0. The line is written to `Build/StageM/Repl.rbx` and checked with the same parser and type checker as `robix run` |
+| `Examples/StageM/Features.rbx` | Implemented on both engines. Printed `6`, `3`, `9`, `7`, `10`, `11`, `42`, `12`, `41`, `42`, `4`. That is an array `for`, `match` on `Error(3)` and `Success(9)`, `try` / `throw 7` / `catch`, `defer` printing `11` after `10`, an immediate lambda that captured `base` and printed `42`, `using` printing `12`, and `Pair` implementing `Alpha` and `Beta` (`41` and `42`). Stderr on both engines said `PWM.SetDuty`, `UART.Write`, `SPI.Transfer`, and `I2C.Write` are not available, and their return values summed to `4`. A lambda stored in a variable is not lowered. `throw` does not leave the function |
+| `robixc Examples/StageM/Export.rbx --no-main -o Build/StageM/Export.obj` | Implemented. `Build/StageM/Export.ll` contains `define dso_local i64 @Add`. `clang Examples/StageM/AddMain.c Build/StageM/Export.obj -o Build/StageM/add.exe` printed `42` |
+| `robixc --profile performance`, `realtime`, `safety`, `size`, `embedded` | Implemented as separate link modes. The recorded flags were `-O3 -funroll-loops` for performance, `-O2 -fno-strict-aliasing` for realtime, `-O0` for safety, `-Oz` for size, and `-ffreestanding -O3` for embedded. Each log printed `profile:` and that name. `p-performance.exe`, `p-safety.exe`, `p-size.exe`, and `p-realtime.exe` printed `6`. `p-embedded.o` is a host object, and the log said no cross linker was run. `robixc` with no profile printed no `profile:` line, and `p-default.exe` printed `6` |
+| `Examples/StageM/Large.rbx` | Implemented. 829 lines: `Point`, `Counter`, and `Step0` through `Step159`. The interpreter and `large.exe` both printed `12733`. No compiler change was made for that file |
 
 ## How to update this file
 

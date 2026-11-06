@@ -209,9 +209,10 @@ int main(int argc, char* argv[]) {
             options.entrySymbol = args[++i];
         } else if (a == "--profile" && i + 1 < args.size()) {
             const std::string profile = args[++i];
-            if (profile == "debug") {
+            options.profileName = profile;
+            if (profile == "debug" || profile == "safety") {
                 options.release = false;
-            } else if (profile == "release") {
+            } else if (profile == "release" || profile == "performance" || profile == "realtime" || profile == "size") {
                 options.release = true;
             } else if (profile == "embedded") {
                 options.freestanding = true;
@@ -223,6 +224,8 @@ int main(int argc, char* argv[]) {
                 std::cerr << "robixc: unknown profile '" << profile << "'.\n";
                 return 1;
             }
+        } else if (a == "--no-main") {
+            options.omitMain = true;
         } else if (a == "--clang" && i + 1 < args.size()) {
             options.clangPath = args[++i];
         } else if (a == "--runtime-obj" && i + 1 < args.size()) {

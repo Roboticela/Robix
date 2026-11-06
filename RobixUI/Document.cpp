@@ -14,6 +14,12 @@
 #include <map>
 #include <sstream>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 namespace Robix::UI {
 
 namespace {
@@ -569,6 +575,87 @@ std::string ReadFile(const std::string& path) {
     return text.str();
 }
 
+#ifdef _WIN32
+struct WindowFrame {
+    const std::uint32_t* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    bool painted = false;
+};
+
+WindowFrame* g_windowFrame = nullptr;
+
+LRESULT CALLBACK RobixWindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+    if (message == WM_PAINT && g_windowFrame != nullptr && g_windowFrame->pixels != nullptr) {
+        PAINTSTRUCT paint;
+        HDC dc = BeginPaint(window, &paint);
+        BITMAPINFO info{};
+        info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        info.bmiHeader.biWidth = g_windowFrame->width;
+        info.bmiHeader.biHeight = -g_windowFrame->height;
+        info.bmiHeader.biPlanes = 1;
+        info.bmiHeader.biBitCount = 32;
+        info.bmiHeader.biCompression = BI_RGB;
+        StretchDIBits(
+            dc, 0, 0, g_windowFrame->width, g_windowFrame->height,
+            0, 0, g_windowFrame->width, g_windowFrame->height,
+            g_windowFrame->pixels, &info, DIB_RGB_COLORS, SRCCOPY);
+        EndPaint(window, &paint);
+        g_windowFrame->painted = true;
+        return 0;
+    }
+    if (message == WM_DESTROY) {
+        PostQuitMessage(0);
+        return 0;
+    }
+    return DefWindowProcW(window, message, wparam, lparam);
+}
+
+bool ShowSoftwareWindow(const std::wstring& title, int width, int height, const std::vector<std::uint32_t>& pixels) {
+    WindowFrame frame;
+    frame.pixels = pixels.data();
+    frame.width = width;
+    frame.height = height;
+    g_windowFrame = &frame;
+
+    WNDCLASSW windowClass{};
+    windowClass.lpfnWndProc = RobixWindowProc;
+    windowClass.hInstance = GetModuleHandleW(nullptr);
+    windowClass.lpszClassName = L"RobixUIFrame";
+    windowClass.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    RegisterClassW(&windowClass);
+
+    HWND window = CreateWindowExW(
+        0, L"RobixUIFrame", title.c_str(), WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, width + 16, height + 40,
+        nullptr, nullptr, windowClass.hInstance, nullptr);
+    if (window == nullptr) {
+        g_windowFrame = nullptr;
+        return false;
+    }
+    ShowWindow(window, SW_SHOW);
+    UpdateWindow(window);
+
+    MSG message;
+    const DWORD started = GetTickCount();
+    while (!frame.painted && GetTickCount() - started < 2000) {
+        if (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+            if (message.message == WM_QUIT) break;
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+    }
+    if (IsWindow(window)) DestroyWindow(window);
+    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+        if (message.message == WM_QUIT) break;
+        TranslateMessage(&message);
+        DispatchMessageW(&message);
+    }
+    g_windowFrame = nullptr;
+    return frame.painted;
+}
+#endif
+
 std::string Arg(const std::vector<std::string>& args, const std::string& flag) {
     for (std::size_t i = 0; i + 1 < args.size(); ++i) {
         if (args[i] == flag) return args[i + 1];
@@ -632,6 +719,22 @@ int RunUiCommand(const std::vector<std::string>& args) {
                   << " " << paint.w << " " << paint.h << "\n";
     }
     if (action == "validate") return 0;
+    if (action == "window") {
+#ifdef _WIN32
+        const std::string title = window.attr.count("Title") ? window.attr.at("Title") : window.attr.count("Name") ? window.attr.at("Name") : "RobixUI";
+        std::wstring wide(title.begin(), title.end());
+        if (!ShowSoftwareWindow(wide, width, height, pixels)) {
+            std::cerr << "robix ui window: the window was not painted\n";
+            return 1;
+        }
+        std::cout << "window: shown " << width << "x" << height << " title " << title << "\n";
+        std::cout << "window: closed after paint\n";
+        return 0;
+#else
+        std::cerr << "robix ui window: no window system is linked on this target\n";
+        return 1;
+#endif
+    }
     if (action != "render") {
         std::cerr << "robix ui: unknown action " << action << "\n";
         return 1;

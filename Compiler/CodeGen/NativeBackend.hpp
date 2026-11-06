@@ -19,6 +19,7 @@ struct NativeEmitOptions {
     std::string layoutOverride;
     std::string asmArch = "x86_64";
     bool debugLines = false;
+    bool omitMain = false;
 };
 
 // Production LLVM IR emitter.

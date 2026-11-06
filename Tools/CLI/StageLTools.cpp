@@ -1,5 +1,6 @@
 #include "StageLTools.hpp"
 #include "NativeCompilerDriver.hpp"
+#include "RobixCLIAndTestGenerator.hpp"
 #include "../Debugger/LSPDebuggerProfilerAndBenchmarks.hpp"
 #include "../../Compiler/Frontend/ImportResolver.hpp"
 #include "../../Compiler/IR/SSAIR.hpp"
@@ -535,6 +536,31 @@ int RunStageLCommand(const std::vector<std::string>& args, const std::string& to
     if (cmd == "doc") return DocCommand(args);
     if (cmd == "debug") return DebugCommand(args, toolDir);
     if (cmd == "lsp") return LspCommand();
+    if (cmd == "repl") {
+        std::string body;
+        std::string line;
+        int status = 0;
+        while (std::getline(std::cin, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line != "run") {
+                body += line + "\n";
+                continue;
+            }
+            const std::string source = "package Repl;\n\npublic Function Main() -> Void {\n" + body + "}\n";
+            const fs::path file = "Build/StageM/Repl.rbx";
+            if (!WriteFile(file, source)) {
+                std::cerr << "robix repl: could not write the input.\n";
+                return 1;
+            }
+            const auto result = RobixCLIDispatcher::ExecuteCommand(
+                CLIBinaryKind::RobixUnifiedCLI, { "run", file.string() });
+            if (!result.stdoutText.empty()) std::cout << result.stdoutText;
+            if (!result.stderrText.empty()) std::cerr << result.stderrText;
+            status = result.exitCode;
+            body.clear();
+        }
+        return status;
+    }
     return -1;
 }
 

@@ -1092,9 +1092,12 @@ StmtPtr Parser::ParseTryCatchStatement() {
     if (Match(TokenKind::KwCatch)) {
         const bool hasParens = Match(TokenKind::LParen);
         if (Check(TokenKind::Identifier)) {
-            stmt->catchType = std::string(Advance().lexeme);
+            const std::string first(Advance().lexeme);
             if (Check(TokenKind::Identifier)) {
+                stmt->catchType = first;
                 stmt->catchVar = std::string(Advance().lexeme);
+            } else {
+                stmt->catchVar = first;
             }
         }
         if (hasParens) {

@@ -180,6 +180,8 @@ private:
 
     void LowerStmt(const Frontend::StmtNode& stmt);
     IRValue LowerExpr(const Frontend::ExprNode& expr);
+    IRValue OutlineLambda(const Frontend::ExprNode& call, const Frontend::ExprNode& lambda,
+                          const std::vector<std::uint32_t>& argIds);
 
     struct FnSig {
         const Frontend::DeclNode* decl = nullptr;
@@ -205,6 +207,7 @@ private:
     struct LiveObj {
         std::string varName;
         std::string dtorIrName;
+        const Frontend::StmtNode* deferBody = nullptr;
     };
     struct GenericInst {
         const Frontend::DeclNode* decl = nullptr;
@@ -213,6 +216,9 @@ private:
     };
 
     std::vector<std::vector<LiveObj>> m_scopes;
+    std::string m_catchLabel;
+    std::string m_catchVar;
+    int m_lambdaSerial = 0;
     std::string m_activeIrClass;
     std::vector<std::pair<std::string, Frontend::TypeNode>> m_subst;
     std::unordered_map<std::string, const Frontend::DeclNode*> m_classDecls;

@@ -1586,13 +1586,23 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  " << vname << " = select i1 " << cmp << ", i64 " << a << ", i64 " << b << "\n";
                 }
                 m_vals[id] = Val{ vname, NTy::I64 };
-            } else if (inst.textImm == "GPIO.Read" && !inst.operandIds.empty()) {
+            } else if ((inst.textImm == "GPIO.Read" || inst.textImm == "PWM.SetDuty" ||
+                        inst.textImm == "UART.Write" || inst.textImm == "SPI.Transfer" ||
+                        inst.textImm == "I2C.Write") &&
+                       !inst.operandIds.empty()) {
                 Val pin = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 if (m_ctx.options.freestanding) {
                     m_vals[id] = Val{ "1", NTy::I64 };
                     (void)pin;
-                } else {
+                } else if (inst.textImm == "GPIO.Read") {
                     m_body << "  " << vname << " = call i64 @rbx_gpio_read(i64 " << pin.repr << ")\n";
+                    m_vals[id] = Val{ vname, NTy::I64 };
+                } else {
+                    const int code = inst.textImm == "UART.Write" ? 2 : inst.textImm == "SPI.Transfer" ? 3
+                                                                       : inst.textImm == "I2C.Write"  ? 4
+                                                                                                      : 1;
+                    m_body << "  " << vname << " = call i64 @rbx_device_unavailable(i64 " << code
+                           << ", i64 " << pin.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 }
             } else if (inst.textImm == "Atomic.FetchAdd" && inst.operandIds.size() >= 2) {
@@ -1844,7 +1854,8 @@ bool FnEmitter::Emit() {
         return false;
     }
     m_ret = ret;
-    if (m_fn.isExtern) {
+    const bool exportC = m_fn.isExtern && !m_fn.blocks.empty();
+    if (m_fn.isExtern && !exportC) {
         m_out << "declare " << TyStr(ret) << " @" << m_fn.mangledName << "(";
         for (std::size_t i = 0; i < ptys.size(); ++i) {
             if (i > 0) m_out << ", ";
@@ -1890,7 +1901,9 @@ bool FnEmitter::Emit() {
 
     const bool isEntry = m_ctx.options.freestanding && m_fn.name == m_ctx.options.entryName;
     const bool cpuFn = m_ctx.cpuFns.count(m_fn.name) != 0;
-    if (isEntry) {
+    if (exportC) {
+        m_out << "define dso_local " << TyStr(ret) << " @" << m_fn.mangledName << "(";
+    } else if (isEntry) {
         m_out << "define dso_local " << TyStr(ret) << " @" << m_fn.name << "(";
     } else if (cpuFn) {
         m_out << "define dso_local " << TyStr(ret) << " @rbx_fn_" << m_fn.name << "(";
@@ -1911,7 +1924,9 @@ bool FnEmitter::Emit() {
         }
         if (isRecursive) break;
     }
-    if (isEntry) {
+    if (exportC) {
+        m_out << ") nounwind {\nentry:\n";
+    } else if (isEntry) {
         m_out << ") nounwind #0 section \".text.entry\" {\nentry:\n";
     } else if (cpuFn) {
         m_out << ") nounwind #0 {\nentry:\n";
@@ -2026,7 +2041,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
 
     NTy mainRet = NTy::Void;
-    if (!mainFn && nativeTests.empty()) {
+    if (!mainFn && nativeTests.empty() && !m_options.omitMain) {
         if (m_options.freestanding) {
             m_diagnostics.ReportError(
                 "N9002",
@@ -2097,6 +2112,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (needs("@rbx_gpio_read")) {
         out << "declare i64 @rbx_gpio_read(i64)\n";
+    }
+    if (needs("@rbx_device_unavailable")) {
+        out << "declare i64 @rbx_device_unavailable(i64, i64)\n";
     }
     if (needs("@rbx_add_pair")) {
         out << "declare i64 @rbx_add_pair(ptr, i64, i64)\n";
@@ -2234,7 +2252,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  call fastcc void @\"" << mainFn->mangledName << "\"()\n";
         }
         out << "  ret i32 0\n}\n\n";
-    } else if (!m_options.freestanding) {
+    } else if (!m_options.freestanding && !m_options.omitMain && mainFn) {
     out << "define i32 @main() #0 {\nentry:\n";
     if (mainRet == NTy::Void) {
         out << "  call fastcc void @\"" << mainFn->mangledName << "\"()\n  ret i32 0\n";

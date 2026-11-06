@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <sstream>
 
 namespace Robix::IR {
@@ -466,19 +467,36 @@ std::string SSAIRBuilder::DefiningClass(const Frontend::SemanticClassInfo& cls, 
 int SSAIRBuilder::VirtualSlot(const std::string& typeName, const std::string& method) const {
     const auto* cls = m_sema.FindClassOrType(typeName);
     if (!cls) return 0;
-    std::vector<std::string> order;
+    auto indexOf = [&](const std::vector<std::string>& order) {
+        for (std::size_t i = 0; i < order.size(); ++i) {
+            if (order[i] == method) return static_cast<int>(i);
+        }
+        return 0;
+    };
     if (cls->kind == Frontend::DeclKind::Interface || cls->kind == Frontend::DeclKind::Trait) {
+        int agreed = -1;
+        int implementers = 0;
+        for (const auto& entry : m_classDecls) {
+            const auto* info = m_sema.FindClassOrType(entry.first);
+            if (!info || info->kind != Frontend::DeclKind::Class) continue;
+            bool implements = false;
+            for (const auto& iface : info->implementedInterfaces) {
+                if (iface == typeName) implements = true;
+            }
+            if (!implements) continue;
+            ++implementers;
+            const int slot = indexOf(MethodOrder(*info));
+            if (agreed < 0) agreed = slot;
+        }
+        if (implementers >= 1 && agreed >= 0) return agreed;
+        std::vector<std::string> order;
         for (const auto& [name, info] : cls->methods) {
             if (!info.isStatic) order.push_back(name);
         }
         std::sort(order.begin(), order.end());
-    } else {
-        order = MethodOrder(*cls);
+        return indexOf(order);
     }
-    for (std::size_t i = 0; i < order.size(); ++i) {
-        if (order[i] == method) return static_cast<int>(i);
-    }
-    return 0;
+    return indexOf(MethodOrder(*cls));
 }
 
 void SSAIRBuilder::RecordVTable(const std::string& irName, const std::string& lookupName) {
@@ -503,8 +521,14 @@ void SSAIRBuilder::EmitScopeCleanups(std::size_t scopes, bool clear) {
     const std::size_t count = std::min(scopes, m_scopes.size());
     const std::size_t start = m_scopes.size() - count;
     for (std::size_t s = m_scopes.size(); s-- > start; ) {
-        auto& objs = m_scopes[s];
+        // Copy first. A defer body is a nested block and pushes another scope.
+        const std::vector<LiveObj> objs = m_scopes[s];
         for (auto it = objs.rbegin(); it != objs.rend(); ++it) {
+            if (it->deferBody != nullptr) {
+                LowerStmt(*it->deferBody);
+                continue;
+            }
+            if (it->varName.empty()) continue;
             Frontend::TypeNode ty;
             ty.baseName  = "Pointer";
             ty.isPointer = true;
@@ -529,7 +553,7 @@ void SSAIRBuilder::EmitScopeCleanups(std::size_t scopes, bool clear) {
             freeInst.operandIds = { obj };
             Emit(std::move(freeInst));
         }
-        if (clear) objs.clear();
+        if (clear && s < m_scopes.size()) m_scopes[s].clear();
     }
 }
 
@@ -690,6 +714,7 @@ void SSAIRBuilder::LowerFunctionOrMethod(const Frontend::DeclNode& decl,
         fn.name        = sig->irName;
         fn.mangledName = sig->mangled;
         fn.isExtern    = sig->isExtern;
+        if (sig->isExtern && decl.body) fn.mangledName = decl.name;
     }
 
     for (const auto& attr : decl.attributes) {
@@ -1266,12 +1291,130 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
                 Emit(std::move(backJmp));
 
                 m_currentBlockIdx = exitIdx;
-            } else {
-                m_diagnostics.ReportError(
-                    "I4010",
-                    "Collection iteration ('for x in collection') is not yet supported by the SSA IR backend.",
-                    stmt.location,
-                    "Use a numeric range loop ('for i in 0..N') or a 'while' loop.");
+            } else if (stmt.condition) {
+                IRValue coll = LowerExpr(*stmt.condition);
+                IRInstruction lenInst;
+                lenInst.opcode     = IROpcode::GetField;
+                lenInst.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                lenInst.textImm    = "len";
+                lenInst.intImm     = -1;
+                lenInst.operandIds = { coll.ssaId };
+                lenInst.location   = stmt.location;
+                IRValue lenVal     = lenInst.dest;
+                Emit(std::move(lenInst));
+
+                const std::string indexName = "__index_" + stmt.loopVar1 + "_" + std::to_string(stmt.location.line);
+                IRInstruction zero;
+                zero.opcode   = IROpcode::ConstInt;
+                zero.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                zero.intImm   = 0;
+                zero.location = stmt.location;
+                IRValue zeroVal = zero.dest;
+                Emit(std::move(zero));
+                IRInstruction storeInit;
+                storeInit.opcode     = IROpcode::StoreVar;
+                storeInit.textImm    = indexName;
+                storeInit.operandIds = { zeroVal.ssaId };
+                storeInit.location   = stmt.location;
+                Emit(std::move(storeInit));
+
+                const std::size_t condIdx = CreateBasicBlock("in_cond");
+                const std::size_t bodyIdx = CreateBasicBlock("in_body");
+                const std::size_t stepIdx = CreateBasicBlock("in_step");
+                const std::size_t exitIdx = CreateBasicBlock("in_exit");
+                const std::string condLabel = m_currentFn->blocks[condIdx].label;
+                const std::string bodyLabel = m_currentFn->blocks[bodyIdx].label;
+                const std::string stepLabel = m_currentFn->blocks[stepIdx].label;
+                const std::string exitLabel = m_currentFn->blocks[exitIdx].label;
+
+                IRInstruction jmpToCond;
+                jmpToCond.opcode   = IROpcode::Jump;
+                jmpToCond.textImm  = condLabel;
+                jmpToCond.location = stmt.location;
+                Emit(std::move(jmpToCond));
+
+                m_currentBlockIdx = condIdx;
+                IRInstruction loadIter;
+                loadIter.opcode   = IROpcode::LoadVar;
+                loadIter.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                loadIter.textImm  = indexName;
+                loadIter.location = stmt.location;
+                IRValue curIter   = loadIter.dest;
+                Emit(std::move(loadIter));
+                IRInstruction cmp;
+                cmp.opcode     = IROpcode::Lt;
+                cmp.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Bool") };
+                cmp.operandIds = { curIter.ssaId, lenVal.ssaId };
+                cmp.location   = stmt.location;
+                IRValue cmpVal = cmp.dest;
+                Emit(std::move(cmp));
+                IRInstruction br;
+                br.opcode        = IROpcode::BranchCond;
+                br.operandIds    = { cmpVal.ssaId };
+                br.textImm       = bodyLabel;
+                br.secondaryText = exitLabel;
+                br.location      = stmt.location;
+                Emit(std::move(br));
+
+                m_currentBlockIdx = bodyIdx;
+                IRInstruction loaded;
+                loaded.opcode     = IROpcode::LoadIndex;
+                loaded.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                loaded.operandIds = { coll.ssaId, curIter.ssaId };
+                loaded.location   = stmt.location;
+                IRValue elem      = loaded.dest;
+                Emit(std::move(loaded));
+                IRInstruction storeElem;
+                storeElem.opcode     = IROpcode::StoreVar;
+                storeElem.textImm    = stmt.loopVar1;
+                storeElem.operandIds = { elem.ssaId };
+                storeElem.location   = stmt.location;
+                Emit(std::move(storeElem));
+                m_loopTargets.push_back(LoopTargets{ exitLabel, stepLabel });
+                if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
+                m_loopTargets.pop_back();
+                if (!CurrentBlockHasTerminator()) {
+                    IRInstruction toStep;
+                    toStep.opcode   = IROpcode::Jump;
+                    toStep.textImm  = stepLabel;
+                    toStep.location = stmt.location;
+                    Emit(std::move(toStep));
+                }
+
+                m_currentBlockIdx = stepIdx;
+                IRInstruction loadCur;
+                loadCur.opcode   = IROpcode::LoadVar;
+                loadCur.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                loadCur.textImm  = indexName;
+                loadCur.location = stmt.location;
+                IRValue curV     = loadCur.dest;
+                Emit(std::move(loadCur));
+                IRInstruction one;
+                one.opcode   = IROpcode::ConstInt;
+                one.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                one.intImm   = 1;
+                one.location = stmt.location;
+                IRValue oneVal = one.dest;
+                Emit(std::move(one));
+                IRInstruction nextAdd;
+                nextAdd.opcode     = IROpcode::Add;
+                nextAdd.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                nextAdd.operandIds = { curV.ssaId, oneVal.ssaId };
+                nextAdd.location   = stmt.location;
+                IRValue nextV      = nextAdd.dest;
+                Emit(std::move(nextAdd));
+                IRInstruction storeNext;
+                storeNext.opcode     = IROpcode::StoreVar;
+                storeNext.textImm    = indexName;
+                storeNext.operandIds = { nextV.ssaId };
+                storeNext.location   = stmt.location;
+                Emit(std::move(storeNext));
+                IRInstruction backJmp;
+                backJmp.opcode   = IROpcode::Jump;
+                backJmp.textImm  = condLabel;
+                backJmp.location = stmt.location;
+                Emit(std::move(backJmp));
+                m_currentBlockIdx = exitIdx;
             }
             break;
         }
@@ -1310,14 +1453,166 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             break;
         }
 
-        case Frontend::StmtKind::MatchStmt:
-        case Frontend::StmtKind::TryCatchStmt:
+        case Frontend::StmtKind::MatchStmt: {
+            if (!stmt.condition || !m_currentFn) break;
+            IRValue scrutinee = LowerExpr(*stmt.condition);
+            IRInstruction tagInst;
+            tagInst.opcode     = IROpcode::GetField;
+            tagInst.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+            tagInst.textImm    = "tag";
+            tagInst.intImm     = 0;
+            tagInst.operandIds = { scrutinee.ssaId };
+            tagInst.location   = stmt.location;
+            IRValue tagVal     = tagInst.dest;
+            Emit(std::move(tagInst));
+            IRInstruction valueInst;
+            valueInst.opcode     = IROpcode::GetField;
+            valueInst.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+            valueInst.textImm    = "value";
+            valueInst.intImm     = 1;
+            valueInst.operandIds = { scrutinee.ssaId };
+            valueInst.location   = stmt.location;
+            IRValue valueVal     = valueInst.dest;
+            Emit(std::move(valueInst));
+
+            const std::size_t mergeIdx = CreateBasicBlock("match_merge");
+            const std::string mergeLabel = m_currentFn->blocks[mergeIdx].label;
+            for (std::size_t armIndex = 0; armIndex < stmt.matchArms.size(); ++armIndex) {
+                const auto& arm = stmt.matchArms[armIndex];
+                const std::size_t bodyIdx = CreateBasicBlock("match_arm");
+                const bool last = armIndex + 1 == stmt.matchArms.size();
+                const std::size_t nextIdx = last ? mergeIdx : CreateBasicBlock("match_next");
+                const std::string bodyLabel = m_currentFn->blocks[bodyIdx].label;
+                const std::string nextLabel = m_currentFn->blocks[nextIdx].label;
+                const bool isDefault = arm.patternName == "_" || arm.patternName == "default";
+                if (!isDefault && arm.patternName != "Success" && arm.patternName != "Error" &&
+                    arm.patternName != "Some" && arm.patternName != "None") {
+                    m_diagnostics.ReportError(
+                        "I4010",
+                        "Match pattern '" + arm.patternName + "' is not supported.",
+                        arm.location,
+                        "Use Success, Error, Some, None, or _.");
+                }
+                if (isDefault) {
+                    IRInstruction jmp;
+                    jmp.opcode   = IROpcode::Jump;
+                    jmp.textImm  = bodyLabel;
+                    jmp.location = arm.location;
+                    Emit(std::move(jmp));
+                } else {
+                    const std::int64_t expected =
+                        (arm.patternName == "Success" || arm.patternName == "Some") ? 1 : 0;
+                    IRInstruction expect;
+                    expect.opcode   = IROpcode::ConstInt;
+                    expect.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                    expect.intImm   = expected;
+                    expect.location = arm.location;
+                    IRValue expectVal = expect.dest;
+                    Emit(std::move(expect));
+                    IRInstruction eq;
+                    eq.opcode     = IROpcode::Eq;
+                    eq.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Bool") };
+                    eq.operandIds = { tagVal.ssaId, expectVal.ssaId };
+                    eq.location   = arm.location;
+                    IRValue eqVal = eq.dest;
+                    Emit(std::move(eq));
+                    IRInstruction brArm;
+                    brArm.opcode        = IROpcode::BranchCond;
+                    brArm.operandIds    = { eqVal.ssaId };
+                    brArm.textImm       = bodyLabel;
+                    brArm.secondaryText = nextLabel;
+                    brArm.location      = arm.location;
+                    Emit(std::move(brArm));
+                }
+                m_currentBlockIdx = bodyIdx;
+                if (!arm.bindingVar.empty()) {
+                    IRInstruction storeBind;
+                    storeBind.opcode     = IROpcode::StoreVar;
+                    storeBind.textImm    = arm.bindingVar;
+                    storeBind.operandIds = { valueVal.ssaId };
+                    storeBind.location   = arm.location;
+                    Emit(std::move(storeBind));
+                }
+                if (arm.bodyStmt) LowerStmt(*arm.bodyStmt);
+                else if (arm.bodyExpr) (void)LowerExpr(*arm.bodyExpr);
+                if (!CurrentBlockHasTerminator()) {
+                    IRInstruction toMerge;
+                    toMerge.opcode   = IROpcode::Jump;
+                    toMerge.textImm  = mergeLabel;
+                    toMerge.location = arm.location;
+                    Emit(std::move(toMerge));
+                }
+                m_currentBlockIdx = nextIdx;
+            }
+            m_currentBlockIdx = mergeIdx;
+            break;
+        }
+
+        case Frontend::StmtKind::TryCatchStmt: {
+            const std::size_t catchIdx = CreateBasicBlock("catch");
+            const std::size_t contIdx = CreateBasicBlock("try_cont");
+            const std::size_t finallyIdx = stmt.finallyBranch ? CreateBasicBlock("finally") : contIdx;
+            const std::string previousLabel = m_catchLabel;
+            const std::string previousVar = m_catchVar;
+            m_catchLabel = m_currentFn->blocks[catchIdx].label;
+            m_catchVar = stmt.catchVar;
+            if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
+            if (!CurrentBlockHasTerminator()) {
+                IRInstruction toNext;
+                toNext.opcode   = IROpcode::Jump;
+                toNext.textImm  = m_currentFn->blocks[finallyIdx].label;
+                toNext.location = stmt.location;
+                Emit(std::move(toNext));
+            }
+            m_catchLabel = previousLabel;
+            m_catchVar = previousVar;
+            m_currentBlockIdx = catchIdx;
+            if (stmt.catchBranch) LowerStmt(*stmt.catchBranch);
+            if (!CurrentBlockHasTerminator()) {
+                IRInstruction toNext;
+                toNext.opcode   = IROpcode::Jump;
+                toNext.textImm  = m_currentFn->blocks[finallyIdx].label;
+                toNext.location = stmt.location;
+                Emit(std::move(toNext));
+            }
+            if (stmt.finallyBranch) {
+                m_currentBlockIdx = finallyIdx;
+                LowerStmt(*stmt.finallyBranch);
+                if (!CurrentBlockHasTerminator()) {
+                    IRInstruction toCont;
+                    toCont.opcode   = IROpcode::Jump;
+                    toCont.textImm  = m_currentFn->blocks[contIdx].label;
+                    toCont.location = stmt.location;
+                    Emit(std::move(toCont));
+                }
+            }
+            m_currentBlockIdx = contIdx;
+            break;
+        }
+
         case Frontend::StmtKind::ThrowStmt: {
-            m_diagnostics.ReportError(
-                "I4010",
-                "This statement kind (match/try/throw) is not yet supported by the SSA IR backend.",
-                stmt.location,
-                "Use if/else chains instead; match/try/throw lowering is not implemented yet.");
+            if (m_catchLabel.empty()) {
+                m_diagnostics.ReportError(
+                    "I4010",
+                    "throw is outside try.",
+                    stmt.location,
+                    "Put throw inside a try block in the same function.");
+                break;
+            }
+            if (stmt.condition && !m_catchVar.empty()) {
+                IRValue thrown = LowerExpr(*stmt.condition);
+                IRInstruction storeThrown;
+                storeThrown.opcode     = IROpcode::StoreVar;
+                storeThrown.textImm    = m_catchVar;
+                storeThrown.operandIds = { thrown.ssaId };
+                storeThrown.location   = stmt.location;
+                Emit(std::move(storeThrown));
+            }
+            IRInstruction jmp;
+            jmp.opcode   = IROpcode::Jump;
+            jmp.textImm  = m_catchLabel;
+            jmp.location = stmt.location;
+            Emit(std::move(jmp));
             break;
         }
 
@@ -1340,7 +1635,16 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
             break;
         }
 
-        case Frontend::StmtKind::DeferStmt:
+        case Frontend::StmtKind::DeferStmt: {
+            if (m_scopes.empty()) m_scopes.emplace_back();
+            if (stmt.thenBranch) {
+                LiveObj live;
+                live.deferBody = stmt.thenBranch.get();
+                m_scopes.back().push_back(std::move(live));
+            }
+            break;
+        }
+
         case Frontend::StmtKind::UsingStmt: {
             if (stmt.initializer) {
                 IRValue v = LowerExpr(*stmt.initializer);
@@ -1353,14 +1657,7 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
                     Emit(std::move(st));
                 }
             }
-            if (stmt.thenBranch) {
-                LowerStmt(*stmt.thenBranch);
-            }
-            IRInstruction def;
-            def.opcode   = IROpcode::DeferCleanup;
-            def.textImm  = stmt.varName.empty() ? "defer" : stmt.varName;
-            def.location = stmt.location;
-            Emit(std::move(def));
+            if (stmt.thenBranch) LowerStmt(*stmt.thenBranch);
             break;
         }
 
@@ -1394,6 +1691,128 @@ void SSAIRBuilder::LowerStmt(const Frontend::StmtNode& stmt) {
         default:
             break;
     }
+}
+
+IRValue SSAIRBuilder::OutlineLambda(const Frontend::ExprNode& call, const Frontend::ExprNode& lambda,
+                                    const std::vector<std::uint32_t>& argIds) {
+    if (!m_module || !m_currentFn) return IRValue{};
+    std::unordered_set<std::string> bound(lambda.lambdaParams.begin(), lambda.lambdaParams.end());
+    std::vector<std::string> captures;
+    std::unordered_set<std::string> seen;
+    const auto remember = [&](const std::string& name) {
+        if (name.empty() || bound.count(name) != 0 || seen.count(name) != 0) return;
+        for (const auto& sig : m_sigs) {
+            if (sig.sourceName == name) return;
+        }
+        if (name == "Print" || name == "Success" || name == "Error" || name == "Some" || name == "None" ||
+            name == "this") {
+            return;
+        }
+        seen.insert(name);
+        captures.push_back(name);
+    };
+    const auto walkExpr = [&](const auto& self, const Frontend::ExprNode& expr) -> void {
+        if (expr.kind == Frontend::ExprKind::Identifier) remember(expr.text);
+        if (expr.kind == Frontend::ExprKind::Call && expr.left &&
+            expr.left->kind == Frontend::ExprKind::Identifier) {
+            for (const auto& arg : expr.arguments) {
+                if (arg) self(self, *arg);
+            }
+            return;
+        }
+        if (expr.left) self(self, *expr.left);
+        if (expr.right) self(self, *expr.right);
+        for (const auto& arg : expr.arguments) {
+            if (arg) self(self, *arg);
+        }
+    };
+    const auto walkStmt = [&](const auto& self, const Frontend::StmtNode& stmt) -> void {
+        if (stmt.condition) walkExpr(walkExpr, *stmt.condition);
+        if (stmt.initializer) walkExpr(walkExpr, *stmt.initializer);
+        if (stmt.stepExpr) walkExpr(walkExpr, *stmt.stepExpr);
+        if (stmt.thenBranch) self(self, *stmt.thenBranch);
+        if (stmt.elseBranch) self(self, *stmt.elseBranch);
+        if (stmt.catchBranch) self(self, *stmt.catchBranch);
+        if (stmt.finallyBranch) self(self, *stmt.finallyBranch);
+        for (const auto& child : stmt.statements) {
+            if (child) self(self, *child);
+        }
+    };
+    if (lambda.left) walkExpr(walkExpr, *lambda.left);
+    if (lambda.lambdaBody) walkStmt(walkStmt, *lambda.lambdaBody);
+
+    const std::size_t callerIndex = static_cast<std::size_t>(m_currentFn - m_module->functions.data());
+    const int savedCounter = m_blockCounter;
+    const std::size_t savedBlock = m_currentBlockIdx;
+    auto savedScopes = std::move(m_scopes);
+    const std::string savedCatch = m_catchLabel;
+    const std::string savedCatchVar = m_catchVar;
+    m_scopes.clear();
+    m_catchLabel.clear();
+    m_catchVar.clear();
+
+    IRFunction fn;
+    fn.name = "__lambda_" + std::to_string(++m_lambdaSerial);
+    fn.mangledName = fn.name;
+    fn.returnType = lambda.left != nullptr ? MakePrim("Int") : MakePrim("Int");
+    fn.location = lambda.location;
+    for (const auto& name : captures) {
+        fn.parameters.push_back(Frontend::FunctionParamInfo{ name, MakePrim("Int"), false, false, false });
+    }
+    for (const auto& name : lambda.lambdaParams) {
+        fn.parameters.push_back(Frontend::FunctionParamInfo{ name, MakePrim("Int"), false, false, false });
+    }
+    m_module->functions.push_back(std::move(fn));
+    m_currentFn = &m_module->functions.back();
+    m_blockCounter = 0;
+    m_currentBlockIdx = CreateBasicBlock("entry");
+    if (lambda.lambdaBody) {
+        LowerStmt(*lambda.lambdaBody);
+    } else if (lambda.left) {
+        IRValue result = LowerExpr(*lambda.left);
+        IRInstruction ret;
+        ret.opcode = IROpcode::ReturnVal;
+        ret.operandIds = { result.ssaId };
+        ret.location = lambda.location;
+        Emit(std::move(ret));
+    }
+    if (!CurrentBlockHasTerminator()) {
+        IRInstruction ret;
+        ret.opcode = IROpcode::ReturnVoid;
+        ret.location = lambda.location;
+        Emit(std::move(ret));
+        m_currentFn->returnType = MakePrim("Void");
+    }
+    const std::string lambdaName = m_currentFn->name;
+    const auto returnType = m_currentFn->returnType;
+
+    m_currentFn = &m_module->functions[callerIndex];
+    m_blockCounter = savedCounter;
+    m_currentBlockIdx = savedBlock;
+    m_scopes = std::move(savedScopes);
+    m_catchLabel = savedCatch;
+    m_catchVar = savedCatchVar;
+
+    std::vector<std::uint32_t> ids;
+    for (const auto& name : captures) {
+        IRInstruction load;
+        load.opcode = IROpcode::LoadVar;
+        load.dest = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+        load.textImm = name;
+        load.location = call.location;
+        ids.push_back(load.dest.ssaId);
+        Emit(std::move(load));
+    }
+    ids.insert(ids.end(), argIds.begin(), argIds.end());
+    IRInstruction invoke;
+    invoke.opcode = IROpcode::CallDirect;
+    invoke.dest = IRValue{ m_currentFn->AllocateSSAId(), returnType };
+    invoke.textImm = lambdaName;
+    invoke.operandIds = std::move(ids);
+    invoke.location = call.location;
+    IRValue out = invoke.dest;
+    Emit(std::move(invoke));
+    return out;
 }
 
 IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
@@ -1867,6 +2286,10 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 }
             }
 
+            if (expr.left && expr.left->kind == Frontend::ExprKind::Lambda) {
+                return OutlineLambda(expr, *expr.left, argIds);
+            }
+
             if (expr.left && expr.left->kind == Frontend::ExprKind::Identifier) {
                 const std::string& fnName = expr.left->text;
                 if (fnName == "Abort" || fnName == "Panic") {
@@ -2003,6 +2426,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 if (receiverExpr.kind == Frontend::ExprKind::Identifier &&
                     (receiverExpr.text == "File" || receiverExpr.text == "Thread" ||
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
+                     receiverExpr.text == "PWM" || receiverExpr.text == "UART" ||
+                     receiverExpr.text == "SPI" || receiverExpr.text == "I2C" ||
                      receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
                      receiverExpr.text == "Cpu" || receiverExpr.text == "System" ||
@@ -2036,6 +2461,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty = MakePrim("Bool");
                     } else if (receiverExpr.text == "Math" ||
                                (receiverExpr.text == "GPIO" && memberName == "Read") ||
+                               receiverExpr.text == "PWM" || receiverExpr.text == "UART" ||
+                               receiverExpr.text == "SPI" || receiverExpr.text == "I2C" ||
                                (receiverExpr.text == "Atomic" && memberName == "FetchAdd") ||
                                (receiverExpr.text == "Thread" && memberName == "AddPair")) {
                         ty = MakePrim("Int");

@@ -81,22 +81,33 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
 
     const bool optimize = options.release;
     std::string clangTarget = options.clangTarget;
-    if (clangTarget.empty()) {
-        clangTarget = options.outputKind == NativeOutputKind::BootImage ? "x86_64-elf" : options.targetTriple;
+    if (clangTarget.empty() && options.outputKind == NativeOutputKind::BootImage) {
+        clangTarget = "x86_64-elf";
+    } else if (clangTarget.empty()) {
+        clangTarget = options.targetTriple;
     }
     std::ostringstream compile;
-    compile << Quote(clang) << " --target=" << clangTarget
-            << " -c -ffreestanding -fno-stack-protector -fno-asynchronous-unwind-tables "
+    compile << Quote(clang) << " ";
+    if (!clangTarget.empty()) {
+        compile << "--target=" << clangTarget << " ";
+    }
+    compile << "-c -ffreestanding -fno-stack-protector -fno-asynchronous-unwind-tables "
             << (optimize ? "-O3 " : "-O0 ");
-    if (options.asmArch == "x86_64") {
+    if (options.asmArch == "x86_64" && !clangTarget.empty()) {
         compile << "-mno-red-zone -mgeneral-regs-only -mno-sse -mno-mmx ";
     }
     const fs::path object = work / (output.stem().string() + ".payload.o");
     compile << "-Wno-override-module " << Quote(llvmIR.string()) << " -o " << Quote(object.string());
-    if (RunProcess(compile.str(), res.toolOutput) != 0 || !FileExists(object)) {
+    std::string compileLog;
+    if (RunProcess(compile.str(), compileLog) != 0 || !FileExists(object)) {
+        res.toolOutput += compileLog;
         res.diagnosticsText += "error: freestanding compile failed:\n" + res.toolOutput;
         return res;
     }
+    if (!options.profileName.empty()) {
+        res.toolOutput += "compile: " + compile.str() + "\n";
+    }
+    res.toolOutput += compileLog;
 
     if (options.outputKind == NativeOutputKind::BootImage && options.asmArch != "x86_64") {
         const fs::path lld = binDir / "ld.lld.exe";
@@ -415,6 +426,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     emitOpts.tripleOverride = options.targetTriple;
     emitOpts.layoutOverride = options.dataLayout;
     emitOpts.debugLines = options.debugLines;
+    emitOpts.omitMain = options.omitMain;
     CodeGen::NativeLLVMEmitter emitter(diags, emitOpts);
     std::optional<std::string> llvmIR = emitter.Emit(irMod);
     res.diagnosticsText = diags.FormatHumanReadable();
@@ -507,12 +519,38 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
             fs::remove(llPath, ec);
             linked.llvmIRPath.clear();
         }
+        if (!options.profileName.empty()) {
+            linked.toolOutput += "profile: " + options.profileName + "\n";
+        }
         return linked;
+    }
+
+    if (options.omitMain) {
+        std::ostringstream objCmd;
+        objCmd << Quote(clang) << " -c -Wno-override-module " << Quote(codegenInput.string())
+               << " -o " << Quote(exePath.string());
+        if (RunProcess(objCmd.str(), res.toolOutput) != 0 || !FileExists(exePath)) {
+            res.diagnosticsText += "error: object compile failed:\n" + res.toolOutput;
+            return res;
+        }
+        res.success = true;
+        res.executablePath = exePath.string();
+        res.toolOutput += "output: object\n";
+        return res;
     }
 
     std::ostringstream cmd;
     cmd << Quote(clang);
-    if (options.release) {
+    if (options.profileName == "size") {
+        cmd << " -Oz -ffunction-sections -fdata-sections -Wl,/OPT:REF ";
+    } else if (options.profileName == "realtime") {
+        cmd << " -O2 -fno-strict-aliasing ";
+    } else if (options.profileName == "safety") {
+        cmd << " -O0 ";
+    } else if (options.profileName == "performance") {
+        cmd << " -O3 -march=native -funroll-loops -fno-slp-vectorize "
+            << "-ffunction-sections -fdata-sections -Wl,/OPT:REF -Wl,/OPT:ICF ";
+    } else if (options.release) {
         // opt already applied vertical SLP. A second SLP pass rebuilds the
         // horizontal reductions that pass rejected. 32-byte loop alignment
         // keeps tight loops off a 32-byte boundary. /OPT:REF drops runtime
@@ -537,9 +575,17 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     }
     cmd << Quote(codegenInput.string()) << " -o " << Quote(exePath.string());
 
-    const int code = RunProcess(cmd.str(), res.toolOutput);
+    std::string linkLog;
+    const int code = RunProcess(cmd.str(), linkLog);
+    if (!options.profileName.empty()) {
+        res.toolOutput += "link: " + cmd.str() + "\n";
+    }
+    res.toolOutput += linkLog;
     if (options.linkNetwork) res.toolOutput += "network-runtime: linked " + options.networkObjectPath + "\n";
     else res.toolOutput += "network-runtime: omitted\n";
+    if (!options.profileName.empty()) {
+        res.toolOutput += "profile: " + options.profileName + "\n";
+    }
     {
         std::error_code ec;
         fs::remove(optIR, ec);

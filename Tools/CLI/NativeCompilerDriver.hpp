@@ -29,6 +29,8 @@ struct NativeBuildOptions {
     std::string imageRole = "Kernel"; // .rbxb Output: Kernel or Firmware
     bool linkNetwork = false;
     bool debugLines = false;
+    bool omitMain = false;
+    std::string profileName;
     std::string networkObjectPath;
 };
 

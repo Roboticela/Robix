@@ -857,7 +857,7 @@ void TypeChecker::CheckStatement(StmtNode& stmt) {
                 if (!stmt.catchVar.empty()) {
                     SymbolInfo errSym{
                         stmt.catchVar,
-                        MakePrimitiveType(stmt.catchType.empty() ? "Error" : stmt.catchType),
+                        MakePrimitiveType(stmt.catchType.empty() ? "Int" : stmt.catchType),
                         VarMutability::ImmutableLet,
                         true,
                         false,
@@ -919,7 +919,9 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
         }
 
         case ExprKind::Identifier: {
-            if (expr.text == "Memory" || expr.text == "GPIO" || expr.text == "File" ||
+            if (expr.text == "Memory" || expr.text == "GPIO" || expr.text == "PWM" ||
+                expr.text == "UART" || expr.text == "SPI" || expr.text == "I2C" ||
+                expr.text == "File" ||
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "Volatile" ||
@@ -1541,6 +1543,9 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             }
 
             TypeNode calleeType = expr.left ? CheckExpression(*expr.left) : MakePrimitiveType("Any");
+            if (expr.left && expr.left->kind == ExprKind::Lambda) {
+                calleeType = MakePrimitiveType("Int");
+            }
             expr.inferredType = calleeType;
             return expr.inferredType;
         }
@@ -1567,11 +1572,14 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
         case ExprKind::Lambda: {
             PushScope();
             for (const auto& p : expr.lambdaParams) {
-                SymbolInfo sym{ p, MakePrimitiveType("Any"), VarMutability::ImmutableLet, true, false, expr.location };
+                SymbolInfo sym{ p, MakePrimitiveType("Int"), VarMutability::ImmutableLet, true, false, expr.location };
                 DeclareLocal(sym);
             }
             if (expr.lambdaBody) {
+                auto* savedFunction = m_currentFunction;
+                m_currentFunction = nullptr;
                 CheckStatement(*expr.lambdaBody);
+                m_currentFunction = savedFunction;
             }
             PopScope();
             expr.inferredType = MakePrimitiveType("Function");

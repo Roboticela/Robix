@@ -110,6 +110,15 @@ char* rbx_read_text(const char* path) {
     return text;
 }
 
+std::int64_t rbx_device_unavailable(std::int64_t code, std::int64_t id) {
+    const char* name = "PWM.SetDuty";
+    if (code == 2) name = "UART.Write";
+    else if (code == 3) name = "SPI.Transfer";
+    else if (code == 4) name = "I2C.Write";
+    std::fprintf(stderr, "%s is not available on this target (%lld)\n", name, static_cast<long long>(id));
+    return 1;
+}
+
 std::int64_t rbx_gpio_read(std::int64_t pin) {
     std::fprintf(stderr, "GPIO.Read is not available on this target (pin %lld)\n",
                  static_cast<long long>(pin));

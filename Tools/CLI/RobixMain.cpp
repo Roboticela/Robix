@@ -40,6 +40,7 @@ static void PrintHelp() {
         << "    restore                             Check every locked hash and signature\n"
         << "    ui validate <file.rbxu> --code <file.rbx>   Parse, lay out, and type-check event handlers\n"
         << "    ui render <file.rbxu> -o <file.bmp>         Draw one software frame as a BMP\n"
+        << "    ui window <file.rbxu>                       Open that frame in a Win32 window, then close it\n"
         << "    network check <project>             Check a Network block, contract, and env split\n"
         << "    network run <project>               Run the local contract call, timeout, and TLS handshake\n"
         << "    format <file.rbx> [--check]         Rewrite source with 4-space indentation\n"
@@ -210,9 +211,15 @@ int main(int argc, char* argv[]) {
 
     if (cmd == "new") {
         std::string name = "App";
+        std::string style = "SingleFile";
+        bool tookName = false;
         for (std::size_t i = 1; i < args.size(); ++i) {
-            if (!args[i].empty() && args[i][0] != '-') {
+            if (args[i].empty() || args[i][0] == '-') continue;
+            if (!tookName) {
                 name = args[i];
+                tookName = true;
+            } else {
+                style = args[i];
                 break;
             }
         }
@@ -222,15 +229,15 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         const fs::path dir = fs::path(name);
-        const fs::path file = dir / "Main.rbx";
+        const fs::path file = style == "SingleFile" ? dir / "Main.rbx" : dir / "Source" / "Main.rbx";
         std::error_code ec;
         if (fs::exists(file)) {
             std::cerr << "robix new: '" << file.string() << "' already exists.\n";
             return 1;
         }
-        fs::create_directories(dir, ec);
+        fs::create_directories(file.parent_path(), ec);
         if (ec) {
-            std::cerr << "robix new: could not create '" << dir.string() << "'.\n";
+            std::cerr << "robix new: could not create '" << file.parent_path().string() << "'.\n";
             return 1;
         }
         std::ofstream out(file, std::ios::binary | std::ios::trunc);
@@ -238,11 +245,32 @@ int main(int argc, char* argv[]) {
             std::cerr << "robix new: could not write '" << file.string() << "'.\n";
             return 1;
         }
-        out << "package " << name << ";\n\n"
-            << "public Function Main() -> Void {\n"
-            << "    Print(\"Hello from Robix\");\n"
-            << "}\n";
-        std::cout << "robix new: wrote " << file.string() << "\n";
+        const char* body = "    Print(\"Hello from Robix\");\n";
+        if (style == "Application") body = "    Print(1);\n";
+        else if (style == "Game") body = "    Int score = 3;\n    Print(score);\n";
+        else if (style == "Library") body = "    Print(LibraryValue());\n";
+        else if (style == "Embedded") body = "    Print(5);\n";
+        else if (style == "System") body = "    Print(Boot());\n";
+        else if (style == "Network") body = "    Print(7);\n";
+        else if (style == "Custom") body = "    Print(8);\n";
+        else if (style != "SingleFile") {
+            std::cerr << "robix new: unknown style '" << style << "'.\n";
+            return 1;
+        }
+        out << "package " << name << ";\n\n";
+        if (style == "Library") {
+            out << "public Function LibraryValue() -> Int {\n    return 4;\n}\n\n";
+        } else if (style == "System") {
+            out << "public Function Boot() -> Int {\n    return 6;\n}\n\n";
+        }
+        out << "public Function Main() -> Void {\n" << body << "}\n";
+        if (style != "SingleFile") {
+            std::ofstream project(dir / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
+            project << "Name: " << name << "\nSourceDir: Source\n";
+            if (style == "Network") project << "Network: true\n";
+            std::cout << "robix new: wrote " << (dir / (name + ".rbxproj")).string() << "\n";
+        }
+        std::cout << "robix new: wrote " << file.string() << " style " << style << "\n";
         return 0;
     }
 
