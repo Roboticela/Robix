@@ -221,14 +221,14 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     std::ostringstream cmd;
     cmd << Quote(clang);
     if (options.release) {
-        // opt already applied vertical SLP. A second SLP pass here would
-        // rebuild the horizontal reductions that pass rejected.
-        // 32-byte loop alignment keeps tight loops (Collatz, perlbench) off
-        // the Kaby Lake 32-byte boundary penalty. Branch padding matches the
-        // assembler mitigation Clang applies to -march=native C.
+        // opt already applied vertical SLP. A second SLP pass rebuilds the
+        // horizontal reductions that pass rejected. 32-byte loop alignment
+        // keeps tight loops off a 32-byte boundary. /OPT:REF drops runtime
+        // functions this program does not call.
         cmd << " -O3 -march=native -fno-slp-vectorize "
             << "-mllvm -x86-align-branch-boundary=32 -mllvm -x86-align-branch=fused+jcc+jmp "
-            << "-mllvm -x86-experimental-pref-innermost-loop-alignment=5 ";
+            << "-mllvm -x86-experimental-pref-innermost-loop-alignment=5 "
+            << "-ffunction-sections -fdata-sections -Wl,/OPT:REF -Wl,/OPT:ICF ";
     } else {
         cmd << " -O0 ";
     }

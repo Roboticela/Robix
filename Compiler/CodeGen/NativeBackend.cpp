@@ -141,6 +141,7 @@ struct ModuleCtx {
     Frontend::DiagnosticBag& diags;
     std::unordered_map<std::string, const IR::IRFunction*> byName;
     std::vector<std::string> stringLiterals;
+    int printFmt = -1;
     const IR::IRModule* module = nullptr;
     const NativeEmitOptions& options;
     explicit ModuleCtx(Frontend::DiagnosticBag& d, const NativeEmitOptions& opts)
@@ -510,6 +511,83 @@ private:
         return it != m_defs.end() && it->second.uns;
     }
 
+    // True when this condition's taken edge means "the variable is divisible by 2".
+    // Toward-zero division of an even integer by 2 is an arithmetic shift.
+    bool EdgeProvesEven(std::uint32_t condId, const std::string& var, bool trueEdge) const {
+        auto it = m_defs.find(condId);
+        if (it == m_defs.end()) return false;
+        if (it->second.op != IR::IROpcode::Eq && it->second.op != IR::IROpcode::Ne) return false;
+        std::int64_t imm = 0;
+        std::uint32_t other = 0;
+        if (ConstOf(it->second.op0, imm)) other = it->second.op1;
+        else if (ConstOf(it->second.op1, imm)) other = it->second.op0;
+        else return false;
+        if (imm != 0) return false;
+        const bool eq = it->second.op == IR::IROpcode::Eq;
+        if (trueEdge != eq) return false;
+        auto mod = m_defs.find(other);
+        if (mod == m_defs.end() || mod->second.op != IR::IROpcode::Mod) return false;
+        std::int64_t divisor = 0;
+        if (!ConstOf(mod->second.op1, divisor) || divisor != 2) return false;
+        const SwitchKey key = MakeKey(mod->second.op0);
+        return key.ok && key.isLoad && key.var == var;
+    }
+
+    bool ModUsedOnlyAsZeroTest(std::uint32_t modId) const {
+        bool saw = false;
+        for (const auto& bb : m_fn.blocks) {
+            for (const auto& inst : bb.instructions) {
+                if (inst.isDead) continue;
+                bool uses = false;
+                for (std::uint32_t op : inst.operandIds) {
+                    if (op == modId) uses = true;
+                }
+                if (!uses) continue;
+                saw = true;
+                if (inst.opcode != IR::IROpcode::Eq && inst.opcode != IR::IROpcode::Ne) return false;
+                std::int64_t imm = 0;
+                const bool left = inst.operandIds.size() > 0 && inst.operandIds[0] == modId;
+                const std::uint32_t other = left ? (inst.operandIds.size() > 1 ? inst.operandIds[1] : 0)
+                                                 : (inst.operandIds.empty() ? 0 : inst.operandIds[0]);
+                if (!ConstOf(other, imm) || imm != 0) return false;
+            }
+        }
+        return saw;
+    }
+
+    bool DividendKnownEven(std::uint32_t ssa) const {
+        const SwitchKey key = MakeKey(ssa);
+        if (!key.ok || !key.isLoad || m_blockLabel.empty()) return false;
+        bool saw = false;
+        for (const auto& bb : m_fn.blocks) {
+            const IR::IRInstruction* term = nullptr;
+            for (const auto& inst : bb.instructions) {
+                if (inst.isDead) continue;
+                if (IR::IsTerminatorOpcode(inst.opcode)) term = &inst;
+            }
+            if (term == nullptr) continue;
+            if (term->opcode == IR::IROpcode::Jump && term->textImm == m_blockLabel) return false;
+            if (term->opcode != IR::IROpcode::BranchCond || term->operandIds.empty()) continue;
+            if (term->textImm == m_blockLabel) {
+                saw = true;
+                if (!EdgeProvesEven(term->operandIds[0], key.var, true)) return false;
+            } else if (term->secondaryText == m_blockLabel) {
+                saw = true;
+                if (!EdgeProvesEven(term->operandIds[0], key.var, false)) return false;
+            }
+        }
+        if (!saw) return false;
+        const auto bit = m_blockOf.find(m_blockLabel);
+        if (bit == m_blockOf.end()) return false;
+        for (const auto& inst : m_fn.blocks[bit->second].instructions) {
+            if (inst.opcode == IR::IROpcode::Div && !inst.operandIds.empty() && inst.operandIds[0] == ssa) {
+                return true;
+            }
+            if (inst.opcode == IR::IROpcode::StoreVar && inst.textImm == key.var) return false;
+        }
+        return false;
+    }
+
     const char* WidthTy(std::int64_t width) const noexcept {
         if (width == 1) return "i8";
         if (width == 2) return "i16";
@@ -652,6 +730,22 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     } else {
                         m_body << "  " << vname << " = and " << TyStr(t) << " " << a.repr << ", " << (divisor - 1) << "\n";
                     }
+                } else if (divisor == 2 && inst.opcode == IROpcode::Mod && ModUsedOnlyAsZeroTest(id)) {
+                    // (n % 2) == 0 is (n & 1) == 0 for every two's-complement n.
+                    m_body << "  " << vname << " = and " << TyStr(t) << " " << a.repr << ", 1\n";
+                } else if (divisor == 2 && inst.opcode == IROpcode::Mod) {
+                    // Toward-zero n%2 is 0, 1, or -1.
+                    const std::string bit = NewTmp();
+                    const std::string neg = NewTmp();
+                    const std::string nbit = NewTmp();
+                    m_body << "  " << bit << " = and " << TyStr(t) << " " << a.repr << ", 1\n";
+                    m_body << "  " << neg << " = icmp slt " << TyStr(t) << " " << a.repr << ", 0\n";
+                    m_body << "  " << nbit << " = sub " << TyStr(t) << " 0, " << bit << "\n";
+                    m_body << "  " << vname << " = select i1 " << neg << ", " << TyStr(t) << " " << nbit
+                           << ", " << TyStr(t) << " " << bit << "\n";
+                } else if (inst.opcode == IROpcode::Div && shift == 1 &&
+                           !inst.operandIds.empty() && DividendKnownEven(inst.operandIds[0])) {
+                    m_body << "  " << vname << " = ashr " << TyStr(t) << " " << a.repr << ", 1\n";
                 } else {
                     const std::string sign = NewTmp();
                     const std::string mask = NewTmp();
@@ -832,7 +926,12 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  call void @rbx_print_bool(i32 " << t << ")\n";
             } else if (IsIntTy(a.ty)) {
                 Val w = Coerce(a, NTy::I64, inst.location);
-                m_body << "  call void @rbx_print_i64(i64 " << w.repr << ")\n";
+                if (m_ctx.printFmt < 0) {
+                    m_ctx.printFmt = static_cast<int>(m_ctx.stringLiterals.size());
+                    m_ctx.stringLiterals.emplace_back("%lld\n");
+                }
+                m_body << "  call i32 (ptr, ...) @printf(ptr @.str." << m_ctx.printFmt
+                       << ", i64 " << w.repr << ")\n";
             } else if (IsFloatTy(a.ty)) {
                 Val w = Coerce(a, NTy::F64, inst.location);
                 m_body << "  call void @rbx_print_f64(double " << w.repr << ")\n";
@@ -1345,6 +1444,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     out << "target datalayout = \"" << GetLLVMDataLayout(m_options.target) << "\"\n";
     out << "target triple = \"" << GetLLVMTargetTriple(m_options.target) << "\"\n\n";
     out << "declare void @rbx_print_i64(i64)\n";
+    out << "declare i32 @printf(ptr, ...)\n";
     out << "declare void @rbx_print_f64(double)\n";
     out << "declare void @rbx_print_bool(i32)\n";
     out << "declare void @rbx_print_str(ptr)\n";

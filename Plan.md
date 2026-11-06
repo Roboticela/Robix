@@ -250,15 +250,15 @@ Suites, in order:
 
 **Exit test:** the micro suite's README lists wins, ties, and losses. A loss stays a loss. The script refuses to print "SPEC" or "DaCapo" unless that suite's manifest says `upstream: true`.
 
-Passed for the local suites. `Benchmarks/Micro/README.md` is the score from `RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15` with `robixc -O3` and `clang` / `clang++ -O3 -march=native` (Clang 18.1.8). Five-run result, highest dropped, then one cool sample. Within 5 percent of the fastest five-run time is a tie, and one cool sample does not overturn that tie. A win or a loss is published only when the cool sample agrees on direction.
+Passed for the local suites. `Benchmarks/Micro/README.md` is the score from `RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15` with `robixc -O3` and `clang` / `clang++ -O3 -march=native` (Clang 18.1.8). Five rounds, starting language rotated, highest dropped, then one cool sample. Within 5 percent of the fastest five-run time is a tie, and one cool sample does not overturn that tie. A win or a loss is published only when the cool sample agrees on direction.
 
 | Published | Kernels |
 | :--- | :--- |
-| Tie | Arithmetic, Calls, Division, Scan, FftLoop, Matrix, Particle, Pid, Ring |
-| Loss | Collatz (19.53 ms vs C++ 16.67 ms), MemCopy (17.09 ms vs C 16.11 ms) |
-| Unconfirmed | Allocate, Branches, BootPath |
+| Tie | Allocate, Arithmetic, Branches, Collatz, Division, Scan, FftLoop, Matrix, Particle, Pid, BootPath, Ring |
+| Unconfirmed | MemCopy (14.92 ms vs C 14.10 ms; the cool sample tied, and a repeat of the same binaries was inside 5 percent) |
+| Suite win, not stable | Calls. The suite printed 16.93 ms vs C 22.75 ms. A repeat of those binaries was 9.53, 9.95, and 10.05 ms |
 
-Score: 0 wins, 9 ties, 2 losses, 3 unconfirmed. No manifest in this tree sets `upstream: true`. The script exits 2 on any other suite name and does not print that name.
+Score as printed: 1 win, 12 ties, 0 losses, 1 unconfirmed. The win does not survive a repeat. `n % 2 == 0` is a bit test, and an even division by 2 is an arithmetic shift. No manifest in this tree sets `upstream: true`. The script exits 2 on any other suite name and does not print that name.
 
 ### Stage F — Freestanding: BIOS, bootloader, kernel, OS
 

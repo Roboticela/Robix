@@ -2,7 +2,7 @@
 
 Local kernels. Not an upstream archive. `Benchmarks/Micro/manifest.txt` says `upstream: false`.
 
-Run on this machine, 6 November 2026:
+Run on this machine, 6 November 2026, after the signed-division fix:
 
 ```text
 robixc version 1.0.0 (Windows x64 Native LLVM Toolchain)
@@ -13,45 +13,48 @@ Flags: robixc -O3 / clang -O3 -march=native / clang++ -O3 -march=native
 
 Command: `powershell -File Benchmarks\RunBenchmarks.ps1 -Suite All -Runs 5 -CoolSeconds 15`
 
-Protocol: two warmups, then five interleaved rounds (Robix, C, C++). The highest of the five is dropped. Times are process time, including one `Print` of the checksum. After all hot measurements the machine waited 15 seconds, then each binary ran once more with no extra warmup.
+Protocol: two warmups, then five rounds. Each round runs Robix, C, and C++, and the starting language rotates so the last process is not always the same one. The highest of the five is dropped. Times are process time, including one `Print` of the checksum. After the hot measurements the machine waited 15 seconds, then each binary ran once more.
 
-A result is a **tie** when the five-run Robix time is within 5 percent of the fastest of the three. A single cool sample does not turn that tie into a win or a loss. A **win** is published only when both the five-run result and the cool sample have Robix faster than both of the others by more than that band. A **loss** is published only when both have Robix slower than the fastest by more than that band. If the cool sample reverses the direction, the row stays **unconfirmed**. A loss that both passes show is left as a loss.
+A result is a **tie** when the five-run Robix time is within 5 percent of the fastest of the three. One cool sample does not turn that tie into a win or a loss. A **win** is published only when both passes have Robix faster than both of the others by more than that band. A **loss** is published only when both have Robix slower than the fastest by more than that band. If the cool sample reverses the direction, the row stays **unconfirmed**.
 
-Checksums matched on every row. A checksum mismatch would not be a win.
+Checksums matched on every row.
 
 ## Micro
 
 | Kernel | Trips | Checksum | Robix ms | C ms | C++ ms | Cool Robix / C / C++ | Published |
 | :--- | ---: | ---: | ---: | ---: | ---: | :--- | :--- |
-| Arithmetic | 20,000,000 | 9990000000 | 35.68 | 34.05 | 34.53 | 19.08 / 18.49 / 18.53 | tie |
-| Branches | 15,000,000 | 37500000 | 17.81 | 18.83 | 19.32 | 11.52 / 10.89 / 12.30 | unconfirmed |
-| Calls | 10,000,000 | 149999995000000 | 14.36 | 14.16 | 14.38 | 11.18 / 10.54 / 11.87 | tie |
-| Division | 5,000,000 | 23214288214285 | 21.42 | 21.14 | 21.13 | 15.07 / 13.77 / 13.81 | tie |
-| Collatz | 20,000 | 1834634 | 19.53 | 16.89 | 16.67 | 15.25 / 13.11 / 13.42 | loss |
-| Scan | 8,000,000 | 31873 | 16.46 | 16.24 | 16.49 | 14.29 / 15.29 / 14.86 | tie |
-| Allocate | 20,000 | 140000 | 11.77 | 12.05 | 10.78 | 11.08 / 11.21 / 11.26 | unconfirmed |
+| Arithmetic | 20,000,000 | 9990000000 | 26.47 | 25.22 | 26.96 | 20.35 / 20.30 / 19.45 | tie |
+| Branches | 15,000,000 | 37500000 | 14.74 | 14.52 | 14.40 | 11.16 / 11.48 / 13.93 | tie |
+| Calls | 10,000,000 | 149999995000000 | 16.93 | 22.75 | 24.22 | 13.48 / 15.07 / 27.82 | Robix |
+| Division | 5,000,000 | 23214288214285 | 16.96 | 17.09 | 17.26 | 19.91 / 16.13 / 15.84 | tie |
+| Collatz | 20,000 | 1834634 | 18.18 | 17.34 | 17.45 | 19.90 / 16.92 / 19.04 | tie |
+| Scan | 8,000,000 | 31873 | 18.51 | 18.34 | 18.42 | 15.89 / 16.64 / 16.67 | tie |
+| Allocate | 20,000 | 140000 | 15.70 | 15.19 | 15.11 | 11.44 / 10.46 / 10.83 | tie |
 
-Micro score: **0 wins, 4 ties, 1 loss.** Allocate and Branches are unconfirmed. Collatz is a loss: 19.53 ms against 16.67 ms, and the cool sample was also slower (15.25 ms against 13.11 ms).
+The Calls row is what that suite printed. The same three binaries, timed again after the suite with the same rotation, were 9.53 ms, 9.95 ms, and 10.05 ms. That repeat is a tie. The suite's C and C++ samples were stalled, so this is not a stable win.
 
 ## Same run, numeric and systems
 
 | Kernel | Checksum | Robix ms | C ms | C++ ms | Cool Robix / C / C++ | Published |
 | :--- | ---: | ---: | ---: | ---: | :--- | :--- |
-| FftLoop | 76400 | 32.70 | 33.43 | 32.79 | 25.69 / 26.15 / 26.98 | tie |
-| Matrix | 1926240000 | 14.31 | 14.03 | 14.38 | 11.66 / 11.79 / 10.74 | tie |
-| Particle | 166667 | 32.88 | 32.21 | 32.87 | 21.72 / 20.81 / 21.73 | tie |
-| Pid | 651615 | 29.25 | 29.50 | 29.45 | 21.52 / 19.93 / 20.57 | tie |
-| BootPath | 71066969760 | 21.58 | 18.99 | 20.80 | 11.93 / 12.67 / 13.24 | unconfirmed |
-| MemCopy | 376 | 17.09 | 16.11 | 16.27 | 12.34 / 11.48 / 10.76 | loss |
-| Ring | 31999708 | 23.44 | 24.28 | 24.20 | 16.40 / 15.76 / 15.86 | tie |
+| FftLoop | 76400 | 32.53 | 33.05 | 33.54 | 43.45 / 160.66 / 53.60 | tie |
+| Matrix | 1926240000 | 12.59 | 12.80 | 13.13 | 17.86 / 17.52 / 17.77 | tie |
+| Particle | 166667 | 29.93 | 28.83 | 30.20 | 42.95 / 39.01 / 33.09 | tie |
+| Pid | 651615 | 30.81 | 29.87 | 30.10 | 33.41 / 35.32 / 32.41 | tie |
+| BootPath | 71066969760 | 16.87 | 17.13 | 17.59 | 16.31 / 20.74 / 18.30 | tie |
+| MemCopy | 376 | 14.92 | 14.10 | 14.46 | 15.54 / 16.98 / 15.50 | unconfirmed |
+| Ring | 31999708 | 22.04 | 21.54 | 22.13 | 23.66 / 21.69 / 22.02 | tie |
 
-Whole run: **0 wins, 9 ties, 2 losses, 3 unconfirmed.**
+MemCopy's five-run average was 5.8 percent behind C, and the cool sample was a tie, so the suite left it unconfirmed. The same binaries repeated at 10.17 ms, 9.74 ms, and 10.33 ms, which is inside the band.
 
-## What these kernels are
+Whole run as printed: **1 win, 12 ties, 0 losses, 1 unconfirmed.** The win does not survive a repeat. There is no published loss.
 
-- Scan counts generated bytes `(i * 17 + 3) % 251 == 7`. It does not index a `String`. String indexing is not compiled.
-- MemCopy copies 16 `Int` words, 200,000 times. It is not `memcpy` of a byte buffer. Storing an `Int` expression through `Pointer<Byte>` is rejected.
-- Allocate is 20,000 times `malloc(64)`, store the byte `7`, load it, `free`. The process time includes `malloc`.
-- BootPath uses `/` and `%`. Bitwise shifts are not compiled. The cool sample was faster for Robix, so the hot loss is unconfirmed.
+## What changed, and what these kernels are
+
+- `n % 2 == 0` lowers to `(n & 1) == 0`. Division by 2 on that even branch is an arithmetic shift. Collatz was 19.53 ms against C++ at 16.67 ms before this, and 18.18 ms against 17.34 ms after.
+- Integer `Print` calls `printf` directly. The link drops runtime functions the program does not call.
+- Scan counts generated bytes `(i * 17 + 3) % 251 == 7`. It does not index a `String`.
+- MemCopy copies 16 `Int` words, 200,000 times. Both compilers fold that to the constant checksum `376`, so the time is process startup.
+- Allocate is 20,000 times `malloc(64)`, store the byte `7`, load it, `free`. Both compilers fold it to the constant `140000`.
+- BootPath uses `/` and `%`. The generated loop is the same vector body as the C binary.
 - Ring is one thread and an 8-slot array. It was not called from an interrupt.
-- Calls is `Mix`, and release Robix marks non-recursive functions `alwaysinline`. Clang may inline the C and C++ copies as well.

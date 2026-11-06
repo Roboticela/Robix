@@ -103,7 +103,7 @@ Write-Host "clang:   $clangVersion"
 Write-Host "clang++: $clangppVersion"
 Write-Host "Flags:   $robixFlags / $cFlags / $cppFlags"
 Write-Host "Suites:  $($suitesToRun -join ', ')"
-Write-Host "Measure: 2 warmups, $Runs interleaved rounds, highest sample dropped."
+Write-Host "Measure: 2 warmups, $Runs interleaved rounds, order rotated, highest sample dropped."
 Write-Host "Tie:     within 5 percent of the fastest time."
 Write-Host "These kernels are local. They are not an upstream archive."
 Write-Host ""
@@ -150,9 +150,19 @@ function Measure-Interleaved([string]$rbxExe, [string]$cExe, [string]$cppExe, [i
     }
     $tr = @(); $tc = @(); $tp = @()
     for ($i = 0; $i -lt $rounds; $i++) {
-        $sw = [System.Diagnostics.Stopwatch]::StartNew(); & $rbxExe | Out-Null; $sw.Stop(); $tr += $sw.Elapsed.TotalMilliseconds
-        $sw = [System.Diagnostics.Stopwatch]::StartNew(); & $cExe | Out-Null; $sw.Stop(); $tc += $sw.Elapsed.TotalMilliseconds
-        $sw = [System.Diagnostics.Stopwatch]::StartNew(); & $cppExe | Out-Null; $sw.Stop(); $tp += $sw.Elapsed.TotalMilliseconds
+        # Rotate which binary runs last. A fixed order gives the last process a warm cache.
+        $slot = @()
+        $slot += @{ Exe = $rbxExe; Bag = "r" }
+        $slot += @{ Exe = $cExe; Bag = "c" }
+        $slot += @{ Exe = $cppExe; Bag = "p" }
+        $start = $i % 3
+        for ($k = 0; $k -lt 3; $k++) {
+            $item = $slot[($start + $k) % 3]
+            $sw = [System.Diagnostics.Stopwatch]::StartNew(); & $item.Exe | Out-Null; $sw.Stop()
+            if ($item.Bag -eq "r") { $tr += $sw.Elapsed.TotalMilliseconds }
+            elseif ($item.Bag -eq "c") { $tc += $sw.Elapsed.TotalMilliseconds }
+            else { $tp += $sw.Elapsed.TotalMilliseconds }
+        }
     }
     [PSCustomObject]@{
         RobixAvg = (Get-DroppedAverage $tr)
