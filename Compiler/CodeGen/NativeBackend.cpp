@@ -232,6 +232,7 @@ private:
     bool m_ok  = true;
     NTy m_ret  = NTy::Void;
     std::string m_blockLabel;
+    std::uint32_t m_lastDebugLine = 0;
 
     struct DefInfo {
         IR::IROpcode op = IR::IROpcode::Nop;
@@ -1853,6 +1854,7 @@ bool FnEmitter::Emit() {
         return true;
     }
     IndexDefs();
+    m_lastDebugLine = 0;
 
     std::ostringstream paramStores;
     for (std::size_t i = 0; i < m_fn.parameters.size(); ++i) {
@@ -1872,6 +1874,10 @@ bool FnEmitter::Emit() {
         for (const auto& inst : bb.instructions) {
             if (inst.isDead) continue;
             if (terminated) break;
+            if (m_ctx.options.debugLines && inst.location.line != 0 && inst.location.line != m_lastDebugLine) {
+                m_lastDebugLine = inst.location.line;
+                m_body << "  call void @rbx_debug_line(i64 " << m_lastDebugLine << ")\n";
+            }
             EmitInstruction(inst);
             terminated = IR::IsTerminatorOpcode(inst.opcode);
         }
@@ -2094,6 +2100,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (needs("@rbx_add_pair")) {
         out << "declare i64 @rbx_add_pair(ptr, i64, i64)\n";
+    }
+    if (needs("@rbx_debug_line")) {
+        out << "declare void @rbx_debug_line(i64)\n";
     }
     out << "\n";
     for (const auto& vt : mod.vtables) {

@@ -414,6 +414,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     emitOpts.asmArch = options.asmArch;
     emitOpts.tripleOverride = options.targetTriple;
     emitOpts.layoutOverride = options.dataLayout;
+    emitOpts.debugLines = options.debugLines;
     CodeGen::NativeLLVMEmitter emitter(diags, emitOpts);
     std::optional<std::string> llvmIR = emitter.Emit(irMod);
     res.diagnosticsText = diags.FormatHumanReadable();

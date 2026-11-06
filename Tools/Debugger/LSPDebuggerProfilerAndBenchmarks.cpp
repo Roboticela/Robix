@@ -25,9 +25,15 @@ std::string RobixFormatterAndLinter::FormatSource(std::string_view sourceCode) {
     std::ostringstream out;
     int indentLevel = 0;
 
-    const auto lines = StdLib::StringOps::Split(sourceCode, "\n");
+    auto lines = StdLib::StringOps::Split(sourceCode, "\n");
+    if (!sourceCode.empty() && (sourceCode.back() == '\n' || sourceCode.back() == '\r') &&
+        !lines.empty() && lines.back().empty()) {
+        lines.pop_back();
+    }
     for (std::size_t i = 0; i < lines.size(); ++i) {
-        const std::string trimmed = StdLib::StringOps::Trim(lines[i]);
+        std::string line = lines[i];
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        const std::string trimmed = StdLib::StringOps::Trim(line);
         if (trimmed.empty()) {
             out << "\n";
             continue;
@@ -70,40 +76,50 @@ bool RobixFormatterAndLinter::LintSource(std::string_view fileName,
 // 2. LANGUAGE SERVER PROTOCOL (LSP) & DOCUMENTATION GENERATOR IMPLEMENTATION
 // ============================================================================
 
+static std::string ExplainText(const Frontend::ExplainBlockNode& block) {
+    std::string text = block.description;
+    if (!block.processing.empty()) {
+        if (!text.empty()) text += "\n";
+        text += "Processing: " + block.processing;
+    }
+    if (!block.output.empty()) {
+        if (!text.empty()) text += "\n";
+        text += "Output: " + block.output;
+    }
+    return text;
+}
+
 void RobixLanguageServer::IndexDocument(std::string_view fileUri, std::string_view sourceCode) {
     Frontend::DiagnosticBag diags;
     Frontend::Lexer lexer(sourceCode, fileUri, diags);
     Frontend::Parser parser(lexer.TokenizeAll(), fileUri, diags);
     const auto ast = parser.ParseCompilationUnit();
 
-    for (const auto& declPtr : ast.declarations) {
-        if (!declPtr) continue;
-        const auto& loc = declPtr->location;
-
-        if (declPtr->kind == Frontend::DeclKind::Function) {
+    const auto index = [&](const auto& self, const Frontend::DeclNode& decl) -> void {
+        const auto& loc = decl.location;
+        if (decl.kind == Frontend::DeclKind::Function) {
             IndexedSymbol sym;
-            sym.name               = declPtr->name;
+            sym.name               = decl.name;
             sym.kind               = "Function";
-            sym.signatureDetail    = "Function " + declPtr->name + "(...)";
-            sym.explainDescription = declPtr->explainBlock ? declPtr->explainBlock->description : "";
+            sym.signatureDetail    = "Function " + decl.name + "(...)";
+            sym.explainDescription = decl.explainBlock ? ExplainText(*decl.explainBlock) : "";
             sym.definitionLoc      = LSPLocation{ std::string(fileUri), loc.line, loc.column };
             m_symbols[sym.name]    = std::move(sym);
-        } else if (declPtr->kind == Frontend::DeclKind::Class) {
+        } else if (decl.kind == Frontend::DeclKind::Class || decl.kind == Frontend::DeclKind::Struct) {
             IndexedSymbol sym;
-            sym.name               = declPtr->name;
-            sym.kind               = "Class";
-            sym.signatureDetail    = "class " + declPtr->name;
-            sym.explainDescription = declPtr->explainBlock ? declPtr->explainBlock->description : "";
+            sym.name               = decl.name;
+            sym.kind               = decl.kind == Frontend::DeclKind::Class ? "Class" : "Struct";
+            sym.signatureDetail    = sym.kind + " " + decl.name;
+            sym.explainDescription = decl.explainBlock ? ExplainText(*decl.explainBlock) : "";
             sym.definitionLoc      = LSPLocation{ std::string(fileUri), loc.line, loc.column };
             m_symbols[sym.name]    = std::move(sym);
-        } else if (declPtr->kind == Frontend::DeclKind::Struct) {
-            IndexedSymbol sym;
-            sym.name            = declPtr->name;
-            sym.kind            = "Struct";
-            sym.signatureDetail = "struct " + declPtr->name;
-            sym.definitionLoc   = LSPLocation{ std::string(fileUri), loc.line, loc.column };
-            m_symbols[sym.name] = std::move(sym);
         }
+        for (const auto& member : decl.members) {
+            if (member) self(self, *member);
+        }
+    };
+    for (const auto& declPtr : ast.declarations) {
+        if (declPtr) index(index, *declPtr);
     }
 }
 

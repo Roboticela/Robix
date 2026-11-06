@@ -353,6 +353,8 @@ Passed. `robix network run Examples/StageK` parsed `Common/Status.rbx` as `GetSt
 - LSP over the real protocol, then a VS Code extension for `.rbx`, `.rbxu`, and `.rbxb`.
 - `robix doc` from `Explain` blocks.
 
+Passed. `robix format Examples/StageL/Messy.rbx --check` exited 1, then `robix format` rewrote the `Print` line with 4 spaces, and a second `--check` printed `format: already formatted`. `robix lint Examples/StageL/Bad.rbx --strict` exited 1 with `L0004` for `maxSpeed` and `D3001` because `Bad` has no `Explain` block. `robix lint Examples/StageL/Clean.rbx --strict` and `robix check` on that file exited 0. `robix check Examples/StageL/TypeError.rbx` exited 1 with `R1001`: `String` assigned to `Int`. `robix doc` wrote `Build/StageL/Clean.md` with Description, Input, Processing, and Output for `Add`, and the same fields for the nested method `Counter.Value`. `robix debug Examples/StageL/Debug.rbx` printed `interpreter: 4 5 3` and `native: 4 5 3`. `Build/StageL/debug.ll` contains `call void @rbx_debug_line`. `robix build` of the same file with `--keep-ir` wrote `Build/StageL/plain.ll`, which has no `rbx_debug_line` call. `Examples/StageL/LspClient.ps1` spoke Content-Length JSON-RPC: `initialize`, `textDocument/didOpen`, `textDocument/hover` on `Value`, and `shutdown`. The hover text was `Read the counter.` with Processing `Return zero.` and Output `Zero.`. `Editors/vscode` registers `.rbx`, `.rbxu`, and `.rbxb` and starts `robix lsp`. That extension was not installed in VS Code.
+
 ---
 
 ## 6. Performance rules
@@ -410,7 +412,7 @@ Boxes are empty until the exit test of that stage has been run and the command i
 - [ ] D. Guide samples that compile with the documented command
 - [ ] D. Diagnostics with type expected, type found, and a suggestion
 - [ ] H. Core, collections, math, memory, and hosted IO tested
-- [ ] L. Formatter, linter, LSP, debugger
+- [x] L. Formatter, linter, LSP, debugger
 
 ### Product features kept from the previous plan
 - [ ] I. `.rbxproj`, lockfile, `.rbxapi`, `.rbxp`, `robix add`

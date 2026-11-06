@@ -28,6 +28,7 @@ struct NativeBuildOptions {
     std::string asmArch = "x86_64";
     std::string imageRole = "Kernel"; // .rbxb Output: Kernel or Firmware
     bool linkNetwork = false;
+    bool debugLines = false;
     std::string networkObjectPath;
 };
 

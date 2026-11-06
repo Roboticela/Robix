@@ -2,6 +2,7 @@
 #include "StageIBuild.hpp"
 #include "../../RobixUI/Document.hpp"
 #include "../../Network/NetworkRuntime.hpp"
+#include "StageLTools.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
 #include "../../Interpreter/Bytecode/BytecodeModule.hpp"
@@ -41,6 +42,12 @@ static void PrintHelp() {
         << "    ui render <file.rbxu> -o <file.bmp>         Draw one software frame as a BMP\n"
         << "    network check <project>             Check a Network block, contract, and env split\n"
         << "    network run <project>               Run the local contract call, timeout, and TLS handshake\n"
+        << "    format <file.rbx> [--check]         Rewrite source with 4-space indentation\n"
+        << "    lint <file.rbx> [--strict]          Type-check and enforce style\n"
+        << "    check <file.rbx>                    Type-check without running the program\n"
+        << "    doc <file.rbx> [-o <file.md>]       Write markdown from Explain blocks\n"
+        << "    debug <file.rbx>                    Step the interpreter and a debug native build by source line\n"
+        << "    lsp                                 Speak Language Server Protocol on stdin\n"
         << "    examples [topic]                    List or extract official Robix code examples\n"
         << "    repl                                Start the interactive Robix REPL\n"
         << "    version                             Display version and toolchain info\n\n"
@@ -84,6 +91,8 @@ int main(int argc, char* argv[]) {
     if (uiStatus >= 0) return uiStatus;
     const int networkStatus = Robix::Network::RunNetworkCommand(args);
     if (networkStatus >= 0) return networkStatus;
+    const int stageLStatus = Robix::Tools::RunStageLCommand(args, toolDir);
+    if (stageLStatus >= 0) return stageLStatus;
 
     // `robix build <file.rbx>` delegates to NativeCompilerDriver
     if (cmd == "build" && args.size() >= 2) {

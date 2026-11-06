@@ -1,0 +1,23 @@
+{
+  "name": "robix",
+  "displayName": "Robix",
+  "description": "Robix, RobixUI, and Robix build files. Starts the robix lsp server.",
+  "version": "1.0.0",
+  "publisher": "roboticela",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:robix"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "robix",
+        "aliases": ["Robix", "RobixUI", "Robix Build"],
+        "extensions": [".rbx", ".rbxu", ".rbxb"]
+      }
+    ]
+  }
+}

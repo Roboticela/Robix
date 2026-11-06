@@ -92,6 +92,7 @@ public:
     [[nodiscard]] std::size_t GetAssertionFailCount() const noexcept { return m_assertFailCount; }
     [[nodiscard]] std::vector<std::string> GetHotJITCandidateFunctions() const;
     [[nodiscard]] const std::string& Fault() const noexcept { return m_fault; }
+    static void SetLineTrace(std::vector<std::uint32_t>* lines);
 
 private:
     const BytecodeModule& m_module;

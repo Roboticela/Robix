@@ -20,6 +20,11 @@
 
 extern "C" {
 
+void rbx_debug_line(std::int64_t line) {
+    std::printf("native %lld\n", static_cast<long long>(line));
+    std::fflush(stdout);
+}
+
 void rbx_print_i64(std::int64_t value) {
     std::printf("%lld\n", static_cast<long long>(value));
 }

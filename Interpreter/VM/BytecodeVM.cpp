@@ -122,6 +122,12 @@ void BytecodeVM::Reject(const std::string& message) {
     std::fputc('\n', stderr);
 }
 
+static std::vector<std::uint32_t>* g_lineTrace = nullptr;
+
+void BytecodeVM::SetLineTrace(std::vector<std::uint32_t>* lines) {
+    g_lineTrace = lines;
+}
+
 VMValue BytecodeVM::ExecuteFunction(std::string_view fnName, const std::vector<VMValue>& args) {
     if (!Gate()) return VMValue{};
     if (fnName == "puts") {
@@ -205,6 +211,10 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
         if (!m_fault.empty()) return VMValue{};
         const BCInstruction& inst = chunk.code[pc];
         ++pc;
+        if (g_lineTrace != nullptr && inst.sourceLine != 0 &&
+            (g_lineTrace->empty() || g_lineTrace->back() != inst.sourceLine)) {
+            g_lineTrace->push_back(inst.sourceLine);
+        }
 
         switch (inst.opcode) {
             case BCOpcode::Nop:
