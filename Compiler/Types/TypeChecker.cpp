@@ -910,7 +910,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
         case ExprKind::Identifier: {
             if (expr.text == "Memory" || expr.text == "GPIO" || expr.text == "File" ||
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
-                expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread") {
+                expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
+                expr.text == "Math") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1236,6 +1237,22 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "File") {
+                if (expr.text == "ReadText") {
+                    expr.inferredType = MakePrimitiveType("String");
+                    return expr.inferredType;
+                }
+                if (expr.text == "WriteText") {
+                    expr.inferredType = MakePrimitiveType("Bool");
+                    return expr.inferredType;
+                }
+            }
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Math" &&
+                (expr.text == "Abs" || expr.text == "Min" || expr.text == "Max" || expr.text == "Clamp")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+
             if (recvType.baseName == "Memory" && (expr.text == "Allocate" || expr.text == "Free" || expr.text == "Copy")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
@@ -1333,6 +1350,15 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             }
             for (auto& [name, val] : expr.namedFields) {
                 if (val) CheckExpression(*val);
+            }
+
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Input") {
+                if (!expr.left->targetType.baseName.empty()) {
+                    expr.inferredType = expr.left->targetType;
+                } else {
+                    expr.inferredType = MakePrimitiveType("String");
+                }
+                return expr.inferredType;
             }
 
             if (expr.left && expr.left->kind == ExprKind::Identifier) {

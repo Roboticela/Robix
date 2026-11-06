@@ -160,6 +160,44 @@ int main(int argc, char* argv[]) {
         return code;
     }
 
+    if (cmd == "new") {
+        std::string name = "App";
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (!args[i].empty() && args[i][0] != '-') {
+                name = args[i];
+                break;
+            }
+        }
+        if (name.find('/') != std::string::npos || name.find('\\') != std::string::npos ||
+            name.find("..") != std::string::npos) {
+            std::cerr << "robix new: project name must be a single directory name.\n";
+            return 1;
+        }
+        const fs::path dir = fs::path(name);
+        const fs::path file = dir / "Main.rbx";
+        std::error_code ec;
+        if (fs::exists(file)) {
+            std::cerr << "robix new: '" << file.string() << "' already exists.\n";
+            return 1;
+        }
+        fs::create_directories(dir, ec);
+        if (ec) {
+            std::cerr << "robix new: could not create '" << dir.string() << "'.\n";
+            return 1;
+        }
+        std::ofstream out(file, std::ios::binary | std::ios::trunc);
+        if (!out) {
+            std::cerr << "robix new: could not write '" << file.string() << "'.\n";
+            return 1;
+        }
+        out << "package " << name << ";\n\n"
+            << "public Function Main() -> Void {\n"
+            << "    Print(\"Hello from Robix\");\n"
+            << "}\n";
+        std::cout << "robix new: wrote " << file.string() << "\n";
+        return 0;
+    }
+
     // General commands dispatch via RobixCLIDispatcher
     auto cliResult = Robix::Tools::RobixCLIDispatcher::ExecuteCommand(
         Robix::Tools::CLIBinaryKind::RobixUnifiedCLI, args);

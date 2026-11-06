@@ -218,6 +218,18 @@ The core is useless if only the author of the compiler can satisfy it.
 
 **Exit test:** a person who has not read the compiler can compile the guide's hello-world, struct, loop, and error-handling samples with the documented commands.
 
+Passed. `Documentation/Guide.md` is the command list. These were run on `robix run` and `robixc -O3`:
+
+| Sample | Prints |
+| :--- | :--- |
+| `Examples/StageD/Hello.rbx` | `Hello, Robix`, then `42` |
+| `Examples/StageD/Point.rbx` | `7` |
+| `Examples/StageD/Loop.rbx` | `10` |
+| `Examples/StageD/Divide.rbx` | `0`, then `5` |
+| `StdLib/Hosted.rbx` | `45`, `hosted`, `4`, `10`, `9` |
+
+`Examples/StageD/Ask.rbx` with the lines `Ada` and `41` prints `Ada` and `42` on both engines. `Examples/StageD/Mismatch.rbx` is `R1001` with `Expected: Int` and `Received: String`. `robix new HelloApp` writes `HelloApp/Main.rbx`, and that file prints `Hello from Robix` from both engines. `Int Name(Int x)` without an arrow is the C-style form and is what `Hello.rbx` uses. `Function Name(Int x) -> Int` is the recommended form. `robix run` keeps `File` in memory. The native binary writes the host file `Build/StageDHosted.txt`. There is no `import` of one `.rbx` file from another. `match` and `try` are not compiled.
+
 ### Stage E — Genuine benchmarks
 
 Replace the scoreboard as the source of truth.

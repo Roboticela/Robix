@@ -45,6 +45,21 @@ Class objects are a pointer. Word 0 is the vtable. Fields follow, in alphabetica
 
 One interface's methods occupy the front of the vtable, sorted by name. A class with two interfaces is not a supported slot layout. C still cannot call a Robix function.
 
+Stage D guide, `Documentation/Guide.md`. Both engines:
+
+| Command | Result |
+| :--- | :--- |
+| `Examples/StageD/Hello.rbx` | `Hello, Robix` then `42`. `Int Add(Int a, Int b)` has no arrow |
+| `Examples/StageD/Point.rbx` | `7` |
+| `Examples/StageD/Loop.rbx` | `10` |
+| `Examples/StageD/Divide.rbx` | `0` then `5` |
+| `StdLib/Hosted.rbx` | `45`, `hosted`, `4`, `10`, `9` |
+| `Examples/StageD/Ask.rbx` with lines `Ada` and `41` | `Ada` then `42` |
+| `robix new HelloApp` then `HelloApp/Main.rbx` | `Hello from Robix` |
+| `Examples/StageD/Mismatch.rbx` | `R1001`, `Expected: Int`, `Received: String` |
+
+`Math.Abs`, `Math.Min`, `Math.Max`, and `Math.Clamp` are integer intrinsics. `Length` on a `String` is `strlen`. `Length` on an `Array` is the length word. `StdLib/Hosted.rbx` is a real program: `Abs`, `Min`, `Max`, `Clamp`, and an `IntList` of four slots. `robix run` stores `File` in a map. The native `Hosted.exe` wrote `Build/StageDHosted.txt` containing `hosted`. One `.rbx` file cannot import another. `match` and `try` are not compiled.
+
 ## Partial
 
 | Feature | What exists | What does not |
@@ -80,8 +95,9 @@ One interface's methods occupy the front of the vtable, sorted by name. A class 
 | :--- | :--- |
 | `robixc File.rbx -o App -O3` | Implemented |
 | `robixc --version`, `robixc --help`, `robixc --emit-llvm`, `robixc --keep-ir` | Implemented |
-| `robix run File.rbx` | Interpreter. Recorded on `Examples/StageB/LibcShape.rbx` (checksum `506`) and `Examples/StageC/Machine.rbx` (`150`, then `40`) |
-| `robix repl`, `robix test`, `robix new` | Not recorded as done |
+| `robix run File.rbx` | Interpreter. Recorded on Stage B (`506`), Stage C (`150`, then `40`), and the Stage D guide samples |
+| `robix new Name` | Writes `Name/Main.rbx`. Recorded as `HelloApp`, which prints `Hello from Robix` |
+| `robix repl`, `robix test` | Not recorded as done |
 
 ## How to update this file
 

@@ -932,6 +932,60 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val p = Operand(inst, 0);
                 m_body << "  call void @free(ptr " << p.repr << ")\n";
                 m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "String.Length" && !inst.operandIds.empty()) {
+                Val s = Operand(inst, 0);
+                m_body << "  " << vname << " = call i64 @strlen(ptr " << s.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Input" || inst.textImm == "Input.Int") {
+                const std::string promptRepr = inst.operandIds.empty() ? "null" : Operand(inst, 0).repr;
+                if (inst.textImm == "Input.Int") {
+                    m_body << "  " << vname << " = call i64 @rbx_input_i64(ptr " << promptRepr << ")\n";
+                    m_vals[id] = Val{ vname, NTy::I64 };
+                } else {
+                    m_body << "  " << vname << " = call ptr @rbx_input_line(ptr " << promptRepr << ")\n";
+                    m_vals[id] = Val{ vname, NTy::Ptr };
+                }
+            } else if (inst.textImm == "File.WriteText" && inst.operandIds.size() >= 2) {
+                Val path = Operand(inst, 0);
+                Val text = Operand(inst, 1);
+                const std::string wrote = NewTmp();
+                m_body << "  " << wrote << " = call i32 @rbx_write_text(ptr " << path.repr << ", ptr " << text.repr << ")\n";
+                m_body << "  " << vname << " = icmp ne i32 " << wrote << ", 0\n";
+                m_vals[id] = Val{ vname, NTy::I1 };
+            } else if (inst.textImm == "File.ReadText" && !inst.operandIds.empty()) {
+                Val path = Operand(inst, 0);
+                m_body << "  " << vname << " = call ptr @rbx_read_text(ptr " << path.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::Ptr };
+            } else if (inst.textImm == "Math.Abs" || inst.textImm == "Math.Min" ||
+                       inst.textImm == "Math.Max" || inst.textImm == "Math.Clamp") {
+                auto asI64 = [&](std::size_t index) {
+                    return Coerce(Operand(inst, index), NTy::I64, inst.location).repr;
+                };
+                const std::string a = asI64(0);
+                if (inst.textImm == "Math.Abs") {
+                    const std::string neg = NewTmp();
+                    const std::string lt = NewTmp();
+                    m_body << "  " << neg << " = sub i64 0, " << a << "\n";
+                    m_body << "  " << lt << " = icmp slt i64 " << a << ", 0\n";
+                    m_body << "  " << vname << " = select i1 " << lt << ", i64 " << neg << ", i64 " << a << "\n";
+                } else if (inst.textImm == "Math.Clamp") {
+                    const std::string lo = asI64(1);
+                    const std::string hi = asI64(2);
+                    const std::string ltLo = NewTmp();
+                    const std::string gtHi = NewTmp();
+                    const std::string raised = NewTmp();
+                    m_body << "  " << ltLo << " = icmp slt i64 " << a << ", " << lo << "\n";
+                    m_body << "  " << raised << " = select i1 " << ltLo << ", i64 " << lo << ", i64 " << a << "\n";
+                    m_body << "  " << gtHi << " = icmp sgt i64 " << raised << ", " << hi << "\n";
+                    m_body << "  " << vname << " = select i1 " << gtHi << ", i64 " << hi << ", i64 " << raised << "\n";
+                } else {
+                    const std::string b = asI64(1);
+                    const std::string cmp = NewTmp();
+                    const char* pred = inst.textImm == "Math.Min" ? "slt" : "sgt";
+                    m_body << "  " << cmp << " = icmp " << pred << " i64 " << a << ", " << b << "\n";
+                    m_body << "  " << vname << " = select i1 " << cmp << ", i64 " << a << ", i64 " << b << "\n";
+                }
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else {
                 Err("N9001",
                     "OS intrinsic '" + inst.textImm + "' is not yet supported by the native backend.",
@@ -1298,6 +1352,10 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     out << "declare void @free(ptr)\n";
     out << "declare i64 @strlen(ptr)\n";
     out << "declare i32 @strcmp(ptr, ptr)\n";
+    out << "declare ptr @rbx_input_line(ptr)\n";
+    out << "declare i64 @rbx_input_i64(ptr)\n";
+    out << "declare i32 @rbx_write_text(ptr, ptr)\n";
+    out << "declare ptr @rbx_read_text(ptr)\n";
     out << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n";
     out << "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)\n";
     out << "declare void @llvm.trap()\n\n";

@@ -1739,6 +1739,21 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
 
             if (expr.left && expr.left->kind == Frontend::ExprKind::Identifier) {
                 const std::string& fnName = expr.left->text;
+                if (fnName == "Input") {
+                    const bool asInt = expr.left->targetType.baseName == "Int" ||
+                                       expr.left->targetType.baseName == "Int64";
+                    Frontend::TypeNode ty = asInt ? MakePrim("Int") : MakePrim("String");
+                    if (!asInt) ty.isPointer = true;
+                    IRInstruction in;
+                    in.opcode     = IROpcode::CallOSIntrinsic;
+                    in.dest       = IRValue{ m_currentFn->AllocateSSAId(), ty };
+                    in.textImm    = asInt ? "Input.Int" : "Input";
+                    in.operandIds = std::move(argIds);
+                    in.location   = expr.location;
+                    IRValue out   = in.dest;
+                    Emit(std::move(in));
+                    return out;
+                }
                 if (fnName == "Print" && !argIds.empty()) {
                     IRInstruction pr;
                     pr.opcode     = IROpcode::PrintVal;
@@ -1850,10 +1865,19 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 if (receiverExpr.kind == Frontend::ExprKind::Identifier &&
                     (receiverExpr.text == "File" || receiverExpr.text == "Thread" ||
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
-                     receiverExpr.text == "Memory")) {
+                     receiverExpr.text == "Memory" || receiverExpr.text == "Math")) {
+                    Frontend::TypeNode ty = exprType;
+                    if (receiverExpr.text == "File" && memberName == "ReadText") {
+                        ty = MakePrim("String");
+                        ty.isPointer = true;
+                    } else if (receiverExpr.text == "File" && memberName == "WriteText") {
+                        ty = MakePrim("Bool");
+                    } else if (receiverExpr.text == "Math") {
+                        ty = MakePrim("Int");
+                    }
                     IRInstruction osCall;
                     osCall.opcode     = IROpcode::CallOSIntrinsic;
-                    osCall.dest       = IRValue{ m_currentFn->AllocateSSAId(), exprType };
+                    osCall.dest       = IRValue{ m_currentFn->AllocateSSAId(), ty };
                     osCall.textImm    = receiverExpr.text + "." + memberName;
                     osCall.operandIds = std::move(argIds);
                     osCall.location   = expr.location;
@@ -1868,6 +1892,33 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 NoteGenericUse(receiverExpr.inferredType);
 
                 // Built-in numeric conversions (.ToFloat(), .ToInt())
+                if (memberName == "Length" || memberName == "Count") {
+                    const std::string& owner = receiverExpr.inferredType.baseName;
+                    if (owner == "Array" || owner == "Slice") {
+                        IRInstruction len;
+                        len.opcode     = IROpcode::GetField;
+                        len.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                        len.textImm    = "len";
+                        len.intImm     = -1;
+                        len.operandIds = { recvVal.ssaId };
+                        len.location   = expr.location;
+                        IRValue out    = len.dest;
+                        Emit(std::move(len));
+                        return out;
+                    }
+                    if (owner == "String") {
+                        IRInstruction len;
+                        len.opcode     = IROpcode::CallOSIntrinsic;
+                        len.dest       = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                        len.textImm    = "String.Length";
+                        len.operandIds = { recvVal.ssaId };
+                        len.location   = expr.location;
+                        IRValue out    = len.dest;
+                        Emit(std::move(len));
+                        return out;
+                    }
+                }
+
                 if (memberName == "ToFloat" || memberName == "ToInt" || memberName == "ToString") {
                     IRInstruction conv;
                     conv.opcode     = IROpcode::Copy;

@@ -451,6 +451,46 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ m_virtualFileSystem[path] };
                 } else if (inst.symbolImm == "Time.NowMicroseconds") {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t(1000000) };
+                } else if (inst.symbolImm == "String.Length" && !inst.callArgRegs.empty()) {
+                    const VMValue& text = regs[inst.callArgRegs[0]];
+                    const std::int64_t n = text.IsString()
+                        ? static_cast<std::int64_t>(std::get<std::string>(text.data).size())
+                        : 0;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ n };
+                } else if (inst.symbolImm == "Input" || inst.symbolImm == "Input.Int") {
+                    if (!inst.callArgRegs.empty()) {
+                        const VMValue& prompt = regs[inst.callArgRegs[0]];
+                        if (prompt.IsString()) std::fputs(std::get<std::string>(prompt.data).c_str(), stdout);
+                        std::fflush(stdout);
+                    }
+                    char buffer[4096];
+                    std::string line;
+                    if (std::fgets(buffer, static_cast<int>(sizeof buffer), stdin) != nullptr) {
+                        line = buffer;
+                        while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
+                    }
+                    if (inst.destReg != 0) {
+                        if (inst.symbolImm == "Input.Int") {
+                            regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(std::strtoll(line.c_str(), nullptr, 10)) };
+                        } else {
+                            regs[inst.destReg] = VMValue{ line };
+                        }
+                    }
+                } else if (inst.symbolImm == "Math.Abs" && !inst.callArgRegs.empty()) {
+                    const std::int64_t v = regs[inst.callArgRegs[0]].AsInt();
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v < 0 ? -v : v };
+                } else if ((inst.symbolImm == "Math.Min" || inst.symbolImm == "Math.Max") && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t a = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t b = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t v = inst.symbolImm == "Math.Min" ? (a < b ? a : b) : (a > b ? a : b);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
+                } else if (inst.symbolImm == "Math.Clamp" && inst.callArgRegs.size() >= 3) {
+                    std::int64_t v = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t lo = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t hi = regs[inst.callArgRegs[2]].AsInt();
+                    if (v < lo) v = lo;
+                    if (v > hi) v = hi;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
                 } else {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t(0) };
                 }
