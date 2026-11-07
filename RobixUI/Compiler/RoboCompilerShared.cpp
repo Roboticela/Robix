@@ -5,6 +5,7 @@
 #include "Components/Pane/Pane.hpp"
 #include "Components/Screen/Screen.hpp"
 #include "Components/Scrollbar/Scrollbar.hpp"
+#include "Components/Text/Text.hpp"
 
 #include <cstdio>
 #include <sstream>
@@ -46,6 +47,16 @@ std::string RoboCompilerCppEscape(const std::string& value) {
         }
     }
     return out;
+}
+
+std::string RoboCompilerTrim(std::string value) {
+    while (!value.empty() && (value.front() == ' ' || value.front() == '\t' || value.front() == '\r' || value.front() == '\n')) {
+        value.erase(value.begin());
+    }
+    while (!value.empty() && (value.back() == ' ' || value.back() == '\t' || value.back() == '\r' || value.back() == '\n')) {
+        value.pop_back();
+    }
+    return value;
 }
 
 bool RoboCompilerIsLayoutKey(const std::string& key) {
@@ -153,6 +164,9 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
     if (RoboCompilerIsContainerName(name)) {
         return overflowOk && RoboCompilerCheckContainer(node, path, result);
     }
+    if (RoboCompilerIsTextName(name)) {
+        return overflowOk && RoboCompilerCheckText(node, path, result);
+    }
     if (RoboCompilerIsScrollbarName(name)) {
         for (const auto& kv : node.attrs) {
             const std::string key = RoboCompilerLower(kv.first);
@@ -172,6 +186,9 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
 }
 
 std::string RoboCompilerEmitChildCpp(const RoboXMLNode& node, const std::string& parentExpr) {
+    if (RoboCompilerIsTextLike(node)) {
+        return RoboCompilerEmitTextCpp(node, parentExpr);
+    }
     if (RoboCompilerIsBoardName(node.name)) {
         return RoboCompilerEmitBoardCpp(node, parentExpr);
     }

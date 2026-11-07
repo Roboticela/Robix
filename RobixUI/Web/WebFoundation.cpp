@@ -5,8 +5,16 @@
 #include "../Compiler/Components/Container/Container.hpp"
 #include "../Compiler/Components/Container/ContainerWeb.hpp"
 #include "../Compiler/Components/Scrollbar/ScrollbarWeb.hpp"
+#include "../Compiler/Components/Body/BodyWeb.hpp"
+#include "../Compiler/Components/Caption/CaptionWeb.hpp"
+#include "../Compiler/Components/Eyebrow/EyebrowWeb.hpp"
+#include "../Compiler/Components/Heading/HeadingWeb.hpp"
+#include "../Compiler/Components/Label/LabelWeb.hpp"
+#include "../Compiler/Components/Paragraph/ParagraphWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
+#include "../Compiler/Components/Subhead/SubheadWeb.hpp"
 #include "../Compiler/Components/Screen/ScreenWeb.hpp"
+#include "../Compiler/Components/ScrollView/ScrollViewWeb.hpp"
 #include "../Compiler/Components/Text/TextWeb.hpp"
 #include "../Compiler/Foundation/FoundationPlatform.hpp"
 #include "../Compiler/RoboCompilerShared.hpp"
@@ -143,7 +151,14 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     } else if (RoboWebIsContainerBox(name)) {
         className = RoboWebContainerClass();
     } else {
-        const std::string textClass = RoboWebTextClass(name);
+        std::string textClass = RoboWebTextClass(name);
+        if (textClass.empty()) textClass = RoboWebHeadingClass(name);
+        if (textClass.empty()) textClass = RoboWebSubheadClass(name);
+        if (textClass.empty()) textClass = RoboWebBodyClass(name);
+        if (textClass.empty()) textClass = RoboWebParagraphClass(name);
+        if (textClass.empty()) textClass = RoboWebCaptionClass(name);
+        if (textClass.empty()) textClass = RoboWebEyebrowClass(name);
+        if (textClass.empty()) textClass = RoboWebLabelClass(name);
         className = textClass.empty() ? "robo-" + name : textClass;
     }
     html += "<";
@@ -351,36 +366,20 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << ":root{\n" << common.str() << "}\nhtml[data-theme=\"dark\"]{\n"
         << dark.str() << "}\nhtml[data-theme=\"light\"],.robo-window[data-theme=\"light\"]{\n"
         << light.str() << "}\n";
-    css << "html,body{margin:0;min-height:100%;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
+    css << "html,body{margin:0;height:100%;overflow:hidden;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
     css << "html[data-theme=\"dark\"]{color-scheme:dark}\n";
     css << "html[data-theme=\"light\"]{color-scheme:light}\n";
+    css << "html:focus,html:focus-visible,body:focus,body:focus-visible{outline:none;box-shadow:none}\n";
     css << "body{color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}\n";
-    css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;background:var(--bg-primary);color:var(--text-primary)}\n";
+    css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;z-index:1;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
+    css << ".robo-page{height:100%;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
+    css << ".robo-screen:focus,.robo-screen:focus-visible,.robo-page:focus,.robo-page:focus-visible{outline:none;box-shadow:none}\n";
+    css << ".robo-page::-webkit-scrollbar{width:0;height:0}\n";
     if (hasScreen) {
         RoboWebAppendScreenCss(css);
         RoboWebAppendContainerCss(css);
         RoboWebAppendTextCss(css);
-        css << ".robo-scrollbar{position:absolute;top:0;right:0;bottom:0;width:16px;display:flex;"
-            << "flex-direction:column;align-items:flex-end;gap:3px;padding-right:2px;box-sizing:border-box;"
-            << "z-index:4;opacity:1;pointer-events:auto}\n";
-        css << ".robo-scrollbar[data-autohide=\"false\"]{opacity:1}\n";
-        css << ".robo-scroll-arrow{width:6px;height:6px;flex:0 0 6px;border:0;padding:0;background:transparent;"
-            << "position:relative;cursor:pointer;outline:0}\n";
-        css << ".robo-scroll-arrow::before{content:\"\";position:absolute;left:0;border-left:3px solid transparent;"
-            << "border-right:3px solid transparent}\n";
-        css << ".robo-scroll-arrow.is-up::before{top:0;border-bottom:5px solid "
-            << "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
-        css << ".robo-scroll-arrow.is-down::before{top:1px;border-top:5px solid "
-            << "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
-        css << ".robo-scrollbar[data-arrows=\"off\"] .robo-scroll-arrow{display:none}\n";
-        css << ".robo-scroll-track{position:relative;flex:1;width:6px;border-radius:980px;"
-            << "background:var(--border-default)}\n";
-        css << ".robo-scroll-thumb{position:absolute;left:0;width:6px;min-height:28px;border-radius:980px;"
-            << "background:color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary));cursor:pointer}\n";
-        css << ".robo-scrollbar.is-x{top:auto;right:0;bottom:0;left:0;width:auto;height:16px;flex-direction:row;"
-            << "align-items:flex-end;padding:0 2px 2px}\n";
-        css << ".robo-scrollbar.is-x .robo-scroll-track{width:auto;height:6px}\n";
-        css << ".robo-scrollbar.is-x .robo-scroll-thumb{top:0;height:6px;min-height:0;min-width:28px}\n";
+        RoboWebAppendScrollCss(css);
     }
     css << typeRules.str();
     css << "@media (max-width:734px){\n" << mobile.str() << "}\n";
@@ -441,7 +440,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     }
     html << "<script src=\"app.js\"></script></body></html>\n";
 
-    const char* js = R"JS(window.Robo = window.Robo || {};
+    std::string js = R"JS(window.Robo = window.Robo || {};
 Robo.status = 0;
 Robo.render = function () {};
 Robo.mount = function () {};
@@ -453,6 +452,8 @@ Robo.set = function (id, key, value) {
   else node.style[key] = value;
 };
 )JS";
+    js += RoboWebScrollScript();
+    js += "Robo.mount();\n";
 
     if (!WriteText(outRoot / "index.html", html.str()) || !WriteText(outRoot / "app.css", css.str()) ||
         !WriteText(outRoot / "app.js", js)) {

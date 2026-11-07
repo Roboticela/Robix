@@ -40,6 +40,7 @@ function Get-CompilerSources {
         if ($SkipNames.ContainsKey($file.Name)) { continue }
         $full = $file.FullName
         if ($full -match "\\Platforms\\(Android|IOS|Linux|MacOS)\\") { continue }
+        if ($full -match "\\Components\\.*Platform\.cpp$") { continue }
         if ($full -match "\\RoboWindowsMain\.cpp$") { continue }
         $kept += $file
     }
@@ -64,7 +65,7 @@ foreach ($file in $sources) {
     }
     if (-not $newer) { continue }
     Write-Host "  $($file.FullName.Substring($Root.Length + 1))"
-    & $Clang -std=c++20 -O2 -ffunction-sections -fdata-sections -c $file.FullName -o $object
+    & $Clang -std=c++20 -O2 -ffunction-sections -fdata-sections -I (Join-Path $Root "RobixUI") -c $file.FullName -o $object
     if ($LASTEXITCODE -ne 0) { throw "compile failed: $($file.Name)" }
 }
 
