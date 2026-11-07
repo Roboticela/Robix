@@ -4,6 +4,7 @@
 #include "../Compiler/Components/Board/BoardWeb.hpp"
 #include "../Compiler/Components/Container/Container.hpp"
 #include "../Compiler/Components/Container/ContainerWeb.hpp"
+#include "../Compiler/Components/Scrollbar/ScrollbarWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
 #include "../Compiler/Components/Screen/ScreenWeb.hpp"
 #include "../Compiler/Components/Text/TextWeb.hpp"
@@ -134,6 +135,11 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     std::string className;
     if (name == "board") {
         className = RoboWebBoardClass();
+    } else if (name == "scrollbar") {
+        className = std::string(RoboWebScrollbarClass()) + " is-needed";
+        if (Lower(RoboXMLAttr(node, "orientation")) == "horizontal") {
+            className += " is-x";
+        }
     } else if (RoboWebIsContainerBox(name)) {
         className = RoboWebContainerClass();
     } else {
@@ -151,6 +157,22 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     html += " class=\"";
     html += Escape(className);
     html += "\"";
+    if (name == "scrollbar") {
+        if (RoboXMLAttr(node, "autoHide").empty()) {
+            html += " data-autohide=\"true\"";
+        } else {
+            html += " data-autohide=\"";
+            html += Escape(RoboXMLAttr(node, "autoHide"));
+            html += "\"";
+        }
+        if (RoboXMLAttr(node, "arrows").empty()) {
+            html += " data-arrows=\"always\"";
+        } else {
+            html += " data-arrows=\"";
+            html += Escape(RoboXMLAttr(node, "arrows"));
+            html += "\"";
+        }
+    }
     if (RoboWebIsContainerBox(name)) {
         RoboWebContainerAttrs(html, node);
     }
@@ -177,6 +199,12 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         html += "\"";
     }
     html += ">";
+    if (name == "scrollbar") {
+        html += "<button type=\"button\" class=\"robo-scroll-arrow is-up\" aria-label=\"Scroll up\"></button>";
+        html += "<div class=\"robo-scroll-track\"><div class=\"robo-scroll-thumb\"></div></div>";
+        html += "<button type=\"button\" class=\"robo-scroll-arrow is-down\" aria-label=\"Scroll down\"></button></div>";
+        return;
+    }
     if (RoboWebIsContainerBox(name)) {
         html += RoboWebContainerVideo(node);
     }
@@ -332,6 +360,27 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendScreenCss(css);
         RoboWebAppendContainerCss(css);
         RoboWebAppendTextCss(css);
+        css << ".robo-scrollbar{position:absolute;top:0;right:0;bottom:0;width:16px;display:flex;"
+            << "flex-direction:column;align-items:flex-end;gap:3px;padding-right:2px;box-sizing:border-box;"
+            << "z-index:4;opacity:1;pointer-events:auto}\n";
+        css << ".robo-scrollbar[data-autohide=\"false\"]{opacity:1}\n";
+        css << ".robo-scroll-arrow{width:6px;height:6px;flex:0 0 6px;border:0;padding:0;background:transparent;"
+            << "position:relative;cursor:pointer;outline:0}\n";
+        css << ".robo-scroll-arrow::before{content:\"\";position:absolute;left:0;border-left:3px solid transparent;"
+            << "border-right:3px solid transparent}\n";
+        css << ".robo-scroll-arrow.is-up::before{top:0;border-bottom:5px solid "
+            << "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
+        css << ".robo-scroll-arrow.is-down::before{top:1px;border-top:5px solid "
+            << "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
+        css << ".robo-scrollbar[data-arrows=\"off\"] .robo-scroll-arrow{display:none}\n";
+        css << ".robo-scroll-track{position:relative;flex:1;width:6px;border-radius:980px;"
+            << "background:var(--border-default)}\n";
+        css << ".robo-scroll-thumb{position:absolute;left:0;width:6px;min-height:28px;border-radius:980px;"
+            << "background:color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary));cursor:pointer}\n";
+        css << ".robo-scrollbar.is-x{top:auto;right:0;bottom:0;left:0;width:auto;height:16px;flex-direction:row;"
+            << "align-items:flex-end;padding:0 2px 2px}\n";
+        css << ".robo-scrollbar.is-x .robo-scroll-track{width:auto;height:6px}\n";
+        css << ".robo-scrollbar.is-x .robo-scroll-thumb{top:0;height:6px;min-height:0;min-width:28px}\n";
     }
     css << typeRules.str();
     css << "@media (max-width:734px){\n" << mobile.str() << "}\n";
@@ -387,9 +436,6 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         html << body;
         html << "</" << RoboWebScreenTag(true) << ">";
         std::cout << "component Screen\n";
-        std::cout << "component Board\n";
-        std::cout << "component Container\n";
-        std::cout << RoboCompilerEmitScreenCpp(screenCopy);
     } else {
         html << "<div id=\"robo-app\" class=\"robo-screen\"><p class=\"robo-type-body\">" << Escape(title) << "</p></div>";
     }

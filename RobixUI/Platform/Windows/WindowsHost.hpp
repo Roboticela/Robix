@@ -16,6 +16,8 @@ struct WindowRunOptions {
     int y = 0;
     std::string place = "center";
     std::string title = "Robix";
+    bool (*watch)(WindowRunOptions& options, void* user) = nullptr;
+    void* watchUser = nullptr;
 };
 
 /* Windows host. Direct3D presents the same back buffer the RefCode soft GPU paints. */

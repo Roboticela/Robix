@@ -46,6 +46,7 @@ struct HostView {
     bool light = false;
     bool screen = false;
     bool movable = true;
+    WindowRunOptions* watched = nullptr;
 };
 
 void PaintFoundation(RoboGPU* gpu, bool light, bool drawText) {
@@ -237,6 +238,18 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
         case WM_MOUSEWHEEL:
         case WM_KEYDOWN:
             return 0;
+        case WM_TIMER:
+            if (view != nullptr && view->watched != nullptr && view->watched->watch != nullptr &&
+                view->watched->watch(*view->watched, view->watched->watchUser)) {
+                view->light = view->watched->light;
+                view->screen = view->watched->screen;
+                view->movable = view->watched->movable;
+                SetWindowTextA(window, view->watched->title.c_str());
+                view->painted = false;
+                Draw(view);
+                std::printf("interpreter: refreshed\n");
+            }
+            return 0;
         case WM_CLOSE:
             DestroyWindow(window);
             return 0;
@@ -296,6 +309,8 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     view.light = options.light;
     view.screen = options.screen;
     view.movable = options.movable;
+    WindowRunOptions watched = options;
+    view.watched = options.watch != nullptr ? &watched : nullptr;
 
     HINSTANCE instance = GetModuleHandleW(nullptr);
     WNDCLASSW windowClass{};
@@ -393,6 +408,9 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     std::printf("window: shown %ux%u title %s\n", pixelWidth, pixelHeight, options.title.c_str());
     ShowWindow(window, SW_SHOW);
     UpdateWindow(window);
+    if (view.watched != nullptr) {
+        SetTimer(window, 1, 400, nullptr);
+    }
     MSG message{};
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
         TranslateMessage(&message);

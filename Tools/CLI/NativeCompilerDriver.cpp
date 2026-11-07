@@ -503,12 +503,23 @@ std::string NativeCompilerDriver::LocateClang(const std::string& hint, const std
 
 std::string NativeCompilerDriver::LocateRuntimeObject(const std::string& hint, const std::string& toolDirectory) {
     if (!hint.empty() && FileExists(hint)) return hint;
+    const auto accept = [](const fs::path& path) {
+        return FileExists(path) ? path.string() : std::string();
+    };
     if (!toolDirectory.empty()) {
-        const fs::path p = fs::path(toolDirectory) / "RobixNativeRuntime.obj";
-        if (FileExists(p)) return p.string();
+        const fs::path tool(toolDirectory);
+        if (const std::string beside = accept(tool / "RobixNativeRuntime.obj"); !beside.empty()) return beside;
+        if (const std::string installed = accept(tool / ".." / "Lib" / "Robix" / "1.0.0" / "RobixNativeRuntime.obj");
+            !installed.empty()) {
+            return installed;
+        }
     }
-    const fs::path cwdBuild = fs::current_path() / "Build" / "RobixNativeRuntime.obj";
-    if (FileExists(cwdBuild)) return cwdBuild.string();
+    const fs::path root = fs::current_path() / "Build";
+    if (const std::string installed = accept(root / "Lib" / "Robix" / "1.0.0" / "RobixNativeRuntime.obj");
+        !installed.empty()) {
+        return installed;
+    }
+    if (const std::string legacy = accept(root / "RobixNativeRuntime.obj"); !legacy.empty()) return legacy;
     return {};
 }
 

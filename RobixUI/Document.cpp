@@ -135,6 +135,10 @@ void ApplyScreen(const std::string& document, WindowRunOptions& options) {
 
 }  // namespace
 
+void LoadScreenOptions(const std::string& document, WindowRunOptions& options) {
+    ApplyScreen(document, options);
+}
+
 int RunUiCommand(const std::vector<std::string>& args) {
     if (args.empty() || args[0] != "ui" || args.size() < 2) {
         return -1;

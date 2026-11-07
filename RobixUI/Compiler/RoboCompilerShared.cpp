@@ -4,6 +4,7 @@
 #include "Components/Container/Container.hpp"
 #include "Components/Pane/Pane.hpp"
 #include "Components/Screen/Screen.hpp"
+#include "Components/Scrollbar/Scrollbar.hpp"
 
 #include <cstdio>
 #include <sstream>
@@ -151,6 +152,17 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
     }
     if (RoboCompilerIsContainerName(name)) {
         return overflowOk && RoboCompilerCheckContainer(node, path, result);
+    }
+    if (RoboCompilerIsScrollbarName(name)) {
+        for (const auto& kv : node.attrs) {
+            const std::string key = RoboCompilerLower(kv.first);
+            if (key == "arrows" || key == "autohide" || key == "overlay" || key == "thumbcolor" || key == "trackcolor") {
+                RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
+                                    "<Scrollbar> " + kv.first + " belongs on <ScrollView>");
+                break;
+            }
+        }
+        return overflowOk;
     }
     bool ok = true;
     for (const auto& child : node.children) {

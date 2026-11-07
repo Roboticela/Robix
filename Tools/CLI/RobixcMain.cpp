@@ -1,6 +1,7 @@
 #include "NativeCompilerDriver.hpp"
 #include "StageIBuild.hpp"
 #include "UiProjectBuild.hpp"
+#include "../../RobixUI/AppRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
@@ -28,8 +29,8 @@ static void PrintHelp() {
         << "    -O0, --debug          Build with optimizations disabled\n"
         << "    -O2, -O3, --release   Build with release optimizations (default: -O2)\n"
         << "    --profile <name>      release, debug, or embedded (no hosted CRT)\n"
-        << "    --target web|windows  Build the RobixUI app. web writes Build/web. windows writes the executable\n"
-        << "    --mode development    Run the screen or web host directly. No HTML file is written\n"
+        << "    --target web|windows  Compile a deployable app into Build\\Targets. Repeat for more than one target.\n"
+        << "                          Other native targets compile only on that target's machine.\n"
         << "    --target <triple>     x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu,\n"
         << "                          x86_64-unknown-none, aarch64-unknown-none,\n"
         << "                          arm-unknown-none, riscv64-unknown-none\n"
@@ -216,7 +217,7 @@ int main(int argc, char* argv[]) {
     bool executeAfterBuild = false;
     bool explainOnly = false;
     bool uiDevelopment = false;
-    std::string uiTarget;
+    std::vector<std::string> uiTargets;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& a = args[i];
@@ -244,8 +245,16 @@ int main(int argc, char* argv[]) {
             }
         } else if (a == "--target" && i + 1 < args.size()) {
             const std::string target = args[++i];
-            if (target == "web" || target == "Web" || target == "windows" || target == "Windows") {
-                uiTarget = target == "web" || target == "Web" ? "web" : "windows";
+            const std::string key = Robix::UI::NormalizeTarget(target);
+            if (!Robix::UI::CompilerCanBuild(key)) {
+                std::cerr << "robixc: this machine is " << Robix::UI::HostTarget() << ", so it cannot compile '" << key
+                          << "'.\n";
+                std::cerr << "Get on a " << key << " machine and run robixc there.\n";
+                std::cerr << "robixc compiles a native target only on that target's machine. Web can be compiled here.\n";
+                return 1;
+            }
+            if (key == "web" || key == "windows") {
+                uiTargets.push_back(key);
                 continue;
             }
             std::string targetError;
@@ -313,12 +322,18 @@ int main(int argc, char* argv[]) {
         std::error_code inputError;
         const fs::path inputPath(inputFilePath);
         const bool uiInput = fs::is_directory(inputPath, inputError) || inputPath.extension() == ".rbxu" ||
-                             inputPath.extension() == ".rbxproj";
-        if (uiInput || !uiTarget.empty() || uiDevelopment) {
-            if (uiTarget.empty()) {
-                uiTarget = "windows";
+                             inputPath.extension() == ".xml" || inputPath.extension() == ".rbxproj";
+        if (uiInput || !uiTargets.empty() || uiDevelopment) {
+            if (uiDevelopment) {
+                std::cerr << "robixc: development runs with robix, not robixc.\n";
+                std::cerr << "  robix run " << inputFilePath << " --target "
+                          << (uiTargets.empty() ? Robix::UI::HostTarget() : uiTargets.front()) << " --watch\n";
+                return 1;
             }
-            return Robix::UI::BuildOrRunProject(inputFilePath, uiDevelopment, uiTarget, toolDir);
+            if (uiTargets.empty()) {
+                uiTargets.push_back(Robix::UI::HostTarget());
+            }
+            return Robix::UI::CompileProduction(inputFilePath, uiTargets, toolDir);
         }
     }
     if (explainOnly) {

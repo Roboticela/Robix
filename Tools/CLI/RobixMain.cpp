@@ -1,6 +1,7 @@
 #include "NativeCompilerDriver.hpp"
 #include "StageIBuild.hpp"
 #include "UiProjectBuild.hpp"
+#include "../../RobixUI/AppRun.hpp"
 #include "../../RobixUI/Document.hpp"
 #include "../../Network/NetworkRuntime.hpp"
 #include "StageLTools.hpp"
@@ -30,7 +31,8 @@ static void PrintHelp() {
         << "USAGE:\n"
         << "    robix <command> [arguments]\n\n"
         << "COMMANDS:\n"
-        << "    run <file.rbx> [--native | --vm]   Execute a Robix source program\n"
+        << "    run <app> [--target web|windows] [--watch] [--port N]\n"
+        << "                                    Interpret the host platform or web. Writes Build\\Cache only.\n"
         << "    run all [--separate]                Run every network client and server\n"
         << "    run client <Name> | server <Name>   Run one service in this console\n"
         << "    build <file.rbx> [-o <out.exe>]     Compile directly to a native executable\n"
@@ -68,6 +70,18 @@ static void PrintHelp() {
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
+        const fs::path content = fs::absolute(argv[0]).parent_path() / "Content";
+        const char* names[] = {"Main.rbxu", "Main.xml", "MainWindow.rbxu"};
+        for (const char* name : names) {
+            const fs::path document = content / name;
+            if (!fs::is_regular_file(document)) {
+                continue;
+            }
+            Robix::UI::WindowRunOptions options;
+            options.stayOpen = true;
+            Robix::UI::LoadScreenOptions(document.string(), options);
+            return Robix::UI::RunWindowsFoundation(options);
+        }
         PrintHelp();
         return 0;
     }
@@ -151,7 +165,13 @@ int main(int argc, char* argv[]) {
         Robix::Tools::ProjectFile project;
         if (Robix::Tools::FindProject(inputFile, project) && project.network) {
             opts.linkNetwork = true;
-            opts.networkObjectPath = "Build/obj/NetworkRuntime.obj";
+            const fs::path installed = fs::path(toolDir) / ".." / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
+            const fs::path fromRoot = fs::current_path() / "Build" / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
+            if (fs::exists(installed)) {
+                opts.networkObjectPath = installed.string();
+            } else {
+                opts.networkObjectPath = fromRoot.string();
+            }
         }
         const std::string missingTest = Robix::Tools::MissingTestMessage(inputFile);
         if (!missingTest.empty()) {
@@ -181,67 +201,37 @@ int main(int argc, char* argv[]) {
         if (a == "--native") wantsNativeRun = true;
     }
 
-    if (cmd == "run" && wantsNativeRun && args.size() >= 2) {
-        std::string inputFile;
-        for (std::size_t i = 1; i < args.size(); ++i) {
-            if (!args[i].empty() && args[i][0] != '-') {
-                inputFile = args[i];
-                break;
-            }
-        }
-        if (inputFile.empty()) inputFile = "Source/Main.rbx";
-
-        std::ifstream srcFile(inputFile, std::ios::binary);
-        if (!srcFile.is_open()) {
-            std::cerr << "robix run: error: could not open file '" << inputFile << "'\n";
-            return 1;
-        }
-        std::string sourceText((std::istreambuf_iterator<char>(srcFile)),
-                               std::istreambuf_iterator<char>());
-        srcFile.close();
-
-        fs::path tempExe = fs::temp_directory_path() / (fs::path(inputFile).stem().string() + "_run.exe");
-        Robix::Tools::NativeBuildOptions opts;
-        opts.toolDirectory = toolDir;
-        opts.outputPath = tempExe.string();
-        opts.release = true;
-
-        auto res = Robix::Tools::NativeCompilerDriver::CompileSource(inputFile, sourceText, opts);
-        if (!res.success) {
-            if (!res.diagnosticsText.empty()) std::cerr << res.diagnosticsText;
-            std::cerr << "robix run: native compilation failed.\n";
-            return 1;
-        }
-        std::string command = "\"" + tempExe.string() + "\"";
-        bool seenFile = false;
-        for (std::size_t i = 1; i < args.size(); ++i) {
-            if (args[i] == "--native" || args[i] == "--vm") continue;
-            if (!seenFile) {
-                seenFile = true;
-                continue;
-            }
-            if (!args[i].empty() && args[i][0] == '-') continue;
-            command += " \"" + args[i] + "\"";
-        }
-        int code = std::system(("\"" + command + "\"").c_str());
-        std::error_code ec;
-        fs::remove(tempExe, ec);
-        return code;
+    if (cmd == "run" && wantsNativeRun) {
+        std::cerr << "robix: --native compiles an executable. Use robixc to build the production app.\n";
+        return 1;
     }
 
     if (cmd == "new") return Robix::Tools::RunNewCommand(args);
     if (cmd == "run") {
         std::string runInput;
-        std::string runTarget = "windows";
+        std::string runTarget = Robix::UI::HostTarget();
+        bool watch = false;
+        int port = 4173;
         for (std::size_t i = 1; i < args.size(); ++i) {
             if (args[i] == "--target" && i + 1 < args.size()) {
-                runTarget = args[++i] == "web" ? "web" : "windows";
+                runTarget = args[++i];
+            } else if (args[i] == "--watch") {
+                watch = true;
+            } else if (args[i] == "--port" && i + 1 < args.size()) {
+                port = std::stoi(args[++i]);
             } else if (!args[i].empty() && args[i][0] != '-' && runInput.empty()) {
                 runInput = args[i];
             }
         }
-        if (!runInput.empty() && fs::path(runInput).extension() == ".rbxu") {
-            return Robix::UI::BuildOrRunProject(runInput, true, runTarget, toolDir);
+        const std::string extension = fs::path(runInput).extension().string();
+        const bool screen = extension == ".rbxu" || extension == ".xml" || fs::is_directory(runInput);
+        if (screen && runInput != "all" && runInput != "client" && runInput != "server") {
+            return Robix::UI::RunInterpreter(runInput, runTarget, watch, port, toolDir);
+        }
+        if (!Robix::UI::InterpreterCanRun(runTarget)) {
+            std::cerr << "robix: the interpreter runs the host platform (" << Robix::UI::HostTarget() << ") and web.\n";
+            std::cerr << "'" << runTarget << "' was not started.\n";
+            return 1;
         }
         const int services = Robix::Tools::RunProjectServices(args, toolDir);
         if (services >= 0) return services;
