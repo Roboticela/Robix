@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Container — CSS-like flex / stack layout (GRUB gui_box + gui_canvas). -->
+<Component name="Container">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="display" type="enum" values="flex|grid|stack|canvas" default="flex" />
+  <Attribute name="direction" type="enum" values="row|column|row-reverse|column-reverse" default="column"
+             aliases="flexDirection" />
+  <Attribute name="justify" type="enum"
+             values="start|center|end|space-between|space-around|space-evenly" default="start"
+             aliases="justifyContent" />
+  <Attribute name="align" type="enum" values="start|center|end|stretch" default="stretch"
+             aliases="alignItems" />
+  <Attribute name="alignContent" type="enum"
+             values="start|center|end|space-between|space-around|space-evenly" default="start" />
+  <Attribute name="justifyItems" type="enum" values="start|center|end|stretch" default="stretch" />
+  <Attribute name="wrap" type="enum" values="wrap|nowrap" default="nowrap" aliases="flexWrap" />
+  <Attribute name="columns" type="int" required="false" />
+  <Attribute name="rows" type="int" required="false" />
+  <Attribute name="gap" type="int" default="0" />
+  <Attribute name="rowGap" type="int" required="false" />
+  <Attribute name="columnGap" type="int" required="false" aliases="colGap" />
+  <Attribute name="padding" type="int" default="0" />
+  <Attribute name="paddingTop" type="int" required="false" />
+  <Attribute name="paddingRight" type="int" required="false" />
+  <Attribute name="paddingBottom" type="int" required="false" />
+  <Attribute name="paddingLeft" type="int" required="false" />
+  <Attribute name="width" type="size" required="false" description="exact px, percent, or auto" />
+  <Attribute name="height" type="size" required="false" />
+  <Attribute name="minWidth" type="size" required="false" />
+  <Attribute name="minHeight" type="size" required="false" />
+  <Attribute name="maxWidth" type="size" required="false" />
+  <Attribute name="maxHeight" type="size" required="false" />
+  <Attribute name="minSize" type="string" required="false" />
+  <Attribute name="maxSize" type="string" required="false" />
+  <Attribute name="size" type="enum" values="exact|auto|dynamic|fill|min|max" required="false"
+             description="exact uses width and height; auto fits content; dynamic grows; fill is 100%" />
+  <Attribute name="x" type="int" default="0" />
+  <Attribute name="y" type="int" default="0" />
+  <Attribute name="position" type="enum" values="relative|absolute|fixed" default="relative" />
+  <Attribute name="inset" type="string" required="false" description="one to four lengths, CSS inset" />
+  <Attribute name="left" type="int" required="false" />
+  <Attribute name="top" type="int" required="false" />
+  <Attribute name="right" type="int" required="false" />
+  <Attribute name="bottom" type="int" required="false" />
+  <Attribute name="margin" type="int" required="false" />
+  <Attribute name="marginTop" type="int" required="false" />
+  <Attribute name="marginRight" type="int" required="false" />
+  <Attribute name="marginBottom" type="int" required="false" />
+  <Attribute name="marginLeft" type="int" required="false" />
+  <Attribute name="flex" type="int" required="false" aliases="flexGrow|grow" />
+  <Attribute name="flexShrink" type="int" required="false" aliases="shrink" />
+  <Attribute name="alignSelf" type="enum" values="auto|start|center|end|stretch" default="auto" />
+  <Attribute name="order" type="int" default="0" />
+  <Attribute name="gridColumn" type="string" required="false" description="auto, span N, or start / end" />
+  <Attribute name="gridRow" type="string" required="false" />
+  <Attribute name="overflow" type="enum" values="visible|hidden|clip|scroll|auto" default="visible" />
+  <Attribute name="overflowX" type="enum" values="visible|hidden|clip|scroll|auto" required="false"
+             aliases="overflow-x" />
+  <Attribute name="overflowY" type="enum" values="visible|hidden|clip|scroll|auto" required="false"
+             aliases="overflow-y" />
+  <Attribute name="clip" type="bool" default="false" description="true is overflow clip" />
+  <Attribute name="background" type="color" required="false" aliases="backgroundColor|bg" />
+  <Attribute name="fill" type="bool" default="false" aliases="fillParent" />
+  <Attribute name="widthMode" type="string" required="false" description="Web. auto, full, fit, min, max, content, viewport" />
+  <Attribute name="heightMode" type="string" required="false" description="Web. Same words as widthMode" />
+  <Attribute name="aspectRatio" type="string" required="false" description="Web. 1:1, 16:9, or a custom ratio" />
+  <Attribute name="sizing" type="string" required="false" description="Web. content, equal, fluid, proportional" />
+  <Attribute name="preset" type="string" required="false" description="Web visual preset. variant is the same" />
+  <Attribute name="shape" type="string" required="false" description="Web. square, rounded, pill, circle, squircle, cut" />
+  <Attribute name="shadow" type="string" required="false" description="Web shadow preset or a CSS box-shadow" />
+  <Attribute name="gradient" type="string" required="false" description="Web. linear, radial, conic, or a CSS gradient" />
+  <Attribute name="chrome" type="string" required="false" description="Web. window, panel, card, sidebar, docked, split" />
+  <Attribute name="enter" type="string" required="false" description="Web entry animation" />
+  <Attribute name="motion" type="string" required="false" description="Web hover motion" />
+  <Child name="*" max="64" description="any UI component (Container, Text, Heading, Paragraph, …)" />
+</Component>

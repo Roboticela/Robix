@@ -1,0 +1,1290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Screen name="DevKit" description="Every component" theme="dark" display="flex" direction="column" align="stretch" gap="space-5" padding="space-4">
+  <Eyebrow id="devkitEyebrow" font="sans">DevKit</Eyebrow>
+  <Heading id="devkitTitle" level="1" font="sans-semibold">Components</Heading>
+  <Body id="devkitIntro" font="sans">Each block below is one component.</Body>
+
+  <Container id="buttonDemo" display="flex" direction="column" align="stretch" gap="space-4">
+    <Caption id="buttonCaption" font="sans">Button</Caption>
+    <Container id="buttonPrimaryRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <Caption id="buttonPrimaryLabel" font="sans">Primary</Caption>
+      <Button id="buttonPrimary" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonPrimaryHover" preview="hover" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonPrimaryFocus" preview="focus" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonPrimaryActive" preview="active" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonPrimaryDisabled" disabled="true" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonPrimaryLoading" loading="true" loadingText="Loading..." fullWidth="false">Button</Button>
+    </Container>
+    <Container id="buttonSecondaryRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <Caption id="buttonSecondaryLabel" font="sans">Secondary</Caption>
+      <Button id="buttonSecondary" variant="secondary" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonSecondaryHover" variant="secondary" preview="hover" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonSecondaryFocus" variant="secondary" preview="focus" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonSecondaryActive" variant="secondary" preview="active" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonSecondaryDisabled" variant="secondary" disabled="true" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonSecondaryLoading" variant="secondary" loading="true" loadingText="Loading..." fullWidth="false">Button</Button>
+    </Container>
+    <Container id="buttonActionRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <Caption id="buttonActionLabel" font="sans">Action</Caption>
+      <Button id="buttonAction" variant="action" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonActionHover" variant="action" preview="hover" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonActionFocus" variant="action" preview="focus" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonActionActive" variant="action" preview="active" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonActionDisabled" variant="action" disabled="true" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonActionLoading" variant="action" loading="true" loadingText="Loading..." fullWidth="false">Button</Button>
+    </Container>
+    <Container id="buttonGhostRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <Caption id="buttonGhostLabel" font="sans">Ghost</Caption>
+      <Button id="buttonGhost" variant="ghost" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonGhostHover" variant="ghost" preview="hover" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonGhostFocus" variant="ghost" preview="focus" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonGhostActive" variant="ghost" preview="active" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonGhostDisabled" variant="ghost" disabled="true" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonGhostLoading" variant="ghost" loading="true" loadingText="Loading..." fullWidth="false">Button</Button>
+    </Container>
+    <Container id="buttonDangerRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <Caption id="buttonDangerLabel" font="sans">Destructive</Caption>
+      <Button id="buttonDanger" variant="danger" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonDangerHover" variant="danger" preview="hover" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonDangerFocus" variant="danger" preview="focus" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonDangerActive" variant="danger" preview="active" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonDangerDisabled" variant="danger" disabled="true" fullWidth="false" trailing="ArrowDirectionRight">Button</Button>
+      <Button id="buttonDangerLoading" variant="danger" loading="true" loadingText="Loading..." fullWidth="false">Button</Button>
+    </Container>
+    <Container id="buttonIconRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <Button id="buttonLeading" leading="ArrowDirectionLeft" fullWidth="false">Button</Button>
+      <Button id="buttonFull" fullWidth="true">Button</Button>
+    </Container>
+  </Container>
+
+  <Container id="iconButtonDemo" display="flex" direction="column" align="start" gap="space-3">
+    <Caption id="iconButtonCaption" font="sans">Icon button</Caption>
+    <Container id="iconButtonRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <IconButton id="iconButtonGhost" label="Search" icon="MagnifyingGlassFind" />
+      <IconButton id="iconButtonSubtle" label="Favorite" variant="subtle" icon="FavoriteHeartLove" />
+      <IconButton id="iconButtonOutline" label="Share" variant="outline" icon="ShareExportForward" />
+      <IconButton id="iconButtonPrimary" label="Add" variant="primary" icon="AddPlusCreate" action="900" />
+      <IconButton id="iconButtonDanger" label="Delete" variant="danger" icon="WasteBinDelete" />
+      <IconButton id="iconButtonSmall" label="Settings" size="sm" icon="GearSettingsPreferences" />
+      <IconButton id="iconButtonBadge" label="Inbox" icon="EnvelopeMessageMail" badge="3" />
+      <IconButton id="iconButtonSave" label="Save" variant="primary" icon="FloppyDiskSave" action="900" />
+      <IconButton id="iconButtonCopy" label="Copy" icon="ClipboardCopyDuplicate" action="900" />
+      <IconButton id="iconButtonLoading" label="Refreshing" icon="RefreshClockwiseRotate" status="loading" />
+      <IconButton id="iconButtonSuccess" label="Copied" icon="ClipboardCopyDuplicate" status="success" />
+      <IconButton id="iconButtonSuccessPrimary" label="Saved" variant="primary" icon="FloppyDiskSave" status="success" />
+      <IconButton id="iconButtonError" label="Failed" icon="ShareExportForward" status="error" />
+      <IconButton id="iconButtonLoadingPrimary" label="Saving" variant="primary" icon="FloppyDiskSave" status="loading" />
+      <IconButton id="iconButtonDisabled" label="Locked" icon="PadlockSecureClosed" disabled="true" />
+      <IconButton id="iconButtonDisabledOutline" label="Settings" variant="outline" icon="GearSettingsPreferences" disabled="true" />
+    </Container>
+  </Container>
+
+  <Container id="switchDemo" display="flex" direction="column" align="start" gap="space-4" maxWidth="400">
+    <Caption id="switchCaption" font="sans">Switch</Caption>
+    <Container id="switchVariantRow" display="flex" direction="row" align="end" gap="space-4" wrap="wrap">
+      <Container id="switchPrimaryCol" display="flex" direction="column" align="center" gap="space-2">
+        <Switch id="switchPrimary" label="Primary" checked="true" />
+        <Caption id="switchPrimaryLabel" font="sans">Primary</Caption>
+      </Container>
+      <Container id="switchSubtleCol" display="flex" direction="column" align="center" gap="space-2">
+        <Switch id="switchSubtle" label="Subtle" variant="subtle" checked="true" />
+        <Caption id="switchSubtleLabel" font="sans">Subtle</Caption>
+      </Container>
+      <Container id="switchOutlineCol" display="flex" direction="column" align="center" gap="space-2">
+        <Switch id="switchOutline" label="Outline" variant="outline" />
+        <Caption id="switchOutlineLabel" font="sans">Outline</Caption>
+      </Container>
+      <Container id="switchGhostCol" display="flex" direction="column" align="center" gap="space-2">
+        <Switch id="switchGhost" label="Ghost" variant="ghost" checked="true" />
+        <Caption id="switchGhostLabel" font="sans">Ghost</Caption>
+      </Container>
+      <Container id="switchDangerCol" display="flex" direction="column" align="center" gap="space-2">
+        <Switch id="switchDanger" label="Danger" variant="danger" />
+        <Caption id="switchDangerLabel" font="sans">Danger</Caption>
+      </Container>
+    </Container>
+    <Caption id="switchGroupLabel" font="sans">Group</Caption>
+    <SwitchGroup id="switchGroup" label="Preferences">
+      <SwitchItem id="switchItemNotify" title="Notifications" description="Push and email alerts" checked="true" />
+      <SwitchItem id="switchItemDigest" title="Weekly digest" description="A summary every Monday" variant="subtle" />
+      <SwitchItem id="switchItemAlerts" title="Security alerts" description="Sign-in and recovery" variant="danger" checked="true" />
+      <SwitchItem id="switchItemPreview" title="Preview features" variant="outline" size="sm" checked="true" />
+    </SwitchGroup>
+    <Container id="switchStateRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <Switch id="switchOff" label="Primary off" />
+      <Switch id="switchOn" label="Primary on" checked="true" />
+      <Switch id="switchSmall" label="Small" size="sm" checked="true" />
+      <Switch id="switchMedium" label="Medium" size="md" checked="true" />
+      <Switch id="switchLarge" label="Large" size="lg" checked="true" />
+      <Switch id="switchDisabled" label="Disabled" checked="true" disabled="true" />
+      <Switch id="switchLoading" label="Loading" checked="true" loading="true" />
+    </Container>
+  </Container>
+
+  <Container id="segmentDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="520">
+    <Caption id="segmentCaption" font="sans">Segmented control</Caption>
+    <SegmentedControl id="segmentText" label="Text" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentBoth" label="Icon and text" content="both" value="list" fullWidth="true">
+      <Segment value="grid" label="Grid" icon="LayoutGrid" />
+      <Segment value="list" label="List" icon="BulletedListItems" />
+      <Segment value="gallery" label="Gallery" icon="RowsThree" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentIcon" label="Icon" content="icon" value="center">
+      <Segment value="start" label="Align left" icon="TextAlignStart" />
+      <Segment value="center" label="Align center" icon="TextAlignCenter" />
+      <Segment value="end" label="Align right" icon="TextAlignEnd" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentGrouped" label="Grouped buttons" mode="grouped" value="preview" fullWidth="true">
+      <Segment value="edit" label="Edit" />
+      <Segment value="preview" label="Preview" />
+      <Segment value="code" label="Code" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentAction" label="On action" value="week" fullWidth="true" action="900">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <Caption id="segmentTogetherLabel" font="sans">Together</Caption>
+    <SegmentedToolbar id="segmentToolbar">
+      <SegmentedControl id="segmentToolAlign" content="icon" value="center">
+        <Segment value="start" label="Align left" icon="TextAlignStart" />
+        <Segment value="center" label="Align center" icon="TextAlignCenter" />
+        <Segment value="end" label="Align right" icon="TextAlignEnd" />
+      </SegmentedControl>
+      <IconButton id="segmentRefresh" label="Refresh" icon="RefreshClockwiseRotate" action="900" />
+      <Button id="segmentSave" fullWidth="false" size="md">Save</Button>
+    </SegmentedToolbar>
+    <Caption id="segmentAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <SegmentedControl id="segmentSubtle" label="Subtle" variant="subtle" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentOutline" label="Outline" variant="outline" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentGhost" label="Ghost" variant="ghost" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentPrimary" label="Primary" variant="primary" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentPill" label="Pill" variant="pill" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <Caption id="segmentContentLabel" font="sans-medium">Content</Caption>
+    <SegmentedControl id="segmentBothPrimary" label="Icon and text, primary" content="both" variant="primary" value="grid" fullWidth="true">
+      <Segment value="grid" label="Grid" icon="LayoutGrid" />
+      <Segment value="list" label="List" icon="BulletedListItems" />
+      <Segment value="gallery" label="Gallery" icon="RowsThree" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentStyle" label="Icon, pill" content="icon" variant="pill" value="bold">
+      <Segment value="bold" label="Bold" icon="TypographyBoldWeight" />
+      <Segment value="italic" label="Italic" icon="TypographyItalicSlant" />
+      <Segment value="underline" label="Underline" icon="TypographyUnderline" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentBadge" label="Badge" value="unread" fullWidth="true">
+      <Segment value="all" label="All" badge="128" />
+      <Segment value="unread" label="Unread" badge="12" />
+      <Segment value="flagged" label="Flagged" badge="3" />
+    </SegmentedControl>
+    <Caption id="segmentSizeLabel" font="sans-medium">Size</Caption>
+    <SegmentedControl id="segmentSmall" label="Small" size="sm" value="sm" fullWidth="true">
+      <Segment value="sm" label="Small" />
+      <Segment value="md" label="Medium" />
+      <Segment value="lg" label="Large" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentMedium" label="Medium" size="md" value="md" fullWidth="true">
+      <Segment value="sm" label="Small" />
+      <Segment value="md" label="Medium" />
+      <Segment value="lg" label="Large" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentLarge" label="Large" size="lg" value="lg" fullWidth="true">
+      <Segment value="sm" label="Small" />
+      <Segment value="md" label="Medium" />
+      <Segment value="lg" label="Large" />
+    </SegmentedControl>
+    <Caption id="segmentStateLabel" font="sans-medium">State</Caption>
+    <SegmentedControl id="segmentDisabled" label="Disabled" disabled="true" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentOptionDisabled" label="Option disabled" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="year" label="Year" disabled="true" />
+    </SegmentedControl>
+    <Caption id="segmentGroupedLabel" font="sans-medium">Grouped buttons</Caption>
+    <SegmentedControl id="segmentGroupedText" label="Text" mode="grouped" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentGroupedBoth" label="Icon and text" mode="grouped" content="both" value="grid" fullWidth="true">
+      <Segment value="grid" label="Grid" icon="LayoutGrid" />
+      <Segment value="list" label="List" icon="BulletedListItems" />
+      <Segment value="gallery" label="Gallery" icon="RowsThree" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentGroupedIcon" label="Icon buttons" mode="grouped" content="icon" variant="outline" value="center">
+      <Segment value="start" label="Align left" icon="TextAlignStart" />
+      <Segment value="center" label="Align center" icon="TextAlignCenter" />
+      <Segment value="end" label="Align right" icon="TextAlignEnd" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentGroupedPrimary" label="Primary grouped" mode="grouped" variant="primary" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <Caption id="segmentLoadLabel" font="sans-medium">Loaders and actions</Caption>
+    <SegmentedControl id="segmentLoading" label="Loading segment" value="week" fullWidth="true">
+      <Segment value="day" label="Day" />
+      <Segment value="week" label="Week" loading="true" />
+      <Segment value="month" label="Month" />
+    </SegmentedControl>
+    <SegmentedControl id="segmentIconAction" label="Icon action" content="icon" variant="outline" value="center">
+      <Segment value="start" label="Align left" icon="TextAlignStart" action="700" />
+      <Segment value="center" label="Align center" icon="TextAlignCenter" action="700" />
+      <Segment value="end" label="Align right" icon="TextAlignEnd" action="700" />
+    </SegmentedControl>
+    <Caption id="segmentLeadLabel" font="sans">Leading and trailing</Caption>
+    <Container id="segmentLeadRow" display="flex" direction="row" align="center" gap="space-2">
+      <IconButton id="segmentAdd" label="Add" variant="subtle" icon="AddPlusCreate" action="700" />
+      <SegmentedControl id="segmentLead" content="both" value="grid" fullWidth="true">
+        <Segment value="grid" label="Grid" icon="LayoutGrid" />
+        <Segment value="list" label="List" icon="BulletedListItems" />
+        <Segment value="gallery" label="Gallery" icon="RowsThree" />
+      </SegmentedControl>
+      <IconButton id="segmentLeadRefresh" label="Refresh" variant="outline" icon="RefreshClockwiseRotate" action="700" />
+      <Button id="segmentLeadSave" fullWidth="false" size="md">Save</Button>
+    </Container>
+    <Caption id="segmentAttachedLabel" font="sans">Attached</Caption>
+    <SegmentedToolbar id="segmentAttached" attached="true">
+      <SegmentedControl id="segmentAttachedRange" variant="ghost" mode="grouped" value="week" fullWidth="true">
+        <Segment value="day" label="Day" />
+        <Segment value="week" label="Week" />
+        <Segment value="month" label="Month" />
+      </SegmentedControl>
+      <Button id="segmentApply" fullWidth="false" size="md">Apply</Button>
+    </SegmentedToolbar>
+  </Container>
+
+  <Container id="confirmDemo" display="flex" direction="column" align="start" gap="space-4">
+    <Caption id="confirmCaption" font="sans">Confirm action</Caption>
+    <Container id="confirmVariantRow" display="flex" direction="row" align="end" gap="space-4" wrap="wrap">
+      <Container id="confirmTextCol" display="flex" direction="column" align="center" gap="space-2">
+        <ConfirmAction id="confirmText" variant="text" label="Remove" />
+        <Caption id="confirmTextLabel" font="sans">Text</Caption>
+      </Container>
+      <Container id="confirmGhostCol" display="flex" direction="column" align="center" gap="space-2">
+        <ConfirmAction id="confirmGhost" variant="ghost" label="Remove" />
+        <Caption id="confirmGhostLabel" font="sans">Ghost</Caption>
+      </Container>
+      <Container id="confirmSubtleCol" display="flex" direction="column" align="center" gap="space-2">
+        <ConfirmAction id="confirmSubtle" variant="subtle" label="Remove" />
+        <Caption id="confirmSubtleLabel" font="sans">Subtle</Caption>
+      </Container>
+      <Container id="confirmOutlineCol" display="flex" direction="column" align="center" gap="space-2">
+        <ConfirmAction id="confirmOutline" variant="outline" label="Remove" />
+        <Caption id="confirmOutlineLabel" font="sans">Outline</Caption>
+      </Container>
+      <Container id="confirmSolidCol" display="flex" direction="column" align="center" gap="space-2">
+        <ConfirmAction id="confirmSolid" variant="solid" label="Remove" />
+        <Caption id="confirmSolidLabel" font="sans">Solid</Caption>
+      </Container>
+    </Container>
+    <Caption id="confirmToneLabel" font="sans-medium">Tone</Caption>
+    <Container id="confirmToneRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <ConfirmAction id="confirmTextDanger" variant="text" tone="danger" label="Remove" />
+      <ConfirmAction id="confirmTextBrand" variant="text" tone="brand" label="Send" confirmLabel="Send now?" />
+      <ConfirmAction id="confirmTextNeutral" variant="text" tone="neutral" label="Archive" />
+      <ConfirmAction id="confirmSolidDanger" variant="solid" tone="danger" label="Delete" />
+      <ConfirmAction id="confirmSolidBrand" variant="solid" tone="brand" label="Publish" confirmLabel="Publish now?" />
+      <ConfirmAction id="confirmSolidNeutral" variant="solid" tone="neutral" label="Move" />
+    </Container>
+    <Caption id="confirmSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="confirmSizeRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <ConfirmAction id="confirmSmall" variant="outline" size="sm" label="Remove" />
+      <ConfirmAction id="confirmMedium" variant="outline" size="md" label="Remove" />
+      <ConfirmAction id="confirmLarge" variant="outline" size="lg" label="Remove" />
+    </Container>
+    <Caption id="confirmStateLabel" font="sans-medium">State</Caption>
+    <Container id="confirmStateRow" display="flex" direction="row" align="center" gap="space-3" wrap="wrap">
+      <ConfirmAction id="confirmLoading" variant="solid" loading="true" label="Remove" />
+      <ConfirmAction id="confirmSending" variant="solid" tone="brand" label="Send" loading="true" loadingText="Sending…" />
+      <ConfirmAction id="confirmDisabled" variant="outline" disabled="true" label="Remove" />
+    </Container>
+  </Container>
+
+  <Container id="themeDemo" display="flex" direction="column" align="start" gap="space-4">
+    <Caption id="themeCaption" font="sans">Theme toggle</Caption>
+    <Container id="themeDefaultWrap" display="flex" direction="column" align="stretch" maxWidth="260">
+      <ThemeToggle id="themeDefault" />
+    </Container>
+    <Container id="themeVariantRow" display="flex" direction="row" align="end" gap="space-4" wrap="wrap">
+      <Container id="themeCompactCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeToggle id="themeCompact" variant="compact" />
+        <Caption id="themeCompactLabel" font="sans">Compact</Caption>
+      </Container>
+      <Container id="themeLabelsCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeToggle id="themeLabels" variant="labels" />
+        <Caption id="themeLabelsLabel" font="sans">Labels</Caption>
+      </Container>
+      <Container id="themeIconsCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeToggle id="themeIcons" variant="icons" />
+        <Caption id="themeIconsLabel" font="sans">Icons</Caption>
+      </Container>
+      <Container id="themeSwitchCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeToggle id="themeSwitch" variant="switch" />
+        <Caption id="themeSwitchLabel" font="sans">Switch</Caption>
+      </Container>
+      <Container id="themeDisabledCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeToggle id="themeDisabled" variant="compact" disabled="true" />
+        <Caption id="themeDisabledLabel" font="sans">Disabled</Caption>
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="themeIconDemo" display="flex" direction="column" align="start" gap="space-4">
+    <Caption id="themeIconCaption" font="sans">Theme icon toggle</Caption>
+    <Container id="themeIconRow" display="flex" direction="row" align="end" gap="space-4" wrap="wrap">
+      <Container id="themeIconGhostCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconGhost" variant="ghost" />
+        <Caption id="themeIconGhostLabel" font="sans">Ghost</Caption>
+      </Container>
+      <Container id="themeIconSubtleCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconSubtle" variant="subtle" />
+        <Caption id="themeIconSubtleLabel" font="sans">Subtle</Caption>
+      </Container>
+      <Container id="themeIconOutlineCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconOutline" variant="outline" />
+        <Caption id="themeIconOutlineLabel" font="sans">Outline</Caption>
+      </Container>
+      <Container id="themeIconPairCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconPair" variant="pair" />
+        <Caption id="themeIconPairLabel" font="sans">Pair</Caption>
+      </Container>
+      <Container id="themeIconSegmentedCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconSegmented" variant="segmented" />
+        <Caption id="themeIconSegmentedLabel" font="sans">Segmented</Caption>
+      </Container>
+      <Container id="themeIconSplitCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconSplit" variant="split" />
+        <Caption id="themeIconSplitLabel" font="sans">Split</Caption>
+      </Container>
+      <Container id="themeIconSmallCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconSmall" variant="pair" size="sm" />
+        <Caption id="themeIconSmallLabel" font="sans">Small pair</Caption>
+      </Container>
+      <Container id="themeIconDisabledCol" display="flex" direction="column" align="center" gap="space-2">
+        <ThemeIconToggle id="themeIconDisabled" variant="pair" disabled="true" />
+        <Caption id="themeIconDisabledLabel" font="sans">Disabled</Caption>
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="fieldDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="fieldCaption" font="sans">Text field</Caption>
+    <Container id="fieldVariantCol" display="flex" direction="column" align="stretch" gap="space-3" maxWidth="400">
+      <TextField id="fieldOutline" variant="outline" icon="EnvelopeMessageMail" placeholder="Outline email" />
+      <TextField id="fieldSubtle" variant="subtle" icon="EnvelopeMessageMail" placeholder="Subtle email" />
+      <TextField id="fieldGhost" variant="ghost" icon="EnvelopeMessageMail" placeholder="Ghost email" />
+      <TextField id="fieldUnderline" variant="underline" icon="EnvelopeMessageMail" placeholder="Underline email" />
+      <TextField id="fieldPill" variant="pill" icon="EnvelopeMessageMail" placeholder="Pill email" />
+    </Container>
+    <Caption id="fieldAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="fieldAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <TextField id="fieldAppearanceOutline" label="Outline" icon="EnvelopeMessageMail" placeholder="Email address" />
+      <TextField id="fieldAppearanceSubtle" label="Subtle" variant="subtle" icon="EnvelopeMessageMail" placeholder="Email address" />
+      <TextField id="fieldAppearanceGhost" label="Ghost" variant="ghost" icon="EnvelopeMessageMail" placeholder="Email address" />
+      <TextField id="fieldAppearanceUnderline" label="Underline" variant="underline" icon="EnvelopeMessageMail" placeholder="Email address" />
+      <TextField id="fieldAppearancePill" label="Pill" variant="pill" icon="EnvelopeMessageMail" placeholder="Email address" />
+    </Container>
+    <Caption id="fieldSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="fieldSizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <TextField id="fieldSmall" label="Small" size="sm" icon="EnvelopeMessageMail" placeholder="Email address" />
+      <TextField id="fieldMedium" label="Medium" size="md" icon="EnvelopeMessageMail" placeholder="Email address" />
+      <TextField id="fieldLarge" label="Large" size="lg" icon="EnvelopeMessageMail" placeholder="Email address" />
+    </Container>
+    <Caption id="fieldStateLabel" font="sans-medium">State</Caption>
+    <Container id="fieldStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <TextField id="fieldEmpty" label="Empty" icon="EnvelopeMessageMail" placeholder="Email address" />
+      <TextField id="fieldFilled" label="Filled" icon="EnvelopeMessageMail" placeholder="Email address" value="alex@roboticela.com" />
+      <TextField id="fieldHover" label="Hover" icon="EnvelopeMessageMail" placeholder="Email address" preview="hover" />
+      <TextField id="fieldFocus" label="Focus" icon="EnvelopeMessageMail" placeholder="Email address" value="alex@roboticela.com" preview="focus" />
+      <TextField id="fieldInvalid" label="Invalid" icon="EnvelopeMessageMail" placeholder="Email address" value="alex" invalid="true" />
+      <TextField id="fieldValid" label="Valid" icon="EnvelopeMessageMail" placeholder="Email address" value="alex@roboticela.com" valid="true" />
+      <TextField id="fieldDisabled" label="Disabled" icon="EnvelopeMessageMail" placeholder="Email address" value="alex@roboticela.com" disabled="true" />
+      <TextField id="fieldReadOnly" label="Read only" icon="EnvelopeMessageMail" placeholder="Email address" value="alex@roboticela.com" readOnly="true" />
+    </Container>
+    <Caption id="fieldIconLabel" font="sans-medium">Icons</Caption>
+    <Container id="fieldIcons" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <TextField id="fieldName" label="Name" icon="PersonUserProfile" placeholder="Display name" value="Alex Rivera" />
+      <TextField id="fieldUsername" label="Username" icon="AtSign" placeholder="Username" value="alex" />
+      <TextField id="fieldSearch" label="Search" variant="pill" icon="MagnifyingGlassFind" placeholder="Search" />
+      <TextField id="fieldLocation" label="Location" variant="subtle" icon="FoldedMapTerritoryMapPinLocation" placeholder="City" value="Karachi" />
+      <TextField id="fieldPhone" label="Phone" variant="ghost" icon="HandheldMobilePhone" placeholder="Phone number" value="+1 415 555 2671" />
+      <TextField id="fieldFullName" label="Underline" variant="underline" icon="PersonUserProfile" placeholder="Full name" />
+    </Container>
+  </Container>
+
+  <Container id="areaDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="areaCaption" font="sans">Text area</Caption>
+    <Container id="areaVariantCol" display="flex" direction="column" align="stretch" gap="space-3" maxWidth="400">
+      <TextArea id="areaOutline" variant="outline" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Outline note" />
+      <TextArea id="areaSubtle" variant="subtle" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Subtle note" />
+      <TextArea id="areaGhost" variant="ghost" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Ghost note" />
+      <TextArea id="areaUnderline" variant="underline" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Underline note" />
+      <TextArea id="areaWell" variant="well" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Well note" />
+      <TextArea id="areaComposer" variant="composer" icon="MessageInboxTray" placeholder="Write a note for your team" hint="Visible to your workspace" maxLength="160" value="Ship the auth kit on Monday." />
+    </Container>
+    <Caption id="areaAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="areaAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="areaAppearanceOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaAppearanceOutline" label="Outline" variant="outline" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+      <Container id="areaAppearanceSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaAppearanceSubtle" label="Subtle" variant="subtle" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+      <Container id="areaAppearanceGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaAppearanceGhost" label="Ghost" variant="ghost" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+      <Container id="areaAppearanceUnderlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaAppearanceUnderline" label="Underline" variant="underline" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+      <Container id="areaAppearanceWellWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaAppearanceWell" label="Well" variant="well" size="sm" rows="3" icon="DocumentPageFold" placeholder="Internal note" />
+      </Container>
+      <Container id="areaAppearanceComposerWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaAppearanceComposer" label="Composer" variant="composer" size="sm" icon="MessageInboxTray" placeholder="Write a note" hint="Visible to your team" maxLength="80" />
+      </Container>
+    </Container>
+    <Caption id="areaSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="areaSizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="areaSizeSmallWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <TextArea id="areaSmall" label="Small" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+      <Container id="areaSizeMediumWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <TextArea id="areaMedium" label="Medium" size="md" rows="3" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+      <Container id="areaSizeLargeWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <TextArea id="areaLarge" label="Large" size="lg" rows="5" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+    </Container>
+    <Caption id="areaStateLabel" font="sans-medium">State</Caption>
+    <Container id="areaStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="areaEmptyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaEmpty" label="Empty" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" />
+      </Container>
+      <Container id="areaFilledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaFilled" label="Filled" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" value="Ship the auth kit on Monday." />
+      </Container>
+      <Container id="areaHoverWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaHover" label="Hover" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" preview="hover" />
+      </Container>
+      <Container id="areaFocusWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaFocus" label="Focus" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" value="Ship the auth kit on Monday." preview="focus" />
+      </Container>
+      <Container id="areaInvalidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaInvalid" label="Invalid" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" value="Too short" invalid="true" />
+      </Container>
+      <Container id="areaValidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaValid" label="Valid" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" value="Ship the auth kit on Monday." valid="true" />
+      </Container>
+      <Container id="areaDisabledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaDisabled" label="Disabled" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" value="Locked" disabled="true" />
+      </Container>
+      <Container id="areaReadOnlyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextArea id="areaReadOnly" label="Read only" size="sm" rows="3" icon="PencilWriteEdit" placeholder="Write a note" value="Published copy." readOnly="true" />
+      </Container>
+    </Container>
+    <Caption id="areaComposerLabel" font="sans-medium">Composer</Caption>
+    <Container id="areaComposerRow" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="areaFeedbackWrap" display="flex" direction="column" flex="1" minWidth="280">
+        <TextArea id="areaFeedback" label="Feedback" variant="composer" size="sm" icon="MessageInboxTray" placeholder="What can we improve?" hint="Sent to the product team" maxLength="120" />
+      </Container>
+      <Container id="areaCountedWrap" display="flex" direction="column" flex="1" minWidth="280">
+        <TextArea id="areaCounted" label="Well, counted" variant="well" size="sm" rows="3" icon="DocumentPageFold" placeholder="Internal note" value="Keep the Monday launch note short." count="true" maxLength="80" />
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="selectDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="selectCaption" font="sans">Select</Caption>
+    <Container id="selectVariantCol" display="flex" direction="column" align="stretch" gap="space-3" maxWidth="400">
+      <Select id="selectOutline" variant="outline" icon="GlobeWorldEarth" value="md" placeholder="Outline select">
+        <Option value="sm" label="Small" />
+        <Option value="md" label="Medium" />
+        <Option value="lg" label="Large" />
+      </Select>
+      <Select id="selectSubtle" variant="subtle" icon="GlobeWorldEarth" value="md" placeholder="Subtle select">
+        <Option value="sm" label="Small" />
+        <Option value="md" label="Medium" />
+        <Option value="lg" label="Large" />
+      </Select>
+      <Select id="selectGhost" variant="ghost" icon="GlobeWorldEarth" value="md" placeholder="Ghost select">
+        <Option value="sm" label="Small" />
+        <Option value="md" label="Medium" />
+        <Option value="lg" label="Large" />
+      </Select>
+      <Select id="selectUnderline" variant="underline" icon="GlobeWorldEarth" value="md" placeholder="Underline select">
+        <Option value="sm" label="Small" />
+        <Option value="md" label="Medium" />
+        <Option value="lg" label="Large" />
+      </Select>
+      <Select id="selectPill" variant="pill" icon="GlobeWorldEarth" value="md" placeholder="Pill select">
+        <Option value="sm" label="Small" />
+        <Option value="md" label="Medium" />
+        <Option value="lg" label="Large" />
+      </Select>
+    </Container>
+    <Caption id="selectAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="selectAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="selectAppearanceOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectAppearanceOutline" label="Outline" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectAppearanceSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectAppearanceSubtle" label="Subtle" variant="subtle" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectAppearanceGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectAppearanceGhost" label="Ghost" variant="ghost" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectAppearanceUnderlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectAppearanceUnderline" label="Underline" variant="underline" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectAppearancePillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectAppearancePill" label="Pill" variant="pill" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+    </Container>
+    <Caption id="selectIconLabel" font="sans-medium">Icons</Caption>
+    <Container id="selectIcons" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="selectFieldIconWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectFieldIcon" label="Field icon" icon="GlobeWorldEarth" placeholder="Region">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectOptionIconWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectOptionIcon" label="Option icons" value="team" placeholder="Plan">
+          <Option value="starter" label="Starter" description="One workspace" icon="LayoutGrid" />
+          <Option value="team" label="Team" description="Up to ten people" icon="RowsThree" />
+          <Option value="studio" label="Studio" description="Unlimited seats" icon="AppDashboardLayoutTiles" />
+          <Option value="enterprise" label="Enterprise" description="Coming later" icon="GlobeWorldEarth" disabled="true" />
+        </Select>
+      </Container>
+    </Container>
+    <Caption id="selectSearchLabel" font="sans-medium">Search</Caption>
+    <Container id="selectSearch" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="selectFilterWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectFilter" label="Filterable list" searchable="true" searchPlaceholder="Search plans" value="team" placeholder="Plan">
+          <Option value="starter" label="Starter" description="One workspace" icon="LayoutGrid" />
+          <Option value="team" label="Team" description="Up to ten people" icon="RowsThree" />
+          <Option value="studio" label="Studio" description="Unlimited seats" icon="AppDashboardLayoutTiles" />
+          <Option value="enterprise" label="Enterprise" description="Coming later" icon="GlobeWorldEarth" disabled="true" />
+          <Option value="personal" label="Personal" description="A single seat" icon="LayoutGrid" keywords="solo" />
+          <Option value="growth" label="Growth" description="Shared projects" icon="RowsThree" />
+          <Option value="agency" label="Agency" description="Client workspaces" icon="AppDashboardLayoutTiles" />
+          <Option value="education" label="Education" description="Classrooms" icon="GlobeWorldEarth" />
+        </Select>
+      </Container>
+      <Container id="selectSearchSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectSearchSubtle" label="Search, subtle" variant="subtle" searchable="true" searchPlaceholder="Search" icon="MagnifyingGlassFind" placeholder="Plan">
+          <Option value="starter" label="Starter" description="One workspace" icon="LayoutGrid" />
+          <Option value="team" label="Team" description="Up to ten people" icon="RowsThree" />
+          <Option value="studio" label="Studio" description="Unlimited seats" icon="AppDashboardLayoutTiles" />
+          <Option value="enterprise" label="Enterprise" description="Coming later" icon="GlobeWorldEarth" disabled="true" />
+          <Option value="personal" label="Personal" description="A single seat" icon="LayoutGrid" keywords="solo" />
+          <Option value="growth" label="Growth" description="Shared projects" icon="RowsThree" />
+          <Option value="agency" label="Agency" description="Client workspaces" icon="AppDashboardLayoutTiles" />
+          <Option value="education" label="Education" description="Classrooms" icon="GlobeWorldEarth" />
+        </Select>
+      </Container>
+    </Container>
+    <Caption id="selectSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="selectSizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="selectSizeSmallWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <Select id="selectSmall" label="Small" size="sm" icon="GlobeWorldEarth" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectSizeMediumWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <Select id="selectMedium" label="Medium" size="md" icon="GlobeWorldEarth" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectSizeLargeWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <Select id="selectLarge" label="Large" size="lg" icon="GlobeWorldEarth" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+    </Container>
+    <Caption id="selectStateLabel" font="sans-medium">State</Caption>
+    <Container id="selectStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="selectEmptyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectEmpty" label="Empty" placeholder="Choose a size">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectFilledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectFilled" label="Filled" value="md">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectHoverWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectHover" label="Hover" value="md" preview="hover">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectOpenWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectOpen" label="Open" value="md" icon="GlobeWorldEarth" preview="open">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectInvalidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectInvalid" label="Invalid" value="md" invalid="true">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectValidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectValid" label="Valid" value="md" valid="true">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectDisabledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectDisabled" label="Disabled" value="md" disabled="true">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+      <Container id="selectCompactWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Select id="selectCompact" label="Compact" value="md" compact="true">
+          <Option value="sm" label="Small" />
+          <Option value="md" label="Medium" />
+          <Option value="lg" label="Large" />
+        </Select>
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="countryDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="countryCaption" font="sans">Country</Caption>
+    <Container id="countryMainWrap" display="flex" direction="column" align="stretch" maxWidth="400">
+      <CountrySelect id="countryMain" value="US" />
+    </Container>
+    <Caption id="countryAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="countryAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="countryOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryOutlineLabel" font="sans">Outline</Caption>
+        <CountrySelect id="countryOutline" variant="outline" value="US" />
+      </Container>
+      <Container id="countrySubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countrySubtleLabel" font="sans">Subtle</Caption>
+        <CountrySelect id="countrySubtle" variant="subtle" value="US" />
+      </Container>
+      <Container id="countryGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryGhostLabel" font="sans">Ghost</Caption>
+        <CountrySelect id="countryGhost" variant="ghost" value="US" />
+      </Container>
+      <Container id="countryUnderlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryUnderlineLabel" font="sans">Underline</Caption>
+        <CountrySelect id="countryUnderline" variant="underline" value="US" />
+      </Container>
+      <Container id="countryPillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryPillLabel" font="sans">Pill</Caption>
+        <CountrySelect id="countryPill" variant="pill" value="US" />
+      </Container>
+    </Container>
+    <Caption id="countrySizeLabel" font="sans-medium">Size</Caption>
+    <Container id="countrySizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="countrySmallWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <Caption id="countrySmallLabel" font="sans">Small</Caption>
+        <CountrySelect id="countrySmall" size="sm" value="US" />
+      </Container>
+      <Container id="countryMediumWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <Caption id="countryMediumLabel" font="sans">Medium</Caption>
+        <CountrySelect id="countryMedium" size="md" value="US" />
+      </Container>
+      <Container id="countryLargeWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <Caption id="countryLargeLabel" font="sans">Large</Caption>
+        <CountrySelect id="countryLarge" size="lg" value="US" />
+      </Container>
+    </Container>
+    <Caption id="countryStateLabel" font="sans-medium">State</Caption>
+    <Container id="countryStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="countryEmptyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryEmptyLabel" font="sans">Empty</Caption>
+        <CountrySelect id="countryEmpty" />
+      </Container>
+      <Container id="countryFilledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryFilledLabel" font="sans">Filled</Caption>
+        <CountrySelect id="countryFilled" value="US" />
+      </Container>
+      <Container id="countryCompactWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryCompactLabel" font="sans">Compact</Caption>
+        <CountrySelect id="countryCompact" value="US" compact="true" />
+      </Container>
+      <Container id="countryDisabledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <Caption id="countryDisabledLabel" font="sans">Disabled</Caption>
+        <CountrySelect id="countryDisabled" value="US" disabled="true" />
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="revealDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="revealCaption" font="sans">Password reveal</Caption>
+    <Container id="revealVariantRow" display="flex" direction="row" align="end" justify="center" gap="space-4" wrap="wrap">
+      <Container id="revealGhostCol" display="flex" direction="column" align="center" gap="space-2">
+        <PasswordReveal id="revealGhost" variant="ghost" inField="false" />
+        <Caption id="revealGhostLabel" font="sans">Ghost</Caption>
+      </Container>
+      <Container id="revealSubtleCol" display="flex" direction="column" align="center" gap="space-2">
+        <PasswordReveal id="revealSubtle" variant="subtle" inField="false" />
+        <Caption id="revealSubtleLabel" font="sans">Subtle</Caption>
+      </Container>
+      <Container id="revealOutlineCol" display="flex" direction="column" align="center" gap="space-2">
+        <PasswordReveal id="revealOutline" variant="outline" inField="false" visible="true" />
+        <Caption id="revealOutlineLabel" font="sans">Outline</Caption>
+      </Container>
+      <Container id="revealTextCol" display="flex" direction="column" align="center" gap="space-2">
+        <PasswordReveal id="revealText" variant="text" inField="false" />
+        <Caption id="revealTextLabel" font="sans">Text</Caption>
+      </Container>
+      <Container id="revealPillCol" display="flex" direction="column" align="center" gap="space-2">
+        <PasswordReveal id="revealPill" variant="pill" inField="false" visible="true" />
+        <Caption id="revealPillLabel" font="sans">Pill</Caption>
+      </Container>
+    </Container>
+    <TextField id="revealField" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password" maxWidth="400">
+      <PasswordReveal id="revealFieldToggle" variant="text" />
+    </TextField>
+    <Caption id="revealAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="revealAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="revealAppearanceGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextField id="revealAppearanceGhost" label="Ghost" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealAppearanceGhostToggle" variant="ghost" />
+        </TextField>
+      </Container>
+      <Container id="revealAppearanceSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextField id="revealAppearanceSubtle" label="Subtle" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealAppearanceSubtleToggle" variant="subtle" />
+        </TextField>
+      </Container>
+      <Container id="revealAppearanceOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextField id="revealAppearanceOutline" label="Outline" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealAppearanceOutlineToggle" variant="outline" />
+        </TextField>
+      </Container>
+      <Container id="revealAppearanceTextWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextField id="revealAppearanceText" label="Text" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealAppearanceTextToggle" variant="text" />
+        </TextField>
+      </Container>
+      <Container id="revealAppearancePillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextField id="revealAppearancePill" label="Pill" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealAppearancePillToggle" variant="pill" />
+        </TextField>
+      </Container>
+    </Container>
+    <Caption id="revealSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="revealSizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="revealSizeSmallWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <TextField id="revealSizeSmall" label="Small" size="sm" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealSizeSmallToggle" variant="pill" size="sm" />
+        </TextField>
+      </Container>
+      <Container id="revealSizeMediumWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <TextField id="revealSizeMedium" label="Medium" size="md" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealSizeMediumToggle" variant="pill" size="md" />
+        </TextField>
+      </Container>
+      <Container id="revealSizeLargeWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <TextField id="revealSizeLarge" label="Large" size="lg" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password">
+          <PasswordReveal id="revealSizeLargeToggle" variant="pill" size="lg" />
+        </TextField>
+      </Container>
+    </Container>
+    <Caption id="revealStateLabel" font="sans-medium">State</Caption>
+    <Container id="revealStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="revealHiddenCol" display="flex" direction="column" align="center" gap="space-2" flex="1" minWidth="220">
+        <Caption id="revealHiddenLabel" font="sans">Hidden</Caption>
+        <Container id="revealHiddenRow" display="flex" direction="row" align="center" justify="center" gap="space-3" wrap="wrap">
+          <PasswordReveal id="revealHiddenGhost" variant="ghost" inField="false" />
+          <PasswordReveal id="revealHiddenSubtle" variant="subtle" inField="false" />
+          <PasswordReveal id="revealHiddenOutline" variant="outline" inField="false" />
+          <PasswordReveal id="revealHiddenText" variant="text" inField="false" />
+          <PasswordReveal id="revealHiddenPill" variant="pill" inField="false" />
+        </Container>
+      </Container>
+      <Container id="revealShownCol" display="flex" direction="column" align="center" gap="space-2" flex="1" minWidth="220">
+        <Caption id="revealShownLabel" font="sans">Shown</Caption>
+        <Container id="revealShownRow" display="flex" direction="row" align="center" justify="center" gap="space-3" wrap="wrap">
+          <PasswordReveal id="revealShownGhost" variant="ghost" inField="false" visible="true" />
+          <PasswordReveal id="revealShownSubtle" variant="subtle" inField="false" visible="true" />
+          <PasswordReveal id="revealShownOutline" variant="outline" inField="false" visible="true" />
+          <PasswordReveal id="revealShownText" variant="text" inField="false" visible="true" />
+          <PasswordReveal id="revealShownPill" variant="pill" inField="false" visible="true" />
+        </Container>
+      </Container>
+      <Container id="revealDisabledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <TextField id="revealDisabled" label="Disabled" type="password" icon="PadlockSecureClosed" placeholder="Password" value="password" disabled="true">
+          <PasswordReveal id="revealDisabledToggle" variant="ghost" />
+        </TextField>
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="passwordDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="passwordCaption" font="sans">Password field</Caption>
+    <Container id="passwordVariantCol" display="flex" direction="column" align="stretch" gap="space-3" maxWidth="400">
+      <PasswordField id="passwordOutline" variant="outline" placeholder="Outline password" value="password" />
+      <PasswordField id="passwordSubtle" variant="subtle" placeholder="Subtle password" value="password" />
+      <PasswordField id="passwordGhost" variant="ghost" placeholder="Ghost password" value="password" />
+      <PasswordField id="passwordUnderline" variant="underline" placeholder="Underline password" value="password" />
+      <PasswordField id="passwordPill" variant="pill" placeholder="Pill password" value="password" />
+    </Container>
+    <Caption id="passwordAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="passwordAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="passwordAppearanceOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordAppearanceOutline" label="Outline" value="password" />
+      </Container>
+      <Container id="passwordAppearanceSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordAppearanceSubtle" label="Subtle" variant="subtle" value="password" />
+      </Container>
+      <Container id="passwordAppearanceGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordAppearanceGhost" label="Ghost" variant="ghost" value="password" />
+      </Container>
+      <Container id="passwordAppearanceUnderlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordAppearanceUnderline" label="Underline" variant="underline" value="password" />
+      </Container>
+      <Container id="passwordAppearancePillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordAppearancePill" label="Pill" variant="pill" value="password" />
+      </Container>
+    </Container>
+    <Caption id="passwordRevealLabel" font="sans-medium">Reveal</Caption>
+    <Container id="passwordRevealRow" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="passwordRevealGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordRevealGhost" label="Ghost" reveal="ghost" value="password" />
+      </Container>
+      <Container id="passwordRevealSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordRevealSubtle" label="Subtle" reveal="subtle" value="password" />
+      </Container>
+      <Container id="passwordRevealOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordRevealOutline" label="Outline" reveal="outline" value="password" />
+      </Container>
+      <Container id="passwordRevealTextWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordRevealText" label="Text" reveal="text" value="password" />
+      </Container>
+      <Container id="passwordRevealPillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordRevealPill" label="Pill" reveal="pill" value="password" />
+      </Container>
+    </Container>
+    <Caption id="passwordSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="passwordSizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="passwordSizeSmallWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <PasswordField id="passwordSmall" label="Small" size="sm" value="password" />
+      </Container>
+      <Container id="passwordSizeMediumWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <PasswordField id="passwordMedium" label="Medium" size="md" value="password" />
+      </Container>
+      <Container id="passwordSizeLargeWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <PasswordField id="passwordLarge" label="Large" size="lg" value="password" />
+      </Container>
+    </Container>
+    <Caption id="passwordStateLabel" font="sans-medium">State</Caption>
+    <Container id="passwordStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="passwordEmptyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordEmpty" label="Empty" />
+      </Container>
+      <Container id="passwordFilledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordFilled" label="Filled" value="password" />
+      </Container>
+      <Container id="passwordShownWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordShown" label="Shown" value="password" visible="true" />
+      </Container>
+      <Container id="passwordHoverWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordHover" label="Hover" value="password" preview="hover" />
+      </Container>
+      <Container id="passwordFocusWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordFocus" label="Focus" value="password" preview="focus" />
+      </Container>
+      <Container id="passwordInvalidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordInvalid" label="Invalid" value="123" invalid="true" />
+      </Container>
+      <Container id="passwordValidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordValid" label="Valid" value="password" valid="true" />
+      </Container>
+      <Container id="passwordDisabledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PasswordField id="passwordDisabled" label="Disabled" value="password" disabled="true" />
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="emailDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="emailCaption" font="sans">Email field</Caption>
+    <Container id="emailVariantCol" display="flex" direction="column" align="stretch" gap="space-3" maxWidth="400">
+      <EmailField id="emailOutline" variant="outline" placeholder="Outline email" />
+      <EmailField id="emailSubtle" variant="subtle" placeholder="Subtle email" />
+      <EmailField id="emailGhost" variant="ghost" placeholder="Ghost email" />
+      <EmailField id="emailUnderline" variant="underline" placeholder="Underline email" />
+      <EmailField id="emailPill" variant="pill" placeholder="Pill email" />
+    </Container>
+    <Caption id="emailAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="emailAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="emailAppearanceOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailAppearanceOutline" label="Outline" placeholder="Email address" />
+      </Container>
+      <Container id="emailAppearanceSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailAppearanceSubtle" label="Subtle" variant="subtle" placeholder="Email address" />
+      </Container>
+      <Container id="emailAppearanceGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailAppearanceGhost" label="Ghost" variant="ghost" placeholder="Email address" />
+      </Container>
+      <Container id="emailAppearanceUnderlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailAppearanceUnderline" label="Underline" variant="underline" placeholder="Email address" />
+      </Container>
+      <Container id="emailAppearancePillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailAppearancePill" label="Pill" variant="pill" placeholder="Email address" />
+      </Container>
+    </Container>
+    <Caption id="emailSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="emailSizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="emailSizeSmallWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <EmailField id="emailSmall" label="Small" size="sm" placeholder="Email address" />
+      </Container>
+      <Container id="emailSizeMediumWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <EmailField id="emailMedium" label="Medium" size="md" placeholder="Email address" />
+      </Container>
+      <Container id="emailSizeLargeWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <EmailField id="emailLarge" label="Large" size="lg" placeholder="Email address" />
+      </Container>
+    </Container>
+    <Caption id="emailStateLabel" font="sans-medium">State</Caption>
+    <Container id="emailStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="emailEmptyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailEmpty" label="Empty" />
+      </Container>
+      <Container id="emailFilledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailFilled" label="Filled" value="alex@roboticela.com" />
+      </Container>
+      <Container id="emailHoverWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailHover" label="Hover" preview="hover" />
+      </Container>
+      <Container id="emailFocusWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailFocus" label="Focus" value="alex@roboticela.com" preview="focus" />
+      </Container>
+      <Container id="emailInvalidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailInvalid" label="Invalid" value="alex" invalid="true" />
+      </Container>
+      <Container id="emailValidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailValid" label="Valid" value="alex@roboticela.com" valid="true" />
+      </Container>
+      <Container id="emailDisabledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailDisabled" label="Disabled" value="alex@roboticela.com" disabled="true" />
+      </Container>
+      <Container id="emailReadOnlyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <EmailField id="emailReadOnly" label="Read only" value="alex@roboticela.com" readOnly="true" />
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="phoneDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="phoneCaption" font="sans">Phone field</Caption>
+    <Container id="phoneVariantCol" display="flex" direction="column" align="stretch" gap="space-3" maxWidth="400">
+      <PhoneField id="phoneOutline" variant="outline" placeholder="Outline phone" />
+      <PhoneField id="phoneSubtle" variant="subtle" placeholder="Subtle phone" />
+      <PhoneField id="phoneGhost" variant="ghost" placeholder="Ghost phone" />
+      <PhoneField id="phoneUnderline" variant="underline" placeholder="Underline phone" />
+      <PhoneField id="phonePill" variant="pill" placeholder="Pill phone" />
+    </Container>
+    <Caption id="phoneAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="phoneAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="phoneAppearanceOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneAppearanceOutline" label="Outline" placeholder="Phone number" />
+      </Container>
+      <Container id="phoneAppearanceSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneAppearanceSubtle" label="Subtle" variant="subtle" placeholder="Phone number" />
+      </Container>
+      <Container id="phoneAppearanceGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneAppearanceGhost" label="Ghost" variant="ghost" placeholder="Phone number" />
+      </Container>
+      <Container id="phoneAppearanceUnderlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneAppearanceUnderline" label="Underline" variant="underline" placeholder="Phone number" />
+      </Container>
+      <Container id="phoneAppearancePillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneAppearancePill" label="Pill" variant="pill" placeholder="Phone number" />
+      </Container>
+    </Container>
+    <Caption id="phoneSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="phoneSizes" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="phoneSizeSmallWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <PhoneField id="phoneSmall" label="Small" size="sm" placeholder="Phone number" />
+      </Container>
+      <Container id="phoneSizeMediumWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <PhoneField id="phoneMedium" label="Medium" size="md" placeholder="Phone number" />
+      </Container>
+      <Container id="phoneSizeLargeWrap" display="flex" direction="column" flex="1" minWidth="200">
+        <PhoneField id="phoneLarge" label="Large" size="lg" placeholder="Phone number" />
+      </Container>
+    </Container>
+    <Caption id="phoneStateLabel" font="sans-medium">State</Caption>
+    <Container id="phoneStates" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="phoneEmptyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneEmpty" label="Empty" />
+      </Container>
+      <Container id="phoneFilledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneFilled" label="Filled" value="+1 415 555 2671" />
+      </Container>
+      <Container id="phoneHoverWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneHover" label="Hover" preview="hover" />
+      </Container>
+      <Container id="phoneFocusWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneFocus" label="Focus" value="+1 415 555 2671" preview="focus" />
+      </Container>
+      <Container id="phoneInvalidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneInvalid" label="Invalid" value="12" invalid="true" />
+      </Container>
+      <Container id="phoneValidWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneValid" label="Valid" value="+1 415 555 2671" valid="true" />
+      </Container>
+      <Container id="phoneDisabledWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneDisabled" label="Disabled" value="+1 415 555 2671" disabled="true" />
+      </Container>
+      <Container id="phoneReadOnlyWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <PhoneField id="phoneReadOnly" label="Read only" value="+1 415 555 2671" readOnly="true" />
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="nameDemo" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="720">
+    <Caption id="nameCaption" font="sans">Name field</Caption>
+    <Container id="nameVariantCol" display="flex" direction="column" align="stretch" gap="space-4" maxWidth="480">
+      <NameField id="nameFull" variant="full" label="Full name" value="Alex Rivera" />
+      <NameField id="nameFirstLast" variant="firstLast" label="First name and last name" first="Alex" last="Rivera" />
+      <NameField id="nameThree" variant="firstMiddleLast" label="First, middle, and last name" first="Alex" middle="James" last="Rivera" />
+    </Container>
+    <Caption id="nameRowLabel" font="sans-medium">Row</Caption>
+    <Container id="nameRows" display="flex" direction="column" align="stretch" gap="space-4">
+      <NameField id="nameFirstLastRow" variant="firstLast" direction="row" label="First and last" first="Alex" last="Rivera" />
+      <NameField id="nameThreeRow" variant="firstMiddleLast" direction="row" align="stretch" label="First, middle, and last" first="Alex" middle="James" last="Rivera" />
+    </Container>
+    <Caption id="nameAppearanceLabel" font="sans-medium">Appearance</Caption>
+    <Container id="nameAppearance" display="flex" direction="row" align="start" gap="space-3" wrap="wrap">
+      <Container id="nameAppearanceOutlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <NameField id="nameAppearanceOutline" appearance="outline" label="Outline" value="Alex Rivera" />
+      </Container>
+      <Container id="nameAppearanceSubtleWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <NameField id="nameAppearanceSubtle" appearance="subtle" label="Subtle" value="Alex Rivera" />
+      </Container>
+      <Container id="nameAppearanceGhostWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <NameField id="nameAppearanceGhost" appearance="ghost" label="Ghost" value="Alex Rivera" />
+      </Container>
+      <Container id="nameAppearanceUnderlineWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <NameField id="nameAppearanceUnderline" appearance="underline" label="Underline" value="Alex Rivera" />
+      </Container>
+      <Container id="nameAppearancePillWrap" display="flex" direction="column" flex="1" minWidth="220">
+        <NameField id="nameAppearancePill" appearance="pill" label="Pill" value="Alex Rivera" />
+      </Container>
+    </Container>
+    <Caption id="nameSizeLabel" font="sans-medium">Size</Caption>
+    <Container id="nameSizes" display="flex" direction="column" align="stretch" gap="space-3">
+      <NameField id="nameSmall" label="Small" size="sm" variant="firstLast" direction="row" first="Alex" last="Rivera" />
+      <NameField id="nameMedium" label="Medium" size="md" variant="firstLast" direction="row" first="Alex" last="Rivera" />
+      <NameField id="nameLarge" label="Large" size="lg" variant="firstLast" direction="row" first="Alex" last="Rivera" />
+    </Container>
+  </Container>
+
+  <Container id="typeDemo" display="flex" direction="column" align="start" gap="space-2">
+    <Caption id="typeCaptionLabel" font="sans">Type</Caption>
+    <Heading id="typeDisplay" level="display" font="sans-semibold">Display</Heading>
+    <Heading id="typeH1" level="1" font="sans-semibold">Heading 1</Heading>
+    <Heading id="typeH2" level="2" font="sans-semibold">Heading 2</Heading>
+    <Heading id="typeH3" level="3" font="sans-semibold">Heading 3</Heading>
+    <Heading id="typeH4" level="4" font="sans-semibold">Heading 4</Heading>
+    <Heading id="typeH5" level="5" font="sans-semibold">Heading 5</Heading>
+    <Heading id="typeH6" level="6" font="sans-semibold">Heading 6</Heading>
+    <Subhead id="typeSubhead" font="sans">Subhead for the line under a title</Subhead>
+    <Body id="typeBody" font="sans">Body copy stays readable in Inter Regular.</Body>
+    <Body id="typeBodySm" size="sm" font="sans">Small body for the quieter line.</Body>
+    <Paragraph id="typeParagraph" font="sans">Paragraph uses the same body metrics.</Paragraph>
+    <Caption id="typeCaption" font="sans">Caption</Caption>
+    <Eyebrow id="typeEyebrow" font="sans">Eyebrow</Eyebrow>
+    <Label id="typeLabel" font="sans-medium">Label</Label>
+    <Text id="typeRich" font="sans">Rich text with a <Span color="text-link">link</Span> in the same line.</Text>
+  </Container>
+
+  <Container id="screenDemo" display="flex" direction="column" align="stretch" gap="space-2">
+    <Caption id="screenCaption" font="sans">Screen</Caption>
+    <Screen id="previewScreen" name="Preview" theme="dark" width="640" height="180" minWidth="280" minHeight="120"
+            display="flex" direction="column" align="start" justify="center" gap="space-2" padding="space-4"
+            radius="radius-lg" border="1" background="bg-secondary" movable="false" resizable="false">
+      <Label id="screenLabel" font="sans-medium">Screen</Label>
+      <Body id="screenBody" font="sans">A screen is its own surface.</Body>
+    </Screen>
+  </Container>
+
+  <Container id="boardDemo" display="flex" direction="column" align="stretch" gap="space-2">
+    <Caption id="boardCaption" font="sans">Board</Caption>
+    <Board id="demoBoard" display="flex" direction="column" align="start" gap="space-2" padding="space-4" background="bg-secondary">
+      <Label id="boardLabel" font="sans-medium">Board</Label>
+      <Body id="boardBody" font="sans">A board holds the children you place on it.</Body>
+    </Board>
+  </Container>
+
+  <Container id="containerDemo" display="flex" direction="column" align="stretch" gap="space-2">
+    <Caption id="containerCaption" font="sans">Container and Icon</Caption>
+    <Container id="iconRow" display="flex" direction="row" align="center" gap="space-3">
+      <Icon id="iconHome" name="Home" size="32" />
+      <Icon id="iconSearch" name="Search" size="32" />
+      <Icon id="iconSettings" name="Settings" size="32" />
+      <Icon id="iconMenu" name="Menu" size="32" />
+      <Icon id="iconClose" name="Close" size="32" />
+      <Label id="iconLabel" font="sans-medium">Home, Search, Settings, Menu, Close</Label>
+    </Container>
+  </Container>
+
+  <Container id="svgDemo" display="flex" direction="column" align="start" gap="space-2">
+    <Caption id="svgCaption" font="sans">Svg</Caption>
+    <Svg id="demoMark" width="32" height="32" viewBox="0 0 24 24">
+      <path d="M12 3l8 8h-5v9H9v-9H4l8-8z" fill="currentColor" />
+    </Svg>
+  </Container>
+
+  <Container id="backgroundDemo" display="flex" direction="column" align="stretch" gap="space-2">
+    <Caption id="backgroundCaption" font="sans">Background</Caption>
+    <Container id="backgroundRow" display="flex" direction="row" align="stretch" gap="space-3">
+      <Background id="solidBg" type="solid" color="bg-secondary" minWidth="220" minHeight="120" />
+      <Background id="gradientBg" type="gradient" from="bg-secondary" to="brand-primary" vertical="true" minWidth="220" minHeight="120" />
+    </Container>
+  </Container>
+
+  <Container id="scrollDemo" display="flex" direction="column" align="stretch" gap="space-2">
+    <Caption id="scrollCaption" font="sans">ScrollView and Scrollbar</Caption>
+    <ScrollView id="demoScroll" height="180" display="flex" direction="column" align="start" gap="space-2"
+                background="bg-secondary" arrows="always" autoHide="true">
+      <Body id="scrollLine1" font="sans">First line inside the scroll view.</Body>
+      <Body id="scrollLine2" font="sans">Second line, still in view.</Body>
+      <Body id="scrollLine3" font="sans">Third line starts the overflow.</Body>
+      <Body id="scrollLine4" font="sans">Fourth line.</Body>
+      <Body id="scrollLine5" font="sans">Fifth line.</Body>
+      <Body id="scrollLine6" font="sans">Sixth line, reached by scrolling.</Body>
+      <Body id="scrollLine7" font="sans">Seventh line.</Body>
+      <Body id="scrollLine8" font="sans">Eighth line, at the end of the list.</Body>
+      <Scrollbar id="demoBar" />
+    </ScrollView>
+    <Caption id="scrollXCaption" font="sans">Horizontal scrollbar</Caption>
+    <ScrollView id="demoScrollX" height="96" scrollX="true" scrollY="false" overflowX="auto" overflowY="hidden"
+                display="flex" direction="row" align="center" gap="space-3"
+                background="bg-secondary" arrows="always" autoHide="true">
+      <Body id="scrollCol1" font="sans" minWidth="200" flexShrink="0">First column.</Body>
+      <Body id="scrollCol2" font="sans" minWidth="200" flexShrink="0">Second column.</Body>
+      <Body id="scrollCol3" font="sans" minWidth="200" flexShrink="0">Third column.</Body>
+      <Body id="scrollCol4" font="sans" minWidth="200" flexShrink="0">Fourth column.</Body>
+      <Body id="scrollCol5" font="sans" minWidth="200" flexShrink="0">Fifth column.</Body>
+      <Body id="scrollCol6" font="sans" minWidth="200" flexShrink="0">Sixth column.</Body>
+      <Body id="scrollCol7" font="sans" minWidth="200" flexShrink="0">Seventh column.</Body>
+      <Body id="scrollCol8" font="sans" minWidth="200" flexShrink="0">Eighth column, at the end of the row.</Body>
+      <Scrollbar id="demoBarX" />
+    </ScrollView>
+  </Container>
+
+  <Container id="chromeDemo" display="flex" direction="column" align="stretch" gap="space-2">
+    <Caption id="chromeCaption" font="sans">Pane and Titlebar</Caption>
+    <Container id="chromeFrame" display="flex" direction="row" align="stretch" minHeight="280" background="bg-secondary">
+      <Pane id="demoPane">
+        <PaneItem id="paneSection" kind="section" label="Components" />
+        <PaneItem id="paneType" icon="Home" label="Type" selected="true" />
+        <PaneItem id="paneLayout" icon="Search" label="Layout" />
+        <PaneItem id="paneDock" icon="Settings" label="Dock" />
+      </Pane>
+      <Container id="chromeMain" display="flex" direction="column" align="stretch" flex="1">
+        <Titlebar id="demoBar">
+          <TitlebarItem id="barBack" kind="back" label="Back" />
+          <TitlebarItem id="barForward" kind="forward" label="Forward" />
+          <TitlebarItem id="barTitle" kind="title" label="Components" />
+          <TitlebarItem id="barSpacer" kind="spacer" />
+          <TitlebarItem id="barSearch" kind="search" placeholder="Search" />
+        </Titlebar>
+        <Container id="chromeBody" display="flex" direction="column" align="start" padding="space-4">
+          <Body id="chromeCopy" font="sans">The pane selects a section. The title bar names it.</Body>
+        </Container>
+      </Container>
+    </Container>
+  </Container>
+
+  <Container id="dockDemo" display="flex" direction="column" align="stretch" gap="space-2">
+    <Caption id="dockCaption" font="sans">Dock</Caption>
+    <Dock id="demoDock" magnification="false">
+      <DockItem id="dockHome" app="home" label="Home" icon="home" width="50" height="50" running="true">
+        <DockIndicator id="dockHomeMark" width="4" height="4" position="absolute" bottom="-7" />
+        <DockTooltip id="dockHomeTip" position="absolute" top="-36" paddingTop="space-1" paddingBottom="space-1" paddingLeft="space-3" paddingRight="space-3" background="bg-primary" radius="radius-sm">
+          <Label id="dockHomeTipText" font="sans-medium" color="text-primary">Home</Label>
+        </DockTooltip>
+      </DockItem>
+      <DockItem id="dockSearch" app="search" label="Search" icon="search" width="50" height="50" running="false">
+        <DockIndicator id="dockSearchMark" width="4" height="4" position="absolute" bottom="-7" />
+        <DockTooltip id="dockSearchTip" position="absolute" top="-36" paddingTop="space-1" paddingBottom="space-1" paddingLeft="space-3" paddingRight="space-3" background="bg-primary" radius="radius-sm">
+          <Label id="dockSearchTipText" font="sans-medium" color="text-primary">Search</Label>
+        </DockTooltip>
+      </DockItem>
+      <DockSeparator id="dockGap" width="1" height="40" />
+      <DockItem id="dockSettings" app="settings" label="Settings" icon="settings" width="50" height="50" running="false">
+        <DockIndicator id="dockSettingsMark" width="4" height="4" position="absolute" bottom="-7" />
+        <DockTooltip id="dockSettingsTip" position="absolute" top="-36" paddingTop="space-1" paddingBottom="space-1" paddingLeft="space-3" paddingRight="space-3" background="bg-primary" radius="radius-sm">
+          <Label id="dockSettingsTipText" font="sans-medium" color="text-primary">Settings</Label>
+        </DockTooltip>
+      </DockItem>
+    </Dock>
+  </Container>
+</Screen>

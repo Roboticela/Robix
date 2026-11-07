@@ -1,7 +1,12 @@
 #include "WebFoundation.hpp"
 
+#include "../Compiler/Components/Board/Board.hpp"
+#include "../Compiler/Components/Board/BoardWeb.hpp"
+#include "../Compiler/Components/Container/Container.hpp"
+#include "../Compiler/Components/Container/ContainerWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
 #include "../Compiler/Components/Screen/ScreenWeb.hpp"
+#include "../Compiler/Components/Text/TextWeb.hpp"
 #include "../Compiler/Foundation/FoundationPlatform.hpp"
 #include "../Compiler/RoboCompilerShared.hpp"
 #include "../Compiler/RoboFoundation.hpp"
@@ -102,6 +107,88 @@ void LowerKeys(RoboXMLNode& node) {
     for (RoboXMLNode& child : node.children) {
         LowerKeys(child);
     }
+}
+
+std::string CssSize(const std::string& value) {
+    if (value.empty()) {
+        return {};
+    }
+    for (char ch : value) {
+        if (ch < '0' || ch > '9') {
+            return value;
+        }
+    }
+    return value + "px";
+}
+
+void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
+    const std::string name = Lower(node.name);
+    if (name.empty() || name == "screen") {
+        for (const RoboXMLNode& child : node.children) {
+            EmitNode(html, child, library);
+        }
+        return;
+    }
+    const char* textTag = RoboWebTextTag(name);
+    const std::string tag = textTag != nullptr ? textTag : "div";
+    std::string className;
+    if (name == "board") {
+        className = RoboWebBoardClass();
+    } else if (RoboWebIsContainerBox(name)) {
+        className = RoboWebContainerClass();
+    } else {
+        const std::string textClass = RoboWebTextClass(name);
+        className = textClass.empty() ? "robo-" + name : textClass;
+    }
+    html += "<";
+    html += tag;
+    const std::string id = RoboXMLAttr(node, "id");
+    if (!id.empty()) {
+        html += " id=\"";
+        html += Escape(id);
+        html += "\"";
+    }
+    html += " class=\"";
+    html += Escape(className);
+    html += "\"";
+    if (RoboWebIsContainerBox(name)) {
+        RoboWebContainerAttrs(html, node);
+    }
+    if (RoboWebIsTextName(name)) {
+        RoboWebTextAttrs(html, node);
+    }
+    std::string style;
+    if (name == "board") {
+        const std::string display = Lower(RoboXMLAttr(node, "display", "canvas"));
+        RoboWebAddDecl(style, "display", display == "canvas" || display == "flex" ? "flex" : display);
+        RoboWebAddDecl(style, "flex-direction", Lower(RoboXMLAttr(node, "direction", "column")));
+        RoboWebAddDecl(style, "gap", RoboWebCssValue(library, RoboXMLAttr(node, "gap"), false));
+        RoboWebAddDecl(style, "padding", RoboWebCssValue(library, RoboXMLAttr(node, "padding"), false));
+    }
+    if (RoboWebIsContainerBox(name)) {
+        RoboWebAppendContainerStyle(style, node, library);
+    }
+    if (RoboWebIsTextName(name) || RoboWebIsContainerBox(name)) {
+        RoboWebAppendTextStyle(style, node, library);
+    }
+    if (!style.empty()) {
+        html += " style=\"";
+        html += Escape(style);
+        html += "\"";
+    }
+    html += ">";
+    if (RoboWebIsContainerBox(name)) {
+        html += RoboWebContainerVideo(node);
+    }
+    if (!node.text.empty()) {
+        html += Escape(node.text);
+    }
+    for (const RoboXMLNode& child : node.children) {
+        EmitNode(html, child, library);
+    }
+    html += "</";
+    html += tag;
+    html += ">";
 }
 
 const RoboXMLNode* FindScreen(const RoboXMLNode& node) {
@@ -236,13 +323,15 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << ":root{\n" << common.str() << "}\nhtml[data-theme=\"dark\"]{\n"
         << dark.str() << "}\nhtml[data-theme=\"light\"],.robo-window[data-theme=\"light\"]{\n"
         << light.str() << "}\n";
-    css << "html,body{margin:0;height:100%;overflow:hidden;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
+    css << "html,body{margin:0;min-height:100%;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
     css << "html[data-theme=\"dark\"]{color-scheme:dark}\n";
     css << "html[data-theme=\"light\"]{color-scheme:light}\n";
     css << "body{color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}\n";
     css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;background:var(--bg-primary);color:var(--text-primary)}\n";
     if (hasScreen) {
         RoboWebAppendScreenCss(css);
+        RoboWebAppendContainerCss(css);
+        RoboWebAppendTextCss(css);
     }
     css << typeRules.str();
     css << "@media (max-width:734px){\n" << mobile.str() << "}\n";
@@ -256,14 +345,50 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         const std::string id = RoboXMLAttr(screenCopy, "id", "robo-app");
         const std::string place = RoboXMLAttr(screenCopy, "place", "center");
         const std::string movable = RoboXMLAttr(screenCopy, "movable", "true");
-        const std::string width = RoboXMLAttr(screenCopy, "width", "640");
-        const std::string height = RoboXMLAttr(screenCopy, "height", "400");
+        const std::string width = CssSize(RoboXMLAttr(screenCopy, "width"));
+        const std::string height = CssSize(RoboXMLAttr(screenCopy, "height"));
+        const std::string screenDisplay = Lower(RoboXMLAttr(screenCopy, "display"));
+        const std::string screenDirection = Lower(RoboXMLAttr(screenCopy, "direction"));
+        std::string style = "box-sizing:border-box";
+        if (screenDisplay.empty() && screenDirection.empty()) {
+            style += ";display:flex;flex-direction:column";
+        }
+        if (!screenDisplay.empty()) {
+            style += ";display:" + screenDisplay;
+        }
+        if (!screenDirection.empty()) {
+            style += ";flex-direction:" + screenDirection;
+        }
+        const std::string screenGap = RoboWebCssValue(library, RoboXMLAttr(screenCopy, "gap"), false);
+        if (!screenGap.empty()) {
+            style += ";gap:" + screenGap;
+        }
+        const std::string screenPadding = RoboWebCssValue(library, RoboXMLAttr(screenCopy, "padding"), false);
+        if (!screenPadding.empty()) {
+            style += ";padding:" + screenPadding;
+        }
+        if (!width.empty()) {
+            style += ";width:" + width;
+        } else {
+            style += ";width:100%";
+        }
+        if (!height.empty()) {
+            style += ";height:" + height;
+        } else {
+            style += ";min-height:100%";
+        }
         html << "<" << RoboWebScreenTag(true) << " id=\"" << Escape(id) << "\" class=\"" << RoboWebScreenClass(true)
              << " robo-page\" data-place=\"" << Escape(place) << "\" data-theme=\"" << Escape(theme)
-             << "\" data-movable=\"" << Escape(movable) << "\" style=\"width:" << Escape(width) << "px;height:"
-             << Escape(height) << "px\">";
+             << "\" data-movable=\"" << Escape(movable) << "\" style=\"" << Escape(style) << "\">";
+        std::string body;
+        for (const RoboXMLNode& child : screenCopy.children) {
+            EmitNode(body, child, library);
+        }
+        html << body;
         html << "</" << RoboWebScreenTag(true) << ">";
         std::cout << "component Screen\n";
+        std::cout << "component Board\n";
+        std::cout << "component Container\n";
         std::cout << RoboCompilerEmitScreenCpp(screenCopy);
     } else {
         html << "<div id=\"robo-app\" class=\"robo-screen\"><p class=\"robo-type-body\">" << Escape(title) << "</p></div>";
