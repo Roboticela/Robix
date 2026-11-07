@@ -1298,6 +1298,16 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.inferredType = MakePrimitiveType("String");
                 return expr.inferredType;
             }
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Env") {
+                if (expr.text == "Get") {
+                    expr.inferredType = MakePrimitiveType("String");
+                    return expr.inferredType;
+                }
+                if (expr.text == "Exists" || expr.text == "Set" || expr.text == "Add" || expr.text == "Remove") {
+                    expr.inferredType = MakePrimitiveType("Int");
+                    return expr.inferredType;
+                }
+            }
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "File") {
                 if (expr.text == "ReadText") {
                     expr.inferredType = MakePrimitiveType("String");

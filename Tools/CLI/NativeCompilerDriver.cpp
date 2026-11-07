@@ -710,11 +710,14 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
         }
     }
     bool linkLoopback = false;
+    bool linkEnv = false;
     {
         std::ifstream ir(codegenInput, std::ios::binary);
         const std::string irText((std::istreambuf_iterator<char>(ir)), std::istreambuf_iterator<char>());
         linkLoopback = irText.find("call ptr @rbx_network_send_text") != std::string::npos ||
                        irText.find("call ptr @rbx_network_call") != std::string::npos;
+        linkEnv = irText.find("call ptr @rbx_env_get") != std::string::npos ||
+                  irText.find("call i64 @rbx_env_") != std::string::npos;
     }
     cmd << "-fms-runtime-lib=static -Wno-override-module "
         << Quote(runtimeObj) << " ";
@@ -725,6 +728,14 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
             return res;
         }
         cmd << Quote(loopback.string()) << " -lws2_32 ";
+    }
+    if (linkEnv) {
+        const fs::path envStore = fs::path(runtimeObj).parent_path() / "EnvStore.obj";
+        if (!FileExists(envStore)) {
+            res.diagnosticsText += "error: EnvStore.obj was not found next to RobixNativeRuntime.obj.\n";
+            return res;
+        }
+        cmd << Quote(envStore.string()) << " ";
     }
     if (options.linkNetwork) {
         cmd << Quote(options.networkObjectPath) << " -lws2_32 -lsecur32 -lcrypt32 ";

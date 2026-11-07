@@ -1223,6 +1223,24 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call ptr @rbx_args_get(i64 " << index.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
+            } else if (inst.textImm == "Env.Get" && !inst.operandIds.empty()) {
+                Val name = Operand(inst, 0);
+                m_body << "  " << vname << " = call ptr @rbx_env_get(ptr " << name.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::Ptr };
+            } else if (inst.textImm == "Env.Exists" && !inst.operandIds.empty()) {
+                Val name = Operand(inst, 0);
+                m_body << "  " << vname << " = call i64 @rbx_env_exists(ptr " << name.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if ((inst.textImm == "Env.Set" || inst.textImm == "Env.Add") && inst.operandIds.size() >= 2) {
+                Val name = Operand(inst, 0);
+                Val value = Operand(inst, 1);
+                const char* symbol = inst.textImm == "Env.Set" ? "@rbx_env_set" : "@rbx_env_add";
+                m_body << "  " << vname << " = call i64 " << symbol << "(ptr " << name.repr << ", ptr " << value.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Env.Remove" && !inst.operandIds.empty()) {
+                Val name = Operand(inst, 0);
+                m_body << "  " << vname << " = call i64 @rbx_env_remove(ptr " << name.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Network.Call" && inst.operandIds.size() >= 3) {
                 Val service = Operand(inst, 0);
                 Val method = Operand(inst, 1);
@@ -2149,6 +2167,21 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (needs("@rbx_network_call")) {
         out << "declare ptr @rbx_network_call(ptr, ptr, ptr)\n";
+    }
+    if (needs("@rbx_env_get")) {
+        out << "declare ptr @rbx_env_get(ptr)\n";
+    }
+    if (needs("@rbx_env_exists")) {
+        out << "declare i64 @rbx_env_exists(ptr)\n";
+    }
+    if (needs("@rbx_env_set")) {
+        out << "declare i64 @rbx_env_set(ptr, ptr)\n";
+    }
+    if (needs("@rbx_env_add")) {
+        out << "declare i64 @rbx_env_add(ptr, ptr)\n";
+    }
+    if (needs("@rbx_env_remove")) {
+        out << "declare i64 @rbx_env_remove(ptr)\n";
     }
     if (needs("@rbx_device_unavailable")) {
         out << "declare i64 @rbx_device_unavailable(i64, i64)\n";

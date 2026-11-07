@@ -2452,6 +2452,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 // Zero-cost OS-independent platform intrinsics (File, Thread, Time, GPIO)
                 if (receiverExpr.kind == Frontend::ExprKind::Identifier &&
                     (receiverExpr.text == "File" || receiverExpr.text == "Args" ||
+                     receiverExpr.text == "Env" ||
                      receiverExpr.text == "Network" || receiverExpr.text == "Thread" ||
                      receiverExpr.text == "Time" || receiverExpr.text == "GPIO" ||
                      receiverExpr.text == "PWM" || receiverExpr.text == "UART" ||
@@ -2488,6 +2489,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     }
                     if ((receiverExpr.text == "File" && memberName == "ReadText") ||
                         (receiverExpr.text == "Args" && memberName == "Get") ||
+                        (receiverExpr.text == "Env" && memberName == "Get") ||
                         (receiverExpr.text == "Network" && memberName == "SendText")) {
                         ty = MakePrim("String");
                         ty.isPointer = true;

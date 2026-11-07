@@ -61,6 +61,23 @@ inline void ResolveImports(CompilationUnitAST& root, std::string_view rootFile, 
         else if (existsFile(nested)) found = nested;
         else if (existsFile(fromCwd)) found = fromCwd;
         if (found.empty()) {
+            auto walk = [&](fs::path cursor, const fs::path& relative) {
+                for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
+                    const fs::path candidate = cursor / relative;
+                    if (existsFile(candidate)) return candidate;
+                    if (!cursor.has_parent_path() || cursor.parent_path() == cursor) break;
+                    cursor = cursor.parent_path();
+                }
+                return fs::path{};
+            };
+            const fs::path stdlib = fs::path("StdLib") / "Robix" / (last + ".rbx");
+            const fs::path package = fs::path("Packages") / item.importName / (last + ".rbx");
+            found = walk(item.baseDir, stdlib);
+            if (found.empty()) found = walk(fs::current_path(), stdlib);
+            if (found.empty()) found = walk(item.baseDir, package);
+            if (found.empty()) found = walk(fs::current_path(), package);
+        }
+        if (found.empty()) {
             diagnostics.ReportError(
                 "I4013",
                 "Import '" + item.importName + "' did not match a .rbx file.",
