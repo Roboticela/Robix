@@ -1,5 +1,6 @@
 #include "NativeCompilerDriver.hpp"
 #include "StageIBuild.hpp"
+#include "UiProjectBuild.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
@@ -27,6 +28,8 @@ static void PrintHelp() {
         << "    -O0, --debug          Build with optimizations disabled\n"
         << "    -O2, -O3, --release   Build with release optimizations (default: -O2)\n"
         << "    --profile <name>      release, debug, or embedded (no hosted CRT)\n"
+        << "    --target web|windows  Build the RobixUI app. web writes Build/web. windows writes the executable\n"
+        << "    --mode development    Run the screen or web host directly. No HTML file is written\n"
         << "    --target <triple>     x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu,\n"
         << "                          x86_64-unknown-none, aarch64-unknown-none,\n"
         << "                          arm-unknown-none, riscv64-unknown-none\n"
@@ -212,6 +215,8 @@ int main(int argc, char* argv[]) {
     options.toolDirectory = toolDir;
     bool executeAfterBuild = false;
     bool explainOnly = false;
+    bool uiDevelopment = false;
+    std::string uiTarget;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& a = args[i];
@@ -227,9 +232,24 @@ int main(int argc, char* argv[]) {
             options.release = false;
         } else if (a == "-O2" || a == "-O3" || a == "--release") {
             options.release = true;
+        } else if (a == "--mode" && i + 1 < args.size()) {
+            const std::string mode = args[++i];
+            if (mode == "development" || mode == "dev") {
+                uiDevelopment = true;
+            } else if (mode == "production" || mode == "prod") {
+                uiDevelopment = false;
+            } else {
+                std::cerr << "robixc: mode must be development or production.\n";
+                return 1;
+            }
         } else if (a == "--target" && i + 1 < args.size()) {
+            const std::string target = args[++i];
+            if (target == "web" || target == "Web" || target == "windows" || target == "Windows") {
+                uiTarget = target == "web" || target == "Web" ? "web" : "windows";
+                continue;
+            }
             std::string targetError;
-            if (!ApplyTarget(args[++i], options, targetError)) {
+            if (!ApplyTarget(target, options, targetError)) {
                 std::cerr << targetError;
                 return 1;
             }
@@ -288,6 +308,18 @@ int main(int argc, char* argv[]) {
     if (inputFilePath.empty()) {
         std::cerr << "robixc: error: no input file specified.\n";
         return 1;
+    }
+    {
+        std::error_code inputError;
+        const fs::path inputPath(inputFilePath);
+        const bool uiInput = fs::is_directory(inputPath, inputError) || inputPath.extension() == ".rbxu" ||
+                             inputPath.extension() == ".rbxproj";
+        if (uiInput || !uiTarget.empty() || uiDevelopment) {
+            if (uiTarget.empty()) {
+                uiTarget = "windows";
+            }
+            return Robix::UI::BuildOrRunProject(inputFilePath, uiDevelopment, uiTarget, toolDir);
+        }
     }
     if (explainOnly) {
         Robix::Tools::RbxbPlan plan;

@@ -1,5 +1,6 @@
 #include "NativeCompilerDriver.hpp"
 #include "StageIBuild.hpp"
+#include "UiProjectBuild.hpp"
 #include "../../RobixUI/Document.hpp"
 #include "../../Network/NetworkRuntime.hpp"
 #include "StageLTools.hpp"
@@ -46,8 +47,9 @@ static void PrintHelp() {
         << "    restore                             Check every locked hash and signature\n"
         << "    ui validate <file.rbxu> --code <file.rbx>   Parse, lay out, and type-check event handlers\n"
         << "    ui render <file.rbxu> -o <file.bmp>         Draw one software frame as a BMP\n"
-        << "    ui window <file.rbxu> [--dev]               Open the Window component. --dev keeps it open and reloads changes\n"
-        << "    ui web <file.rbxu> [-o <file.html> | --dev] Write the page, or serve it and reload changes\n"
+        << "    ui window <file.rbxu> [--dev]               Open the Screen on Windows. --dev keeps it open\n"
+        << "    ui web <file.rbxu> [--dev]                  Run the page directly. --dev does not write an HTML file\n"
+        << "    ui render <file.rbxu> -o <file.bmp>         Draw the framebuffer\n"
         << "    network check <project>             Check a Network block, contract, and env split\n"
         << "    network run <project>               Run the local contract call, timeout, and TLS handshake\n"
         << "    format <file.rbx> [--check]         Rewrite source with 4-space indentation\n"
@@ -229,6 +231,18 @@ int main(int argc, char* argv[]) {
 
     if (cmd == "new") return Robix::Tools::RunNewCommand(args);
     if (cmd == "run") {
+        std::string runInput;
+        std::string runTarget = "windows";
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--target" && i + 1 < args.size()) {
+                runTarget = args[++i] == "web" ? "web" : "windows";
+            } else if (!args[i].empty() && args[i][0] != '-' && runInput.empty()) {
+                runInput = args[i];
+            }
+        }
+        if (!runInput.empty() && fs::path(runInput).extension() == ".rbxu") {
+            return Robix::UI::BuildOrRunProject(runInput, true, runTarget, toolDir);
+        }
         const int services = Robix::Tools::RunProjectServices(args, toolDir);
         if (services >= 0) return services;
     }

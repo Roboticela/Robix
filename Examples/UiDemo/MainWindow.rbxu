@@ -1,354 +1,39 @@
 <RobixUI Version="1.0">
-  <Screen id="RobotDashboard" name="Robix UI Demo" path="/" theme="light" place="center" width="1560" height="1400" minWidth="320" maxWidth="1920" minHeight="200" maxHeight="1480" board="MainBoard">
-  </Screen>
-  <Board id="MainBoard" display="flex" direction="column" gap="16" padding="20" fill="true">
-    <Board display="flex" direction="row" gap="28" align="start">
-      <Board width="640" display="flex" direction="column" gap="8" align="stretch">
-        <Eyebrow content="Robix UI"/>
-        <Heading level="2" content="Component catalog"/>
-        <Subhead content="Every implemented component, with each of its variants."/>
+  <Screen
+    id="RobotDashboard"
+    name="Robix UI Demo"
+    path="/"
+    theme="light"
+    place="center"
+    width="960"
+    height="640"
+    minWidth="640"
+    minHeight="480"
+    movable="true"
+    resizable="true"
+    board="MainBoard"/>
 
-        <Eyebrow content="Heading"/>
-        <Heading level="display" content="Display"/>
-        <Board display="flex" direction="row" gap="16" align="end">
-          <Heading level="1" content="H1"/>
-          <Heading level="2" content="H2"/>
-          <Heading level="3" content="H3"/>
-          <Heading level="4" content="H4"/>
-          <Heading level="5" content="H5"/>
-          <Heading level="6" content="H6"/>
-        </Board>
+  <Board id="MainBoard" display="flex" direction="column" gap="16" padding="24" fill="true" background="bg-secondary">
+    <Board id="Header" display="flex" direction="row" gap="16" height="72">
+      <Board id="Brand" width="220" height="72" background="brand-primary"/>
+      <Board id="Title" width="676" height="72" background="bg-primary"/>
+    </Board>
 
-        <Eyebrow content="Text"/>
-        <Subhead content="Subhead"/>
-        <Body content="Body"/>
-        <Body size="sm" content="Body small"/>
-        <Paragraph content="Paragraph"/>
-        <Paragraph size="sm" maxWidth="280" content="A small paragraph wraps on word boundaries when the line is longer than its maximum width."/>
-        <Caption content="Caption"/>
-        <Eyebrow content="Eyebrow"/>
-        <Label content="Label"/>
-        <Text content="Ready">
-          <Span color="#FF3B30" content=" now"/>
-        </Text>
-        <Board display="flex" direction="row" gap="16">
-          <Text font="sans" content="Regular"/>
-          <Text font="sans-medium" content="Medium"/>
-          <Text font="sans-semibold" content="Semibold"/>
-          <Text font="sans-bold" content="Bold"/>
-          <Text font="sans-italic" content="Italic"/>
-        </Board>
-        <Text align="start" content="Align start"/>
-        <Text align="center" content="Align center"/>
-        <Text align="end" content="Align end"/>
-        <Board display="flex" direction="row" gap="16" align="start">
-          <Text wrap="word" maxWidth="180" content="Word wrap keeps each word together."/>
-          <Text wrap="char" maxWidth="64" content="Character"/>
-          <Text wrap="none" content="No wrap"/>
-        </Board>
-
-        <Eyebrow content="Text variants"/>
-        <Text variant="display" content="Display"/>
-        <Board display="flex" direction="row" gap="16" align="end">
-          <Text variant="h1" content="H1"/>
-          <Text variant="h2" content="H2"/>
-          <Text variant="h3" content="H3"/>
-          <Text variant="h4" content="H4"/>
-          <Text variant="h5" content="H5"/>
-          <Text variant="h6" content="H6"/>
-        </Board>
-        <Board display="flex" direction="row" gap="16" align="end">
-          <Text variant="subhead" content="Subhead"/>
-          <Text variant="content" content="Content"/>
-          <Text variant="content-sm" content="Content small"/>
-          <Text variant="body" content="Body"/>
-          <Text variant="body-sm" content="Body small"/>
-        </Board>
-        <Board display="flex" direction="row" gap="16" align="end">
-          <Text variant="caption" content="Caption"/>
-          <Text variant="eyebrow" content="Eyebrow"/>
-          <Text variant="label" content="Label"/>
-        </Board>
-
-        <Eyebrow content="Tones"/>
-        <Board display="flex" direction="row" gap="12">
-          <Text tone="primary" content="Primary"/>
-          <Text tone="secondary" content="Secondary"/>
-          <Text tone="tertiary" content="Tertiary"/>
-          <Text tone="disabled" content="Disabled"/>
-          <Text tone="link" content="Link"/>
-        </Board>
-        <Board display="flex" direction="row" gap="12">
-          <Text tone="danger" content="Danger"/>
-          <Text tone="success" content="Success"/>
-          <Text tone="warning" content="Warning"/>
-          <Text tone="on-brand" content="On brand"/>
-        </Board>
-
-        <Eyebrow content="Board"/>
-        <Board display="flex" direction="row" gap="12" align="start">
-          <Board display="flex" direction="row" gap="8" padding="8" background="#F5F5F7">
-            <Caption content="Row"/>
-            <Label content="A"/>
-            <Label content="B"/>
-          </Board>
-          <Board display="flex" direction="column" gap="8" padding="8" background="#F5F5F7">
-            <Caption content="Column"/>
-            <Label content="A"/>
-            <Label content="B"/>
-          </Board>
-          <Board display="grid" columns="2" gap="8" padding="8" background="#F5F5F7">
-            <Caption content="Grid"/>
-            <Label content="A"/>
-            <Label content="B"/>
-            <Label content="C"/>
-          </Board>
-          <Board display="stack" gap="8" padding="8" background="#F5F5F7">
-            <Caption content="Stack"/>
-            <Label content="A"/>
-          </Board>
-          <Board display="canvas" width="160" height="56" background="#F5F5F7">
-            <Caption content="Canvas" x="8" y="8"/>
-            <Label content="Placed" x="72" y="28"/>
-          </Board>
-        </Board>
+    <Board id="Body" display="flex" direction="row" gap="16" height="504">
+      <Board id="Actions" display="flex" direction="column" gap="12" padding="12" width="220" height="504" background="bg-primary">
+        <Board id="Start" width="196" height="44" background="brand-primary"/>
+        <Board id="Stop" width="196" height="44" background="danger"/>
+        <Board id="Status" width="196" height="120" background="bg-tertiary"/>
       </Board>
 
-      <Board width="852" display="flex" direction="column" gap="8" align="stretch">
-        <Eyebrow content="Button"/>
-        <Board display="flex" direction="row" gap="12" align="end">
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Primary"/>
-            <Button id="StartButton" variant="primary" content="Start" OnClick="StartRobot" fullWidth="false"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Secondary"/>
-            <Button variant="secondary" content="Secondary" fullWidth="false"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Action"/>
-            <Button variant="action" content="Action" fullWidth="false"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Ghost"/>
-            <Button variant="ghost" content="Ghost" fullWidth="false"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Danger"/>
-            <Button id="StopButton" variant="danger" content="Stop" OnClick="StopRobot" fullWidth="false"/>
-          </Board>
+      <Board id="Stage" display="flex" direction="column" gap="12" padding="16" width="676" height="504" background="bg-primary">
+        <Board id="Preview" width="644" height="220" background="bg-tertiary"/>
+        <Board id="Meters" display="grid" columns="3" gap="12" width="644" height="148">
+          <Board id="Power" width="206" height="148" background="success"/>
+          <Board id="Motor" width="206" height="148" background="warning"/>
+          <Board id="Link" width="206" height="148" background="accent-teal"/>
         </Board>
-        <Board display="flex" direction="row" gap="12" align="center">
-          <Button size="sm" content="Small" fullWidth="false"/>
-          <Button size="md" content="Medium" fullWidth="false"/>
-          <Button size="lg" content="Large" fullWidth="false"/>
-          <Button content="Disabled" disabled="true" fullWidth="false"/>
-          <Button content="Loading" loading="true" fullWidth="false"/>
-          <Button loading="true" loadingText="Wait" fullWidth="false"/>
-        </Board>
-        <Button content="Full width"/>
-
-        <Eyebrow content="Icon button"/>
-        <Board display="flex" direction="row" gap="12" align="end">
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Ghost"/>
-            <IconButton variant="ghost" label="Ghost"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Subtle"/>
-            <IconButton variant="subtle" label="Subtle"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Outline"/>
-            <IconButton variant="outline" label="Outline"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Primary"/>
-            <IconButton variant="primary" label="Primary"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Danger"/>
-            <IconButton variant="danger" label="Danger"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Disabled"/>
-            <IconButton variant="ghost" label="Disabled" disabled="true"/>
-          </Board>
-          <IconButton size="sm" variant="primary" label="Small"/>
-          <IconButton size="md" variant="primary" label="Medium"/>
-        </Board>
-
-        <Eyebrow content="Switch"/>
-        <Board display="flex" direction="row" gap="12" align="center">
-          <Switch variant="primary" label="Primary"/>
-          <Switch variant="subtle" label="Subtle"/>
-          <Switch variant="outline" label="Outline"/>
-          <Switch variant="ghost" label="Ghost"/>
-          <Switch variant="danger" label="Danger"/>
-        </Board>
-        <Board display="flex" direction="row" gap="12" align="center">
-          <Switch variant="primary" label="On" checked="true"/>
-          <Switch variant="subtle" label="On" checked="true"/>
-          <Switch variant="outline" label="On" checked="true"/>
-          <Switch variant="ghost" label="On" checked="true"/>
-          <Switch variant="danger" label="On" checked="true"/>
-        </Board>
-        <Board display="flex" direction="row" gap="12" align="center">
-          <Switch size="sm" label="Small" checked="true"/>
-          <Switch size="md" label="Medium" checked="true"/>
-          <Switch size="lg" label="Large" checked="true"/>
-          <Switch label="Disabled" checked="true" disabled="true"/>
-        </Board>
-
-        <Eyebrow content="Segmented"/>
-        <Board display="flex" direction="row" gap="12" align="end">
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Subtle"/>
-            <SegmentedControl variant="subtle" value="one">
-              <Segment value="one" label="One"/>
-              <Segment value="two" label="Two"/>
-            </SegmentedControl>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Outline"/>
-            <SegmentedControl variant="outline" value="one">
-              <Segment value="one" label="One"/>
-              <Segment value="two" label="Two"/>
-            </SegmentedControl>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Ghost"/>
-            <SegmentedControl variant="ghost" value="one">
-              <Segment value="one" label="One"/>
-              <Segment value="two" label="Two"/>
-            </SegmentedControl>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Primary"/>
-            <SegmentedControl variant="primary" value="one">
-              <Segment value="one" label="One"/>
-              <Segment value="two" label="Two"/>
-            </SegmentedControl>
-          </Board>
-          <Board display="flex" direction="column" gap="6">
-            <Caption content="Pill"/>
-            <SegmentedControl variant="pill" value="two">
-              <Segment value="one" label="One"/>
-              <Segment value="two" label="Two"/>
-            </SegmentedControl>
-          </Board>
-        </Board>
-        <Board display="flex" direction="row" gap="12" align="center">
-          <SegmentedControl size="sm" value="one">
-            <Segment value="one" label="Sm"/>
-            <Segment value="two" label="B"/>
-          </SegmentedControl>
-          <SegmentedControl size="md" value="one">
-            <Segment value="one" label="Md"/>
-            <Segment value="two" label="B"/>
-          </SegmentedControl>
-          <SegmentedControl size="lg" value="one">
-            <Segment value="one" label="Lg"/>
-            <Segment value="two" label="B"/>
-          </SegmentedControl>
-          <SegmentedControl value="one" disabled="true">
-            <Segment value="one" label="Off"/>
-            <Segment value="two" label="B"/>
-          </SegmentedControl>
-        </Board>
-
-        <Eyebrow content="Confirm"/>
-        <Caption content="Danger"/>
-        <Board display="flex" direction="row" gap="8" align="center">
-          <ConfirmAction variant="text" tone="danger" label="Text"/>
-          <ConfirmAction variant="ghost" tone="danger" label="Ghost"/>
-          <ConfirmAction variant="subtle" tone="danger" label="Subtle"/>
-          <ConfirmAction variant="outline" tone="danger" label="Outline"/>
-          <ConfirmAction variant="solid" tone="danger" label="Solid"/>
-        </Board>
-        <Caption content="Brand"/>
-        <Board display="flex" direction="row" gap="8" align="center">
-          <ConfirmAction variant="text" tone="brand" label="Text"/>
-          <ConfirmAction variant="ghost" tone="brand" label="Ghost"/>
-          <ConfirmAction variant="subtle" tone="brand" label="Subtle"/>
-          <ConfirmAction variant="outline" tone="brand" label="Outline"/>
-          <ConfirmAction variant="solid" tone="brand" label="Solid"/>
-        </Board>
-        <Caption content="Neutral"/>
-        <Board display="flex" direction="row" gap="8" align="center">
-          <ConfirmAction variant="text" tone="neutral" label="Text"/>
-          <ConfirmAction variant="ghost" tone="neutral" label="Ghost"/>
-          <ConfirmAction variant="subtle" tone="neutral" label="Subtle"/>
-          <ConfirmAction variant="outline" tone="neutral" label="Outline"/>
-          <ConfirmAction variant="solid" tone="neutral" label="Solid"/>
-        </Board>
-        <Board display="flex" direction="row" gap="8" align="center">
-          <ConfirmAction size="sm" variant="solid" label="Small"/>
-          <ConfirmAction size="md" variant="solid" label="Medium"/>
-          <ConfirmAction size="lg" variant="solid" label="Large"/>
-          <ConfirmAction variant="solid" label="Disabled" disabled="true"/>
-        </Board>
-
-        <Eyebrow content="Theme"/>
-        <Board display="flex" direction="row" gap="12" align="end">
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Default"/>
-            <ThemeToggle variant="default"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Compact"/>
-            <ThemeToggle variant="compact" compact="true"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Labels"/>
-            <ThemeToggle variant="labels"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Icons"/>
-            <ThemeToggle variant="icons"/>
-          </Board>
-        </Board>
-        <Board display="flex" direction="row" gap="12" align="end">
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Switch"/>
-            <ThemeToggle variant="switch"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Disabled"/>
-            <ThemeToggle variant="default" disabled="true"/>
-          </Board>
-        </Board>
-        <Board display="flex" direction="row" gap="12" align="end">
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Ghost"/>
-            <ThemeIconToggle variant="ghost"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Subtle"/>
-            <ThemeIconToggle variant="subtle"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Outline"/>
-            <ThemeIconToggle variant="outline"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Pair"/>
-            <ThemeIconToggle variant="pair"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Segmented"/>
-            <ThemeIconToggle variant="segmented"/>
-          </Board>
-          <Board display="flex" direction="column" gap="6" align="center">
-            <Caption content="Split"/>
-            <ThemeIconToggle variant="split"/>
-          </Board>
-        </Board>
-        <Board display="flex" direction="row" gap="12" align="center">
-          <ThemeIconToggle size="sm" variant="pair"/>
-          <ThemeIconToggle size="md" variant="pair"/>
-          <ThemeIconToggle variant="ghost" disabled="true"/>
-        </Board>
+        <Board id="Log" width="644" height="76" background="bg-tertiary"/>
       </Board>
     </Board>
   </Board>

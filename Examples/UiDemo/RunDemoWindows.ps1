@@ -5,5 +5,5 @@ if (-not (Test-Path $robix)) {
     Write-Error "robix.exe was not found. Build it first."
     exit 1
 }
-& $robix ui window "Examples\UiDemo\MainWindow.rbxu" --code "Examples\UiDemo\Main.rbx" --dev
+& $robix ui window "Examples\UiDemo\MainWindow.rbxu" --dev
 exit $LASTEXITCODE

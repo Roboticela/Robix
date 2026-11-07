@@ -1,0 +1,99 @@
+<!--
+  Sealed RoboFoundation. Values match RefCode/Components/app/globals.css,
+  RefCode/Components/lib/tokens.ts, and the layout table in FoundationDocs.
+  Apps cannot replace this set. They define their own Foundation from it.
+-->
+<RoboFoundation name="RoboFoundation" sealed="true">
+  <Colors>
+    <Color name="brand-primary" dark="#3B9EFF" light="#0E7AFF" />
+    <Color name="brand-primary-hover" dark="#5CADFF" light="#0A6AE8" />
+    <Color name="brand-primary-active" dark="#2E8CE6" light="#0757C7" />
+    <Color name="brand-primary-disabled" dark="#1E3A5C" light="#B8D9FF" />
+    <Color name="brand-primary-subtle" dark="rgba(59, 158, 255, 0.15)" light="rgba(14, 122, 255, 0.1)" />
+    <Color name="brand-primary-range" dark="rgba(59, 158, 255, 0.38)" light="rgba(14, 122, 255, 0.22)" />
+    <Color name="brand-primary-focus-ring" dark="rgba(59, 158, 255, 0.3)" light="rgba(14, 122, 255, 0.25)" />
+    <Color name="accent-teal" dark="#2DD4C4" light="#14B8A6" />
+    <Color name="accent-teal-subtle" dark="rgba(45, 212, 196, 0.15)" light="rgba(20, 184, 166, 0.1)" />
+    <Color name="success" dark="#30D158" light="#30D158" />
+    <Color name="success-subtle" dark="rgba(48, 209, 88, 0.15)" light="rgba(48, 209, 88, 0.1)" />
+    <Color name="success-focus-ring" dark="rgba(48, 209, 88, 0.3)" light="rgba(48, 209, 88, 0.25)" />
+    <Color name="warning" dark="#FF9F0A" light="#FF9F0A" />
+    <Color name="warning-subtle" dark="rgba(255, 159, 10, 0.15)" light="rgba(255, 159, 10, 0.1)" />
+    <Color name="danger" dark="#FF453A" light="#FF3B30" />
+    <Color name="danger-hover" dark="#FF5A50" light="#E0342A" />
+    <Color name="danger-subtle" dark="rgba(255, 69, 58, 0.1)" light="rgba(255, 59, 48, 0.1)" />
+    <Color name="danger-focus-ring" dark="rgba(255, 69, 58, 0.4)" light="rgba(255, 59, 48, 0.25)" />
+    <Color name="text-primary" dark="#FFFFFF" light="#1D1D1F" />
+    <Color name="text-secondary" dark="#A1A1A6" light="#6E6E73" />
+    <Color name="text-tertiary" dark="#98989D" light="#86868B" />
+    <Color name="text-disabled" dark="#48484A" light="#C7C7CC" />
+    <Color name="text-on-brand" dark="#FFFFFF" light="#FFFFFF" />
+    <Color name="text-link" dark="#3B9EFF" light="#0E7AFF" />
+    <Color name="bg-primary" dark="#000000" light="#FFFFFF" />
+    <Color name="bg-secondary" dark="#1C1C1E" light="#F5F5F7" />
+    <Color name="bg-tertiary" dark="#2C2C2E" light="#EDEDEF" />
+    <Color name="bg-elevated" dark="#2C2C2E" light="#FFFFFF" />
+    <Color name="bg-hover" dark="#2C2C2E" light="#F5F5F7" />
+    <Color name="bg-active" dark="#3A3A3C" light="#EDEDEF" />
+    <Color name="bg-overlay" dark="rgba(0, 0, 0, 0.7)" light="rgba(0, 0, 0, 0.5)" />
+    <Color name="border-default" dark="#38383A" light="#D2D2D7" />
+    <Color name="border-subtle" dark="#2C2C2E" light="#E5E5E7" />
+    <Color name="border-strong" dark="#48484A" light="#B8B8BD" />
+    <Color name="border-focus" dark="#3B9EFF" light="#0E7AFF" />
+    <Color name="border-danger" dark="rgba(255, 69, 58, 0.3)" light="rgba(255, 59, 48, 0.3)" />
+  </Colors>
+  <Fonts>
+    <Font name="sans" src="Inter/Inter-Regular.ttf" />
+    <Font name="sans-medium" src="Inter/Inter-Medium.ttf" />
+    <Font name="sans-semibold" src="Inter/Inter-SemiBold.ttf" />
+    <Font name="sans-bold" src="Inter/Inter-Bold.ttf" />
+    <Font name="sans-italic" src="Inter/Inter-Italic.ttf" />
+  </Fonts>
+  <Typography>
+    <Type name="display" size="80" mobileSize="40" weight="600" tracking="-0.015" leading="1.05" />
+    <Type name="h1" size="56" mobileSize="32" weight="600" tracking="-0.015" leading="1.07" />
+    <Type name="h2" size="40" mobileSize="28" weight="600" tracking="-0.01" leading="1.1" />
+    <Type name="h3" size="28" mobileSize="21" weight="600" tracking="-0.005" leading="1.14" />
+    <Type name="subhead" size="24" mobileSize="19" weight="400" tracking="0" leading="1.33" />
+    <Type name="body-lg" size="19" mobileSize="17" weight="400" tracking="0" leading="1.42" />
+    <Type name="body" size="17" weight="400" tracking="0" leading="1.47" />
+    <Type name="caption" size="12" weight="400" tracking="0" leading="1.33" />
+    <Type name="eyebrow" size="12" weight="400" tracking="0.05" leading="1.33" />
+    <Type name="button" size="17" weight="500" tracking="0" leading="1" />
+    <Type name="menubar" size="13" weight="400" tracking="0" leading="1" />
+    <Type name="window-title" size="13" weight="500" tracking="0" leading="1" />
+    <Type name="tooltip" size="13" weight="500" tracking="0" leading="1" />
+  </Typography>
+  <Spacing>
+    <Space name="space-1" value="4" />
+    <Space name="space-2" value="8" />
+    <Space name="space-3" value="12" />
+    <Space name="space-4" value="16" />
+    <Space name="space-5" value="24" />
+    <Space name="space-6" value="32" />
+    <Space name="space-7" value="48" />
+    <Space name="space-8" value="64" />
+    <Space name="space-9" value="96" />
+    <Space name="space-10" value="128" />
+  </Spacing>
+  <Radius>
+    <Radius name="radius-sm" value="6" />
+    <Radius name="radius-md" value="8" />
+    <Radius name="radius-lg" value="12" />
+    <Radius name="radius-xl" value="16" />
+    <Radius name="radius-2xl" value="20" />
+    <Radius name="radius-pill" value="980" />
+    <Radius name="control" value="8" />
+    <Radius name="card" value="12" />
+  </Radius>
+  <Layout>
+    <Breakpoint name="layout-mobile" max="734" padding="22" columns="1" gutter="16" />
+    <Breakpoint name="layout-tablet" min="735" max="1068" padding="40" columns="12" gutter="24" />
+    <Breakpoint name="layout-desktop" min="1069" padding="80" columns="12" gutter="24" />
+    <Width name="layout-copy" value="692" />
+    <Width name="layout-docs" value="760" />
+    <Width name="layout-docs-wide" value="900" />
+    <Width name="layout-marketing" value="980" />
+    <Width name="layout-wide" value="1024" />
+  </Layout>
+</RoboFoundation>

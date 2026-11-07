@@ -1,7 +1,10 @@
 <RobixUI Version="1.0">
-  <Screen id="Fonts" name="Fonts" theme="light" width="640" height="400">
-    <Text Value="Regular"/>
-    <Text Value="Bold face" font="sans-bold"/>
-    <Text Value="System face" font="system"/>
-  </Screen>
+  <Screen id="Fonts" name="Foundation" path="/" theme="light" place="center" width="640" height="400" board="Faces"/>
+  <Board id="Faces" display="flex" direction="column" gap="12" padding="24" fill="true" background="bg-secondary">
+    <Board id="Regular" width="592" height="48" background="bg-primary"/>
+    <Board id="Medium" width="592" height="48" background="bg-primary"/>
+    <Board id="Semibold" width="592" height="48" background="bg-primary"/>
+    <Board id="Bold" width="592" height="48" background="brand-primary"/>
+    <Board id="Italic" width="592" height="48" background="bg-tertiary"/>
+  </Board>
 </RobixUI>

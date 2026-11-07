@@ -2,11 +2,11 @@ package Examples.UiDemo;
 
 public class DemoController {
 
-    public Function StartRobot() -> Void {
+    public Function Start() -> Void {
         Print("Robot started");
     }
 
-    public Function StopRobot() -> Void {
+    public Function Stop() -> Void {
         Print("Robot stopped");
     }
 }
