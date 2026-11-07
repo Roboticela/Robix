@@ -1,6 +1,9 @@
 #include "WebFoundation.hpp"
 
+#include "../Compiler/Components/Screen/Screen.hpp"
+#include "../Compiler/Components/Screen/ScreenWeb.hpp"
 #include "../Compiler/Foundation/FoundationPlatform.hpp"
+#include "../Compiler/RoboCompilerShared.hpp"
 #include "../Compiler/RoboFoundation.hpp"
 #include "../Compiler/RoboXML.hpp"
 
@@ -10,6 +13,8 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <utility>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -83,6 +88,34 @@ std::string Hex(RoboU32 color) {
     return buffer;
 }
 
+void LowerKeys(RoboXMLNode& node) {
+    std::vector<std::pair<std::string, std::string>> extra;
+    for (const auto& entry : node.attrs) {
+        const std::string lower = Lower(entry.first);
+        if (node.attrs.find(lower) == node.attrs.end()) {
+            extra.emplace_back(lower, entry.second);
+        }
+    }
+    for (const auto& entry : extra) {
+        node.attrs[entry.first] = entry.second;
+    }
+    for (RoboXMLNode& child : node.children) {
+        LowerKeys(child);
+    }
+}
+
+const RoboXMLNode* FindScreen(const RoboXMLNode& node) {
+    if (Lower(node.name) == "screen") {
+        return &node;
+    }
+    for (const RoboXMLNode& child : node.children) {
+        if (const RoboXMLNode* found = FindScreen(child)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
 void CopyFont(const fs::path& source, const fs::path& destination) {
     if (source.empty() || !fs::is_regular_file(source)) {
         return;
@@ -110,16 +143,23 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
 
     std::string title = "Robix";
     std::string theme = "dark";
+    RoboXMLNode screenCopy;
+    bool hasScreen = false;
     if (!document.empty()) {
         RoboXMLDocument xml;
         const std::string source = ReadText(document);
         if (!source.empty() && RoboXMLParse(source, xml)) {
-            const std::string named = RoboXMLAttr(xml.root, "Title", RoboXMLAttr(xml.root, "title", "").c_str());
-            if (!named.empty()) {
-                title = named;
+            LowerKeys(xml.root);
+            if (const RoboXMLNode* screen = FindScreen(xml.root)) {
+                screenCopy = *screen;
+                hasScreen = true;
+                const std::string named = RoboXMLAttr(screenCopy, "name", RoboXMLAttr(screenCopy, "title", "").c_str());
+                if (!named.empty()) {
+                    title = named;
+                }
+                const std::string namedTheme = Lower(RoboXMLAttr(screenCopy, "theme", RoboXMLAttr(screenCopy, "appearance", "dark").c_str()));
+                theme = namedTheme == "light" ? "light" : "dark";
             }
-            const std::string namedTheme = Lower(RoboXMLAttr(xml.root, "Theme", RoboXMLAttr(xml.root, "theme", "dark").c_str()));
-            theme = namedTheme == "light" ? "light" : "dark";
         }
     }
 
@@ -201,6 +241,9 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << "html[data-theme=\"light\"]{color-scheme:light}\n";
     css << "body{color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}\n";
     css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;background:var(--bg-primary);color:var(--text-primary)}\n";
+    if (hasScreen) {
+        RoboWebAppendScreenCss(css);
+    }
     css << typeRules.str();
     css << "@media (max-width:734px){\n" << mobile.str() << "}\n";
 
@@ -208,9 +251,24 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     html << "<!DOCTYPE html><html lang=\"en\" data-theme=\"" << Escape(theme) << "\"><head><meta charset=\"utf-8\">";
     html << "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
     html << "<title>" << Escape(title) << "</title>";
-    html << "<link rel=\"stylesheet\" href=\"app.css\"></head><body><div id=\"robo-app\" class=\"robo-screen\">";
-    html << "<p class=\"robo-type-body\">" << Escape(title) << "</p>";
-    html << "</div><script src=\"app.js\"></script></body></html>\n";
+    html << "<link rel=\"stylesheet\" href=\"app.css\"></head><body>";
+    if (hasScreen) {
+        const std::string id = RoboXMLAttr(screenCopy, "id", "robo-app");
+        const std::string place = RoboXMLAttr(screenCopy, "place", "center");
+        const std::string movable = RoboXMLAttr(screenCopy, "movable", "true");
+        const std::string width = RoboXMLAttr(screenCopy, "width", "640");
+        const std::string height = RoboXMLAttr(screenCopy, "height", "400");
+        html << "<" << RoboWebScreenTag(true) << " id=\"" << Escape(id) << "\" class=\"" << RoboWebScreenClass(true)
+             << " robo-page\" data-place=\"" << Escape(place) << "\" data-theme=\"" << Escape(theme)
+             << "\" data-movable=\"" << Escape(movable) << "\" style=\"width:" << Escape(width) << "px;height:"
+             << Escape(height) << "px\">";
+        html << "</" << RoboWebScreenTag(true) << ">";
+        std::cout << "component Screen\n";
+        std::cout << RoboCompilerEmitScreenCpp(screenCopy);
+    } else {
+        html << "<div id=\"robo-app\" class=\"robo-screen\"><p class=\"robo-type-body\">" << Escape(title) << "</p></div>";
+    }
+    html << "<script src=\"app.js\"></script></body></html>\n";
 
     const char* js = R"JS(window.Robo = window.Robo || {};
 Robo.status = 0;

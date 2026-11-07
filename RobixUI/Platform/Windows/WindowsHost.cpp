@@ -43,11 +43,17 @@ struct HostView {
     bool ready = false;
     bool painted = false;
     bool stayOpen = false;
+    bool light = false;
+    bool screen = false;
+    bool movable = true;
 };
 
-void PaintFoundation(RoboGPU* gpu) {
+void PaintFoundation(RoboGPU* gpu, bool light, bool drawText) {
     RoboWindowsInstallFontRaster(nullptr, 0);
-    RoboGPUClear(gpu, RoboFoundationPlatformColor("bg-primary"));
+    RoboGPUClear(gpu, RoboFoundationPlatformColorForTheme("bg-primary", light ? ROBO_TRUE : ROBO_FALSE));
+    if (!drawText) {
+        return;
+    }
     RoboFoundationTypeMetrics metrics{};
     RoboU16 size = 17;
     if (RoboFoundationPlatformType("body", &metrics) == ROBO_TRUE) {
@@ -145,7 +151,7 @@ void Draw(HostView* view) {
     if (view == nullptr || !view->ready || view->gpu.back == nullptr) {
         return;
     }
-    PaintFoundation(&view->gpu);
+    PaintFoundation(&view->gpu, view->light, !view->screen);
     Publish(view);
     view->painted = true;
     std::printf("framebuffer %ux%u\n", view->pixelWidth, view->pixelHeight);
@@ -221,6 +227,11 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
         case WM_MOUSEMOVE:
         case WM_MOUSELEAVE:
         case WM_LBUTTONDOWN:
+            if (view != nullptr && view->screen && view->movable) {
+                ReleaseCapture();
+                SendMessageW(window, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+            }
+            return 0;
         case WM_LBUTTONUP:
         case WM_LBUTTONDBLCLK:
         case WM_MOUSEWHEEL:
@@ -282,6 +293,9 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     HostView view{};
     view.stayOpen = options.stayOpen;
+    view.light = options.light;
+    view.screen = options.screen;
+    view.movable = options.movable;
 
     HINSTANCE instance = GetModuleHandleW(nullptr);
     WNDCLASSW windowClass{};
@@ -293,11 +307,24 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     RegisterClassW(&windowClass);
 
     const UINT systemDpi = GetDpiForSystem();
-    const int clientWidth = static_cast<int>(kDesignWidth * systemDpi / 96u);
-    const int clientHeight = static_cast<int>(kDesignHeight * systemDpi / 96u);
+    const int designWidth = options.screen ? options.width : static_cast<int>(kDesignWidth);
+    const int designHeight = options.screen ? options.height : static_cast<int>(kDesignHeight);
+    const int clientWidth = static_cast<int>(designWidth * systemDpi / 96u);
+    const int clientHeight = static_cast<int>(designHeight * systemDpi / 96u);
+    const DWORD style = options.screen ? (WS_POPUP | (options.resizable ? WS_THICKFRAME : 0)) : WS_OVERLAPPEDWINDOW;
     RECT bounds{0, 0, clientWidth, clientHeight};
-    AdjustWindowRectExForDpi(&bounds, WS_OVERLAPPEDWINDOW, FALSE, 0, systemDpi);
-    HWND window = CreateWindowExW(0, windowClass.lpszClassName, L"Robix", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+    AdjustWindowRectExForDpi(&bounds, style, FALSE, 0, systemDpi);
+    int originX = CW_USEDEFAULT;
+    int originY = CW_USEDEFAULT;
+    if (options.screen && options.place == "center") {
+        originX = (GetSystemMetrics(SM_CXSCREEN) - (bounds.right - bounds.left)) / 2;
+        originY = (GetSystemMetrics(SM_CYSCREEN) - (bounds.bottom - bounds.top)) / 2;
+    } else if (options.screen && options.place == "absolute") {
+        originX = options.x;
+        originY = options.y;
+    }
+    std::wstring title(options.title.begin(), options.title.end());
+    HWND window = CreateWindowExW(0, windowClass.lpszClassName, title.c_str(), style, originX, originY,
                                   bounds.right - bounds.left, bounds.bottom - bounds.top, nullptr, nullptr, instance, &view);
     if (window == nullptr) {
         return 1;
@@ -357,7 +384,13 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
         return 1;
     }
     view.ready = true;
-    std::printf("window: shown %ux%u title Robix\n", pixelWidth, pixelHeight);
+    if (options.screen) {
+        std::printf("component Screen\n");
+        std::printf("screen place %s %d %d %dx%d\n", options.place.c_str(), originX, originY, clientWidth, clientHeight);
+        std::printf("screen state normal movable %s resizable %s\n", options.movable ? "true" : "false",
+                    options.resizable ? "true" : "false");
+    }
+    std::printf("window: shown %ux%u title %s\n", pixelWidth, pixelHeight, options.title.c_str());
     ShowWindow(window, SW_SHOW);
     UpdateWindow(window);
     MSG message{};
@@ -397,7 +430,7 @@ bool WriteFoundationBmp(const std::string& path, std::string& error) {
     handoff.frameBuffer.greenMask = 0x0000FF00u;
     handoff.frameBuffer.blueMask = 0x000000FFu;
     RoboGPUInitFromHandoff(&gpu, &handoff, back, byteCount);
-    PaintFoundation(&gpu);
+    PaintFoundation(&gpu, false, true);
     const bool wrote = WriteBmp24(path, gpu.back, width, height, width * 4u, error);
     _aligned_free(front);
     _aligned_free(back);

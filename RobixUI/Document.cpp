@@ -1,5 +1,6 @@
 #include "Document.hpp"
 
+#include "Compiler/RoboXML.hpp"
 #include "Platform/Windows/WindowsHost.hpp"
 #include "Web/WebFoundation.hpp"
 
@@ -7,6 +8,8 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -29,6 +32,105 @@ bool Has(const std::vector<std::string>& args, const std::string& name) {
         }
     }
     return false;
+}
+
+std::string Lower(std::string text) {
+    for (char& ch : text) {
+        if (ch >= 'A' && ch <= 'Z') {
+            ch = static_cast<char>(ch - 'A' + 'a');
+        }
+    }
+    return text;
+}
+
+std::string ReadText(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        return {};
+    }
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+
+void LowerKeys(RoboXMLNode& node) {
+    std::vector<std::pair<std::string, std::string>> extra;
+    for (const auto& entry : node.attrs) {
+        const std::string lower = Lower(entry.first);
+        if (node.attrs.find(lower) == node.attrs.end()) {
+            extra.emplace_back(lower, entry.second);
+        }
+    }
+    for (const auto& entry : extra) {
+        node.attrs[entry.first] = entry.second;
+    }
+    for (RoboXMLNode& child : node.children) {
+        LowerKeys(child);
+    }
+}
+
+const RoboXMLNode* FindScreen(const RoboXMLNode& node) {
+    if (Lower(node.name) == "screen") {
+        return &node;
+    }
+    for (const RoboXMLNode& child : node.children) {
+        if (const RoboXMLNode* found = FindScreen(child)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
+std::string Attr(const RoboXMLNode& node, const char* key, const char* fallback) {
+    const std::string value = RoboXMLAttr(node, key);
+    return value.empty() ? fallback : value;
+}
+
+int ToInt(const std::string& text, int fallback) {
+    if (text.empty()) {
+        return fallback;
+    }
+    try {
+        return std::stoi(text);
+    } catch (...) {
+        return fallback;
+    }
+}
+
+bool ToBool(const std::string& text, bool fallback) {
+    const std::string lower = Lower(text);
+    if (lower == "true" || lower == "1" || lower == "yes" || lower == "on") {
+        return true;
+    }
+    if (lower == "false" || lower == "0" || lower == "no" || lower == "off") {
+        return false;
+    }
+    return fallback;
+}
+
+void ApplyScreen(const std::string& document, WindowRunOptions& options) {
+    const std::string source = ReadText(document);
+    RoboXMLDocument xml;
+    if (source.empty() || !RoboXMLParse(source, xml)) {
+        return;
+    }
+    LowerKeys(xml.root);
+    const RoboXMLNode* screen = FindScreen(xml.root);
+    if (screen == nullptr) {
+        return;
+    }
+    options.screen = true;
+    options.width = ToInt(Attr(*screen, "width", "640"), 640);
+    options.height = ToInt(Attr(*screen, "height", "400"), 400);
+    options.x = ToInt(Attr(*screen, "x", "0"), 0);
+    options.y = ToInt(Attr(*screen, "y", "0"), 0);
+    options.place = Attr(*screen, "place", "center");
+    options.movable = ToBool(Attr(*screen, "movable", "true"), true);
+    options.resizable = ToBool(Attr(*screen, "resizable", "true"), true);
+    const std::string theme = Lower(Attr(*screen, "theme", Attr(*screen, "appearance", "dark").c_str()));
+    options.light = theme == "light";
+    const std::string title = Attr(*screen, "name", Attr(*screen, "title", "Robix").c_str());
+    if (!title.empty()) {
+        options.title = title;
+    }
 }
 
 }  // namespace
@@ -63,6 +165,9 @@ int RunUiCommand(const std::vector<std::string>& args) {
     if (command == "window") {
         WindowRunOptions options;
         options.stayOpen = Has(args, "--dev");
+        if (!document.empty()) {
+            ApplyScreen(document, options);
+        }
         return RunWindowsFoundation(options);
     }
     if (command == "web") {
