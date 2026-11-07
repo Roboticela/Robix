@@ -9,13 +9,14 @@ void RoboWebAppendScrollCss(std::ostream& css) {
   css << ".robo-scroll-host.is-page{height:100%;background:var(--bg-primary)}\n";
   css << ".robo-scrollbar{position:absolute;top:0;right:0;bottom:0;width:16px;display:none;"
          "flex-direction:column;align-items:flex-end;gap:3px;padding-right:2px;box-sizing:border-box;"
-         "z-index:4;opacity:0;pointer-events:none}\n";
+         "z-index:4;opacity:0;pointer-events:none;cursor:default}\n";
+  css << ".robo-scrollbar,.robo-scrollbar *{cursor:default}\n";
   css << ".robo-scrollbar.is-needed{display:flex;pointer-events:auto;"
          "transition:opacity 780ms cubic-bezier(0.16, 1, 0.3, 1)}\n";
   css << ".robo-scroll-host.is-awake .robo-scrollbar,.robo-scrollbar.is-drag{opacity:1;transition:opacity 90ms linear}\n";
   css << ".robo-scrollbar[data-autohide=\"false\"].is-needed{opacity:1}\n";
   css << ".robo-scroll-arrow{width:6px;height:6px;flex:0 0 6px;border:0;padding:0;background:transparent;"
-         "position:relative;cursor:pointer;outline:0}\n";
+         "position:relative;cursor:default;outline:0}\n";
   css << ".robo-scroll-arrow::before{content:\"\";position:absolute;left:0;border-left:3px solid transparent;"
          "border-right:3px solid transparent}\n";
   css << ".robo-scroll-arrow.is-up::before{top:0;border-bottom:5px solid "
@@ -32,7 +33,7 @@ void RoboWebAppendScrollCss(std::ostream& css) {
   css << ".robo-scroll-track{position:relative;flex:1;width:6px;border-radius:980px;"
          "background:var(--border-default)}\n";
   css << ".robo-scroll-thumb{position:absolute;left:0;width:6px;min-height:28px;border-radius:980px;"
-         "background:color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary));cursor:pointer}\n";
+         "background:color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary));cursor:default}\n";
   css << ".robo-scroll-thumb:hover{background:var(--text-tertiary)}\n";
   css << ".robo-scroll-thumb:active,.robo-scrollbar.is-drag .robo-scroll-thumb{"
          "background:color-mix(in srgb,var(--text-tertiary) 58%,var(--text-primary))}\n";
