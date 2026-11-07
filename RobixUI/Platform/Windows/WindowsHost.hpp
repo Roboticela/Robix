@@ -1,15 +1,17 @@
 #pragma once
 
-#include "../../Scene.hpp"
+#include <string>
 
 namespace Robix::UI {
 
 struct WindowRunOptions {
     bool stayOpen = false;
-    bool trace = false;
 };
 
-/* Windows screen host. It uses the same client messages as the RefCode window procedure. */
-int RunWindowsScreen(Scene& scene, const WindowRunOptions& options);
+/* Windows host. Direct3D presents the same back buffer the RefCode soft GPU paints. */
+int RunWindowsFoundation(const WindowRunOptions& options);
+
+/* Paint the foundation into a BMP. The first pixel is the foundation background. */
+bool WriteFoundationBmp(const std::string& path, std::string& error);
 
 }  // namespace Robix::UI

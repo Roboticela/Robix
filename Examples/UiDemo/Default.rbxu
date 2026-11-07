@@ -1,4 +1,0 @@
-<RobixUI Version="1.0">
-  <Screen id="Main" path="/" theme="dark" place="center" board="Canvas"/>
-  <Board id="Canvas" display="canvas" fill="true"/>
-</RobixUI>
