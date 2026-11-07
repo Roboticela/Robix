@@ -117,6 +117,24 @@ int FontWeight(const std::string& name) {
     return 400;
 }
 
+bool FoundationColor(const std::string& name, bool dark, std::uint32_t& color) {
+    const auto root = FoundationRoot();
+    if (root.empty() || name.empty()) return false;
+    std::string key = name;
+    for (char& ch : key) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    std::istringstream lines(ReadText(root / "RobixUI" / "Components" / "Foundation.rbxu"));
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (line.find("<Color ") == std::string::npos) continue;
+        std::string found = Attribute(line, "Name");
+        for (char& ch : found) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        if (found != key) continue;
+        color = HexColor(dark ? Attribute(line, "Dark") : Attribute(line, "Light"), color);
+        return true;
+    }
+    return false;
+}
+
 bool FoundationFont(const std::string& name, std::string& src, std::string& token) {
     const auto root = FoundationRoot();
     if (root.empty() || name.empty()) return false;
@@ -190,6 +208,25 @@ std::string FoundationCss(const std::string& fontPrefix) {
         }
     }
     css << ":root{--font-sans:\"Inter\",system-ui,sans-serif}\n";
+    if (!root.empty()) {
+        const std::string foundation = ReadText(root / "RobixUI" / "Components" / "Foundation.rbxu");
+        auto colors = [&](bool dark) {
+            std::ostringstream vars;
+            std::istringstream lines(foundation);
+            std::string line;
+            while (std::getline(lines, line)) {
+                if (line.find("<Color ") == std::string::npos) continue;
+                const std::string name = Attribute(line, "Name");
+                if (name.empty()) continue;
+                vars << "--" << name << ":#" << HexText(HexColor(dark ? Attribute(line, "Dark") : Attribute(line, "Light"), 0)) << ";";
+            }
+            return vars.str();
+        };
+        css << ":root{" << colors(false) << "}\n";
+        css << "html[data-theme=\"light\"]{" << colors(false) << "}\n";
+        css << "html[data-theme=\"dark\"]{" << colors(true) << "}\n";
+        css << "@media (prefers-color-scheme: dark){:root{" << colors(true) << "}}\n";
+    }
     return css.str();
 }
 

@@ -30,6 +30,7 @@ struct Node {
     std::string tag;
     std::map<std::string, std::string> attr;
     std::vector<Node> children;
+    std::vector<std::string> lead;
     int line = 1;
 };
 
@@ -52,6 +53,7 @@ struct Style {
     std::uint32_t text = 0x1A1A1A;
     std::uint32_t button = 0x1D4E89;
     std::uint32_t buttonText = 0xFFFFFF;
+    bool dark = false;
 };
 
 struct Size {
@@ -69,16 +71,64 @@ int FontSizeOf(const Node& node, int fallback) {
     }
 }
 
-std::string ShownText(const Node& node) {
-    if (node.attr.count("Text")) return node.attr.at("Text");
+std::string LowerCopy(std::string text) {
+    for (char& ch : text) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return text;
+}
+
+std::string CleanPiece(const std::string& raw) {
+    std::string out;
+    bool gap = false;
+    bool lead = false;
+    bool broke = false;
+    for (unsigned char ch : raw) {
+        if (ch == '\n' || ch == '\r') {
+            if (out.empty()) broke = true;
+            else gap = true;
+            continue;
+        }
+        if (std::isspace(ch)) {
+            if (out.empty()) lead = true;
+            else gap = true;
+            continue;
+        }
+        if (out.empty() && lead && !broke) out.push_back(' ');
+        if (gap) out.push_back(' ');
+        gap = false;
+        out.push_back(static_cast<char>(ch));
+    }
+    if (gap) out.push_back(' ');
+    return out;
+}
+
+std::string ElementWords(const Node& node) {
+    std::string joined;
+    const int kids = static_cast<int>(node.children.size());
+    for (int i = 0; i < static_cast<int>(node.lead.size()); ++i) {
+        joined += node.lead[static_cast<std::size_t>(i)];
+        if (i < kids && LowerCopy(node.children[static_cast<std::size_t>(i)].tag) == "span") {
+            joined += ElementWords(node.children[static_cast<std::size_t>(i)]);
+        }
+    }
+    bool anyLead = false;
+    for (const std::string& part : node.lead) anyLead = anyLead || !part.empty();
+    if (!anyLead) {
+        std::string words;
+        if (node.attr.count("content")) words = node.attr.at("content");
+        else if (node.attr.count("Value")) words = node.attr.at("Value");
+        else if (node.attr.count("Text")) words = node.attr.at("Text");
+        if (!words.empty()) joined = words + joined;
+    }
+    if (!joined.empty()) return joined;
+    if (node.attr.count("content")) return node.attr.at("content");
     if (node.attr.count("Value")) return node.attr.at("Value");
+    if (node.attr.count("Text")) return node.attr.at("Text");
     if (node.attr.count("Title")) return node.attr.at("Title");
     return {};
 }
 
-std::string LowerCopy(std::string text) {
-    for (char& ch : text) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    return text;
+std::string ShownText(const Node& node) {
+    return ElementWords(node);
 }
 
 std::string AttrOf(const Node& node, std::initializer_list<const char*> keys) {
@@ -135,6 +185,311 @@ std::string FontFamilyCss(const std::string& raw) {
     if (key == "condensed") return "\"Arial Narrow\",\"Segoe UI\",sans-serif";
     if (key == "handwriting" || key == "cursive" || key == "decorative") return "\"Segoe Script\",\"Comic Sans MS\",cursive";
     return raw;
+}
+
+bool IsTextTag(const std::string& tag) {
+    const std::string name = LowerCopy(tag);
+    return name == "text" || name == "content" || name == "heading" || name == "h1" || name == "h2" || name == "h3" || name == "h4" || name == "h5" || name == "h6" || name == "subhead" || name == "body" || name == "caption" || name == "eyebrow" || name == "label" || name == "paragraph" || name == "p";
+}
+
+struct TextRole {
+    int size = 19;
+    int leading = 1420;
+    std::string font = "Inter-Regular";
+    std::string tone = "secondary";
+    bool upper = false;
+    std::string typeClass = "robo-type-body-lg";
+    std::string tag = "span";
+    std::string cls = "robo-text robo-type";
+};
+
+void ApplyHeading(TextRole& role, int level) {
+    role.font = "Inter-SemiBold";
+    role.tone = "primary";
+    role.cls = "robo-heading robo-type";
+    role.tag = "h1";
+    if (level <= 0) {
+        role.size = 80;
+        role.leading = 1050;
+        role.typeClass = "robo-type-display";
+    } else if (level == 2) {
+        role.size = 40;
+        role.leading = 1100;
+        role.typeClass = "robo-type-h2";
+        role.tag = "h2";
+    } else if (level == 3) {
+        role.size = 28;
+        role.leading = 1140;
+        role.typeClass = "robo-type-h3";
+        role.tag = "h3";
+    } else if (level == 4) {
+        role.size = 22;
+        role.leading = 1220;
+        role.typeClass = "robo-type-h4";
+        role.tag = "h4";
+    } else if (level == 5) {
+        role.size = 19;
+        role.leading = 1260;
+        role.typeClass = "robo-type-h5";
+        role.tag = "h5";
+    } else if (level >= 6) {
+        role.size = 17;
+        role.leading = 1290;
+        role.typeClass = "robo-type-h6";
+        role.tag = "h6";
+    } else {
+        role.size = 56;
+        role.leading = 1070;
+        role.typeClass = "robo-type-h1";
+    }
+}
+
+int HeadingLevel(const Node& node, const std::string& tag) {
+    if (tag.size() == 2 && tag[0] == 'h' && tag[1] >= '1' && tag[1] <= '6') return tag[1] - '0';
+    const std::string level = LowerCopy(AttrOf(node, {"level"}));
+    if (level == "display") return 0;
+    if (level.size() >= 2 && level[0] == 'h' && level[1] >= '1' && level[1] <= '6') return level[1] - '0';
+    if (!level.empty() && level[0] >= '1' && level[0] <= '6') return level[0] - '0';
+    return 1;
+}
+
+TextRole RoleFor(const Node& node) {
+    const std::string tag = LowerCopy(node.tag);
+    TextRole role;
+    if (tag == "heading" || (tag.size() == 2 && tag[0] == 'h')) ApplyHeading(role, HeadingLevel(node, tag));
+    else if (tag == "subhead") {
+        role.size = 24;
+        role.leading = 1330;
+        role.cls = "robo-subhead robo-type";
+        role.typeClass = "robo-type-subhead";
+    } else if (tag == "caption") {
+        role.size = 12;
+        role.leading = 1330;
+        role.tone = "tertiary";
+        role.cls = "robo-caption robo-type";
+        role.typeClass = "robo-type-caption";
+    } else if (tag == "eyebrow") {
+        role.size = 12;
+        role.leading = 1330;
+        role.tone = "tertiary";
+        role.upper = true;
+        role.cls = "robo-eyebrow robo-type";
+        role.typeClass = "robo-type-eyebrow";
+    } else if (tag == "label") {
+        role.size = 17;
+        role.leading = 1000;
+        role.font = "Inter-Medium";
+        role.tone = "primary";
+        role.cls = "robo-label robo-type";
+        role.typeClass = "robo-type-label";
+    } else if (tag == "body" || tag == "paragraph" || tag == "p" || tag == "content") {
+        role.tag = (tag == "content") ? "span" : "p";
+        role.cls = (tag == "paragraph" ? "robo-paragraph" : tag == "p" ? "robo-p" : tag == "body" ? "robo-body" : "robo-text") + std::string(" robo-type");
+        const std::string size = LowerCopy(AttrOf(node, {"size"}));
+        if (size == "sm" || size == "small") {
+            role.size = 17;
+            role.leading = 1470;
+            role.typeClass = "robo-type-body";
+        } else {
+            role.size = 19;
+            role.leading = 1420;
+            role.typeClass = "robo-type-body-lg";
+        }
+    } else {
+        std::string variant = LowerCopy(AttrOf(node, {"variant"}));
+        if (variant.empty()) variant = "content";
+        if (variant == "display") ApplyHeading(role, 0);
+        else if (variant.size() == 2 && variant[0] == 'h' && variant[1] >= '1' && variant[1] <= '6') ApplyHeading(role, variant[1] - '0');
+        else if (variant == "subhead") {
+            role.size = 24;
+            role.leading = 1330;
+            role.typeClass = "robo-type-subhead";
+        } else if (variant == "caption") {
+            role.size = 12;
+            role.leading = 1330;
+            role.tone = "tertiary";
+            role.typeClass = "robo-type-caption";
+        } else if (variant == "eyebrow") {
+            role.size = 12;
+            role.leading = 1330;
+            role.tone = "tertiary";
+            role.upper = true;
+            role.typeClass = "robo-type-eyebrow";
+        } else if (variant == "label") {
+            role.size = 17;
+            role.leading = 1000;
+            role.font = "Inter-Medium";
+            role.tone = "primary";
+            role.typeClass = "robo-type-label";
+        } else if (variant == "content-sm" || variant == "body-sm") {
+            role.size = 17;
+            role.leading = 1470;
+            role.typeClass = "robo-type-body";
+        }
+        role.cls = "robo-text robo-type";
+        role.tag = "span";
+    }
+    const std::string font = AttrOf(node, {"font", "family", "Font"});
+    if (!font.empty()) role.font = font;
+    const std::string sizeAttr = AttrOf(node, {"size", "fontSize", "FontSize"});
+    const bool named = sizeAttr.empty() || sizeAttr == "sm" || sizeAttr == "small" || sizeAttr == "md" || sizeAttr == "medium" || sizeAttr == "lg" || sizeAttr == "large" || sizeAttr == "exact" || sizeAttr == "auto" || sizeAttr == "dynamic" || sizeAttr == "fill" || sizeAttr == "min" || sizeAttr == "max";
+    if (!named) {
+        try {
+            role.size = std::max(1, std::stoi(sizeAttr));
+        } catch (...) {
+        }
+    }
+    const std::string tone = LowerCopy(AttrOf(node, {"tone"}));
+    if (!tone.empty()) role.tone = tone;
+    return role;
+}
+
+std::uint32_t ParseColor(const std::string& text, std::uint32_t fallback);
+
+std::uint32_t ToneColor(const TextRole& role, const Style& style, const Node& node) {
+    const std::string chosen = AttrOf(node, {"color", "Color"});
+    if (!chosen.empty()) return ParseColor(chosen, style.text);
+    std::string token = "text-primary";
+    if (role.tone == "secondary") token = "text-secondary";
+    else if (role.tone == "tertiary" || role.tone == "disabled") token = "text-tertiary";
+    else if (role.tone == "link") token = "text-link";
+    else if (role.tone == "danger") token = "danger";
+    else if (role.tone == "success") token = "success";
+    else if (role.tone == "warning") token = "warning";
+    else if (role.tone == "on-brand") token = "text-on-brand";
+    std::uint32_t color = style.text;
+    FoundationColor(token, style.dark, color);
+    return color;
+}
+
+struct TextSeg {
+    std::string text;
+    int size = 19;
+    int leading = 1420;
+    std::string font = "Inter-Regular";
+    std::uint32_t color = 0;
+};
+
+struct TextLine {
+    std::vector<TextSeg> segs;
+    int w = 0;
+    int h = 0;
+};
+
+void AddPiece(std::vector<TextSeg>& pieces, const std::string& text, int size, int leading, const std::string& font, std::uint32_t color, bool upper) {
+    if (text.empty()) return;
+    TextSeg piece;
+    piece.text = text;
+    if (upper) {
+        for (char& ch : piece.text) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+    piece.size = size;
+    piece.leading = leading;
+    piece.font = font;
+    piece.color = color;
+    pieces.push_back(std::move(piece));
+}
+
+std::vector<TextSeg> TextPieces(const Node& node, const TextRole& role, std::uint32_t color) {
+    std::vector<TextSeg> pieces;
+    bool anyLead = false;
+    for (const std::string& part : node.lead) anyLead = anyLead || !part.empty();
+    if (!anyLead) {
+        std::string words;
+        if (node.attr.count("content")) words = node.attr.at("content");
+        else if (node.attr.count("Value")) words = node.attr.at("Value");
+        else if (node.attr.count("Text")) words = node.attr.at("Text");
+        AddPiece(pieces, words, role.size, role.leading, role.font, color, role.upper);
+        if (node.lead.empty()) return pieces;
+    }
+    int spans = 0;
+    const int kids = static_cast<int>(node.children.size());
+    for (int i = 0; i < static_cast<int>(node.lead.size()); ++i) {
+        AddPiece(pieces, node.lead[static_cast<std::size_t>(i)], role.size, role.leading, role.font, color, role.upper);
+        if (i >= kids) continue;
+        const Node& child = node.children[static_cast<std::size_t>(i)];
+        if (LowerCopy(child.tag) != "span") {
+            std::cerr << "text: only Span children are placed, got " << child.tag << "\n";
+            continue;
+        }
+        if (++spans > 48) {
+            std::cerr << "text: only the first 48 spans are placed\n";
+            continue;
+        }
+        int spanSize = role.size;
+        const std::string size = AttrOf(child, {"size", "fontSize"});
+        if (!size.empty()) {
+            try {
+                spanSize = std::max(1, std::stoi(size));
+            } catch (...) {
+            }
+        }
+        std::string spanFont = AttrOf(child, {"font"});
+        if (spanFont.empty()) spanFont = role.font;
+        std::uint32_t spanColor = color;
+        const std::string ink = AttrOf(child, {"color", "Color"});
+        if (!ink.empty()) spanColor = ParseColor(ink, color);
+        AddPiece(pieces, ElementWords(child), spanSize, role.leading, spanFont, spanColor, role.upper);
+    }
+    return pieces;
+}
+
+std::string WrapName(const Node& node) {
+    std::string wrap = LowerCopy(AttrOf(node, {"wrap"}));
+    if (wrap.empty() || wrap == "word" || wrap == "wrap") return "word";
+    if (wrap == "none" || wrap == "nowrap") return "none";
+    if (wrap == "char" || wrap == "character") return "char";
+    return "word";
+}
+
+int WrapLimit(const Node& node, int maxW) {
+    int limit = maxW;
+    if (!AttrOf(node, {"maxWidth"}).empty()) limit = std::min(limit, AttrIntOf(node, {"maxWidth"}, limit));
+    return std::max(0, limit);
+}
+
+std::vector<TextLine> WrapPieces(const std::vector<TextSeg>& pieces, const std::string& wrap, int limit) {
+    std::vector<TextLine> lines;
+    TextLine line;
+    auto close = [&]() {
+        if (line.segs.empty()) return;
+        lines.push_back(line);
+        line = {};
+    };
+    auto place = [&](const TextSeg& piece, const std::string& text) {
+        if (text.empty()) return;
+        const Platform::TextSize measured = Platform::MeasureText(text, piece.size, piece.font);
+        const int box = std::max(measured.h, piece.size * piece.leading / 1000);
+        if (wrap != "none" && limit > 0 && line.w > 0 && line.w + measured.w > limit) close();
+        TextSeg seg = piece;
+        seg.text = text;
+        line.segs.push_back(seg);
+        line.w += measured.w;
+        line.h = std::max(line.h, box);
+    };
+    for (const TextSeg& piece : pieces) {
+        if (wrap == "char") {
+            for (char ch : piece.text) place(piece, std::string(1, ch));
+            continue;
+        }
+        if (wrap == "none" || limit <= 0) {
+            place(piece, piece.text);
+            continue;
+        }
+        std::string token;
+        auto flush = [&]() {
+            if (token.empty()) return;
+            place(piece, token);
+            token.clear();
+        };
+        for (char ch : piece.text) {
+            token.push_back(ch);
+            if (ch == ' ') flush();
+        }
+        flush();
+    }
+    close();
+    return lines;
 }
 
 std::string NodeId(const Node& node) {
@@ -208,14 +563,24 @@ Size Measure(const Node& node, int maxW) {
         if (AttrFlag(node, {"fill", "fillParent"}, false)) width = maxW;
         return {width, std::max(1, height)};
     }
-    if (tag == "Text" || tag == "Button") {
+    if (IsTextTag(tag)) {
+        const TextRole role = RoleFor(node);
+        const auto lines = WrapPieces(TextPieces(node, role, 0), WrapName(node), WrapLimit(node, maxW));
+        int width = 0;
+        int height = 0;
+        for (const TextLine& row : lines) {
+            width = std::max(width, row.w);
+            height += std::max(row.h, 1);
+        }
+        if (height <= 0) height = std::max(1, role.size * role.leading / 1000);
+        if (!AttrOf(node, {"width", "Width"}).empty()) width = AttrIntOf(node, {"width", "Width"}, width);
+        if (!AttrOf(node, {"height", "Height"}).empty()) height = AttrIntOf(node, {"height", "Height"}, height);
+        return {std::max(1, width), std::max(1, height)};
+    }
+    if (tag == "Button") {
         const int font = FontSizeOf(node, 16);
         const Platform::TextSize measured = Platform::MeasureText(ShownText(node), font, TextFace(node));
-        Size text{measured.w, measured.h};
-        if (tag == "Button") {
-            text.w += 8 * Platform::ScaleFor(font);
-            text.h += 8 * Platform::ScaleFor(font);
-        }
+        Size text{measured.w + 8 * Platform::ScaleFor(font), measured.h + 8 * Platform::ScaleFor(font)};
         if (node.attr.count("Width")) text.w = IntAttr(node, "Width", text.w);
         if (node.attr.count("Height")) text.h = IntAttr(node, "Height", text.h);
         return text;
@@ -456,21 +821,47 @@ void Place(const Node& node, std::vector<std::uint32_t>& pixels, std::vector<Pai
         }
         return;
     }
-    if (node.tag == "Text" || node.tag == "Button") {
-        Size box = Measure(node, maxW);
-        const bool button = node.tag == "Button";
-        const std::uint32_t bg = node.attr.count("Background")
-            ? ParseColor(node.attr.at("Background"), button ? style.button : style.window)
-            : (button ? style.button : style.window);
-        const std::uint32_t fg = button ? style.buttonText : color;
-        if (button || node.attr.count("Background")) {
-            Platform::Fill(pixels, frameW, frameH, x, y, box.w, box.h, bg);
+    if (IsTextTag(node.tag)) {
+        const TextRole role = RoleFor(node);
+        const std::uint32_t ink = ToneColor(role, style, node);
+        const int limit = WrapLimit(node, maxW);
+        const auto lines = WrapPieces(TextPieces(node, role, ink), WrapName(node), limit);
+        int contentW = 0;
+        int contentH = 0;
+        for (const TextLine& row : lines) {
+            contentW = std::max(contentW, row.w);
+            contentH += std::max(row.h, 1);
         }
+        if (contentH <= 0) contentH = std::max(1, role.size * role.leading / 1000);
+        std::string align = LowerCopy(AttrOf(node, {"align"}));
+        if (align.empty() || align == "left") align = "start";
+        if (align == "right") align = "end";
+        int boxW = contentW;
+        if (!AttrOf(node, {"width", "Width"}).empty()) boxW = AttrIntOf(node, {"width", "Width"}, boxW);
+        else if (align != "start") boxW = std::max(contentW, limit);
+        const int boxH = !AttrOf(node, {"height", "Height"}).empty() ? AttrIntOf(node, {"height", "Height"}, contentH) : contentH;
+        int cursorY = y;
+        for (const TextLine& row : lines) {
+            int cursorX = x;
+            if (align == "center") cursorX += std::max(0, boxW - row.w) / 2;
+            else if (align == "end") cursorX += std::max(0, boxW - row.w);
+            for (const TextSeg& seg : row.segs) {
+                Platform::DrawText(pixels, frameW, frameH, cursorX, cursorY, seg.text, seg.size, seg.color, seg.font);
+                cursorX += Platform::MeasureText(seg.text, seg.size, seg.font).w;
+            }
+            cursorY += std::max(row.h, 1);
+        }
+        paints.push_back({node.tag, NodeId(node), ShownText(node), x, y, std::max(boxW, 1), std::max(boxH, 1), ink, false, {}});
+        return;
+    }
+    if (node.tag == "Button") {
+        Size box = Measure(node, maxW);
+        const std::uint32_t bg = node.attr.count("Background") ? ParseColor(node.attr.at("Background"), style.button) : style.button;
+        if (box.w > 0 && box.h > 0) Platform::Fill(pixels, frameW, frameH, x, y, box.w, box.h, bg);
         const int scale = Platform::ScaleFor(FontSizeOf(node, 16));
-        const int inset = button ? 4 * scale : 0;
-        Platform::DrawText(pixels, frameW, frameH, x + inset, y + inset, ShownText(node), FontSizeOf(node, 16), fg, TextFace(node));
-        paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, ShownText(node), x, y, box.w, box.h, button ? bg : fg, button,
-                           button && node.attr.count("OnClick") ? node.attr.at("OnClick") : std::string{}});
+        Platform::DrawText(pixels, frameW, frameH, x + 4 * scale, y + 4 * scale, ShownText(node), FontSizeOf(node, 16), style.buttonText, TextFace(node));
+        paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, ShownText(node), x, y, box.w, box.h, bg, true,
+                           node.attr.count("OnClick") ? node.attr.at("OnClick") : std::string{}});
         return;
     }
     Size box = Measure(node, maxW);
@@ -579,13 +970,18 @@ ParseResult ParseDocument(const std::string& text) {
             return true;
         }
         ++i;
+        std::string chunk;
         while (true) {
-            skip();
+            while (i < text.size() && text[i] != '<') {
+                bump(text[i]);
+                chunk.push_back(text[i++]);
+            }
             if (i >= text.size()) {
                 result.error = "RobixUI: missing </" + node.tag + ">";
                 return false;
             }
             if (text.compare(i, 2, "</") == 0) {
+                node.lead.push_back(CleanPiece(chunk));
                 i += 2;
                 std::string close;
                 while (i < text.size() && std::isalnum(static_cast<unsigned char>(text[i]))) close.push_back(text[i++]);
@@ -597,6 +993,8 @@ ParseResult ParseDocument(const std::string& text) {
                 ++i;
                 return true;
             }
+            node.lead.push_back(CleanPiece(chunk));
+            chunk.clear();
             Node child;
             if (!parseElement(child)) return false;
             node.children.push_back(std::move(child));
@@ -722,7 +1120,8 @@ Style ThemeFor(const Node& root, const std::string& overrideTheme) {
     Style style;
     FoundationPaint paint;
     std::string foundationError;
-    if (Platform::Windows::ApplyFoundation(paint, theme == "dark", foundationError)) {
+    style.dark = theme == "dark";
+    if (Platform::Windows::ApplyFoundation(paint, style.dark, foundationError)) {
         style.primary = paint.primary;
         style.window = paint.window;
         style.text = paint.text;
@@ -960,16 +1359,69 @@ std::string HtmlNode(const Node& node, bool root) {
         html << " style=\"" << style.str() << "\">\n" << HtmlChildren(node, root) << "</" << tag << ">\n";
         return html.str();
     }
-    if (node.tag == "Text" || node.tag == "Button") {
-        const std::string face = TextFace(node);
-        const std::string key = LowerCopy(face);
+    if (IsTextTag(node.tag)) {
+        const TextRole role = RoleFor(node);
+        const std::string chosen = AttrOf(node, {"color", "Color"});
+        std::string tone = "var(--text-primary)";
+        if (!chosen.empty()) tone = chosen;
+        else if (role.tone == "secondary") tone = "var(--text-secondary)";
+        else if (role.tone == "tertiary" || role.tone == "disabled") tone = "var(--text-tertiary)";
+        else if (role.tone == "link") tone = "var(--text-link)";
+        else if (role.tone == "danger") tone = "var(--danger)";
+        else if (role.tone == "success") tone = "var(--success)";
+        else if (role.tone == "warning") tone = "var(--warning)";
+        else if (role.tone == "on-brand") tone = "var(--text-on-brand)";
+        const std::string key = LowerCopy(role.font);
         const char* weight = "400";
         if (key.find("semibold") != std::string::npos || key == "semi-bold") weight = "600";
         else if (key.find("medium") != std::string::npos) weight = "500";
         else if (key.find("bold") != std::string::npos) weight = "700";
-        else if (node.tag == "Button") weight = "500";
-        const std::string tag = node.tag == "Button" ? "button type=\"button\"" : "p";
-        return "<" + tag + " style=\"font-family:" + FontFamilyCss(face) + ";font-weight:" + weight + "\">" + HtmlEscape(ShownText(node)) + "</" + (node.tag == "Button" ? "button" : "p") + ">\n";
+        std::string align = LowerCopy(AttrOf(node, {"align"}));
+        if (align.empty() || align == "left") align = "start";
+        if (align == "right") align = "end";
+        const std::string wrap = WrapName(node);
+        std::ostringstream style;
+        style << "margin:0;display:block;font-family:" << FontFamilyCss(role.font) << ";font-weight:" << weight
+              << ";font-size:" << role.size << "px;line-height:" << (role.leading / 1000.0) << ";color:" << tone
+              << ";text-align:" << align << ";";
+        if (role.upper) style << "text-transform:uppercase;letter-spacing:.05em;";
+        if (wrap == "none") style << "white-space:nowrap;";
+        if (wrap == "char") style << "word-break:break-all;";
+        std::string inner;
+        if (node.lead.empty()) inner = HtmlEscape(ShownText(node));
+        else {
+            bool anyLead = false;
+            for (const std::string& part : node.lead) anyLead = anyLead || !part.empty();
+            if (!anyLead && node.attr.count("content")) inner += HtmlEscape(node.attr.at("content"));
+            else if (!anyLead && node.attr.count("Value")) inner += HtmlEscape(node.attr.at("Value"));
+            const int kids = static_cast<int>(node.children.size());
+            int spans = 0;
+            for (int i = 0; i < static_cast<int>(node.lead.size()); ++i) {
+                inner += HtmlEscape(node.lead[static_cast<std::size_t>(i)]);
+                if (i >= kids || LowerCopy(node.children[static_cast<std::size_t>(i)].tag) != "span") continue;
+                if (++spans > 48) continue;
+                const Node& child = node.children[static_cast<std::size_t>(i)];
+                std::string spanStyle;
+                const std::string size = AttrOf(child, {"size", "fontSize"});
+                if (!size.empty()) spanStyle += "font-size:" + size + "px;";
+                const std::string spanColor = AttrOf(child, {"color", "Color"});
+                if (!spanColor.empty()) spanStyle += "color:" + spanColor + ";";
+                const std::string spanFont = AttrOf(child, {"font"});
+                if (!spanFont.empty()) spanStyle += "font-family:" + FontFamilyCss(spanFont) + ";";
+                inner += "<span class=\"robo-span\"";
+                if (!spanStyle.empty()) inner += " style=\"" + spanStyle + "\"";
+                inner += ">" + HtmlEscape(ElementWords(child)) + "</span>";
+            }
+        }
+        const std::string id = AttrOf(node, {"id", "Name"});
+        std::string open = "<" + role.tag + " class=\"" + role.cls + " " + role.typeClass + "\"";
+        if (!id.empty()) open += " id=\"" + HtmlEscape(id) + "\"";
+        open += " style=\"" + style.str() + "\">" + inner + "</" + role.tag + ">\n";
+        return open;
+    }
+    if (node.tag == "Button") {
+        const std::string face = TextFace(node);
+        return "<button type=\"button\" style=\"font-family:" + FontFamilyCss(face) + ";font-weight:500\">" + HtmlEscape(ShownText(node)) + "</button>\n";
     }
     return HtmlChildren(node, false);
 }
@@ -977,7 +1429,7 @@ std::string HtmlNode(const Node& node, bool root) {
 std::string BodyFrom(const std::vector<Paint>& paints) {
     std::string body;
     for (const auto& paint : paints) {
-        if (paint.kind == "Text" && !paint.text.empty()) body += "<p>" + HtmlEscape(paint.text) + "</p>\n";
+        if (IsTextTag(paint.kind) && !paint.text.empty()) body += "<p class=\"robo-text robo-type\">" + HtmlEscape(paint.text) + "</p>\n";
         if (paint.kind == "Button") body += "<button type=\"button\">" + HtmlEscape(paint.text) + "</button>\n";
     }
     return body;
@@ -1227,7 +1679,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
     PrintLayout(view);
     if (action == "validate") return 0;
     std::string componentError;
-    if ((action == "window" || action == "web") && view.screen && (!SameComponentFile("Screen.rbxu", "Name=\"Screen\"", componentError) || !SameComponentFile("Board.rbxu", "Name=\"Board\"", componentError) || !SameFoundation(componentError))) {
+    if ((action == "window" || action == "web") && view.screen && (!SameComponentFile("Screen.rbxu", "Name=\"Screen\"", componentError) || !SameComponentFile("Board.rbxu", "Name=\"Board\"", componentError) || !SameComponentFile("Text.rbxu", "Name=\"Text\"", componentError) || !SameComponentFile("Heading.rbxu", "Name=\"Heading\"", componentError) || !SameComponentFile("Subhead.rbxu", "Name=\"Subhead\"", componentError) || !SameComponentFile("Body.rbxu", "Name=\"Body\"", componentError) || !SameComponentFile("Paragraph.rbxu", "Name=\"Paragraph\"", componentError) || !SameComponentFile("Caption.rbxu", "Name=\"Caption\"", componentError) || !SameComponentFile("Eyebrow.rbxu", "Name=\"Eyebrow\"", componentError) || !SameComponentFile("Label.rbxu", "Name=\"Label\"", componentError) || !SameFoundation(componentError))) {
         std::cerr << componentError;
         return 1;
     }
@@ -1257,7 +1709,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
         watch.source = Stamp(codePath);
         watch.ready = true;
         watch.html = Web::RenderWindow(name, title, width, height, theme, style.window, style.text, view.markup.empty() ? BodyFrom(paints) : view.markup, true);
-        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
+        std::cout << (view.screen ? "component Screen\ncomponent Board\ncomponent Text\ncomponent Heading\ncomponent Subhead\ncomponent Body\ncomponent Paragraph\ncomponent Caption\ncomponent Eyebrow\ncomponent Label\n" : "component Window\n");
         if (!Web::ServeDev(ProvideWeb, &watch)) {
             std::cerr << "robix ui web: the development server did not start\n";
             return 1;
@@ -1276,7 +1728,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
         watch.rbxu = Stamp(file);
         watch.source = Stamp(codePath);
         watch.ready = true;
-        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
+        std::cout << (view.screen ? "component Screen\ncomponent Board\ncomponent Text\ncomponent Heading\ncomponent Subhead\ncomponent Body\ncomponent Paragraph\ncomponent Caption\ncomponent Eyebrow\ncomponent Label\n" : "component Window\n");
         if (!Platform::Windows::OpenWindowDev(title, pixels, width, height, RefreshWindow, ResizeWindow, ClickWindow, &watch)) {
             std::cerr << "robix ui window: the window was not painted\n";
             return 1;
@@ -1298,7 +1750,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
             std::cerr << "robix ui web: could not write " << output << "\n";
             return 1;
         }
-        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
+        std::cout << (view.screen ? "component Screen\ncomponent Board\ncomponent Text\ncomponent Heading\ncomponent Subhead\ncomponent Body\ncomponent Paragraph\ncomponent Caption\ncomponent Eyebrow\ncomponent Label\n" : "component Window\n");
         std::cout << "web " << output << " " << width << "x" << height << " title " << title << "\n";
         return 0;
     }
@@ -1335,7 +1787,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
             std::cerr << "robix ui window: the window was not painted\n";
             return 1;
         }
-        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
+        std::cout << (view.screen ? "component Screen\ncomponent Board\ncomponent Text\ncomponent Heading\ncomponent Subhead\ncomponent Body\ncomponent Paragraph\ncomponent Caption\ncomponent Eyebrow\ncomponent Label\n" : "component Window\n");
         std::cout << "window: shown " << width << "x" << height << " title " << title << "\n";
         std::cout << "window: closed after paint\n";
         return 0;

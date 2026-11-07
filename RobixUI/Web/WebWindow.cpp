@@ -70,7 +70,22 @@ std::string RenderWindow(const std::string& name, const std::string& title, int 
             << ".robo-board{box-sizing:border-box;min-width:0;border:0;outline:none}\n"
             << ".robo-board:focus,.robo-board:focus-visible{outline:none}\n"
             << "p{margin:0;}\n"
-            << "button{border:0;background:var(--brand-primary);color:var(--text-on-brand);font-family:var(--font-sans-medium,\"Inter\",system-ui,sans-serif);font-size:var(--body-size);font-weight:500;}\n";
+            << "button{border:0;background:var(--brand-primary);color:var(--text-on-brand);font-family:var(--font-sans-medium,\"Inter\",system-ui,sans-serif);font-size:var(--body-size);font-weight:500;}\n"
+            << "h1,h2,h3,h4,h5,h6,p,.robo-heading,.robo-subhead,.robo-body,.robo-text,.robo-caption,.robo-eyebrow,.robo-label,.robo-paragraph{margin:0;display:block}\n"
+            << ".robo-type-display{font-size:80px;font-weight:600;line-height:1.05;color:var(--text-primary)}\n"
+            << ".robo-type-h1{font-size:56px;font-weight:600;line-height:1.07;color:var(--text-primary)}\n"
+            << ".robo-type-h2{font-size:40px;font-weight:600;line-height:1.1;color:var(--text-primary)}\n"
+            << ".robo-type-h3{font-size:28px;font-weight:600;line-height:1.14;color:var(--text-primary)}\n"
+            << ".robo-type-h4{font-size:22px;font-weight:600;line-height:1.22;color:var(--text-primary)}\n"
+            << ".robo-type-h5{font-size:19px;font-weight:600;line-height:1.26;color:var(--text-primary)}\n"
+            << ".robo-type-h6{font-size:17px;font-weight:600;line-height:1.29;color:var(--text-primary)}\n"
+            << ".robo-type-subhead{font-size:24px;font-weight:400;line-height:1.33;color:var(--text-secondary)}\n"
+            << ".robo-type-body-lg{font-size:19px;font-weight:400;line-height:1.42;color:var(--text-secondary)}\n"
+            << ".robo-type-body{font-size:17px;font-weight:400;line-height:1.47;color:var(--text-secondary)}\n"
+            << ".robo-type-caption,.robo-type-eyebrow{font-size:12px;font-weight:400;line-height:1.33;color:var(--text-tertiary)}\n"
+            << ".robo-type-eyebrow{text-transform:uppercase;letter-spacing:.05em}\n"
+            << ".robo-type-label{font-size:17px;font-weight:500;line-height:1;color:var(--text-primary)}\n"
+            << ".robo-span{display:inline}\n";
     } else {
         out << "body{margin:0;background:var(--bg-secondary);color:var(--text-primary);font-family:var(--font-sans,\"Inter\",system-ui,sans-serif);font-size:var(--body-size);}\n"
         << "main{box-sizing:border-box;width:100%;max-width:" << width << "px;min-height:" << height

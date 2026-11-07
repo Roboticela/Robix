@@ -22,6 +22,7 @@ struct FoundationPaint {
 bool LoadFoundation(FoundationPaint& paint, bool dark, std::string& error);
 // A Font entry from Foundation.rbxu. Name is matched without case. Src is the path under Assets/Fonts.
 bool FoundationFont(const std::string& name, std::string& src, std::string& token);
+bool FoundationColor(const std::string& name, bool dark, std::uint32_t& color);
 std::string FoundationCss(const std::string& fontPrefix = "Assets/Fonts");
 std::string FoundationLine();
 bool SameFoundation(std::string& error);
