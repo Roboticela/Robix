@@ -1,0 +1,10 @@
+<Component Name="Window">
+  <Attribute Name="Name" Type="String"/>
+  <Attribute Name="Title" Type="String"/>
+  <Attribute Name="Width" Type="Int" Default="320"/>
+  <Attribute Name="Height" Type="Int" Default="180"/>
+  <Attribute Name="Theme" Type="String" Default="Light"/>
+  <Attribute Name="Padding" Type="Int" Default="0"/>
+  <Attribute Name="Color" Type="Color"/>
+  <Attribute Name="Background" Type="Color"/>
+</Component>

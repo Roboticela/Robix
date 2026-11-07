@@ -1,4 +1,11 @@
 #include "Document.hpp"
+#include "Foundation.hpp"
+
+#include "Platform/Framebuffer.hpp"
+#include "Platform/Windows/Window.hpp"
+#include "Platform/Windows/WindowsFoundation.hpp"
+#include "Web/Window.hpp"
+#include "../Tools/CLI/RobixCLIAndTestGenerator.hpp"
 
 #include "../Compiler/AST/ASTNodes.hpp"
 #include "../Compiler/Lexer/Lexer.hpp"
@@ -10,15 +17,10 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <initializer_list>
 #include <iostream>
 #include <map>
 #include <sstream>
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#endif
 
 namespace Robix::UI {
 
@@ -41,9 +43,11 @@ struct Paint {
     int h = 0;
     std::uint32_t color = 0;
     bool fill = false;
+    std::string event;
 };
 
 struct Style {
+    std::uint32_t primary = 0xFFFFFF;
     std::uint32_t window = 0xF4F5F7;
     std::uint32_t text = 0x1A1A1A;
     std::uint32_t button = 0x1D4E89;
@@ -54,10 +58,6 @@ struct Size {
     int w = 0;
     int h = 0;
 };
-
-int ScaleFor(int fontSize) {
-    return std::max(1, fontSize / 8);
-}
 
 int FontSizeOf(const Node& node, int fallback) {
     const auto it = node.attr.find("FontSize");
@@ -74,6 +74,72 @@ std::string ShownText(const Node& node) {
     if (node.attr.count("Value")) return node.attr.at("Value");
     if (node.attr.count("Title")) return node.attr.at("Title");
     return {};
+}
+
+std::string LowerCopy(std::string text) {
+    for (char& ch : text) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return text;
+}
+
+std::string AttrOf(const Node& node, std::initializer_list<const char*> keys) {
+    for (const char* key : keys) {
+        if (key == nullptr) continue;
+        const auto exact = node.attr.find(key);
+        if (exact != node.attr.end()) return exact->second;
+        std::string cap(key);
+        if (!cap.empty() && cap[0] >= 'a' && cap[0] <= 'z') cap[0] = static_cast<char>(cap[0] - 32);
+        const auto upper = node.attr.find(cap);
+        if (upper != node.attr.end()) return upper->second;
+    }
+    return {};
+}
+
+int AttrIntOf(const Node& node, std::initializer_list<const char*> keys, int fallback) {
+    const std::string text = AttrOf(node, keys);
+    if (text.empty()) return fallback;
+    try {
+        return std::stoi(text);
+    } catch (...) {
+        return fallback;
+    }
+}
+
+bool AttrFlag(const Node& node, std::initializer_list<const char*> keys, bool fallback) {
+    const std::string text = LowerCopy(AttrOf(node, keys));
+    if (text.empty()) return fallback;
+    return text == "true" || text == "1";
+}
+
+std::string TextFace(const Node& node) {
+    const std::string chosen = AttrOf(node, {"font", "family", "Font"});
+    if (!chosen.empty()) return chosen;
+    if (node.tag == "Button") return "Inter-Medium";
+    return "Inter-Regular";
+}
+
+std::string FontFamilyCss(const std::string& raw) {
+    std::string src;
+    std::string token;
+    if (FoundationFont(raw, src, token)) return "var(--font-" + token + ")";
+    const std::string key = LowerCopy(raw);
+    if (key.empty() || key == "sans" || key == "sans-serif" || key == "inter" || key == "inter-regular" || key == "geometric" || key == "humanist" || key == "rounded" || key == "display" || key == "expanded") {
+        return "var(--font-sans,'Inter',system-ui,sans-serif)";
+    }
+    if (key == "sans-medium" || key == "inter-medium" || key == "medium") return "var(--font-sans-medium,'Inter',system-ui,sans-serif)";
+    if (key == "sans-semibold" || key == "inter-semibold" || key == "semibold" || key == "semi-bold") return "var(--font-sans-semibold,'Inter',system-ui,sans-serif)";
+    if (key == "sans-bold" || key == "inter-bold" || key == "bold") return "var(--font-sans-bold,'Inter',system-ui,sans-serif)";
+    if (key == "sans-italic" || key == "inter-italic" || key == "italic") return "var(--font-sans-italic,'Inter',system-ui,sans-serif)";
+    if (key == "system" || key == "system-default") return "system-ui,sans-serif";
+    if (key == "serif") return "Georgia,\"Times New Roman\",serif";
+    if (key == "mono" || key == "monospace") return "ui-monospace,\"Cascadia Code\",Consolas,monospace";
+    if (key == "condensed") return "\"Arial Narrow\",\"Segoe UI\",sans-serif";
+    if (key == "handwriting" || key == "cursive" || key == "decorative") return "\"Segoe Script\",\"Comic Sans MS\",cursive";
+    return raw;
+}
+
+std::string NodeId(const Node& node) {
+    const std::string id = AttrOf(node, {"id", "Name", "name"});
+    return id.empty() ? node.tag : id;
 }
 
 int IntAttr(const Node& node, const char* key, int fallback) {
@@ -97,43 +163,58 @@ std::uint32_t ParseColor(const std::string& text, std::uint32_t fallback) {
     return fallback;
 }
 
-// 3x5 glyphs. Bit 2 is the left pixel. Unknown characters use a solid block.
-std::uint8_t GlyphRow(char ch, int row) {
-    const char upper = (ch >= 'a' && ch <= 'z') ? static_cast<char>(ch - 32) : ch;
-    static const std::uint8_t kDigits[10][5] = {
-        {7, 5, 5, 5, 7}, {2, 6, 2, 2, 7}, {7, 1, 7, 4, 7}, {7, 1, 7, 1, 7}, {5, 5, 7, 1, 1},
-        {7, 4, 7, 1, 7}, {7, 4, 7, 5, 7}, {7, 1, 1, 1, 1}, {7, 5, 7, 5, 7}, {7, 5, 7, 1, 7}
-    };
-    static const std::uint8_t kLetters[26][5] = {
-        {7, 5, 7, 5, 5}, {6, 5, 6, 5, 6}, {7, 4, 4, 4, 7}, {6, 5, 5, 5, 6}, {7, 4, 7, 4, 7},
-        {7, 4, 7, 4, 4}, {7, 4, 5, 5, 7}, {5, 5, 7, 5, 5}, {7, 2, 2, 2, 7}, {1, 1, 1, 5, 7},
-        {5, 5, 6, 5, 5}, {4, 4, 4, 4, 7}, {7, 7, 5, 5, 5}, {7, 5, 5, 5, 5}, {7, 5, 5, 5, 7},
-        {7, 5, 7, 4, 4}, {7, 5, 5, 7, 1}, {7, 5, 6, 5, 5}, {7, 4, 7, 1, 7}, {7, 2, 2, 2, 2},
-        {5, 5, 5, 5, 7}, {5, 5, 5, 5, 2}, {5, 5, 5, 7, 7}, {5, 5, 2, 5, 5}, {5, 5, 7, 2, 2},
-        {7, 1, 2, 4, 7}
-    };
-    if (row < 0 || row > 4) return 0;
-    if (upper >= 'A' && upper <= 'Z') return kLetters[upper - 'A'][row];
-    if (upper >= '0' && upper <= '9') return kDigits[upper - '0'][row];
-    if (upper == ' ') return 0;
-    if (upper == '-') return row == 2 ? 7 : 0;
-    return 7;
-}
-
-Size MeasureText(const std::string& text, int fontSize) {
-    const int scale = ScaleFor(fontSize);
-    const int count = std::max<int>(1, static_cast<int>(text.size()));
-    return {count * (3 * scale + scale), 5 * scale};
-}
-
 Size Measure(const Node& node, int maxW) {
     const std::string& tag = node.tag;
+    if (tag == "Screen" || tag == "screen") {
+        return {AttrIntOf(node, {"width", "Width"}, 640), AttrIntOf(node, {"height", "Height"}, 400)};
+    }
+    if (tag == "Board" || tag == "board") {
+        const int pad = AttrIntOf(node, {"padding", "Padding"}, 0);
+        const int gap = AttrIntOf(node, {"gap"}, 0);
+        std::string display = LowerCopy(AttrOf(node, {"display"}));
+        if (display.empty()) display = "canvas";
+        std::string direction = LowerCopy(AttrOf(node, {"direction", "flexDirection"}));
+        if (direction.empty() || display == "stack") direction = "column";
+        const int inner = std::max(0, maxW - pad * 2);
+        int width = 0;
+        int height = 0;
+        const int limit = std::min<int>(64, static_cast<int>(node.children.size()));
+        if (display == "flex" && (direction == "row" || direction == "row-reverse")) {
+            for (int i = 0; i < limit; ++i) {
+                const Size childSize = Measure(node.children[static_cast<std::size_t>(i)], inner);
+                if (i > 0) width += gap;
+                width += childSize.w;
+                height = std::max(height, childSize.h);
+            }
+        } else if (display == "canvas") {
+            for (int i = 0; i < limit; ++i) {
+                const Node& child = node.children[static_cast<std::size_t>(i)];
+                const Size childSize = Measure(child, inner);
+                width = std::max(width, AttrIntOf(child, {"x"}, 0) + childSize.w);
+                height = std::max(height, AttrIntOf(child, {"y"}, 0) + childSize.h);
+            }
+        } else {
+            for (int i = 0; i < limit; ++i) {
+                const Size childSize = Measure(node.children[static_cast<std::size_t>(i)], inner);
+                if (i > 0) height += gap;
+                height += childSize.h;
+                width = std::max(width, childSize.w);
+            }
+        }
+        width += pad * 2;
+        height += pad * 2;
+        if (!AttrOf(node, {"width", "Width"}).empty()) width = AttrIntOf(node, {"width", "Width"}, width);
+        if (!AttrOf(node, {"height", "Height"}).empty()) height = AttrIntOf(node, {"height", "Height"}, height);
+        if (AttrFlag(node, {"fill", "fillParent"}, false)) width = maxW;
+        return {width, std::max(1, height)};
+    }
     if (tag == "Text" || tag == "Button") {
         const int font = FontSizeOf(node, 16);
-        Size text = MeasureText(ShownText(node), font);
+        const Platform::TextSize measured = Platform::MeasureText(ShownText(node), font, TextFace(node));
+        Size text{measured.w, measured.h};
         if (tag == "Button") {
-            text.w += 8 * ScaleFor(font);
-            text.h += 8 * ScaleFor(font);
+            text.w += 8 * Platform::ScaleFor(font);
+            text.h += 8 * Platform::ScaleFor(font);
         }
         if (node.attr.count("Width")) text.w = IntAttr(node, "Width", text.w);
         if (node.attr.count("Height")) text.h = IntAttr(node, "Height", text.h);
@@ -180,42 +261,162 @@ Size Measure(const Node& node, int maxW) {
     return {std::min(maxW, width + pad * 2), height};
 }
 
-void Fill(std::vector<std::uint32_t>& pixels, int frameW, int frameH, int x, int y, int w, int h, std::uint32_t color) {
-    for (int row = y; row < y + h; ++row) {
-        if (row < 0 || row >= frameH) continue;
-        for (int col = x; col < x + w; ++col) {
-            if (col < 0 || col >= frameW) continue;
-            pixels[static_cast<std::size_t>(row * frameW + col)] = color;
-        }
-    }
-}
-
-void DrawText(std::vector<std::uint32_t>& pixels, int frameW, int frameH, int x, int y, const std::string& text, int fontSize, std::uint32_t color) {
-    const int scale = ScaleFor(fontSize);
-    int cursor = x;
-    for (unsigned char ch : text) {
-        for (int row = 0; row < 5; ++row) {
-            const std::uint8_t bits = GlyphRow(static_cast<char>(ch), row);
-            for (int col = 0; col < 3; ++col) {
-                if ((bits & (4 >> col)) == 0) continue;
-                Fill(pixels, frameW, frameH, cursor + col * scale, y + row * scale, scale, scale, color);
-            }
-        }
-        cursor += 3 * scale + scale;
-    }
-}
-
 void Place(const Node& node, std::vector<std::uint32_t>& pixels, std::vector<Paint>& paints, int frameW, int frameH,
            int x, int y, int maxW, const Style& style, std::uint32_t foreground) {
     const int pad = IntAttr(node, "Padding", 0);
     const int spacing = IntAttr(node, "Spacing", 0);
     std::uint32_t color = foreground;
     if (node.attr.count("Color")) color = ParseColor(node.attr.at("Color"), color);
+    const bool screen = node.tag == "Screen" || node.tag == "screen";
+    const bool board = node.tag == "Board" || node.tag == "board";
+    if (screen || board) {
+        const int padT = AttrIntOf(node, {"paddingTop"}, AttrIntOf(node, {"padding", "Padding"}, 0));
+        const int padR = AttrIntOf(node, {"paddingRight"}, AttrIntOf(node, {"padding", "Padding"}, 0));
+        const int padB = AttrIntOf(node, {"paddingBottom"}, AttrIntOf(node, {"padding", "Padding"}, 0));
+        const int padL = AttrIntOf(node, {"paddingLeft"}, AttrIntOf(node, {"padding", "Padding"}, 0));
+        const int rowGap = AttrIntOf(node, {"rowGap"}, AttrIntOf(node, {"gap", "Spacing"}, 0));
+        const int colGap = AttrIntOf(node, {"columnGap", "colGap"}, AttrIntOf(node, {"gap", "Spacing"}, 0));
+        std::string display = LowerCopy(AttrOf(node, {"display"}));
+        if (display.empty()) display = board ? "canvas" : "flex";
+        std::string direction = LowerCopy(AttrOf(node, {"direction", "flexDirection"}));
+        if (direction.empty() || display == "stack") direction = "column";
+        int boxW = screen ? AttrIntOf(node, {"width", "Width"}, frameW) : maxW;
+        int boxH = screen ? AttrIntOf(node, {"height", "Height"}, frameH) : AttrIntOf(node, {"height", "Height"}, 0);
+        if (board && (AttrFlag(node, {"fill", "fillParent"}, false) || LowerCopy(AttrOf(node, {"size"})) == "fill")) {
+            boxW = maxW;
+            if (boxH <= 0) boxH = std::max(0, frameH - y);
+        }
+        if (board && !AttrOf(node, {"width", "Width"}).empty()) boxW = AttrIntOf(node, {"width", "Width"}, boxW);
+        const std::string background = AttrOf(node, {"background", "backgroundColor", "bg", "Background"});
+        const bool transparent = screen && AttrFlag(node, {"transparent", "transparency"}, false);
+        std::uint32_t bg = screen ? style.primary : style.window;
+        if (!background.empty()) bg = ParseColor(background, bg);
+        const bool paintBg = !background.empty() || (screen && !transparent);
+        if (board && boxH <= 0) {
+            int bottom = padT + padB;
+            const int limit = std::min<int>(64, static_cast<int>(node.children.size()));
+            for (int i = 0; i < limit; ++i) {
+                const Size childSize = Measure(node.children[static_cast<std::size_t>(i)], std::max(0, boxW - padL - padR));
+                if (display == "canvas") bottom = std::max(bottom, padT + AttrIntOf(node.children[static_cast<std::size_t>(i)], {"y"}, 0) + childSize.h);
+                else if (direction == "row" || direction == "row-reverse") bottom = std::max(bottom, padT + padB + childSize.h);
+                else bottom += childSize.h + (i > 0 ? rowGap : 0);
+            }
+            boxH = std::max(1, bottom);
+        }
+        if (paintBg && boxW > 0 && boxH > 0) Platform::Fill(pixels, frameW, frameH, x, y, boxW, boxH, bg);
+        const int border = screen ? AttrIntOf(node, {"border"}, 0) : 0;
+        if (border > 0) {
+            const std::uint32_t edge = ParseColor(AttrOf(node, {"borderColor"}), style.text);
+            Platform::Fill(pixels, frameW, frameH, x, y, boxW, border, edge);
+            Platform::Fill(pixels, frameW, frameH, x, y + std::max(0, boxH - border), boxW, border, edge);
+            Platform::Fill(pixels, frameW, frameH, x, y, border, boxH, edge);
+            Platform::Fill(pixels, frameW, frameH, x + std::max(0, boxW - border), y, border, boxH, edge);
+        }
+        paints.push_back({screen ? "Screen" : "Board", NodeId(node), ShownText(node), x, y, boxW, boxH, bg, paintBg, {}});
+        const std::string overflow = LowerCopy(AttrOf(node, {"overflow"}));
+        const bool clip = AttrFlag(node, {"clip"}, false) || overflow == "hidden" || overflow == "clip" || overflow == "scroll" || overflow == "auto";
+        const Platform::Clip previous = Platform::CurrentClip();
+        if (clip) Platform::SetClip({x, y, boxW, boxH, true});
+        const int limit = std::min<int>(64, static_cast<int>(node.children.size()));
+        if (static_cast<int>(node.children.size()) > 64) {
+            std::cerr << (screen ? "screen" : "board") << ": only the first 64 children are placed\n";
+        }
+        const int innerW = std::max(0, boxW - padL - padR);
+        if (display == "canvas") {
+            for (int i = 0; i < limit; ++i) {
+                const Node& child = node.children[static_cast<std::size_t>(i)];
+                Place(child, pixels, paints, frameW, frameH, x + padL + AttrIntOf(child, {"x"}, 0), y + padT + AttrIntOf(child, {"y"}, 0), innerW, style, color);
+            }
+        } else if (display == "grid") {
+            const int columns = std::max(1, AttrIntOf(node, {"columns"}, 1));
+            const int cellW = std::max(1, (innerW - (columns - 1) * colGap) / columns);
+            int column = 0;
+            int cursorY = y + padT;
+            int rowH = 0;
+            for (int i = 0; i < limit; ++i) {
+                const Node& child = node.children[static_cast<std::size_t>(i)];
+                const Size childSize = Measure(child, cellW);
+                Place(child, pixels, paints, frameW, frameH, x + padL + column * (cellW + colGap), cursorY, cellW, style, color);
+                rowH = std::max(rowH, childSize.h);
+                if (++column == columns) {
+                    column = 0;
+                    cursorY += rowH + rowGap;
+                    rowH = 0;
+                }
+            }
+        } else {
+            const bool horizontal = direction == "row" || direction == "row-reverse";
+            std::vector<Size> sizes;
+            int sum = 0;
+            int fillCount = 0;
+            for (int i = 0; i < limit; ++i) {
+                const Node& child = node.children[static_cast<std::size_t>(i)];
+                Size childSize = Measure(child, innerW);
+                const bool fillChild = (child.tag == "Board" || child.tag == "board") && AttrFlag(child, {"fill", "fillParent"}, false);
+                if (fillChild) ++fillCount;
+                else sum += horizontal ? childSize.w : childSize.h;
+                sizes.push_back(childSize);
+            }
+            const int gapBefore = horizontal ? colGap : rowGap;
+            const int gapsBefore = limit > 1 ? (limit - 1) * gapBefore : 0;
+            const int roomBefore = horizontal ? innerW : std::max(0, boxH - padT - padB);
+            if (fillCount > 0) {
+                const int share = std::max(1, (roomBefore - sum - gapsBefore) / fillCount);
+                sum = 0;
+                for (int i = 0; i < limit; ++i) {
+                    const Node& child = node.children[static_cast<std::size_t>(i)];
+                    if ((child.tag == "Board" || child.tag == "board") && AttrFlag(child, {"fill", "fillParent"}, false)) {
+                        if (horizontal) sizes[static_cast<std::size_t>(i)].w = share;
+                        else sizes[static_cast<std::size_t>(i)].h = share;
+                    }
+                    sum += horizontal ? sizes[static_cast<std::size_t>(i)].w : sizes[static_cast<std::size_t>(i)].h;
+                }
+            }
+            const int gap = horizontal ? colGap : rowGap;
+            const int gaps = limit > 1 ? (limit - 1) * gap : 0;
+            const int room = horizontal ? innerW : std::max(0, boxH - padT - padB);
+            const int leftover = std::max(0, room - sum - gaps);
+            std::string justify = LowerCopy(AttrOf(node, {"justify", "justifyContent"}));
+            if (justify.empty()) justify = "start";
+            int between = gap;
+            int cursor = horizontal ? x + padL : y + padT;
+            if (justify == "center") cursor += leftover / 2;
+            else if (justify == "end") cursor += leftover;
+            else if (justify == "space-between" && limit > 1) between += leftover / (limit - 1);
+            else if (justify == "space-around" && limit > 0) {
+                cursor += leftover / (limit * 2);
+                between += leftover / limit;
+            } else if (justify == "space-evenly" && limit > 0) {
+                const int slot = leftover / (limit + 1);
+                cursor += slot;
+                between += slot;
+            }
+            std::string align = LowerCopy(AttrOf(node, {"align", "alignItems"}));
+            if (align.empty()) align = screen ? "stretch" : "start";
+            const bool reverse = direction == "row-reverse" || direction == "column-reverse";
+            for (int step = 0; step < limit; ++step) {
+                const int index = reverse ? limit - 1 - step : step;
+                const Node& child = node.children[static_cast<std::size_t>(index)];
+                const Size childSize = sizes[static_cast<std::size_t>(index)];
+                const int crossRoom = horizontal ? std::max(0, boxH - padT - padB) : innerW;
+                const int crossSize = horizontal ? childSize.h : childSize.w;
+                int cross = horizontal ? y + padT : x + padL;
+                if (align == "center") cross += std::max(0, crossRoom - crossSize) / 2;
+                else if (align == "end") cross += std::max(0, crossRoom - crossSize);
+                const int childMax = (!horizontal && align == "stretch") ? innerW : childSize.w;
+                if (horizontal) Place(child, pixels, paints, frameW, frameH, cursor, cross, childSize.w, style, color);
+                else Place(child, pixels, paints, frameW, frameH, cross, cursor, childMax, style, color);
+                cursor += (horizontal ? childSize.w : childSize.h) + between;
+            }
+        }
+        if (clip) Platform::SetClip(previous);
+        return;
+    }
     if (node.tag == "Window") {
         const int width = IntAttr(node, "Width", frameW);
         const int height = IntAttr(node, "Height", frameH);
-        Fill(pixels, frameW, frameH, 0, 0, width, height, style.window);
-        paints.push_back({"Window", node.attr.count("Name") ? node.attr.at("Name") : "Window", ShownText(node), 0, 0, width, height, style.window, true});
+        Platform::Fill(pixels, frameW, frameH, 0, 0, width, height, style.window);
+        paints.push_back({"Window", node.attr.count("Name") ? node.attr.at("Name") : "Window", ShownText(node), 0, 0, width, height, style.window, true, {}});
         int cursor = y + pad;
         for (const auto& child : node.children) {
             Place(child, pixels, paints, frameW, frameH, x + pad, cursor, std::max(0, maxW - pad * 2), style, color);
@@ -227,8 +428,8 @@ void Place(const Node& node, std::vector<std::uint32_t>& pixels, std::vector<Pai
         if (node.attr.count("Background")) {
             Size box = Measure(node, maxW);
             const std::uint32_t bg = ParseColor(node.attr.at("Background"), style.window);
-            Fill(pixels, frameW, frameH, x, y, box.w, box.h, bg);
-            paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, {}, x, y, box.w, box.h, bg, true});
+            Platform::Fill(pixels, frameW, frameH, x, y, box.w, box.h, bg);
+            paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, {}, x, y, box.w, box.h, bg, true, {}});
         }
         int cursor = y + pad;
         for (const auto& child : node.children) {
@@ -263,16 +464,17 @@ void Place(const Node& node, std::vector<std::uint32_t>& pixels, std::vector<Pai
             : (button ? style.button : style.window);
         const std::uint32_t fg = button ? style.buttonText : color;
         if (button || node.attr.count("Background")) {
-            Fill(pixels, frameW, frameH, x, y, box.w, box.h, bg);
+            Platform::Fill(pixels, frameW, frameH, x, y, box.w, box.h, bg);
         }
-        const int scale = ScaleFor(FontSizeOf(node, 16));
+        const int scale = Platform::ScaleFor(FontSizeOf(node, 16));
         const int inset = button ? 4 * scale : 0;
-        DrawText(pixels, frameW, frameH, x + inset, y + inset, ShownText(node), FontSizeOf(node, 16), fg);
-        paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, ShownText(node), x, y, box.w, box.h, button ? bg : fg, button});
+        Platform::DrawText(pixels, frameW, frameH, x + inset, y + inset, ShownText(node), FontSizeOf(node, 16), fg, TextFace(node));
+        paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, ShownText(node), x, y, box.w, box.h, button ? bg : fg, button,
+                           button && node.attr.count("OnClick") ? node.attr.at("OnClick") : std::string{}});
         return;
     }
     Size box = Measure(node, maxW);
-    paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, ShownText(node), x, y, std::max(box.w, 1), std::max(box.h, 1), color, false});
+    paints.push_back({node.tag, node.attr.count("Name") ? node.attr.at("Name") : node.tag, ShownText(node), x, y, std::max(box.w, 1), std::max(box.h, 1), color, false, {}});
     int cursor = y;
     for (const auto& child : node.children) {
         Place(child, pixels, paints, frameW, frameH, x, cursor, maxW, style, color);
@@ -518,53 +720,16 @@ Style ThemeFor(const Node& root, const std::string& overrideTheme) {
     }
     for (char& ch : theme) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     Style style;
-    if (theme == "dark") {
-        style.window = 0x14161A;
-        style.text = 0xE6E6E6;
-        style.button = 0x4C8DFF;
-        style.buttonText = 0xFFFFFF;
+    FoundationPaint paint;
+    std::string foundationError;
+    if (Platform::Windows::ApplyFoundation(paint, theme == "dark", foundationError)) {
+        style.primary = paint.primary;
+        style.window = paint.window;
+        style.text = paint.text;
+        style.button = paint.button;
+        style.buttonText = paint.buttonText;
     }
     return style;
-}
-
-bool WriteBmp(const std::string& path, int width, int height, const std::vector<std::uint32_t>& pixels) {
-    const int stride = (width * 3 + 3) & ~3;
-    const std::uint32_t dataSize = static_cast<std::uint32_t>(stride * height);
-    const std::uint32_t fileSize = 54 + dataSize;
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (!out) return false;
-    unsigned char header[54] = {};
-    header[0] = 'B';
-    header[1] = 'M';
-    header[2] = static_cast<unsigned char>(fileSize);
-    header[3] = static_cast<unsigned char>(fileSize >> 8);
-    header[4] = static_cast<unsigned char>(fileSize >> 16);
-    header[5] = static_cast<unsigned char>(fileSize >> 24);
-    header[10] = 54;
-    header[14] = 40;
-    header[18] = static_cast<unsigned char>(width);
-    header[19] = static_cast<unsigned char>(width >> 8);
-    header[20] = static_cast<unsigned char>(width >> 16);
-    header[21] = static_cast<unsigned char>(width >> 24);
-    header[22] = static_cast<unsigned char>(height);
-    header[23] = static_cast<unsigned char>(height >> 8);
-    header[24] = static_cast<unsigned char>(height >> 16);
-    header[25] = static_cast<unsigned char>(height >> 24);
-    header[26] = 1;
-    header[28] = 24;
-    out.write(reinterpret_cast<const char*>(header), 54);
-    std::vector<unsigned char> row(static_cast<std::size_t>(stride));
-    for (int y = height - 1; y >= 0; --y) {
-        std::fill(row.begin(), row.end(), 0);
-        for (int x = 0; x < width; ++x) {
-            const std::uint32_t color = pixels[static_cast<std::size_t>(y * width + x)];
-            row[static_cast<std::size_t>(x * 3)] = static_cast<unsigned char>(color);
-            row[static_cast<std::size_t>(x * 3 + 1)] = static_cast<unsigned char>(color >> 8);
-            row[static_cast<std::size_t>(x * 3 + 2)] = static_cast<unsigned char>(color >> 16);
-        }
-        out.write(reinterpret_cast<const char*>(row.data()), stride);
-    }
-    return static_cast<bool>(out);
 }
 
 std::string ReadFile(const std::string& path) {
@@ -575,86 +740,461 @@ std::string ReadFile(const std::string& path) {
     return text.str();
 }
 
-#ifdef _WIN32
-struct WindowFrame {
-    const std::uint32_t* pixels = nullptr;
-    int width = 0;
-    int height = 0;
-    bool painted = false;
-};
-
-WindowFrame* g_windowFrame = nullptr;
-
-LRESULT CALLBACK RobixWindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
-    if (message == WM_PAINT && g_windowFrame != nullptr && g_windowFrame->pixels != nullptr) {
-        PAINTSTRUCT paint;
-        HDC dc = BeginPaint(window, &paint);
-        BITMAPINFO info{};
-        info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        info.bmiHeader.biWidth = g_windowFrame->width;
-        info.bmiHeader.biHeight = -g_windowFrame->height;
-        info.bmiHeader.biPlanes = 1;
-        info.bmiHeader.biBitCount = 32;
-        info.bmiHeader.biCompression = BI_RGB;
-        StretchDIBits(
-            dc, 0, 0, g_windowFrame->width, g_windowFrame->height,
-            0, 0, g_windowFrame->width, g_windowFrame->height,
-            g_windowFrame->pixels, &info, DIB_RGB_COLORS, SRCCOPY);
-        EndPaint(window, &paint);
-        g_windowFrame->painted = true;
-        return 0;
+bool SameComponentFile(const char* file, const char* marker, std::string& error) {
+    namespace fs = std::filesystem;
+    fs::path root;
+    fs::path cursor = fs::current_path();
+    for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
+        if (fs::is_regular_file(cursor / "RobixUI" / "Components" / file)) {
+            root = cursor;
+            break;
+        }
+        if (!cursor.has_parent_path() || cursor.parent_path() == cursor) break;
+        cursor = cursor.parent_path();
     }
-    if (message == WM_DESTROY) {
-        PostQuitMessage(0);
-        return 0;
-    }
-    return DefWindowProcW(window, message, wparam, lparam);
-}
-
-bool ShowSoftwareWindow(const std::wstring& title, int width, int height, const std::vector<std::uint32_t>& pixels) {
-    WindowFrame frame;
-    frame.pixels = pixels.data();
-    frame.width = width;
-    frame.height = height;
-    g_windowFrame = &frame;
-
-    WNDCLASSW windowClass{};
-    windowClass.lpfnWndProc = RobixWindowProc;
-    windowClass.hInstance = GetModuleHandleW(nullptr);
-    windowClass.lpszClassName = L"RobixUIFrame";
-    windowClass.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
-    RegisterClassW(&windowClass);
-
-    HWND window = CreateWindowExW(
-        0, L"RobixUIFrame", title.c_str(), WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, width + 16, height + 40,
-        nullptr, nullptr, windowClass.hInstance, nullptr);
-    if (window == nullptr) {
-        g_windowFrame = nullptr;
+    if (root.empty()) {
+        error = std::string("RobixUI: ") + file + " was not found\n";
         return false;
     }
-    ShowWindow(window, SW_SHOW);
-    UpdateWindow(window);
+    const std::string shared = ReadFile((root / "RobixUI" / "Components" / file).string());
+    const std::string web = ReadFile((root / "RobixUI" / "Web" / file).string());
+    const std::string platform = ReadFile((root / "RobixUI" / "Platform" / "Windows" / file).string());
+    if (shared.find(marker) == std::string::npos) {
+        error = std::string("RobixUI: the shared component is not ") + file + "\n";
+        return false;
+    }
+    if (shared != web || shared != platform) {
+        error = std::string("RobixUI: web and Windows ") + file + " are not the same component\n";
+        return false;
+    }
+    return true;
+}
 
-    MSG message;
-    const DWORD started = GetTickCount();
-    while (!frame.painted && GetTickCount() - started < 2000) {
-        if (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
-            if (message.message == WM_QUIT) break;
-            TranslateMessage(&message);
-            DispatchMessageW(&message);
+bool SameWindowXml(std::string& error) {
+    namespace fs = std::filesystem;
+    fs::path root;
+    fs::path cursor = fs::current_path();
+    for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
+        if (fs::is_regular_file(cursor / "RobixUI" / "Components" / "Window.rbxu")) {
+            root = cursor;
+            break;
+        }
+        if (!cursor.has_parent_path() || cursor.parent_path() == cursor) break;
+        cursor = cursor.parent_path();
+    }
+    if (root.empty()) {
+        error = "RobixUI: Window.rbxu was not found\n";
+        return false;
+    }
+    const std::string shared = ReadFile((root / "RobixUI" / "Components" / "Window.rbxu").string());
+    const std::string web = ReadFile((root / "RobixUI" / "Web" / "Window.rbxu").string());
+    const std::string platform = ReadFile((root / "RobixUI" / "Platform" / "Windows" / "Window.rbxu").string());
+    if (shared.find("Name=\"Window\"") == std::string::npos) {
+        error = "RobixUI: the shared component is not Window\n";
+        return false;
+    }
+    if (shared != web || shared != platform) {
+        error = "RobixUI: web and Windows Window.rbxu are not the same component\n";
+        return false;
+    }
+    return true;
+}
+
+struct UiView {
+    bool ok = false;
+    bool screen = false;
+    std::string error;
+    std::string title;
+    std::string name;
+    std::string theme;
+    std::string place = "center";
+    std::string state = "normal";
+    int width = 320;
+    int height = 180;
+    int x = 0;
+    int y = 0;
+    bool movable = true;
+    bool resizable = true;
+    bool topmost = false;
+    bool fullscreen = false;
+    Style style;
+    std::vector<std::uint32_t> pixels;
+    std::vector<Paint> paints;
+    std::string markup;
+};
+
+std::string HtmlEscape(const std::string& text) {
+    std::string out;
+    for (char ch : text) {
+        if (ch == '&') out += "&amp;";
+        else if (ch == '<') out += "&lt;";
+        else if (ch == '>') out += "&gt;";
+        else if (ch == '"') out += "&quot;";
+        else out.push_back(ch);
+    }
+    return out;
+}
+
+std::string CssAlign(std::string value, const char* fallback) {
+    value = LowerCopy(value);
+    if (value.empty()) return fallback;
+    if (value == "start") return "flex-start";
+    if (value == "end") return "flex-end";
+    return value;
+}
+
+std::string RadiusCss(const std::string& token) {
+    if (token.empty() || token == "radius-lg") return "12px";
+    if (token == "control") return "8px";
+    for (char ch : token) {
+        if (ch < '0' || ch > '9') return "12px";
+    }
+    return token + "px";
+}
+
+std::string HtmlNode(const Node& node, bool root);
+
+std::string HtmlChildren(const Node& node, bool root) {
+    std::string html;
+    const std::string display = LowerCopy(AttrOf(node, {"display"}));
+    const bool canvas = node.tag == "Board" || node.tag == "board" ? (display.empty() || display == "canvas") : display == "canvas";
+    const int limit = std::min<int>(64, static_cast<int>(node.children.size()));
+    for (int i = 0; i < limit; ++i) {
+        const Node& child = node.children[static_cast<std::size_t>(i)];
+        if (canvas) {
+            html += "<div style=\"position:absolute;left:" + std::to_string(AttrIntOf(child, {"x"}, 0)) + "px;top:"
+                    + std::to_string(AttrIntOf(child, {"y"}, 0)) + "px\">";
+            html += HtmlNode(child, false);
+            html += "</div>\n";
+        } else {
+            html += HtmlNode(child, false);
         }
     }
-    if (IsWindow(window)) DestroyWindow(window);
-    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
-        if (message.message == WM_QUIT) break;
-        TranslateMessage(&message);
-        DispatchMessageW(&message);
-    }
-    g_windowFrame = nullptr;
-    return frame.painted;
+    (void)root;
+    return html;
 }
-#endif
+
+std::string HtmlNode(const Node& node, bool root) {
+    const bool screen = node.tag == "Screen" || node.tag == "screen";
+    const bool board = node.tag == "Board" || node.tag == "board";
+    if (screen || board) {
+        const std::string id = AttrOf(node, {"id", "Name"});
+        std::string display = LowerCopy(AttrOf(node, {"display"}));
+        if (display.empty()) display = board ? "canvas" : "flex";
+        std::string direction = LowerCopy(AttrOf(node, {"direction", "flexDirection"}));
+        if (direction.empty() || display == "stack") direction = "column";
+        const std::string tag = screen ? (root ? "div" : "section") : "div";
+        const std::string cls = screen ? (root ? "robo-screen" : "robo-window") : "robo-board";
+        std::ostringstream style;
+        style << "box-sizing:border-box;outline:none;border:0;box-shadow:none;";
+        if (display == "canvas") style << "position:relative;";
+        else if (display == "grid") {
+            style << "display:grid;grid-template-columns:repeat(" << std::max(1, AttrIntOf(node, {"columns"}, 1)) << ",minmax(0,1fr));";
+        } else style << "display:flex;flex-direction:" << direction << ";";
+        style << "justify-content:" << CssAlign(AttrOf(node, {"justify", "justifyContent"}), "flex-start") << ";";
+        style << "align-items:" << CssAlign(AttrOf(node, {"align", "alignItems"}), screen ? "stretch" : "flex-start") << ";";
+        style << "gap:" << AttrIntOf(node, {"gap"}, 0) << "px;";
+        style << "padding:" << AttrIntOf(node, {"padding", "Padding"}, 0) << "px;";
+        const std::string overflow = LowerCopy(AttrOf(node, {"overflow"}));
+        if (AttrFlag(node, {"clip"}, false)) style << "overflow:clip;";
+        else if (!overflow.empty()) style << "overflow:" << overflow << ";";
+        if (screen) {
+            style << "width:" << AttrIntOf(node, {"width", "Width"}, 640) << "px;";
+            style << "height:" << AttrIntOf(node, {"height", "Height"}, 400) << "px;";
+            const int border = AttrIntOf(node, {"border"}, 0);
+            if (border > 0) style << "border:" << border << "px solid " << (AttrOf(node, {"borderColor"}).empty() ? "currentColor" : AttrOf(node, {"borderColor"})) << ";";
+            if (!root) style << "border-radius:" << RadiusCss(AttrOf(node, {"radius"})) << ";";
+            if (AttrFlag(node, {"transparent", "transparency"}, false)) style << "background:transparent;";
+        }
+        if (board && AttrFlag(node, {"fill", "fillParent"}, false)) style << "width:100%;height:100%;";
+        const std::string background = AttrOf(node, {"background", "backgroundColor", "bg", "Background"});
+        if (!background.empty()) style << "background:" << background << ";";
+        const auto lengthDecl = [&](const char* css, std::initializer_list<const char*> keys) {
+            const std::string value = AttrOf(node, keys);
+            if (value.empty()) return;
+            bool number = !value.empty();
+            for (char ch : value) number = number && ch >= '0' && ch <= '9';
+            style << css << ":" << value << (number ? "px;" : ";");
+        };
+        lengthDecl("row-gap", {"rowGap"});
+        lengthDecl("column-gap", {"columnGap", "colGap"});
+        lengthDecl("padding-top", {"paddingTop"});
+        lengthDecl("padding-right", {"paddingRight"});
+        lengthDecl("padding-bottom", {"paddingBottom"});
+        lengthDecl("padding-left", {"paddingLeft"});
+        lengthDecl("margin", {"margin"});
+        lengthDecl("left", {"left"});
+        lengthDecl("top", {"top"});
+        lengthDecl("right", {"right"});
+        lengthDecl("bottom", {"bottom"});
+        lengthDecl("min-width", {"minWidth"});
+        lengthDecl("min-height", {"minHeight"});
+        lengthDecl("max-width", {"maxWidth"});
+        lengthDecl("max-height", {"maxHeight"});
+        const std::string position = LowerCopy(AttrOf(node, {"position"}));
+        if (!position.empty()) style << "position:" << position << ";";
+        const std::string wrap = LowerCopy(AttrOf(node, {"wrap", "flexWrap"}));
+        if (!wrap.empty()) style << "flex-wrap:" << wrap << ";";
+        const std::string grow = AttrOf(node, {"grow", "flex", "flexGrow"});
+        if (!grow.empty()) style << "flex-grow:" << grow << ";";
+        const std::string self = LowerCopy(AttrOf(node, {"alignSelf"}));
+        if (!self.empty() && self != "auto") style << "align-self:" << CssAlign(self, "auto") << ";";
+        if (!AttrOf(node, {"order"}).empty()) style << "order:" << AttrOf(node, {"order"}) << ";";
+        if (!AttrOf(node, {"gridColumn"}).empty()) style << "grid-column:" << AttrOf(node, {"gridColumn"}) << ";";
+        if (!AttrOf(node, {"gridRow"}).empty()) style << "grid-row:" << AttrOf(node, {"gridRow"}) << ";";
+        if (!AttrOf(node, {"inset"}).empty()) style << "inset:" << AttrOf(node, {"inset"}) << ";";
+        const std::string overflowX = LowerCopy(AttrOf(node, {"overflowX", "overflow-x"}));
+        const std::string overflowY = LowerCopy(AttrOf(node, {"overflowY", "overflow-y"}));
+        if (!overflowX.empty()) style << "overflow-x:" << overflowX << ";";
+        if (!overflowY.empty()) style << "overflow-y:" << overflowY << ";";
+        std::ostringstream html;
+        html << "<" << tag << " class=\"" << cls << "\"";
+        if (!id.empty()) html << " id=\"" << HtmlEscape(id) << "\"";
+        if (screen) {
+            html << " data-path=\"" << HtmlEscape(AttrOf(node, {"path", "route"}).empty() ? "/" : AttrOf(node, {"path", "route"})) << "\"";
+            html << " data-place=\"" << HtmlEscape(LowerCopy(AttrOf(node, {"place"})).empty() ? "center" : LowerCopy(AttrOf(node, {"place"}))) << "\"";
+            html << " data-theme=\"" << HtmlEscape(LowerCopy(AttrOf(node, {"theme", "appearance", "Theme"})).empty() ? "dark" : LowerCopy(AttrOf(node, {"theme", "appearance", "Theme"}))) << "\"";
+            html << " data-movable=\"" << (AttrFlag(node, {"movable"}, true) ? "true" : "false") << "\"";
+            if (!root) html << " data-open=\"true\"";
+        }
+        html << " style=\"" << style.str() << "\">\n" << HtmlChildren(node, root) << "</" << tag << ">\n";
+        return html.str();
+    }
+    if (node.tag == "Text" || node.tag == "Button") {
+        const std::string face = TextFace(node);
+        const std::string key = LowerCopy(face);
+        const char* weight = "400";
+        if (key.find("semibold") != std::string::npos || key == "semi-bold") weight = "600";
+        else if (key.find("medium") != std::string::npos) weight = "500";
+        else if (key.find("bold") != std::string::npos) weight = "700";
+        else if (node.tag == "Button") weight = "500";
+        const std::string tag = node.tag == "Button" ? "button type=\"button\"" : "p";
+        return "<" + tag + " style=\"font-family:" + FontFamilyCss(face) + ";font-weight:" + weight + "\">" + HtmlEscape(ShownText(node)) + "</" + (node.tag == "Button" ? "button" : "p") + ">\n";
+    }
+    return HtmlChildren(node, false);
+}
+
+std::string BodyFrom(const std::vector<Paint>& paints) {
+    std::string body;
+    for (const auto& paint : paints) {
+        if (paint.kind == "Text" && !paint.text.empty()) body += "<p>" + HtmlEscape(paint.text) + "</p>\n";
+        if (paint.kind == "Button") body += "<button type=\"button\">" + HtmlEscape(paint.text) + "</button>\n";
+    }
+    return body;
+}
+
+UiView LoadUi(const std::string& file, const std::string& codePath, bool validate, const std::string& themeArg,
+              const std::string& widthArg, const std::string& heightArg) {
+    UiView view;
+    const std::string text = ReadFile(file);
+    if (text.empty()) {
+        view.error = "robix ui: could not read " + file + "\n";
+        return view;
+    }
+    ParseResult parsed = ParseDocument(text);
+    if (!parsed.error.empty()) {
+        view.error = parsed.error + "\n";
+        return view;
+    }
+    if (!codePath.empty() || validate) {
+        const std::string code = codePath.empty() ? std::string{} : ReadFile(codePath);
+        if (!codePath.empty() && code.empty()) {
+            view.error = "robix ui: could not read " + codePath + "\n";
+            return view;
+        }
+        if (!BindHandlers(parsed.root, codePath, code, view.error)) return view;
+    }
+    Node window;
+    bool screen = false;
+    for (const auto& child : parsed.root.children) {
+        if (child.tag == "Screen" || child.tag == "screen") {
+            window = child;
+            screen = true;
+            break;
+        }
+    }
+    if (!screen) {
+        for (const auto& child : parsed.root.children) {
+            if (child.tag == "Window") window = child;
+        }
+    }
+    if (window.tag.empty()) {
+        view.error = "RobixUI: the document has no Screen\n";
+        return view;
+    }
+    if (screen) {
+        const std::string boardId = AttrOf(window, {"board"});
+        bool inside = false;
+        if (!boardId.empty()) {
+            std::function<bool(const Node&)> has = [&](const Node& node) {
+                if (AttrOf(node, {"id", "Name", "name"}) == boardId) return true;
+                for (const auto& child : node.children) if (has(child)) return true;
+                return false;
+            };
+            inside = has(window);
+            if (!inside) {
+                for (const auto& child : parsed.root.children) {
+                    if ((child.tag == "Board" || child.tag == "board") && AttrOf(child, {"id", "Name", "name"}) == boardId) {
+                        window.children.insert(window.children.begin(), child);
+                        break;
+                    }
+                }
+            }
+        }
+        if (!widthArg.empty()) window.attr["width"] = widthArg;
+        if (!heightArg.empty()) window.attr["height"] = heightArg;
+        view.screen = true;
+        view.width = std::clamp(AttrIntOf(window, {"width", "Width"}, 640), AttrIntOf(window, {"minWidth"}, 320), AttrIntOf(window, {"maxWidth"}, 1920));
+        view.height = std::clamp(AttrIntOf(window, {"height", "Height"}, 400), AttrIntOf(window, {"minHeight"}, 200), AttrIntOf(window, {"maxHeight"}, 1080));
+        window.attr["width"] = std::to_string(view.width);
+        window.attr["height"] = std::to_string(view.height);
+        view.place = LowerCopy(AttrOf(window, {"place"}));
+        if (view.place.empty()) view.place = "center";
+        view.x = AttrIntOf(window, {"x"}, 0);
+        view.y = AttrIntOf(window, {"y"}, 0);
+        view.state = LowerCopy(AttrOf(window, {"state"}));
+        if (view.state.empty()) view.state = "normal";
+        view.movable = AttrFlag(window, {"movable"}, true);
+        const std::string resizable = LowerCopy(AttrOf(window, {"resizable"}));
+        view.resizable = resizable.empty() || resizable == "true" || resizable == "1";
+        view.topmost = AttrFlag(window, {"topmost", "alwaysOnTop"}, false);
+        view.fullscreen = AttrFlag(window, {"fullscreen"}, false);
+        if (!themeArg.empty()) window.attr["theme"] = themeArg;
+        view.theme = !themeArg.empty() ? themeArg : AttrOf(window, {"theme", "appearance", "Theme"});
+        if (view.theme.empty()) view.theme = "dark";
+        window.attr["theme"] = view.theme;
+        view.title = AttrOf(window, {"name", "title", "Title"});
+        if (view.title.empty()) view.title = AttrOf(window, {"id", "Name"});
+        if (view.title.empty()) view.title = "RobixUI";
+        view.name = AttrOf(window, {"id", "Name"});
+        if (view.name.empty()) view.name = "Screen";
+        view.markup = HtmlNode(window, true);
+    } else {
+        if (!widthArg.empty()) window.attr["Width"] = widthArg;
+        if (!heightArg.empty()) window.attr["Height"] = heightArg;
+        view.width = IntAttr(window, "Width", 320);
+        view.height = IntAttr(window, "Height", 180);
+        view.title = window.attr.count("Title") ? window.attr.at("Title") : window.attr.count("Name") ? window.attr.at("Name") : "RobixUI";
+        view.name = window.attr.count("Name") ? window.attr.at("Name") : "Window";
+        view.theme = !themeArg.empty() ? themeArg : window.attr.count("Theme") ? window.attr.at("Theme") : "Light";
+    }
+    if (view.width <= 0 || view.height <= 0) {
+        view.error = "RobixUI: the screen size is empty\n";
+        return view;
+    }
+    view.style = ThemeFor(parsed.root, view.theme);
+    const std::uint32_t clear = screen && !AttrFlag(window, {"transparent", "transparency"}, false) ? view.style.primary : view.style.window;
+    view.pixels.assign(static_cast<std::size_t>(view.width) * static_cast<std::size_t>(view.height), clear);
+    Place(window, view.pixels, view.paints, view.width, view.height, 0, 0, view.width, view.style, view.style.text);
+    view.ok = true;
+    return view;
+}
+
+void PrintLayout(const UiView& view) {
+    for (const auto& paint : view.paints) {
+        std::cout << "layout " << paint.kind << " " << paint.name << " " << paint.x << " " << paint.y
+                  << " " << paint.w << " " << paint.h << "\n";
+    }
+}
+
+void RunInterpreted(const std::string& codePath) {
+    if (codePath.empty()) return;
+    const auto result = Robix::Tools::RobixCLIDispatcher::ExecuteCommand(
+        Robix::Tools::CLIBinaryKind::RobixUnifiedCLI, { "run", codePath });
+    if (!result.stdoutText.empty()) std::cout << result.stdoutText;
+    if (!result.stderrText.empty()) std::cerr << result.stderrText;
+}
+
+std::filesystem::file_time_type Stamp(const std::string& path) {
+    if (path.empty()) return {};
+    std::error_code ec;
+    return std::filesystem::last_write_time(path, ec);
+}
+
+struct DevWatch {
+    std::string file;
+    std::string code;
+    std::string theme;
+    std::string widthArg;
+    std::string heightArg;
+    std::filesystem::file_time_type rbxu{};
+    std::filesystem::file_time_type source{};
+    UiView view;
+    std::string html;
+    int generation = 1;
+    bool ready = false;
+};
+
+bool RefreshDev(DevWatch& watch, bool windows) {
+    const auto rbxu = Stamp(watch.file);
+    const auto source = Stamp(watch.code);
+    if (watch.ready && rbxu == watch.rbxu && source == watch.source) return false;
+    const bool first = !watch.ready;
+    watch.rbxu = rbxu;
+    watch.source = source;
+    watch.ready = true;
+    RunInterpreted(watch.code);
+    UiView next = LoadUi(watch.file, watch.code, false, watch.theme, watch.widthArg, watch.heightArg);
+    if (!next.ok) {
+        std::cerr << next.error;
+        return false;
+    }
+    watch.view = std::move(next);
+    watch.html = Web::RenderWindow(watch.view.name, watch.view.title, watch.view.width, watch.view.height, watch.view.theme,
+                                   watch.view.style.window, watch.view.style.text,
+                                   watch.view.markup.empty() ? BodyFrom(watch.view.paints) : watch.view.markup, true);
+    PrintLayout(watch.view);
+    if (!first) {
+        if (watch.generation < 1000000) ++watch.generation;
+        std::cout << (windows ? "window: updated " : "web: updated ") << watch.view.title << "\n";
+    }
+    std::cout.flush();
+    return true;
+}
+
+bool ResizeWindow(std::vector<std::uint32_t>& pixels, int& width, int& height, std::string& title, void* user) {
+    auto* watch = static_cast<DevWatch*>(user);
+    if (watch == nullptr || width <= 0 || height <= 0) return false;
+    watch->widthArg = std::to_string(width);
+    watch->heightArg = std::to_string(height);
+    UiView next = LoadUi(watch->file, watch->code, false, watch->theme, watch->widthArg, watch->heightArg);
+    if (!next.ok || next.pixels.empty()) return false;
+    watch->view = std::move(next);
+    pixels = watch->view.pixels;
+    width = watch->view.width;
+    height = watch->view.height;
+    title = watch->view.title;
+    return true;
+}
+
+bool RefreshWindow(std::vector<std::uint32_t>& pixels, int& width, int& height, std::string& title, void* user) {
+    auto* watch = static_cast<DevWatch*>(user);
+    if (!RefreshDev(*watch, true)) return false;
+    pixels = watch->view.pixels;
+    width = watch->view.width;
+    height = watch->view.height;
+    title = watch->view.title;
+    return true;
+}
+
+void ClickWindow(int x, int y, void* user) {
+    auto* watch = static_cast<DevWatch*>(user);
+    for (const auto& paint : watch->view.paints) {
+        if (paint.kind != "Button") continue;
+        if (x >= paint.x && y >= paint.y && x < paint.x + paint.w && y < paint.y + paint.h) {
+            std::cout << "click " << (paint.event.empty() ? paint.name : paint.event) << "\n";
+            std::cout.flush();
+            return;
+        }
+    }
+}
+
+void ProvideWeb(Web::DevPage& page, void* user) {
+    auto* watch = static_cast<DevWatch*>(user);
+    RefreshDev(*watch, false);
+    page.html = watch->html;
+    page.generation = watch->generation;
+}
 
 std::string Arg(const std::vector<std::string>& args, const std::string& flag) {
     for (std::size_t i = 0; i + 1 < args.size(); ++i) {
@@ -668,72 +1208,137 @@ std::string Arg(const std::vector<std::string>& args, const std::string& flag) {
 int RunUiCommand(const std::vector<std::string>& args) {
     if (args.empty() || args[0] != "ui") return -1;
     if (args.size() < 3) {
-        std::cerr << "robix ui: use validate <file.rbxu> --code <file.rbx> or render <file.rbxu> -o <file.bmp>\n";
+        std::cerr << "robix ui: use validate, render -o <file.bmp>, web, or window. Add --dev to keep it open and reload changes.\n";
         return 1;
     }
     const std::string action = args[1];
     const std::string file = args[2];
-    const std::string text = ReadFile(file);
-    if (text.empty()) {
-        std::cerr << "robix ui: could not read " << file << "\n";
-        return 1;
-    }
-    ParseResult parsed = ParseDocument(text);
-    if (!parsed.error.empty()) {
-        std::cerr << parsed.error << "\n";
-        return 1;
-    }
     const std::string codePath = Arg(args, "--code");
-    std::string bindError;
-    if (!codePath.empty() || action == "validate") {
-        const std::string code = codePath.empty() ? std::string{} : ReadFile(codePath);
-        if (!codePath.empty() && code.empty()) {
-            std::cerr << "robix ui: could not read " << codePath << "\n";
-            return 1;
-        }
-        if (!BindHandlers(parsed.root, codePath, code, bindError)) {
-            std::cerr << bindError;
-            return 1;
-        }
-    }
-    Node window;
-    for (const auto& child : parsed.root.children) {
-        if (child.tag == "Window") window = child;
-    }
-    if (window.tag.empty()) {
-        std::cerr << "RobixUI: the document has no Window\n";
-        return 1;
-    }
+    const std::string themeArg = Arg(args, "--theme");
     const std::string widthArg = Arg(args, "--width");
     const std::string heightArg = Arg(args, "--height");
-    if (!widthArg.empty()) window.attr["Width"] = widthArg;
-    if (!heightArg.empty()) window.attr["Height"] = heightArg;
-    const int width = IntAttr(window, "Width", 320);
-    const int height = IntAttr(window, "Height", 180);
-    const Style style = ThemeFor(parsed.root, Arg(args, "--theme"));
-    std::vector<std::uint32_t> pixels(static_cast<std::size_t>(width * height), style.window);
-    std::vector<Paint> paints;
-    Place(window, pixels, paints, width, height, 0, 0, width, style, style.text);
-    for (const auto& paint : paints) {
-        std::cout << "layout " << paint.kind << " " << paint.name << " " << paint.x << " " << paint.y
-                  << " " << paint.w << " " << paint.h << "\n";
+    bool dev = false;
+    for (const auto& arg : args) dev = dev || arg == "--dev";
+    UiView view = LoadUi(file, codePath, action == "validate", themeArg, widthArg, heightArg);
+    if (!view.ok) {
+        std::cerr << view.error;
+        return 1;
     }
+    PrintLayout(view);
     if (action == "validate") return 0;
-    if (action == "window") {
-#ifdef _WIN32
-        const std::string title = window.attr.count("Title") ? window.attr.at("Title") : window.attr.count("Name") ? window.attr.at("Name") : "RobixUI";
-        std::wstring wide(title.begin(), title.end());
-        if (!ShowSoftwareWindow(wide, width, height, pixels)) {
+    std::string componentError;
+    if ((action == "window" || action == "web") && view.screen && (!SameComponentFile("Screen.rbxu", "Name=\"Screen\"", componentError) || !SameComponentFile("Board.rbxu", "Name=\"Board\"", componentError) || !SameFoundation(componentError))) {
+        std::cerr << componentError;
+        return 1;
+    }
+    if ((action == "window" || action == "web") && !view.screen && (!SameWindowXml(componentError) || !SameFoundation(componentError))) {
+        std::cerr << componentError;
+        return 1;
+    }
+    if (action == "window" || action == "web") std::cout << FoundationLine() << "\n";
+    const std::string& title = view.title;
+    const std::string& name = view.name;
+    const std::string& theme = view.theme;
+    const int width = view.width;
+    const int height = view.height;
+    const Style style = view.style;
+    const std::vector<std::uint32_t>& pixels = view.pixels;
+    const std::vector<Paint>& paints = view.paints;
+    if (action == "web" && dev) {
+        RunInterpreted(codePath);
+        DevWatch watch;
+        watch.file = file;
+        watch.code = codePath;
+        watch.theme = themeArg;
+        watch.widthArg = widthArg;
+        watch.heightArg = heightArg;
+        watch.view = view;
+        watch.rbxu = Stamp(file);
+        watch.source = Stamp(codePath);
+        watch.ready = true;
+        watch.html = Web::RenderWindow(name, title, width, height, theme, style.window, style.text, view.markup.empty() ? BodyFrom(paints) : view.markup, true);
+        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
+        if (!Web::ServeDev(ProvideWeb, &watch)) {
+            std::cerr << "robix ui web: the development server did not start\n";
+            return 1;
+        }
+        return 0;
+    }
+    if (action == "window" && dev) {
+        RunInterpreted(codePath);
+        DevWatch watch;
+        watch.file = file;
+        watch.code = codePath;
+        watch.theme = themeArg;
+        watch.widthArg = widthArg;
+        watch.heightArg = heightArg;
+        watch.view = view;
+        watch.rbxu = Stamp(file);
+        watch.source = Stamp(codePath);
+        watch.ready = true;
+        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
+        if (!Platform::Windows::OpenWindowDev(title, pixels, width, height, RefreshWindow, ResizeWindow, ClickWindow, &watch)) {
             std::cerr << "robix ui window: the window was not painted\n";
             return 1;
         }
+        return 0;
+    }
+    if (action == "web") {
+        const std::string output = Arg(args, "-o");
+        if (output.empty()) {
+            std::cerr << "robix ui web: -o is required\n";
+            return 1;
+        }
+        const auto slash = output.find_last_of("/\\");
+        if (slash != std::string::npos) {
+            std::error_code ec;
+            std::filesystem::create_directories(output.substr(0, slash), ec);
+        }
+        if (!Web::WriteWindow(output, name, title, width, height, theme, style.window, style.text, view.markup.empty() ? BodyFrom(paints) : view.markup, false)) {
+            std::cerr << "robix ui web: could not write " << output << "\n";
+            return 1;
+        }
+        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
+        std::cout << "web " << output << " " << width << "x" << height << " title " << title << "\n";
+        return 0;
+    }
+    if (action == "window") {
+        if (view.screen) {
+            Platform::Windows::ScreenHost host;
+            host.title = title;
+            host.place = view.place;
+            host.state = view.state;
+            host.x = view.x;
+            host.y = view.y;
+            host.width = width;
+            host.height = height;
+            host.movable = view.movable;
+            host.resizable = view.resizable;
+            host.topmost = view.topmost;
+            host.fullscreen = view.fullscreen;
+            host.pixels = pixels;
+            for (const auto& paint : paints) {
+                if (paint.kind != "Button") continue;
+                host.buttons.push_back(paint.x);
+                host.buttons.push_back(paint.y);
+                host.buttons.push_back(paint.w);
+                host.buttons.push_back(paint.h);
+            }
+            if (view.state != "closed" && view.state != "minimized" && !Platform::Windows::OpenScreen(host)) {
+                std::cerr << "robix ui window: the screen was not painted\n";
+                return 1;
+            }
+            if (view.state == "closed" || view.state == "minimized") {
+                std::cout << "screen state " << view.state << "\n";
+            }
+        } else if (!Platform::Windows::OpenWindow(title, width, height, pixels)) {
+            std::cerr << "robix ui window: the window was not painted\n";
+            return 1;
+        }
+        std::cout << (view.screen ? "component Screen\ncomponent Board\n" : "component Window\n");
         std::cout << "window: shown " << width << "x" << height << " title " << title << "\n";
         std::cout << "window: closed after paint\n";
         return 0;
-#else
-        std::cerr << "robix ui window: no window system is linked on this target\n";
-        return 1;
-#endif
     }
     if (action != "render") {
         std::cerr << "robix ui: unknown action " << action << "\n";
@@ -749,7 +1354,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
         std::error_code ec;
         std::filesystem::create_directories(output.substr(0, slash), ec);
     }
-    if (!WriteBmp(output, width, height, pixels)) {
+    if (!Platform::WriteBmp(output, width, height, pixels)) {
         std::cerr << "robix ui render: could not write " << output << "\n";
         return 1;
     }
@@ -768,7 +1373,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
         if (paint.kind == "Button") report(paint.name, paint.x + 2, paint.y + 2);
         if (paint.kind == "Text" && !paint.text.empty()) report(paint.name, paint.x, paint.y);
     }
-    std::cout << "renderer software-bmp " << output << "\n";
+    std::cout << "renderer platform-framebuffer " << output << "\n";
     return 0;
 }
 

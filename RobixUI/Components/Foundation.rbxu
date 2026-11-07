@@ -1,0 +1,22 @@
+<Foundation Name="Robix">
+  <Color Name="bg-primary" Light="#FFFFFF" Dark="#000000"/>
+  <Color Name="bg-secondary" Light="#F5F5F7" Dark="#1C1C1E"/>
+  <Color Name="text-primary" Light="#1D1D1F" Dark="#FFFFFF"/>
+  <Color Name="text-secondary" Light="#6E6E73" Dark="#A1A1A6"/>
+  <Color Name="brand-primary" Light="#0E7AFF" Dark="#3B9EFF"/>
+  <Color Name="text-on-brand" Light="#FFFFFF" Dark="#FFFFFF"/>
+  <Color Name="success" Light="#30D158" Dark="#30D158"/>
+  <Color Name="danger" Light="#FF3B30" Dark="#FF453A"/>
+  <Font Name="sans" Src="Inter/Inter-Regular.ttf"/>
+  <Font Name="sans-medium" Src="Inter/Inter-Medium.ttf"/>
+  <Font Name="sans-semibold" Src="Inter/Inter-SemiBold.ttf"/>
+  <Font Name="sans-bold" Src="Inter/Inter-Bold.ttf"/>
+  <Font Name="sans-italic" Src="Inter/Inter-Italic.ttf"/>
+  <Space Name="space-2" Value="8"/>
+  <Space Name="space-4" Value="16"/>
+  <Space Name="space-6" Value="32"/>
+  <Type Name="body" Size="17" Weight="400"/>
+  <Type Name="window-title" Size="16" Weight="600"/>
+  <Radius Name="control" Value="8"/>
+  <Radius Name="radius-lg" Value="12"/>
+</Foundation>

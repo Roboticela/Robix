@@ -1,4 +1,3 @@
-<?xml version="1.0"?>
 <RobixUI Version="1.0">
   <Window Name="RobotDashboard" Title="Roboticela Robot Control" Width="320" Height="180" Theme="Light" Padding="16">
     <Column Spacing="16">

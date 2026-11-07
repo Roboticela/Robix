@@ -292,8 +292,7 @@ bool AskServices(const char* label, int count, std::vector<Service>& services) {
 }
 
 std::string WindowFile(const std::string& serviceName, const std::string& handler) {
-    return "<?xml version=\"1.0\"?>\n"
-           "<RobixUI Version=\"1.0\">\n"
+    return "<RobixUI Version=\"1.0\">\n"
            "  <Window Name=\"" + serviceName + "Window\" Title=\"" + serviceName +
            "\" Width=\"320\" Height=\"180\" Theme=\"Light\" Padding=\"16\">\n"
            "    <Column Spacing=\"16\">\n"

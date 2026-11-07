@@ -1,0 +1,7 @@
+<RobixUI Version="1.0">
+  <Screen id="Fonts" name="Fonts" theme="light" width="640" height="400">
+    <Text Value="Regular"/>
+    <Text Value="Bold face" font="sans-bold"/>
+    <Text Value="System face" font="system"/>
+  </Screen>
+</RobixUI>

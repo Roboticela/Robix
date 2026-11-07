@@ -1,0 +1,12 @@
+<RobixUI Version="1.0">
+  <Screen id="RobotDashboard" name="Robix UI Demo" path="/" theme="light" place="center" width="640" height="400" board="MainBoard">
+  </Screen>
+  <Board id="MainBoard" display="flex" direction="column" gap="16" padding="16" fill="true">
+    <Text Value="Robot Dashboard"/>
+    <Board id="Actions" display="flex" direction="row" gap="12">
+      <Button Name="StartButton" Text="Start Robot" OnClick="StartRobot"/>
+      <Button Name="StopButton" Text="Stop Robot" OnClick="StopRobot"/>
+    </Board>
+    <Text Name="RobotStatus" Value="Ready"/>
+  </Board>
+</RobixUI>
