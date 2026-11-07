@@ -1,0 +1,48 @@
+﻿<!-- Rich Text. Default role is content (19 / Inter-Regular / secondary). Spans keep their own size and color. -->
+<Component name="Text">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="variant" type="enum" values="display|h1|h2|h3|h4|h5|h6|subhead|content|content-sm|body|body-sm|caption|eyebrow|label" default="content" />
+  <Attribute name="tone" type="enum" values="primary|secondary|tertiary|disabled|link|danger|success|warning|on-brand" required="false" />
+  <Attribute name="x" type="int" default="0" />
+  <Attribute name="y" type="int" default="0" />
+  <Attribute name="width" type="int" required="false" />
+  <Attribute name="height" type="int" required="false" />
+  <Attribute name="maxWidth" type="size" required="false" />
+  <Attribute name="minWidth" type="size" required="false" />
+  <Attribute name="minHeight" type="size" required="false" />
+  <Attribute name="maxHeight" type="size" required="false" />
+  <Attribute name="minSize" type="string" required="false" />
+  <Attribute name="maxSize" type="string" required="false" />
+  <Attribute name="size" type="string" required="false" description="px, or sm|md for body, or exact|auto|dynamic|fill|min|max for layout" />
+  <Attribute name="align" type="enum" values="start|center|end|left|right" default="start" />
+  <Attribute name="wrap" type="enum" values="none|char|word" default="word" />
+  <Attribute name="color" type="color" required="false" />
+  <Attribute name="font" type="string" required="false" description="Face stem. Default follows the role." />
+  <Attribute name="content" type="string" required="false" />
+  <Attribute name="position" type="enum" values="relative|absolute|fixed" default="relative" />
+  <Attribute name="inset" type="string" required="false" />
+  <Attribute name="left" type="int" required="false" />
+  <Attribute name="top" type="int" required="false" />
+  <Attribute name="right" type="int" required="false" />
+  <Attribute name="bottom" type="int" required="false" />
+  <Attribute name="margin" type="int" required="false" />
+  <Attribute name="flex" type="int" required="false" aliases="flexGrow|grow" />
+  <Attribute name="flexShrink" type="int" required="false" aliases="shrink" />
+  <Attribute name="alignSelf" type="enum" values="auto|start|center|end|stretch" default="auto" />
+  <Attribute name="alignItems" type="enum" values="start|center|end|stretch" required="false" />
+  <Attribute name="order" type="int" default="0" />
+  <Attribute name="display" type="enum" values="flex|grid|stack|canvas" required="false" />
+  <Attribute name="direction" type="enum" values="row|column|row-reverse|column-reverse" required="false" aliases="flexDirection" />
+  <Attribute name="justify" type="enum" values="start|center|end|space-between|space-around|space-evenly" required="false" aliases="justifyContent" />
+  <Attribute name="justifyItems" type="enum" values="start|center|end|stretch" required="false" />
+  <Attribute name="columns" type="int" required="false" />
+  <Attribute name="rows" type="int" required="false" />
+  <Attribute name="gap" type="int" required="false" />
+  <Attribute name="gridColumn" type="string" required="false" />
+  <Attribute name="gridRow" type="string" required="false" />
+  <Child name="Span" max="48">
+    <Attribute name="size" type="int" required="false" />
+    <Attribute name="color" type="color" required="false" />
+  </Child>
+</Component>
+

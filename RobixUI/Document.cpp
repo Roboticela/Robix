@@ -153,6 +153,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
         for (const std::string& line : scene.layoutLines) {
             std::cout << line << "\n";
         }
+        std::cout << std::flush;
         return 0;
     }
     if (action == "render") {

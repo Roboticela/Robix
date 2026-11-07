@@ -41,3 +41,6 @@ RoboI32 RoboFoundationPlatformRadius(const char* name);
 const char* RoboFoundationPlatformFont(const char* name);
 RoboBool RoboFoundationPlatformLayout(const char* name, RoboFoundationLayoutMetrics* outMetrics);
 RoboI32 RoboFoundationPlatformWidth(const char* name);
+
+struct RoboUIText;
+void RoboFoundationPlatformApplyType(RoboUIText* text, const char* typeName, const char* colorName);

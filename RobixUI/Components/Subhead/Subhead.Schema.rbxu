@@ -1,0 +1,17 @@
+﻿<!-- Subhead. 24 / Inter-Regular / leading 1.33 / text-secondary. -->
+<Component name="Subhead" derives="Text">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="tone" type="enum" values="primary|secondary|tertiary|disabled|link|danger|success|warning|on-brand" default="secondary" />
+  <Attribute name="align" type="enum" values="start|center|end|left|right" default="start" />
+  <Attribute name="wrap" type="enum" values="none|char|word" default="word" />
+  <Attribute name="size" type="string" required="false" />
+  <Attribute name="color" type="color" required="false" />
+  <Attribute name="font" type="string" default="Inter-Regular" />
+  <Attribute name="content" type="string" required="false" />
+  <Attribute name="maxWidth" type="size" required="false" />
+  <Attribute name="position" type="enum" values="relative|absolute|fixed" default="relative" />
+  <Attribute name="flex" type="int" required="false" />
+  <Attribute name="alignSelf" type="enum" values="auto|start|center|end|stretch" default="auto" />
+  <Child name="Span" max="48" />
+</Component>
+

@@ -8,6 +8,53 @@
 
 namespace Robix::UI {
 
+struct TextNode {
+    RoboXMLNode source;
+    std::string tag;
+    std::string id;
+    std::string content;
+    std::string color;
+    std::string tone;
+    std::string align = "start";
+    std::string wrap = "word";
+    std::string font;
+    std::string size;
+    int level = 1;
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    int maxWidth = 0;
+    bool widthSet = false;
+    bool heightSet = false;
+    int laidX = 0;
+    int laidY = 0;
+    int laidW = 0;
+    int laidH = 0;
+};
+
+struct ScrollbarNode {
+    std::string id = "scrollbar";
+    std::string orientation = "vertical";
+    std::string arrows = "hover";
+    std::string thumbColor;
+    std::string trackColor;
+    std::string position = "relative";
+    int thickness = 6;
+    bool autoHide = true;
+    bool overlay = true;
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    bool widthSet = false;
+    bool heightSet = false;
+    int laidX = 0;
+    int laidY = 0;
+    int laidW = 0;
+    int laidH = 0;
+};
+
 struct BoardNode {
     std::string id;
     std::string display = "canvas";
@@ -27,6 +74,9 @@ struct BoardNode {
     bool widthSet = false;
     bool heightSet = false;
     std::vector<BoardNode> children;
+    std::vector<TextNode> texts;
+    std::vector<ScrollbarNode> bars;
+    std::vector<int> order;
     int laidX = 0;
     int laidY = 0;
     int laidW = 0;

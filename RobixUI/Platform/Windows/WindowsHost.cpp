@@ -203,6 +203,8 @@ int RunWindowsScreen(Scene& scene, const WindowRunOptions& options) {
     view.scene = &scene;
     view.options = options;
     view.dpi = GetDpiForSystem();
+    const std::string foundationLine = scene.foundationLine;
+    const std::vector<std::string> layoutLines = scene.layoutLines;
     PaintScene(scene, view.buffer);
 
     HINSTANCE instance = GetModuleHandleW(nullptr);
@@ -255,15 +257,16 @@ int RunWindowsScreen(Scene& scene, const WindowRunOptions& options) {
                 scene.screen.height);
     std::printf("screen state %s movable %s resizable %s\n", scene.screen.state.c_str(), scene.screen.movable ? "true" : "false",
                 scene.screen.resizable ? "true" : "false");
-    std::printf("%s\n", scene.foundationLine.c_str());
+    std::printf("%s\n", foundationLine.c_str());
+    std::fflush(stdout);
     std::printf("framebuffer %dx%d\n", view.buffer.GetWidth(), view.buffer.GetHeight());
     std::printf("renderer platform-framebuffer\n");
     std::printf("window: shown %dx%d title %s\n", scene.screen.width, scene.screen.height,
                 scene.screen.name.empty() ? "Robix" : scene.screen.name.c_str());
-    for (const std::string& line : scene.layoutLines) {
+    for (const std::string& line : layoutLines) {
         std::printf("%s\n", line.c_str());
     }
-
+    std::fflush(stdout);
     MSG message{};
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
         TranslateMessage(&message);

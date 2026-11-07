@@ -2,8 +2,11 @@
 
 #include "RoboXML.hpp"
 
+#include <cstdint>
 #include <string>
 #include <vector>
+
+using RoboU32 = std::uint32_t;
 
 enum class RoboCompilerMode { Development, Production };
 enum class RoboCompilerTarget { RoboticelaOS, Web, Windows };

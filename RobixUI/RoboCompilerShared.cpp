@@ -2,6 +2,8 @@
 
 #include "Components/Board/Board.Platform.hpp"
 #include "Components/Screen/Screen.Platform.hpp"
+#include "Components/Scrollbar/Scrollbar.hpp"
+#include "Components/Text/Text.hpp"
 
 #include <cctype>
 #include <cstdio>
@@ -110,6 +112,12 @@ std::string RoboCompilerEmitChildCpp(const RoboXMLNode& node, const std::string&
     }
     if (tag == "screen") {
         return RoboCompilerEmitScreenCpp(node);
+    }
+    if (RoboCompilerIsTextLike(node)) {
+        return RoboCompilerEmitTextCpp(node, parentExpr);
+    }
+    if (RoboCompilerIsScrollbarName(node.name)) {
+        return RoboCompilerEmitScrollbarCpp(node, parentExpr);
     }
     return {};
 }

@@ -1,5 +1,7 @@
 #include "FoundationPlatform.hpp"
 
+#include "../../RoboUI/RoboUIText.hpp"
+
 struct RoboFoundationColorToken {
   const char* name;
   const char* dark;
@@ -345,4 +347,19 @@ RoboBool RoboFoundationPlatformLayout(const char* name, RoboFoundationLayoutMetr
 RoboI32 RoboFoundationPlatformWidth(const char* name) {
   return RoboFoundationFindNumber(kRoboFoundationWidths, sizeof(kRoboFoundationWidths) / sizeof(kRoboFoundationWidths[0]),
                                   name);
+}
+
+void RoboFoundationPlatformApplyType(RoboUIText* text, const char* typeName, const char* colorName) {
+  if (text == ROBO_NULL) {
+    return;
+  }
+  RoboFoundationTypeMetrics metrics{};
+  if (RoboFoundationPlatformType(typeName, &metrics)) {
+    text->sizePx = metrics.sizePx;
+    text->trackingMilli = metrics.trackingMilli;
+    text->leadingMilli = metrics.leadingMilli;
+  }
+  if (colorName != ROBO_NULL) {
+    text->colorARGB = RoboFoundationPlatformColor(colorName);
+  }
 }
