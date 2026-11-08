@@ -3,6 +3,7 @@
 #include "UiProjectBuild.hpp"
 #include "../../RobixUI/AppRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
+#include "ExecutionGate.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
 #include <cstdlib>
@@ -29,8 +30,10 @@ static void PrintHelp() {
         << "    -O0, --debug          Build with optimizations disabled\n"
         << "    -O2, -O3, --release   Build with release optimizations (default: -O2)\n"
         << "    --profile <name>      release, debug, or embedded (no hosted CRT)\n"
-        << "    --target web|windows  Compile a deployable app into Build\\Targets. Repeat for more than one target.\n"
-        << "                          Other native targets compile only on that target's machine.\n"
+        << "    --target windows|linux|macos|android|ios|web\n"
+        << "                          Application or Canvas platform. linux, macos, android, and ios\n"
+        << "                          compile only on that machine. web needs a .rbxu screen.\n"
+        << "    --image               Machine image. Refuses platform code. Bedrock is always an image.\n"
         << "    --target <triple>     x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu,\n"
         << "                          x86_64-unknown-none, aarch64-unknown-none,\n"
         << "                          arm-unknown-none, riscv64-unknown-none\n"
@@ -217,6 +220,8 @@ int main(int argc, char* argv[]) {
     bool executeAfterBuild = false;
     bool explainOnly = false;
     bool uiDevelopment = false;
+    bool cliImage = false;
+    std::string cliTarget;
     std::vector<std::string> uiTargets;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -243,18 +248,14 @@ int main(int argc, char* argv[]) {
                 std::cerr << "robixc: mode must be development or production.\n";
                 return 1;
             }
+        } else if (a == "--image") {
+            cliImage = true;
         } else if (a == "--target" && i + 1 < args.size()) {
             const std::string target = args[++i];
+            cliTarget = target;
             const std::string key = Robix::UI::NormalizeTarget(target);
-            if (!Robix::UI::CompilerCanBuild(key)) {
-                std::cerr << "robixc: this machine is " << Robix::UI::HostTarget() << ", so it cannot compile '" << key
-                          << "'.\n";
-                std::cerr << "Get on a " << key << " machine and run robixc there.\n";
-                std::cerr << "robixc compiles a native target only on that target's machine. Web can be compiled here.\n";
-                return 1;
-            }
-            if (key == "web" || key == "windows") {
-                uiTargets.push_back(key);
+            if (Robix::Tools::IsPlatformName(key)) {
+                if (key == "web" || key == "windows") uiTargets.push_back(key);
                 continue;
             }
             std::string targetError;
@@ -323,7 +324,8 @@ int main(int argc, char* argv[]) {
         const fs::path inputPath(inputFilePath);
         const bool uiInput = fs::is_directory(inputPath, inputError) || inputPath.extension() == ".rbxu" ||
                              inputPath.extension() == ".xml" || inputPath.extension() == ".rbxproj";
-        if (uiInput || !uiTargets.empty() || uiDevelopment) {
+        const bool sourceFile = inputPath.extension() == ".rbx" || inputPath.extension() == ".rbxb";
+        if ((uiInput || !uiTargets.empty() || uiDevelopment) && !sourceFile) {
             if (uiDevelopment) {
                 std::cerr << "robixc: development runs with robix, not robixc.\n";
                 std::cerr << "  robix run " << inputFilePath << " --target "
@@ -370,6 +372,64 @@ int main(int argc, char* argv[]) {
     std::string sourceText((std::istreambuf_iterator<char>(srcFile)),
                            std::istreambuf_iterator<char>());
     srcFile.close();
+
+    const std::string category = Robix::Tools::ProjectCategory(inputFilePath);
+    const Robix::Tools::CodeShape shape = Robix::Tools::ScanCodeShape(sourceText);
+    const std::string cliKey = Robix::UI::NormalizeTarget(cliTarget);
+    Robix::Tools::RunSurface surface = options.freestanding ? Robix::Tools::RunSurface::Direct
+                                                           : Robix::Tools::RunSurface::Platform;
+    std::string surfaceName = options.freestanding ? "a machine image" : "windows";
+    if (cliImage || Robix::Tools::IsDirectName(cliKey) || Robix::Tools::IsDirectName(cliTarget)) {
+        surface = Robix::Tools::RunSurface::Direct;
+        surfaceName = "a machine image";
+        options.freestanding = true;
+        if (options.outputKind == Robix::Tools::NativeOutputKind::HostedExecutable) {
+            options.outputKind = Robix::Tools::NativeOutputKind::BootImage;
+        }
+        if (options.entrySymbol.empty()) options.entrySymbol = "Start";
+        if (options.targetTriple.empty()) {
+            options.targetTriple = "x86_64-unknown-none";
+            options.clangTarget = "x86_64-elf";
+            options.dataLayout =
+                "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128";
+        }
+    }
+    if (Robix::Tools::IsPlatformName(cliKey)) {
+        surface = Robix::Tools::RunSurface::Platform;
+        surfaceName = cliKey;
+        options.freestanding = false;
+        options.outputKind = Robix::Tools::NativeOutputKind::HostedExecutable;
+    }
+    if (category == "Bedrock" && !cliImage && !Robix::Tools::IsDirectName(cliKey) && !Robix::Tools::IsPlatformName(cliKey) &&
+        !options.freestanding) {
+        surface = Robix::Tools::RunSurface::Direct;
+        surfaceName = "a machine image";
+        options.freestanding = true;
+        options.outputKind = Robix::Tools::NativeOutputKind::BootImage;
+        if (options.entrySymbol.empty()) options.entrySymbol = "Start";
+    }
+    const std::string mismatch = Robix::Tools::ExecutionError(category, surface, surfaceName, shape);
+    if (!mismatch.empty()) {
+        std::cerr << mismatch;
+        return 1;
+    }
+    if (surface == Robix::Tools::RunSurface::Platform) {
+        const Robix::Tools::WebDecision web = Robix::Tools::DecideWeb(
+            category, Robix::Tools::ProjectKind(inputFilePath), sourceText, inputFilePath, cliKey == "web");
+        if (!web.warning.empty()) std::cerr << web.warning;
+        if (!web.error.empty()) {
+            std::cerr << web.error;
+            return 1;
+        }
+        if (cliKey == "web") {
+            return Robix::UI::CompileProduction(web.screen, { "web" }, toolDir);
+        }
+    }
+    if (Robix::Tools::IsPlatformName(cliKey) && cliKey != "windows" && cliKey != "web") {
+        std::cerr << "error: this machine compiles windows. '" << cliKey
+                  << "' was not compiled. Compile it on a " << cliKey << " machine.\n";
+        return 1;
+    }
 
     // Default output path if not specified
     if (options.outputPath.empty() && !options.emitLLVMOnly) {

@@ -59,12 +59,46 @@ std::string NameError(const std::string& name) {
            "' cannot be a folder name. Start with a letter, then use letters, digits, or underscores.\n";
 }
 
-std::string CanonicalKind(std::string text) {
+std::string Lower(std::string text) {
     for (char& ch : text) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    if (text == "1" || text == "blank") return "Blank";
-    if (text == "2" || text == "cli") return "CLI";
-    if (text == "3" || text == "network") return "Network";
+    return text;
+}
+
+std::string CanonicalCategory(std::string text) {
+    text = Lower(std::move(text));
+    if (text == "1" || text == "application" || text == "app") return "Application";
+    if (text == "2" || text == "canvas") return "Canvas";
+    if (text == "3" || text == "bedrock") return "Bedrock";
     return {};
+}
+
+std::string CanonicalKind(std::string text) {
+    text = Lower(std::move(text));
+    if (text == "console" || text == "cli") return "Console";
+    if (text == "window" || text == "gui") return "Window";
+    if (text == "network") return "Network";
+    if (text == "empty" || text == "blank") return "Empty";
+    if (text == "kernel") return "Kernel";
+    if (text == "os" || text == "operatingsystem") return "OS";
+    if (text == "bios") return "BIOS";
+    if (text == "driver") return "Driver";
+    if (text == "bootloader" || text == "boot") return "Bootloader";
+    if (text == "firmware") return "Firmware";
+    return {};
+}
+
+std::string CategoryForKind(const std::string& kind) {
+    if (kind == "Console" || kind == "Window" || kind == "Network") return "Application";
+    if (kind == "Empty") return "Canvas";
+    if (kind == "Kernel" || kind == "OS" || kind == "BIOS" || kind == "Driver" ||
+        kind == "Bootloader" || kind == "Firmware") {
+        return "Bedrock";
+    }
+    return {};
+}
+
+bool IsMachineKind(const std::string& kind) {
+    return CategoryForKind(kind) == "Bedrock";
 }
 
 bool WriteText(const fs::path& path, const std::string& text) {
@@ -151,14 +185,22 @@ std::string JoinList(const std::vector<std::string>& items) {
     return list;
 }
 
+struct BuildInfo {
+    std::string output = "Executable";
+    std::string target = "x86_64-pc-windows-msvc";
+    std::string entrySymbol = "Main";
+    std::string profile = "release";
+};
+
 bool WriteBuildFile(const fs::path& root, const std::string& name, const std::string& entry,
-                    const std::vector<std::string>& order, const std::vector<std::string>& ui) {
+                    const std::vector<std::string>& order, const std::vector<std::string>& ui,
+                    const BuildInfo& info = {}) {
     std::string text =
-        "Output: Executable\n"
-        "Target: x86_64-pc-windows-msvc\n"
+        "Output: " + info.output + "\n"
+        "Target: " + info.target + "\n"
         "Config: release\n"
-        "Profile: release\n"
-        "Entry: Main\n"
+        "Profile: " + info.profile + "\n"
+        "Entry: " + info.entrySymbol + "\n"
         "Source: " + entry + "\n"
         "Sources: " + JoinList(order) + "\n"
         "Order: " + JoinList(order) + "\n";
@@ -185,24 +227,82 @@ std::string AskName(const char* prompt) {
     }
 }
 
-std::string AskKind() {
+std::string AskListed(const char* menu, const char* prompt, const char* reject,
+                     std::string (*parse)(std::string)) {
     for (;;) {
-        std::cout << "Project kind:\n"
-                     "  1 Blank    Separate files. Each file runs on its own.\n"
-                     "  2 CLI      A command-line application.\n"
-                     "  3 Network  Clients and servers that share one contract.\n"
-                     "Kind [Blank]: ";
+        std::cout << menu << prompt;
         std::cout.flush();
         std::string line;
         if (!ReadLine(line)) {
-            std::cerr << "robix new: a project kind is required.\n";
+            std::cerr << "robix new: a choice is required.\n";
             return {};
         }
-        if (line.empty()) return "Blank";
-        const std::string kind = CanonicalKind(line);
-        if (!kind.empty()) return kind;
-        std::cerr << "robix new: kind must be Blank, CLI, or Network.\n";
+        if (line.empty()) {
+            std::cerr << "robix new: choose a number or a name from the list.\n";
+            continue;
+        }
+        const std::string choice = parse(std::move(line));
+        if (!choice.empty()) return choice;
+        std::cerr << reject;
     }
+}
+
+std::string ParseApplicationKind(std::string text) {
+    text = Lower(std::move(text));
+    if (text == "1" || text == "console" || text == "cli") return "Console";
+    if (text == "2" || text == "window" || text == "gui") return "Window";
+    if (text == "3" || text == "network") return "Network";
+    return {};
+}
+
+std::string ParseBedrockKind(std::string text) {
+    text = Lower(std::move(text));
+    if (text == "1" || text == "kernel") return "Kernel";
+    if (text == "2" || text == "os" || text == "operatingsystem") return "OS";
+    if (text == "3" || text == "bios") return "BIOS";
+    if (text == "4" || text == "driver") return "Driver";
+    if (text == "5" || text == "bootloader" || text == "boot") return "Bootloader";
+    if (text == "6" || text == "firmware") return "Firmware";
+    return {};
+}
+
+std::string AskCategory() {
+    return AskListed(
+        "Project:\n"
+        "  1 Application   A program a person runs: a console, a window, or a client and a server.\n"
+        "  2 Canvas        An empty folder. Run a file on a platform, or build it as a machine image.\n"
+        "  3 Bedrock       The machine itself: kernel, operating system, BIOS, driver, bootloader, and firmware.\n",
+        "Project: ",
+        "robix new: project must be Application, Canvas, or Bedrock.\n",
+        CanonicalCategory);
+}
+
+std::string AskKindForCategory(const std::string& category) {
+    if (category == "Canvas") return "Empty";
+    if (category == "Application") {
+        return AskListed(
+            "Application:\n"
+            "  1 Console   Text in a terminal.\n"
+            "  2 Window    A window, a .rbxu file, and a small test.\n"
+            "  3 Network   Clients and servers that share one contract.\n",
+            "Application: ",
+            "robix new: application must be Console, Window, or Network.\n",
+            ParseApplicationKind);
+    }
+    if (category == "Bedrock") {
+        return AskListed(
+            "Bedrock:\n"
+            "  1 Kernel       Runs after the machine starts.\n"
+            "  2 OS           A small operating-system image.\n"
+            "  3 BIOS         The program that runs at reset.\n"
+            "  4 Driver       Talks to one device.\n"
+            "  5 Bootloader   Loads the kernel.\n"
+            "  6 Firmware     Software stored on the board.\n",
+            "Bedrock: ",
+            "robix new: bedrock must be Kernel, OS, BIOS, Driver, Bootloader, or Firmware.\n",
+            ParseBedrockKind);
+    }
+    return {};
 }
 
 bool AskCount(const char* prompt, int& count) {
@@ -325,6 +425,18 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         std::cerr << "robix new: could not write .gitignore.\n";
         return false;
     }
+    if (kind == "Empty") {
+        std::ofstream project(root / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
+        if (!project) {
+            std::cerr << "robix new: could not write the project file.\n";
+            return false;
+        }
+        project << "Name: " << name << "\nCategory: Canvas\nKind: Empty\n";
+        std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string()
+                  << " category Canvas kind Empty\n";
+        std::cout << "robix new: empty folder. Add .rbx files, then robix run File.rbx or robix run File.rbx --image.\n";
+        return true;
+    }
     if (kind != "Network") {
         fs::create_directories(root / "Source", ec);
         fs::create_directories(root / "Tests", ec);
@@ -335,10 +447,14 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
     }
 
     std::string source;
-    std::string testBody = "    Assert.Equal(Hello(), 1);\n";
-    if (kind == "Blank") {
-        source = HelloFile(name);
-    } else if (kind == "CLI") {
+    std::string testBody = "    Assert.Equal(1, 1);\n";
+    std::string fileName = "Program";
+    std::string entry = "Source/Program.rbx";
+    BuildInfo build;
+    std::vector<std::string> ui;
+    if (kind == "Empty") {
+        source = EmptyFile(name);
+    } else if (kind == "Console") {
         source = "package " + name + ";\n\n"
                  "public class Program {\n\n"
                  "    public Function ArgumentCount() -> Int {\n"
@@ -360,7 +476,101 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                  "    program.Show();\n"
                  "}\n";
         testBody = "    Program program = new Program();\n    Assert.Equal(program.ArgumentCount(), 0);\n";
-    } else {
+    } else if (kind == "Window") {
+        source = "package " + name + ";\n\n"
+                 "public class Program {\n\n"
+                 "    public Function Greet() -> Int {\n"
+                 "        return 1;\n"
+                 "    }\n\n"
+                 "    public Function SayHello() -> Void {\n"
+                 "        Print(\"Hello from RobixUI\");\n"
+                 "    }\n"
+                 "}\n\n"
+                 "public Function Main() -> Void {\n"
+                 "    Program program = new Program();\n"
+                 "    program.SayHello();\n"
+                 "}\n";
+        testBody = "    Program program = new Program();\n    Assert.Equal(program.Greet(), 1);\n";
+        fs::create_directories(root / "UI", ec);
+        const fs::path window = root / "UI" / "MainWindow.rbxu";
+        const std::string markup =
+            "<RobixUI Version=\"1.0\">\n"
+            "  <Window Name=\"MainWindow\" Title=\"" + name +
+            "\" Width=\"640\" Height=\"400\" Theme=\"Light\" Padding=\"16\">\n"
+            "    <Column Spacing=\"16\">\n"
+            "      <Text Name=\"Title\" Value=\"" + name + "\" FontSize=\"28\" FontWeight=\"Bold\"/>\n"
+            "      <Text Name=\"Tagline\" Value=\"The Language of Intelligent Machines.\"/>\n"
+            "      <Button Name=\"HelloButton\" Text=\"Say Hello\" OnClick=\"SayHello\"/>\n"
+            "      <Text Name=\"StatusText\" Value=\"Ready\"/>\n"
+            "    </Column>\n"
+            "  </Window>\n"
+            "</RobixUI>\n";
+        if (!WriteText(window, markup)) {
+            std::cerr << "robix new: could not write '" << window.string() << "'.\n";
+            return false;
+        }
+        std::cout << "robix new: wrote " << window.string() << "\n";
+        ui.push_back("UI/MainWindow.rbxu");
+    } else if (IsMachineKind(kind)) {
+        fileName = "Start";
+        entry = "Source/Start.rbx";
+        build.output = (kind == "BIOS" || kind == "Firmware") ? "Firmware" : "Kernel";
+        build.target = "x86_64-unknown-none";
+        build.entrySymbol = "Start";
+        build.profile = "embedded";
+        if (kind == "OS") {
+            source = "package " + name + ";\n\n"
+                     "public Function Boot() -> Int {\n"
+                     "    return 1;\n"
+                     "}\n\n"
+                     "public Function Start() -> Void {\n"
+                     "    Unsafe {\n"
+                     "        if (Boot() == 1) {\n"
+                     "            Console.Write(82);\n"
+                     "        }\n"
+                     "        Cpu.Halt();\n"
+                     "    }\n"
+                     "}\n";
+            testBody = "    Assert.Equal(Boot(), 1);\n";
+        } else if (kind == "Driver") {
+            source = "package " + name + ";\n\n"
+                     "public Function StatusPort() -> Int {\n"
+                     "    return 503;\n"
+                     "}\n\n"
+                     "public Function Start() -> Void {\n"
+                     "    Unsafe {\n"
+                     "        Int status = Port.Read8(StatusPort());\n"
+                     "        Console.Write(status);\n"
+                     "        Cpu.Halt();\n"
+                     "    }\n"
+                     "}\n";
+            testBody = "    Assert.Equal(StatusPort(), 503);\n";
+        } else if (kind == "Bootloader") {
+            source = "package " + name + ";\n\n"
+                     "public Function KernelAddress() -> Int {\n"
+                     "    return 1048576;\n"
+                     "}\n\n"
+                     "public Function Start() -> Void {\n"
+                     "    Unsafe {\n"
+                     "        Console.Write(82);\n"
+                     "        Cpu.Halt();\n"
+                     "    }\n"
+                     "}\n";
+            testBody = "    Assert.Equal(KernelAddress(), 1048576);\n";
+        } else {
+            source = "package " + name + ";\n\n"
+                     "public Function Mark() -> Int {\n"
+                     "    return 82;\n"
+                     "}\n\n"
+                     "public Function Start() -> Void {\n"
+                     "    Unsafe {\n"
+                     "        Console.Write(Mark());\n"
+                     "        Cpu.Halt();\n"
+                     "    }\n"
+                     "}\n";
+            testBody = "    Assert.Equal(Mark(), 82);\n";
+        }
+    } else if (kind == "Network") {
         for (const auto& client : clients) {
             if (client.name == "Common" || client.name == "Packages") {
                 std::cerr << "robix new: '" << client.name << "' is reserved in a Network project.\n";
@@ -534,22 +744,32 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
             std::cerr << "robix new: could not write the project file.\n";
             return false;
         }
-        project << "Name: " << name << "\nKind: Network\nSourceDir: Common/Source\nNetwork: true\n";
-        std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string() << " kind Network\n";
+        project << "Name: " << name << "\nCategory: Application\nKind: Network\nSourceDir: Common/Source\nNetwork: true\n";
+        std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string()
+                  << " category Application kind Network\n";
         return true;
     }
 
-    if (kind == "CLI") fs::create_directories(root / "Packages", ec);
-    if (!WriteSourceAndTest(root / "Source", root / "Tests", name, "Program", "Source.Program", source, testBody)) return false;
-    const std::string entry = "Source/Program.rbx";
-    if (!WriteBuildFile(root, name, entry, { entry }, {})) return false;
+    if (source.empty()) {
+        std::cerr << "robix new: unknown project kind '" << kind << "'.\n";
+        return false;
+    }
+
+    if (kind == "Console") fs::create_directories(root / "Packages", ec);
+    if (!WriteSourceAndTest(root / "Source", root / "Tests", name, fileName, "Source." + fileName, source, testBody)) {
+        return false;
+    }
+    if (!WriteBuildFile(root, name, entry, { entry }, ui, build)) return false;
     std::ofstream project(root / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
     if (!project) {
         std::cerr << "robix new: could not write the project file.\n";
         return false;
     }
-    project << "Name: " << name << "\nKind: " << kind << "\nSourceDir: Source\n";
-    std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string() << " kind " << kind << "\n";
+    const std::string category = CategoryForKind(kind);
+    project << "Name: " << name << "\nCategory: " << category << "\nKind: " << kind << "\nSourceDir: Source\n";
+    if (IsMachineKind(kind)) project << "Output: " << build.output << "\n";
+    std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string()
+              << " category " << category << " kind " << kind << "\n";
     return true;
 }
 
@@ -604,8 +824,10 @@ int RunNewCommand(const std::vector<std::string>& args) {
     bool fileMode = false;
     bool nameFromArgs = false;
     bool kindFromArgs = false;
+    bool categoryFromArgs = false;
     std::string name;
     std::string kind;
+    std::string category;
     std::string fileTemplate = "hello";
     int clientCount = -1;
     int serverCount = -1;
@@ -664,11 +886,12 @@ int RunNewCommand(const std::vector<std::string>& args) {
             continue;
         }
         if (!fileMode && name.empty()) {
+            const std::string maybeCategory = CanonicalCategory(token);
             const std::string maybeKind = CanonicalKind(token);
-            if (maybeKind.empty()) {
-                name = token;
-                nameFromArgs = true;
-            } else if (kind.empty()) {
+            if (!maybeCategory.empty() && !categoryFromArgs) {
+                category = maybeCategory;
+                categoryFromArgs = true;
+            } else if (!maybeKind.empty() && !kindFromArgs) {
                 kind = maybeKind;
                 kindFromArgs = true;
             } else {
@@ -677,10 +900,18 @@ int RunNewCommand(const std::vector<std::string>& args) {
             }
             continue;
         }
-        if (!fileMode && kind.empty()) {
+        if (!fileMode && !categoryFromArgs) {
+            category = CanonicalCategory(token);
+            if (!category.empty()) {
+                categoryFromArgs = true;
+                continue;
+            }
+        }
+        if (!fileMode && !kindFromArgs) {
             kind = CanonicalKind(token);
             if (kind.empty()) {
-                std::cerr << "robix new: kind must be Blank, CLI, or Network.\n";
+                std::cerr << "robix new: '" << token
+                          << "' is not a project. Choose Application, Canvas, or Bedrock, then a kind.\n";
                 return 1;
             }
             kindFromArgs = true;
@@ -727,8 +958,17 @@ int RunNewCommand(const std::vector<std::string>& args) {
         std::cerr << NameError(name);
         return 1;
     }
-    if (!kindFromArgs) kind = AskKind();
+    if (!categoryFromArgs) {
+        category = kindFromArgs ? CategoryForKind(kind) : AskCategory();
+    }
+    if (category.empty()) return 1;
+    if (!kindFromArgs) kind = AskKindForCategory(category);
     if (kind.empty()) return 1;
+    const std::string kindCategory = CategoryForKind(kind);
+    if (kindCategory != category) {
+        std::cerr << "robix new: " << kind << " belongs to " << kindCategory << ", not " << category << ".\n";
+        return 1;
+    }
 
     if (kind == "Network") {
         if (clientCount < 0 && !AskCount("Number of clients [1]: ", clientCount)) return 1;

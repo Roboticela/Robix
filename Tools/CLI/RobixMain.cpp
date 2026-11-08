@@ -8,6 +8,7 @@
 #include "ProjectScaffold.hpp"
 #include "NetworkRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
+#include "ExecutionGate.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
 #include "../../Interpreter/Bytecode/BytecodeModule.hpp"
 #include "../../Interpreter/VM/BytecodeVM.hpp"
@@ -31,15 +32,22 @@ static void PrintHelp() {
         << "USAGE:\n"
         << "    robix <command> [arguments]\n\n"
         << "COMMANDS:\n"
-        << "    run <app> [--target web|windows] [--watch] [--port N]\n"
-        << "                                    Interpret the host platform or web. Writes Build\\Cache only.\n"
+        << "    run <file.rbx> [more.rbx] [--target windows|linux|macos|android|ios|web] [--image]\n"
+        << "                                    Application runs on a platform. Bedrock builds an image.\n"
+        << "                                    Canvas runs one file or many, on a platform or as an image.\n"
+        << "    run <screen.rbxu> [--target web|windows] [--watch] [--port N]\n"
+        << "                                    Interpret a screen on the host platform or web.\n"
         << "    run all [--separate]                Run every network client and server\n"
         << "    run client <Name> | server <Name>   Run one service in this console\n"
         << "    build <file.rbx> [-o <out.exe>]     Compile directly to a native executable\n"
         << "    test [path] [--generate]            Run .test.rbx on the interpreter. Test native also compiles.\n"
         << "    generate-tests [path]               Generate companion .test.rbx scaffolds for all .rbx files\n"
         << "    verify [path]                       Run full semantic and static verification on files\n"
-        << "    new [.] [Name] [Blank|CLI|Network]  Create a project. . uses this directory. No name asks.\n"
+        << "    new [.] [Name] [Application|Canvas|Bedrock] [kind]\n"
+        << "                                    Create a project. . uses this directory. No name asks.\n"
+        << "                                    Application: Console, Window, Network.\n"
+        << "                                    Canvas: an empty project.\n"
+        << "                                    Bedrock: Kernel, OS, BIOS, Driver, Bootloader, Firmware.\n"
         << "    new Name Network --client Name CLI|GUI --server Name CLI|GUI\n"
         << "    new file <Name> [hello|empty|class|package]   Add a source file and its test\n"
         << "    add <name> <file.rbx>               Lock a local package with SHA-256 and an HMAC signature\n"
@@ -210,29 +218,147 @@ int main(int argc, char* argv[]) {
     if (cmd == "new") return Robix::Tools::RunNewCommand(args);
     if (cmd == "run") {
         std::string runInput;
+        std::vector<std::string> runFiles;
         std::string runTarget = Robix::UI::HostTarget();
+        bool targetSet = false;
+        bool image = false;
         bool watch = false;
         int port = 4173;
         for (std::size_t i = 1; i < args.size(); ++i) {
             if (args[i] == "--target" && i + 1 < args.size()) {
                 runTarget = args[++i];
+                targetSet = true;
+            } else if (args[i] == "--image") {
+                image = true;
             } else if (args[i] == "--watch") {
                 watch = true;
             } else if (args[i] == "--port" && i + 1 < args.size()) {
                 port = std::stoi(args[++i]);
-            } else if (!args[i].empty() && args[i][0] != '-' && runInput.empty()) {
-                runInput = args[i];
+            } else if (!args[i].empty() && args[i][0] != '-') {
+                if (runInput.empty()) runInput = args[i];
+                if (fs::path(args[i]).extension() == ".rbx") runFiles.push_back(args[i]);
             }
         }
+        const std::string targetKey = Robix::UI::NormalizeTarget(runTarget);
+        const bool direct = image || Robix::Tools::IsDirectName(targetKey) || Robix::Tools::IsDirectName(runTarget);
         const std::string extension = fs::path(runInput).extension().string();
-        const bool screen = extension == ".rbxu" || extension == ".xml" || fs::is_directory(runInput);
+        const bool screen = extension == ".rbxu" || extension == ".xml" ||
+                            (fs::is_directory(runInput) && runInput != "all");
+        if (!runFiles.empty()) {
+            const std::string category = Robix::Tools::ProjectCategory(runFiles.front());
+            const bool gated = !category.empty() || targetSet || image;
+            const Robix::Tools::RunSurface surface = direct ? Robix::Tools::RunSurface::Direct
+                                                            : Robix::Tools::RunSurface::Platform;
+            if (gated) {
+                for (const std::string& file : runFiles) {
+                    std::ifstream in(file, std::ios::binary);
+                    if (!in) {
+                        std::cerr << "error: could not read '" << file << "'.\n";
+                        return 1;
+                    }
+                    const std::string source((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                    const std::string fileCategory = Robix::Tools::ProjectCategory(file);
+                    const std::string mismatch = Robix::Tools::ExecutionError(
+                        fileCategory.empty() ? category : fileCategory,
+                        surface,
+                        direct ? "a machine image" : targetKey,
+                        Robix::Tools::ScanCodeShape(source));
+                    if (!mismatch.empty()) {
+                        std::cerr << file << ": " << mismatch;
+                        return 1;
+                    }
+                    if (!direct) {
+                        const std::string kind = Robix::Tools::ProjectKind(file);
+                        const Robix::Tools::WebDecision web = Robix::Tools::DecideWeb(
+                            fileCategory.empty() ? category : fileCategory,
+                            kind,
+                            source,
+                            file,
+                            targetKey == "web");
+                        if (!web.warning.empty()) std::cerr << file << ": " << web.warning;
+                        if (!web.error.empty()) {
+                            std::cerr << file << ": " << web.error;
+                            return 1;
+                        }
+                        if (targetKey == "web") {
+                            return Robix::UI::RunInterpreter(web.screen, runTarget, watch, port, toolDir);
+                        }
+                    }
+                }
+            }
+            if (direct) {
+                if (!image && category != "Bedrock" && category != "Canvas" && !targetSet) {
+                    std::cerr << "error: a machine image is built with robixc --image.\n";
+                    return 1;
+                }
+                int status = 0;
+                for (const std::string& file : runFiles) {
+                    std::ifstream in(file, std::ios::binary);
+                    const std::string source((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                    Robix::Tools::NativeBuildOptions imageOptions;
+                    imageOptions.toolDirectory = toolDir;
+                    imageOptions.release = true;
+                    imageOptions.freestanding = true;
+                    imageOptions.outputKind = Robix::Tools::NativeOutputKind::BootImage;
+                    imageOptions.targetTriple = "x86_64-unknown-none";
+                    imageOptions.clangTarget = "x86_64-elf";
+                    imageOptions.dataLayout =
+                        "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128";
+                    imageOptions.entrySymbol = "Start";
+                    imageOptions.profileName = "embedded";
+                    fs::path out = fs::path("Build") / "Images" / (fs::path(file).stem().string() + ".elf");
+                    imageOptions.outputPath = out.string();
+                    auto built = Robix::Tools::NativeCompilerDriver::CompileSource(file, source, imageOptions);
+                    if (!built.diagnosticsText.empty()) std::cerr << built.diagnosticsText;
+                    if (!built.toolOutput.empty()) std::cout << built.toolOutput;
+                    if (!built.success) {
+                        std::cerr << "error: image was not built for '" << file << "'.\n";
+                        return 1;
+                    }
+                    std::cout << "image: " << built.executablePath << "\n";
+                    status = 0;
+                }
+                return status;
+            }
+            if (category == "Bedrock") {
+                std::cerr << "error: Bedrock does not run in the interpreter. Build the image with robixc --image.\n";
+                return 1;
+            }
+        }
         if (screen && runInput != "all" && runInput != "client" && runInput != "server") {
+            if (direct) {
+                std::cerr << "error: a screen runs on a platform. It does not build a machine image.\n";
+                return 1;
+            }
+            const std::string screenCategory = Robix::Tools::ProjectCategory(runInput);
+            if (screenCategory == "Bedrock") {
+                std::cerr << "error: Bedrock does not run on " << targetKey << ". It builds a machine image.\n";
+                return 1;
+            }
+            if (!Robix::UI::InterpreterCanRun(targetKey)) {
+                std::cerr << "error: this machine interprets windows and web. '" << targetKey << "' was not started.\n";
+                return 1;
+            }
             return Robix::UI::RunInterpreter(runInput, runTarget, watch, port, toolDir);
         }
-        if (!Robix::UI::InterpreterCanRun(runTarget)) {
-            std::cerr << "robix: the interpreter runs the host platform (" << Robix::UI::HostTarget() << ") and web.\n";
-            std::cerr << "'" << runTarget << "' was not started.\n";
+        if (direct) {
+            std::cerr << "error: a machine image does not run in the interpreter. Build it with robixc --image.\n";
             return 1;
+        }
+        if (targetSet && !Robix::UI::InterpreterCanRun(targetKey)) {
+            std::cerr << "error: this machine interprets windows and web. '" << targetKey << "' was not started.\n";
+            return 1;
+        }
+        if (!runFiles.empty() && runFiles.size() > 1) {
+            int status = 0;
+            for (const std::string& file : runFiles) {
+                auto interpreted = Robix::Tools::RobixCLIDispatcher::ExecuteCommand(
+                    Robix::Tools::CLIBinaryKind::RobixUnifiedCLI, { "run", file });
+                if (!interpreted.stdoutText.empty()) std::cout << interpreted.stdoutText;
+                if (!interpreted.stderrText.empty()) std::cerr << interpreted.stderrText;
+                if (interpreted.exitCode != 0) status = interpreted.exitCode;
+            }
+            return status;
         }
         const int services = Robix::Tools::RunProjectServices(args, toolDir);
         if (services >= 0) return services;
