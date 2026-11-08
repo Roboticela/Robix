@@ -18,6 +18,7 @@
 #include "../Compiler/Components/Label/LabelWeb.hpp"
 #include "../Compiler/Components/Paragraph/ParagraphWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
+#include "../Compiler/Compose.hpp"
 #include "../Compiler/Motion.hpp"
 #include "../Compiler/ScreenSize.hpp"
 #include "../Compiler/Components/Subhead/SubheadWeb.hpp"
@@ -480,6 +481,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboXMLDocument xml;
         const std::string source = ReadText(document);
         if (!source.empty() && RoboXMLParse(source, xml)) {
+            RoboUICompose(xml.root, document.string());
             LowerKeys(xml.root);
             if (const RoboXMLNode* screen = FindScreen(xml.root)) {
                 screenCopy = *screen;

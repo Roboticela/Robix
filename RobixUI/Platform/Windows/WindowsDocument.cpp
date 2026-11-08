@@ -5,6 +5,7 @@
 #include "../../Compiler/RoboCompilerWebShared.hpp"
 
 #include "../../Compiler/Foundation/FoundationPlatform.hpp"
+#include "../../Compiler/Compose.hpp"
 #include "../../Compiler/RoboXML.hpp"
 #include "../../RoboGPU/RoboGPU.hpp"
 #include "../../RoboGPU/RoboText.hpp"
@@ -1792,6 +1793,7 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
         gScene.valid = false;
         return false;
     }
+    RoboUICompose(document.root, path);
     LowerKeys(document.root);
     const RoboXMLNode* screen = FindScreen(document.root);
     if (screen == nullptr) {

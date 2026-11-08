@@ -1042,7 +1042,7 @@ Documents are XML, extension `.rbxu`. The root is `RobixUI`.
 
 `robix ui validate File.rbxu --code File.rbx` checks that each `OnClick` names a Robix function and that the function type matches. A missing function or a wrong signature exits 1.
 
-Grammar components: `Window`, `Page`, `View`, `Panel`, `Container`, `Column`, `Row`, `Grid`, `Stack`, `Button`, `Text`, `TextField`, `Image`, `Icon`, `List`, `Table`, `Menu`, `Dialog`, `Tabs`, `Slider`, `Switch`, `Checkbox`, `RadioButton`, `ProgressBar`, `Chart`, `Canvas`, `Template`, `Slot`, `Style`. A custom component name is PascalCase.
+Grammar components: `Window`, `Page`, `View`, `Panel`, `Container`, `Column`, `Row`, `Grid`, `Stack`, `Button`, `Text`, `TextField`, `Image`, `Icon`, `List`, `Table`, `Menu`, `Dialog`, `Tabs`, `Slider`, `Switch`, `Checkbox`, `RadioButton`, `ProgressBar`, `Chart`, `Canvas`, `Template`, `Slot`, `Style`. A custom component name is PascalCase. A screen can be split into components, import them, pass values in, and repeat or choose elements while the screen is built.
 
 Grammar attributes: `Version`, `Name`, `Title`, `Value`, `Text`, `Width`, `Height`, `MinWidth`, `MinHeight`, `MaxWidth`, `MaxHeight`, `Spacing`, `Padding`, `Margin`, `Alignment`, `FontSize`, `FontWeight`, `FontFamily`, `Color`, `Background`, `Border`, `BorderRadius`, `Shadow`, `Theme`, `Visible`, `Enabled`, `If`, `ForEach`.
 
@@ -1064,6 +1064,38 @@ A property with a size suffix changes only on those screens: `Width.sm="100%"`, 
 `Only="sm"` draws the component only on that size. `Only="sm.xl"`, `Only="mx-xl"`, and `Only="900-1200"` do the same for a list or a band. The base value, with no suffix, is what the other widths use.
 
 `Visibility="false"` hides a component, and `Visibility="true"` shows it. `Visible` accepts the same two values. A size suffix hides or shows it on that screen only: `Visibility.sm="false"` hides it from `sm` upward, and `Visibility.xl="true"` shows it again from `xl` upward. `0`, `no`, `off`, and `hidden` hide. `1`, `yes`, `on`, and `visible` show.
+
+Components, data, and small logic are expanded when the screen is built. `Import Source="Card.rbxu"` reads another document. `Component Name="Card"` defines a piece that is not drawn by itself. Using `<Card Title="Robix"/>` pastes that piece in, and `{Title}` becomes the value that was passed. Children of the use site fill `<Slot/>`.
+
+```xml
+<Component Name="Card">
+  <Column Spacing="8">
+    <Text Value="{Title}" FontSize="20"/>
+    <Text Value="{Detail}"/>
+    <Slot/>
+  </Column>
+</Component>
+
+<Data Name="robots">
+  <Item Name="Walker" Speed="10"/>
+  <Item Name="Flyer" Speed="30"/>
+</Data>
+
+<For Each="robot" In="{robots}" Index="number">
+  <Card Title="{robot.Name}" Detail="{robot.Speed}"/>
+  <If Test="{robot.Speed > 20}">
+    <Text Value="Fast"/>
+    <Else>
+      <Text Value="Slow"/>
+    </Else>
+  </If>
+</For>
+<For Each="step" From="1" To="3">
+  <Text Value="{step}"/>
+</For>
+```
+
+`{...}` can use a name, `record.Field`, text in quotes, numbers, `true`, `false`, `+`, `-`, `*`, `/`, `==`, `!=`, `>`, `<`, `>=`, `<=`, `&&`, `||`, and `!`. `For` also accepts a comma list, `In="Ali, Ahmed, Sara"`. `Let` names a value for its children. `Data` with `Value` stores one value. A `For` stops at 1000 items. A component name cannot be a built-in element name. These steps run while the document is expanded, so the drawn screen contains the repeated elements.
 
 Motion attributes work on every visual element: `Window`, `Screen`, `Page`, `Board`, `Column`, `Row`, `Container`, `Text`, `Heading`, `Subhead`, `Body`, `Paragraph`, `Caption`, `Eyebrow`, `Label`, `Button`, `IconButton`, `Switch`, `SwitchGroup`, `SwitchItem`, `SegmentedControl`, `SegmentedToolbar`, `Icon`, and `Svg`.
 

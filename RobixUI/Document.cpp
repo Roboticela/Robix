@@ -1,5 +1,6 @@
 #include "Document.hpp"
 
+#include "Compiler/Compose.hpp"
 #include "Compiler/RoboXML.hpp"
 #include "Platform/Windows/WindowsHost.hpp"
 #include "Web/WebFoundation.hpp"
@@ -112,6 +113,7 @@ void ApplyScreen(const std::string& document, WindowRunOptions& options) {
     if (source.empty() || !RoboXMLParse(source, xml)) {
         return;
     }
+    RoboUICompose(xml.root, document);
     LowerKeys(xml.root);
     const RoboXMLNode* screen = FindScreen(xml.root);
     if (screen == nullptr) {

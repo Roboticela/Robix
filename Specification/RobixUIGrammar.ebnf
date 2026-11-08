@@ -31,7 +31,8 @@ BuiltInComponent    = "Window" | "Page" | "View" | "Panel" | "Container"
                     | "List" | "Table" | "Menu" | "Dialog" | "Tabs"
                     | "Slider" | "Switch" | "Checkbox" | "RadioButton"
                     | "ProgressBar" | "Chart" | "Canvas"
-                    | "Template" | "Slot" | "Style" | "At" ;
+                    | "Template" | "Slot" | "Style" | "At"
+                    | "Import" | "Component" | "Data" | "Item" | "For" | "If" | "Else" | "Let" ;
 
 CustomComponent     = PascalIdentifier ;
 
