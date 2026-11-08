@@ -1,10 +1,10 @@
 #include "NativeCompilerDriver.hpp"
-#include "StageIBuild.hpp"
+#include "ProjectFiles.hpp"
 #include "UiProjectBuild.hpp"
 #include "../../RobixUI/AppRun.hpp"
 #include "../../RobixUI/Document.hpp"
 #include "../../Network/NetworkRuntime.hpp"
-#include "StageLTools.hpp"
+#include "DeveloperCommands.hpp"
 #include "ProjectScaffold.hpp"
 #include "NetworkRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
@@ -124,8 +124,8 @@ int main(int argc, char* argv[]) {
     if (uiStatus >= 0) return uiStatus;
     const int networkStatus = Robix::Network::RunNetworkCommand(args);
     if (networkStatus >= 0) return networkStatus;
-    const int stageLStatus = Robix::Tools::RunStageLCommand(args, toolDir);
-    if (stageLStatus >= 0) return stageLStatus;
+    const int developerStatus = Robix::Tools::RunDeveloperCommand(args, toolDir);
+    if (developerStatus >= 0) return developerStatus;
 
     // `robix build <file.rbx>` delegates to NativeCompilerDriver
     if (cmd == "build" && args.size() >= 2) {

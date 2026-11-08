@@ -6,10 +6,10 @@ The recommended declaration is `Function Name(Int x) -> Int`. `Int Name(Int x)` 
 
 ## Hello
 
-`Examples/StageD/Hello.rbx`
+`Examples/GettingStarted/Hello.rbx`
 
 ```robix
-package Examples.StageD;
+package Examples.GettingStarted;
 
 public Int Add(Int a, Int b) {
     return a + b;
@@ -22,8 +22,8 @@ public Function Main() -> Void {
 ```
 
 ```text
-robixc -O3 Examples/StageD/Hello.rbx -o Build/Hello.exe
-robix run Examples/StageD/Hello.rbx
+robixc -O3 Examples/GettingStarted/Hello.rbx -o Build/Hello.exe
+robix run Examples/GettingStarted/Hello.rbx
 ```
 
 Both print:
@@ -35,10 +35,10 @@ Hello, Robix
 
 ## Struct
 
-`Examples/StageD/Point.rbx`
+`Examples/GettingStarted/Point.rbx`
 
 ```robix
-package Examples.StageD;
+package Examples.GettingStarted;
 
 public struct Point {
     public Int x;
@@ -54,18 +54,18 @@ public Function Main() -> Void {
 ```
 
 ```text
-robixc -O3 Examples/StageD/Point.rbx -o Build/Point.exe
-robix run Examples/StageD/Point.rbx
+robixc -O3 Examples/GettingStarted/Point.rbx -o Build/Point.exe
+robix run Examples/GettingStarted/Point.rbx
 ```
 
 Both print `7`.
 
 ## Loop
 
-`Examples/StageD/Loop.rbx`
+`Examples/GettingStarted/Loop.rbx`
 
 ```robix
-package Examples.StageD;
+package Examples.GettingStarted;
 
 public Function Main() -> Void {
     Int sum = 0;
@@ -77,18 +77,18 @@ public Function Main() -> Void {
 ```
 
 ```text
-robixc -O3 Examples/StageD/Loop.rbx -o Build/Loop.exe
-robix run Examples/StageD/Loop.rbx
+robixc -O3 Examples/GettingStarted/Loop.rbx -o Build/Loop.exe
+robix run Examples/GettingStarted/Loop.rbx
 ```
 
 Both print `10`.
 
 ## Errors
 
-A failed division returns `Result`. `tag` is `0` for `Error` and `1` for `Success`. `value` is the payload. `Examples/StageD/Divide.rbx`:
+A failed division returns `Result`. `tag` is `0` for `Error` and `1` for `Success`. `value` is the payload. `Examples/GettingStarted/Divide.rbx`:
 
 ```robix
-package Examples.StageD;
+package Examples.GettingStarted;
 
 public Function Divide(Int a, Int b) -> Result {
     if (b == 0) {
@@ -106,20 +106,20 @@ public Function Main() -> Void {
 ```
 
 ```text
-robixc -O3 Examples/StageD/Divide.rbx -o Build/Divide.exe
-robix run Examples/StageD/Divide.rbx
+robixc -O3 Examples/GettingStarted/Divide.rbx -o Build/Divide.exe
+robix run Examples/GettingStarted/Divide.rbx
 ```
 
 Both print `0`, then `5`.
 
-A type mismatch names both types. `Examples/StageD/Mismatch.rbx` assigns a string to an `Int`. `robixc -O3 Examples/StageD/Mismatch.rbx -o Build/Mismatch.exe` stops with `R1001`, `Expected: Int`, and `Received: String`.
+A type mismatch names both types. `Examples/GettingStarted/TypeMismatch.rbx` assigns a string to an `Int`. `robixc -O3 Examples/GettingStarted/TypeMismatch.rbx -o Build/TypeMismatch.exe` stops with `R1001`, `Expected: Int`, and `Received: String`.
 
 ## Input
 
-`Examples/StageD/Ask.rbx` reads one line, then one integer.
+`Examples/GettingStarted/Ask.rbx` reads one line, then one integer.
 
 ```robix
-package Examples.StageD;
+package Examples.GettingStarted;
 
 public Function Main() -> Void {
     String name = Input();
@@ -130,8 +130,8 @@ public Function Main() -> Void {
 ```
 
 ```text
-robix run Examples/StageD/Ask.rbx
-robixc -O3 Examples/StageD/Ask.rbx -o Build/Ask.exe
+robix run Examples/GettingStarted/Ask.rbx
+robixc -O3 Examples/GettingStarted/Ask.rbx -o Build/Ask.exe
 ```
 
 The lines `Ada` and `41` print `Ada` and `42`.
@@ -153,6 +153,8 @@ Both print `45`, `hosted`, `4`, `10`, and `9`. There is no `import` of this file
 robix new HelloApp
 robix run HelloApp/Main.rbx
 robixc -O3 HelloApp/Main.rbx -o Build/HelloApp.exe
+
+A copy of that first project is kept at `Examples/GettingStarted/HelloApp`.
 ```
 
 `robix new` writes one `Main.rbx`. It prints `Hello from Robix`.

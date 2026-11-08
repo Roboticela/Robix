@@ -1,0 +1,51 @@
+package Examples.Machine;
+
+public Function ReadU8(Int addr) -> Int {
+    Unsafe {
+        Pointer<Byte> p = Memory.At(addr);
+        Byte value = *p;
+        return value.ToInt();
+    }
+}
+
+public Function Read32(Int addr) -> Int {
+    Int b0 = ReadU8(addr);
+    Int b1 = ReadU8(addr + 1);
+    Int b2 = ReadU8(addr + 2);
+    Int b3 = ReadU8(addr + 3);
+    return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+}
+
+public Function HasMemory() -> Int {
+    Unsafe {
+        Int info = Cpu.BootInfo();
+        if (info == 0) {
+            return 0;
+        }
+        Int flags = Read32(info);
+        if ((flags & 1) != 0) {
+            Int upper = Read32(info + 8);
+            if (upper > 0) {
+                return 1;
+            }
+        }
+        if ((flags & 64) == 0) {
+            return 0;
+        }
+        Int length = Read32(info + 44);
+        Int map = Read32(info + 48);
+        Int offset = 0;
+        while (offset < length) {
+            Int size = Read32(map + offset);
+            if (size == 0) {
+                return 0;
+            }
+            Int kind = Read32(map + offset + 20);
+            if (kind == 1) {
+                return 1;
+            }
+            offset = offset + size + 4;
+        }
+        return 0;
+    }
+}

@@ -36,7 +36,7 @@ Robix is for programs that talk to people, programs that talk to machines, and t
 ## ✨ Start here
 
 ```robix
-package Examples.Hello;
+package Examples.GettingStarted;
 
 public Int Add(Int a, Int b) {
     return a + b;
@@ -49,8 +49,8 @@ public Function Main() -> Void {
 ```
 
 ```bash
-robix run Examples/StageD/Hello.rbx
-robixc -O3 Examples/StageD/Hello.rbx -o Build/Hello.exe
+robix run Examples/GettingStarted/Hello.rbx
+robixc -O3 Examples/GettingStarted/Hello.rbx -o Build/Hello.exe
 ```
 
 Both print:
@@ -60,7 +60,7 @@ Hello, Robix
 42
 ```
 
-That sample lives at `Examples/StageD/Hello.rbx`. The walkthrough is `Documentation/Guide.md`.
+That sample lives at `Examples/GettingStarted/Hello.rbx`. The walkthrough is `Documentation/Guide.md`. Every sample is listed in `Examples/README.md`.
 
 ## ⚙️ Two engines
 
@@ -140,7 +140,7 @@ public class Robot {
 
 The formal grammar is `Specification/RobixGrammar.ebnf`. The feature catalog is `Documentation/LanguageFeatures.md`.
 
-A class that has been compiled and run is `Examples/StageC/Machine.rbx`: a private field, a constructor, methods, a destructor, `override`, and a `Box<Int>` instantiation. Both engines printed `150` and then `40`.
+A class that has been compiled and run is `Examples/Classes/RobotClasses.rbx`: a private field, a constructor, methods, a destructor, `override`, and a `Box<Int>` instantiation. Both engines printed `150` and then `40`.
 
 ## 🪟 RobixUI
 
@@ -219,7 +219,7 @@ Robix/
 ├── Tools/           robix, robixc, formatter, linter, LSP
 ├── Specification/   grammar and language specification
 ├── Documentation/   guide, feature catalog, status
-├── Examples/        programs that have been run
+├── Examples/        programs, grouped by what they show
 ├── Tests/           conformance tests
 └── Editors/vscode   syntax and language client
 ```

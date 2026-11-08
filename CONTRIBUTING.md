@@ -32,8 +32,8 @@ Build/Bin/robixc.exe --version
 Run the program that your change affects, on the engine that your change affects.
 
 ```powershell
-Build\Bin\robix.exe run Examples\StageD\Hello.rbx
-Build\Bin\robixc.exe -O3 Examples\StageD\Hello.rbx -o Build\Hello.exe
+Build\Bin\robix.exe run Examples\GettingStarted\Hello.rbx
+Build\Bin\robixc.exe -O3 Examples\GettingStarted\Hello.rbx -o Build\Hello.exe
 Build\Bin\robix.exe test Tests\Conformance
 ```
 

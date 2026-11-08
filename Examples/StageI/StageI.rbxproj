@@ -1,5 +1,0 @@
-Name: StageI
-Version: 1.0.0
-RequireTests: true
-SignKey: stage-i-local
-SourceDir: Source

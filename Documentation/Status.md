@@ -2,6 +2,8 @@
 
 This file records what has actually been compiled and run. A row is **Implemented** only when `robixc` accepts it and a program using it has been compiled or executed. **Partial** means the frontend or a document describes it, and the native compiler or the interpreter does not yet carry it through. **Unsupported** means a native or IR build reports an error, or the tool does not exist.
 
+The commands below name the paths that were executed. Those example folders were later renamed. The same sources now live under `Examples/`, and `Examples/README.md` lists the current path for each one.
+
 Checked against `Compiler/CodeGen/NativeBackend.cpp`, `Compiler/IR/SSAIR.cpp`, and `Examples/StageB/LibcShape.rbx`. Compiler version string: `robixc version 1.0.0`.
 
 ## What `robixc -O3` compiles today

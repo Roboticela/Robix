@@ -288,7 +288,7 @@ int RunNetworkCommand(const std::vector<std::string>& args) {
     std::ostringstream serverText;
     for (const auto& [key, value] : clientBundle) clientText << key << "=" << value << "\n";
     for (const auto& [key, value] : serverBundle) serverText << key << "=" << value << "\n";
-    const fs::path buildDir = "Build/StageK";
+    const fs::path buildDir = "Build/Network";
     if (!WriteText(buildDir / "client.env", clientText.str()) || !WriteText(buildDir / "server.env", serverText.str()) ||
         !WriteText(buildDir / "methods.txt", methodText.str())) {
         std::cerr << "network: could not write the split environment\n";

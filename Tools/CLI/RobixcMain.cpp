@@ -1,5 +1,5 @@
 #include "NativeCompilerDriver.hpp"
-#include "StageIBuild.hpp"
+#include "ProjectFiles.hpp"
 #include "UiProjectBuild.hpp"
 #include "../../RobixUI/AppRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"

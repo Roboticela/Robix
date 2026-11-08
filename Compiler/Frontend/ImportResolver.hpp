@@ -82,7 +82,7 @@ inline void ResolveImports(CompilationUnitAST& root, std::string_view rootFile, 
                 "I4013",
                 "Import '" + item.importName + "' did not match a .rbx file.",
                 SourceLocation{},
-                "Place " + last + ".rbx next to the importing file, or use a path such as Examples.StageF." + last + ".");
+                "Place " + last + ".rbx next to the importing file, or use a path such as Examples.Machine." + last + ".");
             continue;
         }
 

@@ -76,8 +76,8 @@ public Function Main() -> Void {
     Int total = list.Get(0) + list.Get(1) + nums.Length() + word.Length() + Min(3, 8) + Abs(0 - 4);
     Print(total);
 
-    File.WriteText("Build/StageDHosted.txt", "hosted");
-    Print(File.ReadText("Build/StageDHosted.txt"));
+    File.WriteText("Build/Hosted.txt", "hosted");
+    Print(File.ReadText("Build/Hosted.txt"));
 
     Print(Math.Abs(0 - 4));
     Print(Math.Clamp(20, 0, 10));

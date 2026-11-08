@@ -21,11 +21,11 @@ target_include_directories(RobixSpec PUBLIC
 
 # Stage 1 Conformance Test Executable
 enable_testing()
-add_executable(Stage1SpecTests
-    Tests/Semantics/Stage1SpecTests.cpp
+add_executable(SpecificationTests
+    Tests/Semantics/SpecificationTests.cpp
 )
-target_link_libraries(Stage1SpecTests PRIVATE RobixSpec)
-add_test(NAME Stage1SpecTests COMMAND Stage1SpecTests)
+target_link_libraries(SpecificationTests PRIVATE RobixSpec)
+add_test(NAME SpecificationTests COMMAND SpecificationTests)
 
 # Stage 2 & 3: Shared C++20 Frontend & Semantic Analyzer Library
 add_library(RobixFrontend STATIC
@@ -45,18 +45,18 @@ target_include_directories(RobixFrontend PUBLIC
 target_link_libraries(RobixFrontend PUBLIC RobixSpec)
 
 # Stage 2 Conformance Test Executable
-add_executable(Stage2FrontendTests
-    Tests/Compiler/Stage2FrontendTests.cpp
+add_executable(FrontendTests
+    Tests/Compiler/FrontendTests.cpp
 )
-target_link_libraries(Stage2FrontendTests PRIVATE RobixFrontend)
-add_test(NAME Stage2FrontendTests COMMAND Stage2FrontendTests)
+target_link_libraries(FrontendTests PRIVATE RobixFrontend)
+add_test(NAME FrontendTests COMMAND FrontendTests)
 
 # Stage 3 Conformance Test Executable
-add_executable(Stage3SemanticTests
-    Tests/Semantics/Stage3SemanticTests.cpp
+add_executable(SemanticTests
+    Tests/Semantics/SemanticTests.cpp
 )
-target_link_libraries(Stage3SemanticTests PRIVATE RobixFrontend)
-add_test(NAME Stage3SemanticTests COMMAND Stage3SemanticTests)
+target_link_libraries(SemanticTests PRIVATE RobixFrontend)
+add_test(NAME SemanticTests COMMAND SemanticTests)
 
 # Stage 4: Dual Execution Architecture (Validated SSA IR, Optimizer Passes, Bytecode VM & LLVM IR CodeGen)
 add_library(RobixExecutionEngine STATIC
@@ -76,11 +76,11 @@ target_include_directories(RobixExecutionEngine PUBLIC
 target_link_libraries(RobixExecutionEngine PUBLIC RobixFrontend)
 
 # Stage 4 Conformance Test Executable
-add_executable(Stage4DualEngineTests
-    Tests/Interpreter/Stage4DualEngineTests.cpp
+add_executable(DualEngineTests
+    Tests/Interpreter/DualEngineTests.cpp
 )
-target_link_libraries(Stage4DualEngineTests PRIVATE RobixExecutionEngine)
-add_test(NAME Stage4DualEngineTests COMMAND Stage4DualEngineTests)
+target_link_libraries(DualEngineTests PRIVATE RobixExecutionEngine)
+add_test(NAME DualEngineTests COMMAND DualEngineTests)
 
 # Stage 5: Unified Memory Architecture, GC/RC/Manual Coexistence, Pointers & Low-Level Systems
 add_library(RobixMemoryRuntime STATIC
@@ -93,11 +93,11 @@ target_include_directories(RobixMemoryRuntime PUBLIC
 target_link_libraries(RobixMemoryRuntime PUBLIC RobixFrontend)
 
 # Stage 5 Conformance Test Executable
-add_executable(Stage5MemoryTests
-    Tests/Memory/Stage5MemoryTests.cpp
+add_executable(MemoryTests
+    Tests/Memory/MemoryTests.cpp
 )
-target_link_libraries(Stage5MemoryTests PRIVATE RobixMemoryRuntime)
-add_test(NAME Stage5MemoryTests COMMAND Stage5MemoryTests)
+target_link_libraries(MemoryTests PRIVATE RobixMemoryRuntime)
+add_test(NAME MemoryTests COMMAND MemoryTests)
 
 # Stage 6: Mandatory Testing System & Single-Command Verification Engine
 add_library(RobixTestingAndVerifier STATIC
@@ -111,11 +111,11 @@ target_include_directories(RobixTestingAndVerifier PUBLIC
 target_link_libraries(RobixTestingAndVerifier PUBLIC RobixExecutionEngine RobixMemoryRuntime)
 
 # Stage 6 Conformance Test Executable
-add_executable(Stage6TestingAndVerifierTests
-    Tests/Compiler/Stage6TestingAndVerifierTests.cpp
+add_executable(VerifierTests
+    Tests/Compiler/VerifierTests.cpp
 )
-target_link_libraries(Stage6TestingAndVerifierTests PRIVATE RobixTestingAndVerifier)
-add_test(NAME Stage6TestingAndVerifierTests COMMAND Stage6TestingAndVerifierTests)
+target_link_libraries(VerifierTests PRIVATE RobixTestingAndVerifier)
+add_test(NAME VerifierTests COMMAND VerifierTests)
 
 # Stage 7: Built-In Types, Standard Library, Concurrency & Formal Security Architecture
 add_library(RobixStdLibAndConcurrency STATIC
@@ -134,11 +134,11 @@ target_include_directories(RobixStdLibAndConcurrency PUBLIC
 target_link_libraries(RobixStdLibAndConcurrency PUBLIC RobixFrontend)
 
 # Stage 7 Conformance Test Executable
-add_executable(Stage7StdLibAndConcurrencyTests
-    Tests/StdLib/Stage7StdLibAndConcurrencyTests.cpp
+add_executable(StandardLibraryTests
+    Tests/StdLib/StandardLibraryTests.cpp
 )
-target_link_libraries(Stage7StdLibAndConcurrencyTests PRIVATE RobixStdLibAndConcurrency)
-add_test(NAME Stage7StdLibAndConcurrencyTests COMMAND Stage7StdLibAndConcurrencyTests)
+target_link_libraries(StandardLibraryTests PRIVATE RobixStdLibAndConcurrency)
+add_test(NAME StandardLibraryTests COMMAND StandardLibraryTests)
 
 # Stage 8: Package Ecosystem & Binary Distribution (.rbxapi, .rbxp, robix)
 add_library(RobixPackageSystem STATIC
@@ -154,11 +154,11 @@ target_include_directories(RobixPackageSystem PUBLIC
 target_link_libraries(RobixPackageSystem PUBLIC RobixStdLibAndConcurrency RobixFrontend)
 
 # Stage 8 Conformance Test Executable
-add_executable(Stage8PackageEcosystemTests
-    Tests/Packages/Stage8PackageEcosystemTests.cpp
+add_executable(PackageTests
+    Tests/Packages/PackageTests.cpp
 )
-target_link_libraries(Stage8PackageEcosystemTests PRIVATE RobixPackageSystem)
-add_test(NAME Stage8PackageEcosystemTests COMMAND Stage8PackageEcosystemTests)
+target_link_libraries(PackageTests PRIVATE RobixPackageSystem)
+add_test(NAME PackageTests COMMAND PackageTests)
 
 # Stage 9: Hardware Access, Real-Time Execution, Robotics & AI Libraries
 add_library(RobixHardwareRoboticsAI STATIC
@@ -174,11 +174,11 @@ target_include_directories(RobixHardwareRoboticsAI PUBLIC
 target_link_libraries(RobixHardwareRoboticsAI PUBLIC RobixMemoryRuntime RobixStdLibAndConcurrency RobixFrontend)
 
 # Stage 9 Conformance Test Executable
-add_executable(Stage9HardwareRoboticsAndAITests
-    Tests/Performance/Stage9HardwareRoboticsAndAITests.cpp
+add_executable(HardwareTests
+    Tests/Performance/HardwareTests.cpp
 )
-target_link_libraries(Stage9HardwareRoboticsAndAITests PRIVATE RobixHardwareRoboticsAI)
-add_test(NAME Stage9HardwareRoboticsAndAITests COMMAND Stage9HardwareRoboticsAndAITests)
+target_link_libraries(HardwareTests PRIVATE RobixHardwareRoboticsAI)
+add_test(NAME HardwareTests COMMAND HardwareTests)
 
 # Stage 13: Developer Experience, CLI, Test Scaffold Generator, Tooling, Benchmarks & Documentation
 add_library(RobixCLIToolingAndBenchmarks STATIC
@@ -201,11 +201,11 @@ target_link_libraries(RobixCLIToolingAndBenchmarks PUBLIC
 )
 
 # Stage 13 Conformance Test Executable
-add_executable(Stage13CLIToolingAndBenchmarksTests
-    Tests/Compiler/Stage13CLIToolingAndBenchmarksTests.cpp
+add_executable(ToolingTests
+    Tests/Compiler/ToolingTests.cpp
 )
-target_link_libraries(Stage13CLIToolingAndBenchmarksTests PRIVATE RobixCLIToolingAndBenchmarks)
-add_test(NAME Stage13CLIToolingAndBenchmarksTests COMMAND Stage13CLIToolingAndBenchmarksTests)
+target_link_libraries(ToolingTests PRIVATE RobixCLIToolingAndBenchmarks)
+add_test(NAME ToolingTests COMMAND ToolingTests)
 
 
 

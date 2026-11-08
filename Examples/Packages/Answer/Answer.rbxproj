@@ -1,0 +1,5 @@
+Name: Answer
+Version: 1.0.0
+RequireTests: true
+SignKey: answer-local
+SourceDir: Source
