@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="240" viewBox="0 0 880 240" role="img" aria-label="Robix by Roboticela">
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7CC4FF"/>
+      <stop offset="1" stop-color="#0E7AFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="880" height="240" rx="32" fill="#0B1220"/>
+  <circle cx="128" cy="120" r="62" fill="none" stroke="url(#glow)" stroke-width="8"/>
+  <circle cx="128" cy="120" r="18" fill="#3B9EFF"/>
+  <path d="M128 42v22M128 176v22M50 120h22M184 120h22M73 65l16 16M167 159l16 16M73 175l16-16M167 81l16-16" stroke="#9FD0FF" stroke-width="6" stroke-linecap="round"/>
+  <text x="236" y="118" fill="#F5F7FB" font-family="Segoe UI, Inter, sans-serif" font-size="72" font-weight="700">Robix</text>
+  <text x="240" y="162" fill="#9FB0C8" font-family="Segoe UI, Inter, sans-serif" font-size="22">The Language of Intelligent Machines</text>
+  <text x="240" y="196" fill="#6E829C" font-family="Segoe UI, Inter, sans-serif" font-size="16">Roboticela</text>
+</svg>
