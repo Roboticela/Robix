@@ -2,6 +2,8 @@
 
 #include "Button.hpp"
 #include "../../RoboCompilerShared.hpp"
+#include "../../Motion.hpp"
+#include "../../ScreenSize.hpp"
 
 namespace fs = std::filesystem;
 
@@ -121,6 +123,12 @@ void RoboWebEmitButton(std::string& html, const RoboXMLNode& node, const RoboFou
   }
   std::string label = RoboXMLAttr(node, "content");
   if (label.empty()) {
+    label = RoboXMLAttr(node, "text");
+  }
+  if (label.empty()) {
+    label = RoboXMLAttr(node, "value");
+  }
+  if (label.empty()) {
     label = RoboCompilerTrim(node.text);
   }
   std::string style = RoboWebStyle(node, library);
@@ -178,11 +186,14 @@ void RoboWebEmitButton(std::string& html, const RoboXMLNode& node, const RoboFou
   if (disabled) {
     html += link ? " aria-disabled=\"true\" tabindex=\"-1\"" : " disabled";
   }
+  RoboWebAppendMotion(style, node);
   if (!style.empty()) {
     html += " style=\"";
     html += RoboWebEscape(style);
     html += "\"";
   }
+  html += RoboWebScreenAttrs(node, library, "inline-flex");
+  html += RoboWebMotionAttrs(node);
   html += "><span class=\"robo-button-label\">";
   if (loading) {
     html += RoboWebButtonSpinner();

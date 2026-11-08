@@ -347,11 +347,13 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     RoboWebAddDecl(style, "cursor", RoboWebLower(attr("cursor")));
     RoboWebAddDecl(style, "pointer-events", RoboWebLower(first("pointerEvents", "pointer")));
     RoboWebAddDecl(style, "user-select", RoboWebLower(attr("userSelect")));
-    const std::string visibility = RoboWebLower(attr("visibility"));
-    if (visibility == "hidden" || visibility == "visible" || visibility == "collapse") {
-        RoboWebAddDecl(style, "visibility", visibility);
-    } else if (RoboWebLower(attr("hidden")) == "true") {
-        RoboWebAddDecl(style, "visibility", "hidden");
+    const std::string visibility = RoboWebLower(first("visibility", "visible"));
+    const bool hide = visibility == "false" || visibility == "0" || visibility == "no" || visibility == "off" ||
+                      visibility == "hidden" || (visibility.empty() && RoboWebLower(attr("hidden")) == "true");
+    if (hide) {
+        RoboWebAddDecl(style, "display", "none");
+    } else if (visibility == "collapse") {
+        RoboWebAddDecl(style, "visibility", "collapse");
     }
     std::string transform;
     const auto addTransform = [&](const std::string& piece) {

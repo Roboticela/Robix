@@ -2,6 +2,8 @@
 
 #include "../Button/ButtonWeb.hpp"
 #include "../../RoboCompilerShared.hpp"
+#include "../../Motion.hpp"
+#include "../../ScreenSize.hpp"
 
 namespace fs = std::filesystem;
 
@@ -160,11 +162,14 @@ void RoboWebEmitIconButton(std::string& html, const RoboXMLNode& node, const Rob
     html += " disabled";
   }
   RoboWebControlAttrs(html, node);
+  RoboWebAppendMotion(style, node);
   if (!style.empty()) {
     html += " style=\"";
     html += RoboWebEscape(style);
     html += "\"";
   }
+  html += RoboWebScreenAttrs(node, library, "inline-flex");
+  html += RoboWebMotionAttrs(node);
   html += ">";
   html += RoboWebIconButtonGlyph(icon, glyph);
   html += "<span class=\"robo-icon-button-overlay\" data-state=\"loading\">";

@@ -2,6 +2,8 @@
 
 #include "../Button/ButtonWeb.hpp"
 #include "../../RoboCompilerShared.hpp"
+#include "../../Motion.hpp"
+#include "../../ScreenSize.hpp"
 
 #include <string>
 #include <vector>
@@ -179,7 +181,8 @@ void RoboWebEmitSegmentedControl(std::string& html, const RoboXMLNode& node, con
   const bool showIcon = content == "icon" || content == "both";
   const bool showLabel = content != "icon";
   const bool dividers = variant != "ghost";
-  const std::string style = RoboWebStyle(node, library);
+  std::string style = RoboWebStyle(node, library);
+  RoboWebAppendMotion(style, node);
   std::string control;
   RoboWebAppendControlStyle(control, node, library);
   const std::string labelId = id.empty() ? std::string() : id + "Label";
@@ -256,6 +259,8 @@ void RoboWebEmitSegmentedControl(std::string& html, const RoboXMLNode& node, con
     html += RoboWebEscape(successMs);
     html += "\"";
   }
+  html += RoboWebScreenAttrs(node, library, "inline-flex");
+  html += RoboWebMotionAttrs(node);
   html += ">";
   if (mode != "grouped") {
     html += "<span class=\"robo-segmented-thumb\" aria-hidden=\"true\"></span>";
@@ -346,7 +351,8 @@ void RoboWebEmitSegmentedToolbar(std::string& html, const RoboXMLNode& node, con
                                  const std::string& source, const fs::path& assetsRoot, bool& warnedVideo,
                                  RoboWebPackage* package, int depth) {
   const bool attached = RoboWebFlag(RoboXMLAttr(node, "attached"));
-  const std::string style = RoboWebStyle(node, library);
+  std::string style = RoboWebStyle(node, library);
+  RoboWebAppendMotion(style, node);
   html += "<div class=\"robo-segmented-toolbar\" data-attached=\"";
   html += attached ? "true" : "false";
   html += "\"";
@@ -361,6 +367,8 @@ void RoboWebEmitSegmentedToolbar(std::string& html, const RoboXMLNode& node, con
     html += RoboWebEscape(style);
     html += "\"";
   }
+  html += RoboWebScreenAttrs(node, library, "flex");
+  html += RoboWebMotionAttrs(node);
   html += ">";
   for (const RoboXMLNode& child : node.children) {
     RoboWebEmit(html, child, library, source, assetsRoot, false, warnedVideo, package, depth + 1);

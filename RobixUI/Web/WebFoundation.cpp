@@ -18,6 +18,8 @@
 #include "../Compiler/Components/Label/LabelWeb.hpp"
 #include "../Compiler/Components/Paragraph/ParagraphWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
+#include "../Compiler/Motion.hpp"
+#include "../Compiler/ScreenSize.hpp"
 #include "../Compiler/Components/Subhead/SubheadWeb.hpp"
 #include "../Compiler/Components/Screen/ScreenWeb.hpp"
 #include "../Compiler/Components/ScrollView/ScrollViewWeb.hpp"
@@ -161,6 +163,9 @@ std::string CssSize(const std::string& value) {
 
 void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
     const std::string name = Lower(node.name);
+    if (name == "at") {
+        return;
+    }
     if (name.empty() || name == "screen") {
         for (const RoboXMLNode& child : node.children) {
             EmitNode(html, child, library);
@@ -247,6 +252,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         if (!height.empty() && height != iconSize) {
             RoboWebAddDecl(style, "height", CssSize(height));
         }
+        RoboWebAppendMotion(style, node);
         html += "<div class=\"";
         html += name == "svg" ? RoboWebSvgClass() : RoboWebIconClass();
         html += "\"";
@@ -261,6 +267,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             html += Escape(style);
             html += "\"";
         }
+        html += RoboWebMotionAttrs(node);
         html += ">";
         html += RoboWebIconMarkup(assets, node);
         if (name != "icon" && name != "svg") {
@@ -346,6 +353,8 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     if (RoboWebIsContainerBox(name)) {
         RoboWebContainerAttrs(html, node);
     }
+    html += RoboWebScreenAttrs(node, library, "block");
+    html += RoboWebMotionAttrs(node);
     if (RoboWebIsTextName(name)) {
         const auto data = [&](const char* key, const char* attrName) {
             const std::string value = RoboXMLAttr(node, attrName);
@@ -377,6 +386,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     if (!RoboWebIsContainerBox(name)) {
         RoboWebAppendTextStyle(style, node, library);
     }
+    RoboWebAppendMotion(style, node);
     if (!style.empty()) {
         html += " style=\"";
         html += Escape(style);
@@ -392,8 +402,23 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     if (RoboWebIsContainerBox(name)) {
         html += RoboWebContainerVideo(node);
     }
-    if (!node.text.empty()) {
-        html += Escape(node.text);
+    std::string body = node.text;
+    if (RoboWebIsTextName(name)) {
+        bool blank = true;
+        for (char ch : body) {
+            if (ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r') {
+                blank = false;
+                break;
+            }
+        }
+        if (blank) {
+            body = RoboXMLAttr(node, "content");
+            if (body.empty()) body = RoboXMLAttr(node, "text");
+            if (body.empty()) body = RoboXMLAttr(node, "value");
+        }
+    }
+    if (!body.empty()) {
+        html += Escape(body);
     }
     for (const RoboXMLNode& child : node.children) {
         EmitNode(html, child, library);
@@ -404,7 +429,8 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
 }
 
 const RoboXMLNode* FindScreen(const RoboXMLNode& node) {
-    if (Lower(node.name) == "screen") {
+    const std::string name = Lower(node.name);
+    if (name == "screen" || name == "window" || name == "page" || name == "board") {
         return &node;
     }
     for (const RoboXMLNode& child : node.children) {
@@ -448,6 +474,8 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     std::string theme = "dark";
     RoboXMLNode screenCopy;
     bool hasScreen = false;
+    RoboWebScreenReset("");
+    RoboWebMotionReset();
     if (!document.empty()) {
         RoboXMLDocument xml;
         const std::string source = ReadText(document);
@@ -462,6 +490,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
                 }
                 const std::string namedTheme = Lower(RoboXMLAttr(screenCopy, "theme", RoboXMLAttr(screenCopy, "appearance", "dark").c_str()));
                 theme = namedTheme == "light" ? "light" : "dark";
+                RoboWebScreenReset(RoboXMLAttr(screenCopy, "sizes"));
             }
         }
     }
@@ -595,9 +624,12 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         } else {
             style += ";min-height:100%";
         }
+        RoboWebAppendMotion(style, screenCopy);
         html << "<" << RoboWebScreenTag(true) << " id=\"" << Escape(id) << "\" class=\"" << RoboWebScreenClass(true)
              << " robo-page\" data-place=\"" << Escape(place) << "\" data-theme=\"" << Escape(theme)
-             << "\" data-movable=\"" << Escape(movable) << "\" style=\"" << Escape(style) << "\">";
+             << "\" data-movable=\"" << Escape(movable) << "\"" << RoboWebScreenAttrs(screenCopy, library, "flex")
+             << RoboWebMotionAttrs(screenCopy)
+             << " style=\"" << Escape(style) << "\">";
         std::string body;
         for (const RoboXMLNode& child : screenCopy.children) {
             EmitNode(body, child, library);
@@ -627,8 +659,9 @@ Robo.set = function (id, key, value) {
     js += RoboWebSwitchScript();
     js += RoboWebSegmentedScript();
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
+    js += RoboWebMotionScript();
 
-    if (!WriteText(outRoot / "index.html", html.str()) || !WriteText(outRoot / "app.css", css.str()) ||
+    if (!WriteText(outRoot / "index.html", html.str()) || !WriteText(outRoot / "app.css", css.str() + RoboWebScreenCss() + RoboWebMotionCss()) ||
         !WriteText(outRoot / "app.js", js)) {
         error = "failed to write the web package";
         return false;

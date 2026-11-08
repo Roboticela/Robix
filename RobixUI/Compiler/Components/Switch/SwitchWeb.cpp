@@ -1,6 +1,8 @@
 #include "SwitchWeb.hpp"
 
 #include "../../RoboCompilerShared.hpp"
+#include "../../Motion.hpp"
+#include "../../ScreenSize.hpp"
 
 namespace fs = std::filesystem;
 
@@ -87,13 +89,15 @@ void RoboWebEmitSwitch(std::string& html, const RoboXMLNode& node, const RoboFou
   RoboWebAppendSwitchControl(html, RoboXMLAttr(node, "id"), RoboXMLAttr(node, "label"), RoboWebSwitchVariant(node),
                              RoboWebSwitchSize(node), RoboWebFlag(RoboXMLAttr(node, "checked")),
                              RoboWebFlag(RoboXMLAttr(node, "disabled")), loading);
-  const std::string style = RoboWebStyle(node, library);
-  if (!style.empty()) {
-    const std::string marker = "class=\"robo-switch\"";
-    const auto at = html.rfind(marker);
-    if (at != std::string::npos) {
-      html.insert(at + marker.size(), " style=\"" + RoboWebEscape(style) + "\"");
-    }
+  std::string style = RoboWebStyle(node, library);
+  RoboWebAppendMotion(style, node);
+  const std::string marker = "class=\"robo-switch\"";
+  const auto at = html.rfind(marker);
+  if (at != std::string::npos) {
+    std::string extra = RoboWebScreenAttrs(node, library, "inline-flex");
+    extra += RoboWebMotionAttrs(node);
+    if (!style.empty()) extra += " style=\"" + RoboWebEscape(style) + "\"";
+    html.insert(at + marker.size(), extra);
   }
 }
 
@@ -102,7 +106,8 @@ void RoboWebEmitSwitchGroup(std::string& html, const RoboXMLNode& node, const Ro
                             RoboWebPackage* package, int depth) {
   const std::string id = RoboXMLAttr(node, "id");
   const std::string label = RoboXMLAttr(node, "label");
-  const std::string style = RoboWebStyle(node, library);
+  std::string style = RoboWebStyle(node, library);
+  RoboWebAppendMotion(style, node);
   html += "<div class=\"robo-switch-group\" role=\"group\"";
   if (!id.empty()) {
     html += " id=\"";
@@ -119,6 +124,8 @@ void RoboWebEmitSwitchGroup(std::string& html, const RoboXMLNode& node, const Ro
     html += RoboWebEscape(style);
     html += "\"";
   }
+  html += RoboWebScreenAttrs(node, library, "block");
+  html += RoboWebMotionAttrs(node);
   html += ">";
   for (const RoboXMLNode& child : node.children) {
     RoboWebEmit(html, child, library, source, assetsRoot, false, warnedVideo, package, depth + 1);
@@ -133,7 +140,8 @@ void RoboWebEmitSwitchItem(std::string& html, const RoboXMLNode& node, const Rob
   const bool disabled = RoboWebFlag(RoboXMLAttr(node, "disabled"));
   const std::string title = RoboXMLAttr(node, "title");
   const std::string description = RoboXMLAttr(node, "description");
-  const std::string style = RoboWebStyle(node, library);
+  std::string style = RoboWebStyle(node, library);
+  RoboWebAppendMotion(style, node);
   html += "<div class=\"robo-switch-item\"";
   if (disabled) {
     html += " data-disabled=\"true\"";
@@ -146,6 +154,8 @@ void RoboWebEmitSwitchItem(std::string& html, const RoboXMLNode& node, const Rob
     html += RoboWebEscape(style);
     html += "\"";
   }
+  html += RoboWebScreenAttrs(node, library, "flex");
+  html += RoboWebMotionAttrs(node);
   html += "><span class=\"robo-switch-copy\"><span class=\"robo-switch-title\">";
   html += RoboWebEscape(title);
   html += "</span>";

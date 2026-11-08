@@ -31,20 +31,30 @@ BuiltInComponent    = "Window" | "Page" | "View" | "Panel" | "Container"
                     | "List" | "Table" | "Menu" | "Dialog" | "Tabs"
                     | "Slider" | "Switch" | "Checkbox" | "RadioButton"
                     | "ProgressBar" | "Chart" | "Canvas"
-                    | "Template" | "Slot" | "Style" ;
+                    | "Template" | "Slot" | "Style" | "At" ;
 
 CustomComponent     = PascalIdentifier ;
 
 Attribute           = AttributeName , "=" , AttributeValue ;
 
-AttributeName       = PropertyAttribute | EventAttribute | BindingAttribute ;
+AttributeName       = PropertyAttribute | EventAttribute | BindingAttribute | SizeAttribute ;
+
+(* Width.sm, FontSize.sm.xl, Padding.sm-mx, Width.at-900, Width.900-1200 *)
+SizeAttribute       = PropertyAttribute , "." , SizeToken , { "." , SizeToken } ;
+SizeToken           = "sm" | "mx" | "xl" | "2x" | "sm-mx" | "mx-xl" | "xl-2x"
+                    | "at-" , Digit , { Digit }
+                    | Digit , { Digit } , [ "-" , Digit , { Digit } ] ;
+Digit               = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 
 PropertyAttribute   = "Version" | "Name" | "Title" | "Value" | "Text"
                     | "Width" | "Height" | "MinWidth" | "MinHeight" | "MaxWidth" | "MaxHeight"
                     | "Spacing" | "Padding" | "Margin" | "Alignment"
                     | "FontSize" | "FontWeight" | "FontFamily" | "Color" | "Background"
                     | "Border" | "BorderRadius" | "Shadow" | "Theme"
-                    | "Visible" | "Enabled" | "If" | "ForEach"
+                    | "Visible" | "Visibility" | "Enabled" | "If" | "ForEach"
+                    | "Only" | "Sizes" | "Size"
+                    | "Animate" | "Initial" | "Exit" | "WhileHover" | "WhileTap" | "WhileFocus" | "WhileInView"
+                    | "Transition" | "Duration" | "Delay" | "Easing" | "Repeat" | "Drag" | "Once"
                     | PascalIdentifier ;
 
 EventAttribute      = "OnClick" | "OnDoubleClick"

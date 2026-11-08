@@ -1148,6 +1148,12 @@ void StyleButton(const RoboXMLNode& node, bool light, bool hot, bool pressed, Pa
 
 int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits) {
     const std::string name = Lower(node.name);
+    std::string shown = Lower(RoboXMLAttr(node, "visibility"));
+    if (shown.empty()) shown = Lower(RoboXMLAttr(node, "visible"));
+    if (shown == "false" || shown == "0" || shown == "no" || shown == "off" || shown == "hidden" ||
+        (shown.empty() && Lower(RoboXMLAttr(node, "hidden")) == "true")) {
+        return 0;
+    }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
         PaintOp op;

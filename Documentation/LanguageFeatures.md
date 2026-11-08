@@ -1052,6 +1052,32 @@ Bindings: `Bind:Property` is one-way. `BindTwoWay:Property` is two-way. A value 
 
 Layout: horizontal (`Row`), vertical (`Column`), grid, stack, absolute, spacing, padding, margin, alignment, min and max size.
 
+Screen sizes follow the browser width. The default edges are `sm` 640, `mx` 960, `xl` 1280, and `2x` 1536. A named size applies at that width and wider. `sm-mx`, `mx-xl`, and `xl-2x` apply only in the band between those edges. `900` and `at-900` are a custom width and wider. `900-1200` is only that custom band. `Screen Sizes="sm:480 mx:800 xl:1200 2x:1600"` replaces the defaults.
+
+A property with a size suffix changes only on those screens: `Width.sm="100%"`, `FontSize.mx="22"`, `Width.sm-mx="320"`, `Padding.at-900="24"`, `Width.900-1200="480"`. A dot joins several sizes that share one value, so `FontSize.sm.xl="28"` sets that size on `sm` and on `xl`. The same value can also be written once for several sizes:
+
+```xml
+<At Size="sm, xl" FontSize="28" Color="#FFFFFF"/>
+<At Size="900-1200" Width="480"/>
+```
+
+`Only="sm"` draws the component only on that size. `Only="sm.xl"`, `Only="mx-xl"`, and `Only="900-1200"` do the same for a list or a band. The base value, with no suffix, is what the other widths use.
+
+`Visibility="false"` hides a component, and `Visibility="true"` shows it. `Visible` accepts the same two values. A size suffix hides or shows it on that screen only: `Visibility.sm="false"` hides it from `sm` upward, and `Visibility.xl="true"` shows it again from `xl` upward. `0`, `no`, `off`, and `hidden` hide. `1`, `yes`, `on`, and `visible` show.
+
+Motion attributes work on every visual element: `Window`, `Screen`, `Page`, `Board`, `Column`, `Row`, `Container`, `Text`, `Heading`, `Subhead`, `Body`, `Paragraph`, `Caption`, `Eyebrow`, `Label`, `Button`, `IconButton`, `Switch`, `SwitchGroup`, `SwitchItem`, `SegmentedControl`, `SegmentedToolbar`, `Icon`, and `Svg`.
+
+```xml
+<Button Text="Go" Animate="fade-up" WhileHover="lift" WhileTap="press" Transition="duration:400 ease:spring"/>
+<Text Value="Hello" Initial="opacity:0 y:16" Animate="opacity:1 y:0" Exit="opacity:0"/>
+```
+
+Entrance presets: `fade`, `fade-up`, `fade-down`, `fade-left`, `fade-right`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `zoom-in`, `zoom-out`, `pop`, `grow`, `shrink`, `flip-x`, `flip-y`, `rotate-in`, `spin`, `pulse`, `bounce`, `shake`, `swing`, `float`, `wobble`, `blur-in`, `rise`, `drop`, `expand`, `heartbeat`, `flash`, `jello`, `rubber`, `tada`, `ping`.
+
+`WhileHover`, `WhileTap`, and `WhileFocus` also accept `lift`, `press`, `grow`, `shrink`, `tilt`, `glow`, `pulse`, `spin`, `shake`, and `none`. A property list uses `opacity`, `x`, `y`, `z`, `scale`, `scaleX`, `scaleY`, `rotate`, `rotateX`, `rotateY`, `skewX`, `skewY`, and `blur`.
+
+`Transition` takes `duration`, `delay`, `ease`, `repeat`, and `direction`. Ease values are `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `spring`, `bounce`, `anticipate`, `smooth`, `snappy`, and `gentle`. `spring` is a spring-shaped curve. `WhileInView` plays when the element enters the viewport. `Drag="true"` follows the pointer and glides on release. `Drag="x"` and `Drag="y"` lock one axis. `Robo.leave(element)` plays `Exit` and then hides the element. `spin`, `pulse`, `bounce`, `float`, `heartbeat`, `flash`, and `ping` repeat until `Repeat` says otherwise. The Windows window paints the still layout. These animations play on the web page.
+
 Themes: `light` and `dark`. `Foundation.rbxu` supplies colors, space, and type. The default face is Inter (`Inter-Regular`, `Inter-Medium`, `Inter-SemiBold`, `Inter-Bold`, `Inter-Italic`). `system`, `serif`, and `mono` select Segoe UI, Georgia, and Consolas when the foundation has no font of that name.
 
 Component schemas under `RobixUI/Compiler/Components` add these elements and attributes on top of the grammar:

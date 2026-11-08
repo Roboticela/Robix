@@ -12,7 +12,7 @@ static std::string RoboXMLParseName(const std::string& s, size_t& i) {
   const size_t start = i;
   while (i < s.size()) {
     const char c = s[i];
-    if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-' || c == ':') {
+    if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-' || c == ':' || c == '.') {
       ++i;
       continue;
     }
