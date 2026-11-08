@@ -37,6 +37,8 @@ static void PrintHelp() {
         << "    --target windows|linux|macos|android|ios|web\n"
         << "                          Application or Canvas platform. linux, macos, android, and ios\n"
         << "                          compile only on that machine. web needs a .rbxu screen.\n"
+        << "    --web script|assembly Web program form. script is HTML, CSS, and JS (default).\n"
+        << "                          assembly is HTML, CSS, and WebAssembly. The interpreter always uses script.\n"
         << "    --image               Machine image. Refuses platform code. Bedrock is always an image.\n"
         << "    --target <triple>     x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu,\n"
         << "                          x86_64-unknown-none, aarch64-unknown-none,\n"
@@ -232,6 +234,7 @@ int main(int argc, char* argv[]) {
     bool cliImage = false;
     std::string cliTarget;
     std::vector<std::string> uiTargets;
+    Robix::UI::WebForm webForm = Robix::UI::WebForm::Script;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& a = args[i];
@@ -259,6 +262,13 @@ int main(int argc, char* argv[]) {
             }
         } else if (a == "--image") {
             cliImage = true;
+        } else if (a == "--web" && i + 1 < args.size()) {
+            bool recognized = false;
+            webForm = Robix::UI::ParseWebForm(args[++i], recognized);
+            if (!recognized) {
+                std::cerr << "robixc: --web must be script or assembly.\n";
+                return 1;
+            }
         } else if (a == "--target" && i + 1 < args.size()) {
             const std::string target = args[++i];
             cliTarget = target;
@@ -352,7 +362,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 std::cout << "screen: " << project.ui.front().string() << std::endl;
-                return Robix::UI::CompileProduction(project.ui.front().string(), { "web" }, toolDir);
+                return Robix::UI::CompileProduction(project.ui.front().string(), { "web" }, toolDir, webForm);
             }
             if (cliTarget.empty() && !cliImage && (project.output == "Kernel" || project.output == "Firmware")) {
                 std::string sourcePath;
@@ -402,7 +412,7 @@ int main(int argc, char* argv[]) {
             if (uiTargets.empty()) {
                 uiTargets.push_back(Robix::UI::HostTarget());
             }
-            return Robix::UI::CompileProduction(inputFilePath, uiTargets, toolDir);
+            return Robix::UI::CompileProduction(inputFilePath, uiTargets, toolDir, webForm);
         }
     }
     if (explainOnly) {
@@ -489,7 +499,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         if (cliKey == "web") {
-            return Robix::UI::CompileProduction(web.screen, { "web" }, toolDir);
+            return Robix::UI::CompileProduction(web.screen, { "web" }, toolDir, webForm);
         }
     }
     if (Robix::Tools::IsPlatformName(cliKey) && cliKey != "windows" && cliKey != "web") {

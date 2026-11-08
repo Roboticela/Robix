@@ -432,6 +432,10 @@ std::string AssetsFontsRoot() {
 }
 
 bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::string& error) {
+    return WriteWebFoundation(outRoot, document, error, std::string{});
+}
+
+bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::string& error, const std::string& programScript) {
     const fs::path foundationPath = FindUp("RobixUI/Compiler/Foundation/RoboFoundation.xml");
     RoboFoundationLibrary library;
     std::string loadError;
@@ -606,7 +610,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     }
     html << "<script src=\"app.js\"></script></body></html>\n";
 
-    std::string js = R"JS(window.Robo = window.Robo || {};
+    std::string js = programScript.empty() ? R"JS(window.Robo = window.Robo || {};
 Robo.status = 0;
 Robo.render = function () {};
 Robo.mount = function () {};
@@ -617,12 +621,12 @@ Robo.set = function (id, key, value) {
   else if (key === "hidden") node.hidden = value === "true" || value === true;
   else node.style[key] = value;
 };
-)JS";
+)JS" : programScript;
     js += RoboWebScrollScript();
     js += RoboWebIconButtonScript();
     js += RoboWebSwitchScript();
     js += RoboWebSegmentedScript();
-    js += "Robo.mount();\n";
+    js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
 
     if (!WriteText(outRoot / "index.html", html.str()) || !WriteText(outRoot / "app.css", css.str()) ||
         !WriteText(outRoot / "app.js", js)) {

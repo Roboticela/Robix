@@ -33,7 +33,7 @@ static void PrintHelp() {
         << "    robix <command> [arguments]\n\n"
         << "COMMANDS:\n"
         << "    run                                 Run the project in this folder\n"
-        << "    run <file.rbx> [more.rbx] [--target windows|linux|macos|android|ios|web] [--image]\n"
+        << "    run <file.rbx> [more.rbx] [--target windows|linux|macos|android|ios|web] [--web script|assembly] [--image]\n"
         << "                                    Run only the named file or files.\n"
         << "    run all                             Run every program in the folder, one by one\n"
         << "    run <folder>                        Run that project folder\n"
@@ -226,10 +226,18 @@ int main(int argc, char* argv[]) {
         bool image = false;
         bool watch = false;
         int port = 4173;
+        Robix::UI::WebForm webForm = Robix::UI::WebForm::Script;
         for (std::size_t i = 1; i < args.size(); ++i) {
             if (args[i] == "--target" && i + 1 < args.size()) {
                 runTarget = args[++i];
                 targetSet = true;
+            } else if (args[i] == "--web" && i + 1 < args.size()) {
+                bool recognized = false;
+                webForm = Robix::UI::ParseWebForm(args[++i], recognized);
+                if (!recognized) {
+                    std::cerr << "robix: --web must be script or assembly.\n";
+                    return 1;
+                }
             } else if (args[i] == "--image") {
                 image = true;
             } else if (args[i] == "--watch") {
@@ -261,7 +269,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 std::cout << "screen: " << choice.ui.front().string() << std::endl;
-                return Robix::UI::RunInterpreter(choice.ui.front().string(), "web", true, port, toolDir);
+                return Robix::UI::RunInterpreter(choice.ui.front().string(), "web", true, port, toolDir, webForm);
             }
             if (choice.mode == Robix::Tools::ProjectRun::Mode::Network) {
                 std::vector<std::string> serviceArgs = { "run", "all" };
@@ -298,7 +306,7 @@ int main(int argc, char* argv[]) {
                     if (!choice.ui.empty() && (platform == "web" || platform == Robix::UI::HostTarget())) {
                         std::cout << "screen: " << choice.ui.front().string() << std::endl;
                         if (platform == "web") {
-                            return Robix::UI::RunInterpreter(choice.ui.front().string(), "web", true, port, toolDir);
+                            return Robix::UI::RunInterpreter(choice.ui.front().string(), "web", true, port, toolDir, webForm);
                         }
                         std::cout << "The window stays open until you close it." << std::endl;
                         return Robix::UI::RunInterpreter(choice.ui.front().string(), platform, true, port, toolDir);
@@ -351,7 +359,7 @@ int main(int argc, char* argv[]) {
                             return 1;
                         }
                         if (targetKey == "web") {
-                            return Robix::UI::RunInterpreter(web.screen, runTarget, watch, port, toolDir);
+                            return Robix::UI::RunInterpreter(web.screen, runTarget, watch, port, toolDir, webForm);
                         }
                     }
                 }
@@ -409,7 +417,7 @@ int main(int argc, char* argv[]) {
                 std::cerr << "error: this machine interprets windows and web. '" << targetKey << "' was not started.\n";
                 return 1;
             }
-            return Robix::UI::RunInterpreter(runInput, runTarget, watch, port, toolDir);
+            return Robix::UI::RunInterpreter(runInput, runTarget, watch, port, toolDir, webForm);
         }
         if (direct) {
             std::cerr << "error: a machine image does not run in the interpreter. Build it with robixc --image.\n";

@@ -320,6 +320,7 @@ void RoboWebControlAttrs(std::string& html, const RoboXMLNode& node) {
   data("texture", RoboWebLower(RoboXMLAttr(node, "texture")));
   data("accent", RoboWebLower(RoboXMLAttr(node, "accent")));
   data("group", RoboWebLower(RoboXMLAttr(node, "group")));
+  data("click", RoboXMLAttr(node, "onclick", RoboXMLAttr(node, "onClick").c_str()));
   if (RoboWebLower(RoboXMLAttr(node, "selected")) == "true") data("selected", "true");
 }
 

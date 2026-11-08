@@ -2,6 +2,7 @@
 
 #include "Document.hpp"
 #include "Web/WebFoundation.hpp"
+#include "Web/WebLanguage.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -111,6 +112,7 @@ std::string Mime(const fs::path& path) {
     if (ext == ".html") return "text/html; charset=utf-8";
     if (ext == ".css") return "text/css; charset=utf-8";
     if (ext == ".js") return "text/javascript; charset=utf-8";
+    if (ext == ".wasm") return "application/wasm";
     if (ext == ".ttf") return "font/ttf";
     if (ext == ".svg") return "image/svg+xml";
     if (ext == ".png") return "image/png";
@@ -118,7 +120,32 @@ std::string Mime(const fs::path& path) {
     return "application/octet-stream";
 }
 
-void ServeWeb(const fs::path& root, const fs::path& document, int port, bool watch) {
+bool WriteWebPage(const fs::path& outRoot, const fs::path& document, WebForm form, const std::string& toolDirectory, std::string& error) {
+    std::string script;
+    const fs::path source = FindWebSource(document);
+    if (!source.empty()) {
+        const WebBuildResult built = BuildWebProgram(source, form, toolDirectory);
+        if (!built.ok) {
+            error = built.error.empty() ? "the web program was not written" : built.error;
+            return false;
+        }
+        script = built.script;
+        if (!built.wasm.empty()) {
+            std::ofstream wasm(outRoot / "app.wasm", std::ios::binary);
+            wasm.write(reinterpret_cast<const char*>(built.wasm.data()), static_cast<std::streamsize>(built.wasm.size()));
+            if (!wasm) {
+                error = "failed to write app.wasm";
+                return false;
+            }
+            std::cout << "program: " << (outRoot / "app.wasm").string() << std::endl;
+        }
+    } else {
+        std::cerr << "warning: web: no Robix program was found beside the screen.\n";
+    }
+    return WriteWebFoundation(outRoot, document, error, script);
+}
+
+void ServeWeb(const fs::path& root, const fs::path& document, int port, bool watch, const std::string& toolDirectory) {
     WSADATA data{};
     if (WSAStartup(MAKEWORD(2, 2), &data) != 0) {
         std::cerr << "robix: the web interpreter could not open a socket\n";
@@ -156,7 +183,7 @@ void ServeWeb(const fs::path& root, const fs::path& document, int port, bool wat
             if (now != seen) {
                 seen = now;
                 std::string error;
-                if (WriteWebFoundation(root, document, error)) {
+                if (WriteWebPage(root, document, WebForm::Script, toolDirectory, error)) {
                     std::cout << "interpreter: refreshed\n";
                 } else {
                     std::cerr << "robix: " << error << "\n";
@@ -256,7 +283,7 @@ bool CompilerCanBuild(const std::string& target) {
     return key == HostTarget();
 }
 
-int RunInterpreter(const std::string& input, const std::string& target, bool watch, int port, const std::string& toolDirectory) {
+int RunInterpreter(const std::string& input, const std::string& target, bool watch, int port, const std::string& toolDirectory, WebForm form) {
     const std::string key = NormalizeTarget(target);
     if (!InterpreterCanRun(key)) {
         std::cerr << "robix: the interpreter runs the host platform (" << HostTarget() << ") and web.\n";
@@ -273,14 +300,19 @@ int RunInterpreter(const std::string& input, const std::string& target, bool wat
     const fs::path cache = BuildRoot(toolDirectory) / "Cache" / (key == "web" ? "Web" : "Windows") / AppNameOf(named);
     std::cout << "interpreter: " << key << " " << document.string() << "\n";
     if (key == "web") {
+        if (form == WebForm::Assembly) {
+            std::cerr << "warning: web: interpretation runs as HTML, CSS, and JS. Assembly is compiled with robixc --web assembly.\n";
+            form = WebForm::Script;
+        }
+        std::cout << "web form: " << WebFormName(form) << std::endl;
         std::string error;
-        if (!WriteWebFoundation(cache, document, error)) {
+        if (!WriteWebPage(cache, document, form, toolDirectory, error)) {
             std::cerr << "robix: " << error << "\n";
             return 1;
         }
         std::cout << "interpreter: cache only, not a production app\n";
 #ifdef _WIN32
-        ServeWeb(cache, document, port, watch);
+        ServeWeb(cache, document, port, watch, toolDirectory);
 #else
         std::cout << "interpreter: " << (cache / "index.html").string() << "\n";
         (void)watch;
@@ -303,7 +335,7 @@ int RunInterpreter(const std::string& input, const std::string& target, bool wat
     return RunWindowsFoundation(options);
 }
 
-int CompileProduction(const std::string& input, const std::vector<std::string>& targets, const std::string& toolDirectory) {
+int CompileProduction(const std::string& input, const std::vector<std::string>& targets, const std::string& toolDirectory, WebForm form) {
     const fs::path document = FindDocument(fs::absolute(input));
     if (document.empty()) {
         std::cerr << "robixc: no screen document in '" << input << "'\n";
@@ -326,13 +358,16 @@ int CompileProduction(const std::string& input, const std::vector<std::string>& 
         fs::copy_file(document, out / "Content" / document.filename(), fs::copy_options::overwrite_existing, error);
         if (key == "web") {
             std::string webError;
-            if (!WriteWebFoundation(out, document, webError)) {
+            std::cout << "web form: " << WebFormName(form) << std::endl;
+            if (!WriteWebPage(out, document, form, toolDirectory, webError)) {
                 std::cerr << "robixc: " << webError << "\n";
                 status = 1;
                 continue;
             }
+            const char* entry = form == WebForm::Assembly ? "app.wasm" : "app.js";
             WriteStamp(out / "AppManifest.json",
-                       "{\n  \"name\": \"" + app + "\",\n  \"target\": \"web\",\n  \"entry\": \"index.html\"\n}\n");
+                       "{\n  \"name\": \"" + app + "\",\n  \"target\": \"web\",\n  \"form\": \"" + std::string(WebFormName(form)) +
+                           "\",\n  \"entry\": \"index.html\",\n  \"program\": \"" + entry + "\"\n}\n");
             std::cout << "compiled web app " << (out / "index.html").string() << "\n";
             continue;
         }
