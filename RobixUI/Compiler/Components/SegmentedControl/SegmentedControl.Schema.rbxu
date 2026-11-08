@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SegmentedControl — RefCode/Components/components/SegmentedControl.tsx
+  Variants: subtle, outline, ghost, primary, pill.
+  Sizes: sm, md, lg.
+  Content: label, icon, both.
+  Mode: inset, grouped.
+  SegmentedToolbar joins controls, loose or attached.
+-->
+<Component name="SegmentedControl">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="label" type="string" required="false" />
+  <Attribute name="value" type="string" required="false" />
+  <Attribute name="variant" type="enum" values="subtle|outline|ghost|primary|pill" default="subtle" />
+  <Attribute name="size" type="enum" values="sm|md|lg" default="md" />
+  <Attribute name="content" type="enum" values="label|icon|both" default="label" />
+  <Attribute name="mode" type="enum" values="inset|grouped" default="inset" />
+  <Attribute name="fullWidth" type="bool" default="false" />
+  <Attribute name="disabled" type="bool" default="false" />
+  <Attribute name="leading" type="string" required="false" />
+  <Attribute name="trailing" type="string" required="false" />
+  <Attribute name="action" type="string" required="false" />
+  <Attribute name="successMs" type="int" default="1600" />
+  <Child name="Segment" min="1" />
+  <Child name="Icon" max="2" />
+  <Child name="Svg" max="2" />
+</Component>

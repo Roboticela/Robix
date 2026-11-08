@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Svg — write the drawing in XML. The build stores it in Icons.pack.
+  The generated app only names the icon.
+    <svg id="mark" width="24" height="24" viewBox="0 0 24 24">
+      <path d="M4 12h16" fill="none" stroke="#FFFFFF" />
+    </svg>
+  An Assets icon is the tag name: <Home /> or <Icon name="Settings" />.
+  Only icons the app uses are copied into the pack.
+-->
+<Component name="Svg">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="name" type="string" required="false" />
+  <Attribute name="size" type="int" default="24" />
+  <Attribute name="minWidth" type="size" required="false" />
+  <Attribute name="minHeight" type="size" required="false" />
+  <Attribute name="maxWidth" type="size" required="false" />
+  <Attribute name="maxHeight" type="size" required="false" />
+  <Attribute name="width" type="size" required="false" />
+  <Attribute name="height" type="size" required="false" />
+  <Attribute name="viewBox" type="string" required="false" />
+  <Attribute name="x" type="int" default="0" />
+  <Attribute name="y" type="int" default="0" />
+  <Attribute name="opacity" type="int" required="false" />
+  <Attribute name="fill" type="color" required="false" />
+  <Attribute name="stroke" type="color" required="false" />
+  <Attribute name="accent" type="color" required="false" />
+  <Attribute name="color" type="color" required="false" />
+  <Attribute name="position" type="enum" values="relative|absolute|fixed" default="relative" />
+  <Attribute name="inset" type="string" required="false" />
+  <Attribute name="margin" type="int" required="false" />
+  <Attribute name="flex" type="int" required="false" aliases="flexGrow|grow" />
+  <Attribute name="alignSelf" type="enum" values="auto|start|center|end|stretch" default="auto" />
+  <Attribute name="order" type="int" default="0" />
+  <Attribute name="gridColumn" type="string" required="false" />
+  <Attribute name="gridRow" type="string" required="false" />
+  <Child name="*" max="64" description="path, circle, rect, g, and other SVG elements" />
+</Component>

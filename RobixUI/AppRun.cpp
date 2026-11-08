@@ -289,6 +289,7 @@ int RunInterpreter(const std::string& input, const std::string& target, bool wat
     WindowRunOptions options;
     options.stayOpen = watch;
     LoadScreenOptions(document.string(), options);
+    options.document = document.string();
     fs::path watched = document;
     if (watch) {
         options.watch = ScreenChanged;

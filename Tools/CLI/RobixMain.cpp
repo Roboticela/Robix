@@ -80,6 +80,7 @@ int main(int argc, char* argv[]) {
             Robix::UI::WindowRunOptions options;
             options.stayOpen = true;
             Robix::UI::LoadScreenOptions(document.string(), options);
+            options.document = document.string();
             return Robix::UI::RunWindowsFoundation(options);
         }
         PrintHelp();

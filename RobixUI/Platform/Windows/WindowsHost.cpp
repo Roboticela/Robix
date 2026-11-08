@@ -1,10 +1,13 @@
 #include "WindowsHost.hpp"
+#include "WindowsDocument.hpp"
+#include "WindowsScroll.hpp"
 
 #include "../../Compiler/Foundation/FoundationPlatform.hpp"
 #include "../../RoboGPU/RoboGPU.hpp"
 #include "../../RoboGPU/RoboText.hpp"
 #include "../../RoboShared/RoboFont.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -46,7 +49,29 @@ struct HostView {
     bool light = false;
     bool screen = false;
     bool movable = true;
+    int scrollY = 0;
+    int contentHeight = 0;
+    unsigned dpi = 96;
+    WindowScrollState bar{};
+    std::vector<WindowControl> controls;
+    int hotControl = -1;
+    int pressedControl = -1;
+    int pointerX = -1;
+    int pointerY = -1;
+    bool trackLeave = false;
+    std::string document;
     WindowRunOptions* watched = nullptr;
+    int gpuScroll = -1;
+    int presentIndex = 0;
+    bool bufferReady[2] = {};
+    RECT recent[2][16] = {};
+    int recentCount[2] = {};
+    int shownOpacity = -1;
+    int shownPart = -1;
+    int shownHold = 0;
+    bool shownDrag = false;
+    bool shownHot = false;
+    int shownScroll = -1;
 };
 
 void PaintFoundation(RoboGPU* gpu, bool light, bool drawText) {
@@ -122,7 +147,82 @@ bool EnsureSurface(HostView* view, UINT width, UINT height) {
     handoff.frameBuffer.greenMask = 0x0000FF00u;
     handoff.frameBuffer.blueMask = 0x000000FFu;
     RoboGPUInitFromHandoff(&view->gpu, &handoff, view->back, byteCount);
+    view->gpuScroll = -1;
+    view->bufferReady[0] = false;
+    view->bufferReady[1] = false;
+    view->recentCount[0] = 0;
+    view->recentCount[1] = 0;
     return true;
+}
+
+void UploadBox(HostView* view, ID3D11Texture2D* texture, LONG left, LONG top, LONG right, LONG bottom) {
+    if (texture == nullptr || view->gpu.back == nullptr) {
+        return;
+    }
+    if (left < 0) {
+        left = 0;
+    }
+    if (top < 0) {
+        top = 0;
+    }
+    if (right > static_cast<LONG>(view->pixelWidth)) {
+        right = static_cast<LONG>(view->pixelWidth);
+    }
+    if (bottom > static_cast<LONG>(view->pixelHeight)) {
+        bottom = static_cast<LONG>(view->pixelHeight);
+    }
+    if (right <= left || bottom <= top) {
+        return;
+    }
+    D3D11_BOX box{};
+    box.left = static_cast<UINT>(left);
+    box.top = static_cast<UINT>(top);
+    box.right = static_cast<UINT>(right);
+    box.bottom = static_cast<UINT>(bottom);
+    box.back = 1;
+    const UINT pitch = view->pixelWidth * 4u;
+    const auto* source = view->gpu.back + static_cast<size_t>(box.top) * pitch + static_cast<size_t>(box.left) * 4u;
+    view->context->UpdateSubresource(texture, 0, &box, source, pitch, 0);
+}
+
+void CopyBox(HostView* view, ID3D11Texture2D* target, LONG left, LONG top, LONG right, LONG bottom) {
+    if (target == nullptr || view->upload == nullptr || right <= left || bottom <= top) {
+        return;
+    }
+    D3D11_BOX box{};
+    box.left = static_cast<UINT>(left);
+    box.top = static_cast<UINT>(top);
+    box.right = static_cast<UINT>(right);
+    box.bottom = static_cast<UINT>(bottom);
+    box.back = 1;
+    view->context->CopySubresourceRegion(target, 0, box.left, box.top, 0, view->upload, 0, &box);
+}
+
+void ScrollUpload(HostView* view, ID3D11Texture2D* target, int shift) {
+    const UINT width = view->pixelWidth;
+    const UINT height = view->pixelHeight;
+    if (target == nullptr || view->upload == nullptr || shift == 0 || height == 0) {
+        return;
+    }
+    const int distance = shift < 0 ? -shift : shift;
+    if (distance <= 0 || static_cast<UINT>(distance) >= height) {
+        return;
+    }
+    view->context->CopyResource(target, view->upload);
+    D3D11_BOX box{};
+    box.left = 0;
+    box.right = width;
+    box.front = 0;
+    box.back = 1;
+    if (shift > 0) {
+        box.top = static_cast<UINT>(shift);
+        box.bottom = height;
+        view->context->CopySubresourceRegion(view->upload, 0, 0, 0, 0, target, 0, &box);
+    } else {
+        box.top = 0;
+        box.bottom = height - static_cast<UINT>(distance);
+        view->context->CopySubresourceRegion(view->upload, 0, 0, static_cast<UINT>(distance), 0, target, 0, &box);
+    }
 }
 
 void Publish(HostView* view) {
@@ -132,19 +232,105 @@ void Publish(HostView* view) {
     if (RoboDamageIsEmpty(&view->gpu.damage)) {
         return;
     }
+    const bool full = view->gpu.damage.full == ROBO_TRUE;
+    RECT dirty[24]{};
+    UINT dirtyCount = 0;
+    if (!full) {
+        for (RoboU32 index = 0; index < view->gpu.damage.count && dirtyCount < 24; ++index) {
+            const RoboDamageRect& rect = view->gpu.damage.rects[index];
+            dirty[dirtyCount].left = rect.x;
+            dirty[dirtyCount].top = rect.y;
+            dirty[dirtyCount].right = rect.x + rect.width;
+            dirty[dirtyCount].bottom = rect.y + rect.height;
+            ++dirtyCount;
+        }
+        if (view->gpu.damage.count > 24) {
+            dirtyCount = 0;
+        }
+    }
     ID3D11Texture2D* target = nullptr;
     if (FAILED(view->swap->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&target))) || target == nullptr) {
         return;
     }
     const UINT pitch = view->pixelWidth * 4u;
-    if (view->upload != nullptr) {
-        view->context->UpdateSubresource(view->upload, 0, nullptr, view->gpu.back, pitch, 0);
+    const int shift = view->gpuScroll < 0 ? 0 : view->scrollY - view->gpuScroll;
+    const bool uploadAll = full || dirtyCount == 0 || view->gpuScroll < 0 ||
+                           shift >= static_cast<int>(view->pixelHeight) || -shift >= static_cast<int>(view->pixelHeight);
+    if (uploadAll) {
+        if (view->upload != nullptr) {
+            view->context->UpdateSubresource(view->upload, 0, nullptr, view->gpu.back, pitch, 0);
+            view->context->CopyResource(target, view->upload);
+        } else {
+            view->context->UpdateSubresource(target, 0, nullptr, view->gpu.back, pitch, 0);
+        }
+        view->gpuScroll = view->scrollY;
+        view->bufferReady[0] = false;
+        view->bufferReady[1] = false;
+        view->bufferReady[view->presentIndex & 1] = true;
+        view->recentCount[0] = 0;
+        view->recentCount[1] = 0;
+        target->Release();
+        view->swap->Present(1, 0);
+        view->presentIndex ^= 1;
+        RoboDamageClear(&view->gpu.damage);
+        return;
+    }
+    if (shift != 0 && view->upload != nullptr) {
+        ScrollUpload(view, target, shift);
+        for (UINT index = 0; index < dirtyCount; ++index) {
+            UploadBox(view, view->upload, dirty[index].left, dirty[index].top, dirty[index].right, dirty[index].bottom);
+        }
         view->context->CopyResource(target, view->upload);
+        view->gpuScroll = view->scrollY;
+        view->bufferReady[0] = false;
+        view->bufferReady[1] = false;
+        view->bufferReady[view->presentIndex & 1] = true;
+        view->recentCount[0] = 0;
+        view->recentCount[1] = 0;
+        target->Release();
+        view->swap->Present(1, 0);
+        view->presentIndex ^= 1;
+        RoboDamageClear(&view->gpu.damage);
+        return;
+    }
+    const int slot = view->presentIndex & 1;
+    const int older = slot ^ 1;
+    view->recentCount[slot] = 0;
+    for (UINT index = 0; index < dirtyCount && view->recentCount[slot] < 16; ++index) {
+        view->recent[slot][view->recentCount[slot]++] = dirty[index];
+    }
+    if (view->upload != nullptr && !view->bufferReady[slot]) {
+        view->context->CopyResource(target, view->upload);
+        view->bufferReady[slot] = true;
+    }
+    if (view->upload != nullptr) {
+        for (int index = 0; index < view->recentCount[slot]; ++index) {
+            const RECT& rect = view->recent[slot][index];
+            UploadBox(view, view->upload, rect.left, rect.top, rect.right, rect.bottom);
+        }
+        for (int generation = 0; generation < 2; ++generation) {
+            const int which = generation == 0 ? older : slot;
+            for (int index = 0; index < view->recentCount[which]; ++index) {
+                const RECT& rect = view->recent[which][index];
+                CopyBox(view, target, rect.left, rect.top, rect.right, rect.bottom);
+            }
+        }
     } else {
         view->context->UpdateSubresource(target, 0, nullptr, view->gpu.back, pitch, 0);
     }
     target->Release();
-    view->swap->Present(1, 0);
+    RECT presentRects[16]{};
+    UINT presentCount = 0;
+    for (UINT index = 0; index < dirtyCount && presentCount < 16; ++index) {
+        presentRects[presentCount++] = dirty[index];
+    }
+    DXGI_PRESENT_PARAMETERS params{};
+    params.DirtyRectsCount = presentCount;
+    params.pDirtyRects = presentRects;
+    if (presentCount == 0 || FAILED(view->swap->Present1(1, 0, &params))) {
+        view->swap->Present(1, 0);
+    }
+    view->presentIndex ^= 1;
     RoboDamageClear(&view->gpu.damage);
 }
 
@@ -152,7 +338,48 @@ void Draw(HostView* view) {
     if (view == nullptr || !view->ready || view->gpu.back == nullptr) {
         return;
     }
-    PaintFoundation(&view->gpu, view->light, !view->screen);
+    if (view->screen && !view->document.empty()) {
+        const int height = static_cast<int>(view->pixelHeight);
+        const int maxScroll = std::max(0, view->contentHeight - height);
+        if (view->scrollY > maxScroll) {
+            view->scrollY = maxScroll;
+        }
+        if (view->scrollY < 0) {
+            view->scrollY = 0;
+        }
+        const int pointerDocY = view->pointerX < 0 ? -1 : view->pointerY + view->scrollY;
+        PaintWindowsDocument(&view->gpu, view->document, view->light, static_cast<int>(view->pixelWidth), height,
+                             view->scrollY, &view->contentHeight, &view->controls, view->hotControl, view->pressedControl,
+                             view->dpi, view->pointerX, pointerDocY);
+        WindowScrollState bar = view->bar;
+        bar.scrollY = view->scrollY;
+        bar.contentHeight = view->contentHeight;
+        bar.pixelWidth = static_cast<int>(view->pixelWidth);
+        bar.pixelHeight = height;
+        bar.dpi = view->dpi;
+        bar.light = view->light;
+        const bool barChanged = bar.opacity != view->shownOpacity || bar.part != view->shownPart || bar.hold != view->shownHold ||
+                                bar.drag != view->shownDrag || bar.hot != view->shownHot || bar.scrollY != view->shownScroll;
+        if (barChanged && view->gpu.damage.full != ROBO_TRUE) {
+            int barX = 0;
+            int barY = 0;
+            int barW = 0;
+            int barH = 0;
+            WindowScrollBarRect(bar, barX, barY, barW, barH);
+            RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
+        }
+        if (view->gpu.damage.full == ROBO_TRUE || barChanged) {
+            PaintWindowScrollBar(&view->gpu, bar);
+        }
+        view->shownOpacity = bar.opacity;
+        view->shownPart = bar.part;
+        view->shownHold = bar.hold;
+        view->shownDrag = bar.drag;
+        view->shownHot = bar.hot;
+        view->shownScroll = bar.scrollY;
+    } else {
+        PaintFoundation(&view->gpu, view->light, !view->screen);
+    }
     Publish(view);
     view->painted = true;
     std::printf("framebuffer %ux%u\n", view->pixelWidth, view->pixelHeight);
@@ -192,6 +419,9 @@ void Resize(HostView* view, UINT width, UINT height) {
     if (view == nullptr || !view->ready || width == 0 || height == 0) {
         return;
     }
+    if (view->upload != nullptr && view->pixelWidth == width && view->pixelHeight == height) {
+        return;
+    }
     if (EnsureSurface(view, width, height)) {
         Draw(view);
     }
@@ -225,20 +455,229 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             EndPaint(window, &paint);
             return 0;
         }
+        case WM_SETCURSOR:
+            if (view != nullptr && view->ready && LOWORD(lParam) == HTCLIENT) {
+                POINT cursor{};
+                GetCursorPos(&cursor);
+                ScreenToClient(window, &cursor);
+                WindowScrollState bar = view->bar;
+                bar.scrollY = view->scrollY;
+                bar.contentHeight = view->contentHeight;
+                bar.pixelWidth = static_cast<int>(view->pixelWidth);
+                bar.pixelHeight = static_cast<int>(view->pixelHeight);
+                bar.dpi = view->dpi;
+                const int barHit = HitWindowScrollBar(bar, cursor.x, cursor.y);
+                bool onControl = false;
+                bool controlEnabled = true;
+                const int docY = cursor.y + view->scrollY;
+                for (const WindowControl& control : view->controls) {
+                    if (cursor.x >= control.x && cursor.x < control.x + control.width && docY >= control.y &&
+                        docY < control.y + control.height) {
+                        onControl = true;
+                        controlEnabled = control.enabled;
+                        break;
+                    }
+                }
+                const wchar_t* cursorId = IDC_ARROW;
+                if (barHit == 0 && onControl) {
+                    cursorId = controlEnabled ? IDC_HAND : IDC_NO;
+                }
+                SetCursor(LoadCursorW(nullptr, cursorId));
+                return TRUE;
+            }
+            return DefWindowProcW(window, message, wParam, lParam);
         case WM_MOUSEMOVE:
         case WM_MOUSELEAVE:
         case WM_LBUTTONDOWN:
-            if (view != nullptr && view->screen && view->movable) {
-                ReleaseCapture();
-                SendMessageW(window, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        case WM_LBUTTONDBLCLK:
+        case WM_LBUTTONUP:
+            if (view != nullptr && view->ready && view->screen) {
+                if (message == WM_MOUSEMOVE && !view->trackLeave) {
+                    TRACKMOUSEEVENT track{};
+                    track.cbSize = sizeof(track);
+                    track.dwFlags = TME_LEAVE;
+                    track.hwndTrack = window;
+                    TrackMouseEvent(&track);
+                    view->trackLeave = true;
+                }
+                const int x = message == WM_MOUSELEAVE ? -1 : static_cast<int>(static_cast<short>(LOWORD(lParam)));
+                const int y = message == WM_MOUSELEAVE ? -1 : static_cast<int>(static_cast<short>(HIWORD(lParam)));
+                WindowScrollState bar = view->bar;
+                bar.scrollY = view->scrollY;
+                bar.contentHeight = view->contentHeight;
+                bar.pixelWidth = static_cast<int>(view->pixelWidth);
+                bar.pixelHeight = static_cast<int>(view->pixelHeight);
+                bar.dpi = view->dpi;
+                bar.light = view->light;
+                const int barHit = message == WM_MOUSELEAVE ? 0 : HitWindowScrollBar(bar, x, y);
+                if (view->bar.drag && message == WM_MOUSEMOVE) {
+                    WindowDragScrollBar(bar, y);
+                    view->scrollY = bar.scrollY;
+                    view->bar.opacity = 255;
+                    view->bar.idle = GetTickCount();
+                    Draw(view);
+                    return 0;
+                }
+                if (message == WM_LBUTTONUP && (view->bar.drag || view->bar.hold != 0)) {
+                    view->bar.drag = false;
+                    view->bar.hold = 0;
+                    view->bar.part = barHit == 3 ? 3 : 0;
+                    view->bar.opacity = 255;
+                    view->bar.idle = GetTickCount();
+                    view->pressedControl = -1;
+                    if (GetCapture() == window) {
+                        ReleaseCapture();
+                    }
+                    Draw(view);
+                    return 0;
+                }
+                if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && barHit != 0) {
+                    SetFocus(window);
+                    view->bar.part = barHit == 4 ? 0 : barHit;
+                    view->bar.opacity = 255;
+                    view->bar.idle = GetTickCount();
+                    view->bar.hot = true;
+                    SetCapture(window);
+                    SetTimer(window, 2, 50, nullptr);
+                    if (barHit == 3) {
+                        view->bar.grab = y - WindowScrollThumbY(bar);
+                        view->bar.drag = true;
+                        view->bar.hold = 0;
+                    } else if (barHit == 1 || barHit == 2) {
+                        view->bar.hold = barHit == 1 ? -1 : 1;
+                        view->bar.repeat = GetTickCount() + 70;
+                        WindowScrollBy(bar, view->bar.hold * WindowScrollScale(56, view->dpi));
+                        view->scrollY = bar.scrollY;
+                    } else {
+                        WindowScrollToBar(bar, y);
+                        view->scrollY = bar.scrollY;
+                    }
+                    Draw(view);
+                    return 0;
+                }
+                int hit = -1;
+                if (message != WM_MOUSELEAVE) {
+                    const int docY = y + view->scrollY;
+                    for (int index = 0; index < static_cast<int>(view->controls.size()); ++index) {
+                        const WindowControl& control = view->controls[index];
+                        if (x >= control.x && x < control.x + control.width && docY >= control.y &&
+                            docY < control.y + control.height) {
+                            hit = index;
+                            break;
+                        }
+                    }
+                } else {
+                    view->trackLeave = false;
+                    view->pointerX = -1;
+                    view->pointerY = -1;
+                }
+                if (message != WM_MOUSELEAVE) {
+                    view->pointerX = x;
+                    view->pointerY = y;
+                }
+                if (message == WM_MOUSEMOVE || message == WM_MOUSELEAVE) {
+                    const int part = barHit == 4 ? 0 : barHit;
+                    bool paint = false;
+                    if (barHit != 0) {
+                        view->bar.hot = true;
+                        view->bar.idle = GetTickCount();
+                        if (view->bar.opacity < 255) {
+                            view->bar.opacity = 255;
+                            paint = true;
+                        }
+                        SetTimer(window, 2, 50, nullptr);
+                    } else if (view->bar.hot && !view->bar.drag) {
+                        view->bar.hot = false;
+                        view->bar.idle = GetTickCount();
+                        SetTimer(window, 2, 50, nullptr);
+                    }
+                    if (part != view->bar.part) {
+                        view->bar.part = part;
+                        paint = true;
+                    }
+                    if (hit != view->hotControl) {
+                        view->hotControl = hit;
+                        paint = true;
+                    }
+                    if (paint) {
+                        Draw(view);
+                    }
+                    return 0;
+                }
+                if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) {
+                    SetFocus(window);
+                    view->pressedControl = hit;
+                    SetCapture(window);
+                    Draw(view);
+                    return 0;
+                }
+                if (message == WM_LBUTTONUP) {
+                    view->pressedControl = -1;
+                    if (GetCapture() == window) {
+                        ReleaseCapture();
+                    }
+                    Draw(view);
+                    return 0;
+                }
             }
             return 0;
-        case WM_LBUTTONUP:
-        case WM_LBUTTONDBLCLK:
         case WM_MOUSEWHEEL:
+            if (view != nullptr && view->ready && view->screen) {
+                UINT lines = 3;
+                SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
+                const int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+                int step = 0;
+                if (lines == WHEEL_PAGESCROLL) {
+                    const int page = static_cast<int>(view->pixelHeight) - WindowScrollScale(64, view->dpi);
+                    step = wheelDelta > 0 ? -page : page;
+                } else {
+                    const int line = WindowScrollScale(48, view->dpi);
+                    step = -static_cast<int>(static_cast<long long>(wheelDelta) * static_cast<long long>(lines) * line /
+                                             WHEEL_DELTA);
+                }
+                WindowScrollState bar = view->bar;
+                bar.scrollY = view->scrollY;
+                bar.contentHeight = view->contentHeight;
+                bar.pixelHeight = static_cast<int>(view->pixelHeight);
+                WindowScrollBy(bar, step);
+                view->scrollY = bar.scrollY;
+                view->bar.opacity = 255;
+                view->bar.idle = GetTickCount();
+                SetTimer(window, 2, 50, nullptr);
+                Draw(view);
+            }
+            return 0;
         case WM_KEYDOWN:
             return 0;
         case WM_TIMER:
+            if (view != nullptr && wParam == 2 && view->ready) {
+                bool paint = false;
+                if (view->bar.hold != 0 && GetTickCount() >= view->bar.repeat) {
+                    WindowScrollState bar = view->bar;
+                    bar.scrollY = view->scrollY;
+                    bar.contentHeight = view->contentHeight;
+                    bar.pixelHeight = static_cast<int>(view->pixelHeight);
+                    WindowScrollBy(bar, view->bar.hold * WindowScrollScale(56, view->dpi));
+                    view->scrollY = bar.scrollY;
+                    view->bar.opacity = 255;
+                    view->bar.idle = GetTickCount();
+                    view->bar.repeat = GetTickCount() + 70;
+                    paint = true;
+                }
+                if (view->bar.opacity > 0 && !view->bar.hot && !view->bar.drag && view->bar.hold == 0 &&
+                    GetTickCount() - view->bar.idle > 900) {
+                    const int drop = view->bar.opacity / 6;
+                    view->bar.opacity -= drop < 8 ? 8 : drop;
+                    if (view->bar.opacity < 0) {
+                        view->bar.opacity = 0;
+                    }
+                    paint = true;
+                }
+                if (paint) {
+                    Draw(view);
+                }
+                return 0;
+            }
             if (view != nullptr && view->watched != nullptr && view->watched->watch != nullptr &&
                 view->watched->watch(*view->watched, view->watched->watchUser)) {
                 view->light = view->watched->light;
@@ -309,6 +748,7 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     view.light = options.light;
     view.screen = options.screen;
     view.movable = options.movable;
+    view.document = options.document;
     WindowRunOptions watched = options;
     view.watched = options.watch != nullptr ? &watched : nullptr;
 
@@ -326,7 +766,9 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     const int designHeight = options.screen ? options.height : static_cast<int>(kDesignHeight);
     const int clientWidth = static_cast<int>(designWidth * systemDpi / 96u);
     const int clientHeight = static_cast<int>(designHeight * systemDpi / 96u);
-    const DWORD style = options.screen ? (WS_POPUP | (options.resizable ? WS_THICKFRAME : 0)) : WS_OVERLAPPEDWINDOW;
+    const DWORD style = options.screen
+                            ? (WS_OVERLAPPEDWINDOW & ~(options.resizable ? 0 : WS_THICKFRAME))
+                            : WS_OVERLAPPEDWINDOW;
     RECT bounds{0, 0, clientWidth, clientHeight};
     AdjustWindowRectExForDpi(&bounds, style, FALSE, 0, systemDpi);
     int originX = CW_USEDEFAULT;
@@ -399,6 +841,10 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
         return 1;
     }
     view.ready = true;
+    view.dpi = GetDpiForWindow(window);
+    if (view.dpi == 0) {
+        view.dpi = 96;
+    }
     if (options.screen) {
         std::printf("component Screen\n");
         std::printf("screen place %s %d %d %dx%d\n", options.place.c_str(), originX, originY, clientWidth, clientHeight);

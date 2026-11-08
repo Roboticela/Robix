@@ -2,6 +2,7 @@
 #include "../../../RoboShared/RoboFontPack.hpp"
 
 #include <cstdlib>
+#include <string>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -84,6 +85,9 @@ int gFaceCacheCount = 0;
 
 int RoboWindowsFaceForFont(const RoboFontView* font) {
   if (font == nullptr || font->header == nullptr || gPack == nullptr || gPackBytes < sizeof(RoboFontPackHeader)) {
+    if (font != nullptr && font->header != nullptr && font->header->firstCodepoint <= 4) {
+      return static_cast<int>(font->header->firstCodepoint);
+    }
     return 0;
   }
   for (int index = 0; index < gFaceCacheCount; ++index) {
@@ -112,6 +116,34 @@ int RoboWindowsFaceForFont(const RoboFontView* font) {
   return face;
 }
 
+std::wstring RoboWindowsResolveFont(const wchar_t* relative) {
+  wchar_t exe[MAX_PATH]{};
+  GetModuleFileNameW(nullptr, exe, MAX_PATH);
+  std::wstring roots[2];
+  roots[0].assign(exe);
+  const size_t slash = roots[0].find_last_of(L"\\/");
+  if (slash != std::wstring::npos) {
+    roots[0].resize(slash);
+  }
+  wchar_t cwd[MAX_PATH]{};
+  GetCurrentDirectoryW(MAX_PATH, cwd);
+  roots[1].assign(cwd);
+  for (std::wstring root : roots) {
+    for (int step = 0; step < 8; ++step) {
+      const std::wstring candidate = root + L"\\" + relative;
+      if (GetFileAttributesW(candidate.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        return candidate;
+      }
+      const size_t cut = root.find_last_of(L"\\/");
+      if (cut == std::wstring::npos) {
+        break;
+      }
+      root.resize(cut);
+    }
+  }
+  return relative;
+}
+
 IDWriteFontFace* RoboWindowsOpenFace(int index) {
   if (index < 0 || index > 4 || gFactory == nullptr) {
     return nullptr;
@@ -119,8 +151,10 @@ IDWriteFontFace* RoboWindowsOpenFace(int index) {
   if (gFaces[index] != nullptr) {
     return gFaces[index];
   }
+  static std::wstring resolved[5];
+  resolved[index] = RoboWindowsResolveFont(kFacePaths[index]);
   IDWriteFontFile* file = nullptr;
-  if (FAILED(gFactory->CreateFontFileReference(kFacePaths[index], nullptr, &file)) || file == nullptr) {
+  if (FAILED(gFactory->CreateFontFileReference(resolved[index].c_str(), nullptr, &file)) || file == nullptr) {
     return nullptr;
   }
   IDWriteFontFace* face = nullptr;

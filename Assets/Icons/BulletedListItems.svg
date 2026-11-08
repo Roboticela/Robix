@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <circle stroke="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" cx="6" cy="7" r="1.2" fill="currentColor" />
+  <circle stroke="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" cx="6" cy="12" r="1.2" fill="currentColor" />
+  <circle stroke="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" cx="6" cy="17" r="1.2" fill="currentColor" />
+  <line stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" x1="10" y1="7" x2="19" y2="7" />
+  <line stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" x1="10" y1="12" x2="19" y2="12" />
+  <line stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" x1="10" y1="17" x2="19" y2="17" />
+</svg>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Switch — RefCode/Components/components/Switch.tsx
+  Variants: primary, subtle, outline, ghost, danger.
+  Sizes: sm, md, lg.
+  States: off, on, pressed, disabled, loading.
+  SwitchGroup and SwitchItem are the list row from the same reference.
+-->
+<Component name="Switch">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="label" type="string" required="false" />
+  <Attribute name="variant" type="enum" values="primary|subtle|outline|ghost|danger" default="primary" />
+  <Attribute name="size" type="enum" values="sm|md|lg" default="md" />
+  <Attribute name="checked" type="bool" default="false" />
+  <Attribute name="disabled" type="bool" default="false" />
+  <Attribute name="loading" type="bool" default="false" />
+</Component>

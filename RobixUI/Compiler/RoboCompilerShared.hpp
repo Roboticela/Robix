@@ -33,3 +33,5 @@ int RoboCompilerTakeInlineSerial();
 bool RoboCompilerInlineSvgTaken(const std::string& name);
 void RoboCompilerPutInlineSvg(const std::string& name, const std::string& svg);
 std::string RoboCompilerSvgIconName(const RoboXMLNode& node);
+void RoboCompilerSerializeSvgNode(const RoboXMLNode& node, std::string& out, bool root);
+void RoboCompilerEnsureIcons();

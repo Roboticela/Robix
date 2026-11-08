@@ -1,14 +1,35 @@
 #include "RoboCompilerShared.hpp"
 
 #include "Components/Board/Board.hpp"
+#include "Components/Button/Button.hpp"
 #include "Components/Container/Container.hpp"
+#include "Components/Icon/Icon.hpp"
+#include "Components/IconButton/IconButton.hpp"
 #include "Components/Pane/Pane.hpp"
 #include "Components/Screen/Screen.hpp"
+#include "Components/SegmentedControl/SegmentedControl.hpp"
 #include "Components/Scrollbar/Scrollbar.hpp"
+#include "Components/Svg/Svg.hpp"
+#include "Components/Switch/Switch.hpp"
 #include "Components/Text/Text.hpp"
 
+#include "../RoboShared/RoboIconPack.hpp"
+
+#include <cctype>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 std::string RoboCompilerLower(std::string value) {
     for (char& ch : value) {
@@ -29,7 +50,7 @@ void RoboCompilerAddDiag(RoboCompilerResult& result, RoboCompilerDiagnostic::Sev
 
 void RoboCompilerNoteUsedComponent(const std::string& name) { (void)name; }
 
-void RoboCompilerNoteUsedIcon(const std::string& iconName) { (void)iconName; }
+void RoboCompilerNoteUsedIcon(const std::string& iconName);
 
 std::string RoboCompilerCppEscape(const std::string& value) {
     std::string out;
@@ -167,6 +188,36 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
     if (RoboCompilerIsTextName(name)) {
         return overflowOk && RoboCompilerCheckText(node, path, result);
     }
+    if (RoboCompilerLower(name) == "button") {
+        return overflowOk && RoboCompilerCheckButton(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "iconbutton") {
+        return overflowOk && RoboCompilerCheckIconButton(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "switch") {
+        return overflowOk && RoboCompilerCheckSwitch(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "switchgroup") {
+        return overflowOk && RoboCompilerCheckSwitchGroup(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "switchitem") {
+        return overflowOk && RoboCompilerCheckSwitchItem(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "segmentedcontrol") {
+        return overflowOk && RoboCompilerCheckSegmentedControl(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "segment") {
+        return overflowOk && RoboCompilerCheckSegment(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "segmentedtoolbar") {
+        return overflowOk && RoboCompilerCheckSegmentedToolbar(node, path, result);
+    }
+    if (RoboCompilerLower(name) == "svg") {
+        return overflowOk && RoboCompilerCheckSvg(node, path, result);
+    }
+    if (RoboCompilerIsIconNode(node) || RoboCompilerLower(name) == "icon") {
+        return overflowOk && RoboCompilerCheckIcon(node, path, result);
+    }
     if (RoboCompilerIsScrollbarName(name)) {
         for (const auto& kv : node.attrs) {
             const std::string key = RoboCompilerLower(kv.first);
@@ -186,6 +237,24 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
 }
 
 std::string RoboCompilerEmitChildCpp(const RoboXMLNode& node, const std::string& parentExpr) {
+    if (RoboCompilerLower(node.name) == "button") {
+        return RoboCompilerEmitButtonCpp(node, parentExpr);
+    }
+    if (RoboCompilerLower(node.name) == "iconbutton") {
+        return RoboCompilerEmitIconButtonCpp(node, parentExpr);
+    }
+    if (RoboCompilerLower(node.name) == "switch") {
+        return RoboCompilerEmitSwitchCpp(node, parentExpr, false, false);
+    }
+    if (RoboCompilerLower(node.name) == "switchitem") {
+        return RoboCompilerEmitSwitchCpp(node, parentExpr, true, false);
+    }
+    if (RoboCompilerLower(node.name) == "switchgroup") {
+        return RoboCompilerEmitSwitchGroupCpp(node, parentExpr);
+    }
+    if (RoboCompilerLower(node.name) == "svg" || RoboCompilerIsIconNode(node) || RoboCompilerLower(node.name) == "icon") {
+        return RoboCompilerEmitIconCpp(node, parentExpr);
+    }
     if (RoboCompilerIsTextLike(node)) {
         return RoboCompilerEmitTextCpp(node, parentExpr);
     }
@@ -201,3 +270,192 @@ std::string RoboCompilerEmitChildCpp(const RoboXMLNode& node, const std::string&
     }
     return {};
 }
+
+namespace {
+
+namespace fs = std::filesystem;
+
+struct RoboCompilerIconState {
+    std::vector<uint8_t> catalogBytes;
+    RoboIconCatalogView catalog{};
+    std::unordered_set<std::string> usedIcons;
+    std::unordered_map<std::string, std::string> inlineSvg;
+    std::unordered_map<const RoboXMLNode*, std::string> svgNames;
+    int inlineSerial = 0;
+    bool attempted = false;
+    bool loaded = false;
+};
+
+RoboCompilerIconState gRoboCompilerIcons;
+
+fs::path RoboCompilerFindUpFrom(fs::path dir, const fs::path& relative) {
+    for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
+        std::error_code error;
+        const fs::path candidate = dir / relative;
+        if (fs::exists(candidate, error)) {
+            return candidate;
+        }
+        if (!dir.has_parent_path() || dir.parent_path() == dir) {
+            break;
+        }
+        dir = dir.parent_path();
+    }
+    return {};
+}
+
+fs::path RoboCompilerFindUp(const fs::path& relative) {
+    std::error_code error;
+    fs::path found = RoboCompilerFindUpFrom(fs::current_path(error), relative);
+    if (!found.empty()) {
+        return found;
+    }
+#ifdef _WIN32
+    wchar_t executable[MAX_PATH];
+    const DWORD length = GetModuleFileNameW(nullptr, executable, MAX_PATH);
+    if (length > 0 && length < MAX_PATH) {
+        found = RoboCompilerFindUpFrom(fs::path(executable).parent_path(), relative);
+    }
+#endif
+    return found;
+}
+
+}  // namespace
+
+namespace fs = std::filesystem;
+
+void RoboCompilerNoteUsedIcon(const std::string& iconName) {
+    if (!iconName.empty()) {
+        gRoboCompilerIcons.usedIcons.insert(iconName);
+    }
+}
+
+void RoboCompilerEnsureIcons() {
+    if (gRoboCompilerIcons.attempted) {
+        return;
+    }
+    gRoboCompilerIcons.attempted = true;
+    fs::path catalogPath = RoboCompilerFindUp("Assets/Icons.rpack");
+    if (catalogPath.empty()) {
+        catalogPath = RoboCompilerFindUp("RefCode/Assets/Icons.rpack");
+    }
+    if (catalogPath.empty()) {
+        return;
+    }
+    std::ifstream in(catalogPath, std::ios::binary);
+    if (!in) {
+        return;
+    }
+    gRoboCompilerIcons.catalogBytes.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    if (!RoboIconCatalogValidate(gRoboCompilerIcons.catalogBytes.data(), gRoboCompilerIcons.catalogBytes.size())) {
+        gRoboCompilerIcons.catalogBytes.clear();
+        return;
+    }
+    gRoboCompilerIcons.catalog = RoboIconCatalogMakeView(gRoboCompilerIcons.catalogBytes.data(),
+                                                         static_cast<RoboSize>(gRoboCompilerIcons.catalogBytes.size()));
+    gRoboCompilerIcons.loaded = true;
+}
+
+bool RoboCompilerIconsLoaded() { return gRoboCompilerIcons.loaded; }
+
+bool RoboCompilerIconInCatalog(const char* name) {
+    RoboCompilerEnsureIcons();
+    return name != nullptr && gRoboCompilerIcons.loaded &&
+           RoboIconCatalogFind(gRoboCompilerIcons.catalog, name) != ROBO_NULL;
+}
+
+std::string RoboCompilerCatalogSvg(const char* name) {
+    RoboCompilerEnsureIcons();
+    if (name == nullptr || !gRoboCompilerIcons.loaded) {
+        return {};
+    }
+    const RoboIconCatalogEntry* entry = RoboIconCatalogFind(gRoboCompilerIcons.catalog, name);
+    if (entry == nullptr || entry->svgSize == 0) {
+        return {};
+    }
+    const RoboSize end = static_cast<RoboSize>(entry->svgOffset) + static_cast<RoboSize>(entry->svgSize);
+    if (end > gRoboCompilerIcons.catalogBytes.size()) {
+        return {};
+    }
+    return std::string(reinterpret_cast<const char*>(gRoboCompilerIcons.catalog.bytes + entry->svgOffset), entry->svgSize);
+}
+
+void RoboCompilerBindSvgName(const RoboXMLNode* node, const std::string& name) {
+    gRoboCompilerIcons.svgNames[node] = name;
+}
+
+std::string RoboCompilerLookupSvgName(const RoboXMLNode* node) {
+    const auto named = gRoboCompilerIcons.svgNames.find(node);
+    if (named == gRoboCompilerIcons.svgNames.end()) {
+        return {};
+    }
+    return named->second;
+}
+
+int RoboCompilerTakeInlineSerial() { return ++gRoboCompilerIcons.inlineSerial; }
+
+bool RoboCompilerInlineSvgTaken(const std::string& name) {
+    return gRoboCompilerIcons.inlineSvg.find(name) != gRoboCompilerIcons.inlineSvg.end();
+}
+
+void RoboCompilerPutInlineSvg(const std::string& name, const std::string& svg) {
+    gRoboCompilerIcons.inlineSvg[name] = svg;
+}
+
+std::string RoboCompilerIconNameFromNode(const RoboXMLNode& node) {
+    const std::string n = RoboCompilerLower(node.name);
+    if (n == "icon") {
+        std::string named = RoboXMLAttr(node, "name");
+        if (named.empty()) {
+            named = RoboXMLAttr(node, "icon");
+        }
+        if (named.empty()) {
+            named = RoboXMLAttr(node, "src");
+        }
+        return named;
+    }
+    return node.name;
+}
+
+bool RoboCompilerIsIconNode(const RoboXMLNode& node) {
+    RoboCompilerEnsureIcons();
+    if (!gRoboCompilerIcons.loaded) {
+        return false;
+    }
+    const std::string iconName = RoboCompilerIconNameFromNode(node);
+    if (iconName.empty()) {
+        return false;
+    }
+    const std::string n = RoboCompilerLower(node.name);
+    if (n != "icon" && (n == "screen" || n == "button" || n == "iconbutton" || n == "switch" || n == "switchgroup" ||
+                        n == "switchitem" || n == "segmentedcontrol" || n == "segment" || n == "segmentedtoolbar" ||
+                        n == "container" || n == "board" || n == "text" ||
+                        n == "heading" || n == "body" || n == "caption" || n == "span")) {
+        return false;
+    }
+    return RoboIconCatalogFind(gRoboCompilerIcons.catalog, iconName.c_str()) != ROBO_NULL;
+}
+
+bool RoboCompilerIsIdent(const std::string& value) {
+    if (value.empty() || !(std::isalpha(static_cast<unsigned char>(value[0])) || value[0] == '_')) {
+        return false;
+    }
+    for (char ch : value) {
+        if (!std::isalnum(static_cast<unsigned char>(ch)) && ch != '_') {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string RoboCompilerSvgIconName(const RoboXMLNode& node) {
+    const auto named = gRoboCompilerIcons.svgNames.find(&node);
+    if (named != gRoboCompilerIcons.svgNames.end()) {
+        return named->second;
+    }
+    std::string name = RoboXMLAttr(node, "id");
+    if (name.empty()) {
+        name = RoboXMLAttr(node, "name");
+    }
+    return name;
+}
+

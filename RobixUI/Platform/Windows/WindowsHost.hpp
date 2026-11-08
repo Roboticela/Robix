@@ -16,6 +16,7 @@ struct WindowRunOptions {
     int y = 0;
     std::string place = "center";
     std::string title = "Robix";
+    std::string document;
     bool (*watch)(WindowRunOptions& options, void* user) = nullptr;
     void* watchUser = nullptr;
 };

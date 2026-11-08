@@ -118,8 +118,8 @@ void ApplyScreen(const std::string& document, WindowRunOptions& options) {
         return;
     }
     options.screen = true;
-    options.width = ToInt(Attr(*screen, "width", "640"), 640);
-    options.height = ToInt(Attr(*screen, "height", "400"), 400);
+    options.width = ToInt(Attr(*screen, "width", "960"), 960);
+    options.height = ToInt(Attr(*screen, "height", "640"), 640);
     options.x = ToInt(Attr(*screen, "x", "0"), 0);
     options.y = ToInt(Attr(*screen, "y", "0"), 0);
     options.place = Attr(*screen, "place", "center");
@@ -171,6 +171,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
         options.stayOpen = Has(args, "--dev");
         if (!document.empty()) {
             ApplyScreen(document, options);
+            options.document = document;
         }
         return RunWindowsFoundation(options);
     }

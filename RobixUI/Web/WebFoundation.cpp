@@ -1,6 +1,10 @@
 #include "WebFoundation.hpp"
 
 #include "../Compiler/Components/Board/Board.hpp"
+#include "../Compiler/Components/Button/ButtonWeb.hpp"
+#include "../Compiler/Components/IconButton/IconButtonWeb.hpp"
+#include "../Compiler/Components/Switch/SwitchWeb.hpp"
+#include "../Compiler/Components/SegmentedControl/SegmentedControlWeb.hpp"
 #include "../Compiler/Components/Board/BoardWeb.hpp"
 #include "../Compiler/Components/Container/Container.hpp"
 #include "../Compiler/Components/Container/ContainerWeb.hpp"
@@ -9,6 +13,8 @@
 #include "../Compiler/Components/Caption/CaptionWeb.hpp"
 #include "../Compiler/Components/Eyebrow/EyebrowWeb.hpp"
 #include "../Compiler/Components/Heading/HeadingWeb.hpp"
+#include "../Compiler/Components/Icon/IconWeb.hpp"
+#include "../Compiler/Components/Svg/SvgWeb.hpp"
 #include "../Compiler/Components/Label/LabelWeb.hpp"
 #include "../Compiler/Components/Paragraph/ParagraphWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
@@ -138,8 +144,126 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         }
         return;
     }
+    if (name == "button") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitButton(html, node, library, assets);
+        return;
+    }
+    if (name == "iconbutton") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitIconButton(html, node, library, assets);
+        return;
+    }
+    if (name == "switch") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitSwitch(html, node, library, assets);
+        return;
+    }
+    if (name == "switchitem") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitSwitchItem(html, node, library, assets);
+        return;
+    }
+    if (name == "switchgroup") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        bool warnedVideo = false;
+        RoboWebEmitSwitchGroup(html, node, library, {}, assets, warnedVideo, nullptr, 0);
+        return;
+    }
+    if (name == "segmentedcontrol") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitSegmentedControl(html, node, library, assets);
+        return;
+    }
+    if (name == "segment") {
+        return;
+    }
+    if (name == "segmentedtoolbar") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        bool warnedVideo = false;
+        RoboWebEmitSegmentedToolbar(html, node, library, {}, assets, warnedVideo, nullptr, 0);
+        return;
+    }
+    if (name == "icon" || name == "svg" || RoboCompilerIsIconNode(node)) {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        std::string iconSize = RoboXMLAttr(node, "size");
+        if (iconSize.empty()) {
+            iconSize = RoboXMLAttr(node, "width", "24");
+        }
+        std::string style = RoboWebStyle(node, library);
+        if (!iconSize.empty()) {
+            const std::string sized = CssSize(iconSize);
+            RoboWebAddDecl(style, "width", sized);
+            RoboWebAddDecl(style, "height", sized);
+        }
+        const std::string height = RoboXMLAttr(node, "height");
+        if (!height.empty() && height != iconSize) {
+            RoboWebAddDecl(style, "height", CssSize(height));
+        }
+        html += "<div class=\"";
+        html += name == "svg" ? RoboWebSvgClass() : RoboWebIconClass();
+        html += "\"";
+        const std::string id = RoboXMLAttr(node, "id");
+        if (!id.empty()) {
+            html += " id=\"";
+            html += Escape(id);
+            html += "\"";
+        }
+        if (!style.empty()) {
+            html += " style=\"";
+            html += Escape(style);
+            html += "\"";
+        }
+        html += ">";
+        html += RoboWebIconMarkup(assets, node);
+        if (name != "icon" && name != "svg") {
+            html += RoboWebSvg(assets, node.name);
+        }
+        html += "</div>";
+        return;
+    }
     const char* textTag = RoboWebTextTag(name);
-    const std::string tag = textTag != nullptr ? textTag : "div";
+    const char* tag = textTag != nullptr ? textTag : "div";
+    if (name == "heading") {
+        const std::string level = Lower(RoboXMLAttr(node, "level", "1"));
+        if (level == "2") {
+            tag = "h2";
+        } else if (level == "3") {
+            tag = "h3";
+        } else if (level == "4") {
+            tag = "h4";
+        } else if (level == "5") {
+            tag = "h5";
+        } else if (level == "6") {
+            tag = "h6";
+        } else {
+            tag = "h1";
+        }
+    }
     std::string className;
     if (name == "board") {
         className = RoboWebBoardClass();
@@ -160,6 +284,14 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         if (textClass.empty()) textClass = RoboWebEyebrowClass(name);
         if (textClass.empty()) textClass = RoboWebLabelClass(name);
         className = textClass.empty() ? "robo-" + name : textClass;
+    }
+    if (RoboWebIsTextName(name)) {
+        const std::string typeClass = RoboWebTypeClass(node);
+        if (!typeClass.empty()) {
+            className += " ";
+            className += typeClass;
+        }
+        className += " robo-type";
     }
     html += "<";
     html += tag;
@@ -192,9 +324,23 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         RoboWebContainerAttrs(html, node);
     }
     if (RoboWebIsTextName(name)) {
+        const auto data = [&](const char* key, const char* attrName) {
+            const std::string value = RoboXMLAttr(node, attrName);
+            if (value.empty()) {
+                return;
+            }
+            html += " data-";
+            html += key;
+            html += "=\"";
+            html += Escape(value);
+            html += "\"";
+        };
+        data("size", "size");
+        data("level", "level");
+        data("font", "font");
         RoboWebTextAttrs(html, node);
     }
-    std::string style;
+    std::string style = RoboWebStyle(node, library);
     if (name == "board") {
         const std::string display = Lower(RoboXMLAttr(node, "display", "canvas"));
         RoboWebAddDecl(style, "display", display == "canvas" || display == "flex" ? "flex" : display);
@@ -205,7 +351,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     if (RoboWebIsContainerBox(name)) {
         RoboWebAppendContainerStyle(style, node, library);
     }
-    if (RoboWebIsTextName(name) || RoboWebIsContainerBox(name)) {
+    if (!RoboWebIsContainerBox(name)) {
         RoboWebAppendTextStyle(style, node, library);
     }
     if (!style.empty()) {
@@ -375,14 +521,20 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << ".robo-page{height:100%;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
     css << ".robo-screen:focus,.robo-screen:focus-visible,.robo-page:focus,.robo-page:focus-visible{outline:none;box-shadow:none}\n";
     css << ".robo-page::-webkit-scrollbar{width:0;height:0}\n";
+    css << typeRules.str();
+    css << "@media (max-width:734px){\n" << mobile.str() << "}\n";
     if (hasScreen) {
         RoboWebAppendScreenCss(css);
         RoboWebAppendContainerCss(css);
         RoboWebAppendTextCss(css);
+        RoboWebAppendButtonCss(css);
+        RoboWebAppendIconButtonCss(css);
+        RoboWebAppendSwitchCss(css);
+        RoboWebAppendSegmentedCss(css);
+        RoboWebAppendControlCss(css);
+        RoboWebAppendIconCss(css);
         RoboWebAppendScrollCss(css);
     }
-    css << typeRules.str();
-    css << "@media (max-width:734px){\n" << mobile.str() << "}\n";
 
     std::ostringstream html;
     html << "<!DOCTYPE html><html lang=\"en\" data-theme=\"" << Escape(theme) << "\"><head><meta charset=\"utf-8\">";
@@ -401,19 +553,10 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         if (screenDisplay.empty() && screenDirection.empty()) {
             style += ";display:flex;flex-direction:column";
         }
-        if (!screenDisplay.empty()) {
-            style += ";display:" + screenDisplay;
-        }
-        if (!screenDirection.empty()) {
-            style += ";flex-direction:" + screenDirection;
-        }
-        const std::string screenGap = RoboWebCssValue(library, RoboXMLAttr(screenCopy, "gap"), false);
-        if (!screenGap.empty()) {
-            style += ";gap:" + screenGap;
-        }
-        const std::string screenPadding = RoboWebCssValue(library, RoboXMLAttr(screenCopy, "padding"), false);
-        if (!screenPadding.empty()) {
-            style += ";padding:" + screenPadding;
+        const std::string layout = RoboWebStyle(screenCopy, library);
+        if (!layout.empty()) {
+            style += ";";
+            style += layout;
         }
         if (!width.empty()) {
             style += ";width:" + width;
@@ -453,6 +596,9 @@ Robo.set = function (id, key, value) {
 };
 )JS";
     js += RoboWebScrollScript();
+    js += RoboWebIconButtonScript();
+    js += RoboWebSwitchScript();
+    js += RoboWebSegmentedScript();
     js += "Robo.mount();\n";
 
     if (!WriteText(outRoot / "index.html", html.str()) || !WriteText(outRoot / "app.css", css.str()) ||
@@ -466,4 +612,20 @@ Robo.set = function (id, key, value) {
     return true;
 }
 
+void WebEmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
+    EmitNode(html, node, library);
+}
+
 }  // namespace Robix::UI
+
+void RoboWebEmit(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library,
+                 const std::string& source, const std::filesystem::path& assetsRoot, bool root, bool& warnedVideo,
+                 RoboWebPackage* package, int depth) {
+    (void)source;
+    (void)assetsRoot;
+    (void)root;
+    (void)warnedVideo;
+    (void)package;
+    (void)depth;
+    Robix::UI::WebEmitNode(html, node, library);
+}

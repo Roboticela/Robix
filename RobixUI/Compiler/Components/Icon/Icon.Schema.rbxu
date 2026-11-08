@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Icon — SVG from Assets/Icons.rpack; app build packs only used names into Icons.pack.
+  Usage: <Home size="32" fill="#FFFFFF" stroke="#A8C4FF" />
+         <Icon name="Settings" size="28" accent="#FFD700" />
+  Slot colors match #ROBO_FILL / #ROBO_STROKE / #ROBO_ACCENT (or var(--robo-*)) in the SVG.
+-->
+
+<Component name="Icon">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="name" type="string" required="false" description="when tag is <Icon>; else tag name is the icon" />
+  <Attribute name="size" type="int" default="24" />
+  <Attribute name="minWidth" type="size" required="false" />
+  <Attribute name="minHeight" type="size" required="false" />
+  <Attribute name="maxWidth" type="size" required="false" />
+  <Attribute name="maxHeight" type="size" required="false" />
+  <Attribute name="width" type="size" required="false" />
+  <Attribute name="height" type="size" required="false" />
+  <Attribute name="x" type="int" default="0" />
+  <Attribute name="y" type="int" default="0" />
+  <Attribute name="opacity" type="int" required="false" description="0..100" />
+  <Attribute name="color" type="color" required="false" description="alias for fill" />
+  <Attribute name="fill" type="color" required="false" />
+  <Attribute name="stroke" type="color" required="false" />
+  <Attribute name="accent" type="color" required="false" />
+  <Attribute name="strokeWidth" type="float" required="false" description="reserved; SVG default used at cook" />
+  <Attribute name="position" type="enum" values="relative|absolute|fixed" default="relative" />
+  <Attribute name="inset" type="string" required="false" />
+  <Attribute name="left" type="int" required="false" />
+  <Attribute name="top" type="int" required="false" />
+  <Attribute name="right" type="int" required="false" />
+  <Attribute name="bottom" type="int" required="false" />
+  <Attribute name="margin" type="int" required="false" />
+  <Attribute name="flex" type="int" required="false" aliases="flexGrow|grow" />
+  <Attribute name="alignSelf" type="enum" values="auto|start|center|end|stretch" default="auto" />
+  <Attribute name="order" type="int" default="0" />
+  <Attribute name="display" type="enum" values="flex|grid|stack|canvas" required="false" />
+  <Attribute name="direction" type="enum" values="row|column|row-reverse|column-reverse" required="false" aliases="flexDirection" />
+  <Attribute name="justify" type="enum" values="start|center|end|space-between|space-around|space-evenly" required="false" aliases="justifyContent" />
+  <Attribute name="alignItems" type="enum" values="start|center|end|stretch" required="false" />
+  <Attribute name="justifyItems" type="enum" values="start|center|end|stretch" required="false" />
+  <Attribute name="columns" type="int" required="false" />
+  <Attribute name="rows" type="int" required="false" />
+  <Attribute name="gap" type="int" required="false" />
+  <Attribute name="gridColumn" type="string" required="false" />
+  <Attribute name="gridRow" type="string" required="false" />
+  <Child name="none" max="0" />
+</Component>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Screen name="DevKit" description="Every component" theme="dark" display="flex" direction="column" align="stretch" gap="space-5" padding="space-4">
   <Eyebrow id="devkitEyebrow" font="sans">DevKit</Eyebrow>
-  <Heading id="devkitTitle" level="1" font="sans-semibold">Something else</Heading>
+  <Heading id="devkitTitle" level="1" font="sans-semibold">Components</Heading>
   <Body id="devkitIntro" font="sans">Each block below is one component.</Body>
 
   <Container id="buttonDemo" display="flex" direction="column" align="stretch" gap="space-4">

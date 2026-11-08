@@ -59,12 +59,13 @@ void RoboWebAppendTextCss(std::ostream& css) {
     css << ".robo-type-h5{font-size:19px;font-weight:600;line-height:1.26}\n";
     css << ".robo-type-h6{font-size:17px;font-weight:600;line-height:1.29}\n";
     css << ".robo-type-label{font-size:17px;line-height:1.35}\n";
-    css << ".robo-type-subhead,.robo-type-body,.robo-type-body-lg{color:var(--robo-text,var(--text-secondary))}\n";
-    css << ".robo-type-caption,.robo-type-eyebrow{color:var(--robo-text,var(--text-tertiary))}\n";
-    css << ".robo-type-display,.robo-type-h1,.robo-type-h2,.robo-type-h3,.robo-type-h4,.robo-type-h5,.robo-type-h6,.robo-heading{color:var(--robo-heading,var(--robo-text,var(--text-primary)))}\n";
+    css << ".robo-type.robo-type-subhead,.robo-type.robo-type-body,.robo-type.robo-type-body-lg{color:var(--robo-text,var(--text-secondary))}\n";
+    css << ".robo-type.robo-type-caption,.robo-type.robo-type-eyebrow{color:var(--robo-text,var(--text-tertiary))}\n";
+    css << ".robo-type.robo-type-display,.robo-type.robo-type-h1,.robo-type.robo-type-h2,.robo-type.robo-type-h3,.robo-type.robo-type-h4,.robo-type.robo-type-h5,.robo-type.robo-type-h6,.robo-type.robo-heading{color:var(--robo-heading,var(--robo-text,var(--text-primary)))}\n";
+    css << ".robo-type.robo-type-label{color:var(--robo-text,var(--text-primary))}\n";
     css << ".robo-body[data-size=\"sm\"],.robo-body[data-size=\"small\"],.robo-type-body[data-size=\"sm\"],.robo-type-body[data-size=\"small\"]{font-size:17px;line-height:1.47}\n";
     css << ".robo-type-eyebrow{text-transform:uppercase}\n";
-    css << ".robo-type{font-family:var(--robo-font,inherit);color:var(--robo-text,inherit)}\n";
+    css << ".robo-type{font-family:var(--robo-font,inherit)}\n";
     css << ".robo-type[style*=\"--robo-heading\"] :is(h1,h2,h3,h4,h5,h6,.robo-heading){color:var(--robo-heading)}\n";
     css << ".robo-type[style*=\"--robo-paragraph\"] :is(p,.robo-body,.robo-paragraph){color:var(--robo-paragraph)}\n";
     css << ".robo-type[style*=\"--robo-link\"] a{color:var(--robo-link)}\n";
