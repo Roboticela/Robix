@@ -207,10 +207,7 @@ int RunProjectServices(const std::vector<std::string>& args, const std::string& 
         return 1;
     }
     std::vector<std::string> names = ServiceNames(root);
-    if (positionals.empty()) {
-        std::cerr << "robix run: name a client, a server, or all.\n";
-        return 1;
-    }
+    if (positionals.empty()) positionals.push_back("all");
     if (positionals[0] == "client" || positionals[0] == "server") {
         if (positionals.size() < 2) {
             std::cerr << "robix run: " << positionals[0] << " needs a name.\n";

@@ -32,9 +32,11 @@ static void PrintHelp() {
         << "USAGE:\n"
         << "    robix <command> [arguments]\n\n"
         << "COMMANDS:\n"
+        << "    run                                 Run the project in this folder\n"
         << "    run <file.rbx> [more.rbx] [--target windows|linux|macos|android|ios|web] [--image]\n"
-        << "                                    Application runs on a platform. Bedrock builds an image.\n"
-        << "                                    Canvas runs one file or many, on a platform or as an image.\n"
+        << "                                    Run only the named file or files.\n"
+        << "    run all                             Run every program in the folder, one by one\n"
+        << "    run <folder>                        Run that project folder\n"
         << "    run <screen.rbxu> [--target web|windows] [--watch] [--port N]\n"
         << "                                    Interpret a screen on the host platform or web.\n"
         << "    run all [--separate]                Run every network client and server\n"
@@ -241,6 +243,74 @@ int main(int argc, char* argv[]) {
         }
         const std::string targetKey = Robix::UI::NormalizeTarget(runTarget);
         const bool direct = image || Robix::Tools::IsDirectName(targetKey) || Robix::Tools::IsDirectName(runTarget);
+        bool resolvedProject = false;
+        if (runFiles.empty() && targetKey != "web") {
+            const int services = Robix::Tools::RunProjectServices(args, toolDir);
+            if (services >= 0) return services;
+        }
+        std::error_code runError;
+        const bool runFolder = runInput.empty() || runInput == "all" || fs::is_directory(runInput, runError);
+        if (runFiles.empty() && runFolder) {
+            const Robix::Tools::ProjectRun choice =
+                Robix::Tools::ChooseProjectRun(runInput == "all" ? fs::path{} : fs::path(runInput), runInput == "all");
+            if (choice.mode == Robix::Tools::ProjectRun::Mode::Network && targetKey == "web") {
+                std::cout << "platform: web" << std::endl;
+                if (!choice.buildFile.empty()) std::cout << "rbxb: " << choice.buildFile.string() << std::endl;
+                if (choice.ui.empty()) {
+                    std::cerr << "error: the build file has no UI screen, so this project cannot run for web.\n";
+                    return 1;
+                }
+                std::cout << "screen: " << choice.ui.front().string() << std::endl;
+                return Robix::UI::RunInterpreter(choice.ui.front().string(), "web", true, port, toolDir);
+            }
+            if (choice.mode == Robix::Tools::ProjectRun::Mode::Network) {
+                std::vector<std::string> serviceArgs = { "run", "all" };
+                for (const std::string& arg : args) {
+                    if (arg == "--separate" || arg == "--listen") serviceArgs.push_back(arg);
+                }
+                const fs::path previous = fs::current_path();
+                if (!choice.root.empty()) fs::current_path(choice.root);
+                const int services = Robix::Tools::RunProjectServices(serviceArgs, toolDir);
+                fs::current_path(previous);
+                return services < 0 ? 1 : services;
+            }
+            if (choice.mode == Robix::Tools::ProjectRun::Mode::Absent) {
+                const bool folderScreen = !runInput.empty() && runInput != "all" && fs::is_directory(runInput, runError);
+                if (!folderScreen) {
+                    std::cerr << choice.error;
+                    return 1;
+                }
+            } else {
+                runFiles.clear();
+                for (const fs::path& file : choice.files) runFiles.push_back(file.string());
+                runInput = runFiles.front();
+                resolvedProject = true;
+                if (choice.mode == Robix::Tools::ProjectRun::Mode::Project) {
+                    const std::string platform = targetSet ? targetKey : Robix::UI::HostTarget();
+                    std::cout << "platform: " << platform << std::endl;
+                    if (!choice.buildFile.empty()) {
+                        std::cout << "rbxb: " << choice.buildFile.string() << std::endl;
+                        std::cout << "order:";
+                        const std::vector<fs::path>& listed = choice.order.empty() ? choice.files : choice.order;
+                        for (const fs::path& file : listed) std::cout << " " << file.lexically_relative(choice.root).string();
+                        std::cout << std::endl;
+                    }
+                    if (!choice.ui.empty() && (platform == "web" || platform == Robix::UI::HostTarget())) {
+                        std::cout << "screen: " << choice.ui.front().string() << std::endl;
+                        if (platform == "web") {
+                            return Robix::UI::RunInterpreter(choice.ui.front().string(), "web", true, port, toolDir);
+                        }
+                        std::cout << "The window stays open until you close it." << std::endl;
+                        return Robix::UI::RunInterpreter(choice.ui.front().string(), platform, true, port, toolDir);
+                    }
+                    if (platform == "web") {
+                        std::cerr << "error: the build file has no UI screen, so this project cannot run for web.\n";
+                        return 1;
+                    }
+                    std::cout << "project: " << runInput << std::endl;
+                }
+            }
+        }
         const std::string extension = fs::path(runInput).extension().string();
         const bool screen = extension == ".rbxu" || extension == ".xml" ||
                             (fs::is_directory(runInput) && runInput != "all");
@@ -349,9 +419,10 @@ int main(int argc, char* argv[]) {
             std::cerr << "error: this machine interprets windows and web. '" << targetKey << "' was not started.\n";
             return 1;
         }
-        if (!runFiles.empty() && runFiles.size() > 1) {
+        if (!runFiles.empty() && (runFiles.size() > 1 || resolvedProject)) {
             int status = 0;
             for (const std::string& file : runFiles) {
+                if (runFiles.size() > 1) std::cout << file << "\n";
                 auto interpreted = Robix::Tools::RobixCLIDispatcher::ExecuteCommand(
                     Robix::Tools::CLIBinaryKind::RobixUnifiedCLI, { "run", file });
                 if (!interpreted.stdoutText.empty()) std::cout << interpreted.stdoutText;
@@ -360,8 +431,6 @@ int main(int argc, char* argv[]) {
             }
             return status;
         }
-        const int services = Robix::Tools::RunProjectServices(args, toolDir);
-        if (services >= 0) return services;
     }
 
     if (cmd == "test") {

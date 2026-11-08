@@ -272,6 +272,157 @@ fs::path StampPath(const fs::path& source) {
 
 } // namespace
 
+bool IsTestSource(const fs::path& file) {
+    const std::string stem = file.stem().string();
+    return stem.size() > 5 && stem.ends_with(".test");
+}
+
+bool SkipProjectDir(const std::string& name) {
+    return name == "Build" || name == "Packages" || name == "Tests" || name == ".git";
+}
+
+void CollectPrograms(const fs::path& dir, int depth, std::vector<fs::path>& files) {
+    if (depth > 5) return;
+    std::error_code ec;
+    if (!fs::is_directory(dir, ec)) return;
+    for (const auto& entry : fs::directory_iterator(dir, ec)) {
+        if (entry.is_directory(ec)) {
+            if (SkipProjectDir(entry.path().filename().string())) continue;
+            CollectPrograms(entry.path(), depth + 1, files);
+            continue;
+        }
+        if (entry.path().extension() == ".rbx" && !IsTestSource(entry.path())) files.push_back(entry.path());
+    }
+}
+
+fs::path EntryInProject(const fs::path& root, const std::vector<fs::path>& files) {
+    std::error_code ec;
+    if (fs::is_directory(root, ec)) {
+        for (const auto& entry : fs::directory_iterator(root, ec)) {
+            if (entry.path().extension() != ".rbxb") continue;
+            const RbxbPlan plan = ReadRbxb(entry.path());
+            if (!plan.ok || plan.source.empty()) continue;
+            fs::path source(plan.source);
+            if (source.is_relative()) source = root / source;
+            if (fs::is_regular_file(source, ec)) return source;
+        }
+    }
+    const char* names[] = { "Source/Program.rbx", "Source/Main.rbx", "Source/Start.rbx",
+                            "Program.rbx", "Main.rbx", "Start.rbx" };
+    for (const char* name : names) {
+        const fs::path candidate = root / name;
+        if (fs::is_regular_file(candidate, ec)) return candidate;
+    }
+    if (files.size() == 1) return files.front();
+    return {};
+}
+
+void AttachBuild(ProjectRun& run) {
+    std::error_code ec;
+    if (!fs::is_directory(run.root, ec)) return;
+    for (const auto& entry : fs::directory_iterator(run.root, ec)) {
+        if (entry.path().extension() != ".rbxb") continue;
+        const RbxbPlan plan = ReadRbxb(entry.path());
+        if (!plan.ok) continue;
+        run.buildFile = entry.path();
+        run.output = plan.output;
+        run.profile = plan.profile;
+        run.entrySymbol = plan.entry;
+        const std::vector<std::string>& listed = plan.order.empty() ? plan.sources : plan.order;
+        for (const std::string& item : listed) {
+            fs::path source(item);
+            if (source.is_relative()) source = run.root / source;
+            if (fs::is_regular_file(source, ec)) run.order.push_back(source);
+        }
+        if (run.order.empty() && !plan.source.empty()) {
+            fs::path source(plan.source);
+            if (source.is_relative()) source = run.root / source;
+            if (fs::is_regular_file(source, ec)) run.order.push_back(source);
+        }
+        for (const std::string& item : plan.ui) {
+            fs::path screen(item);
+            if (screen.is_relative()) screen = run.root / screen;
+            if (fs::is_regular_file(screen, ec)) run.ui.push_back(screen);
+        }
+        return;
+    }
+}
+
+bool ProjectHere(const fs::path& dir, ProjectFile& project) {
+    std::error_code ec;
+    if (!fs::is_directory(dir, ec)) return false;
+    for (const auto& entry : fs::directory_iterator(dir, ec)) {
+        if (entry.path().extension() == ".rbxproj") return FindProject(entry.path(), project);
+    }
+    return false;
+}
+
+ProjectRun ChooseProjectRun(const fs::path& folder, bool eachFile, bool services) {
+    ProjectRun run;
+    const fs::path start = folder.empty() ? fs::current_path() : folder;
+    ProjectFile project;
+    const bool namedFolder = !folder.empty();
+    const bool have = namedFolder ? ProjectHere(start, project) : FindProject(start, project);
+    if (services && have && project.network) {
+        std::error_code ec;
+        const bool thisFolder = !namedFolder || (fs::exists(start, ec) && fs::equivalent(start, project.directory, ec));
+        if (thisFolder || eachFile) {
+            run.mode = ProjectRun::Mode::Network;
+            run.root = project.directory;
+            AttachBuild(run);
+            return run;
+        }
+    }
+    const fs::path root = have ? project.directory : start;
+    std::error_code ec;
+    if (!fs::is_directory(root, ec)) {
+        run.error = "robix: '" + start.string() + "' is not a project folder.\n";
+        return run;
+    }
+    if (!have) {
+        bool any = false;
+        for (const auto& entry : fs::directory_iterator(root, ec)) {
+            if (entry.path().extension() == ".rbx" && !IsTestSource(entry.path())) any = true;
+            if (entry.path().filename() == "Source" && entry.is_directory(ec)) any = true;
+        }
+        if (!any) {
+            run.error = "robix: '" + root.string() + "' has no project and no program.\n";
+            return run;
+        }
+    }
+    std::vector<fs::path> files;
+    if (have) CollectPrograms(root, 0, files);
+    else {
+        for (const auto& entry : fs::directory_iterator(root, ec)) {
+            if (entry.path().extension() == ".rbx" && !IsTestSource(entry.path())) files.push_back(entry.path());
+        }
+        if (fs::is_directory(root / "Source", ec)) CollectPrograms(root / "Source", 0, files);
+    }
+    std::sort(files.begin(), files.end());
+    if (eachFile) {
+        if (files.empty()) {
+            run.error = "robix: '" + root.string() + "' has no programs to run.\n";
+            return run;
+        }
+        run.mode = ProjectRun::Mode::Each;
+        run.root = root;
+        run.files = std::move(files);
+        return run;
+    }
+    const fs::path entry = EntryInProject(have ? root : root, files);
+    if (entry.empty()) {
+        run.error = files.empty()
+                        ? "robix: '" + root.string() + "' has no .rbx program.\n"
+                        : "robix: this folder has more than one program. Name a file, or run all.\n";
+        return run;
+    }
+    run.mode = ProjectRun::Mode::Project;
+    run.root = root;
+    AttachBuild(run);
+    run.files.push_back(entry);
+    return run;
+}
+
 bool FindProject(const fs::path& start, ProjectFile& project) {
     std::error_code ec;
     fs::path cursor = fs::absolute(start, ec);

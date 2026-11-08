@@ -41,6 +41,29 @@ std::string MissingTestMessage(const std::filesystem::path& start);
 
 bool FindProject(const std::filesystem::path& start, ProjectFile& project);
 
+// How `run` and `robixc` choose sources.
+// Project: the folder is one program, so the build file's source (or the only program) is used.
+// Each: every program in the folder, one by one. Tests, Build, and Packages are skipped.
+// Network: the folder is a network project, so its clients and servers run.
+// Absent: nothing in the folder can be chosen. `error` says why.
+struct ProjectRun {
+    enum class Mode { Project, Each, Network, Absent };
+    Mode mode = Mode::Absent;
+    std::filesystem::path root;
+    std::filesystem::path buildFile;
+    std::vector<std::filesystem::path> files;
+    std::vector<std::filesystem::path> ui;
+    std::vector<std::filesystem::path> order;
+    std::string output = "Executable";
+    std::string profile;
+    std::string entrySymbol;
+    std::string error;
+};
+
+// `folder` empty means the current directory. `eachFile` selects every program.
+// `services` is for `robix run` on a network project. The compiler passes false.
+ProjectRun ChooseProjectRun(const std::filesystem::path& folder, bool eachFile, bool services = true);
+
 RbxbPlan ReadRbxb(const std::filesystem::path& file);
 std::string ExplainRbxb(const RbxbPlan& plan);
 

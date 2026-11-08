@@ -170,7 +170,7 @@ The default typeface is [Inter](https://github.com/rsms/inter), under the SIL Op
 
 | Command | What it does |
 | --- | --- |
-| `robix run File.rbx` | Interpret a program |
+| `robix run` | Run the project in this folder. A file name runs only that file. `all` runs every program, one by one |
 | `robix run --engine native` | Run through the native compiler |
 | `robix repl` | Interactive line, same parser and type checker |
 | `robix new` | Create a project |
@@ -183,7 +183,7 @@ The default typeface is [Inter](https://github.com/rsms/inter), under the SIL Op
 | `robix lsp` | Language server. The editor extension is `Editors/vscode` |
 | `robix ui validate` | Check a `.rbxu` document and its event bindings |
 | `robix ui window` / `robix ui web` | Show a screen on Windows or write the web page |
-| `robixc -O3 File.rbx -o App` | Native executable |
+| `robixc` | Compile the project. A file name compiles only that file. `all` compiles every program, one by one. `robixc run` also runs it |
 | `robixc --emit-llvm` | Keep the LLVM IR |
 | `robixc --image` | Freestanding machine image |
 | `robixc --profile performance` | Also `release`, `debug`, `realtime`, `safety`, `size`, `embedded` |

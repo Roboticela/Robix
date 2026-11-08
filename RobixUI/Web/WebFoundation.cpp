@@ -36,16 +36,23 @@
 #include <utility>
 #include <vector>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 namespace fs = std::filesystem;
 
 namespace Robix::UI {
 namespace {
 
-fs::path FindUp(const fs::path& relative) {
-    fs::path dir = fs::current_path();
-    for (int depth = 0; depth < 8; ++depth) {
+fs::path FindUpFrom(fs::path dir, const fs::path& relative) {
+    for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
+        std::error_code error;
         const fs::path candidate = dir / relative;
-        if (fs::exists(candidate)) {
+        if (fs::exists(candidate, error)) {
             return candidate;
         }
         if (!dir.has_parent_path() || dir.parent_path() == dir) {
@@ -54,6 +61,22 @@ fs::path FindUp(const fs::path& relative) {
         dir = dir.parent_path();
     }
     return {};
+}
+
+fs::path FindUp(const fs::path& relative) {
+    std::error_code error;
+    fs::path found = FindUpFrom(fs::current_path(error), relative);
+    if (!found.empty()) {
+        return found;
+    }
+#ifdef _WIN32
+    wchar_t executable[MAX_PATH];
+    const DWORD length = GetModuleFileNameW(nullptr, executable, MAX_PATH);
+    if (length > 0 && length < MAX_PATH) {
+        found = FindUpFrom(fs::path(executable).parent_path(), relative);
+    }
+#endif
+    return found;
 }
 
 std::string ReadText(const fs::path& path) {

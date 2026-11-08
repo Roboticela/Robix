@@ -16,6 +16,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <shellapi.h>
 #pragma comment(lib, "ws2_32.lib")
 #endif
 
@@ -137,10 +138,13 @@ void ServeWeb(const fs::path& root, const fs::path& document, int port, bool wat
         WSACleanup();
         return;
     }
-    std::cout << "interpreter: web http://127.0.0.1:" << port << "/\n";
+    const std::string url = "http://127.0.0.1:" + std::to_string(port) + "/";
+    std::cout << "interpreter: web " << url << "\n";
     std::cout << "interpreter: cache " << root.string() << "\n";
     if (watch) {
-        std::cout << "interpreter: watching " << document.string() << "\n";
+        std::cout << "The page stays open. Press Ctrl+C to stop.\n";
+        std::wstring wide(url.begin(), url.end());
+        ShellExecuteW(nullptr, L"open", wide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
     auto seen = StampOf(document);
     u_long nonblock = 1;

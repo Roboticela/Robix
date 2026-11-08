@@ -20,9 +20,13 @@ static void PrintHelp() {
         << "Robix Native Compiler (robixc) - Production Native Toolchain\n"
         << "Roboticela Software Architecture\n\n"
         << "USAGE:\n"
-        << "    robixc <file.rbx> [options]\n"
+        << "    robixc                        Compile the project in this folder\n"
+        << "    robixc <file.rbx> [options]   Compile only that file\n"
+        << "    robixc all                    Compile every program in the folder, one by one\n"
+        << "    robixc run                    Compile and run the project\n"
+        << "    robixc run <file.rbx>         Compile and run only that file\n"
+        << "    robixc run all                Compile and run every program, one by one\n"
         << "    robixc build <file.rbx> [-o <out.exe>]\n"
-        << "    robixc run <file.rbx> [--native | --vm]\n"
         << "    robixc test [file.test.rbx]\n"
         << "    robixc --emit-llvm <file.rbx>\n\n"
         << "OPTIONS:\n"
@@ -185,17 +189,22 @@ static bool LoadRobixBuild(const fs::path& rbxb, std::string& sourcePath, Robix:
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        PrintHelp();
-        return 0;
-    }
-
     std::vector<std::string> args;
-    for (int i = 1; i < argc; ++i) {
-        args.emplace_back(argv[i]);
+    if (argc < 2) {
+        const Robix::Tools::ProjectRun project = Robix::Tools::ChooseProjectRun({}, false, false);
+        if (project.mode != Robix::Tools::ProjectRun::Mode::Project) {
+            if (!project.error.empty() && project.error.find("no project and no program") == std::string::npos) {
+                std::cerr << project.error;
+                return 1;
+            }
+            PrintHelp();
+            return 0;
+        }
+    } else {
+        for (int i = 1; i < argc; ++i) args.emplace_back(argv[i]);
     }
 
-    const std::string& first = args[0];
+    const std::string first = args.empty() ? std::string{} : args[0];
     if (first == "--help" || first == "-h" || first == "help") {
         PrintHelp();
         return 0;
@@ -315,10 +324,68 @@ int main(int argc, char* argv[]) {
         return res.exitCode;
     }
 
-    if (inputFilePath.empty()) {
-        std::cerr << "robixc: error: no input file specified.\n";
-        return 1;
+    std::vector<std::string> jobs;
+    const bool eachFile = inputFilePath == "all";
+    std::error_code inputKind;
+    Robix::Tools::ProjectRun project;
+    const bool projectCommand = inputFilePath.empty() || eachFile || fs::is_directory(inputFilePath, inputKind);
+    if (projectCommand) {
+        project = Robix::Tools::ChooseProjectRun(eachFile ? fs::path{} : fs::path(inputFilePath), eachFile, false);
+        if (project.mode != Robix::Tools::ProjectRun::Mode::Project &&
+            project.mode != Robix::Tools::ProjectRun::Mode::Each) {
+            std::cerr << (project.error.empty() ? "robixc: this folder has no program.\n" : project.error);
+            return 1;
+        }
+        if (project.mode == Robix::Tools::ProjectRun::Mode::Project) {
+            const std::string platform = cliTarget.empty() ? Robix::UI::HostTarget() : Robix::UI::NormalizeTarget(cliTarget);
+            std::cout << "platform: " << platform << std::endl;
+            if (!project.buildFile.empty()) {
+                std::cout << "rbxb: " << project.buildFile.string() << std::endl;
+                std::cout << "order:";
+                const std::vector<fs::path>& listed = project.order.empty() ? project.files : project.order;
+                for (const fs::path& file : listed) std::cout << " " << file.lexically_relative(project.root).string();
+                std::cout << std::endl;
+            }
+            if (platform == "web") {
+                if (project.ui.empty()) {
+                    std::cerr << "error: the build file has no UI screen, so this project cannot run for web.\n";
+                    return 1;
+                }
+                std::cout << "screen: " << project.ui.front().string() << std::endl;
+                return Robix::UI::CompileProduction(project.ui.front().string(), { "web" }, toolDir);
+            }
+            if (cliTarget.empty() && !cliImage && (project.output == "Kernel" || project.output == "Firmware")) {
+                std::string sourcePath;
+                std::string rbxbError;
+                if (!LoadRobixBuild(project.buildFile, sourcePath, options, rbxbError)) {
+                    std::cerr << rbxbError;
+                    return 1;
+                }
+                inputFilePath = sourcePath;
+                executeAfterBuild = false;
+            } else if (cliTarget.empty() && !cliImage) {
+                if (!project.profile.empty() && options.profileName.empty()) {
+                    options.profileName = project.profile;
+                    if (project.profile == "debug" || project.profile == "safety") options.release = false;
+                    if (project.profile == "embedded") options.freestanding = true;
+                }
+                if (!project.entrySymbol.empty() && options.entrySymbol.empty()) options.entrySymbol = project.entrySymbol;
+            }
+            std::cout << "project: " << project.files.front().string() << std::endl;
+        }
+        if (project.files.size() > 1 && !options.outputPath.empty()) {
+            std::cerr << "robixc: -o names one program. Leave it out to compile each file.\n";
+            return 1;
+        }
+        for (const fs::path& file : project.files) jobs.push_back(file.string());
+    } else {
+        jobs.push_back(inputFilePath);
     }
+    const std::string requestedOutput = options.outputPath;
+    for (const std::string& job : jobs) {
+        inputFilePath = job;
+        options.outputPath = jobs.size() > 1 ? std::string{} : requestedOutput;
+        if (jobs.size() > 1) std::cout << inputFilePath << std::endl;
     {
         std::error_code inputError;
         const fs::path inputPath(inputFilePath);
@@ -469,16 +536,16 @@ int main(int argc, char* argv[]) {
 
     if (options.emitLLVMOnly) {
         std::cout << "robixc: generated LLVM IR: " << buildResult.llvmIRPath << "\n";
-        return 0;
+        continue;
     }
 
-    std::cout << "robixc: compiled successfully -> " << buildResult.executablePath << "\n";
+    std::cout << "robixc: compiled successfully -> " << buildResult.executablePath << std::endl;
 
     if (executeAfterBuild) {
-        int runCode = std::system(buildResult.executablePath.c_str());
-        return runCode;
+        const int runCode = std::system(("\"" + buildResult.executablePath + "\"").c_str());
+        if (runCode != 0) return runCode;
     }
-
+    }
     return 0;
 }
 
