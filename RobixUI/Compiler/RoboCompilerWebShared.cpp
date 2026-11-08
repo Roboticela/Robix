@@ -317,7 +317,7 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     RoboWebAddDecl(style, "margin-right", length(attr("marginRight")));
     RoboWebAddDecl(style, "margin-bottom", length(attr("marginBottom")));
     RoboWebAddDecl(style, "margin-left", length(attr("marginLeft")));
-    RoboWebAddDecl(style, "border-radius", length(attr("radius")));
+    RoboWebAddDecl(style, "border-radius", length(first("radius", "borderRadius")));
     RoboWebAddDecl(style, "background", RoboWebCssValue(library, attr("background"), true));
     RoboWebAddDecl(style, "color", RoboWebCssValue(library, attr("color"), true));
     const std::string border = attr("border");

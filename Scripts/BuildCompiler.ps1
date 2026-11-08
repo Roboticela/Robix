@@ -75,7 +75,7 @@ $mains = @(
 )
 $linkLibs = @(
     "-lws2_32", "-lsecur32", "-lcrypt32", "-luser32", "-lgdi32", "-lshell32",
-    "-ldwrite", "-ld3d11", "-ldxgi", "-lole32", "-lwinhttp", "-liphlpapi"
+    "-ldwrite", "-ld3d11", "-ldxgi", "-lole32", "-loleaut32", "-lwindowscodecs", "-lwinhttp", "-liphlpapi"
 )
 foreach ($main in $mains) {
     $source = Join-Path $Root $main.Source

@@ -1097,7 +1097,7 @@ Components, data, and small logic are expanded when the screen is built. `Import
 
 `{...}` can use a name, `record.Field`, text in quotes, numbers, `true`, `false`, `+`, `-`, `*`, `/`, `==`, `!=`, `>`, `<`, `>=`, `<=`, `&&`, `||`, and `!`. `For` also accepts a comma list, `In="Ali, Ahmed, Sara"`. `Let` names a value for its children. `Data` with `Value` stores one value. A `For` stops at 1000 items. A component name cannot be a built-in element name. These steps run while the document is expanded, so the drawn screen contains the repeated elements.
 
-Motion attributes work on every visual element: `Window`, `Screen`, `Page`, `Board`, `Column`, `Row`, `Container`, `Text`, `Heading`, `Subhead`, `Body`, `Paragraph`, `Caption`, `Eyebrow`, `Label`, `Button`, `IconButton`, `Switch`, `SwitchGroup`, `SwitchItem`, `SegmentedControl`, `SegmentedToolbar`, `Icon`, and `Svg`.
+Motion attributes work on every visual element: `Window`, `Screen`, `Page`, `Board`, `Column`, `Row`, `Container`, `Text`, `Heading`, `Subhead`, `Body`, `Paragraph`, `Caption`, `Eyebrow`, `Label`, `Button`, `IconButton`, `Switch`, `SwitchGroup`, `SwitchItem`, `SegmentedControl`, `SegmentedToolbar`, `Icon`, `Svg`, and `Image`.
 
 ```xml
 <Button Text="Go" Animate="fade-up" WhileHover="lift" WhileTap="press" Transition="duration:400 ease:spring"/>
@@ -1124,6 +1124,7 @@ Component schemas under `RobixUI/Compiler/Components` add these elements and att
 | `Switch` | checked state, `aria-checked` on the web page |
 | `SegmentedControl` | selected segment |
 | `Text`, `Heading`, `Subhead`, `Body`, `Paragraph`, `Caption`, `Eyebrow`, `Label` | shared text renderer. A `Span` carries a color |
+| `Image` | web picture. `source` (`src`), `alt`, `load` (`content` with the page, `ready` after the page loads, `lazy` near the viewport), `resize` (`false` keeps one file). Web compilation writes smaller widths and a `srcset`. The interpreter copies the original file and does not resize. The Windows window does not paint it |
 | `Icon`, `Svg` | icon and SVG children |
 | `Scrollbar` | scrollbar schema |
 

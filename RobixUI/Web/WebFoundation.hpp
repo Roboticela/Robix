@@ -11,5 +11,7 @@ std::string AssetsFontsRoot();
 bool WriteWebFoundation(const std::filesystem::path& outRoot, const std::filesystem::path& document, std::string& error);
 bool WriteWebFoundation(const std::filesystem::path& outRoot, const std::filesystem::path& document, std::string& error,
                        const std::string& programScript);
+bool WriteWebFoundation(const std::filesystem::path& outRoot, const std::filesystem::path& document, std::string& error,
+                       const std::string& programScript, bool compileImages);
 
 }  // namespace Robix::UI

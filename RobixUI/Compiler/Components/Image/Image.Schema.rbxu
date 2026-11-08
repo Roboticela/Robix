@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Image — web picture. Windows does not paint it.
+  <Image Source="photo.png" Alt="Studio" Width="320" Fit="cover" Radius="16"/>
+-->
+<Component name="Image">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="source" type="string" required="false" aliases="src" />
+  <Attribute name="alt" type="string" required="false" aliases="description" />
+  <Attribute name="title" type="string" required="false" />
+  <Attribute name="caption" type="string" required="false" aliases="label" />
+  <Attribute name="path" type="string" required="false" aliases="href" />
+  <Attribute name="srcSet" type="string" required="false" />
+  <Attribute name="sizes" type="string" required="false" />
+  <Attribute name="load" type="enum" values="content|ready|lazy" default="content" aliases="when" />
+  <Attribute name="resize" type="bool" default="true" />
+  <Attribute name="loading" type="enum" values="lazy|eager|auto" required="false" />
+  <Attribute name="decoding" type="enum" values="async|sync|auto" default="async" />
+  <Attribute name="fetchPriority" type="enum" values="high|low|auto" required="false" aliases="priority" />
+  <Attribute name="crossOrigin" type="enum" values="anonymous|use-credentials" required="false" />
+  <Attribute name="referrerPolicy" type="string" required="false" />
+  <Attribute name="draggable" type="bool" required="false" />
+  <Attribute name="fit" type="enum" values="contain|cover|fill|none|scale-down" default="contain" aliases="objectFit" />
+  <Attribute name="objectPosition" type="string" required="false" />
+  <Attribute name="aspectRatio" type="string" required="false" aliases="ratio" />
+  <Attribute name="width" type="size" required="false" />
+  <Attribute name="height" type="size" required="false" />
+  <Attribute name="minWidth" type="size" required="false" />
+  <Attribute name="minHeight" type="size" required="false" />
+  <Attribute name="maxWidth" type="size" required="false" />
+  <Attribute name="maxHeight" type="size" required="false" />
+  <Attribute name="radius" type="string" required="false" aliases="borderRadius" />
+  <Attribute name="shape" type="enum" values="square|rounded|pill|circle|squircle" required="false" />
+  <Attribute name="shadow" type="string" required="false" aliases="depth" />
+  <Attribute name="background" type="color" required="false" />
+  <Attribute name="opacity" type="string" required="false" />
+  <Attribute name="filter" type="string" required="false" />
+  <Attribute name="disabled" type="bool" default="false" />
+  <Child name="none" max="0" />
+</Component>

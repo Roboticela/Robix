@@ -1,6 +1,7 @@
 #include "ScreenSize.hpp"
 
 #include "Components/Container/ContainerWeb.hpp"
+#include "Components/Image/ImageWeb.hpp"
 #include "Components/Text/TextWeb.hpp"
 #include "RoboCompilerWebShared.hpp"
 
@@ -127,6 +128,7 @@ std::string Declarations(const RoboXMLNode& node, const RoboFoundationLibrary& l
     std::string style = RoboWebStyle(node, library);
     RoboWebAppendContainerStyle(style, node, library);
     RoboWebAppendTextStyle(style, node, library);
+    RoboWebAppendImageStyle(style, node, library);
     const std::string prefix = "box-sizing:border-box;";
     if (style.rfind(prefix, 0) == 0) style = style.substr(prefix.size());
     std::string out;

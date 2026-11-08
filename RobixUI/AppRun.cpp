@@ -120,7 +120,8 @@ std::string Mime(const fs::path& path) {
     return "application/octet-stream";
 }
 
-bool WriteWebPage(const fs::path& outRoot, const fs::path& document, WebForm form, const std::string& toolDirectory, std::string& error) {
+bool WriteWebPage(const fs::path& outRoot, const fs::path& document, WebForm form, const std::string& toolDirectory, std::string& error,
+                  bool compile = false) {
     std::string script;
     const fs::path source = FindWebSource(document);
     if (!source.empty()) {
@@ -142,7 +143,7 @@ bool WriteWebPage(const fs::path& outRoot, const fs::path& document, WebForm for
     } else {
         std::cerr << "warning: web: no Robix program was found beside the screen.\n";
     }
-    return WriteWebFoundation(outRoot, document, error, script);
+    return WriteWebFoundation(outRoot, document, error, script, compile);
 }
 
 void ServeWeb(const fs::path& root, const fs::path& document, int port, bool watch, const std::string& toolDirectory) {
@@ -359,7 +360,7 @@ int CompileProduction(const std::string& input, const std::vector<std::string>& 
         if (key == "web") {
             std::string webError;
             std::cout << "web form: " << WebFormName(form) << std::endl;
-            if (!WriteWebPage(out, document, form, toolDirectory, webError)) {
+            if (!WriteWebPage(out, document, form, toolDirectory, webError, true)) {
                 std::cerr << "robixc: " << webError << "\n";
                 status = 1;
                 continue;

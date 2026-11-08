@@ -14,6 +14,7 @@
 #include "../Compiler/Components/Eyebrow/EyebrowWeb.hpp"
 #include "../Compiler/Components/Heading/HeadingWeb.hpp"
 #include "../Compiler/Components/Icon/IconWeb.hpp"
+#include "../Compiler/Components/Image/ImageWeb.hpp"
 #include "../Compiler/Components/Svg/SvgWeb.hpp"
 #include "../Compiler/Components/Label/LabelWeb.hpp"
 #include "../Compiler/Components/Paragraph/ParagraphWeb.hpp"
@@ -171,6 +172,10 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         for (const RoboXMLNode& child : node.children) {
             EmitNode(html, child, library);
         }
+        return;
+    }
+    if (name == "image") {
+        RoboWebEmitImage(html, node, library);
         return;
     }
     if (name == "button") {
@@ -459,10 +464,15 @@ std::string AssetsFontsRoot() {
 }
 
 bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::string& error) {
-    return WriteWebFoundation(outRoot, document, error, std::string{});
+    return WriteWebFoundation(outRoot, document, error, std::string{}, false);
 }
 
 bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::string& error, const std::string& programScript) {
+    return WriteWebFoundation(outRoot, document, error, programScript, false);
+}
+
+bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::string& error, const std::string& programScript,
+                       bool compileImages) {
     const fs::path foundationPath = FindUp("RobixUI/Compiler/Foundation/RoboFoundation.xml");
     RoboFoundationLibrary library;
     std::string loadError;
@@ -477,6 +487,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     bool hasScreen = false;
     RoboWebScreenReset("");
     RoboWebMotionReset();
+    RoboWebImageReset(document, outRoot, compileImages);
     if (!document.empty()) {
         RoboXMLDocument xml;
         const std::string source = ReadText(document);
@@ -591,6 +602,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendSegmentedCss(css);
         RoboWebAppendControlCss(css);
         RoboWebAppendIconCss(css);
+        RoboWebAppendImageCss(css);
         RoboWebAppendScrollCss(css);
     }
 
@@ -616,16 +628,9 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
             style += ";";
             style += layout;
         }
-        if (!width.empty()) {
-            style += ";width:" + width;
-        } else {
-            style += ";width:100%";
-        }
-        if (!height.empty()) {
-            style += ";height:" + height;
-        } else {
-            style += ";min-height:100%";
-        }
+        (void)width;
+        (void)height;
+        style += ";width:100%;height:100%";
         RoboWebAppendMotion(style, screenCopy);
         html << "<" << RoboWebScreenTag(true) << " id=\"" << Escape(id) << "\" class=\"" << RoboWebScreenClass(true)
              << " robo-page\" data-place=\"" << Escape(place) << "\" data-theme=\"" << Escape(theme)
@@ -662,6 +667,7 @@ Robo.set = function (id, key, value) {
     js += RoboWebSegmentedScript();
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
+    js += RoboWebImageScript();
 
     if (!WriteText(outRoot / "index.html", html.str()) || !WriteText(outRoot / "app.css", css.str() + RoboWebScreenCss() + RoboWebMotionCss()) ||
         !WriteText(outRoot / "app.js", js)) {

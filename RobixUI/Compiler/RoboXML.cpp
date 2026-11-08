@@ -162,9 +162,32 @@ bool RoboXMLParse(const std::string& source, RoboXMLDocument& out) {
 }
 
 std::string RoboXMLAttr(const RoboXMLNode& node, const char* key, const char* fallback) {
-  const auto it = node.attrs.find(key);
-  if (it == node.attrs.end()) {
-    return fallback ? fallback : "";
+  if (key != nullptr) {
+    const auto exact = node.attrs.find(key);
+    if (exact != node.attrs.end()) {
+      return exact->second;
+    }
+    std::string folded;
+    for (const char* cursor = key; *cursor != '\0'; ++cursor) {
+      const unsigned char ch = static_cast<unsigned char>(*cursor);
+      folded.push_back(static_cast<char>(std::tolower(ch)));
+    }
+    for (const auto& entry : node.attrs) {
+      if (entry.first.size() != folded.size()) {
+        continue;
+      }
+      bool same = true;
+      for (std::size_t i = 0; i < folded.size(); ++i) {
+        const unsigned char ch = static_cast<unsigned char>(entry.first[i]);
+        if (std::tolower(ch) != static_cast<unsigned char>(folded[i])) {
+          same = false;
+          break;
+        }
+      }
+      if (same) {
+        return entry.second;
+      }
+    }
   }
-  return it->second;
+  return fallback ? fallback : "";
 }

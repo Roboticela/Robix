@@ -222,7 +222,7 @@ int BuildOrRunProject(const std::string& input, bool development, const std::str
             fs::copy_file(document, webRoot / "screens" / document.filename(), fs::copy_options::overwrite_existing, error);
         }
         std::string webError;
-        if (!WriteWebFoundation(webRoot, document, webError)) {
+        if (!WriteWebFoundation(webRoot, document, webError, {}, true)) {
             std::cerr << "robixc: " << webError << "\n";
             status = 1;
         }

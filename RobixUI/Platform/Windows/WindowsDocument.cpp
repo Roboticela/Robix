@@ -976,6 +976,9 @@ bool IsIcon(const RoboXMLNode& node) {
 
 int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     const std::string name = Lower(node.name);
+    if (name == "image") {
+        return 0;
+    }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
         return std::min(maxWidth, std::max(1, MeasureText(node.text, style.size, style.face)));
@@ -1153,6 +1156,9 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     if (shown.empty()) shown = Lower(RoboXMLAttr(node, "visible"));
     if (shown == "false" || shown == "0" || shown == "no" || shown == "off" || shown == "hidden" ||
         (shown.empty() && Lower(RoboXMLAttr(node, "hidden")) == "true")) {
+        return 0;
+    }
+    if (name == "image") {
         return 0;
     }
     if (IsText(name)) {

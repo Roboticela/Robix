@@ -180,7 +180,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
     if (command == "web") {
         const std::string output = Option(args, "-o", "Build/web");
         std::string error;
-        if (!WriteWebFoundation(output, document, error)) {
+        if (!WriteWebFoundation(output, document, error, {}, true)) {
             std::cerr << "robix ui: " << error << "\n";
             return 1;
         }
