@@ -116,6 +116,9 @@ std::string Mime(const fs::path& path) {
     if (ext == ".ttf") return "font/ttf";
     if (ext == ".svg") return "image/svg+xml";
     if (ext == ".png") return "image/png";
+    if (ext == ".jpg" || ext == ".jpeg") return "image/jpeg";
+    if (ext == ".webp") return "image/webp";
+    if (ext == ".gif") return "image/gif";
     if (ext == ".json") return "application/json";
     return "application/octet-stream";
 }

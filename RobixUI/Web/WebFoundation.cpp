@@ -1,6 +1,7 @@
 #include "WebFoundation.hpp"
 
 #include "../Compiler/Components/Board/Board.hpp"
+#include "../Compiler/Components/Anchor/AnchorWeb.hpp"
 #include "../Compiler/Components/Button/ButtonWeb.hpp"
 #include "../Compiler/Components/IconButton/IconButtonWeb.hpp"
 #include "../Compiler/Components/Switch/SwitchWeb.hpp"
@@ -176,6 +177,14 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     }
     if (name == "image") {
         RoboWebEmitImage(html, node, library);
+        return;
+    }
+    if (name == "anchor") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitAnchor(html, node, library, assets);
         return;
     }
     if (name == "button") {
@@ -596,6 +605,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendScreenCss(css);
         RoboWebAppendContainerCss(css);
         RoboWebAppendTextCss(css);
+        RoboWebAppendAnchorCss(css);
         RoboWebAppendButtonCss(css);
         RoboWebAppendIconButtonCss(css);
         RoboWebAppendSwitchCss(css);

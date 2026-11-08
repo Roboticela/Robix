@@ -510,6 +510,12 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
             return false;
         }
         std::cout << "robix new: wrote " << window.string() << "\n";
+        fs::create_directories(root / "Assets", ec);
+        if (ec) {
+            std::cerr << "robix new: could not create '" << (root / "Assets").string() << "'.\n";
+            return false;
+        }
+        std::cout << "robix new: wrote " << (root / "Assets").string() << "\n";
         ui.push_back("UI/MainWindow.rbxu");
     } else if (IsMachineKind(kind)) {
         fileName = "Start";
@@ -592,6 +598,12 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         fs::create_directories(root / "Common" / "Source", ec);
         fs::create_directories(root / "Common" / "Tests", ec);
         fs::create_directories(root / "Packages", ec);
+        fs::create_directories(root / "Assets", ec);
+        if (ec) {
+            std::cerr << "robix new: could not create '" << (root / "Assets").string() << "'.\n";
+            return false;
+        }
+        std::cout << "robix new: wrote " << (root / "Assets").string() << "\n";
         std::vector<std::string> order;
         auto writeInterface = [&](const std::string& serviceName, const std::string& definition) {
             const std::string source =

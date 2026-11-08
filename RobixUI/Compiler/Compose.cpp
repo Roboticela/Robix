@@ -615,7 +615,7 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
         } else {
             const std::string key = Lower(name);
             static const char* reserved[] = {
-                "window", "screen", "page", "board", "column", "row", "grid", "stack", "container", "button", "text",
+                "window", "screen", "page", "board", "column", "row", "grid", "stack", "container", "button", "anchor", "text",
                 "textfield", "image", "icon", "heading", "subhead", "body", "paragraph", "caption", "eyebrow", "label",
                 "span", "iconbutton", "switch", "switchgroup", "switchitem", "segmentedcontrol", "segmentedtoolbar",
                 "segment", "scrollbar", "svg", "at", "slot", "for", "if", "else", "let", "data", "import", "component"};

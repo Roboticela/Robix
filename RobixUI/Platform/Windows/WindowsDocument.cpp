@@ -979,6 +979,17 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     if (name == "image") {
         return 0;
     }
+    if (name == "anchor") {
+        std::string label = RoboXMLAttr(node, "content");
+        if (label.empty()) label = TrimCopy(node.text);
+        const std::string sizeName = Lower(RoboXMLAttr(node, "size", "inherit"));
+        int size = 14;
+        if (sizeName == "sm" || sizeName == "small") size = 12;
+        else if (sizeName == "md" || sizeName == "medium" || sizeName == "lg" || sizeName == "large") size = 17;
+        const std::string variant = Lower(RoboXMLAttr(node, "variant", "inline"));
+        const int face = (variant == "arrow" || variant == "standalone" || variant == "more") ? 1 : 0;
+        return std::min(maxWidth, std::max(1, MeasureText(label, size, face) + Px(28)));
+    }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
         return std::min(maxWidth, std::max(1, MeasureText(node.text, style.size, style.face)));
@@ -1160,6 +1171,34 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     }
     if (name == "image") {
         return 0;
+    }
+    if (name == "anchor") {
+        std::string label = RoboXMLAttr(node, "content");
+        if (label.empty()) label = TrimCopy(node.text);
+        const std::string sizeName = Lower(RoboXMLAttr(node, "size", "inherit"));
+        int size = 14;
+        if (sizeName == "sm" || sizeName == "small") size = 12;
+        else if (sizeName == "md" || sizeName == "medium" || sizeName == "lg" || sizeName == "large") size = 17;
+        const std::string variant = Lower(RoboXMLAttr(node, "variant", "inline"));
+        const int face = (variant == "arrow" || variant == "standalone" || !RoboXMLAttr(node, "arrow").empty()) ? 1 : 0;
+        std::string color = "text-link";
+        if (Lower(RoboXMLAttr(node, "disabled")) == "true") color = "text-disabled";
+        else if (variant == "subtle" && RoboXMLAttr(node, "arrow").empty()) color = "text-tertiary";
+        else if (variant == "plain" && RoboXMLAttr(node, "arrow").empty()) color = "text-primary";
+        else if (Lower(RoboXMLAttr(node, "tone")) == "danger") color = "danger";
+        const int height = std::max(size + 4, (size * 14) / 10);
+        PaintOp op;
+        op.text = true;
+        op.x = x;
+        op.y = y;
+        op.width = width;
+        op.height = height;
+        op.size = size;
+        op.face = face;
+        op.color = RoboFoundationPlatformColorForTheme(color.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
+        op.value = label;
+        ops.push_back(op);
+        return height;
     }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
