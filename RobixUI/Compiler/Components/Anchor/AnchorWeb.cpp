@@ -289,13 +289,14 @@ void RoboWebAppendAnchorCss(std::ostream& css) {
   css << ".robo-anchor[data-variant=arrow]:hover,.robo-anchor[data-arrow]:hover,.robo-anchor[data-variant=arrow][data-preview=hover],"
          ".robo-anchor[data-arrow][data-preview=hover],.robo-anchor[data-variant=arrow]:active,.robo-anchor[data-arrow]:active,"
          ".robo-anchor[data-variant=arrow][data-preview=active],.robo-anchor[data-arrow][data-preview=active],"
-         ".robo-anchor[data-variant=arrow]:focus-visible,.robo-anchor[data-arrow]:focus-visible,"
-         ".robo-anchor[data-variant=more]:hover,.robo-anchor[data-variant=more][data-preview=hover],"
+         ".robo-anchor[data-variant=arrow]:focus-visible,.robo-anchor[data-arrow]:focus-visible{text-decoration:none}\n";
+  css << ".robo-anchor[data-variant=more]:hover,.robo-anchor[data-variant=more][data-preview=hover],"
          ".robo-anchor[data-variant=more]:active,.robo-anchor[data-variant=more][data-preview=active],"
-         ".robo-anchor[data-variant=more]:focus-visible,.robo-anchor[data-variant=more][data-preview=focus]{text-decoration:none}\n";
+         ".robo-anchor[data-variant=more]:focus-visible,.robo-anchor[data-variant=more][data-preview=focus]"
+         "{text-decoration-line:underline;text-decoration-thickness:.065em;text-underline-offset:3px;text-decoration-color:currentColor}\n";
   css << ".robo-anchor:focus-visible,.robo-anchor[data-preview=focus]{color:var(--brand-primary-hover);"
          "text-decoration-color:currentColor;outline:2px solid var(--brand-primary);outline-offset:2px}\n";
-  css << ".robo-anchor[data-variant=more]:focus-visible,.robo-anchor[data-variant=more][data-preview=focus]{outline-offset:3px;text-decoration:none}\n";
+  css << ".robo-anchor[data-variant=more]:focus-visible,.robo-anchor[data-variant=more][data-preview=focus]{outline-offset:3px}\n";
   css << ".robo-anchor[data-tone=danger]:focus-visible,.robo-anchor[data-tone=danger][data-preview=focus]{color:var(--danger-hover)}\n";
   css << ".robo-anchor[data-disabled=true]{cursor:not-allowed;color:var(--text-disabled);text-decoration-color:transparent;pointer-events:none}\n";
   css << ".robo-anchor-label{min-width:0}\n";

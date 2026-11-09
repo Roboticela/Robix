@@ -705,6 +705,12 @@ void EmitNode(Out& out, const RoboXMLNode& node, const std::string& parent, cons
         EmitTransform(out, object, node);
         if (!full.empty()) out.js << "remember(ctx,\"" << Js(full) << "\"," << object << ");";
         out.js << parent << ".add(" << object << ");\n";
+        if (!Attr(node, "span").empty() && !Attr(node, "cover").empty()) {
+            out.js << "ctx.layouts.push((width,height)=>{const distance=Math.abs(ctx.camera.position.z-" << object << ".position.z);"
+                   << "const visibleH=2*Math.tan(THREE.MathUtils.degToRad(ctx.camera.fov*0.5))*distance;"
+                   << "const visibleW=visibleH*(width/Math.max(height,1));" << object << ".scale.x=(visibleW*" << Attr(node, "cover")
+                   << ")/" << Attr(node, "span") << ";});\n";
+        }
         EmitMotion(out, object, node);
         for (const RoboXMLNode& child : node.children) {
             if (Lower(child.name) == "transform") continue;
@@ -1444,7 +1450,7 @@ std::string ShaderFunction(const RoboXMLNode& shader, Out& out) {
         if (source == "time") {
             live = true;
             liveWrite << "material.uniforms[\"" << Js(name) << "\"].value=reduced?" << (Attr(child, "hold").empty() ? "0" : Attr(child, "hold"))
-                      << ":(clock?clock.elapsed:time);";
+                      << ":clock.elapsed;";
         } else if (source == "enter") {
             live = true;
             liveWrite << "{const span=" << (Attr(child, "duration").empty() ? "0.7" : Attr(child, "duration"))
@@ -1619,7 +1625,6 @@ std::string ShaderFunction(const RoboXMLNode& shader, Out& out) {
        << "},vertexShader:\"" << Js(vertex) << "\",fragmentShader:\"" << Js(fragment) << "\"});";
     if (live) {
         const bool whenVisible = Lower(Attr(shader, "when")) == "visible";
-        fn << "ctx.frames.push((dt,time)=>{const reduced=window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches;";
         fn << "if(!ctx.field){ctx.field={elapsed:0,enter:0,on:" << (whenVisible ? "false" : "true") << ",pointer:new THREE.Vector2()};"
            << "const target=ctx.host&&ctx.host.parentElement||ctx.host;if(target){";
         if (trackPointer) {
@@ -1628,7 +1633,9 @@ std::string ShaderFunction(const RoboXMLNode& shader, Out& out) {
         if (whenVisible) {
             fn << "const observer=new IntersectionObserver((entries)=>{const hit=entries.some((entry)=>entry.isIntersecting&&entry.intersectionRatio>=0.1);if(!hit){ctx.field.elapsed=0;ctx.field.enter=0;}ctx.field.on=hit;},{threshold:[0,0.1,0.2,0.4]});observer.observe(target);";
         }
-        fn << "}}const clock=ctx.field;if(clock.on&&!reduced){clock.elapsed+=dt;clock.enter+=dt;}" << liveWrite.str() << "});";
+        fn << "}ctx.frames.push((dt)=>{const clock=ctx.field;if(clock.on&&!window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches){clock.elapsed+=dt;clock.enter+=dt;}});}";
+        fn << "ctx.frames.push((dt,time)=>{const reduced=window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches;const clock=ctx.field;"
+           << liveWrite.str() << "});";
     }
     if (time) fn << "ctx.frames.push((dt,time)=>{material.uniforms.Time.value=time;});";
     fn << "return material;}";
@@ -1798,6 +1805,13 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
         out.js << "ctx.camera=new THREE.PerspectiveCamera(" << fov << ",1," << near << "," << far << ");\n";
     }
     out.js << "ctx.camera.position.set(" << Num(eye.x) << "," << Num(eye.y) << "," << Num(eye.z) << ");ctx.camera.lookAt(" << Num(at.x) << "," << Num(at.y) << "," << Num(at.z) << ");\n";
+    if (camera != nullptr && !Attr(*camera, "sway").empty()) {
+        out.js << "{const baseX=ctx.camera.rotation.x;const baseZ=ctx.camera.rotation.z;ctx.frames.push(()=>{const reduced=window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches;"
+               << "const phase=reduced?" << (Attr(*camera, "swayHold").empty() ? "2.2" : Attr(*camera, "swayHold")) << ":(ctx.field?ctx.field.elapsed:0)*"
+               << (Attr(*camera, "swaySpeed").empty() ? "0.785" : Attr(*camera, "swaySpeed")) << ";ctx.camera.rotation.z=baseZ+(reduced?0:Math.sin(phase)*"
+               << Attr(*camera, "sway") << ");ctx.camera.rotation.x=baseX+(reduced?0:Math.cos(phase)*" << (Attr(*camera, "swayX").empty() ? "0" : Attr(*camera, "swayX"))
+               << ");});}\n";
+    }
     if (camera != nullptr && !Attr(*camera, "drift").empty()) {
         out.js << "ctx.frames.push((dt,time)=>{const reduced=window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches;const drift="
                << Attr(*camera, "drift") << "*Math.PI/180;if(reduced){ctx.camera.rotation.set(0,0,0);return;}"
