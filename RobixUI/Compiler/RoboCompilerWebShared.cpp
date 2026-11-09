@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <string>
 
 std::string RoboWebLower(std::string text) {
@@ -145,6 +146,73 @@ void RoboWebAddDecl(std::string& style, const char* property, const std::string&
 
 namespace fs = std::filesystem;
 
+fs::path g_webDocumentDir;
+
+std::string SvgFieldValue(const std::string& value) {
+    std::string out;
+    out.reserve(value.size());
+    for (char ch : value) {
+        if (ch == '&') out += "&amp;";
+        else if (ch == '"') out += "&quot;";
+        else if (ch == '<') out += "&lt;";
+        else out.push_back(ch);
+    }
+    return out;
+}
+
+std::string ApplySvgFields(std::string svg, const RoboXMLNode& node) {
+    std::string out;
+    out.reserve(svg.size());
+    for (std::size_t i = 0; i < svg.size(); ++i) {
+        if (svg[i] != '{') {
+            out.push_back(svg[i]);
+            continue;
+        }
+        std::size_t end = i + 1;
+        while (end < svg.size() && ((svg[end] >= 'A' && svg[end] <= 'Z') || (svg[end] >= 'a' && svg[end] <= 'z') ||
+                                    (svg[end] >= '0' && svg[end] <= '9') || svg[end] == '_' || svg[end] == '-')) {
+            ++end;
+        }
+        if (end >= svg.size() || svg[end] != '}' || end == i + 1) {
+            out.push_back(svg[i]);
+            continue;
+        }
+        const std::string name = svg.substr(i + 1, end - i - 1);
+        const std::string key = RoboWebLower(name);
+        if (key == "source" || key == "src") {
+            out.push_back(svg[i]);
+            continue;
+        }
+        bool found = false;
+        std::string value;
+        for (const auto& entry : node.attrs) {
+            if (RoboWebLower(entry.first) == key) {
+                found = true;
+                value = entry.second;
+                break;
+            }
+        }
+        if (!found) {
+            out.push_back(svg[i]);
+            continue;
+        }
+        out += SvgFieldValue(value);
+        i = end;
+    }
+    return out;
+}
+
+fs::path ResolveSvgSource(const fs::path& assetsRoot, const std::string& source) {
+    const fs::path given(source);
+    if (given.is_absolute() && fs::exists(given)) return given;
+    const fs::path beside = g_webDocumentDir / given;
+    if (!g_webDocumentDir.empty() && fs::exists(beside)) return beside;
+    const fs::path icons = assetsRoot / "Icons" / given;
+    if (!assetsRoot.empty() && fs::exists(icons)) return icons;
+    if (fs::exists(given)) return given;
+    return {};
+}
+
 std::string RoboWebRead(const fs::path& path) {
     std::ifstream in(path, std::ios::binary);
     if (!in) {
@@ -213,7 +281,7 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
         RoboWebAddDecl(style, "display", displayRaw);
     } else if (gridAsked) {
         RoboWebAddDecl(style, "display", "grid");
-    } else if (!direction.empty()) {
+    } else if (!direction.empty() || !first("align", "alignItems").empty() || !first("justify", "justifyContent").empty()) {
         RoboWebAddDecl(style, "display", "flex");
     }
     if (!direction.empty() && displayRaw != "horizontal" && displayRaw != "vertical") {
@@ -479,9 +547,23 @@ std::string RoboWebSvg(const fs::path& assetsRoot, const std::string& name) {
     return RoboWebPrepareSvg(RoboWebRead(fs::path(assetsRoot) / "Icons" / "Flags" / (leaf + ".svg")));
 }
 
+void RoboWebUseDocument(const fs::path& document) {
+    g_webDocumentDir = document.empty() ? fs::path() : document.parent_path();
+}
+
 std::string RoboWebIconMarkup(const fs::path& assetsRoot, const RoboXMLNode& node) {
     const std::string kind = RoboWebLower(node.name);
     if (kind == "svg") {
+        const std::string source = RoboXMLAttr(node, "source", RoboXMLAttr(node, "src").c_str());
+        if (!source.empty()) {
+            const fs::path file = ResolveSvgSource(assetsRoot, source);
+            const std::string body = file.empty() ? std::string{} : RoboWebRead(file);
+            if (body.empty()) {
+                std::cerr << "warning: SVG source '" << source << "' was not found.\n";
+                return {};
+            }
+            return RoboWebPrepareSvg(ApplySvgFields(body, node));
+        }
         std::string svg;
         RoboCompilerSerializeSvgNode(node, svg, true);
         return RoboWebPrepareSvg(svg);

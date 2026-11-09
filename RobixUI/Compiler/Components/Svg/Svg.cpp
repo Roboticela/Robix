@@ -82,13 +82,51 @@ bool RoboCompilerSvgAttrIsComponent(const std::string& key) {
   return key == "id" || key == "name" || key == "size" || key == "x" || key == "y" || key == "opacity" ||
          key == "position" || key == "left" || key == "top" || key == "right" || key == "bottom" || key == "margin" ||
          key == "margintop" || key == "marginright" || key == "marginbottom" || key == "marginleft" || key == "flex" ||
-         key == "flexgrow" || key == "grow" || key == "alignself" || key == "foundation" || key == "fill" ||
-         key == "stroke" || key == "accent" || key == "color" || key == "slot" || key == "side" || key == "place";
+         key == "flexgrow" || key == "grow" || key == "alignself" || key == "foundation" || key == "color" ||
+         key == "slot" || key == "side" || key == "place";
+}
+
+std::string RoboCompilerSvgTag(const std::string& name) {
+  const std::string lower = RoboCompilerLower(name);
+  if (lower == "clippath") return "clipPath";
+  if (lower == "lineargradient") return "linearGradient";
+  if (lower == "radialgradient") return "radialGradient";
+  if (lower == "textpath") return "textPath";
+  return lower;
+}
+
+std::string RoboCompilerSvgAttrName(const std::string& key) {
+  const std::string lower = RoboCompilerLower(key);
+  if (lower == "viewbox") return "viewBox";
+  if (lower == "preserveaspectratio") return "preserveAspectRatio";
+  if (lower == "strokewidth" || lower == "stroke-width") return "stroke-width";
+  if (lower == "strokelinecap" || lower == "stroke-linecap") return "stroke-linecap";
+  if (lower == "strokelinejoin" || lower == "stroke-linejoin") return "stroke-linejoin";
+  if (lower == "strokemiterlimit" || lower == "stroke-miterlimit") return "stroke-miterlimit";
+  if (lower == "strokedasharray" || lower == "stroke-dasharray") return "stroke-dasharray";
+  if (lower == "strokedashoffset" || lower == "stroke-dashoffset") return "stroke-dashoffset";
+  if (lower == "strokeopacity" || lower == "stroke-opacity") return "stroke-opacity";
+  if (lower == "fillrule" || lower == "fill-rule") return "fill-rule";
+  if (lower == "fillopacity" || lower == "fill-opacity") return "fill-opacity";
+  if (lower == "cliprule" || lower == "clip-rule") return "clip-rule";
+  if (lower == "clippath" || lower == "clip-path") return "clip-path";
+  if (lower == "stopcolor" || lower == "stop-color") return "stop-color";
+  if (lower == "stopopacity" || lower == "stop-opacity") return "stop-opacity";
+  std::string out;
+  for (char ch : key) {
+    if (ch >= 'A' && ch <= 'Z') {
+      if (!out.empty() && out.back() != '-') out.push_back('-');
+      out.push_back(static_cast<char>(ch - 'A' + 'a'));
+    } else {
+      out.push_back(ch);
+    }
+  }
+  return out;
 }
 
 void RoboCompilerSerializeSvgNode(const RoboXMLNode& node, std::string& out, bool root) {
   out += '<';
-  out += root ? "svg" : node.name;
+  out += root ? "svg" : RoboCompilerSvgTag(node.name);
   if (root) {
     bool hasXmlns = false;
     bool hasViewBox = false;
@@ -117,7 +155,7 @@ void RoboCompilerSerializeSvgNode(const RoboXMLNode& node, std::string& out, boo
     if (kv.second.empty()) {
       continue;
     }
-    RoboCompilerAppendSvgAttr(out, kv.first, kv.second);
+    RoboCompilerAppendSvgAttr(out, RoboCompilerSvgAttrName(kv.first), kv.second);
   }
   if (node.children.empty() && node.text.empty()) {
     out += "/>";
@@ -129,7 +167,7 @@ void RoboCompilerSerializeSvgNode(const RoboXMLNode& node, std::string& out, boo
     RoboCompilerSerializeSvgNode(child, out, false);
   }
   out += "</";
-  out += root ? "svg" : node.name;
+  out += root ? "svg" : RoboCompilerSvgTag(node.name);
   out += '>';
 }
 
@@ -161,13 +199,15 @@ bool RoboCompilerCheckSvg(const RoboXMLNode& node, const std::string& path, Robo
     if (!RoboCompilerIsLayoutKey(key) && key != "id" && key != "name" && key != "size" && key != "width" &&
         key != "height" && key != "x" && key != "y" && key != "opacity" && key != "fill" && key != "stroke" &&
         key != "accent" && key != "color" && key != "viewbox" && key != "xmlns" && key != "preserveaspectratio" &&
-        key != "strokewidth" && key != "stroke-width" && key != "fillrule" && key != "fill-rule" &&
-        key != "slot" && key != "side" && key != "place") {
+        key != "strokewidth" && key != "stroke-width" && key != "strokelinecap" && key != "stroke-linecap" &&
+        key != "strokelinejoin" && key != "stroke-linejoin" && key != "fillrule" && key != "fill-rule" &&
+        key != "source" && key != "src" && key != "slot" && key != "side" && key != "place") {
       RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
                           "unknown svg attribute '" + kv.first + "'");
     }
   }
-  if (node.children.empty()) {
+  const bool fromFile = !RoboXMLAttr(node, "source").empty() || !RoboXMLAttr(node, "src").empty();
+  if (node.children.empty() && !fromFile) {
     RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path, "<svg> has no shapes");
   }
   return true;

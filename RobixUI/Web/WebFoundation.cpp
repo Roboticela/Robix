@@ -504,6 +504,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     bool hasScreen = false;
     RoboWebScreenReset("");
     RoboWebMotionReset();
+    RoboWebUseDocument(document);
     RoboWebImageReset(document, outRoot, compileImages);
     if (!document.empty()) {
         RoboXMLDocument xml;

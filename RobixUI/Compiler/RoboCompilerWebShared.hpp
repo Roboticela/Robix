@@ -31,6 +31,7 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
 std::string RoboWebPaintMode(const RoboXMLNode& node);
 std::string RoboWebBleedDistance(const RoboXMLNode& node);
 std::string RoboWebPaintAttrs(const RoboXMLNode& node);
+void RoboWebUseDocument(const std::filesystem::path& document);
 std::string RoboWebSvg(const std::filesystem::path& assetsRoot, const std::string& name);
 std::string RoboWebIconMarkup(const std::filesystem::path& assetsRoot, const RoboXMLNode& node);
 void RoboWebNoteFamily(RoboWebPackage* package, const std::string& name);
