@@ -697,6 +697,7 @@ Robo.set = function (id, key, value) {
     js += RoboWebSegmentedScript();
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
+    js += RoboWebReelScript();
     js += RoboWebImageScript();
 
     if (!Robix::D3::CommitViews(outRoot, error)) return false;

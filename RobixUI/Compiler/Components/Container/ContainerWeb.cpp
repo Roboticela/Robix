@@ -346,6 +346,22 @@ void RoboWebContainerAttrs(std::string& html, const RoboXMLNode& node) {
   }
   data("enter", enter);
   data("motion", RoboWebLower(RoboWebContainerAttr(node, "motion", "hoverMotion")));
+  const std::string reel = RoboWebLower(RoboXMLAttr(node, "reel"));
+  if (reel == "true" || reel == "infinite" || reel == "loop" || reel == "on") {
+    data("reel", "infinite");
+    data("reel-every", RoboXMLAttr(node, "reelEvery").empty() ? "4200" : RoboXMLAttr(node, "reelEvery"));
+    data("reel-move", RoboXMLAttr(node, "reelMove").empty() ? "380" : RoboXMLAttr(node, "reelMove"));
+    std::string ease = RoboXMLAttr(node, "reelEase");
+    if (ease.empty()) ease = "0.28,0.11,0.32,1";
+    if (ease.find("cubic-bezier") == std::string::npos) ease = "cubic-bezier(" + ease + ")";
+    data("reel-ease", ease);
+    const std::string drag = RoboWebLower(RoboXMLAttr(node, "reelDrag"));
+    data("reel-drag", drag == "false" || drag == "0" || drag == "off" ? "false" : "true");
+    const std::string focus = RoboWebLower(RoboXMLAttr(node, "reelFocus"));
+    data("reel-focus", focus == "false" || focus == "0" || focus == "off" ? "false" : "true");
+    data("reel-copies", RoboXMLAttr(node, "reelCopies").empty() ? "3" : RoboXMLAttr(node, "reelCopies"));
+    data("reel-dots", RoboXMLAttr(node, "reelDots"));
+  }
 }
 
 std::string RoboWebContainerVideo(const RoboXMLNode& node) {
@@ -742,4 +758,174 @@ void RoboWebAppendContainerStyle(std::string& style, const RoboXMLNode& node, co
   if (!RoboXMLAttr(node, "transition").empty()) {
     RoboWebAddDecl(style, "transition", RoboXMLAttr(node, "transition"));
   }
+}
+
+std::string RoboWebReelScript() {
+  return R"JS(Robo.reel = function () {
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll("[data-reel]").forEach(function (track) {
+    var stage = track.parentElement;
+    if (!stage) return;
+    var every = Number(track.getAttribute("data-reel-every")) || 4200;
+    var move = Number(track.getAttribute("data-reel-move")) || 380;
+    var ease = track.getAttribute("data-reel-ease") || "cubic-bezier(0.28,0.11,0.32,1)";
+    var copies = Number(track.getAttribute("data-reel-copies")) || 3;
+    var focus = track.getAttribute("data-reel-focus") !== "false";
+    var dragOn = track.getAttribute("data-reel-drag") !== "false";
+    var dots = track.getAttribute("data-reel-dots");
+    var dotRoot = dots ? document.getElementById(dots) : null;
+    var originals = Array.prototype.slice.call(track.children);
+    var count = originals.length;
+    if (count < 1 || copies < 2) return;
+    for (var copy = 1; copy < copies; copy += 1) {
+      originals.forEach(function (card) { track.appendChild(card.cloneNode(true)); });
+    }
+    var cards = Array.prototype.slice.call(track.children);
+    var phys = count;
+    var pos = 0;
+    var moving = false;
+    var hover = false;
+    var timer = 0;
+    var seen = true;
+    track.style.willChange = "transform";
+    function center(index) {
+      var card = cards[index];
+      if (!card) return pos;
+      return stage.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2);
+    }
+    function span() {
+      var a = cards[count];
+      var b = cards[count * 2];
+      if (!a || !b) return 0;
+      return b.offsetLeft - a.offsetLeft;
+    }
+    function apply(next, animate) {
+      pos = next;
+      track.style.transition = animate && !reduced ? "transform " + move + "ms " + ease : "none";
+      track.style.transform = "translate3d(" + next + "px,0,0)";
+    }
+    function paintDots(active) {
+      if (!dotRoot) return;
+      Array.prototype.forEach.call(dotRoot.children, function (dot, index) {
+        var on = index === active;
+        dot.style.background = on ? "var(--brand-primary)" : "var(--border-default)";
+        dot.style.transform = on ? "scale(1.35)" : "none";
+      });
+    }
+    function paint() {
+      var mid = stage.getBoundingClientRect().left + stage.clientWidth / 2;
+      var best = 0;
+      var bestDist = Infinity;
+      cards.forEach(function (card, index) {
+        var rect = card.getBoundingClientRect();
+        var unit = card.offsetWidth + 20;
+        var dist = (rect.left + rect.width / 2 - mid) / unit;
+        var u = Math.min(1, Math.abs(dist));
+        var fall = u * u * (3 - 2 * u);
+        if (focus) {
+          card.style.transform = "scale(" + (1 - 0.085 * fall) + ")";
+          card.style.opacity = String(1 - 0.42 * fall);
+        }
+        if (Math.abs(dist) < bestDist) {
+          bestDist = Math.abs(dist);
+          best = index % count;
+        }
+      });
+      paintDots(best);
+    }
+    function shift() {
+      var width = span();
+      if (!width) return;
+      if (phys < count) {
+        apply(pos - width, false);
+        phys += count;
+      } else if (phys >= count * 2) {
+        apply(pos + width, false);
+        phys -= count;
+      }
+    }
+    function finish() {
+      moving = false;
+      shift();
+      paint();
+      arm();
+    }
+    function go(next) {
+      if (moving) return;
+      phys = next;
+      var dest = center(next);
+      if (reduced || Math.abs(dest - pos) < 1) {
+        apply(dest, false);
+        finish();
+        return;
+      }
+      moving = true;
+      apply(dest, true);
+      var frame = function () {
+        paint();
+        if (moving) requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+      var done = function (event) {
+        if (event && event.target !== track) return;
+        track.removeEventListener("transitionend", done);
+        window.clearTimeout(fallback);
+        finish();
+      };
+      var fallback = window.setTimeout(function () { done(); }, move + 80);
+      track.addEventListener("transitionend", done);
+    }
+    function arm() {
+      window.clearTimeout(timer);
+      timer = 0;
+      if (reduced || hover || !seen) return;
+      timer = window.setTimeout(function () { go(phys + 1); }, every);
+    }
+    function layout() {
+      apply(center(phys), false);
+      paint();
+    }
+    layout();
+    window.addEventListener("resize", layout);
+    if ("IntersectionObserver" in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        seen = entries.some(function (entry) { return entry.isIntersecting; });
+        if (seen) arm();
+        else window.clearTimeout(timer);
+      }, { threshold: 0.2 });
+      observer.observe(stage);
+    }
+    stage.addEventListener("pointerenter", function () { hover = true; window.clearTimeout(timer); });
+    stage.addEventListener("pointerleave", function () { hover = false; arm(); });
+    if (dragOn) {
+      var drag = null;
+      stage.addEventListener("pointerdown", function (event) {
+        if (event.target.closest && event.target.closest("a,button")) return;
+        drag = { x: event.clientX, y: event.clientY, moved: false };
+        window.clearTimeout(timer);
+      });
+      stage.addEventListener("pointermove", function (event) {
+        if (!drag || drag.moved) return;
+        var dx = event.clientX - drag.x;
+        var dy = event.clientY - drag.y;
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        if (Math.abs(dy) > Math.abs(dx)) { drag = null; arm(); return; }
+        drag.moved = true;
+      });
+      var release = function (event) {
+        if (!drag) return;
+        var dx = event.clientX - drag.x;
+        var stepped = drag.moved && Math.abs(dx) >= 48;
+        drag = null;
+        if (stepped && !moving) go(phys + (dx < 0 ? 1 : -1));
+        else arm();
+      };
+      stage.addEventListener("pointerup", release);
+      stage.addEventListener("pointercancel", function () { drag = null; arm(); });
+    }
+    arm();
+  });
+};
+Robo.reel();
+)JS";
 }
