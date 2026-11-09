@@ -1,5 +1,7 @@
 #include "Motion.hpp"
 
+#include "RoboCompilerWebShared.hpp"
+
 #include <iostream>
 #include <sstream>
 
@@ -360,12 +362,13 @@ std::string RoboWebMotionAttrs(const RoboXMLNode& node) {
     const std::string inview = Attr(node, "whileinview");
     const std::string drag = Lower(Attr(node, "drag"));
     const std::string once = Lower(Attr(node, "once"));
+    const std::string paint = RoboWebPaintAttrs(node);
     if (animate.empty() && initial.empty() && exitValue.empty() && hover.empty() && tap.empty() && focus.empty() &&
         inview.empty() && drag.empty()) {
-        return {};
+        return paint;
     }
     g_used = true;
-    std::string attrs;
+    std::string attrs = paint;
     const auto data = [&](const char* key, const std::string& value) {
         if (value.empty()) return;
         attrs += " data-";

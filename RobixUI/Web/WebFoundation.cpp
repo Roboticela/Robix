@@ -614,6 +614,9 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << "body{color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}\n";
     css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;z-index:1;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
     css << ".robo-page{height:100%;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
+    css << "[data-paint=bleed]{overflow:visible;contain:none}\n";
+    css << "[data-paint=clip]{overflow:clip}\n";
+    css << ".robo-page :has([data-paint=bleed]){overflow:visible;isolation:auto;contain:none}\n";
     css << ".robo-screen:focus,.robo-screen:focus-visible,.robo-page:focus,.robo-page:focus-visible{outline:none;box-shadow:none}\n";
     css << ".robo-page::-webkit-scrollbar{width:0;height:0}\n";
     css << typeRules.str();

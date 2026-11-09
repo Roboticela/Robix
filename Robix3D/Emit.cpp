@@ -5,10 +5,13 @@
 
 #include <cctype>
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <functional>
 #include <sstream>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace fs = std::filesystem;
@@ -202,6 +205,7 @@ struct Uses {
     bool custom = false;
     bool subdivide = false;
     bool solidify = false;
+    bool deform = false;
     bool curve = false;
 };
 
@@ -215,6 +219,7 @@ struct Out {
     std::vector<std::string> errors;
     std::unordered_set<std::string> played;
     int next = 0;
+    const RoboXMLNode* document = nullptr;
 };
 
 std::string Fresh(Out& out) {
@@ -303,7 +308,9 @@ std::string MaterialExpr(Out& out, const RoboXMLNode* material) {
     if (material != nullptr && !Attr(*material, "attenuationColor").empty()) args << ",attenuationColor:\"" << Js(Attr(*material, "attenuationColor")) << "\"";
     if (material != nullptr && !Attr(*material, "sheenColor").empty()) args << ",sheenColor:\"" << Js(Attr(*material, "sheenColor")) << "\"";
     if (material != nullptr && Flag(Attr(*material, "wireframe"))) args << ",wireframe:true";
-    if (material != nullptr && !Attr(*material, "opacity").empty()) args << ",transparent:true";
+    if (material != nullptr && (!Attr(*material, "opacity").empty() || Flag(Attr(*material, "transparent")))) args << ",transparent:true";
+    if (material != nullptr && Lower(Attr(*material, "depthWrite")) == "false") args << ",depthWrite:false";
+    if (material != nullptr && Lower(Attr(*material, "blending")) == "additive") args << ",blending:THREE.AdditiveBlending";
     if (material != nullptr) {
         const std::string side = Lower(Attr(*material, "side"));
         if (side == "double") args << ",side:THREE.DoubleSide";
@@ -323,7 +330,31 @@ std::string MaterialExpr(Out& out, const RoboXMLNode* material) {
     map("aoMap", false);
     map("emissiveMap", true);
     map("matcap", true);
-    if (material != nullptr && !Attr(*material, "shader").empty()) return "shaders[\"" + Js(Attr(*material, "shader")) + "\"](ctx)";
+    if (material != nullptr && !Attr(*material, "shader").empty()) {
+        std::ostringstream wrapped;
+        wrapped << "(()=>{const material=shaders[\"" << Js(Attr(*material, "shader")) << "\"](ctx);";
+        for (const auto& entry : material->attrs) {
+            const std::string key = entry.first;
+            const std::string lower = Lower(key);
+            if (lower == "shader" || lower == "type" || lower == "transparent" || lower == "opacity" || lower == "side" ||
+                lower == "wireframe" || lower == "blending" || lower == "depthwrite" || lower == "color") {
+                continue;
+            }
+            wrapped << "if(material.uniforms&&material.uniforms[\"" << Js(key) << "\"]){";
+            if (!entry.second.empty() && entry.second.front() == '#') {
+                wrapped << "material.uniforms[\"" << Js(key) << "\"].value.set(\"" << Js(entry.second) << "\");";
+            } else {
+                wrapped << "material.uniforms[\"" << Js(key) << "\"].value=" << entry.second << ";";
+            }
+            wrapped << "}";
+        }
+        if (Flag(Attr(*material, "transparent")) || !Attr(*material, "opacity").empty()) wrapped << "material.transparent=true;";
+        if (Lower(Attr(*material, "depthWrite")) == "false") wrapped << "material.depthWrite=false;";
+        if (Lower(Attr(*material, "blending")) == "additive") wrapped << "material.blending=THREE.AdditiveBlending;";
+        if (!Attr(*material, "opacity").empty()) wrapped << "material.opacity=" << Attr(*material, "opacity") << ";";
+        wrapped << "return material;})()";
+        return wrapped.str();
+    }
     return "new THREE." + ctor + "({" + args.str() + "})";
 }
 
@@ -438,6 +469,51 @@ void EmitModifiers(Out& out, const RoboXMLNode& node, const std::string& object)
     }
 }
 
+void EmitMotion(Out& out, const std::string& object, const RoboXMLNode& node);
+
+void CollectLook(const RoboXMLNode& node, std::vector<const RoboXMLNode*>& wobbles, const RoboXMLNode*& color, const RoboXMLNode*& fade);
+
+void EmitSpecValue(std::ostream& js, const std::string& raw) {
+    const std::string text = Trim(raw);
+    bool ident = !text.empty() && (std::isalpha(static_cast<unsigned char>(text.front())) || text.front() == '_');
+    for (char ch : text) {
+        if (!std::isalnum(static_cast<unsigned char>(ch)) && ch != '_') ident = false;
+    }
+    if (ident) js << "\"" << Js(text) << "\"";
+    else js << (text.empty() ? "0" : text);
+}
+
+void EmitDeform(Out& out, const std::string& object, const RoboXMLNode* material) {
+    if (material == nullptr || Attr(*material, "shader").empty() || out.document == nullptr) return;
+    const RoboXMLNode* shader = nullptr;
+    for (const RoboXMLNode& child : out.document->children) {
+        if (Lower(child.name) == "shader" && Attr(child, "name") == Attr(*material, "shader")) shader = &child;
+    }
+    if (shader == nullptr) return;
+    std::vector<const RoboXMLNode*> wobbles;
+    const RoboXMLNode* color = nullptr;
+    const RoboXMLNode* fade = nullptr;
+    CollectLook(*shader, wobbles, color, fade);
+    if (wobbles.empty()) return;
+    out.uses.deform = true;
+    out.js << "const wobble=[";
+    bool first = true;
+    for (const RoboXMLNode* wobble : wobbles) {
+        if (!first) out.js << ",";
+        first = false;
+        out.js << "{amount:";
+        EmitSpecValue(out.js, Attr(*wobble, "amount").empty() ? "0.2" : Attr(*wobble, "amount"));
+        out.js << ",detail:";
+        EmitSpecValue(out.js, Attr(*wobble, "detail").empty() ? "1" : Attr(*wobble, "detail"));
+        out.js << ",speed:";
+        EmitSpecValue(out.js, Attr(*wobble, "speed").empty() ? "0.2" : Attr(*wobble, "speed"));
+        out.js << ",phase:";
+        EmitSpecValue(out.js, Attr(*wobble, "phase").empty() ? "0" : Attr(*wobble, "phase"));
+        out.js << ",layers:" << (Attr(*wobble, "layers").empty() ? "2" : Attr(*wobble, "layers")) << "}";
+    }
+    out.js << "];deform(" << object << ",material,wobble,0.01);ctx.frames.push((dt,time)=>deform(" << object << ",material,wobble,time));\n";
+}
+
 void EmitNode(Out& out, const RoboXMLNode& node, const std::string& parent, const std::string& path);
 
 void EmitMesh(Out& out, const RoboXMLNode& node, const std::string& parent, const std::string& path, const std::string& ctor) {
@@ -453,6 +529,8 @@ void EmitMesh(Out& out, const RoboXMLNode& node, const std::string& parent, cons
     EmitTransform(out, object, node);
     if (!full.empty()) out.js << "remember(ctx,\"" << Js(full) << "\"," << object << ");\n";
     out.js << parent << ".add(" << object << ");\n";
+    EmitDeform(out, object, material);
+    EmitMotion(out, object, node);
     EmitModifiers(out, node, object);
     for (const RoboXMLNode& child : node.children) {
         const std::string kind = Lower(child.name);
@@ -467,10 +545,159 @@ void EmitMesh(Out& out, const RoboXMLNode& node, const std::string& parent, cons
     out.js << "}\n";
 }
 
+std::string NumAttr(const RoboXMLNode& node, const char* key, const char* fallback) {
+    return Attr(node, key).empty() ? std::string(fallback) : Attr(node, key);
+}
+
+void EmitSurfaceFlags(std::ostringstream& js, const RoboXMLNode& node, const std::string& material) {
+    if (Flag(Attr(node, "transparent")) || !Attr(node, "opacity").empty()) js << material << ".transparent=true;";
+    if (!Attr(node, "opacity").empty()) js << material << ".opacity=" << Attr(node, "opacity") << ";";
+    if (Lower(Attr(node, "depthWrite")) == "false") js << material << ".depthWrite=false;";
+    if (Lower(Attr(node, "blending")) == "additive") js << material << ".blending=THREE.AdditiveBlending;";
+}
+
+void EmitMotion(Out& out, const std::string& object, const RoboXMLNode& node) {
+    const bool placed = !Attr(node, "viewX").empty() || !Attr(node, "viewY").empty() || !Attr(node, "pixelSize").empty();
+    const bool moving = placed || !Attr(node, "spin").empty() || !Attr(node, "spinX").empty() || !Attr(node, "spinY").empty() ||
+                        !Attr(node, "spinZ").empty() || !Attr(node, "float").empty() || !Attr(node, "parallax").empty() ||
+                        !Attr(node, "enter").empty() || !Attr(node, "pulse").empty() || !Attr(node, "opacityPulse").empty();
+    if (!moving) return;
+    if (placed) {
+        out.js << object << ".userData.view={nx:" << NumAttr(node, "viewX", "0") << ",ny:" << NumAttr(node, "viewY", "0") << ",z:"
+               << NumAttr(node, "viewZ", "0") << ",px:" << NumAttr(node, "pixelSize", "100") << ",narrowAt:" << NumAttr(node, "narrowAt", "100000")
+               << ",narrowScale:" << NumAttr(node, "narrowScale", "1") << ",narrowEdge:" << NumAttr(node, "narrowEdge", "1") << "};\n";
+        out.js << "ctx.layouts.push((width,height)=>{const v=" << object << ".userData.view;const distance=Math.abs(ctx.camera.position.z-v.z);"
+               << "const visible=2*Math.tan(THREE.MathUtils.degToRad(ctx.camera.fov/2))*distance;const narrow=width<=v.narrowAt;"
+               << "const edge=narrow?v.narrowEdge:1;const diameter=narrow?v.px*v.narrowScale:v.px;const world=(px)=>px/Math.max(height,1)*visible;"
+               << object << ".userData.base=new THREE.Vector3(world(v.nx*edge*width/2),world(v.ny*height/2),v.z);"
+               << object << ".userData.radius=world(diameter/2);});\n";
+    }
+    out.js << "ctx.frames.push((dt,time)=>{const reduced=window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches;";
+    if (placed || !Attr(node, "float").empty() || !Attr(node, "parallax").empty() || !Attr(node, "enter").empty()) {
+        out.js << "const base=" << object << ".userData.base;if(base){let y=base.y;const height=ctx.renderer.domElement.clientHeight||1;"
+               << "const distance=Math.abs(ctx.camera.position.z-base.z);const visible=2*Math.tan(THREE.MathUtils.degToRad(ctx.camera.fov/2))*distance;"
+               << "const world=(px)=>px/height*visible;";
+        if (!Attr(node, "float").empty()) {
+            out.js << "if(!reduced)y+=Math.sin((time*Math.PI*2)/" << NumAttr(node, "period", "8") << "+" << NumAttr(node, "phase", "0") << ")*world("
+                   << NumAttr(node, "float", "0") << ");";
+        }
+        if (!Attr(node, "parallax").empty()) {
+            out.js << "if(!reduced&&ctx.host)y+=ctx.host.getBoundingClientRect().top*" << NumAttr(node, "parallax", "0") << "/height*visible;";
+        }
+        out.js << object << ".position.set(base.x,y,base.z);";
+        if (!Attr(node, "enter").empty()) {
+            const std::string ease = Attr(node, "ease");
+            double x1 = 0, y1 = 0, x2 = 1, y2 = 1;
+            if (!ease.empty()) {
+                const auto values = ParseList(ease);
+                if (values.size() >= 4) {
+                    x1 = values[0];
+                    y1 = values[1];
+                    x2 = values[2];
+                    y2 = values[3];
+                }
+            }
+            out.js << "let span=" << object << ".userData.radius||1;if(!reduced){const u=Math.min(1,Math.max(0,(time-" << NumAttr(node, "enterDelay", "0")
+                   << ")/" << NumAttr(node, "enter", "0.6") << "));const sample=(t,a,b)=>{const m=1-t;return 3*m*m*t*a+3*m*t*t*b+t*t*t;};"
+                   << "let lo=0,hi=1,mid=u;for(let i=0;i<8;i++){const x=sample(mid," << Num(x1) << "," << Num(x2) << ");if(x<u)lo=mid;else hi=mid;mid=(lo+hi)/2;}"
+                   << "span*=sample(mid," << Num(y1) << "," << Num(y2) << ");}" << object << ".scale.setScalar(span);";
+        } else if (placed) {
+            out.js << object << ".scale.setScalar(" << object << ".userData.radius||1);";
+        }
+        out.js << "}";
+    }
+    auto spin = [&](const char* axis, const char* key) {
+        if (Attr(node, key).empty()) return;
+        out.js << "if(!reduced)" << object << ".rotation." << axis << "+=" << Attr(node, key) << "*dt;";
+    };
+    spin("y", "spin");
+    spin("x", "spinX");
+    spin("y", "spinY");
+    spin("z", "spinZ");
+    if (!Attr(node, "pulse").empty()) {
+        const std::string base = NumAttr(node, "size", "1");
+        out.js << "{const pulse=1+Math.sin((time+" << NumAttr(node, "pulsePhase", "0") << ")*" << NumAttr(node, "pulseSpeed", "1") << ")*" << NumAttr(node, "pulse", "0") << ";"
+               << "const scale=" << base << "*(reduced?1:" << (Flag(Attr(node, "pulseInvert")) ? "(2-pulse)" : "pulse") << ");"
+               << object << ".scale.set(scale,scale,1);}";
+    }
+    if (!Attr(node, "opacityPulse").empty()) {
+        out.js << "if(" << object << ".material){" << object << ".material.opacity=(reduced?" << NumAttr(node, "opacity", "1") << ":"
+               << NumAttr(node, "opacity", "1") << "+Math.sin(time*" << NumAttr(node, "opacitySpeed", "1") << "+" << NumAttr(node, "opacityPhase", "0")
+               << ")*" << NumAttr(node, "opacityPulse", "0") << ");}";
+    }
+    out.js << "});\n";
+}
+
 void EmitNode(Out& out, const RoboXMLNode& node, const std::string& parent, const std::string& path) {
     const std::string kind = Lower(node.name);
     const std::string name = Attr(node, "name");
     const std::string full = name.empty() ? path : (path.empty() ? name : path + "." + name);
+    if (kind == "field") {
+        const std::string shaderName = Attr(node, "shader");
+        if (shaderName.empty()) out.errors.push_back("Field needs Shader");
+        out.js << "{const material=shaders[\"" << Js(shaderName) << "\"](ctx);material.transparent=true;material.depthWrite=false;"
+               << "const mesh=new THREE.Mesh(new THREE.PlaneGeometry(2,2),material);mesh.frustumCulled=false;ctx.scene.add(mesh);}\n";
+        return;
+    }
+    if (kind == "points" || kind == "sprite" || kind == "line") {
+        const std::string object = Fresh(out);
+        out.js << "{";
+        if (kind == "points") {
+            const int count = std::max(1, std::atoi(NumAttr(node, "count", "12").c_str()));
+            const double inner = std::atof(NumAttr(node, "inner", "1.35").c_str());
+            const double spread = std::atof(NumAttr(node, "spread", "1.5").c_str());
+            out.js << "const positions=[];";
+            if (Flag(Attr(node, "random"))) {
+                out.js << "const count=" << count << ";const inner=" << Num(inner) << ";const spread=" << Num(spread) << ";"
+                       << "for(let i=0;i<count;i++){const dir=new THREE.Vector3(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1).normalize();"
+                       << "const rad=inner+Math.random()*spread;positions.push(dir.x*rad,dir.y*rad,dir.z*rad);}";
+            } else {
+            std::uint32_t seed = static_cast<std::uint32_t>(std::atoi(NumAttr(node, "seed", "1337").c_str()));
+            for (int i = 0; i < count; ++i) {
+                seed = seed * 1664525u + 1013904223u;
+                const double rx = (seed >> 8) / 16777216.0 * 2.0 - 1.0;
+                seed = seed * 1664525u + 1013904223u;
+                const double ry = (seed >> 8) / 16777216.0 * 2.0 - 1.0;
+                seed = seed * 1664525u + 1013904223u;
+                const double rz = (seed >> 8) / 16777216.0 * 2.0 - 1.0;
+                const double length = std::sqrt(rx * rx + ry * ry + rz * rz);
+                const double scale = length < 1e-6 ? 0 : (inner + ((seed >> 8) / 16777216.0) * spread) / length;
+                out.js << "positions.push(" << Num(rx * scale) << "," << Num(ry * scale) << "," << Num(rz * scale) << ");";
+            }
+            }
+            out.js << "const geometry=new THREE.BufferGeometry();geometry.setAttribute(\"position\",new THREE.Float32BufferAttribute(positions,3));"
+                   << "const material=new THREE.PointsMaterial({color:\"" << Js(Attr(node, "color").empty() ? "#ffffff" : Attr(node, "color"))
+                   << "\",size:" << NumAttr(node, "size", "0.02") << ",transparent:true,opacity:" << NumAttr(node, "opacity", "1")
+                   << ",sizeAttenuation:true});";
+        } else if (kind == "sprite") {
+            out.js << "const canvas=document.createElement(\"canvas\");canvas.width=256;canvas.height=256;const paint=canvas.getContext(\"2d\");"
+                   << "const glow=paint.createRadialGradient(128,128,0,128,128,128);";
+            bool anyStop = false;
+            for (const RoboXMLNode& stop : node.children) {
+                if (Lower(stop.name) != "stop") continue;
+                anyStop = true;
+                out.js << "glow.addColorStop(" << NumAttr(stop, "offset", "0") << ",\"" << Js(Attr(stop, "color")) << "\");";
+            }
+            if (!anyStop) out.js << "glow.addColorStop(0,\"" << Js(Attr(node, "color").empty() ? "#ffffff" : Attr(node, "color")) << "\");glow.addColorStop(1,\"rgba(0,0,0,0)\");";
+            out.js << "paint.fillStyle=glow;paint.fillRect(0,0,256,256);const texture=new THREE.CanvasTexture(canvas);texture.needsUpdate=true;"
+                   << "const material=new THREE.SpriteMaterial({map:texture,transparent:true,opacity:" << NumAttr(node, "opacity", "1") << "});";
+        } else {
+            out.js << "const pts=[];const radius=" << NumAttr(node, "radius", "1") << ";const segments=" << NumAttr(node, "segments", "64")
+                   << ";for(let i=0;i<segments;i++){const a=i/segments*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*radius,Math.sin(a)*radius,0));}"
+                   << "const material=new THREE.LineBasicMaterial({color:\"" << Js(Attr(node, "color").empty() ? "#ffffff" : Attr(node, "color"))
+                   << "\",transparent:true,opacity:" << NumAttr(node, "opacity", "1") << "});";
+        }
+        EmitSurfaceFlags(out.js, node, "material");
+        const char* ctor = kind == "points" ? "new THREE.Points(geometry, material)" : kind == "sprite" ? "new THREE.Sprite(material)" : "new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), material)";
+        out.js << "const " << object << "=" << ctor << ";";
+        if (!name.empty()) out.js << object << ".name=\"" << Js(name) << "\";";
+        EmitTransform(out, object, node);
+        if (!full.empty()) out.js << "remember(ctx,\"" << Js(full) << "\"," << object << ");";
+        out.js << parent << ".add(" << object << ");\n";
+        EmitMotion(out, object, node);
+        out.js << "}\n";
+        return;
+    }
     if (kind == "group" || kind == "object") {
         const std::string object = Fresh(out);
         out.js << "{const " << object << "=new THREE.Group();";
@@ -478,6 +705,7 @@ void EmitNode(Out& out, const RoboXMLNode& node, const std::string& parent, cons
         EmitTransform(out, object, node);
         if (!full.empty()) out.js << "remember(ctx,\"" << Js(full) << "\"," << object << ");";
         out.js << parent << ".add(" << object << ");\n";
+        EmitMotion(out, object, node);
         for (const RoboXMLNode& child : node.children) {
             if (Lower(child.name) == "transform") continue;
             EmitNode(out, child, object, full);
@@ -591,34 +819,722 @@ void EmitLights(Out& out, const RoboXMLNode& node) {
     }
 }
 
-std::string ShaderFunction(const RoboXMLNode& shader) {
+std::string ShaderTerm(const std::string& raw, const std::unordered_set<std::string>& inputs, bool color) {
+    const std::string text = Trim(raw);
+    if (text.empty()) return color ? "vec3(1.0)" : "0.0";
+    if (inputs.count(text) != 0) return text;
+    if (text.front() == '#') {
+        try {
+            const int rgb = std::stoi(text.substr(1), nullptr, 16);
+            std::ostringstream out;
+            out.setf(std::ios::fmtflags(0), std::ios::floatfield);
+            out.precision(4);
+            out << "vec3(" << ((rgb >> 16) & 255) / 255.0 << "," << ((rgb >> 8) & 255) / 255.0 << "," << (rgb & 255) / 255.0 << ")";
+            return out.str();
+        } catch (...) {
+            return color ? "vec3(1.0)" : "0.0";
+        }
+    }
+    return text;
+}
+
+void CollectLook(const RoboXMLNode& node, std::vector<const RoboXMLNode*>& wobbles, const RoboXMLNode*& color, const RoboXMLNode*& fade) {
+    const std::string kind = Lower(node.name);
+    if (kind == "wobble") {
+        wobbles.push_back(&node);
+        return;
+    }
+    if (kind == "color" && color == nullptr) color = &node;
+    if (kind == "fade" && fade == nullptr) fade = &node;
+    if (kind == "shader" || kind == "shape" || kind == "look") {
+        for (const RoboXMLNode& child : node.children) CollectLook(child, wobbles, color, fade);
+    }
+}
+
+std::string ShaderCall(const std::string& name) {
+    const std::string key = Lower(name);
+    if (key == "smooth" || key == "smoothstep") return "smoothstep";
+    if (key == "abs" || key == "min" || key == "max" || key == "clamp" || key == "mix" || key == "length" || key == "distance" ||
+        key == "dot" || key == "normalize" || key == "pow" || key == "floor" || key == "fract" || key == "sqrt" || key == "sin" ||
+        key == "cos" || key == "tan" || key == "asin" || key == "acos" || key == "atan" || key == "sign" || key == "step" ||
+        key == "reflect" || key == "refract" || key == "cross" || key == "mod" || key == "exp" || key == "log" || key == "radians" ||
+        key == "degrees" || key == "vec2" || key == "vec3" || key == "vec4" || key == "mat2" || key == "mat3" || key == "mat4" ||
+        key == "float" || key == "int" || key == "noise" || key == "sample" || key == "slopex" || key == "slopey" || key == "slope") {
+        if (key == "noise") return "robixNoise";
+        if (key == "sample") return "texture2D";
+        if (key == "slopex") return "dFdx";
+        if (key == "slopey") return "dFdy";
+        if (key == "slope") return "fwidth";
+        return key;
+    }
+    return {};
+}
+
+std::string ShaderWord(const std::string& name, bool vertex) {
+    const std::string key = Lower(name);
+    if (key == "projectionmatrix") return "projectionMatrix";
+    if (key == "viewmatrix") return "viewMatrix";
+    if (key == "modelmatrix") return "modelMatrix";
+    if (key == "modelviewmatrix") return "modelViewMatrix";
+    if (key == "normalmatrix") return "normalMatrix";
+    if (key == "cameraposition") return "cameraPosition";
+    if (vertex && key == "position") return "position";
+    if (vertex && key == "normal") return "normal";
+    if (vertex && key == "uv") return "uv";
+    return name;
+}
+
+class ShaderExpr {
+ public:
+    ShaderExpr(const std::string& text, bool vertex) : text_(text), vertex_(vertex) {}
+
+    std::string Run(std::string& error) {
+        error_.clear();
+        const std::string value = ParseChoice();
+        Skip();
+        if (!error_.empty()) {
+            error = error_;
+            return "0.0";
+        }
+        if (index_ != text_.size()) error = "could not read '" + text_ + "'";
+        return value;
+    }
+
+ private:
+    void Skip() {
+        while (index_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[index_]))) ++index_;
+    }
+
+    std::string ParseChoice() {
+        const std::string value = ParseCompare();
+        Skip();
+        if (index_ < text_.size() && text_[index_] == '?') {
+            ++index_;
+            const std::string yes = ParseChoice();
+            Skip();
+            if (index_ >= text_.size() || text_[index_] != ':') error_ = "missing :";
+            else ++index_;
+            const std::string no = ParseChoice();
+            return "(" + value + "?" + yes + ":" + no + ")";
+        }
+        return value;
+    }
+
+    std::string ParseCompare() {
+        const std::string value = ParseAdd();
+        Skip();
+        if (index_ + 1 < text_.size() && text_[index_] == '=' && text_[index_ + 1] == '=') return value + "==" + Take(2, &ShaderExpr::ParseAdd);
+        if (index_ + 1 < text_.size() && text_[index_] == '!' && text_[index_ + 1] == '=') return value + "!=" + Take(2, &ShaderExpr::ParseAdd);
+        if (index_ + 1 < text_.size() && text_[index_] == '<' && text_[index_ + 1] == '=') return value + "<=" + Take(2, &ShaderExpr::ParseAdd);
+        if (index_ + 1 < text_.size() && text_[index_] == '>' && text_[index_ + 1] == '=') return value + ">=" + Take(2, &ShaderExpr::ParseAdd);
+        if (index_ < text_.size() && text_[index_] == '<') return value + "<" + Take(1, &ShaderExpr::ParseAdd);
+        if (index_ < text_.size() && text_[index_] == '>') return value + ">" + Take(1, &ShaderExpr::ParseAdd);
+        return value;
+    }
+
+    std::string Take(int count, std::string (ShaderExpr::*next)()) {
+        index_ += static_cast<std::size_t>(count);
+        return (this->*next)();
+    }
+
+    std::string ParseAdd() {
+        std::string value = ParseMul();
+        for (;;) {
+            Skip();
+            if (index_ < text_.size() && (text_[index_] == '+' || text_[index_] == '-')) {
+                const char op = text_[index_++];
+                value += op;
+                value += ParseMul();
+            } else {
+                break;
+            }
+        }
+        return value;
+    }
+
+    std::string ParseMul() {
+        std::string value = ParseUnary();
+        for (;;) {
+            Skip();
+            if (index_ < text_.size() && (text_[index_] == '*' || text_[index_] == '/' || text_[index_] == '%')) {
+                const char op = text_[index_++];
+                value += op;
+                value += ParseUnary();
+            } else {
+                break;
+            }
+        }
+        return value;
+    }
+
+    std::string ParseUnary() {
+        Skip();
+        if (index_ < text_.size() && text_[index_] == '-') {
+            ++index_;
+            return "-" + ParseUnary();
+        }
+        return ParsePrimary();
+    }
+
+    std::string Swizzle(std::string value) {
+        if (index_ < text_.size() && text_[index_] == '.') {
+            ++index_;
+            const std::size_t start = index_;
+            while (index_ < text_.size() && std::isalpha(static_cast<unsigned char>(text_[index_]))) ++index_;
+            std::string part = text_.substr(start, index_ - start);
+            for (char& ch : part) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            if (part.empty()) error_ = "missing swizzle";
+            value += "." + part;
+        }
+        return value;
+    }
+
+    std::string ParsePrimary() {
+        Skip();
+        if (index_ >= text_.size()) {
+            error_ = "missing value";
+            return "0.0";
+        }
+        if (text_[index_] == '(') {
+            ++index_;
+            const std::string value = ParseChoice();
+            Skip();
+            if (index_ < text_.size() && text_[index_] == ',') {
+                std::string list = value;
+                int count = 1;
+                while (index_ < text_.size() && text_[index_] == ',') {
+                    ++index_;
+                    if (!list.empty()) list += ",";
+                    list += ParseChoice();
+                    ++count;
+                    Skip();
+                }
+                if (count < 2 || count > 4) error_ = "a group holds 2, 3, or 4 numbers";
+                if (index_ >= text_.size() || text_[index_] != ')') error_ = "missing )";
+                else ++index_;
+                return Swizzle("vec" + std::to_string(count) + "(" + list + ")");
+            }
+            if (index_ >= text_.size() || text_[index_] != ')') error_ = "missing )";
+            else ++index_;
+            return Swizzle("(" + value + ")");
+        }
+        if (std::isalpha(static_cast<unsigned char>(text_[index_])) || text_[index_] == '_') {
+            const std::size_t start = index_;
+            while (index_ < text_.size() && (std::isalnum(static_cast<unsigned char>(text_[index_])) || text_[index_] == '_')) ++index_;
+            const std::string name = text_.substr(start, index_ - start);
+            Skip();
+            if (index_ < text_.size() && text_[index_] == '(') {
+                ++index_;
+                std::string args;
+                Skip();
+                if (index_ >= text_.size() || text_[index_] != ')') {
+                    for (;;) {
+                        if (!args.empty()) args += ",";
+                        args += ParseChoice();
+                        Skip();
+                        if (index_ < text_.size() && text_[index_] == ',') {
+                            ++index_;
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                if (index_ >= text_.size() || text_[index_] != ')') error_ = "missing )";
+                else ++index_;
+                const std::string call = Lower(name) == "saturate" ? "clamp" : ShaderCall(name);
+                if (call.empty()) error_ = "unknown shader function '" + name + "'";
+                const std::string written = Lower(name) == "saturate" ? call + "(" + args + ",0.0,1.0)" : call + "(" + args + ")";
+                return Swizzle(written);
+            }
+            return Swizzle(ShaderWord(name, vertex_));
+        }
+        const std::size_t start = index_;
+        if (text_[index_] == '.') ++index_;
+        while (index_ < text_.size() && (std::isdigit(static_cast<unsigned char>(text_[index_])) || text_[index_] == '.')) ++index_;
+        if (start == index_) {
+            error_ = "expected a number";
+            return "0.0";
+        }
+        return Swizzle(text_.substr(start, index_ - start));
+    }
+
+    const std::string& text_;
+    bool vertex_ = false;
+    std::size_t index_ = 0;
+    std::string error_;
+};
+
+int RankOfType(const std::string& type) {
+    const std::string key = Lower(type);
+    if (key == "vec2" || key == "vector2") return 2;
+    if (key == "vec3" || key == "vector3" || key == "color") return 3;
+    if (key == "vec4" || key == "vector4") return 4;
+    return 1;
+}
+
+const char* TypeOfRank(int rank) {
+    if (rank == 2) return "vec2";
+    if (rank == 3) return "vec3";
+    if (rank == 4) return "vec4";
+    return "float";
+}
+
+std::string InputTypeOf(const RoboXMLNode& child) {
+    const std::string written = Lower(Attr(child, "type"));
+    const std::string source = Lower(Attr(child, "source"));
+    if (written.empty()) {
+        if (source == "resolution" || source == "stage" || source == "pointer") return "vec2";
+        if (source == "texture" || source == "image" || source == "map") return "texture";
+        const std::string value = Attr(child, "default").empty() ? Attr(child, "value") : Attr(child, "default");
+        if (!Trim(value).empty() && Trim(value).front() == '#') return "color";
+        const auto parts = ParseList(value);
+        if (parts.size() == 2) return "vec2";
+        if (parts.size() == 3) return "vec3";
+        if (parts.size() == 4) return "vec4";
+        return "float";
+    }
+    if (written == "vector2") return "vec2";
+    if (written == "vector3") return "vec3";
+    if (written == "vector4") return "vec4";
+    if (written == "image" || written == "map") return "texture";
+    return written;
+}
+
+class ShaderRank {
+ public:
+    ShaderRank(const std::string& text, bool vertex, const std::unordered_map<std::string, int>& names)
+        : text_(text), vertex_(vertex), names_(names) {}
+
+    int Run() {
+        const int rank = ParseChoice();
+        Skip();
+        return rank;
+    }
+
+ private:
+    void Skip() {
+        while (index_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[index_]))) ++index_;
+    }
+
+    int ParseChoice() {
+        const int value = ParseCompare();
+        Skip();
+        if (index_ < text_.size() && text_[index_] == '?') {
+            ++index_;
+            const int yes = ParseChoice();
+            Skip();
+            if (index_ < text_.size() && text_[index_] == ':') ++index_;
+            const int no = ParseChoice();
+            return yes == no ? yes : std::max(yes, no);
+        }
+        return value;
+    }
+
+    int ParseCompare() {
+        const int value = ParseAdd();
+        Skip();
+        if (index_ + 1 < text_.size() && ((text_[index_] == '=' && text_[index_ + 1] == '=') || (text_[index_] == '!' && text_[index_ + 1] == '=') ||
+                                          (text_[index_] == '<' && text_[index_ + 1] == '=') || (text_[index_] == '>' && text_[index_ + 1] == '='))) {
+            index_ += 2;
+            ParseAdd();
+            return 1;
+        }
+        if (index_ < text_.size() && (text_[index_] == '<' || text_[index_] == '>')) {
+            ++index_;
+            ParseAdd();
+            return 1;
+        }
+        return value;
+    }
+
+    int Combine(int left, int right) const {
+        if (left == right) return left;
+        if (left == 1) return right;
+        if (right == 1) return left;
+        return left;
+    }
+
+    int ParseAdd() {
+        int value = ParseMul();
+        for (;;) {
+            Skip();
+            if (index_ < text_.size() && (text_[index_] == '+' || text_[index_] == '-')) {
+                ++index_;
+                value = Combine(value, ParseMul());
+            } else {
+                break;
+            }
+        }
+        return value;
+    }
+
+    int ParseMul() {
+        int value = ParseUnary();
+        for (;;) {
+            Skip();
+            if (index_ < text_.size() && (text_[index_] == '*' || text_[index_] == '/' || text_[index_] == '%')) {
+                ++index_;
+                value = Combine(value, ParseUnary());
+            } else {
+                break;
+            }
+        }
+        return value;
+    }
+
+    int ParseUnary() {
+        Skip();
+        if (index_ < text_.size() && text_[index_] == '-') {
+            ++index_;
+            return ParseUnary();
+        }
+        return ParsePrimary();
+    }
+
+    int Swizzle(int rank) {
+        if (index_ < text_.size() && text_[index_] == '.') {
+            ++index_;
+            int count = 0;
+            while (index_ < text_.size() && std::isalpha(static_cast<unsigned char>(text_[index_]))) {
+                ++index_;
+                ++count;
+            }
+            if (count >= 1 && count <= 4) return count;
+        }
+        return rank;
+    }
+
+    int CallRank(const std::string& name, const std::vector<int>& args) const {
+        const std::string key = Lower(name);
+        const int first = args.empty() ? 1 : args.front();
+        const int last = args.empty() ? 1 : args.back();
+        if (key == "vec2") return 2;
+        if (key == "vec3") return 3;
+        if (key == "vec4") return 4;
+        if (key == "float" || key == "int" || key == "length" || key == "distance" || key == "dot" || key == "noise") return 1;
+        if (key == "sample") return 4;
+        if (key == "smooth" || key == "smoothstep") return last;
+        return first;
+    }
+
+    int ParsePrimary() {
+        Skip();
+        if (index_ >= text_.size()) return 1;
+        if (text_[index_] == '(') {
+            ++index_;
+            const int value = ParseChoice();
+            Skip();
+            if (index_ < text_.size() && text_[index_] == ',') {
+                int count = 1;
+                while (index_ < text_.size() && text_[index_] == ',') {
+                    ++index_;
+                    ParseChoice();
+                    ++count;
+                    Skip();
+                }
+                if (index_ < text_.size() && text_[index_] == ')') ++index_;
+                return Swizzle(std::min(std::max(count, 1), 4));
+            }
+            if (index_ < text_.size() && text_[index_] == ')') ++index_;
+            return Swizzle(value);
+        }
+        if (std::isalpha(static_cast<unsigned char>(text_[index_])) || text_[index_] == '_') {
+            const std::size_t start = index_;
+            while (index_ < text_.size() && (std::isalnum(static_cast<unsigned char>(text_[index_])) || text_[index_] == '_')) ++index_;
+            const std::string name = text_.substr(start, index_ - start);
+            Skip();
+            if (index_ < text_.size() && text_[index_] == '(') {
+                ++index_;
+                std::vector<int> args;
+                Skip();
+                if (index_ >= text_.size() || text_[index_] != ')') {
+                    for (;;) {
+                        args.push_back(ParseChoice());
+                        Skip();
+                        if (index_ < text_.size() && text_[index_] == ',') {
+                            ++index_;
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                if (index_ < text_.size() && text_[index_] == ')') ++index_;
+                return Swizzle(CallRank(name, args));
+            }
+            const auto found = names_.find(name);
+            const int rank = found == names_.end() ? 1 : found->second;
+            return Swizzle(rank);
+        }
+        if (text_[index_] == '.') ++index_;
+        while (index_ < text_.size() && (std::isdigit(static_cast<unsigned char>(text_[index_])) || text_[index_] == '.')) ++index_;
+        return Swizzle(1);
+    }
+
+    const std::string& text_;
+    bool vertex_;
+    const std::unordered_map<std::string, int>& names_;
+    std::size_t index_ = 0;
+};
+
+std::string ReadShaderExpr(const std::string& text, bool vertex, const std::string& shaderName, std::vector<std::string>& errors) {
+    std::string error;
+    const std::string value = ShaderExpr(text, vertex).Run(error);
+    if (!error.empty()) errors.push_back(shaderName + " " + error);
+    return value;
+}
+
+void EmitShaderStatements(const std::vector<RoboXMLNode>& children, bool fragment, const std::string& shaderName, std::ostringstream& body,
+                          std::vector<std::string>& errors, bool& sawOutput, std::unordered_map<std::string, int>& ranks) {
+    for (std::size_t index = 0; index < children.size(); ++index) {
+        const RoboXMLNode& child = children[index];
+        const std::string kind = Lower(child.name);
+        if (kind == "else") {
+            errors.push_back(shaderName + " Else needs an If before it");
+            continue;
+        }
+        if (kind == "let" || kind == "set") {
+            const std::string name = Attr(child, "name");
+            const bool vary = Flag(Attr(child, "vary"));
+            const std::string raw = Attr(child, "value");
+            int rank = 1;
+            if (!Attr(child, "type").empty()) rank = RankOfType(Attr(child, "type"));
+            else if (!raw.empty()) rank = ShaderRank(raw, !fragment, ranks).Run();
+            if (!name.empty() && kind == "let") ranks[name] = rank;
+            if (name.empty()) errors.push_back(shaderName + " " + child.name + " needs Name");
+            if (kind == "set" || vary) {
+                if (!raw.empty()) body << name << "=" << ReadShaderExpr(raw, !fragment, shaderName, errors) << ";\n";
+            } else {
+                if (raw.empty()) errors.push_back(shaderName + " Let needs Value");
+                body << TypeOfRank(rank) << " " << name << "=" << ReadShaderExpr(raw.empty() ? "0.0" : raw, !fragment, shaderName, errors) << ";\n";
+            }
+            continue;
+        }
+        if (kind == "repeat") {
+            const std::string variable = Attr(child, "variable").empty() ? "i" : Attr(child, "variable");
+            const int count = std::atoi(Attr(child, "count").empty() ? "1" : Attr(child, "count").c_str());
+            if (count < 0 || count > 256) errors.push_back(shaderName + " Repeat count must be from 0 to 256");
+            body << "for(int " << variable << "=0;" << variable << "<" << std::max(0, count) << ";" << variable << "++){\n";
+            bool nested = false;
+            EmitShaderStatements(child.children, fragment, shaderName, body, errors, nested, ranks);
+            body << "}\n";
+            if (nested) sawOutput = true;
+            continue;
+        }
+        if (kind == "if") {
+            if (Attr(child, "test").empty()) errors.push_back(shaderName + " If needs Test");
+            body << "if(" << ReadShaderExpr(Attr(child, "test").empty() ? "false" : Attr(child, "test"), !fragment, shaderName, errors) << "){\n";
+            bool nested = false;
+            EmitShaderStatements(child.children, fragment, shaderName, body, errors, nested, ranks);
+            body << "}";
+            if (index + 1 < children.size() && Lower(children[index + 1].name) == "else") {
+                body << "else{\n";
+                EmitShaderStatements(children[index + 1].children, fragment, shaderName, body, errors, nested, ranks);
+                body << "}";
+                ++index;
+            }
+            body << "\n";
+            if (nested) sawOutput = true;
+            continue;
+        }
+        if (kind == "discard") {
+            if (Attr(child, "test").empty()) body << "discard;\n";
+            else body << "if(" << ReadShaderExpr(Attr(child, "test"), !fragment, shaderName, errors) << ") discard;\n";
+            continue;
+        }
+        if (kind == "output") {
+            sawOutput = true;
+            if (fragment && !Attr(child, "value").empty()) {
+                body << "gl_FragColor=" << ReadShaderExpr(Attr(child, "value"), false, shaderName, errors) << ";\n";
+            } else if (fragment) {
+                const std::string color = ReadShaderExpr(Attr(child, "color").empty() ? "(1.0, 1.0, 1.0)" : Attr(child, "color"), false, shaderName, errors);
+                const std::string alpha = ReadShaderExpr(Attr(child, "alpha").empty() ? "1.0" : Attr(child, "alpha"), false, shaderName, errors);
+                body << "gl_FragColor=vec4(" << color << "," << alpha << ");\n";
+            } else {
+                if (Attr(child, "position").empty()) errors.push_back(shaderName + " vertex Output needs Position");
+                body << "gl_Position=" << ReadShaderExpr(Attr(child, "position").empty() ? "vec4(0.0)" : Attr(child, "position"), true, shaderName, errors) << ";\n";
+            }
+        }
+    }
+}
+
+void CollectVary(const std::vector<RoboXMLNode>& children, std::ostringstream& vary, std::unordered_set<std::string>& seen,
+                  std::unordered_map<std::string, int>& ranks, bool vertex) {
+    for (const RoboXMLNode& child : children) {
+        const std::string kind = Lower(child.name);
+        if (kind == "let") {
+            const std::string name = Attr(child, "name");
+            const std::string raw = Attr(child, "value");
+            int rank = 1;
+            if (!Attr(child, "type").empty()) rank = RankOfType(Attr(child, "type"));
+            else if (!raw.empty()) rank = ShaderRank(raw, vertex, ranks).Run();
+            if (!name.empty()) ranks[name] = rank;
+            if (Flag(Attr(child, "vary")) && !name.empty() && seen.insert(name).second) vary << "varying " << TypeOfRank(rank) << " " << name << ";\n";
+        } else if (kind == "repeat" || kind == "if" || kind == "else") {
+            CollectVary(child.children, vary, seen, ranks, vertex);
+        }
+    }
+}
+
+std::string CompileStage(const RoboXMLNode& block, const std::string& declarations, bool fragment, const std::string& shaderName,
+                         std::vector<std::string>& errors, std::unordered_map<std::string, int> ranks) {
+    std::ostringstream body;
+    if (fragment) body << "precision highp float;\n";
+    body << declarations;
+    body << "void main(){\n";
+    if (fragment) {
+        body << "vec2 Pixel=gl_FragCoord.xy;\n";
+        ranks["Pixel"] = 2;
+    } else {
+        ranks["Position"] = 3;
+        ranks["Normal"] = 3;
+        ranks["Uv"] = 2;
+    }
+    bool sawOutput = false;
+    EmitShaderStatements(block.children, fragment, shaderName, body, errors, sawOutput, ranks);
+    if (!sawOutput) {
+        errors.push_back(shaderName + " needs Output");
+        body << (fragment ? "gl_FragColor=vec4(1.0);\n" : "gl_Position=vec4(0.0);\n");
+    }
+    body << "}";
+    return body.str();
+}
+
+std::string ShaderFunction(const RoboXMLNode& shader, Out& out) {
+    std::vector<std::string>& errors = out.errors;
     std::ostringstream uniforms;
     std::ostringstream decls;
     bool time = false;
+    bool live = false;
+    bool trackPointer = false;
+    std::ostringstream liveWrite;
+    std::unordered_set<std::string> inputs;
+    std::unordered_map<std::string, int> ranks;
     for (const RoboXMLNode& child : shader.children) {
-        if (Lower(child.name) != "uniform") continue;
+        const std::string childKind = Lower(child.name);
+        if (childKind != "uniform" && childKind != "input") continue;
         const std::string name = Attr(child, "name");
-        const std::string type = Lower(Attr(child, "type").empty() ? "float" : Attr(child, "type"));
+        const std::string type = InputTypeOf(child);
         const std::string value = Attr(child, "default").empty() ? Attr(child, "value") : Attr(child, "default");
-        if (Lower(name) == "time") time = true;
+        const std::string source = Lower(Attr(child, "source"));
+        if (Lower(name) == "time" && source.empty()) time = true;
+        inputs.insert(name);
+        ranks[name] = RankOfType(type);
         if (type == "color") {
             decls << "uniform vec3 " << name << ";\n";
             uniforms << "\"" << Js(name) << "\":{value:new THREE.Color(\"" << Js(value.empty() ? "#ffffff" : value) << "\")},";
+        } else if (type == "vec2") {
+            const auto parts = ParseList(value.empty() ? "0,0" : value);
+            decls << "uniform vec2 " << name << ";\n";
+            uniforms << "\"" << Js(name) << "\":{value:new THREE.Vector2(" << (parts.size() > 0 ? Num(parts[0]) : "0") << ","
+                     << (parts.size() > 1 ? Num(parts[1]) : "0") << ")},";
+        } else if (type == "vec3") {
+            const auto parts = ParseList(value.empty() ? "0,0,0" : value);
+            decls << "uniform vec3 " << name << ";\n";
+            uniforms << "\"" << Js(name) << "\":{value:new THREE.Vector3(" << (parts.size() > 0 ? Num(parts[0]) : "0") << ","
+                     << (parts.size() > 1 ? Num(parts[1]) : "0") << "," << (parts.size() > 2 ? Num(parts[2]) : "0") << ")},";
+        } else if (type == "texture" || type == "map" || type == "sampler2d") {
+            const std::string file = Attr(child, "source").empty() ? value : Attr(child, "source");
+            const std::string url = Publish(out, file, "images");
+            decls << "uniform sampler2D " << name << ";\n";
+            uniforms << "\"" << Js(name) << "\":{value:(()=>{const tex=new THREE.TextureLoader().load(\"" << Js(url) << "\");tex.colorSpace=THREE.SRGBColorSpace;return tex;})()},";
         } else {
             decls << "uniform float " << name << ";\n";
             uniforms << "\"" << Js(name) << "\":{value:" << (value.empty() ? "0" : value) << "},";
         }
+        if (source == "time") {
+            live = true;
+            liveWrite << "material.uniforms[\"" << Js(name) << "\"].value=reduced?" << (Attr(child, "hold").empty() ? "0" : Attr(child, "hold"))
+                      << ":(clock?clock.elapsed:time);";
+        } else if (source == "enter") {
+            live = true;
+            liveWrite << "{const span=" << (Attr(child, "duration").empty() ? "0.7" : Attr(child, "duration"))
+                      << ";const t=Math.min(1,Math.max(0,(clock?clock.enter:time)/span));material.uniforms[\"" << Js(name)
+                      << "\"].value=reduced?1:(1-Math.pow(1-t,3));}";
+        } else if (source == "resolution") {
+            live = true;
+            liveWrite << "material.uniforms[\"" << Js(name) << "\"].value.set(ctx.renderer.domElement.width,ctx.renderer.domElement.height);";
+        } else if (source == "stage") {
+            live = true;
+            liveWrite << "{const ratio=ctx.renderer.getPixelRatio();const host=ctx.host&&ctx.host.parentElement||ctx.host;const w=Math.max(((host&&host.clientWidth)||ctx.renderer.domElement.clientWidth)*ratio,1);const h=Math.max(((host&&host.clientHeight)||ctx.renderer.domElement.clientHeight)*ratio,1);material.uniforms[\""
+                      << Js(name) << "\"].value.set(w,h);}";
+        } else if (source == "pointer") {
+            live = true;
+            trackPointer = true;
+            liveWrite << "{const u=material.uniforms[\"" << Js(name) << "\"].value;if(reduced)u.set(0,0);else{const follow="
+                      << (Attr(child, "smooth").empty() ? "0.05" : Attr(child, "smooth")) << ";u.x+=(clock.pointer.x-u.x)*follow;u.y+=(-clock.pointer.y-u.y)*follow;}}";
+        }
     }
     const RoboXMLNode* glsl = nullptr;
     const RoboXMLNode* surface = nullptr;
+    const RoboXMLNode* fragmentProgram = nullptr;
+    const RoboXMLNode* vertexProgram = nullptr;
     for (const RoboXMLNode& child : shader.children) {
-        if (Lower(child.name) == "glsl") glsl = &child;
-        if (Lower(child.name) == "surface") surface = &child;
+        const std::string childKind = Lower(child.name);
+        if (childKind == "glsl") glsl = &child;
+        if (childKind == "surface") surface = &child;
+        if (childKind == "fragment") fragmentProgram = &child;
+        if (childKind == "vertex") vertexProgram = &child;
     }
+    std::vector<const RoboXMLNode*> wobbles;
+    const RoboXMLNode* lookColor = nullptr;
+    const RoboXMLNode* fade = nullptr;
+    CollectLook(shader, wobbles, lookColor, fade);
+    const bool coded = fragmentProgram != nullptr || vertexProgram != nullptr;
+    const bool friendly = !coded && glsl == nullptr && (!wobbles.empty() || lookColor != nullptr || fade != nullptr);
+    const std::string shaderName = Attr(shader, "name").empty() ? "Shader" : Attr(shader, "name");
     std::string fragment;
-    if (glsl != nullptr) {
-        fragment = TextOf(*glsl, "fragment");
-        if (fragment.empty()) fragment = Trim(glsl->text);
+    std::string friendlyVertex;
+    if (coded) {
+        std::unordered_set<std::string> varied;
+        std::ostringstream varyings;
+        if (vertexProgram != nullptr) {
+            auto varyRanks = ranks;
+            varyRanks["Position"] = 3;
+            varyRanks["Normal"] = 3;
+            varyRanks["Uv"] = 2;
+            CollectVary(vertexProgram->children, varyings, varied, varyRanks, true);
+        }
+        if (fragmentProgram != nullptr) {
+            auto varyRanks = ranks;
+            varyRanks["Pixel"] = 2;
+            CollectVary(fragmentProgram->children, varyings, varied, varyRanks, false);
+        }
+        const std::string header = decls.str() + varyings.str();
+        if (fragmentProgram != nullptr) fragment = CompileStage(*fragmentProgram, header, true, shaderName, errors, ranks);
+        if (Lower(Attr(shader, "space")) == "screen") friendlyVertex = "void main(){gl_Position=vec4(position.xy,0.0,1.0);}";
+        else if (vertexProgram != nullptr) friendlyVertex = CompileStage(*vertexProgram, header, false, shaderName, errors, ranks);
+    } else if (friendly) {
+        friendlyVertex = "varying vec3 vNormal;varying vec3 vView;varying float vNoise;\nvoid main(){vec4 mv=modelViewMatrix*vec4(position,1.0);vView=mv.xyz;vNormal=normalize(normalMatrix*normal);vNoise=0.0;gl_Position=projectionMatrix*mv;}";
+        std::ostringstream fragmentBody;
+        fragmentBody << decls.str() << "varying vec3 vNormal;varying vec3 vView;varying float vNoise;\nvoid main(){\n";
+        fragmentBody << "float edge=pow(clamp(1.0-abs(dot(normalize(vNormal),normalize(-vView))),0.0,1.0),";
+        if (lookColor != nullptr && !Attr(*lookColor, "sharpness").empty()) fragmentBody << ShaderTerm(Attr(*lookColor, "sharpness"), inputs, false);
+        else fragmentBody << "2.0";
+        fragmentBody << ");\n";
+        if (lookColor == nullptr) fragmentBody << "vec3 color=vec3(1.0);\n";
+        else if (!Attr(*lookColor, "value").empty() || !Attr(*lookColor, "color").empty()) {
+            const std::string paint = Attr(*lookColor, "value").empty() ? Attr(*lookColor, "color") : Attr(*lookColor, "value");
+            fragmentBody << "vec3 color=" << ShaderTerm(paint, inputs, true) << ";\n";
+        } else {
+            const std::string edgeColor = ShaderTerm(Attr(*lookColor, "edge").empty() ? "#ffffff" : Attr(*lookColor, "edge"), inputs, true);
+            const std::string centerColor = ShaderTerm(Attr(*lookColor, "center").empty() ? "#888888" : Attr(*lookColor, "center"), inputs, true);
+            const std::string by = Lower(Attr(*lookColor, "by").empty() ? "edge" : Attr(*lookColor, "by"));
+            const char* mixBy = by == "noise" ? "clamp(vNoise,-1.0,1.0)*0.5+0.5" : "edge";
+            fragmentBody << "vec3 color=mix(" << centerColor << "," << edgeColor << "," << mixBy << ");\n";
+        }
+        if (fade == nullptr) fragmentBody << "float alpha=1.0;\n";
+        else {
+            const std::string base = ShaderTerm(Attr(*fade, "base").empty() ? "0.0" : Attr(*fade, "base"), inputs, false);
+            const std::string edgeFade = ShaderTerm(Attr(*fade, "edge").empty() ? "0.0" : Attr(*fade, "edge"), inputs, false);
+            const std::string limit = ShaderTerm(Attr(*fade, "limit").empty() ? "1.0" : Attr(*fade, "limit"), inputs, false);
+            fragmentBody << "float alpha=clamp(" << base << "+edge*" << edgeFade << ",0.0," << limit << ");\n";
+        }
+        const std::string brightness = fade != nullptr && !Attr(*fade, "brightness").empty() ? ShaderTerm(Attr(*fade, "brightness"), inputs, false) : "1.0";
+        fragmentBody << "gl_FragColor=vec4(color*" << brightness << ",alpha);}";
+        fragment = fragmentBody.str();
+    } else if (glsl != nullptr) {
+        errors.push_back(shaderName + " cannot use raw GLSL. Describe it with Let and Output.");
+        fragment = "void main(){gl_FragColor=vec4(1.0);}";
     } else {
         float power = 3;
         float bias = 0;
@@ -681,13 +1597,39 @@ std::string ShaderFunction(const RoboXMLNode& shader) {
                    ");float noise=nse(vW*" + Num(scale) + "+Time*" + Num(speed) + ");vec3 color=mix(" + from + "," + to +
                    ",fresnel);color+=noise*0.12;gl_FragColor=vec4(color,1.0);}";
     }
-    std::string vertex = glsl != nullptr ? TextOf(*glsl, "vertex") : "";
+    std::string vertex = friendlyVertex;
     if (vertex.empty()) {
         vertex = "varying vec3 vN;varying vec3 vW;void main(){vec4 world=modelMatrix*vec4(position,1.0);vW=world.xyz;vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*world;}";
+    }
+    const char* noiseLibrary =
+        "float robixHash(vec3 q){return fract(sin(dot(q,vec3(127.1,311.7,74.7)))*43758.5453);}\n"
+        "float robixNoise(vec3 p){vec3 i=floor(p);vec3 f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(robixHash(i),robixHash(i+vec3(1.0,0.0,0.0)),f.x),mix(robixHash(i+vec3(0.0,1.0,0.0)),robixHash(i+vec3(1.0,1.0,0.0)),f.x),f.y),mix(mix(robixHash(i+vec3(0.0,0.0,1.0)),robixHash(i+vec3(1.0,0.0,1.0)),f.x),mix(robixHash(i+vec3(0.0,1.0,1.0)),robixHash(i+vec3(1.0,1.0,1.0)),f.x),f.y),f.z);}\n";
+    auto injectNoise = [&](std::string& source) {
+        if (source.find("robixNoise(") == std::string::npos) return;
+        const auto main = source.find("void main");
+        source.insert(main == std::string::npos ? source.size() : main, noiseLibrary);
+    };
+    injectNoise(vertex);
+    injectNoise(fragment);
+    if (fragment.find("dFdx(") != std::string::npos || fragment.find("dFdy(") != std::string::npos || fragment.find("fwidth(") != std::string::npos) {
+        fragment.insert(0, "#extension GL_OES_standard_derivatives : enable\n");
     }
     std::ostringstream fn;
     fn << "function(ctx){const material=new THREE.ShaderMaterial({uniforms:{" << uniforms.str()
        << "},vertexShader:\"" << Js(vertex) << "\",fragmentShader:\"" << Js(fragment) << "\"});";
+    if (live) {
+        const bool whenVisible = Lower(Attr(shader, "when")) == "visible";
+        fn << "ctx.frames.push((dt,time)=>{const reduced=window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches;";
+        fn << "if(!ctx.field){ctx.field={elapsed:0,enter:0,on:" << (whenVisible ? "false" : "true") << ",pointer:new THREE.Vector2()};"
+           << "const target=ctx.host&&ctx.host.parentElement||ctx.host;if(target){";
+        if (trackPointer) {
+            fn << "target.addEventListener(\"pointermove\",(event)=>{const rect=target.getBoundingClientRect();ctx.field.pointer.set(((event.clientX-rect.left)/Math.max(rect.width,1)-0.5)*2,((event.clientY-rect.top)/Math.max(rect.height,1)-0.5)*2);});";
+        }
+        if (whenVisible) {
+            fn << "const observer=new IntersectionObserver((entries)=>{const hit=entries.some((entry)=>entry.isIntersecting&&entry.intersectionRatio>=0.1);if(!hit){ctx.field.elapsed=0;ctx.field.enter=0;}ctx.field.on=hit;},{threshold:[0,0.1,0.2,0.4]});observer.observe(target);";
+        }
+        fn << "}}const clock=ctx.field;if(clock.on&&!reduced){clock.elapsed+=dt;clock.enter+=dt;}" << liveWrite.str() << "});";
+    }
     if (time) fn << "ctx.frames.push((dt,time)=>{material.uniforms.Time.value=time;});";
     fn << "return material;}";
     return fn.str();
@@ -795,6 +1737,7 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
     out.degrees = prepared.degrees;
     out.directory = prepared.directory;
     out.outRoot = gOutRoot;
+    out.document = &prepared.root;
     std::function<void(const RoboXMLNode&)> collectPlays = [&](const RoboXMLNode& node) {
         if (Lower(node.name) == "play") out.played.insert(Attr(node, "animation").empty() ? Attr(node, "name") : Attr(node, "animation"));
         for (const RoboXMLNode& child : node.children) collectPlays(child);
@@ -803,10 +1746,10 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
     out.js << "const shaders={";
     for (const RoboXMLNode& child : prepared.root.children) {
         if (Lower(child.name) != "shader") continue;
-        out.js << "\"" << Js(Attr(child, "name")) << "\":" << ShaderFunction(child) << ",";
+        out.js << "\"" << Js(Attr(child, "name")) << "\":" << ShaderFunction(child, out) << ",";
     }
     for (const RoboXMLNode& child : scene.children) {
-        if (Lower(child.name) == "shader") out.js << "\"" << Js(Attr(child, "name")) << "\":" << ShaderFunction(child) << ",";
+        if (Lower(child.name) == "shader") out.js << "\"" << Js(Attr(child, "name")) << "\":" << ShaderFunction(child, out) << ",";
     }
     out.js << "};\n";
     if (!Attr(scene, "background").empty()) out.js << "ctx.scene.background=new THREE.Color(\"" << Js(Attr(scene, "background")) << "\");\n";
@@ -855,6 +1798,14 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
         out.js << "ctx.camera=new THREE.PerspectiveCamera(" << fov << ",1," << near << "," << far << ");\n";
     }
     out.js << "ctx.camera.position.set(" << Num(eye.x) << "," << Num(eye.y) << "," << Num(eye.z) << ");ctx.camera.lookAt(" << Num(at.x) << "," << Num(at.y) << "," << Num(at.z) << ");\n";
+    if (camera != nullptr && !Attr(*camera, "drift").empty()) {
+        out.js << "ctx.frames.push((dt,time)=>{const reduced=window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches;const drift="
+               << Attr(*camera, "drift") << "*Math.PI/180;if(reduced){ctx.camera.rotation.set(0,0,0);return;}"
+               << "ctx.camera.rotation.x=Math.sin(time*" << (Attr(*camera, "driftX").empty() ? "0.11" : Attr(*camera, "driftX")) << ")*(drift*"
+               << (Attr(*camera, "driftMix").empty() ? "0.35" : Attr(*camera, "driftMix")) << ");"
+               << "ctx.camera.rotation.y=Math.sin(time*" << (Attr(*camera, "driftY").empty() ? "0.08" : Attr(*camera, "driftY")) << "+"
+               << (Attr(*camera, "driftPhase").empty() ? "0.4" : Attr(*camera, "driftPhase")) << ")*drift;});\n";
+    }
     if (camera && !Attr(*camera, "name").empty()) out.js << "remember(ctx,\"" << Js(Attr(*camera, "name")) << "\",ctx.camera);\n";
     if (const RoboXMLNode* environment = Child(scene, "environment")) {
         const std::string preset = Lower(Attr(*environment, "preset"));
@@ -879,14 +1830,10 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
         if (kind == "camera" || kind == "lighting" || kind == "ambient" || kind == "directional" || kind == "point" || kind == "spot" ||
             kind == "hemisphere" || kind == "arealight" || kind == "environment" || kind == "fog" || kind == "renderer" || kind == "shader" ||
             kind == "timeline" || kind == "sequence" || kind == "physics" || kind == "state" || kind == "binding" || kind == "interaction" ||
-            kind == "controls" || kind == "orbitcontrols" || kind == "postprocessing" || kind == "ui" || kind == "constraint" ||
-            kind == "cellfield" || kind == "cell" || kind == "membrane") {
+            kind == "controls" || kind == "orbitcontrols" || kind == "postprocessing" || kind == "ui" || kind == "constraint") {
             continue;
         }
         EmitNode(out, child, "ctx.scene", "");
-    }
-    for (const RoboXMLNode& child : scene.children) {
-        if (Lower(child.name) == "cellfield") EmitCellField(out, child);
     }
     for (const RoboXMLNode& child : scene.children) {
         if (Lower(child.name) == "timeline" || Lower(child.name) == "animation") EmitTracks(out, child);
@@ -1067,6 +2014,7 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
     if (out.uses.subdivide) file << ", subdivide";
     if (out.uses.solidify) file << ", solidify";
     if (out.uses.curve) file << ", curveOf";
+    if (out.uses.deform) file << ", deform";
     file << " } from \"./robix3d.js\";\n";
     if (out.uses.orbit) file << "import { OrbitControls } from \"three/addons/controls/OrbitControls.js\";\n";
     if (out.uses.map) file << "import { MapControls } from \"three/addons/controls/MapControls.js\";\n";
@@ -1133,12 +2081,24 @@ std::string ImportMap(const std::string& version) {
            "/build/three.module.js\",\"three/addons/\":\"https://unpkg.com/three@" + clean + "/examples/jsm/\"}}</script>";
 }
 
+bool SceneAlpha(const RoboXMLNode& scene) {
+    if (Flag(Attr(scene, "transparent")) || Lower(Attr(scene, "background")) == "none") return true;
+    if (const RoboXMLNode* renderer = Child(scene, "renderer")) {
+        if (Flag(Attr(*renderer, "alpha")) || Flag(Attr(*renderer, "transparent"))) return true;
+    }
+    return false;
+}
+
 std::string CssBlock() {
     return ".r3d-host,.r3d-page{position:relative;width:100%;height:100%;min-height:240px;overflow:hidden;background:#000}"
            ".r3d-host canvas,.r3d-page canvas{display:block;width:100%;height:100%}"
            ".r3d-ui{position:absolute;left:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:2;color:#fff;font:14px/1.3 system-ui,sans-serif}"
            ".r3d-field{display:flex;align-items:center;gap:8px}"
-           ".r3d-frame{position:absolute;right:16px;bottom:16px;width:min(360px,40vw);height:min(480px,60vh);border:0;border-radius:16px;z-index:2;background:#111}";
+           ".r3d-frame{position:absolute;right:16px;bottom:16px;width:min(360px,40vw);height:min(480px,60vh);border:0;border-radius:16px;z-index:2;background:#111}"
+           ".r3d-host[data-layer=backdrop]{position:absolute;inset:0;z-index:0;min-height:0;overflow:visible;pointer-events:none;background:transparent}"
+           ".r3d-host[data-layer=backdrop] canvas{background:transparent}"
+           ".r3d-host[data-paint=bleed]{overflow:visible;top:calc(-1 * var(--r3d-bleed, min(48vh, 420px)));bottom:calc(-1 * var(--r3d-bleed, min(48vh, 420px)));height:auto;z-index:1}"
+           ".r3d-host[data-paint=clip]{overflow:hidden;inset:0;top:0;bottom:0;height:auto;z-index:0}";
 }
 
 bool WriteText(const fs::path& path, const std::string& text) {
@@ -1208,14 +2168,45 @@ void EmitView(std::string& html, const RoboXMLNode& node) {
     std::string height = Attr(node, "height");
     if (!width.empty() && width.find_first_not_of("0123456789.") == std::string::npos) width += "px";
     if (!height.empty() && height.find_first_not_of("0123456789.") == std::string::npos) height += "px";
-    html += "<div class=\"r3d-host\" id=\"" + id + "\"";
-    if (!width.empty() || !height.empty()) {
-        html += " style=\"";
-        if (!width.empty()) html += "width:" + Html(width) + ";";
-        if (!height.empty()) html += "height:" + Html(height) + ";";
-        html += "\"";
+    const RoboXMLNode* scene = nullptr;
+    for (const RoboXMLNode& child : prepared.root.children) {
+        if (Lower(child.name) == "scene") scene = &child;
     }
-    html += "><canvas></canvas>";
+    const bool alpha = scene != nullptr && SceneAlpha(*scene);
+    const bool backdrop = Lower(Attr(node, "layer")) == "backdrop";
+    auto paintOf = [](const RoboXMLNode& item) {
+        const std::string paint = Lower(Attr(item, "paint"));
+        if (paint == "bleed" || paint == "clip") return paint;
+        const std::string bleed = Lower(Attr(item, "bleed"));
+        if (!Attr(item, "bleed").empty() && bleed != "false" && bleed != "0" && bleed != "no" && bleed != "off") return std::string("bleed");
+        const std::string clip = Lower(Attr(item, "clip"));
+        if (clip == "true" || clip == "1" || clip == "yes" || clip == "on") return std::string("clip");
+        return std::string();
+    };
+    std::string paint = paintOf(node);
+    if (paint.empty() && scene != nullptr) paint = paintOf(*scene);
+    std::string bleed = Attr(node, "bleed");
+    if ((bleed.empty() || Lower(bleed) == "true") && scene != nullptr) {
+        const std::string sceneBleed = Attr(*scene, "bleed");
+        if (!sceneBleed.empty() && Lower(sceneBleed) != "true") bleed = sceneBleed;
+    }
+    const std::string bleedKey = Lower(bleed);
+    std::string distance = "min(48vh, 420px)";
+    if (!bleed.empty() && bleedKey != "true" && bleedKey != "yes" && bleedKey != "on" && bleedKey != "1" && bleedKey != "false" &&
+        bleedKey != "no" && bleedKey != "off" && bleedKey != "0") {
+        distance = bleed.find_first_not_of("0123456789.") == std::string::npos ? bleed + "px" : bleed;
+    }
+    html += "<div class=\"r3d-host\" id=\"" + id + "\"";
+    std::string style;
+    if (!width.empty()) style += "width:" + Html(width) + ";";
+    if (!height.empty()) style += "height:" + Html(height) + ";";
+    if (paint == "bleed") style += "--r3d-bleed:" + Html(distance) + ";";
+    if (!style.empty()) html += " style=\"" + style + "\"";
+    if (backdrop) html += " data-layer=\"backdrop\"";
+    if (paint == "bleed" || paint == "clip") html += " data-paint=\"" + paint + "\"";
+    html += "><canvas";
+    if (alpha) html += " data-alpha=\"true\"";
+    html += "></canvas>";
     if (!ui.empty()) html += "<div class=\"r3d-ui\">" + ui + "</div>";
     html += "</div>";
 }
@@ -1250,8 +2241,10 @@ bool WritePage(const fs::path& outRoot, const fs::path& document, std::string& e
         return false;
     }
     const std::string css = CssBlock() + "html,body{margin:0;height:100%;background:#000}";
+    const bool alpha = SceneAlpha(*scene);
     const std::string html = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" +
-                             Html(prepared.title) + "</title>" + ImportMap(prepared.three) + "<link rel=\"stylesheet\" href=\"app.css\"></head><body><div class=\"r3d-page\" id=\"r3d-root\"><canvas></canvas>" +
+                             Html(prepared.title) + "</title>" + ImportMap(prepared.three) + "<link rel=\"stylesheet\" href=\"app.css\"></head><body><div class=\"r3d-page\" id=\"r3d-root\"><canvas" +
+                             (alpha ? " data-alpha=\"true\"" : "") + "></canvas>" +
                              (ui.empty() ? "" : "<div class=\"r3d-ui\">" + ui + "</div>") + "</div><script type=\"module\" src=\"scene.js\"></script></body></html>\n";
     if (!WriteText(outRoot / "index.html", html) || !WriteText(outRoot / "app.css", css)) {
         error = "could not write the Robix3D page";

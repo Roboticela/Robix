@@ -153,6 +153,38 @@ std::string RoboWebRead(const fs::path& path) {
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
+bool RoboWebFlagOn(const std::string& value) {
+    const std::string key = RoboWebLower(value);
+    return key == "true" || key == "1" || key == "yes" || key == "on";
+}
+
+bool RoboWebFlagOff(const std::string& value) {
+    const std::string key = RoboWebLower(value);
+    return key == "false" || key == "0" || key == "no" || key == "off";
+}
+
+std::string RoboWebPaintMode(const RoboXMLNode& node) {
+    const std::string paint = RoboWebLower(RoboXMLAttr(node, "paint"));
+    if (paint == "bleed" || paint == "clip") return paint;
+    const std::string bleed = RoboXMLAttr(node, "bleed");
+    if (!bleed.empty() && !RoboWebFlagOff(bleed)) return "bleed";
+    if (RoboWebFlagOn(RoboXMLAttr(node, "clip"))) return "clip";
+    return {};
+}
+
+std::string RoboWebBleedDistance(const RoboXMLNode& node) {
+    const std::string bleed = RoboXMLAttr(node, "bleed");
+    if (bleed.empty() || RoboWebFlagOn(bleed) || RoboWebFlagOff(bleed)) return "min(48vh, 420px)";
+    if (RoboWebIsNumber(bleed)) return bleed + "px";
+    return bleed;
+}
+
+std::string RoboWebPaintAttrs(const RoboXMLNode& node) {
+    const std::string mode = RoboWebPaintMode(node);
+    if (mode.empty()) return {};
+    return " data-paint=\"" + mode + "\"";
+}
+
 std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& library) {
     std::string style;
     const auto attr = [&](const char* key) { return RoboXMLAttr(node, key); };
@@ -332,14 +364,13 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     RoboWebAddDecl(style, "border-color", RoboWebCssValue(library, attr("borderColor"), true));
     RoboWebAddDecl(style, "opacity", attr("opacity"));
     RoboWebAddDecl(style, "z-index", first("zIndex", "z"));
+    const std::string paint = RoboWebPaintMode(node);
     std::string overflow = attr("overflow");
-    if (overflow.empty()) {
-        const std::string clip = RoboWebLower(attr("clip"));
-        if (clip == "true" || clip == "1" || clip == "yes" || clip == "on") {
-            overflow = "clip";
-        }
-    }
+    if (paint == "bleed") overflow = "visible";
+    else if (paint == "clip") overflow = "clip";
+    else if (overflow.empty() && RoboWebFlagOn(attr("clip"))) overflow = "clip";
     RoboWebAddDecl(style, "overflow", overflow);
+    if (paint == "bleed") RoboWebAddDecl(style, "--robo-bleed", RoboWebBleedDistance(node));
     const std::string overflowX = attr("overflowX").empty() ? attr("overflow-x") : attr("overflowX");
     const std::string overflowY = attr("overflowY").empty() ? attr("overflow-y") : attr("overflowY");
     RoboWebAddDecl(style, "overflow-x", overflowX);

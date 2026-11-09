@@ -85,6 +85,20 @@ std::filesystem::file_time_type StampOf(const fs::path& path) {
     return fs::last_write_time(path, error);
 }
 
+std::filesystem::file_time_type LatestStamp(const fs::path& document) {
+    auto latest = StampOf(document);
+    std::error_code error;
+    const fs::path directory = fs::is_directory(document, error) ? document : document.parent_path();
+    for (fs::recursive_directory_iterator cursor(directory, error), end; !error && cursor != end; cursor.increment(error)) {
+        if (!cursor->is_regular_file(error)) continue;
+        const std::string ext = Lower(cursor->path().extension().string());
+        if (ext != ".rbxu" && ext != ".r3d" && ext != ".xml") continue;
+        const auto stamp = StampOf(cursor->path());
+        if (stamp > latest) latest = stamp;
+    }
+    return latest;
+}
+
 bool ScreenChanged(WindowRunOptions& options, void* user) {
     auto* path = static_cast<const fs::path*>(user);
     if (path == nullptr) {
@@ -177,13 +191,13 @@ void ServeWeb(const fs::path& root, const fs::path& document, int port, bool wat
         std::wstring wide(url.begin(), url.end());
         ShellExecuteW(nullptr, L"open", wide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
-    auto seen = StampOf(document);
+    auto seen = LatestStamp(document);
     u_long nonblock = 1;
     ioctlsocket(listener, FIONBIO, &nonblock);
     const auto started = std::chrono::steady_clock::now();
     while (true) {
         if (watch) {
-            const auto now = StampOf(document);
+            const auto now = LatestStamp(document);
             if (now != seen) {
                 seen = now;
                 std::string error;

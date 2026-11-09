@@ -1,9 +1,11 @@
 import * as THREE from "three";
 
 export function mount(canvas, build) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const alpha = canvas.dataset.alpha === "true";
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  if (alpha) renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
   camera.position.set(0, 2, 6);
@@ -12,6 +14,8 @@ export function mount(canvas, build) {
     scene,
     camera,
     renderer,
+    host: canvas.parentElement,
+    layouts: [],
     objects: new Map(),
     curves: new Map(),
     states: {},
@@ -45,6 +49,7 @@ export function mount(canvas, build) {
     }
     ctx.camera.updateProjectionMatrix();
     if (ctx.composer) ctx.composer.setSize(width, height);
+    for (const layout of ctx.layouts) layout(width, height);
   };
   new ResizeObserver(resize).observe(canvas.parentElement || canvas);
   resize();
@@ -323,4 +328,102 @@ export function hitObject(ctx, path, object) {
     cursor = cursor.parent;
   }
   return false;
+}
+
+const noise3 = (() => {
+  const p = new Uint8Array(512);
+  const base = [];
+  let seed = 1337;
+  for (let i = 0; i < 256; i += 1) base[i] = i;
+  const rnd = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  for (let i = 255; i > 0; i -= 1) {
+    const j = Math.floor(rnd() * (i + 1));
+    const t = base[i];
+    base[i] = base[j];
+    base[j] = t;
+  }
+  for (let i = 0; i < 512; i += 1) p[i] = base[i & 255];
+  const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+  const lerp = (a, b, t) => a + t * (b - a);
+  const grad = (h, x, y, z) => {
+    const hash = h & 15;
+    const u = hash < 8 ? x : y;
+    const v = hash < 4 ? y : hash === 12 || hash === 14 ? x : z;
+    return ((hash & 1) === 0 ? u : -u) + ((hash & 2) === 0 ? v : -v);
+  };
+  return (x, y, z) => {
+    const X = Math.floor(x) & 255;
+    const Y = Math.floor(y) & 255;
+    const Z = Math.floor(z) & 255;
+    const xf = x - Math.floor(x);
+    const yf = y - Math.floor(y);
+    const zf = z - Math.floor(z);
+    const u = fade(xf);
+    const v = fade(yf);
+    const w = fade(zf);
+    const A = p[X] + Y;
+    const AA = p[A] + Z;
+    const AB = p[A + 1] + Z;
+    const B = p[X + 1] + Y;
+    const BA = p[B] + Z;
+    const BB = p[B + 1] + Z;
+    return lerp(
+      lerp(lerp(grad(p[AA], xf, yf, zf), grad(p[BA], xf - 1, yf, zf), u), lerp(grad(p[AB], xf, yf - 1, zf), grad(p[BB], xf - 1, yf - 1, zf), u), v),
+      lerp(lerp(grad(p[AA + 1], xf, yf, zf - 1), grad(p[BA + 1], xf - 1, yf, zf - 1), u), lerp(grad(p[AB + 1], xf, yf - 1, zf - 1), grad(p[BB + 1], xf - 1, yf - 1, zf - 1), u), v),
+      w,
+    );
+  };
+})();
+
+export function deform(mesh, material, layers, time) {
+  const pos = mesh.geometry && mesh.geometry.attributes && mesh.geometry.attributes.position;
+  if (!pos) return;
+  if (!mesh.userData.unit) {
+    const unit = new Float32Array(pos.count * 3);
+    let radius = 1;
+    for (let i = 0; i < pos.count; i += 1) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const len = Math.hypot(x, y, z) || 1;
+      radius = len;
+      unit[i * 3] = x / len;
+      unit[i * 3 + 1] = y / len;
+      unit[i * 3 + 2] = z / len;
+    }
+    mesh.userData.unit = unit;
+    mesh.userData.shell = radius;
+  }
+  const unit = mesh.userData.unit;
+  const shell = mesh.userData.shell;
+  const read = (item) => {
+    if (typeof item === "number") return item;
+    const uniform = material && material.uniforms && material.uniforms[item];
+    return uniform ? Number(uniform.value) : 0;
+  };
+  for (let i = 0; i < pos.count; i += 1) {
+    const x = unit[i * 3];
+    const y = unit[i * 3 + 1];
+    const z = unit[i * 3 + 2];
+    let scale = shell;
+    for (const layer of layers) {
+      const amount = read(layer.amount);
+      const detail = read(layer.detail);
+      const speed = read(layer.speed);
+      const phase = read(layer.phase);
+      const tt = (time + phase) * speed;
+      let n = noise3(x * detail + tt, y * detail + tt * 0.7, z * detail - tt * 0.5);
+      if ((layer.layers || 1) > 1) {
+        const f2 = detail * 2.3;
+        n += 0.5 * noise3(x * f2 - tt * 1.2, y * f2 + tt, z * f2 + tt * 0.8);
+      }
+      scale *= 1 + amount * n;
+    }
+    pos.setXYZ(i, x * scale, y * scale, z * scale);
+  }
+  pos.needsUpdate = true;
+  mesh.geometry.computeVertexNormals();
 }

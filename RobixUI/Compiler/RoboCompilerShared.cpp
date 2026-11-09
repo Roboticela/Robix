@@ -90,7 +90,7 @@ bool RoboCompilerIsLayoutKey(const std::string& key) {
         "rowgap",        "columngap",     "colgap",        "columns",       "rows",          "gridcolumn",
         "gridrow",       "minwidth",      "minheight",     "maxwidth",      "maxheight",     "minsize",
         "maxsize",       "size",          "overflow",      "overflowx",     "overflowy",     "overflow-x",
-        "overflow-y",    "clip"};
+        "overflow-y",    "clip",          "bleed",         "paint"};
     for (const char* item : keys) {
         if (key == item) {
             return true;
@@ -128,6 +128,18 @@ bool RoboCompilerCheckOverflowAttrs(const RoboXMLNode& node, const std::string& 
         RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Error, path, "clip must be true or false");
         ok = false;
     }
+    const std::string paint = RoboXMLAttr(node, "paint");
+    if (!paint.empty() && !RoboCompilerIsOneOf(paint, {"bleed", "clip"})) {
+        RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Error, path, "Paint must be bleed or clip");
+        ok = false;
+    }
+    const std::string bleed = RoboCompilerLower(RoboXMLAttr(node, "bleed"));
+    const bool clipOn = RoboCompilerIsOneOf(clip, {"true", "1", "yes", "on"}) || RoboCompilerLower(paint) == "clip";
+    const bool bleedOn = (!bleed.empty() && !RoboCompilerIsOneOf(bleed, {"false", "0", "no", "off"})) || RoboCompilerLower(paint) == "bleed";
+    if (clipOn && bleedOn) {
+        RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Error, path, "Paint is either bleed or clip");
+        ok = false;
+    }
     return ok;
 }
 
@@ -147,8 +159,8 @@ std::string RoboCompilerEmitLayoutProps(const RoboXMLNode& node, const std::stri
                                  "flexWrap",     "gap",          "rowGap",       "columnGap",    "columns",
                                  "rows",         "gridColumn",   "gridRow",      "minWidth",
                                  "minHeight",    "maxWidth",     "maxHeight",    "minSize",      "maxSize",
-                                 "size",         "clip",         "overflow",     "overflowX",    "overflowY",
-                                 "overflow-x",   "overflow-y"};
+                                 "size",         "clip",         "bleed",        "paint",        "overflow",
+                                 "overflowX",    "overflowY",    "overflow-x",   "overflow-y"};
     std::ostringstream ss;
     for (const char* key : keys) {
         const std::string value = RoboXMLAttr(node, key);

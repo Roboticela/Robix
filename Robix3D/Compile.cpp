@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -20,6 +21,13 @@ std::string Lower(std::string text) {
         if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch - 'A' + 'a');
     }
     return text;
+}
+
+std::uint32_t gSeed = 1337;
+
+double NextRand() {
+    gSeed = gSeed * 1664525u + 1013904223u;
+    return (gSeed >> 8) / 16777216.0;
 }
 
 std::string Trim(std::string text) {
@@ -59,11 +67,12 @@ bool IsSceneTag(const std::string& name) {
         "environment", "object", "group", "mesh", "geometry", "material", "transform", "animation", "track",
         "keyframe", "loop", "timeline", "sequence", "play", "wait", "physics", "physicsbody", "collider", "mass",
         "gravity", "restitution", "friction", "generator", "parameters", "number", "foreach", "instance",
-        "component", "import", "shader", "uniform", "surface", "fresnel", "noise", "gradient", "output", "glsl",
+        "component", "import", "shader", "uniform", "input", "surface", "fresnel", "noise", "gradient", "output", "glsl",
+        "shape", "look", "wobble", "fade", "color", "if", "else", "random", "repeat", "set", "discard",
         "vertex", "fragment", "interaction", "on", "action", "binding", "state", "controls", "orbitcontrols",
         "mapcontrols", "flycontrols", "ui", "colorpicker", "slider", "toggle", "note", "ground", "renderer",
         "constraint", "override", "modifier", "model", "curve", "helper", "fog", "sky", "postprocessing", "bloom",
-        "text3d", "vertices", "indices", "let", "view3d", "scene3d"};
+        "text3d", "vertices", "indices", "let", "view3d", "scene3d", "points", "sprite", "line", "stop", "field"};
     for (const char* item : names) {
         if (name == item) return true;
     }
@@ -90,7 +99,7 @@ class Expr {
         scope_ = &scope;
         index_ = 0;
         error_.clear();
-        const double value = ParseAdd();
+        const double value = ParseCompare();
         Skip();
         if (!error_.empty()) {
             error = error_;
@@ -106,6 +115,93 @@ class Expr {
  private:
     void Skip() {
         while (index_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[index_]))) ++index_;
+    }
+
+    double Call(const std::string& name, const std::vector<double>& args) {
+        const std::string fn = Lower(name);
+        const auto need = [&](std::size_t count) {
+            if (args.size() < count) {
+                error_ = name + " needs more values";
+                return false;
+            }
+            return true;
+        };
+        if (fn == "abs") return need(1) ? std::fabs(args[0]) : 0;
+        if (fn == "min") return need(2) ? std::min(args[0], args[1]) : 0;
+        if (fn == "max") return need(2) ? std::max(args[0], args[1]) : 0;
+        if (fn == "floor") return need(1) ? std::floor(args[0]) : 0;
+        if (fn == "ceil") return need(1) ? std::ceil(args[0]) : 0;
+        if (fn == "round") return need(1) ? std::round(args[0]) : 0;
+        if (fn == "sqrt") return need(1) ? std::sqrt(std::max(0.0, args[0])) : 0;
+        if (fn == "sin") return need(1) ? std::sin(args[0]) : 0;
+        if (fn == "cos") return need(1) ? std::cos(args[0]) : 0;
+        if (fn == "pow") return need(2) ? std::pow(args[0], args[1]) : 0;
+        if (fn == "clamp") return need(3) ? std::min(std::max(args[0], args[1]), args[2]) : 0;
+        if (fn == "less") return need(2) ? (args[0] < args[1] ? 1 : 0) : 0;
+        if (fn == "more") return need(2) ? (args[0] > args[1] ? 1 : 0) : 0;
+        if (fn == "equal") return need(2) ? (args[0] == args[1] ? 1 : 0) : 0;
+        if (fn == "between") return need(3) ? (args[0] >= args[1] && args[0] <= args[2] ? 1 : 0) : 0;
+        if (fn == "random") {
+            const double unit = NextRand();
+            if (args.empty()) return unit;
+            if (args.size() == 1) return unit * args[0];
+            return args[0] + unit * (args[1] - args[0]);
+        }
+        if (fn == "randomint") {
+            if (!need(2)) return 0;
+            const int low = static_cast<int>(std::llround(args[0]));
+            const int high = static_cast<int>(std::llround(args[1]));
+            if (high < low) {
+                error_ = "RandomInt max is below min";
+                return 0;
+            }
+            const int span = high - low + 1;
+            return low + std::min(span - 1, static_cast<int>(std::floor(NextRand() * span)));
+        }
+        if (fn == "pick") {
+            if (args.size() < 2) {
+                error_ = "Pick needs an index and at least one value";
+                return 0;
+            }
+            const int pick = static_cast<int>(std::llround(args[0]));
+            if (pick < 0 || pick >= static_cast<int>(args.size()) - 1) {
+                error_ = "Pick index is outside the list";
+                return 0;
+            }
+            return args[static_cast<std::size_t>(pick) + 1];
+        }
+        error_ = "unknown function '" + name + "'";
+        return 0;
+    }
+
+    double ParseCompare() {
+        const double value = ParseAdd();
+        Skip();
+        if (index_ + 1 < text_.size() && text_[index_] == '=' && text_[index_ + 1] == '=') {
+            index_ += 2;
+            return value == ParseAdd() ? 1 : 0;
+        }
+        if (index_ + 1 < text_.size() && text_[index_] == '!' && text_[index_ + 1] == '=') {
+            index_ += 2;
+            return value != ParseAdd() ? 1 : 0;
+        }
+        if (index_ + 1 < text_.size() && text_[index_] == '<' && text_[index_ + 1] == '=') {
+            index_ += 2;
+            return value <= ParseAdd() ? 1 : 0;
+        }
+        if (index_ + 1 < text_.size() && text_[index_] == '>' && text_[index_ + 1] == '=') {
+            index_ += 2;
+            return value >= ParseAdd() ? 1 : 0;
+        }
+        if (index_ < text_.size() && text_[index_] == '<') {
+            ++index_;
+            return value < ParseAdd() ? 1 : 0;
+        }
+        if (index_ < text_.size() && text_[index_] == '>') {
+            ++index_;
+            return value > ParseAdd() ? 1 : 0;
+        }
+        return value;
     }
 
     double ParseAdd() {
@@ -127,14 +223,16 @@ class Expr {
         double value = ParseUnary();
         for (;;) {
             Skip();
-            if (index_ < text_.size() && (text_[index_] == '*' || text_[index_] == '/')) {
+            if (index_ < text_.size() && (text_[index_] == '*' || text_[index_] == '/' || text_[index_] == '%')) {
                 const char op = text_[index_++];
                 const double right = ParseUnary();
-                if (op == '/' && right == 0.0) {
+                if ((op == '/' || op == '%') && right == 0.0) {
                     error_ = "division by zero";
                     return 0;
                 }
-                value = op == '*' ? value * right : value / right;
+                if (op == '*') value *= right;
+                else if (op == '/') value /= right;
+                else value = std::fmod(value, right);
             } else {
                 break;
             }
@@ -169,6 +267,26 @@ class Expr {
             const std::size_t start = index_;
             while (index_ < text_.size() && (std::isalnum(static_cast<unsigned char>(text_[index_])) || text_[index_] == '_')) ++index_;
             const std::string name = text_.substr(start, index_ - start);
+            Skip();
+            if (index_ < text_.size() && text_[index_] == '(') {
+                ++index_;
+                std::vector<double> args;
+                Skip();
+                if (index_ >= text_.size() || text_[index_] != ')') {
+                    for (;;) {
+                        args.push_back(ParseCompare());
+                        Skip();
+                        if (index_ < text_.size() && text_[index_] == ',') {
+                            ++index_;
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                if (index_ >= text_.size() || text_[index_] != ')') error_ = "missing )";
+                else ++index_;
+                return Call(name, args);
+            }
             const auto value = Lookup(*scope_, name);
             if (!value) {
                 error_ = "unknown value '" + name + "'";
@@ -392,9 +510,10 @@ void SubstituteNode(RoboXMLNode& node, const Scope& scope, std::vector<std::stri
 }
 
 std::vector<RoboXMLNode> Expand(const std::vector<RoboXMLNode>& nodes, Scope& scope, const Components& components,
-                                std::vector<std::string>& errors, int depth);
+                                std::vector<std::string>& errors, int depth, bool inShader = false);
 
-std::vector<RoboXMLNode> ExpandOne(const RoboXMLNode& node, Scope& scope, const Components& components, std::vector<std::string>& errors, int depth) {
+std::vector<RoboXMLNode> ExpandOne(const RoboXMLNode& node, Scope& scope, const Components& components, std::vector<std::string>& errors, int depth,
+                                   bool inShader = false) {
     if (depth > 32) {
         errors.push_back("component nesting stopped at 32");
         return {};
@@ -412,8 +531,15 @@ std::vector<RoboXMLNode> ExpandOne(const RoboXMLNode& node, Scope& scope, const 
         }
         return {};
     }
-    if (kind == "let" || kind == "number") {
+    if (kind == "shader") {
+        RoboXMLNode copy = node;
+        SubstituteNode(copy, scope, errors);
+        copy.children = Expand(node.children, scope, components, errors, depth + 1, true);
+        return {copy};
+    }
+    if (!inShader && (kind == "let" || kind == "number")) {
         const std::string name = Attr(node, "name");
+        if (kind == "let" && name.empty()) return Expand(node.children, scope, components, errors, depth + 1);
         std::string error;
         const auto value = Expr(Substitute(Attr(node, "value"), scope, errors)).Run(scope, error);
         if (name.empty() || !value) errors.push_back(error.empty() ? kind + " needs Name and Value" : error);
@@ -421,6 +547,14 @@ std::vector<RoboXMLNode> ExpandOne(const RoboXMLNode& node, Scope& scope, const 
         if (kind == "let") return Expand(node.children, scope, components, errors, depth + 1);
         return {};
     }
+    if (kind == "random") {
+        std::string error;
+        const auto value = Expr(Substitute(Attr(node, "seed"), scope, errors)).Run(scope, error);
+        if (!value) errors.push_back(error.empty() ? "Random needs Seed" : error);
+        else gSeed = static_cast<std::uint32_t>(std::llround(*value));
+        return {};
+    }
+    if (!inShader && (kind == "if" || kind == "else")) return {};
     if (kind == "foreach") {
         const std::string variable = Attr(node, "variable");
         std::string fromError;
@@ -489,18 +623,43 @@ std::vector<RoboXMLNode> ExpandOne(const RoboXMLNode& node, Scope& scope, const 
         return {group};
     }
     RoboXMLNode copy = node;
-    SubstituteNode(copy, scope, errors);
+    if (kind != "vertex" && kind != "fragment" && kind != "glsl") SubstituteNode(copy, scope, errors);
     Scope inner;
     inner.parent = &scope;
-    copy.children = Expand(copy.children, inner, components, errors, depth + 1);
+    copy.children = Expand(copy.children, inner, components, errors, depth + 1, inShader);
     return {copy};
 }
 
 std::vector<RoboXMLNode> Expand(const std::vector<RoboXMLNode>& nodes, Scope& scope, const Components& components,
-                                std::vector<std::string>& errors, int depth) {
+                                std::vector<std::string>& errors, int depth, bool inShader) {
     std::vector<RoboXMLNode> out;
+    bool sawIf = false;
+    bool taken = false;
     for (const RoboXMLNode& node : nodes) {
-        const auto part = ExpandOne(node, scope, components, errors, depth);
+        const std::string kind = Lower(node.name);
+        if (!inShader && kind == "else") {
+            if (!sawIf) errors.push_back("Else needs an If before it");
+            else if (!taken) {
+                const auto part = Expand(node.children, scope, components, errors, depth, false);
+                out.insert(out.end(), part.begin(), part.end());
+            }
+            sawIf = false;
+            continue;
+        }
+        if (!inShader) sawIf = false;
+        if (!inShader && kind == "if") {
+            std::string error;
+            const auto value = Expr(Substitute(Attr(node, "test"), scope, errors)).Run(scope, error);
+            if (!value) errors.push_back(error.empty() ? "If needs Test" : error);
+            taken = value && *value != 0.0;
+            sawIf = true;
+            if (taken) {
+                const auto part = Expand(node.children, scope, components, errors, depth, false);
+                out.insert(out.end(), part.begin(), part.end());
+            }
+            continue;
+        }
+        const auto part = ExpandOne(node, scope, components, errors, depth, inShader);
         out.insert(out.end(), part.begin(), part.end());
     }
     return out;
@@ -549,7 +708,7 @@ void ValidateGeometry(const RoboXMLNode& node, std::vector<std::string>& errors)
 void ValidateTree(const RoboXMLNode& node, bool inUi, std::unordered_set<std::string>& names, const std::string& path, std::vector<std::string>& errors) {
     const std::string kind = Lower(node.name);
     const bool physicsBody = kind == "physicsbody" || (kind == "body" && !Attr(node, "type").empty());
-    if (IsUiTag(kind) && !physicsBody) {
+    if (IsUiTag(kind) && !IsSceneTag(kind) && !physicsBody) {
         errors.push_back("RobixUI element <" + node.name + "> cannot be used in a Robix3D document");
         return;
     }
@@ -557,6 +716,7 @@ void ValidateTree(const RoboXMLNode& node, bool inUi, std::unordered_set<std::st
         errors.push_back("View3D belongs in a RobixUI document");
         return;
     }
+    if (kind == "glsl") errors.push_back("Raw GLSL is not part of Robix3D. Describe the shader with Let and Output.");
     if (!IsSceneTag(kind) && !physicsBody) errors.push_back("unknown Robix3D element <" + node.name + ">");
     if (kind == "ui") {
         for (const RoboXMLNode& child : node.children) {
@@ -593,7 +753,8 @@ void WalkUi(const RoboXMLNode& node, bool hosted, std::vector<std::string>& erro
         }
         return;
     }
-    if (!hosted && IsSceneTag(kind) && kind != "import" && kind != "component" && kind != "let" && kind != "foreach") {
+    if (!hosted && IsSceneTag(kind) && kind != "import" && kind != "component" && kind != "let" && kind != "foreach" && kind != "if" &&
+        kind != "else" && kind != "random") {
         errors.push_back("Robix3D element <" + node.name + "> cannot be used in a RobixUI document. Host the scene with <View3D Source=\"file.r3d\"/>");
     }
     for (const RoboXMLNode& child : node.children) WalkUi(child, hosted, errors);
@@ -633,6 +794,14 @@ Prepared Prepare(const fs::path& document) {
     std::unordered_set<std::string> loading;
     std::unordered_set<std::string> done;
     Collect(xml.root, document.parent_path(), components, loading, done, prepared.errors);
+    gSeed = 1337;
+    if (!Attr(xml.root, "seed").empty()) {
+        try {
+            gSeed = static_cast<std::uint32_t>(std::stoll(Attr(xml.root, "seed")));
+        } catch (...) {
+            prepared.errors.push_back("Seed must be a whole number");
+        }
+    }
     Scope scope;
     RoboXMLNode root = xml.root;
     root.children = Expand(xml.root.children, scope, components, prepared.errors, 0);
