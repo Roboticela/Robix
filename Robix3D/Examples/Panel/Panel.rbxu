@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<RobixUI Version="1.0">
+  <Window Name="Panel" Title="Notes" Theme="Dark" Width="320" Height="240">
+    <Column Spacing="8">
+      <Text Value="Hosted from Robix3D" FontSize="18" FontWeight="Bold"/>
+      <Text Value="This page is RobixUI. The scene around it is Robix3D."/>
+    </Column>
+  </Window>
+</RobixUI>

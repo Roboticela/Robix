@@ -1172,6 +1172,29 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     if (name == "image") {
         return 0;
     }
+    if (name == "view3d" || name == "scene3d") {
+        PaintOp box;
+        box.x = x;
+        box.y = y;
+        box.width = width;
+        box.height = 160;
+        box.radius = 12;
+        box.fill = ThemeColor("bg-secondary", light);
+        ops.push_back(box);
+        PaintOp op;
+        op.text = true;
+        op.x = x + 16;
+        op.y = y + 16;
+        op.width = std::max(1, width - 32);
+        op.height = 28;
+        op.size = 16;
+        op.face = 1;
+        op.color = ThemeColor("text-primary", light);
+        const std::string source = RoboXMLAttr(node, "source");
+        op.value = source.empty() ? "Robix3D" : source;
+        ops.push_back(op);
+        return 160;
+    }
     if (name == "anchor") {
         std::string label = RoboXMLAttr(node, "content");
         if (label.empty()) label = TrimCopy(node.text);

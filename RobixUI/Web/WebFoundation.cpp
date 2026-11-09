@@ -1,5 +1,7 @@
 #include "WebFoundation.hpp"
 
+#include "../../Robix3D/Robix3D.hpp"
+
 #include "../Compiler/Components/Board/Board.hpp"
 #include "../Compiler/Components/Anchor/AnchorWeb.hpp"
 #include "../Compiler/Components/Button/ButtonWeb.hpp"
@@ -173,6 +175,10 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         for (const RoboXMLNode& child : node.children) {
             EmitNode(html, child, library);
         }
+        return;
+    }
+    if (name == "view3d" || name == "scene3d") {
+        Robix::D3::EmitView(html, node);
         return;
     }
     if (name == "image") {
@@ -482,6 +488,8 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
 
 bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::string& error, const std::string& programScript,
                        bool compileImages) {
+    Robix::D3::Reset();
+    Robix::D3::UseDocument(document, outRoot);
     const fs::path foundationPath = FindUp("RobixUI/Compiler/Foundation/RoboFoundation.xml");
     RoboFoundationLibrary library;
     std::string loadError;
@@ -501,8 +509,17 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboXMLDocument xml;
         const std::string source = ReadText(document);
         if (!source.empty() && RoboXMLParse(source, xml)) {
+            if (Robix::D3::IsSceneDocument(xml.root)) {
+                return Robix::D3::WritePage(outRoot, document, error);
+            }
             RoboUICompose(xml.root, document.string());
             LowerKeys(xml.root);
+            const std::vector<std::string> boundary = Robix::D3::UiBoundaryErrors(xml.root);
+            if (!boundary.empty()) {
+                error = boundary.front();
+                for (std::size_t index = 1; index < boundary.size(); ++index) error += "\n" + boundary[index];
+                return false;
+            }
             if (const RoboXMLNode* screen = FindScreen(xml.root)) {
                 screenCopy = *screen;
                 hasScreen = true;
@@ -679,7 +696,17 @@ Robo.set = function (id, key, value) {
     js += RoboWebMotionScript();
     js += RoboWebImageScript();
 
-    if (!WriteText(outRoot / "index.html", html.str()) || !WriteText(outRoot / "app.css", css.str() + RoboWebScreenCss() + RoboWebMotionCss()) ||
+    if (!Robix::D3::CommitViews(outRoot, error)) return false;
+    std::string page = html.str();
+    const std::string sceneMap = Robix::D3::ModuleSource();
+    if (!sceneMap.empty()) {
+        const auto head = page.find("</head>");
+        if (head != std::string::npos) page.insert(head, sceneMap);
+        const auto body = page.find("</body>");
+        if (body != std::string::npos) page.insert(body, "<script type=\"module\" src=\"robix3d.scene.js\"></script>");
+        css << Robix::D3::CssSource();
+    }
+    if (!WriteText(outRoot / "index.html", page) || !WriteText(outRoot / "app.css", css.str() + RoboWebScreenCss() + RoboWebMotionCss()) ||
         !WriteText(outRoot / "app.js", js)) {
         error = "failed to write the web package";
         return false;

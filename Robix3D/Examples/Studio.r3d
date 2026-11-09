@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<Robix3D Version="1.0" Units="meters">
+  <Component Name="FloorModule">
+    <Mesh Name="Platform">
+      <Geometry Type="cylinder" RadiusTop="{Radius}" RadiusBottom="{Radius}" Height="0.12" Segments="48"/>
+      <Material Type="standard" Color="#C9D5E5" Metalness="0.65" Roughness="0.3"/>
+    </Mesh>
+  </Component>
+
+  <Scene Name="ProductStudio" Background="#080A10">
+    <Environment Preset="studio" Intensity="0.8" Background="#080A10"/>
+    <Camera Name="MainCamera" Type="perspective" Preset="product-showcase"/>
+    <Lighting>
+      <AreaLight Name="KeyLight" Position="-4,5,4" Intensity="5" Width="5" Height="5"/>
+      <AreaLight Name="FillLight" Position="4,2,2" Intensity="2" Width="3" Height="4"/>
+      <Point Position="0,3,-4" Intensity="8" Color="#6D9EFF"/>
+    </Lighting>
+
+    <Group Name="Product">
+      <Mesh Name="MainBody" CastShadow="true">
+        <Geometry Type="rounded-box" Width="2.4" Height="1.2" Depth="0.6" Radius="0.12"/>
+        <Material Type="physical" Color="#171B25" Metalness="0.85" Roughness="0.22" Clearcoat="1"/>
+        <Transform Position="0,1.2,0"/>
+      </Mesh>
+      <Mesh Name="Display">
+        <Geometry Type="rounded-box" Width="1.9" Height="0.72" Depth="0.04" Radius="0.06"/>
+        <Material Type="physical" Color="#080B13" Roughness="0.08" Metalness="0.2"/>
+        <Transform Position="0,1.25,0.32"/>
+      </Mesh>
+    </Group>
+
+    <Generator Name="Tower">
+      <Parameters>
+        <Number Name="Floors" Value="6"/>
+        <Number Name="FloorHeight" Value="0.28"/>
+        <Number Name="Radius" Value="0.7"/>
+      </Parameters>
+      <ForEach Variable="floor" From="0" To="{Floors - 1}">
+        <Instance Component="FloorModule" Position="3.2,{floor * FloorHeight},0"/>
+      </ForEach>
+    </Generator>
+
+    <Ground Size="40" Material="studio-floor" ReceiveShadow="true"/>
+    <Timeline Name="Spin" Duration="8" Loop="true">
+      <Track Target="Product" Property="rotation.y">
+        <Keyframe Time="0" Value="0"/>
+        <Keyframe Time="8" Value="6.283"/>
+      </Track>
+    </Timeline>
+    <Controls>
+      <OrbitControls EnableZoom="true" EnablePan="false" MinDistance="3" MaxDistance="16"/>
+    </Controls>
+    <Renderer Shadows="true" Antialias="true" ToneMapping="aces"/>
+  </Scene>
+</Robix3D>

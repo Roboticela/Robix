@@ -1,0 +1,5 @@
+<Robix3D Version="1.0">
+  <Scene Name="Illegal">
+    <Button Text="No"/>
+  </Scene>
+</Robix3D>

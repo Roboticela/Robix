@@ -1158,6 +1158,14 @@ public class MainController {
 }
 ```
 
+## 21.1 Robix3D
+
+Documents are XML, extension `.r3d`. The root is `Robix3D`. A RobixUI document cannot contain Robix3D elements, and a Robix3D document cannot contain RobixUI elements. The two meet only through a host: `<View3D Source="Scene.r3d"/>` inside RobixUI, and `<UI Source="Panel.rbxu"/>` inside Robix3D.
+
+Units default to meters. Axes are right-handed and Y is up. Rotation is radians unless `Degrees="true"`. The web page is Three.js 0.170.0. The Windows window paints the hosted scene as a labeled panel.
+
+A scene can contain a camera, lights, groups, meshes, primitives, materials, textures, glTF models, environment lighting, a timeline, sequences, constraints, physics, shaders, modifiers, and procedural components. `Import` reads another `.r3d` file. `Component`, `Instance`, `Extends`, and `Override` reuse objects. `Generator` and `ForEach` repeat them, and `{Name}` is a numeric expression. Geometry with a negative size is rejected.
+
 ## 22. Project file
 
 A `.rbxb` file:

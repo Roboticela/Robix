@@ -58,7 +58,7 @@ fs::path FindDocument(const fs::path& input) {
     std::error_code error;
     if (fs::is_regular_file(input, error)) {
         const std::string ext = Lower(input.extension().string());
-        if (ext == ".rbxu" || ext == ".xml") {
+        if (ext == ".rbxu" || ext == ".xml" || ext == ".r3d") {
             return input;
         }
     }
@@ -360,6 +360,11 @@ int CompileProduction(const std::string& input, const std::vector<std::string>& 
         std::error_code error;
         fs::create_directories(out / "Content", error);
         fs::copy_file(document, out / "Content" / document.filename(), fs::copy_options::overwrite_existing, error);
+        if (key != "web" && Lower(document.extension().string()) == ".r3d") {
+            std::cerr << "robixc: Robix3D renders on the web target.\n";
+            status = 1;
+            continue;
+        }
         if (key == "web") {
             std::string webError;
             std::cout << "web form: " << WebFormName(form) << std::endl;

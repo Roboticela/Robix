@@ -27,7 +27,7 @@ $SkipNames = @{
 
 function Get-CompilerSources {
     $roots = @(
-        "Compiler", "Interpreter", "Network", "Packages", "Runtime", "StdLib", "RobixUI", "Tools"
+        "Compiler", "Interpreter", "Network", "Packages", "Runtime", "StdLib", "RobixUI", "Robix3D", "Tools"
     )
     $files = @()
     foreach ($rel in $roots) {

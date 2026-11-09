@@ -1,0 +1,5 @@
+<RobixUI Version="1.0">
+  <Window Name="Mixed" Title="Mixed" Theme="Dark">
+    <Mesh Name="Illegal"/>
+  </Window>
+</RobixUI>

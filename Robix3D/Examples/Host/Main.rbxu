@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<RobixUI Version="1.0">
+  <Window Name="Host" Title="Robix3D in RobixUI" Theme="Dark" Width="1000" Height="700">
+    <Column Spacing="12">
+      <Text Value="Product studio" FontSize="28" FontWeight="Bold"/>
+      <View3D Source="../Studio.r3d" Width="960" Height="560"/>
+    </Column>
+  </Window>
+</RobixUI>
