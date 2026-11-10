@@ -1,5 +1,6 @@
 #include "ThemeToggleWeb.hpp"
 
+#include "../Button/ButtonWeb.hpp"
 #include "../../RoboCompilerShared.hpp"
 
 namespace fs = std::filesystem;
@@ -46,6 +47,8 @@ void RoboWebEmitThemeToggle(std::string& html, const RoboXMLNode& node, const Ro
     const int iconSize = stacked ? 18 : 16;
     const bool dark = gTheme != "light";
     const std::string style = RoboWebStyle(node, library);
+    std::string control;
+    RoboWebAppendControlStyle(control, node, library);
     const std::string sun = showIcon ? Glyph(assetsRoot, "RadiantSunDaylightAppearance", iconSize) : "";
     const std::string moon = showIcon ? Glyph(assetsRoot, "CrescentMoonNightAppearance", iconSize) : "";
 
@@ -76,6 +79,12 @@ void RoboWebEmitThemeToggle(std::string& html, const RoboXMLNode& node, const Ro
         html += label;
         html += " mode\"";
         if (disabled) html += " disabled";
+        RoboWebAppendPreviewAttr(html, node);
+        if (!control.empty()) {
+            html += " style=\"";
+            html += RoboWebEscape(control);
+            html += "\"";
+        }
         html += ">";
         html += glyph;
         if (showLabel) {
@@ -95,6 +104,12 @@ void RoboWebEmitThemeToggle(std::string& html, const RoboXMLNode& node, const Ro
     html += dark ? "true" : "false";
     html += "\" aria-label=\"Toggle dark mode\"";
     if (disabled) html += " disabled";
+    RoboWebAppendPreviewAttr(html, node);
+    if (!control.empty()) {
+        html += " style=\"";
+        html += RoboWebEscape(control);
+        html += "\"";
+    }
     html += "><span class=\"robo-theme-knob\" aria-hidden=\"true\"></span></button></div>";
     if (!switchOnly) mode("dark", "Dark", moon);
     html += "</div>";

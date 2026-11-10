@@ -1194,6 +1194,16 @@
     </Container>
   </Container>
 
+  <Container id="brandLogoDemo" display="flex" direction="column" align="start" gap="space-3">
+    <Caption id="brandLogoCaption" font="sans">Brand logo</Caption>
+    <Container id="brandLogoRow" display="flex" direction="row" align="center" gap="space-4" wrap="wrap">
+      <BrandLogo id="brandMark" />
+      <BrandLogo id="brandText" variant="text" />
+      <BrandLogo id="brandLockup" variant="lockup" />
+      <BrandLogo id="brandCustom" variant="lockup" primary="Roboticela" secondary="Robix" size="28" gap="10" font="sans-semibold" fontSize="18" letterSpacing="0.04em" markColor="#7c3aed" accentColor="#22d3ee" titleColor="#f8fafc" subtitleColor="#94a3b8" />
+    </Container>
+  </Container>
+
   <Container id="svgDemo" display="flex" direction="column" align="start" gap="space-2">
     <Caption id="svgCaption" font="sans">Svg</Caption>
     <Svg id="demoMark" width="32" height="32" viewBox="0 0 24 24">

@@ -1,5 +1,6 @@
 #include "ThemeIconToggleWeb.hpp"
 
+#include "../Button/ButtonWeb.hpp"
 #include "../../RoboCompilerShared.hpp"
 
 namespace fs = std::filesystem;
@@ -48,7 +49,11 @@ void RoboWebEmitThemeIconToggle(std::string& html, const RoboXMLNode& node, cons
     const std::string size = SizeOf(node);
     const bool disabled = Flag(RoboXMLAttr(node, "disabled"));
     const int icon = size == "sm" ? 15 : 16;
-    const std::string style = RoboWebStyle(node, library);
+    const std::string styleBase = RoboWebStyle(node, library);
+    std::string style = styleBase;
+    RoboWebAppendControlStyle(style, node, library);
+    std::string control;
+    RoboWebAppendControlStyle(control, node, library);
     const bool single = variant == "ghost" || variant == "subtle" || variant == "outline";
 
     if (single) {
@@ -61,6 +66,7 @@ void RoboWebEmitThemeIconToggle(std::string& html, const RoboXMLNode& node, cons
             html += "\"";
         }
         if (disabled) html += " disabled";
+        RoboWebAppendPreviewAttr(html, node);
         if (!style.empty()) {
             html += " style=\"";
             html += RoboWebEscape(style);
@@ -85,9 +91,9 @@ void RoboWebEmitThemeIconToggle(std::string& html, const RoboXMLNode& node, cons
         html += RoboWebEscape(id);
         html += "\"";
     }
-    if (!style.empty()) {
+    if (!styleBase.empty()) {
         html += " style=\"";
-        html += RoboWebEscape(style);
+        html += RoboWebEscape(styleBase);
         html += "\"";
     }
     html += "><div class=\"robo-segmented-track\" role=\"radiogroup\" aria-label=\"Appearance\" data-variant=\"";
@@ -105,6 +111,12 @@ void RoboWebEmitThemeIconToggle(std::string& html, const RoboXMLNode& node, cons
         html += label;
         html += "\"";
         if (disabled) html += " disabled aria-disabled=\"true\"";
+        RoboWebAppendPreviewAttr(html, node);
+        if (!control.empty()) {
+            html += " style=\"";
+            html += RoboWebEscape(control);
+            html += "\"";
+        }
         html += "><span class=\"robo-segment-face\">";
         html += SegmentGlyph(assetsRoot, iconName, icon);
         html += "<span class=\"robo-segment-label\"><span class=\"robo-segment-copy\">";

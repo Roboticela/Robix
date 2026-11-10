@@ -63,22 +63,24 @@ These attributes paint in the browser. The Windows and RoboticelaOS paint path k
 | widthMode | auto, full, fit, min, max |
 | heightMode | auto, content, full |
 | size | xs, sm, md, lg, xl, 2xl, 3xl |
-| paddingX, paddingY, paddingTop, paddingRight, paddingBottom, paddingLeft | Inner space |
+| padding, paddingX, paddingY, paddingTop, paddingRight, paddingBottom, paddingLeft | Inner space |
+| margin, marginX, marginY, marginTop, marginRight, marginBottom, marginLeft | Outer space |
 | gap, iconGap | Space between the label and the icons |
 | iconPlace | top or bottom stacks the icon |
 | iconColor, iconSize, textColor | Icon and label paint |
 | gradient, gradientFrom, gradientTo, gradientAngle | Solid gradient fill. `radial` and `conic` select the shape |
 | backgroundImage, overlay, glass, backdropBlur, texture | Image, tint, frost, and noise |
-| borderStyle and per-side border width and color | Border |
+| borderWidth, borderColor, borderStyle, and per-side border width and color | Border. Sides are borderTop, borderRight, borderBottom, borderLeft and the matching Width |
 | radius and radiusTopLeft, radiusTopRight, radiusBottomRight, radiusBottomLeft | Corners. Words: none, xs, sm, md, lg, full |
+| characterSpacing, letterSpacing, lineHeight | Label spacing. A line height of 8 or less is a multiplier |
+| hoverBackground, hoverColor, hoverIcon, hoverBorder, hoverBorderWidth, hoverBorderStyle, hoverBorderTop, hoverBorderRight, hoverBorderBottom, hoverBorderLeft, hoverBorderTopWidth, hoverBorderRightWidth, hoverBorderBottomWidth, hoverBorderLeftWidth, hoverRadius, hoverPadding, hoverShadow, hoverGlow, hoverScale, hoverX, hoverY | Hover. `preview="hover"` shows it without a pointer |
+| activeBackground, activeColor, activeIcon, activeBorder, activeBorderWidth, activeBorderStyle, activeBorderTop, activeBorderRight, activeBorderBottom, activeBorderLeft and the matching side widths, activeRadius, activePadding, activeShadow, activeScale, activeX, activeY | Press. `preview="active"` shows it |
+| focusBackground, focusColor, focusIcon, focusBorder, focusBorderWidth, focusBorderStyle, the four focus border sides and widths, focusRadius, focusPadding, focusShadow, focusGlow, focusRing, focusOffset, focusScale | Keyboard focus. `preview="focus"` shows it |
+| disabledBg, disabledBackground, disabledColor, disabledIcon, disabledBorder, disabledBorderWidth, disabledBorderStyle, the four disabled border sides and widths, disabledRadius, disabledPadding, disabledShadow | Disabled. `preview="disabled"` shows it |
+| selected, selectedBackground, selectedColor, selectedIcon, selectedBorder, selectedBorderWidth, selectedBorderStyle, the four selected border sides and widths, selectedRadius, selectedPadding, selectedShadow | Selected look. `preview="selected"` shows it |
 | shape | square, rounded, pill, circle, soft, squircle, capsule, cut, hex, diamond |
 | shadow, depth, shadows, shadowX, shadowY, shadowBlur, shadowSpread, shadowColor, shadowInset, glow | Depth |
-| font, fontSize, fontWeight, fontStyle, letterSpacing, textTransform, decoration | Label type |
-| hoverBackground, hoverColor, hoverIcon, hoverBorder, hoverRadius, hoverShadow, hoverGlow, hoverScale, hoverX, hoverY | Hover, only when that attribute is set |
-| activeBackground, activeColor, activeScale, activeShadow | Press |
-| focusBackground, focusColor, focusRing, focusOffset, focusGlow | Keyboard focus |
-| disabledBg, disabledColor | Disabled |
-| selected, selectedBackground, selectedColor | Selected look |
+| font, fontSize, fontWeight, fontStyle, textTransform, decoration | Label type |
 | badgeColor, badgeText | Icon-button badge |
 | enter | fade, slide, fade-up, zoom |
 | motion | lift, pulse, shake, shimmer |
@@ -90,4 +92,4 @@ These attributes paint in the browser. The Windows and RoboticelaOS paint path k
 | group | start, middle, end |
 | preset | glass, flat, elevated, floating, neon, soft, brutalist, gradient, success, warning, info, outline, link, tinted, fluent, macos, material, classic, cyberpunk, luxury, chrome, retro, monochrome, pastel, corporate, industrial, transparent, circular |
 
-Icon button, theme toggle, theme icon toggle, confirm action, and segmented control use the same attributes. On a group, the look is painted on each button.
+Button, icon button, anchor, switch, password reveal, theme toggle, theme icon toggle, confirm action, and segmented control use the same attributes. On a group, the look is painted on each button. Scrollbar arrows and the zoom controls stay on their own chrome.

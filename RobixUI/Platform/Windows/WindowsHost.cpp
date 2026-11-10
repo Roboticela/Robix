@@ -67,6 +67,7 @@ struct HostView {
     ViewZoom zoom{};
     ViewZoomBar zoomBar{};
     int zoomOpacity = 0;
+    bool zoomMenu = false;
     unsigned zoomIdle = 0;
     int zoomBoxX = 0;
     int zoomBoxY = 0;
@@ -702,11 +703,10 @@ RoboU32 ZoomColor(const char* name, bool light) {
     return RoboFoundationPlatformColorForTheme(name, light ? ROBO_TRUE : ROBO_FALSE);
 }
 
-void ZoomText(RoboGPU* gpu, int x, int y, int width, int height, const char* text, RoboU32 color) {
-    if (gpu == nullptr || text == nullptr || text[0] == '\0') {
+void ZoomText(RoboGPU* gpu, int x, int y, int width, int height, const char* text, RoboU32 color, int size, bool center) {
+    if (gpu == nullptr || text == nullptr || text[0] == '\0' || size <= 0) {
         return;
     }
-    const int size = std::max(11, height * 13 / 32);
     RoboFontHeader header{};
     header.magic = ROBO_FONT_MAGIC;
     header.ascent = static_cast<RoboU16>(size);
@@ -716,14 +716,20 @@ void ZoomText(RoboGPU* gpu, int x, int y, int width, int height, const char* tex
     const int measured = RoboTextMeasureUTF8(font, text, static_cast<RoboU16>(size));
     const int mid = y + height / 2;
     const int baseline = mid + size * 745 / 2048;
-    RoboTextDrawUTF8(gpu, font, x + std::max(0, (width - measured) / 2), baseline - size, text, color, static_cast<RoboU16>(size));
+    const int left = center ? x + std::max(0, (width - measured) / 2) : x;
+    RoboTextDrawUTF8(gpu, font, left, baseline - size, text, color, static_cast<RoboU16>(size));
 }
 
-void BlendCapsule(RoboGPU* gpu, int x, int y, int width, int height, RoboU32 color, int coverage) {
+void BlendRound(RoboGPU* gpu, int x, int y, int width, int height, int radius, RoboU32 color, int coverage) {
     if (gpu == nullptr || coverage <= 0 || width <= 0 || height <= 0) {
         return;
     }
-    const int radius = std::min(width, height) / 2;
+    if (radius < 0) {
+        radius = 0;
+    }
+    if (radius > std::min(width, height) / 2) {
+        radius = std::min(width, height) / 2;
+    }
     const int alpha = static_cast<int>((color >> 24) & 0xFF);
     const int scaled = coverage > 255 ? 255 : coverage;
     const int fade = alpha == 0 ? 0 : scaled * alpha / 255;
@@ -752,6 +758,10 @@ void BlendCapsule(RoboGPU* gpu, int x, int y, int width, int height, RoboU32 col
             }
         }
     }
+}
+
+void BlendCapsule(RoboGPU* gpu, int x, int y, int width, int height, RoboU32 color, int coverage) {
+    BlendRound(gpu, x, y, width, height, std::min(width, height) / 2, color, coverage);
 }
 
 RoboU32 MixColor(RoboU32 ink, RoboU32 fill, int coverage) {
@@ -784,7 +794,7 @@ int ZoomHit(HostView* view, int x, int y) {
     }
     view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi,
                      WindowsDocumentZoomAnchor(), view->zoomBar);
-    return view->zoom.Hit(view->zoomBar, x, y);
+    return view->zoom.Hit(view->zoomBar, x, y, view->zoomMenu);
 }
 
 void ClearZoomBox(HostView* view) {
@@ -805,88 +815,156 @@ bool ZoomPartEnabled(const HostView* view, int part) {
     if (part == 4) {
         return view->zoom.scale < ViewZoom::kMax - 0.0005;
     }
-    if (part == 3) {
-        return std::abs(view->zoom.scale - 1.0) > 0.0005;
+    if (part == 3 || part == 2 || part >= 10) {
+        return true;
     }
-    return part == 2;
+    return false;
 }
 
-void PaintZoomIcon(HostView* view, int x, int y, int width, int height, const char* name, RoboU32 color) {
-    static std::string minus;
-    static std::string reset;
-    static std::string plus;
-    if (minus.empty()) {
-        minus = WindowsDocumentIconSvg("SubtractMinus");
-    }
-    if (reset.empty()) {
-        reset = WindowsDocumentIconSvg("RefreshClockwiseRotate");
-    }
-    if (plus.empty()) {
-        plus = WindowsDocumentIconSvg("AddPlusCreate");
-    }
-    const std::string* svg = nullptr;
-    if (name[0] == 'm') {
-        svg = &minus;
-    } else if (name[0] == 'r') {
-        svg = &reset;
-    } else {
-        svg = &plus;
-    }
-    if (svg == nullptr || svg->empty()) {
+void PaintZoomIcon(HostView* view, int x, int y, int size, const std::string& svg, RoboU32 color) {
+    if (svg.empty() || size <= 0) {
         return;
     }
-    const int size = std::max(12, height * 16 / 36);
-    PaintWindowsSvg(&view->gpu, x + (width - size) / 2, y + (height - size) / 2, size, *svg, color);
+    PaintWindowsSvg(&view->gpu, x, y, size, svg, color);
 }
 
 void PaintZoomBar(HostView* view) {
     if (view == nullptr || view->back == nullptr || view->zoomOpacity <= 0 || WindowsDocumentZoomAnchor() < 0) {
         return;
     }
+    static std::string minus;
+    static std::string plus;
+    static std::string chevron;
+    static std::string check;
+    if (minus.empty()) {
+        minus = WindowsDocumentIconSvg("SubtractMinus");
+    }
+    if (plus.empty()) {
+        plus = WindowsDocumentIconSvg("AddPlusCreate");
+    }
+    if (chevron.empty()) {
+        chevron = WindowsDocumentIconSvg("ChevronDown");
+    }
+    if (check.empty()) {
+        check = WindowsDocumentIconSvg("TaskCompleteCheckmark");
+    }
     view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi,
                      WindowsDocumentZoomAnchor(), view->zoomBar);
     const ViewZoomBar& bar = view->zoomBar;
     const bool light = view->light;
     const int fade = view->zoomOpacity;
+    const int dpi = static_cast<int>(view->baseDpi == 0 ? 96u : view->baseDpi);
+    const auto px = [&](int value) { return std::max(1, value * dpi / 96); };
     const RoboU32 fill = ZoomColor("bg-elevated", light);
     const RoboU32 line = ZoomColor("border-default", light);
-    const RoboU32 hoverFill = ZoomColor("brand-primary-subtle", light);
-    const RoboU32 pressFill = ZoomColor("brand-primary-range", light);
     const RoboU32 quiet = MixColor(ZoomColor("text-secondary", light), fill, fade);
     const RoboU32 valueInk = MixColor(ZoomColor("text-primary", light), fill, fade);
-    const RoboU32 hoverInk = MixColor(ZoomColor("brand-primary", light), fill, fade);
-    const RoboU32 pressInk = MixColor(ZoomColor("brand-primary-active", light), fill, fade);
     const RoboU32 disabled = MixColor(ZoomColor("text-disabled", light), fill, fade);
-    const int shadow = std::max(4, bar.height / 4);
-    BlendCapsule(&view->gpu, bar.x, bar.y + shadow / 3, bar.width, bar.height, 0xFF000000, fade * 28 / 255);
+    const RoboU32 hoverFill = ZoomColor("bg-tertiary", light);
+    const RoboU32 pressFill = ZoomColor("bg-active", light);
+    const RoboU32 iconHover = ZoomColor("brand-primary-subtle", light);
+    const RoboU32 iconPress = ZoomColor("brand-primary-range", light);
+    const RoboU32 brand = ZoomColor("brand-primary", light);
+    const int type = std::max(12, 15 * dpi / 96);
+    const int icon = px(16);
+    const int shadow = px(10);
+    BlendCapsule(&view->gpu, bar.x, bar.y + px(4), bar.width, bar.height, 0xFF000000, fade * 22 / 255);
     BlendCapsule(&view->gpu, bar.x, bar.y, bar.width, bar.height, line, fade);
     if (bar.width > 2 && bar.height > 2) {
         BlendCapsule(&view->gpu, bar.x + 1, bar.y + 1, bar.width - 2, bar.height - 2, fill, fade);
     }
-    const auto segment = [&](int part, int x, int width) {
+    const auto ink = [&](int part) {
         if (!ZoomPartEnabled(view, part)) {
             return disabled;
         }
-        if (view->zoom.pressed == part) {
-            BlendCapsule(&view->gpu, x, bar.y + 4, width, bar.height - 8, pressFill, fade);
-            return pressInk;
-        }
-        if (view->zoom.hot == part) {
-            BlendCapsule(&view->gpu, x, bar.y + 4, width, bar.height - 8, hoverFill, fade);
-            return hoverInk;
-        }
-        return part == 2 ? valueInk : quiet;
+        return part == 2 || part == 3 ? valueInk : quiet;
     };
-    PaintZoomIcon(view, bar.minusX, bar.y, bar.stepW, bar.height, "minus", segment(1, bar.minusX, bar.stepW));
+    const auto hover = [&](int part, int x, int width) {
+        if (!ZoomPartEnabled(view, part)) {
+            return;
+        }
+        const RoboU32 tone = view->zoom.pressed == part ? iconPress : view->zoom.hot == part ? iconHover : 0;
+        if (tone != 0) {
+            BlendCapsule(&view->gpu, x + px(2), bar.y + px(4), std::max(1, width - px(4)), bar.height - px(8), tone, fade);
+        }
+    };
+    hover(1, bar.minusX, bar.stepW);
+    hover(2, bar.selectX, bar.selectW);
+    hover(4, bar.plusX, bar.stepW);
+    const int resetY = bar.y + px(4);
+    const int resetH = bar.height - px(8);
+    RoboU32 resetFill = hoverFill;
+    if (view->zoom.pressed == 3) {
+        resetFill = pressFill;
+    } else if (view->zoom.hot == 3) {
+        resetFill = ZoomColor("bg-hover", light);
+    }
+    BlendCapsule(&view->gpu, bar.resetX + px(2), resetY, std::max(1, bar.resetW - px(4)), resetH, resetFill, fade);
+    const auto rule = [&](int x) {
+        RoboGPUFillRect(&view->gpu, x, bar.y + (bar.height - px(18)) / 2, 1, px(18), line);
+    };
+    rule(bar.selectX);
+    rule(bar.plusX);
+    rule(bar.resetX);
+    PaintZoomIcon(view, bar.minusX + (bar.stepW - icon) / 2, bar.y + (bar.height - icon) / 2, icon, minus, ink(1));
     char percent[16];
     std::snprintf(percent, sizeof(percent), "%d%%", view->zoom.Percent());
-    ZoomText(&view->gpu, bar.labelX, bar.y, bar.labelW, bar.height, percent, segment(2, bar.labelX, bar.labelW));
-    PaintZoomIcon(view, bar.resetX, bar.y, bar.stepW, bar.height, "reset", segment(3, bar.resetX, bar.stepW));
-    PaintZoomIcon(view, bar.plusX, bar.y, bar.stepW, bar.height, "plus", segment(4, bar.plusX, bar.stepW));
-    view->zoomBoxX = std::max(0, bar.x - 2);
-    view->zoomBoxY = std::max(0, bar.y - 2);
-    view->zoomBoxW = bar.width + shadow;
-    view->zoomBoxH = bar.height + shadow;
+    ZoomText(&view->gpu, bar.selectX + px(14), bar.y, bar.selectW - px(36), bar.height, percent, ink(2), type, false);
+    PaintZoomIcon(view, bar.selectX + bar.selectW - px(12) - icon, bar.y + (bar.height - icon) / 2, icon, chevron, quiet);
+    PaintZoomIcon(view, bar.plusX + (bar.stepW - icon) / 2, bar.y + (bar.height - icon) / 2, icon, plus, ink(4));
+    ZoomText(&view->gpu, bar.resetX, resetY, bar.resetW, resetH, "Reset", valueInk, type, true);
+    int boxX = std::max(0, bar.x - px(2));
+    int boxY = std::max(0, bar.y - px(2));
+    int boxR = bar.x + bar.width + shadow;
+    int boxB = bar.y + bar.height + shadow;
+    if (view->zoomMenu) {
+        const int radius = px(14);
+        const RoboU32 menuFill = light ? ZoomColor("bg-elevated", true) : ZoomColor("bg-secondary", false);
+        const RoboU32 rowHover = ZoomColor("bg-hover", light);
+        const RoboU32 rowPress = ZoomColor("bg-active", light);
+        BlendRound(&view->gpu, bar.menuX, bar.menuY + px(4), bar.menuW, bar.menuH, radius, 0xFF000000, fade * 28 / 255);
+        BlendRound(&view->gpu, bar.menuX, bar.menuY, bar.menuW, bar.menuH, radius, line, fade);
+        BlendRound(&view->gpu, bar.menuX + 1, bar.menuY + 1, bar.menuW - 2, bar.menuH - 2, std::max(1, radius - 1), menuFill, fade);
+        const int pad = (bar.menuH - bar.optionH * ViewZoom::kPresetCount) / 2;
+        const int current = view->zoom.Percent();
+        int chosen = 0;
+        int nearest = 100000;
+        for (int index = 0; index < ViewZoom::kPresetCount; ++index) {
+            const int distance = std::abs(ViewZoom::kPresets[index] - current);
+            if (distance < nearest) {
+                nearest = distance;
+                chosen = index;
+            }
+        }
+        for (int index = 0; index < ViewZoom::kPresetCount; ++index) {
+            const int rowY = bar.menuY + pad + index * bar.optionH;
+            const int part = 10 + index;
+            const bool on = index == chosen;
+            const bool pressed = view->zoom.pressed == part;
+            const bool hot = view->zoom.hot == part;
+            if (pressed || hot) {
+                BlendRound(&view->gpu, bar.menuX + px(6), rowY + px(2), bar.menuW - px(12), bar.optionH - px(4), px(8),
+                           pressed ? rowPress : rowHover, fade);
+            }
+            const RoboU32 rowInk = on ? brand : valueInk;
+            const int textX = bar.menuX + px(14);
+            char label[16];
+            std::snprintf(label, sizeof(label), "%d%%", ViewZoom::kPresets[index]);
+            ZoomText(&view->gpu, textX, rowY, bar.menuW - px(14) - (on ? icon + px(20) : px(14)), bar.optionH, label, rowInk, type,
+                     false);
+            if (on) {
+                PaintZoomIcon(view, bar.menuX + bar.menuW - px(12) - icon, rowY + (bar.optionH - icon) / 2, icon, check, brand);
+            }
+        }
+        boxX = std::min(boxX, std::max(0, bar.menuX - px(4)));
+        boxY = std::min(boxY, std::max(0, bar.menuY - px(4)));
+        boxR = std::max(boxR, bar.menuX + bar.menuW + shadow);
+        boxB = std::max(boxB, bar.menuY + bar.menuH + shadow);
+    }
+    view->zoomBoxX = boxX;
+    view->zoomBoxY = boxY;
+    view->zoomBoxW = std::max(1, boxR - boxX);
+    view->zoomBoxH = std::max(1, boxB - boxY);
     RoboGPUMarkDamage(&view->gpu, view->zoomBoxX, view->zoomBoxY, view->zoomBoxW, view->zoomBoxH);
 }
 
@@ -1182,18 +1260,31 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     if (part == zoomHit && ZoomPartEnabled(view, part)) {
                         if (part == 1) {
                             view->zoom.Step(-1);
-                        } else if (part == 2 || part == 3) {
+                            view->zoomMenu = false;
+                        } else if (part == 2) {
+                            view->zoomMenu = !view->zoomMenu;
+                        } else if (part == 3) {
                             view->zoom.Step(0);
+                            view->zoomMenu = false;
                         } else if (part == 4) {
                             view->zoom.Step(1);
+                            view->zoomMenu = false;
+                        } else if (part >= 10 && part < 10 + ViewZoom::kPresetCount) {
+                            view->zoom.Apply(ViewZoom::kPresets[part - 10] / 100.0);
+                            view->zoomMenu = false;
                         }
                         RevealZoom(view);
                     }
                     Request(view);
                     return 0;
                 }
+                if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && view->zoomMenu && zoomHit == 0) {
+                    view->zoomMenu = false;
+                    Request(view);
+                    return 0;
+                }
                 if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && zoomHit != 0 &&
-                    ZoomPartEnabled(view, zoomHit)) {
+                    (ZoomPartEnabled(view, zoomHit) || zoomHit == 9)) {
                     SetFocus(window);
                     view->zoom.pressed = zoomHit;
                     view->zoom.hot = zoomHit;
@@ -1356,6 +1447,11 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case WM_KEYDOWN:
+            if (view != nullptr && view->zoomMenu && wParam == VK_ESCAPE) {
+                view->zoomMenu = false;
+                Request(view);
+                return 0;
+            }
             if (view != nullptr && view->ready && view->screen && (GetKeyState(VK_CONTROL) & 0x8000) != 0) {
                 int direction = 2;
                 if (wParam == VK_OEM_PLUS || wParam == VK_ADD) {
@@ -1418,7 +1514,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     KillTimer(window, 5);
                     return 0;
                 }
-                if (view->zoom.hot != 0 || view->zoom.pressed != 0) {
+                if (view->zoom.hot != 0 || view->zoom.pressed != 0 || view->zoomMenu) {
                     view->zoomOpacity = 255;
                     view->zoomIdle = GetTickCount();
                     return 0;

@@ -1,5 +1,6 @@
 #include "SwitchWeb.hpp"
 
+#include "../Button/ButtonWeb.hpp"
 #include "../../RoboCompilerShared.hpp"
 #include "../../Motion.hpp"
 #include "../../ScreenSize.hpp"
@@ -47,8 +48,8 @@ std::string RoboWebSwitchSpinner(const std::string& size) {
 
 void RoboWebAppendSwitchControl(std::string& html, const std::string& id, const std::string& label,
                                 const std::string& variant, const std::string& size, bool checked, bool disabled,
-                                bool loading) {
-  html += "<button class=\"robo-switch\" type=\"button\" role=\"switch\" data-variant=\"";
+                                bool loading, const std::string& buttonStyle, const std::string& preview) {
+  html += "<button class=\"robo-switch robo-control\" type=\"button\" role=\"switch\" data-variant=\"";
   html += RoboWebEscape(variant);
   html += "\" data-size=\"";
   html += RoboWebEscape(size);
@@ -73,6 +74,16 @@ void RoboWebAppendSwitchControl(std::string& html, const std::string& id, const 
   if (disabled || loading) {
     html += " disabled";
   }
+  if (!preview.empty()) {
+    html += " data-preview=\"";
+    html += RoboWebEscape(preview);
+    html += "\"";
+  }
+  if (!buttonStyle.empty()) {
+    html += " style=\"";
+    html += RoboWebEscape(buttonStyle);
+    html += "\"";
+  }
   html += "><span class=\"robo-switch-track\"><span class=\"robo-switch-thumb\">";
   if (loading) {
     html += RoboWebSwitchSpinner(size);
@@ -88,10 +99,12 @@ void RoboWebEmitSwitch(std::string& html, const RoboXMLNode& node, const RoboFou
   const bool loading = RoboWebFlag(RoboXMLAttr(node, "loading"));
   RoboWebAppendSwitchControl(html, RoboXMLAttr(node, "id"), RoboXMLAttr(node, "label"), RoboWebSwitchVariant(node),
                              RoboWebSwitchSize(node), RoboWebFlag(RoboXMLAttr(node, "checked")),
-                             RoboWebFlag(RoboXMLAttr(node, "disabled")), loading);
+                             RoboWebFlag(RoboXMLAttr(node, "disabled")), loading, "",
+                             RoboWebLower(RoboXMLAttr(node, "preview")));
   std::string style = RoboWebStyle(node, library);
+  RoboWebAppendControlStyle(style, node, library);
   RoboWebAppendMotion(style, node);
-  const std::string marker = "class=\"robo-switch\"";
+  const std::string marker = "class=\"robo-switch robo-control\"";
   const auto at = html.rfind(marker);
   if (at != std::string::npos) {
     std::string extra = RoboWebScreenAttrs(node, library, "inline-flex");
@@ -165,8 +178,11 @@ void RoboWebEmitSwitchItem(std::string& html, const RoboXMLNode& node, const Rob
     html += "</span>";
   }
   html += "</span>";
+  std::string buttonStyle;
+  RoboWebAppendControlStyle(buttonStyle, node, library);
   RoboWebAppendSwitchControl(html, RoboXMLAttr(node, "id"), title, RoboWebSwitchVariant(node), RoboWebSwitchSize(node),
-                             RoboWebFlag(RoboXMLAttr(node, "checked")), disabled, loading);
+                             RoboWebFlag(RoboXMLAttr(node, "checked")), disabled, loading, buttonStyle,
+                             RoboWebLower(RoboXMLAttr(node, "preview")));
   html += "</div>";
 }
 

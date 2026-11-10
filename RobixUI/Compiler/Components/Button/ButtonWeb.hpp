@@ -10,5 +10,6 @@ void RoboWebEmitButton(std::string& html, const RoboXMLNode& node, const RoboFou
 void RoboWebAppendButtonCss(std::ostream& css);
 void RoboWebAppendControlCss(std::ostream& css);
 void RoboWebControlAttrs(std::string& html, const RoboXMLNode& node);
+void RoboWebAppendPreviewAttr(std::string& html, const RoboXMLNode& node);
 void RoboWebAppendControlStyle(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library);
 const char* RoboWebButtonClass();

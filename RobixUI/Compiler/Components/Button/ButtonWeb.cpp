@@ -5,6 +5,8 @@
 #include "../../Motion.hpp"
 #include "../../ScreenSize.hpp"
 
+#include <cstdlib>
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -95,7 +97,6 @@ void RoboWebEmitButton(std::string& html, const RoboXMLNode& node, const RoboFou
   const std::string id = RoboXMLAttr(node, "id");
   const std::string variant = RoboWebButtonVariant(node);
   const std::string size = RoboWebButtonSize(node);
-  const std::string preview = RoboWebLower(RoboXMLAttr(node, "preview"));
   const std::string type = RoboWebLower(RoboXMLAttr(node, "type", "button"));
   const std::string loadingText = RoboXMLAttr(node, "loadingText");
   const bool loading = RoboWebFlag(RoboXMLAttr(node, "loading"));
@@ -172,11 +173,6 @@ void RoboWebEmitButton(std::string& html, const RoboXMLNode& node, const RoboFou
   if (!id.empty()) {
     html += " id=\"";
     html += RoboWebEscape(id);
-    html += "\"";
-  }
-  if (!preview.empty()) {
-    html += " data-preview=\"";
-    html += RoboWebEscape(preview);
     html += "\"";
   }
   RoboWebControlAttrs(html, node);
@@ -286,6 +282,23 @@ std::string RoboWebControlLength(const RoboFoundationLibrary& library, const std
   return RoboWebCssValue(library, raw, false);
 }
 
+std::string RoboWebControlBox(const RoboFoundationLibrary& library, const std::string& raw) {
+  std::string out;
+  std::string token;
+  const auto flush = [&]() {
+    if (token.empty()) return;
+    if (!out.empty()) out += " ";
+    out += RoboWebControlLength(library, token);
+    token.clear();
+  };
+  for (char ch : raw) {
+    if (ch == ' ' || ch == '\t') flush();
+    else token.push_back(ch);
+  }
+  flush();
+  return out;
+}
+
 std::string RoboWebControlColor(const RoboFoundationLibrary& library, const std::string& raw) {
   return RoboWebCssValue(library, raw, true);
 }
@@ -303,7 +316,59 @@ std::string RoboWebControlShadow(const std::string& name) {
   return name;
 }
 
+void RoboWebControlPaintState(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library,
+                              const char* prefix) {
+  const auto raw = [&](const char* suffix) {
+    return RoboXMLAttr(node, (std::string(prefix) + suffix).c_str());
+  };
+  const std::string stem = std::string("--btn-") + prefix;
+  std::string background = raw("Background");
+  std::string ink = raw("Color");
+  if (std::string(prefix) == "disabled") {
+    if (background.empty()) background = RoboXMLAttr(node, "disabledBg");
+    if (ink.empty()) ink = RoboXMLAttr(node, "disabledColor");
+  }
+  RoboWebAddDecl(style, (stem + "-bg").c_str(), RoboWebControlColor(library, background));
+  RoboWebAddDecl(style, (stem + "-color").c_str(), RoboWebControlColor(library, ink));
+  RoboWebAddDecl(style, (stem + "-icon").c_str(), RoboWebControlColor(library, raw("Icon")));
+  RoboWebAddDecl(style, (stem + "-border").c_str(), RoboWebControlColor(library, raw("Border")));
+  RoboWebAddDecl(style, (stem + "-border-width").c_str(), RoboWebControlLength(library, raw("BorderWidth")));
+  const std::string borderStyle = RoboWebLower(raw("BorderStyle"));
+  if (!borderStyle.empty()) RoboWebAddDecl(style, (stem + "-border-style").c_str(), borderStyle);
+  RoboWebAddDecl(style, (stem + "-border-top").c_str(), RoboWebControlColor(library, raw("BorderTop")));
+  RoboWebAddDecl(style, (stem + "-border-right").c_str(), RoboWebControlColor(library, raw("BorderRight")));
+  RoboWebAddDecl(style, (stem + "-border-bottom").c_str(), RoboWebControlColor(library, raw("BorderBottom")));
+  RoboWebAddDecl(style, (stem + "-border-left").c_str(), RoboWebControlColor(library, raw("BorderLeft")));
+  RoboWebAddDecl(style, (stem + "-width-top").c_str(), RoboWebControlLength(library, raw("BorderTopWidth")));
+  RoboWebAddDecl(style, (stem + "-width-right").c_str(), RoboWebControlLength(library, raw("BorderRightWidth")));
+  RoboWebAddDecl(style, (stem + "-width-bottom").c_str(), RoboWebControlLength(library, raw("BorderBottomWidth")));
+  RoboWebAddDecl(style, (stem + "-width-left").c_str(), RoboWebControlLength(library, raw("BorderLeftWidth")));
+  RoboWebAddDecl(style, (stem + "-radius").c_str(), RoboWebControlLength(library, raw("Radius")));
+  RoboWebAddDecl(style, (stem + "-pad").c_str(), RoboWebControlBox(library, raw("Padding")));
+  if (!raw("Shadow").empty() || !raw("Glow").empty()) {
+    const std::string glow = RoboWebControlColor(library, raw("Glow"));
+    RoboWebAddDecl(style, (stem + "-shadow").c_str(),
+                   glow.empty() ? RoboWebControlShadow(raw("Shadow")) : "0 0 18px " + glow);
+  }
+  std::string motion;
+  if (!raw("Scale").empty()) motion += "scale(" + raw("Scale") + ")";
+  if (!raw("X").empty() || !raw("Y").empty()) {
+    if (!motion.empty()) motion += " ";
+    motion += "translate(" + RoboWebControlLength(library, raw("X").empty() ? "0" : raw("X")) + "," +
+              RoboWebControlLength(library, raw("Y").empty() ? "0" : raw("Y")) + ")";
+  }
+  RoboWebAddDecl(style, (stem + "-transform").c_str(), motion);
+}
+
 }  // namespace
+
+void RoboWebAppendPreviewAttr(std::string& html, const RoboXMLNode& node) {
+  const std::string preview = RoboWebLower(RoboXMLAttr(node, "preview"));
+  if (preview.empty()) return;
+  html += " data-preview=\"";
+  html += RoboWebEscape(preview);
+  html += "\"";
+}
 
 void RoboWebControlAttrs(std::string& html, const RoboXMLNode& node) {
   const auto data = [&](const char* key, std::string value) {
@@ -333,6 +398,7 @@ void RoboWebControlAttrs(std::string& html, const RoboXMLNode& node) {
   data("group", RoboWebLower(RoboXMLAttr(node, "group")));
   data("click", RoboXMLAttr(node, "onclick", RoboXMLAttr(node, "onClick").c_str()));
   if (RoboWebLower(RoboXMLAttr(node, "selected")) == "true") data("selected", "true");
+  RoboWebAppendPreviewAttr(html, node);
 }
 
 void RoboWebAppendControlStyle(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
@@ -357,6 +423,17 @@ void RoboWebAppendControlStyle(std::string& style, const RoboXMLNode& node, cons
   RoboWebAddDecl(style, "padding-right", RoboWebControlLength(library, RoboXMLAttr(node, "paddingRight")));
   RoboWebAddDecl(style, "padding-bottom", RoboWebControlLength(library, RoboXMLAttr(node, "paddingBottom")));
   RoboWebAddDecl(style, "padding-left", RoboWebControlLength(library, RoboXMLAttr(node, "paddingLeft")));
+  RoboWebAddDecl(style, "padding", RoboWebControlBox(library, RoboXMLAttr(node, "padding")));
+  const std::string marginX = RoboWebControlLength(library, RoboXMLAttr(node, "marginX"));
+  const std::string marginY = RoboWebControlLength(library, RoboXMLAttr(node, "marginY"));
+  if (!marginX.empty() || !marginY.empty()) {
+    RoboWebAddDecl(style, "margin", (marginY.empty() ? "0" : marginY) + " " + (marginX.empty() ? "0" : marginX));
+  }
+  RoboWebAddDecl(style, "margin", RoboWebControlBox(library, RoboXMLAttr(node, "margin")));
+  RoboWebAddDecl(style, "margin-top", RoboWebControlLength(library, RoboXMLAttr(node, "marginTop")));
+  RoboWebAddDecl(style, "margin-right", RoboWebControlLength(library, RoboXMLAttr(node, "marginRight")));
+  RoboWebAddDecl(style, "margin-bottom", RoboWebControlLength(library, RoboXMLAttr(node, "marginBottom")));
+  RoboWebAddDecl(style, "margin-left", RoboWebControlLength(library, RoboXMLAttr(node, "marginLeft")));
   RoboWebAddDecl(style, "--btn-gap", RoboWebControlLength(library, RoboXMLAttr(node, "gap").empty() ? RoboXMLAttr(node, "iconGap") : RoboXMLAttr(node, "gap")));
   const std::string from = RoboWebControlColor(library, RoboXMLAttr(node, "gradientFrom"));
   const std::string to = RoboWebControlColor(library, RoboXMLAttr(node, "gradientTo"));
@@ -384,6 +461,8 @@ void RoboWebAppendControlStyle(std::string& style, const RoboXMLNode& node, cons
   }
   const std::string borderStyle = RoboWebLower(RoboXMLAttr(node, "borderStyle"));
   if (!borderStyle.empty()) RoboWebAddDecl(style, "border-style", borderStyle == "none" ? "none" : borderStyle);
+  RoboWebAddDecl(style, "border-width", RoboWebControlLength(library, RoboXMLAttr(node, "borderWidth")));
+  RoboWebAddDecl(style, "border-color", RoboWebControlColor(library, RoboXMLAttr(node, "borderColor")));
   RoboWebAddDecl(style, "border-top-width", RoboWebControlLength(library, RoboXMLAttr(node, "borderTopWidth")));
   RoboWebAddDecl(style, "border-right-width", RoboWebControlLength(library, RoboXMLAttr(node, "borderRightWidth")));
   RoboWebAddDecl(style, "border-bottom-width", RoboWebControlLength(library, RoboXMLAttr(node, "borderBottomWidth")));
@@ -429,7 +508,18 @@ void RoboWebAppendControlStyle(std::string& style, const RoboXMLNode& node, cons
   RoboWebAddDecl(style, "font-weight", RoboXMLAttr(node, "fontWeight"));
   const std::string fontStyle = RoboWebLower(RoboXMLAttr(node, "fontStyle"));
   if (fontStyle == "italic" || fontStyle == "normal") RoboWebAddDecl(style, "font-style", fontStyle);
-  RoboWebAddDecl(style, "letter-spacing", RoboWebControlLength(library, RoboXMLAttr(node, "letterSpacing")));
+  RoboWebAddDecl(style, "letter-spacing", RoboWebControlLength(library, RoboXMLAttr(node, "letterSpacing").empty() ? RoboXMLAttr(node, "characterSpacing") : RoboXMLAttr(node, "letterSpacing")));
+  {
+    std::string leading = RoboXMLAttr(node, "lineHeight");
+    if (!leading.empty()) {
+      if (RoboWebIsNumber(leading)) {
+        leading = std::atof(leading.c_str()) > 8 ? leading + "px" : leading;
+      } else {
+        leading = RoboWebControlLength(library, leading);
+      }
+      RoboWebAddDecl(style, "line-height", leading);
+    }
+  }
   const std::string transform = RoboWebLower(RoboXMLAttr(node, "textTransform"));
   if (transform == "uppercase" || transform == "lowercase" || transform == "capitalize" || transform == "none") {
     RoboWebAddDecl(style, "text-transform", transform);
@@ -438,40 +528,15 @@ void RoboWebAppendControlStyle(std::string& style, const RoboXMLNode& node, cons
   if (decoration == "underline" || decoration == "none" || decoration == "line-through") {
     RoboWebAddDecl(style, "text-decoration", decoration);
   }
-  RoboWebAddDecl(style, "--btn-hover-bg", RoboWebControlColor(library, RoboXMLAttr(node, "hoverBackground")));
-  RoboWebAddDecl(style, "--btn-hover-color", RoboWebControlColor(library, RoboXMLAttr(node, "hoverColor")));
-  RoboWebAddDecl(style, "--btn-hover-icon", RoboWebControlColor(library, RoboXMLAttr(node, "hoverIcon")));
-  RoboWebAddDecl(style, "--btn-hover-border", RoboWebControlColor(library, RoboXMLAttr(node, "hoverBorder")));
-  RoboWebAddDecl(style, "--btn-hover-radius", RoboWebControlLength(library, RoboXMLAttr(node, "hoverRadius")));
-  if (!RoboXMLAttr(node, "hoverShadow").empty() || !RoboXMLAttr(node, "hoverGlow").empty()) {
-    const std::string hoverGlow = RoboWebControlColor(library, RoboXMLAttr(node, "hoverGlow"));
-    RoboWebAddDecl(style, "--btn-hover-shadow", hoverGlow.empty() ? RoboWebControlShadow(RoboXMLAttr(node, "hoverShadow")) : "0 0 18px " + hoverGlow);
-  }
-  std::string hoverTransform;
-  if (!RoboXMLAttr(node, "hoverScale").empty()) hoverTransform += "scale(" + RoboXMLAttr(node, "hoverScale") + ")";
-  if (!RoboXMLAttr(node, "hoverX").empty() || !RoboXMLAttr(node, "hoverY").empty()) {
-    if (!hoverTransform.empty()) hoverTransform += " ";
-    hoverTransform += "translate(" + RoboWebControlLength(library, RoboXMLAttr(node, "hoverX").empty() ? "0" : RoboXMLAttr(node, "hoverX")) + "," +
-                      RoboWebControlLength(library, RoboXMLAttr(node, "hoverY").empty() ? "0" : RoboXMLAttr(node, "hoverY")) + ")";
-  }
-  RoboWebAddDecl(style, "--btn-hover-transform", hoverTransform);
-  RoboWebAddDecl(style, "--btn-active-bg", RoboWebControlColor(library, RoboXMLAttr(node, "activeBackground")));
-  RoboWebAddDecl(style, "--btn-active-color", RoboWebControlColor(library, RoboXMLAttr(node, "activeColor")));
-  if (!RoboXMLAttr(node, "activeScale").empty()) RoboWebAddDecl(style, "--btn-active-transform", "scale(" + RoboXMLAttr(node, "activeScale") + ")");
-  if (!RoboXMLAttr(node, "activeShadow").empty()) RoboWebAddDecl(style, "--btn-active-shadow", RoboWebControlShadow(RoboXMLAttr(node, "activeShadow")));
-  RoboWebAddDecl(style, "--btn-focus-bg", RoboWebControlColor(library, RoboXMLAttr(node, "focusBackground")));
-  RoboWebAddDecl(style, "--btn-focus-color", RoboWebControlColor(library, RoboXMLAttr(node, "focusColor")));
+  RoboWebControlPaintState(style, node, library, "hover");
+  RoboWebControlPaintState(style, node, library, "active");
+  RoboWebControlPaintState(style, node, library, "focus");
+  RoboWebControlPaintState(style, node, library, "disabled");
+  RoboWebControlPaintState(style, node, library, "selected");
   if (!RoboXMLAttr(node, "focusRing").empty()) {
     RoboWebAddDecl(style, "--btn-focus-ring", "2px solid " + RoboWebControlColor(library, RoboXMLAttr(node, "focusRing")));
   }
   RoboWebAddDecl(style, "--btn-focus-offset", RoboWebControlLength(library, RoboXMLAttr(node, "focusOffset")));
-  if (!RoboXMLAttr(node, "focusGlow").empty()) {
-    RoboWebAddDecl(style, "--btn-focus-glow", "0 0 0 3px " + RoboWebControlColor(library, RoboXMLAttr(node, "focusGlow")));
-  }
-  RoboWebAddDecl(style, "--btn-disabled-bg", RoboWebControlColor(library, RoboXMLAttr(node, "disabledBg")));
-  RoboWebAddDecl(style, "--btn-disabled-color", RoboWebControlColor(library, RoboXMLAttr(node, "disabledColor")));
-  RoboWebAddDecl(style, "--btn-selected-bg", RoboWebControlColor(library, RoboXMLAttr(node, "selectedBackground")));
-  RoboWebAddDecl(style, "--btn-selected-color", RoboWebControlColor(library, RoboXMLAttr(node, "selectedColor")));
   RoboWebAddDecl(style, "--btn-badge", RoboWebControlColor(library, RoboXMLAttr(node, "badgeColor")));
   RoboWebAddDecl(style, "--btn-badge-text", RoboWebControlColor(library, RoboXMLAttr(node, "badgeText")));
   if (!RoboXMLAttr(node, "duration").empty()) {
@@ -550,24 +615,64 @@ void RoboWebAppendControlCss(std::ostream& css) {
   css << ".robo-control[data-group=middle]{border-radius:0}\n";
   css << ".robo-control[data-group=end]{border-top-left-radius:0;border-bottom-left-radius:0}\n";
   css << ".robo-control[style*=\"--btn-badge\"] .robo-icon-button-badge{background:var(--btn-badge);color:var(--btn-badge-text,#fff)}\n";
-  css << ".robo-control[style*=\"--btn-hover-bg\"]:hover:not(:disabled){background:var(--btn-hover-bg) !important}\n";
-  css << ".robo-control[style*=\"--btn-hover-color\"]:hover:not(:disabled){color:var(--btn-hover-color) !important}\n";
-  css << ".robo-control[style*=\"--btn-hover-icon\"]:hover:not(:disabled) .robo-button-icon,.robo-control[style*=\"--btn-hover-icon\"]:hover:not(:disabled) .robo-icon-button-glyph{color:var(--btn-hover-icon) !important}\n";
-  css << ".robo-control[style*=\"--btn-hover-border\"]:hover:not(:disabled){border-color:var(--btn-hover-border) !important}\n";
-  css << ".robo-control[style*=\"--btn-hover-radius\"]:hover:not(:disabled){border-radius:var(--btn-hover-radius) !important}\n";
-  css << ".robo-control[style*=\"--btn-hover-shadow\"]:hover:not(:disabled){box-shadow:var(--btn-hover-shadow) !important}\n";
-  css << ".robo-control[style*=\"--btn-hover-transform\"]:hover:not(:disabled){transform:var(--btn-hover-transform) !important}\n";
-  css << ".robo-control[style*=\"--btn-active-bg\"]:active:not(:disabled){background:var(--btn-active-bg) !important}\n";
-  css << ".robo-control[style*=\"--btn-active-color\"]:active:not(:disabled){color:var(--btn-active-color) !important}\n";
-  css << ".robo-control[style*=\"--btn-active-transform\"]:active:not(:disabled){transform:var(--btn-active-transform) !important}\n";
-  css << ".robo-control[style*=\"--btn-active-shadow\"]:active:not(:disabled){box-shadow:var(--btn-active-shadow) !important}\n";
-  css << ".robo-control[style*=\"--btn-focus-bg\"]:focus-visible{background:var(--btn-focus-bg) !important}\n";
-  css << ".robo-control[style*=\"--btn-focus-color\"]:focus-visible{color:var(--btn-focus-color) !important}\n";
-  css << ".robo-control[style*=\"--btn-focus-ring\"]:focus-visible{outline:var(--btn-focus-ring) !important}\n";
-  css << ".robo-control[style*=\"--btn-focus-offset\"]:focus-visible{outline-offset:var(--btn-focus-offset) !important}\n";
-  css << ".robo-control[style*=\"--btn-focus-glow\"]:focus-visible{box-shadow:var(--btn-focus-glow) !important}\n";
-  css << ".robo-control[style*=\"--btn-disabled-bg\"]:disabled{background:var(--btn-disabled-bg) !important;opacity:1}\n";
-  css << ".robo-control[style*=\"--btn-disabled-color\"]:disabled{color:var(--btn-disabled-color) !important}\n";
+  const auto stateRule = [&](const char* name, const char* when, const char* suffix, const char* declaration) {
+    const std::string variable = std::string("--btn-") + name + suffix;
+    std::string rest = when;
+    std::string selector;
+    while (!rest.empty()) {
+      const auto comma = rest.find(',');
+      const std::string part = rest.substr(0, comma);
+      if (!selector.empty()) selector += ",";
+      selector += ".robo-control[style*=\"" + variable + "\"]" + part;
+      if (comma == std::string::npos) break;
+      rest.erase(0, comma + 1);
+    }
+    css << selector << "{" << declaration << ":var(" << variable << ") !important}\n";
+  };
+  const auto state = [&](const char* name, const char* when) {
+    stateRule(name, when, "-bg", "background");
+    stateRule(name, when, "-color", "color");
+    stateRule(name, when, "-border", "border-color");
+    stateRule(name, when, "-border-width", "border-width");
+    stateRule(name, when, "-border-style", "border-style");
+    stateRule(name, when, "-border-top", "border-top-color");
+    stateRule(name, when, "-border-right", "border-right-color");
+    stateRule(name, when, "-border-bottom", "border-bottom-color");
+    stateRule(name, when, "-border-left", "border-left-color");
+    stateRule(name, when, "-width-top", "border-top-width");
+    stateRule(name, when, "-width-right", "border-right-width");
+    stateRule(name, when, "-width-bottom", "border-bottom-width");
+    stateRule(name, when, "-width-left", "border-left-width");
+    stateRule(name, when, "-radius", "border-radius");
+    stateRule(name, when, "-pad", "padding");
+    stateRule(name, when, "-shadow", "box-shadow");
+    stateRule(name, when, "-transform", "transform");
+    const std::string iconVar = std::string("--btn-") + name + "-icon";
+    std::string rest = when;
+    std::string selector;
+    while (!rest.empty()) {
+      const auto comma = rest.find(',');
+      const std::string part = rest.substr(0, comma);
+      if (!selector.empty()) selector += ",";
+      selector += ".robo-control[style*=\"" + iconVar + "\"]" + part + " .robo-button-icon,";
+      selector += ".robo-control[style*=\"" + iconVar + "\"]" + part + " .robo-icon-button-glyph,";
+      selector += ".robo-control[style*=\"" + iconVar + "\"]" + part + " .robo-reveal-glyph,";
+      selector += ".robo-control[style*=\"" + iconVar + "\"]" + part + " .robo-segment-icon,";
+      selector += ".robo-control[style*=\"" + iconVar + "\"]" + part + " .robo-theme-glyph,";
+      selector += ".robo-control[style*=\"" + iconVar + "\"]" + part + " .robo-anchor-icon";
+      if (comma == std::string::npos) break;
+      rest.erase(0, comma + 1);
+    }
+    css << selector << "{color:var(" << iconVar << ") !important}\n";
+  };
+  state("hover", ":hover:not(:disabled),[data-preview=\"hover\"]");
+  state("active", ":active:not(:disabled),[data-preview=\"active\"]");
+  state("focus", ":focus-visible,[data-preview=\"focus\"]");
+  state("disabled", ":disabled,[aria-disabled=\"true\"],[data-preview=\"disabled\"]");
+  state("selected", "[data-selected=\"true\"],[aria-pressed=\"true\"],[data-preview=\"selected\"]");
+  css << ".robo-control[style*=\"--btn-focus-ring\"]:focus-visible,.robo-control[style*=\"--btn-focus-ring\"][data-preview=\"focus\"]{outline:var(--btn-focus-ring) !important}\n";
+  css << ".robo-control[style*=\"--btn-focus-offset\"]:focus-visible,.robo-control[style*=\"--btn-focus-offset\"][data-preview=\"focus\"]{outline-offset:var(--btn-focus-offset) !important}\n";
+  css << ".robo-control[style*=\"--btn-disabled-bg\"]:disabled,.robo-control[style*=\"--btn-disabled-bg\"][data-preview=\"disabled\"]{opacity:1}\n";
   css << ".robo-control[data-selected=true]{background:var(--btn-selected-bg,var(--brand-primary-subtle));color:var(--btn-selected-color,var(--brand-primary))}\n";
   css << ".robo-control[data-motion=lift]:hover:not(:disabled){transform:translateY(-2px)}\n";
   css << ".robo-control[data-motion=pulse]:hover:not(:disabled){animation:robo-btn-pulse .7s ease infinite alternate}\n";

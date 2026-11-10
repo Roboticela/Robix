@@ -51,7 +51,7 @@ bool IsUiTag(const std::string& name) {
         "robixui", "window", "screen", "page", "board", "column", "row", "grid", "stack", "container", "button",
         "anchor", "text", "textfield", "image", "icon", "heading", "subhead", "body", "paragraph", "caption",
         "eyebrow", "label", "span", "iconbutton", "switch", "switchgroup", "switchitem", "themetoggle",
-        "themeicontoggle", "textfield", "textarea", "passwordfield", "emailfield", "phonefield", "namefield", "background", "picture", "slide", "passwordreveal", "confirmaction", "select", "option",
+        "themeicontoggle", "textfield", "textarea", "passwordfield", "emailfield", "phonefield", "namefield", "background", "picture", "slide", "brandlogo", "passwordreveal", "confirmaction", "select", "option",
         "countryselect", "segmentedcontrol",
         "segmentedtoolbar", "segment", "scrollbar", "svg", "view", "panel", "list", "table", "menu", "dialog",
         "tabs", "checkbox", "radiobutton", "progressbar", "chart", "canvas", "template", "slot", "style", "at",

@@ -1,5 +1,6 @@
 #include "AnchorWeb.hpp"
 
+#include "../Button/ButtonWeb.hpp"
 #include "../Text/TextWeb.hpp"
 #include "../../Motion.hpp"
 #include "../../ScreenSize.hpp"
@@ -152,11 +153,12 @@ void RoboWebEmitAnchor(std::string& html, const RoboXMLNode& node, const RoboFou
 
   std::string style = RoboWebStyle(node, library);
   RoboWebAppendTextStyle(style, node, library);
+  RoboWebAppendControlStyle(style, node, library);
   RoboWebAppendMotion(style, node);
 
   const bool button = !linked;
   html += disabled ? "<span" : button ? "<button" : "<a";
-  html += " class=\"robo-anchor\"";
+  html += " class=\"robo-anchor robo-control\"";
   if (!id.empty()) {
     html += " id=\"";
     html += RoboWebEscape(id);

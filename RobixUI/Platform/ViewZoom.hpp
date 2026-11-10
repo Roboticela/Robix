@@ -16,11 +16,18 @@ struct ViewZoomBar {
     int width = 0;
     int height = 0;
     int minusX = 0;
-    int labelX = 0;
-    int labelW = 0;
-    int resetX = 0;
+    int selectX = 0;
+    int selectW = 0;
     int plusX = 0;
+    int resetX = 0;
+    int resetW = 0;
     int stepW = 0;
+    int menuX = 0;
+    int menuY = 0;
+    int menuW = 0;
+    int menuH = 0;
+    int optionH = 0;
+    int menuUp = 0;
 };
 
 struct ViewZoom {
@@ -31,6 +38,8 @@ struct ViewZoom {
 
     static constexpr double kMin = 0.25;
     static constexpr double kMax = 4;
+    static constexpr int kPresets[6] = {25, 50, 100, 125, 150, 200};
+    static constexpr int kPresetCount = 6;
 
     /* -1 hidden. 0 bottom, 1 bottom-left, 2 bottom-right, 3 top, 4 top-left, 5 top-right, 6 left, 7 right, 8 center. */
     static int Anchor(const char* value) {
@@ -132,16 +141,18 @@ struct ViewZoom {
     void Place(int viewWidth, int viewHeight, unsigned baseDpi, int anchor, ViewZoomBar& bar) const {
         const int dpi = static_cast<int>(baseDpi == 0 ? 96u : baseDpi);
         const auto px = [&](int value) { return std::max(1, value * dpi / 96); };
-        const int height = px(36);
-        const int stepW = px(32);
-        const int labelW = px(56);
+        const int height = px(44);
+        const int stepW = px(36);
+        const int selectW = px(104);
+        const int resetW = px(84);
         const int pad = px(4);
         const int margin = px(16);
-        const int width = pad * 2 + stepW * 3 + labelW;
+        const int width = pad * 2 + stepW + selectW + stepW + resetW;
         bar.height = height;
         bar.width = width;
         bar.stepW = stepW;
-        bar.labelW = labelW;
+        bar.selectW = selectW;
+        bar.resetW = resetW;
         int x = margin;
         int y = std::max(0, viewHeight - margin - height);
         if (anchor == 2 || anchor == 5 || anchor == 7) {
@@ -157,26 +168,50 @@ struct ViewZoom {
         bar.x = x;
         bar.y = y;
         bar.minusX = x + pad;
-        bar.labelX = bar.minusX + stepW;
-        bar.resetX = bar.labelX + labelW;
-        bar.plusX = bar.resetX + stepW;
+        bar.selectX = bar.minusX + stepW;
+        bar.plusX = bar.selectX + selectW;
+        bar.resetX = bar.plusX + stepW;
+        bar.optionH = px(34);
+        const int menuPad = px(6);
+        bar.menuW = px(148);
+        bar.menuH = menuPad * 2 + bar.optionH * kPresetCount;
+        bar.menuX = bar.selectX + selectW / 2 - bar.menuW / 2;
+        if (bar.menuX < px(8)) {
+            bar.menuX = px(8);
+        }
+        if (bar.menuX + bar.menuW > viewWidth - px(8)) {
+            bar.menuX = std::max(px(8), viewWidth - px(8) - bar.menuW);
+        }
+        const int gap = px(8);
+        const bool up = y + height + gap + bar.menuH > viewHeight - px(8);
+        bar.menuUp = up ? 1 : 0;
+        bar.menuY = up ? y - gap - bar.menuH : y + height + gap;
     }
 
-    /* 1 minus, 2 percent, 3 reset, 4 plus. */
-    int Hit(const ViewZoomBar& bar, int x, int y) const {
+    /* 1 minus, 2 percent select, 3 reset, 4 plus, 9 menu padding, 10+ preset row. */
+    int Hit(const ViewZoomBar& bar, int x, int y, bool menuOpen) const {
+        if (menuOpen && bar.optionH > 0 && x >= bar.menuX && y >= bar.menuY && x < bar.menuX + bar.menuW &&
+            y < bar.menuY + bar.menuH) {
+            const int pad = (bar.menuH - bar.optionH * kPresetCount) / 2;
+            const int row = (y - bar.menuY - pad) / bar.optionH;
+            if (row < 0 || row >= kPresetCount) {
+                return 9;
+            }
+            return 10 + row;
+        }
         if (x < bar.x || y < bar.y || x >= bar.x + bar.width || y >= bar.y + bar.height) {
             return 0;
         }
-        if (x < bar.labelX) {
+        if (x < bar.selectX) {
             return 1;
         }
-        if (x < bar.resetX) {
+        if (x < bar.plusX) {
             return 2;
         }
-        if (x < bar.plusX) {
-            return 3;
+        if (x < bar.resetX) {
+            return 4;
         }
-        return 4;
+        return 3;
     }
 };
 

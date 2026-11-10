@@ -84,6 +84,18 @@ void RoboWebNamePart(std::string& html, const RoboXMLNode& node, const RoboFound
       field.attrs[key] = copy;
     }
   }
+  const char* skip[] = {"variant", "appearance", "direction", "align", "gap", "justify", "label", "firstlabel",
+                        "lastlabel", "middlelabel", "fulllabel", "first", "last", "middle", "value", "content",
+                        "placeholder", "id", "icon", "size", "name"};
+  for (const auto& attr : node.attrs) {
+    const std::string key = RoboWebLower(attr.first);
+    bool skipped = false;
+    for (const char* name : skip) {
+      if (key == name) skipped = true;
+    }
+    if (skipped || !RoboXMLAttr(field, attr.first.c_str()).empty()) continue;
+    field.attrs[attr.first] = attr.second;
+  }
   RoboWebEmitTextField(html, field, library, assetsRoot);
 }
 
@@ -101,6 +113,7 @@ void RoboWebEmitNameField(std::string& html, const RoboXMLNode& node, const Robo
   chrome.attrs.erase("align");
   chrome.attrs.erase("gap");
   chrome.attrs.erase("justify");
+  RoboWebStripFieldChrome(chrome);
   const std::string style = RoboWebStyle(chrome, library);
   const std::string gap = RoboWebCssValue(library, RoboXMLAttr(node, "gap"), false);
 

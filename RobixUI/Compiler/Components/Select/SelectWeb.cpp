@@ -418,6 +418,7 @@ void RoboWebAppendSelectCss(std::ostream& css) {
   css << ".robo-select-option[aria-selected=\"true\"]{background:transparent;color:var(--text-primary)}\n";
   css << ".robo-select-option:hover,.robo-select-option:focus-visible,.robo-select-option[data-active=\"true\"]"
          "{background:var(--bg-hover);outline:none}\n";
+  css << ".robo-select-option:active:not(:disabled){background:var(--bg-active)}\n";
   css << ".robo-select-option:disabled{opacity:0.48;cursor:not-allowed}\n";
   css << ".robo-select-option:disabled:hover,.robo-select-option:disabled:focus-visible,"
          ".robo-select-option:disabled[data-active=\"true\"]{background:transparent}\n";
@@ -489,6 +490,7 @@ const char* RoboWebSelectScript() {
   function selectPlace(root) {
     var part = selectParts(root);
     if (!part.trigger || !part.menu || part.menu.hidden) return;
+    if (part.menu.classList.contains("robo-zoom-menu")) return;
     var z = pageZoom();
     var rect = part.trigger.getBoundingClientRect();
     var left = rect.left / z;
@@ -594,7 +596,7 @@ const char* RoboWebSelectScript() {
     var part = selectParts(root);
     if (!part.trigger || part.trigger.disabled || !part.menu) return;
     selectCloseAll(root);
-    if (part.menu.parentNode !== document.body) document.body.appendChild(part.menu);
+    if (!part.menu.classList.contains("robo-zoom-menu") && part.menu.parentNode !== document.body) document.body.appendChild(part.menu);
     part.menu.hidden = false;
     part.trigger.setAttribute("aria-expanded", "true");
     part.trigger.setAttribute("data-open", "true");
@@ -625,7 +627,10 @@ const char* RoboWebSelectScript() {
       if (fit) part.leading.setAttribute("data-fit", fit);
       else part.leading.removeAttribute("data-fit");
     }
-    if (part.trigger) part.trigger.setAttribute("data-value", option.getAttribute("data-value") || "");
+    if (part.trigger) {
+      part.trigger.setAttribute("data-value", option.getAttribute("data-value") || "");
+      part.trigger.dispatchEvent(new CustomEvent("robo-change", { bubbles: true, detail: { value: option.getAttribute("data-value") || "" } }));
+    }
     selectClose(root, true);
   }
   document.addEventListener("click", function (ev) {

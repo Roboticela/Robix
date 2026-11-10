@@ -1,5 +1,6 @@
 #include "PasswordRevealWeb.hpp"
 
+#include "../Button/ButtonWeb.hpp"
 #include "../../RoboCompilerShared.hpp"
 
 namespace fs = std::filesystem;
@@ -65,11 +66,12 @@ void RoboWebEmitPasswordReveal(std::string& html, const RoboXMLNode& node, const
   const std::string showLabel = RoboXMLAttr(node, "showLabel", "Show");
   const std::string hideLabel = RoboXMLAttr(node, "hideLabel", "Hide");
   const std::string word = visible ? hideLabel : showLabel;
-  const std::string style = RoboWebStyle(node, library);
+  std::string style = RoboWebStyle(node, library);
+  RoboWebAppendControlStyle(style, node, library);
   const bool labeled = variant == "text" || variant == "pill";
   const int icon = RoboWebRevealIcon(size);
 
-  html += "<button class=\"robo-reveal\" type=\"button\" data-variant=\"";
+  html += "<button class=\"robo-reveal robo-control\" type=\"button\" data-variant=\"";
   html += RoboWebEscape(variant);
   html += "\" data-size=\"";
   html += RoboWebEscape(size);
@@ -90,6 +92,7 @@ void RoboWebEmitPasswordReveal(std::string& html, const RoboXMLNode& node, const
   if (disabled) {
     html += " disabled";
   }
+  RoboWebAppendPreviewAttr(html, node);
   if (!style.empty()) {
     html += " style=\"";
     html += RoboWebEscape(style);

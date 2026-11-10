@@ -15,6 +15,7 @@
 #include "../Compiler/Components/PhoneField/PhoneFieldWeb.hpp"
 #include "../Compiler/Components/NameField/NameFieldWeb.hpp"
 #include "../Compiler/Components/Background/BackgroundWeb.hpp"
+#include "../Compiler/Components/BrandLogo/BrandLogoWeb.hpp"
 #include "../Compiler/Components/PasswordReveal/PasswordRevealWeb.hpp"
 #include "../Compiler/Components/ConfirmAction/ConfirmActionWeb.hpp"
 #include "../Compiler/Components/TextArea/TextAreaWeb.hpp"
@@ -393,6 +394,10 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         }
         bool warnedVideo = false;
         RoboWebEmitSegmentedToolbar(html, node, library, {}, assets, warnedVideo, nullptr, 0);
+        return;
+    }
+    if (name == "brandlogo") {
+        RoboWebEmitBrandLogo(html, node, library);
         return;
     }
     if (name == "icon" || name == "svg" || RoboCompilerIsIconNode(node)) {
@@ -800,6 +805,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendPasswordFieldCss(css);
         RoboWebAppendNameFieldCss(css);
         RoboWebAppendBackgroundCss(css);
+        RoboWebAppendBrandLogoCss(css);
         RoboWebAppendTextAreaCss(css);
         RoboWebAppendSelectCss(css);
         RoboWebAppendPasswordRevealCss(css);
@@ -880,6 +886,7 @@ Robo.set = function (id, key, value) {
     js += RoboWebPasswordRevealScript();
     js += RoboWebConfirmActionScript();
     js += RoboWebTextAreaScript();
+    js += RoboWebFieldCaretScript();
     js += RoboWebSelectScript();
     if (hasScreen && UsesCountrySelect(screenCopy)) {
         fs::path assets = FindUp("Assets");

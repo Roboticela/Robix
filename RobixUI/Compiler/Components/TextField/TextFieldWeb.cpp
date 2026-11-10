@@ -2,6 +2,8 @@
 
 #include "../PasswordReveal/PasswordRevealWeb.hpp"
 
+#include <cstdlib>
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -11,7 +13,249 @@ bool RoboWebFieldFlag(const std::string& value) {
   return flag == "true" || flag == "1" || flag == "yes";
 }
 
+std::string RoboWebFieldLength(const RoboFoundationLibrary& library, const std::string& raw) {
+  return RoboWebCssValue(library, raw, false);
+}
+
+std::string RoboWebFieldColor(const RoboFoundationLibrary& library, const std::string& raw) {
+  return RoboWebCssValue(library, raw, true);
+}
+
+std::string RoboWebFieldBox(const RoboFoundationLibrary& library, const std::string& raw) {
+  std::string out;
+  std::string token;
+  const auto flush = [&]() {
+    if (token.empty()) return;
+    if (!out.empty()) out += " ";
+    out += RoboWebFieldLength(library, token);
+    token.clear();
+  };
+  for (char ch : raw) {
+    if (ch == ' ' || ch == '\t') flush();
+    else token.push_back(ch);
+  }
+  flush();
+  return out;
+}
+
+std::string RoboWebFieldRadius(const RoboFoundationLibrary& library, const std::string& raw) {
+  const std::string key = RoboWebLower(raw);
+  if (key == "none" || key == "square") return "0";
+  if (key == "xs") return "4px";
+  if (key == "sm") return "8px";
+  if (key == "md") return "12px";
+  if (key == "lg") return "16px";
+  if (key == "xl" || key == "full" || key == "pill") return "999px";
+  return RoboWebFieldLength(library, raw);
+}
+
+std::string RoboWebFieldTime(const std::string& raw) {
+  if (raw.empty() || !RoboWebIsNumber(raw)) return raw;
+  const double value = std::atof(raw.c_str());
+  if (value > 0 && value <= 10) return raw + "s";
+  return raw + "ms";
+}
+
+std::string RoboWebFieldLeading(const RoboFoundationLibrary& library, const std::string& raw) {
+  if (raw.empty()) return {};
+  if (RoboWebIsNumber(raw)) return std::atof(raw.c_str()) > 8 ? raw + "px" : raw;
+  return RoboWebFieldLength(library, raw);
+}
+
+void RoboWebPaintFieldState(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library,
+                            const char* prefix) {
+  const auto raw = [&](const char* suffix) { return RoboXMLAttr(node, (std::string(prefix) + suffix).c_str()); };
+  const bool rest = prefix[0] == '\0';
+  const std::string stem = rest ? std::string("--field") : std::string("--field-") + prefix;
+  std::string background = raw("Background");
+  if (background.empty()) background = raw("Bg");
+  if (rest && background.empty()) background = RoboXMLAttr(node, "backgroundColor");
+  std::string ink = raw("Color");
+  if (rest && ink.empty()) ink = RoboXMLAttr(node, "textColor");
+  if (!rest && std::string(prefix) == "disabled" && ink.empty()) ink = RoboXMLAttr(node, "disabledColor");
+  std::string border = raw("BorderColor");
+  if (border.empty()) {
+    const std::string alt = raw("Border");
+    if (!alt.empty() && !RoboWebIsNumber(alt)) border = alt;
+  }
+  std::string caret = raw("CaretColor");
+  if (caret.empty()) caret = raw("Caret");
+  if (caret.empty()) caret = raw("CursorColor");
+  std::string caretWidth = raw("CaretWidth");
+  if (caretWidth.empty()) caretWidth = raw("CursorWidth");
+  std::string blink = raw("CaretBlink");
+  if (blink.empty()) blink = raw("CursorBlink");
+  if (blink.empty()) blink = raw("CaretRate");
+  std::string selection = raw("SelectionColor");
+  if (selection.empty()) selection = raw("Selection");
+  std::string ring = raw("Ring");
+  if (ring.empty()) ring = raw("OutlineColor");
+  if (rest && ring.empty()) ring = RoboXMLAttr(node, "outline");
+  RoboWebAddDecl(style, (stem + "-bg").c_str(), RoboWebFieldColor(library, background));
+  RoboWebAddDecl(style, (stem + "-color").c_str(), RoboWebFieldColor(library, ink));
+  std::string icon = raw("IconColor");
+  if (icon.empty()) {
+    const std::string alt = raw("Icon");
+    if (!alt.empty() && (alt[0] == '#' || alt.find("rgb") != std::string::npos || RoboWebLower(alt) == alt)) icon = alt;
+  }
+  RoboWebAddDecl(style, (stem + "-icon").c_str(), RoboWebFieldColor(library, icon));
+  RoboWebAddDecl(style, (stem + "-icon-size").c_str(), RoboWebFieldLength(library, raw("IconSize")));
+  RoboWebAddDecl(style, (stem + "-border").c_str(), RoboWebFieldColor(library, border));
+  RoboWebAddDecl(style, (stem + "-border-width").c_str(),
+                 RoboWebFieldLength(library, raw("BorderWidth").empty() && rest && RoboWebIsNumber(raw("Border")) ? raw("Border") : raw("BorderWidth")));
+  const std::string borderStyle = RoboWebLower(raw("BorderStyle"));
+  if (!borderStyle.empty()) RoboWebAddDecl(style, (stem + "-border-style").c_str(), borderStyle);
+  RoboWebAddDecl(style, (stem + "-border-top").c_str(), RoboWebFieldColor(library, raw("BorderTopColor").empty() ? raw("BorderTop") : raw("BorderTopColor")));
+  RoboWebAddDecl(style, (stem + "-border-right").c_str(), RoboWebFieldColor(library, raw("BorderRightColor").empty() ? raw("BorderRight") : raw("BorderRightColor")));
+  RoboWebAddDecl(style, (stem + "-border-bottom").c_str(), RoboWebFieldColor(library, raw("BorderBottomColor").empty() ? raw("BorderBottom") : raw("BorderBottomColor")));
+  RoboWebAddDecl(style, (stem + "-border-left").c_str(), RoboWebFieldColor(library, raw("BorderLeftColor").empty() ? raw("BorderLeft") : raw("BorderLeftColor")));
+  RoboWebAddDecl(style, (stem + "-width-top").c_str(), RoboWebFieldLength(library, raw("BorderTopWidth")));
+  RoboWebAddDecl(style, (stem + "-width-right").c_str(), RoboWebFieldLength(library, raw("BorderRightWidth")));
+  RoboWebAddDecl(style, (stem + "-width-bottom").c_str(), RoboWebFieldLength(library, raw("BorderBottomWidth")));
+  RoboWebAddDecl(style, (stem + "-width-left").c_str(), RoboWebFieldLength(library, raw("BorderLeftWidth")));
+  RoboWebAddDecl(style, (stem + "-radius").c_str(), RoboWebFieldRadius(library, raw("Radius").empty() && rest ? RoboXMLAttr(node, "borderRadius") : raw("Radius")));
+  RoboWebAddDecl(style, (stem + "-radius-tl").c_str(), RoboWebFieldRadius(library, raw("RadiusTopLeft")));
+  RoboWebAddDecl(style, (stem + "-radius-tr").c_str(), RoboWebFieldRadius(library, raw("RadiusTopRight")));
+  RoboWebAddDecl(style, (stem + "-radius-br").c_str(), RoboWebFieldRadius(library, raw("RadiusBottomRight")));
+  RoboWebAddDecl(style, (stem + "-radius-bl").c_str(), RoboWebFieldRadius(library, raw("RadiusBottomLeft")));
+  RoboWebAddDecl(style, (stem + "-pad").c_str(), RoboWebFieldBox(library, raw("Padding")));
+  if (!raw("Shadow").empty() || !raw("Glow").empty()) {
+    const std::string glow = RoboWebFieldColor(library, raw("Glow"));
+    RoboWebAddDecl(style, (stem + "-shadow").c_str(), glow.empty() ? raw("Shadow") : "0 0 18px " + glow);
+  }
+  RoboWebAddDecl(style, (stem + "-placeholder").c_str(), RoboWebFieldColor(library, raw("PlaceholderColor")));
+  RoboWebAddDecl(style, (stem + "-caret").c_str(), RoboWebFieldColor(library, caret));
+  RoboWebAddDecl(style, (stem + "-caret-width").c_str(), RoboWebFieldLength(library, caretWidth));
+  RoboWebAddDecl(style, (stem + "-caret-blink").c_str(), RoboWebFieldTime(blink));
+  RoboWebAddDecl(style, (stem + "-selection").c_str(), RoboWebFieldColor(library, selection));
+  RoboWebAddDecl(style, (stem + "-selection-text").c_str(), RoboWebFieldColor(library, raw("SelectionText")));
+  RoboWebAddDecl(style, (stem + "-font-size").c_str(), RoboWebFieldLength(library, raw("FontSize")));
+  const std::string weight = raw("FontWeight");
+  if (!weight.empty()) RoboWebAddDecl(style, (stem + "-font-weight").c_str(), weight);
+  const std::string family = raw("FontFamily");
+  if (!family.empty()) RoboWebAddDecl(style, (stem + "-font-family").c_str(), family);
+  const std::string fontStyle = RoboWebLower(raw("FontStyle"));
+  if (!fontStyle.empty()) RoboWebAddDecl(style, (stem + "-font-style").c_str(), fontStyle);
+  RoboWebAddDecl(style, (stem + "-letter").c_str(), RoboWebFieldLength(library, raw("LetterSpacing").empty() ? raw("CharacterSpacing") : raw("LetterSpacing")));
+  RoboWebAddDecl(style, (stem + "-leading").c_str(), RoboWebFieldLeading(library, raw("LineHeight").empty() ? raw("Leading") : raw("LineHeight")));
+  RoboWebAddDecl(style, (stem + "-height").c_str(), RoboWebFieldLength(library, raw("Height")));
+  RoboWebAddDecl(style, (stem + "-min-height").c_str(), RoboWebFieldLength(library, raw("MinHeight")));
+  RoboWebAddDecl(style, (stem + "-max-height").c_str(), RoboWebFieldLength(library, raw("MaxHeight")));
+  if (!ring.empty() && !RoboWebIsNumber(ring)) {
+    std::string width = raw("OutlineWidth");
+    width = width.empty() ? "2px" : RoboWebFieldLength(library, width);
+    RoboWebAddDecl(style, (stem + "-outline").c_str(), width + " solid " + RoboWebFieldColor(library, ring));
+  }
+  const std::string offset = raw("Offset").empty() ? raw("OutlineOffset") : raw("Offset");
+  RoboWebAddDecl(style, (stem + "-outline-offset").c_str(), RoboWebFieldLength(library, offset));
+}
+
 }  // namespace
+
+bool RoboWebFieldWantsCaret(const RoboXMLNode& node) {
+  const char* keys[] = {"caretWidth", "cursorWidth", "caretBlink", "cursorBlink", "caretRate", "caretShape", "cursorShape"};
+  for (const char* key : keys) {
+    if (!RoboXMLAttr(node, key).empty()) return true;
+  }
+  return false;
+}
+
+void RoboWebStripFieldChrome(RoboXMLNode& node) {
+  const auto chrome = [](const std::string& key) {
+    if (key == "cursor") return false;
+    const char* prefixes[] = {"hover", "focus", "disabled", "invalid", "valid", "readonly", "caret", "cursor", "selection", "placeholder"};
+    for (const char* prefix : prefixes) {
+      const std::string name = prefix;
+      if (key.size() > name.size() && key.compare(0, name.size(), name) == 0) return true;
+    }
+    const char* exact[] = {"padding", "paddingx", "paddingy", "paddinghorizontal", "paddingvertical", "paddingtop",
+                           "paddingright", "paddingbottom", "paddingleft", "border", "borderwidth", "borderstyle",
+                           "bordercolor", "bordertop", "borderright", "borderbottom", "borderleft", "bordertopwidth",
+                           "borderrightwidth", "borderbottomwidth", "borderleftwidth", "bordertopcolor",
+                           "borderrightcolor", "borderbottomcolor", "borderleftcolor", "radius", "borderradius",
+                           "radiustopleft", "radiustopright", "radiusbottomright", "radiusbottomleft", "background",
+                           "backgroundcolor", "color", "textcolor", "font", "fontfamily", "fontsize", "fontweight",
+                           "fontstyle", "letterspacing", "characterspacing", "charspacing", "tracking", "lineheight",
+                           "leading", "shadow", "boxshadow", "glow", "height", "minheight", "maxheight", "iconcolor",
+                           "iconsize", "outline", "outlinecolor", "outlinewidth", "outlineoffset"};
+    for (const char* name : exact) {
+      if (key == name) return true;
+    }
+    return false;
+  };
+  for (auto it = node.attrs.begin(); it != node.attrs.end();) {
+    if (chrome(RoboWebLower(it->first))) it = node.attrs.erase(it);
+    else ++it;
+  }
+}
+
+void RoboWebAppendFieldStyle(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
+  RoboWebPaintFieldState(style, node, library, "");
+  const std::string font = RoboXMLAttr(node, "font");
+  if (!font.empty() && !RoboWebIsNumber(font)) RoboWebAddDecl(style, "--field-font-family", font);
+  RoboWebPaintFieldState(style, node, library, "hover");
+  RoboWebPaintFieldState(style, node, library, "focus");
+  RoboWebPaintFieldState(style, node, library, "disabled");
+  RoboWebPaintFieldState(style, node, library, "invalid");
+  RoboWebPaintFieldState(style, node, library, "valid");
+}
+
+const char* RoboWebFieldCaretScript() {
+  return R"JS(
+(function () {
+  function fieldCaretBox(input) {
+    var cs = getComputedStyle(input);
+    var canvas = fieldCaretBox.canvas || (fieldCaretBox.canvas = document.createElement("canvas"));
+    var ctx = canvas.getContext("2d");
+    ctx.font = cs.font;
+    var index = input.selectionStart || 0;
+    var before = (input.value || "").slice(0, index);
+    var line = 0;
+    var last = before;
+    var nl = before.lastIndexOf("\n");
+    if (nl >= 0) {
+      last = before.slice(nl + 1);
+      line = before.split("\n").length - 1;
+    }
+    var width = ctx.measureText(last).width;
+    var leading = parseFloat(cs.lineHeight);
+    if (!leading || leading < 8) leading = (parseFloat(cs.fontSize) || 16) * 1.4;
+    return {
+      x: (parseFloat(cs.paddingLeft) || 0) + width - input.scrollLeft,
+      y: (parseFloat(cs.paddingTop) || 0) + line * leading - input.scrollTop,
+      h: leading
+    };
+  }
+  function placeFieldCarets() {
+    var carets = document.querySelectorAll(".robo-field-caret");
+    for (var i = 0; i < carets.length; i++) {
+      var caret = carets[i];
+      var field = caret.parentElement;
+      var input = field && field.querySelector(".robo-field-control");
+      if (!input) continue;
+      var box = fieldCaretBox(input);
+      var shape = field.getAttribute("data-caret");
+      caret.style.left = box.x + "px";
+      if (shape === "underscore") {
+        caret.style.top = (box.y + box.h - 2) + "px";
+        caret.style.height = "2px";
+      } else {
+        caret.style.top = box.y + "px";
+        caret.style.height = box.h + "px";
+      }
+    }
+  }
+  document.addEventListener("input", placeFieldCarets, true);
+  document.addEventListener("keyup", placeFieldCarets, true);
+  document.addEventListener("click", placeFieldCarets, true);
+  document.addEventListener("focusin", placeFieldCarets, true);
+  document.addEventListener("scroll", placeFieldCarets, true);
+  document.addEventListener("selectionchange", placeFieldCarets);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", placeFieldCarets);
+  else placeFieldCarets();
+})();
+)JS";
+}
 
 void RoboWebEmitTextField(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library,
                           const fs::path& assetsRoot) {
@@ -51,7 +295,12 @@ void RoboWebEmitTextField(std::string& html, const RoboXMLNode& node, const Robo
                          RoboWebLower(RoboXMLAttr(node, "readonly")) == "true";
   const bool required = RoboWebLower(RoboXMLAttr(node, "required")) == "true";
   const bool optional = RoboWebLower(RoboXMLAttr(node, "optional")) == "true";
-  const std::string style = RoboWebStyle(node, library);
+  RoboXMLNode layout = node;
+  RoboWebStripFieldChrome(layout);
+  const std::string style = RoboWebStyle(layout, library);
+  std::string fieldStyle;
+  RoboWebAppendFieldStyle(fieldStyle, node, library);
+  const std::string caretShape = RoboWebLower(RoboXMLAttr(node, "caretShape", RoboXMLAttr(node, "cursorShape").c_str()));
   html += "<div class=\"robo-form-field\" data-size=\"";
   html += RoboWebEscape(size);
   html += "\"";
@@ -98,13 +347,24 @@ void RoboWebEmitTextField(std::string& html, const RoboXMLNode& node, const Robo
     }
     html += "</label>";
   }
-  html += "<label class=\"robo-field\">";
+  html += "<label class=\"robo-field\"";
+  if (caretShape == "bar" || caretShape == "block" || caretShape == "underscore") {
+    html += " data-caret=\"";
+    html += RoboWebEscape(caretShape);
+    html += "\"";
+  }
+  if (!fieldStyle.empty()) {
+    html += " style=\"";
+    html += RoboWebEscape(fieldStyle);
+    html += "\"";
+  }
+  html += ">";
   if (!icon.empty()) {
     html += "<span class=\"robo-field-icon\">";
     html += RoboWebSvg(assetsRoot, icon);
     html += "</span>";
   }
-  html += "<input class=\"robo-text-field\" data-variant=\"";
+  html += "<input class=\"robo-text-field robo-field-control\" data-variant=\"";
   html += RoboWebEscape(variant);
   html += "\" data-size=\"";
   html += RoboWebEscape(size);
@@ -179,6 +439,9 @@ void RoboWebEmitTextField(std::string& html, const RoboXMLNode& node, const Robo
     html += "\"";
   }
   html += ">";
+  if (RoboWebFieldWantsCaret(node)) {
+    html += "<span class=\"robo-field-caret\" aria-hidden=\"true\"></span>";
+  }
   if (!trailing.empty()) {
     html += "<span class=\"robo-field-trailing\">";
     html += RoboWebEscape(trailing);
@@ -296,6 +559,82 @@ void RoboWebAppendTextFieldCss(std::ostream& css) {
            "html[data-theme=\"light\"] .robo-text-field[data-variant=\"subtle\"][data-preview=\"focus\"],"
            "html[data-theme=\"light\"] .robo-text-field[data-variant=\"ghost\"][data-preview=\"focus\"]"
            "{background:var(--bg-elevated)}\n";
+    const char* states[][3] = {{"", "", ""},
+                               {"-hover", ":hover", "hover"},
+                               {"-focus", ":focus-within", "focus"},
+                               {"-disabled", ":has(:disabled)", "disabled"},
+                               {"-invalid", ":has([aria-invalid=\"true\"])", "invalid"},
+                               {"-valid", ":has([data-valid=\"true\"])", "valid"}};
+    const auto paint = [&](const char* state, const char* pseudo, const char* preview, const char* suffix,
+                           const char* declaration, const char* target) {
+        const std::string variable = std::string("--field") + state + suffix;
+        std::string selector = ".robo-field[style*=\"" + variable + "\"]" + pseudo + " " + target;
+        if (preview[0] != '\0') {
+            selector += ",.robo-field[style*=\"" + variable + "\"]:has(.robo-field-control[data-preview=\"" +
+                        std::string(preview) + "\"]) " + target;
+        }
+        css << selector << "{" << declaration << ":var(" << variable << ") !important}\n";
+    };
+    const char* props[][3] = {{"-bg", "background", ".robo-field-control"},
+                              {"-color", "color", ".robo-field-control"},
+                              {"-border", "border-color", ".robo-field-control"},
+                              {"-border-width", "border-width", ".robo-field-control"},
+                              {"-border-style", "border-style", ".robo-field-control"},
+                              {"-border-top", "border-top-color", ".robo-field-control"},
+                              {"-border-right", "border-right-color", ".robo-field-control"},
+                              {"-border-bottom", "border-bottom-color", ".robo-field-control"},
+                              {"-border-left", "border-left-color", ".robo-field-control"},
+                              {"-width-top", "border-top-width", ".robo-field-control"},
+                              {"-width-right", "border-right-width", ".robo-field-control"},
+                              {"-width-bottom", "border-bottom-width", ".robo-field-control"},
+                              {"-width-left", "border-left-width", ".robo-field-control"},
+                              {"-radius", "border-radius", ".robo-field-control"},
+                              {"-radius-tl", "border-top-left-radius", ".robo-field-control"},
+                              {"-radius-tr", "border-top-right-radius", ".robo-field-control"},
+                              {"-radius-br", "border-bottom-right-radius", ".robo-field-control"},
+                              {"-radius-bl", "border-bottom-left-radius", ".robo-field-control"},
+                              {"-pad", "padding", ".robo-field-control"},
+                              {"-shadow", "box-shadow", ".robo-field-control"},
+                              {"-font-size", "font-size", ".robo-field-control"},
+                              {"-font-weight", "font-weight", ".robo-field-control"},
+                              {"-font-family", "font-family", ".robo-field-control"},
+                              {"-font-style", "font-style", ".robo-field-control"},
+                              {"-letter", "letter-spacing", ".robo-field-control"},
+                              {"-leading", "line-height", ".robo-field-control"},
+                              {"-height", "height", ".robo-field-control"},
+                              {"-min-height", "min-height", ".robo-field-control"},
+                              {"-max-height", "max-height", ".robo-field-control"},
+                              {"-outline", "outline", ".robo-field-control"},
+                              {"-outline-offset", "outline-offset", ".robo-field-control"},
+                              {"-caret", "caret-color", ".robo-field-control"},
+                              {"-icon", "color", ".robo-field-icon"},
+                              {"-icon-size", "width", ".robo-field-icon"},
+                              {"-placeholder", "color", ".robo-field-control::placeholder"},
+                              {"-caret", "background", ".robo-field-caret"}};
+    for (const auto& state : states) {
+        for (const auto& prop : props) {
+            paint(state[0], state[1], state[2], prop[0], prop[1], prop[2]);
+        }
+        paint(state[0], state[1], state[2], "-selection", "background", ".robo-field-control::selection");
+        paint(state[0], state[1], state[2], "-selection", "background", ".robo-field-control::-moz-selection");
+        paint(state[0], state[1], state[2], "-selection-text", "color", ".robo-field-control::selection");
+        paint(state[0], state[1], state[2], "-selection-text", "color", ".robo-field-control::-moz-selection");
+        paint(state[0], state[1], state[2], "-icon-size", "height", ".robo-field-icon");
+        paint(state[0], state[1], state[2], "-icon-size", "width", ".robo-field-icon svg");
+        paint(state[0], state[1], state[2], "-icon-size", "height", ".robo-field-icon svg");
+    }
+    css << ".robo-field[style*=\"--field-icon-size\"] .robo-field-icon,.robo-field[style*=\"--field-icon-size\"] "
+           ".robo-field-icon svg{height:var(--field-icon-size)}\n";
+    css << ".robo-field-caret{display:none;position:absolute;z-index:2;width:var(--field-caret-width,2px);"
+           "background:var(--field-caret,currentColor);pointer-events:none;border-radius:1px}\n";
+    css << ".robo-field[data-caret=\"block\"] .robo-field-caret{width:var(--field-caret-width,1ch)}\n";
+    css << ".robo-field:focus-within>.robo-field-caret,.robo-field:has(.robo-field-control[data-preview=\"focus\"])>"
+           ".robo-field-caret{display:block}\n";
+    css << ".robo-field[style*=\"--field-caret-width\"] .robo-field-control,.robo-field[style*=\"--field-caret-blink\"] "
+           ".robo-field-control,.robo-field[data-caret] .robo-field-control{caret-color:transparent !important}\n";
+    css << ".robo-field[style*=\"--field-caret-blink\"] .robo-field-caret{animation:robo-field-caret "
+           "var(--field-caret-blink) steps(1,end) infinite}\n";
+    css << "@keyframes robo-field-caret{0%,49%{opacity:1}50%,100%{opacity:0}}\n";
 }
 
 const char* RoboWebTextFieldClass() { return "robo-textfield"; }

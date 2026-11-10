@@ -1,5 +1,6 @@
 #include "TextAreaWeb.hpp"
 
+#include "../TextField/TextFieldWeb.hpp"
 #include "../../RoboCompilerShared.hpp"
 
 #include <string>
@@ -109,7 +110,11 @@ void RoboWebEmitTextArea(std::string& html, const RoboXMLNode& node, const RoboF
       ++it;
     }
   }
+  RoboWebStripFieldChrome(styled);
   const std::string style = RoboWebStyle(styled, library);
+  std::string fieldStyle;
+  RoboWebAppendFieldStyle(fieldStyle, node, library);
+  const std::string caretShape = RoboWebLower(RoboXMLAttr(node, "caretShape", RoboXMLAttr(node, "cursorShape").c_str()));
 
   html += "<div class=\"robo-form-field\" data-size=\"";
   html += RoboWebEscape(size);
@@ -167,6 +172,16 @@ void RoboWebEmitTextArea(std::string& html, const RoboXMLNode& node, const RoboF
   html += "\" data-size=\"";
   html += RoboWebEscape(size);
   html += "\"";
+  if (caretShape == "bar" || caretShape == "block" || caretShape == "underscore") {
+    html += " data-caret=\"";
+    html += RoboWebEscape(caretShape);
+    html += "\"";
+  }
+  if (!fieldStyle.empty()) {
+    html += " style=\"";
+    html += RoboWebEscape(fieldStyle);
+    html += "\"";
+  }
   if (showCount && !composer) {
     html += " data-count=\"true\"";
   }
@@ -176,7 +191,7 @@ void RoboWebEmitTextArea(std::string& html, const RoboXMLNode& node, const RoboF
     html += RoboWebSvg(assetsRoot, icon);
     html += "</span>";
   }
-  html += "<textarea class=\"robo-text-area\" data-variant=\"";
+  html += "<textarea class=\"robo-text-area robo-field-control\" data-variant=\"";
   html += RoboWebEscape(variant);
   html += "\" data-size=\"";
   html += RoboWebEscape(size);
@@ -226,6 +241,9 @@ void RoboWebEmitTextArea(std::string& html, const RoboXMLNode& node, const RoboF
   html += ">";
   html += RoboWebEscape(value);
   html += "</textarea>";
+  if (RoboWebFieldWantsCaret(node)) {
+    html += "<span class=\"robo-field-caret\" aria-hidden=\"true\"></span>";
+  }
   if (showCount && !composer) {
     html += "<span class=\"robo-area-count\" data-tone=\"";
     html += RoboWebAreaTone(value.size(), maxLength);

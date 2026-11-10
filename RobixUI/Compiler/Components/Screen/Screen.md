@@ -51,7 +51,7 @@ Drag moves the window when `movable` is true. The pointer may be mouse, touchpad
 
 On the web, a screen with a path is a route. The root screen is the document. Nested screens inside a page are preview surfaces and keep their own width, height, theme, and radius.
 
-The zoom capsule uses the elevated surface, the default border, and a pill radius. It sits on the side or corner named by `zoomControls` and leaves after the gesture. Zooming still works when the capsule is hidden.
+The zoom capsule uses the elevated surface, the default border, and a pill radius. Minus and plus step the zoom, the percentage is a Select with 25%, 50%, 100%, 125%, 150%, and 200%, and Reset returns to 100%. It sits on the side or corner named by `zoomControls` and leaves after the gesture. The menu stays open while it is in use. Zooming still works when the capsule is hidden.
 
 ## Keyboard and accessibility
 
