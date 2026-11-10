@@ -64,6 +64,7 @@ struct HostView {
     std::vector<WindowControl> controls;
     int hotControl = -1;
     int pressedControl = -1;
+    int focusControl = -1;
     int pointerX = -1;
     int pointerY = -1;
     bool trackLeave = false;
@@ -582,7 +583,7 @@ void Draw(HostView* view) {
             view->scrollY = 0;
         }
         WindowPatch patches[32]{};
-        int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, patches, 32);
+        int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, view->focusControl, patches, 32);
         bool fresh = false;
         const bool usedSheet = layout >= 0 && EnsureSheet(view, view->contentHeight, fresh);
         if (usedSheet) {
@@ -639,6 +640,16 @@ void Draw(HostView* view) {
         }
         if (view->gpu.damage.full == ROBO_TRUE || (bar.opacity > 0 && barChanged)) {
             PaintWindowScrollBar(&view->gpu, bar);
+        }
+        if (view->focusControl >= 0 && view->focusControl < static_cast<int>(view->controls.size())) {
+            const WindowControl& control = view->controls[static_cast<std::size_t>(view->focusControl)];
+            const int reach = std::max(4, 9 * static_cast<int>(view->dpi) / 96);
+            const int ringX = control.x - reach;
+            const int ringY = control.y - view->scrollY - reach;
+            if (usedSheet) {
+                CopyVisible(view, ringX, ringY, control.width + reach * 2, control.height + reach * 2);
+            }
+            PaintWindowsFocusRing(&view->gpu, control.x, control.y - view->scrollY, control.width, control.height);
         }
         view->shownOpacity = bar.opacity;
         view->shownPart = bar.part;
@@ -943,6 +954,44 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case WM_KEYDOWN:
+            if (view != nullptr && view->ready && view->screen && wParam == VK_TAB) {
+                const int count = static_cast<int>(view->controls.size());
+                if (count > 0) {
+                    const bool backward = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                    int next = view->focusControl;
+                    for (int step = 0; step < count; ++step) {
+                        if (backward) {
+                            next = next <= 0 ? count - 1 : next - 1;
+                        } else {
+                            next = next + 1 >= count ? 0 : next + 1;
+                        }
+                        if (view->controls[static_cast<std::size_t>(next)].enabled) {
+                            view->focusControl = next;
+                            const WindowControl& control = view->controls[static_cast<std::size_t>(next)];
+                            const int viewHeight = static_cast<int>(view->pixelHeight);
+                            if (control.y < view->scrollY) {
+                                view->scrollY = control.y;
+                            } else if (control.y + control.height > view->scrollY + viewHeight) {
+                                view->scrollY = control.y + control.height - viewHeight;
+                            }
+                            Request(view);
+                            break;
+                        }
+                    }
+                }
+            } else if (view != nullptr && (wParam == VK_SPACE || wParam == VK_RETURN) && view->focusControl >= 0 &&
+                       view->focusControl < static_cast<int>(view->controls.size()) &&
+                       view->controls[static_cast<std::size_t>(view->focusControl)].enabled) {
+                view->pressedControl = view->focusControl;
+                Request(view);
+            }
+            return 0;
+        case WM_KEYUP:
+            if (view != nullptr && (wParam == VK_SPACE || wParam == VK_RETURN) && view->pressedControl == view->focusControl &&
+                view->pressedControl >= 0) {
+                view->pressedControl = -1;
+                Request(view);
+            }
             return 0;
         case WM_TIMER:
             if (wParam == 4) {
@@ -1201,6 +1250,7 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     }
     std::printf("window: shown %ux%u title %s\n", pixelWidth, pixelHeight, options.title.c_str());
     ShowWindow(window, SW_SHOW);
+    SetFocus(window);
     UpdateWindow(window);
     if (view.watched != nullptr) {
         SetTimer(window, 1, 400, nullptr);

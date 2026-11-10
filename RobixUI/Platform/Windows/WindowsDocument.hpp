@@ -40,8 +40,11 @@ void RasterWindowsDocument(RoboGPU* gpu);
 /* Paint the visible window when a retained sheet is not available. */
 void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight);
 
-/* Recolor controls whose pointer state changed. Patches are document rectangles. -1 means raster the sheet. */
-int CollectWindowsDocumentPatches(int hotControl, int pressedControl, WindowPatch* patches, int capacity);
+/* Recolor controls whose pointer or focus state changed. Patches are document rectangles. -1 means raster the sheet. */
+int CollectWindowsDocumentPatches(int hotControl, int pressedControl, int focusControl, WindowPatch* patches, int capacity);
+
+/* Draw the web focus ring in the bound buffer. Coordinates are buffer pixels. */
+void PaintWindowsFocusRing(RoboGPU* gpu, int x, int y, int width, int height);
 
 /* Repaint one document rectangle into the bound sheet. */
 void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height);

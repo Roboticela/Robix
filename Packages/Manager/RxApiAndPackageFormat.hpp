@@ -15,7 +15,7 @@ namespace Robix::Packages {
 // ============================================================================
 // 1. PUBLIC API DEFINITION (.rxapi) GENERATOR & VALIDATOR
 // ============================================================================
-struct RbxApiValidationResult {
+struct RxApiValidationResult {
     bool                     valid = false;
     std::string              packageName;
     std::string              apiSha256Hex;
@@ -24,20 +24,20 @@ struct RbxApiValidationResult {
     std::vector<std::string> requiredPermissions;
 };
 
-class RbxApiEngine {
+class RxApiEngine {
 public:
     // Extracts public declarations + Explain blocks from .rx source code into a .rxapi specification
     // (Strips private/internal members and all function bodies so private implementation is hidden)
-    [[nodiscard]] static std::string GenerateRbxApiFromSource(
+    [[nodiscard]] static std::string GenerateRxApiFromSource(
         std::string_view packageName,
         std::string_view version,
-        std::string_view rbxSourceCode,
+        std::string_view rxSourceCode,
         Frontend::DiagnosticBag& diagnostics);
 
     // Parses and validates a .rxapi file, enforcing mandatory Explain blocks on all public functions/methods (P8001)
-    [[nodiscard]] static RbxApiValidationResult ValidateRbxApi(
+    [[nodiscard]] static RxApiValidationResult ValidateRxApi(
         std::string_view fileName,
-        std::string_view rbxApiContent,
+        std::string_view rxApiContent,
         Frontend::DiagnosticBag& diagnostics);
 };
 
@@ -51,7 +51,7 @@ struct TargetBinaryArtifact {
     std::string              sha256Hex;
 };
 
-struct RbxPackageManifest {
+struct RxPackageManifest {
     std::string                        name;
     std::string                        version             = "1.0.0";
     std::string                        compilerVersion     = "1.0";
@@ -62,10 +62,10 @@ struct RbxPackageManifest {
     std::map<std::string, std::string> dependencies; // pkgName -> versionConstraint
 };
 
-struct RbxPackageArchive {
-    RbxPackageManifest                manifest;
-    std::string                       rbxApiContent;
-    std::string                       rbxApiSha256Hex;
+struct RxPackageArchive {
+    RxPackageManifest                manifest;
+    std::string                       rxApiContent;
+    std::string                       rxApiSha256Hex;
     std::vector<TargetBinaryArtifact> binaries;
     std::string                       documentationMarkdown;
     std::string                       sbomJson;
@@ -79,27 +79,27 @@ struct PackageVerificationOptions {
     bool        allowInstallScripts     = false; // Default false: blocks arbitrary install scripts (P8006)
 };
 
-class RbxPackagePacker {
+class RxPackagePacker {
 public:
     // Packs a .rxapi interface + target binaries into a signed .rxp archive
-    [[nodiscard]] static RbxPackageArchive CreateSignedPackage(
-        RbxPackageManifest manifest,
-        std::string rbxApiContent,
+    [[nodiscard]] static RxPackageArchive CreateSignedPackage(
+        RxPackageManifest manifest,
+        std::string rxApiContent,
         std::vector<TargetBinaryArtifact> targetBinaries,
         std::string_view publisherSigningKey,
         Frontend::DiagnosticBag& diagnostics);
 
     // Serializes .rxp archive to a deterministic JSON/Binary container string
-    [[nodiscard]] static std::string SerializeArchive(const RbxPackageArchive& archive);
+    [[nodiscard]] static std::string SerializeArchive(const RxPackageArchive& archive);
 
     // Deserializes .rxp archive from container string
-    [[nodiscard]] static std::optional<RbxPackageArchive> DeserializeArchive(
+    [[nodiscard]] static std::optional<RxPackageArchive> DeserializeArchive(
         std::string_view serialized,
         Frontend::DiagnosticBag& diagnostics);
 
     // Performs full security, SHA-256, signature, target OS/CPU, and ABI verification before linking
     [[nodiscard]] static bool VerifyPackageArchive(
-        const RbxPackageArchive& archive,
+        const RxPackageArchive& archive,
         const PackageVerificationOptions& options,
         Frontend::DiagnosticBag& diagnostics);
 };

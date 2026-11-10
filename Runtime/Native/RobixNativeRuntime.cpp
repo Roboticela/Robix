@@ -22,24 +22,24 @@
 
 extern "C" {
 
-void rbx_debug_line(std::int64_t line) {
+void rx_debug_line(std::int64_t line) {
     std::printf("native %lld\n", static_cast<long long>(line));
     std::fflush(stdout);
 }
 
-void rbx_print_i64(std::int64_t value) {
+void rx_print_i64(std::int64_t value) {
     std::printf("%lld\n", static_cast<long long>(value));
 }
 
-void rbx_print_f64(double value) {
+void rx_print_f64(double value) {
     std::printf("%g\n", value);
 }
 
-void rbx_print_bool(std::int32_t value) {
+void rx_print_bool(std::int32_t value) {
     std::puts(value != 0 ? "true" : "false");
 }
 
-void rbx_print_str(const char* text) {
+void rx_print_str(const char* text) {
     std::puts(text != nullptr ? text : "null");
 }
 
@@ -49,7 +49,7 @@ static char* EmptyString() {
     return text;
 }
 
-char* rbx_input_line(const char* prompt) {
+char* rx_input_line(const char* prompt) {
     if (prompt != nullptr && prompt[0] != '\0') {
         std::fputs(prompt, stdout);
         std::fflush(stdout);
@@ -68,15 +68,15 @@ char* rbx_input_line(const char* prompt) {
     return text;
 }
 
-std::int64_t rbx_input_i64(const char* prompt) {
-    char* line = rbx_input_line(prompt);
+std::int64_t rx_input_i64(const char* prompt) {
+    char* line = rx_input_line(prompt);
     char* end = nullptr;
     const long long value = std::strtoll(line != nullptr ? line : "", &end, 10);
     std::free(line);
     return static_cast<std::int64_t>(value);
 }
 
-int rbx_write_text(const char* path, const char* text) {
+int rx_write_text(const char* path, const char* text) {
     if (path == nullptr) return 0;
     std::FILE* file = std::fopen(path, "wb");
     if (file == nullptr) return 0;
@@ -88,7 +88,7 @@ int rbx_write_text(const char* path, const char* text) {
     return 1;
 }
 
-char* rbx_read_text(const char* path) {
+char* rx_read_text(const char* path) {
     if (path == nullptr) return EmptyString();
     std::FILE* file = std::fopen(path, "rb");
     if (file == nullptr) return EmptyString();
@@ -112,7 +112,7 @@ char* rbx_read_text(const char* path) {
     return text;
 }
 
-std::int64_t rbx_device_unavailable(std::int64_t code, std::int64_t id) {
+std::int64_t rx_device_unavailable(std::int64_t code, std::int64_t id) {
     const char* name = "PWM.SetDuty";
     if (code == 2) name = "UART.Write";
     else if (code == 3) name = "SPI.Transfer";
@@ -129,7 +129,7 @@ std::int64_t rbx_device_unavailable(std::int64_t code, std::int64_t id) {
     return 1;
 }
 
-std::int64_t rbx_gpio_read(std::int64_t pin) {
+std::int64_t rx_gpio_read(std::int64_t pin) {
     std::fprintf(stderr, "GPIO.Read is not available on this target (pin %lld)\n",
                  static_cast<long long>(pin));
     return 1;
@@ -146,7 +146,7 @@ DWORD WINAPI PairAddProc(LPVOID raw) {
     return 0;
 }
 
-std::int64_t rbx_add_pair(std::int64_t* cell, std::int64_t left, std::int64_t right) {
+std::int64_t rx_add_pair(std::int64_t* cell, std::int64_t left, std::int64_t right) {
     if (cell == nullptr) return 0;
     PairAdd jobs[2] = { { cell, left }, { cell, right } };
     HANDLE threads[2] = { nullptr, nullptr };
@@ -210,12 +210,12 @@ static void LoadProcessArguments() {
     g_arguments = std::move(tokens);
 }
 
-std::int64_t rbx_args_count() {
+std::int64_t rx_args_count() {
     LoadProcessArguments();
     return static_cast<std::int64_t>(g_arguments.size());
 }
 
-char* rbx_args_get(std::int64_t index) {
+char* rx_args_get(std::int64_t index) {
     LoadProcessArguments();
     if (index < 0 || static_cast<std::size_t>(index) >= g_arguments.size()) return EmptyString();
     const std::string& text = g_arguments[static_cast<std::size_t>(index)];

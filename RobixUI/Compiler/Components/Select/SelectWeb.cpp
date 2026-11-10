@@ -402,7 +402,7 @@ void RoboWebAppendSelectCss(std::ostream& css) {
          "outline:2px solid transparent;outline-offset:1px}\n";
   css << ".robo-select-search-input::placeholder{color:var(--text-tertiary)}\n";
   css << ".robo-select-search-input:focus{border-color:var(--brand-primary);outline-color:var(--brand-primary-focus-ring)}\n";
-  css << ".robo-select-menu > .robo-scroll-host{flex:1 1 auto;min-width:0;min-height:0;max-height:320px;overflow:hidden}\n";
+  css << ".robo-select-menu > .robo-scroll-host{position:relative;flex:1 1 auto;min-width:0;min-height:0;max-height:320px;overflow:visible}\n";
   css << ".robo-select-menu .robo-scroll-host[hidden]{display:none !important}\n";
   css << ".robo-select-list{box-sizing:border-box;min-height:0;flex:1 1 auto;max-height:320px;"
          "overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}\n";

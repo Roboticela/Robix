@@ -300,7 +300,7 @@ int main(int argc, char* argv[]) {
                 Robix::Tools::ChooseProjectRun(runInput == "all" ? fs::path{} : fs::path(runInput), runInput == "all");
             if (choice.mode == Robix::Tools::ProjectRun::Mode::Network && targetKey == "web") {
                 std::cout << "platform: web" << std::endl;
-                if (!choice.buildFile.empty()) std::cout << "rbxb: " << choice.buildFile.string() << std::endl;
+                if (!choice.buildFile.empty()) std::cout << "rxb: " << choice.buildFile.string() << std::endl;
                 if (choice.ui.empty()) {
                     std::cerr << "error: the build file has no UI screen, so this project cannot run for web.\n";
                     return 1;
@@ -334,7 +334,7 @@ int main(int argc, char* argv[]) {
                     const std::string platform = targetSet ? targetKey : Robix::UI::HostTarget();
                     std::cout << "platform: " << platform << std::endl;
                     if (!choice.buildFile.empty()) {
-                        std::cout << "rbxb: " << choice.buildFile.string() << std::endl;
+                        std::cout << "rxb: " << choice.buildFile.string() << std::endl;
                         std::cout << "order:";
                         const std::vector<fs::path>& listed = choice.order.empty() ? choice.files : choice.order;
                         for (const fs::path& file : listed) std::cout << " " << file.lexically_relative(choice.root).string();

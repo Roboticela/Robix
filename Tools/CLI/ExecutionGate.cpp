@@ -160,7 +160,7 @@ fs::path FileDir(const fs::path& file) {
     return dir;
 }
 
-fs::path FirstRbxu(const fs::path& dir) {
+fs::path FirstRxu(const fs::path& dir) {
     std::error_code ec;
     if (!fs::is_directory(dir, ec)) return {};
     for (const auto& entry : fs::directory_iterator(dir, ec)) {
@@ -175,7 +175,7 @@ fs::path FindScreen(const fs::path& file) {
     fs::path found;
     auto walk = [&](auto&& self, const fs::path& dir, int depth) -> void {
         if (!found.empty() || depth > 3 || !fs::is_directory(dir, ec)) return;
-        found = FirstRbxu(dir);
+        found = FirstRxu(dir);
         if (!found.empty()) return;
         for (const auto& entry : fs::directory_iterator(dir, ec)) {
             if (!entry.is_directory(ec)) continue;
@@ -189,7 +189,7 @@ fs::path FindScreen(const fs::path& file) {
     return found;
 }
 
-int CountRbx(const fs::path& dir) {
+int CountRx(const fs::path& dir) {
     std::error_code ec;
     int count = 0;
     if (!fs::is_directory(dir, ec)) return 0;
@@ -205,18 +205,18 @@ fs::path FindLocalScreen(const fs::path& file) {
     std::error_code ec;
     if (fs::is_regular_file(named, ec)) return named;
     if (dir.filename() == "Source") {
-        const fs::path ui = FirstRbxu(dir.parent_path() / "UI");
+        const fs::path ui = FirstRxu(dir.parent_path() / "UI");
         if (!ui.empty()) return ui;
     }
-    if (CountRbx(dir) == 1) return FirstRbxu(dir);
+    if (CountRx(dir) == 1) return FirstRxu(dir);
     return {};
 }
 
 fs::path FindNetworkScreen(const fs::path& file) {
     const fs::path dir = FileDir(file);
-    const fs::path beside = FirstRbxu(dir);
+    const fs::path beside = FirstRxu(dir);
     if (!beside.empty()) return beside;
-    if (dir.filename() == "Source") return FirstRbxu(dir.parent_path() / "UI");
+    if (dir.filename() == "Source") return FirstRxu(dir.parent_path() / "UI");
     return {};
 }
 

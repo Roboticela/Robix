@@ -128,7 +128,7 @@ void TestVisibilityMainExitAndABIMangling() {
 
     // Canonical ABI Name Mangling
     const std::string mangled = MangleRobixSymbol("Robotics.Motors", "Motor", "SetSpeed", "is", "v");
-    Expect(mangled == "_RBX1_8Robotics6Motors_5Motor_8SetSpeed_is__v",
+    Expect(mangled == "_RX1_8Robotics6Motors_5Motor_8SetSpeed_is__v",
            "Canonical ABI v1 symbol mangling matches specification");
 
     // Target ABI Descriptors

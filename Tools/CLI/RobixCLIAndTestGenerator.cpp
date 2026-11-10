@@ -94,10 +94,10 @@ std::string TestScaffoldGenerator::SynthesizeTestFileContent(
 }
 
 bool TestScaffoldGenerator::EnsureTestFileForSourceOnDisk(
-    const std::filesystem::path& rbxFilePath,
+    const std::filesystem::path& rxFilePath,
     TestScaffoldReport& reportOut) {
 
-    const std::string pathStr = rbxFilePath.generic_string();
+    const std::string pathStr = rxFilePath.generic_string();
     if (!StdLib::StringOps::EndsWith(pathStr, ".rx") ||
         StdLib::StringOps::EndsWith(pathStr, ".test.rx")) {
         return false;
@@ -107,8 +107,8 @@ bool TestScaffoldGenerator::EnsureTestFileForSourceOnDisk(
 
     // Also check if `<ParentOfSource>/Tests/<Stem>.test.rx` exists
     std::filesystem::path projectTestsCandidate;
-    if (rbxFilePath.has_parent_path() && rbxFilePath.parent_path().filename() == "Source") {
-        projectTestsCandidate = rbxFilePath.parent_path().parent_path() / "Tests" / (rbxFilePath.stem().string() + ".test.rx");
+    if (rxFilePath.has_parent_path() && rxFilePath.parent_path().filename() == "Source") {
+        projectTestsCandidate = rxFilePath.parent_path().parent_path() / "Tests" / (rxFilePath.stem().string() + ".test.rx");
     }
 
     if (std::filesystem::exists(companionPath)) {
@@ -122,7 +122,7 @@ bool TestScaffoldGenerator::EnsureTestFileForSourceOnDisk(
 
     std::string sourceCode;
     {
-        std::ifstream inFile(rbxFilePath, std::ios::in | std::ios::binary);
+        std::ifstream inFile(rxFilePath, std::ios::in | std::ios::binary);
         if (inFile) {
             std::ostringstream buffer;
             buffer << inFile.rdbuf();

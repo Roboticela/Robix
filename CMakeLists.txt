@@ -142,7 +142,7 @@ add_test(NAME StandardLibraryTests COMMAND StandardLibraryTests)
 
 # Stage 8: Package Ecosystem & Binary Distribution (.rxapi, .rxp, robix)
 add_library(RobixPackageSystem STATIC
-    Packages/Manager/RbxApiAndPackageFormat.cpp
+    Packages/Manager/RxApiAndPackageFormat.cpp
     Packages/Resolver/DependencyResolver.cpp
     Packages/Registry/PackageManagerAndRegistry.cpp
 )

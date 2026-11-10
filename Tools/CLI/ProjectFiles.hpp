@@ -17,7 +17,7 @@ struct ProjectFile {
     bool network = false;
 };
 
-struct RbxbPlan {
+struct RxbPlan {
     bool ok = false;
     std::string error;
     std::string output = "Executable";
@@ -64,8 +64,8 @@ struct ProjectRun {
 // `services` is for `robix run` on a network project. The compiler passes false.
 ProjectRun ChooseProjectRun(const std::filesystem::path& folder, bool eachFile, bool services = true);
 
-RbxbPlan ReadRbxb(const std::filesystem::path& file);
-std::string ExplainRbxb(const RbxbPlan& plan);
+RxbPlan ReadRxb(const std::filesystem::path& file);
+std::string ExplainRxb(const RxbPlan& plan);
 
 // True when the output exists and the source and its imports still match the stamp.
 bool IncrementalHit(const std::filesystem::path& source, const std::filesystem::path& output);

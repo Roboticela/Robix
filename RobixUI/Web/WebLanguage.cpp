@@ -290,9 +290,9 @@ Robo.log = "";
     if (previous) previous();
     fetch("app.wasm").then(function (response) { return response.arrayBuffer(); }).then(function (bytes) {
       return WebAssembly.instantiate(bytes, { env: {
-        rbx_print: function (ptr, len) { show(decode(ptr, len)); },
-        rbx_warn: function (ptr, len) { console.warn(decode(ptr, len)); },
-        rbx_input: function (promptPtr, promptLen, out, cap) {
+        rx_print: function (ptr, len) { show(decode(ptr, len)); },
+        rx_warn: function (ptr, len) { console.warn(decode(ptr, len)); },
+        rx_input: function (promptPtr, promptLen, out, cap) {
           var answer = window.prompt(decode(promptPtr, promptLen) || "") || "";
           var encoded = new TextEncoder().encode(answer);
           var n = Math.min(encoded.length, cap);
@@ -444,8 +444,8 @@ bool CompileAssembly(const VM::BytecodeModule& module, const std::vector<std::st
         }
     }
     const std::string command = clang + " --target=wasm32-unknown-unknown -O2 -nostdlib -x c "
-                                "-Wl,--no-entry -Wl,--export=start -Wl,--export=rbx_call "
-                                "-Wl,--export=rbx_name -Wl,--export=memory -Wl,--allow-undefined " +
+                                "-Wl,--no-entry -Wl,--export=start -Wl,--export=rx_call "
+                                "-Wl,--export=rx_name -Wl,--export=memory -Wl,--allow-undefined " +
                                 source.string() + " -o " + binary.string();
     const int status = std::system(command.c_str());
     if (status != 0 || !fs::is_regular_file(binary)) {

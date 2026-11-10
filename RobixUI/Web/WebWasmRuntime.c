@@ -1,6 +1,6 @@
-extern void rbx_print(const char* text, int length);
-extern void rbx_warn(const char* text, int length);
-extern int rbx_input(const char* prompt, int prompt_length, char* out, int cap);
+extern void rx_print(const char* text, int length);
+extern void rx_warn(const char* text, int length);
+extern int rx_input(const char* prompt, int prompt_length, char* out, int cap);
 
 void* memcpy(void* dest, const void* src, unsigned long n) {
     unsigned char* out = (unsigned char*)dest;
@@ -194,7 +194,7 @@ static const char* intern(const char* text, int n) {
 
 static void fail(const char* message) {
     fault = 1;
-    rbx_print(message, slen(message));
+    rx_print(message, slen(message));
 }
 
 static Obj* obj_at(Val v) {
@@ -364,7 +364,7 @@ static void intrinsic(const Ins* inst, Frame* frame) {
         char prompt[128];
         prompt[0] = 0;
         if (inst->argc > 0) text_of(frame->regs[inst->args[0]], prompt, 128);
-        int n = rbx_input(prompt, slen(prompt), input_buf, 511);
+        int n = rx_input(prompt, slen(prompt), input_buf, 511);
         if (n < 0) n = 0;
         if (n > 511) n = 511;
         input_buf[n] = 0;
@@ -519,7 +519,7 @@ static Val run_chunk(int index, const Val* args, int nargs) {
         else if (op == 34 && reg_ok(inst->a)) {
             char buf[256];
             text_of(frame->regs[inst->a], buf, 256);
-            rbx_print(buf, slen(buf));
+            rx_print(buf, slen(buf));
         } else if (op == 36) pc = inst->target;
         else if (op == 37 && reg_ok(inst->a)) { if (!as_bool(frame->regs[inst->a])) pc = inst->target; }
         else if (op == 38 && reg_ok(inst->a)) { result = frame->regs[inst->a]; break; }
@@ -561,11 +561,11 @@ static int find_handler(const char* name) {
     return -1;
 }
 
-__attribute__((export_name("rbx_name")))
-char* rbx_name(void) { return call_name; }
+__attribute__((export_name("rx_name")))
+char* rx_name(void) { return call_name; }
 
-__attribute__((export_name("rbx_call")))
-void rbx_call(int len) {
+__attribute__((export_name("rx_call")))
+void rx_call(int len) {
     if (len < 0) len = 0;
     if (len > 127) len = 127;
     call_name[len] = 0;
@@ -586,7 +586,7 @@ void rbx_call(int len) {
 
 __attribute__((export_name("start")))
 void start(void) {
-    for (int i = 0; i < WARN_COUNT; ++i) rbx_warn(STR[WARN[i]], SLEN[WARN[i]]);
+    for (int i = 0; i < WARN_COUNT; ++i) rx_warn(STR[WARN[i]], SLEN[WARN[i]]);
     int main_index = find_chunk("Main");
     if (main_index >= 0) run_chunk(main_index, 0, 0);
 }

@@ -10,7 +10,7 @@ namespace Robix::Packages {
 // 1. PACKAGE REGISTRY IMPLEMENTATION
 // ============================================================================
 
-bool RobixPackageRegistry::PublishPackage(const RbxPackageArchive& archive,
+bool RobixPackageRegistry::PublishPackage(const RxPackageArchive& archive,
                                           const std::string& requiredTargetPlatform,
                                           Frontend::DiagnosticBag& diagnostics) {
     PackageVerificationOptions opts;
@@ -18,7 +18,7 @@ bool RobixPackageRegistry::PublishPackage(const RbxPackageArchive& archive,
     opts.requiredTargetPlatform = requiredTargetPlatform;
     opts.allowInstallScripts    = false;
 
-    if (!RbxPackagePacker::VerifyPackageArchive(archive, opts, diagnostics)) {
+    if (!RxPackagePacker::VerifyPackageArchive(archive, opts, diagnostics)) {
         return false;
     }
 
@@ -43,11 +43,11 @@ std::vector<RegistrySearchHit> RobixPackageRegistry::Search(std::string_view que
     return hits;
 }
 
-const RbxPackageArchive* RobixPackageRegistry::GetPackageInfo(
+const RxPackageArchive* RobixPackageRegistry::GetPackageInfo(
     std::string_view name,
     std::string_view versionConstraint) const noexcept {
 
-    const RbxPackageArchive* best = nullptr;
+    const RxPackageArchive* best = nullptr;
     SemVer bestVer{ -1, -1, -1 };
 
     for (const auto& pkg : m_resolver.AvailablePackages()) {
@@ -73,7 +73,7 @@ bool RobixPackageManager::NewProject(std::string_view projectName, std::string_v
     m_manifest.projectTemplate = std::string(templateKind);
     m_manifest.dependencies.clear();
 
-    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRbxProj();
+    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRxProj();
     m_virtualProjectFS[m_projectRoot + "/Project.rxb"] =
         "Project {\n    Name = \"" + std::string(projectName) + "\";\n    Style = \"" +
         std::string(templateKind) + "\";\n}\n";
@@ -90,13 +90,13 @@ bool RobixPackageManager::InitProject(std::string_view projectName) {
 
 bool RobixPackageManager::AddDependency(const std::string& packageName, const std::string& versionConstraint) {
     m_manifest.dependencies[packageName] = versionConstraint;
-    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRbxProj();
+    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRxProj();
     return true;
 }
 
 bool RobixPackageManager::RemoveDependency(const std::string& packageName) {
     const bool erased = m_manifest.dependencies.erase(packageName) > 0;
-    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRbxProj();
+    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRxProj();
     return erased;
 }
 
@@ -116,7 +116,7 @@ bool RobixPackageManager::InstallPackages(const std::string& targetPlatform,
     verifyOpts.allowInstallScripts    = false;
 
     for (const auto& locked : m_lockfile.resolvedPackages) {
-        const RbxPackageArchive* pkg = m_registry.GetPackageInfo(locked.name, "=" + locked.resolvedVersion);
+        const RxPackageArchive* pkg = m_registry.GetPackageInfo(locked.name, "=" + locked.resolvedVersion);
         if (!pkg) {
             diagnostics.ReportError(
                 "P8007",
@@ -125,7 +125,7 @@ bool RobixPackageManager::InstallPackages(const std::string& targetPlatform,
             return false;
         }
 
-        if (!RbxPackagePacker::VerifyPackageArchive(*pkg, verifyOpts, diagnostics)) {
+        if (!RxPackagePacker::VerifyPackageArchive(*pkg, verifyOpts, diagnostics)) {
             return false;
         }
 
@@ -134,14 +134,14 @@ bool RobixPackageManager::InstallPackages(const std::string& targetPlatform,
         const std::string apiPath  = installDir + "/" + pkg->manifest.name + ".rxapi";
         const std::string jsonPath = installDir + "/package.json";
 
-        m_virtualProjectFS[apiPath]  = pkg->rbxApiContent;
+        m_virtualProjectFS[apiPath]  = pkg->rxApiContent;
         m_virtualProjectFS[jsonPath] = pkg->sbomJson;
 
         InstalledPackageLayout layout;
         layout.packageName      = pkg->manifest.name;
         layout.version          = pkg->manifest.version;
         layout.installDirectory = installDir;
-        layout.rbxApiPath       = apiPath;
+        layout.rxApiPath       = apiPath;
         layout.packageJsonPath  = jsonPath;
 
         for (const auto& bin : pkg->binaries) {
@@ -156,7 +156,7 @@ bool RobixPackageManager::InstallPackages(const std::string& targetPlatform,
         m_installedPackages.push_back(std::move(layout));
     }
 
-    m_virtualProjectFS[m_projectRoot + "/Robix.Lock"] = m_lockfile.SerializeToRbxLock();
+    m_virtualProjectFS[m_projectRoot + "/Robix.Lock"] = m_lockfile.SerializeToRxLock();
     return true;
 }
 

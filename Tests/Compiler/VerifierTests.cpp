@@ -387,14 +387,14 @@ public Int MissingExplainFn(Int x) {
           "RobixVerifier::VerifyProject catches missing Explain (R3001) and missing .test.rx (R5001) with exitCode 1");
 
     // 3. Single-File .rx Verification (`robix verify PIDController.rx`)
-    auto singleRbxReport = Robix::Tools::RobixVerifier::VerifySingleFile(
+    auto singleRxReport = Robix::Tools::RobixVerifier::VerifySingleFile(
         "PIDController.rx",
         validController);
-    Check(singleRbxReport.isSingleFileMode && singleRbxReport.AllChecksPassed() && singleRbxReport.exitCode == 0,
+    Check(singleRxReport.isSingleFileMode && singleRxReport.AllChecksPassed() && singleRxReport.exitCode == 0,
           "RobixVerifier::VerifySingleFile verifies standalone .rx file in isolation");
 
     // 4. Single-File .rxu UI Markup Verification (`robix verify MainWindow.rxu`)
-    const std::string validRbxu = R"(
+    const std::string validRxu = R"(
 <?xml version="1.0"?>
 <RobixUI Version="1.0">
     <Window Name="Dashboard" Title="Roboticela Control" Width="800" Height="600">
@@ -404,8 +404,8 @@ public Int MissingExplainFn(Int x) {
     </Window>
 </RobixUI>
 )";
-    auto singleRbxuReport = Robix::Tools::RobixVerifier::VerifySingleFile("MainWindow.rxu", validRbxu);
-    Check(singleRbxuReport.isSingleFileMode && singleRbxuReport.AllChecksPassed() && singleRbxuReport.exitCode == 0,
+    auto singleRxuReport = Robix::Tools::RobixVerifier::VerifySingleFile("MainWindow.rxu", validRxu);
+    Check(singleRxuReport.isSingleFileMode && singleRxuReport.AllChecksPassed() && singleRxuReport.exitCode == 0,
           "RobixVerifier::VerifySingleFile verifies standalone .rxu UI document in isolation");
 }
 

@@ -17,7 +17,7 @@ inline constexpr std::string_view BUILD_LANGUAGE_NAME    = "RobixBuild";
 inline constexpr std::string_view COMPANY_NAME           = "Roboticela";
 inline constexpr std::string_view LANGUAGE_VERSION       = "1.0";
 inline constexpr std::string_view ABI_VERSION            = "RobixABI_v1";
-inline constexpr std::string_view MANGLE_PREFIX          = "_RBX1_";
+inline constexpr std::string_view MANGLE_PREFIX          = "_RX1_";
 
 // Official File Extensions
 inline constexpr std::string_view EXT_SOURCE             = ".rx";

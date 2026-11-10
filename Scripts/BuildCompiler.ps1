@@ -60,7 +60,7 @@ $script:Skipped = 0
 function Get-MakeDeps([string]$DepFile) {
     if (-not (Test-Path -LiteralPath $DepFile)) { return @() }
     $text = [IO.File]::ReadAllText($DepFile) -replace "\\\r?\n", " "
-    $mark = [regex]::Match($text, "\.(?:obj|o|rxm|rbxm):\s*([\s\S]*)$")
+    $mark = [regex]::Match($text, "\.(?:obj|o|rxm):\s*([\s\S]*)$")
     if (-not $mark.Success) { return @() }
     $rest = $mark.Groups[1].Value
     $paths = New-Object System.Collections.Generic.List[string]

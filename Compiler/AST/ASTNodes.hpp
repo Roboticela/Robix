@@ -247,7 +247,7 @@ struct DeclNode {
     std::vector<ParameterNode> parameters;
     TypeNode returnType;
     std::optional<ExplainBlockNode> explainBlock;
-    StmtPtr body; // nullptr for interface/service/abstract/rbxapi declarations
+    StmtPtr body; // nullptr for interface/service/abstract/rxapi declarations
     std::vector<ExprPtr> baseConstructorArgs;
 
     // Class / Struct / Interface / Enum / Service

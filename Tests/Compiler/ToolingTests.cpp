@@ -101,10 +101,10 @@ test "CustomPreservedSensorTest" {
     const std::filesystem::path tempDir = "Build/TempScaffoldTest";
     std::filesystem::remove_all(tempDir);
     std::filesystem::create_directories(tempDir);
-    const std::filesystem::path diskRbxPath  = tempDir / "ArmController.rx";
+    const std::filesystem::path diskRxPath  = tempDir / "ArmController.rx";
     const std::filesystem::path diskTestPath = tempDir / "ArmController.test.rx";
 
-    StdLib::CrossPlatformIO::WriteAllText(diskRbxPath.generic_string(), R"(
+    StdLib::CrossPlatformIO::WriteAllText(diskRxPath.generic_string(), R"(
 package Robotics.Arm;
 public Function HomeJoints() -> Int {
     return 1;

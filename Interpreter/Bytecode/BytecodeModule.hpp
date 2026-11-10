@@ -10,7 +10,7 @@
 
 namespace Robix::VM {
 
-inline constexpr std::string_view BYTECODE_MAGIC   = "RBXBC";
+inline constexpr std::string_view BYTECODE_MAGIC   = "RXBC";
 inline constexpr std::uint32_t    BYTECODE_VERSION = 1;
 
 enum class BCOpcode : std::uint8_t {

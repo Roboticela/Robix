@@ -591,7 +591,7 @@ std::string IconButtonMark(bool success) {
 
 RoboU32 ThemeColor(const char* name, bool light);
 
-void StyleIconButton(PaintOp& op, bool light, bool hot, bool pressed) {
+void StyleIconButton(PaintOp& op, bool light, bool hot, bool pressed, bool focused) {
     const bool disabled = op.quiet;
     int look = 0;
     if (!disabled && pressed) {
@@ -604,7 +604,7 @@ void StyleIconButton(PaintOp& op, bool light, bool hot, bool pressed) {
     op.borderPx = 0;
     op.fill = 0;
     op.border = 0;
-    op.focus = false;
+    op.focus = focused && !disabled;
     const RoboU32 ink = ThemeColor("text-primary", light);
     const RoboU32 onBrand = ThemeColor("text-on-brand", light);
     if (op.kind == 11) {
@@ -636,9 +636,22 @@ void StyleIconButton(PaintOp& op, bool light, bool hot, bool pressed) {
         op.color = ink;
         if (look == 3) {
             op.fill = ThemeColor("bg-active", light);
-        } else if (look == 1) {
+        } else if (look == 1 || op.focus) {
             op.fill = ThemeColor("bg-hover", light);
         }
+    }
+    if (op.kind == 11 && op.focus && look != 3) {
+        op.fill = ThemeColor("bg-hover", light);
+    } else if (op.kind == 12 && op.focus && look != 3) {
+        op.border = ThemeColor("border-focus", light);
+        op.borderPx = std::max(1, Px(1));
+        if (look != 1) {
+            op.fill = 0;
+        }
+    } else if (op.kind == 13 && op.focus && look != 3) {
+        op.fill = ThemeColor("brand-primary-hover", light);
+    } else if (op.kind == 14 && op.focus && look != 3) {
+        op.fill = ThemeColor("danger-hover", light);
     }
     if (op.preview == 2 && op.kind != 13 && op.kind != 14) {
         op.color = ThemeColor("success", light);
@@ -1149,7 +1162,7 @@ RoboU32 ThemeColor(const char* name, bool light) {
     return RoboFoundationPlatformColorForTheme(name, light ? ROBO_TRUE : ROBO_FALSE);
 }
 
-void RecolorButton(PaintOp& op, bool light, bool hot, bool pressed) {
+void RecolorButton(PaintOp& op, bool light, bool hot, bool pressed, bool focused) {
     const bool disabled = op.quiet;
     const bool showActive = op.preview == 3 || (pressed && !disabled);
     const bool showHover = !showActive && (op.preview == 1 || (hot && !disabled));
@@ -1159,7 +1172,7 @@ void RecolorButton(PaintOp& op, bool light, bool hot, bool pressed) {
     } else if (showHover) {
         look = 1;
     }
-    op.focus = op.preview == 2;
+    op.focus = (op.preview == 2 || focused) && !disabled;
     op.fade = disabled && !op.loading ? 140 : 255;
     op.borderPx = 0;
     op.fill = 0;
@@ -1217,6 +1230,9 @@ void RecolorButton(PaintOp& op, bool light, bool hot, bool pressed) {
         op.fill = ThemeColor(token, light);
         op.color = onBrand;
     }
+    if (op.focus && op.borderPx > 0) {
+        op.border = brand;
+    }
 }
 
 void StyleButton(const RoboXMLNode& node, bool light, bool hot, bool pressed, PaintOp& op) {
@@ -1230,7 +1246,7 @@ void StyleButton(const RoboXMLNode& node, bool light, bool hot, bool pressed, Pa
     op.quiet = ButtonOn(node, "disabled") || ButtonOn(node, "loading");
     op.face = op.kind == 3 ? 0 : 1;
     op.size = ButtonFontSize(node);
-    RecolorButton(op, light, hot, pressed);
+    RecolorButton(op, light, hot, pressed, false);
 }
 
 struct TextLine {
@@ -1554,7 +1570,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         op.preview = status == "loading" ? 1 : status == "success" ? 2 : status == "error" ? 3 : 0;
         op.quiet = ButtonOn(node, "disabled") || status == "loading";
         op.loading = status == "loading";
-        StyleIconButton(op, light, hot, pressed);
+        StyleIconButton(op, light, hot, pressed, false);
         op.leadingSvg = glyph;
         ops.push_back(op);
         const std::string badge = RoboXMLAttr(node, "badge");
@@ -2322,9 +2338,6 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
         return;
     }
     if (op.button) {
-            if (op.focus) {
-                GlowPill(gpu, op.x, y, op.width, op.height, ThemeColor("brand-primary", light), op.fade);
-            }
             if (op.fill != 0) {
                 int cover = op.fade;
                 const unsigned alpha = (op.fill >> 24) & 255u;
@@ -2439,6 +2452,7 @@ struct Scene {
     int scrollY = 0;
     int hot = -1;
     int pressed = -1;
+    int focus = -1;
     int contentHeight = 0;
     RoboU32 background = 0;
     std::vector<PaintOp> ops;
@@ -2592,6 +2606,7 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
     gScene.scrollY = scrollY;
     gScene.hot = hotControl;
     gScene.pressed = pressedControl;
+    gScene.focus = -1;
     gScene.path = path;
     gScene.light = light;
     gScene.dpi = gDpi;
@@ -2677,9 +2692,9 @@ void PaintWindowsDocument(RoboGPU* gpu, const std::string& path, bool light, int
                     continue;
                 }
                 if (op.iconButton) {
-                    StyleIconButton(op, light, index == hotControl, index == pressedControl);
+                    StyleIconButton(op, light, index == hotControl, index == pressedControl, false);
                 } else {
-                    RecolorButton(op, light, index == hotControl, index == pressedControl);
+                    RecolorButton(op, light, index == hotControl, index == pressedControl, false);
                 }
                 PaintSceneRect(gpu, OpBounds(op, scrollY), scrollY, viewHeight, light);
             }
@@ -2751,13 +2766,61 @@ void RasterWindowsDocument(RoboGPU* gpu) {
     RoboDamageClear(&gpu->damage);
 }
 
-int CollectWindowsDocumentPatches(int hotControl, int pressedControl, WindowPatch* patches, int capacity) {
-    if (!gScene.valid || (gScene.hot == hotControl && gScene.pressed == pressedControl)) {
+int FocusReach() {
+    return std::max(1, Px(2)) + std::max(1, Px(2)) + std::max(2, Px(5));
+}
+
+RoboU32 ReadPixel(const RoboGPU* gpu, int x, int y) {
+    if (gpu == nullptr || gpu->back == nullptr || x < 0 || y < 0 || x >= static_cast<int>(gpu->info.width) ||
+        y >= static_cast<int>(gpu->info.height)) {
+        return gScene.background;
+    }
+    const auto* row = reinterpret_cast<const RoboU32*>(RoboFrameBufferRow(gpu->back, RoboGPUPitch(gpu), y));
+    return row[x];
+}
+
+void WritePixel(RoboGPU* gpu, int x, int y, RoboU32 color) {
+    if (gpu == nullptr || gpu->back == nullptr || x < 0 || y < 0 || x >= static_cast<int>(gpu->info.width) ||
+        y >= static_cast<int>(gpu->info.height)) {
+        return;
+    }
+    auto* row = reinterpret_cast<RoboU32*>(RoboFrameBufferRow(gpu->back, RoboGPUPitch(gpu), y));
+    row[x] = color;
+}
+
+void ClearButtonShape(RoboGPU* gpu, const PaintOp& op) {
+    const int pad = std::max(1, op.borderPx);
+    const RoboU32 backdrop = ReadPixel(gpu, op.x, op.y);
+    const int outerW = op.width + pad * 2;
+    const int outerH = op.height + pad * 2;
+    for (int row = 0; row < outerH; ++row) {
+        for (int col = 0; col < outerW; ++col) {
+            if (PillCoverage(col, row, outerW, outerH) == 0) {
+                continue;
+            }
+            WritePixel(gpu, op.x - pad + col, op.y - pad + row, backdrop);
+        }
+    }
+}
+
+bool OpInside(const PaintOp& op, const SceneRect& rect) {
+    return op.width > 0 && op.height > 0 && op.x >= rect.x - 1 && op.y >= rect.y - 1 &&
+           op.x + op.width <= rect.x + rect.width + 1 && op.y + op.height <= rect.y + rect.height + 1;
+}
+
+bool OpHits(const PaintOp& op, const SceneRect& rect) {
+    return op.width > 0 && op.height > 0 && op.x < rect.x + rect.width && op.x + op.width > rect.x &&
+           op.y < rect.y + rect.height && op.y + op.height > rect.y;
+}
+
+int CollectWindowsDocumentPatches(int hotControl, int pressedControl, int focusControl, WindowPatch* patches, int capacity) {
+    if (!gScene.valid || (gScene.hot == hotControl && gScene.pressed == pressedControl && gScene.focus == focusControl)) {
         return 0;
     }
     int count = 0;
     bool overflow = false;
-    const int changed[4] = {gScene.hot, hotControl, gScene.pressed, pressedControl};
+    const int changed[6] = {gScene.hot, hotControl, gScene.pressed, pressedControl, gScene.focus, focusControl};
+    const int reach = FocusReach();
     for (int index : changed) {
         if (index < 0) {
             continue;
@@ -2766,24 +2829,26 @@ int CollectWindowsDocumentPatches(int hotControl, int pressedControl, WindowPatc
             if (!op.button || op.control != index) {
                 continue;
             }
+            const bool focused = index == focusControl;
             if (op.iconButton) {
-                StyleIconButton(op, gScene.light, index == hotControl, index == pressedControl);
+                StyleIconButton(op, gScene.light, index == hotControl, index == pressedControl, focused);
             } else {
-                RecolorButton(op, gScene.light, index == hotControl, index == pressedControl);
+                RecolorButton(op, gScene.light, index == hotControl, index == pressedControl, focused);
             }
             if (patches == nullptr || count >= capacity) {
                 overflow = true;
                 continue;
             }
-            patches[count].x = op.x;
-            patches[count].y = op.y;
-            patches[count].width = op.width;
-            patches[count].height = op.height;
+            patches[count].x = op.x - reach;
+            patches[count].y = op.y - reach;
+            patches[count].width = op.width + reach * 2;
+            patches[count].height = op.height + reach * 2;
             ++count;
         }
     }
     gScene.hot = hotControl;
     gScene.pressed = pressedControl;
+    gScene.focus = focusControl;
     return overflow ? -1 : count;
 }
 
@@ -2797,18 +2862,79 @@ void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height)
     if (rect.width <= 0 || rect.height <= 0) {
         return;
     }
-    RoboGPUFillRect(gpu, rect.x, rect.y, rect.width, rect.height, gScene.background);
     for (const PaintOp& op : gScene.ops) {
-        if (op.width <= 0 || op.height <= 0) {
-            continue;
+        if (op.button && OpHits(op, rect)) {
+            ClearButtonShape(gpu, op);
+        } else if (!op.button && !op.text && OpInside(op, rect)) {
+            const RoboU32 backdrop = ReadPixel(gpu, op.x, op.y);
+            for (int row = 0; row < op.height; ++row) {
+                for (int col = 0; col < op.width; ++col) {
+                    WritePixel(gpu, op.x + col, op.y + row, backdrop);
+                }
+            }
         }
-        if (op.x < rect.x - 1 || op.y < rect.y - 1 || op.x + op.width > rect.x + rect.width + 1 ||
-            op.y + op.height > rect.y + rect.height + 1) {
-            continue;
+    }
+    for (const PaintOp& op : gScene.ops) {
+        if ((op.button && OpHits(op, rect)) || (!op.button && OpInside(op, rect))) {
+            PaintOne(gpu, op, 0, limit, gScene.light);
         }
-        PaintOne(gpu, op, 0, limit, gScene.light);
     }
     RoboDamageClear(&gpu->damage);
+}
+
+void PaintWindowsFocusRing(RoboGPU* gpu, int x, int y, int width, int height) {
+    if (gpu == nullptr || width <= 0 || height <= 0) {
+        return;
+    }
+    const int offset = std::max(1, Px(2));
+    const int thick = std::max(1, Px(2));
+    const int blur = std::max(2, Px(5));
+    const int reach = offset + thick + blur;
+    const RoboU32 brand = ThemeColor("brand-primary", gScene.light);
+    const int widthQ = width * 4;
+    const int heightQ = height * 4;
+    const int radius = heightQ / 2;
+    const int straight = widthQ - heightQ;
+    const auto outsideOf = [&](int localX, int localY) {
+        if (localX < 0) {
+        } else if (straight > 0 && localX > straight) {
+            localX -= straight;
+        } else {
+            localX = 0;
+        }
+        return Isqrt(localX * localX + localY * localY) - radius;
+    };
+    const int blurQ = blur * 4;
+    const int ring0 = offset * 4;
+    const int ring1 = (offset + thick) * 4;
+    for (int row = -reach; row < height + reach; ++row) {
+        for (int col = -reach; col < width + reach; ++col) {
+            unsigned shadow = 0;
+            unsigned ring = 0;
+            for (int sampleY = 0; sampleY < 4; ++sampleY) {
+                for (int sampleX = 0; sampleX < 4; ++sampleX) {
+                    const int outside = outsideOf(col * 4 + sampleX - radius, row * 4 + sampleY - radius);
+                    if (outside >= 0 && outside < blurQ) {
+                        shadow += static_cast<unsigned>(blurQ - outside);
+                    }
+                    if (outside >= ring0 && outside < ring1) {
+                        ++ring;
+                    }
+                }
+            }
+            if (shadow != 0) {
+                const int cover = static_cast<int>(shadow) * 92 / (16 * blurQ);
+                if (cover > 0) {
+                    RoboGPUBlendPixel(gpu, x + col, y + row, brand, static_cast<RoboU8>(cover > 92 ? 92 : cover));
+                }
+            }
+            if (ring != 0) {
+                const int cover = static_cast<int>(ring) * 122 / 16;
+                RoboGPUBlendPixel(gpu, x + col, y + row, brand, static_cast<RoboU8>(cover > 122 ? 122 : cover));
+            }
+        }
+    }
+    RoboGPUMarkDamage(gpu, x - reach, y - reach, width + reach * 2, height + reach * 2);
 }
 
 bool WindowsDocumentNeedsSpin() {

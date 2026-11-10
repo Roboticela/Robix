@@ -300,7 +300,7 @@ fs::path EntryInProject(const fs::path& root, const std::vector<fs::path>& files
     if (fs::is_directory(root, ec)) {
         for (const auto& entry : fs::directory_iterator(root, ec)) {
             if (entry.path().extension() != ".rxb") continue;
-            const RbxbPlan plan = ReadRbxb(entry.path());
+            const RxbPlan plan = ReadRxb(entry.path());
             if (!plan.ok || plan.source.empty()) continue;
             fs::path source(plan.source);
             if (source.is_relative()) source = root / source;
@@ -322,7 +322,7 @@ void AttachBuild(ProjectRun& run) {
     if (!fs::is_directory(run.root, ec)) return;
     for (const auto& entry : fs::directory_iterator(run.root, ec)) {
         if (entry.path().extension() != ".rxb") continue;
-        const RbxbPlan plan = ReadRbxb(entry.path());
+        const RxbPlan plan = ReadRxb(entry.path());
         if (!plan.ok) continue;
         run.buildFile = entry.path();
         run.output = plan.output;
@@ -500,8 +500,8 @@ std::string MissingTestMessage(const fs::path& start) {
     return {};
 }
 
-RbxbPlan ReadRbxb(const fs::path& file) {
-    RbxbPlan plan;
+RxbPlan ReadRxb(const fs::path& file) {
+    RxbPlan plan;
     std::ifstream in(file);
     if (!in) {
         plan.error = "robixc: could not open '" + file.string() + "'\n";
@@ -546,7 +546,7 @@ RbxbPlan ReadRbxb(const fs::path& file) {
     return plan;
 }
 
-std::string ExplainRbxb(const RbxbPlan& plan) {
+std::string ExplainRxb(const RxbPlan& plan) {
     std::ostringstream out;
     out << "output " << plan.output << "\n";
     out << "target " << (plan.target.empty() ? "host" : plan.target) << "\n";
@@ -652,13 +652,13 @@ int PackageCommand(const std::vector<std::string>& args) {
                 }
                 const std::string api = PublicApi(package.name, bytes);
                 if (!WriteFile(destDir / (package.name + ".rxapi"), api)) return 1;
-                std::ostringstream rbxp;
-                rbxp << "name " << package.name << "\n"
+                std::ostringstream rxp;
+                rxp << "name " << package.name << "\n"
                      << "version " << package.version << "\n"
                      << "sha256 " << sha << "\n"
                      << "signature " << signature << "\n"
                      << "file " << dest.filename().string() << "\n";
-                if (!WriteFile(destDir / (package.name + ".rxp"), rbxp.str())) return 1;
+                if (!WriteFile(destDir / (package.name + ".rxp"), rxp.str())) return 1;
                 std::cout << "robix install: " << package.name << " -> " << dest.string() << "\n";
             } else {
                 std::cout << "robix restore: " << package.name << " sha256 " << sha << "\n";

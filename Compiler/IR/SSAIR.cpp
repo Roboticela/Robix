@@ -747,7 +747,7 @@ void SSAIRBuilder::LowerTestDecl(const Frontend::DeclNode& testDecl, IRModule& o
 
     IRFunction fn;
     fn.name        = "Test::" + testDecl.testDescription;
-    fn.mangledName = "_RBX1_Test_" + std::to_string(outModule.functions.size() + 1);
+    fn.mangledName = "_RX1_Test_" + std::to_string(outModule.functions.size() + 1);
     fn.returnType  = MakePrim("Void");
     fn.isTestBlock = true;
     fn.runOnNative = testDecl.runOnNative;

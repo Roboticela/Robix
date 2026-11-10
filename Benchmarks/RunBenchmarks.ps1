@@ -135,16 +135,16 @@ function Get-DroppedAverage($samples) {
     return [Math]::Round((($filtered | Measure-Object -Average).Average), 2)
 }
 
-function Measure-Interleaved([string]$rbxExe, [string]$cExe, [string]$cppExe, [int]$rounds, [switch]$SkipWarmup) {
-    if (-not (Test-Path $rbxExe) -or -not (Test-Path $cExe) -or -not (Test-Path $cppExe)) {
+function Measure-Interleaved([string]$rxExe, [string]$cExe, [string]$cppExe, [int]$rounds, [switch]$SkipWarmup) {
+    if (-not (Test-Path $rxExe) -or -not (Test-Path $cExe) -or -not (Test-Path $cppExe)) {
         return $null
     }
     $sumR = ""; $sumC = ""; $sumP = ""
     if (-not $SkipWarmup) {
-        $sumR = Get-ChecksumLine $rbxExe
+        $sumR = Get-ChecksumLine $rxExe
         $sumC = Get-ChecksumLine $cExe
         $sumP = Get-ChecksumLine $cppExe
-        & $rbxExe | Out-Null
+        & $rxExe | Out-Null
         & $cExe | Out-Null
         & $cppExe | Out-Null
     }
@@ -152,7 +152,7 @@ function Measure-Interleaved([string]$rbxExe, [string]$cExe, [string]$cppExe, [i
     for ($i = 0; $i -lt $rounds; $i++) {
         # Rotate which binary runs last. A fixed order gives the last process a warm cache.
         $slot = @()
-        $slot += @{ Exe = $rbxExe; Bag = "r" }
+        $slot += @{ Exe = $rxExe; Bag = "r" }
         $slot += @{ Exe = $cExe; Bag = "c" }
         $slot += @{ Exe = $cppExe; Bag = "p" }
         $start = $i % 3
@@ -204,23 +204,23 @@ foreach ($suiteName in $suitesToRun) {
     if (-not (Read-Upstream $suiteName)) {
         Write-Host "manifest upstream: false (local kernels)"
     }
-    $rbxFiles = Get-ChildItem -Path $sDir -Filter "*.rx" | Sort-Object Name
-    foreach ($rf in $rbxFiles) {
+    $rxFiles = Get-ChildItem -Path $sDir -Filter "*.rx" | Sort-Object Name
+    foreach ($rf in $rxFiles) {
         $base = $rf.BaseName
         $cPath = Join-Path $sDir "$base.c"
         $cppPath = Join-Path $sDir "$base.cpp"
         if (-not (Test-Path $cPath) -or -not (Test-Path $cppPath)) { continue }
-        $rbxExe = Join-Path $BuildDir "${suiteName}_${base}_Robix.exe"
+        $rxExe = Join-Path $BuildDir "${suiteName}_${base}_Robix.exe"
         $cExe   = Join-Path $BuildDir "${suiteName}_${base}_C.exe"
         $cppExe = Join-Path $BuildDir "${suiteName}_${base}_CPP.exe"
         Write-Host "compile $base"
-        & $robixc $rf.FullName -o $rbxExe -O3
+        & $robixc $rf.FullName -o $rxExe -O3
         if ($LASTEXITCODE -ne 0) { $compileFailed = $true; continue }
         & $clang -O3 -march=native $cPath -o $cExe
         if ($LASTEXITCODE -ne 0) { $compileFailed = $true; continue }
         & $clangpp -O3 -march=native $cppPath -o $cppExe
         if ($LASTEXITCODE -ne 0) { $compileFailed = $true; continue }
-        $hot = Measure-Interleaved $rbxExe $cExe $cppExe $Runs
+        $hot = Measure-Interleaved $rxExe $cExe $cppExe $Runs
         $verdict = Get-Verdict $hot
         Write-Host ("{0}: Robix {1} ms, C {2} ms, C++ {3} ms, {4}" -f $base, $hot.RobixAvg, $hot.CAvg, $hot.CPPAvg, $verdict)
         Write-Host ("  checksum [{0}]" -f $hot.SumRobix)
@@ -240,10 +240,10 @@ if (-not $NoConfirm -and $records.Count -gt 0) {
     Write-Host "cooling ${CoolSeconds}s before one interleaved confirmation"
     Start-Sleep -Seconds $CoolSeconds
     foreach ($rec in $records) {
-        $rbxExe = Join-Path $BuildDir "$($rec.Suite)_$($rec.Name)_Robix.exe"
+        $rxExe = Join-Path $BuildDir "$($rec.Suite)_$($rec.Name)_Robix.exe"
         $cExe   = Join-Path $BuildDir "$($rec.Suite)_$($rec.Name)_C.exe"
         $cppExe = Join-Path $BuildDir "$($rec.Suite)_$($rec.Name)_CPP.exe"
-        $cool = Measure-Interleaved $rbxExe $cExe $cppExe 1 -SkipWarmup
+        $cool = Measure-Interleaved $rxExe $cExe $cppExe 1 -SkipWarmup
         $cool.SumRobix = $rec.Hot.SumRobix
         $cool.SumC = $rec.Hot.SumC
         $cool.SumCPP = $rec.Hot.SumCPP

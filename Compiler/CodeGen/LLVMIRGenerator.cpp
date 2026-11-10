@@ -142,7 +142,7 @@ std::string LLVMIRGenerator::GenerateLLVMIR(const IR::IRModule& mod) {
         out << "; Runtime Profile: Minimal (Zero GC/Reflection Overhead)\n\n";
     } else {
         out << "; Runtime Profile: Full Automatic RC + Cycle Backup\n";
-        out << "declare ptr @_RBX1_Runtime_AllocRC(i64)\n\n";
+        out << "declare ptr @_RX1_Runtime_AllocRC(i64)\n\n";
     }
 
     std::string fnAttrs;
@@ -189,7 +189,7 @@ std::string LLVMIRGenerator::GenerateLLVMIR(const IR::IRModule& mod) {
                         break;
 
                     case IR::IROpcode::AllocHeap:
-                        out << "  " << inst.dest.ToString() << " = call ptr @_RBX1_Runtime_AllocRC(i64 64) ; type="
+                        out << "  " << inst.dest.ToString() << " = call ptr @_RX1_Runtime_AllocRC(i64 64) ; type="
                             << inst.textImm << "\n";
                         break;
 

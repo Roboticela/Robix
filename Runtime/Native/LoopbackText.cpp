@@ -63,7 +63,7 @@ static char* CopyText(const std::string& text) {
     return copy;
 }
 
-extern "C" char* rbx_network_call(const char* service, const char* method, const char* text) {
+extern "C" char* rx_network_call(const char* service, const char* method, const char* text) {
     const std::string serviceName = service != nullptr ? service : "";
     const auto env = LoadCommonEnv();
     const auto secret = env.find("SECRET");
@@ -92,7 +92,7 @@ extern "C" char* rbx_network_call(const char* service, const char* method, const
     return CopyText(reply);
 }
 
-extern "C" char* rbx_network_send_text(const char* text) {
+extern "C" char* rx_network_send_text(const char* text) {
     const std::string body = text != nullptr ? text : "";
     WSADATA wsa{};
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return EmptyCopy();

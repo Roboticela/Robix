@@ -109,10 +109,10 @@ static bool ApplyTarget(const std::string& triple, Robix::Tools::NativeBuildOpti
     return false;
 }
 
-static bool LoadRobixBuild(const fs::path& rbxb, std::string& sourcePath, Robix::Tools::NativeBuildOptions& options, std::string& error) {
-    std::ifstream in(rbxb);
+static bool LoadRobixBuild(const fs::path& rxb, std::string& sourcePath, Robix::Tools::NativeBuildOptions& options, std::string& error) {
+    std::ifstream in(rxb);
     if (!in) {
-        error = "robixc: could not open '" + rbxb.string() + "'.\n";
+        error = "robixc: could not open '" + rxb.string() + "'.\n";
         return false;
     }
     std::string outputRole;
@@ -142,7 +142,7 @@ static bool LoadRobixBuild(const fs::path& rbxb, std::string& sourcePath, Robix:
         else if (key == "Config") profile = profile.empty() && value == "debug" ? "debug" : profile;
     }
     if (source.empty()) {
-        error = "robixc: " + rbxb.string() + " has no Source: entry.\n";
+        error = "robixc: " + rxb.string() + " has no Source: entry.\n";
         return false;
     }
     if (!target.empty() && !ApplyTarget(target, options, error)) return false;
@@ -190,7 +190,7 @@ static bool LoadRobixBuild(const fs::path& rbxb, std::string& sourcePath, Robix:
     } else if (profile == "debug") {
         options.release = false;
     }
-    sourcePath = (rbxb.parent_path() / source).string();
+    sourcePath = (rxb.parent_path() / source).string();
     return true;
 }
 
@@ -355,7 +355,7 @@ int main(int argc, char* argv[]) {
             const std::string platform = cliTarget.empty() ? Robix::UI::HostTarget() : Robix::UI::NormalizeTarget(cliTarget);
             std::cout << "platform: " << platform << std::endl;
             if (!project.buildFile.empty()) {
-                std::cout << "rbxb: " << project.buildFile.string() << std::endl;
+                std::cout << "rxb: " << project.buildFile.string() << std::endl;
                 std::cout << "order:";
                 const std::vector<fs::path>& listed = project.order.empty() ? project.files : project.order;
                 for (const fs::path& file : listed) std::cout << " " << file.lexically_relative(project.root).string();
@@ -371,9 +371,9 @@ int main(int argc, char* argv[]) {
             }
             if (cliTarget.empty() && !cliImage && (project.output == "Kernel" || project.output == "Firmware")) {
                 std::string sourcePath;
-                std::string rbxbError;
-                if (!LoadRobixBuild(project.buildFile, sourcePath, options, rbxbError)) {
-                    std::cerr << rbxbError;
+                std::string rxbError;
+                if (!LoadRobixBuild(project.buildFile, sourcePath, options, rxbError)) {
+                    std::cerr << rxbError;
                     return 1;
                 }
                 inputFilePath = sourcePath;
@@ -436,9 +436,9 @@ int main(int argc, char* argv[]) {
         }
     }
     if (explainOnly) {
-        Robix::Tools::RbxbPlan plan;
+        Robix::Tools::RxbPlan plan;
         if (fs::path(inputFilePath).extension() == ".rxb") {
-            plan = Robix::Tools::ReadRbxb(inputFilePath);
+            plan = Robix::Tools::ReadRxb(inputFilePath);
             if (!plan.ok) {
                 std::cerr << plan.error;
                 return 1;
@@ -447,14 +447,14 @@ int main(int argc, char* argv[]) {
             plan.ok = true;
             plan.source = inputFilePath;
         }
-        std::cout << Robix::Tools::ExplainRbxb(plan);
+        std::cout << Robix::Tools::ExplainRxb(plan);
         return 0;
     }
     if (fs::path(inputFilePath).extension() == ".rxb") {
         std::string sourcePath;
-        std::string rbxbError;
-        if (!LoadRobixBuild(inputFilePath, sourcePath, options, rbxbError)) {
-            std::cerr << rbxbError;
+        std::string rxbError;
+        if (!LoadRobixBuild(inputFilePath, sourcePath, options, rxbError)) {
+            std::cerr << rxbError;
             return 1;
         }
         inputFilePath = sourcePath;

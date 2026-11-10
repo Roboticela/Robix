@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../Compiler/Semantic/Diagnostics.hpp"
-#include "../Manager/RbxApiAndPackageFormat.hpp"
+#include "../Manager/RxApiAndPackageFormat.hpp"
 
 #include <cstdint>
 #include <map>
@@ -40,30 +40,30 @@ struct SemVer {
 // ============================================================================
 // 2. PROJECT MANIFEST (.rxproj) & DETERMINISTIC LOCKFILE (.rxlock)
 // ============================================================================
-struct RbxProjectManifest {
+struct RxProjectManifest {
     std::string                        projectName;
     std::string                        version         = "1.0.0";
     std::string                        projectTemplate = "robotics"; // robotics|desktop|ai|embedded|library
     std::map<std::string, std::string> dependencies;                 // pkgName -> versionConstraint
 
-    [[nodiscard]] std::string SerializeToRbxProj() const;
-    [[nodiscard]] static std::optional<RbxProjectManifest> ParseFromRbxProj(std::string_view content);
+    [[nodiscard]] std::string SerializeToRxProj() const;
+    [[nodiscard]] static std::optional<RxProjectManifest> ParseFromRxProj(std::string_view content);
 };
 
 struct LockedPackageEntry {
     std::string              name;
     std::string              resolvedVersion;
-    std::string              rbxApiSha256Hex;
+    std::string              rxApiSha256Hex;
     std::string              signatureHex;
     std::vector<std::string> directDependencies;
 };
 
-struct RbxLockfile {
+struct RxLockfile {
     std::string                     lockfileFormat = "RobixLock-1.0";
     std::vector<LockedPackageEntry> resolvedPackages; // Ordered deterministically (topological + lexical)
 
-    [[nodiscard]] std::string SerializeToRbxLock() const;
-    [[nodiscard]] static std::optional<RbxLockfile> ParseFromRbxLock(std::string_view content);
+    [[nodiscard]] std::string SerializeToRxLock() const;
+    [[nodiscard]] static std::optional<RxLockfile> ParseFromRxLock(std::string_view content);
 };
 
 // ============================================================================
@@ -71,20 +71,20 @@ struct RbxLockfile {
 // ============================================================================
 class DependencyResolver {
 public:
-    void RegisterAvailablePackage(RbxPackageArchive pkg);
+    void RegisterAvailablePackage(RxPackageArchive pkg);
 
-    [[nodiscard]] std::optional<RbxLockfile> ResolveProjectDependencies(
-        const RbxProjectManifest& project,
+    [[nodiscard]] std::optional<RxLockfile> ResolveProjectDependencies(
+        const RxProjectManifest& project,
         Frontend::DiagnosticBag& diagnostics) const;
 
-    [[nodiscard]] const std::vector<RbxPackageArchive>& AvailablePackages() const noexcept {
+    [[nodiscard]] const std::vector<RxPackageArchive>& AvailablePackages() const noexcept {
         return m_availablePackages;
     }
 
 private:
-    std::vector<RbxPackageArchive> m_availablePackages;
+    std::vector<RxPackageArchive> m_availablePackages;
 
-    [[nodiscard]] const RbxPackageArchive* FindBestMatchingPackage(
+    [[nodiscard]] const RxPackageArchive* FindBestMatchingPackage(
         const std::string& pkgName,
         std::string_view constraint) const noexcept;
 };

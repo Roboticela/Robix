@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../Compiler/Semantic/Diagnostics.hpp"
-#include "../Manager/RbxApiAndPackageFormat.hpp"
+#include "../Manager/RxApiAndPackageFormat.hpp"
 #include "../Resolver/DependencyResolver.hpp"
 
 #include <map>
@@ -28,7 +28,7 @@ public:
         : m_trustedPublisherKey(std::move(trustedPublisherKey)) {}
 
     // `robix publish` — verifies signature, .rxapi Explain blocks, and SHA-256 before accepting
-    bool PublishPackage(const RbxPackageArchive& archive,
+    bool PublishPackage(const RxPackageArchive& archive,
                         const std::string& requiredTargetPlatform,
                         Frontend::DiagnosticBag& diagnostics);
 
@@ -36,7 +36,7 @@ public:
     [[nodiscard]] std::vector<RegistrySearchHit> Search(std::string_view query) const;
 
     // `robix info <name>[@version]`
-    [[nodiscard]] const RbxPackageArchive* GetPackageInfo(
+    [[nodiscard]] const RxPackageArchive* GetPackageInfo(
         std::string_view name,
         std::string_view versionConstraint = "*") const noexcept;
 
@@ -55,7 +55,7 @@ struct InstalledPackageLayout {
     std::string              packageName;
     std::string              version;
     std::string              installDirectory; // <ProjectRoot>/.robix/packages/<Name>/<Version>/
-    std::string              rbxApiPath;       // .../<Name>.rxapi
+    std::string              rxApiPath;       // .../<Name>.rxapi
     std::vector<std::string> binaryPaths;      // .../binaries/<target>/<file>
     std::string              packageJsonPath;  // .../package.json
 };
@@ -92,8 +92,8 @@ public:
     // `robix tree`
     [[nodiscard]] std::string RenderDependencyTree() const;
 
-    [[nodiscard]] const RbxProjectManifest& ProjectManifest() const noexcept { return m_manifest; }
-    [[nodiscard]] const RbxLockfile& Lockfile() const noexcept { return m_lockfile; }
+    [[nodiscard]] const RxProjectManifest& ProjectManifest() const noexcept { return m_manifest; }
+    [[nodiscard]] const RxLockfile& Lockfile() const noexcept { return m_lockfile; }
     [[nodiscard]] const std::unordered_map<std::string, std::string>& VirtualFS() const noexcept {
         return m_virtualProjectFS;
     }
@@ -101,8 +101,8 @@ public:
 private:
     std::string                                  m_projectRoot;
     RobixPackageRegistry&                        m_registry;
-    RbxProjectManifest                           m_manifest;
-    RbxLockfile                                  m_lockfile;
+    RxProjectManifest                           m_manifest;
+    RxLockfile                                  m_lockfile;
     std::vector<InstalledPackageLayout>          m_installedPackages;
     std::unordered_map<std::string, std::string> m_virtualProjectFS;
 };

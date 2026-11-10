@@ -74,7 +74,7 @@ robix interpreter version
 robix interpreter trace
 ```
 
-Target triples the compiler accepts: `x86_64` hosted Windows, `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, `riscv64-unknown-none`, `x86_64-unknown-linux-gnu`. A project `Output` of `Kernel` or `Firmware` links a boot image. Other outputs are `Executable`, a static library, a shared library, an object file, or a package (`.rxlib`, header `RBXPKG 1`).
+Target triples the compiler accepts: `x86_64` hosted Windows, `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, `riscv64-unknown-none`, `x86_64-unknown-linux-gnu`. A project `Output` of `Kernel` or `Firmware` links a boot image. Other outputs are `Executable`, a static library, a shared library, an object file, or a package (`.rxlib`, header `RXPKG 1`).
 
 Build profiles select the link flags recorded in `Documentation/Status.md`: `debug`, `release` (default `-O3`), `performance`, `realtime`, `safety`, `size`, `embedded`.
 
@@ -289,7 +289,7 @@ Highest precedence is 18. Lowest is 1.
 
 Arguments, binary operands, array elements, and field initializers evaluate left to right.
 
-String `+` concatenates. Two visible string literals become one global. Other concatenations call `rbx_strcat`. String `==` and `!=` use `strcmp`.
+String `+` concatenates. Two visible string literals become one global. Other concatenations call `rx_strcat`. String `==` and `!=` use `strcmp`.
 
 Pointer `+` and `-` are pointer arithmetic and require `Unsafe`.
 

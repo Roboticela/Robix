@@ -453,7 +453,7 @@ NativeBuildResult FinishHostedArtifact(const std::string& clang,
     }
 
     const std::string sha = StdLib::CryptoEngine::ComputeSHA256Hex(sourceText);
-    std::string bytes = "RBXPKG 1\nsha256 " + sha + "\nsource " + std::to_string(sourceText.size()) + "\n";
+    std::string bytes = "RXPKG 1\nsha256 " + sha + "\nsource " + std::to_string(sourceText.size()) + "\n";
     bytes.append(sourceText.data(), sourceText.size());
     bytes += "\n";
     std::ofstream package(output, std::ios::binary | std::ios::trunc);
@@ -715,10 +715,10 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     {
         std::ifstream ir(codegenInput, std::ios::binary);
         const std::string irText((std::istreambuf_iterator<char>(ir)), std::istreambuf_iterator<char>());
-        linkLoopback = irText.find("call ptr @rbx_network_send_text") != std::string::npos ||
-                       irText.find("call ptr @rbx_network_call") != std::string::npos;
-        linkEnv = irText.find("call ptr @rbx_env_get") != std::string::npos ||
-                  irText.find("call i64 @rbx_env_") != std::string::npos;
+        linkLoopback = irText.find("call ptr @rx_network_send_text") != std::string::npos ||
+                       irText.find("call ptr @rx_network_call") != std::string::npos;
+        linkEnv = irText.find("call ptr @rx_env_get") != std::string::npos ||
+                  irText.find("call i64 @rx_env_") != std::string::npos;
     }
     const fs::path toolBin = fs::path(clang).parent_path();
     const fs::path lld = toolBin / "Linker.exe";

@@ -14,12 +14,12 @@
 #include <ws2tcpip.h>
 #endif
 
-extern "C" char* rbx_network_call(const char* service, const char* method, const char* text);
-extern "C" char* rbx_env_get(const char* name);
-extern "C" std::int64_t rbx_env_exists(const char* name);
-extern "C" std::int64_t rbx_env_set(const char* name, const char* value);
-extern "C" std::int64_t rbx_env_add(const char* name, const char* value);
-extern "C" std::int64_t rbx_env_remove(const char* name);
+extern "C" char* rx_network_call(const char* service, const char* method, const char* text);
+extern "C" char* rx_env_get(const char* name);
+extern "C" std::int64_t rx_env_exists(const char* name);
+extern "C" std::int64_t rx_env_set(const char* name, const char* value);
+extern "C" std::int64_t rx_env_add(const char* name, const char* value);
+extern "C" std::int64_t rx_env_remove(const char* name);
 
 namespace Robix::VM {
 
@@ -582,30 +582,30 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ text };
                 } else if (inst.symbolImm == "Env.Get" && !inst.callArgRegs.empty()) {
-                    char* value = rbx_env_get(regs[inst.callArgRegs[0]].ToString().c_str());
+                    char* value = rx_env_get(regs[inst.callArgRegs[0]].ToString().c_str());
                     std::string text = value != nullptr ? value : "";
                     std::free(value);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::move(text) };
                 } else if (inst.symbolImm == "Env.Exists" && !inst.callArgRegs.empty()) {
                     if (inst.destReg != 0) {
-                        regs[inst.destReg] = VMValue{ rbx_env_exists(regs[inst.callArgRegs[0]].ToString().c_str()) };
+                        regs[inst.destReg] = VMValue{ rx_env_exists(regs[inst.callArgRegs[0]].ToString().c_str()) };
                     }
                 } else if ((inst.symbolImm == "Env.Set" || inst.symbolImm == "Env.Add") && inst.callArgRegs.size() >= 2) {
                     const std::string key = regs[inst.callArgRegs[0]].ToString();
                     const std::string value = regs[inst.callArgRegs[1]].ToString();
                     const std::int64_t wrote = inst.symbolImm == "Env.Set"
-                        ? rbx_env_set(key.c_str(), value.c_str())
-                        : rbx_env_add(key.c_str(), value.c_str());
+                        ? rx_env_set(key.c_str(), value.c_str())
+                        : rx_env_add(key.c_str(), value.c_str());
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ wrote };
                 } else if (inst.symbolImm == "Env.Remove" && !inst.callArgRegs.empty()) {
                     if (inst.destReg != 0) {
-                        regs[inst.destReg] = VMValue{ rbx_env_remove(regs[inst.callArgRegs[0]].ToString().c_str()) };
+                        regs[inst.destReg] = VMValue{ rx_env_remove(regs[inst.callArgRegs[0]].ToString().c_str()) };
                     }
                 } else if (inst.symbolImm == "Network.Call" && inst.callArgRegs.size() >= 3) {
                     const std::string service = regs[inst.callArgRegs[0]].ToString();
                     const std::string method = regs[inst.callArgRegs[1]].ToString();
                     const std::string text = regs[inst.callArgRegs[2]].ToString();
-                    char* reply = rbx_network_call(service.c_str(), method.c_str(), text.c_str());
+                    char* reply = rx_network_call(service.c_str(), method.c_str(), text.c_str());
                     std::string value = reply != nullptr ? reply : "";
                     std::free(reply);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::move(value) };

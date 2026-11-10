@@ -65,7 +65,7 @@ bool SemVer::SatisfiesConstraint(std::string_view constraint) const noexcept {
 // 2. PROJECT MANIFEST (.rxproj) & LOCKFILE (.rxlock) IMPLEMENTATION
 // ============================================================================
 
-std::string RbxProjectManifest::SerializeToRbxProj() const {
+std::string RxProjectManifest::SerializeToRxProj() const {
     using namespace StdLib;
     JsonValue root = JsonValue::MakeObject();
     root.objectVal["projectName"]     = JsonValue::MakeString(projectName);
@@ -81,12 +81,12 @@ std::string RbxProjectManifest::SerializeToRbxProj() const {
     return JsonCodec::Serialize(root, JsonFormatOption::Pretty);
 }
 
-std::optional<RbxProjectManifest> RbxProjectManifest::ParseFromRbxProj(std::string_view content) {
+std::optional<RxProjectManifest> RxProjectManifest::ParseFromRxProj(std::string_view content) {
     using namespace StdLib;
     auto rootOpt = JsonCodec::TryParse(content);
     if (!rootOpt || rootOpt->kind != JsonKind::Object) return std::nullopt;
 
-    RbxProjectManifest proj;
+    RxProjectManifest proj;
     if (const auto* v = rootOpt->GetField("projectName"))     proj.projectName     = v->strVal;
     if (const auto* v = rootOpt->GetField("version"))         proj.version         = v->strVal;
     if (const auto* v = rootOpt->GetField("projectTemplate")) proj.projectTemplate = v->strVal;
@@ -98,7 +98,7 @@ std::optional<RbxProjectManifest> RbxProjectManifest::ParseFromRbxProj(std::stri
     return proj;
 }
 
-std::string RbxLockfile::SerializeToRbxLock() const {
+std::string RxLockfile::SerializeToRxLock() const {
     using namespace StdLib;
     JsonValue root = JsonValue::MakeObject();
     root.objectVal["lockfileFormat"] = JsonValue::MakeString(lockfileFormat);
@@ -108,7 +108,7 @@ std::string RbxLockfile::SerializeToRbxLock() const {
         JsonValue pObj = JsonValue::MakeObject();
         pObj.objectVal["name"]            = JsonValue::MakeString(entry.name);
         pObj.objectVal["resolvedVersion"] = JsonValue::MakeString(entry.resolvedVersion);
-        pObj.objectVal["rbxApiSha256Hex"] = JsonValue::MakeString(entry.rbxApiSha256Hex);
+        pObj.objectVal["rxApiSha256Hex"] = JsonValue::MakeString(entry.rxApiSha256Hex);
         pObj.objectVal["signatureHex"]    = JsonValue::MakeString(entry.signatureHex);
 
         JsonValue dArr = JsonValue::MakeArray();
@@ -123,19 +123,19 @@ std::string RbxLockfile::SerializeToRbxLock() const {
     return JsonCodec::Serialize(root, JsonFormatOption::Pretty);
 }
 
-std::optional<RbxLockfile> RbxLockfile::ParseFromRbxLock(std::string_view content) {
+std::optional<RxLockfile> RxLockfile::ParseFromRxLock(std::string_view content) {
     using namespace StdLib;
     auto rootOpt = JsonCodec::TryParse(content);
     if (!rootOpt || rootOpt->kind != JsonKind::Object) return std::nullopt;
 
-    RbxLockfile lock;
+    RxLockfile lock;
     if (const auto* f = rootOpt->GetField("lockfileFormat")) lock.lockfileFormat = f->strVal;
     if (const auto* arr = rootOpt->GetField("resolvedPackages")) {
         for (const auto& pObj : arr->arrayVal) {
             LockedPackageEntry entry;
             if (const auto* n = pObj.GetField("name"))            entry.name            = n->strVal;
             if (const auto* v = pObj.GetField("resolvedVersion")) entry.resolvedVersion = v->strVal;
-            if (const auto* h = pObj.GetField("rbxApiSha256Hex")) entry.rbxApiSha256Hex = h->strVal;
+            if (const auto* h = pObj.GetField("rxApiSha256Hex")) entry.rxApiSha256Hex = h->strVal;
             if (const auto* s = pObj.GetField("signatureHex"))    entry.signatureHex    = s->strVal;
             if (const auto* d = pObj.GetField("directDependencies")) {
                 for (const auto& el : d->arrayVal) {
@@ -152,15 +152,15 @@ std::optional<RbxLockfile> RbxLockfile::ParseFromRbxLock(std::string_view conten
 // 3. DETERMINISTIC DEPENDENCY RESOLVER IMPLEMENTATION
 // ============================================================================
 
-void DependencyResolver::RegisterAvailablePackage(RbxPackageArchive pkg) {
+void DependencyResolver::RegisterAvailablePackage(RxPackageArchive pkg) {
     m_availablePackages.push_back(std::move(pkg));
 }
 
-const RbxPackageArchive* DependencyResolver::FindBestMatchingPackage(
+const RxPackageArchive* DependencyResolver::FindBestMatchingPackage(
     const std::string& pkgName,
     std::string_view constraint) const noexcept {
 
-    const RbxPackageArchive* best = nullptr;
+    const RxPackageArchive* best = nullptr;
     SemVer bestVer{ -1, -1, -1 };
 
     for (const auto& candidate : m_availablePackages) {
@@ -177,11 +177,11 @@ const RbxPackageArchive* DependencyResolver::FindBestMatchingPackage(
     return best;
 }
 
-std::optional<RbxLockfile> DependencyResolver::ResolveProjectDependencies(
-    const RbxProjectManifest& project,
+std::optional<RxLockfile> DependencyResolver::ResolveProjectDependencies(
+    const RxProjectManifest& project,
     Frontend::DiagnosticBag& diagnostics) const {
 
-    std::unordered_map<std::string, const RbxPackageArchive*> resolvedMap;
+    std::unordered_map<std::string, const RxPackageArchive*> resolvedMap;
     std::unordered_set<std::string> visiting;
     std::unordered_set<std::string> visited;
     std::vector<LockedPackageEntry> topologicalOrder;
@@ -197,7 +197,7 @@ std::optional<RbxLockfile> DependencyResolver::ResolveProjectDependencies(
             return false;
         }
 
-        const RbxPackageArchive* chosen = FindBestMatchingPackage(pkgName, constraint);
+        const RxPackageArchive* chosen = FindBestMatchingPackage(pkgName, constraint);
         if (!chosen) {
             diagnostics.ReportError(
                 "P8007",
@@ -241,7 +241,7 @@ std::optional<RbxLockfile> DependencyResolver::ResolveProjectDependencies(
             topologicalOrder.push_back(LockedPackageEntry{
                 chosen->manifest.name,
                 chosen->manifest.version,
-                chosen->rbxApiSha256Hex,
+                chosen->rxApiSha256Hex,
                 chosen->publisherSignatureHex,
                 std::move(directDeps)
             });
@@ -255,7 +255,7 @@ std::optional<RbxLockfile> DependencyResolver::ResolveProjectDependencies(
         }
     }
 
-    RbxLockfile lock;
+    RxLockfile lock;
     lock.resolvedPackages = std::move(topologicalOrder);
     return lock;
 }

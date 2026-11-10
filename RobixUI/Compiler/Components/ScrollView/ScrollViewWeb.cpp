@@ -1,7 +1,7 @@
 #include "ScrollViewWeb.hpp"
 
 void RoboWebAppendScrollCss(std::ostream& css) {
-  css << ".robo-scroll{overflow:auto;min-height:0;scrollbar-width:none;outline:0}\n";
+  css << ".robo-scroll{position:relative;overflow:auto;min-height:0;scrollbar-width:none;outline:0}\n";
   css << ".robo-scroll:focus{outline:0}\n";
   css << ".robo-scroll::-webkit-scrollbar{width:0;height:0}\n";
   css << ".robo-scroll-host{position:relative;min-width:0;border:0;outline:none;box-shadow:none}\n";
@@ -211,8 +211,8 @@ std::string RoboWebScrollScript() {
       if (!bar) {
         bar = document.createElement("div");
         bar.className = "robo-scrollbar";
-        bar.setAttribute("data-autohide", "true");
-        bar.setAttribute("data-arrows", "always");
+        bar.setAttribute("data-autohide", view.getAttribute("data-autohide") || "true");
+        bar.setAttribute("data-arrows", view.getAttribute("data-arrows") || "always");
       }
       if (!bar.querySelector(".robo-scroll-thumb")) {
         bar.innerHTML = "<button type=\"button\" class=\"robo-scroll-arrow is-up\" aria-label=\"Scroll up\"></button><div class=\"robo-scroll-track\"><div class=\"robo-scroll-thumb\"></div></div><button type=\"button\" class=\"robo-scroll-arrow is-down\" aria-label=\"Scroll down\"></button>";
@@ -287,9 +287,16 @@ std::string RoboWebScrollScript() {
         var inset = radius;
         var room = view.clientHeight - 28;
         if (inset * 2 > room) inset = Math.max(0, Math.floor(room / 2));
-        bar.style.right = "0px";
-        bar.style.top = inset + "px";
-        bar.style.bottom = inset + "px";
+        var menu = view.closest && view.closest(".robo-select-menu");
+        if (menu) {
+          bar.style.right = "-6px";
+          bar.style.top = "4px";
+          bar.style.bottom = "4px";
+        } else {
+          bar.style.right = "2px";
+          bar.style.top = inset + "px";
+          bar.style.bottom = inset + "px";
+        }
         var max = maxScroll();
         bar.classList.toggle("is-needed", max > 1);
         if (max <= 1 || !track) return;
@@ -418,8 +425,10 @@ std::string RoboWebScrollScript() {
       });
       var barX = null;
       var scrollXAttr = (view.getAttribute("data-scrollx") || "").toLowerCase();
-      var xOn = scrollXAttr === "true" || scrollXAttr === "1" || scrollXAttr === "yes" || scrollXAttr === "on" || scrollXAttr === "auto";
-      if (xOn || view.scrollWidth > view.clientWidth + 1) {
+      var xDenied = scrollXAttr === "false" || scrollXAttr === "0" || scrollXAttr === "off" || scrollXAttr === "no";
+      var xAsked = scrollXAttr === "true" || scrollXAttr === "1" || scrollXAttr === "yes" || scrollXAttr === "on" || scrollXAttr === "auto";
+      var xOn = !xDenied && (xAsked || view.scrollWidth > view.clientWidth + 1);
+      if (xOn) {
         barX = document.createElement("div");
         barX.className = "robo-scrollbar is-x";
         barX.setAttribute("data-autohide", bar.getAttribute("data-autohide") || "true");

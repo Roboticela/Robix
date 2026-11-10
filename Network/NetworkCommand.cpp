@@ -306,7 +306,7 @@ int RunNetworkCommand(const std::vector<std::string>& args) {
         std::cout << "network-check: ok\n";
         return 0;
     }
-    const int code = rbx_network_run((buildDir / "server.env").string().c_str(), (buildDir / "methods.txt").string().c_str());
+    const int code = rx_network_run((buildDir / "server.env").string().c_str(), (buildDir / "methods.txt").string().c_str());
     if (code != 0) return code;
     std::cout << "network: ok\n";
     return 0;

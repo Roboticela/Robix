@@ -40,7 +40,7 @@ bool InlineASMValidator::ValidateForTarget(const InlineASMStatementDesc& asmDesc
     const bool usesX86Only = ContainsToken(upperInst, "RDTSC") ||
                              ContainsToken(upperInst, "CPUID") ||
                              ContainsToken(upperInst, "RAX") ||
-                             ContainsToken(upperInst, "RBX") ||
+                             ContainsToken(upperInst, "RX") ||
                              ContainsToken(upperInst, "RCX") ||
                              ContainsToken(upperInst, "RDX") ||
                              ContainsToken(upperInst, "MFENCE");

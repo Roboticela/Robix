@@ -764,7 +764,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_ctx.stringLiterals.push_back(left->second.text + right->second.text);
                     m_vals[id] = Val{ "@.str." + std::to_string(idx), NTy::Ptr };
                 } else {
-                    m_body << "  " << vname << " = call ptr @rbx_strcat(ptr " << a.repr << ", ptr " << b.repr << ")\n";
+                    m_body << "  " << vname << " = call ptr @rx_strcat(ptr " << a.repr << ", ptr " << b.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::Ptr };
                 }
                 (void)ignored;
@@ -995,7 +995,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             }
             const bool cpuFn = m_ctx.cpuFns.count(cit->second->name) != 0;
             const bool ext = cit->second->isExtern || cpuFn;
-            const std::string callee = cpuFn ? ("@rbx_fn_" + cit->second->name)
+            const std::string callee = cpuFn ? ("@rx_fn_" + cit->second->name)
                                              : ext ? ("@" + cit->second->mangledName)
                                                    : ("@\"" + cit->second->mangledName + "\"");
             const char* cc = ext ? "" : "fastcc ";
@@ -1012,11 +1012,11 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
         case IROpcode::PrintVal: {
             Val a = Operand(inst, 0);
             if (a.ty == NTy::Ptr) {
-                m_body << "  call void @rbx_print_str(ptr " << a.repr << ")\n";
+                m_body << "  call void @rx_print_str(ptr " << a.repr << ")\n";
             } else if (a.ty == NTy::I1) {
                 const std::string t = NewTmp();
                 m_body << "  " << t << " = zext i1 " << a.repr << " to i32\n";
-                m_body << "  call void @rbx_print_bool(i32 " << t << ")\n";
+                m_body << "  call void @rx_print_bool(i32 " << t << ")\n";
             } else if (IsIntTy(a.ty)) {
                 Val w = Coerce(a, NTy::I64, inst.location);
                 if (m_ctx.printFmt < 0) {
@@ -1027,7 +1027,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                        << ", i64 " << w.repr << ")\n";
             } else if (IsFloatTy(a.ty)) {
                 Val w = Coerce(a, NTy::F64, inst.location);
-                m_body << "  call void @rbx_print_f64(double " << w.repr << ")\n";
+                m_body << "  call void @rx_print_f64(double " << w.repr << ")\n";
             } else {
                 Err("N9007", "Cannot Print a void value.", inst.location);
             }
@@ -1217,60 +1217,60 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << vname << " = call i64 @strlen(ptr " << s.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Args.Count") {
-                m_body << "  " << vname << " = call i64 @rbx_args_count()\n";
+                m_body << "  " << vname << " = call i64 @rx_args_count()\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Args.Get" && !inst.operandIds.empty()) {
                 Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
-                m_body << "  " << vname << " = call ptr @rbx_args_get(i64 " << index.repr << ")\n";
+                m_body << "  " << vname << " = call ptr @rx_args_get(i64 " << index.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Env.Get" && !inst.operandIds.empty()) {
                 Val name = Operand(inst, 0);
-                m_body << "  " << vname << " = call ptr @rbx_env_get(ptr " << name.repr << ")\n";
+                m_body << "  " << vname << " = call ptr @rx_env_get(ptr " << name.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Env.Exists" && !inst.operandIds.empty()) {
                 Val name = Operand(inst, 0);
-                m_body << "  " << vname << " = call i64 @rbx_env_exists(ptr " << name.repr << ")\n";
+                m_body << "  " << vname << " = call i64 @rx_env_exists(ptr " << name.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if ((inst.textImm == "Env.Set" || inst.textImm == "Env.Add") && inst.operandIds.size() >= 2) {
                 Val name = Operand(inst, 0);
                 Val value = Operand(inst, 1);
-                const char* symbol = inst.textImm == "Env.Set" ? "@rbx_env_set" : "@rbx_env_add";
+                const char* symbol = inst.textImm == "Env.Set" ? "@rx_env_set" : "@rx_env_add";
                 m_body << "  " << vname << " = call i64 " << symbol << "(ptr " << name.repr << ", ptr " << value.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Env.Remove" && !inst.operandIds.empty()) {
                 Val name = Operand(inst, 0);
-                m_body << "  " << vname << " = call i64 @rbx_env_remove(ptr " << name.repr << ")\n";
+                m_body << "  " << vname << " = call i64 @rx_env_remove(ptr " << name.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Network.Call" && inst.operandIds.size() >= 3) {
                 Val service = Operand(inst, 0);
                 Val method = Operand(inst, 1);
                 Val text = Operand(inst, 2);
-                m_body << "  " << vname << " = call ptr @rbx_network_call(ptr " << service.repr
+                m_body << "  " << vname << " = call ptr @rx_network_call(ptr " << service.repr
                        << ", ptr " << method.repr << ", ptr " << text.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Network.SendText" && !inst.operandIds.empty()) {
                 Val text = Operand(inst, 0);
-                m_body << "  " << vname << " = call ptr @rbx_network_send_text(ptr " << text.repr << ")\n";
+                m_body << "  " << vname << " = call ptr @rx_network_send_text(ptr " << text.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Input" || inst.textImm == "Input.Int") {
                 const std::string promptRepr = inst.operandIds.empty() ? "null" : Operand(inst, 0).repr;
                 if (inst.textImm == "Input.Int") {
-                    m_body << "  " << vname << " = call i64 @rbx_input_i64(ptr " << promptRepr << ")\n";
+                    m_body << "  " << vname << " = call i64 @rx_input_i64(ptr " << promptRepr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 } else {
-                    m_body << "  " << vname << " = call ptr @rbx_input_line(ptr " << promptRepr << ")\n";
+                    m_body << "  " << vname << " = call ptr @rx_input_line(ptr " << promptRepr << ")\n";
                     m_vals[id] = Val{ vname, NTy::Ptr };
                 }
             } else if (inst.textImm == "File.WriteText" && inst.operandIds.size() >= 2) {
                 Val path = Operand(inst, 0);
                 Val text = Operand(inst, 1);
                 const std::string wrote = NewTmp();
-                m_body << "  " << wrote << " = call i32 @rbx_write_text(ptr " << path.repr << ", ptr " << text.repr << ")\n";
+                m_body << "  " << wrote << " = call i32 @rx_write_text(ptr " << path.repr << ", ptr " << text.repr << ")\n";
                 m_body << "  " << vname << " = icmp ne i32 " << wrote << ", 0\n";
                 m_vals[id] = Val{ vname, NTy::I1 };
             } else if (inst.textImm == "File.ReadText" && !inst.operandIds.empty()) {
                 Val path = Operand(inst, 0);
-                m_body << "  " << vname << " = call ptr @rbx_read_text(ptr " << path.repr << ")\n";
+                m_body << "  " << vname << " = call ptr @rx_read_text(ptr " << path.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Volatile.Load" && !inst.operandIds.empty()) {
                 Val p = Operand(inst, 0);
@@ -1320,7 +1320,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Memory.Pages" && !inst.operandIds.empty()) {
                 Val count = Coerce(Operand(inst, 0), NTy::I64, inst.location);
-                m_body << "  " << vname << " = call ptr @rbx_pages_take(i64 " << count.repr << ")\n";
+                m_body << "  " << vname << " = call ptr @rx_pages_take(i64 " << count.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
             } else if (inst.textImm == "Memory.Address" && !inst.operandIds.empty()) {
                 Val p = Operand(inst, 0);
@@ -1359,10 +1359,10 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_vals[id] = Val{ "0", NTy::Void };
                 } else if (inst.textImm == "Cpu.ExchangeRSP" && !inst.operandIds.empty()) {
                     Val next = Coerce(Operand(inst, 0), NTy::I64, inst.location);
-                    m_body << "  " << vname << " = call i64 @rbx_exchange_rsp(i64 " << next.repr << ")\n";
+                    m_body << "  " << vname << " = call i64 @rx_exchange_rsp(i64 " << next.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 } else if (inst.textImm == "Cpu.SavedRSP") {
-                    m_body << "  " << vname << " = load i64, ptr @rbx.switch.cell, align 8\n";
+                    m_body << "  " << vname << " = load i64, ptr @rx.switch.cell, align 8\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 } else if (inst.textImm == "Cpu.BootInfo") {
                     const std::string raw = NewTmp();
@@ -1386,8 +1386,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_vals[id] = Val{ "0", NTy::Void };
                 } else if (inst.textImm == "Cpu.Function" || inst.textImm == "Cpu.Handler") {
                     const std::string sym = inst.textImm == "Cpu.Handler"
-                                                ? ("@rbx_isr_" + inst.secondaryText)
-                                                : ("@rbx_fn_" + inst.secondaryText);
+                                                ? ("@rx_isr_" + inst.secondaryText)
+                                                : ("@rx_fn_" + inst.secondaryText);
                     m_body << "  " << vname << " = ptrtoint ptr " << sym << " to i64\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 } else if (inst.textImm == "Timer.Arm") {
@@ -1416,8 +1416,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                         m_body << "  " << v8 << " = trunc i64 " << value << " to i8\n";
                         m_body << "  call void asm sideeffect \"outb $0, $1\", \"{ax},{dx}\"(i8 " << v8 << ", i16 " << p16 << ")\n";
                     };
-                    m_body << "  " << idt << " = call ptr @rbx_pages_take(i64 1)\n";
-                    m_body << "  " << handler << " = ptrtoint ptr @rbx_isr_" << inst.secondaryText << " to i64\n";
+                    m_body << "  " << idt << " = call ptr @rx_pages_take(i64 1)\n";
+                    m_body << "  " << handler << " = ptrtoint ptr @rx_isr_" << inst.secondaryText << " to i64\n";
                     m_body << "  " << lowMask << " = and i64 " << handler << ", 65535\n";
                     m_body << "  " << midShift << " = lshr i64 " << handler << ", 16\n";
                     m_body << "  " << midMask << " = and i64 " << midShift << ", 65535\n";
@@ -1514,10 +1514,10 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     const std::string mem = NewTmp();
                     const std::string lim16 = NewTmp();
                     const std::string slot = NewTmp();
-                    m_body << "  " << pageB << " = call ptr @rbx_pages_take(i64 1)\n";
+                    m_body << "  " << pageB << " = call ptr @rx_pages_take(i64 1)\n";
                     for (int i = 0; i < 9; ++i) storeQ(pageB, i * 8, "0");
-                    m_body << "  " << taskB << " = ptrtoint ptr @rbx_fn_" << m_ctx.preemptB << " to i64\n";
-                    m_body << "  " << taskA << " = ptrtoint ptr @rbx_fn_" << m_ctx.preemptA << " to i64\n";
+                    m_body << "  " << taskB << " = ptrtoint ptr @rx_fn_" << m_ctx.preemptB << " to i64\n";
+                    m_body << "  " << taskA << " = ptrtoint ptr @rx_fn_" << m_ctx.preemptA << " to i64\n";
                     m_body << "  " << pageBAddr << " = ptrtoint ptr " << pageB << " to i64\n";
                     m_body << "  " << topB << " = add i64 " << pageBAddr << ", 4096\n";
                     storeQ(pageB, 72, taskB);
@@ -1525,13 +1525,13 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     storeQ(pageB, 88, "514");
                     storeQ(pageB, 96, topB);
                     storeQ(pageB, 104, "16");
-                    m_body << "  store i64 " << pageBAddr << ", ptr @rbx_preempt_rsp1, align 8\n";
-                    m_body << "  store i64 " << taskA << ", ptr @rbx_preempt_entry, align 8\n";
-                    m_body << "  store i64 0, ptr @rbx_preempt_current, align 8\n";
-                    m_body << "  store i64 0, ptr @rbx_preempt_count, align 8\n";
-                    m_body << "  " << idt << " = call ptr @rbx_pages_take(i64 1)\n";
-                    m_body << "  " << timer << " = ptrtoint ptr @rbx_isr_preempt to i64\n";
-                    m_body << "  " << syscall << " = ptrtoint ptr @rbx_isr_syscall to i64\n";
+                    m_body << "  store i64 " << pageBAddr << ", ptr @rx_preempt_rsp1, align 8\n";
+                    m_body << "  store i64 " << taskA << ", ptr @rx_preempt_entry, align 8\n";
+                    m_body << "  store i64 0, ptr @rx_preempt_current, align 8\n";
+                    m_body << "  store i64 0, ptr @rx_preempt_count, align 8\n";
+                    m_body << "  " << idt << " = call ptr @rx_pages_take(i64 1)\n";
+                    m_body << "  " << timer << " = ptrtoint ptr @rx_isr_preempt to i64\n";
+                    m_body << "  " << syscall << " = ptrtoint ptr @rx_isr_syscall to i64\n";
                     gate(idt, 32, timer);
                     gate(idt, 128, syscall);
                     m_body << "  " << base << " = ptrtoint ptr " << idt << " to i64\n";
@@ -1553,10 +1553,10 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     outb(0x21, 0xFE);
                     outb(0xA1, 0xFF);
                     m_body << "  call void asm sideeffect \"sti\", \"\"()\n";
-                    m_body << "  " << pageA << " = call ptr @rbx_pages_take(i64 1)\n";
+                    m_body << "  " << pageA << " = call ptr @rx_pages_take(i64 1)\n";
                     m_body << "  " << pageAAddr << " = ptrtoint ptr " << pageA << " to i64\n";
                     m_body << "  " << topA << " = add i64 " << pageAAddr << ", 4096\n";
-                    const std::string run = "movq %rsp, %rax\nmovq $0, %rsp\ncall rbx_fn_" + m_ctx.preemptA + "\nmovq %rax, %rsp";
+                    const std::string run = "movq %rsp, %rax\nmovq $0, %rsp\ncall rx_fn_" + m_ctx.preemptA + "\nmovq %rax, %rsp";
                     m_body << "  call void asm sideeffect \"" << EscapeLLVMString(run)
                            << "\", \"r,~{rax},~{rcx},~{rdx},~{rsi},~{rdi},~{r8},~{r9},~{r10},~{r11},~{flags},~{dirflag},~{fpsr},~{memory}\"(i64 "
                            << topA << ")\n";
@@ -1564,7 +1564,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 } else if (inst.textImm == "Cpu.Run" && !inst.operandIds.empty()) {
                     Val top = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                     const std::string text =
-                        "movq %rsp, %rax\nmovq $0, %rsp\ncall rbx_fn_" + inst.secondaryText + "\nmovq %rax, %rsp";
+                        "movq %rsp, %rax\nmovq $0, %rsp\ncall rx_fn_" + inst.secondaryText + "\nmovq %rax, %rsp";
                     m_body << "  call void asm sideeffect \"" << EscapeLLVMString(text)
                            << "\", \"r,~{rax},~{rcx},~{rdx},~{rsi},~{rdi},~{r8},~{r9},~{r10},~{r11},~{flags},~{dirflag},~{fpsr},~{memory}\"(i64 "
                            << top.repr << ")\n";
@@ -1645,10 +1645,10 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_vals[id] = Val{ "1", NTy::I64 };
                     (void)pin;
                 } else if (inst.textImm == "GPIO.Read") {
-                    m_body << "  " << vname << " = call i64 @rbx_gpio_read(i64 " << pin.repr << ")\n";
+                    m_body << "  " << vname << " = call i64 @rx_gpio_read(i64 " << pin.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 } else {
-                    m_body << "  " << vname << " = call i64 @rbx_device_unavailable(i64 "
+                    m_body << "  " << vname << " = call i64 @rx_device_unavailable(i64 "
                            << UnavailableDevice(inst.textImm) << ", i64 " << pin.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
                 }
@@ -1661,7 +1661,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val cell = Operand(inst, 0);
                 Val left = Coerce(Operand(inst, 1), NTy::I64, inst.location);
                 Val right = Coerce(Operand(inst, 2), NTy::I64, inst.location);
-                m_body << "  " << vname << " = call i64 @rbx_add_pair(ptr " << cell.repr << ", i64 " << left.repr
+                m_body << "  " << vname << " = call i64 @rx_add_pair(ptr " << cell.repr << ", i64 " << left.repr
                        << ", i64 " << right.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else {
@@ -1934,7 +1934,7 @@ bool FnEmitter::Emit() {
             if (terminated) break;
             if (m_ctx.options.debugLines && inst.location.line != 0 && inst.location.line != m_lastDebugLine) {
                 m_lastDebugLine = inst.location.line;
-                m_body << "  call void @rbx_debug_line(i64 " << m_lastDebugLine << ")\n";
+                m_body << "  call void @rx_debug_line(i64 " << m_lastDebugLine << ")\n";
             }
             EmitInstruction(inst);
             terminated = IR::IsTerminatorOpcode(inst.opcode);
@@ -1953,7 +1953,7 @@ bool FnEmitter::Emit() {
     } else if (isEntry) {
         m_out << "define dso_local " << TyStr(ret) << " @" << m_fn.name << "(";
     } else if (cpuFn) {
-        m_out << "define dso_local " << TyStr(ret) << " @rbx_fn_" << m_fn.name << "(";
+        m_out << "define dso_local " << TyStr(ret) << " @rx_fn_" << m_fn.name << "(";
     } else {
         m_out << "define internal fastcc " << TyStr(ret) << " @\"" << m_fn.mangledName << "\"(";
     }
@@ -2132,24 +2132,24 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     const auto needs = [&](const char* symbol) {
         return body.find(symbol) != std::string::npos;
     };
-    if (!m_options.freestanding || needs("@rbx_print_i64")) {
-        out << "declare void @rbx_print_i64(i64)\n";
+    if (!m_options.freestanding || needs("@rx_print_i64")) {
+        out << "declare void @rx_print_i64(i64)\n";
     }
     if (!m_options.freestanding || needs("@printf")) {
         out << "declare i32 @printf(ptr, ...)\n";
-        out << "declare void @rbx_print_f64(double)\n";
-        out << "declare void @rbx_print_bool(i32)\n";
-        out << "declare void @rbx_print_str(ptr)\n";
+        out << "declare void @rx_print_f64(double)\n";
+        out << "declare void @rx_print_bool(i32)\n";
+        out << "declare void @rx_print_str(ptr)\n";
         out << "declare ptr @malloc(i64)\n";
         out << "declare void @free(ptr)\n";
         out << "declare i64 @strlen(ptr)\n";
         out << "declare i32 @strcmp(ptr, ptr)\n";
-        out << "declare ptr @rbx_input_line(ptr)\n";
-        out << "declare i64 @rbx_input_i64(ptr)\n";
-        out << "declare i64 @rbx_args_count()\n";
-        out << "declare ptr @rbx_args_get(i64)\n";
-        out << "declare i32 @rbx_write_text(ptr, ptr)\n";
-        out << "declare ptr @rbx_read_text(ptr)\n";
+        out << "declare ptr @rx_input_line(ptr)\n";
+        out << "declare i64 @rx_input_i64(ptr)\n";
+        out << "declare i64 @rx_args_count()\n";
+        out << "declare ptr @rx_args_get(i64)\n";
+        out << "declare i32 @rx_write_text(ptr, ptr)\n";
+        out << "declare ptr @rx_read_text(ptr)\n";
         out << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n";
         out << "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)\n";
     }
@@ -2159,38 +2159,38 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     if (needs("@exit(")) {
         out << "declare void @exit(i32) noreturn\n";
     }
-    if (needs("@rbx_gpio_read")) {
-        out << "declare i64 @rbx_gpio_read(i64)\n";
+    if (needs("@rx_gpio_read")) {
+        out << "declare i64 @rx_gpio_read(i64)\n";
     }
-    if (needs("@rbx_network_send_text")) {
-        out << "declare ptr @rbx_network_send_text(ptr)\n";
+    if (needs("@rx_network_send_text")) {
+        out << "declare ptr @rx_network_send_text(ptr)\n";
     }
-    if (needs("@rbx_network_call")) {
-        out << "declare ptr @rbx_network_call(ptr, ptr, ptr)\n";
+    if (needs("@rx_network_call")) {
+        out << "declare ptr @rx_network_call(ptr, ptr, ptr)\n";
     }
-    if (needs("@rbx_env_get")) {
-        out << "declare ptr @rbx_env_get(ptr)\n";
+    if (needs("@rx_env_get")) {
+        out << "declare ptr @rx_env_get(ptr)\n";
     }
-    if (needs("@rbx_env_exists")) {
-        out << "declare i64 @rbx_env_exists(ptr)\n";
+    if (needs("@rx_env_exists")) {
+        out << "declare i64 @rx_env_exists(ptr)\n";
     }
-    if (needs("@rbx_env_set")) {
-        out << "declare i64 @rbx_env_set(ptr, ptr)\n";
+    if (needs("@rx_env_set")) {
+        out << "declare i64 @rx_env_set(ptr, ptr)\n";
     }
-    if (needs("@rbx_env_add")) {
-        out << "declare i64 @rbx_env_add(ptr, ptr)\n";
+    if (needs("@rx_env_add")) {
+        out << "declare i64 @rx_env_add(ptr, ptr)\n";
     }
-    if (needs("@rbx_env_remove")) {
-        out << "declare i64 @rbx_env_remove(ptr)\n";
+    if (needs("@rx_env_remove")) {
+        out << "declare i64 @rx_env_remove(ptr)\n";
     }
-    if (needs("@rbx_device_unavailable")) {
-        out << "declare i64 @rbx_device_unavailable(i64, i64)\n";
+    if (needs("@rx_device_unavailable")) {
+        out << "declare i64 @rx_device_unavailable(i64, i64)\n";
     }
-    if (needs("@rbx_add_pair")) {
-        out << "declare i64 @rbx_add_pair(ptr, i64, i64)\n";
+    if (needs("@rx_add_pair")) {
+        out << "declare i64 @rx_add_pair(ptr, i64, i64)\n";
     }
-    if (needs("@rbx_debug_line")) {
-        out << "declare void @rbx_debug_line(i64)\n";
+    if (needs("@rx_debug_line")) {
+        out << "declare void @rx_debug_line(i64)\n";
     }
     out << "\n";
     for (const auto& vt : mod.vtables) {
@@ -2215,8 +2215,8 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "]\n";
     }
     if (!mod.vtables.empty()) out << "\n";
-    if (!m_options.freestanding || needs("@rbx_strcat")) {
-    out << "define internal ptr @rbx_strcat(ptr %a, ptr %b) {\n";
+    if (!m_options.freestanding || needs("@rx_strcat")) {
+    out << "define internal ptr @rx_strcat(ptr %a, ptr %b) {\n";
     out << "entry:\n";
     out << "  %na = call i64 @strlen(ptr %a)\n";
     out << "  %nb = call i64 @strlen(ptr %b)\n";
@@ -2241,12 +2241,12 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
 
     out << body;
     if (ctx.usesPages) {
-        out << "@rbx.pages = internal global [65536 x i8] zeroinitializer, align 4096\n";
-        out << "@rbx.page.used = internal global i64 0, align 8\n";
-        out << "define internal ptr @rbx_pages_take(i64 %count) nounwind {\n";
+        out << "@rx.pages = internal global [65536 x i8] zeroinitializer, align 4096\n";
+        out << "@rx.page.used = internal global i64 0, align 8\n";
+        out << "define internal ptr @rx_pages_take(i64 %count) nounwind {\n";
         out << "entry:\n";
         out << "  %bytes = mul i64 %count, 4096\n";
-        out << "  %used = load i64, ptr @rbx.page.used, align 8\n";
+        out << "  %used = load i64, ptr @rx.page.used, align 8\n";
         out << "  %next = add i64 %used, %bytes\n";
         out << "  %ok = icmp ule i64 %next, 65536\n";
         out << "  br i1 %ok, label %have, label %die\n";
@@ -2254,47 +2254,47 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  call void @llvm.trap()\n";
         out << "  unreachable\n";
         out << "have:\n";
-        out << "  store i64 %next, ptr @rbx.page.used, align 8\n";
-        out << "  %p = getelementptr i8, ptr @rbx.pages, i64 %used\n";
+        out << "  store i64 %next, ptr @rx.page.used, align 8\n";
+        out << "  %p = getelementptr i8, ptr @rx.pages, i64 %used\n";
         out << "  ret ptr %p\n";
         out << "}\n\n";
     }
     if (ctx.usesSwitch) {
-        out << "@rbx.switch.cell = internal global i64 0, align 8\n";
-        out << "define dso_local i64 @rbx_exchange_rsp(i64 %new) nounwind noinline {\n";
+        out << "@rx.switch.cell = internal global i64 0, align 8\n";
+        out << "define dso_local i64 @rx_exchange_rsp(i64 %new) nounwind noinline {\n";
         out << "entry:\n";
         out << "  %old = call i64 asm sideeffect \"movq %rsp, $0; movq $1, %rsp\", \"=r,r\"(i64 %new)\n";
-        out << "  store i64 %old, ptr @rbx.switch.cell, align 8\n";
+        out << "  store i64 %old, ptr @rx.switch.cell, align 8\n";
         out << "  ret i64 %old\n";
         out << "}\n\n";
     }
     if (ctx.usesPreempt) {
-        out << "@rbx_preempt_current = global i64 0, align 8\n";
-        out << "@rbx_preempt_rsp0 = global i64 0, align 8\n";
-        out << "@rbx_preempt_rsp1 = global i64 0, align 8\n";
-        out << "@rbx_preempt_count = global i64 0, align 8\n";
-        out << "@rbx_preempt_entry = global i64 0, align 8\n";
+        out << "@rx_preempt_current = global i64 0, align 8\n";
+        out << "@rx_preempt_rsp0 = global i64 0, align 8\n";
+        out << "@rx_preempt_rsp1 = global i64 0, align 8\n";
+        out << "@rx_preempt_count = global i64 0, align 8\n";
+        out << "@rx_preempt_entry = global i64 0, align 8\n";
         const std::string preempt =
             "pushq %rax\npushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
             "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n"
             "movb $$32, %al\noutb %al, $$32\n"
-            "movq %rsp, %rax\nmovq rbx_preempt_current(%rip), %rcx\n"
-            "testq %rcx, %rcx\njnz 1f\nmovq %rax, rbx_preempt_rsp0(%rip)\njmp 2f\n"
-            "1:\nmovq %rax, rbx_preempt_rsp1(%rip)\n2:\n"
-            "incq rbx_preempt_count(%rip)\ncmpq $$4, rbx_preempt_count(%rip)\njae 3f\n"
-            "xorq $$1, %rcx\nmovq %rcx, rbx_preempt_current(%rip)\n"
-            "testq %rcx, %rcx\njnz 4f\nmovq rbx_preempt_rsp0(%rip), %rsp\njmp 5f\n"
-            "4:\nmovq rbx_preempt_rsp1(%rip), %rsp\n5:\n"
+            "movq %rsp, %rax\nmovq rx_preempt_current(%rip), %rcx\n"
+            "testq %rcx, %rcx\njnz 1f\nmovq %rax, rx_preempt_rsp0(%rip)\njmp 2f\n"
+            "1:\nmovq %rax, rx_preempt_rsp1(%rip)\n2:\n"
+            "incq rx_preempt_count(%rip)\ncmpq $$4, rx_preempt_count(%rip)\njae 3f\n"
+            "xorq $$1, %rcx\nmovq %rcx, rx_preempt_current(%rip)\n"
+            "testq %rcx, %rcx\njnz 4f\nmovq rx_preempt_rsp0(%rip), %rsp\njmp 5f\n"
+            "4:\nmovq rx_preempt_rsp1(%rip), %rsp\n5:\n"
             "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
             "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\npopq %rax\niretq\n"
             "3:\ncli\n6:\nhlt\njmp 6b\n";
-        out << "define dso_local void @rbx_isr_preempt() naked nounwind {\n";
+        out << "define dso_local void @rx_isr_preempt() naked nounwind {\n";
         out << "  call void asm sideeffect \"" << EscapeLLVMString(preempt) << "\", \"\"()\n";
         out << "  unreachable\n}\n\n";
     }
     if (ctx.usesSyscall) {
         const std::string syscall = "movw $$1016, %dx\noutb %al, %dx\niretq\n";
-        out << "define dso_local void @rbx_isr_syscall() naked nounwind {\n";
+        out << "define dso_local void @rx_isr_syscall() naked nounwind {\n";
         out << "  call void asm sideeffect \"" << EscapeLLVMString(syscall) << "\", \"\"()\n";
         out << "  unreachable\n}\n\n";
     }
@@ -2306,11 +2306,11 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             "pushq %rax\npushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
             "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n" +
             eoi +
-            "call rbx_fn_" + isr + "\n"
+            "call rx_fn_" + isr + "\n"
             "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
             "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\npopq %rax\n"
             "iretq";
-        out << "define dso_local void @rbx_isr_" << isr << "() naked nounwind {\n";
+        out << "define dso_local void @rx_isr_" << isr << "() naked nounwind {\n";
         out << "  call void asm sideeffect \"" << EscapeLLVMString(text) << "\", \"\"()\n";
         out << "  unreachable\n}\n\n";
     }

@@ -1,4 +1,4 @@
-#include "RbxApiAndPackageFormat.hpp"
+#include "RxApiAndPackageFormat.hpp"
 
 #include "../../Compiler/Lexer/Lexer.hpp"
 #include "../../Compiler/Parser/Parser.hpp"
@@ -30,7 +30,7 @@ void EmitExplainBlockText(std::ostringstream& out, const Frontend::ExplainBlockN
     out << indent << "}\n";
 }
 
-void EmitFunctionSignatureForRbxApi(std::ostringstream& out, const Frontend::DeclNode& fn, const std::string& indent) {
+void EmitFunctionSignatureForRxApi(std::ostringstream& out, const Frontend::DeclNode& fn, const std::string& indent) {
     out << indent << "public ";
     if (fn.isStatic) out << "static ";
     if (fn.isAsync) out << "Async ";
@@ -46,11 +46,11 @@ void EmitFunctionSignatureForRbxApi(std::ostringstream& out, const Frontend::Dec
     out << indent << ";\n";
 }
 
-std::string ComputeArchiveSigningPayload(const RbxPackageArchive& archive) {
+std::string ComputeArchiveSigningPayload(const RxPackageArchive& archive) {
     std::ostringstream oss;
     oss << archive.manifest.name << "@" << archive.manifest.version
         << "|abi=" << archive.manifest.abiVersion
-        << "|api=" << archive.rbxApiSha256Hex;
+        << "|api=" << archive.rxApiSha256Hex;
     for (const auto& bin : archive.binaries) {
         oss << "|bin:" << bin.targetPlatform << ":" << bin.artifactFileName << ":" << bin.sha256Hex;
     }
@@ -91,16 +91,16 @@ void ValidatePublicExplainRecursive(const Frontend::DeclNode& decl,
 } // namespace
 
 // ============================================================================
-// 1. RBXAPI GENERATOR & VALIDATOR IMPLEMENTATION
+// 1. RXAPI GENERATOR & VALIDATOR IMPLEMENTATION
 // ============================================================================
 
-std::string RbxApiEngine::GenerateRbxApiFromSource(
+std::string RxApiEngine::GenerateRxApiFromSource(
     std::string_view packageName,
     std::string_view version,
-    std::string_view rbxSourceCode,
+    std::string_view rxSourceCode,
     Frontend::DiagnosticBag& diagnostics) {
 
-    Frontend::Lexer lexer(rbxSourceCode, std::string(packageName) + ".rx", diagnostics);
+    Frontend::Lexer lexer(rxSourceCode, std::string(packageName) + ".rx", diagnostics);
     Frontend::Parser parser(lexer.TokenizeAll(), std::string(packageName) + ".rx", diagnostics);
     auto ast = parser.ParseCompilationUnit();
 
@@ -128,14 +128,14 @@ std::string RbxApiEngine::GenerateRbxApiFromSource(
         const auto& decl = *declPtr;
         if (decl.kind == Frontend::DeclKind::Function) {
             out << "\n";
-            EmitFunctionSignatureForRbxApi(out, decl, "    ");
+            EmitFunctionSignatureForRxApi(out, decl, "    ");
         } else if (decl.kind == Frontend::DeclKind::Class || decl.kind == Frontend::DeclKind::Struct) {
             const char* kw = (decl.kind == Frontend::DeclKind::Class) ? "class" : "struct";
             out << "\n    public " << kw << " " << decl.name << " {\n";
             for (const auto& mPtr : decl.members) {
                 if (!mPtr || mPtr->visibility != Spec::AccessVisibility::Public) continue;
                 if (mPtr->kind == Frontend::DeclKind::Function) {
-                    EmitFunctionSignatureForRbxApi(out, *mPtr, "        ");
+                    EmitFunctionSignatureForRxApi(out, *mPtr, "        ");
                 }
             }
             out << "    }\n";
@@ -146,15 +146,15 @@ std::string RbxApiEngine::GenerateRbxApiFromSource(
     return out.str();
 }
 
-RbxApiValidationResult RbxApiEngine::ValidateRbxApi(
+RxApiValidationResult RxApiEngine::ValidateRxApi(
     std::string_view fileName,
-    std::string_view rbxApiContent,
+    std::string_view rxApiContent,
     Frontend::DiagnosticBag& diagnostics) {
 
-    RbxApiValidationResult res;
-    res.apiSha256Hex = StdLib::CryptoEngine::ComputeSHA256Hex(rbxApiContent);
+    RxApiValidationResult res;
+    res.apiSha256Hex = StdLib::CryptoEngine::ComputeSHA256Hex(rxApiContent);
 
-    Frontend::Lexer lexer(rbxApiContent, fileName, diagnostics);
+    Frontend::Lexer lexer(rxApiContent, fileName, diagnostics);
     Frontend::Parser parser(lexer.TokenizeAll(), fileName, diagnostics);
     auto ast = parser.ParseCompilationUnit();
 
@@ -182,25 +182,25 @@ RbxApiValidationResult RbxApiEngine::ValidateRbxApi(
 }
 
 // ============================================================================
-// 2. RBXP PACKER, SERIALIZER & SECURITY/ABI VERIFIER IMPLEMENTATION
+// 2. RXP PACKER, SERIALIZER & SECURITY/ABI VERIFIER IMPLEMENTATION
 // ============================================================================
 
-RbxPackageArchive RbxPackagePacker::CreateSignedPackage(
-    RbxPackageManifest manifest,
-    std::string rbxApiContent,
+RxPackageArchive RxPackagePacker::CreateSignedPackage(
+    RxPackageManifest manifest,
+    std::string rxApiContent,
     std::vector<TargetBinaryArtifact> targetBinaries,
     std::string_view publisherSigningKey,
     Frontend::DiagnosticBag& diagnostics) {
 
-    RbxPackageArchive archive;
+    RxPackageArchive archive;
     archive.manifest        = std::move(manifest);
-    archive.rbxApiContent   = std::move(rbxApiContent);
-    archive.rbxApiSha256Hex = StdLib::CryptoEngine::ComputeSHA256Hex(archive.rbxApiContent);
+    archive.rxApiContent   = std::move(rxApiContent);
+    archive.rxApiSha256Hex = StdLib::CryptoEngine::ComputeSHA256Hex(archive.rxApiContent);
 
     // Validate the .rxapi before packaging
-    auto apiVal = RbxApiEngine::ValidateRbxApi(
+    auto apiVal = RxApiEngine::ValidateRxApi(
         archive.manifest.name + ".rxapi",
-        archive.rbxApiContent,
+        archive.rxApiContent,
         diagnostics);
 
     if (archive.manifest.permissions.empty() && !apiVal.requiredPermissions.empty()) {
@@ -224,7 +224,7 @@ RbxPackageArchive RbxPackagePacker::CreateSignedPackage(
     sbom << "{\"sbomFormat\":\"RobixSBOM-1.0\",\"package\":\"" << archive.manifest.name
          << "\",\"version\":\"" << archive.manifest.version
          << "\",\"abi\":\"" << archive.manifest.abiVersion
-         << "\",\"apiSha256\":\"" << archive.rbxApiSha256Hex << "\"}";
+         << "\",\"apiSha256\":\"" << archive.rxApiSha256Hex << "\"}";
     archive.sbomJson = sbom.str();
 
     // Sign the archive using HMAC-SHA256 with the publisher key
@@ -235,7 +235,7 @@ RbxPackageArchive RbxPackagePacker::CreateSignedPackage(
     return archive;
 }
 
-std::string RbxPackagePacker::SerializeArchive(const RbxPackageArchive& archive) {
+std::string RxPackagePacker::SerializeArchive(const RxPackageArchive& archive) {
     using namespace StdLib;
     JsonValue root = JsonValue::MakeObject();
     root.objectVal["name"]                  = JsonValue::MakeString(archive.manifest.name);
@@ -244,8 +244,8 @@ std::string RbxPackagePacker::SerializeArchive(const RbxPackageArchive& archive)
     root.objectVal["abiVersion"]            = JsonValue::MakeString(archive.manifest.abiVersion);
     root.objectVal["license"]               = JsonValue::MakeString(archive.manifest.license);
     root.objectVal["hasInstallScript"]      = JsonValue::MakeBool(archive.manifest.hasInstallScript);
-    root.objectVal["rbxApiContent"]         = JsonValue::MakeString(archive.rbxApiContent);
-    root.objectVal["rbxApiSha256Hex"]       = JsonValue::MakeString(archive.rbxApiSha256Hex);
+    root.objectVal["rxApiContent"]         = JsonValue::MakeString(archive.rxApiContent);
+    root.objectVal["rxApiSha256Hex"]       = JsonValue::MakeString(archive.rxApiSha256Hex);
     root.objectVal["documentationMarkdown"] = JsonValue::MakeString(archive.documentationMarkdown);
     root.objectVal["sbomJson"]              = JsonValue::MakeString(archive.sbomJson);
     root.objectVal["publisherSignatureHex"] = JsonValue::MakeString(archive.publisherSignatureHex);
@@ -277,7 +277,7 @@ std::string RbxPackagePacker::SerializeArchive(const RbxPackageArchive& archive)
     return JsonCodec::Serialize(root, JsonFormatOption::Pretty);
 }
 
-std::optional<RbxPackageArchive> RbxPackagePacker::DeserializeArchive(
+std::optional<RxPackageArchive> RxPackagePacker::DeserializeArchive(
     std::string_view serialized,
     Frontend::DiagnosticBag& diagnostics) {
 
@@ -293,15 +293,15 @@ std::optional<RbxPackageArchive> RbxPackagePacker::DeserializeArchive(
     }
 
     const JsonValue& root = *rootOpt;
-    RbxPackageArchive archive;
+    RxPackageArchive archive;
     if (const auto* v = root.GetField("name"))                  archive.manifest.name            = v->strVal;
     if (const auto* v = root.GetField("version"))               archive.manifest.version         = v->strVal;
     if (const auto* v = root.GetField("compilerVersion"))       archive.manifest.compilerVersion = v->strVal;
     if (const auto* v = root.GetField("abiVersion"))            archive.manifest.abiVersion      = v->strVal;
     if (const auto* v = root.GetField("license"))               archive.manifest.license         = v->strVal;
     if (const auto* v = root.GetField("hasInstallScript"))      archive.manifest.hasInstallScript = v->boolVal;
-    if (const auto* v = root.GetField("rbxApiContent"))         archive.rbxApiContent            = v->strVal;
-    if (const auto* v = root.GetField("rbxApiSha256Hex"))       archive.rbxApiSha256Hex          = v->strVal;
+    if (const auto* v = root.GetField("rxApiContent"))         archive.rxApiContent            = v->strVal;
+    if (const auto* v = root.GetField("rxApiSha256Hex"))       archive.rxApiSha256Hex          = v->strVal;
     if (const auto* v = root.GetField("documentationMarkdown")) archive.documentationMarkdown    = v->strVal;
     if (const auto* v = root.GetField("sbomJson"))              archive.sbomJson                 = v->strVal;
     if (const auto* v = root.GetField("publisherSignatureHex")) archive.publisherSignatureHex    = v->strVal;
@@ -332,8 +332,8 @@ std::optional<RbxPackageArchive> RbxPackagePacker::DeserializeArchive(
     return archive;
 }
 
-bool RbxPackagePacker::VerifyPackageArchive(
-    const RbxPackageArchive& archive,
+bool RxPackagePacker::VerifyPackageArchive(
+    const RxPackageArchive& archive,
     const PackageVerificationOptions& options,
     Frontend::DiagnosticBag& diagnostics) {
 
@@ -361,8 +361,8 @@ bool RbxPackagePacker::VerifyPackageArchive(
     }
 
     // 3. Verify .rxapi SHA-256 integrity (P8002) and Explain validity (P8001)
-    const std::string actualApiHash = StdLib::CryptoEngine::ComputeSHA256Hex(archive.rbxApiContent);
-    if (!StdLib::SecretBuffer::ConstantTimeEquals(actualApiHash, archive.rbxApiSha256Hex)) {
+    const std::string actualApiHash = StdLib::CryptoEngine::ComputeSHA256Hex(archive.rxApiContent);
+    if (!StdLib::SecretBuffer::ConstantTimeEquals(actualApiHash, archive.rxApiSha256Hex)) {
         diagnostics.ReportError(
             "P8002",
             "SHA-256 digest mismatch for '" + archive.manifest.name + ".rxapi'.",
@@ -371,9 +371,9 @@ bool RbxPackagePacker::VerifyPackageArchive(
         ok = false;
     }
 
-    auto apiCheck = RbxApiEngine::ValidateRbxApi(
+    auto apiCheck = RxApiEngine::ValidateRxApi(
         archive.manifest.name + ".rxapi",
-        archive.rbxApiContent,
+        archive.rxApiContent,
         diagnostics);
     if (!apiCheck.valid) {
         ok = false;

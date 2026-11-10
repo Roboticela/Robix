@@ -407,6 +407,8 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         if (Lower(RoboXMLAttr(node, "orientation")) == "horizontal") {
             className += " is-x";
         }
+    } else if (name == "scrollview" || name == "scroll") {
+        className = RoboWebScrollViewClass();
     } else if (RoboWebIsContainerBox(name)) {
         className = RoboWebContainerClass();
     } else {
@@ -454,6 +456,27 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             html += Escape(RoboXMLAttr(node, "arrows"));
             html += "\"";
         }
+    }
+    if (name == "scrollview" || name == "scroll") {
+        const auto scrollData = [&](const char* key, const std::string& value) {
+            if (value.empty()) {
+                return;
+            }
+            html += " data-";
+            html += key;
+            html += "=\"";
+            html += Escape(value);
+            html += "\"";
+        };
+        scrollData("wheel", RoboXMLAttr(node, "wheel"));
+        scrollData("touchpad", RoboXMLAttr(node, "touchpad"));
+        scrollData("touch", RoboXMLAttr(node, "touch"));
+        scrollData("keyboard", RoboXMLAttr(node, "keyboard"));
+        scrollData("pointer", RoboXMLAttr(node, "pointer"));
+        scrollData("scrollx", RoboXMLAttr(node, "scrollX").empty() ? RoboXMLAttr(node, "horizontal") : RoboXMLAttr(node, "scrollX"));
+        scrollData("scrolly", RoboXMLAttr(node, "scrollY").empty() ? RoboXMLAttr(node, "vertical") : RoboXMLAttr(node, "scrollY"));
+        scrollData("arrows", RoboXMLAttr(node, "arrows"));
+        scrollData("autohide", RoboXMLAttr(node, "autoHide"));
     }
     if (RoboWebIsContainerBox(name)) {
         RoboWebContainerAttrs(html, node);

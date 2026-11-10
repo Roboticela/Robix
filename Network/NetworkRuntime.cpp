@@ -22,7 +22,7 @@
 
 namespace fs = std::filesystem;
 
-extern "C" __declspec(dllexport) const char rbx_network_marker[] = "rbx-network-runtime-marker";
+extern "C" __declspec(dllexport) const char rx_network_marker[] = "rx-network-runtime-marker";
 
 namespace {
 
@@ -360,7 +360,7 @@ std::string CertificateSubject(PCCERT_CONTEXT cert) {
 
 } // namespace
 
-extern "C" __declspec(dllexport) int rbx_network_run(const char* serverEnvPath, const char* methodsPath) {
+extern "C" __declspec(dllexport) int rx_network_run(const char* serverEnvPath, const char* methodsPath) {
     std::vector<Method> methods;
     if (!LoadMethods(methodsPath, methods)) {
         std::cerr << "network: the contract method list is empty\n";

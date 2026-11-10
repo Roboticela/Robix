@@ -47,7 +47,7 @@ public:
     // Ensures `<FileStem>.test.rx` exists on disk for a single `.rx` file.
     // Returns true if a new `.test.rx` file was created, false if it already existed.
     static bool EnsureTestFileForSourceOnDisk(
-        const std::filesystem::path& rbxFilePath,
+        const std::filesystem::path& rxFilePath,
         TestScaffoldReport& reportOut);
 
     // Scans a directory or single file path on disk and creates missing `.test.rx` files.

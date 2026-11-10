@@ -169,7 +169,7 @@ void RewriteLocked(const std::string& name, const std::string& value, bool remov
 
 extern "C" {
 
-char* rbx_env_get(const char* name) {
+char* rx_env_get(const char* name) {
     const std::string key = name != nullptr ? name : "";
     std::lock_guard<std::mutex> lock(g_mu);
     const Hit hit = LookupLocked(key);
@@ -181,13 +181,13 @@ char* rbx_env_get(const char* name) {
     return CopyText(hit.value);
 }
 
-std::int64_t rbx_env_exists(const char* name) {
+std::int64_t rx_env_exists(const char* name) {
     const std::string key = name != nullptr ? name : "";
     std::lock_guard<std::mutex> lock(g_mu);
     return LookupLocked(key).found ? 1 : 0;
 }
 
-std::int64_t rbx_env_set(const char* name, const char* value) {
+std::int64_t rx_env_set(const char* name, const char* value) {
     const std::string key = name != nullptr ? name : "";
     const std::string stored = value != nullptr ? value : "";
     std::lock_guard<std::mutex> lock(g_mu);
@@ -206,7 +206,7 @@ std::int64_t rbx_env_set(const char* name, const char* value) {
     return 1;
 }
 
-std::int64_t rbx_env_add(const char* name, const char* value) {
+std::int64_t rx_env_add(const char* name, const char* value) {
     const std::string key = name != nullptr ? name : "";
     std::lock_guard<std::mutex> lock(g_mu);
     if (key.empty()) {
@@ -223,7 +223,7 @@ std::int64_t rbx_env_add(const char* name, const char* value) {
     return 1;
 }
 
-std::int64_t rbx_env_remove(const char* name) {
+std::int64_t rx_env_remove(const char* name) {
     const std::string key = name != nullptr ? name : "";
     std::lock_guard<std::mutex> lock(g_mu);
     LoadLocked();
