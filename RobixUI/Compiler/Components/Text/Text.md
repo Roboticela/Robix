@@ -12,7 +12,7 @@ Text does not take keyboard focus. It is selected with the platform text selecti
 | variant | display, h1, h2, h3, h4, h5, h6, subhead, content, content-sm, body, body-sm, caption, eyebrow, label | content | Role. Prefer Heading, Body, and the other named tags |
 | tone | primary, secondary, tertiary, disabled, link, danger, success, warning, on-brand | from the role | Color token |
 | align | start, center, end, left, right | start | left is start, right is end |
-| wrap | none, char, word | word | |
+| wrap | none, nowrap, char, word, balance, pretty | word | `textWrap` is the same attribute |
 | size | px, sm, md, or a layout size | from the role | |
 | color | color | | Overrides tone |
 | font | face | from the role | Inter faces: sans, sans-medium, sans-semibold, sans-bold, sans-italic |
@@ -27,7 +27,7 @@ Text does not take keyboard focus. It is selected with the platform text selecti
 
 ## Web
 
-These attributes paint in the browser. RoboticelaOS keeps the role, align, and wrap it already has.
+The web renderer and the platform window use the same wrapping attributes. `wrap` chooses the break, `whiteSpace` keeps or collapses spaces and newlines, `lines` limits the block, and `textOverflow` chooses the ellipsis or a hard clip.
 
 | Group | Attributes |
 | --- | --- |

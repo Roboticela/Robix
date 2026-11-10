@@ -58,4 +58,7 @@ void WindowsDocumentAdvanceSpin();
 /* Document rectangles that contain a loader. */
 int WindowsDocumentSpinRects(WindowPatch* patches, int capacity);
 
+/* Where the zoom capsule sits. -1 hides it. The other values match ViewZoom::Anchor. */
+int WindowsDocumentZoomAnchor();
+
 }  // namespace Robix::UI

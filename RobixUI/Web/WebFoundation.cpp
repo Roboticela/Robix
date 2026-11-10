@@ -779,9 +779,12 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         (void)height;
         style += ";width:100%;height:100%";
         RoboWebAppendMotion(style, screenCopy);
+        const std::string zoomControls =
+            RoboXMLAttr(screenCopy, "zoomControls", RoboXMLAttr(screenCopy, "zoom-controls", "bottom").c_str());
         html << "<" << RoboWebScreenTag(true) << " id=\"" << Escape(id) << "\" class=\"" << RoboWebScreenClass(true)
              << " robo-page\" data-place=\"" << Escape(place) << "\" data-theme=\"" << Escape(theme)
-             << "\" data-movable=\"" << Escape(movable) << "\"" << RoboWebScreenAttrs(screenCopy, library, "flex")
+             << "\" data-movable=\"" << Escape(movable) << "\" data-zoom-controls=\"" << Escape(zoomControls) << "\""
+             << RoboWebScreenAttrs(screenCopy, library, "flex")
              << RoboWebMotionAttrs(screenCopy)
              << " style=\"" << Escape(style) << "\">";
         std::string body;

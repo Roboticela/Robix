@@ -2,20 +2,19 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 namespace Robix::UI {
 
 /* Page zoom shared by every platform host.
    The scale matches the web document zoom: 0.25 to 4, Ctrl+wheel uses exp(-deltaY * 0.0025),
    and a pinch multiplies the scale captured when the gesture began.
-   A host feeds pointer, wheel, and key events in. It does not depend on an operating system. */
+   The on-screen capsule is a host concern. This type only places it and changes the scale. */
 struct ViewZoomBar {
     int x = 0;
     int y = 0;
     int width = 0;
     int height = 0;
-    int toggleX = 0;
-    int toggleW = 0;
     int minusX = 0;
     int labelX = 0;
     int labelW = 0;
@@ -31,6 +30,51 @@ struct ViewZoom {
 
     static constexpr double kMin = 0.25;
     static constexpr double kMax = 4;
+
+    /* -1 hidden. 0 bottom, 1 bottom-left, 2 bottom-right, 3 top, 4 top-left, 5 top-right, 6 left, 7 right, 8 center. */
+    static int Anchor(const char* value) {
+        std::string text;
+        if (value != nullptr) {
+            for (const char* cursor = value; *cursor != '\0'; ++cursor) {
+                const char raw = *cursor;
+                if (raw == ' ' || raw == '_' || raw == '-') {
+                    continue;
+                }
+                text.push_back(raw >= 'A' && raw <= 'Z' ? static_cast<char>(raw - 'A' + 'a') : raw);
+            }
+        }
+        if (text.empty() || text == "bottom" || text == "bottomcenter") {
+            return 0;
+        }
+        if (text == "none" || text == "off" || text == "false" || text == "hidden" || text == "0") {
+            return -1;
+        }
+        if (text == "bottomleft") {
+            return 1;
+        }
+        if (text == "bottomright") {
+            return 2;
+        }
+        if (text == "top" || text == "topcenter") {
+            return 3;
+        }
+        if (text == "topleft") {
+            return 4;
+        }
+        if (text == "topright") {
+            return 5;
+        }
+        if (text == "left" || text == "centerleft") {
+            return 6;
+        }
+        if (text == "right" || text == "centerright") {
+            return 7;
+        }
+        if (text == "center" || text == "middle") {
+            return 8;
+        }
+        return 0;
+    }
 
     bool Apply(double next) {
         if (next < kMin) {
@@ -74,15 +118,6 @@ struct ViewZoom {
         return Apply(scale * factor);
     }
 
-    /* Turns pinch, wheel, and keyboard zoom on or off. Turning it off returns the page to 100%. */
-    bool Toggle() {
-        enabled = !enabled;
-        if (!enabled) {
-            scale = 1;
-        }
-        return true;
-    }
-
     unsigned ScaledDpi(unsigned baseDpi) const {
         const double dpi = static_cast<double>(baseDpi == 0 ? 96u : baseDpi) * scale;
         if (dpi < 1) {
@@ -93,47 +128,49 @@ struct ViewZoom {
 
     int Percent() const { return static_cast<int>(scale * 100 + 0.5); }
 
-    void Place(int viewWidth, int viewHeight, unsigned baseDpi, ViewZoomBar& bar) const {
+    void Place(int viewWidth, int viewHeight, unsigned baseDpi, int anchor, ViewZoomBar& bar) const {
         const int dpi = static_cast<int>(baseDpi == 0 ? 96u : baseDpi);
         const auto px = [&](int value) { return std::max(1, value * dpi / 96); };
-        const int gap = px(6);
-        const int height = px(36);
-        const int toggleW = px(72);
-        const int stepW = px(36);
-        const int labelW = px(68);
+        const int height = px(32);
+        const int stepW = px(32);
+        const int labelW = px(58);
         const int margin = px(16);
-        const int width = toggleW + stepW + labelW + stepW + gap * 3;
+        const int width = stepW + labelW + stepW + px(6);
         bar.height = height;
         bar.width = width;
-        bar.x = margin;
-        bar.y = std::max(0, viewHeight - margin - height);
-        bar.toggleX = bar.x;
-        bar.toggleW = toggleW;
-        bar.minusX = bar.toggleX + toggleW + gap;
         bar.stepW = stepW;
-        bar.labelX = bar.minusX + stepW + gap;
         bar.labelW = labelW;
-        bar.plusX = bar.labelX + labelW + gap;
+        int x = margin;
+        int y = std::max(0, viewHeight - margin - height);
+        if (anchor == 2 || anchor == 5 || anchor == 7) {
+            x = std::max(0, viewWidth - margin - width);
+        } else if (anchor == 0 || anchor == 3 || anchor == 8) {
+            x = std::max(0, (viewWidth - width) / 2);
+        }
+        if (anchor == 3 || anchor == 4 || anchor == 5) {
+            y = margin;
+        } else if (anchor == 6 || anchor == 7 || anchor == 8) {
+            y = std::max(0, (viewHeight - height) / 2);
+        }
+        bar.x = x;
+        bar.y = y;
+        bar.minusX = x + px(3);
+        bar.labelX = bar.minusX + stepW;
+        bar.plusX = bar.labelX + labelW;
     }
 
-    /* 1 toggle, 2 minus, 3 percent, 4 plus. */
+    /* 1 minus, 2 percent, 3 plus. */
     int Hit(const ViewZoomBar& bar, int x, int y) const {
         if (x < bar.x || y < bar.y || x >= bar.x + bar.width || y >= bar.y + bar.height) {
             return 0;
         }
-        if (x < bar.toggleX + bar.toggleW) {
+        if (x < bar.labelX) {
             return 1;
         }
-        if (x >= bar.minusX && x < bar.minusX + bar.stepW) {
+        if (x < bar.plusX) {
             return 2;
         }
-        if (x >= bar.labelX && x < bar.labelX + bar.labelW) {
-            return 3;
-        }
-        if (x >= bar.plusX && x < bar.plusX + bar.stepW) {
-            return 4;
-        }
-        return 0;
+        return 3;
     }
 };
 

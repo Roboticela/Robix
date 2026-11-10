@@ -405,7 +405,7 @@ void RoboWebAppendSelectCss(std::ostream& css) {
   css << ".robo-select-menu > .robo-scroll-host{position:relative;flex:1 1 auto;min-width:0;min-height:0;max-height:320px;overflow:visible}\n";
   css << ".robo-select-menu .robo-scroll-host[hidden]{display:none !important}\n";
   css << ".robo-select-list{box-sizing:border-box;min-height:0;flex:1 1 auto;max-height:320px;"
-         "padding-right:28px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}\n";
+         "padding-right:10px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}\n";
   css << ".robo-select-option[hidden]{display:none !important}\n";
   css << ".robo-select-option{box-sizing:border-box;appearance:none;display:flex;align-items:center;width:100%;"
          "min-height:44px;gap:12px;margin:0;padding:0 10px;border:0;border-radius:10px;background:transparent;"
@@ -481,27 +481,38 @@ const char* RoboWebSelectScript() {
     for (var i = 0; i < all.length; i++) if (!all[i].hidden) out.push(all[i]);
     return out;
   }
+  function pageZoom() {
+    var z = parseFloat(document.documentElement.style.zoom);
+    if (!(z > 0) && Robo.zoom > 0) z = Robo.zoom;
+    return z > 0 ? z : 1;
+  }
   function selectPlace(root) {
     var part = selectParts(root);
     if (!part.trigger || !part.menu || part.menu.hidden) return;
+    var z = pageZoom();
     var rect = part.trigger.getBoundingClientRect();
+    var left = rect.left / z;
+    var top = rect.top / z;
+    var width = rect.width / z;
+    var bottom = rect.bottom / z;
+    var viewH = window.innerHeight / z;
     var gap = 8;
-    var below = window.innerHeight - rect.bottom - gap;
-    var above = rect.top - gap;
+    var below = viewH - bottom - gap;
+    var above = top - gap;
     var want = Math.min(360, part.menu.scrollHeight || 220);
     var up = below < want && above > below;
-    part.menu.style.left = rect.left + "px";
-    part.menu.style.width = rect.width + "px";
+    part.menu.style.left = left + "px";
+    part.menu.style.width = width + "px";
     var cap = 360;
     if (up) {
       part.menu.setAttribute("data-up", "true");
       part.menu.style.top = "auto";
-      part.menu.style.bottom = (window.innerHeight - rect.top + gap) + "px";
+      part.menu.style.bottom = (viewH - top + gap) + "px";
       cap = Math.min(360, Math.max(220, above - 8));
     } else {
       part.menu.removeAttribute("data-up");
       part.menu.style.bottom = "auto";
-      part.menu.style.top = (rect.bottom + gap) + "px";
+      part.menu.style.top = (bottom + gap) + "px";
       cap = Math.min(360, Math.max(220, below - 8));
     }
     part.menu.style.maxHeight = cap + "px";
@@ -695,5 +706,11 @@ const char* RoboWebSelectScript() {
     var roots = document.querySelectorAll(".robo-select");
     for (var i = 0; i < roots.length; i++) selectPlace(roots[i]);
   }, true);
+  function placeOpenSelects() {
+    var roots = document.querySelectorAll(".robo-select");
+    for (var i = 0; i < roots.length; i++) selectPlace(roots[i]);
+  }
+  Robo.placeScrolls = Robo.placeScrolls || [];
+  Robo.placeScrolls.push(placeOpenSelects);
 )JS";
 }

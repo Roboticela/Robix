@@ -40,6 +40,7 @@ A screen has no focus ring. The page itself is not a tab stop. A border appears 
 | movable | true, false | true | Drag the window |
 | topmost | true, false | false | `alwaysOnTop` is the same |
 | fullscreen | true, false | false | |
+| zoomControls | bottom, bottom-left, bottom-right, top, top-left, top-right, left, right, center, none | bottom | Capsule shown only while pinching, Ctrl+wheel, or Ctrl+Plus, Ctrl+Minus, and Ctrl+0. `none` hides it. `zoom-controls` is the same |
 | board | string | | Board id this screen displays |
 
 Children: any component, up to 64.
@@ -49,6 +50,8 @@ Children: any component, up to 64.
 Drag moves the window when `movable` is true. The pointer may be mouse, touchpad, or touch. Resize uses the edges and corners that remain enabled. A locked corner does not change size. Minimized, maximized, and closed are states of the window, not of the page content. Fullscreen uses the display and ignores x and y until it leaves fullscreen.
 
 On the web, a screen with a path is a route. The root screen is the document. Nested screens inside a page are preview surfaces and keep their own width, height, theme, and radius.
+
+The zoom capsule uses the elevated surface, the default border, and a pill radius. It sits on the side or corner named by `zoomControls` and leaves after the gesture. Zooming still works when the capsule is hidden.
 
 ## Keyboard and accessibility
 

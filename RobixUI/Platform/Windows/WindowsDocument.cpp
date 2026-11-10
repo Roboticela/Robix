@@ -1,4 +1,5 @@
 #include "WindowsDocument.hpp"
+#include "../ViewZoom.hpp"
 #include "WindowsIcon.hpp"
 
 #include "../../Compiler/RoboCompilerShared.hpp"
@@ -401,6 +402,11 @@ struct PaintOp {
     int size = 0;
     int face = 0;
     int align = 0;
+    int wrap = 1;
+    int maxLines = 0;
+    int overflow = 0;
+    int whiteSpace = 1;
+    bool breakLong = true;
     std::string value;
     int control = -1;
     int kind = 0;
@@ -1254,7 +1260,158 @@ struct TextLine {
     int width = 0;
 };
 
-void AppendWrapped(const std::string& paragraph, int width, int size, int face, std::vector<TextLine>& lines) {
+struct TextFlow {
+    int mode = 1;
+    int maxLines = 0;
+    int overflow = 0;
+    int whiteSpace = 1;
+    bool breakLong = true;
+};
+
+int Utf8Span(const std::string& text, std::size_t index) {
+    if (index >= text.size()) {
+        return 1;
+    }
+    const auto lead = static_cast<unsigned char>(text[index]);
+    int span = 1;
+    if ((lead & 0xE0u) == 0xC0u) {
+        span = 2;
+    } else if ((lead & 0xF0u) == 0xE0u) {
+        span = 3;
+    } else if ((lead & 0xF8u) == 0xF0u) {
+        span = 4;
+    }
+    if (index + static_cast<std::size_t>(span) > text.size()) {
+        return 1;
+    }
+    return span;
+}
+
+void PopUtf8(std::string& text) {
+    if (text.empty()) {
+        return;
+    }
+    std::size_t index = text.size() - 1;
+    while (index > 0 && (static_cast<unsigned char>(text[index]) & 0xC0u) == 0x80u) {
+        --index;
+    }
+    text.erase(index);
+}
+
+void FitLine(std::string& line, int width, int size, int face, bool dots) {
+    const std::string mark = dots ? "\xE2\x80\xA6" : "";
+    if (width <= 0) {
+        return;
+    }
+    if (MeasureText(line + mark, size, face) <= width) {
+        if (dots && mark.size() > 0 && line.find('\xE2') == std::string::npos) {
+            line += mark;
+        }
+        return;
+    }
+    while (!line.empty() && MeasureText(line + mark, size, face) > width) {
+        PopUtf8(line);
+    }
+    line += mark;
+    if (MeasureText(line, size, face) > width) {
+        line = mark;
+    }
+}
+
+TextFlow FlowOf(const RoboXMLNode& node) {
+    TextFlow flow;
+    std::string wrap = Lower(RoboXMLAttr(node, "textwrap"));
+    if (wrap.empty()) {
+        wrap = Lower(RoboXMLAttr(node, "wrap"));
+    }
+    if (wrap.empty()) {
+        wrap = "word";
+    }
+    if (wrap == "none" || wrap == "nowrap" || wrap == "false") {
+        flow.mode = 0;
+    } else if (wrap == "char" || wrap == "character") {
+        flow.mode = 2;
+    } else if (wrap == "balance") {
+        flow.mode = 3;
+    } else if (wrap == "pretty") {
+        flow.mode = 4;
+    } else {
+        flow.mode = 1;
+    }
+    std::string space = Lower(RoboXMLAttr(node, "whitespace"));
+    if (space.empty()) {
+        space = Lower(RoboXMLAttr(node, "white-space"));
+    }
+    if (space == "nowrap") {
+        flow.mode = 0;
+        flow.whiteSpace = 0;
+    } else if (space == "pre") {
+        flow.whiteSpace = 2;
+    } else if (space == "pre-line" || space == "preline") {
+        flow.whiteSpace = 3;
+    } else if (space == "normal") {
+        flow.whiteSpace = 0;
+    } else if (space == "pre-wrap" || space == "prewrap") {
+        flow.whiteSpace = 1;
+    } else {
+        flow.whiteSpace = flow.mode == 0 ? 0 : 1;
+    }
+    std::string lines = RoboXMLAttr(node, "lines");
+    if (lines.empty()) {
+        lines = RoboXMLAttr(node, "maxlines");
+    }
+    if (IsDigits(lines)) {
+        flow.maxLines = std::max(1, std::stoi(lines));
+    }
+    std::string overflow = Lower(RoboXMLAttr(node, "textoverflow"));
+    if (overflow.empty()) {
+        overflow = Lower(RoboXMLAttr(node, "overflow"));
+    }
+    if (overflow == "ellipsis") {
+        flow.overflow = 1;
+    } else if (overflow == "clip" || overflow == "hidden") {
+        flow.overflow = 2;
+    } else if (flow.maxLines > 0 || flow.mode == 0) {
+        flow.overflow = flow.mode == 0 ? 0 : 1;
+    }
+    const std::string longBreak = Lower(RoboXMLAttr(node, "overflowwrap"));
+    if (longBreak == "normal") {
+        flow.breakLong = false;
+    } else if (longBreak == "anywhere" || longBreak == "break-word" || longBreak == "breakword") {
+        flow.breakLong = true;
+    } else {
+        flow.breakLong = flow.mode != 0;
+    }
+    return flow;
+}
+
+void AppendChars(const std::string& paragraph, int width, int size, int face, std::vector<TextLine>& lines) {
+    std::string line;
+    int lineWidth = 0;
+    for (std::size_t index = 0; index < paragraph.size();) {
+        const int span = Utf8Span(paragraph, index);
+        const std::string piece = paragraph.substr(index, static_cast<std::size_t>(span));
+        index += static_cast<std::size_t>(span);
+        if (piece == "\n") {
+            lines.push_back(TextLine{line, lineWidth});
+            line.clear();
+            lineWidth = 0;
+            continue;
+        }
+        const int pieceWidth = MeasureText(piece, size, face);
+        if (width > 0 && !line.empty() && lineWidth + pieceWidth > width) {
+            lines.push_back(TextLine{line, lineWidth});
+            line = piece;
+            lineWidth = pieceWidth;
+            continue;
+        }
+        line += piece;
+        lineWidth += pieceWidth;
+    }
+    lines.push_back(TextLine{line, lineWidth});
+}
+
+void AppendWrapped(const std::string& paragraph, int width, int size, int face, bool breakLong, std::vector<TextLine>& lines) {
     std::string word;
     std::string line;
     int lineWidth = 0;
@@ -1272,15 +1429,33 @@ void AppendWrapped(const std::string& paragraph, int width, int size, int face, 
         }
         const int pieceWidth = MeasureText(piece, size, face);
         if (line.empty()) {
-            line = piece;
-            lineWidth = pieceWidth;
+            if (breakLong && width > 0 && pieceWidth > width) {
+                AppendChars(piece, width, size, face, lines);
+                if (!lines.empty()) {
+                    line = lines.back().text;
+                    lineWidth = lines.back().width;
+                    lines.pop_back();
+                }
+            } else {
+                line = piece;
+                lineWidth = pieceWidth;
+            }
             return;
         }
         const int gap = MeasureText(" ", size, face);
         if (width > 0 && lineWidth + gap + pieceWidth > width) {
             flush();
-            line = piece;
-            lineWidth = pieceWidth;
+            if (breakLong && pieceWidth > width) {
+                AppendChars(piece, width, size, face, lines);
+                if (!lines.empty()) {
+                    line = lines.back().text;
+                    lineWidth = lines.back().width;
+                    lines.pop_back();
+                }
+            } else {
+                line = piece;
+                lineWidth = pieceWidth;
+            }
             return;
         }
         line.push_back(' ');
@@ -1299,31 +1474,162 @@ void AppendWrapped(const std::string& paragraph, int width, int size, int face, 
     flush();
 }
 
-void TextLines(const std::string& value, int width, int size, int face, std::vector<TextLine>& lines) {
+std::string CollapseSpaces(const std::string& value, bool keepBreaks) {
+    std::string out;
+    bool space = false;
+    for (std::size_t index = 0; index < value.size();) {
+        const int span = Utf8Span(value, index);
+        const std::string piece = value.substr(index, static_cast<std::size_t>(span));
+        index += static_cast<std::size_t>(span);
+        const bool br = piece == "\n";
+        const bool blank = piece == " " || piece == "\t" || piece == "\r" || (!keepBreaks && br);
+        if (blank) {
+            space = !out.empty();
+            continue;
+        }
+        if (br) {
+            if (!out.empty() && out.back() == ' ') {
+                out.pop_back();
+            }
+            out.push_back('\n');
+            space = false;
+            continue;
+        }
+        if (space) {
+            out.push_back(' ');
+            space = false;
+        }
+        out += piece;
+    }
+    return out;
+}
+
+void WrapSource(const std::string& value, int width, int size, int face, int mode, bool breakLong, std::vector<TextLine>& lines) {
     lines.clear();
-    std::size_t start = 0;
-    while (start <= value.size()) {
-        const std::size_t mark = value.find('\n', start);
-        const std::string paragraph = value.substr(start, mark == std::string::npos ? std::string::npos : mark - start);
-        const std::size_t before = lines.size();
-        AppendWrapped(paragraph, width, size, face, lines);
-        if (lines.size() == before) {
-            lines.push_back(TextLine{});
+    if (mode == 0) {
+        std::string flat = value;
+        for (char& ch : flat) {
+            if (ch == '\n' || ch == '\t' || ch == '\r') {
+                ch = ' ';
+            }
         }
-        if (mark == std::string::npos) {
-            break;
+        lines.push_back(TextLine{flat, MeasureText(flat, size, face)});
+        return;
+    }
+    if (mode == 2) {
+        AppendChars(value, width, size, face, lines);
+    } else {
+        std::size_t start = 0;
+        while (start <= value.size()) {
+            const std::size_t mark = value.find('\n', start);
+            const std::string paragraph = value.substr(start, mark == std::string::npos ? std::string::npos : mark - start);
+            const std::size_t before = lines.size();
+            AppendWrapped(paragraph, width, size, face, breakLong, lines);
+            if (lines.size() == before) {
+                lines.push_back(TextLine{});
+            }
+            if (mark == std::string::npos) {
+                break;
+            }
+            start = mark + 1;
         }
-        start = mark + 1;
     }
     if (lines.empty()) {
         lines.push_back(TextLine{});
     }
 }
 
-int TextBlockHeight(const std::string& value, int width, int size, int face, int leading) {
+void ClampLines(std::vector<TextLine>& lines, int width, int size, int face, const TextFlow& flow, bool more) {
+    if (flow.mode == 0 && !lines.empty() && width > 0 && lines[0].width > width && flow.overflow != 0) {
+        FitLine(lines[0].text, width, size, face, flow.overflow == 1);
+        lines[0].width = MeasureText(lines[0].text, size, face);
+    }
+    if (flow.maxLines <= 0 || static_cast<int>(lines.size()) <= flow.maxLines) {
+        return;
+    }
+    const bool ellipsis = flow.overflow != 2;
+    lines.resize(static_cast<std::size_t>(flow.maxLines));
+    if (more || ellipsis) {
+        FitLine(lines.back().text, width, size, face, ellipsis);
+        lines.back().width = MeasureText(lines.back().text, size, face);
+    }
+}
+
+void BalanceLines(std::vector<TextLine>& lines, int width, int size, int face) {
+    if (lines.size() < 2 || width <= 0) {
+        return;
+    }
+    TextLine& previous = lines[lines.size() - 2];
+    TextLine& last = lines.back();
+    const std::size_t cut = previous.text.rfind(' ');
+    if (cut == std::string::npos || last.text.find(' ') != std::string::npos) {
+        return;
+    }
+    const std::string moved = previous.text.substr(cut + 1);
+    const std::string stay = previous.text.substr(0, cut);
+    const std::string joined = moved + " " + last.text;
+    if (stay.empty() || moved.empty() || MeasureText(joined, size, face) > width) {
+        return;
+    }
+    last.text = joined;
+    last.width = MeasureText(joined, size, face);
+    previous.text = stay;
+    previous.width = MeasureText(stay, size, face);
+}
+
+void TextLines(const std::string& value, int width, int size, int face, const TextFlow& flow, std::vector<TextLine>& lines) {
+    std::string source = value;
+    if (flow.whiteSpace == 2) {
+        TextFlow hard = flow;
+        hard.mode = 2;
+        hard.breakLong = false;
+        source = value;
+        WrapSource(source, 0, size, face, 2, false, lines);
+        for (TextLine& line : lines) {
+            line.width = MeasureText(line.text, size, face);
+        }
+        ClampLines(lines, width, size, face, flow, false);
+        return;
+    }
+    if (flow.whiteSpace == 0) {
+        source = CollapseSpaces(value, false);
+    } else if (flow.whiteSpace == 3) {
+        source = CollapseSpaces(value, true);
+    }
+    const int mode = flow.mode == 3 || flow.mode == 4 ? 1 : flow.mode;
+    int useWidth = width;
+    if ((flow.mode == 3 || flow.mode == 4) && width > 8) {
+        std::vector<TextLine> full;
+        WrapSource(source, width, size, face, 1, flow.breakLong, full);
+        const int count = std::max(1, static_cast<int>(full.size()));
+        int low = 8;
+        int high = width;
+        int best = width;
+        while (low <= high) {
+            const int mid = (low + high) / 2;
+            std::vector<TextLine> trial;
+            WrapSource(source, mid, size, face, 1, flow.breakLong, trial);
+            if (static_cast<int>(trial.size()) <= count) {
+                best = mid;
+                high = mid - 1;
+            } else {
+                low = mid + 1;
+            }
+        }
+        useWidth = best;
+    }
+    WrapSource(source, useWidth, size, face, mode, flow.breakLong, lines);
+    if (flow.mode == 4) {
+        BalanceLines(lines, width, size, face);
+    }
+    const bool more = flow.maxLines > 0 && static_cast<int>(lines.size()) > flow.maxLines;
+    ClampLines(lines, width, size, face, flow, more);
+}
+
+int TextBlockHeight(const std::string& value, int width, int size, int face, int leading, const TextFlow& flow) {
     std::vector<TextLine> lines;
-    TextLines(value, width, size, face, lines);
-    return std::max(leading, size) * static_cast<int>(lines.size());
+    TextLines(value, width, size, face, flow, lines);
+    return std::max(leading, size) * static_cast<int>(std::max<std::size_t>(1, lines.size()));
 }
 
 struct BoxEdge {
@@ -1466,11 +1772,17 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         op.width = width;
         op.size = style.size;
         op.face = style.face;
-        op.align = (alignName == "center" || alignName == "middle") ? 1 : (alignName == "end" || alignName == "right") ? 2 : 0;
+        op.align = (alignName == "center" || alignName == "middle") ? 1 : (alignName == "end" || alignName == "right") ? 2 : alignName == "justify" ? 3 : 0;
+        const TextFlow flow = FlowOf(node);
+        op.wrap = flow.mode;
+        op.maxLines = flow.maxLines;
+        op.overflow = flow.overflow;
+        op.whiteSpace = flow.whiteSpace;
+        op.breakLong = flow.breakLong;
         const std::string colorName = RoboXMLAttr(node, "color");
         op.color = RoboFoundationPlatformColorForTheme(colorName.empty() ? style.color : colorName.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
         op.value = value;
-        op.height = TextBlockHeight(value, width, style.size, style.face, style.leading);
+        op.height = TextBlockHeight(value, width, style.size, style.face, style.leading, flow);
         ops.push_back(op);
         return op.height;
     }
@@ -2415,17 +2727,53 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
         if (!op.value.empty()) {
             if (op.text) {
                 std::vector<TextLine> lines;
-                TextLines(op.value, op.width, op.size, op.face, lines);
+                TextFlow flow;
+                flow.mode = op.wrap;
+                flow.maxLines = op.maxLines;
+                flow.overflow = op.overflow;
+                flow.whiteSpace = op.whiteSpace;
+                flow.breakLong = op.breakLong;
+                TextLines(op.value, op.width, op.size, op.face, flow, lines);
                 const int step = std::max(1, op.height / static_cast<int>(std::max<std::size_t>(1, lines.size())));
                 int lineY = y;
-                for (const TextLine& line : lines) {
+                for (std::size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
+                    const TextLine& line = lines[lineIndex];
                     int lineX = textX;
                     if (op.align == 1) {
                         lineX = op.x + std::max(0, (op.width - line.width) / 2);
                     } else if (op.align == 2) {
                         lineX = op.x + std::max(0, op.width - line.width);
                     }
-                    if (!line.text.empty()) {
+                    const bool justify = op.align == 3 && lineIndex + 1 < lines.size() && line.width < op.width &&
+                                         line.text.find(' ') != std::string::npos;
+                    if (!line.text.empty() && justify) {
+                        int gaps = 0;
+                        for (char ch : line.text) {
+                            if (ch == ' ') {
+                                ++gaps;
+                            }
+                        }
+                        const int extra = gaps > 0 ? (op.width - line.width) / gaps : 0;
+                        int cursor = textX;
+                        std::string word;
+                        const auto drawWord = [&]() {
+                            if (word.empty()) {
+                                return;
+                            }
+                            RoboTextDrawUTF8(gpu, font, cursor, lineY, word.c_str(), op.color, static_cast<RoboU16>(op.size));
+                            cursor += MeasureText(word, op.size, op.face);
+                            word.clear();
+                        };
+                        for (char ch : line.text) {
+                            if (ch == ' ') {
+                                drawWord();
+                                cursor += MeasureText(" ", op.size, op.face) + extra;
+                            } else {
+                                word.push_back(ch);
+                            }
+                        }
+                        drawWord();
+                    } else if (!line.text.empty()) {
                         RoboTextDrawUTF8(gpu, font, lineX, lineY, line.text.c_str(), op.color, static_cast<RoboU16>(op.size));
                     }
                     lineY += step;
@@ -2463,6 +2811,7 @@ struct Scene {
     int pressed = -1;
     int focus = -1;
     int contentHeight = 0;
+    int zoomAnchor = 0;
     RoboU32 background = 0;
     std::vector<PaintOp> ops;
     std::vector<WindowControl> controls;
@@ -2621,6 +2970,11 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
     gScene.dpi = gDpi;
     gScene.viewWidth = viewWidth;
     gScene.viewHeight = viewHeight;
+    std::string zoomPlace = RoboXMLAttr(*screen, "zoomcontrols");
+    if (zoomPlace.empty()) {
+        zoomPlace = RoboXMLAttr(*screen, "zoom-controls");
+    }
+    gScene.zoomAnchor = ViewZoom::Anchor(zoomPlace.c_str());
     gScene.background = RoboFoundationPlatformColorForTheme("bg-primary", light ? ROBO_TRUE : ROBO_FALSE);
     gScene.valid = SceneStamp(path, gScene.stamp, gScene.bytes);
     if (gpu != nullptr) {
@@ -2983,5 +3337,7 @@ int WindowsDocumentSpinRects(WindowPatch* patches, int capacity) {
     }
     return count;
 }
+
+int WindowsDocumentZoomAnchor() { return gScene.valid ? gScene.zoomAnchor : 0; }
 
 }  // namespace Robix::UI

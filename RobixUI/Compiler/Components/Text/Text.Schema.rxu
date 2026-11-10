@@ -16,7 +16,11 @@
   <Attribute name="maxSize" type="string" required="false" />
   <Attribute name="size" type="string" required="false" description="px, or sm|md for body, or exact|auto|dynamic|fill|min|max for layout" />
   <Attribute name="align" type="enum" values="start|center|end|left|right" default="start" />
-  <Attribute name="wrap" type="enum" values="none|char|word" default="word" />
+  <Attribute name="wrap" type="enum" values="none|nowrap|char|word|balance|pretty" default="word" aliases="textWrap" />
+  <Attribute name="whiteSpace" type="enum" values="normal|nowrap|pre|pre-wrap|pre-line" required="false" aliases="white-space" />
+  <Attribute name="overflowWrap" type="enum" values="normal|break-word|anywhere" required="false" aliases="overflow-wrap" />
+  <Attribute name="lines" type="int" required="false" aliases="maxLines" />
+  <Attribute name="textOverflow" type="enum" values="visible|ellipsis|clip" required="false" aliases="overflow" />
   <Attribute name="color" type="color" required="false" />
   <Attribute name="font" type="string" required="false" description="Face stem. Default follows the role." />
   <Attribute name="content" type="string" required="false" />

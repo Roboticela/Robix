@@ -51,7 +51,8 @@ bool RoboCompilerIsTextName(const std::string& name) {
 
 bool RoboCompilerIsWrap(const std::string& wrap) {
   const std::string t = RoboCompilerLower(wrap);
-  return t == "none" || t == "nowrap" || t == "char" || t == "character" || t == "word";
+  return t == "none" || t == "nowrap" || t == "false" || t == "char" || t == "character" || t == "word" || t == "wrap" ||
+         t == "balance" || t == "pretty";
 }
 
 RoboCompilerTextKind RoboCompilerClassifyTextNode(const RoboXMLNode& node, RoboU32* outHeadingLevel) {
@@ -146,7 +147,7 @@ bool RoboCompilerCheckText(const RoboXMLNode& node, const std::string& path, Rob
   const std::string wrap = RoboXMLAttr(node, "wrap", "word");
   if (!RoboCompilerIsWrap(wrap) && !RoboCompilerIsOneOf(wrap, {"wrap", "balance", "pretty", "wrap-reverse"})) {
     RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Error, path,
-                        "wrap must be none|char|word (got '" + wrap + "')");
+                        "wrap must be none|char|word|balance|pretty (got '" + wrap + "')");
     ok = false;
   }
   bool hasSpan = false;

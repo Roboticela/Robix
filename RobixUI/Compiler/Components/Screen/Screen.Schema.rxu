@@ -76,6 +76,10 @@
   <Attribute name="movable" type="bool" default="true" />
   <Attribute name="topmost" type="bool" default="false" aliases="alwaysOnTop" />
   <Attribute name="fullscreen" type="bool" default="false" />
+  <Attribute name="zoomControls" type="enum"
+             values="bottom|bottom-left|bottom-right|top|top-left|top-right|left|right|center|none"
+             default="bottom" aliases="zoom-controls"
+             description="Pinch zoom capsule. none hides it. It appears only while zooming." />
   <Attribute name="board" type="string" required="false" description="Board id this screen displays" />
   <Child name="*" max="64" description="content laid out with flex, grid, or stack" />
 </Component>

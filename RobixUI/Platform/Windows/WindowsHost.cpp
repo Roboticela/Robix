@@ -64,6 +64,12 @@ struct HostView {
     unsigned dpi = 96;
     ViewZoom zoom{};
     ViewZoomBar zoomBar{};
+    int zoomOpacity = 0;
+    unsigned zoomIdle = 0;
+    int zoomBoxX = 0;
+    int zoomBoxY = 0;
+    int zoomBoxW = 0;
+    int zoomBoxH = 0;
     bool pinchLive = false;
     double pinchOrigin = 1;
     double pinchDistance = 0;
@@ -580,7 +586,7 @@ void ZoomText(RoboGPU* gpu, int x, int y, int width, int height, const char* tex
     if (gpu == nullptr || text == nullptr || text[0] == '\0') {
         return;
     }
-    const int size = std::max(11, height * 15 / 36);
+    const int size = std::max(11, height * 13 / 32);
     RoboFontHeader header{};
     header.magic = ROBO_FONT_MAGIC;
     header.ascent = static_cast<RoboU16>(size);
@@ -593,30 +599,112 @@ void ZoomText(RoboGPU* gpu, int x, int y, int width, int height, const char* tex
     RoboTextDrawUTF8(gpu, font, x + std::max(0, (width - measured) / 2), baseline - size, text, color, static_cast<RoboU16>(size));
 }
 
-void PaintZoomBar(HostView* view) {
-    if (view == nullptr || view->back == nullptr) {
+void BlendCapsule(RoboGPU* gpu, int x, int y, int width, int height, RoboU32 color, int coverage) {
+    if (gpu == nullptr || coverage <= 0 || width <= 0 || height <= 0) {
         return;
     }
-    view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi, view->zoomBar);
+    const int radius = std::min(width, height) / 2;
+    const int fade = coverage > 255 ? 255 : coverage;
+    for (int row = 0; row < height; ++row) {
+        int inset = 0;
+        if (row < radius || row >= height - radius) {
+            const int dy = row < radius ? radius - 1 - row : row - (height - radius);
+            int inside = 0;
+            while (inside * inside + dy * dy <= radius * radius) {
+                ++inside;
+            }
+            inset = radius - std::max(0, inside - 1);
+        }
+        const int span = width - inset * 2;
+        if (span <= 0) {
+            continue;
+        }
+        if (fade >= 255) {
+            RoboGPUFillRect(gpu, x + inset, y + row, span, 1, color);
+        } else {
+            for (int column = 0; column < span; ++column) {
+                RoboGPUBlendPixel(gpu, x + inset + column, y + row, color, static_cast<RoboU8>(fade));
+            }
+        }
+    }
+}
+
+RoboU32 MixColor(RoboU32 ink, RoboU32 fill, int coverage) {
+    if (coverage >= 255) {
+        return ink;
+    }
+    if (coverage <= 0) {
+        return fill;
+    }
+    const auto channel = [&](int shift) {
+        const int from = static_cast<int>((fill >> shift) & 0xFF);
+        const int to = static_cast<int>((ink >> shift) & 0xFF);
+        return from + (to - from) * coverage / 255;
+    };
+    return (static_cast<RoboU32>(channel(16)) << 16) | (static_cast<RoboU32>(channel(8)) << 8) | static_cast<RoboU32>(channel(0));
+}
+
+void RevealZoom(HostView* view) {
+    if (view == nullptr || view->window == nullptr || WindowsDocumentZoomAnchor() < 0) {
+        return;
+    }
+    view->zoomOpacity = 255;
+    view->zoomIdle = GetTickCount();
+    SetTimer(view->window, 5, 16, nullptr);
+}
+
+int ZoomHit(HostView* view, int x, int y) {
+    if (view == nullptr || view->zoomOpacity < 32 || WindowsDocumentZoomAnchor() < 0) {
+        return 0;
+    }
+    view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi,
+                     WindowsDocumentZoomAnchor(), view->zoomBar);
+    return view->zoom.Hit(view->zoomBar, x, y);
+}
+
+void ClearZoomBox(HostView* view) {
+    if (view == nullptr || view->zoomBoxH <= 0) {
+        return;
+    }
+    CopyVisible(view, view->zoomBoxX, view->zoomBoxY, view->zoomBoxW, view->zoomBoxH);
+    view->zoomBoxH = 0;
+}
+
+void PaintZoomBar(HostView* view) {
+    if (view == nullptr || view->back == nullptr || view->zoomOpacity <= 0 || WindowsDocumentZoomAnchor() < 0) {
+        return;
+    }
+    view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi,
+                     WindowsDocumentZoomAnchor(), view->zoomBar);
     const ViewZoomBar& bar = view->zoomBar;
     const bool light = view->light;
-    const RoboU32 fill = ZoomColor(view->zoom.enabled ? "bg-elevated" : "bg-secondary", light);
-    const RoboU32 hover = ZoomColor("bg-hover", light);
-    const RoboU32 ink = ZoomColor(view->zoom.enabled ? "text-primary" : "text-tertiary", light);
-    const RoboU32 brand = ZoomColor("brand-primary", light);
-    const RoboU32 onBrand = ZoomColor("text-on-brand", light);
-    const auto chip = [&](int x, int width, int part, RoboU32 rest, RoboU32 text, const char* label) {
-        const bool on = view->zoom.hot == part || view->zoom.pressed == part;
-        RoboGPUFillRect(&view->gpu, x, bar.y, width, bar.height, on ? hover : rest);
-        ZoomText(&view->gpu, x, bar.y, width, bar.height, label, text);
-    };
-    chip(bar.toggleX, bar.toggleW, 1, view->zoom.enabled ? brand : fill, view->zoom.enabled ? onBrand : ink,
-         view->zoom.enabled ? "Zoom" : "Off");
+    const int fade = view->zoomOpacity;
+    const RoboU32 fill = ZoomColor("bg-elevated", light);
+    const RoboU32 line = ZoomColor("border-default", light);
+    const RoboU32 hover = ZoomColor(view->zoom.pressed != 0 ? "bg-active" : "bg-hover", light);
+    const RoboU32 ink = MixColor(ZoomColor("text-primary", light), fill, fade);
+    const int shadow = std::max(4, bar.height / 4);
+    BlendCapsule(&view->gpu, bar.x, bar.y + shadow / 3, bar.width, bar.height, 0x000000, fade * 28 / 255);
+    BlendCapsule(&view->gpu, bar.x, bar.y, bar.width, bar.height, line, fade);
+    if (bar.width > 2 && bar.height > 2) {
+        BlendCapsule(&view->gpu, bar.x + 1, bar.y + 1, bar.width - 2, bar.height - 2, fill, fade);
+    }
+    const int hot = view->zoom.pressed != 0 ? view->zoom.pressed : view->zoom.hot;
+    if (hot != 0) {
+        const int segX = hot == 1 ? bar.minusX : hot == 2 ? bar.labelX : bar.plusX;
+        const int segW = hot == 2 ? bar.labelW : bar.stepW;
+        BlendCapsule(&view->gpu, segX, bar.y + 3, segW, bar.height - 6, hover, fade);
+    }
+    ZoomText(&view->gpu, bar.minusX, bar.y, bar.stepW, bar.height, "\xE2\x88\x92", ink);
     char percent[16];
     std::snprintf(percent, sizeof(percent), "%d%%", view->zoom.Percent());
-    chip(bar.minusX, bar.stepW, 2, fill, ink, "-");
-    chip(bar.labelX, bar.labelW, 3, fill, ink, percent);
-    chip(bar.plusX, bar.stepW, 4, fill, ink, "+");
+    ZoomText(&view->gpu, bar.labelX, bar.y, bar.labelW, bar.height, percent, ink);
+    ZoomText(&view->gpu, bar.plusX, bar.y, bar.stepW, bar.height, "+", ink);
+    view->zoomBoxX = std::max(0, bar.x - 2);
+    view->zoomBoxY = std::max(0, bar.y - 2);
+    view->zoomBoxW = bar.width + shadow;
+    view->zoomBoxH = bar.height + shadow;
+    RoboGPUMarkDamage(&view->gpu, view->zoomBoxX, view->zoomBoxY, view->zoomBoxW, view->zoomBoxH);
 }
 
 void Draw(HostView* view) {
@@ -671,6 +759,9 @@ void Draw(HostView* view) {
                                              patches[index].height);
                 }
                 BindSheet(view, false);
+            }
+            if (view->zoomBoxH > 0) {
+                ClearZoomBox(view);
             }
             ComposeSheet(view, patches, patchCount);
         } else {
@@ -851,8 +942,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         break;
                     }
                 }
-                view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi, view->zoomBar);
-                const int zoomHit = view->zoom.Hit(view->zoomBar, cursor.x, cursor.y);
+                const int zoomHit = ZoomHit(view, cursor.x, cursor.y);
                 const wchar_t* cursorId = IDC_ARROW;
                 if (zoomHit != 0) {
                     cursorId = IDC_HAND;
@@ -887,8 +977,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 bar.dpi = view->dpi;
                 bar.light = view->light;
                 const int barHit = message == WM_MOUSELEAVE ? 0 : HitWindowScrollBar(bar, x, y);
-                view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi, view->zoomBar);
-                const int zoomHit = message == WM_MOUSELEAVE ? 0 : view->zoom.Hit(view->zoomBar, x, y);
+                const int zoomHit = message == WM_MOUSELEAVE ? 0 : ZoomHit(view, x, y);
                 if (message == WM_LBUTTONUP && view->zoom.pressed != 0) {
                     const int part = view->zoom.pressed;
                     view->zoom.pressed = 0;
@@ -897,14 +986,13 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     }
                     if (part == zoomHit) {
                         if (part == 1) {
-                            view->zoom.Toggle();
-                        } else if (part == 2) {
                             view->zoom.Step(-1);
-                        } else if (part == 3) {
+                        } else if (part == 2) {
                             view->zoom.Step(0);
-                        } else if (part == 4) {
+                        } else if (part == 3) {
                             view->zoom.Step(1);
                         }
+                        RevealZoom(view);
                     }
                     Request(view);
                     return 0;
@@ -986,6 +1074,9 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 if (message == WM_MOUSEMOVE || message == WM_MOUSELEAVE) {
                     if (view->zoom.hot != zoomHit) {
                         view->zoom.hot = zoomHit;
+                        if (zoomHit != 0) {
+                            RevealZoom(view);
+                        }
                         Request(view);
                     }
                     if (zoomHit != 0) {
@@ -1044,9 +1135,9 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             if (view != nullptr && view->ready && view->screen) {
                 const int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
                 if ((GET_KEYSTATE_WPARAM(wParam) & MK_CONTROL) != 0 && view->zoom.enabled) {
-                    if (view->zoom.Wheel(static_cast<double>(-wheelDelta))) {
-                        Request(view);
-                    }
+                    view->zoom.Wheel(static_cast<double>(-wheelDelta));
+                    RevealZoom(view);
+                    Request(view);
                     return 0;
                 }
                 UINT lines = 3;
@@ -1082,11 +1173,10 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 } else if (wParam == '0' || wParam == VK_NUMPAD0) {
                     direction = 0;
                 }
-                if (direction != 2 && view->zoom.Step(direction)) {
-                    Request(view);
-                    return 0;
-                }
                 if (direction != 2) {
+                    view->zoom.Step(direction);
+                    RevealZoom(view);
+                    Request(view);
                     return 0;
                 }
             }
@@ -1130,6 +1220,29 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case WM_TIMER:
+            if (wParam == 5) {
+                if (view == nullptr) {
+                    KillTimer(window, 5);
+                    return 0;
+                }
+                if (view->zoom.hot != 0 || view->zoom.pressed != 0) {
+                    view->zoomOpacity = 255;
+                    view->zoomIdle = GetTickCount();
+                    return 0;
+                }
+                if (view->zoomOpacity > 0 && GetTickCount() - view->zoomIdle > 900) {
+                    const int drop = view->zoomOpacity / 5;
+                    view->zoomOpacity -= drop < 18 ? 18 : drop;
+                    if (view->zoomOpacity < 0) {
+                        view->zoomOpacity = 0;
+                    }
+                    InvalidateRect(window, nullptr, FALSE);
+                }
+                if (view->zoomOpacity <= 0) {
+                    KillTimer(window, 5);
+                }
+                return 0;
+            }
             if (wParam == 4) {
                 if (view == nullptr || !WindowsDocumentNeedsSpin()) {
                     KillTimer(window, 4);
@@ -1227,9 +1340,13 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                             view->pinchLive = true;
                             view->pinchOrigin = view->zoom.scale;
                             view->pinchDistance = distance;
-                        } else if (view->pinchLive && view->pinchDistance > 0 &&
-                                   view->zoom.Pinch(view->pinchOrigin, distance / view->pinchDistance)) {
-                            Request(view);
+                        } else if (view->pinchLive && view->pinchDistance > 0) {
+                            const bool changed = view->zoom.Pinch(view->pinchOrigin, distance / view->pinchDistance);
+                            const bool hidden = view->zoomOpacity <= 0;
+                            RevealZoom(view);
+                            if (changed || hidden) {
+                                Request(view);
+                            }
                         }
                     } else {
                         view->pinchLive = false;

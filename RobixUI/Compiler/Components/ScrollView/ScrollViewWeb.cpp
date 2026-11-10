@@ -7,6 +7,36 @@ void RoboWebAppendScrollCss(std::ostream& css) {
   css << ".robo-scroll-host{position:relative;min-width:0;border:0;outline:none;box-shadow:none}\n";
   css << ".robo-scroll-host:focus,.robo-scroll-host:focus-visible{outline:none;box-shadow:none}\n";
   css << ".robo-scroll-host.is-page{height:100%;background:var(--bg-primary)}\n";
+  css << ".robo-zoom{position:fixed;z-index:30;display:flex;align-items:center;box-sizing:border-box;"
+         "height:32px;padding:3px;background:var(--bg-elevated);color:var(--text-primary);"
+         "border:1px solid var(--border-default);border-radius:980px;"
+         "box-shadow:0 10px 28px rgba(0,0,0,.16),0 1px 1px rgba(0,0,0,.06);"
+         "opacity:0;pointer-events:none;transition:opacity 180ms ease,transform 180ms ease}\n";
+  css << ".robo-zoom.is-on{opacity:1;pointer-events:auto}\n";
+  css << ".robo-zoom button{appearance:none;border:0;background:transparent;color:inherit;cursor:pointer;"
+         "font:500 13px/1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;"
+         "height:26px;min-width:32px;padding:0 8px;border-radius:980px}\n";
+  css << ".robo-zoom button:hover{background:var(--bg-hover)}\n";
+  css << ".robo-zoom button:active{background:var(--bg-active)}\n";
+  css << ".robo-zoom-value{min-width:58px}\n";
+  css << ".robo-zoom[data-place=bottom]{left:50%;bottom:16px;transform:translate(-50%,8px)}\n";
+  css << ".robo-zoom[data-place=bottom].is-on{transform:translate(-50%,0)}\n";
+  css << ".robo-zoom[data-place=bottom-left]{left:16px;bottom:16px;transform:translateY(8px)}\n";
+  css << ".robo-zoom[data-place=bottom-left].is-on{transform:none}\n";
+  css << ".robo-zoom[data-place=bottom-right]{right:16px;bottom:16px;transform:translateY(8px)}\n";
+  css << ".robo-zoom[data-place=bottom-right].is-on{transform:none}\n";
+  css << ".robo-zoom[data-place=top]{left:50%;top:16px;transform:translate(-50%,-8px)}\n";
+  css << ".robo-zoom[data-place=top].is-on{transform:translate(-50%,0)}\n";
+  css << ".robo-zoom[data-place=top-left]{left:16px;top:16px;transform:translateY(-8px)}\n";
+  css << ".robo-zoom[data-place=top-left].is-on{transform:none}\n";
+  css << ".robo-zoom[data-place=top-right]{right:16px;top:16px;transform:translateY(-8px)}\n";
+  css << ".robo-zoom[data-place=top-right].is-on{transform:none}\n";
+  css << ".robo-zoom[data-place=left]{left:16px;top:50%;transform:translate(-8px,-50%)}\n";
+  css << ".robo-zoom[data-place=left].is-on{transform:translate(0,-50%)}\n";
+  css << ".robo-zoom[data-place=right]{right:16px;top:50%;transform:translate(8px,-50%)}\n";
+  css << ".robo-zoom[data-place=right].is-on{transform:translate(0,-50%)}\n";
+  css << ".robo-zoom[data-place=center]{left:50%;top:50%;transform:translate(-50%,-50%) scale(.98)}\n";
+  css << ".robo-zoom[data-place=center].is-on{transform:translate(-50%,-50%)}\n";
   css << ".robo-scrollbar{position:absolute;top:0;right:0;bottom:0;width:16px;display:none;"
          "flex-direction:column;align-items:flex-end;gap:3px;padding-right:2px;box-sizing:border-box;"
          "z-index:4;opacity:0;pointer-events:none}\n";
@@ -130,14 +160,76 @@ std::string RoboWebScrollScript() {
         var list = Robo.placeScrolls || [];
         for (var n = 0; n < list.length; n++) list[n]();
       }
+      function zoomAnchor(raw) {
+        var text = String(raw || "bottom").toLowerCase().replace(/[\s_-]/g, "");
+        if (text === "none" || text === "off" || text === "false" || text === "hidden" || text === "0") return "";
+        if (text === "bottom" || text === "bottomcenter") return "bottom";
+        if (text === "bottomleft") return "bottom-left";
+        if (text === "bottomright") return "bottom-right";
+        if (text === "top" || text === "topcenter") return "top";
+        if (text === "topleft") return "top-left";
+        if (text === "topright") return "top-right";
+        if (text === "left" || text === "centerleft") return "left";
+        if (text === "right" || text === "centerright") return "right";
+        if (text === "center" || text === "middle") return "center";
+        return "bottom";
+      }
+      var page = document.querySelector(".robo-screen,.robo-page");
+      var place = zoomAnchor(page ? page.getAttribute("data-zoom-controls") : "bottom");
+      var hud = null;
+      var hideZoom = 0;
+      if (place) {
+        hud = document.createElement("div");
+        hud.className = "robo-zoom";
+        hud.setAttribute("data-place", place);
+        hud.setAttribute("aria-hidden", "true");
+        hud.innerHTML = "<button type=\"button\" data-zoom=\"out\" aria-label=\"Zoom out\">\u2212</button>" +
+          "<button type=\"button\" data-zoom=\"reset\" class=\"robo-zoom-value\" aria-label=\"Actual size\">100%</button>" +
+          "<button type=\"button\" data-zoom=\"in\" aria-label=\"Zoom in\">+</button>";
+        document.body.appendChild(hud);
+        hud.addEventListener("pointerenter", function () { showZoom(); });
+        hud.addEventListener("pointerleave", function () { showZoom(); });
+        hud.addEventListener("click", function (ev) {
+          var button = ev.target.closest ? ev.target.closest("button") : null;
+          if (!button) return;
+          var action = button.getAttribute("data-zoom");
+          if (action === "out") setZoom(Robo.zoom / 1.1);
+          else if (action === "in") setZoom(Robo.zoom * 1.1);
+          else setZoom(1);
+        });
+      }
+      function showZoom() {
+        if (!hud) return;
+        hud.classList.add("is-on");
+        hud.setAttribute("aria-hidden", "false");
+        clearTimeout(hideZoom);
+        hideZoom = setTimeout(function () {
+          if (hud.matches(":hover")) { showZoom(); return; }
+          hud.classList.remove("is-on");
+          hud.setAttribute("aria-hidden", "true");
+        }, 900);
+      }
       function setZoom(next) {
         if (next < 0.25) next = 0.25;
         if (next > 4) next = 4;
         Robo.zoom = next;
         document.documentElement.style.zoom = String(next);
+        if (hud) {
+          var label = hud.querySelector(".robo-zoom-value");
+          if (label) label.textContent = Math.round(next * 100) + "%";
+          hud.style.zoom = String(1 / next);
+          showZoom();
+        }
         placeScrolls();
         requestAnimationFrame(placeScrolls);
       }
+      document.addEventListener("keydown", function (ev) {
+        if (!ev.ctrlKey && !ev.metaKey) return;
+        var key = ev.key;
+        if (key === "+" || key === "=" || key === "Add") { ev.preventDefault(); setZoom(Robo.zoom * 1.1); }
+        else if (key === "-" || key === "_" || key === "Subtract") { ev.preventDefault(); setZoom(Robo.zoom / 1.1); }
+        else if (key === "0") { ev.preventDefault(); setZoom(1); }
+      }, true);
       document.addEventListener("wheel", function (ev) {
         if (!ev.ctrlKey) return;
         ev.preventDefault();
@@ -289,7 +381,7 @@ std::string RoboWebScrollScript() {
         if (inset * 2 > room) inset = Math.max(0, Math.floor(room / 2));
         var menu = view.closest && view.closest(".robo-select-menu");
         if (menu) {
-          bar.style.right = "2px";
+          bar.style.right = "-8px";
           bar.style.top = "4px";
           bar.style.bottom = "4px";
         } else {

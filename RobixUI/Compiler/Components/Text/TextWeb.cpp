@@ -395,13 +395,34 @@ void RoboWebAppendTextStyle(std::string& style, const RoboXMLNode& node, const R
   } else if (vertical == "bottom") {
     RoboWebAddDecl(style, "vertical-align", "bottom");
   }
-  const std::string wrap = RoboWebLower(textNode ? RoboWebTextAttr(node, "textWrap", "wrap") : RoboXMLAttr(node, "textWrap"));
-  if (wrap == "none" || wrap == "nowrap") {
+  std::string wrap = RoboWebLower(textNode ? RoboWebTextAttr(node, "textWrap", "wrap") : RoboXMLAttr(node, "textWrap"));
+  if (wrap.empty() && textNode) {
+    wrap = "word";
+  }
+  std::string space = RoboWebLower(RoboWebTextAttr(node, "whiteSpace", "white-space"));
+  const std::string longBreak = RoboWebLower(RoboWebTextAttr(node, "overflowWrap", "overflow-wrap"));
+  if (space == "nowrap" || wrap == "none" || wrap == "nowrap" || wrap == "false") {
     RoboWebAddDecl(style, "white-space", "nowrap");
-  } else if (wrap == "char" || wrap == "character") {
+    RoboWebAddDecl(style, "text-wrap", "nowrap");
+  } else if (space == "pre") {
+    RoboWebAddDecl(style, "white-space", "pre");
+  } else if (space == "pre-line" || space == "preline") {
+    RoboWebAddDecl(style, "white-space", "pre-line");
+  } else if (space == "normal") {
+    RoboWebAddDecl(style, "white-space", "normal");
+  } else if (textNode) {
+    RoboWebAddDecl(style, "white-space", "pre-wrap");
+  }
+  if (wrap == "char" || wrap == "character" || longBreak == "anywhere") {
     RoboWebAddDecl(style, "word-break", "break-all");
-  } else if (wrap == "balance" || wrap == "pretty" || wrap == "wrap" || wrap == "word") {
-    RoboWebAddDecl(style, "text-wrap", wrap == "word" ? "wrap" : wrap);
+    RoboWebAddDecl(style, "overflow-wrap", "anywhere");
+    RoboWebAddDecl(style, "text-wrap", "wrap");
+  } else if (wrap == "balance" || wrap == "pretty") {
+    RoboWebAddDecl(style, "text-wrap", wrap);
+    RoboWebAddDecl(style, "overflow-wrap", longBreak == "normal" ? "normal" : "break-word");
+  } else if (wrap == "word" || wrap == "wrap") {
+    RoboWebAddDecl(style, "text-wrap", "wrap");
+    RoboWebAddDecl(style, "overflow-wrap", longBreak == "normal" ? "normal" : "break-word");
   }
   RoboWebAddDecl(style, "text-indent", RoboWebTextLength(library, RoboWebTextAttr(node, "textIndent", "hanging")));
   RoboWebAddDecl(style, "margin-bottom", RoboWebTextLength(library, RoboXMLAttr(node, "paragraphSpacing")));
@@ -496,10 +517,16 @@ void RoboWebAppendTextStyle(std::string& style, const RoboXMLNode& node, const R
   const std::string lines = RoboXMLAttr(node, "lines").empty() ? RoboXMLAttr(node, "maxLines") : RoboXMLAttr(node, "lines");
   const std::string overflow = RoboWebLower(RoboWebTextAttr(node, "textOverflow", "overflow"));
   if (textNode && RoboWebIsNumber(lines)) {
-    RoboWebAddDecl(style, "display", "-webkit-box");
-    RoboWebAddDecl(style, "-webkit-box-orient", "vertical");
-    RoboWebAddDecl(style, "-webkit-line-clamp", lines);
-    RoboWebAddDecl(style, "overflow", "hidden");
+    if (overflow == "clip" || overflow == "hidden") {
+      RoboWebAddDecl(style, "overflow", "hidden");
+      RoboWebAddDecl(style, "max-height", "calc(" + lines + " * 1lh)");
+    } else {
+      RoboWebAddDecl(style, "display", "-webkit-box");
+      RoboWebAddDecl(style, "-webkit-box-orient", "vertical");
+      RoboWebAddDecl(style, "-webkit-line-clamp", lines);
+      RoboWebAddDecl(style, "line-clamp", lines);
+      RoboWebAddDecl(style, "overflow", "hidden");
+    }
   } else if (overflow == "ellipsis") {
     RoboWebAddDecl(style, "overflow", "hidden");
     RoboWebAddDecl(style, "text-overflow", "ellipsis");
