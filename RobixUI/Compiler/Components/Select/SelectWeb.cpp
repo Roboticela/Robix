@@ -405,7 +405,7 @@ void RoboWebAppendSelectCss(std::ostream& css) {
   css << ".robo-select-menu > .robo-scroll-host{position:relative;flex:1 1 auto;min-width:0;min-height:0;max-height:320px;overflow:visible}\n";
   css << ".robo-select-menu .robo-scroll-host[hidden]{display:none !important}\n";
   css << ".robo-select-list{box-sizing:border-box;min-height:0;flex:1 1 auto;max-height:320px;"
-         "overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}\n";
+         "padding-right:28px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}\n";
   css << ".robo-select-option[hidden]{display:none !important}\n";
   css << ".robo-select-option{box-sizing:border-box;appearance:none;display:flex;align-items:center;width:100%;"
          "min-height:44px;gap:12px;margin:0;padding:0 10px;border:0;border-radius:10px;background:transparent;"

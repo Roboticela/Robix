@@ -1,6 +1,7 @@
 #include "WindowsHost.hpp"
 #include "WindowsDocument.hpp"
 #include "WindowsScroll.hpp"
+#include "../ViewZoom.hpp"
 
 #include "../../Compiler/Foundation/FoundationPlatform.hpp"
 #include "../../RoboGPU/RoboGPU.hpp"
@@ -59,7 +60,17 @@ struct HostView {
     bool movable = true;
     int scrollY = 0;
     int contentHeight = 0;
+    unsigned baseDpi = 96;
     unsigned dpi = 96;
+    ViewZoom zoom{};
+    ViewZoomBar zoomBar{};
+    bool pinchLive = false;
+    double pinchOrigin = 1;
+    double pinchDistance = 0;
+    UINT pinchId[2] = {};
+    int pinchX[2] = {};
+    int pinchY[2] = {};
+    int pinchCount = 0;
     WindowScrollState bar{};
     std::vector<WindowControl> controls;
     int hotControl = -1;
@@ -561,10 +572,58 @@ void Request(HostView* view) {
     }
 }
 
+RoboU32 ZoomColor(const char* name, bool light) {
+    return RoboFoundationPlatformColorForTheme(name, light ? ROBO_TRUE : ROBO_FALSE);
+}
+
+void ZoomText(RoboGPU* gpu, int x, int y, int width, int height, const char* text, RoboU32 color) {
+    if (gpu == nullptr || text == nullptr || text[0] == '\0') {
+        return;
+    }
+    const int size = std::max(11, height * 15 / 36);
+    RoboFontHeader header{};
+    header.magic = ROBO_FONT_MAGIC;
+    header.ascent = static_cast<RoboU16>(size);
+    header.firstCodepoint = 1;
+    RoboFontView font{};
+    font.header = &header;
+    const int measured = RoboTextMeasureUTF8(font, text, static_cast<RoboU16>(size));
+    const int mid = y + height / 2;
+    const int baseline = mid + size * 745 / 2048;
+    RoboTextDrawUTF8(gpu, font, x + std::max(0, (width - measured) / 2), baseline - size, text, color, static_cast<RoboU16>(size));
+}
+
+void PaintZoomBar(HostView* view) {
+    if (view == nullptr || view->back == nullptr) {
+        return;
+    }
+    view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi, view->zoomBar);
+    const ViewZoomBar& bar = view->zoomBar;
+    const bool light = view->light;
+    const RoboU32 fill = ZoomColor(view->zoom.enabled ? "bg-elevated" : "bg-secondary", light);
+    const RoboU32 hover = ZoomColor("bg-hover", light);
+    const RoboU32 ink = ZoomColor(view->zoom.enabled ? "text-primary" : "text-tertiary", light);
+    const RoboU32 brand = ZoomColor("brand-primary", light);
+    const RoboU32 onBrand = ZoomColor("text-on-brand", light);
+    const auto chip = [&](int x, int width, int part, RoboU32 rest, RoboU32 text, const char* label) {
+        const bool on = view->zoom.hot == part || view->zoom.pressed == part;
+        RoboGPUFillRect(&view->gpu, x, bar.y, width, bar.height, on ? hover : rest);
+        ZoomText(&view->gpu, x, bar.y, width, bar.height, label, text);
+    };
+    chip(bar.toggleX, bar.toggleW, 1, view->zoom.enabled ? brand : fill, view->zoom.enabled ? onBrand : ink,
+         view->zoom.enabled ? "Zoom" : "Off");
+    char percent[16];
+    std::snprintf(percent, sizeof(percent), "%d%%", view->zoom.Percent());
+    chip(bar.minusX, bar.stepW, 2, fill, ink, "-");
+    chip(bar.labelX, bar.labelW, 3, fill, ink, percent);
+    chip(bar.plusX, bar.stepW, 4, fill, ink, "+");
+}
+
 void Draw(HostView* view) {
     if (view == nullptr || !view->ready || view->back == nullptr) {
         return;
     }
+    view->dpi = view->zoom.ScaledDpi(view->baseDpi);
     BindSheet(view, false);
     if (view->screen && !view->document.empty()) {
         const int height = static_cast<int>(view->pixelHeight);
@@ -650,6 +709,9 @@ void Draw(HostView* view) {
                 CopyVisible(view, ringX, ringY, control.width + reach * 2, control.height + reach * 2);
             }
             PaintWindowsFocusRing(&view->gpu, control.x, control.y - view->scrollY, control.width, control.height);
+        }
+        if (view->screen) {
+            PaintZoomBar(view);
         }
         view->shownOpacity = bar.opacity;
         view->shownPart = bar.part;
@@ -741,6 +803,11 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
         }
         case WM_DPICHANGED: {
             auto* suggested = reinterpret_cast<RECT*>(lParam);
+            if (view != nullptr) {
+                const UINT next = GetDpiForWindow(window);
+                view->baseDpi = next == 0 ? 96u : next;
+                Request(view);
+            }
             SetWindowPos(window, nullptr, suggested->left, suggested->top, suggested->right - suggested->left,
                          suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
             return 0;
@@ -784,8 +851,12 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         break;
                     }
                 }
+                view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi, view->zoomBar);
+                const int zoomHit = view->zoom.Hit(view->zoomBar, cursor.x, cursor.y);
                 const wchar_t* cursorId = IDC_ARROW;
-                if (barHit == 0 && onControl) {
+                if (zoomHit != 0) {
+                    cursorId = IDC_HAND;
+                } else if (barHit == 0 && onControl) {
                     cursorId = controlEnabled ? IDC_HAND : IDC_NO;
                 }
                 SetCursor(LoadCursorW(nullptr, cursorId));
@@ -816,6 +887,37 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 bar.dpi = view->dpi;
                 bar.light = view->light;
                 const int barHit = message == WM_MOUSELEAVE ? 0 : HitWindowScrollBar(bar, x, y);
+                view->zoom.Place(static_cast<int>(view->pixelWidth), static_cast<int>(view->pixelHeight), view->baseDpi, view->zoomBar);
+                const int zoomHit = message == WM_MOUSELEAVE ? 0 : view->zoom.Hit(view->zoomBar, x, y);
+                if (message == WM_LBUTTONUP && view->zoom.pressed != 0) {
+                    const int part = view->zoom.pressed;
+                    view->zoom.pressed = 0;
+                    if (GetCapture() == window) {
+                        ReleaseCapture();
+                    }
+                    if (part == zoomHit) {
+                        if (part == 1) {
+                            view->zoom.Toggle();
+                        } else if (part == 2) {
+                            view->zoom.Step(-1);
+                        } else if (part == 3) {
+                            view->zoom.Step(0);
+                        } else if (part == 4) {
+                            view->zoom.Step(1);
+                        }
+                    }
+                    Request(view);
+                    return 0;
+                }
+                if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && zoomHit != 0) {
+                    SetFocus(window);
+                    view->zoom.pressed = zoomHit;
+                    view->zoom.hot = zoomHit;
+                    view->hotControl = -1;
+                    SetCapture(window);
+                    Request(view);
+                    return 0;
+                }
                 if (view->bar.drag && message == WM_MOUSEMOVE) {
                     WindowDragScrollBar(bar, y);
                     view->scrollY = bar.scrollY;
@@ -882,6 +984,17 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     view->pointerY = y;
                 }
                 if (message == WM_MOUSEMOVE || message == WM_MOUSELEAVE) {
+                    if (view->zoom.hot != zoomHit) {
+                        view->zoom.hot = zoomHit;
+                        Request(view);
+                    }
+                    if (zoomHit != 0) {
+                        if (view->hotControl != -1) {
+                            view->hotControl = -1;
+                            Request(view);
+                        }
+                        return 0;
+                    }
                     const int part = barHit == 4 ? 0 : barHit;
                     bool paint = false;
                     if (barHit != 0) {
@@ -929,9 +1042,15 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             return 0;
         case WM_MOUSEWHEEL:
             if (view != nullptr && view->ready && view->screen) {
+                const int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+                if ((GET_KEYSTATE_WPARAM(wParam) & MK_CONTROL) != 0 && view->zoom.enabled) {
+                    if (view->zoom.Wheel(static_cast<double>(-wheelDelta))) {
+                        Request(view);
+                    }
+                    return 0;
+                }
                 UINT lines = 3;
                 SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
-                const int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
                 int step = 0;
                 if (lines == WHEEL_PAGESCROLL) {
                     const int page = static_cast<int>(view->pixelHeight) - WindowScrollScale(64, view->dpi);
@@ -954,6 +1073,23 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case WM_KEYDOWN:
+            if (view != nullptr && view->ready && view->screen && (GetKeyState(VK_CONTROL) & 0x8000) != 0) {
+                int direction = 2;
+                if (wParam == VK_OEM_PLUS || wParam == VK_ADD) {
+                    direction = 1;
+                } else if (wParam == VK_OEM_MINUS || wParam == VK_SUBTRACT) {
+                    direction = -1;
+                } else if (wParam == '0' || wParam == VK_NUMPAD0) {
+                    direction = 0;
+                }
+                if (direction != 2 && view->zoom.Step(direction)) {
+                    Request(view);
+                    return 0;
+                }
+                if (direction != 2) {
+                    return 0;
+                }
+            }
             if (view != nullptr && view->ready && view->screen && wParam == VK_TAB) {
                 const int count = static_cast<int>(view->controls.size());
                 if (count > 0) {
@@ -1046,6 +1182,62 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 std::printf("interpreter: refreshed\n");
             }
             return 0;
+        case WM_POINTERDOWN:
+        case WM_POINTERUPDATE:
+        case WM_POINTERUP:
+        case WM_POINTERCAPTURECHANGED:
+            if (view != nullptr && view->ready && view->screen) {
+                const UINT id = GET_POINTERID_WPARAM(wParam);
+                POINTER_INFO info{};
+                if (GetPointerInfo(id, &info) && info.pointerType != PT_MOUSE) {
+                    POINT point = info.ptPixelLocation;
+                    ScreenToClient(window, &point);
+                    int slot = -1;
+                    for (int index = 0; index < view->pinchCount; ++index) {
+                        if (view->pinchId[index] == id) {
+                            slot = index;
+                            break;
+                        }
+                    }
+                    if (message == WM_POINTERDOWN) {
+                        if (slot < 0 && view->pinchCount < 2) {
+                            view->pinchId[view->pinchCount] = id;
+                            view->pinchX[view->pinchCount] = point.x;
+                            view->pinchY[view->pinchCount] = point.y;
+                            ++view->pinchCount;
+                        }
+                    } else if (message == WM_POINTERUPDATE) {
+                        if (slot >= 0) {
+                            view->pinchX[slot] = point.x;
+                            view->pinchY[slot] = point.y;
+                        }
+                    } else if (slot >= 0) {
+                        const int last = view->pinchCount - 1;
+                        view->pinchId[slot] = view->pinchId[last];
+                        view->pinchX[slot] = view->pinchX[last];
+                        view->pinchY[slot] = view->pinchY[last];
+                        --view->pinchCount;
+                        view->pinchLive = false;
+                    }
+                    if (view->pinchCount == 2) {
+                        const double dx = static_cast<double>(view->pinchX[0] - view->pinchX[1]);
+                        const double dy = static_cast<double>(view->pinchY[0] - view->pinchY[1]);
+                        const double distance = std::sqrt(dx * dx + dy * dy);
+                        if (!view->pinchLive && distance > 0) {
+                            view->pinchLive = true;
+                            view->pinchOrigin = view->zoom.scale;
+                            view->pinchDistance = distance;
+                        } else if (view->pinchLive && view->pinchDistance > 0 &&
+                                   view->zoom.Pinch(view->pinchOrigin, distance / view->pinchDistance)) {
+                            Request(view);
+                        }
+                    } else {
+                        view->pinchLive = false;
+                    }
+                    return 0;
+                }
+            }
+            return DefWindowProcW(window, message, wParam, lParam);
         case WM_CLOSE:
             DestroyWindow(window);
             return 0;
@@ -1242,6 +1434,7 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     if (view.dpi == 0) {
         view.dpi = 96;
     }
+    view.baseDpi = view.dpi;
     if (options.screen) {
         std::printf("component Screen\n");
         std::printf("screen place %s %d %d %dx%d\n", options.place.c_str(), originX, originY, clientWidth, clientHeight);

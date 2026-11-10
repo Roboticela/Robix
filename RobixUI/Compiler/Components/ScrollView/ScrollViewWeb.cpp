@@ -289,7 +289,7 @@ std::string RoboWebScrollScript() {
         if (inset * 2 > room) inset = Math.max(0, Math.floor(room / 2));
         var menu = view.closest && view.closest(".robo-select-menu");
         if (menu) {
-          bar.style.right = "-6px";
+          bar.style.right = "2px";
           bar.style.top = "4px";
           bar.style.bottom = "4px";
         } else {

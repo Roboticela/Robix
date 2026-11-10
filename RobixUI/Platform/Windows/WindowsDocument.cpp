@@ -2326,6 +2326,15 @@ void DrawSpin(RoboGPU* gpu, int centerX, int centerY, RoboU32 track, int trackCo
     }
 }
 
+int CenteredTextTop(int top, int boxHeight, int fontSize) {
+    if (fontSize <= 0) {
+        return top;
+    }
+    const int mid = top + boxHeight / 2;
+    const int baseline = mid + fontSize * 745 / 2048;
+    return baseline - fontSize;
+}
+
 void PaintSpin(RoboGPU* gpu, int centerX, int centerY, int size, RoboU32 ink, int fade, bool light) {
     const RoboU32 tick = ink != 0 ? ink : ThemeColor("brand-primary", light);
     int cover = fade > 0 ? fade : 255;
@@ -2394,14 +2403,14 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
                 }
             }
             textX = cursor;
-            textY = y + std::max(0, (op.height - op.size) / 2);
+            textY = CenteredTextTop(y, op.height, op.size);
             if (!op.trailingSvg.empty()) {
                 PaintWindowsSvg(gpu, cursor + measured + gap, mid - icon / 2, icon, op.trailingSvg, op.color);
             }
         } else if (!op.text) {
             const int measured = MeasureText(op.value, op.size, op.face);
             textX = op.x + std::max(0, (op.width - measured) / 2);
-            textY = y + std::max(0, (op.height - op.size) / 2);
+            textY = CenteredTextTop(y, op.height, op.size);
         }
         if (!op.value.empty()) {
             if (op.text) {
