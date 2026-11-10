@@ -58,7 +58,7 @@ fs::path ProjectRoot(const fs::path& input) {
     if (fs::is_directory(input, error)) {
         return input;
     }
-    if (input.extension() == ".rbxproj") {
+    if (input.extension() == ".rxproj") {
         return input.parent_path();
     }
     return input.parent_path();

@@ -44,18 +44,18 @@ Release integer arithmetic is two's-complement wrap. `nsw` is not emitted on rel
 | :--- | :--- |
 | `.rx` | Source |
 | `.test.rx` | Tests for the matching source file |
-| `.rbxh` | Interface / header |
+| `.rxh` | Interface / header |
 | `.rxu` | RobixUI document |
-| `.rbxtheme` | UI theme |
-| `.rbxassets` | UI asset manifest |
-| `.rbxb` | RobixBuild project file |
-| `.rbxproj` | Package manifest |
-| `.rbxapi` | Public API with `Explain` blocks and no implementation |
-| `.rbxp` | Binary package archive |
-| `.rbxlock` | Lockfile |
-| `.rbxm` | Compiled module |
-| `.rbxlib` | Library |
-| `.rbxworkspace` | Workspace |
+| `.rxtheme` | UI theme |
+| `.rxassets` | UI asset manifest |
+| `.rxb` | RobixBuild project file |
+| `.rxproj` | Package manifest |
+| `.rxapi` | Public API with `Explain` blocks and no implementation |
+| `.rxp` | Binary package archive |
+| `.rxlock` | Lockfile |
+| `.rxm` | Compiled module |
+| `.rxlib` | Library |
+| `.rxworkspace` | Workspace |
 | `.env`, `.env.client`, `.env.server` | Scoped configuration for applications that opt into Robix Network |
 
 Do not add another extension for the same job.
@@ -81,7 +81,7 @@ Enforced by `robixc`, `robix format`, and `robix lint`. Legacy projects may opt 
 - Errors: `Result` for expected failure, exceptions for exceptional failure. Robotic and kernel faults are reported. They are not ignored.
 - Concurrency, after the core: threads, `Task<T>`, `async` / `await`, `Mutex`, `Atomic<T>`, channels. A program that uses none of these does not link their runtime.
 - `Explain { }` blocks on public API.
-- One `Main` entry. `Main() -> Int` is the process exit code. Freestanding targets use the entry symbol from the `.rbxb` file instead of a hosted `main`.
+- One `Main` entry. `Main() -> Int` is the process exit code. Freestanding targets use the entry symbol from the `.rxb` file instead of a hosted `main`.
 
 ### 3.5 Execution
 
@@ -122,9 +122,9 @@ Profiles:
 2. **Application.** Games, desktop, CLI, libraries, firmware, kernels. No network runtime unless the project asks for it.
 3. **Network.** Optional. `Common/` contracts, clients, and servers. A normal program does not link it.
 
-Official kinds for `robix new`: `Blank`, `CLI`, and `Network`. `.` writes into the current directory. A missing name or kind is asked, and a folder name that the operating system cannot use is asked again. `robix new file` adds a `hello`, `empty`, `class`, or `package` source file. A Network project keeps each client and server folder in the project root. Each one is `CLI` or `GUI`. A GUI service also gets a `.rxu` window. `Common` has `Source` and `Tests`, and those files only declare the calls. `.env.common` and `exp.env.common` hold the shared secret, hosts, and ports. The root has no lone `.env`. Every other env file is empty. A new project includes `.gitignore`. `import Robix.Env` provides `Get`, `Exists`, `Set`, `Add`, and `Remove`. `Get` warns on its own when the name is missing or empty. `robix run all` runs the services in the current console. `--separate` gives each service its own console. The project `.rbxb` lists the build order, with `Common` before the programs that import it, and lists the UI files.
+Official kinds for `robix new`: `Blank`, `CLI`, and `Network`. `.` writes into the current directory. A missing name or kind is asked, and a folder name that the operating system cannot use is asked again. `robix new file` adds a `hello`, `empty`, `class`, or `package` source file. A Network project keeps each client and server folder in the project root. Each one is `CLI` or `GUI`. A GUI service also gets a `.rxu` window. `Common` has `Source` and `Tests`, and those files only declare the calls. `.env.common` and `exp.env.common` hold the shared secret, hosts, and ports. The root has no lone `.env`. Every other env file is empty. A new project includes `.gitignore`. `import Robix.Env` provides `Get`, `Exists`, `Set`, `Add`, and `Remove`. `Get` warns on its own when the name is missing or empty. `robix run all` runs the services in the current console. `--separate` gives each service its own console. The project `.rxb` lists the build order, with `Common` before the programs that import it, and lists the UI files.
 
-`.rbxb` output kinds `Executable`, `Library`, `SharedLibrary`, `StaticLibrary`, `Object`, and `Package` are recorded in `Documentation/Status.md`. `Firmware` and `Kernel` already link.
+`.rxb` output kinds `Executable`, `Library`, `SharedLibrary`, `StaticLibrary`, `Object`, and `Package` are recorded in `Documentation/Status.md`. `Firmware` and `Kernel` already link.
 
 ---
 

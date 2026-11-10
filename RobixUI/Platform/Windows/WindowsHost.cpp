@@ -581,8 +581,8 @@ void Draw(HostView* view) {
         if (view->scrollY < 0) {
             view->scrollY = 0;
         }
-        WindowPatch patches[16]{};
-        int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, patches, 16);
+        WindowPatch patches[32]{};
+        int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, patches, 32);
         bool fresh = false;
         const bool usedSheet = layout >= 0 && EnsureSheet(view, view->contentHeight, fresh);
         if (usedSheet) {
@@ -594,7 +594,17 @@ void Draw(HostView* view) {
                 view->gpuScroll = -1;
                 view->gpuFull = true;
                 patchCount = 0;
-            } else if (patchCount > 0) {
+            } else {
+                if (WindowsDocumentNeedsSpin()) {
+                    WindowPatch spinRects[32]{};
+                    const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
+                    for (int index = 0; index < spinCount && patchCount < 32; ++index) {
+                        patches[patchCount] = spinRects[index];
+                        ++patchCount;
+                    }
+                }
+            }
+            if (patchCount > 0) {
                 BindSheet(view, true);
                 for (int index = 0; index < patchCount; ++index) {
                     PaintWindowsDocumentRect(&view->gpu, patches[index].x, patches[index].y, patches[index].width,
@@ -649,6 +659,11 @@ void Draw(HostView* view) {
     }
     if (view->window != nullptr) {
         KillTimer(view->window, 3);
+        if (view->stayOpen && view->screen && WindowsDocumentNeedsSpin()) {
+            SetTimer(view->window, 4, 50, nullptr);
+        } else {
+            KillTimer(view->window, 4);
+        }
     }
     view->painted = true;
     if (!view->frameNoted) {
@@ -930,6 +945,15 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
         case WM_KEYDOWN:
             return 0;
         case WM_TIMER:
+            if (wParam == 4) {
+                if (view == nullptr || !WindowsDocumentNeedsSpin()) {
+                    KillTimer(window, 4);
+                    return 0;
+                }
+                WindowsDocumentAdvanceSpin();
+                InvalidateRect(window, nullptr, FALSE);
+                return 0;
+            }
             if (wParam == 3) {
                 InvalidateRect(window, nullptr, FALSE);
                 return 0;

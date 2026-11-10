@@ -89,7 +89,7 @@ std::string ProjectCategory(const fs::path& start) {
     for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
         if (fs::is_directory(dir, ec)) {
             for (const auto& entry : fs::directory_iterator(dir, ec)) {
-                if (entry.path().extension() != ".rbxproj") continue;
+                if (entry.path().extension() != ".rxproj") continue;
                 std::ifstream in(entry.path());
                 std::string line;
                 while (std::getline(in, line)) {
@@ -122,7 +122,7 @@ std::string ProjectField(const fs::path& start, const char* key) {
     for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
         if (fs::is_directory(dir, ec)) {
             for (const auto& entry : fs::directory_iterator(dir, ec)) {
-                if (entry.path().extension() != ".rbxproj") continue;
+                if (entry.path().extension() != ".rxproj") continue;
                 std::ifstream in(entry.path());
                 std::string line;
                 while (std::getline(in, line)) {
@@ -145,7 +145,7 @@ fs::path ProjectRoot(const fs::path& start) {
     for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
         if (fs::is_directory(dir, ec)) {
             for (const auto& entry : fs::directory_iterator(dir, ec)) {
-                if (entry.path().extension() == ".rbxproj") return dir;
+                if (entry.path().extension() == ".rxproj") return dir;
             }
         }
         if (!dir.has_parent_path() || dir.parent_path() == dir) break;

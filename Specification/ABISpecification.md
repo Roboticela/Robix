@@ -74,19 +74,19 @@ _RBX1_<PackageLength><Package>_<ClassOrModuleLength><ClassOrModule>_<FuncLength>
 
 ---
 
-## 4. GENERIC ABI, `.rbxapi` & `.rbxp` BINARY COMPATIBILITY
+## 4. GENERIC ABI, `.rxapi` & `.rxp` BINARY COMPATIBILITY
 
 1. **Monomorphization & Pre-Instantiation:** Generic classes and functions are monomorphized into specialized native machine code for each concrete type.
-2. **Cross-Package Generics in `.rbxp`:** Published `.rbxp` packages include both pre-compiled native binaries for exported concrete types and validated IR templates inside the package archive so consuming applications can instantiate generic types (`List<MyCustomStruct>`) with full native optimization.
-3. **ABI Verification Hash:** Every `.rbxp` package embeds a `SHA-256` hash of its `.rbxapi` declarations, target triple (`windows-x64`, `linux-x64`, `macos-arm64`, etc.), and `ABI = "RobixABI_v1"`. The linker refuses to link mismatched ABI versions and emits a clear diagnostic.
-4. **Plugin & Dynamic Library ABI:** Shared libraries (`Output = "SharedLibrary"` in `Project.rbxb`) expose a standard `_RBX1_PluginMetadata` descriptor table verifying compiler ABI compatibility upon dynamic load.
+2. **Cross-Package Generics in `.rxp`:** Published `.rxp` packages include both pre-compiled native binaries for exported concrete types and validated IR templates inside the package archive so consuming applications can instantiate generic types (`List<MyCustomStruct>`) with full native optimization.
+3. **ABI Verification Hash:** Every `.rxp` package embeds a `SHA-256` hash of its `.rxapi` declarations, target triple (`windows-x64`, `linux-x64`, `macos-arm64`, etc.), and `ABI = "RobixABI_v1"`. The linker refuses to link mismatched ABI versions and emits a clear diagnostic.
+4. **Plugin & Dynamic Library ABI:** Shared libraries (`Output = "SharedLibrary"` in `Project.rxb`) expose a standard `_RBX1_PluginMetadata` descriptor table verifying compiler ABI compatibility upon dynamic load.
 
 ---
 
 ## 5. LANGUAGE VERSIONING, COMPATIBILITY & GOVERNANCE POLICY
 
 ### 5.1 Explicit Language Versioning
-Every `Project.rbxproj` / `Project.rbxb` declares:
+Every `Project.rxproj` / `Project.rxb` declares:
 ```rust
 LanguageVersion = "1.0";
 ```

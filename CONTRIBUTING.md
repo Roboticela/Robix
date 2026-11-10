@@ -18,11 +18,11 @@ The toolchain is C++20. On Windows:
 powershell -NoProfile -ExecutionPolicy Bypass -File Scripts/BuildCompiler.ps1
 ```
 
-The script uses Clang 18 when it is installed at the path in the script, and `clang++` on `PATH` otherwise. Binaries are written to `Build/Bin/robix.exe` and `Build/Bin/robixc.exe`.
+The script uses Clang 18 when it is installed at the path in the script, and `clang++` on `PATH` otherwise. It installs the compiler at `Build/Compiler`.
 
 ```text
-Build/Bin/robix.exe version
-Build/Bin/robixc.exe --version
+Build/Compiler/Robix.exe version
+Build/Compiler/Robixc.exe --version
 ```
 
 `CMakeLists.txt` builds the C++ libraries and the stage tests. The script above is what produces the two programs.
@@ -32,9 +32,9 @@ Build/Bin/robixc.exe --version
 Run the program that your change affects, on the engine that your change affects.
 
 ```powershell
-Build\Bin\robix.exe run Examples\GettingStarted\Hello.rx
-Build\Bin\robixc.exe -O3 Examples\GettingStarted\Hello.rx -o Build\Hello.exe
-Build\Bin\robix.exe test Tests\Conformance
+Build\Compiler\Robix.exe run Examples\GettingStarted\Hello.rx
+Build\Compiler\Robixc.exe -O3 Examples\GettingStarted\Hello.rx -o Build\Hello.exe
+Build\Compiler\Robix.exe test Tests\Conformance
 ```
 
 A compiler change that touches types or code generation should also run a program that exercises that path, and the same program through `robix run` when both engines are supposed to agree.

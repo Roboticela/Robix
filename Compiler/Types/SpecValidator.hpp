@@ -23,11 +23,11 @@ inline constexpr std::string_view MANGLE_PREFIX          = "_RBX1_";
 inline constexpr std::string_view EXT_SOURCE             = ".rx";
 inline constexpr std::string_view EXT_TEST               = ".test.rx";
 inline constexpr std::string_view EXT_UI                 = ".rxu";
-inline constexpr std::string_view EXT_BUILD              = ".rbxb";
-inline constexpr std::string_view EXT_PROJECT            = ".rbxproj";
-inline constexpr std::string_view EXT_API                = ".rbxapi";
-inline constexpr std::string_view EXT_PACKAGE            = ".rbxp";
-inline constexpr std::string_view EXT_LOCK               = ".rbxlock";
+inline constexpr std::string_view EXT_BUILD              = ".rxb";
+inline constexpr std::string_view EXT_PROJECT            = ".rxproj";
+inline constexpr std::string_view EXT_API                = ".rxapi";
+inline constexpr std::string_view EXT_PACKAGE            = ".rxp";
+inline constexpr std::string_view EXT_LOCK               = ".rxlock";
 
 // ============================================================================
 // 2. PRIMITIVE TYPE SPECIFICATION & EXACT LAYOUT METADATA

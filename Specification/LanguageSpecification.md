@@ -9,7 +9,7 @@
 ## 1. LEXICAL STRUCTURE & UNICODE IDENTIFIER POLICY
 
 ### 1.1 Source Encoding
-All Robix source files (`.rx`, `.test.rx`, `.rbxapi`, `.rbxb`, `.rbxproj`, `.rxu`) are encoded in **UTF-8** without requiring a Byte Order Mark (BOM).
+All Robix source files (`.rx`, `.test.rx`, `.rxapi`, `.rxb`, `.rxproj`, `.rxu`) are encoded in **UTF-8** without requiring a Byte Order Mark (BOM).
 
 ### 1.2 Unicode Identifier Policy (UAX #31)
 1. Identifiers follow **Unicode Standard Annex #31 (UAX #31)** `XID_Start` and `XID_Continue` properties, normalized to **Unicode Normalization Form C (NFC)** prior to symbol resolution.
@@ -134,12 +134,12 @@ The compiler lowers `for item in collection` into stack-inlined `GetIterator()` 
 3. Cyclic initialization dependencies between static variables across modules are rejected at compile time.
 
 ### 5.2 Access & Package Visibility Rules
-| Modifier | Same Class/Struct | Derived Class | Same File/Module | Same Package | External Consumer (`.rbxapi`) |
+| Modifier | Same Class/Struct | Derived Class | Same File/Module | Same Package | External Consumer (`.rxapi`) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | `private` | Yes | No | No | No | No |
 | `protected` | Yes | Yes | No | No | No |
 | `package` | Yes | Yes (in pkg) | Yes | Yes | No |
-| `internal` | Yes | Yes (in build) | Yes | Yes | No (same `.rbxb` target only) |
+| `internal` | Yes | Yes (in build) | Yes | Yes | No (same `.rxb` target only) |
 | `public` | Yes | Yes | Yes | Yes | Yes |
 
 ### 5.3 Flexible `Main()` Entry Point Contract
@@ -161,7 +161,7 @@ Every function or method supports a structured `Explain` block between the signa
 - **`Output`** *(Required if return type is not `Void`)*: Explains the returned value.
 - **`Errors`** *(Required if returning `Result` or throwing)*: Documents each error variant/condition.
 - **`SideEffects`** *(Required if mutating external state, I/O, or hardware)*: Documents side effects.
-- Missing required fields trigger `Warning D3001` (or build error when `Documentation { Required = true; }` is set in `Project.rbxb` or inside `.rbxapi`).
+- Missing required fields trigger `Warning D3001` (or build error when `Documentation { Required = true; }` is set in `Project.rxb` or inside `.rxapi`).
 
 ---
 
@@ -185,7 +185,7 @@ Safe Robix code (outside `Unsafe { ... }`) has **zero Undefined Behavior**:
 
 ### 7.3 Resource Lifetime Rules & Stack/Heap Budgets
 - Hardware peripherals (`GPIO`, `PWM`, `UART`, `SPI`, `I2C`, `CAN`, `DMA`), files, and sockets follow linear RAII ownership (`using` / `defer`) so two tasks cannot conflict on the same physical pin/channel without explicit synchronization.
-- Embedded and safety-critical builds can set compile-time and runtime `MaxStackSize` and `MaxHeapSize` limits in `Project.rbxb`, using `Memory.TryAllocate<T>()` to handle out-of-memory without panicking.
+- Embedded and safety-critical builds can set compile-time and runtime `MaxStackSize` and `MaxHeapSize` limits in `Project.rxb`, using `Memory.TryAllocate<T>()` to handle out-of-memory without panicking.
 
 ---
 

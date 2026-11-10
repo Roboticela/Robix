@@ -337,7 +337,7 @@ CompilationUnitAST Parser::ParseCompilationUnit() {
     CompilationUnitAST unit;
     unit.fileName = std::string(m_fileName);
 
-    // Optional package declaration: either `package X.Y;` or `.rbxapi` style `Package X { ... }`
+    // Optional package declaration: either `package X.Y;` or `.rxapi` style `Package X { ... }`
     if (Match(TokenKind::KwPackage)) {
         unit.packageName = ParseQualifiedName();
         if (Match(TokenKind::LBrace)) {

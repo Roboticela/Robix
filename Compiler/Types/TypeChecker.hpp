@@ -59,7 +59,7 @@ class TypeChecker {
 public:
     TypeChecker(DiagnosticBag& diagnostics, TypeCheckerOptions options = {});
 
-    // Analyze a complete compilation unit (.rx, .test.rx, or .rbxapi),
+    // Analyze a complete compilation unit (.rx, .test.rx, or .rxapi),
     // performing name resolution, type inference, type checking, null safety,
     // unsafe boundary verification, naming validation, and Explain {} validation.
     bool CheckCompilationUnit(CompilationUnitAST& unit);

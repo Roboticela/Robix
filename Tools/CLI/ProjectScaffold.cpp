@@ -205,11 +205,11 @@ bool WriteBuildFile(const fs::path& root, const std::string& name, const std::st
         "Sources: " + JoinList(order) + "\n"
         "Order: " + JoinList(order) + "\n";
     if (!ui.empty()) text += "UI: " + JoinList(ui) + "\n";
-    if (!WriteText(root / (name + ".rbxb"), text)) {
+    if (!WriteText(root / (name + ".rxb"), text)) {
         std::cerr << "robix new: could not write the build file.\n";
         return false;
     }
-    std::cout << "robix new: wrote " << (root / (name + ".rbxb")).string() << "\n";
+    std::cout << "robix new: wrote " << (root / (name + ".rxb")).string() << "\n";
     return true;
 }
 
@@ -417,8 +417,8 @@ std::string ServerCall(const std::vector<std::string>& servers) {
 bool CreateProject(const fs::path& root, const std::string& name, const std::string& kind,
                    const std::vector<Service>& clients, const std::vector<Service>& servers) {
     std::error_code ec;
-    if (fs::exists(root / (name + ".rbxproj"))) {
-        std::cerr << "robix new: '" << (root / (name + ".rbxproj")).string() << "' already exists.\n";
+    if (fs::exists(root / (name + ".rxproj"))) {
+        std::cerr << "robix new: '" << (root / (name + ".rxproj")).string() << "' already exists.\n";
         return false;
     }
     if (!WriteGitignore(root)) {
@@ -426,13 +426,13 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         return false;
     }
     if (kind == "Empty") {
-        std::ofstream project(root / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
+        std::ofstream project(root / (name + ".rxproj"), std::ios::binary | std::ios::trunc);
         if (!project) {
             std::cerr << "robix new: could not write the project file.\n";
             return false;
         }
         project << "Name: " << name << "\nCategory: Canvas\nKind: Empty\n";
-        std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string()
+        std::cout << "robix new: wrote " << (root / (name + ".rxproj")).string()
                   << " category Canvas kind Empty\n";
         std::cout << "robix new: empty folder. Add .rx files, then robix run File.rx or robix run File.rx --image.\n";
         return true;
@@ -751,13 +751,13 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                                  : !servers.empty() ? servers[0].name + "/Source/" + servers[0].name + ".rx"
                                                     : "Common/Source/Shared.rx";
         if (!WriteBuildFile(root, name, entry, order, ui)) return false;
-        std::ofstream project(root / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
+        std::ofstream project(root / (name + ".rxproj"), std::ios::binary | std::ios::trunc);
         if (!project) {
             std::cerr << "robix new: could not write the project file.\n";
             return false;
         }
         project << "Name: " << name << "\nCategory: Application\nKind: Network\nSourceDir: Common/Source\nNetwork: true\n";
-        std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string()
+        std::cout << "robix new: wrote " << (root / (name + ".rxproj")).string()
                   << " category Application kind Network\n";
         return true;
     }
@@ -772,7 +772,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         return false;
     }
     if (!WriteBuildFile(root, name, entry, { entry }, ui, build)) return false;
-    std::ofstream project(root / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
+    std::ofstream project(root / (name + ".rxproj"), std::ios::binary | std::ios::trunc);
     if (!project) {
         std::cerr << "robix new: could not write the project file.\n";
         return false;
@@ -780,7 +780,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
     const std::string category = CategoryForKind(kind);
     project << "Name: " << name << "\nCategory: " << category << "\nKind: " << kind << "\nSourceDir: Source\n";
     if (IsMachineKind(kind)) project << "Output: " << build.output << "\n";
-    std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string()
+    std::cout << "robix new: wrote " << (root / (name + ".rxproj")).string()
               << " category " << category << " kind " << kind << "\n";
     return true;
 }
@@ -802,7 +802,7 @@ bool AddFile(const fs::path& root, const std::string& fileName, const std::strin
     }
     std::string packageName = fileName;
     for (const auto& entry : fs::directory_iterator(projectDir, ec)) {
-        if (entry.path().extension() == ".rbxproj") {
+        if (entry.path().extension() == ".rxproj") {
             std::ifstream in(entry.path());
             std::string line;
             while (std::getline(in, line)) {
@@ -992,7 +992,7 @@ int RunNewCommand(const std::vector<std::string>& args) {
     }
 
     const fs::path root = here ? fs::current_path() : fs::current_path() / name;
-    if (!here && kind == "Network" && (fs::exists(root / "Common") || fs::exists(root / (name + ".rbxproj")))) {
+    if (!here && kind == "Network" && (fs::exists(root / "Common") || fs::exists(root / (name + ".rxproj")))) {
         std::cerr << "robix new: '" << root.string() << "' already has a project.\n";
         return 1;
     }

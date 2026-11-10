@@ -116,8 +116,8 @@ void TestVisibilityMainExitAndABIMangling() {
     Expect(!IsAccessPermitted(AccessVisibility::Private, derivedInOtherPkg), "private hidden from derived class");
     Expect(IsAccessPermitted(AccessVisibility::Protected, derivedInOtherPkg),"protected visible to derived class");
     Expect(IsAccessPermitted(AccessVisibility::Package, samePkg),            "package visible within same package");
-    Expect(!IsAccessPermitted(AccessVisibility::Package, externalConsumer),  "package hidden from external .rbxapi consumer");
-    Expect(IsAccessPermitted(AccessVisibility::Public, externalConsumer),    "public visible to external .rbxapi consumer");
+    Expect(!IsAccessPermitted(AccessVisibility::Package, externalConsumer),  "package hidden from external .rxapi consumer");
+    Expect(IsAccessPermitted(AccessVisibility::Public, externalConsumer),    "public visible to external .rxapi consumer");
 
     // Flexible Main() Exit Codes
     Expect(ComputeProcessExitCode(MainReturnCategory::VoidReturn, 0, true) == 0,       "Main() -> Void exits 0");

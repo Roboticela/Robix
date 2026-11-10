@@ -407,6 +407,7 @@ struct PaintOp {
     int preview = 0;
     bool quiet = false;
     bool iconButton = false;
+    bool loading = false;
 };
 
 const char* ButtonFill(const std::string& variant) {
@@ -718,7 +719,7 @@ void PaintSwitchControl(std::vector<PaintOp>& ops, const RoboXMLNode& node, int 
         knob.fill = 0xFFFFFFFFu;
     }
     if (loading) {
-        knob.leadingSvg = ButtonSpinner();
+        knob.loading = true;
         knob.color = ThemeColor("brand-primary", light);
     }
     ops.push_back(knob);
@@ -953,7 +954,7 @@ int PaintSegmented(std::vector<PaintOp>& ops, const RoboXMLNode& node, int x, in
         if (face.loading) {
             PaintOp spin;
             spin.drawing = true;
-            spin.drawingSvg = ButtonSpinner();
+            spin.loading = true;
             spin.color = ink;
             const int icon = std::max(1, Px(16));
             spin.x = cellX + std::max(0, (cellW - icon) / 2);
@@ -1159,7 +1160,7 @@ void RecolorButton(PaintOp& op, bool light, bool hot, bool pressed) {
         look = 1;
     }
     op.focus = op.preview == 2;
-    op.fade = disabled ? 140 : 255;
+    op.fade = disabled && !op.loading ? 140 : 255;
     op.borderPx = 0;
     op.fill = 0;
     op.border = 0;
@@ -1489,6 +1490,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         op.height = height;
         op.radius = height / 2;
         StyleButton(node, light, hot, pressed, op);
+        op.loading = ButtonOn(node, "loading");
         op.value = ButtonLabel(node);
         ResolveButtonIcons(node, op.leadingSvg, op.trailingSvg);
         ops.push_back(op);
@@ -1551,6 +1553,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         op.kind = variant == "subtle" ? 11 : variant == "outline" ? 12 : variant == "primary" ? 13 : variant == "danger" ? 14 : 10;
         op.preview = status == "loading" ? 1 : status == "success" ? 2 : status == "error" ? 3 : 0;
         op.quiet = ButtonOn(node, "disabled") || status == "loading";
+        op.loading = status == "loading";
         StyleIconButton(op, light, hot, pressed);
         op.leadingSvg = glyph;
         ops.push_back(op);
@@ -2216,6 +2219,103 @@ void GlowPill(RoboGPU* gpu, int x, int y, int width, int height, RoboU32 color, 
     }
 }
 
+int gSpinX = 1024;
+int gSpinY = 0;
+int gSpinEndX = -193;
+int gSpinEndY = 1006;
+
+void RotateSpin(int& x, int& y) {
+    const int cosine = 974;
+    const int sine = 316;
+    const int nextX = (x * cosine - y * sine) / 1024;
+    const int nextY = (x * sine + y * cosine) / 1024;
+    const int length = Isqrt(nextX * nextX + nextY * nextY);
+    if (length <= 0) {
+        x = 1024;
+        y = 0;
+        return;
+    }
+    x = nextX * 1024 / length;
+    y = nextY * 1024 / length;
+}
+
+bool SpinArc(int quarterX, int quarterY) {
+    const int fromStart = gSpinX * quarterY - gSpinY * quarterX;
+    const int toEnd = quarterX * gSpinEndY - quarterY * gSpinEndX;
+    return fromStart >= 0 && toEnd >= 0;
+}
+
+void DrawSpin(RoboGPU* gpu, int centerX, int centerY, RoboU32 track, int trackCoverage, RoboU32 tick, int tickCoverage,
+              int sizePx) {
+    const int size = sizePx > 0 ? sizePx : 16;
+    const int radiusQ = 7 * size / 4;
+    int halfQ = size / 8;
+    if (halfQ < 1) {
+        halfQ = 1;
+    }
+    const int outer = radiusQ + halfQ;
+    const int inner = radiusQ > halfQ ? radiusQ - halfQ : 1;
+    const int outer2 = outer * outer;
+    const int inner2 = inner * inner;
+    const int capR2 = halfQ * halfQ;
+    const int capX = gSpinX * radiusQ / 1024;
+    const int capY = gSpinY * radiusQ / 1024;
+    const int capEndX = gSpinEndX * radiusQ / 1024;
+    const int capEndY = gSpinEndY * radiusQ / 1024;
+    const int extent = size / 2 + 1;
+    if (trackCoverage < 0) {
+        trackCoverage = 0;
+    }
+    if (tickCoverage < 0) {
+        tickCoverage = 0;
+    }
+    if (trackCoverage > 255) {
+        trackCoverage = 255;
+    }
+    if (tickCoverage > 255) {
+        tickCoverage = 255;
+    }
+    for (int row = -extent; row <= extent; ++row) {
+        for (int col = -extent; col <= extent; ++col) {
+            unsigned trackHits = 0;
+            unsigned tickHits = 0;
+            for (int sampleY = 0; sampleY < 4; ++sampleY) {
+                for (int sampleX = 0; sampleX < 4; ++sampleX) {
+                    const int quarterX = col * 4 + sampleX - 2;
+                    const int quarterY = row * 4 + sampleY - 2;
+                    const int distance = quarterX * quarterX + quarterY * quarterY;
+                    const bool ring = distance >= inner2 && distance <= outer2;
+                    const int startCap = (quarterX - capX) * (quarterX - capX) + (quarterY - capY) * (quarterY - capY);
+                    const int endCap = (quarterX - capEndX) * (quarterX - capEndX) + (quarterY - capEndY) * (quarterY - capEndY);
+                    const bool cap = startCap <= capR2 || endCap <= capR2;
+                    if (!ring && !cap) {
+                        continue;
+                    }
+                    if ((ring && SpinArc(quarterX, quarterY)) || cap) {
+                        ++tickHits;
+                    } else if (ring) {
+                        ++trackHits;
+                    }
+                }
+            }
+            if (trackHits != 0) {
+                RoboGPUBlendPixel(gpu, centerX + col, centerY + row, track,
+                                  static_cast<RoboU8>(trackCoverage * static_cast<int>(trackHits) / 16));
+            }
+            if (tickHits != 0) {
+                RoboGPUBlendPixel(gpu, centerX + col, centerY + row, tick,
+                                  static_cast<RoboU8>(tickCoverage * static_cast<int>(tickHits) / 16));
+            }
+        }
+    }
+}
+
+void PaintSpin(RoboGPU* gpu, int centerX, int centerY, int size, RoboU32 ink, int fade, bool light) {
+    const RoboU32 tick = ink != 0 ? ink : ThemeColor("brand-primary", light);
+    int cover = fade > 0 ? fade : 255;
+    DrawSpin(gpu, centerX, centerY, tick, cover * 35 / 100, tick, cover, size);
+}
+
 void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool light) {
     const int y = op.y - scrollY;
     if (y + op.height < 0 || y > viewHeight) {
@@ -2238,6 +2338,11 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
             }
         } else if (!op.text && op.fill != 0) {
             FillRound(gpu, op.x, y, op.width, op.height, op.radius, op.fill);
+        }
+        if (op.drawing && op.loading) {
+            const int size = std::max(8, std::min(op.width, op.height));
+            PaintSpin(gpu, op.x + op.width / 2, y + op.height / 2, size, op.color, op.fade, light);
+            return;
         }
         if (op.drawing && !op.drawingSvg.empty()) {
             PaintWindowsSvg(gpu, op.x, y, op.width, op.drawingSvg, op.color);
@@ -2263,9 +2368,17 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
             }
             int cursor = op.x + std::max(0, (op.width - content) / 2);
             const int mid = y + op.height / 2;
-            if (!op.leadingSvg.empty()) {
-                PaintWindowsSvg(gpu, cursor, mid - icon / 2, icon, op.leadingSvg, op.color);
-                cursor += icon + gap;
+            if (op.loading && op.leadingSvg.empty() && op.value.empty()) {
+                const int spin = std::max(8, std::min(op.width, op.height) - 4);
+                PaintSpin(gpu, op.x + op.width / 2, mid, spin, op.color, op.fade, light);
+            } else if (!op.leadingSvg.empty() || op.loading) {
+                if (op.loading) {
+                    PaintSpin(gpu, cursor + icon / 2, mid, icon, op.color, op.fade, light);
+                    cursor += icon + gap;
+                } else {
+                    PaintWindowsSvg(gpu, cursor, mid - icon / 2, icon, op.leadingSvg, op.color);
+                    cursor += icon + gap;
+                }
             }
             textX = cursor;
             textY = y + std::max(0, (op.height - op.size) / 2);
@@ -2662,11 +2775,10 @@ int CollectWindowsDocumentPatches(int hotControl, int pressedControl, WindowPatc
                 overflow = true;
                 continue;
             }
-            const SceneRect bounds = OpBounds(op, 0);
-            patches[count].x = bounds.x;
-            patches[count].y = bounds.y;
-            patches[count].width = bounds.width;
-            patches[count].height = bounds.height;
+            patches[count].x = op.x;
+            patches[count].y = op.y;
+            patches[count].width = op.width;
+            patches[count].height = op.height;
             ++count;
         }
     }
@@ -2680,8 +2792,61 @@ void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height)
         return;
     }
     const int limit = std::max(gScene.contentHeight, gScene.viewHeight);
-    PaintSceneRect(gpu, SceneRect{x, y, width, height}, 0, limit, gScene.light);
+    SceneRect rect{x, y, width, height};
+    ClipRect(rect, gScene.viewWidth, limit);
+    if (rect.width <= 0 || rect.height <= 0) {
+        return;
+    }
+    RoboGPUFillRect(gpu, rect.x, rect.y, rect.width, rect.height, gScene.background);
+    for (const PaintOp& op : gScene.ops) {
+        if (op.width <= 0 || op.height <= 0) {
+            continue;
+        }
+        if (op.x < rect.x - 1 || op.y < rect.y - 1 || op.x + op.width > rect.x + rect.width + 1 ||
+            op.y + op.height > rect.y + rect.height + 1) {
+            continue;
+        }
+        PaintOne(gpu, op, 0, limit, gScene.light);
+    }
     RoboDamageClear(&gpu->damage);
+}
+
+bool WindowsDocumentNeedsSpin() {
+    if (!gScene.valid) {
+        return false;
+    }
+    for (const PaintOp& op : gScene.ops) {
+        if (op.loading) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void WindowsDocumentAdvanceSpin() {
+    RotateSpin(gSpinX, gSpinY);
+    RotateSpin(gSpinEndX, gSpinEndY);
+}
+
+int WindowsDocumentSpinRects(WindowPatch* patches, int capacity) {
+    if (!gScene.valid || patches == nullptr || capacity <= 0) {
+        return 0;
+    }
+    int count = 0;
+    for (const PaintOp& op : gScene.ops) {
+        if (!op.loading || op.width <= 0 || op.height <= 0) {
+            continue;
+        }
+        if (count >= capacity) {
+            break;
+        }
+        patches[count].x = op.x;
+        patches[count].y = op.y;
+        patches[count].width = op.width;
+        patches[count].height = op.height;
+        ++count;
+    }
+    return count;
 }
 
 }  // namespace Robix::UI

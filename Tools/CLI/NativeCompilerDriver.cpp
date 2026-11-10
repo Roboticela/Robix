@@ -113,9 +113,9 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
     res.toolOutput += compileLog;
 
     if (options.outputKind == NativeOutputKind::LinuxExecutable) {
-        const fs::path lld = binDir / "ld.lld.exe";
+        const fs::path lld = binDir / "Linker.exe";
         if (!FileExists(lld)) {
-            res.diagnosticsText += "error: ld.lld.exe was not found next to clang.\n";
+            res.diagnosticsText += "error: the compiler install is missing Linker.exe.\n";
             return res;
         }
         const fs::path script = work / "linux.ld";
@@ -141,9 +141,9 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
     }
 
     if (options.outputKind == NativeOutputKind::BootImage && options.asmArch != "x86_64") {
-        const fs::path lld = binDir / "ld.lld.exe";
+        const fs::path lld = binDir / "Linker.exe";
         if (!FileExists(lld)) {
-            res.diagnosticsText += "error: ld.lld.exe was not found next to clang.\n";
+            res.diagnosticsText += "error: the compiler install is missing Linker.exe.\n";
             return res;
         }
         const char* origin = "0x40080000";
@@ -220,10 +220,10 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
         return res;
     }
 
-    const fs::path lld = binDir / "ld.lld.exe";
-    const fs::path objcopy = binDir / "llvm-objcopy.exe";
+    const fs::path lld = binDir / "Linker.exe";
+    const fs::path objcopy = binDir / "ObjectCopy.exe";
     if (!FileExists(lld) || !FileExists(objcopy)) {
-        res.diagnosticsText += "error: ld.lld.exe or llvm-objcopy.exe was not found next to clang.\n";
+        res.diagnosticsText += "error: the compiler install is missing Linker.exe or ObjectCopy.exe.\n";
         return res;
     }
 
@@ -266,7 +266,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
     std::ostringstream copyCmd;
     copyCmd << Quote(objcopy.string()) << " -O binary " << Quote(payloadElf.string()) << " " << Quote(payloadBin.string());
     if (RunProcess(copyCmd.str(), res.toolOutput) != 0 || !FileExists(payloadBin)) {
-        res.diagnosticsText += "error: llvm-objcopy failed:\n" + res.toolOutput;
+        res.diagnosticsText += "error: ObjectCopy failed:\n" + res.toolOutput;
         return res;
     }
 
@@ -400,9 +400,9 @@ NativeBuildResult FinishHostedArtifact(const std::string& clang,
     }
 
     if (options.outputKind == NativeOutputKind::StaticLibrary) {
-        const fs::path ar = binDir / "llvm-ar.exe";
+        const fs::path ar = binDir / "Archiver.exe";
         if (!FileExists(ar)) {
-            res.diagnosticsText += "error: llvm-ar.exe was not found next to clang.\n";
+            res.diagnosticsText += "error: the compiler install is missing Archiver.exe.\n";
             return res;
         }
         std::ostringstream cmd;
@@ -420,7 +420,7 @@ NativeBuildResult FinishHostedArtifact(const std::string& clang,
     }
 
     if (options.outputKind == NativeOutputKind::SharedLibrary) {
-        const fs::path nm = binDir / "llvm-nm.exe";
+        const fs::path nm = binDir / "Symbols.exe";
         std::string symbols;
         if (FileExists(nm)) {
             RunProcess(Quote(nm.string()) + " --defined-only " + Quote(object.string()), symbols);
@@ -474,18 +474,12 @@ std::string NativeCompilerDriver::LocateClang(const std::string& hint, const std
     if (!hint.empty() && FileExists(hint)) return hint;
     if (toolDirectory.empty()) return {};
     const fs::path tool(toolDirectory);
-    if (const std::string bundled = FileExists(tool / "toolchain" / "clang.exe")
-                                        ? (tool / "toolchain" / "clang.exe").string()
-                                        : std::string{};
-        !bundled.empty()) {
-        return bundled;
-    }
-    if (FileExists(tool / "clang.exe")) return (tool / "clang.exe").string();
+    if (FileExists(tool / "Toolchain" / "Clang.exe")) return (tool / "Toolchain" / "Clang.exe").string();
     return {};
 }
 
 std::string BundledLibrary(const fs::path& toolchainBin, const std::string& name, std::string& error) {
-    const fs::path path = toolchainBin / "lib" / name;
+    const fs::path path = toolchainBin / "Libraries" / name;
     if (!FileExists(path)) {
         error += "error: the compiler install is missing '" + path.string() + "'.\n";
         return {};
@@ -500,18 +494,10 @@ std::string NativeCompilerDriver::LocateRuntimeObject(const std::string& hint, c
     };
     if (!toolDirectory.empty()) {
         const fs::path tool(toolDirectory);
-        if (const std::string beside = accept(tool / "RobixNativeRuntime.obj"); !beside.empty()) return beside;
-        if (const std::string installed = accept(tool / ".." / "Lib" / "Robix" / "1.0.0" / "RobixNativeRuntime.obj");
-            !installed.empty()) {
-            return installed;
+        if (const std::string runtime = accept(tool / "Runtime" / "RobixNativeRuntime.rxm"); !runtime.empty()) {
+            return runtime;
         }
     }
-    const fs::path root = fs::current_path() / "Build";
-    if (const std::string installed = accept(root / "Lib" / "Robix" / "1.0.0" / "RobixNativeRuntime.obj");
-        !installed.empty()) {
-        return installed;
-    }
-    if (const std::string legacy = accept(root / "RobixNativeRuntime.obj"); !legacy.empty()) return legacy;
     return {};
 }
 
@@ -599,7 +585,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     const std::string clang = LocateClang(options.clangPath, options.toolDirectory);
     if (clang.empty()) {
         res.diagnosticsText +=
-            "error: the built-in toolchain is missing clang.exe. Reinstall the compiler.\n";
+            "error: the compiler install is missing Toolchain/Clang.exe.\n";
         return res;
     }
     const std::string runtimeObj = options.outputKind == NativeOutputKind::HostedExecutable
@@ -607,7 +593,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
                                        : std::string{};
     if (options.outputKind == NativeOutputKind::HostedExecutable && runtimeObj.empty()) {
         res.diagnosticsText +=
-            "error: RobixNativeRuntime.obj was not found next to robixc.exe. Reinstall the compiler.\n";
+            "error: Runtime/RobixNativeRuntime.rxm was not found in the compiler install.\n";
         return res;
     }
 
@@ -622,7 +608,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     optIR.replace_extension(".opt.ll");
     fs::path reassocIR = llPath;
     reassocIR.replace_extension(".reassoc.ll");
-    const fs::path optExe = fs::path(clang).parent_path() / "opt.exe";
+    const fs::path optExe = fs::path(clang).parent_path() / "Opt.exe";
     if (options.release && FileExists(optExe)) {
         std::string optLog;
         std::ostringstream optCmd;
@@ -720,7 +706,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     }
     if (options.linkNetwork) {
         if (options.networkObjectPath.empty() || !FileExists(options.networkObjectPath)) {
-            res.diagnosticsText += "error: this project sets Network: true, and NetworkRuntime.obj was not found.\n";
+            res.diagnosticsText += "error: this project sets Network: true, and Runtime/NetworkRuntime.rxm was not found.\n";
             return res;
         }
     }
@@ -735,7 +721,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
                   irText.find("call i64 @rbx_env_") != std::string::npos;
     }
     const fs::path toolBin = fs::path(clang).parent_path();
-    const fs::path lld = toolBin / "ld.lld.exe";
+    const fs::path lld = toolBin / "Linker.exe";
     if (!FileExists(lld)) {
         res.diagnosticsText += "error: the compiler install is missing '" + lld.string() + "'.\n";
         return res;
@@ -752,8 +738,8 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     cmd << Quote(lld.string()) << " -flavor link /nologo /nodefaultlib /subsystem:console /entry:mainCRTStartup"
         << linkFlags << " /out:" << Quote(exePath.string()) << " " << Quote(codegenObj.string()) << " "
         << Quote(runtimeObj);
-    const char* requiredLibs[] = { "libcmt.lib", "libvcruntime.lib", "libcpmt.lib", "oldnames.lib", "libucrt.lib",
-                                   "kernel32.lib" };
+    const char* requiredLibs[] = { "LibCmt.lib", "LibVcRuntime.lib", "LibCpp.lib", "OldNames.lib", "LibUcrt.lib",
+                                   "Kernel32.lib" };
     bool librariesPresent = true;
     for (const char* name : requiredLibs) {
         const std::string path = BundledLibrary(toolBin, name, res.diagnosticsText);
@@ -766,27 +752,27 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
         else cmd << " " << Quote(path);
     };
     if (linkLoopback) {
-        const fs::path loopback = fs::path(runtimeObj).parent_path() / "LoopbackText.obj";
+        const fs::path loopback = fs::path(runtimeObj).parent_path() / "LoopbackText.rxm";
         if (!FileExists(loopback)) {
-            res.diagnosticsText += "error: LoopbackText.obj was not found next to RobixNativeRuntime.obj.\n";
+            res.diagnosticsText += "error: Runtime/LoopbackText.rxm was not found in the compiler install.\n";
             return res;
         }
         cmd << " " << Quote(loopback.string());
-        addLibrary("ws2_32.lib");
+        addLibrary("Ws232.lib");
     }
     if (linkEnv) {
-        const fs::path envStore = fs::path(runtimeObj).parent_path() / "EnvStore.obj";
+        const fs::path envStore = fs::path(runtimeObj).parent_path() / "EnvStore.rxm";
         if (!FileExists(envStore)) {
-            res.diagnosticsText += "error: EnvStore.obj was not found next to RobixNativeRuntime.obj.\n";
+            res.diagnosticsText += "error: Runtime/EnvStore.rxm was not found in the compiler install.\n";
             return res;
         }
         cmd << " " << Quote(envStore.string());
     }
     if (options.linkNetwork) {
         cmd << " " << Quote(options.networkObjectPath);
-        addLibrary("ws2_32.lib");
-        addLibrary("secur32.lib");
-        addLibrary("crypt32.lib");
+        addLibrary("Ws232.lib");
+        addLibrary("Secur32.lib");
+        addLibrary("Crypt32.lib");
     }
     if (!librariesPresent) return res;
 

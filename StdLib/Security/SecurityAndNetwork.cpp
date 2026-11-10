@@ -328,7 +328,7 @@ SecurityAuditResult SupplyChainAuditor::AuditDependencies(
             diagnostics.ReportError(
                 "SEC7002",
                 "Supply-chain signature verification failed for package '" + dep.packageName + "@" + dep.version + "'.",
-                Frontend::SourceLocation{ dep.packageName + ".rbxp", 1, 1, 1 },
+                Frontend::SourceLocation{ dep.packageName + ".rxp", 1, 1, 1 },
                 "Re-fetch the signed package from a trusted registry.");
         }
 

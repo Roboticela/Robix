@@ -73,8 +73,8 @@ bool RobixPackageManager::NewProject(std::string_view projectName, std::string_v
     m_manifest.projectTemplate = std::string(templateKind);
     m_manifest.dependencies.clear();
 
-    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rbxproj"] = m_manifest.SerializeToRbxProj();
-    m_virtualProjectFS[m_projectRoot + "/Project.rbxb"] =
+    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRbxProj();
+    m_virtualProjectFS[m_projectRoot + "/Project.rxb"] =
         "Project {\n    Name = \"" + std::string(projectName) + "\";\n    Style = \"" +
         std::string(templateKind) + "\";\n}\n";
     m_virtualProjectFS[m_projectRoot + "/Source/Main.rx"] =
@@ -90,13 +90,13 @@ bool RobixPackageManager::InitProject(std::string_view projectName) {
 
 bool RobixPackageManager::AddDependency(const std::string& packageName, const std::string& versionConstraint) {
     m_manifest.dependencies[packageName] = versionConstraint;
-    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rbxproj"] = m_manifest.SerializeToRbxProj();
+    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRbxProj();
     return true;
 }
 
 bool RobixPackageManager::RemoveDependency(const std::string& packageName) {
     const bool erased = m_manifest.dependencies.erase(packageName) > 0;
-    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rbxproj"] = m_manifest.SerializeToRbxProj();
+    m_virtualProjectFS[m_projectRoot + "/Robix.Project.rxproj"] = m_manifest.SerializeToRbxProj();
     return erased;
 }
 
@@ -131,7 +131,7 @@ bool RobixPackageManager::InstallPackages(const std::string& targetPlatform,
 
         const std::string installDir =
             m_projectRoot + "/.robix/packages/" + pkg->manifest.name + "/" + pkg->manifest.version;
-        const std::string apiPath  = installDir + "/" + pkg->manifest.name + ".rbxapi";
+        const std::string apiPath  = installDir + "/" + pkg->manifest.name + ".rxapi";
         const std::string jsonPath = installDir + "/package.json";
 
         m_virtualProjectFS[apiPath]  = pkg->rbxApiContent;

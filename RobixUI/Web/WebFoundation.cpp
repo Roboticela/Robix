@@ -14,6 +14,7 @@
 #include "../Compiler/Components/ConfirmAction/ConfirmActionWeb.hpp"
 #include "../Compiler/Components/TextArea/TextAreaWeb.hpp"
 #include "../Compiler/Components/Select/SelectWeb.hpp"
+#include "../Compiler/Components/CountrySelect/CountrySelectWeb.hpp"
 #include "../Compiler/Components/SegmentedControl/SegmentedControlWeb.hpp"
 #include "../Compiler/Components/Board/BoardWeb.hpp"
 #include "../Compiler/Components/Container/Container.hpp"
@@ -145,6 +146,18 @@ std::string Hex(RoboU32 color) {
     return buffer;
 }
 
+bool UsesCountrySelect(const RoboXMLNode& node) {
+    if (Lower(node.name) == "countryselect") {
+        return true;
+    }
+    for (const RoboXMLNode& child : node.children) {
+        if (UsesCountrySelect(child)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void LowerKeys(RoboXMLNode& node) {
     std::vector<std::pair<std::string, std::string>> extra;
     for (const auto& entry : node.attrs) {
@@ -262,6 +275,14 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             assets = FindUp("RefCode/Assets");
         }
         RoboWebEmitSelect(html, node, library, assets);
+        return;
+    }
+    if (name == "countryselect") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitCountrySelect(html, node, library, assets);
         return;
     }
     if (name == "passwordreveal") {
@@ -774,6 +795,13 @@ Robo.set = function (id, key, value) {
     js += RoboWebConfirmActionScript();
     js += RoboWebTextAreaScript();
     js += RoboWebSelectScript();
+    if (hasScreen && UsesCountrySelect(screenCopy)) {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        js += RoboWebCountrySelectScript(assets);
+    }
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
     js += RoboWebReelScript();

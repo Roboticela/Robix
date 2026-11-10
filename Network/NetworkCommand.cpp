@@ -254,7 +254,7 @@ int RunNetworkCommand(const std::vector<std::string>& args) {
     fs::path projectPath;
     std::error_code ec;
     for (const auto& entry : fs::directory_iterator(root, ec)) {
-        if (entry.path().extension() == ".rbxproj") projectPath = entry.path();
+        if (entry.path().extension() == ".rxproj") projectPath = entry.path();
     }
     if (ReadFile(projectPath).find("Network: true") == std::string::npos) {
         std::cerr << "network: " << root.string() << " has no Network block\n";

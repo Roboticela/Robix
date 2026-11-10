@@ -7,21 +7,20 @@ void RoboWebAppendScrollCss(std::ostream& css) {
   css << ".robo-scroll-host{position:relative;min-width:0;border:0;outline:none;box-shadow:none}\n";
   css << ".robo-scroll-host:focus,.robo-scroll-host:focus-visible{outline:none;box-shadow:none}\n";
   css << ".robo-scroll-host.is-page{height:100%;background:var(--bg-primary)}\n";
-  css << ".robo-scrollbar{position:absolute;top:6px;right:2px;bottom:6px;width:16px;display:none;"
-         "flex-direction:column;align-items:center;gap:3px;padding:0;box-sizing:border-box;"
-         "z-index:4;opacity:0;pointer-events:none;cursor:default}\n";
-  css << ".robo-scrollbar,.robo-scrollbar *{cursor:default}\n";
+  css << ".robo-scrollbar{position:absolute;top:0;right:0;bottom:0;width:16px;display:none;"
+         "flex-direction:column;align-items:flex-end;gap:3px;padding-right:2px;box-sizing:border-box;"
+         "z-index:4;opacity:0;pointer-events:none}\n";
   css << ".robo-scrollbar.is-needed{display:flex;pointer-events:auto;"
          "transition:opacity 780ms cubic-bezier(0.16, 1, 0.3, 1)}\n";
   css << ".robo-scroll-host.is-awake .robo-scrollbar,.robo-scrollbar.is-drag{opacity:1;transition:opacity 90ms linear}\n";
   css << ".robo-scrollbar[data-autohide=\"false\"].is-needed{opacity:1}\n";
-  css << ".robo-scroll-arrow{width:16px;height:8px;flex:0 0 8px;border:0;padding:0;background:transparent;"
-         "display:grid;place-items:center;position:relative;cursor:default;outline:0}\n";
-  css << ".robo-scroll-arrow::before{content:\"\";width:0;height:0;border-left:3px solid transparent;"
+  css << ".robo-scroll-arrow{width:6px;height:6px;flex:0 0 6px;border:0;padding:0;background:transparent;"
+         "position:relative;cursor:pointer;outline:0}\n";
+  css << ".robo-scroll-arrow::before{content:\"\";position:absolute;left:0;border-left:3px solid transparent;"
          "border-right:3px solid transparent}\n";
-  css << ".robo-scroll-arrow.is-up::before{border-bottom:5px solid "
+  css << ".robo-scroll-arrow.is-up::before{top:0;border-bottom:5px solid "
          "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
-  css << ".robo-scroll-arrow.is-down::before{border-top:5px solid "
+  css << ".robo-scroll-arrow.is-down::before{top:1px;border-top:5px solid "
          "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
   css << ".robo-scroll-arrow:hover.is-up::before{border-bottom-color:var(--text-tertiary)}\n";
   css << ".robo-scroll-arrow:hover.is-down::before{border-top-color:var(--text-tertiary)}\n";
@@ -37,16 +36,15 @@ void RoboWebAppendScrollCss(std::ostream& css) {
   css << ".robo-scroll-thumb:hover{background:var(--text-tertiary)}\n";
   css << ".robo-scroll-thumb:active,.robo-scrollbar.is-drag .robo-scroll-thumb{"
          "background:color-mix(in srgb,var(--text-tertiary) 58%,var(--text-primary))}\n";
-  css << ".robo-scrollbar.is-x{top:auto;right:6px;bottom:6px;left:6px;width:auto;height:16px;flex-direction:row;"
-         "align-items:center;padding:0}\n";
-  css << ".robo-scrollbar.is-x .robo-scroll-arrow{width:8px;height:16px;flex:0 0 8px}\n";
+  css << ".robo-scrollbar.is-x{top:auto;right:0;bottom:0;left:0;width:auto;height:16px;flex-direction:row;"
+         "align-items:flex-end;padding:0 2px 2px}\n";
   css << ".robo-scrollbar.is-x .robo-scroll-track{width:auto;height:6px}\n";
   css << ".robo-scrollbar.is-x .robo-scroll-thumb{top:0;height:6px;min-height:0;min-width:28px}\n";
-  css << ".robo-scrollbar.is-x .robo-scroll-arrow::before{border-left:0;border-right:0;border-bottom:0;"
-         "border-top:3px solid transparent;border-bottom:3px solid transparent}\n";
+  css << ".robo-scrollbar.is-x .robo-scroll-arrow::before{top:0;left:0;border-left:0;border-right:0;"
+         "border-bottom:0;border-top:3px solid transparent;border-bottom:3px solid transparent}\n";
   css << ".robo-scrollbar.is-x .robo-scroll-arrow.is-left::before{border-right:5px solid "
          "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
-  css << ".robo-scrollbar.is-x .robo-scroll-arrow.is-right::before{border-left:5px solid "
+  css << ".robo-scrollbar.is-x .robo-scroll-arrow.is-right::before{left:1px;border-left:5px solid "
          "color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
   css << ".robo-scrollbar.is-x .robo-scroll-arrow.is-left:hover::before{border-right-color:var(--text-tertiary)}\n";
   css << ".robo-scrollbar.is-x .robo-scroll-arrow.is-right:hover::before{border-left-color:var(--text-tertiary)}\n";
@@ -286,11 +284,10 @@ std::string RoboWebScrollScript() {
         if (axisOff("scrolly")) { bar.classList.remove("is-needed"); return; }
         var box = getComputedStyle(view);
         var radius = parseFloat(box.borderTopRightRadius) || 0;
-        var edge = 6;
-        var inset = Math.max(edge, radius);
+        var inset = radius;
         var room = view.clientHeight - 28;
         if (inset * 2 > room) inset = Math.max(0, Math.floor(room / 2));
-        bar.style.right = "2px";
+        bar.style.right = "0px";
         bar.style.top = inset + "px";
         bar.style.bottom = inset + "px";
         var max = maxScroll();
@@ -438,10 +435,9 @@ std::string RoboWebScrollScript() {
           var max = maxScrollX();
           barX.classList.toggle("is-needed", max > 1);
           if (max <= 1 || !trackX) return;
-          var edge = 6;
-          barX.style.left = edge + "px";
-          barX.style.right = edge + "px";
-          barX.style.bottom = edge + "px";
+          barX.style.left = "0px";
+          barX.style.right = "0px";
+          barX.style.bottom = "0px";
           var trackW = trackX.clientWidth;
           var thumbW = Math.max(28, Math.round(trackW * (view.clientWidth / view.scrollWidth)));
           if (thumbW > trackW) thumbW = trackW;

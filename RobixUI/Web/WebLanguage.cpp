@@ -509,7 +509,7 @@ fs::path FindWebSource(const fs::path& document) {
     if (fs::is_regular_file(dir, error)) dir = dir.parent_path();
     for (int step = 0; step < 5 && !dir.empty(); ++step) {
         for (const auto& entry : fs::directory_iterator(dir, error)) {
-            if (entry.path().extension() != ".rbxb") continue;
+            if (entry.path().extension() != ".rxb") continue;
             std::ifstream in(entry.path());
             std::string line;
             while (std::getline(in, line)) {

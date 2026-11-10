@@ -1,7 +1,7 @@
 (* ========================================================================== *)
 (* ROBIX PROGRAMMING LANGUAGE — FORMAL EBNF GRAMMAR SPECIFICATION (v1.0)      *)
 (* Product of Roboticela — "The Language of Intelligent Machines."            *)
-(* Extensions covered: .rx, .test.rx, .rbxapi, .rbxb                        *)
+(* Extensions covered: .rx, .test.rx, .rxapi, .rxb                        *)
 (* Encoding: UTF-8 (NFC Normalized per UAX #31)                               *)
 (* ========================================================================== *)
 
@@ -105,7 +105,7 @@ PrimitiveTypeName   = "Bool" | "Byte" | "Char"
                     | "String" | "Void" ;
 
 (* -------------------------------------------------------------------------- *)
-(* 4. COMPILATION UNITS (.rx, .test.rx, .rbxapi)                            *)
+(* 4. COMPILATION UNITS (.rx, .test.rx, .rxapi)                            *)
 (* -------------------------------------------------------------------------- *)
 
 CompilationUnit     = [ PackageDeclaration ] ,
@@ -486,7 +486,7 @@ ObjectLiteral       = "{" , ObjectFieldInit , { "," , ObjectFieldInit } , [ "," 
 ObjectFieldInit     = Identifier , ":" , Expression ;
 
 (* -------------------------------------------------------------------------- *)
-(* 12. ROBIXBUILD (.rbxb) & ROBIXPROJECT (.rbxproj) DECLARATIVE GRAMMAR       *)
+(* 12. ROBIXBUILD (.rxb) & ROBIXPROJECT (.rxproj) DECLARATIVE GRAMMAR       *)
 (* -------------------------------------------------------------------------- *)
 
 BuildFile           = "Project" , "{" , { BuildEntry } , "}" , EOF ;

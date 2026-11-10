@@ -13,7 +13,7 @@
 namespace Robix::Packages {
 
 // ============================================================================
-// 1. PUBLIC API DEFINITION (.rbxapi) GENERATOR & VALIDATOR
+// 1. PUBLIC API DEFINITION (.rxapi) GENERATOR & VALIDATOR
 // ============================================================================
 struct RbxApiValidationResult {
     bool                     valid = false;
@@ -26,7 +26,7 @@ struct RbxApiValidationResult {
 
 class RbxApiEngine {
 public:
-    // Extracts public declarations + Explain blocks from .rx source code into a .rbxapi specification
+    // Extracts public declarations + Explain blocks from .rx source code into a .rxapi specification
     // (Strips private/internal members and all function bodies so private implementation is hidden)
     [[nodiscard]] static std::string GenerateRbxApiFromSource(
         std::string_view packageName,
@@ -34,7 +34,7 @@ public:
         std::string_view rbxSourceCode,
         Frontend::DiagnosticBag& diagnostics);
 
-    // Parses and validates a .rbxapi file, enforcing mandatory Explain blocks on all public functions/methods (P8001)
+    // Parses and validates a .rxapi file, enforcing mandatory Explain blocks on all public functions/methods (P8001)
     [[nodiscard]] static RbxApiValidationResult ValidateRbxApi(
         std::string_view fileName,
         std::string_view rbxApiContent,
@@ -42,7 +42,7 @@ public:
 };
 
 // ============================================================================
-// 2. COMPILED BINARY PACKAGE ARCHIVE (.rbxp)
+// 2. COMPILED BINARY PACKAGE ARCHIVE (.rxp)
 // ============================================================================
 struct TargetBinaryArtifact {
     std::string              targetPlatform; // e.g. "windows-x64", "linux-x64", "macos-arm64", "embedded-arm64"
@@ -81,7 +81,7 @@ struct PackageVerificationOptions {
 
 class RbxPackagePacker {
 public:
-    // Packs a .rbxapi interface + target binaries into a signed .rbxp archive
+    // Packs a .rxapi interface + target binaries into a signed .rxp archive
     [[nodiscard]] static RbxPackageArchive CreateSignedPackage(
         RbxPackageManifest manifest,
         std::string rbxApiContent,
@@ -89,10 +89,10 @@ public:
         std::string_view publisherSigningKey,
         Frontend::DiagnosticBag& diagnostics);
 
-    // Serializes .rbxp archive to a deterministic JSON/Binary container string
+    // Serializes .rxp archive to a deterministic JSON/Binary container string
     [[nodiscard]] static std::string SerializeArchive(const RbxPackageArchive& archive);
 
-    // Deserializes .rbxp archive from container string
+    // Deserializes .rxp archive from container string
     [[nodiscard]] static std::optional<RbxPackageArchive> DeserializeArchive(
         std::string_view serialized,
         Frontend::DiagnosticBag& diagnostics);

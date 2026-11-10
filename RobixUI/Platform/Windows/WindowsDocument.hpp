@@ -46,4 +46,13 @@ int CollectWindowsDocumentPatches(int hotControl, int pressedControl, WindowPatc
 /* Repaint one document rectangle into the bound sheet. */
 void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height);
 
+/* True while a button, switch, or segment is loading. */
+bool WindowsDocumentNeedsSpin();
+
+/* Step every loader by one frame. */
+void WindowsDocumentAdvanceSpin();
+
+/* Document rectangles that contain a loader. */
+int WindowsDocumentSpinRects(WindowPatch* patches, int capacity);
+
 }  // namespace Robix::UI

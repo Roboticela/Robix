@@ -99,7 +99,7 @@ robix new Pad Canvas
 
 **Canvas** is classified from the file. The tool prints a warning naming that choice, then applies the same web rule. `Print`, `Input`, or `Args` is a console program. `Network` or `SendText` is a network program. A matching `.rxu` is a window.
 
-**Bedrock** builds a machine image. It does not target an operating system. `robix run` of Bedrock on a platform stops with an error. `robixc --image` or the `.rbxb` build file produces the image.
+**Bedrock** builds a machine image. It does not target an operating system. `robix run` of Bedrock on a platform stops with an error. `robixc --image` or the `.rxb` build file produces the image.
 
 On this Windows toolchain, `windows` and `web` are the platforms that are actually interpreted, and `windows` is the platform that is actually compiled. Other platform names are accepted and then refused with a direct error. A QEMU boot of a freestanding image is recorded in `Documentation/Status.md`. It is not a claim that the image ran on hardware.
 
@@ -129,7 +129,7 @@ public class Robot {
 
 | | |
 | --- | --- |
-| 📝 **Source** | `.rx` programs, `.rbxh` interfaces, `.rbxproj` projects, `.rbxb` build files |
+| 📝 **Source** | `.rx` programs, `.rxh` interfaces, `.rxproj` projects, `.rxb` build files |
 | 🔤 **Names** | `PascalCase` types and functions, `camelCase` variables, `UPPER_SNAKE_CASE` constants, acronyms stay uppercase (`HTTPClient`, `USBDevice`) |
 | 🔒 **Types** | `Bool`, fixed-width integers, `Int`, `UInt`, `Float`, `Double`, `String`, `Void`, arrays, structs, enums, classes, interfaces, `Option`, `Result` |
 | 🧩 **Programs** | Classes, interfaces, inheritance, `override`, generics, top-level functions, `let` / `var` / `const` |
@@ -190,7 +190,7 @@ The default typeface is [Inter](https://github.com/rsms/inter), under the SIL Op
 
 Profiles select compiler flags. `performance` is `-O3 -funroll-loops`. `realtime` is `-O2 -fno-strict-aliasing`. `safety` is `-O0`. `size` is `-Oz`. `embedded` is a freestanding object.
 
-Native outputs that have been linked on this machine: an executable, a static library, a shared library, an object file, and a `.rbxlib` package. A kernel image has booted under QEMU on x86-64, AArch64, ARM, and RISC-V and written a serial byte. That is QEMU, not a board on a desk.
+Native outputs that have been linked on this machine: an executable, a static library, a shared library, an object file, and a `.rxlib` package. A kernel image has booted under QEMU on x86-64, AArch64, ARM, and RISC-V and written a serial byte. That is QEMU, not a board on a desk.
 
 ## 🏗️ Build
 
@@ -203,11 +203,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Scripts/BuildCompiler.ps1
 Building `robixc` from source looks for Clang 18, then `clang++` on `PATH`. The script copies that assembler, linker, and the runtime libraries into the compiler directory. After that, using `robixc` does not need a separate LLVM or Visual Studio install.
 
 ```text
-Build/Bin/robix.exe
-Build/Bin/robixc.exe
-Build/Bin/toolchain/clang.exe
-Build/Bin/toolchain/ld.lld.exe
-Build/Bin/toolchain/lib/
+Build/Compiler/Robix.exe
+Build/Compiler/Robixc.exe
+Build/Compiler/Toolchain/Clang.exe
+Build/Compiler/Toolchain/Linker.exe
+Build/Compiler/Toolchain/Libraries/
+Build/Compiler/Runtime/RobixNativeRuntime.rxm
+Build/Compiler/Units/
 ```
 
 `CMakeLists.txt` builds the C++ libraries and the stage tests. The script above is what produces `robix` and `robixc`.

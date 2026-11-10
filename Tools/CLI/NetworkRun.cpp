@@ -61,7 +61,7 @@ bool IsNetworkProject(const fs::path& directory, fs::path& project) {
     std::error_code ec;
     if (!fs::is_directory(directory, ec)) return false;
     for (const auto& entry : fs::directory_iterator(directory, ec)) {
-        if (entry.path().extension() != ".rbxproj") continue;
+        if (entry.path().extension() != ".rxproj") continue;
         std::ifstream in(entry.path());
         std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         if (text.find("Kind: Network") == std::string::npos && text.find("Network: true") == std::string::npos) continue;

@@ -71,9 +71,9 @@ void ValidatePublicExplainRecursive(const Frontend::DeclNode& decl,
             decl.explainBlock->description.empty() || decl.explainBlock->processing.empty()) {
             diagnostics.ReportError(
                 "P8001",
-                "Public API declaration '" + decl.name + "' in .rbxapi is missing a complete 'Explain { ... }' block.",
+                "Public API declaration '" + decl.name + "' in .rxapi is missing a complete 'Explain { ... }' block.",
                 decl.location,
-                "Include an Explain { Description: ...; Processing: ...; Output: ...; } block in the .rbxapi signature.");
+                "Include an Explain { Description: ...; Processing: ...; Output: ...; } block in the .rxapi signature.");
         }
     } else if (decl.kind == Frontend::DeclKind::Class ||
                decl.kind == Frontend::DeclKind::Struct ||
@@ -197,9 +197,9 @@ RbxPackageArchive RbxPackagePacker::CreateSignedPackage(
     archive.rbxApiContent   = std::move(rbxApiContent);
     archive.rbxApiSha256Hex = StdLib::CryptoEngine::ComputeSHA256Hex(archive.rbxApiContent);
 
-    // Validate the .rbxapi before packaging
+    // Validate the .rxapi before packaging
     auto apiVal = RbxApiEngine::ValidateRbxApi(
-        archive.manifest.name + ".rbxapi",
+        archive.manifest.name + ".rxapi",
         archive.rbxApiContent,
         diagnostics);
 
@@ -287,7 +287,7 @@ std::optional<RbxPackageArchive> RbxPackagePacker::DeserializeArchive(
     if (!rootOpt.has_value() || rootOpt->kind != JsonKind::Object) {
         diagnostics.ReportError(
             "P8002",
-            "Corrupted .rbxp package archive: " + parseErr,
+            "Corrupted .rxp package archive: " + parseErr,
             Frontend::SourceLocation{});
         return std::nullopt;
     }
@@ -344,7 +344,7 @@ bool RbxPackagePacker::VerifyPackageArchive(
         diagnostics.ReportError(
             "P8006",
             "Package '" + archive.manifest.name + "' contains an install script, which is blocked by default for security.",
-            Frontend::SourceLocation{ archive.manifest.name + ".rbxp", 1, 1, 1 },
+            Frontend::SourceLocation{ archive.manifest.name + ".rxp", 1, 1, 1 },
             "Remove the install script or explicitly pass '--allow-install-scripts' after auditing.");
         ok = false;
     }
@@ -355,24 +355,24 @@ bool RbxPackagePacker::VerifyPackageArchive(
             "P8004",
             "ABI mismatch in package '" + archive.manifest.name + "': expected '" +
                 options.expectedABIVersion + "', found '" + archive.manifest.abiVersion + "'.",
-            Frontend::SourceLocation{ archive.manifest.name + ".rbxp", 1, 1, 1 },
+            Frontend::SourceLocation{ archive.manifest.name + ".rxp", 1, 1, 1 },
             "Install a package built for '" + options.expectedABIVersion + "'.");
         ok = false;
     }
 
-    // 3. Verify .rbxapi SHA-256 integrity (P8002) and Explain validity (P8001)
+    // 3. Verify .rxapi SHA-256 integrity (P8002) and Explain validity (P8001)
     const std::string actualApiHash = StdLib::CryptoEngine::ComputeSHA256Hex(archive.rbxApiContent);
     if (!StdLib::SecretBuffer::ConstantTimeEquals(actualApiHash, archive.rbxApiSha256Hex)) {
         diagnostics.ReportError(
             "P8002",
-            "SHA-256 digest mismatch for '" + archive.manifest.name + ".rbxapi'.",
-            Frontend::SourceLocation{ archive.manifest.name + ".rbxp", 1, 1, 1 },
-            "The .rbxapi interface was modified after packaging.");
+            "SHA-256 digest mismatch for '" + archive.manifest.name + ".rxapi'.",
+            Frontend::SourceLocation{ archive.manifest.name + ".rxp", 1, 1, 1 },
+            "The .rxapi interface was modified after packaging.");
         ok = false;
     }
 
     auto apiCheck = RbxApiEngine::ValidateRbxApi(
-        archive.manifest.name + ".rbxapi",
+        archive.manifest.name + ".rxapi",
         archive.rbxApiContent,
         diagnostics);
     if (!apiCheck.valid) {
@@ -391,8 +391,8 @@ bool RbxPackagePacker::VerifyPackageArchive(
                 "P8002",
                 "SHA-256 digest mismatch for binary artifact '" + bin.artifactFileName +
                     "' (" + bin.targetPlatform + ").",
-                Frontend::SourceLocation{ archive.manifest.name + ".rbxp", 1, 1, 1 },
-                "Re-download the untampered .rbxp package.");
+                Frontend::SourceLocation{ archive.manifest.name + ".rxp", 1, 1, 1 },
+                "Re-download the untampered .rxp package.");
             ok = false;
         }
         if (bin.targetPlatform == options.requiredTargetPlatform) {
@@ -405,7 +405,7 @@ bool RbxPackagePacker::VerifyPackageArchive(
             "P8005",
             "Package '" + archive.manifest.name + "' does not contain a compiled binary for target '" +
                 options.requiredTargetPlatform + "'.",
-            Frontend::SourceLocation{ archive.manifest.name + ".rbxp", 1, 1, 1 },
+            Frontend::SourceLocation{ archive.manifest.name + ".rxp", 1, 1, 1 },
             "Select a supported target architecture or install a package supporting '" + options.requiredTargetPlatform + "'.");
         ok = false;
     }
@@ -419,7 +419,7 @@ bool RbxPackagePacker::VerifyPackageArchive(
         diagnostics.ReportError(
             "P8003",
             "Cryptographic signature verification failed for package '" + archive.manifest.name + "'.",
-            Frontend::SourceLocation{ archive.manifest.name + ".rbxp", 1, 1, 1 },
+            Frontend::SourceLocation{ archive.manifest.name + ".rxp", 1, 1, 1 },
             "Verify the publisher signing key and package authenticity.");
         ok = false;
     }

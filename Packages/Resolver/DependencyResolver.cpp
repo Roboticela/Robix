@@ -62,7 +62,7 @@ bool SemVer::SatisfiesConstraint(std::string_view constraint) const noexcept {
 }
 
 // ============================================================================
-// 2. PROJECT MANIFEST (.rbxproj) & LOCKFILE (.rbxlock) IMPLEMENTATION
+// 2. PROJECT MANIFEST (.rxproj) & LOCKFILE (.rxlock) IMPLEMENTATION
 // ============================================================================
 
 std::string RbxProjectManifest::SerializeToRbxProj() const {
@@ -192,7 +192,7 @@ std::optional<RbxLockfile> DependencyResolver::ResolveProjectDependencies(
             diagnostics.ReportError(
                 "P8008",
                 "Circular package dependency detected involving package '" + pkgName + "'.",
-                Frontend::SourceLocation{ "Robix.Project.rbxproj", 1, 1, 1 },
+                Frontend::SourceLocation{ "Robix.Project.rxproj", 1, 1, 1 },
                 "Break the dependency cycle between packages.");
             return false;
         }
@@ -203,8 +203,8 @@ std::optional<RbxLockfile> DependencyResolver::ResolveProjectDependencies(
                 "P8007",
                 "Unsatisfied package dependency or version conflict: '" + pkgName +
                     "' matching constraint '" + std::string(constraint) + "'.",
-                Frontend::SourceLocation{ "Robix.Project.rbxproj", 1, 1, 1 },
-                "Verify the package name and version constraint in Robix.Project.rbxproj.");
+                Frontend::SourceLocation{ "Robix.Project.rxproj", 1, 1, 1 },
+                "Verify the package name and version constraint in Robix.Project.rxproj.");
             return false;
         }
 
@@ -218,7 +218,7 @@ std::optional<RbxLockfile> DependencyResolver::ResolveProjectDependencies(
                     "Version conflict for package '" + pkgName + "': already resolved to '" +
                         existingIt->second->manifest.version + "', which does not satisfy '" +
                         std::string(constraint) + "'.",
-                    Frontend::SourceLocation{ "Robix.Project.rbxproj", 1, 1, 1 },
+                    Frontend::SourceLocation{ "Robix.Project.rxproj", 1, 1, 1 },
                     "Align conflicting dependency version constraints.");
                 return false;
             }

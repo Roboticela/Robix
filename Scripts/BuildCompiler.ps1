@@ -7,14 +7,19 @@ if (-not (Test-Path -LiteralPath $Clang)) {
 
 $Version = "1.0.0"
 $Prefix = Join-Path $Root "Build"
-$Bin = Join-Path $Prefix "Bin"
-$Obj = Join-Path $Prefix "Obj"
-$Lib = Join-Path $Prefix "Lib\Robix\$Version"
-$Include = Join-Path $Prefix "Include\Robix"
-$Packages = Join-Path $Prefix "Packages"
-$Share = Join-Path $Prefix "Share\Robix"
+$Compiler = Join-Path $Prefix "Compiler"
+$Units = Join-Path $Compiler "Units"
+$Programs = $Compiler
+$Toolchain = Join-Path $Compiler "Toolchain"
+$ToolLibraries = Join-Path $Toolchain "Libraries"
+$Runtime = Join-Path $Compiler "Runtime"
+$ImportLibraries = Join-Path $Compiler "Libraries"
+$LegacyObj = Join-Path $Prefix "Obj"
+$Include = Join-Path $Compiler "Include"
+$Packages = Join-Path $Compiler "Packages"
+$Share = Join-Path $Compiler "Share"
 
-foreach ($dir in @($Bin, $Obj, $Lib, $Include, $Packages, $Share)) {
+foreach ($dir in @($Units, $Programs, $Toolchain, $ToolLibraries, $Runtime, $ImportLibraries, $Include, $Packages, $Share)) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
 
@@ -55,7 +60,7 @@ $script:Skipped = 0
 function Get-MakeDeps([string]$DepFile) {
     if (-not (Test-Path -LiteralPath $DepFile)) { return @() }
     $text = [IO.File]::ReadAllText($DepFile) -replace "\\\r?\n", " "
-    $mark = [regex]::Match($text, "\.(?:obj|o):\s*([\s\S]*)$")
+    $mark = [regex]::Match($text, "\.(?:obj|o|rxm|rbxm):\s*([\s\S]*)$")
     if (-not $mark.Success) { return @() }
     $rest = $mark.Groups[1].Value
     $paths = New-Object System.Collections.Generic.List[string]
@@ -98,10 +103,35 @@ function Update-DepFile([string]$Source, [string]$DepFile) {
     return $LASTEXITCODE -eq 0
 }
 
+function Get-UnitPath([string]$Source) {
+    $relative = $Source.Substring($Root.Length + 1)
+    $relative = [IO.Path]::ChangeExtension($relative, ".rxm")
+    return Join-Path $Units $relative
+}
+
+function Move-LegacyUnit([string]$Source, [string]$Object) {
+    if (Test-Path -LiteralPath $Object) { return }
+    $stem = [IO.Path]::GetFileNameWithoutExtension($Source)
+    $legacy = Join-Path $LegacyObj ($stem + ".obj")
+    if (-not (Test-Path -LiteralPath $legacy)) { return }
+    $parent = Split-Path -Parent $Object
+    if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    Move-Item -LiteralPath $legacy -Destination $Object
+    $legacyDep = [IO.Path]::ChangeExtension($legacy, ".d")
+    $legacyFlags = [IO.Path]::ChangeExtension($legacy, ".flags")
+    if (Test-Path -LiteralPath $legacyDep) {
+        Move-Item -LiteralPath $legacyDep -Destination ([IO.Path]::ChangeExtension($Object, ".deps"))
+    }
+    if (Test-Path -LiteralPath $legacyFlags) {
+        Move-Item -LiteralPath $legacyFlags -Destination ([IO.Path]::ChangeExtension($Object, ".stamp"))
+    }
+}
+
 function Compile-Unit([string]$Source, [string]$Object) {
+    Move-LegacyUnit $Source $Object
     $rel = $Source.Substring($Root.Length + 1)
-    $depFile = [IO.Path]::ChangeExtension($Object, ".d")
-    $flagFile = [IO.Path]::ChangeExtension($Object, ".flags")
+    $depFile = [IO.Path]::ChangeExtension($Object, ".deps")
+    $flagFile = [IO.Path]::ChangeExtension($Object, ".stamp")
     $flagsDiffer = $false
     if (Test-Path -LiteralPath $flagFile) {
         $flagsDiffer = ([IO.File]::ReadAllText($flagFile) -ne $CompileKey)
@@ -128,6 +158,8 @@ function Compile-Unit([string]$Source, [string]$Object) {
         return
     }
     Write-Host "  compile $rel"
+    $parent = Split-Path -Parent $Object
+    if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
     & $Clang -std=c++20 -O2 -ffunction-sections -fdata-sections -I $UiInclude -MD -MF $depFile -c $Source -o $Object
     if ($LASTEXITCODE -ne 0) { throw "compile failed: $rel" }
     [IO.File]::WriteAllText($flagFile, $CompileKey)
@@ -141,14 +173,14 @@ $mainSources = @(
     (Join-Path $Root "Tools\CLI\RobixcMain.cpp"),
     (Join-Path $Root "Tools\CLI\RobixMain.cpp")
 )
-Write-Host "Compiling $($sources.Count + $mainSources.Count) compiler units, one object each"
+Write-Host "Compiling $($sources.Count + $mainSources.Count) compiler units"
 foreach ($file in @($sources + @(Get-Item -LiteralPath $mainSources))) {
     $stem = [IO.Path]::GetFileNameWithoutExtension($file.Name)
     if ($usedNames.ContainsKey($stem)) {
-        throw "Two compiler sources share the object name $stem.obj"
+        throw "Two compiler sources share the unit name $stem"
     }
     $usedNames[$stem] = $file.FullName
-    $object = Join-Path $Obj ($stem + ".obj")
+    $object = Get-UnitPath $file.FullName
     if ($mainSources -notcontains $file.FullName) {
         $objects += $object
     }
@@ -167,8 +199,8 @@ $linkLibs = @(
 $linkFailed = @()
 foreach ($main in $mains) {
     $source = Join-Path $Root $main.Source
-    $mainObj = Join-Path $Obj ([IO.Path]::GetFileNameWithoutExtension($source) + ".obj")
-    $exe = Join-Path $Bin $main.Output
+    $mainObj = Get-UnitPath $source
+    $exe = Join-Path $Programs $main.Output
     $linkInputs = @($objects + $mainObj)
     $linkCurrent = (Test-Path -LiteralPath $exe) -and -not (Test-AnyNewer $exe $linkInputs)
     if ($linkCurrent) {
@@ -176,17 +208,23 @@ foreach ($main in $mains) {
         continue
     }
     Write-Host "Linking $($main.Output)"
-    & $Clang -O2 @linkInputs -o $exe @linkLibs
+    $importLib = Join-Path $ImportLibraries ([IO.Path]::GetFileNameWithoutExtension($main.Output) + ".lib")
+    & $Clang -O2 @linkInputs -o $exe @linkLibs "-Wl,/IMPLIB:$importLib"
     if ($LASTEXITCODE -ne 0) {
         $linkFailed += $main.Output
         Write-Host "  $($main.Output) was not replaced. Close it if it is running, then run this build again."
     }
 }
-$runtimeNames = @("RobixNativeRuntime.obj", "LoopbackText.obj", "EnvStore.obj", "NetworkRuntime.obj")
-foreach ($name in $runtimeNames) {
-    $from = Join-Path $Obj $name
-    if (-not (Test-Path -LiteralPath $from)) { throw "missing runtime object $name" }
-    $dest = Join-Path $Lib $name
+$runtimeUnits = @{
+    "RobixNativeRuntime.rxm" = "Runtime\Native\RobixNativeRuntime.cpp"
+    "LoopbackText.rxm" = "Runtime\Native\LoopbackText.cpp"
+    "EnvStore.rxm" = "Runtime\Native\EnvStore.cpp"
+    "NetworkRuntime.rxm" = "Network\NetworkRuntime.cpp"
+}
+foreach ($name in $runtimeUnits.Keys) {
+    $from = Get-UnitPath (Join-Path $Root $runtimeUnits[$name])
+    if (-not (Test-Path -LiteralPath $from)) { throw "missing runtime module $name" }
+    $dest = Join-Path $Runtime $name
     $copy = -not (Test-Path -LiteralPath $dest)
     if (-not $copy) {
         $copy = (Get-Item -LiteralPath $from).LastWriteTimeUtc -gt (Get-Item -LiteralPath $dest).LastWriteTimeUtc
@@ -198,13 +236,6 @@ foreach ($name in $runtimeNames) {
         Write-Host "  skip $name"
     }
 }
-foreach ($import in @("Robixc.lib", "Robix.lib", "Robixc.exp", "Robix.exp")) {
-    $from = Join-Path $Bin $import
-    if (Test-Path -LiteralPath $from) {
-        Move-Item -LiteralPath $from -Destination (Join-Path $Lib $import) -Force
-    }
-}
-
 function Copy-Tree([string]$From, [string]$To, [string]$Filter) {
     if (-not (Test-Path -LiteralPath $From)) { return }
     New-Item -ItemType Directory -Force -Path $To | Out-Null
@@ -244,10 +275,25 @@ function Copy-ToolchainFile([string]$From, [string]$To) {
     Write-Host "  toolchain $([IO.Path]::GetFileName($To))"
 }
 
-$toolchain = Join-Path $Bin "toolchain"
 $clangBin = Split-Path -Parent $Clang
-foreach ($toolName in @("clang.exe", "opt.exe", "ld.lld.exe", "llvm-ar.exe", "llvm-nm.exe", "llvm-objcopy.exe")) {
-    Copy-ToolchainFile (Join-Path $clangBin $toolName) (Join-Path $toolchain $toolName)
+$legacyToolchain = Join-Path $Prefix "Bin\toolchain"
+$toolMap = @(
+    @{ Name = "Clang.exe"; Origin = "clang.exe" },
+    @{ Name = "Opt.exe"; Origin = "opt.exe" },
+    @{ Name = "Linker.exe"; Origin = "ld.lld.exe" },
+    @{ Name = "Archiver.exe"; Origin = "llvm-ar.exe" },
+    @{ Name = "Symbols.exe"; Origin = "llvm-nm.exe" },
+    @{ Name = "ObjectCopy.exe"; Origin = "llvm-objcopy.exe" }
+)
+foreach ($tool in $toolMap) {
+    $dest = Join-Path $Toolchain $tool.Name
+    $legacy = Join-Path $legacyToolchain $tool.Origin
+    if ((Test-Path -LiteralPath $legacy) -and -not (Test-Path -LiteralPath $dest)) {
+        Move-Item -LiteralPath $legacy -Destination $dest
+        Write-Host "  moved $($tool.Name)"
+        continue
+    }
+    Copy-ToolchainFile (Join-Path $clangBin $tool.Origin) $dest
 }
 $msvcRoots = @(
     "$env:ProgramFiles\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC",
@@ -265,33 +311,51 @@ if (-not $msvcLib) { throw "The compiler build needs the MSVC x64 libraries once
 $kitRoot = "${env:ProgramFiles(x86)}\Windows Kits\10\Lib"
 $kitVersion = Get-ChildItem -LiteralPath $kitRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
 if (-not $kitVersion) { throw "The compiler build needs the Windows SDK libraries once, so they can be copied into the compiler." }
-$toolLib = Join-Path $toolchain "lib"
-foreach ($name in @("libcmt.lib", "libvcruntime.lib", "libcpmt.lib", "oldnames.lib")) {
-    Copy-ToolchainFile (Join-Path $msvcLib $name) (Join-Path $toolLib $name)
-}
-Copy-ToolchainFile (Join-Path $kitVersion.FullName "ucrt\x64\libucrt.lib") (Join-Path $toolLib "libucrt.lib")
-foreach ($name in @("kernel32.lib", "ws2_32.lib", "secur32.lib", "crypt32.lib")) {
-    Copy-ToolchainFile (Join-Path $kitVersion.FullName "um\x64\$name") (Join-Path $toolLib $name)
+$legacyLib = Join-Path $legacyToolchain "lib"
+$libraryMap = @(
+    @{ Name = "LibCmt.lib"; Origin = (Join-Path $msvcLib "libcmt.lib"); Legacy = "libcmt.lib" },
+    @{ Name = "LibVcRuntime.lib"; Origin = (Join-Path $msvcLib "libvcruntime.lib"); Legacy = "libvcruntime.lib" },
+    @{ Name = "LibCpp.lib"; Origin = (Join-Path $msvcLib "libcpmt.lib"); Legacy = "libcpmt.lib" },
+    @{ Name = "OldNames.lib"; Origin = (Join-Path $msvcLib "oldnames.lib"); Legacy = "oldnames.lib" },
+    @{ Name = "LibUcrt.lib"; Origin = (Join-Path $kitVersion.FullName "ucrt\x64\libucrt.lib"); Legacy = "libucrt.lib" },
+    @{ Name = "Kernel32.lib"; Origin = (Join-Path $kitVersion.FullName "um\x64\kernel32.lib"); Legacy = "kernel32.lib" },
+    @{ Name = "Ws232.lib"; Origin = (Join-Path $kitVersion.FullName "um\x64\ws2_32.lib"); Legacy = "ws2_32.lib" },
+    @{ Name = "Secur32.lib"; Origin = (Join-Path $kitVersion.FullName "um\x64\secur32.lib"); Legacy = "secur32.lib" },
+    @{ Name = "Crypt32.lib"; Origin = (Join-Path $kitVersion.FullName "um\x64\crypt32.lib"); Legacy = "crypt32.lib" }
+)
+foreach ($library in $libraryMap) {
+    $dest = Join-Path $ToolLibraries $library.Name
+    $legacy = Join-Path $legacyLib $library.Legacy
+    if ((Test-Path -LiteralPath $legacy) -and -not (Test-Path -LiteralPath $dest)) {
+        Move-Item -LiteralPath $legacy -Destination $dest
+        Write-Host "  moved $($library.Name)"
+        continue
+    }
+    Copy-ToolchainFile $library.Origin $dest
 }
 $builtins = Join-Path $clangBin "..\lib\clang\18\lib\windows\clang_rt.builtins-x86_64.lib"
-if (Test-Path -LiteralPath $builtins) {
-    Copy-ToolchainFile $builtins (Join-Path $toolLib "clang_rt.builtins-x86_64.lib")
-}
-foreach ($name in $runtimeNames) {
-    Copy-ToolchainFile (Join-Path $Obj $name) (Join-Path $Bin $name)
+$builtinsDest = Join-Path $ToolLibraries "ClangBuiltins.lib"
+$legacyBuiltins = Join-Path $legacyLib "clang_rt.builtins-x86_64.lib"
+if ((Test-Path -LiteralPath $legacyBuiltins) -and -not (Test-Path -LiteralPath $builtinsDest)) {
+    Move-Item -LiteralPath $legacyBuiltins -Destination $builtinsDest
+    Write-Host "  moved ClangBuiltins.lib"
+} elseif (Test-Path -LiteralPath $builtins) {
+    Copy-ToolchainFile $builtins $builtinsDest
 }
 
 Set-Content -LiteralPath (Join-Path $Share "Version.txt") -Value "Robix $Version`nRoboticela`n" -Encoding ascii
-Set-Content -LiteralPath (Join-Path $Bin "Toolchain.txt") -Value (Join-Path $toolchain "clang.exe") -Encoding ascii
+Set-Content -LiteralPath (Join-Path $Compiler "Toolchain.txt") -Value (Join-Path $Toolchain "Clang.exe") -Encoding ascii
 
 Write-Host ""
 Write-Host "Robix $Version"
-Write-Host "  Bin      $Bin"
-Write-Host "  Lib      $Lib"
+Write-Host "  Compiler $Compiler"
+Write-Host "  Toolchain $Toolchain"
+Write-Host "  Runtime  $Runtime"
+Write-Host "  Units    $Units"
 Write-Host "  Include  $Include"
 Write-Host "  Packages $Packages"
 Write-Host "  Share    $Share"
-Get-ChildItem -LiteralPath $Bin -File | ForEach-Object { Write-Host "  program  $($_.Name)" }
+Get-ChildItem -LiteralPath $Programs -File | ForEach-Object { Write-Host "  program  $($_.Name)" }
 if ($linkFailed.Count -gt 0) {
     throw "link failed: $($linkFailed -join ', '). Close the running program and run this build again."
 }

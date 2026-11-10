@@ -140,7 +140,7 @@ add_executable(StandardLibraryTests
 target_link_libraries(StandardLibraryTests PRIVATE RobixStdLibAndConcurrency)
 add_test(NAME StandardLibraryTests COMMAND StandardLibraryTests)
 
-# Stage 8: Package Ecosystem & Binary Distribution (.rbxapi, .rbxp, robix)
+# Stage 8: Package Ecosystem & Binary Distribution (.rxapi, .rxp, robix)
 add_library(RobixPackageSystem STATIC
     Packages/Manager/RbxApiAndPackageFormat.cpp
     Packages/Resolver/DependencyResolver.cpp

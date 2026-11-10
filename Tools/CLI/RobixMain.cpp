@@ -189,16 +189,7 @@ int main(int argc, char* argv[]) {
         Robix::Tools::ProjectFile projectFile;
         if (Robix::Tools::FindProject(projectAnchor, projectFile) && projectFile.network) {
             base.linkNetwork = true;
-            const fs::path beside = fs::path(toolDir) / "NetworkRuntime.obj";
-            const fs::path installed = fs::path(toolDir) / ".." / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
-            const fs::path fromRoot = fs::current_path() / "Build" / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
-            if (fs::exists(beside)) {
-                base.networkObjectPath = beside.string();
-            } else if (fs::exists(installed)) {
-                base.networkObjectPath = installed.string();
-            } else {
-                base.networkObjectPath = fromRoot.string();
-            }
+            base.networkObjectPath = (fs::path(toolDir) / "Runtime" / "NetworkRuntime.rxm").string();
         }
         const std::string missingTest = Robix::Tools::MissingTestMessage(projectAnchor);
         if (!missingTest.empty()) {

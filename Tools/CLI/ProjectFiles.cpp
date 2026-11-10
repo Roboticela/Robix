@@ -166,7 +166,7 @@ bool WriteLock(const fs::path& file, const std::vector<LockedPackage>& packages)
 }
 
 fs::path LockPath(const ProjectFile& project) {
-    return project.directory / (project.name + ".rbxlock");
+    return project.directory / (project.name + ".rxlock");
 }
 
 bool LoadKeys(const fs::path& file, ProjectFile& project) {
@@ -299,7 +299,7 @@ fs::path EntryInProject(const fs::path& root, const std::vector<fs::path>& files
     std::error_code ec;
     if (fs::is_directory(root, ec)) {
         for (const auto& entry : fs::directory_iterator(root, ec)) {
-            if (entry.path().extension() != ".rbxb") continue;
+            if (entry.path().extension() != ".rxb") continue;
             const RbxbPlan plan = ReadRbxb(entry.path());
             if (!plan.ok || plan.source.empty()) continue;
             fs::path source(plan.source);
@@ -321,7 +321,7 @@ void AttachBuild(ProjectRun& run) {
     std::error_code ec;
     if (!fs::is_directory(run.root, ec)) return;
     for (const auto& entry : fs::directory_iterator(run.root, ec)) {
-        if (entry.path().extension() != ".rbxb") continue;
+        if (entry.path().extension() != ".rxb") continue;
         const RbxbPlan plan = ReadRbxb(entry.path());
         if (!plan.ok) continue;
         run.buildFile = entry.path();
@@ -352,7 +352,7 @@ bool ProjectHere(const fs::path& dir, ProjectFile& project) {
     std::error_code ec;
     if (!fs::is_directory(dir, ec)) return false;
     for (const auto& entry : fs::directory_iterator(dir, ec)) {
-        if (entry.path().extension() == ".rbxproj") return FindProject(entry.path(), project);
+        if (entry.path().extension() == ".rxproj") return FindProject(entry.path(), project);
     }
     return false;
 }
@@ -466,14 +466,14 @@ ProjectRun ChooseProjectRun(const fs::path& folder, bool eachFile, bool services
 bool FindProject(const fs::path& start, ProjectFile& project) {
     std::error_code ec;
     fs::path cursor = fs::absolute(start, ec);
-    if (fs::is_regular_file(cursor, ec) && cursor.extension() == ".rbxproj") {
+    if (fs::is_regular_file(cursor, ec) && cursor.extension() == ".rxproj") {
         return LoadKeys(cursor, project);
     }
     if (fs::is_regular_file(cursor, ec)) cursor = cursor.parent_path();
     for (int depth = 0; depth < 6 && !cursor.empty(); ++depth) {
         if (fs::is_directory(cursor, ec)) {
             for (const auto& entry : fs::directory_iterator(cursor, ec)) {
-                if (entry.path().extension() == ".rbxproj") return LoadKeys(entry.path(), project);
+                if (entry.path().extension() == ".rxproj") return LoadKeys(entry.path(), project);
             }
         }
         if (!cursor.has_parent_path() || cursor.parent_path() == cursor) break;
@@ -615,7 +615,7 @@ int PackageCommand(const std::vector<std::string>& args) {
     const std::string projectArg = ArgValue(args, "--project");
     ProjectFile project;
     if (!FindProject(projectArg.empty() ? fs::current_path() : fs::path(projectArg), project)) {
-        std::cerr << "robix " << cmd << ": no .rbxproj found.\n";
+        std::cerr << "robix " << cmd << ": no .rxproj found.\n";
         return 1;
     }
     if (project.signKey.empty()) {
@@ -651,14 +651,14 @@ int PackageCommand(const std::vector<std::string>& args) {
                     return 1;
                 }
                 const std::string api = PublicApi(package.name, bytes);
-                if (!WriteFile(destDir / (package.name + ".rbxapi"), api)) return 1;
+                if (!WriteFile(destDir / (package.name + ".rxapi"), api)) return 1;
                 std::ostringstream rbxp;
                 rbxp << "name " << package.name << "\n"
                      << "version " << package.version << "\n"
                      << "sha256 " << sha << "\n"
                      << "signature " << signature << "\n"
                      << "file " << dest.filename().string() << "\n";
-                if (!WriteFile(destDir / (package.name + ".rbxp"), rbxp.str())) return 1;
+                if (!WriteFile(destDir / (package.name + ".rxp"), rbxp.str())) return 1;
                 std::cout << "robix install: " << package.name << " -> " << dest.string() << "\n";
             } else {
                 std::cout << "robix restore: " << package.name << " sha256 " << sha << "\n";

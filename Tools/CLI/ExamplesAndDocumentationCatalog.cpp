@@ -132,13 +132,13 @@ const std::vector<DocumentationGuideEntry>& OfficialDocumentationCatalog::GetAll
         { 11, "11_PointersSlicesAndInlineASM.md",    "Typed Pointers, Safe Span<T> Slices & Inline ASM",      "Covers `Pointer<T>`, bounds-checked `Span<T>`, and architecture-validated `ASM` blocks." },
         { 12, "12_ABISpecificationAndCFFI.md",       "Complete Robix ABI & Memory-Safe C Interoperability",   "Defines calling conventions, `_RX` mangling, vtables, plugin ABI, and FFI buffer pinning." },
         { 13, "13_MandatoryTestingAndFuzzing.md",    "Mandatory .test.rx System, Fuzzing & Mutation Testing","Documents the `R5001` build guard, all 12 `Assert.*` methods, property shrinking, and `robix test-gen`." },
-        { 14, "14_SingleCommandVerifier.md",         "Single-Command Project & File Verifier (robix verify)", "Explains the 8-stage verification pipeline for `.rx`, `.rxu`, and `.rbxb` targets." },
+        { 14, "14_SingleCommandVerifier.md",         "Single-Command Project & File Verifier (robix verify)", "Explains the 8-stage verification pipeline for `.rx`, `.rxu`, and `.rxb` targets." },
         { 15, "15_CoreStandardLibraryAndRegex.md",   "Robix.Core, Math, DateTime & Linear-Time Regex",        "Covers `Print`, `Input<T>`, `Vec3`, `Quaternion`, and ReDoS-immune Thompson NFA `Robix.Regex`." },
         { 16, "16_CollectionsAndDataStructures.md",  "Robix.Collections: List, Dictionary, Graph, Matrix",    "Documents generic containers, iterators, `Matrix<T>`, and `Tensor<T>`." },
         { 17, "17_JsonDataFormatsAndDatabase.md",    "First-Class Robix.Json, CSV, YAML, TOML & Database",    "Covers zero-dependency JSON parser/serializer, schema validation, compression, and SQLite." },
         { 18, "18_ConcurrencyAndAsyncCancellation.md","Structured Concurrency, Async Cancellation & IPC",     "Details `CancellationToken`, LIFO `defer` cleanup, channels, deadlock detection, and `Process`." },
         { 19, "19_FormalSecurityArchitecture.md",    "Formal Security Model, Sandboxing & Secret<T>",         "Covers capability permissions (`requires`), zeroed `SecretBuffer`, SHA-256/HMAC, and supply-chain auditing." },
-        { 20, "20_PackageManagerAndBinaryPackages.md","Package Ecosystem (.rbxapi, .rbxp, robix)",            "Explains binary distribution without source exposure, cryptographic signatures, and `.robix/packages/`." },
+        { 20, "20_PackageManagerAndBinaryPackages.md","Package Ecosystem (.rxapi, .rxp, robix)",            "Explains binary distribution without source exposure, cryptographic signatures, and `.robix/packages/`." },
         { 21, "21_HardwareAbstractionAndEmbedded.md","Hardware Access (GPIO, PWM, UART, SPI, I2C, CAN, DMA)", "Details portable HAL, volatile MMIO registers, DMA transfers, and explicit simulation backends." },
         { 22, "22_RealTimeExecutionProfile.md",      "Real-Time Execution (@RealTime, WCET, Watchdog)",       "Covers `@Priority`, `@Period`, No-GC enforcement (`RT9001`), lock-free SPSC queues, and WCET reporting." },
         { 23, "23_RoboticsControlAndKinematics.md",  "Robotics Standard Library: PID, Kalman, IK & A*",       "Covers `SafetyMonitor` E-Stop, motor controllers, PID, Kalman filter, 2-link IK, and A* navigation." },
@@ -147,7 +147,7 @@ const std::vector<DocumentationGuideEntry>& OfficialDocumentationCatalog::GetAll
         { 26, "26_DebuggingAndProfilingSuite.md",    "Complete Debugger (robix debug) & Profiler (robix profile)", "Documents conditional breakpoints, watchpoints, crash dumps, CPU flame graphs, and race detection." },
         { 27, "27_LSPFormatterAndVSCodeIntegration.md","Language Server (LSP), Formatter & Strict Linter",    "Explains autocomplete, hover `Explain` docs, `robix fmt`, and `robix lint --strict`." },
         { 28, "28_CrossCompilationAndBenchmarks.md", "Cross-Compilation & 16-Workload C/C++/Rust Benchmarks", "Documents multi-OS native targets and the reproducible 16-workload benchmark suite." },
-        { 29, "29_RobixBuildConfigurationGuide.md",  "RobixBuild (.rbxb) Build Configuration Guide",          "Comprehensive guide to declarative `.rbxb` files, dependency DAG, all 8 output types, and 8 project styles." },
+        { 29, "29_RobixBuildConfigurationGuide.md",  "RobixBuild (.rxb) Build Configuration Guide",          "Comprehensive guide to declarative `.rxb` files, dependency DAG, all 8 output types, and 8 project styles." },
         { 30, "30_RobixNetworkDistributedGuide.md",  "Robix Network Distributed Applications Guide",          "Comprehensive guide to `Common/` contracts, `Service`/`Implement`, `Network.Connections`, and `.env` isolation." }
     };
     return kGuides;

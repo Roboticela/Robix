@@ -24,14 +24,14 @@ struct NativeBuildOptions {
     bool freestanding   = false;  // No hosted CRT and no generated main
     NativeOutputKind outputKind = NativeOutputKind::HostedExecutable;
     std::string clangPath;        // Explicit clang path (else auto-detected)
-    std::string runtimeObjectPath;// Explicit RobixNativeRuntime.obj path (else auto-detected)
+    std::string runtimeObjectPath;// Explicit RobixNativeRuntime.rxm path (else auto-detected)
     std::string toolDirectory;    // Directory containing robix.exe / robixc.exe (for auto-detection)
     std::string targetTriple;     // LLVM triple written into the IR. Empty keeps the hosted Windows triple
     std::string clangTarget;      // Assembler triple. Empty uses targetTriple, or x86_64-elf for a boot image
     std::string dataLayout;
     std::string entrySymbol;      // Empty means Main, or Start when freestanding
     std::string asmArch = "x86_64";
-    std::string imageRole = "Kernel"; // .rbxb Output: Kernel or Firmware
+    std::string imageRole = "Kernel"; // .rxb Output: Kernel or Firmware
     bool linkNetwork = false;
     bool debugLines = false;
     bool omitMain = false;
@@ -55,10 +55,10 @@ public:
                                                          std::string_view sourceText,
                                                          const NativeBuildOptions& options);
 
-    // Locates the clang shipped inside the compiler install: <toolDir>/toolchain/clang.exe.
+    // Locates Clang shipped inside the compiler install: <toolDir>/Toolchain/Clang.exe.
     [[nodiscard]] static std::string LocateClang(const std::string& hint, const std::string& toolDirectory);
 
-    // Locates RobixNativeRuntime.obj: explicit hint, <toolDir>/RobixNativeRuntime.obj, <cwd>/Build/.
+    // Locates RobixNativeRuntime.rxm under <toolDir>/Runtime.
     [[nodiscard]] static std::string LocateRuntimeObject(const std::string& hint, const std::string& toolDirectory);
 };
 

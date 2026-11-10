@@ -11,19 +11,19 @@ Source files are UTF-8. Identifiers follow Unicode UAX #31 (`XID_Start` / `XID_C
 | Kind | Extension or name |
 | :--- | :--- |
 | Source | `.rx` |
-| Interface | `.rbxh` |
+| Interface | `.rxh` |
 | Test source | `.test.rx` |
-| API description | `.rbxapi` |
-| Compiled module | `.rbxm` |
-| Library | `.rbxlib` |
-| Package metadata | `.rbxp` |
-| Project | `.rbxproj` |
-| Workspace | `.rbxworkspace` |
-| Build description | `.rbxb` |
+| API description | `.rxapi` |
+| Compiled module | `.rxm` |
+| Library | `.rxlib` |
+| Package metadata | `.rxp` |
+| Project | `.rxproj` |
+| Workspace | `.rxworkspace` |
+| Build description | `.rxb` |
 | Lockfile | `Robix.Lock` |
 | UI document | `.rxu` |
-| UI theme | `.rbxtheme` |
-| UI assets | `.rbxassets` |
+| UI theme | `.rxtheme` |
+| UI assets | `.rxassets` |
 | Compiler | `robixc` |
 | Package manager and tools | `robix` |
 
@@ -74,7 +74,7 @@ robix interpreter version
 robix interpreter trace
 ```
 
-Target triples the compiler accepts: `x86_64` hosted Windows, `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, `riscv64-unknown-none`, `x86_64-unknown-linux-gnu`. A project `Output` of `Kernel` or `Firmware` links a boot image. Other outputs are `Executable`, a static library, a shared library, an object file, or a package (`.rbxlib`, header `RBXPKG 1`).
+Target triples the compiler accepts: `x86_64` hosted Windows, `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, `riscv64-unknown-none`, `x86_64-unknown-linux-gnu`. A project `Output` of `Kernel` or `Firmware` links a boot image. Other outputs are `Executable`, a static library, a shared library, an object file, or a package (`.rxlib`, header `RBXPKG 1`).
 
 Build profiles select the link flags recorded in `Documentation/Status.md`: `debug`, `release` (default `-O3`), `performance`, `realtime`, `safety`, `size`, `embedded`.
 
@@ -1168,7 +1168,7 @@ A scene can contain a camera, lights, groups, meshes, primitives, materials, tex
 
 ## 22. Project file
 
-A `.rbxb` file:
+A `.rxb` file:
 
 ```text
 Project {
@@ -1183,7 +1183,7 @@ Project {
 }
 ```
 
-`Output` values used by the toolchain: `Executable`, `Kernel`, `Firmware`, library, static library, shared library, object, package. `robixc File.rbxb --explain` prints the compile order and does not write a binary. `--dry-run` prints `dry-run: compile was not started`.
+`Output` values used by the toolchain: `Executable`, `Kernel`, `Firmware`, library, static library, shared library, object, package. `robixc File.rxb --explain` prints the compile order and does not write a binary. `--dry-run` prints `dry-run: compile was not started`.
 
 `robix build` is incremental. An unchanged second build prints `incremental: unchanged`. Editing a file that `Main` imports rebuilds the executable.
 

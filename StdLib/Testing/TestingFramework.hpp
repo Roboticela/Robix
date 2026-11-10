@@ -126,7 +126,7 @@ private:
 };
 
 // ============================================================================
-// 2. MANDATORY PER-FILE TEST ENFORCEMENT CONFIG (.rbxproj & R5001)
+// 2. MANDATORY PER-FILE TEST ENFORCEMENT CONFIG (.rxproj & R5001)
 // ============================================================================
 struct TestEnforcementConfig {
     bool requireTestFile                = true;

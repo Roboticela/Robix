@@ -27,7 +27,7 @@ public:
     explicit RobixPackageRegistry(std::string trustedPublisherKey = "RoboticelaOfficialPublisherKey")
         : m_trustedPublisherKey(std::move(trustedPublisherKey)) {}
 
-    // `robix publish` — verifies signature, .rbxapi Explain blocks, and SHA-256 before accepting
+    // `robix publish` — verifies signature, .rxapi Explain blocks, and SHA-256 before accepting
     bool PublishPackage(const RbxPackageArchive& archive,
                         const std::string& requiredTargetPlatform,
                         Frontend::DiagnosticBag& diagnostics);
@@ -55,7 +55,7 @@ struct InstalledPackageLayout {
     std::string              packageName;
     std::string              version;
     std::string              installDirectory; // <ProjectRoot>/.robix/packages/<Name>/<Version>/
-    std::string              rbxApiPath;       // .../<Name>.rbxapi
+    std::string              rbxApiPath;       // .../<Name>.rxapi
     std::vector<std::string> binaryPaths;      // .../binaries/<target>/<file>
     std::string              packageJsonPath;  // .../package.json
 };

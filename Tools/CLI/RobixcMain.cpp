@@ -47,8 +47,8 @@ static void PrintHelp() {
         << "    --emit-llvm           Generate LLVM IR (.ll) and exit\n"
         << "    --keep-ir             Retain generated .ll file next to executable\n"
         << "    --clang <path>        Override the clang shipped inside the compiler\n"
-        << "    --runtime-obj <path>  Path to RobixNativeRuntime.obj\n"
-        << "    --explain, --dry-run  Print the .rbxb plan and do not compile\n"
+        << "    --runtime-obj <path>  Path to Runtime/RobixNativeRuntime.rxm\n"
+        << "    --explain, --dry-run  Print the .rxb plan and do not compile\n"
         << "    --generate-tests      Generate missing .test.rx scaffolds\n"
         << "    --version, -v         Display robixc version information\n"
         << "    --help, -h            Show this help documentation\n\n"
@@ -420,8 +420,8 @@ int main(int argc, char* argv[]) {
         std::error_code inputError;
         const fs::path inputPath(inputFilePath);
         const bool uiInput = fs::is_directory(inputPath, inputError) || inputPath.extension() == ".rxu" ||
-                             inputPath.extension() == ".xml" || inputPath.extension() == ".r3d" || inputPath.extension() == ".rbxproj";
-        const bool sourceFile = inputPath.extension() == ".rx" || inputPath.extension() == ".rbxb";
+                             inputPath.extension() == ".xml" || inputPath.extension() == ".r3d" || inputPath.extension() == ".rxproj";
+        const bool sourceFile = inputPath.extension() == ".rx" || inputPath.extension() == ".rxb";
         if ((uiInput || !uiTargets.empty() || uiDevelopment) && !sourceFile) {
             if (uiDevelopment) {
                 std::cerr << "robixc: development runs with robix, not robixc.\n";
@@ -437,7 +437,7 @@ int main(int argc, char* argv[]) {
     }
     if (explainOnly) {
         Robix::Tools::RbxbPlan plan;
-        if (fs::path(inputFilePath).extension() == ".rbxb") {
+        if (fs::path(inputFilePath).extension() == ".rxb") {
             plan = Robix::Tools::ReadRbxb(inputFilePath);
             if (!plan.ok) {
                 std::cerr << plan.error;
@@ -450,7 +450,7 @@ int main(int argc, char* argv[]) {
         std::cout << Robix::Tools::ExplainRbxb(plan);
         return 0;
     }
-    if (fs::path(inputFilePath).extension() == ".rbxb") {
+    if (fs::path(inputFilePath).extension() == ".rxb") {
         std::string sourcePath;
         std::string rbxbError;
         if (!LoadRobixBuild(inputFilePath, sourcePath, options, rbxbError)) {
@@ -557,7 +557,7 @@ int main(int argc, char* argv[]) {
         } else if (options.outputKind == Robix::Tools::NativeOutputKind::SharedLibrary) {
             p.replace_extension(".dll");
         } else if (options.outputKind == Robix::Tools::NativeOutputKind::PackageArchive) {
-            p.replace_extension(".rbxlib");
+            p.replace_extension(".rxlib");
         } else {
             p.replace_extension(".exe");
         }

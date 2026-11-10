@@ -28,11 +28,11 @@ Do not blindly copy the syntax or internal design of existing programming langua
 
 - Language name: Robix
 - Source extension: `.rx`
-- Header/interface extension: `.rbxh`
-- Compiled module extension: `.rbxm`
-- Library extension: `.rbxlib`
-- Project configuration: `.rbxproj`
-- Workspace configuration: `.rbxworkspace`
+- Header/interface extension: `.rxh`
+- Compiled module extension: `.rxm`
+- Library extension: `.rxlib`
+- Project configuration: `.rxproj`
+- Workspace configuration: `.rxworkspace`
 - Compiler executable: `robixc`
 - Package manager executable: `robix`
 - Official company: Roboticela
@@ -45,8 +45,8 @@ Tagline:
 
 - Language name: RobixUI
 - Source extension: `.rxu`
-- UI theme extension: `.rbxtheme`
-- UI asset manifest: `.rbxassets`
+- UI theme extension: `.rxtheme`
+- UI asset manifest: `.rxassets`
 
 RobixUI is the official declarative UI language of Robix.
 
@@ -877,7 +877,7 @@ A recommended project layout:
 ```text
 MyRobot/
 │
-├── Robix.Project.rbxproj
+├── Robix.Project.rxproj
 ├── Robix.Lock
 │
 ├── Source/
@@ -886,7 +886,7 @@ MyRobot/
 │   └── MotorDriver.rx
 │
 ├── Interfaces/
-│   └── MotorInterface.rbxh
+│   └── MotorInterface.rxh
 │
 ├── UI/
 │   └── MainWindow.rxu
@@ -5200,21 +5200,21 @@ I recommend establishing the following official extensions.
 | `.rx`       | Robix source code                           |
 | `.rxu`      | RobixUI interface definitions               |
 | `.test.rx`  | Tests for a corresponding source file       |
-| `.rbxapi`    | Public package API and interface definition |
-| `.rbxp`      | Compiled Robix package                      |
-| `.rbxproj`   | Project configuration                       |
-| `.rbxlock`   | Locked dependency versions                  |
-| `.rbxmod`    | Compiled module                             |
-| `.rbxassets` | Application and UI assets                   |
-| `.rbxtheme`  | UI theme definitions                        |
-| `.rbxconfig` | Build and runtime configuration             |
+| `.rxapi`    | Public package API and interface definition |
+| `.rxp`      | Compiled Robix package                      |
+| `.rxproj`   | Project configuration                       |
+| `.rxlock`   | Locked dependency versions                  |
+| `.rxmod`    | Compiled module                             |
+| `.rxassets` | Application and UI assets                   |
+| `.rxtheme`  | UI theme definitions                        |
+| `.rxconfig` | Build and runtime configuration             |
 
-My recommendation for your requested package definition extension is `.rbxapi`.
+My recommendation for your requested package definition extension is `.rxapi`.
 
 For example:
 
 ```
-RobotControl.rbxapi
+RobotControl.rxapi
 ```
 
 It describes the package's public types, functions, classes, interfaces, constants, dependencies and supported targets.
@@ -5222,7 +5222,7 @@ It describes the package's public types, functions, classes, interfaces, constan
 The package itself would use:
 
 ```
-RobotControl.rbxp
+RobotControl.rxp
 ```
 
 It contains the compiled implementation and the API definition.
@@ -5233,11 +5233,11 @@ These are proposed extensions for Robix, not existing standardized formats.
 
 A published Robix package should have a structure similar to this:
 
-RobotControl-1.0.0.rbxp
+RobotControl-1.0.0.rxp
 
 Published package
 
-RobotControl.rbxapi
+RobotControl.rxapi
 
 Public API
 
@@ -5265,7 +5265,7 @@ documentation/
 
 Usage documentation and examples, if included.
 
-The `.rbxp` file is a distributable archive. When installed, it is unpacked into the current project's dependency directory.
+The `.rxp` file is a distributable archive. When installed, it is unpacked into the current project's dependency directory.
 
 This design follows a proven packaging principle: separate compiled artifacts from metadata describing how consumers use them. Binary packages also need dependency information and target-specific artifacts.&#x20;
 
@@ -5275,13 +5275,13 @@ Debian Policy Manual v4.7.4.1+2
 
 
 
-## What goes inside `.rbxapi`?
+## What goes inside `.rxapi`?
 
 The API definition should contain declarations, not implementation code.
 
 For example:
 
-RobotControl.rbxapi
+RobotControl.rxapi
 
 ```
 Package RobotControl {
@@ -5335,7 +5335,7 @@ Function Main() {
 }
 ```
 
-The compiler reads `RobotControl.rbxapi` to understand the types and functions. The linker loads the matching compiled binary.
+The compiler reads `RobotControl.rxapi` to understand the types and functions. The linker loads the matching compiled binary.
 
 Important security and compatibility rule: An API definition is not proof that a binary implements that API. The package publisher must sign the package, and the compiler/linker should verify the API hash, binary metadata, target architecture and ABI compatibility.
 
@@ -5344,7 +5344,7 @@ Important security and compatibility rule: An API definition is not proof that a
 I recommend these mandatory rules:
 
 1. Published packages do not include private `.rx` implementation source files by default.
-2. The `.rbxapi` definition is included and available to consumers.
+2. The `.rxapi` definition is included and available to consumers.
 3. Binary artifacts are provided for supported operating systems and processor architectures.
 4. A package must declare its compiler ABI and minimum runtime requirements.
 5. The package manager verifies hashes and signatures before installation.
@@ -5384,19 +5384,19 @@ MyRobotProject/
     └── packages/
         ├── RobotControl/
         │   └── 1.0.0/
-        │       ├── RobotControl.rbxapi
+        │       ├── RobotControl.rxapi
         │       ├── package.json
         │       └── binaries/
         │
         ├── MathEngine/
         │   └── 2.1.0/
-        │       ├── MathEngine.rbxapi
+        │       ├── MathEngine.rxapi
         │       ├── package.json
         │       └── binaries/
         │
         └── JsonTools/
             └── 1.2.0/
-                ├── JsonTools.rbxapi
+                ├── JsonTools.rxapi
                 ├── package.json
                 └── binaries/
 ```
@@ -5454,20 +5454,20 @@ robix audit
 robix pack
 
 # Validate the package
-robix verify-package RobotControl.rbxp
+robix verify-package RobotControl.rxp
 
 # Sign the package
-robix sign RobotControl.rbxp
+robix sign RobotControl.rxp
 
 # Publish to the official registry
-robix publish RobotControl.rbxp
+robix publish RobotControl.rxp
 ```
 
 The registry should support versioning, ownership, package descriptions, downloads, release history, and publisher verification.
 
 ## E. Dependency configuration
 
-I recommend making `robix.project` the project's dependency and build manifest, with extension `.rbxproj` as its formal file extension.
+I recommend making `robix.project` the project's dependency and build manifest, with extension `.rxproj` as its formal file extension.
 
 Example:
 
@@ -5914,7 +5914,7 @@ For example:
 Import Robix.AI;
 Import Robix.Math;
 
-let model = AI.LoadModel("robot-model.rbxmodel");
+let model = AI.LoadModel("robot-model.rxmodel");
 
 let image = Image.Load("camera.png");
 
@@ -5923,7 +5923,7 @@ let prediction = await model.PredictAsync(image);
 Print(prediction);
 ```
 
-The `.rbxmodel` extension here is a proposed model-artifact format, not a requirement that every AI framework use the same internal representation.
+The `.rxmodel` extension here is a proposed model-artifact format, not a requirement that every AI framework use the same internal representation.
 
 ## H. Developer experience
 
@@ -6071,7 +6071,7 @@ Debugging and profiling
 
 Robix Package Manager
 
-Install and publish `.rbxp`
+Install and publish `.rxp`
 
 Robix IDE Tools
 
@@ -6086,15 +6086,15 @@ Here is the consolidated extension proposal:
 | `.rx`       | Source code                     |
 | `.rxu`      | UI markup                       |
 | `.test.rx`  | Source-file tests               |
-| `.rbxapi`    | Public package API definition   |
-| `.rbxp`      | Compiled binary package archive |
-| `.rbxproj`   | Project manifest                |
-| `.rbxlock`   | Locked dependency versions      |
-| `.rbxmod`    | Compiled module                 |
-| `.rbxassets` | Asset bundle                    |
-| `.rbxtheme`  | Theme definition                |
-| `.rbxconfig` | Runtime/build configuration     |
-| `.rbxmodel`  | Proposed AI model artifact      |
+| `.rxapi`    | Public package API definition   |
+| `.rxp`      | Compiled binary package archive |
+| `.rxproj`   | Project manifest                |
+| `.rxlock`   | Locked dependency versions      |
+| `.rxmod`    | Compiled module                 |
+| `.rxassets` | Asset bundle                    |
+| `.rxtheme`  | Theme definition                |
+| `.rxconfig` | Runtime/build configuration     |
+| `.rxmodel`  | Proposed AI model artifact      |
 
 # 9. Development priorities
 
@@ -6116,7 +6116,7 @@ I recommend these implementation stages:
    JSON, files, strings, collections, mathematics, networking, threading, multiprocessing and serialization.
 5. Stage 5 — Package ecosystem
 
-   `.rbxapi`, `.rbxp`, `.rbxproj`, `.rbxlock`, package registry, binary compatibility, signatures and dependency resolution.
+   `.rxapi`, `.rxp`, `.rxproj`, `.rxlock`, package registry, binary compatibility, signatures and dependency resolution.
 6. Stage 6 — Hardware and robotics
 
    GPIO, sensors, motor controllers, real-time programming, embedded targets, CAN, SPI, I2C and DMA.
@@ -6131,8 +6131,8 @@ I recommend these implementation stages:
 
 There are five decisions I would make official now:
 
-1. `.rbxapi` is the public interface definition for compiled packages.
-2. `.rbxp` is the compiled package archive, containing binaries, metadata, API definitions and integrity information.
+1. `.rxapi` is the public interface definition for compiled packages.
+2. `.rxp` is the compiled package archive, containing binaries, metadata, API definitions and integrity information.
 3. `robix` is the official package manager, installing dependencies into `.robix/packages` in the current project.
 4. JSON is built into the standard library, with typed serialization, validation and streaming.
 5. Robix is native-first for production, with its interpreter intended for development and testing.
@@ -6600,9 +6600,9 @@ Database and serialization support
 
 Packages and distribution
 
-.rbxapi public API definitions
+.rxapi public API definitions
 
-.rbxp compiled packages
+.rxp compiled packages
 
 Project-local package installation
 
@@ -6668,7 +6668,7 @@ Complete syntax, static type system, memory safety, OOP, procedural programming,
 
 Robix 1.x — Complete ecosystem
 
-Package manager, `.rbxapi`, `.rbxp`, JSON, concurrency, networking, debugger, IDE and standard libraries.
+Package manager, `.rxapi`, `.rxp`, JSON, concurrency, networking, debugger, IDE and standard libraries.
 
 3
 
@@ -6819,7 +6819,7 @@ Strict documentation mode: build blocked.
 
 For your package system:
 
-- Every public function in `.rbxapi` must have an `Explain` block.
+- Every public function in `.rxapi` must have an `Explain` block.
 - Every public parameter must be explained.
 - The output must be described.
 - Processing must be explained.
@@ -6842,7 +6842,7 @@ I would establish these rules:
 | Errors        | Required when applicable             |
 | Side effects  | Required when applicable             |
 | Type checking | Compiler validates names and types   |
-| Package APIs  | Documentation included in `.rbxapi`  |
+| Package APIs  | Documentation included in `.rxapi`  |
 | Testing       | Documentation examples can be tested |
 
 My final recommendation: Make `Explain { }` the official Robix syntax. It is readable, structured, easy for developers and AI tools to understand, and straightforward for the compiler to validate. Keep the documentation separate from executable statements so it adds no runtime overhead.

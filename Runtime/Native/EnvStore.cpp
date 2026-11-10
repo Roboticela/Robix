@@ -80,7 +80,7 @@ void LoadLocked() {
         bool project = fs::is_regular_file(cursor / ".env.common", ec);
         if (!project) {
             for (const auto& entry : fs::directory_iterator(cursor, ec)) {
-                if (entry.path().extension() == ".rbxproj") {
+                if (entry.path().extension() == ".rxproj") {
                     project = true;
                     break;
                 }

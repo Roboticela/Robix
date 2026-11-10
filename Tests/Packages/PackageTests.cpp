@@ -22,7 +22,7 @@ void Check(bool condition, const char* description) {
 }
 
 void TestRbxApiGenerationAndValidation() {
-    std::cout << "\n--- 1. Public API Definition (.rbxapi) Generation & Explain Enforcement ---\n";
+    std::cout << "\n--- 1. Public API Definition (.rxapi) Generation & Explain Enforcement ---\n";
     using namespace Robix::Packages;
 
     const std::string motorLibrarySource = R"(
@@ -61,14 +61,14 @@ Package RobixMotors {
           "RbxApiEngine::GenerateRbxApiFromSource exports public signatures + Explain while stripping private functions and implementation bodies");
 
     Robix::Frontend::DiagnosticBag valDiag;
-    auto apiVal = RbxApiEngine::ValidateRbxApi("RobixMotors.rbxapi", generatedApi, valDiag);
+    auto apiVal = RbxApiEngine::ValidateRbxApi("RobixMotors.rxapi", generatedApi, valDiag);
     Check(apiVal.valid && !valDiag.HasErrors() &&
           apiVal.publicFunctionCount == 1 &&
           apiVal.requiredPermissions.size() == 2 &&
           !apiVal.apiSha256Hex.empty(),
-          "RbxApiEngine::ValidateRbxApi validates well-formed .rbxapi and extracts permissions + SHA-256 hash");
+          "RbxApiEngine::ValidateRbxApi validates well-formed .rxapi and extracts permissions + SHA-256 hash");
 
-    // Verify .rbxapi missing Explain block is rejected with P8001 / D3001
+    // Verify .rxapi missing Explain block is rejected with P8001 / D3001
     const std::string undocumentedApi = R"(
 Package BadPkg {
     Version = "1.0.0";
@@ -76,13 +76,13 @@ Package BadPkg {
 }
 )";
     Robix::Frontend::DiagnosticBag badDiag;
-    auto badVal = RbxApiEngine::ValidateRbxApi("BadPkg.rbxapi", undocumentedApi, badDiag);
+    auto badVal = RbxApiEngine::ValidateRbxApi("BadPkg.rxapi", undocumentedApi, badDiag);
     Check(!badVal.valid && (badDiag.ContainsCode("P8001") || badDiag.ContainsCode("D3001")),
-          "RbxApiEngine::ValidateRbxApi rejects public .rbxapi functions missing mandatory Explain blocks");
+          "RbxApiEngine::ValidateRbxApi rejects public .rxapi functions missing mandatory Explain blocks");
 }
 
 void TestRbxpArchiveSecurityAndABIVerification() {
-    std::cout << "\n--- 2. Compiled Binary Package (.rbxp) Archive, Signatures, SHA-256 & ABI Checks ---\n";
+    std::cout << "\n--- 2. Compiled Binary Package (.rxp) Archive, Signatures, SHA-256 & ABI Checks ---\n";
     using namespace Robix::Packages;
 
     const std::string validApi = R"(
@@ -121,7 +121,7 @@ Package RobixHAL {
 
     Check(!packDiag.HasErrors() && !archive.publisherSignatureHex.empty() &&
           archive.sbomJson.find("RobixSBOM-1.0") != std::string::npos,
-          "RbxPackagePacker::CreateSignedPackage creates signed .rbxp with SHA-256 digests and SBOM");
+          "RbxPackagePacker::CreateSignedPackage creates signed .rxp with SHA-256 digests and SBOM");
 
     // Round-trip serialization/deserialization
     const std::string serialized = RbxPackagePacker::SerializeArchive(archive);
@@ -130,7 +130,7 @@ Package RobixHAL {
     Check(deserializedOpt.has_value() && !deserDiag.HasErrors() &&
           deserializedOpt->manifest.name == "RobixHAL" &&
           deserializedOpt->binaries.size() == 2,
-          "RbxPackagePacker SerializeArchive and DeserializeArchive round-trip .rbxp container cleanly");
+          "RbxPackagePacker SerializeArchive and DeserializeArchive round-trip .rxp container cleanly");
 
     // 1. Valid verification
     PackageVerificationOptions opts;
@@ -138,7 +138,7 @@ Package RobixHAL {
     opts.requiredTargetPlatform = "windows-x64";
     Robix::Frontend::DiagnosticBag okDiag;
     Check(RbxPackagePacker::VerifyPackageArchive(*deserializedOpt, opts, okDiag) && !okDiag.HasErrors(),
-          "RbxPackagePacker::VerifyPackageArchive passes authentic, ABI-compatible .rbxp archive");
+          "RbxPackagePacker::VerifyPackageArchive passes authentic, ABI-compatible .rxp archive");
 
     // 2. Tampered binary payload -> P8002
     {
@@ -187,7 +187,7 @@ Package RobixHAL {
 }
 
 void TestSemVerAndDependencyResolver() {
-    std::cout << "\n--- 3. SemVer Constraints, .rbxproj / .rbxlock & Deterministic DAG Resolver ---\n";
+    std::cout << "\n--- 3. SemVer Constraints, .rxproj / .rxlock & Deterministic DAG Resolver ---\n";
     using namespace Robix::Packages;
 
     auto v123 = SemVer::Parse("1.2.3");
@@ -273,7 +273,7 @@ Package RobixMotors {
     Check(registry.PublishPackage(halPkg, "windows-x64", pubDiag) &&
           registry.PublishPackage(motorsPkg, "windows-x64", pubDiag) &&
           !pubDiag.HasErrors(),
-          "RobixPackageRegistry::PublishPackage verifies and registers signed .rbxp packages");
+          "RobixPackageRegistry::PublishPackage verifies and registers signed .rxp packages");
 
     auto searchHits = registry.Search("motors");
     Check(searchHits.size() == 1 && searchHits[0].name == "RobixMotors" && searchHits[0].latestVersion == "2.1.0",
@@ -282,10 +282,10 @@ Package RobixMotors {
     // Project-local workflow: `robix new`, `robix add`, `robix install`, `robix list`, `robix tree`, `robix restore`
     RobixPackageManager mgr("D:/MyRobotApp", registry);
     Check(mgr.NewProject("MyRobotApp", "robotics"),
-          "RobixPackageManager::NewProject scaffolds Robix.Project.rbxproj, Project.rbxb, Source/Main.rx, and Tests/Main.test.rx");
+          "RobixPackageManager::NewProject scaffolds Robix.Project.rxproj, Project.rxb, Source/Main.rx, and Tests/Main.test.rx");
 
     Check(mgr.AddDependency("RobixMotors", "^2.0.0"),
-          "RobixPackageManager::AddDependency records dependency in Robix.Project.rbxproj");
+          "RobixPackageManager::AddDependency records dependency in Robix.Project.rxproj");
 
     Robix::Frontend::DiagnosticBag installDiag;
     Check(mgr.InstallPackages("windows-x64", installDiag) && !installDiag.HasErrors(),
@@ -301,9 +301,9 @@ Package RobixMotors {
 
     const auto& vfs = mgr.VirtualFS();
     Check(vfs.find("D:/MyRobotApp/Robix.Lock") != vfs.end() &&
-          vfs.find("D:/MyRobotApp/.robix/packages/RobixMotors/2.1.0/RobixMotors.rbxapi") != vfs.end() &&
+          vfs.find("D:/MyRobotApp/.robix/packages/RobixMotors/2.1.0/RobixMotors.rxapi") != vfs.end() &&
           vfs.find("D:/MyRobotApp/.robix/packages/RobixMotors/2.1.0/binaries/windows-x64/RobixMotors.dll") != vfs.end(),
-          "Project-local package directory contains .rbxapi, binaries/<target>/*.dll, package.json, and deterministic Robix.Lock");
+          "Project-local package directory contains .rxapi, binaries/<target>/*.dll, package.json, and deterministic Robix.Lock");
 
     const std::string treeStr = mgr.RenderDependencyTree();
     Check(treeStr.find("RobixMotors@2.1.0") != std::string::npos &&

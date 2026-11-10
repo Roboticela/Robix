@@ -38,7 +38,7 @@ struct SemVer {
 };
 
 // ============================================================================
-// 2. PROJECT MANIFEST (.rbxproj) & DETERMINISTIC LOCKFILE (.rbxlock)
+// 2. PROJECT MANIFEST (.rxproj) & DETERMINISTIC LOCKFILE (.rxlock)
 // ============================================================================
 struct RbxProjectManifest {
     std::string                        projectName;
