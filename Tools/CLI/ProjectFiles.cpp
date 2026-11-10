@@ -357,6 +357,46 @@ bool ProjectHere(const fs::path& dir, ProjectFile& project) {
     return false;
 }
 
+bool SameSourceFile(const fs::path& left, const fs::path& right) {
+    std::error_code ec;
+    if (fs::exists(left, ec) && fs::exists(right, ec) && fs::equivalent(left, right, ec)) return true;
+    auto normal = [](const fs::path& path) {
+        std::error_code absEc;
+        return fs::absolute(path, absEc).lexically_normal().generic_string();
+    };
+    return normal(left) == normal(right);
+}
+
+std::vector<fs::path> CompilerBuildSources(const ProjectRun& run) {
+    std::vector<fs::path> sources;
+    if (run.mode == ProjectRun::Mode::Project && !run.order.empty()) {
+        sources = run.order;
+    } else if (run.mode == ProjectRun::Mode::Project) {
+        CollectPrograms(run.root, 0, sources);
+        std::sort(sources.begin(), sources.end());
+    } else {
+        sources = run.files;
+    }
+    if (run.mode == ProjectRun::Mode::Project && !run.files.empty()) {
+        bool found = false;
+        for (const fs::path& source : sources) {
+            if (SameSourceFile(source, run.files.front())) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) sources.push_back(run.files.front());
+    }
+    if (sources.empty()) sources = run.files;
+    return sources;
+}
+
+bool CompilerBuildIsEntry(const ProjectRun& run, const fs::path& source) {
+    if (run.mode != ProjectRun::Mode::Project) return true;
+    if (run.files.empty()) return false;
+    return SameSourceFile(source, run.files.front());
+}
+
 ProjectRun ChooseProjectRun(const fs::path& folder, bool eachFile, bool services) {
     ProjectRun run;
     const fs::path start = folder.empty() ? fs::current_path() : folder;

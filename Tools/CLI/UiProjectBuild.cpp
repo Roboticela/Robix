@@ -1,6 +1,7 @@
 #include "UiProjectBuild.hpp"
 
 #include "NativeCompilerDriver.hpp"
+#include "ProjectFiles.hpp"
 #include "../../RobixUI/Document.hpp"
 #include "../../RobixUI/Web/WebFoundation.hpp"
 
@@ -191,6 +192,10 @@ int BuildOrRunProject(const std::string& input, bool development, const std::str
             options.outputKind = Robix::Tools::NativeOutputKind::HostedObject;
             options.outputPath = (build / "compile" / (source.stem().string() + ".obj")).string();
         }
+        if (Robix::Tools::IncrementalHit(source, options.outputPath)) {
+            std::cout << "incremental: unchanged " << options.outputPath << "\n";
+            continue;
+        }
         auto built = Robix::Tools::NativeCompilerDriver::CompileSource(source.string(), text, options);
         if (!built.diagnosticsText.empty()) {
             std::cerr << built.diagnosticsText;
@@ -203,6 +208,7 @@ int BuildOrRunProject(const std::string& input, bool development, const std::str
             status = 1;
             continue;
         }
+        Robix::Tools::WriteIncrementalStamp(source, built.executablePath);
         std::cout << "compiled " << source.filename().string() << " -> " << built.executablePath << "\n";
     }
 

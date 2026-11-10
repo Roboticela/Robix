@@ -41,7 +41,8 @@ static void PrintHelp() {
         << "                                    Interpret a screen on the host platform or web.\n"
         << "    run all [--separate]                Run every network client and server\n"
         << "    run client <Name> | server <Name>   Run one service in this console\n"
-        << "    build <file.rbx> [-o <out.exe>]     Compile directly to a native executable\n"
+        << "    build [folder] [-o <out.exe>]       Compile each source to its own file. Skip unchanged files.\n"
+        << "    build <file.rbx> [-o <out.exe>]     Compile that file. Skip it when nothing changed.\n"
         << "    test [path] [--generate]            Run .test.rbx on the interpreter. Test native also compiles.\n"
         << "    generate-tests [path]               Generate companion .test.rbx scaffolds for all .rbx files\n"
         << "    verify [path]                       Run full semantic and static verification on files\n"
@@ -129,80 +130,122 @@ int main(int argc, char* argv[]) {
     const int developerStatus = Robix::Tools::RunDeveloperCommand(args, toolDir);
     if (developerStatus >= 0) return developerStatus;
 
-    // `robix build <file.rbx>` delegates to NativeCompilerDriver
-    if (cmd == "build" && args.size() >= 2) {
+    // `robix build` compiles each project source to its own file.
+    // `robix build <file.rbx>` compiles that one file.
+    if (cmd == "build") {
         std::string inputFile;
-        Robix::Tools::NativeBuildOptions opts;
-        opts.toolDirectory = toolDir;
+        Robix::Tools::NativeBuildOptions base;
+        base.toolDirectory = toolDir;
 
         for (std::size_t i = 1; i < args.size(); ++i) {
             if (args[i] == "-o" && i + 1 < args.size()) {
-                opts.outputPath = args[++i];
+                base.outputPath = args[++i];
             } else if (args[i] == "-O0" || args[i] == "--debug") {
-                opts.release = false;
+                base.release = false;
             } else if (args[i] == "-O2" || args[i] == "-O3" || args[i] == "--release") {
-                opts.release = true;
+                base.release = true;
             } else if (args[i] == "--keep-ir") {
-                opts.keepLLVMIR = true;
+                base.keepLLVMIR = true;
             } else if (args[i] == "--clang" && i + 1 < args.size()) {
-                opts.clangPath = args[++i];
+                base.clangPath = args[++i];
             } else if (args[i] == "--runtime-obj" && i + 1 < args.size()) {
-                opts.runtimeObjectPath = args[++i];
+                base.runtimeObjectPath = args[++i];
             } else if (!args[i].empty() && args[i][0] != '-') {
                 if (inputFile.empty()) inputFile = args[i];
             }
         }
 
-        if (inputFile.empty()) {
+        struct BuildUnit {
+            std::string file;
+            bool entry = true;
+        };
+        std::vector<BuildUnit> units;
+        std::error_code inputKind;
+        const bool projectBuild = inputFile.empty() || fs::is_directory(inputFile, inputKind);
+        fs::path projectAnchor = inputFile.empty() ? fs::current_path() : fs::path(inputFile);
+        if (projectBuild) {
+            const Robix::Tools::ProjectRun project = Robix::Tools::ChooseProjectRun(
+                inputFile.empty() ? fs::path{} : fs::path(inputFile), false, false);
+            if (project.mode != Robix::Tools::ProjectRun::Mode::Project) {
+                std::cerr << (project.error.empty() ? "robix build: this folder has no program.\n" : project.error);
+                return 1;
+            }
+            projectAnchor = project.root;
+            bool sawEntry = false;
+            for (const fs::path& source : Robix::Tools::CompilerBuildSources(project)) {
+                const bool entry = Robix::Tools::CompilerBuildIsEntry(project, source);
+                sawEntry = sawEntry || entry;
+                units.push_back(BuildUnit{ source.string(), entry });
+            }
+            if (!units.empty() && !sawEntry) units.back().entry = true;
+        } else {
+            units.push_back(BuildUnit{ inputFile, true });
+        }
+        if (units.empty()) {
             std::cerr << "robix build: error: no input file specified.\n";
             return 1;
         }
 
-        std::ifstream srcFile(inputFile, std::ios::binary);
-        if (!srcFile.is_open()) {
-            std::cerr << "robix build: error: could not open file '" << inputFile << "'\n";
-            return 1;
-        }
-        std::string sourceText((std::istreambuf_iterator<char>(srcFile)),
-                               std::istreambuf_iterator<char>());
-        srcFile.close();
-
-        if (opts.outputPath.empty()) {
-            fs::path p(inputFile);
-            p.replace_extension(".exe");
-            opts.outputPath = p.string();
-        }
-
-        Robix::Tools::ProjectFile project;
-        if (Robix::Tools::FindProject(inputFile, project) && project.network) {
-            opts.linkNetwork = true;
+        Robix::Tools::ProjectFile projectFile;
+        if (Robix::Tools::FindProject(projectAnchor, projectFile) && projectFile.network) {
+            base.linkNetwork = true;
             const fs::path installed = fs::path(toolDir) / ".." / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
             const fs::path fromRoot = fs::current_path() / "Build" / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
             if (fs::exists(installed)) {
-                opts.networkObjectPath = installed.string();
+                base.networkObjectPath = installed.string();
             } else {
-                opts.networkObjectPath = fromRoot.string();
+                base.networkObjectPath = fromRoot.string();
             }
         }
-        const std::string missingTest = Robix::Tools::MissingTestMessage(inputFile);
+        const std::string missingTest = Robix::Tools::MissingTestMessage(projectAnchor);
         if (!missingTest.empty()) {
             std::cerr << missingTest;
             return 1;
         }
-        if (Robix::Tools::IncrementalHit(inputFile, opts.outputPath)) {
-            std::cout << "incremental: unchanged " << opts.outputPath << "\n";
-            return 0;
-        }
 
-        auto res = Robix::Tools::NativeCompilerDriver::CompileSource(inputFile, sourceText, opts);
-        if (!res.diagnosticsText.empty()) std::cerr << res.diagnosticsText;
-        if (!res.toolOutput.empty()) std::cout << res.toolOutput;
-        if (!res.success) {
-            std::cerr << "robix build: compilation failed.\n";
-            return 1;
+        const std::string requestedOutput = base.outputPath;
+        for (const BuildUnit& unit : units) {
+            std::ifstream srcFile(unit.file, std::ios::binary);
+            if (!srcFile.is_open()) {
+                std::cerr << "robix build: error: could not open file '" << unit.file << "'\n";
+                return 1;
+            }
+            std::string sourceText((std::istreambuf_iterator<char>(srcFile)),
+                                   std::istreambuf_iterator<char>());
+            srcFile.close();
+
+            Robix::Tools::NativeBuildOptions opts = base;
+            if (!unit.entry) {
+                opts.omitMain = true;
+                opts.outputKind = Robix::Tools::NativeOutputKind::HostedObject;
+                fs::path objectPath(unit.file);
+                objectPath.replace_extension(".o");
+                opts.outputPath = objectPath.string();
+            } else if (units.size() > 1) {
+                opts.outputPath = requestedOutput;
+            }
+            if (opts.outputPath.empty()) {
+                fs::path p(unit.file);
+                p.replace_extension(".exe");
+                opts.outputPath = p.string();
+            }
+            if (units.size() > 1) std::cout << unit.file << std::endl;
+            if (Robix::Tools::IncrementalHit(unit.file, opts.outputPath)) {
+                std::cout << "incremental: unchanged " << opts.outputPath << "\n";
+                continue;
+            }
+
+            auto res = Robix::Tools::NativeCompilerDriver::CompileSource(unit.file, sourceText, opts);
+            if (!res.diagnosticsText.empty()) std::cerr << res.diagnosticsText;
+            if (!res.toolOutput.empty()) std::cout << res.toolOutput;
+            if (!res.success) {
+                std::cerr << "robix build: compilation failed.\n";
+                return 1;
+            }
+            Robix::Tools::WriteIncrementalStamp(unit.file, res.executablePath);
+            std::cout << "robix build: created " << (unit.entry ? "executable" : "object")
+                      << " -> " << res.executablePath << "\n";
         }
-        Robix::Tools::WriteIncrementalStamp(inputFile, res.executablePath);
-        std::cout << "robix build: created executable -> " << res.executablePath << "\n";
         return 0;
     }
 

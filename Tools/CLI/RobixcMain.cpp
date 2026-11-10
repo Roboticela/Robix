@@ -20,7 +20,7 @@ static void PrintHelp() {
         << "Robix Native Compiler (robixc) - Production Native Toolchain\n"
         << "Roboticela Software Architecture\n\n"
         << "USAGE:\n"
-        << "    robixc                        Compile the project in this folder\n"
+        << "    robixc                        Compile each source in this folder to its own file\n"
         << "    robixc <file.rbx> [options]   Compile only that file\n"
         << "    robixc all                    Compile every program in the folder, one by one\n"
         << "    robixc run                    Compile and run the project\n"
@@ -51,7 +51,11 @@ static void PrintHelp() {
         << "    --explain, --dry-run  Print the .rbxb plan and do not compile\n"
         << "    --generate-tests      Generate missing .test.rbx scaffolds\n"
         << "    --version, -v         Display robixc version information\n"
-        << "    --help, -h            Show this help documentation\n";
+        << "    --help, -h            Show this help documentation\n\n"
+        << "Each source is compiled to its own file. The program entry becomes the\n"
+        << "executable. Every other source becomes an object next to that source.\n"
+        << "A file that is already built, and whose source and imports are unchanged,\n"
+        << "is skipped. The line is: incremental: unchanged <output>\n";
 }
 
 static bool ApplyTarget(const std::string& triple, Robix::Tools::NativeBuildOptions& options, std::string& error) {
@@ -335,6 +339,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<std::string> jobs;
+    std::vector<char> jobIsEntry;
     const bool eachFile = inputFilePath == "all";
     std::error_code inputKind;
     Robix::Tools::ProjectRun project;
@@ -383,18 +388,33 @@ int main(int argc, char* argv[]) {
             }
             std::cout << "project: " << project.files.front().string() << std::endl;
         }
-        if (project.files.size() > 1 && !options.outputPath.empty()) {
+        const std::vector<fs::path> sources = Robix::Tools::CompilerBuildSources(project);
+        const bool manyPrograms = project.mode == Robix::Tools::ProjectRun::Mode::Each && sources.size() > 1;
+        if (manyPrograms && !options.outputPath.empty()) {
             std::cerr << "robixc: -o names one program. Leave it out to compile each file.\n";
             return 1;
         }
-        for (const fs::path& file : project.files) jobs.push_back(file.string());
+        bool sawEntry = false;
+        for (const fs::path& file : sources) {
+            const bool entry = Robix::Tools::CompilerBuildIsEntry(project, file);
+            sawEntry = sawEntry || entry;
+            jobs.push_back(file.string());
+            jobIsEntry.push_back(entry ? 1 : 0);
+        }
+        if (!jobIsEntry.empty() && project.mode == Robix::Tools::ProjectRun::Mode::Project && !sawEntry) {
+            jobIsEntry.back() = 1;
+        }
     } else {
         jobs.push_back(inputFilePath);
+        jobIsEntry.push_back(1);
     }
+    const Robix::Tools::NativeBuildOptions baseOptions = options;
     const std::string requestedOutput = options.outputPath;
-    for (const std::string& job : jobs) {
-        inputFilePath = job;
-        options.outputPath = jobs.size() > 1 ? std::string{} : requestedOutput;
+    for (std::size_t jobIndex = 0; jobIndex < jobs.size(); ++jobIndex) {
+        inputFilePath = jobs[jobIndex];
+        const bool isEntry = jobIsEntry[jobIndex] != 0;
+        options = baseOptions;
+        options.outputPath = isEntry ? requestedOutput : std::string{};
         if (jobs.size() > 1) std::cout << inputFilePath << std::endl;
     {
         std::error_code inputError;
@@ -508,6 +528,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    if (!isEntry) {
+        options.omitMain = true;
+        options.outputPath.clear();
+        const auto kind = options.outputKind;
+        if (kind == Robix::Tools::NativeOutputKind::HostedExecutable ||
+            kind == Robix::Tools::NativeOutputKind::LinuxExecutable ||
+            kind == Robix::Tools::NativeOutputKind::BootImage ||
+            kind == Robix::Tools::NativeOutputKind::StaticLibrary ||
+            kind == Robix::Tools::NativeOutputKind::SharedLibrary ||
+            kind == Robix::Tools::NativeOutputKind::PackageArchive) {
+            options.outputKind = options.freestanding ? Robix::Tools::NativeOutputKind::ObjectFile
+                                                      : Robix::Tools::NativeOutputKind::HostedObject;
+        }
+    }
+
     // Default output path if not specified
     if (options.outputPath.empty() && !options.emitLLVMOnly) {
         fs::path p(inputFilePath);
@@ -527,6 +562,11 @@ int main(int argc, char* argv[]) {
             p.replace_extension(".exe");
         }
         options.outputPath = p.string();
+    }
+
+    if (!options.emitLLVMOnly && Robix::Tools::IncrementalHit(inputFilePath, options.outputPath)) {
+        std::cout << "incremental: unchanged " << options.outputPath << "\n";
+        continue;
     }
 
     auto buildResult = Robix::Tools::NativeCompilerDriver::CompileSource(
@@ -549,9 +589,10 @@ int main(int argc, char* argv[]) {
         continue;
     }
 
+    Robix::Tools::WriteIncrementalStamp(inputFilePath, buildResult.executablePath);
     std::cout << "robixc: compiled successfully -> " << buildResult.executablePath << std::endl;
 
-    if (executeAfterBuild) {
+    if (executeAfterBuild && isEntry) {
         const int runCode = std::system(("\"" + buildResult.executablePath + "\"").c_str());
         if (runCode != 0) return runCode;
     }

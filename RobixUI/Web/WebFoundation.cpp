@@ -7,6 +7,11 @@
 #include "../Compiler/Components/Button/ButtonWeb.hpp"
 #include "../Compiler/Components/IconButton/IconButtonWeb.hpp"
 #include "../Compiler/Components/Switch/SwitchWeb.hpp"
+#include "../Compiler/Components/ThemeToggle/ThemeToggleWeb.hpp"
+#include "../Compiler/Components/ThemeIconToggle/ThemeIconToggleWeb.hpp"
+#include "../Compiler/Components/TextField/TextFieldWeb.hpp"
+#include "../Compiler/Components/PasswordReveal/PasswordRevealWeb.hpp"
+#include "../Compiler/Components/ConfirmAction/ConfirmActionWeb.hpp"
 #include "../Compiler/Components/SegmentedControl/SegmentedControlWeb.hpp"
 #include "../Compiler/Components/Board/BoardWeb.hpp"
 #include "../Compiler/Components/Container/Container.hpp"
@@ -215,6 +220,46 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             assets = FindUp("RefCode/Assets");
         }
         RoboWebEmitSwitch(html, node, library, assets);
+        return;
+    }
+    if (name == "themetoggle") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitThemeToggle(html, node, library, assets);
+        return;
+    }
+    if (name == "themeicontoggle") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitThemeIconToggle(html, node, library, assets);
+        return;
+    }
+    if (name == "textfield") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitTextField(html, node, library, assets);
+        return;
+    }
+    if (name == "passwordreveal") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitPasswordReveal(html, node, library, assets, false, false);
+        return;
+    }
+    if (name == "confirmaction") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitConfirmAction(html, node, library, assets);
         return;
     }
     if (name == "switchitem") {
@@ -630,6 +675,11 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendButtonCss(css);
         RoboWebAppendIconButtonCss(css);
         RoboWebAppendSwitchCss(css);
+        RoboWebAppendThemeToggleCss(css);
+        RoboWebAppendThemeIconToggleCss(css);
+        RoboWebAppendTextFieldCss(css);
+        RoboWebAppendPasswordRevealCss(css);
+        RoboWebAppendConfirmActionCss(css);
         RoboWebAppendSegmentedCss(css);
         RoboWebAppendControlCss(css);
         RoboWebAppendIconCss(css);
@@ -638,7 +688,9 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     }
 
     std::ostringstream html;
-    html << "<!DOCTYPE html><html lang=\"en\" data-theme=\"" << Escape(theme) << "\"><head><meta charset=\"utf-8\">";
+    html << "<!DOCTYPE html><html lang=\"en\" data-theme=\"" << Escape(theme) << "\" class=\""
+         << (theme == "light" ? "" : "dark") << "\"><head><meta charset=\"utf-8\">";
+    html << "<script>try{var t=localStorage.getItem(\"theme\");if(t===\"light\"||t===\"dark\"){document.documentElement.setAttribute(\"data-theme\",t);document.documentElement.classList.toggle(\"dark\",t===\"dark\");}}catch(e){}</script>";
     html << "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
     html << "<title>" << Escape(title) << "</title>";
     html << "<link rel=\"stylesheet\" href=\"app.css\"></head><body>";
@@ -669,6 +721,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
              << RoboWebMotionAttrs(screenCopy)
              << " style=\"" << Escape(style) << "\">";
         std::string body;
+        RoboWebThemePrepare(theme);
         for (const RoboXMLNode& child : screenCopy.children) {
             EmitNode(body, child, library);
         }
@@ -696,6 +749,9 @@ Robo.set = function (id, key, value) {
     js += RoboWebIconButtonScript();
     js += RoboWebSwitchScript();
     js += RoboWebSegmentedScript();
+    js += RoboWebThemeScript();
+    js += RoboWebPasswordRevealScript();
+    js += RoboWebConfirmActionScript();
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
     js += RoboWebReelScript();

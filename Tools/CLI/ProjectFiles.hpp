@@ -71,4 +71,12 @@ std::string ExplainRbxb(const RbxbPlan& plan);
 bool IncrementalHit(const std::filesystem::path& source, const std::filesystem::path& output);
 void WriteIncrementalStamp(const std::filesystem::path& source, const std::filesystem::path& output);
 
+// One output per source. A project build file's order is that list.
+// With no order, every program in the project is compiled on its own.
+std::vector<std::filesystem::path> CompilerBuildSources(const ProjectRun& run);
+
+// The program entry keeps the executable. Every other source is its own object.
+// `all` treats every program as an entry.
+bool CompilerBuildIsEntry(const ProjectRun& run, const std::filesystem::path& source);
+
 } // namespace Robix::Tools

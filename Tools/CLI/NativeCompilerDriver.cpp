@@ -392,6 +392,7 @@ NativeBuildResult FinishHostedArtifact(const std::string& clang,
             res.diagnosticsText += "error: could not write object '" + output.string() + "'\n";
             return res;
         }
+        fs::remove(object, ec);
         res.success = true;
         res.executablePath = output.string();
         res.toolOutput += "output: object\n";
@@ -656,7 +657,18 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
         options.outputKind == NativeOutputKind::StaticLibrary ||
         options.outputKind == NativeOutputKind::SharedLibrary ||
         options.outputKind == NativeOutputKind::PackageArchive) {
-        return FinishHostedArtifact(clang, codegenInput, exePath, sourceText, options, res);
+        NativeBuildResult built = FinishHostedArtifact(clang, codegenInput, exePath, sourceText, options, res);
+        {
+            std::error_code ec;
+            fs::remove(optIR, ec);
+            fs::remove(reassocIR, ec);
+        }
+        if (!options.keepLLVMIR) {
+            std::error_code ec;
+            fs::remove(llPath, ec);
+            if (built.success) built.llvmIRPath.clear();
+        }
+        return built;
     }
 
     if (options.outputKind != NativeOutputKind::HostedExecutable) {
