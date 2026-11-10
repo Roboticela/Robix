@@ -182,11 +182,14 @@ void ResolveButtonIcons(const RoboXMLNode& node, std::string& leading, std::stri
 }
 
 int Px(int value) {
-    if (value == 0 || gDpi <= 96) {
+    if (value == 0 || gDpi == 96) {
         return value;
     }
-    const int scaled = static_cast<int>((static_cast<long long>(value) * gDpi + 48) / 96);
-    return scaled < 1 ? 1 : scaled;
+    const int scaled = static_cast<int>((static_cast<long long>(value) * static_cast<long long>(gDpi) + 48) / 96);
+    if (scaled == 0) {
+        return value < 0 ? -1 : 1;
+    }
+    return scaled;
 }
 
 bool IsDigits(const std::string& text) {
@@ -3339,5 +3342,12 @@ int WindowsDocumentSpinRects(WindowPatch* patches, int capacity) {
 }
 
 int WindowsDocumentZoomAnchor() { return gScene.valid ? gScene.zoomAnchor : 0; }
+
+std::string WindowsDocumentIconSvg(const char* name) {
+    if (name == nullptr || name[0] == '\0') {
+        return {};
+    }
+    return RoboWebSvg(gAssets, name);
+}
 
 }  // namespace Robix::UI

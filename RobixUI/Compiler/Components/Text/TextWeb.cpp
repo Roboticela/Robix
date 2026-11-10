@@ -72,7 +72,11 @@ void RoboWebAppendTextCss(std::ostream& css) {
     css << ".robo-type[style*=\"--robo-link\"] a:visited{color:var(--robo-visited,var(--robo-link))}\n";
     css << ".robo-type[style*=\"--robo-strong\"] strong, .robo-type[style*=\"--robo-strong\"] b{color:var(--robo-strong)}\n";
     css << ".robo-type[style*=\"--robo-muted\"] .is-muted{color:var(--robo-muted)}\n";
-    css << ".robo-type[style*=\"--robo-selection\"] ::selection{background:var(--robo-selection);color:var(--robo-selection-text,inherit)}\n";
+    css << ".robo-type[style*=\"--robo-selection\"]::selection,.robo-type[style*=\"--robo-selection\"] ::selection{background:var(--robo-selection);color:var(--robo-selection-text,inherit)}\n";
+    css << ".robo-type[data-select=none],.robo-type[data-select=none] *{user-select:none;-webkit-user-select:none}\n";
+    css << ".robo-type[data-select=text]{user-select:text;-webkit-user-select:text}\n";
+    css << ".robo-type[data-select=all],.robo-type[data-select=all] *{user-select:all;-webkit-user-select:all}\n";
+    css << ".robo-type[style*=\"--robo-caret\"],.robo-type[style*=\"--robo-caret\"] *{caret-color:var(--robo-caret)}\n";
     css << ".robo-type[data-effect=glow],.robo-type[data-effect=neon]{text-shadow:0 0 12px currentColor}\n";
     css << ".robo-type[data-effect=emboss]{text-shadow:0 1px 0 rgba(255,255,255,.35),0 -1px 0 rgba(0,0,0,.6)}\n";
     css << ".robo-type[data-effect=engrave]{text-shadow:0 -1px 0 rgba(255,255,255,.28),0 1px 0 rgba(0,0,0,.7)}\n";
@@ -310,6 +314,18 @@ void RoboWebTextAttrs(std::string& html, const RoboXMLNode& node) {
   data("selected", RoboWebLower(RoboXMLAttr(node, "selected")) == "true" ? "true" : "");
   data("dropcap", RoboWebLower(RoboXMLAttr(node, "dropCap")) == "true" ? "true" : "");
   data("lines", RoboXMLAttr(node, "lines").empty() ? RoboXMLAttr(node, "maxLines") : RoboXMLAttr(node, "lines"));
+  std::string select = RoboWebLower(RoboWebTextAttr(node, "selectable", "select"));
+  if (select.empty()) {
+    select = RoboWebLower(RoboWebTextAttr(node, "selection", "userSelect"));
+  }
+  if (select == "false" || select == "0" || select == "no" || select == "off" || select == "none") {
+    select = "none";
+  } else if (select == "true" || select == "1" || select == "yes" || select == "on" || select == "text") {
+    select = "text";
+  } else if (select != "all") {
+    select.clear();
+  }
+  data("select", select);
 }
 
 void RoboWebAppendTextStyle(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
@@ -350,7 +366,11 @@ void RoboWebAppendTextStyle(std::string& style, const RoboXMLNode& node, const R
     RoboWebAddDecl(style, "--robo-font-style", fontStyle);
     RoboWebAddDecl(style, "font-style", fontStyle);
   }
-  const std::string tracking = RoboWebTextTracking(library, RoboWebTextAttr(node, "letterSpacing", "tracking"));
+  std::string trackingRaw = RoboWebTextAttr(node, "letterSpacing", "tracking");
+  if (trackingRaw.empty()) {
+    trackingRaw = RoboWebTextAttr(node, "characterSpacing", "charSpacing");
+  }
+  const std::string tracking = RoboWebTextTracking(library, trackingRaw);
   if (!tracking.empty()) {
     RoboWebAddDecl(style, "--robo-tracking", tracking);
     RoboWebAddDecl(style, "letter-spacing", tracking);
@@ -360,7 +380,11 @@ void RoboWebAppendTextStyle(std::string& style, const RoboXMLNode& node, const R
     RoboWebAddDecl(style, "--robo-word-spacing", words);
     RoboWebAddDecl(style, "word-spacing", words);
   }
-  const std::string leading = RoboWebTextLeading(RoboWebTextAttr(node, "lineHeight", "leading"));
+  std::string leadingRaw = RoboWebTextAttr(node, "lineHeight", "leading");
+  if (leadingRaw.empty()) {
+    leadingRaw = RoboXMLAttr(node, "line-height");
+  }
+  const std::string leading = RoboWebTextLeading(leadingRaw);
   if (!leading.empty()) {
     RoboWebAddDecl(style, "--robo-leading", leading);
     RoboWebAddDecl(style, "line-height", leading);
@@ -377,6 +401,27 @@ void RoboWebAppendTextStyle(std::string& style, const RoboXMLNode& node, const R
   RoboWebAddDecl(style, "--robo-muted", RoboWebTextColor(library, RoboXMLAttr(node, "mutedColor")));
   RoboWebAddDecl(style, "--robo-selection", RoboWebTextColor(library, RoboXMLAttr(node, "selectionColor")));
   RoboWebAddDecl(style, "--robo-selection-text", RoboWebTextColor(library, RoboXMLAttr(node, "selectionText")));
+  const std::string caret = RoboWebTextColor(library, RoboWebTextAttr(node, "caretColor", "cursorColor"));
+  if (!caret.empty()) {
+    RoboWebAddDecl(style, "--robo-caret", caret);
+    RoboWebAddDecl(style, "caret-color", caret);
+  }
+  if (textNode) {
+    std::string select = RoboWebLower(RoboWebTextAttr(node, "selectable", "select"));
+    if (select.empty()) {
+      select = RoboWebLower(RoboWebTextAttr(node, "selection", "userSelect"));
+    }
+    if (select == "false" || select == "0" || select == "no" || select == "off" || select == "none") {
+      RoboWebAddDecl(style, "user-select", "none");
+      RoboWebAddDecl(style, "-webkit-user-select", "none");
+    } else if (select == "all") {
+      RoboWebAddDecl(style, "user-select", "all");
+      RoboWebAddDecl(style, "-webkit-user-select", "all");
+    } else if (select == "true" || select == "1" || select == "yes" || select == "on" || select == "text") {
+      RoboWebAddDecl(style, "user-select", "text");
+      RoboWebAddDecl(style, "-webkit-user-select", "text");
+    }
+  }
   const std::string align = RoboWebLower(textNode ? RoboWebTextAttr(node, "textAlign", "align") : RoboXMLAttr(node, "textAlign"));
   if (align == "left" || align == "start") {
     RoboWebAddDecl(style, "text-align", "start");

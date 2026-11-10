@@ -164,7 +164,7 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-container[style*=\"--robo-heading\"] :is(h1,h2,h3,h4,h5,h6,.robo-heading){color:var(--robo-heading)}\n";
   css << ".robo-container[style*=\"--robo-paragraph\"] :is(p,.robo-body,.robo-paragraph){color:var(--robo-paragraph)}\n";
   css << ".robo-container[style*=\"--robo-link\"] a{color:var(--robo-link)}\n";
-  css << ".robo-container[style*=\"--robo-selection\"] ::selection{background:var(--robo-selection);color:var(--robo-selection-text,inherit)}\n";
+  css << ".robo-container[style*=\"--robo-selection\"]::selection,.robo-container[style*=\"--robo-selection\"] ::selection{background:var(--robo-selection);color:var(--robo-selection-text,inherit)}\n";
   css << ".robo-container[data-disabled=true]{opacity:.55;pointer-events:none}\n";
   css << ".robo-container[data-selected=true]{outline:2px solid var(--brand-primary);outline-offset:2px}\n";
   css << ".robo-container[data-density=compact]{--c-pad:8px}\n";

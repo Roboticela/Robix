@@ -618,7 +618,7 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
                 "window", "screen", "page", "board", "column", "row", "grid", "stack", "container", "button", "anchor", "text",
                 "textfield", "image", "icon", "heading", "subhead", "body", "paragraph", "caption", "eyebrow", "label",
                 "span", "iconbutton", "switch", "switchgroup", "switchitem", "themetoggle", "themeicontoggle",
-                "textfield", "textarea", "passwordreveal", "confirmaction", "select", "option", "countryselect",
+                "textfield", "textarea", "passwordfield", "emailfield", "phonefield", "namefield", "background", "picture", "slide", "passwordreveal", "confirmaction", "select", "option", "countryselect",
                 "segmentedcontrol", "segmentedtoolbar",
                 "segment", "scrollbar", "svg", "at", "slot", "for", "if", "else", "let", "data", "import", "component"};
             bool blocked = false;

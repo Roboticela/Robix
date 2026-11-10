@@ -33,13 +33,13 @@ The web renderer and the platform window use the same wrapping attributes. `wrap
 | --- | --- |
 | Family and weight | `font` (`system`, `sans`, `serif`, `mono`, `display`, `handwriting`, `condensed`, or a custom stack), `fontWeight` (`thin` through `black`, or 100–900), `fontStyle` (`normal`, `italic`, `oblique`) |
 | Size | `fontSize` (`xs` through `7xl`, `fluid`, or a length), `fontSizeMin` and `fontSizeMax`, `fontSizeSm`, `fontSizeLg` |
-| Spacing | `letterSpacing` (`tighter` through `widest`), `wordSpacing`, `lineHeight` (`compact`, `normal`, `relaxed`, `loose`), `paragraphSpacing`, `textIndent` |
+| Spacing | `letterSpacing` and `characterSpacing` (`tighter` through `widest`, or a length), `wordSpacing`, `lineHeight` (`compact`, `normal`, `relaxed`, `loose`, or a length), `paragraphSpacing`, `textIndent` |
 | Alignment and flow | `textAlign` (`start`, `center`, `end`, `justify`), `verticalAlign`, `wrap` (`word`, `char`, `nowrap`, `balance`, `pretty`), `lines`, `textOverflow` (`ellipsis`, `clip`), `fade`, `direction` (`ltr`, `rtl`, `auto`), `writingMode` (`vertical`) |
 | Color and fill | `color`, `headingColor`, `paragraphColor`, `linkColor`, `strongColor`, `mutedColor`, `gradient`, `gradientFrom`, `gradientTo`, `gradientAngle`, `backgroundImage`, `effect` (`glow`, `neon`, `gold`, `silver`, `chrome`, `holographic`, `glass`, `emboss`, `engrave`, `retro`, `3d`) |
 | Decoration | `decoration` (`underline`, `overline`, `line-through`, `wavy`, `dotted`, `dashed`, `double`), `decorationColor`, `decorationThickness`, `decorationOffset`, `textTransform`, `smallCaps` |
 | Depth | `shadow` (`soft`, `hard`, `long`, `glow`, `3d`), `shadowX`, `shadowY`, `shadowBlur`, `shadowColor`, `shadows`, `outline`, `outlineColor` |
 | Highlight | `mark` (`soft`, `pill`, `dark`, `block`, `underline`), `markColor`, `paddingX`, `paddingY`, `radius` |
-| States | `hoverColor`, `hoverBackground`, `hoverWeight`, `hoverTracking`, `hoverDecoration`, `hoverShadow`, `hoverGlow`, `focusColor`, `focusOutline`, `activeColor`, `activeScale`, `disabled`, `selected`, `selectionColor` |
+| States | `hoverColor`, `hoverBackground`, `hoverWeight`, `hoverTracking`, `hoverDecoration`, `hoverShadow`, `hoverGlow`, `focusColor`, `focusOutline`, `activeColor`, `activeScale`, `disabled`, `selected`, `selectable` (`text`, `all`, `none`), `selectionColor`, `selectionText`, `caretColor` |
 | Motion and presets | `enter` (`fade`, `fade-up`, `fade-down`, `slide`, `zoom`, `blur`, `typewriter`), `motion` (`pulse`, `shimmer`, `float`, `blink`), `duration`, `delay`, `easing`, `preset` (`quote`, `code`, `lead`, `footnote`, `numeric`, `link`), `density`, `theme`, `dropCap`, `ligatures`, `numerals`, `features` |
 
 The same attributes on a Container set inherited type for the text inside it. `headingColor` reaches headings. `paragraphColor` reaches paragraphs and body copy. A nested Heading can still set its own `color` or `fontSize`.

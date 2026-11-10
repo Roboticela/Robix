@@ -18,6 +18,7 @@ struct ViewZoomBar {
     int minusX = 0;
     int labelX = 0;
     int labelW = 0;
+    int resetX = 0;
     int plusX = 0;
     int stepW = 0;
 };
@@ -131,11 +132,12 @@ struct ViewZoom {
     void Place(int viewWidth, int viewHeight, unsigned baseDpi, int anchor, ViewZoomBar& bar) const {
         const int dpi = static_cast<int>(baseDpi == 0 ? 96u : baseDpi);
         const auto px = [&](int value) { return std::max(1, value * dpi / 96); };
-        const int height = px(32);
+        const int height = px(36);
         const int stepW = px(32);
-        const int labelW = px(58);
+        const int labelW = px(56);
+        const int pad = px(4);
         const int margin = px(16);
-        const int width = stepW + labelW + stepW + px(6);
+        const int width = pad * 2 + stepW * 3 + labelW;
         bar.height = height;
         bar.width = width;
         bar.stepW = stepW;
@@ -154,12 +156,13 @@ struct ViewZoom {
         }
         bar.x = x;
         bar.y = y;
-        bar.minusX = x + px(3);
+        bar.minusX = x + pad;
         bar.labelX = bar.minusX + stepW;
-        bar.plusX = bar.labelX + labelW;
+        bar.resetX = bar.labelX + labelW;
+        bar.plusX = bar.resetX + stepW;
     }
 
-    /* 1 minus, 2 percent, 3 plus. */
+    /* 1 minus, 2 percent, 3 reset, 4 plus. */
     int Hit(const ViewZoomBar& bar, int x, int y) const {
         if (x < bar.x || y < bar.y || x >= bar.x + bar.width || y >= bar.y + bar.height) {
             return 0;
@@ -167,10 +170,13 @@ struct ViewZoom {
         if (x < bar.labelX) {
             return 1;
         }
-        if (x < bar.plusX) {
+        if (x < bar.resetX) {
             return 2;
         }
-        return 3;
+        if (x < bar.plusX) {
+            return 3;
+        }
+        return 4;
     }
 };
 

@@ -8,17 +8,25 @@ void RoboWebAppendScrollCss(std::ostream& css) {
   css << ".robo-scroll-host:focus,.robo-scroll-host:focus-visible{outline:none;box-shadow:none}\n";
   css << ".robo-scroll-host.is-page{height:100%;background:var(--bg-primary)}\n";
   css << ".robo-zoom{position:fixed;z-index:30;display:flex;align-items:center;box-sizing:border-box;"
-         "height:32px;padding:3px;background:var(--bg-elevated);color:var(--text-primary);"
+         "height:36px;padding:4px;background:var(--bg-elevated);color:var(--text-secondary);"
          "border:1px solid var(--border-default);border-radius:980px;"
          "box-shadow:0 10px 28px rgba(0,0,0,.16),0 1px 1px rgba(0,0,0,.06);"
          "opacity:0;pointer-events:none;transition:opacity 180ms ease,transform 180ms ease}\n";
   css << ".robo-zoom.is-on{opacity:1;pointer-events:auto}\n";
-  css << ".robo-zoom button{appearance:none;border:0;background:transparent;color:inherit;cursor:pointer;"
+  css << ".robo-zoom button{appearance:none;border:0;background:transparent;color:var(--text-secondary);cursor:pointer;"
+         "display:inline-flex;align-items:center;justify-content:center;"
          "font:500 13px/1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;"
-         "height:26px;min-width:32px;padding:0 8px;border-radius:980px}\n";
-  css << ".robo-zoom button:hover{background:var(--bg-hover)}\n";
-  css << ".robo-zoom button:active{background:var(--bg-active)}\n";
-  css << ".robo-zoom-value{min-width:58px}\n";
+         "height:28px;min-width:32px;padding:0;border-radius:980px;"
+         "transition:background-color 150ms cubic-bezier(0.28,0.11,0.32,1),color 150ms cubic-bezier(0.28,0.11,0.32,1)}\n";
+  css << ".robo-zoom button:hover:not(:disabled){background:var(--brand-primary-subtle);color:var(--brand-primary)}\n";
+  css << ".robo-zoom button:active:not(:disabled){background:var(--brand-primary-range);color:var(--brand-primary-active)}\n";
+  css << ".robo-zoom button:focus-visible{outline:2px solid color-mix(in srgb,var(--brand-primary) 48%,transparent);"
+         "outline-offset:1px}\n";
+  css << ".robo-zoom button:disabled{color:var(--text-disabled);background:transparent;cursor:default}\n";
+  css << ".robo-zoom-value{min-width:56px;padding:0 8px;color:var(--text-primary)}\n";
+  css << ".robo-zoom-value:hover:not(:disabled){color:var(--brand-primary)}\n";
+  css << ".robo-zoom-glyph{width:16px;height:16px;display:flex}\n";
+  css << ".robo-zoom-glyph svg{width:16px;height:16px;display:block}\n";
   css << ".robo-zoom[data-place=bottom]{left:50%;bottom:16px;transform:translate(-50%,8px)}\n";
   css << ".robo-zoom[data-place=bottom].is-on{transform:translate(-50%,0)}\n";
   css << ".robo-zoom[data-place=bottom-left]{left:16px;bottom:16px;transform:translateY(8px)}\n";
@@ -84,8 +92,37 @@ void RoboWebAppendScrollCss(std::ostream& css) {
          "color-mix(in srgb,var(--text-tertiary) 58%,var(--text-primary))}\n";
 }
 
+std::string ZoomGlyphScript(const char* name) {
+  std::string svg = RoboWebSvg(std::filesystem::path("Assets"), name);
+  if (svg.empty()) {
+    std::error_code error;
+    std::filesystem::path dir = std::filesystem::current_path(error);
+    for (int depth = 0; svg.empty() && depth < 8 && !dir.empty(); ++depth) {
+      svg = RoboWebSvg(dir / "Assets", name);
+      if (!dir.has_parent_path() || dir.parent_path() == dir) {
+        break;
+      }
+      dir = dir.parent_path();
+    }
+  }
+  if (svg.empty() && std::string(name) == "SubtractMinus") {
+    svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M5 12H19\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"/></svg>";
+  }
+  std::string out = "<span class=\\\"robo-zoom-glyph\\\">";
+  for (char ch : svg) {
+    if (ch == '\\' || ch == '"') {
+      out.push_back('\\');
+    }
+    if (ch != '\n' && ch != '\r') {
+      out.push_back(ch);
+    }
+  }
+  out += "</span>";
+  return out;
+}
+
 std::string RoboWebScrollScript() {
-  return R"JS(
+  std::string js = R"JS(
   (function () {
     function scrollOn(view, name) {
       var v = view.getAttribute("data-" + name);
@@ -183,15 +220,16 @@ std::string RoboWebScrollScript() {
         hud.className = "robo-zoom";
         hud.setAttribute("data-place", place);
         hud.setAttribute("aria-hidden", "true");
-        hud.innerHTML = "<button type=\"button\" data-zoom=\"out\" aria-label=\"Zoom out\">\u2212</button>" +
-          "<button type=\"button\" data-zoom=\"reset\" class=\"robo-zoom-value\" aria-label=\"Actual size\">100%</button>" +
-          "<button type=\"button\" data-zoom=\"in\" aria-label=\"Zoom in\">+</button>";
+        hud.innerHTML = "<button type=\"button\" data-zoom=\"out\" aria-label=\"Zoom out\">__ZOOM_MINUS__</button>" +
+          "<button type=\"button\" data-zoom=\"fit\" class=\"robo-zoom-value\" aria-label=\"Actual size\">100%</button>" +
+          "<button type=\"button\" data-zoom=\"reset\" aria-label=\"Reset zoom\">__ZOOM_RESET__</button>" +
+          "<button type=\"button\" data-zoom=\"in\" aria-label=\"Zoom in\">__ZOOM_PLUS__</button>";
         document.body.appendChild(hud);
         hud.addEventListener("pointerenter", function () { showZoom(); });
         hud.addEventListener("pointerleave", function () { showZoom(); });
         hud.addEventListener("click", function (ev) {
           var button = ev.target.closest ? ev.target.closest("button") : null;
-          if (!button) return;
+          if (!button || button.disabled) return;
           var action = button.getAttribute("data-zoom");
           if (action === "out") setZoom(Robo.zoom / 1.1);
           else if (action === "in") setZoom(Robo.zoom * 1.1);
@@ -217,6 +255,12 @@ std::string RoboWebScrollScript() {
         if (hud) {
           var label = hud.querySelector(".robo-zoom-value");
           if (label) label.textContent = Math.round(next * 100) + "%";
+          var out = hud.querySelector("[data-zoom=out]");
+          var inn = hud.querySelector("[data-zoom=in]");
+          var reset = hud.querySelector("[data-zoom=reset]");
+          if (out) out.disabled = next <= 0.2505;
+          if (inn) inn.disabled = next >= 3.9995;
+          if (reset) reset.disabled = Math.abs(next - 1) < 0.0005;
           hud.style.zoom = String(1 / next);
           showZoom();
         }
@@ -612,6 +656,16 @@ std::string RoboWebScrollScript() {
     };
   })();
 )JS";
+  const auto put = [&](const char* token, const std::string& value) {
+    const auto at = js.find(token);
+    if (at != std::string::npos) {
+      js.replace(at, std::char_traits<char>::length(token), value);
+    }
+  };
+  put("__ZOOM_MINUS__", ZoomGlyphScript("SubtractMinus"));
+  put("__ZOOM_RESET__", ZoomGlyphScript("RefreshClockwiseRotate"));
+  put("__ZOOM_PLUS__", ZoomGlyphScript("AddPlusCreate"));
+  return js;
 }
 
 const char* RoboWebScrollViewClass() { return "robo-scroll"; }

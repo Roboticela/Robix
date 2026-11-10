@@ -61,4 +61,7 @@ int WindowsDocumentSpinRects(WindowPatch* patches, int capacity);
 /* Where the zoom capsule sits. -1 hides it. The other values match ViewZoom::Anchor. */
 int WindowsDocumentZoomAnchor();
 
+/* SVG for a catalog icon, or the matching file in Assets/Icons. */
+std::string WindowsDocumentIconSvg(const char* name);
+
 }  // namespace Robix::UI

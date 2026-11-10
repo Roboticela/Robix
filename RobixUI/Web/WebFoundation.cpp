@@ -10,6 +10,11 @@
 #include "../Compiler/Components/ThemeToggle/ThemeToggleWeb.hpp"
 #include "../Compiler/Components/ThemeIconToggle/ThemeIconToggleWeb.hpp"
 #include "../Compiler/Components/TextField/TextFieldWeb.hpp"
+#include "../Compiler/Components/PasswordField/PasswordFieldWeb.hpp"
+#include "../Compiler/Components/EmailField/EmailFieldWeb.hpp"
+#include "../Compiler/Components/PhoneField/PhoneFieldWeb.hpp"
+#include "../Compiler/Components/NameField/NameFieldWeb.hpp"
+#include "../Compiler/Components/Background/BackgroundWeb.hpp"
 #include "../Compiler/Components/PasswordReveal/PasswordRevealWeb.hpp"
 #include "../Compiler/Components/ConfirmAction/ConfirmActionWeb.hpp"
 #include "../Compiler/Components/TextArea/TextAreaWeb.hpp"
@@ -158,6 +163,18 @@ bool UsesCountrySelect(const RoboXMLNode& node) {
     return false;
 }
 
+bool UsesSlideshow(const RoboXMLNode& node) {
+    if (Lower(node.name) == "background" && Lower(RoboXMLAttr(node, "type")) == "slideshow") {
+        return true;
+    }
+    for (const RoboXMLNode& child : node.children) {
+        if (UsesSlideshow(child)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void LowerKeys(RoboXMLNode& node) {
     std::vector<std::pair<std::string, std::string>> extra;
     for (const auto& entry : node.attrs) {
@@ -186,14 +203,14 @@ std::string CssSize(const std::string& value) {
     return value + "px";
 }
 
-void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
+void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library, int depth) {
     const std::string name = Lower(node.name);
     if (name == "at") {
         return;
     }
     if (name.empty() || name == "screen") {
         for (const RoboXMLNode& child : node.children) {
-            EmitNode(html, child, library);
+            EmitNode(html, child, library, depth);
         }
         return;
     }
@@ -203,6 +220,14 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     }
     if (name == "image") {
         RoboWebEmitImage(html, node, library);
+        return;
+    }
+    if (name == "background") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitBackground(html, node, library, "", assets, nullptr, depth);
         return;
     }
     if (name == "anchor") {
@@ -259,6 +284,38 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             assets = FindUp("RefCode/Assets");
         }
         RoboWebEmitTextField(html, node, library, assets);
+        return;
+    }
+    if (name == "passwordfield") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitPasswordField(html, node, library, assets);
+        return;
+    }
+    if (name == "emailfield") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitEmailField(html, node, library, assets);
+        return;
+    }
+    if (name == "phonefield") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitPhoneField(html, node, library, assets);
+        return;
+    }
+    if (name == "namefield") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitNameField(html, node, library, assets);
         return;
     }
     if (name == "textarea") {
@@ -549,7 +606,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         html += Escape(body);
     }
     for (const RoboXMLNode& child : node.children) {
-        EmitNode(html, child, library);
+        EmitNode(html, child, library, depth + 1);
     }
     html += "</";
     html += tag;
@@ -740,6 +797,9 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendThemeToggleCss(css);
         RoboWebAppendThemeIconToggleCss(css);
         RoboWebAppendTextFieldCss(css);
+        RoboWebAppendPasswordFieldCss(css);
+        RoboWebAppendNameFieldCss(css);
+        RoboWebAppendBackgroundCss(css);
         RoboWebAppendTextAreaCss(css);
         RoboWebAppendSelectCss(css);
         RoboWebAppendPasswordRevealCss(css);
@@ -790,7 +850,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         std::string body;
         RoboWebThemePrepare(theme);
         for (const RoboXMLNode& child : screenCopy.children) {
-            EmitNode(body, child, library);
+            EmitNode(body, child, library, 0);
         }
         html << body;
         html << "</" << RoboWebScreenTag(true) << ">";
@@ -828,6 +888,9 @@ Robo.set = function (id, key, value) {
         }
         js += RoboWebCountrySelectScript(assets);
     }
+    if (hasScreen && UsesSlideshow(screenCopy)) {
+        js += RoboWebSlideshowScript();
+    }
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
     js += RoboWebReelScript();
@@ -854,11 +917,46 @@ Robo.set = function (id, key, value) {
     return true;
 }
 
-void WebEmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
-    EmitNode(html, node, library);
+void WebEmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library, int depth) {
+    EmitNode(html, node, library, depth);
 }
 
 }  // namespace Robix::UI
+
+void RoboWebNoteFamily(RoboWebPackage* package, const std::string& name) {
+    if (package != nullptr && !name.empty()) {
+        package->used.insert(name);
+    }
+}
+
+std::string RoboWebCopyAsset(RoboWebPackage& package, const std::string& src, const std::string& webPath) {
+    const std::string published = webPath.empty() ? src : webPath;
+    if (src.empty()) {
+        return published;
+    }
+    package.copied.insert(published);
+    if (package.options == nullptr || package.options->outputRoot.empty()) {
+        return published;
+    }
+    std::filesystem::path from(src);
+    if (!from.is_absolute()) {
+        const std::filesystem::path inApp = std::filesystem::path(package.options->appRoot) / from;
+        const std::filesystem::path inAssets = std::filesystem::path(package.options->assetsRoot) / from;
+        if (std::filesystem::is_regular_file(inApp)) {
+            from = inApp;
+        } else if (std::filesystem::is_regular_file(inAssets)) {
+            from = inAssets;
+        }
+    }
+    if (!std::filesystem::is_regular_file(from)) {
+        return published;
+    }
+    const std::filesystem::path dest = std::filesystem::path(package.options->outputRoot) / std::filesystem::path(published);
+    std::error_code error;
+    std::filesystem::create_directories(dest.parent_path(), error);
+    std::filesystem::copy_file(from, dest, std::filesystem::copy_options::overwrite_existing, error);
+    return published;
+}
 
 void RoboWebEmit(std::string& html, const RoboXMLNode& node, const RoboFoundationLibrary& library,
                  const std::string& source, const std::filesystem::path& assetsRoot, bool root, bool& warnedVideo,
@@ -868,6 +966,5 @@ void RoboWebEmit(std::string& html, const RoboXMLNode& node, const RoboFoundatio
     (void)root;
     (void)warnedVideo;
     (void)package;
-    (void)depth;
-    Robix::UI::WebEmitNode(html, node, library);
+    Robix::UI::WebEmitNode(html, node, library, depth);
 }
