@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -37,12 +38,19 @@ struct HostView {
     ID3D11DeviceContext* context = nullptr;
     IDXGISwapChain1* swap = nullptr;
     ID3D11Texture2D* upload = nullptr;
+    ID3D11Query* uploadQuery = nullptr;
     RoboGPU gpu{};
-    RoboU8* front = nullptr;
     RoboU8* back = nullptr;
+    RoboU8* sheet = nullptr;
     UINT pixelWidth = 0;
     UINT pixelHeight = 0;
+    UINT sheetWidth = 0;
+    UINT sheetHeight = 0;
     bool flip = false;
+    bool uploadBusy = false;
+    bool gpuFull = false;
+    bool inResize = false;
+    bool frameNoted = false;
     bool ready = false;
     bool painted = false;
     bool stayOpen = false;
@@ -99,14 +107,18 @@ bool EnsureSurface(HostView* view, UINT width, UINT height) {
     if (view == nullptr || view->swap == nullptr || view->device == nullptr || width == 0 || height == 0) {
         return false;
     }
-    if (view->upload != nullptr && view->pixelWidth == width && view->pixelHeight == height && view->front != nullptr &&
-        view->back != nullptr) {
+    if (view->upload != nullptr && view->pixelWidth == width && view->pixelHeight == height && view->back != nullptr) {
         return true;
     }
     if (view->upload != nullptr) {
         view->upload->Release();
         view->upload = nullptr;
     }
+    if (view->uploadQuery != nullptr) {
+        view->uploadQuery->Release();
+        view->uploadQuery = nullptr;
+    }
+    view->uploadBusy = false;
     if (FAILED(view->swap->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0))) {
         return false;
     }
@@ -121,24 +133,27 @@ bool EnsureSurface(HostView* view, UINT width, UINT height) {
     if (FAILED(view->device->CreateTexture2D(&uploadDesc, nullptr, &view->upload))) {
         return false;
     }
+    D3D11_QUERY_DESC queryDesc{};
+    queryDesc.Query = D3D11_QUERY_EVENT;
+    view->device->CreateQuery(&queryDesc, &view->uploadQuery);
     const RoboU64 byteCount = static_cast<RoboU64>(width) * height * 4u;
-    auto* front = static_cast<RoboU8*>(_aligned_malloc(static_cast<size_t>(byteCount), 16));
     auto* back = static_cast<RoboU8*>(_aligned_malloc(static_cast<size_t>(byteCount), 16));
-    if (front == nullptr || back == nullptr) {
-        _aligned_free(front);
-        _aligned_free(back);
+    if (back == nullptr) {
         return false;
     }
-    _aligned_free(view->front);
+    std::memset(back, 0, static_cast<size_t>(byteCount));
     _aligned_free(view->back);
-    view->front = front;
+    _aligned_free(view->sheet);
+    view->sheet = nullptr;
+    view->sheetWidth = 0;
+    view->sheetHeight = 0;
     view->back = back;
     view->pixelWidth = width;
     view->pixelHeight = height;
     RoboHandoff handoff{};
     handoff.magic = ROBO_HANDOFF_MAGIC;
     handoff.version = ROBO_HANDOFF_VERSION;
-    handoff.frameBuffer.base = reinterpret_cast<RoboU64>(view->front);
+    handoff.frameBuffer.base = reinterpret_cast<RoboU64>(view->back);
     handoff.frameBuffer.width = width;
     handoff.frameBuffer.height = height;
     handoff.frameBuffer.pixelsPerScanLine = width;
@@ -148,6 +163,8 @@ bool EnsureSurface(HostView* view, UINT width, UINT height) {
     handoff.frameBuffer.blueMask = 0x000000FFu;
     RoboGPUInitFromHandoff(&view->gpu, &handoff, view->back, byteCount);
     view->gpuScroll = -1;
+    view->gpuFull = true;
+    view->shownScroll = -1;
     view->bufferReady[0] = false;
     view->bufferReady[1] = false;
     view->recentCount[0] = 0;
@@ -155,8 +172,142 @@ bool EnsureSurface(HostView* view, UINT width, UINT height) {
     return true;
 }
 
+void BindSheet(HostView* view, bool sheet) {
+    if (sheet && view->sheet != nullptr) {
+        view->gpu.back = view->sheet;
+        view->gpu.info.height = view->sheetHeight;
+        view->gpu.backSize = static_cast<RoboU64>(view->sheetWidth) * view->sheetHeight * 4u;
+    } else {
+        view->gpu.back = view->back;
+        view->gpu.info.height = view->pixelHeight;
+        view->gpu.backSize = static_cast<RoboU64>(view->pixelWidth) * view->pixelHeight * 4u;
+    }
+    RoboDamageClear(&view->gpu.damage);
+}
+
+bool EnsureSheet(HostView* view, int contentHeight, bool& fresh) {
+    fresh = false;
+    const UINT height = contentHeight > static_cast<int>(view->pixelHeight) ? static_cast<UINT>(contentHeight) : view->pixelHeight;
+    if (height == 0 || view->pixelWidth == 0) {
+        return false;
+    }
+    if (view->sheet != nullptr && view->sheetWidth == view->pixelWidth && view->sheetHeight == height) {
+        return true;
+    }
+    const RoboU64 bytes = static_cast<RoboU64>(view->pixelWidth) * height * 4u;
+    if (bytes > 64ull * 1024ull * 1024ull) {
+        return false;
+    }
+    auto* memory = static_cast<RoboU8*>(_aligned_malloc(static_cast<size_t>(bytes), 16));
+    if (memory == nullptr) {
+        return false;
+    }
+    std::memset(memory, 0, static_cast<size_t>(bytes));
+    _aligned_free(view->sheet);
+    view->sheet = memory;
+    view->sheetWidth = view->pixelWidth;
+    view->sheetHeight = height;
+    fresh = true;
+    return true;
+}
+
+void CopyVisible(HostView* view, int x, int y, int width, int height) {
+    if (view->sheet == nullptr || view->back == nullptr || width <= 0 || height <= 0) {
+        return;
+    }
+    if (x < 0) {
+        width += x;
+        x = 0;
+    }
+    if (y < 0) {
+        height += y;
+        y = 0;
+    }
+    const int limitW = static_cast<int>(view->pixelWidth);
+    const int limitH = static_cast<int>(view->pixelHeight);
+    if (x + width > limitW) {
+        width = limitW - x;
+    }
+    if (y + height > limitH) {
+        height = limitH - y;
+    }
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    const UINT pitch = view->pixelWidth * 4u;
+    const int sheetRow = view->scrollY + y;
+    if (sheetRow < 0 || sheetRow + height > static_cast<int>(view->sheetHeight)) {
+        return;
+    }
+    for (int row = 0; row < height; ++row) {
+        std::memcpy(view->back + (static_cast<size_t>(y + row) * pitch) + static_cast<size_t>(x) * 4u,
+                    view->sheet + (static_cast<size_t>(sheetRow + row) * pitch) + static_cast<size_t>(x) * 4u,
+                    static_cast<size_t>(width) * 4u);
+    }
+    RoboDamageAdd(&view->gpu.damage, x, y, width, height);
+}
+
+void ComposeSheet(HostView* view, const WindowPatch* patches, int patchCount) {
+    const int height = static_cast<int>(view->pixelHeight);
+    const int width = static_cast<int>(view->pixelWidth);
+    const UINT pitch = view->pixelWidth * 4u;
+    const int shift = view->shownScroll < 0 ? height : view->scrollY - view->shownScroll;
+    const int distance = shift < 0 ? -shift : shift;
+    const bool full = view->shownScroll < 0 || distance >= height;
+    if (full) {
+        const int limit = static_cast<int>(view->sheetHeight) - height;
+        int y = view->scrollY;
+        if (y < 0) {
+            y = 0;
+        }
+        if (y > limit) {
+            y = limit > 0 ? limit : 0;
+        }
+        std::memcpy(view->back, view->sheet + static_cast<size_t>(y) * pitch, static_cast<size_t>(pitch) * view->pixelHeight);
+        view->shownScroll = view->scrollY;
+        view->gpuFull = true;
+        RoboGPUMarkFullDamage(&view->gpu);
+    } else if (view->scrollY != view->shownScroll) {
+        if (shift > 0) {
+            std::memmove(view->back, view->back + static_cast<size_t>(shift) * pitch,
+                         static_cast<size_t>(height - shift) * pitch);
+            CopyVisible(view, 0, height - shift, width, shift);
+        } else {
+            const int reveal = -shift;
+            std::memmove(view->back + static_cast<size_t>(reveal) * pitch, view->back,
+                         static_cast<size_t>(height - reveal) * pitch);
+            CopyVisible(view, 0, 0, width, reveal);
+        }
+        view->shownScroll = view->scrollY;
+    }
+    if (!full && patches != nullptr && patchCount > 0) {
+        for (int index = 0; index < patchCount; ++index) {
+            CopyVisible(view, patches[index].x, patches[index].y - view->scrollY, patches[index].width, patches[index].height);
+        }
+    }
+}
+
+bool ClampRect(const HostView* view, RECT* rect) {
+    if (rect == nullptr || view == nullptr) {
+        return false;
+    }
+    if (rect->left < 0) {
+        rect->left = 0;
+    }
+    if (rect->top < 0) {
+        rect->top = 0;
+    }
+    if (rect->right > static_cast<LONG>(view->pixelWidth)) {
+        rect->right = static_cast<LONG>(view->pixelWidth);
+    }
+    if (rect->bottom > static_cast<LONG>(view->pixelHeight)) {
+        rect->bottom = static_cast<LONG>(view->pixelHeight);
+    }
+    return rect->right > rect->left && rect->bottom > rect->top;
+}
+
 void UploadBox(HostView* view, ID3D11Texture2D* texture, LONG left, LONG top, LONG right, LONG bottom) {
-    if (texture == nullptr || view->gpu.back == nullptr) {
+    if (texture == nullptr || view->back == nullptr) {
         return;
     }
     if (left < 0) {
@@ -181,14 +332,19 @@ void UploadBox(HostView* view, ID3D11Texture2D* texture, LONG left, LONG top, LO
     box.bottom = static_cast<UINT>(bottom);
     box.back = 1;
     const UINT pitch = view->pixelWidth * 4u;
-    const auto* source = view->gpu.back + static_cast<size_t>(box.top) * pitch + static_cast<size_t>(box.left) * 4u;
+    const auto* source = view->back + static_cast<size_t>(box.top) * pitch + static_cast<size_t>(box.left) * 4u;
     view->context->UpdateSubresource(texture, 0, &box, source, pitch, 0);
 }
 
 void CopyBox(HostView* view, ID3D11Texture2D* target, LONG left, LONG top, LONG right, LONG bottom) {
-    if (target == nullptr || view->upload == nullptr || right <= left || bottom <= top) {
+    RECT rect{left, top, right, bottom};
+    if (target == nullptr || view->upload == nullptr || !ClampRect(view, &rect)) {
         return;
     }
+    left = rect.left;
+    top = rect.top;
+    right = rect.right;
+    bottom = rect.bottom;
     D3D11_BOX box{};
     box.left = static_cast<UINT>(left);
     box.top = static_cast<UINT>(top);
@@ -225,17 +381,57 @@ void ScrollUpload(HostView* view, ID3D11Texture2D* target, int shift) {
     }
 }
 
-void Publish(HostView* view) {
-    if (view == nullptr || view->context == nullptr || view->swap == nullptr || view->gpu.back == nullptr) {
-        return;
+bool PresentNow(HostView* view, const RECT* rects, UINT count) {
+    HRESULT presented = E_FAIL;
+    if (view->flip && count > 0 && count <= 16) {
+        RECT dirty[16];
+        for (UINT i = 0; i < count; ++i) dirty[i] = rects[i];
+        DXGI_PRESENT_PARAMETERS params{};
+        params.DirtyRectsCount = count;
+        params.pDirtyRects = dirty;
+        presented = view->swap->Present1(0, DXGI_PRESENT_DO_NOT_WAIT, &params);
+        if (presented == DXGI_ERROR_INVALID_CALL) {
+            presented = view->swap->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
+        }
+    } else {
+        presented = view->swap->Present(0, DXGI_PRESENT_DO_NOT_WAIT);
+    }
+    if (presented == DXGI_ERROR_WAS_STILL_DRAWING || presented == DXGI_STATUS_OCCLUDED) {
+        return false;
+    }
+    if (FAILED(presented)) {
+        presented = view->swap->Present(0, 0);
+        if (presented == DXGI_ERROR_WAS_STILL_DRAWING || presented == DXGI_STATUS_OCCLUDED || FAILED(presented)) {
+            return false;
+        }
+    }
+    view->presentIndex ^= 1;
+    RoboDamageClear(&view->gpu.damage);
+    view->shownScroll = view->scrollY;
+    return true;
+}
+
+bool Publish(HostView* view) {
+    if (view == nullptr || view->context == nullptr || view->swap == nullptr || view->back == nullptr) {
+        return true;
+    }
+    if (view->uploadBusy && view->uploadQuery != nullptr) {
+        if (view->context->GetData(view->uploadQuery, nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH) != S_OK) {
+            view->context->Flush();
+            return false;
+        }
+        view->uploadBusy = false;
     }
     if (RoboDamageIsEmpty(&view->gpu.damage)) {
-        return;
+        return true;
     }
     const bool full = view->gpu.damage.full == ROBO_TRUE;
     RECT dirty[24]{};
     UINT dirtyCount = 0;
-    if (!full) {
+    if (full) {
+        dirty[0] = RECT{0, 0, static_cast<LONG>(view->pixelWidth), static_cast<LONG>(view->pixelHeight)};
+        dirtyCount = 1;
+    } else {
         for (RoboU32 index = 0; index < view->gpu.damage.count && dirtyCount < 24; ++index) {
             const RoboDamageRect& rect = view->gpu.damage.rects[index];
             dirty[dirtyCount].left = rect.x;
@@ -245,24 +441,30 @@ void Publish(HostView* view) {
             ++dirtyCount;
         }
         if (view->gpu.damage.count > 24) {
-            dirtyCount = 0;
+            dirty[0] = RECT{0, 0, static_cast<LONG>(view->pixelWidth), static_cast<LONG>(view->pixelHeight)};
+            dirtyCount = 1;
         }
     }
     ID3D11Texture2D* target = nullptr;
     if (FAILED(view->swap->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&target))) || target == nullptr) {
-        return;
+        return false;
     }
     const UINT pitch = view->pixelWidth * 4u;
-    const int shift = view->gpuScroll < 0 ? 0 : view->scrollY - view->gpuScroll;
-    const bool uploadAll = full || dirtyCount == 0 || view->gpuScroll < 0 ||
-                           shift >= static_cast<int>(view->pixelHeight) || -shift >= static_cast<int>(view->pixelHeight);
-    if (uploadAll) {
+    const int gpuShift = view->gpuScroll < 0 ? 0 : view->scrollY - view->gpuScroll;
+    const bool whole = dirtyCount == 1 && dirty[0].left == 0 && dirty[0].top == 0 &&
+                       dirty[0].right == static_cast<LONG>(view->pixelWidth) &&
+                       dirty[0].bottom == static_cast<LONG>(view->pixelHeight);
+    const bool uploadAll = full || view->gpuFull || view->gpuScroll < 0 || whole;
+    const bool shiftTooFar = gpuShift != 0 && (gpuShift >= static_cast<int>(view->pixelHeight) ||
+                                               -gpuShift >= static_cast<int>(view->pixelHeight));
+    if (uploadAll || shiftTooFar) {
         if (view->upload != nullptr) {
-            view->context->UpdateSubresource(view->upload, 0, nullptr, view->gpu.back, pitch, 0);
+            view->context->UpdateSubresource(view->upload, 0, nullptr, view->back, pitch, 0);
             view->context->CopyResource(target, view->upload);
         } else {
-            view->context->UpdateSubresource(target, 0, nullptr, view->gpu.back, pitch, 0);
+            view->context->UpdateSubresource(target, 0, nullptr, view->back, pitch, 0);
         }
+        view->gpuFull = false;
         view->gpuScroll = view->scrollY;
         view->bufferReady[0] = false;
         view->bufferReady[1] = false;
@@ -270,13 +472,14 @@ void Publish(HostView* view) {
         view->recentCount[0] = 0;
         view->recentCount[1] = 0;
         target->Release();
-        view->swap->Present(1, 0);
-        view->presentIndex ^= 1;
-        RoboDamageClear(&view->gpu.damage);
-        return;
+        if (view->uploadQuery != nullptr) {
+            view->context->End(view->uploadQuery);
+            view->uploadBusy = true;
+        }
+        return PresentNow(view, nullptr, 0);
     }
-    if (shift != 0 && view->upload != nullptr) {
-        ScrollUpload(view, target, shift);
+    if (gpuShift != 0 && view->upload != nullptr) {
+        ScrollUpload(view, target, gpuShift);
         for (UINT index = 0; index < dirtyCount; ++index) {
             UploadBox(view, view->upload, dirty[index].left, dirty[index].top, dirty[index].right, dirty[index].bottom);
         }
@@ -288,22 +491,36 @@ void Publish(HostView* view) {
         view->recentCount[0] = 0;
         view->recentCount[1] = 0;
         target->Release();
-        view->swap->Present(1, 0);
-        view->presentIndex ^= 1;
-        RoboDamageClear(&view->gpu.damage);
-        return;
+        if (view->uploadQuery != nullptr) {
+            view->context->End(view->uploadQuery);
+            view->uploadBusy = true;
+        }
+        return PresentNow(view, nullptr, 0);
     }
-    const int slot = view->presentIndex & 1;
-    const int older = slot ^ 1;
-    view->recentCount[slot] = 0;
-    for (UINT index = 0; index < dirtyCount && view->recentCount[slot] < 16; ++index) {
-        view->recent[slot][view->recentCount[slot]++] = dirty[index];
-    }
-    if (view->upload != nullptr && !view->bufferReady[slot]) {
+    bool heavy = false;
+    if (view->upload != nullptr && dirtyCount > 16) {
+        for (UINT index = 0; index < dirtyCount; ++index) {
+            UploadBox(view, view->upload, dirty[index].left, dirty[index].top, dirty[index].right, dirty[index].bottom);
+        }
         view->context->CopyResource(target, view->upload);
-        view->bufferReady[slot] = true;
-    }
-    if (view->upload != nullptr) {
+        view->bufferReady[0] = false;
+        view->bufferReady[1] = false;
+        view->bufferReady[view->presentIndex & 1] = true;
+        view->recentCount[0] = 0;
+        view->recentCount[1] = 0;
+        heavy = true;
+    } else if (view->upload != nullptr) {
+        const int slot = view->presentIndex & 1;
+        const int older = slot ^ 1;
+        view->recentCount[slot] = 0;
+        for (UINT index = 0; index < dirtyCount && view->recentCount[slot] < 16; ++index) {
+            view->recent[slot][view->recentCount[slot]++] = dirty[index];
+        }
+        if (!view->bufferReady[slot]) {
+            view->context->CopyResource(target, view->upload);
+            view->bufferReady[slot] = true;
+            heavy = true;
+        }
         for (int index = 0; index < view->recentCount[slot]; ++index) {
             const RECT& rect = view->recent[slot][index];
             UploadBox(view, view->upload, rect.left, rect.top, rect.right, rect.bottom);
@@ -316,30 +533,47 @@ void Publish(HostView* view) {
             }
         }
     } else {
-        view->context->UpdateSubresource(target, 0, nullptr, view->gpu.back, pitch, 0);
+        view->context->UpdateSubresource(target, 0, nullptr, view->back, pitch, 0);
+        heavy = true;
     }
     target->Release();
+    if (heavy && view->uploadQuery != nullptr) {
+        view->context->End(view->uploadQuery);
+        view->uploadBusy = true;
+    }
     RECT presentRects[16]{};
     UINT presentCount = 0;
-    for (UINT index = 0; index < dirtyCount && presentCount < 16; ++index) {
-        presentRects[presentCount++] = dirty[index];
+    if (dirtyCount > 0 && dirtyCount <= 16) {
+        for (UINT index = 0; index < dirtyCount; ++index) {
+            RECT rect = dirty[index];
+            if (ClampRect(view, &rect)) {
+                presentRects[presentCount++] = rect;
+            }
+        }
     }
-    DXGI_PRESENT_PARAMETERS params{};
-    params.DirtyRectsCount = presentCount;
-    params.pDirtyRects = presentRects;
-    if (presentCount == 0 || FAILED(view->swap->Present1(1, 0, &params))) {
-        view->swap->Present(1, 0);
+    return PresentNow(view, presentRects, presentCount);
+}
+
+void Request(HostView* view) {
+    if (view != nullptr && view->window != nullptr) {
+        InvalidateRect(view->window, nullptr, FALSE);
     }
-    view->presentIndex ^= 1;
-    RoboDamageClear(&view->gpu.damage);
 }
 
 void Draw(HostView* view) {
-    if (view == nullptr || !view->ready || view->gpu.back == nullptr) {
+    if (view == nullptr || !view->ready || view->back == nullptr) {
         return;
     }
+    BindSheet(view, false);
     if (view->screen && !view->document.empty()) {
         const int height = static_cast<int>(view->pixelHeight);
+        const int width = static_cast<int>(view->pixelWidth);
+        const int previousScroll = view->shownScroll;
+        const int pointerDocY = view->pointerX < 0 ? -1 : view->pointerY + view->scrollY;
+        const int layout = LayoutWindowsDocument(view->document, view->light, width, height, view->dpi, view->hotControl,
+                                                 view->pressedControl, view->pointerX, pointerDocY, &view->contentHeight,
+                                                 &view->controls);
+        const bool rebuilt = layout > 0;
         const int maxScroll = std::max(0, view->contentHeight - height);
         if (view->scrollY > maxScroll) {
             view->scrollY = maxScroll;
@@ -347,28 +581,53 @@ void Draw(HostView* view) {
         if (view->scrollY < 0) {
             view->scrollY = 0;
         }
-        const int pointerDocY = view->pointerX < 0 ? -1 : view->pointerY + view->scrollY;
-        PaintWindowsDocument(&view->gpu, view->document, view->light, static_cast<int>(view->pixelWidth), height,
-                             view->scrollY, &view->contentHeight, &view->controls, view->hotControl, view->pressedControl,
-                             view->dpi, view->pointerX, pointerDocY);
+        WindowPatch patches[16]{};
+        int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, patches, 16);
+        bool fresh = false;
+        const bool usedSheet = layout >= 0 && EnsureSheet(view, view->contentHeight, fresh);
+        if (usedSheet) {
+            if (rebuilt || fresh || patchCount < 0) {
+                BindSheet(view, true);
+                RasterWindowsDocument(&view->gpu);
+                BindSheet(view, false);
+                view->shownScroll = -1;
+                view->gpuScroll = -1;
+                view->gpuFull = true;
+                patchCount = 0;
+            } else if (patchCount > 0) {
+                BindSheet(view, true);
+                for (int index = 0; index < patchCount; ++index) {
+                    PaintWindowsDocumentRect(&view->gpu, patches[index].x, patches[index].y, patches[index].width,
+                                             patches[index].height);
+                }
+                BindSheet(view, false);
+            }
+            ComposeSheet(view, patches, patchCount);
+        } else {
+            PaintWindowsDocumentView(&view->gpu, view->scrollY, width, height);
+        }
         WindowScrollState bar = view->bar;
         bar.scrollY = view->scrollY;
         bar.contentHeight = view->contentHeight;
-        bar.pixelWidth = static_cast<int>(view->pixelWidth);
+        bar.pixelWidth = width;
         bar.pixelHeight = height;
         bar.dpi = view->dpi;
         bar.light = view->light;
         const bool barChanged = bar.opacity != view->shownOpacity || bar.part != view->shownPart || bar.hold != view->shownHold ||
-                                bar.drag != view->shownDrag || bar.hot != view->shownHot || bar.scrollY != view->shownScroll;
+                                bar.drag != view->shownDrag || bar.hot != view->shownHot || previousScroll != view->scrollY;
         if (barChanged && view->gpu.damage.full != ROBO_TRUE) {
             int barX = 0;
             int barY = 0;
             int barW = 0;
             int barH = 0;
             WindowScrollBarRect(bar, barX, barY, barW, barH);
-            RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
+            if (usedSheet) {
+                CopyVisible(view, barX, barY, barW, barH);
+            } else {
+                RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
+            }
         }
-        if (view->gpu.damage.full == ROBO_TRUE || barChanged) {
+        if (view->gpu.damage.full == ROBO_TRUE || (bar.opacity > 0 && barChanged)) {
             PaintWindowScrollBar(&view->gpu, bar);
         }
         view->shownOpacity = bar.opacity;
@@ -376,14 +635,27 @@ void Draw(HostView* view) {
         view->shownHold = bar.hold;
         view->shownDrag = bar.drag;
         view->shownHot = bar.hot;
-        view->shownScroll = bar.scrollY;
+        if (!usedSheet) {
+            view->shownScroll = view->scrollY;
+        }
     } else {
         PaintFoundation(&view->gpu, view->light, !view->screen);
     }
-    Publish(view);
+    if (!Publish(view)) {
+        if (view->window != nullptr) {
+            SetTimer(view->window, 3, 16, nullptr);
+        }
+        return;
+    }
+    if (view->window != nullptr) {
+        KillTimer(view->window, 3);
+    }
     view->painted = true;
-    std::printf("framebuffer %ux%u\n", view->pixelWidth, view->pixelHeight);
-    std::printf("renderer platform-framebuffer\n");
+    if (!view->frameNoted) {
+        std::printf("framebuffer %ux%u\n", view->pixelWidth, view->pixelHeight);
+        std::printf("renderer platform-framebuffer\n");
+        view->frameNoted = true;
+    }
     if (!view->stayOpen) {
         PostQuitMessage(0);
     }
@@ -397,6 +669,10 @@ void Release(HostView* view) {
         view->upload->Release();
         view->upload = nullptr;
     }
+    if (view->uploadQuery != nullptr) {
+        view->uploadQuery->Release();
+        view->uploadQuery = nullptr;
+    }
     if (view->swap != nullptr) {
         view->swap->Release();
         view->swap = nullptr;
@@ -409,22 +685,24 @@ void Release(HostView* view) {
         view->device->Release();
         view->device = nullptr;
     }
-    _aligned_free(view->front);
+    _aligned_free(view->sheet);
     _aligned_free(view->back);
-    view->front = nullptr;
+    view->sheet = nullptr;
     view->back = nullptr;
 }
 
 void Resize(HostView* view, UINT width, UINT height) {
-    if (view == nullptr || !view->ready || width == 0 || height == 0) {
+    if (view == nullptr || !view->ready || view->inResize || width == 0 || height == 0) {
         return;
     }
     if (view->upload != nullptr && view->pixelWidth == width && view->pixelHeight == height) {
         return;
     }
+    view->inResize = true;
     if (EnsureSurface(view, width, height)) {
-        Draw(view);
+        Request(view);
     }
+    view->inResize = false;
 }
 
 LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -441,15 +719,17 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                          suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
             return 0;
         }
+        case WM_ERASEBKGND:
+            return 1;
         case WM_SIZE:
-            if (view != nullptr && view->ready) {
+            if (view != nullptr && view->ready && wParam != SIZE_MINIMIZED) {
                 Resize(view, LOWORD(lParam), HIWORD(lParam));
             }
             return 0;
         case WM_PAINT: {
             PAINTSTRUCT paint{};
             BeginPaint(window, &paint);
-            if (view != nullptr && view->ready && !view->painted) {
+            if (view != nullptr && view->ready && (view->stayOpen || !view->painted)) {
                 Draw(view);
             }
             EndPaint(window, &paint);
@@ -515,7 +795,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     view->scrollY = bar.scrollY;
                     view->bar.opacity = 255;
                     view->bar.idle = GetTickCount();
-                    Draw(view);
+                    Request(view);
                     return 0;
                 }
                 if (message == WM_LBUTTONUP && (view->bar.drag || view->bar.hold != 0)) {
@@ -528,7 +808,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     if (GetCapture() == window) {
                         ReleaseCapture();
                     }
-                    Draw(view);
+                    Request(view);
                     return 0;
                 }
                 if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && barHit != 0) {
@@ -552,7 +832,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         WindowScrollToBar(bar, y);
                         view->scrollY = bar.scrollY;
                     }
-                    Draw(view);
+                    Request(view);
                     return 0;
                 }
                 int hit = -1;
@@ -600,7 +880,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         paint = true;
                     }
                     if (paint) {
-                        Draw(view);
+                        Request(view);
                     }
                     return 0;
                 }
@@ -608,7 +888,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     SetFocus(window);
                     view->pressedControl = hit;
                     SetCapture(window);
-                    Draw(view);
+                    Request(view);
                     return 0;
                 }
                 if (message == WM_LBUTTONUP) {
@@ -616,7 +896,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     if (GetCapture() == window) {
                         ReleaseCapture();
                     }
-                    Draw(view);
+                    Request(view);
                     return 0;
                 }
             }
@@ -644,12 +924,16 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 view->bar.opacity = 255;
                 view->bar.idle = GetTickCount();
                 SetTimer(window, 2, 50, nullptr);
-                Draw(view);
+                Request(view);
             }
             return 0;
         case WM_KEYDOWN:
             return 0;
         case WM_TIMER:
+            if (wParam == 3) {
+                InvalidateRect(window, nullptr, FALSE);
+                return 0;
+            }
             if (view != nullptr && wParam == 2 && view->ready) {
                 bool paint = false;
                 if (view->bar.hold != 0 && GetTickCount() >= view->bar.repeat) {
@@ -674,7 +958,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     paint = true;
                 }
                 if (paint) {
-                    Draw(view);
+                    Request(view);
                 }
                 return 0;
             }
@@ -685,7 +969,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 view->movable = view->watched->movable;
                 SetWindowTextA(window, view->watched->title.c_str());
                 view->painted = false;
-                Draw(view);
+                Request(view);
                 std::printf("interpreter: refreshed\n");
             }
             return 0;
@@ -799,6 +1083,12 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
         DestroyWindow(window);
         return 1;
     }
+    IDXGIDevice1* latencyDevice = nullptr;
+    if (SUCCEEDED(view.device->QueryInterface(__uuidof(IDXGIDevice1), reinterpret_cast<void**>(&latencyDevice))) &&
+        latencyDevice != nullptr) {
+        latencyDevice->SetMaximumFrameLatency(1);
+        latencyDevice->Release();
+    }
     IDXGIDevice* dxgiDevice = nullptr;
     IDXGIAdapter* adapter = nullptr;
     IDXGIFactory2* factory = nullptr;
@@ -828,6 +1118,40 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     }
     if (dxgiDevice != nullptr) {
         dxgiDevice->Release();
+    }
+    if (view.swap == nullptr) {
+        DXGI_SWAP_CHAIN_DESC swapDesc{};
+        swapDesc.BufferCount = 1;
+        swapDesc.BufferDesc.Width = pixelWidth;
+        swapDesc.BufferDesc.Height = pixelHeight;
+        swapDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swapDesc.OutputWindow = window;
+        swapDesc.SampleDesc.Count = 1;
+        swapDesc.Windowed = TRUE;
+        swapDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+        IDXGIDevice* legacyDevice = nullptr;
+        IDXGIAdapter* legacyAdapter = nullptr;
+        IDXGIFactory* legacyFactory = nullptr;
+        IDXGISwapChain* legacy = nullptr;
+        if (SUCCEEDED(view.device->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&legacyDevice))) &&
+            SUCCEEDED(legacyDevice->GetAdapter(&legacyAdapter)) &&
+            SUCCEEDED(legacyAdapter->GetParent(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&legacyFactory)))) {
+            legacyFactory->CreateSwapChain(view.device, &swapDesc, &legacy);
+        }
+        if (legacy != nullptr) {
+            legacy->QueryInterface(__uuidof(IDXGISwapChain1), reinterpret_cast<void**>(&view.swap));
+            legacy->Release();
+        }
+        if (legacyFactory != nullptr) {
+            legacyFactory->Release();
+        }
+        if (legacyAdapter != nullptr) {
+            legacyAdapter->Release();
+        }
+        if (legacyDevice != nullptr) {
+            legacyDevice->Release();
+        }
     }
     if (view.swap == nullptr) {
         MessageBoxW(window, L"Direct3D 11 did not start.", L"Robix", MB_OK | MB_ICONERROR);
@@ -873,11 +1197,8 @@ bool WriteFoundationBmp(const std::string& path, std::string& error) {
     constexpr UINT width = kDesignWidth;
     constexpr UINT height = kDesignHeight;
     const RoboU64 byteCount = static_cast<RoboU64>(width) * height * 4u;
-    auto* front = static_cast<RoboU8*>(_aligned_malloc(static_cast<size_t>(byteCount), 16));
     auto* back = static_cast<RoboU8*>(_aligned_malloc(static_cast<size_t>(byteCount), 16));
-    if (front == nullptr || back == nullptr) {
-        _aligned_free(front);
-        _aligned_free(back);
+    if (back == nullptr) {
         error = "the framebuffer is empty";
         return false;
     }
@@ -885,7 +1206,7 @@ bool WriteFoundationBmp(const std::string& path, std::string& error) {
     RoboHandoff handoff{};
     handoff.magic = ROBO_HANDOFF_MAGIC;
     handoff.version = ROBO_HANDOFF_VERSION;
-    handoff.frameBuffer.base = reinterpret_cast<RoboU64>(front);
+    handoff.frameBuffer.base = reinterpret_cast<RoboU64>(back);
     handoff.frameBuffer.width = width;
     handoff.frameBuffer.height = height;
     handoff.frameBuffer.pixelsPerScanLine = width;
@@ -896,7 +1217,6 @@ bool WriteFoundationBmp(const std::string& path, std::string& error) {
     RoboGPUInitFromHandoff(&gpu, &handoff, back, byteCount);
     PaintFoundation(&gpu, false, true);
     const bool wrote = WriteBmp24(path, gpu.back, width, height, width * 4u, error);
-    _aligned_free(front);
     _aligned_free(back);
     if (wrote) {
         std::printf("renderer platform-framebuffer\n");

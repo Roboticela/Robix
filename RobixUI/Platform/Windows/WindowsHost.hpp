@@ -21,7 +21,7 @@ struct WindowRunOptions {
     void* watchUser = nullptr;
 };
 
-/* Windows host. Direct3D presents the same back buffer the RefCode soft GPU paints. */
+/* Windows host. The document is a retained sheet. Direct3D uploads damaged rows and presents without blocking. */
 int RunWindowsFoundation(const WindowRunOptions& options);
 
 /* Paint the foundation into a BMP. The first pixel is the foundation background. */

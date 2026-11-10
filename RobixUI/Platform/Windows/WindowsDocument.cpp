@@ -1890,8 +1890,10 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
     gScene.viewHeight = viewHeight;
     gScene.background = RoboFoundationPlatformColorForTheme("bg-primary", light ? ROBO_TRUE : ROBO_FALSE);
     gScene.valid = SceneStamp(path, gScene.stamp, gScene.bytes);
-    RoboGPUClear(gpu, gScene.background);
-    PaintOps(gpu, gScene.ops, scrollY, viewHeight, light);
+    if (gpu != nullptr) {
+        RoboGPUClear(gpu, gScene.background);
+        PaintOps(gpu, gScene.ops, scrollY, viewHeight, light);
+    }
     return true;
 }
 
@@ -1977,6 +1979,110 @@ void PaintWindowsDocument(RoboGPU* gpu, const std::string& path, bool light, int
         gScene.pressed = pressedControl;
     }
     PublishControls(contentHeight, controls, viewHeight);
+}
+
+int LayoutWindowsDocument(const std::string& path, bool light, int viewWidth, int viewHeight, unsigned dpi, int hotControl,
+                          int pressedControl, int pointerX, int pointerY, int* contentHeight,
+                          std::vector<WindowControl>* controls) {
+    gDpi = dpi == 0 ? 96u : dpi;
+    gAssets = FindAssets(path);
+    if (path.empty() || viewWidth <= 0 || viewHeight <= 0) {
+        gScene.valid = false;
+        if (contentHeight != nullptr) {
+            *contentHeight = viewHeight;
+        }
+        if (controls != nullptr) {
+            controls->clear();
+        }
+        return -1;
+    }
+    if (SceneCurrent(path, light, gDpi, viewWidth, viewHeight)) {
+        if (contentHeight != nullptr) {
+            *contentHeight = std::max(viewHeight, gScene.contentHeight);
+        }
+        return 0;
+    }
+    if (!BuildScene(nullptr, path, light, viewWidth, viewHeight, 0, hotControl, pressedControl, pointerX, pointerY)) {
+        if (contentHeight != nullptr) {
+            *contentHeight = viewHeight;
+        }
+        if (controls != nullptr) {
+            controls->clear();
+        }
+        return -1;
+    }
+    if (contentHeight != nullptr) {
+        *contentHeight = std::max(viewHeight, gScene.contentHeight);
+    }
+    if (controls != nullptr) {
+        *controls = gScene.controls;
+    }
+    return 1;
+}
+
+void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight) {
+    if (gpu == nullptr || !gScene.valid || viewWidth <= 0 || viewHeight <= 0) {
+        return;
+    }
+    RoboGPUClear(gpu, gScene.background);
+    PaintOps(gpu, gScene.ops, scrollY, viewHeight, gScene.light);
+    gScene.scrollY = scrollY;
+}
+
+void RasterWindowsDocument(RoboGPU* gpu) {
+    if (gpu == nullptr || !gScene.valid) {
+        return;
+    }
+    const int height = std::max(gScene.contentHeight, gScene.viewHeight);
+    RoboGPUClear(gpu, gScene.background);
+    PaintOps(gpu, gScene.ops, 0, height, gScene.light);
+    RoboDamageClear(&gpu->damage);
+}
+
+int CollectWindowsDocumentPatches(int hotControl, int pressedControl, WindowPatch* patches, int capacity) {
+    if (!gScene.valid || (gScene.hot == hotControl && gScene.pressed == pressedControl)) {
+        return 0;
+    }
+    int count = 0;
+    bool overflow = false;
+    const int changed[4] = {gScene.hot, hotControl, gScene.pressed, pressedControl};
+    for (int index : changed) {
+        if (index < 0) {
+            continue;
+        }
+        for (PaintOp& op : gScene.ops) {
+            if (!op.button || op.control != index) {
+                continue;
+            }
+            if (op.iconButton) {
+                StyleIconButton(op, gScene.light, index == hotControl, index == pressedControl);
+            } else {
+                RecolorButton(op, gScene.light, index == hotControl, index == pressedControl);
+            }
+            if (patches == nullptr || count >= capacity) {
+                overflow = true;
+                continue;
+            }
+            const SceneRect bounds = OpBounds(op, 0);
+            patches[count].x = bounds.x;
+            patches[count].y = bounds.y;
+            patches[count].width = bounds.width;
+            patches[count].height = bounds.height;
+            ++count;
+        }
+    }
+    gScene.hot = hotControl;
+    gScene.pressed = pressedControl;
+    return overflow ? -1 : count;
+}
+
+void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height) {
+    if (gpu == nullptr || !gScene.valid || width <= 0 || height <= 0) {
+        return;
+    }
+    const int limit = std::max(gScene.contentHeight, gScene.viewHeight);
+    PaintSceneRect(gpu, SceneRect{x, y, width, height}, 0, limit, gScene.light);
+    RoboDamageClear(&gpu->damage);
 }
 
 }  // namespace Robix::UI
