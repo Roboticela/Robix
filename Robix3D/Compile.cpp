@@ -51,7 +51,7 @@ bool IsUiTag(const std::string& name) {
         "robixui", "window", "screen", "page", "board", "column", "row", "grid", "stack", "container", "button",
         "anchor", "text", "textfield", "image", "icon", "heading", "subhead", "body", "paragraph", "caption",
         "eyebrow", "label", "span", "iconbutton", "switch", "switchgroup", "switchitem", "themetoggle",
-        "themeicontoggle", "textfield", "textarea", "passwordreveal", "confirmaction", "segmentedcontrol",
+        "themeicontoggle", "textfield", "textarea", "passwordreveal", "confirmaction", "select", "option", "segmentedcontrol",
         "segmentedtoolbar", "segment", "scrollbar", "svg", "view", "panel", "list", "table", "menu", "dialog",
         "tabs", "checkbox", "radiobutton", "progressbar", "chart", "canvas", "template", "slot", "style", "at",
         "data", "if", "else"};
@@ -487,7 +487,7 @@ void Collect(const RoboXMLNode& node, const fs::path& directory, Components& com
             fs::path path = fs::path(source);
             if (path.is_relative()) path = directory / path;
             const std::string ext = Lower(path.extension().string());
-            if (ext == ".rbxu" || ext == ".xml") {
+            if (ext == ".rxu" || ext == ".xml") {
                 errors.push_back("Robix3D cannot import RobixUI. Host it with <UI Source=\"" + source + "\"/>");
             } else {
                 CollectFile(path, components, loading, done, errors);

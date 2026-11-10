@@ -6,8 +6,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-0E7AFF" alt="License AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/C%2B%2B-20-0B1220" alt="C++20">
   <img src="https://img.shields.io/badge/version-1.0.0-1C1C1E" alt="Version 1.0.0">
-  <img src="https://img.shields.io/badge/source-.rbx-3B9EFF" alt="Source extension .rbx">
-  <img src="https://img.shields.io/badge/UI-.rbxu-7CC4FF" alt="UI extension .rbxu">
+  <img src="https://img.shields.io/badge/source-.rx-3B9EFF" alt="Source extension .rx">
+  <img src="https://img.shields.io/badge/UI-.rxu-7CC4FF" alt="UI extension .rxu">
 </p>
 
 <p align="center">
@@ -49,8 +49,8 @@ public Function Main() -> Void {
 ```
 
 ```bash
-robix run Examples/GettingStarted/Hello.rbx
-robixc -O3 Examples/GettingStarted/Hello.rbx -o Build/Hello.exe
+robix run Examples/GettingStarted/Hello.rx
+robixc -O3 Examples/GettingStarted/Hello.rx -o Build/Hello.exe
 ```
 
 Both print:
@@ -60,7 +60,7 @@ Hello, Robix
 42
 ```
 
-That sample lives at `Examples/GettingStarted/Hello.rbx`. The walkthrough is `Documentation/Guide.md`. Every sample is listed in `Examples/README.md`.
+That sample lives at `Examples/GettingStarted/Hello.rx`. The walkthrough is `Documentation/Guide.md`. Every sample is listed in `Examples/README.md`.
 
 ## ⚙️ Two engines
 
@@ -68,12 +68,12 @@ One frontend. Two ways to run the same program.
 
 | | 🧪 Development | 🚀 Production |
 | --- | --- | --- |
-| Command | `robix run Main.rbx` | `robixc -O3 Main.rbx -o App` |
+| Command | `robix run Main.rx` | `robixc -O3 Main.rx -o App` |
 | Engine | Bytecode interpreter | LLVM, then the system linker |
 | Goal | Fast feedback, REPL, UI preview | A native executable, library, or machine image |
 | Default | Interpreter | Native compiler |
 
-`robix run File.rbx --engine native` asks for a native run. A native compile that fails is not silently replaced by the interpreter.
+`robix run File.rx --engine native` asks for a native run. A native compile that fails is not silently replaced by the interpreter.
 
 The compiler version string is `robix version 1.0.0`.
 
@@ -95,9 +95,9 @@ robix new Pad Canvas
 
 **Console** compiles for `windows`, `linux`, `macos`, `android`, and `ios`. Web is refused.
 
-**Window** and **Network** use those platforms and `web`, when the project has a `.rbxu` screen. A missing screen is an error.
+**Window** and **Network** use those platforms and `web`, when the project has a `.rxu` screen. A missing screen is an error.
 
-**Canvas** is classified from the file. The tool prints a warning naming that choice, then applies the same web rule. `Print`, `Input`, or `Args` is a console program. `Network` or `SendText` is a network program. A matching `.rbxu` is a window.
+**Canvas** is classified from the file. The tool prints a warning naming that choice, then applies the same web rule. `Print`, `Input`, or `Args` is a console program. `Network` or `SendText` is a network program. A matching `.rxu` is a window.
 
 **Bedrock** builds a machine image. It does not target an operating system. `robix run` of Bedrock on a platform stops with an error. `robixc --image` or the `.rbxb` build file produces the image.
 
@@ -129,7 +129,7 @@ public class Robot {
 
 | | |
 | --- | --- |
-| 📝 **Source** | `.rbx` programs, `.rbxh` interfaces, `.rbxproj` projects, `.rbxb` build files |
+| 📝 **Source** | `.rx` programs, `.rbxh` interfaces, `.rbxproj` projects, `.rbxb` build files |
 | 🔤 **Names** | `PascalCase` types and functions, `camelCase` variables, `UPPER_SNAKE_CASE` constants, acronyms stay uppercase (`HTTPClient`, `USBDevice`) |
 | 🔒 **Types** | `Bool`, fixed-width integers, `Int`, `UInt`, `Float`, `Double`, `String`, `Void`, arrays, structs, enums, classes, interfaces, `Option`, `Result` |
 | 🧩 **Programs** | Classes, interfaces, inheritance, `override`, generics, top-level functions, `let` / `var` / `const` |
@@ -140,11 +140,11 @@ public class Robot {
 
 The formal grammar is `Specification/RobixGrammar.ebnf`. The feature catalog is `Documentation/LanguageFeatures.md`.
 
-A class that has been compiled and run is `Examples/Classes/RobotClasses.rbx`: a private field, a constructor, methods, a destructor, `override`, and a `Box<Int>` instantiation. Both engines printed `150` and then `40`.
+A class that has been compiled and run is `Examples/Classes/RobotClasses.rx`: a private field, a constructor, methods, a destructor, `override`, and a `Box<Int>` instantiation. Both engines printed `150` and then `40`.
 
 ## 🪟 RobixUI
 
-RobixUI is the declarative UI language. Documents are `.rbxu` and stay XML-compatible.
+RobixUI is the declarative UI language. Documents are `.rxu` and stay XML-compatible.
 
 ```xml
 <RobixUI Version="1.0">
@@ -175,13 +175,13 @@ The default typeface is [Inter](https://github.com/rsms/inter), under the SIL Op
 | `robix repl` | Interactive line, same parser and type checker |
 | `robix new` | Create a project |
 | `robix build` | Build the project, incrementally when nothing changed |
-| `robix test` | Run `*.test.rbx` on the interpreter and the native compiler |
+| `robix test` | Run `*.test.rx` on the interpreter and the native compiler |
 | `robix check` | Type-check |
 | `robix format` / `robix lint` | Format and style |
 | `robix doc` | Write Markdown from `Explain` blocks |
 | `robix debug` | Source lines. `--attach` uses the Windows debug API |
 | `robix lsp` | Language server. The editor extension is `Editors/vscode` |
-| `robix ui validate` | Check a `.rbxu` document and its event bindings |
+| `robix ui validate` | Check a `.rxu` document and its event bindings |
 | `robix ui window` / `robix ui web` | Show a screen on Windows or write the web page |
 | `robixc` | Compile the project. A file name compiles only that file. `all` compiles every program, one by one. `robixc run` also runs it |
 | `robixc --emit-llvm` | Keep the LLVM IR |
@@ -200,11 +200,14 @@ The toolchain is C++20. On Windows the build script is:
 powershell -NoProfile -ExecutionPolicy Bypass -File Scripts/BuildCompiler.ps1
 ```
 
-It looks for Clang 18, then `clang++` on `PATH`. The binaries land in `Build/Bin`:
+Building `robixc` from source looks for Clang 18, then `clang++` on `PATH`. The script copies that assembler, linker, and the runtime libraries into the compiler directory. After that, using `robixc` does not need a separate LLVM or Visual Studio install.
 
 ```text
 Build/Bin/robix.exe
 Build/Bin/robixc.exe
+Build/Bin/toolchain/clang.exe
+Build/Bin/toolchain/ld.lld.exe
+Build/Bin/toolchain/lib/
 ```
 
 `CMakeLists.txt` builds the C++ libraries and the stage tests. The script above is what produces `robix` and `robixc`.

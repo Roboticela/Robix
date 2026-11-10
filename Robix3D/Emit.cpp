@@ -1986,8 +1986,8 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
             fs::path path = fs::path(source);
             if (path.is_relative()) path = prepared.directory / path;
             const std::string ext = Lower(path.extension().string());
-            if (ext != ".rbxu" && ext != ".xml") {
-                out.errors.push_back("UI Source must be a RobixUI .rbxu document");
+            if (ext != ".rxu" && ext != ".xml") {
+                out.errors.push_back("UI Source must be a RobixUI .rxu document");
             } else {
                 const HostState saved = CaptureHost();
                 fs::path panelRoot = saved.outRoot / "panels" / path.stem();

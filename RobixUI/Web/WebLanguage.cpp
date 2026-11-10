@@ -309,10 +309,10 @@ Robo.log = "";
         node.addEventListener("click", function (event) {
           event.preventDefault();
           var name = node.getAttribute("data-click") || "";
-          var ptr = instance.exports.rbx_name();
+          var ptr = instance.exports.rx_name();
           var encoded = new TextEncoder().encode(name);
           new Uint8Array(memory.buffer, ptr, encoded.length).set(encoded);
-          instance.exports.rbx_call(encoded.length);
+          instance.exports.rx_call(encoded.length);
         });
       });
       if (instance.exports.start) instance.exports.start();
@@ -332,7 +332,7 @@ bool CompileAssembly(const VM::BytecodeModule& module, const std::vector<std::st
     }
     const std::string clang = Tools::NativeCompilerDriver::LocateClang("", toolDirectory);
     if (clang.empty()) {
-        error = "assembly form needs clang with a wasm32 target.\n";
+        error = "the compiler install is missing its built-in clang.\n";
         return false;
     }
     StringTable strings;
@@ -520,8 +520,8 @@ fs::path FindWebSource(const fs::path& document) {
                 if (fs::is_regular_file(source, error)) return source;
             }
         }
-        if (fs::is_regular_file(dir / "Source" / "Program.rbx", error)) return dir / "Source" / "Program.rbx";
-        if (fs::is_regular_file(dir / "Program.rbx", error)) return dir / "Program.rbx";
+        if (fs::is_regular_file(dir / "Source" / "Program.rx", error)) return dir / "Source" / "Program.rx";
+        if (fs::is_regular_file(dir / "Program.rx", error)) return dir / "Program.rx";
         if (!dir.has_parent_path() || dir.parent_path() == dir) break;
         dir = dir.parent_path();
     }

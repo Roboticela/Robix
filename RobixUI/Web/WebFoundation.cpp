@@ -13,6 +13,7 @@
 #include "../Compiler/Components/PasswordReveal/PasswordRevealWeb.hpp"
 #include "../Compiler/Components/ConfirmAction/ConfirmActionWeb.hpp"
 #include "../Compiler/Components/TextArea/TextAreaWeb.hpp"
+#include "../Compiler/Components/Select/SelectWeb.hpp"
 #include "../Compiler/Components/SegmentedControl/SegmentedControlWeb.hpp"
 #include "../Compiler/Components/Board/BoardWeb.hpp"
 #include "../Compiler/Components/Container/Container.hpp"
@@ -253,6 +254,14 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             assets = FindUp("RefCode/Assets");
         }
         RoboWebEmitTextArea(html, node, library, assets);
+        return;
+    }
+    if (name == "select") {
+        fs::path assets = FindUp("Assets");
+        if (assets.empty()) {
+            assets = FindUp("RefCode/Assets");
+        }
+        RoboWebEmitSelect(html, node, library, assets);
         return;
     }
     if (name == "passwordreveal") {
@@ -688,6 +697,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendThemeIconToggleCss(css);
         RoboWebAppendTextFieldCss(css);
         RoboWebAppendTextAreaCss(css);
+        RoboWebAppendSelectCss(css);
         RoboWebAppendPasswordRevealCss(css);
         RoboWebAppendConfirmActionCss(css);
         RoboWebAppendSegmentedCss(css);
@@ -763,6 +773,7 @@ Robo.set = function (id, key, value) {
     js += RoboWebPasswordRevealScript();
     js += RoboWebConfirmActionScript();
     js += RoboWebTextAreaScript();
+    js += RoboWebSelectScript();
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
     js += RoboWebReelScript();

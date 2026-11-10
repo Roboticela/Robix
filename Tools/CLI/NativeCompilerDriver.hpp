@@ -55,7 +55,7 @@ public:
                                                          std::string_view sourceText,
                                                          const NativeBuildOptions& options);
 
-    // Locates clang.exe: explicit hint, ROBIX_CLANG env var, <toolDir>/toolchain/clang.exe, PATH, default LLVM install.
+    // Locates the clang shipped inside the compiler install: <toolDir>/toolchain/clang.exe.
     [[nodiscard]] static std::string LocateClang(const std::string& hint, const std::string& toolDirectory);
 
     // Locates RobixNativeRuntime.obj: explicit hint, <toolDir>/RobixNativeRuntime.obj, <cwd>/Build/.

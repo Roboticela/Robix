@@ -48,7 +48,7 @@ struct WebDecision {
 
 [[nodiscard]] std::string ProjectKind(const std::filesystem::path& start);
 
-// Console refuses web. Window and Network allow web when a .rbxu screen exists.
+// Console refuses web. Window and Network allow web when a .rxu screen exists.
 // Canvas is classified from the file, then warned or refused the same way.
 [[nodiscard]] WebDecision DecideWeb(const std::string& category,
                                     const std::string& kind,

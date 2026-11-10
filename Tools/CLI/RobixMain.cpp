@@ -33,18 +33,18 @@ static void PrintHelp() {
         << "    robix <command> [arguments]\n\n"
         << "COMMANDS:\n"
         << "    run                                 Run the project in this folder\n"
-        << "    run <file.rbx> [more.rbx] [--target windows|linux|macos|android|ios|web] [--web script|assembly] [--image]\n"
+        << "    run <file.rx> [more.rx] [--target windows|linux|macos|android|ios|web] [--web script|assembly] [--image]\n"
         << "                                    Run only the named file or files.\n"
         << "    run all                             Run every program in the folder, one by one\n"
         << "    run <folder>                        Run that project folder\n"
-        << "    run <screen.rbxu> [--target web|windows] [--watch] [--port N]\n"
+        << "    run <screen.rxu> [--target web|windows] [--watch] [--port N]\n"
         << "                                    Interpret a screen on the host platform or web.\n"
         << "    run all [--separate]                Run every network client and server\n"
         << "    run client <Name> | server <Name>   Run one service in this console\n"
         << "    build [folder] [-o <out.exe>]       Compile each source to its own file. Skip unchanged files.\n"
-        << "    build <file.rbx> [-o <out.exe>]     Compile that file. Skip it when nothing changed.\n"
-        << "    test [path] [--generate]            Run .test.rbx on the interpreter. Test native also compiles.\n"
-        << "    generate-tests [path]               Generate companion .test.rbx scaffolds for all .rbx files\n"
+        << "    build <file.rx> [-o <out.exe>]     Compile that file. Skip it when nothing changed.\n"
+        << "    test [path] [--generate]            Run .test.rx on the interpreter. Test native also compiles.\n"
+        << "    generate-tests [path]               Generate companion .test.rx scaffolds for all .rx files\n"
         << "    verify [path]                       Run full semantic and static verification on files\n"
         << "    new [.] [Name] [Application|Canvas|Bedrock] [kind]\n"
         << "                                    Create a project. . uses this directory. No name asks.\n"
@@ -53,23 +53,23 @@ static void PrintHelp() {
         << "                                    Bedrock: Kernel, OS, BIOS, Driver, Bootloader, Firmware.\n"
         << "    new Name Network --client Name CLI|GUI --server Name CLI|GUI\n"
         << "    new file <Name> [hello|empty|class|package]   Add a source file and its test\n"
-        << "    add <name> <file.rbx>               Lock a local package with SHA-256 and an HMAC signature\n"
+        << "    add <name> <file.rx>               Lock a local package with SHA-256 and an HMAC signature\n"
         << "    remove <name>                       Remove a package from the lock\n"
         << "    update <name>                       Rehash a locked package file\n"
         << "    install                             Copy locked packages into Packages/ when the hash matches\n"
         << "    restore                             Check every locked hash and signature\n"
-        << "    ui validate <file.rbxu> --code <file.rbx>   Parse, lay out, and type-check event handlers\n"
-        << "    ui render <file.rbxu> -o <file.bmp>         Draw one software frame as a BMP\n"
-        << "    ui window <file.rbxu> [--dev]               Open the Screen on Windows. --dev keeps it open\n"
-        << "    ui web <file.rbxu> [--dev]                  Run the page directly. --dev does not write an HTML file\n"
-        << "    ui render <file.rbxu> -o <file.bmp>         Draw the framebuffer\n"
+        << "    ui validate <file.rxu> --code <file.rx>   Parse, lay out, and type-check event handlers\n"
+        << "    ui render <file.rxu> -o <file.bmp>         Draw one software frame as a BMP\n"
+        << "    ui window <file.rxu> [--dev]               Open the Screen on Windows. --dev keeps it open\n"
+        << "    ui web <file.rxu> [--dev]                  Run the page directly. --dev does not write an HTML file\n"
+        << "    ui render <file.rxu> -o <file.bmp>         Draw the framebuffer\n"
         << "    network check <project>             Check a Network block, contract, and env split\n"
         << "    network run <project>               Run the local contract call, timeout, and TLS handshake\n"
-        << "    format <file.rbx> [--check]         Rewrite source with 4-space indentation\n"
-        << "    lint <file.rbx> [--strict]          Type-check and enforce style\n"
-        << "    check <file.rbx>                    Type-check without running the program\n"
-        << "    doc <file.rbx> [-o <file.md>]       Write markdown from Explain blocks\n"
-        << "    debug <file.rbx>                    Step the interpreter and a debug native build by source line\n"
+        << "    format <file.rx> [--check]         Rewrite source with 4-space indentation\n"
+        << "    lint <file.rx> [--strict]          Type-check and enforce style\n"
+        << "    check <file.rx>                    Type-check without running the program\n"
+        << "    doc <file.rx> [-o <file.md>]       Write markdown from Explain blocks\n"
+        << "    debug <file.rx>                    Step the interpreter and a debug native build by source line\n"
         << "    lsp                                 Speak Language Server Protocol on stdin\n"
         << "    examples [topic]                    List or extract official Robix code examples\n"
         << "    repl                                Start the interactive Robix REPL\n"
@@ -82,7 +82,7 @@ static void PrintHelp() {
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         const fs::path content = fs::absolute(argv[0]).parent_path() / "Content";
-        const char* names[] = {"Main.rbxu", "Main.xml", "MainWindow.rbxu"};
+        const char* names[] = {"Main.rxu", "Main.xml", "MainWindow.rxu"};
         for (const char* name : names) {
             const fs::path document = content / name;
             if (!fs::is_regular_file(document)) {
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
     if (developerStatus >= 0) return developerStatus;
 
     // `robix build` compiles each project source to its own file.
-    // `robix build <file.rbx>` compiles that one file.
+    // `robix build <file.rx>` compiles that one file.
     if (cmd == "build") {
         std::string inputFile;
         Robix::Tools::NativeBuildOptions base;
@@ -189,9 +189,12 @@ int main(int argc, char* argv[]) {
         Robix::Tools::ProjectFile projectFile;
         if (Robix::Tools::FindProject(projectAnchor, projectFile) && projectFile.network) {
             base.linkNetwork = true;
+            const fs::path beside = fs::path(toolDir) / "NetworkRuntime.obj";
             const fs::path installed = fs::path(toolDir) / ".." / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
             const fs::path fromRoot = fs::current_path() / "Build" / "Lib" / "Robix" / "1.0.0" / "NetworkRuntime.obj";
-            if (fs::exists(installed)) {
+            if (fs::exists(beside)) {
+                base.networkObjectPath = beside.string();
+            } else if (fs::exists(installed)) {
                 base.networkObjectPath = installed.string();
             } else {
                 base.networkObjectPath = fromRoot.string();
@@ -249,7 +252,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    // `robix run <file.rbx> --native`
+    // `robix run <file.rx> --native`
     bool wantsNativeRun = false;
     for (const auto& a : args) {
         if (a == "--native") wantsNativeRun = true;
@@ -289,7 +292,7 @@ int main(int argc, char* argv[]) {
                 port = std::stoi(args[++i]);
             } else if (!args[i].empty() && args[i][0] != '-') {
                 if (runInput.empty()) runInput = args[i];
-                if (fs::path(args[i]).extension() == ".rbx") runFiles.push_back(args[i]);
+                if (fs::path(args[i]).extension() == ".rx") runFiles.push_back(args[i]);
             }
         }
         const std::string targetKey = Robix::UI::NormalizeTarget(runTarget);
@@ -363,7 +366,7 @@ int main(int argc, char* argv[]) {
             }
         }
         const std::string extension = fs::path(runInput).extension().string();
-        const bool screen = extension == ".rbxu" || extension == ".xml" || extension == ".r3d" ||
+        const bool screen = extension == ".rxu" || extension == ".xml" || extension == ".r3d" ||
                             (fs::is_directory(runInput) && runInput != "all");
         if (!runFiles.empty()) {
             const std::string category = Robix::Tools::ProjectCategory(runFiles.front());
@@ -494,7 +497,7 @@ int main(int argc, char* argv[]) {
             }
             if (!args[i].empty() && args[i][0] != '-') target = args[i];
         }
-        if (target.empty()) target = "Tests/Main.test.rbx";
+        if (target.empty()) target = "Tests/Main.test.rx";
         const bool wantGenerate = false;
         (void)wantGenerate;
         if (!generateOnly) {
@@ -593,7 +596,7 @@ int main(int argc, char* argv[]) {
                 std::vector<fs::path> files;
                 auto collect = [&](const fs::path& dir) {
                     for (const auto& entry : fs::directory_iterator(dir, ec)) {
-                        if (entry.path().extension() == ".rbx" &&
+                        if (entry.path().extension() == ".rx" &&
                             entry.path().stem().string().size() > 5 &&
                             entry.path().stem().string().ends_with(".test")) {
                             files.push_back(entry.path());
@@ -604,7 +607,7 @@ int main(int argc, char* argv[]) {
                 if (fs::is_directory(fs::path(target) / "Source", ec)) collect(fs::path(target) / "Source");
                 std::sort(files.begin(), files.end());
                 if (files.empty()) {
-                    std::cerr << "robix test: no .test.rbx files in " << target << "\n";
+                    std::cerr << "robix test: no .test.rx files in " << target << "\n";
                     return 1;
                 }
                 for (const auto& file : files) status |= runOne(file);

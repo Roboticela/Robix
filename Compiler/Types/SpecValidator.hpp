@@ -20,9 +20,9 @@ inline constexpr std::string_view ABI_VERSION            = "RobixABI_v1";
 inline constexpr std::string_view MANGLE_PREFIX          = "_RBX1_";
 
 // Official File Extensions
-inline constexpr std::string_view EXT_SOURCE             = ".rbx";
-inline constexpr std::string_view EXT_TEST               = ".test.rbx";
-inline constexpr std::string_view EXT_UI                 = ".rbxu";
+inline constexpr std::string_view EXT_SOURCE             = ".rx";
+inline constexpr std::string_view EXT_TEST               = ".test.rx";
+inline constexpr std::string_view EXT_UI                 = ".rxu";
 inline constexpr std::string_view EXT_BUILD              = ".rbxb";
 inline constexpr std::string_view EXT_PROJECT            = ".rbxproj";
 inline constexpr std::string_view EXT_API                = ".rbxapi";

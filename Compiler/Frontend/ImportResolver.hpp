@@ -14,7 +14,7 @@
 
 namespace Robix::Frontend {
 
-// Loads `import Name;` and `import Package.Name;` as sibling `.rbx` files.
+// Loads `import Name;` and `import Package.Name;` as sibling `.rx` files.
 // The last segment is tried next to the importing file first, then the dotted
 // name as a relative path. Declarations are appended to the root unit.
 inline void ResolveImports(CompilationUnitAST& root, std::string_view rootFile, DiagnosticBag& diagnostics) {
@@ -54,9 +54,9 @@ inline void ResolveImports(CompilationUnitAST& root, std::string_view rootFile, 
         }
 
         fs::path found;
-        const fs::path beside = item.baseDir / (last + ".rbx");
-        const fs::path nested = item.baseDir / (slashed + ".rbx");
-        const fs::path fromCwd = fs::path(slashed + ".rbx");
+        const fs::path beside = item.baseDir / (last + ".rx");
+        const fs::path nested = item.baseDir / (slashed + ".rx");
+        const fs::path fromCwd = fs::path(slashed + ".rx");
         if (existsFile(beside)) found = beside;
         else if (existsFile(nested)) found = nested;
         else if (existsFile(fromCwd)) found = fromCwd;
@@ -70,8 +70,8 @@ inline void ResolveImports(CompilationUnitAST& root, std::string_view rootFile, 
                 }
                 return fs::path{};
             };
-            const fs::path stdlib = fs::path("StdLib") / "Robix" / (last + ".rbx");
-            const fs::path package = fs::path("Packages") / item.importName / (last + ".rbx");
+            const fs::path stdlib = fs::path("StdLib") / "Robix" / (last + ".rx");
+            const fs::path package = fs::path("Packages") / item.importName / (last + ".rx");
             found = walk(item.baseDir, stdlib);
             if (found.empty()) found = walk(fs::current_path(), stdlib);
             if (found.empty()) found = walk(item.baseDir, package);
@@ -80,9 +80,9 @@ inline void ResolveImports(CompilationUnitAST& root, std::string_view rootFile, 
         if (found.empty()) {
             diagnostics.ReportError(
                 "I4013",
-                "Import '" + item.importName + "' did not match a .rbx file.",
+                "Import '" + item.importName + "' did not match a .rx file.",
                 SourceLocation{},
-                "Place " + last + ".rbx next to the importing file, or use a path such as Examples.Machine." + last + ".");
+                "Place " + last + ".rx next to the importing file, or use a path such as Examples.Machine." + last + ".");
             continue;
         }
 

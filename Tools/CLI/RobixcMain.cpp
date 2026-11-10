@@ -21,14 +21,14 @@ static void PrintHelp() {
         << "Roboticela Software Architecture\n\n"
         << "USAGE:\n"
         << "    robixc                        Compile each source in this folder to its own file\n"
-        << "    robixc <file.rbx> [options]   Compile only that file\n"
+        << "    robixc <file.rx> [options]   Compile only that file\n"
         << "    robixc all                    Compile every program in the folder, one by one\n"
         << "    robixc run                    Compile and run the project\n"
-        << "    robixc run <file.rbx>         Compile and run only that file\n"
+        << "    robixc run <file.rx>         Compile and run only that file\n"
         << "    robixc run all                Compile and run every program, one by one\n"
-        << "    robixc build <file.rbx> [-o <out.exe>]\n"
-        << "    robixc test [file.test.rbx]\n"
-        << "    robixc --emit-llvm <file.rbx>\n\n"
+        << "    robixc build <file.rx> [-o <out.exe>]\n"
+        << "    robixc test [file.test.rx]\n"
+        << "    robixc --emit-llvm <file.rx>\n\n"
         << "OPTIONS:\n"
         << "    -o <path>             Specify output executable path\n"
         << "    -O0, --debug          Build with optimizations disabled\n"
@@ -36,7 +36,7 @@ static void PrintHelp() {
         << "    --profile <name>      release, debug, or embedded (no hosted CRT)\n"
         << "    --target windows|linux|macos|android|ios|web\n"
         << "                          Application or Canvas platform. linux, macos, android, and ios\n"
-        << "                          compile only on that machine. web needs a .rbxu screen.\n"
+        << "                          compile only on that machine. web needs a .rxu screen.\n"
         << "    --web script|assembly Web program form. script is HTML, CSS, and JS (default).\n"
         << "                          assembly is HTML, CSS, and WebAssembly. The interpreter always uses script.\n"
         << "    --image               Machine image. Refuses platform code. Bedrock is always an image.\n"
@@ -46,10 +46,10 @@ static void PrintHelp() {
         << "    --entry <symbol>      Freestanding entry symbol (default: Start)\n"
         << "    --emit-llvm           Generate LLVM IR (.ll) and exit\n"
         << "    --keep-ir             Retain generated .ll file next to executable\n"
-        << "    --clang <path>        Path to clang.exe\n"
+        << "    --clang <path>        Override the clang shipped inside the compiler\n"
         << "    --runtime-obj <path>  Path to RobixNativeRuntime.obj\n"
         << "    --explain, --dry-run  Print the .rbxb plan and do not compile\n"
-        << "    --generate-tests      Generate missing .test.rbx scaffolds\n"
+        << "    --generate-tests      Generate missing .test.rx scaffolds\n"
         << "    --version, -v         Display robixc version information\n"
         << "    --help, -h            Show this help documentation\n\n"
         << "Each source is compiled to its own file. The program entry becomes the\n"
@@ -419,9 +419,9 @@ int main(int argc, char* argv[]) {
     {
         std::error_code inputError;
         const fs::path inputPath(inputFilePath);
-        const bool uiInput = fs::is_directory(inputPath, inputError) || inputPath.extension() == ".rbxu" ||
+        const bool uiInput = fs::is_directory(inputPath, inputError) || inputPath.extension() == ".rxu" ||
                              inputPath.extension() == ".xml" || inputPath.extension() == ".r3d" || inputPath.extension() == ".rbxproj";
-        const bool sourceFile = inputPath.extension() == ".rbx" || inputPath.extension() == ".rbxb";
+        const bool sourceFile = inputPath.extension() == ".rx" || inputPath.extension() == ".rbxb";
         if ((uiInput || !uiTargets.empty() || uiDevelopment) && !sourceFile) {
             if (uiDevelopment) {
                 std::cerr << "robixc: development runs with robix, not robixc.\n";

@@ -27,7 +27,7 @@ struct FrontendRunResult {
 };
 
 FrontendRunResult RunFrontend(std::string_view source,
-                              std::string_view fileName = "TestUnit.rbx",
+                              std::string_view fileName = "TestUnit.rx",
                               Robix::Frontend::TypeCheckerOptions options = {}) {
     FrontendRunResult res;
     Robix::Frontend::Lexer lexer(source, fileName, res.diagnostics);
@@ -59,7 +59,7 @@ void TestLexerFeatures() {
         let safeVal = maybeVal?.Field ?? 42;
     )";
 
-    Robix::Frontend::Lexer lexer(src, "LexerTest.rbx", diags);
+    Robix::Frontend::Lexer lexer(src, "LexerTest.rx", diags);
     auto tokens = lexer.TokenizeAll();
 
     Check(!diags.HasErrors(), "Lexer tokenizes valid Robix source without errors");
@@ -91,7 +91,7 @@ void TestLexerFeatures() {
     // Trojan Source check in Lexer
     Robix::Frontend::DiagnosticBag secDiags;
     std::string trojanSrc = "Int x = 1; // " "\xE2\x80\xAE" "evil";
-    Robix::Frontend::Lexer secLexer(trojanSrc, "Trojan.rbx", secDiags);
+    Robix::Frontend::Lexer secLexer(trojanSrc, "Trojan.rx", secDiags);
     auto secTokens = secLexer.TokenizeAll();
     (void)secTokens;
     Check(secDiags.ContainsCode("S1001"), "Lexer detects Trojan Source Unicode Bidi control character (S1001)");
@@ -167,7 +167,7 @@ void TestParserAllConstructsAndTenLoops() {
         }
     )";
 
-    auto res = RunFrontend(src, "LoopsAndOOP.rbx");
+    auto res = RunFrontend(src, "LoopsAndOOP.rx");
     Check(!res.diagnostics.HasErrors(), "Parser & TypeChecker accept OOP class hierarchy and all 10 loop forms");
     Check(res.ast.packageName == "Robotics.Core", "Parser extracts package declaration Robotics.Core");
     Check(res.ast.imports.size() == 1 && res.ast.imports[0] == "Robix.Hardware.GPIO", "Parser extracts import declaration");
@@ -200,7 +200,7 @@ void TestTypeInferenceAndReturnInference() {
         }
     )";
 
-    auto res = RunFrontend(src, "Inference.rbx");
+    auto res = RunFrontend(src, "Inference.rx");
     Check(!res.diagnostics.HasErrors(), "Type inference for let, var, const, Array<Int>, Object, and function return type succeeds");
 
     // Verify CalculateTotal return type was inferred as Int
@@ -217,7 +217,7 @@ void TestTypeErrorsAndDiagnosticsFormat() {
                 Int age = "Twenty Five";
             }
         )";
-        auto res = RunFrontend(src, "TypeError.rbx");
+        auto res = RunFrontend(src, "TypeError.rx");
         Check(res.diagnostics.ContainsCode("R1001"), "Assigning String to Int emits R1001");
         std::string human = res.diagnostics.FormatHumanReadable();
         std::string json  = res.diagnostics.FormatJSON();
@@ -236,7 +236,7 @@ void TestTypeErrorsAndDiagnosticsFormat() {
                 Float c = a + b;
             }
         )";
-        auto badRes = RunFrontend(badMix, "BadMix.rbx");
+        auto badRes = RunFrontend(badMix, "BadMix.rx");
         Check(badRes.diagnostics.ContainsCode("R1001"), "Implicit Int + Float arithmetic is rejected with R1001");
 
         const std::string goodMix = R"(
@@ -247,7 +247,7 @@ void TestTypeErrorsAndDiagnosticsFormat() {
                 Print(c);
             }
         )";
-        auto goodRes = RunFrontend(goodMix, "GoodMix.rbx");
+        auto goodRes = RunFrontend(goodMix, "GoodMix.rx");
         Check(!goodRes.diagnostics.HasErrors(), "Explicit a.ToFloat() + b compiles cleanly with zero errors");
     }
 
@@ -259,7 +259,7 @@ void TestTypeErrorsAndDiagnosticsFormat() {
                 maxLimit = 60;
             }
         )";
-        auto res = RunFrontend(src, "ImmutableLet.rbx");
+        auto res = RunFrontend(src, "ImmutableLet.rx");
         Check(res.diagnostics.ContainsCode("R1002"), "Reassigning immutable 'let' variable emits R1002");
     }
 
@@ -271,7 +271,7 @@ void TestTypeErrorsAndDiagnosticsFormat() {
                 speed = "Fast";
             }
         )";
-        auto res = RunFrontend(src, "VarTypeChange.rbx");
+        auto res = RunFrontend(src, "VarTypeChange.rx");
         Check(res.diagnostics.ContainsCode("R1004"), "Reassigning 'var' to a different type emits R1004");
     }
 
@@ -283,7 +283,7 @@ void TestTypeErrorsAndDiagnosticsFormat() {
                 Print(uninitVal);
             }
         )";
-        auto res = RunFrontend(src, "Uninit.rbx");
+        auto res = RunFrontend(src, "Uninit.rx");
         Check(res.diagnostics.ContainsCode("R1007"), "Reading uninitialized variable emits R1007");
     }
 }
@@ -297,7 +297,7 @@ void TestNullSafetyAndNarrowing() {
                 Int len = nickname.Length();
             }
         )";
-        auto res = RunFrontend(badNull, "BadNull.rbx");
+        auto res = RunFrontend(badNull, "BadNull.rx");
         Check(res.diagnostics.ContainsCode("R1005"), "Calling .Length() on nullable String? without null check emits R1005");
     }
 
@@ -314,7 +314,7 @@ void TestNullSafetyAndNarrowing() {
                 Print(display);
             }
         )";
-        auto res = RunFrontend(safeNull, "SafeNull.rbx");
+        auto res = RunFrontend(safeNull, "SafeNull.rx");
         Check(!res.diagnostics.HasErrors(), "Null narrowing in 'if nickname != null' and null-coalescing fallback pass with zero errors");
     }
 }
@@ -330,7 +330,7 @@ void TestUnsafeBoundariesAndInlineASM() {
                 ASM("NOP");
             }
         )";
-        auto res = RunFrontend(outsideUnsafe, "OutsideUnsafe.rbx");
+        auto res = RunFrontend(outsideUnsafe, "OutsideUnsafe.rx");
         Check(res.diagnostics.ContainsCode("R1006"), "Pointer address-of, dereference, and ASM outside Unsafe block emit R1006");
     }
 
@@ -348,7 +348,7 @@ void TestUnsafeBoundariesAndInlineASM() {
                 }
             }
         )";
-        auto res = RunFrontend(insideUnsafe, "InsideUnsafe.rbx");
+        auto res = RunFrontend(insideUnsafe, "InsideUnsafe.rx");
         Check(!res.diagnostics.HasErrors(), "Pointer ops, Memory.Allocate/Free, and ASM inside Unsafe {} pass cleanly");
     }
 }
@@ -365,7 +365,7 @@ void TestNamingConventionsStrictMode() {
             }
         }
     )";
-    auto res = RunFrontend(badStyle, "BadStyle.rbx", opts);
+    auto res = RunFrontend(badStyle, "BadStyle.rx", opts);
     Check(res.diagnostics.ContainsCode("L0002"), "Strict style mode rejects 'HttpClient' (must be 'HTTPClient') with L0002");
     Check(res.diagnostics.ContainsCode("L0003"), "Strict style mode rejects 'isUsbConnected' (must be 'isUSBConnected') with L0003");
     Check(res.diagnostics.ContainsCode("L0004"), "Strict style mode rejects 'maxSpeed' constant (must be 'MAX_SPEED') with L0004");
@@ -394,7 +394,7 @@ void TestFirstClassExplainBlockValidator() {
                 return Success(targetRPM - loadFactor);
             }
         )";
-        auto res = RunFrontend(validExplain, "ValidExplain.rbx");
+        auto res = RunFrontend(validExplain, "ValidExplain.rx");
         Check(!res.diagnostics.HasErrors(), "Complete Explain {} block matching parameters and Result return type passes");
     }
 
@@ -413,7 +413,7 @@ void TestFirstClassExplainBlockValidator() {
                 return currentAmps * motorConstant;
             }
         )";
-        auto res = RunFrontend(badExplain, "BadExplain.rbx");
+        auto res = RunFrontend(badExplain, "BadExplain.rx");
         Check(res.diagnostics.ContainsCode("D3001"), "Explain block with mismatched Input parameter and missing Output emits D3001");
     }
 }
@@ -428,7 +428,7 @@ void TestNetworkServiceAndTestFileConstructs() {
         }
 
         TestFile {
-            Covers = "Motor.rbx";
+            Covers = "Motor.rx";
         }
 
         Test "Motor speed calculation works" {
@@ -437,7 +437,7 @@ void TestNetworkServiceAndTestFileConstructs() {
         }
     )";
 
-    auto res = RunFrontend(contractAndTests, "Motor.test.rbx");
+    auto res = RunFrontend(contractAndTests, "Motor.test.rx");
     Check(!res.diagnostics.HasErrors(), "Parser & TypeChecker support Service contracts, TestFile metadata, and Test blocks");
 }
 

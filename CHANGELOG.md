@@ -9,7 +9,7 @@ The detailed run log is [Documentation/Status.md](Documentation/Status.md). A li
 The first public description of the toolchain in this repository.
 
 - Shared C++20 frontend: lexer, parser, type checker, and SSA IR.
-- `robix` interprets `.rbx` programs. `robixc` compiles them through LLVM.
+- `robix` interprets `.rx` programs. `robixc` compiles them through LLVM.
 - Hosted Windows executables, static libraries, shared libraries, object files, and `.rbxlib` packages.
 - Freestanding images for Kernel and Firmware projects, booted under QEMU on x86-64, AArch64, ARM, and RISC-V.
 - RobixUI documents on Windows and on the web, with type-checked event bindings.

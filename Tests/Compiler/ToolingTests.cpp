@@ -28,11 +28,11 @@ void Check(bool condition, const std::string& testName) {
 // 1. CLI Test Scaffold Generator (`robix test-gen`, `robix test --generate`, `robixc --generate-tests`)
 // ----------------------------------------------------------------------------
 void TestCLITestScaffoldGeneratorAndUnifiedCLI() {
-    std::cout << "\n--- 1. CLI Automatic .test.rbx Scaffold Generator & Unified CLI (`robix` / `robixc`) ---\n";
+    std::cout << "\n--- 1. CLI Automatic .test.rx Scaffold Generator & Unified CLI (`robix` / `robixc`) ---\n";
     using namespace Robix;
 
     std::map<std::string, std::string> projectFS;
-    projectFS["Source/MotorDriver.rbx"] = R"(
+    projectFS["Source/MotorDriver.rx"] = R"(
 package Robotics.Drivers;
 
 public class MotorDriver {
@@ -47,21 +47,21 @@ public Function EmergencyBrake() -> Int {
     return 0;
 }
 )";
-    projectFS["Source/SensorHub.rbx"] = R"(
+    projectFS["Source/SensorHub.rx"] = R"(
 package Robotics.Sensors;
 
 public Function ReadTemperature() -> Int {
     return 25;
 }
 )";
-    // Pre-populate an existing `.test.rbx` file to verify idempotency (never overwrites existing tests)
+    // Pre-populate an existing `.test.rx` file to verify idempotency (never overwrites existing tests)
     const std::string existingCustomTest = R"(package Robotics.Sensors;
 import Robix.Testing;
 test "CustomPreservedSensorTest" {
     Assert.Equal(25, 25);
 }
 )";
-    projectFS["Source/SensorHub.test.rbx"] = existingCustomTest;
+    projectFS["Source/SensorHub.test.rx"] = existingCustomTest;
 
     // 1. Run `robix test-gen`
     auto genRes = Tools::RobixCLIDispatcher::ExecuteCommand(
@@ -71,38 +71,38 @@ test "CustomPreservedSensorTest" {
 
     Check(genRes.exitCode == 0 &&
           genRes.generatedTests.createdTestFiles.size() == 1 &&
-          genRes.generatedTests.createdTestFiles[0] == "Source/MotorDriver.test.rbx" &&
+          genRes.generatedTests.createdTestFiles[0] == "Source/MotorDriver.test.rx" &&
           genRes.generatedTests.skippedExistingTestFiles.size() == 1 &&
-          genRes.generatedTests.skippedExistingTestFiles[0] == "Source/SensorHub.test.rbx",
-          "`robix test-gen` creates missing Source/MotorDriver.test.rbx and skips existing Source/SensorHub.test.rbx");
+          genRes.generatedTests.skippedExistingTestFiles[0] == "Source/SensorHub.test.rx",
+          "`robix test-gen` creates missing Source/MotorDriver.test.rx and skips existing Source/SensorHub.test.rx");
 
-    Check(projectFS["Source/SensorHub.test.rbx"] == existingCustomTest,
-          "`robix test-gen` preserves existing .test.rbx file content untouched");
+    Check(projectFS["Source/SensorHub.test.rx"] == existingCustomTest,
+          "`robix test-gen` preserves existing .test.rx file content untouched");
 
-    const std::string& generatedMotorTest = projectFS["Source/MotorDriver.test.rbx"];
+    const std::string& generatedMotorTest = projectFS["Source/MotorDriver.test.rx"];
     Check(StdLib::StringOps::Contains(generatedMotorTest, "package Robotics.Drivers;") &&
           StdLib::StringOps::Contains(generatedMotorTest, "import Robix.Testing;") &&
           StdLib::StringOps::Contains(generatedMotorTest, "Test \"MotorDriver Construction\"") &&
           StdLib::StringOps::Contains(generatedMotorTest, "Test \"MotorDriver.SetSpeed\"") &&
           StdLib::StringOps::Contains(generatedMotorTest, "Test \"MotorDriver.GetSpeed\"") &&
           StdLib::StringOps::Contains(generatedMotorTest, "Test \"MotorDriver.EmergencyBrake\""),
-          "Generated .test.rbx contains empty test blocks for every class, method, and function in source file");
+          "Generated .test.rx contains empty test blocks for every class, method, and function in source file");
 
-    // 2. Verify that generated empty `.test.rbx` compiles and passes `robix test Source/MotorDriver.test.rbx`
+    // 2. Verify that generated empty `.test.rx` compiles and passes `robix test Source/MotorDriver.test.rx`
     auto testRunRes = Tools::RobixCLIDispatcher::ExecuteCommand(
         Tools::CLIBinaryKind::RobixUnifiedCLI,
-        { "test", "Source/MotorDriver.test.rbx" },
+        { "test", "Source/MotorDriver.test.rx" },
         &projectFS);
     Check(testRunRes.exitCode == 0 &&
           StdLib::StringOps::Contains(testRunRes.stdoutText, "4 passed, 0 failed"),
-          "Generated empty .test.rbx file compiles and executes cleanly via `robix test`");
+          "Generated empty .test.rx file compiles and executes cleanly via `robix test`");
 
     // 3. Verify `robix test --generate` and `robixc --generate-tests` on disk in Build/TempScaffoldTest
     const std::filesystem::path tempDir = "Build/TempScaffoldTest";
     std::filesystem::remove_all(tempDir);
     std::filesystem::create_directories(tempDir);
-    const std::filesystem::path diskRbxPath  = tempDir / "ArmController.rbx";
-    const std::filesystem::path diskTestPath = tempDir / "ArmController.test.rbx";
+    const std::filesystem::path diskRbxPath  = tempDir / "ArmController.rx";
+    const std::filesystem::path diskTestPath = tempDir / "ArmController.test.rx";
 
     StdLib::CrossPlatformIO::WriteAllText(diskRbxPath.generic_string(), R"(
 package Robotics.Arm;
@@ -118,7 +118,7 @@ public Function HomeJoints() -> Int {
     Check(diskGenRes.exitCode == 0 &&
           std::filesystem::exists(diskTestPath) &&
           diskGenRes.generatedTests.createdTestFiles.size() == 1,
-          "`robixc --generate-tests` creates ArmController.test.rbx on disk when missing");
+          "`robixc --generate-tests` creates ArmController.test.rx on disk when missing");
 
     // Running a second time on disk skips existing file
     auto diskGenSecond = Tools::RobixCLIDispatcher::ExecuteCommand(
@@ -126,7 +126,7 @@ public Function HomeJoints() -> Int {
         { "generate-tests", tempDir.generic_string() });
     Check(diskGenSecond.generatedTests.createdTestFiles.empty() &&
           diskGenSecond.generatedTests.skippedExistingTestFiles.size() == 1,
-          "`robix generate-tests` on disk is idempotent and never overwrites existing .test.rbx");
+          "`robix generate-tests` on disk is idempotent and never overwrites existing .test.rx");
     std::filesystem::remove_all(tempDir);
 
     // 4. Verify `robix repl` and `robixc` LLVM IR emission
@@ -134,7 +134,7 @@ public Function HomeJoints() -> Int {
     Check(replRes.exitCode == 0 && StdLib::StringOps::Contains(replRes.stdoutText, "REPL_OK"),
           "`robix repl` evaluates single-line interactive Robix statement");
 
-    projectFS["Source/Main.rbx"] = R"(
+    projectFS["Source/Main.rx"] = R"(
 package App;
 public Function Main() -> Int {
     Print("CLI_MAIN_OK");
@@ -143,11 +143,11 @@ public Function Main() -> Int {
 )";
     auto llvmCompileRes = Tools::RobixCLIDispatcher::ExecuteCommand(
         Tools::CLIBinaryKind::RobixNativeCompiler,
-        { "Source/Main.rbx" },
+        { "Source/Main.rx" },
         &projectFS);
     Check(llvmCompileRes.exitCode == 0 &&
           StdLib::StringOps::Contains(llvmCompileRes.stdoutText, "define"),
-          "`robixc Source/Main.rbx` compiles source to native LLVM IR");
+          "`robixc Source/Main.rx` compiles source to native LLVM IR");
 }
 
 // ----------------------------------------------------------------------------
@@ -166,7 +166,7 @@ void TestFormatterLinterLSPAndDocGen() {
     // Strict linter rejects bad casing or missing Explain
     Frontend::DiagnosticBag badLintDiags;
     const bool badLintOk = Tools::RobixFormatterAndLinter::LintSource(
-        "BadStyle.rbx",
+        "BadStyle.rx",
         "package App;\nconst Int badConst = 1;\npublic Function Undocumented() -> Void {}\n",
         true,
         badLintDiags);
@@ -175,7 +175,7 @@ void TestFormatterLinterLSPAndDocGen() {
 
     // LSP indexing, autocomplete, hover Explain docs, go-to-definition, and Markdown doc generation
     Tools::RobixLanguageServer lsp;
-    lsp.IndexDocument("file:///Project/Source/Navigation.rbx", R"(
+    lsp.IndexDocument("file:///Project/Source/Navigation.rx", R"(
 package Robotics.Navigation;
 
 public class PathPlanner {
@@ -204,7 +204,7 @@ public Function ComputeWaypoint(Int index) -> Int {
           "RobixLanguageServer::GetHoverDocumentation surfaces Explain block description");
 
     const auto defOpt = lsp.GoToDefinition("PathPlanner");
-    Check(defOpt.has_value() && defOpt->fileUri == "file:///Project/Source/Navigation.rbx" && defOpt->line >= 1,
+    Check(defOpt.has_value() && defOpt->fileUri == "file:///Project/Source/Navigation.rx" && defOpt->line >= 1,
           "RobixLanguageServer::GoToDefinition resolves exact file URI and line number");
 
     const std::string docMd = lsp.GenerateMarkdownDocumentation("Robotics.Navigation");
@@ -225,15 +225,15 @@ void TestDebuggerAndProfilerInfrastructure() {
 
     // Conditional breakpoint: only triggers when motorSpeed > 100
     debugger.AddConditionalBreakpoint(
-        "MotorController.rbx",
+        "MotorController.rx",
         42,
         "motorSpeed > 100",
         [&]() { return motorSpeed > 100; });
 
-    Check(!debugger.CheckBreakpointHit("MotorController.rbx", 42),
+    Check(!debugger.CheckBreakpointHit("MotorController.rx", 42),
           "Conditional breakpoint does not pause when condition (motorSpeed > 100) is false");
     motorSpeed = 140;
-    Check(debugger.CheckBreakpointHit("MotorController.rbx", 42),
+    Check(debugger.CheckBreakpointHit("MotorController.rx", 42),
           "Conditional breakpoint pauses execution when condition (motorSpeed > 100) evaluates to true");
 
     // Memory / variable Watchpoint
@@ -244,8 +244,8 @@ void TestDebuggerAndProfilerInfrastructure() {
           "Write watchpoint triggers immediately when watched variable mutates");
 
     // Call Stack Navigation, Frame Inspection, Memory Hex View & Crash Dump
-    debugger.PushFrame("Main", "Main.rbx", 10, { { "mode", "Autonomous" } });
-    debugger.PushFrame("ControlLoop", "Controller.rbx", 88, { { "dt", "0.001" } });
+    debugger.PushFrame("Main", "Main.rx", 10, { { "mode", "Autonomous" } });
+    debugger.PushFrame("ControlLoop", "Controller.rx", 88, { { "dt", "0.001" } });
     const auto* topFrame = debugger.InspectFrame(1);
     Check(topFrame != nullptr && topFrame->functionName == "ControlLoop" && topFrame->locals.at("dt") == "0.001",
           "RobixDebuggerEngine navigates call stack frames and inspects frame local variables");
@@ -256,8 +256,8 @@ void TestDebuggerAndProfilerInfrastructure() {
 
     const std::string crashDump = debugger.GenerateNativeCrashDump("HardwareFaultException", "VM+NativeParity");
     Check(StdLib::StringOps::Contains(crashDump, "ROBIX SYMBOLICATED CRASH DUMP") &&
-          StdLib::StringOps::Contains(crashDump, "#1 ControlLoop at Controller.rbx:88") &&
-          StdLib::StringOps::Contains(crashDump, "#0 Main at Main.rbx:10"),
+          StdLib::StringOps::Contains(crashDump, "#1 ControlLoop at Controller.rx:88") &&
+          StdLib::StringOps::Contains(crashDump, "#0 Main at Main.rx:10"),
           "RobixDebuggerEngine::GenerateNativeCrashDump produces symbolicated backtrace with VM & Native parity");
 
     // Profiler: CPU Flame Graph (folded + SVG), Heap Visualization JSON & Data-Race Detection (RACE9001)
@@ -288,7 +288,7 @@ void TestDebuggerAndProfilerInfrastructure() {
 // 4. Formal 16-Workload Benchmark Suite, 22 Working Examples & 30 Official Docs
 // ----------------------------------------------------------------------------
 void TestBenchmarksExamplesAndDocumentationSuite() {
-    std::cout << "\n--- 4. 16-Workload Benchmark Suite, 22 Working Examples (with .test.rbx) & 30 Official Guides ---\n";
+    std::cout << "\n--- 4. 16-Workload Benchmark Suite, 22 Working Examples (with .test.rx) & 30 Official Guides ---\n";
     using namespace Robix;
 
     // 16 Benchmark Workloads
@@ -307,14 +307,14 @@ void TestBenchmarksExamplesAndDocumentationSuite() {
           StdLib::StringOps::Contains(benchReport, "NeuralNetworkInference"),
           "All 16 benchmark workloads produce verified non-zero checksums and formatted timing metrics");
 
-    // 22 Mandatory Working Example Applications (every example has a `.test.rbx` file and executes cleanly)
+    // 22 Mandatory Working Example Applications (every example has a `.test.rx` file and executes cleanly)
     const auto& examples = Tools::OfficialExamplesCatalog::GetAll22Examples();
     Check(examples.size() == 22, "OfficialExamplesCatalog provides all 22 mandatory example applications");
 
     std::size_t passedExamples = 0;
     const bool allExamplesOk   = Tools::OfficialExamplesCatalog::VerifyAndExecuteAll22Examples(passedExamples);
     Check(allExamplesOk && passedExamples == 22,
-          "All 22 working example applications and their companion .test.rbx files compile and pass execution");
+          "All 22 working example applications and their companion .test.rx files compile and pass execution");
 
     // 30 Official Documentation Guides (including Guide 29 RobixBuild and Guide 30 Robix Network)
     const auto& guides = Tools::OfficialDocumentationCatalog::GetAll30Guides();

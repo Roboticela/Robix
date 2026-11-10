@@ -18,18 +18,18 @@
 namespace Robix::Tools {
 
 // ============================================================================
-// 1. AUTOMATIC .TEST.RBX SCAFFOLD GENERATOR IMPLEMENTATION
+// 1. AUTOMATIC .TEST.RX SCAFFOLD GENERATOR IMPLEMENTATION
 // ============================================================================
 
 std::string TestScaffoldGenerator::ComputeCompanionTestPath(std::string_view sourceFilePath) {
     std::string pathStr(sourceFilePath);
-    if (StdLib::StringOps::EndsWith(pathStr, ".test.rbx")) {
+    if (StdLib::StringOps::EndsWith(pathStr, ".test.rx")) {
         return pathStr;
     }
-    if (StdLib::StringOps::EndsWith(pathStr, ".rbx")) {
-        return pathStr.substr(0, pathStr.size() - 4) + ".test.rbx";
+    if (StdLib::StringOps::EndsWith(pathStr, ".rx")) {
+        return pathStr.substr(0, pathStr.size() - 4) + ".test.rx";
     }
-    return pathStr + ".test.rbx";
+    return pathStr + ".test.rx";
 }
 
 std::string TestScaffoldGenerator::SynthesizeTestFileContent(
@@ -41,7 +41,7 @@ std::string TestScaffoldGenerator::SynthesizeTestFileContent(
     Frontend::Parser parser(lexer.TokenizeAll(), sourceFilePath, diags);
     const auto ast = parser.ParseCompilationUnit();
 
-    // Extract stem name (e.g., "Source/MotorController.rbx" -> "MotorController")
+    // Extract stem name (e.g., "Source/MotorController.rx" -> "MotorController")
     std::filesystem::path fsPath{ std::string(sourceFilePath) };
     std::string stemName = fsPath.stem().string();
     if (stemName.empty()) {
@@ -98,17 +98,17 @@ bool TestScaffoldGenerator::EnsureTestFileForSourceOnDisk(
     TestScaffoldReport& reportOut) {
 
     const std::string pathStr = rbxFilePath.generic_string();
-    if (!StdLib::StringOps::EndsWith(pathStr, ".rbx") ||
-        StdLib::StringOps::EndsWith(pathStr, ".test.rbx")) {
+    if (!StdLib::StringOps::EndsWith(pathStr, ".rx") ||
+        StdLib::StringOps::EndsWith(pathStr, ".test.rx")) {
         return false;
     }
 
     const std::filesystem::path companionPath{ ComputeCompanionTestPath(pathStr) };
 
-    // Also check if `<ParentOfSource>/Tests/<Stem>.test.rbx` exists
+    // Also check if `<ParentOfSource>/Tests/<Stem>.test.rx` exists
     std::filesystem::path projectTestsCandidate;
     if (rbxFilePath.has_parent_path() && rbxFilePath.parent_path().filename() == "Source") {
-        projectTestsCandidate = rbxFilePath.parent_path().parent_path() / "Tests" / (rbxFilePath.stem().string() + ".test.rbx");
+        projectTestsCandidate = rbxFilePath.parent_path().parent_path() / "Tests" / (rbxFilePath.stem().string() + ".test.rx");
     }
 
     if (std::filesystem::exists(companionPath)) {
@@ -168,8 +168,8 @@ TestScaffoldReport TestScaffoldGenerator::GenerateMissingTestFilesOnDisk(
     for (const auto& entry : std::filesystem::recursive_directory_iterator(targetPath)) {
         if (!entry.is_regular_file()) continue;
         const std::string p = entry.path().generic_string();
-        if (StdLib::StringOps::EndsWith(p, ".rbx") &&
-            !StdLib::StringOps::EndsWith(p, ".test.rbx")) {
+        if (StdLib::StringOps::EndsWith(p, ".rx") &&
+            !StdLib::StringOps::EndsWith(p, ".test.rx")) {
             EnsureTestFileForSourceOnDisk(entry.path(), report);
         }
     }
@@ -182,8 +182,8 @@ TestScaffoldReport TestScaffoldGenerator::GenerateMissingTestFilesInMemory(
     TestScaffoldReport report;
     std::vector<std::pair<std::string, std::string>> sourcesToInspect;
     for (const auto& [path, content] : projectFiles) {
-        if (StdLib::StringOps::EndsWith(path, ".rbx") &&
-            !StdLib::StringOps::EndsWith(path, ".test.rbx")) {
+        if (StdLib::StringOps::EndsWith(path, ".rx") &&
+            !StdLib::StringOps::EndsWith(path, ".test.rx")) {
             sourcesToInspect.emplace_back(path, content);
         }
     }
@@ -191,7 +191,7 @@ TestScaffoldReport TestScaffoldGenerator::GenerateMissingTestFilesInMemory(
     for (const auto& [srcPath, srcContent] : sourcesToInspect) {
         const std::string companionPath = ComputeCompanionTestPath(srcPath);
         std::filesystem::path fsSrc{ srcPath };
-        const std::string stemTestName = "Tests/" + fsSrc.stem().string() + ".test.rbx";
+        const std::string stemTestName = "Tests/" + fsSrc.stem().string() + ".test.rx";
 
         if (projectFiles.count(companionPath) > 0) {
             report.skippedExistingTestFiles.push_back(companionPath);
@@ -317,7 +317,7 @@ CLICommandResult RobixCLIDispatcher::ExecuteCommand(
     CLICommandResult result;
     if (args.empty()) {
         result.exitCode   = 1;
-        result.stderrText = "Usage: robix <command> [options] | robixc <file.rbx> [options]\n";
+        result.stderrText = "Usage: robix <command> [options] | robixc <file.rx> [options]\n";
         return result;
     }
 
@@ -350,8 +350,8 @@ CLICommandResult RobixCLIDispatcher::ExecuteCommand(
 
         std::ostringstream msg;
         msg << "Test Scaffold Generator: created " << result.generatedTests.createdTestFiles.size()
-            << " missing .test.rbx file(s), skipped " << result.generatedTests.skippedExistingTestFiles.size()
-            << " existing .test.rbx file(s).\n";
+            << " missing .test.rx file(s), skipped " << result.generatedTests.skippedExistingTestFiles.size()
+            << " existing .test.rx file(s).\n";
         result.stdoutText = msg.str();
         result.exitCode   = 0;
 
@@ -386,7 +386,7 @@ CLICommandResult RobixCLIDispatcher::ExecuteCommand(
             }
             return RunSingleSourceFile(args[1], *srcOpt, true, false);
         }
-        // Single-file native compile (`robixc Main.rbx`)
+        // Single-file native compile (`robixc Main.rx`)
         auto srcOpt = LoadSourceFile(cmd, optionalInMemoryFiles);
         if (!srcOpt) {
             result.exitCode   = 1;
@@ -402,7 +402,7 @@ CLICommandResult RobixCLIDispatcher::ExecuteCommand(
     if (cmd == "run") {
         std::string targetFile = (args.size() >= 2 && !StdLib::StringOps::StartsWith(args[1], "--"))
                                      ? args[1]
-                                     : "Source/Main.rbx";
+                                     : "Source/Main.rx";
         auto srcOpt = LoadSourceFile(targetFile, optionalInMemoryFiles);
         if (!srcOpt) {
             result.exitCode   = 1;
@@ -413,13 +413,13 @@ CLICommandResult RobixCLIDispatcher::ExecuteCommand(
     }
 
     if (cmd == "test") {
-        // Automatically generate missing `.test.rbx` files with empty tests if `--generate` or `--auto-scaffold` is passed
+        // Automatically generate missing `.test.rx` files with empty tests if `--generate` or `--auto-scaffold` is passed
         if (HasFlag(args, "--generate") || HasFlag(args, "--auto-scaffold")) {
             if (optionalInMemoryFiles) {
                 result.generatedTests = TestScaffoldGenerator::GenerateMissingTestFilesInMemory(*optionalInMemoryFiles);
             }
         }
-        std::string targetFile = "Tests/Main.test.rbx";
+        std::string targetFile = "Tests/Main.test.rx";
         for (std::size_t i = 1; i < args.size(); ++i) {
             if (!StdLib::StringOps::StartsWith(args[i], "--")) {
                 targetFile = args[i];
@@ -427,7 +427,7 @@ CLICommandResult RobixCLIDispatcher::ExecuteCommand(
             }
         }
         std::optional<std::string> srcOpt;
-        if (StdLib::StringOps::EndsWith(targetFile, ".test.rbx")) {
+        if (StdLib::StringOps::EndsWith(targetFile, ".test.rx")) {
             srcOpt = LoadSourceFile(targetFile, optionalInMemoryFiles);
         } else {
             const std::string companion = TestScaffoldGenerator::ComputeCompanionTestPath(targetFile);
@@ -480,7 +480,7 @@ CLICommandResult RobixCLIDispatcher::EvaluateReplLine(std::string_view replInput
             << "public Function Main() -> Void {\n"
             << "    " << replInputLine << "\n"
             << "}\n";
-    return RunSingleSourceFile("Repl.rbx", wrapped.str(), false, false);
+    return RunSingleSourceFile("Repl.rx", wrapped.str(), false, false);
 }
 
 } // namespace Robix::Tools

@@ -282,7 +282,7 @@ Package RobixMotors {
     // Project-local workflow: `robix new`, `robix add`, `robix install`, `robix list`, `robix tree`, `robix restore`
     RobixPackageManager mgr("D:/MyRobotApp", registry);
     Check(mgr.NewProject("MyRobotApp", "robotics"),
-          "RobixPackageManager::NewProject scaffolds Robix.Project.rbxproj, Project.rbxb, Source/Main.rbx, and Tests/Main.test.rbx");
+          "RobixPackageManager::NewProject scaffolds Robix.Project.rbxproj, Project.rbxb, Source/Main.rx, and Tests/Main.test.rx");
 
     Check(mgr.AddDependency("RobixMotors", "^2.0.0"),
           "RobixPackageManager::AddDependency records dependency in Robix.Project.rbxproj");

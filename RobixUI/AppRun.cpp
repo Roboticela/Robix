@@ -58,12 +58,12 @@ fs::path FindDocument(const fs::path& input) {
     std::error_code error;
     if (fs::is_regular_file(input, error)) {
         const std::string ext = Lower(input.extension().string());
-        if (ext == ".rbxu" || ext == ".xml" || ext == ".r3d") {
+        if (ext == ".rxu" || ext == ".xml" || ext == ".r3d") {
             return input;
         }
     }
     const fs::path root = fs::is_directory(input, error) ? input : input.parent_path();
-    const char* names[] = {"Main.rbxu", "Main.xml", "MainWindow.rbxu"};
+    const char* names[] = {"Main.rxu", "Main.xml", "MainWindow.rxu"};
     for (const char* name : names) {
         const fs::path candidate = root / name;
         if (fs::is_regular_file(candidate, error)) {
@@ -92,7 +92,7 @@ std::filesystem::file_time_type LatestStamp(const fs::path& document) {
     for (fs::recursive_directory_iterator cursor(directory, error), end; !error && cursor != end; cursor.increment(error)) {
         if (!cursor->is_regular_file(error)) continue;
         const std::string ext = Lower(cursor->path().extension().string());
-        if (ext != ".rbxu" && ext != ".r3d" && ext != ".xml") continue;
+        if (ext != ".rxu" && ext != ".r3d" && ext != ".xml") continue;
         const auto stamp = StampOf(cursor->path());
         if (stamp > latest) latest = stamp;
     }

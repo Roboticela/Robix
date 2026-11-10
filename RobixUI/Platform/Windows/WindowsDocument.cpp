@@ -128,16 +128,27 @@ std::string ButtonSlot(const RoboXMLNode& node) {
     return Lower(slot);
 }
 
+std::string TextCopy(const RoboXMLNode& node) {
+    const std::string body = TrimCopy(node.text);
+    if (!body.empty()) {
+        return body;
+    }
+    const char* keys[] = {"value", "content", "text", "label"};
+    for (const char* key : keys) {
+        const std::string value = TrimCopy(RoboXMLAttr(node, key));
+        if (!value.empty()) {
+            return value;
+        }
+    }
+    return {};
+}
+
 std::string ButtonLabel(const RoboXMLNode& node) {
     if (ButtonOn(node, "loading")) {
         const std::string loading = RoboXMLAttr(node, "loadingtext");
         return loading.empty() ? "Loading..." : loading;
     }
-    std::string label = RoboXMLAttr(node, "content");
-    if (label.empty()) {
-        label = node.text;
-    }
-    return TrimCopy(label);
+    return TextCopy(node);
 }
 
 void ResolveButtonIcons(const RoboXMLNode& node, std::string& leading, std::string& trailing) {
@@ -193,8 +204,21 @@ int LengthOf(const std::string& raw) {
     if (raw.empty()) {
         return 0;
     }
-    if (IsDigits(raw)) {
-        return Px(std::stoi(raw));
+    std::size_t begin = 0;
+    int sign = 1;
+    if (raw[0] == '+') {
+        begin = 1;
+    } else if (raw[0] == '-') {
+        sign = -1;
+        begin = 1;
+    }
+    const std::string body = raw.substr(begin);
+    if (IsDigits(body)) {
+        const int magnitude = Px(std::stoi(body));
+        return sign < 0 ? -magnitude : magnitude;
+    }
+    if (sign < 0) {
+        return 0;
     }
     const RoboI32 space = RoboFoundationPlatformSpace(raw.c_str());
     if (space > 0) {
@@ -202,6 +226,25 @@ int LengthOf(const std::string& raw) {
     }
     const RoboI32 radius = RoboFoundationPlatformRadius(raw.c_str());
     return Px(radius > 0 ? radius : 0);
+}
+
+int MeasureLength(const std::string& raw, int basis) {
+    if (raw.size() > 1 && raw.back() == '%') {
+        const std::string number = raw.substr(0, raw.size() - 1);
+        std::size_t begin = 0;
+        int sign = 1;
+        if (!number.empty() && number[0] == '+') {
+            begin = 1;
+        } else if (!number.empty() && number[0] == '-') {
+            sign = -1;
+            begin = 1;
+        }
+        const std::string digits = number.substr(begin);
+        if (basis > 0 && IsDigits(digits)) {
+            return sign * basis * std::stoi(digits) / 100;
+        }
+    }
+    return LengthOf(raw);
 }
 
 int AttrLength(const RoboXMLNode& node, const char* key, int fallback = 0) {
@@ -304,6 +347,18 @@ TypeStyle StyleOf(const RoboXMLNode& node) {
     }
     style.size = Px(style.size);
     style.leading = Px(style.leading);
+    const std::string fontSize = RoboXMLAttr(node, "fontsize");
+    int forced = fontSize.empty() ? 0 : LengthOf(fontSize);
+    if (forced <= 0) {
+        const std::string sizeName = RoboXMLAttr(node, "size");
+        if (!sizeName.empty() && sizeName.find_first_not_of("0123456789") == std::string::npos) {
+            forced = LengthOf(sizeName);
+        }
+    }
+    if (forced > 0) {
+        style.size = forced;
+        style.leading = forced + std::max(1, forced / 4);
+    }
     return style;
 }
 
@@ -345,6 +400,7 @@ struct PaintOp {
     RoboU32 color = 0;
     int size = 0;
     int face = 0;
+    int align = 0;
     std::string value;
     int control = -1;
     int kind = 0;
@@ -687,7 +743,7 @@ void SegmentFaces(const RoboXMLNode& node, std::vector<SegmentFace>& faces, int&
         SegmentFace face;
         face.label = RoboXMLAttr(child, "label");
         if (face.label.empty()) {
-            face.label = child.text;
+            face.label = TextCopy(child);
         }
         face.icon = RoboWebSvg(gAssets, RoboXMLAttr(child, "icon"));
         face.badge = RoboXMLAttr(child, "badge");
@@ -974,14 +1030,29 @@ bool IsIcon(const RoboXMLNode& node) {
     return name == "icon" || name == "svg" || RoboCompilerIsIconNode(node);
 }
 
+int AskedLength(const RoboXMLNode& node, const char* key, int basis) {
+    const std::string raw = RoboXMLAttr(node, key);
+    if (raw.empty() || Lower(raw) == "auto") {
+        return -1;
+    }
+    return std::max(0, MeasureLength(raw, basis));
+}
+
 int ContentWidth(const RoboXMLNode& node, int maxWidth) {
+    const int cap = AttrLength(node, "maxwidth");
+    if (cap > 0 && cap < maxWidth) {
+        maxWidth = cap;
+    }
+    const int asked = AskedLength(node, "width", maxWidth);
+    if (asked >= 0) {
+        return std::min(maxWidth, std::max(1, asked));
+    }
     const std::string name = Lower(node.name);
     if (name == "image") {
         return 0;
     }
     if (name == "anchor") {
-        std::string label = RoboXMLAttr(node, "content");
-        if (label.empty()) label = TrimCopy(node.text);
+        std::string label = TextCopy(node);
         const std::string sizeName = Lower(RoboXMLAttr(node, "size", "inherit"));
         int size = 14;
         if (sizeName == "sm" || sizeName == "small") size = 12;
@@ -992,7 +1063,7 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
-        return std::min(maxWidth, std::max(1, MeasureText(node.text, style.size, style.face)));
+        return std::min(maxWidth, std::max(1, MeasureText(TextCopy(node), style.size, style.face)));
     }
     if (IsIcon(node)) {
         return std::min(maxWidth, IconBox(node));
@@ -1161,6 +1232,148 @@ void StyleButton(const RoboXMLNode& node, bool light, bool hot, bool pressed, Pa
     RecolorButton(op, light, hot, pressed);
 }
 
+struct TextLine {
+    std::string text;
+    int width = 0;
+};
+
+void AppendWrapped(const std::string& paragraph, int width, int size, int face, std::vector<TextLine>& lines) {
+    std::string word;
+    std::string line;
+    int lineWidth = 0;
+    const auto flush = [&]() {
+        if (line.empty()) {
+            return;
+        }
+        lines.push_back(TextLine{line, lineWidth});
+        line.clear();
+        lineWidth = 0;
+    };
+    const auto addWord = [&](const std::string& piece) {
+        if (piece.empty()) {
+            return;
+        }
+        const int pieceWidth = MeasureText(piece, size, face);
+        if (line.empty()) {
+            line = piece;
+            lineWidth = pieceWidth;
+            return;
+        }
+        const int gap = MeasureText(" ", size, face);
+        if (width > 0 && lineWidth + gap + pieceWidth > width) {
+            flush();
+            line = piece;
+            lineWidth = pieceWidth;
+            return;
+        }
+        line.push_back(' ');
+        line += piece;
+        lineWidth += gap + pieceWidth;
+    };
+    for (char ch : paragraph) {
+        if (ch == ' ' || ch == '\t' || ch == '\r') {
+            addWord(word);
+            word.clear();
+        } else {
+            word.push_back(ch);
+        }
+    }
+    addWord(word);
+    flush();
+}
+
+void TextLines(const std::string& value, int width, int size, int face, std::vector<TextLine>& lines) {
+    lines.clear();
+    std::size_t start = 0;
+    while (start <= value.size()) {
+        const std::size_t mark = value.find('\n', start);
+        const std::string paragraph = value.substr(start, mark == std::string::npos ? std::string::npos : mark - start);
+        const std::size_t before = lines.size();
+        AppendWrapped(paragraph, width, size, face, lines);
+        if (lines.size() == before) {
+            lines.push_back(TextLine{});
+        }
+        if (mark == std::string::npos) {
+            break;
+        }
+        start = mark + 1;
+    }
+    if (lines.empty()) {
+        lines.push_back(TextLine{});
+    }
+}
+
+int TextBlockHeight(const std::string& value, int width, int size, int face, int leading) {
+    std::vector<TextLine> lines;
+    TextLines(value, width, size, face, lines);
+    return std::max(leading, size) * static_cast<int>(lines.size());
+}
+
+struct BoxEdge {
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+    int left = 0;
+};
+
+BoxEdge BoxEdges(const RoboXMLNode& node, const char* all, const char* axisX, const char* axisY, const char* top,
+                 const char* right, const char* bottom, const char* left, int basis) {
+    BoxEdge edge;
+    const int uniform = MeasureLength(RoboXMLAttr(node, all), basis);
+    const std::string rawX = RoboXMLAttr(node, axisX);
+    const std::string rawY = RoboXMLAttr(node, axisY);
+    const int xAxis = rawX.empty() ? uniform : MeasureLength(rawX, basis);
+    const int yAxis = rawY.empty() ? uniform : MeasureLength(rawY, basis);
+    const auto pick = [&](const char* key, int axis) {
+        const std::string raw = RoboXMLAttr(node, key);
+        return raw.empty() ? axis : MeasureLength(raw, basis);
+    };
+    edge.top = pick(top, yAxis);
+    edge.right = pick(right, xAxis);
+    edge.bottom = pick(bottom, yAxis);
+    edge.left = pick(left, xAxis);
+    return edge;
+}
+
+int PackAlign(const std::string& raw) {
+    const std::string key = Lower(raw);
+    if (key == "center" || key == "middle") {
+        return 1;
+    }
+    if (key == "end" || key == "flex-end" || key == "right" || key == "bottom") {
+        return 2;
+    }
+    if (key == "stretch") {
+        return 3;
+    }
+    if (key == "space-between") {
+        return 4;
+    }
+    if (key == "space-around") {
+        return 5;
+    }
+    if (key == "space-evenly") {
+        return 6;
+    }
+    return 0;
+}
+
+void ShiftRange(std::vector<PaintOp>& ops, std::size_t begin, std::size_t end, HitState* hits, int controlBegin,
+                int controlEnd, int dx, int dy) {
+    for (std::size_t index = begin; index < end && index < ops.size(); ++index) {
+        ops[index].x += dx;
+        ops[index].y += dy;
+    }
+    if (hits == nullptr || hits->controls == nullptr || (dx == 0 && dy == 0)) {
+        return;
+    }
+    const int limit = std::min(controlEnd, static_cast<int>(hits->controls->size()));
+    for (int index = controlBegin; index < limit; ++index) {
+        (*hits->controls)[index].x += dx;
+        (*hits->controls)[index].y += dy;
+    }
+}
+
 int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits) {
     const std::string name = Lower(node.name);
     std::string shown = Lower(RoboXMLAttr(node, "visibility"));
@@ -1196,14 +1409,13 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         return 160;
     }
     if (name == "anchor") {
-        std::string label = RoboXMLAttr(node, "content");
-        if (label.empty()) label = TrimCopy(node.text);
+        std::string label = TextCopy(node);
         const std::string sizeName = Lower(RoboXMLAttr(node, "size", "inherit"));
         int size = 14;
         if (sizeName == "sm" || sizeName == "small") size = 12;
         else if (sizeName == "md" || sizeName == "medium" || sizeName == "lg" || sizeName == "large") size = 17;
         const std::string variant = Lower(RoboXMLAttr(node, "variant", "inline"));
-        const int face = (variant == "arrow" || variant == "standalone" || !RoboXMLAttr(node, "arrow").empty()) ? 1 : 0;
+        const int face = (variant == "arrow" || variant == "standalone" || variant == "more" || !RoboXMLAttr(node, "arrow").empty()) ? 1 : 0;
         std::string color = "text-link";
         if (Lower(RoboXMLAttr(node, "disabled")) == "true") color = "text-disabled";
         else if (variant == "subtle" && RoboXMLAttr(node, "arrow").empty()) color = "text-tertiary";
@@ -1225,18 +1437,25 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
+        const std::string value = TextCopy(node);
+        if (value.empty()) {
+            return 0;
+        }
+        const std::string alignName = Lower(RoboXMLAttr(node, "textalign").empty() ? RoboXMLAttr(node, "align") : RoboXMLAttr(node, "textalign"));
         PaintOp op;
         op.text = true;
         op.x = x;
         op.y = y;
         op.width = width;
-        op.height = style.leading;
         op.size = style.size;
         op.face = style.face;
-        op.color = RoboFoundationPlatformColorForTheme(style.color, light ? ROBO_TRUE : ROBO_FALSE);
-        op.value = node.text;
+        op.align = (alignName == "center" || alignName == "middle") ? 1 : (alignName == "end" || alignName == "right") ? 2 : 0;
+        const std::string colorName = RoboXMLAttr(node, "color");
+        op.color = RoboFoundationPlatformColorForTheme(colorName.empty() ? style.color : colorName.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
+        op.value = value;
+        op.height = TextBlockHeight(value, width, style.size, style.face, style.leading);
         ops.push_back(op);
-        return style.leading;
+        return op.height;
     }
     if (IsIcon(node)) {
         const int box = IconBox(node);
@@ -1461,31 +1680,389 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         }
         return std::max(0, bottom - y);
     }
-    const int pad = IsBox(name) || name == "screen" ? Padding(node) : 0;
-    const int gap = Gap(node);
-    const bool row = RowDirection(node);
-    const int inner = std::max(0, width - pad * 2);
-    int cursorX = x + pad;
-    int cursorY = y + pad;
-    int lineHeight = 0;
-    int bottom = cursorY;
-    for (const RoboXMLNode& child : node.children) {
-        int childWidth = row ? ContentWidth(child, inner) : inner;
-        if (row && cursorX > x + pad && cursorX + childWidth > x + pad + inner) {
-            cursorX = x + pad;
-            cursorY += lineHeight + gap;
-            lineHeight = 0;
+    const int cap = AttrLength(node, "maxwidth");
+    if (cap > 0 && cap < width) {
+        width = cap;
+    }
+    BoxEdge pad = BoxEdges(node, "padding", "paddingx", "paddingy", "paddingtop", "paddingright", "paddingbottom", "paddingleft", width);
+    if (RoboXMLAttr(node, "paddingx").empty() && !RoboXMLAttr(node, "paddinghorizontal").empty()) {
+        const int axis = MeasureLength(RoboXMLAttr(node, "paddinghorizontal"), width);
+        if (RoboXMLAttr(node, "paddingleft").empty()) pad.left = axis;
+        if (RoboXMLAttr(node, "paddingright").empty()) pad.right = axis;
+    }
+    if (RoboXMLAttr(node, "paddingy").empty() && !RoboXMLAttr(node, "paddingvertical").empty()) {
+        const int axis = MeasureLength(RoboXMLAttr(node, "paddingvertical"), width);
+        if (RoboXMLAttr(node, "paddingtop").empty()) pad.top = axis;
+        if (RoboXMLAttr(node, "paddingbottom").empty()) pad.bottom = axis;
+    }
+    const int inner = std::max(0, width - pad.left - pad.right);
+    const int originX = x + pad.left;
+    const int originY = y + pad.top;
+    const std::string display = Lower(RoboXMLAttr(node, "display"));
+    const std::string direction = Lower(RoboXMLAttr(node, "direction"));
+    const bool grid = name == "grid" || display == "grid" || !RoboXMLAttr(node, "columns").empty();
+    const bool row = !grid && (name == "row" || display == "horizontal" || direction == "row" || direction == "row-reverse");
+    const bool reverse = direction.find("reverse") != std::string::npos || Lower(RoboXMLAttr(node, "reverse")) == "true";
+    const std::string wrapName = Lower(RoboXMLAttr(node, "wrap"));
+    const bool wrap = row && (name == "row" || wrapName == "wrap" || wrapName == "true" || wrapName == "wrap-reverse");
+    int columns = 1;
+    const std::string columnText = RoboXMLAttr(node, "columns");
+    if (IsDigits(columnText)) {
+        columns = std::max(1, std::stoi(columnText));
+    }
+    std::string alignRaw = RoboXMLAttr(node, "align");
+    if (alignRaw.empty()) {
+        alignRaw = RoboXMLAttr(node, "alignitems");
+    }
+    std::string justifyRaw = RoboXMLAttr(node, "justify");
+    if (justifyRaw.empty()) {
+        justifyRaw = RoboXMLAttr(node, "justifycontent");
+    }
+    const std::string place = Lower(RoboXMLAttr(node, "place"));
+    if (!place.empty()) {
+        const bool top = place.rfind("top", 0) == 0;
+        const bool bottom = place.rfind("bottom", 0) == 0;
+        const bool left = place.find("left") != std::string::npos || place == "left";
+        const bool right = place.find("right") != std::string::npos || place == "right";
+        if (alignRaw.empty()) {
+            alignRaw = row ? (top ? "start" : bottom ? "end" : "center") : (left ? "start" : right ? "end" : "center");
         }
-        const int childHeight = PlaceNode(child, cursorX, cursorY, std::max(1, childWidth), light, ops, hits);
-        lineHeight = std::max(lineHeight, childHeight);
-        bottom = std::max(bottom, cursorY + childHeight);
-        if (row) {
-            cursorX += childWidth + gap;
-        } else {
-            cursorY += childHeight + gap;
+        if (justifyRaw.empty()) {
+            justifyRaw = row ? (left ? "start" : right ? "end" : "center") : (top ? "start" : bottom ? "end" : "center");
         }
     }
-    return std::max(0, bottom - y + pad);
+    const int align = alignRaw.empty() ? 3 : PackAlign(alignRaw);
+    const int justify = PackAlign(justifyRaw);
+    std::string itemRaw = RoboXMLAttr(node, "justifyitems");
+    const int justifyItems = itemRaw.empty() ? 3 : PackAlign(itemRaw);
+    const int rowGap = RoboXMLAttr(node, "rowgap").empty() ? Gap(node) : AttrLength(node, "rowgap");
+    const int colGap = !RoboXMLAttr(node, "columngap").empty() ? AttrLength(node, "columngap")
+                       : !RoboXMLAttr(node, "colgap").empty()  ? AttrLength(node, "colgap")
+                                                               : Gap(node);
+    const std::size_t background = ops.size();
+    bool hasBackground = false;
+    std::string fillName = RoboXMLAttr(node, "background");
+    if (fillName.empty()) {
+        fillName = RoboXMLAttr(node, "backgroundcolor");
+    }
+    if (fillName.empty()) {
+        fillName = RoboXMLAttr(node, "bg");
+    }
+    if (!fillName.empty()) {
+        PaintOp box;
+        box.x = x;
+        box.y = y;
+        box.width = width;
+        box.radius = AttrLength(node, "radius");
+        box.fill = RoboFoundationPlatformColorForTheme(fillName.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
+        if (box.fill != 0) {
+            ops.push_back(box);
+            hasBackground = true;
+        }
+    }
+    struct Slot {
+        std::size_t opBegin = 0;
+        std::size_t opEnd = 0;
+        int controlBegin = 0;
+        int controlEnd = 0;
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
+        int across = 0;
+    };
+    std::vector<Slot> slots;
+    std::vector<const RoboXMLNode*> flow;
+    std::vector<const RoboXMLNode*> layered;
+    for (const RoboXMLNode& child : node.children) {
+        const std::string position = Lower(RoboXMLAttr(child, "position"));
+        if (position == "absolute" || position == "fixed" || position == "abs") {
+            layered.push_back(&child);
+        } else {
+            flow.push_back(&child);
+        }
+    }
+    if (reverse) {
+        std::reverse(flow.begin(), flow.end());
+    }
+    const auto controlCount = [&]() { return hits != nullptr && hits->controls != nullptr ? static_cast<int>(hits->controls->size()) : 0; };
+    const auto selfAlign = [&](const RoboXMLNode& child) {
+        std::string raw = RoboXMLAttr(child, "alignself");
+        if (raw.empty()) {
+            raw = RoboXMLAttr(child, "self");
+        }
+        if (raw.empty() || Lower(raw) == "auto") {
+            return align;
+        }
+        return PackAlign(raw);
+    };
+    const auto columnSpan = [&](const RoboXMLNode& child) {
+        std::string raw = RoboXMLAttr(child, "columnspan");
+        if (raw.empty()) {
+            raw = RoboXMLAttr(child, "colspan");
+        }
+        if (raw.empty()) {
+            const std::string gridColumn = Lower(RoboXMLAttr(child, "gridcolumn"));
+            if (gridColumn.rfind("span", 0) == 0) {
+                raw.clear();
+                for (char ch : gridColumn) {
+                    if (ch >= '0' && ch <= '9') {
+                        raw.push_back(ch);
+                    }
+                }
+            }
+        }
+        int span = raw.empty() || !IsDigits(raw) ? 1 : std::stoi(raw);
+        if (span < 1) {
+            span = 1;
+        }
+        return std::min(span, columns);
+    };
+    const auto placeChild = [&](const RoboXMLNode& child, int childX, int childY, int childWidth) {
+        const std::size_t begin = ops.size();
+        const int controls = controlCount();
+        const int childHeight = PlaceNode(child, childX, childY, std::max(1, childWidth), light, ops, hits);
+        slots.push_back(Slot{begin, ops.size(), controls, controlCount(), childX, childY, childWidth, childHeight, selfAlign(child)});
+        return childHeight;
+    };
+    int contentBottom = originY;
+    if (grid) {
+        const int cell = std::max(1, (inner - (columns - 1) * colGap) / std::max(1, columns));
+        int column = 0;
+        int rowTop = originY;
+        int rowHeight = 0;
+        std::vector<int> rowSlots;
+        const auto finishRow = [&](bool more) {
+            for (int index : rowSlots) {
+                Slot& slot = slots[static_cast<std::size_t>(index)];
+                int dy = 0;
+                if (slot.across == 1) {
+                    dy = std::max(0, (rowHeight - slot.height) / 2);
+                } else if (slot.across == 2) {
+                    dy = std::max(0, rowHeight - slot.height);
+                }
+                if (dy != 0) {
+                    ShiftRange(ops, slot.opBegin, slot.opEnd, hits, slot.controlBegin, slot.controlEnd, 0, dy);
+                }
+            }
+            rowSlots.clear();
+            rowTop += rowHeight;
+            if (more) {
+                rowTop += rowGap;
+            }
+            rowHeight = 0;
+            column = 0;
+        };
+        for (const RoboXMLNode* child : flow) {
+            const BoxEdge margin = BoxEdges(*child, "margin", "marginx", "marginy", "margintop", "marginright", "marginbottom", "marginleft", inner);
+            int span = columnSpan(*child);
+            if (column > 0 && column + span > columns) {
+                finishRow(true);
+            }
+            if (span > columns) {
+                span = columns;
+            }
+            const int cellX = originX + column * (cell + colGap);
+            const int cellWidth = cell * span + colGap * std::max(0, span - 1);
+            int used = std::max(1, cellWidth - margin.left - margin.right);
+            const int asked = AskedLength(*child, "width", used);
+            const int across = justifyItems;
+            if (asked >= 0) {
+                used = std::min(used, asked);
+            } else if (across != 3) {
+                used = std::min(used, ContentWidth(*child, used));
+            }
+            int dx = margin.left;
+            if (across == 1) {
+                dx += std::max(0, (cellWidth - margin.left - margin.right - used) / 2);
+            } else if (across == 2) {
+                dx += std::max(0, cellWidth - margin.left - margin.right - used);
+            }
+            const int childHeight = placeChild(*child, cellX + dx, rowTop + margin.top, used);
+            rowHeight = std::max(rowHeight, childHeight + margin.top + margin.bottom);
+            rowSlots.push_back(static_cast<int>(slots.size()) - 1);
+            column += span;
+            if (column >= columns) {
+                finishRow(true);
+            }
+        }
+        if (!rowSlots.empty()) {
+            finishRow(false);
+        } else if (!flow.empty()) {
+            rowTop -= rowGap;
+        }
+        contentBottom = rowTop;
+    } else if (row) {
+        int cursorX = originX;
+        int lineTop = originY;
+        int lineHeight = 0;
+        int lineUsed = 0;
+        int lineCount = 0;
+        std::vector<int> line;
+        const auto finishLine = [&](bool more) {
+            int free = inner - lineUsed;
+            if (lineCount > 1) {
+                free -= colGap * (lineCount - 1);
+            }
+            if (free < 0) {
+                free = 0;
+            }
+            int lead = 0;
+            int extra = 0;
+            if (justify == 1) {
+                lead = free / 2;
+            } else if (justify == 2) {
+                lead = free;
+            } else if (justify == 4 && lineCount > 1) {
+                extra = free / (lineCount - 1);
+            } else if (justify == 5 && lineCount > 0) {
+                lead = free / (lineCount * 2);
+                extra = free / lineCount;
+            } else if (justify == 6 && lineCount > 0) {
+                lead = free / (lineCount + 1);
+                extra = lead;
+            }
+            int shift = lead;
+            for (int index : line) {
+                Slot& slot = slots[static_cast<std::size_t>(index)];
+                int dy = 0;
+                if (slot.across == 1) {
+                    dy = std::max(0, (lineHeight - slot.height) / 2);
+                } else if (slot.across == 2) {
+                    dy = std::max(0, lineHeight - slot.height);
+                }
+                ShiftRange(ops, slot.opBegin, slot.opEnd, hits, slot.controlBegin, slot.controlEnd, shift, dy);
+                shift += extra;
+            }
+            line.clear();
+            lineTop += lineHeight;
+            if (more) {
+                lineTop += rowGap;
+            }
+            lineHeight = 0;
+            lineUsed = 0;
+            lineCount = 0;
+            cursorX = originX;
+        };
+        for (const RoboXMLNode* child : flow) {
+            const BoxEdge margin = BoxEdges(*child, "margin", "marginx", "marginy", "margintop", "marginright", "marginbottom", "marginleft", inner);
+            int used = ContentWidth(*child, std::max(1, inner - margin.left - margin.right));
+            const int asked = AskedLength(*child, "width", inner);
+            if (asked >= 0) {
+                used = std::min(inner, asked);
+            }
+            const int outer = used + margin.left + margin.right;
+            if (wrap && lineCount > 0 && cursorX + outer > originX + inner) {
+                finishLine(true);
+            }
+            const int childHeight = placeChild(*child, cursorX + margin.left, lineTop + margin.top, std::max(1, used));
+            lineHeight = std::max(lineHeight, childHeight + margin.top + margin.bottom);
+            lineUsed += outer;
+            ++lineCount;
+            line.push_back(static_cast<int>(slots.size()) - 1);
+            cursorX += outer + colGap;
+        }
+        if (!line.empty()) {
+            finishLine(false);
+        }
+        contentBottom = lineTop;
+    } else {
+        int cursorY = originY;
+        for (const RoboXMLNode* child : flow) {
+            const BoxEdge margin = BoxEdges(*child, "margin", "marginx", "marginy", "margintop", "marginright", "marginbottom", "marginleft", inner);
+            int used = std::max(0, inner - margin.left - margin.right);
+            const int asked = AskedLength(*child, "width", used);
+            const int across = selfAlign(*child);
+            if (asked >= 0) {
+                used = std::min(used, asked);
+            } else if (across != 3) {
+                used = std::min(used, ContentWidth(*child, used));
+            }
+            int dx = margin.left;
+            if (across == 1) {
+                dx += std::max(0, (inner - margin.left - margin.right - used) / 2);
+            } else if (across == 2) {
+                dx += std::max(0, inner - margin.left - margin.right - used);
+            }
+            const int childHeight = placeChild(*child, originX + dx, cursorY + margin.top, std::max(1, used));
+            cursorY += childHeight + margin.top + margin.bottom + rowGap;
+        }
+        if (!flow.empty() && rowGap > 0) {
+            cursorY -= rowGap;
+        }
+        contentBottom = cursorY;
+    }
+    int total = std::max(0, contentBottom - y + pad.bottom);
+    const int askedHeight = AskedLength(node, "height", std::max(total, 1));
+    const int minHeight = AttrLength(node, "minheight");
+    int boxHeight = total;
+    if (askedHeight > boxHeight) {
+        boxHeight = askedHeight;
+    }
+    if (minHeight > boxHeight) {
+        boxHeight = minHeight;
+    }
+    if (!grid && !row && justify != 0 && justify != 3 && boxHeight > total && !slots.empty()) {
+        const int free = boxHeight - total;
+        const int count = static_cast<int>(slots.size());
+        int lead = 0;
+        int extra = 0;
+        if (justify == 1) {
+            lead = free / 2;
+        } else if (justify == 2) {
+            lead = free;
+        } else if (justify == 4 && count > 1) {
+            extra = free / (count - 1);
+        } else if (justify == 5 && count > 0) {
+            lead = free / (count * 2);
+            extra = free / count;
+        } else if (justify == 6 && count > 0) {
+            lead = free / (count + 1);
+            extra = lead;
+        }
+        int shift = lead;
+        for (Slot& slot : slots) {
+            ShiftRange(ops, slot.opBegin, slot.opEnd, hits, slot.controlBegin, slot.controlEnd, 0, shift);
+            shift += extra;
+        }
+    }
+    const int innerHeight = std::max(0, boxHeight - pad.top - pad.bottom);
+    for (const RoboXMLNode* child : layered) {
+        int used = AskedLength(*child, "width", inner);
+        if (used < 0) {
+            used = ContentWidth(*child, inner);
+        }
+        const bool hasLeft = !RoboXMLAttr(*child, "left").empty();
+        const bool hasRight = !RoboXMLAttr(*child, "right").empty();
+        const bool hasTop = !RoboXMLAttr(*child, "top").empty();
+        const bool hasBottom = !RoboXMLAttr(*child, "bottom").empty();
+        int left = originX;
+        int top = originY;
+        if (hasLeft) {
+            left = originX + MeasureLength(RoboXMLAttr(*child, "left"), inner);
+        } else if (!RoboXMLAttr(*child, "x").empty()) {
+            left = originX + MeasureLength(RoboXMLAttr(*child, "x"), inner);
+        }
+        if (hasRight && !hasLeft) {
+            left = originX + inner - MeasureLength(RoboXMLAttr(*child, "right"), inner) - used;
+        }
+        if (hasTop) {
+            top = originY + MeasureLength(RoboXMLAttr(*child, "top"), innerHeight);
+        } else if (!RoboXMLAttr(*child, "y").empty()) {
+            top = originY + MeasureLength(RoboXMLAttr(*child, "y"), innerHeight);
+        }
+        const std::size_t begin = ops.size();
+        const int controls = controlCount();
+        const int childHeight = PlaceNode(*child, left, top, std::max(1, used), light, ops, hits);
+        if (hasBottom && !hasTop) {
+            const int target = originY + innerHeight - MeasureLength(RoboXMLAttr(*child, "bottom"), innerHeight) - childHeight;
+            ShiftRange(ops, begin, ops.size(), hits, controls, controlCount(), 0, target - top);
+        }
+    }
+    if (hasBackground && background < ops.size()) {
+        ops[background].height = boxHeight;
+    }
+    return boxHeight;
 }
 
 int Isqrt(int value) {
@@ -1701,7 +2278,26 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
             textY = y + std::max(0, (op.height - op.size) / 2);
         }
         if (!op.value.empty()) {
-            RoboTextDrawUTF8(gpu, font, textX, textY, op.value.c_str(), op.color, static_cast<RoboU16>(op.size));
+            if (op.text) {
+                std::vector<TextLine> lines;
+                TextLines(op.value, op.width, op.size, op.face, lines);
+                const int step = std::max(1, op.height / static_cast<int>(std::max<std::size_t>(1, lines.size())));
+                int lineY = y;
+                for (const TextLine& line : lines) {
+                    int lineX = textX;
+                    if (op.align == 1) {
+                        lineX = op.x + std::max(0, (op.width - line.width) / 2);
+                    } else if (op.align == 2) {
+                        lineX = op.x + std::max(0, op.width - line.width);
+                    }
+                    if (!line.text.empty()) {
+                        RoboTextDrawUTF8(gpu, font, lineX, lineY, line.text.c_str(), op.color, static_cast<RoboU16>(op.size));
+                    }
+                    lineY += step;
+                }
+            } else {
+                RoboTextDrawUTF8(gpu, font, textX, textY, op.value.c_str(), op.color, static_cast<RoboU16>(op.size));
+            }
         }
 }
 
@@ -1984,6 +2580,7 @@ void PaintWindowsDocument(RoboGPU* gpu, const std::string& path, bool light, int
 int LayoutWindowsDocument(const std::string& path, bool light, int viewWidth, int viewHeight, unsigned dpi, int hotControl,
                           int pressedControl, int pointerX, int pointerY, int* contentHeight,
                           std::vector<WindowControl>* controls) {
+    RoboWindowsInstallFontRaster(nullptr, 0);
     gDpi = dpi == 0 ? 96u : dpi;
     gAssets = FindAssets(path);
     if (path.empty() || viewWidth <= 0 || viewHeight <= 0) {
@@ -2021,6 +2618,7 @@ int LayoutWindowsDocument(const std::string& path, bool light, int viewWidth, in
 }
 
 void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight) {
+    RoboWindowsInstallFontRaster(nullptr, 0);
     if (gpu == nullptr || !gScene.valid || viewWidth <= 0 || viewHeight <= 0) {
         return;
     }
@@ -2030,6 +2628,7 @@ void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int view
 }
 
 void RasterWindowsDocument(RoboGPU* gpu) {
+    RoboWindowsInstallFontRaster(nullptr, 0);
     if (gpu == nullptr || !gScene.valid) {
         return;
     }

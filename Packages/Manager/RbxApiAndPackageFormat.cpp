@@ -100,8 +100,8 @@ std::string RbxApiEngine::GenerateRbxApiFromSource(
     std::string_view rbxSourceCode,
     Frontend::DiagnosticBag& diagnostics) {
 
-    Frontend::Lexer lexer(rbxSourceCode, std::string(packageName) + ".rbx", diagnostics);
-    Frontend::Parser parser(lexer.TokenizeAll(), std::string(packageName) + ".rbx", diagnostics);
+    Frontend::Lexer lexer(rbxSourceCode, std::string(packageName) + ".rx", diagnostics);
+    Frontend::Parser parser(lexer.TokenizeAll(), std::string(packageName) + ".rx", diagnostics);
     auto ast = parser.ParseCompilationUnit();
 
     std::ostringstream out;

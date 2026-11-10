@@ -139,9 +139,9 @@ struct TestEnforcementConfig {
 };
 
 struct SourceTestPair {
-    std::string sourceFileName; // e.g., "Motor.rbx"
+    std::string sourceFileName; // e.g., "Motor.rx"
     std::string sourceCode;
-    std::string testFileName;   // e.g., "Motor.test.rbx" (empty if missing)
+    std::string testFileName;   // e.g., "Motor.test.rx" (empty if missing)
     std::string testCode;
 };
 
@@ -162,8 +162,8 @@ struct FileTestCoverageResult {
 // 3. EXECUTION ENGINE MODE FOR SINGLE-FILE & PROJECT TESTING
 // ============================================================================
 enum class TestExecutionEngine : std::uint8_t {
-    Interpreter,    // robix test File.rbx --engine interpreter
-    NativeCompiler, // robixc test File.rbx / robix test File.rbx --engine native
+    Interpreter,    // robix test File.rx --engine interpreter
+    NativeCompiler, // robixc test File.rx / robix test File.rx --engine native
     Differential    // Runs both Interpreter and Native pipelines and verifies parity
 };
 
@@ -231,7 +231,7 @@ public:
         const TestEnforcementConfig& config,
         Frontend::DiagnosticBag& diagnostics);
 
-    // Executes a single .rbx + .test.rbx (or standalone .test.rbx) in isolation
+    // Executes a single .rx + .test.rx (or standalone .test.rx) in isolation
     static SingleFileTestResult RunSingleFileTest(
         std::string_view sourceFileName,
         std::string_view sourceCode,
@@ -259,7 +259,7 @@ public:
         std::size_t iterations,
         std::string_view corpusSeedSource);
 
-    // Mutation testing: mutates source operators and checks if .test.rbx kills each mutant
+    // Mutation testing: mutates source operators and checks if .test.rx kills each mutant
     static MutationTestResult RunMutationTest(
         std::string_view sourceFileName,
         std::string_view sourceCode,

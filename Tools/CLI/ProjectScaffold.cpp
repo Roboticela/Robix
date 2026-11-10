@@ -161,8 +161,8 @@ std::string TestFile(const std::string& packageName, const std::string& importNa
 bool WriteSourceAndTest(const fs::path& sourceDir, const fs::path& testDir, const std::string& packageName,
                         const std::string& fileName, const std::string& importName, const std::string& source,
                         const std::string& testBody) {
-    const fs::path sourcePath = sourceDir / (fileName + ".rbx");
-    const fs::path testPath = testDir / (fileName + ".test.rbx");
+    const fs::path sourcePath = sourceDir / (fileName + ".rx");
+    const fs::path testPath = testDir / (fileName + ".test.rx");
     if (fs::exists(sourcePath) || fs::exists(testPath)) {
         std::cerr << "robix new: '" << sourcePath.string() << "' already exists.\n";
         return false;
@@ -283,7 +283,7 @@ std::string AskKindForCategory(const std::string& category) {
         return AskListed(
             "Application:\n"
             "  1 Console   Text in a terminal.\n"
-            "  2 Window    A window, a .rbxu file, and a small test.\n"
+            "  2 Window    A window, a .rxu file, and a small test.\n"
             "  3 Network   Clients and servers that share one contract.\n",
             "Application: ",
             "robix new: application must be Console, Window, or Network.\n",
@@ -434,7 +434,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
         project << "Name: " << name << "\nCategory: Canvas\nKind: Empty\n";
         std::cout << "robix new: wrote " << (root / (name + ".rbxproj")).string()
                   << " category Canvas kind Empty\n";
-        std::cout << "robix new: empty folder. Add .rbx files, then robix run File.rbx or robix run File.rbx --image.\n";
+        std::cout << "robix new: empty folder. Add .rx files, then robix run File.rx or robix run File.rx --image.\n";
         return true;
     }
     if (kind != "Network") {
@@ -449,7 +449,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
     std::string source;
     std::string testBody = "    Assert.Equal(1, 1);\n";
     std::string fileName = "Program";
-    std::string entry = "Source/Program.rbx";
+    std::string entry = "Source/Program.rx";
     BuildInfo build;
     std::vector<std::string> ui;
     if (kind == "Empty") {
@@ -492,7 +492,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                  "}\n";
         testBody = "    Program program = new Program();\n    Assert.Equal(program.Greet(), 1);\n";
         fs::create_directories(root / "UI", ec);
-        const fs::path window = root / "UI" / "MainWindow.rbxu";
+        const fs::path window = root / "UI" / "MainWindow.rxu";
         const std::string markup =
             "<RobixUI Version=\"1.0\">\n"
             "  <Window Name=\"MainWindow\" Title=\"" + name +
@@ -516,10 +516,10 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
             return false;
         }
         std::cout << "robix new: wrote " << (root / "Assets").string() << "\n";
-        ui.push_back("UI/MainWindow.rbxu");
+        ui.push_back("UI/MainWindow.rxu");
     } else if (IsMachineKind(kind)) {
         fileName = "Start";
-        entry = "Source/Start.rbx";
+        entry = "Source/Start.rx";
         build.output = (kind == "BIOS" || kind == "Firmware") ? "Firmware" : "Kernel";
         build.target = "x86_64-unknown-none";
         build.entrySymbol = "Start";
@@ -616,7 +616,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                                     "    Assert.Equal(1, 1);\n")) {
                 return false;
             }
-            order.push_back("Common/Source/" + serviceName + ".rbx");
+            order.push_back("Common/Source/" + serviceName + ".rx");
             return true;
         };
         if (clients.empty() && servers.empty()) {
@@ -627,7 +627,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                                     "    Assert.Equal(SharedReady(), 1);\n")) {
                 return false;
             }
-            order.push_back("Common/Source/Shared.rbx");
+            order.push_back("Common/Source/Shared.rx");
         }
         for (const auto& client : clients) {
             if (!writeInterface(client.name, "public Function Ask(String text) -> String;")) return false;
@@ -705,15 +705,15 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                 return false;
             }
             if (client.gui) {
-                const fs::path window = dir / (client.name + ".rbxu");
+                const fs::path window = dir / (client.name + ".rxu");
                 if (!WriteText(window, WindowFile(client.name, "SendMessage"))) {
                     std::cerr << "robix new: could not write '" << window.string() << "'.\n";
                     return false;
                 }
                 std::cout << "robix new: wrote " << window.string() << "\n";
-                ui.push_back(client.name + "/" + client.name + ".rbxu");
+                ui.push_back(client.name + "/" + client.name + ".rxu");
             }
-            order.push_back(client.name + "/Source/" + client.name + ".rbx");
+            order.push_back(client.name + "/Source/" + client.name + ".rx");
         }
         for (const auto& server : servers) {
             const fs::path dir = root / server.name;
@@ -737,19 +737,19 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                 return false;
             }
             if (server.gui) {
-                const fs::path window = dir / (server.name + ".rbxu");
+                const fs::path window = dir / (server.name + ".rxu");
                 if (!WriteText(window, WindowFile(server.name, "ShowReply"))) {
                     std::cerr << "robix new: could not write '" << window.string() << "'.\n";
                     return false;
                 }
                 std::cout << "robix new: wrote " << window.string() << "\n";
-                ui.push_back(server.name + "/" + server.name + ".rbxu");
+                ui.push_back(server.name + "/" + server.name + ".rxu");
             }
-            order.push_back(server.name + "/Source/" + server.name + ".rbx");
+            order.push_back(server.name + "/Source/" + server.name + ".rx");
         }
-        const std::string entry = !clients.empty() ? clients[0].name + "/Source/" + clients[0].name + ".rbx"
-                                 : !servers.empty() ? servers[0].name + "/Source/" + servers[0].name + ".rbx"
-                                                    : "Common/Source/Shared.rbx";
+        const std::string entry = !clients.empty() ? clients[0].name + "/Source/" + clients[0].name + ".rx"
+                                 : !servers.empty() ? servers[0].name + "/Source/" + servers[0].name + ".rx"
+                                                    : "Common/Source/Shared.rx";
         if (!WriteBuildFile(root, name, entry, order, ui)) return false;
         std::ofstream project(root / (name + ".rbxproj"), std::ios::binary | std::ios::trunc);
         if (!project) {

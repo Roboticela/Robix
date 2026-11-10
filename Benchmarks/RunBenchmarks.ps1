@@ -204,7 +204,7 @@ foreach ($suiteName in $suitesToRun) {
     if (-not (Read-Upstream $suiteName)) {
         Write-Host "manifest upstream: false (local kernels)"
     }
-    $rbxFiles = Get-ChildItem -Path $sDir -Filter "*.rbx" | Sort-Object Name
+    $rbxFiles = Get-ChildItem -Path $sDir -Filter "*.rx" | Sort-Object Name
     foreach ($rf in $rbxFiles) {
         $base = $rf.BaseName
         $cPath = Join-Path $sDir "$base.c"

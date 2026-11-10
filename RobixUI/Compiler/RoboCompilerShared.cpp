@@ -440,7 +440,7 @@ bool RoboCompilerIsIconNode(const RoboXMLNode& node) {
     const std::string n = RoboCompilerLower(node.name);
     if (n != "icon" && (n == "screen" || n == "button" || n == "anchor" || n == "iconbutton" || n == "switch" || n == "switchgroup" ||
                         n == "switchitem" || n == "themetoggle" || n == "themeicontoggle" || n == "textfield" ||
-                        n == "textarea" || n == "passwordreveal" || n == "confirmaction" ||
+                        n == "textarea" || n == "passwordreveal" || n == "confirmaction" || n == "select" || n == "option" ||
                         n == "segmentedcontrol" || n == "segment" || n == "segmentedtoolbar" ||
                         n == "container" || n == "board" || n == "text" || n == "image" ||
                         n == "heading" || n == "body" || n == "caption" || n == "span")) {

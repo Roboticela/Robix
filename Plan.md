@@ -42,10 +42,10 @@ Release integer arithmetic is two's-complement wrap. `nsw` is not emitted on rel
 
 | Extension | Purpose |
 | :--- | :--- |
-| `.rbx` | Source |
-| `.test.rbx` | Tests for the matching source file |
+| `.rx` | Source |
+| `.test.rx` | Tests for the matching source file |
 | `.rbxh` | Interface / header |
-| `.rbxu` | RobixUI document |
+| `.rxu` | RobixUI document |
 | `.rbxtheme` | UI theme |
 | `.rbxassets` | UI asset manifest |
 | `.rbxb` | RobixBuild project file |
@@ -95,9 +95,9 @@ One frontend. Interpreter and native compiler share name resolution, types, and 
 
 | Command | Meaning |
 | :--- | :--- |
-| `robix run File.rbx` | Interpreter. Fast startup. |
-| `robix run File.rbx --engine native` | Compile, then run the binary. |
-| `robixc File.rbx -O3 -o App` | Native release build. |
+| `robix run File.rx` | Interpreter. Fast startup. |
+| `robix run File.rx --engine native` | Compile, then run the binary. |
+| `robixc File.rx -O3 -o App` | Native release build. |
 | `robix build --profile debug\|release\|performance\|realtime\|embedded\|safety\|size` | Profile from the project file. |
 | `robix repl` | Official grammar and type checker. |
 
@@ -118,11 +118,11 @@ Profiles:
 
 ### 3.7 Project modes (kept)
 
-1. **Single file.** `robix run Hello.rbx` with no project file.
+1. **Single file.** `robix run Hello.rx` with no project file.
 2. **Application.** Games, desktop, CLI, libraries, firmware, kernels. No network runtime unless the project asks for it.
 3. **Network.** Optional. `Common/` contracts, clients, and servers. A normal program does not link it.
 
-Official kinds for `robix new`: `Blank`, `CLI`, and `Network`. `.` writes into the current directory. A missing name or kind is asked, and a folder name that the operating system cannot use is asked again. `robix new file` adds a `hello`, `empty`, `class`, or `package` source file. A Network project keeps each client and server folder in the project root. Each one is `CLI` or `GUI`. A GUI service also gets a `.rbxu` window. `Common` has `Source` and `Tests`, and those files only declare the calls. `.env.common` and `exp.env.common` hold the shared secret, hosts, and ports. The root has no lone `.env`. Every other env file is empty. A new project includes `.gitignore`. `import Robix.Env` provides `Get`, `Exists`, `Set`, `Add`, and `Remove`. `Get` warns on its own when the name is missing or empty. `robix run all` runs the services in the current console. `--separate` gives each service its own console. The project `.rbxb` lists the build order, with `Common` before the programs that import it, and lists the UI files.
+Official kinds for `robix new`: `Blank`, `CLI`, and `Network`. `.` writes into the current directory. A missing name or kind is asked, and a folder name that the operating system cannot use is asked again. `robix new file` adds a `hello`, `empty`, `class`, or `package` source file. A Network project keeps each client and server folder in the project root. Each one is `CLI` or `GUI`. A GUI service also gets a `.rxu` window. `Common` has `Source` and `Tests`, and those files only declare the calls. `.env.common` and `exp.env.common` hold the shared secret, hosts, and ports. The root has no lone `.env`. Every other env file is empty. A new project includes `.gitignore`. `import Robix.Env` provides `Get`, `Exists`, `Set`, `Add`, and `Remove`. `Get` warns on its own when the name is missing or empty. `robix run all` runs the services in the current console. `--separate` gives each service its own console. The project `.rbxb` lists the build order, with `Common` before the programs that import it, and lists the UI files.
 
 `.rbxb` output kinds `Executable`, `Library`, `SharedLibrary`, `StaticLibrary`, `Object`, and `Package` are recorded in `Documentation/Status.md`. `Firmware` and `Kernel` already link.
 

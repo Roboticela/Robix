@@ -326,7 +326,7 @@ std::vector<std::uint32_t> NativeLines(const std::string& text) {
 int FormatCommand(const std::vector<std::string>& args) {
     const std::string file = FirstFile(args);
     if (file.empty()) {
-        std::cerr << "robix format: expected a .rbx file.\n";
+        std::cerr << "robix format: expected a .rx file.\n";
         return 1;
     }
     const std::string source = ReadText(file);
@@ -354,7 +354,7 @@ int FormatCommand(const std::vector<std::string>& args) {
 int LintCommand(const std::vector<std::string>& args) {
     const std::string file = FirstFile(args);
     if (file.empty()) {
-        std::cerr << "robix lint: expected a .rbx file.\n";
+        std::cerr << "robix lint: expected a .rx file.\n";
         return 1;
     }
     const std::string source = ReadText(file);
@@ -374,7 +374,7 @@ int LintCommand(const std::vector<std::string>& args) {
 int CheckCommand(const std::vector<std::string>& args) {
     const std::string file = FirstFile(args);
     if (file.empty()) {
-        std::cerr << "robix check: expected a .rbx file.\n";
+        std::cerr << "robix check: expected a .rx file.\n";
         return 1;
     }
     if (!fs::exists(file)) {
@@ -392,7 +392,7 @@ int CheckCommand(const std::vector<std::string>& args) {
 int DocCommand(const std::vector<std::string>& args) {
     const std::string file = FirstFile(args);
     if (file.empty() || !fs::exists(file)) {
-        std::cerr << "robix doc: expected a .rbx file.\n";
+        std::cerr << "robix doc: expected a .rx file.\n";
         return 1;
     }
     const std::string source = ReadText(file);
@@ -437,7 +437,7 @@ int DebugCommand(const std::vector<std::string>& args, const std::string& toolDi
     }
     const std::string file = FirstFile(args);
     if (file.empty() || !fs::exists(file)) {
-        std::cerr << "robix debug: expected a .rbx file.\n";
+        std::cerr << "robix debug: expected a .rx file.\n";
         return 1;
     }
     const std::string source = ReadText(file);
@@ -596,7 +596,7 @@ int RunDeveloperCommand(const std::vector<std::string>& args, const std::string&
                 continue;
             }
             const std::string source = "package Repl;\n\npublic Function Main() -> Void {\n" + body + "}\n";
-            const fs::path file = "Build/Repl/Session.rbx";
+            const fs::path file = "Build/Repl/Session.rx";
             if (!WriteFile(file, source)) {
                 std::cerr << "robix repl: could not write the input.\n";
                 return 1;

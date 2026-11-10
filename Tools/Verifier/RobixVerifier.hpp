@@ -46,7 +46,7 @@ public:
         const std::vector<Testing::SourceTestPair>& projectFiles,
         const Testing::TestEnforcementConfig& testConfig = {});
 
-    // Single-file verification (`robix verify File.rbx` or `robix verify Window.rbxu`)
+    // Single-file verification (`robix verify File.rx` or `robix verify Window.rxu`)
     static VerificationReport VerifySingleFile(
         std::string_view fileName,
         std::string_view fileContent,

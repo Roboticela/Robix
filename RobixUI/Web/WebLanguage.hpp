@@ -23,7 +23,7 @@ struct WebBuildResult {
 /* Convert one Robix program. Warnings for features the browser cannot run are printed here. */
 WebBuildResult BuildWebProgram(const std::filesystem::path& source, WebForm form, const std::string& toolDirectory);
 
-/* The .rbx named by the project build file, or the program beside the screen. */
+/* The .rx named by the project build file, or the program beside the screen. */
 std::filesystem::path FindWebSource(const std::filesystem::path& document);
 
 }  // namespace Robix::UI

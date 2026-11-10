@@ -288,7 +288,7 @@ void TestConcurrencyAsyncCancellationAndProcess() {
           "SharedMemoryRegion writes and reads IPC bytes safely");
 
     auto procRes = ProcessManager::LaunchRobixSubprocess(
-        "RobotWorker.rbx",
+        "RobotWorker.rx",
         { "--mode=calibrate" },
         [](const std::vector<std::string>& args, std::string& outStdout) {
             outStdout = "Calibrated:" + args[0];

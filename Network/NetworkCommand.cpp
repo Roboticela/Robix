@@ -94,7 +94,7 @@ bool LoadContract(const fs::path& commonDir, std::vector<Method>& methods, std::
         return false;
     }
     for (const auto& entry : fs::directory_iterator(commonDir, ec)) {
-        if (entry.path().extension() != ".rbx") continue;
+        if (entry.path().extension() != ".rx") continue;
         const std::string source = ReadFile(entry.path());
         Robix::Frontend::DiagnosticBag diagnostics;
         Robix::Frontend::Lexer lexer(source, entry.path().string(), diagnostics);

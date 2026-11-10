@@ -35,7 +35,7 @@ struct RbxbPlan {
 // Returns -1 for every other command.
 int PackageCommand(const std::vector<std::string>& args);
 
-// Empty when every source under the project's source directory has a sibling .test.rbx,
+// Empty when every source under the project's source directory has a sibling .test.rx,
 // or when the project does not opt in. Otherwise a message naming the missing file.
 std::string MissingTestMessage(const std::filesystem::path& start);
 

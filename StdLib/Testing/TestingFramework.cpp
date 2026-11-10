@@ -353,10 +353,10 @@ std::vector<FileTestCoverageResult> MandatoryTestEnforcer::EnforceProjectTests(
         FileTestCoverageResult cov;
         cov.sourceFileName = pair.sourceFileName;
         cov.testFileName   = pair.testFileName.empty()
-                                 ? (pair.sourceFileName.substr(0, pair.sourceFileName.rfind('.')) + ".test.rbx")
+                                 ? (pair.sourceFileName.substr(0, pair.sourceFileName.rfind('.')) + ".test.rx")
                                  : pair.testFileName;
 
-        // 1. Check that the .test.rbx file exists and is non-empty
+        // 1. Check that the .test.rx file exists and is non-empty
         if (pair.testFileName.empty() || pair.testCode.empty()) {
             cov.hasTestFile       = false;
             cov.passedEnforcement = bypassAllowed || !config.requireTestFile;
@@ -478,10 +478,10 @@ bool MandatoryTestEnforcer::RunNegativeCompilationTest(
     std::string_view expectedErrorCode) {
 
     Frontend::DiagnosticBag diagnostics;
-    Frontend::Lexer lexer(invalidSourceCode, "NegativeTest.rbx", diagnostics);
+    Frontend::Lexer lexer(invalidSourceCode, "NegativeTest.rx", diagnostics);
     auto tokens = lexer.TokenizeAll();
 
-    Frontend::Parser parser(std::move(tokens), "NegativeTest.rbx", diagnostics);
+    Frontend::Parser parser(std::move(tokens), "NegativeTest.rx", diagnostics);
     auto ast = parser.ParseCompilationUnit();
 
     Frontend::TypeChecker tc(diagnostics);
@@ -561,9 +561,9 @@ FuzzTestResult MandatoryTestEnforcer::RunFrontendFuzzTest(
 
         try {
             Frontend::DiagnosticBag diag;
-            Frontend::Lexer lexer(mutated, "FuzzInput.rbx", diag);
+            Frontend::Lexer lexer(mutated, "FuzzInput.rx", diag);
             auto tokens = lexer.TokenizeAll();
-            Frontend::Parser parser(std::move(tokens), "FuzzInput.rbx", diag);
+            Frontend::Parser parser(std::move(tokens), "FuzzInput.rx", diag);
             auto ast = parser.ParseCompilationUnit();
             Frontend::TypeChecker tc(diag);
             tc.CheckCompilationUnit(ast);
@@ -659,9 +659,9 @@ StressTestResult MandatoryTestEnforcer::RunStressTest(
         for (std::size_t i = 0; i < iterationsForWorker; ++i) {
             Frontend::DiagnosticBag diag;
             SingleFileTestResult run = RunSingleFileTest(
-                "Stress.rbx",
+                "Stress.rx",
                 sourceCode,
-                "Stress.test.rbx",
+                "Stress.test.rx",
                 testCode,
                 TestExecutionEngine::Interpreter,
                 diag);
@@ -725,7 +725,7 @@ MemoryLeakTestResult MandatoryTestEnforcer::RunMemoryLeakCheckTest(
             "ROBIX TEST ERROR R5001: Memory leak detected during '--memory-check' test run (" +
                 std::to_string(res.activeAllocationsAfterRun) + " active block(s), " +
                 std::to_string(res.leakedBytesAfterRun) + " byte(s) leaked).",
-            Frontend::SourceLocation{ "MemoryCheck.test.rbx", 1, 1, 1 },
+            Frontend::SourceLocation{ "MemoryCheck.test.rx", 1, 1, 1 },
             "Ensure all manually allocated blocks are freed or wrapped in 'defer' / 'using'.");
     }
 

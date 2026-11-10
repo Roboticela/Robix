@@ -164,7 +164,7 @@ fs::path FirstRbxu(const fs::path& dir) {
     std::error_code ec;
     if (!fs::is_directory(dir, ec)) return {};
     for (const auto& entry : fs::directory_iterator(dir, ec)) {
-        if (entry.path().extension() == ".rbxu") return entry.path();
+        if (entry.path().extension() == ".rxu") return entry.path();
     }
     return {};
 }
@@ -194,14 +194,14 @@ int CountRbx(const fs::path& dir) {
     int count = 0;
     if (!fs::is_directory(dir, ec)) return 0;
     for (const auto& entry : fs::directory_iterator(dir, ec)) {
-        if (entry.path().extension() == ".rbx") ++count;
+        if (entry.path().extension() == ".rx") ++count;
     }
     return count;
 }
 
 fs::path FindLocalScreen(const fs::path& file) {
     const fs::path dir = FileDir(file);
-    const fs::path named = dir / (file.stem().string() + ".rbxu");
+    const fs::path named = dir / (file.stem().string() + ".rxu");
     std::error_code ec;
     if (fs::is_regular_file(named, ec)) return named;
     if (dir.filename() == "Source") {
@@ -232,7 +232,7 @@ AppForm Classify(const std::string& kind, std::string_view source, const fs::pat
     if (fromKind != AppForm::Unknown) return fromKind;
     const std::string text = Visible(source);
     if (text.find("Network.") != std::string::npos || text.find("SendText(") != std::string::npos) return AppForm::Network;
-    if (file.extension() == ".rbxu" || !FindLocalScreen(file).empty()) return AppForm::Window;
+    if (file.extension() == ".rxu" || !FindLocalScreen(file).empty()) return AppForm::Window;
     if (text.find("Print(") != std::string::npos || text.find("Input(") != std::string::npos ||
         text.find("Input<") != std::string::npos || text.find("Args.") != std::string::npos) {
         return AppForm::Console;
@@ -302,8 +302,8 @@ WebDecision DecideWeb(const std::string& category, const std::string& kind, std:
     }
     if (screen.empty()) {
         decision.error = form == AppForm::Network
-            ? "error: a network program can compile for web, but this project has no .rbxu screen.\n"
-            : "error: a window program can compile for web, but this project has no .rbxu screen.\n";
+            ? "error: a network program can compile for web, but this project has no .rxu screen.\n"
+            : "error: a window program can compile for web, but this project has no .rxu screen.\n";
         return decision;
     }
     decision.screen = screen.string();

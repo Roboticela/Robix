@@ -247,9 +247,9 @@ std::vector<fs::path> ImportPaths(const fs::path& source) {
         }
         const fs::path base = source.parent_path();
         const fs::path candidates[] = {
-            base / (last + ".rbx"),
-            base / (slashed + ".rbx"),
-            fs::path(slashed + ".rbx")
+            base / (last + ".rx"),
+            base / (slashed + ".rx"),
+            fs::path(slashed + ".rx")
         };
         for (const auto& candidate : candidates) {
             std::error_code ec;
@@ -291,7 +291,7 @@ void CollectPrograms(const fs::path& dir, int depth, std::vector<fs::path>& file
             CollectPrograms(entry.path(), depth + 1, files);
             continue;
         }
-        if (entry.path().extension() == ".rbx" && !IsTestSource(entry.path())) files.push_back(entry.path());
+        if (entry.path().extension() == ".rx" && !IsTestSource(entry.path())) files.push_back(entry.path());
     }
 }
 
@@ -307,8 +307,8 @@ fs::path EntryInProject(const fs::path& root, const std::vector<fs::path>& files
             if (fs::is_regular_file(source, ec)) return source;
         }
     }
-    const char* names[] = { "Source/Program.rbx", "Source/Main.rbx", "Source/Start.rbx",
-                            "Program.rbx", "Main.rbx", "Start.rbx" };
+    const char* names[] = { "Source/Program.rx", "Source/Main.rx", "Source/Start.rx",
+                            "Program.rx", "Main.rx", "Start.rx" };
     for (const char* name : names) {
         const fs::path candidate = root / name;
         if (fs::is_regular_file(candidate, ec)) return candidate;
@@ -422,7 +422,7 @@ ProjectRun ChooseProjectRun(const fs::path& folder, bool eachFile, bool services
     if (!have) {
         bool any = false;
         for (const auto& entry : fs::directory_iterator(root, ec)) {
-            if (entry.path().extension() == ".rbx" && !IsTestSource(entry.path())) any = true;
+            if (entry.path().extension() == ".rx" && !IsTestSource(entry.path())) any = true;
             if (entry.path().filename() == "Source" && entry.is_directory(ec)) any = true;
         }
         if (!any) {
@@ -434,7 +434,7 @@ ProjectRun ChooseProjectRun(const fs::path& folder, bool eachFile, bool services
     if (have) CollectPrograms(root, 0, files);
     else {
         for (const auto& entry : fs::directory_iterator(root, ec)) {
-            if (entry.path().extension() == ".rbx" && !IsTestSource(entry.path())) files.push_back(entry.path());
+            if (entry.path().extension() == ".rx" && !IsTestSource(entry.path())) files.push_back(entry.path());
         }
         if (fs::is_directory(root / "Source", ec)) CollectPrograms(root / "Source", 0, files);
     }
@@ -452,7 +452,7 @@ ProjectRun ChooseProjectRun(const fs::path& folder, bool eachFile, bool services
     const fs::path entry = EntryInProject(have ? root : root, files);
     if (entry.empty()) {
         run.error = files.empty()
-                        ? "robix: '" + root.string() + "' has no .rbx program.\n"
+                        ? "robix: '" + root.string() + "' has no .rx program.\n"
                         : "robix: this folder has more than one program. Name a file, or run all.\n";
         return run;
     }
@@ -489,10 +489,10 @@ std::string MissingTestMessage(const fs::path& start) {
     std::error_code ec;
     if (!fs::is_directory(dir, ec)) return {};
     for (const auto& entry : fs::directory_iterator(dir, ec)) {
-        if (entry.path().extension() != ".rbx") continue;
+        if (entry.path().extension() != ".rx") continue;
         const std::string stem = entry.path().stem().string();
         if (stem.size() > 5 && stem.ends_with(".test")) continue;
-        const fs::path test = entry.path().parent_path() / (stem + ".test.rbx");
+        const fs::path test = entry.path().parent_path() / (stem + ".test.rx");
         if (!fs::is_regular_file(test, ec)) {
             return "robix: required test is missing: " + test.string() + "\n";
         }
@@ -715,7 +715,7 @@ int PackageCommand(const std::vector<std::string>& args) {
             std::cerr << "robix " << cmd << ": publisher signature does not match.\n";
             return 1;
         }
-        const fs::path cache = project.directory / "Packages" / "cache" / (name + ".rbx");
+        const fs::path cache = project.directory / "Packages" / "cache" / (name + ".rx");
         if (!WriteFile(cache, bytes)) {
             std::cerr << "robix " << cmd << ": could not store the download.\n";
             return 1;

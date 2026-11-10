@@ -64,7 +64,7 @@
       </On>
     </Interaction>
 
-    <UI Source="Panel.rbxu">
+    <UI Source="Panel.rxu">
       <ColorPicker Label="Block" Bind="SelectedColor"/>
       <Note>Drag to orbit. Click the block to turn it red.</Note>
     </UI>

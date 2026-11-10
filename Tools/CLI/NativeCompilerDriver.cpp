@@ -472,34 +472,25 @@ NativeBuildResult FinishHostedArtifact(const std::string& clang,
 
 std::string NativeCompilerDriver::LocateClang(const std::string& hint, const std::string& toolDirectory) {
     if (!hint.empty() && FileExists(hint)) return hint;
-
-    if (const char* env = std::getenv("ROBIX_CLANG")) {
-        if (FileExists(env)) return env;
+    if (toolDirectory.empty()) return {};
+    const fs::path tool(toolDirectory);
+    if (const std::string bundled = FileExists(tool / "toolchain" / "clang.exe")
+                                        ? (tool / "toolchain" / "clang.exe").string()
+                                        : std::string{};
+        !bundled.empty()) {
+        return bundled;
     }
-
-    if (!toolDirectory.empty()) {
-        const fs::path bundled = fs::path(toolDirectory) / "toolchain" / "clang.exe";
-        if (FileExists(bundled)) return bundled.string();
-
-        const std::string recorded = ReadFirstLine(fs::path(toolDirectory) / "toolchain.txt");
-        if (!recorded.empty() && FileExists(recorded)) return recorded;
-    }
-
-    if (const char* pathEnv = std::getenv("PATH")) {
-        std::stringstream ss(pathEnv);
-        std::string dir;
-        while (std::getline(ss, dir, ';')) {
-            if (dir.empty()) continue;
-            const fs::path candidate = fs::path(dir) / "clang.exe";
-            if (FileExists(candidate)) return candidate.string();
-        }
-    }
-
-    if (const char* pf = std::getenv("ProgramFiles")) {
-        const fs::path candidate = fs::path(pf) / "LLVM" / "bin" / "clang.exe";
-        if (FileExists(candidate)) return candidate.string();
-    }
+    if (FileExists(tool / "clang.exe")) return (tool / "clang.exe").string();
     return {};
+}
+
+std::string BundledLibrary(const fs::path& toolchainBin, const std::string& name, std::string& error) {
+    const fs::path path = toolchainBin / "lib" / name;
+    if (!FileExists(path)) {
+        error += "error: the compiler install is missing '" + path.string() + "'.\n";
+        return {};
+    }
+    return path.string();
 }
 
 std::string NativeCompilerDriver::LocateRuntimeObject(const std::string& hint, const std::string& toolDirectory) {
@@ -608,7 +599,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     const std::string clang = LocateClang(options.clangPath, options.toolDirectory);
     if (clang.empty()) {
         res.diagnosticsText +=
-            "error: clang.exe not found. Set ROBIX_CLANG, pass --clang <path>, or install LLVM (robixc uses clang as its native assembler/linker backend).\n";
+            "error: the built-in toolchain is missing clang.exe. Reinstall the compiler.\n";
         return res;
     }
     const std::string runtimeObj = options.outputKind == NativeOutputKind::HostedExecutable
@@ -616,7 +607,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
                                        : std::string{};
     if (options.outputKind == NativeOutputKind::HostedExecutable && runtimeObj.empty()) {
         res.diagnosticsText +=
-            "error: RobixNativeRuntime.obj not found next to robixc.exe. Rebuild with Scripts\\BuildRelease.ps1.\n";
+            "error: RobixNativeRuntime.obj was not found next to robixc.exe. Reinstall the compiler.\n";
         return res;
     }
 
@@ -703,28 +694,29 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
         return res;
     }
 
-    std::ostringstream cmd;
-    cmd << Quote(clang);
+    std::string compileFlags = " -O0 ";
+    std::string linkFlags;
     if (options.profileName == "size") {
-        cmd << " -Oz -ffunction-sections -fdata-sections -Wl,/OPT:REF ";
+        compileFlags = " -Oz -ffunction-sections -fdata-sections ";
+        linkFlags = " /OPT:REF";
     } else if (options.profileName == "realtime") {
-        cmd << " -O2 -fno-strict-aliasing ";
+        compileFlags = " -O2 -fno-strict-aliasing ";
     } else if (options.profileName == "safety") {
-        cmd << " -O0 ";
+        compileFlags = " -O0 ";
     } else if (options.profileName == "performance") {
-        cmd << " -O3 -march=native -funroll-loops -fno-slp-vectorize "
-            << "-ffunction-sections -fdata-sections -Wl,/OPT:REF -Wl,/OPT:ICF ";
+        compileFlags = " -O3 -march=native -funroll-loops -fno-slp-vectorize "
+                       "-ffunction-sections -fdata-sections ";
+        linkFlags = " /OPT:REF /OPT:ICF";
     } else if (options.release) {
         // opt already applied vertical SLP. A second SLP pass rebuilds the
         // horizontal reductions that pass rejected. 32-byte loop alignment
         // keeps tight loops off a 32-byte boundary. /OPT:REF drops runtime
         // functions this program does not call.
-        cmd << " -O3 -march=native -fno-slp-vectorize "
-            << "-mllvm -x86-align-branch-boundary=32 -mllvm -x86-align-branch=fused+jcc+jmp "
-            << "-mllvm -x86-experimental-pref-innermost-loop-alignment=5 "
-            << "-ffunction-sections -fdata-sections -Wl,/OPT:REF -Wl,/OPT:ICF ";
-    } else {
-        cmd << " -O0 ";
+        compileFlags = " -O3 -march=native -fno-slp-vectorize "
+                       "-mllvm -x86-align-branch-boundary=32 -mllvm -x86-align-branch=fused+jcc+jmp "
+                       "-mllvm -x86-experimental-pref-innermost-loop-alignment=5 "
+                       "-ffunction-sections -fdata-sections ";
+        linkFlags = " /OPT:REF /OPT:ICF";
     }
     if (options.linkNetwork) {
         if (options.networkObjectPath.empty() || !FileExists(options.networkObjectPath)) {
@@ -742,15 +734,45 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
         linkEnv = irText.find("call ptr @rbx_env_get") != std::string::npos ||
                   irText.find("call i64 @rbx_env_") != std::string::npos;
     }
-    cmd << "-fms-runtime-lib=static -Wno-override-module "
-        << Quote(runtimeObj) << " ";
+    const fs::path toolBin = fs::path(clang).parent_path();
+    const fs::path lld = toolBin / "ld.lld.exe";
+    if (!FileExists(lld)) {
+        res.diagnosticsText += "error: the compiler install is missing '" + lld.string() + "'.\n";
+        return res;
+    }
+    const fs::path codegenObj = exePath.parent_path() / (exePath.stem().string() + ".codegen.obj");
+    std::ostringstream compile;
+    compile << Quote(clang) << compileFlags << " -c -Wno-override-module " << Quote(codegenInput.string())
+            << " -o " << Quote(codegenObj.string());
+    if (RunProcess(compile.str(), res.toolOutput) != 0 || !FileExists(codegenObj)) {
+        res.diagnosticsText += "error: the built-in assembler failed:\n" + res.toolOutput;
+        return res;
+    }
+    std::ostringstream cmd;
+    cmd << Quote(lld.string()) << " -flavor link /nologo /nodefaultlib /subsystem:console /entry:mainCRTStartup"
+        << linkFlags << " /out:" << Quote(exePath.string()) << " " << Quote(codegenObj.string()) << " "
+        << Quote(runtimeObj);
+    const char* requiredLibs[] = { "libcmt.lib", "libvcruntime.lib", "libcpmt.lib", "oldnames.lib", "libucrt.lib",
+                                   "kernel32.lib" };
+    bool librariesPresent = true;
+    for (const char* name : requiredLibs) {
+        const std::string path = BundledLibrary(toolBin, name, res.diagnosticsText);
+        if (path.empty()) librariesPresent = false;
+        else cmd << " " << Quote(path);
+    }
+    auto addLibrary = [&](const char* name) {
+        const std::string path = BundledLibrary(toolBin, name, res.diagnosticsText);
+        if (path.empty()) librariesPresent = false;
+        else cmd << " " << Quote(path);
+    };
     if (linkLoopback) {
         const fs::path loopback = fs::path(runtimeObj).parent_path() / "LoopbackText.obj";
         if (!FileExists(loopback)) {
             res.diagnosticsText += "error: LoopbackText.obj was not found next to RobixNativeRuntime.obj.\n";
             return res;
         }
-        cmd << Quote(loopback.string()) << " -lws2_32 ";
+        cmd << " " << Quote(loopback.string());
+        addLibrary("ws2_32.lib");
     }
     if (linkEnv) {
         const fs::path envStore = fs::path(runtimeObj).parent_path() / "EnvStore.obj";
@@ -758,15 +780,22 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
             res.diagnosticsText += "error: EnvStore.obj was not found next to RobixNativeRuntime.obj.\n";
             return res;
         }
-        cmd << Quote(envStore.string()) << " ";
+        cmd << " " << Quote(envStore.string());
     }
     if (options.linkNetwork) {
-        cmd << Quote(options.networkObjectPath) << " -lws2_32 -lsecur32 -lcrypt32 ";
+        cmd << " " << Quote(options.networkObjectPath);
+        addLibrary("ws2_32.lib");
+        addLibrary("secur32.lib");
+        addLibrary("crypt32.lib");
     }
-    cmd << Quote(codegenInput.string()) << " -o " << Quote(exePath.string());
+    if (!librariesPresent) return res;
 
     std::string linkLog;
     const int code = RunProcess(cmd.str(), linkLog);
+    {
+        std::error_code ec;
+        fs::remove(codegenObj, ec);
+    }
     if (!options.profileName.empty()) {
         res.toolOutput += "link: " + cmd.str() + "\n";
     }
@@ -787,7 +816,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
         res.llvmIRPath.clear();
     }
     if (code != 0 || !FileExists(exePath)) {
-        res.diagnosticsText += "error: native toolchain (clang) failed with exit code " + std::to_string(code) + ":\n" + res.toolOutput;
+        res.diagnosticsText += "error: the built-in linker failed with exit code " + std::to_string(code) + ":\n" + res.toolOutput;
         return res;
     }
 

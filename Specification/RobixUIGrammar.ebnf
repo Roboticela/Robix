@@ -1,7 +1,7 @@
 (* ========================================================================== *)
 (* ROBIXUI DECLARATIVE MARKUP LANGUAGE — FORMAL EBNF GRAMMAR (v1.0)           *)
 (* Product of Roboticela — "The Language of Intelligent Machines."            *)
-(* Extension covered: .rbxu                                                   *)
+(* Extension covered: .rxu                                                   *)
 (* Encoding: UTF-8 (XML 1.0 Compatible)                                       *)
 (* ========================================================================== *)
 

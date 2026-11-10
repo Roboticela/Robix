@@ -188,7 +188,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
     }
     if (command == "validate") {
         if (document.empty()) {
-            std::cerr << "robix ui: expected a .rbxu file\n";
+            std::cerr << "robix ui: expected a .rxu file\n";
             return 1;
         }
         std::ifstream in(document, std::ios::binary);

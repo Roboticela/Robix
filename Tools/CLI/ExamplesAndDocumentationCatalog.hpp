@@ -9,7 +9,7 @@
 namespace Robix::Tools {
 
 // ============================================================================
-// 1. MANDATORY 22 WORKING EXAMPLE APPLICATIONS CATALOG (ALL WITH .TEST.RBX)
+// 1. MANDATORY 22 WORKING EXAMPLE APPLICATIONS CATALOG (ALL WITH .TEST.RX)
 // ============================================================================
 
 struct ExampleApplicationEntry {

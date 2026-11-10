@@ -1,5 +1,5 @@
 Output: Kernel
 Target: arm-unknown-none
 Entry: Start
-Source: Board.rbx
+Source: Board.rx
 Profile: embedded

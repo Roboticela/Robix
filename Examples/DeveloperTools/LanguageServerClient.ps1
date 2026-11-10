@@ -34,7 +34,7 @@ function Read-Lsp {
     return -join $buffer
 }
 
-$source = [IO.File]::ReadAllText((Resolve-Path ".\Examples\DeveloperTools\Documented.rbx"))
+$source = [IO.File]::ReadAllText((Resolve-Path ".\Examples\DeveloperTools\Documented.rx"))
 Send-Lsp @{ jsonrpc = "2.0"; id = 1; method = "initialize"; params = @{} }
 $init = Read-Lsp
 Send-Lsp @{
@@ -42,7 +42,7 @@ Send-Lsp @{
     method = "textDocument/didOpen"
     params = @{
         textDocument = @{
-            uri = "file:///Examples/DeveloperTools/Documented.rbx"
+            uri = "file:///Examples/DeveloperTools/Documented.rx"
             languageId = "robix"
             version = 1
             text = $source
@@ -54,7 +54,7 @@ Send-Lsp @{
     id = 2
     method = "textDocument/hover"
     params = @{
-        textDocument = @{ uri = "file:///Examples/DeveloperTools/Documented.rbx" }
+        textDocument = @{ uri = "file:///Examples/DeveloperTools/Documented.rx" }
         position = @{ line = 18; character = 20 }
     }
 }

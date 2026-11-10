@@ -16,15 +16,15 @@
 namespace Robix::Tools {
 
 // ============================================================================
-// 1. AUTOMATIC .TEST.RBX SCAFFOLD GENERATOR (IDEMPOTENT IF NOT EXISTS)
+// 1. AUTOMATIC .TEST.RX SCAFFOLD GENERATOR (IDEMPOTENT IF NOT EXISTS)
 // ============================================================================
 // Implements:
 //   - `robix test --generate [Path]`
 //   - `robix test-gen [Path]`
 //   - `robix generate-tests [Path]`
 //   - `robixc --generate-tests [Path]`
-// Inspects target `.rbx` source file(s), extracts package name and public/top-level
-// functions/classes, and creates `<ModuleName>.test.rbx` ONLY if it does not
+// Inspects target `.rx` source file(s), extracts package name and public/top-level
+// functions/classes, and creates `<ModuleName>.test.rx` ONLY if it does not
 // already exist (never overwrites existing user tests).
 
 struct TestScaffoldReport {
@@ -34,28 +34,28 @@ struct TestScaffoldReport {
 
 class TestScaffoldGenerator {
 public:
-    // Computes the companion `.test.rbx` path for a given `.rbx` source path
-    // (e.g. "Source/Robot.rbx" -> "Source/Robot.test.rbx")
+    // Computes the companion `.test.rx` path for a given `.rx` source path
+    // (e.g. "Source/Robot.rx" -> "Source/Robot.test.rx")
     [[nodiscard]] static std::string ComputeCompanionTestPath(std::string_view sourceFilePath);
 
-    // Generates valid `.test.rbx` content with empty/starter `test "..." { }` blocks
+    // Generates valid `.test.rx` content with empty/starter `test "..." { }` blocks
     // for every public function and class in `sourceCode`.
     [[nodiscard]] static std::string SynthesizeTestFileContent(
         std::string_view sourceFilePath,
         std::string_view sourceCode);
 
-    // Ensures `<FileStem>.test.rbx` exists on disk for a single `.rbx` file.
-    // Returns true if a new `.test.rbx` file was created, false if it already existed.
+    // Ensures `<FileStem>.test.rx` exists on disk for a single `.rx` file.
+    // Returns true if a new `.test.rx` file was created, false if it already existed.
     static bool EnsureTestFileForSourceOnDisk(
         const std::filesystem::path& rbxFilePath,
         TestScaffoldReport& reportOut);
 
-    // Scans a directory or single file path on disk and creates missing `.test.rbx` files.
+    // Scans a directory or single file path on disk and creates missing `.test.rx` files.
     static TestScaffoldReport GenerateMissingTestFilesOnDisk(
         const std::filesystem::path& targetPath);
 
-    // Scans an in-memory project file map (`path -> content`) and inserts missing `.test.rbx` files
-    // only when neither `<Dir>/<Stem>.test.rbx` nor `Tests/<Stem>.test.rbx` exists.
+    // Scans an in-memory project file map (`path -> content`) and inserts missing `.test.rx` files
+    // only when neither `<Dir>/<Stem>.test.rx` nor `Tests/<Stem>.test.rx` exists.
     static TestScaffoldReport GenerateMissingTestFilesInMemory(
         std::map<std::string, std::string>& projectFiles);
 };

@@ -9,7 +9,7 @@
 ## 1. LEXICAL STRUCTURE & UNICODE IDENTIFIER POLICY
 
 ### 1.1 Source Encoding
-All Robix source files (`.rbx`, `.test.rbx`, `.rbxapi`, `.rbxb`, `.rbxproj`, `.rbxu`) are encoded in **UTF-8** without requiring a Byte Order Mark (BOM).
+All Robix source files (`.rx`, `.test.rx`, `.rbxapi`, `.rbxb`, `.rbxproj`, `.rxu`) are encoded in **UTF-8** without requiring a Byte Order Mark (BOM).
 
 ### 1.2 Unicode Identifier Policy (UAX #31)
 1. Identifiers follow **Unicode Standard Annex #31 (UAX #31)** `XID_Start` and `XID_Continue` properties, normalized to **Unicode Normalization Form C (NFC)** prior to symbol resolution.
@@ -18,7 +18,7 @@ All Robix source files (`.rbx`, `.test.rbx`, `.rbxapi`, `.rbxb`, `.rbxproj`, `.r
 
 ### 1.3 Official Naming & Capitalization Enforcement
 The compiler (`robixc`) and linter (`robix lint --strict`) enforce:
-- **`PascalCase`** for filenames (`RobotController.rbx`), classes, structs, interfaces, traits, enums, enum variants, functions, methods, constructors, services, and package names.
+- **`PascalCase`** for filenames (`RobotController.rx`), classes, structs, interfaces, traits, enums, enum variants, functions, methods, constructors, services, and package names.
 - **`camelCase`** for local variables (`motorSpeed`), instance fields, parameters, and local bindings.
 - **`UPPER_SNAKE_CASE`** for all compile-time constants (`MAX_SPEED`, `PI_VALUE`).
 - **Acronym Preservation:** Acronyms (`SDK`, `XML`, `CPP`, `API`, `HTTP`, `GPU`, `CPU`, `USB`, `AI`, `JSON`, `TCP`, `UART`, `PWM`, `GPIO`, `I2C`, `SPI`, `CAN`, `DMA`) remain uppercase (`APIManager`, `HTTPClient`, `isUSBConnected`, `apiURL`).

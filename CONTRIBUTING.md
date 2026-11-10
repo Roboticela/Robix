@@ -32,8 +32,8 @@ Build/Bin/robixc.exe --version
 Run the program that your change affects, on the engine that your change affects.
 
 ```powershell
-Build\Bin\robix.exe run Examples\GettingStarted\Hello.rbx
-Build\Bin\robixc.exe -O3 Examples\GettingStarted\Hello.rbx -o Build\Hello.exe
+Build\Bin\robix.exe run Examples\GettingStarted\Hello.rx
+Build\Bin\robixc.exe -O3 Examples\GettingStarted\Hello.rx -o Build\Hello.exe
 Build\Bin\robix.exe test Tests\Conformance
 ```
 
@@ -48,7 +48,7 @@ Record the command and the output you saw. A feature is implemented when a progr
 - Diagnostics need a source location and a stable code such as `R1001`.
 - Unsafe memory, pointers, and inline assembly stay inside `Unsafe`.
 - Hardware that is not present on the machine must say so. A Windows run must not invent a GPIO level, a motor speed, or a board boot.
-- Platform names this machine cannot build are refused with a direct error. Web is refused for a console program. A window or a network program needs a `.rbxu` screen before it compiles for web.
+- Platform names this machine cannot build are refused with a direct error. Web is refused for a console program. A window or a network program needs a `.rxu` screen before it compiles for web.
 - Bedrock builds a machine image. It does not target an operating system.
 
 ## 🎨 Style
@@ -62,14 +62,14 @@ Robix source follows the official names:
 
 C++ in this repository is C++20, RAII, const where the value does not change, and a warning-clean build. Match the file you are editing.
 
-`robix format` and `robix lint --strict` are the style tools for `.rbx` files.
+`robix format` and `robix lint --strict` are the style tools for `.rx` files.
 
 ## 🧪 Tests
 
 | Kind | Where |
 | --- | --- |
 | Conformance | `Tests/Conformance` |
-| Standard library | `StdLib/Robix/*.test.rbx` |
+| Standard library | `StdLib/Robix/*.test.rx` |
 | A new example | `Examples/`, with the command in the pull request |
 
 `robix test` runs the interpreter and the native compiler. When a feature can only run in a freestanding image, say so in the test note. `Tests/Conformance/NATIVE_ONLY.md` is the list of those cases. Do not mark a native-only program as passing on the interpreter.

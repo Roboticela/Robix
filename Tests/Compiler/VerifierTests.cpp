@@ -92,7 +92,7 @@ public Int ComputeTorque(Int currentAmps, Int ktConstant) {
 )";
 
     const std::string testSource = R"(
-Test "Motor torque and all Assert.* methods in .test.rbx" {
+Test "Motor torque and all Assert.* methods in .test.rx" {
     let torque = ComputeTorque(6, 7);
     Assert.Equal(torque, 42);
     Assert.NotEqual(torque, 0);
@@ -111,9 +111,9 @@ Test "Motor torque and all Assert.* methods in .test.rbx" {
 
     Robix::Frontend::DiagnosticBag diag;
     auto res = Robix::Testing::MandatoryTestEnforcer::RunSingleFileTest(
-        "Torque.rbx",
+        "Torque.rx",
         prodSource,
-        "Torque.test.rbx",
+        "Torque.test.rx",
         testSource,
         Robix::Testing::TestExecutionEngine::Differential,
         diag);
@@ -127,7 +127,7 @@ Test "Motor torque and all Assert.* methods in .test.rbx" {
 }
 
 void TestMandatoryPerFileEnforcementR5001() {
-    std::cout << "\n--- 3. Mandatory Per-File .test.rbx Enforcement (R5001) ---\n";
+    std::cout << "\n--- 3. Mandatory Per-File .test.rx Enforcement (R5001) ---\n";
 
     const std::string motorSource = R"(
 package Robotics.Motors;
@@ -145,33 +145,33 @@ public Int ClampPWM(Int duty) {
 }
 )";
 
-    // Case A: Missing .test.rbx file -> Blocked with R5001
+    // Case A: Missing .test.rx file -> Blocked with R5001
     {
         Robix::Frontend::DiagnosticBag diag;
         Robix::Testing::TestEnforcementConfig cfg;
         auto cov = Robix::Testing::MandatoryTestEnforcer::EnforceProjectTests(
-            { { "Motor.rbx", motorSource, "", "" } },
+            { { "Motor.rx", motorSource, "", "" } },
             cfg,
             diag);
 
         Check(cov.size() == 1 && !cov[0].passedEnforcement && diag.ContainsCode("R5001"),
-              "Missing Motor.test.rbx blocks build with ROBIX TEST ERROR R5001");
+              "Missing Motor.test.rx blocks build with ROBIX TEST ERROR R5001");
     }
 
-    // Case B: Empty .test.rbx file (0 Test blocks) -> Blocked with R5001
+    // Case B: Empty .test.rx file (0 Test blocks) -> Blocked with R5001
     {
         Robix::Frontend::DiagnosticBag diag;
         Robix::Testing::TestEnforcementConfig cfg;
         auto cov = Robix::Testing::MandatoryTestEnforcer::EnforceProjectTests(
-            { { "Motor.rbx", motorSource, "Motor.test.rbx", "package Robotics.Motors;" } },
+            { { "Motor.rx", motorSource, "Motor.test.rx", "package Robotics.Motors;" } },
             cfg,
             diag);
 
         Check(cov.size() == 1 && !cov[0].passedEnforcement && diag.ContainsCode("R5001"),
-              "Motor.test.rbx with 0 Test blocks blocks build with ROBIX TEST ERROR R5001");
+              "Motor.test.rx with 0 Test blocks blocks build with ROBIX TEST ERROR R5001");
     }
 
-    // Case C: Unrelated .test.rbx file that does not exercise Motor.rbx -> Blocked with R5001
+    // Case C: Unrelated .test.rx file that does not exercise Motor.rx -> Blocked with R5001
     {
         Robix::Frontend::DiagnosticBag diag;
         Robix::Testing::TestEnforcementConfig cfg;
@@ -181,15 +181,15 @@ Test "Unrelated arithmetic check" {
 }
 )";
         auto cov = Robix::Testing::MandatoryTestEnforcer::EnforceProjectTests(
-            { { "Motor.rbx", motorSource, "Motor.test.rbx", unrelatedTest } },
+            { { "Motor.rx", motorSource, "Motor.test.rx", unrelatedTest } },
             cfg,
             diag);
 
         Check(cov.size() == 1 && !cov[0].passedEnforcement && diag.ContainsCode("R5001"),
-              "Motor.test.rbx that does not reference any symbol from Motor.rbx is rejected with R5001");
+              "Motor.test.rx that does not reference any symbol from Motor.rx is rejected with R5001");
     }
 
-    // Case D: Failing assertion inside .test.rbx -> Blocked with R5001
+    // Case D: Failing assertion inside .test.rx -> Blocked with R5001
     {
         Robix::Frontend::DiagnosticBag diag;
         Robix::Testing::TestEnforcementConfig cfg;
@@ -199,15 +199,15 @@ Test "Broken expectation for ClampPWM" {
 }
 )";
         auto cov = Robix::Testing::MandatoryTestEnforcer::EnforceProjectTests(
-            { { "Motor.rbx", motorSource, "Motor.test.rbx", failingTest } },
+            { { "Motor.rx", motorSource, "Motor.test.rx", failingTest } },
             cfg,
             diag);
 
         Check(cov.size() == 1 && !cov[0].passedEnforcement && diag.ContainsCode("R5001"),
-              "Failing test assertion in Motor.test.rbx blocks build with R5001");
+              "Failing test assertion in Motor.test.rx blocks build with R5001");
     }
 
-    // Case E: Declaration/constants-only file covered via TestFile { Covers = "Constants.rbx"; } -> Passes!
+    // Case E: Declaration/constants-only file covered via TestFile { Covers = "Constants.rx"; } -> Passes!
     {
         Robix::Frontend::DiagnosticBag diag;
         Robix::Testing::TestEnforcementConfig cfg;
@@ -216,20 +216,20 @@ package Robotics.Config;
 const Int MAX_RPM = 6000;
 )";
         const std::string constantsTest = R"(
-TestFile "Constants.test.rbx" {
-    Covers = "Constants.rbx";
+TestFile "Constants.test.rx" {
+    Covers = "Constants.rx";
     Test "Validate MAX_RPM constant" {
         Assert.Equal(6000, 6000);
     }
 }
 )";
         auto cov = Robix::Testing::MandatoryTestEnforcer::EnforceProjectTests(
-            { { "Constants.rbx", constantsSource, "Constants.test.rbx", constantsTest } },
+            { { "Constants.rx", constantsSource, "Constants.test.rx", constantsTest } },
             cfg,
             diag);
 
         Check(cov.size() == 1 && cov[0].passedEnforcement && cov[0].hasExplicitCoversDecl && !diag.HasErrors(),
-              "TestFile { Covers = \"Constants.rbx\"; } satisfies R5001 for declaration/constant files");
+              "TestFile { Covers = \"Constants.rx\"; } satisfies R5001 for declaration/constant files");
     }
 }
 
@@ -283,7 +283,7 @@ Test "Kills arithmetic and comparison mutants" {
 }
 )";
     auto mutRes = Robix::Testing::MandatoryTestEnforcer::RunMutationTest(
-        "Energy.rbx", mathSrc, "Energy.test.rbx", mathTest, 80.0);
+        "Energy.rx", mathSrc, "Energy.test.rx", mathTest, 80.0);
     Check(mutRes.totalMutantsGenerated >= 3 && mutRes.mutantsKilled == mutRes.totalMutantsGenerated &&
           mutRes.mutationScorePercent == 100.0 && mutRes.passedThreshold,
           "Mutation test engine generates operator mutants and confirms 100% mutant kill score");
@@ -361,7 +361,7 @@ Test "PIDController ComputeStep proportional gain" {
     // 1. Full Project Verification (All 8 checks pass -> exitCode == 0)
     auto projReport = Robix::Tools::RobixVerifier::VerifyProject(
         "RoboticsControlProject",
-        { { "PIDController.rbx", validController, "PIDController.test.rbx", validControllerTest } });
+        { { "PIDController.rx", validController, "PIDController.test.rx", validControllerTest } });
 
     Check(projReport.AllChecksPassed() && projReport.exitCode == 0 &&
           projReport.syntaxCheckPassed && projReport.typeCheckPassed &&
@@ -371,7 +371,7 @@ Test "PIDController ComputeStep proportional gain" {
           projReport.totalAssertionsPassed == 2 && projReport.averageSymbolCoveragePercent == 100.0,
           "RobixVerifier::VerifyProject passes all 8 verification stages with exitCode 0 and 100% symbol coverage");
 
-    // 2. Project Verification Failure when Explain block is missing and .test.rbx is missing
+    // 2. Project Verification Failure when Explain block is missing and .test.rx is missing
     const std::string undocumentedSource = R"(
 package Robotics.Broken;
 public Int MissingExplainFn(Int x) {
@@ -380,20 +380,20 @@ public Int MissingExplainFn(Int x) {
 )";
     auto failedProjReport = Robix::Tools::RobixVerifier::VerifyProject(
         "BrokenProject",
-        { { "BrokenFile.rbx", undocumentedSource, "", "" } });
+        { { "BrokenFile.rx", undocumentedSource, "", "" } });
 
     Check(!failedProjReport.AllChecksPassed() && failedProjReport.exitCode == 1 &&
           !failedProjReport.explainCheckPassed && !failedProjReport.mandatoryTestFileCheckPassed,
-          "RobixVerifier::VerifyProject catches missing Explain (R3001) and missing .test.rbx (R5001) with exitCode 1");
+          "RobixVerifier::VerifyProject catches missing Explain (R3001) and missing .test.rx (R5001) with exitCode 1");
 
-    // 3. Single-File .rbx Verification (`robix verify PIDController.rbx`)
+    // 3. Single-File .rx Verification (`robix verify PIDController.rx`)
     auto singleRbxReport = Robix::Tools::RobixVerifier::VerifySingleFile(
-        "PIDController.rbx",
+        "PIDController.rx",
         validController);
     Check(singleRbxReport.isSingleFileMode && singleRbxReport.AllChecksPassed() && singleRbxReport.exitCode == 0,
-          "RobixVerifier::VerifySingleFile verifies standalone .rbx file in isolation");
+          "RobixVerifier::VerifySingleFile verifies standalone .rx file in isolation");
 
-    // 4. Single-File .rbxu UI Markup Verification (`robix verify MainWindow.rbxu`)
+    // 4. Single-File .rxu UI Markup Verification (`robix verify MainWindow.rxu`)
     const std::string validRbxu = R"(
 <?xml version="1.0"?>
 <RobixUI Version="1.0">
@@ -404,9 +404,9 @@ public Int MissingExplainFn(Int x) {
     </Window>
 </RobixUI>
 )";
-    auto singleRbxuReport = Robix::Tools::RobixVerifier::VerifySingleFile("MainWindow.rbxu", validRbxu);
+    auto singleRbxuReport = Robix::Tools::RobixVerifier::VerifySingleFile("MainWindow.rxu", validRbxu);
     Check(singleRbxuReport.isSingleFileMode && singleRbxuReport.AllChecksPassed() && singleRbxuReport.exitCode == 0,
-          "RobixVerifier::VerifySingleFile verifies standalone .rbxu UI document in isolation");
+          "RobixVerifier::VerifySingleFile verifies standalone .rxu UI document in isolation");
 }
 
 } // namespace

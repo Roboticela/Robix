@@ -16,19 +16,19 @@ Programs in this folder are grouped by what they show. Each file is a real Robix
 | [Machine](Machine) | Serial output, a kernel image, firmware, a disk read, boards, and inline assembly |
 
 ```text
-robix run Examples/GettingStarted/Hello.rbx
-robixc -O3 Examples/GettingStarted/Hello.rbx -o Build/Hello.exe
+robix run Examples/GettingStarted/Hello.rx
+robixc -O3 Examples/GettingStarted/Hello.rx -o Build/Hello.exe
 ```
 
 `Documentation/Status.md` records the commands that were run before these folders were renamed. The sources are the same files.
 
 | Earlier path | Current path |
 | --- | --- |
-| `Examples/StageB/LibcShape.rbx` | `Examples/Interop/HostedCore.rbx` |
-| `Examples/StageC/Machine.rbx` | `Examples/Classes/RobotClasses.rbx` |
+| `Examples/StageB/LibcShape.rx` | `Examples/Interop/HostedCore.rx` |
+| `Examples/StageC/Machine.rx` | `Examples/Classes/RobotClasses.rx` |
 | `Examples/StageD/` | `Examples/GettingStarted/` |
 | `Examples/StageF/` | `Examples/Machine/` |
-| `Examples/StageF/BadMnemonic.rbx` | `Examples/Machine/RejectedInstruction.rbx` |
+| `Examples/StageF/BadMnemonic.rx` | `Examples/Machine/RejectedInstruction.rx` |
 | `Examples/StageI/` | `Examples/Packages/Answer/` |
 | `Examples/StageJ/` | `Examples/UserInterface/Dashboard/` |
 | `Examples/StageK/` | `Examples/Network/LocalCall/` |

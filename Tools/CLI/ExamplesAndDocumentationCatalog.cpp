@@ -14,8 +14,8 @@ ExampleApplicationEntry MakeExample(
     std::string fnBody,
     std::string testAssertExpr) {
 
-    const std::string srcFile  = "Examples/" + fileStem + ".rbx";
-    const std::string testFile = "Examples/" + fileStem + ".test.rbx";
+    const std::string srcFile  = "Examples/" + fileStem + ".rx";
+    const std::string testFile = "Examples/" + fileStem + ".test.rx";
 
     std::ostringstream src;
     src << "package Examples." << fileStem << ";\n\n"
@@ -120,7 +120,7 @@ bool OfficialExamplesCatalog::VerifyAndExecuteAll22Examples(std::size_t& passedC
 const std::vector<DocumentationGuideEntry>& OfficialDocumentationCatalog::GetAll30Guides() {
     static const std::vector<DocumentationGuideEntry> kGuides = {
         { 1,  "01_LanguageOverview.md",              "Robix Language Overview & Philosophy",                  "Covers Roboticela's core vision, OOP + procedural + functional paradigms, and naming conventions." },
-        { 2,  "02_GettingStartedAndSingleFile.md",   "Getting Started & Zero-Config Single-File Mode",        "Explains `robix run File.rbx`, `robixc File.rbx`, and interactive `robix repl`." },
+        { 2,  "02_GettingStartedAndSingleFile.md",   "Getting Started & Zero-Config Single-File Mode",        "Explains `robix run File.rx`, `robixc File.rx`, and interactive `robix repl`." },
         { 3,  "03_LexicalGrammarAndUnicode.md",      "Lexical Structure, Operator Precedence & Unicode",      "Details the 15-level precedence table, UAX #31 identifiers, and uppercase acronym rules." },
         { 4,  "04_TypeSystemAndNullSafety.md",       "Static Type System, Generics & Null Safety",            "Documents exact primitive bit widths, `Option<T>` (`T?`), `Result<T, E>`, and type inference." },
         { 5,  "05_ObjectModelAndVisibility.md",      "Classes, Interfaces, Traits & Visibility Rules",        "Covers single inheritance, interfaces, traits, constructors, destructors, and access modifiers." },
@@ -131,8 +131,8 @@ const std::vector<DocumentationGuideEntry>& OfficialDocumentationCatalog::GetAll
         { 10, "10_UnifiedMemoryArchitecture.md",     "Unified 4-Tier Memory Model (RC, Arena, Pool, Manual)", "Details simultaneous automatic RC (`Weak<T>`, cycle collector) and manual `Unsafe` memory at C speed." },
         { 11, "11_PointersSlicesAndInlineASM.md",    "Typed Pointers, Safe Span<T> Slices & Inline ASM",      "Covers `Pointer<T>`, bounds-checked `Span<T>`, and architecture-validated `ASM` blocks." },
         { 12, "12_ABISpecificationAndCFFI.md",       "Complete Robix ABI & Memory-Safe C Interoperability",   "Defines calling conventions, `_RX` mangling, vtables, plugin ABI, and FFI buffer pinning." },
-        { 13, "13_MandatoryTestingAndFuzzing.md",    "Mandatory .test.rbx System, Fuzzing & Mutation Testing","Documents the `R5001` build guard, all 12 `Assert.*` methods, property shrinking, and `robix test-gen`." },
-        { 14, "14_SingleCommandVerifier.md",         "Single-Command Project & File Verifier (robix verify)", "Explains the 8-stage verification pipeline for `.rbx`, `.rbxu`, and `.rbxb` targets." },
+        { 13, "13_MandatoryTestingAndFuzzing.md",    "Mandatory .test.rx System, Fuzzing & Mutation Testing","Documents the `R5001` build guard, all 12 `Assert.*` methods, property shrinking, and `robix test-gen`." },
+        { 14, "14_SingleCommandVerifier.md",         "Single-Command Project & File Verifier (robix verify)", "Explains the 8-stage verification pipeline for `.rx`, `.rxu`, and `.rbxb` targets." },
         { 15, "15_CoreStandardLibraryAndRegex.md",   "Robix.Core, Math, DateTime & Linear-Time Regex",        "Covers `Print`, `Input<T>`, `Vec3`, `Quaternion`, and ReDoS-immune Thompson NFA `Robix.Regex`." },
         { 16, "16_CollectionsAndDataStructures.md",  "Robix.Collections: List, Dictionary, Graph, Matrix",    "Documents generic containers, iterators, `Matrix<T>`, and `Tensor<T>`." },
         { 17, "17_JsonDataFormatsAndDatabase.md",    "First-Class Robix.Json, CSV, YAML, TOML & Database",    "Covers zero-dependency JSON parser/serializer, schema validation, compression, and SQLite." },
@@ -143,7 +143,7 @@ const std::vector<DocumentationGuideEntry>& OfficialDocumentationCatalog::GetAll
         { 22, "22_RealTimeExecutionProfile.md",      "Real-Time Execution (@RealTime, WCET, Watchdog)",       "Covers `@Priority`, `@Period`, No-GC enforcement (`RT9001`), lock-free SPSC queues, and WCET reporting." },
         { 23, "23_RoboticsControlAndKinematics.md",  "Robotics Standard Library: PID, Kalman, IK & A*",       "Covers `SafetyMonitor` E-Stop, motor controllers, PID, Kalman filter, 2-link IK, and A* navigation." },
         { 24, "24_AIMachineLearningAndVision.md",    "AI, Autodiff, Neural Networks, Computer Vision & DSP",  "Details reverse-mode autodiff, `SequentialNeuralModel`, SIMD kernels, Sobel vision, and DFT audio." },
-        { 25, "25_RobixUIDeclarativeMarkup.md",      "RobixUI (.rbxu) Declarative User Interface Language",   "Covers XML-inspired `.rbxu` components, layout engine, themes, and type-checked data/event bindings." },
+        { 25, "25_RobixUIDeclarativeMarkup.md",      "RobixUI (.rxu) Declarative User Interface Language",   "Covers XML-inspired `.rxu` components, layout engine, themes, and type-checked data/event bindings." },
         { 26, "26_DebuggingAndProfilingSuite.md",    "Complete Debugger (robix debug) & Profiler (robix profile)", "Documents conditional breakpoints, watchpoints, crash dumps, CPU flame graphs, and race detection." },
         { 27, "27_LSPFormatterAndVSCodeIntegration.md","Language Server (LSP), Formatter & Strict Linter",    "Explains autocomplete, hover `Explain` docs, `robix fmt`, and `robix lint --strict`." },
         { 28, "28_CrossCompilationAndBenchmarks.md", "Cross-Compilation & 16-Workload C/C++/Rust Benchmarks", "Documents multi-OS native targets and the reproducible 16-workload benchmark suite." },

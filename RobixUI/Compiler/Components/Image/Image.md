@@ -2,7 +2,7 @@
 
 A picture on the web page. The Windows window does not paint it.
 
-`Source` is the file or address. A path is read next to the `.rbxu` document and copied into the web package as `images/<file>`. An `http`, `https`, `data`, or `blob` address is used as written. A missing file is left as written and the compiler warns.
+`Source` is the file or address. A path is read next to the `.rxu` document and copied into the web package as `images/<file>`. An `http`, `https`, `data`, or `blob` address is used as written. A missing file is left as written and the compiler warns.
 
 ## Options
 

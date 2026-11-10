@@ -78,7 +78,7 @@ std::vector<fs::path> FindDocuments(const fs::path& root) {
     std::vector<fs::path> documents;
     std::error_code error;
     for (const auto& entry : fs::recursive_directory_iterator(root, error)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".rbxu") {
+        if (!entry.is_regular_file() || entry.path().extension() != ".rxu") {
             continue;
         }
         if (entry.path().string().find("\\Build\\") != std::string::npos) {
@@ -92,7 +92,7 @@ std::vector<fs::path> FindDocuments(const fs::path& root) {
 
 fs::path ChooseDocument(const std::vector<fs::path>& documents) {
     for (const fs::path& document : documents) {
-        if (document.filename() == "MainWindow.rbxu") {
+        if (document.filename() == "MainWindow.rxu") {
             return document;
         }
     }
@@ -105,10 +105,10 @@ int BuildOrRunProject(const std::string& input, bool development, const std::str
     const fs::path root = ProjectRoot(fs::absolute(input));
     const bool web = target == "web";
     const std::vector<fs::path> documents = FindDocuments(root);
-    const fs::path document = fs::is_regular_file(input) && fs::path(input).extension() == ".rbxu" ? fs::path(input) : ChooseDocument(documents);
+    const fs::path document = fs::is_regular_file(input) && fs::path(input).extension() == ".rxu" ? fs::path(input) : ChooseDocument(documents);
     if (development) {
         if (document.empty()) {
-            std::cerr << "robixc: development mode found no .rbxu screen\n";
+            std::cerr << "robixc: development mode found no .rxu screen\n";
             return 1;
         }
         std::cout << "development: running " << (web ? "web" : "windows") << " without writing HTML\n";
@@ -136,7 +136,7 @@ int BuildOrRunProject(const std::string& input, bool development, const std::str
             if (!entry.is_directory()) {
                 continue;
             }
-            const fs::path schema = entry.path() / (entry.path().filename().string() + ".Schema.rbxu");
+            const fs::path schema = entry.path() / (entry.path().filename().string() + ".Schema.rxu");
             if (!fs::is_regular_file(schema)) {
                 continue;
             }
@@ -154,21 +154,21 @@ int BuildOrRunProject(const std::string& input, bool development, const std::str
 
     std::vector<fs::path> sources;
     for (const auto& entry : fs::recursive_directory_iterator(root, error)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".rbx") {
+        if (!entry.is_regular_file() || entry.path().extension() != ".rx") {
             continue;
         }
         if (entry.path().string().find("\\Build\\") != std::string::npos) {
             continue;
         }
         const std::string name = entry.path().filename().string();
-        if (name.size() > 9 && name.ends_with(".test.rbx")) {
+        if (name.size() > 9 && name.ends_with(".test.rx")) {
             continue;
         }
         sources.push_back(entry.path());
     }
     fs::path mainSource;
     for (const fs::path& source : sources) {
-        if (source.filename() == "Main.rbx" || HasMain(ReadText(source))) {
+        if (source.filename() == "Main.rx" || HasMain(ReadText(source))) {
             mainSource = source;
             break;
         }

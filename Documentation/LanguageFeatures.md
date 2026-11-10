@@ -10,9 +10,9 @@ Source files are UTF-8. Identifiers follow Unicode UAX #31 (`XID_Start` / `XID_C
 
 | Kind | Extension or name |
 | :--- | :--- |
-| Source | `.rbx` |
+| Source | `.rx` |
 | Interface | `.rbxh` |
-| Test source | `.test.rbx` |
+| Test source | `.test.rx` |
 | API description | `.rbxapi` |
 | Compiled module | `.rbxm` |
 | Library | `.rbxlib` |
@@ -21,7 +21,7 @@ Source files are UTF-8. Identifiers follow Unicode UAX #31 (`XID_Start` / `XID_C
 | Workspace | `.rbxworkspace` |
 | Build description | `.rbxb` |
 | Lockfile | `Robix.Lock` |
-| UI document | `.rbxu` |
+| UI document | `.rxu` |
 | UI theme | `.rbxtheme` |
 | UI assets | `.rbxassets` |
 | Compiler | `robixc` |
@@ -30,8 +30,8 @@ Source files are UTF-8. Identifiers follow Unicode UAX #31 (`XID_Start` / `XID_C
 Commands the tools accept:
 
 ```text
-robixc File.rbx -o App -O3
-robixc --target <triple> -O3 File.rbx
+robixc File.rx -o App -O3
+robixc --target <triple> -O3 File.rx
 robixc --version
 robixc --help
 robixc --emit-llvm
@@ -42,7 +42,7 @@ robixc --no-main
 robixc --profile debug|release|performance|realtime|safety|size|embedded
 robixc --entry <symbol>
 
-robix run [File.rbx] [--engine interpreter|native|auto] [--native] [--watch] [--debug] [--trace]
+robix run [File.rx] [--engine interpreter|native|auto] [--native] [--watch] [--debug] [--trace]
 robix run all [--separate]
 robix repl
 robix new [.] [Name] [Application|Canvas|Bedrock] [kind]
@@ -334,7 +334,7 @@ Reading a private field from outside the type is `R2008`.
 
 Top-level items, in any order after the package and imports: class, struct, enum, interface, trait, service, implement, function, `extern` function, constant, variable, type alias, macro, `Test`, `TestFile`. An attribute is `@Name` or `@Name(arguments)`.
 
-An import of a bare name loads `<Name>.rbx` from the same directory.
+An import of a bare name loads `<Name>.rx` from the same directory.
 
 ## 9. Bindings
 
@@ -693,9 +693,9 @@ Methods accepted on a receiver:
 
 `Assert.Equal`, `Assert.True`, `Assert.False`, and the other `Assert.*` calls lower as assertions.
 
-## 16. Standard library packages (`.rbx`)
+## 16. Standard library packages (`.rx`)
 
-These are the packages under `StdLib/Robix/`. Each one has a matching `.test.rbx`. `robix test StdLib/Robix` runs them on the interpreter and on the native compiler.
+These are the packages under `StdLib/Robix/`. Each one has a matching `.test.rx`. `robix test StdLib/Robix` runs them on the interpreter and on the native compiler.
 
 ### `Robix.Core`
 
@@ -818,7 +818,7 @@ These are called as `Receiver.Member(...)`. They do not need a package import. H
 | `Args.Count()` | `Int` |
 | `Args.Get(index)` | `String` |
 
-`robix run Source/Program.rbx alpha beta` makes `Args.Count()` return `2`.
+`robix run Source/Program.rx alpha beta` makes `Args.Count()` return `2`.
 
 ### `Env`
 
@@ -901,7 +901,7 @@ The interpreter stops on these and tells you they run in the freestanding image.
 
 ## 18. Host library modules
 
-These C++ modules live under `StdLib/` and implement library behavior for the runtime. They are not separate `.rbx` packages. Names below are the public types and operations in those headers.
+These C++ modules live under `StdLib/` and implement library behavior for the runtime. They are not separate `.rx` packages. Names below are the public types and operations in those headers.
 
 ### Core (`StdLib/Core`)
 
@@ -993,7 +993,7 @@ HMAC-SHA256 sign and verify. AES-style encrypt and decrypt with a nonce.
 
 `Assert.Equal`, `Assert.NotEqual`, `Assert.True`, `Assert.False`, `Assert.Null`, `Assert.NotNull`, `Assert.Throws`, `Assert.ThrowsAsync`, `Assert.Success`, `Assert.Error`, `Assert.Contains`, `Assert.Timeout`.
 
-Per-file tests are `Name.rbx` and `Name.test.rbx`. `RequireTests: true` in the project makes `robix test` and `robix build` exit 1 when a source file has no test file. A lone `.rbx` with no project still builds.
+Per-file tests are `Name.rx` and `Name.test.rx`. `RequireTests: true` in the project makes `robix test` and `robix build` exit 1 when a source file has no test file. A lone `.rx` with no project still builds.
 
 ## 19. Tests
 
@@ -1002,8 +1002,8 @@ Test "Addition returns correct result" {
     Assert.Equal(Add(10, 20), 30);
 }
 
-TestFile "Motor.test.rbx" {
-    Covers = "Motor.rbx";
+TestFile "Motor.test.rx" {
+    Covers = "Motor.rx";
     Test "Battery cannot exceed maximum" {
         Assert.Equal(battery.Level, 100);
     }
@@ -1022,7 +1022,7 @@ Structured cancellation, `Mutex`, `ReadWriteLock`, `Semaphore`, `Channel<T>`, `T
 
 ## 21. RobixUI
 
-Documents are XML, extension `.rbxu`. The root is `RobixUI`.
+Documents are XML, extension `.rxu`. The root is `RobixUI`.
 
 ```xml
 <?xml version="1.0"?>
@@ -1040,7 +1040,7 @@ Documents are XML, extension `.rbxu`. The root is `RobixUI`.
 </RobixUI>
 ```
 
-`robix ui validate File.rbxu --code File.rbx` checks that each `OnClick` names a Robix function and that the function type matches. A missing function or a wrong signature exits 1.
+`robix ui validate File.rxu --code File.rx` checks that each `OnClick` names a Robix function and that the function type matches. A missing function or a wrong signature exits 1.
 
 Grammar components: `Window`, `Page`, `View`, `Panel`, `Container`, `Column`, `Row`, `Grid`, `Stack`, `Button`, `Text`, `TextField`, `Image`, `Icon`, `List`, `Table`, `Menu`, `Dialog`, `Tabs`, `Slider`, `Switch`, `Checkbox`, `RadioButton`, `ProgressBar`, `Chart`, `Canvas`, `Template`, `Slot`, `Style`. A custom component name is PascalCase. A screen can be split into components, import them, pass values in, and repeat or choose elements while the screen is built.
 
@@ -1065,7 +1065,7 @@ A property with a size suffix changes only on those screens: `Width.sm="100%"`, 
 
 `Visibility="false"` hides a component, and `Visibility="true"` shows it. `Visible` accepts the same two values. A size suffix hides or shows it on that screen only: `Visibility.sm="false"` hides it from `sm` upward, and `Visibility.xl="true"` shows it again from `xl` upward. `0`, `no`, `off`, and `hidden` hide. `1`, `yes`, `on`, and `visible` show.
 
-Components, data, and small logic are expanded when the screen is built. `Import Source="Card.rbxu"` reads another document. `Component Name="Card"` defines a piece that is not drawn by itself. Using `<Card Title="Robix"/>` pastes that piece in, and `{Title}` becomes the value that was passed. Children of the use site fill `<Slot/>`.
+Components, data, and small logic are expanded when the screen is built. `Import Source="Card.rxu"` reads another document. `Component Name="Card"` defines a piece that is not drawn by itself. Using `<Card Title="Robix"/>` pastes that piece in, and `{Title}` becomes the value that was passed. Children of the use site fill `<Slot/>`.
 
 ```xml
 <Component Name="Card">
@@ -1110,7 +1110,7 @@ Entrance presets: `fade`, `fade-up`, `fade-down`, `fade-left`, `fade-right`, `sl
 
 `Transition` takes `duration`, `delay`, `ease`, `repeat`, and `direction`. Ease values are `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `spring`, `bounce`, `anticipate`, `smooth`, `snappy`, and `gentle`. `spring` is a spring-shaped curve. `WhileInView` plays when the element enters the viewport. `Drag="true"` follows the pointer and glides on release. `Drag="x"` and `Drag="y"` lock one axis. `Robo.leave(element)` plays `Exit` and then hides the element. `spin`, `pulse`, `bounce`, `float`, `heartbeat`, `flash`, and `ping` repeat until `Repeat` says otherwise. The Windows window paints the still layout. These animations play on the web page.
 
-Themes: `light` and `dark`. `Foundation.rbxu` supplies colors, space, and type. The default face is Inter (`Inter-Regular`, `Inter-Medium`, `Inter-SemiBold`, `Inter-Bold`, `Inter-Italic`). `system`, `serif`, and `mono` select Segoe UI, Georgia, and Consolas when the foundation has no font of that name.
+Themes: `light` and `dark`. `Foundation.rxu` supplies colors, space, and type. The default face is Inter (`Inter-Regular`, `Inter-Medium`, `Inter-SemiBold`, `Inter-Bold`, `Inter-Italic`). `system`, `serif`, and `mono` select Segoe UI, Georgia, and Consolas when the foundation has no font of that name.
 
 Component schemas under `RobixUI/Compiler/Components` add these elements and attributes on top of the grammar:
 
@@ -1135,10 +1135,10 @@ Renderers:
 
 | Command | What it does |
 | :--- | :--- |
-| `robix ui render File.rbxu -o out.bmp` | software framebuffer BMP |
-| `robix ui window File.rbxu` | Windows window, then closes after paint |
-| `robix ui window File.rbxu --dev` | Windows window that stays open and reloads |
-| `robix ui web File.rbxu -o out.html` | HTML page |
+| `robix ui render File.rxu -o out.bmp` | software framebuffer BMP |
+| `robix ui window File.rxu` | Windows window, then closes after paint |
+| `robix ui window File.rxu --dev` | Windows window that stays open and reloads |
+| `robix ui web File.rxu -o out.html` | HTML page |
 | `robix ui --dev` | development host used by the UI demos |
 
 The Windows host handles DPI, mouse move, leave, down, up, double-click, Tab focus, Return, Space, mouse wheel, size, paint, and close. The web page listens for pointer, double-click, wheel, key, resize, and hash changes, and posts them to `/robix-event`. The framebuffer fills rectangles and discs. It does not draw rounded corners, icon-pack glyphs, a spinner animation, a focus halo, or letter-spacing. The web page applies those styles. Linux, macOS, Android, and iOS platform folders have no renderer.
@@ -1160,7 +1160,7 @@ public class MainController {
 
 ## 21.1 Robix3D
 
-Documents are XML, extension `.r3d`. The root is `Robix3D`. A RobixUI document cannot contain Robix3D elements, and a Robix3D document cannot contain RobixUI elements. The two meet only through a host: `<View3D Source="Scene.r3d"/>` inside RobixUI, and `<UI Source="Panel.rbxu"/>` inside Robix3D.
+Documents are XML, extension `.r3d`. The root is `Robix3D`. A RobixUI document cannot contain Robix3D elements, and a Robix3D document cannot contain RobixUI elements. The two meet only through a host: `<View3D Source="Scene.r3d"/>` inside RobixUI, and `<UI Source="Panel.rxu"/>` inside Robix3D.
 
 Units default to meters. Axes are right-handed and Y is up. Rotation is radians unless `Degrees="true"`. The web page is Three.js 0.170.0. The Windows window paints the hosted scene as a labeled panel.
 
@@ -1174,11 +1174,11 @@ A `.rbxb` file:
 Project {
     Name = "HelloApp";
     Output = "Executable";
-    Entry = "Source/Program.rbx";
+    Entry = "Source/Program.rx";
     Network = true;
     RequireTests = true;
     Sources {
-        "Source/Main.rbx";
+        "Source/Main.rx";
     }
 }
 ```
@@ -1187,7 +1187,7 @@ Project {
 
 `robix build` is incremental. An unchanged second build prints `incremental: unchanged`. Editing a file that `Main` imports rebuilds the executable.
 
-`robix new` asks for a category, then a kind. **Application** is a program a person runs: `Console` (a terminal), `Window` (a `.rbxu` file and a small test), or `Network` (clients and servers). A console program compiles for `windows`, `linux`, `macos`, `android`, and `ios`, and is refused for `web`. A window or a network program can also compile for `web` when the project has a `.rbxu` screen. Web compilation has two forms. `--web script` is the default: the screen stays HTML and CSS, and the Robix program is converted to JavaScript with the same behavior as the interpreter. `--web assembly` keeps that HTML and CSS and compiles the program to WebAssembly (`app.wasm`). `robix run --target web` always uses the script form. A feature that cannot run in a browser, such as inline assembly, CPU and port access, or a hardware bus, prints `warning W7001` and is skipped. The rest of the program still compiles and runs. This machine interprets `windows` and `web`, and compiles `windows`. The other platforms are refused here with a direct error. **Canvas** is classified from the file. `Network` or `SendText` is a network program and can use a `.rbxu` in the same folder. A matching `.rbxu` (the same name, the `Source`/`UI` pair, or the only `.rbx` in the folder) is a window. `Print`, `Input`, or `Args` is a console program. The tool prints a warning naming that choice, then applies the same web rule. **Canvas** is an empty folder. `robix run File.rbx` runs one file, `robix run A.rbx B.rbx` runs each file, and `--image` builds a machine image. **Bedrock** is the machine itself: `Kernel`, `OS`, `BIOS`, `Driver`, `Bootloader`, or `Firmware`. It builds an image and is refused when the target is an operating system. If a file uses machine code (`Cpu`, `Port`, `Console.Write`) and the target is a platform, or platform code (`Print`, `File`, `Args`) and the target is an image, `robix` and `robixc` both stop with a direct error. `CLI` still means Console, `GUI` still means Window, and `Blank` still means Canvas. A Window project and a Network project each get an `Assets` folder at the project root. `robix new file Sensor class` writes the source and the test. A Network scaffold writes client and server projects, `Common/Source` interfaces, a `.rbxu` for a GUI service, `.env.common`, and that `Assets` folder.
+`robix new` asks for a category, then a kind. **Application** is a program a person runs: `Console` (a terminal), `Window` (a `.rxu` file and a small test), or `Network` (clients and servers). A console program compiles for `windows`, `linux`, `macos`, `android`, and `ios`, and is refused for `web`. A window or a network program can also compile for `web` when the project has a `.rxu` screen. Web compilation has two forms. `--web script` is the default: the screen stays HTML and CSS, and the Robix program is converted to JavaScript with the same behavior as the interpreter. `--web assembly` keeps that HTML and CSS and compiles the program to WebAssembly (`app.wasm`). `robix run --target web` always uses the script form. A feature that cannot run in a browser, such as inline assembly, CPU and port access, or a hardware bus, prints `warning W7001` and is skipped. The rest of the program still compiles and runs. This machine interprets `windows` and `web`, and compiles `windows`. The other platforms are refused here with a direct error. **Canvas** is classified from the file. `Network` or `SendText` is a network program and can use a `.rxu` in the same folder. A matching `.rxu` (the same name, the `Source`/`UI` pair, or the only `.rx` in the folder) is a window. `Print`, `Input`, or `Args` is a console program. The tool prints a warning naming that choice, then applies the same web rule. **Canvas** is an empty folder. `robix run File.rx` runs one file, `robix run A.rx B.rx` runs each file, and `--image` builds a machine image. **Bedrock** is the machine itself: `Kernel`, `OS`, `BIOS`, `Driver`, `Bootloader`, or `Firmware`. It builds an image and is refused when the target is an operating system. If a file uses machine code (`Cpu`, `Port`, `Console.Write`) and the target is a platform, or platform code (`Print`, `File`, `Args`) and the target is an image, `robix` and `robixc` both stop with a direct error. `CLI` still means Console, `GUI` still means Window, and `Blank` still means Canvas. A Window project and a Network project each get an `Assets` folder at the project root. `robix new file Sensor class` writes the source and the test. A Network scaffold writes client and server projects, `Common/Source` interfaces, a `.rxu` for a GUI service, `.env.common`, and that `Assets` folder.
 
 ## 23. Diagnostics
 
@@ -1210,10 +1210,10 @@ Every diagnostic carries a file, line, and column.
 
 ## 24. Execution
 
-Development default is the interpreter: `robix run File.rbx`. Production is the native compiler: `robix build --release` or `robixc -O3`. `robix run File.rbx --engine native` compiles and runs. `--engine auto` selects. A native compilation failure is not replaced by the interpreter.
+Development default is the interpreter: `robix run File.rx`. Production is the native compiler: `robix build --release` or `robixc -O3`. `robix run File.rx --engine native` compiles and runs. `--engine auto` selects. A native compilation failure is not replaced by the interpreter.
 
 Both engines share the lexer, parser, AST, name resolution, and type checker. The interpreter executes bytecode. The compiler lowers the same program through SSA IR to LLVM, then `opt -O3` and `clang -O3`. Bytecode is validated before execution.
 
-`robix repl` reads lines, writes them to a temporary `.rbx`, and checks them with the same parser and type checker. `Print(40 + 2);` then `run` prints `42`.
+`robix repl` reads lines, writes them to a temporary `.rx`, and checks them with the same parser and type checker. `Print(40 + 2);` then `run` prints `42`.
 
 `robix debug` records source lines. `robix debug --attach` uses the Windows debug API and does not open a debugger window. A normal `robix build` does not emit those line calls. `robix lsp` answers hover from the `Explain` block. The editor extension is `roboticela.robix`.

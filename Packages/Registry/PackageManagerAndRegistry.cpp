@@ -77,9 +77,9 @@ bool RobixPackageManager::NewProject(std::string_view projectName, std::string_v
     m_virtualProjectFS[m_projectRoot + "/Project.rbxb"] =
         "Project {\n    Name = \"" + std::string(projectName) + "\";\n    Style = \"" +
         std::string(templateKind) + "\";\n}\n";
-    m_virtualProjectFS[m_projectRoot + "/Source/Main.rbx"] =
+    m_virtualProjectFS[m_projectRoot + "/Source/Main.rx"] =
         "package " + std::string(projectName) + ";\npublic Int Main() {\n    return 0;\n}\n";
-    m_virtualProjectFS[m_projectRoot + "/Tests/Main.test.rbx"] =
+    m_virtualProjectFS[m_projectRoot + "/Tests/Main.test.rx"] =
         "Test \"Main entry point check\" {\n    Assert.Equal(Main(), 0);\n}\n";
     return true;
 }

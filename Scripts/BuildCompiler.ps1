@@ -221,16 +221,68 @@ function Copy-Tree([string]$From, [string]$To, [string]$Filter) {
 
 Copy-Tree (Join-Path $Root "Runtime") (Join-Path $Include "Runtime") "*.hpp"
 Copy-Tree (Join-Path $Root "StdLib") (Join-Path $Include "StdLib") "*.hpp"
-Copy-Tree (Join-Path $Root "StdLib\Robix") (Join-Path $Packages "Robix.Core") "*.rbx"
-Copy-Tree (Join-Path $Root "RobixUI\Compiler\Components") (Join-Path $Share "Schemas") "*.rbxu"
+Copy-Tree (Join-Path $Root "StdLib\Robix") (Join-Path $Packages "Robix.Core") "*.rx"
+Copy-Tree (Join-Path $Root "RobixUI\Compiler\Components") (Join-Path $Share "Schemas") "*.rxu"
 $foundation = Join-Path $Root "RobixUI\Compiler\Foundation\RoboFoundation.xml"
 if (Test-Path -LiteralPath $foundation) {
     $foundationDir = Join-Path $Share "Foundation"
     New-Item -ItemType Directory -Force -Path $foundationDir | Out-Null
     Copy-Item -LiteralPath $foundation -Destination (Join-Path $foundationDir "RoboFoundation.xml") -Force
 }
+function Copy-ToolchainFile([string]$From, [string]$To) {
+    if (-not (Test-Path -LiteralPath $From)) { throw "missing toolchain file $From" }
+    $copy = -not (Test-Path -LiteralPath $To)
+    if (-not $copy) {
+        $sourceInfo = Get-Item -LiteralPath $From
+        $destInfo = Get-Item -LiteralPath $To
+        $copy = $sourceInfo.Length -ne $destInfo.Length -or $sourceInfo.LastWriteTimeUtc -gt $destInfo.LastWriteTimeUtc
+    }
+    if (-not $copy) { return }
+    $parent = Split-Path -Parent $To
+    if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    Copy-Item -LiteralPath $From -Destination $To -Force
+    Write-Host "  toolchain $([IO.Path]::GetFileName($To))"
+}
+
+$toolchain = Join-Path $Bin "toolchain"
+$clangBin = Split-Path -Parent $Clang
+foreach ($toolName in @("clang.exe", "opt.exe", "ld.lld.exe", "llvm-ar.exe", "llvm-nm.exe", "llvm-objcopy.exe")) {
+    Copy-ToolchainFile (Join-Path $clangBin $toolName) (Join-Path $toolchain $toolName)
+}
+$msvcRoots = @(
+    "$env:ProgramFiles\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC",
+    "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC",
+    "$env:ProgramFiles\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC",
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
+)
+$msvcLib = $null
+foreach ($root in $msvcRoots) {
+    if (-not (Test-Path -LiteralPath $root)) { continue }
+    $latest = Get-ChildItem -LiteralPath $root -Directory | Sort-Object Name -Descending | Select-Object -First 1
+    if ($latest) { $msvcLib = Join-Path $latest.FullName "lib\x64"; break }
+}
+if (-not $msvcLib) { throw "The compiler build needs the MSVC x64 libraries once, so they can be copied into the compiler." }
+$kitRoot = "${env:ProgramFiles(x86)}\Windows Kits\10\Lib"
+$kitVersion = Get-ChildItem -LiteralPath $kitRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
+if (-not $kitVersion) { throw "The compiler build needs the Windows SDK libraries once, so they can be copied into the compiler." }
+$toolLib = Join-Path $toolchain "lib"
+foreach ($name in @("libcmt.lib", "libvcruntime.lib", "libcpmt.lib", "oldnames.lib")) {
+    Copy-ToolchainFile (Join-Path $msvcLib $name) (Join-Path $toolLib $name)
+}
+Copy-ToolchainFile (Join-Path $kitVersion.FullName "ucrt\x64\libucrt.lib") (Join-Path $toolLib "libucrt.lib")
+foreach ($name in @("kernel32.lib", "ws2_32.lib", "secur32.lib", "crypt32.lib")) {
+    Copy-ToolchainFile (Join-Path $kitVersion.FullName "um\x64\$name") (Join-Path $toolLib $name)
+}
+$builtins = Join-Path $clangBin "..\lib\clang\18\lib\windows\clang_rt.builtins-x86_64.lib"
+if (Test-Path -LiteralPath $builtins) {
+    Copy-ToolchainFile $builtins (Join-Path $toolLib "clang_rt.builtins-x86_64.lib")
+}
+foreach ($name in $runtimeNames) {
+    Copy-ToolchainFile (Join-Path $Obj $name) (Join-Path $Bin $name)
+}
+
 Set-Content -LiteralPath (Join-Path $Share "Version.txt") -Value "Robix $Version`nRoboticela`n" -Encoding ascii
-Set-Content -LiteralPath (Join-Path $Bin "Toolchain.txt") -Value $Clang -Encoding ascii
+Set-Content -LiteralPath (Join-Path $Bin "Toolchain.txt") -Value (Join-Path $toolchain "clang.exe") -Encoding ascii
 
 Write-Host ""
 Write-Host "Robix $Version"

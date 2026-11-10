@@ -32,7 +32,7 @@ struct FullAnalysisResult {
 };
 
 FullAnalysisResult AnalyzeProgram(std::string_view source,
-                             std::string_view fileName = "SemanticUnit.rbx",
+                             std::string_view fileName = "SemanticUnit.rx",
                              Robix::Frontend::SemanticOptions semOpts = {}) {
     FullAnalysisResult res(semOpts);
     Robix::Frontend::Lexer lexer(source, fileName, res.diagnostics);
@@ -107,7 +107,7 @@ void TestOOPInheritanceVTableAndDevirtualization() {
         }
     )";
 
-    auto res = AnalyzeProgram(src, "OOPValid.rbx");
+    auto res = AnalyzeProgram(src, "OOPValid.rx");
     Check(!res.diagnostics.HasErrors(), "Valid OOP hierarchy with abstract class, interface, override, final, destructor, partial class, and operator+ passes");
 
     const auto* servoInfo = res.analyzer.FindClassOrType("ServoMotor");
@@ -399,7 +399,7 @@ void TestDeferUsingLifetimesAndConstevalReflectionMacros() {
         )";
         Robix::Frontend::SemanticOptions opts;
         opts.maxConstevalSteps = 200;
-        auto infRes = AnalyzeProgram(infiniteConsteval, "InfiniteConsteval.rbx", opts);
+        auto infRes = AnalyzeProgram(infiniteConsteval, "InfiniteConsteval.rx", opts);
         (void)infRes.analyzer.EvaluateConstevalCall("InfiniteLoop", { Robix::Frontend::ConstevalValue{ std::int64_t(1) } });
         Check(infRes.diagnostics.ContainsCode("R2013"), "Non-terminating consteval function exceeding step limit emits R2013");
     }
@@ -431,7 +431,7 @@ void TestDeferUsingLifetimesAndConstevalReflectionMacros() {
         )";
         Robix::Frontend::SemanticOptions opts;
         opts.strictResultHandling = true;
-        auto resIgnored = AnalyzeProgram(ignoredResult, "IgnoredResult.rbx", opts);
+        auto resIgnored = AnalyzeProgram(ignoredResult, "IgnoredResult.rx", opts);
         Check(resIgnored.diagnostics.ContainsCode("R2012"), "Silently discarding Result<T, E> in strict mode emits R2012");
     }
 }

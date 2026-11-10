@@ -42,7 +42,7 @@ std::string VerificationReport::FormatSummary() const {
     out << "2. Type Check:                " << (typeCheckPassed              ? "PASSED" : "FAILED") << "\n";
     out << "3. Explain Documentation:     " << (explainCheckPassed           ? "PASSED" : "FAILED") << "\n";
     out << "4. Naming & Style Check:      " << (namingStyleCheckPassed       ? "PASSED" : "FAILED") << "\n";
-    out << "5. Mandatory .test.rbx Check: " << (mandatoryTestFileCheckPassed ? "PASSED" : "FAILED") << "\n";
+    out << "5. Mandatory .test.rx Check: " << (mandatoryTestFileCheckPassed ? "PASSED" : "FAILED") << "\n";
     out << "6. Test Execution:            " << (testExecutionPassed          ? "PASSED" : "FAILED")
         << " (" << totalAssertionsPassed << " passed, " << totalAssertionsFailed << " failed)\n";
     out << "7. Static Analysis & SSA IR:  " << (staticAnalysisPassed         ? "PASSED" : "FAILED") << "\n";
@@ -144,7 +144,7 @@ VerificationReport RobixVerifier::VerifyProject(
     report.namingStyleCheckPassed = allSyntaxOk && allNamingOk;
     report.staticAnalysisPassed   = allSyntaxOk && allTypesOk && allStaticOk;
 
-    // Stage 5 & 6: Mandatory per-file .test.rbx check (R5001) and test execution
+    // Stage 5 & 6: Mandatory per-file .test.rx check (R5001) and test execution
     Frontend::DiagnosticBag testDiag;
     auto coverageResults = Testing::MandatoryTestEnforcer::EnforceProjectTests(
         projectFiles,
@@ -196,8 +196,8 @@ VerificationReport RobixVerifier::VerifySingleFile(
     std::string_view optionalTestFileContent,
     bool enforceTestFileInSingleMode) {
 
-    // Dispatch .rbxu declarative UI files to the RobixUI markup verifier
-    if (fileName.size() >= 5 && fileName.substr(fileName.size() - 5) == ".rbxu") {
+    // Dispatch .rxu declarative UI files to the RobixUI markup verifier
+    if (fileName.size() >= 5 && fileName.substr(fileName.size() - 5) == ".rxu") {
         return VerifySingleRobixUIMarkup(fileName, fileContent);
     }
 
@@ -211,8 +211,8 @@ VerificationReport RobixVerifier::VerifySingleFile(
     if (!optionalTestFileContent.empty() || enforceTestFileInSingleMode) {
         const auto dotPos = fileName.rfind('.');
         testFileName = (dotPos != std::string_view::npos)
-                           ? (std::string(fileName.substr(0, dotPos)) + ".test.rbx")
-                           : (std::string(fileName) + ".test.rbx");
+                           ? (std::string(fileName.substr(0, dotPos)) + ".test.rx")
+                           : (std::string(fileName) + ".test.rx");
     }
 
     Testing::SourceTestPair pair{
@@ -225,7 +225,7 @@ VerificationReport RobixVerifier::VerifySingleFile(
     VerificationReport rep = VerifyProject(fileName, { pair }, cfg);
     rep.isSingleFileMode   = true;
 
-    // When running `robix verify File.rbx` on a single file without a companion test file and
+    // When running `robix verify File.rx` on a single file without a companion test file and
     // without `enforceTestFileInSingleMode`, mark test checks as satisfied if embedded `Test` blocks pass
     if (!enforceTestFileInSingleMode && optionalTestFileContent.empty()) {
         rep.mandatoryTestFileCheckPassed = true;
@@ -272,9 +272,9 @@ VerificationReport RobixVerifier::VerifySingleRobixUIMarkup(
         Frontend::Diagnostic d;
         d.code       = "U1001";
         d.severity   = Frontend::DiagnosticSeverity::Error;
-        d.message    = "Invalid RobixUI (.rbxu) markup: missing <RobixUI> root element or unbalanced XML brackets.";
+        d.message    = "Invalid RobixUI (.rxu) markup: missing <RobixUI> root element or unbalanced XML brackets.";
         d.location   = Frontend::SourceLocation{ std::string(fileName), 1, 1, 1 };
-        d.suggestion = "Ensure the .rbxu document is wrapped in <RobixUI Version=\"1.0\"> ... </RobixUI>.";
+        d.suggestion = "Ensure the .rxu document is wrapped in <RobixUI Version=\"1.0\"> ... </RobixUI>.";
         rep.diagnostics.push_back(std::move(d));
     }
 

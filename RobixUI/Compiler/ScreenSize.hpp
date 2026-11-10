@@ -5,7 +5,7 @@
 
 #include <string>
 
-/* Screen sizes for a .rbxu document.
+/* Screen sizes for a .rxu document.
    sm, mx, xl, and 2x mean that width and wider.
    sm-mx, mx-xl, and xl-2x are only the band between those two.
    900 and at-900 mean that custom width and wider.

@@ -27,7 +27,7 @@ Do not blindly copy the syntax or internal design of existing programming langua
 ## 2.1 Robix
 
 - Language name: Robix
-- Source extension: `.rbx`
+- Source extension: `.rx`
 - Header/interface extension: `.rbxh`
 - Compiled module extension: `.rbxm`
 - Library extension: `.rbxlib`
@@ -44,7 +44,7 @@ Tagline:
 ## 2.2 RobixUI
 
 - Language name: RobixUI
-- Source extension: `.rbxu`
+- Source extension: `.rxu`
 - UI theme extension: `.rbxtheme`
 - UI asset manifest: `.rbxassets`
 
@@ -52,7 +52,7 @@ RobixUI is the official declarative UI language of Robix.
 
 It must have native integration with Robix rather than behaving like an unrelated external technology.
 
-IMPORTANT: Use `.rbxu` consistently. Do not introduce alternative extensions without documenting a deliberate compatibility reason.
+IMPORTANT: Use `.rxu` consistently. Do not introduce alternative extensions without documenting a deliberate compatibility reason.
 
 # 3. CORE DESIGN PHILOSOPHY
 
@@ -202,10 +202,10 @@ Use PascalCase for:
 Examples:
 
 ```text
-RobotController.rbx
-MotorDriver.rbx
-NeuralNetwork.rbx
-HardwareManager.rbx
+RobotController.rx
+MotorDriver.rx
+NeuralNetwork.rx
+HardwareManager.rx
 ```
 
 Code:
@@ -881,15 +881,15 @@ MyRobot/
 ├── Robix.Lock
 │
 ├── Source/
-│   ├── Main.rbx
-│   ├── RobotController.rbx
-│   └── MotorDriver.rbx
+│   ├── Main.rx
+│   ├── RobotController.rx
+│   └── MotorDriver.rx
 │
 ├── Interfaces/
 │   └── MotorInterface.rbxh
 │
 ├── UI/
-│   └── MainWindow.rbxu
+│   └── MainWindow.rxu
 │
 ├── Assets/
 │
@@ -906,7 +906,7 @@ The compiler must enforce consistent package and module resolution.
 
 Develop RobixUI as a first-class part of the Robix ecosystem.
 
-Extension: `.rbxu`
+Extension: `.rxu`
 
 RobixUI should use an XML-inspired declarative syntax.
 
@@ -1085,7 +1085,7 @@ Both languages must work together naturally.
 
 Robix must be able to:
 
-- Load `.rbxu` documents.
+- Load `.rxu` documents.
 - Create UI components programmatically.
 - Access UI elements by identifiers.
 - Update UI properties.
@@ -1171,8 +1171,8 @@ Provide a professional command-line interface.
 Compiler:
 
 ```bash
-robixc Main.rbx
-robixc Main.rbx -o Robot
+robixc Main.rx
+robixc Main.rx -o Robot
 robixc build
 robixc build --release
 robixc build --debug
@@ -1210,8 +1210,8 @@ robix debug
 UI tools:
 
 ```bash
-robix ui validate MainWindow.rbxu
-robix ui preview MainWindow.rbxu
+robix ui validate MainWindow.rxu
+robix ui preview MainWindow.rxu
 robix ui build
 ```
 
@@ -1615,9 +1615,9 @@ The final result must be a real programming language ecosystem, not merely a lan
 
 **PROJECT OWNER:** Roboticela  
 **PRIMARY LANGUAGE:** Robix  
-**SOURCE EXTENSION:** `.rbx`  
+**SOURCE EXTENSION:** `.rx`  
 **UI LANGUAGE:** RobixUI  
-**UI EXTENSION:** `.rbxu`  
+**UI EXTENSION:** `.rxu`  
 **COMPILER:** `robixc`  
 **PACKAGE MANAGER:** `robix`  
 **OFFICIAL PHILOSOPHY:** High performance. Complete control. Intelligent machines.
@@ -1800,7 +1800,7 @@ Establish two official execution modes.
 Command:
 
 ```bash
-robix run Main.rbx
+robix run Main.rx
 ```
 
 Behavior:
@@ -1861,9 +1861,9 @@ Generate native executables with:
 Provide:
 
 ```bash
-robix run Main.rbx --engine interpreter
-robix run Main.rbx --engine native
-robix run Main.rbx --engine auto
+robix run Main.rx --engine interpreter
+robix run Main.rx --engine native
+robix run Main.rx --engine auto
 ```
 
 Define the behavior of each engine explicitly.
@@ -2070,7 +2070,7 @@ Automatically discover the project entry point.
 Also provide:
 
 ```bash
-robix run Main.rbx
+robix run Main.rx
 robix run --watch
 robix run --debug
 robix run --trace
@@ -2136,7 +2136,7 @@ Example:
 ```text
 Error R1004: Type mismatch
 
-File: RobotController.rbx
+File: RobotController.rx
 Line: 24
 Column: 12
 
@@ -2305,7 +2305,7 @@ RobixUI must also work naturally with the dual execution architecture.
 
 During development:
 
-- Parse `.rbxu` documents.
+- Parse `.rxu` documents.
 - Validate component structures.
 - Validate bindings.
 - Preview UI changes rapidly.
@@ -2333,7 +2333,7 @@ Extend the official command-line interface.
 
 ```bash
 robix run
-robix run Main.rbx
+robix run Main.rx
 robix run --engine interpreter
 robix run --engine native
 robix repl
@@ -2568,7 +2568,7 @@ These are proposed Robix syntax examples, not yet validated against an implement
 
 # 1. Hello World
 
-File: `Main.rbx`
+File: `Main.rx`
 
 ```
 package Examples.HelloWorld;
@@ -2584,7 +2584,7 @@ public class Program {
 
 # 2. Variables and constants
 
-File: `Variables.rbx`
+File: `Variables.rx`
 
 ```
 package Examples.Variables;
@@ -2611,7 +2611,7 @@ public class Program {
 
 # 3. Creating a robot using OOP
 
-File: `Robot.rbx`
+File: `Robot.rx`
 
 ```
 package Robotics;
@@ -2643,7 +2643,7 @@ public class Robot {
 }
 ```
 
-File: `Main.rbx`
+File: `Main.rx`
 
 ```
 package Application;
@@ -2665,7 +2665,7 @@ public class Program {
 
 # 4. Conditions
 
-File: `BatteryManager.rbx`
+File: `BatteryManager.rx`
 
 ```
 package Robotics.Power;
@@ -2694,7 +2694,7 @@ public class BatteryManager {
 
 # 5. Loops
 
-File: `MotorController.rbx`
+File: `MotorController.rx`
 
 ```
 package Robotics.Motors;
@@ -2714,7 +2714,7 @@ public class MotorController {
 
 # 6. Inheritance and polymorphism
 
-File: `Robot.rbx`
+File: `Robot.rx`
 
 ```
 package Robotics;
@@ -2745,7 +2745,7 @@ public class FlyingRobot extends Robot {
 
 You don't need classes for everything.
 
-File: `Calculator.rbx`
+File: `Calculator.rx`
 
 ```
 package Examples.Calculator;
@@ -2771,7 +2771,7 @@ public Void Main() {
 
 # 8. Generic classes
 
-File: `Storage.rbx`
+File: `Storage.rx`
 
 ```
 package Examples.Storage;
@@ -2804,7 +2804,7 @@ Print(numberStorage.Get());
 
 # 9. Automatic and manual memory management
 
-File: `MemoryExample.rbx`
+File: `MemoryExample.rx`
 
 ```
 package Examples.Memory;
@@ -2835,7 +2835,7 @@ This illustrates the proposed design: ordinary objects use automatic management,
 
 # 10. Pointer and low-level programming
 
-File: `PointerExample.rbx`
+File: `PointerExample.rx`
 
 ```
 package Examples.Pointers;
@@ -2860,7 +2860,7 @@ public class PointerExample {
 
 # 11. Assembly inside Robix
 
-File: `AssemblyExample.rbx`
+File: `AssemblyExample.rx`
 
 ```
 package Examples.Assembly;
@@ -2881,7 +2881,7 @@ The real assembly interface will need architecture-specific rules and register c
 
 # 12. RobixUI — A simple desktop application
 
-File: `MainWindow.rbxu`
+File: `MainWindow.rxu`
 
 ```
 <RobixUI>
@@ -2914,7 +2914,7 @@ File: `MainWindow.rbxu`
 </RobixUI>
 ```
 
-File: `Main.rbx`
+File: `Main.rx`
 
 ```
 package Application;
@@ -2932,7 +2932,7 @@ public class MainController {
 
 This is where Robix starts becoming interesting.
 
-File: `RobotController.rbx`
+File: `RobotController.rx`
 
 ```
 package Robotics;
@@ -2990,7 +2990,7 @@ public class RobotController {
 }
 ```
 
-File: `Main.rbx`
+File: `Main.rx`
 
 ```
 package Application;
@@ -3232,7 +3232,7 @@ ERROR R1001: Type mismatch
 Expected: Int
 Received: String
 
-Location: Program.rbx:1
+Location: Program.rx:1
 
 Cannot assign a String value to an Int variable.
 ```
@@ -4131,7 +4131,7 @@ For example:
 
 ```
 # Run through interpreter
-robix run Main.rbx
+robix run Main.rx
 
 # Compile optimized native executable
 robix build --release
@@ -4575,7 +4575,7 @@ Example of launching another Robix program:
 
 ```
 Process worker = Process.Launch(
-    "RobotWorker.rbx",
+    "RobotWorker.rx",
     ["--mode", "sensor"]
 );
 
@@ -4586,7 +4586,7 @@ Print($"Worker exited with code {exitCode}");
 
 Important performance rule: Threading and multiprocessing should not impose overhead on programs that do not use them. They should be opt-in capabilities, with efficient native operating-system implementations.
 
-# 4. Mandatory testing for every `.rbx` file
+# 4. Mandatory testing for every `.rx` file
 
 This is an excellent idea for Robix. I recommend making it a core part of the ecosystem rather than treating testing as an optional extra.
 
@@ -4595,14 +4595,14 @@ Your proposed naming convention can work like this:
 ```
 Project/
 │
-├── Main.rbx
-├── Main.test.rbx
+├── Main.rx
+├── Main.test.rx
 │
-├── Robot.rbx
-├── Robot.test.rbx
+├── Robot.rx
+├── Robot.test.rx
 │
-├── Battery.rbx
-├── Battery.test.rbx
+├── Battery.rx
+├── Battery.test.rx
 │
 └── robix.project
 ```
@@ -4611,7 +4611,7 @@ Each source file has a corresponding test file.
 
 The test file verifies the intended behavior of the implementation in its associated source file.
 
-## A. Example: Main.rbx
+## A. Example: Main.rx
 
 ```
 package Examples.Calculator;
@@ -4638,7 +4638,7 @@ Function Divide(Int a, Int b) -> Result<Float, String> {
 }
 ```
 
-## B. Corresponding Main.test.rbx
+## B. Corresponding Main.test.rx
 
 ```
 package Examples.Calculator.Tests;
@@ -4788,15 +4788,15 @@ Project {
 
 The compiler and build system should enforce these rules.
 
-For example, if `Robot.rbx` does not have `Robot.test.rbx`:
+For example, if `Robot.rx` does not have `Robot.test.rx`:
 
 ```
 RO BIX TEST ERROR R5001
 
 Missing required test file:
 
-    Robot.rbx
-    Robot.test.rbx
+    Robot.rx
+    Robot.test.rx
 
 Every production source file must have a corresponding test file.
 
@@ -4808,8 +4808,8 @@ And if a test fails:
 ```
 ROBIX TEST REPORT
 
-File: Main.rbx
-Test file: Main.test.rbx
+File: Main.rx
+Test file: Main.test.rx
 
 [PASS] Addition returns correct result
 [PASS] Subtraction returns correct result
@@ -4831,7 +4831,7 @@ Build blocked.
 
 ```
 # Test one file and its associated test file
-robix test Main.rbx
+robix test Main.rx
 
 # Test the entire project
 robix test
@@ -4862,9 +4862,9 @@ Some files may contain generated code, declarations, configuration, or simple co
 For example:
 
 ```
-TestFile "Constants.test.rbx" {
+TestFile "Constants.test.rx" {
 
-    Covers = "Constants.rbx";
+    Covers = "Constants.rx";
 
     Test "Constants are valid" {
         Assert.True(MAX_SPEED > 0);
@@ -5058,7 +5058,7 @@ For native applications, Robix should expose a separate API for explicitly contr
 
 Here is a small application demonstrating automatic typing, input, loops, collections, testing, and a flexible `Main()`.
 
-Main.rbx
+Main.rx
 
 ```
 package Examples.StudentManager;
@@ -5123,7 +5123,7 @@ Function Main() {
 }
 ```
 
-Main.test.rbx
+Main.test.rx
 
 ```
 package Examples.StudentManager.Tests;
@@ -5172,7 +5172,7 @@ I would now make these additions mandatory:
 | Threading        | Native threads, tasks, synchronization and thread pools                  |
 | Multiprocessing  | Native processes, IPC and shared memory                                  |
 | Async            | Native async/await support                                               |
-| Testing          | A corresponding `.test.rbx` file for every source `.rbx` file            |
+| Testing          | A corresponding `.test.rx` file for every source `.rx` file            |
 | Test enforcement | Production builds blocked when required tests are missing or fail        |
 | Test quality     | Coverage, stress, fuzz, integration and hardware simulation              |
 | Main             | Optional return, integer exit code, or arbitrary statically typed result |
@@ -5187,7 +5187,7 @@ Write simply. Type safely. Test every file. Run concurrently. Compile natively. 
 
 I would now expand Robix from a programming language into a complete language and software development platform: compiler, interpreter, package manager, binary package format, standard library, testing framework, documentation system, debugger, and development tools.
 
-Your package idea is particularly important. I recommend that Robix packages distribute compiled binaries plus a public API definition, not the original implementation source code. This allows developers to use packages without needing access to their internal `.rbx` source files.
+Your package idea is particularly important. I recommend that Robix packages distribute compiled binaries plus a public API definition, not the original implementation source code. This allows developers to use packages without needing access to their internal `.rx` source files.
 
 There is one distinction to establish: the package's public definition must describe what it provides, while the compiled binary contains the implementation. The compiler needs both to type-check applications and link them correctly.
 
@@ -5197,9 +5197,9 @@ I recommend establishing the following official extensions.
 
 | Extension    | Purpose                                     |
 | ------------ | ------------------------------------------- |
-| `.rbx`       | Robix source code                           |
-| `.rbxu`      | RobixUI interface definitions               |
-| `.test.rbx`  | Tests for a corresponding source file       |
+| `.rx`       | Robix source code                           |
+| `.rxu`      | RobixUI interface definitions               |
+| `.test.rx`  | Tests for a corresponding source file       |
 | `.rbxapi`    | Public package API and interface definition |
 | `.rbxp`      | Compiled Robix package                      |
 | `.rbxproj`   | Project configuration                       |
@@ -5343,7 +5343,7 @@ Important security and compatibility rule: An API definition is not proof that a
 
 I recommend these mandatory rules:
 
-1. Published packages do not include private `.rbx` implementation source files by default.
+1. Published packages do not include private `.rx` implementation source files by default.
 2. The `.rbxapi` definition is included and available to consumers.
 3. Binary artifacts are provided for supported operating systems and processor architectures.
 4. A package must declare its compiler ABI and minimum runtime requirements.
@@ -5372,10 +5372,10 @@ After installing three packages:
 ```
 MyRobotProject/
 │
-├── Main.rbx
-├── Main.test.rbx
-├── Robot.rbx
-├── Robot.test.rbx
+├── Main.rx
+├── Main.test.rx
+├── Robot.rx
+├── Robot.test.rx
 │
 ├── robix.project
 ├── robix.lock
@@ -6041,7 +6041,7 @@ This is the architecture I recommend for the Robix ecosystem.
 
 Robix Language
 
-`.rbx` · `.rbxu` · `.test.rbx`
+`.rx` · `.rxu` · `.test.rx`
 
 Shared Compiler Frontend
 
@@ -6083,9 +6083,9 @@ Here is the consolidated extension proposal:
 
 | Extension    | Official purpose                |
 | ------------ | ------------------------------- |
-| `.rbx`       | Source code                     |
-| `.rbxu`      | UI markup                       |
-| `.test.rbx`  | Source-file tests               |
+| `.rx`       | Source code                     |
+| `.rxu`      | UI markup                       |
+| `.test.rx`  | Source-file tests               |
 | `.rbxapi`    | Public package API definition   |
 | `.rbxp`      | Compiled binary package archive |
 | `.rbxproj`   | Project manifest                |
@@ -6377,7 +6377,7 @@ This makes hardware and system permissions visible in the API.
 
 # 7. Testing needs additional intelligence
 
-Your mandatory `.test.rbx` concept is a strong foundation. I would add more than ordinary unit testing.
+Your mandatory `.test.rx` concept is a strong foundation. I would add more than ordinary unit testing.
 
 | Testing system         | What it checks                                       |
 | ---------------------- | ---------------------------------------------------- |
@@ -6804,7 +6804,7 @@ Warning D3001
 
 Incomplete function explanation
 
-`Calculator.rbx`
+`Calculator.rx`
 
 Function: `Add`
 

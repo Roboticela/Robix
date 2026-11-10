@@ -118,7 +118,7 @@ std::vector<std::string> ServiceNames(const fs::path& root) {
         if (!entry.is_directory()) continue;
         const std::string name = entry.path().filename().string();
         if (name == "Common" || name == "Packages") continue;
-        if (fs::is_regular_file(entry.path() / "Source" / (name + ".rbx"), ec)) names.push_back(name);
+        if (fs::is_regular_file(entry.path() / "Source" / (name + ".rx"), ec)) names.push_back(name);
     }
     return names;
 }
@@ -194,7 +194,7 @@ int RunProjectServices(const std::vector<std::string>& args, const std::string& 
     if (!positionals.empty()) {
         const fs::path file(positionals[0]);
         std::error_code ec;
-        if (file.extension() == ".rbx" || fs::is_regular_file(file, ec)) return -1;
+        if (file.extension() == ".rx" || fs::is_regular_file(file, ec)) return -1;
     }
 
     fs::path project;
@@ -261,7 +261,7 @@ int RunProjectServices(const std::vector<std::string>& args, const std::string& 
             }
             auto listener = std::make_unique<Listener>();
             listener->name = name;
-            Loaded loaded = LoadModule(root / name / "Source" / (name + ".rbx"));
+            Loaded loaded = LoadModule(root / name / "Source" / (name + ".rx"));
             if (!loaded.error.empty()) {
                 std::cerr << loaded.error;
                 WSACleanup();
@@ -324,7 +324,7 @@ int RunProjectServices(const std::vector<std::string>& args, const std::string& 
 
     int status = 0;
     for (const auto& name : names) {
-        Loaded loaded = LoadModule(root / name / "Source" / (name + ".rbx"));
+        Loaded loaded = LoadModule(root / name / "Source" / (name + ".rx"));
         if (!loaded.error.empty()) {
             std::cerr << loaded.error;
             status = 1;

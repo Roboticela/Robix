@@ -39,7 +39,7 @@ struct DualPipelineBundle {
 };
 
 DualPipelineBundle BuildDualPipeline(std::string_view source,
-                                     std::string_view fileName = "SingleFile.rbx",
+                                     std::string_view fileName = "SingleFile.rx",
                                      bool optimize = true) {
     DualPipelineBundle b;
     Robix::Frontend::Lexer lexer(source, fileName, b.diagnostics);
@@ -91,7 +91,7 @@ void TestSSAIRVerifierAndOptimizationPasses() {
         }
     )";
 
-    auto bundle = BuildDualPipeline(src, "OptTest.rbx", true);
+    auto bundle = BuildDualPipeline(src, "OptTest.rx", true);
     Check(!bundle.diagnostics.HasErrors(), "SSA IR lowering and 4-pass optimization pipeline complete with zero errors");
     Check(bundle.optStats.verificationRunsCount == 5,
           "IR Verifier runs before optimization and after each of the 4 optimization passes (5 total runs)");
@@ -181,8 +181,8 @@ void TestBytecodeVMExecutionRecursionAndOOP() {
         }
     )";
 
-    auto bundle = BuildDualPipeline(src, "VMExec.rbx", true);
-    Check(!bundle.diagnostics.HasErrors(), "VMExec.rbx compiles cleanly to verified BytecodeModule");
+    auto bundle = BuildDualPipeline(src, "VMExec.rx", true);
+    Check(!bundle.diagnostics.HasErrors(), "VMExec.rx compiles cleanly to verified BytecodeModule");
 
     Robix::VM::BytecodeVM vm(bundle.bcMod, 4);
     Robix::VM::VMValue mainResult = vm.ExecuteFunction("Main");
@@ -207,14 +207,14 @@ void TestSingleFileStandaloneExecutionAndSingleFileTesting() {
                 Print(speed);
             }
         )";
-        auto bundle = BuildDualPipeline(singleFile, "QuickScript.rbx", true);
+        auto bundle = BuildDualPipeline(singleFile, "QuickScript.rx", true);
         Robix::VM::BytecodeVM vm(bundle.bcMod);
         std::int32_t exitCode = vm.ExecuteMainAndGetExitCode();
         Check(exitCode == 0 && vm.GetStdoutBuffer() == "42\n",
-              "Single-file standalone execution of QuickScript.rbx runs Void Main() and returns exit code 0");
+              "Single-file standalone execution of QuickScript.rx runs Void Main() and returns exit code 0");
     }
 
-    // 2. Standalone Single-File Test Runner (`robix test Motor.test.rbx`)
+    // 2. Standalone Single-File Test Runner (`robix test Motor.test.rx`)
     {
         const std::string testFile = R"(
             public Int DoubleSpeed(Int s) {
@@ -222,7 +222,7 @@ void TestSingleFileStandaloneExecutionAndSingleFileTesting() {
             }
 
             TestFile {
-                Covers = "Motor.rbx";
+                Covers = "Motor.rx";
             }
 
             Test "DoubleSpeed positive value" {
@@ -236,11 +236,11 @@ void TestSingleFileStandaloneExecutionAndSingleFileTesting() {
                 AssertTrue(res == 0);
             }
         )";
-        auto bundle = BuildDualPipeline(testFile, "Motor.test.rbx", true);
+        auto bundle = BuildDualPipeline(testFile, "Motor.test.rx", true);
         Robix::VM::BytecodeVM vm(bundle.bcMod);
         auto suiteRes = vm.ExecuteAllTests();
         Check(suiteRes.passedTests == 2 && suiteRes.failedTests == 0 && vm.GetAssertionPassCount() == 3,
-              "Single-file test runner executes all Test blocks in Motor.test.rbx with 2/2 tests and 3/3 assertions passing");
+              "Single-file test runner executes all Test blocks in Motor.test.rx with 2/2 tests and 3/3 assertions passing");
     }
 }
 
@@ -259,7 +259,7 @@ void TestWriteOnceCompileNativeEverywhereLLVMCodeGen() {
         }
     )";
 
-    auto bundle = BuildDualPipeline(osIndependentCode, "CrossPlatform.rbx", true);
+    auto bundle = BuildDualPipeline(osIndependentCode, "CrossPlatform.rx", true);
     Check(!bundle.diagnostics.HasErrors(), "OS-independent Robix code lowers to SSA IR without #ifdef boilerplate");
 
     // 1. Verify BytecodeVM execution of OS-independent File & Time intrinsics
@@ -325,20 +325,20 @@ void TestIncrementalBuildCache() {
         srcV1, imports, Robix::CodeGen::BuildProfile::Release, Robix::CodeGen::TargetPlatform::WindowsX64);
 
     std::string cachedIR;
-    Check(!cache.TryGetCachedLLVMIR("Main.rbx", fp1, cachedIR), "First build of Main.rbx is a cache miss");
+    Check(!cache.TryGetCachedLLVMIR("Main.rx", fp1, cachedIR), "First build of Main.rx is a cache miss");
 
-    cache.StoreCachedLLVMIR("Main.rbx", fp1, "; Cached LLVM IR v1");
-    Check(cache.TryGetCachedLLVMIR("Main.rbx", fp1, cachedIR) && cachedIR == "; Cached LLVM IR v1",
+    cache.StoreCachedLLVMIR("Main.rx", fp1, "; Cached LLVM IR v1");
+    Check(cache.TryGetCachedLLVMIR("Main.rx", fp1, cachedIR) && cachedIR == "; Cached LLVM IR v1",
           "Second build with identical source, imports, profile, and target hits incremental cache");
 
     std::uint64_t fpModifiedSource = Robix::CodeGen::IncrementalBuildCache::ComputeFingerprint(
         srcV2, imports, Robix::CodeGen::BuildProfile::Release, Robix::CodeGen::TargetPlatform::WindowsX64);
-    Check(!cache.TryGetCachedLLVMIR("Main.rbx", fpModifiedSource, cachedIR),
+    Check(!cache.TryGetCachedLLVMIR("Main.rx", fpModifiedSource, cachedIR),
           "Modifying source code invalidates incremental build cache entry");
 
     std::uint64_t fpDifferentTarget = Robix::CodeGen::IncrementalBuildCache::ComputeFingerprint(
         srcV1, imports, Robix::CodeGen::BuildProfile::Release, Robix::CodeGen::TargetPlatform::LinuxX64);
-    Check(!cache.TryGetCachedLLVMIR("Main.rbx", fpDifferentTarget, cachedIR),
+    Check(!cache.TryGetCachedLLVMIR("Main.rx", fpDifferentTarget, cachedIR),
           "Changing target OS invalidates incremental build cache entry");
 }
 

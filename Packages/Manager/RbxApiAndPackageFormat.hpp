@@ -26,7 +26,7 @@ struct RbxApiValidationResult {
 
 class RbxApiEngine {
 public:
-    // Extracts public declarations + Explain blocks from .rbx source code into a .rbxapi specification
+    // Extracts public declarations + Explain blocks from .rx source code into a .rbxapi specification
     // (Strips private/internal members and all function bodies so private implementation is hidden)
     [[nodiscard]] static std::string GenerateRbxApiFromSource(
         std::string_view packageName,

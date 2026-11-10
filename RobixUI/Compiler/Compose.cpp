@@ -299,7 +299,7 @@ struct Parser {
             const Value right = Unary();
             if (op == '*') left = NumberValue(NumberOf(left) * NumberOf(right));
             else if (NumberOf(right) == 0) {
-                std::cerr << "warning: division by zero in a .rbxu expression was skipped.\n";
+                std::cerr << "warning: division by zero in a .rxu expression was skipped.\n";
                 left = NumberValue(0);
             } else {
                 left = NumberValue(NumberOf(left) / NumberOf(right));
@@ -346,7 +346,7 @@ struct Parser {
             const std::string name = text.substr(start, index - start);
             const Value* value = Find(scope, name);
             Value current = value != nullptr ? *value : Value{};
-            if (value == nullptr) std::cerr << "warning: '" << name << "' was not found in this .rbxu scope and was left empty.\n";
+            if (value == nullptr) std::cerr << "warning: '" << name << "' was not found in this .rxu scope and was left empty.\n";
             while (Take('.')) {
                 Skip();
                 const std::size_t fieldStart = index;
@@ -440,7 +440,7 @@ std::vector<RoboXMLNode> ExpandList(const std::vector<RoboXMLNode>& nodes, Scope
 std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const Components& components,
                                     const std::vector<RoboXMLNode>* slot, int depth) {
     if (depth > 32) {
-        std::cerr << "warning: .rbxu component nesting stopped at 32 levels.\n";
+        std::cerr << "warning: .rxu component nesting stopped at 32 levels.\n";
         return {};
     }
     const std::string kind = Lower(node.name);
@@ -516,7 +516,7 @@ std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const
             const std::vector<Value> items = AsList(EvalText(Attr(node, "in"), scope));
             for (std::size_t index = 0; index < items.size() && count < 1000; ++index) run(items[index], static_cast<int>(index));
         }
-        if (count >= 1000) std::cerr << "warning: a .rbxu For loop stopped at 1000 items.\n";
+        if (count >= 1000) std::cerr << "warning: a .rxu For loop stopped at 1000 items.\n";
         return produced;
     }
     if (kind == "if") {
@@ -618,7 +618,7 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
                 "window", "screen", "page", "board", "column", "row", "grid", "stack", "container", "button", "anchor", "text",
                 "textfield", "image", "icon", "heading", "subhead", "body", "paragraph", "caption", "eyebrow", "label",
                 "span", "iconbutton", "switch", "switchgroup", "switchitem", "themetoggle", "themeicontoggle",
-                "textfield", "textarea", "passwordreveal", "confirmaction",
+                "textfield", "textarea", "passwordreveal", "confirmaction", "select", "option",
                 "segmentedcontrol", "segmentedtoolbar",
                 "segment", "scrollbar", "svg", "at", "slot", "for", "if", "else", "let", "data", "import", "component"};
             bool blocked = false;
