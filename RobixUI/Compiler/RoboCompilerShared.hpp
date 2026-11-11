@@ -12,6 +12,8 @@ void RoboCompilerAddDiag(RoboCompilerResult& result, RoboCompilerDiagnostic::Sev
                          const std::string& message);
 std::string RoboCompilerLower(std::string value);
 bool RoboCompilerIsLayoutKey(const std::string& key);
+bool RoboCompilerIsSharedStyleKey(const std::string& key);
+bool RoboCompilerIsPaneFamily(const std::string& name);
 bool RoboCompilerIsOneOf(const std::string& value, std::initializer_list<const char*> options);
 bool RoboCompilerCheckOverflowAttrs(const RoboXMLNode& node, const std::string& path, RoboCompilerResult& result);
 void RoboCompilerNoteUsedComponent(const std::string& name);

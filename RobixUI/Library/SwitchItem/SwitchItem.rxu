@@ -1,0 +1,4 @@
+<!-- SwitchItem is Switch. Alias keeps the existing paint. -->
+<Component Name="SwitchItem" Base="Switch">
+</Component>
+

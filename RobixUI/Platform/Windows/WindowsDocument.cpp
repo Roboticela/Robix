@@ -292,7 +292,7 @@ struct TypeStyle {
 };
 
 TypeStyle StyleOf(const RoboXMLNode& node) {
-    const std::string name = Lower(node.name);
+    const std::string name = RoboUIFace(node);
     std::string role = "body-lg";
     const char* color = "text-secondary";
     if (name == "heading" || name == "h1" || name == "h2" || name == "h3" || name == "h4" || name == "h5" || name == "h6") {
@@ -544,7 +544,7 @@ int IconBox(const RoboXMLNode& node) {
 }
 
 std::string IconDrawing(const RoboXMLNode& node) {
-    const std::string name = Lower(node.name);
+    const std::string name = RoboUIFace(node);
     if (name == "svg") {
         std::string svg;
         RoboCompilerSerializeSvgNode(node, svg, true);
@@ -1049,7 +1049,7 @@ int PaintSegmented(std::vector<PaintOp>& ops, const RoboXMLNode& node, int x, in
 }
 
 bool IsIcon(const RoboXMLNode& node) {
-    const std::string name = Lower(node.name);
+    const std::string name = RoboUIFace(node);
     return name == "icon" || name == "svg" || RoboCompilerIsIconNode(node);
 }
 
@@ -1070,7 +1070,7 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     if (asked >= 0) {
         return std::min(maxWidth, std::max(1, asked));
     }
-    const std::string name = Lower(node.name);
+    const std::string name = RoboUIFace(node);
     if (name == "image") {
         return 0;
     }
@@ -1701,7 +1701,7 @@ void ShiftRange(std::vector<PaintOp>& ops, std::size_t begin, std::size_t end, H
 }
 
 int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits) {
-    const std::string name = Lower(node.name);
+    const std::string name = RoboUIFace(node);
     std::string shown = Lower(RoboXMLAttr(node, "visibility"));
     if (shown.empty()) shown = Lower(RoboXMLAttr(node, "visible"));
     if (shown == "false" || shown == "0" || shown == "no" || shown == "off" || shown == "hidden" ||

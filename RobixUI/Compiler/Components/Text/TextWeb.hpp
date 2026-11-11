@@ -12,3 +12,4 @@ void RoboWebTextAttrs(std::string& html, const RoboXMLNode& node);
 void RoboWebAppendTextStyle(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library);
 const char* RoboWebTextTag(const std::string& name);
 std::string RoboWebTextClass(const std::string& name);
+std::string RoboWebTextRoleClass(const std::string& name);

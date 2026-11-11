@@ -1,0 +1,4 @@
+<!-- Flex is Container. Alias keeps the existing paint. -->
+<Component Name="Flex" Base="Container">
+</Component>
+

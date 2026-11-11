@@ -469,6 +469,12 @@ void RoboWebEmitTextField(std::string& html, const RoboXMLNode& node, const Robo
 }
 
 void RoboWebAppendTextFieldCss(std::ostream& css) {
+    css << ".robo-form-field[data-password=\"true\"][data-size=\"sm\"] .robo-field-icon,"
+           ".robo-form-field[data-password=\"true\"][data-size=\"sm\"] .robo-field-icon svg{width:16px;height:16px}\n";
+    css << ".robo-form-field[data-password=\"true\"][data-size=\"md\"] .robo-field-icon,"
+           ".robo-form-field[data-password=\"true\"][data-size=\"md\"] .robo-field-icon svg{width:18px;height:18px}\n";
+    css << ".robo-form-field[data-password=\"true\"][data-size=\"lg\"] .robo-field-icon,"
+           ".robo-form-field[data-password=\"true\"][data-size=\"lg\"] .robo-field-icon svg{width:20px;height:20px}\n";
     css << ".robo-form-field{display:flex;flex-direction:column;width:100%;min-width:0;box-sizing:border-box}\n";
     css << ".robo-field-label{display:flex;align-items:baseline;gap:6px;margin:0 0 8px;color:var(--text-secondary);"
            "font-size:17px;font-weight:500;line-height:1.2}\n";

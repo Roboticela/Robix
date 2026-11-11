@@ -1,0 +1,35 @@
+<!-- Heading. level is display or 1..6. Weight is Inter-SemiBold. Color is text-primary. -->
+<Component name="Heading" derives="Text">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="level" type="enum" values="display|1|2|3|4|5|6|h1|h2|h3|h4|h5|h6" default="1" />
+  <Attribute name="tone" type="enum" values="primary|secondary|tertiary|disabled|link|danger|success|warning|on-brand" default="primary" />
+  <Attribute name="align" type="enum" values="start|center|end|left|right" default="start" />
+  <Attribute name="wrap" type="enum" values="none|char|word" default="word" />
+  <Attribute name="size" type="string" required="false" description="overrides the level size" />
+  <Attribute name="color" type="color" required="false" />
+  <Attribute name="font" type="string" required="false" />
+  <Attribute name="content" type="string" required="false" />
+  <Attribute name="maxWidth" type="size" required="false" />
+  <Attribute name="minWidth" type="size" required="false" />
+  <Attribute name="minHeight" type="size" required="false" />
+  <Attribute name="maxHeight" type="size" required="false" />
+  <Attribute name="position" type="enum" values="relative|absolute|fixed" default="relative" />
+  <Attribute name="flex" type="int" required="false" />
+  <Attribute name="alignSelf" type="enum" values="auto|start|center|end|stretch" default="auto" />
+  <Attribute name="order" type="int" default="0" />
+  <Attribute name="gridColumn" type="string" required="false" />
+  <Attribute name="gridRow" type="string" required="false" />
+  <Defaults>
+    <Level n="display" size="80" tracking="-15" leading="1050" font="Inter-SemiBold" />
+    <Level n="1" size="56" tracking="-15" leading="1070" font="Inter-SemiBold" />
+    <Level n="2" size="40" tracking="-10" leading="1100" font="Inter-SemiBold" />
+    <Level n="3" size="28" tracking="-5" leading="1140" font="Inter-SemiBold" />
+    <Level n="4" size="22" tracking="0" leading="1220" font="Inter-SemiBold" />
+    <Level n="5" size="19" tracking="0" leading="1260" font="Inter-SemiBold" />
+    <Level n="6" size="17" tracking="0" leading="1290" font="Inter-SemiBold" />
+  </Defaults>
+  <Child name="Span" max="48">
+    <Attribute name="size" type="int" required="false" />
+    <Attribute name="color" type="color" required="false" />
+  </Child>
+</Component>

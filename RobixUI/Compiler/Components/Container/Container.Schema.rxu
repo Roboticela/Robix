@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <!-- Container — CSS-like flex / stack layout (GRUB gui_box + gui_canvas). -->
 <Component name="Container">
   <Attribute name="id" type="string" required="false" />

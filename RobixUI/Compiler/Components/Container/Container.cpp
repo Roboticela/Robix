@@ -1,6 +1,5 @@
 #include "Container.hpp"
 
-#include "../Pane/Pane.hpp"
 #include "../../RoboCompilerShared.hpp"
 
 #include <sstream>
@@ -94,10 +93,10 @@ bool RoboCompilerCheckContainer(const RoboXMLNode& node, const std::string& path
   }
   for (const auto& kv : node.attrs) {
     const std::string key = RoboCompilerLower(kv.first);
-    if (!RoboCompilerIsLayoutKey(key) && !RoboCompilerIsContainerStyleKey(key) && key != "id" && key != "x" &&
-        key != "y" && key != "padding" && key != "paddingtop" && key != "paddingright" && key != "paddingbottom" &&
-        key != "paddingleft" && key != "background" && key != "backgroundcolor" && key != "bg" && key != "fill" &&
-        key != "fillparent") {
+    if (!RoboCompilerIsSharedStyleKey(key) && key != "id" && key != "x" && key != "y" && key != "padding" &&
+        key != "paddingtop" && key != "paddingright" && key != "paddingbottom" && key != "paddingleft" &&
+        key != "background" && key != "backgroundcolor" && key != "bg" && key != "fill" && key != "fillparent" &&
+        key != "face" && key != "alias") {
       RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
                           "unknown Container attribute '" + kv.first + "'");
     }

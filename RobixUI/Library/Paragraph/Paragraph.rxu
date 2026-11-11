@@ -1,0 +1,4 @@
+<!-- Paragraph is Text at the body size and secondary tone. -->
+<Component Name="Paragraph" Base="Text">
+  <Default Size="md" Tone="secondary"/>
+</Component>

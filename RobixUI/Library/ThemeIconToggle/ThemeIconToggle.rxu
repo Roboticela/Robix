@@ -1,0 +1,4 @@
+<!-- ThemeIconToggle is Button. Alias keeps the existing paint. -->
+<Component Name="ThemeIconToggle" Base="Button">
+</Component>
+

@@ -64,6 +64,9 @@ void RoboWebEmitBrandLogo(std::string& html, const RoboXMLNode& node, const Robo
   RoboWebAppendTextStyle(style, typed, library);
   RoboWebAddDecl(style, "--brand-title", RoboWebCssValue(library, RoboXMLAttr(node, "titleColor"), true));
   RoboWebAddDecl(style, "--brand-subtitle", RoboWebCssValue(library, RoboXMLAttr(node, "subtitleColor"), true));
+  if (!RoboXMLAttr(node, "color").empty() || !RoboXMLAttr(node, "textColor").empty()) {
+    RoboWebAddDecl(style, "--brand-ink", "1");
+  }
 
   html += "<span class=\"robo-brand robo-type\" data-variant=\"";
   html += RoboWebEscape(variant);
@@ -124,7 +127,7 @@ void RoboWebAppendBrandLogoCss(std::ostream& css) {
   css << ".robo-brand[style*=\"letter-spacing\"] .robo-brand-label{letter-spacing:inherit}\n";
   css << ".robo-brand[style*=\"line-height\"] .robo-brand-label{line-height:inherit}\n";
   css << ".robo-brand[style*=\"text-transform\"] .robo-brand-label{text-transform:inherit}\n";
-  css << ".robo-brand[style*=\"color\"] .robo-brand-subtitle{color:inherit}\n";
+  css << ".robo-brand[style*=\"--brand-ink\"] .robo-brand-subtitle{color:inherit}\n";
   css << ".robo-brand[style*=\"--brand-title\"] .robo-brand-title{color:var(--brand-title)}\n";
   css << ".robo-brand[style*=\"--brand-subtitle\"] .robo-brand-subtitle{color:var(--brand-subtitle)}\n";
 }

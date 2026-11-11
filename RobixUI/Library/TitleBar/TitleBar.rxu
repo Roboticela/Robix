@@ -1,0 +1,4 @@
+<!-- TitleBar is Container. Alias keeps the existing paint. -->
+<Component Name="TitleBar" Base="Container">
+</Component>
+

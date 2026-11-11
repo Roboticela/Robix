@@ -254,6 +254,7 @@ Copy-Tree (Join-Path $Root "Runtime") (Join-Path $Include "Runtime") "*.hpp"
 Copy-Tree (Join-Path $Root "StdLib") (Join-Path $Include "StdLib") "*.hpp"
 Copy-Tree (Join-Path $Root "StdLib\Robix") (Join-Path $Packages "Robix.Core") "*.rx"
 Copy-Tree (Join-Path $Root "RobixUI\Compiler\Components") (Join-Path $Share "Schemas") "*.rxu"
+Copy-Tree (Join-Path $Root "RobixUI\Library") (Join-Path $Share "Schemas") "*.rxu"
 $foundation = Join-Path $Root "RobixUI\Compiler\Foundation\RoboFoundation.xml"
 if (Test-Path -LiteralPath $foundation) {
     $foundationDir = Join-Path $Share "Foundation"

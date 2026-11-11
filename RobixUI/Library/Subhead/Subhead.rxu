@@ -1,0 +1,4 @@
+<!-- Subhead is Text at the subhead size and secondary tone. -->
+<Component Name="Subhead" Base="Text">
+  <Default Tone="secondary"/>
+</Component>

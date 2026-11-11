@@ -1,5 +1,7 @@
 #include "Compose.hpp"
 
+#include "ComponentTier.hpp"
+
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -32,6 +34,9 @@ struct Scope {
 struct Component {
     std::string name;
     std::vector<RoboXMLNode> body;
+    std::string base;
+    std::vector<std::pair<std::string, std::string>> defaults;
+    bool keep = false;
 };
 
 std::string Lower(std::string text) {
@@ -437,6 +442,80 @@ using Components = std::unordered_map<std::string, Component>;
 std::vector<RoboXMLNode> ExpandList(const std::vector<RoboXMLNode>& nodes, Scope& scope, const Components& components,
                                     const std::vector<RoboXMLNode>* slot, int depth);
 
+bool HasChildNamed(const RoboXMLNode& node, const std::string& name) {
+    const std::string key = Lower(name);
+    for (const RoboXMLNode& child : node.children) {
+        if (Lower(child.name) == key) return true;
+    }
+    return false;
+}
+
+std::string CanonSize(const std::string& value) {
+    const std::string key = Lower(value);
+    if (key == "small") return "sm";
+    if (key == "medium") return "md";
+    if (key == "large") return "lg";
+    return value;
+}
+
+void SetAttr(RoboXMLNode& node, const std::string& key, const std::string& value) {
+    const std::string wanted = Lower(key);
+    for (auto it = node.attrs.begin(); it != node.attrs.end();) {
+        if (it->first != key && Lower(it->first) == wanted) it = node.attrs.erase(it);
+        else ++it;
+    }
+    node.attrs[key] = value;
+}
+
+std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const Components& components,
+                                    const std::vector<RoboXMLNode>* slot, int depth);
+
+std::vector<RoboXMLNode> ExpandBase(const RoboXMLNode& node, const Component& component, Scope& scope,
+                                    const Components& components, int depth) {
+    if (component.keep) {
+        Scope inner;
+        inner.parent = &scope;
+        for (const auto& entry : node.attrs) Bind(inner, entry.first, EvalText(entry.second, scope));
+        for (const auto& def : component.defaults) {
+            if (Find(&inner, def.first) == nullptr) Bind(inner, def.first, TextValue(def.second));
+        }
+        RoboXMLNode made = node;
+        for (const auto& def : component.defaults) {
+            if (Attr(made, Lower(def.first).c_str()).empty()) SetAttr(made, def.first, def.second);
+        }
+        std::vector<RoboXMLNode> children;
+        for (const RoboXMLNode& child : component.body) {
+            if (HasChildNamed(node, child.name)) continue;
+            children.push_back(child);
+        }
+        for (const RoboXMLNode& child : node.children) children.push_back(child);
+        made.children = ExpandList(children, inner, components, nullptr, depth + 1);
+        return {made};
+    }
+    Scope inner;
+    inner.parent = &scope;
+    for (const auto& entry : node.attrs) Bind(inner, entry.first, EvalText(entry.second, scope));
+    for (const auto& def : component.defaults) {
+        if (Find(&inner, def.first) == nullptr) Bind(inner, def.first, TextValue(def.second));
+    }
+        RoboXMLNode made;
+        made.name = component.base;
+        if (Attr(node, "alias").empty()) SetAttr(made, "Alias", component.name);
+    for (const auto& def : component.defaults) SetAttr(made, def.first, def.second);
+    for (const auto& entry : node.attrs) {
+        std::string value = Substitute(entry.second, scope);
+        if (value.empty()) continue;
+        if (Lower(entry.first) == "size") value = CanonSize(value);
+        SetAttr(made, entry.first, value);
+    }
+    for (const RoboXMLNode& child : component.body) {
+        if (HasChildNamed(node, child.name)) continue;
+        made.children.push_back(child);
+    }
+    for (const RoboXMLNode& child : node.children) made.children.push_back(child);
+    return ExpandNode(made, inner, components, nullptr, depth + 1);
+}
+
 std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const Components& components,
                                     const std::vector<RoboXMLNode>* slot, int depth) {
     if (depth > 32) {
@@ -542,6 +621,7 @@ std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const
     }
     const auto component = components.find(kind);
     if (component != components.end()) {
+        if (!component->second.base.empty()) return ExpandBase(node, component->second, scope, components, depth);
         Scope inner;
         inner.parent = &scope;
         for (const auto& entry : node.attrs) Bind(inner, entry.first, EvalText(entry.second, scope));
@@ -614,22 +694,49 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
             std::cerr << "warning: Component has no Name and was skipped.\n";
         } else {
             const std::string key = Lower(name);
-            static const char* reserved[] = {
-                "window", "screen", "page", "board", "column", "row", "grid", "stack", "container", "button", "anchor", "text",
-                "textfield", "image", "icon", "heading", "subhead", "body", "paragraph", "caption", "eyebrow", "label",
-                "span", "iconbutton", "switch", "switchgroup", "switchitem", "themetoggle", "themeicontoggle",
-                "textfield", "textarea", "passwordfield", "emailfield", "phonefield", "namefield", "background", "picture", "slide", "brandlogo", "passwordreveal", "confirmaction", "select", "option", "countryselect",
-                "segmentedcontrol", "segmentedtoolbar",
-                "segment", "scrollbar", "svg", "at", "slot", "for", "if", "else", "let", "data", "import", "component"};
-            bool blocked = false;
-            for (const char* item : reserved) {
-                if (key == item) blocked = true;
-            }
-            if (blocked) {
-                std::cerr << "warning: component '" << name << "' uses a built-in name and was skipped.\n";
+            if (!RoboCompilerAllowsComponentName(key)) {
+                const char* base = RoboCompilerComponentBase(key);
+                const RoboUITier tier = RoboCompilerComponentTier(key);
+                if (tier == RoboUITier::Part && base != nullptr) {
+                    std::cerr << "warning: '" << name << "' is part of " << base << " and was skipped.\n";
+                } else if (tier == RoboUITier::Compiler && base != nullptr) {
+                    std::cerr << "warning: '" << name << "' is a compiler component. Reuse " << base
+                              << " from .rxu instead of defining it again.\n";
+                } else {
+                    std::cerr << "warning: '" << name << "' is reserved and was skipped.\n";
+                }
             } else {
-                if (components.count(key) != 0) std::cerr << "warning: component '" << name << "' replaced an earlier component of the same name.\n";
-                components[key] = Component{name, node.children};
+                const std::string baseName = Attr(node, "base");
+                if (!baseName.empty()) {
+                    const RoboUITier baseTier = RoboCompilerComponentTier(baseName);
+                    if (baseTier == RoboUITier::Unknown && components.count(Lower(baseName)) == 0) {
+                        std::cerr << "warning: component '" << name << "' bases on unknown '" << baseName
+                                  << "' and was skipped.\n";
+                    } else if (Lower(baseName) == key) {
+                        std::cerr << "warning: component '" << name << "' cannot base on itself and was skipped.\n";
+                    } else {
+                        if (components.count(key) != 0) {
+                            std::cerr << "warning: component '" << name << "' replaced an earlier component of the same name.\n";
+                        }
+                        Component defined;
+                        defined.name = name;
+                        defined.base = baseName;
+                        defined.keep = Lower(Attr(node, "keep")) == "true";
+                        for (const RoboXMLNode& child : node.children) {
+                            if (Lower(child.name) == "default") {
+                                for (const auto& entry : child.attrs) defined.defaults.emplace_back(entry.first, entry.second);
+                            } else {
+                                defined.body.push_back(child);
+                            }
+                        }
+                        components[key] = std::move(defined);
+                    }
+                } else {
+                    if (components.count(key) != 0) {
+                        std::cerr << "warning: component '" << name << "' replaced an earlier component of the same name.\n";
+                    }
+                    components[key] = Component{name, node.children, {}, {}, false};
+                }
             }
         }
     }
@@ -638,9 +745,87 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
 
 }  // namespace
 
+bool LoadComponentFolder(const fs::path& folder, Components& components) {
+    std::error_code error;
+    if (!fs::exists(folder, error) || !fs::is_directory(folder, error)) return false;
+    bool any = false;
+    for (const fs::directory_entry& entry : fs::recursive_directory_iterator(folder, error)) {
+        std::error_code fileError;
+        if (error || !entry.is_regular_file(fileError)) continue;
+        if (Lower(entry.path().extension().string()) != ".rxu") continue;
+        const std::string fileName = Lower(entry.path().filename().string());
+        if (fileName.size() >= 11 && fileName.compare(fileName.size() - 11, 11, ".schema.rxu") == 0) continue;
+        RoboXMLDocument document;
+        const std::string text = ReadFile(entry.path());
+        if (text.empty() || !RoboXMLParse(text, document)) continue;
+        std::unordered_set<std::string> loading;
+        std::unordered_set<std::string> done;
+        Collect(document.root, entry.path().parent_path(), components, loading, done);
+        any = true;
+    }
+    return any;
+}
+
+void InstallPresetLibrary(Components& components, const fs::path& base) {
+    fs::path dir = base;
+    for (int step = 0; step < 8 && !dir.empty(); ++step) {
+        if (LoadComponentFolder(dir / "RobixUI" / "Library", components) ||
+            LoadComponentFolder(dir / "Library", components)) {
+            return;
+        }
+        if (!dir.has_parent_path() || dir.parent_path() == dir) break;
+        dir = dir.parent_path();
+    }
+    RoboXMLDocument document;
+    if (RoboXMLParse(RoboCompilerPresetLibrary(), document)) {
+        std::unordered_set<std::string> loading;
+        std::unordered_set<std::string> done;
+        Collect(document.root, base, components, loading, done);
+    }
+}
+
+std::string RoboUIFace(const RoboXMLNode& node) {
+    std::string face;
+    for (const auto& entry : node.attrs) {
+        std::string key = entry.first;
+        for (char& ch : key) {
+            if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch - 'A' + 'a');
+        }
+        if (key == "alias" && !entry.second.empty()) {
+            face = entry.second;
+            break;
+        }
+    }
+    if (face.empty()) face = node.name;
+    for (char& ch : face) {
+        if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch - 'A' + 'a');
+    }
+    if (face == "emailfield" || face == "phonefield" || face == "passwordfield") return "textfield";
+    return face;
+}
+
+bool RoboUIRewritePreset(RoboXMLNode& node) {
+    const std::string key = Lower(node.name);
+    if (key.empty() || RoboCompilerComponentTier(key) != RoboUITier::Preset || !RoboCompilerPresetExpands(key)) return false;
+    static Components library;
+    static bool ready = false;
+    if (!ready) {
+        InstallPresetLibrary(library, fs::current_path());
+        ready = true;
+    }
+    const auto found = library.find(key);
+    if (found == library.end() || found->second.base.empty()) return false;
+    Scope scope;
+    const std::vector<RoboXMLNode> produced = ExpandBase(node, found->second, scope, library, 0);
+    if (produced.empty() || Lower(produced[0].name) == key) return false;
+    node = produced[0];
+    return true;
+}
+
 void RoboUICompose(RoboXMLNode& root, const std::string& documentPath) {
     const fs::path base = documentPath.empty() ? fs::current_path() : fs::path(documentPath).parent_path();
     Components components;
+    InstallPresetLibrary(components, base);
     std::unordered_set<std::string> loading;
     std::unordered_set<std::string> done;
     Collect(root, base, components, loading, done);

@@ -1,0 +1,4 @@
+<!-- IconButton is Button. Alias keeps the existing paint. -->
+<Component Name="IconButton" Base="Button">
+</Component>
+

@@ -1,0 +1,5 @@
+<!-- H6 is Text. Alias keeps the existing paint. -->
+<Component Name="H6" Base="Text">
+  <Default Level="6"/>
+</Component>
+

@@ -1,4 +1,3 @@
-<?xml version="1.0"?>
 <RobixUI Version="1.0">
   <Window Name="Host" Title="Robix3D in RobixUI" Theme="Dark" Width="1000" Height="700">
     <Column Spacing="12">

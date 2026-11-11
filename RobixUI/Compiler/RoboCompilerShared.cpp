@@ -1,11 +1,12 @@
 #include "RoboCompilerShared.hpp"
 
+#include "ComponentTier.hpp"
+
 #include "Components/Board/Board.hpp"
 #include "Components/Button/Button.hpp"
 #include "Components/Container/Container.hpp"
 #include "Components/Icon/Icon.hpp"
 #include "Components/IconButton/IconButton.hpp"
-#include "Components/Pane/Pane.hpp"
 #include "Components/Screen/Screen.hpp"
 #include "Components/SegmentedControl/SegmentedControl.hpp"
 #include "Components/Scrollbar/Scrollbar.hpp"
@@ -78,6 +79,11 @@ std::string RoboCompilerTrim(std::string value) {
         value.pop_back();
     }
     return value;
+}
+
+bool RoboCompilerIsSharedStyleKey(const std::string& key) {
+    return RoboCompilerIsLayoutKey(key) || RoboCompilerIsButtonStyleKey(key) || RoboCompilerIsContainerStyleKey(key) ||
+           RoboCompilerIsTextStyleKey(key);
 }
 
 bool RoboCompilerIsLayoutKey(const std::string& key) {
@@ -179,6 +185,11 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
         return true;
     }
     RoboCompilerNoteUsedComponent(name);
+    const RoboUITier tier = RoboCompilerComponentTier(name);
+    if (tier == RoboUITier::Preset) {
+        const char* base = RoboCompilerComponentBase(name);
+        if (base != nullptr) RoboCompilerNoteUsedComponent(base);
+    }
     const bool overflowOk = RoboCompilerCheckOverflowAttrs(node, path, result);
     if (RoboCompilerLower(name) == "screen") {
         bool ok = true;

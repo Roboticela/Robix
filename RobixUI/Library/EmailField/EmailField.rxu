@@ -1,0 +1,4 @@
+<!-- EmailField is a TextField preset. The compiler component is TextField. -->
+<Component Name="EmailField" Base="TextField">
+  <Default Type="email" Email="true" Placeholder="Email address" Icon="EnvelopeMessageMail" AutoComplete="email" AutoCapitalize="none" AutoCorrect="off" SpellCheck="false" InputMode="email"/>
+</Component>

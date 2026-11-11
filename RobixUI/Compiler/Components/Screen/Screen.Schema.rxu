@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <!-- Screen — a page (/login on the web, a borderless surface on RoboticelaOS unless border is set). -->
 <Component name="Screen">
   <Attribute name="id" type="string" required="false" />

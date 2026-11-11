@@ -1,0 +1,4 @@
+<!-- P is Text. Alias keeps the existing paint. -->
+<Component Name="P" Base="Text">
+</Component>
+

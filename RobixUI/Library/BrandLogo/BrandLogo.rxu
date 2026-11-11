@@ -1,0 +1,4 @@
+<!-- BrandLogo is Icon. Alias keeps the existing paint. -->
+<Component Name="BrandLogo" Base="Icon">
+</Component>
+

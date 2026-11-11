@@ -1025,7 +1025,6 @@ Structured cancellation, `Mutex`, `ReadWriteLock`, `Semaphore`, `Channel<T>`, `T
 Documents are XML, extension `.rxu`. The root is `RobixUI`.
 
 ```xml
-<?xml version="1.0"?>
 <RobixUI Version="1.0">
   <Window Name="RobotDashboard" Title="Roboticela Robot Control" Width="1000" Height="700">
     <Column Spacing="16">

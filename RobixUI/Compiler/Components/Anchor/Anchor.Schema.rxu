@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <!--
   Anchor — RefCode/WebRef/components/Anchor.tsx
   A text link. Same destinations, icons, and states as Button. The face is a link, not a pill.

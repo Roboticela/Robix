@@ -1,0 +1,5 @@
+<!-- CountrySelect is Select. Alias keeps the existing paint. -->
+<Component Name="CountrySelect" Base="Select">
+  <Default Placeholder="Select a country" Searchable="true" Icon="GlobeWorldEarth"/>
+</Component>
+

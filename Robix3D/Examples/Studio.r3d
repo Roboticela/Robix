@@ -1,4 +1,3 @@
-<?xml version="1.0"?>
 <Robix3D Version="1.0" Units="meters">
   <Component Name="FloorModule">
     <Mesh Name="Platform">

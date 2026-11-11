@@ -1,0 +1,5 @@
+<!-- H5 is Text. Alias keeps the existing paint. -->
+<Component Name="H5" Base="Text">
+  <Default Level="5"/>
+</Component>
+

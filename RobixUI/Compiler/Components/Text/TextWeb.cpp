@@ -167,6 +167,19 @@ std::string RoboWebTextClass(const std::string& name) {
   return {};
 }
 
+std::string RoboWebTextRoleClass(const std::string& name) {
+  if (name == "heading") return "robo-heading";
+  if (name.size() == 2 && name[0] == 'h' && name[1] >= '1' && name[1] <= '6') return "robo-" + name;
+  if (name == "subhead") return "robo-subhead";
+  if (name == "body") return "robo-body";
+  if (name == "paragraph") return "robo-paragraph";
+  if (name == "p") return "robo-p";
+  if (name == "caption") return "robo-caption";
+  if (name == "eyebrow") return "robo-eyebrow";
+  if (name == "label") return "robo-label";
+  return {};
+}
+
 namespace {
 
 std::string RoboWebTextAttr(const RoboXMLNode& node, const char* key, const char* alt = "") {

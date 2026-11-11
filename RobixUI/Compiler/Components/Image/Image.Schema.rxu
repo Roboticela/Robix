@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <!--
   Image — web picture. Windows does not paint it.
   <Image Source="photo.png" Alt="Studio" Width="320" Fit="cover" Radius="16"/>

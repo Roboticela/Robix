@@ -395,7 +395,6 @@ public Int MissingExplainFn(Int x) {
 
     // 4. Single-File .rxu UI Markup Verification (`robix verify MainWindow.rxu`)
     const std::string validRxu = R"(
-<?xml version="1.0"?>
 <RobixUI Version="1.0">
     <Window Name="Dashboard" Title="Roboticela Control" Width="800" Height="600">
         <Column Spacing="12">

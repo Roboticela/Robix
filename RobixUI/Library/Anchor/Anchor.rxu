@@ -1,0 +1,4 @@
+<!-- Anchor is Button. Alias keeps the existing paint. -->
+<Component Name="Anchor" Base="Button">
+</Component>
+

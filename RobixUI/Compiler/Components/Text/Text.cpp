@@ -1,12 +1,5 @@
 #include "Text.hpp"
 
-#include "../Body/Body.hpp"
-#include "../Caption/Caption.hpp"
-#include "../Eyebrow/Eyebrow.hpp"
-#include "../Heading/Heading.hpp"
-#include "../Label/Label.hpp"
-#include "../Paragraph/Paragraph.hpp"
-#include "../Subhead/Subhead.hpp"
 #include "../../RoboCompilerShared.hpp"
 
 #include <sstream>
@@ -45,9 +38,9 @@ bool RoboCompilerIsAlign(const std::string& align) {
 
 bool RoboCompilerIsTextName(const std::string& name) {
   const std::string n = RoboCompilerLower(name);
-  return n == "text" || n == "content" || RoboCompilerIsHeadingName(name) || RoboCompilerIsSubheadName(name) ||
-         RoboCompilerIsBodyName(name) || RoboCompilerIsCaptionName(name) || RoboCompilerIsEyebrowName(name) ||
-         RoboCompilerIsLabelName(name) || RoboCompilerIsParagraphName(name);
+  return n == "text" || n == "content" || n == "heading" || n == "h1" || n == "h2" || n == "h3" || n == "h4" ||
+         n == "h5" || n == "h6" || n == "subhead" || n == "body" || n == "paragraph" || n == "p" || n == "caption" ||
+         n == "eyebrow" || n == "label";
 }
 
 bool RoboCompilerIsWrap(const std::string& wrap) {
@@ -175,12 +168,11 @@ bool RoboCompilerCheckText(const RoboXMLNode& node, const std::string& path, Rob
   }
   for (const auto& kv : node.attrs) {
     const std::string key = RoboCompilerLower(kv.first);
-    if (!RoboCompilerIsLayoutKey(key) && key != "id" && key != "x" && key != "y" && key != "width" &&
+    if (!RoboCompilerIsSharedStyleKey(key) && key != "id" && key != "x" && key != "y" && key != "width" &&
         key != "height" && key != "maxwidth" && key != "size" && key != "fontsize" && key != "color" &&
         key != "content" && key != "text" && key != "font" && key != "face" && key != "fontfamily" &&
         key != "level" && key != "variant" && key != "tone" && key != "tracking" && key != "leading" &&
-        key != "uppercase" && key != "screen" && key != "route" && key != "href" &&
-        !RoboCompilerIsTextStyleKey(key)) {
+        key != "uppercase" && key != "screen" && key != "route" && key != "href" && key != "alias") {
       RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
                           "unknown attribute '" + kv.first + "'");
     }

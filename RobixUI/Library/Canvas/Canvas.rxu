@@ -1,0 +1,4 @@
+<!-- Canvas is Container. Alias keeps the existing paint. -->
+<Component Name="Canvas" Base="Container">
+</Component>
+

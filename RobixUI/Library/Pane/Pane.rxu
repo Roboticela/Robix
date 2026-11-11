@@ -1,0 +1,4 @@
+<!-- Pane is Container. Alias keeps the existing paint. -->
+<Component Name="Pane" Base="Container">
+</Component>
+

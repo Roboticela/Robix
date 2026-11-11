@@ -81,10 +81,10 @@ bool RoboCompilerCheckButton(const RoboXMLNode& node, const std::string& path, R
   }
   for (const auto& kv : node.attrs) {
     const std::string key = RoboCompilerLower(kv.first);
-    if (!RoboCompilerIsLayoutKey(key) && key != "id" && key != "variant" && key != "size" && key != "fullwidth" &&
+    if (!RoboCompilerIsSharedStyleKey(key) && key != "id" && key != "variant" && key != "size" && key != "fullwidth" &&
         key != "loading" && key != "loadingtext" && key != "leading" && key != "trailing" && key != "preview" &&
         key != "disabled" && key != "type" && key != "content" && key != "name" && key != "path" &&
-        key != "route" && key != "href" && key != "screen" && !RoboCompilerIsButtonStyleKey(key)) {
+        key != "route" && key != "href" && key != "screen" && key != "face" && key != "alias") {
       RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
                           "unknown Button attribute '" + kv.first + "'");
     }

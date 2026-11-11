@@ -1,0 +1,4 @@
+<!-- Eyebrow is Text at the eyebrow size and tertiary tone. -->
+<Component Name="Eyebrow" Base="Text">
+  <Default Tone="tertiary"/>
+</Component>

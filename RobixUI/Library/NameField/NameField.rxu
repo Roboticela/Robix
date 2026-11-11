@@ -1,0 +1,4 @@
+<!-- NameField is TextField. Alias keeps the existing paint. -->
+<Component Name="NameField" Base="TextField">
+</Component>
+

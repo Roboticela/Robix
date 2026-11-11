@@ -1,0 +1,12 @@
+<!-- Paragraph and P are Body. size md is 19, size sm is 17. Inter-Regular, text-secondary. -->
+<Component name="Paragraph" derives="Text">
+  <Attribute name="id" type="string" required="false" />
+  <Attribute name="size" type="enum" values="md|sm|medium|small" default="md" />
+  <Attribute name="tone" type="enum" values="primary|secondary|tertiary|disabled|link|danger|success|warning|on-brand" default="secondary" />
+  <Attribute name="align" type="enum" values="start|center|end|left|right" default="start" />
+  <Attribute name="wrap" type="enum" values="none|char|word" default="word" />
+  <Attribute name="color" type="color" required="false" />
+  <Attribute name="font" type="string" default="Inter-Regular" />
+  <Attribute name="content" type="string" required="false" />
+  <Child name="Span" max="48" />
+</Component>

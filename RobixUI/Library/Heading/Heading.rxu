@@ -1,0 +1,4 @@
+<!-- Heading is Text. Alias keeps the heading element and type size. -->
+<Component Name="Heading" Base="Text">
+  <Default Level="1" Tone="primary"/>
+</Component>

@@ -1,0 +1,4 @@
+<!-- Caption is Text at the caption size and tertiary tone. -->
+<Component Name="Caption" Base="Text">
+  <Default Tone="tertiary"/>
+</Component>

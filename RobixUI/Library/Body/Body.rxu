@@ -1,0 +1,4 @@
+<!-- Body is Text at the body size and secondary tone. -->
+<Component Name="Body" Base="Text">
+  <Default Size="md" Tone="secondary"/>
+</Component>

@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <!--
   Board — empty canvas. Nothing is drawn inside until the user adds children.
   Connect it to a screen with board="id" on Screen, or screen="id" on Board.
