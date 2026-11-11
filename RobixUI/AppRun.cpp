@@ -58,7 +58,7 @@ fs::path FindDocument(const fs::path& input) {
     std::error_code error;
     if (fs::is_regular_file(input, error)) {
         const std::string ext = Lower(input.extension().string());
-        if (ext == ".rxu" || ext == ".xml" || ext == ".r3d") {
+        if (ext == ".rxu" || ext == ".xml" || ext == ".rx3d") {
             return input;
         }
     }
@@ -92,7 +92,7 @@ std::filesystem::file_time_type LatestStamp(const fs::path& document) {
     for (fs::recursive_directory_iterator cursor(directory, error), end; !error && cursor != end; cursor.increment(error)) {
         if (!cursor->is_regular_file(error)) continue;
         const std::string ext = Lower(cursor->path().extension().string());
-        if (ext != ".rxu" && ext != ".r3d" && ext != ".xml") continue;
+        if (ext != ".rxu" && ext != ".rx3d" && ext != ".xml") continue;
         const auto stamp = StampOf(cursor->path());
         if (stamp > latest) latest = stamp;
     }
@@ -374,7 +374,7 @@ int CompileProduction(const std::string& input, const std::vector<std::string>& 
         std::error_code error;
         fs::create_directories(out / "Content", error);
         fs::copy_file(document, out / "Content" / document.filename(), fs::copy_options::overwrite_existing, error);
-        if (key != "web" && Lower(document.extension().string()) == ".r3d") {
+        if (key != "web" && Lower(document.extension().string()) == ".rx3d") {
             std::cerr << "robixc: Robix3D renders on the web target.\n";
             status = 1;
             continue;

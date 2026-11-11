@@ -1681,7 +1681,7 @@ void EmitPhysics(Out& out, const RoboXMLNode& node, const RoboXMLNode& sceneRoot
         out.uses.rapier = true;
         const Vec3 gravity = ParseVec(Attr(node, "gravity").empty() ? "0,-9.81,0" : Attr(node, "gravity"), 0);
         out.js << "ctx.frames.push(()=>{});\n";
-        out.js << "(async()=>{const RAPIER=await import(\"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/+esm\");await RAPIER.init();const world=new RAPIER.World({x:"
+        out.js << "(async()=>{const RAPIER=await import(\"https://cdn.jsdelivr.net/npm/@dimforge/rapierx3d-compat@0.14.0/+esm\");await RAPIER.init();const world=new RAPIER.World({x:"
                << Num(gravity.x) << ",y:" << Num(gravity.y) << ",z:" << Num(gravity.z) << "});const bodies=[];\n";
         const auto emitBody = [&](const RoboXMLNode& body, const std::string& target) {
             const std::string type = Lower(Attr(body, "type").empty() ? "dynamic" : Attr(body, "type"));
@@ -1996,7 +1996,7 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
                     out.errors.push_back(error.empty() ? "could not compile " + source : error);
                 }
                 ApplyHost(saved);
-                uiHtml += "<iframe class=\"r3d-frame\" src=\"panels/" + Html(path.stem().string()) + "/index.html\" title=\"" + Html(path.stem().string()) + "\"></iframe>";
+                uiHtml += "<iframe class=\"rx3d-frame\" src=\"panels/" + Html(path.stem().string()) + "/index.html\" title=\"" + Html(path.stem().string()) + "\"></iframe>";
             }
         }
         for (const RoboXMLNode& control : child.children) {
@@ -2004,15 +2004,15 @@ std::string BuildScene(const Prepared& prepared, const RoboXMLNode& scene, std::
             const std::string bind = Attr(control, "bind").empty() ? Attr(control, "name") : Attr(control, "bind");
             const std::string label = Attr(control, "label").empty() ? Attr(control, "text") : Attr(control, "label");
             if (controlKind == "colorpicker") {
-                uiHtml += "<label class=\"r3d-field\">" + Html(label) + "<input type=\"color\" data-state=\"" + Html(bind) + "\"></label>";
+                uiHtml += "<label class=\"rx3d-field\">" + Html(label) + "<input type=\"color\" data-state=\"" + Html(bind) + "\"></label>";
             } else if (controlKind == "slider") {
-                uiHtml += "<label class=\"r3d-field\">" + Html(label) + "<input type=\"range\" data-state=\"" + Html(bind) + "\" min=\"" +
+                uiHtml += "<label class=\"rx3d-field\">" + Html(label) + "<input type=\"range\" data-state=\"" + Html(bind) + "\" min=\"" +
                           Html(Attr(control, "min").empty() ? "0" : Attr(control, "min")) + "\" max=\"" + Html(Attr(control, "max").empty() ? "1" : Attr(control, "max")) +
                           "\" step=\"" + Html(Attr(control, "step").empty() ? "1" : Attr(control, "step")) + "\"></label>";
             } else if (controlKind == "toggle") {
-                uiHtml += "<label class=\"r3d-field\">" + Html(label) + "<input type=\"checkbox\" data-state=\"" + Html(bind) + "\"></label>";
+                uiHtml += "<label class=\"rx3d-field\">" + Html(label) + "<input type=\"checkbox\" data-state=\"" + Html(bind) + "\"></label>";
             } else if (controlKind == "note") {
-                uiHtml += "<p class=\"r3d-note\">" + Html(label.empty() ? Trim(control.text) : label) + "</p>";
+                uiHtml += "<p class=\"rx3d-note\">" + Html(label.empty() ? Trim(control.text) : label) + "</p>";
             }
         }
     }
@@ -2104,15 +2104,15 @@ bool SceneAlpha(const RoboXMLNode& scene) {
 }
 
 std::string CssBlock() {
-    return ".r3d-host,.r3d-page{position:relative;width:100%;height:100%;min-height:240px;overflow:hidden;background:#000}"
-           ".r3d-host canvas,.r3d-page canvas{display:block;width:100%;height:100%}"
-           ".r3d-ui{position:absolute;left:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:2;color:#fff;font:14px/1.3 system-ui,sans-serif}"
-           ".r3d-field{display:flex;align-items:center;gap:8px}"
-           ".r3d-frame{position:absolute;right:16px;bottom:16px;width:min(360px,40vw);height:min(480px,60vh);border:0;border-radius:16px;z-index:2;background:#111}"
-           ".r3d-host[data-layer=backdrop]{position:absolute;inset:0;z-index:0;min-height:0;overflow:visible;pointer-events:none;background:transparent}"
-           ".r3d-host[data-layer=backdrop] canvas{background:transparent}"
-           ".r3d-host[data-paint=bleed]{overflow:visible;top:calc(-1 * var(--r3d-bleed, min(48vh, 420px)));bottom:calc(-1 * var(--r3d-bleed, min(48vh, 420px)));height:auto;z-index:1}"
-           ".r3d-host[data-paint=clip]{overflow:hidden;inset:0;top:0;bottom:0;height:auto;z-index:0}";
+    return ".rx3d-host,.rx3d-page{position:relative;width:100%;height:100%;min-height:240px;overflow:hidden;background:#000}"
+           ".rx3d-host canvas,.rx3d-page canvas{display:block;width:100%;height:100%}"
+           ".rx3d-ui{position:absolute;left:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:2;color:#fff;font:14px/1.3 system-ui,sans-serif}"
+           ".rx3d-field{display:flex;align-items:center;gap:8px}"
+           ".rx3d-frame{position:absolute;right:16px;bottom:16px;width:min(360px,40vw);height:min(480px,60vh);border:0;border-radius:16px;z-index:2;background:#111}"
+           ".rx3d-host[data-layer=backdrop]{position:absolute;inset:0;z-index:0;min-height:0;overflow:visible;pointer-events:none;background:transparent}"
+           ".rx3d-host[data-layer=backdrop] canvas{background:transparent}"
+           ".rx3d-host[data-paint=bleed]{overflow:visible;top:calc(-1 * var(--rx3d-bleed, min(48vh, 420px)));bottom:calc(-1 * var(--rx3d-bleed, min(48vh, 420px)));height:auto;z-index:1}"
+           ".rx3d-host[data-paint=clip]{overflow:hidden;inset:0;top:0;bottom:0;height:auto;z-index:0}";
 }
 
 bool WriteText(const fs::path& path, const std::string& text) {
@@ -2148,7 +2148,7 @@ void Restore(const std::string& module, const std::string& css) {
 void EmitView(std::string& html, const RoboXMLNode& node) {
     const std::string source = Attr(node, "source");
     if (source.empty()) {
-        gErrors.push_back("View3D needs Source pointing at a .r3d document");
+        gErrors.push_back("View3D needs Source pointing at a .rx3d document");
         return;
     }
     fs::path path = fs::path(source);
@@ -2164,7 +2164,7 @@ void EmitView(std::string& html, const RoboXMLNode& node) {
     gStack.erase(key);
     for (const std::string& error : prepared.errors) gErrors.push_back(error);
     if (!prepared.errors.empty()) return;
-    const std::string id = "r3d-" + std::to_string(gView++);
+    const std::string id = "rx3d-" + std::to_string(gView++);
     std::string ui;
     std::vector<std::string> errors;
     const fs::path previousOut = gOutRoot;
@@ -2210,18 +2210,18 @@ void EmitView(std::string& html, const RoboXMLNode& node) {
         bleedKey != "no" && bleedKey != "off" && bleedKey != "0") {
         distance = bleed.find_first_not_of("0123456789.") == std::string::npos ? bleed + "px" : bleed;
     }
-    html += "<div class=\"r3d-host\" id=\"" + id + "\"";
+    html += "<div class=\"rx3d-host\" id=\"" + id + "\"";
     std::string style;
     if (!width.empty()) style += "width:" + Html(width) + ";";
     if (!height.empty()) style += "height:" + Html(height) + ";";
-    if (paint == "bleed") style += "--r3d-bleed:" + Html(distance) + ";";
+    if (paint == "bleed") style += "--rx3d-bleed:" + Html(distance) + ";";
     if (!style.empty()) html += " style=\"" + style + "\"";
     if (backdrop) html += " data-layer=\"backdrop\"";
     if (paint == "bleed" || paint == "clip") html += " data-paint=\"" + paint + "\"";
     html += "><canvas";
     if (alpha) html += " data-alpha=\"true\"";
     html += "></canvas>";
-    if (!ui.empty()) html += "<div class=\"r3d-ui\">" + ui + "</div>";
+    if (!ui.empty()) html += "<div class=\"rx3d-ui\">" + ui + "</div>";
     html += "</div>";
 }
 
@@ -2250,16 +2250,16 @@ bool WritePage(const fs::path& outRoot, const fs::path& document, std::string& e
         return false;
     }
     if (!CopyRuntime(outRoot, error)) return false;
-    if (!WriteText(outRoot / "scene.js", module + "mount(document.querySelector(\"#r3d-root canvas\"), build);\n")) {
+    if (!WriteText(outRoot / "scene.js", module + "mount(document.querySelector(\"#rx3d-root canvas\"), build);\n")) {
         error = "could not write scene.js";
         return false;
     }
     const std::string css = CssBlock() + "html,body{margin:0;height:100%;background:#000}";
     const bool alpha = SceneAlpha(*scene);
     const std::string html = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" +
-                             Html(prepared.title) + "</title>" + ImportMap(prepared.three) + "<link rel=\"stylesheet\" href=\"app.css\"></head><body><div class=\"r3d-page\" id=\"r3d-root\"><canvas" +
+                             Html(prepared.title) + "</title>" + ImportMap(prepared.three) + "<link rel=\"stylesheet\" href=\"app.css\"></head><body><div class=\"rx3d-page\" id=\"rx3d-root\"><canvas" +
                              (alpha ? " data-alpha=\"true\"" : "") + "></canvas>" +
-                             (ui.empty() ? "" : "<div class=\"r3d-ui\">" + ui + "</div>") + "</div><script type=\"module\" src=\"scene.js\"></script></body></html>\n";
+                             (ui.empty() ? "" : "<div class=\"rx3d-ui\">" + ui + "</div>") + "</div><script type=\"module\" src=\"scene.js\"></script></body></html>\n";
     if (!WriteText(outRoot / "index.html", html) || !WriteText(outRoot / "app.css", css)) {
         error = "could not write the Robix3D page";
         return false;

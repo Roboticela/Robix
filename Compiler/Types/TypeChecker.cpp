@@ -927,7 +927,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "File" || expr.text == "Args" || expr.text == "Network" ||
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
-                expr.text == "Math" || expr.text == "Volatile" ||
+                expr.text == "Math" || expr.text == "UI" || expr.text == "Scene" || expr.text == "Volatile" ||
                 expr.text == "Port" || expr.text == "Cpu" || expr.text == "Timer" ||
                 expr.text == "System" || expr.text == "Console" || expr.text == "Atomic") {
                 expr.inferredType = MakePrimitiveType(expr.text);
@@ -1317,6 +1317,11 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                     expr.inferredType = MakePrimitiveType("Bool");
                     return expr.inferredType;
                 }
+            }
+            if (expr.left && expr.left->kind == ExprKind::Identifier &&
+                (expr.left->text == "UI" || expr.left->text == "Scene") && expr.text == "Set") {
+                expr.inferredType = MakePrimitiveType("Void");
+                return expr.inferredType;
             }
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Math" &&
                 (expr.text == "Abs" || expr.text == "Min" || expr.text == "Max" || expr.text == "Clamp")) {

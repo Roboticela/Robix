@@ -1111,6 +1111,7 @@ Rules for every new component:
 7. Style attributes belong to the shared style table used by every component. A preset may set those attributes. It may not invent a new style key that only its emitter understands.
 8. Add the tag to `ComponentTier.cpp` when it becomes a known preset, and add `RobixUI/Library/<Name>/<Name>.rxu`. Do not put that preset under `Compiler/Components`.
 9. `As` chooses the web element. A preset may set it as a default. A caller may replace it. Omitting it keeps the built-in tag: `button` for `Button`, `a` for `Anchor`, `input` for `TextField`, `textarea` for `TextArea`, `h1`–`h6` for `Heading`, `p` for `Paragraph`, `div` for `Container`, and `span` for `Text`. `As` is web-only. It does not add a paint emitter.
+10. Robix changes a live element with `UI.Set(id, key, value)`. The `id` is the element's `Id` or `Name`. `text`, `value`, `placeholder`, `hidden`, `disabled`, and `checked` update that part of the element. Any other key sets an attribute, and style keys such as `color` and `width` set the style. Robix changes a named object in a `.rx3d` scene with `Scene.Set(name, property, value)`. A property such as `position`, `position.y`, `rotation`, `scale`, `material.color`, or `visible` is applied to that object. `Scene.Set(name, "state", value)` writes a scene state used by the scene's bindings. These calls run when the host executes them. They do not hot-reload the document.
 
 # 20. ROBIX AND ROBIXUI INTEGRATION
 

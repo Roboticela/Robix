@@ -1,6 +1,8 @@
 extern void rx_print(const char* text, int length);
 extern void rx_warn(const char* text, int length);
 extern int rx_input(const char* prompt, int prompt_length, char* out, int cap);
+extern void rx_ui(const char* id, int id_len, const char* key, int key_len, const char* value, int value_len);
+extern void rx_scene(const char* name, int name_len, const char* key, int key_len, const char* value, int value_len);
 
 void* memcpy(void* dest, const void* src, unsigned long n) {
     unsigned char* out = (unsigned char*)dest;
@@ -360,6 +362,14 @@ static void intrinsic(const Ins* inst, Frame* frame) {
         if (v < lo) v = lo;
         if (v > hi) v = hi;
         out = vint(v); has = 1;
+    } else if ((streq(name, "UI.Set") || streq(name, "Scene.Set")) && inst->argc >= 3) {
+        char id[160]; char key[96]; char value[256];
+        text_of(frame->regs[inst->args[0]], id, 160);
+        text_of(frame->regs[inst->args[1]], key, 96);
+        text_of(frame->regs[inst->args[2]], value, 256);
+        if (streq(name, "UI.Set")) rx_ui(id, slen(id), key, slen(key), value, slen(value));
+        else rx_scene(id, slen(id), key, slen(key), value, slen(value));
+        out = vvoid(); has = 1;
     } else if (streq(name, "Input") || streq(name, "Input.Int")) {
         char prompt[128];
         prompt[0] = 0;

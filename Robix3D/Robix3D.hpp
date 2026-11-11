@@ -17,13 +17,13 @@ void Restore(const std::string& module, const std::string& css);
 /* True when the document root is Robix3D. */
 bool IsSceneDocument(const RoboXMLNode& root);
 
-/* A RobixUI tree may host a scene only through View3D Source="file.r3d". */
+/* A RobixUI tree may host a scene only through View3D Source="file.rx3d". */
 std::vector<std::string> UiBoundaryErrors(const RoboXMLNode& root);
 
 /* Writes canvas markup for one hosted scene. The scene file is compiled into the page module. */
 void EmitView(std::string& html, const RoboXMLNode& node);
 
-/* A whole .r3d document becomes index.html, app.css, robix3d.js, and scene.js. */
+/* A whole .rx3d document becomes index.html, app.css, robix3d.js, and scene.js. */
 bool WritePage(const std::filesystem::path& outRoot, const std::filesystem::path& document, std::string& error);
 
 const std::vector<std::string>& Errors();

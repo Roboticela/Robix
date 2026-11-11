@@ -660,6 +660,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     }
 #endif
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ reply };
+                } else if ((inst.symbolImm == "UI.Set" || inst.symbolImm == "Scene.Set") && inst.callArgRegs.size() >= 3) {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{};
                 } else if (inst.symbolImm == "Input" || inst.symbolImm == "Input.Int") {
                     if (!inst.callArgRegs.empty()) {
                         const VMValue& prompt = regs[inst.callArgRegs[0]];

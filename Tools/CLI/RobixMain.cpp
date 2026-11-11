@@ -357,7 +357,7 @@ int main(int argc, char* argv[]) {
             }
         }
         const std::string extension = fs::path(runInput).extension().string();
-        const bool screen = extension == ".rxu" || extension == ".xml" || extension == ".r3d" ||
+        const bool screen = extension == ".rxu" || extension == ".xml" || extension == ".rx3d" ||
                             (fs::is_directory(runInput) && runInput != "all");
         if (!runFiles.empty()) {
             const std::string category = Robix::Tools::ProjectCategory(runFiles.front());

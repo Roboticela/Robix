@@ -40,6 +40,9 @@ void RasterWindowsDocument(RoboGPU* gpu);
 /* Paint the visible window when a retained sheet is not available. */
 void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight);
 
+/* Paint the visible document already scaled into screen pixels, so zoomed controls stay sharp. */
+void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int screenHeight, double scale);
+
 /* Recolor controls whose pointer or focus state changed. Patches are document rectangles. -1 means raster the sheet. */
 int CollectWindowsDocumentPatches(int hotControl, int pressedControl, int focusControl, WindowPatch* patches, int capacity);
 

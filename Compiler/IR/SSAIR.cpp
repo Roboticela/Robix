@@ -2462,12 +2462,15 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Sensor" || receiverExpr.text == "Motor" ||
                      receiverExpr.text == "Interrupt" || receiverExpr.text == "HardwareTimer" ||
                      receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
+                     receiverExpr.text == "UI" || receiverExpr.text == "Scene" ||
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
                      receiverExpr.text == "Cpu" || receiverExpr.text == "System" ||
                      receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
                      receiverExpr.text == "Atomic")) {
                     Frontend::TypeNode ty = exprType;
-                    if (receiverExpr.text == "Port" && (memberName == "Read8" || memberName == "Read16")) {
+                    if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
+                        ty = MakePrim("Void");
+                    } else if (receiverExpr.text == "Port" && (memberName == "Read8" || memberName == "Read16")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Cpu" &&
                                (memberName == "ReadCR3" || memberName == "ReadRSP" || memberName == "ExchangeRSP" ||

@@ -1000,17 +1000,17 @@ void Draw(HostView* view) {
         bool fresh = false;
         bool usedSheet = false;
         if (zoomed) {
-            usedSheet = EnsureViewport(view, layoutW, layoutH, fresh);
+            usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
                 const bool dirty = rebuilt || fresh || patchCount != 0 || view->shownScroll != view->scrollY ||
                                    WindowsDocumentNeedsSpin();
                 if (dirty) {
                     BindSheet(view, true);
-                    PaintWindowsDocumentView(&view->gpu, view->scrollY, layoutW, layoutH);
+                    PaintWindowsDocumentScaled(&view->gpu, view->scrollY, width, height, scale);
                     BindSheet(view, false);
                     view->shownScroll = view->scrollY;
                 }
-                ComposeZoomed(view, scale, true);
+                ComposeZoomed(view, 1.0, true);
             }
         } else {
             usedSheet = layout >= 0 && EnsureSheet(view, std::max(width, layoutW), view->contentHeight, fresh);

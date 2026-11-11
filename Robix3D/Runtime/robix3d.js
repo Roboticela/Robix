@@ -31,7 +31,27 @@ export function mount(canvas, build) {
     composer: null,
     physics: null,
   };
+  const root = (window.Robo = window.Robo || {});
+  root.scenes = root.scenes || [];
+  ctx.set = (name, property, raw) => {
+    if (property === "state") {
+      ctx.states[name] = raw;
+      return;
+    }
+    const object = ctx.objects.get(name);
+    if (!object) {
+      ctx.states[name] = raw;
+      return;
+    }
+    const parts = String(raw).split(",").map((item) => item.trim());
+    const numbers = parts.map(Number);
+    const value = numbers.every((item) => !Number.isNaN(item)) ? numbers : [raw];
+    writeProperty(object, property, value);
+  };
+  root.scenes.push(ctx);
   build(ctx);
+  (root.sceneQueue || []).forEach((item) => ctx.set(item[0], item[1], item[2]));
+  root.sceneQueue = [];
   const clock = new THREE.Clock();
   const resize = () => {
     const width = canvas.clientWidth || 1;

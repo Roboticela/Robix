@@ -289,10 +289,14 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     }
     html += "<";
     html += tag;
-    const std::string id = RoboXMLAttr(node, "id");
+    std::string id = RoboXMLAttr(node, "id");
+    if (id.empty()) id = RoboXMLAttr(node, "name");
     if (!id.empty()) {
         html += " id=\"";
         html += Escape(id);
+        html += "\"";
+        html += " data-name=\"";
+        html += Escape(RoboXMLAttr(node, "name").empty() ? id : RoboXMLAttr(node, "name"));
         html += "\"";
     }
     html += " class=\"";
@@ -673,10 +677,27 @@ Robo.render = function () {};
 Robo.mount = function () {};
 Robo.set = function (id, key, value) {
   var node = document.getElementById(id);
+  if (!node) node = document.querySelector("[data-name=\"" + id + "\"]");
   if (!node) return;
-  if (key === "text" || key === "content") node.textContent = value;
-  else if (key === "hidden") node.hidden = value === "true" || value === true;
-  else node.style[key] = value;
+  if (key === "text" || key === "content") {
+    if (node.tagName === "INPUT" || node.tagName === "TEXTAREA") node.value = value;
+    else node.textContent = value;
+  } else if (key === "value") node.value = value;
+  else if (key === "placeholder") node.placeholder = value;
+  else if (key === "hidden") node.hidden = value === "true" || value === "1";
+  else if (key === "disabled") node.disabled = value === "true" || value === "1";
+  else if (key === "checked") node.checked = value === "true" || value === "1";
+  else if (key === "color" || key === "background" || key === "display" || key === "opacity" || key === "width" || key === "height" || String(key).indexOf("--") === 0) node.style.setProperty(key, value);
+  else node.setAttribute(key, value);
+};
+Robo.sceneSet = function (name, key, value) {
+  var scenes = Robo.scenes || [];
+  if (!scenes.length) {
+    Robo.sceneQueue = Robo.sceneQueue || [];
+    Robo.sceneQueue.push([name, key, value]);
+    return;
+  }
+  scenes.forEach(function (scene) { if (scene.set) scene.set(name, key, value); });
 };
 )JS" : programScript;
     if (hasScreen && UsesSlideshow(screenCopy)) {

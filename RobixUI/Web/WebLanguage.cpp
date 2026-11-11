@@ -265,6 +265,31 @@ std::string AssemblyLoader() {
     return R"JS(window.Robo = window.Robo || {};
 Robo.status = 0;
 Robo.log = "";
+Robo.scenes = Robo.scenes || [];
+Robo.set = function (id, key, value) {
+  var node = document.getElementById(id);
+  if (!node) node = document.querySelector("[data-name=\"" + id + "\"]");
+  if (!node) return;
+  if (key === "text" || key === "content") {
+    if (node.tagName === "INPUT" || node.tagName === "TEXTAREA") node.value = value;
+    else node.textContent = value;
+  } else if (key === "value") node.value = value;
+  else if (key === "placeholder") node.placeholder = value;
+  else if (key === "hidden") node.hidden = value === "true" || value === "1";
+  else if (key === "disabled") node.disabled = value === "true" || value === "1";
+  else if (key === "checked") node.checked = value === "true" || value === "1";
+  else if (key === "color" || key === "background" || key === "display" || key === "opacity" || key === "width" || key === "height" || key.indexOf("--") === 0) node.style.setProperty(key, value);
+  else node.setAttribute(key, value);
+};
+Robo.sceneSet = function (name, key, value) {
+  var scenes = Robo.scenes || [];
+  if (!scenes.length) {
+    Robo.sceneQueue = Robo.sceneQueue || [];
+    Robo.sceneQueue.push([name, key, value]);
+    return;
+  }
+  scenes.forEach(function (scene) { if (scene.set) scene.set(name, key, value); });
+};
 (function () {
   var previous = Robo.mount;
   var memory = null;
@@ -292,6 +317,12 @@ Robo.log = "";
       return WebAssembly.instantiate(bytes, { env: {
         rx_print: function (ptr, len) { show(decode(ptr, len)); },
         rx_warn: function (ptr, len) { console.warn(decode(ptr, len)); },
+        rx_ui: function (idPtr, idLen, keyPtr, keyLen, valuePtr, valueLen) {
+          if (Robo.set) Robo.set(decode(idPtr, idLen), decode(keyPtr, keyLen), decode(valuePtr, valueLen));
+        },
+        rx_scene: function (namePtr, nameLen, keyPtr, keyLen, valuePtr, valueLen) {
+          if (Robo.sceneSet) Robo.sceneSet(decode(namePtr, nameLen), decode(keyPtr, keyLen), decode(valuePtr, valueLen));
+        },
         rx_input: function (promptPtr, promptLen, out, cap) {
           var answer = window.prompt(decode(promptPtr, promptLen) || "") || "";
           var encoded = new TextEncoder().encode(answer);

@@ -12,6 +12,7 @@
 #include "../../RoboGPU/RoboText.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -181,13 +182,29 @@ void ResolveButtonIcons(const RoboXMLNode& node, std::string& leading, std::stri
     }
 }
 
-int Px(int value) {
-    if (value == 0 || gDpi == 96) {
+double gPaintScale = 1;
+
+int ScaleLen(int value, double scale) {
+    if (value == 0 || scale == 1.0) {
         return value;
     }
-    const int scaled = static_cast<int>((static_cast<long long>(value) * static_cast<long long>(gDpi) + 48) / 96);
+    const int scaled = static_cast<int>(std::lround(static_cast<double>(value) * scale));
     if (scaled == 0) {
         return value < 0 ? -1 : 1;
+    }
+    return scaled;
+}
+
+int Px(int value) {
+    int scaled = value;
+    if (value != 0 && gDpi != 96) {
+        scaled = static_cast<int>((static_cast<long long>(value) * static_cast<long long>(gDpi) + 48) / 96);
+        if (scaled == 0) {
+            scaled = value < 0 ? -1 : 1;
+        }
+    }
+    if (gPaintScale != 1.0) {
+        return ScaleLen(scaled, gPaintScale);
     }
     return scaled;
 }
@@ -3119,6 +3136,37 @@ void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int view
     RoboGPUClear(gpu, gScene.background);
     PaintOps(gpu, gScene.ops, scrollY, viewHeight, gScene.light);
     gScene.scrollY = scrollY;
+}
+
+void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int screenHeight, double scale) {
+    RoboWindowsInstallFontRaster(nullptr, 0);
+    if (gpu == nullptr || !gScene.valid || screenWidth <= 0 || screenHeight <= 0) {
+        return;
+    }
+    if (!(scale > 0.0)) {
+        scale = 1.0;
+    }
+    const double previous = gPaintScale;
+    gPaintScale = scale;
+    RoboGPUClear(gpu, gScene.background);
+    const int docView = std::max(1, static_cast<int>(std::lround(static_cast<double>(screenHeight) / scale)));
+    for (const PaintOp& op : gScene.ops) {
+        const int docTop = op.y - scrollY;
+        if (docTop + op.height < 0 || docTop > docView) {
+            continue;
+        }
+        PaintOp scaled = op;
+        scaled.x = ScaleLen(op.x, scale);
+        scaled.y = ScaleLen(docTop, scale);
+        scaled.width = std::max(1, ScaleLen(op.x + op.width, scale) - scaled.x);
+        scaled.height = std::max(1, ScaleLen(docTop + op.height, scale) - scaled.y);
+        scaled.radius = ScaleLen(op.radius, scale);
+        scaled.size = std::max(1, ScaleLen(std::max(1, op.size), scale));
+        scaled.borderPx = op.borderPx > 0 ? std::max(1, ScaleLen(op.borderPx, scale)) : 0;
+        PaintOne(gpu, scaled, 0, screenHeight, gScene.light);
+    }
+    gScene.scrollY = scrollY;
+    gPaintScale = previous;
 }
 
 void RasterWindowsDocument(RoboGPU* gpu) {

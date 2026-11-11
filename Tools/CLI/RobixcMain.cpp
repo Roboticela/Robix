@@ -420,7 +420,7 @@ int main(int argc, char* argv[]) {
         std::error_code inputError;
         const fs::path inputPath(inputFilePath);
         const bool uiInput = fs::is_directory(inputPath, inputError) || inputPath.extension() == ".rxu" ||
-                             inputPath.extension() == ".xml" || inputPath.extension() == ".r3d" || inputPath.extension() == ".rxproj";
+                             inputPath.extension() == ".xml" || inputPath.extension() == ".rx3d" || inputPath.extension() == ".rxproj";
         const bool sourceFile = inputPath.extension() == ".rx" || inputPath.extension() == ".rxb";
         if ((uiInput || !uiTargets.empty() || uiDevelopment) && !sourceFile) {
             if (uiDevelopment) {
@@ -430,7 +430,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             if (uiTargets.empty()) {
-                uiTargets.push_back(inputPath.extension() == ".r3d" ? "web" : Robix::UI::HostTarget());
+                uiTargets.push_back(inputPath.extension() == ".rx3d" ? "web" : Robix::UI::HostTarget());
             }
             return Robix::UI::CompileProduction(inputFilePath, uiTargets, toolDir, webForm);
         }
