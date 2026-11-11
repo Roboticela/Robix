@@ -741,6 +741,54 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 } else if (inst.symbolImm == "CPU.GateHigh" && !inst.callArgRegs.empty()) {
                     const std::int64_t handler = regs[inst.callArgRegs[0]].AsInt();
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ handler >> 32 };
+                } else if (inst.symbolImm == "Sched.Enqueue" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t ident = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t pri = regs[inst.callArgRegs[1]].AsInt();
+                    int slot = -1;
+                    for (int i = 0; i < 8; ++i) {
+                        if (m_schedState[i] != 0 && m_schedId[i] == ident) slot = i;
+                    }
+                    if (slot >= 0) {
+                        m_schedPri[slot] = pri;
+                        m_schedState[slot] = 1;
+                    } else {
+                        for (int i = 0; i < 8; ++i) {
+                            if (m_schedState[i] == 0) { slot = i; break; }
+                        }
+                        if (slot >= 0) {
+                            m_schedId[slot] = ident;
+                            m_schedPri[slot] = pri;
+                            m_schedState[slot] = 1;
+                        }
+                    }
+                    std::int64_t ready = 0;
+                    for (int i = 0; i < 8; ++i) if (m_schedState[i] == 1) ++ready;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ ready };
+                } else if (inst.symbolImm == "Sched.Pick" && !inst.callArgRegs.empty()) {
+                    int best = -1;
+                    std::int64_t bestPri = -1;
+                    for (int i = 0; i < 8; ++i) {
+                        if (m_schedState[i] == 1 && m_schedPri[i] > bestPri) {
+                            best = i;
+                            bestPri = m_schedPri[i];
+                        }
+                    }
+                    std::int64_t ident = 0;
+                    if (best >= 0) {
+                        m_schedState[best] = 3;
+                        ident = m_schedId[best];
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ ident };
+                } else if (inst.symbolImm == "Sched.Block" && !inst.callArgRegs.empty()) {
+                    const std::int64_t ident = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t found = 0;
+                    for (int i = 0; i < 8; ++i) {
+                        if (m_schedState[i] != 0 && m_schedId[i] == ident) {
+                            m_schedState[i] = 2;
+                            found = 1;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ found };
                 } else if (inst.symbolImm == "Clock.Seconds" && !inst.callArgRegs.empty()) {
                     const std::int64_t cmos = regs[inst.callArgRegs[0]].AsInt();
                     const std::int64_t seconds = ((cmos >> 4) & 15) * 10 + (cmos & 15);

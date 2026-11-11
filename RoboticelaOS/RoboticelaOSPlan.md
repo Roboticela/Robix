@@ -2,9 +2,9 @@
 
 RoboticelaOS is a desktop operating system in the same shape as macOS. The kernel runs the machine. A launch service starts the userland. A window server owns the screen. Applications are separate processes with their own address spaces. The kernel does not draw the Dock, the Finder, or Settings.
 
-The image is Robix. Kernel, drivers, services, and programs are `.rx`. Windows are `.rxu`. Spatial scenes are `.rx3d`. The machine contract stays the one in `RefCode` and `RobixUI/RoboShared`.
+The image is Robix. The bootloader, the kernel, and the drivers are `.rx`. Desktop windows are `.rxu`. The machine contract stays the one in `RefCode` and `RobixUI/RoboShared`.
 
-The first proof target is QEMU `pc` on `x86_64-unknown-none`. Other CPUs and a desk machine are Stage AH.
+The proof target is QEMU `pc` on `x86_64-unknown-none`.
 
 Use the names as GPU not Gpu, CPU not Cpu, PCI not Pci, and the same for every other abbreviation.
 
@@ -28,33 +28,32 @@ RAM, cores, and the framebuffer follow the machine. The bootloader reads the ins
 
 ### 1.1 What the current image already proves
 
-These stages have a recorded QEMU or compiler proof. They stay. Their meaning is the machine, plus a boot console the kernel paints until `RoboWindowServer` takes the framebuffer.
+These rows are the bootloader, the kernel, and the first desktop documents. Each box is filled on its own.
 
 | | Stage | What it proves |
 | :--- | :--- | :--- |
-| [ ] | A | A `Frame` can be filled and read back on the host, and QEMU can show those pixels |
-| [ ] | B | A cooked `.rxu` can be painted into that frame |
-| [ ] | C | A scripted pointer event can hit a cooked box |
-| [ ] | D | A `.rx3d` scene can be rastered behind those boxes |
-| [ ] | E | Drag, snap, a menu, a clock, and a cursor can be applied to those boxes |
-| [ ] | F | The bootloader writes a real handoff, the splash is on screen, a bad magic halts |
-| [ ] | G | Installed RAM is measured, mapped, and published as the free range above the kernel reserve |
-| [ ] | H | The IDT is loaded, `int3` prints `ROBO_IDT: trap 3`, the timer ticks, CMOS seconds decode |
-| [ ] | I | On `-smp 4`, four cores enter 64-bit mode and the serial line is `ROBO_CPU: cores online4`. Each application processor paints its own rows of the full framebuffer |
+| [x] | A | A `Frame` can be filled and read back on the host, and QEMU can show those pixels |
+| [x] | B | A cooked `.rxu` can be painted into that frame |
+| [x] | C | A scripted pointer event can hit a cooked box |
+| [x] | E | Drag, snap, a menu, a clock, and a cursor can be applied to those boxes |
+| [x] | F | The bootloader writes a real handoff, the splash is on screen, a bad magic halts |
+| [x] | G | Installed RAM is measured, mapped, and published as the free range above the kernel reserve |
+| [x] | H | The IDT is loaded, `int3` prints `ROBO_IDT: trap 3`, the timer ticks, CMOS seconds decode |
+| [x] | I | On `-smp 4`, four cores enter 64-bit mode and the serial line is `ROBO_CPU: cores online4`. Each application processor paints its own rows of the full framebuffer |
 
-Stages A–E are the boot console. Stage I puts every online core to work on its own slice of the full framebuffer. The next kernel stage replaces that one job with the scheduler. The product desktop begins when `RoboWindowServer` is a user process.
+Stages A, B, C, and E are desktop documents. The kernel may paint them after the splash until `RoboWindowServer` takes the framebuffer. Stage I puts every online core to work on its own slice of that framebuffer. The next kernel stage replaces that one job with the scheduler.
 
 ### 1.2 What the screen shows, in order
 
 | | When | On the screen |
 | :--- | :--- | :--- |
-| [ ] | F | The splash, then the boot console from A–E |
-| [ ] | J | The same console. The serial line shows a thread running on every online core |
+| [x] | F | The splash, then the desktop documents from A, B, C, and E |
+| [x] | J | The same screen. The serial line shows a thread running on every online core |
 | [ ] | S | The splash, then a blank desktop owned by `RoboWindowServer` |
 | [ ] | T | The login window, drawn by `RoboLogin` through the window server |
 | [ ] | U | Menu bar, Dock, Finder windows, notifications, Control Center, Spaces |
-| [ ] | V–AG | The rest of the desktop, each one a program or a service |
-| [ ] | AH | The window server presents through a GPU command buffer when the display driver has one |
+| [ ] | V–Z | Settings, files, Device Manager, sound, network, and displays |
+| [ ] | AG | The window server presents through the bound display driver |
 
 ---
 
@@ -136,19 +135,16 @@ RoboticelaOS/
       Intel/       the first vendor catalog
       Vendors/     one folder per later vendor
     Devices/       RoboSerial.rx  RoboSplash.rx  RoboTimer.rx  RoboDisk.rx
-  Console/         the Stage A–E painter, used until the window server starts
+  Desktop/         .rxu documents for the windows
   User/
     RoboLaunch/    the first process
     RoboWindowServer/
     RoboLogin/
     RoboFinder/  RoboDock/  RoboSettings/  RoboFiles/  RoboDevices/
-    Apps/          one folder per inbox program
-  Desktop/         .rxu documents the apps load
-  Scenes/          .rx3d documents
   Image/           the boot volume
 ```
 
-`Console/` is the painter that Stages A–E already built. `RoboKernel` calls it after the splash and stops calling it when `RoboWindowServer` has mapped the framebuffer. New windows, menus, and apps are added under `User/`, not by painting more rectangles in the kernel.
+`Desktop/` holds the `.rxu` windows. `RoboKernel` may paint those documents after the splash and stops when `RoboWindowServer` has mapped the framebuffer. Finder, the Dock, Settings, and Device Manager live under `User/`.
 
 QEMU for a kernel proof:
 
@@ -160,99 +156,112 @@ qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/Rob
 
 ---
 
-## 5. Stages A–I — the machine that already boots
+## 5. Desktop documents
 
-The text of these stages is the proof that was recorded. The implementation stays. Later stages build on it and replace the boot console with the window server.
+These documents are the windows. The window server becomes their owner in Stage S.
 
-### [ ] Stage A — A frame the tests can read
+### [x] Stage A — A frame the tests can read
 
-- [ ] **Task A1, Robix feature.** `Frame.Create`, `Frame.Fill`, `Frame.Pixel`, and `AssertPixel`. The compiler test fills an 84×44 rectangle with `0E7AFF` and checks the origin and a pixel outside the rectangle.
+- [x] **Task A1, Robix feature.** `Frame.Create`, `Frame.Fill`, `Frame.Pixel`, and `AssertPixel`. The compiler test fills an 84×44 rectangle with `0E7AFF` and checks the origin and a pixel outside the rectangle.
 
-- [ ] **Task A2.** `Console/GPU/RoboGPU.rx` clears `#080A10`, fills the bar `#0E7AFF`, and blits the logo.
+- [x] **Task A2.** `Desktop/RoboGPU.rx` clears `#080A10`, fills the bar `#0E7AFF`, and blits the logo.
 
-- [ ] **Exit.** Both engines pass. QEMU shows the frame. Serial contains `ROBO_GPU: present`.
+- [x] **Exit.** Both engines pass. QEMU shows the frame. Serial contains `ROBO_GPU: present`.
 
-### [ ] Stage B — A cooked document
+### [x] Stage B — A cooked document
 
-- [ ] **Task B1, Robix feature.** `robix ui cook File.rxu -o File.rxul`, and `UI.LoadCooked`. The compiler test cooks a button and checks an 84×44 box whose role is `Button`.
+- [x] **Task B1, Robix feature.** `robix ui cook File.rxu -o File.rxul`, and `UI.LoadCooked`. The compiler test cooks a button and checks an 84×44 box whose role is `Button`.
 
-- [ ] **Task B2.** The boot console paints the cooked bar, icons, and one window.
+- [x] **Task B2.** The cooked bar, icons, and one window are painted.
 
-- [ ] **Exit.** Serial contains `ROBO_UI: paint`.
+- [x] **Exit.** Serial contains `ROBO_UI: paint`.
 
-### [ ] Stage C — A scripted pointer
+### [x] Stage C — A scripted pointer
 
-- [ ] **Task C1, Robix feature.** `Input.Play(script)` pushes pointer and key events. The compiler test plays a move and a click and asserts the queue.
+- [x] **Task C1, Robix feature.** `Input.Play(script)` pushes pointer and key events. The compiler test plays a move and a click and asserts the queue.
 
-- [ ] **Task C2.** A hit test maps a point to a cooked box.
+- [x] **Task C2.** A hit test maps a point to a cooked box.
 
-- [ ] **Exit.** Serial contains `ROBO_UI: click`.
+- [x] **Exit.** Serial contains `ROBO_UI: click`.
 
-### [ ] Stage D — A rastered scene
+### [x] Stage E — Layout records
 
-- [ ] **Task D1, Robix feature.** `Scene.Render(scene, frame, camera)` for one camera, one light, and flat-colored meshes. The compiler test checks a body pixel and the background `#080A10`.
+- [x] **Task E1, Robix feature.** `UI.Place`, `UI.Hit`, `UI.Drag`, and `UI.Snap` return a new layout and a cursor kind. The compiler test drags a window and snaps it to the left half.
 
-- [ ] **Exit.** Serial contains `ROBO_SCENE: frame`.
-
-### [ ] Stage E — Layout records
-
-- [ ] **Task E1, Robix feature.** `UI.Place`, `UI.Hit`, `UI.Drag`, and `UI.Snap` return a new layout and a cursor kind. The compiler test drags a window and snaps it to the left half.
-
-- [ ] **Exit.** Serial contains `ROBO_SHELL: bar`. These records are the boot console. The Dock and the menu bar in Stage U are new documents painted by the window server.
-
-### [ ] Stage F — Bootloader and handoff
-
-- [ ] **Task F1, Robix feature.** `@Packed`, `@Align`, `Memory.SizeOf`, `Memory.OffsetOf`, and global `const` are native-complete. The compiler test puts `magic` at offset 0 and `version` at offset 4. A mismatched size fails the build.
-
-- [ ] **Task F2.** The bootloader fills the handoff. A bad magic prints `ROBO_KERNEL: bad handoff` and halts. The splash uses the RefCode layout at 1920×1080 and a constant-speed loader.
-
-- [ ] **Exit.** Serial contains `ROBO_BOOT: handoff` and `ROBO_KERNEL: start`. The ROM test image prints byte `I` (73).
-
-### [ ] Stage G — Identity map
-
-- [ ] **Task G1, Robix feature.** `Memory.Frame()` and `Page.Entry(phys, flags)`. The compiler test expects `8195`, `4096`, `240`, `127`, and `-2`.
-
-- [ ] **Task G2.** `Kernel/Memory/RoboMemoryManager.rx` reads the installed byte count from the handoff. It identity-maps one 1 GiB slot for each started gibibyte of that RAM, and it also maps the local APIC slot. The free pool is every page above the 16 MiB kernel reserve, and it stops at the measured end. The page allocator does not hand out the unbacked part of a huge page or the APIC slot.
-
-- [ ] **Exit.** Serial contains `ROBO_MEMORY: pages` and `ROBO_MEMORY: map`.
-
-### [ ] Stage H — Interrupts and time
-
-- [ ] **Task H1, Robix feature.** `CPU.Gate` returns the low and high descriptor words. `Clock.Seconds` decodes a CMOS BCD byte. The compiler test uses handler `305419896` and seconds `42` from byte `66`.
-
-- [ ] **Task H2.** Vectors 0–31 print `ROBO_IDT: trap` and the vector, then halt. The timer prints `ROBO_TIMER: tick` and returns, so the boot continues.
-
-- [ ] **Exit.** Serial contains `ROBO_IDT: gates`, `ROBO_CLOCK: seconds`, and `ROBO_TIMER: tick`. The trap image prints `ROBO_IDT: trap 3`.
-
-### [ ] Stage I — Cores enter 64-bit mode
-
-- [ ] **Task I1, Robix feature.** `Volatile.Load32` and `Volatile.Store32`. The compiler test stores `1` through a pointer and reads it back.
-
-- [ ] **Task I2.** `Kernel/CPU/RoboCPU.rx` finds the RSDP and the MADT, writes the trampoline at `0x8000`, and sends INIT-SIPI. Each application processor stores its index, waits for the paint job, fills only its rows of the full framebuffer, and then halts. A core that never answers leaves the count unchanged. The boot processor paints the missing rows, so the desktop still appears. Page tables above 4 GiB keep the boot processor alone.
-
-- [ ] **Exit.** On `-smp 4`, serial contains `ROBO_CPU: cores online4`. On `-smp 1`, serial contains `ROBO_CPU: cores online1` and the boot console still appears.
-
-The one paint job is the end of this stage. Stage J replaces it with the idle thread and a real run queue.
+- [x] **Exit.** Serial contains `ROBO_SHELL: bar`. The Dock and the menu bar in Stage U are documents painted by the window server.
 
 ---
 
-## 6. Stages J–N — the kernel of a real OS
+## 6. Bootloader
 
-These stages are the next work. The boot console stays on screen so a fault is visible. New behavior is proved by serial lines and by host tests. The kernel still does not grow a Dock.
+### [x] Stage F — Bootloader and handoff
 
-### [ ] Stage J — A scheduler on every core
+- [x] **Task F1, Robix feature.** `@Packed`, `@Align`, `Memory.SizeOf`, `Memory.OffsetOf`, and global `const` are native-complete. The compiler test puts `magic` at offset 0 and `version` at offset 4. A mismatched size fails the build.
+
+- [x] **Task F2.** The bootloader fills the handoff. A bad magic prints `ROBO_KERNEL: bad handoff` and halts. The splash uses the RefCode layout at 1920×1080 and a constant-speed loader.
+
+- [x] **Exit.** Serial contains `ROBO_BOOT: handoff` and `ROBO_KERNEL: start`. The ROM test image prints byte `I` (73).
+
+### [ ] Stage AA — Install, update, recovery, and backup
+
+- [ ] **Task AA1, Robix feature.** Add `Update.Newer`, `Backup.Plan`, and `Recovery.Select`. The compiler test says `1.2` is newer than `1.1`, plans `Home` without `Trash`, and selects the last good boot entry.
+
+- [ ] **Task AA2.** The installer is a boot path: user, disk, and copy. Updates download through Stage Y into a volume slot and boot on the next start. Recovery is a boot menu. Backup copies the plan onto a second disk.
+
+- [ ] **Exit.** An install image reaches the login window. Serial contains `ROBO_UPDATE: staged` and `ROBO_RECOVERY: last-good`.
+
+### [ ] Stage AF — Secure boot and disk sealing
+
+- [ ] **Task AF1, Robix feature.** Add `Crypto.SHA256`, `Crypto.HMAC`, `Crypto.Seal`, and `Crypto.Open` over the HMAC-SHA256 the toolchain already trusts. The compiler test checks a known vector, a known HMAC, and a round trip. A wrong key returns `Error`.
+
+- [ ] **Task AF2.** The boot chain checks the bootloader, the kernel, and `RoboLaunch` before the splash finishes. A mismatch halts with `ROBO_BOOT: chain`. User-volume sectors can be sealed. The system volume stays readable by the bootloader.
+
+- [ ] **Exit.** A good image still reaches the login window. A flipped kernel byte prints `ROBO_BOOT: chain` and does not present. The good boot prints `ROBO_BOOT: chain ok`.
+
+
+---
+
+## 7. Kernel
+
+### [x] Stage G — Identity map
+
+- [x] **Task G1, Robix feature.** `Memory.Frame()` and `Page.Entry(phys, flags)`. The compiler test expects `8195`, `4096`, `240`, `127`, and `-2`.
+
+- [x] **Task G2.** `Kernel/Memory/RoboMemoryManager.rx` reads the installed byte count from the handoff. It identity-maps one 1 GiB slot for each started gibibyte of that RAM, and it also maps the local APIC slot. The free pool is every page above the 16 MiB kernel reserve, and it stops at the measured end. The page allocator does not hand out the unbacked part of a huge page or the APIC slot.
+
+- [x] **Exit.** Serial contains `ROBO_MEMORY: pages` and `ROBO_MEMORY: map`.
+
+### [x] Stage H — Interrupts and time
+
+- [x] **Task H1, Robix feature.** `CPU.Gate` returns the low and high descriptor words. `Clock.Seconds` decodes a CMOS BCD byte. The compiler test uses handler `305419896` and seconds `42` from byte `66`.
+
+- [x] **Task H2.** Vectors 0–31 print `ROBO_IDT: trap` and the vector, then halt. The timer prints `ROBO_TIMER: tick` and returns, so the boot continues.
+
+- [x] **Exit.** Serial contains `ROBO_IDT: gates`, `ROBO_CLOCK: seconds`, and `ROBO_TIMER: tick`. The trap image prints `ROBO_IDT: trap 3`.
+
+### [x] Stage I — Cores enter 64-bit mode
+
+- [x] **Task I1, Robix feature.** `Volatile.Load32` and `Volatile.Store32`. The compiler test stores `1` through a pointer and reads it back.
+
+- [x] **Task I2.** `Kernel/CPU/RoboCPU.rx` finds the RSDP and the MADT, writes the trampoline at `0x8000`, and sends INIT-SIPI. Each application processor stores its index, waits for the paint job, fills only its rows of the full framebuffer, and then halts. A core that never answers leaves the count unchanged. The boot processor paints the missing rows, so the desktop still appears. Page tables above 4 GiB keep the boot processor alone.
+
+- [x] **Exit.** On `-smp 4`, serial contains `ROBO_CPU: cores online4`. On `-smp 1`, serial contains `ROBO_CPU: cores online1` and the desktop documents still appear.
+
+The one paint job is the end of this stage. Stage J replaces it with the idle thread and a real run queue.
+
+### [x] Stage J — A scheduler on every core
 
 Future programmers enqueue a thread and ask which core should run it. The image runs that queue on every core that Stage I brought online.
 
-- [ ] **Task J1, Robix feature.** Add `Sched.Enqueue`, `Sched.Pick`, and `Sched.Block`. The compiler test enqueues three threads, picks them in priority order, and a blocked thread stays off the pick until it is woken. `Atomic.FetchAdd` remains the counter for a queue length.
+- [x] **Task J1, Robix feature.** Add `Sched.Enqueue`, `Sched.Pick`, and `Sched.Block`. The compiler test enqueues three threads, picks them in priority order, and a blocked thread stays off the pick until it is woken. `Atomic.FetchAdd` remains the counter for a queue length.
 
-- [ ] **Task J2.** `Kernel/CPU/RoboScheduler.rx` is that queue. The timer interrupt from Stage H preempts the running thread. `ApEntry` enters the idle loop on its own core. The idle loop halts only until the next interrupt, then picks again. A thread can be pinned or can move to another online core.
+- [x] **Task J2.** `Kernel/CPU/RoboScheduler.rx` is that queue. The timer interrupt from Stage H preempts the running thread. `ApEntry` enters the idle loop on its own core. The idle loop halts only until the next interrupt, then picks again. A thread can be pinned or can move to another online core.
 
 | File | Test |
 | :--- | :--- |
 | `Kernel/CPU/RoboScheduler.rx` | `RoboScheduler.test.rx` covers priority, block, wake, and a pick that skips a halted core |
 
-- [ ] **Exit.** On `-smp 4`, serial contains `ROBO_SCHED: core 0`, `core 1`, `core 2`, and `core 3`, then `ROBO_SCHED: migrate`. On `-smp 1`, serial contains `ROBO_SCHED: core 0` and the boot console still appears. Splash ceiling 98400.
+- [x] **Exit.** On `-smp 4`, serial contains `ROBO_SCHED: core 0`, `core 1`, `core 2`, and `core 3`, then `ROBO_SCHED: migrate`. On `-smp 1`, serial contains `ROBO_SCHED: core 0` and the desktop documents still appear. Splash ceiling 98400.
 
 ### [ ] Stage K — An address space per process
 
@@ -260,7 +269,7 @@ Future programmers split a page table into a kernel half and a user half, and de
 
 - [ ] **Task K1, Robix feature.** Add `Page.Split(root, userStart)` and `Fault.Decide(fromUser) -> Int`. The compiler test checks the supervisor and user flag bits. A user fault returns continue. A kernel fault returns halt.
 
-- [ ] **Task K2.** `Kernel/Memory/RoboAddressSpace.rx` builds one root per process. The kernel half is shared and supervisor-only. A user store into a kernel page faults that process. The boot console and the other processes keep running.
+- [ ] **Task K2.** `Kernel/Memory/RoboAddressSpace.rx` builds one root per process. The kernel half is shared and supervisor-only. A user store into a kernel page faults that process. The desktop and the other processes keep running.
 
 | File | Test |
 | :--- | :--- |
@@ -270,7 +279,7 @@ Future programmers split a page table into a kernel half and a user half, and de
 
 ### [ ] Stage L — Ports, the way processes talk
 
-Future programmers send a message through a port and receive it on the other end. The window server, the drivers, and the apps will all use this, the way Mach ports connect macOS processes.
+Future programmers send a message through a port and receive it on the other end. The window server, the drivers, and the desktop will all use this, the way Mach ports connect macOS processes.
 
 - [ ] **Task L1, Robix feature.** Add `Port.Create`, `Port.Send`, and `Port.Receive`. The compiler test sends a 4-byte message, receives those bytes, and a receive on an empty port returns a block result that Stage J can wait on. A send to a closed port returns `Error`.
 
@@ -288,7 +297,7 @@ Future programmers create a process, exit it, and wait for it. A user id is a nu
 
 - [ ] **Task M1, Robix feature.** Add `Proc.Create`, `Proc.Exit`, `Proc.Wait`, and `Cred.Allow(user, right)`. The compiler test creates a child, waits for its status, and denies a guest the `SystemWrite` right while allowing the root user.
 
-- [ ] **Task M2.** `Kernel/POSIX/RoboProcess.rx` and `Kernel/POSIX/RoboCredential.rx` use those calls. Each process has one address space from Stage K, one credential, and a thread the Stage J scheduler runs. `RoboLaunch` will be process 1. The boot console is not a process. It is kernel code that runs until process 1 starts.
+- [ ] **Task M2.** `Kernel/POSIX/RoboProcess.rx` and `Kernel/POSIX/RoboCredential.rx` use those calls. Each process has one address space from Stage K, one credential, and a thread the Stage J scheduler runs. `RoboLaunch` will be process 1. The splash painter is not a process. It is kernel code that runs until process 1 starts.
 
 | File | Test |
 | :--- | :--- |
@@ -311,10 +320,6 @@ Future programmers add a kernel service by adding one row. User code cannot call
 
 - [ ] **Exit.** A user thread prints `ROBO_SYSCALL: echo` and serial contains `ROBO_SYSCALL: verified syscall round-trip dispatch`. Splash ceiling 99400.
 
----
-
-## 7. Stages O–R — files, devices, and drivers
-
 ### [ ] Stage O — A real file system
 
 Future programmers look up, create, read, and list names in a test. The disk driver stores that same table in sectors.
@@ -332,13 +337,17 @@ Future programmers look up, create, read, and list names in a test. The disk dri
 
 - [ ] **Exit.** Serial contains `ROBO_DISK: sector`, `ROBO_FS: mount`, and, after reboot, `ROBO_FS: Note.txt`. Splash ceiling 99200.
 
+---
+
+## 8. Drivers
+
 ### [ ] Stage P — Buses and input devices
 
 Future programmers decode PCI and HID from fixture bytes. The image uses `Port.Read32` for config space.
 
 - [ ] **Task P1, Robix feature.** Add `Port.Read32` and `Port.Write32`. The interpreter stops with the freestanding diagnostic. Add `PCI.Decode(words)` and `HID.Parse(bytes)` as pure functions. Their compiler tests use a fixed config word and a 3-byte boot mouse report.
 
-- [ ] **Task P2.** Port the RefCode hosts into `RoboPCI.rx`, `RoboHID.rx`, `RoboVirtioMouse.rx`, `RoboVMMouse.rx`, `RoboI2CTouchpad.rx`, and `RoboXHCI.rx`. Absent hardware is skipped. Events go into the Stage C queue for the boot console, and into the `Window` port once `RoboWindowServer` is alive.
+- [ ] **Task P2.** Port the RefCode hosts into `RoboPCI.rx`, `RoboHID.rx`, `RoboVirtioMouse.rx`, `RoboVMMouse.rx`, `RoboI2CTouchpad.rx`, and `RoboXHCI.rx`. Absent hardware is skipped. Events go to the pointer queue, and into the `Window` port once `RoboWindowServer` is alive.
 
 | File | Test |
 | :--- | :--- |
@@ -382,7 +391,7 @@ Wi-Fi and a vendor GPU have no invented class protocol. They stay published and 
 | `Kernel/IO/RoboDriver.rx` | `RoboDriver.test.rx` covers an installed winner, the built-in fallback, a duplicate class, and no match |
 | Each `RoboBasic*.rx` | A sibling `.test.rx` asserts the queue or DMA path for a fixture that advertises it, and PIO only for a fixture that does not |
 
-- [ ] **Exit.** Serial contains `ROBO_DRIVER: basic` and one line per bound class. The boot console still answers the keyboard.
+- [ ] **Exit.** Serial contains `ROBO_DRIVER: basic` and one line per bound class. The keyboard still reaches the desktop.
 
 ### [ ] Stage R — Vendor packages, Intel first
 
@@ -425,9 +434,24 @@ A later vendor is `Vendor.Catalog(name, vendorId)`, a new folder, and the same i
 
 - [ ] **Exit.** A QEMU device with vendor `0x8086` and id `0x9D60` binds the built-in driver, then `RoboIntelLPSS` after install, then the built-in driver after remove. Serial contains `ROBO_DRIVER: intel` and then `ROBO_DRIVER: basic`. Later vendors do not start before this Intel boot is recorded.
 
+### [ ] Stage AG — A GPU command buffer
+
+This is the graphics stage. It is a command buffer the window server submits to the bound display driver. It is not a kernel loop that splits rows across cores.
+
+- [ ] **Task AG1, Robix feature.** Add `GPU.Command(op, rect, color)` and `GPU.Submit(buffer) -> Result`. The compiler test builds a fill and a blit, submits them, and `AssertPixel` reads the result from a software queue. A command from a process other than the window server is `Error`.
+
+- [ ] **Task AG2.** `RoboBasicDisplay` executes the buffer on the CPU when the device has only a linear framebuffer, using one slice per online core from the Stage J scheduler, with each row in exactly one slice. `RoboIntelGraphics` and `RoboNVIDIAGraphics`, after Device Manager installs them, execute the same buffer on their command hardware. The window server’s present call stays `GPU.Submit`.
+
+| File | Test |
+| :--- | :--- |
+| `User/RoboWindowServer/RoboGPUQueue.rx` | `RoboGPUQueue.test.rx` covers fill, blit, a foreign process, and a two-core slice that covers every row once |
+
+- [ ] **Exit.** The desktop is still the window server’s desktop. Serial contains `ROBO_GPU: submit`. With the built-in display driver, a test buffer’s origin pixel matches the command color. With an installed Intel or NVIDIA package, serial also contains `ROBO_GPU: device`.
+
+
 ---
 
-## 8. Stages S–U — the userland that owns the screen
+## 9. Desktop
 
 ### [ ] Stage S — launchd, then the window server
 
@@ -437,7 +461,7 @@ Future programmers start process 1 from a file on the volume, and give one proce
 
 - [ ] **Task S2.** `User/RoboLaunch/RoboLaunch.rx` is process 1. The kernel loads it from `System/Launch/RoboLaunch.rxb` with the Stage M process call and the Stage O file call. It opens the `Launch` port and starts the services in the plan. The first service is `RoboWindowServer`.
 
-- [ ] **Task S3.** `User/RoboWindowServer/RoboWindowServer.rx` maps the framebuffer through syscall `Map`, takes the `Window` port, and is the only process whose `Draw` syscall succeeds. It clears the desktop to `#080A10` in the light theme and `#080A10` stays the dark desktop color. The light theme uses `#F5F5F7` for the desktop and `#0E7AFF` for the menu bar. The server reads the theme from a setting once Stage V exists. Until then the dark theme is the boot theme. The kernel stops painting the boot console when the server sends `ready` on the `Launch` port.
+- [ ] **Task S3.** `User/RoboWindowServer/RoboWindowServer.rx` maps the framebuffer through syscall `Map`, takes the `Window` port, and is the only process whose `Draw` syscall succeeds. It clears the desktop to `#080A10` in the dark theme. The light theme uses `#F5F5F7` for the desktop and `#0E7AFF` for the menu bar. The server reads the theme from a setting once Stage V exists. Until then the dark theme is the boot theme. The kernel stops painting when the server sends `ready` on the `Launch` port.
 
 Input from Stage P is delivered to the window under the cursor. The server composites back to front and presents the damaged rectangles. A client that has not been granted a window receives `Error`.
 
@@ -479,17 +503,11 @@ Light and dark are both real themes on every window. The documents use the color
 
 - [ ] **Exit.** The menu bar, the Dock, a Finder window, a notification, Control Center, and a second Space are visible. Serial contains `ROBO_SESSION: spaces`. Dragging a window sends one command and the server moves that window.
 
----
-
-## 9. Stages V–AG — the rest of the desktop
-
-Each of these is a user process or a service `RoboLaunch` starts. Each one still begins with a Robix feature and a `.test.rx` per file. Each one talks to the kernel through the syscall table and to the screen through `RoboWindowServer`.
-
 ### [ ] Stage V — Settings and search
 
 - [ ] **Task V1, Robix feature.** Add `Settings.Get`, `Settings.Set`, `Settings.Reset`, and `Search.Query(index, text)`. The compiler test sets a display width, reset returns the default, and a two-letter prefix returns three app names in order.
 
-- [ ] **Task V2.** `User/RoboSettings` stores keys in the current user’s directory. Panes: display, sound, network, Bluetooth, users, privacy, language, date, power, updates, and appearance. Appearance writes the theme the window server already understands. `User/RoboSearch` indexes app names and file names from `RoboVFS`.
+- [ ] **Task V2.** `User/RoboSettings` stores keys in the current user’s directory. Panes: display, sound, network, Bluetooth, users, privacy, language, date, power, updates, and appearance. Appearance writes the theme the window server already understands. `User/RoboSearch` indexes Finder, Settings, Files, and file names from `RoboVFS`.
 
 - [ ] **Exit.** Settings opens from the Dock and the display pane shows the handoff width and height. Search lists the Finder and `Home/Note.txt`. Serial contains `ROBO_SETTINGS: display` and `ROBO_SEARCH: hit`.
 
@@ -523,81 +541,11 @@ Each of these is a user process or a service `RoboLaunch` starts. Each one still
 
 - [ ] **Task Z2.** The window server presents through the bound display driver and uses `Display.Scale` before layout. Night shift is a tint on present. Clipboard and drag are services. Screenshot writes a frame into `Home/Pictures`. Printing sends pages through `RoboBasicPrint` or to a PDF on the volume. Full keyboard reach, a larger scale, and a high-contrast theme are Settings keys the window server honors.
 
-- [ ] **Exit.** Tab reaches every control on the login window. A copy in Files pastes in the editor. Serial contains `ROBO_CLIP: paste` and `ROBO_PRINT: pages`.
-
-### [ ] Stage AA — Install, update, recovery, and backup
-
-- [ ] **Task AA1, Robix feature.** Add `Update.Newer`, `Backup.Plan`, and `Recovery.Select`. The compiler test says `1.2` is newer than `1.1`, plans `Home` without `Trash`, and selects the last good boot entry.
-
-- [ ] **Task AA2.** The installer is a boot path: user, disk, and copy. Updates download through Stage Y into a volume slot and boot on the next start. Recovery is a boot menu. Backup copies the plan onto a second disk.
-
-- [ ] **Exit.** An install image reaches the login window. Serial contains `ROBO_UPDATE: staged` and `ROBO_RECOVERY: last-good`.
-
-### [ ] Stage AB — Packages, the store, and permissions
-
-- [ ] **Task AB1, Robix feature.** Add `Package.Verify(header)` and `Permit.Ask(app, right)`. The compiler test rejects a bad magic and a bad mac. A denied camera right returns `Error`.
-
-- [ ] **Task AB2.** Packages install into `System/Apps`. The loader refuses an unverified image. The first use of files, network, camera, or microphone shows a permission window. `RoboACL` and the Stage X and Stage Y denials enforce the answer.
-
-- [ ] **Exit.** A bad package prints `ROBO_LOADER: reject`. The store lists `RoboFinder`.
-
-### [ ] Stage AC — Terminal, Activity Monitor, and Disk Utility
-
-- [ ] **Task AC1, Robix feature.** Add `Log.Ring(capacity)` and `Task.Sample(processes)`. The compiler test fills the ring past capacity and asserts the oldest line is gone.
-
-- [ ] **Task AC2.** Terminal reads and writes through the file and process syscalls. Activity Monitor shows the Stage M process list, the core from the Stage J scheduler, and the user. Disk Utility shows the Stage O volumes and refuses to erase the system volume.
-
-- [ ] **Exit.** Serial contains `ROBO_TERMINAL: line` and `ROBO_LOG: ring`.
-
-### [ ] Stage AD — The inbox apps
-
-- [ ] **Task AD1, Robix feature.** Add `Text.Edit`, `Calc.Eval`, `Image.Header`, and `Web.Location`. The compiler test inserts a character, evaluates `20+22` to 42, rejects a short image header, and rejects an empty URL.
-
-- [ ] **Task AD2.** Editor, Calculator, Pictures, and a browser shell, each a process with a `.rxu` window. The browser uses Stage Y to load bytes. A page it cannot lay out shows the location and the byte count.
-
-- [ ] **Exit.** Each app opens from the Dock. Serial contains `ROBO_APP: editor`, `calculator`, `pictures`, and `browser`.
-
-### [ ] Stage AE — Motion and a 3D document
-
-- [ ] **Task AE1, Robix feature.** Add `Video.Frame(blob, index)`. The compiler test reads frame 0 and gets `Error` for an index past the end.
-
-- [ ] **Task AE2.** The desktop wallpaper can be a `.rx3d` scene or a video frame, rendered in the window server. Studio orbits a mesh. The scene file stays a `.rx3d` document.
-
-- [ ] **Exit.** Serial contains `ROBO_VIDEO: frame`.
-
-### [ ] Stage AF — Secure boot and disk sealing
-
-- [ ] **Task AF1, Robix feature.** Add `Crypto.SHA256`, `Crypto.HMAC`, `Crypto.Seal`, and `Crypto.Open` over the HMAC-SHA256 the toolchain already trusts. The compiler test checks a known vector, a known HMAC, and a round trip. A wrong key returns `Error`.
-
-- [ ] **Task AF2.** The boot chain checks the bootloader, the kernel, and `RoboLaunch` before the splash finishes. A mismatch halts with `ROBO_BOOT: chain`. User-volume sectors can be sealed. The system volume stays readable by the bootloader.
-
-- [ ] **Exit.** A good image still reaches the login window. A flipped kernel byte prints `ROBO_BOOT: chain` and does not present. The good boot prints `ROBO_BOOT: chain ok`.
-
-### [ ] Stage AG — A GPU command buffer
-
-This is the graphics stage. It is a command buffer the window server submits to the bound display driver. It is not a kernel loop that splits rows across cores.
-
-- [ ] **Task AG1, Robix feature.** Add `GPU.Command(op, rect, color)` and `GPU.Submit(buffer) -> Result`. The compiler test builds a fill and a blit, submits them, and `AssertPixel` reads the result from a software queue. A command from a process other than the window server is `Error`.
-
-- [ ] **Task AG2.** `RoboBasicDisplay` executes the buffer on the CPU when the device has only a linear framebuffer, using one slice per online core from the Stage J scheduler, with each row in exactly one slice. `RoboIntelGraphics` and `RoboNVIDIAGraphics`, after Device Manager installs them, execute the same buffer on their command hardware. The window server’s present call stays `GPU.Submit`. The boot console does not grow a second presenter.
-
-| File | Test |
-| :--- | :--- |
-| `User/RoboWindowServer/RoboGPUQueue.rx` | `RoboGPUQueue.test.rx` covers fill, blit, a foreign process, and a two-core slice that covers every row once |
-
-- [ ] **Exit.** The desktop is still the window server’s desktop. Serial contains `ROBO_GPU: submit`. With the built-in display driver, a test buffer’s origin pixel matches the command color. With an installed Intel or NVIDIA package, serial also contains `ROBO_GPU: device`.
+- [ ] **Exit.** Tab reaches every control on the login window. A copy in Files pastes into Finder. Serial contains `ROBO_CLIP: paste` and `ROBO_PRINT: pages`.
 
 ---
 
-## 10. Stages AH–AI — other machines, and one image
-
-### [ ] Stage AH — Other CPUs and a desk machine
-
-- [ ] **Task AH1, Robix feature.** `ASM` for a non-pc target keeps the existing check: a mnemonic that board does not have fails the build. `CPU.Halt` is `hlt` on x86-64 and `wfi` on AArch64, ARM, and RISC-V.
-
-- [ ] **Task AH2.** The same kernel entry links for `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, and `riscv64-unknown-none`. Each writes `ROBO_KERNEL: start` on its UART. PCI, the window server, and the desktop require a framebuffer handoff. A desk machine is recorded only when that machine’s serial capture exists.
-
-- [ ] **Exit.** Four QEMU serial files contain `ROBO_KERNEL: start`. The `pc` image still reaches the login window.
+## 10. The image
 
 ### [ ] Stage AI — The release image
 
@@ -622,24 +570,17 @@ ROBO_WINDOW: ready
 ROBO_KERNEL: console yield
 ```
 
-The screen shows the splash, then the login window, then the session: menu bar, Dock, wallpaper, and Finder. That boot is RoboticelaOS.
+The screen shows the splash, then the login window, then the session: menu bar, Dock, desktop, and Finder. That boot is RoboticelaOS.
 
 ---
 
 ## 11. Order
 
 ```text
-A frame -> B cooked document -> C pointer -> D scene -> E boot console
-E -> F handoff -> G pages -> H interrupts -> I cores enter 64-bit
-I -> J scheduler -> K address spaces -> L ports -> M processes -> N syscalls
-N -> O files -> P buses -> Q driver registry -> R Intel, then other vendors
-R -> S launchd and the window server -> T login -> U Finder, Dock, menu bar
-U -> V settings and search -> W files and Device Manager
-W -> X sound, camera, Bluetooth, power -> Y network
-Y -> Z displays, clipboard, fonts, print
-Z -> AA install and recovery -> AB packages -> AC terminal and Activity Monitor
-AC -> AD inbox apps -> AE motion -> AF secure boot
-AF -> AG GPU command buffer -> AH other CPUs -> AI one image
+Bootloader: F handoff -> AA install and recovery -> AF secure boot
+Kernel: G pages -> H interrupts -> I cores -> J scheduler -> K address spaces -> L ports -> M processes -> N syscalls -> O files
+Drivers: P buses -> Q built-in drivers -> R Intel, then other vendors -> AG display command buffer
+Desktop: A frame -> B cooked window -> C pointer -> E layout -> S window server -> T login -> U Finder, Dock, menu bar -> V settings -> W files and Device Manager -> X sound and power -> Y network -> Z displays
 ```
 
-A through I are done. They are the boot path and the boot console. J through N are the kernel that can run more than one program. O through R are files and drivers, with Intel as the first vendor package. S is the first stage that is the product desktop: a window server in its own process. T through AI are the session, the apps, and the image you boot.
+The image is those four parts. Stage AI is the boot that runs them together: splash, login, menu bar, Dock, and Finder.

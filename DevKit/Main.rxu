@@ -206,4 +206,71 @@
     <View width="28" height="20" background="#E23B3B"/>
     <View width="28" height="20" background="#0E7AFF"/>
   </Container>
+
+  <Text value="Image" fontSize="22" font="sans-semibold"/>
+  <Text value="The harbor is 1920 by 1080. The crest keeps a clear background. The garden is a tall picture, so contain, cover, and fill each crop it differently." fontSize="13"/>
+
+  <Text value="Harbor" fontSize="13" font="sans-semibold"/>
+  <View direction="row" wrap="wrap" gap="16" align="start">
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/harbor.jpg" alt="Harbor at dusk, JPEG" width="720" height="405" fit="cover"/>
+      <Text value="JPEG, 1920 by 1080" fontSize="12"/>
+    </View>
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/harbor.svg" alt="Harbor at dusk, SVG" width="720" height="405" fit="contain"/>
+      <Text value="SVG, the same harbor as vectors" fontSize="12"/>
+    </View>
+  </View>
+
+  <Text value="Motion" fontSize="13" font="sans-semibold"/>
+  <View direction="column" gap="6" align="start">
+    <Image source="Images/harbor.gif" alt="Harbor with a moving boat" width="640" height="360" fit="cover"/>
+    <Text value="GIF, eight frames, boat, birds, and window lights" fontSize="12"/>
+  </View>
+
+  <Text value="Crest" fontSize="13" font="sans-semibold"/>
+  <Text value="PNG and WebP leave the page showing through. The SVG crest stays sharp at this size." fontSize="13"/>
+  <View direction="row" wrap="wrap" gap="16" align="start">
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/crest.png" alt="Crest, PNG" width="280" height="280" fit="contain"/>
+      <Text value="PNG" fontSize="12"/>
+    </View>
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/crest.webp" alt="Crest, WebP" width="280" height="280" fit="contain"/>
+      <Text value="WebP" fontSize="12"/>
+    </View>
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/crest.svg" alt="Crest, SVG" width="280" height="280" fit="contain"/>
+      <Text value="SVG" fontSize="12"/>
+    </View>
+  </View>
+
+  <Text value="Same harbor, other files" fontSize="13" font="sans-semibold"/>
+  <View direction="row" wrap="wrap" gap="16" align="start">
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/harbor.tif" alt="Harbor, TIFF" width="420" height="236" fit="cover"/>
+      <Text value="TIFF" fontSize="12"/>
+    </View>
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/harbor.heic" alt="Harbor, HEIC" width="420" height="236" fit="cover"/>
+      <Text value="HEIC" fontSize="12"/>
+    </View>
+  </View>
+
+  <Text value="Fit" fontSize="13" font="sans-semibold"/>
+  <Text value="One 1080 by 1620 garden, placed in a wide frame." fontSize="13"/>
+  <View direction="row" wrap="wrap" gap="16" align="start">
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/garden.png" alt="Garden contained" width="280" height="160" fit="contain" background="#141820"/>
+      <Text value="Contain" fontSize="12"/>
+    </View>
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/garden.png" alt="Garden covered" width="280" height="160" fit="cover" background="#141820"/>
+      <Text value="Cover" fontSize="12"/>
+    </View>
+    <View direction="column" gap="6" align="start">
+      <Image source="Images/garden.png" alt="Garden filled" width="280" height="160" fit="fill" background="#141820"/>
+      <Text value="Fill" fontSize="12"/>
+    </View>
+  </View>
 </Screen>

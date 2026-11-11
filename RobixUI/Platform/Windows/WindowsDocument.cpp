@@ -8,6 +8,7 @@
 #include "../../Compiler/Foundation/FoundationPlatform.hpp"
 #include "../../Compiler/Compose.hpp"
 #include "../../Compiler/RoboXML.hpp"
+#include "../../Compiler/Components/Image/RoboImage.hpp"
 #include "../../RoboGPU/RoboGPU.hpp"
 #include "../../RoboGPU/RoboText.hpp"
 
@@ -73,6 +74,31 @@ const RoboXMLNode* FindScreen(const RoboXMLNode& node) {
 
 unsigned gDpi = 96;
 std::filesystem::path gAssets;
+std::filesystem::path gDocumentDir;
+
+struct CachedPicture {
+    std::string key;
+    RoboImageRecord image;
+    bool ok = false;
+};
+
+std::vector<CachedPicture> gPictures;
+
+int PictureFor(const std::filesystem::path& file) {
+    const std::string key = file.string();
+    for (int index = 0; index < static_cast<int>(gPictures.size()); ++index) {
+        if (gPictures[static_cast<std::size_t>(index)].key == key) {
+            return gPictures[static_cast<std::size_t>(index)].ok ? index : -1;
+        }
+    }
+    CachedPicture picture;
+    picture.key = key;
+    std::ifstream in(file, std::ios::binary);
+    std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    picture.ok = !bytes.empty() && RoboImageDecode(picture.image, bytes.data(), bytes.size());
+    gPictures.push_back(std::move(picture));
+    return gPictures.back().ok ? static_cast<int>(gPictures.size()) - 1 : -1;
+}
 
 std::filesystem::path FindAssets(const std::string& document) {
     auto climb = [](std::filesystem::path dir) {
@@ -468,7 +494,137 @@ struct PaintOp {
     bool iconButton = false;
     bool loading = false;
     int select = 0;
+    int picture = -1;
+    std::string pictureFit;
 };
+
+int PictureChannel(RoboU32 pixel, int shift) {
+    return static_cast<int>((pixel >> shift) & 0xFFu);
+}
+
+RoboU32 PictureMix(const RoboImageRecord& image, float sourceX, float sourceY) {
+    const int sourceWidth = image.sourceWidth;
+    const int sourceHeight = image.sourceHeight;
+    if (sourceX < 0.0f) {
+        sourceX = 0.0f;
+    }
+    if (sourceY < 0.0f) {
+        sourceY = 0.0f;
+    }
+    if (sourceX > static_cast<float>(sourceWidth - 1)) {
+        sourceX = static_cast<float>(sourceWidth - 1);
+    }
+    if (sourceY > static_cast<float>(sourceHeight - 1)) {
+        sourceY = static_cast<float>(sourceHeight - 1);
+    }
+    const int left = static_cast<int>(sourceX);
+    const int top = static_cast<int>(sourceY);
+    const int right = left + 1 < sourceWidth ? left + 1 : left;
+    const int bottom = top + 1 < sourceHeight ? top + 1 : top;
+    const float across = sourceX - static_cast<float>(left);
+    const float down = sourceY - static_cast<float>(top);
+    const RoboU32 pixels[4] = {
+        image.pixels[static_cast<std::size_t>(top) * static_cast<std::size_t>(sourceWidth) + static_cast<std::size_t>(left)],
+        image.pixels[static_cast<std::size_t>(top) * static_cast<std::size_t>(sourceWidth) + static_cast<std::size_t>(right)],
+        image.pixels[static_cast<std::size_t>(bottom) * static_cast<std::size_t>(sourceWidth) + static_cast<std::size_t>(left)],
+        image.pixels[static_cast<std::size_t>(bottom) * static_cast<std::size_t>(sourceWidth) + static_cast<std::size_t>(right)],
+    };
+    int channels[4];
+    for (int shiftIndex = 0; shiftIndex < 4; ++shiftIndex) {
+        const int shift = shiftIndex * 8;
+        const float topMix = PictureChannel(pixels[0], shift) * (1.0f - across) + PictureChannel(pixels[1], shift) * across;
+        const float bottomMix = PictureChannel(pixels[2], shift) * (1.0f - across) + PictureChannel(pixels[3], shift) * across;
+        channels[shiftIndex] = static_cast<int>(topMix * (1.0f - down) + bottomMix * down + 0.5f);
+    }
+    return (static_cast<RoboU32>(channels[3]) << 24) | (static_cast<RoboU32>(channels[2]) << 16) |
+           (static_cast<RoboU32>(channels[1]) << 8) | static_cast<RoboU32>(channels[0]);
+}
+
+void PaintPicture(RoboGPU* gpu, const PaintOp& op, int y) {
+    if (gpu == nullptr || op.picture < 0 || op.picture >= static_cast<int>(gPictures.size()) || op.width <= 0 || op.height <= 0) {
+        return;
+    }
+    RoboImageRecord drawn = gPictures[static_cast<std::size_t>(op.picture)].image;
+    const std::string fit = op.pictureFit.empty() ? "contain" : op.pictureFit;
+    if (!drawn.vector.empty()) {
+        drawn.fit = fit;
+        drawn.hasWidth = true;
+        drawn.width = op.width;
+        drawn.hasHeight = true;
+        drawn.height = op.height;
+        RoboImageFrame frame;
+        RoboImagePaint(drawn, frame);
+        const int width = std::min(op.width, frame.width);
+        const int height = std::min(op.height, frame.height);
+        for (int row = 0; row < height; ++row) {
+            for (int column = 0; column < width; ++column) {
+                const RoboU32 pixel = frame.pixels[static_cast<std::size_t>(row) * static_cast<std::size_t>(frame.width) + static_cast<std::size_t>(column)];
+                const RoboU8 alpha = static_cast<RoboU8>((pixel >> 24) & 0xFF);
+                if (alpha == 0) {
+                    continue;
+                }
+                RoboGPUBlendPixel(gpu, op.x + column, y + row, pixel, alpha);
+            }
+        }
+        return;
+    }
+    const int sourceWidth = drawn.sourceWidth;
+    const int sourceHeight = drawn.sourceHeight;
+    if (sourceWidth <= 0 || sourceHeight <= 0 || drawn.pixels.empty()) {
+        return;
+    }
+    int destWidth = sourceWidth;
+    int destHeight = sourceHeight;
+    int originX = 0;
+    int originY = 0;
+    if (fit == "fill") {
+        destWidth = op.width;
+        destHeight = op.height;
+    } else if (fit != "none") {
+        const long long widthRatio = static_cast<long long>(op.width) * sourceHeight;
+        const long long heightRatio = static_cast<long long>(op.height) * sourceWidth;
+        const bool widthLimits = fit == "cover" ? widthRatio >= heightRatio : widthRatio <= heightRatio;
+        if (widthLimits) {
+            destWidth = op.width;
+            destHeight = static_cast<int>(static_cast<long long>(sourceHeight) * op.width / sourceWidth);
+        } else {
+            destHeight = op.height;
+            destWidth = static_cast<int>(static_cast<long long>(sourceWidth) * op.height / sourceHeight);
+        }
+        if (destWidth < 1) {
+            destWidth = 1;
+        }
+        if (destHeight < 1) {
+            destHeight = 1;
+        }
+        if (fit == "scale-down" && op.width >= sourceWidth && op.height >= sourceHeight) {
+            destWidth = sourceWidth;
+            destHeight = sourceHeight;
+        }
+        originX = (op.width - destWidth) / 2;
+        originY = (op.height - destHeight) / 2;
+    }
+    for (int row = 0; row < op.height; ++row) {
+        const int localY = row - originY;
+        if (localY < 0 || localY >= destHeight) {
+            continue;
+        }
+        const float sourceY = (static_cast<float>(localY) + 0.5f) * static_cast<float>(sourceHeight) / static_cast<float>(destHeight) - 0.5f;
+        for (int column = 0; column < op.width; ++column) {
+            const int localX = column - originX;
+            if (localX < 0 || localX >= destWidth) {
+                continue;
+            }
+            const float sourceX = (static_cast<float>(localX) + 0.5f) * static_cast<float>(sourceWidth) / static_cast<float>(destWidth) - 0.5f;
+            const RoboU32 pixel = PictureMix(drawn, sourceX, sourceY);
+            const RoboU8 alpha = static_cast<RoboU8>((pixel >> 24) & 0xFF);
+            if (alpha == 0) {
+                continue;
+            }
+            RoboGPUBlendPixel(gpu, op.x + column, y + row, pixel, alpha);
+        }
+    }
+}
 
 int TextSelectMode(const RoboXMLNode& node, bool content) {
     std::string value = Lower(RoboXMLAttr(node, "selectable"));
@@ -1934,7 +2090,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         (shown.empty() && Lower(RoboXMLAttr(node, "hidden")) == "true")) {
         return 0;
     }
-    if (name == "image") {
+        if (name == "image") {
         int boxH = AttrLength(node, "height");
         if (boxH <= 0) {
             boxH = AttrLength(node, "width");
@@ -1942,17 +2098,38 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         if (boxH <= 0) {
             boxH = Px(120);
         }
+        int boxW = width;
+        const int askedW = AttrLength(node, "width");
+        if (askedW > 0) {
+            boxW = std::min(width, askedW);
+        }
         PaintOp box;
         box.x = x;
         box.y = y;
-        box.width = width;
+        box.width = boxW;
         box.height = boxH;
         box.radius = AttrLength(node, "radius");
         const std::string fillName = RoboXMLAttr(node, "background");
         box.fill = ThemeColor(fillName.empty() ? "bg-secondary" : fillName.c_str(), light);
+        const std::string source = RoboXMLAttr(node, "source").empty() ? RoboXMLAttr(node, "src") : RoboXMLAttr(node, "source");
+        if (!source.empty() && !gDocumentDir.empty()) {
+            std::filesystem::path file(source);
+            if (file.is_relative()) {
+                file = gDocumentDir / file;
+            }
+            box.picture = PictureFor(file);
+        }
+        std::string fit = Lower(RoboXMLAttr(node, "fit"));
+        if (fit.empty()) {
+            fit = Lower(RoboXMLAttr(node, "objectfit"));
+        }
+        if (fit.empty()) {
+            fit = "contain";
+        }
+        box.pictureFit = fit;
         ops.push_back(box);
         const std::string caption = TrimCopy(RoboXMLAttr(node, "alt"));
-        if (!caption.empty()) {
+        if (box.picture < 0 && !caption.empty()) {
             const TypeStyle style = StyleOf(node);
             PaintOp op;
             op.text = true;
@@ -3293,6 +3470,9 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
         } else if (!op.text && op.fill != 0) {
             FillRound(gpu, op.x, y, op.width, op.height, op.radius, op.fill);
         }
+        if (op.picture >= 0) {
+            PaintPicture(gpu, op, y);
+        }
         if (op.drawing && op.loading) {
             const int size = std::max(8, std::min(op.width, op.height));
             PaintSpin(gpu, op.x + op.width / 2, y + op.height / 2, size, op.color, op.fade, light);
@@ -3913,6 +4093,7 @@ void ShiftScene(RoboGPU* gpu, int delta, int viewWidth, int viewHeight) {
 
 bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth, int viewHeight, int scrollY,
                 int hotControl, int pressedControl, int pointerX, int pointerY) {
+    gDocumentDir = std::filesystem::path(path).parent_path();
     const std::string source = ReadText(path);
     RoboXMLDocument document;
     if (source.empty() || !RoboXMLParse(source, document)) {

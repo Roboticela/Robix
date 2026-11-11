@@ -214,6 +214,7 @@ struct ModuleCtx {
     bool usesUI = false;
     std::vector<Robix::UI::RoboCookedBox> uiBoxes;
     bool usesInput = false;
+    bool usesSched = false;
     std::vector<RoboPlayedEvent> inputScript;
     bool usesScene = false;
     std::vector<std::uint32_t> scenePixels;
@@ -1494,6 +1495,22 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             } else if (inst.textImm == "CPU.GateHigh" && !inst.operandIds.empty()) {
                 Val handler = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = lshr i64 " << handler.repr << ", 32\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Sched.Enqueue" && inst.operandIds.size() >= 2) {
+                m_ctx.usesSched = true;
+                Val ident = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val pri = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_sched_enqueue(i64 " << ident.repr << ", i64 " << pri.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Sched.Pick" && !inst.operandIds.empty()) {
+                m_ctx.usesSched = true;
+                Val core = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_sched_pick(i64 " << core.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Sched.Block" && !inst.operandIds.empty()) {
+                m_ctx.usesSched = true;
+                Val ident = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_sched_block(i64 " << ident.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Clock.Seconds" && !inst.operandIds.empty()) {
                 Val cmos = Coerce(Operand(inst, 0), NTy::I64, inst.location);
@@ -2990,6 +3007,89 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "define i64 @rx_ui_menu_open() {\n  %v = load i32, ptr @rx.ui.menu, align 4\n";
             out << "  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
         }
+    }
+
+    if (ctx.usesSched) {
+        out << "@rx.sched.lock = internal global i64 0\n";
+        out << "@rx.sched.id = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.sched.pri = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.sched.state = internal global [8 x i64] zeroinitializer\n";
+        out << "define internal void @rx_sched_lock() {\n";
+        out << "entry:\n  br label %spin\n";
+        out << "spin:\n  %got = atomicrmw xchg ptr @rx.sched.lock, i64 1 seq_cst\n";
+        out << "  %free = icmp eq i64 %got, 0\n  br i1 %free, label %out, label %spin\n";
+        out << "out:\n  ret void\n}\n\n";
+        out << "define internal void @rx_sched_unlock() {\n";
+        out << "  store atomic i64 0, ptr @rx.sched.lock seq_cst, align 8\n  ret void\n}\n\n";
+        out << "define i64 @rx_sched_enqueue(i64 %id, i64 %pri) {\n";
+        out << "entry:\n  call void @rx_sched_lock()\n  br label %find\n";
+        out << "find:\n  %i = phi i64 [ 0, %entry ], [ %inext, %findnext ]\n";
+        out << "  %done = icmp uge i64 %i, 8\n  br i1 %done, label %insert, label %check\n";
+        out << "check:\n  %idp = getelementptr [8 x i64], ptr @rx.sched.id, i64 0, i64 %i\n";
+        out << "  %got = load i64, ptr %idp, align 8\n";
+        out << "  %stp = getelementptr [8 x i64], ptr @rx.sched.state, i64 0, i64 %i\n";
+        out << "  %state = load i64, ptr %stp, align 8\n";
+        out << "  %alive = icmp ne i64 %state, 0\n  %same = icmp eq i64 %got, %id\n";
+        out << "  %hit = and i1 %alive, %same\n  br i1 %hit, label %wake, label %findnext\n";
+        out << "findnext:\n  %inext = add i64 %i, 1\n  br label %find\n";
+        out << "wake:\n  %pp = getelementptr [8 x i64], ptr @rx.sched.pri, i64 0, i64 %i\n";
+        out << "  store i64 %pri, ptr %pp, align 8\n  store i64 1, ptr %stp, align 8\n  br label %count\n";
+        out << "insert:\n  br label %scan\n";
+        out << "scan:\n  %j = phi i64 [ 0, %insert ], [ %jnext, %scannext ]\n";
+        out << "  %full = icmp uge i64 %j, 8\n  br i1 %full, label %count, label %empty\n";
+        out << "empty:\n  %est = getelementptr [8 x i64], ptr @rx.sched.state, i64 0, i64 %j\n";
+        out << "  %estv = load i64, ptr %est, align 8\n  %is0 = icmp eq i64 %estv, 0\n";
+        out << "  br i1 %is0, label %fill, label %scannext\n";
+        out << "scannext:\n  %jnext = add i64 %j, 1\n  br label %scan\n";
+        out << "fill:\n  %eid = getelementptr [8 x i64], ptr @rx.sched.id, i64 0, i64 %j\n";
+        out << "  %epr = getelementptr [8 x i64], ptr @rx.sched.pri, i64 0, i64 %j\n";
+        out << "  store i64 %id, ptr %eid, align 8\n  store i64 %pri, ptr %epr, align 8\n";
+        out << "  store i64 1, ptr %est, align 8\n  br label %count\n";
+        out << "count:\n  br label %cloop\n";
+        out << "cloop:\n  %k = phi i64 [ 0, %count ], [ %knext, %cstep ]\n";
+        out << "  %n = phi i64 [ 0, %count ], [ %n2, %cstep ]\n";
+        out << "  %cdone = icmp uge i64 %k, 8\n  br i1 %cdone, label %ret, label %cbody\n";
+        out << "cbody:\n  %csp = getelementptr [8 x i64], ptr @rx.sched.state, i64 0, i64 %k\n";
+        out << "  %csv = load i64, ptr %csp, align 8\n  %ready = icmp eq i64 %csv, 1\n";
+        out << "  %add = zext i1 %ready to i64\n  %n2 = add i64 %n, %add\n  br label %cstep\n";
+        out << "cstep:\n  %knext = add i64 %k, 1\n  br label %cloop\n";
+        out << "ret:\n  call void @rx_sched_unlock()\n  ret i64 %n\n}\n\n";
+        out << "define i64 @rx_sched_pick(i64 %core) {\n";
+        out << "entry:\n  call void @rx_sched_lock()\n  br label %scan\n";
+        out << "scan:\n  %i = phi i64 [ 0, %entry ], [ %inext, %step ]\n";
+        out << "  %best = phi i64 [ -1, %entry ], [ %best2, %step ]\n";
+        out << "  %bestpri = phi i64 [ -1, %entry ], [ %bestpri2, %step ]\n";
+        out << "  %done = icmp uge i64 %i, 8\n  br i1 %done, label %take, label %body\n";
+        out << "body:\n  %stp = getelementptr [8 x i64], ptr @rx.sched.state, i64 0, i64 %i\n";
+        out << "  %state = load i64, ptr %stp, align 8\n  %ready = icmp eq i64 %state, 1\n";
+        out << "  %pp = getelementptr [8 x i64], ptr @rx.sched.pri, i64 0, i64 %i\n";
+        out << "  %pri = load i64, ptr %pp, align 8\n  %higher = icmp sgt i64 %pri, %bestpri\n";
+        out << "  %use = and i1 %ready, %higher\n  br i1 %use, label %better, label %keep\n";
+        out << "better:\n  br label %step\n";
+        out << "keep:\n  br label %step\n";
+        out << "step:\n  %best2 = phi i64 [ %i, %better ], [ %best, %keep ]\n";
+        out << "  %bestpri2 = phi i64 [ %pri, %better ], [ %bestpri, %keep ]\n";
+        out << "  %inext = add i64 %i, 1\n  br label %scan\n";
+        out << "take:\n  %none = icmp slt i64 %best, 0\n  br i1 %none, label %miss, label %hit\n";
+        out << "miss:\n  call void @rx_sched_unlock()\n  ret i64 0\n";
+        out << "hit:\n  %hst = getelementptr [8 x i64], ptr @rx.sched.state, i64 0, i64 %best\n";
+        out << "  store i64 3, ptr %hst, align 8\n";
+        out << "  %hid = getelementptr [8 x i64], ptr @rx.sched.id, i64 0, i64 %best\n";
+        out << "  %id = load i64, ptr %hid, align 8\n";
+        out << "  call void @rx_sched_unlock()\n  ret i64 %id\n}\n\n";
+        out << "define i64 @rx_sched_block(i64 %id) {\n";
+        out << "entry:\n  call void @rx_sched_lock()\n  br label %find\n";
+        out << "find:\n  %i = phi i64 [ 0, %entry ], [ %inext, %next ]\n";
+        out << "  %done = icmp uge i64 %i, 8\n  br i1 %done, label %miss, label %check\n";
+        out << "check:\n  %idp = getelementptr [8 x i64], ptr @rx.sched.id, i64 0, i64 %i\n";
+        out << "  %got = load i64, ptr %idp, align 8\n";
+        out << "  %stp = getelementptr [8 x i64], ptr @rx.sched.state, i64 0, i64 %i\n";
+        out << "  %state = load i64, ptr %stp, align 8\n";
+        out << "  %alive = icmp ne i64 %state, 0\n  %same = icmp eq i64 %got, %id\n";
+        out << "  %hit = and i1 %alive, %same\n  br i1 %hit, label %stop, label %next\n";
+        out << "next:\n  %inext = add i64 %i, 1\n  br label %find\n";
+        out << "stop:\n  store i64 2, ptr %stp, align 8\n  call void @rx_sched_unlock()\n  ret i64 1\n";
+        out << "miss:\n  call void @rx_sched_unlock()\n  ret i64 0\n}\n\n";
     }
 
     if (ctx.usesInput) {

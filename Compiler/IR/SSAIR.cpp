@@ -2698,7 +2698,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "CPU" || receiverExpr.text == "Clock" || receiverExpr.text == "System" ||
                      receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
                      receiverExpr.text == "Atomic" ||                      receiverExpr.text == "Frame" ||
-                     receiverExpr.text == "Input" || receiverExpr.text == "Page")) {
+                     receiverExpr.text == "Input" || receiverExpr.text == "Page" ||
+                     receiverExpr.text == "Sched")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2711,6 +2712,9 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                                 memberName == "GateHigh")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Clock" && memberName == "Seconds") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Sched" &&
+                               (memberName == "Enqueue" || memberName == "Pick" || memberName == "Block")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Volatile" && memberName == "Load32") {
                         ty = MakePrim("Int");

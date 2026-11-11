@@ -607,18 +607,36 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << ":root{\n" << common.str() << "}\nhtml[data-theme=\"dark\"]{\n"
         << dark.str() << "}\nhtml[data-theme=\"light\"],.robo-window[data-theme=\"light\"]{\n"
         << light.str() << "}\n";
-    css << "html,body{margin:0;height:100%;overflow:auto;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
+    css << "html,body{margin:0;height:100%;overflow:hidden;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
     css << "html[data-theme=\"dark\"]{color-scheme:dark}\n";
     css << "html[data-theme=\"light\"]{color-scheme:light}\n";
     css << "html:focus,html:focus-visible,body:focus,body:focus-visible{outline:none;box-shadow:none}\n";
     css << "body{color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}\n";
     css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;z-index:1;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
-    css << ".robo-page{min-height:100%;height:auto;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
+    css << ".robo-page{width:100%;height:100%;max-height:100%;min-height:0;min-width:0;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
     css << "[data-paint=bleed]{overflow:visible;contain:none}\n";
     css << "[data-paint=clip]{overflow:clip}\n";
     css << ".robo-page :has([data-paint=bleed]){overflow:visible;isolation:auto;contain:none}\n";
     css << ".robo-screen:focus,.robo-screen:focus-visible,.robo-page:focus,.robo-page:focus-visible{outline:none;box-shadow:none}\n";
     css << ".robo-page::-webkit-scrollbar{width:0;height:0}\n";
+    css << ".robo-bars{position:fixed;inset:0;z-index:35;pointer-events:none}\n";
+    css << ".robo-bar{position:absolute;pointer-events:auto;opacity:0}\n";
+    css << ".robo-bar.is-on{opacity:1}\n";
+    css << ".robo-bar::before{content:\"\";position:absolute;inset:-8px}\n";
+    css << ".robo-bar.is-y{top:2px;right:2px;width:6px}\n";
+    css << ".robo-bar.is-x{left:2px;bottom:2px;height:6px}\n";
+    css << ".robo-bar-track{position:absolute;background:var(--border-default);border-radius:999px}\n";
+    css << ".robo-bar.is-y .robo-bar-track{left:0;right:0}\n";
+    css << ".robo-bar.is-x .robo-bar-track{top:0;bottom:0}\n";
+    css << ".robo-bar-thumb{position:absolute;left:0;right:0;border-radius:999px;background:color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
+    css << ".robo-bar.is-x .robo-bar-thumb{top:0;bottom:0;left:auto;right:auto}\n";
+    css << ".robo-bar-thumb:hover,.robo-bar-arrow:hover{background:var(--text-tertiary)}\n";
+    css << ".robo-bar-thumb:active,.robo-bar.is-drag .robo-bar-thumb,.robo-bar-arrow:active{background:color-mix(in srgb,var(--text-tertiary) 58%,var(--text-primary))}\n";
+    css << ".robo-bar-arrow{position:absolute;width:6px;height:6px;padding:0;border:0;background:color-mix(in srgb,var(--border-strong) 45%,var(--text-tertiary))}\n";
+    css << ".robo-bar.is-y .robo-bar-arrow.is-up{top:0;left:0;clip-path:polygon(50% 0,100% 100%,0 100%)}\n";
+    css << ".robo-bar.is-y .robo-bar-arrow.is-down{bottom:0;left:0;clip-path:polygon(0 0,100% 0,50% 100%)}\n";
+    css << ".robo-bar.is-x .robo-bar-arrow.is-left{left:0;top:0;clip-path:polygon(100% 0,0 50%,100% 100%)}\n";
+    css << ".robo-bar.is-x .robo-bar-arrow.is-right{right:0;top:0;clip-path:polygon(0 0,100% 50%,0 100%)}\n";
     css << typeRules.str();
     css << "@media (max-width:734px){\n" << mobile.str() << "}\n";
     if (hasScreen) {
@@ -659,7 +677,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         if (width.empty()) {
             style += ";width:100%";
         }
-        style += ";min-height:100%;height:auto;flex-shrink:0";
+        style += ";height:100%;max-height:100%;min-height:0;min-width:0;overflow:auto;flex-shrink:0";
         (void)height;
         const std::string zoomControls =
             RoboXMLAttr(screenCopy, "zoomControls", RoboXMLAttr(screenCopy, "zoom-controls", "bottom").c_str());
@@ -681,6 +699,17 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         }
         html << body;
         html << "<div class=\"robo-overlay-host\">" << overlay << "</div>";
+        html << "<div class=\"robo-bars\">";
+        html << "<div class=\"robo-bar is-y\" hidden>";
+        html << "<button type=\"button\" class=\"robo-bar-arrow is-up\" aria-label=\"Scroll up\"></button>";
+        html << "<div class=\"robo-bar-track\"><div class=\"robo-bar-thumb\"></div></div>";
+        html << "<button type=\"button\" class=\"robo-bar-arrow is-down\" aria-label=\"Scroll down\"></button>";
+        html << "</div>";
+        html << "<div class=\"robo-bar is-x\" hidden>";
+        html << "<button type=\"button\" class=\"robo-bar-arrow is-left\" aria-label=\"Scroll left\"></button>";
+        html << "<div class=\"robo-bar-track\"><div class=\"robo-bar-thumb\"></div></div>";
+        html << "<button type=\"button\" class=\"robo-bar-arrow is-right\" aria-label=\"Scroll right\"></button>";
+        html << "</div></div>";
         html << "</" << RoboWebScreenTag(true) << ">";
         std::cout << "component Screen\n";
     } else {
@@ -719,6 +748,171 @@ Robo.sceneSet = function (name, key, value) {
 )JS" : programScript;
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
+    js += R"JS(
+(function () {
+  var port = document.querySelector(".robo-page");
+  var bars = document.querySelector(".robo-bars");
+  if (!port || !bars) return;
+  var yBar = bars.querySelector(".robo-bar.is-y");
+  var xBar = bars.querySelector(".robo-bar.is-x");
+  var yThumb = yBar.querySelector(".robo-bar-thumb");
+  var xThumb = xBar.querySelector(".robo-bar-thumb");
+  var yTrack = yBar.querySelector(".robo-bar-track");
+  var xTrack = xBar.querySelector(".robo-bar-track");
+  var edge = 2;
+  var thick = 6;
+  var arrow = 6;
+  var gap = 3;
+  var minThumb = 28;
+  var drag = null;
+  function wake(bar) {
+    if (!bar || bar.hidden) return;
+    bar.classList.add("is-on");
+    clearTimeout(bar._idle);
+    bar._idle = setTimeout(function () {
+      if (!bar.classList.contains("is-drag") && !bar.matches(":hover")) bar.classList.remove("is-on");
+    }, 900);
+  }
+  function place() {
+    var maxY = Math.max(0, port.scrollHeight - port.clientHeight);
+    var maxX = Math.max(0, port.scrollWidth - port.clientWidth);
+    var yOn = maxY > 1;
+    var xOn = maxX > 1;
+    var yH = Math.max(thick, port.clientHeight - edge * 2 - (xOn ? thick + edge : 0));
+    var xW = Math.max(thick, port.clientWidth - edge * 2 - (yOn ? thick + edge : 0));
+    yBar.hidden = !yOn;
+    xBar.hidden = !xOn;
+    yBar.style.height = yH + "px";
+    xBar.style.width = xW + "px";
+    var trackInset = arrow + gap;
+    var trackH = Math.max(minThumb, yH - trackInset * 2);
+    var trackW = Math.max(minThumb, xW - trackInset * 2);
+    var yStart = trackH === yH - trackInset * 2 ? trackInset : Math.max(0, (yH - trackH) / 2);
+    var xStart = trackW === xW - trackInset * 2 ? trackInset : Math.max(0, (xW - trackW) / 2);
+    yTrack.style.top = yStart + "px";
+    yTrack.style.height = trackH + "px";
+    xTrack.style.left = xStart + "px";
+    xTrack.style.width = trackW + "px";
+    var thumbH = Math.min(trackH, Math.max(minThumb, trackH * port.clientHeight / Math.max(1, port.scrollHeight)));
+    var thumbW = Math.min(trackW, Math.max(minThumb, trackW * port.clientWidth / Math.max(1, port.scrollWidth)));
+    var travelY = Math.max(1, trackH - thumbH);
+    var travelX = Math.max(1, trackW - thumbW);
+    yThumb.style.top = (maxY > 0 ? port.scrollTop * travelY / maxY : 0) + "px";
+    yThumb.style.height = thumbH + "px";
+    xThumb.style.left = (maxX > 0 ? port.scrollLeft * travelX / maxX : 0) + "px";
+    xThumb.style.width = thumbW + "px";
+    yBar._max = maxY;
+    xBar._max = maxX;
+    yBar._start = yStart;
+    xBar._start = xStart;
+    yBar._track = trackH;
+    xBar._track = trackW;
+    yBar._thumb = thumbH;
+    xBar._thumb = thumbW;
+  }
+  function step(axis, delta) {
+    if (axis === "y") port.scrollTop += delta;
+    else port.scrollLeft += delta;
+    place();
+    wake(axis === "y" ? yBar : xBar);
+  }
+  function hold(button, axis, delta) {
+    step(axis, delta);
+    var delay = setTimeout(function () {
+      button._repeat = setInterval(function () { step(axis, delta); }, 60);
+    }, 220);
+    function stop() {
+      clearTimeout(delay);
+      clearInterval(button._repeat);
+      button.removeEventListener("pointerup", stop);
+      button.removeEventListener("pointerleave", stop);
+    }
+    button.addEventListener("pointerup", stop);
+    button.addEventListener("pointerleave", stop);
+  }
+  yBar.querySelector(".is-up").addEventListener("pointerdown", function (event) {
+    event.preventDefault();
+    hold(event.currentTarget, "y", -56);
+  });
+  yBar.querySelector(".is-down").addEventListener("pointerdown", function (event) {
+    event.preventDefault();
+    hold(event.currentTarget, "y", 56);
+  });
+  xBar.querySelector(".is-left").addEventListener("pointerdown", function (event) {
+    event.preventDefault();
+    hold(event.currentTarget, "x", -56);
+  });
+  xBar.querySelector(".is-right").addEventListener("pointerdown", function (event) {
+    event.preventDefault();
+    hold(event.currentTarget, "x", 56);
+  });
+  function jump(bar, axis, pointer, start, track) {
+    var ratio = (pointer - start) / track;
+    if (ratio < 0) ratio = 0;
+    if (ratio > 1) ratio = 1;
+    if (axis === "y") port.scrollTop = bar._max * ratio;
+    else port.scrollLeft = bar._max * ratio;
+    place();
+    wake(bar);
+  }
+  yTrack.addEventListener("pointerdown", function (event) {
+    if (event.target === yThumb) return;
+    var box = yBar.getBoundingClientRect();
+    jump(yBar, "y", event.clientY - box.top, yBar._start, yBar._track);
+  });
+  xTrack.addEventListener("pointerdown", function (event) {
+    if (event.target === xThumb) return;
+    var box = xBar.getBoundingClientRect();
+    jump(xBar, "x", event.clientX - box.left, xBar._start, xBar._track);
+  });
+  function beginDrag(event, bar, axis) {
+    event.preventDefault();
+    var box = bar.getBoundingClientRect();
+    var thumbAt = parseFloat((axis === "y" ? yThumb.style.top : xThumb.style.left)) || 0;
+    var along = axis === "y" ? event.clientY - box.top : event.clientX - box.left;
+    drag = { bar: bar, axis: axis, grab: along - bar._start - thumbAt };
+    bar.classList.add("is-drag");
+    wake(bar);
+  }
+  yThumb.addEventListener("pointerdown", function (event) { beginDrag(event, yBar, "y"); });
+  xThumb.addEventListener("pointerdown", function (event) { beginDrag(event, xBar, "x"); });
+  window.addEventListener("pointermove", function (event) {
+    if (!drag) return;
+    var box = drag.bar.getBoundingClientRect();
+    var travel = Math.max(1, drag.bar._track - drag.bar._thumb);
+    var pos = (drag.axis === "y" ? event.clientY - box.top : event.clientX - box.left) - drag.grab - drag.bar._start;
+    if (pos < 0) pos = 0;
+    if (pos > travel) pos = travel;
+    if (drag.axis === "y") port.scrollTop = drag.bar._max * pos / travel;
+    else port.scrollLeft = drag.bar._max * pos / travel;
+    place();
+    wake(drag.bar);
+  });
+  window.addEventListener("pointerup", function () {
+    if (!drag) return;
+    drag.bar.classList.remove("is-drag");
+    wake(drag.bar);
+    drag = null;
+  });
+  bars.addEventListener("pointerenter", function (event) {
+    var bar = event.target.closest ? event.target.closest(".robo-bar") : null;
+    wake(bar);
+  });
+  var lastX = 0;
+  var lastY = 0;
+  port.addEventListener("scroll", function () {
+    place();
+    if (port.scrollTop !== lastY) wake(yBar);
+    if (port.scrollLeft !== lastX) wake(xBar);
+    lastX = port.scrollLeft;
+    lastY = port.scrollTop;
+  }, { passive: true });
+  window.addEventListener("resize", function () { place(); wake(yBar); wake(xBar); });
+  place();
+  wake(yBar);
+  wake(xBar);
+})();
+)JS";
     js += RoboWebReelScript();
     js += RoboWebImageScript();
 

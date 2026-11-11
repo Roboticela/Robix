@@ -476,6 +476,35 @@ ROBO_GPU: miss
 
 The same image with `-smp 1` prints `ROBO_MEMORY: ram 128` and `ROBO_CPU: cores online1`, then reaches `ROBO_SHELL: bar`. `Build/RoboticelaOS/stageRam.ppm` is 1920×1080. Pixel `(0, 0)` is `1C 24 30`. Pixel `(200, 8)` is `0E 7A FF`. Pixel `(960, 540)` is `08 0A 10`. The 320×200 wallpaper scene is not drawn on this frame, so `ROBO_SCENE: frame` is absent.
 
+## RoboticelaOS Stage J
+
+`Sched.Enqueue`, `Sched.Pick`, and `Sched.Block` are the run queue. Three threads enqueued at priorities 1, 5, and 3 are picked as 2, then 3, then 1. A blocked thread stays off the pick until `Enqueue` wakes it. `PickFor` returns 0 for a halted core. `Moved(0, 1)` is 1. The splash ceiling for the scheduler is `98400`.
+
+```
+robix test RoboticelaOS/Kernel/CPU/RoboScheduler.test.rx
+robix test RoboticelaOS/Kernel/CPU/RoboCPU.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboTimer.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -no-reboot -vga std -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+After the desktop lines, the four-core serial file contains:
+
+```
+ROBO_SCHED: core 0
+ROBO_SCHED: core 1
+ROBO_SCHED: core 2
+ROBO_SCHED: core 3
+ROBO_SCHED: migrate
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1`, reaches `ROBO_SHELL: bar`, and then prints `ROBO_SCHED: core 0`.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.
