@@ -1,6 +1,6 @@
 <Screen name="DevKit" description="Core components" theme="dark" display="flex" direction="column" align="stretch" gap="16" padding="24">
   <Text value="RobixUI" fontSize="22" font="sans-semibold"/>
-  <Text value="Screen, Container, Text, Svg, Image, Background, and View3D." fontSize="13"/>
+  <Text value="Screen, Container, Text, Svg, Image, and View3D." fontSize="13"/>
   <Container display="flex" direction="column" gap="8" padding="16" radius="10" background="bg-elevated">
     <Text value="Container" fontSize="13" font="sans-semibold"/>
     <Text fontSize="13">Text with a <Span value="span" font="sans-semibold"/> inside it.</Text>
@@ -9,6 +9,5 @@
     <path d="M4 12h16M12 4v16" fill="none" stroke="#0A84FF" stroke-width="1.5"/>
   </Svg>
   <Image alt="Image" width="160" height="80"/>
-  <Background color="bg-secondary" height="72"/>
   <View3D height="120"/>
 </Screen>

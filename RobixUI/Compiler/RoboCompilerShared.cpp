@@ -383,7 +383,7 @@ bool RoboCompilerIsIconNode(const RoboXMLNode& node) {
     const std::string n = RoboCompilerLower(node.name);
     if (n != "icon" && (n == "screen" || n == "button" || n == "anchor" || n == "iconbutton" || n == "switch" || n == "switchgroup" ||
                         n == "switchitem" || n == "themetoggle" || n == "themeicontoggle" || n == "textfield" ||
-                        n == "textarea" || n == "passwordfield" || n == "emailfield" || n == "phonefield" || n == "namefield" || n == "background" || n == "picture" || n == "slide" || n == "brandlogo" || n == "passwordreveal" || n == "confirmaction" || n == "select" || n == "option" ||
+                        n == "textarea" || n == "passwordfield" || n == "emailfield" || n == "phonefield" || n == "namefield" || n == "picture" || n == "slide" || n == "brandlogo" || n == "passwordreveal" || n == "confirmaction" || n == "select" || n == "option" ||
                         n == "countryselect" ||
                         n == "segmentedcontrol" || n == "segment" || n == "segmentedtoolbar" ||
                         n == "container" || n == "board" || n == "text" || n == "image" ||

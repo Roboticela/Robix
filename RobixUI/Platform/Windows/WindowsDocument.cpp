@@ -281,7 +281,7 @@ bool IsText(const std::string& name) {
 }
 
 bool IsBox(const std::string& name) {
-    return name == "screen" || name == "window" || name == "page" || name == "container" || name == "background" ||
+    return name == "screen" || name == "window" || name == "page" || name == "container" ||
            name == "board" || name == "box" || name == "flex" || name == "stack" || name == "canvas";
 }
 
@@ -1109,7 +1109,7 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
         }
         return std::min(maxWidth, std::max(1, natural));
     }
-    if (name == "background" || name == "view3d" || name == "scene3d") {
+    if (name == "view3d" || name == "scene3d") {
         return maxWidth;
     }
     if (Named(name, face, "anchor")) {
@@ -2212,17 +2212,6 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     }
     if (fillName.empty()) {
         fillName = RoboXMLAttr(node, "bg");
-    }
-    if (name == "background") {
-        if (fillName.empty()) {
-            fillName = RoboXMLAttr(node, "color");
-        }
-        if (fillName.empty()) {
-            fillName = RoboXMLAttr(node, "from");
-        }
-        if (fillName.empty()) {
-            fillName = RoboXMLAttr(node, "fill");
-        }
     }
     if (!fillName.empty()) {
         PaintOp box;

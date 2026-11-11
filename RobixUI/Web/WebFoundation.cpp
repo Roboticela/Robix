@@ -3,7 +3,6 @@
 #include "../../Robix3D/Robix3D.hpp"
 
 #include "../Compiler/Components/Button/ButtonWeb.hpp"
-#include "../Compiler/Components/Background/BackgroundWeb.hpp"
 #include "../Compiler/Components/Container/Container.hpp"
 #include "../Compiler/Components/Container/ContainerWeb.hpp"
 #include "../Compiler/Components/Image/ImageWeb.hpp"
@@ -135,18 +134,6 @@ bool UsesCountrySelect(const RoboXMLNode& node) {
     return false;
 }
 
-bool UsesSlideshow(const RoboXMLNode& node) {
-    if (Lower(node.name) == "background" && Lower(RoboXMLAttr(node, "type")) == "slideshow") {
-        return true;
-    }
-    for (const RoboXMLNode& child : node.children) {
-        if (UsesSlideshow(child)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 void LowerKeys(RoboXMLNode& node) {
     std::vector<std::pair<std::string, std::string>> extra;
     for (const auto& entry : node.attrs) {
@@ -199,14 +186,6 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     }
     if (name == "image") {
         RoboWebEmitImage(html, node, library);
-        return;
-    }
-    if (name == "background") {
-        fs::path assets = FindUp("Assets");
-        if (assets.empty()) {
-            assets = FindUp("RefCode/Assets");
-        }
-        RoboWebEmitBackground(html, node, library, "", assets, nullptr, depth);
         return;
     }
     if (name == "icon" || name == "svg" || RoboCompilerIsIconNode(node)) {
@@ -618,7 +597,6 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendContainerCss(css);
         RoboWebAppendTextCss(css);
         RoboWebAppendButtonCss(css);
-        RoboWebAppendBackgroundCss(css);
         RoboWebAppendControlCss(css);
         RoboWebAppendImageCss(css);
         css << ".robo-overlay-host{position:fixed;inset:0;z-index:40;pointer-events:none}\n";
@@ -710,9 +688,6 @@ Robo.sceneSet = function (name, key, value) {
   scenes.forEach(function (scene) { if (scene.set) scene.set(name, key, value); });
 };
 )JS" : programScript;
-    if (hasScreen && UsesSlideshow(screenCopy)) {
-        js += RoboWebSlideshowScript();
-    }
     js += "Robo.mount();\nif (Robo.start) Robo.start();\n";
     js += RoboWebMotionScript();
     js += RoboWebReelScript();
