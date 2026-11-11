@@ -2511,7 +2511,10 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "UI" &&
                                (memberName == "LoadCooked" || memberName == "Role" || memberName == "BoxX" ||
-                                memberName == "BoxY" || memberName == "BoxWidth" || memberName == "BoxHeight")) {
+                                memberName == "BoxY" || memberName == "BoxWidth" || memberName == "BoxHeight" ||
+                                memberName == "Place" || memberName == "Hit" || memberName == "Drag" ||
+                                memberName == "Snap" || memberName == "Focus" || memberName == "Focused" ||
+                                memberName == "Menu" || memberName == "MenuOpen")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Input" &&
                                (memberName == "Clear" || memberName == "SetMouse" || memberName == "AddClick")) {

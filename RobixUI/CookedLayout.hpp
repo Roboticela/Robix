@@ -33,6 +33,102 @@ inline int RoboCookedRole(const std::string& kind) {
     return 0;
 }
 
+inline bool RoboCookedContains(const RoboCookedBox& box, int x, int y) {
+    return x >= box.x && y >= box.y && x < box.x + box.width && y < box.y + box.height;
+}
+
+inline int RoboCookedCursor(const RoboCookedBox& box, int x, int y) {
+    if (box.role == 5) {
+        return 4;
+    }
+    if (box.role == 2 || box.role == 4) {
+        return 1;
+    }
+    if (box.role != 3) {
+        return 0;
+    }
+    const bool left = x < box.x + 4;
+    const bool right = x >= box.x + box.width - 4;
+    const bool top = y < box.y + 4;
+    const bool bottom = y >= box.y + box.height - 4;
+    if ((left || right) && (top || bottom)) {
+        if ((left && top) || (right && bottom)) {
+            return 9;
+        }
+        return 10;
+    }
+    if (left || right) {
+        return 6;
+    }
+    if (top || bottom) {
+        return 7;
+    }
+    if (y < box.y + 16) {
+        return 2;
+    }
+    return 0;
+}
+
+inline int RoboCookedHit(const std::vector<RoboCookedBox>& boxes, int x, int y) {
+    for (std::size_t step = boxes.size(); step > 0; --step) {
+        const RoboCookedBox& box = boxes[step - 1];
+        if (box.role == 6 || !RoboCookedContains(box, x, y)) {
+            continue;
+        }
+        return RoboCookedCursor(box, x, y);
+    }
+    return 0;
+}
+
+inline int RoboCookedPlace(std::vector<RoboCookedBox>& boxes, int index, int x, int y, int width, int height) {
+    if (index < 0 || static_cast<std::size_t>(index) >= boxes.size()) {
+        return 0;
+    }
+    RoboCookedBox& box = boxes[static_cast<std::size_t>(index)];
+    box.x = x;
+    box.y = y;
+    box.width = width;
+    box.height = height;
+    if (box.role == 5) {
+        return 4;
+    }
+    if (box.role == 2 || box.role == 4) {
+        return 1;
+    }
+    return 0;
+}
+
+inline int RoboCookedDrag(std::vector<RoboCookedBox>& boxes, int index, int dx, int dy) {
+    if (index < 0 || static_cast<std::size_t>(index) >= boxes.size()) {
+        return 0;
+    }
+    RoboCookedBox& box = boxes[static_cast<std::size_t>(index)];
+    box.x += dx;
+    box.y += dy;
+    return 2;
+}
+
+inline int RoboCookedSnap(std::vector<RoboCookedBox>& boxes, int index, int side) {
+    if (index < 0 || static_cast<std::size_t>(index) >= boxes.size()) {
+        return 0;
+    }
+    int screenWidth = 320;
+    int screenHeight = 200;
+    for (const RoboCookedBox& box : boxes) {
+        if (box.role == 6) {
+            screenWidth = box.width;
+            screenHeight = box.height;
+        }
+    }
+    RoboCookedBox& box = boxes[static_cast<std::size_t>(index)];
+    const int half = screenWidth / 2;
+    box.y = 0;
+    box.height = screenHeight;
+    box.width = half;
+    box.x = side == 1 ? half : 0;
+    return 6;
+}
+
 inline int RoboCookedField(const RoboCookedBox& box, int field) {
     if (field == 0) return box.role;
     if (field == 1) return box.x;

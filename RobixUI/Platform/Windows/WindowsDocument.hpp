@@ -64,6 +64,21 @@ int WindowsDocumentSpinRects(WindowPatch* patches, int capacity);
 /* Where the zoom capsule sits. -1 hides it. The other values match ViewZoom::Anchor. */
 int WindowsDocumentZoomAnchor();
 
+/* Laid-out page width in document pixels, including a screen that is wider than the window. */
+int WindowsDocumentContentWidth();
+
+/* Page scroll applied while painting the visible window. The retained sheet stays at zero. */
+void WindowsDocumentSetScrollX(int scrollX);
+
+/* Scroll the overflow region under a document point. 1 when that region moved. */
+int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy);
+
+/* 3 when the pointer is on a nested horizontal thumb, 4 when the track moved, 0 otherwise. */
+int WindowsDocumentScrollHit(int docX, int docY);
+
+void WindowsDocumentScrollDrag(int docX);
+void WindowsDocumentScrollEnd();
+
 struct WindowBox {
     std::string kind;
     int x = 0;

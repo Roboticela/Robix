@@ -460,6 +460,12 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     RoboWebAddDecl(style, "z-index", first("zIndex", "z"));
     const std::string paint = RoboWebPaintMode(node);
     std::string overflow = attr("overflow");
+    if (RoboWebLower(overflow) == "wrap") {
+        if (attr("wrap").empty() && attr("flexWrap").empty()) {
+            RoboWebAddDecl(style, "flex-wrap", "wrap");
+        }
+        overflow.clear();
+    }
     if (paint == "bleed") overflow = "visible";
     else if (paint == "clip") overflow = "clip";
     else if (overflow.empty() && RoboWebFlagOn(attr("clip"))) overflow = "clip";

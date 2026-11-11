@@ -63,7 +63,13 @@ struct HostView {
     RoboU32 screenColor = 0;
     bool movable = true;
     int scrollY = 0;
+    int scrollX = 0;
     int contentHeight = 0;
+    int contentWidth = 0;
+    int shownScrollX = -1;
+    bool regionDrag = false;
+    bool barXDrag = false;
+    int barXGrab = 0;
     unsigned baseDpi = 96;
     unsigned dpi = 96;
     ViewZoom zoom{};
@@ -243,9 +249,9 @@ void KeepScroll(HostView* view, const WindowScrollState& bar) {
     view->scrollY = next;
 }
 
-bool HitDocControl(const WindowControl& control, int x, int y, int scroll, double scale) {
-    const int docX = ToDoc(x, scale);
-    const int docY = scroll + ToDoc(y, scale);
+bool HitDocControl(const WindowControl& control, int x, int y, int scrollX, int scrollY, double scale) {
+    const int docX = scrollX + ToDoc(x, scale);
+    const int docY = scrollY + ToDoc(y, scale);
     return docX >= control.x && docX < control.x + control.width && docY >= control.y && docY < control.y + control.height;
 }
 
@@ -1001,6 +1007,80 @@ void CatchUpSpin(HostView* view) {
     }
 }
 
+void PaintPageScrollX(HostView* view, int layoutW, int layoutH) {
+    if (view == nullptr || view->contentWidth <= layoutW) {
+        return;
+    }
+    const double scale = PageScale(view);
+    const int thick = std::max(8, WindowScrollScale(8, view->baseDpi));
+    const int viewPx = static_cast<int>(view->pixelWidth);
+    const int height = static_cast<int>(view->pixelHeight);
+    int barW = viewPx;
+    if (view->contentHeight > layoutH) {
+        barW -= thick;
+    }
+    if (barW <= thick || height <= thick) {
+        return;
+    }
+    const int contentPx = std::max(barW + 1, ToWin(view->contentWidth, scale));
+    const int scrollPx = std::max(0, ToWin(view->scrollX, scale));
+    const int maxScroll = std::max(1, contentPx - barW);
+    int thumb = barW * barW / contentPx;
+    if (thumb < thick * 3) {
+        thumb = thick * 3;
+    }
+    if (thumb > barW) {
+        thumb = barW;
+    }
+    const int travel = std::max(1, barW - thumb);
+    int thumbX = scrollPx * travel / maxScroll;
+    if (thumbX > travel) {
+        thumbX = travel;
+    }
+    RoboGPUFillRect(&view->gpu, 0, height - thick, barW, thick, 0xFF141820u);
+    RoboGPUFillRect(&view->gpu, thumbX, height - thick, thumb, thick, view->barXDrag ? 0xFFE7EAF2u : 0xFF8B93A7u);
+    RoboDamageAdd(&view->gpu.damage, 0, height - thick, barW, thick);
+}
+
+int HitPageScrollX(const HostView* view, int x, int y, int layoutW, int layoutH, int& thumbX, int& thumbW) {
+    thumbX = 0;
+    thumbW = 0;
+    if (view == nullptr || view->contentWidth <= layoutW) {
+        return 0;
+    }
+    const double scale = PageScale(view);
+    const int thick = std::max(8, WindowScrollScale(8, view->baseDpi));
+    const int viewPx = static_cast<int>(view->pixelWidth);
+    const int height = static_cast<int>(view->pixelHeight);
+    int barW = viewPx;
+    if (view->contentHeight > layoutH) {
+        barW -= thick;
+    }
+    if (barW <= thick || y < height - thick || x < 0 || x >= barW) {
+        return 0;
+    }
+    const int contentPx = std::max(barW + 1, ToWin(view->contentWidth, scale));
+    const int scrollPx = std::max(0, ToWin(view->scrollX, scale));
+    const int maxScroll = std::max(1, contentPx - barW);
+    int thumb = barW * barW / contentPx;
+    if (thumb < thick * 3) {
+        thumb = thick * 3;
+    }
+    if (thumb > barW) {
+        thumb = barW;
+    }
+    const int travel = std::max(1, barW - thumb);
+    thumbX = scrollPx * travel / maxScroll;
+    if (thumbX > travel) {
+        thumbX = travel;
+    }
+    thumbW = thumb;
+    if (x >= thumbX && x < thumbX + thumb) {
+        return 3;
+    }
+    return 4;
+}
+
 void Draw(HostView* view) {
     if (view == nullptr || !view->ready || view->back == nullptr) {
         return;
@@ -1018,7 +1098,7 @@ void Draw(HostView* view) {
         const int layoutW = std::max(1, ToDoc(width, scale));
         const int layoutH = std::max(1, ToDoc(height, scale));
         const int previousScroll = view->shownScroll;
-        const int pointerDocX = view->pointerX < 0 ? -1 : ToDoc(view->pointerX, scale);
+        const int pointerDocX = view->pointerX < 0 ? -1 : view->scrollX + ToDoc(view->pointerX, scale);
         const int pointerDocY = view->pointerY < 0 ? -1 : view->scrollY + ToDoc(view->pointerY, scale);
         const int layout = LayoutWindowsDocument(view->document, view->light, layoutW, layoutH, view->dpi, view->hotControl,
                                                  view->pressedControl, pointerDocX, pointerDocY, &view->contentHeight,
@@ -1031,6 +1111,15 @@ void Draw(HostView* view) {
         if (view->scrollY < 0) {
             view->scrollY = 0;
         }
+        view->contentWidth = WindowsDocumentContentWidth();
+        const int maxScrollX = std::max(0, view->contentWidth - layoutW);
+        if (view->scrollX > maxScrollX) {
+            view->scrollX = maxScrollX;
+        }
+        if (view->scrollX < 0) {
+            view->scrollX = 0;
+        }
+        const bool wide = view->contentWidth > layoutW;
         WindowPatch patches[32]{};
         int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, view->focusControl, patches, 32);
         bool fresh = false;
@@ -1039,16 +1128,26 @@ void Draw(HostView* view) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
                 const bool dirty = rebuilt || fresh || patchCount != 0 || view->shownScroll != view->scrollY ||
-                                   WindowsDocumentNeedsSpin();
+                                   view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin();
                 if (dirty) {
                     BindSheet(view, true);
+                    WindowsDocumentSetScrollX(view->scrollX);
                     PaintWindowsDocumentScaled(&view->gpu, view->scrollY, width, height, scale);
                     BindSheet(view, false);
                     view->shownScroll = view->scrollY;
+                    view->shownScrollX = view->scrollX;
                 }
                 ComposeZoomed(view, 1.0, true);
             }
+        } else if (wide) {
+            WindowsDocumentSetScrollX(view->scrollX);
+            BindSheet(view, false);
+            PaintWindowsDocumentView(&view->gpu, view->scrollY, width, height);
+            view->shownScroll = view->scrollY;
+            view->shownScrollX = view->scrollX;
+            view->gpuFull = true;
         } else {
+            WindowsDocumentSetScrollX(0);
             usedSheet = layout >= 0 && EnsureSheet(view, std::max(width, layoutW), view->contentHeight, fresh);
             if (usedSheet) {
                 if (rebuilt || fresh || patchCount < 0) {
@@ -1108,17 +1207,19 @@ void Draw(HostView* view) {
         if (view->gpu.damage.full == ROBO_TRUE || (bar.opacity > 0 && barChanged)) {
             PaintWindowScrollBar(&view->gpu, bar);
         }
+        BindSheet(view, false);
+        PaintPageScrollX(view, layoutW, layoutH);
         if (view->focusControl >= 0 && view->focusControl < static_cast<int>(view->controls.size())) {
             const WindowControl& control = view->controls[static_cast<std::size_t>(view->focusControl)];
             const int reach = std::max(4, 9 * static_cast<int>(view->dpi) / 96);
-            const int ringX = ToWin(control.x, scale) - reach;
+            const int ringX = ToWin(control.x - view->scrollX, scale) - reach;
             const int ringY = ToWin(control.y - view->scrollY, scale) - reach;
             const int ringW = std::max(1, ToWin(control.width, scale));
             const int ringH = std::max(1, ToWin(control.height, scale));
             if (usedSheet && !zoomed) {
                 CopyVisible(view, ringX, ringY, ringW + reach * 2, ringH + reach * 2);
             }
-            PaintWindowsFocusRing(&view->gpu, ToWin(control.x, scale), ToWin(control.y - view->scrollY, scale), ringW, ringH);
+            PaintWindowsFocusRing(&view->gpu, ToWin(control.x - view->scrollX, scale), ToWin(control.y - view->scrollY, scale), ringW, ringH);
         }
         if (view->screen) {
             PaintZoomBar(view);
@@ -1256,7 +1357,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 bool controlEnabled = true;
                 const double scale = PageScale(view);
                 for (const WindowControl& control : view->controls) {
-                    if (HitDocControl(control, cursor.x, cursor.y, view->scrollY, scale)) {
+                    if (HitDocControl(control, cursor.x, cursor.y, view->scrollX, view->scrollY, scale)) {
                         onControl = true;
                         controlEnabled = control.enabled;
                         break;
@@ -1335,6 +1436,87 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     Request(view);
                     return 0;
                 }
+                const double pointerScale = PageScale(view);
+                const int layoutW = std::max(1, ToDoc(static_cast<int>(view->pixelWidth), pointerScale));
+                const int layoutH = std::max(1, ToDoc(static_cast<int>(view->pixelHeight), pointerScale));
+                const int docX = x < 0 ? -1 : view->scrollX + ToDoc(x, pointerScale);
+                const int docY = y < 0 ? -1 : view->scrollY + ToDoc(y, pointerScale);
+                if (view->regionDrag && message == WM_MOUSEMOVE) {
+                    WindowsDocumentScrollDrag(docX);
+                    Request(view);
+                    return 0;
+                }
+                if (message == WM_LBUTTONUP && view->regionDrag) {
+                    view->regionDrag = false;
+                    WindowsDocumentScrollEnd();
+                    if (GetCapture() == window) {
+                        ReleaseCapture();
+                    }
+                    Request(view);
+                    return 0;
+                }
+                int pageThumbX = 0;
+                int pageThumbW = 0;
+                const int pageHit = message == WM_MOUSELEAVE ? 0 : HitPageScrollX(view, x, y, layoutW, layoutH, pageThumbX, pageThumbW);
+                if (view->barXDrag && message == WM_MOUSEMOVE) {
+                    const int thick = std::max(8, WindowScrollScale(8, view->baseDpi));
+                    int barW = static_cast<int>(view->pixelWidth);
+                    if (view->contentHeight > layoutH) {
+                        barW -= thick;
+                    }
+                    const int contentPx = std::max(barW + 1, ToWin(view->contentWidth, pointerScale));
+                    const int maxScrollPx = std::max(1, contentPx - barW);
+                    int thumb = pageThumbW > 0 ? pageThumbW : thick * 3;
+                    const int travel = std::max(1, barW - thumb);
+                    int pos = x - view->barXGrab;
+                    if (pos < 0) {
+                        pos = 0;
+                    }
+                    if (pos > travel) {
+                        pos = travel;
+                    }
+                    view->scrollX = ToDoc(maxScrollPx * pos / travel, pointerScale);
+                    const int maxDoc = std::max(0, view->contentWidth - layoutW);
+                    if (view->scrollX > maxDoc) {
+                        view->scrollX = maxDoc;
+                    }
+                    Request(view);
+                    return 0;
+                }
+                if (message == WM_LBUTTONUP && view->barXDrag) {
+                    view->barXDrag = false;
+                    if (GetCapture() == window) {
+                        ReleaseCapture();
+                    }
+                    Request(view);
+                    return 0;
+                }
+                if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && x >= 0) {
+                    const int nest = WindowsDocumentScrollHit(docX, docY);
+                    if (nest != 0) {
+                        SetFocus(window);
+                        view->regionDrag = nest == 3;
+                        SetCapture(window);
+                        Request(view);
+                        return 0;
+                    }
+                    if (pageHit != 0) {
+                        SetFocus(window);
+                        if (pageHit == 3) {
+                            view->barXDrag = true;
+                            view->barXGrab = x - pageThumbX;
+                            SetCapture(window);
+                        } else {
+                            const int maxDoc = std::max(0, view->contentWidth - layoutW);
+                            view->scrollX = maxDoc * x / std::max(1, static_cast<int>(view->pixelWidth));
+                            if (view->scrollX > maxDoc) {
+                                view->scrollX = maxDoc;
+                            }
+                        }
+                        Request(view);
+                        return 0;
+                    }
+                }
                 if (view->bar.drag && message == WM_MOUSEMOVE) {
                     WindowDragScrollBar(bar, y);
                     KeepScroll(view, bar);
@@ -1384,7 +1566,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 if (message != WM_MOUSELEAVE) {
                     const double scale = PageScale(view);
                     for (int index = 0; index < static_cast<int>(view->controls.size()); ++index) {
-                        if (HitDocControl(view->controls[static_cast<std::size_t>(index)], x, y, view->scrollY, scale)) {
+                        if (HitDocControl(view->controls[static_cast<std::size_t>(index)], x, y, view->scrollX, view->scrollY, scale)) {
                             hit = index;
                             break;
                         }
@@ -1477,6 +1659,32 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     const int line = WindowScrollScale(48, view->dpi);
                     step = -static_cast<int>(static_cast<long long>(wheelDelta) * static_cast<long long>(lines) * line /
                                              WHEEL_DELTA);
+                }
+                POINT cursor{};
+                cursor.x = static_cast<LONG>(static_cast<short>(LOWORD(lParam)));
+                cursor.y = static_cast<LONG>(static_cast<short>(HIWORD(lParam)));
+                ScreenToClient(window, &cursor);
+                const double scale = PageScale(view);
+                const int layoutW = std::max(1, ToDoc(static_cast<int>(view->pixelWidth), scale));
+                const int docX = view->scrollX + ToDoc(cursor.x, scale);
+                const int docY = view->scrollY + ToDoc(cursor.y, scale);
+                const int docStep = ToDoc(step, scale);
+                const bool shift = (GET_KEYSTATE_WPARAM(wParam) & MK_SHIFT) != 0;
+                if (WindowsDocumentScrollBy(docX, docY, shift ? docStep : 0, shift ? 0 : docStep) != 0) {
+                    Request(view);
+                    return 0;
+                }
+                if (shift) {
+                    view->scrollX += docStep;
+                    const int maxDoc = std::max(0, view->contentWidth - layoutW);
+                    if (view->scrollX < 0) {
+                        view->scrollX = 0;
+                    }
+                    if (view->scrollX > maxDoc) {
+                        view->scrollX = maxDoc;
+                    }
+                    Request(view);
+                    return 0;
                 }
                 WindowScrollState bar{};
                 FillBar(view, bar);

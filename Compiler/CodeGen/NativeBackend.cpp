@@ -1323,7 +1323,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     break;
                 }
                 m_ctx.uiBoxes = std::move(loaded);
-                m_body << "  " << vname << " = call i64 @rx_ui_count()\n";
+                m_body << "  " << vname << " = call i64 @rx_ui_load()\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "UI.Role" || inst.textImm == "UI.BoxX" || inst.textImm == "UI.BoxY" ||
                        inst.textImm == "UI.BoxWidth" || inst.textImm == "UI.BoxHeight") {
@@ -1336,6 +1336,51 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val index = inst.operandIds.empty() ? Val{ "0", NTy::I64 }
                                                     : Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call i64 @rx_ui_field(i64 " << index.repr << ", i64 " << field << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Hit" && inst.operandIds.size() >= 2) {
+                m_ctx.usesUI = true;
+                Val x = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_hit(i64 " << x.repr << ", i64 " << y.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Drag" && inst.operandIds.size() >= 3) {
+                m_ctx.usesUI = true;
+                Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val dx = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val dy = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_drag(i64 " << index.repr << ", i64 " << dx.repr
+                       << ", i64 " << dy.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Snap" && inst.operandIds.size() >= 2) {
+                m_ctx.usesUI = true;
+                Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val side = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_snap(i64 " << index.repr << ", i64 " << side.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Place" && inst.operandIds.size() >= 5) {
+                m_ctx.usesUI = true;
+                Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val x = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                Val width = Coerce(Operand(inst, 3), NTy::I64, inst.location);
+                Val height = Coerce(Operand(inst, 4), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_place(i64 " << index.repr << ", i64 " << x.repr
+                       << ", i64 " << y.repr << ", i64 " << width.repr << ", i64 " << height.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Focus" && !inst.operandIds.empty()) {
+                m_ctx.usesUI = true;
+                Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_focus(i64 " << index.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Focused" || inst.textImm == "UI.MenuOpen") {
+                m_ctx.usesUI = true;
+                const char* fn = inst.textImm == "UI.Focused" ? "rx_ui_focused" : "rx_ui_menu_open";
+                m_body << "  " << vname << " = call i64 @" << fn << "()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Menu" && !inst.operandIds.empty()) {
+                m_ctx.usesUI = true;
+                Val flag = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_menu(i64 " << flag.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Scene.Render" && inst.operandIds.size() >= 3) {
                 m_ctx.usesScene = true;
@@ -2665,9 +2710,18 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         const std::size_t slots = count * 5;
         if (slots == 0) {
             out << "define i64 @rx_ui_count() {\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_load() {\n  ret i64 0\n}\n\n";
             out << "define i64 @rx_ui_field(i64 %i, i64 %f) {\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_hit(i64 %x, i64 %y) {\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_drag(i64 %i, i64 %dx, i64 %dy) {\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_snap(i64 %i, i64 %side) {\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_place(i64 %i, i64 %x, i64 %y, i64 %w, i64 %h) {\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_focus(i64 %i) {\n  ret i64 %i\n}\n\n";
+            out << "define i64 @rx_ui_focused() {\n  ret i64 -1\n}\n\n";
+            out << "define i64 @rx_ui_menu(i64 %flag) {\n  ret i64 %flag\n}\n\n";
+            out << "define i64 @rx_ui_menu_open() {\n  ret i64 0\n}\n\n";
         } else {
-            out << "@rx.ui.boxes = internal constant [" << slots << " x i32] [";
+            out << "@rx.ui.initial = internal constant [" << slots << " x i32] [";
             for (std::size_t index = 0; index < count; ++index) {
                 const Robix::UI::RoboCookedBox& box = ctx.uiBoxes[index];
                 const int fields[5] = { box.role, box.x, box.y, box.width, box.height };
@@ -2677,6 +2731,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 }
             }
             out << "]\n";
+            out << "@rx.ui.boxes = internal global [" << slots << " x i32] zeroinitializer\n";
             out << "define i64 @rx_ui_count() {\n  ret i64 " << count << "\n}\n\n";
             out << "define i64 @rx_ui_field(i64 %i, i64 %f) {\n";
             out << "  %in = icmp ult i64 %i, " << count << "\n";
@@ -2687,6 +2742,116 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "hit:\n  %base = mul i64 %i, 5\n  %slot = add i64 %base, %f\n";
             out << "  %p = getelementptr [" << slots << " x i32], ptr @rx.ui.boxes, i64 0, i64 %slot\n";
             out << "  %v = load i32, ptr %p, align 4\n  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
+            int screenWidth = 320;
+            int screenHeight = 200;
+            for (const Robix::UI::RoboCookedBox& box : ctx.uiBoxes) {
+                if (box.role == 6) {
+                    screenWidth = box.width;
+                    screenHeight = box.height;
+                }
+            }
+            const int halfWidth = screenWidth / 2;
+            out << "@rx.ui.focus = internal global i32 -1\n";
+            out << "@rx.ui.menu = internal global i32 0\n";
+            out << "define i64 @rx_ui_load() {\n";
+            out << "entry:\n  br label %loop\n";
+            out << "loop:\n  %i = phi i64 [ 0, %entry ], [ %next, %step ]\n";
+            out << "  %done = icmp uge i64 %i, " << slots << "\n";
+            out << "  br i1 %done, label %reset, label %step\n";
+            out << "step:\n  %src = getelementptr [" << slots << " x i32], ptr @rx.ui.initial, i64 0, i64 %i\n";
+            out << "  %dst = getelementptr [" << slots << " x i32], ptr @rx.ui.boxes, i64 0, i64 %i\n";
+            out << "  %v = load i32, ptr %src, align 4\n  store volatile i32 %v, ptr %dst, align 4\n";
+            out << "  %next = add i64 %i, 1\n  br label %loop\n";
+            out << "reset:\n  store i32 -1, ptr @rx.ui.focus, align 4\n";
+            out << "  store i32 0, ptr @rx.ui.menu, align 4\n";
+            out << "  ret i64 " << count << "\n}\n\n";
+            out << "define void @rx_ui_set(i64 %i, i64 %f, i64 %v) {\n";
+            out << "  %in = icmp ult i64 %i, " << count << "\n";
+            out << "  %fn = icmp ult i64 %f, 5\n";
+            out << "  %ok = and i1 %in, %fn\n";
+            out << "  br i1 %ok, label %store, label %skip\n";
+            out << "skip:\n  ret void\n";
+            out << "store:\n  %base = mul i64 %i, 5\n  %slot = add i64 %base, %f\n";
+            out << "  %p = getelementptr [" << slots << " x i32], ptr @rx.ui.boxes, i64 0, i64 %slot\n";
+            out << "  %v32 = trunc i64 %v to i32\n  store i32 %v32, ptr %p, align 4\n  ret void\n}\n\n";
+            out << "define i64 @rx_ui_place(i64 %i, i64 %x, i64 %y, i64 %w, i64 %h) {\n";
+            out << "  %in = icmp ult i64 %i, " << count << "\n  br i1 %in, label %put, label %no\n";
+            out << "no:\n  ret i64 0\n";
+            out << "put:\n  call void @rx_ui_set(i64 %i, i64 1, i64 %x)\n";
+            out << "  call void @rx_ui_set(i64 %i, i64 2, i64 %y)\n";
+            out << "  call void @rx_ui_set(i64 %i, i64 3, i64 %w)\n";
+            out << "  call void @rx_ui_set(i64 %i, i64 4, i64 %h)\n";
+            out << "  %role = call i64 @rx_ui_field(i64 %i, i64 0)\n";
+            out << "  %text = icmp eq i64 %role, 5\n  br i1 %text, label %textk, label %icon\n";
+            out << "textk:\n  ret i64 4\n";
+            out << "icon:\n  %isIcon = icmp eq i64 %role, 2\n  %isButton = icmp eq i64 %role, 4\n";
+            out << "  %ptr = or i1 %isIcon, %isButton\n  br i1 %ptr, label %ptrk, label %plain\n";
+            out << "ptrk:\n  ret i64 1\nplain:\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_drag(i64 %i, i64 %dx, i64 %dy) {\n";
+            out << "  %in = icmp ult i64 %i, " << count << "\n  br i1 %in, label %move, label %no\n";
+            out << "no:\n  ret i64 0\n";
+            out << "move:\n  %x = call i64 @rx_ui_field(i64 %i, i64 1)\n";
+            out << "  %y = call i64 @rx_ui_field(i64 %i, i64 2)\n";
+            out << "  %nx = add i64 %x, %dx\n  %ny = add i64 %y, %dy\n";
+            out << "  call void @rx_ui_set(i64 %i, i64 1, i64 %nx)\n";
+            out << "  call void @rx_ui_set(i64 %i, i64 2, i64 %ny)\n  ret i64 2\n}\n\n";
+            out << "define i64 @rx_ui_snap(i64 %i, i64 %side) {\n";
+            out << "  %in = icmp ult i64 %i, " << count << "\n  br i1 %in, label %fit, label %no\n";
+            out << "no:\n  ret i64 0\n";
+            out << "fit:\n  %right = icmp eq i64 %side, 1\n  br i1 %right, label %east, label %west\n";
+            out << "east:\n  call void @rx_ui_set(i64 %i, i64 1, i64 " << halfWidth << ")\n  br label %size\n";
+            out << "west:\n  call void @rx_ui_set(i64 %i, i64 1, i64 0)\n  br label %size\n";
+            out << "size:\n  call void @rx_ui_set(i64 %i, i64 2, i64 0)\n";
+            out << "  call void @rx_ui_set(i64 %i, i64 3, i64 " << halfWidth << ")\n";
+            out << "  call void @rx_ui_set(i64 %i, i64 4, i64 " << screenHeight << ")\n  ret i64 6\n}\n\n";
+            out << "define i64 @rx_ui_hit(i64 %x, i64 %y) {\n";
+            out << "entry:\n  br label %loop\n";
+            out << "loop:\n  %i = phi i64 [ " << count << ", %entry ], [ %prev, %miss ]\n";
+            out << "  %done = icmp eq i64 %i, 0\n  br i1 %done, label %none, label %check\n";
+            out << "check:\n  %prev = sub i64 %i, 1\n";
+            out << "  %role = call i64 @rx_ui_field(i64 %prev, i64 0)\n";
+            out << "  %x0 = call i64 @rx_ui_field(i64 %prev, i64 1)\n";
+            out << "  %y0 = call i64 @rx_ui_field(i64 %prev, i64 2)\n";
+            out << "  %bw = call i64 @rx_ui_field(i64 %prev, i64 3)\n";
+            out << "  %bh = call i64 @rx_ui_field(i64 %prev, i64 4)\n";
+            out << "  %x1 = add i64 %x0, %bw\n  %y1 = add i64 %y0, %bh\n";
+            out << "  %geL = icmp sge i64 %x, %x0\n  %ltR = icmp slt i64 %x, %x1\n";
+            out << "  %geT = icmp sge i64 %y, %y0\n  %ltB = icmp slt i64 %y, %y1\n";
+            out << "  %hx = and i1 %geL, %ltR\n  %hy = and i1 %geT, %ltB\n  %inside = and i1 %hx, %hy\n";
+            out << "  %screen = icmp ne i64 %role, 6\n  %pick = and i1 %inside, %screen\n";
+            out << "  br i1 %pick, label %kind, label %miss\n";
+            out << "miss:\n  br label %loop\n";
+            out << "none:\n  ret i64 0\n";
+            out << "kind:\n  %isText = icmp eq i64 %role, 5\n  br i1 %isText, label %textk, label %icon\n";
+            out << "textk:\n  ret i64 4\n";
+            out << "icon:\n  %isIcon = icmp eq i64 %role, 2\n  %isButton = icmp eq i64 %role, 4\n";
+            out << "  %ptr = or i1 %isIcon, %isButton\n  br i1 %ptr, label %ptrk, label %window\n";
+            out << "ptrk:\n  ret i64 1\n";
+            out << "window:\n  %isWin = icmp eq i64 %role, 3\n  br i1 %isWin, label %edge, label %plain\n";
+            out << "plain:\n  ret i64 0\n";
+            out << "edge:\n  %leftLim = add i64 %x0, 4\n  %rightLim = sub i64 %x1, 4\n";
+            out << "  %topLim = add i64 %y0, 4\n  %botLim = sub i64 %y1, 4\n  %titleLim = add i64 %y0, 16\n";
+            out << "  %left = icmp slt i64 %x, %leftLim\n  %right = icmp sge i64 %x, %rightLim\n";
+            out << "  %top = icmp slt i64 %y, %topLim\n  %bottom = icmp sge i64 %y, %botLim\n";
+            out << "  %lr = or i1 %left, %right\n  %tb = or i1 %top, %bottom\n  %corner = and i1 %lr, %tb\n";
+            out << "  br i1 %corner, label %cornerk, label %side\n";
+            out << "side:\n  br i1 %lr, label %col, label %rows\n";
+            out << "col:\n  ret i64 6\n";
+            out << "rows:\n  br i1 %tb, label %rowk, label %title\n";
+            out << "rowk:\n  ret i64 7\n";
+            out << "title:\n  %grab = icmp slt i64 %y, %titleLim\n  br i1 %grab, label %grabk, label %plain2\n";
+            out << "grabk:\n  ret i64 2\nplain2:\n  ret i64 0\n";
+            out << "cornerk:\n  %nw = and i1 %left, %top\n  %se = and i1 %right, %bottom\n  %nwse = or i1 %nw, %se\n";
+            out << "  br i1 %nwse, label %nwsek, label %neswk\n";
+            out << "nwsek:\n  ret i64 9\nneswk:\n  ret i64 10\n}\n\n";
+            out << "define i64 @rx_ui_focus(i64 %i) {\n  %v = trunc i64 %i to i32\n";
+            out << "  store i32 %v, ptr @rx.ui.focus, align 4\n  ret i64 %i\n}\n\n";
+            out << "define i64 @rx_ui_focused() {\n  %v = load i32, ptr @rx.ui.focus, align 4\n";
+            out << "  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
+            out << "define i64 @rx_ui_menu(i64 %flag) {\n  %v = trunc i64 %flag to i32\n";
+            out << "  store i32 %v, ptr @rx.ui.menu, align 4\n  ret i64 %flag\n}\n\n";
+            out << "define i64 @rx_ui_menu_open() {\n  %v = load i32, ptr @rx.ui.menu, align 4\n";
+            out << "  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
         }
     }
 

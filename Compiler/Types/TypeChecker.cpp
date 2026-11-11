@@ -1334,7 +1334,9 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             }
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "UI" &&
                 (expr.text == "LoadCooked" || expr.text == "Role" || expr.text == "BoxX" || expr.text == "BoxY" ||
-                 expr.text == "BoxWidth" || expr.text == "BoxHeight")) {
+                 expr.text == "BoxWidth" || expr.text == "BoxHeight" || expr.text == "Place" || expr.text == "Hit" ||
+                 expr.text == "Drag" || expr.text == "Snap" || expr.text == "Focus" || expr.text == "Focused" ||
+                 expr.text == "Menu" || expr.text == "MenuOpen")) {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }

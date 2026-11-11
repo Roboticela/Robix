@@ -107,6 +107,8 @@ private:
     bool m_halt = false;
     bool m_hostPicture = false;
     std::vector<Robix::UI::RoboCookedBox> m_cooked;
+    int m_focus = -1;
+    int m_menu = 0;
     std::vector<Robix::RoboPlayedEvent> m_input;
     std::size_t m_inputHead = 0;
     int m_mouseX = 0;

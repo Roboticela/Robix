@@ -294,6 +294,41 @@ ROBO_GPU: pixel
 
 `Build/RoboticelaOS/stageD.ppm` is 320×200. Pixel (0, 0) is `0E 7A FF`. Pixel (120, 24) is `FF FF FF`. Pixel (16, 48) is `FF FF FF`. Pixel (300, 160) is `30 28 17`, the wallpaper body beside the window. Pixel (276, 180) is `FF B0 00`, the clicked window. Pixel (0, 199) is `08 0A 10`. `robix run` from `RoboticelaOS` printed the same serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with those pixels. `Desktop/RoboDesktop.rxu` references the scene with `View3D`, and the scene file has no RobixUI elements.
 
+## RoboticelaOS Stage E
+
+`UI.Place`, `UI.Hit`, `UI.Drag`, and `UI.Snap` return a new layout and a cursor kind. `UI.LoadCooked` copies the cooked records back and clears focus and the menu, so a later bar hit still sees the bar after a snap. That copy uses volatile stores. A plain copy became `memcpy` and the freestanding link failed.
+
+```
+robix test RoboticelaOS/Tests/RoboPlace.test.rx
+robix test RoboticelaOS/Runtime/UI/RoboWindow.test.rx
+robix test RoboticelaOS/Runtime/UI/RoboShell.test.rx
+robix test RoboticelaOS/Runtime/GPU/RoboCursor.test.rx
+robix test RoboticelaOS/Runtime/GPU/RoboText.test.rx
+robix test RoboticelaOS/Kernel/RoboKernel.test.rx
+```
+
+Each printed `interpreter ok, native ok`. Dragging window 6 by `(12, -8)` returns kind 2 and moves the origin to `(52, 88)`. Snapping that window to the left half returns kind 6, with `x = 0`, width `160`, and height `200`. `UI.Hit(60, 108)` is kind 4 on the title text. `UI.Hit(40, 140)` is kind 6 on the window edge. `OpenBar(8, 8)` opens the menu. `OpenBar(200, 180)` leaves it closed. `DrawClock` for time `1032` lights 44 pixels.
+
+```
+robixc -O3 RoboticelaOS/Kernel/RoboKernel.rxb -o Build/RoboticelaOS/RoboKernel.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel.elf -serial file:Build/RoboticelaOS/stageE.serial -display none -vga std
+```
+
+The serial file was:
+
+```
+ROBO_GPU: present
+ROBO_UI: paint
+ROBO_SCENE: frame
+ROBO_UI: click
+ROBO_SHELL: bar
+ROBO_GPU: miss
+```
+
+`ROBO_GPU: miss` is the first framebuffer byte after the snap fill. Pixel `(0, 0)` is the window color `1C 24 30`, so that byte is `0x30`.
+
+`Build/RoboticelaOS/stageE.ppm` is 320×200. Pixel `(0, 0)` is `1C 24 30`, the snapped window. Pixel `(8, 40)` is `2A 23 44`, the menu (`2761540`). Pixel `(200, 8)` is `0E 7A FF`, the bar. Pixel `(221, 8)` and pixel `(224, 8)` are `FF FF FF`, clock glyphs for `1032`. Pixel `(220, 8)` is `0E 7A FF`, a clock gap showing the bar. Pixel `(250, 16)` is `FF FF FF`, the cursor. Pixel `(300, 160)` is `30 28 17`, the wallpaper. Pixel `(0, 199)` is `1C 24 30`. `robix run` from `RoboticelaOS` printed the same serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with those pixels.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

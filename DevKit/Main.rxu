@@ -150,6 +150,20 @@
     <View fill="true" background="#0E7AFF"/>
   </View>
 
+  <Text value="Wrap" fontSize="13" font="sans-semibold"/>
+  <View direction="row" width="120" height="56" wrap="wrap" gap="8" align="start" background="#141820">
+    <View width="48" height="20" background="#E23B3B"/>
+    <View width="48" height="20" background="#2F9E44"/>
+    <View width="48" height="20" background="#0E7AFF"/>
+  </View>
+
+  <Text value="Overflow scroll" fontSize="13" font="sans-semibold"/>
+  <View direction="row" width="160" height="44" overflow="scroll" gap="8" align="start" padding="8" background="#141820">
+    <View width="70" height="20" background="#E23B3B"/>
+    <View width="70" height="20" background="#2F9E44"/>
+    <View width="70" height="20" background="#0E7AFF"/>
+  </View>
+
   <Text value="Content size" fontSize="13" font="sans-semibold"/>
   <View direction="row" size="content" gap="8" align="start" background="#141820">
     <View width="28" height="20" background="#E23B3B"/>

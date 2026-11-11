@@ -883,6 +883,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         m_cooked.clear();
                         std::fprintf(stderr, "robix vm: UI.LoadCooked could not read '%s'\n", path.c_str());
                     }
+                    m_focus = -1;
+                    m_menu = 0;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_cooked.size()) };
                 } else if (inst.symbolImm == "UI.Role" || inst.symbolImm == "UI.BoxX" || inst.symbolImm == "UI.BoxY" ||
                            inst.symbolImm == "UI.BoxWidth" || inst.symbolImm == "UI.BoxHeight") {
@@ -897,6 +899,39 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         value = Robix::UI::RoboCookedField(m_cooked[static_cast<std::size_t>(index)], field);
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
+                } else if (inst.symbolImm == "UI.Hit" && inst.callArgRegs.size() >= 2) {
+                    const int x = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                    const int y = static_cast<int>(regs[inst.callArgRegs[1]].AsInt());
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(Robix::UI::RoboCookedHit(m_cooked, x, y)) };
+                } else if (inst.symbolImm == "UI.Place" && inst.callArgRegs.size() >= 5) {
+                    const int index = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                    const int x = static_cast<int>(regs[inst.callArgRegs[1]].AsInt());
+                    const int y = static_cast<int>(regs[inst.callArgRegs[2]].AsInt());
+                    const int width = static_cast<int>(regs[inst.callArgRegs[3]].AsInt());
+                    const int height = static_cast<int>(regs[inst.callArgRegs[4]].AsInt());
+                    const std::int64_t kind = Robix::UI::RoboCookedPlace(m_cooked, index, x, y, width, height);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ kind };
+                } else if (inst.symbolImm == "UI.Drag" && inst.callArgRegs.size() >= 3) {
+                    const int index = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                    const int dx = static_cast<int>(regs[inst.callArgRegs[1]].AsInt());
+                    const int dy = static_cast<int>(regs[inst.callArgRegs[2]].AsInt());
+                    const std::int64_t kind = Robix::UI::RoboCookedDrag(m_cooked, index, dx, dy);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ kind };
+                } else if (inst.symbolImm == "UI.Snap" && inst.callArgRegs.size() >= 2) {
+                    const int index = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                    const int side = static_cast<int>(regs[inst.callArgRegs[1]].AsInt());
+                    const std::int64_t kind = Robix::UI::RoboCookedSnap(m_cooked, index, side);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ kind };
+                } else if (inst.symbolImm == "UI.Focus" && !inst.callArgRegs.empty()) {
+                    m_focus = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_focus) };
+                } else if (inst.symbolImm == "UI.Focused") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_focus) };
+                } else if (inst.symbolImm == "UI.Menu" && !inst.callArgRegs.empty()) {
+                    m_menu = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_menu) };
+                } else if (inst.symbolImm == "UI.MenuOpen") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_menu) };
                 } else if ((inst.symbolImm == "UI.Set" || inst.symbolImm == "Scene.Set") && inst.callArgRegs.size() >= 3) {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{};
                 } else if (inst.symbolImm == "Input" || inst.symbolImm == "Input.Int") {
