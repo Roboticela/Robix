@@ -1,0 +1,14 @@
+package Robix.UI;
+
+import Robix.UI.Behaviors.Focus;
+import Robix.UI.Behaviors.Validation;
+
+public class TextArea {
+  public String value = "";
+  public Focus focus = new Focus();
+  public Validation validation = new Validation();
+  public Void OnChange() { this.validation.OnChange(); }
+  public Void OnInput() {}
+  public Void OnFocus() { this.focus.OnFocus(); }
+  public Void OnBlur() { this.focus.OnBlur(); }
+}

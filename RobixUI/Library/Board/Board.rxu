@@ -1,4 +1,4 @@
-<!-- Board is Container. Alias keeps the existing paint. -->
+<!-- Board is built from Container. -->
 <Component Name="Board" Base="Container">
+  <Slot Name="content"/>
 </Component>
-

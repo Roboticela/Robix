@@ -1,0 +1,5 @@
+<!-- ScrollView is a Container that scrolls its content. -->
+<Component Name="ScrollView" Base="Container">
+  <Default Overflow="auto"/>
+  <Slot Name="content"/>
+</Component>

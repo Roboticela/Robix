@@ -1,0 +1,5 @@
+package Robix.UI;
+
+public class Icon {
+  public String name = "";
+}

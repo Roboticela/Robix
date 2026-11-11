@@ -133,6 +133,18 @@ void RoboWebContainerAxis(std::string& style, const RoboFoundationLibrary& libra
 }  // namespace
 
 void RoboWebAppendContainerCss(std::ostream& css) {
+  css << ".robo-overlay{position:fixed;inset:0;z-index:50}\n";
+  css << ".robo-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;"
+         "border:0;border-radius:10px;padding:10px 16px;background:var(--brand-primary);color:var(--text-on-brand,white)}\n";
+  css << ".robo-button[data-variant=secondary]{background:var(--bg-secondary);color:var(--text-primary)}\n";
+  css << ".robo-button[data-variant=ghost],.robo-button[data-variant=link]{background:transparent;color:var(--text-primary)}\n";
+  css << ".robo-button[data-variant=danger]{background:var(--status-danger,#dc2626)}\n";
+  css << ".robo-button[data-state=off],.robo-switch[data-state=off]{opacity:.72}\n";
+  css << ".robo-textfield,.robo-textarea,.robo-select{display:flex;flex-direction:column;gap:6px;width:100%}\n";
+  css << ".robo-textfield [contenteditable],.robo-textarea [contenteditable]{min-height:1.4em;outline:none}\n";
+  css << ".robo-select [data-panel]{display:none}\n";
+  css << ".robo-select[data-open=true] [data-panel]{display:block}\n";
+  css << ".robo-scroll{overflow:auto;min-height:0;min-width:0}\n";
   css << ".robo-board,.robo-container,.robo-scroll{box-sizing:border-box;min-width:0;border:0;outline:none}\n";
   css << ".robo-board:focus,.robo-board:focus-visible,.robo-container:focus,.robo-container:focus-visible,"
          ".robo-scroll:focus,.robo-scroll:focus-visible{outline:none}\n";
@@ -626,7 +638,6 @@ void RoboWebAppendContainerStyle(std::string& style, const RoboXMLNode& node, co
   RoboWebAddDecl(style, "mix-blend-mode", RoboWebLower(RoboWebContainerAttr(node, "blend", "blendMode")));
   RoboWebAddDecl(style, "--c-accent", RoboWebContainerColor(library, RoboXMLAttr(node, "accentColor")));
   RoboWebAddDecl(style, "--c-titlebar", RoboWebContainerColor(library, RoboXMLAttr(node, "titlebarColor")));
-  RoboWebAppendTextStyle(style, node, library);
 
   RoboWebAddDecl(style, "--c-hover-bg",
                  RoboWebContainerColor(library, RoboWebContainerAttr(node, "hoverBackground", "hoverGradient")));

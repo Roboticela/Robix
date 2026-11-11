@@ -191,7 +191,6 @@ void RoboWebImageReset(const fs::path& document, const fs::path& outRoot, bool c
 }
 
 void RoboWebAppendImageStyle(std::string& style, const RoboXMLNode& node, const RoboFoundationLibrary& library) {
-  RoboWebAppendContainerStyle(style, node, library);
   const std::string fit = Fit(Attr(node, "fit", "objectFit"));
   if (!fit.empty()) RoboWebAddDecl(style, "--img-fit", fit);
   const std::string anchor = Position(RoboXMLAttr(node, "objectPosition"));
@@ -243,7 +242,6 @@ void RoboWebEmitImage(std::string& html, const RoboXMLNode& node, const RoboFoun
   const std::string path = Attr(node, "path", "href");
   std::string frame = RoboWebStyle(node, library);
   RoboWebAppendImageStyle(frame, node, library);
-  RoboWebAppendMotion(frame, node);
   html += "<figure class=\"";
   html += RoboWebImageClass();
   html += "\"";

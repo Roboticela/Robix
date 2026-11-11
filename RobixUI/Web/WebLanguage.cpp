@@ -303,17 +303,45 @@ Robo.log = "";
     }).then(function (ready) {
       instance = ready.instance;
       memory = instance.exports.memory;
-      document.querySelectorAll("[data-click]").forEach(function (node) {
+      function roboCall(name) {
+        if (!name || !instance || !instance.exports.rx_call) return;
+        var ptr = instance.exports.rx_name();
+        var encoded = new TextEncoder().encode(name);
+        new Uint8Array(memory.buffer, ptr, encoded.length).set(encoded);
+        instance.exports.rx_call(encoded.length);
+      }
+      var roboEvents = ["click","dblclick","pointerdown","pointerup","pointermove","keydown","keyup","focus","blur","change","input","context"];
+      document.querySelectorAll("[data-click],[data-pointerdown],[data-pointerup],[data-pointermove],[data-keydown],[data-keyup],[data-focus],[data-blur],[data-change],[data-input],[data-dblclick],[data-context],[data-toggle],[data-disclosure],[data-scroll]").forEach(function (node) {
         if (node.getAttribute("data-robix-bound") === "true") return;
         node.setAttribute("data-robix-bound", "true");
-        node.addEventListener("click", function (event) {
-          event.preventDefault();
-          var name = node.getAttribute("data-click") || "";
-          var ptr = instance.exports.rx_name();
-          var encoded = new TextEncoder().encode(name);
-          new Uint8Array(memory.buffer, ptr, encoded.length).set(encoded);
-          instance.exports.rx_call(encoded.length);
+        roboEvents.forEach(function (kind) {
+          var method = node.getAttribute("data-" + kind);
+          if (!method) return;
+          node.addEventListener(kind === "dblclick" ? "dblclick" : kind, function (event) {
+            if (kind === "click") event.preventDefault();
+            roboCall(method);
+          });
         });
+        if (node.getAttribute("data-toggle")) {
+          node.addEventListener("click", function () {
+            var on = node.getAttribute("data-state") !== "on";
+            node.setAttribute("data-state", on ? "on" : "off");
+            node.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+        }
+        if (node.getAttribute("data-disclosure")) {
+          node.addEventListener("click", function () {
+            var open = node.getAttribute("data-open") !== "true";
+            node.setAttribute("data-open", open ? "true" : "false");
+          });
+        }
+        if (node.getAttribute("data-scroll") === "true") {
+          node.addEventListener("scroll", function () {
+            node.setAttribute("data-scroll-offset", String(node.scrollTop));
+            node.setAttribute("data-content-height", String(node.scrollHeight));
+            node.setAttribute("data-content-width", String(node.scrollWidth));
+          });
+        }
       });
       if (instance.exports.start) instance.exports.start();
     }).catch(function (error) { console.warn("warning W7001: web: " + error); });

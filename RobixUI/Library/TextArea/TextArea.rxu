@@ -1,0 +1,5 @@
+<!-- TextArea is a multiline editable Text inside a Container. -->
+<Component Name="TextArea" Base="Container">
+  <Default Role="textbox"/>
+  <Text Editable="true" WhiteSpace="pre-wrap" Value="{Value}"/>
+</Component>

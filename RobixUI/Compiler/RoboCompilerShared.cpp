@@ -2,16 +2,11 @@
 
 #include "ComponentTier.hpp"
 
-#include "Components/Board/Board.hpp"
 #include "Components/Button/Button.hpp"
 #include "Components/Container/Container.hpp"
 #include "Components/Icon/Icon.hpp"
-#include "Components/IconButton/IconButton.hpp"
 #include "Components/Screen/Screen.hpp"
-#include "Components/SegmentedControl/SegmentedControl.hpp"
-#include "Components/Scrollbar/Scrollbar.hpp"
 #include "Components/Svg/Svg.hpp"
-#include "Components/Switch/Switch.hpp"
 #include "Components/Text/Text.hpp"
 
 #include "../RoboShared/RoboIconPack.hpp"
@@ -198,59 +193,14 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
         }
         return overflowOk && ok;
     }
-    if (RoboCompilerIsBoardName(name)) {
-        bool ok = true;
-        for (const auto& child : node.children) {
-            ok = RoboCompilerCheckNode(child, path, result) && ok;
-        }
-        return overflowOk && ok;
-    }
     if (RoboCompilerIsContainerName(name)) {
         return overflowOk && RoboCompilerCheckContainer(node, path, result);
     }
     if (RoboCompilerIsTextName(name)) {
         return overflowOk && RoboCompilerCheckText(node, path, result);
     }
-    if (RoboCompilerLower(name) == "button") {
-        return overflowOk && RoboCompilerCheckButton(node, path, result);
-    }
-    if (RoboCompilerLower(name) == "iconbutton") {
-        return overflowOk && RoboCompilerCheckIconButton(node, path, result);
-    }
-    if (RoboCompilerLower(name) == "switch") {
-        return overflowOk && RoboCompilerCheckSwitch(node, path, result);
-    }
-    if (RoboCompilerLower(name) == "switchgroup") {
-        return overflowOk && RoboCompilerCheckSwitchGroup(node, path, result);
-    }
-    if (RoboCompilerLower(name) == "switchitem") {
-        return overflowOk && RoboCompilerCheckSwitchItem(node, path, result);
-    }
-    if (RoboCompilerLower(name) == "segmentedcontrol") {
-        return overflowOk && RoboCompilerCheckSegmentedControl(node, path, result);
-    }
-    if (RoboCompilerLower(name) == "segment") {
-        return overflowOk && RoboCompilerCheckSegment(node, path, result);
-    }
-    if (RoboCompilerLower(name) == "segmentedtoolbar") {
-        return overflowOk && RoboCompilerCheckSegmentedToolbar(node, path, result);
-    }
     if (RoboCompilerLower(name) == "svg") {
         return overflowOk && RoboCompilerCheckSvg(node, path, result);
-    }
-    if (RoboCompilerIsIconNode(node) || RoboCompilerLower(name) == "icon") {
-        return overflowOk && RoboCompilerCheckIcon(node, path, result);
-    }
-    if (RoboCompilerIsScrollbarName(name)) {
-        for (const auto& kv : node.attrs) {
-            const std::string key = RoboCompilerLower(kv.first);
-            if (key == "arrows" || key == "autohide" || key == "overlay" || key == "thumbcolor" || key == "trackcolor") {
-                RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
-                                    "<Scrollbar> " + kv.first + " belongs on <ScrollView>");
-                break;
-            }
-        }
-        return overflowOk;
     }
     bool ok = true;
     for (const auto& child : node.children) {
@@ -260,29 +210,11 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
 }
 
 std::string RoboCompilerEmitChildCpp(const RoboXMLNode& node, const std::string& parentExpr) {
-    if (RoboCompilerLower(node.name) == "button") {
-        return RoboCompilerEmitButtonCpp(node, parentExpr);
-    }
-    if (RoboCompilerLower(node.name) == "iconbutton") {
-        return RoboCompilerEmitIconButtonCpp(node, parentExpr);
-    }
-    if (RoboCompilerLower(node.name) == "switch") {
-        return RoboCompilerEmitSwitchCpp(node, parentExpr, false, false);
-    }
-    if (RoboCompilerLower(node.name) == "switchitem") {
-        return RoboCompilerEmitSwitchCpp(node, parentExpr, true, false);
-    }
-    if (RoboCompilerLower(node.name) == "switchgroup") {
-        return RoboCompilerEmitSwitchGroupCpp(node, parentExpr);
-    }
     if (RoboCompilerLower(node.name) == "svg" || RoboCompilerIsIconNode(node) || RoboCompilerLower(node.name) == "icon") {
         return RoboCompilerEmitIconCpp(node, parentExpr);
     }
     if (RoboCompilerIsTextLike(node)) {
         return RoboCompilerEmitTextCpp(node, parentExpr);
-    }
-    if (RoboCompilerIsBoardName(node.name)) {
-        return RoboCompilerEmitBoardCpp(node, parentExpr);
     }
     if (RoboCompilerIsContainerName(node.name)) {
         return RoboCompilerEmitContainerCpp(node, parentExpr);

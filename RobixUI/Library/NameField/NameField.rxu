@@ -1,4 +1,4 @@
-<!-- NameField is TextField. Alias keeps the existing paint. -->
-<Component Name="NameField" Base="TextField">
+<!-- NameField is built from Container. -->
+<Component Name="NameField" Base="Container">
+  <Slot Name="content"/>
 </Component>
-

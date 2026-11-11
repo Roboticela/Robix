@@ -1,4 +1,4 @@
-<!-- SwitchGroup is Switch. Alias keeps the existing paint. -->
-<Component Name="SwitchGroup" Base="Switch">
+<!-- SwitchGroup is built from Container. -->
+<Component Name="SwitchGroup" Base="Container">
+  <Slot Name="content"/>
 </Component>
-

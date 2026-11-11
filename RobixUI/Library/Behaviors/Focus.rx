@@ -1,0 +1,7 @@
+package Robix.UI.Behaviors;
+
+public class Focus {
+  public Bool focused = false;
+  public Void OnFocus() { this.focused = true; }
+  public Void OnBlur() { this.focused = false; }
+}

@@ -1,0 +1,8 @@
+<!-- Select is a Container that discloses a list of options. -->
+<Component Name="Select" Base="Container">
+  <Default Disclosure="true" Role="listbox"/>
+  <Text Value="{Value}"/>
+  <Container Panel="true">
+    <Slot Name="content"/>
+  </Container>
+</Component>

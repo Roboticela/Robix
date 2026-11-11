@@ -1,4 +1,4 @@
-<!-- Anchor is Button. Alias keeps the existing paint. -->
-<Component Name="Anchor" Base="Button">
+<!-- Anchor is built from Container. -->
+<Component Name="Anchor" Base="Container">
+  <Slot Name="content"/>
 </Component>
-

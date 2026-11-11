@@ -1084,14 +1084,14 @@ Before adding a RobixUI component, classify it. The compiler catalog is `RobixUI
 Place the files by how the component is built:
 
 - A component the compiler must build in C++ lives in `RobixUI/Compiler/Components/<Name>/`.
-- A component built with `.rxu` and `.rx` lives in `RobixUI/Library/<Name>/`. One `.rxu` file defines the tag. A `.rx` file in that folder holds state and events when the preset needs them.
+- A component built with `.rxu` and `.rx` lives in `RobixUI/Library/<Name>/`. One `.rxu` file defines the tag. Every library component also has `<Name>.rx` for its state and events.
 - A `.rxu` document starts at its root element. Do not write an `<?xml` declaration.
 
 A component is one of three tiers:
 
-1. **Compiler.** C++ implements it. The compiler components are `Screen`, `Container`, `Text`, `Svg`, `Icon`, `Image`, `Background`, `Button`, `TextField`, `TextArea`, `Select`, `Switch`, `SegmentedControl`, `ScrollView`, and `View3D`. Do not add a new compiler component when an existing one can produce the behavior.
-2. **Part.** It exists only inside a compiler component: `Span` inside `Text`, `Option` inside `Select`, `Segment` inside `SegmentedControl`, `Scrollbar` inside `ScrollView`. Do not redefine a part.
-3. **Preset.** A `.rxu` component that reuses a compiler component. `Heading`, `Body`, `Paragraph`, `Caption`, `Eyebrow`, `Label`, and `Subhead` are presets of `Text`. `Board`, `Box`, `Flex`, `Stack`, `Pane`, and the other layout names are presets of `Container`. `Anchor`, `IconButton`, `PasswordReveal`, `ConfirmAction`, `ThemeToggle`, and `ThemeIconToggle` are presets of `Button`. `EmailField`, `PhoneField`, `PasswordField`, and `NameField` are presets of `TextField`. `SwitchItem` and `SwitchGroup` are presets of `Switch`. `CountrySelect` is a preset of `Select`.
+1. **Compiler.** C++ implements it. The compiler components are `Screen`, `Container`, `Text`, `Svg`, `Image`, `Background`, and `View3D`. Do not add a new compiler component when an existing one can produce the behavior.
+2. **Part.** It exists only inside a compiler component: `Span` inside `Text`, and `At` inside `Container`. Do not redefine a part.
+3. **Preset.** A `.rxu` component that reuses a compiler component, with a sibling `.rx` for its state and events. `Button`, `TextField`, `TextArea`, `Select`, `Switch`, `SegmentedControl`, and `ScrollView` are presets of `Container`. `Icon` is a preset of `Svg`. `Heading` and the other text roles are presets of `Text`.
 
 Rules for every new component:
 
@@ -1107,7 +1107,7 @@ Rules for every new component:
 
 4. A `.rx` class is for state and events. The class name matches the `.rxu` component name. The class changes properties. The `.rxu` draws them with a compiler component.
 5. A project may replace a preset by defining the same name. A project may not replace a compiler component or a part. The compiler reports that and skips the definition.
-6. A preset in `RobixUI/Library` names its base. Expansion sets `Alias` to the preset name so web and Windows keep the existing paint. `EmailField`, `PhoneField`, and `PasswordField` paint as `TextField`. Add the next preset the same way.
+6. A preset in `RobixUI/Library` names its base. Expansion sets `Alias` to the preset name and paints the base. `Alias` adds the class `robo-<name>`. It is not a second emitter. `EmailField`, `PhoneField`, and `PasswordField` expand through `TextField` to `Container`.
 7. Style attributes belong to the shared style table used by every component. A preset may set those attributes. It may not invent a new style key that only its emitter understands.
 8. Add the tag to `ComponentTier.cpp` when it becomes a known preset, and add `RobixUI/Library/<Name>/<Name>.rxu`. Do not put that preset under `Compiler/Components`.
 

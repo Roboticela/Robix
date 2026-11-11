@@ -1,0 +1,6 @@
+package Robix.UI;
+
+public class Scrollbar {
+  public Int scrollOffset = 0;
+  public Void OnPointerDown() {}
+}

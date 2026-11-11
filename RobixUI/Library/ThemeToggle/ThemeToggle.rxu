@@ -1,4 +1,4 @@
-<!-- ThemeToggle is Button. Alias keeps the existing paint. -->
-<Component Name="ThemeToggle" Base="Button">
+<!-- ThemeToggle is built from Container. -->
+<Component Name="ThemeToggle" Base="Container">
+  <Slot Name="content"/>
 </Component>
-

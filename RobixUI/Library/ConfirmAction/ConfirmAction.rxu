@@ -1,4 +1,4 @@
-<!-- ConfirmAction is Button. Alias keeps the existing paint. -->
-<Component Name="ConfirmAction" Base="Button">
+<!-- ConfirmAction is built from Container. -->
+<Component Name="ConfirmAction" Base="Container">
+  <Slot Name="content"/>
 </Component>
-

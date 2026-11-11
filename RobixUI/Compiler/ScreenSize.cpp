@@ -126,8 +126,6 @@ bool SplitSized(const std::string& key, std::string& property, std::string& size
 
 std::string Declarations(const RoboXMLNode& node, const RoboFoundationLibrary& library) {
     std::string style = RoboWebStyle(node, library);
-    RoboWebAppendContainerStyle(style, node, library);
-    RoboWebAppendTextStyle(style, node, library);
     RoboWebAppendImageStyle(style, node, library);
     const std::string prefix = "box-sizing:border-box;";
     if (style.rfind(prefix, 0) == 0) style = style.substr(prefix.size());

@@ -1,0 +1,6 @@
+package Robix.UI;
+
+public class Option {
+  public Bool selected = false;
+  public Void OnClick() { this.selected = true; }
+}

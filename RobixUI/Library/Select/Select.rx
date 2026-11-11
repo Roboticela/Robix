@@ -1,0 +1,12 @@
+package Robix.UI;
+
+import Robix.UI.Behaviors.Disclosure;
+import Robix.UI.Behaviors.Selection;
+
+public class Select {
+  public String value = "";
+  public Disclosure disclosure = new Disclosure();
+  public Selection selection = new Selection();
+  public Void OnClick() { this.disclosure.OnClick(); }
+  public Void OnChange() { this.selection.OnChange(); }
+}

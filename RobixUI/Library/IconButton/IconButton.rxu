@@ -1,4 +1,4 @@
-<!-- IconButton is Button. Alias keeps the existing paint. -->
-<Component Name="IconButton" Base="Button">
+<!-- IconButton is built from Container. -->
+<Component Name="IconButton" Base="Container">
+  <Slot Name="content"/>
 </Component>
-

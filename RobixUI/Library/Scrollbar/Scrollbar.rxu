@@ -1,0 +1,4 @@
+<!-- Scrollbar is a Container bound to a scroll offset. -->
+<Component Name="Scrollbar" Base="Container">
+  <Default Role="scrollbar"/>
+</Component>

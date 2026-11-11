@@ -1,0 +1,5 @@
+<!-- Option is one choice inside a Select. -->
+<Component Name="Option" Base="Container">
+  <Default Role="option" Cursor="pointer"/>
+  <Text Value="{Value}"/>
+</Component>

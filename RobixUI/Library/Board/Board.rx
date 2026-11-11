@@ -1,0 +1,5 @@
+package Robix.UI;
+
+public class Board {
+  public Void OnClick() {}
+}

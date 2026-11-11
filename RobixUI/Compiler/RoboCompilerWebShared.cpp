@@ -1,5 +1,9 @@
 #include "RoboCompilerWebShared.hpp"
 
+#include "Components/Button/ButtonWeb.hpp"
+#include "Components/Container/ContainerWeb.hpp"
+#include "Components/Text/TextWeb.hpp"
+#include "Motion.hpp"
 #include "RoboCompilerShared.hpp"
 
 #include <cctype>
@@ -488,7 +492,56 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     if (!style.empty()) {
         style = std::string("box-sizing:border-box;") + style;
     }
+    RoboWebAppendContainerStyle(style, node, library);
+    RoboWebAppendControlStyle(style, node, library);
+    RoboWebAppendTextStyle(style, node, library);
+    RoboWebAppendMotion(style, node);
     return style;
+}
+
+void RoboWebBehaviorAttrs(std::string& html, const RoboXMLNode& node) {
+    const auto data = [&](const char* key, const char* attr) {
+        const std::string value = RoboXMLAttr(node, attr);
+        if (value.empty()) return;
+        html += " data-";
+        html += key;
+        html += "=\"";
+        html += RoboWebEscape(value);
+        html += "\"";
+    };
+    data("click", "onClick");
+    data("dblclick", "onDoubleClick");
+    data("pointerdown", "onPointerDown");
+    data("pointerup", "onPointerUp");
+    data("pointermove", "onPointerMove");
+    data("keydown", "onKeyDown");
+    data("keyup", "onKeyUp");
+    data("focus", "onFocus");
+    data("blur", "onBlur");
+    data("change", "onChange");
+    data("input", "onInput");
+    data("context", "onContextMenu");
+    data("toggle", "toggle");
+    data("disclosure", "disclosure");
+    data("panel", "panel");
+    data("variant", "variant");
+    data("role", "role");
+    data("state", "state");
+    data("scroll-offset", "scrollOffset");
+    data("content-width", "contentWidth");
+    data("content-height", "contentHeight");
+    const std::string editable = RoboWebLower(RoboXMLAttr(node, "editable"));
+    if (editable == "true" || editable == "1" || editable == "yes") {
+        html += " contenteditable=\"true\" data-editable=\"true\"";
+    }
+    const std::string overlay = RoboWebLower(RoboXMLAttr(node, "overlay"));
+    if (overlay == "true" || overlay == "1" || overlay == "yes") {
+        html += " data-overlay=\"true\"";
+    }
+    const std::string overflow = RoboWebLower(RoboXMLAttr(node, "overflow"));
+    if (overflow == "auto" || overflow == "scroll") {
+        html += " data-scroll=\"true\"";
+    }
 }
 
 void RoboWebPaintSvg(std::string& svg) {

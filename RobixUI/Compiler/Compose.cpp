@@ -37,6 +37,7 @@ struct Component {
     std::string base;
     std::vector<std::pair<std::string, std::string>> defaults;
     bool keep = false;
+    std::vector<std::string> events;
 };
 
 std::string Lower(std::string text) {
@@ -470,6 +471,26 @@ void SetAttr(RoboXMLNode& node, const std::string& key, const std::string& value
 std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const Components& components,
                                     const std::vector<RoboXMLNode>* slot, int depth);
 
+void ApplyEvents(RoboXMLNode& node, const Component& component) {
+    for (const std::string& event : component.events) {
+        std::string key = event;
+        for (char& ch : key) {
+            if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch - 'A' + 'a');
+        }
+        if (Attr(node, key.c_str()).empty()) SetAttr(node, event, event);
+    }
+}
+
+std::vector<std::string> EventsInRx(const std::string& source) {
+    static const char* names[] = {"OnClick", "OnDoubleClick", "OnChange", "OnInput", "OnPointerDown", "OnPointerUp",
+                                  "OnPointerMove", "OnFocus", "OnBlur", "OnKeyDown", "OnKeyUp", "OnContextMenu"};
+    std::vector<std::string> found;
+    for (const char* name : names) {
+        if (source.find(name) != std::string::npos) found.emplace_back(name);
+    }
+    return found;
+}
+
 std::vector<RoboXMLNode> ExpandBase(const RoboXMLNode& node, const Component& component, Scope& scope,
                                     const Components& components, int depth) {
     if (component.keep) {
@@ -490,6 +511,7 @@ std::vector<RoboXMLNode> ExpandBase(const RoboXMLNode& node, const Component& co
         }
         for (const RoboXMLNode& child : node.children) children.push_back(child);
         made.children = ExpandList(children, inner, components, nullptr, depth + 1);
+        ApplyEvents(made, component);
         return {made};
     }
     Scope inner;
@@ -513,7 +535,9 @@ std::vector<RoboXMLNode> ExpandBase(const RoboXMLNode& node, const Component& co
         made.children.push_back(child);
     }
     for (const RoboXMLNode& child : node.children) made.children.push_back(child);
-    return ExpandNode(made, inner, components, nullptr, depth + 1);
+    std::vector<RoboXMLNode> produced = ExpandNode(made, inner, components, nullptr, depth + 1);
+    for (RoboXMLNode& item : produced) ApplyEvents(item, component);
+    return produced;
 }
 
 std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const Components& components,
@@ -659,7 +683,7 @@ std::vector<RoboXMLNode> ExpandList(const std::vector<RoboXMLNode>& nodes, Scope
 }
 
 void Collect(const RoboXMLNode& node, const fs::path& base, Components& components, std::unordered_set<std::string>& loading,
-             std::unordered_set<std::string>& done) {
+             std::unordered_set<std::string>& done, const std::string& rxSource) {
     const std::string kind = Lower(node.name);
     if (kind == "import") {
         const std::string source = Attr(node, "source");
@@ -682,7 +706,9 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
                         std::cerr << "warning: Import '" << source << "' could not be read and was skipped.\n";
                     } else {
                         done.insert(key);
-                        Collect(document.root, absolute.parent_path(), components, loading, done);
+                        fs::path rxPath = path;
+                        rxPath.replace_extension(".rx");
+                        Collect(document.root, absolute.parent_path(), components, loading, done, ReadFile(rxPath));
                     }
                     loading.erase(key);
                 }
@@ -722,6 +748,7 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
                         defined.name = name;
                         defined.base = baseName;
                         defined.keep = Lower(Attr(node, "keep")) == "true";
+                        defined.events = EventsInRx(rxSource);
                         for (const RoboXMLNode& child : node.children) {
                             if (Lower(child.name) == "default") {
                                 for (const auto& entry : child.attrs) defined.defaults.emplace_back(entry.first, entry.second);
@@ -735,12 +762,13 @@ void Collect(const RoboXMLNode& node, const fs::path& base, Components& componen
                     if (components.count(key) != 0) {
                         std::cerr << "warning: component '" << name << "' replaced an earlier component of the same name.\n";
                     }
-                    components[key] = Component{name, node.children, {}, {}, false};
+                    Component defined{name, node.children, {}, {}, false, EventsInRx(rxSource)};
+                    components[key] = std::move(defined);
                 }
             }
         }
     }
-    for (const RoboXMLNode& child : node.children) Collect(child, base, components, loading, done);
+    for (const RoboXMLNode& child : node.children) Collect(child, base, components, loading, done, rxSource);
 }
 
 }  // namespace
@@ -760,7 +788,9 @@ bool LoadComponentFolder(const fs::path& folder, Components& components) {
         if (text.empty() || !RoboXMLParse(text, document)) continue;
         std::unordered_set<std::string> loading;
         std::unordered_set<std::string> done;
-        Collect(document.root, entry.path().parent_path(), components, loading, done);
+        fs::path rxPath = entry.path();
+        rxPath.replace_extension(".rx");
+        Collect(document.root, entry.path().parent_path(), components, loading, done, ReadFile(rxPath));
         any = true;
     }
     return any;
@@ -780,7 +810,7 @@ void InstallPresetLibrary(Components& components, const fs::path& base) {
     if (RoboXMLParse(RoboCompilerPresetLibrary(), document)) {
         std::unordered_set<std::string> loading;
         std::unordered_set<std::string> done;
-        Collect(document.root, base, components, loading, done);
+        Collect(document.root, base, components, loading, done, {});
     }
 }
 
@@ -800,7 +830,6 @@ std::string RoboUIFace(const RoboXMLNode& node) {
     for (char& ch : face) {
         if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch - 'A' + 'a');
     }
-    if (face == "emailfield" || face == "phonefield" || face == "passwordfield") return "textfield";
     return face;
 }
 
@@ -828,7 +857,7 @@ void RoboUICompose(RoboXMLNode& root, const std::string& documentPath) {
     InstallPresetLibrary(components, base);
     std::unordered_set<std::string> loading;
     std::unordered_set<std::string> done;
-    Collect(root, base, components, loading, done);
+    Collect(root, base, components, loading, done, {});
     Scope scope;
     root.children = ExpandList(root.children, scope, components, nullptr, 0);
 }

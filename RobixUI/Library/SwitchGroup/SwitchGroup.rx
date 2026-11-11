@@ -1,0 +1,5 @@
+package Robix.UI;
+
+public class SwitchGroup {
+  public Void OnClick() {}
+}
