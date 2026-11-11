@@ -82,6 +82,7 @@ void TypeChecker::RegisterBuiltInTypesAndFunctions() {
     addBuiltInFn("AssertFalse", { boolParam }, MakePrimitiveType("Void"));
     addBuiltInFn("AssertEqual", { anyParam, anyParam }, MakePrimitiveType("Void"));
     addBuiltInFn("AssertNear", { anyParam, anyParam, anyParam }, MakePrimitiveType("Void"));
+    addBuiltInFn("AssertPixel", { anyParam, anyParam, anyParam, anyParam }, MakePrimitiveType("Void"));
     addBuiltInFn("Success", { anyParam }, MakePrimitiveType("Result"));
     addBuiltInFn("Error", { anyParam }, MakePrimitiveType("Result"));
     addBuiltInFn("Some", { anyParam }, MakePrimitiveType("Option"));
@@ -929,7 +930,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "UI" || expr.text == "Scene" || expr.text == "Volatile" ||
                 expr.text == "Port" || expr.text == "Cpu" || expr.text == "Timer" ||
-                expr.text == "System" || expr.text == "Console" || expr.text == "Atomic") {
+                expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
+                expr.text == "Frame") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1326,6 +1328,14 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Math" &&
                 (expr.text == "Abs" || expr.text == "Min" || expr.text == "Max" || expr.text == "Clamp")) {
                 expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Frame") {
+                if (expr.text == "Create" || expr.text == "Pixel" || expr.text == "Present") {
+                    expr.inferredType = MakePrimitiveType("Int");
+                } else {
+                    expr.inferredType = MakePrimitiveType("Void");
+                }
                 return expr.inferredType;
             }
 

@@ -2350,7 +2350,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     Emit(std::move(pr));
                     return IRValue{ 0, MakePrim("Void") };
                 }
-                if ((fnName == "Assert" || fnName == "AssertTrue" || fnName == "AssertFalse" || fnName == "AssertEqual") && !argIds.empty()) {
+                if ((fnName == "Assert" || fnName == "AssertTrue" || fnName == "AssertFalse" ||
+                     fnName == "AssertEqual" || fnName == "AssertPixel") && !argIds.empty()) {
                     IRInstruction asrt;
                     asrt.opcode     = IROpcode::AssertVal;
                     asrt.textImm    = fnName;
@@ -2466,7 +2467,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
                      receiverExpr.text == "Cpu" || receiverExpr.text == "System" ||
                      receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
-                     receiverExpr.text == "Atomic")) {
+                     receiverExpr.text == "Atomic" || receiverExpr.text == "Frame")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2489,6 +2490,11 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty.typeArgs.push_back(MakePrim("Byte"));
                     } else if (receiverExpr.text == "Memory" && memberName == "Address") {
                         ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Frame" &&
+                               (memberName == "Create" || memberName == "Pixel" || memberName == "Present")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Frame") {
+                        ty = MakePrim("Void");
                     }
                     if ((receiverExpr.text == "File" && memberName == "ReadText") ||
                         (receiverExpr.text == "Args" && memberName == "Get") ||

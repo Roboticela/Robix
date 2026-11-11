@@ -173,6 +173,32 @@ These are not native-complete. A diagnostic is reported where one was actually p
 | `robix network probe` | Implemented on this machine. Printed `probe: connected 10.217.223.118 reply pong` and `probe: certificate robix-stagen`. The certificate is self-signed on this machine. It is not a public certificate |
 | `Editors/vscode` | Installed in Cursor as `roboticela.robix` from `Build/StageN/robix.vsix`. Opening `Examples/StageN/Program.rx` showed the Robix language mode and wrote `Build/StageN/extension-activated.txt`. The activation write was then removed from `extension.js` |
 
+## RoboticelaOS Stage A
+
+`Frame.Create`, `Frame.Fill`, `Frame.Pixel`, `Frame.Present`, and `AssertPixel` run on the interpreter and in a native image. On a freestanding image, `Frame.Present` programs the Bochs display interface to 320×200×32, reads the display PCI BAR, copies the frame there, and returns the first framebuffer byte.
+
+```
+robix test RoboticelaOS/Tests/RoboFrame.test.rx
+robix test RoboticelaOS/Runtime/Gpu/RoboGPU.test.rx
+robix test RoboticelaOS/Kernel/RoboKernel.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+robixc -O3 RoboticelaOS/Kernel/RoboKernel.rxb -o Build/RoboticelaOS/RoboKernel.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel.elf -serial file:Build/RoboticelaOS/stageA.serial -display none -vga std
+```
+
+The serial file was:
+
+```
+ROBO_GPU: present
+ROBO_GPU: pixel
+```
+
+A QEMU `screendump` wrote `Build/RoboticelaOS/stageA.ppm` at 320×200. Pixel (0, 0) is `0E 7A FF`. Pixel (0, 40) and pixel (319, 199) are `08 0A 10`. Pixel (16, 8) is `FF FF FF`. Pixel (24, 8) is `0E 7A FF`. The logo is an 8×8 white rectangle. The identity map covers the first 4GB, and unwind tables are discarded so `Start` stays at 2MB.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

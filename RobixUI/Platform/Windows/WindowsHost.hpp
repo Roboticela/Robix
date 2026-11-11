@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace Robix::UI {
@@ -17,6 +18,8 @@ struct WindowRunOptions {
     std::string place = "center";
     std::string title = "Robix";
     std::string document;
+    std::uint32_t background = 0;
+    bool hasScreenColor = false;
     bool (*watch)(WindowRunOptions& options, void* user) = nullptr;
     void* watchUser = nullptr;
 };

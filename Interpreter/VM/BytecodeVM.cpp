@@ -541,6 +541,57 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     obj->width = 1;
                     obj->signedPointee = false;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ obj };
+                } else if (inst.symbolImm == "Frame.Create" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t width = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t height = regs[inst.callArgRegs[1]].AsInt();
+                    if (width <= 0 || height <= 0 || width > 4096 || height > 4096) {
+                        Fail("robix vm: Frame.Create size is out of range");
+                    }
+                    auto obj = std::make_shared<VMObjectInstance>();
+                    obj->className = "Frame";
+                    obj->width = static_cast<int>(width);
+                    obj->index = height;
+                    obj->buffer = std::make_shared<VMBuffer>();
+                    obj->buffer->bytes.assign(static_cast<std::size_t>(width * height * 4), 0);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ obj };
+                } else if (inst.symbolImm == "Frame.Fill" && inst.callArgRegs.size() >= 6) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (!obj || !obj->buffer || obj->className != "Frame") Fail("robix vm: Frame.Fill needs a frame");
+                    const std::int64_t x = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t y = regs[inst.callArgRegs[2]].AsInt();
+                    const std::int64_t rw = regs[inst.callArgRegs[3]].AsInt();
+                    const std::int64_t rh = regs[inst.callArgRegs[4]].AsInt();
+                    const std::uint32_t color = static_cast<std::uint32_t>(regs[inst.callArgRegs[5]].AsInt());
+                    const std::int64_t fw = obj->width;
+                    const std::int64_t fh = obj->index;
+                    for (std::int64_t row = 0; row < rh; ++row) {
+                        for (std::int64_t col = 0; col < rw; ++col) {
+                            const std::int64_t px = x + col;
+                            const std::int64_t py = y + row;
+                            if (px < 0 || py < 0 || px >= fw || py >= fh) continue;
+                            const std::size_t at = static_cast<std::size_t>((py * fw + px) * 4);
+                            obj->buffer->bytes[at] = static_cast<std::uint8_t>(color);
+                            obj->buffer->bytes[at + 1] = static_cast<std::uint8_t>(color >> 8);
+                            obj->buffer->bytes[at + 2] = static_cast<std::uint8_t>(color >> 16);
+                            obj->buffer->bytes[at + 3] = static_cast<std::uint8_t>(color >> 24);
+                        }
+                    }
+                } else if (inst.symbolImm == "Frame.Pixel" && inst.callArgRegs.size() >= 3) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (!obj || !obj->buffer || obj->className != "Frame") Fail("robix vm: Frame.Pixel needs a frame");
+                    const std::int64_t x = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t y = regs[inst.callArgRegs[2]].AsInt();
+                    std::int64_t value = 0;
+                    if (x >= 0 && y >= 0 && x < obj->width && y < obj->index) {
+                        const std::size_t at = static_cast<std::size_t>((y * obj->width + x) * 4);
+                        value = static_cast<std::uint32_t>(obj->buffer->bytes[at]) |
+                                (static_cast<std::uint32_t>(obj->buffer->bytes[at + 1]) << 8) |
+                                (static_cast<std::uint32_t>(obj->buffer->bytes[at + 2]) << 16) |
+                                (static_cast<std::uint32_t>(obj->buffer->bytes[at + 3]) << 24);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
+                } else if (inst.symbolImm == "Frame.Present") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t(0) };
                 } else if (inst.symbolImm == "Memory.Free" && !inst.callArgRegs.empty()) {
                     auto obj = AsObj(regs[inst.callArgRegs[0]]);
                     if (!obj) Fail("robix vm: Memory.Free requires an allocated pointer");
@@ -777,6 +828,21 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     ok = !inst.callArgRegs.empty() &&
                          (regs[inst.callArgRegs[0]].AsBool() ||
                           regs[inst.callArgRegs[0]].ToString().find("Error") == std::string::npos);
+                } else if (inst.symbolImm == "AssertPixel" && inst.callArgRegs.size() >= 4) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    const std::int64_t x = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t y = regs[inst.callArgRegs[2]].AsInt();
+                    const std::int64_t expected = regs[inst.callArgRegs[3]].AsInt();
+                    std::int64_t value = 0;
+                    if (obj && obj->buffer && obj->className == "Frame" &&
+                        x >= 0 && y >= 0 && x < obj->width && y < obj->index) {
+                        const std::size_t at = static_cast<std::size_t>((y * obj->width + x) * 4);
+                        value = static_cast<std::uint32_t>(obj->buffer->bytes[at]) |
+                                (static_cast<std::uint32_t>(obj->buffer->bytes[at + 1]) << 8) |
+                                (static_cast<std::uint32_t>(obj->buffer->bytes[at + 2]) << 16) |
+                                (static_cast<std::uint32_t>(obj->buffer->bytes[at + 3]) << 24);
+                    }
+                    ok = value == expected;
                 } else if (inst.symbolImm == "Assert.Error" ||
                            inst.symbolImm == "Assert.Throws" ||
                            inst.symbolImm == "Assert.ThrowsAsync") {

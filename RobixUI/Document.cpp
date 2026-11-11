@@ -1,10 +1,13 @@
 #include "Document.hpp"
 
 #include "Compiler/Compose.hpp"
+#include "Compiler/Components/Screen/RoboScreen.hpp"
 #include "Compiler/RoboXML.hpp"
 #include "Platform/Windows/WindowsHost.hpp"
 #include "Web/WebFoundation.hpp"
 
+#include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -24,6 +27,116 @@ std::string Option(const std::vector<std::string>& args, const std::string& name
         }
     }
     return fallback;
+}
+
+std::uint32_t PngCrc(const std::uint8_t* data, std::size_t length) {
+    std::uint32_t crc = 0xFFFFFFFFu;
+    for (std::size_t i = 0; i < length; ++i) {
+        crc ^= data[i];
+        for (int bit = 0; bit < 8; ++bit) {
+            const std::uint32_t mask = (crc & 1u) ? 0xEDB88320u : 0u;
+            crc = (crc >> 1) ^ mask;
+        }
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
+
+void PngChunk(std::vector<std::uint8_t>& out, const char* type, const std::vector<std::uint8_t>& data) {
+    const std::uint32_t length = static_cast<std::uint32_t>(data.size());
+    out.push_back(static_cast<std::uint8_t>(length >> 24));
+    out.push_back(static_cast<std::uint8_t>(length >> 16));
+    out.push_back(static_cast<std::uint8_t>(length >> 8));
+    out.push_back(static_cast<std::uint8_t>(length));
+    const std::size_t start = out.size();
+    out.push_back(static_cast<std::uint8_t>(type[0]));
+    out.push_back(static_cast<std::uint8_t>(type[1]));
+    out.push_back(static_cast<std::uint8_t>(type[2]));
+    out.push_back(static_cast<std::uint8_t>(type[3]));
+    out.insert(out.end(), data.begin(), data.end());
+    const std::uint32_t crc = PngCrc(out.data() + start, out.size() - start);
+    out.push_back(static_cast<std::uint8_t>(crc >> 24));
+    out.push_back(static_cast<std::uint8_t>(crc >> 16));
+    out.push_back(static_cast<std::uint8_t>(crc >> 8));
+    out.push_back(static_cast<std::uint8_t>(crc));
+}
+
+std::uint32_t Adler32(const std::uint8_t* data, std::size_t length) {
+    std::uint32_t a = 1;
+    std::uint32_t b = 0;
+    for (std::size_t i = 0; i < length; ++i) {
+        a = (a + data[i]) % 65521u;
+        b = (b + a) % 65521u;
+    }
+    return (b << 16) | a;
+}
+
+bool WriteDesktopPng(const std::string& path, std::string& error) {
+    constexpr int kWidth = 320;
+    constexpr int kHeight = 200;
+    constexpr int kBar = 32;
+    std::vector<std::uint8_t> raw(static_cast<std::size_t>(kHeight * (1 + kWidth * 3)));
+    for (int y = 0; y < kHeight; ++y) {
+        std::uint8_t* row = raw.data() + static_cast<std::size_t>(y * (1 + kWidth * 3));
+        row[0] = 0;
+        const bool bar = y < kBar;
+        for (int x = 0; x < kWidth; ++x) {
+            std::uint8_t r = bar ? 0x0E : 0x08;
+            std::uint8_t g = bar ? 0x7A : 0x0A;
+            std::uint8_t b = bar ? 0xFF : 0x10;
+            if (bar && x >= 16 && x < 24 && y >= 8 && y < 16) {
+                r = 0xFF;
+                g = 0xFF;
+                b = 0xFF;
+            }
+            std::uint8_t* pix = row + 1 + x * 3;
+            pix[0] = r;
+            pix[1] = g;
+            pix[2] = b;
+        }
+    }
+    std::vector<std::uint8_t> zlib;
+    zlib.push_back(0x78);
+    zlib.push_back(0x01);
+    std::size_t offset = 0;
+    while (offset < raw.size()) {
+        const std::size_t chunk = std::min<std::size_t>(65535, raw.size() - offset);
+        const bool last = offset + chunk == raw.size();
+        zlib.push_back(last ? 1 : 0);
+        zlib.push_back(static_cast<std::uint8_t>(chunk));
+        zlib.push_back(static_cast<std::uint8_t>(chunk >> 8));
+        const std::uint16_t neg = static_cast<std::uint16_t>(~chunk);
+        zlib.push_back(static_cast<std::uint8_t>(neg));
+        zlib.push_back(static_cast<std::uint8_t>(neg >> 8));
+        zlib.insert(zlib.end(), raw.begin() + static_cast<std::ptrdiff_t>(offset),
+                    raw.begin() + static_cast<std::ptrdiff_t>(offset + chunk));
+        offset += chunk;
+    }
+    const std::uint32_t adler = Adler32(raw.data(), raw.size());
+    zlib.push_back(static_cast<std::uint8_t>(adler >> 24));
+    zlib.push_back(static_cast<std::uint8_t>(adler >> 16));
+    zlib.push_back(static_cast<std::uint8_t>(adler >> 8));
+    zlib.push_back(static_cast<std::uint8_t>(adler));
+
+    std::vector<std::uint8_t> png = {137, 80, 78, 71, 13, 10, 26, 10};
+    std::vector<std::uint8_t> ihdr = {
+        0, 0, 1, 64,
+        0, 0, 0, 200,
+        8, 2, 0, 0, 0
+    };
+    PngChunk(png, "IHDR", ihdr);
+    PngChunk(png, "IDAT", zlib);
+    PngChunk(png, "IEND", {});
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out) {
+        error = "could not write '" + path + "'";
+        return false;
+    }
+    out.write(reinterpret_cast<const char*>(png.data()), static_cast<std::streamsize>(png.size()));
+    if (!out) {
+        error = "could not finish '" + path + "'";
+        return false;
+    }
+    return true;
 }
 
 bool Has(const std::vector<std::string>& args, const std::string& name) {
@@ -69,70 +182,42 @@ void LowerKeys(RoboXMLNode& node) {
 }
 
 const RoboXMLNode* FindScreen(const RoboXMLNode& node) {
-    if (Lower(node.name) == "screen") {
-        return &node;
-    }
-    for (const RoboXMLNode& child : node.children) {
-        if (const RoboXMLNode* found = FindScreen(child)) {
-            return found;
-        }
-    }
-    return nullptr;
+    return RoboScreenFind(node);
 }
 
-std::string Attr(const RoboXMLNode& node, const char* key, const char* fallback) {
-    const std::string value = RoboXMLAttr(node, key);
-    return value.empty() ? fallback : value;
-}
-
-int ToInt(const std::string& text, int fallback) {
-    if (text.empty()) {
-        return fallback;
-    }
-    try {
-        return std::stoi(text);
-    } catch (...) {
-        return fallback;
-    }
-}
-
-bool ToBool(const std::string& text, bool fallback) {
-    const std::string lower = Lower(text);
-    if (lower == "true" || lower == "1" || lower == "yes" || lower == "on") {
-        return true;
-    }
-    if (lower == "false" || lower == "0" || lower == "no" || lower == "off") {
-        return false;
-    }
-    return fallback;
-}
-
-void ApplyScreen(const std::string& document, WindowRunOptions& options) {
+bool ApplyScreen(const std::string& document, WindowRunOptions& options) {
     const std::string source = ReadText(document);
     RoboXMLDocument xml;
     if (source.empty() || !RoboXMLParse(source, xml)) {
-        return;
+        return true;
     }
     RoboUICompose(xml.root, document);
     LowerKeys(xml.root);
     const RoboXMLNode* screen = FindScreen(xml.root);
     if (screen == nullptr) {
-        return;
+        return true;
+    }
+    RoboScreenRecord record;
+    std::string diagnostic;
+    if (!RoboScreenRead(*screen, record, diagnostic)) {
+        std::cerr << "robix ui: " << diagnostic << "\n";
+        return false;
     }
     options.screen = true;
-    options.width = ToInt(Attr(*screen, "width", "960"), 960);
-    options.height = ToInt(Attr(*screen, "height", "640"), 640);
-    options.x = ToInt(Attr(*screen, "x", "0"), 0);
-    options.y = ToInt(Attr(*screen, "y", "0"), 0);
-    options.place = Attr(*screen, "place", "center");
-    options.movable = ToBool(Attr(*screen, "movable", "true"), true);
-    options.resizable = ToBool(Attr(*screen, "resizable", "true"), true);
-    const std::string theme = Lower(Attr(*screen, "theme", Attr(*screen, "appearance", "dark").c_str()));
-    options.light = theme == "light";
-    const std::string title = Attr(*screen, "name", Attr(*screen, "title", "Robix").c_str());
-    if (!title.empty()) {
-        options.title = title;
+    options.width = record.width;
+    options.height = record.height;
+    options.x = record.x;
+    options.y = record.y;
+    options.place = record.place;
+    options.movable = record.movable;
+    options.resizable = record.resizable;
+    options.light = record.theme == "light";
+    options.background = record.color;
+    options.hasScreenColor = true;
+    if (!record.title.empty()) {
+        options.title = record.title;
     }
+    return true;
 }
 
 }  // namespace
@@ -158,6 +243,18 @@ int RunUiCommand(const std::vector<std::string>& args) {
         break;
     }
 
+    if (command == "frame") {
+        const std::string output = Option(args, "-o", "Build/RoboticelaOS/Desktop.png");
+        std::error_code ec;
+        fs::create_directories(fs::path(output).parent_path(), ec);
+        std::string error;
+        if (!WriteDesktopPng(output, error)) {
+            std::cerr << "robix ui: " << error << "\n";
+            return 1;
+        }
+        std::cout << "png " << output << "\n";
+        return 0;
+    }
     if (command == "render") {
         const std::string output = Option(args, "-o", "framebuffer.bmp");
         std::string error;
@@ -172,7 +269,9 @@ int RunUiCommand(const std::vector<std::string>& args) {
         WindowRunOptions options;
         options.stayOpen = Has(args, "--dev");
         if (!document.empty()) {
-            ApplyScreen(document, options);
+            if (!ApplyScreen(document, options)) {
+                return 1;
+            }
             options.document = document;
         }
         return RunWindowsFoundation(options);
@@ -191,12 +290,28 @@ int RunUiCommand(const std::vector<std::string>& args) {
             std::cerr << "robix ui: expected a .rxu file\n";
             return 1;
         }
-        std::ifstream in(document, std::ios::binary);
-        if (!in) {
+        const std::string source = ReadText(document);
+        if (source.empty()) {
             std::cerr << "robix ui: could not open '" << document << "'\n";
             return 1;
         }
-        std::cout << "foundation validated " << document << "\n";
+        RoboXMLDocument xml;
+        if (!RoboXMLParse(source, xml)) {
+            std::cerr << "robix ui: the document is not valid XML\n";
+            return 1;
+        }
+        const RoboXMLNode* screen = RoboScreenFind(xml.root);
+        if (screen == nullptr) {
+            std::cerr << "robix ui: R7004: the document has no Screen. Use Screen, Window, or Page.\n";
+            return 1;
+        }
+        RoboScreenRecord record;
+        std::string diagnostic;
+        if (!RoboScreenRead(*screen, record, diagnostic)) {
+            std::cerr << "robix ui: " << diagnostic << "\n";
+            return 1;
+        }
+        std::cout << "screen validated " << document << " " << record.width << "x" << record.height << "\n";
         return 0;
     }
     return -1;

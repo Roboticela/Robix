@@ -207,6 +207,7 @@ struct ModuleCtx {
     bool usesSyscall = false;
     bool usesPages = false;
     bool usesSwitch = false;
+    bool usesFrame = false;
     int printFmt = -1;
     const IR::IRModule* module = nullptr;
     const NativeEmitOptions& options;
@@ -1132,9 +1133,33 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
             const bool isEqual = inst.textImm == "Assert.Equal" || inst.textImm == "AssertEqual";
             const bool isTrue = inst.textImm == "Assert.True" || inst.textImm == "AssertTrue" ||
                                 inst.textImm == "Assert";
-            if (!isEqual && !isTrue) {
-                Err("N9001", "Native tests compile Assert.Equal and Assert.True. '" + inst.textImm + "' stays on the interpreter.",
+            const bool isPixel = inst.textImm == "AssertPixel";
+            if (!isEqual && !isTrue && !isPixel) {
+                Err("N9001", "Native tests compile Assert.Equal, Assert.True, and AssertPixel. '" + inst.textImm + "' stays on the interpreter.",
                     inst.location);
+                break;
+            }
+            if (isPixel) {
+                if (inst.operandIds.size() < 4) {
+                    Err("N9001", "AssertPixel is missing an argument.", inst.location);
+                    break;
+                }
+                m_ctx.usesFrame = true;
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val x = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                Val expected = Coerce(Operand(inst, 3), NTy::I64, inst.location);
+                const std::string got = NewTmp();
+                const std::string cmp = NewTmp();
+                m_body << "  " << got << " = call i64 @rx_frame_pixel(i64 " << frame.repr << ", i64 " << x.repr
+                       << ", i64 " << y.repr << ")\n";
+                m_body << "  " << cmp << " = icmp eq i64 " << got << ", " << expected.repr << "\n";
+                const std::string bad = "assert_bad_" + std::to_string(m_tmp);
+                const std::string ok = "assert_ok_" + std::to_string(m_tmp);
+                ++m_tmp;
+                m_body << "  br i1 " << cmp << ", label %" << ok << ", label %" << bad << "\n";
+                m_body << bad << ":\n  call void @exit(i32 1)\n  unreachable\n";
+                m_body << ok << ":\n";
                 break;
             }
             const std::size_t need = isEqual ? 2 : 1;
@@ -1605,6 +1630,37 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 }
                 m_body << "  call void asm sideeffect \"" << mnemonic << "\", \"\"()\n";
                 m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Frame.Create" && !inst.operandIds.empty()) {
+                m_ctx.usesFrame = true;
+                Val width = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val height = inst.operandIds.size() > 1 ? Coerce(Operand(inst, 1), NTy::I64, inst.location)
+                                                        : Val{ "0", NTy::I64 };
+                m_body << "  " << vname << " = call i64 @rx_frame_create(i64 " << width.repr << ", i64 " << height.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Frame.Fill" && inst.operandIds.size() >= 6) {
+                m_ctx.usesFrame = true;
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val x = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                Val width = Coerce(Operand(inst, 3), NTy::I64, inst.location);
+                Val height = Coerce(Operand(inst, 4), NTy::I64, inst.location);
+                Val color = Coerce(Operand(inst, 5), NTy::I64, inst.location);
+                m_body << "  call void @rx_frame_fill(i64 " << frame.repr << ", i64 " << x.repr << ", i64 " << y.repr
+                       << ", i64 " << width.repr << ", i64 " << height.repr << ", i64 " << color.repr << ")\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Frame.Pixel" && inst.operandIds.size() >= 3) {
+                m_ctx.usesFrame = true;
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val x = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_frame_pixel(i64 " << frame.repr << ", i64 " << x.repr
+                       << ", i64 " << y.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Frame.Present" && !inst.operandIds.empty()) {
+                m_ctx.usesFrame = true;
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_frame_present(i64 " << frame.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Abort" || inst.textImm == "Panic") {
                 m_body << "  call void @llvm.trap()\n";
                 m_vals[id] = Val{ "0", NTy::Void };
@@ -2012,6 +2068,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     auto noteIntrinsic = [&](const IR::IRInstruction& inst, std::vector<std::string>* pending) {
         if (inst.opcode != IR::IROpcode::CallOSIntrinsic) return;
         if (inst.textImm == "Memory.Pages") ctx.usesPages = true;
+        if (inst.textImm.rfind("Frame.", 0) == 0) ctx.usesFrame = true;
         if (inst.textImm == "Cpu.ExchangeRSP" || inst.textImm == "Cpu.SavedRSP") ctx.usesSwitch = true;
         if (inst.textImm == "System.Call") ctx.usesSyscall = true;
         if (inst.textImm == "Cpu.Function" || inst.textImm == "Cpu.Handler" || inst.textImm == "Cpu.Run" ||
@@ -2313,6 +2370,183 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "define dso_local void @rx_isr_" << isr << "() naked nounwind {\n";
         out << "  call void asm sideeffect \"" << EscapeLLVMString(text) << "\", \"\"()\n";
         out << "  unreachable\n}\n\n";
+    }
+
+    if (ctx.usesFrame) {
+        if (m_options.freestanding) {
+            out << "declare void @llvm.trap()\n";
+            out << "%RoboFrame = type { i32, i32, [64000 x i32] }\n";
+            out << "@rx.frame = internal global %RoboFrame zeroinitializer, align 16\n";
+            out << "define i64 @rx_frame_create(i64 %w, i64 %h) {\n";
+            out << "  %okw = icmp ule i64 %w, 320\n";
+            out << "  %okh = icmp ule i64 %h, 200\n";
+            out << "  %ok = and i1 %okw, %okh\n";
+            out << "  br i1 %ok, label %store, label %die\n";
+            out << "die:\n  call void @llvm.trap()\n  unreachable\n";
+            out << "store:\n";
+            out << "  %w32 = trunc i64 %w to i32\n";
+            out << "  store i32 %w32, ptr @rx.frame, align 4\n";
+            out << "  %hp = getelementptr i8, ptr @rx.frame, i64 4\n";
+            out << "  %h32 = trunc i64 %h to i32\n";
+            out << "  store i32 %h32, ptr %hp, align 4\n";
+            out << "  %ret = ptrtoint ptr @rx.frame to i64\n";
+            out << "  ret i64 %ret\n}\n\n";
+        } else {
+            out << "define i64 @rx_frame_create(i64 %w, i64 %h) {\n";
+            out << "  %count = mul i64 %w, %h\n";
+            out << "  %pix = mul i64 %count, 4\n";
+            out << "  %bytes = add i64 %pix, 8\n";
+            out << "  %mem = call ptr @malloc(i64 %bytes)\n";
+            out << "  call void @llvm.memset.p0.i64(ptr %mem, i8 0, i64 %bytes, i1 false)\n";
+            out << "  %w32 = trunc i64 %w to i32\n";
+            out << "  store i32 %w32, ptr %mem, align 4\n";
+            out << "  %hp = getelementptr i8, ptr %mem, i64 4\n";
+            out << "  %h32 = trunc i64 %h to i32\n";
+            out << "  store i32 %h32, ptr %hp, align 4\n";
+            out << "  %ret = ptrtoint ptr %mem to i64\n";
+            out << "  ret i64 %ret\n}\n\n";
+        }
+        out << "define void @rx_frame_fill(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %color) {\n";
+        out << "entry:\n";
+        out << "  %p = inttoptr i64 %frame to ptr\n";
+        out << "  %fw32 = load i32, ptr %p, align 4\n";
+        out << "  %fw = zext i32 %fw32 to i64\n";
+        out << "  %hptr = getelementptr i8, ptr %p, i64 4\n";
+        out << "  %fh32 = load i32, ptr %hptr, align 4\n";
+        out << "  %fh = zext i32 %fh32 to i64\n";
+        out << "  %c32 = trunc i64 %color to i32\n";
+        out << "  br label %yloop\n";
+        out << "yloop:\n";
+        out << "  %yy = phi i64 [ 0, %entry ], [ %ynext, %xdone ]\n";
+        out << "  %ydone = icmp uge i64 %yy, %rh\n";
+        out << "  br i1 %ydone, label %end, label %xloop\n";
+        out << "xloop:\n";
+        out << "  %xx = phi i64 [ 0, %yloop ], [ %xnext, %xcont ]\n";
+        out << "  %xdoneb = icmp uge i64 %xx, %rw\n";
+        out << "  br i1 %xdoneb, label %xdone, label %plot\n";
+        out << "plot:\n";
+        out << "  %px = add i64 %x, %xx\n";
+        out << "  %py = add i64 %y, %yy\n";
+        out << "  %xin = icmp ult i64 %px, %fw\n";
+        out << "  %yin = icmp ult i64 %py, %fh\n";
+        out << "  %inside = and i1 %xin, %yin\n";
+        out << "  br i1 %inside, label %storepx, label %xcont\n";
+        out << "storepx:\n";
+        out << "  %row = mul i64 %py, %fw\n";
+        out << "  %idx = add i64 %row, %px\n";
+        out << "  %base = getelementptr i8, ptr %p, i64 8\n";
+        out << "  %slot = getelementptr i32, ptr %base, i64 %idx\n";
+        out << "  store i32 %c32, ptr %slot, align 4\n";
+        out << "  br label %xcont\n";
+        out << "xcont:\n";
+        out << "  %xnext = add i64 %xx, 1\n";
+        out << "  br label %xloop\n";
+        out << "xdone:\n";
+        out << "  %ynext = add i64 %yy, 1\n";
+        out << "  br label %yloop\n";
+        out << "end:\n  ret void\n}\n\n";
+        out << "define i64 @rx_frame_pixel(i64 %frame, i64 %x, i64 %y) {\n";
+        out << "  %p = inttoptr i64 %frame to ptr\n";
+        out << "  %fw32 = load i32, ptr %p, align 4\n";
+        out << "  %fw = zext i32 %fw32 to i64\n";
+        out << "  %hptr = getelementptr i8, ptr %p, i64 4\n";
+        out << "  %fh32 = load i32, ptr %hptr, align 4\n";
+        out << "  %fh = zext i32 %fh32 to i64\n";
+        out << "  %xin = icmp ult i64 %x, %fw\n";
+        out << "  %yin = icmp ult i64 %y, %fh\n";
+        out << "  %inside = and i1 %xin, %yin\n";
+        out << "  br i1 %inside, label %load, label %miss\n";
+        out << "miss:\n  ret i64 0\n";
+        out << "load:\n";
+        out << "  %row = mul i64 %y, %fw\n";
+        out << "  %idx = add i64 %row, %x\n";
+        out << "  %base = getelementptr i8, ptr %p, i64 8\n";
+        out << "  %slot = getelementptr i32, ptr %base, i64 %idx\n";
+        out << "  %v = load i32, ptr %slot, align 4\n";
+        out << "  %wide = zext i32 %v to i64\n";
+        out << "  ret i64 %wide\n}\n\n";
+        if (m_options.freestanding) {
+            out << "define i64 @rx_display_bar() {\nentry:\n  br label %slot\n";
+            out << "slot:\n  %dev = phi i64 [ 0, %entry ], [ %nextdev, %advance ]\n";
+            out << "  %finished = icmp uge i64 %dev, 32\n";
+            out << "  br i1 %finished, label %fallback, label %probe\n";
+            out << "probe:\n  %shifted = shl i64 %dev, 11\n";
+            out << "  %cfg = or i64 %shifted, 2147483648\n";
+            out << "  %cfg32 = trunc i64 %cfg to i32\n";
+            out << "  call void asm sideeffect \"outl $0, $1\", \"{ax},{dx}\"(i32 %cfg32, i16 3320)\n";
+            out << "  %id32 = call i32 asm sideeffect \"inl $1, $0\", \"={ax},{dx}\"(i16 3324)\n";
+            out << "  %id = zext i32 %id32 to i64\n";
+            out << "  %vendor = and i64 %id, 65535\n";
+            out << "  %classCfg = or i64 %cfg, 8\n";
+            out << "  %classCfg32 = trunc i64 %classCfg to i32\n";
+            out << "  call void asm sideeffect \"outl $0, $1\", \"{ax},{dx}\"(i32 %classCfg32, i16 3320)\n";
+            out << "  %class32 = call i32 asm sideeffect \"inl $1, $0\", \"={ax},{dx}\"(i16 3324)\n";
+            out << "  %class64 = zext i32 %class32 to i64\n";
+            out << "  %class = lshr i64 %class64, 24\n";
+            out << "  %display = icmp eq i64 %class, 3\n";
+            out << "  %bochs = icmp eq i64 %vendor, 4660\n";
+            out << "  %hit = or i1 %display, %bochs\n";
+            out << "  br i1 %hit, label %readbar, label %advance\n";
+            out << "readbar:\n  %barCfg = or i64 %cfg, 16\n";
+            out << "  %barCfg32 = trunc i64 %barCfg to i32\n";
+            out << "  call void asm sideeffect \"outl $0, $1\", \"{ax},{dx}\"(i32 %barCfg32, i16 3320)\n";
+            out << "  %bar32 = call i32 asm sideeffect \"inl $1, $0\", \"={ax},{dx}\"(i16 3324)\n";
+            out << "  %bar = zext i32 %bar32 to i64\n";
+            out << "  %io = and i64 %bar, 1\n";
+            out << "  %isIo = icmp eq i64 %io, 1\n";
+            out << "  br i1 %isIo, label %advance, label %memory\n";
+            out << "memory:\n  %base = and i64 %bar, 4294967280\n";
+            out << "  %empty = icmp eq i64 %base, 0\n";
+            out << "  br i1 %empty, label %advance, label %enable\n";
+            out << "enable:\n  %cmdCfg = or i64 %cfg, 4\n";
+            out << "  %cmdCfg32 = trunc i64 %cmdCfg to i32\n";
+            out << "  call void asm sideeffect \"outl $0, $1\", \"{ax},{dx}\"(i32 %cmdCfg32, i16 3320)\n";
+            out << "  %cmd32 = call i32 asm sideeffect \"inl $1, $0\", \"={ax},{dx}\"(i16 3324)\n";
+            out << "  %cmdOn = or i32 %cmd32, 2\n";
+            out << "  call void asm sideeffect \"outl $0, $1\", \"{ax},{dx}\"(i32 %cmdCfg32, i16 3320)\n";
+            out << "  call void asm sideeffect \"outl $0, $1\", \"{ax},{dx}\"(i32 %cmdOn, i16 3324)\n";
+            out << "  ret i64 %base\n";
+            out << "advance:\n  %nextdev = add i64 %dev, 1\n  br label %slot\n";
+            out << "fallback:\n  ret i64 3758096384\n}\n\n";
+            out << "define i64 @rx_frame_present(i64 %frame) noinline {\nentry:\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 4, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 0, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 1, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 320, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 2, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 200, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 3, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 32, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 4, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 65, i16 463)\n";
+            out << "  %front = call i64 @rx_display_bar()\n";
+            out << "  %p = inttoptr i64 %frame to ptr\n";
+            out << "  %fw32 = load i32, ptr %p, align 4\n";
+            out << "  %fw = zext i32 %fw32 to i64\n";
+            out << "  %hptr = getelementptr i8, ptr %p, i64 4\n";
+            out << "  %fh32 = load i32, ptr %hptr, align 4\n";
+            out << "  %fh = zext i32 %fh32 to i64\n";
+            out << "  %count = mul i64 %fw, %fh\n";
+            out << "  %src = getelementptr i8, ptr %p, i64 8\n";
+            out << "  %dst = inttoptr i64 %front to ptr\n";
+            out << "  br label %copy\n";
+            out << "copy:\n";
+            out << "  %i = phi i64 [ 0, %entry ], [ %next, %one ]\n";
+            out << "  %done = icmp uge i64 %i, %count\n";
+            out << "  br i1 %done, label %copied, label %one\n";
+            out << "one:\n";
+            out << "  %ss = getelementptr i32, ptr %src, i64 %i\n";
+            out << "  %dd = getelementptr i32, ptr %dst, i64 %i\n";
+            out << "  %pix = load i32, ptr %ss, align 4\n";
+            out << "  store volatile i32 %pix, ptr %dd, align 4\n";
+            out << "  %next = add i64 %i, 1\n";
+            out << "  br label %copy\n";
+            out << "copied:\n  %shown = load volatile i8, ptr %dst, align 1\n";
+            out << "  %byte = zext i8 %shown to i64\n  ret i64 %byte\n}\n\n";
+        } else {
+            out << "define i64 @rx_frame_present(i64 %frame) {\n";
+            out << "  ret i64 0\n}\n\n";
+        }
     }
 
     if (!m_options.freestanding && !nativeTests.empty()) {

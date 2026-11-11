@@ -59,6 +59,7 @@ static void PrintHelp() {
         << "    install                             Copy locked packages into Packages/ when the hash matches\n"
         << "    restore                             Check every locked hash and signature\n"
         << "    ui validate <file.rxu> --code <file.rx>   Parse, lay out, and type-check event handlers\n"
+        << "    ui frame [-o <file.png>]                   Write the Stage A desktop PNG\n"
         << "    ui render <file.rxu> -o <file.bmp>         Draw one software frame as a BMP\n"
         << "    ui window <file.rxu> [--dev]               Open the Screen on Windows. --dev keeps it open\n"
         << "    ui web <file.rxu> [--dev]                  Run the page directly. --dev does not write an HTML file\n"

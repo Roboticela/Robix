@@ -94,7 +94,8 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
     if (!clangTarget.empty()) {
         compile << "--target=" << clangTarget << " ";
     }
-    compile << "-c -ffreestanding -fno-stack-protector -fno-asynchronous-unwind-tables "
+    compile << "-c -ffreestanding -fno-stack-protector -fno-unwind-tables "
+            << "-fno-asynchronous-unwind-tables "
             << (optimize ? "-O3 " : "-O0 ");
     if (options.asmArch == "x86_64" && !clangTarget.empty()) {
         compile << "-mno-red-zone -mgeneral-regs-only -mno-sse -mno-mmx ";
@@ -125,7 +126,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
                   "  .data : { *(.data*) }\n  .bss : { *(.bss) *(COMMON) }\n}\n");
         const std::string entry = options.entrySymbol.empty() ? "Start" : options.entrySymbol;
         std::ostringstream link;
-        link << Quote(lld.string()) << " -m elf_x86_64 -nostdlib -static -e " << entry << " -T "
+        link << Quote(lld.string()) << " -flavor gnu -m elf_x86_64 -nostdlib -static -e " << entry << " -T "
              << Quote(script.string()) << " " << Quote(object.string()) << " -o " << Quote(output.string());
         std::string linkLog;
         if (RunProcess(link.str(), linkLog) != 0 || !FileExists(output)) {
@@ -187,7 +188,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
         }
         const std::string entry = options.entrySymbol.empty() ? "Start" : options.entrySymbol;
         std::ostringstream link;
-        link << Quote(lld.string()) << " -m " << emulation << " -nostdlib -e _start -T "
+        link << Quote(lld.string()) << " -flavor gnu -m " << emulation << " -nostdlib -e _start -T "
              << Quote(script.string()) << " " << Quote(bootObj.string()) << " "
              << Quote(object.string()) << " -o " << Quote(output.string());
         (void)entry;
@@ -242,6 +243,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
               "  .rodata : { *(.rodata*) }\n"
               "  .data : { *(.data*) }\n"
               "  .bss : { *(.bss) *(COMMON) }\n"
+              "  /DISCARD/ : { *(.eh_frame) *(.eh_frame_hdr) *(.comment) }\n"
               "}\n");
     WriteText(lowLd,
               "/* Robix " + options.imageRole + " multiboot trampoline. */\n"
@@ -255,7 +257,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
               "  .payload : { *(.payload) }\n"
               "}\n");
     std::ostringstream linkPayload;
-    linkPayload << Quote(lld.string()) << " -nostdlib -e "
+    linkPayload << Quote(lld.string()) << " -flavor gnu -nostdlib -e "
                 << (options.entrySymbol.empty() ? "Start" : options.entrySymbol)
                 << " -T " << Quote(highLd.string()) << " " << Quote(object.string())
                 << " -o " << Quote(payloadElf.string());
@@ -298,6 +300,9 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
               "    or $3, %eax\n"
               "    mov %eax, pml4\n"
               "    movl $0x83, pdpt\n"
+              "    movl $0x40000083, pdpt+8\n"
+              "    movl $0x80000083, pdpt+16\n"
+              "    movl $0xC0000083, pdpt+24\n"
               "    mov $pml4, %eax\n"
               "    mov %eax, %cr3\n"
               "    mov %cr4, %eax\n"
@@ -351,7 +356,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
         return res;
     }
     std::ostringstream bootLink;
-    bootLink << Quote(lld.string()) << " -m elf_i386 -T " << Quote(lowLd.string()) << " "
+    bootLink << Quote(lld.string()) << " -flavor gnu -m elf_i386 -T " << Quote(lowLd.string()) << " "
              << Quote(bootObj.string()) << " -o " << Quote(output.string());
     if (RunProcess(bootLink.str(), res.toolOutput) != 0 || !FileExists(output)) {
         res.diagnosticsText += "error: boot image link failed:\n" + res.toolOutput;

@@ -59,6 +59,8 @@ struct HostView {
     bool stayOpen = false;
     bool light = false;
     bool screen = false;
+    bool hasScreenColor = false;
+    RoboU32 screenColor = 0;
     bool movable = true;
     int scrollY = 0;
     int contentHeight = 0;
@@ -105,9 +107,12 @@ struct HostView {
     int shownScroll = -1;
 };
 
-void PaintFoundation(RoboGPU* gpu, bool light, bool drawText) {
+void PaintFoundation(RoboGPU* gpu, bool light, bool drawText, bool hasScreenColor, RoboU32 screenColor) {
     RoboWindowsInstallFontRaster(nullptr, 0);
-    RoboGPUClear(gpu, RoboFoundationPlatformColorForTheme("bg-primary", light ? ROBO_TRUE : ROBO_FALSE));
+    const RoboU32 color = hasScreenColor
+                              ? screenColor
+                              : RoboFoundationPlatformColorForTheme("bg-primary", light ? ROBO_TRUE : ROBO_FALSE);
+    RoboGPUClear(gpu, color);
     if (!drawText) {
         return;
     }
@@ -1127,7 +1132,7 @@ void Draw(HostView* view) {
             view->shownScroll = view->scrollY;
         }
     } else {
-        PaintFoundation(&view->gpu, view->light, !view->screen);
+        PaintFoundation(&view->gpu, view->light, !view->screen, view->hasScreenColor, view->screenColor);
     }
     if (!Publish(view)) {
         if (view->window != nullptr) {
@@ -1612,6 +1617,8 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 view->light = view->watched->light;
                 view->screen = view->watched->screen;
                 view->movable = view->watched->movable;
+                view->hasScreenColor = view->watched->hasScreenColor;
+                view->screenColor = view->watched->background;
                 SetWindowTextA(window, view->watched->title.c_str());
                 view->painted = false;
                 Request(view);
@@ -1736,6 +1743,8 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
     view.stayOpen = options.stayOpen;
     view.light = options.light;
     view.screen = options.screen;
+    view.hasScreenColor = options.hasScreenColor;
+    view.screenColor = options.background;
     view.movable = options.movable;
     view.document = options.document;
     WindowRunOptions watched = options;
@@ -1922,7 +1931,7 @@ bool WriteFoundationBmp(const std::string& path, std::string& error) {
     handoff.frameBuffer.greenMask = 0x0000FF00u;
     handoff.frameBuffer.blueMask = 0x000000FFu;
     RoboGPUInitFromHandoff(&gpu, &handoff, back, byteCount);
-    PaintFoundation(&gpu, false, true);
+    PaintFoundation(&gpu, false, true, false, 0);
     const bool wrote = WriteBmp24(path, gpu.back, width, height, width * 4u, error);
     _aligned_free(back);
     if (wrote) {
