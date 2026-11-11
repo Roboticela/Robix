@@ -252,25 +252,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         html += "</div>";
         return;
     }
-    const std::string as = Lower(RoboXMLAttr(node, "as"));
-    const char* textTag = as.empty() ? RoboWebTextTag(paint) : nullptr;
-    const char* tag = !as.empty() ? as.c_str() : textTag != nullptr ? textTag : "div";
-    if (paint == "heading" && as.empty()) {
-        const std::string level = Lower(RoboXMLAttr(node, "level", "1"));
-        if (level == "2") {
-            tag = "h2";
-        } else if (level == "3") {
-            tag = "h3";
-        } else if (level == "4") {
-            tag = "h4";
-        } else if (level == "5") {
-            tag = "h5";
-        } else if (level == "6") {
-            tag = "h6";
-        } else {
-            tag = "h1";
-        }
-    }
+    const std::string tag = RoboWebElementTag(prepared);
     std::string className;
     if (paint == "board") {
         className = "robo-board";
@@ -388,6 +370,25 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         html += " style=\"";
         html += Escape(style);
         html += "\"";
+    }
+    if (tag == "input") {
+        const auto inputAttr = [&](const char* htmlName, const char* key) {
+            const std::string value = RoboXMLAttr(node, key);
+            if (value.empty()) return;
+            html += " ";
+            html += htmlName;
+            html += "=\"";
+            html += Escape(value);
+            html += "\"";
+        };
+        if (RoboXMLAttr(node, "type").empty()) {
+            html += " type=\"text\"";
+        }
+        inputAttr("type", "type");
+        inputAttr("value", "value");
+        inputAttr("placeholder", "placeholder");
+        html += ">";
+        return;
     }
     html += ">";
     if (name == "scrollbar") {

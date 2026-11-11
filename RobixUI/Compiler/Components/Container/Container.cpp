@@ -96,7 +96,7 @@ bool RoboCompilerCheckContainer(const RoboXMLNode& node, const std::string& path
     if (!RoboCompilerIsSharedStyleKey(key) && key != "id" && key != "x" && key != "y" && key != "padding" &&
         key != "paddingtop" && key != "paddingright" && key != "paddingbottom" && key != "paddingleft" &&
         key != "background" && key != "backgroundcolor" && key != "bg" && key != "fill" && key != "fillparent" &&
-        key != "face" && key != "alias") {
+        key != "face" && key != "alias" && key != "as") {
       RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
                           "unknown Container attribute '" + kv.first + "'");
     }

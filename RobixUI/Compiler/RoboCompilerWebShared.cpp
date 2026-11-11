@@ -531,7 +531,8 @@ void RoboWebBehaviorAttrs(std::string& html, const RoboXMLNode& node) {
     data("content-width", "contentWidth");
     data("content-height", "contentHeight");
     const std::string editable = RoboWebLower(RoboXMLAttr(node, "editable"));
-    if (editable == "true" || editable == "1" || editable == "yes") {
+    const std::string element = RoboWebElementTag(node);
+    if ((editable == "true" || editable == "1" || editable == "yes") && element != "input" && element != "textarea") {
         html += " contenteditable=\"true\" data-editable=\"true\"";
     }
     const std::string overlay = RoboWebLower(RoboXMLAttr(node, "overlay"));

@@ -146,6 +146,47 @@ void RoboWebAppendTextCss(std::ostream& css) {
     css << "@media (min-width:1280px){.robo-type[style*=\"--robo-font-size-lg\"]{font-size:var(--robo-font-size-lg) !important}}\n";
 }
 
+bool RoboWebIsAllowedTag(const std::string& tag) {
+  return tag == "a" || tag == "button" || tag == "div" || tag == "span" || tag == "p" || tag == "h1" || tag == "h2" ||
+         tag == "h3" || tag == "h4" || tag == "h5" || tag == "h6" || tag == "input" || tag == "textarea" ||
+         tag == "label" || tag == "select" || tag == "option" || tag == "ul" || tag == "ol" || tag == "li" ||
+         tag == "nav" || tag == "section" || tag == "header" || tag == "footer" || tag == "main" || tag == "form" ||
+         tag == "article" || tag == "aside";
+}
+
+std::string RoboWebBuiltinTag(const RoboXMLNode& node, const std::string& paint) {
+  if (paint == "heading" || (paint.size() == 2 && paint[0] == 'h' && paint[1] >= '1' && paint[1] <= '6')) {
+    if (paint.size() == 2 && paint[0] == 'h') return paint;
+    const std::string level = RoboWebLower(RoboXMLAttr(node, "level", "1"));
+    if (level == "2") return "h2";
+    if (level == "3") return "h3";
+    if (level == "4") return "h4";
+    if (level == "5") return "h5";
+    if (level == "6") return "h6";
+    return "h1";
+  }
+  if (paint == "body" || paint == "paragraph" || paint == "p") return "p";
+  if (paint == "label") return "label";
+  if (paint == "button" || paint == "iconbutton") return "button";
+  if (paint == "anchor") return "a";
+  if (paint == "textfield" || paint == "emailfield" || paint == "phonefield" || paint == "passwordfield" ||
+      paint == "namefield") {
+    return "input";
+  }
+  if (paint == "textarea") return "textarea";
+  if (paint == "text" || paint == "span" || paint == "caption" || paint == "eyebrow" || paint == "subhead") return "span";
+  return "div";
+}
+
+std::string RoboWebElementTag(const RoboXMLNode& node) {
+  const std::string requested = RoboWebLower(RoboXMLAttr(node, "as"));
+  if (RoboWebIsAllowedTag(requested)) return requested;
+  const std::string name = RoboWebLower(node.name);
+  const std::string alias = RoboWebLower(RoboXMLAttr(node, "alias"));
+  const std::string paint = alias.empty() ? name : alias;
+  return RoboWebBuiltinTag(node, paint);
+}
+
 const char* RoboWebTextTag(const std::string& name) {
   if (name == "heading" || name == "h1") return "h1";
   if (name == "h2") return "h2";

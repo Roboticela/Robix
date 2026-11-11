@@ -172,7 +172,8 @@ bool RoboCompilerCheckText(const RoboXMLNode& node, const std::string& path, Rob
         key != "height" && key != "maxwidth" && key != "size" && key != "fontsize" && key != "color" &&
         key != "content" && key != "text" && key != "font" && key != "face" && key != "fontfamily" &&
         key != "level" && key != "variant" && key != "tone" && key != "tracking" && key != "leading" &&
-        key != "uppercase" && key != "screen" && key != "route" && key != "href" && key != "alias") {
+        key != "uppercase" && key != "screen" && key != "route" && key != "href" && key != "alias" && key != "as" &&
+        key != "placeholder" && key != "type" && key != "value" && key != "editable") {
       RoboCompilerAddDiag(result, RoboCompilerDiagnostic::Severity::Warning, path,
                           "unknown attribute '" + kv.first + "'");
     }

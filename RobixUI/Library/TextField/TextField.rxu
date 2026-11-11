@@ -1,5 +1,4 @@
-<!-- TextField is an editable Text inside a Container. -->
-<Component Name="TextField" Base="Container">
-  <Default Role="textbox"/>
-  <Text Editable="true" Value="{Value}" Placeholder="{Placeholder}"/>
+<!-- TextField is an input. As chooses the tag, and input is the default. -->
+<Component Name="TextField" Base="Text">
+  <Default As="input" Editable="true" Role="textbox"/>
 </Component>

@@ -1,4 +1,5 @@
 <!-- Anchor is built from Container. -->
 <Component Name="Anchor" Base="Container">
+  <Default As="a"/>
   <Slot Name="content"/>
 </Component>

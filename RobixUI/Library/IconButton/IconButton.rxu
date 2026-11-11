@@ -1,4 +1,5 @@
 <!-- IconButton is built from Container. -->
 <Component Name="IconButton" Base="Container">
+  <Default As="button"/>
   <Slot Name="content"/>
 </Component>
