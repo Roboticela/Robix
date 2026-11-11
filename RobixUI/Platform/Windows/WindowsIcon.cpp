@@ -7,9 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
-#define NANOSVG_IMPLEMENTATION
 #include "../../ThirdParty/nanosvg/nanosvg.h"
-#define NANOSVGRAST_IMPLEMENTATION
 #include "../../ThirdParty/nanosvg/nanosvgrast.h"
 
 namespace Robix::UI {

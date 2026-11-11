@@ -54,7 +54,7 @@ const char* const kDirect[] = {
 const char* const kPlatform[] = {
     "Print(", "Input(", "Input<", "File.", "Args.", "Env.", "Network.", "Thread.",
     "GPIO.", "PWM.", "UART.", "SPI.", "I2C.", "CAN.", "USB.", "PCIe.", "DMA.",
-    "Sensor.", "Motor.SetSpeed", "Interrupt.", "HardwareTimer."
+    "Sensor.", "Motor.SetSpeed", "Interrupt.Enable", "HardwareTimer."
 };
 
 std::string UseName(const char* needle) {

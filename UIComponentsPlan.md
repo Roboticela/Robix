@@ -337,10 +337,14 @@ Depends on: C2.
 
 Depends on: C2.
 
-- [ ] `Image` schema: source, fit, alt
-- [ ] Decode into the framebuffer
-- [ ] `OnLoad` and `OnError` fire
-- [ ] Test asserts a known pixel of a fixture image
+`RoboImageRead` accepts source, fit, and alt, and rejects an unknown attribute, a bad fit, a bad width or height, the wrong tag, and a child. `RoboImageDecode` reads JPEG, PNG, GIF, SVG, WebP, TIFF, and HEIC. GIF and WebP keep every frame. SVG is drawn again at the paint size. `RoboImagePaint` writes the pixels with contain, cover, fill, none, or scale-down.
+
+- [x] `Image` schema: source, fit, alt
+- [x] Decode into the framebuffer
+- [x] `OnLoad` and `OnError` fire
+- [x] Test asserts a known pixel of a fixture image
+
+`Tests/UI/RoboImageTests.cpp` passed, 154 checks. The fixture is a cooked 2×2 bitmap. The origin pixel is red (`#FF0000`). PNG keeps the clear pixel. JPEG is opaque. GIF and WebP each have a red frame and a blue frame 100 milliseconds apart. SVG painted at 32×32 keeps the triangle sharp. HEIC stays red. A short buffer fires `OnError` and paints nothing.
 
 ### Stage C5 — Icon
 
@@ -392,11 +396,11 @@ Depends on: C1. Sound has no box. Transport state is still a component so librar
 - [ ] Decode and play through the host output
 - [ ] Test asserts duration and the time after a fixed seek
 
-### Stage C11 — Input
+### Stage C11 — TextField
 
 Depends on: C2, C3. This is the editing surface. Checkbox, switch, and slider are not this primitive.
 
-- [ ] `Input` schema: value, placeholder, mask, multiline, disabled, `CursorColor`
+- [ ] `TextField` schema: value, placeholder, mask, multiline, disabled, `CursorColor`
 - [ ] Part: caret. `CursorColor` paints this part
 - [ ] Part: selection
 - [ ] Keyboard inserts and deletes
@@ -848,7 +852,7 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/Container/` | The old container name. Stage C2 resolves it to `View`. |
 | `RobixUI/Compiler/Components/View/` | Stage C2 layout engine. `RoboView` places and paints the box. |
 | `RobixUI/Compiler/Components/Text/` | Stage C3. `RoboText` reads the schema, measures the cooked font pack, and paints the glyph. `Span` is a part. |
-| `RobixUI/Compiler/Components/Image/` | Decode helpers. The native window still has to paint the bitmap. |
+| `RobixUI/Compiler/Components/Image/` | Stage C4. `RoboImage` reads the schema, decodes a cooked bitmap, and paints it into the frame. |
 | `RobixUI/Compiler/Components/Icon/` | `Icon` compiler unit |
 | `RobixUI/Compiler/Components/Svg/` | `Svg` compiler unit |
 | `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D` as a compiler tag. The paint unit is still to build. |

@@ -418,6 +418,64 @@ ROBO_GPU: miss
 
 `InstallMap` writes four 1 GiB identity entries, loads that root with `CPU.WriteCR3`, and `CPU.ReadCR3` matches it. The splash bar is drawn at 97, the memory ceiling `97400`. `Build/RoboticelaOS/stageG.ppm` is 320×200. Pixel `(0, 0)` is `1C 24 30`, the desktop after the splash.
 
+## RoboticelaOS Stage H
+
+`CPU.Gate` builds the interrupt descriptor. For handler `305419896` the low word is `1311829522123347576` and the high word is `0`. For handler `4294967297` the low word is `156130651668481` and the high word is `1`. `Clock.Seconds(66)` is `42`. `Volatile.Store32` of `1` through a pointer reads back as `1`.
+
+```
+robix test RoboticelaOS/Kernel/Interrupt/RoboIDT.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboTimer.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboScreen.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+robixc -O3 RoboticelaOS/Boot/RoboTrap.rxb -o Build/RoboticelaOS/RoboTrap.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboTrap.elf -display none -no-reboot -serial file:Build/RoboticelaOS/qemu.trap
+```
+
+The trap serial file is exactly `ROBO_IDT: trap 3`.
+
+## RoboticelaOS Stage I
+
+Installed RAM comes from CMOS registers `0x34` and `0x35`. On this QEMU machine that is 128 MiB, serial `ROBO_MEMORY: ram 128`. The free range starts at 16 MiB and the identity map covers that RAM plus the local APIC slot. The boot processor brings the other cores up after the splash. Each online core fills its own rows of the 1920×1080 framebuffer from its own stack at the top of the measured RAM. On this 128 MiB machine the first application stack is `134201336`. The boot processor paints the bar and the logo after those rows are done. A missing core does not stop the desktop.
+
+```
+robix test RoboticelaOS/Boot/RoboBootloader.test.rx
+robix test RoboticelaOS/Kernel/Memory/RoboMemoryManager.test.rx
+robix test RoboticelaOS/Kernel/CPU/RoboCPU.test.rx
+robix test RoboticelaOS/Runtime/GPU/RoboGPU.test.rx
+```
+
+Each printed `interpreter ok, native ok`. `RamBytes(0, 7)` is `134217728`. `MapSlots(134217728)` is `1`. `FreePageCount(134217728, 16777216)` is `28672`. `PaintBand` on worker 1 of 4 fills only its rows.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -no-reboot -no-shutdown -vga std -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file was:
+
+```
+ROBO_BOOT: handoff
+ROBO_KERNEL: start
+ROBO_MEMORY: pages
+ROBO_MEMORY: map
+ROBO_MEMORY: ram 128
+ROBO_IDT: gates
+ROBO_CLOCK: seconds
+ROBO_BOOT: splash
+ROBO_CPU: cores online4
+ROBO_TIMER: tick
+ROBO_GPU: present
+ROBO_UI: paint
+ROBO_UI: click
+ROBO_SHELL: bar
+ROBO_GPU: miss
+```
+
+The same image with `-smp 1` prints `ROBO_MEMORY: ram 128` and `ROBO_CPU: cores online1`, then reaches `ROBO_SHELL: bar`. `Build/RoboticelaOS/stageRam.ppm` is 1920×1080. Pixel `(0, 0)` is `1C 24 30`. Pixel `(200, 8)` is `0E 7A FF`. Pixel `(960, 540)` is `08 0A 10`. The 320×200 wallpaper scene is not drawn on this frame, so `ROBO_SCENE: frame` is absent.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

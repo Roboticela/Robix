@@ -1,4 +1,4 @@
-<Screen name="DevKit" title="RobixUI" theme="dark" width="960" height="900" place="center" state="normal" overflow="scroll" display="flex" direction="column" align="start" gap="18" padding="24" background="#080A10">
+<Screen name="DevKit" title="RobixUI" theme="dark" place="center" state="normal" overflow="scroll" display="flex" direction="column" align="start" gap="18" padding="24" background="#080A10">
   <Text value="Screen" fontSize="22" font="sans-semibold"/>
   <Text value="This window is place center and state normal. The samples below are theme, background, and size." fontSize="13"/>
   <Text value="Drag this sentence to select it. Double-click a word. Ctrl+C copies. Escape clears." fontSize="13"/>
