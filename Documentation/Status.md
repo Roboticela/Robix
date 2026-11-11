@@ -567,6 +567,35 @@ ROBO_PROCESS: alive
 
 The same image with `-smp 1` prints `ROBO_SCHED: core 0`, then `ROBO_PORT: round`, then `ROBO_VM: fault` and `ROBO_PROCESS: alive`.
 
+## RoboticelaOS Stage M
+
+`Proc.Create`, `Proc.Exit`, and `Proc.Wait` are the process table. `Cred.Allow` is the rights check. Process 1 is `RoboLaunch`, created with parent 0 and the root user. Its child is process 2 and a second child is process 3. Exiting the first child with status 7 makes `Proc.Wait` return 7. The second child is still alive, so `Proc.Wait` returns `-2`. Each process has its own page root from `Page.Split`: the supervisor flags are 3 and the user flags are 7, and the two roots differ. The child is also a scheduler thread, so `Sched.Pick` returns that child. Root may `SystemWrite`. A normal user may write and read, and may not `SystemWrite`. A guest may read and may not write. The splash ceiling for processes is `98600`.
+
+```
+robix test RoboticelaOS/Kernel/POSIX/RoboProcess.test.rx
+robix test RoboticelaOS/Kernel/POSIX/RoboCredential.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+robix test RoboticelaOS/Kernel/CPU/RoboScheduler.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -no-reboot -no-shutdown -vga std -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+After the port line, the four-core serial file contains:
+
+```
+ROBO_PORT: round
+ROBO_PROC: child
+ROBO_PROC: wait
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_PORT: round`, then `ROBO_PROC: child` and `ROBO_PROC: wait`.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

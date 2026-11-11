@@ -439,32 +439,67 @@ bool RoboImagePaintVector(const RoboImageRecord& image, RoboImageFrame& frame, i
     }
     const float scaleX = static_cast<float>(destWidth) / parsed->width;
     const float scaleY = static_cast<float>(destHeight) / parsed->height;
+    const int nativeWidth = std::max(1, static_cast<int>(std::lround(parsed->width)));
+    const int nativeHeight = std::max(1, static_cast<int>(std::lround(parsed->height)));
+    const bool shrink = nativeWidth <= ROBO_IMAGE_MAX_EDGE && nativeHeight <= ROBO_IMAGE_MAX_EDGE && destWidth <= nativeWidth &&
+                        destHeight <= nativeHeight && (destWidth < nativeWidth || destHeight < nativeHeight);
     NSVGrasterizer* raster = nsvgCreateRasterizer();
     if (raster == nullptr) {
         nsvgDelete(parsed);
         return false;
     }
-    const bool uniform = std::fabs(scaleX - scaleY) <= 0.001f * std::max(scaleX, scaleY);
     std::vector<RoboU8> rgba;
-    if (uniform) {
-        rgba.assign(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight) * 4u, 0);
-        nsvgRasterize(raster, parsed, 0.0f, 0.0f, scaleX, rgba.data(), destWidth, destHeight, destWidth * 4);
-    } else {
-        const int sampleHeight = std::max(1, static_cast<int>(std::lround(parsed->height * scaleX)));
-        std::vector<RoboU8> sample(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(sampleHeight) * 4u, 0);
-        nsvgRasterize(raster, parsed, 0.0f, 0.0f, scaleX, sample.data(), destWidth, sampleHeight, destWidth * 4);
+    if (shrink) {
+        const float nativeScale = static_cast<float>(nativeWidth) / parsed->width;
+        std::vector<RoboU8> sample(static_cast<std::size_t>(nativeWidth) * static_cast<std::size_t>(nativeHeight) * 4u, 0);
+        nsvgRasterize(raster, parsed, 0.0f, 0.0f, nativeScale, sample.data(), nativeWidth, nativeHeight, nativeWidth * 4);
         rgba.assign(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight) * 4u, 0);
         for (int y = 0; y < destHeight; ++y) {
-            const float sourceY = (static_cast<float>(y) + 0.5f) * static_cast<float>(sampleHeight) / static_cast<float>(destHeight) - 0.5f;
-            const int top = std::max(0, std::min(sampleHeight - 1, static_cast<int>(std::floor(sourceY))));
-            const int bottom = std::min(sampleHeight - 1, top + 1);
+            const float sourceY = (static_cast<float>(y) + 0.5f) * static_cast<float>(nativeHeight) / static_cast<float>(destHeight) - 0.5f;
+            const int top = std::max(0, std::min(nativeHeight - 1, static_cast<int>(std::floor(sourceY))));
+            const int bottom = std::min(nativeHeight - 1, top + 1);
             const float down = std::max(0.0f, std::min(1.0f, sourceY - static_cast<float>(top)));
             for (int x = 0; x < destWidth; ++x) {
-                const RoboU8* a = sample.data() + (static_cast<std::size_t>(top) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
-                const RoboU8* b = sample.data() + (static_cast<std::size_t>(bottom) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
+                const float sourceX = (static_cast<float>(x) + 0.5f) * static_cast<float>(nativeWidth) / static_cast<float>(destWidth) - 0.5f;
+                const int left = std::max(0, std::min(nativeWidth - 1, static_cast<int>(std::floor(sourceX))));
+                const int right = std::min(nativeWidth - 1, left + 1);
+                const float across = std::max(0.0f, std::min(1.0f, sourceX - static_cast<float>(left)));
+                const RoboU8* pixels[4] = {
+                    sample.data() + (static_cast<std::size_t>(top) * static_cast<std::size_t>(nativeWidth) + static_cast<std::size_t>(left)) * 4u,
+                    sample.data() + (static_cast<std::size_t>(top) * static_cast<std::size_t>(nativeWidth) + static_cast<std::size_t>(right)) * 4u,
+                    sample.data() + (static_cast<std::size_t>(bottom) * static_cast<std::size_t>(nativeWidth) + static_cast<std::size_t>(left)) * 4u,
+                    sample.data() + (static_cast<std::size_t>(bottom) * static_cast<std::size_t>(nativeWidth) + static_cast<std::size_t>(right)) * 4u,
+                };
                 RoboU8* dest = rgba.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
                 for (int channel = 0; channel < 4; ++channel) {
-                    dest[channel] = static_cast<RoboU8>(a[channel] * (1.0f - down) + b[channel] * down + 0.5f);
+                    const float topMix = pixels[0][channel] * (1.0f - across) + pixels[1][channel] * across;
+                    const float bottomMix = pixels[2][channel] * (1.0f - across) + pixels[3][channel] * across;
+                    dest[channel] = static_cast<RoboU8>(topMix * (1.0f - down) + bottomMix * down + 0.5f);
+                }
+            }
+        }
+    } else {
+        const bool uniform = std::fabs(scaleX - scaleY) <= 0.001f * std::max(scaleX, scaleY);
+        if (uniform) {
+            rgba.assign(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight) * 4u, 0);
+            nsvgRasterize(raster, parsed, 0.0f, 0.0f, scaleX, rgba.data(), destWidth, destHeight, destWidth * 4);
+        } else {
+            const int sampleHeight = std::max(1, static_cast<int>(std::lround(parsed->height * scaleX)));
+            std::vector<RoboU8> sample(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(sampleHeight) * 4u, 0);
+            nsvgRasterize(raster, parsed, 0.0f, 0.0f, scaleX, sample.data(), destWidth, sampleHeight, destWidth * 4);
+            rgba.assign(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight) * 4u, 0);
+            for (int y = 0; y < destHeight; ++y) {
+                const float sourceY = (static_cast<float>(y) + 0.5f) * static_cast<float>(sampleHeight) / static_cast<float>(destHeight) - 0.5f;
+                const int top = std::max(0, std::min(sampleHeight - 1, static_cast<int>(std::floor(sourceY))));
+                const int bottom = std::min(sampleHeight - 1, top + 1);
+                const float down = std::max(0.0f, std::min(1.0f, sourceY - static_cast<float>(top)));
+                for (int x = 0; x < destWidth; ++x) {
+                    const RoboU8* a = sample.data() + (static_cast<std::size_t>(top) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
+                    const RoboU8* b = sample.data() + (static_cast<std::size_t>(bottom) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
+                    RoboU8* dest = rgba.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
+                    for (int channel = 0; channel < 4; ++channel) {
+                        dest[channel] = static_cast<RoboU8>(a[channel] * (1.0f - down) + b[channel] * down + 0.5f);
+                    }
                 }
             }
         }

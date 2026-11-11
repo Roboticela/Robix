@@ -750,6 +750,54 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 } else if (inst.symbolImm == "CPU.GateHigh" && !inst.callArgRegs.empty()) {
                     const std::int64_t handler = regs[inst.callArgRegs[0]].AsInt();
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ handler >> 32 };
+                } else if (inst.symbolImm == "Proc.Create" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t parent = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t user = regs[inst.callArgRegs[1]].AsInt();
+                    bool parentOk = parent == 0;
+                    if (parent >= 1 && parent <= 8) parentOk = m_procState[parent - 1] == 1;
+                    int slot = -1;
+                    if (parentOk) {
+                        for (int i = 0; i < 8; ++i) {
+                            if (m_procState[i] == 0) { slot = i; break; }
+                        }
+                    }
+                    std::int64_t ident = 0;
+                    if (slot >= 0) {
+                        m_procParent[slot] = parent;
+                        m_procUser[slot] = user;
+                        m_procState[slot] = 1;
+                        m_procStatus[slot] = 0;
+                        ident = slot + 1;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ ident };
+                } else if (inst.symbolImm == "Proc.Exit" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t ident = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t status = regs[inst.callArgRegs[1]].AsInt();
+                    std::int64_t result = 0;
+                    if (ident >= 1 && ident <= 8 && m_procState[ident - 1] == 1) {
+                        m_procState[ident - 1] = 2;
+                        m_procStatus[ident - 1] = status;
+                        result = 1;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Proc.Wait" && !inst.callArgRegs.empty()) {
+                    const std::int64_t ident = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t result = -1;
+                    if (ident >= 1 && ident <= 8) {
+                        if (m_procState[ident - 1] == 2) result = m_procStatus[ident - 1];
+                        else if (m_procState[ident - 1] == 1) result = -2;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Cred.Allow" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t user = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t right = regs[inst.callArgRegs[1]].AsInt();
+                    const bool known = user >= 0 && user < 2;
+                    const bool guest = user == 2;
+                    std::int64_t allow = 0;
+                    if (right == 1 && user == 0) allow = 1;
+                    else if (right == 2 && known) allow = 1;
+                    else if (right == 4 && (known || guest)) allow = 1;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ allow };
                 } else if (inst.symbolImm == "Port.Create" && !inst.callArgRegs.empty()) {
                     const std::int64_t owner = regs[inst.callArgRegs[0]].AsInt();
                     int slot = -1;

@@ -2699,7 +2699,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
                      receiverExpr.text == "Atomic" ||                      receiverExpr.text == "Frame" ||
                      receiverExpr.text == "Input" || receiverExpr.text == "Page" ||
-                     receiverExpr.text == "Sched" || receiverExpr.text == "Fault")) {
+                     receiverExpr.text == "Sched" || receiverExpr.text == "Fault" ||
+                     receiverExpr.text == "Proc" || receiverExpr.text == "Cred")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2717,6 +2718,11 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Sched" &&
                                (memberName == "Enqueue" || memberName == "Pick" || memberName == "Block")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Proc" &&
+                               (memberName == "Create" || memberName == "Exit" || memberName == "Wait")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Cred" && memberName == "Allow") {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Volatile" && memberName == "Load32") {
                         ty = MakePrim("Int");

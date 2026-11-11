@@ -122,6 +122,10 @@ private:
     std::int64_t m_portState[8]{};
     std::int64_t m_portWord[8]{};
     std::int64_t m_portFull[8]{};
+    std::int64_t m_procParent[8]{};
+    std::int64_t m_procUser[8]{};
+    std::int64_t m_procState[8]{};
+    std::int64_t m_procStatus[8]{};
     std::int64_t m_frames = 0;
     std::unordered_map<std::int64_t, std::int64_t> m_mmio;
     bool m_gateChecked = false;

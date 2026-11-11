@@ -899,12 +899,28 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 	}
 	sl = sqrtf(sw*sw + sh*sh) / sqrtf(2.0f);
 
+	/* objectBoundingBox uses unitless numbers as fractions of the box. "1" is the far edge, not one pixel. */
+	NSVGcoordinate linearX1 = data->linear.x1;
+	NSVGcoordinate linearY1 = data->linear.y1;
+	NSVGcoordinate linearX2 = data->linear.x2;
+	NSVGcoordinate linearY2 = data->linear.y2;
+	if (data->units == NSVG_OBJECT_SPACE && data->type == NSVG_PAINT_LINEAR_GRADIENT) {
+		NSVGcoordinate* coords[4] = {&linearX1, &linearY1, &linearX2, &linearY2};
+		int coordIndex;
+		for (coordIndex = 0; coordIndex < 4; coordIndex++) {
+			if (coords[coordIndex]->units == NSVG_UNITS_USER) {
+				coords[coordIndex]->value *= 100.0f;
+				coords[coordIndex]->units = NSVG_UNITS_PERCENT;
+			}
+		}
+	}
+
 	if (data->type == NSVG_PAINT_LINEAR_GRADIENT) {
 		float x1, y1, x2, y2, dx, dy;
-		x1 = nsvg__convertToPixels(p, data->linear.x1, ox, sw);
-		y1 = nsvg__convertToPixels(p, data->linear.y1, oy, sh);
-		x2 = nsvg__convertToPixels(p, data->linear.x2, ox, sw);
-		y2 = nsvg__convertToPixels(p, data->linear.y2, oy, sh);
+		x1 = nsvg__convertToPixels(p, linearX1, ox, sw);
+		y1 = nsvg__convertToPixels(p, linearY1, oy, sh);
+		x2 = nsvg__convertToPixels(p, linearX2, ox, sw);
+		y2 = nsvg__convertToPixels(p, linearY2, oy, sh);
 		// Calculate transform aligned to the line
 		dx = x2 - x1;
 		dy = y2 - y1;

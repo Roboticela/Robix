@@ -942,7 +942,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Port" || expr.text == "CPU" || expr.text == "Timer" ||
                 expr.text == "Clock" || expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
                 expr.text == "Frame" || expr.text == "Input" || expr.text == "Page" ||
-                expr.text == "Sched" || expr.text == "Fault") {
+                expr.text == "Sched" || expr.text == "Fault" ||
+                expr.text == "Proc" || expr.text == "Cred") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1396,6 +1397,15 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             }
             if (recvType.baseName == "Sched" &&
                 (expr.text == "Enqueue" || expr.text == "Pick" || expr.text == "Block")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Proc" &&
+                (expr.text == "Create" || expr.text == "Exit" || expr.text == "Wait")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Cred" && expr.text == "Allow") {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }

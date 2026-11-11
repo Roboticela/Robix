@@ -217,6 +217,7 @@ struct ModuleCtx {
     bool usesInput = false;
     bool usesSched = false;
     bool usesPort = false;
+    bool usesProc = false;
     std::vector<RoboPlayedEvent> inputScript;
     bool usesScene = false;
     std::vector<std::uint32_t> scenePixels;
@@ -1529,6 +1530,29 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_ctx.usesPort = true;
                 Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call i64 @rx_port_receive(i64 " << port.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Proc.Create" && inst.operandIds.size() >= 2) {
+                m_ctx.usesProc = true;
+                Val parent = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val user = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_proc_create(i64 " << parent.repr << ", i64 " << user.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Proc.Exit" && inst.operandIds.size() >= 2) {
+                m_ctx.usesProc = true;
+                Val ident = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val status = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_proc_exit(i64 " << ident.repr << ", i64 " << status.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Proc.Wait" && !inst.operandIds.empty()) {
+                m_ctx.usesProc = true;
+                Val ident = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_proc_wait(i64 " << ident.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Cred.Allow" && inst.operandIds.size() >= 2) {
+                m_ctx.usesProc = true;
+                Val user = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val right = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_cred_allow(i64 " << user.repr << ", i64 " << right.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Clock.Seconds" && !inst.operandIds.empty()) {
                 Val cmos = Coerce(Operand(inst, 0), NTy::I64, inst.location);
@@ -3230,6 +3254,78 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "take:\n  %wp = getelementptr [8 x i64], ptr @rx.port.word, i64 0, i64 %slot\n";
         out << "  %word = load i64, ptr %wp, align 8\n  store i64 0, ptr %fp, align 8\n";
         out << "  call void @rx_port_unlock()\n  ret i64 %word\n}\n\n";
+    }
+
+    if (ctx.usesProc) {
+        out << "@rx.proc.lock = internal global i64 0\n";
+        out << "@rx.proc.parent = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.proc.user = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.proc.state = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.proc.status = internal global [8 x i64] zeroinitializer\n";
+        out << "define internal void @rx_proc_lock() {\n";
+        out << "entry:\n  br label %spin\n";
+        out << "spin:\n  %got = atomicrmw xchg ptr @rx.proc.lock, i64 1 seq_cst\n";
+        out << "  %free = icmp eq i64 %got, 0\n  br i1 %free, label %out, label %spin\n";
+        out << "out:\n  ret void\n}\n\n";
+        out << "define internal void @rx_proc_unlock() {\n";
+        out << "  store atomic i64 0, ptr @rx.proc.lock seq_cst, align 8\n  ret void\n}\n\n";
+        out << "define i64 @rx_proc_create(i64 %parent, i64 %user) {\n";
+        out << "entry:\n  call void @rx_proc_lock()\n";
+        out << "  %kernel = icmp eq i64 %parent, 0\n  br i1 %kernel, label %ready, label %check\n";
+        out << "check:\n  %pos = icmp sgt i64 %parent, 0\n  %lim = icmp sle i64 %parent, 8\n";
+        out << "  %range = and i1 %pos, %lim\n  br i1 %range, label %load, label %fail\n";
+        out << "load:\n  %pslot = sub i64 %parent, 1\n";
+        out << "  %pp = getelementptr [8 x i64], ptr @rx.proc.state, i64 0, i64 %pslot\n";
+        out << "  %pst = load i64, ptr %pp, align 8\n  %alive = icmp eq i64 %pst, 1\n";
+        out << "  br i1 %alive, label %ready, label %fail\n";
+        out << "ready:\n  br label %scan\n";
+        out << "scan:\n  %i = phi i64 [ 0, %ready ], [ %next, %step ]\n";
+        out << "  %done = icmp uge i64 %i, 8\n  br i1 %done, label %fail, label %slot\n";
+        out << "slot:\n  %sp = getelementptr [8 x i64], ptr @rx.proc.state, i64 0, i64 %i\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %empty = icmp eq i64 %st, 0\n";
+        out << "  br i1 %empty, label %fill, label %step\n";
+        out << "step:\n  %next = add i64 %i, 1\n  br label %scan\n";
+        out << "fill:\n  %par = getelementptr [8 x i64], ptr @rx.proc.parent, i64 0, i64 %i\n";
+        out << "  %usr = getelementptr [8 x i64], ptr @rx.proc.user, i64 0, i64 %i\n";
+        out << "  %code = getelementptr [8 x i64], ptr @rx.proc.status, i64 0, i64 %i\n";
+        out << "  store i64 %parent, ptr %par, align 8\n  store i64 %user, ptr %usr, align 8\n";
+        out << "  store i64 1, ptr %sp, align 8\n  store i64 0, ptr %code, align 8\n";
+        out << "  %id = add i64 %i, 1\n  call void @rx_proc_unlock()\n  ret i64 %id\n";
+        out << "fail:\n  call void @rx_proc_unlock()\n  ret i64 0\n}\n\n";
+        out << "define i64 @rx_proc_exit(i64 %id, i64 %status) {\n";
+        out << "entry:\n  %pos = icmp sgt i64 %id, 0\n  %lim = icmp sle i64 %id, 8\n";
+        out << "  %range = and i1 %pos, %lim\n  br i1 %range, label %lock, label %miss\n";
+        out << "miss:\n  ret i64 0\n";
+        out << "lock:\n  call void @rx_proc_lock()\n  %slot = sub i64 %id, 1\n";
+        out << "  %sp = getelementptr [8 x i64], ptr @rx.proc.state, i64 0, i64 %slot\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %alive = icmp eq i64 %st, 1\n";
+        out << "  br i1 %alive, label %stop, label %deny\n";
+        out << "deny:\n  call void @rx_proc_unlock()\n  ret i64 0\n";
+        out << "stop:\n  %cp = getelementptr [8 x i64], ptr @rx.proc.status, i64 0, i64 %slot\n";
+        out << "  store i64 2, ptr %sp, align 8\n  store i64 %status, ptr %cp, align 8\n";
+        out << "  call void @rx_proc_unlock()\n  ret i64 1\n}\n\n";
+        out << "define i64 @rx_proc_wait(i64 %id) {\n";
+        out << "entry:\n  %pos = icmp sgt i64 %id, 0\n  %lim = icmp sle i64 %id, 8\n";
+        out << "  %range = and i1 %pos, %lim\n  br i1 %range, label %lock, label %miss\n";
+        out << "miss:\n  ret i64 -1\n";
+        out << "lock:\n  call void @rx_proc_lock()\n  %slot = sub i64 %id, 1\n";
+        out << "  %sp = getelementptr [8 x i64], ptr @rx.proc.state, i64 0, i64 %slot\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %dead = icmp eq i64 %st, 2\n";
+        out << "  br i1 %dead, label %done, label %living\n";
+        out << "living:\n  %alive = icmp eq i64 %st, 1\n  br i1 %alive, label %run, label %gone\n";
+        out << "run:\n  call void @rx_proc_unlock()\n  ret i64 -2\n";
+        out << "gone:\n  call void @rx_proc_unlock()\n  ret i64 -1\n";
+        out << "done:\n  %cp = getelementptr [8 x i64], ptr @rx.proc.status, i64 0, i64 %slot\n";
+        out << "  %code = load i64, ptr %cp, align 8\n  call void @rx_proc_unlock()\n  ret i64 %code\n}\n\n";
+        out << "define i64 @rx_cred_allow(i64 %user, i64 %right) {\n";
+        out << "  %sys = icmp eq i64 %right, 1\n  %root = icmp eq i64 %user, 0\n";
+        out << "  %sysok = and i1 %sys, %root\n";
+        out << "  %write = icmp eq i64 %right, 2\n  %read = icmp eq i64 %right, 4\n";
+        out << "  %nonneg = icmp sge i64 %user, 0\n  %below = icmp slt i64 %user, 2\n";
+        out << "  %known = and i1 %nonneg, %below\n  %guest = icmp eq i64 %user, 2\n";
+        out << "  %writer = and i1 %write, %known\n  %reader = or i1 %known, %guest\n";
+        out << "  %readok = and i1 %read, %reader\n  %any = or i1 %sysok, %writer\n";
+        out << "  %allow = or i1 %any, %readok\n  %bit = zext i1 %allow to i64\n  ret i64 %bit\n}\n\n";
     }
 
     if (ctx.usesInput) {

@@ -291,20 +291,20 @@ Future programmers send a message through a port and receive it on the other end
 
 - [x] **Exit.** Two kernel threads exchange a message and serial contains `ROBO_PORT: round`.
 
-### [ ] Stage M — Processes, credentials, and sessions
+### [x] Stage M — Processes, credentials, and sessions
 
 Future programmers create a process, exit it, and wait for it. A user id is a number the file and device checks will trust.
 
-- [ ] **Task M1, Robix feature.** Add `Proc.Create`, `Proc.Exit`, `Proc.Wait`, and `Cred.Allow(user, right)`. The compiler test creates a child, waits for its status, and denies a guest the `SystemWrite` right while allowing the root user.
+- [x] **Task M1, Robix feature.** Add `Proc.Create`, `Proc.Exit`, `Proc.Wait`, and `Cred.Allow(user, right)`. The compiler test creates a child, waits for its status, and denies a guest the `SystemWrite` right while allowing the root user.
 
-- [ ] **Task M2.** `Kernel/POSIX/RoboProcess.rx` and `Kernel/POSIX/RoboCredential.rx` use those calls. Each process has one address space from Stage K, one credential, and a thread the Stage J scheduler runs. `RoboLaunch` will be process 1. The splash painter is not a process. It is kernel code that runs until process 1 starts.
+- [x] **Task M2.** `Kernel/POSIX/RoboProcess.rx` and `Kernel/POSIX/RoboCredential.rx` use those calls. Each process has one address space from Stage K, one credential, and a thread the Stage J scheduler runs. `RoboLaunch` will be process 1. The splash painter is not a process. It is kernel code that runs until process 1 starts.
 
 | File | Test |
 | :--- | :--- |
 | `Kernel/POSIX/RoboProcess.rx` | `RoboProcess.test.rx` covers create, exit, wait, and a second child that is still alive |
 | `Kernel/POSIX/RoboCredential.rx` | `RoboCredential.test.rx` covers root, a normal user, and guest |
 
-- [ ] **Exit.** Serial contains `ROBO_PROC: child` and `ROBO_PROC: wait`. Splash ceiling 98600.
+- [x] **Exit.** Serial contains `ROBO_PROC: child` and `ROBO_PROC: wait`. Splash ceiling 98600.
 
 ### [ ] Stage N — The syscall gate
 
