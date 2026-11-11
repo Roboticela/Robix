@@ -93,6 +93,20 @@
     <View width="28" height="16" background="#2F9E44"/>
   </View>
 
+  <Text value="Width 50%" fontSize="13" font="sans-semibold"/>
+  <View direction="row" width="180" height="28" gap="0" align="start" background="#141820">
+    <View width="50%" height="20" background="#E23B3B"/>
+    <View width="50%" height="20" background="#0E7AFF"/>
+  </View>
+
+  <Text value="Full width" fontSize="13" font="sans-semibold"/>
+  <View width="100%" height="20" background="#0E7AFF"/>
+
+  <Text value="Height 50%" fontSize="13" font="sans-semibold"/>
+  <View direction="row" width="120" height="48" align="start" background="#141820">
+    <View width="28" height="50%" background="#2F9E44"/>
+  </View>
+
   <Text value="Justify center" fontSize="13" font="sans-semibold"/>
   <View direction="row" width="180" height="32" justify="center" align="start" background="#141820">
     <View width="28" height="20" background="#0E7AFF"/>

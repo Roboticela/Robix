@@ -3,6 +3,7 @@
 #include "Compiler/Compose.hpp"
 #include "Compiler/Components/Screen/RoboScreen.hpp"
 #include "Compiler/RoboXML.hpp"
+#include "Platform/Windows/WindowsDocument.hpp"
 #include "Platform/Windows/WindowsHost.hpp"
 #include "Web/WebFoundation.hpp"
 
@@ -243,6 +244,59 @@ int RunUiCommand(const std::vector<std::string>& args) {
         break;
     }
 
+    if (command == "cook") {
+        if (document.empty()) {
+            std::cerr << "robix ui: expected a .rxu file\n";
+            return 1;
+        }
+        const std::string source = ReadText(document);
+        if (source.empty()) {
+            std::cerr << "robix ui: could not open '" << document << "'\n";
+            return 1;
+        }
+        RoboXMLDocument xml;
+        if (!RoboXMLParse(source, xml)) {
+            std::cerr << "robix ui: the document is not valid XML\n";
+            return 1;
+        }
+        const RoboXMLNode* screen = RoboScreenFind(xml.root);
+        if (screen == nullptr) {
+            std::cerr << "robix ui: R7004: the document has no Screen. Use Screen, Window, or Page.\n";
+            return 1;
+        }
+        const auto length = [](const RoboXMLNode& node, const char* key, int fallback) {
+            const std::string raw = RoboXMLAttr(node, key);
+            if (raw.empty()) {
+                return fallback;
+            }
+            try {
+                return std::max(1, std::stoi(raw));
+            } catch (...) {
+                return fallback;
+            }
+        };
+        const int viewWidth = length(*screen, "width", 320);
+        const int viewHeight = length(*screen, "height", 200);
+        std::vector<WindowBox> boxes;
+        if (WindowsDocumentBoxes(document, viewWidth, viewHeight, boxes) < 0) {
+            std::cerr << "robix ui: could not lay out '" << document << "'\n";
+            return 1;
+        }
+        const std::string output = Option(args, "-o", "Build/RoboticelaOS/Desktop.rxul");
+        std::error_code ec;
+        fs::create_directories(fs::path(output).parent_path(), ec);
+        std::ofstream out(output, std::ios::binary);
+        if (!out) {
+            std::cerr << "robix ui: could not write '" << output << "'\n";
+            return 1;
+        }
+        out << "RXUL 1\n";
+        for (const WindowBox& box : boxes) {
+            out << box.kind << ' ' << box.x << ' ' << box.y << ' ' << box.width << ' ' << box.height << ' ' << box.text << '\n';
+        }
+        std::cout << "cooked " << boxes.size() << " " << output << "\n";
+        return 0;
+    }
     if (command == "frame") {
         const std::string output = Option(args, "-o", "Build/RoboticelaOS/Desktop.png");
         std::error_code ec;

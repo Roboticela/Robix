@@ -931,7 +931,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Math" || expr.text == "UI" || expr.text == "Scene" || expr.text == "Volatile" ||
                 expr.text == "Port" || expr.text == "CPU" || expr.text == "Timer" ||
                 expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
-                expr.text == "Frame") {
+                expr.text == "Frame" || expr.text == "Input") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1319,6 +1319,24 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                     expr.inferredType = MakePrimitiveType("Bool");
                     return expr.inferredType;
                 }
+            }
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Input") {
+                if (expr.text == "Clear" || expr.text == "SetMouse" || expr.text == "AddClick") {
+                    expr.inferredType = MakePrimitiveType("Void");
+                    return expr.inferredType;
+                }
+                if (expr.text == "Play" || expr.text == "Count" || expr.text == "Kind" || expr.text == "X" ||
+                    expr.text == "Y" || expr.text == "Button" || expr.text == "Code" || expr.text == "Push" ||
+                    expr.text == "Pop" || expr.text == "MouseX" || expr.text == "MouseY" || expr.text == "Clicks") {
+                    expr.inferredType = MakePrimitiveType("Int");
+                    return expr.inferredType;
+                }
+            }
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "UI" &&
+                (expr.text == "LoadCooked" || expr.text == "Role" || expr.text == "BoxX" || expr.text == "BoxY" ||
+                 expr.text == "BoxWidth" || expr.text == "BoxHeight")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
             }
             if (expr.left && expr.left->kind == ExprKind::Identifier &&
                 (expr.left->text == "UI" || expr.left->text == "Scene") && expr.text == "Set") {

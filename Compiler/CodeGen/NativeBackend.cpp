@@ -1,4 +1,6 @@
 #include "NativeBackend.hpp"
+#include "../../RobixUI/CookedLayout.hpp"
+#include "../Runtime/InputScript.hpp"
 
 #include <cctype>
 #include <cstdint>
@@ -208,6 +210,10 @@ struct ModuleCtx {
     bool usesPages = false;
     bool usesSwitch = false;
     bool usesFrame = false;
+    bool usesUI = false;
+    std::vector<Robix::UI::RoboCookedBox> uiBoxes;
+    bool usesInput = false;
+    std::vector<RoboPlayedEvent> inputScript;
     int printFmt = -1;
     const IR::IRModule* module = nullptr;
     const NativeEmitOptions& options;
@@ -268,6 +274,14 @@ private:
         std::uint32_t id = 0;
         std::string var;
     };
+
+    std::string ConstText(std::uint32_t id) const {
+        auto it = m_defs.find(id);
+        if (it == m_defs.end()) return {};
+        if (it->second.op == IR::IROpcode::Copy && it->second.text != "ToString") return ConstText(it->second.op0);
+        if (it->second.op == IR::IROpcode::ConstString) return it->second.text;
+        return {};
+    }
 
     void IndexDefs() {
         m_defs.clear();
@@ -1293,6 +1307,89 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << wrote << " = call i32 @rx_write_text(ptr " << path.repr << ", ptr " << text.repr << ")\n";
                 m_body << "  " << vname << " = icmp ne i32 " << wrote << ", 0\n";
                 m_vals[id] = Val{ vname, NTy::I1 };
+            } else if (inst.textImm == "UI.LoadCooked" && !inst.operandIds.empty()) {
+                m_ctx.usesUI = true;
+                const std::string path = ConstText(inst.operandIds[0]);
+                if (path.empty()) {
+                    Err("N9011", "UI.LoadCooked needs a string literal path.", inst.location);
+                    break;
+                }
+                std::vector<Robix::UI::RoboCookedBox> loaded;
+                if (!Robix::UI::RoboCookedLoad(path, loaded)) {
+                    Err("N9011", "UI.LoadCooked could not read '" + path + "'.", inst.location);
+                    break;
+                }
+                m_ctx.uiBoxes = std::move(loaded);
+                m_body << "  " << vname << " = call i64 @rx_ui_count()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Role" || inst.textImm == "UI.BoxX" || inst.textImm == "UI.BoxY" ||
+                       inst.textImm == "UI.BoxWidth" || inst.textImm == "UI.BoxHeight") {
+                m_ctx.usesUI = true;
+                int field = 0;
+                if (inst.textImm == "UI.BoxX") field = 1;
+                else if (inst.textImm == "UI.BoxY") field = 2;
+                else if (inst.textImm == "UI.BoxWidth") field = 3;
+                else if (inst.textImm == "UI.BoxHeight") field = 4;
+                Val index = inst.operandIds.empty() ? Val{ "0", NTy::I64 }
+                                                    : Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_field(i64 " << index.repr << ", i64 " << field << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Input.Play" && !inst.operandIds.empty()) {
+                m_ctx.usesInput = true;
+                const std::string script = ConstText(inst.operandIds[0]);
+                if (script.empty() || !RoboParseInputScript(script, m_ctx.inputScript)) {
+                    Err("N9011", "Input.Play needs a move, click, or key script.", inst.location);
+                    break;
+                }
+                m_body << "  " << vname << " = call i64 @rx_input_play()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Input.Count" || inst.textImm == "Input.Clicks" ||
+                       inst.textImm == "Input.MouseX" || inst.textImm == "Input.MouseY" ||
+                       inst.textImm == "Input.Pop") {
+                m_ctx.usesInput = true;
+                const char* fn = "rx_input_count";
+                if (inst.textImm == "Input.Clicks") fn = "rx_input_clicks";
+                else if (inst.textImm == "Input.MouseX") fn = "rx_input_mouse_x";
+                else if (inst.textImm == "Input.MouseY") fn = "rx_input_mouse_y";
+                else if (inst.textImm == "Input.Pop") fn = "rx_input_pop";
+                m_body << "  " << vname << " = call i64 @" << fn << "()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Input.Kind" || inst.textImm == "Input.Code" || inst.textImm == "Input.Button" ||
+                       inst.textImm == "Input.X" || inst.textImm == "Input.Y") {
+                m_ctx.usesInput = true;
+                int field = 0;
+                if (inst.textImm == "Input.Code") field = 1;
+                else if (inst.textImm == "Input.Button") field = 2;
+                else if (inst.textImm == "Input.X") field = 3;
+                else if (inst.textImm == "Input.Y") field = 4;
+                Val index = inst.operandIds.empty() ? Val{ "0", NTy::I64 }
+                                                    : Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_input_field(i64 " << index.repr << ", i64 " << field << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Input.Push" && inst.operandIds.size() >= 5) {
+                m_ctx.usesInput = true;
+                Val type = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val code = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val value = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                Val x = Coerce(Operand(inst, 3), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 4), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_input_push(i64 " << type.repr << ", i64 " << code.repr
+                       << ", i64 " << value.repr << ", i64 " << x.repr << ", i64 " << y.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Input.Clear") {
+                m_ctx.usesInput = true;
+                m_body << "  call void @rx_input_clear()\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Input.SetMouse" && inst.operandIds.size() >= 2) {
+                m_ctx.usesInput = true;
+                Val x = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  call void @rx_input_set_mouse(i64 " << x.repr << ", i64 " << y.repr << ")\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Input.AddClick") {
+                m_ctx.usesInput = true;
+                m_body << "  call void @rx_input_add_click()\n";
+                m_vals[id] = Val{ "0", NTy::Void };
             } else if (inst.textImm == "File.ReadText" && !inst.operandIds.empty()) {
                 Val path = Operand(inst, 0);
                 m_body << "  " << vname << " = call ptr @rx_read_text(ptr " << path.repr << ")\n";
@@ -2547,6 +2644,128 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "define i64 @rx_frame_present(i64 %frame) {\n";
             out << "  ret i64 0\n}\n\n";
         }
+    }
+
+    if (ctx.usesUI) {
+        const std::size_t count = ctx.uiBoxes.size();
+        const std::size_t slots = count * 5;
+        if (slots == 0) {
+            out << "define i64 @rx_ui_count() {\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_ui_field(i64 %i, i64 %f) {\n  ret i64 0\n}\n\n";
+        } else {
+            out << "@rx.ui.boxes = internal constant [" << slots << " x i32] [";
+            for (std::size_t index = 0; index < count; ++index) {
+                const Robix::UI::RoboCookedBox& box = ctx.uiBoxes[index];
+                const int fields[5] = { box.role, box.x, box.y, box.width, box.height };
+                for (int field = 0; field < 5; ++field) {
+                    if (index != 0 || field != 0) out << ", ";
+                    out << "i32 " << fields[field];
+                }
+            }
+            out << "]\n";
+            out << "define i64 @rx_ui_count() {\n  ret i64 " << count << "\n}\n\n";
+            out << "define i64 @rx_ui_field(i64 %i, i64 %f) {\n";
+            out << "  %in = icmp ult i64 %i, " << count << "\n";
+            out << "  %fn = icmp ult i64 %f, 5\n";
+            out << "  %ok = and i1 %in, %fn\n";
+            out << "  br i1 %ok, label %hit, label %miss\n";
+            out << "miss:\n  ret i64 0\n";
+            out << "hit:\n  %base = mul i64 %i, 5\n  %slot = add i64 %base, %f\n";
+            out << "  %p = getelementptr [" << slots << " x i32], ptr @rx.ui.boxes, i64 0, i64 %slot\n";
+            out << "  %v = load i32, ptr %p, align 4\n  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
+        }
+    }
+
+    if (ctx.usesInput) {
+        const std::size_t count = ctx.inputScript.size();
+        int mouseX = 0;
+        int mouseY = 0;
+        RoboPlayedMouse(ctx.inputScript, mouseX, mouseY);
+        out << "@rx.input.live = internal global [128 x [5 x i32]] zeroinitializer\n";
+        out << "@rx.input.head = internal global i32 0\n";
+        out << "@rx.input.tail = internal global i32 0\n";
+        out << "@rx.input.mouseX = internal global i32 0\n";
+        out << "@rx.input.mouseY = internal global i32 0\n";
+        out << "@rx.input.clicks = internal global i32 0\n";
+        out << "define i64 @rx_input_play() {\n";
+        out << "  store i32 0, ptr @rx.input.head, align 4\n";
+        out << "  store i32 " << count << ", ptr @rx.input.tail, align 4\n";
+        for (std::size_t index = 0; index < count; ++index) {
+            const RoboPlayedEvent& event = ctx.inputScript[index];
+            const int fields[5] = { event.type, event.code, event.value, event.x, event.y };
+            for (int field = 0; field < 5; ++field) {
+                out << "  %p" << index << "_" << field
+                    << " = getelementptr [128 x [5 x i32]], ptr @rx.input.live, i64 0, i64 " << index
+                    << ", i64 " << field << "\n";
+                out << "  store i32 " << fields[field] << ", ptr %p" << index << "_" << field << ", align 4\n";
+            }
+        }
+        out << "  store i32 " << mouseX << ", ptr @rx.input.mouseX, align 4\n";
+        out << "  store i32 " << mouseY << ", ptr @rx.input.mouseY, align 4\n";
+        out << "  ret i64 " << count << "\n}\n\n";
+        out << "define i64 @rx_input_count() {\n";
+        out << "  %h = load i32, ptr @rx.input.head, align 4\n";
+        out << "  %t = load i32, ptr @rx.input.tail, align 4\n";
+        out << "  %n = sub i32 %t, %h\n  %z = zext i32 %n to i64\n  ret i64 %z\n}\n\n";
+        out << "define i64 @rx_input_clicks() {\n";
+        out << "  %c = load i32, ptr @rx.input.clicks, align 4\n  %z = zext i32 %c to i64\n  ret i64 %z\n}\n\n";
+        out << "define i64 @rx_input_mouse_x() {\n";
+        out << "  %v = load i32, ptr @rx.input.mouseX, align 4\n  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
+        out << "define i64 @rx_input_mouse_y() {\n";
+        out << "  %v = load i32, ptr @rx.input.mouseY, align 4\n  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
+        out << "define void @rx_input_clear() {\n";
+        out << "  store i32 0, ptr @rx.input.head, align 4\n";
+        out << "  store i32 0, ptr @rx.input.tail, align 4\n";
+        out << "  store i32 0, ptr @rx.input.mouseX, align 4\n";
+        out << "  store i32 0, ptr @rx.input.mouseY, align 4\n";
+        out << "  store i32 0, ptr @rx.input.clicks, align 4\n  ret void\n}\n\n";
+        out << "define void @rx_input_set_mouse(i64 %x, i64 %y) {\n";
+        out << "  %x32 = trunc i64 %x to i32\n  %y32 = trunc i64 %y to i32\n";
+        out << "  store i32 %x32, ptr @rx.input.mouseX, align 4\n";
+        out << "  store i32 %y32, ptr @rx.input.mouseY, align 4\n  ret void\n}\n\n";
+        out << "define void @rx_input_add_click() {\n";
+        out << "  %c = load i32, ptr @rx.input.clicks, align 4\n  %n = add i32 %c, 1\n";
+        out << "  store i32 %n, ptr @rx.input.clicks, align 4\n  ret void\n}\n\n";
+        out << "define i64 @rx_input_pop() {\n";
+        out << "  %h = load i32, ptr @rx.input.head, align 4\n";
+        out << "  %t = load i32, ptr @rx.input.tail, align 4\n";
+        out << "  %empty = icmp uge i32 %h, %t\n";
+        out << "  br i1 %empty, label %miss, label %hit\n";
+        out << "miss:\n  ret i64 0\n";
+        out << "hit:\n  %n = add i32 %h, 1\n  store i32 %n, ptr @rx.input.head, align 4\n  ret i64 1\n}\n\n";
+        out << "define i64 @rx_input_field(i64 %i, i64 %f) {\n";
+        out << "  %h = load i32, ptr @rx.input.head, align 4\n";
+        out << "  %t = load i32, ptr @rx.input.tail, align 4\n";
+        out << "  %i32 = trunc i64 %i to i32\n";
+        out << "  %at = add i32 %h, %i32\n";
+        out << "  %in = icmp ult i32 %at, %t\n";
+        out << "  %fn = icmp ult i64 %f, 5\n";
+        out << "  %ok = and i1 %in, %fn\n";
+        out << "  br i1 %ok, label %hit, label %miss\n";
+        out << "miss:\n  ret i64 0\n";
+        out << "hit:\n  %slot = zext i32 %at to i64\n";
+        out << "  %p = getelementptr [128 x [5 x i32]], ptr @rx.input.live, i64 0, i64 %slot, i64 %f\n";
+        out << "  %v = load i32, ptr %p, align 4\n  %z = sext i32 %v to i64\n  ret i64 %z\n}\n\n";
+        out << "define i64 @rx_input_push(i64 %type, i64 %code, i64 %value, i64 %x, i64 %y) {\n";
+        out << "  %t = load i32, ptr @rx.input.tail, align 4\n";
+        out << "  %full = icmp uge i32 %t, 128\n";
+        out << "  br i1 %full, label %done, label %put\n";
+        out << "put:\n  %slot = zext i32 %t to i64\n";
+        out << "  %p0 = getelementptr [128 x [5 x i32]], ptr @rx.input.live, i64 0, i64 %slot, i64 0\n";
+        out << "  %p1 = getelementptr [128 x [5 x i32]], ptr @rx.input.live, i64 0, i64 %slot, i64 1\n";
+        out << "  %p2 = getelementptr [128 x [5 x i32]], ptr @rx.input.live, i64 0, i64 %slot, i64 2\n";
+        out << "  %p3 = getelementptr [128 x [5 x i32]], ptr @rx.input.live, i64 0, i64 %slot, i64 3\n";
+        out << "  %p4 = getelementptr [128 x [5 x i32]], ptr @rx.input.live, i64 0, i64 %slot, i64 4\n";
+        out << "  %t32 = trunc i64 %type to i32\n  store i32 %t32, ptr %p0, align 4\n";
+        out << "  %c32 = trunc i64 %code to i32\n  store i32 %c32, ptr %p1, align 4\n";
+        out << "  %v32 = trunc i64 %value to i32\n  store i32 %v32, ptr %p2, align 4\n";
+        out << "  %x32 = trunc i64 %x to i32\n  store i32 %x32, ptr %p3, align 4\n";
+        out << "  %y32 = trunc i64 %y to i32\n  store i32 %y32, ptr %p4, align 4\n";
+        out << "  %n = add i32 %t, 1\n  store i32 %n, ptr @rx.input.tail, align 4\n";
+        out << "  br label %done\n";
+        out << "done:\n  %h2 = load i32, ptr @rx.input.head, align 4\n";
+        out << "  %t2 = load i32, ptr @rx.input.tail, align 4\n";
+        out << "  %left = sub i32 %t2, %h2\n  %z = zext i32 %left to i64\n  ret i64 %z\n}\n\n";
     }
 
     if (!m_options.freestanding && !nativeTests.empty()) {

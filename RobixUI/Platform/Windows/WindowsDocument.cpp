@@ -251,6 +251,10 @@ int LengthOf(const std::string& raw) {
 }
 
 int MeasureLength(const std::string& raw, int basis) {
+    const std::string folded = Lower(raw);
+    if (folded == "full" || folded == "fill") {
+        return std::max(0, basis);
+    }
     if (raw.size() > 1 && raw.back() == '%') {
         const std::string number = raw.substr(0, raw.size() - 1);
         std::size_t begin = 0;
@@ -427,6 +431,8 @@ struct PaintOp {
     RoboU32 fill = 0;
     RoboU32 color = 0;
     int size = 0;
+    int wrapWidth = 0;
+    int wrapSize = 0;
     int face = 0;
     int align = 0;
     int wrap = 1;
@@ -435,6 +441,7 @@ struct PaintOp {
     int whiteSpace = 1;
     bool breakLong = true;
     std::string value;
+    std::string role;
     int control = -1;
     int kind = 0;
     int preview = 0;
@@ -561,7 +568,7 @@ struct HitState {
     bool pointerTaken = false;
 };
 
-int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits);
+int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits, int slotHeight = -1);
 
 int IconBox(const RoboXMLNode& node) {
     int size = AttrLength(node, "size", 0);
@@ -1205,7 +1212,41 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     return std::min(maxWidth, used + Padding(node) * 2);
 }
 
+int HexDigit(char ch) {
+    if (ch >= '0' && ch <= '9') return ch - '0';
+    if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+    if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+    return -1;
+}
+
 RoboU32 ThemeColor(const char* name, bool light) {
+    if (name != nullptr && name[0] == '#') {
+        const std::string hex(name + 1);
+        std::string expanded = hex;
+        if (hex.size() == 3 || hex.size() == 4) {
+            expanded.clear();
+            for (char ch : hex) {
+                expanded.push_back(ch);
+                expanded.push_back(ch);
+            }
+        }
+        RoboU32 value = 0;
+        bool ok = expanded.size() == 6 || expanded.size() == 8;
+        for (char ch : expanded) {
+            const int digit = HexDigit(ch);
+            if (digit < 0) {
+                ok = false;
+                break;
+            }
+            value = (value << 4) | static_cast<RoboU32>(digit);
+        }
+        if (ok && expanded.size() == 6) {
+            value |= 0xFF000000u;
+        }
+        if (ok) {
+            return value;
+        }
+    }
     return RoboFoundationPlatformColorForTheme(name, light ? ROBO_TRUE : ROBO_FALSE);
 }
 
@@ -1429,7 +1470,7 @@ TextFlow FlowOf(const RoboXMLNode& node) {
     } else if (longBreak == "anywhere" || longBreak == "break-word" || longBreak == "breakword") {
         flow.breakLong = true;
     } else {
-        flow.breakLong = flow.mode != 0;
+        flow.breakLong = false;
     }
     return flow;
 }
@@ -1746,7 +1787,7 @@ void ShiftRange(std::vector<PaintOp>& ops, std::size_t begin, std::size_t end, H
     }
 }
 
-int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits) {
+int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits, int slotHeight) {
     const std::string name = Lower(node.name);
     const std::string face = RoboUIFace(node);
     std::string shown = Lower(RoboXMLAttr(node, "visibility"));
@@ -1770,8 +1811,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         box.height = boxH;
         box.radius = AttrLength(node, "radius");
         const std::string fillName = RoboXMLAttr(node, "background");
-        box.fill = RoboFoundationPlatformColorForTheme(fillName.empty() ? "bg-secondary" : fillName.c_str(),
-                                                       light ? ROBO_TRUE : ROBO_FALSE);
+        box.fill = ThemeColor(fillName.empty() ? "bg-secondary" : fillName.c_str(), light);
         ops.push_back(box);
         const std::string caption = TrimCopy(RoboXMLAttr(node, "alt"));
         if (!caption.empty()) {
@@ -1885,6 +1925,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
             const std::string alignName = Lower(RoboXMLAttr(node, "textalign").empty() ? RoboXMLAttr(node, "align") : RoboXMLAttr(node, "textalign"));
             PaintOp op;
             op.text = true;
+            op.role = "Text";
             op.x = field ? x + Px(8) : x;
             op.y = field ? y + std::max(0, (fieldH - style.size) / 2) : y;
             op.width = field ? std::max(1, width - Px(16)) : width;
@@ -1914,6 +1955,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         const int box = IconBox(node);
         PaintOp op;
         op.drawing = true;
+        op.role = "Icon";
         op.x = x;
         op.y = y;
         op.width = box;
@@ -1935,6 +1977,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         }
         PaintOp op;
         op.button = true;
+        op.role = "Button";
         op.control = control;
         op.x = x;
         op.y = y;
@@ -1999,6 +2042,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         }
         PaintOp op;
         op.button = true;
+        op.role = "Button";
         op.iconButton = true;
         op.control = control;
         op.x = x;
@@ -2163,6 +2207,23 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     const int inner = std::max(0, width - pad.left - pad.right);
     const int originX = x + pad.left;
     const int originY = y + pad.top;
+    int childSlot = -1;
+    {
+        const std::string raw = RoboXMLAttr(node, "height");
+        const std::string folded = Lower(raw);
+        if (!raw.empty() && folded != "auto") {
+            const int basis = slotHeight > 0 ? slotHeight : 0;
+            int asked = 0;
+            if (folded == "full" || folded == "fill" || (!raw.empty() && raw.back() == '%')) {
+                asked = basis > 0 ? MeasureLength(raw, basis) : 0;
+            } else {
+                asked = LengthOf(raw);
+            }
+            if (asked > 0) {
+                childSlot = std::max(0, asked - pad.top - pad.bottom);
+            }
+        }
+    }
     const std::string display = Lower(RoboXMLAttr(node, "display"));
     const std::string direction = Lower(RoboXMLAttr(node, "direction"));
     const bool stack = display == "stack" || name == "stack";
@@ -2216,11 +2277,12 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     }
     if (!fillName.empty()) {
         PaintOp box;
+        box.role = node.name;
         box.x = x;
         box.y = y;
         box.width = width;
         box.radius = AttrLength(node, "radius");
-        box.fill = RoboFoundationPlatformColorForTheme(fillName.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
+        box.fill = ThemeColor(fillName.c_str(), light);
         if (box.fill != 0) {
             ops.push_back(box);
             hasBackground = true;
@@ -2295,7 +2357,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     const auto placeChild = [&](const RoboXMLNode& child, int childX, int childY, int childWidth) {
         const std::size_t begin = ops.size();
         const int controls = controlCount();
-        const int childHeight = PlaceNode(child, childX, childY, std::max(1, childWidth), light, ops, hits);
+        const int childHeight = PlaceNode(child, childX, childY, std::max(1, childWidth), light, ops, hits, childSlot);
         slots.push_back(Slot{begin, ops.size(), controls, controlCount(), childX, childY, childWidth, childHeight, selfAlign(child)});
         return childHeight;
     };
@@ -2527,8 +2589,11 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
             const int asked = AskedLength(*child, "width", used);
             const int across = selfAlign(*child);
             const bool hug = Lower(RoboXMLAttr(*child, "size")) == "content";
+            const bool textChild = IsText(Lower(child->name));
             if (asked >= 0) {
                 used = std::min(used, asked);
+            } else if (textChild) {
+                used = std::max(0, inner - margin.left - margin.right);
             } else if (across != 3 || hug) {
                 used = std::min(used, ContentWidth(*child, used));
             }
@@ -2547,7 +2612,8 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         contentBottom = cursorY;
     }
     int total = std::max(0, contentBottom - y + pad.bottom);
-    const int askedHeight = AskedLength(node, "height", std::max(total, 1));
+    const int heightBasis = slotHeight > 0 ? slotHeight : std::max(total, 1);
+    const int askedHeight = AskedLength(node, "height", heightBasis);
     const int minHeight = AttrLength(node, "minheight");
     int boxHeight = total;
     if (askedHeight > boxHeight) {
@@ -2609,6 +2675,21 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         for (Slot& slot : slots) {
             ShiftRange(ops, slot.opBegin, slot.opEnd, hits, slot.controlBegin, slot.controlEnd, 0, shift);
             shift += extra;
+        }
+    }
+    if (row && align != 3 && boxHeight > total && !slots.empty()) {
+        const int free = boxHeight - total;
+        int dy = 0;
+        if (align == 1) {
+            dy = free / 2;
+        } else if (align == 2) {
+            dy = free;
+        }
+        if (dy != 0) {
+            for (Slot& slot : slots) {
+                ShiftRange(ops, slot.opBegin, slot.opEnd, hits, slot.controlBegin, slot.controlEnd, 0, dy);
+                slot.y += dy;
+            }
         }
     }
     const int innerHeight = std::max(0, boxHeight - pad.top - pad.bottom);
@@ -3020,16 +3101,25 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
                 flow.overflow = op.overflow;
                 flow.whiteSpace = op.whiteSpace;
                 flow.breakLong = op.breakLong;
-                TextLines(op.value, op.width, op.size, op.face, flow, lines);
+                const int wrapWidth = op.wrapWidth > 0 ? op.wrapWidth : op.width;
+                const int wrapSize = op.wrapSize > 0 ? op.wrapSize : op.size;
+                TextLines(op.value, wrapWidth, wrapSize, op.face, flow, lines);
                 const int step = std::max(1, op.height / static_cast<int>(std::max<std::size_t>(1, lines.size())));
                 int lineY = y;
+                const auto paintWidth = [&](int measured) {
+                    if (op.wrapSize > 0 && op.size > 0 && op.wrapSize != op.size) {
+                        return std::max(1, (measured * op.size + op.wrapSize / 2) / op.wrapSize);
+                    }
+                    return measured;
+                };
                 for (std::size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
                     const TextLine& line = lines[lineIndex];
+                    const int drawn = paintWidth(line.width);
                     int lineX = textX;
                     if (op.align == 1) {
-                        lineX = op.x + std::max(0, (op.width - line.width) / 2);
+                        lineX = op.x + std::max(0, (op.width - drawn) / 2);
                     } else if (op.align == 2) {
-                        lineX = op.x + std::max(0, op.width - line.width);
+                        lineX = op.x + std::max(0, op.width - drawn);
                     }
                     const bool justify = op.align == 3 && lineIndex + 1 < lines.size() && line.width < op.width &&
                                          line.text.find(' ') != std::string::npos;
@@ -3428,6 +3518,8 @@ void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int 
         scaled.width = std::max(1, ScaleLen(op.x + op.width, scale) - scaled.x);
         scaled.height = std::max(1, ScaleLen(docTop + op.height, scale) - scaled.y);
         scaled.radius = ScaleLen(op.radius, scale);
+        scaled.wrapWidth = std::max(1, op.width);
+        scaled.wrapSize = std::max(1, op.size);
         scaled.size = std::max(1, ScaleLen(std::max(1, op.size), scale));
         scaled.borderPx = op.borderPx > 0 ? std::max(1, ScaleLen(op.borderPx, scale)) : 0;
         PaintOne(gpu, scaled, 0, screenHeight, gScene.light);
@@ -3657,6 +3749,46 @@ int WindowsDocumentSpinRects(WindowPatch* patches, int capacity) {
 }
 
 int WindowsDocumentZoomAnchor() { return gScene.valid ? gScene.zoomAnchor : 0; }
+
+std::string CookKind(const std::string& raw) {
+    std::string lower = Lower(raw);
+    if (lower == "bar") return "Bar";
+    if (lower == "icon") return "Icon";
+    if (lower == "window") return "Window";
+    if (lower == "button" || lower == "iconbutton") return "Button";
+    if (lower == "text") return "Text";
+    if (lower == "screen") return "Screen";
+    return raw;
+}
+
+int WindowsDocumentBoxes(const std::string& path, int viewWidth, int viewHeight, std::vector<WindowBox>& boxes) {
+    boxes.clear();
+    gPaintScale = 1.0;
+    int contentHeight = 0;
+    const int layout = LayoutWindowsDocument(path, false, viewWidth, viewHeight, 96, -1, -1, -1, -1, &contentHeight, nullptr);
+    if (layout < 0 || !gScene.valid) {
+        return -1;
+    }
+    for (const PaintOp& op : gScene.ops) {
+        if (op.role.empty() || op.width <= 0 || op.height <= 0) {
+            continue;
+        }
+        WindowBox box;
+        box.kind = CookKind(op.role);
+        box.x = op.x;
+        box.y = op.y;
+        box.width = op.width;
+        box.height = op.height;
+        box.text = op.value;
+        for (char& ch : box.text) {
+            if (ch == '\n' || ch == '\r' || ch == '\t') {
+                ch = ' ';
+            }
+        }
+        boxes.push_back(std::move(box));
+    }
+    return static_cast<int>(boxes.size());
+}
 
 std::string WindowsDocumentIconSvg(const char* name) {
     if (name == nullptr || name[0] == '\0') {

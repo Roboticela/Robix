@@ -263,7 +263,13 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
         const std::string value = attr(key);
         return value.empty() ? attr(alt) : value;
     };
-    const auto length = [&](const std::string& value) { return RoboWebCssValue(library, value, false); };
+    const auto length = [&](const std::string& value) {
+        const std::string folded = RoboWebLower(value);
+        if (folded == "full" || folded == "fill") {
+            return std::string("100%");
+        }
+        return RoboWebCssValue(library, value, false);
+    };
     const std::string displayRaw = RoboWebLower(attr("display"));
     std::string direction = first("direction", "flexDirection");
     const std::string columns = attr("columns");
@@ -308,7 +314,7 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     const std::string grow = first("flexGrow", "grow");
     RoboWebAddDecl(style, "flex-grow", grow);
     const std::string shrink = first("flexShrink", "shrink");
-    RoboWebAddDecl(style, "flex-shrink", shrink);
+    RoboWebAddDecl(style, "flex-shrink", shrink.empty() ? "0" : shrink);
     RoboWebAddDecl(style, "flex-basis", length(first("flexBasis", "basis")));
     RoboWebAddDecl(style, "order", attr("order"));
     std::string wrap = attr("wrap");
@@ -330,6 +336,9 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     RoboWebAddDecl(style, "row-gap", length(attr("rowGap")));
     RoboWebAddDecl(style, "column-gap", length(first("columnGap", "colGap")));
     RoboWebAddDecl(style, "align-items", RoboWebAlign(first("align", "alignItems")));
+    if (attr("alignContent").empty()) {
+        RoboWebAddDecl(style, "align-content", RoboWebAlign(first("align", "alignItems")));
+    }
     RoboWebAddDecl(style, "justify-content", RoboWebAlign(first("justify", "justifyContent")));
     RoboWebAddDecl(style, "align-self", RoboWebAlign(first("alignSelf", "self")));
     RoboWebAddDecl(style, "align-content", RoboWebAlign(attr("alignContent")));

@@ -270,6 +270,9 @@ RoboU32 RoboFoundationPlatformColorForTheme(const char* name, RoboBool light) {
       return RoboFoundationParseColor(value);
     }
   }
+  if (name != nullptr && name[0] == '#') {
+    return RoboFoundationParseColor(name);
+  }
   return 0xFFFFFFFFu;
 }
 

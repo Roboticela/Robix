@@ -319,13 +319,19 @@ Depends on: C1.
 
 ### Stage C3 — Text
 
+Glyphs. `Span` is a colored run inside one `Text`.
+
 Depends on: C2.
 
-- [ ] `Text` schema: value, family, size, weight, color, wrap, align
-- [ ] Part: `Span` for a colored run inside one `Text`
-- [ ] Glyphs from the cooked font pack
-- [ ] Measure width and height for the layout engine
-- [ ] Test asserts the ink pixel of a known glyph and the measured width
+`RoboTextRead` accepts value, family, size, weight, color, wrap, and align, and rejects an unknown attribute, a bad weight, wrap, align, size, or color, a child that is not a `Span`, and more than 48 spans. `RoboTextMeasure` reads the cooked font pack. `RoboTextPaint` writes the glyph coverage in the run color.
+
+- [x] `Text` schema: value, family, size, weight, color, wrap, align
+- [x] Part: `Span` for a colored run inside one `Text`
+- [x] Glyphs from the cooked font pack
+- [x] Measure width and height for the layout engine
+- [x] Test asserts the ink pixel of a known glyph and the measured width
+
+`Tests/UI/RoboTextTests.cpp` passed, 105 checks. The paint check is a cooked 4×8 glyph for `A`. The origin pixel is `#FF0000`. The pixel beside it stays clear. The measured width is 4.
 
 ### Stage C4 — Image
 
@@ -841,7 +847,7 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/Screen/` | `Screen` compiler unit. Stage C1 `RoboScreen` reads the schema, resolves `Window` and `Page`, and paints the screen color. |
 | `RobixUI/Compiler/Components/Container/` | The old container name. Stage C2 resolves it to `View`. |
 | `RobixUI/Compiler/Components/View/` | Stage C2 layout engine. `RoboView` places and paints the box. |
-| `RobixUI/Compiler/Components/Text/` | `Text` compiler unit. `Span` is already a part. |
+| `RobixUI/Compiler/Components/Text/` | Stage C3. `RoboText` reads the schema, measures the cooked font pack, and paints the glyph. `Span` is a part. |
 | `RobixUI/Compiler/Components/Image/` | Decode helpers. The native window still has to paint the bitmap. |
 | `RobixUI/Compiler/Components/Icon/` | `Icon` compiler unit |
 | `RobixUI/Compiler/Components/Svg/` | `Svg` compiler unit |

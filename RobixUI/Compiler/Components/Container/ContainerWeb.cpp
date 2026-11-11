@@ -163,7 +163,7 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-board,.robo-container,.robo-scroll{box-sizing:border-box;min-width:0;border:0;outline:none}\n";
   css << ".robo-board:focus,.robo-board:focus-visible,.robo-container:focus,.robo-container:focus-visible,"
          ".robo-scroll:focus,.robo-scroll:focus-visible{outline:none}\n";
-  css << ".robo-container{position:relative}\n";
+  css << ".robo-container{position:relative;flex-shrink:0}\n";
   css << ".robo-container>.robo-container-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"
          "z-index:0;pointer-events:none;opacity:var(--c-media-opacity,1)}\n";
   css << ".robo-container[data-layout=layered],.robo-container[data-layout=overlay]{display:grid}\n";
@@ -495,7 +495,8 @@ void RoboWebAppendContainerStyle(std::string& style, const RoboXMLNode& node, co
   RoboWebAddDecl(style, "grid-column", RoboXMLAttr(node, "gridColumn"));
   RoboWebAddDecl(style, "grid-row", RoboXMLAttr(node, "gridRow"));
 
-  const std::string place = RoboWebLower(RoboXMLAttr(node, "place"));
+  const std::string tag = RoboWebLower(node.name);
+  const std::string place = tag == "screen" || tag == "window" || tag == "page" ? std::string() : RoboWebLower(RoboXMLAttr(node, "place"));
   if (place == "top" || place == "top-center" || place == "top-left" || place == "top-right" || place == "center" ||
       place == "center-left" || place == "center-right" || place == "bottom" || place == "bottom-center" ||
       place == "bottom-left" || place == "bottom-right" || place == "left" || place == "right") {

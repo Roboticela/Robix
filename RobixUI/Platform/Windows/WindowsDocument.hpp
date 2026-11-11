@@ -64,6 +64,18 @@ int WindowsDocumentSpinRects(WindowPatch* patches, int capacity);
 /* Where the zoom capsule sits. -1 hides it. The other values match ViewZoom::Anchor. */
 int WindowsDocumentZoomAnchor();
 
+struct WindowBox {
+    std::string kind;
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    std::string text;
+};
+
+/* Boxes the Windows host recorded for this document. -1 when the document does not lay out. */
+int WindowsDocumentBoxes(const std::string& path, int viewWidth, int viewHeight, std::vector<WindowBox>& boxes);
+
 /* SVG for a catalog icon, or the matching file in Assets/Icons. */
 std::string WindowsDocumentIconSvg(const char* name);
 

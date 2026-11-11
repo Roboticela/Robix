@@ -596,13 +596,13 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << ":root{\n" << common.str() << "}\nhtml[data-theme=\"dark\"]{\n"
         << dark.str() << "}\nhtml[data-theme=\"light\"],.robo-window[data-theme=\"light\"]{\n"
         << light.str() << "}\n";
-    css << "html,body{margin:0;height:100%;overflow:hidden;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
+    css << "html,body{margin:0;height:100%;overflow:auto;background:var(--bg-primary);border:0;outline:none;box-shadow:none}\n";
     css << "html[data-theme=\"dark\"]{color-scheme:dark}\n";
     css << "html[data-theme=\"light\"]{color-scheme:light}\n";
     css << "html:focus,html:focus-visible,body:focus,body:focus-visible{outline:none;box-shadow:none}\n";
     css << "body{color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}\n";
     css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;z-index:1;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
-    css << ".robo-page{height:100%;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
+    css << ".robo-page{min-height:100%;height:auto;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
     css << "[data-paint=bleed]{overflow:visible;contain:none}\n";
     css << "[data-paint=clip]{overflow:clip}\n";
     css << ".robo-page :has([data-paint=bleed]){overflow:visible;isolation:auto;contain:none}\n";
@@ -645,9 +645,11 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
             style += ";";
             style += layout;
         }
-        (void)width;
+        if (width.empty()) {
+            style += ";width:100%";
+        }
+        style += ";min-height:100%;height:auto;flex-shrink:0";
         (void)height;
-        style += ";width:100%;height:100%";
         const std::string zoomControls =
             RoboXMLAttr(screenCopy, "zoomControls", RoboXMLAttr(screenCopy, "zoom-controls", "bottom").c_str());
         html << "<" << RoboWebScreenTag(true) << " id=\"" << Escape(id) << "\" class=\"" << RoboWebScreenClass(true)

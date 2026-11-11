@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../Bytecode/BytecodeModule.hpp"
+#include "../../RobixUI/CookedLayout.hpp"
+#include "../../Compiler/Runtime/InputScript.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -104,6 +106,12 @@ private:
     std::string m_fault;
     bool m_halt = false;
     bool m_hostPicture = false;
+    std::vector<Robix::UI::RoboCookedBox> m_cooked;
+    std::vector<Robix::RoboPlayedEvent> m_input;
+    std::size_t m_inputHead = 0;
+    int m_mouseX = 0;
+    int m_mouseY = 0;
+    int m_clicks = 0;
     bool m_gateChecked = false;
     bool m_gateOk = false;
     std::unordered_map<std::string, std::uint32_t> m_callCounts;

@@ -658,6 +658,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         if (m_hostPicture) WriteHostPicture(*obj);
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ shown };
+                } else if (inst.symbolImm == "Port.Read8") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 0 } };
                 } else if (inst.symbolImm == "Port.Write8" && inst.callArgRegs.size() >= 2) {
                     const unsigned byte = static_cast<unsigned>(regs[inst.callArgRegs[1]].AsInt()) & 0xFFu;
                     m_stdoutBuffer.push_back(static_cast<char>(byte));
@@ -782,6 +784,97 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     }
 #endif
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ reply };
+                } else if (inst.symbolImm == "Input.Play" && !inst.callArgRegs.empty()) {
+                    const std::string script = regs[inst.callArgRegs[0]].ToString();
+                    if (!Robix::RoboParseInputScript(script, m_input)) {
+                        m_input.clear();
+                        std::fprintf(stderr, "robix vm: Input.Play could not read the script\n");
+                    }
+                    m_inputHead = 0;
+                    Robix::RoboPlayedMouse(m_input, m_mouseX, m_mouseY);
+                    const std::int64_t count = static_cast<std::int64_t>(m_input.size() - m_inputHead);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ count };
+                } else if (inst.symbolImm == "Input.Count") {
+                    const std::int64_t count = static_cast<std::int64_t>(m_input.size() - m_inputHead);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ count };
+                } else if (inst.symbolImm == "Input.Clicks") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_clicks) };
+                } else if (inst.symbolImm == "Input.MouseX") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_mouseX) };
+                } else if (inst.symbolImm == "Input.MouseY") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_mouseY) };
+                } else if (inst.symbolImm == "Input.Pop") {
+                    std::int64_t popped = 0;
+                    if (m_inputHead < m_input.size()) {
+                        ++m_inputHead;
+                        popped = 1;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ popped };
+                } else if (inst.symbolImm == "Input.Kind" || inst.symbolImm == "Input.Code" ||
+                           inst.symbolImm == "Input.Button" || inst.symbolImm == "Input.X" ||
+                           inst.symbolImm == "Input.Y") {
+                    const std::int64_t index = inst.callArgRegs.empty() ? 0 : regs[inst.callArgRegs[0]].AsInt();
+                    int field = 0;
+                    if (inst.symbolImm == "Input.Code") field = 1;
+                    else if (inst.symbolImm == "Input.Button") field = 2;
+                    else if (inst.symbolImm == "Input.X") field = 3;
+                    else if (inst.symbolImm == "Input.Y") field = 4;
+                    std::int64_t value = 0;
+                    if (index >= 0) {
+                        const std::size_t at = m_inputHead + static_cast<std::size_t>(index);
+                        if (at < m_input.size()) {
+                            const Robix::RoboPlayedEvent& event = m_input[at];
+                            if (field == 0) value = event.type;
+                            else if (field == 1) value = event.code;
+                            else if (field == 2) value = event.value;
+                            else if (field == 3) value = event.x;
+                            else if (field == 4) value = event.y;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
+                } else if (inst.symbolImm == "Input.Push" && inst.callArgRegs.size() >= 5) {
+                    if (m_input.size() < 128) {
+                        Robix::RoboPlayedEvent event;
+                        event.type = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                        event.code = static_cast<int>(regs[inst.callArgRegs[1]].AsInt());
+                        event.value = static_cast<int>(regs[inst.callArgRegs[2]].AsInt());
+                        event.x = static_cast<int>(regs[inst.callArgRegs[3]].AsInt());
+                        event.y = static_cast<int>(regs[inst.callArgRegs[4]].AsInt());
+                        m_input.push_back(event);
+                    }
+                    const std::int64_t count = static_cast<std::int64_t>(m_input.size() - m_inputHead);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ count };
+                } else if (inst.symbolImm == "Input.Clear") {
+                    m_input.clear();
+                    m_inputHead = 0;
+                    m_mouseX = 0;
+                    m_mouseY = 0;
+                    m_clicks = 0;
+                } else if (inst.symbolImm == "Input.SetMouse" && inst.callArgRegs.size() >= 2) {
+                    m_mouseX = static_cast<int>(regs[inst.callArgRegs[0]].AsInt());
+                    m_mouseY = static_cast<int>(regs[inst.callArgRegs[1]].AsInt());
+                } else if (inst.symbolImm == "Input.AddClick") {
+                    ++m_clicks;
+                } else if (inst.symbolImm == "UI.LoadCooked" && !inst.callArgRegs.empty()) {
+                    const std::string path = regs[inst.callArgRegs[0]].ToString();
+                    if (!Robix::UI::RoboCookedLoad(path, m_cooked)) {
+                        m_cooked.clear();
+                        std::fprintf(stderr, "robix vm: UI.LoadCooked could not read '%s'\n", path.c_str());
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_cooked.size()) };
+                } else if (inst.symbolImm == "UI.Role" || inst.symbolImm == "UI.BoxX" || inst.symbolImm == "UI.BoxY" ||
+                           inst.symbolImm == "UI.BoxWidth" || inst.symbolImm == "UI.BoxHeight") {
+                    const std::int64_t index = inst.callArgRegs.empty() ? 0 : regs[inst.callArgRegs[0]].AsInt();
+                    int field = 0;
+                    if (inst.symbolImm == "UI.BoxX") field = 1;
+                    else if (inst.symbolImm == "UI.BoxY") field = 2;
+                    else if (inst.symbolImm == "UI.BoxWidth") field = 3;
+                    else if (inst.symbolImm == "UI.BoxHeight") field = 4;
+                    std::int64_t value = 0;
+                    if (index >= 0 && static_cast<std::size_t>(index) < m_cooked.size()) {
+                        value = Robix::UI::RoboCookedField(m_cooked[static_cast<std::size_t>(index)], field);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
                 } else if ((inst.symbolImm == "UI.Set" || inst.symbolImm == "Scene.Set") && inst.callArgRegs.size() >= 3) {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{};
                 } else if (inst.symbolImm == "Input" || inst.symbolImm == "Input.Int") {

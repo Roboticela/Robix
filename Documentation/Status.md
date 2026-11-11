@@ -199,6 +199,42 @@ ROBO_GPU: pixel
 
 A QEMU `screendump` wrote `Build/RoboticelaOS/stageA.ppm` at 320×200. Pixel (0, 0) is `0E 7A FF`. Pixel (0, 40) and pixel (319, 199) are `08 0A 10`. Pixel (16, 8) is `FF FF FF`. Pixel (24, 8) is `0E 7A FF`. The logo is an 8×8 white rectangle. The identity map covers the first 4GB, and unwind tables are discarded so `Start` stays at 2MB.
 
+## RoboticelaOS Stage B
+
+`robix ui cook` lays the document out with the Windows host and writes `RXUL 1` records: kind, x, y, width, height, text. `UI.LoadCooked`, `UI.Role`, `UI.BoxX`, `UI.BoxY`, `UI.BoxWidth`, and `UI.BoxHeight` read that blob. Role numbers are Bar 1, Icon 2, Window 3, Button 4, Text 5, Screen 6. A freestanding image embeds the blob at compile time. The interpreter reads the file.
+
+```
+robix ui cook RoboticelaOS/Tests/RoboCookButton.rxu -o RoboticelaOS/Tests/RoboCookButton.rxul
+robix ui cook RoboticelaOS/Desktop/RoboDesktop.rxu -o RoboticelaOS/Desktop/RoboDesktop.rxul
+robix test RoboticelaOS/Tests/RoboCook.test.rx
+robix test RoboticelaOS/Runtime/UI/RoboUI.test.rx
+robix test RoboticelaOS/Kernel/RoboKernel.test.rx
+```
+
+The button blob is `Button 0 0 84 44 Open`. The desktop blob has the screen, a 320×32 bar, three 32×32 icons, a 240×88 window, and the title text. Each test printed `interpreter ok, native ok`.
+
+```
+robix ui validate RoboticelaOS/Desktop/RoboDesktop.rxu
+robix ui window RoboticelaOS/Desktop/RoboDesktop.rxu
+```
+
+Validate printed `screen validated Desktop\RoboDesktop.rxu 320x200`. The window printed `window: shown 320x200 title RoboticelaOS` and `window: closed after paint`.
+
+```
+robixc -O3 RoboticelaOS/Kernel/RoboKernel.rxb -o Build/RoboticelaOS/RoboKernel.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel.elf -serial file:Build/RoboticelaOS/stageB.serial -display none -vga std
+```
+
+The serial file was:
+
+```
+ROBO_GPU: present
+ROBO_UI: paint
+ROBO_GPU: pixel
+```
+
+`Build/RoboticelaOS/stageB.ppm` is 320×200. Pixel (0, 0) and pixel (200, 8) are `0E 7A FF`. Pixel (0, 199) is `08 0A 10`. Pixels (16, 48), (64, 48), and (112, 48) are `FF FF FF`. Pixel (276, 180) is `1C 24 30`. `robix run` from `RoboticelaOS` printed the same three serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with those pixels.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

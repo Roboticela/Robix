@@ -2467,7 +2467,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
                      receiverExpr.text == "CPU" || receiverExpr.text == "System" ||
                      receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
-                     receiverExpr.text == "Atomic" || receiverExpr.text == "Frame")) {
+                     receiverExpr.text == "Atomic" || receiverExpr.text == "Frame" ||
+                     receiverExpr.text == "Input")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2506,6 +2507,15 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "File" && memberName == "WriteText") {
                         ty = MakePrim("Bool");
+                    } else if (receiverExpr.text == "UI" &&
+                               (memberName == "LoadCooked" || memberName == "Role" || memberName == "BoxX" ||
+                                memberName == "BoxY" || memberName == "BoxWidth" || memberName == "BoxHeight")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Input" &&
+                               (memberName == "Clear" || memberName == "SetMouse" || memberName == "AddClick")) {
+                        ty = MakePrim("Void");
+                    } else if (receiverExpr.text == "Input") {
+                        ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Math" ||
                                (receiverExpr.text == "GPIO" && memberName == "Read") ||
                                receiverExpr.text == "PWM" || receiverExpr.text == "UART" ||
