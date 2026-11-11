@@ -1,6 +1,0 @@
-package Robix.UI.Behaviors;
-
-public class Selection {
-  public String value = "";
-  public Void OnChange() {}
-}

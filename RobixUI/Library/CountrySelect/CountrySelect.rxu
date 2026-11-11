@@ -1,4 +1,0 @@
-<!-- CountrySelect is built from Select. -->
-<Component Name="CountrySelect" Base="Select">
-  <Slot Name="content"/>
-</Component>

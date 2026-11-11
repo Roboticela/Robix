@@ -1,4 +1,0 @@
-<!-- PhoneField is a TextField preset. The compiler component is TextField. -->
-<Component Name="PhoneField" Base="TextField">
-  <Default Type="tel" Phone="true" Placeholder="Phone number" Icon="HandheldMobilePhone" AutoComplete="tel" AutoCapitalize="none" AutoCorrect="off" SpellCheck="false" InputMode="tel"/>
-</Component>

@@ -1,4 +1,0 @@
-<!-- Icon is a named Svg. -->
-<Component Name="Icon" Base="Svg">
-  <Default Size="24"/>
-</Component>

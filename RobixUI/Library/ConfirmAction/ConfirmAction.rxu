@@ -1,4 +1,0 @@
-<!-- ConfirmAction is built from Container. -->
-<Component Name="ConfirmAction" Base="Container">
-  <Slot Name="content"/>
-</Component>

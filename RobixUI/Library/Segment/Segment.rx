@@ -1,6 +1,0 @@
-package Robix.UI;
-
-public class Segment {
-  public Bool selected = false;
-  public Void OnClick() { this.selected = true; }
-}

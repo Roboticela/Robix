@@ -1,5 +1,0 @@
-package Robix.UI;
-
-public class BrandLogo {
-  public Void OnClick() {}
-}

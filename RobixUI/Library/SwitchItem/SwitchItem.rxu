@@ -1,4 +1,0 @@
-<!-- SwitchItem is built from Container. -->
-<Component Name="SwitchItem" Base="Container">
-  <Slot Name="content"/>
-</Component>

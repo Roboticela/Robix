@@ -1,5 +1,0 @@
-package Robix.UI;
-
-public class ScrollView {
-  public Int scrollOffset = 0;
-}

@@ -1091,7 +1091,7 @@ A component is one of three tiers:
 
 1. **Compiler.** C++ implements it. The compiler components are `Screen`, `Container`, `Text`, `Svg`, `Image`, `Background`, and `View3D`. Do not add a new compiler component when an existing one can produce the behavior.
 2. **Part.** It exists only inside a compiler component: `Span` inside `Text`, and `At` inside `Container`. Do not redefine a part.
-3. **Preset.** A `.rxu` component that reuses a compiler component, with a sibling `.rx` for its state and events. `Button`, `Select`, `Switch`, `SegmentedControl`, and `ScrollView` are presets of `Container`. `TextField` and `TextArea` are presets of `Text`. `Icon` is a preset of `Svg`. `Heading` and the other text roles are presets of `Text`.
+3. **Preset.** A `.rxu` component that reuses a compiler component, with a sibling `.rx` for its state and events. `RobixUI/Library` ships no presets. A project adds one by naming a compiler component as its base.
 
 Rules for every new component:
 
@@ -1107,10 +1107,10 @@ Rules for every new component:
 
 4. A `.rx` class is for state and events. The class name matches the `.rxu` component name. The class changes properties. The `.rxu` draws them with a compiler component.
 5. A project may replace a preset by defining the same name. A project may not replace a compiler component or a part. The compiler reports that and skips the definition.
-6. A preset in `RobixUI/Library` names its base. Expansion sets `Alias` to the preset name and paints the base. `Alias` adds the class `robo-<name>`. It is not a second emitter. `EmailField`, `PhoneField`, and `PasswordField` expand through `TextField` to `Text`.
+6. A preset names its base. Expansion sets `Alias` to the preset name and paints the base. `Alias` adds the class `robo-<name>`. It is not a second emitter.
 7. Style attributes belong to the shared style table used by every component. A preset may set those attributes. It may not invent a new style key that only its emitter understands.
 8. Add the tag to `ComponentTier.cpp` when it becomes a known preset, and add `RobixUI/Library/<Name>/<Name>.rxu`. Do not put that preset under `Compiler/Components`.
-9. `As` chooses the web element. A preset may set it as a default. A caller may replace it. Omitting it keeps the built-in tag: `button` for `Button`, `a` for `Anchor`, `input` for `TextField`, `textarea` for `TextArea`, `h1`–`h6` for `Heading`, `p` for `Paragraph`, `div` for `Container`, and `span` for `Text`. `As` is web-only. It does not add a paint emitter.
+9. `As` chooses the web element. A caller may set it. Omitting it keeps `div` for `Container` and `span` for `Text`. `As` is web-only. It does not add a paint emitter.
 10. Robix changes a live element with `UI.Set(id, key, value)`. The `id` is the element's `Id` or `Name`. `text`, `value`, `placeholder`, `hidden`, `disabled`, and `checked` update that part of the element. Any other key sets an attribute, and style keys such as `color` and `width` set the style. Robix changes a named object in a `.rx3d` scene with `Scene.Set(name, property, value)`. A property such as `position`, `position.y`, `rotation`, `scale`, `material.color`, or `visible` is applied to that object. `Scene.Set(name, "state", value)` writes a scene state used by the scene's bindings. These calls run when the host executes them. They do not hot-reload the document.
 
 # 20. ROBIX AND ROBIXUI INTEGRATION

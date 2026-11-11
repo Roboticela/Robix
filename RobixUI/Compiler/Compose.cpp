@@ -72,6 +72,19 @@ void Bind(Scope& scope, const std::string& name, Value value) {
     scope.values[Lower(name)] = std::move(value);
 }
 
+bool BodyUses(const std::vector<RoboXMLNode>& body, const std::string& name) {
+    const std::string token = "{" + name + "}";
+    const std::string lower = "{" + Lower(name) + "}";
+    for (const RoboXMLNode& node : body) {
+        if (node.text.find(token) != std::string::npos || node.text.find(lower) != std::string::npos) return true;
+        for (const auto& entry : node.attrs) {
+            if (entry.second.find(token) != std::string::npos || entry.second.find(lower) != std::string::npos) return true;
+        }
+        if (BodyUses(node.children, name)) return true;
+    }
+    return false;
+}
+
 std::string ReadFile(const fs::path& path) {
     std::ifstream in(path, std::ios::binary);
     if (!in) return {};
@@ -352,7 +365,6 @@ struct Parser {
             const std::string name = text.substr(start, index - start);
             const Value* value = Find(scope, name);
             Value current = value != nullptr ? *value : Value{};
-            if (value == nullptr) std::cerr << "warning: '" << name << "' was not found in this .rxu scope and was left empty.\n";
             while (Take('.')) {
                 Skip();
                 const std::size_t fieldStart = index;
@@ -500,7 +512,11 @@ std::vector<RoboXMLNode> ExpandBase(const RoboXMLNode& node, const Component& co
         for (const auto& def : component.defaults) {
             if (Find(&inner, def.first) == nullptr) Bind(inner, def.first, TextValue(def.second));
         }
+        const std::string written = Trim(node.text);
+        const bool contentFromText = !written.empty() && BodyUses(component.body, "Content") && Find(&inner, "Content") == nullptr;
+        if (contentFromText) Bind(inner, "Content", TextValue(written));
         RoboXMLNode made = node;
+        if (contentFromText) made.text.clear();
         for (const auto& def : component.defaults) {
             if (Attr(made, Lower(def.first).c_str()).empty()) SetAttr(made, def.first, def.second);
         }
@@ -520,7 +536,11 @@ std::vector<RoboXMLNode> ExpandBase(const RoboXMLNode& node, const Component& co
     for (const auto& def : component.defaults) {
         if (Find(&inner, def.first) == nullptr) Bind(inner, def.first, TextValue(def.second));
     }
+    const std::string written = Trim(node.text);
+    const bool contentFromText = !written.empty() && BodyUses(component.body, "Content") && Find(&inner, "Content") == nullptr;
+    if (contentFromText) Bind(inner, "Content", TextValue(written));
         RoboXMLNode made;
+        if (!contentFromText) made.text = node.text;
         made.name = component.base;
         if (Attr(node, "alias").empty()) SetAttr(made, "Alias", component.name);
     for (const auto& def : component.defaults) SetAttr(made, def.first, def.second);

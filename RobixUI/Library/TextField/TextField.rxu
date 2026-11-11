@@ -1,4 +1,0 @@
-<!-- TextField is an input. As chooses the tag, and input is the default. -->
-<Component Name="TextField" Base="Text">
-  <Default As="input" Editable="true" Role="textbox"/>
-</Component>

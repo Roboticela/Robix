@@ -1,4 +1,0 @@
-<!-- SwitchGroup is built from Container. -->
-<Component Name="SwitchGroup" Base="Container">
-  <Slot Name="content"/>
-</Component>

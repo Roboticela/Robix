@@ -134,11 +134,24 @@ void RoboWebContainerAxis(std::string& style, const RoboFoundationLibrary& libra
 
 void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-overlay{position:fixed;inset:0;z-index:50}\n";
-  css << ".robo-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;"
-         "border:0;border-radius:10px;padding:10px 16px;background:var(--brand-primary);color:var(--text-on-brand,white)}\n";
-  css << ".robo-button[data-variant=secondary]{background:var(--bg-secondary);color:var(--text-primary)}\n";
-  css << ".robo-button[data-variant=ghost],.robo-button[data-variant=link]{background:transparent;color:var(--text-primary)}\n";
-  css << ".robo-button[data-variant=danger]{background:var(--status-danger,#dc2626)}\n";
+  css << ".robo-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 12px;"
+         "border:0;border-radius:6px;font:500 13px/1 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;"
+         "background:var(--brand-primary);color:var(--text-on-brand,white)}\n";
+  css << ".robo-button[data-variant=secondary],.robo-button[data-variant=tinted]{background:var(--brand-primary-subtle);color:var(--brand-primary)}\n";
+  css << ".robo-button[data-variant=action],.robo-button[data-variant=bordered],.robo-button[data-variant=outlined]{background:var(--bg-tertiary);color:var(--text-primary);"
+         "box-shadow:inset 0 0 0 1px var(--border-default)}\n";
+  css << ".robo-button[data-variant=ghost],.robo-button[data-variant=plain],.robo-button[data-variant=link]{background:transparent;color:var(--brand-primary);box-shadow:none}\n";
+  css << ".robo-button[data-variant=danger]{background:var(--danger,#ff3b30);color:white}\n";
+  css << ".robo-field,input.robo-type,textarea.robo-type{box-sizing:border-box;min-height:28px;padding:4px 8px;border-radius:6px;"
+         "border:1px solid var(--border-default);background:var(--bg-primary);color:var(--text-primary);"
+         "font:13px/1.3 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}\n";
+  css << ".robo-field:focus,input.robo-type:focus,textarea.robo-type:focus{outline:none;border-color:var(--brand-primary);"
+         "box-shadow:0 0 0 3px var(--brand-primary-focus-ring)}\n";
+  css << ".robo-segmented,.robo-segmentedcontrol{display:inline-flex;align-items:center;height:28px;padding:2px;gap:0;border-radius:7px;background:var(--bg-tertiary)}\n";
+  css << ".robo-sidebar{background:var(--bg-secondary);padding:8px}\n";
+  css << ".robo-titlebar{display:flex;align-items:center;height:52px;padding:0 12px;background:var(--bg-secondary);border-bottom:1px solid var(--border-subtle)}\n";
+  css << ".robo-card,.robo-panel,.robo-surface,.robo-tile,.robo-well{background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:10px;padding:16px;"
+         "box-shadow:0 1px 2px rgba(0,0,0,.08)}\n";
   css << ".robo-button[data-state=off],.robo-switch[data-state=off]{opacity:.72}\n";
   css << ".robo-textfield,.robo-textarea,.robo-select{display:flex;flex-direction:column;gap:6px;width:100%}\n";
   css << ".robo-textfield [contenteditable],.robo-textarea [contenteditable]{min-height:1.4em;outline:none}\n";

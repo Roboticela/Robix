@@ -73,6 +73,8 @@ struct HostView {
     int zoomBoxY = 0;
     int zoomBoxW = 0;
     int zoomBoxH = 0;
+    bool spinArmed = false;
+    unsigned spinClock = 0;
     bool pinchLive = false;
     double pinchOrigin = 1;
     double pinchDistance = 0;
@@ -968,12 +970,41 @@ void PaintZoomBar(HostView* view) {
     RoboGPUMarkDamage(&view->gpu, view->zoomBoxX, view->zoomBoxY, view->zoomBoxW, view->zoomBoxH);
 }
 
+void CatchUpSpin(HostView* view) {
+    if (view == nullptr || !WindowsDocumentNeedsSpin()) {
+        return;
+    }
+    const unsigned now = GetTickCount();
+    if (view->spinClock == 0) {
+        view->spinClock = now;
+        return;
+    }
+    const unsigned elapsed = now - view->spinClock;
+    int steps = static_cast<int>(elapsed / 50u);
+    if (steps <= 0) {
+        return;
+    }
+    if (steps > 3) {
+        steps = 3;
+    }
+    for (int index = 0; index < steps; ++index) {
+        WindowsDocumentAdvanceSpin();
+    }
+    view->spinClock += static_cast<unsigned>(steps) * 50u;
+    if (now - view->spinClock > 200u) {
+        view->spinClock = now;
+    }
+}
+
 void Draw(HostView* view) {
     if (view == nullptr || !view->ready || view->back == nullptr) {
         return;
     }
     const double scale = PageScale(view);
     const bool zoomed = std::abs(scale - 1.0) > 0.0005;
+    if (view->screen) {
+        CatchUpSpin(view);
+    }
     view->dpi = view->baseDpi;
     BindSheet(view, false);
     if (view->screen && !view->document.empty()) {
@@ -1107,9 +1138,15 @@ void Draw(HostView* view) {
     if (view->window != nullptr) {
         KillTimer(view->window, 3);
         if (view->stayOpen && view->screen && WindowsDocumentNeedsSpin()) {
-            SetTimer(view->window, 4, 50, nullptr);
-        } else {
+            if (!view->spinArmed) {
+                view->spinClock = GetTickCount();
+                SetTimer(view->window, 4, 50, nullptr);
+                view->spinArmed = true;
+            }
+        } else if (view->spinArmed) {
             KillTimer(view->window, 4);
+            view->spinArmed = false;
+            view->spinClock = 0;
         }
     }
     view->painted = true;
@@ -1537,7 +1574,6 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     KillTimer(window, 4);
                     return 0;
                 }
-                WindowsDocumentAdvanceSpin();
                 InvalidateRect(window, nullptr, FALSE);
                 return 0;
             }

@@ -271,6 +271,16 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         if (textClass.empty()) textClass = RoboWebTextRoleClass(paint);
         className = textClass.empty() ? "robo-" + paint : textClass;
     }
+    const std::string role = Lower(RoboXMLAttr(node, "role"));
+    if (role == "button" && className.find("robo-button") == std::string::npos) {
+        className += " robo-button";
+    } else if (role == "switch" && className.find("robo-switch") == std::string::npos) {
+        className += " robo-switch";
+    } else if (role == "tablist" && className.find("robo-segmented") == std::string::npos) {
+        className += " robo-segmented";
+    } else if ((role == "textbox" || role == "searchbox") && className.find("robo-field") == std::string::npos) {
+        className += " robo-field";
+    }
     if (!alias.empty() && className.find("robo-" + alias) == std::string::npos) {
         className += " robo-";
         className += alias;

@@ -1,4 +1,0 @@
-<!-- NavBarItem is Container. Alias keeps the existing paint. -->
-<Component Name="NavBarItem" Base="Container">
-</Component>
-

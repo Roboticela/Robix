@@ -1,4 +1,0 @@
-<!-- TextArea is a multiline input. As chooses the tag, and textarea is the default. -->
-<Component Name="TextArea" Base="Text">
-  <Default As="textarea" Editable="true" Role="textbox" WhiteSpace="pre-wrap"/>
-</Component>

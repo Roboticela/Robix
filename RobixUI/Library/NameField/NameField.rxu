@@ -1,4 +1,0 @@
-<!-- NameField is built from Container. -->
-<Component Name="NameField" Base="Container">
-  <Slot Name="content"/>
-</Component>

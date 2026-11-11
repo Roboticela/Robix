@@ -1,4 +1,0 @@
-<!-- Board is built from Container. -->
-<Component Name="Board" Base="Container">
-  <Slot Name="content"/>
-</Component>

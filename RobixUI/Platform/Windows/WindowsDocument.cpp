@@ -58,7 +58,8 @@ void LowerKeys(RoboXMLNode& node) {
 }
 
 const RoboXMLNode* FindScreen(const RoboXMLNode& node) {
-    if (Lower(node.name) == "screen") {
+    const std::string name = Lower(node.name);
+    if (name == "screen" || name == "window" || name == "page") {
         return &node;
     }
     for (const RoboXMLNode& child : node.children) {
@@ -280,8 +281,12 @@ bool IsText(const std::string& name) {
 }
 
 bool IsBox(const std::string& name) {
-    return name == "screen" || name == "container" || name == "board" || name == "box" || name == "flex" || name == "stack" ||
-           name == "canvas";
+    return name == "screen" || name == "window" || name == "page" || name == "container" || name == "background" ||
+           name == "board" || name == "box" || name == "flex" || name == "stack" || name == "canvas";
+}
+
+bool Named(const std::string& name, const std::string& face, const char* key) {
+    return name == key || face == key;
 }
 
 int FaceOf(const std::string& font) {
@@ -310,8 +315,8 @@ struct TypeStyle {
 
 TypeStyle StyleOf(const RoboXMLNode& node) {
     const std::string name = RoboUIFace(node);
-    std::string role = "body-lg";
-    const char* color = "text-secondary";
+    std::string role = "menubar";
+    const char* color = "text-primary";
     if (name == "heading" || name == "h1" || name == "h2" || name == "h3" || name == "h4" || name == "h5" || name == "h6") {
         std::string level = Lower(RoboXMLAttr(node, "level", "1"));
         if (name.size() == 2 && name[0] == 'h') {
@@ -354,14 +359,16 @@ TypeStyle StyleOf(const RoboXMLNode& node) {
     }
     if (name == "heading" || (name.size() == 2 && name[0] == 'h')) {
         const std::string level = name.size() == 2 ? name.substr(1) : Lower(RoboXMLAttr(node, "level", "1"));
-        if (level == "4") {
+        if (level == "1" || level == "display") {
             style.size = 22;
-        } else if (level == "5") {
-            style.size = 19;
-        } else if (level == "6") {
+        } else if (level == "2") {
             style.size = 17;
+        } else if (level == "3") {
+            style.size = 15;
+        } else {
+            style.size = 13;
         }
-        style.leading = style.size + style.size / 4;
+        style.leading = style.size + style.size / 3;
         if (style.face == 0) {
             style.face = 2;
         }
@@ -460,30 +467,34 @@ const char* ButtonInk(const std::string& variant) {
 }
 
 int ButtonHeight(const RoboXMLNode& node) {
+    const int asked = AttrLength(node, "height");
+    if (asked > 0) {
+        return asked;
+    }
     const std::string size = Lower(RoboXMLAttr(node, "size", "md"));
     if (size == "sm" || size == "small") {
-        return Px(32);
+        return Px(22);
     }
     if (size == "lg" || size == "large") {
-        return Px(50);
+        return Px(32);
     }
-    return Px(44);
+    return Px(28);
 }
 
 int ButtonPad(const RoboXMLNode& node) {
     const std::string size = Lower(RoboXMLAttr(node, "size", "md"));
     if (size == "sm" || size == "small") {
-        return Px(14);
+        return Px(8);
     }
     if (size == "lg" || size == "large") {
-        return Px(24);
+        return Px(16);
     }
-    return Px(22);
+    return Px(12);
 }
 
 int ButtonFontSize(const RoboXMLNode& node) {
     const std::string size = Lower(RoboXMLAttr(node, "size", "md"));
-    return Px(size == "sm" || size == "small" ? 14 : 17);
+    return Px(size == "lg" || size == "large" ? 14 : 13);
 }
 
 bool ButtonOn(const RoboXMLNode& node, const char* key) {
@@ -565,7 +576,9 @@ std::string IconDrawing(const RoboXMLNode& node) {
     if (name == "svg") {
         std::string svg;
         RoboCompilerSerializeSvgNode(node, svg, true);
-        return svg;
+        if (!svg.empty()) {
+            return svg;
+        }
     }
     std::string icon = RoboXMLAttr(node, "name");
     if (icon.empty()) {
@@ -600,7 +613,7 @@ int IconButtonExtent(const RoboXMLNode& node) {
     if (size == "3xl") {
         return Px(72);
     }
-    return Px(44);
+    return Px(28);
 }
 
 std::string IconButtonMark(bool success) {
@@ -689,17 +702,17 @@ void StyleIconButton(PaintOp& op, bool light, bool hot, bool pressed, bool focus
 void SwitchMetrics(const RoboXMLNode& node, int& trackW, int& trackH, int& thumb) {
     const std::string size = Lower(RoboXMLAttr(node, "size", "md"));
     if (size == "sm" || size == "small") {
-        trackW = Px(44);
+        trackW = Px(32);
+        trackH = Px(18);
+        thumb = Px(14);
+    } else if (size == "lg" || size == "large") {
+        trackW = Px(46);
         trackH = Px(26);
         thumb = Px(22);
-    } else if (size == "lg" || size == "large") {
-        trackW = Px(60);
-        trackH = Px(36);
-        thumb = Px(32);
     } else {
-        trackW = Px(51);
-        trackH = Px(31);
-        thumb = Px(27);
+        trackW = Px(38);
+        trackH = Px(22);
+        thumb = Px(18);
     }
 }
 
@@ -1088,18 +1101,26 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
         return std::min(maxWidth, std::max(1, asked));
     }
     const std::string name = Lower(node.name);
+    const std::string face = RoboUIFace(node);
     if (name == "image") {
-        return 0;
+        int natural = AttrLength(node, "height");
+        if (natural <= 0) {
+            natural = Px(160);
+        }
+        return std::min(maxWidth, std::max(1, natural));
     }
-    if (name == "anchor") {
+    if (name == "background" || name == "view3d" || name == "scene3d") {
+        return maxWidth;
+    }
+    if (Named(name, face, "anchor")) {
         std::string label = TextCopy(node);
         const std::string sizeName = Lower(RoboXMLAttr(node, "size", "inherit"));
         int size = 14;
         if (sizeName == "sm" || sizeName == "small") size = 12;
         else if (sizeName == "md" || sizeName == "medium" || sizeName == "lg" || sizeName == "large") size = 17;
         const std::string variant = Lower(RoboXMLAttr(node, "variant", "inline"));
-        const int face = (variant == "arrow" || variant == "standalone" || variant == "more") ? 1 : 0;
-        return std::min(maxWidth, std::max(1, MeasureText(label, size, face) + Px(28)));
+        const int weight = (variant == "arrow" || variant == "standalone" || variant == "more") ? 1 : 0;
+        return std::min(maxWidth, std::max(1, MeasureText(label, size, weight) + Px(28)));
     }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
@@ -1108,29 +1129,29 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     if (IsIcon(node)) {
         return std::min(maxWidth, IconBox(node));
     }
-    if (name == "iconbutton") {
+    if (Named(name, face, "iconbutton")) {
         return std::min(maxWidth, IconButtonExtent(node));
     }
-    if (name == "switch") {
+    if (Named(name, face, "switch") || Lower(RoboXMLAttr(node, "role")) == "switch") {
         int trackW = 0;
         int trackH = 0;
         int thumb = 0;
         SwitchMetrics(node, trackW, trackH, thumb);
         return std::min(maxWidth, trackW);
     }
-    if (name == "switchitem" || name == "switchgroup") {
+    if (Named(name, face, "switchitem") || Named(name, face, "switchgroup")) {
         return maxWidth;
     }
-    if (name == "segmentedcontrol") {
+    if (Named(name, face, "segmentedcontrol")) {
         if (ButtonOn(node, "fullWidth")) {
             return maxWidth;
         }
         return std::min(maxWidth, SegmentNaturalWidth(node));
     }
-    if (name == "segmentedtoolbar") {
+    if (Named(name, face, "segmentedtoolbar")) {
         return maxWidth;
     }
-    if (name == "button") {
+    if (Named(name, face, "button") || (Lower(RoboXMLAttr(node, "role")) == "button" && !Named(name, face, "iconbutton"))) {
         const std::string variant = Lower(RoboXMLAttr(node, "variant", "primary"));
         const int face = variant == "ghost" ? 0 : 1;
         const std::string label = ButtonLabel(node);
@@ -1263,8 +1284,16 @@ void RecolorButton(PaintOp& op, bool light, bool hot, bool pressed, bool focused
 
 void StyleButton(const RoboXMLNode& node, bool light, bool hot, bool pressed, PaintOp& op) {
     std::string variant = Lower(RoboXMLAttr(node, "variant", "primary"));
-    if (variant == "destructive") {
+    if (variant == "destructive" || variant == "danger") {
         variant = "danger";
+    } else if (variant == "bordered" || variant == "outlined" || variant == "outline" || variant == "secondary") {
+        variant = "action";
+    } else if (variant == "tinted") {
+        variant = "secondary";
+    } else if (variant == "plain" || variant == "text" || variant == "ghost" || variant == "link") {
+        variant = "ghost";
+    } else if (variant == "filled" || variant == "elevated" || variant == "default") {
+        variant = "primary";
     }
     const std::string preview = Lower(RoboXMLAttr(node, "preview"));
     op.kind = variant == "secondary" ? 1 : variant == "action" ? 2 : variant == "ghost" ? 3 : variant == "danger" ? 4 : 0;
@@ -1719,6 +1748,7 @@ void ShiftRange(std::vector<PaintOp>& ops, std::size_t begin, std::size_t end, H
 
 int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits) {
     const std::string name = Lower(node.name);
+    const std::string face = RoboUIFace(node);
     std::string shown = Lower(RoboXMLAttr(node, "visibility"));
     if (shown.empty()) shown = Lower(RoboXMLAttr(node, "visible"));
     if (shown == "false" || shown == "0" || shown == "no" || shown == "off" || shown == "hidden" ||
@@ -1726,15 +1756,53 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         return 0;
     }
     if (name == "image") {
-        return 0;
-    }
-    if (name == "view3d" || name == "scene3d") {
+        int boxH = AttrLength(node, "height");
+        if (boxH <= 0) {
+            boxH = AttrLength(node, "width");
+        }
+        if (boxH <= 0) {
+            boxH = Px(120);
+        }
         PaintOp box;
         box.x = x;
         box.y = y;
         box.width = width;
-        box.height = 160;
-        box.radius = 12;
+        box.height = boxH;
+        box.radius = AttrLength(node, "radius");
+        const std::string fillName = RoboXMLAttr(node, "background");
+        box.fill = RoboFoundationPlatformColorForTheme(fillName.empty() ? "bg-secondary" : fillName.c_str(),
+                                                       light ? ROBO_TRUE : ROBO_FALSE);
+        ops.push_back(box);
+        const std::string caption = TrimCopy(RoboXMLAttr(node, "alt"));
+        if (!caption.empty()) {
+            const TypeStyle style = StyleOf(node);
+            PaintOp op;
+            op.text = true;
+            op.x = x + Px(8);
+            op.y = y + std::max(0, (boxH - style.size) / 2);
+            op.size = style.size;
+            op.face = style.face;
+            op.color = RoboFoundationPlatformColorForTheme(style.color, light ? ROBO_TRUE : ROBO_FALSE);
+            op.value = caption;
+            op.height = style.size;
+            ops.push_back(op);
+        }
+        return boxH;
+    }
+    if (name == "view3d" || name == "scene3d") {
+        int boxH = AttrLength(node, "height");
+        if (boxH <= 0) {
+            boxH = 160;
+        }
+        PaintOp box;
+        box.x = x;
+        box.y = y;
+        box.width = width;
+        box.height = boxH;
+        box.radius = AttrLength(node, "radius");
+        if (box.radius <= 0) {
+            box.radius = 12;
+        }
         box.fill = ThemeColor("bg-secondary", light);
         ops.push_back(box);
         PaintOp op;
@@ -1749,16 +1817,16 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         const std::string source = RoboXMLAttr(node, "source");
         op.value = source.empty() ? "Robix3D" : source;
         ops.push_back(op);
-        return 160;
+        return boxH;
     }
-    if (name == "anchor") {
+    if (Named(name, face, "anchor")) {
         std::string label = TextCopy(node);
         const std::string sizeName = Lower(RoboXMLAttr(node, "size", "inherit"));
         int size = 14;
         if (sizeName == "sm" || sizeName == "small") size = 12;
         else if (sizeName == "md" || sizeName == "medium" || sizeName == "lg" || sizeName == "large") size = 17;
         const std::string variant = Lower(RoboXMLAttr(node, "variant", "inline"));
-        const int face = (variant == "arrow" || variant == "standalone" || variant == "more" || !RoboXMLAttr(node, "arrow").empty()) ? 1 : 0;
+        const int weight = (variant == "arrow" || variant == "standalone" || variant == "more" || !RoboXMLAttr(node, "arrow").empty()) ? 1 : 0;
         std::string color = "text-link";
         if (Lower(RoboXMLAttr(node, "disabled")) == "true") color = "text-disabled";
         else if (variant == "subtle" && RoboXMLAttr(node, "arrow").empty()) color = "text-tertiary";
@@ -1772,7 +1840,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         op.width = width;
         op.height = height;
         op.size = size;
-        op.face = face;
+        op.face = weight;
         op.color = RoboFoundationPlatformColorForTheme(color.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
         op.value = label;
         ops.push_back(op);
@@ -1780,31 +1848,67 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     }
     if (IsText(name)) {
         const TypeStyle style = StyleOf(node);
-        const std::string value = TextCopy(node);
-        if (value.empty()) {
-            return 0;
+        std::string value = TextCopy(node);
+        const bool placeholder = value.empty();
+        if (placeholder) {
+            value = TrimCopy(RoboXMLAttr(node, "placeholder"));
         }
-        const std::string alignName = Lower(RoboXMLAttr(node, "textalign").empty() ? RoboXMLAttr(node, "align") : RoboXMLAttr(node, "textalign"));
-        PaintOp op;
-        op.text = true;
-        op.x = x;
-        op.y = y;
-        op.width = width;
-        op.size = style.size;
-        op.face = style.face;
-        op.align = (alignName == "center" || alignName == "middle") ? 1 : (alignName == "end" || alignName == "right") ? 2 : alignName == "justify" ? 3 : 0;
-        const TextFlow flow = FlowOf(node);
-        op.wrap = flow.mode;
-        op.maxLines = flow.maxLines;
-        op.overflow = flow.overflow;
-        op.whiteSpace = flow.whiteSpace;
-        op.breakLong = flow.breakLong;
-        const std::string colorName = RoboXMLAttr(node, "color");
-        op.color = RoboFoundationPlatformColorForTheme(colorName.empty() ? style.color : colorName.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
-        op.value = value;
-        op.height = TextBlockHeight(value, width, style.size, style.face, style.leading, flow);
-        ops.push_back(op);
-        return op.height;
+        const std::string role = Lower(RoboXMLAttr(node, "role"));
+        const std::string as = Lower(RoboXMLAttr(node, "as"));
+        const bool field = role == "textbox" || role == "searchbox" || as == "input" || as == "textarea";
+        int fieldH = 0;
+        if (field) {
+            fieldH = AttrLength(node, "height");
+            if (fieldH <= 0) {
+                fieldH = as == "textarea" ? Px(72) : Px(28);
+            }
+            const int radius = Px(6);
+            PaintOp edge;
+            edge.x = x;
+            edge.y = y;
+            edge.width = width;
+            edge.height = fieldH;
+            edge.radius = radius;
+            edge.fill = ThemeColor("border-default", light);
+            ops.push_back(edge);
+            PaintOp well;
+            well.x = x + 1;
+            well.y = y + 1;
+            well.width = std::max(1, width - 2);
+            well.height = std::max(1, fieldH - 2);
+            well.radius = std::max(0, radius - 1);
+            well.fill = ThemeColor(light ? "bg-primary" : "bg-elevated", light);
+            ops.push_back(well);
+        }
+        int used = 0;
+        if (!value.empty()) {
+            const std::string alignName = Lower(RoboXMLAttr(node, "textalign").empty() ? RoboXMLAttr(node, "align") : RoboXMLAttr(node, "textalign"));
+            PaintOp op;
+            op.text = true;
+            op.x = field ? x + Px(8) : x;
+            op.y = field ? y + std::max(0, (fieldH - style.size) / 2) : y;
+            op.width = field ? std::max(1, width - Px(16)) : width;
+            op.size = style.size;
+            op.face = style.face;
+            op.align = (alignName == "center" || alignName == "middle") ? 1 : (alignName == "end" || alignName == "right") ? 2 : alignName == "justify" ? 3 : 0;
+            const TextFlow flow = FlowOf(node);
+            op.wrap = flow.mode;
+            op.maxLines = flow.maxLines;
+            op.overflow = flow.overflow;
+            op.whiteSpace = flow.whiteSpace;
+            op.breakLong = flow.breakLong;
+            const std::string colorName = RoboXMLAttr(node, "color");
+            const char* fallback = placeholder ? "text-tertiary" : style.color;
+            op.color = RoboFoundationPlatformColorForTheme(colorName.empty() ? fallback : colorName.c_str(), light ? ROBO_TRUE : ROBO_FALSE);
+            op.value = value;
+            op.height = TextBlockHeight(value, op.width, style.size, style.face, style.leading, flow);
+            ops.push_back(op);
+            used = field ? fieldH : op.height;
+        }
+        for (const RoboXMLNode& child : node.children) {
+            used += PlaceNode(child, x, y + used, width, light, ops, hits);
+        }
+        return field ? std::max(used, fieldH) : used;
     }
     if (IsIcon(node)) {
         const int box = IconBox(node);
@@ -1819,7 +1923,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         ops.push_back(op);
         return box;
     }
-    if (name == "button") {
+    if (Named(name, face, "button") || (Lower(RoboXMLAttr(node, "role")) == "button" && !Named(name, face, "iconbutton"))) {
         const int height = ButtonHeight(node);
         const int control = hits == nullptr ? -1 : hits->next;
         const bool underPointer = hits != nullptr && hits->pointerX >= x && hits->pointerX < x + width &&
@@ -1836,7 +1940,12 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         op.y = y;
         op.width = width;
         op.height = height;
-        op.radius = height / 2;
+        int radius = AttrLength(node, "radius");
+        const std::string shape = Lower(RoboXMLAttr(node, "shape"));
+        if (radius <= 0) {
+            radius = (shape == "pill" || shape == "capsule" || shape == "circle") ? height / 2 : Px(6);
+        }
+        op.radius = radius;
         StyleButton(node, light, hot, pressed, op);
         op.loading = ButtonOn(node, "loading");
         op.value = ButtonLabel(node);
@@ -1851,7 +1960,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         }
         return height;
     }
-    if (name == "iconbutton") {
+    if (Named(name, face, "iconbutton")) {
         const int box = IconButtonExtent(node);
         const int control = hits == nullptr ? -1 : hits->next;
         const bool underPointer = hits != nullptr && hits->pointerX >= x && hits->pointerX < x + box &&
@@ -1896,7 +2005,12 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         op.y = y;
         op.width = box;
         op.height = box;
-        op.radius = box / 2;
+        int radius = AttrLength(node, "radius");
+        const std::string shape = Lower(RoboXMLAttr(node, "shape"));
+        if (radius <= 0) {
+            radius = (shape == "circle" || shape == "pill") ? box / 2 : Px(6);
+        }
+        op.radius = radius;
         std::string variant = Lower(RoboXMLAttr(node, "variant", "ghost"));
         op.kind = variant == "subtle" ? 11 : variant == "outline" ? 12 : variant == "primary" ? 13 : variant == "danger" ? 14 : 10;
         op.preview = status == "loading" ? 1 : status == "success" ? 2 : status == "error" ? 3 : 0;
@@ -1936,7 +2050,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         }
         return box;
     }
-    if (name == "switch") {
+    if (Named(name, face, "switch") || Lower(RoboXMLAttr(node, "role")) == "switch") {
         int trackW = 0;
         int trackH = 0;
         int thumb = 0;
@@ -1944,7 +2058,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         PaintSwitchControl(ops, node, x, y, light);
         return trackH;
     }
-    if (name == "switchitem") {
+    if (Named(name, face, "switchitem")) {
         const std::string title = RoboXMLAttr(node, "title");
         const std::string description = RoboXMLAttr(node, "description");
         const int titleSize = std::max(1, Px(17));
@@ -1986,7 +2100,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         PaintSwitchControl(ops, node, x + std::max(0, width - trackW), y + std::max(0, (height - trackH) / 2), light);
         return height;
     }
-    if (name == "switchgroup") {
+    if (Named(name, face, "switchgroup")) {
         int cursorY = y;
         bool first = true;
         for (const RoboXMLNode& child : node.children) {
@@ -2004,14 +2118,14 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         }
         return std::max(0, cursorY - y);
     }
-    if (name == "segmentedcontrol") {
+    if (Named(name, face, "segmentedcontrol")) {
         int used = width;
         if (!ButtonOn(node, "fullWidth")) {
             used = std::min(width, SegmentNaturalWidth(node));
         }
         return PaintSegmented(ops, node, x, y, std::max(1, used), light);
     }
-    if (name == "segmentedtoolbar") {
+    if (Named(name, face, "segmentedtoolbar")) {
         const int gap = Px(8);
         int cursorX = x;
         int lineHeight = 0;
@@ -2098,6 +2212,17 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     }
     if (fillName.empty()) {
         fillName = RoboXMLAttr(node, "bg");
+    }
+    if (name == "background") {
+        if (fillName.empty()) {
+            fillName = RoboXMLAttr(node, "color");
+        }
+        if (fillName.empty()) {
+            fillName = RoboXMLAttr(node, "from");
+        }
+        if (fillName.empty()) {
+            fillName = RoboXMLAttr(node, "fill");
+        }
     }
     if (!fillName.empty()) {
         PaintOp box;

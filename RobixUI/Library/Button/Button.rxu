@@ -1,7 +1,0 @@
-<!-- Button is a pressable Container. -->
-<Component Name="Button" Base="Container">
-  <Default Display="inline-flex" Role="button" Cursor="pointer" As="button"/>
-  <Slot Name="leading"/>
-  <Text Value="{Content}"/>
-  <Slot Name="trailing"/>
-</Component>

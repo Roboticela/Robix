@@ -94,20 +94,20 @@ std::string RoboWebButtonSpinner() {
 
 void RoboWebAppendButtonCss(std::ostream& css) {
   css << ".robo-button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;"
-         "width:100%;margin:0;padding:0 22px;height:44px;border:0;border-radius:980px;background:var(--brand-primary);"
-         "color:var(--text-on-brand);font:500 17px/1.35 var(--font-sans,system-ui,sans-serif);white-space:nowrap;"
-         "cursor:pointer;text-decoration:none;outline:2px solid transparent;outline-offset:2px;box-shadow:none;"
-         "transition:background-color 150ms linear,border-color 150ms linear,color 150ms linear,"
-         "outline-color 150ms linear,box-shadow 150ms linear}\n";
-  css << ".robo-button[data-full=\"false\"]{width:auto}\n";
-  css << ".robo-button[data-size=\"sm\"]{height:32px;padding:0 14px;font-size:14px}\n";
-  css << ".robo-button[data-size=\"lg\"]{height:50px;padding:0 24px}\n";
+         "width:auto;margin:0;padding:0 12px;height:28px;min-height:28px;border:0;border-radius:6px;background:var(--brand-primary);"
+         "color:var(--text-on-brand);font:500 13px/1 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;white-space:nowrap;"
+         "cursor:pointer;text-decoration:none;outline:none;box-shadow:inset 0 0.5px 0 rgba(255,255,255,.28),0 0.5px 1px rgba(0,0,0,.18);"
+         "transition:background-color 120ms linear,border-color 120ms linear,color 120ms linear,box-shadow 120ms linear}\n";
+  css << ".robo-button[data-full=\"true\"],.robo-button[data-fullwidth=\"true\"]{width:100%}\n";
+  css << ".robo-button[data-size=\"sm\"]{height:22px;min-height:22px;padding:0 8px;font-size:12px}\n";
+  css << ".robo-button[data-size=\"lg\"]{height:32px;min-height:32px;padding:0 16px;font-size:14px}\n";
+  css << ".robo-button:focus-visible{box-shadow:0 0 0 3px var(--brand-primary-focus-ring),inset 0 0.5px 0 rgba(255,255,255,.28)}\n";
   css << ".robo-button-label,.robo-button-content{display:inline-flex;align-items:center;justify-content:center;"
          "gap:8px;white-space:nowrap}\n";
   css << ".robo-button-icon{display:inline-flex;width:16px;height:16px;flex:0 0 16px}\n";
   css << ".robo-button-icon svg{width:16px;height:16px;display:block}\n";
-  css << ".robo-button-spinner{display:block;flex:0 0 16px;transform-origin:center;"
-         "animation:robo-button-spin 1s linear infinite}\n";
+  css << ".robo-button-spinner{display:block;flex:0 0 16px;width:16px;height:16px;transform-box:fill-box;"
+         "transform-origin:center;animation:robo-button-spin .75s linear infinite}\n";
   css << "@keyframes robo-button-spin{to{transform:rotate(360deg)}}\n";
   css << "@media (prefers-reduced-motion:reduce){.robo-button-spinner{animation:none}}\n";
   css << ".robo-button-spinner-track{stroke:color-mix(in srgb,var(--text-tertiary) 35%,transparent)}\n";

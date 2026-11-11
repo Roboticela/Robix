@@ -1,4 +1,0 @@
-<!-- BrandLogo is built from Svg. -->
-<Component Name="BrandLogo" Base="Svg">
-  <Slot Name="content"/>
-</Component>

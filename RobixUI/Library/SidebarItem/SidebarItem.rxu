@@ -1,4 +1,0 @@
-<!-- SidebarItem is Container. Alias keeps the existing paint. -->
-<Component Name="SidebarItem" Base="Container">
-</Component>
-

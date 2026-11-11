@@ -1,9 +1,0 @@
-package Robix.UI;
-
-import Robix.UI.Behaviors.Selection;
-
-public class SegmentedControl {
-  public String value = "";
-  public Selection selection = new Selection();
-  public Void OnChange() { this.selection.OnChange(); }
-}

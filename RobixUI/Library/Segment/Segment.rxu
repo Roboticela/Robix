@@ -1,5 +1,0 @@
-<!-- Segment is one choice inside a SegmentedControl. -->
-<Component Name="Segment" Base="Container">
-  <Default Role="tab" Cursor="pointer"/>
-  <Text Value="{Value}"/>
-</Component>

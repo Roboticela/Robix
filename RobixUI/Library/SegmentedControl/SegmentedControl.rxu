@@ -1,5 +1,0 @@
-<!-- SegmentedControl is a row of choices. -->
-<Component Name="SegmentedControl" Base="Container">
-  <Default Display="flex" Direction="row" Role="tablist" Gap="4"/>
-  <Slot Name="content"/>
-</Component>

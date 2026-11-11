@@ -1,4 +1,0 @@
-<!-- Box is Container. Alias keeps the existing paint. -->
-<Component Name="Box" Base="Container">
-</Component>
-

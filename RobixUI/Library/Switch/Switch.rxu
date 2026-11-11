@@ -1,4 +1,0 @@
-<!-- Switch is a pressable Container with on and off state. -->
-<Component Name="Switch" Base="Container">
-  <Default Role="switch" Toggle="pressed" Cursor="pointer"/>
-</Component>

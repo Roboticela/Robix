@@ -5,9 +5,9 @@
 -->
 <RoboFoundation name="RoboFoundation" sealed="true">
   <Colors>
-    <Color name="brand-primary" dark="#3B9EFF" light="#0E7AFF" />
-    <Color name="brand-primary-hover" dark="#5CADFF" light="#0A6AE8" />
-    <Color name="brand-primary-active" dark="#2E8CE6" light="#0757C7" />
+    <Color name="brand-primary" dark="#0A84FF" light="#007AFF" />
+    <Color name="brand-primary-hover" dark="#409CFF" light="#0071E3" />
+    <Color name="brand-primary-active" dark="#0066CC" light="#0062CC" />
     <Color name="brand-primary-disabled" dark="#1E3A5C" light="#B8D9FF" />
     <Color name="brand-primary-subtle" dark="rgba(59, 158, 255, 0.15)" light="rgba(14, 122, 255, 0.1)" />
     <Color name="brand-primary-range" dark="rgba(59, 158, 255, 0.38)" light="rgba(14, 122, 255, 0.22)" />
@@ -28,7 +28,7 @@
     <Color name="text-tertiary" dark="#98989D" light="#86868B" />
     <Color name="text-disabled" dark="#48484A" light="#C7C7CC" />
     <Color name="text-on-brand" dark="#FFFFFF" light="#FFFFFF" />
-    <Color name="text-link" dark="#3B9EFF" light="#0E7AFF" />
+    <Color name="text-link" dark="#0A84FF" light="#007AFF" />
     <Color name="bg-primary" dark="#000000" light="#FFFFFF" />
     <Color name="bg-secondary" dark="#1C1C1E" light="#F5F5F7" />
     <Color name="bg-tertiary" dark="#2C2C2E" light="#EDEDEF" />

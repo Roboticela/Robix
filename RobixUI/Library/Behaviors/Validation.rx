@@ -1,7 +1,0 @@
-package Robix.UI.Behaviors;
-
-public class Validation {
-  public Bool valid = true;
-  public String message = "";
-  public Void OnChange() {}
-}

@@ -1,6 +1,0 @@
-package Robix.UI.Behaviors;
-
-public class Disclosure {
-  public Bool open = false;
-  public Void OnClick() { this.open = !this.open; }
-}

@@ -1,7 +1,0 @@
-package Robix.UI.Behaviors;
-
-public class Press {
-  public Bool pressed = false;
-  public Void OnPointerDown() { this.pressed = true; }
-  public Void OnPointerUp() { this.pressed = false; }
-}

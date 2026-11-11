@@ -1,5 +1,0 @@
-<!-- H3 is Text. Alias keeps the existing paint. -->
-<Component Name="H3" Base="Text">
-  <Default Level="3"/>
-</Component>
-

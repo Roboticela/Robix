@@ -36,9 +36,9 @@ struct RoboFoundationFontToken {
 
 /* Values are the sealed RoboFoundation.xml set. */
 static const RoboFoundationColorToken kRoboFoundationColors[] = {
-    {"brand-primary", "#3B9EFF", "#0E7AFF"},
-    {"brand-primary-hover", "#5CADFF", "#0A6AE8"},
-    {"brand-primary-active", "#2E8CE6", "#0757C7"},
+    {"brand-primary", "#0A84FF", "#007AFF"},
+    {"brand-primary-hover", "#409CFF", "#0071E3"},
+    {"brand-primary-active", "#0066CC", "#0062CC"},
     {"brand-primary-disabled", "#1E3A5C", "#B8D9FF"},
     {"brand-primary-subtle", "rgba(59, 158, 255, 0.15)", "rgba(14, 122, 255, 0.1)"},
     {"brand-primary-range", "rgba(59, 158, 255, 0.38)", "rgba(14, 122, 255, 0.22)"},
@@ -59,7 +59,7 @@ static const RoboFoundationColorToken kRoboFoundationColors[] = {
     {"text-tertiary", "#98989D", "#86868B"},
     {"text-disabled", "#48484A", "#C7C7CC"},
     {"text-on-brand", "#FFFFFF", "#FFFFFF"},
-    {"text-link", "#3B9EFF", "#0E7AFF"},
+    {"text-link", "#0A84FF", "#007AFF"},
     {"bg-primary", "#000000", "#FFFFFF"},
     {"bg-secondary", "#1C1C1E", "#F5F5F7"},
     {"bg-tertiary", "#2C2C2E", "#EDEDEF"},

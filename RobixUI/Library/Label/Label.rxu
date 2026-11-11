@@ -1,4 +1,0 @@
-<!-- Label is Text at the label size and primary tone. -->
-<Component Name="Label" Base="Text">
-  <Default Tone="primary"/>
-</Component>

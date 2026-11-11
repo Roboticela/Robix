@@ -1,4 +1,0 @@
-<!-- ThemeIconToggle is built from Container. -->
-<Component Name="ThemeIconToggle" Base="Container">
-  <Slot Name="content"/>
-</Component>

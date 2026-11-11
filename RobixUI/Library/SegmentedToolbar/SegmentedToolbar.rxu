@@ -1,4 +1,0 @@
-<!-- SegmentedToolbar is SegmentedControl. Alias keeps the existing paint. -->
-<Component Name="SegmentedToolbar" Base="SegmentedControl">
-</Component>
-
