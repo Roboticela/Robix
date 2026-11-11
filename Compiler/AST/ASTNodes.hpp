@@ -31,6 +31,7 @@ struct TypeNode {
     bool isReference = false; // &T or &mut T
     bool isMutable   = false;
     SourceLocation location{};
+    std::int64_t arrayLength = 0; // 0 means one value. N means a fixed array of N values.
 
     [[nodiscard]] bool IsEmpty() const noexcept { return baseName.empty(); }
     [[nodiscard]] std::string ToString() const {

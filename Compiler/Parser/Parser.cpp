@@ -1,5 +1,6 @@
 #include "Parser.hpp"
 
+#include <cstdlib>
 #include <utility>
 
 namespace Robix::Frontend {
@@ -597,6 +598,7 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
         decl->fieldMutability = varStmt->mutability;
         decl->fieldType       = std::move(varStmt->declaredType);
         decl->fieldInitializer= std::move(varStmt->initializer);
+        decl->attributes      = std::move(attrs);
         return decl;
     }
 
@@ -656,6 +658,12 @@ DeclPtr Parser::ParseTopLevelOrMemberDecl(std::string_view enclosingClassName) {
             field->name            = std::string(Advance().lexeme);
             field->fieldType       = std::move(firstType);
             field->fieldMutability = VarMutability::MutableVar;
+            field->attributes      = std::move(attrs);
+            if (Match(TokenKind::LBracket)) {
+                const Token number = Expect(TokenKind::IntegerLiteral, "P1038", "Expected a fixed array length");
+                field->fieldType.arrayLength = std::strtoll(std::string(number.lexeme).c_str(), nullptr, 0);
+                Expect(TokenKind::RBracket, "P1039", "Expected ']' after the array length");
+            }
             if (Match(TokenKind::Equal)) {
                 field->fieldInitializer = ParseExpression();
             }

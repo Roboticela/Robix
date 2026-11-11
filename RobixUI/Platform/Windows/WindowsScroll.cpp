@@ -20,10 +20,11 @@ void BarBox(const WindowScrollState& bar, int& x, int& y, int& width, int& heigh
     const int arrow = Scale(6, bar.dpi);
     const int gap = Scale(3, bar.dpi);
     const int minThumb = Scale(28, bar.dpi);
+    const int foot = WindowMaxScrollX(bar) > 0 ? thick + edge : 0;
     width = thick;
     x = bar.pixelWidth - edge - thick;
     y = edge;
-    height = bar.pixelHeight - edge * 2;
+    height = bar.pixelHeight - edge * 2 - foot;
     trackY = y + arrow + gap;
     trackH = height - (arrow + gap) * 2;
     if (trackH < minThumb) {
@@ -123,6 +124,28 @@ void Pill(RoboGPU* gpu, int x, int y, int width, int height, RoboU32 color, Robo
     RoboDamageAdd(&gpu->damage, x, y, width, height);
 }
 
+RoboU8 ArrowHCoverage(int localX, int localY, int size, bool left) {
+    const int span = size * 4;
+    const int tipY = span / 2;
+    const int base = span - 2;
+    const int tipX = left ? 2 : base;
+    const int baseX = left ? base : 2;
+    unsigned hits = 0;
+    for (int sampleY = 0; sampleY < 4; ++sampleY) {
+        for (int sampleX = 0; sampleX < 4; ++sampleX) {
+            const int px = localX * 4 + sampleX;
+            const int py = localY * 4 + sampleY;
+            const int a = Cross(tipX, tipY, baseX, 2, px, py);
+            const int b = Cross(baseX, 2, baseX, span - 2, px, py);
+            const int c = Cross(baseX, span - 2, tipX, tipY, px, py);
+            if ((a >= 0 && b >= 0 && c >= 0) || (a <= 0 && b <= 0 && c <= 0)) {
+                ++hits;
+            }
+        }
+    }
+    return static_cast<RoboU8>(hits * 255u / 16u);
+}
+
 void Arrow(RoboGPU* gpu, int x, int y, int size, bool up, RoboU32 color, RoboU8 coverage) {
     if (gpu == nullptr || size <= 1 || coverage == 0) {
         return;
@@ -137,6 +160,57 @@ void Arrow(RoboGPU* gpu, int x, int y, int size, bool up, RoboU32 color, RoboU8 
         }
     }
     RoboDamageAdd(&gpu->damage, x, y, size, size);
+}
+
+void ArrowAcross(RoboGPU* gpu, int x, int y, int size, bool left, RoboU32 color, RoboU8 coverage) {
+    if (gpu == nullptr || size <= 1 || coverage == 0) {
+        return;
+    }
+    for (int row = 0; row < size; ++row) {
+        for (int col = 0; col < size; ++col) {
+            const RoboU8 edge = ArrowHCoverage(col, row, size, left);
+            if (edge == 0) {
+                continue;
+            }
+            RoboGPUBlendPixel(gpu, x + col, y + row, color, static_cast<RoboU8>(edge * coverage / 255));
+        }
+    }
+    RoboDamageAdd(&gpu->damage, x, y, size, size);
+}
+
+void BarBoxX(const WindowScrollState& bar, int& x, int& y, int& width, int& height, int& trackX, int& trackW, int& thumbX,
+             int& thumbW) {
+    const int thick = Scale(6, bar.dpi);
+    const int edge = Scale(2, bar.dpi);
+    const int arrow = Scale(6, bar.dpi);
+    const int gap = Scale(3, bar.dpi);
+    const int minThumb = Scale(28, bar.dpi);
+    const int side = WindowMaxScroll(bar) > 0 ? thick + edge : 0;
+    height = thick;
+    x = edge;
+    y = bar.pixelHeight - edge - thick;
+    width = bar.pixelWidth - edge * 2 - side;
+    trackX = x + arrow + gap;
+    trackW = width - (arrow + gap) * 2;
+    if (trackW < minThumb) {
+        trackW = width > minThumb ? minThumb : width;
+        trackX = x + (width - trackW) / 2;
+    }
+    const int maxScroll = WindowMaxScrollX(bar);
+    const int content = bar.contentWidth > 0 ? bar.contentWidth : 1;
+    int thumb = static_cast<int>(static_cast<long long>(trackW) * bar.pixelWidth / content);
+    if (thumb < minThumb) {
+        thumb = minThumb;
+    }
+    if (thumb > trackW) {
+        thumb = trackW;
+    }
+    const int travel = trackW - thumb > 1 ? trackW - thumb : 1;
+    thumbW = thumb;
+    thumbX = trackX;
+    if (maxScroll > 0) {
+        thumbX += static_cast<int>(static_cast<long long>(bar.scrollX) * travel / maxScroll);
+    }
 }
 
 RoboU32 Theme(const char* name, bool light) {
@@ -293,6 +367,154 @@ void PaintWindowScrollBar(RoboGPU* gpu, const WindowScrollState& bar) {
     Pill(gpu, barX, thumbY, barW, thumbH, thumbInk, fade);
     Arrow(gpu, barX, barY, arrow, true, upInk, fade);
     Arrow(gpu, barX, barY + barH - arrow, arrow, false, downInk, fade);
+}
+
+int WindowMaxScrollX(const WindowScrollState& bar) {
+    const int maxScroll = bar.contentWidth - bar.pixelWidth;
+    return maxScroll > 0 ? maxScroll : 0;
+}
+
+void WindowScrollBarXRect(const WindowScrollState& bar, int& x, int& y, int& width, int& height) {
+    int trackX = 0;
+    int trackW = 0;
+    int thumbX = 0;
+    int thumbW = 0;
+    BarBoxX(bar, x, y, width, height, trackX, trackW, thumbX, thumbW);
+    const int edge = Scale(2, bar.dpi);
+    x -= edge;
+    y -= edge;
+    width += edge * 2;
+    height += edge * 2;
+}
+
+void WindowScrollByX(WindowScrollState& bar, int delta) {
+    bar.scrollX += delta;
+    if (bar.scrollX < 0) {
+        bar.scrollX = 0;
+    }
+    const int maxScroll = WindowMaxScrollX(bar);
+    if (bar.scrollX > maxScroll) {
+        bar.scrollX = maxScroll;
+    }
+}
+
+void WindowScrollToBarX(WindowScrollState& bar, int pointerX) {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    int trackX = 0;
+    int trackW = 0;
+    int thumbX = 0;
+    int thumbW = 0;
+    BarBoxX(bar, x, y, width, height, trackX, trackW, thumbX, thumbW);
+    const int maxScroll = WindowMaxScrollX(bar);
+    if (trackW <= 0 || maxScroll <= 0) {
+        return;
+    }
+    int ratio = (pointerX - trackX) * 1000 / trackW;
+    if (ratio < 0) {
+        ratio = 0;
+    }
+    if (ratio > 1000) {
+        ratio = 1000;
+    }
+    bar.scrollX = maxScroll * ratio / 1000;
+}
+
+void WindowDragScrollBarX(WindowScrollState& bar, int pointerX) {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    int trackX = 0;
+    int trackW = 0;
+    int thumbX = 0;
+    int thumbW = 0;
+    BarBoxX(bar, x, y, width, height, trackX, trackW, thumbX, thumbW);
+    const int maxScroll = WindowMaxScrollX(bar);
+    const int travel = trackW - thumbW > 1 ? trackW - thumbW : 1;
+    int pos = pointerX - trackX - bar.grabX;
+    if (pos < 0) {
+        pos = 0;
+    }
+    if (pos > travel) {
+        pos = travel;
+    }
+    bar.scrollX = maxScroll > 0 ? static_cast<int>(static_cast<long long>(pos) * maxScroll / travel) : 0;
+}
+
+int WindowScrollThumbX(const WindowScrollState& bar) {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    int trackX = 0;
+    int trackW = 0;
+    int thumbX = 0;
+    int thumbW = 0;
+    BarBoxX(bar, x, y, width, height, trackX, trackW, thumbX, thumbW);
+    return thumbX;
+}
+
+int HitWindowScrollBarX(const WindowScrollState& bar, int x, int y) {
+    if (WindowMaxScrollX(bar) <= 0) {
+        return 0;
+    }
+    int barX = 0;
+    int barY = 0;
+    int barW = 0;
+    int barH = 0;
+    int trackX = 0;
+    int trackW = 0;
+    int thumbX = 0;
+    int thumbW = 0;
+    BarBoxX(bar, barX, barY, barW, barH, trackX, trackW, thumbX, thumbW);
+    const int edge = Scale(2, bar.dpi);
+    if (y < barY - edge || y >= barY + barH + edge || x < barX || x >= barX + barW) {
+        return 0;
+    }
+    const int arrow = Scale(6, bar.dpi);
+    if (x < barX + arrow + edge) {
+        return 1;
+    }
+    if (x >= barX + barW - arrow - edge) {
+        return 2;
+    }
+    if (x >= thumbX && x < thumbX + thumbW) {
+        return 3;
+    }
+    return 4;
+}
+
+void PaintWindowScrollBarX(RoboGPU* gpu, const WindowScrollState& bar) {
+    if (gpu == nullptr || bar.opacityX <= 0 || WindowMaxScrollX(bar) <= 0) {
+        return;
+    }
+    int barX = 0;
+    int barY = 0;
+    int barW = 0;
+    int barH = 0;
+    int trackX = 0;
+    int trackW = 0;
+    int thumbX = 0;
+    int thumbW = 0;
+    BarBoxX(bar, barX, barY, barW, barH, trackX, trackW, thumbX, thumbW);
+    const RoboU32 trackColor = Theme("border-default", bar.light);
+    const RoboU32 strong = Theme("border-strong", bar.light);
+    const RoboU32 tertiary = Theme("text-tertiary", bar.light);
+    const RoboU32 restColor = Mix(strong, tertiary, 45);
+    const RoboU32 hoverColor = tertiary;
+    const RoboU32 pressColor = Mix(tertiary, Theme("text-primary", bar.light), 58);
+    const RoboU8 fade = static_cast<RoboU8>(bar.opacityX > 255 ? 255 : bar.opacityX);
+    const int arrow = Scale(6, bar.dpi);
+    const RoboU32 thumbInk = bar.dragX ? pressColor : (bar.partX == 3 ? hoverColor : restColor);
+    const RoboU32 leftInk = bar.holdX < 0 ? pressColor : (bar.partX == 1 ? hoverColor : restColor);
+    const RoboU32 rightInk = bar.holdX > 0 ? pressColor : (bar.partX == 2 ? hoverColor : restColor);
+    Pill(gpu, trackX, barY, trackW, barH, trackColor, fade);
+    Pill(gpu, thumbX, barY, thumbW, barH, thumbInk, fade);
+    ArrowAcross(gpu, barX, barY, arrow, true, leftInk, fade);
+    ArrowAcross(gpu, barX + barW - arrow, barY, arrow, false, rightInk, fade);
 }
 
 }  // namespace Robix::UI

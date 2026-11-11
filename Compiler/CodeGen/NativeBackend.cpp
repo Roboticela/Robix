@@ -1516,7 +1516,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val addr = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = inttoptr i64 " << addr.repr << " to ptr\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
-            } else if (inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP" ||
+            } else if (inst.textImm == "CPU.TSC" || inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP" ||
                        inst.textImm == "CPU.WriteCR3" || inst.textImm == "CPU.ExchangeRSP" ||
                        inst.textImm == "CPU.SavedRSP" || inst.textImm == "CPU.LGDT" ||
                        inst.textImm == "CPU.LIDT" || inst.textImm == "CPU.BootInfo" ||
@@ -1528,7 +1528,11 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_vals[id] = Val{ "0", NTy::I64 };
                     break;
                 }
-                if (inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP") {
+                if (inst.textImm == "CPU.TSC") {
+                    m_body << "  " << vname
+                           << " = call i64 asm sideeffect \"rdtsc\", \"=A,~{dirflag},~{fpsr},~{flags}\"()\n";
+                    m_vals[id] = Val{ vname, NTy::I64 };
+                } else if (inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP") {
                     const char* text = inst.textImm == "CPU.ReadCR3" ? "movq %cr3, $0" : "movq %rsp, $0";
                     m_body << "  " << vname << " = call i64 asm sideeffect \"" << text
                            << "\", \"=r,~{dirflag},~{fpsr},~{flags}\"()\n";

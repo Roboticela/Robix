@@ -5,6 +5,7 @@
 #include "../Semantic/SemanticAnalyzer.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -222,6 +223,19 @@ private:
     std::string m_activeIrClass;
     std::vector<std::pair<std::string, Frontend::TypeNode>> m_subst;
     std::unordered_map<std::string, const Frontend::DeclNode*> m_classDecls;
+    struct TypeLayout {
+        std::int64_t size = 0;
+        std::int64_t align = 1;
+        bool ok = false;
+        std::unordered_map<std::string, std::int64_t> fields;
+    };
+    std::unordered_map<std::string, TypeLayout> m_layouts;
+    std::unordered_set<std::string> m_layingOut;
+    std::unordered_map<std::string, std::int64_t> m_consts;
+    void NoteLayouts();
+    void CollectConsts(const Frontend::CompilationUnitAST& unit);
+    [[nodiscard]] TypeLayout LayoutOf(const std::string& name);
+    [[nodiscard]] std::optional<std::int64_t> EvalConst(const Frontend::ExprNode& expr);
     std::vector<GenericInst> m_genericQueue;
     std::unordered_set<std::string> m_genericSeen;
     IRModule* m_module = nullptr;

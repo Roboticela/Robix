@@ -659,11 +659,39 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         if (m_hostPicture) WriteHostPicture(*obj);
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ shown };
+                } else if (inst.symbolImm == "Memory.At" && !inst.callArgRegs.empty()) {
+                    auto obj = std::make_shared<VMObjectInstance>();
+                    obj->className = "Addr";
+                    obj->fields["addr"] = VMValue{ regs[inst.callArgRegs[0]].AsInt() };
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ obj };
+                } else if (inst.symbolImm == "Volatile.Load" && !inst.callArgRegs.empty()) {
+                    std::int64_t value = 0;
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (obj) {
+                        const auto at = obj->fields.find("addr");
+                        if (at != obj->fields.end()) {
+                            const auto stored = m_mmio.find(at->second.AsInt());
+                            if (stored != m_mmio.end()) value = stored->second;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
+                } else if (inst.symbolImm == "Volatile.Store" && inst.callArgRegs.size() >= 2) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (obj) {
+                        const auto at = obj->fields.find("addr");
+                        if (at != obj->fields.end()) m_mmio[at->second.AsInt()] = regs[inst.callArgRegs[1]].AsInt();
+                    }
+                } else if (inst.symbolImm == "CPU.TSC") {
+                    m_tsc += 1;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ m_tsc };
                 } else if (inst.symbolImm == "Port.Read8") {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 0 } };
                 } else if (inst.symbolImm == "Port.Write8" && inst.callArgRegs.size() >= 2) {
-                    const unsigned byte = static_cast<unsigned>(regs[inst.callArgRegs[1]].AsInt()) & 0xFFu;
-                    m_stdoutBuffer.push_back(static_cast<char>(byte));
+                    const std::int64_t port = regs[inst.callArgRegs[0]].AsInt();
+                    if (port == 1016) {
+                        const unsigned byte = static_cast<unsigned>(regs[inst.callArgRegs[1]].AsInt()) & 0xFFu;
+                        m_stdoutBuffer.push_back(static_cast<char>(byte));
+                    }
                 } else if (inst.symbolImm == "CPU.Halt") {
                     m_halt = true;
                 } else if (inst.symbolImm == "Memory.Free" && !inst.callArgRegs.empty()) {
@@ -964,8 +992,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 } else if (inst.symbolImm.rfind("Port.", 0) == 0 || inst.symbolImm.rfind("CPU.", 0) == 0 ||
                            inst.symbolImm.rfind("Timer.", 0) == 0 || inst.symbolImm.rfind("System.", 0) == 0 ||
                            inst.symbolImm.rfind("Console.", 0) == 0 ||
-                           inst.symbolImm == "Memory.Pages" || inst.symbolImm == "Memory.Address" ||
-                           inst.symbolImm == "Memory.At") {
+                           inst.symbolImm == "Memory.Pages" || inst.symbolImm == "Memory.Address") {
                     Reject("robix vm: " + inst.symbolImm + " runs in a native freestanding image. Compile with robixc --target x86_64-unknown-none.");
                 } else if (inst.symbolImm == "PWM.SetDuty" || inst.symbolImm == "UART.Write" ||
                            inst.symbolImm == "SPI.Transfer" || inst.symbolImm == "I2C.Write" ||

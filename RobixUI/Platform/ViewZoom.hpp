@@ -7,7 +7,7 @@
 namespace Robix::UI {
 
 /* Page zoom shared by every platform host.
-   The scale matches the web document zoom: 0.25 to 4, Ctrl+wheel uses exp(-deltaY * 0.0025),
+   The scale matches the web document zoom: 0.25 to 5, Ctrl+wheel uses exp(-deltaY * 0.0025),
    and a pinch multiplies the scale captured when the gesture began.
    The on-screen capsule is a host concern. This type only places it and changes the scale. */
 struct ViewZoomBar {
@@ -37,7 +37,7 @@ struct ViewZoom {
     int pressed = 0;
 
     static constexpr double kMin = 0.25;
-    static constexpr double kMax = 4;
+    static constexpr double kMax = 5;
     static constexpr int kPresets[6] = {25, 50, 100, 125, 150, 200};
     static constexpr int kPresetCount = 6;
 

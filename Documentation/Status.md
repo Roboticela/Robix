@@ -329,6 +329,58 @@ ROBO_GPU: miss
 
 `Build/RoboticelaOS/stageE.ppm` is 320×200. Pixel `(0, 0)` is `1C 24 30`, the snapped window. Pixel `(8, 40)` is `2A 23 44`, the menu (`2761540`). Pixel `(200, 8)` is `0E 7A FF`, the bar. Pixel `(221, 8)` and pixel `(224, 8)` are `FF FF FF`, clock glyphs for `1032`. Pixel `(220, 8)` is `0E 7A FF`, a clock gap showing the bar. Pixel `(250, 16)` is `FF FF FF`, the cursor. Pixel `(300, 160)` is `30 28 17`, the wallpaper. Pixel `(0, 199)` is `1C 24 30`. `robix run` from `RoboticelaOS` printed the same serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with those pixels.
 
+## RoboticelaOS Stage F
+
+`@Packed` lays a struct out with no padding. `@Align(N)` forces a power-of-two alignment and rounds the size up to it. `@Size(N)` fails the build when the computed size differs. `Memory.SizeOf` and `Memory.OffsetOf` fold to integer constants in both engines. A top-level `const` with an integer value does the same, including a `const` imported from another file.
+
+```
+robix test RoboticelaOS/Tests/RoboLayout.test.rx
+robix test RoboticelaOS/Shared/RoboTypes.test.rx
+robix test RoboticelaOS/Shared/RoboHandoff.test.rx
+robix test RoboticelaOS/Shared/RoboPacks.test.rx
+robix test RoboticelaOS/Boot/RoboBootloader.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSerial.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+robix test RoboticelaOS/Kernel/RoboKernel.test.rx
+```
+
+Each printed `interpreter ok, native ok`. The packed stand-in has `magic` at offset 0 and `version` at offset 4, and its size is 8. A packed `UInt8` then `UInt32` is 5 bytes with the second field at offset 1. The same fields without `@Packed` put the second field at offset 4 and the size at 8. `@Align(8)` on a one-byte struct makes the size 8. `ROBO_HANDOFF_MAGIC` is `0x444E4852`. `RoboHandoff` is 1448 bytes. `tscFrequency` is at offset 192. `memoryRanges` is at offset 248. `RoboMemoryRange` is 24 bytes and its kind field, `rangeType`, is at offset 16. `type` is a Robix keyword, so that field keeps the C offset under the name `rangeType`. `RoboU8` through `RoboU64` are 1, 2, 4, and 8. Pack magic `0x52554352` (`RCUR`), `0x50434952` (`RICP`), and `0x43494F52` (`ROIC`) are accepted. Magic `0` and magic `1` are rejected. The map fixture is type 1 then type 2. A ceiling never moves backward: `Advance(100000, 97400)` stays `100000`. The boot line starts with byte 82 and the word `handoff`.
+
+```
+robixc RoboticelaOS/Tests/RoboLayoutBad.rx -o Build/RoboticelaOS/RoboLayoutBad.exe
+```
+
+The build failed with `L1008`: the struct is 8 bytes, and `@Size` asked for 7.
+
+```
+robixc -O3 RoboticelaOS/Kernel/RoboKernel.rxb -o Build/RoboticelaOS/RoboKernel.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel.elf -serial file:Build/RoboticelaOS/stageF.serial -display none -vga std
+```
+
+The serial file was:
+
+```
+ROBO_BOOT: handoff
+ROBO_KERNEL: start
+ROBO_GPU: present
+ROBO_UI: paint
+ROBO_SCENE: frame
+ROBO_UI: click
+ROBO_SHELL: bar
+ROBO_GPU: miss
+```
+
+`Build/RoboticelaOS/stageF.ppm` is 320×200 and matches the Stage E desktop. Pixel `(0, 0)` is `1C 24 30`. Pixel `(8, 40)` is `2A 23 44`. Pixel `(200, 8)` is `0E 7A FF`. Pixel `(221, 8)` is `FF FF FF`. Pixel `(250, 16)` is `FF FF FF`. Pixel `(300, 160)` is `30 28 17`. Pixel `(0, 199)` is `1C 24 30`. The bootloader writes the handoff at `458752` (`0x70000`): magic, version 4, two memory ranges, and a TSC frequency measured from the PIT. The splash bar is drawn and then the desktop paint covers it.
+
+```
+robixc -O3 RoboticelaOS/Boot/RoboBadHandoff.rxb -o Build/RoboticelaOS/RoboBadHandoff.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboBadHandoff.elf -serial file:Build/RoboticelaOS/stageF-bad.serial -display none -vga std
+```
+
+That serial file was `ROBO_KERNEL: bad handoff`. The image stores magic 0 and halts.
+
+`Boot/RoboBootROM.s` is the 16-bit reset. It linked to `Build/RoboticelaOS/RoboBootROM.bin`, 65536 bytes. QEMU `-bios` wrote serial byte 73 (`I`). `robix run` from `RoboticelaOS` printed the same kernel serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with the same pixels. On the host, `Port.Write8` records only the serial port `1016`. The PIT ports stay off that log.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

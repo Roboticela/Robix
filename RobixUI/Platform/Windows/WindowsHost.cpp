@@ -68,8 +68,7 @@ struct HostView {
     int contentWidth = 0;
     int shownScrollX = -1;
     bool regionDrag = false;
-    bool barXDrag = false;
-    int barXGrab = 0;
+    bool panLive = false;
     unsigned baseDpi = 96;
     unsigned dpi = 96;
     ViewZoom zoom{};
@@ -110,6 +109,11 @@ struct HostView {
     int shownHold = 0;
     bool shownDrag = false;
     bool shownHot = false;
+    int shownOpacityX = -1;
+    int shownPartX = -1;
+    int shownHoldX = 0;
+    bool shownDragX = false;
+    bool shownHotX = false;
     int shownScroll = -1;
 };
 
@@ -229,6 +233,8 @@ void FillBar(HostView* view, WindowScrollState& bar) {
     bar = view->bar;
     bar.scrollY = ToWin(view->scrollY, scale);
     bar.contentHeight = std::max(static_cast<int>(view->pixelHeight), ToWin(view->contentHeight, scale));
+    bar.scrollX = ToWin(view->scrollX, scale);
+    bar.contentWidth = std::max(static_cast<int>(view->pixelWidth), ToWin(view->contentWidth, scale));
     bar.pixelWidth = static_cast<int>(view->pixelWidth);
     bar.pixelHeight = static_cast<int>(view->pixelHeight);
     bar.dpi = view->baseDpi;
@@ -247,6 +253,34 @@ void KeepScroll(HostView* view, const WindowScrollState& bar) {
         next = maxScroll;
     }
     view->scrollY = next;
+}
+
+void KeepScrollX(HostView* view, const WindowScrollState& bar) {
+    const double scale = PageScale(view);
+    const int layoutW = std::max(1, ToDoc(static_cast<int>(view->pixelWidth), scale));
+    int next = ToDoc(bar.scrollX, scale);
+    const int maxScroll = std::max(0, view->contentWidth - layoutW);
+    if (next < 0) {
+        next = 0;
+    }
+    if (next > maxScroll) {
+        next = maxScroll;
+    }
+    view->scrollX = next;
+}
+
+void RevealBar(HostView* view, bool horizontal) {
+    if (view == nullptr || view->window == nullptr) {
+        return;
+    }
+    if (horizontal) {
+        view->bar.opacityX = 255;
+        view->bar.idleX = GetTickCount();
+    } else {
+        view->bar.opacity = 255;
+        view->bar.idle = GetTickCount();
+    }
+    SetTimer(view->window, 2, 50, nullptr);
 }
 
 bool HitDocControl(const WindowControl& control, int x, int y, int scrollX, int scrollY, double scale) {
@@ -1007,80 +1041,6 @@ void CatchUpSpin(HostView* view) {
     }
 }
 
-void PaintPageScrollX(HostView* view, int layoutW, int layoutH) {
-    if (view == nullptr || view->contentWidth <= layoutW) {
-        return;
-    }
-    const double scale = PageScale(view);
-    const int thick = std::max(8, WindowScrollScale(8, view->baseDpi));
-    const int viewPx = static_cast<int>(view->pixelWidth);
-    const int height = static_cast<int>(view->pixelHeight);
-    int barW = viewPx;
-    if (view->contentHeight > layoutH) {
-        barW -= thick;
-    }
-    if (barW <= thick || height <= thick) {
-        return;
-    }
-    const int contentPx = std::max(barW + 1, ToWin(view->contentWidth, scale));
-    const int scrollPx = std::max(0, ToWin(view->scrollX, scale));
-    const int maxScroll = std::max(1, contentPx - barW);
-    int thumb = barW * barW / contentPx;
-    if (thumb < thick * 3) {
-        thumb = thick * 3;
-    }
-    if (thumb > barW) {
-        thumb = barW;
-    }
-    const int travel = std::max(1, barW - thumb);
-    int thumbX = scrollPx * travel / maxScroll;
-    if (thumbX > travel) {
-        thumbX = travel;
-    }
-    RoboGPUFillRect(&view->gpu, 0, height - thick, barW, thick, 0xFF141820u);
-    RoboGPUFillRect(&view->gpu, thumbX, height - thick, thumb, thick, view->barXDrag ? 0xFFE7EAF2u : 0xFF8B93A7u);
-    RoboDamageAdd(&view->gpu.damage, 0, height - thick, barW, thick);
-}
-
-int HitPageScrollX(const HostView* view, int x, int y, int layoutW, int layoutH, int& thumbX, int& thumbW) {
-    thumbX = 0;
-    thumbW = 0;
-    if (view == nullptr || view->contentWidth <= layoutW) {
-        return 0;
-    }
-    const double scale = PageScale(view);
-    const int thick = std::max(8, WindowScrollScale(8, view->baseDpi));
-    const int viewPx = static_cast<int>(view->pixelWidth);
-    const int height = static_cast<int>(view->pixelHeight);
-    int barW = viewPx;
-    if (view->contentHeight > layoutH) {
-        barW -= thick;
-    }
-    if (barW <= thick || y < height - thick || x < 0 || x >= barW) {
-        return 0;
-    }
-    const int contentPx = std::max(barW + 1, ToWin(view->contentWidth, scale));
-    const int scrollPx = std::max(0, ToWin(view->scrollX, scale));
-    const int maxScroll = std::max(1, contentPx - barW);
-    int thumb = barW * barW / contentPx;
-    if (thumb < thick * 3) {
-        thumb = thick * 3;
-    }
-    if (thumb > barW) {
-        thumb = barW;
-    }
-    const int travel = std::max(1, barW - thumb);
-    thumbX = scrollPx * travel / maxScroll;
-    if (thumbX > travel) {
-        thumbX = travel;
-    }
-    thumbW = thumb;
-    if (x >= thumbX && x < thumbX + thumb) {
-        return 3;
-    }
-    return 4;
-}
-
 void Draw(HostView* view) {
     if (view == nullptr || !view->ready || view->back == nullptr) {
         return;
@@ -1098,6 +1058,7 @@ void Draw(HostView* view) {
         const int layoutW = std::max(1, ToDoc(width, scale));
         const int layoutH = std::max(1, ToDoc(height, scale));
         const int previousScroll = view->shownScroll;
+        const int previousScrollX = view->shownScrollX;
         const int pointerDocX = view->pointerX < 0 ? -1 : view->scrollX + ToDoc(view->pointerX, scale);
         const int pointerDocY = view->pointerY < 0 ? -1 : view->scrollY + ToDoc(view->pointerY, scale);
         const int layout = LayoutWindowsDocument(view->document, view->light, layoutW, layoutH, view->dpi, view->hotControl,
@@ -1186,29 +1147,48 @@ void Draw(HostView* view) {
         WindowScrollState bar = view->bar;
         bar.scrollY = ToWin(view->scrollY, scale);
         bar.contentHeight = std::max(height, ToWin(view->contentHeight, scale));
+        bar.scrollX = ToWin(view->scrollX, scale);
+        bar.contentWidth = std::max(width, ToWin(view->contentWidth, scale));
         bar.pixelWidth = width;
         bar.pixelHeight = height;
         bar.dpi = view->dpi;
         bar.light = view->light;
         const bool barChanged = bar.opacity != view->shownOpacity || bar.part != view->shownPart || bar.hold != view->shownHold ||
                                 bar.drag != view->shownDrag || bar.hot != view->shownHot || previousScroll != view->scrollY;
-        if (!zoomed && barChanged && view->gpu.damage.full != ROBO_TRUE) {
-            int barX = 0;
-            int barY = 0;
-            int barW = 0;
-            int barH = 0;
-            WindowScrollBarRect(bar, barX, barY, barW, barH);
-            if (usedSheet) {
-                CopyVisible(view, barX, barY, barW, barH);
-            } else {
-                RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
+        const bool barChangedX = bar.opacityX != view->shownOpacityX || bar.partX != view->shownPartX || bar.holdX != view->shownHoldX ||
+                                 bar.dragX != view->shownDragX || bar.hotX != view->shownHotX || previousScrollX != view->scrollX;
+        if (!zoomed && view->gpu.damage.full != ROBO_TRUE) {
+            if (barChanged) {
+                int barX = 0;
+                int barY = 0;
+                int barW = 0;
+                int barH = 0;
+                WindowScrollBarRect(bar, barX, barY, barW, barH);
+                if (usedSheet) {
+                    CopyVisible(view, barX, barY, barW, barH);
+                } else {
+                    RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
+                }
+            }
+            if (barChangedX) {
+                int barX = 0;
+                int barY = 0;
+                int barW = 0;
+                int barH = 0;
+                WindowScrollBarXRect(bar, barX, barY, barW, barH);
+                if (usedSheet) {
+                    CopyVisible(view, barX, barY, barW, barH);
+                } else {
+                    RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
+                }
             }
         }
         if (view->gpu.damage.full == ROBO_TRUE || (bar.opacity > 0 && barChanged)) {
             PaintWindowScrollBar(&view->gpu, bar);
         }
-        BindSheet(view, false);
-        PaintPageScrollX(view, layoutW, layoutH);
+        if (view->gpu.damage.full == ROBO_TRUE || (bar.opacityX > 0 && barChangedX)) {
+            PaintWindowScrollBarX(&view->gpu, bar);
+        }
         if (view->focusControl >= 0 && view->focusControl < static_cast<int>(view->controls.size())) {
             const WindowControl& control = view->controls[static_cast<std::size_t>(view->focusControl)];
             const int reach = std::max(4, 9 * static_cast<int>(view->dpi) / 96);
@@ -1229,6 +1209,11 @@ void Draw(HostView* view) {
         view->shownHold = bar.hold;
         view->shownDrag = bar.drag;
         view->shownHot = bar.hot;
+        view->shownOpacityX = bar.opacityX;
+        view->shownPartX = bar.partX;
+        view->shownHoldX = bar.holdX;
+        view->shownDragX = bar.dragX;
+        view->shownHotX = bar.hotX;
         if (!usedSheet) {
             view->shownScroll = view->scrollY;
         }
@@ -1353,6 +1338,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 WindowScrollState bar{};
                 FillBar(view, bar);
                 const int barHit = HitWindowScrollBar(bar, cursor.x, cursor.y);
+                const int barHitX = HitWindowScrollBarX(bar, cursor.x, cursor.y);
                 bool onControl = false;
                 bool controlEnabled = true;
                 const double scale = PageScale(view);
@@ -1367,7 +1353,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 const wchar_t* cursorId = IDC_ARROW;
                 if (zoomHit != 0 && ZoomPartEnabled(view, zoomHit)) {
                     cursorId = IDC_HAND;
-                } else if (barHit == 0 && onControl) {
+                } else if (barHit == 0 && barHitX == 0 && onControl) {
                     cursorId = controlEnabled ? IDC_HAND : IDC_NO;
                 }
                 SetCursor(LoadCursorW(nullptr, cursorId));
@@ -1393,6 +1379,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 WindowScrollState bar{};
                 FillBar(view, bar);
                 const int barHit = message == WM_MOUSELEAVE ? 0 : HitWindowScrollBar(bar, x, y);
+                const int barHitX = message == WM_MOUSELEAVE ? 0 : HitWindowScrollBarX(bar, x, y);
                 const int zoomHit = message == WM_MOUSELEAVE ? 0 : ZoomHit(view, x, y);
                 if (message == WM_LBUTTONUP && view->zoom.pressed != 0) {
                     const int part = view->zoom.pressed;
@@ -1437,8 +1424,6 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     return 0;
                 }
                 const double pointerScale = PageScale(view);
-                const int layoutW = std::max(1, ToDoc(static_cast<int>(view->pixelWidth), pointerScale));
-                const int layoutH = std::max(1, ToDoc(static_cast<int>(view->pixelHeight), pointerScale));
                 const int docX = x < 0 ? -1 : view->scrollX + ToDoc(x, pointerScale);
                 const int docY = y < 0 ? -1 : view->scrollY + ToDoc(y, pointerScale);
                 if (view->regionDrag && message == WM_MOUSEMOVE) {
@@ -1455,36 +1440,20 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     Request(view);
                     return 0;
                 }
-                int pageThumbX = 0;
-                int pageThumbW = 0;
-                const int pageHit = message == WM_MOUSELEAVE ? 0 : HitPageScrollX(view, x, y, layoutW, layoutH, pageThumbX, pageThumbW);
-                if (view->barXDrag && message == WM_MOUSEMOVE) {
-                    const int thick = std::max(8, WindowScrollScale(8, view->baseDpi));
-                    int barW = static_cast<int>(view->pixelWidth);
-                    if (view->contentHeight > layoutH) {
-                        barW -= thick;
-                    }
-                    const int contentPx = std::max(barW + 1, ToWin(view->contentWidth, pointerScale));
-                    const int maxScrollPx = std::max(1, contentPx - barW);
-                    int thumb = pageThumbW > 0 ? pageThumbW : thick * 3;
-                    const int travel = std::max(1, barW - thumb);
-                    int pos = x - view->barXGrab;
-                    if (pos < 0) {
-                        pos = 0;
-                    }
-                    if (pos > travel) {
-                        pos = travel;
-                    }
-                    view->scrollX = ToDoc(maxScrollPx * pos / travel, pointerScale);
-                    const int maxDoc = std::max(0, view->contentWidth - layoutW);
-                    if (view->scrollX > maxDoc) {
-                        view->scrollX = maxDoc;
-                    }
+                if (view->bar.dragX && message == WM_MOUSEMOVE) {
+                    WindowDragScrollBarX(bar, x);
+                    KeepScrollX(view, bar);
+                    view->bar.opacityX = 255;
+                    view->bar.idleX = GetTickCount();
                     Request(view);
                     return 0;
                 }
-                if (message == WM_LBUTTONUP && view->barXDrag) {
-                    view->barXDrag = false;
+                if (message == WM_LBUTTONUP && (view->bar.dragX || view->bar.holdX != 0)) {
+                    view->bar.dragX = false;
+                    view->bar.holdX = 0;
+                    view->bar.partX = barHitX == 3 ? 3 : 0;
+                    view->bar.opacityX = 255;
+                    view->bar.idleX = GetTickCount();
                     if (GetCapture() == window) {
                         ReleaseCapture();
                     }
@@ -1500,22 +1469,30 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         Request(view);
                         return 0;
                     }
-                    if (pageHit != 0) {
-                        SetFocus(window);
-                        if (pageHit == 3) {
-                            view->barXDrag = true;
-                            view->barXGrab = x - pageThumbX;
-                            SetCapture(window);
-                        } else {
-                            const int maxDoc = std::max(0, view->contentWidth - layoutW);
-                            view->scrollX = maxDoc * x / std::max(1, static_cast<int>(view->pixelWidth));
-                            if (view->scrollX > maxDoc) {
-                                view->scrollX = maxDoc;
-                            }
-                        }
-                        Request(view);
-                        return 0;
+                }
+                if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && barHitX != 0) {
+                    SetFocus(window);
+                    view->bar.partX = barHitX == 4 ? 0 : barHitX;
+                    view->bar.opacityX = 255;
+                    view->bar.idleX = GetTickCount();
+                    view->bar.hotX = true;
+                    SetCapture(window);
+                    SetTimer(window, 2, 50, nullptr);
+                    if (barHitX == 3) {
+                        view->bar.grabX = x - WindowScrollThumbX(bar);
+                        view->bar.dragX = true;
+                        view->bar.holdX = 0;
+                    } else if (barHitX == 1 || barHitX == 2) {
+                        view->bar.holdX = barHitX == 1 ? -1 : 1;
+                        view->bar.repeatX = GetTickCount() + 70;
+                        WindowScrollByX(bar, view->bar.holdX * WindowScrollScale(56, view->baseDpi));
+                        KeepScrollX(view, bar);
+                    } else {
+                        WindowScrollToBarX(bar, x);
+                        KeepScrollX(view, bar);
                     }
+                    Request(view);
+                    return 0;
                 }
                 if (view->bar.drag && message == WM_MOUSEMOVE) {
                     WindowDragScrollBar(bar, y);
@@ -1596,6 +1573,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         return 0;
                     }
                     const int part = barHit == 4 ? 0 : barHit;
+                    const int partX = barHitX == 4 ? 0 : barHitX;
                     bool paint = false;
                     if (barHit != 0) {
                         view->bar.hot = true;
@@ -1610,8 +1588,25 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         view->bar.idle = GetTickCount();
                         SetTimer(window, 2, 50, nullptr);
                     }
+                    if (barHitX != 0) {
+                        view->bar.hotX = true;
+                        view->bar.idleX = GetTickCount();
+                        if (view->bar.opacityX < 255) {
+                            view->bar.opacityX = 255;
+                            paint = true;
+                        }
+                        SetTimer(window, 2, 50, nullptr);
+                    } else if (view->bar.hotX && !view->bar.dragX) {
+                        view->bar.hotX = false;
+                        view->bar.idleX = GetTickCount();
+                        SetTimer(window, 2, 50, nullptr);
+                    }
                     if (part != view->bar.part) {
                         view->bar.part = part;
+                        paint = true;
+                    }
+                    if (partX != view->bar.partX) {
+                        view->bar.partX = partX;
                         paint = true;
                     }
                     if (hit != view->hotControl) {
@@ -1665,7 +1660,6 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 cursor.y = static_cast<LONG>(static_cast<short>(HIWORD(lParam)));
                 ScreenToClient(window, &cursor);
                 const double scale = PageScale(view);
-                const int layoutW = std::max(1, ToDoc(static_cast<int>(view->pixelWidth), scale));
                 const int docX = view->scrollX + ToDoc(cursor.x, scale);
                 const int docY = view->scrollY + ToDoc(cursor.y, scale);
                 const int docStep = ToDoc(step, scale);
@@ -1675,14 +1669,11 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     return 0;
                 }
                 if (shift) {
-                    view->scrollX += docStep;
-                    const int maxDoc = std::max(0, view->contentWidth - layoutW);
-                    if (view->scrollX < 0) {
-                        view->scrollX = 0;
-                    }
-                    if (view->scrollX > maxDoc) {
-                        view->scrollX = maxDoc;
-                    }
+                    WindowScrollState bar{};
+                    FillBar(view, bar);
+                    WindowScrollByX(bar, step);
+                    KeepScrollX(view, bar);
+                    RevealBar(view, true);
                     Request(view);
                     return 0;
                 }
@@ -1693,6 +1684,40 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 view->bar.opacity = 255;
                 view->bar.idle = GetTickCount();
                 SetTimer(window, 2, 50, nullptr);
+                Request(view);
+            }
+            return 0;
+        case WM_MOUSEHWHEEL:
+            if (view != nullptr && view->ready && view->screen) {
+                const int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+                UINT lines = 3;
+                SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
+                int step = 0;
+                if (lines == WHEEL_PAGESCROLL) {
+                    const int page = static_cast<int>(view->pixelWidth) - WindowScrollScale(64, view->dpi);
+                    step = wheelDelta > 0 ? page : -page;
+                } else {
+                    const int line = WindowScrollScale(48, view->dpi);
+                    step = static_cast<int>(static_cast<long long>(wheelDelta) * static_cast<long long>(lines) * line /
+                                            WHEEL_DELTA);
+                }
+                POINT cursor{};
+                cursor.x = static_cast<LONG>(static_cast<short>(LOWORD(lParam)));
+                cursor.y = static_cast<LONG>(static_cast<short>(HIWORD(lParam)));
+                ScreenToClient(window, &cursor);
+                const double scale = PageScale(view);
+                const int docX = view->scrollX + ToDoc(cursor.x, scale);
+                const int docY = view->scrollY + ToDoc(cursor.y, scale);
+                const int docStep = ToDoc(step, scale);
+                if (WindowsDocumentScrollBy(docX, docY, docStep, 0) != 0) {
+                    Request(view);
+                    return 0;
+                }
+                WindowScrollState bar{};
+                FillBar(view, bar);
+                WindowScrollByX(bar, step);
+                KeepScrollX(view, bar);
+                RevealBar(view, true);
                 Request(view);
             }
             return 0;
@@ -1714,6 +1739,54 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 if (direction != 2) {
                     view->zoom.Step(direction);
                     RevealZoom(view);
+                    Request(view);
+                    return 0;
+                }
+            }
+            if (view != nullptr && view->ready && view->screen) {
+                const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+                const int line = WindowScrollScale(48, view->baseDpi);
+                const int pageY = static_cast<int>(view->pixelHeight) - WindowScrollScale(64, view->dpi);
+                const int pageX = static_cast<int>(view->pixelWidth) - WindowScrollScale(64, view->dpi);
+                int axis = 0;
+                int delta = 0;
+                if (wParam == VK_LEFT) {
+                    axis = 2;
+                    delta = ctrl ? -pageX : -line;
+                } else if (wParam == VK_RIGHT) {
+                    axis = 2;
+                    delta = ctrl ? pageX : line;
+                } else if (wParam == VK_UP) {
+                    axis = 1;
+                    delta = -line;
+                } else if (wParam == VK_DOWN) {
+                    axis = 1;
+                    delta = line;
+                } else if (wParam == VK_PRIOR) {
+                    axis = ctrl ? 2 : 1;
+                    delta = ctrl ? -pageX : -pageY;
+                } else if (wParam == VK_NEXT) {
+                    axis = ctrl ? 2 : 1;
+                    delta = ctrl ? pageX : pageY;
+                } else if (wParam == VK_HOME) {
+                    axis = ctrl ? 2 : 1;
+                    delta = -100000000;
+                } else if (wParam == VK_END) {
+                    axis = ctrl ? 2 : 1;
+                    delta = 100000000;
+                }
+                if (axis != 0) {
+                    WindowScrollState bar{};
+                    FillBar(view, bar);
+                    if (axis == 2) {
+                        WindowScrollByX(bar, delta);
+                        KeepScrollX(view, bar);
+                        RevealBar(view, true);
+                    } else {
+                        WindowScrollBy(bar, delta);
+                        KeepScroll(view, bar);
+                        RevealBar(view, false);
+                    }
                     Request(view);
                     return 0;
                 }
@@ -1806,12 +1879,31 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     view->bar.repeat = GetTickCount() + 70;
                     paint = true;
                 }
+                if (view->bar.holdX != 0 && GetTickCount() >= view->bar.repeatX) {
+                    WindowScrollState bar{};
+                    FillBar(view, bar);
+                    WindowScrollByX(bar, view->bar.holdX * WindowScrollScale(56, view->baseDpi));
+                    KeepScrollX(view, bar);
+                    view->bar.opacityX = 255;
+                    view->bar.idleX = GetTickCount();
+                    view->bar.repeatX = GetTickCount() + 70;
+                    paint = true;
+                }
                 if (view->bar.opacity > 0 && !view->bar.hot && !view->bar.drag && view->bar.hold == 0 &&
                     GetTickCount() - view->bar.idle > 900) {
                     const int drop = view->bar.opacity / 6;
                     view->bar.opacity -= drop < 8 ? 8 : drop;
                     if (view->bar.opacity < 0) {
                         view->bar.opacity = 0;
+                    }
+                    paint = true;
+                }
+                if (view->bar.opacityX > 0 && !view->bar.hotX && !view->bar.dragX && view->bar.holdX == 0 &&
+                    GetTickCount() - view->bar.idleX > 900) {
+                    const int drop = view->bar.opacityX / 6;
+                    view->bar.opacityX -= drop < 8 ? 8 : drop;
+                    if (view->bar.opacityX < 0) {
+                        view->bar.opacityX = 0;
                     }
                     paint = true;
                 }
@@ -1859,8 +1951,27 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         }
                     } else if (message == WM_POINTERUPDATE) {
                         if (slot >= 0) {
+                            const int dx = point.x - view->pinchX[slot];
+                            const int dy = point.y - view->pinchY[slot];
                             view->pinchX[slot] = point.x;
                             view->pinchY[slot] = point.y;
+                            if (view->pinchCount == 1 && (dx != 0 || dy != 0)) {
+                                view->panLive = true;
+                                WindowScrollState bar{};
+                                FillBar(view, bar);
+                                if (dx != 0) {
+                                    WindowScrollByX(bar, -dx);
+                                    KeepScrollX(view, bar);
+                                    RevealBar(view, true);
+                                }
+                                if (dy != 0) {
+                                    FillBar(view, bar);
+                                    WindowScrollBy(bar, -dy);
+                                    KeepScroll(view, bar);
+                                    RevealBar(view, false);
+                                }
+                                Request(view);
+                            }
                         }
                     } else if (slot >= 0) {
                         const int last = view->pinchCount - 1;
@@ -1869,6 +1980,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         view->pinchY[slot] = view->pinchY[last];
                         --view->pinchCount;
                         view->pinchLive = false;
+                        view->panLive = false;
                     }
                     if (view->pinchCount == 2) {
                         const double dx = static_cast<double>(view->pinchX[0] - view->pinchX[1]);

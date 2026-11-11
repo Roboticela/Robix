@@ -16,11 +16,11 @@ QEMU is started with `-kernel` from Stage A, so the framebuffer is the proof. Th
 
 | Stage | On the screen |
 | :--- | :--- |
-| A | Dark desktop, blue bar, cooked logo |
-| B | The real `.rxu` shell: bar, icons, one window |
-| C | Cursor moves. A button click changes the window |
-| D | The `.rx3d` wallpaper is behind the windows |
-| E | Drag, focus, menus, clock, cursor shapes, snapping |
+| A ✓ | Dark desktop, blue bar, cooked logo |
+| B ✓ | The real `.rxu` shell: bar, icons, one window |
+| C ✓ | Cursor moves. A button click changes the window |
+| D ✓ | The `.rx3d` wallpaper is behind the windows |
+| E ✓ | Drag, focus, menus, clock, cursor shapes, snapping |
 | N | Login and lock screens in front of that desktop |
 | O | Dock, launchpad, notifications, control center, widgets, spaces |
 | Q | Files windows with real folders |
@@ -41,7 +41,7 @@ QEMU is started with `-kernel` from Stage A, so the framebuffer is the proof. Th
 
 Hosted calls (`Print`, `File`, `Thread`, `Network`, `Args`) stay out of the image. Machine calls (`CPU`, `Port`, `Memory.Pages`, `Memory.Address`, `Memory.At`, `Timer`, `System.Call`, `Volatile`, `ASM`) stay out of Windows programs. Pure functions are the ones the tests call.
 
-Kernel tables are structs. There is no garbage collector. `Unsafe` owns frames the kernel allocates. Until global constants are native-complete (Stage F's feature), numeric contracts are functions that return the literal.
+Kernel tables are structs. There is no garbage collector. `Unsafe` owns frames the kernel allocates. Stage F made `@Packed`, `@Align`, `Memory.SizeOf`, `Memory.OffsetOf`, and global `const` values native-complete, so later files use those constants.
 
 ---
 
@@ -128,7 +128,7 @@ qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel
 
 ## 5. Stages A–E — the desktop on screen
 
-### Stage A — First picture
+### Stage A ✓ — First picture
 
 Future programmers get a desktop on screen by filling a `Frame`, and the tests read those pixels on Windows. They do not boot QEMU to find out that a rectangle was one pixel off.
 
@@ -145,7 +145,7 @@ Future programmers get a desktop on screen by filling a `Frame`, and the tests r
 
 **Exit.** Both tests pass on the interpreter and the native compiler. QEMU shows the dark desktop, the blue bar, and the logo. Serial contains `ROBO_GPU: present`.
 
-### Stage B — The shell document
+### Stage B ✓ — The shell document
 
 Future programmers design the desktop in `.rxu` and the image paints the cooked boxes. They do not parse XML in the kernel, and they do not keep a second layout in code.
 
@@ -161,7 +161,7 @@ Future programmers design the desktop in `.rxu` and the image paints the cooked 
 
 **Exit.** The image shows the bar, the icons, and the window. Serial contains `ROBO_UI: paint`. The Windows preview shows the same document.
 
-### Stage C — Cursor and clicks
+### Stage C ✓ — Cursor and clicks
 
 Future programmers replay a script of pointer and key events in a test. A click bug shows up as a failed `Assert.Equal` on Windows, and the same script runs in the image.
 
@@ -178,7 +178,7 @@ Future programmers replay a script of pointer and key events in a test. A click 
 
 **Exit.** The cursor moves and the button changes the window. Serial contains `ROBO_UI: click`. Both tests pass on both engines.
 
-### Stage D — Wallpaper scene
+### Stage D ✓ — Wallpaper scene
 
 Future programmers render one `.rx3d` frame into a `Frame` and assert pixels. The kernel raster and the Windows preview share that call.
 
@@ -192,7 +192,7 @@ Future programmers render one `.rx3d` frame into a `Frame` and assert pixels. Th
 
 **Exit.** The wallpaper is visible behind the window. Serial contains `ROBO_SCENE: frame`.
 
-### Stage E — A shell you can use
+### Stage E ✓ — A shell you can use
 
 Future programmers move, focus, and snap windows by calling pure functions on layout records. The image only applies the record the test already checked.
 
@@ -213,7 +213,7 @@ Future programmers move, focus, and snap windows by calling pure functions on la
 
 ## 6. Stages F–J — the same picture, from a real machine
 
-### Stage F — Bootloader and handoff
+### Stage F ✓ — Bootloader and handoff
 
 Future programmers declare the handoff as a packed struct and the compiler tells them when a field moves. Magic numbers are real constants, checked once, and every later file reuses them.
 

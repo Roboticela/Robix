@@ -593,12 +593,208 @@ IRValue SSAIRBuilder::EmitAggregate(const std::string& kind, std::int64_t slots,
     return out;
 }
 
+namespace {
+
+bool IsPowerOfTwo(std::int64_t value) {
+    return value > 0 && (value & (value - 1)) == 0;
+}
+
+std::int64_t AlignUp(std::int64_t value, std::int64_t align) {
+    if (align <= 1) return value;
+    const std::int64_t mask = align - 1;
+    return (value + mask) & ~mask;
+}
+
+bool AttributeInt(const Frontend::DeclNode& decl, const std::string& name, std::int64_t& out) {
+    for (const auto& attr : decl.attributes) {
+        if (attr.name == name && !attr.args.empty()) {
+            out = ParseIntLiteral(attr.args[0]);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool HasAttribute(const Frontend::DeclNode& decl, const std::string& name) {
+    for (const auto& attr : decl.attributes) {
+        if (attr.name == name) return true;
+    }
+    return false;
+}
+
+bool PrimitiveLayout(const std::string& name, std::int64_t& size, std::int64_t& align) {
+    Spec::PrimitiveKind kind{};
+    if (!Spec::TryResolvePrimitiveName(name, kind)) return false;
+    const Spec::PrimitiveTypeLayout& layout = Spec::GetPrimitiveLayout(kind);
+    size = static_cast<std::int64_t>(layout.sizeBytes64);
+    align = static_cast<std::int64_t>(layout.alignment64);
+    if (align < 1) align = 1;
+    return size >= 0;
+}
+
+} // namespace
+
+SSAIRBuilder::TypeLayout SSAIRBuilder::LayoutOf(const std::string& name) {
+    const auto cached = m_layouts.find(name);
+    if (cached != m_layouts.end()) return cached->second;
+
+    TypeLayout layout;
+    std::int64_t primSize = 0;
+    std::int64_t primAlign = 1;
+    if (PrimitiveLayout(name, primSize, primAlign)) {
+        layout.size = primSize;
+        layout.align = primAlign;
+        layout.ok = true;
+        m_layouts[name] = layout;
+        return layout;
+    }
+    if (name == "Pointer") {
+        layout.size = 8;
+        layout.align = 8;
+        layout.ok = true;
+        m_layouts[name] = layout;
+        return layout;
+    }
+
+    const auto found = m_classDecls.find(name);
+    if (found == m_classDecls.end() || found->second == nullptr ||
+        found->second->kind != Frontend::DeclKind::Struct) {
+        m_diagnostics.ReportError(
+            "L1011",
+            "Memory.SizeOf cannot see a struct or primitive named '" + name + "'.",
+            Frontend::SourceLocation{},
+            "Declare the struct before asking for its size.");
+        m_layouts[name] = layout;
+        return layout;
+    }
+    if (!m_layingOut.insert(name).second) {
+        m_diagnostics.ReportError(
+            "L1011",
+            "Struct '" + name + "' contains itself.",
+            found->second->location,
+            "Break the cycle with a pointer field.");
+        return layout;
+    }
+
+    const Frontend::DeclNode& decl = *found->second;
+    const bool packed = HasAttribute(decl, "Packed");
+    std::int64_t forced = 0;
+    const bool hasAlign = AttributeInt(decl, "Align", forced);
+    if (hasAlign && !IsPowerOfTwo(forced)) {
+        m_diagnostics.ReportError(
+            "L1009",
+            "@Align on '" + name + "' must be a power of two.",
+            decl.location,
+            "Use 1, 2, 4, 8, 16, or another power of two.");
+    }
+    std::int64_t cursor = 0;
+    std::int64_t structAlign = packed ? 1 : 1;
+    if (hasAlign && IsPowerOfTwo(forced)) structAlign = forced;
+
+    for (const auto& member : decl.members) {
+        if (!member || member->kind != Frontend::DeclKind::Field) continue;
+        TypeLayout fieldLayout = LayoutOf(member->fieldType.baseName);
+        std::int64_t fieldAlign = packed ? 1 : fieldLayout.align;
+        std::int64_t fieldForced = 0;
+        if (AttributeInt(*member, "Align", fieldForced)) {
+            if (!IsPowerOfTwo(fieldForced)) {
+                m_diagnostics.ReportError(
+                    "L1009",
+                    "@Align on '" + member->name + "' must be a power of two.",
+                    member->location,
+                    "Use 1, 2, 4, 8, 16, or another power of two.");
+            } else if (fieldForced > fieldAlign) {
+                fieldAlign = fieldForced;
+            }
+        }
+        if (fieldAlign < 1) fieldAlign = 1;
+        const std::int64_t count = member->fieldType.arrayLength > 0 ? member->fieldType.arrayLength : 1;
+        const std::int64_t fieldSize = fieldLayout.size * count;
+        cursor = AlignUp(cursor, fieldAlign);
+        layout.fields[member->name] = cursor;
+        cursor += fieldSize;
+        if (fieldAlign > structAlign) structAlign = fieldAlign;
+    }
+    if (structAlign < 1) structAlign = 1;
+    layout.size = AlignUp(cursor, structAlign);
+    layout.align = structAlign;
+    layout.ok = true;
+    std::int64_t expected = 0;
+    if (AttributeInt(decl, "Size", expected) && expected != layout.size) {
+        m_diagnostics.ReportError(
+            "L1008",
+            "Struct '" + name + "' is " + std::to_string(layout.size) +
+                " bytes, and @Size asked for " + std::to_string(expected) + ".",
+            decl.location,
+            "Update @Size or the fields so the packed layout matches.");
+        layout.ok = false;
+    }
+    m_layingOut.erase(name);
+    m_layouts[name] = layout;
+    return layout;
+}
+
+void SSAIRBuilder::NoteLayouts() {
+    for (const auto& entry : m_classDecls) {
+        if (entry.second != nullptr && entry.second->kind == Frontend::DeclKind::Struct) {
+            (void)LayoutOf(entry.first);
+        }
+    }
+}
+
+std::optional<std::int64_t> SSAIRBuilder::EvalConst(const Frontend::ExprNode& expr) {
+    if (expr.kind == Frontend::ExprKind::Literal && expr.token.kind == Frontend::TokenKind::IntegerLiteral) {
+        return ParseIntLiteral(expr.text);
+    }
+    if (expr.kind == Frontend::ExprKind::Identifier) {
+        const auto known = m_consts.find(expr.text);
+        if (known != m_consts.end()) return known->second;
+        return std::nullopt;
+    }
+    if (expr.kind == Frontend::ExprKind::Call && expr.left &&
+        expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
+        expr.left->left->kind == Frontend::ExprKind::Identifier && expr.left->left->text == "Memory") {
+        if (expr.left->text == "SizeOf" && !expr.arguments.empty() && expr.arguments[0] &&
+            expr.arguments[0]->kind == Frontend::ExprKind::Identifier) {
+            const TypeLayout layout = LayoutOf(expr.arguments[0]->text);
+            if (!layout.ok && layout.size == 0) return std::nullopt;
+            return layout.size;
+        }
+        if (expr.left->text == "OffsetOf" && expr.arguments.size() >= 2 && expr.arguments[0] && expr.arguments[1] &&
+            expr.arguments[0]->kind == Frontend::ExprKind::Identifier &&
+            expr.arguments[1]->kind == Frontend::ExprKind::Identifier) {
+            const TypeLayout layout = LayoutOf(expr.arguments[0]->text);
+            const auto field = layout.fields.find(expr.arguments[1]->text);
+            if (field == layout.fields.end()) return std::nullopt;
+            return field->second;
+        }
+    }
+    return std::nullopt;
+}
+
+void SSAIRBuilder::CollectConsts(const Frontend::CompilationUnitAST& unit) {
+    for (int pass = 0; pass < 2; ++pass) {
+        for (const auto& declPtr : unit.declarations) {
+            if (!declPtr || declPtr->kind != Frontend::DeclKind::TopLevelVar) continue;
+            if (declPtr->fieldMutability != Frontend::VarMutability::Constant) continue;
+            if (!declPtr->fieldInitializer) continue;
+            if (m_consts.find(declPtr->name) != m_consts.end()) continue;
+            if (const auto value = EvalConst(*declPtr->fieldInitializer)) {
+                m_consts[declPtr->name] = *value;
+            }
+        }
+    }
+}
+
 IRModule SSAIRBuilder::LowerCompilationUnit(const Frontend::CompilationUnitAST& unit) {
     IRModule mod;
     mod.moduleName  = unit.fileName;
     mod.packageName = unit.packageName.empty() ? "Default" : unit.packageName;
     m_module = &mod;
     m_classDecls.clear();
+    m_layouts.clear();
+    m_layingOut.clear();
+    m_consts.clear();
     m_genericQueue.clear();
     m_genericSeen.clear();
     m_scopes.clear();
@@ -612,6 +808,8 @@ IRModule SSAIRBuilder::LowerCompilationUnit(const Frontend::CompilationUnitAST& 
             m_classDecls[decl.name] = &decl;
         }
     }
+    NoteLayouts();
+    CollectConsts(unit);
 
     for (const auto& declPtr : unit.declarations) {
         if (!declPtr) continue;
@@ -1849,6 +2047,17 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
         }
 
         case Frontend::ExprKind::Identifier: {
+            const auto folded = m_consts.find(expr.text);
+            if (folded != m_consts.end()) {
+                IRInstruction inst;
+                inst.opcode   = IROpcode::ConstInt;
+                inst.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                inst.intImm   = folded->second;
+                inst.location = expr.location;
+                IRValue out   = inst.dest;
+                Emit(std::move(inst));
+                return out;
+            }
             IRInstruction load;
             load.opcode   = IROpcode::LoadVar;
             load.dest     = IRValue{ m_currentFn->AllocateSSAId(), exprType };
@@ -2183,6 +2392,27 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
 
         case Frontend::ExprKind::Call: {
             if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
+                expr.left->left->kind == Frontend::ExprKind::Identifier && expr.left->left->text == "Memory" &&
+                (expr.left->text == "SizeOf" || expr.left->text == "OffsetOf")) {
+                const auto folded = EvalConst(expr);
+                if (!folded) {
+                    m_diagnostics.ReportError(
+                        "L1010",
+                        "Memory." + expr.left->text + " needs a visible type and, for OffsetOf, a field of that type.",
+                        expr.location,
+                        "Write Memory.SizeOf(TypeName) or Memory.OffsetOf(TypeName, fieldName).");
+                    return IRValue{};
+                }
+                IRInstruction inst;
+                inst.opcode   = IROpcode::ConstInt;
+                inst.dest     = IRValue{ m_currentFn->AllocateSSAId(), MakePrim("Int") };
+                inst.intImm   = *folded;
+                inst.location = expr.location;
+                IRValue out   = inst.dest;
+                Emit(std::move(inst));
+                return out;
+            }
+            if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
                 expr.left->left->kind == Frontend::ExprKind::Identifier &&
                 ((expr.left->left->text == "CPU" &&
                   (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Run")) ||
@@ -2475,9 +2705,9 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "Port" && (memberName == "Read8" || memberName == "Read16")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "CPU" &&
-                               (memberName == "ReadCR3" || memberName == "ReadRSP" || memberName == "ExchangeRSP" ||
-                                memberName == "SavedRSP" || memberName == "BootInfo" || memberName == "Function" ||
-                                memberName == "Handler")) {
+                               (memberName == "TSC" || memberName == "ReadCR3" || memberName == "ReadRSP" ||
+                                memberName == "ExchangeRSP" || memberName == "SavedRSP" || memberName == "BootInfo" ||
+                                memberName == "Function" || memberName == "Handler")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Port" || receiverExpr.text == "CPU") {
                         ty = MakePrim("Void");

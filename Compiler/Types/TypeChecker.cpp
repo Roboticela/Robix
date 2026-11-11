@@ -219,6 +219,14 @@ void TypeChecker::CollectTopLevelDeclarations(CompilationUnitAST& unit) {
             sig.visibility = decl.visibility;
             sig.location   = decl.location;
             m_functions[decl.name] = std::move(sig);
+        } else if (decl.kind == DeclKind::TopLevelVar) {
+            SymbolInfo sym;
+            sym.name          = decl.name;
+            sym.type          = decl.fieldType.IsEmpty() ? MakePrimitiveType("Int") : decl.fieldType;
+            sym.mutability    = decl.fieldMutability;
+            sym.isInitialized = (decl.fieldInitializer != nullptr);
+            sym.location      = decl.location;
+            DeclareLocal(sym);
         }
     }
 }
@@ -399,13 +407,15 @@ void TypeChecker::CheckDeclaration(DeclNode& decl) {
                 }
             }
             if (decl.kind == DeclKind::TopLevelVar) {
-                SymbolInfo sym;
-                sym.name          = decl.name;
-                sym.type          = decl.fieldType;
-                sym.mutability    = decl.fieldMutability;
-                sym.isInitialized = (decl.fieldInitializer != nullptr);
-                sym.location      = decl.location;
-                DeclareLocal(sym);
+                if (LookupSymbol(decl.name) == nullptr) {
+                    SymbolInfo sym;
+                    sym.name          = decl.name;
+                    sym.type          = decl.fieldType;
+                    sym.mutability    = decl.fieldMutability;
+                    sym.isInitialized = (decl.fieldInitializer != nullptr);
+                    sym.location      = decl.location;
+                    DeclareLocal(sym);
+                }
             } else if (!m_currentClassName.empty()) {
                 m_types[m_currentClassName].fields[decl.name].type = decl.fieldType;
             }
@@ -1375,7 +1385,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (recvType.baseName == "CPU" &&
-                (expr.text == "Halt" || expr.text == "CLI" || expr.text == "STI" ||
+                (expr.text == "Halt" || expr.text == "CLI" || expr.text == "STI" || expr.text == "TSC" ||
                  expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
                  expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "LGDT" ||
                  expr.text == "LIDT" || expr.text == "BootInfo" || expr.text == "Function" ||
@@ -1386,7 +1396,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                         "'CPU." + expr.text + "' changes CPU state and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
-                const bool returnsInt = expr.text == "ReadCR3" || expr.text == "ReadRSP" ||
+                const bool returnsInt = expr.text == "TSC" || expr.text == "ReadCR3" || expr.text == "ReadRSP" ||
                                         expr.text == "ExchangeRSP" || expr.text == "SavedRSP" ||
                                         expr.text == "BootInfo" || expr.text == "Function" ||
                                         expr.text == "Handler";
@@ -1563,6 +1573,12 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
         }
 
         case ExprKind::Call: {
+            if (expr.left && expr.left->kind == ExprKind::MemberAccess && expr.left->left &&
+                expr.left->left->kind == ExprKind::Identifier && expr.left->left->text == "Memory" &&
+                (expr.left->text == "SizeOf" || expr.left->text == "OffsetOf")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
             for (auto& arg : expr.arguments) {
                 if (arg) CheckExpression(*arg);
             }
