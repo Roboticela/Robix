@@ -3,8 +3,10 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <sstream>
 #include <thread>
+#include <vector>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -12,6 +14,7 @@
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <shellapi.h>
 #endif
 
 extern "C" char* rx_network_call(const char* service, const char* method, const char* text);
@@ -34,6 +37,61 @@ namespace {
 std::shared_ptr<VMObjectInstance> AsObj(const VMValue& value) {
     if (!value.IsObject()) return nullptr;
     return std::get<std::shared_ptr<VMObjectInstance>>(value.data);
+}
+
+void WriteHostPicture(const VMObjectInstance& frame) {
+    if (!frame.buffer || frame.width <= 0 || frame.index <= 0) return;
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path cwd = fs::current_path(ec);
+    fs::path out = cwd.filename() == "RoboticelaOS"
+                       ? cwd.parent_path() / "Build" / "RoboticelaOS" / "Interpreter.bmp"
+                       : cwd / "Build" / "RoboticelaOS" / "Interpreter.bmp";
+    fs::create_directories(out.parent_path(), ec);
+    const int width = frame.width;
+    const int height = static_cast<int>(frame.index);
+    const int rowBytes = (width * 3 + 3) & ~3;
+    const int pixels = rowBytes * height;
+    const int fileSize = 54 + pixels;
+    std::vector<std::uint8_t> bmp(static_cast<std::size_t>(fileSize), 0);
+    auto put32 = [&](int at, int value) {
+        bmp[static_cast<std::size_t>(at)] = static_cast<std::uint8_t>(value);
+        bmp[static_cast<std::size_t>(at + 1)] = static_cast<std::uint8_t>(value >> 8);
+        bmp[static_cast<std::size_t>(at + 2)] = static_cast<std::uint8_t>(value >> 16);
+        bmp[static_cast<std::size_t>(at + 3)] = static_cast<std::uint8_t>(value >> 24);
+    };
+    bmp[0] = 'B';
+    bmp[1] = 'M';
+    put32(2, fileSize);
+    put32(10, 54);
+    put32(14, 40);
+    put32(18, width);
+    put32(22, height);
+    bmp[26] = 1;
+    bmp[28] = 24;
+    const std::size_t need = static_cast<std::size_t>(width * height * 4);
+    if (frame.buffer->bytes.size() < need) return;
+    for (int y = 0; y < height; ++y) {
+        const int sourceY = height - 1 - y;
+        for (int x = 0; x < width; ++x) {
+            const std::size_t at = static_cast<std::size_t>((sourceY * width + x) * 4);
+            const std::size_t dst = static_cast<std::size_t>(54 + y * rowBytes + x * 3);
+            bmp[dst] = frame.buffer->bytes[at];
+            bmp[dst + 1] = frame.buffer->bytes[at + 1];
+            bmp[dst + 2] = frame.buffer->bytes[at + 2];
+        }
+    }
+    std::FILE* file = std::fopen(out.string().c_str(), "wb");
+    if (!file) return;
+    std::fwrite(bmp.data(), 1, bmp.size(), file);
+    std::fclose(file);
+    std::fputs("robix: picture ", stderr);
+    std::fputs(out.string().c_str(), stderr);
+    std::fputc('\n', stderr);
+#ifdef _WIN32
+    const std::wstring wide = out.wstring();
+    ShellExecuteW(nullptr, L"open", wide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+#endif
 }
 
 std::int64_t ReadPointee(const VMObjectInstance& obj) {
@@ -167,9 +225,11 @@ VMValue BytecodeVM::ExecuteFunction(std::string_view fnName, const std::vector<V
 std::int32_t BytecodeVM::ExecuteMainAndGetExitCode() {
     if (!Gate()) return 1;
     const BytecodeChunk* mainChunk = m_module.FindChunk("Main");
+    if (!mainChunk) mainChunk = m_module.FindChunk("Start");
     if (!mainChunk) {
         return 1;
     }
+    m_hostPicture = true;
     VMValue ret = ExecuteChunk(*mainChunk, {});
     if (!m_fault.empty()) return 1;
 
@@ -209,7 +269,7 @@ VMTestSuiteResult BytecodeVM::ExecuteAllTests() {
 }
 
 VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<VMValue>& args) {
-    if (!Gate() || !m_fault.empty()) return VMValue{};
+    if (!Gate() || !m_fault.empty() || m_halt) return VMValue{};
     ++m_callCounts[chunk.name];
 
     std::unordered_map<std::uint32_t, VMValue> regs;
@@ -229,7 +289,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
 
     std::size_t pc = 0;
     while (pc < chunk.code.size()) {
-        if (!m_fault.empty()) return VMValue{};
+        if (!m_fault.empty() || m_halt) return VMValue{};
         const BCInstruction& inst = chunk.code[pc];
         ++pc;
         if (g_lineTrace != nullptr && inst.sourceLine != 0 &&
@@ -591,7 +651,18 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
                 } else if (inst.symbolImm == "Frame.Present") {
-                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t(0) };
+                    auto obj = AsObj(regs[inst.callArgRegs.empty() ? 0 : inst.callArgRegs[0]]);
+                    std::int64_t shown = 0;
+                    if (obj && obj->buffer && !obj->buffer->bytes.empty()) {
+                        shown = obj->buffer->bytes[0];
+                        if (m_hostPicture) WriteHostPicture(*obj);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ shown };
+                } else if (inst.symbolImm == "Port.Write8" && inst.callArgRegs.size() >= 2) {
+                    const unsigned byte = static_cast<unsigned>(regs[inst.callArgRegs[1]].AsInt()) & 0xFFu;
+                    m_stdoutBuffer.push_back(static_cast<char>(byte));
+                } else if (inst.symbolImm == "CPU.Halt") {
+                    m_halt = true;
                 } else if (inst.symbolImm == "Memory.Free" && !inst.callArgRegs.empty()) {
                     auto obj = AsObj(regs[inst.callArgRegs[0]]);
                     if (!obj) Fail("robix vm: Memory.Free requires an allocated pointer");
@@ -740,7 +811,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t b = regs[inst.callArgRegs[1]].AsInt();
                     const std::int64_t v = inst.symbolImm == "Math.Min" ? (a < b ? a : b) : (a > b ? a : b);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
-                } else if (inst.symbolImm.rfind("Port.", 0) == 0 || inst.symbolImm.rfind("Cpu.", 0) == 0 ||
+                } else if (inst.symbolImm.rfind("Port.", 0) == 0 || inst.symbolImm.rfind("CPU.", 0) == 0 ||
                            inst.symbolImm.rfind("Timer.", 0) == 0 || inst.symbolImm.rfind("System.", 0) == 0 ||
                            inst.symbolImm.rfind("Console.", 0) == 0 ||
                            inst.symbolImm == "Memory.Pages" || inst.symbolImm == "Memory.Address" ||

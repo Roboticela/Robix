@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Wrf;
+package Benchmarks.SpecCPU.Wrf;
 
 public Function RunWrf(Int timeSteps) -> Float {
     // 5-level atmospheric column advection and Coriolis physics

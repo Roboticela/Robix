@@ -134,15 +134,15 @@ bool RobixPackageManager::InstallPackages(const std::string& targetPlatform,
         const std::string apiPath  = installDir + "/" + pkg->manifest.name + ".rxapi";
         const std::string jsonPath = installDir + "/package.json";
 
-        m_virtualProjectFS[apiPath]  = pkg->rxApiContent;
-        m_virtualProjectFS[jsonPath] = pkg->sbomJson;
+        m_virtualProjectFS[apiPath]  = pkg->rxAPIContent;
+        m_virtualProjectFS[jsonPath] = pkg->sbomJSON;
 
         InstalledPackageLayout layout;
         layout.packageName      = pkg->manifest.name;
         layout.version          = pkg->manifest.version;
         layout.installDirectory = installDir;
-        layout.rxApiPath       = apiPath;
-        layout.packageJsonPath  = jsonPath;
+        layout.rxAPIPath       = apiPath;
+        layout.packageJSONPath  = jsonPath;
 
         for (const auto& bin : pkg->binaries) {
             const std::string binPath =

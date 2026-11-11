@@ -2,7 +2,6 @@
 
 #include "ComponentTier.hpp"
 
-#include "Components/Button/Button.hpp"
 #include "Components/Container/Container.hpp"
 #include "Components/Icon/Icon.hpp"
 #include "Components/Screen/Screen.hpp"
@@ -48,7 +47,7 @@ void RoboCompilerNoteUsedComponent(const std::string& name) { (void)name; }
 
 void RoboCompilerNoteUsedIcon(const std::string& iconName);
 
-std::string RoboCompilerCppEscape(const std::string& value) {
+std::string RoboCompilerCPPEscape(const std::string& value) {
     std::string out;
     out.reserve(value.size() * 2);
     for (unsigned char c : value) {
@@ -77,7 +76,7 @@ std::string RoboCompilerTrim(std::string value) {
 }
 
 bool RoboCompilerIsSharedStyleKey(const std::string& key) {
-    return RoboCompilerIsLayoutKey(key) || RoboCompilerIsButtonStyleKey(key) || RoboCompilerIsContainerStyleKey(key) ||
+    return RoboCompilerIsLayoutKey(key) || RoboCompilerIsContainerStyleKey(key) ||
            RoboCompilerIsTextStyleKey(key);
 }
 
@@ -168,7 +167,7 @@ std::string RoboCompilerEmitLayoutProps(const RoboXMLNode& node, const std::stri
         if (value.empty()) {
             continue;
         }
-        ss << "  RoboUISetProperty(" << componentExpr << ", \"" << key << "\", \"" << RoboCompilerCppEscape(value)
+        ss << "  RoboUISetProperty(" << componentExpr << ", \"" << key << "\", \"" << RoboCompilerCPPEscape(value)
            << "\");\n";
     }
     return ss.str();
@@ -209,19 +208,19 @@ bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, Rob
     return overflowOk && ok;
 }
 
-std::string RoboCompilerEmitChildCpp(const RoboXMLNode& node, const std::string& parentExpr) {
+std::string RoboCompilerEmitChildCPP(const RoboXMLNode& node, const std::string& parentExpr) {
     if (RoboCompilerLower(node.name) == "svg" || RoboCompilerIsIconNode(node) || RoboCompilerLower(node.name) == "icon") {
-        return RoboCompilerEmitIconCpp(node, parentExpr);
+        return RoboCompilerEmitIconCPP(node, parentExpr);
     }
     if (RoboCompilerIsTextLike(node)) {
-        return RoboCompilerEmitTextCpp(node, parentExpr);
+        return RoboCompilerEmitTextCPP(node, parentExpr);
     }
     if (RoboCompilerIsContainerName(node.name)) {
-        return RoboCompilerEmitContainerCpp(node, parentExpr);
+        return RoboCompilerEmitContainerCPP(node, parentExpr);
     }
     if (RoboCompilerLower(node.name) == "screen" &&
         (!RoboXMLAttr(node, "path").empty() || !RoboXMLAttr(node, "route").empty() || !RoboXMLAttr(node, "id").empty())) {
-        return RoboCompilerEmitScreenCpp(node);
+        return RoboCompilerEmitScreenCPP(node);
     }
     return {};
 }

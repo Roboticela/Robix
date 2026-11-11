@@ -1,4 +1,4 @@
-#include "../../Packages/Manager/RxApiAndPackageFormat.hpp"
+#include "../../Packages/Manager/RxAPIAndPackageFormat.hpp"
 #include "../../Packages/Registry/PackageManagerAndRegistry.hpp"
 #include "../../Packages/Resolver/DependencyResolver.hpp"
 
@@ -21,7 +21,7 @@ void Check(bool condition, const char* description) {
     }
 }
 
-void TestRxApiGenerationAndValidation() {
+void TestRxAPIGenerationAndValidation() {
     std::cout << "\n--- 1. Public API Definition (.rxapi) Generation & Explain Enforcement ---\n";
     using namespace Robix::Packages;
 
@@ -51,41 +51,41 @@ Package RobixMotors {
 )";
 
     Robix::Frontend::DiagnosticBag genDiag;
-    const std::string generatedApi = RxApiEngine::GenerateRxApiFromSource(
+    const std::string generatedAPI = RxAPIEngine::GenerateRxAPIFromSource(
         "RobixMotors", "1.2.0", motorLibrarySource, genDiag);
 
     Check(!genDiag.HasErrors() &&
-          generatedApi.find("SetMotorSpeed") != std::string::npos &&
-          generatedApi.find("SecretInternalCalibration") == std::string::npos &&
-          generatedApi.find("return rpm * 42") == std::string::npos,
-          "RxApiEngine::GenerateRxApiFromSource exports public signatures + Explain while stripping private functions and implementation bodies");
+          generatedAPI.find("SetMotorSpeed") != std::string::npos &&
+          generatedAPI.find("SecretInternalCalibration") == std::string::npos &&
+          generatedAPI.find("return rpm * 42") == std::string::npos,
+          "RxAPIEngine::GenerateRxAPIFromSource exports public signatures + Explain while stripping private functions and implementation bodies");
 
     Robix::Frontend::DiagnosticBag valDiag;
-    auto apiVal = RxApiEngine::ValidateRxApi("RobixMotors.rxapi", generatedApi, valDiag);
+    auto apiVal = RxAPIEngine::ValidateRxAPI("RobixMotors.rxapi", generatedAPI, valDiag);
     Check(apiVal.valid && !valDiag.HasErrors() &&
           apiVal.publicFunctionCount == 1 &&
           apiVal.requiredPermissions.size() == 2 &&
           !apiVal.apiSha256Hex.empty(),
-          "RxApiEngine::ValidateRxApi validates well-formed .rxapi and extracts permissions + SHA-256 hash");
+          "RxAPIEngine::ValidateRxAPI validates well-formed .rxapi and extracts permissions + SHA-256 hash");
 
     // Verify .rxapi missing Explain block is rejected with P8001 / D3001
-    const std::string undocumentedApi = R"(
+    const std::string undocumentedAPI = R"(
 Package BadPkg {
     Version = "1.0.0";
     public Int UndocumentedFn(Int x);
 }
 )";
     Robix::Frontend::DiagnosticBag badDiag;
-    auto badVal = RxApiEngine::ValidateRxApi("BadPkg.rxapi", undocumentedApi, badDiag);
+    auto badVal = RxAPIEngine::ValidateRxAPI("BadPkg.rxapi", undocumentedAPI, badDiag);
     Check(!badVal.valid && (badDiag.ContainsCode("P8001") || badDiag.ContainsCode("D3001")),
-          "RxApiEngine::ValidateRxApi rejects public .rxapi functions missing mandatory Explain blocks");
+          "RxAPIEngine::ValidateRxAPI rejects public .rxapi functions missing mandatory Explain blocks");
 }
 
 void TestRxpArchiveSecurityAndABIVerification() {
     std::cout << "\n--- 2. Compiled Binary Package (.rxp) Archive, Signatures, SHA-256 & ABI Checks ---\n";
     using namespace Robix::Packages;
 
-    const std::string validApi = R"(
+    const std::string validAPI = R"(
 Package RobixHAL {
     Version = "1.0.0";
     Permissions {
@@ -117,10 +117,10 @@ Package RobixHAL {
 
     const std::string pubKey = "RoboticelaOfficialPublisherKey";
     Robix::Frontend::DiagnosticBag packDiag;
-    auto archive = RxPackagePacker::CreateSignedPackage(manifest, validApi, binaries, pubKey, packDiag);
+    auto archive = RxPackagePacker::CreateSignedPackage(manifest, validAPI, binaries, pubKey, packDiag);
 
     Check(!packDiag.HasErrors() && !archive.publisherSignatureHex.empty() &&
-          archive.sbomJson.find("RobixSBOM-1.0") != std::string::npos,
+          archive.sbomJSON.find("RobixSBOM-1.0") != std::string::npos,
           "RxPackagePacker::CreateSignedPackage creates signed .rxp with SHA-256 digests and SBOM");
 
     // Round-trip serialization/deserialization
@@ -228,7 +228,7 @@ void TestProjectLocalPackageManagerAndRegistry() {
     const std::string pubKey = "RoboticelaOfficialPublisherKey";
     RobixPackageRegistry registry(pubKey);
 
-    const std::string halApi = R"(
+    const std::string halAPI = R"(
 Package RobixHAL {
     Version = "1.1.0";
     public Int InitBus(Int busId)
@@ -241,7 +241,7 @@ Package RobixHAL {
     ;
 }
 )";
-    const std::string motorsApi = R"(
+    const std::string motorsAPI = R"(
 Package RobixMotors {
     Version = "2.1.0";
     import RobixHAL;
@@ -261,14 +261,14 @@ Package RobixMotors {
     halManifest.name    = "RobixHAL";
     halManifest.version = "1.1.0";
     auto halPkg = RxPackagePacker::CreateSignedPackage(
-        halManifest, halApi, { { "windows-x64", "RobixHAL.dll", { 1, 2, 3, 4 }, "" } }, pubKey, pubDiag);
+        halManifest, halAPI, { { "windows-x64", "RobixHAL.dll", { 1, 2, 3, 4 }, "" } }, pubKey, pubDiag);
 
     RxPackageManifest motorsManifest;
     motorsManifest.name                     = "RobixMotors";
     motorsManifest.version                  = "2.1.0";
     motorsManifest.dependencies["RobixHAL"] = "^1.0.0";
     auto motorsPkg = RxPackagePacker::CreateSignedPackage(
-        motorsManifest, motorsApi, { { "windows-x64", "RobixMotors.dll", { 5, 6, 7, 8 }, "" } }, pubKey, pubDiag);
+        motorsManifest, motorsAPI, { { "windows-x64", "RobixMotors.dll", { 5, 6, 7, 8 }, "" } }, pubKey, pubDiag);
 
     Check(registry.PublishPackage(halPkg, "windows-x64", pubDiag) &&
           registry.PublishPackage(motorsPkg, "windows-x64", pubDiag) &&
@@ -322,7 +322,7 @@ int main() {
     std::cout << "Robix Stage 8 Package Ecosystem & Binary Distribution Suite\n";
     std::cout << "================================================================\n";
 
-    TestRxApiGenerationAndValidation();
+    TestRxAPIGenerationAndValidation();
     TestRxpArchiveSecurityAndABIVerification();
     TestSemVerAndDependencyResolver();
     TestProjectLocalPackageManagerAndRegistry();

@@ -5,4 +5,4 @@
 
 #include <string>
 
-std::string RoboCompilerEmitScreenCpp(const RoboXMLNode& node);
+std::string RoboCompilerEmitScreenCPP(const RoboXMLNode& node);

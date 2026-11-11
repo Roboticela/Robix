@@ -15,7 +15,7 @@ inline RoboU32 RoboFrameBufferPitch(const RoboFrameBufferInfo* info) {
   return info->pixelsPerScanLine * info->bytesPerPixel;
 }
 
-inline RoboU32 RoboFrameBufferCpp(const RoboFrameBufferInfo* info) {
+inline RoboU32 RoboFrameBufferCPP(const RoboFrameBufferInfo* info) {
   if (info == ROBO_NULL || info->bytesPerPixel == 0) {
     return 4;
   }

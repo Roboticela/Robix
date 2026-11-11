@@ -13,6 +13,7 @@ struct ProjectFile {
     std::string version = "1.0.0";
     std::string signKey;
     std::string sourceDir = "Source";
+    std::string entry;
     bool requireTests = false;
     bool network = false;
 };

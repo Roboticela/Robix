@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Leela;
+package Benchmarks.SpecCPU.Leela;
 
 public Function RunMCTSSim(Int numRollouts) -> Int {
     Int wins = 0;

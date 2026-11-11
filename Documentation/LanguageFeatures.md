@@ -881,20 +881,20 @@ The interpreter stops on these and tells you they run in the freestanding image.
 | `Port.Read8(port)` | `Int` |
 | `Port.Read16(port)` | `Int` |
 | `Console.Write(byte)` | `Void`. Board serial port |
-| `Cpu.Halt()` | `Void`. `hlt` on x86-64, `wfi` on AArch64, ARM, and RISC-V |
-| `Cpu.Cli()` | `Void` |
-| `Cpu.Sti()` | `Void` |
-| `Cpu.ReadCR3()` | `Int` |
-| `Cpu.WriteCR3(value)` | `Void` |
-| `Cpu.ReadRSP()` | `Int` |
-| `Cpu.ExchangeRSP(value)` | `Int` |
-| `Cpu.SavedRSP()` | `Int` |
-| `Cpu.Lgdt(...)` | `Void` |
-| `Cpu.Lidt(...)` | `Void` |
-| `Cpu.BootInfo()` | `Int` |
-| `Cpu.Function(...)` | `Int` |
-| `Cpu.Handler(...)` | `Int` |
-| `Cpu.Run(...)` | `Void` |
+| `CPU.Halt()` | `Void`. `hlt` on x86-64, `wfi` on AArch64, ARM, and RISC-V |
+| `CPU.CLI()` | `Void` |
+| `CPU.STI()` | `Void` |
+| `CPU.ReadCR3()` | `Int` |
+| `CPU.WriteCR3(value)` | `Void` |
+| `CPU.ReadRSP()` | `Int` |
+| `CPU.ExchangeRSP(value)` | `Int` |
+| `CPU.SavedRSP()` | `Int` |
+| `CPU.LGDT(...)` | `Void` |
+| `CPU.LIDT(...)` | `Void` |
+| `CPU.BootInfo()` | `Int` |
+| `CPU.Function(...)` | `Int` |
+| `CPU.Handler(...)` | `Int` |
+| `CPU.Run(...)` | `Void` |
 | `Timer.Arm(handler)` | `Void`. Installs the gate and programs the PIC |
 | `Timer.Preempt(...)` | `Void` |
 | `System.Call(byte)` | `Void`. `int 0x80` in the kernel image |
@@ -949,7 +949,7 @@ These C++ modules live under `StdLib/` and implement library behavior for the ru
 
 ### JSON and files (`StdLib/Data`)
 
-`JsonValue`: `MakeNull`, `MakeBool`, `MakeInt`, `MakeFloat`, `MakeString`, `MakeArray`, `MakeObject`. Kinds are null, bool, int, float, string, array, object.
+`JSONValue`: `MakeNull`, `MakeBool`, `MakeInt`, `MakeFloat`, `MakeString`, `MakeArray`, `MakeObject`. Kinds are null, bool, int, float, string, array, object.
 
 JSON parse and stringify, JSONL lines, required-field checks, CSV rows, a binary frame of id plus payload, and run-length compression.
 
@@ -967,7 +967,7 @@ HMAC-SHA256 sign and verify. AES-style encrypt and decrypt with a nonce.
 
 `SecurityAuditResult.AuditDependencies` checks package name, version, SHA-256, and signature, and records an SBOM.
 
-`HttpServer`: `RegisterRoute`. Request fields are method, path, body, headers.
+`HTTPServer`: `RegisterRoute`. Request fields are method, path, body, headers.
 
 `TopicBus`: `Subscribe`, `Publish`.
 
@@ -1186,7 +1186,7 @@ Project {
 
 `robix build` is incremental. An unchanged second build prints `incremental: unchanged`. Editing a file that `Main` imports rebuilds the executable.
 
-`robix new` asks for a category, then a kind. **Application** is a program a person runs: `Console` (a terminal), `Window` (a `.rxu` file and a small test), or `Network` (clients and servers). A console program compiles for `windows`, `linux`, `macos`, `android`, and `ios`, and is refused for `web`. A window or a network program can also compile for `web` when the project has a `.rxu` screen. Web compilation has two forms. `--web script` is the default: the screen stays HTML and CSS, and the Robix program is converted to JavaScript with the same behavior as the interpreter. `--web assembly` keeps that HTML and CSS and compiles the program to WebAssembly (`app.wasm`). `robix run --target web` always uses the script form. A feature that cannot run in a browser, such as inline assembly, CPU and port access, or a hardware bus, prints `warning W7001` and is skipped. The rest of the program still compiles and runs. This machine interprets `windows` and `web`, and compiles `windows`. The other platforms are refused here with a direct error. **Canvas** is classified from the file. `Network` or `SendText` is a network program and can use a `.rxu` in the same folder. A matching `.rxu` (the same name, the `Source`/`UI` pair, or the only `.rx` in the folder) is a window. `Print`, `Input`, or `Args` is a console program. The tool prints a warning naming that choice, then applies the same web rule. **Canvas** is an empty folder. `robix run File.rx` runs one file, `robix run A.rx B.rx` runs each file, and `--image` builds a machine image. **Bedrock** is the machine itself: `Kernel`, `OS`, `BIOS`, `Driver`, `Bootloader`, or `Firmware`. It builds an image and is refused when the target is an operating system. If a file uses machine code (`Cpu`, `Port`, `Console.Write`) and the target is a platform, or platform code (`Print`, `File`, `Args`) and the target is an image, `robix` and `robixc` both stop with a direct error. `CLI` still means Console, `GUI` still means Window, and `Blank` still means Canvas. A Window project and a Network project each get an `Assets` folder at the project root. `robix new file Sensor class` writes the source and the test. A Network scaffold writes client and server projects, `Common/Source` interfaces, a `.rxu` for a GUI service, `.env.common`, and that `Assets` folder.
+`robix new` asks for a category, then a kind. **Application** is a program a person runs: `Console` (a terminal), `Window` (a `.rxu` file and a small test), or `Network` (clients and servers). A console program compiles for `windows`, `linux`, `macos`, `android`, and `ios`, and is refused for `web`. A window or a network program can also compile for `web` when the project has a `.rxu` screen. Web compilation has two forms. `--web script` is the default: the screen stays HTML and CSS, and the Robix program is converted to JavaScript with the same behavior as the interpreter. `--web assembly` keeps that HTML and CSS and compiles the program to WebAssembly (`app.wasm`). `robix run --target web` always uses the script form. A feature that cannot run in a browser, such as inline assembly, CPU and port access, or a hardware bus, prints `warning W7001` and is skipped. The rest of the program still compiles and runs. This machine interprets `windows` and `web`, and compiles `windows`. The other platforms are refused here with a direct error. **Canvas** is classified from the file. `Network` or `SendText` is a network program and can use a `.rxu` in the same folder. A matching `.rxu` (the same name, the `Source`/`UI` pair, or the only `.rx` in the folder) is a window. `Print`, `Input`, or `Args` is a console program. The tool prints a warning naming that choice, then applies the same web rule. **Canvas** is an empty folder. `robix run File.rx` runs one file, `robix run A.rx B.rx` runs each file, and `--image` builds a machine image. **Bedrock** is the machine itself: `Kernel`, `OS`, `BIOS`, `Driver`, `Bootloader`, or `Firmware`. It builds an image and is refused when the target is an operating system. If a file uses machine code (`CPU`, `Port`, `Console.Write`) and the target is a platform, or platform code (`Print`, `File`, `Args`) and the target is an image, `robix` and `robixc` both stop with a direct error. `CLI` still means Console, `GUI` still means Window, and `Blank` still means Canvas. A Window project and a Network project each get an `Assets` folder at the project root. `robix new file Sensor class` writes the source and the test. A Network scaffold writes client and server projects, `Common/Source` interfaces, a `.rxu` for a GUI service, `.env.common`, and that `Assets` folder.
 
 ## 23. Diagnostics
 

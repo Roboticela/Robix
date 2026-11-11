@@ -17,4 +17,4 @@ RoboCompilerTextKind RoboCompilerClassifyTextNode(const RoboXMLNode& node, RoboU
 const char* RoboCompilerTextFont(RoboCompilerTextKind kind, RoboU32 level);
 bool RoboCompilerCheckText(const RoboXMLNode& node, const std::string& path, RoboCompilerResult& result);
 bool RoboCompilerIsTextLike(const RoboXMLNode& node);
-std::string RoboCompilerEmitTextCpp(const RoboXMLNode& node, const std::string& parentExpr);
+std::string RoboCompilerEmitTextCPP(const RoboXMLNode& node, const std::string& parentExpr);

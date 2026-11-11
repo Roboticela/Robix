@@ -126,7 +126,7 @@ bool BlockedOnWeb(const VM::BCInstruction& inst, std::string& feature) {
     }
     if (inst.opcode != VM::BCOpcode::CallOSIntrinsic) return false;
     const std::string& name = inst.symbolImm;
-    if (StartsWith(name, "Port.") || StartsWith(name, "Cpu.") || StartsWith(name, "Timer.") ||
+    if (StartsWith(name, "Port.") || StartsWith(name, "CPU.") || StartsWith(name, "Timer.") ||
         StartsWith(name, "System.") || StartsWith(name, "Console.") || StartsWith(name, "GPIO.") ||
         StartsWith(name, "PWM.") || StartsWith(name, "UART.") || StartsWith(name, "SPI.") ||
         StartsWith(name, "I2C.") || StartsWith(name, "CAN.") || StartsWith(name, "USB.") ||

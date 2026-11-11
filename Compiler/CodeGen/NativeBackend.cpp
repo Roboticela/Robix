@@ -1360,41 +1360,41 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val addr = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = inttoptr i64 " << addr.repr << " to ptr\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
-            } else if (inst.textImm == "Cpu.ReadCR3" || inst.textImm == "Cpu.ReadRSP" ||
-                       inst.textImm == "Cpu.WriteCR3" || inst.textImm == "Cpu.ExchangeRSP" ||
-                       inst.textImm == "Cpu.SavedRSP" || inst.textImm == "Cpu.Lgdt" ||
-                       inst.textImm == "Cpu.Lidt" || inst.textImm == "Cpu.BootInfo" ||
-                       inst.textImm == "Cpu.Function" || inst.textImm == "Cpu.Handler" ||
-                       inst.textImm == "Cpu.Run" || inst.textImm == "Timer.Arm" ||
+            } else if (inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP" ||
+                       inst.textImm == "CPU.WriteCR3" || inst.textImm == "CPU.ExchangeRSP" ||
+                       inst.textImm == "CPU.SavedRSP" || inst.textImm == "CPU.LGDT" ||
+                       inst.textImm == "CPU.LIDT" || inst.textImm == "CPU.BootInfo" ||
+                       inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" ||
+                       inst.textImm == "CPU.Run" || inst.textImm == "Timer.Arm" ||
                        inst.textImm == "Timer.Preempt" || inst.textImm == "System.Call") {
                 if (m_ctx.options.asmArch != "x86_64") {
                     Err("N9010", inst.textImm + " exists on x86_64 only.", inst.location);
                     m_vals[id] = Val{ "0", NTy::I64 };
                     break;
                 }
-                if (inst.textImm == "Cpu.ReadCR3" || inst.textImm == "Cpu.ReadRSP") {
-                    const char* text = inst.textImm == "Cpu.ReadCR3" ? "movq %cr3, $0" : "movq %rsp, $0";
+                if (inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP") {
+                    const char* text = inst.textImm == "CPU.ReadCR3" ? "movq %cr3, $0" : "movq %rsp, $0";
                     m_body << "  " << vname << " = call i64 asm sideeffect \"" << text
                            << "\", \"=r,~{dirflag},~{fpsr},~{flags}\"()\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
-                } else if (inst.textImm == "Cpu.WriteCR3" && !inst.operandIds.empty()) {
+                } else if (inst.textImm == "CPU.WriteCR3" && !inst.operandIds.empty()) {
                     Val addr = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                     m_body << "  call void asm sideeffect \"movq $0, %cr3\", \"r,~{dirflag},~{fpsr},~{flags},~{memory}\"(i64 "
                            << addr.repr << ")\n";
                     m_vals[id] = Val{ "0", NTy::Void };
-                } else if (inst.textImm == "Cpu.ExchangeRSP" && !inst.operandIds.empty()) {
+                } else if (inst.textImm == "CPU.ExchangeRSP" && !inst.operandIds.empty()) {
                     Val next = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                     m_body << "  " << vname << " = call i64 @rx_exchange_rsp(i64 " << next.repr << ")\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
-                } else if (inst.textImm == "Cpu.SavedRSP") {
+                } else if (inst.textImm == "CPU.SavedRSP") {
                     m_body << "  " << vname << " = load i64, ptr @rx.switch.cell, align 8\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
-                } else if (inst.textImm == "Cpu.BootInfo") {
+                } else if (inst.textImm == "CPU.BootInfo") {
                     const std::string raw = NewTmp();
                     m_body << "  " << raw << " = load i32, ptr inttoptr (i64 458752 to ptr), align 4\n";
                     m_body << "  " << vname << " = zext i32 " << raw << " to i64\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
-                } else if ((inst.textImm == "Cpu.Lgdt" || inst.textImm == "Cpu.Lidt") && inst.operandIds.size() >= 2) {
+                } else if ((inst.textImm == "CPU.LGDT" || inst.textImm == "CPU.LIDT") && inst.operandIds.size() >= 2) {
                     Val base = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                     Val limit = Coerce(Operand(inst, 1), NTy::I64, inst.location);
                     const std::string mem = NewTmp();
@@ -1405,12 +1405,12 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  store i16 " << lim16 << ", ptr " << mem << ", align 2\n";
                     m_body << "  " << slot << " = getelementptr i8, ptr " << mem << ", i64 2\n";
                     m_body << "  store i64 " << base.repr << ", ptr " << slot << ", align 2\n";
-                    const char* op = inst.textImm == "Cpu.Lgdt" ? "lgdt ($0)" : "lidt ($0)";
+                    const char* op = inst.textImm == "CPU.LGDT" ? "lgdt ($0)" : "lidt ($0)";
                     m_body << "  call void asm sideeffect \"" << op << "\", \"r,~{dirflag},~{fpsr},~{flags},~{memory}\"(ptr "
                            << mem << ")\n";
                     m_vals[id] = Val{ "0", NTy::Void };
-                } else if (inst.textImm == "Cpu.Function" || inst.textImm == "Cpu.Handler") {
-                    const std::string sym = inst.textImm == "Cpu.Handler"
+                } else if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler") {
+                    const std::string sym = inst.textImm == "CPU.Handler"
                                                 ? ("@rx_isr_" + inst.secondaryText)
                                                 : ("@rx_fn_" + inst.secondaryText);
                     m_body << "  " << vname << " = ptrtoint ptr " << sym << " to i64\n";
@@ -1586,7 +1586,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                            << "\", \"r,~{rax},~{rcx},~{rdx},~{rsi},~{rdi},~{r8},~{r9},~{r10},~{r11},~{flags},~{dirflag},~{fpsr},~{memory}\"(i64 "
                            << topA << ")\n";
                     m_vals[id] = Val{ "0", NTy::Void };
-                } else if (inst.textImm == "Cpu.Run" && !inst.operandIds.empty()) {
+                } else if (inst.textImm == "CPU.Run" && !inst.operandIds.empty()) {
                     Val top = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                     const std::string text =
                         "movq %rsp, %rax\nmovq $0, %rsp\ncall rx_fn_" + inst.secondaryText + "\nmovq %rax, %rsp";
@@ -1616,13 +1616,13 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     break;
                 }
                 m_vals[id] = Val{ "0", NTy::Void };
-            } else if (inst.textImm == "Cpu.Halt" || inst.textImm == "Cpu.Cli" || inst.textImm == "Cpu.Sti") {
+            } else if (inst.textImm == "CPU.Halt" || inst.textImm == "CPU.CLI" || inst.textImm == "CPU.STI") {
                 const std::string& arch = m_ctx.options.asmArch;
                 const char* mnemonic = nullptr;
-                if (inst.textImm == "Cpu.Halt" && (arch == "aarch64" || arch == "arm" || arch == "riscv64")) {
+                if (inst.textImm == "CPU.Halt" && (arch == "aarch64" || arch == "arm" || arch == "riscv64")) {
                     mnemonic = "wfi";
                 } else if (arch == "x86_64") {
-                    mnemonic = inst.textImm == "Cpu.Halt" ? "hlt" : inst.textImm == "Cpu.Cli" ? "cli" : "sti";
+                    mnemonic = inst.textImm == "CPU.Halt" ? "hlt" : inst.textImm == "CPU.CLI" ? "cli" : "sti";
                 }
                 if (mnemonic == nullptr) {
                     Err("N9010", inst.textImm + " exists on x86_64 only.", inst.location);
@@ -2069,9 +2069,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         if (inst.opcode != IR::IROpcode::CallOSIntrinsic) return;
         if (inst.textImm == "Memory.Pages") ctx.usesPages = true;
         if (inst.textImm.rfind("Frame.", 0) == 0) ctx.usesFrame = true;
-        if (inst.textImm == "Cpu.ExchangeRSP" || inst.textImm == "Cpu.SavedRSP") ctx.usesSwitch = true;
+        if (inst.textImm == "CPU.ExchangeRSP" || inst.textImm == "CPU.SavedRSP") ctx.usesSwitch = true;
         if (inst.textImm == "System.Call") ctx.usesSyscall = true;
-        if (inst.textImm == "Cpu.Function" || inst.textImm == "Cpu.Handler" || inst.textImm == "Cpu.Run" ||
+        if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Run" ||
             inst.textImm == "Timer.Arm" || inst.textImm == "Timer.Preempt") {
             if (!inst.secondaryText.empty()) {
                 if (inst.textImm == "Timer.Preempt") {
@@ -2091,7 +2091,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                     }
                 } else {
                     ctx.cpuFns.insert(inst.secondaryText);
-                    if (inst.textImm == "Cpu.Handler" || inst.textImm == "Timer.Arm") ctx.isrFns.insert(inst.secondaryText);
+                    if (inst.textImm == "CPU.Handler" || inst.textImm == "Timer.Arm") ctx.isrFns.insert(inst.secondaryText);
                     if (inst.textImm == "Timer.Arm") {
                         ctx.timerIsrs.insert(inst.secondaryText);
                         ctx.usesPages = true;

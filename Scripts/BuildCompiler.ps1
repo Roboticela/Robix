@@ -316,7 +316,7 @@ $legacyLib = Join-Path $legacyToolchain "lib"
 $libraryMap = @(
     @{ Name = "LibCmt.lib"; Origin = (Join-Path $msvcLib "libcmt.lib"); Legacy = "libcmt.lib" },
     @{ Name = "LibVcRuntime.lib"; Origin = (Join-Path $msvcLib "libvcruntime.lib"); Legacy = "libvcruntime.lib" },
-    @{ Name = "LibCpp.lib"; Origin = (Join-Path $msvcLib "libcpmt.lib"); Legacy = "libcpmt.lib" },
+    @{ Name = "LibCPP.lib"; Origin = (Join-Path $msvcLib "libcpmt.lib"); Legacy = "libcpmt.lib" },
     @{ Name = "OldNames.lib"; Origin = (Join-Path $msvcLib "oldnames.lib"); Legacy = "oldnames.lib" },
     @{ Name = "LibUcrt.lib"; Origin = (Join-Path $kitVersion.FullName "ucrt\x64\libucrt.lib"); Legacy = "libucrt.lib" },
     @{ Name = "Kernel32.lib"; Origin = (Join-Path $kitVersion.FullName "um\x64\kernel32.lib"); Legacy = "kernel32.lib" },

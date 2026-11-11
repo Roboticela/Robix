@@ -103,7 +103,7 @@ robix new Pad Canvas
 
 On this Windows toolchain, `windows` and `web` are the platforms that are actually interpreted, and `windows` is the platform that is actually compiled. Other platform names are accepted and then refused with a direct error. A QEMU boot of a freestanding image is recorded in `Documentation/Status.md`. It is not a claim that the image ran on hardware.
 
-Machine code (`Cpu`, `Port`, `Console.Write`, `Timer`, `System.Call`, `Memory.Pages`, `Memory.Address`, `Memory.At`) aimed at a platform stops before execution. Platform code (`Print`, `Input`, `File`, `Args`, `Env`, `Network`, `Thread`, and the hosted hardware calls) aimed at an image stops the same way.
+Machine code (`CPU`, `Port`, `Console.Write`, `Timer`, `System.Call`, `Memory.Pages`, `Memory.Address`, `Memory.At`) aimed at a platform stops before execution. Platform code (`Print`, `Input`, `File`, `Args`, `Env`, `Network`, `Thread`, and the hosted hardware calls) aimed at an image stops the same way.
 
 ## 🧠 The language
 

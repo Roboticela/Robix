@@ -67,7 +67,7 @@ Enforced by `robixc`, `robix format`, and `robix lint`. Legacy projects may opt 
 - **PascalCase:** files, packages, types, functions, methods, constructors, enum names.
 - **camelCase:** locals, fields, parameters.
 - **UPPER_SNAKE_CASE:** constants.
-- **Acronyms stay uppercase:** `HTTPClient`, `GPIOPin`, `apiURL`. `HttpClient` is rejected in strict mode.
+- **Acronyms stay uppercase:** `HTTPClient`, `GPIOPin`, `apiURL`. `HTTPClient` is rejected in strict mode.
 
 ### 3.4 Language shape (kept)
 

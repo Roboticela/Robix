@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Robix = Join-Path $Root "Build\Compiler\Robix.exe"
-$Document = Join-Path $Root "DevKit\Main.xml"
+$Document = Join-Path $Root "DevKit\Main.rxu"
 if (-not (Test-Path -LiteralPath $Robix)) {
     throw "Build\Compiler\Robix.exe is missing. Run Scripts\BuildCompiler.ps1 first."
 }

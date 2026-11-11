@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Fotonik;
+package Benchmarks.SpecCPU.Fotonik;
 
 public Function RunFotonik3D(Int timeSteps) -> Float {
     Float ez0 = 0.0; Float ez1 = 0.0; Float ez2 = 0.0;

@@ -70,9 +70,12 @@ inline void ResolveImports(CompilationUnitAST& root, std::string_view rootFile, 
                 }
                 return fs::path{};
             };
+            const fs::path dotted(slashed + ".rx");
             const fs::path stdlib = fs::path("StdLib") / "Robix" / (last + ".rx");
             const fs::path package = fs::path("Packages") / item.importName / (last + ".rx");
-            found = walk(item.baseDir, stdlib);
+            found = walk(item.baseDir, dotted);
+            if (found.empty()) found = walk(fs::current_path(), dotted);
+            if (found.empty()) found = walk(item.baseDir, stdlib);
             if (found.empty()) found = walk(fs::current_path(), stdlib);
             if (found.empty()) found = walk(item.baseDir, package);
             if (found.empty()) found = walk(fs::current_path(), package);

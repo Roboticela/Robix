@@ -363,9 +363,10 @@ int main(int argc, char* argv[]) {
         if (!runFiles.empty()) {
             const std::string category = Robix::Tools::ProjectCategory(runFiles.front());
             const bool gated = !category.empty() || targetSet || image;
+            const bool bedrockPreview = category == "Bedrock" && !direct;
             const Robix::Tools::RunSurface surface = direct ? Robix::Tools::RunSurface::Direct
                                                             : Robix::Tools::RunSurface::Platform;
-            if (gated) {
+            if (gated && !bedrockPreview) {
                 for (const std::string& file : runFiles) {
                     std::ifstream in(file, std::ios::binary);
                     if (!in) {
@@ -435,10 +436,6 @@ int main(int argc, char* argv[]) {
                     status = 0;
                 }
                 return status;
-            }
-            if (category == "Bedrock") {
-                std::cerr << "error: Bedrock does not run in the interpreter. Build the image with robixc --image.\n";
-                return 1;
             }
         }
         if (screen && runInput != "all" && runInput != "client" && runInput != "server") {

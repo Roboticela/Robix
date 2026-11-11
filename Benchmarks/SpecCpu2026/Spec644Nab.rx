@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Nab;
+package Benchmarks.SpecCPU.Nab;
 
 public Function RunNabSim(Int steps) -> Float {
     Float r12 = 1.5;

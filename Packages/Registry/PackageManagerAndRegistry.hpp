@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../Compiler/Semantic/Diagnostics.hpp"
-#include "../Manager/RxApiAndPackageFormat.hpp"
+#include "../Manager/RxAPIAndPackageFormat.hpp"
 #include "../Resolver/DependencyResolver.hpp"
 
 #include <map>
@@ -55,9 +55,9 @@ struct InstalledPackageLayout {
     std::string              packageName;
     std::string              version;
     std::string              installDirectory; // <ProjectRoot>/.robix/packages/<Name>/<Version>/
-    std::string              rxApiPath;       // .../<Name>.rxapi
+    std::string              rxAPIPath;       // .../<Name>.rxapi
     std::vector<std::string> binaryPaths;      // .../binaries/<target>/<file>
-    std::string              packageJsonPath;  // .../package.json
+    std::string              packageJSONPath;  // .../package.json
 };
 
 class RobixPackageManager {

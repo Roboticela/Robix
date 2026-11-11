@@ -743,7 +743,7 @@ NativeBuildResult NativeCompilerDriver::CompileSource(std::string_view fileName,
     cmd << Quote(lld.string()) << " -flavor link /nologo /nodefaultlib /subsystem:console /entry:mainCRTStartup"
         << linkFlags << " /out:" << Quote(exePath.string()) << " " << Quote(codegenObj.string()) << " "
         << Quote(runtimeObj);
-    const char* requiredLibs[] = { "LibCmt.lib", "LibVcRuntime.lib", "LibCpp.lib", "OldNames.lib", "LibUcrt.lib",
+    const char* requiredLibs[] = { "LibCmt.lib", "LibVcRuntime.lib", "LibCPP.lib", "OldNames.lib", "LibUcrt.lib",
                                    "Kernel32.lib" };
     bool librariesPresent = true;
     for (const char* name : requiredLibs) {

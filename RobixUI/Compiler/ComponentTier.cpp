@@ -13,14 +13,16 @@ const Entry kEntries[] = {
     {"screen", RoboUITier::Compiler, "Screen", false},
     {"window", RoboUITier::Compiler, "Screen", false},
     {"page", RoboUITier::Compiler, "Screen", false},
-    {"container", RoboUITier::Compiler, "Container", false},
+    {"view", RoboUITier::Compiler, "View", false},
+    {"container", RoboUITier::Compiler, "View", false},
+    {"box", RoboUITier::Compiler, "View", false},
     {"text", RoboUITier::Compiler, "Text", false},
     {"svg", RoboUITier::Compiler, "Svg", false},
     {"image", RoboUITier::Compiler, "Image", false},
     {"view3d", RoboUITier::Compiler, "View3D", false},
     {"scene3d", RoboUITier::Compiler, "View3D", false},
     {"span", RoboUITier::Part, "Text", false},
-    {"at", RoboUITier::Part, "Container", false},
+    {"at", RoboUITier::Part, "View", false},
 };
 
 std::string Lower(std::string value) {

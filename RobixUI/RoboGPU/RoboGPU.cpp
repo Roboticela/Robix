@@ -307,7 +307,7 @@ void RoboGPUCopyArea(RoboGPU* gpu, RoboI32 dx, RoboI32 dy, RoboI32 sx, RoboI32 s
   }
 
   const RoboU32 pitch = RoboGPUPitch(gpu);
-  const RoboU32 cpp = RoboFrameBufferCpp(&gpu->info);
+  const RoboU32 cpp = RoboFrameBufferCPP(&gpu->info);
   const RoboSize rowBytes = static_cast<RoboSize>(w) * cpp;
   const RoboBool revCopy = (dstY > srcY) || (dstY == srcY && dstX > srcX) ? ROBO_TRUE : ROBO_FALSE;
 
@@ -917,8 +917,8 @@ static void RoboGPUFlushRect(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboI32 width, 
   if (width <= 0 || height <= 0 || gpu->front == ROBO_NULL || gpu->back == ROBO_NULL) {
     return;
   }
-  RoboGPUFlushJob job{gpu, x, y, width, height, RoboGPUPitch(gpu), RoboFrameBufferCpp(&gpu->info),
-                      static_cast<RoboU64>(x) * RoboFrameBufferCpp(&gpu->info)};
+  RoboGPUFlushJob job{gpu, x, y, width, height, RoboGPUPitch(gpu), RoboFrameBufferCPP(&gpu->info),
+                      static_cast<RoboU64>(x) * RoboFrameBufferCPP(&gpu->info)};
   RoboGPUForSpans(static_cast<RoboU32>(height), RoboGPUFlushWorker, &job);
   if (gRoboGPUScanout != ROBO_NULL) {
     gRoboGPUScanout(gpu, x, y, width, height);

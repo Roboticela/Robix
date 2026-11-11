@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Compress;
+package Benchmarks.SpecCPU.Compress;
 
 public Function RunCompress(Int n) -> Int {
     Int seed = 987654321;

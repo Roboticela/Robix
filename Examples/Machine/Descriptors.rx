@@ -26,7 +26,7 @@ public Function InstallGDT() -> Void {
         *gdt = 0;
         *(gdt + 1) = 0x00AF9A000000FFFF;
         *(gdt + 2) = 0x00CF92000000FFFF;
-        Cpu.Lgdt(Memory.Address(gdt), 23);
+        CPU.LGDT(Memory.Address(gdt), 23);
         WriteByte(71);
     }
 }

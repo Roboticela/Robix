@@ -534,7 +534,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                      "        if (Boot() == 1) {\n"
                      "            Console.Write(82);\n"
                      "        }\n"
-                     "        Cpu.Halt();\n"
+                     "        CPU.Halt();\n"
                      "    }\n"
                      "}\n";
             testBody = "    Assert.Equal(Boot(), 1);\n";
@@ -547,7 +547,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                      "    Unsafe {\n"
                      "        Int status = Port.Read8(StatusPort());\n"
                      "        Console.Write(status);\n"
-                     "        Cpu.Halt();\n"
+                     "        CPU.Halt();\n"
                      "    }\n"
                      "}\n";
             testBody = "    Assert.Equal(StatusPort(), 503);\n";
@@ -559,7 +559,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                      "public Function Start() -> Void {\n"
                      "    Unsafe {\n"
                      "        Console.Write(82);\n"
-                     "        Cpu.Halt();\n"
+                     "        CPU.Halt();\n"
                      "    }\n"
                      "}\n";
             testBody = "    Assert.Equal(KernelAddress(), 1048576);\n";
@@ -571,7 +571,7 @@ bool CreateProject(const fs::path& root, const std::string& name, const std::str
                      "public Function Start() -> Void {\n"
                      "    Unsafe {\n"
                      "        Console.Write(Mark());\n"
-                     "        Cpu.Halt();\n"
+                     "        CPU.Halt();\n"
                      "    }\n"
                      "}\n";
             testBody = "    Assert.Equal(Mark(), 82);\n";

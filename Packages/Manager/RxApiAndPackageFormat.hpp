@@ -15,7 +15,7 @@ namespace Robix::Packages {
 // ============================================================================
 // 1. PUBLIC API DEFINITION (.rxapi) GENERATOR & VALIDATOR
 // ============================================================================
-struct RxApiValidationResult {
+struct RxAPIValidationResult {
     bool                     valid = false;
     std::string              packageName;
     std::string              apiSha256Hex;
@@ -24,20 +24,20 @@ struct RxApiValidationResult {
     std::vector<std::string> requiredPermissions;
 };
 
-class RxApiEngine {
+class RxAPIEngine {
 public:
     // Extracts public declarations + Explain blocks from .rx source code into a .rxapi specification
     // (Strips private/internal members and all function bodies so private implementation is hidden)
-    [[nodiscard]] static std::string GenerateRxApiFromSource(
+    [[nodiscard]] static std::string GenerateRxAPIFromSource(
         std::string_view packageName,
         std::string_view version,
         std::string_view rxSourceCode,
         Frontend::DiagnosticBag& diagnostics);
 
     // Parses and validates a .rxapi file, enforcing mandatory Explain blocks on all public functions/methods (P8001)
-    [[nodiscard]] static RxApiValidationResult ValidateRxApi(
+    [[nodiscard]] static RxAPIValidationResult ValidateRxAPI(
         std::string_view fileName,
-        std::string_view rxApiContent,
+        std::string_view rxAPIContent,
         Frontend::DiagnosticBag& diagnostics);
 };
 
@@ -64,11 +64,11 @@ struct RxPackageManifest {
 
 struct RxPackageArchive {
     RxPackageManifest                manifest;
-    std::string                       rxApiContent;
-    std::string                       rxApiSha256Hex;
+    std::string                       rxAPIContent;
+    std::string                       rxAPISha256Hex;
     std::vector<TargetBinaryArtifact> binaries;
     std::string                       documentationMarkdown;
-    std::string                       sbomJson;
+    std::string                       sbomJSON;
     std::string                       publisherSignatureHex;
 };
 
@@ -84,7 +84,7 @@ public:
     // Packs a .rxapi interface + target binaries into a signed .rxp archive
     [[nodiscard]] static RxPackageArchive CreateSignedPackage(
         RxPackageManifest manifest,
-        std::string rxApiContent,
+        std::string rxAPIContent,
         std::vector<TargetBinaryArtifact> targetBinaries,
         std::string_view publisherSigningKey,
         Frontend::DiagnosticBag& diagnostics);

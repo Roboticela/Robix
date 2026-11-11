@@ -18,11 +18,11 @@ bool RoboCompilerIsOneOf(const std::string& value, std::initializer_list<const c
 bool RoboCompilerCheckOverflowAttrs(const RoboXMLNode& node, const std::string& path, RoboCompilerResult& result);
 void RoboCompilerNoteUsedComponent(const std::string& name);
 void RoboCompilerNoteUsedIcon(const std::string& iconName);
-std::string RoboCompilerCppEscape(const std::string& value);
+std::string RoboCompilerCPPEscape(const std::string& value);
 std::string RoboCompilerTrim(std::string value);
 std::string RoboCompilerEmitLayoutProps(const RoboXMLNode& node, const std::string& componentExpr);
 bool RoboCompilerCheckNode(const RoboXMLNode& node, const std::string& path, RoboCompilerResult& result);
-std::string RoboCompilerEmitChildCpp(const RoboXMLNode& node, const std::string& parentExpr);
+std::string RoboCompilerEmitChildCPP(const RoboXMLNode& node, const std::string& parentExpr);
 bool RoboCompilerIsIdent(const std::string& value);
 std::string RoboCompilerIconNameFromNode(const RoboXMLNode& node);
 bool RoboCompilerIsIconNode(const RoboXMLNode& node);

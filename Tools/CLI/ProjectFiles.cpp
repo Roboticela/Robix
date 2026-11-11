@@ -54,7 +54,7 @@ std::string SignatureFor(const std::string& key, const std::string& name, const 
 }
 
 #ifdef _WIN32
-bool DownloadHttp(const std::string& url, std::string& body, std::string& error) {
+bool DownloadHTTP(const std::string& url, std::string& body, std::string& error) {
     const std::wstring wide(url.begin(), url.end());
     URL_COMPONENTS parts{};
     wchar_t host[256]{};
@@ -185,6 +185,7 @@ bool LoadKeys(const fs::path& file, ProjectFile& project) {
         else if (key == "Version") project.version = value;
         else if (key == "SignKey") project.signKey = value;
         else if (key == "SourceDir") project.sourceDir = value;
+        else if (key == "Entry") project.entry = value;
         else if (key == "RequireTests") project.requireTests = value == "true";
         else if (key == "Network") project.network = value == "true";
     }
@@ -212,7 +213,7 @@ std::string Positional(const std::vector<std::string>& args, std::size_t nth) {
     return {};
 }
 
-std::string PublicApi(const std::string& packageName, const std::string& source) {
+std::string PublicAPI(const std::string& packageName, const std::string& source) {
     std::ostringstream out;
     out << "package " << packageName << ";\n\n";
     std::istringstream lines(source);
@@ -295,8 +296,13 @@ void CollectPrograms(const fs::path& dir, int depth, std::vector<fs::path>& file
     }
 }
 
-fs::path EntryInProject(const fs::path& root, const std::vector<fs::path>& files) {
+fs::path EntryInProject(const fs::path& root, const std::vector<fs::path>& files, const std::string& named) {
     std::error_code ec;
+    if (!named.empty()) {
+        fs::path source(named);
+        if (source.is_relative()) source = root / source;
+        if (fs::is_regular_file(source, ec)) return source;
+    }
     if (fs::is_directory(root, ec)) {
         for (const auto& entry : fs::directory_iterator(root, ec)) {
             if (entry.path().extension() != ".rxb") continue;
@@ -449,7 +455,7 @@ ProjectRun ChooseProjectRun(const fs::path& folder, bool eachFile, bool services
         run.files = std::move(files);
         return run;
     }
-    const fs::path entry = EntryInProject(have ? root : root, files);
+    const fs::path entry = EntryInProject(root, files, have ? project.entry : std::string{});
     if (entry.empty()) {
         run.error = files.empty()
                         ? "robix: '" + root.string() + "' has no .rx program.\n"
@@ -650,7 +656,7 @@ int PackageCommand(const std::vector<std::string>& args) {
                     std::cerr << "robix install: could not write " << dest.string() << "\n";
                     return 1;
                 }
-                const std::string api = PublicApi(package.name, bytes);
+                const std::string api = PublicAPI(package.name, bytes);
                 if (!WriteFile(destDir / (package.name + ".rxapi"), api)) return 1;
                 std::ostringstream rxp;
                 rxp << "name " << package.name << "\n"
@@ -705,7 +711,7 @@ int PackageCommand(const std::vector<std::string>& args) {
         std::string bytes;
         std::string signature;
         std::string downloadError;
-        if (!DownloadHttp(path, bytes, downloadError) || !DownloadHttp(path + ".sig", signature, downloadError)) {
+        if (!DownloadHTTP(path, bytes, downloadError) || !DownloadHTTP(path + ".sig", signature, downloadError)) {
             std::cerr << "robix " << cmd << ": " << downloadError << "\n";
             return 1;
         }

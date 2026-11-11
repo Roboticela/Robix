@@ -44,7 +44,7 @@ struct RoboVirtioQueue {
 };
 
 RoboVirtioQueue gRoboVirtio{};
-RoboGPU* gRoboVirtioGpu = ROBO_NULL;
+RoboGPU* gRoboVirtioGPU = ROBO_NULL;
 
 void RoboGPUOut8(RoboU16 port, RoboU8 value) {
   __asm__ volatile("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -89,7 +89,7 @@ const char* RoboGPUVendorName(RoboU16 vendor) {
   return "PCI display";
 }
 
-void RoboGPULogDisplay(const RoboPciDevice* device) {
+void RoboGPULogDisplay(const RoboPCIDevice* device) {
   RoboSerialWrite("ROBO_GPU: standard driver on ");
   RoboSerialWrite(RoboGPUVendorName(device->vendorId));
   RoboSerialWrite(" ");
@@ -99,7 +99,7 @@ void RoboGPULogDisplay(const RoboPciDevice* device) {
   RoboSerialWriteLine(" via firmware framebuffer");
 }
 
-RoboU16 RoboGPUIoBar(const RoboPciDevice* device) {
+RoboU16 RoboGPUIoBar(const RoboPCIDevice* device) {
   for (RoboU32 i = 0; i < 6; ++i) {
     if ((device->bar[i] & 1u) != 0) {
       return static_cast<RoboU16>(device->bar[i] & ~3u);
@@ -175,10 +175,10 @@ void RoboGPUFillHeader(RoboU32 type) {
   header->type = type;
 }
 
-RoboBool RoboGPUVirtioSetup(const RoboPciDevice* device, RoboGPU* gpu) {
+RoboBool RoboGPUVirtioSetup(const RoboPCIDevice* device, RoboGPU* gpu) {
   const RoboU16 io = RoboGPUIoBar(device);
-  RoboPciWrite16(device->bus, device->slot, device->func, 4,
-                 static_cast<RoboU16>(RoboPciRead16(device->bus, device->slot, device->func, 4) | 0x0007u));
+  RoboPCIWrite16(device->bus, device->slot, device->func, 4,
+                 static_cast<RoboU16>(RoboPCIRead16(device->bus, device->slot, device->func, 4) | 0x0007u));
   if (io == 0 || gpu == ROBO_NULL || gpu->front == ROBO_NULL || gpu->info.width == 0 || gpu->info.height == 0) {
     return ROBO_FALSE;
   }
@@ -250,13 +250,13 @@ RoboBool RoboGPUVirtioSetup(const RoboPciDevice* device, RoboGPU* gpu) {
     return ROBO_FALSE;
   }
 
-  gRoboVirtioGpu = gpu;
+  gRoboVirtioGPU = gpu;
   RoboSerialWriteLine("ROBO_GPU: virtio-gpu 2D ready");
   return ROBO_TRUE;
 }
 
 RoboBool RoboGPUVirtioScanout(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboI32 width, RoboI32 height) {
-  if (gRoboVirtio.ready != ROBO_TRUE || gpu == ROBO_NULL || gpu != gRoboVirtioGpu || width <= 0 || height <= 0) {
+  if (gRoboVirtio.ready != ROBO_TRUE || gpu == ROBO_NULL || gpu != gRoboVirtioGPU || width <= 0 || height <= 0) {
     return ROBO_FALSE;
   }
   RoboGPURect rect{static_cast<RoboU32>(x), static_cast<RoboU32>(y), static_cast<RoboU32>(width),
@@ -277,10 +277,10 @@ RoboBool RoboGPUVirtioScanout(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboI32 width,
 }  // namespace
 
 void RoboGPUDeviceAttach(RoboGPU* gpu) {
-  RoboPciManager pci{};
-  RoboPciInit(&pci);
-  RoboPciScan(&pci);
-  RoboPciDevice display{};
+  RoboPCIManager pci{};
+  RoboPCIInit(&pci);
+  RoboPCIScan(&pci);
+  RoboPCIDevice display{};
   RoboBool found = ROBO_FALSE;
   for (RoboU32 i = 0; i < pci.deviceCount; ++i) {
     if (pci.devices[i].baseClass == 0x03u) {
@@ -293,10 +293,10 @@ void RoboGPUDeviceAttach(RoboGPU* gpu) {
     RoboSerialWriteLine("ROBO_GPU: standard driver via firmware framebuffer");
   }
 
-  RoboPciDevice virtio{};
-  if (RoboPciFindDevice(&pci, ROBO_GPU_VENDOR_VIRTIO, ROBO_GPU_DEVICE_VIRTIO, &virtio) == ROBO_TRUE ||
+  RoboPCIDevice virtio{};
+  if (RoboPCIFindDevice(&pci, ROBO_GPU_VENDOR_VIRTIO, ROBO_GPU_DEVICE_VIRTIO, &virtio) == ROBO_TRUE ||
       (found == ROBO_TRUE && display.vendorId == ROBO_GPU_VENDOR_VIRTIO)) {
-    const RoboPciDevice* chosen = virtio.vendorId == ROBO_GPU_VENDOR_VIRTIO ? &virtio : &display;
+    const RoboPCIDevice* chosen = virtio.vendorId == ROBO_GPU_VENDOR_VIRTIO ? &virtio : &display;
     if (RoboGPUVirtioSetup(chosen, gpu) == ROBO_TRUE) {
       RoboGPUSetHardwareScanout(RoboGPUVirtioScanout);
     } else {

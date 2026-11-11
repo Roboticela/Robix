@@ -8,7 +8,7 @@ $psi.CreateNoWindow = $true
 $proc = [Diagnostics.Process]::Start($psi)
 
 function Send-Lsp([object]$message) {
-    $json = $message | ConvertTo-Json -Compress -Depth 8
+    $json = $message | ConvertTo-JSON -Compress -Depth 8
     $bytes = [Text.Encoding]::UTF8.GetBytes($json)
     $header = [Text.Encoding]::ASCII.GetBytes("Content-Length: $($bytes.Length)`r`n`r`n")
     $proc.StandardInput.BaseStream.Write($header, 0, $header.Length)

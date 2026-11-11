@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Bzip2;
+package Benchmarks.SpecCPU.Bzip2;
 
 public Function RunBzip2(Int n) -> Int {
     Int seed = 543216789;

@@ -8,6 +8,6 @@ public Function WriteByte(Int value) -> Void {
 
 public Function HaltCPU() -> Void {
     Unsafe {
-        Cpu.Halt();
+        CPU.Halt();
     }
 }

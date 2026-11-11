@@ -5,7 +5,7 @@ These run in a native build. The interpreter stops and names the operation. It d
 | Operation | Interpreter |
 | :--- | :--- |
 | `Port.Read8`, `Port.Read16`, `Port.Write8` | Refuses. Message says the call runs in a native freestanding image |
-| `Cpu.*` | Refuses with the same message |
+| `CPU.*` | Refuses with the same message |
 | `Timer.Arm`, `Timer.Preempt` | Refuses with the same message |
 | `System.Call` | Refuses with the same message |
 | `Console.Write` | Refuses with the same message |

@@ -9,7 +9,7 @@
 #include "../../StdLib/AI/AIAndScientificComputing.hpp"
 #include "../../StdLib/Collections/CollectionsAndIterators.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
-#include "../../StdLib/Data/JsonAndDataFormats.hpp"
+#include "../../StdLib/Data/JSONAndDataFormats.hpp"
 
 #include <chrono>
 #include <iomanip>
@@ -541,11 +541,11 @@ std::vector<BenchmarkWorkloadMetrics> RobixBenchmarkSuite::RunAll16Workloads() {
 
     // 15. Serialization (JSON serialize + parse)
     measureWorkload(15, "Serialization", 256, 3, []() {
-        StdLib::JsonValue obj = StdLib::JsonValue::MakeObject();
-        obj.objectVal["robot"] = StdLib::JsonValue::MakeString("RobixBot");
-        obj.objectVal["speed"] = StdLib::JsonValue::MakeInt(120);
-        const std::string text = StdLib::JsonCodec::Serialize(obj);
-        auto parsed = StdLib::JsonCodec::Parse(text);
+        StdLib::JSONValue obj = StdLib::JSONValue::MakeObject();
+        obj.objectVal["robot"] = StdLib::JSONValue::MakeString("RobixBot");
+        obj.objectVal["speed"] = StdLib::JSONValue::MakeInt(120);
+        const std::string text = StdLib::JSONCodec::Serialize(obj);
+        auto parsed = StdLib::JSONCodec::Parse(text);
         return static_cast<std::uint64_t>(parsed.GetField("speed")->intVal);
     });
 

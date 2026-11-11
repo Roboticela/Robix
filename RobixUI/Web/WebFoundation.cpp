@@ -2,7 +2,6 @@
 
 #include "../../Robix3D/Robix3D.hpp"
 
-#include "../Compiler/Components/Button/ButtonWeb.hpp"
 #include "../Compiler/Components/Container/Container.hpp"
 #include "../Compiler/Components/Container/ContainerWeb.hpp"
 #include "../Compiler/Components/Image/ImageWeb.hpp"
@@ -174,10 +173,36 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     if (name == "at") {
         return;
     }
-    if (name.empty() || name == "screen") {
+    if (name.empty()) {
         for (const RoboXMLNode& child : node.children) {
             EmitNode(html, child, library, depth);
         }
+        return;
+    }
+    if (name == "screen" || name == "window" || name == "page") {
+        const std::string theme = Lower(RoboXMLAttr(node, "theme", RoboXMLAttr(node, "appearance", "").c_str()));
+        std::string style = RoboWebStyle(node, library);
+        RoboWebAddDecl(style, "box-sizing", "border-box");
+        RoboWebAddDecl(style, "overflow", "hidden");
+        if (RoboXMLAttr(node, "border").empty()) {
+            RoboWebAddDecl(style, "border", "1px solid #2A3142");
+        }
+        html += "<div class=\"robo-screen robo-preview\"";
+        if (!theme.empty()) {
+            html += " data-theme=\"";
+            html += Escape(theme);
+            html += "\"";
+        }
+        if (!style.empty()) {
+            html += " style=\"";
+            html += Escape(style);
+            html += "\"";
+        }
+        html += ">";
+        for (const RoboXMLNode& child : node.children) {
+            EmitNode(html, child, library, depth + 1);
+        }
+        html += "</div>";
         return;
     }
     if (name == "view3d" || name == "scene3d") {
@@ -242,8 +267,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         }
     } else if (paint == "scrollview" || paint == "scroll") {
         className = "robo-scroll";
-    } else if (RoboWebIsContainerBox(name) || RoboWebIsContainerBox(paint) || paint == "button" || paint == "textfield" ||
-               paint == "textarea" || paint == "select" || paint == "switch" || paint == "segmentedcontrol") {
+    } else if (RoboWebIsContainerBox(name) || RoboWebIsContainerBox(paint)) {
         className = RoboWebContainerClass();
     } else {
         std::string textClass = RoboWebTextClass(paint);
@@ -251,13 +275,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         className = textClass.empty() ? "robo-" + paint : textClass;
     }
     const std::string role = Lower(RoboXMLAttr(node, "role"));
-    if (role == "button" && className.find("robo-button") == std::string::npos) {
-        className += " robo-button";
-    } else if (role == "switch" && className.find("robo-switch") == std::string::npos) {
-        className += " robo-switch";
-    } else if (role == "tablist" && className.find("robo-segmented") == std::string::npos) {
-        className += " robo-segmented";
-    } else if ((role == "textbox" || role == "searchbox") && className.find("robo-field") == std::string::npos) {
+    if ((role == "textbox" || role == "searchbox") && className.find("robo-field") == std::string::npos) {
         className += " robo-field";
     }
     if (!alias.empty() && className.find("robo-" + alias) == std::string::npos) {
@@ -596,8 +614,6 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendScreenCss(css);
         RoboWebAppendContainerCss(css);
         RoboWebAppendTextCss(css);
-        RoboWebAppendButtonCss(css);
-        RoboWebAppendControlCss(css);
         RoboWebAppendImageCss(css);
         css << ".robo-overlay-host{position:fixed;inset:0;z-index:40;pointer-events:none}\n";
         css << ".robo-overlay-host .robo-overlay{pointer-events:auto}\n";

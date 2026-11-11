@@ -26,7 +26,7 @@ struct RoboCompilerOptions {
 struct RoboCompilerResult {
   bool ok = false;
   std::vector<RoboCompilerDiagnostic> diagnostics;
-  std::string generatedCppPath;
+  std::string generatedCPPPath;
   std::string screenIrPath;
   std::string videoAssetPath;
   std::string manifestPath;

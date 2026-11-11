@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Lbm;
+package Benchmarks.SpecCPU.Lbm;
 
 public Function RunLbmSim(Int steps) -> Float {
     Float f0 = 0.25; Float f1 = 0.12; Float f2 = 0.08; Float f3 = 0.15;

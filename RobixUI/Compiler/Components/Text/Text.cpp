@@ -188,7 +188,7 @@ bool RoboCompilerIsTextLike(const RoboXMLNode& node) {
   return RoboCompilerIsTextName(n);
 }
 
-std::string RoboCompilerEmitTextCpp(const RoboXMLNode& node, const std::string& parentExpr) {
+std::string RoboCompilerEmitTextCPP(const RoboXMLNode& node, const std::string& parentExpr) {
   RoboU32 headingLevel = 1;
   const RoboCompilerTextKind kind = RoboCompilerClassifyTextNode(node, &headingLevel);
 
@@ -262,27 +262,27 @@ std::string RoboCompilerEmitTextCpp(const RoboXMLNode& node, const std::string& 
 
   std::ostringstream ss;
   ss << "  static RoboUIText " << id << "Storage;\n";
-  ss << "  RoboUITextInit(&" << id << "Storage, \"" << RoboCompilerCppEscape(id) << "\");\n";
+  ss << "  RoboUITextInit(&" << id << "Storage, \"" << RoboCompilerCPPEscape(id) << "\");\n";
   ss << "  RoboUITextApplyRole(&" << id << "Storage, " << roleExpr << ");\n";
-  ss << "  RoboUITextSetFontName(&" << id << "Storage, ctx, \"" << RoboCompilerCppEscape(fontName) << "\");\n";
+  ss << "  RoboUITextSetFontName(&" << id << "Storage, ctx, \"" << RoboCompilerCPPEscape(fontName) << "\");\n";
   ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"align\", \"" << align << "\");\n";
   ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"wrap\", \"" << wrap << "\");\n";
   const std::string variant = RoboXMLAttr(node, "variant");
   if (!variant.empty()) {
     ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"variant\", \""
-       << RoboCompilerCppEscape(variant) << "\");\n";
+       << RoboCompilerCPPEscape(variant) << "\");\n";
   }
   if (sizeOverride || sizeAttr == "sm" || sizeAttr == "small" || sizeAttr == "md" || sizeAttr == "medium") {
     ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"size\", \""
-       << RoboCompilerCppEscape(sizeAttr) << "\");\n";
+       << RoboCompilerCPPEscape(sizeAttr) << "\");\n";
   }
   if (!tone.empty()) {
     ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"tone\", \""
-       << RoboCompilerCppEscape(tone) << "\");\n";
+       << RoboCompilerCPPEscape(tone) << "\");\n";
   }
   if (colorOverride) {
     ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"color\", \""
-       << RoboCompilerCppEscape(color) << "\");\n";
+       << RoboCompilerCPPEscape(color) << "\");\n";
   }
   ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"x\", \"" << x << "\");\n";
   ss << "  RoboUISetProperty(RoboUITextAsComponent(&" << id << "Storage), \"y\", \"" << y << "\");\n";
@@ -307,15 +307,15 @@ std::string RoboCompilerEmitTextCpp(const RoboXMLNode& node, const std::string& 
     const std::string spanText = child.text.empty() ? RoboXMLAttr(child, "content") : child.text;
     ss << "  {\n";
     if (!spanColor.empty()) {
-      ss << "    const RoboU32 spanColorARGB = RoboUITextParseColorGen(\"" << RoboCompilerCppEscape(spanColor)
+      ss << "    const RoboU32 spanColorARGB = RoboUITextParseColorGen(\"" << RoboCompilerCPPEscape(spanColor)
          << "\");\n";
     } else if (colorOverride) {
-      ss << "    const RoboU32 spanColorARGB = RoboUITextParseColorGen(\"" << RoboCompilerCppEscape(color)
+      ss << "    const RoboU32 spanColorARGB = RoboUITextParseColorGen(\"" << RoboCompilerCPPEscape(color)
          << "\");\n";
     } else {
       ss << "    const RoboU32 spanColorARGB = 0u;\n";
     }
-    ss << "    RoboUITextAppendSpan(&" << id << "Storage, \"" << RoboCompilerCppEscape(spanText) << "\", "
+    ss << "    RoboUITextAppendSpan(&" << id << "Storage, \"" << RoboCompilerCPPEscape(spanText) << "\", "
        << (spanSize.empty() ? "0" : spanSize) << "u, spanColorARGB);\n";
     ss << "  }\n";
   }
@@ -324,12 +324,12 @@ std::string RoboCompilerEmitTextCpp(const RoboXMLNode& node, const std::string& 
     if (!body.empty()) {
       ss << "  {\n";
       if (colorOverride) {
-        ss << "    const RoboU32 spanColorARGB = RoboUITextParseColorGen(\"" << RoboCompilerCppEscape(color)
+        ss << "    const RoboU32 spanColorARGB = RoboUITextParseColorGen(\"" << RoboCompilerCPPEscape(color)
            << "\");\n";
       } else {
         ss << "    const RoboU32 spanColorARGB = 0u;\n";
       }
-      ss << "    RoboUITextAppendSpan(&" << id << "Storage, \"" << RoboCompilerCppEscape(body) << "\", "
+      ss << "    RoboUITextAppendSpan(&" << id << "Storage, \"" << RoboCompilerCPPEscape(body) << "\", "
          << (sizeOverride ? sizeAttr : "0") << "u, spanColorARGB);\n";
       ss << "  }\n";
     }

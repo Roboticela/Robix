@@ -102,6 +102,8 @@ private:
     std::size_t m_assertPassCount = 0;
     std::size_t m_assertFailCount = 0;
     std::string m_fault;
+    bool m_halt = false;
+    bool m_hostPicture = false;
     bool m_gateChecked = false;
     bool m_gateOk = false;
     std::unordered_map<std::string, std::uint32_t> m_callCounts;

@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Mcf;
+package Benchmarks.SpecCPU.Mcf;
 
 public Function RunMcfSim(Int n) -> Int {
     Int flow = 1000;

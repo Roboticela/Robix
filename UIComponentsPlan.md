@@ -267,7 +267,7 @@ Each library component closes with four proofs:
 4. The native host paints the expansion. The test asserts one box and one pixel.
 5. The web face names its tag, or a `<Web>` template when the component is more than one element. After C21, the web test asserts that element and one mapped attribute. This proof waits on C21. The native proofs do not.
 
-`Button.cpp` in the compiler today is the old shape, where the control itself is a primitive. It stays until Stage L3 paints the same control from `View`, `Text`, and `Icon`. That stage then removes the compiler button. The tier table stops listing it as a compiler component.
+The compiler has no `Button`. Stage L3 builds it from `View`, `Text`, and `Icon`.
 
 ---
 
@@ -295,23 +295,27 @@ The box every later primitive sits in. Layout from §2.2 is implemented here, on
 
 Depends on: C1.
 
-- [ ] `View` schema
-- [ ] `Container` resolves to `View`
-- [ ] Row and column, including reverse
-- [ ] Stack
-- [ ] Grid, including span
-- [ ] Position, including absolute children
-- [ ] Padding
-- [ ] Margin
-- [ ] Alignment
-- [ ] Spacing
-- [ ] Size, including min, max, fill, and content
-- [ ] Constraints
-- [ ] Overflow, including clip
-- [ ] Flex grow, shrink, and order
-- [ ] Aspect ratio
-- [ ] Test lays out a row of three boxes and asserts each origin
-- [ ] Test clips a child that overflows
+`RoboViewRead` accepts the schema and rejects an unknown attribute, a bad direction, size, or tag, and more than 64 children. `Container` and `Box` resolve to `View`. `RoboViewLayout` places children. `RoboViewPaint` fills a frame. A clipped child does not paint or hit outside its parent.
+
+- [x] `View` schema
+- [x] `Container` resolves to `View`
+- [x] Row and column, including reverse
+- [x] Stack
+- [x] Grid, including span
+- [x] Position, including absolute children
+- [x] Padding
+- [x] Margin
+- [x] Alignment
+- [x] Spacing
+- [x] Size, including min, max, fill, and content
+- [x] Constraints
+- [x] Overflow, including clip
+- [x] Flex grow, shrink, and order
+- [x] Aspect ratio
+- [x] Test lays out a row of three boxes and asserts each origin
+- [x] Test clips a child that overflows
+
+`Tests/UI/RoboViewTests.cpp` passed, 101 checks. The row places three 20×10 boxes at x 0, 20, and 40. The clip test paints a child through x 39 and leaves x 45 on the parent.
 
 ### Stage C3 — Text
 
@@ -615,7 +619,7 @@ Depends on: L1, C4, C5.
 
 ### Stage L3 — Pressables
 
-Built from `View`, `Text`, `Icon`, pointer events, focus, and state. This stage retires the compiler `Button`.
+Built from `View`, `Text`, `Icon`, pointer events, focus, and state. The compiler no longer has a `Button`.
 
 Depends on: L1, L2, C14, C15, C19.
 
@@ -624,7 +628,7 @@ Depends on: L1, L2, C14, C15, C19.
 - [ ] `CloseButton`
 - [ ] `Link` — focusable `View` that calls `Navigate`
 - [ ] `ButtonGroup`
-- [ ] Compiler `Button` is removed after `RoboButton.rxu` matches its box and its click
+- [x] The compiler has no `Button`. `RoboButton.rxu` is still the library control to build
 
 ### Stage L4 — Choice
 
@@ -835,14 +839,14 @@ These files exist. Their boxes above stay open until the stage test has been run
 | Path | What it is today |
 | :--- | :--- |
 | `RobixUI/Compiler/Components/Screen/` | `Screen` compiler unit. Stage C1 `RoboScreen` reads the schema, resolves `Window` and `Page`, and paints the screen color. |
-| `RobixUI/Compiler/Components/Container/` | The box. This plan names it `View`. |
+| `RobixUI/Compiler/Components/Container/` | The old container name. Stage C2 resolves it to `View`. |
+| `RobixUI/Compiler/Components/View/` | Stage C2 layout engine. `RoboView` places and paints the box. |
 | `RobixUI/Compiler/Components/Text/` | `Text` compiler unit. `Span` is already a part. |
 | `RobixUI/Compiler/Components/Image/` | Decode helpers. The native window still has to paint the bitmap. |
 | `RobixUI/Compiler/Components/Icon/` | `Icon` compiler unit |
 | `RobixUI/Compiler/Components/Svg/` | `Svg` compiler unit |
-| `RobixUI/Compiler/Components/Button/` | Compiler control. Stage L3 replaces it with a library component. |
 | `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D` as a compiler tag. The paint unit is still to build. |
 | `RobixUI/Compiler/Compose.cpp` | Expands library components. Library stages use it. |
-| `RobixUI/Compiler/Components/Button/ButtonWeb.cpp` and the other `*Web.cpp` files | Hand-written HTML emitters. Stage C21 replaces them with the web face. |
+| `RobixUI/Compiler/Components/*/*Web.cpp` | Hand-written HTML emitters for the plan primitives. Stage C21 replaces them with the web face. |
 
 `Canvas`, `Video`, `Audio`, `Input`, `ScrollView`, and `List` have no compiler unit yet. They begin at their stage.

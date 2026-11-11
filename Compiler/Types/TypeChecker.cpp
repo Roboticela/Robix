@@ -929,7 +929,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "JSON" || expr.text == "Time" || expr.text == "Env" ||
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "UI" || expr.text == "Scene" || expr.text == "Volatile" ||
-                expr.text == "Port" || expr.text == "Cpu" || expr.text == "Timer" ||
+                expr.text == "Port" || expr.text == "CPU" || expr.text == "Timer" ||
                 expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
                 expr.text == "Frame") {
                 expr.inferredType = MakePrimitiveType(expr.text);
@@ -1349,16 +1349,16 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.inferredType = (expr.text == "Read8" || expr.text == "Read16") ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
                 return expr.inferredType;
             }
-            if (recvType.baseName == "Cpu" &&
-                (expr.text == "Halt" || expr.text == "Cli" || expr.text == "Sti" ||
+            if (recvType.baseName == "CPU" &&
+                (expr.text == "Halt" || expr.text == "CLI" || expr.text == "STI" ||
                  expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
-                 expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "Lgdt" ||
-                 expr.text == "Lidt" || expr.text == "BootInfo" || expr.text == "Function" ||
+                 expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "LGDT" ||
+                 expr.text == "LIDT" || expr.text == "BootInfo" || expr.text == "Function" ||
                  expr.text == "Handler" || expr.text == "Run")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
-                        "'Cpu." + expr.text + "' changes CPU state and requires 'Unsafe { ... }'.",
+                        "'CPU." + expr.text + "' changes CPU state and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
                 const bool returnsInt = expr.text == "ReadCR3" || expr.text == "ReadRSP" ||

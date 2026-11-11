@@ -75,7 +75,7 @@ std::string FirstFile(const std::vector<std::string>& args) {
     return {};
 }
 
-std::string JsonEscape(const std::string& text) {
+std::string JSONEscape(const std::string& text) {
     std::string out;
     out.reserve(text.size() + 8);
     for (unsigned char c : text) {
@@ -99,7 +99,7 @@ std::string JsonEscape(const std::string& text) {
     return out;
 }
 
-std::string UnquoteJsonString(const std::string& json, std::size_t quote) {
+std::string UnquoteJSONString(const std::string& json, std::size_t quote) {
     std::string out;
     for (std::size_t i = quote + 1; i < json.size(); ++i) {
         const char c = json[i];
@@ -131,7 +131,7 @@ std::string UnquoteJsonString(const std::string& json, std::size_t quote) {
     return out;
 }
 
-std::string JsonString(const std::string& json, const std::string& key) {
+std::string JSONString(const std::string& json, const std::string& key) {
     const std::string pattern = "\"" + key + "\"";
     const auto at = json.find(pattern);
     if (at == std::string::npos) return {};
@@ -139,10 +139,10 @@ std::string JsonString(const std::string& json, const std::string& key) {
     if (colon == std::string::npos) return {};
     const auto quote = json.find('"', colon + 1);
     if (quote == std::string::npos) return {};
-    return UnquoteJsonString(json, quote);
+    return UnquoteJSONString(json, quote);
 }
 
-int JsonInt(const std::string& json, const std::string& key, bool* found) {
+int JSONInt(const std::string& json, const std::string& key, bool* found) {
     const std::string pattern = "\"" + key + "\"";
     const auto at = json.find(pattern);
     if (at == std::string::npos) {
@@ -539,9 +539,9 @@ int LspCommand() {
     for (;;) {
         const std::string body = ReadLsp();
         if (body.empty()) return 0;
-        const std::string method = JsonString(body, "method");
+        const std::string method = JSONString(body, "method");
         bool hasId = false;
-        const int id = JsonInt(body, "id", &hasId);
+        const int id = JSONInt(body, "id", &hasId);
         if (method == "initialize") {
             WriteLsp("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) +
                      ",\"result\":{\"capabilities\":{\"hoverProvider\":true,\"textDocumentSync\":1}}}");
@@ -550,20 +550,20 @@ int LspCommand() {
         } else if (method == "exit") {
             return 0;
         } else if (method == "textDocument/didOpen") {
-            document = JsonString(body, "text");
-            server.IndexDocument(JsonString(body, "uri"), document);
+            document = JSONString(body, "text");
+            server.IndexDocument(JSONString(body, "uri"), document);
         } else if (method == "textDocument/hover") {
             bool hasLine = false;
             bool hasChar = false;
-            const int line = JsonInt(body, "line", &hasLine);
-            const int character = JsonInt(body, "character", &hasChar);
+            const int line = JSONInt(body, "line", &hasLine);
+            const int character = JSONInt(body, "character", &hasChar);
             const std::string word = WordAt(document, line, character);
             const auto hover = server.GetHoverDocumentation(word);
             if (!hover) {
                 WriteLsp("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) + ",\"result\":null}");
             } else {
                 WriteLsp("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) +
-                         ",\"result\":{\"contents\":{\"kind\":\"markdown\",\"value\":\"" + JsonEscape(*hover) +
+                         ",\"result\":{\"contents\":{\"kind\":\"markdown\",\"value\":\"" + JSONEscape(*hover) +
                          "\"}}}");
             }
         } else if (hasId) {

@@ -1,7 +1,7 @@
 #include "../../Runtime/Threading/ConcurrencyAndProcess.hpp"
 #include "../../StdLib/Collections/CollectionsAndIterators.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
-#include "../../StdLib/Data/JsonAndDataFormats.hpp"
+#include "../../StdLib/Data/JSONAndDataFormats.hpp"
 #include "../../StdLib/Security/SecurityAndNetwork.hpp"
 
 #include <chrono>
@@ -147,33 +147,33 @@ void TestCollectionsAndIteratorProtocol() {
           "Tensor<T> initializes N-dimensional contiguous storage");
 }
 
-void TestJsonSerializationDatabaseAndIO() {
-    std::cout << "\n--- 3. Robix.Json, Schema Validation, CSV/TOML/Binary/Compression, DB & IO ---\n";
+void TestJSONSerializationDatabaseAndIO() {
+    std::cout << "\n--- 3. Robix.JSON, Schema Validation, CSV/TOML/Binary/Compression, DB & IO ---\n";
     using namespace Robix::StdLib;
 
     const std::string jsonInput = R"({"robot":"Atlas","battery":92,"active":true,"sensors":["LiDAR","IMU"]})";
-    auto parsedOpt = JsonCodec::TryParse(jsonInput);
+    auto parsedOpt = JSONCodec::TryParse(jsonInput);
     Check(parsedOpt.has_value() && parsedOpt->GetField("robot")->strVal == "Atlas" &&
           parsedOpt->GetField("battery")->intVal == 92 &&
           parsedOpt->GetField("sensors")->arrayVal.size() == 2,
-          "JsonCodec::TryParse parses nested objects, arrays, strings, ints, and booleans");
+          "JSONCodec::TryParse parses nested objects, arrays, strings, ints, and booleans");
 
-    JsonSchema schema;
+    JSONSchema schema;
     schema.requiredFields = { "robot", "battery", "active" };
-    schema.fieldTypes["robot"]   = JsonKind::String;
-    schema.fieldTypes["battery"] = JsonKind::Int;
+    schema.fieldTypes["robot"]   = JSONKind::String;
+    schema.fieldTypes["battery"] = JSONKind::Int;
     std::string schemaErr;
     Check(schema.Validate(*parsedOpt, schemaErr),
-          "JsonSchema::Validate verifies required fields and field types");
+          "JSONSchema::Validate verifies required fields and field types");
 
-    const std::string compactJson = JsonCodec::Serialize(*parsedOpt, JsonFormatOption::Compact);
-    const std::string prettyJson  = JsonCodec::Serialize(*parsedOpt, JsonFormatOption::Pretty);
-    Check(!compactJson.empty() && prettyJson.find("\n") != std::string::npos,
-          "JsonCodec::Serialize supports both Compact and Pretty formatting");
+    const std::string compactJSON = JSONCodec::Serialize(*parsedOpt, JSONFormatOption::Compact);
+    const std::string prettyJSON  = JSONCodec::Serialize(*parsedOpt, JSONFormatOption::Pretty);
+    Check(!compactJSON.empty() && prettyJSON.find("\n") != std::string::npos,
+          "JSONCodec::Serialize supports both Compact and Pretty formatting");
 
-    auto jsonlDocs = JsonCodec::ParseJsonLines("{\"id\":1}\n{\"id\":2}\n");
+    auto jsonlDocs = JSONCodec::ParseJSONLines("{\"id\":1}\n{\"id\":2}\n");
     Check(jsonlDocs.size() == 2 && jsonlDocs[1].GetField("id")->intVal == 2,
-          "JsonCodec::ParseJsonLines parses streaming .jsonl documents");
+          "JSONCodec::ParseJSONLines parses streaming .jsonl documents");
 
     // CSV, TOML/YAML, Binary, RLE Compression
     auto csvRows = CsvCodec::Parse("name,speed\nMotorA,120\nMotorB,240");
@@ -356,7 +356,7 @@ void TestSecurityCryptographyAndNetworking() {
         {},
         auditDiag);
     Check(cleanAudit.passed && !auditDiag.HasErrors() &&
-          cleanAudit.generatedSBOMJson.find("RobixSBOM-1.0") != std::string::npos,
+          cleanAudit.generatedSBOMJSON.find("RobixSBOM-1.0") != std::string::npos,
           "SupplyChainAuditor verifies valid package signature and generates SBOM JSON");
 
     Robix::Frontend::DiagnosticBag vulnDiag;
@@ -397,7 +397,7 @@ int main() {
 
     TestConsoleIOPrimitivesMathAndRegex();
     TestCollectionsAndIteratorProtocol();
-    TestJsonSerializationDatabaseAndIO();
+    TestJSONSerializationDatabaseAndIO();
     TestConcurrencyAsyncCancellationAndProcess();
     TestSecurityCryptographyAndNetworking();
 

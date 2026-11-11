@@ -39,7 +39,7 @@ bool RoboCompilerIsContainerStyleKey(const std::string& key) {
 
 bool RoboCompilerIsContainerName(const std::string& name) {
   const std::string n = RoboCompilerLower(name);
-  return n == "container" || n == "box" || n == "flex" || n == "stack" || n == "canvas" ||
+  return n == "container" || n == "view" || n == "box" || n == "flex" || n == "stack" || n == "canvas" ||
          RoboCompilerIsPaneFamily(name);
 }
 
@@ -107,7 +107,7 @@ bool RoboCompilerCheckContainer(const RoboXMLNode& node, const std::string& path
   return ok;
 }
 
-std::string RoboCompilerEmitContainerCpp(const RoboXMLNode& node, const std::string& parentExpr) {
+std::string RoboCompilerEmitContainerCPP(const RoboXMLNode& node, const std::string& parentExpr) {
   const std::string id = RoboXMLAttr(node, "id", "container");
   const std::string display = RoboCompilerLower(RoboXMLAttr(node, "display", "flex"));
   const std::string direction =
@@ -128,7 +128,7 @@ std::string RoboCompilerEmitContainerCpp(const RoboXMLNode& node, const std::str
 
   std::ostringstream ss;
   ss << "  static RoboContainer " << id << "Storage;\n";
-  ss << "  RoboContainerInit(&" << id << "Storage, \"" << RoboCompilerCppEscape(id) << "\");\n";
+  ss << "  RoboContainerInit(&" << id << "Storage, \"" << RoboCompilerCPPEscape(id) << "\");\n";
   if (id == "dock") {
     ss << "  gRoboDesktopDock = &" << id << "Storage;\n";
   }
@@ -169,15 +169,15 @@ std::string RoboCompilerEmitContainerCpp(const RoboXMLNode& node, const std::str
   ss << "  RoboUISetProperty(" << expr << ", \"x\", \"" << x << "\");\n";
   ss << "  RoboUISetProperty(" << expr << ", \"y\", \"" << y << "\");\n";
   if (!bg.empty()) {
-    ss << "  RoboUISetProperty(" << expr << ", \"background\", \"" << RoboCompilerCppEscape(bg) << "\");\n";
+    ss << "  RoboUISetProperty(" << expr << ", \"background\", \"" << RoboCompilerCPPEscape(bg) << "\");\n";
   }
   if (!fill.empty()) {
-    ss << "  RoboUISetProperty(" << expr << ", \"fill\", \"" << RoboCompilerCppEscape(fill) << "\");\n";
+    ss << "  RoboUISetProperty(" << expr << ", \"fill\", \"" << RoboCompilerCPPEscape(fill) << "\");\n";
   }
   ss << RoboCompilerEmitLayoutProps(node, expr);
   ss << "  RoboUIAddChild(" << parentExpr << ", " << expr << ");\n";
   for (const auto& child : node.children) {
-    ss << RoboCompilerEmitChildCpp(child, expr);
+    ss << RoboCompilerEmitChildCPP(child, expr);
   }
   return ss.str();
 }

@@ -346,7 +346,7 @@ SecurityAuditResult SupplyChainAuditor::AuditDependencies(
     }
 
     sbom << "]}";
-    res.generatedSBOMJson = sbom.str();
+    res.generatedSBOMJSON = sbom.str();
     return res;
 }
 

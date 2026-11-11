@@ -18,7 +18,7 @@ public Function Read32(Int addr) -> Int {
 
 public Function HasMemory() -> Int {
     Unsafe {
-        Int info = Cpu.BootInfo();
+        Int info = CPU.BootInfo();
         if (info == 0) {
             return 0;
         }

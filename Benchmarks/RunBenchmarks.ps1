@@ -37,7 +37,7 @@ if ([string]::IsNullOrWhiteSpace($BuildDir)) {
 }
 
 $externalDirs = @{
-    "spec"    = "SpecCpu2026"
+    "spec"    = "SpecCPU2026"
     "dacapo"  = "DaCapoSuite"
     "npb"     = "NasParallelBenchmarks"
     "debian"  = "DebianBenchmarksGame"

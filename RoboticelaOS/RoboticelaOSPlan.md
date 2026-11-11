@@ -39,7 +39,7 @@ QEMU is started with `-kernel` from Stage A, so the framebuffer is the proof. Th
 
 **A stage closes only when all three exist.** The Robix feature's own test passed. Every new `.test.rx` passed on both engines. The screen pixel or the serial line for that stage was captured from QEMU.
 
-Hosted calls (`Print`, `File`, `Thread`, `Network`, `Args`) stay out of the image. Machine calls (`Cpu`, `Port`, `Memory.Pages`, `Memory.Address`, `Memory.At`, `Timer`, `System.Call`, `Volatile`, `ASM`) stay out of Windows programs. Pure functions are the ones the tests call.
+Hosted calls (`Print`, `File`, `Thread`, `Network`, `Args`) stay out of the image. Machine calls (`CPU`, `Port`, `Memory.Pages`, `Memory.Address`, `Memory.At`, `Timer`, `System.Call`, `Volatile`, `ASM`) stay out of Windows programs. Pure functions are the ones the tests call.
 
 Kernel tables are structs. There is no garbage collector. `Unsafe` owns frames the kernel allocates. Until global constants are native-complete (Stage F's feature), numeric contracts are functions that return the literal.
 
@@ -53,7 +53,7 @@ Kernel tables are structs. There is no garbage collector. `Unsafe` owns frames t
 | `Examples/Machine/Bios.s` | 16-bit reset. Robix starts after long mode. |
 | `RefCode/RoboKernelMain.cpp` | Bring-up order, splash ceilings, runtime entry, idle poll. |
 | `RefCode/RoboCPU.cpp` | MADT, 16 cores, trampoline at `0x8000`, mailboxes, INIT-SIPI. |
-| `RefCode/RoboPCI.hpp`, `RoboInput.hpp`, `RoboHID.hpp`, `RoboVirtioMouse.hpp`, `RoboVMMouse.hpp`, `RoboI2CTouchpad.hpp`, `RoboXhci.hpp`, `RoboInputRules.hpp` | Bus scan and the input hosts. |
+| `RefCode/RoboPCI.hpp`, `RoboInput.hpp`, `RoboHID.hpp`, `RoboVirtioMouse.hpp`, `RoboVMMouse.hpp`, `RoboI2CTouchpad.hpp`, `RoboXHCI.hpp`, `RoboInputRules.hpp` | Bus scan and the input hosts. |
 | `RobixUI/RoboShared/RoboHandoff.hpp` | Magic `0x444E4852` (`RHND`), version 4. |
 | `RobixUI/RoboGPU` | Cached back buffer, damage list, front scanout, cursor blend. |
 | `RobixUI/RoboShared` | Cursor pack `RCUR`, icon catalog `RICP`, cooked icons `ROIC`, font pack. |
@@ -88,9 +88,9 @@ RoboticelaOS/
   Kernel/          RoboKernel.rx  RoboKernel.rxb
     Memory/        RoboMemoryManager.rx
     Interrupt/     RoboIDT.rx
-    Cpu/           RoboCPU.rx
-    Pci/           RoboPCI.rx
-    Input/         RoboInput.rx  RoboHID.rx  RoboVirtioMouse.rx  RoboVMMouse.rx  RoboI2CTouchpad.rx  RoboXhci.rx
+    CPU/           RoboCPU.rx
+    PCI/           RoboPCI.rx
+    Input/         RoboInput.rx  RoboHID.rx  RoboVirtioMouse.rx  RoboVMMouse.rx  RoboI2CTouchpad.rx  RoboXHCI.rx
     Drivers/       RoboDriver.rx  RoboDriverManager.rx
       Basic/       one built-in driver per device class
       Intel/       the first vendor catalog and its drivers
@@ -105,8 +105,8 @@ RoboticelaOS/
     Security/      RoboBootChain.rx  RoboDiskSeal.rx
   Runtime/
     RoboRuntime.rx  RoboRuntime.rxb
-    Gpu/           RoboGPU.rx  RoboCursor.rx  RoboText.rx
-    Ui/            RoboUI.rx  RoboHit.rx  RoboShell.rx  RoboWindow.rx
+    GPU/           RoboGPU.rx  RoboCursor.rx  RoboText.rx
+    UI/            RoboUI.rx  RoboHit.rx  RoboShell.rx  RoboWindow.rx
     Scene/         RoboSceneRaster.rx
     Services/      RoboSearch.rx  RoboNotify.rx  RoboClip.rx  RoboSettings.rx
                    RoboUpdate.rx  RoboPackage.rx  RoboLog.rx  RoboLaunch.rx
@@ -134,13 +134,13 @@ Future programmers get a desktop on screen by filling a `Frame`, and the tests r
 
 **Task A1, Robix feature.** Add `Frame.Create(width, height)`, `Frame.Fill`, `Frame.Pixel`, and `AssertPixel(frame, x, y, argb)` to the host test runtime. `robix ui frame` writes a PNG from the same buffer. The compiler test fills an 84×44 rectangle with `0E7AFF` and `AssertPixel` checks the origin and a pixel just outside the rectangle.
 
-**Task A2.** `Runtime/Gpu/RoboGPU.rx` draws into a `Frame` on the host and into the handoff back buffer on the image. Clear the desktop to `#080A10`, fill the bar, blit the cooked logo.
+**Task A2.** `Runtime/GPU/RoboGPU.rx` draws into a `Frame` on the host and into the handoff back buffer on the image. Clear the desktop to `#080A10`, fill the bar, blit the cooked logo.
 
 **Task A3.** `Kernel/RoboKernel.rx` calls that draw and presents. A stub handoff supplies a linear framebuffer so this stage does not wait for the bootloader.
 
 | File | Test |
 | :--- | :--- |
-| `Runtime/Gpu/RoboGPU.rx` | `RoboGPU.test.rx` asserts the bar origin pixel and the desktop color |
+| `Runtime/GPU/RoboGPU.rx` | `RoboGPU.test.rx` asserts the bar origin pixel and the desktop color |
 | `Kernel/RoboKernel.rx` | `RoboKernel.test.rx` asserts the present path reports the frame size |
 
 **Exit.** Both tests pass on the interpreter and the native compiler. QEMU shows the dark desktop, the blue bar, and the logo. Serial contains `ROBO_GPU: present`.
@@ -151,13 +151,13 @@ Future programmers design the desktop in `.rxu` and the image paints the cooked 
 
 **Task B1, Robix feature.** Add `robix ui cook File.rxu -o File.rxul`. The blob is a list of records: kind, x, y, width, height, text. `UI.LoadCooked` reads it. The compiler test cooks a button and checks an 84×44 box whose role is `Button`, matching the box the Windows host already records.
 
-**Task B2.** `Desktop/RoboDesktop.rxu` is the bar, the icon row, and one window titled `RoboticelaOS`. `Runtime/Ui/RoboUI.rx` paints the cooked records with `RoboGPU`.
+**Task B2.** `Desktop/RoboDesktop.rxu` is the bar, the icon row, and one window titled `RoboticelaOS`. `Runtime/UI/RoboUI.rx` paints the cooked records with `RoboGPU`.
 
 **Task B3.** `robix ui validate` and `robix ui window` open the same document on Windows.
 
 | File | Test |
 | :--- | :--- |
-| `Runtime/Ui/RoboUI.rx` | `RoboUI.test.rx` loads a fixture `.rxul` and asserts each box |
+| `Runtime/UI/RoboUI.rx` | `RoboUI.test.rx` loads a fixture `.rxul` and asserts each box |
 
 **Exit.** The image shows the bar, the icons, and the window. Serial contains `ROBO_UI: paint`. The Windows preview shows the same document.
 
@@ -169,12 +169,12 @@ Future programmers replay a script of pointer and key events in a test. A click 
 
 **Task C2.** `Kernel/Input/RoboInput.rx` is that queue: init, push, pop, relative, absolute, key. On the image, Stage J will fill the same queue from hardware. This stage fills it from `Input.Play` and from a small PS/2 reader if the device is already answering.
 
-**Task C3.** `Runtime/Ui/RoboHit.rx` maps a point to a cooked box. A click on the window button increments a counter the test can see.
+**Task C3.** `Runtime/UI/RoboHit.rx` maps a point to a cooked box. A click on the window button increments a counter the test can see.
 
 | File | Test |
 | :--- | :--- |
 | `Kernel/Input/RoboInput.rx` | `RoboInput.test.rx` plays the script and asserts order |
-| `Runtime/Ui/RoboHit.rx` | `RoboHit.test.rx` asserts the button id under the click point |
+| `Runtime/UI/RoboHit.rx` | `RoboHit.test.rx` asserts the button id under the click point |
 
 **Exit.** The cursor moves and the button changes the window. Serial contains `ROBO_UI: click`. Both tests pass on both engines.
 
@@ -198,14 +198,14 @@ Future programmers move, focus, and snap windows by calling pure functions on la
 
 **Task E1, Robix feature.** Add `UI.Place`, `UI.Hit`, `UI.Drag`, and `UI.Snap` that return a new layout and a cursor kind. Kinds match the `RCUR` list: default, pointer, grab, text, resize. The compiler test drags a window by a known delta and asserts the new origin, then snaps it to the left half and asserts the width.
 
-**Task E2.** `Runtime/Ui/RoboWindow.rx` and `Runtime/Ui/RoboShell.rx` apply those results. `Runtime/Gpu/RoboCursor.rx` blends the kind. `Runtime/Gpu/RoboText.rx` draws the clock from a number the test supplies. Menus open from a bar hit.
+**Task E2.** `Runtime/UI/RoboWindow.rx` and `Runtime/UI/RoboShell.rx` apply those results. `Runtime/GPU/RoboCursor.rx` blends the kind. `Runtime/GPU/RoboText.rx` draws the clock from a number the test supplies. Menus open from a bar hit.
 
 | File | Test |
 | :--- | :--- |
-| `Runtime/Ui/RoboWindow.rx` | `RoboWindow.test.rx` covers drag, focus, and snap |
-| `Runtime/Ui/RoboShell.rx` | `RoboShell.test.rx` asserts the menu opens on the bar hit |
-| `Runtime/Gpu/RoboCursor.rx` | `RoboCursor.test.rx` asserts kind 4 on a text box and kind 6 on an edge |
-| `Runtime/Gpu/RoboText.rx` | `RoboText.test.rx` asserts the clock glyphs for a fixed time |
+| `Runtime/UI/RoboWindow.rx` | `RoboWindow.test.rx` covers drag, focus, and snap |
+| `Runtime/UI/RoboShell.rx` | `RoboShell.test.rx` asserts the menu opens on the bar hit |
+| `Runtime/GPU/RoboCursor.rx` | `RoboCursor.test.rx` asserts kind 4 on a text box and kind 6 on an edge |
+| `Runtime/GPU/RoboText.rx` | `RoboText.test.rx` asserts the clock glyphs for a fixed time |
 
 **Exit.** Drag, snap, menus, the clock, and cursor shapes work in QEMU. Serial contains `ROBO_SHELL: bar`.
 
@@ -242,7 +242,7 @@ Future programmers ask the language for a frame and a page-table entry. The shif
 
 **Task G1, Robix feature.** Add `Memory.Frame()` and `Page.Entry(phys, flags)` as intrinsics whose host versions allocate from a test pool and compute `(phys & ~0xFFF) | flags`. The compiler test expects the five values from `Examples/Machine/Bits.rx`: `8195`, `4096`, `240`, `127`, `-2`.
 
-**Task G2.** `Kernel/Memory/RoboMemoryManager.rx` identity-maps the low 4 GiB, keeps boot, runtime, and ACPI ranges reserved, and hands out 4 KiB frames from type 1. `Cpu.WriteCR3` then `Cpu.ReadCR3` must return that root on the image.
+**Task G2.** `Kernel/Memory/RoboMemoryManager.rx` identity-maps the low 4 GiB, keeps boot, runtime, and ACPI ranges reserved, and hands out 4 KiB frames from type 1. `CPU.WriteCR3` then `CPU.ReadCR3` must return that root on the image.
 
 | File | Test |
 | :--- | :--- |
@@ -254,15 +254,15 @@ Future programmers ask the language for a frame and a page-table entry. The shif
 
 Future programmers build a gate with one call and arm a timer with one call. The descriptor bits are a host test. Loading the table stays in the image.
 
-**Task H1, Robix feature.** Add `Cpu.Gate(handler)` returning the low and high descriptor words from `Examples/Machine/Descriptors.rx`, and `Clock.Seconds(cmos)` as a pure decode of a CMOS byte. The compiler test asserts the gate bits for a fixed handler address and a seconds value of 42.
+**Task H1, Robix feature.** Add `CPU.Gate(handler)` returning the low and high descriptor words from `Examples/Machine/Descriptors.rx`, and `Clock.Seconds(cmos)` as a pure decode of a CMOS byte. The compiler test asserts the gate bits for a fixed handler address and a seconds value of 42.
 
-**Task H2.** `Kernel/Interrupt/RoboIDT.rx` loads the GDT and the IDT with `Cpu.Lgdt` and `Cpu.Lidt`. Vectors 0 through 31 print `ROBO_IDT: trap` and the vector, then halt.
+**Task H2.** `Kernel/Interrupt/RoboIDT.rx` loads the GDT and the IDT with `CPU.LGDT` and `CPU.LIDT`. Vectors 0 through 31 print `ROBO_IDT: trap` and the vector, then halt.
 
 **Task H3.** `Kernel/Devices/RoboTimer.rx` uses `Timer.Arm`. The clock on the bar reads the CMOS seconds through the decode function. `Kernel/Devices/RoboScreen.rx` still read-backs a cell when the framebuffer is absent.
 
 | File | Test |
 | :--- | :--- |
-| `Kernel/Interrupt/RoboIDT.rx` | `RoboIDT.test.rx` asserts `Cpu.Gate` for vectors 3 and 14 |
+| `Kernel/Interrupt/RoboIDT.rx` | `RoboIDT.test.rx` asserts `CPU.Gate` for vectors 3 and 14 |
 | `Kernel/Devices/RoboTimer.rx` | `RoboTimer.test.rx` asserts the tick handler id the pure side records |
 | `Kernel/Devices/RoboScreen.rx` | `RoboScreen.test.rx` asserts the cell byte `V` (86) in a fake buffer |
 
@@ -274,11 +274,11 @@ Future programmers write a 32-bit mailbox with a 32-bit volatile load. The test 
 
 **Task I1, Robix feature.** Add `Volatile.Load32` and `Volatile.Store32` beside the existing 64-bit pair. The compiler test stores 1 through a pointer and reads it back. `Atomic.FetchAdd` remains the counter for cores still in a job.
 
-**Task I2.** `Kernel/Cpu/RoboCPU.rx` walks RSDP and MADT, writes the trampoline at `0x8000`, and sends INIT-SIPI. Page tables above 4 GiB keep the boot processor alone and log that line. `RoboCPUParallel` splits `RoboGPU` rows when more than one core is online.
+**Task I2.** `Kernel/CPU/RoboCPU.rx` walks RSDP and MADT, writes the trampoline at `0x8000`, and sends INIT-SIPI. Page tables above 4 GiB keep the boot processor alone and log that line. `RoboCPUParallel` splits `RoboGPU` rows when more than one core is online.
 
 | File | Test |
 | :--- | :--- |
-| `Kernel/Cpu/RoboCPU.rx` | `RoboCPU.test.rx` asserts the checksum of `RSD PTR `, the mailbox addresses, and a skipped core leaving `online` at 1 |
+| `Kernel/CPU/RoboCPU.rx` | `RoboCPU.test.rx` asserts the checksum of `RSD PTR `, the mailbox addresses, and a skipped core leaving `online` at 1 |
 
 **Exit.** On `-smp 4`, serial contains `ROBO_CPU: cores online`. On `-smp 1`, the desktop still appears. Splash ceiling 98200.
 
@@ -288,18 +288,18 @@ Future programmers decode PCI and HID on Windows with fixture bytes. The image u
 
 **Task J1, Robix feature.** Add `Port.Read32` and `Port.Write32`. The interpreter stops with the freestanding diagnostic, and that stop is the compiler test, listed as native-only for the port itself. Add `PCI.Decode(words)` and `HID.Parse(bytes)` as pure functions. Their compiler tests use a fixed config word and a 3-byte boot mouse report.
 
-**Task J2.** Port the RefCode hosts into `RoboPCI.rx`, `RoboHID.rx`, `RoboVirtioMouse.rx`, `RoboVMMouse.rx`, `RoboI2CTouchpad.rx`, and `RoboXhci.rx`. Absent hardware is skipped. `RoboDriverManager.rx` records each device and calls `RoboInputPoll` once. Stage JA chooses the driver that runs it.
+**Task J2.** Port the RefCode hosts into `RoboPCI.rx`, `RoboHID.rx`, `RoboVirtioMouse.rx`, `RoboVMMouse.rx`, `RoboI2CTouchpad.rx`, and `RoboXHCI.rx`. Absent hardware is skipped. `RoboDriverManager.rx` records each device and calls `RoboInputPoll` once. Stage JA chooses the driver that runs it.
 
 **Task J3.** The Stage C queue is the one these drivers push into. `Input.Play` remains the test path.
 
 | File | Test |
 | :--- | :--- |
-| `Kernel/Pci/RoboPCI.rx` | `RoboPCI.test.rx` decodes vendor, device, and class |
+| `Kernel/PCI/RoboPCI.rx` | `RoboPCI.test.rx` decodes vendor, device, and class |
 | `Kernel/Input/RoboHID.rx` | `RoboHID.test.rx` parses mouse, wheel, and a touch contact |
 | `Kernel/Input/RoboVirtioMouse.rx` | `RoboVirtioMouse.test.rx` applies one absolute event |
 | `Kernel/Input/RoboVMMouse.rx` | `RoboVMMouse.test.rx` applies one absolute event |
 | `Kernel/Input/RoboI2CTouchpad.rx` | `RoboI2CTouchpad.test.rx` asserts ELAN skips the second wake |
-| `Kernel/Input/RoboXhci.rx` | `RoboXhci.test.rx` classifies HID `0x03` and hub `0x09` |
+| `Kernel/Input/RoboXHCI.rx` | `RoboXHCI.test.rx` classifies HID `0x03` and hub `0x09` |
 | `Kernel/Drivers/RoboDriverManager.rx` | `RoboDriverManager.test.rx` asserts a missing device does not clear the queue |
 
 **Exit.** Serial contains `ROBO_PCI: devices` and `ROBO_INPUT: ready`. The cursor still moves, now from the real device. Splash ceilings 98800 and 99000.
@@ -698,11 +698,11 @@ Future programmers shape text and move focus in tests. A printer job is a list o
 
 **Task Y1, Robix feature.** Add `Font.Measure(text, size)`, `Focus.Next(order, current)`, and `Print.Paginate(frame, pageHeight)`. The compiler test measures a known string, tabs from the first field to the second, and splits a tall frame into two pages.
 
-**Task Y2.** `Runtime/Gpu/RoboText.rx` uses `Font.Measure` and the cooked font pack. Keyboard layouts and a right-to-left flag are settings. Accessibility adds full keyboard reach, a larger scale through `Display.Scale`, and a high-contrast theme that swaps the cooked colors. `Kernel/Devices/RoboPrint.rx` sends `Print.Paginate` output through `RoboBasicPrint`, or to a PDF file on the volume.
+**Task Y2.** `Runtime/GPU/RoboText.rx` uses `Font.Measure` and the cooked font pack. Keyboard layouts and a right-to-left flag are settings. Accessibility adds full keyboard reach, a larger scale through `Display.Scale`, and a high-contrast theme that swaps the cooked colors. `Kernel/Devices/RoboPrint.rx` sends `Print.Paginate` output through `RoboBasicPrint`, or to a PDF file on the volume.
 
 | File | Test |
 | :--- | :--- |
-| `Runtime/Gpu/RoboText.rx` | the Stage E test gains measure and focus cases |
+| `Runtime/GPU/RoboText.rx` | the Stage E test gains measure and focus cases |
 | `Kernel/Devices/RoboPrint.rx` | `RoboPrint.test.rx` asserts page count and a high-contrast color swap |
 
 **Exit.** Tab reaches every control on the login window. A printed note produces two pages. Serial contains `ROBO_PRINT: pages`.
@@ -806,11 +806,11 @@ Future programmers keep one present call. A board either implements it with the 
 
 **Task AF1, Robix feature.** Add `GPU.Present(frame, rect)` as the single scanout call, with a soft implementation and a hook. The compiler test presents a `Frame` and `AssertPixel` reads it back. `ASM` for a non-pc target keeps the existing check: a mnemonic that board does not have fails the build.
 
-**Task AF2.** The same `RoboKernelStart` links for `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, and `riscv64-unknown-none`, using the board pattern in `Examples/Machine`. Each writes `ROBO_KERNEL: start` on its UART. `Cpu.Halt` is `hlt` on x86-64 and `wfi` on the other three. PCI, PS/2, xHCI, and the desktop require the `pc` framebuffer. A desk machine is recorded only when that machine's serial capture exists.
+**Task AF2.** The same `RoboKernelStart` links for `x86_64-unknown-none`, `aarch64-unknown-none`, `arm-unknown-none`, and `riscv64-unknown-none`, using the board pattern in `Examples/Machine`. Each writes `ROBO_KERNEL: start` on its UART. `CPU.Halt` is `hlt` on x86-64 and `wfi` on the other three. PCI, PS/2, xHCI, and the desktop require the `pc` framebuffer. A desk machine is recorded only when that machine's serial capture exists.
 
 | File | Test |
 | :--- | :--- |
-| `Runtime/Gpu/RoboGPU.rx` | the Stage A test gains a `GPU.Present` round trip |
+| `Runtime/GPU/RoboGPU.rx` | the Stage A test gains a `GPU.Present` round trip |
 
 **Exit.** Four QEMU serial files contain `ROBO_KERNEL: start`. The `pc` image still shows the desktop.
 

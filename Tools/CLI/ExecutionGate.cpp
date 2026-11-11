@@ -47,7 +47,7 @@ std::string Trim(std::string text) {
 }
 
 const char* const kDirect[] = {
-    "Cpu.", "Port.", "Console.Write", "Timer.Arm", "Timer.Preempt", "System.Call",
+    "CPU.", "Port.", "Console.Write", "Timer.Arm", "Timer.Preempt", "System.Call",
     "Memory.Pages", "Memory.Address", "Memory.At"
 };
 

@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.DeepSJeng;
+package Benchmarks.SpecCPU.DeepSJeng;
 
 public Function RunAlphaBeta(Int depth, Int alphaVal, Int betaVal, Int posVal) -> Int {
     if (depth <= 1) {

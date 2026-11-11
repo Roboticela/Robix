@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../Compiler/Semantic/Diagnostics.hpp"
-#include "../Manager/RxApiAndPackageFormat.hpp"
+#include "../Manager/RxAPIAndPackageFormat.hpp"
 
 #include <cstdint>
 #include <map>
@@ -53,7 +53,7 @@ struct RxProjectManifest {
 struct LockedPackageEntry {
     std::string              name;
     std::string              resolvedVersion;
-    std::string              rxApiSha256Hex;
+    std::string              rxAPISha256Hex;
     std::string              signatureHex;
     std::vector<std::string> directDependencies;
 };

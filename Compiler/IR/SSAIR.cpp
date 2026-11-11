@@ -2184,7 +2184,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
         case Frontend::ExprKind::Call: {
             if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
                 expr.left->left->kind == Frontend::ExprKind::Identifier &&
-                ((expr.left->left->text == "Cpu" &&
+                ((expr.left->left->text == "CPU" &&
                   (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Run")) ||
                  (expr.left->left->text == "Timer" && (expr.left->text == "Arm" || expr.left->text == "Preempt")))) {
                 const std::string member = expr.left->left->text + "." + expr.left->text;
@@ -2254,18 +2254,18 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                 osCall.textImm  = member;
                 osCall.secondaryText = target;
                 osCall.location = expr.location;
-                if (member == "Cpu.Run") {
+                if (member == "CPU.Run") {
                     if (expr.arguments.size() < 2 || !expr.arguments[1]) {
                         m_diagnostics.ReportError(
                             "I4011",
-                            "Cpu.Run takes a function name and a stack address.",
+                            "CPU.Run takes a function name and a stack address.",
                             expr.location,
-                            "Write Cpu.Run(FunctionName, Memory.Address(stackTop)).");
+                            "Write CPU.Run(FunctionName, Memory.Address(stackTop)).");
                         return IRValue{};
                     }
                     osCall.operandIds = { LowerExpr(*expr.arguments[1]).ssaId };
                 }
-                if (member == "Cpu.Run" || member == "Timer.Arm") {
+                if (member == "CPU.Run" || member == "Timer.Arm") {
                     osCall.dest = IRValue{ 0, MakePrim("Void") };
                     Emit(std::move(osCall));
                     return IRValue{ 0, MakePrim("Void") };
@@ -2465,7 +2465,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Memory" || receiverExpr.text == "Math" ||
                      receiverExpr.text == "UI" || receiverExpr.text == "Scene" ||
                      receiverExpr.text == "Volatile" || receiverExpr.text == "Port" ||
-                     receiverExpr.text == "Cpu" || receiverExpr.text == "System" ||
+                     receiverExpr.text == "CPU" || receiverExpr.text == "System" ||
                      receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
                      receiverExpr.text == "Atomic" || receiverExpr.text == "Frame")) {
                     Frontend::TypeNode ty = exprType;
@@ -2473,12 +2473,12 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty = MakePrim("Void");
                     } else if (receiverExpr.text == "Port" && (memberName == "Read8" || memberName == "Read16")) {
                         ty = MakePrim("Int");
-                    } else if (receiverExpr.text == "Cpu" &&
+                    } else if (receiverExpr.text == "CPU" &&
                                (memberName == "ReadCR3" || memberName == "ReadRSP" || memberName == "ExchangeRSP" ||
                                 memberName == "SavedRSP" || memberName == "BootInfo" || memberName == "Function" ||
                                 memberName == "Handler")) {
                         ty = MakePrim("Int");
-                    } else if (receiverExpr.text == "Port" || receiverExpr.text == "Cpu") {
+                    } else if (receiverExpr.text == "Port" || receiverExpr.text == "CPU") {
                         ty = MakePrim("Void");
                     } else if (receiverExpr.text == "Memory" && memberName == "Pages") {
                         ty = MakePrim("Pointer");

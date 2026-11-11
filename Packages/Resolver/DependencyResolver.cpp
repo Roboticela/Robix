@@ -1,7 +1,7 @@
 #include "DependencyResolver.hpp"
 
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
-#include "../../StdLib/Data/JsonAndDataFormats.hpp"
+#include "../../StdLib/Data/JSONAndDataFormats.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -67,24 +67,24 @@ bool SemVer::SatisfiesConstraint(std::string_view constraint) const noexcept {
 
 std::string RxProjectManifest::SerializeToRxProj() const {
     using namespace StdLib;
-    JsonValue root = JsonValue::MakeObject();
-    root.objectVal["projectName"]     = JsonValue::MakeString(projectName);
-    root.objectVal["version"]         = JsonValue::MakeString(version);
-    root.objectVal["projectTemplate"] = JsonValue::MakeString(projectTemplate);
+    JSONValue root = JSONValue::MakeObject();
+    root.objectVal["projectName"]     = JSONValue::MakeString(projectName);
+    root.objectVal["version"]         = JSONValue::MakeString(version);
+    root.objectVal["projectTemplate"] = JSONValue::MakeString(projectTemplate);
 
-    JsonValue deps = JsonValue::MakeObject();
+    JSONValue deps = JSONValue::MakeObject();
     for (const auto& [pkg, ver] : dependencies) {
-        deps.objectVal[pkg] = JsonValue::MakeString(ver);
+        deps.objectVal[pkg] = JSONValue::MakeString(ver);
     }
     root.objectVal["dependencies"] = std::move(deps);
 
-    return JsonCodec::Serialize(root, JsonFormatOption::Pretty);
+    return JSONCodec::Serialize(root, JSONFormatOption::Pretty);
 }
 
 std::optional<RxProjectManifest> RxProjectManifest::ParseFromRxProj(std::string_view content) {
     using namespace StdLib;
-    auto rootOpt = JsonCodec::TryParse(content);
-    if (!rootOpt || rootOpt->kind != JsonKind::Object) return std::nullopt;
+    auto rootOpt = JSONCodec::TryParse(content);
+    if (!rootOpt || rootOpt->kind != JSONKind::Object) return std::nullopt;
 
     RxProjectManifest proj;
     if (const auto* v = rootOpt->GetField("projectName"))     proj.projectName     = v->strVal;
@@ -100,33 +100,33 @@ std::optional<RxProjectManifest> RxProjectManifest::ParseFromRxProj(std::string_
 
 std::string RxLockfile::SerializeToRxLock() const {
     using namespace StdLib;
-    JsonValue root = JsonValue::MakeObject();
-    root.objectVal["lockfileFormat"] = JsonValue::MakeString(lockfileFormat);
+    JSONValue root = JSONValue::MakeObject();
+    root.objectVal["lockfileFormat"] = JSONValue::MakeString(lockfileFormat);
 
-    JsonValue pkgs = JsonValue::MakeArray();
+    JSONValue pkgs = JSONValue::MakeArray();
     for (const auto& entry : resolvedPackages) {
-        JsonValue pObj = JsonValue::MakeObject();
-        pObj.objectVal["name"]            = JsonValue::MakeString(entry.name);
-        pObj.objectVal["resolvedVersion"] = JsonValue::MakeString(entry.resolvedVersion);
-        pObj.objectVal["rxApiSha256Hex"] = JsonValue::MakeString(entry.rxApiSha256Hex);
-        pObj.objectVal["signatureHex"]    = JsonValue::MakeString(entry.signatureHex);
+        JSONValue pObj = JSONValue::MakeObject();
+        pObj.objectVal["name"]            = JSONValue::MakeString(entry.name);
+        pObj.objectVal["resolvedVersion"] = JSONValue::MakeString(entry.resolvedVersion);
+        pObj.objectVal["rxAPISha256Hex"] = JSONValue::MakeString(entry.rxAPISha256Hex);
+        pObj.objectVal["signatureHex"]    = JSONValue::MakeString(entry.signatureHex);
 
-        JsonValue dArr = JsonValue::MakeArray();
+        JSONValue dArr = JSONValue::MakeArray();
         for (const auto& d : entry.directDependencies) {
-            dArr.arrayVal.push_back(JsonValue::MakeString(d));
+            dArr.arrayVal.push_back(JSONValue::MakeString(d));
         }
         pObj.objectVal["directDependencies"] = std::move(dArr);
         pkgs.arrayVal.push_back(std::move(pObj));
     }
     root.objectVal["resolvedPackages"] = std::move(pkgs);
 
-    return JsonCodec::Serialize(root, JsonFormatOption::Pretty);
+    return JSONCodec::Serialize(root, JSONFormatOption::Pretty);
 }
 
 std::optional<RxLockfile> RxLockfile::ParseFromRxLock(std::string_view content) {
     using namespace StdLib;
-    auto rootOpt = JsonCodec::TryParse(content);
-    if (!rootOpt || rootOpt->kind != JsonKind::Object) return std::nullopt;
+    auto rootOpt = JSONCodec::TryParse(content);
+    if (!rootOpt || rootOpt->kind != JSONKind::Object) return std::nullopt;
 
     RxLockfile lock;
     if (const auto* f = rootOpt->GetField("lockfileFormat")) lock.lockfileFormat = f->strVal;
@@ -135,7 +135,7 @@ std::optional<RxLockfile> RxLockfile::ParseFromRxLock(std::string_view content) 
             LockedPackageEntry entry;
             if (const auto* n = pObj.GetField("name"))            entry.name            = n->strVal;
             if (const auto* v = pObj.GetField("resolvedVersion")) entry.resolvedVersion = v->strVal;
-            if (const auto* h = pObj.GetField("rxApiSha256Hex")) entry.rxApiSha256Hex = h->strVal;
+            if (const auto* h = pObj.GetField("rxAPISha256Hex")) entry.rxAPISha256Hex = h->strVal;
             if (const auto* s = pObj.GetField("signatureHex"))    entry.signatureHex    = s->strVal;
             if (const auto* d = pObj.GetField("directDependencies")) {
                 for (const auto& el : d->arrayVal) {
@@ -241,7 +241,7 @@ std::optional<RxLockfile> DependencyResolver::ResolveProjectDependencies(
             topologicalOrder.push_back(LockedPackageEntry{
                 chosen->manifest.name,
                 chosen->manifest.version,
-                chosen->rxApiSha256Hex,
+                chosen->rxAPISha256Hex,
                 chosen->publisherSignatureHex,
                 std::move(directDeps)
             });

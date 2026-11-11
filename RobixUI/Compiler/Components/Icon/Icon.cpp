@@ -41,7 +41,7 @@ bool RoboCompilerCheckIcon(const RoboXMLNode& node, const std::string& path, Rob
   return ok;
 }
 
-std::string RoboCompilerEmitIconCpp(const RoboXMLNode& node, const std::string& parentExpr) {
+std::string RoboCompilerEmitIconCPP(const RoboXMLNode& node, const std::string& parentExpr) {
   const bool inlineSvg = RoboCompilerLower(node.name) == "svg";
   const std::string iconName = inlineSvg ? RoboCompilerSvgIconName(node) : RoboCompilerIconNameFromNode(node);
   RoboCompilerNoteUsedIcon(iconName);
@@ -60,8 +60,8 @@ std::string RoboCompilerEmitIconCpp(const RoboXMLNode& node, const std::string& 
 
   std::ostringstream ss;
   ss << "  static RoboIcon " << id << "Storage;\n";
-  ss << "  RoboIconInit(&" << id << "Storage, \"" << RoboCompilerCppEscape(id) << "\", \""
-     << RoboCompilerCppEscape(iconName) << "\");\n";
+  ss << "  RoboIconInit(&" << id << "Storage, \"" << RoboCompilerCPPEscape(id) << "\", \""
+     << RoboCompilerCPPEscape(iconName) << "\");\n";
   const std::string expr = "RoboIconAsComponent(&" + id + "Storage)";
   ss << "  RoboUISetProperty(" << expr << ", \"size\", \"" << size << "\");\n";
   ss << "  RoboUISetProperty(" << expr << ", \"x\", \"" << x << "\");\n";
@@ -83,8 +83,8 @@ std::string RoboCompilerEmitIconCpp(const RoboXMLNode& node, const std::string& 
     if (kv.second[0] == '#' || key == "fill" || key == "stroke" || key == "accent" || key == "color" ||
         key == "width" || key == "height" || key == "position" || key == "left" || key == "top" || key == "right" ||
         key == "bottom" || key == "margin" || key == "flex" || key == "alignself") {
-      ss << "  RoboUISetProperty(" << expr << ", \"" << RoboCompilerCppEscape(kv.first) << "\", \""
-         << RoboCompilerCppEscape(kv.second) << "\");\n";
+      ss << "  RoboUISetProperty(" << expr << ", \"" << RoboCompilerCPPEscape(kv.first) << "\", \""
+         << RoboCompilerCPPEscape(kv.second) << "\");\n";
     }
   }
   ss << "  RoboIconResolve(&" << id << "Storage, ctx);\n";

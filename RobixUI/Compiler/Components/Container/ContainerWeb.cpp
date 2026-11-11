@@ -134,6 +134,8 @@ void RoboWebContainerAxis(std::string& style, const RoboFoundationLibrary& libra
 
 void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-overlay{position:fixed;inset:0;z-index:50}\n";
+  css << ".robo-container[data-display=stack]{display:grid}\n";
+  css << ".robo-container[data-display=stack]>*{grid-area:1/1}\n";
   css << ".robo-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 12px;"
          "border:0;border-radius:6px;font:500 13px/1 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;"
          "background:var(--brand-primary);color:var(--text-on-brand,white)}\n";
@@ -287,7 +289,7 @@ void RoboWebAppendContainerCss(std::ostream& css) {
 const char* RoboWebContainerClass() { return "robo-container"; }
 
 bool RoboWebIsContainerBox(const std::string& name) {
-  return name == "container" || name == "box" || name == "flex" || name == "stack" || name == "canvas";
+  return name == "container" || name == "view" || name == "box" || name == "flex" || name == "stack" || name == "canvas";
 }
 
 void RoboWebContainerAttrs(std::string& html, const RoboXMLNode& node) {
@@ -336,6 +338,7 @@ void RoboWebContainerAttrs(std::string& html, const RoboXMLNode& node) {
     }
   }
   data("texture", texture);
+  data("display", RoboWebLower(RoboXMLAttr(node, "display")));
   data("accent", RoboWebLower(RoboWebContainerAttr(node, "accent", "decor")));
   data("fade", RoboWebLower(RoboXMLAttr(node, "fade")) == "true" ? "true" : "");
   data("chrome", RoboWebLower(RoboXMLAttr(node, "chrome")));

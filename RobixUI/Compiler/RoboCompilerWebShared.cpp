@@ -1,6 +1,5 @@
 #include "RoboCompilerWebShared.hpp"
 
-#include "Components/Button/ButtonWeb.hpp"
 #include "Components/Container/ContainerWeb.hpp"
 #include "Components/Text/TextWeb.hpp"
 #include "Motion.hpp"
@@ -279,7 +278,7 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     } else if (displayRaw == "vertical") {
         RoboWebAddDecl(style, "display", "flex");
         RoboWebAddDecl(style, "flex-direction", "column");
-    } else if (displayRaw == "overlay" || displayRaw == "layered") {
+    } else if (displayRaw == "overlay" || displayRaw == "layered" || displayRaw == "stack") {
         RoboWebAddDecl(style, "display", "grid");
     } else if (!displayRaw.empty()) {
         RoboWebAddDecl(style, "display", displayRaw);
@@ -384,6 +383,20 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
     RoboWebAddDecl(style, "right", length(attr("right")));
     RoboWebAddDecl(style, "bottom", length(attr("bottom")));
     RoboWebAddDecl(style, "left", length(attr("left")));
+    const std::string sizeMode = RoboWebLower(attr("size"));
+    if (sizeMode == "content" || sizeMode == "auto" || sizeMode == "dynamic") {
+        RoboWebAddDecl(style, "width", "max-content");
+        RoboWebAddDecl(style, "height", "max-content");
+    }
+    const std::string fill = RoboWebLower(first("fill", "fillParent"));
+    if (fill == "true" || fill == "1" || fill == "yes") {
+        if (attr("width").empty()) {
+            RoboWebAddDecl(style, "width", "100%");
+        }
+        if (attr("height").empty()) {
+            RoboWebAddDecl(style, "height", "100%");
+        }
+    }
     RoboWebAddDecl(style, "width", length(attr("width")));
     RoboWebAddDecl(style, "height", length(attr("height")));
     RoboWebAddDecl(style, "min-width", length(first("minWidth", "minW")));
@@ -493,7 +506,6 @@ std::string RoboWebStyle(const RoboXMLNode& node, const RoboFoundationLibrary& l
         style = std::string("box-sizing:border-box;") + style;
     }
     RoboWebAppendContainerStyle(style, node, library);
-    RoboWebAppendControlStyle(style, node, library);
     RoboWebAppendTextStyle(style, node, library);
     RoboWebAppendMotion(style, node);
     return style;

@@ -1,4 +1,4 @@
-#include "JsonAndDataFormats.hpp"
+#include "JSONAndDataFormats.hpp"
 #include "../Core/CoreTypesAndRegex.hpp"
 
 #include <cctype>
@@ -12,11 +12,11 @@ namespace Robix::StdLib {
 
 namespace {
 
-class JsonReader {
+class JSONReader {
 public:
-    explicit JsonReader(std::string_view src) noexcept : m_src(src) {}
+    explicit JSONReader(std::string_view src) noexcept : m_src(src) {}
 
-    bool ParseRoot(JsonValue& out, std::string& err) {
+    bool ParseRoot(JSONValue& out, std::string& err) {
         SkipWS();
         if (!ParseElement(out, err)) return false;
         SkipWS();
@@ -37,7 +37,7 @@ private:
         }
     }
 
-    bool ParseElement(JsonValue& out, std::string& err) {
+    bool ParseElement(JSONValue& out, std::string& err) {
         SkipWS();
         if (m_pos >= m_src.size()) {
             err = "Unexpected end of JSON input.";
@@ -49,22 +49,22 @@ private:
         if (c == '"') {
             std::string s;
             if (!ParseString(s, err)) return false;
-            out = JsonValue::MakeString(std::move(s));
+            out = JSONValue::MakeString(std::move(s));
             return true;
         }
         if (c == 't' && m_src.substr(m_pos, 4) == "true") {
             m_pos += 4;
-            out = JsonValue::MakeBool(true);
+            out = JSONValue::MakeBool(true);
             return true;
         }
         if (c == 'f' && m_src.substr(m_pos, 5) == "false") {
             m_pos += 5;
-            out = JsonValue::MakeBool(false);
+            out = JSONValue::MakeBool(false);
             return true;
         }
         if (c == 'n' && m_src.substr(m_pos, 4) == "null") {
             m_pos += 4;
-            out = JsonValue::MakeNull();
+            out = JSONValue::MakeNull();
             return true;
         }
         if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) {
@@ -106,7 +106,7 @@ private:
         return false;
     }
 
-    bool ParseNumber(JsonValue& out, std::string& err) {
+    bool ParseNumber(JSONValue& out, std::string& err) {
         const std::size_t start = m_pos;
         bool isFloat = false;
         if (m_src[m_pos] == '-') ++m_pos;
@@ -123,12 +123,12 @@ private:
         const std::string numStr(m_src.substr(start, m_pos - start));
         if (isFloat) {
             if (auto f = StringOps::ToFloat(numStr)) {
-                out = JsonValue::MakeFloat(*f);
+                out = JSONValue::MakeFloat(*f);
                 return true;
             }
         } else {
             if (auto i = StringOps::ToInt(numStr)) {
-                out = JsonValue::MakeInt(*i);
+                out = JSONValue::MakeInt(*i);
                 return true;
             }
         }
@@ -136,16 +136,16 @@ private:
         return false;
     }
 
-    bool ParseArray(JsonValue& out, std::string& err) {
+    bool ParseArray(JSONValue& out, std::string& err) {
         ++m_pos; // '['
-        out = JsonValue::MakeArray();
+        out = JSONValue::MakeArray();
         SkipWS();
         if (m_pos < m_src.size() && m_src[m_pos] == ']') {
             ++m_pos;
             return true;
         }
         while (true) {
-            JsonValue elem;
+            JSONValue elem;
             if (!ParseElement(elem, err)) return false;
             out.arrayVal.push_back(std::move(elem));
             SkipWS();
@@ -162,9 +162,9 @@ private:
         }
     }
 
-    bool ParseObject(JsonValue& out, std::string& err) {
+    bool ParseObject(JSONValue& out, std::string& err) {
         ++m_pos; // '{'
-        out = JsonValue::MakeObject();
+        out = JSONValue::MakeObject();
         SkipWS();
         if (m_pos < m_src.size() && m_src[m_pos] == '}') {
             ++m_pos;
@@ -180,7 +180,7 @@ private:
                 return false;
             }
             ++m_pos;
-            JsonValue val;
+            JSONValue val;
             if (!ParseElement(val, err)) return false;
             out.objectVal[std::move(key)] = std::move(val);
             SkipWS();
@@ -204,9 +204,9 @@ private:
 // 1. JSON CODEC & SCHEMA IMPLEMENTATION
 // ============================================================================
 
-std::optional<JsonValue> JsonCodec::TryParse(std::string_view jsonText, std::string* outError) {
-    JsonReader reader(jsonText);
-    JsonValue val;
+std::optional<JSONValue> JSONCodec::TryParse(std::string_view jsonText, std::string* outError) {
+    JSONReader reader(jsonText);
+    JSONValue val;
     std::string err;
     if (!reader.ParseRoot(val, err)) {
         if (outError) *outError = err;
@@ -215,30 +215,30 @@ std::optional<JsonValue> JsonCodec::TryParse(std::string_view jsonText, std::str
     return val;
 }
 
-JsonValue JsonCodec::Parse(std::string_view jsonText) {
+JSONValue JSONCodec::Parse(std::string_view jsonText) {
     std::string err;
     if (auto res = TryParse(jsonText, &err)) {
         return *res;
     }
-    throw std::runtime_error("Robix.Json ParseError: " + err);
+    throw std::runtime_error("Robix.JSON ParseError: " + err);
 }
 
-std::string JsonCodec::Serialize(const JsonValue& val, JsonFormatOption fmt, int indentLevel) {
-    const std::string indent(fmt == JsonFormatOption::Pretty ? static_cast<std::size_t>(indentLevel * 2) : 0, ' ');
-    const std::string childIndent(fmt == JsonFormatOption::Pretty ? static_cast<std::size_t>((indentLevel + 1) * 2) : 0, ' ');
-    const std::string nl = (fmt == JsonFormatOption::Pretty) ? "\n" : "";
-    const std::string sp = (fmt == JsonFormatOption::Pretty) ? " " : "";
+std::string JSONCodec::Serialize(const JSONValue& val, JSONFormatOption fmt, int indentLevel) {
+    const std::string indent(fmt == JSONFormatOption::Pretty ? static_cast<std::size_t>(indentLevel * 2) : 0, ' ');
+    const std::string childIndent(fmt == JSONFormatOption::Pretty ? static_cast<std::size_t>((indentLevel + 1) * 2) : 0, ' ');
+    const std::string nl = (fmt == JSONFormatOption::Pretty) ? "\n" : "";
+    const std::string sp = (fmt == JSONFormatOption::Pretty) ? " " : "";
 
     switch (val.kind) {
-        case JsonKind::Null:
+        case JSONKind::Null:
             return "null";
-        case JsonKind::Bool:
+        case JSONKind::Bool:
             return val.boolVal ? "true" : "false";
-        case JsonKind::Int:
+        case JSONKind::Int:
             return std::to_string(val.intVal);
-        case JsonKind::Float:
+        case JSONKind::Float:
             return NumericOps::ToString(val.floatVal);
-        case JsonKind::String: {
+        case JSONKind::String: {
             std::string escaped = "\"";
             escaped.reserve(val.strVal.size() + 2);
             for (char ch : val.strVal) {
@@ -254,30 +254,30 @@ std::string JsonCodec::Serialize(const JsonValue& val, JsonFormatOption fmt, int
             escaped += "\"";
             return escaped;
         }
-        case JsonKind::Array: {
+        case JSONKind::Array: {
             if (val.arrayVal.empty()) return "[]";
             std::string out = "[" + nl;
             for (std::size_t i = 0; i < val.arrayVal.size(); ++i) {
-                if (fmt == JsonFormatOption::Pretty) out += childIndent;
+                if (fmt == JSONFormatOption::Pretty) out += childIndent;
                 out += Serialize(val.arrayVal[i], fmt, indentLevel + 1);
                 if (i + 1 < val.arrayVal.size()) out += ",";
                 out += nl;
             }
-            if (fmt == JsonFormatOption::Pretty) out += indent;
+            if (fmt == JSONFormatOption::Pretty) out += indent;
             out += "]";
             return out;
         }
-        case JsonKind::Object: {
+        case JSONKind::Object: {
             if (val.objectVal.empty()) return "{}";
             std::string out = "{" + nl;
             std::size_t idx = 0;
             for (const auto& [k, v] : val.objectVal) {
-                if (fmt == JsonFormatOption::Pretty) out += childIndent;
+                if (fmt == JSONFormatOption::Pretty) out += childIndent;
                 out += "\"" + k + "\":" + sp + Serialize(v, fmt, indentLevel + 1);
                 if (++idx < val.objectVal.size()) out += ",";
                 out += nl;
             }
-            if (fmt == JsonFormatOption::Pretty) out += indent;
+            if (fmt == JSONFormatOption::Pretty) out += indent;
             out += "}";
             return out;
         }
@@ -285,8 +285,8 @@ std::string JsonCodec::Serialize(const JsonValue& val, JsonFormatOption fmt, int
     return "null";
 }
 
-std::vector<JsonValue> JsonCodec::ParseJsonLines(std::string_view jsonlText) {
-    std::vector<JsonValue> docs;
+std::vector<JSONValue> JSONCodec::ParseJSONLines(std::string_view jsonlText) {
+    std::vector<JSONValue> docs;
     for (const auto& line : StringOps::Split(jsonlText, "\n")) {
         const std::string trimmed = StringOps::Trim(line);
         if (!trimmed.empty()) {
@@ -296,8 +296,8 @@ std::vector<JsonValue> JsonCodec::ParseJsonLines(std::string_view jsonlText) {
     return docs;
 }
 
-bool JsonSchema::Validate(const JsonValue& doc, std::string& outError) const {
-    if (doc.kind != JsonKind::Object) {
+bool JSONSchema::Validate(const JSONValue& doc, std::string& outError) const {
+    if (doc.kind != JSONKind::Object) {
         outError = "Expected root JSON value to be an Object.";
         return false;
     }
@@ -308,7 +308,7 @@ bool JsonSchema::Validate(const JsonValue& doc, std::string& outError) const {
         }
     }
     for (const auto& [field, expectedKind] : fieldTypes) {
-        if (const JsonValue* actual = doc.GetField(field)) {
+        if (const JSONValue* actual = doc.GetField(field)) {
             if (actual->kind != expectedKind) {
                 outError = "JSON field '" + field + "' has mismatched type.";
                 return false;

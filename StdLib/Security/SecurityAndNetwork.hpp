@@ -115,7 +115,7 @@ struct SecurityAuditResult {
     bool                     passed = true;
     std::size_t              packagesAudited = 0;
     std::vector<std::string> vulnerabilitiesFound;
-    std::string              generatedSBOMJson;
+    std::string              generatedSBOMJSON;
 };
 
 class SupplyChainAuditor {

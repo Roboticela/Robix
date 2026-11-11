@@ -135,7 +135,7 @@ const std::vector<DocumentationGuideEntry>& OfficialDocumentationCatalog::GetAll
         { 14, "14_SingleCommandVerifier.md",         "Single-Command Project & File Verifier (robix verify)", "Explains the 8-stage verification pipeline for `.rx`, `.rxu`, and `.rxb` targets." },
         { 15, "15_CoreStandardLibraryAndRegex.md",   "Robix.Core, Math, DateTime & Linear-Time Regex",        "Covers `Print`, `Input<T>`, `Vec3`, `Quaternion`, and ReDoS-immune Thompson NFA `Robix.Regex`." },
         { 16, "16_CollectionsAndDataStructures.md",  "Robix.Collections: List, Dictionary, Graph, Matrix",    "Documents generic containers, iterators, `Matrix<T>`, and `Tensor<T>`." },
-        { 17, "17_JsonDataFormatsAndDatabase.md",    "First-Class Robix.Json, CSV, YAML, TOML & Database",    "Covers zero-dependency JSON parser/serializer, schema validation, compression, and SQLite." },
+        { 17, "17_JsonDataFormatsAndDatabase.md",    "First-Class Robix.JSON, CSV, YAML, TOML & Database",    "Covers zero-dependency JSON parser/serializer, schema validation, compression, and SQLite." },
         { 18, "18_ConcurrencyAndAsyncCancellation.md","Structured Concurrency, Async Cancellation & IPC",     "Details `CancellationToken`, LIFO `defer` cleanup, channels, deadlock detection, and `Process`." },
         { 19, "19_FormalSecurityArchitecture.md",    "Formal Security Model, Sandboxing & Secret<T>",         "Covers capability permissions (`requires`), zeroed `SecretBuffer`, SHA-256/HMAC, and supply-chain auditing." },
         { 20, "20_PackageManagerAndBinaryPackages.md","Package Ecosystem (.rxapi, .rxp, robix)",            "Explains binary distribution without source exposure, cryptographic signatures, and `.robix/packages/`." },

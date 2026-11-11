@@ -6,4 +6,4 @@
 #include <string>
 
 bool RoboCompilerCheckIcon(const RoboXMLNode& node, const std::string& path, RoboCompilerResult& result);
-std::string RoboCompilerEmitIconCpp(const RoboXMLNode& node, const std::string& parentExpr);
+std::string RoboCompilerEmitIconCPP(const RoboXMLNode& node, const std::string& parentExpr);

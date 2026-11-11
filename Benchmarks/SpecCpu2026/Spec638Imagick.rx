@@ -1,4 +1,4 @@
-package Benchmarks.SpecCpu.Imagick;
+package Benchmarks.SpecCPU.Imagick;
 
 public Function RunImagickFilter(Int pixels) -> Int {
     Int seed = 314159265;
