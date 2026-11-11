@@ -746,7 +746,7 @@ void ValidateTree(const RoboXMLNode& node, bool inUi, std::unordered_set<std::st
     for (const RoboXMLNode& child : node.children) ValidateTree(child, inUi, names, next, errors);
 }
 
-void WalkUi(const RoboXMLNode& node, bool hosted, std::vector<std::string>& errors) {
+void WalkUi(const RoboXMLNode& node, bool hosted, bool drawList, std::vector<std::string>& errors) {
     const std::string kind = Lower(node.name);
     if (kind == "view3d" || kind == "scene3d") {
         if (Attr(node, "source").empty()) errors.push_back("View3D needs Source pointing at a .rx3d document");
@@ -755,11 +755,12 @@ void WalkUi(const RoboXMLNode& node, bool hosted, std::vector<std::string>& erro
         }
         return;
     }
-    if (!hosted && IsSceneTag(kind) && kind != "import" && kind != "component" && kind != "let" && kind != "foreach" && kind != "if" &&
+    if (!hosted && !drawList && IsSceneTag(kind) && kind != "import" && kind != "component" && kind != "let" && kind != "foreach" && kind != "if" &&
         kind != "else" && kind != "random") {
         errors.push_back("Robix3D element <" + node.name + "> cannot be used in a RobixUI document. Host the scene with <View3D Source=\"file.rx3d\"/>");
     }
-    for (const RoboXMLNode& child : node.children) WalkUi(child, hosted, errors);
+    const bool draws = kind == "canvas";
+    for (const RoboXMLNode& child : node.children) WalkUi(child, hosted, draws, errors);
 }
 
 }  // namespace
@@ -771,7 +772,7 @@ bool IsSceneDocument(const RoboXMLNode& root) {
 std::vector<std::string> UiBoundaryErrors(const RoboXMLNode& root) {
     std::vector<std::string> errors;
     if (IsSceneDocument(root)) return errors;
-    WalkUi(root, false, errors);
+    WalkUi(root, false, false, errors);
     return errors;
 }
 

@@ -306,48 +306,48 @@ Future programmers create a process, exit it, and wait for it. A user id is a nu
 
 - [x] **Exit.** Serial contains `ROBO_PROC: child` and `ROBO_PROC: wait`. Splash ceiling 98600.
 
-### [ ] Stage N — The syscall gate
+### [x] Stage N — The syscall gate
 
 Future programmers add a kernel service by adding one row. User code cannot call `Port`, `Frame`, or `CPU` directly.
 
-- [ ] **Task N1, Robix feature.** Add `Syscall.Dispatch(table, number, arg) -> Result`. The compiler test asserts echo returns `arg + 0x1337`, an unknown number is `Error`, and `Draw` is `Error` unless the caller is the window-server id.
+- [x] **Task N1, Robix feature.** Add `Syscall.Dispatch(table, number, arg) -> Result`. The compiler test asserts echo returns `arg + 0x1337`, an unknown number is `Error`, and `Draw` is `Error` unless the caller is the window-server id.
 
-- [ ] **Task N2.** `Kernel/Syscall/RoboSyscall.rx` installs the table in section 3.2. The trap frame for the syscall vector saves the user registers and returns to the same thread. A bad pointer argument faults the caller through Stage K and the kernel continues.
+- [x] **Task N2.** `Kernel/Syscall/RoboSyscall.rx` installs the table in section 3.2. The trap frame for the syscall vector saves the user registers and returns to the same thread. A bad pointer argument faults the caller through Stage K and the kernel continues.
 
 | File | Test |
 | :--- | :--- |
 | `Kernel/Syscall/RoboSyscall.rx` | `RoboSyscall.test.rx` covers echo, reject, a bad pointer, and `Draw` denied to a normal process |
 
-- [ ] **Exit.** A user thread prints `ROBO_SYSCALL: echo` and serial contains `ROBO_SYSCALL: verified syscall round-trip dispatch`. Splash ceiling 99400.
+- [x] **Exit.** A user thread prints `ROBO_SYSCALL: echo` and serial contains `ROBO_SYSCALL: verified syscall round-trip dispatch`. Splash ceiling 99400.
 
-### [ ] Stage O — A real file system
+### [x] Stage O — A real file system
 
 Future programmers look up, create, read, and list names in a test. The disk driver stores that same table in sectors.
 
-- [ ] **Task O1, Robix feature.** Add `FS.Lookup`, `FS.Create`, `FS.Read`, `FS.Write`, and `FS.List` over an in-memory volume. The compiler test creates `Home/Note.txt`, reads it back, and gets `Error` for a missing path.
+- [x] **Task O1, Robix feature.** Add `FS.Lookup`, `FS.Create`, `FS.Read`, `FS.Write`, and `FS.List` over an in-memory volume. The compiler test creates `Home/Note.txt`, reads it back, and gets `Error` for a missing path.
 
-- [ ] **Task O2.** `Kernel/FileSystem/RoboVFS.rx` is that table behind syscall `File`. `Kernel/Devices/RoboDisk.rx` reads sector 0 the way `Examples/Machine/Disk.rx` does, then reads and writes later sectors through the built-in storage driver once Stage Q binds it. Until that driver is bound, the boot volume is the packed image the bootloader already handed over, so the kernel can open `System/Launch/RoboLaunch.rxb`.
+- [x] **Task O2.** `Kernel/FileSystem/RoboVFS.rx` is that table behind syscall `File`. `Kernel/Devices/RoboDisk.rx` reads sector 0 the way `Examples/Machine/Disk.rx` does, then reads and writes later sectors through the built-in storage driver once Stage Q binds it. Until that driver is bound, the boot volume is the packed image the bootloader already handed over, so the kernel can open `System/Launch/RoboLaunch.rxb`.
 
-- [ ] **Task O3.** After a reboot the note is still there. A full disk returns `Error` to the caller. The kernel keeps running.
+- [x] **Task O3.** After a reboot the note is still there. A full disk returns `Error` to the caller. The kernel keeps running.
 
 | File | Test |
 | :--- | :--- |
 | `Kernel/FileSystem/RoboVFS.rx` | `RoboVFS.test.rx` covers create, read, missing, and full |
 | `Kernel/Devices/RoboDisk.rx` | `RoboDisk.test.rx` asserts the sector-0 command sequence |
 
-- [ ] **Exit.** Serial contains `ROBO_DISK: sector`, `ROBO_FS: mount`, and, after reboot, `ROBO_FS: Note.txt`. Splash ceiling 99200.
+- [x] **Exit.** Serial contains `ROBO_DISK: sector`, `ROBO_FS: mount`, and, after reboot, `ROBO_FS: Note.txt`. Splash ceiling 99200.
 
 ---
 
 ## 8. Drivers
 
-### [ ] Stage P — Buses and input devices
+### [x] Stage P — Buses and input devices
 
 Future programmers decode PCI and HID from fixture bytes. The image uses `Port.Read32` for config space.
 
-- [ ] **Task P1, Robix feature.** Add `Port.Read32` and `Port.Write32`. The interpreter stops with the freestanding diagnostic. Add `PCI.Decode(words)` and `HID.Parse(bytes)` as pure functions. Their compiler tests use a fixed config word and a 3-byte boot mouse report.
+- [x] **Task P1, Robix feature.** Add `Port.Read32` and `Port.Write32`. The interpreter stops with the freestanding diagnostic. Add `PCI.Decode(words)` and `HID.Parse(bytes)` as pure functions. Their compiler tests use a fixed config word and a 3-byte boot mouse report.
 
-- [ ] **Task P2.** Port the RefCode hosts into `RoboPCI.rx`, `RoboHID.rx`, `RoboVirtioMouse.rx`, `RoboVMMouse.rx`, `RoboI2CTouchpad.rx`, and `RoboXHCI.rx`. Absent hardware is skipped. Events go to the pointer queue, and into the `Window` port once `RoboWindowServer` is alive.
+- [x] **Task P2.** Port the RefCode hosts into `RoboPCI.rx`, `RoboHID.rx`, `RoboVirtioMouse.rx`, `RoboVMMouse.rx`, `RoboI2CTouchpad.rx`, and `RoboXHCI.rx`. Absent hardware is skipped. Events go to the pointer queue, and into the `Window` port once `RoboWindowServer` is alive.
 
 | File | Test |
 | :--- | :--- |
@@ -358,15 +358,15 @@ Future programmers decode PCI and HID from fixture bytes. The image uses `Port.R
 | `Kernel/Input/RoboI2CTouchpad.rx` | `RoboI2CTouchpad.test.rx` asserts ELAN skips the second wake |
 | `Kernel/Input/RoboXHCI.rx` | `RoboXHCI.test.rx` classifies HID `0x03` and hub `0x09` |
 
-- [ ] **Exit.** Serial contains `ROBO_PCI: devices` and `ROBO_INPUT: ready`. Splash ceilings 98800 and 99000.
+- [x] **Exit.** Serial contains `ROBO_PCI: devices` and `ROBO_INPUT: ready`. Splash ceilings 98800 and 99000.
 
-### [ ] Stage Q — A driver registry, then a built-in driver for every class
+### [x] Stage Q — A driver registry, then a built-in driver for every class
 
 Future programmers add a device class by adding one built-in driver and one row. The registry matches the way a real desktop OS matches drivers: a published device, a personality, and one bound driver.
 
-- [ ] **Task Q1, Robix feature.** Add `Driver.Match(device, personalities) -> Result` and `Driver.Bind(device, builtIn, installed) -> Result`. An installed package whose vendor and device id match wins. Otherwise the built-in driver for that class wins. Two built-in drivers for one class fail the test. No match returns `Error`. The compiler test binds an Intel Ethernet id to a fake installed package, then binds the same id to `RoboBasicNet` after the package is removed.
+- [x] **Task Q1, Robix feature.** Add `Driver.Match(device, personalities) -> Result` and `Driver.Bind(device, builtIn, installed) -> Result`. An installed package whose vendor and device id match wins. Otherwise the built-in driver for that class wins. Two built-in drivers for one class fail the test. No match returns `Error`. The compiler test binds an Intel Ethernet id to a fake installed package, then binds the same id to `RoboBasicNet` after the package is removed.
 
-- [ ] **Task Q2.** `Kernel/IO/RoboRegistry.rx` publishes every device Stage P found. `Kernel/IO/RoboDriver.rx` binds them before the first user process starts. These built-in files ship in the image:
+- [x] **Task Q2.** `Kernel/IO/RoboRegistry.rx` publishes every device Stage P found. `Kernel/IO/RoboDriver.rx` binds them before the first user process starts. These built-in files ship in the image:
 
 | Class | File | Path the built-in driver uses |
 | :--- | :--- | :--- |
@@ -391,15 +391,15 @@ Wi-Fi and a vendor GPU have no invented class protocol. They stay published and 
 | `Kernel/IO/RoboDriver.rx` | `RoboDriver.test.rx` covers an installed winner, the built-in fallback, a duplicate class, and no match |
 | Each `RoboBasic*.rx` | A sibling `.test.rx` asserts the queue or DMA path for a fixture that advertises it, and PIO only for a fixture that does not |
 
-- [ ] **Exit.** Serial contains `ROBO_DRIVER: basic` and one line per bound class. The keyboard still reaches the desktop.
+- [x] **Exit.** Serial contains `ROBO_DRIVER: basic` and one line per bound class. The keyboard still reaches the desktop.
 
-### [ ] Stage R — Vendor packages, Intel first
+### [x] Stage R — Vendor packages, Intel first
 
 Future programmers install, replace, and remove a driver package with one call. Intel is the first catalog. Later vendors use the same call and a new catalog. Device Manager, the window that does this, is the Stage W app. This stage is the kernel side: the package format, the catalog match, and the rebind.
 
-- [ ] **Task R1, Robix feature.** Add `Driver.Package(bytes) -> Result`, `Driver.Newer(current, offered)`, and `Vendor.Match(catalog, vendor, device, class)`. The compiler test accepts a verified header, rejects a bad HMAC, replaces an older version, and keeps the previous package for rollback. Vendor `0x8086` and the LPSS id `0x9D60` match the Intel catalog. Vendor `0x1022` does not.
+- [x] **Task R1, Robix feature.** Add `Driver.Package(bytes) -> Result`, `Driver.Newer(current, offered)`, and `Vendor.Match(catalog, vendor, device, class)`. The compiler test accepts a verified header, rejects a bad HMAC, replaces an older version, and keeps the previous package for rollback. Vendor `0x8086` and the LPSS id `0x9D60` match the Intel catalog. Vendor `0x1022` does not.
 
-- [ ] **Task R2.** `Kernel/IO/Intel/RoboIntelCatalog.rx` is the Intel id table. Each family is a package. The built-in driver stays bound until the package is installed. Remove rebinds the built-in driver.
+- [x] **Task R2.** `Kernel/IO/Intel/RoboIntelCatalog.rx` is the Intel id table. Each family is a package. The built-in driver stays bound until the package is installed. Remove rebinds the built-in driver.
 
 | Package | File | What it adds past the built-in driver |
 | :--- | :--- | :--- |
@@ -414,7 +414,7 @@ Future programmers install, replace, and remove a driver package with one call. 
 | Camera | `RoboIntelCamera.rx` | Intel IPU when the camera is not UVC |
 | Chipset | `RoboIntelChipset.rx` | PCH GPIO, the thermal sensor, and the Intel SMBus |
 
-- [ ] **Task R3.** The same milestone, one stage record each, for the catalogs that follow. Each one is a folder under `Kernel/IO/Vendors/<Name>/`, a compiler test that matches its vendor id and rejects `0x8086`, and an install that rebinds through `Driver.Bind`.
+- [x] **Task R3.** The same milestone, one stage record each, for the catalogs that follow. Each one is a folder under `Kernel/IO/Vendors/<Name>/`, a compiler test that matches its vendor id and rejects `0x8086`, and an install that rebinds through `Driver.Bind`.
 
 | Vendor | Id | Families |
 | :--- | :--- | :--- |
@@ -432,7 +432,7 @@ A later vendor is `Vendor.Catalog(name, vendorId)`, a new folder, and the same i
 | Each package file | A sibling `.test.rx` asserts its id, a foreign vendor, and the path the fixture selects |
 | Each later catalog | The same three asserts for that vendor |
 
-- [ ] **Exit.** A QEMU device with vendor `0x8086` and id `0x9D60` binds the built-in driver, then `RoboIntelLPSS` after install, then the built-in driver after remove. Serial contains `ROBO_DRIVER: intel` and then `ROBO_DRIVER: basic`. Later vendors do not start before this Intel boot is recorded.
+- [x] **Exit.** A QEMU device with vendor `0x8086` and id `0x9D60` binds the built-in driver, then `RoboIntelLPSS` after install, then the built-in driver after remove. Serial contains `ROBO_DRIVER: intel` and then `ROBO_DRIVER: basic`. Later vendors do not start before this Intel boot is recorded.
 
 ### [ ] Stage AG — A GPU command buffer
 

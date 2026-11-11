@@ -1,0 +1,7 @@
+<Scene Name="Body" Background="#080A10">
+  <Camera Name="Main" Position="0,0,4" LookAt="0,0,0" Fov="60"/>
+  <Mesh Name="Body">
+    <Geometry Type="box" Width="2" Height="2" Depth="2"/>
+    <Material Color="#FF0000"/>
+  </Mesh>
+</Scene>

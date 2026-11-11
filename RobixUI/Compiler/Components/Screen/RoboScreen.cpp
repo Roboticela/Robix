@@ -99,6 +99,12 @@ const char* const ROBO_SCREEN_ATTRIBUTES[] = {
     "fullscreen",
     "zoomcontrols",
     "zoom-controls",
+    "pinch",
+    "pinchzoom",
+    "pinch-zoom",
+    "zoom",
+    "viewportzoom",
+    "viewport-zoom",
     "board",
 };
 

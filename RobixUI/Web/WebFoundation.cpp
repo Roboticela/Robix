@@ -4,6 +4,7 @@
 
 #include "../Compiler/Components/Container/Container.hpp"
 #include "../Compiler/Components/Container/ContainerWeb.hpp"
+#include "../Compiler/Components/Canvas/CanvasWeb.hpp"
 #include "../Compiler/Components/Image/ImageWeb.hpp"
 #include "../Compiler/Components/Svg/SvgWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
@@ -21,6 +22,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <sstream>
 #include <utility>
@@ -207,6 +209,9 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     }
     if (name == "view3d" || name == "scene3d") {
         Robix::D3::EmitView(html, node);
+        return;
+    }
+    if (name == "canvas" && RoboWebEmitCanvas(html, node)) {
         return;
     }
     if (name == "image") {
@@ -613,7 +618,10 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     css << "html:focus,html:focus-visible,body:focus,body:focus-visible{outline:none;box-shadow:none}\n";
     css << "body{color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}\n";
     css << ".robo-screen{position:relative;min-height:100%;box-sizing:border-box;z-index:1;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
-    css << ".robo-page{width:100%;height:100%;max-height:100%;min-height:0;min-width:0;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none}\n";
+    css << ".robo-page{width:100%;height:100%;max-height:100%;min-height:0;min-width:0;overflow:auto;scrollbar-width:none;background:var(--bg-primary);color:var(--text-primary);border:0;outline:none;box-shadow:none;touch-action:pan-x pan-y}\n";
+    css << ".robo-pinch-sizer{display:block;width:100%;flex:0 0 auto}\n";
+    css << ".robo-magnify{display:block;width:100%;transform-origin:0 0}\n";
+    css << ".robo-frame{display:block;width:100%;transform-origin:0 0}\n";
     css << "[data-paint=bleed]{overflow:visible;contain:none}\n";
     css << "[data-paint=clip]{overflow:clip}\n";
     css << ".robo-page :has([data-paint=bleed]){overflow:visible;isolation:auto;contain:none}\n";
@@ -644,6 +652,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         RoboWebAppendContainerCss(css);
         RoboWebAppendTextCss(css);
         RoboWebAppendImageCss(css);
+        RoboWebAppendCanvasCss(css);
         css << ".robo-overlay-host{position:fixed;inset:0;z-index:40;pointer-events:none}\n";
         css << ".robo-overlay-host .robo-overlay{pointer-events:auto}\n";
         css << ".robo-icon,.robo-svg{display:inline-flex;align-items:center;justify-content:center;line-height:0}\n";
@@ -654,7 +663,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     html << "<!DOCTYPE html><html lang=\"en\" data-theme=\"" << Escape(theme) << "\" class=\""
          << (theme == "light" ? "" : "dark") << "\"><head><meta charset=\"utf-8\">";
     html << "<script>try{var t=localStorage.getItem(\"theme\");if(t===\"light\"||t===\"dark\"){document.documentElement.setAttribute(\"data-theme\",t);document.documentElement.classList.toggle(\"dark\",t===\"dark\");}}catch(e){}</script>";
-    html << "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+    html << "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no\">";
     html << "<title>" << Escape(title) << "</title>";
     html << "<link rel=\"stylesheet\" href=\"app.css\"></head><body>";
     if (hasScreen) {
@@ -681,9 +690,21 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
         (void)height;
         const std::string zoomControls =
             RoboXMLAttr(screenCopy, "zoomControls", RoboXMLAttr(screenCopy, "zoom-controls", "bottom").c_str());
+        const auto flagText = [](const RoboXMLNode& node, std::initializer_list<const char*> keys, const char* fallback) {
+            for (const char* key : keys) {
+                const std::string value = RoboXMLAttr(node, key);
+                if (!value.empty()) {
+                    return value;
+                }
+            }
+            return std::string(fallback);
+        };
+        const std::string pinchFlag = flagText(screenCopy, {"pinch", "pinchZoom", "pinch-zoom"}, "true");
+        const std::string zoomFlag = flagText(screenCopy, {"zoom", "viewportZoom", "viewport-zoom"}, "true");
         html << "<" << RoboWebScreenTag(true) << " id=\"" << Escape(id) << "\" class=\"" << RoboWebScreenClass(true)
              << " robo-page\" data-place=\"" << Escape(place) << "\" data-theme=\"" << Escape(theme)
-             << "\" data-movable=\"" << Escape(movable) << "\" data-zoom-controls=\"" << Escape(zoomControls) << "\""
+             << "\" data-movable=\"" << Escape(movable) << "\" data-zoom-controls=\"" << Escape(zoomControls)
+             << "\" data-pinch=\"" << Escape(pinchFlag) << "\" data-zoom=\"" << Escape(zoomFlag) << "\""
              << RoboWebScreenAttrs(screenCopy, library, "flex")
              << RoboWebMotionAttrs(screenCopy)
              << " style=\"" << Escape(style) << "\">";
@@ -697,7 +718,7 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
                 EmitNode(body, child, library, 0);
             }
         }
-        html << body;
+        html << "<div class=\"robo-pinch-sizer\"><div class=\"robo-magnify\"><div class=\"robo-frame\">" << body << "</div></div></div>";
         html << "<div class=\"robo-overlay-host\">" << overlay << "</div>";
         html << "<div class=\"robo-bars\">";
         html << "<div class=\"robo-bar is-y\" hidden>";
@@ -911,6 +932,98 @@ Robo.sceneSet = function (name, key, value) {
   place();
   wake(yBar);
   wake(xBar);
+  var magnify = port.querySelector(".robo-magnify");
+  var frame = port.querySelector(".robo-frame");
+  var pinchOn = port.getAttribute("data-pinch") !== "false" && port.getAttribute("data-pinch") !== "0" && port.getAttribute("data-pinch") !== "off";
+  var zoomOn = port.getAttribute("data-zoom") !== "false" && port.getAttribute("data-zoom") !== "0" && port.getAttribute("data-zoom") !== "off";
+  var pinch = 1;
+  var zoom = 1;
+  function clampScale(value) {
+    if (value < 0.25) return 0.25;
+    if (value > 5) return 5;
+    return value;
+  }
+  function applyScale() {
+    var sizer = port.querySelector(".robo-pinch-sizer");
+    if (!magnify || !frame || !sizer) return;
+    var p = pinchOn ? pinch : 1;
+    var z = zoomOn ? zoom : 1;
+    sizer.style.height = "auto";
+    sizer.style.width = (100 * p) + "%";
+    frame.style.zoom = String(z);
+    frame.style.width = (100 / z) + "%";
+    magnify.style.width = (100 / p) + "%";
+    magnify.style.height = "auto";
+    magnify.style.transform = "scale(" + p + ")";
+    magnify.style.transformOrigin = "0 0";
+    var laid = magnify.offsetHeight;
+    sizer.style.height = Math.ceil(laid * p) + "px";
+    place();
+  }
+  function stepScale(store, direction) {
+    if (direction === 0) return 1;
+    return clampScale(store * (direction > 0 ? 1.1 : 1 / 1.1));
+  }
+  window.addEventListener("keydown", function (event) {
+    if (!event.ctrlKey || event.metaKey) return;
+    var plus = event.key === "+" || event.key === "=" || event.code === "NumpadAdd" || event.code === "Equal";
+    var minus = event.key === "-" || event.key === "_" || event.code === "NumpadSubtract" || event.code === "Minus";
+    var zero = event.key === "0" || event.code === "Digit0" || event.code === "Numpad0";
+    if (!plus && !minus && !zero) return;
+    event.preventDefault();
+    var direction = plus ? 1 : minus ? -1 : 0;
+    if (event.altKey) {
+      if (!zoomOn) return;
+      zoom = stepScale(zoom, direction);
+      applyScale();
+      return;
+    }
+    if (!pinchOn) return;
+    pinch = stepScale(pinch, direction);
+    applyScale();
+  }, true);
+  window.addEventListener("wheel", function (event) {
+    if (!event.ctrlKey || event.altKey) return;
+    event.preventDefault();
+    if (!pinchOn) return;
+    pinch = clampScale(pinch * Math.exp(-event.deltaY * 0.0025));
+    applyScale();
+  }, { passive: false, capture: true });
+  var fingers = new Map();
+  var fingerOrigin = 1;
+  var fingerSpan = 0;
+  function fingerDistance() {
+    var points = Array.from(fingers.values());
+    if (points.length < 2) return 0;
+    var dx = points[0].x - points[1].x;
+    var dy = points[0].y - points[1].y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  window.addEventListener("pointerdown", function (event) {
+    if (!pinchOn || event.pointerType === "mouse") return;
+    fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (fingers.size === 2) {
+      fingerOrigin = pinch;
+      fingerSpan = fingerDistance();
+    }
+  }, true);
+  window.addEventListener("pointermove", function (event) {
+    if (!fingers.has(event.pointerId)) return;
+    fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (!pinchOn || fingers.size < 2 || !(fingerSpan > 0)) return;
+    var next = fingerDistance();
+    if (!(next > 0)) return;
+    event.preventDefault();
+    pinch = clampScale(fingerOrigin * next / fingerSpan);
+    applyScale();
+  }, { passive: false, capture: true });
+  function dropFinger(event) { fingers.delete(event.pointerId); }
+  window.addEventListener("pointerup", dropFinger, true);
+  window.addEventListener("pointercancel", dropFinger, true);
+  window.addEventListener("gesturechange", function (event) {
+    if (!pinchOn) return;
+    event.preventDefault();
+  }, { passive: false });
 })();
 )JS";
     js += RoboWebReelScript();

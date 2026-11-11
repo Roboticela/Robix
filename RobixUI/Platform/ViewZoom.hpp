@@ -6,9 +6,11 @@
 
 namespace Robix::UI {
 
-/* Page zoom shared by every platform host.
-   The scale matches the web document zoom: 0.25 to 5, Ctrl+wheel uses exp(-deltaY * 0.0025),
-   and a pinch multiplies the scale captured when the gesture began.
+/* A page scale shared by pinch and viewport zoom.
+   Pinch magnifies the laid-out page and does not change the layout viewport.
+   Viewport zoom lays the page out in a smaller viewport, then paints it back to the window.
+   Each scale is 0.25 to 5. Ctrl+wheel uses exp(-deltaY * 0.0025).
+   A pinch multiplies the scale captured when the gesture began.
    The on-screen capsule is a host concern. This type only places it and changes the scale. */
 struct ViewZoomBar {
     int x = 0;

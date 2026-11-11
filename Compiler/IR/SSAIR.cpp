@@ -2700,13 +2700,16 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Atomic" ||                      receiverExpr.text == "Frame" ||
                      receiverExpr.text == "Input" || receiverExpr.text == "Page" ||
                      receiverExpr.text == "Sched" || receiverExpr.text == "Fault" ||
-                     receiverExpr.text == "Proc" || receiverExpr.text == "Cred")) {
+                     receiverExpr.text == "Proc" || receiverExpr.text == "Cred" ||
+                     receiverExpr.text == "Syscall" || receiverExpr.text == "FS" ||
+                     receiverExpr.text == "PCI" || receiverExpr.text == "HID" ||
+                     receiverExpr.text == "Driver" || receiverExpr.text == "Vendor")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
                     } else if (receiverExpr.text == "Port" &&
                                (memberName == "Create" || memberName == "Send" || memberName == "Receive" ||
-                                memberName == "Read8" || memberName == "Read16")) {
+                                memberName == "Read8" || memberName == "Read16" || memberName == "Read32")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "CPU" &&
                                (memberName == "TSC" || memberName == "ReadCR3" || memberName == "ReadRSP" ||
@@ -2723,6 +2726,20 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                                (memberName == "Create" || memberName == "Exit" || memberName == "Wait")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Cred" && memberName == "Allow") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Syscall" && memberName == "Dispatch") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "FS" &&
+                               (memberName == "Lookup" || memberName == "Create" || memberName == "Read" ||
+                                memberName == "Write" || memberName == "List")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "PCI" && memberName == "Decode") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "HID" && memberName == "Parse") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Driver" && (memberName == "Match" || memberName == "Bind" || memberName == "Package" || memberName == "Newer")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Vendor" && memberName == "Match") {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Volatile" && memberName == "Load32") {
                         ty = MakePrim("Int");

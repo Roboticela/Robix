@@ -112,6 +112,7 @@ void TestNestedFind() {
 void TestRejectedAttributes() {
     RoboScreenRecord screen;
     std::string diagnostic;
+    Check(Read("<Screen Pinch=\"false\" Zoom=\"true\"/>", screen, diagnostic), "pinch and zoom are screen options");
     Check(!Read("<Screen NotAReal=\"1\"/>", screen, diagnostic), "an unknown attribute is rejected");
     Check(diagnostic.find("R7001") != std::string::npos, "an unknown attribute uses R7001");
     Check(diagnostic.find("NotAReal") != std::string::npos, "the diagnostic names the attribute");

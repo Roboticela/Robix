@@ -943,7 +943,9 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Clock" || expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
                 expr.text == "Frame" || expr.text == "Input" || expr.text == "Page" ||
                 expr.text == "Sched" || expr.text == "Fault" ||
-                expr.text == "Proc" || expr.text == "Cred") {
+                expr.text == "Proc" || expr.text == "Cred" || expr.text == "Syscall" ||
+                expr.text == "FS" || expr.text == "PCI" || expr.text == "HID" || expr.text == "Driver" ||
+                expr.text == "Vendor") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1381,14 +1383,15 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }
-            if (recvType.baseName == "Port" && (expr.text == "Write8" || expr.text == "Read8" || expr.text == "Read16")) {
+            if (recvType.baseName == "Port" && (expr.text == "Write8" || expr.text == "Write16" || expr.text == "Write32" ||
+                expr.text == "Read8" || expr.text == "Read16" || expr.text == "Read32")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
                         "'Port." + expr.text + "' touches an I/O port and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
-                expr.inferredType = (expr.text == "Read8" || expr.text == "Read16") ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
+                expr.inferredType = (expr.text == "Read8" || expr.text == "Read16" || expr.text == "Read32") ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
                 return expr.inferredType;
             }
             if (recvType.baseName == "Clock" && expr.text == "Seconds") {
@@ -1406,6 +1409,32 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (recvType.baseName == "Cred" && expr.text == "Allow") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Syscall" && expr.text == "Dispatch") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "FS" &&
+                (expr.text == "Lookup" || expr.text == "Create" || expr.text == "Read" ||
+                 expr.text == "Write" || expr.text == "List")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "PCI" && expr.text == "Decode") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "HID" && expr.text == "Parse") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Driver" && (expr.text == "Match" || expr.text == "Bind" || expr.text == "Package" || expr.text == "Newer")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Vendor" && expr.text == "Match") {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }

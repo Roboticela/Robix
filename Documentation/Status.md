@@ -596,6 +596,201 @@ ROBO_PROCESS: alive
 
 The same image with `-smp 1` prints `ROBO_PORT: round`, then `ROBO_PROC: child` and `ROBO_PROC: wait`.
 
+## RoboticelaOS Stage N
+
+`Syscall.Dispatch(caller, number, arg)` is the gate. Echo, number 0, returns `arg + 4919` (`0x1337`). An unknown number returns `-1`. `File` returns `-1` until the volume exists. `Map` of a kernel address such as `2097152` returns `-1`, and `Map` of the user page `8388608` returns that address. `Draw` returns `-1` for a normal process and returns the argument for the window server, caller 2. A user fault still continues (`Fault.Decide(1)` is 1) and a kernel fault still halts. The splash ceiling for syscalls is `99400`.
+
+```
+robix test RoboticelaOS/Kernel/Syscall/RoboSyscall.test.rx
+robix test RoboticelaOS/Kernel/Memory/RoboAddressSpace.test.rx
+robix test RoboticelaOS/Kernel/POSIX/RoboProcess.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+The user thread enters through vector 128. The handler saves the registers, dispatches echo, and returns to that same thread. The thread then stores into a supervisor page. That fault returns to the kernel.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -no-reboot -no-shutdown -vga std -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+After the process lines, the four-core serial file contains:
+
+```
+ROBO_PROC: wait
+ROBO_SYSCALL: echo
+ROBO_SYSCALL: verified syscall round-trip dispatch
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints those same four lines after `ROBO_PROC: wait`.
+
+## RoboticelaOS Stage O
+
+`FS.Lookup`, `FS.Create`, `FS.Read`, `FS.Write`, and `FS.List` share one four-slot volume with syscall `File` (number 6). `Home/Note.txt` is path 1 and `System/Launch/RoboLaunch.rxb` is path 2. Creating the note stores byte 78, a missing path returns `-1`, and a fifth file returns `-1`. The splash ceiling for the filesystem is `99200`.
+
+```
+robix test RoboticelaOS/Kernel/FileSystem/RoboVFS.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboDisk.test.rx
+robix test RoboticelaOS/Kernel/Syscall/RoboSyscall.test.rx
+robix test RoboticelaOS/Kernel/Memory/RoboAddressSpace.test.rx
+robix test RoboticelaOS/Kernel/POSIX/RoboProcess.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+Sector 0 uses the same command sequence as `Examples/Machine/Disk.rx`. The first boot writes byte 78 and resets the machine. The second boot reads that byte back.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file contains both boots. After the second `ROBO_FS: mount`:
+
+```
+ROBO_FS: mount
+ROBO_FS: Note.txt
+ROBO_SYSCALL: echo
+ROBO_SYSCALL: verified syscall round-trip dispatch
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The disk image byte 0 is 78 after QEMU exits. The same image with `-smp 1` prints `ROBO_CPU: cores online1`, `ROBO_FS: Note.txt`, and the same syscall and fault lines, and it does not print `ROBO_SCHED: migrate`.
+
+## RoboticelaOS Stage P
+
+`Port.Read32` and `Port.Write32` are the 32-bit port operations. On the interpreter they stop with the freestanding diagnostic. `PCI.Decode(word0, word8)` returns vendor, device, and class, and returns `-1` when the vendor is `65535`. `HID.Parse` reads a 3-byte boot mouse, a wheel byte, and a touch contact. The splash ceilings stay at `98800` for input and `99000` for drivers.
+
+```
+robix test RoboticelaOS/Kernel/PCI/RoboPCI.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboHID.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboVirtioMouse.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboVMMouse.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboI2CTouchpad.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboXHCI.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboInput.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+The boot scans bus 0 through the PCI config ports `3320` and `3324`. A missing virtio mouse is left alone. The pointer queue is the input path. The window server is not running, so nothing is sent to the window port.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file contains:
+
+```
+ROBO_PORT: round
+ROBO_PCI: devices 6
+ROBO_INPUT: ready
+ROBO_PROC: child
+ROBO_PROC: wait
+ROBO_DISK: sector
+ROBO_FS: mount
+ROBO_FS: Note.txt
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1`, `ROBO_PCI: devices 6`, and `ROBO_INPUT: ready`, and it does not print `ROBO_SCHED: migrate`.
+
+## RoboticelaOS Stage Q
+
+`Driver.Match(device, personalities)` returns the built-in id when one personality serves that class. Two built-in personalities for one class return `-1`. No personality returns `-1`. `Driver.Bind(device, builtIn, installed)` returns the installed package id when that package names the same vendor and device. After the package is removed, the same Intel Ethernet id `0x8086:0x100E` binds to `RoboBasicNet`. No built-in and no package returns `-1`. A vendor display and a Wi-Fi subclass stay published and unmatched. The driver splash ceiling stays at `99000`.
+
+```
+robix test RoboticelaOS/Kernel/IO/RoboDriver.test.rx
+robix test RoboticelaOS/Kernel/IO/RoboRegistry.test.rx
+robix test RoboticelaOS/Kernel/IO/Basic/RoboBasicDisplay.test.rx
+robix test RoboticelaOS/Kernel/IO/Basic/RoboBasicStorage.test.rx
+robix test RoboticelaOS/Kernel/IO/Basic/RoboBasicNet.test.rx
+robix test RoboticelaOS/Kernel/PCI/RoboPCI.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboInput.test.rx
+```
+
+Each printed `interpreter ok, native ok`. The other `RoboBasic*.test.rx` files did the same.
+
+The registry publishes every present PCI device. The binder runs before the first user process. On this machine the bound classes are storage, display, and ethernet.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file still has `ROBO_UI: click` before the driver lines:
+
+```
+ROBO_UI: click
+ROBO_PCI: devices 6
+ROBO_INPUT: ready
+ROBO_DRIVER: basic
+ROBO_DRIVER: storage
+ROBO_DRIVER: display
+ROBO_DRIVER: net
+ROBO_FS: Note.txt
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1` and the same three class lines, and it does not print `ROBO_SCHED: migrate`.
+
+## RoboticelaOS Stage R
+
+`Driver.Package` takes one word: device bits 0–15, vendor bits 16–31, version bits 32–39, HMAC bits 40–47, magic `21072` in bits 48–63. HMAC is `(21072 xor version xor vendor xor device) and 255`. A bad HMAC returns `-1` and leaves the installed version. Version 1 installs and returns `1`. Version 2 replaces it and returns `65538` (previous version in the high half). `PackageRollback` restores version 1. `Driver.Newer` is true only when the offered version is greater. `Vendor.Match(1, 32902, 40288, 12)` is family 6, the LPSS id `0x9D60`. An unknown Intel id and vendor `4130` (`0x1022`) return `0`. `Driver.Bind` on that LPSS word returns built-in `12`, then package `36` after install, then `12` after remove.
+
+QEMU's `pc` machine has no LPSS device `8086:9D60`. The live Intel device on this bus is the e1000 at `8086:100E` (device `4110`, Ethernet family 3). Install binds package `33`, prints `ROBO_DRIVER: intel`, rolls the package back, and prints `ROBO_DRIVER: basic`. The AMD, NVIDIA, Realtek, Broadcom, and Qualcomm catalogs are files and tests only. The kernel does not call them.
+
+```
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelCatalog.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelGraphics.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelAudio.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelNet.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelWiFi.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelBluetooth.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelLPSS.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelUSB.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelStorage.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelCamera.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelChipset.test.rx
+robix test RoboticelaOS/Kernel/IO/Vendors/AMD/RoboAMDCatalog.test.rx
+robix test RoboticelaOS/Kernel/IO/Vendors/NVIDIA/RoboNVIDIACatalog.test.rx
+robix test RoboticelaOS/Kernel/IO/Vendors/Realtek/RoboRealtekCatalog.test.rx
+robix test RoboticelaOS/Kernel/IO/Vendors/Broadcom/RoboBroadcomCatalog.test.rx
+robix test RoboticelaOS/Kernel/IO/Vendors/Qualcomm/RoboQualcommCatalog.test.rx
+robix test RoboticelaOS/Kernel/IO/RoboDriver.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file, after the Stage Q class lines:
+
+```
+ROBO_DRIVER: basic
+ROBO_DRIVER: storage
+ROBO_DRIVER: display
+ROBO_DRIVER: net
+ROBO_DRIVER: intel
+ROBO_DRIVER: basic
+ROBO_FS: Note.txt
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1` and the same `intel` then `basic` lines, and it does not print `ROBO_SCHED: migrate`.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

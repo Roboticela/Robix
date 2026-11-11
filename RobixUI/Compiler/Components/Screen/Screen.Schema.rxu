@@ -78,7 +78,11 @@
   <Attribute name="zoomControls" type="enum"
              values="bottom|bottom-left|bottom-right|top|top-left|top-right|left|right|center|none"
              default="bottom" aliases="zoom-controls"
-             description="Pinch zoom capsule. none hides it. It appears only while zooming." />
+             description="Pinch capsule. none hides it. It appears only while pinching." />
+  <Attribute name="pinch" type="bool" default="true" aliases="pinchZoom|pinch-zoom"
+             description="Magnify the laid-out page without changing the layout viewport. Keyboard and pinch. On by default." />
+  <Attribute name="zoom" type="bool" default="true" aliases="viewportZoom|viewport-zoom"
+             description="Change the layout viewport. Keyboard only. On by default." />
   <Attribute name="board" type="string" required="false" description="Board id this screen displays" />
   <Child name="*" max="64" description="content laid out with flex, grid, or stack" />
 </Component>

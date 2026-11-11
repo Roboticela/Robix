@@ -38,7 +38,8 @@ std::string RoboCompilerEmitScreenCPP(const RoboXMLNode& node) {
                         "gridColumn",   "gridRow",   "state",       "resizable",    "resize",
                         "noResize",     "resizeLeft","resizeRight", "resizeTop",    "resizeBottom", "resizeTopLeft",
                         "resizeTopRight","resizeBottomLeft","resizeBottomRight","minSize","maxSize","movable","topmost",
-                        "fullscreen",   "zoomControls","zoom-controls","background","borderColor", "board"};
+                        "fullscreen",   "zoomControls","zoom-controls","pinch","pinchZoom","pinch-zoom","zoom",
+                        "viewportZoom","viewport-zoom","background","borderColor", "board"};
   for (const char* key : keys) {
     const std::string value = RoboXMLAttr(node, key);
     if (!value.empty()) {

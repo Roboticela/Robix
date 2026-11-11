@@ -273,4 +273,79 @@
       <Text value="Fill" fontSize="12"/>
     </View>
   </View>
+
+  <Text value="Canvas" fontSize="22" font="sans-semibold"/>
+  <Text value="A canvas is a draw list. Later draws cover earlier ones. Rect, disc, circle, line, and text are all in the harbor." fontSize="13"/>
+
+  <Text value="Harbor at night" fontSize="13" font="sans-semibold"/>
+  <Canvas width="720" height="400">
+    <Rect x="0" y="0" width="720" height="228" color="#07111C"/>
+    <Rect x="0" y="228" width="720" height="172" color="#0C2C40"/>
+    <Disc x="150" y="246" radius="96" color="#12263A"/>
+    <Disc x="560" y="268" radius="130" color="#0A1C2C"/>
+    <Disc x="590" y="72" radius="40" color="#F4E2B0"/>
+    <Circle x="608" y="58" radius="32" color="#07111C"/>
+    <Disc x="80" y="36" radius="2" color="#F4F7FB"/>
+    <Disc x="140" y="84" radius="1" color="#F4F7FB"/>
+    <Disc x="210" y="42" radius="2" color="#F4F7FB"/>
+    <Disc x="280" y="96" radius="1" color="#F4F7FB"/>
+    <Disc x="360" y="30" radius="2" color="#F4F7FB"/>
+    <Disc x="430" y="78" radius="1" color="#F4F7FB"/>
+    <Disc x="500" y="40" radius="2" color="#F4F7FB"/>
+    <Disc x="680" y="110" radius="1" color="#F4F7FB"/>
+    <Line x1="70" y1="128" x2="84" y2="118" color="#C5D0DC"/>
+    <Line x1="84" y1="118" x2="98" y2="128" color="#C5D0DC"/>
+    <Line x1="168" y1="104" x2="182" y2="94" color="#C5D0DC"/>
+    <Line x1="182" y1="94" x2="196" y2="104" color="#C5D0DC"/>
+    <Line x1="400" y1="118" x2="414" y2="108" color="#C5D0DC"/>
+    <Line x1="414" y1="108" x2="428" y2="118" color="#C5D0DC"/>
+    <Rect x="48" y="168" width="22" height="78" color="#D9D3C8"/>
+    <Rect x="40" y="154" width="38" height="16" color="#1C2430"/>
+    <Circle x="59" y="162" radius="5" color="#F2C14E"/>
+    <Rect x="0" y="278" width="720" height="16" color="#1B2C3A"/>
+    <Rect x="214" y="258" width="176" height="28" color="#C4553A"/>
+    <Rect x="268" y="232" width="62" height="28" color="#E8D7C1"/>
+    <Rect x="280" y="240" width="16" height="12" color="#F2C14E"/>
+    <Rect x="306" y="240" width="12" height="12" color="#7EB6D6"/>
+    <Line x1="298" y1="232" x2="298" y2="156" color="#E8D7C1"/>
+    <Line x1="298" y1="164" x2="378" y2="224" color="#F7FBFF"/>
+    <Line x1="298" y1="164" x2="228" y2="220" color="#D5DEEA"/>
+    <Line x1="228" y1="224" x2="378" y2="224" color="#C4553A"/>
+    <Disc x="298" y="156" radius="4" color="#F2C14E"/>
+    <Line x1="298" y1="164" x2="318" y2="164" color="#E23B3B"/>
+    <Rect x="520" y="262" width="70" height="16" color="#243044"/>
+    <Line x1="555" y1="262" x2="555" y2="236" color="#D9D3C8"/>
+    <Line x1="0" y1="294" x2="719" y2="294" color="#1E5068"/>
+    <Disc x="590" y="332" radius="18" color="#8A7350"/>
+    <Disc x="59" y="328" radius="5" color="#F2C14E"/>
+    <Disc x="640" y="318" radius="6" color="#E23B3B"/>
+    <Line x1="640" y1="318" x2="640" y2="294" color="#D9D3C8"/>
+    <Text x="36" y="24" value="Harbor at night" size="28" color="#F4F7FB" font="sans-semibold"/>
+    <Text x="36" y="60" value="Rects, discs, a circle, lines, and text." size="14" color="#C5D0DC"/>
+  </Canvas>
+
+  <Text value="Each draw" fontSize="13" font="sans-semibold"/>
+  <Canvas width="720" height="176">
+    <Rect x="0" y="0" width="720" height="176" color="#10151C"/>
+    <Rect x="28" y="28" width="100" height="64" color="#E23B3B"/>
+    <Text x="28" y="108" value="Rect" size="14" color="#F4F7FB"/>
+    <Disc x="230" y="60" radius="32" color="#2F9E44"/>
+    <Text x="206" y="108" value="Disc" size="14" color="#F4F7FB"/>
+    <Circle x="390" y="60" radius="32" color="#0E7AFF"/>
+    <Text x="360" y="108" value="Circle" size="14" color="#F4F7FB"/>
+    <Line x1="500" y1="28" x2="600" y2="92" color="#F2C14E"/>
+    <Text x="528" y="108" value="Line" size="14" color="#F4F7FB"/>
+    <Text x="632" y="40" value="Text" size="28" color="#F4F7FB" font="sans-semibold"/>
+    <Text x="632" y="108" value="Text" size="14" color="#F4F7FB"/>
+  </Canvas>
+
+  <Text value="Draw order" fontSize="13" font="sans-semibold"/>
+  <Text value="The list is painted from first to last, so the line and the words sit on top of the shapes." fontSize="13"/>
+  <Canvas width="720" height="160">
+    <Rect x="0" y="0" width="720" height="160" color="#10151C"/>
+    <Rect x="180" y="28" width="220" height="96" color="#E23B3B"/>
+    <Disc x="330" y="84" radius="48" color="#2F9E44"/>
+    <Line x1="150" y1="40" x2="540" y2="120" color="#0E7AFF"/>
+    <Text x="196" y="62" value="Later draws cover earlier ones" size="16" color="#F4F7FB" font="sans-semibold"/>
+  </Canvas>
 </Screen>

@@ -798,6 +798,76 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     else if (right == 2 && known) allow = 1;
                     else if (right == 4 && (known || guest)) allow = 1;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ allow };
+                } else if (inst.symbolImm == "Syscall.Dispatch" && inst.callArgRegs.size() >= 3) {
+                    const std::int64_t caller = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t number = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t argument = regs[inst.callArgRegs[2]].AsInt();
+                    std::int64_t result = -1;
+                    if (number == 0) result = argument + 4919;
+                    else if (number == 1 || number == 2 || number == 4) result = argument;
+                    else if (number == 3) result = 0;
+                    else if (number == 5 && argument >= 8388608 && argument < 10485760) result = argument;
+                    else if (number == 6) {
+                        result = -1;
+                        for (int i = 0; i < 4; ++i) {
+                            if (m_fsState[i] == 1 && m_fsPath[i] == argument) result = 1;
+                        }
+                    }
+                    else if (number == 7 && caller == 2) result = argument;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "FS.Lookup" && !inst.callArgRegs.empty()) {
+                    const std::int64_t path = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t result = -1;
+                    for (int i = 0; i < 4; ++i) {
+                        if (m_fsState[i] == 1 && m_fsPath[i] == path) result = 1;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "FS.Create" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t path = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t value = regs[inst.callArgRegs[1]].AsInt();
+                    std::int64_t result = -1;
+                    if (path > 0) {
+                        int hole = -1;
+                        for (int i = 0; i < 4; ++i) {
+                            if (m_fsState[i] == 1 && m_fsPath[i] == path) {
+                                m_fsValue[i] = value;
+                                result = 1;
+                                hole = -2;
+                                break;
+                            }
+                            if (m_fsState[i] == 0 && hole < 0) hole = i;
+                        }
+                        if (result != 1 && hole >= 0) {
+                            m_fsPath[hole] = path;
+                            m_fsValue[hole] = value;
+                            m_fsState[hole] = 1;
+                            result = 1;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "FS.Read" && !inst.callArgRegs.empty()) {
+                    const std::int64_t path = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t result = -1;
+                    for (int i = 0; i < 4; ++i) {
+                        if (m_fsState[i] == 1 && m_fsPath[i] == path) result = m_fsValue[i];
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "FS.Write" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t path = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t value = regs[inst.callArgRegs[1]].AsInt();
+                    std::int64_t result = -1;
+                    for (int i = 0; i < 4; ++i) {
+                        if (m_fsState[i] == 1 && m_fsPath[i] == path) {
+                            m_fsValue[i] = value;
+                            result = 1;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "FS.List" && !inst.callArgRegs.empty()) {
+                    const std::int64_t index = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t result = 0;
+                    if (index >= 0 && index < 4 && m_fsState[index] == 1) result = m_fsPath[index];
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
                 } else if (inst.symbolImm == "Port.Create" && !inst.callArgRegs.empty()) {
                     const std::int64_t owner = regs[inst.callArgRegs[0]].AsInt();
                     int slot = -1;
@@ -898,6 +968,104 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 } else if (inst.symbolImm == "CPU.TSC") {
                     m_tsc += 1;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ m_tsc };
+                } else if (inst.symbolImm == "PCI.Decode" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t word0 = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t word8 = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t vendor = word0 & 65535;
+                    std::int64_t result = -1;
+                    if (vendor != 65535) {
+                        const std::int64_t device = (word0 >> 16) & 65535;
+                        const std::int64_t klass = (word8 >> 24) & 255;
+                        result = vendor | (device << 16) | (klass << 32);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "HID.Parse" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t kind = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t report = regs[inst.callArgRegs[1]].AsInt();
+                    std::int64_t result = -1;
+                    if (kind == 0 || kind == 2) result = report & 16777215;
+                    else if (kind == 1) {
+                        std::int64_t wheel = (report >> 24) & 255;
+                        if (wheel >= 128) wheel -= 256;
+                        result = wheel;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Driver.Match" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t device = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t personalities = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t count = personalities & 255;
+                    std::int64_t result = -1;
+                    if (count == 1) {
+                        const std::int64_t deviceClass = (device >> 32) & 255;
+                        const std::int64_t personalityClass = (personalities >> 16) & 255;
+                        if (deviceClass == personalityClass) result = (personalities >> 8) & 255;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Driver.Bind" && inst.callArgRegs.size() >= 3) {
+                    const std::int64_t device = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t builtIn = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t installed = regs[inst.callArgRegs[2]].AsInt();
+                    const std::int64_t vendor = device & 65535;
+                    const std::int64_t deviceId = (device >> 16) & 65535;
+                    const std::int64_t packageId = installed & 65535;
+                    const std::int64_t packageVendor = (installed >> 16) & 65535;
+                    const std::int64_t packageDevice = (installed >> 32) & 65535;
+                    std::int64_t result = -1;
+                    if (installed != 0 && packageId != 0 && packageVendor == vendor && packageDevice == deviceId) {
+                        result = packageId;
+                    } else if (builtIn != 0) {
+                        result = builtIn;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Driver.Package" && !inst.callArgRegs.empty()) {
+                    const std::int64_t bytes = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t magic = (bytes >> 48) & 65535;
+                    const std::int64_t version = (bytes >> 32) & 255;
+                    const std::int64_t hmac = (bytes >> 40) & 255;
+                    const std::int64_t vendor = (bytes >> 16) & 65535;
+                    const std::int64_t device = bytes & 65535;
+                    std::int64_t result = -1;
+                    if (magic == 21072) {
+                        if (version == 0) {
+                            result = m_pkgPrevious;
+                            m_pkgActive = m_pkgPrevious;
+                            m_pkgPrevious = 0;
+                        } else {
+                            const std::int64_t expect = (21072 ^ version ^ vendor ^ device) & 255;
+                            if (hmac == expect && (m_pkgActive == 0 || version > m_pkgActive)) {
+                                m_pkgPrevious = m_pkgActive;
+                                m_pkgActive = version;
+                                result = (m_pkgPrevious << 16) | version;
+                            }
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Driver.Newer" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t current = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t offered = regs[inst.callArgRegs[1]].AsInt();
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ offered > current ? std::int64_t{ 1 } : std::int64_t{ 0 } };
+                } else if (inst.symbolImm == "Vendor.Match" && inst.callArgRegs.size() >= 4) {
+                    const std::int64_t catalog = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t vendor = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t device = regs[inst.callArgRegs[2]].AsInt();
+                    std::int64_t result = 0;
+                    if (catalog == 1 && vendor == 32902) {
+                        if (device == 22802) result = 1;
+                        else if (device == 40304) result = 2;
+                        else if (device == 4110 || device == 4307 || device == 5618 || device == 4297 || device == 4347 || device == 5490) result = 3;
+                        else if (device == 10019 || device == 17392) result = 4;
+                        else if (device == 2602 || device == 752) result = 5;
+                        else if (device == 40288) result = 6;
+                        else if (device == 40239 || device == 39443 || device == 5586) result = 7;
+                        else if (device == 39435 || device == 10274) result = 8;
+                        else if (device == 6425) result = 9;
+                        else if (device == 40224 || device == 6403 || device == 40227) result = 10;
+                    } else if (catalog == 2 && (vendor == 4130 || vendor == 4098)) result = 1;
+                    else if (catalog == 3 && vendor == 4318) result = 1;
+                    else if (catalog == 4 && vendor == 4332) result = 1;
+                    else if (catalog == 5 && vendor == 5348) result = 1;
+                    else if (catalog == 6 && vendor == 6091) result = 1;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
                 } else if (inst.symbolImm == "Port.Read8") {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 0 } };
                 } else if (inst.symbolImm == "Port.Write8" && inst.callArgRegs.size() >= 2) {

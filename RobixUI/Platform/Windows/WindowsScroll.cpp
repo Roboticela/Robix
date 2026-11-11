@@ -293,7 +293,13 @@ void WindowDragScrollBar(WindowScrollState& bar, int pointerY) {
     if (pos > travel) {
         pos = travel;
     }
-    bar.scrollY = maxScroll > 0 ? static_cast<int>(static_cast<long long>(pos) * maxScroll / travel) : 0;
+    if (pos <= 0) {
+        bar.scrollY = 0;
+    } else if (pos >= travel) {
+        bar.scrollY = maxScroll;
+    } else {
+        bar.scrollY = static_cast<int>((static_cast<long long>(pos) * maxScroll + travel / 2) / travel);
+    }
 }
 
 int WindowScrollThumbY(const WindowScrollState& bar) {
@@ -441,7 +447,13 @@ void WindowDragScrollBarX(WindowScrollState& bar, int pointerX) {
     if (pos > travel) {
         pos = travel;
     }
-    bar.scrollX = maxScroll > 0 ? static_cast<int>(static_cast<long long>(pos) * maxScroll / travel) : 0;
+    if (pos <= 0) {
+        bar.scrollX = 0;
+    } else if (pos >= travel) {
+        bar.scrollX = maxScroll;
+    } else {
+        bar.scrollX = static_cast<int>((static_cast<long long>(pos) * maxScroll + travel / 2) / travel);
+    }
 }
 
 int WindowScrollThumbX(const WindowScrollState& bar) {

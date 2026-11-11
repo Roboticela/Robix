@@ -218,6 +218,9 @@ struct ModuleCtx {
     bool usesSched = false;
     bool usesPort = false;
     bool usesProc = false;
+    bool usesDispatch = false;
+    bool usesFs = false;
+    bool usesPackage = false;
     std::vector<RoboPlayedEvent> inputScript;
     bool usesScene = false;
     std::vector<std::uint32_t> scenePixels;
@@ -1554,6 +1557,41 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val right = Coerce(Operand(inst, 1), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call i64 @rx_cred_allow(i64 " << user.repr << ", i64 " << right.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Syscall.Dispatch" && inst.operandIds.size() >= 3) {
+                m_ctx.usesDispatch = true;
+                Val caller = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val number = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val argument = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_syscall_dispatch(i64 " << caller.repr << ", i64 " << number.repr
+                       << ", i64 " << argument.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "FS.Lookup" && !inst.operandIds.empty()) {
+                m_ctx.usesFs = true;
+                Val path = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_fs_lookup(i64 " << path.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "FS.Create" && inst.operandIds.size() >= 2) {
+                m_ctx.usesFs = true;
+                Val path = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val value = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_fs_create(i64 " << path.repr << ", i64 " << value.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "FS.Read" && !inst.operandIds.empty()) {
+                m_ctx.usesFs = true;
+                Val path = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_fs_read(i64 " << path.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "FS.Write" && inst.operandIds.size() >= 2) {
+                m_ctx.usesFs = true;
+                Val path = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val value = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_fs_write(i64 " << path.repr << ", i64 " << value.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "FS.List" && !inst.operandIds.empty()) {
+                m_ctx.usesFs = true;
+                Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_fs_list(i64 " << index.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Clock.Seconds" && !inst.operandIds.empty()) {
                 Val cmos = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 const std::string tens = NewTmp();
@@ -1578,6 +1616,19 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << v8 << " = trunc i64 " << value.repr << " to i8\n";
                 m_body << "  call void asm sideeffect \"outb $0, $1\", \"{ax},{dx}\"(i8 " << v8 << ", i16 " << p16 << ")\n";
                 m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Port.Write16" && inst.operandIds.size() >= 2) {
+                if (m_ctx.options.asmArch != "x86_64") {
+                    Err("N9010", "Port.Write16 exists on x86_64 only.", inst.location);
+                    break;
+                }
+                Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val value = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string p16 = NewTmp();
+                const std::string v16 = NewTmp();
+                m_body << "  " << p16 << " = trunc i64 " << port.repr << " to i16\n";
+                m_body << "  " << v16 << " = trunc i64 " << value.repr << " to i16\n";
+                m_body << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 " << v16 << ", i16 " << p16 << ")\n";
+                m_vals[id] = Val{ "0", NTy::Void };
             } else if (inst.textImm == "Port.Read8" && !inst.operandIds.empty()) {
                 if (m_ctx.options.asmArch != "x86_64") {
                     Err("N9010", "Port.Read8 exists on x86_64 only.", inst.location);
@@ -1601,6 +1652,171 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << p16 << " = trunc i64 " << port.repr << " to i16\n";
                 m_body << "  " << raw << " = call i16 asm sideeffect \"inw $1, $0\", \"={ax},{dx}\"(i16 " << p16 << ")\n";
                 m_body << "  " << vname << " = zext i16 " << raw << " to i64\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Port.Write32" && inst.operandIds.size() >= 2) {
+                if (m_ctx.options.asmArch != "x86_64") {
+                    Err("N9010", "Port.Write32 exists on x86_64 only.", inst.location);
+                    break;
+                }
+                Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val value = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string p16 = NewTmp();
+                const std::string v32 = NewTmp();
+                m_body << "  " << p16 << " = trunc i64 " << port.repr << " to i16\n";
+                m_body << "  " << v32 << " = trunc i64 " << value.repr << " to i32\n";
+                m_body << "  call void asm sideeffect \"outl $0, $1\", \"{ax},{dx}\"(i32 " << v32 << ", i16 " << p16 << ")\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Port.Read32" && !inst.operandIds.empty()) {
+                if (m_ctx.options.asmArch != "x86_64") {
+                    Err("N9010", "Port.Read32 exists on x86_64 only.", inst.location);
+                    break;
+                }
+                Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                const std::string p16 = NewTmp();
+                const std::string raw = NewTmp();
+                m_body << "  " << p16 << " = trunc i64 " << port.repr << " to i16\n";
+                m_body << "  " << raw << " = call i32 asm sideeffect \"inl $1, $0\", \"={ax},{dx}\"(i16 " << p16 << ")\n";
+                m_body << "  " << vname << " = zext i32 " << raw << " to i64\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "PCI.Decode" && inst.operandIds.size() >= 2) {
+                Val word0 = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val word8 = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string vendor = NewTmp();
+                const std::string missing = NewTmp();
+                const std::string device = NewTmp();
+                const std::string deviceShift = NewTmp();
+                const std::string klass = NewTmp();
+                const std::string klassShift = NewTmp();
+                const std::string low = NewTmp();
+                const std::string packed = NewTmp();
+                m_body << "  " << vendor << " = and i64 " << word0.repr << ", 65535\n";
+                m_body << "  " << missing << " = icmp eq i64 " << vendor << ", 65535\n";
+                m_body << "  " << deviceShift << " = lshr i64 " << word0.repr << ", 16\n";
+                m_body << "  " << device << " = and i64 " << deviceShift << ", 65535\n";
+                m_body << "  " << device << "p = shl i64 " << device << ", 16\n";
+                m_body << "  " << klassShift << " = lshr i64 " << word8.repr << ", 24\n";
+                m_body << "  " << klass << " = and i64 " << klassShift << ", 255\n";
+                m_body << "  " << klass << "p = shl i64 " << klass << ", 32\n";
+                m_body << "  " << low << " = or i64 " << vendor << ", " << device << "p\n";
+                m_body << "  " << packed << " = or i64 " << low << ", " << klass << "p\n";
+                m_body << "  " << vname << " = select i1 " << missing << ", i64 -1, i64 " << packed << "\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "HID.Parse" && inst.operandIds.size() >= 2) {
+                Val kind = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val report = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string mouse = NewTmp();
+                const std::string wheelKind = NewTmp();
+                const std::string touch = NewTmp();
+                const std::string bytes = NewTmp();
+                const std::string wheelShift = NewTmp();
+                const std::string wheel = NewTmp();
+                const std::string high = NewTmp();
+                const std::string signedWheel = NewTmp();
+                const std::string chosen = NewTmp();
+                const std::string touched = NewTmp();
+                m_body << "  " << mouse << " = icmp eq i64 " << kind.repr << ", 0\n";
+                m_body << "  " << wheelKind << " = icmp eq i64 " << kind.repr << ", 1\n";
+                m_body << "  " << touch << " = icmp eq i64 " << kind.repr << ", 2\n";
+                m_body << "  " << bytes << " = and i64 " << report.repr << ", 16777215\n";
+                m_body << "  " << wheelShift << " = lshr i64 " << report.repr << ", 24\n";
+                m_body << "  " << wheel << " = and i64 " << wheelShift << ", 255\n";
+                m_body << "  " << high << " = icmp uge i64 " << wheel << ", 128\n";
+                m_body << "  " << signedWheel << " = select i1 " << high << ", i64 " << wheel << ", i64 " << wheel << "\n";
+                m_body << "  " << signedWheel << "s = sub i64 " << signedWheel << ", 256\n";
+                m_body << "  " << signedWheel << "v = select i1 " << high << ", i64 " << signedWheel << "s, i64 " << wheel << "\n";
+                m_body << "  " << chosen << " = select i1 " << mouse << ", i64 " << bytes << ", i64 -1\n";
+                m_body << "  " << chosen << "w = select i1 " << wheelKind << ", i64 " << signedWheel << "v, i64 " << chosen << "\n";
+                m_body << "  " << touched << " = select i1 " << touch << ", i64 " << bytes << ", i64 " << chosen << "w\n";
+                m_body << "  " << vname << " = add i64 " << touched << ", 0\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Driver.Match" && inst.operandIds.size() >= 2) {
+                Val device = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val personalities = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string count = NewTmp();
+                const std::string none = NewTmp();
+                const std::string many = NewTmp();
+                const std::string bad = NewTmp();
+                const std::string devShift = NewTmp();
+                const std::string devClass = NewTmp();
+                const std::string perShift = NewTmp();
+                const std::string perClass = NewTmp();
+                const std::string same = NewTmp();
+                const std::string idShift = NewTmp();
+                const std::string ident = NewTmp();
+                const std::string matched = NewTmp();
+                m_body << "  " << count << " = and i64 " << personalities.repr << ", 255\n";
+                m_body << "  " << none << " = icmp eq i64 " << count << ", 0\n";
+                m_body << "  " << many << " = icmp sgt i64 " << count << ", 1\n";
+                m_body << "  " << bad << " = or i1 " << none << ", " << many << "\n";
+                m_body << "  " << devShift << " = lshr i64 " << device.repr << ", 32\n";
+                m_body << "  " << devClass << " = and i64 " << devShift << ", 255\n";
+                m_body << "  " << perShift << " = lshr i64 " << personalities.repr << ", 16\n";
+                m_body << "  " << perClass << " = and i64 " << perShift << ", 255\n";
+                m_body << "  " << same << " = icmp eq i64 " << devClass << ", " << perClass << "\n";
+                m_body << "  " << idShift << " = lshr i64 " << personalities.repr << ", 8\n";
+                m_body << "  " << ident << " = and i64 " << idShift << ", 255\n";
+                m_body << "  " << matched << " = select i1 " << same << ", i64 " << ident << ", i64 -1\n";
+                m_body << "  " << vname << " = select i1 " << bad << ", i64 -1, i64 " << matched << "\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Driver.Bind" && inst.operandIds.size() >= 3) {
+                Val device = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val builtIn = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val installed = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                const std::string vendor = NewTmp();
+                const std::string devShift = NewTmp();
+                const std::string devId = NewTmp();
+                const std::string pack = NewTmp();
+                const std::string venShift = NewTmp();
+                const std::string packVen = NewTmp();
+                const std::string idShift = NewTmp();
+                const std::string packDev = NewTmp();
+                const std::string has = NewTmp();
+                const std::string venOk = NewTmp();
+                const std::string devOk = NewTmp();
+                const std::string idOk = NewTmp();
+                const std::string pair = NewTmp();
+                const std::string hit = NewTmp();
+                const std::string built = NewTmp();
+                const std::string fallback = NewTmp();
+                m_body << "  " << vendor << " = and i64 " << device.repr << ", 65535\n";
+                m_body << "  " << devShift << " = lshr i64 " << device.repr << ", 16\n";
+                m_body << "  " << devId << " = and i64 " << devShift << ", 65535\n";
+                m_body << "  " << pack << " = and i64 " << installed.repr << ", 65535\n";
+                m_body << "  " << venShift << " = lshr i64 " << installed.repr << ", 16\n";
+                m_body << "  " << packVen << " = and i64 " << venShift << ", 65535\n";
+                m_body << "  " << idShift << " = lshr i64 " << installed.repr << ", 32\n";
+                m_body << "  " << packDev << " = and i64 " << idShift << ", 65535\n";
+                m_body << "  " << has << " = icmp ne i64 " << installed.repr << ", 0\n";
+                m_body << "  " << venOk << " = icmp eq i64 " << packVen << ", " << vendor << "\n";
+                m_body << "  " << devOk << " = icmp eq i64 " << packDev << ", " << devId << "\n";
+                m_body << "  " << idOk << " = icmp ne i64 " << pack << ", 0\n";
+                m_body << "  " << pair << " = and i1 " << venOk << ", " << devOk << "\n";
+                m_body << "  " << pair << "b = and i1 " << pair << ", " << idOk << "\n";
+                m_body << "  " << hit << " = and i1 " << has << ", " << pair << "b\n";
+                m_body << "  " << built << " = icmp ne i64 " << builtIn.repr << ", 0\n";
+                m_body << "  " << fallback << " = select i1 " << built << ", i64 " << builtIn.repr << ", i64 -1\n";
+                m_body << "  " << vname << " = select i1 " << hit << ", i64 " << pack << ", i64 " << fallback << "\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Driver.Package" && !inst.operandIds.empty()) {
+                m_ctx.usesPackage = true;
+                Val bytes = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_pkg(i64 " << bytes.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Driver.Newer" && inst.operandIds.size() >= 2) {
+                Val current = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val offered = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string newer = NewTmp();
+                m_body << "  " << newer << " = icmp sgt i64 " << offered.repr << ", " << current.repr << "\n";
+                m_body << "  " << vname << " = zext i1 " << newer << " to i64\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Vendor.Match" && inst.operandIds.size() >= 4) {
+                m_ctx.usesPackage = true;
+                Val catalog = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val vendor = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val device = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                Val klass = Coerce(Operand(inst, 3), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_vendor_match(i64 " << catalog.repr << ", i64 " << vendor.repr
+                       << ", i64 " << device.repr << ", i64 " << klass.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Page.Entry" && inst.operandIds.size() >= 2) {
                 Val phys = Coerce(Operand(inst, 0), NTy::I64, inst.location);
@@ -2731,7 +2947,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                                     : "";
         const std::string text =
             "pushq %rax\npushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
-            "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n" +
+            "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n"
+            "movabsq $$21248, %r11\nmovq %rax, (%r11)\n"
+            "movabsq $$21256, %r11\nmovq %rdi, (%r11)\n" +
             eoi +
             "call rx_fn_" + isr + "\n"
             "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
@@ -3326,6 +3544,166 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  %writer = and i1 %write, %known\n  %reader = or i1 %known, %guest\n";
         out << "  %readok = and i1 %read, %reader\n  %any = or i1 %sysok, %writer\n";
         out << "  %allow = or i1 %any, %readok\n  %bit = zext i1 %allow to i64\n  ret i64 %bit\n}\n\n";
+    }
+
+    if (ctx.usesPackage) {
+        out << "@rx.pkg.active = internal global i64 0\n";
+        out << "@rx.pkg.prev = internal global i64 0\n";
+        out << "define i64 @rx_pkg(i64 %bytes) {\n";
+        out << "entry:\n  %magicShift = lshr i64 %bytes, 48\n  %magic = and i64 %magicShift, 65535\n";
+        out << "  %verShift = lshr i64 %bytes, 32\n  %version = and i64 %verShift, 255\n";
+        out << "  %hmacShift = lshr i64 %bytes, 40\n  %hmac = and i64 %hmacShift, 255\n";
+        out << "  %venShift = lshr i64 %bytes, 16\n  %vendor = and i64 %venShift, 65535\n";
+        out << "  %device = and i64 %bytes, 65535\n  %badMagic = icmp ne i64 %magic, 21072\n";
+        out << "  br i1 %badMagic, label %err, label %okmag\n";
+        out << "err:\n  ret i64 -1\n";
+        out << "okmag:\n  %rollback = icmp eq i64 %version, 0\n  br i1 %rollback, label %back, label %check\n";
+        out << "back:\n  %prev = load i64, ptr @rx.pkg.prev, align 8\n";
+        out << "  store i64 %prev, ptr @rx.pkg.active, align 8\n  store i64 0, ptr @rx.pkg.prev, align 8\n  ret i64 %prev\n";
+        out << "check:\n  %x1 = xor i64 21072, %version\n  %x2 = xor i64 %x1, %vendor\n  %x3 = xor i64 %x2, %device\n";
+        out << "  %expect = and i64 %x3, 255\n  %bad = icmp ne i64 %hmac, %expect\n";
+        out << "  br i1 %bad, label %err, label %newer\n";
+        out << "newer:\n  %active = load i64, ptr @rx.pkg.active, align 8\n";
+        out << "  %empty = icmp eq i64 %active, 0\n  %gt = icmp sgt i64 %version, %active\n";
+        out << "  %ok = or i1 %empty, %gt\n  br i1 %ok, label %store, label %err\n";
+        out << "store:\n  store i64 %active, ptr @rx.pkg.prev, align 8\n  store i64 %version, ptr @rx.pkg.active, align 8\n";
+        out << "  %high = shl i64 %active, 16\n  %packed = or i64 %high, %version\n  ret i64 %packed\n}\n\n";
+        static const std::pair<int, int> kIntel[] = {
+            {22802, 1}, {40304, 2}, {4110, 3}, {4307, 3}, {5618, 3}, {4297, 3}, {4347, 3}, {5490, 3},
+            {10019, 4}, {17392, 4}, {2602, 5}, {752, 5}, {40288, 6}, {40239, 7}, {39443, 7}, {5586, 7},
+            {39435, 8}, {10274, 8}, {6425, 9}, {40224, 10}, {6403, 10}, {40227, 10}
+        };
+        out << "define i64 @rx_vendor_match(i64 %catalog, i64 %vendor, i64 %device, i64 %class) {\n";
+        out << "entry:\n  %c1 = icmp eq i64 %catalog, 1\n  br i1 %c1, label %intel, label %other\n";
+        out << "intel:\n  %isIntel = icmp eq i64 %vendor, 32902\n  br i1 %isIntel, label %id0, label %none\n";
+        for (std::size_t i = 0; i < sizeof(kIntel) / sizeof(kIntel[0]); ++i) {
+            out << "id" << i << ":\n  %hit" << i << " = icmp eq i64 %device, " << kIntel[i].first << "\n";
+            if (i + 1 < sizeof(kIntel) / sizeof(kIntel[0])) {
+                out << "  br i1 %hit" << i << ", label %fam" << i << ", label %id" << (i + 1) << "\n";
+            } else {
+                out << "  br i1 %hit" << i << ", label %fam" << i << ", label %none\n";
+            }
+            out << "fam" << i << ":\n  ret i64 " << kIntel[i].second << "\n";
+        }
+        out << "other:\n  %c2 = icmp eq i64 %catalog, 2\n  br i1 %c2, label %amd, label %c3\n";
+        out << "amd:\n  %a1 = icmp eq i64 %vendor, 4130\n  %a2 = icmp eq i64 %vendor, 4098\n";
+        out << "  %amdHit = or i1 %a1, %a2\n  %amdBit = zext i1 %amdHit to i64\n  ret i64 %amdBit\n";
+        out << "c3:\n  %c3b = icmp eq i64 %catalog, 3\n  br i1 %c3b, label %nvidia, label %c4\n";
+        out << "nvidia:\n  %nv = icmp eq i64 %vendor, 4318\n  %nvBit = zext i1 %nv to i64\n  ret i64 %nvBit\n";
+        out << "c4:\n  %c4b = icmp eq i64 %catalog, 4\n  br i1 %c4b, label %realtek, label %c5\n";
+        out << "realtek:\n  %rt = icmp eq i64 %vendor, 4332\n  %rtBit = zext i1 %rt to i64\n  ret i64 %rtBit\n";
+        out << "c5:\n  %c5b = icmp eq i64 %catalog, 5\n  br i1 %c5b, label %broadcom, label %c6\n";
+        out << "broadcom:\n  %bc = icmp eq i64 %vendor, 5348\n  %bcBit = zext i1 %bc to i64\n  ret i64 %bcBit\n";
+        out << "c6:\n  %c6b = icmp eq i64 %catalog, 6\n  br i1 %c6b, label %qualcomm, label %none\n";
+        out << "qualcomm:\n  %qc = icmp eq i64 %vendor, 6091\n  %qcBit = zext i1 %qc to i64\n  ret i64 %qcBit\n";
+        out << "none:\n  ret i64 0\n}\n\n";
+        (void)0;
+    }
+
+    if (ctx.usesFs || ctx.usesDispatch) {
+        out << "@rx.fs.lock = internal global i64 0\n";
+        out << "@rx.fs.path = internal global [4 x i64] zeroinitializer\n";
+        out << "@rx.fs.value = internal global [4 x i64] zeroinitializer\n";
+        out << "@rx.fs.state = internal global [4 x i64] zeroinitializer\n";
+        out << "define internal void @rx_fs_lock() {\n";
+        out << "entry:\n  br label %spin\n";
+        out << "spin:\n  %got = atomicrmw xchg ptr @rx.fs.lock, i64 1 seq_cst\n";
+        out << "  %free = icmp eq i64 %got, 0\n  br i1 %free, label %out, label %spin\n";
+        out << "out:\n  ret void\n}\n\n";
+        out << "define internal void @rx_fs_unlock() {\n";
+        out << "  store atomic i64 0, ptr @rx.fs.lock seq_cst, align 8\n  ret void\n}\n\n";
+        out << "define i64 @rx_fs_lookup(i64 %path) {\n";
+        out << "entry:\n  call void @rx_fs_lock()\n  br label %scan\n";
+        out << "scan:\n  %i = phi i64 [ 0, %entry ], [ %next, %step ]\n";
+        out << "  %done = icmp uge i64 %i, 4\n  br i1 %done, label %miss, label %check\n";
+        out << "check:\n  %sp = getelementptr [4 x i64], ptr @rx.fs.state, i64 0, i64 %i\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %pp = getelementptr [4 x i64], ptr @rx.fs.path, i64 0, i64 %i\n";
+        out << "  %got = load i64, ptr %pp, align 8\n  %live = icmp eq i64 %st, 1\n";
+        out << "  %same = icmp eq i64 %got, %path\n  %hit = and i1 %live, %same\n";
+        out << "  br i1 %hit, label %yes, label %step\n";
+        out << "step:\n  %next = add i64 %i, 1\n  br label %scan\n";
+        out << "yes:\n  call void @rx_fs_unlock()\n  ret i64 1\n";
+        out << "miss:\n  call void @rx_fs_unlock()\n  ret i64 -1\n}\n\n";
+        out << "define i64 @rx_fs_create(i64 %path, i64 %value) {\n";
+        out << "entry:\n  %bad = icmp sle i64 %path, 0\n  br i1 %bad, label %err, label %lock\n";
+        out << "err:\n  ret i64 -1\n";
+        out << "lock:\n  call void @rx_fs_lock()\n  br label %find\n";
+        out << "find:\n  %i = phi i64 [ 0, %lock ], [ %inext, %fstep ]\n";
+        out << "  %hole = phi i64 [ -1, %lock ], [ %hole2, %fstep ]\n";
+        out << "  %done = icmp uge i64 %i, 4\n  br i1 %done, label %place, label %body\n";
+        out << "body:\n  %sp = getelementptr [4 x i64], ptr @rx.fs.state, i64 0, i64 %i\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %pp = getelementptr [4 x i64], ptr @rx.fs.path, i64 0, i64 %i\n";
+        out << "  %got = load i64, ptr %pp, align 8\n  %live = icmp eq i64 %st, 1\n";
+        out << "  %same = icmp eq i64 %got, %path\n  %hit = and i1 %live, %same\n";
+        out << "  br i1 %hit, label %update, label %fstep\n";
+        out << "fstep:\n  %empty = icmp eq i64 %st, 0\n  %need = icmp slt i64 %hole, 0\n";
+        out << "  %take = and i1 %empty, %need\n  %hole2 = select i1 %take, i64 %i, i64 %hole\n";
+        out << "  %inext = add i64 %i, 1\n  br label %find\n";
+        out << "update:\n  %vp = getelementptr [4 x i64], ptr @rx.fs.value, i64 0, i64 %i\n";
+        out << "  store i64 %value, ptr %vp, align 8\n  call void @rx_fs_unlock()\n  ret i64 1\n";
+        out << "place:\n  %full = icmp slt i64 %hole, 0\n  br i1 %full, label %nofit, label %fill\n";
+        out << "nofit:\n  call void @rx_fs_unlock()\n  ret i64 -1\n";
+        out << "fill:\n  %hp = getelementptr [4 x i64], ptr @rx.fs.path, i64 0, i64 %hole\n";
+        out << "  %hv = getelementptr [4 x i64], ptr @rx.fs.value, i64 0, i64 %hole\n";
+        out << "  %hs = getelementptr [4 x i64], ptr @rx.fs.state, i64 0, i64 %hole\n";
+        out << "  store i64 %path, ptr %hp, align 8\n  store i64 %value, ptr %hv, align 8\n";
+        out << "  store i64 1, ptr %hs, align 8\n  call void @rx_fs_unlock()\n  ret i64 1\n}\n\n";
+        out << "define i64 @rx_fs_read(i64 %path) {\n";
+        out << "entry:\n  call void @rx_fs_lock()\n  br label %scan\n";
+        out << "scan:\n  %i = phi i64 [ 0, %entry ], [ %next, %step ]\n";
+        out << "  %done = icmp uge i64 %i, 4\n  br i1 %done, label %miss, label %check\n";
+        out << "check:\n  %sp = getelementptr [4 x i64], ptr @rx.fs.state, i64 0, i64 %i\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %pp = getelementptr [4 x i64], ptr @rx.fs.path, i64 0, i64 %i\n";
+        out << "  %got = load i64, ptr %pp, align 8\n  %live = icmp eq i64 %st, 1\n";
+        out << "  %same = icmp eq i64 %got, %path\n  %hit = and i1 %live, %same\n";
+        out << "  br i1 %hit, label %take, label %step\n";
+        out << "step:\n  %next = add i64 %i, 1\n  br label %scan\n";
+        out << "take:\n  %vp = getelementptr [4 x i64], ptr @rx.fs.value, i64 0, i64 %i\n";
+        out << "  %value = load i64, ptr %vp, align 8\n  call void @rx_fs_unlock()\n  ret i64 %value\n";
+        out << "miss:\n  call void @rx_fs_unlock()\n  ret i64 -1\n}\n\n";
+        out << "define i64 @rx_fs_write(i64 %path, i64 %value) {\n";
+        out << "entry:\n  call void @rx_fs_lock()\n  br label %scan\n";
+        out << "scan:\n  %i = phi i64 [ 0, %entry ], [ %next, %step ]\n";
+        out << "  %done = icmp uge i64 %i, 4\n  br i1 %done, label %miss, label %check\n";
+        out << "check:\n  %sp = getelementptr [4 x i64], ptr @rx.fs.state, i64 0, i64 %i\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %pp = getelementptr [4 x i64], ptr @rx.fs.path, i64 0, i64 %i\n";
+        out << "  %got = load i64, ptr %pp, align 8\n  %live = icmp eq i64 %st, 1\n";
+        out << "  %same = icmp eq i64 %got, %path\n  %hit = and i1 %live, %same\n";
+        out << "  br i1 %hit, label %store, label %step\n";
+        out << "step:\n  %next = add i64 %i, 1\n  br label %scan\n";
+        out << "store:\n  %vp = getelementptr [4 x i64], ptr @rx.fs.value, i64 0, i64 %i\n";
+        out << "  store i64 %value, ptr %vp, align 8\n  call void @rx_fs_unlock()\n  ret i64 1\n";
+        out << "miss:\n  call void @rx_fs_unlock()\n  ret i64 -1\n}\n\n";
+        out << "define i64 @rx_fs_list(i64 %index) {\n";
+        out << "entry:\n  %bad = icmp slt i64 %index, 0\n  br i1 %bad, label %none, label %lock\n";
+        out << "none:\n  ret i64 0\n";
+        out << "lock:\n  call void @rx_fs_lock()\n  %lim = icmp uge i64 %index, 4\n  br i1 %lim, label %empty, label %load\n";
+        out << "load:\n  %sp = getelementptr [4 x i64], ptr @rx.fs.state, i64 0, i64 %index\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %live = icmp eq i64 %st, 1\n";
+        out << "  br i1 %live, label %path, label %empty\n";
+        out << "path:\n  %pp = getelementptr [4 x i64], ptr @rx.fs.path, i64 0, i64 %index\n";
+        out << "  %got = load i64, ptr %pp, align 8\n  call void @rx_fs_unlock()\n  ret i64 %got\n";
+        out << "empty:\n  call void @rx_fs_unlock()\n  ret i64 0\n}\n\n";
+    }
+
+    if (ctx.usesDispatch) {
+        out << "define i64 @rx_syscall_dispatch(i64 %caller, i64 %number, i64 %arg) {\n";
+        out << "entry:\n  %echo = icmp eq i64 %number, 0\n  br i1 %echo, label %doecho, label %n1\n";
+        out << "doecho:\n  %sum = add i64 %arg, 4919\n  ret i64 %sum\n";
+        out << "n1:\n  %exit = icmp eq i64 %number, 1\n  br i1 %exit, label %dovalue, label %n2\n";
+        out << "n2:\n  %log = icmp eq i64 %number, 2\n  br i1 %log, label %dovalue, label %n3\n";
+        out << "n3:\n  %yield = icmp eq i64 %number, 3\n  br i1 %yield, label %doyield, label %n4\n";
+        out << "doyield:\n  ret i64 0\n";
+        out << "n4:\n  %port = icmp eq i64 %number, 4\n  br i1 %port, label %dovalue, label %n5\n";
+        out << "dovalue:\n  ret i64 %arg\n";
+        out << "n5:\n  %map = icmp eq i64 %number, 5\n  br i1 %map, label %domap, label %n6\n";
+        out << "domap:\n  %low = icmp sge i64 %arg, 8388608\n  %high = icmp slt i64 %arg, 10485760\n";
+        out << "  %user = and i1 %low, %high\n  br i1 %user, label %dovalue, label %err\n";
+        out << "n6:\n  %file = icmp eq i64 %number, 6\n  br i1 %file, label %dofile, label %n7\n";
+        out << "dofile:\n  %found = call i64 @rx_fs_lookup(i64 %arg)\n  ret i64 %found\n";
+        out << "n7:\n  %draw = icmp eq i64 %number, 7\n  br i1 %draw, label %dodraw, label %err\n";
+        out << "dodraw:\n  %server = icmp eq i64 %caller, 2\n  br i1 %server, label %dovalue, label %err\n";
+        out << "err:\n  ret i64 -1\n}\n\n";
     }
 
     if (ctx.usesInput) {

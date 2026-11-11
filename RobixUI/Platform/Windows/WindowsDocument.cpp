@@ -8,6 +8,7 @@
 #include "../../Compiler/Foundation/FoundationPlatform.hpp"
 #include "../../Compiler/Compose.hpp"
 #include "../../Compiler/RoboXML.hpp"
+#include "../../Compiler/Components/Canvas/RoboCanvas.hpp"
 #include "../../Compiler/Components/Image/RoboImage.hpp"
 #include "../../RoboGPU/RoboGPU.hpp"
 #include "../../RoboGPU/RoboText.hpp"
@@ -17,6 +18,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <string>
 #include <vector>
 
@@ -88,6 +90,17 @@ struct CachedPicture {
 };
 
 std::vector<CachedPicture> gPictures;
+
+struct CachedCanvas {
+    int width = 0;
+    int height = 0;
+    std::vector<RoboU32> pixels;
+    int cacheW = 0;
+    int cacheH = 0;
+    std::vector<RoboU32> cache;
+};
+
+std::vector<CachedCanvas> gCanvases;
 unsigned gPictureClock = 0;
 
 int PictureFor(const std::filesystem::path& file) {
@@ -502,6 +515,7 @@ struct PaintOp {
     int select = 0;
     int picture = -1;
     std::string pictureFit;
+    int canvas = -1;
 };
 
 int PictureChannel(RoboU32 pixel, int shift) {
@@ -702,6 +716,35 @@ void PaintPicture(RoboGPU* gpu, const PaintOp& op, int y) {
             const float sourceX = (static_cast<float>(localX) + 0.5f) * static_cast<float>(sourceWidth) / static_cast<float>(destWidth) - 0.5f;
             cached.cache[static_cast<std::size_t>(row) * static_cast<std::size_t>(op.width) + static_cast<std::size_t>(column)] =
                 PictureMix(pixels, sourceWidth, sourceHeight, sourceX, sourceY);
+        }
+    }
+    BlendPicture(gpu, op, y, cached.cache);
+}
+
+void PaintCanvas(RoboGPU* gpu, const PaintOp& op, int y) {
+    if (gpu == nullptr || op.canvas < 0 || op.canvas >= static_cast<int>(gCanvases.size()) || op.width <= 0 || op.height <= 0) {
+        return;
+    }
+    CachedCanvas& cached = gCanvases[static_cast<std::size_t>(op.canvas)];
+    if (cached.width <= 0 || cached.height <= 0 || cached.pixels.empty()) {
+        return;
+    }
+    if (cached.width == op.width && cached.height == op.height) {
+        BlendPicture(gpu, op, y, cached.pixels);
+        return;
+    }
+    if (cached.cacheW != op.width || cached.cacheH != op.height ||
+        cached.cache.size() != static_cast<std::size_t>(op.width) * static_cast<std::size_t>(op.height)) {
+        cached.cache.assign(static_cast<std::size_t>(op.width) * static_cast<std::size_t>(op.height), 0);
+        cached.cacheW = op.width;
+        cached.cacheH = op.height;
+        for (int row = 0; row < op.height; ++row) {
+            const float sourceY = (static_cast<float>(row) + 0.5f) * static_cast<float>(cached.height) / static_cast<float>(op.height) - 0.5f;
+            for (int column = 0; column < op.width; ++column) {
+                const float sourceX = (static_cast<float>(column) + 0.5f) * static_cast<float>(cached.width) / static_cast<float>(op.width) - 0.5f;
+                cached.cache[static_cast<std::size_t>(row) * static_cast<std::size_t>(op.width) + static_cast<std::size_t>(column)] =
+                    PictureMix(cached.pixels.data(), cached.width, cached.height, sourceX, sourceY);
+            }
         }
     }
     BlendPicture(gpu, op, y, cached.cache);
@@ -2171,6 +2214,67 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         (shown.empty() && Lower(RoboXMLAttr(node, "hidden")) == "true")) {
         return 0;
     }
+        if (name == "canvas") {
+            RoboCanvasNode drawn;
+            std::string diagnostic;
+            if (RoboCanvasRead(node, drawn, diagnostic)) {
+                int boxW = AttrLength(node, "width");
+                int boxH = AttrLength(node, "height");
+                if (boxW <= 0) {
+                    boxW = drawn.width;
+                }
+                if (boxH <= 0) {
+                    boxH = drawn.height;
+                }
+                if (width > 0 && boxW > width) {
+                    boxH = std::max(1, boxH * width / std::max(1, boxW));
+                    boxW = width;
+                }
+                RoboFontPackView pack{};
+                RoboCanvasFrame frame;
+                RoboCanvasPaint(drawn, pack, frame);
+                CachedCanvas cached;
+                cached.width = frame.width;
+                cached.height = frame.height;
+                cached.pixels = std::move(frame.pixels);
+                const int canvasIndex = static_cast<int>(gCanvases.size());
+                gCanvases.push_back(std::move(cached));
+                PaintOp box;
+                box.x = x;
+                box.y = y;
+                box.width = std::max(1, boxW);
+                box.height = std::max(1, boxH);
+                box.canvas = canvasIndex;
+                ops.push_back(box);
+                const auto along = [](int value, int from, int to) {
+                    if (from <= 0 || to == from) {
+                        return value;
+                    }
+                    return static_cast<int>((static_cast<long long>(value) * to + from / 2) / from);
+                };
+                for (const RoboCanvasCommand& command : drawn.commands) {
+                    if (command.kind != RoboCanvasKind::Text || command.value.empty()) {
+                        continue;
+                    }
+                    PaintOp label;
+                    label.text = true;
+                    label.x = x + along(command.x, drawn.width, box.width);
+                    label.y = y + along(command.y, drawn.height, box.height);
+                    label.size = std::max(1, along(command.size, drawn.height, box.height));
+                    label.face = FaceOf(command.family);
+                    label.color = command.color == 0 ? 0xFF000000u : command.color;
+                    label.value = command.value;
+                    label.wrap = 0;
+                    label.overflow = 0;
+                    label.breakLong = false;
+                    label.width = std::max(1, MeasureText(label.value, label.size, label.face));
+                    label.wrapWidth = label.width;
+                    label.height = label.size;
+                    ops.push_back(label);
+                }
+                return box.height;
+            }
+        }
         if (name == "image") {
         int boxH = AttrLength(node, "height");
         if (boxH <= 0) {
@@ -3558,6 +3662,9 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
         if (op.picture >= 0) {
             PaintPicture(gpu, op, y);
         }
+        if (op.canvas >= 0) {
+            PaintCanvas(gpu, op, y);
+        }
         if (op.drawing && op.loading) {
             const int size = std::max(8, std::min(op.width, op.height));
             PaintSpin(gpu, op.x + op.width / 2, y + op.height / 2, size, op.color, op.fade, light);
@@ -3804,6 +3911,8 @@ struct Scene {
     int contentHeight = 0;
     int contentWidth = 0;
     int zoomAnchor = 0;
+    bool pinchEnabled = true;
+    bool zoomEnabled = true;
     RoboU32 background = 0;
     std::vector<PaintOp> ops;
     std::vector<WindowControl> controls;
@@ -4178,6 +4287,7 @@ void ShiftScene(RoboGPU* gpu, int delta, int viewWidth, int viewHeight) {
 
 bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth, int viewHeight, int scrollY,
                 int hotControl, int pressedControl, int pointerX, int pointerY) {
+    gCanvases.clear();
     gDocumentDir = std::filesystem::path(path).parent_path();
     const std::string source = ReadText(path);
     RoboXMLDocument document;
@@ -4281,6 +4391,26 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
         zoomPlace = RoboXMLAttr(*screen, "zoom-controls");
     }
     gScene.zoomAnchor = ViewZoom::Anchor(zoomPlace.c_str());
+    const auto flag = [&](std::initializer_list<const char*> keys, bool fallback) {
+        for (const char* key : keys) {
+            std::string value = RoboXMLAttr(*screen, key);
+            if (value.empty()) {
+                continue;
+            }
+            for (char& ch : value) {
+                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            }
+            if (value == "true" || value == "on" || value == "yes" || value == "1") {
+                return true;
+            }
+            if (value == "false" || value == "off" || value == "no" || value == "0") {
+                return false;
+            }
+        }
+        return fallback;
+    };
+    gScene.pinchEnabled = flag({"pinch", "pinchzoom", "pinch-zoom"}, true);
+    gScene.zoomEnabled = flag({"zoom", "viewportzoom", "viewport-zoom"}, true);
     gScene.background = RoboFoundationPlatformColorForTheme("bg-primary", light ? ROBO_TRUE : ROBO_FALSE);
     const std::string pageColor = RoboXMLAttr(*screen, "background");
     if (!pageColor.empty()) {
@@ -4640,6 +4770,22 @@ void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int view
     gScene.scrollY = scrollY;
 }
 
+void WindowsDocumentScrollWindow(RoboGPU* gpu, int previousScroll, int scrollY, int viewWidth, int viewHeight, bool full) {
+    if (gpu == nullptr || !gScene.valid || viewWidth <= 0 || viewHeight <= 0) {
+        return;
+    }
+    const int delta = scrollY - previousScroll;
+    const int distance = delta < 0 ? -delta : delta;
+    if (!full && previousScroll >= 0 && delta != 0 && distance < viewHeight) {
+        ShiftScene(gpu, delta, viewWidth, viewHeight);
+        gScene.scrollY = scrollY;
+        SceneRect exposed{0, delta > 0 ? viewHeight - delta : 0, viewWidth, distance};
+        PaintSceneRect(gpu, exposed, scrollY, viewHeight, gScene.light);
+        return;
+    }
+    PaintWindowsDocumentView(gpu, scrollY, viewWidth, viewHeight);
+}
+
 void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int screenHeight, double scale) {
     RoboWindowsInstallFontRaster(nullptr, 0);
     if (gpu == nullptr || !gScene.valid || screenWidth <= 0 || screenHeight <= 0) {
@@ -4788,7 +4934,7 @@ void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height)
     for (const PaintOp& op : gScene.ops) {
         if (op.button && OpHits(op, rect)) {
             ClearButtonShape(gpu, op);
-        } else if (!op.button && !op.text && OpInside(op, rect)) {
+        } else if (!op.button && !op.text && (op.picture >= 0 ? OpHits(op, rect) : OpInside(op, rect))) {
             const RoboU32 backdrop = ReadPixel(gpu, op.x, op.y);
             for (int row = 0; row < op.height; ++row) {
                 for (int col = 0; col < op.width; ++col) {
@@ -4799,7 +4945,8 @@ void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height)
     }
     for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
         const PaintOp& op = gScene.ops[index];
-        if ((op.button && OpHits(op, rect)) || (!op.button && OpInside(op, rect))) {
+        const bool picture = op.picture >= 0 && OpHits(op, rect);
+        if ((op.button && OpHits(op, rect)) || picture || (!op.button && !picture && OpInside(op, rect))) {
             PaintPrepared(gpu, op, static_cast<int>(index), 0, limit, gScene.light);
         }
     }
@@ -4944,6 +5091,10 @@ int WindowsDocumentMotionRects(WindowPatch* patches, int capacity) {
 
 int WindowsDocumentZoomAnchor() { return gScene.valid ? gScene.zoomAnchor : 0; }
 
+bool WindowsDocumentPinchEnabled() { return gScene.valid ? gScene.pinchEnabled : true; }
+
+bool WindowsDocumentZoomEnabled() { return gScene.valid ? gScene.zoomEnabled : true; }
+
 int WindowsDocumentContentWidth() { return gScene.valid ? gScene.contentWidth : 0; }
 
 void WindowsDocumentSetScrollX(int scrollX) { gScrollX = scrollX < 0 ? 0 : scrollX; }
@@ -4966,6 +5117,7 @@ int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy) {
     ScrollRegion& region = gRegions[static_cast<std::size_t>(index)];
     bool used = false;
     if (dx != 0 && region.contentWidth > region.width) {
+        const int before = region.scrollX;
         const int maxScroll = region.contentWidth - region.width;
         region.scrollX += dx;
         if (region.scrollX < 0) {
@@ -4974,9 +5126,12 @@ int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy) {
         if (region.scrollX > maxScroll) {
             region.scrollX = maxScroll;
         }
-        used = true;
+        if (region.scrollX != before) {
+            used = true;
+        }
     }
     if (dy != 0 && region.contentHeight > region.height) {
+        const int before = region.scrollY;
         const int maxScroll = region.contentHeight - region.height;
         region.scrollY += dy;
         if (region.scrollY < 0) {
@@ -4985,7 +5140,9 @@ int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy) {
         if (region.scrollY > maxScroll) {
             region.scrollY = maxScroll;
         }
-        used = true;
+        if (region.scrollY != before) {
+            used = true;
+        }
     }
     return used ? 1 : 0;
 }
@@ -5028,9 +5185,9 @@ int WindowsDocumentScrollHit(int docX, int docY) {
     return 0;
 }
 
-void WindowsDocumentScrollDrag(int docX) {
+int WindowsDocumentScrollDrag(int docX) {
     if (gRegionDrag < 0 || gRegionDrag >= static_cast<int>(gRegions.size())) {
-        return;
+        return 0;
     }
     ScrollRegion& region = gRegions[static_cast<std::size_t>(gRegionDrag)];
     const int thick = ScrollBarThick();
@@ -5048,7 +5205,9 @@ void WindowsDocumentScrollDrag(int docX) {
     if (pos > travel) {
         pos = travel;
     }
+    const int before = region.scrollX;
     region.scrollX = maxScroll * pos / travel;
+    return region.scrollX != before ? 1 : 0;
 }
 
 void WindowsDocumentScrollEnd() { gRegionDrag = -1; }

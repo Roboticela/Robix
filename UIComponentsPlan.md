@@ -374,18 +374,26 @@ Depends on: C2.
 
 Depends on: C2.
 
-- [ ] `Canvas` schema: width, height, and a draw list
-- [ ] Draw rect, disc, line, and text into the box
-- [ ] Test asserts a pixel on the rect and a pixel outside it
+`RoboCanvasRead` accepts width, height, and a draw list of `Rect`, `Disc`, `Line`, and `Text`, and rejects an unknown attribute, a bad color or size, the wrong tag, a child that is not a draw, an empty list, and more than 64 draws. `Circle` is a `Disc`. `RoboCanvasPaint` draws each command into the box. Text uses the cooked font pack.
+
+- [x] `Canvas` schema: width, height, and a draw list
+- [x] Draw rect, disc, line, and text into the box
+- [x] Test asserts a pixel on the rect and a pixel outside it
+
+`Tests/UI/RoboCanvasTests.cpp` passed, 44 checks. The fixture rect is 8×6 at (4, 4) in a 32×24 box. The pixel on the rect is `#FF0000`. The origin pixel and the pixel beside the rect stay clear. The disc center, both line ends, and the text ink pixel match their draw colors.
 
 ### Stage C8 — View3D
 
 Depends on: C2. The scene raster from the OS plan supplies the pixels. The `.rx3d` file stays free of RobixUI tags.
 
-- [ ] `View3D` schema: source scene, camera
-- [ ] `Scene3D` resolves to `View3D`
-- [ ] Paint one frame into the element box
-- [ ] Test asserts a body pixel and the clear color
+`RoboView3DRead` accepts source, camera, width, and height, and rejects an unknown attribute, a bad size, the wrong tag, a child, and a missing source or camera. `Scene3D` is the same primitive. `RoboView3DPaint` rasterizes one frame of the scene into the box.
+
+- [x] `View3D` schema: source scene, camera
+- [x] `Scene3D` resolves to `View3D`
+- [x] Paint one frame into the element box
+- [x] Test asserts a body pixel and the clear color
+
+`Tests/UI/RoboView3DTests.cpp` passed, 20 checks. The fixture is a red box in front of camera `Main`, painted at 32×24. The center pixel is the shaded body, `#8D0000`. The corner pixels stay the clear color, `#080A10`.
 
 ### Stage C9 — Video
 
@@ -863,8 +871,10 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/Image/` | Stage C4. `RoboImage` reads the schema, decodes a cooked bitmap, and paints it into the frame. |
 | `RobixUI/Compiler/Components/Icon/` | Stage C5. `RoboIcon` reads name, size, and color, and reads one glyph from the cooked pack. |
 | `RobixUI/Compiler/Components/Svg/` | Stage C6. `RoboSvg` reads paths, fill, stroke, and view box, and rasterizes them into the element box. |
-| `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D` as a compiler tag. The paint unit is still to build. |
+| `RobixUI/Compiler/Components/Canvas/` | Stage C7. `RoboCanvas` reads width, height, and a draw list, and paints rect, disc, line, and text into the box. |
+| `RobixUI/Compiler/Components/View3D/` | Stage C8. `RoboView3D` reads source, camera, width, and height. `Scene3D` is the same primitive. One frame of the `.rx3d` scene is painted into the box. |
+| `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D` as a compiler tag. `Scene3D` resolves to the same primitive. |
 | `RobixUI/Compiler/Compose.cpp` | Expands library components. Library stages use it. |
 | `RobixUI/Compiler/Components/*/*Web.cpp` | Hand-written HTML emitters for the plan primitives. Stage C21 replaces them with the web face. |
 
-`Canvas`, `Video`, `Audio`, `Input`, `ScrollView`, and `List` have no compiler unit yet. They begin at their stage.
+`Video`, `Audio`, `Input`, `ScrollView`, and `List` have no compiler unit yet. They begin at their stage.

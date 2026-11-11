@@ -40,6 +40,9 @@ void RasterWindowsDocument(RoboGPU* gpu);
 /* Paint the visible window when a retained sheet is not available. */
 void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight);
 
+/* Move an already painted window by a vertical scroll. A scroll that does not move paints nothing. */
+void WindowsDocumentScrollWindow(RoboGPU* gpu, int previousScroll, int scrollY, int viewWidth, int viewHeight, bool full);
+
 /* Paint the visible document already scaled into screen pixels, so zoomed controls stay sharp. */
 void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int screenHeight, double scale);
 
@@ -73,6 +76,12 @@ int WindowsDocumentMotionRects(WindowPatch* patches, int capacity);
 /* Where the zoom capsule sits. -1 hides it. The other values match ViewZoom::Anchor. */
 int WindowsDocumentZoomAnchor();
 
+/* Pinch magnifies the page and leaves the layout viewport alone. It is on unless the screen turns it off. */
+bool WindowsDocumentPinchEnabled();
+
+/* Viewport zoom lays the page out again. It is on unless the screen turns it off. */
+bool WindowsDocumentZoomEnabled();
+
 /* Laid-out page width in document pixels, including a screen that is wider than the window. */
 int WindowsDocumentContentWidth();
 
@@ -85,7 +94,7 @@ int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy);
 /* 3 when the pointer is on a nested horizontal thumb, 4 when the track moved, 0 otherwise. */
 int WindowsDocumentScrollHit(int docX, int docY);
 
-void WindowsDocumentScrollDrag(int docX);
+int WindowsDocumentScrollDrag(int docX);
 void WindowsDocumentScrollEnd();
 
 /* 1 when a document point is on selectable text. Buttons and other controls are not. */
