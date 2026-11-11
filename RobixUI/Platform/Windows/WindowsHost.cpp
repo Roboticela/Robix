@@ -79,12 +79,6 @@ struct HostView {
     double shownPaint = 1;
     int pinchAnchorX = -1;
     int pinchAnchorY = -1;
-    RoboU8* pinchCache = nullptr;
-    UINT pinchCacheW = 0;
-    UINT pinchCacheH = 0;
-    int pinchOriginX = 0;
-    int pinchOriginY = 0;
-    bool pinchReady = false;
     ViewZoomBar zoomBar{};
     int zoomOpacity = 0;
     bool zoomMenu = false;
@@ -548,202 +542,6 @@ void ComposeZoomed(HostView* view, double scale, bool viewport) {
     RoboGPUMarkFullDamage(&view->gpu);
 }
 
-RoboU32 PinchSample(const RoboU32* pixels, int width, int height, float x, float y) {
-    if (width <= 0 || height <= 0) {
-        return 0;
-    }
-    if (x < 0.0f) {
-        x = 0.0f;
-    }
-    if (y < 0.0f) {
-        y = 0.0f;
-    }
-    const float maxX = static_cast<float>(width - 1);
-    const float maxY = static_cast<float>(height - 1);
-    if (x > maxX) {
-        x = maxX;
-    }
-    if (y > maxY) {
-        y = maxY;
-    }
-    const int x0 = static_cast<int>(x);
-    const int y0 = static_cast<int>(y);
-    const int x1 = x0 + 1 < width ? x0 + 1 : x0;
-    const int y1 = y0 + 1 < height ? y0 + 1 : y0;
-    const float fx = x - static_cast<float>(x0);
-    const float fy = y - static_cast<float>(y0);
-    const RoboU32 p00 = pixels[static_cast<size_t>(y0) * static_cast<size_t>(width) + static_cast<size_t>(x0)];
-    const RoboU32 p10 = pixels[static_cast<size_t>(y0) * static_cast<size_t>(width) + static_cast<size_t>(x1)];
-    const RoboU32 p01 = pixels[static_cast<size_t>(y1) * static_cast<size_t>(width) + static_cast<size_t>(x0)];
-    const RoboU32 p11 = pixels[static_cast<size_t>(y1) * static_cast<size_t>(width) + static_cast<size_t>(x1)];
-    int channels[4];
-    for (int channel = 0; channel < 4; ++channel) {
-        const int shift = channel * 8;
-        const int c00 = static_cast<int>((p00 >> shift) & 255u);
-        const int c10 = static_cast<int>((p10 >> shift) & 255u);
-        const int c01 = static_cast<int>((p01 >> shift) & 255u);
-        const int c11 = static_cast<int>((p11 >> shift) & 255u);
-        const float top = static_cast<float>(c00) + (static_cast<float>(c10 - c00) * fx);
-        const float bottom = static_cast<float>(c01) + (static_cast<float>(c11 - c01) * fx);
-        channels[channel] = static_cast<int>(top + (bottom - top) * fy + 0.5f);
-        if (channels[channel] < 0) {
-            channels[channel] = 0;
-        }
-        if (channels[channel] > 255) {
-            channels[channel] = 255;
-        }
-    }
-    return static_cast<RoboU32>(channels[0]) | (static_cast<RoboU32>(channels[1]) << 8) |
-           (static_cast<RoboU32>(channels[2]) << 16) | (static_cast<RoboU32>(channels[3]) << 24);
-}
-
-/* Scales an already drawn page. A pinch does not draw the text and images again. */
-void ComposePinch(HostView* view, const RoboU8* source, int sourceW, int sourceH, int originX, int originY, double scale) {
-    const int dstW = static_cast<int>(view->pixelWidth);
-    const int dstH = static_cast<int>(view->pixelHeight);
-    const UINT dstPitch = view->pixelWidth * 4u;
-    const auto* pixels = reinterpret_cast<const RoboU32*>(source);
-    if (!(scale > 0.0)) {
-        scale = 1.0;
-    }
-    for (int y = 0; y < dstH; ++y) {
-        const float srcY = static_cast<float>(view->scrollY - originY) + (static_cast<float>(y) + 0.5f) / static_cast<float>(scale) - 0.5f;
-        auto* dst = reinterpret_cast<RoboU32*>(view->back + static_cast<size_t>(y) * dstPitch);
-        for (int x = 0; x < dstW; ++x) {
-            const float srcX = static_cast<float>(view->scrollX - originX) + (static_cast<float>(x) + 0.5f) / static_cast<float>(scale) - 0.5f;
-            dst[x] = PinchSample(pixels, sourceW, sourceH, srcX, srcY);
-        }
-    }
-    view->shownScroll = -1;
-    view->gpuScroll = -1;
-    view->gpuFull = true;
-    RoboGPUMarkFullDamage(&view->gpu);
-}
-
-bool EnsurePinchCache(HostView* view, int width, int height) {
-    if (width < 1) {
-        width = 1;
-    }
-    if (height < 1) {
-        height = 1;
-    }
-    if (view->pinchCache != nullptr && view->pinchCacheW == static_cast<UINT>(width) && view->pinchCacheH == static_cast<UINT>(height)) {
-        return true;
-    }
-    const RoboU64 bytes = static_cast<RoboU64>(width) * static_cast<RoboU64>(height) * 4u;
-    if (bytes > 128ull * 1024ull * 1024ull) {
-        return false;
-    }
-    auto* memory = static_cast<RoboU8*>(_aligned_malloc(static_cast<size_t>(bytes), 16));
-    if (memory == nullptr) {
-        return false;
-    }
-    _aligned_free(view->pinchCache);
-    view->pinchCache = memory;
-    view->pinchCacheW = static_cast<UINT>(width);
-    view->pinchCacheH = static_cast<UINT>(height);
-    view->pinchReady = false;
-    return true;
-}
-
-void BindPinchCache(HostView* view) {
-    view->gpu.back = view->pinchCache;
-    view->gpu.info.width = view->pinchCacheW;
-    view->gpu.info.height = view->pinchCacheH;
-    view->gpu.info.pixelsPerScanLine = view->pinchCacheW;
-    view->gpu.backSize = static_cast<RoboU64>(view->pinchCacheW) * view->pinchCacheH * 4u;
-    RoboDamageClear(&view->gpu.damage);
-}
-
-bool PinchCovers(const HostView* view, int x, int y, int width, int height) {
-    return view->pinchReady && view->pinchCache != nullptr && x >= view->pinchOriginX && y >= view->pinchOriginY &&
-           x + width <= view->pinchOriginX + static_cast<int>(view->pinchCacheW) &&
-           y + height <= view->pinchOriginY + static_cast<int>(view->pinchCacheH);
-}
-
-/* Shows the pinched page from the laid-out pixels. Returns false when that picture is not available. */
-bool PresentPinch(HostView* view, int width, int height, double scale, bool rebuilt, const WindowPatch* patches, int patchCount,
-                  const WindowPatch* textPatches, int textCount) {
-    bool freshSheet = false;
-    const bool sheetOk = EnsureSheet(view, std::max(width, view->contentWidth), std::max(height, view->contentHeight), freshSheet);
-    if (sheetOk && view->sheet != nullptr) {
-        const bool contentDirty = rebuilt || freshSheet || patchCount != 0 || textCount != 0 || WindowsDocumentNeedsSpin() ||
-                                  WindowsDocumentNeedsMotion();
-        if (contentDirty) {
-            WindowsDocumentSetScrollX(0);
-            BindSheet(view, true);
-            if (rebuilt || freshSheet || patchCount < 0 || textCount < 0) {
-                RasterWindowsDocument(&view->gpu);
-            } else {
-                WindowPatch spinRects[32]{};
-                const int spinCount = WindowsDocumentNeedsSpin() ? WindowsDocumentSpinRects(spinRects, 32) : 0;
-                for (int index = 0; index < spinCount; ++index) {
-                    PaintWindowsDocumentRect(&view->gpu, spinRects[index].x, spinRects[index].y, spinRects[index].width, spinRects[index].height);
-                }
-                WindowPatch motionRects[32]{};
-                const int motionCount = WindowsDocumentNeedsMotion() ? WindowsDocumentMotionRects(motionRects, 32) : 0;
-                for (int index = 0; index < motionCount; ++index) {
-                    PaintWindowsDocumentRect(&view->gpu, motionRects[index].x, motionRects[index].y, motionRects[index].width,
-                                             motionRects[index].height);
-                }
-                for (int index = 0; index < patchCount; ++index) {
-                    PaintWindowsDocumentRect(&view->gpu, patches[index].x, patches[index].y, patches[index].width, patches[index].height);
-                }
-                for (int index = 0; index < textCount; ++index) {
-                    WindowsDocumentRepaintRect(&view->gpu, textPatches[index].x, textPatches[index].y, textPatches[index].width,
-                                               textPatches[index].height);
-                }
-            }
-            BindSheet(view, false);
-            WindowsDocumentTextMarkPainted();
-        }
-        ComposePinch(view, view->sheet, static_cast<int>(view->sheetWidth), static_cast<int>(view->sheetHeight), 0, 0, scale);
-        WindowsDocumentSetScrollX(view->scrollX);
-        return true;
-    }
-    const int visibleW = std::max(1, ToDoc(width, scale));
-    const int visibleH = std::max(1, ToDoc(height, scale));
-    const bool live = rebuilt || patchCount != 0 || textCount != 0 || WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion();
-    if (live) {
-        view->pinchReady = false;
-    }
-    if (!live && !view->pinchReady && std::abs(view->shownPaint - 1.0) < 0.0005 && view->shownScroll >= 0 && view->shownScrollX >= 0 &&
-        view->back != nullptr && EnsurePinchCache(view, width, height)) {
-        std::memcpy(view->pinchCache, view->back, static_cast<size_t>(width) * static_cast<size_t>(height) * 4u);
-        view->pinchOriginX = view->shownScrollX;
-        view->pinchOriginY = view->shownScroll;
-        view->pinchReady = true;
-    }
-    if (!PinchCovers(view, view->scrollX, view->scrollY, visibleW, visibleH)) {
-        int coverW = visibleW;
-        int coverH = visibleH;
-        if (scale < 1.0) {
-            const double further = std::max(ViewZoom::kMin, scale * 0.75);
-            coverW = std::max(visibleW, ToDoc(width, further));
-            coverH = std::max(visibleH, ToDoc(height, further));
-        }
-        if (view->contentWidth > 0 && coverW > view->contentWidth) {
-            coverW = view->contentWidth;
-        }
-        if (view->contentHeight > 0 && coverH > view->contentHeight) {
-            coverH = view->contentHeight;
-        }
-        if (!EnsurePinchCache(view, coverW, coverH)) {
-            return false;
-        }
-        BindPinchCache(view);
-        WindowsDocumentSetScrollX(view->scrollX);
-        PaintWindowsDocumentView(&view->gpu, view->scrollY, coverW, coverH);
-        BindSheet(view, false);
-        view->pinchOriginX = view->scrollX;
-        view->pinchOriginY = view->scrollY;
-        view->pinchReady = true;
-        WindowsDocumentTextMarkPainted();
-    }
-    ComposePinch(view, view->pinchCache, static_cast<int>(view->pinchCacheW), static_cast<int>(view->pinchCacheH), view->pinchOriginX,
-                 view->pinchOriginY, scale);
-    return true;
-}
 
 bool ClampRect(const HostView* view, RECT* rect) {
     if (rect == nullptr || view == nullptr) {
@@ -1374,22 +1172,7 @@ void Draw(HostView* view) {
         int textCount = WindowsDocumentTextPatches(textPatches, 32);
         bool fresh = false;
         bool usedSheet = false;
-        const bool pinchOn = std::abs(PinchScale(view) - 1.0) > 0.0005;
-        if (pinchOn) {
-            usedSheet = PresentPinch(view, width, height, scale, rebuilt, patches, patchCount, textPatches, textCount);
-            if (!usedSheet) {
-                usedSheet = EnsureViewport(view, width, height, fresh);
-                if (usedSheet) {
-                    BindSheet(view, true);
-                    WindowsDocumentSetScrollX(view->scrollX);
-                    PaintWindowsDocumentScaled(&view->gpu, view->scrollY, width, height, scale);
-                    BindSheet(view, false);
-                    ComposeZoomed(view, 1.0, true);
-                    WindowsDocumentTextMarkPainted();
-                }
-            }
-        } else if (zoomed) {
-            view->pinchReady = false;
+        if (zoomed) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
                 const bool dirty = rebuilt || fresh || scaleChanged || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
@@ -1406,7 +1189,6 @@ void Draw(HostView* view) {
                 ComposeZoomed(view, 1.0, true);
             }
         } else if (wide) {
-            view->pinchReady = false;
             const bool scrollYChanged = previousScroll != view->scrollY;
             const bool scrollXChanged = previousScrollX != view->scrollX;
             const bool structural = rebuilt || patchCount != 0 || textCount != 0 || previousScroll < 0 || previousScrollX < 0 ||
@@ -1617,9 +1399,7 @@ void Release(HostView* view) {
         view->device = nullptr;
     }
     _aligned_free(view->sheet);
-    _aligned_free(view->pinchCache);
     _aligned_free(view->back);
-    view->pinchCache = nullptr;
     view->sheet = nullptr;
     view->back = nullptr;
 }
@@ -2032,9 +1812,9 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             if (view != nullptr && view->ready && view->screen) {
                 const int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
                 const bool ctrl = (GET_KEYSTATE_WPARAM(wParam) & MK_CONTROL) != 0;
-                const bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
+                const bool shift = (GET_KEYSTATE_WPARAM(wParam) & MK_SHIFT) != 0;
                 SyncPageZoom(view);
-                if (ctrl && !alt) {
+                if (ctrl && !shift) {
                     POINT cursor{};
                     cursor.x = static_cast<LONG>(static_cast<short>(LOWORD(lParam)));
                     cursor.y = static_cast<LONG>(static_cast<short>(HIWORD(lParam)));
@@ -2067,7 +1847,6 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 const int docX = view->scrollX + ToDoc(cursor.x, scale);
                 const int docY = view->scrollY + ToDoc(cursor.y, scale);
                 const int docStep = ToDoc(step, scale);
-                const bool shift = (GET_KEYSTATE_WPARAM(wParam) & MK_SHIFT) != 0;
                 if (WindowsDocumentScrollBy(docX, docY, shift ? docStep : 0, shift ? 0 : docStep) != 0) {
                     Request(view);
                     return 0;
@@ -2150,12 +1929,12 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 } else if (wParam == '0' || wParam == VK_NUMPAD0) {
                     direction = 0;
                 }
-                const bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
+                const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
                 if (direction != 2) {
                     view->pinchAnchorX = static_cast<int>(view->pixelWidth) / 2;
                     view->pinchAnchorY = static_cast<int>(view->pixelHeight) / 2;
                 }
-                if (direction != 2 && alt) {
+                if (direction != 2 && shift) {
                     if (view->zoom.enabled) {
                         view->zoom.Step(direction);
                         Request(view);

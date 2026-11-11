@@ -624,6 +624,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     obj->index = height;
                     obj->buffer = std::make_shared<VMBuffer>();
                     obj->buffer->bytes.assign(static_cast<std::size_t>(width * height * 4), 0);
+                    m_gpuFrame = obj;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ obj };
                 } else if (inst.symbolImm == "Frame.Fill" && inst.callArgRegs.size() >= 6) {
                     auto obj = AsObj(regs[inst.callArgRegs[0]]);
@@ -1065,6 +1066,66 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     else if (catalog == 4 && vendor == 4332) result = 1;
                     else if (catalog == 5 && vendor == 5348) result = 1;
                     else if (catalog == 6 && vendor == 6091) result = 1;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "GPU.Command" && inst.callArgRegs.size() >= 3) {
+                    std::int64_t result = -1;
+                    if (m_gpuCount < 4) {
+                        const std::size_t slot = static_cast<std::size_t>(m_gpuCount);
+                        m_gpuOp[slot] = regs[inst.callArgRegs[0]].AsInt();
+                        m_gpuRect[slot] = regs[inst.callArgRegs[1]].AsInt();
+                        m_gpuColor[slot] = regs[inst.callArgRegs[2]].AsInt();
+                        ++m_gpuCount;
+                        result = m_gpuCount;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "GPU.Submit" && !inst.callArgRegs.empty()) {
+                    const std::int64_t buffer = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t caller = (buffer >> 16) & 65535;
+                    const std::int64_t count = buffer & 255;
+                    std::int64_t result = -1;
+                    if (caller == 2 && count == m_gpuCount && count > 0) {
+                        for (int i = 0; i < 64; ++i) m_gpuPix[i] = 0;
+                        auto plot = [&](std::int64_t x, std::int64_t y, std::int64_t color) {
+                            if (x < 0 || y < 0 || x >= 8 || y >= 8) return;
+                            m_gpuPix[y * 8 + x] = static_cast<std::int32_t>(color);
+                            if (!m_gpuFrame || m_gpuFrame->index > 8 || !m_gpuFrame->buffer) return;
+                            if (x >= m_gpuFrame->width || y >= m_gpuFrame->index) return;
+                            const std::size_t at = static_cast<std::size_t>((y * m_gpuFrame->width + x) * 4);
+                            const auto c = static_cast<std::uint32_t>(color);
+                            m_gpuFrame->buffer->bytes[at] = static_cast<std::uint8_t>(c);
+                            m_gpuFrame->buffer->bytes[at + 1] = static_cast<std::uint8_t>(c >> 8);
+                            m_gpuFrame->buffer->bytes[at + 2] = static_cast<std::uint8_t>(c >> 16);
+                            m_gpuFrame->buffer->bytes[at + 3] = static_cast<std::uint8_t>(c >> 24);
+                        };
+                        auto read = [&](std::int64_t x, std::int64_t y) -> std::int64_t {
+                            if (x < 0 || y < 0 || x >= 8 || y >= 8) return 0;
+                            return static_cast<std::uint32_t>(m_gpuPix[y * 8 + x]);
+                        };
+                        for (std::int64_t cmd = 0; cmd < count; ++cmd) {
+                            const std::size_t slot = static_cast<std::size_t>(cmd);
+                            const std::int64_t op = m_gpuOp[slot];
+                            const std::int64_t rect = m_gpuRect[slot];
+                            const std::int64_t color = m_gpuColor[slot];
+                            const std::int64_t x = rect & 255;
+                            const std::int64_t y = (rect >> 8) & 255;
+                            const std::int64_t w = (rect >> 16) & 255;
+                            const std::int64_t h = (rect >> 24) & 255;
+                            if (op == 1) {
+                                for (std::int64_t row = 0; row < h; ++row) {
+                                    for (std::int64_t col = 0; col < w; ++col) plot(x + col, y + row, color);
+                                }
+                            } else if (op == 2) {
+                                const std::int64_t sx = color & 255;
+                                const std::int64_t sy = (color >> 8) & 255;
+                                for (std::int64_t row = 0; row < h; ++row) {
+                                    for (std::int64_t col = 0; col < w; ++col) {
+                                        plot(x + col, y + row, read(sx + col, sy + row));
+                                    }
+                                }
+                            }
+                        }
+                        result = static_cast<std::uint32_t>(m_gpuPix[0]);
+                    }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
                 } else if (inst.symbolImm == "Port.Read8") {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 0 } };

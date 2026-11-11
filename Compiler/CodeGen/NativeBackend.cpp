@@ -221,6 +221,7 @@ struct ModuleCtx {
     bool usesDispatch = false;
     bool usesFs = false;
     bool usesPackage = false;
+    bool usesGpu = false;
     std::vector<RoboPlayedEvent> inputScript;
     bool usesScene = false;
     std::vector<std::uint32_t> scenePixels;
@@ -1818,6 +1819,21 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << vname << " = call i64 @rx_vendor_match(i64 " << catalog.repr << ", i64 " << vendor.repr
                        << ", i64 " << device.repr << ", i64 " << klass.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "GPU.Command" && inst.operandIds.size() >= 3) {
+                m_ctx.usesGpu = true;
+                m_ctx.usesFrame = true;
+                Val op = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val rect = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val color = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_gpu_command(i64 " << op.repr << ", i64 " << rect.repr
+                       << ", i64 " << color.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "GPU.Submit" && !inst.operandIds.empty()) {
+                m_ctx.usesGpu = true;
+                m_ctx.usesFrame = true;
+                Val buffer = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_gpu_submit(i64 " << buffer.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Page.Entry" && inst.operandIds.size() >= 2) {
                 Val phys = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 Val flags = Coerce(Operand(inst, 1), NTy::I64, inst.location);
@@ -2960,6 +2976,16 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  unreachable\n}\n\n";
     }
 
+    if (ctx.usesGpu) {
+        out << "@rx.gpu.count = internal global i64 0, align 8\n";
+        out << "@rx.gpu.frame = internal global i64 0, align 8\n";
+        out << "@rx.gpu.copy = internal global i64 0, align 8\n";
+        out << "@rx.gpu.op = internal global [4 x i64] zeroinitializer, align 8\n";
+        out << "@rx.gpu.rect = internal global [4 x i64] zeroinitializer, align 8\n";
+        out << "@rx.gpu.color = internal global [4 x i64] zeroinitializer, align 8\n";
+        out << "@rx.gpu.pix = internal global [64 x i32] zeroinitializer, align 4\n\n";
+    }
+
     if (ctx.usesFrame) {
         if (m_options.freestanding) {
             out << "%RoboFrame = type { i32, i32, [2073600 x i32] }\n";
@@ -2977,6 +3003,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %h32 = trunc i64 %h to i32\n";
             out << "  store i32 %h32, ptr %hp, align 4\n";
             out << "  %ret = ptrtoint ptr @rx.frame to i64\n";
+            if (ctx.usesGpu) {
+                out << "  store i64 %ret, ptr @rx.gpu.frame, align 8\n";
+            }
             out << "  ret i64 %ret\n}\n\n";
         } else {
             out << "define i64 @rx_frame_create(i64 %w, i64 %h) {\n";
@@ -2991,6 +3020,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %h32 = trunc i64 %h to i32\n";
             out << "  store i32 %h32, ptr %hp, align 4\n";
             out << "  %ret = ptrtoint ptr %mem to i64\n";
+            if (ctx.usesGpu) {
+                out << "  store i64 %ret, ptr @rx.gpu.frame, align 8\n";
+            }
             out << "  ret i64 %ret\n}\n\n";
         }
         out << "define void @rx_frame_fill(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %color) noinline {\n";
@@ -3174,6 +3206,104 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "define i64 @rx_frame_flush(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh) {\n";
             out << "  ret i64 0\n}\n\n";
         }
+    }
+
+    if (ctx.usesGpu) {
+        out << "define void @rx_gpu_plot(i64 %x, i64 %y, i64 %color) {\n";
+        out << "  %xok = icmp ult i64 %x, 8\n  %yok = icmp ult i64 %y, 8\n  %ok = and i1 %xok, %yok\n";
+        out << "  br i1 %ok, label %put, label %out\n";
+        out << "put:\n  %row = mul i64 %y, 8\n  %idx = add i64 %row, %x\n  %c32 = trunc i64 %color to i32\n";
+        out << "  %slot = getelementptr [64 x i32], ptr @rx.gpu.pix, i64 0, i64 %idx\n";
+        out << "  store i32 %c32, ptr %slot, align 4\n";
+        out << "  %copy = load i64, ptr @rx.gpu.copy, align 8\n  %on = icmp eq i64 %copy, 1\n";
+        out << "  br i1 %on, label %frame, label %out\n";
+        out << "frame:\n  %framep = load i64, ptr @rx.gpu.frame, align 8\n  %p = inttoptr i64 %framep to ptr\n";
+        out << "  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
+        out << "  %xin = icmp ult i64 %x, %fw\n  %hp = getelementptr i8, ptr %p, i64 4\n";
+        out << "  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
+        out << "  %yin = icmp ult i64 %y, %fh\n  %inside = and i1 %xin, %yin\n";
+        out << "  br i1 %inside, label %storepx, label %out\n";
+        out << "storepx:\n  %frow = mul i64 %y, %fw\n  %fidx = add i64 %frow, %x\n";
+        out << "  %base = getelementptr i8, ptr %p, i64 8\n  %fs = getelementptr i32, ptr %base, i64 %fidx\n";
+        out << "  store volatile i32 %c32, ptr %fs, align 4\n  br label %out\n";
+        out << "out:\n  ret void\n}\n\n";
+        out << "define i64 @rx_gpu_read(i64 %x, i64 %y) {\n";
+        out << "  %xok = icmp ult i64 %x, 8\n  %yok = icmp ult i64 %y, 8\n  %ok = and i1 %xok, %yok\n";
+        out << "  br i1 %ok, label %load, label %miss\n";
+        out << "miss:\n  ret i64 0\n";
+        out << "load:\n  %row = mul i64 %y, 8\n  %idx = add i64 %row, %x\n";
+        out << "  %slot = getelementptr [64 x i32], ptr @rx.gpu.pix, i64 0, i64 %idx\n";
+        out << "  %v = load i32, ptr %slot, align 4\n  %wide = zext i32 %v to i64\n  ret i64 %wide\n}\n\n";
+        out << "define i64 @rx_gpu_command(i64 %op, i64 %rect, i64 %color) {\n";
+        out << "  %count = load i64, ptr @rx.gpu.count, align 8\n  %full = icmp uge i64 %count, 4\n";
+        out << "  br i1 %full, label %deny, label %store\n";
+        out << "deny:\n  ret i64 -1\n";
+        out << "store:\n  %opP = getelementptr [4 x i64], ptr @rx.gpu.op, i64 0, i64 %count\n";
+        out << "  store i64 %op, ptr %opP, align 8\n";
+        out << "  %rectP = getelementptr [4 x i64], ptr @rx.gpu.rect, i64 0, i64 %count\n";
+        out << "  store i64 %rect, ptr %rectP, align 8\n";
+        out << "  %colorP = getelementptr [4 x i64], ptr @rx.gpu.color, i64 0, i64 %count\n";
+        out << "  store i64 %color, ptr %colorP, align 8\n";
+        out << "  %next = add i64 %count, 1\n  store i64 %next, ptr @rx.gpu.count, align 8\n  ret i64 %next\n}\n\n";
+        out << "define i64 @rx_gpu_submit(i64 %buffer) {\n";
+        out << "  %callerShift = lshr i64 %buffer, 16\n  %caller = and i64 %callerShift, 65535\n";
+        out << "  %count = and i64 %buffer, 255\n  %isServer = icmp eq i64 %caller, 2\n";
+        out << "  br i1 %isServer, label %check, label %deny\n";
+        out << "deny:\n  ret i64 -1\n";
+        out << "check:\n  %stored = load i64, ptr @rx.gpu.count, align 8\n";
+        out << "  %same = icmp eq i64 %stored, %count\n  %some = icmp sgt i64 %count, 0\n";
+        out << "  %okc = and i1 %same, %some\n  br i1 %okc, label %prepare, label %deny\n";
+        out << "prepare:\n  %framep = load i64, ptr @rx.gpu.frame, align 8\n";
+        out << "  %hasFrame = icmp ne i64 %framep, 0\n  br i1 %hasFrame, label %measure, label %nocopy\n";
+        out << "measure:\n  %fp = inttoptr i64 %framep to ptr\n  %fhp = getelementptr i8, ptr %fp, i64 4\n";
+        out << "  %fh32 = load i32, ptr %fhp, align 4\n  %fh = zext i32 %fh32 to i64\n";
+        out << "  %small = icmp ule i64 %fh, 8\n  %doCopy = select i1 %small, i64 1, i64 0\n";
+        out << "  store i64 %doCopy, ptr @rx.gpu.copy, align 8\n  br label %clear\n";
+        out << "nocopy:\n  store i64 0, ptr @rx.gpu.copy, align 8\n  br label %clear\n";
+        out << "clear:\n  br label %clr\n";
+        out << "clr:\n  %k = phi i64 [ 0, %clear ], [ %knext, %clrbody ]\n";
+        out << "  %kdone = icmp uge i64 %k, 64\n  br i1 %kdone, label %cmds, label %clrbody\n";
+        out << "clrbody:\n  %ks = getelementptr [64 x i32], ptr @rx.gpu.pix, i64 0, i64 %k\n";
+        out << "  store i32 0, ptr %ks, align 4\n  %knext = add i64 %k, 1\n  br label %clr\n";
+        out << "cmds:\n  br label %cmd\n";
+        out << "cmd:\n  %ci = phi i64 [ 0, %cmds ], [ %cnext, %cmdnext ]\n";
+        out << "  %cdone = icmp uge i64 %ci, %count\n  br i1 %cdone, label %origin, label %loadcmd\n";
+        out << "loadcmd:\n  %opP = getelementptr [4 x i64], ptr @rx.gpu.op, i64 0, i64 %ci\n";
+        out << "  %op = load i64, ptr %opP, align 8\n";
+        out << "  %rectP = getelementptr [4 x i64], ptr @rx.gpu.rect, i64 0, i64 %ci\n";
+        out << "  %rect = load i64, ptr %rectP, align 8\n";
+        out << "  %colorP = getelementptr [4 x i64], ptr @rx.gpu.color, i64 0, i64 %ci\n";
+        out << "  %col = load i64, ptr %colorP, align 8\n";
+        out << "  %x = and i64 %rect, 255\n  %ys = lshr i64 %rect, 8\n  %y = and i64 %ys, 255\n";
+        out << "  %ws = lshr i64 %rect, 16\n  %w = and i64 %ws, 255\n";
+        out << "  %hs = lshr i64 %rect, 24\n  %rh = and i64 %hs, 255\n";
+        out << "  %isFill = icmp eq i64 %op, 1\n  br i1 %isFill, label %fill, label %checkblit\n";
+        out << "checkblit:\n  %isBlit = icmp eq i64 %op, 2\n  br i1 %isBlit, label %blit, label %cmdnext\n";
+        out << "fill:\n  br label %fy\n";
+        out << "fy:\n  %yy = phi i64 [ 0, %fill ], [ %ynext, %fxdone ]\n";
+        out << "  %ydone = icmp uge i64 %yy, %rh\n  br i1 %ydone, label %cmdnext, label %fx\n";
+        out << "fx:\n  %xx = phi i64 [ 0, %fy ], [ %xnext, %fxcont ]\n";
+        out << "  %xdone = icmp uge i64 %xx, %w\n  br i1 %xdone, label %fxdone, label %fplot\n";
+        out << "fplot:\n  %px = add i64 %x, %xx\n  %py = add i64 %y, %yy\n";
+        out << "  call void @rx_gpu_plot(i64 %px, i64 %py, i64 %col)\n  br label %fxcont\n";
+        out << "fxcont:\n  %xnext = add i64 %xx, 1\n  br label %fx\n";
+        out << "fxdone:\n  %ynext = add i64 %yy, 1\n  br label %fy\n";
+        out << "blit:\n  %sx0 = and i64 %col, 255\n  %sys = lshr i64 %col, 8\n  %sy0 = and i64 %sys, 255\n";
+        out << "  br label %by\n";
+        out << "by:\n  %byy = phi i64 [ 0, %blit ], [ %bynext, %bxdone ]\n";
+        out << "  %bydone = icmp uge i64 %byy, %rh\n  br i1 %bydone, label %cmdnext, label %bx\n";
+        out << "bx:\n  %bxx = phi i64 [ 0, %by ], [ %bxnext, %bxcont ]\n";
+        out << "  %bxdoneb = icmp uge i64 %bxx, %w\n  br i1 %bxdoneb, label %bxdone, label %bplot\n";
+        out << "bplot:\n  %dpx = add i64 %x, %bxx\n  %dpy = add i64 %y, %byy\n";
+        out << "  %spx = add i64 %sx0, %bxx\n  %spy = add i64 %sy0, %byy\n";
+        out << "  %sample = call i64 @rx_gpu_read(i64 %spx, i64 %spy)\n";
+        out << "  call void @rx_gpu_plot(i64 %dpx, i64 %dpy, i64 %sample)\n  br label %bxcont\n";
+        out << "bxcont:\n  %bxnext = add i64 %bxx, 1\n  br label %bx\n";
+        out << "bxdone:\n  %bynext = add i64 %byy, 1\n  br label %by\n";
+        out << "cmdnext:\n  %cnext = add i64 %ci, 1\n  br label %cmd\n";
+        out << "origin:\n  %originP = getelementptr [64 x i32], ptr @rx.gpu.pix, i64 0, i64 0\n";
+        out << "  %origin32 = load i32, ptr %originP, align 4\n  %originWide = zext i32 %origin32 to i64\n";
+        out << "  ret i64 %originWide\n}\n\n";
     }
 
     if (ctx.usesUI) {

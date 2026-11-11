@@ -131,6 +131,12 @@ private:
     std::int64_t m_fsState[4]{};
     std::int64_t m_pkgActive = 0;
     std::int64_t m_pkgPrevious = 0;
+    std::int64_t m_gpuCount = 0;
+    std::int64_t m_gpuOp[4]{};
+    std::int64_t m_gpuRect[4]{};
+    std::int64_t m_gpuColor[4]{};
+    std::int32_t m_gpuPix[64]{};
+    std::shared_ptr<VMObjectInstance> m_gpuFrame;
     std::int64_t m_frames = 0;
     std::unordered_map<std::int64_t, std::int64_t> m_mmio;
     bool m_gateChecked = false;

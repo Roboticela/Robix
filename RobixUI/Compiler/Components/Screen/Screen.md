@@ -40,9 +40,9 @@ A screen has no focus ring. The page itself is not a tab stop. A border appears 
 | movable | true, false | true | Drag the window |
 | topmost | true, false | false | `alwaysOnTop` is the same |
 | fullscreen | true, false | false | |
-| pinch | true, false | true | Magnify the laid-out page without changing the layout viewport. `pinchZoom` and `pinch-zoom` are the same |
-| zoom | true, false | true | Change the layout viewport, then paint it back to the window. `viewportZoom` and `viewport-zoom` are the same |
-| zoomControls | bottom, bottom-left, bottom-right, top, top-left, top-right, left, right, center, none | bottom | Capsule for pinch. It shows while pinching, Ctrl+wheel, Ctrl+Plus, Ctrl+Minus, and Ctrl+0. `none` hides it. `zoom-controls` is the same |
+| pinch | true, false | true | Platform only. Magnify the laid-out page without changing the layout viewport. `pinchZoom` and `pinch-zoom` are the same |
+| zoom | true, false | true | Platform only. Change the layout viewport, then paint it back to the window. `viewportZoom` and `viewport-zoom` are the same |
+| zoomControls | bottom, bottom-left, bottom-right, top, top-left, top-right, left, right, center, none | bottom | Platform pinch capsule. It shows while pinching, Ctrl+wheel, Ctrl+Plus, Ctrl+Minus, and Ctrl+0. `none` hides it. `zoom-controls` is the same |
 | board | string | | Board id this screen displays |
 
 Children: any component, up to 64.
@@ -53,9 +53,11 @@ Drag moves the window when `movable` is true. The pointer may be mouse, touchpad
 
 On the web, a screen with a path is a route. The root screen is the document. Nested screens inside a page are preview surfaces and keep their own width, height, theme, and radius.
 
-Pinch and viewport zoom are both on by default. Pinch magnifies the page so it is easier to see, and the layout viewport stays the same. The page can be scrolled to the parts that no longer fit. Pinch uses the pointer gesture, Ctrl+wheel, Ctrl+Plus, Ctrl+Minus, and Ctrl+0. The point under the fingers, or under the pointer for Ctrl+wheel, stays still.
+Pinch and viewport zoom are platform controls. A browser page keeps the browser’s own pinch and zoom.
 
-Viewport zoom lays the page out in a smaller or larger viewport. It uses only Ctrl+Alt+Plus, Ctrl+Alt+Minus, and Ctrl+Alt+0. A pinch and Ctrl+wheel do not change it.
+On the platform, both are on by default. Pinch magnifies the page and leaves the layout viewport as it is. Ctrl+Plus, Ctrl+Minus, and Ctrl+0 change it from the keyboard. Ctrl+wheel and a two-finger pinch change it from the pointer. The point under the fingers, or under the pointer for Ctrl+wheel, stays still.
+
+Viewport zoom lays the page out in a smaller or larger viewport. Ctrl+Shift+Plus, Ctrl+Shift+Minus, and Ctrl+Shift+0 are its only shortcuts. The pinch gesture and Ctrl+wheel do not change it.
 
 The pinch capsule uses the elevated surface, the default border, and a pill radius. Minus and plus step the pinch, the percentage is a Select with 25%, 50%, 100%, 125%, 150%, and 200%, and Reset returns to 100%. It sits on the side or corner named by `zoomControls` and leaves after the gesture. The menu stays open while it is in use. Pinch still works when the capsule is hidden. Viewport zoom has no capsule.
 

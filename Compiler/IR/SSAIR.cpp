@@ -2703,7 +2703,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Proc" || receiverExpr.text == "Cred" ||
                      receiverExpr.text == "Syscall" || receiverExpr.text == "FS" ||
                      receiverExpr.text == "PCI" || receiverExpr.text == "HID" ||
-                     receiverExpr.text == "Driver" || receiverExpr.text == "Vendor")) {
+                     receiverExpr.text == "Driver" || receiverExpr.text == "Vendor" ||
+                     receiverExpr.text == "GPU")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2740,6 +2741,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "Driver" && (memberName == "Match" || memberName == "Bind" || memberName == "Package" || memberName == "Newer")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Vendor" && memberName == "Match") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "GPU" && (memberName == "Command" || memberName == "Submit")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Volatile" && memberName == "Load32") {
                         ty = MakePrim("Int");

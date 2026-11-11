@@ -944,8 +944,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Frame" || expr.text == "Input" || expr.text == "Page" ||
                 expr.text == "Sched" || expr.text == "Fault" ||
                 expr.text == "Proc" || expr.text == "Cred" || expr.text == "Syscall" ||
-                expr.text == "FS" || expr.text == "PCI" || expr.text == "HID" || expr.text == "Driver" ||
-                expr.text == "Vendor") {
+                expr.text == "FS" || expr.text == "PCI" || expr.text == "HID" ||                 expr.text == "Driver" ||
+                expr.text == "Vendor" || expr.text == "GPU") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1435,6 +1435,10 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (recvType.baseName == "Vendor" && expr.text == "Match") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "GPU" && (expr.text == "Command" || expr.text == "Submit")) {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }
