@@ -940,8 +940,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Test" || expr.text == "Assert" || expr.text == "Thread" ||
                 expr.text == "Math" || expr.text == "UI" || expr.text == "Scene" || expr.text == "Volatile" ||
                 expr.text == "Port" || expr.text == "CPU" || expr.text == "Timer" ||
-                expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
-                expr.text == "Frame" || expr.text == "Input") {
+                expr.text == "Clock" || expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
+                expr.text == "Frame" || expr.text == "Input" || expr.text == "Page") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1366,7 +1366,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Frame") {
-                if (expr.text == "Create" || expr.text == "Pixel" || expr.text == "Present") {
+                if (expr.text == "Create" || expr.text == "Pixel" || expr.text == "Present" || expr.text == "Flush") {
                     expr.inferredType = MakePrimitiveType("Int");
                 } else {
                     expr.inferredType = MakePrimitiveType("Void");
@@ -1384,12 +1384,20 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.inferredType = (expr.text == "Read8" || expr.text == "Read16") ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
                 return expr.inferredType;
             }
+            if (recvType.baseName == "Clock" && expr.text == "Seconds") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "CPU" && (expr.text == "Gate" || expr.text == "GateHigh")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
             if (recvType.baseName == "CPU" &&
                 (expr.text == "Halt" || expr.text == "CLI" || expr.text == "STI" || expr.text == "TSC" ||
                  expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
                  expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "LGDT" ||
                  expr.text == "LIDT" || expr.text == "BootInfo" || expr.text == "Function" ||
-                 expr.text == "Handler" || expr.text == "Run")) {
+                 expr.text == "Handler" || expr.text == "Run" || expr.text == "Int3")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
@@ -1464,20 +1472,26 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
-            if (recvType.baseName == "Volatile" && (expr.text == "Load" || expr.text == "Store")) {
+            if (recvType.baseName == "Volatile" &&
+                (expr.text == "Load" || expr.text == "Store" || expr.text == "Load32" || expr.text == "Store32")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
                         "'Volatile." + expr.text + "' reads or writes a memory-mapped register and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
-                expr.inferredType = expr.text == "Load" ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
+                expr.inferredType = (expr.text == "Load" || expr.text == "Load32") ? MakePrimitiveType("Int") : MakePrimitiveType("Void");
                 return expr.inferredType;
             }
 
+            if (recvType.baseName == "Page" && expr.text == "Entry") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
             if (recvType.baseName == "Memory" &&
                 (expr.text == "Allocate" || expr.text == "Free" || expr.text == "Copy" ||
-                 expr.text == "Pages" || expr.text == "Address" || expr.text == "At")) {
+                 expr.text == "Pages" || expr.text == "Address" || expr.text == "At" ||
+                 expr.text == "Frame")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
@@ -1493,7 +1507,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                     expr.inferredType = ptr;
                     return expr.inferredType;
                 }
-                if (expr.text == "Address") {
+                if (expr.text == "Address" || expr.text == "Frame") {
                     expr.inferredType = MakePrimitiveType("Int");
                     return expr.inferredType;
                 }

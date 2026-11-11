@@ -79,6 +79,22 @@ int WindowsDocumentScrollHit(int docX, int docY);
 void WindowsDocumentScrollDrag(int docX);
 void WindowsDocumentScrollEnd();
 
+/* 1 when a document point is on selectable text. Buttons and other controls are not. */
+bool WindowsDocumentTextAt(int docX, int docY);
+bool WindowsDocumentTextActive();
+void WindowsDocumentTextClear();
+/* clicks: 1 places a caret, 2 selects a word, 3 or selectable=all selects the block. */
+bool WindowsDocumentTextBegin(int docX, int docY, int clicks);
+void WindowsDocumentTextMove(int docX, int docY);
+void WindowsDocumentTextEnd();
+bool WindowsDocumentTextMoveCaret(int delta, bool extend);
+void WindowsDocumentTextSelectAll();
+std::string WindowsDocumentTextSelection();
+/* Document rectangles whose text must be painted again. -1 asks for a full raster. */
+int WindowsDocumentTextPatches(WindowPatch* patches, int capacity);
+void WindowsDocumentTextMarkPainted();
+void WindowsDocumentRepaintRect(RoboGPU* gpu, int x, int y, int width, int height);
+
 struct WindowBox {
     std::string kind;
     int x = 0;

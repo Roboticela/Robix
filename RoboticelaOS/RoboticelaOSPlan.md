@@ -236,7 +236,7 @@ Future programmers declare the handoff as a packed struct and the compiler tells
 
 **Exit.** Serial contains `ROBO_BOOT: handoff` and `ROBO_KERNEL: start`, and the Stage E desktop is what the screen shows. A zeroed magic prints `ROBO_KERNEL: bad handoff` and halts. The ROM test image still prints byte `I` (73).
 
-### Stage G — Memory
+### Stage G ✓ — Memory
 
 Future programmers ask the language for a frame and a page-table entry. The shift-and-mask formula lives in one function with one test, the same numbers the C file already prints.
 

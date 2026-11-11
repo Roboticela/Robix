@@ -68,6 +68,9 @@ struct HostView {
     int contentWidth = 0;
     int shownScrollX = -1;
     bool regionDrag = false;
+    bool textDrag = false;
+    int textClicks = 0;
+    unsigned textClick = 0;
     bool panLive = false;
     unsigned baseDpi = 96;
     unsigned dpi = 96;
@@ -1083,12 +1086,14 @@ void Draw(HostView* view) {
         const bool wide = view->contentWidth > layoutW;
         WindowPatch patches[32]{};
         int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, view->focusControl, patches, 32);
+        WindowPatch textPatches[32]{};
+        int textCount = WindowsDocumentTextPatches(textPatches, 32);
         bool fresh = false;
         bool usedSheet = false;
         if (zoomed) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
-                const bool dirty = rebuilt || fresh || patchCount != 0 || view->shownScroll != view->scrollY ||
+                const bool dirty = rebuilt || fresh || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
                                    view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin();
                 if (dirty) {
                     BindSheet(view, true);
@@ -1097,6 +1102,7 @@ void Draw(HostView* view) {
                     BindSheet(view, false);
                     view->shownScroll = view->scrollY;
                     view->shownScrollX = view->scrollX;
+                    WindowsDocumentTextMarkPainted();
                 }
                 ComposeZoomed(view, 1.0, true);
             }
@@ -1107,11 +1113,12 @@ void Draw(HostView* view) {
             view->shownScroll = view->scrollY;
             view->shownScrollX = view->scrollX;
             view->gpuFull = true;
+            WindowsDocumentTextMarkPainted();
         } else {
             WindowsDocumentSetScrollX(0);
             usedSheet = layout >= 0 && EnsureSheet(view, std::max(width, layoutW), view->contentHeight, fresh);
             if (usedSheet) {
-                if (rebuilt || fresh || patchCount < 0) {
+                if (rebuilt || fresh || patchCount < 0 || textCount < 0) {
                     BindSheet(view, true);
                     RasterWindowsDocument(&view->gpu);
                     BindSheet(view, false);
@@ -1119,6 +1126,8 @@ void Draw(HostView* view) {
                     view->gpuScroll = -1;
                     view->gpuFull = true;
                     patchCount = 0;
+                    textCount = 0;
+                    WindowsDocumentTextMarkPainted();
                 } else if (WindowsDocumentNeedsSpin()) {
                     WindowPatch spinRects[32]{};
                     const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
@@ -1127,22 +1136,38 @@ void Draw(HostView* view) {
                         ++patchCount;
                     }
                 }
-                if (patchCount > 0) {
+                if (patchCount > 0 || textCount > 0) {
                     BindSheet(view, true);
                     for (int index = 0; index < patchCount; ++index) {
                         PaintWindowsDocumentRect(&view->gpu, patches[index].x, patches[index].y, patches[index].width,
                                                  patches[index].height);
                     }
+                    for (int index = 0; index < textCount; ++index) {
+                        WindowsDocumentRepaintRect(&view->gpu, textPatches[index].x, textPatches[index].y, textPatches[index].width,
+                                                   textPatches[index].height);
+                    }
                     BindSheet(view, false);
+                    WindowsDocumentTextMarkPainted();
+                }
+                WindowPatch visible[64]{};
+                int visibleCount = 0;
+                for (int index = 0; index < patchCount && visibleCount < 64; ++index) {
+                    visible[visibleCount] = patches[index];
+                    ++visibleCount;
+                }
+                for (int index = 0; index < textCount && visibleCount < 64; ++index) {
+                    visible[visibleCount] = textPatches[index];
+                    ++visibleCount;
                 }
                 if (view->zoomBoxH > 0) {
                     ClearZoomBox(view);
                 }
-                ComposeSheet(view, patches, patchCount);
+                ComposeSheet(view, visible, visibleCount);
             }
         }
         if (!usedSheet) {
             PaintWindowsDocumentView(&view->gpu, view->scrollY, layoutW, layoutH);
+            WindowsDocumentTextMarkPainted();
         }
         WindowScrollState bar = view->bar;
         bar.scrollY = ToWin(view->scrollY, scale);
@@ -1355,6 +1380,12 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     cursorId = IDC_HAND;
                 } else if (barHit == 0 && barHitX == 0 && onControl) {
                     cursorId = controlEnabled ? IDC_HAND : IDC_NO;
+                } else if (barHit == 0 && barHitX == 0 && !onControl && zoomHit == 0) {
+                    const int docX = view->scrollX + ToDoc(cursor.x, scale);
+                    const int docY = view->scrollY + ToDoc(cursor.y, scale);
+                    if (WindowsDocumentTextAt(docX, docY)) {
+                        cursorId = IDC_IBEAM;
+                    }
                 }
                 SetCursor(LoadCursorW(nullptr, cursorId));
                 return TRUE;
@@ -1434,6 +1465,22 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 if (message == WM_LBUTTONUP && view->regionDrag) {
                     view->regionDrag = false;
                     WindowsDocumentScrollEnd();
+                    if (GetCapture() == window) {
+                        ReleaseCapture();
+                    }
+                    Request(view);
+                    return 0;
+                }
+                if (view->textDrag && message == WM_MOUSEMOVE) {
+                    const int docX = view->scrollX + ToDoc(x, pointerScale);
+                    const int docY = view->scrollY + ToDoc(y, pointerScale);
+                    WindowsDocumentTextMove(docX, docY);
+                    Request(view);
+                    return 0;
+                }
+                if (message == WM_LBUTTONUP && view->textDrag) {
+                    view->textDrag = false;
+                    WindowsDocumentTextEnd();
                     if (GetCapture() == window) {
                         ReleaseCapture();
                     }
@@ -1620,6 +1667,25 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 }
                 if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) {
                     SetFocus(window);
+                    if (hit < 0 && zoomHit == 0 && barHit == 0 && barHitX == 0) {
+                        int clicks = message == WM_LBUTTONDBLCLK ? 2 : 1;
+                        if (clicks == 1 && view->textClicks >= 2 && GetTickCount() - view->textClick < 450) {
+                            clicks = 3;
+                        }
+                        view->textClicks = clicks >= 3 ? 0 : clicks;
+                        view->textClick = GetTickCount();
+                        if (WindowsDocumentTextBegin(docX, docY, clicks)) {
+                            view->textDrag = clicks < 2;
+                            view->pressedControl = -1;
+                            SetCapture(window);
+                            Request(view);
+                            return 0;
+                        }
+                        if (WindowsDocumentTextActive()) {
+                            WindowsDocumentTextClear();
+                            Request(view);
+                        }
+                    }
                     view->pressedControl = hit;
                     SetCapture(window);
                     Request(view);
@@ -1739,6 +1805,41 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 if (direction != 2) {
                     view->zoom.Step(direction);
                     RevealZoom(view);
+                    Request(view);
+                    return 0;
+                }
+                if (wParam == 'A') {
+                    WindowsDocumentTextSelectAll();
+                    Request(view);
+                    return 0;
+                }
+                if (wParam == 'C') {
+                    const std::string selected = WindowsDocumentTextSelection();
+                    if (!selected.empty() && OpenClipboard(window)) {
+                        EmptyClipboard();
+                        const int chars = MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), nullptr, 0);
+                        HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, static_cast<SIZE_T>(chars + 1) * sizeof(wchar_t));
+                        if (memory != nullptr) {
+                            auto* wide = static_cast<wchar_t*>(GlobalLock(memory));
+                            MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), wide, chars);
+                            wide[chars] = L'\0';
+                            GlobalUnlock(memory);
+                            SetClipboardData(CF_UNICODETEXT, memory);
+                        }
+                        CloseClipboard();
+                    }
+                    return 0;
+                }
+            }
+            if (view != nullptr && view->ready && view->screen && wParam == VK_ESCAPE && WindowsDocumentTextActive()) {
+                WindowsDocumentTextClear();
+                Request(view);
+                return 0;
+            }
+            if (view != nullptr && view->ready && view->screen && WindowsDocumentTextActive() &&
+                (wParam == VK_LEFT || wParam == VK_RIGHT)) {
+                const bool extend = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                if (WindowsDocumentTextMoveCaret(wParam == VK_LEFT ? -1 : 1, extend)) {
                     Request(view);
                     return 0;
                 }

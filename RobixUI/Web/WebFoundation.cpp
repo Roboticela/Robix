@@ -309,6 +309,17 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     html += " class=\"";
     html += Escape(className);
     html += "\"";
+    if (!RoboWebIsTextName(name)) {
+        const std::string selectable = Lower(RoboXMLAttr(node, "selectable").empty() ? RoboXMLAttr(node, "userSelect") : RoboXMLAttr(node, "selectable"));
+        const std::string picked = Lower(selectable);
+        if (picked == "false" || picked == "0" || picked == "no" || picked == "off" || picked == "none") {
+            html += " data-select=\"none\"";
+        } else if (picked == "all") {
+            html += " data-select=\"all\"";
+        } else if (picked == "true" || picked == "1" || picked == "yes" || picked == "on" || picked == "text") {
+            html += " data-select=\"text\"";
+        }
+    }
     RoboWebBehaviorAttrs(html, node);
     if (name == "scrollbar") {
         if (RoboXMLAttr(node, "autoHide").empty()) {

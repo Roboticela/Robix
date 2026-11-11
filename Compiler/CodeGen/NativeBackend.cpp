@@ -1462,6 +1462,50 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val stored = Coerce(Operand(inst, 1), NTy::I64, inst.location);
                 m_body << "  store volatile i64 " << stored.repr << ", ptr " << p.repr << ", align 1\n";
                 m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "Volatile.Load32" && !inst.operandIds.empty()) {
+                Val p = Operand(inst, 0);
+                const std::string raw = NewTmp();
+                m_body << "  " << raw << " = load volatile i32, ptr " << p.repr << ", align 1\n";
+                m_body << "  " << vname << " = zext i32 " << raw << " to i64\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Volatile.Store32" && inst.operandIds.size() >= 2) {
+                Val p = Operand(inst, 0);
+                Val stored = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string narrow = NewTmp();
+                m_body << "  " << narrow << " = trunc i64 " << stored.repr << " to i32\n";
+                m_body << "  store volatile i32 " << narrow << ", ptr " << p.repr << ", align 1\n";
+                m_vals[id] = Val{ "0", NTy::Void };
+            } else if (inst.textImm == "CPU.Gate" && !inst.operandIds.empty()) {
+                Val handler = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                const std::string low = NewTmp();
+                const std::string shifted = NewTmp();
+                const std::string mid = NewTmp();
+                const std::string placed = NewTmp();
+                const std::string withSel = NewTmp();
+                const std::string withType = NewTmp();
+                m_body << "  " << low << " = and i64 " << handler.repr << ", 65535\n";
+                m_body << "  " << shifted << " = lshr i64 " << handler.repr << ", 16\n";
+                m_body << "  " << mid << " = and i64 " << shifted << ", 65535\n";
+                m_body << "  " << placed << " = shl i64 " << mid << ", 48\n";
+                m_body << "  " << withSel << " = or i64 " << low << ", 524288\n";
+                m_body << "  " << withType << " = or i64 " << withSel << ", 156130651144192\n";
+                m_body << "  " << vname << " = or i64 " << withType << ", " << placed << "\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "CPU.GateHigh" && !inst.operandIds.empty()) {
+                Val handler = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = lshr i64 " << handler.repr << ", 32\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Clock.Seconds" && !inst.operandIds.empty()) {
+                Val cmos = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                const std::string tens = NewTmp();
+                const std::string ones = NewTmp();
+                const std::string scaled = NewTmp();
+                m_body << "  " << tens << " = lshr i64 " << cmos.repr << ", 4\n";
+                m_body << "  " << tens << "m = and i64 " << tens << ", 15\n";
+                m_body << "  " << ones << " = and i64 " << cmos.repr << ", 15\n";
+                m_body << "  " << scaled << " = mul i64 " << tens << "m, 10\n";
+                m_body << "  " << vname << " = add i64 " << scaled << ", " << ones << "\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Port.Write8" && inst.operandIds.size() >= 2) {
                 if (m_ctx.options.asmArch != "x86_64") {
                     Err("N9010", "Port.Write8 exists on x86_64 only.", inst.location);
@@ -1499,6 +1543,17 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << raw << " = call i16 asm sideeffect \"inw $1, $0\", \"={ax},{dx}\"(i16 " << p16 << ")\n";
                 m_body << "  " << vname << " = zext i16 " << raw << " to i64\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Page.Entry" && inst.operandIds.size() >= 2) {
+                Val phys = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val flags = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string masked = NewTmp();
+                m_body << "  " << masked << " = and i64 " << phys.repr << ", -4096\n";
+                m_body << "  " << vname << " = or i64 " << masked << ", " << flags.repr << "\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Memory.Frame") {
+                m_ctx.usesPages = true;
+                m_body << "  " << vname << " = call i64 @rx_memory_frame()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Memory.Pages" && !inst.operandIds.empty()) {
                 Val count = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call ptr @rx_pages_take(i64 " << count.repr << ")\n";
@@ -1521,7 +1576,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                        inst.textImm == "CPU.SavedRSP" || inst.textImm == "CPU.LGDT" ||
                        inst.textImm == "CPU.LIDT" || inst.textImm == "CPU.BootInfo" ||
                        inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" ||
-                       inst.textImm == "CPU.Run" || inst.textImm == "Timer.Arm" ||
+                       inst.textImm == "CPU.Run" || inst.textImm == "CPU.Int3" || inst.textImm == "Timer.Arm" ||
                        inst.textImm == "Timer.Preempt" || inst.textImm == "System.Call") {
                 if (m_ctx.options.asmArch != "x86_64") {
                     Err("N9010", inst.textImm + " exists on x86_64 only.", inst.location);
@@ -1532,6 +1587,9 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  " << vname
                            << " = call i64 asm sideeffect \"rdtsc\", \"=A,~{dirflag},~{fpsr},~{flags}\"()\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
+                } else if (inst.textImm == "CPU.Int3") {
+                    m_body << "  call void asm sideeffect \"int3\", \"~{dirflag},~{fpsr},~{flags},~{memory}\"()\n";
+                    m_vals[id] = Val{ "0", NTy::Void };
                 } else if (inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP") {
                     const char* text = inst.textImm == "CPU.ReadCR3" ? "movq %cr3, $0" : "movq %rsp, $0";
                     m_body << "  " << vname << " = call i64 asm sideeffect \"" << text
@@ -1820,6 +1878,16 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_ctx.usesFrame = true;
                 Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call i64 @rx_frame_present(i64 " << frame.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Frame.Flush" && inst.operandIds.size() >= 5) {
+                m_ctx.usesFrame = true;
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val x = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val y = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                Val width = Coerce(Operand(inst, 3), NTy::I64, inst.location);
+                Val height = Coerce(Operand(inst, 4), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_frame_flush(i64 " << frame.repr << ", i64 " << x.repr
+                       << ", i64 " << y.repr << ", i64 " << width.repr << ", i64 " << height.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Abort" || inst.textImm == "Panic") {
                 m_body << "  call void @llvm.trap()\n";
@@ -2227,7 +2295,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
 
     auto noteIntrinsic = [&](const IR::IRInstruction& inst, std::vector<std::string>* pending) {
         if (inst.opcode != IR::IROpcode::CallOSIntrinsic) return;
-        if (inst.textImm == "Memory.Pages") ctx.usesPages = true;
+        if (inst.textImm == "Memory.Pages" || inst.textImm == "Memory.Frame") ctx.usesPages = true;
         if (inst.textImm.rfind("Frame.", 0) == 0) ctx.usesFrame = true;
         if (inst.textImm == "CPU.ExchangeRSP" || inst.textImm == "CPU.SavedRSP") ctx.usesSwitch = true;
         if (inst.textImm == "System.Call") ctx.usesSyscall = true;
@@ -2370,7 +2438,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n";
         out << "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)\n";
     }
-    if (!m_options.freestanding || needs("@llvm.trap") || ctx.usesPages) {
+    if (!m_options.freestanding || needs("@llvm.trap") || ctx.usesPages || ctx.usesFrame) {
         out << "declare void @llvm.trap()\n";
     }
     if (needs("@exit(")) {
@@ -2475,6 +2543,32 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  %p = getelementptr i8, ptr @rx.pages, i64 %used\n";
         out << "  ret ptr %p\n";
         out << "}\n\n";
+        out << "define i64 @rx_memory_frame() nounwind {\n";
+        out << "entry:\n";
+        if (m_options.freestanding) {
+            out << "  %used = load i64, ptr @rx.page.used, align 8\n";
+            out << "  %next = add i64 %used, 4096\n";
+            out << "  %ok = icmp ule i64 %next, 65536\n";
+            out << "  br i1 %ok, label %have, label %none\n";
+            out << "none:\n  ret i64 0\n";
+            out << "have:\n";
+            out << "  store i64 %next, ptr @rx.page.used, align 8\n";
+            out << "  %p = getelementptr i8, ptr @rx.pages, i64 %used\n";
+            out << "  %addr = ptrtoint ptr %p to i64\n";
+            out << "  ret i64 %addr\n}\n\n";
+        } else {
+            out << "  %used = load i64, ptr @rx.frame.used, align 8\n";
+            out << "  %ok = icmp ult i64 %used, 8\n";
+            out << "  br i1 %ok, label %have, label %none\n";
+            out << "none:\n  ret i64 0\n";
+            out << "have:\n";
+            out << "  %next = add i64 %used, 1\n";
+            out << "  store i64 %next, ptr @rx.frame.used, align 8\n";
+            out << "  %off = mul i64 %used, 4096\n";
+            out << "  %addr = add i64 %off, 2097152\n";
+            out << "  ret i64 %addr\n}\n\n";
+            out << "@rx.frame.used = internal global i64 0, align 8\n\n";
+        }
     }
     if (ctx.usesSwitch) {
         out << "@rx.switch.cell = internal global i64 0, align 8\n";
@@ -2534,12 +2628,11 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
 
     if (ctx.usesFrame) {
         if (m_options.freestanding) {
-            out << "declare void @llvm.trap()\n";
-            out << "%RoboFrame = type { i32, i32, [64000 x i32] }\n";
+            out << "%RoboFrame = type { i32, i32, [2073600 x i32] }\n";
             out << "@rx.frame = internal global %RoboFrame zeroinitializer, align 16\n";
             out << "define i64 @rx_frame_create(i64 %w, i64 %h) {\n";
-            out << "  %okw = icmp ule i64 %w, 320\n";
-            out << "  %okh = icmp ule i64 %h, 200\n";
+            out << "  %okw = icmp ule i64 %w, 1920\n";
+            out << "  %okh = icmp ule i64 %h, 1080\n";
             out << "  %ok = and i1 %okw, %okh\n";
             out << "  br i1 %ok, label %store, label %die\n";
             out << "die:\n  call void @llvm.trap()\n  unreachable\n";
@@ -2566,7 +2659,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %ret = ptrtoint ptr %mem to i64\n";
             out << "  ret i64 %ret\n}\n\n";
         }
-        out << "define void @rx_frame_fill(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %color) {\n";
+        out << "define void @rx_frame_fill(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %color) noinline {\n";
         out << "entry:\n";
         out << "  %p = inttoptr i64 %frame to ptr\n";
         out << "  %fw32 = load i32, ptr %p, align 4\n";
@@ -2596,7 +2689,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  %idx = add i64 %row, %px\n";
         out << "  %base = getelementptr i8, ptr %p, i64 8\n";
         out << "  %slot = getelementptr i32, ptr %base, i64 %idx\n";
-        out << "  store i32 %c32, ptr %slot, align 4\n";
+        out << "  store volatile i32 %c32, ptr %slot, align 4\n";
         out << "  br label %xcont\n";
         out << "xcont:\n";
         out << "  %xnext = add i64 %xx, 1\n";
@@ -2668,24 +2761,32 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  ret i64 %base\n";
             out << "advance:\n  %nextdev = add i64 %dev, 1\n  br label %slot\n";
             out << "fallback:\n  ret i64 3758096384\n}\n\n";
+            out << "@rx.frame.front = internal global i64 0, align 8\n";
             out << "define i64 @rx_frame_present(i64 %frame) noinline {\nentry:\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 4, i16 462)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 0, i16 463)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 1, i16 462)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 320, i16 463)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 2, i16 462)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 200, i16 463)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 3, i16 462)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 32, i16 463)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 4, i16 462)\n";
-            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 65, i16 463)\n";
-            out << "  %front = call i64 @rx_display_bar()\n";
             out << "  %p = inttoptr i64 %frame to ptr\n";
             out << "  %fw32 = load i32, ptr %p, align 4\n";
             out << "  %fw = zext i32 %fw32 to i64\n";
             out << "  %hptr = getelementptr i8, ptr %p, i64 4\n";
             out << "  %fh32 = load i32, ptr %hptr, align 4\n";
             out << "  %fh = zext i32 %fh32 to i64\n";
+            out << "  %fw16 = trunc i64 %fw to i16\n";
+            out << "  %fh16 = trunc i64 %fh to i16\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 4, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 0, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 1, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 %fw16, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 2, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 %fh16, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 3, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 32, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 6, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 %fw16, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 7, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 %fh16, i16 463)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 4, i16 462)\n";
+            out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 65, i16 463)\n";
+            out << "  %front = call i64 @rx_display_bar()\n";
+            out << "  store i64 %front, ptr @rx.frame.front, align 8\n";
             out << "  %count = mul i64 %fw, %fh\n";
             out << "  %src = getelementptr i8, ptr %p, i64 8\n";
             out << "  %dst = inttoptr i64 %front to ptr\n";
@@ -2703,8 +2804,40 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  br label %copy\n";
             out << "copied:\n  %shown = load volatile i8, ptr %dst, align 1\n";
             out << "  %byte = zext i8 %shown to i64\n  ret i64 %byte\n}\n\n";
+            out << "define i64 @rx_frame_flush(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh) noinline {\nentry:\n";
+            out << "  %p = inttoptr i64 %frame to ptr\n";
+            out << "  %fw32 = load i32, ptr %p, align 4\n";
+            out << "  %fw = zext i32 %fw32 to i64\n";
+            out << "  %hptr = getelementptr i8, ptr %p, i64 4\n";
+            out << "  %fh32 = load i32, ptr %hptr, align 4\n";
+            out << "  %fh = zext i32 %fh32 to i64\n";
+            out << "  %front = load i64, ptr @rx.frame.front, align 8\n";
+            out << "  %dst = inttoptr i64 %front to ptr\n";
+            out << "  %src = getelementptr i8, ptr %p, i64 8\n";
+            out << "  br label %yloop\n";
+            out << "yloop:\n  %yy = phi i64 [ 0, %entry ], [ %ynext, %xdone ]\n";
+            out << "  %ydone = icmp uge i64 %yy, %rh\n";
+            out << "  br i1 %ydone, label %end, label %xloop\n";
+            out << "xloop:\n  %xx = phi i64 [ 0, %yloop ], [ %xnext, %xcont ]\n";
+            out << "  %xdoneb = icmp uge i64 %xx, %rw\n";
+            out << "  br i1 %xdoneb, label %xdone, label %plot\n";
+            out << "plot:\n  %px = add i64 %x, %xx\n  %py = add i64 %y, %yy\n";
+            out << "  %xin = icmp ult i64 %px, %fw\n  %yin = icmp ult i64 %py, %fh\n";
+            out << "  %inside = and i1 %xin, %yin\n";
+            out << "  br i1 %inside, label %storepx, label %xcont\n";
+            out << "storepx:\n  %row = mul i64 %py, %fw\n  %idx = add i64 %row, %px\n";
+            out << "  %ss = getelementptr i32, ptr %src, i64 %idx\n";
+            out << "  %dd = getelementptr i32, ptr %dst, i64 %idx\n";
+            out << "  %pix = load i32, ptr %ss, align 4\n";
+            out << "  store volatile i32 %pix, ptr %dd, align 4\n";
+            out << "  br label %xcont\n";
+            out << "xcont:\n  %xnext = add i64 %xx, 1\n  br label %xloop\n";
+            out << "xdone:\n  %ynext = add i64 %yy, 1\n  br label %yloop\n";
+            out << "end:\n  ret i64 %rw\n}\n\n";
         } else {
             out << "define i64 @rx_frame_present(i64 %frame) {\n";
+            out << "  ret i64 0\n}\n\n";
+            out << "define i64 @rx_frame_flush(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh) {\n";
             out << "  ret i64 0\n}\n\n";
         }
     }

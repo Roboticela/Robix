@@ -381,6 +381,43 @@ That serial file was `ROBO_KERNEL: bad handoff`. The image stores magic 0 and ha
 
 `Boot/RoboBootROM.s` is the 16-bit reset. It linked to `Build/RoboticelaOS/RoboBootROM.bin`, 65536 bytes. QEMU `-bios` wrote serial byte 73 (`I`). `robix run` from `RoboticelaOS` printed the same kernel serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with the same pixels. On the host, `Port.Write8` records only the serial port `1016`. The PIT ports stay off that log.
 
+The boot screen follows the RefCode layout on a 1920×1080 screen, the size RefCode picks first so a 16:9 display is not stretched. The logo is 187×216, one fifth of the screen height, and the loader is a 422×6 capsule, 22 percent of the screen width. The fill advances one pixel at a time and takes the same four seconds on every boot. Two QEMU samples one second apart put the fill edge at x=944 and then x=1125. `Build/RoboticelaOS/stageF-desktop.ppm` is the Stage E desktop after that. `RoboticelaOS/RunQEMU.ps1` opens the window.
+
+## RoboticelaOS Stage G
+
+`Page.Entry(phys, flags)` is `(phys & ~0xFFF) | flags`. `Memory.Frame()` hands out one 4 KiB frame from a pool of eight. On the host the addresses start at `2097152`. The ninth call returns 0. In the freestanding image the frames come from the identity-mapped page pool, and the ninth call returns 0 instead of trapping.
+
+```
+robix test RoboticelaOS/Tests/RoboBits.test.rx
+robix test RoboticelaOS/Kernel/Memory/RoboMemoryManager.test.rx
+robix test RoboticelaOS/Kernel/RoboKernel.test.rx
+```
+
+Each printed `interpreter ok, native ok`. `Page.Entry(0x2000, 0x3)` is `8195`. The other four bit values are `4096`, `240`, `127`, and `-2`. The first 1 GiB identity entry is `131`. Slot 1 is `1073741955`. Slot 3 is `3221225603`. Boot, runtime, and ACPI ranges stay reserved and return frame 0. A free range past its page count returns 0. The first host frame is `2097152` and the next is `2101248`.
+
+```
+robixc -O3 RoboticelaOS/Kernel/RoboKernel.rxb -o Build/RoboticelaOS/RoboKernel.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel.elf -serial file:Build/RoboticelaOS/stageG.serial -display none -vga std
+```
+
+The serial file was:
+
+```
+ROBO_BOOT: handoff
+ROBO_KERNEL: start
+ROBO_MEMORY: pages
+ROBO_MEMORY: map
+ROBO_BOOT: splash
+ROBO_GPU: present
+ROBO_UI: paint
+ROBO_SCENE: frame
+ROBO_UI: click
+ROBO_SHELL: bar
+ROBO_GPU: miss
+```
+
+`InstallMap` writes four 1 GiB identity entries, loads that root with `CPU.WriteCR3`, and `CPU.ReadCR3` matches it. The splash bar is drawn at 97, the memory ceiling `97400`. `Build/RoboticelaOS/stageG.ppm` is 320×200. Pixel `(0, 0)` is `1C 24 30`, the desktop after the splash.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

@@ -20,6 +20,7 @@
 #include <vector>
 
 void RoboWindowsInstallFontRaster(const RoboU8* pack, RoboSize packBytes);
+void RoboWindowsFontExtent(int face, int size, int* above, int* below);
 
 namespace Robix::UI {
 namespace {
@@ -466,7 +467,31 @@ struct PaintOp {
     bool quiet = false;
     bool iconButton = false;
     bool loading = false;
+    int select = 0;
 };
+
+int TextSelectMode(const RoboXMLNode& node, bool content) {
+    std::string value = Lower(RoboXMLAttr(node, "selectable"));
+    if (value.empty()) {
+        value = Lower(RoboXMLAttr(node, "select"));
+    }
+    if (value.empty()) {
+        value = Lower(RoboXMLAttr(node, "userselect"));
+    }
+    if (value.empty()) {
+        value = Lower(RoboXMLAttr(node, "selection"));
+    }
+    if (value == "false" || value == "0" || value == "no" || value == "off" || value == "none") {
+        return 0;
+    }
+    if (value == "all") {
+        return 2;
+    }
+    if (value == "true" || value == "1" || value == "yes" || value == "on" || value == "text") {
+        return 1;
+    }
+    return content ? 1 : 0;
+}
 
 const char* ButtonFill(const std::string& variant) {
     if (variant == "secondary" || variant == "ghost" || variant == "action") {
@@ -936,6 +961,7 @@ int PaintSegmented(std::vector<PaintOp>& ops, const RoboXMLNode& node, int x, in
     if (!label.empty()) {
         PaintOp caption;
         caption.text = true;
+        caption.select = TextSelectMode(node, true);
         caption.value = label;
         caption.x = x;
         caption.y = top;
@@ -1420,6 +1446,7 @@ void StyleButton(const RoboXMLNode& node, bool light, bool hot, bool pressed, Pa
 struct TextLine {
     std::string text;
     int width = 0;
+    int origin = 0;
 };
 
 struct TextFlow {
@@ -1547,92 +1574,112 @@ TextFlow FlowOf(const RoboXMLNode& node) {
     return flow;
 }
 
-void AppendChars(const std::string& paragraph, int width, int size, int face, std::vector<TextLine>& lines) {
+void AppendChars(const std::string& paragraph, int base, int width, int size, int face, std::vector<TextLine>& lines) {
     std::string line;
     int lineWidth = 0;
+    int lineOrigin = base;
     for (std::size_t index = 0; index < paragraph.size();) {
         const int span = Utf8Span(paragraph, index);
         const std::string piece = paragraph.substr(index, static_cast<std::size_t>(span));
+        const int pieceAt = base + static_cast<int>(index);
         index += static_cast<std::size_t>(span);
         if (piece == "\n") {
-            lines.push_back(TextLine{line, lineWidth});
+            lines.push_back(TextLine{line, lineWidth, lineOrigin});
             line.clear();
             lineWidth = 0;
+            lineOrigin = base + static_cast<int>(index);
             continue;
         }
         const int pieceWidth = MeasureText(piece, size, face);
         if (width > 0 && !line.empty() && lineWidth + pieceWidth > width) {
-            lines.push_back(TextLine{line, lineWidth});
+            lines.push_back(TextLine{line, lineWidth, lineOrigin});
             line = piece;
             lineWidth = pieceWidth;
+            lineOrigin = pieceAt;
             continue;
+        }
+        if (line.empty()) {
+            lineOrigin = pieceAt;
         }
         line += piece;
         lineWidth += pieceWidth;
     }
-    lines.push_back(TextLine{line, lineWidth});
+    lines.push_back(TextLine{line, lineWidth, lineOrigin});
 }
 
-void AppendWrapped(const std::string& paragraph, int width, int size, int face, bool breakLong, std::vector<TextLine>& lines) {
-    std::string word;
+void AppendWrapped(const std::string& paragraph, int base, int width, int size, int face, bool breakLong, std::vector<TextLine>& lines) {
     std::string line;
     int lineWidth = 0;
+    int lineOrigin = base;
+    std::size_t index = 0;
     const auto flush = [&]() {
         if (line.empty()) {
             return;
         }
-        lines.push_back(TextLine{line, lineWidth});
+        lines.push_back(TextLine{line, lineWidth, lineOrigin});
         line.clear();
         lineWidth = 0;
     };
-    const auto addWord = [&](const std::string& piece) {
-        if (piece.empty()) {
-            return;
+    while (index < paragraph.size()) {
+        while (index < paragraph.size()) {
+            const char ch = paragraph[index];
+            if (ch != ' ' && ch != '\t' && ch != '\r') {
+                break;
+            }
+            ++index;
         }
+        const std::size_t wordAt = index;
+        while (index < paragraph.size()) {
+            const char ch = paragraph[index];
+            if (ch == ' ' || ch == '\t' || ch == '\r') {
+                break;
+            }
+            index += static_cast<std::size_t>(Utf8Span(paragraph, index));
+        }
+        if (wordAt == index) {
+            break;
+        }
+        const std::string piece = paragraph.substr(wordAt, index - wordAt);
+        const int pieceAt = base + static_cast<int>(wordAt);
         const int pieceWidth = MeasureText(piece, size, face);
         if (line.empty()) {
             if (breakLong && width > 0 && pieceWidth > width) {
-                AppendChars(piece, width, size, face, lines);
+                AppendChars(piece, pieceAt, width, size, face, lines);
                 if (!lines.empty()) {
                     line = lines.back().text;
                     lineWidth = lines.back().width;
+                    lineOrigin = lines.back().origin;
                     lines.pop_back();
                 }
             } else {
                 line = piece;
                 lineWidth = pieceWidth;
+                lineOrigin = pieceAt;
             }
-            return;
+            continue;
         }
         const int gap = MeasureText(" ", size, face);
         if (width > 0 && lineWidth + gap + pieceWidth > width) {
             flush();
             if (breakLong && pieceWidth > width) {
-                AppendChars(piece, width, size, face, lines);
+                AppendChars(piece, pieceAt, width, size, face, lines);
                 if (!lines.empty()) {
                     line = lines.back().text;
                     lineWidth = lines.back().width;
+                    lineOrigin = lines.back().origin;
                     lines.pop_back();
                 }
             } else {
                 line = piece;
                 lineWidth = pieceWidth;
+                lineOrigin = pieceAt;
             }
-            return;
+            continue;
         }
         line.push_back(' ');
         line += piece;
         lineWidth += gap + pieceWidth;
-    };
-    for (char ch : paragraph) {
-        if (ch == ' ' || ch == '\t' || ch == '\r') {
-            addWord(word);
-            word.clear();
-        } else {
-            word.push_back(ch);
-        }
     }
-    addWord(word);
     flush();
 }
 
@@ -1675,18 +1722,18 @@ void WrapSource(const std::string& value, int width, int size, int face, int mod
                 ch = ' ';
             }
         }
-        lines.push_back(TextLine{flat, MeasureText(flat, size, face)});
+        lines.push_back(TextLine{flat, MeasureText(flat, size, face), 0});
         return;
     }
     if (mode == 2) {
-        AppendChars(value, width, size, face, lines);
+        AppendChars(value, 0, width, size, face, lines);
     } else {
         std::size_t start = 0;
         while (start <= value.size()) {
             const std::size_t mark = value.find('\n', start);
             const std::string paragraph = value.substr(start, mark == std::string::npos ? std::string::npos : mark - start);
             const std::size_t before = lines.size();
-            AppendWrapped(paragraph, width, size, face, breakLong, lines);
+            AppendWrapped(paragraph, static_cast<int>(start), width, size, face, breakLong, lines);
             if (lines.size() == before) {
                 lines.push_back(TextLine{});
             }
@@ -1733,10 +1780,29 @@ void BalanceLines(std::vector<TextLine>& lines, int width, int size, int face) {
     if (stay.empty() || moved.empty() || MeasureText(joined, size, face) > width) {
         return;
     }
+    last.origin = previous.origin + static_cast<int>(stay.size()) + 1;
     last.text = joined;
     last.width = MeasureText(joined, size, face);
     previous.text = stay;
     previous.width = MeasureText(stay, size, face);
+}
+
+void MarkLineOrigins(const std::string& source, std::vector<TextLine>& lines) {
+    std::size_t cursor = 0;
+    for (TextLine& line : lines) {
+        if (line.text.empty()) {
+            line.origin = static_cast<int>(cursor);
+            continue;
+        }
+        const std::size_t found = source.find(line.text, cursor);
+        if (found == std::string::npos) {
+            line.origin = static_cast<int>(cursor);
+            cursor += line.text.size();
+        } else {
+            line.origin = static_cast<int>(found);
+            cursor = found + line.text.size();
+        }
+    }
 }
 
 void TextLines(const std::string& value, int width, int size, int face, const TextFlow& flow, std::vector<TextLine>& lines) {
@@ -1890,6 +1956,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
             const TypeStyle style = StyleOf(node);
             PaintOp op;
             op.text = true;
+            op.select = TextSelectMode(node, true);
             op.x = x + Px(8);
             op.y = y + std::max(0, (boxH - style.size) / 2);
             op.size = style.size;
@@ -1919,6 +1986,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         ops.push_back(box);
         PaintOp op;
         op.text = true;
+        op.select = TextSelectMode(node, true);
         op.x = x + 16;
         op.y = y + 16;
         op.width = std::max(1, width - 32);
@@ -1997,6 +2065,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
             const std::string alignName = Lower(RoboXMLAttr(node, "textalign").empty() ? RoboXMLAttr(node, "align") : RoboXMLAttr(node, "textalign"));
             PaintOp op;
             op.text = true;
+            op.select = field ? 0 : TextSelectMode(node, true);
             op.role = "Text";
             op.x = field ? x + Px(8) : x;
             op.y = field ? y + std::max(0, (fieldH - style.size) / 2) : y;
@@ -2190,6 +2259,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         if (titleH > 0) {
             PaintOp label;
             label.text = true;
+            label.select = TextSelectMode(node, true);
             label.value = title;
             label.x = x;
             label.y = y + (height - block) / 2;
@@ -2203,6 +2273,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         if (descH > 0) {
             PaintOp copy;
             copy.text = true;
+            copy.select = TextSelectMode(node, true);
             copy.value = description;
             copy.x = x;
             copy.y = y + (height - block) / 2 + titleH + Px(2);
@@ -3143,7 +3214,66 @@ void PaintSpin(RoboGPU* gpu, int centerX, int centerY, int size, RoboU32 ink, in
     DrawSpin(gpu, centerX, centerY, tick, cover * 35 / 100, tick, cover, size);
 }
 
-void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool light) {
+void TextBounds(int& runA, int& offA, int& runB, int& offB);
+void MarkBox(int face, int size, int lineY, int& top, int& height);
+int TextAnchorRun();
+int TextFocusRun();
+bool SceneLight();
+RoboU32 SceneBackground();
+
+void PaintTextMark(RoboGPU* gpu, int run, const PaintOp& op, int lineX, int lineY, const TextLine& line, int lineIndex, int lineCount) {
+    if (gpu == nullptr || op.select == 0 || TextAnchorRun() < 0 || TextFocusRun() < 0 || line.text.empty()) {
+        return;
+    }
+    int runA = 0;
+    int offA = 0;
+    int runB = 0;
+    int offB = 0;
+    TextBounds(runA, offA, runB, offB);
+    if (run < runA || run > runB || (runA == runB && offA == offB)) {
+        return;
+    }
+    int from = 0;
+    int to = static_cast<int>(op.value.size());
+    if (run == runA) {
+        from = offA;
+    }
+    if (run == runB) {
+        to = offB;
+    }
+    const int local0 = std::max(0, from - line.origin);
+    const int local1 = std::min(static_cast<int>(line.text.size()), to - line.origin);
+    if (local1 <= local0) {
+        return;
+    }
+    const int x0 = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(local0)), op.size, op.face);
+    int width = std::max(1, MeasureText(line.text.substr(static_cast<std::size_t>(local0), static_cast<std::size_t>(local1 - local0)), op.size, op.face));
+    if (local0 == 0 && local1 >= static_cast<int>(line.text.size()) && lineIndex + 1 < lineCount) {
+        const int edge = op.x + op.width;
+        if (edge > x0) {
+            width = edge - x0;
+        }
+    }
+    int top = lineY;
+    int markHeight = std::max(1, op.size);
+    MarkBox(op.face, op.size, lineY, top, markHeight);
+    const RoboU32 brand = ThemeColor("brand-primary", SceneLight());
+    const RoboU32 back = SceneBackground();
+    const auto mix = [](RoboU32 fromColor, RoboU32 toColor, int part) {
+        const auto channel = [&](int shift) {
+            const int a = static_cast<int>((fromColor >> shift) & 255u);
+            const int b = static_cast<int>((toColor >> shift) & 255u);
+            return a + (b - a) * part / 100;
+        };
+        return 0xFF000000u | (static_cast<RoboU32>(channel(16)) << 16) | (static_cast<RoboU32>(channel(8)) << 8) |
+               static_cast<RoboU32>(channel(0));
+    };
+    const int radius = std::max(2, op.size / 8);
+    FillRound(gpu, x0, top, width, markHeight, radius, mix(back, brand, 45));
+}
+
+
+void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool light, int run) {
     const int y = op.y - scrollY;
     if (y + op.height < 0 || y > viewHeight) {
         return;
@@ -3245,6 +3375,7 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
                     }
                     const bool justify = op.align == 3 && lineIndex + 1 < lines.size() && line.width < op.width &&
                                          line.text.find(' ') != std::string::npos;
+                    PaintTextMark(gpu, run, op, lineX, lineY, line, static_cast<int>(lineIndex), static_cast<int>(lines.size()));
                     if (!line.text.empty() && justify) {
                         int gaps = 0;
                         for (char ch : line.text) {
@@ -3339,7 +3470,7 @@ void PaintPrepared(RoboGPU* gpu, const PaintOp& op, int index, int scrollY, int 
     if (!PrepareDrawn(drawn, index)) {
         return;
     }
-    PaintOne(gpu, drawn, scrollY, viewHeight, light);
+    PaintOne(gpu, drawn, scrollY, viewHeight, light, index);
 }
 
 void PaintRegionBars(RoboGPU* gpu, int scrollY, int viewHeight, double scale) {
@@ -3414,6 +3545,254 @@ struct Scene {
 };
 
 Scene gScene;
+
+int gTextAnchorRun = -1;
+int gTextAnchor = 0;
+int gTextFocusRun = -1;
+int gTextFocus = 0;
+int gTextShownA = -1;
+int gTextShownB = -1;
+int gTextShownOffA = 0;
+int gTextShownOffB = 0;
+
+int TextAnchorRun() { return gTextAnchorRun; }
+int TextFocusRun() { return gTextFocusRun; }
+bool SceneLight() { return gScene.light; }
+RoboU32 SceneBackground() { return gScene.background; }
+
+bool TextOrder(int runA, int offA, int runB, int offB) {
+    if (runA != runB) {
+        return runA < runB;
+    }
+    return offA < offB;
+}
+
+void TextBounds(int& runA, int& offA, int& runB, int& offB) {
+    runA = gTextAnchorRun;
+    offA = gTextAnchor;
+    runB = gTextFocusRun;
+    offB = gTextFocus;
+    if (!TextOrder(runA, offA, runB, offB)) {
+        std::swap(runA, runB);
+        std::swap(offA, offB);
+    }
+}
+
+bool PlaceSelectable(const PaintOp& op, int index, PaintOp& placed) {
+    placed = op;
+    if (op.select == 0 || !op.text || op.value.empty()) {
+        return false;
+    }
+    for (int regionIndex = static_cast<int>(gRegions.size()) - 1; regionIndex >= 0; --regionIndex) {
+        const ScrollRegion& region = gRegions[static_cast<std::size_t>(regionIndex)];
+        if (index < region.opBegin || index >= region.opEnd) {
+            continue;
+        }
+        placed.x -= region.scrollX;
+        placed.y -= region.scrollY;
+    }
+    return placed.width > 0 && placed.height > 0;
+}
+
+int Utf8Step(const std::string& text, int index, int direction) {
+    if (direction >= 0) {
+        if (index >= static_cast<int>(text.size())) {
+            return index;
+        }
+        return index + Utf8Span(text, static_cast<std::size_t>(index));
+    }
+    if (index <= 0) {
+        return 0;
+    }
+    int cursor = 0;
+    int previous = 0;
+    while (cursor < index && cursor < static_cast<int>(text.size())) {
+        previous = cursor;
+        cursor += Utf8Span(text, static_cast<std::size_t>(cursor));
+    }
+    return previous;
+}
+
+int CaretInLine(const TextLine& line, int size, int face, int lineX, int docX) {
+    int place = line.origin;
+    int cursor = lineX;
+    int best = line.origin;
+    if (docX <= lineX) {
+        return line.origin;
+    }
+    for (std::size_t index = 0; index < line.text.size();) {
+        const int span = Utf8Span(line.text, index);
+        const int width = MeasureText(line.text.substr(index, static_cast<std::size_t>(span)), size, face);
+        if (docX < cursor + width / 2) {
+            return place;
+        }
+        best = place + span;
+        cursor += width;
+        place += span;
+        index += static_cast<std::size_t>(span);
+    }
+    return best;
+}
+
+void TextInk(int face, int size, int& above, int& below);
+
+bool CaretAt(int docX, int docY, int& run, int& offset) {
+    run = -1;
+    offset = 0;
+    for (int index = static_cast<int>(gScene.ops.size()) - 1; index >= 0; --index) {
+        PaintOp placed;
+        if (!PlaceSelectable(gScene.ops[static_cast<std::size_t>(index)], index, placed)) {
+            continue;
+        }
+        std::vector<TextLine> lines;
+        TextFlow flow;
+        flow.mode = placed.wrap;
+        flow.maxLines = placed.maxLines;
+        flow.overflow = placed.overflow;
+        flow.whiteSpace = placed.whiteSpace;
+        flow.breakLong = placed.breakLong;
+        const int wrapWidth = placed.wrapWidth > 0 ? placed.wrapWidth : placed.width;
+        const int wrapSize = placed.wrapSize > 0 ? placed.wrapSize : placed.size;
+        TextLines(placed.value, wrapWidth, wrapSize, placed.face, flow, lines);
+        if (lines.empty()) {
+            continue;
+        }
+        const int count = static_cast<int>(lines.size());
+        const int step = std::max(1, placed.height / count);
+        int above = 0;
+        int below = 0;
+        TextInk(placed.face, placed.size, above, below);
+        int best = -1;
+        int bestDistance = 0;
+        for (int lineIndex = 0; lineIndex < count; ++lineIndex) {
+            const int lineY = placed.y + lineIndex * step;
+            const int slotBottom = lineIndex + 1 == count ? placed.y + placed.height : lineY + step;
+            const int inkTop = lineY + placed.size - above;
+            const int inkBottom = lineY + placed.size + below;
+            const int top = std::min(lineY, inkTop);
+            const int bottom = std::max(slotBottom, inkBottom);
+            if (docY < top || docY >= bottom) {
+                continue;
+            }
+            const int center = (inkTop + inkBottom) / 2;
+            const int distance = docY < center ? center - docY : docY - center;
+            if (best < 0 || distance < bestDistance) {
+                best = lineIndex;
+                bestDistance = distance;
+            }
+        }
+        if (best < 0) {
+            continue;
+        }
+        const TextLine& line = lines[static_cast<std::size_t>(best)];
+        int drawn = line.width;
+        if (placed.wrapSize > 0 && placed.size > 0 && placed.wrapSize != placed.size) {
+            drawn = std::max(1, (line.width * placed.size + placed.wrapSize / 2) / placed.wrapSize);
+        }
+        int lineX = placed.x;
+        if (placed.align == 1) {
+            lineX = placed.x + std::max(0, (placed.width - drawn) / 2);
+        } else if (placed.align == 2) {
+            lineX = placed.x + std::max(0, placed.width - drawn);
+        }
+        run = index;
+        offset = CaretInLine(line, wrapSize, placed.face, lineX, docX);
+        return true;
+    }
+    return false;
+}
+
+bool CaretNearest(int docX, int docY, int& run, int& offset) {
+    if (CaretAt(docX, docY, run, offset)) {
+        return true;
+    }
+    int bestRun = -1;
+    int bestOffset = 0;
+    int bestDistance = 0;
+    for (int index = static_cast<int>(gScene.ops.size()) - 1; index >= 0; --index) {
+        PaintOp placed;
+        if (!PlaceSelectable(gScene.ops[static_cast<std::size_t>(index)], index, placed)) {
+            continue;
+        }
+        std::vector<TextLine> lines;
+        TextFlow flow;
+        flow.mode = placed.wrap;
+        flow.maxLines = placed.maxLines;
+        flow.overflow = placed.overflow;
+        flow.whiteSpace = placed.whiteSpace;
+        flow.breakLong = placed.breakLong;
+        const int wrapWidth = placed.wrapWidth > 0 ? placed.wrapWidth : placed.width;
+        const int wrapSize = placed.wrapSize > 0 ? placed.wrapSize : placed.size;
+        TextLines(placed.value, wrapWidth, wrapSize, placed.face, flow, lines);
+        const int count = static_cast<int>(lines.size());
+        if (count <= 0) {
+            continue;
+        }
+        const int step = std::max(1, placed.height / count);
+        for (int lineIndex = 0; lineIndex < count; ++lineIndex) {
+            const int lineY = placed.y + lineIndex * step;
+            const int center = lineY + step / 2;
+            const int distance = docY < center ? center - docY : docY - center;
+            if (bestRun >= 0 && distance >= bestDistance) {
+                continue;
+            }
+            const TextLine& line = lines[static_cast<std::size_t>(lineIndex)];
+            int lineX = placed.x;
+            int drawn = line.width;
+            if (placed.align == 1) {
+                lineX = placed.x + std::max(0, (placed.width - drawn) / 2);
+            } else if (placed.align == 2) {
+                lineX = placed.x + std::max(0, placed.width - drawn);
+            }
+            bestRun = index;
+            bestOffset = CaretInLine(line, wrapSize, placed.face, lineX, docX);
+            bestDistance = distance;
+        }
+    }
+    if (bestRun < 0) {
+        return false;
+    }
+    run = bestRun;
+    offset = bestOffset;
+    return true;
+}
+
+void WordAround(const std::string& text, int offset, int& from, int& to) {
+    from = std::max(0, std::min(offset, static_cast<int>(text.size())));
+    to = from;
+    auto word = [](unsigned char ch) { return std::isalnum(ch) != 0 || ch == '_'; };
+    while (from > 0 && word(static_cast<unsigned char>(text[static_cast<std::size_t>(from - 1)]))) {
+        --from;
+    }
+    while (to < static_cast<int>(text.size()) && word(static_cast<unsigned char>(text[static_cast<std::size_t>(to)]))) {
+        ++to;
+    }
+    if (from == to && to < static_cast<int>(text.size())) {
+        to += Utf8Span(text, static_cast<std::size_t>(to));
+    }
+}
+
+void TextInk(int face, int size, int& above, int& below) {
+    above = std::max(1, size);
+    below = std::max(0, size / 5);
+    RoboWindowsFontExtent(face, size, &above, &below);
+    if (above <= 0) {
+        above = std::max(1, size);
+    }
+    if (below < 0) {
+        below = 0;
+    }
+}
+
+void MarkBox(int face, int size, int lineY, int& top, int& height) {
+    int above = 0;
+    int below = 0;
+    TextInk(face, size, above, below);
+    const int baseline = lineY + std::max(1, size);
+    const int pad = std::max(1, size / 8);
+    top = baseline - above - pad;
+    height = std::max(1, above + below + pad * 2);
+}
 
 bool SceneStamp(const std::string& path, std::filesystem::file_time_type& stamp, std::uintmax_t& bytes) {
     std::error_code error;
@@ -3590,7 +3969,35 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
     for (const ScrollRegion& region : gRegions) {
         contentWidth = std::max(contentWidth, region.x + region.width);
     }
+    const int keptAnchorRun = gTextAnchorRun;
+    const int keptAnchor = gTextAnchor;
+    const int keptFocusRun = gTextFocusRun;
+    const int keptFocus = gTextFocus;
+    std::string keptAnchorValue;
+    std::string keptFocusValue;
+    if (keptAnchorRun >= 0 && keptAnchorRun < static_cast<int>(gScene.ops.size()) && gScene.ops[static_cast<std::size_t>(keptAnchorRun)].text) {
+        keptAnchorValue = gScene.ops[static_cast<std::size_t>(keptAnchorRun)].value;
+    }
+    if (keptFocusRun >= 0 && keptFocusRun < static_cast<int>(gScene.ops.size()) && gScene.ops[static_cast<std::size_t>(keptFocusRun)].text) {
+        keptFocusValue = gScene.ops[static_cast<std::size_t>(keptFocusRun)].value;
+    }
     gScene.ops = std::move(ops);
+    gTextAnchorRun = -1;
+    gTextFocusRun = -1;
+    gTextShownA = -1;
+    gTextShownB = -1;
+    gTextShownOffA = 0;
+    gTextShownOffB = 0;
+    const auto sameText = [&](int run, const std::string& value) {
+        return run >= 0 && run < static_cast<int>(gScene.ops.size()) && gScene.ops[static_cast<std::size_t>(run)].text &&
+               gScene.ops[static_cast<std::size_t>(run)].select != 0 && gScene.ops[static_cast<std::size_t>(run)].value == value;
+    };
+    if (sameText(keptAnchorRun, keptAnchorValue) && sameText(keptFocusRun, keptFocusValue)) {
+        gTextAnchorRun = keptAnchorRun;
+        gTextFocusRun = keptFocusRun;
+        gTextAnchor = std::max(0, std::min(keptAnchor, static_cast<int>(keptAnchorValue.size())));
+        gTextFocus = std::max(0, std::min(keptFocus, static_cast<int>(keptFocusValue.size())));
+    }
     gScene.controls = std::move(controls);
     gScene.contentHeight = std::max(height, viewHeight);
     gScene.contentWidth = contentWidth;
@@ -3640,6 +4047,215 @@ void PaintSceneRect(RoboGPU* gpu, SceneRect rect, int scrollY, int viewHeight, b
 }
 
 }  // namespace
+
+bool WindowsDocumentTextAt(int docX, int docY) {
+    int run = -1;
+    int offset = 0;
+    return CaretAt(docX, docY, run, offset);
+}
+
+bool WindowsDocumentTextActive() {
+    return gTextAnchorRun >= 0 && gTextFocusRun >= 0;
+}
+
+void WindowsDocumentTextClear() {
+    gTextAnchorRun = -1;
+    gTextFocusRun = -1;
+    gTextAnchor = 0;
+    gTextFocus = 0;
+}
+
+bool WindowsDocumentTextBegin(int docX, int docY, int clicks) {
+    int run = -1;
+    int offset = 0;
+    if (!CaretAt(docX, docY, run, offset)) {
+        return false;
+    }
+    const PaintOp& op = gScene.ops[static_cast<std::size_t>(run)];
+    gTextAnchorRun = run;
+    gTextFocusRun = run;
+    if (clicks >= 3 || op.select == 2) {
+        gTextAnchor = 0;
+        gTextFocus = static_cast<int>(op.value.size());
+        return true;
+    }
+    if (clicks == 2) {
+        WordAround(op.value, offset, gTextAnchor, gTextFocus);
+        return gTextAnchor != gTextFocus;
+    }
+    gTextAnchor = offset;
+    gTextFocus = offset;
+    return true;
+}
+
+void WindowsDocumentTextMove(int docX, int docY) {
+    if (gTextAnchorRun < 0) {
+        return;
+    }
+    int run = -1;
+    int offset = 0;
+    if (!CaretNearest(docX, docY, run, offset)) {
+        return;
+    }
+    gTextFocusRun = run;
+    gTextFocus = offset;
+}
+
+void WindowsDocumentTextEnd() {}
+
+bool WindowsDocumentTextMoveCaret(int delta, bool extend) {
+    if (gTextFocusRun < 0 || gTextFocusRun >= static_cast<int>(gScene.ops.size())) {
+        return false;
+    }
+    const PaintOp& op = gScene.ops[static_cast<std::size_t>(gTextFocusRun)];
+    const int next = Utf8Step(op.value, gTextFocus, delta);
+    gTextFocus = next;
+    if (!extend) {
+        gTextAnchorRun = gTextFocusRun;
+        gTextAnchor = next;
+    }
+    return true;
+}
+
+void WindowsDocumentTextSelectAll() {
+    int first = -1;
+    int last = -1;
+    for (int index = 0; index < static_cast<int>(gScene.ops.size()); ++index) {
+        const PaintOp& op = gScene.ops[static_cast<std::size_t>(index)];
+        if (op.select == 0 || !op.text || op.value.empty()) {
+            continue;
+        }
+        if (first < 0) {
+            first = index;
+        }
+        last = index;
+    }
+    if (first < 0) {
+        WindowsDocumentTextClear();
+        return;
+    }
+    gTextAnchorRun = first;
+    gTextAnchor = 0;
+    gTextFocusRun = last;
+    gTextFocus = static_cast<int>(gScene.ops[static_cast<std::size_t>(last)].value.size());
+}
+
+std::string WindowsDocumentTextSelection() {
+    if (!WindowsDocumentTextActive()) {
+        return {};
+    }
+    int runA = 0;
+    int offA = 0;
+    int runB = 0;
+    int offB = 0;
+    TextBounds(runA, offA, runB, offB);
+    if (runA == runB && offA == offB) {
+        return {};
+    }
+    std::string out;
+    for (int run = runA; run <= runB && run < static_cast<int>(gScene.ops.size()); ++run) {
+        const PaintOp& op = gScene.ops[static_cast<std::size_t>(run)];
+        if (op.select == 0 || !op.text) {
+            continue;
+        }
+        int from = 0;
+        int to = static_cast<int>(op.value.size());
+        if (run == runA) {
+            from = std::max(0, std::min(offA, to));
+        }
+        if (run == runB) {
+            to = std::max(from, std::min(offB, to));
+        }
+        if (!out.empty()) {
+            out.push_back('\n');
+        }
+        out.append(op.value, static_cast<std::size_t>(from), static_cast<std::size_t>(to - from));
+    }
+    return out;
+}
+
+void TextSpan(int& runA, int& offA, int& runB, int& offB) {
+    if (gTextAnchorRun < 0 || gTextFocusRun < 0) {
+        runA = -1;
+        offA = 0;
+        runB = -1;
+        offB = 0;
+        return;
+    }
+    TextBounds(runA, offA, runB, offB);
+}
+
+int WindowsDocumentTextPatches(WindowPatch* patches, int capacity) {
+    int runA = -1;
+    int offA = 0;
+    int runB = -1;
+    int offB = 0;
+    TextSpan(runA, offA, runB, offB);
+    if (runA == gTextShownA && runB == gTextShownB && offA == gTextShownOffA && offB == gTextShownOffB) {
+        return 0;
+    }
+    int from = runA;
+    int to = runB;
+    if (gTextShownA >= 0) {
+        from = from < 0 ? gTextShownA : std::min(from, gTextShownA);
+        to = std::max(to, gTextShownB);
+    }
+    if (from < 0 || to < from || patches == nullptr || capacity <= 0) {
+        return from < 0 ? 0 : -1;
+    }
+    int count = 0;
+    for (int index = from; index <= to && index < static_cast<int>(gScene.ops.size()); ++index) {
+        const PaintOp& op = gScene.ops[static_cast<std::size_t>(index)];
+        if (!op.text || op.width <= 0 || op.height <= 0) {
+            continue;
+        }
+        if (count >= capacity) {
+            return -1;
+        }
+        patches[count].x = op.x;
+        patches[count].y = op.y;
+        patches[count].width = op.width;
+        patches[count].height = op.height;
+        ++count;
+    }
+    return count;
+}
+
+void WindowsDocumentTextMarkPainted() {
+    TextSpan(gTextShownA, gTextShownOffA, gTextShownB, gTextShownOffB);
+}
+
+void WindowsDocumentRepaintRect(RoboGPU* gpu, int x, int y, int width, int height) {
+    if (gpu == nullptr || !gScene.valid || width <= 0 || height <= 0) {
+        return;
+    }
+    const int limit = std::max(gScene.contentHeight, gScene.viewHeight);
+    SceneRect rect{x, y, width, height};
+    ClipRect(rect, std::max(gScene.viewWidth, gScene.contentWidth), limit);
+    if (rect.width <= 0 || rect.height <= 0) {
+        return;
+    }
+    RoboU32 backdrop = gScene.background;
+    const int midX = rect.x + rect.width / 2;
+    const int midY = rect.y + rect.height / 2;
+    for (const PaintOp& op : gScene.ops) {
+        if (op.text || op.fill == 0 || op.width <= 0 || op.height <= 0) {
+            continue;
+        }
+        if (midX >= op.x && midX < op.x + op.width && midY >= op.y && midY < op.y + op.height) {
+            backdrop = op.fill;
+        }
+    }
+    RoboGPUFillRect(gpu, rect.x, rect.y, rect.width, rect.height, backdrop);
+    for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
+        const PaintOp& op = gScene.ops[index];
+        if (op.text && op.width > 0 && op.height > 0 && op.x < rect.x + rect.width && op.x + op.width > rect.x &&
+            op.y < rect.y + rect.height && op.y + op.height > rect.y) {
+            PaintPrepared(gpu, op, static_cast<int>(index), 0, limit, gScene.light);
+        }
+    }
+    RoboDamageClear(&gpu->damage);
+}
 
 void RestoreWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height) {
     if (gpu == nullptr || !gScene.valid || width <= 0 || height <= 0) {
@@ -3789,7 +4405,7 @@ void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int 
         scaled.wrapSize = std::max(1, gScene.ops[index].size);
         scaled.size = std::max(1, ScaleLen(std::max(1, prepared.size), scale));
         scaled.borderPx = prepared.borderPx > 0 ? std::max(1, ScaleLen(prepared.borderPx, scale)) : 0;
-        PaintOne(gpu, scaled, 0, screenHeight, gScene.light);
+        PaintOne(gpu, scaled, 0, screenHeight, gScene.light, static_cast<int>(index));
     }
     PaintRegionBars(gpu, scrollY, screenHeight, scale);
     gScene.scrollY = scrollY;

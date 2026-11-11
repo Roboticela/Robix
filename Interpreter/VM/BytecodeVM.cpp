@@ -35,6 +35,16 @@ namespace {
     std::abort();
 }
 
+std::FILE* OpenFile(const char* path, const char* mode) {
+    std::FILE* file = nullptr;
+#if defined(_MSC_VER)
+    if (fopen_s(&file, path, mode) != 0) return nullptr;
+#else
+    file = std::fopen(path, mode);
+#endif
+    return file;
+}
+
 std::shared_ptr<VMObjectInstance> AsObj(const VMValue& value) {
     if (!value.IsObject()) return nullptr;
     return std::get<std::shared_ptr<VMObjectInstance>>(value.data);
@@ -82,7 +92,7 @@ void WriteHostPicture(const VMObjectInstance& frame) {
             bmp[dst + 2] = frame.buffer->bytes[at + 2];
         }
     }
-    std::FILE* file = std::fopen(out.string().c_str(), "wb");
+    std::FILE* file = OpenFile(out.string().c_str(), "wb");
     if (!file) return;
     std::fwrite(bmp.data(), 1, bmp.size(), file);
     std::fclose(file);
@@ -659,6 +669,20 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         if (m_hostPicture) WriteHostPicture(*obj);
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ shown };
+                } else if (inst.symbolImm == "Frame.Flush") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(0) };
+                } else if (inst.symbolImm == "Page.Entry" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t phys = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t flags = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t entry = (phys & ~static_cast<std::int64_t>(0xFFF)) | flags;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ entry };
+                } else if (inst.symbolImm == "Memory.Frame") {
+                    std::int64_t frame = 0;
+                    if (m_frames < 8) {
+                        frame = 2097152 + m_frames * 4096;
+                        ++m_frames;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ frame };
                 } else if (inst.symbolImm == "Memory.At" && !inst.callArgRegs.empty()) {
                     auto obj = std::make_shared<VMObjectInstance>();
                     obj->className = "Addr";
@@ -681,6 +705,46 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         const auto at = obj->fields.find("addr");
                         if (at != obj->fields.end()) m_mmio[at->second.AsInt()] = regs[inst.callArgRegs[1]].AsInt();
                     }
+                } else if (inst.symbolImm == "Volatile.Load32" && !inst.callArgRegs.empty()) {
+                    std::int64_t value = 0;
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (obj && (obj->cell || obj->buffer)) {
+                        value = ReadPointee(*obj) & 0xFFFFFFFFLL;
+                    } else if (obj) {
+                        const auto at = obj->fields.find("addr");
+                        if (at != obj->fields.end()) {
+                            const auto stored = m_mmio.find(at->second.AsInt());
+                            if (stored != m_mmio.end()) value = stored->second & 0xFFFFFFFFLL;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
+                } else if (inst.symbolImm == "Volatile.Store32" && inst.callArgRegs.size() >= 2) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    if (obj && (obj->cell || obj->buffer)) {
+                        WritePointee(*obj, regs[inst.callArgRegs[1]].AsInt() & 0xFFFFFFFFLL);
+                        if (obj->cell) {
+                            for (auto& entry : cells) {
+                                if (entry.second == obj->cell) locals[entry.first] = *obj->cell;
+                            }
+                        }
+                    } else if (obj) {
+                        const auto at = obj->fields.find("addr");
+                        if (at != obj->fields.end()) {
+                            m_mmio[at->second.AsInt()] = regs[inst.callArgRegs[1]].AsInt() & 0xFFFFFFFFLL;
+                        }
+                    }
+                } else if (inst.symbolImm == "CPU.Gate" && !inst.callArgRegs.empty()) {
+                    const std::int64_t handler = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t low = (handler & 65535) | (8LL << 16) | (142LL << 40) |
+                                             (((handler >> 16) & 65535) << 48);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ low };
+                } else if (inst.symbolImm == "CPU.GateHigh" && !inst.callArgRegs.empty()) {
+                    const std::int64_t handler = regs[inst.callArgRegs[0]].AsInt();
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ handler >> 32 };
+                } else if (inst.symbolImm == "Clock.Seconds" && !inst.callArgRegs.empty()) {
+                    const std::int64_t cmos = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t seconds = ((cmos >> 4) & 15) * 10 + (cmos & 15);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ seconds };
                 } else if (inst.symbolImm == "CPU.TSC") {
                     m_tsc += 1;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ m_tsc };

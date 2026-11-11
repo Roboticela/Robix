@@ -1,6 +1,7 @@
 #include "../../../RoboGPU/RoboText.hpp"
 #include "../../../RoboShared/RoboFontPack.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <string>
 
@@ -286,7 +287,43 @@ void RoboWindowsDrawGlyph(RoboGPU* gpu, const RoboFontView* font, RoboI32 x, Rob
 
 const RoboTextHostRaster gRaster = {RoboWindowsMeasureGlyph, RoboWindowsDrawGlyph};
 
+void FontExtentInternal(int face, int size, int* above, int* below) {
+  const int em = size > 0 ? size : 1;
+  if (above != nullptr) {
+    *above = em;
+  }
+  if (below != nullptr) {
+    *below = 0;
+  }
+  if (size <= 0) {
+    return;
+  }
+  IDWriteFontFace* fontFace = RoboWindowsOpenFace(face);
+  if (fontFace == nullptr) {
+    return;
+  }
+  DWRITE_FONT_METRICS metrics{};
+  fontFace->GetMetrics(&metrics);
+  if (metrics.designUnitsPerEm == 0) {
+    return;
+  }
+  const auto scale = [&](int value) {
+    return static_cast<int>((static_cast<long long>(value) * size + metrics.designUnitsPerEm / 2) /
+                            metrics.designUnitsPerEm);
+  };
+  if (above != nullptr) {
+    *above = std::max(1, scale(static_cast<int>(metrics.ascent)));
+  }
+  if (below != nullptr) {
+    *below = std::max(0, scale(static_cast<int>(metrics.descent)));
+  }
+}
+
 }  // namespace
+
+void RoboWindowsFontExtent(int face, int size, int* above, int* below) {
+  FontExtentInternal(face, size, above, below);
+}
 
 void RoboWindowsInstallFontRaster(const RoboU8* pack, RoboSize packBytes) {
   gPack = pack;

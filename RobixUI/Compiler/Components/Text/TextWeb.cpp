@@ -65,7 +65,10 @@ void RoboWebAppendTextCss(std::ostream& css) {
     css << ".robo-type.robo-type-label{color:var(--robo-text,var(--text-primary))}\n";
     css << ".robo-body[data-size=\"sm\"],.robo-body[data-size=\"small\"],.robo-type-body[data-size=\"sm\"],.robo-type-body[data-size=\"small\"]{font-size:17px;line-height:1.47}\n";
     css << ".robo-type-eyebrow{text-transform:uppercase}\n";
-    css << ".robo-type{font-family:var(--robo-font,inherit)}\n";
+    css << ".robo-type{font-family:var(--robo-font,inherit);user-select:text;-webkit-user-select:text;cursor:text}\n";
+    css << ".robo-screen ::selection,.robo-type::selection{background:color-mix(in srgb,var(--brand-primary) 42%,transparent);color:var(--text-primary)}\n";
+    css << "button,a,[role=button],[role=switch],[role=checkbox],[role=radio],input,textarea,select,.robo-scroll-arrow{user-select:none;-webkit-user-select:none;cursor:default}\n";
+    css << "[data-select=none],[data-select=none] *{user-select:none;-webkit-user-select:none;cursor:default}\n";
     css << ".robo-type[style*=\"--robo-heading\"] :is(h1,h2,h3,h4,h5,h6,.robo-heading){color:var(--robo-heading)}\n";
     css << ".robo-type[style*=\"--robo-paragraph\"] :is(p,.robo-body,.robo-paragraph){color:var(--robo-paragraph)}\n";
     css << ".robo-type[style*=\"--robo-link\"] a{color:var(--robo-link)}\n";
@@ -76,6 +79,7 @@ void RoboWebAppendTextCss(std::ostream& css) {
     css << ".robo-type[data-select=none],.robo-type[data-select=none] *{user-select:none;-webkit-user-select:none}\n";
     css << ".robo-type[data-select=text]{user-select:text;-webkit-user-select:text}\n";
     css << ".robo-type[data-select=all],.robo-type[data-select=all] *{user-select:all;-webkit-user-select:all}\n";
+    css << "button,.robo-type[data-select=all] button,button .robo-type,a,a .robo-type,[role=button],[role=button] .robo-type,[role=switch],[role=switch] .robo-type,[role=checkbox],[role=checkbox] .robo-type,[role=radio],[role=radio] .robo-type{user-select:none;-webkit-user-select:none;cursor:default}\n";
     css << ".robo-type[style*=\"--robo-caret\"],.robo-type[style*=\"--robo-caret\"] *{caret-color:var(--robo-caret)}\n";
     css << ".robo-type[data-effect=glow],.robo-type[data-effect=neon]{text-shadow:0 0 12px currentColor}\n";
     css << ".robo-type[data-effect=emboss]{text-shadow:0 1px 0 rgba(255,255,255,.35),0 -1px 0 rgba(0,0,0,.6)}\n";
@@ -372,12 +376,17 @@ void RoboWebTextAttrs(std::string& html, const RoboXMLNode& node) {
   if (select.empty()) {
     select = RoboWebLower(RoboWebTextAttr(node, "selection", "userSelect"));
   }
-  if (select == "false" || select == "0" || select == "no" || select == "off" || select == "none") {
+  const std::string role = RoboWebLower(RoboXMLAttr(node, "role"));
+  const std::string as = RoboWebLower(RoboXMLAttr(node, "as"));
+  const bool editing = role == "textbox" || role == "searchbox" || as == "input" || as == "textarea";
+  if (select == "false" || select == "0" || select == "no" || select == "off" || select == "none" || (select.empty() && editing)) {
     select = "none";
-  } else if (select == "true" || select == "1" || select == "yes" || select == "on" || select == "text") {
+  } else if (select == "all") {
+    select = "all";
+  } else if (select.empty() || select == "true" || select == "1" || select == "yes" || select == "on" || select == "text") {
     select = "text";
-  } else if (select != "all") {
-    select.clear();
+  } else {
+    select = "text";
   }
   data("select", select);
 }

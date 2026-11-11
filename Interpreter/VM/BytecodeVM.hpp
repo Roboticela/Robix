@@ -115,6 +115,7 @@ private:
     int m_mouseY = 0;
     int m_clicks = 0;
     std::int64_t m_tsc = 1;
+    std::int64_t m_frames = 0;
     std::unordered_map<std::int64_t, std::int64_t> m_mmio;
     bool m_gateChecked = false;
     bool m_gateOk = false;

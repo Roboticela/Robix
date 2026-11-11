@@ -15,10 +15,19 @@
 #endif
 #include <windows.h>
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+namespace {
+
+std::FILE* OpenFile(const char* path, const char* mode) {
+    std::FILE* file = nullptr;
+#if defined(_MSC_VER)
+    if (fopen_s(&file, path, mode) != 0) return nullptr;
+#else
+    file = std::fopen(path, mode);
 #endif
-#include <windows.h>
+    return file;
+}
+
+}
 
 extern "C" {
 
@@ -78,7 +87,7 @@ std::int64_t rx_input_i64(const char* prompt) {
 
 int rx_write_text(const char* path, const char* text) {
     if (path == nullptr) return 0;
-    std::FILE* file = std::fopen(path, "wb");
+    std::FILE* file = OpenFile(path, "wb");
     if (file == nullptr) return 0;
     if (text != nullptr) {
         const std::size_t length = std::strlen(text);
@@ -90,7 +99,7 @@ int rx_write_text(const char* path, const char* text) {
 
 char* rx_read_text(const char* path) {
     if (path == nullptr) return EmptyString();
-    std::FILE* file = std::fopen(path, "rb");
+    std::FILE* file = OpenFile(path, "rb");
     if (file == nullptr) return EmptyString();
     if (std::fseek(file, 0, SEEK_END) != 0) {
         std::fclose(file);
