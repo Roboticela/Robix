@@ -1,5 +1,6 @@
 #include "BytecodeVM.hpp"
 #include "../../Compiler/Types/SpecValidator.hpp"
+#include "../../Compiler/Runtime/SceneRaster.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -855,6 +856,27 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     m_mouseY = static_cast<int>(regs[inst.callArgRegs[1]].AsInt());
                 } else if (inst.symbolImm == "Input.AddClick") {
                     ++m_clicks;
+                } else if (inst.symbolImm == "Scene.Render" && inst.callArgRegs.size() >= 3) {
+                    auto obj = AsObj(regs[inst.callArgRegs[1]]);
+                    const std::string path = regs[inst.callArgRegs[0]].ToString();
+                    const std::string camera = regs[inst.callArgRegs[2]].ToString();
+                    std::vector<std::uint32_t> pixels;
+                    std::int64_t drawn = 0;
+                    if (obj && obj->buffer && obj->className == "Frame" &&
+                        RoboRasterizeScene(path, camera, obj->width, static_cast<int>(obj->index), pixels) &&
+                        pixels.size() == obj->buffer->bytes.size() / 4) {
+                        for (std::size_t i = 0; i < pixels.size(); ++i) {
+                            const std::size_t at = i * 4;
+                            obj->buffer->bytes[at] = static_cast<std::uint8_t>(pixels[i]);
+                            obj->buffer->bytes[at + 1] = static_cast<std::uint8_t>(pixels[i] >> 8);
+                            obj->buffer->bytes[at + 2] = static_cast<std::uint8_t>(pixels[i] >> 16);
+                            obj->buffer->bytes[at + 3] = static_cast<std::uint8_t>(pixels[i] >> 24);
+                        }
+                        drawn = 1;
+                    } else {
+                        std::fprintf(stderr, "robix vm: Scene.Render could not read '%s'\n", path.c_str());
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ drawn };
                 } else if (inst.symbolImm == "UI.LoadCooked" && !inst.callArgRegs.empty()) {
                     const std::string path = regs[inst.callArgRegs[0]].ToString();
                     if (!Robix::UI::RoboCookedLoad(path, m_cooked)) {

@@ -235,6 +235,65 @@ ROBO_GPU: pixel
 
 `Build/RoboticelaOS/stageB.ppm` is 320×200. Pixel (0, 0) and pixel (200, 8) are `0E 7A FF`. Pixel (0, 199) is `08 0A 10`. Pixels (16, 48), (64, 48), and (112, 48) are `FF FF FF`. Pixel (276, 180) is `1C 24 30`. `robix run` from `RoboticelaOS` printed the same three serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with those pixels.
 
+## RoboticelaOS Stage C
+
+`Input.Play` reads a script of `move`, `click`, and `key` records separated by `;`. The records follow `RoboInputEvent`: key is type 1, mouse is type 2, and the button bit is the mouse value. The queue holds 128 events. `Input.Count`, `Input.X`, `Input.Y`, and `Input.Button` read it. `Pop` removes the oldest event. Relative, absolute, and key pushes append. `PollPS2` reads port 100 and, only when bit 0 is set, reads port 96 and pushes that byte as a key. On the interpreter those ports read as 0, so a quiet controller does not invent a packet.
+
+```
+robix test RoboticelaOS/Tests/RoboPlay.test.rx
+robix test RoboticelaOS/Kernel/Input/RoboInput.test.rx
+robix test RoboticelaOS/Runtime/UI/RoboHit.test.rx
+robix test RoboticelaOS/Kernel/RoboKernel.test.rx
+```
+
+Each printed `interpreter ok, native ok`. The play test checks a move at (16, 48) with button bit 0 and a click at (80, 140) with button bit 1. The queue test pops the move and then sees the click. The hit test maps (16, 48) to an icon and (200, 160) to the window. A click with button bit 0 does not count. Button bit 1 on the window makes `Input.Clicks` 1. The same bit on the icon leaves the count at 1.
+
+```
+robixc -O3 RoboticelaOS/Kernel/RoboKernel.rxb -o Build/RoboticelaOS/RoboKernel.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel.elf -serial file:Build/RoboticelaOS/stageC.serial -display none -vga std
+```
+
+The serial file was:
+
+```
+ROBO_GPU: present
+ROBO_UI: paint
+ROBO_UI: click
+ROBO_GPU: pixel
+```
+
+`Build/RoboticelaOS/stageC.ppm` is 320×200. Pixel (0, 0) is `0E 7A FF`. Pixel (120, 24) is `FF FF FF`, the cursor after the move. Pixel (16, 48) is `FF FF FF`. Pixel (276, 180) is `FF B0 00`, the window after the click. Pixel (0, 199) is `08 0A 10`. `robix run` from `RoboticelaOS` printed the same serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with those pixels.
+
+## RoboticelaOS Stage D
+
+`Scene.Render` draws one `.rx3d` scene into a frame. The camera is perspective, Y is up, and rotation is radians. One directional light shades flat box meshes. The freestanding image copies that frame with volatile stores so the optimizer does not emit `memcpy`.
+
+```
+robix test RoboticelaOS/Tests/RoboSplash.test.rx
+robix test RoboticelaOS/Runtime/Scene/RoboSceneRaster.test.rx
+robix test RoboticelaOS/Runtime/UI/RoboUI.test.rx
+robix test RoboticelaOS/Kernel/RoboKernel.test.rx
+```
+
+Each printed `interpreter ok, native ok`. The splash center pixel (160, 100) is `3300229`. The splash corner (0, 0) and the wallpaper corner (0, 199) are `526864` (`#080A10`). The wallpaper body pixel (300, 160) is `3155991`.
+
+```
+robixc -O3 RoboticelaOS/Kernel/RoboKernel.rxb -o Build/RoboticelaOS/RoboKernel.elf
+qemu-system-x86_64 -cpu qemu64 -machine pc -kernel Build/RoboticelaOS/RoboKernel.elf -serial file:Build/RoboticelaOS/stageD.serial -display none -vga std
+```
+
+The serial file was:
+
+```
+ROBO_GPU: present
+ROBO_UI: paint
+ROBO_SCENE: frame
+ROBO_UI: click
+ROBO_GPU: pixel
+```
+
+`Build/RoboticelaOS/stageD.ppm` is 320×200. Pixel (0, 0) is `0E 7A FF`. Pixel (120, 24) is `FF FF FF`. Pixel (16, 48) is `FF FF FF`. Pixel (300, 160) is `30 28 17`, the wallpaper body beside the window. Pixel (276, 180) is `FF B0 00`, the clicked window. Pixel (0, 199) is `08 0A 10`. `robix run` from `RoboticelaOS` printed the same serial lines and wrote `Build/RoboticelaOS/Interpreter.bmp` with those pixels. `Desktop/RoboDesktop.rxu` references the scene with `View3D`, and the scene file has no RobixUI elements.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

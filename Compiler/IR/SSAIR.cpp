@@ -2507,6 +2507,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "File" && memberName == "WriteText") {
                         ty = MakePrim("Bool");
+                    } else if (receiverExpr.text == "Scene" && memberName == "Render") {
+                        ty = MakePrim("Int");
                     } else if (receiverExpr.text == "UI" &&
                                (memberName == "LoadCooked" || memberName == "Role" || memberName == "BoxX" ||
                                 memberName == "BoxY" || memberName == "BoxWidth" || memberName == "BoxHeight")) {

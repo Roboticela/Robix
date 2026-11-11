@@ -1,5 +1,6 @@
 #include "NativeBackend.hpp"
 #include "../../RobixUI/CookedLayout.hpp"
+#include "../Runtime/SceneRaster.hpp"
 #include "../Runtime/InputScript.hpp"
 
 #include <cctype>
@@ -214,6 +215,8 @@ struct ModuleCtx {
     std::vector<Robix::UI::RoboCookedBox> uiBoxes;
     bool usesInput = false;
     std::vector<RoboPlayedEvent> inputScript;
+    bool usesScene = false;
+    std::vector<std::uint32_t> scenePixels;
     int printFmt = -1;
     const IR::IRModule* module = nullptr;
     const NativeEmitOptions& options;
@@ -1333,6 +1336,17 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val index = inst.operandIds.empty() ? Val{ "0", NTy::I64 }
                                                     : Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call i64 @rx_ui_field(i64 " << index.repr << ", i64 " << field << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Scene.Render" && inst.operandIds.size() >= 3) {
+                m_ctx.usesScene = true;
+                const std::string path = ConstText(inst.operandIds[0]);
+                const std::string camera = ConstText(inst.operandIds[2]);
+                if (path.empty() || camera.empty() || !RoboRasterizeScene(path, camera, 320, 200, m_ctx.scenePixels)) {
+                    Err("N9011", "Scene.Render needs a scene file, a frame, and a camera name.", inst.location);
+                    break;
+                }
+                Val frame = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_scene_render(i64 " << frame.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Input.Play" && !inst.operandIds.empty()) {
                 m_ctx.usesInput = true;
@@ -2766,6 +2780,42 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "done:\n  %h2 = load i32, ptr @rx.input.head, align 4\n";
         out << "  %t2 = load i32, ptr @rx.input.tail, align 4\n";
         out << "  %left = sub i32 %t2, %h2\n  %z = zext i32 %left to i64\n  ret i64 %z\n}\n\n";
+    }
+
+    if (ctx.usesScene && ctx.scenePixels.size() == 64000) {
+        out << "@rx.scene.pix = internal constant [64000 x i32] [";
+        for (std::size_t index = 0; index < ctx.scenePixels.size(); ++index) {
+            if (index != 0) {
+                out << ",";
+            }
+            if (index % 12 == 0) {
+                out << "\n  ";
+            }
+            out << "i32 " << ctx.scenePixels[index];
+        }
+        out << "\n]\n";
+        out << "define i64 @rx_scene_render(i64 %frame) {\n";
+        out << "  %p = inttoptr i64 %frame to ptr\n";
+        out << "  %w32 = load i32, ptr %p, align 4\n";
+        out << "  %hp = getelementptr i8, ptr %p, i64 4\n";
+        out << "  %h32 = load i32, ptr %hp, align 4\n";
+        out << "  %okw = icmp eq i32 %w32, 320\n";
+        out << "  %okh = icmp eq i32 %h32, 200\n";
+        out << "  %ok = and i1 %okw, %okh\n";
+        out << "  br i1 %ok, label %copy, label %miss\n";
+        out << "miss:\n  ret i64 0\n";
+        out << "copy:\n  br label %loop\n";
+        out << "loop:\n  %i = phi i64 [ 0, %copy ], [ %next, %step ]\n";
+        out << "  %done = icmp uge i64 %i, 64000\n";
+        out << "  br i1 %done, label %copied, label %step\n";
+        out << "step:\n  %src = getelementptr [64000 x i32], ptr @rx.scene.pix, i64 0, i64 %i\n";
+        out << "  %color = load i32, ptr %src, align 4\n";
+        out << "  %base = getelementptr i8, ptr %p, i64 8\n";
+        out << "  %dst = getelementptr i32, ptr %base, i64 %i\n";
+        out << "  store volatile i32 %color, ptr %dst, align 4\n";
+        out << "  %next = add i64 %i, 1\n";
+        out << "  br label %loop\n";
+        out << "copied:\n  ret i64 1\n}\n\n";
     }
 
     if (!m_options.freestanding && !nativeTests.empty()) {

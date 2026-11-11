@@ -1338,6 +1338,11 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Scene" &&
+                expr.text == "Render") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
             if (expr.left && expr.left->kind == ExprKind::Identifier &&
                 (expr.left->text == "UI" || expr.left->text == "Scene") && expr.text == "Set") {
                 expr.inferredType = MakePrimitiveType("Void");
