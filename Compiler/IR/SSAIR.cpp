@@ -2703,7 +2703,9 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
-                    } else if (receiverExpr.text == "Port" && (memberName == "Read8" || memberName == "Read16")) {
+                    } else if (receiverExpr.text == "Port" &&
+                               (memberName == "Create" || memberName == "Send" || memberName == "Receive" ||
+                                memberName == "Read8" || memberName == "Read16")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "CPU" &&
                                (memberName == "TSC" || memberName == "ReadCR3" || memberName == "ReadRSP" ||

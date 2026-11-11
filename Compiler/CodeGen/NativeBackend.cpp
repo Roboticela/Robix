@@ -216,6 +216,7 @@ struct ModuleCtx {
     std::vector<Robix::UI::RoboCookedBox> uiBoxes;
     bool usesInput = false;
     bool usesSched = false;
+    bool usesPort = false;
     std::vector<RoboPlayedEvent> inputScript;
     bool usesScene = false;
     std::vector<std::uint32_t> scenePixels;
@@ -1512,6 +1513,22 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_ctx.usesSched = true;
                 Val ident = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call i64 @rx_sched_block(i64 " << ident.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Port.Create" && !inst.operandIds.empty()) {
+                m_ctx.usesPort = true;
+                Val owner = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_port_create(i64 " << owner.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Port.Send" && inst.operandIds.size() >= 2) {
+                m_ctx.usesPort = true;
+                Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val word = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_port_send(i64 " << port.repr << ", i64 " << word.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Port.Receive" && !inst.operandIds.empty()) {
+                m_ctx.usesPort = true;
+                Val port = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_port_receive(i64 " << port.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Clock.Seconds" && !inst.operandIds.empty()) {
                 Val cmos = Coerce(Operand(inst, 0), NTy::I64, inst.location);
@@ -3148,6 +3165,71 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "next:\n  %inext = add i64 %i, 1\n  br label %find\n";
         out << "stop:\n  store i64 2, ptr %stp, align 8\n  call void @rx_sched_unlock()\n  ret i64 1\n";
         out << "miss:\n  call void @rx_sched_unlock()\n  ret i64 0\n}\n\n";
+    }
+
+    if (ctx.usesPort) {
+        out << "@rx.port.lock = internal global i64 0\n";
+        out << "@rx.port.owner = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.port.state = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.port.word = internal global [8 x i64] zeroinitializer\n";
+        out << "@rx.port.full = internal global [8 x i64] zeroinitializer\n";
+        out << "define internal void @rx_port_lock() {\n";
+        out << "entry:\n  br label %spin\n";
+        out << "spin:\n  %got = atomicrmw xchg ptr @rx.port.lock, i64 1 seq_cst\n";
+        out << "  %free = icmp eq i64 %got, 0\n  br i1 %free, label %out, label %spin\n";
+        out << "out:\n  ret void\n}\n\n";
+        out << "define internal void @rx_port_unlock() {\n";
+        out << "  store atomic i64 0, ptr @rx.port.lock seq_cst, align 8\n  ret void\n}\n\n";
+        out << "define i64 @rx_port_create(i64 %owner) {\n";
+        out << "entry:\n  call void @rx_port_lock()\n  br label %scan\n";
+        out << "scan:\n  %i = phi i64 [ 0, %entry ], [ %next, %step ]\n";
+        out << "  %done = icmp uge i64 %i, 8\n  br i1 %done, label %fail, label %check\n";
+        out << "check:\n  %sp = getelementptr [8 x i64], ptr @rx.port.state, i64 0, i64 %i\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %empty = icmp eq i64 %st, 0\n";
+        out << "  br i1 %empty, label %fill, label %step\n";
+        out << "step:\n  %next = add i64 %i, 1\n  br label %scan\n";
+        out << "fill:\n  %op = getelementptr [8 x i64], ptr @rx.port.owner, i64 0, i64 %i\n";
+        out << "  store i64 %owner, ptr %op, align 8\n";
+        out << "  %closed = icmp eq i64 %owner, 0\n  %mark = select i1 %closed, i64 2, i64 1\n";
+        out << "  store i64 %mark, ptr %sp, align 8\n";
+        out << "  %wp = getelementptr [8 x i64], ptr @rx.port.word, i64 0, i64 %i\n";
+        out << "  %fp = getelementptr [8 x i64], ptr @rx.port.full, i64 0, i64 %i\n";
+        out << "  store i64 0, ptr %wp, align 8\n  store i64 0, ptr %fp, align 8\n";
+        out << "  %id = add i64 %i, 1\n  call void @rx_port_unlock()\n  ret i64 %id\n";
+        out << "fail:\n  call void @rx_port_unlock()\n  ret i64 0\n}\n\n";
+        out << "define i64 @rx_port_send(i64 %id, i64 %word) {\n";
+        out << "entry:\n  %pos = icmp sgt i64 %id, 0\n  %lim = icmp sle i64 %id, 8\n";
+        out << "  %range = and i1 %pos, %lim\n  br i1 %range, label %lock, label %closed\n";
+        out << "closed:\n  ret i64 -1\n";
+        out << "lock:\n  call void @rx_port_lock()\n  %slot = sub i64 %id, 1\n";
+        out << "  %sp = getelementptr [8 x i64], ptr @rx.port.state, i64 0, i64 %slot\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %open = icmp eq i64 %st, 1\n";
+        out << "  br i1 %open, label %checkfull, label %denied\n";
+        out << "denied:\n  call void @rx_port_unlock()\n  ret i64 -1\n";
+        out << "checkfull:\n  %fp = getelementptr [8 x i64], ptr @rx.port.full, i64 0, i64 %slot\n";
+        out << "  %full = load i64, ptr %fp, align 8\n  %busy = icmp ne i64 %full, 0\n";
+        out << "  br i1 %busy, label %wait, label %put\n";
+        out << "wait:\n  call void @rx_port_unlock()\n  ret i64 -2\n";
+        out << "put:\n  %masked = and i64 %word, 4294967295\n";
+        out << "  %wp = getelementptr [8 x i64], ptr @rx.port.word, i64 0, i64 %slot\n";
+        out << "  store i64 %masked, ptr %wp, align 8\n  store i64 1, ptr %fp, align 8\n";
+        out << "  call void @rx_port_unlock()\n  ret i64 4\n}\n\n";
+        out << "define i64 @rx_port_receive(i64 %id) {\n";
+        out << "entry:\n  %pos = icmp sgt i64 %id, 0\n  %lim = icmp sle i64 %id, 8\n";
+        out << "  %range = and i1 %pos, %lim\n  br i1 %range, label %lock, label %closed\n";
+        out << "closed:\n  ret i64 -1\n";
+        out << "lock:\n  call void @rx_port_lock()\n  %slot = sub i64 %id, 1\n";
+        out << "  %sp = getelementptr [8 x i64], ptr @rx.port.state, i64 0, i64 %slot\n";
+        out << "  %st = load i64, ptr %sp, align 8\n  %open = icmp eq i64 %st, 1\n";
+        out << "  br i1 %open, label %checkfull, label %denied\n";
+        out << "denied:\n  call void @rx_port_unlock()\n  ret i64 -1\n";
+        out << "checkfull:\n  %fp = getelementptr [8 x i64], ptr @rx.port.full, i64 0, i64 %slot\n";
+        out << "  %full = load i64, ptr %fp, align 8\n  %has = icmp ne i64 %full, 0\n";
+        out << "  br i1 %has, label %take, label %empty\n";
+        out << "empty:\n  call void @rx_port_unlock()\n  ret i64 -2\n";
+        out << "take:\n  %wp = getelementptr [8 x i64], ptr @rx.port.word, i64 0, i64 %slot\n";
+        out << "  %word = load i64, ptr %wp, align 8\n  store i64 0, ptr %fp, align 8\n";
+        out << "  call void @rx_port_unlock()\n  ret i64 %word\n}\n\n";
     }
 
     if (ctx.usesInput) {

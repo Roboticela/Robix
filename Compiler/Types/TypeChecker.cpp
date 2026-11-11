@@ -1375,6 +1375,11 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
+            if (recvType.baseName == "Port" &&
+                (expr.text == "Create" || expr.text == "Send" || expr.text == "Receive")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
             if (recvType.baseName == "Port" && (expr.text == "Write8" || expr.text == "Read8" || expr.text == "Read16")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(

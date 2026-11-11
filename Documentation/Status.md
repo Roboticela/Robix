@@ -534,6 +534,39 @@ ROBO_PROCESS: alive
 
 The same image with `-smp 1` prints `ROBO_CPU: cores online1`, `ROBO_SCHED: core 0`, then `ROBO_VM: fault` and `ROBO_PROCESS: alive`. `Build/RoboticelaOS/stageAddress.ppm` is 1920×1080. Pixel `(0, 0)` is `1C 24 30`. Pixel `(200, 8)` is `0E 7A FF`. Pixel `(960, 540)` is `08 0A 10`.
 
+## RoboticelaOS Stage L
+
+`Port.Create`, `Port.Send`, and `Port.Receive` are the message queue. The kernel creates the four well-known ports: Log is 1, Window is 2, Launch is 3, and Driver is 4. `Port.Create(0)` is a closed port and returns 5. A send of `305419896` returns 4 and the receive returns those same four bytes. A send of `4294967301` keeps the low four bytes, so the receive is 5. A send of 0 is received as 0. An empty receive returns `-2`, and `Sched.Block` on that waiter returns 1. A send to the closed port, and a send to port 0, both return `-1`.
+
+```
+robix test RoboticelaOS/Kernel/IPC/RoboPort.test.rx
+robix test RoboticelaOS/Kernel/CPU/RoboScheduler.test.rx
+robix test RoboticelaOS/Kernel/Memory/RoboAddressSpace.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -no-reboot -no-shutdown -vga std -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+After the scheduler lines, the four-core serial file contains:
+
+```
+ROBO_SCHED: core 0
+ROBO_SCHED: core 1
+ROBO_SCHED: core 2
+ROBO_SCHED: core 3
+ROBO_TIMER: tick
+ROBO_SCHED: migrate
+ROBO_PORT: round
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_SCHED: core 0`, then `ROBO_PORT: round`, then `ROBO_VM: fault` and `ROBO_PROCESS: alive`.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

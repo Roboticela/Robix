@@ -750,6 +750,51 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                 } else if (inst.symbolImm == "CPU.GateHigh" && !inst.callArgRegs.empty()) {
                     const std::int64_t handler = regs[inst.callArgRegs[0]].AsInt();
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ handler >> 32 };
+                } else if (inst.symbolImm == "Port.Create" && !inst.callArgRegs.empty()) {
+                    const std::int64_t owner = regs[inst.callArgRegs[0]].AsInt();
+                    int slot = -1;
+                    for (int i = 0; i < 8; ++i) {
+                        if (m_portState[i] == 0) { slot = i; break; }
+                    }
+                    std::int64_t ident = 0;
+                    if (slot >= 0) {
+                        m_portOwner[slot] = owner;
+                        m_portState[slot] = owner == 0 ? 2 : 1;
+                        m_portWord[slot] = 0;
+                        m_portFull[slot] = 0;
+                        ident = slot + 1;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ ident };
+                } else if (inst.symbolImm == "Port.Send" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t ident = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t word = regs[inst.callArgRegs[1]].AsInt() & 4294967295LL;
+                    std::int64_t result = -1;
+                    if (ident >= 1 && ident <= 8) {
+                        const int slot = static_cast<int>(ident - 1);
+                        if (m_portState[slot] == 1) {
+                            if (m_portFull[slot] != 0) result = -2;
+                            else {
+                                m_portWord[slot] = word;
+                                m_portFull[slot] = 1;
+                                result = 4;
+                            }
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Port.Receive" && !inst.callArgRegs.empty()) {
+                    const std::int64_t ident = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t result = -1;
+                    if (ident >= 1 && ident <= 8) {
+                        const int slot = static_cast<int>(ident - 1);
+                        if (m_portState[slot] == 1) {
+                            if (m_portFull[slot] == 0) result = -2;
+                            else {
+                                result = m_portWord[slot];
+                                m_portFull[slot] = 0;
+                            }
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
                 } else if (inst.symbolImm == "Sched.Enqueue" && inst.callArgRegs.size() >= 2) {
                     const std::int64_t ident = regs[inst.callArgRegs[0]].AsInt();
                     const std::int64_t pri = regs[inst.callArgRegs[1]].AsInt();

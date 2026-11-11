@@ -277,19 +277,19 @@ Future programmers split a page table into a kernel half and a user half, and de
 
 - [x] **Exit.** A test process prints `ROBO_VM: fault` and serial then contains `ROBO_PROCESS: alive`. A kernel fault still halts.
 
-### [ ] Stage L — Ports, the way processes talk
+### [x] Stage L — Ports, the way processes talk
 
 Future programmers send a message through a port and receive it on the other end. The window server, the drivers, and the desktop will all use this, the way Mach ports connect macOS processes.
 
-- [ ] **Task L1, Robix feature.** Add `Port.Create`, `Port.Send`, and `Port.Receive`. The compiler test sends a 4-byte message, receives those bytes, and a receive on an empty port returns a block result that Stage J can wait on. A send to a closed port returns `Error`.
+- [x] **Task L1, Robix feature.** Add `Port.Create`, `Port.Send`, and `Port.Receive`. The compiler test sends a 4-byte message, receives those bytes, and a receive on an empty port returns a block result that Stage J can wait on. A send to a closed port returns `Error`.
 
-- [ ] **Task L2.** `Kernel/IPC/RoboPort.rx` is that queue, bound to a process. The kernel is the only creator of the well-known ports: `Window`, `Launch`, `Driver`, and `Log`.
+- [x] **Task L2.** `Kernel/IPC/RoboPort.rx` is that queue, bound to a process. The kernel is the only creator of the well-known ports: `Window`, `Launch`, `Driver`, and `Log`.
 
 | File | Test |
 | :--- | :--- |
 | `Kernel/IPC/RoboPort.rx` | `RoboPort.test.rx` covers send, receive, empty, and closed |
 
-- [ ] **Exit.** Two kernel threads exchange a message and serial contains `ROBO_PORT: round`.
+- [x] **Exit.** Two kernel threads exchange a message and serial contains `ROBO_PORT: round`.
 
 ### [ ] Stage M — Processes, credentials, and sessions
 

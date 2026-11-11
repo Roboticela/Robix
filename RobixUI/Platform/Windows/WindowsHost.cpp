@@ -360,16 +360,37 @@ void CopyVisible(HostView* view, int x, int y, int width, int height) {
         return;
     }
     const UINT pitch = view->pixelWidth * 4u;
-    const int sheetRow = view->scrollY + y;
-    if (sheetRow < 0 || sheetRow + height > static_cast<int>(view->sheetHeight)) {
+    int sheetRow = view->scrollY + y;
+    int destY = y;
+    int rows = height;
+    if (sheetRow < 0) {
+        destY -= sheetRow;
+        rows += sheetRow;
+        sheetRow = 0;
+    }
+    if (destY < 0) {
+        rows += destY;
+        sheetRow -= destY;
+        destY = 0;
+    }
+    if (sheetRow >= static_cast<int>(view->sheetHeight) || rows <= 0) {
         return;
     }
-    for (int row = 0; row < height; ++row) {
-        std::memcpy(view->back + (static_cast<size_t>(y + row) * pitch) + static_cast<size_t>(x) * 4u,
+    if (sheetRow + rows > static_cast<int>(view->sheetHeight)) {
+        rows = static_cast<int>(view->sheetHeight) - sheetRow;
+    }
+    if (destY + rows > static_cast<int>(view->pixelHeight)) {
+        rows = static_cast<int>(view->pixelHeight) - destY;
+    }
+    if (rows <= 0) {
+        return;
+    }
+    for (int row = 0; row < rows; ++row) {
+        std::memcpy(view->back + (static_cast<size_t>(destY + row) * pitch) + static_cast<size_t>(x) * 4u,
                     view->sheet + (static_cast<size_t>(sheetRow + row) * pitch) + static_cast<size_t>(x) * 4u,
                     static_cast<size_t>(width) * 4u);
     }
-    RoboDamageAdd(&view->gpu.damage, x, y, width, height);
+    RoboDamageAdd(&view->gpu.damage, x, destY, width, rows);
 }
 
 void ComposeSheet(HostView* view, const WindowPatch* patches, int patchCount) {
@@ -1052,6 +1073,7 @@ void Draw(HostView* view) {
     const bool zoomed = std::abs(scale - 1.0) > 0.0005;
     if (view->screen) {
         CatchUpSpin(view);
+        WindowsDocumentSetPictureClock(GetTickCount());
     }
     view->dpi = view->baseDpi;
     BindSheet(view, false);
@@ -1094,7 +1116,7 @@ void Draw(HostView* view) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
                 const bool dirty = rebuilt || fresh || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
-                                   view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin();
+                                   view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion();
                 if (dirty) {
                     BindSheet(view, true);
                     WindowsDocumentSetScrollX(view->scrollX);
@@ -1128,11 +1150,17 @@ void Draw(HostView* view) {
                     patchCount = 0;
                     textCount = 0;
                     WindowsDocumentTextMarkPainted();
-                } else if (WindowsDocumentNeedsSpin()) {
+                } else if (WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion()) {
                     WindowPatch spinRects[32]{};
                     const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
                     for (int index = 0; index < spinCount && patchCount < 32; ++index) {
                         patches[patchCount] = spinRects[index];
+                        ++patchCount;
+                    }
+                    WindowPatch motionRects[32]{};
+                    const int motionCount = WindowsDocumentMotionRects(motionRects, 32);
+                    for (int index = 0; index < motionCount && patchCount < 32; ++index) {
+                        patches[patchCount] = motionRects[index];
                         ++patchCount;
                     }
                 }
@@ -1253,7 +1281,7 @@ void Draw(HostView* view) {
     }
     if (view->window != nullptr) {
         KillTimer(view->window, 3);
-        if (view->stayOpen && view->screen && WindowsDocumentNeedsSpin()) {
+        if (view->stayOpen && view->screen && (WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion())) {
             if (!view->spinArmed) {
                 view->spinClock = GetTickCount();
                 SetTimer(view->window, 4, 50, nullptr);
@@ -1957,7 +1985,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 return 0;
             }
             if (wParam == 4) {
-                if (view == nullptr || !WindowsDocumentNeedsSpin()) {
+                if (view == nullptr || (!WindowsDocumentNeedsSpin() && !WindowsDocumentNeedsMotion())) {
                     KillTimer(window, 4);
                     return 0;
                 }

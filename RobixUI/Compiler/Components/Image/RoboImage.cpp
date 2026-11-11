@@ -427,19 +427,6 @@ bool RoboImageDecodeWic(RoboImageRecord& image, const void* bytes, std::size_t s
     return true;
 }
 
-void RoboImageScaleSvg(NSVGimage* picture, float scaleX, float scaleY) {
-    for (NSVGshape* shape = picture->shapes; shape != nullptr; shape = shape->next) {
-        for (NSVGpath* path = shape->paths; path != nullptr; path = path->next) {
-            for (int point = 0; point < path->npts; ++point) {
-                path->pts[point * 2] *= scaleX;
-                path->pts[point * 2 + 1] *= scaleY;
-            }
-        }
-    }
-    picture->width *= scaleX;
-    picture->height *= scaleY;
-}
-
 bool RoboImagePaintVector(const RoboImageRecord& image, RoboImageFrame& frame, int destWidth, int destHeight, int originX, int originY) {
     if (image.vector.empty() || destWidth < 1 || destHeight < 1 || destWidth > ROBO_IMAGE_MAX_EDGE || destHeight > ROBO_IMAGE_MAX_EDGE) {
         return false;
@@ -452,14 +439,36 @@ bool RoboImagePaintVector(const RoboImageRecord& image, RoboImageFrame& frame, i
     }
     const float scaleX = static_cast<float>(destWidth) / parsed->width;
     const float scaleY = static_cast<float>(destHeight) / parsed->height;
-    RoboImageScaleSvg(parsed, scaleX, scaleY);
     NSVGrasterizer* raster = nsvgCreateRasterizer();
     if (raster == nullptr) {
         nsvgDelete(parsed);
         return false;
     }
-    std::vector<RoboU8> rgba(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight) * 4u, 0);
-    nsvgRasterize(raster, parsed, 0.0f, 0.0f, 1.0f, rgba.data(), destWidth, destHeight, destWidth * 4);
+    const bool uniform = std::fabs(scaleX - scaleY) <= 0.001f * std::max(scaleX, scaleY);
+    std::vector<RoboU8> rgba;
+    if (uniform) {
+        rgba.assign(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight) * 4u, 0);
+        nsvgRasterize(raster, parsed, 0.0f, 0.0f, scaleX, rgba.data(), destWidth, destHeight, destWidth * 4);
+    } else {
+        const int sampleHeight = std::max(1, static_cast<int>(std::lround(parsed->height * scaleX)));
+        std::vector<RoboU8> sample(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(sampleHeight) * 4u, 0);
+        nsvgRasterize(raster, parsed, 0.0f, 0.0f, scaleX, sample.data(), destWidth, sampleHeight, destWidth * 4);
+        rgba.assign(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight) * 4u, 0);
+        for (int y = 0; y < destHeight; ++y) {
+            const float sourceY = (static_cast<float>(y) + 0.5f) * static_cast<float>(sampleHeight) / static_cast<float>(destHeight) - 0.5f;
+            const int top = std::max(0, std::min(sampleHeight - 1, static_cast<int>(std::floor(sourceY))));
+            const int bottom = std::min(sampleHeight - 1, top + 1);
+            const float down = std::max(0.0f, std::min(1.0f, sourceY - static_cast<float>(top)));
+            for (int x = 0; x < destWidth; ++x) {
+                const RoboU8* a = sample.data() + (static_cast<std::size_t>(top) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
+                const RoboU8* b = sample.data() + (static_cast<std::size_t>(bottom) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
+                RoboU8* dest = rgba.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(destWidth) + static_cast<std::size_t>(x)) * 4u;
+                for (int channel = 0; channel < 4; ++channel) {
+                    dest[channel] = static_cast<RoboU8>(a[channel] * (1.0f - down) + b[channel] * down + 0.5f);
+                }
+            }
+        }
+    }
     nsvgDeleteRasterizer(raster);
     nsvgDelete(parsed);
     for (int y = 0; y < destHeight; ++y) {

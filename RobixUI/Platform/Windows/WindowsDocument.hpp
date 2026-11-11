@@ -61,6 +61,15 @@ void WindowsDocumentAdvanceSpin();
 /* Document rectangles that contain a loader. */
 int WindowsDocumentSpinRects(WindowPatch* patches, int capacity);
 
+/* Clock for GIF and WebP frames, in milliseconds. */
+void WindowsDocumentSetPictureClock(unsigned clock);
+
+/* True while a shown picture has more than one frame. */
+bool WindowsDocumentNeedsMotion();
+
+/* Document rectangles of pictures that animate. */
+int WindowsDocumentMotionRects(WindowPatch* patches, int capacity);
+
 /* Where the zoom capsule sits. -1 hides it. The other values match ViewZoom::Anchor. */
 int WindowsDocumentZoomAnchor();
 
