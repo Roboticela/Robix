@@ -2415,7 +2415,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
             if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
                 expr.left->left->kind == Frontend::ExprKind::Identifier &&
                 ((expr.left->left->text == "CPU" &&
-                  (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Run")) ||
+                  (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Fault" || expr.left->text == "Run")) ||
                  (expr.left->left->text == "Timer" && (expr.left->text == "Arm" || expr.left->text == "Preempt")))) {
                 const std::string member = expr.left->left->text + "." + expr.left->text;
                 if (member == "Timer.Preempt") {
@@ -2699,7 +2699,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Timer" || receiverExpr.text == "Console" ||
                      receiverExpr.text == "Atomic" ||                      receiverExpr.text == "Frame" ||
                      receiverExpr.text == "Input" || receiverExpr.text == "Page" ||
-                     receiverExpr.text == "Sched")) {
+                     receiverExpr.text == "Sched" || receiverExpr.text == "Fault")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2708,7 +2708,7 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "CPU" &&
                                (memberName == "TSC" || memberName == "ReadCR3" || memberName == "ReadRSP" ||
                                 memberName == "ExchangeRSP" || memberName == "SavedRSP" || memberName == "BootInfo" ||
-                                memberName == "Function" || memberName == "Handler" || memberName == "Gate" ||
+                                memberName == "Function" || memberName == "Handler" || memberName == "Fault" || memberName == "Gate" ||
                                 memberName == "GateHigh")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Clock" && memberName == "Seconds") {
@@ -2733,7 +2733,9 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "Memory" &&
                                (memberName == "Address" || memberName == "Frame")) {
                         ty = MakePrim("Int");
-                    } else if (receiverExpr.text == "Page" && memberName == "Entry") {
+                    } else if (receiverExpr.text == "Page" && (memberName == "Entry" || memberName == "Split")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Fault" && memberName == "Decide") {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Frame" &&
                                (memberName == "Create" || memberName == "Pixel" || memberName == "Present" ||

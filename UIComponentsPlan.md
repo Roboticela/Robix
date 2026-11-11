@@ -350,17 +350,25 @@ Depends on: C2.
 
 Depends on: C3.
 
-- [ ] `Icon` schema: name, size, color
-- [ ] Read one glyph from the icon pack
-- [ ] Test asserts the glyph box
+`RoboIconRead` accepts name, size, and color, and rejects an unknown attribute, a bad size or color, a missing name, the wrong tag, and a child. `RoboIconGlyph` reads one cooked coverage layer from the icon pack and reports the tight box at the requested size. `RoboIconPaint` writes that coverage in the icon color.
+
+- [x] `Icon` schema: name, size, color
+- [x] Read one glyph from the icon pack
+- [x] Test asserts the glyph box
+
+`Tests/UI/RoboIconTests.cpp` passed, 38 checks. The fixture pack holds a 4×4 coverage whose ink is a 2×2 block. At size 8 the glyph box is `x=2`, `y=2`, `width=4`, `height=4`. The pixel on that box is the icon color. The pixel beside it stays clear. A name that is not in the pack is rejected.
 
 ### Stage C6 — Svg
 
 Depends on: C2.
 
-- [ ] `Svg` schema: paths, fill, stroke, view box
-- [ ] Rasterize into the element box
-- [ ] Test asserts a pixel on a fixture path and a pixel outside it
+`RoboSvgRead` accepts paths, fill, stroke, and view box, and rejects an unknown attribute, a bad color, size, or view box, the wrong tag, a child that is not a `Path`, a missing path, and more than 32 paths. `RoboSvgPaint` rasterizes the paths into the element box.
+
+- [x] `Svg` schema: paths, fill, stroke, view box
+- [x] Rasterize into the element box
+- [x] Test asserts a pixel on a fixture path and a pixel outside it
+
+`Tests/UI/RoboSvgTests.cpp` passed, 39 checks. The fixture is `M1 1 H3 V3 H1 Z` in a `0 0 4 4` view box, painted at 32×32. The center pixel is the fill. The origin pixel and the far corner stay clear.
 
 ### Stage C7 — Canvas
 
@@ -853,8 +861,8 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/View/` | Stage C2 layout engine. `RoboView` places and paints the box. |
 | `RobixUI/Compiler/Components/Text/` | Stage C3. `RoboText` reads the schema, measures the cooked font pack, and paints the glyph. `Span` is a part. |
 | `RobixUI/Compiler/Components/Image/` | Stage C4. `RoboImage` reads the schema, decodes a cooked bitmap, and paints it into the frame. |
-| `RobixUI/Compiler/Components/Icon/` | `Icon` compiler unit |
-| `RobixUI/Compiler/Components/Svg/` | `Svg` compiler unit |
+| `RobixUI/Compiler/Components/Icon/` | Stage C5. `RoboIcon` reads name, size, and color, and reads one glyph from the cooked pack. |
+| `RobixUI/Compiler/Components/Svg/` | Stage C6. `RoboSvg` reads paths, fill, stroke, and view box, and rasterizes them into the element box. |
 | `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D` as a compiler tag. The paint unit is still to build. |
 | `RobixUI/Compiler/Compose.cpp` | Expands library components. Library stages use it. |
 | `RobixUI/Compiler/Components/*/*Web.cpp` | Hand-written HTML emitters for the plan primitives. Stage C21 replaces them with the web face. |

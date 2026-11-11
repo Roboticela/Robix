@@ -942,7 +942,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Port" || expr.text == "CPU" || expr.text == "Timer" ||
                 expr.text == "Clock" || expr.text == "System" || expr.text == "Console" || expr.text == "Atomic" ||
                 expr.text == "Frame" || expr.text == "Input" || expr.text == "Page" ||
-                expr.text == "Sched") {
+                expr.text == "Sched" || expr.text == "Fault") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1403,7 +1403,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                  expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
                  expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "LGDT" ||
                  expr.text == "LIDT" || expr.text == "BootInfo" || expr.text == "Function" ||
-                 expr.text == "Handler" || expr.text == "Run" || expr.text == "Int3")) {
+                 expr.text == "Handler" || expr.text == "Fault" || expr.text == "Run" || expr.text == "Int3")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
@@ -1413,7 +1413,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 const bool returnsInt = expr.text == "TSC" || expr.text == "ReadCR3" || expr.text == "ReadRSP" ||
                                         expr.text == "ExchangeRSP" || expr.text == "SavedRSP" ||
                                         expr.text == "BootInfo" || expr.text == "Function" ||
-                                        expr.text == "Handler";
+                                        expr.text == "Handler" || expr.text == "Fault";
                 expr.inferredType = MakePrimitiveType(returnsInt ? "Int" : "Void");
                 return expr.inferredType;
             }
@@ -1490,7 +1490,11 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
-            if (recvType.baseName == "Page" && expr.text == "Entry") {
+            if (recvType.baseName == "Page" && (expr.text == "Entry" || expr.text == "Split")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Fault" && expr.text == "Decide") {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }

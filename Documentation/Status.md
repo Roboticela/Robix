@@ -505,6 +505,35 @@ ROBO_SCHED: migrate
 
 The same image with `-smp 1` prints `ROBO_CPU: cores online1`, reaches `ROBO_SHELL: bar`, and then prints `ROBO_SCHED: core 0`.
 
+## RoboticelaOS Stage K
+
+`Page.Split(8192, 1048576)` is `9987`. The low three bits are the supervisor flags `3`, and the next flag byte is the user flags `7`. `Page.Split(8192, 0)` keeps that half supervisor (`8963`). `KernelHalf(8192, 1048576)` is `8195`. `UserHalf(8192, 8388608)` is `8388615`. `Fault.Decide(1)` is `1` (continue). `Fault.Decide(0)` is `0` (halt). `RootsDiffer(16777216, 16781312)` is `1`, and a zero root or two equal roots return `0`.
+
+```
+robix test RoboticelaOS/Kernel/Memory/RoboAddressSpace.test.rx
+robix test RoboticelaOS/Kernel/Memory/RoboMemoryManager.test.rx
+robix test RoboticelaOS/Kernel/CPU/RoboScheduler.test.rx
+robix test RoboticelaOS/Kernel/CPU/RoboCPU.test.rx
+robix test RoboticelaOS/Kernel/Devices/RoboSplash.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+The kernel builds a second root at 16 MiB. The low 18 MiB stay identity-mapped as 2 MiB pages. The page at 8 MiB is user. The kernel pages, including the page at 2 MiB, stay supervisor. A ring-3 store into that supervisor page raises vector 14. The fault stub pops the error code. When the user bit is clear it halts. When the user bit is set it prints the two lines and returns to the kernel. Vector 32 stays installed, so the timer tick still returns.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -no-reboot -no-shutdown -vga std -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+After the Stage J lines, the four-core serial file contains:
+
+```
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1`, `ROBO_SCHED: core 0`, then `ROBO_VM: fault` and `ROBO_PROCESS: alive`. `Build/RoboticelaOS/stageAddress.ppm` is 1920×1080. Pixel `(0, 0)` is `1C 24 30`. Pixel `(200, 8)` is `0E 7A FF`. Pixel `(960, 540)` is `08 0A 10`.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

@@ -263,19 +263,19 @@ Future programmers enqueue a thread and ask which core should run it. The image 
 
 - [x] **Exit.** On `-smp 4`, serial contains `ROBO_SCHED: core 0`, `core 1`, `core 2`, and `core 3`, then `ROBO_SCHED: migrate`. On `-smp 1`, serial contains `ROBO_SCHED: core 0` and the desktop documents still appear. Splash ceiling 98400.
 
-### [ ] Stage K — An address space per process
+### [x] Stage K — An address space per process
 
 Future programmers split a page table into a kernel half and a user half, and decide a fault, without crashing the host.
 
-- [ ] **Task K1, Robix feature.** Add `Page.Split(root, userStart)` and `Fault.Decide(fromUser) -> Int`. The compiler test checks the supervisor and user flag bits. A user fault returns continue. A kernel fault returns halt.
+- [x] **Task K1, Robix feature.** Add `Page.Split(root, userStart)` and `Fault.Decide(fromUser) -> Int`. The compiler test checks the supervisor and user flag bits. A user fault returns continue. A kernel fault returns halt.
 
-- [ ] **Task K2.** `Kernel/Memory/RoboAddressSpace.rx` builds one root per process. The kernel half is shared and supervisor-only. A user store into a kernel page faults that process. The desktop and the other processes keep running.
+- [x] **Task K2.** `Kernel/Memory/RoboAddressSpace.rx` builds one root per process. The kernel half is shared and supervisor-only. A user store into a kernel page faults that process. The desktop and the other processes keep running.
 
 | File | Test |
 | :--- | :--- |
 | `Kernel/Memory/RoboAddressSpace.rx` | `RoboAddressSpace.test.rx` covers the split flags, a user fault, and a second space that stays mapped |
 
-- [ ] **Exit.** A test process prints `ROBO_VM: fault` and serial then contains `ROBO_PROCESS: alive`. A kernel fault still halts.
+- [x] **Exit.** A test process prints `ROBO_VM: fault` and serial then contains `ROBO_PROCESS: alive`. A kernel fault still halts.
 
 ### [ ] Stage L — Ports, the way processes talk
 

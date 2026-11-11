@@ -170,8 +170,8 @@ bool AsmMnemonicAllowed(std::string_view arch, std::string_view mnemonic) {
     }
     return listed({ "nop", "cli", "sti", "hlt", "mov", "movb", "movw", "movl", "movq",
                     "out", "outb", "outw", "outl", "in", "inb", "inw", "inl",
-                    "lgdt", "lidt", "ljmp", "ljmpl", "rdmsr", "wrmsr", "invlpg",
-                    "int", "iret", "iretq", "push", "pop", "ret", "jmp", "call",
+                    "lgdt", "lidt", "ljmp", "ljmpl", "ltr", "rdmsr", "wrmsr", "invlpg",
+                    "int", "iret", "iretq", "push", "pushq", "pop", "popq", "ret", "jmp", "call",
                     "add", "addq", "sub", "subq", "and", "or", "xor", "shl", "shr", "sar",
                     "lea", "cmp", "test", "xchg", "cpuid", "pause", "mfence", "lfence", "sfence" });
 }
@@ -203,6 +203,7 @@ struct ModuleCtx {
     std::vector<std::string> stringLiterals;
     std::set<std::string> cpuFns;
     std::set<std::string> isrFns;
+    std::set<std::string> faultIsrs;
     std::set<std::string> timerIsrs;
     std::string preemptA;
     std::string preemptB;
@@ -1567,6 +1568,28 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << masked << " = and i64 " << phys.repr << ", -4096\n";
                 m_body << "  " << vname << " = or i64 " << masked << ", " << flags.repr << "\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Page.Split" && inst.operandIds.size() >= 2) {
+                Val root = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val userStart = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const std::string aligned = NewTmp();
+                const std::string user = NewTmp();
+                const std::string hasUser = NewTmp();
+                const std::string userFlags = NewTmp();
+                const std::string placed = NewTmp();
+                const std::string withKernel = NewTmp();
+                m_body << "  " << aligned << " = and i64 " << root.repr << ", -4096\n";
+                m_body << "  " << hasUser << " = icmp sgt i64 " << userStart.repr << ", 0\n";
+                m_body << "  " << userFlags << " = select i1 " << hasUser << ", i64 7, i64 3\n";
+                m_body << "  " << placed << " = shl i64 " << userFlags << ", 8\n";
+                m_body << "  " << withKernel << " = or i64 " << aligned << ", 3\n";
+                m_body << "  " << vname << " = or i64 " << withKernel << ", " << placed << "\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Fault.Decide" && !inst.operandIds.empty()) {
+                Val fromUser = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                const std::string user = NewTmp();
+                m_body << "  " << user << " = icmp ne i64 " << fromUser.repr << ", 0\n";
+                m_body << "  " << vname << " = select i1 " << user << ", i64 1, i64 0\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Memory.Frame") {
                 m_ctx.usesPages = true;
                 m_body << "  " << vname << " = call i64 @rx_memory_frame()\n";
@@ -1593,6 +1616,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                        inst.textImm == "CPU.SavedRSP" || inst.textImm == "CPU.LGDT" ||
                        inst.textImm == "CPU.LIDT" || inst.textImm == "CPU.BootInfo" ||
                        inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" ||
+                       inst.textImm == "CPU.Fault" ||
                        inst.textImm == "CPU.Run" || inst.textImm == "CPU.Int3" || inst.textImm == "Timer.Arm" ||
                        inst.textImm == "Timer.Preempt" || inst.textImm == "System.Call") {
                 if (m_ctx.options.asmArch != "x86_64") {
@@ -1644,8 +1668,9 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  call void asm sideeffect \"" << op << "\", \"r,~{dirflag},~{fpsr},~{flags},~{memory}\"(ptr "
                            << mem << ")\n";
                     m_vals[id] = Val{ "0", NTy::Void };
-                } else if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler") {
-                    const std::string sym = inst.textImm == "CPU.Handler"
+                } else if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault") {
+                    const bool isr = inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault";
+                    const std::string sym = isr
                                                 ? ("@rx_isr_" + inst.secondaryText)
                                                 : ("@rx_fn_" + inst.secondaryText);
                     m_body << "  " << vname << " = ptrtoint ptr " << sym << " to i64\n";
@@ -2316,7 +2341,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         if (inst.textImm.rfind("Frame.", 0) == 0) ctx.usesFrame = true;
         if (inst.textImm == "CPU.ExchangeRSP" || inst.textImm == "CPU.SavedRSP") ctx.usesSwitch = true;
         if (inst.textImm == "System.Call") ctx.usesSyscall = true;
-        if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Run" ||
+        if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Run" ||
             inst.textImm == "Timer.Arm" || inst.textImm == "Timer.Preempt") {
             if (!inst.secondaryText.empty()) {
                 if (inst.textImm == "Timer.Preempt") {
@@ -2336,7 +2361,8 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                     }
                 } else {
                     ctx.cpuFns.insert(inst.secondaryText);
-                    if (inst.textImm == "CPU.Handler" || inst.textImm == "Timer.Arm") ctx.isrFns.insert(inst.secondaryText);
+                    if (inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "Timer.Arm") ctx.isrFns.insert(inst.secondaryText);
+                    if (inst.textImm == "CPU.Fault") ctx.faultIsrs.insert(inst.secondaryText);
                     if (inst.textImm == "Timer.Arm") {
                         ctx.timerIsrs.insert(inst.secondaryText);
                         ctx.usesPages = true;
@@ -2627,6 +2653,38 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  unreachable\n}\n\n";
     }
     for (const std::string& isr : ctx.isrFns) {
+        if (ctx.faultIsrs.count(isr)) {
+            const std::string text =
+                "popq %rax\n"
+                "movabsq $20992, %rdx\n"
+                "movq %rax, (%rdx)\n"
+                "testb $4, %al\n"
+                "jz 1f\n"
+                "pushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
+                "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n"
+                "call rx_fn_" + isr + "\n"
+                "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
+                "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\n"
+                "movabsq $21008, %rdx\n"
+                "movq (%rdx), %rax\n"
+                "movq %rax, (%rsp)\n"
+                "movq $8, 8(%rsp)\n"
+                "movabsq $21016, %rdx\n"
+                "movq (%rdx), %rax\n"
+                "movq %rax, 24(%rsp)\n"
+                "movq $16, 32(%rsp)\n"
+                "iretq\n"
+                "1:\ncli\n2:\nhlt\njmp 2b\n";
+            std::string doubled;
+            for (char ch : text) {
+                if (ch == '$') doubled.push_back('$');
+                doubled.push_back(ch);
+            }
+            out << "define dso_local void @rx_isr_" << isr << "() naked nounwind {\n";
+            out << "  call void asm sideeffect \"" << EscapeLLVMString(doubled) << "\", \"\"()\n";
+            out << "  unreachable\n}\n\n";
+            continue;
+        }
         const std::string eoi = ctx.timerIsrs.count(isr)
                                     ? "movb $$32, %al\noutb %al, $$32\n"
                                     : "";

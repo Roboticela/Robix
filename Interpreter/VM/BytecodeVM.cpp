@@ -676,6 +676,15 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t flags = regs[inst.callArgRegs[1]].AsInt();
                     const std::int64_t entry = (phys & ~static_cast<std::int64_t>(0xFFF)) | flags;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ entry };
+                } else if (inst.symbolImm == "Page.Split" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t root = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t userStart = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t userFlags = userStart > 0 ? 7 : 3;
+                    const std::int64_t split = (root & ~static_cast<std::int64_t>(0xFFF)) | 3 | (userFlags << 8);
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ split };
+                } else if (inst.symbolImm == "Fault.Decide" && !inst.callArgRegs.empty()) {
+                    const std::int64_t fromUser = regs[inst.callArgRegs[0]].AsInt();
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ fromUser != 0 ? std::int64_t{ 1 } : std::int64_t{ 0 } };
                 } else if (inst.symbolImm == "Memory.Frame") {
                     std::int64_t frame = 0;
                     if (m_frames < 8) {
