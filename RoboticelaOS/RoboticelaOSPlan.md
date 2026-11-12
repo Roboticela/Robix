@@ -486,13 +486,13 @@ Future programmers check a password and a path right in a test. The login window
 
 - [x] **Exit.** The login window is the first window on the server’s desktop. The password path reaches an empty session. A denied write prints `ROBO_FS: deny` while `ROBO_PROCESS: alive` follows.
 
-### [ ] Stage U — Finder, Dock, menu bar, Spaces
+### [x] Stage U — Finder, Dock, menu bar, Spaces
 
 Future programmers lay out a stack and a grid in a test. Those layouts are the Dock, Launchpad, notifications, and Control Center. They are clients. They are not kernel fills.
 
-- [ ] **Task U1, Robix feature.** Add `UI.Stack(items, origin, gap)` and `UI.Grid(items, columns, cell)`. The compiler test stacks three notifications and asserts each y, then places eight Launchpad icons and asserts the grid.
+- [x] **Task U1, Robix feature.** Add `UI.Stack(items, origin, gap)` and `UI.Grid(items, columns, cell)`. The compiler test stacks three notifications and asserts each y, then places eight Launchpad icons and asserts the grid.
 
-- [ ] **Task U2.** `User/RoboDock/RoboDock.rx`, `User/RoboFinder/RoboFinder.rx`, and their `.rxu` documents. Spaces are window lists the window server shows or hides. Snap, quarters, and maximize are commands the server applies to a window id. The menu bar holds the clock from `Clock.Seconds` and the Roboticela menu.
+- [x] **Task U2.** `User/RoboDock/RoboDock.rx`, `User/RoboFinder/RoboFinder.rx`, and their `.rxu` documents. Spaces are window lists the window server shows or hides. Snap, quarters, and maximize are commands the server applies to a window id. The menu bar holds the clock from `Clock.Seconds` and the Roboticela menu.
 
 Light and dark are both real themes on every window. The documents use the colors the server publishes. Layout is written for a narrow window first and grows to the display width.
 
@@ -501,15 +501,15 @@ Light and dark are both real themes on every window. The documents use the color
 | `User/RoboDock/RoboDock.rx` | `RoboDock.test.rx` asserts the grid, the stack, and dismiss |
 | `User/RoboFinder/RoboFinder.rx` | `RoboFinder.test.rx` asserts the focused space and a window id |
 
-- [ ] **Exit.** The menu bar, the Dock, a Finder window, a notification, Control Center, and a second Space are visible. Serial contains `ROBO_SESSION: spaces`. Dragging a window sends one command and the server moves that window.
+- [x] **Exit.** The menu bar, the Dock, a Finder window, a notification, Control Center, and a second Space are visible. Serial contains `ROBO_SESSION: spaces`. Dragging a window sends one command and the server moves that window.
 
-### [ ] Stage V — Settings and search
+### [x] Stage V — Settings and search
 
-- [ ] **Task V1, Robix feature.** Add `Settings.Get`, `Settings.Set`, `Settings.Reset`, and `Search.Query(index, text)`. The compiler test sets a display width, reset returns the default, and a two-letter prefix returns three app names in order.
+- [x] **Task V1, Robix feature.** Add `Settings.Get`, `Settings.Set`, `Settings.Reset`, and `Search.Query(index, text)`. The compiler test sets a display width, reset returns the default, and a two-letter prefix returns three app names in order.
 
-- [ ] **Task V2.** `User/RoboSettings` stores keys in the current user’s directory. Panes: display, sound, network, Bluetooth, users, privacy, language, date, power, updates, and appearance. Appearance writes the theme the window server already understands. `User/RoboSearch` indexes Finder, Settings, Files, and file names from `RoboVFS`.
+- [x] **Task V2.** `User/RoboSettings` stores keys in the current user’s directory. Panes: display, sound, network, Bluetooth, users, privacy, language, date, power, updates, and appearance. Appearance writes the theme the window server already understands. `User/RoboSearch` indexes Finder, Settings, Files, and file names from `RoboVFS`.
 
-- [ ] **Exit.** Settings opens from the Dock and the display pane shows the handoff width and height. Search lists the Finder and `Home/Note.txt`. Serial contains `ROBO_SETTINGS: display` and `ROBO_SEARCH: hit`.
+- [x] **Exit.** Settings opens from the Dock and the display pane shows the handoff width and height. Search lists the Finder and `Home/Note.txt`. Serial contains `ROBO_SETTINGS: display` and `ROBO_SEARCH: hit`.
 
 ### [ ] Stage W — Files and Device Manager
 

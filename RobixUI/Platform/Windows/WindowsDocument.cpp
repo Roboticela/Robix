@@ -16,6 +16,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cctype>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -249,6 +257,14 @@ std::vector<ScrollRegion> gRegions;
 int gRegionDrag = -1;
 int gRegionGrab = 0;
 
+struct FieldEdit {
+    std::string value;
+    int caret = 0;
+    int selA = 0;
+    int selB = 0;
+    int anchor = 0;
+};
+
 struct Editor {
     std::string id;
     std::string value;
@@ -256,6 +272,10 @@ struct Editor {
     int caret = 0;
     int selA = 0;
     int selB = 0;
+    int anchor = 0;
+    int columnX = -1;
+    std::vector<FieldEdit> undo;
+    std::vector<FieldEdit> redo;
     bool secret = false;
     bool multiline = false;
     bool disabled = false;
@@ -272,6 +292,14 @@ struct Editor {
 
 std::vector<Editor> gEditors;
 const std::vector<Editor>* gEditorKept = nullptr;
+unsigned gFieldCaretTick = 0;
+int gFieldCaretCover = 255;
+int gFieldCaretEditor = -1;
+
+void FieldTouch() {
+    gFieldCaretTick = GetTickCount();
+    gFieldCaretCover = 255;
+}
 
 int ScaleLen(int value, double scale) {
     if (value == 0 || scale == 1.0) {
@@ -2328,6 +2356,10 @@ int PlaceField(const RoboXMLNode& node, int x, int y, int width, bool light, std
             editor.caret = std::max(0, std::min(kept.caret, static_cast<int>(editor.value.size())));
             editor.selA = std::max(0, std::min(kept.selA, static_cast<int>(editor.value.size())));
             editor.selB = std::max(0, std::min(kept.selB, static_cast<int>(editor.value.size())));
+            editor.anchor = std::max(0, std::min(kept.anchor, static_cast<int>(editor.value.size())));
+            editor.columnX = kept.columnX;
+            editor.undo = kept.undo;
+            editor.redo = kept.redo;
             editor.focused = kept.focused;
             restored = true;
             break;
@@ -3803,6 +3835,57 @@ void PaintSpin(RoboGPU* gpu, int centerX, int centerY, int size, RoboU32 ink, in
 void TextBounds(int& runA, int& offA, int& runB, int& offB);
 void MarkBox(int face, int size, int lineY, int& top, int& height);
 int TextAnchorRun();
+
+RoboU32 FieldMix(RoboU32 fromColor, RoboU32 toColor, int part) {
+    const auto channel = [&](int shift) {
+        const int a = static_cast<int>((fromColor >> shift) & 255u);
+        const int b = static_cast<int>((toColor >> shift) & 255u);
+        return a + (b - a) * part / 100;
+    };
+    return 0xFF000000u | (static_cast<RoboU32>(channel(16)) << 16) | (static_cast<RoboU32>(channel(8)) << 8) |
+           static_cast<RoboU32>(channel(0));
+}
+
+void FieldInkBox(int face, int size, int lineY, int& top, int& height) {
+    MarkBox(face, size, lineY, top, height);
+    const int pad = std::max(1, size / 8);
+    top += pad;
+    height = std::max(1, height - pad * 2);
+}
+
+int FieldCaretThick(int size, int before, int after) {
+    int thick = std::max(1, (size + 12) / 18);
+    const int neighbor = before > 0 && after > 0 ? std::min(before, after) : std::max(before, after);
+    if (neighbor > 0) {
+        thick = std::min(thick, std::max(1, neighbor / 4));
+    }
+    return std::min(thick, 4);
+}
+
+void PaintFieldCaret(RoboGPU* gpu, int x, int y, int thick, int height, RoboU32 color, int cover) {
+    if (gpu == nullptr || cover <= 0 || thick <= 0 || height <= 0) {
+        return;
+    }
+    const int radius = thick / 2;
+    x -= thick / 2;
+    for (int row = 0; row < height; ++row) {
+        int dy = 0;
+        if (radius > 0 && row < radius) {
+            dy = radius - row;
+        } else if (radius > 0 && row >= height - radius) {
+            dy = row - (height - 1 - radius);
+        }
+        for (int col = 0; col < thick; ++col) {
+            if (radius > 0) {
+                const int dx = col < radius ? radius - col : col - radius;
+                if (dx * dx + dy * dy > radius * radius) {
+                    continue;
+                }
+            }
+            RoboGPUBlendPixel(gpu, x + col, y + row, color, static_cast<RoboU8>(cover));
+        }
+    }
+}
 int TextFocusRun();
 bool SceneLight();
 RoboU32 SceneBackground();
@@ -3938,8 +4021,11 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
         }
         if (op.value.empty() && op.editor >= 0 && op.editor < static_cast<int>(gEditors.size())) {
             const Editor& editor = gEditors[static_cast<std::size_t>(op.editor)];
-            if (editor.focused && !editor.disabled) {
-                FillRound(gpu, op.x, y, 2, std::max(1, op.size), 0, editor.caretColor);
+            if (editor.focused && !editor.disabled && gFieldCaretCover > 0) {
+                int top = y;
+                int ink = std::max(1, op.size);
+                FieldInkBox(op.face, op.size, y, top, ink);
+                PaintFieldCaret(gpu, op.x, top, FieldCaretThick(op.size, op.size, op.size), ink, editor.caretColor, gFieldCaretCover);
             }
         }
         if (!op.value.empty()) {
@@ -3982,7 +4068,11 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
                         if (local1 > local0 && !editor.value.empty()) {
                             const int x0 = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(local0)), op.size, op.face);
                             const int x1 = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(local1)), op.size, op.face);
-                            FillRound(gpu, x0, lineY, std::max(1, x1 - x0), std::max(1, op.size), 2, light ? 0xFFD6E8FFu : 0xFF1A3F66u);
+                            int top = lineY;
+                            int markHeight = std::max(1, op.size);
+                            MarkBox(op.face, op.size, lineY, top, markHeight);
+                            const int radius = std::max(2, op.size / 8);
+                            FillRound(gpu, x0, top, std::max(1, x1 - x0), markHeight, radius, FieldMix(SceneBackground(), ThemeColor("brand-primary", light), 45));
                         }
                     }
                     PaintTextMark(gpu, run, op, lineX, lineY, line, static_cast<int>(lineIndex), static_cast<int>(lines.size()));
@@ -4018,12 +4108,25 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
                     }
                     if (op.editor >= 0 && op.editor < static_cast<int>(gEditors.size())) {
                         const Editor& editor = gEditors[static_cast<std::size_t>(op.editor)];
-                        if (editor.focused && !editor.disabled && editor.caret >= line.origin &&
+                        if (editor.focused && !editor.disabled && gFieldCaretCover > 0 && editor.caret >= line.origin &&
                             editor.caret <= line.origin + static_cast<int>(line.text.size()) &&
                             (lineIndex + 1 == lines.size() || editor.caret < line.origin + static_cast<int>(line.text.size()))) {
-                            const int local = editor.caret - line.origin;
-                            const int caretX = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(std::max(0, local))), op.size, op.face);
-                            FillRound(gpu, caretX, lineY, 2, std::max(1, op.size), 0, editor.caretColor);
+                            const int local = std::max(0, editor.caret - line.origin);
+                            const int caretX = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(local)), op.size, op.face);
+                            int beforeStart = local;
+                            if (beforeStart > 0) {
+                                --beforeStart;
+                                while (beforeStart > 0 && (static_cast<unsigned char>(line.text[static_cast<std::size_t>(beforeStart)]) & 0xC0u) == 0x80u) {
+                                    --beforeStart;
+                                }
+                            }
+                            const int before = local > beforeStart ? MeasureText(line.text.substr(static_cast<std::size_t>(beforeStart), static_cast<std::size_t>(local - beforeStart)), op.size, op.face) : 0;
+                            const int afterSpan = local < static_cast<int>(line.text.size()) ? Utf8Span(line.text, static_cast<std::size_t>(local)) : 0;
+                            const int after = afterSpan > 0 ? MeasureText(line.text.substr(static_cast<std::size_t>(local), static_cast<std::size_t>(afterSpan)), op.size, op.face) : 0;
+                            int top = lineY;
+                            int ink = std::max(1, op.size);
+                            FieldInkBox(op.face, op.size, lineY, top, ink);
+                            PaintFieldCaret(gpu, caretX, top, FieldCaretThick(op.size, before, after), ink, editor.caretColor, gFieldCaretCover);
                         }
                     }
                     lineY += step;
@@ -4718,6 +4821,10 @@ void FieldSync(Editor& editor) {
     PaintOp& op = gScene.ops[static_cast<std::size_t>(editor.op)];
     op.value = EditorShown(editor);
     op.color = editor.value.empty() ? editor.hint : editor.ink;
+    if (editor.focused) {
+        gFieldCaretEditor = editor.op;
+        FieldTouch();
+    }
 }
 
 int FieldClamp(const Editor& editor, int offset) {
@@ -4804,29 +4911,197 @@ int FieldAtPoint(int docX, int docY) {
     return -1;
 }
 
-void FieldFocusAt(int index, int docX, int docY) {
+bool FieldLines(const Editor& editor, PaintOp& placed, std::vector<TextLine>& lines) {
+    if (editor.op < 0 || editor.op >= static_cast<int>(gScene.ops.size())) {
+        return false;
+    }
+    placed = gScene.ops[static_cast<std::size_t>(editor.op)];
+    for (const ScrollRegion& region : gRegions) {
+        if (editor.op < region.opBegin || editor.op >= region.opEnd) {
+            continue;
+        }
+        placed.x -= region.scrollX;
+        placed.y -= region.scrollY;
+    }
+    TextFlow flow;
+    flow.mode = placed.wrap;
+    flow.whiteSpace = placed.whiteSpace;
+    flow.breakLong = placed.breakLong;
+    const int wrapWidth = placed.wrapWidth > 0 ? placed.wrapWidth : placed.width;
+    TextLines(editor.value, wrapWidth, placed.size, placed.face, flow, lines);
+    return true;
+}
+
+int FieldLineOf(const std::vector<TextLine>& lines, int offset) {
+    int best = 0;
+    for (int index = 0; index < static_cast<int>(lines.size()); ++index) {
+        if (lines[static_cast<std::size_t>(index)].origin <= offset) {
+            best = index;
+        }
+    }
+    return best;
+}
+
+void FieldLineSpan(const std::vector<TextLine>& lines, int line, int& from, int& to) {
+    if (lines.empty()) {
+        from = 0;
+        to = 0;
+        return;
+    }
+    const int index = std::max(0, std::min(line, static_cast<int>(lines.size()) - 1));
+    from = lines[static_cast<std::size_t>(index)].origin;
+    if (index + 1 < static_cast<int>(lines.size())) {
+        to = lines[static_cast<std::size_t>(index + 1)].origin;
+    } else {
+        to = from + static_cast<int>(lines[static_cast<std::size_t>(index)].text.size());
+    }
+}
+
+int FieldHitLine(const Editor& editor, const PaintOp& placed, const TextLine& line, int docX) {
+    const std::string shown = line.text;
+    int byte = line.origin;
+    int cursor = placed.x;
+    int column = 0;
+    while (column < static_cast<int>(shown.size()) && byte < static_cast<int>(editor.value.size())) {
+        const int span = Utf8Span(editor.value, static_cast<std::size_t>(byte));
+        const int shownSpan = std::min(span, static_cast<int>(shown.size()) - column);
+        const int next = cursor + MeasureText(shown.substr(static_cast<std::size_t>(column), static_cast<std::size_t>(std::max(1, shownSpan))), placed.size, placed.face);
+        if (docX < cursor + (next - cursor) / 2) {
+            break;
+        }
+        cursor = next;
+        column += std::max(1, shownSpan);
+        byte += span;
+    }
+    return FieldClamp(editor, byte);
+}
+
+int FieldCaretX(const Editor& editor, const PaintOp& placed, const TextLine& line, int offset) {
+    const int local = std::max(0, std::min(offset - line.origin, static_cast<int>(line.text.size())));
+    return placed.x + MeasureText(line.text.substr(0, static_cast<std::size_t>(local)), placed.size, placed.face);
+}
+
+bool FieldWordByte(unsigned char ch) {
+    return std::isalnum(ch) != 0 || ch == '_' || ch == '\'' || ch >= 0x80;
+}
+
+int FieldWordMove(const std::string& text, int offset, int direction) {
+    int caret = std::max(0, std::min(offset, static_cast<int>(text.size())));
+    const auto previous = [&](int index) {
+        int prior = index - 1;
+        while (prior > 0 && (static_cast<unsigned char>(text[static_cast<std::size_t>(prior)]) & 0xC0u) == 0x80u) {
+            --prior;
+        }
+        return std::max(0, prior);
+    };
+    if (direction < 0) {
+        while (caret > 0 && !FieldWordByte(static_cast<unsigned char>(text[static_cast<std::size_t>(previous(caret))]))) {
+            caret = previous(caret);
+        }
+        while (caret > 0 && FieldWordByte(static_cast<unsigned char>(text[static_cast<std::size_t>(previous(caret))]))) {
+            caret = previous(caret);
+        }
+        return caret;
+    }
+    while (caret < static_cast<int>(text.size()) && FieldWordByte(static_cast<unsigned char>(text[static_cast<std::size_t>(caret)]))) {
+        caret += Utf8Span(text, static_cast<std::size_t>(caret));
+    }
+    while (caret < static_cast<int>(text.size()) && !FieldWordByte(static_cast<unsigned char>(text[static_cast<std::size_t>(caret)]))) {
+        caret += Utf8Span(text, static_cast<std::size_t>(caret));
+    }
+    return std::min(caret, static_cast<int>(text.size()));
+}
+
+void FieldPlaceCaret(Editor& editor, int offset, bool extend) {
+    offset = FieldClamp(editor, offset);
+    if (!extend) {
+        editor.anchor = offset;
+    }
+    editor.caret = offset;
+    editor.selA = extend ? editor.anchor : offset;
+    editor.selB = offset;
+    FieldSync(editor);
+}
+
+void FieldSelectSpan(Editor& editor, int from, int to, int caret) {
+    editor.anchor = from;
+    editor.selA = FieldClamp(editor, from);
+    editor.selB = FieldClamp(editor, to);
+    editor.caret = FieldClamp(editor, caret);
+    editor.columnX = -1;
+    FieldSync(editor);
+}
+
+void FieldFocusAt(int index, int docX, int docY, int clicks, bool extend) {
     if (index < 0 || index >= static_cast<int>(gEditors.size())) {
         return;
     }
+    const bool same = gEditors[static_cast<std::size_t>(index)].focused;
     for (Editor& editor : gEditors) {
         editor.focused = false;
     }
     Editor& editor = gEditors[static_cast<std::size_t>(index)];
     editor.focused = true;
+    if (editor.disabled) {
+        FieldSync(editor);
+        return;
+    }
     const int offset = FieldOffsetAt(editor, docX, docY);
-    editor.selA = offset;
-    editor.selB = offset;
-    editor.caret = offset;
-    FieldSync(editor);
+    editor.columnX = -1;
+    if (clicks >= 2) {
+        PaintOp placed;
+        std::vector<TextLine> lines;
+        FieldLines(editor, placed, lines);
+        if (clicks >= 3 && !lines.empty()) {
+            int from = 0;
+            int to = 0;
+            FieldLineSpan(lines, FieldLineOf(lines, offset), from, to);
+            FieldSelectSpan(editor, from, to, to);
+            return;
+        }
+        int from = 0;
+        int to = 0;
+        WordAround(editor.value, offset, from, to);
+        FieldSelectSpan(editor, from, to, to);
+        return;
+    }
+    if (!(extend && same)) {
+        editor.anchor = offset;
+    }
+    FieldPlaceCaret(editor, offset, extend && same);
 }
 
-void FieldDragAt(int docX, int docY) {
+void FieldDragAt(int docX, int docY, int mode) {
     for (Editor& editor : gEditors) {
         if (!editor.focused || editor.disabled) {
             continue;
         }
-        editor.caret = FieldOffsetAt(editor, docX, docY);
-        editor.selB = editor.caret;
+        const int offset = FieldOffsetAt(editor, docX, docY);
+        if (mode >= 2) {
+            PaintOp placed;
+            std::vector<TextLine> lines;
+            FieldLines(editor, placed, lines);
+            int from = offset;
+            int to = offset;
+            int anchorFrom = editor.anchor;
+            int anchorTo = editor.anchor;
+            if (mode >= 3 && !lines.empty()) {
+                FieldLineSpan(lines, FieldLineOf(lines, offset), from, to);
+                FieldLineSpan(lines, FieldLineOf(lines, editor.anchor), anchorFrom, anchorTo);
+            } else {
+                WordAround(editor.value, offset, from, to);
+                WordAround(editor.value, editor.anchor, anchorFrom, anchorTo);
+            }
+            editor.selA = std::min(from, anchorFrom);
+            editor.selB = std::max(to, anchorTo);
+            editor.caret = offset >= editor.anchor ? editor.selB : editor.selA;
+            FieldSync(editor);
+            return;
+        }
+        editor.caret = offset;
+        editor.selA = editor.anchor;
+        editor.selB = offset;
+        editor.columnX = -1;
         FieldSync(editor);
         return;
     }
@@ -4847,6 +5122,34 @@ bool FieldIsActive() {
     return false;
 }
 
+void FieldRemember(Editor& editor) {
+    FieldEdit mark;
+    mark.value = editor.value;
+    mark.caret = editor.caret;
+    mark.selA = editor.selA;
+    mark.selB = editor.selB;
+    mark.anchor = editor.anchor;
+    if (!editor.undo.empty() && editor.undo.back().value == mark.value && editor.undo.back().caret == mark.caret &&
+        editor.undo.back().selA == mark.selA && editor.undo.back().selB == mark.selB) {
+        return;
+    }
+    editor.undo.push_back(std::move(mark));
+    if (editor.undo.size() > 40) {
+        editor.undo.erase(editor.undo.begin());
+    }
+    editor.redo.clear();
+}
+
+void FieldRestore(Editor& editor, const FieldEdit& mark) {
+    editor.value = mark.value;
+    editor.caret = FieldClamp(editor, mark.caret);
+    editor.selA = FieldClamp(editor, mark.selA);
+    editor.selB = FieldClamp(editor, mark.selB);
+    editor.anchor = FieldClamp(editor, mark.anchor);
+    editor.columnX = -1;
+    FieldSync(editor);
+}
+
 bool FieldInsert(const std::string& text) {
     for (Editor& editor : gEditors) {
         if (!editor.focused || editor.disabled) {
@@ -4865,6 +5168,7 @@ bool FieldInsert(const std::string& text) {
             }
             incoming = flat;
         }
+        FieldRemember(editor);
         int from = std::min(editor.selA, editor.selB);
         int to = std::max(editor.selA, editor.selB);
         from = FieldClamp(editor, from);
@@ -4875,8 +5179,10 @@ bool FieldInsert(const std::string& text) {
         }
         editor.value.insert(static_cast<std::size_t>(FieldClamp(editor, editor.caret)), incoming);
         editor.caret = FieldClamp(editor, editor.caret) + static_cast<int>(incoming.size());
+        editor.anchor = editor.caret;
         editor.selA = editor.caret;
         editor.selB = editor.caret;
+        editor.columnX = -1;
         FieldSync(editor);
         return true;
     }
@@ -4890,19 +5196,23 @@ bool FieldRemove(bool forward) {
         }
         int from = FieldClamp(editor, std::min(editor.selA, editor.selB));
         int to = FieldClamp(editor, std::max(editor.selA, editor.selB));
+        if (from == to) {
+            if (forward) {
+                if (editor.caret >= static_cast<int>(editor.value.size())) {
+                    return false;
+                }
+            } else if (editor.caret <= 0) {
+                return false;
+            }
+        }
+        FieldRemember(editor);
         if (from != to) {
             editor.value.erase(static_cast<std::size_t>(from), static_cast<std::size_t>(to - from));
             editor.caret = from;
         } else if (forward) {
-            if (editor.caret >= static_cast<int>(editor.value.size())) {
-                return false;
-            }
             const int span = Utf8Span(editor.value, static_cast<std::size_t>(editor.caret));
             editor.value.erase(static_cast<std::size_t>(editor.caret), static_cast<std::size_t>(span));
         } else {
-            if (editor.caret <= 0) {
-                return false;
-            }
             int previous = editor.caret - 1;
             while (previous > 0 && (static_cast<unsigned char>(editor.value[static_cast<std::size_t>(previous)]) & 0xC0u) == 0x80u) {
                 --previous;
@@ -4910,21 +5220,54 @@ bool FieldRemove(bool forward) {
             editor.value.erase(static_cast<std::size_t>(previous), static_cast<std::size_t>(editor.caret - previous));
             editor.caret = previous;
         }
+        editor.anchor = editor.caret;
         editor.selA = editor.caret;
         editor.selB = editor.caret;
+        editor.columnX = -1;
         FieldSync(editor);
         return true;
     }
     return false;
 }
 
-bool FieldStep(int delta, bool extend) {
+bool FieldRemoveWord(bool forward) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        if (editor.selA != editor.selB) {
+            return FieldRemove(forward);
+        }
+        const int next = FieldWordMove(editor.value, editor.caret, forward ? 1 : -1);
+        if (next == editor.caret) {
+            return false;
+        }
+        FieldRemember(editor);
+        const int from = std::min(editor.caret, next);
+        const int to = std::max(editor.caret, next);
+        editor.value.erase(static_cast<std::size_t>(from), static_cast<std::size_t>(to - from));
+        editor.caret = from;
+        editor.anchor = editor.caret;
+        editor.selA = editor.caret;
+        editor.selB = editor.caret;
+        editor.columnX = -1;
+        FieldSync(editor);
+        return true;
+    }
+    return false;
+}
+
+bool FieldStep(int delta, bool extend, bool word) {
     for (Editor& editor : gEditors) {
         if (!editor.focused || editor.disabled) {
             continue;
         }
         int next = editor.caret;
-        if (delta < 0) {
+        if (!extend && !word && editor.selA != editor.selB) {
+            next = delta < 0 ? std::min(editor.selA, editor.selB) : std::max(editor.selA, editor.selB);
+        } else if (word) {
+            next = FieldWordMove(editor.value, editor.caret, delta);
+        } else if (delta < 0) {
             if (next > 0) {
                 --next;
                 while (next > 0 && (static_cast<unsigned char>(editor.value[static_cast<std::size_t>(next)]) & 0xC0u) == 0x80u) {
@@ -4934,12 +5277,93 @@ bool FieldStep(int delta, bool extend) {
         } else if (next < static_cast<int>(editor.value.size())) {
             next += Utf8Span(editor.value, static_cast<std::size_t>(next));
         }
-        if (!extend) {
-            editor.selA = next;
+        editor.columnX = -1;
+        FieldPlaceCaret(editor, next, extend);
+        return true;
+    }
+    return false;
+}
+
+bool FieldStepLine(int delta, bool extend) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
         }
-        editor.selB = next;
-        editor.caret = next;
-        FieldSync(editor);
+        if (!editor.multiline) {
+            return true;
+        }
+        PaintOp placed;
+        std::vector<TextLine> lines;
+        if (!FieldLines(editor, placed, lines) || lines.empty()) {
+            return true;
+        }
+        const int line = FieldLineOf(lines, editor.caret);
+        if (editor.columnX < 0) {
+            editor.columnX = FieldCaretX(editor, placed, lines[static_cast<std::size_t>(line)], editor.caret);
+        }
+        const int target = line + delta;
+        int next = editor.caret;
+        if (target < 0) {
+            next = 0;
+        } else if (target >= static_cast<int>(lines.size())) {
+            next = static_cast<int>(editor.value.size());
+        } else {
+            next = FieldHitLine(editor, placed, lines[static_cast<std::size_t>(target)], editor.columnX);
+        }
+        const int column = editor.columnX;
+        FieldPlaceCaret(editor, next, extend);
+        editor.columnX = column;
+        return true;
+    }
+    return false;
+}
+
+bool FieldStepEnd(bool end, bool extend, bool document) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        int next = end ? static_cast<int>(editor.value.size()) : 0;
+        if (!document && editor.multiline) {
+            PaintOp placed;
+            std::vector<TextLine> lines;
+            if (FieldLines(editor, placed, lines) && !lines.empty()) {
+                int from = 0;
+                int to = 0;
+                FieldLineSpan(lines, FieldLineOf(lines, editor.caret), from, to);
+                if (end && to > from && to <= static_cast<int>(editor.value.size()) && editor.value[static_cast<std::size_t>(to - 1)] == '\n') {
+                    --to;
+                }
+                next = end ? to : from;
+            }
+        }
+        editor.columnX = -1;
+        FieldPlaceCaret(editor, next, extend);
+        return true;
+    }
+    return false;
+}
+
+bool FieldHistory(bool redo) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        std::vector<FieldEdit>& from = redo ? editor.redo : editor.undo;
+        std::vector<FieldEdit>& to = redo ? editor.undo : editor.redo;
+        if (from.empty()) {
+            return false;
+        }
+        FieldEdit current;
+        current.value = editor.value;
+        current.caret = editor.caret;
+        current.selA = editor.selA;
+        current.selB = editor.selB;
+        current.anchor = editor.anchor;
+        to.push_back(std::move(current));
+        FieldEdit mark = from.back();
+        from.pop_back();
+        FieldRestore(editor, mark);
         return true;
     }
     return false;
@@ -4950,9 +5374,11 @@ void FieldSelectAll() {
         if (!editor.focused || editor.disabled) {
             continue;
         }
+        editor.anchor = 0;
         editor.selA = 0;
         editor.selB = static_cast<int>(editor.value.size());
         editor.caret = editor.selB;
+        editor.columnX = -1;
         FieldSync(editor);
         return;
     }
@@ -4976,15 +5402,90 @@ std::string FieldSelectedText() {
 }  // namespace
 
 int WindowsDocumentFieldAt(int docX, int docY) { return FieldAtPoint(docX, docY); }
-void WindowsDocumentFieldFocus(int index, int docX, int docY) { FieldFocusAt(index, docX, docY); }
-void WindowsDocumentFieldDrag(int docX, int docY) { FieldDragAt(docX, docY); }
+void WindowsDocumentFieldFocus(int index, int docX, int docY, int clicks, bool extend) { FieldFocusAt(index, docX, docY, clicks, extend); }
+void WindowsDocumentFieldDrag(int docX, int docY, int mode) { FieldDragAt(docX, docY, mode); }
 void WindowsDocumentFieldBlur() { FieldBlurAll(); }
 bool WindowsDocumentFieldActive() { return FieldIsActive(); }
 bool WindowsDocumentFieldType(const std::string& text) { return FieldInsert(text); }
 bool WindowsDocumentFieldDelete(bool forward) { return FieldRemove(forward); }
-bool WindowsDocumentFieldMoveCaret(int delta, bool extend) { return FieldStep(delta, extend); }
+bool WindowsDocumentFieldDeleteWord(bool forward) { return FieldRemoveWord(forward); }
+bool WindowsDocumentFieldMoveCaret(int delta, bool extend, bool word) { return FieldStep(delta, extend, word); }
+bool WindowsDocumentFieldMoveLine(int delta, bool extend) { return FieldStepLine(delta, extend); }
+bool WindowsDocumentFieldMoveEnd(bool end, bool extend, bool document) { return FieldStepEnd(end, extend, document); }
+bool WindowsDocumentFieldUndo(bool redo) { return FieldHistory(redo); }
 void WindowsDocumentFieldSelectAll() { FieldSelectAll(); }
 std::string WindowsDocumentFieldSelection() { return FieldSelectedText(); }
+
+int WindowsDocumentFieldCaretCover(unsigned now) {
+    if (!FieldIsActive()) {
+        return 0;
+    }
+    const unsigned idle = now - gFieldCaretTick;
+    if (idle < 650u) {
+        return 255;
+    }
+    const unsigned phase = (idle - 650u) % 1200u;
+    if (phase < 220u) {
+        return 255 - static_cast<int>(phase) * 255 / 220;
+    }
+    if (phase < 480u) {
+        return 0;
+    }
+    if (phase < 700u) {
+        return static_cast<int>(phase - 480u) * 255 / 220;
+    }
+    return 255;
+}
+
+void WindowsDocumentFieldCaretUse(int cover) { gFieldCaretCover = cover < 0 ? 0 : (cover > 255 ? 255 : cover); }
+
+bool WindowsDocumentFieldCaretRepaint(RoboGPU* gpu, int scrollY, int viewHeight, int& x, int& y, int& width, int& height) {
+    x = 0;
+    y = 0;
+    width = 0;
+    height = 0;
+    if (gpu == nullptr || !gScene.valid) {
+        return false;
+    }
+    int opIndex = gFieldCaretEditor;
+    for (const Editor& editor : gEditors) {
+        if (editor.focused && !editor.disabled && editor.op >= 0) {
+            opIndex = editor.op;
+            break;
+        }
+    }
+    if (opIndex < 0 || opIndex >= static_cast<int>(gScene.ops.size())) {
+        gFieldCaretEditor = -1;
+        return false;
+    }
+    const PaintOp& text = gScene.ops[static_cast<std::size_t>(opIndex)];
+    x = text.x;
+    y = text.y;
+    width = text.width;
+    height = text.height;
+    if (opIndex > 0) {
+        const PaintOp& well = gScene.ops[static_cast<std::size_t>(opIndex - 1)];
+        if (!well.text && well.fill != 0) {
+            x = well.x;
+            y = well.y;
+            width = well.width;
+            height = well.height;
+            PaintPrepared(gpu, well, opIndex - 1, scrollY, viewHeight, gScene.light);
+        }
+    }
+    PaintPrepared(gpu, text, opIndex, scrollY, viewHeight, gScene.light);
+    bool focused = false;
+    for (const Editor& editor : gEditors) {
+        if (editor.focused && editor.op == opIndex) {
+            focused = true;
+            break;
+        }
+    }
+    if (!focused) {
+        gFieldCaretEditor = -1;
+    }
+    return width > 0 && height > 0;
+}
 
 bool WindowsDocumentTextAt(int docX, int docY) {
     int run = -1;

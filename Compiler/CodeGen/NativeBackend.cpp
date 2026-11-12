@@ -223,6 +223,9 @@ struct ModuleCtx {
     bool usesPackage = false;
     bool usesGpu = false;
     bool usesLaunch = false;
+    bool usesGrid = false;
+    bool usesSettings = false;
+    bool usesSearch = false;
     std::vector<RoboPlayedEvent> inputScript;
     bool usesScene = false;
     std::vector<std::uint32_t> scenePixels;
@@ -1391,6 +1394,42 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val flag = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = call i64 @rx_ui_menu(i64 " << flag.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Stack" && inst.operandIds.size() >= 3) {
+                Val items = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val origin = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val gap = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                const std::string count = NewTmp();
+                const std::string indexShift = NewTmp();
+                const std::string index = NewTmp();
+                const std::string heightShift = NewTmp();
+                const std::string height = NewTmp();
+                const std::string countOk = NewTmp();
+                const std::string fit = NewTmp();
+                const std::string ok = NewTmp();
+                const std::string step = NewTmp();
+                const std::string span = NewTmp();
+                const std::string y = NewTmp();
+                m_body << "  " << count << " = and i64 " << items.repr << ", 255\n";
+                m_body << "  " << indexShift << " = lshr i64 " << items.repr << ", 8\n";
+                m_body << "  " << index << " = and i64 " << indexShift << ", 255\n";
+                m_body << "  " << heightShift << " = lshr i64 " << items.repr << ", 16\n";
+                m_body << "  " << height << " = and i64 " << heightShift << ", 255\n";
+                m_body << "  " << countOk << " = icmp sgt i64 " << count << ", 0\n";
+                m_body << "  " << fit << " = icmp slt i64 " << index << ", " << count << "\n";
+                m_body << "  " << ok << " = and i1 " << countOk << ", " << fit << "\n";
+                m_body << "  " << step << " = add i64 " << height << ", " << gap.repr << "\n";
+                m_body << "  " << span << " = mul i64 " << index << ", " << step << "\n";
+                m_body << "  " << y << " = add i64 " << origin.repr << ", " << span << "\n";
+                m_body << "  " << vname << " = select i1 " << ok << ", i64 " << y << ", i64 -1\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.Grid" && inst.operandIds.size() >= 3) {
+                m_ctx.usesGrid = true;
+                Val items = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val columns = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                Val cell = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_ui_grid(i64 " << items.repr << ", i64 " << columns.repr
+                       << ", i64 " << cell.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Scene.Render" && inst.operandIds.size() >= 3) {
                 m_ctx.usesScene = true;
                 const std::string path = ConstText(inst.operandIds[0]);
@@ -1900,6 +1939,28 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 m_body << "  " << doRead << " = and i1 " << reading << ", " << known << "\n";
                 m_body << "  " << yes << " = or i1 " << doWrite << ", " << doRead << "\n";
                 m_body << "  " << vname << " = zext i1 " << yes << " to i64\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Settings.Get" && !inst.operandIds.empty()) {
+                m_ctx.usesSettings = true;
+                Val key = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_settings_get(i64 " << key.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Settings.Set" && inst.operandIds.size() >= 2) {
+                m_ctx.usesSettings = true;
+                Val key = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val value = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_settings_set(i64 " << key.repr << ", i64 " << value.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Settings.Reset" && !inst.operandIds.empty()) {
+                m_ctx.usesSettings = true;
+                Val key = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_settings_reset(i64 " << key.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "Search.Query" && inst.operandIds.size() >= 2) {
+                m_ctx.usesSearch = true;
+                Val index = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val text = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_search_query(i64 " << index.repr << ", i64 " << text.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "Page.Entry" && inst.operandIds.size() >= 2) {
                 Val phys = Coerce(Operand(inst, 0), NTy::I64, inst.location);
@@ -3903,6 +3964,51 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "err:\n  ret i64 -1\n}\n\n";
     }
 
+    if (ctx.usesSettings) {
+        out << "@rx.settings.value = internal global [16 x i64] zeroinitializer, align 8\n";
+        out << "@rx.settings.used = internal global [16 x i64] zeroinitializer, align 8\n";
+        out << "define i64 @rx_settings_default(i64 %key) {\n";
+        out << "  %width = icmp eq i64 %key, 1\n  %height = icmp eq i64 %key, 2\n  %users = icmp eq i64 %key, 6\n";
+        out << "  %fromWidth = select i1 %width, i64 1920, i64 0\n";
+        out << "  %fromHeight = select i1 %height, i64 1080, i64 %fromWidth\n";
+        out << "  %fromUsers = select i1 %users, i64 1, i64 %fromHeight\n  ret i64 %fromUsers\n}\n\n";
+        out << "define i64 @rx_settings_get(i64 %key) {\n";
+        out << "  %low = icmp sge i64 %key, 1\n  %high = icmp sle i64 %key, 12\n  %ok = and i1 %low, %high\n";
+        out << "  br i1 %ok, label %read, label %missing\n";
+        out << "missing:\n  ret i64 -1\n";
+        out << "read:\n  %usedPtr = getelementptr [16 x i64], ptr @rx.settings.used, i64 0, i64 %key\n";
+        out << "  %valuePtr = getelementptr [16 x i64], ptr @rx.settings.value, i64 0, i64 %key\n";
+        out << "  %flag = load i64, ptr %usedPtr\n  %stored = load i64, ptr %valuePtr\n";
+        out << "  %fallback = call i64 @rx_settings_default(i64 %key)\n  %live = icmp ne i64 %flag, 0\n";
+        out << "  %out = select i1 %live, i64 %stored, i64 %fallback\n  ret i64 %out\n}\n\n";
+        out << "define i64 @rx_settings_set(i64 %key, i64 %value) {\n";
+        out << "  %low = icmp sge i64 %key, 1\n  %high = icmp sle i64 %key, 12\n  %ok = and i1 %low, %high\n";
+        out << "  br i1 %ok, label %write, label %missing\n";
+        out << "missing:\n  ret i64 -1\n";
+        out << "write:\n  %usedPtr = getelementptr [16 x i64], ptr @rx.settings.used, i64 0, i64 %key\n";
+        out << "  %valuePtr = getelementptr [16 x i64], ptr @rx.settings.value, i64 0, i64 %key\n";
+        out << "  store i64 1, ptr %usedPtr\n  store i64 %value, ptr %valuePtr\n  ret i64 %value\n}\n\n";
+        out << "define i64 @rx_settings_reset(i64 %key) {\n";
+        out << "  %low = icmp sge i64 %key, 1\n  %high = icmp sle i64 %key, 12\n  %ok = and i1 %low, %high\n";
+        out << "  br i1 %ok, label %clear, label %missing\n";
+        out << "missing:\n  ret i64 -1\n";
+        out << "clear:\n  %usedPtr = getelementptr [16 x i64], ptr @rx.settings.used, i64 0, i64 %key\n";
+        out << "  store i64 0, ptr %usedPtr\n  %fallback = call i64 @rx_settings_default(i64 %key)\n  ret i64 %fallback\n}\n\n";
+    }
+
+    if (ctx.usesSearch) {
+        out << "define i64 @rx_search_query(i64 %index, i64 %text) {\n";
+        out << "  %prefix = and i64 %text, 65535\n";
+        out << "  %apps = icmp eq i64 %prefix, 28498\n  %note = icmp eq i64 %prefix, 28494\n";
+        out << "  %first = icmp eq i64 %index, 0\n  %second = icmp eq i64 %index, 1\n  %third = icmp eq i64 %index, 2\n";
+        out << "  %files = and i1 %apps, %first\n  %finder = and i1 %apps, %second\n  %settings = and i1 %apps, %third\n";
+        out << "  %noteHit = and i1 %note, %first\n";
+        out << "  %withFiles = select i1 %files, i64 2, i64 -1\n";
+        out << "  %withFinder = select i1 %finder, i64 1, i64 %withFiles\n";
+        out << "  %withSettings = select i1 %settings, i64 3, i64 %withFinder\n";
+        out << "  %withNote = select i1 %noteHit, i64 4, i64 %withSettings\n  ret i64 %withNote\n}\n\n";
+    }
+
     if (ctx.usesLaunch) {
         out << "@rx.launch.id = internal global [4 x i64] zeroinitializer, align 8\n";
         out << "@rx.launch.after = internal global [4 x i64] zeroinitializer, align 8\n";
@@ -3974,6 +4080,19 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  %m01 = or i64 %o0, %o1s\n  %m012 = or i64 %m01, %o2s\n  %packed = or i64 %m012, %o3s\n";
         out << "  ret i64 %packed\n";
         out << "deny:\n  ret i64 -1\n}\n\n";
+    }
+
+    if (ctx.usesGrid) {
+        out << "define i64 @rx_ui_grid(i64 %items, i64 %columns, i64 %cell) {\n";
+        out << "  %count = and i64 %items, 255\n  %indexShift = lshr i64 %items, 8\n  %index = and i64 %indexShift, 255\n";
+        out << "  %colsOk = icmp sgt i64 %columns, 0\n  %countOk = icmp sgt i64 %count, 0\n";
+        out << "  %fit = icmp slt i64 %index, %count\n  %cellOk = icmp sgt i64 %cell, 0\n";
+        out << "  %pair = and i1 %colsOk, %countOk\n  %pair2 = and i1 %fit, %cellOk\n  %ok = and i1 %pair, %pair2\n";
+        out << "  br i1 %ok, label %geom, label %miss\n";
+        out << "miss:\n  ret i64 -1\n";
+        out << "geom:\n  %col = srem i64 %index, %columns\n  %row = sdiv i64 %index, %columns\n";
+        out << "  %x = mul i64 %col, %cell\n  %y = mul i64 %row, %cell\n  %ys = shl i64 %y, 16\n";
+        out << "  %packed = or i64 %x, %ys\n  ret i64 %packed\n}\n\n";
     }
 
     if (ctx.usesInput) {

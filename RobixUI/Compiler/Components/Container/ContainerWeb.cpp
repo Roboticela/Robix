@@ -144,11 +144,20 @@ void RoboWebAppendContainerCss(std::ostream& css) {
          "box-shadow:inset 0 0 0 1px var(--border-default)}\n";
   css << ".robo-button[data-variant=ghost],.robo-button[data-variant=plain],.robo-button[data-variant=link]{background:transparent;color:var(--brand-primary);box-shadow:none}\n";
   css << ".robo-button[data-variant=danger]{background:var(--danger,#ff3b30);color:white}\n";
-  css << ".robo-field,input.robo-type,textarea.robo-type{box-sizing:border-box;min-height:28px;padding:4px 8px;border-radius:6px;"
-         "border:1px solid var(--border-default);background:var(--bg-primary);color:var(--text-primary);"
-         "font:13px/1.3 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}\n";
-  css << ".robo-field:focus,input.robo-type:focus,textarea.robo-type:focus{outline:none;border-color:var(--brand-primary);"
-         "box-shadow:0 0 0 3px var(--brand-primary-focus-ring)}\n";
+  css << "input.robo-field,textarea.robo-field,input.robo-type,textarea.robo-type{appearance:none;-webkit-appearance:none;box-sizing:border-box;display:block;margin:0;"
+         "border:1px solid var(--border-default);border-radius:6px;background:var(--bg-elevated);color:var(--text-primary);"
+         "font:14px/1.2 Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;outline:none;box-shadow:none;caret-color:var(--text-primary)}\n";
+  css << "input.robo-field,input.robo-type{padding:0 10px}\n";
+  css << "textarea.robo-field,textarea.robo-type{padding:10px;line-height:1.35;resize:none}\n";
+  css << "input.robo-field:focus,textarea.robo-field:focus,input.robo-type:focus,textarea.robo-type:focus,"
+         "input.robo-field:focus-visible,textarea.robo-field:focus-visible,input.robo-type:focus-visible,textarea.robo-type:focus-visible{"
+         "outline:none;border-color:var(--border-default);box-shadow:none}\n";
+  css << "input.robo-field::placeholder,textarea.robo-field::placeholder,input.robo-type::placeholder,textarea.robo-type::placeholder{color:var(--text-tertiary);opacity:1}\n";
+  css << "input.robo-field:disabled,textarea.robo-field:disabled,input.robo-type:disabled,textarea.robo-type:disabled{"
+         "background:var(--bg-secondary);color:var(--text-disabled);-webkit-text-fill-color:var(--text-disabled);opacity:1}\n";
+  css << "input.robo-field::selection,textarea.robo-field::selection,input.robo-type::selection,textarea.robo-type::selection{"
+         "background:color-mix(in srgb,var(--brand-primary) 45%,var(--bg-primary));color:var(--text-primary)}\n";
+  css << "input.robo-field::-ms-reveal,input.robo-field::-ms-clear,input.robo-type::-ms-reveal,input.robo-type::-ms-clear{display:none}\n";
   css << ".robo-segmented,.robo-segmentedcontrol{display:inline-flex;align-items:center;height:28px;padding:2px;gap:0;border-radius:7px;background:var(--bg-tertiary)}\n";
   css << ".robo-sidebar{background:var(--bg-secondary);padding:8px}\n";
   css << ".robo-titlebar{display:flex;align-items:center;height:52px;padding:0 12px;background:var(--bg-secondary);border-bottom:1px solid var(--border-subtle)}\n";
@@ -163,8 +172,6 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-scroll::-webkit-scrollbar{width:6px;height:6px}\n";
   css << ".robo-scroll::-webkit-scrollbar-thumb{background:#8B93A7;border-radius:999px}\n";
   css << ".robo-scroll::-webkit-scrollbar-track{background:transparent}\n";
-  css << "input.robo-type:focus,textarea.robo-type:focus{outline:none;border-color:var(--brand-primary);box-shadow:none}\n";
-  css << "input.robo-type:disabled,textarea.robo-type:disabled{color:var(--text-disabled)}\n";
   css << ".robo-board,.robo-container,.robo-scroll{box-sizing:border-box;min-width:0;border:0;outline:none}\n";
   css << ".robo-board:focus,.robo-board:focus-visible,.robo-container:focus,.robo-container:focus-visible,"
          ".robo-scroll:focus,.robo-scroll:focus-visible{outline:none}\n";

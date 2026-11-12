@@ -886,6 +886,68 @@ ROBO_PROCESS: alive
 
 The same image with `-smp 1` prints `ROBO_CPU: cores online1` and `ROBO_FS: deny`, and it does not print `ROBO_SCHED: migrate`.
 
+## RoboticelaOS Stage U
+
+`UI.Stack` places three notifications of height 48 with gap 8 from origin 40 at y 40, 96, and 152. An index past the count returns -1. Dismiss of the middle note leaves two. `UI.Grid` places eight icons in four columns of 64: index 0 is `(0, 0)`, index 1 is `(64, 0)`, index 4 is `(0, 64)`, and index 7 is `(192, 64)`.
+
+Finder is window 6. Space 1 is focused and space 0 is hidden. One drag command moves `(40, 96)` by `(12, -8)` to `(52, 88)`. Snap of that window on a 320 by 200 screen is the left half `0, 32, 160, 120`, the top-left quarter, and maximize `0, 32, 320, 120`. A different window id is rejected. `Clock.Seconds(89)` is 59. `Desktop/RoboDock.rxu` and `Desktop/RoboFinder.rxu` each have a dark screen `#080A10` and a light screen `#F5F5F7`, both with menu bar `#0E7AFF`. The Finder window is 288 wide on the 320-wide document and 640 wide on a 1920-wide display.
+
+```
+robix test RoboticelaOS/User/RoboDock/RoboDock.test.rx
+robix test RoboticelaOS/User/RoboFinder/RoboFinder.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file, after the console yield:
+
+```
+ROBO_KERNEL: console yield
+ROBO_FS: deny
+ROBO_SESSION: spaces
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1` and `ROBO_SESSION: spaces`, and it does not print `ROBO_SCHED: migrate`.
+
+## RoboticelaOS Stage V
+
+`Settings.Get` returns the handoff display default, width `1920` and height `1080`, for the current user in `Home/`. `Settings.Set` stores a width of `1280`, and `Settings.Reset` returns `1920` again. Sound, network, Bluetooth, users, privacy, language, date, power, updates, and appearance each have a key. Appearance `0` is the dark desktop `#080A10` and appearance `1` is the light desktop `#F5F5F7`. The window server reads that appearance key when it paints the boot desktop.
+
+`Search.Query` with the two-letter prefix `Ro` returns Files, Finder, then Settings. The prefix `No` returns `Home/Note.txt`. A later index returns `-1`.
+
+```
+robix test RoboticelaOS/User/RoboSettings/RoboSettings.test.rx
+robix test RoboticelaOS/User/RoboSearch/RoboSearch.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file, after the console yield:
+
+```
+ROBO_KERNEL: console yield
+ROBO_FS: deny
+ROBO_SESSION: spaces
+ROBO_SETTINGS: display
+ROBO_SEARCH: hit
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1`, `ROBO_SETTINGS: display`, and `ROBO_SEARCH: hit`, and it does not print `ROBO_SCHED: migrate`.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

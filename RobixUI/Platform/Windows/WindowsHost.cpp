@@ -69,7 +69,11 @@ struct HostView {
     int shownScrollX = -1;
     bool regionDrag = false;
     bool textDrag = false;
-    bool fieldDrag = false;
+    int fieldDrag = 0;
+    int fieldPressX = 0;
+    int fieldPressY = 0;
+    bool fieldSlop = false;
+    int caretCover = -1;
     int textClicks = 0;
     unsigned textClick = 0;
     bool panLive = false;
@@ -1166,6 +1170,9 @@ void Draw(HostView* view) {
         if (view->scrollX < 0) {
             view->scrollX = 0;
         }
+        const int caretCover = WindowsDocumentFieldCaretCover(GetTickCount());
+        const bool caretDue = caretCover != view->caretCover;
+        WindowsDocumentFieldCaretUse(caretCover);
         const bool wide = view->contentWidth > layoutW;
         WindowPatch patches[32]{};
         int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, view->focusControl, patches, 32);
@@ -1176,7 +1183,7 @@ void Draw(HostView* view) {
         if (zoomed) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
-                const bool dirty = rebuilt || fresh || scaleChanged || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
+                const bool dirty = rebuilt || fresh || scaleChanged || caretDue || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
                                    view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion();
                 if (dirty) {
                     BindSheet(view, true);
@@ -1203,6 +1210,13 @@ void Draw(HostView* view) {
                 view->gpuFull = true;
                 view->gpuScroll = view->scrollY;
                 WindowsDocumentTextMarkPainted();
+            } else if (caretDue) {
+                int caretX = 0;
+                int caretY = 0;
+                int caretW = 0;
+                int caretH = 0;
+                WindowsDocumentSetScrollX(view->scrollX);
+                WindowsDocumentFieldCaretRepaint(&view->gpu, view->scrollY, height, caretX, caretY, caretW, caretH);
             }
         } else {
             WindowsDocumentSetScrollX(0);
@@ -1255,6 +1269,18 @@ void Draw(HostView* view) {
                     visible[visibleCount] = textPatches[index];
                     ++visibleCount;
                 }
+                if (caretDue && !(rebuilt || fresh || patchCount < 0 || textCount < 0)) {
+                    BindSheet(view, true);
+                    int caretX = 0;
+                    int caretY = 0;
+                    int caretW = 0;
+                    int caretH = 0;
+                    if (WindowsDocumentFieldCaretRepaint(&view->gpu, 0, view->contentHeight, caretX, caretY, caretW, caretH) && visibleCount < 64) {
+                        visible[visibleCount] = WindowPatch{caretX, caretY, caretW, caretH};
+                        ++visibleCount;
+                    }
+                    BindSheet(view, false);
+                }
                 if (view->zoomBoxH > 0) {
                     ClearZoomBox(view);
                 }
@@ -1265,6 +1291,7 @@ void Draw(HostView* view) {
             PaintWindowsDocumentView(&view->gpu, view->scrollY, layoutW, layoutH);
             WindowsDocumentTextMarkPainted();
         }
+        view->caretCover = caretCover;
         WindowScrollState bar = view->bar;
         bar.contentHeight = std::max(height, ToWin(view->contentHeight, scale));
         bar.contentWidth = std::max(width, ToWin(view->contentWidth, scale));
@@ -1573,15 +1600,21 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     Request(view);
                     return 0;
                 }
-                if (view->fieldDrag && message == WM_MOUSEMOVE) {
+                if (view->fieldDrag != 0 && message == WM_MOUSEMOVE) {
+                    const int dx = x - view->fieldPressX;
+                    const int dy = y - view->fieldPressY;
+                    if (!view->fieldSlop && dx * dx + dy * dy < 16) {
+                        return 0;
+                    }
+                    view->fieldSlop = true;
                     const int docX = view->scrollX + ToDoc(x, pointerScale);
                     const int docY = view->scrollY + ToDoc(y, pointerScale);
-                    WindowsDocumentFieldDrag(docX, docY);
+                    WindowsDocumentFieldDrag(docX, docY, view->fieldDrag);
                     Request(view);
                     return 0;
                 }
-                if (message == WM_LBUTTONUP && view->fieldDrag) {
-                    view->fieldDrag = false;
+                if (message == WM_LBUTTONUP && view->fieldDrag != 0) {
+                    view->fieldDrag = 0;
                     if (GetCapture() == window) {
                         ReleaseCapture();
                     }
@@ -1793,9 +1826,27 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     if (hit < 0 && zoomHit == 0 && barHit == 0 && barHitX == 0) {
                         const int field = WindowsDocumentFieldAt(docX, docY);
                         if (field >= 0) {
-                            WindowsDocumentFieldFocus(field, docX, docY);
-                            view->fieldDrag = true;
+                            const unsigned now = GetTickCount();
+                            const unsigned gap = static_cast<unsigned>(GetDoubleClickTime());
+                            int clicks = 1;
+                            if (message == WM_LBUTTONDBLCLK) {
+                                clicks = 2;
+                            } else if (view->textClicks > 0 && now - view->textClick <= gap) {
+                                clicks = view->textClicks + 1;
+                            }
+                            if (clicks > 3) {
+                                clicks = 1;
+                            }
+                            view->textClicks = clicks >= 3 ? 0 : clicks;
+                            view->textClick = now;
+                            const bool extend = clicks == 1 && (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                            WindowsDocumentFieldFocus(field, docX, docY, clicks, extend);
+                            view->fieldDrag = clicks;
+                            view->fieldPressX = x;
+                            view->fieldPressY = y;
+                            view->fieldSlop = false;
                             view->textDrag = false;
+                            SetTimer(window, 6, 40, nullptr);
                             if (WindowsDocumentTextActive()) {
                                 WindowsDocumentTextClear();
                             }
@@ -1966,19 +2017,56 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             return 0;
         case WM_KEYDOWN:
             if (view != nullptr && view->ready && view->screen && WindowsDocumentFieldActive()) {
+                const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+                const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                const auto copySelection = [&]() {
+                    const std::string selected = WindowsDocumentFieldSelection();
+                    if (selected.empty() || !OpenClipboard(window)) {
+                        return selected;
+                    }
+                    EmptyClipboard();
+                    const int chars = MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), nullptr, 0);
+                    HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, static_cast<SIZE_T>(chars + 1) * sizeof(wchar_t));
+                    if (memory != nullptr) {
+                        auto* wide = static_cast<wchar_t*>(GlobalLock(memory));
+                        MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), wide, chars);
+                        wide[chars] = L'\0';
+                        GlobalUnlock(memory);
+                        SetClipboardData(CF_UNICODETEXT, memory);
+                    }
+                    CloseClipboard();
+                    return selected;
+                };
                 if (wParam == VK_BACK) {
-                    WindowsDocumentFieldDelete(false);
+                    if (ctrl) {
+                        WindowsDocumentFieldDeleteWord(false);
+                    } else {
+                        WindowsDocumentFieldDelete(false);
+                    }
                     Request(view);
                     return 0;
                 }
                 if (wParam == VK_DELETE) {
-                    WindowsDocumentFieldDelete(true);
+                    if (ctrl) {
+                        WindowsDocumentFieldDeleteWord(true);
+                    } else {
+                        WindowsDocumentFieldDelete(true);
+                    }
                     Request(view);
                     return 0;
                 }
                 if (wParam == VK_LEFT || wParam == VK_RIGHT) {
-                    const bool extend = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-                    WindowsDocumentFieldMoveCaret(wParam == VK_LEFT ? -1 : 1, extend);
+                    WindowsDocumentFieldMoveCaret(wParam == VK_LEFT ? -1 : 1, shift, ctrl);
+                    Request(view);
+                    return 0;
+                }
+                if (wParam == VK_UP || wParam == VK_DOWN) {
+                    WindowsDocumentFieldMoveLine(wParam == VK_UP ? -1 : 1, shift);
+                    Request(view);
+                    return 0;
+                }
+                if (wParam == VK_HOME || wParam == VK_END) {
+                    WindowsDocumentFieldMoveEnd(wParam == VK_END, shift, ctrl);
                     Request(view);
                     return 0;
                 }
@@ -1987,26 +2075,45 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     Request(view);
                     return 0;
                 }
-                if ((GetKeyState(VK_CONTROL) & 0x8000) != 0 && wParam == 'A') {
+                if (ctrl && wParam == 'A') {
                     WindowsDocumentFieldSelectAll();
                     Request(view);
                     return 0;
                 }
-                if ((GetKeyState(VK_CONTROL) & 0x8000) != 0 && wParam == 'C') {
-                    const std::string selected = WindowsDocumentFieldSelection();
-                    if (!selected.empty() && OpenClipboard(window)) {
-                        EmptyClipboard();
-                        const int chars = MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), nullptr, 0);
-                        HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, static_cast<SIZE_T>(chars + 1) * sizeof(wchar_t));
+                if (ctrl && wParam == 'C') {
+                    copySelection();
+                    return 0;
+                }
+                if (ctrl && wParam == 'X') {
+                    if (!copySelection().empty()) {
+                        WindowsDocumentFieldDelete(false);
+                        Request(view);
+                    }
+                    return 0;
+                }
+                if (ctrl && wParam == 'V') {
+                    if (OpenClipboard(window)) {
+                        HANDLE memory = GetClipboardData(CF_UNICODETEXT);
                         if (memory != nullptr) {
-                            auto* wide = static_cast<wchar_t*>(GlobalLock(memory));
-                            MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), wide, chars);
-                            wide[chars] = L'\0';
-                            GlobalUnlock(memory);
-                            SetClipboardData(CF_UNICODETEXT, memory);
+                            const auto* wide = static_cast<const wchar_t*>(GlobalLock(memory));
+                            if (wide != nullptr) {
+                                const int bytes = WideCharToMultiByte(CP_UTF8, 0, wide, -1, nullptr, 0, nullptr, nullptr);
+                                if (bytes > 1) {
+                                    std::string utf8(static_cast<std::size_t>(bytes - 1), '\0');
+                                    WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8.data(), bytes, nullptr, nullptr);
+                                    WindowsDocumentFieldType(utf8);
+                                    Request(view);
+                                }
+                                GlobalUnlock(memory);
+                            }
                         }
                         CloseClipboard();
                     }
+                    return 0;
+                }
+                if (ctrl && (wParam == 'Z' || wParam == 'Y')) {
+                    WindowsDocumentFieldUndo(wParam == 'Y' || shift);
+                    Request(view);
                     return 0;
                 }
             }
@@ -2177,6 +2284,20 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case WM_TIMER:
+            if (wParam == 6) {
+                if (view == nullptr || !WindowsDocumentFieldActive()) {
+                    if (view != nullptr && view->caretCover != 0) {
+                        InvalidateRect(window, nullptr, FALSE);
+                    }
+                    KillTimer(window, 6);
+                    return 0;
+                }
+                const int cover = WindowsDocumentFieldCaretCover(GetTickCount());
+                if (cover != view->caretCover) {
+                    InvalidateRect(window, nullptr, FALSE);
+                }
+                return 0;
+            }
             if (wParam == 5) {
                 if (view == nullptr) {
                     KillTimer(window, 5);

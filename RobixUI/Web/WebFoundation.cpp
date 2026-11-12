@@ -290,6 +290,9 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     if (overlay == "true" || overlay == "1" || overlay == "yes") {
         className += " robo-overlay";
     }
+    if (tag == "input" || tag == "textarea") {
+        className = "robo-field";
+    }
     if (RoboWebIsTextName(paint) || RoboWebIsTextName(name)) {
         const std::string typeClass = RoboWebTypeClass(node);
         if (!typeClass.empty()) {

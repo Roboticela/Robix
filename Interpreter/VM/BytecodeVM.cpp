@@ -177,6 +177,13 @@ std::vector<std::string> BytecodeVM::GetHotJITCandidateFunctions() const {
     return hot;
 }
 
+std::int64_t BytecodeVM::SettingsDefault(std::int64_t key) {
+    if (key == 1) return 1920;
+    if (key == 2) return 1080;
+    if (key == 6) return 1;
+    return 0;
+}
+
 bool BytecodeVM::Gate() {
     if (m_gateChecked) return m_gateOk;
     m_gateChecked = true;
@@ -1176,6 +1183,42 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t password = regs[inst.callArgRegs[1]].AsInt();
                     const std::int64_t result = (password > 0 && hash == (password ^ 21072)) ? std::int64_t{ 1 } : std::int64_t{ -1 };
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Settings.Get" && !inst.callArgRegs.empty()) {
+                    const std::int64_t key = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t result = -1;
+                    if (key >= 1 && key <= 12) {
+                        result = m_settingsUsed[static_cast<std::size_t>(key)] != 0
+                            ? m_settingsValue[static_cast<std::size_t>(key)]
+                            : SettingsDefault(key);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Settings.Set" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t key = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t value = regs[inst.callArgRegs[1]].AsInt();
+                    std::int64_t result = -1;
+                    if (key >= 1 && key <= 12) {
+                        m_settingsUsed[static_cast<std::size_t>(key)] = 1;
+                        m_settingsValue[static_cast<std::size_t>(key)] = value;
+                        result = value;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Settings.Reset" && !inst.callArgRegs.empty()) {
+                    const std::int64_t key = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t result = -1;
+                    if (key >= 1 && key <= 12) {
+                        m_settingsUsed[static_cast<std::size_t>(key)] = 0;
+                        result = SettingsDefault(key);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Search.Query" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t index = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t prefix = regs[inst.callArgRegs[1]].AsInt() & 65535;
+                    std::int64_t result = -1;
+                    if (prefix == 28498 && index == 0) result = 2;
+                    if (prefix == 28498 && index == 1) result = 1;
+                    if (prefix == 28498 && index == 2) result = 3;
+                    if (prefix == 28494 && index == 0) result = 4;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
                 } else if (inst.symbolImm == "ACL.Allow" && inst.callArgRegs.size() >= 3) {
                     const std::int64_t user = regs[inst.callArgRegs[0]].AsInt();
                     const std::int64_t path = regs[inst.callArgRegs[1]].AsInt();
@@ -1462,6 +1505,31 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_menu) };
                 } else if (inst.symbolImm == "UI.MenuOpen") {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_menu) };
+                } else if (inst.symbolImm == "UI.Stack" && inst.callArgRegs.size() >= 3) {
+                    const std::int64_t items = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t origin = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t gap = regs[inst.callArgRegs[2]].AsInt();
+                    const std::int64_t count = items & 255;
+                    const std::int64_t index = (items >> 8) & 255;
+                    const std::int64_t height = (items >> 16) & 255;
+                    std::int64_t result = -1;
+                    if (count > 0 && index >= 0 && index < count) {
+                        result = origin + index * (height + gap);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "UI.Grid" && inst.callArgRegs.size() >= 3) {
+                    const std::int64_t items = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t columns = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t cell = regs[inst.callArgRegs[2]].AsInt();
+                    const std::int64_t count = items & 255;
+                    const std::int64_t index = (items >> 8) & 255;
+                    std::int64_t result = -1;
+                    if (columns > 0 && cell > 0 && count > 0 && index >= 0 && index < count) {
+                        const std::int64_t col = index % columns;
+                        const std::int64_t row = index / columns;
+                        result = col * cell + (row * cell << 16);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
                 } else if ((inst.symbolImm == "UI.Set" || inst.symbolImm == "Scene.Set") && inst.callArgRegs.size() >= 3) {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{};
                 } else if (inst.symbolImm == "Input" || inst.symbolImm == "Input.Int") {

@@ -99,15 +99,26 @@ void WindowsDocumentScrollEnd();
 
 /* Index of the Input under a document point, or -1. */
 int WindowsDocumentFieldAt(int docX, int docY);
-void WindowsDocumentFieldFocus(int index, int docX, int docY);
-void WindowsDocumentFieldDrag(int docX, int docY);
+/* clicks: 1 places a caret, 2 selects a word, 3 selects the line. Shift extends a caret click. */
+void WindowsDocumentFieldFocus(int index, int docX, int docY, int clicks, bool extend);
+/* mode: 1 extends by character, 2 by word, 3 by line. */
+void WindowsDocumentFieldDrag(int docX, int docY, int mode);
 void WindowsDocumentFieldBlur();
 bool WindowsDocumentFieldActive();
 bool WindowsDocumentFieldType(const std::string& text);
 bool WindowsDocumentFieldDelete(bool forward);
-bool WindowsDocumentFieldMoveCaret(int delta, bool extend);
+bool WindowsDocumentFieldDeleteWord(bool forward);
+bool WindowsDocumentFieldMoveCaret(int delta, bool extend, bool word);
+bool WindowsDocumentFieldMoveLine(int delta, bool extend);
+bool WindowsDocumentFieldMoveEnd(bool end, bool extend, bool document);
+bool WindowsDocumentFieldUndo(bool redo);
 void WindowsDocumentFieldSelectAll();
 std::string WindowsDocumentFieldSelection();
+/* 0 hides the caret. 255 is solid. Between those values the caret is fading. */
+int WindowsDocumentFieldCaretCover(unsigned now);
+void WindowsDocumentFieldCaretUse(int cover);
+/* Paints the focused field again so a blink can show or hide the caret. The box is in document pixels. */
+bool WindowsDocumentFieldCaretRepaint(RoboGPU* gpu, int scrollY, int viewHeight, int& x, int& y, int& width, int& height);
 
 /* 1 when a document point is on selectable text. Buttons and other controls are not. */
 bool WindowsDocumentTextAt(int docX, int docY);

@@ -946,7 +946,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Proc" || expr.text == "Cred" || expr.text == "Syscall" ||
                 expr.text == "FS" || expr.text == "PCI" || expr.text == "HID" ||                 expr.text == "Driver" ||
                 expr.text == "Vendor" || expr.text == "GPU" || expr.text == "Launch" ||
-                expr.text == "Auth" || expr.text == "ACL") {
+                expr.text == "Auth" || expr.text == "ACL" ||
+                expr.text == "Settings" || expr.text == "Search") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1351,7 +1352,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 (expr.text == "LoadCooked" || expr.text == "Role" || expr.text == "BoxX" || expr.text == "BoxY" ||
                  expr.text == "BoxWidth" || expr.text == "BoxHeight" || expr.text == "Place" || expr.text == "Hit" ||
                  expr.text == "Drag" || expr.text == "Snap" || expr.text == "Focus" || expr.text == "Focused" ||
-                 expr.text == "Menu" || expr.text == "MenuOpen")) {
+                 expr.text == "Menu" || expr.text == "MenuOpen" || expr.text == "Stack" || expr.text == "Grid")) {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }
@@ -1452,6 +1453,14 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (recvType.baseName == "ACL" && expr.text == "Allow") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Settings" && (expr.text == "Get" || expr.text == "Set" || expr.text == "Reset")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Search" && expr.text == "Query") {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }

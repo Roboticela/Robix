@@ -350,7 +350,7 @@
   </Canvas>
 
   <Text value="Input" fontSize="22" font="sans-semibold"/>
-  <Text value="TextField is the Input primitive. The caret uses CursorColor. Password hides the characters and keeps the value. A disabled field refuses the keyboard. Click a field, then type." fontSize="13"/>
+  <Text value="TextField is the Input primitive. Double-click a word. Triple-click a line. Shift-click and Shift-arrows extend the selection. Ctrl moves by word. Home, End, cut, copy, paste, and undo work. The caret uses CursorColor." fontSize="13"/>
 
   <View direction="row" wrap="wrap" gap="16" align="start">
     <View direction="column" gap="6" align="start" width="352">

@@ -136,6 +136,8 @@ private:
     std::int64_t m_gpuRect[4]{};
     std::int64_t m_gpuColor[4]{};
     std::int32_t m_gpuPix[64]{};
+    std::int64_t m_settingsValue[16]{};
+    std::int64_t m_settingsUsed[16]{};
     std::shared_ptr<VMObjectInstance> m_gpuFrame;
     std::int64_t m_frames = 0;
     std::unordered_map<std::int64_t, std::int64_t> m_mmio;
@@ -145,6 +147,7 @@ private:
     std::unordered_map<std::string, std::string> m_virtualFileSystem;
 
     VMValue ExecuteChunk(const BytecodeChunk& chunk, const std::vector<VMValue>& args);
+    [[nodiscard]] static std::int64_t SettingsDefault(std::int64_t key);
     [[nodiscard]] bool Gate();
     void Reject(const std::string& message);
 };

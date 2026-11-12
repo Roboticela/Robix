@@ -2705,7 +2705,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "PCI" || receiverExpr.text == "HID" ||
                      receiverExpr.text == "Driver" || receiverExpr.text == "Vendor" ||
                      receiverExpr.text == "GPU" || receiverExpr.text == "Launch" ||
-                     receiverExpr.text == "Auth" || receiverExpr.text == "ACL")) {
+                     receiverExpr.text == "Auth" || receiverExpr.text == "ACL" ||
+                     receiverExpr.text == "Settings" || receiverExpr.text == "Search")) {
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2750,6 +2751,11 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "Auth" && memberName == "Check") {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "ACL" && memberName == "Allow") {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Settings" &&
+                               (memberName == "Get" || memberName == "Set" || memberName == "Reset")) {
+                        ty = MakePrim("Int");
+                    } else if (receiverExpr.text == "Search" && memberName == "Query") {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Volatile" && memberName == "Load32") {
                         ty = MakePrim("Int");
@@ -2796,7 +2802,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                                 memberName == "BoxY" || memberName == "BoxWidth" || memberName == "BoxHeight" ||
                                 memberName == "Place" || memberName == "Hit" || memberName == "Drag" ||
                                 memberName == "Snap" || memberName == "Focus" || memberName == "Focused" ||
-                                memberName == "Menu" || memberName == "MenuOpen")) {
+                                memberName == "Menu" || memberName == "MenuOpen" || memberName == "Stack" ||
+                                memberName == "Grid")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Input" &&
                                (memberName == "Clear" || memberName == "SetMouse" || memberName == "AddClick")) {
