@@ -19,6 +19,9 @@ namespace Robix::CodeGen {
 
 namespace {
 
+using RoboU16 = std::uint16_t;
+#include "../../RobixUI/RoboGPU/RoboGPUGamma.inc"
+
 enum class NTy : std::uint8_t { Void, I1, I8, I16, I32, I64, F32, F64, Ptr };
 
 const char* TyStr(NTy t) noexcept {
@@ -212,12 +215,26 @@ struct ModuleCtx {
     bool usesSyscall = false;
     bool usesPages = false;
     bool usesSwitch = false;
+    bool usesCatch = false;
     bool usesFrame = false;
     bool usesUI = false;
     std::vector<Robix::UI::RoboCookedBox> uiBoxes;
     int platformWidth = 0;
     int platformHeight = 0;
     int platformContent = 0;
+    int platformContentWidth = 0;
+    int platformColumnX = 0;
+    int platformColumnW = 0;
+    std::vector<std::uint32_t> platformColumn;
+    int platformMotionX = 0;
+    int platformMotionY = 0;
+    int platformMotionW = 0;
+    int platformMotionH = 0;
+    int platformMotionFrames = 0;
+    int platformMotionDelay = 0;
+    int platformProbeX = 0;
+    int platformProbeY = 0;
+    std::vector<std::uint32_t> platformMotion;
     std::vector<std::uint32_t> platformWords;
     bool usesInput = false;
     bool usesSched = false;
@@ -1434,6 +1451,19 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_ctx.platformWidth = paint.width;
                     m_ctx.platformHeight = paint.height;
                     m_ctx.platformContent = paint.content;
+                    m_ctx.platformContentWidth = paint.contentWidth;
+                    m_ctx.platformColumnX = paint.columnX;
+                    m_ctx.platformColumnW = paint.columnW;
+                    m_ctx.platformColumn = paint.column;
+                    m_ctx.platformMotionX = paint.motionX;
+                    m_ctx.platformMotionY = paint.motionY;
+                    m_ctx.platformMotionW = paint.motionW;
+                    m_ctx.platformMotionH = paint.motionH;
+                    m_ctx.platformMotionFrames = paint.motionFrames;
+                    m_ctx.platformMotionDelay = paint.motionDelay;
+                    m_ctx.platformProbeX = paint.probeX;
+                    m_ctx.platformProbeY = paint.probeY;
+                    m_ctx.platformMotion = paint.motion;
                     m_ctx.platformWords = std::move(paint.words);
                 }
                 Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
@@ -1451,6 +1481,19 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_ctx.platformWidth = paint.width;
                     m_ctx.platformHeight = paint.height;
                     m_ctx.platformContent = paint.content;
+                    m_ctx.platformContentWidth = paint.contentWidth;
+                    m_ctx.platformColumnX = paint.columnX;
+                    m_ctx.platformColumnW = paint.columnW;
+                    m_ctx.platformColumn = paint.column;
+                    m_ctx.platformMotionX = paint.motionX;
+                    m_ctx.platformMotionY = paint.motionY;
+                    m_ctx.platformMotionW = paint.motionW;
+                    m_ctx.platformMotionH = paint.motionH;
+                    m_ctx.platformMotionFrames = paint.motionFrames;
+                    m_ctx.platformMotionDelay = paint.motionDelay;
+                    m_ctx.platformProbeX = paint.probeX;
+                    m_ctx.platformProbeY = paint.probeY;
+                    m_ctx.platformMotion = paint.motion;
                     m_ctx.platformWords = std::move(paint.words);
                 }
                 Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
@@ -1469,9 +1512,47 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_ctx.platformWidth = paint.width;
                     m_ctx.platformHeight = paint.height;
                     m_ctx.platformContent = paint.content;
+                    m_ctx.platformContentWidth = paint.contentWidth;
+                    m_ctx.platformColumnX = paint.columnX;
+                    m_ctx.platformColumnW = paint.columnW;
+                    m_ctx.platformColumn = paint.column;
+                    m_ctx.platformMotionX = paint.motionX;
+                    m_ctx.platformMotionY = paint.motionY;
+                    m_ctx.platformMotionW = paint.motionW;
+                    m_ctx.platformMotionH = paint.motionH;
+                    m_ctx.platformMotionFrames = paint.motionFrames;
+                    m_ctx.platformMotionDelay = paint.motionDelay;
+                    m_ctx.platformProbeX = paint.probeX;
+                    m_ctx.platformProbeY = paint.probeY;
+                    m_ctx.platformMotion = paint.motion;
                     m_ctx.platformWords = std::move(paint.words);
                 }
                 m_body << "  " << vname << " = call i64 @rx_platform_height()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.PlatformSpot") {
+                m_ctx.usesFrame = true;
+                Val kind = inst.operandIds.empty() ? Val{ "0", NTy::I64 } : Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_platform_spot(i64 " << kind.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.PlatformMotion" && inst.operandIds.size() >= 2) {
+                m_ctx.usesFrame = true;
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val clock = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                const char* scroll = inst.operandIds.size() >= 3 ? nullptr : "0";
+                if (scroll != nullptr) {
+                    m_body << "  " << vname << " = call i64 @rx_platform_motion(i64 " << frame.repr << ", i64 " << clock.repr
+                           << ", i64 0)\n";
+                } else {
+                    Val shift = Coerce(Operand(inst, 2), NTy::I64, inst.location);
+                    m_body << "  " << vname << " = call i64 @rx_platform_motion(i64 " << frame.repr << ", i64 " << clock.repr
+                           << ", i64 " << shift.repr << ")\n";
+                }
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.PlatformSample" && inst.operandIds.size() >= 2) {
+                m_ctx.usesFrame = true;
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val clock = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_platform_sample(i64 " << frame.repr << ", i64 " << clock.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "UI.Role" || inst.textImm == "UI.BoxX" || inst.textImm == "UI.BoxY" ||
                        inst.textImm == "UI.BoxWidth" || inst.textImm == "UI.BoxHeight") {
@@ -2153,7 +2234,7 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                        inst.textImm == "CPU.SavedRSP" || inst.textImm == "CPU.LGDT" ||
                        inst.textImm == "CPU.LIDT" || inst.textImm == "CPU.BootInfo" ||
                        inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" ||
-                       inst.textImm == "CPU.Fault" ||
+                       inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Catch" || inst.textImm == "CPU.Release" ||
                        inst.textImm == "CPU.Run" || inst.textImm == "CPU.Int3" || inst.textImm == "Timer.Arm" ||
                        inst.textImm == "Timer.Preempt" || inst.textImm == "System.Call") {
                 if (m_ctx.options.asmArch != "x86_64") {
@@ -2161,7 +2242,13 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_vals[id] = Val{ "0", NTy::I64 };
                     break;
                 }
-                if (inst.textImm == "CPU.TSC") {
+                if (inst.textImm == "CPU.Catch") {
+                    m_body << "  " << vname << " = notail call i64 @rx_cpu_catch()\n";
+                    m_vals[id] = Val{ vname, NTy::I64 };
+                } else if (inst.textImm == "CPU.Release") {
+                    m_body << "  call void @rx_cpu_release()\n";
+                    m_vals[id] = Val{ "0", NTy::Void };
+                } else if (inst.textImm == "CPU.TSC") {
                     m_body << "  " << vname
                            << " = call i64 asm sideeffect \"rdtsc\", \"=A,~{dirflag},~{fpsr},~{flags}\"()\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
@@ -2413,11 +2500,13 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     break;
                 }
                 m_vals[id] = Val{ "0", NTy::Void };
-            } else if (inst.textImm == "CPU.Halt" || inst.textImm == "CPU.CLI" || inst.textImm == "CPU.STI") {
+            } else if (inst.textImm == "CPU.Halt" || inst.textImm == "CPU.Pause" || inst.textImm == "CPU.CLI" || inst.textImm == "CPU.STI") {
                 const std::string& arch = m_ctx.options.asmArch;
                 const char* mnemonic = nullptr;
                 if (inst.textImm == "CPU.Halt" && (arch == "aarch64" || arch == "arm" || arch == "riscv64")) {
                     mnemonic = "wfi";
+                } else if (inst.textImm == "CPU.Pause") {
+                    mnemonic = arch == "x86_64" ? "pause" : "nop";
                 } else if (arch == "x86_64") {
                     mnemonic = inst.textImm == "CPU.Halt" ? "hlt" : inst.textImm == "CPU.CLI" ? "cli" : "sti";
                 }
@@ -2877,6 +2966,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         if (inst.textImm == "Memory.Pages" || inst.textImm == "Memory.Frame") ctx.usesPages = true;
         if (inst.textImm.rfind("Frame.", 0) == 0) ctx.usesFrame = true;
         if (inst.textImm == "CPU.ExchangeRSP" || inst.textImm == "CPU.SavedRSP") ctx.usesSwitch = true;
+        if (inst.textImm == "CPU.Catch" || inst.textImm == "CPU.Release") ctx.usesCatch = true;
         if (inst.textImm == "System.Call") ctx.usesSyscall = true;
         if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Run" ||
             inst.textImm == "Timer.Arm" || inst.textImm == "Timer.Preempt") {
@@ -3217,13 +3307,48 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  call void asm sideeffect \"" << EscapeLLVMString(syscall) << "\", \"\"()\n";
         out << "  unreachable\n}\n\n";
     }
+    if (ctx.usesCatch || !ctx.faultIsrs.empty()) {
+        out << "@rx_fault_guard_on = global i64 0, align 8\n";
+        out << "@rx_fault_guard_rip = global i64 0, align 8\n";
+        out << "@rx_fault_guard_rsp = global i64 0, align 8\n";
+        out << "@rx_fault_guard_rbx = global i64 0, align 8\n";
+        out << "@rx_fault_guard_rbp = global i64 0, align 8\n";
+        out << "@rx_fault_guard_r12 = global i64 0, align 8\n";
+        out << "@rx_fault_guard_r13 = global i64 0, align 8\n";
+        out << "@rx_fault_guard_r14 = global i64 0, align 8\n";
+        out << "@rx_fault_guard_r15 = global i64 0, align 8\n";
+    }
+    if (ctx.usesCatch && !m_options.freestanding) {
+        out << "define i64 @rx_cpu_catch() { ret i64 1 }\n\n";
+        out << "define void @rx_cpu_release() { ret void }\n\n";
+    }
+    if (ctx.usesCatch && m_options.freestanding) {
+        out << "define i64 @rx_cpu_catch() noinline nounwind {\n";
+        out << "  %r = call i64 asm sideeffect \""
+            << "movq (%rsp), %rax\\0A"
+            << "leaq 8(%rsp), %rcx\\0A"
+            << "movq %rax, rx_fault_guard_rip(%rip)\\0A"
+            << "movq %rcx, rx_fault_guard_rsp(%rip)\\0A"
+            << "movq %rbx, rx_fault_guard_rbx(%rip)\\0A"
+            << "movq %rbp, rx_fault_guard_rbp(%rip)\\0A"
+            << "movq %r12, rx_fault_guard_r12(%rip)\\0A"
+            << "movq %r13, rx_fault_guard_r13(%rip)\\0A"
+            << "movq %r14, rx_fault_guard_r14(%rip)\\0A"
+            << "movq %r15, rx_fault_guard_r15(%rip)\\0A"
+            << "movq $$1, rx_fault_guard_on(%rip)\\0A"
+            << "movq $$1, %rax\\0A"
+            << "\", \"={rax},~{rcx},~{dirflag},~{fpsr},~{flags},~{memory}\"()\n";
+        out << "  ret i64 %r\n}\n\n";
+        out << "define void @rx_cpu_release() noinline nounwind {\n";
+        out << "  store i64 0, ptr @rx_fault_guard_on, align 8\n  ret void\n}\n\n";
+    }
     for (const std::string& isr : ctx.isrFns) {
         if (ctx.faultIsrs.count(isr)) {
             const std::string text =
                 "popq %rax\n"
                 "movabsq $20992, %rdx\n"
                 "movq %rax, (%rdx)\n"
-                "testb $4, %al\n"
+                "testb $3, 8(%rsp)\n"
                 "jz 1f\n"
                 "pushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
                 "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n"
@@ -3239,7 +3364,24 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 "movq %rax, 24(%rsp)\n"
                 "movq $16, 32(%rsp)\n"
                 "iretq\n"
-                "1:\ncli\n2:\nhlt\njmp 2b\n";
+                "1:\n"
+                "movq rx_fault_guard_on(%rip), %rcx\n"
+                "testq %rcx, %rcx\n"
+                "jz 2f\n"
+                "movq $0, rx_fault_guard_on(%rip)\n"
+                "movq rx_fault_guard_rbx(%rip), %rbx\n"
+                "movq rx_fault_guard_rbp(%rip), %rbp\n"
+                "movq rx_fault_guard_r12(%rip), %r12\n"
+                "movq rx_fault_guard_r13(%rip), %r13\n"
+                "movq rx_fault_guard_r14(%rip), %r14\n"
+                "movq rx_fault_guard_r15(%rip), %r15\n"
+                "movq rx_fault_guard_rsp(%rip), %rsp\n"
+                "pushq $514\n"
+                "pushq $8\n"
+                "pushq rx_fault_guard_rip(%rip)\n"
+                "xorq %rax, %rax\n"
+                "iretq\n"
+                "2:\ncli\n3:\nhlt\njmp 3b\n";
             std::string doubled;
             for (char ch : text) {
                 if (ch == '$') doubled.push_back('$');
@@ -3281,7 +3423,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     if (ctx.usesFrame) {
         if (m_options.freestanding) {
             out << "%RoboFrame = type { i32, i32, [2073600 x i32] }\n";
-            out << "@rx.frame = internal global %RoboFrame zeroinitializer, align 16\n";
+            out << "@rx_frame_store = external global %RoboFrame, align 4096\n";
             out << "define i64 @rx_frame_create(i64 %w, i64 %h) {\n";
             out << "  %okw = icmp ule i64 %w, 1920\n";
             out << "  %okh = icmp ule i64 %h, 1080\n";
@@ -3290,11 +3432,11 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "die:\n  call void @llvm.trap()\n  unreachable\n";
             out << "store:\n";
             out << "  %w32 = trunc i64 %w to i32\n";
-            out << "  store i32 %w32, ptr @rx.frame, align 4\n";
-            out << "  %hp = getelementptr i8, ptr @rx.frame, i64 4\n";
+            out << "  store i32 %w32, ptr @rx_frame_store, align 4\n";
+            out << "  %hp = getelementptr i8, ptr @rx_frame_store, i64 4\n";
             out << "  %h32 = trunc i64 %h to i32\n";
             out << "  store i32 %h32, ptr %hp, align 4\n";
-            out << "  %ret = ptrtoint ptr @rx.frame to i64\n";
+            out << "  %ret = ptrtoint ptr @rx_frame_store to i64\n";
             if (ctx.usesGpu) {
                 out << "  store i64 %ret, ptr @rx.gpu.frame, align 8\n";
             }
@@ -3384,17 +3526,133 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 out << "i32 " << ctx.platformWords[index];
             }
             out << "\n]\n\n";
+            out << "@rx.platform.scroll = internal global i64 -1, align 8\n";
             out << "define i64 @rx_platform_height() {\n  ret i64 " << ctx.platformContent << "\n}\n\n";
+            out << "@rx.gamma.to = internal constant [256 x i16] [";
+            for (int channel = 0; channel < 256; ++channel) {
+                if (channel != 0) out << ",";
+                out << "i16 " << kRoboGPUToLinear[channel];
+            }
+            out << "]\n";
+            {
+                std::uint8_t fromLinear[65536] = {};
+                std::uint32_t start = 0;
+                for (int channel = 0; channel < 256; ++channel) {
+                    const std::uint32_t end = kRoboGPUToLinear[channel];
+                    for (std::uint32_t value = start; value <= end && value < 65536u; ++value) {
+                        fromLinear[value] = static_cast<std::uint8_t>(channel);
+                    }
+                    start = end + 1u;
+                }
+                out << "@rx.gamma.from = internal constant [65536 x i8] [";
+                for (int value = 0; value < 65536; ++value) {
+                    if (value != 0) out << ",";
+                    out << "i8 " << static_cast<int>(fromLinear[value]);
+                }
+                out << "]\n";
+            }
+            out << "define i64 @rx_gamma_mix(i64 %ink, i64 %dst, i64 %cov) {\n";
+            out << "entry:\n  %inv = sub i64 255, %cov\n  br label %ch\n";
+            out << "ch:\n  %i = phi i64 [ 0, %entry ], [ %next, %step ]\n  %acc = phi i64 [ 0, %entry ], [ %acc2, %step ]\n";
+            out << "  %done = icmp uge i64 %i, 3\n  br i1 %done, label %end, label %step\n";
+            out << "step:\n  %shift = mul i64 %i, 8\n  %s0 = lshr i64 %ink, %shift\n  %s = and i64 %s0, 255\n";
+            out << "  %d0 = lshr i64 %dst, %shift\n  %d = and i64 %d0, 255\n";
+            out << "  %sp = getelementptr [256 x i16], ptr @rx.gamma.to, i64 0, i64 %s\n";
+            out << "  %dp = getelementptr [256 x i16], ptr @rx.gamma.to, i64 0, i64 %d\n";
+            out << "  %sv = load i16, ptr %sp, align 2\n  %dv = load i16, ptr %dp, align 2\n";
+            out << "  %s64 = zext i16 %sv to i64\n  %d64 = zext i16 %dv to i64\n";
+            out << "  %ps = mul i64 %s64, %cov\n  %pd = mul i64 %d64, %inv\n  %sum0 = add i64 %ps, %pd\n";
+            out << "  %sum = add i64 %sum0, 127\n  %lin = udiv i64 %sum, 255\n";
+            out << "  %fp = getelementptr [65536 x i8], ptr @rx.gamma.from, i64 0, i64 %lin\n";
+            out << "  %fv = load i8, ptr %fp, align 1\n  %f64 = zext i8 %fv to i64\n";
+            out << "  %placed = shl i64 %f64, %shift\n  %acc2 = or i64 %acc, %placed\n";
+            out << "  %next = add i64 %i, 1\n  br label %ch\n";
+            out << "end:\n  ret i64 %acc\n}\n\n";
+            if (m_options.freestanding) {
+                out << "@rx.platform.sheet = global i64 67108864, align 8\n";
+            } else {
+                out << "@rx.platform.sheet = global i64 0, align 8\n";
+            }
+            out << "@rx.platform.ready = global i64 0, align 8\n";
             out << "define i64 @rx_platform_paint(i64 %frame, i64 %scroll) {\n";
-            out << "entry:\n  %p = inttoptr i64 %frame to ptr\n";
+            out << "entry:\n  %heldSheet = load i64, ptr @rx.platform.sheet, align 8\n";
+            if (!m_options.freestanding) {
+                out << "  %needSheet = icmp eq i64 %heldSheet, 0\n  br i1 %needSheet, label %alloc, label %sized\n";
+                out << "alloc:\n  %mem = call ptr @malloc(i64 52428808)\n  %memi = ptrtoint ptr %mem to i64\n";
+                out << "  store i64 %memi, ptr @rx.platform.sheet, align 8\n  br label %sized\n";
+                out << "sized:\n  %sheet = load i64, ptr @rx.platform.sheet, align 8\n";
+            } else {
+                out << "  %sheet = add i64 %heldSheet, 0\n";
+            }
+            out << "  %p = inttoptr i64 %frame to ptr\n";
             out << "  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
             out << "  %hptr = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hptr, align 4\n  %fh = zext i32 %fh32 to i64\n";
-            out << "  %okw = icmp eq i64 %fw, " << ctx.platformWidth << "\n";
-            out << "  %okh = icmp eq i64 %fh, " << ctx.platformHeight << "\n";
-            out << "  %ok = and i1 %okw, %okh\n  br i1 %ok, label %walk, label %skip\n";
+            out << "  %isSheet = icmp eq i64 %frame, %sheet\n";
+            out << "  %okw0 = icmp eq i64 %fw, " << ctx.platformWidth << "\n  %okw = or i1 %okw0, %isSheet\n";
+            out << "  %okh0 = icmp eq i64 %fh, " << ctx.platformHeight << "\n  %okh = or i1 %okh0, %isSheet\n";
+            out << "  %ok = and i1 %okw, %okh\n  br i1 %ok, label %plan, label %skip\n";
             out << "skip:\n  ret i64 0\n";
-            out << "walk:\n  br label %step\n";
-            out << "step:\n  %i = phi i64 [ 0, %walk ], [ %inext, %filled ], [ %inextb, %blended ]\n";
+            out << "plan:\n  %ready = load i64, ptr @rx.platform.ready, align 8\n";
+            out << "  %baked = icmp eq i64 %ready, 2\n  br i1 %baked, label %window, label %needbake\n";
+            out << "needbake:\n  br i1 %isSheet, label %plan2, label %makecopy\n";
+            out << "makecopy:\n  store i64 1, ptr @rx.platform.ready, align 8\n";
+            out << "  %head = inttoptr i64 %sheet to ptr\n  store i32 " << ctx.platformWidth << ", ptr %head, align 4\n";
+            out << "  %hh = getelementptr i8, ptr %head, i64 4\n  store i32 " << ctx.platformContent << ", ptr %hh, align 4\n";
+            out << "  %zbase = getelementptr i8, ptr %head, i64 8\n  br label %zrow\n";
+            out << "zrow:\n  %zi = phi i64 [ 0, %makecopy ], [ %znext, %zone ]\n";
+            out << "  %zcount = lshr i64 " << (static_cast<long long>(ctx.platformWidth) * ctx.platformContent * 4) << ", 3\n";
+            out << "  %zdone = icmp uge i64 %zi, %zcount\n  br i1 %zdone, label %zbaked, label %zone\n";
+            out << "zone:\n  %zslot = getelementptr i64, ptr %zbase, i64 %zi\n  store volatile i64 0, ptr %zslot, align 8\n";
+            out << "  %znext = add i64 %zi, 1\n  br label %zrow\n";
+            out << "zbaked:\n  %bakedOk = call i64 @rx_platform_paint(i64 %sheet, i64 0)\n";
+            out << "  store i64 2, ptr @rx.platform.ready, align 8\n  br label %window\n";
+            out << "window:\n  %view = inttoptr i64 %sheet to ptr\n  %lastw = load i64, ptr @rx.platform.scroll, align 8\n";
+            out << "  %samew = icmp eq i64 %lastw, %scroll\n  br i1 %samew, label %unchanged, label %blit\n";
+            out << "blit:\n  %srcBase = getelementptr i8, ptr %view, i64 8\n";
+            out << "  %dstBase = getelementptr i8, ptr %p, i64 8\n  %stride = mul i64 %fw, 4\n  br label %brow\n";
+            out << "brow:\n  %vy = phi i64 [ 0, %blit ], [ %vynext, %browdone ]\n";
+            out << "  %bdone = icmp uge i64 %vy, %fh\n  br i1 %bdone, label %painted, label %bquad\n";
+            out << "bquad:\n  %vdoc = add i64 %vy, %scroll\n  %soff = mul i64 %vdoc, %stride\n  %doff = mul i64 %vy, %stride\n";
+            out << "  %srow = getelementptr i8, ptr %srcBase, i64 %soff\n  %drow = getelementptr i8, ptr %dstBase, i64 %doff\n";
+            out << "  %qcount = lshr i64 %stride, 3\n  br label %bq\n";
+            out << "bq:\n  %qi = phi i64 [ 0, %bquad ], [ %qnext, %bqone ]\n  %qdone = icmp uge i64 %qi, %qcount\n";
+            out << "  br i1 %qdone, label %browdone, label %bqone\n";
+            out << "bqone:\n  %qs = getelementptr i64, ptr %srow, i64 %qi\n  %qd = getelementptr i64, ptr %drow, i64 %qi\n";
+            out << "  %qv = load i64, ptr %qs, align 8\n  store volatile i64 %qv, ptr %qd, align 8\n";
+            out << "  %qnext = add i64 %qi, 1\n  br label %bq\n";
+            out << "browdone:\n  %vynext = add i64 %vy, 1\n  br label %brow\n";
+            out << "plan2:\n  %last = load i64, ptr @rx.platform.scroll, align 8\n";
+            out << "  %delta = sub i64 %scroll, %last\n  %same = icmp eq i64 %delta, 0\n";
+            out << "  br i1 %same, label %unchanged, label %choose\n";
+            out << "unchanged:\n  ret i64 1\n";
+            out << "choose:\n  %fresh = icmp slt i64 %last, 0\n  %negd = icmp slt i64 %delta, 0\n";
+            out << "  %abs0 = sub i64 0, %delta\n  %absd = select i1 %negd, i64 %abs0, i64 %delta\n";
+            out << "  %fits = icmp slt i64 %absd, %fh\n  %held = xor i1 %fresh, true\n";
+            out << "  %shift = and i1 %fits, %held\n  br i1 %shift, label %moving, label %full\n";
+            out << "full:\n  br label %armed\n";
+            out << "moving:\n  store i64 -1, ptr @rx.platform.scroll, align 8\n";
+            out << "  %pix = getelementptr i8, ptr %p, i64 8\n  %rowb = mul i64 %fw, 4\n";
+            out << "  %keep = sub i64 %fh, %absd\n  %bytes = mul i64 %keep, %rowb\n  %words = lshr i64 %bytes, 3\n";
+            out << "  br i1 %negd, label %down, label %up\n";
+            out << "up:\n  %srcOff = mul i64 %delta, %rowb\n  %src = getelementptr i8, ptr %pix, i64 %srcOff\n  br label %ucopy\n";
+            out << "ucopy:\n  %ui = phi i64 [ 0, %up ], [ %unext, %uone ]\n  %udone = icmp uge i64 %ui, %words\n";
+            out << "  br i1 %udone, label %uend, label %uone\n";
+            out << "uone:\n  %us = getelementptr i64, ptr %src, i64 %ui\n  %ud = getelementptr i64, ptr %pix, i64 %ui\n";
+            out << "  %uv = load i64, ptr %us, align 8\n  store i64 %uv, ptr %ud, align 8\n";
+            out << "  %unext = add i64 %ui, 1\n  br label %ucopy\n";
+            out << "uend:\n  %clipUp = sub i64 %fh, %delta\n  br label %armed\n";
+            out << "down:\n  %dpixOff = mul i64 %absd, %rowb\n  %dpix = getelementptr i8, ptr %pix, i64 %dpixOff\n  br label %dcopy\n";
+            out << "dcopy:\n  %di = phi i64 [ %words, %down ], [ %dnext, %dstep ]\n  %ddone = icmp eq i64 %di, 0\n";
+            out << "  br i1 %ddone, label %dend, label %dstep\n";
+            out << "dstep:\n  %dnext = sub i64 %di, 1\n";
+            out << "  %ds = getelementptr i64, ptr %pix, i64 %dnext\n  %dd = getelementptr i64, ptr %dpix, i64 %dnext\n";
+            out << "  %dv = load i64, ptr %ds, align 8\n  store i64 %dv, ptr %dd, align 8\n  br label %dcopy\n";
+            out << "dend:\n  br label %armed\n";
+            out << "armed:\n";
+            out << "  %clipY = phi i64 [ 0, %full ], [ %clipUp, %uend ], [ 0, %dend ]\n";
+            out << "  %clipH = phi i64 [ %fh, %full ], [ %delta, %uend ], [ %absd, %dend ]\n";
+            out << "  br label %step\n";
+            out << "step:\n  %i = phi i64 [ 0, %armed ], [ %inext, %filled ], [ %inextb, %blended ]\n";
             out << "  %done = icmp uge i64 %i, " << count << "\n  br i1 %done, label %painted, label %read\n";
             out << "read:\n  %kp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %i\n";
             out << "  %k32 = load i32, ptr %kp, align 4\n  %k = zext i32 %k32 to i64\n";
@@ -3417,8 +3675,13 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %hcut = add i64 %h, %sy0\n  %h1 = select i1 %neg, i64 %hcut, i64 %h\n";
             out << "  %end = add i64 %sy1, %h1\n  %past = icmp sgt i64 %end, %fh\n  %room = sub i64 %fh, %sy1\n";
             out << "  %h2 = select i1 %past, i64 %room, i64 %h1\n  %empty = icmp sle i64 %h2, 0\n";
-            out << "  br i1 %empty, label %filled, label %fdone\n";
-            out << "fdone:\n  call void @rx_frame_fill(i64 %frame, i64 %x, i64 %sy1, i64 %w, i64 %h2, i64 %color)\n";
+            out << "  br i1 %empty, label %filled, label %fclip2\n";
+            out << "fclip2:\n  %fy2 = add i64 %sy1, %h2\n  %cy2 = add i64 %clipY, %clipH\n";
+            out << "  %topLo = icmp sgt i64 %sy1, %clipY\n  %top = select i1 %topLo, i64 %sy1, i64 %clipY\n";
+            out << "  %botHi = icmp slt i64 %fy2, %cy2\n  %bot = select i1 %botHi, i64 %fy2, i64 %cy2\n";
+            out << "  %nh = sub i64 %bot, %top\n  %draw = icmp sgt i64 %nh, 0\n";
+            out << "  br i1 %draw, label %fdraw, label %filled\n";
+            out << "fdraw:\n  call void @rx_frame_fill(i64 %frame, i64 %x, i64 %top, i64 %w, i64 %nh, i64 %color)\n";
             out << "  br label %filled\nfilled:\n  %inext = add i64 %i, 6\n  br label %step\n";
             out << "tryblend:\n  %isblend = icmp eq i64 %k, 2\n  br i1 %isblend, label %brun, label %painted\n";
             out << "brun:\n  %b1 = add i64 %i, 1\n  %b2 = add i64 %i, 2\n  %b3 = add i64 %i, 3\n  %b4 = add i64 %i, 4\n  %b5 = add i64 %i, 5\n";
@@ -3432,7 +3695,8 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %bw32 = load i32, ptr %bwp, align 4\n  %bw = zext i32 %bw32 to i64\n";
             out << "  %cov32 = load i32, ptr %bcp, align 4\n  %cov = zext i32 %cov32 to i64\n";
             out << "  %ink32 = load i32, ptr %bip, align 4\n  %ink = zext i32 %ink32 to i64\n";
-            out << "  br label %bcol\n";
+            out << "  %band = add i64 %clipY, %clipH\n  %bhi = icmp sge i64 %by, %band\n  %blo = icmp slt i64 %by, %clipY\n";
+            out << "  %bout = or i1 %bhi, %blo\n  br i1 %bout, label %blended, label %bcol\n";
             out << "bcol:\n  %col = phi i64 [ 0, %brun ], [ %colnext, %bnext ]\n";
             out << "  %coldone = icmp uge i64 %col, %bw\n  br i1 %coldone, label %blended, label %bpx\n";
             out << "bpx:\n  %px = add i64 %bx, %col\n";
@@ -3440,14 +3704,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  br i1 %inside, label %bmix, label %bnext\n";
             out << "bmix:\n  %dst = call i64 @rx_frame_pixel(i64 %frame, i64 %px, i64 %by)\n";
             out << "  %solid = icmp uge i64 %cov, 255\n  br i1 %solid, label %bstore, label %bshade\n";
-            out << "bshade:\n  %inv = sub i64 255, %cov\n";
-            out << "  %sb = and i64 %ink, 255\n  %db = and i64 %dst, 255\n";
-            out << "  %sg = lshr i64 %ink, 8\n  %sgb = and i64 %sg, 255\n  %dg = lshr i64 %dst, 8\n  %dgb = and i64 %dg, 255\n";
-            out << "  %sr = lshr i64 %ink, 16\n  %srb = and i64 %sr, 255\n  %dr = lshr i64 %dst, 16\n  %drb = and i64 %dr, 255\n";
-            out << "  %pb = mul i64 %sb, %cov\n  %qb = mul i64 %db, %inv\n  %tb = add i64 %pb, %qb\n  %ob = udiv i64 %tb, 255\n";
-            out << "  %pg = mul i64 %sgb, %cov\n  %qg = mul i64 %dgb, %inv\n  %tg = add i64 %pg, %qg\n  %og = udiv i64 %tg, 255\n";
-            out << "  %pr = mul i64 %srb, %cov\n  %qr = mul i64 %drb, %inv\n  %tr = add i64 %pr, %qr\n  %or = udiv i64 %tr, 255\n";
-            out << "  %gs = shl i64 %og, 8\n  %rs = shl i64 %or, 16\n  %mixed = or i64 %ob, %gs\n  %shade = or i64 %mixed, %rs\n";
+            out << "bshade:\n  %shade = call i64 @rx_gamma_mix(i64 %ink, i64 %dst, i64 %cov)\n";
             out << "  br label %bstore\n";
             out << "bstore:\n  %outc = phi i64 [ %ink, %bmix ], [ %shade, %bshade ]\n";
             out << "  %row = mul i64 %by, %fw\n  %idx = add i64 %row, %px\n";
@@ -3456,7 +3713,10 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  br label %bnext\n";
             out << "bnext:\n  %colnext = add i64 %col, 1\n  br label %bcol\n";
             out << "blended:\n  %inextb = add i64 %i, 6\n  br label %step\n";
-            out << "painted:\n  ret i64 1\n}\n\n";
+            out << "painted:\n  br i1 %isSheet, label %sheetdone, label %chromed\n";
+            out << "sheetdone:\n  ret i64 1\n";
+            out << "chromed:\n  call void @rx_platform_chrome(i64 %frame, i64 %scroll)\n";
+            out << "  store i64 %scroll, ptr @rx.platform.scroll, align 8\n  ret i64 1\n}\n\n";
             out << "define i64 @rx_platform_scroll(i64 %frame, i64 %request) {\n";
             out << "  %p = inttoptr i64 %frame to ptr\n";
             out << "  %hptr = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hptr, align 4\n  %fh = zext i32 %fh32 to i64\n";
@@ -3467,6 +3727,210 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %painted = call i64 @rx_platform_paint(i64 %frame, i64 %scroll)\n";
             out << "  %ok = icmp ne i64 %painted, 0\n  %result = select i1 %ok, i64 %scroll, i64 0\n";
             out << "  ret i64 %result\n}\n\n";
+            const std::size_t columnCount = ctx.platformColumn.size();
+            out << "@rx.platform.column = internal constant [" << (columnCount == 0 ? 1 : columnCount) << " x i32] [\n";
+            if (columnCount == 0) {
+                out << "i32 0";
+            }
+            for (std::size_t index = 0; index < columnCount; ++index) {
+                if (index != 0) out << ",\n";
+                out << "i32 " << ctx.platformColumn[index];
+            }
+            out << "\n]\n\n";
+            const std::size_t motionCount = ctx.platformMotion.size();
+            out << "@rx.platform.motion = internal constant [" << (motionCount == 0 ? 1 : motionCount) << " x i32] [\n";
+            if (motionCount == 0) {
+                out << "i32 0";
+            }
+            for (std::size_t index = 0; index < motionCount; ++index) {
+                if (index != 0) out << ",\n";
+                out << "i32 " << ctx.platformMotion[index];
+            }
+            out << "\n]\n\n";
+            out << "define void @rx_platform_chrome(i64 %frame, i64 %scroll) {\n";
+            out << "entry:\n  %p = inttoptr i64 %frame to ptr\n";
+            out << "  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
+            out << "  %hp = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
+            out << "  %base = getelementptr i8, ptr %p, i64 8\n  br label %crow\n";
+            out << "crow:\n  %cy = phi i64 [ 0, %entry ], [ %cynext, %ccdone ]\n";
+            out << "  %cdone = icmp uge i64 %cy, %fh\n  br i1 %cdone, label %bar, label %ccol\n";
+            out << "ccol:\n  %cx = phi i64 [ 0, %crow ], [ %cxnext, %cput ]\n";
+            out << "  %cxdone = icmp uge i64 %cx, 0\n  br i1 %cxdone, label %ccdone, label %cget\n";
+            out << "cget:\n  %doc = add i64 %cy, %scroll\n  %in = icmp ult i64 %doc, " << ctx.platformContent << "\n";
+            out << "  br i1 %in, label %cread, label %cput\n";
+            out << "cread:\n  %rowi = mul i64 %doc, " << ctx.platformColumnW << "\n  %idx = add i64 %rowi, %cx\n";
+            out << "  %srcp = getelementptr [" << (columnCount == 0 ? 1 : columnCount) << " x i32], ptr @rx.platform.column, i64 0, i64 %idx\n";
+            out << "  %pix = load i32, ptr %srcp, align 4\n  %sx = add i64 %cx, " << ctx.platformColumnX << "\n";
+            out << "  %wide = mul i64 %cy, %fw\n  %sloti = add i64 %wide, %sx\n";
+            out << "  %dstp = getelementptr i32, ptr %base, i64 %sloti\n  store i32 %pix, ptr %dstp, align 4\n  br label %cput\n";
+            out << "cput:\n  %cxnext = add i64 %cx, 1\n  br label %ccol\n";
+            out << "ccdone:\n  %cynext = add i64 %cy, 1\n  br label %crow\n";
+            out << "bar:\n  %room = sub i64 " << ctx.platformContent << ", %fh\n  %need = icmp sgt i64 %room, 0\n";
+            out << "  %wideEnough = icmp sgt i64 %fw, 16\n  %tall = icmp sgt i64 %fh, 32\n";
+            out << "  %show0 = and i1 %need, %wideEnough\n  %show = and i1 %show0, %tall\n  br i1 %show, label %geom, label %bare\n";
+            out << "bare:\n  ret void\n";
+            out << "geom:\n  %edge = add i64 2, 0\n  %thick = add i64 6, 0\n  %arrow = add i64 6, 0\n  %gap = add i64 3, 0\n";
+            out << "  %foot = add i64 " << (ctx.platformContentWidth > ctx.platformWidth ? 8 : 0) << ", 0\n";
+            out << "  %barX0 = sub i64 %fw, 2\n  %barX = sub i64 %barX0, 6\n";
+            out << "  %barH0 = sub i64 %fh, 4\n  %barH = sub i64 %barH0, %foot\n";
+            out << "  %trackY = add i64 11, 0\n  %trackCut = add i64 22, %foot\n  %trackH = sub i64 %fh, %trackCut\n";
+            out << "  %content = add i64 " << (ctx.platformContent > 0 ? ctx.platformContent : 1) << ", 0\n";
+            out << "  %thumbNum = mul i64 %trackH, %fh\n  %thumb0 = udiv i64 %thumbNum, %content\n";
+            out << "  %short = icmp ult i64 %thumb0, 28\n  %thumb1 = select i1 %short, i64 28, i64 %thumb0\n";
+            out << "  %long = icmp ugt i64 %thumb1, %trackH\n  %thumbH = select i1 %long, i64 %trackH, i64 %thumb1\n";
+            out << "  %travel0 = sub i64 %trackH, %thumbH\n  %travelSmall = icmp slt i64 %travel0, 2\n";
+            out << "  %travel = select i1 %travelSmall, i64 1, i64 %travel0\n";
+            out << "  %span = mul i64 %scroll, %travel\n  %shift = udiv i64 %span, %room\n  %thumbY = add i64 %trackY, %shift\n";
+            out << "  call void @rx_platform_pill(i64 %frame, i64 %barX, i64 %trackY, i64 6, i64 %trackH, i64 3684410)\n";
+            out << "  call void @rx_platform_pill(i64 %frame, i64 %barX, i64 %thumbY, i64 6, i64 %thumbH, i64 7631991)\n";
+            out << "  call void @rx_platform_arrow(i64 %frame, i64 %barX, i64 2, i64 1)\n";
+            out << "  %downY0 = add i64 2, %barH\n  %downY = sub i64 %downY0, 6\n";
+            out << "  call void @rx_platform_arrow(i64 %frame, i64 %barX, i64 %downY, i64 0)\n  ret void\n}\n\n";
+            out << "define void @rx_platform_pill(i64 %frame, i64 %x, i64 %y, i64 %w, i64 %h, i64 %color) {\n";
+            out << "entry:\n  %p = inttoptr i64 %frame to ptr\n  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
+            out << "  %hp = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
+            out << "  %base = getelementptr i8, ptr %p, i64 8\n  %rad0 = icmp ult i64 %w, %h\n  %rad1 = select i1 %rad0, i64 %w, i64 %h\n";
+            out << "  %radius = mul i64 %rad1, 2\n  %limit = mul i64 %radius, %radius\n";
+            out << "  %right0 = mul i64 %w, 4\n  %right = sub i64 %right0, %radius\n";
+            out << "  %bottom0 = mul i64 %h, 4\n  %bottom = sub i64 %bottom0, %radius\n  br label %row\n";
+            out << "row:\n  %ry = phi i64 [ 0, %entry ], [ %rynext, %rowdone ]\n  %rdone = icmp uge i64 %ry, %h\n";
+            out << "  br i1 %rdone, label %end, label %col\n";
+            out << "col:\n  %rx = phi i64 [ 0, %row ], [ %rxnext, %colnext ]\n  %cxdone = icmp uge i64 %rx, %w\n";
+            out << "  br i1 %cxdone, label %rowdone, label %sy\n";
+            out << "sy:\n  %sampleY = phi i64 [ 0, %col ], [ %synext, %sydone ]\n  %hits = phi i64 [ 0, %col ], [ %hitsy, %sydone ]\n";
+            out << "  %syd = icmp uge i64 %sampleY, 4\n  br i1 %syd, label %plot, label %sx\n";
+            out << "sx:\n  %sampleX = phi i64 [ 0, %sy ], [ %sxnext, %sxnextb ]\n  %hitx = phi i64 [ %hits, %sy ], [ %hitn, %sxnextb ]\n";
+            out << "  %sxd = icmp uge i64 %sampleX, 4\n  br i1 %sxd, label %sydone, label %hit\n";
+            out << "hit:\n  %py0 = mul i64 %ry, 4\n  %py = add i64 %py0, %sampleY\n  %px0 = mul i64 %rx, 4\n  %px = add i64 %px0, %sampleX\n";
+            out << "  %cxlo = icmp slt i64 %px, %radius\n  %cxhi = icmp sgt i64 %px, %right\n";
+            out << "  %cx1 = select i1 %cxlo, i64 %radius, i64 %px\n  %cx = select i1 %cxhi, i64 %right, i64 %cx1\n";
+            out << "  %cylo = icmp slt i64 %py, %radius\n  %cyhi = icmp sgt i64 %py, %bottom\n";
+            out << "  %cy1 = select i1 %cylo, i64 %radius, i64 %py\n  %cy = select i1 %cyhi, i64 %bottom, i64 %cy1\n";
+            out << "  %dx = sub i64 %px, %cx\n  %dy = sub i64 %py, %cy\n  %dx2 = mul i64 %dx, %dx\n  %dy2 = mul i64 %dy, %dy\n";
+            out << "  %dist = add i64 %dx2, %dy2\n  %inside = icmp sle i64 %dist, %limit\n  %one = select i1 %inside, i64 1, i64 0\n";
+            out << "  %hitn = add i64 %hitx, %one\n  br label %sxnextb\n";
+            out << "sxnextb:\n  %sxnext = add i64 %sampleX, 1\n  br label %sx\n";
+            out << "sydone:\n  %hitsy = add i64 %hitx, 0\n";
+            out << "  %synext = add i64 %sampleY, 1\n  br label %sy\n";
+            out << "plot:\n  %cover = mul i64 %hits, 255\n  %coverage = udiv i64 %cover, 16\n  %empty = icmp eq i64 %coverage, 0\n";
+            out << "  br i1 %empty, label %colnext, label %blend\n";
+            out << "blend:\n  %pxs = add i64 %x, %rx\n  %pys = add i64 %y, %ry\n";
+            out << "  %xin = icmp ult i64 %pxs, %fw\n  %yin = icmp ult i64 %pys, %fh\n  %on = and i1 %xin, %yin\n";
+            out << "  br i1 %on, label %mix, label %colnext\n";
+            out << "mix:\n  %solid = icmp uge i64 %coverage, 255\n  br i1 %solid, label %store, label %tone\n";
+            out << "tone:\n  %frow = mul i64 %pys, %fw\n  %fidx = add i64 %frow, %pxs\n  %fp = getelementptr i32, ptr %base, i64 %fidx\n";
+            out << "  %dst0 = load i32, ptr %fp, align 4\n  %dst = zext i32 %dst0 to i64\n  %inv = sub i64 255, %coverage\n";
+            out << "  %sb = and i64 %color, 255\n  %db = and i64 %dst, 255\n  %pb = mul i64 %sb, %coverage\n  %qb = mul i64 %db, %inv\n";
+            out << "  %tb = add i64 %pb, %qb\n  %ob = udiv i64 %tb, 255\n";
+            out << "  %sg = lshr i64 %color, 8\n  %sgb = and i64 %sg, 255\n  %dg = lshr i64 %dst, 8\n  %dgb = and i64 %dg, 255\n";
+            out << "  %pg = mul i64 %sgb, %coverage\n  %qg = mul i64 %dgb, %inv\n  %tg = add i64 %pg, %qg\n  %og = udiv i64 %tg, 255\n";
+            out << "  %sr = lshr i64 %color, 16\n  %srb = and i64 %sr, 255\n  %dr = lshr i64 %dst, 16\n  %drb = and i64 %dr, 255\n";
+            out << "  %pr = mul i64 %srb, %coverage\n  %qr = mul i64 %drb, %inv\n  %tr = add i64 %pr, %qr\n  %or = udiv i64 %tr, 255\n";
+            out << "  %gs = shl i64 %og, 8\n  %rs = shl i64 %or, 16\n  %mixed = or i64 %ob, %gs\n  %toned = or i64 %mixed, %rs\n  br label %store\n";
+            out << "store:\n  %outc = phi i64 [ %color, %mix ], [ %toned, %tone ]\n";
+            out << "  %srow = mul i64 %pys, %fw\n  %sidx = add i64 %srow, %pxs\n  %sp = getelementptr i32, ptr %base, i64 %sidx\n";
+            out << "  %out32 = trunc i64 %outc to i32\n  store i32 %out32, ptr %sp, align 4\n  br label %colnext\n";
+            out << "colnext:\n  %rxnext = add i64 %rx, 1\n  br label %col\n";
+            out << "rowdone:\n  %rynext = add i64 %ry, 1\n  br label %row\n";
+            out << "end:\n  ret void\n}\n\n";
+            out << "define void @rx_platform_arrow(i64 %frame, i64 %x, i64 %y, i64 %up) {\n";
+            out << "entry:\n  %p = inttoptr i64 %frame to ptr\n  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
+            out << "  %hp = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
+            out << "  %base = getelementptr i8, ptr %p, i64 8\n  br label %row\n";
+            out << "row:\n  %ry = phi i64 [ 0, %entry ], [ %rynext, %rowdone ]\n  %rdone = icmp uge i64 %ry, 6\n";
+            out << "  br i1 %rdone, label %end, label %col\n";
+            out << "col:\n  %rx = phi i64 [ 0, %row ], [ %rxnext, %colnext ]\n  %cxdone = icmp uge i64 %rx, 6\n";
+            out << "  br i1 %cxdone, label %rowdone, label %sy\n";
+            out << "sy:\n  %sampleY = phi i64 [ 0, %col ], [ %synext, %sydone ]\n  %hits = phi i64 [ 0, %col ], [ %hitsy, %sydone ]\n";
+            out << "  %syd = icmp uge i64 %sampleY, 4\n  br i1 %syd, label %plot, label %sx\n";
+            out << "sx:\n  %sampleX = phi i64 [ 0, %sy ], [ %sxnext, %sxnextb ]\n  %hitx = phi i64 [ %hits, %sy ], [ %hitn, %sxnextb ]\n";
+            out << "  %sxd = icmp uge i64 %sampleX, 4\n  br i1 %sxd, label %sydone, label %hit\n";
+            out << "hit:\n  %py0 = mul i64 %ry, 4\n  %py = add i64 %py0, %sampleY\n  %px0 = mul i64 %rx, 4\n  %px = add i64 %px0, %sampleX\n";
+            out << "  %tipX = add i64 12, 0\n  %isup = icmp ne i64 %up, 0\n";
+            out << "  %tipY = select i1 %isup, i64 2, i64 22\n  %baseY = select i1 %isup, i64 22, i64 2\n";
+            out << "  %ex0 = sub i64 2, %tipX\n  %ey0 = sub i64 %baseY, %tipY\n  %pxa = sub i64 %px, %tipX\n  %pya = sub i64 %py, %tipY\n";
+            out << "  %a0 = mul i64 %ex0, %pya\n  %a1 = mul i64 %ey0, %pxa\n  %a = sub i64 %a0, %a1\n";
+            out << "  %fx0 = sub i64 22, 2\n  %fy0 = sub i64 %baseY, %baseY\n  %pxb = sub i64 %px, 2\n  %pyb = sub i64 %py, %baseY\n";
+            out << "  %b0 = mul i64 %fx0, %pyb\n  %b1 = mul i64 %fy0, %pxb\n  %b = sub i64 %b0, %b1\n";
+            out << "  %gx0 = sub i64 %tipX, 22\n  %gy0 = sub i64 %tipY, %baseY\n  %pxc = sub i64 %px, 22\n  %pyc = sub i64 %py, %baseY\n";
+            out << "  %c0 = mul i64 %gx0, %pyc\n  %c1 = mul i64 %gy0, %pxc\n  %c = sub i64 %c0, %c1\n";
+            out << "  %ap = icmp sge i64 %a, 0\n  %bp = icmp sge i64 %b, 0\n  %cp = icmp sge i64 %c, 0\n";
+            out << "  %an = icmp sle i64 %a, 0\n  %bn = icmp sle i64 %b, 0\n  %cn = icmp sle i64 %c, 0\n";
+            out << "  %pos = and i1 %ap, %bp\n  %pos3 = and i1 %pos, %cp\n  %neg = and i1 %an, %bn\n  %neg3 = and i1 %neg, %cn\n";
+            out << "  %inside = or i1 %pos3, %neg3\n  %one = select i1 %inside, i64 1, i64 0\n  %hitn = add i64 %hitx, %one\n";
+            out << "  br label %sxnextb\n";
+            out << "sxnextb:\n  %sxnext = add i64 %sampleX, 1\n  br label %sx\n";
+            out << "sydone:\n  %hitsy = add i64 0, %hitx\n  %synext = add i64 %sampleY, 1\n  br label %sy\n";
+            out << "plot:\n  %cover = mul i64 %hits, 255\n  %coverage = udiv i64 %cover, 16\n  %empty = icmp eq i64 %coverage, 0\n";
+            out << "  br i1 %empty, label %colnext, label %blend\n";
+            out << "blend:\n  %pxs = add i64 %x, %rx\n  %pys = add i64 %y, %ry\n";
+            out << "  %xin = icmp ult i64 %pxs, %fw\n  %yin = icmp ult i64 %pys, %fh\n  %on = and i1 %xin, %yin\n";
+            out << "  br i1 %on, label %store, label %colnext\n";
+            out << "store:\n  %frow = mul i64 %pys, %fw\n  %fidx = add i64 %frow, %pxs\n  %fp = getelementptr i32, ptr %base, i64 %fidx\n";
+            out << "  %c32 = trunc i64 7631991 to i32\n  store i32 %c32, ptr %fp, align 4\n  br label %colnext\n";
+            out << "colnext:\n  %rxnext = add i64 %rx, 1\n  br label %col\n";
+            out << "rowdone:\n  %rynext = add i64 %ry, 1\n  br label %row\n";
+            out << "end:\n  ret void\n}\n\n";
+            const int motionFrames = ctx.platformMotionFrames > 0 ? ctx.platformMotionFrames : 0;
+            out << "define i64 @rx_platform_spot(i64 %kind) {\n";
+            out << "  %k0 = icmp eq i64 %kind, 0\n  br i1 %k0, label %x, label %k1\n";
+            out << "x:\n  ret i64 " << ctx.platformMotionX << "\n";
+            out << "k1:\n  %is1 = icmp eq i64 %kind, 1\n  br i1 %is1, label %y, label %k2\n";
+            out << "y:\n  ret i64 " << ctx.platformMotionY << "\n";
+            out << "k2:\n  %is2 = icmp eq i64 %kind, 2\n  br i1 %is2, label %w, label %k3\n";
+            out << "w:\n  ret i64 " << ctx.platformMotionW << "\n";
+            out << "k3:\n  %is3 = icmp eq i64 %kind, 3\n  br i1 %is3, label %h, label %k4\n";
+            out << "h:\n  ret i64 " << ctx.platformMotionH << "\n";
+            out << "k4:\n  %is4 = icmp eq i64 %kind, 4\n  br i1 %is4, label %f, label %k5\n";
+            out << "f:\n  ret i64 " << motionFrames << "\n";
+            out << "k5:\n  %is5 = icmp eq i64 %kind, 5\n  br i1 %is5, label %d, label %k6\n";
+            out << "d:\n  ret i64 " << ctx.platformMotionDelay << "\n";
+            out << "k6:\n  %is6 = icmp eq i64 %kind, 6\n  br i1 %is6, label %px, label %k7\n";
+            out << "px:\n  ret i64 " << ctx.platformProbeX << "\n";
+            out << "k7:\n  %is7 = icmp eq i64 %kind, 7\n  br i1 %is7, label %py, label %none\n";
+            out << "py:\n  ret i64 " << ctx.platformProbeY << "\n";
+            out << "none:\n  ret i64 0\n}\n\n";
+            out << "define i64 @rx_platform_motion(i64 %frame, i64 %clock, i64 %scroll) {\n";
+            out << "entry:\n  %frames = add i64 " << motionFrames << ", 0\n  %many = icmp sgt i64 %frames, 1\n";
+            out << "  br i1 %many, label %go, label %miss\n";
+            out << "miss:\n  ret i64 0\n";
+            out << "go:\n  %delay = add i64 " << (ctx.platformMotionDelay > 0 ? ctx.platformMotionDelay : 1) << ", 0\n";
+            out << "  %index0 = sdiv i64 %clock, %delay\n  %neg = icmp slt i64 %index0, 0\n  %index1 = select i1 %neg, i64 0, i64 %index0\n";
+            out << "  %index = srem i64 %index1, %frames\n";
+            out << "  %span = mul i64 " << ctx.platformMotionW << ", " << ctx.platformMotionH << "\n";
+            out << "  %begin = mul i64 %index, %span\n";
+            out << "  %p = inttoptr i64 %frame to ptr\n  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
+            out << "  %hp = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
+            out << "  %base = getelementptr i8, ptr %p, i64 8\n  br label %row\n";
+            out << "row:\n  %ry = phi i64 [ 0, %go ], [ %rynext, %rowdone ]\n";
+            out << "  %rdone = icmp uge i64 %ry, " << ctx.platformMotionH << "\n  br i1 %rdone, label %done, label %col\n";
+            out << "col:\n  %rx = phi i64 [ 0, %row ], [ %rxnext, %colnext ]\n";
+            out << "  %cxdone = icmp uge i64 %rx, " << ctx.platformMotionW << "\n  br i1 %cxdone, label %rowdone, label %put\n";
+            out << "put:\n  %yy0 = add i64 %ry, " << ctx.platformMotionY << "\n  %yy = sub i64 %yy0, %scroll\n";
+            out << "  %xx = add i64 %rx, " << ctx.platformMotionX << "\n";
+            out << "  %xin = icmp ult i64 %xx, %fw\n  %yin = icmp ult i64 %yy, %fh\n  %on = and i1 %xin, %yin\n";
+            out << "  br i1 %on, label %store, label %colnext\n";
+            out << "store:\n  %local = mul i64 %ry, " << ctx.platformMotionW << "\n  %localx = add i64 %local, %rx\n";
+            out << "  %src = add i64 %begin, %localx\n";
+            out << "  %sp = getelementptr [" << (motionCount == 0 ? 1 : motionCount) << " x i32], ptr @rx.platform.motion, i64 0, i64 %src\n";
+            out << "  %pix = load i32, ptr %sp, align 4\n  %frow = mul i64 %yy, %fw\n  %fidx = add i64 %frow, %xx\n";
+            out << "  %dp = getelementptr i32, ptr %base, i64 %fidx\n  store i32 %pix, ptr %dp, align 4\n  br label %colnext\n";
+            out << "colnext:\n  %rxnext = add i64 %rx, 1\n  br label %col\n";
+            out << "rowdone:\n  %rynext = add i64 %ry, 1\n  br label %row\n";
+            out << "done:\n  ret i64 1\n}\n\n";
+            out << "define i64 @rx_platform_sample(i64 %frame, i64 %clock) {\n";
+            out << "  %shown = call i64 @rx_platform_motion(i64 %frame, i64 %clock, i64 0)\n";
+            out << "  %frames = add i64 " << motionFrames << ", 0\n  %many = icmp sgt i64 %frames, 1\n";
+            out << "  %ok = and i1 %many, true\n  br i1 %ok, label %read, label %miss\n";
+            out << "miss:\n  ret i64 0\n";
+            out << "read:\n  %delay = add i64 " << (ctx.platformMotionDelay > 0 ? ctx.platformMotionDelay : 1) << ", 0\n";
+            out << "  %index0 = sdiv i64 %clock, %delay\n  %neg = icmp slt i64 %index0, 0\n";
+            out << "  %index1 = select i1 %neg, i64 0, i64 %index0\n  %index = srem i64 %index1, %frames\n";
+            out << "  %span = mul i64 " << ctx.platformMotionW << ", " << ctx.platformMotionH << "\n";
+            out << "  %begin = mul i64 %index, %span\n";
+            out << "  %local = add i64 " << (ctx.platformProbeY * ctx.platformMotionW + ctx.platformProbeX) << ", %begin\n";
+            out << "  %sp = getelementptr [" << (motionCount == 0 ? 1 : motionCount) << " x i32], ptr @rx.platform.motion, i64 0, i64 %local\n";
+            out << "  %pix = load i32, ptr %sp, align 4\n  %wide = zext i32 %pix to i64\n  ret i64 %wide\n}\n\n";
         }
         if (m_options.freestanding) {
             out << "define i64 @rx_display_bar() {\nentry:\n  br label %slot\n";
@@ -3512,6 +3976,90 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "advance:\n  %nextdev = add i64 %dev, 1\n  br label %slot\n";
             out << "fallback:\n  ret i64 3758096384\n}\n\n";
             out << "@rx.frame.front = internal global i64 0, align 8\n";
+            out << "define void @rx_copy_band(i64 %src, i64 %dst, i64 %y, i64 %stride, i64 %rows, i64 %clip, i64 %index, i64 %workers) {\n";
+            out << "entry:\n  %none = icmp slt i64 %workers, 1\n  br i1 %none, label %out, label %go\n";
+            out << "go:\n  %start0 = mul i64 %rows, %index\n  %start = udiv i64 %start0, %workers\n";
+            out << "  %nexti = add i64 %index, 1\n  %end0 = mul i64 %rows, %nexti\n  %end = udiv i64 %end0, %workers\n";
+            out << "  %words = lshr i64 %stride, 1\n  br label %row\n";
+            out << "row:\n  %r = phi i64 [ %start, %go ], [ %rnext, %rstep ]\n";
+            out << "  %rdone = icmp uge i64 %r, %end\n  br i1 %rdone, label %out, label %rcopy\n";
+            out << "rcopy:\n  %doc = add i64 %y, %r\n  %in = icmp ult i64 %doc, %clip\n  br i1 %in, label %rwords, label %rstep\n";
+            out << "rwords:\n  %pix = mul i64 %doc, %stride\n  %bytes = mul i64 %pix, 4\n";
+            out << "  %sp = inttoptr i64 %src to ptr\n  %dp = inttoptr i64 %dst to ptr\n";
+            out << "  %srow = getelementptr i8, ptr %sp, i64 %bytes\n  %drow = getelementptr i8, ptr %dp, i64 %bytes\n";
+            out << "  br label %qword\n";
+            out << "qword:\n  %qi = phi i64 [ 0, %rwords ], [ %qnext, %qone ]\n";
+            out << "  %qdone = icmp uge i64 %qi, %words\n  br i1 %qdone, label %rstep, label %qone\n";
+            out << "qone:\n  %qs = getelementptr i64, ptr %srow, i64 %qi\n  %qd = getelementptr i64, ptr %drow, i64 %qi\n";
+            out << "  %qv = load i64, ptr %qs, align 8\n  store volatile i64 %qv, ptr %qd, align 8\n";
+            out << "  %qnext = add i64 %qi, 1\n  br label %qword\n";
+            out << "rstep:\n  %rnext = add i64 %r, 1\n  br label %row\n";
+            out << "out:\n  ret void\n}\n\n";
+            out << "define void @rx_scan_copy(i64 %src, i64 %dst, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %fw, i64 %fh) {\n";
+            out << "entry:\n  %corep = inttoptr i64 393344 to ptr\n  %core32 = load volatile i32, ptr %corep, align 4\n";
+            out << "  %cores = zext i32 %core32 to i64\n  %at0 = icmp eq i64 %x, 0\n  %full = icmp eq i64 %rw, %fw\n";
+            out << "  %fe = and i64 %fw, 1\n  %even = icmp eq i64 %fe, 0\n  %span0 = and i1 %at0, %full\n  %span = and i1 %span0, %even\n";
+            out << "  %many = icmp sgt i64 %cores, 1\n  %split = and i1 %span, %many\n  br i1 %split, label %publish, label %solo\n";
+            out << "publish:\n  %epochp = inttoptr i64 393352 to ptr\n  %srcp = inttoptr i64 393360 to ptr\n";
+            out << "  %dstp = inttoptr i64 393368 to ptr\n  %wp = inttoptr i64 393376 to ptr\n";
+            out << "  %yp = inttoptr i64 393380 to ptr\n  %hp = inttoptr i64 393384 to ptr\n  %kp = inttoptr i64 393388 to ptr\n";
+            out << "  store volatile i64 %src, ptr %srcp, align 8\n  store volatile i64 %dst, ptr %dstp, align 8\n";
+            out << "  %fw32s = trunc i64 %fw to i32\n  %y32s = trunc i64 %y to i32\n  %rh32s = trunc i64 %rh to i32\n  %k32s = trunc i64 %cores to i32\n";
+            out << "  store volatile i32 %fw32s, ptr %wp, align 4\n  store volatile i32 %y32s, ptr %yp, align 4\n";
+            out << "  store volatile i32 %rh32s, ptr %hp, align 4\n  store volatile i32 %k32s, ptr %kp, align 4\n";
+            out << "  br label %clear\n";
+            out << "clear:\n  %ci = phi i64 [ 0, %publish ], [ %cnext, %clearone ]\n";
+            out << "  %cdone = icmp uge i64 %ci, 16\n  br i1 %cdone, label %epochst, label %clearone\n";
+            out << "clearone:\n  %coff = mul i64 %ci, 4\n  %caddr = add i64 393392, %coff\n  %cdp = inttoptr i64 %caddr to ptr\n";
+            out << "  store volatile i32 0, ptr %cdp, align 4\n  %cnext = add i64 %ci, 1\n  br label %clear\n";
+            out << "epochst:\n  %old = load volatile i64, ptr %epochp, align 8\n  %epoch = add i64 %old, 1\n";
+            out << "  store volatile i64 %epoch, ptr %epochp, align 8\n";
+            out << "  call void @rx_copy_band(i64 %src, i64 %dst, i64 %y, i64 %fw, i64 %rh, i64 %fh, i64 0, i64 %cores)\n";
+            out << "  br label %wait\n";
+            out << "wait:\n  %spin = phi i64 [ 0, %epochst ], [ %spinnext, %notyet ]\n";
+            out << "  %give = icmp uge i64 %spin, 2000000\n  br i1 %give, label %finish, label %scan\n";
+            out << "scan:\n  %si = phi i64 [ 1, %wait ], [ %sinext, %snext ]\n";
+            out << "  %scandone = icmp uge i64 %si, %cores\n  br i1 %scandone, label %finish, label %sone\n";
+            out << "sone:\n  %soff = mul i64 %si, 4\n  %saddr = add i64 393392, %soff\n  %sdonep = inttoptr i64 %saddr to ptr\n";
+            out << "  %sdone = load volatile i32, ptr %sdonep, align 4\n  %se = trunc i64 %epoch to i32\n";
+            out << "  %smatch = icmp eq i32 %sdone, %se\n  br i1 %smatch, label %snext, label %notyet\n";
+            out << "snext:\n  %sinext = add i64 %si, 1\n  br label %scan\n";
+            out << "notyet:\n  call void asm sideeffect \"pause\", \"\"()\n  %spinnext = add i64 %spin, 1\n  br label %wait\n";
+            out << "finish:\n  %fi = phi i64 [ 1, %wait ], [ 1, %scan ], [ %finext, %ffin ]\n";
+            out << "  %fdone = icmp uge i64 %fi, %cores\n  br i1 %fdone, label %copied, label %fcheck\n";
+            out << "fcheck:\n  %foff = mul i64 %fi, 4\n  %faddr = add i64 393392, %foff\n  %fdonep = inttoptr i64 %faddr to ptr\n";
+            out << "  %fval = load volatile i32, ptr %fdonep, align 4\n  %fe32 = trunc i64 %epoch to i32\n";
+            out << "  %fok = icmp eq i32 %fval, %fe32\n  br i1 %fok, label %ffin, label %fcopy\n";
+            out << "fcopy:\n  call void @rx_copy_band(i64 %src, i64 %dst, i64 %y, i64 %fw, i64 %rh, i64 %fh, i64 %fi, i64 %cores)\n";
+            out << "  br label %ffin\n";
+            out << "ffin:\n  %finext = add i64 %fi, 1\n  br label %finish\n";
+            out << "solo:\n  %sbase = inttoptr i64 %src to ptr\n  %dbase = inttoptr i64 %dst to ptr\n";
+            out << "  %xa = and i64 %x, 1\n  %ra = and i64 %rw, 1\n  %xeven = icmp eq i64 %xa, 0\n  %reven = icmp eq i64 %ra, 0\n";
+            out << "  %qok = and i1 %xeven, %reven\n  br i1 %qok, label %qrows, label %irows\n";
+            out << "qrows:\n  %qy = phi i64 [ 0, %solo ], [ %qynext, %qstep ]\n";
+            out << "  %qydone = icmp uge i64 %qy, %rh\n  br i1 %qydone, label %copied, label %qrow\n";
+            out << "qrow:\n  %qpy = add i64 %y, %qy\n  %qin = icmp ult i64 %qpy, %fh\n  br i1 %qin, label %qcopy, label %qstep\n";
+            out << "qcopy:\n  %qpix = mul i64 %qpy, %fw\n  %qpix2 = add i64 %qpix, %x\n  %qbytes = mul i64 %qpix2, 4\n";
+            out << "  %qsrow = getelementptr i8, ptr %sbase, i64 %qbytes\n  %qdrow = getelementptr i8, ptr %dbase, i64 %qbytes\n";
+            out << "  %qn = lshr i64 %rw, 1\n  br label %qwalk\n";
+            out << "qwalk:\n  %qwi = phi i64 [ 0, %qcopy ], [ %qwnext, %qwone ]\n";
+            out << "  %qwdone = icmp uge i64 %qwi, %qn\n  br i1 %qwdone, label %qstep, label %qwone\n";
+            out << "qwone:\n  %qws = getelementptr i64, ptr %qsrow, i64 %qwi\n  %qwd = getelementptr i64, ptr %qdrow, i64 %qwi\n";
+            out << "  %qwv = load i64, ptr %qws, align 8\n  store volatile i64 %qwv, ptr %qwd, align 8\n";
+            out << "  %qwnext = add i64 %qwi, 1\n  br label %qwalk\n";
+            out << "qstep:\n  %qynext = add i64 %qy, 1\n  br label %qrows\n";
+            out << "irows:\n  %iy = phi i64 [ 0, %solo ], [ %iynext, %istep ]\n";
+            out << "  %iydone = icmp uge i64 %iy, %rh\n  br i1 %iydone, label %copied, label %irow\n";
+            out << "irow:\n  %ix = phi i64 [ 0, %irows ], [ %ixnext, %icont ]\n";
+            out << "  %ixdone = icmp uge i64 %ix, %rw\n  br i1 %ixdone, label %istep, label %ipix\n";
+            out << "ipix:\n  %px = add i64 %x, %ix\n  %py = add i64 %y, %iy\n  %xin = icmp ult i64 %px, %fw\n  %yin = icmp ult i64 %py, %fh\n";
+            out << "  %inside = and i1 %xin, %yin\n  br i1 %inside, label %istore, label %icont\n";
+            out << "istore:\n  %irowp = mul i64 %py, %fw\n  %iidx = add i64 %irowp, %px\n";
+            out << "  %iss = getelementptr i32, ptr %sbase, i64 %iidx\n  %idd = getelementptr i32, ptr %dbase, i64 %iidx\n";
+            out << "  %ipixv = load i32, ptr %iss, align 4\n  store volatile i32 %ipixv, ptr %idd, align 4\n  br label %icont\n";
+            out << "icont:\n  %ixnext = add i64 %ix, 1\n  br label %irow\n";
+            out << "istep:\n  %iynext = add i64 %iy, 1\n  br label %irows\n";
+            out << "copied:\n  ret void\n}\n\n";
             out << "define i64 @rx_frame_present(i64 %frame) noinline {\nentry:\n";
             out << "  %p = inttoptr i64 %frame to ptr\n";
             out << "  %fw32 = load i32, ptr %p, align 4\n";
@@ -3537,22 +4085,11 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  call void asm sideeffect \"outw $0, $1\", \"{ax},{dx}\"(i16 65, i16 463)\n";
             out << "  %front = call i64 @rx_display_bar()\n";
             out << "  store i64 %front, ptr @rx.frame.front, align 8\n";
-            out << "  %count = mul i64 %fw, %fh\n";
             out << "  %src = getelementptr i8, ptr %p, i64 8\n";
             out << "  %dst = inttoptr i64 %front to ptr\n";
-            out << "  br label %copy\n";
-            out << "copy:\n";
-            out << "  %i = phi i64 [ 0, %entry ], [ %next, %one ]\n";
-            out << "  %done = icmp uge i64 %i, %count\n";
-            out << "  br i1 %done, label %copied, label %one\n";
-            out << "one:\n";
-            out << "  %ss = getelementptr i32, ptr %src, i64 %i\n";
-            out << "  %dd = getelementptr i32, ptr %dst, i64 %i\n";
-            out << "  %pix = load i32, ptr %ss, align 4\n";
-            out << "  store volatile i32 %pix, ptr %dd, align 4\n";
-            out << "  %next = add i64 %i, 1\n";
-            out << "  br label %copy\n";
-            out << "copied:\n  %shown = load volatile i8, ptr %dst, align 1\n";
+            out << "  %srci = ptrtoint ptr %src to i64\n  %dsti = ptrtoint ptr %dst to i64\n";
+            out << "  call void @rx_scan_copy(i64 %srci, i64 %dsti, i64 0, i64 0, i64 %fw, i64 %fh, i64 %fw, i64 %fh)\n";
+            out << "  %shown = load volatile i8, ptr %dst, align 1\n";
             out << "  %byte = zext i8 %shown to i64\n  ret i64 %byte\n}\n\n";
             out << "define i64 @rx_frame_flush(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh) noinline {\nentry:\n";
             out << "  %p = inttoptr i64 %frame to ptr\n";
@@ -3564,26 +4101,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %front = load i64, ptr @rx.frame.front, align 8\n";
             out << "  %dst = inttoptr i64 %front to ptr\n";
             out << "  %src = getelementptr i8, ptr %p, i64 8\n";
-            out << "  br label %yloop\n";
-            out << "yloop:\n  %yy = phi i64 [ 0, %entry ], [ %ynext, %xdone ]\n";
-            out << "  %ydone = icmp uge i64 %yy, %rh\n";
-            out << "  br i1 %ydone, label %end, label %xloop\n";
-            out << "xloop:\n  %xx = phi i64 [ 0, %yloop ], [ %xnext, %xcont ]\n";
-            out << "  %xdoneb = icmp uge i64 %xx, %rw\n";
-            out << "  br i1 %xdoneb, label %xdone, label %plot\n";
-            out << "plot:\n  %px = add i64 %x, %xx\n  %py = add i64 %y, %yy\n";
-            out << "  %xin = icmp ult i64 %px, %fw\n  %yin = icmp ult i64 %py, %fh\n";
-            out << "  %inside = and i1 %xin, %yin\n";
-            out << "  br i1 %inside, label %storepx, label %xcont\n";
-            out << "storepx:\n  %row = mul i64 %py, %fw\n  %idx = add i64 %row, %px\n";
-            out << "  %ss = getelementptr i32, ptr %src, i64 %idx\n";
-            out << "  %dd = getelementptr i32, ptr %dst, i64 %idx\n";
-            out << "  %pix = load i32, ptr %ss, align 4\n";
-            out << "  store volatile i32 %pix, ptr %dd, align 4\n";
-            out << "  br label %xcont\n";
-            out << "xcont:\n  %xnext = add i64 %xx, 1\n  br label %xloop\n";
-            out << "xdone:\n  %ynext = add i64 %yy, 1\n  br label %yloop\n";
-            out << "end:\n  ret i64 %rw\n}\n\n";
+            out << "  %srci = ptrtoint ptr %src to i64\n  %dsti = ptrtoint ptr %dst to i64\n";
+            out << "  call void @rx_scan_copy(i64 %srci, i64 %dsti, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %fw, i64 %fh)\n";
+            out << "  ret i64 %rw\n}\n\n";
         } else {
             out << "define i64 @rx_frame_present(i64 %frame) {\n";
             out << "  ret i64 0\n}\n\n";

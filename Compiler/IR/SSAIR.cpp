@@ -2726,7 +2726,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "CPU" &&
                                (memberName == "TSC" || memberName == "ReadCR3" || memberName == "ReadRSP" ||
                                 memberName == "ExchangeRSP" || memberName == "SavedRSP" || memberName == "BootInfo" ||
-                                memberName == "Function" || memberName == "Handler" || memberName == "Fault" || memberName == "Gate" ||
+                                memberName == "Function" || memberName == "Handler" || memberName == "Fault" || memberName == "Catch" ||
+                                memberName == "Gate" ||
                                 memberName == "GateHigh")) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "Clock" && memberName == "Seconds") {
@@ -2808,7 +2809,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "UI" &&
                                (memberName == "LoadCooked" || memberName == "PresentPlatform" || memberName == "PlatformScroll" ||
-                                memberName == "PlatformHeight" || memberName == "Role" || memberName == "BoxX" ||
+                                memberName == "PlatformHeight" || memberName == "PlatformSpot" || memberName == "PlatformMotion" ||
+                                memberName == "PlatformSample" || memberName == "Role" || memberName == "BoxX" ||
                                 memberName == "BoxY" || memberName == "BoxWidth" || memberName == "BoxHeight" ||
                                 memberName == "Place" || memberName == "Hit" || memberName == "Drag" ||
                                 memberName == "Snap" || memberName == "Focus" || memberName == "Focused" ||

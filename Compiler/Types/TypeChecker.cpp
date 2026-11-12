@@ -1358,7 +1358,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             }
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "UI" &&
                 (expr.text == "LoadCooked" || expr.text == "PresentPlatform" || expr.text == "PlatformScroll" ||
-                 expr.text == "PlatformHeight" || expr.text == "Role" || expr.text == "BoxX" || expr.text == "BoxY" ||
+                 expr.text == "PlatformHeight" || expr.text == "PlatformSpot" || expr.text == "PlatformMotion" ||
+                 expr.text == "PlatformSample" || expr.text == "Role" || expr.text == "BoxX" || expr.text == "BoxY" ||
                  expr.text == "BoxWidth" || expr.text == "BoxHeight" || expr.text == "Place" || expr.text == "Hit" ||
                  expr.text == "Drag" || expr.text == "Snap" || expr.text == "Focus" || expr.text == "Focused" ||
                  expr.text == "Menu" || expr.text == "MenuOpen" || expr.text == "Stack" || expr.text == "Grid")) {
@@ -1478,11 +1479,12 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (recvType.baseName == "CPU" &&
-                (expr.text == "Halt" || expr.text == "CLI" || expr.text == "STI" || expr.text == "TSC" ||
+                (expr.text == "Halt" || expr.text == "Pause" || expr.text == "CLI" || expr.text == "STI" || expr.text == "TSC" ||
                  expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
                  expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "LGDT" ||
                  expr.text == "LIDT" || expr.text == "BootInfo" || expr.text == "Function" ||
-                 expr.text == "Handler" || expr.text == "Fault" || expr.text == "Run" || expr.text == "Int3")) {
+                 expr.text == "Handler" || expr.text == "Fault" || expr.text == "Catch" || expr.text == "Release" ||
+                 expr.text == "Run" || expr.text == "Int3")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",
@@ -1492,7 +1494,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 const bool returnsInt = expr.text == "TSC" || expr.text == "ReadCR3" || expr.text == "ReadRSP" ||
                                         expr.text == "ExchangeRSP" || expr.text == "SavedRSP" ||
                                         expr.text == "BootInfo" || expr.text == "Function" ||
-                                        expr.text == "Handler" || expr.text == "Fault";
+                                        expr.text == "Handler" || expr.text == "Fault" || expr.text == "Catch";
                 expr.inferredType = MakePrimitiveType(returnsInt ? "Int" : "Void");
                 return expr.inferredType;
             }

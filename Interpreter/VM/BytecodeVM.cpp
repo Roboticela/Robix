@@ -1585,6 +1585,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     }
                 } else if (inst.symbolImm == "CPU.Halt") {
                     m_halt = true;
+                } else if (inst.symbolImm == "CPU.Pause") {
                 } else if (inst.symbolImm == "Memory.Free" && !inst.callArgRegs.empty()) {
                     auto obj = AsObj(regs[inst.callArgRegs[0]]);
                     if (!obj) Fail("robix vm: Memory.Free requires an allocated pointer");
@@ -1813,7 +1814,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         Robix::UI::RoboPlatformPaint paint;
                         std::string error;
                         if (Robix::UI::RoboPlatformCapture(path, 1600, 900, paint, error)) {
-                            Robix::UI::RoboPlatformReplay(obj->buffer->bytes.data(), obj->width, obj->index, paint.words, 0);
+                            Robix::UI::RoboPlatformReplay(obj->buffer->bytes.data(), obj->width, obj->index, paint, 0);
                             painted = 1;
                         } else {
                             std::fprintf(stderr, "robix vm: UI.PresentPlatform could not paint '%s'\n", path.c_str());
@@ -1840,12 +1841,48 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                             if (room < 0) room = 0;
                             if (request < 0) request = 0;
                             if (request > room) request = room;
-                            Robix::UI::RoboPlatformReplay(obj->buffer->bytes.data(), obj->width, obj->index, paint.words,
+                            Robix::UI::RoboPlatformReplay(obj->buffer->bytes.data(), obj->width, obj->index, paint,
                                                           static_cast<int>(request));
                             applied = request;
                         }
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ applied };
+                } else if (inst.symbolImm == "UI.PlatformSpot") {
+                    Robix::UI::RoboPlatformPaint paint;
+                    std::string error;
+                    std::int64_t value = 0;
+                    const std::int64_t kind = inst.callArgRegs.empty() ? 0 : regs[inst.callArgRegs[0]].AsInt();
+                    if (Robix::UI::RoboPlatformCapture("RoboticelaOS/Desktop/RoboGallery.rxu", 1600, 900, paint, error)) {
+                        value = Robix::UI::RoboPlatformSpot(paint, static_cast<int>(kind));
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ value };
+                } else if (inst.symbolImm == "UI.PlatformMotion" && inst.callArgRegs.size() >= 2) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    const std::int64_t clock = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t scroll = inst.callArgRegs.size() >= 3 ? regs[inst.callArgRegs[2]].AsInt() : 0;
+                    std::int64_t shown = 0;
+                    if (obj && obj->buffer && obj->className == "Frame") {
+                        Robix::UI::RoboPlatformPaint paint;
+                        std::string error;
+                        if (Robix::UI::RoboPlatformCapture("RoboticelaOS/Desktop/RoboGallery.rxu", 1600, 900, paint, error)) {
+                            shown = Robix::UI::RoboPlatformBlitMotion(obj->buffer->bytes.data(), obj->width, obj->index, paint,
+                                                                      static_cast<int>(scroll), static_cast<int>(clock));
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ shown };
+                } else if (inst.symbolImm == "UI.PlatformSample" && inst.callArgRegs.size() >= 2) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    const std::int64_t clock = regs[inst.callArgRegs[1]].AsInt();
+                    std::int64_t sample = 0;
+                    if (obj && obj->buffer && obj->className == "Frame") {
+                        Robix::UI::RoboPlatformPaint paint;
+                        std::string error;
+                        if (Robix::UI::RoboPlatformCapture("RoboticelaOS/Desktop/RoboGallery.rxu", 1600, 900, paint, error)) {
+                            sample = Robix::UI::RoboPlatformSample(obj->buffer->bytes.data(), obj->width, obj->index, paint,
+                                                                   static_cast<int>(clock));
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ sample };
                 } else if (inst.symbolImm == "UI.Role" || inst.symbolImm == "UI.BoxX" || inst.symbolImm == "UI.BoxY" ||
                            inst.symbolImm == "UI.BoxWidth" || inst.symbolImm == "UI.BoxHeight") {
                     const std::int64_t index = inst.callArgRegs.empty() ? 0 : regs[inst.callArgRegs[0]].AsInt();
@@ -1946,6 +1983,9 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t b = regs[inst.callArgRegs[1]].AsInt();
                     const std::int64_t v = inst.symbolImm == "Math.Min" ? (a < b ? a : b) : (a > b ? a : b);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
+                } else if (inst.symbolImm == "CPU.Catch") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 1 } };
+                } else if (inst.symbolImm == "CPU.Release") {
                 } else if (inst.symbolImm.rfind("Port.", 0) == 0 || inst.symbolImm.rfind("CPU.", 0) == 0 ||
                            inst.symbolImm.rfind("Timer.", 0) == 0 || inst.symbolImm.rfind("System.", 0) == 0 ||
                            inst.symbolImm.rfind("Console.", 0) == 0 ||

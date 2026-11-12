@@ -2491,8 +2491,8 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
                 }
                 return box.height;
             }
-        }
-        if (name == "image") {
+    }
+    if (name == "image") {
         int boxH = AttrLength(node, "height");
         if (boxH <= 0) {
             boxH = AttrLength(node, "width");
@@ -4247,7 +4247,7 @@ void PaintRegionBars(RoboGPU* gpu, int scrollY, int viewHeight, double scale) {
         const int thumbW = std::max(4, ScaleLen(thumbDocX + thumbDoc, scale) - thumbX);
         RoboGPUFillRect(gpu, barX, barY, barW, barH, 0xFF2A3142u);
         RoboGPUFillRect(gpu, thumbX, barY, std::min(thumbW, barW), barH, 0xFF8B93A7u);
-    }
+        }
 }
 
 void PaintOps(RoboGPU* gpu, const std::vector<PaintOp>& ops, int scrollY, int viewHeight, bool light) {
