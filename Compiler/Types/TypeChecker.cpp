@@ -945,7 +945,8 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "Sched" || expr.text == "Fault" ||
                 expr.text == "Proc" || expr.text == "Cred" || expr.text == "Syscall" ||
                 expr.text == "FS" || expr.text == "PCI" || expr.text == "HID" ||                 expr.text == "Driver" ||
-                expr.text == "Vendor" || expr.text == "GPU") {
+                expr.text == "Vendor" || expr.text == "GPU" || expr.text == "Launch" ||
+                expr.text == "Auth" || expr.text == "ACL") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1439,6 +1440,18 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
             if (recvType.baseName == "GPU" && (expr.text == "Command" || expr.text == "Submit")) {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Launch" && expr.text == "Plan") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "Auth" && expr.text == "Check") {
+                expr.inferredType = MakePrimitiveType("Int");
+                return expr.inferredType;
+            }
+            if (recvType.baseName == "ACL" && expr.text == "Allow") {
                 expr.inferredType = MakePrimitiveType("Int");
                 return expr.inferredType;
             }

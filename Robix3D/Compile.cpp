@@ -748,6 +748,10 @@ void ValidateTree(const RoboXMLNode& node, bool inUi, std::unordered_set<std::st
 
 void WalkUi(const RoboXMLNode& node, bool hosted, bool drawList, std::vector<std::string>& errors) {
     const std::string kind = Lower(node.name);
+    if (kind == "input") {
+        for (const RoboXMLNode& child : node.children) WalkUi(child, hosted, drawList, errors);
+        return;
+    }
     if (kind == "view3d" || kind == "scene3d") {
         if (Attr(node, "source").empty()) errors.push_back("View3D needs Source pointing at a .rx3d document");
         for (const RoboXMLNode& child : node.children) {

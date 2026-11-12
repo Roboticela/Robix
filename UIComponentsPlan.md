@@ -416,22 +416,30 @@ Depends on: C1. Sound has no box. Transport state is still a component so librar
 
 Depends on: C2, C3. This is the editing surface. Checkbox, switch, and slider are not this primitive.
 
-- [ ] `TextField` schema: value, placeholder, mask, multiline, disabled, `CursorColor`
-- [ ] Part: caret. `CursorColor` paints this part
-- [ ] Part: selection
-- [ ] Keyboard inserts and deletes
-- [ ] Test types three characters and asserts the value
+`RoboInputRead` accepts value, placeholder, mask, multiline, disabled, and `CursorColor`. `TextField` is the same primitive. The caret is painted in `CursorColor`. A selection range is painted behind the characters. Typing inserts at the caret, and Backspace and Delete remove text. A disabled field refuses the keyboard.
+
+- [x] `TextField` schema: value, placeholder, mask, multiline, disabled, `CursorColor`
+- [x] Part: caret. `CursorColor` paints this part
+- [x] Part: selection
+- [x] Keyboard inserts and deletes
+- [x] Test types three characters and asserts the value
+
+`Tests/UI/RoboInputTests.cpp` passed, 33 checks. Typing `a`, `b`, and `c` leaves the value `abc`. The caret pixel is `#FF0000`. The selection pixel is `#CCE0FF`.
 
 ### Stage C12 — ScrollView
 
 Depends on: C2. Scroll bars are parts of this primitive.
 
-- [ ] `ScrollView` schema: axis, offset
-- [ ] Clip to the viewport
-- [ ] Part: track
-- [ ] Part: thumb
-- [ ] Drag and wheel change the offset
-- [ ] Test scrolls by a known delta and asserts the child origin
+`RoboScrollViewRead` accepts axis and offset, plus the viewport and content sizes. The child origin is the negative offset. Painting clips that child to the viewport. The track and the thumb are parts. A wheel delta and a thumb drag both change the offset.
+
+- [x] `ScrollView` schema: axis, offset
+- [x] Clip to the viewport
+- [x] Part: track
+- [x] Part: thumb
+- [x] Drag and wheel change the offset
+- [x] Test scrolls by a known delta and asserts the child origin
+
+`Tests/UI/RoboScrollViewTests.cpp` passed, 33 checks. A wheel delta of 16 leaves the child origin at `(0, -16)`. A thumb drag of 6 pixels leaves the child origin at `(0, -20)`. After the scroll, the child marker that sat at the origin is clipped out of the viewport.
 
 ### Stage C13 — List
 
@@ -873,8 +881,10 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/Svg/` | Stage C6. `RoboSvg` reads paths, fill, stroke, and view box, and rasterizes them into the element box. |
 | `RobixUI/Compiler/Components/Canvas/` | Stage C7. `RoboCanvas` reads width, height, and a draw list, and paints rect, disc, line, and text into the box. |
 | `RobixUI/Compiler/Components/View3D/` | Stage C8. `RoboView3D` reads source, camera, width, and height. `Scene3D` is the same primitive. One frame of the `.rx3d` scene is painted into the box. |
-| `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D` as a compiler tag. `Scene3D` resolves to the same primitive. |
+| `RobixUI/Compiler/Components/Input/` | Stage C11. `RoboInput` reads value, placeholder, mask, multiline, disabled, and `CursorColor`. `TextField` is the same primitive. The caret and the selection are parts. |
+| `RobixUI/Compiler/Components/ScrollView/` | Stage C12. `RoboScrollView` reads axis and offset. The child moves inside a clipped viewport. The track and the thumb are parts. |
+| `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D`, `Input`, and `ScrollView` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |
 | `RobixUI/Compiler/Compose.cpp` | Expands library components. Library stages use it. |
 | `RobixUI/Compiler/Components/*/*Web.cpp` | Hand-written HTML emitters for the plan primitives. Stage C21 replaces them with the web face. |
 
-`Video`, `Audio`, `Input`, `ScrollView`, and `List` have no compiler unit yet. They begin at their stage.
+`Video`, `Audio`, and `List` have no compiler unit yet. They begin at their stage.

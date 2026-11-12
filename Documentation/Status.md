@@ -791,6 +791,101 @@ ROBO_PROCESS: alive
 
 The same image with `-smp 1` prints `ROBO_CPU: cores online1` and the same `intel` then `basic` lines, and it does not print `ROBO_SCHED: migrate`.
 
+## RoboticelaOS Stage AG
+
+`GPU.Command` appends a fill or a blit to a four-slot software queue. `GPU.Submit` returns `-1` for a process other than the window server and leaves the queue unpainted. A window-server submit of a fill at `(1, 0)` and a blit of that pixel onto the origin returns `526864`, and `AssertPixel` reads that color at the origin and at `(1, 0)`. Two cores divide four rows into `[0, 2)` and `[2, 4)`, and every row belongs to one core.
+
+`RoboBasicDisplay` runs that buffer on the CPU, one slice per online core. `IntelHardware(31)` and `NVIDIAHardware(22)` select command hardware. This QEMU display is the Bochs linear framebuffer, so the boot binds `RoboBasicDisplay` and does not print `ROBO_GPU: device`.
+
+```
+robix test RoboticelaOS/User/RoboWindowServer/RoboGPUQueue.test.rx
+robix test RoboticelaOS/Kernel/IO/Basic/RoboBasicDisplay.test.rx
+robix test RoboticelaOS/Kernel/IO/Intel/RoboIntelGraphics.test.rx
+robix test RoboticelaOS/Kernel/IO/Vendors/NVIDIA/RoboNVIDIAGraphics.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file keeps the desktop lines and adds the submit line after the driver rollback:
+
+```
+ROBO_GPU: present
+ROBO_UI: click
+ROBO_GPU: miss
+ROBO_DRIVER: intel
+ROBO_DRIVER: basic
+ROBO_GPU: submit
+ROBO_FS: Note.txt
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1` and `ROBO_GPU: submit`, and it does not print `ROBO_SCHED: migrate`.
+
+## RoboticelaOS Stage S
+
+`Launch.Plan` orders services by the `after` field. Login waiting on Window returns `513`, which starts Window and then Login. A cycle returns `-1`. Before the volume is mounted, `System/Launch/RoboLaunch.rxb` is missing and the lookup returns `-1`. After the mount, that file is present and process 1 is RoboLaunch.
+
+The window server maps the framebuffer with syscall `Map` and is the only caller whose `Draw` succeeds. A client without a window returns `-1`. The front window covers the one behind it, and an empty damage rectangle returns `-1`. The dark desktop is `526864` (`#080A10`) and the light desktop is `16119287` (`#F5F5F7`). Both themes use menu bar `948991` (`#0E7AFF`). The boot theme is dark. The desktop splash ceiling stays `99600`.
+
+```
+robix test RoboticelaOS/User/RoboLaunch/RoboLaunch.test.rx
+robix test RoboticelaOS/User/RoboWindowServer/RoboWindowServer.test.rx
+```
+
+Each printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The server sends `ready` on the launch port. The kernel then presents the server frame and stops painting. The four-core serial file, after the note:
+
+```
+ROBO_FS: Note.txt
+ROBO_LAUNCH: pid 1
+ROBO_WINDOW: ready
+ROBO_KERNEL: console yield
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1` and the same three launch lines, and it does not print `ROBO_SCHED: migrate`.
+
+## RoboticelaOS Stage T
+
+`Auth.Check` accepts password `4919` when the hash is `password xor 21072`, and it rejects a different password. A matching check opens an empty session, which has no user windows. `ACL.Allow` lets user 0 write `System/` and denies that write for user 1 and the guest. The guest can write `Home/Guest` and cannot write `Home/` or `System/`. Lock returns the login window when the two process address spaces differ, and it rejects one shared space.
+
+The login window is window 1, the first window on the server desktop, at `16, 48` and `288` by `120`. A successful password starts Finder, then the Dock, then the menu extras. `Desktop/RoboLogin.rxu` has that window in the dark theme `#080A10` and the light theme `#F5F5F7`, both with menu bar `#0E7AFF`.
+
+```
+robix test RoboticelaOS/User/RoboLogin/RoboLogin.test.rx
+```
+
+It printed `interpreter ok, native ok`.
+
+```
+qemu-system-x86_64 -cpu qemu64 -machine pc -smp 4 -kernel Build/RoboticelaOS/RoboKernel.elf -display none -vga std -hda Build/RoboticelaOS/RoboDisk.img -serial file:Build/RoboticelaOS/qemu.serial
+```
+
+The four-core serial file, after the console yield:
+
+```
+ROBO_KERNEL: console yield
+ROBO_FS: deny
+ROBO_SYSCALL: echo
+ROBO_VM: fault
+ROBO_PROCESS: alive
+```
+
+The same image with `-smp 1` prints `ROBO_CPU: cores online1` and `ROBO_FS: deny`, and it does not print `ROBO_SCHED: migrate`.
+
 ## How to update this file
 
 Change a row only after a command was run. Record the command and the result under the row. Do not mark a feature Implemented because a specification section or an example file mentions it.

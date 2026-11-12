@@ -1127,6 +1127,65 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                         result = static_cast<std::uint32_t>(m_gpuPix[0]);
                     }
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Launch.Plan" && !inst.callArgRegs.empty()) {
+                    const std::int64_t word = regs[inst.callArgRegs[0]].AsInt();
+                    std::int64_t ident[4]{};
+                    std::int64_t after[4]{};
+                    int used[4]{};
+                    int count = 0;
+                    bool cycle = false;
+                    for (int slot = 0; slot < 4; ++slot) {
+                        const std::int64_t piece = (word >> (slot * 16)) & 65535;
+                        ident[slot] = piece & 255;
+                        after[slot] = (piece >> 8) & 255;
+                        if (ident[slot] != 0) {
+                            ++count;
+                            if (after[slot] == ident[slot]) cycle = true;
+                        }
+                    }
+                    std::int64_t order[4]{};
+                    int placed = 0;
+                    while (!cycle && placed < count) {
+                        int choice = -1;
+                        for (int slot = 0; slot < 4; ++slot) {
+                            if (ident[slot] == 0 || used[slot] != 0) continue;
+                            if (after[slot] == 0) {
+                                choice = slot;
+                                break;
+                            }
+                            for (int prior = 0; prior < 4; ++prior) {
+                                if (used[prior] != 0 && ident[prior] == after[slot]) choice = slot;
+                            }
+                            if (choice >= 0) break;
+                        }
+                        if (choice < 0) {
+                            cycle = true;
+                            break;
+                        }
+                        used[choice] = 1;
+                        order[placed] = ident[choice];
+                        ++placed;
+                    }
+                    std::int64_t result = -1;
+                    if (!cycle && placed == count && count > 0) {
+                        result = order[0] | (order[1] << 8) | (order[2] << 16) | (order[3] << 24);
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "Auth.Check" && inst.callArgRegs.size() >= 2) {
+                    const std::int64_t hash = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t password = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t result = (password > 0 && hash == (password ^ 21072)) ? std::int64_t{ 1 } : std::int64_t{ -1 };
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
+                } else if (inst.symbolImm == "ACL.Allow" && inst.callArgRegs.size() >= 3) {
+                    const std::int64_t user = regs[inst.callArgRegs[0]].AsInt();
+                    const std::int64_t path = regs[inst.callArgRegs[1]].AsInt();
+                    const std::int64_t write = regs[inst.callArgRegs[2]].AsInt();
+                    std::int64_t result = 0;
+                    if (user >= 0 && user <= 2 && write == 0) result = 1;
+                    if (write == 1 && path == 1 && user == 0) result = 1;
+                    if (write == 1 && path == 2 && (user == 0 || user == 2)) result = 1;
+                    if (write == 1 && path == 3 && (user == 0 || user == 1)) result = 1;
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ result };
                 } else if (inst.symbolImm == "Port.Read8") {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 0 } };
                 } else if (inst.symbolImm == "Port.Write8" && inst.callArgRegs.size() >= 2) {

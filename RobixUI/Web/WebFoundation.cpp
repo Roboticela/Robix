@@ -361,6 +361,20 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         scrollData("scrolly", RoboXMLAttr(node, "scrollY").empty() ? RoboXMLAttr(node, "vertical") : RoboXMLAttr(node, "scrollY"));
         scrollData("arrows", RoboXMLAttr(node, "arrows"));
         scrollData("autohide", RoboXMLAttr(node, "autoHide"));
+        const std::string offset = RoboXMLAttr(node, "offset");
+        const std::string offsetX = RoboXMLAttr(node, "offsetx").empty() ? RoboXMLAttr(node, "offsetX") : RoboXMLAttr(node, "offsetx");
+        const std::string offsetY = RoboXMLAttr(node, "offsety").empty() ? RoboXMLAttr(node, "offsetY") : RoboXMLAttr(node, "offsety");
+        const std::string axis = Lower(RoboXMLAttr(node, "axis").empty() ? "vertical" : RoboXMLAttr(node, "axis"));
+        if (!offsetX.empty()) {
+            scrollData("offset-x", offsetX);
+        } else if (axis == "horizontal" && !offset.empty()) {
+            scrollData("offset-x", offset);
+        }
+        if (!offsetY.empty()) {
+            scrollData("offset-y", offsetY);
+        } else if (axis != "horizontal" && !offset.empty()) {
+            scrollData("offset-y", offset);
+        }
     }
     if (RoboWebIsContainerBox(name)) {
         RoboWebContainerAttrs(html, node);
@@ -392,12 +406,31 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         RoboWebAddDecl(style, "gap", RoboWebCssValue(library, RoboXMLAttr(node, "gap"), false));
         RoboWebAddDecl(style, "padding", RoboWebCssValue(library, RoboXMLAttr(node, "padding"), false));
     }
+    if (name == "scrollview" || name == "scroll") {
+        RoboWebAddDecl(style, "position", "relative");
+        const std::string axis = Lower(RoboXMLAttr(node, "axis").empty() ? "vertical" : RoboXMLAttr(node, "axis"));
+        if (axis == "horizontal") {
+            RoboWebAddDecl(style, "overflow-x", "auto");
+            RoboWebAddDecl(style, "overflow-y", "hidden");
+        } else if (axis == "both") {
+            RoboWebAddDecl(style, "overflow", "auto");
+        } else {
+            RoboWebAddDecl(style, "overflow-x", "hidden");
+            RoboWebAddDecl(style, "overflow-y", "auto");
+        }
+    }
+    if (name == "input" || name == "textfield") {
+        const std::string caret = RoboXMLAttr(node, "cursorcolor").empty() ? RoboXMLAttr(node, "cursor-color") : RoboXMLAttr(node, "cursorcolor");
+        if (!caret.empty()) {
+            RoboWebAddDecl(style, "caret-color", caret);
+        }
+    }
     if (!style.empty()) {
         html += " style=\"";
         html += Escape(style);
         html += "\"";
     }
-    if (tag == "input") {
+    if (tag == "input" || tag == "textarea") {
         const auto inputAttr = [&](const char* htmlName, const char* key) {
             const std::string value = RoboXMLAttr(node, key);
             if (value.empty()) return;
@@ -407,13 +440,30 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             html += Escape(value);
             html += "\"";
         };
-        if (RoboXMLAttr(node, "type").empty()) {
-            html += " type=\"text\"";
+        const std::string mask = Lower(RoboXMLAttr(node, "mask"));
+        if (tag == "input") {
+            if (mask == "password" || mask == "hidden" || mask == "*") {
+                html += " type=\"password\"";
+            } else if (RoboXMLAttr(node, "type").empty()) {
+                html += " type=\"text\"";
+            } else {
+                inputAttr("type", "type");
+            }
+            inputAttr("value", "value");
         }
-        inputAttr("type", "type");
-        inputAttr("value", "value");
         inputAttr("placeholder", "placeholder");
+        const std::string disabled = Lower(RoboXMLAttr(node, "disabled"));
+        if (disabled == "true" || disabled == "yes" || disabled == "on" || disabled == "1") {
+            html += " disabled";
+        }
         html += ">";
+        if (tag == "textarea") {
+            const std::string value = RoboXMLAttr(node, "value");
+            if (!value.empty()) {
+                html += Escape(value);
+            }
+            html += "</textarea>";
+        }
         return;
     }
     html += ">";
@@ -916,6 +966,12 @@ Robo.sceneSet = function (name, key, value) {
   place();
   wake(yBar);
   wake(xBar);
+  document.querySelectorAll(".robo-scroll").forEach(function (node) {
+    var x = Number(node.getAttribute("data-offset-x") || 0);
+    var y = Number(node.getAttribute("data-offset-y") || 0);
+    if (x) node.scrollLeft = x;
+    if (y) node.scrollTop = y;
+  });
 })();
 )JS";
     js += RoboWebReelScript();

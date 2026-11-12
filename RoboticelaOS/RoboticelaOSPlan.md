@@ -434,34 +434,34 @@ A later vendor is `Vendor.Catalog(name, vendorId)`, a new folder, and the same i
 
 - [x] **Exit.** A QEMU device with vendor `0x8086` and id `0x9D60` binds the built-in driver, then `RoboIntelLPSS` after install, then the built-in driver after remove. Serial contains `ROBO_DRIVER: intel` and then `ROBO_DRIVER: basic`. Later vendors do not start before this Intel boot is recorded.
 
-### [ ] Stage AG — A GPU command buffer
+### [x] Stage AG — A GPU command buffer
 
 This is the graphics stage. It is a command buffer the window server submits to the bound display driver. It is not a kernel loop that splits rows across cores.
 
-- [ ] **Task AG1, Robix feature.** Add `GPU.Command(op, rect, color)` and `GPU.Submit(buffer) -> Result`. The compiler test builds a fill and a blit, submits them, and `AssertPixel` reads the result from a software queue. A command from a process other than the window server is `Error`.
+- [x] **Task AG1, Robix feature.** Add `GPU.Command(op, rect, color)` and `GPU.Submit(buffer) -> Result`. The compiler test builds a fill and a blit, submits them, and `AssertPixel` reads the result from a software queue. A command from a process other than the window server is `Error`.
 
-- [ ] **Task AG2.** `RoboBasicDisplay` executes the buffer on the CPU when the device has only a linear framebuffer, using one slice per online core from the Stage J scheduler, with each row in exactly one slice. `RoboIntelGraphics` and `RoboNVIDIAGraphics`, after Device Manager installs them, execute the same buffer on their command hardware. The window server’s present call stays `GPU.Submit`.
+- [x] **Task AG2.** `RoboBasicDisplay` executes the buffer on the CPU when the device has only a linear framebuffer, using one slice per online core from the Stage J scheduler, with each row in exactly one slice. `RoboIntelGraphics` and `RoboNVIDIAGraphics`, after Device Manager installs them, execute the same buffer on their command hardware. The window server’s present call stays `GPU.Submit`.
 
 | File | Test |
 | :--- | :--- |
 | `User/RoboWindowServer/RoboGPUQueue.rx` | `RoboGPUQueue.test.rx` covers fill, blit, a foreign process, and a two-core slice that covers every row once |
 
-- [ ] **Exit.** The desktop is still the window server’s desktop. Serial contains `ROBO_GPU: submit`. With the built-in display driver, a test buffer’s origin pixel matches the command color. With an installed Intel or NVIDIA package, serial also contains `ROBO_GPU: device`.
+- [x] **Exit.** The desktop is still the window server’s desktop. Serial contains `ROBO_GPU: submit`. With the built-in display driver, a test buffer’s origin pixel matches the command color. With an installed Intel or NVIDIA package, serial also contains `ROBO_GPU: device`.
 
 
 ---
 
 ## 9. Desktop
 
-### [ ] Stage S — launchd, then the window server
+### [x] Stage S — launchd, then the window server
 
 Future programmers start process 1 from a file on the volume, and give one process the right to present. That process is the window server. This is the stage where the product desktop begins.
 
-- [ ] **Task S1, Robix feature.** Add `Launch.Plan(services) -> Result` which orders services by their `after` list and rejects a cycle. The compiler test starts `Window` after `Login` is listed as waiting on `Window`, and a cycle returns `Error`.
+- [x] **Task S1, Robix feature.** Add `Launch.Plan(services) -> Result` which orders services by their `after` list and rejects a cycle. The compiler test starts `Window` after `Login` is listed as waiting on `Window`, and a cycle returns `Error`.
 
-- [ ] **Task S2.** `User/RoboLaunch/RoboLaunch.rx` is process 1. The kernel loads it from `System/Launch/RoboLaunch.rxb` with the Stage M process call and the Stage O file call. It opens the `Launch` port and starts the services in the plan. The first service is `RoboWindowServer`.
+- [x] **Task S2.** `User/RoboLaunch/RoboLaunch.rx` is process 1. The kernel loads it from `System/Launch/RoboLaunch.rxb` with the Stage M process call and the Stage O file call. It opens the `Launch` port and starts the services in the plan. The first service is `RoboWindowServer`.
 
-- [ ] **Task S3.** `User/RoboWindowServer/RoboWindowServer.rx` maps the framebuffer through syscall `Map`, takes the `Window` port, and is the only process whose `Draw` syscall succeeds. It clears the desktop to `#080A10` in the dark theme. The light theme uses `#F5F5F7` for the desktop and `#0E7AFF` for the menu bar. The server reads the theme from a setting once Stage V exists. Until then the dark theme is the boot theme. The kernel stops painting when the server sends `ready` on the `Launch` port.
+- [x] **Task S3.** `User/RoboWindowServer/RoboWindowServer.rx` maps the framebuffer through syscall `Map`, takes the `Window` port, and is the only process whose `Draw` syscall succeeds. It clears the desktop to `#080A10` in the dark theme. The light theme uses `#F5F5F7` for the desktop and `#0E7AFF` for the menu bar. The server reads the theme from a setting once Stage V exists. Until then the dark theme is the boot theme. The kernel stops painting when the server sends `ready` on the `Launch` port.
 
 Input from Stage P is delivered to the window under the cursor. The server composites back to front and presents the damaged rectangles. A client that has not been granted a window receives `Error`.
 
@@ -470,21 +470,21 @@ Input from Stage P is delivered to the window under the cursor. The server compo
 | `User/RoboLaunch/RoboLaunch.rx` | `RoboLaunch.test.rx` covers order, a cycle, and a missing file |
 | `User/RoboWindowServer/RoboWindowServer.rx` | `RoboWindowServer.test.rx` covers a client command, a denied `Draw` from another id, damage, and both theme colors |
 
-- [ ] **Exit.** Serial contains `ROBO_LAUNCH: pid 1`, `ROBO_WINDOW: ready`, and `ROBO_KERNEL: console yield`. The screen is the server’s desktop, full size for the mode the handoff selected, with the menu bar color of the active theme. Splash ceiling 99600.
+- [x] **Exit.** Serial contains `ROBO_LAUNCH: pid 1`, `ROBO_WINDOW: ready`, and `ROBO_KERNEL: console yield`. The screen is the server’s desktop, full size for the mode the handoff selected, with the menu bar color of the active theme. Splash ceiling 99600.
 
-### [ ] Stage T — Login and the session
+### [x] Stage T — Login and the session
 
 Future programmers check a password and a path right in a test. The login window is a client of the window server.
 
-- [ ] **Task T1, Robix feature.** Add `Auth.Check(hash, password) -> Result` and `ACL.Allow(user, path, write) -> Bool`. The compiler test accepts a matching pair, rejects a wrong password, lets user 0 write `System/`, and denies that write for any other user.
+- [x] **Task T1, Robix feature.** Add `Auth.Check(hash, password) -> Result` and `ACL.Allow(user, path, write) -> Bool`. The compiler test accepts a matching pair, rejects a wrong password, lets user 0 write `System/`, and denies that write for any other user.
 
-- [ ] **Task T2.** `User/RoboLogin/RoboLogin.rx` and `Desktop/RoboLogin.rxu` are drawn by sending commands to `RoboWindowServer`. A successful login starts the session services: Finder, Dock, and the menu bar extras. Lock puts the login window back and keeps each user’s processes in their own address space. Guest is a user id that `ACL.Allow` denies for every write outside `Home/Guest`.
+- [x] **Task T2.** `User/RoboLogin/RoboLogin.rx` and `Desktop/RoboLogin.rxu` are drawn by sending commands to `RoboWindowServer`. A successful login starts the session services: Finder, Dock, and the menu bar extras. Lock puts the login window back and keeps each user’s processes in their own address space. Guest is a user id that `ACL.Allow` denies for every write outside `Home/Guest`.
 
 | File | Test |
 | :--- | :--- |
 | `User/RoboLogin/RoboLogin.rx` | `RoboLogin.test.rx` covers match, mismatch, lock, and guest |
 
-- [ ] **Exit.** The login window is the first window on the server’s desktop. The password path reaches an empty session. A denied write prints `ROBO_FS: deny` while `ROBO_PROCESS: alive` follows.
+- [x] **Exit.** The login window is the first window on the server’s desktop. The password path reaches an empty session. A denied write prints `ROBO_FS: deny` while `ROBO_PROCESS: alive` follows.
 
 ### [ ] Stage U — Finder, Dock, menu bar, Spaces
 

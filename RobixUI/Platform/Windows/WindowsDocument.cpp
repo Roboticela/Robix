@@ -249,6 +249,30 @@ std::vector<ScrollRegion> gRegions;
 int gRegionDrag = -1;
 int gRegionGrab = 0;
 
+struct Editor {
+    std::string id;
+    std::string value;
+    std::string placeholder;
+    int caret = 0;
+    int selA = 0;
+    int selB = 0;
+    bool secret = false;
+    bool multiline = false;
+    bool disabled = false;
+    bool focused = false;
+    RoboU32 caretColor = 0xFFF4F7FBu;
+    RoboU32 ink = 0xFFF4F7FBu;
+    RoboU32 hint = 0xFF8E8E93u;
+    int op = -1;
+    int fieldX = 0;
+    int fieldY = 0;
+    int fieldW = 0;
+    int fieldH = 0;
+};
+
+std::vector<Editor> gEditors;
+const std::vector<Editor>* gEditorKept = nullptr;
+
 int ScaleLen(int value, double scale) {
     if (value == 0 || scale == 1.0) {
         return value;
@@ -350,7 +374,7 @@ bool IsText(const std::string& name) {
 
 bool IsBox(const std::string& name) {
     return name == "screen" || name == "window" || name == "page" || name == "container" || name == "view" ||
-           name == "board" || name == "box" || name == "flex" || name == "stack" || name == "canvas";
+           name == "board" || name == "box" || name == "flex" || name == "stack" || name == "canvas" || name == "scrollview";
 }
 
 bool Named(const std::string& name, const std::string& face, const char* key) {
@@ -516,6 +540,7 @@ struct PaintOp {
     int picture = -1;
     std::string pictureFit;
     int canvas = -1;
+    int editor = -1;
 };
 
 int PictureChannel(RoboU32 pixel, int shift) {
@@ -2205,6 +2230,145 @@ void ShiftRange(std::vector<PaintOp>& ops, std::size_t begin, std::size_t end, H
     }
 }
 
+RoboU32 FieldHex(const std::string& text, RoboU32 fallback) {
+    if (text.size() != 7 || text[0] != '#') {
+        return fallback;
+    }
+    RoboU32 value = 0;
+    for (int index = 1; index <= 6; ++index) {
+        const int digit = HexDigit(text[static_cast<std::size_t>(index)]);
+        if (digit < 0) {
+            return fallback;
+        }
+        value = (value << 4) | static_cast<RoboU32>(digit);
+    }
+    return 0xFF000000u | value;
+}
+
+bool FieldFlag(const std::string& text) {
+    const std::string folded = Lower(text);
+    return folded == "true" || folded == "yes" || folded == "on" || folded == "1";
+}
+
+std::string EditorShown(const Editor& editor) {
+    if (editor.value.empty()) {
+        return editor.placeholder;
+    }
+    if (!editor.secret) {
+        return editor.value;
+    }
+    std::string shown;
+    for (std::size_t index = 0; index < editor.value.size();) {
+        shown.push_back('*');
+        index += static_cast<std::size_t>(Utf8Span(editor.value, index));
+    }
+    return shown;
+}
+
+int PlaceField(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops) {
+    const bool multiline = FieldFlag(RoboXMLAttr(node, "multiline"));
+    int boxW = AttrLength(node, "width");
+    if (boxW <= 0 || boxW > width) {
+        boxW = std::max(1, width);
+    }
+    int boxH = AttrLength(node, "height");
+    if (boxH <= 0) {
+        boxH = multiline ? Px(96) : Px(40);
+    }
+    const int radius = Px(6);
+    const int pad = Px(10);
+    PaintOp edge;
+    edge.x = x;
+    edge.y = y;
+    edge.width = boxW;
+    edge.height = boxH;
+    edge.radius = radius;
+    edge.fill = ThemeColor("border-default", light);
+    ops.push_back(edge);
+    PaintOp well;
+    well.x = x + 1;
+    well.y = y + 1;
+    well.width = std::max(1, boxW - 2);
+    well.height = std::max(1, boxH - 2);
+    well.radius = std::max(0, radius - 1);
+    const bool disabled = FieldFlag(RoboXMLAttr(node, "disabled"));
+    well.fill = ThemeColor(disabled ? "bg-secondary" : "bg-elevated", light);
+    ops.push_back(well);
+    Editor editor;
+    editor.id = RoboXMLAttr(node, "id");
+    if (editor.id.empty()) {
+        editor.id = "field-" + std::to_string(gEditors.size());
+    }
+    editor.value = RoboXMLAttr(node, "value");
+    if (editor.value.empty()) {
+        editor.value = RoboXMLAttr(node, "content");
+    }
+    if (editor.value.empty()) {
+        editor.value = RoboXMLAttr(node, "text");
+    }
+    editor.placeholder = RoboXMLAttr(node, "placeholder");
+    const std::string mask = Lower(RoboXMLAttr(node, "mask"));
+    editor.secret = mask == "password" || mask == "hidden" || mask == "*";
+    editor.multiline = multiline;
+    editor.disabled = disabled;
+    editor.ink = ThemeColor(disabled ? "text-disabled" : "text-primary", light);
+    editor.hint = ThemeColor("text-tertiary", light);
+    const std::string cursor = RoboXMLAttr(node, "cursorcolor").empty() ? RoboXMLAttr(node, "cursor-color") : RoboXMLAttr(node, "cursorcolor");
+    editor.caretColor = FieldHex(cursor, editor.ink);
+    editor.caret = static_cast<int>(editor.value.size());
+    editor.selA = editor.caret;
+    editor.selB = editor.caret;
+    bool restored = false;
+    if (gEditorKept != nullptr) {
+        for (const Editor& kept : *gEditorKept) {
+            if (kept.id != editor.id) {
+                continue;
+            }
+            editor.value = kept.value;
+            editor.caret = std::max(0, std::min(kept.caret, static_cast<int>(editor.value.size())));
+            editor.selA = std::max(0, std::min(kept.selA, static_cast<int>(editor.value.size())));
+            editor.selB = std::max(0, std::min(kept.selB, static_cast<int>(editor.value.size())));
+            editor.focused = kept.focused;
+            restored = true;
+            break;
+        }
+    }
+    if (!restored) {
+        const std::string start = RoboXMLAttr(node, "selectionstart");
+        const std::string end = RoboXMLAttr(node, "selectionend");
+        if (!start.empty() && !end.empty() && IsDigits(start) && IsDigits(end)) {
+            editor.selA = std::min(std::stoi(start), static_cast<int>(editor.value.size()));
+            editor.selB = std::min(std::stoi(end), static_cast<int>(editor.value.size()));
+            editor.caret = editor.selB;
+        }
+    }
+    editor.fieldX = x;
+    editor.fieldY = y;
+    editor.fieldW = boxW;
+    editor.fieldH = boxH;
+    const int editorIndex = static_cast<int>(gEditors.size());
+    gEditors.push_back(editor);
+    PaintOp label;
+    label.text = true;
+    label.select = 0;
+    label.editor = editorIndex;
+    label.x = x + pad;
+    label.y = y + (multiline ? pad : std::max(pad, (boxH - Px(14)) / 2));
+    label.width = std::max(1, boxW - pad * 2);
+    label.height = std::max(1, boxH - (label.y - y) - pad);
+    label.size = Px(14);
+    label.face = 0;
+    label.wrap = multiline ? 1 : 0;
+    label.wrapWidth = label.width;
+    label.overflow = 0;
+    label.breakLong = true;
+    label.value = EditorShown(gEditors[static_cast<std::size_t>(editorIndex)]);
+    label.color = gEditors[static_cast<std::size_t>(editorIndex)].value.empty() ? editor.hint : editor.ink;
+    ops.push_back(label);
+    gEditors[static_cast<std::size_t>(editorIndex)].op = static_cast<int>(ops.size()) - 1;
+    return boxH;
+}
+
 int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops, HitState* hits, int slotHeight) {
     const std::string name = Lower(node.name);
     const std::string face = RoboUIFace(node);
@@ -2213,6 +2377,9 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     if (shown == "false" || shown == "0" || shown == "no" || shown == "off" || shown == "hidden" ||
         (shown.empty() && Lower(RoboXMLAttr(node, "hidden")) == "true")) {
         return 0;
+    }
+    if (name == "input" || name == "textfield") {
+        return PlaceField(node, x, y, width, light, ops);
     }
         if (name == "canvas") {
             RoboCanvasNode drawn;
@@ -2720,7 +2887,13 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         if (RoboXMLAttr(node, "paddingtop").empty()) pad.top = axis;
         if (RoboXMLAttr(node, "paddingbottom").empty()) pad.bottom = axis;
     }
-    const int inner = std::max(0, width - pad.left - pad.right);
+    int inner = std::max(0, width - pad.left - pad.right);
+    if (name == "scrollview") {
+        const int contentWide = AttrLength(node, "contentwidth");
+        if (contentWide > inner) {
+            inner = contentWide;
+        }
+    }
     const int originX = x + pad.left;
     const int originY = y + pad.top;
     int childSlot = -1;
@@ -3265,6 +3438,24 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     if (overflowY.empty()) {
         overflowY = overflowName;
     }
+    if (name == "scrollview") {
+        std::string axis = Lower(RoboXMLAttr(node, "axis"));
+        if (axis.empty()) {
+            axis = "vertical";
+        }
+        if (overflowX.empty() && overflowY.empty()) {
+            if (axis == "horizontal") {
+                overflowX = "scroll";
+                overflowY = "hidden";
+            } else if (axis == "both") {
+                overflowX = "scroll";
+                overflowY = "scroll";
+            } else {
+                overflowX = "hidden";
+                overflowY = "scroll";
+            }
+        }
+    }
     const bool scrolls = overflowX == "scroll" || overflowX == "auto" || overflowY == "scroll" || overflowY == "auto";
     const std::string clipFlag = Lower(RoboXMLAttr(node, "clip"));
     const bool clipChildren = !scrolls && (overflowName == "clip" || overflowName == "hidden" || clipFlag == "true" ||
@@ -3288,6 +3479,35 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
             region.contentHeight = std::max(boxHeight, bottom - y);
             region.opBegin = static_cast<int>(childBegin);
             region.opEnd = static_cast<int>(ops.size());
+            if (name == "scrollview") {
+                const std::string axis = Lower(RoboXMLAttr(node, "axis").empty() ? "vertical" : RoboXMLAttr(node, "axis"));
+                if (axis == "vertical") {
+                    region.contentWidth = region.width;
+                } else if (axis == "horizontal") {
+                    region.contentHeight = region.height;
+                }
+                const auto whole = [](const std::string& text, int& number) {
+                    if (text.empty() || !IsDigits(text)) {
+                        return false;
+                    }
+                    number = std::stoi(text);
+                    return true;
+                };
+                int shared = 0;
+                int offsetX = 0;
+                int offsetY = 0;
+                whole(RoboXMLAttr(node, "offsetx"), offsetX);
+                whole(RoboXMLAttr(node, "offsety"), offsetY);
+                if (whole(RoboXMLAttr(node, "offset"), shared)) {
+                    if (axis == "horizontal") {
+                        offsetX = shared;
+                    } else if (axis != "both" || RoboXMLAttr(node, "offsety").empty()) {
+                        offsetY = shared;
+                    }
+                }
+                region.scrollX = std::max(0, std::min(offsetX, std::max(0, region.contentWidth - region.width)));
+                region.scrollY = std::max(0, std::min(offsetY, std::max(0, region.contentHeight - region.height)));
+            }
             gRegions.push_back(region);
         }
     }
@@ -3716,6 +3936,12 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
             textX = op.x + std::max(0, (op.width - measured) / 2);
             textY = CenteredTextTop(y, op.height, op.size);
         }
+        if (op.value.empty() && op.editor >= 0 && op.editor < static_cast<int>(gEditors.size())) {
+            const Editor& editor = gEditors[static_cast<std::size_t>(op.editor)];
+            if (editor.focused && !editor.disabled) {
+                FillRound(gpu, op.x, y, 2, std::max(1, op.size), 0, editor.caretColor);
+            }
+        }
         if (!op.value.empty()) {
             if (op.text) {
                 std::vector<TextLine> lines;
@@ -3747,6 +3973,18 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
                     }
                     const bool justify = op.align == 3 && lineIndex + 1 < lines.size() && line.width < op.width &&
                                          line.text.find(' ') != std::string::npos;
+                    if (op.editor >= 0 && op.editor < static_cast<int>(gEditors.size())) {
+                        const Editor& editor = gEditors[static_cast<std::size_t>(op.editor)];
+                        const int from = std::min(editor.selA, editor.selB);
+                        const int to = std::max(editor.selA, editor.selB);
+                        const int local0 = std::max(0, from - line.origin);
+                        const int local1 = std::min(static_cast<int>(line.text.size()), to - line.origin);
+                        if (local1 > local0 && !editor.value.empty()) {
+                            const int x0 = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(local0)), op.size, op.face);
+                            const int x1 = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(local1)), op.size, op.face);
+                            FillRound(gpu, x0, lineY, std::max(1, x1 - x0), std::max(1, op.size), 2, light ? 0xFFD6E8FFu : 0xFF1A3F66u);
+                        }
+                    }
                     PaintTextMark(gpu, run, op, lineX, lineY, line, static_cast<int>(lineIndex), static_cast<int>(lines.size()));
                     if (!line.text.empty() && justify) {
                         int gaps = 0;
@@ -3777,6 +4015,16 @@ void PaintOne(RoboGPU* gpu, const PaintOp& op, int scrollY, int viewHeight, bool
                         drawWord();
                     } else if (!line.text.empty()) {
                         RoboTextDrawUTF8(gpu, font, lineX, lineY, line.text.c_str(), op.color, static_cast<RoboU16>(op.size));
+                    }
+                    if (op.editor >= 0 && op.editor < static_cast<int>(gEditors.size())) {
+                        const Editor& editor = gEditors[static_cast<std::size_t>(op.editor)];
+                        if (editor.focused && !editor.disabled && editor.caret >= line.origin &&
+                            editor.caret <= line.origin + static_cast<int>(line.text.size()) &&
+                            (lineIndex + 1 == lines.size() || editor.caret < line.origin + static_cast<int>(line.text.size()))) {
+                            const int local = editor.caret - line.origin;
+                            const int caretX = lineX + MeasureText(line.text.substr(0, static_cast<std::size_t>(std::max(0, local))), op.size, op.face);
+                            FillRound(gpu, caretX, lineY, 2, std::max(1, op.size), 0, editor.caretColor);
+                        }
                     }
                     lineY += step;
                 }
@@ -4134,7 +4382,7 @@ bool CaretNearest(int docX, int docY, int& run, int& offset) {
 void WordAround(const std::string& text, int offset, int& from, int& to) {
     from = std::max(0, std::min(offset, static_cast<int>(text.size())));
     to = from;
-    auto word = [](unsigned char ch) { return std::isalnum(ch) != 0 || ch == '_'; };
+    auto word = [](unsigned char ch) { return std::isalnum(ch) != 0 || ch == '_' || ch == '\'' || ch >= 0x80; };
     while (from > 0 && word(static_cast<unsigned char>(text[static_cast<std::size_t>(from - 1)]))) {
         --from;
     }
@@ -4288,10 +4536,14 @@ void ShiftScene(RoboGPU* gpu, int delta, int viewWidth, int viewHeight) {
 bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth, int viewHeight, int scrollY,
                 int hotControl, int pressedControl, int pointerX, int pointerY) {
     gCanvases.clear();
+    std::vector<Editor> keptEditors = gEditors;
+    gEditors.clear();
+    gEditorKept = &keptEditors;
     gDocumentDir = std::filesystem::path(path).parent_path();
     const std::string source = ReadText(path);
     RoboXMLDocument document;
     if (source.empty() || !RoboXMLParse(source, document)) {
+        gEditorKept = nullptr;
         gScene.valid = false;
         return false;
     }
@@ -4299,6 +4551,7 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
     LowerKeys(document.root);
     const RoboXMLNode* screen = FindScreen(document.root);
     if (screen == nullptr) {
+        gEditorKept = nullptr;
         gScene.valid = false;
         return false;
     }
@@ -4318,6 +4571,7 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
         pageWidth = askedWidth;
     }
     const int height = PlaceNode(*screen, 0, 0, pageWidth, light, ops, &hits, viewHeight);
+    gEditorKept = nullptr;
     for (ScrollRegion& region : gRegions) {
         for (const ScrollRegion& previous : previousRegions) {
             if (previous.x != region.x || previous.y != region.y || previous.width != region.width || previous.height != region.height) {
@@ -4442,7 +4696,295 @@ void PaintSceneRect(RoboGPU* gpu, SceneRect rect, int scrollY, int viewHeight, b
     ReplayRect(gpu, rect, scrollY, viewHeight, light);
 }
 
+void FieldVisual(const Editor& editor, int& x, int& y) {
+    x = editor.fieldX;
+    y = editor.fieldY;
+    if (editor.op < 0) {
+        return;
+    }
+    for (const ScrollRegion& region : gRegions) {
+        if (editor.op < region.opBegin || editor.op >= region.opEnd) {
+            continue;
+        }
+        x -= region.scrollX;
+        y -= region.scrollY;
+    }
+}
+
+void FieldSync(Editor& editor) {
+    if (editor.op < 0 || editor.op >= static_cast<int>(gScene.ops.size())) {
+        return;
+    }
+    PaintOp& op = gScene.ops[static_cast<std::size_t>(editor.op)];
+    op.value = EditorShown(editor);
+    op.color = editor.value.empty() ? editor.hint : editor.ink;
+}
+
+int FieldClamp(const Editor& editor, int offset) {
+    return std::max(0, std::min(offset, static_cast<int>(editor.value.size())));
+}
+
+int FieldShownColumn(const Editor& editor, int byteOffset) {
+    if (!editor.secret) {
+        return byteOffset;
+    }
+    int column = 0;
+    for (std::size_t index = 0; index < editor.value.size() && static_cast<int>(index) < byteOffset;) {
+        index += static_cast<std::size_t>(Utf8Span(editor.value, index));
+        ++column;
+    }
+    return column;
+}
+
+int FieldOffsetAt(const Editor& editor, int docX, int docY) {
+    if (editor.value.empty() || editor.op < 0 || editor.op >= static_cast<int>(gScene.ops.size())) {
+        return 0;
+    }
+    PaintOp placed = gScene.ops[static_cast<std::size_t>(editor.op)];
+    for (const ScrollRegion& region : gRegions) {
+        if (editor.op < region.opBegin || editor.op >= region.opEnd) {
+            continue;
+        }
+        placed.x -= region.scrollX;
+        placed.y -= region.scrollY;
+    }
+    const std::string shown = EditorShown(editor);
+    std::vector<TextLine> lines;
+    TextFlow flow;
+    flow.mode = placed.wrap;
+    flow.whiteSpace = placed.whiteSpace;
+    flow.breakLong = placed.breakLong;
+    const int wrapWidth = placed.wrapWidth > 0 ? placed.wrapWidth : placed.width;
+    TextLines(shown, wrapWidth, placed.size, placed.face, flow, lines);
+    if (lines.empty()) {
+        return 0;
+    }
+    const int count = static_cast<int>(lines.size());
+    const int step = std::max(1, placed.height / count);
+    int best = 0;
+    for (int lineIndex = 0; lineIndex < count; ++lineIndex) {
+        const int top = placed.y + lineIndex * step;
+        const int bottom = lineIndex + 1 == count ? placed.y + placed.height : top + step;
+        if (docY >= top && docY < bottom) {
+            best = lineIndex;
+            break;
+        }
+        if (docY >= bottom) {
+            best = lineIndex;
+        }
+    }
+    const TextLine& line = lines[static_cast<std::size_t>(best)];
+    int byte = line.origin;
+    int column = FieldShownColumn(editor, byte);
+    int cursor = placed.x;
+    while (byte < line.origin + static_cast<int>(line.text.size()) && byte < static_cast<int>(editor.value.size())) {
+        const int span = editor.secret ? 1 : Utf8Span(editor.value, static_cast<std::size_t>(byte));
+        const int nextColumn = column + (editor.secret ? 1 : span);
+        const int next = cursor + MeasureText(shown.substr(static_cast<std::size_t>(column), static_cast<std::size_t>(nextColumn - column)), placed.size, placed.face);
+        if (docX < cursor + (next - cursor) / 2) {
+            break;
+        }
+        cursor = next;
+        column = nextColumn;
+        byte += editor.secret ? Utf8Span(editor.value, static_cast<std::size_t>(byte)) : span;
+    }
+    return FieldClamp(editor, byte);
+}
+
+int FieldAtPoint(int docX, int docY) {
+    for (int index = static_cast<int>(gEditors.size()) - 1; index >= 0; --index) {
+        const Editor& editor = gEditors[static_cast<std::size_t>(index)];
+        int x = 0;
+        int y = 0;
+        FieldVisual(editor, x, y);
+        if (docX >= x && docY >= y && docX < x + editor.fieldW && docY < y + editor.fieldH) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+void FieldFocusAt(int index, int docX, int docY) {
+    if (index < 0 || index >= static_cast<int>(gEditors.size())) {
+        return;
+    }
+    for (Editor& editor : gEditors) {
+        editor.focused = false;
+    }
+    Editor& editor = gEditors[static_cast<std::size_t>(index)];
+    editor.focused = true;
+    const int offset = FieldOffsetAt(editor, docX, docY);
+    editor.selA = offset;
+    editor.selB = offset;
+    editor.caret = offset;
+    FieldSync(editor);
+}
+
+void FieldDragAt(int docX, int docY) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        editor.caret = FieldOffsetAt(editor, docX, docY);
+        editor.selB = editor.caret;
+        FieldSync(editor);
+        return;
+    }
+}
+
+void FieldBlurAll() {
+    for (Editor& editor : gEditors) {
+        editor.focused = false;
+    }
+}
+
+bool FieldIsActive() {
+    for (const Editor& editor : gEditors) {
+        if (editor.focused && !editor.disabled) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool FieldInsert(const std::string& text) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        std::string incoming = text;
+        if (!editor.multiline) {
+            std::string flat;
+            for (char ch : incoming) {
+                if (ch != '\n' && ch != '\r') {
+                    flat.push_back(ch);
+                }
+            }
+            if (flat.empty()) {
+                return false;
+            }
+            incoming = flat;
+        }
+        int from = std::min(editor.selA, editor.selB);
+        int to = std::max(editor.selA, editor.selB);
+        from = FieldClamp(editor, from);
+        to = FieldClamp(editor, to);
+        if (from != to) {
+            editor.value.erase(static_cast<std::size_t>(from), static_cast<std::size_t>(to - from));
+            editor.caret = from;
+        }
+        editor.value.insert(static_cast<std::size_t>(FieldClamp(editor, editor.caret)), incoming);
+        editor.caret = FieldClamp(editor, editor.caret) + static_cast<int>(incoming.size());
+        editor.selA = editor.caret;
+        editor.selB = editor.caret;
+        FieldSync(editor);
+        return true;
+    }
+    return false;
+}
+
+bool FieldRemove(bool forward) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        int from = FieldClamp(editor, std::min(editor.selA, editor.selB));
+        int to = FieldClamp(editor, std::max(editor.selA, editor.selB));
+        if (from != to) {
+            editor.value.erase(static_cast<std::size_t>(from), static_cast<std::size_t>(to - from));
+            editor.caret = from;
+        } else if (forward) {
+            if (editor.caret >= static_cast<int>(editor.value.size())) {
+                return false;
+            }
+            const int span = Utf8Span(editor.value, static_cast<std::size_t>(editor.caret));
+            editor.value.erase(static_cast<std::size_t>(editor.caret), static_cast<std::size_t>(span));
+        } else {
+            if (editor.caret <= 0) {
+                return false;
+            }
+            int previous = editor.caret - 1;
+            while (previous > 0 && (static_cast<unsigned char>(editor.value[static_cast<std::size_t>(previous)]) & 0xC0u) == 0x80u) {
+                --previous;
+            }
+            editor.value.erase(static_cast<std::size_t>(previous), static_cast<std::size_t>(editor.caret - previous));
+            editor.caret = previous;
+        }
+        editor.selA = editor.caret;
+        editor.selB = editor.caret;
+        FieldSync(editor);
+        return true;
+    }
+    return false;
+}
+
+bool FieldStep(int delta, bool extend) {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        int next = editor.caret;
+        if (delta < 0) {
+            if (next > 0) {
+                --next;
+                while (next > 0 && (static_cast<unsigned char>(editor.value[static_cast<std::size_t>(next)]) & 0xC0u) == 0x80u) {
+                    --next;
+                }
+            }
+        } else if (next < static_cast<int>(editor.value.size())) {
+            next += Utf8Span(editor.value, static_cast<std::size_t>(next));
+        }
+        if (!extend) {
+            editor.selA = next;
+        }
+        editor.selB = next;
+        editor.caret = next;
+        FieldSync(editor);
+        return true;
+    }
+    return false;
+}
+
+void FieldSelectAll() {
+    for (Editor& editor : gEditors) {
+        if (!editor.focused || editor.disabled) {
+            continue;
+        }
+        editor.selA = 0;
+        editor.selB = static_cast<int>(editor.value.size());
+        editor.caret = editor.selB;
+        FieldSync(editor);
+        return;
+    }
+}
+
+std::string FieldSelectedText() {
+    for (const Editor& editor : gEditors) {
+        if (!editor.focused) {
+            continue;
+        }
+        const int from = FieldClamp(editor, std::min(editor.selA, editor.selB));
+        const int to = FieldClamp(editor, std::max(editor.selA, editor.selB));
+        if (from == to) {
+            return {};
+        }
+        return editor.value.substr(static_cast<std::size_t>(from), static_cast<std::size_t>(to - from));
+    }
+    return {};
+}
+
 }  // namespace
+
+int WindowsDocumentFieldAt(int docX, int docY) { return FieldAtPoint(docX, docY); }
+void WindowsDocumentFieldFocus(int index, int docX, int docY) { FieldFocusAt(index, docX, docY); }
+void WindowsDocumentFieldDrag(int docX, int docY) { FieldDragAt(docX, docY); }
+void WindowsDocumentFieldBlur() { FieldBlurAll(); }
+bool WindowsDocumentFieldActive() { return FieldIsActive(); }
+bool WindowsDocumentFieldType(const std::string& text) { return FieldInsert(text); }
+bool WindowsDocumentFieldDelete(bool forward) { return FieldRemove(forward); }
+bool WindowsDocumentFieldMoveCaret(int delta, bool extend) { return FieldStep(delta, extend); }
+void WindowsDocumentFieldSelectAll() { FieldSelectAll(); }
+std::string WindowsDocumentFieldSelection() { return FieldSelectedText(); }
 
 bool WindowsDocumentTextAt(int docX, int docY) {
     int run = -1;

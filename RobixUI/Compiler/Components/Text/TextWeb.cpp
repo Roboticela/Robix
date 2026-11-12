@@ -173,8 +173,12 @@ std::string RoboWebBuiltinTag(const RoboXMLNode& node, const std::string& paint)
   if (paint == "label") return "label";
   if (paint == "button" || paint == "iconbutton") return "button";
   if (paint == "anchor") return "a";
-  if (paint == "textfield" || paint == "emailfield" || paint == "phonefield" || paint == "passwordfield" ||
+  if (paint == "input" || paint == "textfield" || paint == "emailfield" || paint == "phonefield" || paint == "passwordfield" ||
       paint == "namefield") {
+    const std::string multiline = RoboWebLower(RoboXMLAttr(node, "multiline"));
+    if (multiline == "true" || multiline == "yes" || multiline == "on" || multiline == "1") {
+      return "textarea";
+    }
     return "input";
   }
   if (paint == "textarea") return "textarea";

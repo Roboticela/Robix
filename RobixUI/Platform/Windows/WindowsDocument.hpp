@@ -97,6 +97,18 @@ int WindowsDocumentScrollHit(int docX, int docY);
 int WindowsDocumentScrollDrag(int docX);
 void WindowsDocumentScrollEnd();
 
+/* Index of the Input under a document point, or -1. */
+int WindowsDocumentFieldAt(int docX, int docY);
+void WindowsDocumentFieldFocus(int index, int docX, int docY);
+void WindowsDocumentFieldDrag(int docX, int docY);
+void WindowsDocumentFieldBlur();
+bool WindowsDocumentFieldActive();
+bool WindowsDocumentFieldType(const std::string& text);
+bool WindowsDocumentFieldDelete(bool forward);
+bool WindowsDocumentFieldMoveCaret(int delta, bool extend);
+void WindowsDocumentFieldSelectAll();
+std::string WindowsDocumentFieldSelection();
+
 /* 1 when a document point is on selectable text. Buttons and other controls are not. */
 bool WindowsDocumentTextAt(int docX, int docY);
 bool WindowsDocumentTextActive();

@@ -69,6 +69,7 @@ struct HostView {
     int shownScrollX = -1;
     bool regionDrag = false;
     bool textDrag = false;
+    bool fieldDrag = false;
     int textClicks = 0;
     unsigned textClick = 0;
     bool panLive = false;
@@ -1481,7 +1482,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 } else if (barHit == 0 && barHitX == 0 && !onControl && zoomHit == 0) {
                     const int docX = view->scrollX + ToDoc(cursor.x, scale);
                     const int docY = view->scrollY + ToDoc(cursor.y, scale);
-                    if (WindowsDocumentTextAt(docX, docY)) {
+                    if (WindowsDocumentFieldAt(docX, docY) >= 0 || WindowsDocumentTextAt(docX, docY)) {
                         cursorId = IDC_IBEAM;
                     }
                 }
@@ -1566,6 +1567,21 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 if (message == WM_LBUTTONUP && view->regionDrag) {
                     view->regionDrag = false;
                     WindowsDocumentScrollEnd();
+                    if (GetCapture() == window) {
+                        ReleaseCapture();
+                    }
+                    Request(view);
+                    return 0;
+                }
+                if (view->fieldDrag && message == WM_MOUSEMOVE) {
+                    const int docX = view->scrollX + ToDoc(x, pointerScale);
+                    const int docY = view->scrollY + ToDoc(y, pointerScale);
+                    WindowsDocumentFieldDrag(docX, docY);
+                    Request(view);
+                    return 0;
+                }
+                if (message == WM_LBUTTONUP && view->fieldDrag) {
+                    view->fieldDrag = false;
                     if (GetCapture() == window) {
                         ReleaseCapture();
                     }
@@ -1775,12 +1791,35 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) {
                     SetFocus(window);
                     if (hit < 0 && zoomHit == 0 && barHit == 0 && barHitX == 0) {
-                        int clicks = message == WM_LBUTTONDBLCLK ? 2 : 1;
-                        if (clicks == 1 && view->textClicks >= 2 && GetTickCount() - view->textClick < 450) {
-                            clicks = 3;
+                        const int field = WindowsDocumentFieldAt(docX, docY);
+                        if (field >= 0) {
+                            WindowsDocumentFieldFocus(field, docX, docY);
+                            view->fieldDrag = true;
+                            view->textDrag = false;
+                            if (WindowsDocumentTextActive()) {
+                                WindowsDocumentTextClear();
+                            }
+                            view->pressedControl = -1;
+                            SetCapture(window);
+                            Request(view);
+                            return 0;
+                        }
+                        if (WindowsDocumentFieldActive()) {
+                            WindowsDocumentFieldBlur();
+                        }
+                        const unsigned now = GetTickCount();
+                        const unsigned gap = static_cast<unsigned>(GetDoubleClickTime());
+                        int clicks = 1;
+                        if (message == WM_LBUTTONDBLCLK) {
+                            clicks = 2;
+                        } else if (view->textClicks > 0 && now - view->textClick <= gap) {
+                            clicks = view->textClicks + 1;
+                        }
+                        if (clicks > 3) {
+                            clicks = 1;
                         }
                         view->textClicks = clicks >= 3 ? 0 : clicks;
-                        view->textClick = GetTickCount();
+                        view->textClick = now;
                         if (WindowsDocumentTextBegin(docX, docY, clicks)) {
                             view->textDrag = clicks < 2;
                             view->pressedControl = -1;
@@ -1913,7 +1952,64 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 }
             }
             return 0;
+        case WM_CHAR:
+            if (view != nullptr && view->ready && view->screen && WindowsDocumentFieldActive() && wParam >= 32 && wParam != 127) {
+                wchar_t unit = static_cast<wchar_t>(wParam);
+                char utf8[8] = {};
+                const int bytes = WideCharToMultiByte(CP_UTF8, 0, &unit, 1, utf8, 7, nullptr, nullptr);
+                if (bytes > 0) {
+                    WindowsDocumentFieldType(std::string(utf8, static_cast<std::size_t>(bytes)));
+                    Request(view);
+                }
+                return 0;
+            }
+            return 0;
         case WM_KEYDOWN:
+            if (view != nullptr && view->ready && view->screen && WindowsDocumentFieldActive()) {
+                if (wParam == VK_BACK) {
+                    WindowsDocumentFieldDelete(false);
+                    Request(view);
+                    return 0;
+                }
+                if (wParam == VK_DELETE) {
+                    WindowsDocumentFieldDelete(true);
+                    Request(view);
+                    return 0;
+                }
+                if (wParam == VK_LEFT || wParam == VK_RIGHT) {
+                    const bool extend = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                    WindowsDocumentFieldMoveCaret(wParam == VK_LEFT ? -1 : 1, extend);
+                    Request(view);
+                    return 0;
+                }
+                if (wParam == VK_ESCAPE) {
+                    WindowsDocumentFieldBlur();
+                    Request(view);
+                    return 0;
+                }
+                if ((GetKeyState(VK_CONTROL) & 0x8000) != 0 && wParam == 'A') {
+                    WindowsDocumentFieldSelectAll();
+                    Request(view);
+                    return 0;
+                }
+                if ((GetKeyState(VK_CONTROL) & 0x8000) != 0 && wParam == 'C') {
+                    const std::string selected = WindowsDocumentFieldSelection();
+                    if (!selected.empty() && OpenClipboard(window)) {
+                        EmptyClipboard();
+                        const int chars = MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), nullptr, 0);
+                        HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, static_cast<SIZE_T>(chars + 1) * sizeof(wchar_t));
+                        if (memory != nullptr) {
+                            auto* wide = static_cast<wchar_t*>(GlobalLock(memory));
+                            MultiByteToWideChar(CP_UTF8, 0, selected.data(), static_cast<int>(selected.size()), wide, chars);
+                            wide[chars] = L'\0';
+                            GlobalUnlock(memory);
+                            SetClipboardData(CF_UNICODETEXT, memory);
+                        }
+                        CloseClipboard();
+                    }
+                    return 0;
+                }
+            }
             if (view != nullptr && view->zoomMenu && wParam == VK_ESCAPE) {
                 view->zoomMenu = false;
                 Request(view);
@@ -2338,6 +2434,7 @@ int RunWindowsFoundation(const WindowRunOptions& options) {
 
     HINSTANCE instance = GetModuleHandleW(nullptr);
     WNDCLASSW windowClass{};
+    windowClass.style = CS_DBLCLKS;
     windowClass.lpfnWndProc = Procedure;
     windowClass.hInstance = instance;
     windowClass.lpszClassName = L"RobixUIFoundation";
