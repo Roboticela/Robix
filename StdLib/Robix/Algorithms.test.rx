@@ -1,0 +1,347 @@
+package Robix.Algorithms.Tests;
+
+import Algorithms;
+
+Test "array builtins" {
+    Array<Int> empty = Array.Filled(0, 0);
+    Assert.Equal(empty.IsEmpty(), true);
+    Assert.Equal(empty.Sum(), 0);
+    Assert.Equal(empty.Product(), 1);
+    Assert.Equal(empty.Min(), 0);
+    Assert.Equal(empty.Max(), 0);
+    Assert.Equal(empty.IndexOf(1), -1);
+    Assert.Equal(empty.LastIndexOf(1), -1);
+    Assert.Equal(empty.CountOf(1), 0);
+    Assert.Equal(empty.Contains(1), false);
+    Assert.Equal(empty.IsSorted(), true);
+    Assert.Equal(empty.BinarySearch(1), -1);
+    Assert.Equal(empty.Reversed(), []);
+    Assert.Equal(empty.Sorted(), []);
+    Assert.Equal(empty.Unique(), []);
+    Assert.Equal(empty.Copy(), []);
+    Assert.Equal(empty.Concat(empty), []);
+    Assert.Equal(Array.Filled(0, 4), []);
+    Assert.Equal(Array.Range(3, 3), []);
+    Assert.Equal(Array.Range(4, 1), []);
+    Assert.Equal(Array.Range(1, 4), [1, 2, 3]);
+    Assert.Equal(Array.Filled(3, 7), [7, 7, 7]);
+
+    Array<Int> values = [3, 1, 2, 1, 4];
+    Assert.Equal(values.Length(), 5);
+    Assert.Equal(values.Sum(), 11);
+    Assert.Equal(values.Product(), 24);
+    Assert.Equal(values.Min(), 1);
+    Assert.Equal(values.Max(), 4);
+    Assert.Equal(values.IndexOf(1), 1);
+    Assert.Equal(values.LastIndexOf(1), 3);
+    Assert.Equal(values.CountOf(1), 2);
+    Assert.Equal(values.Contains(4), true);
+    Assert.Equal(values.Contains(9), false);
+    Assert.Equal(values.IsSorted(), false);
+    Assert.Equal(values.Unique(), [3, 1, 2, 4]);
+    Assert.Equal(values.Concat([8]), [3, 1, 2, 1, 4, 8]);
+    Assert.Equal(values.Reversed(), [4, 1, 2, 1, 3]);
+    Assert.Equal(values.Sorted(), [1, 1, 2, 3, 4]);
+    Assert.Equal(values.Rotated(1), [1, 2, 1, 4, 3]);
+    Assert.Equal(values.Rotated(0 - 1), [4, 3, 1, 2, 1]);
+    Assert.Equal(values, [3, 1, 2, 1, 4]);
+
+    values.Swap(0, 1);
+    Assert.Equal(values, [1, 3, 2, 1, 4]);
+    values.Swap(0, 0);
+    Assert.Equal(values, [1, 3, 2, 1, 4]);
+    values.Reverse();
+    Assert.Equal(values, [4, 1, 2, 3, 1]);
+    values.Sort();
+    Assert.Equal(values, [1, 1, 2, 3, 4]);
+    Assert.Equal(values.IsSorted(), true);
+    Assert.Equal(values.BinarySearch(1), 0);
+    Assert.Equal(values.BinarySearch(3), 3);
+    Assert.Equal(values.BinarySearch(9), -1);
+    values.Rotate(2);
+    Assert.Equal(values, [2, 3, 4, 1, 1]);
+    values.Fill(6);
+    Assert.Equal(values, [6, 6, 6, 6, 6]);
+
+    Array<Int> one = [8];
+    one.Reverse();
+    one.Sort();
+    one.Rotate(3);
+    Assert.Equal(one, [8]);
+    Assert.Equal(one.IsEmpty(), false);
+
+    Array<Int> deck = [5, 1, 4, 2, 3];
+    deck.Shuffle(7);
+    Assert.Equal(deck.Sorted(), [1, 2, 3, 4, 5]);
+    Assert.Equal(deck.Sum(), 15);
+}
+
+Test "swap and selection sort" {
+    Array<Int> values = [64, 25, 22, 12, 11];
+    Swap(values, 0, 4);
+    Assert.Equal(values, [11, 25, 22, 12, 64]);
+    Swap(values, 0, 4);
+    SelectionSort(values);
+    Assert.Equal(values, [11, 12, 22, 25, 64]);
+    Array<Int> empty = Array.Filled(0, 0);
+    SelectionSort(empty);
+    Assert.Equal(empty, []);
+    Array<Int> negatives = [0 - 1, 0 - 5, 3, 0];
+    SelectionSort(negatives);
+    Assert.Equal(negatives, [0 - 5, 0 - 1, 0, 3]);
+}
+
+Test "insertion bubble cocktail gnome comb shell" {
+    Array<Int> a = [4, 2, 2, 0 - 1];
+    InsertionSort(a);
+    Assert.Equal(a, [0 - 1, 2, 2, 4]);
+    Array<Int> b = [4, 2, 2, 0 - 1];
+    BubbleSort(b);
+    Assert.Equal(b, [0 - 1, 2, 2, 4]);
+    Array<Int> c = [4, 2, 2, 0 - 1];
+    CocktailSort(c);
+    Assert.Equal(c, [0 - 1, 2, 2, 4]);
+    Array<Int> d = [4, 2, 2, 0 - 1];
+    GnomeSort(d);
+    Assert.Equal(d, [0 - 1, 2, 2, 4]);
+    Array<Int> e = [4, 2, 2, 0 - 1];
+    CombSort(e);
+    Assert.Equal(e, [0 - 1, 2, 2, 4]);
+    Array<Int> f = [4, 2, 2, 0 - 1];
+    ShellSort(f);
+    Assert.Equal(f, [0 - 1, 2, 2, 4]);
+    Array<Int> empty = Array.Filled(0, 0);
+    InsertionSort(empty);
+    BubbleSort(empty);
+    CocktailSort(empty);
+    GnomeSort(empty);
+    CombSort(empty);
+    ShellSort(empty);
+    Assert.Equal(empty, []);
+}
+
+Test "heap quick merge counting radix cycle odd even" {
+    Array<Int> a = [9, 1, 8, 1, 0 - 2];
+    HeapSort(a);
+    Assert.Equal(a, [0 - 2, 1, 1, 8, 9]);
+    Array<Int> b = [9, 1, 8, 1, 0 - 2];
+    QuickSort(b);
+    Assert.Equal(b, [0 - 2, 1, 1, 8, 9]);
+    Array<Int> c = [9, 1, 8, 1, 0 - 2];
+    MergeSort(c);
+    Assert.Equal(c, [0 - 2, 1, 1, 8, 9]);
+    Array<Int> d = [9, 1, 8, 1, 0 - 2];
+    CountingSort(d);
+    Assert.Equal(d, [0 - 2, 1, 1, 8, 9]);
+    Array<Int> e = [9, 1, 8, 1, 0 - 2];
+    RadixSort(e);
+    Assert.Equal(e, [0 - 2, 1, 1, 8, 9]);
+    Array<Int> f = [170, 45, 75, 90, 802, 24, 2, 66];
+    RadixSort(f);
+    Assert.Equal(f, [2, 24, 45, 66, 75, 90, 170, 802]);
+    Array<Int> g = [9, 1, 8, 1, 0 - 2];
+    CycleSort(g);
+    Assert.Equal(g, [0 - 2, 1, 1, 8, 9]);
+    Array<Int> h = [9, 1, 8, 1, 0 - 2];
+    OddEvenSort(h);
+    Assert.Equal(h, [0 - 2, 1, 1, 8, 9]);
+    Array<Int> one = [5];
+    HeapSort(one);
+    QuickSort(one);
+    MergeSort(one);
+    CountingSort(one);
+    RadixSort(one);
+    CycleSort(one);
+    OddEvenSort(one);
+    Assert.Equal(one, [5]);
+}
+
+Test "searches" {
+    Array<Int> values = [1, 3, 5, 7, 9, 11];
+    Assert.Equal(LinearSearch(values, 7), 3);
+    Assert.Equal(LinearSearch(values, 4), -1);
+    Array<Int> none = Array.Filled(0, 0);
+    Assert.Equal(LinearSearch(none, 1), -1);
+    Assert.Equal(BinarySearchValue(values, 1), 0);
+    Assert.Equal(BinarySearchValue(values, 11), 5);
+    Assert.Equal(BinarySearchValue(values, 4), -1);
+    Assert.Equal(BinarySearchValue(none, 1), -1);
+    Assert.Equal(JumpSearch(values, 9), 4);
+    Assert.Equal(JumpSearch(values, 2), -1);
+    Assert.Equal(JumpSearch(none, 1), -1);
+    Assert.Equal(InterpolationSearch(values, 5), 2);
+    Assert.Equal(InterpolationSearch(values, 8), -1);
+    Assert.Equal(InterpolationSearch(none, 1), -1);
+    Assert.Equal(ExponentialSearch(values, 11), 5);
+    Assert.Equal(ExponentialSearch(values, 0), -1);
+    Assert.Equal(ExponentialSearch(none, 1), -1);
+    Assert.Equal(TernarySearch(values, 3), 1);
+    Assert.Equal(TernarySearch(values, 6), -1);
+    Assert.Equal(TernarySearch(none, 1), -1);
+    Assert.Equal(FibonacciSearch(values, 1), 0);
+    Assert.Equal(FibonacciSearch(values, 11), 5);
+    Assert.Equal(FibonacciSearch(values, 8), -1);
+    Assert.Equal(FibonacciSearch(none, 1), -1);
+    Array<Int> single = [4];
+    Assert.Equal(JumpSearch(single, 4), 0);
+    Assert.Equal(FibonacciSearch(single, 4), 0);
+    Assert.Equal(FibonacciSearch(single, 5), -1);
+}
+
+Test "numeric algorithms" {
+    Assert.Equal(Euclid(42, 28), 14);
+    Assert.Equal(Euclid(0 - 15, 25), 5);
+    Assert.Equal(Euclid(0, 0), 0);
+    Assert.Equal(Lcm(4, 6), 12);
+    Assert.Equal(Lcm(0, 5), 0);
+    Assert.Equal(Lcm(0 - 4, 6), 12);
+    Array<Int> bezout = ExtendedGcd(30, 20);
+    Assert.Equal(bezout[0], 10);
+    Assert.Equal(30 * bezout[1] + 20 * bezout[2], 10);
+    Assert.Equal(Fibonacci(0), 0);
+    Assert.Equal(Fibonacci(1), 1);
+    Assert.Equal(Fibonacci(10), 55);
+    Assert.Equal(Factorial(0), 1);
+    Assert.Equal(Factorial(5), 120);
+    Assert.Equal(Factorial(0 - 3), 0);
+    Assert.Equal(Power(2, 10), 1024);
+    Assert.Equal(Power(2, 0), 1);
+    Assert.Equal(Power(5, 0 - 1), 0);
+    Assert.Equal(ModularPower(2, 10, 1000), 24);
+    Assert.Equal(ModularPower(2, 10, 0), 0);
+    Assert.Equal(IsPrime(1), 0);
+    Assert.Equal(IsPrime(2), 1);
+    Assert.Equal(IsPrime(9), 0);
+    Assert.Equal(IsPrime(97), 1);
+    Assert.Equal(IsPrime(0 - 7), 0);
+    Assert.Equal(PrimesUpTo(1), []);
+    Assert.Equal(PrimesUpTo(10), [2, 3, 5, 7]);
+    Assert.Equal(PrimeCount(10), 4);
+    Assert.Equal(PrimeCount(1), 0);
+    Assert.Equal(EulerTotient(1), 1);
+    Assert.Equal(EulerTotient(9), 6);
+    Assert.Equal(EulerTotient(10), 4);
+    Assert.Equal(EulerTotient(0), 0);
+    Assert.Equal(CollatzLength(1), 0);
+    Assert.Equal(CollatzLength(6), 8);
+    Assert.Equal(IntegerSqrt(0), 0);
+    Assert.Equal(IntegerSqrt(49), 7);
+    Assert.Equal(IntegerSqrt(50), 7);
+    Assert.Equal(PascalValue(5, 0), 1);
+    Assert.Equal(PascalValue(5, 2), 10);
+    Assert.Equal(PascalValue(5, 5), 1);
+    Assert.Equal(PascalValue(5, 6), 0);
+    Assert.Equal(Kadane([0 - 2, 1, 0 - 3, 4, 0 - 1, 2, 1, 0 - 5, 4]), 6);
+    Assert.Equal(Kadane(Array.Filled(0, 0)), 0);
+    Assert.Equal(Kadane([0 - 3, 0 - 1]), 0 - 1);
+}
+
+Test "dynamic programming" {
+    Assert.Equal(ClimbStairs(0), 0);
+    Assert.Equal(ClimbStairs(1), 1);
+    Assert.Equal(ClimbStairs(2), 2);
+    Assert.Equal(ClimbStairs(5), 8);
+    Assert.Equal(HouseRobber(Array.Filled(0, 0)), 0);
+    Assert.Equal(HouseRobber([4]), 4);
+    Assert.Equal(HouseRobber([2, 7, 9, 3, 1]), 12);
+    Assert.Equal(CoinChange([1, 2, 5], 11), 3);
+    Assert.Equal(CoinChange([2], 3), -1);
+    Assert.Equal(CoinChange([1], 0), 0);
+    Assert.Equal(Knapsack([1, 3, 4], [15, 20, 30], 4), 35);
+    Assert.Equal(Knapsack([1], [5], 0), 0);
+    Array<Int> none = Array.Filled(0, 0);
+    Assert.Equal(LisLength(none), 0);
+    Assert.Equal(LisLength([10, 9, 2, 5, 3, 7, 101, 18]), 4);
+    Assert.Equal(LcsLength([1, 2, 3, 4], [1, 3, 4, 2]), 3);
+    Assert.Equal(LcsLength(none, [1]), 0);
+    Assert.Equal(EditDistance([1, 2, 3], [1, 4, 3]), 1);
+    Assert.Equal(EditDistance(none, [1, 2]), 2);
+    Assert.Equal(EditDistance([1], [1]), 0);
+    Assert.Equal(UniquePaths(1, 1), 1);
+    Assert.Equal(UniquePaths(3, 7), 28);
+    Assert.Equal(UniquePaths(0, 4), 0);
+}
+
+Test "graphs union find and matrices" {
+    Array<Int> parent = Array.Range(0, 4);
+    Assert.Equal(FindRoot(parent, 2), 2);
+    Assert.Equal(Unite(parent, 0, 1), 1);
+    Assert.Equal(Unite(parent, 0, 1), 0);
+    Assert.Equal(FindRoot(parent, 1), FindRoot(parent, 0));
+
+    Array<Int> maze = [
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+        0, 0, 0, 0
+    ];
+    Assert.Equal(BfsSteps(maze, 4, 0, 3), 3);
+    Assert.Equal(BfsSteps(maze, 4, 0, 0), 0);
+    Assert.Equal(BfsSteps(maze, 4, 3, 0), -1);
+    Assert.Equal(DfsReach(maze, 4, 0, 3), 1);
+    Assert.Equal(DfsReach(maze, 4, 3, 0), 0);
+
+    Array<Int> roads = [
+        0, 1, 10, 0,
+        1, 0, 2, 0,
+        10, 2, 0, 1,
+        0, 0, 1, 0
+    ];
+    Assert.Equal(DijkstraCost(roads, 4, 0, 3), 4);
+    Assert.Equal(DijkstraCost(roads, 4, 3, 0), 4);
+    Assert.Equal(PrimCost(roads, 4), 4);
+    Array<Int> split = [0, 1, 0, 0, 0, 0, 0, 0, 0];
+    Assert.Equal(DijkstraCost(split, 3, 0, 2), -1);
+    Assert.Equal(BfsSteps(split, 3, 0, 2), -1);
+
+    Array<Int> undirected = [
+        0, 1, 4, 0,
+        1, 0, 2, 6,
+        4, 2, 0, 3,
+        0, 6, 3, 0
+    ];
+    Assert.Equal(PrimCost(undirected, 4), 6);
+    Array<Int> from = [0, 1, 2, 0];
+    Array<Int> to = [1, 2, 3, 2];
+    Array<Int> weight = [1, 2, 1, 10];
+    Assert.Equal(BellmanFord(from, to, weight, 4, 0, 3), 4);
+    Assert.Equal(KruskalCost(from, to, weight, 4), 4);
+    Array<Int> cycleFrom = [0, 1];
+    Array<Int> cycleTo = [1, 0];
+    Array<Int> cycleWeight = [1, 0 - 2];
+    Assert.Equal(BellmanFord(cycleFrom, cycleTo, cycleWeight, 2, 0, 1), -1);
+
+    Array<Int> order = TopologicalOrder(from, to, 4);
+    Assert.Equal(order.Length(), 4);
+    Assert.Equal(LinearSearch(order, 0) < LinearSearch(order, 1), true);
+    Assert.Equal(LinearSearch(order, 1) < LinearSearch(order, 2), true);
+    Assert.Equal(LinearSearch(order, 2) < LinearSearch(order, 3), true);
+    Assert.Equal(TopologicalOrder(cycleFrom, cycleTo, 2), []);
+
+    Array<Int> floyd = FloydWarshall(roads, 4);
+    Assert.Equal(floyd[3], 4);
+    Array<Int> product = MatrixMultiply([1, 2, 3, 4], [5, 6, 7, 8], 2);
+    Assert.Equal(product, [19, 22, 43, 50]);
+}
+
+Test "pattern dutch flag and permutations" {
+    Array<Int> text = [1, 2, 1, 2, 3, 1, 2, 3];
+    Array<Int> pattern = [1, 2, 3];
+    Array<Int> none = Array.Filled(0, 0);
+    Assert.Equal(KmpSearch(text, pattern), 2);
+    Assert.Equal(KmpSearch(text, [9]), -1);
+    Assert.Equal(KmpSearch(text, none), 0);
+    Assert.Equal(KmpSearch(none, [1]), -1);
+    Assert.Equal(RabinKarp(text, pattern), 2);
+    Assert.Equal(RabinKarp(text, [9]), -1);
+    Assert.Equal(RabinKarp(none, none), 0);
+    Array<Int> flag = [2, 0, 2, 1, 1, 0];
+    DutchFlag(flag);
+    Assert.Equal(flag, [0, 0, 1, 1, 2, 2]);
+    Array<Int> perm = [1, 2, 3];
+    Assert.Equal(NextPermutation(perm), 1);
+    Assert.Equal(perm, [1, 3, 2]);
+    Array<Int> last = [3, 2, 1];
+    Assert.Equal(NextPermutation(last), 0);
+    Assert.Equal(last, [1, 2, 3]);
+}

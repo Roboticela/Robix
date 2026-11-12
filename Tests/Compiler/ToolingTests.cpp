@@ -1,5 +1,6 @@
 #include "../../Tools/CLI/ExamplesAndDocumentationCatalog.hpp"
 #include "../../Tools/CLI/RobixCLIAndTestGenerator.hpp"
+#include "../../Tools/CLI/RoboConsole.hpp"
 #include "../../Tools/Debugger/LSPDebuggerProfilerAndBenchmarks.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 #include "../../StdLib/Data/JSONAndDataFormats.hpp"
@@ -326,6 +327,41 @@ void TestBenchmarksExamplesAndDocumentationSuite() {
           "OfficialDocumentationCatalog provides all 30 official guides including RobixBuild (#29) and Robix Network (#30)");
 }
 
+void TestRoboConsoleTimingAndColor() {
+    std::cout << "\n--- 5. RoboConsole execution time and color ---\n";
+    using Robix::Tools::RoboFormatDuration;
+    using Robix::Tools::RoboPaint;
+    using Robix::Tools::RoboSetColorEnabled;
+    using Robix::Tools::RoboShowExecutionTime;
+    using Robix::Tools::RoboTone;
+
+    Check(RoboFormatDuration(0) == "0 ns", "zero duration is 0 ns");
+    Check(RoboFormatDuration(500) == "500 ns", "sub-microsecond duration stays in ns");
+    Check(RoboFormatDuration(1500) == "1.5 us", "microseconds drop trailing zeros");
+    Check(RoboFormatDuration(842000) == "842 us", "hundreds of microseconds stay whole");
+    Check(RoboFormatDuration(1240000) == "1.24 ms", "milliseconds keep two significant decimals");
+    Check(RoboFormatDuration(12400000) == "12.4 ms", "tens of milliseconds keep one decimal");
+    Check(RoboFormatDuration(128000000) == "128 ms", "large milliseconds stay whole");
+    Check(RoboFormatDuration(1500000000LL) == "1.5 s", "seconds drop trailing zeros");
+    Check(RoboFormatDuration(12500000000LL) == "12.5 s", "long seconds keep one decimal");
+    Check(RoboFormatDuration(90000000000LL) == "1m 30s", "durations of a minute or more use minutes");
+    Check(RoboFormatDuration(-5) == "0 ns", "a negative sample is reported as zero");
+
+    Check(RoboShowExecutionTime({}) == true, "execution time is shown by default");
+    Check(RoboShowExecutionTime({ "run", "Main.rx" }) == true, "a normal run still shows time");
+    Check(RoboShowExecutionTime({ "run", "Main.rx", "--no-time" }) == false, "--no-time hides the footer");
+    Check(RoboShowExecutionTime({ "--no-time", "--time" }) == true, "a later --time turns the footer back on");
+    Check(RoboShowExecutionTime({ "--time", "--no-time" }) == false, "a later --no-time wins");
+
+    RoboSetColorEnabled(false);
+    Check(RoboPaint("ran", RoboTone::Time) == "ran", "color off leaves text plain");
+    RoboSetColorEnabled(true);
+    const std::string painted = RoboPaint("ran", RoboTone::Time);
+    Check(painted.find("ran") != std::string::npos && painted.find("\033[0m") != std::string::npos,
+          "color on wraps the timing text and resets");
+    RoboSetColorEnabled(false);
+}
+
 } // namespace
 
 int main() {
@@ -337,6 +373,7 @@ int main() {
     TestFormatterLinterLSPAndDocGen();
     TestDebuggerAndProfilerInfrastructure();
     TestBenchmarksExamplesAndDocumentationSuite();
+    TestRoboConsoleTimingAndColor();
 
     std::cout << "\n================================================================\n";
     std::cout << "Stage 13 Results: " << g_passed << " passed, " << g_failed << " failed.\n";

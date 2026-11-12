@@ -3,6 +3,7 @@
 // Linked into every native executable produced by `robixc`. Print does not allocate.
 // Input and File.ReadText return a malloc'd C string. File.WriteText uses the host disk.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -16,6 +17,58 @@
 #include <windows.h>
 
 namespace {
+
+std::int64_t ArrayCount(const std::int64_t* values) {
+    if (values == nullptr || values[0] < 0) return 0;
+    return values[0];
+}
+
+void ArrayBounds(std::int64_t index, std::int64_t count) {
+    if (index < 0 || index >= count) std::abort();
+}
+
+std::int64_t* AllocIntArray(std::int64_t count, std::int64_t fill) {
+    if (count < 0 || count > 10000000) std::abort();
+    auto* data = static_cast<std::int64_t*>(std::malloc(static_cast<std::size_t>(count + 1) * sizeof(std::int64_t)));
+    if (data == nullptr) std::abort();
+    data[0] = count;
+    for (std::int64_t i = 0; i < count; ++i) data[i + 1] = fill;
+    return data;
+}
+
+std::int64_t* CopyIntArray(const std::int64_t* values) {
+    const std::int64_t count = ArrayCount(values);
+    std::int64_t* copy = AllocIntArray(count, 0);
+    for (std::int64_t i = 0; i < count; ++i) copy[i + 1] = values[i + 1];
+    return copy;
+}
+
+void StableSortInts(std::int64_t* items, std::int64_t count) {
+    std::vector<std::int64_t> aux(static_cast<std::size_t>(count));
+    for (std::int64_t width = 1; width < count; width *= 2) {
+        for (std::int64_t start = 0; start < count; start += width * 2) {
+            const std::int64_t mid = (std::min)(start + width, count);
+            const std::int64_t end = (std::min)(start + width * 2, count);
+            std::int64_t left = start;
+            std::int64_t right = mid;
+            std::int64_t cursor = start;
+            while (left < mid && right < end) {
+                if (items[right] < items[left]) aux[static_cast<std::size_t>(cursor++)] = items[right++];
+                else aux[static_cast<std::size_t>(cursor++)] = items[left++];
+            }
+            while (left < mid) aux[static_cast<std::size_t>(cursor++)] = items[left++];
+            while (right < end) aux[static_cast<std::size_t>(cursor++)] = items[right++];
+            for (std::int64_t i = start; i < end; ++i) items[i] = aux[static_cast<std::size_t>(i)];
+        }
+    }
+}
+
+std::int64_t RotateShift(std::int64_t steps, std::int64_t count) {
+    if (count <= 0) return 0;
+    std::int64_t shift = steps % count;
+    if (shift < 0) shift += count;
+    return shift;
+}
 
 std::FILE* OpenFile(const char* path, const char* mode) {
     std::FILE* file = nullptr;
@@ -232,6 +285,202 @@ char* rx_args_get(std::int64_t index) {
     if (copy == nullptr) return EmptyString();
     std::memcpy(copy, text.data(), text.size() + 1);
     return copy;
+}
+
+void rx_print_array(const std::int64_t* values) {
+    if (values == nullptr) {
+        std::puts("null");
+        return;
+    }
+    const std::int64_t count = ArrayCount(values);
+    std::fputc('[', stdout);
+    for (std::int64_t i = 0; i < count; ++i) {
+        if (i > 0) std::fputs(", ", stdout);
+        std::printf("%lld", static_cast<long long>(values[i + 1]));
+    }
+    std::fputs("]\n", stdout);
+}
+
+void rx_array_swap(std::int64_t* values, std::int64_t left, std::int64_t right) {
+    const std::int64_t count = ArrayCount(values);
+    ArrayBounds(left, count);
+    ArrayBounds(right, count);
+    std::swap(values[left + 1], values[right + 1]);
+}
+
+void rx_array_reverse(std::int64_t* values) {
+    const std::int64_t count = ArrayCount(values);
+    for (std::int64_t i = 0; i < count / 2; ++i) std::swap(values[i + 1], values[count - i]);
+}
+
+void rx_array_sort(std::int64_t* values) {
+    if (values == nullptr) return;
+    StableSortInts(values + 1, ArrayCount(values));
+}
+
+void rx_array_rotate(std::int64_t* values, std::int64_t steps) {
+    const std::int64_t count = ArrayCount(values);
+    const std::int64_t shift = RotateShift(steps, count);
+    if (shift == 0) return;
+    std::vector<std::int64_t> saved(static_cast<std::size_t>(count));
+    for (std::int64_t i = 0; i < count; ++i) saved[static_cast<std::size_t>(i)] = values[i + 1];
+    for (std::int64_t i = 0; i < count; ++i) values[i + 1] = saved[static_cast<std::size_t>((i + shift) % count)];
+}
+
+void rx_array_fill(std::int64_t* values, std::int64_t fill) {
+    const std::int64_t count = ArrayCount(values);
+    for (std::int64_t i = 0; i < count; ++i) values[i + 1] = fill;
+}
+
+void rx_array_shuffle(std::int64_t* values, std::int64_t seed) {
+    const std::int64_t count = ArrayCount(values);
+    std::uint64_t state = static_cast<std::uint64_t>(seed);
+    for (std::int64_t i = count - 1; i > 0; --i) {
+        state = state * 1664525ull + 1013904223ull;
+        const std::int64_t slot = static_cast<std::int64_t>(state % static_cast<std::uint64_t>(i + 1));
+        std::swap(values[i + 1], values[slot + 1]);
+    }
+}
+
+std::int64_t rx_array_sum(const std::int64_t* values) {
+    std::int64_t total = 0;
+    const std::int64_t count = ArrayCount(values);
+    for (std::int64_t i = 0; i < count; ++i) total += values[i + 1];
+    return total;
+}
+
+std::int64_t rx_array_product(const std::int64_t* values) {
+    std::int64_t total = 1;
+    const std::int64_t count = ArrayCount(values);
+    for (std::int64_t i = 0; i < count; ++i) total *= values[i + 1];
+    return total;
+}
+
+std::int64_t rx_array_min(const std::int64_t* values) {
+    const std::int64_t count = ArrayCount(values);
+    if (count == 0) return 0;
+    std::int64_t best = values[1];
+    for (std::int64_t i = 1; i < count; ++i) if (values[i + 1] < best) best = values[i + 1];
+    return best;
+}
+
+std::int64_t rx_array_max(const std::int64_t* values) {
+    const std::int64_t count = ArrayCount(values);
+    if (count == 0) return 0;
+    std::int64_t best = values[1];
+    for (std::int64_t i = 1; i < count; ++i) if (values[i + 1] > best) best = values[i + 1];
+    return best;
+}
+
+std::int64_t rx_array_index_of(const std::int64_t* values, std::int64_t target) {
+    const std::int64_t count = ArrayCount(values);
+    for (std::int64_t i = 0; i < count; ++i) if (values[i + 1] == target) return i;
+    return -1;
+}
+
+std::int64_t rx_array_last_index_of(const std::int64_t* values, std::int64_t target) {
+    const std::int64_t count = ArrayCount(values);
+    for (std::int64_t i = count - 1; i >= 0; --i) if (values[i + 1] == target) return i;
+    return -1;
+}
+
+std::int64_t rx_array_count_of(const std::int64_t* values, std::int64_t target) {
+    std::int64_t count = 0;
+    const std::int64_t length = ArrayCount(values);
+    for (std::int64_t i = 0; i < length; ++i) if (values[i + 1] == target) ++count;
+    return count;
+}
+
+std::int64_t rx_array_contains(const std::int64_t* values, std::int64_t target) {
+    return rx_array_index_of(values, target) >= 0 ? 1 : 0;
+}
+
+std::int64_t rx_array_is_sorted(const std::int64_t* values) {
+    const std::int64_t count = ArrayCount(values);
+    for (std::int64_t i = 1; i < count; ++i) if (values[i + 1] < values[i]) return 0;
+    return 1;
+}
+
+std::int64_t rx_array_is_empty(const std::int64_t* values) {
+    return ArrayCount(values) == 0 ? 1 : 0;
+}
+
+std::int64_t rx_array_binary_search(const std::int64_t* values, std::int64_t target) {
+    std::int64_t low = 0;
+    std::int64_t high = ArrayCount(values) - 1;
+    std::int64_t found = -1;
+    while (low <= high) {
+        const std::int64_t mid = low + (high - low) / 2;
+        const std::int64_t value = values[mid + 1];
+        if (value == target) {
+            found = mid;
+            high = mid - 1;
+        } else if (value < target) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return found;
+}
+
+std::int64_t* rx_array_copy(const std::int64_t* values) { return CopyIntArray(values); }
+
+std::int64_t* rx_array_reversed(const std::int64_t* values) {
+    std::int64_t* copy = CopyIntArray(values);
+    rx_array_reverse(copy);
+    return copy;
+}
+
+std::int64_t* rx_array_sorted(const std::int64_t* values) {
+    std::int64_t* copy = CopyIntArray(values);
+    rx_array_sort(copy);
+    return copy;
+}
+
+std::int64_t* rx_array_rotated(const std::int64_t* values, std::int64_t steps) {
+    std::int64_t* copy = CopyIntArray(values);
+    rx_array_rotate(copy, steps);
+    return copy;
+}
+
+std::int64_t* rx_array_unique(const std::int64_t* values) {
+    const std::int64_t count = ArrayCount(values);
+    std::vector<std::int64_t> kept;
+    for (std::int64_t i = 0; i < count; ++i) {
+        bool seen = false;
+        for (std::int64_t item : kept) {
+            if (item == values[i + 1]) {
+                seen = true;
+                break;
+            }
+        }
+        if (!seen) kept.push_back(values[i + 1]);
+    }
+    std::int64_t* out = AllocIntArray(static_cast<std::int64_t>(kept.size()), 0);
+    for (std::size_t i = 0; i < kept.size(); ++i) out[i + 1] = kept[i];
+    return out;
+}
+
+std::int64_t* rx_array_concat(const std::int64_t* left, const std::int64_t* right) {
+    const std::int64_t a = ArrayCount(left);
+    const std::int64_t b = ArrayCount(right);
+    std::int64_t* out = AllocIntArray(a + b, 0);
+    for (std::int64_t i = 0; i < a; ++i) out[i + 1] = left[i + 1];
+    for (std::int64_t i = 0; i < b; ++i) out[a + i + 1] = right[i + 1];
+    return out;
+}
+
+std::int64_t* rx_array_filled(std::int64_t count, std::int64_t fill) {
+    return AllocIntArray(count, fill);
+}
+
+std::int64_t* rx_array_range(std::int64_t start, std::int64_t end) {
+    if (end < start) return AllocIntArray(0, 0);
+    if (end - start > 10000000) std::abort();
+    std::int64_t* out = AllocIntArray(end - start, 0);
+    for (std::int64_t i = start; i < end; ++i) out[(i - start) + 1] = i;
+    return out;
 }
 
 } // extern "C"

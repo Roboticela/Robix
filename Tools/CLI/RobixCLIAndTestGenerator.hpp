@@ -80,6 +80,7 @@ struct CLICommandResult {
     std::string stdoutText;
     std::string stderrText;
     TestScaffoldReport generatedTests;
+    std::int64_t executionNanoseconds = -1;
 };
 
 class RobixCLIDispatcher {

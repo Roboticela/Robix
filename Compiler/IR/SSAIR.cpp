@@ -2577,6 +2577,11 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     pr.opcode     = IROpcode::PrintVal;
                     pr.operandIds = std::move(argIds);
                     pr.location   = expr.location;
+                    if (!expr.arguments.empty() && expr.arguments[0] &&
+                        (expr.arguments[0]->inferredType.baseName == "Array" ||
+                         expr.arguments[0]->inferredType.baseName == "Slice")) {
+                        pr.textImm = "Array";
+                    }
                     Emit(std::move(pr));
                     return IRValue{ 0, MakePrim("Void") };
                 }
@@ -2706,7 +2711,11 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                      receiverExpr.text == "Driver" || receiverExpr.text == "Vendor" ||
                      receiverExpr.text == "GPU" || receiverExpr.text == "Launch" ||
                      receiverExpr.text == "Auth" || receiverExpr.text == "ACL" ||
-                     receiverExpr.text == "Settings" || receiverExpr.text == "Search")) {
+                     receiverExpr.text == "Settings" || receiverExpr.text == "Search" ||
+                     receiverExpr.text == "Array")) {
+                    if (receiverExpr.text == "Array") {
+                        m_currentFn->usesHeapOrGC = true;
+                    }
                     Frontend::TypeNode ty = exprType;
                     if (receiverExpr.text == "UI" || receiverExpr.text == "Scene") {
                         ty = MakePrim("Void");
@@ -2864,6 +2873,34 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                         Emit(std::move(len));
                         return out;
                     }
+                }
+
+                const bool arrayMethod =
+                    (recvClass == "Array" || recvClass == "Slice") &&
+                    (memberName == "Swap" || memberName == "Reverse" || memberName == "Sort" ||
+                     memberName == "Rotate" || memberName == "Fill" || memberName == "Shuffle" ||
+                     memberName == "Sum" || memberName == "Min" || memberName == "Max" ||
+                     memberName == "Product" || memberName == "IndexOf" || memberName == "LastIndexOf" ||
+                     memberName == "CountOf" || memberName == "BinarySearch" || memberName == "Contains" ||
+                     memberName == "IsSorted" || memberName == "IsEmpty" || memberName == "Copy" ||
+                     memberName == "Reversed" || memberName == "Sorted" || memberName == "Rotated" ||
+                     memberName == "Unique" || memberName == "Concat");
+                if (arrayMethod) {
+                    if (memberName == "Copy" || memberName == "Reversed" || memberName == "Sorted" ||
+                        memberName == "Rotated" || memberName == "Unique" || memberName == "Concat") {
+                        m_currentFn->usesHeapOrGC = true;
+                    }
+                    std::vector<std::uint32_t> arrayArgs = { recvVal.ssaId };
+                    arrayArgs.insert(arrayArgs.end(), argIds.begin(), argIds.end());
+                    IRInstruction arrayCall;
+                    arrayCall.opcode     = IROpcode::CallOSIntrinsic;
+                    arrayCall.dest       = IRValue{ m_currentFn->AllocateSSAId(), exprType };
+                    arrayCall.textImm    = "Array." + memberName;
+                    arrayCall.operandIds = std::move(arrayArgs);
+                    arrayCall.location   = expr.location;
+                    IRValue arrayOut     = arrayCall.dest;
+                    Emit(std::move(arrayCall));
+                    return arrayOut;
                 }
 
                 if (memberName == "ToFloat" || memberName == "ToInt" || memberName == "ToString") {

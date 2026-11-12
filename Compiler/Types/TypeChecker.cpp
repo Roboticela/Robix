@@ -947,7 +947,7 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 expr.text == "FS" || expr.text == "PCI" || expr.text == "HID" ||                 expr.text == "Driver" ||
                 expr.text == "Vendor" || expr.text == "GPU" || expr.text == "Launch" ||
                 expr.text == "Auth" || expr.text == "ACL" ||
-                expr.text == "Settings" || expr.text == "Search") {
+                expr.text == "Settings" || expr.text == "Search" || expr.text == "Array") {
                 expr.inferredType = MakePrimitiveType(expr.text);
                 return expr.inferredType;
             }
@@ -1301,6 +1301,14 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 return expr.inferredType;
             }
 
+            if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Array" &&
+                (expr.text == "Filled" || expr.text == "Range")) {
+                TypeNode filled;
+                filled.baseName = "Array";
+                filled.typeArgs.push_back(MakePrimitiveType("Int"));
+                expr.inferredType = filled;
+                return expr.inferredType;
+            }
             if (expr.left && expr.left->kind == ExprKind::Identifier && expr.left->text == "Args") {
                 if (expr.text == "Count") {
                     expr.inferredType = MakePrimitiveType("Int");
@@ -1622,6 +1630,43 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                 }
                 expr.inferredType = enumType;
                 return expr.inferredType;
+            }
+            if (recvType.baseName == "Array" || recvType.baseName == "Slice") {
+                const bool returnsArray =
+                    expr.text == "Copy" || expr.text == "Reversed" || expr.text == "Sorted" ||
+                    expr.text == "Rotated" || expr.text == "Unique" || expr.text == "Concat";
+                const bool returnsBool =
+                    expr.text == "Contains" || expr.text == "IsSorted" || expr.text == "IsEmpty";
+                const bool returnsInt =
+                    expr.text == "Sum" || expr.text == "Min" || expr.text == "Max" || expr.text == "Product" ||
+                    expr.text == "IndexOf" || expr.text == "LastIndexOf" || expr.text == "CountOf" ||
+                    expr.text == "BinarySearch";
+                const bool returnsVoid =
+                    expr.text == "Swap" || expr.text == "Reverse" || expr.text == "Sort" ||
+                    expr.text == "Rotate" || expr.text == "Fill" || expr.text == "Shuffle";
+                if (returnsArray) {
+                    TypeNode arr;
+                    arr.baseName = "Array";
+                    if (!recvType.typeArgs.empty()) {
+                        arr.typeArgs.push_back(recvType.typeArgs[0]);
+                    } else {
+                        arr.typeArgs.push_back(MakePrimitiveType("Any"));
+                    }
+                    expr.inferredType = arr;
+                    return expr.inferredType;
+                }
+                if (returnsBool) {
+                    expr.inferredType = MakePrimitiveType("Bool", recvType.isNullable);
+                    return expr.inferredType;
+                }
+                if (returnsInt) {
+                    expr.inferredType = MakePrimitiveType("Int", recvType.isNullable);
+                    return expr.inferredType;
+                }
+                if (returnsVoid) {
+                    expr.inferredType = MakePrimitiveType("Void");
+                    return expr.inferredType;
+                }
             }
 
             // Lookup member on user-defined class/struct/enum/service, including bases.

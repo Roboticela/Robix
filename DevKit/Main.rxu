@@ -361,6 +361,10 @@
       <Text value="Value and caret" fontSize="12"/>
       <TextField id="harbor-call" value="North berth" width="352" height="44" cursorColor="#0E7AFF"/>
     </View>
+    <View direction="column" gap="6" align="start" width="720">
+      <Text value="Thick caret" fontSize="12"/>
+      <TextField id="harbor-thick" value="Harbor" fontSize="64" width="720" height="96" cursorColor="#F2C14E"/>
+    </View>
     <View direction="column" gap="6" align="start" width="352">
       <Text value="Selection" fontSize="12"/>
       <TextField id="harbor-select" value="Select the lantern" width="352" height="44" cursorColor="#E23B3B" selectionStart="0" selectionEnd="6"/>

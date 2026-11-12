@@ -2384,11 +2384,16 @@ int PlaceField(const RoboXMLNode& node, int x, int y, int width, bool light, std
     label.text = true;
     label.select = 0;
     label.editor = editorIndex;
+    int fontSize = AttrLength(node, "fontsize");
+    if (fontSize <= 0) {
+        fontSize = 14;
+    }
+    fontSize = Px(fontSize);
     label.x = x + pad;
-    label.y = y + (multiline ? pad : std::max(pad, (boxH - Px(14)) / 2));
+    label.y = y + (multiline ? pad : std::max(pad, (boxH - fontSize) / 2));
     label.width = std::max(1, boxW - pad * 2);
     label.height = std::max(1, boxH - (label.y - y) - pad);
-    label.size = Px(14);
+    label.size = fontSize;
     label.face = 0;
     label.wrap = multiline ? 1 : 0;
     label.wrapWidth = label.width;

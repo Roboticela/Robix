@@ -8,6 +8,7 @@
 #include "ProjectScaffold.hpp"
 #include "NetworkRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
+#include "RoboConsole.hpp"
 #include "ExecutionGate.hpp"
 #include "ExamplesAndDocumentationCatalog.hpp"
 #include "../../Interpreter/Bytecode/BytecodeModule.hpp"
@@ -15,6 +16,7 @@
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <windows.h>
 #include <filesystem>
@@ -25,63 +27,107 @@
 
 namespace fs = std::filesystem;
 
+static void PrintColoredHelpLine(const std::string& line, bool optionSection) {
+    using Robix::Tools::RoboPaint;
+    using Robix::Tools::RoboTone;
+    if (line.empty()) {
+        std::cout << "\n";
+        return;
+    }
+    if (line.rfind("Robix CLI", 0) == 0) {
+        std::cout << RoboPaint(line, RoboTone::Title) << "\n";
+        return;
+    }
+    if (line.rfind("Roboticela", 0) == 0) {
+        std::cout << RoboPaint(line, RoboTone::Dim) << "\n";
+        return;
+    }
+    if (line == "USAGE:" || line == "COMMANDS:" || line == "OPTIONS:") {
+        std::cout << RoboPaint(line, RoboTone::Heading) << "\n";
+        return;
+    }
+    if (line.rfind("    ", 0) == 0 && line.size() > 4 && line[4] != ' ') {
+        const std::size_t detail = line.find("  ");
+        const RoboTone tone = optionSection ? RoboTone::Option : RoboTone::Command;
+        if (detail == std::string::npos) {
+            std::cout << "    " << RoboPaint(line.substr(4), tone) << "\n";
+        } else {
+            std::cout << "    " << RoboPaint(line.substr(4, detail - 4), tone)
+                      << line.substr(detail) << "\n";
+        }
+        return;
+    }
+    std::cout << line << "\n";
+}
+
 static void PrintHelp() {
-    std::cout
-        << "Robix CLI (robix) - Unified Language Toolchain & Package Manager\n"
-        << "Roboticela Software Architecture\n\n"
-        << "USAGE:\n"
-        << "    robix <command> [arguments]\n\n"
-        << "COMMANDS:\n"
-        << "    run                                 Run the project in this folder\n"
-        << "    run <file.rx> [more.rx] [--target windows|linux|macos|android|ios|web] [--web script|assembly] [--image]\n"
-        << "                                    Run only the named file or files.\n"
-        << "    run all                             Run every program in the folder, one by one\n"
-        << "    run <folder>                        Run that project folder\n"
-        << "    run <screen.rxu> [--target web|windows] [--watch] [--port N]\n"
-        << "                                    Interpret a screen on the host platform or web.\n"
-        << "    run all [--separate]                Run every network client and server\n"
-        << "    run client <Name> | server <Name>   Run one service in this console\n"
-        << "    build [folder] [-o <out.exe>]       Compile each source to its own file. Skip unchanged files.\n"
-        << "    build <file.rx> [-o <out.exe>]     Compile that file. Skip it when nothing changed.\n"
-        << "    test [path] [--generate]            Run .test.rx on the interpreter. Test native also compiles.\n"
-        << "    generate-tests [path]               Generate companion .test.rx scaffolds for all .rx files\n"
-        << "    verify [path]                       Run full semantic and static verification on files\n"
-        << "    new [.] [Name] [Application|Canvas|Bedrock] [kind]\n"
-        << "                                    Create a project. . uses this directory. No name asks.\n"
-        << "                                    Application: Console, Window, Network.\n"
-        << "                                    Canvas: an empty project.\n"
-        << "                                    Bedrock: Kernel, OS, BIOS, Driver, Bootloader, Firmware.\n"
-        << "    new Name Network --client Name CLI|GUI --server Name CLI|GUI\n"
-        << "    new file <Name> [hello|empty|class|package]   Add a source file and its test\n"
-        << "    add <name> <file.rx>               Lock a local package with SHA-256 and an HMAC signature\n"
-        << "    remove <name>                       Remove a package from the lock\n"
-        << "    update <name>                       Rehash a locked package file\n"
-        << "    install                             Copy locked packages into Packages/ when the hash matches\n"
-        << "    restore                             Check every locked hash and signature\n"
-        << "    ui validate <file.rxu> --code <file.rx>   Parse, lay out, and type-check event handlers\n"
-        << "    ui frame [-o <file.png>]                   Write the Stage A desktop PNG\n"
-        << "    ui cook <file.rxu> -o <file.rxul>          Record the host boxes as cooked records\n"
-        << "    ui render <file.rxu> -o <file.bmp>         Draw one software frame as a BMP\n"
-        << "    ui window <file.rxu> [--dev]               Open the Screen on Windows. --dev keeps it open\n"
-        << "    ui web <file.rxu> [--dev]                  Run the page directly. --dev does not write an HTML file\n"
-        << "    ui render <file.rxu> -o <file.bmp>         Draw the framebuffer\n"
-        << "    network check <project>             Check a Network block, contract, and env split\n"
-        << "    network run <project>               Run the local contract call, timeout, and TLS handshake\n"
-        << "    format <file.rx> [--check]         Rewrite source with 4-space indentation\n"
-        << "    lint <file.rx> [--strict]          Type-check and enforce style\n"
-        << "    check <file.rx>                    Type-check without running the program\n"
-        << "    doc <file.rx> [-o <file.md>]       Write markdown from Explain blocks\n"
-        << "    debug <file.rx>                    Step the interpreter and a debug native build by source line\n"
-        << "    lsp                                 Speak Language Server Protocol on stdin\n"
-        << "    examples [topic]                    List or extract official Robix code examples\n"
-        << "    repl                                Start the interactive Robix REPL\n"
-        << "    version                             Display version and toolchain info\n\n"
-        << "OPTIONS:\n"
-        << "    -v, --version                       Display version information\n"
-        << "    -h, --help                          Show this help documentation\n";
+    const char* lines[] = {
+        "Robix CLI (robix) - Unified Language Toolchain & Package Manager",
+        "Roboticela Software Architecture",
+        "",
+        "USAGE:",
+        "    robix <command> [arguments]",
+        "",
+        "COMMANDS:",
+        "    run                                 Run the project in this folder",
+        "    run <file.rx> [more.rx] [--target windows|linux|macos|android|ios|web] [--web script|assembly] [--image]",
+        "                                    Run only the named file or files.",
+        "    run all                             Run every program in the folder, one by one",
+        "    run <folder>                        Run that project folder",
+        "    run <screen.rxu> [--target web|windows] [--watch] [--port N]",
+        "                                    Interpret a screen on the host platform or web.",
+        "    run all [--separate]                Run every network client and server",
+        "    run client <Name> | server <Name>   Run one service in this console",
+        "    build [folder] [-o <out.exe>]       Compile each source to its own file. Skip unchanged files.",
+        "    build <file.rx> [-o <out.exe>]     Compile that file. Skip it when nothing changed.",
+        "    test [path] [--generate]            Run .test.rx on the interpreter. Test native also compiles.",
+        "    generate-tests [path]               Generate companion .test.rx scaffolds for all .rx files",
+        "    verify [path]                       Run full semantic and static verification on files",
+        "    new [.] [Name] [Application|Canvas|Bedrock] [kind]",
+        "                                    Create a project. . uses this directory. No name asks.",
+        "                                    Application: Console, Window, Network.",
+        "                                    Canvas: an empty project.",
+        "                                    Bedrock: Kernel, OS, BIOS, Driver, Bootloader, Firmware.",
+        "    new Name Network --client Name CLI|GUI --server Name CLI|GUI",
+        "    new file <Name> [hello|empty|class|package]   Add a source file and its test",
+        "    add <name> <file.rx>               Lock a local package with SHA-256 and an HMAC signature",
+        "    remove <name>                       Remove a package from the lock",
+        "    update <name>                       Rehash a locked package file",
+        "    install                             Copy locked packages into Packages/ when the hash matches",
+        "    restore                             Check every locked hash and signature",
+        "    ui validate <file.rxu> --code <file.rx>   Parse, lay out, and type-check event handlers",
+        "    ui frame [-o <file.png>]                   Write the Stage A desktop PNG",
+        "    ui cook <file.rxu> -o <file.rxul>          Record the host boxes as cooked records",
+        "    ui render <file.rxu> -o <file.bmp>         Draw one software frame as a BMP",
+        "    ui window <file.rxu> [--dev]               Open the Screen on Windows. --dev keeps it open",
+        "    ui web <file.rxu> [--dev]                  Run the page directly. --dev does not write an HTML file",
+        "    network check <project>             Check a Network block, contract, and env split",
+        "    network run <project>               Run the local contract call, timeout, and TLS handshake",
+        "    format <file.rx> [--check]         Rewrite source with 4-space indentation",
+        "    lint <file.rx> [--strict]          Type-check and enforce style",
+        "    check <file.rx>                    Type-check without running the program",
+        "    doc <file.rx> [-o <file.md>]       Write markdown from Explain blocks",
+        "    debug <file.rx>                    Step the interpreter and a debug native build by source line",
+        "    lsp                                 Speak Language Server Protocol on stdin",
+        "    examples [topic]                    List or extract official Robix code examples",
+        "    repl                                Start the interactive Robix REPL",
+        "    version                             Display version and toolchain info",
+        "",
+        "OPTIONS:",
+        "    --time                              Show compile time and program execution time (default)",
+        "    --no-time                           Hide the compile and execution times",
+        "    -v, --version                       Display version information",
+        "    -h, --help                          Show this help documentation",
+    };
+    bool optionSection = false;
+    for (const char* line : lines) {
+        if (std::string(line) == "OPTIONS:") optionSection = true;
+        PrintColoredHelpLine(line, optionSection);
+    }
 }
 
 int main(int argc, char* argv[]) {
+    Robix::Tools::RoboEnableConsoleColor();
     if (argc < 2) {
         const fs::path content = fs::absolute(argv[0]).parent_path() / "Content";
         const char* names[] = {"Main.rxu", "Main.xml", "MainWindow.rxu"};
@@ -111,9 +157,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     if (cmd == "--version" || cmd == "-v" || cmd == "version") {
-        std::cout << "robix version 1.0.0 (Unified CLI & Toolchain, Windows x64)\n";
+        std::cout << Robix::Tools::RoboPaint("robix", Robix::Tools::RoboTone::Title)
+                  << " version 1.0.0 (Unified CLI & Toolchain, Windows x64)\n";
         return 0;
     }
+    const bool showTime = Robix::Tools::RoboShowExecutionTime(args);
 
     // Determine tool directory
     std::string toolDir;
@@ -226,21 +274,29 @@ int main(int argc, char* argv[]) {
                 opts.outputPath = p.string();
             }
             if (units.size() > 1) std::cout << unit.file << std::endl;
+            const auto compileStarted = std::chrono::steady_clock::now();
             if (Robix::Tools::IncrementalHit(unit.file, opts.outputPath)) {
-                std::cout << "incremental: unchanged " << opts.outputPath << "\n";
+                const auto compileNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - compileStarted).count();
+                std::cout << "Incremental: unchanged " << opts.outputPath << "\n";
+                if (showTime) Robix::Tools::RoboPrintCompileTime(compileNanoseconds);
                 continue;
             }
 
             auto res = Robix::Tools::NativeCompilerDriver::CompileSource(unit.file, sourceText, opts);
+            const auto compileNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - compileStarted).count();
             if (!res.diagnosticsText.empty()) std::cerr << res.diagnosticsText;
             if (!res.toolOutput.empty()) std::cout << res.toolOutput;
             if (!res.success) {
                 std::cerr << "robix build: compilation failed.\n";
+                if (showTime) Robix::Tools::RoboPrintCompileTime(compileNanoseconds);
                 return 1;
             }
             Robix::Tools::WriteIncrementalStamp(unit.file, res.executablePath);
             std::cout << "robix build: created " << (unit.entry ? "executable" : "object")
                       << " -> " << res.executablePath << "\n";
+            if (showTime) Robix::Tools::RoboPrintCompileTime(compileNanoseconds);
         }
         return 0;
     }
@@ -471,6 +527,9 @@ int main(int argc, char* argv[]) {
                     Robix::Tools::CLIBinaryKind::RobixUnifiedCLI, { "run", file });
                 if (!interpreted.stdoutText.empty()) std::cout << interpreted.stdoutText;
                 if (!interpreted.stderrText.empty()) std::cerr << interpreted.stderrText;
+                if (showTime && interpreted.executionNanoseconds >= 0) {
+                    Robix::Tools::RoboPrintExecutionTime(interpreted.executionNanoseconds);
+                }
                 if (interpreted.exitCode != 0) status = interpreted.exitCode;
             }
             return status;
@@ -632,6 +691,9 @@ int main(int argc, char* argv[]) {
     }
     if (!cliResult.stderrText.empty()) {
         std::cerr << cliResult.stderrText;
+    }
+    if (cmd == "run" && showTime && cliResult.executionNanoseconds >= 0) {
+        Robix::Tools::RoboPrintExecutionTime(cliResult.executionNanoseconds);
     }
 
     return cliResult.exitCode;

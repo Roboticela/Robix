@@ -3,9 +3,11 @@
 #include "UiProjectBuild.hpp"
 #include "../../RobixUI/AppRun.hpp"
 #include "RobixCLIAndTestGenerator.hpp"
+#include "RoboConsole.hpp"
 #include "ExecutionGate.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -15,47 +17,93 @@
 
 namespace fs = std::filesystem;
 
+static void PrintColoredHelpLine(const std::string& line, bool optionSection) {
+    using Robix::Tools::RoboPaint;
+    using Robix::Tools::RoboTone;
+    if (line.empty()) {
+        std::cout << "\n";
+        return;
+    }
+    if (line.rfind("Robix Native", 0) == 0) {
+        std::cout << RoboPaint(line, RoboTone::Title) << "\n";
+        return;
+    }
+    if (line.rfind("Roboticela", 0) == 0 || line.rfind("Each source", 0) == 0 ||
+        line.rfind("executable.", 0) == 0 || line.rfind("A file", 0) == 0 ||
+        line.rfind("is skipped", 0) == 0) {
+        std::cout << RoboPaint(line, RoboTone::Dim) << "\n";
+        return;
+    }
+    if (line == "USAGE:" || line == "OPTIONS:") {
+        std::cout << RoboPaint(line, RoboTone::Heading) << "\n";
+        return;
+    }
+    if (line.rfind("    ", 0) == 0 && line.size() > 4 && line[4] != ' ') {
+        const std::size_t detail = line.find("  ");
+        const RoboTone tone = optionSection ? RoboTone::Option : RoboTone::Command;
+        if (detail == std::string::npos) {
+            std::cout << "    " << RoboPaint(line.substr(4), tone) << "\n";
+        } else {
+            std::cout << "    " << RoboPaint(line.substr(4, detail - 4), tone)
+                      << line.substr(detail) << "\n";
+        }
+        return;
+    }
+    std::cout << line << "\n";
+}
+
 static void PrintHelp() {
-    std::cout
-        << "Robix Native Compiler (robixc) - Production Native Toolchain\n"
-        << "Roboticela Software Architecture\n\n"
-        << "USAGE:\n"
-        << "    robixc                        Compile each source in this folder to its own file\n"
-        << "    robixc <file.rx> [options]   Compile only that file\n"
-        << "    robixc all                    Compile every program in the folder, one by one\n"
-        << "    robixc run                    Compile and run the project\n"
-        << "    robixc run <file.rx>         Compile and run only that file\n"
-        << "    robixc run all                Compile and run every program, one by one\n"
-        << "    robixc build <file.rx> [-o <out.exe>]\n"
-        << "    robixc test [file.test.rx]\n"
-        << "    robixc --emit-llvm <file.rx>\n\n"
-        << "OPTIONS:\n"
-        << "    -o <path>             Specify output executable path\n"
-        << "    -O0, --debug          Build with optimizations disabled\n"
-        << "    -O2, -O3, --release   Build with release optimizations (default: -O2)\n"
-        << "    --profile <name>      release, debug, or embedded (no hosted CRT)\n"
-        << "    --target windows|linux|macos|android|ios|web\n"
-        << "                          Application or Canvas platform. linux, macos, android, and ios\n"
-        << "                          compile only on that machine. web needs a .rxu screen.\n"
-        << "    --web script|assembly Web program form. script is HTML, CSS, and JS (default).\n"
-        << "                          assembly is HTML, CSS, and WebAssembly. The interpreter always uses script.\n"
-        << "    --image               Machine image. Refuses platform code. Bedrock is always an image.\n"
-        << "    --target <triple>     x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu,\n"
-        << "                          x86_64-unknown-none, aarch64-unknown-none,\n"
-        << "                          arm-unknown-none, riscv64-unknown-none\n"
-        << "    --entry <symbol>      Freestanding entry symbol (default: Start)\n"
-        << "    --emit-llvm           Generate LLVM IR (.ll) and exit\n"
-        << "    --keep-ir             Retain generated .ll file next to executable\n"
-        << "    --clang <path>        Override the clang shipped inside the compiler\n"
-        << "    --runtime-obj <path>  Path to Runtime/RobixNativeRuntime.rxm\n"
-        << "    --explain, --dry-run  Print the .rxb plan and do not compile\n"
-        << "    --generate-tests      Generate missing .test.rx scaffolds\n"
-        << "    --version, -v         Display robixc version information\n"
-        << "    --help, -h            Show this help documentation\n\n"
-        << "Each source is compiled to its own file. The program entry becomes the\n"
-        << "executable. Every other source becomes an object next to that source.\n"
-        << "A file that is already built, and whose source and imports are unchanged,\n"
-        << "is skipped. The line is: incremental: unchanged <output>\n";
+    const char* lines[] = {
+        "Robix Native Compiler (robixc) - Production Native Toolchain",
+        "Roboticela Software Architecture",
+        "",
+        "USAGE:",
+        "    robixc                        Compile each source in this folder to its own file",
+        "    robixc <file.rx> [options]   Compile only that file",
+        "    robixc all                    Compile every program in the folder, one by one",
+        "    robixc run                    Compile and run the project",
+        "    robixc run <file.rx>         Compile and run only that file",
+        "    robixc run all                Compile and run every program, one by one",
+        "    robixc build <file.rx> [-o <out.exe>]",
+        "    robixc test [file.test.rx]",
+        "    robixc --emit-llvm <file.rx>",
+        "",
+        "OPTIONS:",
+        "    -o <path>             Specify output executable path",
+        "    -O0, --debug          Build with optimizations disabled",
+        "    -O2, -O3, --release   Build with release optimizations (default: -O2)",
+        "    --profile <name>      release, debug, or embedded (no hosted CRT)",
+        "    --target windows|linux|macos|android|ios|web",
+        "                          Application or Canvas platform. linux, macos, android, and ios",
+        "                          compile only on that machine. web needs a .rxu screen.",
+        "    --web script|assembly Web program form. script is HTML, CSS, and JS (default).",
+        "                          assembly is HTML, CSS, and WebAssembly. The interpreter always uses script.",
+        "    --image               Machine image. Refuses platform code. Bedrock is always an image.",
+        "    --target <triple>     x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu,",
+        "                          x86_64-unknown-none, aarch64-unknown-none,",
+        "                          arm-unknown-none, riscv64-unknown-none",
+        "    --entry <symbol>      Freestanding entry symbol (default: Start)",
+        "    --emit-llvm           Generate LLVM IR (.ll) and exit",
+        "    --keep-ir             Retain generated .ll file next to executable",
+        "    --clang <path>        Override the clang shipped inside the compiler",
+        "    --runtime-obj <path>  Path to Runtime/RobixNativeRuntime.rxm",
+        "    --explain, --dry-run  Print the .rxb plan and do not compile",
+        "    --generate-tests      Generate missing .test.rx scaffolds",
+        "    --time                Show compile time and program execution time (default)",
+        "    --no-time             Hide the compile and execution times",
+        "    --version, -v         Display robixc version information",
+        "    --help, -h            Show this help documentation",
+        "",
+        "Each source is compiled to its own file. The program entry becomes the",
+        "executable. Every other source becomes an object next to that source.",
+        "A file that is already built, and whose source and imports are unchanged,",
+        "is skipped. The line is: Incremental: unchanged <output>",
+    };
+    bool optionSection = false;
+    for (const char* line : lines) {
+        if (std::string(line) == "OPTIONS:") optionSection = true;
+        PrintColoredHelpLine(line, optionSection);
+    }
 }
 
 static bool ApplyTarget(const std::string& triple, Robix::Tools::NativeBuildOptions& options, std::string& error) {
@@ -194,7 +242,20 @@ static bool LoadRobixBuild(const fs::path& rxb, std::string& sourcePath, Robix::
     return true;
 }
 
+static int RunCompiledProgram(const std::string& executablePath, bool showTime) {
+    std::cout.flush();
+    const auto started = std::chrono::steady_clock::now();
+    const int runCode = std::system(("\"" + executablePath + "\"").c_str());
+    if (showTime) {
+        const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - started).count();
+        Robix::Tools::RoboPrintExecutionTime(elapsed);
+    }
+    return runCode;
+}
+
 int main(int argc, char* argv[]) {
+    Robix::Tools::RoboEnableConsoleColor();
     std::vector<std::string> args;
     if (argc < 2) {
         const Robix::Tools::ProjectRun project = Robix::Tools::ChooseProjectRun({}, false, false);
@@ -216,7 +277,8 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     if (first == "--version" || first == "-v" || first == "version") {
-        std::cout << "robixc version 1.0.0 (Windows x64 Native LLVM Toolchain)\n";
+        std::cout << Robix::Tools::RoboPaint("robixc", Robix::Tools::RoboTone::Title)
+                  << " version 1.0.0 (Windows x64 Native LLVM Toolchain)\n";
         return 0;
     }
 
@@ -233,6 +295,7 @@ int main(int argc, char* argv[]) {
     Robix::Tools::NativeBuildOptions options;
     options.toolDirectory = toolDir;
     bool executeAfterBuild = false;
+    const bool showTime = Robix::Tools::RoboShowExecutionTime(args);
     bool explainOnly = false;
     bool uiDevelopment = false;
     bool cliImage = false;
@@ -564,13 +627,24 @@ int main(int argc, char* argv[]) {
         options.outputPath = p.string();
     }
 
+    const auto compileStarted = std::chrono::steady_clock::now();
     if (!options.emitLLVMOnly && Robix::Tools::IncrementalHit(inputFilePath, options.outputPath)) {
-        std::cout << "incremental: unchanged " << options.outputPath << "\n";
+        const auto compileNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - compileStarted).count();
+        std::cout << Robix::Tools::RoboPaint("Incremental: ", Robix::Tools::RoboTone::Dim)
+                  << "unchanged " << options.outputPath << "\n";
+        if (showTime) Robix::Tools::RoboPrintCompileTime(compileNanoseconds);
+        if (executeAfterBuild && isEntry) {
+            const int runCode = RunCompiledProgram(options.outputPath, showTime);
+            if (runCode != 0) return runCode;
+        }
         continue;
     }
 
     auto buildResult = Robix::Tools::NativeCompilerDriver::CompileSource(
         inputFilePath, sourceText, options);
+    const auto compileNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - compileStarted).count();
 
     if (!buildResult.diagnosticsText.empty()) {
         std::cerr << buildResult.diagnosticsText;
@@ -580,20 +654,24 @@ int main(int argc, char* argv[]) {
     }
 
     if (!buildResult.success) {
-        std::cerr << "robixc: build failed.\n";
+        std::cerr << Robix::Tools::RoboPaint("robixc: build failed.", Robix::Tools::RoboTone::Error) << "\n";
+        if (showTime) Robix::Tools::RoboPrintCompileTime(compileNanoseconds);
         return 1;
     }
 
     if (options.emitLLVMOnly) {
         std::cout << "robixc: generated LLVM IR: " << buildResult.llvmIRPath << "\n";
+        if (showTime) Robix::Tools::RoboPrintCompileTime(compileNanoseconds);
         continue;
     }
 
     Robix::Tools::WriteIncrementalStamp(inputFilePath, buildResult.executablePath);
-    std::cout << "robixc: compiled successfully -> " << buildResult.executablePath << std::endl;
+    std::cout << Robix::Tools::RoboPaint("robixc: ", Robix::Tools::RoboTone::Success)
+              << "compiled successfully -> " << buildResult.executablePath << std::endl;
+    if (showTime) Robix::Tools::RoboPrintCompileTime(compileNanoseconds);
 
     if (executeAfterBuild && isEntry) {
-        const int runCode = std::system(("\"" + buildResult.executablePath + "\"").c_str());
+        const int runCode = RunCompiledProgram(buildResult.executablePath, showTime);
         if (runCode != 0) return runCode;
     }
     }

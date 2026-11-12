@@ -12,6 +12,7 @@
 #include "../../Interpreter/VM/BytecodeVM.hpp"
 #include "../../StdLib/Core/CoreTypesAndRegex.hpp"
 
+#include <chrono>
 #include <fstream>
 #include <sstream>
 
@@ -301,7 +302,10 @@ CLICommandResult RunSingleSourceFile(
         }
         res.exitCode   = (suiteRes.failedTests == 0) ? 0 : 1;
     } else {
-        res.exitCode   = vm.ExecuteMainAndGetExitCode();
+        const auto started = std::chrono::steady_clock::now();
+        res.exitCode = vm.ExecuteMainAndGetExitCode();
+        res.executionNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - started).count();
         res.stdoutText = vm.GetStdoutBuffer();
     }
     return res;

@@ -1041,7 +1041,9 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
 
         case IROpcode::PrintVal: {
             Val a = Operand(inst, 0);
-            if (a.ty == NTy::Ptr) {
+            if (inst.textImm == "Array" && a.ty == NTy::Ptr) {
+                m_body << "  call void @rx_print_array(ptr " << a.repr << ")\n";
+            } else if (a.ty == NTy::Ptr) {
                 m_body << "  call void @rx_print_str(ptr " << a.repr << ")\n";
             } else if (a.ty == NTy::I1) {
                 const std::string t = NewTmp();
@@ -1270,6 +1272,79 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val s = Operand(inst, 0);
                 m_body << "  " << vname << " = call i64 @strlen(ptr " << s.repr << ")\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm.rfind("Array.", 0) == 0) {
+                const std::string op = inst.textImm.substr(6);
+                std::string ptr0;
+                std::string ptr1;
+                std::string int0;
+                std::string int1;
+                std::string int2;
+                if (op == "Filled" || op == "Range") {
+                    int0 = Coerce(Operand(inst, 0), NTy::I64, inst.location).repr;
+                    int1 = Coerce(Operand(inst, 1), NTy::I64, inst.location).repr;
+                } else if (!inst.operandIds.empty()) {
+                    ptr0 = Operand(inst, 0).repr;
+                }
+                if (op == "Swap") {
+                    int1 = Coerce(Operand(inst, 1), NTy::I64, inst.location).repr;
+                    int2 = Coerce(Operand(inst, 2), NTy::I64, inst.location).repr;
+                } else if (op == "Rotate" || op == "Fill" || op == "Shuffle" || op == "Rotated" ||
+                           op == "Contains" || op == "IndexOf" || op == "LastIndexOf" ||
+                           op == "CountOf" || op == "BinarySearch") {
+                    int1 = Coerce(Operand(inst, 1), NTy::I64, inst.location).repr;
+                } else if (op == "Concat" && inst.operandIds.size() >= 2) {
+                    ptr1 = Operand(inst, 1).repr;
+                }
+                const bool flag = op == "Contains" || op == "IsSorted" || op == "IsEmpty";
+                if (op == "Filled") {
+                    m_body << "  " << vname << " = call ptr @rx_array_filled(i64 " << int0 << ", i64 " << int1 << ")\n";
+                    m_vals[id] = Val{ vname, NTy::Ptr };
+                } else if (op == "Range") {
+                    m_body << "  " << vname << " = call ptr @rx_array_range(i64 " << int0 << ", i64 " << int1 << ")\n";
+                    m_vals[id] = Val{ vname, NTy::Ptr };
+                } else if (op == "Swap") {
+                    m_body << "  call void @rx_array_swap(ptr " << ptr0 << ", i64 " << int1 << ", i64 " << int2 << ")\n";
+                    m_vals[id] = Val{ "0", NTy::Void };
+                } else if (op == "Reverse" || op == "Sort") {
+                    m_body << "  call void @" << (op == "Reverse" ? "rx_array_reverse" : "rx_array_sort")
+                           << "(ptr " << ptr0 << ")\n";
+                    m_vals[id] = Val{ "0", NTy::Void };
+                } else if (op == "Rotate" || op == "Fill" || op == "Shuffle") {
+                    const char* symbol = op == "Rotate" ? "rx_array_rotate" : op == "Fill" ? "rx_array_fill" : "rx_array_shuffle";
+                    m_body << "  call void @" << symbol << "(ptr " << ptr0 << ", i64 " << int1 << ")\n";
+                    m_vals[id] = Val{ "0", NTy::Void };
+                } else if (op == "Copy" || op == "Reversed" || op == "Sorted" || op == "Rotated" ||
+                           op == "Unique" || op == "Concat") {
+                    const char* symbol = op == "Copy" ? "rx_array_copy" : op == "Reversed" ? "rx_array_reversed"
+                        : op == "Sorted" ? "rx_array_sorted" : op == "Rotated" ? "rx_array_rotated"
+                        : op == "Unique" ? "rx_array_unique" : "rx_array_concat";
+                    m_body << "  " << vname << " = call ptr @" << symbol << "(ptr " << ptr0;
+                    if (op == "Rotated") m_body << ", i64 " << int1;
+                    if (op == "Concat") m_body << ", ptr " << ptr1;
+                    m_body << ")\n";
+                    m_vals[id] = Val{ vname, NTy::Ptr };
+                } else if (flag || op == "Sum" || op == "Min" || op == "Max" || op == "Product" ||
+                           op == "IndexOf" || op == "LastIndexOf" || op == "CountOf" || op == "BinarySearch") {
+                    const char* symbol = op == "Contains" ? "rx_array_contains" : op == "IsSorted" ? "rx_array_is_sorted"
+                        : op == "IsEmpty" ? "rx_array_is_empty" : op == "Sum" ? "rx_array_sum" : op == "Min" ? "rx_array_min"
+                        : op == "Max" ? "rx_array_max" : op == "Product" ? "rx_array_product"
+                        : op == "IndexOf" ? "rx_array_index_of" : op == "LastIndexOf" ? "rx_array_last_index_of"
+                        : op == "CountOf" ? "rx_array_count_of" : "rx_array_binary_search";
+                    const bool takesValue = !int1.empty();
+                    m_body << "  " << vname << " = call i64 @" << symbol << "(ptr " << ptr0;
+                    if (takesValue) m_body << ", i64 " << int1;
+                    m_body << ")\n";
+                    if (flag) {
+                        const std::string bit = NewTmp();
+                        m_body << "  " << bit << " = icmp ne i64 " << vname << ", 0\n";
+                        m_vals[id] = Val{ bit, NTy::I1 };
+                    } else {
+                        m_vals[id] = Val{ vname, NTy::I64 };
+                    }
+                } else {
+                    Err("N9001", "Array operation '" + inst.textImm + "' is not supported by the native backend.", inst.location);
+                    m_vals[id] = Val{ "0", NTy::I64 };
+                }
             } else if (inst.textImm == "Args.Count") {
                 m_body << "  " << vname << " = call i64 @rx_args_count()\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
@@ -2869,6 +2944,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "declare void @rx_print_f64(double)\n";
         out << "declare void @rx_print_bool(i32)\n";
         out << "declare void @rx_print_str(ptr)\n";
+        out << "declare void @rx_print_array(ptr)\n";
         out << "declare ptr @malloc(i64)\n";
         out << "declare void @free(ptr)\n";
         out << "declare i64 @strlen(ptr)\n";
@@ -2887,6 +2963,33 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     }
     if (needs("@exit(")) {
         out << "declare void @exit(i32) noreturn\n";
+    }
+    if (needs("@rx_array_")) {
+        out << "declare void @rx_array_swap(ptr, i64, i64)\n";
+        out << "declare void @rx_array_reverse(ptr)\n";
+        out << "declare void @rx_array_sort(ptr)\n";
+        out << "declare void @rx_array_rotate(ptr, i64)\n";
+        out << "declare void @rx_array_fill(ptr, i64)\n";
+        out << "declare void @rx_array_shuffle(ptr, i64)\n";
+        out << "declare i64 @rx_array_sum(ptr)\n";
+        out << "declare i64 @rx_array_min(ptr)\n";
+        out << "declare i64 @rx_array_max(ptr)\n";
+        out << "declare i64 @rx_array_product(ptr)\n";
+        out << "declare i64 @rx_array_index_of(ptr, i64)\n";
+        out << "declare i64 @rx_array_last_index_of(ptr, i64)\n";
+        out << "declare i64 @rx_array_count_of(ptr, i64)\n";
+        out << "declare i64 @rx_array_contains(ptr, i64)\n";
+        out << "declare i64 @rx_array_is_sorted(ptr)\n";
+        out << "declare i64 @rx_array_is_empty(ptr)\n";
+        out << "declare i64 @rx_array_binary_search(ptr, i64)\n";
+        out << "declare ptr @rx_array_copy(ptr)\n";
+        out << "declare ptr @rx_array_reversed(ptr)\n";
+        out << "declare ptr @rx_array_sorted(ptr)\n";
+        out << "declare ptr @rx_array_rotated(ptr, i64)\n";
+        out << "declare ptr @rx_array_unique(ptr)\n";
+        out << "declare ptr @rx_array_concat(ptr, ptr)\n";
+        out << "declare ptr @rx_array_filled(i64, i64)\n";
+        out << "declare ptr @rx_array_range(i64, i64)\n";
     }
     if (needs("@rx_gpio_read")) {
         out << "declare i64 @rx_gpio_read(i64)\n";

@@ -193,7 +193,7 @@ int BuildOrRunProject(const std::string& input, bool development, const std::str
             options.outputPath = (build / "compile" / (source.stem().string() + ".obj")).string();
         }
         if (Robix::Tools::IncrementalHit(source, options.outputPath)) {
-            std::cout << "incremental: unchanged " << options.outputPath << "\n";
+            std::cout << "Incremental: unchanged " << options.outputPath << "\n";
             continue;
         }
         auto built = Robix::Tools::NativeCompilerDriver::CompileSource(source.string(), text, options);

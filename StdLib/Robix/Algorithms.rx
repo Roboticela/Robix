@@ -1,0 +1,1447 @@
+package Robix.Algorithms;
+
+public Function Swap(Array<Int> values, Int left, Int right) -> Void {
+    values.Swap(left, right);
+}
+
+public Function SelectionSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    for (Int i = 0; i < count; i = i + 1) {
+        Int minIndex = i;
+        for (Int j = i + 1; j < count; j = j + 1) {
+            if (values[j] < values[minIndex]) {
+                minIndex = j;
+            }
+        }
+        Swap(values, i, minIndex);
+    }
+}
+
+public Function InsertionSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    for (Int i = 1; i < count; i = i + 1) {
+        Int item = values[i];
+        Int slot = i;
+        while (slot > 0) {
+            if (values[slot - 1] <= item) {
+                break;
+            }
+            values[slot] = values[slot - 1];
+            slot = slot - 1;
+        }
+        values[slot] = item;
+    }
+}
+
+public Function BubbleSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    Int pass = 0;
+    while (pass < count) {
+        Int index = 0;
+        while (index + 1 < count - pass) {
+            if (values[index] > values[index + 1]) {
+                Swap(values, index, index + 1);
+            }
+            index = index + 1;
+        }
+        pass = pass + 1;
+    }
+}
+
+public Function CocktailSort(Array<Int> values) -> Void {
+    Int start = 0;
+    Int end = values.Length() - 1;
+    Int moved = 1;
+    while (moved == 1) {
+        moved = 0;
+        Int index = start;
+        while (index < end) {
+            if (values[index] > values[index + 1]) {
+                Swap(values, index, index + 1);
+                moved = 1;
+            }
+            index = index + 1;
+        }
+        if (moved == 0) {
+            return;
+        }
+        moved = 0;
+        end = end - 1;
+        index = end;
+        while (index > start) {
+            if (values[index] < values[index - 1]) {
+                Swap(values, index, index - 1);
+                moved = 1;
+            }
+            index = index - 1;
+        }
+        start = start + 1;
+    }
+}
+
+public Function GnomeSort(Array<Int> values) -> Void {
+    Int index = 0;
+    Int count = values.Length();
+    while (index < count) {
+        if (index == 0) {
+            index = index + 1;
+        } else if (values[index] >= values[index - 1]) {
+            index = index + 1;
+        } else {
+            Swap(values, index, index - 1);
+            index = index - 1;
+        }
+    }
+}
+
+public Function CombSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    Int gap = count;
+    Int swapped = 1;
+    while (gap > 1 || swapped == 1) {
+        gap = (gap * 10) / 13;
+        if (gap < 1) {
+            gap = 1;
+        }
+        swapped = 0;
+        Int index = 0;
+        while (index + gap < count) {
+            if (values[index] > values[index + gap]) {
+                Swap(values, index, index + gap);
+                swapped = 1;
+            }
+            index = index + 1;
+        }
+    }
+}
+
+public Function ShellSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    Int gap = count / 2;
+    while (gap > 0) {
+        Int index = gap;
+        while (index < count) {
+            Int item = values[index];
+            Int slot = index;
+            while (slot >= gap) {
+                if (values[slot - gap] <= item) {
+                    break;
+                }
+                values[slot] = values[slot - gap];
+                slot = slot - gap;
+            }
+            values[slot] = item;
+            index = index + 1;
+        }
+        gap = gap / 2;
+    }
+}
+
+public Function HeapSift(Array<Int> values, Int count, Int root) -> Void {
+    Int largest = root;
+    Int left = root * 2 + 1;
+    Int right = left + 1;
+    if (left < count) {
+        if (values[left] > values[largest]) {
+            largest = left;
+        }
+    }
+    if (right < count) {
+        if (values[right] > values[largest]) {
+            largest = right;
+        }
+    }
+    if (largest != root) {
+        Swap(values, root, largest);
+        HeapSift(values, count, largest);
+    }
+}
+
+public Function HeapSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    Int start = count / 2 - 1;
+    while (start >= 0) {
+        HeapSift(values, count, start);
+        start = start - 1;
+    }
+    Int end = count - 1;
+    while (end > 0) {
+        Swap(values, 0, end);
+        HeapSift(values, end, 0);
+        end = end - 1;
+    }
+}
+
+public Function QuickSortRange(Array<Int> values, Int low, Int high) -> Void {
+    if (low >= high) {
+        return;
+    }
+    Int pivot = values[high];
+    Int store = low;
+    for (Int i = low; i < high; i = i + 1) {
+        if (values[i] < pivot) {
+            Swap(values, i, store);
+            store = store + 1;
+        }
+    }
+    Swap(values, store, high);
+    QuickSortRange(values, low, store - 1);
+    QuickSortRange(values, store + 1, high);
+}
+
+public Function QuickSort(Array<Int> values) -> Void {
+    if (values.Length() == 0) {
+        return;
+    }
+    QuickSortRange(values, 0, values.Length() - 1);
+}
+
+public Function MergeSortRange(Array<Int> values, Array<Int> temp, Int low, Int high) -> Void {
+    if (low >= high) {
+        return;
+    }
+    Int mid = low + (high - low) / 2;
+    MergeSortRange(values, temp, low, mid);
+    MergeSortRange(values, temp, mid + 1, high);
+    Int left = low;
+    Int right = mid + 1;
+    Int cursor = low;
+    while (left <= mid) {
+        if (right > high) {
+            break;
+        }
+        if (values[left] <= values[right]) {
+            temp[cursor] = values[left];
+            left = left + 1;
+        } else {
+            temp[cursor] = values[right];
+            right = right + 1;
+        }
+        cursor = cursor + 1;
+    }
+    while (left <= mid) {
+        temp[cursor] = values[left];
+        left = left + 1;
+        cursor = cursor + 1;
+    }
+    while (right <= high) {
+        temp[cursor] = values[right];
+        right = right + 1;
+        cursor = cursor + 1;
+    }
+    for (Int i = low; i <= high; i = i + 1) {
+        values[i] = temp[i];
+    }
+}
+
+public Function MergeSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    if (count == 0) {
+        return;
+    }
+    Array<Int> temp = Array.Filled(count, 0);
+    MergeSortRange(values, temp, 0, count - 1);
+}
+
+public Function CountingSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    if (count == 0) {
+        return;
+    }
+    Int low = values.Min();
+    Int high = values.Max();
+    Int span = high - low + 1;
+    Array<Int> counts = Array.Filled(span, 0);
+    for (Int i = 0; i < count; i = i + 1) {
+        Int slot = values[i] - low;
+        counts[slot] = counts[slot] + 1;
+    }
+    Int cursor = 0;
+    for (Int slot = 0; slot < span; slot = slot + 1) {
+        Int copies = counts[slot];
+        while (copies > 0) {
+            values[cursor] = slot + low;
+            cursor = cursor + 1;
+            copies = copies - 1;
+        }
+    }
+}
+
+public Function RadixSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    if (count == 0) {
+        return;
+    }
+    if (values.Min() < 0) {
+        CountingSort(values);
+        return;
+    }
+    Int maxValue = values.Max();
+    Int place = 1;
+    while (place <= maxValue) {
+        Array<Int> counts = Array.Filled(10, 0);
+        Array<Int> out = Array.Filled(count, 0);
+        for (Int i = 0; i < count; i = i + 1) {
+            Int digit = (values[i] / place) % 10;
+            counts[digit] = counts[digit] + 1;
+        }
+        for (Int digit = 1; digit < 10; digit = digit + 1) {
+            counts[digit] = counts[digit] + counts[digit - 1];
+        }
+        for (Int i = count - 1; i >= 0; i = i - 1) {
+            Int digit = (values[i] / place) % 10;
+            counts[digit] = counts[digit] - 1;
+            out[counts[digit]] = values[i];
+        }
+        for (Int i = 0; i < count; i = i + 1) {
+            values[i] = out[i];
+        }
+        if (place > maxValue / 10) {
+            return;
+        }
+        place = place * 10;
+    }
+}
+
+public Function CycleSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    for (Int start = 0; start + 1 < count; start = start + 1) {
+        Int item = values[start];
+        Int pos = start;
+        for (Int i = start + 1; i < count; i = i + 1) {
+            if (values[i] < item) {
+                pos = pos + 1;
+            }
+        }
+        if (pos == start) {
+            continue;
+        }
+        while (item == values[pos]) {
+            pos = pos + 1;
+        }
+        Int held = values[pos];
+        values[pos] = item;
+        item = held;
+        while (pos != start) {
+            pos = start;
+            for (Int i = start + 1; i < count; i = i + 1) {
+                if (values[i] < item) {
+                    pos = pos + 1;
+                }
+            }
+            while (item == values[pos]) {
+                pos = pos + 1;
+            }
+            held = values[pos];
+            values[pos] = item;
+            item = held;
+        }
+    }
+}
+
+public Function OddEvenSort(Array<Int> values) -> Void {
+    Int count = values.Length();
+    Int sorted = 0;
+    while (sorted == 0) {
+        sorted = 1;
+        Int index = 0;
+        while (index + 1 < count) {
+            if (values[index] > values[index + 1]) {
+                Swap(values, index, index + 1);
+                sorted = 0;
+            }
+            index = index + 2;
+        }
+        index = 1;
+        while (index + 1 < count) {
+            if (values[index] > values[index + 1]) {
+                Swap(values, index, index + 1);
+                sorted = 0;
+            }
+            index = index + 2;
+        }
+    }
+}
+
+public Function LinearSearch(Array<Int> values, Int target) -> Int {
+    return values.IndexOf(target);
+}
+
+public Function BinarySearchValue(Array<Int> values, Int target) -> Int {
+    return values.BinarySearch(target);
+}
+
+public Function IntegerSqrt(Int n) -> Int {
+    if (n <= 0) {
+        return 0;
+    }
+    Int low = 0;
+    Int high = n;
+    Int answer = 0;
+    while (low <= high) {
+        Int mid = (low + high) / 2;
+        if (mid != 0) {
+            if (mid > n / mid) {
+                high = mid - 1;
+            } else {
+                answer = mid;
+                low = mid + 1;
+            }
+        } else {
+            answer = mid;
+            low = mid + 1;
+        }
+    }
+    return answer;
+}
+
+public Function JumpSearch(Array<Int> values, Int target) -> Int {
+    Int count = values.Length();
+    if (count == 0) {
+        return -1;
+    }
+    Int step = IntegerSqrt(count);
+    if (step < 1) {
+        step = 1;
+    }
+    Int prev = 0;
+    Int current = step;
+    while (current < count) {
+        if (values[current] >= target) {
+            break;
+        }
+        prev = current;
+        current = current + step;
+    }
+    if (current >= count) {
+        current = count - 1;
+    }
+    while (prev <= current) {
+        if (values[prev] == target) {
+            return prev;
+        }
+        prev = prev + 1;
+    }
+    return -1;
+}
+
+public Function InterpolationSearch(Array<Int> values, Int target) -> Int {
+    Int low = 0;
+    Int high = values.Length() - 1;
+    while (low <= high) {
+        if (target < values[low]) {
+            break;
+        }
+        if (target > values[high]) {
+            break;
+        }
+        if (values[high] == values[low]) {
+            if (values[low] == target) {
+                return low;
+            }
+            return -1;
+        }
+        Int mid = low + ((high - low) * (target - values[low])) / (values[high] - values[low]);
+        if (mid < low) {
+            mid = low;
+        }
+        if (mid > high) {
+            mid = high;
+        }
+        if (values[mid] == target) {
+            return mid;
+        }
+        if (values[mid] < target) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1;
+}
+
+public Function ExponentialSearch(Array<Int> values, Int target) -> Int {
+    Int count = values.Length();
+    if (count == 0) {
+        return -1;
+    }
+    if (values[0] == target) {
+        return 0;
+    }
+    Int bound = 1;
+    while (bound < count) {
+        if (values[bound] >= target) {
+            break;
+        }
+        bound = bound * 2;
+    }
+    Int low = bound / 2;
+    Int high = bound;
+    if (high >= count) {
+        high = count - 1;
+    }
+    while (low <= high) {
+        Int mid = low + (high - low) / 2;
+        if (values[mid] == target) {
+            return mid;
+        }
+        if (values[mid] < target) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1;
+}
+
+public Function TernarySearch(Array<Int> values, Int target) -> Int {
+    Int low = 0;
+    Int high = values.Length() - 1;
+    while (low <= high) {
+        Int third = (high - low) / 3;
+        Int left = low + third;
+        Int right = high - third;
+        if (values[left] == target) {
+            return left;
+        }
+        if (values[right] == target) {
+            return right;
+        }
+        if (target < values[left]) {
+            high = left - 1;
+        } else if (target > values[right]) {
+            low = right + 1;
+        } else {
+            low = left + 1;
+            high = right - 1;
+        }
+    }
+    return -1;
+}
+
+public Function FibonacciSearch(Array<Int> values, Int target) -> Int {
+    Int count = values.Length();
+    if (count == 0) {
+        return -1;
+    }
+    Int fibM2 = 0;
+    Int fibM1 = 1;
+    Int fib = fibM1 + fibM2;
+    while (fib < count) {
+        fibM2 = fibM1;
+        fibM1 = fib;
+        fib = fibM1 + fibM2;
+    }
+    Int offset = -1;
+    while (fib > 1) {
+        Int index = offset + fibM2;
+        if (index < 0) {
+            index = 0;
+        }
+        if (index >= count) {
+            index = count - 1;
+        }
+        if (values[index] < target) {
+            fib = fibM1;
+            fibM1 = fibM2;
+            fibM2 = fib - fibM1;
+            offset = index;
+        } else if (values[index] > target) {
+            fib = fibM2;
+            fibM1 = fibM1 - fibM2;
+            fibM2 = fib - fibM1;
+        } else {
+            return index;
+        }
+    }
+    if (fibM1 == 1) {
+        if (offset + 1 < count) {
+            if (values[offset + 1] == target) {
+                return offset + 1;
+            }
+        }
+    }
+    return -1;
+}
+
+public Function Euclid(Int a, Int b) -> Int {
+    Int x = a;
+    Int y = b;
+    if (x < 0) {
+        x = 0 - x;
+    }
+    if (y < 0) {
+        y = 0 - y;
+    }
+    while (y != 0) {
+        Int remainder = x % y;
+        x = y;
+        y = remainder;
+    }
+    return x;
+}
+
+public Function Lcm(Int a, Int b) -> Int {
+    if (a == 0 || b == 0) {
+        return 0;
+    }
+    Int left = a;
+    Int right = b;
+    if (left < 0) {
+        left = 0 - left;
+    }
+    if (right < 0) {
+        right = 0 - right;
+    }
+    return left / Euclid(left, right) * right;
+}
+
+public Function ExtendedGcd(Int a, Int b) -> Array<Int> {
+    Int oldR = a;
+    Int r = b;
+    Int oldS = 1;
+    Int s = 0;
+    Int oldT = 0;
+    Int t = 1;
+    while (r != 0) {
+        Int q = oldR / r;
+        Int nextR = oldR - q * r;
+        oldR = r;
+        r = nextR;
+        Int nextS = oldS - q * s;
+        oldS = s;
+        s = nextS;
+        Int nextT = oldT - q * t;
+        oldT = t;
+        t = nextT;
+    }
+    Array<Int> result = Array.Filled(3, 0);
+    result[0] = oldR;
+    result[1] = oldS;
+    result[2] = oldT;
+    return result;
+}
+
+public Function Fibonacci(Int n) -> Int {
+    if (n <= 0) {
+        return 0;
+    }
+    if (n == 1) {
+        return 1;
+    }
+    Int prev = 0;
+    Int current = 1;
+    Int index = 2;
+    while (index <= n) {
+        Int next = prev + current;
+        prev = current;
+        current = next;
+        index = index + 1;
+    }
+    return current;
+}
+
+public Function Factorial(Int n) -> Int {
+    if (n < 0) {
+        return 0;
+    }
+    Int result = 1;
+    Int i = 2;
+    while (i <= n) {
+        result = result * i;
+        i = i + 1;
+    }
+    return result;
+}
+
+public Function Power(Int base, Int exponent) -> Int {
+    if (exponent < 0) {
+        return 0;
+    }
+    Int result = 1;
+    Int value = base;
+    Int exp = exponent;
+    while (exp > 0) {
+        if (exp % 2 == 1) {
+            result = result * value;
+        }
+        value = value * value;
+        exp = exp / 2;
+    }
+    return result;
+}
+
+public Function ModularPower(Int base, Int exponent, Int modulus) -> Int {
+    if (modulus <= 0) {
+        return 0;
+    }
+    if (exponent < 0) {
+        return 0;
+    }
+    Int result = 1;
+    Int value = base % modulus;
+    if (value < 0) {
+        value = value + modulus;
+    }
+    Int exp = exponent;
+    while (exp > 0) {
+        if (exp % 2 == 1) {
+            result = (result * value) % modulus;
+        }
+        value = (value * value) % modulus;
+        exp = exp / 2;
+    }
+    return result;
+}
+
+public Function IsPrime(Int n) -> Int {
+    if (n < 2) {
+        return 0;
+    }
+    if (n == 2) {
+        return 1;
+    }
+    if (n % 2 == 0) {
+        return 0;
+    }
+    Int d = 3;
+    while (d <= n / d) {
+        if (n % d == 0) {
+            return 0;
+        }
+        d = d + 2;
+    }
+    return 1;
+}
+
+public Function PrimesUpTo(Int limit) -> Array<Int> {
+    if (limit < 2) {
+        return Array.Filled(0, 0);
+    }
+    Array<Int> marks = Array.Filled(limit + 1, 1);
+    marks[0] = 0;
+    marks[1] = 0;
+    for (Int i = 2; i * i <= limit; i = i + 1) {
+        if (marks[i] == 1) {
+            Int multiple = i * i;
+            while (multiple <= limit) {
+                marks[multiple] = 0;
+                multiple = multiple + i;
+            }
+        }
+    }
+    Int count = 0;
+    for (Int i = 2; i <= limit; i = i + 1) {
+        if (marks[i] == 1) {
+            count = count + 1;
+        }
+    }
+    Array<Int> primes = Array.Filled(count, 0);
+    Int cursor = 0;
+    for (Int i = 2; i <= limit; i = i + 1) {
+        if (marks[i] == 1) {
+            primes[cursor] = i;
+            cursor = cursor + 1;
+        }
+    }
+    return primes;
+}
+
+public Function PrimeCount(Int limit) -> Int {
+    return PrimesUpTo(limit).Length();
+}
+
+public Function EulerTotient(Int n) -> Int {
+    if (n <= 0) {
+        return 0;
+    }
+    Int result = n;
+    Int value = n;
+    Int p = 2;
+    while (p * p <= value) {
+        if (value % p == 0) {
+            while (value % p == 0) {
+                value = value / p;
+            }
+            result = result - result / p;
+        }
+        p = p + 1;
+    }
+    if (value > 1) {
+        result = result - result / value;
+    }
+    return result;
+}
+
+public Function CollatzLength(Int n) -> Int {
+    if (n <= 1) {
+        return 0;
+    }
+    Int value = n;
+    Int steps = 0;
+    while (value != 1) {
+        if (value % 2 == 0) {
+            value = value / 2;
+        } else {
+            value = value * 3 + 1;
+        }
+        steps = steps + 1;
+    }
+    return steps;
+}
+
+public Function PascalValue(Int n, Int k) -> Int {
+    if (k < 0 || k > n || n < 0) {
+        return 0;
+    }
+    Int choose = k;
+    if (choose > n - choose) {
+        choose = n - choose;
+    }
+    Int result = 1;
+    Int i = 1;
+    while (i <= choose) {
+        result = result * (n - choose + i) / i;
+        i = i + 1;
+    }
+    return result;
+}
+
+public Function Kadane(Array<Int> values) -> Int {
+    Int count = values.Length();
+    if (count == 0) {
+        return 0;
+    }
+    Int best = values[0];
+    Int current = values[0];
+    for (Int i = 1; i < count; i = i + 1) {
+        if (current + values[i] > values[i]) {
+            current = current + values[i];
+        } else {
+            current = values[i];
+        }
+        if (current > best) {
+            best = current;
+        }
+    }
+    return best;
+}
+
+public Function ClimbStairs(Int n) -> Int {
+    if (n <= 0) {
+        return 0;
+    }
+    if (n == 1) {
+        return 1;
+    }
+    Int prev = 1;
+    Int current = 2;
+    Int step = 3;
+    while (step <= n) {
+        Int next = prev + current;
+        prev = current;
+        current = next;
+        step = step + 1;
+    }
+    return current;
+}
+
+public Function HouseRobber(Array<Int> values) -> Int {
+    Int count = values.Length();
+    if (count == 0) {
+        return 0;
+    }
+    if (count == 1) {
+        return values[0];
+    }
+    Int prev = values[0];
+    Int current = values[0];
+    if (values[1] > current) {
+        current = values[1];
+    }
+    for (Int i = 2; i < count; i = i + 1) {
+        Int take = prev + values[i];
+        Int skip = current;
+        prev = current;
+        if (take > skip) {
+            current = take;
+        } else {
+            current = skip;
+        }
+    }
+    return current;
+}
+
+public Function CoinChange(Array<Int> coins, Int amount) -> Int {
+    if (amount < 0) {
+        return -1;
+    }
+    if (amount == 0) {
+        return 0;
+    }
+    Array<Int> best = Array.Filled(amount + 1, amount + 1);
+    best[0] = 0;
+    for (Int value = 1; value <= amount; value = value + 1) {
+        for (Int i = 0; i < coins.Length(); i = i + 1) {
+            Int coin = coins[i];
+            if (coin > 0) {
+                if (coin <= value) {
+                    if (best[value - coin] + 1 < best[value]) {
+                        best[value] = best[value - coin] + 1;
+                    }
+                }
+            }
+        }
+    }
+    if (best[amount] > amount) {
+        return -1;
+    }
+    return best[amount];
+}
+
+public Function Knapsack(Array<Int> weights, Array<Int> worth, Int capacity) -> Int {
+    if (capacity <= 0) {
+        return 0;
+    }
+    Array<Int> best = Array.Filled(capacity + 1, 0);
+    Int count = weights.Length();
+    if (worth.Length() < count) {
+        count = worth.Length();
+    }
+    for (Int i = 0; i < count; i = i + 1) {
+        Int weight = weights[i];
+        Int cap = capacity;
+        while (cap >= weight && weight > 0) {
+            Int candidate = best[cap - weight] + worth[i];
+            if (candidate > best[cap]) {
+                best[cap] = candidate;
+            }
+            cap = cap - 1;
+        }
+    }
+    return best[capacity];
+}
+
+public Function LisLength(Array<Int> values) -> Int {
+    Int count = values.Length();
+    if (count == 0) {
+        return 0;
+    }
+    Array<Int> tails = Array.Filled(count, 0);
+    Int length = 0;
+    for (Int i = 0; i < count; i = i + 1) {
+        Int low = 0;
+        Int high = length;
+        while (low < high) {
+            Int mid = low + (high - low) / 2;
+            if (tails[mid] < values[i]) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        tails[low] = values[i];
+        if (low == length) {
+            length = length + 1;
+        }
+    }
+    return length;
+}
+
+public Function LcsLength(Array<Int> left, Array<Int> right) -> Int {
+    Int rows = left.Length();
+    Int cols = right.Length();
+    Array<Int> dp = Array.Filled((rows + 1) * (cols + 1), 0);
+    Int width = cols + 1;
+    for (Int i = 1; i <= rows; i = i + 1) {
+        for (Int j = 1; j <= cols; j = j + 1) {
+            Int at = i * width + j;
+            if (left[i - 1] == right[j - 1]) {
+                dp[at] = dp[(i - 1) * width + (j - 1)] + 1;
+            } else {
+                Int up = dp[(i - 1) * width + j];
+                Int side = dp[i * width + (j - 1)];
+                if (up > side) {
+                    dp[at] = up;
+                } else {
+                    dp[at] = side;
+                }
+            }
+        }
+    }
+    return dp[rows * width + cols];
+}
+
+public Function EditDistance(Array<Int> left, Array<Int> right) -> Int {
+    Int rows = left.Length();
+    Int cols = right.Length();
+    Array<Int> dp = Array.Filled((rows + 1) * (cols + 1), 0);
+    Int width = cols + 1;
+    for (Int i = 0; i <= rows; i = i + 1) {
+        dp[i * width] = i;
+    }
+    for (Int j = 0; j <= cols; j = j + 1) {
+        dp[j] = j;
+    }
+    for (Int i = 1; i <= rows; i = i + 1) {
+        for (Int j = 1; j <= cols; j = j + 1) {
+            Int cost = 1;
+            if (left[i - 1] == right[j - 1]) {
+                cost = 0;
+            }
+            Int replace = dp[(i - 1) * width + (j - 1)] + cost;
+            Int drop = dp[(i - 1) * width + j] + 1;
+            Int insert = dp[i * width + (j - 1)] + 1;
+            Int best = replace;
+            if (drop < best) {
+                best = drop;
+            }
+            if (insert < best) {
+                best = insert;
+            }
+            dp[i * width + j] = best;
+        }
+    }
+    return dp[rows * width + cols];
+}
+
+public Function UniquePaths(Int rows, Int cols) -> Int {
+    if (rows <= 0 || cols <= 0) {
+        return 0;
+    }
+    Array<Int> row = Array.Filled(cols, 1);
+    for (Int r = 1; r < rows; r = r + 1) {
+        for (Int c = 1; c < cols; c = c + 1) {
+            row[c] = row[c] + row[c - 1];
+        }
+    }
+    return row[cols - 1];
+}
+
+public Function FindRoot(Array<Int> parent, Int node) -> Int {
+    Int cursor = node;
+    while (parent[cursor] != cursor) {
+        parent[cursor] = parent[parent[cursor]];
+        cursor = parent[cursor];
+    }
+    return cursor;
+}
+
+public Function Unite(Array<Int> parent, Int a, Int b) -> Int {
+    Int rootA = FindRoot(parent, a);
+    Int rootB = FindRoot(parent, b);
+    if (rootA == rootB) {
+        return 0;
+    }
+    parent[rootB] = rootA;
+    return 1;
+}
+
+public Function BfsSteps(Array<Int> matrix, Int n, Int source, Int target) -> Int {
+    if (n <= 0 || source < 0 || target < 0 || source >= n || target >= n) {
+        return -1;
+    }
+    if (source == target) {
+        return 0;
+    }
+    Array<Int> seen = Array.Filled(n, 0);
+    Array<Int> dist = Array.Filled(n, 0);
+    Array<Int> queue = Array.Filled(n, 0);
+    Int head = 0;
+    Int tail = 1;
+    queue[0] = source;
+    seen[source] = 1;
+    while (head < tail) {
+        Int node = queue[head];
+        head = head + 1;
+        for (Int next = 0; next < n; next = next + 1) {
+            if (matrix[node * n + next] != 0 && seen[next] == 0) {
+                seen[next] = 1;
+                dist[next] = dist[node] + 1;
+                if (next == target) {
+                    return dist[next];
+                }
+                queue[tail] = next;
+                tail = tail + 1;
+            }
+        }
+    }
+    return -1;
+}
+
+public Function DfsVisit(Array<Int> matrix, Array<Int> seen, Int n, Int node, Int target) -> Int {
+    if (node == target) {
+        return 1;
+    }
+    seen[node] = 1;
+    for (Int next = 0; next < n; next = next + 1) {
+        if (matrix[node * n + next] != 0 && seen[next] == 0) {
+            if (DfsVisit(matrix, seen, n, next, target) == 1) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+public Function DfsReach(Array<Int> matrix, Int n, Int source, Int target) -> Int {
+    if (n <= 0 || source < 0 || target < 0 || source >= n || target >= n) {
+        return 0;
+    }
+    Array<Int> seen = Array.Filled(n, 0);
+    return DfsVisit(matrix, seen, n, source, target);
+}
+
+public Function DijkstraCost(Array<Int> matrix, Int n, Int source, Int target) -> Int {
+    if (n <= 0 || source < 0 || target < 0 || source >= n || target >= n) {
+        return -1;
+    }
+    Int inf = 1000000000;
+    Array<Int> dist = Array.Filled(n, inf);
+    Array<Int> used = Array.Filled(n, 0);
+    dist[source] = 0;
+    for (Int step = 0; step < n; step = step + 1) {
+        Int node = -1;
+        Int best = inf;
+        for (Int i = 0; i < n; i = i + 1) {
+            if (used[i] == 0 && dist[i] < best) {
+                best = dist[i];
+                node = i;
+            }
+        }
+        if (node < 0) {
+            break;
+        }
+        used[node] = 1;
+        for (Int next = 0; next < n; next = next + 1) {
+            Int weight = matrix[node * n + next];
+            if (weight > 0 && weight < inf && dist[node] + weight < dist[next]) {
+                dist[next] = dist[node] + weight;
+            }
+        }
+    }
+    if (dist[target] >= inf) {
+        return -1;
+    }
+    return dist[target];
+}
+
+public Function BellmanFord(Array<Int> from, Array<Int> to, Array<Int> weight, Int n, Int source, Int target) -> Int {
+    if (n <= 0 || source < 0 || target < 0 || source >= n || target >= n) {
+        return -1;
+    }
+    Int inf = 1000000000;
+    Array<Int> dist = Array.Filled(n, inf);
+    dist[source] = 0;
+    Int edges = from.Length();
+    if (to.Length() < edges) {
+        edges = to.Length();
+    }
+    if (weight.Length() < edges) {
+        edges = weight.Length();
+    }
+    for (Int pass = 0; pass < n - 1; pass = pass + 1) {
+        for (Int e = 0; e < edges; e = e + 1) {
+            if (dist[from[e]] < inf && dist[from[e]] + weight[e] < dist[to[e]]) {
+                dist[to[e]] = dist[from[e]] + weight[e];
+            }
+        }
+    }
+    for (Int e = 0; e < edges; e = e + 1) {
+        if (dist[from[e]] < inf && dist[from[e]] + weight[e] < dist[to[e]]) {
+            return -1;
+        }
+    }
+    if (dist[target] >= inf) {
+        return -1;
+    }
+    return dist[target];
+}
+
+public Function FloydWarshall(Array<Int> matrix, Int n) -> Array<Int> {
+    Array<Int> dist = matrix.Copy();
+    Int inf = 1000000000;
+    for (Int i = 0; i < n; i = i + 1) {
+        for (Int j = 0; j < n; j = j + 1) {
+            if (i != j) {
+                if (dist[i * n + j] == 0) {
+                    dist[i * n + j] = inf;
+                }
+            }
+        }
+    }
+    for (Int k = 0; k < n; k = k + 1) {
+        for (Int i = 0; i < n; i = i + 1) {
+            for (Int j = 0; j < n; j = j + 1) {
+                Int through = dist[i * n + k];
+                Int out = dist[k * n + j];
+                if (through < inf && out < inf && through + out < dist[i * n + j]) {
+                    dist[i * n + j] = through + out;
+                }
+            }
+        }
+    }
+    return dist;
+}
+
+public Function TopologicalOrder(Array<Int> from, Array<Int> to, Int n) -> Array<Int> {
+    if (n <= 0) {
+        return Array.Filled(0, 0);
+    }
+    Array<Int> indegree = Array.Filled(n, 0);
+    Int edges = from.Length();
+    if (to.Length() < edges) {
+        edges = to.Length();
+    }
+    for (Int e = 0; e < edges; e = e + 1) {
+        indegree[to[e]] = indegree[to[e]] + 1;
+    }
+    Array<Int> queue = Array.Filled(n, 0);
+    Int head = 0;
+    Int tail = 0;
+    for (Int node = 0; node < n; node = node + 1) {
+        if (indegree[node] == 0) {
+            queue[tail] = node;
+            tail = tail + 1;
+        }
+    }
+    Array<Int> order = Array.Filled(n, 0);
+    Int placed = 0;
+    while (head < tail) {
+        Int node = queue[head];
+        head = head + 1;
+        order[placed] = node;
+        placed = placed + 1;
+        for (Int e = 0; e < edges; e = e + 1) {
+            if (from[e] == node) {
+                indegree[to[e]] = indegree[to[e]] - 1;
+                if (indegree[to[e]] == 0) {
+                    queue[tail] = to[e];
+                    tail = tail + 1;
+                }
+            }
+        }
+    }
+    if (placed != n) {
+        return Array.Filled(0, 0);
+    }
+    return order;
+}
+
+public Function KruskalCost(Array<Int> from, Array<Int> to, Array<Int> weight, Int n) -> Int {
+    Array<Int> edgeFrom = from.Copy();
+    Array<Int> edgeTo = to.Copy();
+    Array<Int> edgeWeight = weight.Copy();
+    Int edges = edgeFrom.Length();
+    if (edgeTo.Length() < edges) {
+        edges = edgeTo.Length();
+    }
+    if (edgeWeight.Length() < edges) {
+        edges = edgeWeight.Length();
+    }
+    for (Int i = 0; i < edges; i = i + 1) {
+        Int minIndex = i;
+        for (Int j = i + 1; j < edges; j = j + 1) {
+            if (edgeWeight[j] < edgeWeight[minIndex]) {
+                minIndex = j;
+            }
+        }
+        Swap(edgeWeight, i, minIndex);
+        Swap(edgeFrom, i, minIndex);
+        Swap(edgeTo, i, minIndex);
+    }
+    Array<Int> parent = Array.Range(0, n);
+    Int cost = 0;
+    Int used = 0;
+    for (Int e = 0; e < edges; e = e + 1) {
+        if (Unite(parent, edgeFrom[e], edgeTo[e]) == 1) {
+            cost = cost + edgeWeight[e];
+            used = used + 1;
+        }
+    }
+    if (n > 0 && used != n - 1) {
+        return -1;
+    }
+    return cost;
+}
+
+public Function PrimCost(Array<Int> matrix, Int n) -> Int {
+    if (n <= 0) {
+        return 0;
+    }
+    Int inf = 1000000000;
+    Array<Int> used = Array.Filled(n, 0);
+    Array<Int> best = Array.Filled(n, inf);
+    best[0] = 0;
+    Int cost = 0;
+    for (Int step = 0; step < n; step = step + 1) {
+        Int node = -1;
+        Int weight = inf;
+        for (Int i = 0; i < n; i = i + 1) {
+            if (used[i] == 0 && best[i] < weight) {
+                weight = best[i];
+                node = i;
+            }
+        }
+        if (node < 0 || weight >= inf) {
+            return -1;
+        }
+        used[node] = 1;
+        cost = cost + weight;
+        for (Int next = 0; next < n; next = next + 1) {
+            Int edge = matrix[node * n + next];
+            if (edge > 0 && used[next] == 0 && edge < best[next]) {
+                best[next] = edge;
+            }
+        }
+    }
+    return cost;
+}
+
+public Function KmpSearch(Array<Int> text, Array<Int> pattern) -> Int {
+    Int n = text.Length();
+    Int m = pattern.Length();
+    if (m == 0) {
+        return 0;
+    }
+    if (m > n) {
+        return -1;
+    }
+    Array<Int> lps = Array.Filled(m, 0);
+    Int len = 0;
+    Int i = 1;
+    while (i < m) {
+        if (pattern[i] == pattern[len]) {
+            len = len + 1;
+            lps[i] = len;
+            i = i + 1;
+        } else if (len > 0) {
+            len = lps[len - 1];
+        } else {
+            lps[i] = 0;
+            i = i + 1;
+        }
+    }
+    Int textIndex = 0;
+    Int patternIndex = 0;
+    while (textIndex < n) {
+        if (text[textIndex] == pattern[patternIndex]) {
+            textIndex = textIndex + 1;
+            patternIndex = patternIndex + 1;
+            if (patternIndex == m) {
+                return textIndex - m;
+            }
+        } else if (patternIndex > 0) {
+            patternIndex = lps[patternIndex - 1];
+        } else {
+            textIndex = textIndex + 1;
+        }
+    }
+    return -1;
+}
+
+public Function RabinKarp(Array<Int> text, Array<Int> pattern) -> Int {
+    Int n = text.Length();
+    Int m = pattern.Length();
+    if (m == 0) {
+        return 0;
+    }
+    if (m > n) {
+        return -1;
+    }
+    Int base = 256;
+    Int mod = 1000000007;
+    Int power = 1;
+    Int i = 1;
+    while (i < m) {
+        power = (power * base) % mod;
+        i = i + 1;
+    }
+    Int patternHash = 0;
+    Int window = 0;
+    for (Int k = 0; k < m; k = k + 1) {
+        patternHash = (patternHash * base + pattern[k]) % mod;
+        window = (window * base + text[k]) % mod;
+    }
+    for (Int start = 0; start + m <= n; start = start + 1) {
+        if (window == patternHash) {
+            Int matched = 1;
+            for (Int k = 0; k < m; k = k + 1) {
+                if (text[start + k] != pattern[k]) {
+                    matched = 0;
+                }
+            }
+            if (matched == 1) {
+                return start;
+            }
+        }
+        if (start + m < n) {
+            window = (window - text[start] * power) % mod;
+            if (window < 0) {
+                window = window + mod;
+            }
+            window = (window * base + text[start + m]) % mod;
+        }
+    }
+    return -1;
+}
+
+public Function DutchFlag(Array<Int> values) -> Void {
+    Int low = 0;
+    Int mid = 0;
+    Int high = values.Length() - 1;
+    while (mid <= high) {
+        if (values[mid] == 0) {
+            Swap(values, low, mid);
+            low = low + 1;
+            mid = mid + 1;
+        } else if (values[mid] == 1) {
+            mid = mid + 1;
+        } else {
+            Swap(values, mid, high);
+            high = high - 1;
+        }
+    }
+}
+
+public Function NextPermutation(Array<Int> values) -> Int {
+    Int count = values.Length();
+    Int pivot = count - 2;
+    while (pivot >= 0) {
+        if (values[pivot] < values[pivot + 1]) {
+            break;
+        }
+        pivot = pivot - 1;
+    }
+    if (pivot < 0) {
+        values.Reverse();
+        return 0;
+    }
+    Int successor = count - 1;
+    while (values[successor] <= values[pivot]) {
+        successor = successor - 1;
+    }
+    Swap(values, pivot, successor);
+    Int left = pivot + 1;
+    Int right = count - 1;
+    while (left < right) {
+        Swap(values, left, right);
+        left = left + 1;
+        right = right - 1;
+    }
+    return 1;
+}
+
+public Function MatrixMultiply(Array<Int> left, Array<Int> right, Int n) -> Array<Int> {
+    Array<Int> out = Array.Filled(n * n, 0);
+    for (Int row = 0; row < n; row = row + 1) {
+        for (Int col = 0; col < n; col = col + 1) {
+            Int sum = 0;
+            for (Int k = 0; k < n; k = k + 1) {
+                sum = sum + left[row * n + k] * right[k * n + col];
+            }
+            out[row * n + col] = sum;
+        }
+    }
+    return out;
+}

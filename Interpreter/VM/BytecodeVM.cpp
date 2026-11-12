@@ -2,11 +2,13 @@
 #include "../../Compiler/Types/SpecValidator.hpp"
 #include "../../Compiler/Runtime/SceneRaster.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #ifdef _WIN32
@@ -140,28 +142,371 @@ void WritePointee(VMObjectInstance& obj, std::int64_t value) {
     }
 }
 
-} // namespace
-
-std::string VMValue::ToString() const {
-    if (IsInt()) {
-        return std::to_string(std::get<std::int64_t>(data));
-    }
-    if (IsFloat()) {
+std::string PrimitiveText(const VMValue& value) {
+    if (value.IsInt()) return std::to_string(std::get<std::int64_t>(value.data));
+    if (value.IsFloat()) {
         std::ostringstream oss;
-        oss << std::get<double>(data);
+        oss << std::get<double>(value.data);
         return oss.str();
     }
-    if (IsBool()) {
-        return std::get<bool>(data) ? "true" : "false";
-    }
-    if (IsString()) {
-        return std::get<std::string>(data);
-    }
-    if (IsObject()) {
-        const auto& ptr = std::get<std::shared_ptr<VMObjectInstance>>(data);
+    if (value.IsBool()) return std::get<bool>(value.data) ? "true" : "false";
+    if (value.IsString()) return std::get<std::string>(value.data);
+    if (value.IsObject()) {
+        const auto& ptr = std::get<std::shared_ptr<VMObjectInstance>>(value.data);
         return ptr ? ("<" + ptr->className + ">") : "null";
     }
     return "void";
+}
+
+std::string QuoteRobixString(const std::string& text) {
+    std::string out = "'";
+    for (unsigned char ch : text) {
+        if (ch == '\\' || ch == '\'') {
+            out.push_back('\\');
+            out.push_back(static_cast<char>(ch));
+        } else if (ch == '\n') {
+            out += "\\n";
+        } else if (ch == '\r') {
+            out += "\\r";
+        } else if (ch == '\t') {
+            out += "\\t";
+        } else {
+            out.push_back(static_cast<char>(ch));
+        }
+    }
+    out.push_back('\'');
+    return out;
+}
+
+bool IsArrayObject(const VMObjectInstance* obj) {
+    return obj != nullptr && (obj->className == "Array" || obj->className == "Slice");
+}
+
+std::int64_t ArrayLength(const VMObjectInstance& obj) {
+    const auto found = obj.fields.find("len");
+    if (found == obj.fields.end()) return 0;
+    const std::int64_t length = found->second.AsInt();
+    return length < 0 ? 0 : length;
+}
+
+VMValue ArrayAt(const VMObjectInstance& obj, std::int64_t index) {
+    const auto found = obj.fields.find(std::to_string(index));
+    return found == obj.fields.end() ? VMValue{} : found->second;
+}
+
+std::string FormatRobixValue(const VMValue& value, std::vector<const VMObjectInstance*>& stack, bool quoteStrings);
+
+std::string FormatArrayText(const VMObjectInstance& obj, std::vector<const VMObjectInstance*>& stack) {
+    for (const VMObjectInstance* seen : stack) {
+        if (seen == &obj) return "[...]";
+    }
+    stack.push_back(&obj);
+    std::string out = "[";
+    const std::int64_t length = ArrayLength(obj);
+    for (std::int64_t i = 0; i < length; ++i) {
+        if (i > 0) out += ", ";
+        out += FormatRobixValue(ArrayAt(obj, i), stack, true);
+    }
+    out.push_back(']');
+    stack.pop_back();
+    return out;
+}
+
+std::string FormatRobixValue(const VMValue& value, std::vector<const VMObjectInstance*>& stack, bool quoteStrings) {
+    if (quoteStrings && value.IsString()) return QuoteRobixString(std::get<std::string>(value.data));
+    if (value.IsObject()) {
+        const auto& ptr = std::get<std::shared_ptr<VMObjectInstance>>(value.data);
+        if (IsArrayObject(ptr.get())) return FormatArrayText(*ptr, stack);
+    }
+    return PrimitiveText(value);
+}
+
+bool IsRobixNumber(const VMValue& value) {
+    return value.IsInt() || value.IsFloat() || value.IsBool();
+}
+
+bool SameArray(const VMObjectInstance& left, const VMObjectInstance& right);
+
+bool SameRobixValue(const VMValue& left, const VMValue& right) {
+    if (left.IsBool() || right.IsBool()) return left.IsBool() && right.IsBool() && left.AsBool() == right.AsBool();
+    if (left.IsString() || right.IsString()) {
+        return left.IsString() && right.IsString() &&
+               std::get<std::string>(left.data) == std::get<std::string>(right.data);
+    }
+    if (IsRobixNumber(left) && IsRobixNumber(right)) return left.AsFloat() == right.AsFloat();
+    if (left.IsObject() && right.IsObject()) {
+        const auto a = std::get<std::shared_ptr<VMObjectInstance>>(left.data);
+        const auto b = std::get<std::shared_ptr<VMObjectInstance>>(right.data);
+        if (IsArrayObject(a.get()) && IsArrayObject(b.get())) return SameArray(*a, *b);
+        return a == b;
+    }
+    return false;
+}
+
+bool SameArray(const VMObjectInstance& left, const VMObjectInstance& right) {
+    const std::int64_t length = ArrayLength(left);
+    if (length != ArrayLength(right)) return false;
+    for (std::int64_t i = 0; i < length; ++i) {
+        if (!SameRobixValue(ArrayAt(left, i), ArrayAt(right, i))) return false;
+    }
+    return true;
+}
+
+int CompareRobixValue(const VMValue& left, const VMValue& right) {
+    if (SameRobixValue(left, right)) return 0;
+    const auto rank = [](const VMValue& value) {
+        if (IsRobixNumber(value)) return 0;
+        if (value.IsString()) return 1;
+        return 2;
+    };
+    const int leftRank = rank(left);
+    const int rightRank = rank(right);
+    if (leftRank != rightRank) return leftRank < rightRank ? -1 : 1;
+    if (leftRank == 0) {
+        const double a = left.AsFloat();
+        const double b = right.AsFloat();
+        if (a < b) return -1;
+        if (a > b) return 1;
+        return 0;
+    }
+    const std::string a = left.IsString() ? std::get<std::string>(left.data) : PrimitiveText(left);
+    const std::string b = right.IsString() ? std::get<std::string>(right.data) : PrimitiveText(right);
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+}
+
+std::vector<VMValue> LoadArray(const VMObjectInstance& obj) {
+    const std::int64_t length = ArrayLength(obj);
+    std::vector<VMValue> items;
+    items.reserve(static_cast<std::size_t>(length));
+    for (std::int64_t i = 0; i < length; ++i) items.push_back(ArrayAt(obj, i));
+    return items;
+}
+
+void StoreArray(VMObjectInstance& obj, const std::vector<VMValue>& items) {
+    obj.fields["len"] = VMValue{ static_cast<std::int64_t>(items.size()) };
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        obj.fields[std::to_string(i)] = items[i];
+    }
+}
+
+std::shared_ptr<VMObjectInstance> MakeArray(const std::vector<VMValue>& items) {
+    auto obj = std::make_shared<VMObjectInstance>();
+    obj->className = "Array";
+    StoreArray(*obj, items);
+    return obj;
+}
+
+std::shared_ptr<VMObjectInstance> RequireArray(const VMValue& value) {
+    auto obj = AsObj(value);
+    if (!IsArrayObject(obj.get())) Fail("robix vm: array operation requires an array");
+    return obj;
+}
+
+void RequireIndex(std::int64_t index, std::int64_t length) {
+    if (index < 0 || index >= length) Fail("robix vm: index out of bounds");
+}
+
+void StableSortValues(std::vector<VMValue>& items) {
+    std::vector<VMValue> aux(items.size());
+    for (std::size_t width = 1; width < items.size(); width *= 2) {
+        for (std::size_t start = 0; start < items.size(); start += width * 2) {
+            const std::size_t mid = (std::min)(start + width, items.size());
+            const std::size_t end = (std::min)(start + width * 2, items.size());
+            std::size_t left = start;
+            std::size_t right = mid;
+            std::size_t cursor = start;
+            while (left < mid && right < end) {
+                if (CompareRobixValue(items[right], items[left]) < 0) aux[cursor++] = items[right++];
+                else aux[cursor++] = items[left++];
+            }
+            while (left < mid) aux[cursor++] = items[left++];
+            while (right < end) aux[cursor++] = items[right++];
+            for (std::size_t i = start; i < end; ++i) items[i] = aux[i];
+        }
+    }
+}
+
+std::int64_t NormalizeRotate(std::int64_t steps, std::int64_t length) {
+    if (length <= 0) return 0;
+    std::int64_t shift = steps % length;
+    if (shift < 0) shift += length;
+    return shift;
+}
+
+std::vector<VMValue> RotatedItems(const std::vector<VMValue>& items, std::int64_t steps) {
+    const std::int64_t length = static_cast<std::int64_t>(items.size());
+    const std::int64_t shift = NormalizeRotate(steps, length);
+    std::vector<VMValue> out(items.size());
+    for (std::int64_t i = 0; i < length; ++i) {
+        out[static_cast<std::size_t>(i)] = items[static_cast<std::size_t>((i + shift) % length)];
+    }
+    return out;
+}
+
+void ShuffleItems(std::vector<VMValue>& items, std::int64_t seed) {
+    std::uint64_t state = static_cast<std::uint64_t>(seed);
+    for (std::int64_t i = static_cast<std::int64_t>(items.size()) - 1; i > 0; --i) {
+        state = state * 1664525ull + 1013904223ull;
+        const std::int64_t slot = static_cast<std::int64_t>(state % static_cast<std::uint64_t>(i + 1));
+        std::swap(items[static_cast<std::size_t>(i)], items[static_cast<std::size_t>(slot)]);
+    }
+}
+
+std::int64_t LeftmostMatch(const std::vector<VMValue>& items, const VMValue& target) {
+    std::int64_t low = 0;
+    std::int64_t high = static_cast<std::int64_t>(items.size()) - 1;
+    std::int64_t found = -1;
+    while (low <= high) {
+        const std::int64_t mid = low + (high - low) / 2;
+        const int order = CompareRobixValue(items[static_cast<std::size_t>(mid)], target);
+        if (order == 0) {
+            found = mid;
+            high = mid - 1;
+        } else if (order < 0) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return found;
+}
+
+bool HandleArrayIntrinsic(const BCInstruction& inst, std::unordered_map<std::uint32_t, VMValue>& regs) {
+    constexpr const char* kPrefix = "Array.";
+    if (inst.symbolImm.rfind(kPrefix, 0) != 0) return false;
+    const std::string name = inst.symbolImm.substr(6);
+    auto arg = [&](std::size_t index) -> const VMValue& {
+        if (index >= inst.callArgRegs.size()) Fail("robix vm: array operation is missing an argument");
+        return regs[inst.callArgRegs[index]];
+    };
+    auto setResult = [&](const VMValue& value) {
+        if (inst.destReg != 0) regs[inst.destReg] = value;
+    };
+    if (name == "Filled" || name == "Range") {
+        if (name == "Filled") {
+            const std::int64_t count = arg(0).AsInt();
+            if (count < 0) Fail("robix vm: array length is negative");
+            if (count > 10000000) Fail("robix vm: array length is out of range");
+            setResult(VMValue{ MakeArray(std::vector<VMValue>(static_cast<std::size_t>(count), arg(1))) });
+        } else {
+            const std::int64_t start = arg(0).AsInt();
+            const std::int64_t end = arg(1).AsInt();
+            if (end - start > 10000000) Fail("robix vm: array length is out of range");
+            std::vector<VMValue> items;
+            for (std::int64_t value = start; value < end; ++value) items.push_back(VMValue{ value });
+            setResult(VMValue{ MakeArray(items) });
+        }
+        return true;
+    }
+
+    auto obj = RequireArray(arg(0));
+    std::vector<VMValue> items = LoadArray(*obj);
+    const std::int64_t length = static_cast<std::int64_t>(items.size());
+    if (name == "Swap") {
+        const std::int64_t left = arg(1).AsInt();
+        const std::int64_t right = arg(2).AsInt();
+        RequireIndex(left, length);
+        RequireIndex(right, length);
+        std::swap(items[static_cast<std::size_t>(left)], items[static_cast<std::size_t>(right)]);
+        StoreArray(*obj, items);
+        setResult(VMValue{});
+    } else if (name == "Reverse") {
+        std::reverse(items.begin(), items.end());
+        StoreArray(*obj, items);
+        setResult(VMValue{});
+    } else if (name == "Sort") {
+        StableSortValues(items);
+        StoreArray(*obj, items);
+        setResult(VMValue{});
+    } else if (name == "Rotate") {
+        StoreArray(*obj, RotatedItems(items, arg(1).AsInt()));
+        setResult(VMValue{});
+    } else if (name == "Fill") {
+        for (auto& item : items) item = arg(1);
+        StoreArray(*obj, items);
+        setResult(VMValue{});
+    } else if (name == "Shuffle") {
+        ShuffleItems(items, arg(1).AsInt());
+        StoreArray(*obj, items);
+        setResult(VMValue{});
+    } else if (name == "Sum" || name == "Product" || name == "Min" || name == "Max") {
+        std::int64_t result = name == "Product" ? 1 : 0;
+        if ((name == "Min" || name == "Max") && !items.empty()) result = items[0].AsInt();
+        for (const auto& item : items) {
+            const std::int64_t value = item.AsInt();
+            if (name == "Sum") result += value;
+            else if (name == "Product") result *= value;
+            else if (name == "Min" && value < result) result = value;
+            else if (name == "Max" && value > result) result = value;
+        }
+        setResult(VMValue{ result });
+    } else if (name == "IndexOf" || name == "LastIndexOf" || name == "CountOf" || name == "Contains") {
+        const VMValue& target = arg(1);
+        std::int64_t index = -1;
+        std::int64_t count = 0;
+        for (std::int64_t i = 0; i < length; ++i) {
+            if (!SameRobixValue(items[static_cast<std::size_t>(i)], target)) continue;
+            if (index < 0 || name == "LastIndexOf") index = i;
+            ++count;
+        }
+        if (name == "Contains") setResult(VMValue{ count > 0 });
+        else if (name == "CountOf") setResult(VMValue{ count });
+        else setResult(VMValue{ index });
+    } else if (name == "BinarySearch") {
+        setResult(VMValue{ LeftmostMatch(items, arg(1)) });
+    } else if (name == "IsSorted") {
+        bool sorted = true;
+        for (std::int64_t i = 1; i < length; ++i) {
+            if (CompareRobixValue(items[static_cast<std::size_t>(i)], items[static_cast<std::size_t>(i - 1)]) < 0) {
+                sorted = false;
+                break;
+            }
+        }
+        setResult(VMValue{ sorted });
+    } else if (name == "IsEmpty") {
+        setResult(VMValue{ length == 0 });
+    } else if (name == "Copy") {
+        setResult(VMValue{ MakeArray(items) });
+    } else if (name == "Reversed") {
+        std::reverse(items.begin(), items.end());
+        setResult(VMValue{ MakeArray(items) });
+    } else if (name == "Sorted") {
+        StableSortValues(items);
+        setResult(VMValue{ MakeArray(items) });
+    } else if (name == "Rotated") {
+        setResult(VMValue{ MakeArray(RotatedItems(items, arg(1).AsInt())) });
+    } else if (name == "Unique") {
+        std::vector<VMValue> unique;
+        for (const auto& item : items) {
+            bool seen = false;
+            for (const auto& kept : unique) {
+                if (SameRobixValue(kept, item)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) unique.push_back(item);
+        }
+        setResult(VMValue{ MakeArray(unique) });
+    } else if (name == "Concat") {
+        auto extra = RequireArray(arg(1));
+        std::vector<VMValue> joined = items;
+        std::vector<VMValue> rest = LoadArray(*extra);
+        joined.insert(joined.end(), rest.begin(), rest.end());
+        setResult(VMValue{ MakeArray(joined) });
+    } else {
+        Fail("robix vm: unknown array operation");
+    }
+    return true;
+}
+
+} // namespace
+
+std::string VMValue::ToString() const {
+    std::vector<const VMObjectInstance*> stack;
+    return FormatRobixValue(*this, stack, false);
 }
 
 BytecodeVM::BytecodeVM(const BytecodeModule& module, std::uint32_t jitHotThreshold)
@@ -1611,7 +1956,7 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     if (v < lo) v = lo;
                     if (v > hi) v = hi;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ v };
-                } else {
+                } else if (!HandleArrayIntrinsic(inst, regs)) {
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t(0) };
                 }
                 break;

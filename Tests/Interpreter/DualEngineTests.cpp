@@ -315,6 +315,50 @@ void TestWriteOnceCompileNativeEverywhereLLVMCodeGen() {
     }
 }
 
+void TestArrayPrintAndBuiltins() {
+    const std::string src = R"(
+        public Int Main() {
+            Array<Int> values = [64, 25, 22, 12, 11];
+            Print(values);
+            values.Sort();
+            Print(values);
+            values.Reverse();
+            Print(values);
+            Array<Int> copy = values.Copy();
+            copy.Swap(0, 1);
+            Print(copy);
+            Array<String> words = ["a", "b"];
+            Print(words);
+            let nested = [[1, 2], [3]];
+            Print(nested);
+            Print(Array.Range(1, 4));
+            Print([]);
+            return values.Sum();
+        }
+    )";
+    auto bundle = BuildDualPipeline(src, "ArrayPrint.rx", true);
+    Check(!bundle.diagnostics.HasErrors(), "Array print and builtin program type-checks");
+    if (bundle.diagnostics.HasErrors()) {
+        std::cerr << bundle.diagnostics.FormatHumanReadable() << "\n";
+    }
+    Robix::VM::BytecodeVM vm(bundle.bcMod);
+    const std::int32_t code = vm.ExecuteMainAndGetExitCode();
+    const std::string expected =
+        "[64, 25, 22, 12, 11]\n"
+        "[11, 12, 22, 25, 64]\n"
+        "[64, 25, 22, 12, 11]\n"
+        "[25, 64, 22, 12, 11]\n"
+        "['a', 'b']\n"
+        "[[1, 2], [3]]\n"
+        "[1, 2, 3]\n"
+        "[]\n";
+    Check(code == 134 && vm.GetStdoutBuffer() == expected,
+          "Print shows arrays in Python list form and array builtins keep the values");
+    if (code != 134 || vm.GetStdoutBuffer() != expected) {
+        std::cerr << "exit " << code << "\n" << vm.GetStdoutBuffer() << "\n";
+    }
+}
+
 void TestIncrementalBuildCache() {
     Robix::CodeGen::IncrementalBuildCache cache;
     const std::string srcV1 = "public Int Main() { return 10; }";
@@ -349,6 +393,7 @@ int main() {
     TestBytecodeVMExecutionRecursionAndOOP();
     TestSingleFileStandaloneExecutionAndSingleFileTesting();
     TestWriteOnceCompileNativeEverywhereLLVMCodeGen();
+    TestArrayPrintAndBuiltins();
     TestIncrementalBuildCache();
 
     std::cout << "========================================================\n";

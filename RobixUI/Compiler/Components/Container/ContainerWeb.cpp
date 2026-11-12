@@ -146,7 +146,8 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-button[data-variant=danger]{background:var(--danger,#ff3b30);color:white}\n";
   css << "input.robo-field,textarea.robo-field,input.robo-type,textarea.robo-type{appearance:none;-webkit-appearance:none;box-sizing:border-box;display:block;margin:0;"
          "border:1px solid var(--border-default);border-radius:6px;background:var(--bg-elevated);color:var(--text-primary);"
-         "font:14px/1.2 Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;outline:none;box-shadow:none;caret-color:var(--text-primary)}\n";
+         "font:14px/1.2 Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;outline:none;box-shadow:none;caret-color:var(--text-primary);"
+         "cursor:text;user-select:text;-webkit-user-select:text}\n";
   css << "input.robo-field,input.robo-type{padding:0 10px}\n";
   css << "textarea.robo-field,textarea.robo-type{padding:10px;line-height:1.35;resize:none}\n";
   css << "input.robo-field:focus,textarea.robo-field:focus,input.robo-type:focus,textarea.robo-type:focus,"
@@ -154,7 +155,7 @@ void RoboWebAppendContainerCss(std::ostream& css) {
          "outline:none;border-color:var(--border-default);box-shadow:none}\n";
   css << "input.robo-field::placeholder,textarea.robo-field::placeholder,input.robo-type::placeholder,textarea.robo-type::placeholder{color:var(--text-tertiary);opacity:1}\n";
   css << "input.robo-field:disabled,textarea.robo-field:disabled,input.robo-type:disabled,textarea.robo-type:disabled{"
-         "background:var(--bg-secondary);color:var(--text-disabled);-webkit-text-fill-color:var(--text-disabled);opacity:1}\n";
+         "background:var(--bg-secondary);color:var(--text-disabled);-webkit-text-fill-color:var(--text-disabled);opacity:1;cursor:default}\n";
   css << "input.robo-field::selection,textarea.robo-field::selection,input.robo-type::selection,textarea.robo-type::selection{"
          "background:color-mix(in srgb,var(--brand-primary) 45%,var(--bg-primary));color:var(--text-primary)}\n";
   css << "input.robo-field::-ms-reveal,input.robo-field::-ms-clear,input.robo-type::-ms-reveal,input.robo-type::-ms-clear{display:none}\n";
