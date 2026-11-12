@@ -69,6 +69,9 @@ void WindowsDocumentSetPictureClock(unsigned clock);
 
 /* True while a shown picture has more than one frame. */
 bool WindowsDocumentNeedsMotion();
+/* True only when an animated picture has advanced to a frame that is not on screen yet. */
+bool WindowsDocumentMotionDue();
+void WindowsDocumentMotionMark();
 
 /* Document rectangles of pictures that animate. */
 int WindowsDocumentMotionRects(WindowPatch* patches, int capacity);
@@ -119,6 +122,12 @@ int WindowsDocumentFieldCaretCover(unsigned now);
 void WindowsDocumentFieldCaretUse(int cover);
 /* Paints the focused field again so a blink can show or hide the caret. The box is in document pixels. */
 bool WindowsDocumentFieldCaretRepaint(RoboGPU* gpu, int scrollY, int viewHeight, int& x, int& y, int& width, int& height);
+/* Same field paint, drawn at the page scale into a window-sized buffer. The box is in window pixels. */
+bool WindowsDocumentFieldPaintScaled(RoboGPU* gpu, int scrollY, int screenHeight, double scale, int& x, int& y, int& width, int& height);
+/* Bumps whenever the focused field's text, caret, or selection changes. */
+unsigned WindowsDocumentFieldRevision();
+/* Paints one document rectangle into the scrolled window without redrawing the rest of the page. */
+void WindowsDocumentPaintWindowRect(RoboGPU* gpu, int x, int y, int width, int height, int scrollY, int viewWidth, int viewHeight);
 
 /* 1 when a document point is on selectable text. Buttons and other controls are not. */
 bool WindowsDocumentTextAt(int docX, int docY);
@@ -142,6 +151,7 @@ struct WindowBox {
     int y = 0;
     int width = 0;
     int height = 0;
+    int color = 0;
     std::string text;
 };
 

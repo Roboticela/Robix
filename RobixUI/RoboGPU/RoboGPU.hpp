@@ -97,4 +97,12 @@ void RoboGPUMarkFullDamage(RoboGPU* gpu);
 /* Nested viewport clip (intersect with current). Pop restores prior. */
 void RoboGPUPushScissor(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboI32 width, RoboI32 height);
 void RoboGPUPopScissor(RoboGPU* gpu);
+
+/* Optional tap used while the platform paints a document for the OS. */
+struct RoboGPUPaintSink {
+  void (*fill)(void* context, RoboI32 x, RoboI32 y, RoboI32 width, RoboI32 height, RoboU32 colorARGB);
+  void (*blend)(void* context, RoboI32 x, RoboI32 y, RoboU32 colorARGB, RoboU8 coverage);
+  void* context;
+};
+void RoboGPUSetPaintSink(const RoboGPUPaintSink* sink);
 void RoboGPUApplyScissor(const RoboGPU* gpu, RoboI32* x, RoboI32* y, RoboI32* width, RoboI32* height);

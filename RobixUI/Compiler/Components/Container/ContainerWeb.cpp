@@ -146,8 +146,9 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-button[data-variant=danger]{background:var(--danger,#ff3b30);color:white}\n";
   css << "input.robo-field,textarea.robo-field,input.robo-type,textarea.robo-type{appearance:none;-webkit-appearance:none;box-sizing:border-box;display:block;margin:0;"
          "border:1px solid var(--border-default);border-radius:6px;background:var(--bg-elevated);color:var(--text-primary);"
-         "font:14px/1.2 Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;outline:none;box-shadow:none;caret-color:var(--text-primary);"
+         "font:14px/1.2 Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;outline:none;box-shadow:none;caret-color:transparent !important;"
          "cursor:text;user-select:text;-webkit-user-select:text}\n";
+  css << ".robo-field-caret{position:fixed;z-index:36;display:none;pointer-events:none;border-radius:999px;transform:translateX(-50%);background:var(--robo-caret,var(--text-primary))}\n";
   css << "input.robo-field,input.robo-type{padding:0 10px}\n";
   css << "textarea.robo-field,textarea.robo-type{padding:10px;line-height:1.35;resize:none}\n";
   css << "input.robo-field:focus,textarea.robo-field:focus,input.robo-type:focus,textarea.robo-type:focus,"
@@ -169,10 +170,9 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-textfield [contenteditable],.robo-textarea [contenteditable]{min-height:1.4em;outline:none}\n";
   css << ".robo-select [data-panel]{display:none}\n";
   css << ".robo-select[data-open=true] [data-panel]{display:block}\n";
-  css << ".robo-scroll{overflow:auto;position:relative;min-height:0;min-width:0;scrollbar-width:thin;scrollbar-color:#8B93A7 transparent}\n";
-  css << ".robo-scroll::-webkit-scrollbar{width:6px;height:6px}\n";
-  css << ".robo-scroll::-webkit-scrollbar-thumb{background:#8B93A7;border-radius:999px}\n";
-  css << ".robo-scroll::-webkit-scrollbar-track{background:transparent}\n";
+  css << ".robo-scroll{overflow:auto;position:relative;min-height:0;min-width:0;scrollbar-width:none}\n";
+  css << ".robo-scroll::-webkit-scrollbar{width:0;height:0}\n";
+  css << ".robo-scroll>.robo-bars{position:fixed;inset:auto;z-index:5}\n";
   css << ".robo-board,.robo-container,.robo-scroll{box-sizing:border-box;min-width:0;border:0;outline:none}\n";
   css << ".robo-board:focus,.robo-board:focus-visible,.robo-container:focus,.robo-container:focus-visible,"
          ".robo-scroll:focus,.robo-scroll:focus-visible{outline:none}\n";

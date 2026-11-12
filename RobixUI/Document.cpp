@@ -292,7 +292,7 @@ int RunUiCommand(const std::vector<std::string>& args) {
         }
         out << "RXUL 1\n";
         for (const WindowBox& box : boxes) {
-            out << box.kind << ' ' << box.x << ' ' << box.y << ' ' << box.width << ' ' << box.height << ' ' << box.text << '\n';
+            out << box.kind << ' ' << box.x << ' ' << box.y << ' ' << box.width << ' ' << box.height << ' ' << box.color << ' ' << box.text << '\n';
         }
         std::cout << "cooked " << boxes.size() << " " << output << "\n";
         return 0;

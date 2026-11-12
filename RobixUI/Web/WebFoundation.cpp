@@ -425,7 +425,7 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     if (name == "input" || name == "textfield") {
         const std::string caret = RoboXMLAttr(node, "cursorcolor").empty() ? RoboXMLAttr(node, "cursor-color") : RoboXMLAttr(node, "cursorcolor");
         if (!caret.empty()) {
-            RoboWebAddDecl(style, "caret-color", caret);
+            RoboWebAddDecl(style, "--robo-caret", caret);
         }
     }
     if (!style.empty()) {
@@ -808,8 +808,7 @@ Robo.sceneSet = function (name, key, value) {
     js += RoboWebMotionScript();
     js += R"JS(
 (function () {
-  var port = document.querySelector(".robo-page");
-  var bars = document.querySelector(".robo-bars");
+  function mount(port, bars) {
   if (!port || !bars) return;
   var yBar = bars.querySelector(".robo-bar.is-y");
   var xBar = bars.querySelector(".robo-bar.is-x");
@@ -834,8 +833,16 @@ Robo.sceneSet = function (name, key, value) {
   function place() {
     var maxY = Math.max(0, port.scrollHeight - port.clientHeight);
     var maxX = Math.max(0, port.scrollWidth - port.clientWidth);
-    var yOn = maxY > 1;
-    var xOn = maxX > 1;
+    var flow = getComputedStyle(port);
+    var yOn = maxY > 1 && flow.overflowY !== "hidden" && flow.overflowY !== "clip";
+    var xOn = maxX > 1 && flow.overflowX !== "hidden" && flow.overflowX !== "clip";
+    if (!port.classList.contains("robo-page")) {
+      var box = port.getBoundingClientRect();
+      bars.style.left = box.left + "px";
+      bars.style.top = box.top + "px";
+      bars.style.width = box.width + "px";
+      bars.style.height = box.height + "px";
+    }
     var yH = Math.max(thick, port.clientHeight - edge * 2 - (xOn ? thick + edge : 0));
     var xW = Math.max(thick, port.clientWidth - edge * 2 - (yOn ? thick + edge : 0));
     yBar.hidden = !yOn;
@@ -966,15 +973,154 @@ Robo.sceneSet = function (name, key, value) {
     lastY = port.scrollTop;
   }, { passive: true });
   window.addEventListener("resize", function () { place(); wake(yBar); wake(xBar); });
+  window.addEventListener("scroll", place, true);
   place();
   wake(yBar);
   wake(xBar);
+  }
+  var page = document.querySelector(".robo-page");
+  var pageBars = page ? page.querySelector(":scope > .robo-bars") : null;
+  if (page && pageBars) mount(page, pageBars);
+  var markup = "<div class=\"robo-bar is-y\" hidden><button type=\"button\" class=\"robo-bar-arrow is-up\" aria-label=\"Scroll up\"></button><div class=\"robo-bar-track\"><div class=\"robo-bar-thumb\"></div></div><button type=\"button\" class=\"robo-bar-arrow is-down\" aria-label=\"Scroll down\"></button></div><div class=\"robo-bar is-x\" hidden><button type=\"button\" class=\"robo-bar-arrow is-left\" aria-label=\"Scroll left\"></button><div class=\"robo-bar-track\"><div class=\"robo-bar-thumb\"></div></div><button type=\"button\" class=\"robo-bar-arrow is-right\" aria-label=\"Scroll right\"></button></div>";
   document.querySelectorAll(".robo-scroll").forEach(function (node) {
     var x = Number(node.getAttribute("data-offset-x") || 0);
     var y = Number(node.getAttribute("data-offset-y") || 0);
     if (x) node.scrollLeft = x;
     if (y) node.scrollTop = y;
+    var bars = document.createElement("div");
+    bars.className = "robo-bars";
+    bars.innerHTML = markup;
+    node.appendChild(bars);
+    mount(node, bars);
   });
+})();
+(function () {
+  var fields = document.querySelectorAll("input.robo-field,textarea.robo-field");
+  if (!fields.length) return;
+  var canvas = document.createElement("canvas");
+  var ctx = canvas.getContext("2d");
+  var mirror = document.createElement("div");
+  mirror.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;white-space:pre-wrap;overflow-wrap:break-word;pointer-events:none";
+  var mark = document.createElement("span");
+  mirror.appendChild(mark);
+  document.body.appendChild(mirror);
+  var touched = 0;
+  function shown(field, end) {
+    var text = field.value.slice(0, end);
+    if (field.type === "password") return text.replace(/./g, "•");
+    return text;
+  }
+  function measure(field, text) {
+    ctx.font = getComputedStyle(field).font;
+    return ctx.measureText(text).width;
+  }
+  function thick(size, before, after) {
+    var bar = Math.max(1, Math.floor((size + 12) / 18));
+    var neighbor = before > 0 && after > 0 ? Math.min(before, after) : Math.max(before, after);
+    if (neighbor > 0) bar = Math.min(bar, Math.max(1, Math.floor(neighbor / 4)));
+    return Math.min(bar, 4);
+  }
+  function cover(now) {
+    var idle = now - touched;
+    if (idle < 650) return 1;
+    var phase = (idle - 650) % 1200;
+    if (phase < 220) return 1 - phase / 220;
+    if (phase < 480) return 0;
+    if (phase < 700) return (phase - 480) / 220;
+    return 1;
+  }
+  fields.forEach(function (field) {
+    if (field.disabled) return;
+    var bar = document.createElement("div");
+    bar.className = "robo-field-caret";
+    var paint = field.style.getPropertyValue("--robo-caret");
+    if (paint) bar.style.background = paint;
+    document.body.appendChild(bar);
+    field._roboCaret = bar;
+    function place() {
+      if (document.activeElement !== field) {
+        bar.style.display = "none";
+        return;
+      }
+      var end = field.selectionDirection === "backward" ? field.selectionStart : field.selectionEnd;
+      var text = shown(field, end);
+      var style = getComputedStyle(field);
+      var fontSize = parseFloat(style.fontSize) || 14;
+      var before = end > 0 ? measure(field, text.slice(-1)) : 0;
+      var next = field.value.slice(end, end + 1);
+      var after = next ? measure(field, field.type === "password" ? "•" : next) : 0;
+      var width = thick(fontSize, before, after);
+      var box = field.getBoundingClientRect();
+      var borderLeft = parseFloat(style.borderLeftWidth) || 0;
+      var borderRight = parseFloat(style.borderRightWidth) || 0;
+      var borderTop = parseFloat(style.borderTopWidth) || 0;
+      var borderBottom = parseFloat(style.borderBottomWidth) || 0;
+      var padLeft = parseFloat(style.paddingLeft) || 0;
+      var padTop = parseFloat(style.paddingTop) || 0;
+      var padBottom = parseFloat(style.paddingBottom) || 0;
+      var innerH = box.height - borderTop - borderBottom - padTop - padBottom;
+      var caretH = Math.max(1, Math.min(innerH, fontSize));
+      var x = 0;
+      var y = 0;
+      if (field.tagName === "TEXTAREA") {
+        mirror.style.font = style.font;
+        mirror.style.width = field.clientWidth + "px";
+        mirror.style.padding = style.padding;
+        mirror.style.lineHeight = style.lineHeight;
+        mirror.style.letterSpacing = style.letterSpacing;
+        mirror.textContent = "";
+        mirror.appendChild(document.createTextNode(text));
+        mirror.appendChild(mark);
+        var line = parseFloat(style.lineHeight);
+        if (!line || line < fontSize) line = fontSize * 1.35;
+        x = box.left + mark.offsetLeft - field.scrollLeft;
+        y = box.top + mark.offsetTop - field.scrollTop + Math.max(0, (line - caretH) / 2);
+      } else {
+        x = box.left + borderLeft + padLeft + measure(field, text) - field.scrollLeft;
+        y = box.top + borderTop + padTop + (innerH - caretH) / 2;
+      }
+      var left = box.left + borderLeft;
+      var right = box.right - borderRight;
+      var top = box.top + borderTop;
+      var bottom = box.bottom - borderBottom;
+      if (x < left || x > right || y + caretH < top || y > bottom) {
+        bar.style.display = "none";
+        return;
+      }
+      bar.style.display = "block";
+      bar.style.width = width + "px";
+      bar.style.height = caretH + "px";
+      bar.style.left = x + "px";
+      bar.style.top = y + "px";
+      bar.style.opacity = String(cover(performance.now()));
+    }
+    var wake = function () { touched = performance.now(); place(); };
+    field.addEventListener("focus", wake);
+    field.addEventListener("input", wake);
+    field.addEventListener("keyup", place);
+    field.addEventListener("click", place);
+    field.addEventListener("scroll", place);
+    field.addEventListener("blur", function () { bar.style.display = "none"; });
+    field._roboPlace = place;
+  });
+  document.addEventListener("selectionchange", function () {
+    var field = document.activeElement;
+    if (field && field._roboPlace) field._roboPlace();
+  });
+  window.addEventListener("scroll", function () {
+    var field = document.activeElement;
+    if (field && field._roboPlace) field._roboPlace();
+  }, true);
+  window.addEventListener("resize", function () {
+    var field = document.activeElement;
+    if (field && field._roboPlace) field._roboPlace();
+  });
+  function tick() {
+    var field = document.activeElement;
+    if (field && field._roboPlace) field._roboPlace();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 })();
 )JS";
     js += RoboWebReelScript();

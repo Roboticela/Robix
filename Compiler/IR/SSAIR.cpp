@@ -2807,7 +2807,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
                     } else if (receiverExpr.text == "Scene" && memberName == "Render") {
                         ty = MakePrim("Int");
                     } else if (receiverExpr.text == "UI" &&
-                               (memberName == "LoadCooked" || memberName == "Role" || memberName == "BoxX" ||
+                               (memberName == "LoadCooked" || memberName == "PresentPlatform" || memberName == "PlatformScroll" ||
+                                memberName == "PlatformHeight" || memberName == "Role" || memberName == "BoxX" ||
                                 memberName == "BoxY" || memberName == "BoxWidth" || memberName == "BoxHeight" ||
                                 memberName == "Place" || memberName == "Hit" || memberName == "Drag" ||
                                 memberName == "Snap" || memberName == "Focus" || memberName == "Focused" ||

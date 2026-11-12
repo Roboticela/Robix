@@ -1,5 +1,6 @@
 #include "NativeBackend.hpp"
 #include "../../RobixUI/CookedLayout.hpp"
+#include "../../RobixUI/Platform/Windows/RoboPlatformCapture.hpp"
 #include "../Runtime/SceneRaster.hpp"
 #include "../Runtime/InputScript.hpp"
 
@@ -214,6 +215,10 @@ struct ModuleCtx {
     bool usesFrame = false;
     bool usesUI = false;
     std::vector<Robix::UI::RoboCookedBox> uiBoxes;
+    int platformWidth = 0;
+    int platformHeight = 0;
+    int platformContent = 0;
+    std::vector<std::uint32_t> platformWords;
     bool usesInput = false;
     bool usesSched = false;
     bool usesPort = false;
@@ -1411,6 +1416,62 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 }
                 m_ctx.uiBoxes = std::move(loaded);
                 m_body << "  " << vname << " = call i64 @rx_ui_load()\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.PresentPlatform" && inst.operandIds.size() >= 2) {
+                m_ctx.usesFrame = true;
+                const std::string path = ConstText(inst.operandIds[1]);
+                if (path.empty()) {
+                    Err("N9011", "UI.PresentPlatform needs a string literal path.", inst.location);
+                    break;
+                }
+                if (m_ctx.platformWords.empty()) {
+                    Robix::UI::RoboPlatformPaint paint;
+                    std::string error;
+                    if (!Robix::UI::RoboPlatformCapture(path, 1600, 900, paint, error)) {
+                        Err("N9011", error, inst.location);
+                        break;
+                    }
+                    m_ctx.platformWidth = paint.width;
+                    m_ctx.platformHeight = paint.height;
+                    m_ctx.platformContent = paint.content;
+                    m_ctx.platformWords = std::move(paint.words);
+                }
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_platform_paint(i64 " << frame.repr << ", i64 0)\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.PlatformScroll" && inst.operandIds.size() >= 2) {
+                m_ctx.usesFrame = true;
+                if (m_ctx.platformWords.empty()) {
+                    Robix::UI::RoboPlatformPaint paint;
+                    std::string error;
+                    if (!Robix::UI::RoboPlatformCapture("RoboticelaOS/Desktop/RoboGallery.rxu", 1600, 900, paint, error)) {
+                        Err("N9011", error, inst.location);
+                        break;
+                    }
+                    m_ctx.platformWidth = paint.width;
+                    m_ctx.platformHeight = paint.height;
+                    m_ctx.platformContent = paint.content;
+                    m_ctx.platformWords = std::move(paint.words);
+                }
+                Val frame = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                Val scroll = Coerce(Operand(inst, 1), NTy::I64, inst.location);
+                m_body << "  " << vname << " = call i64 @rx_platform_scroll(i64 " << frame.repr << ", i64 " << scroll.repr << ")\n";
+                m_vals[id] = Val{ vname, NTy::I64 };
+            } else if (inst.textImm == "UI.PlatformHeight") {
+                m_ctx.usesFrame = true;
+                if (m_ctx.platformWords.empty()) {
+                    Robix::UI::RoboPlatformPaint paint;
+                    std::string error;
+                    if (!Robix::UI::RoboPlatformCapture("RoboticelaOS/Desktop/RoboGallery.rxu", 1600, 900, paint, error)) {
+                        Err("N9011", error, inst.location);
+                        break;
+                    }
+                    m_ctx.platformWidth = paint.width;
+                    m_ctx.platformHeight = paint.height;
+                    m_ctx.platformContent = paint.content;
+                    m_ctx.platformWords = std::move(paint.words);
+                }
+                m_body << "  " << vname << " = call i64 @rx_platform_height()\n";
                 m_vals[id] = Val{ vname, NTy::I64 };
             } else if (inst.textImm == "UI.Role" || inst.textImm == "UI.BoxX" || inst.textImm == "UI.BoxY" ||
                        inst.textImm == "UI.BoxWidth" || inst.textImm == "UI.BoxHeight") {
@@ -3315,6 +3376,98 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  %v = load i32, ptr %slot, align 4\n";
         out << "  %wide = zext i32 %v to i64\n";
         out << "  ret i64 %wide\n}\n\n";
+        if (!ctx.platformWords.empty()) {
+            const std::size_t count = ctx.platformWords.size();
+            out << "@rx.platform.ops = internal constant [" << count << " x i32] [\n";
+            for (std::size_t index = 0; index < count; ++index) {
+                if (index != 0) out << ",\n";
+                out << "i32 " << ctx.platformWords[index];
+            }
+            out << "\n]\n\n";
+            out << "define i64 @rx_platform_height() {\n  ret i64 " << ctx.platformContent << "\n}\n\n";
+            out << "define i64 @rx_platform_paint(i64 %frame, i64 %scroll) {\n";
+            out << "entry:\n  %p = inttoptr i64 %frame to ptr\n";
+            out << "  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
+            out << "  %hptr = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hptr, align 4\n  %fh = zext i32 %fh32 to i64\n";
+            out << "  %okw = icmp eq i64 %fw, " << ctx.platformWidth << "\n";
+            out << "  %okh = icmp eq i64 %fh, " << ctx.platformHeight << "\n";
+            out << "  %ok = and i1 %okw, %okh\n  br i1 %ok, label %walk, label %skip\n";
+            out << "skip:\n  ret i64 0\n";
+            out << "walk:\n  br label %step\n";
+            out << "step:\n  %i = phi i64 [ 0, %walk ], [ %inext, %filled ], [ %inextb, %blended ]\n";
+            out << "  %done = icmp uge i64 %i, " << count << "\n  br i1 %done, label %painted, label %read\n";
+            out << "read:\n  %kp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %i\n";
+            out << "  %k32 = load i32, ptr %kp, align 4\n  %k = zext i32 %k32 to i64\n";
+            out << "  %isfill = icmp eq i64 %k, 1\n  br i1 %isfill, label %fill, label %tryblend\n";
+            out << "fill:\n  %i1 = add i64 %i, 1\n  %i2 = add i64 %i, 2\n  %i3 = add i64 %i, 3\n  %i4 = add i64 %i, 4\n  %i5 = add i64 %i, 5\n";
+            out << "  %xp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %i1\n";
+            out << "  %yp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %i2\n";
+            out << "  %wp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %i3\n";
+            out << "  %hp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %i4\n";
+            out << "  %cp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %i5\n";
+            out << "  %x32 = load i32, ptr %xp, align 4\n  %x = zext i32 %x32 to i64\n";
+            out << "  %y32 = load i32, ptr %yp, align 4\n  %y = zext i32 %y32 to i64\n";
+            out << "  %w32 = load i32, ptr %wp, align 4\n  %w = zext i32 %w32 to i64\n";
+            out << "  %h32 = load i32, ptr %hp, align 4\n  %h = zext i32 %h32 to i64\n";
+            out << "  %c32 = load i32, ptr %cp, align 4\n  %color = zext i32 %c32 to i64\n";
+            out << "  %sy0 = sub i64 %y, %scroll\n  %bottom = add i64 %sy0, %h\n";
+            out << "  %above = icmp sge i64 %sy0, %fh\n  %below = icmp sle i64 %bottom, 0\n  %skipf = or i1 %above, %below\n";
+            out << "  br i1 %skipf, label %filled, label %fclip\n";
+            out << "fclip:\n  %neg = icmp slt i64 %sy0, 0\n  %sy1 = select i1 %neg, i64 0, i64 %sy0\n";
+            out << "  %hcut = add i64 %h, %sy0\n  %h1 = select i1 %neg, i64 %hcut, i64 %h\n";
+            out << "  %end = add i64 %sy1, %h1\n  %past = icmp sgt i64 %end, %fh\n  %room = sub i64 %fh, %sy1\n";
+            out << "  %h2 = select i1 %past, i64 %room, i64 %h1\n  %empty = icmp sle i64 %h2, 0\n";
+            out << "  br i1 %empty, label %filled, label %fdone\n";
+            out << "fdone:\n  call void @rx_frame_fill(i64 %frame, i64 %x, i64 %sy1, i64 %w, i64 %h2, i64 %color)\n";
+            out << "  br label %filled\nfilled:\n  %inext = add i64 %i, 6\n  br label %step\n";
+            out << "tryblend:\n  %isblend = icmp eq i64 %k, 2\n  br i1 %isblend, label %brun, label %painted\n";
+            out << "brun:\n  %b1 = add i64 %i, 1\n  %b2 = add i64 %i, 2\n  %b3 = add i64 %i, 3\n  %b4 = add i64 %i, 4\n  %b5 = add i64 %i, 5\n";
+            out << "  %bxp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %b1\n";
+            out << "  %byp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %b2\n";
+            out << "  %bwp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %b3\n";
+            out << "  %bcp = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %b4\n";
+            out << "  %bip = getelementptr [" << count << " x i32], ptr @rx.platform.ops, i64 0, i64 %b5\n";
+            out << "  %bx32 = load i32, ptr %bxp, align 4\n  %bx = zext i32 %bx32 to i64\n";
+            out << "  %by32 = load i32, ptr %byp, align 4\n  %bydoc = zext i32 %by32 to i64\n  %by = sub i64 %bydoc, %scroll\n";
+            out << "  %bw32 = load i32, ptr %bwp, align 4\n  %bw = zext i32 %bw32 to i64\n";
+            out << "  %cov32 = load i32, ptr %bcp, align 4\n  %cov = zext i32 %cov32 to i64\n";
+            out << "  %ink32 = load i32, ptr %bip, align 4\n  %ink = zext i32 %ink32 to i64\n";
+            out << "  br label %bcol\n";
+            out << "bcol:\n  %col = phi i64 [ 0, %brun ], [ %colnext, %bnext ]\n";
+            out << "  %coldone = icmp uge i64 %col, %bw\n  br i1 %coldone, label %blended, label %bpx\n";
+            out << "bpx:\n  %px = add i64 %bx, %col\n";
+            out << "  %xin = icmp ult i64 %px, %fw\n  %yin = icmp ult i64 %by, %fh\n  %inside = and i1 %xin, %yin\n";
+            out << "  br i1 %inside, label %bmix, label %bnext\n";
+            out << "bmix:\n  %dst = call i64 @rx_frame_pixel(i64 %frame, i64 %px, i64 %by)\n";
+            out << "  %solid = icmp uge i64 %cov, 255\n  br i1 %solid, label %bstore, label %bshade\n";
+            out << "bshade:\n  %inv = sub i64 255, %cov\n";
+            out << "  %sb = and i64 %ink, 255\n  %db = and i64 %dst, 255\n";
+            out << "  %sg = lshr i64 %ink, 8\n  %sgb = and i64 %sg, 255\n  %dg = lshr i64 %dst, 8\n  %dgb = and i64 %dg, 255\n";
+            out << "  %sr = lshr i64 %ink, 16\n  %srb = and i64 %sr, 255\n  %dr = lshr i64 %dst, 16\n  %drb = and i64 %dr, 255\n";
+            out << "  %pb = mul i64 %sb, %cov\n  %qb = mul i64 %db, %inv\n  %tb = add i64 %pb, %qb\n  %ob = udiv i64 %tb, 255\n";
+            out << "  %pg = mul i64 %sgb, %cov\n  %qg = mul i64 %dgb, %inv\n  %tg = add i64 %pg, %qg\n  %og = udiv i64 %tg, 255\n";
+            out << "  %pr = mul i64 %srb, %cov\n  %qr = mul i64 %drb, %inv\n  %tr = add i64 %pr, %qr\n  %or = udiv i64 %tr, 255\n";
+            out << "  %gs = shl i64 %og, 8\n  %rs = shl i64 %or, 16\n  %mixed = or i64 %ob, %gs\n  %shade = or i64 %mixed, %rs\n";
+            out << "  br label %bstore\n";
+            out << "bstore:\n  %outc = phi i64 [ %ink, %bmix ], [ %shade, %bshade ]\n";
+            out << "  %row = mul i64 %by, %fw\n  %idx = add i64 %row, %px\n";
+            out << "  %base = getelementptr i8, ptr %p, i64 8\n  %slot = getelementptr i32, ptr %base, i64 %idx\n";
+            out << "  %out32 = trunc i64 %outc to i32\n  store volatile i32 %out32, ptr %slot, align 4\n";
+            out << "  br label %bnext\n";
+            out << "bnext:\n  %colnext = add i64 %col, 1\n  br label %bcol\n";
+            out << "blended:\n  %inextb = add i64 %i, 6\n  br label %step\n";
+            out << "painted:\n  ret i64 1\n}\n\n";
+            out << "define i64 @rx_platform_scroll(i64 %frame, i64 %request) {\n";
+            out << "  %p = inttoptr i64 %frame to ptr\n";
+            out << "  %hptr = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hptr, align 4\n  %fh = zext i32 %fh32 to i64\n";
+            out << "  %span = call i64 @rx_platform_height()\n  %room = sub i64 %span, %fh\n";
+            out << "  %none = icmp slt i64 %room, 0\n  %max = select i1 %none, i64 0, i64 %room\n";
+            out << "  %low = icmp slt i64 %request, 0\n  %s0 = select i1 %low, i64 0, i64 %request\n";
+            out << "  %high = icmp sgt i64 %s0, %max\n  %scroll = select i1 %high, i64 %max, i64 %s0\n";
+            out << "  %painted = call i64 @rx_platform_paint(i64 %frame, i64 %scroll)\n";
+            out << "  %ok = icmp ne i64 %painted, 0\n  %result = select i1 %ok, i64 %scroll, i64 0\n";
+            out << "  ret i64 %result\n}\n\n";
+        }
         if (m_options.freestanding) {
             out << "define i64 @rx_display_bar() {\nentry:\n  br label %slot\n";
             out << "slot:\n  %dev = phi i64 [ 0, %entry ], [ %nextdev, %advance ]\n";

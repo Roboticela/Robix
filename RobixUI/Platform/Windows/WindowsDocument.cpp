@@ -93,6 +93,7 @@ struct CachedPicture {
     int cacheW = 0;
     int cacheH = 0;
     int cacheFrame = -1;
+    int shownFrame = -1;
     std::string cacheFit;
     std::vector<RoboU32> cache;
 };
@@ -295,6 +296,7 @@ const std::vector<Editor>* gEditorKept = nullptr;
 unsigned gFieldCaretTick = 0;
 int gFieldCaretCover = 255;
 int gFieldCaretEditor = -1;
+unsigned gFieldRevision = 0;
 
 void FieldTouch() {
     gFieldCaretTick = GetTickCount();
@@ -2293,6 +2295,8 @@ std::string EditorShown(const Editor& editor) {
     return shown;
 }
 
+void TextInk(int face, int size, int& above, int& below);
+
 int PlaceField(const RoboXMLNode& node, int x, int y, int width, bool light, std::vector<PaintOp>& ops) {
     const bool multiline = FieldFlag(RoboXMLAttr(node, "multiline"));
     int boxW = AttrLength(node, "width");
@@ -2390,7 +2394,16 @@ int PlaceField(const RoboXMLNode& node, int x, int y, int width, bool light, std
     }
     fontSize = Px(fontSize);
     label.x = x + pad;
-    label.y = y + (multiline ? pad : std::max(pad, (boxH - fontSize) / 2));
+    if (multiline) {
+        label.y = y + pad;
+    } else {
+        int above = 0;
+        int below = 0;
+        TextInk(0, fontSize, above, below);
+        const int ink = std::max(1, above + below);
+        const int inkTop = y + std::max(0, (boxH - ink) / 2);
+        label.y = inkTop + above - fontSize;
+    }
     label.width = std::max(1, boxW - pad * 2);
     label.height = std::max(1, boxH - (label.y - y) - pad);
     label.size = fontSize;
@@ -4830,6 +4843,7 @@ void FieldSync(Editor& editor) {
         gFieldCaretEditor = editor.op;
         FieldTouch();
     }
+    ++gFieldRevision;
 }
 
 int FieldClamp(const Editor& editor, int offset) {
@@ -5404,6 +5418,41 @@ std::string FieldSelectedText() {
     return {};
 }
 
+bool MotionFramePending() {
+    if (!gScene.valid) {
+        return false;
+    }
+    for (const PaintOp& op : gScene.ops) {
+        if (op.picture < 0 || op.picture >= static_cast<int>(gPictures.size())) {
+            continue;
+        }
+        CachedPicture& cached = gPictures[static_cast<std::size_t>(op.picture)];
+        if (cached.image.frameCount <= 1) {
+            continue;
+        }
+        if (PictureFrameIndex(cached.image, gPictureClock) != cached.shownFrame) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void MotionFramesShown() {
+    if (!gScene.valid) {
+        return;
+    }
+    for (const PaintOp& op : gScene.ops) {
+        if (op.picture < 0 || op.picture >= static_cast<int>(gPictures.size())) {
+            continue;
+        }
+        CachedPicture& cached = gPictures[static_cast<std::size_t>(op.picture)];
+        if (cached.image.frameCount <= 1) {
+            continue;
+        }
+        cached.shownFrame = PictureFrameIndex(cached.image, gPictureClock);
+    }
+}
+
 }  // namespace
 
 int WindowsDocumentFieldAt(int docX, int docY) { return FieldAtPoint(docX, docY); }
@@ -5491,6 +5540,106 @@ bool WindowsDocumentFieldCaretRepaint(RoboGPU* gpu, int scrollY, int viewHeight,
     }
     return width > 0 && height > 0;
 }
+
+bool WindowsDocumentFieldPaintScaled(RoboGPU* gpu, int scrollY, int screenHeight, double scale, int& x, int& y, int& width, int& height) {
+    x = 0;
+    y = 0;
+    width = 0;
+    height = 0;
+    if (gpu == nullptr || !gScene.valid) {
+        return false;
+    }
+    if (!(scale > 0.0)) {
+        scale = 1.0;
+    }
+    int opIndex = gFieldCaretEditor;
+    for (const Editor& editor : gEditors) {
+        if (editor.focused && !editor.disabled && editor.op >= 0) {
+            opIndex = editor.op;
+            break;
+        }
+    }
+    if (opIndex < 0 || opIndex >= static_cast<int>(gScene.ops.size())) {
+        return false;
+    }
+    const double previous = gPaintScale;
+    gPaintScale = scale;
+    const auto paintScaled = [&](const PaintOp& source, int index) {
+        PaintOp prepared = source;
+        if (!PrepareDrawn(prepared, index)) {
+            return;
+        }
+        const int docTop = prepared.y - scrollY;
+        PaintOp scaled = prepared;
+        scaled.x = ScaleLen(prepared.x, scale);
+        scaled.y = ScaleLen(docTop, scale);
+        scaled.width = std::max(1, ScaleLen(prepared.x + prepared.width, scale) - scaled.x);
+        scaled.height = std::max(1, ScaleLen(docTop + prepared.height, scale) - scaled.y);
+        scaled.radius = ScaleLen(prepared.radius, scale);
+        scaled.wrapWidth = std::max(1, source.width);
+        scaled.wrapSize = std::max(1, source.size);
+        scaled.size = std::max(1, ScaleLen(std::max(1, prepared.size), scale));
+        scaled.borderPx = prepared.borderPx > 0 ? std::max(1, ScaleLen(prepared.borderPx, scale)) : 0;
+        PaintOne(gpu, scaled, 0, screenHeight, gScene.light, index);
+        if (index == opIndex || width == 0) {
+            x = scaled.x;
+            y = scaled.y;
+            width = scaled.width;
+            height = scaled.height;
+        }
+    };
+    if (opIndex > 0) {
+        const PaintOp& well = gScene.ops[static_cast<std::size_t>(opIndex - 1)];
+        if (!well.text && well.fill != 0) {
+            paintScaled(well, opIndex - 1);
+        }
+    }
+    paintScaled(gScene.ops[static_cast<std::size_t>(opIndex)], opIndex);
+    gPaintScale = previous;
+    return width > 0 && height > 0;
+}
+
+unsigned WindowsDocumentFieldRevision() { return gFieldRevision; }
+
+void WindowsDocumentPaintWindowRect(RoboGPU* gpu, int x, int y, int width, int height, int scrollY, int viewWidth, int viewHeight) {
+    if (gpu == nullptr || !gScene.valid || width <= 0 || height <= 0 || viewWidth <= 0 || viewHeight <= 0) {
+        return;
+    }
+    int left = x - gScrollX;
+    int top = y - scrollY;
+    int right = left + width;
+    int bottom = top + height;
+    if (left < 0) {
+        left = 0;
+    }
+    if (top < 0) {
+        top = 0;
+    }
+    if (right > viewWidth) {
+        right = viewWidth;
+    }
+    if (bottom > viewHeight) {
+        bottom = viewHeight;
+    }
+    if (right <= left || bottom <= top) {
+        return;
+    }
+    RoboGPUFillRect(gpu, left, top, right - left, bottom - top, gScene.background);
+    for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
+        const PaintOp& op = gScene.ops[index];
+        if (op.width <= 0 || op.height <= 0) {
+            continue;
+        }
+        if (op.x + op.width <= x || op.x >= x + width || op.y + op.height <= y || op.y >= y + height) {
+            continue;
+        }
+        PaintPrepared(gpu, op, static_cast<int>(index), scrollY, viewHeight, gScene.light);
+    }
+}
+
+bool WindowsDocumentMotionDue() { return MotionFramePending(); }
+
+void WindowsDocumentMotionMark() { MotionFramesShown(); }
 
 bool WindowsDocumentTextAt(int docX, int docY) {
     int run = -1;
@@ -5816,6 +5965,7 @@ void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int view
     RoboGPUClear(gpu, gScene.background);
     PaintOps(gpu, gScene.ops, scrollY, viewHeight, gScene.light);
     gScene.scrollY = scrollY;
+    MotionFramesShown();
 }
 
 void WindowsDocumentScrollWindow(RoboGPU* gpu, int previousScroll, int scrollY, int viewWidth, int viewHeight, bool full) {
@@ -5870,6 +6020,7 @@ void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int 
     PaintRegionBars(gpu, scrollY, screenHeight, scale);
     gScene.scrollY = scrollY;
     gPaintScale = previous;
+    MotionFramesShown();
 }
 
 void RasterWindowsDocument(RoboGPU* gpu) {
@@ -5881,6 +6032,7 @@ void RasterWindowsDocument(RoboGPU* gpu) {
     RoboGPUClear(gpu, gScene.background);
     PaintOps(gpu, gScene.ops, 0, height, gScene.light);
     RoboDamageClear(&gpu->damage);
+    MotionFramesShown();
 }
 
 int FocusReach() {
@@ -6289,6 +6441,7 @@ int WindowsDocumentBoxes(const std::string& path, int viewWidth, int viewHeight,
         box.y = op.y;
         box.width = op.width;
         box.height = op.height;
+        box.color = static_cast<int>(op.fill & 0x00FFFFFFu);
         box.text = op.value;
         for (char& ch : box.text) {
             if (ch == '\n' || ch == '\r' || ch == '\t') {

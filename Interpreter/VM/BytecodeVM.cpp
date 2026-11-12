@@ -1,6 +1,7 @@
 #include "BytecodeVM.hpp"
 #include "../../Compiler/Types/SpecValidator.hpp"
 #include "../../Compiler/Runtime/SceneRaster.hpp"
+#include "../../RobixUI/Platform/Windows/RoboPlatformCapture.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -1804,6 +1805,47 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     m_focus = -1;
                     m_menu = 0;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ static_cast<std::int64_t>(m_cooked.size()) };
+                } else if (inst.symbolImm == "UI.PresentPlatform" && inst.callArgRegs.size() >= 2) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    const std::string path = regs[inst.callArgRegs[1]].ToString();
+                    std::int64_t painted = 0;
+                    if (obj && obj->buffer && obj->className == "Frame" && obj->width == 1600 && obj->index == 900) {
+                        Robix::UI::RoboPlatformPaint paint;
+                        std::string error;
+                        if (Robix::UI::RoboPlatformCapture(path, 1600, 900, paint, error)) {
+                            Robix::UI::RoboPlatformReplay(obj->buffer->bytes.data(), obj->width, obj->index, paint.words, 0);
+                            painted = 1;
+                        } else {
+                            std::fprintf(stderr, "robix vm: UI.PresentPlatform could not paint '%s'\n", path.c_str());
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ painted };
+                } else if (inst.symbolImm == "UI.PlatformHeight") {
+                    Robix::UI::RoboPlatformPaint paint;
+                    std::string error;
+                    std::int64_t content = 0;
+                    if (Robix::UI::RoboPlatformCapture("RoboticelaOS/Desktop/RoboGallery.rxu", 1600, 900, paint, error)) {
+                        content = paint.content;
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ content };
+                } else if (inst.symbolImm == "UI.PlatformScroll" && inst.callArgRegs.size() >= 2) {
+                    auto obj = AsObj(regs[inst.callArgRegs[0]]);
+                    std::int64_t request = regs[inst.callArgRegs[1]].AsInt();
+                    std::int64_t applied = 0;
+                    if (obj && obj->buffer && obj->className == "Frame" && obj->width == 1600 && obj->index == 900) {
+                        Robix::UI::RoboPlatformPaint paint;
+                        std::string error;
+                        if (Robix::UI::RoboPlatformCapture("RoboticelaOS/Desktop/RoboGallery.rxu", 1600, 900, paint, error)) {
+                            std::int64_t room = static_cast<std::int64_t>(paint.content) - obj->index;
+                            if (room < 0) room = 0;
+                            if (request < 0) request = 0;
+                            if (request > room) request = room;
+                            Robix::UI::RoboPlatformReplay(obj->buffer->bytes.data(), obj->width, obj->index, paint.words,
+                                                          static_cast<int>(request));
+                            applied = request;
+                        }
+                    }
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ applied };
                 } else if (inst.symbolImm == "UI.Role" || inst.symbolImm == "UI.BoxX" || inst.symbolImm == "UI.BoxY" ||
                            inst.symbolImm == "UI.BoxWidth" || inst.symbolImm == "UI.BoxHeight") {
                     const std::int64_t index = inst.callArgRegs.empty() ? 0 : regs[inst.callArgRegs[0]].AsInt();

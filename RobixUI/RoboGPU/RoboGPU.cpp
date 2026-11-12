@@ -221,6 +221,10 @@ static void RoboGPUFillSpan32(RoboU32* pixels, RoboI32 count, RoboU32 color) {
   }
 }
 
+static const RoboGPUPaintSink* gRoboPaintSink = ROBO_NULL;
+
+void RoboGPUSetPaintSink(const RoboGPUPaintSink* sink) { gRoboPaintSink = sink; }
+
 void RoboGPUClear(RoboGPU* gpu, RoboU32 colorARGB) {
   if (gpu == ROBO_NULL || gpu->back == ROBO_NULL) {
     return;
@@ -233,6 +237,10 @@ void RoboGPUClear(RoboGPU* gpu, RoboU32 colorARGB) {
     RoboGPUFillSpan32(row, static_cast<RoboI32>(width), colorARGB);
   }
   RoboGPUMarkFullDamage(gpu);
+  if (gRoboPaintSink != ROBO_NULL && gRoboPaintSink->fill != ROBO_NULL) {
+    gRoboPaintSink->fill(gRoboPaintSink->context, 0, 0, static_cast<RoboI32>(width), static_cast<RoboI32>(height),
+                         colorARGB);
+  }
 }
 
 void RoboGPUFillRect(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboI32 width, RoboI32 height, RoboU32 colorARGB) {
@@ -251,6 +259,9 @@ void RoboGPUFillRect(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboI32 width, RoboI32 
     RoboGPUFillSpan32(pixels + x, width, colorARGB);
   }
   RoboDamageAdd(&gpu->damage, x, y, width, height);
+  if (gRoboPaintSink != ROBO_NULL && gRoboPaintSink->fill != ROBO_NULL) {
+    gRoboPaintSink->fill(gRoboPaintSink->context, x, y, width, height, colorARGB);
+  }
 }
 
 /*
@@ -495,6 +506,9 @@ void RoboGPUBlendPixel(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboU32 colorARGB, Ro
   const RoboU8 b = static_cast<RoboU8>(colorARGB & 0xFF);
   if (coverage == 255) {
     row[x] = RoboGPUPackColor(gpu, r, g, b, 255);
+    if (gRoboPaintSink != ROBO_NULL && gRoboPaintSink->blend != ROBO_NULL) {
+      gRoboPaintSink->blend(gRoboPaintSink->context, x, y, colorARGB, coverage);
+    }
     return;
   }
   RoboU8 dr = 0;
@@ -503,6 +517,9 @@ void RoboGPUBlendPixel(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboU32 colorARGB, Ro
   RoboGPUUnpackRGB(gpu, row[x], &dr, &dg, &db);
   row[x] = RoboGPUPackColor(gpu, RoboGPUBlendChannel(r, dr, coverage), RoboGPUBlendChannel(g, dg, coverage),
                            RoboGPUBlendChannel(b, db, coverage), 255);
+  if (gRoboPaintSink != ROBO_NULL && gRoboPaintSink->blend != ROBO_NULL) {
+    gRoboPaintSink->blend(gRoboPaintSink->context, x, y, colorARGB, coverage);
+  }
 }
 
 static RoboU8 RoboGPUSampleCoverageBilinear(const RoboU8* coverage, RoboU32 srcW, RoboU32 srcH, RoboU32 fx16,

@@ -74,6 +74,7 @@ struct HostView {
     int fieldPressY = 0;
     bool fieldSlop = false;
     int caretCover = -1;
+    unsigned fieldRevision = 0;
     int textClicks = 0;
     unsigned textClick = 0;
     bool panLive = false;
@@ -1173,6 +1174,8 @@ void Draw(HostView* view) {
         const int caretCover = WindowsDocumentFieldCaretCover(GetTickCount());
         const bool caretDue = caretCover != view->caretCover;
         WindowsDocumentFieldCaretUse(caretCover);
+        const unsigned fieldRevision = WindowsDocumentFieldRevision();
+        const bool fieldDue = fieldRevision != view->fieldRevision;
         const bool wide = view->contentWidth > layoutW;
         WindowPatch patches[32]{};
         int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, view->focusControl, patches, 32);
@@ -1183,8 +1186,8 @@ void Draw(HostView* view) {
         if (zoomed) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
-                const bool dirty = rebuilt || fresh || scaleChanged || caretDue || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
-                                   view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion();
+                const bool dirty = rebuilt || fresh || scaleChanged || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
+                                   view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue();
                 if (dirty) {
                     BindSheet(view, true);
                     WindowsDocumentSetScrollX(view->scrollX);
@@ -1193,14 +1196,22 @@ void Draw(HostView* view) {
                     view->shownScroll = view->scrollY;
                     view->shownScrollX = view->scrollX;
                     WindowsDocumentTextMarkPainted();
+                } else if (caretDue || fieldDue) {
+                    BindSheet(view, true);
+                    WindowsDocumentSetScrollX(view->scrollX);
+                    int caretX = 0;
+                    int caretY = 0;
+                    int caretW = 0;
+                    int caretH = 0;
+                    WindowsDocumentFieldPaintScaled(&view->gpu, view->scrollY, height, scale, caretX, caretY, caretW, caretH);
+                    BindSheet(view, false);
                 }
                 ComposeZoomed(view, 1.0, true);
             }
         } else if (wide) {
             const bool scrollYChanged = previousScroll != view->scrollY;
             const bool scrollXChanged = previousScrollX != view->scrollX;
-            const bool structural = rebuilt || patchCount != 0 || textCount != 0 || previousScroll < 0 || previousScrollX < 0 ||
-                                    WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion();
+            const bool structural = rebuilt || previousScroll < 0 || previousScrollX < 0 || patchCount < 0 || textCount < 0;
             if (structural || scrollXChanged || scrollYChanged || scaleChanged) {
                 WindowsDocumentSetScrollX(view->scrollX);
                 BindSheet(view, false);
@@ -1210,13 +1221,42 @@ void Draw(HostView* view) {
                 view->gpuFull = true;
                 view->gpuScroll = view->scrollY;
                 WindowsDocumentTextMarkPainted();
-            } else if (caretDue) {
-                int caretX = 0;
-                int caretY = 0;
-                int caretW = 0;
-                int caretH = 0;
+            } else if (patchCount > 0 || textCount > 0 || WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue() || caretDue || fieldDue) {
                 WindowsDocumentSetScrollX(view->scrollX);
-                WindowsDocumentFieldCaretRepaint(&view->gpu, view->scrollY, height, caretX, caretY, caretW, caretH);
+                BindSheet(view, false);
+                for (int index = 0; index < patchCount; ++index) {
+                    WindowsDocumentPaintWindowRect(&view->gpu, patches[index].x, patches[index].y, patches[index].width, patches[index].height,
+                                                   view->scrollY, width, height);
+                }
+                for (int index = 0; index < textCount; ++index) {
+                    WindowsDocumentPaintWindowRect(&view->gpu, textPatches[index].x, textPatches[index].y, textPatches[index].width,
+                                                   textPatches[index].height, view->scrollY, width, height);
+                }
+                if (WindowsDocumentNeedsSpin()) {
+                    WindowPatch spinRects[32]{};
+                    const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
+                    for (int index = 0; index < spinCount; ++index) {
+                        WindowsDocumentPaintWindowRect(&view->gpu, spinRects[index].x, spinRects[index].y, spinRects[index].width,
+                                                       spinRects[index].height, view->scrollY, width, height);
+                    }
+                }
+                if (WindowsDocumentMotionDue()) {
+                    WindowPatch motionRects[32]{};
+                    const int motionCount = WindowsDocumentMotionRects(motionRects, 32);
+                    for (int index = 0; index < motionCount; ++index) {
+                        WindowsDocumentPaintWindowRect(&view->gpu, motionRects[index].x, motionRects[index].y, motionRects[index].width,
+                                                       motionRects[index].height, view->scrollY, width, height);
+                    }
+                    WindowsDocumentMotionMark();
+                }
+                if (caretDue || fieldDue) {
+                    int caretX = 0;
+                    int caretY = 0;
+                    int caretW = 0;
+                    int caretH = 0;
+                    WindowsDocumentFieldCaretRepaint(&view->gpu, view->scrollY, height, caretX, caretY, caretW, caretH);
+                }
+                WindowsDocumentTextMarkPainted();
             }
         } else {
             WindowsDocumentSetScrollX(0);
@@ -1232,7 +1272,7 @@ void Draw(HostView* view) {
                     patchCount = 0;
                     textCount = 0;
                     WindowsDocumentTextMarkPainted();
-                } else if (WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion()) {
+                } else if (WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue()) {
                     WindowPatch spinRects[32]{};
                     const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
                     for (int index = 0; index < spinCount && patchCount < 32; ++index) {
@@ -1258,6 +1298,9 @@ void Draw(HostView* view) {
                     }
                     BindSheet(view, false);
                     WindowsDocumentTextMarkPainted();
+                    if (WindowsDocumentMotionDue()) {
+                        WindowsDocumentMotionMark();
+                    }
                 }
                 WindowPatch visible[64]{};
                 int visibleCount = 0;
@@ -1269,7 +1312,7 @@ void Draw(HostView* view) {
                     visible[visibleCount] = textPatches[index];
                     ++visibleCount;
                 }
-                if (caretDue && !(rebuilt || fresh || patchCount < 0 || textCount < 0)) {
+                if ((caretDue || fieldDue) && !(rebuilt || fresh || patchCount < 0 || textCount < 0)) {
                     BindSheet(view, true);
                     int caretX = 0;
                     int caretY = 0;
@@ -1292,6 +1335,7 @@ void Draw(HostView* view) {
             WindowsDocumentTextMarkPainted();
         }
         view->caretCover = caretCover;
+        view->fieldRevision = fieldRevision;
         WindowScrollState bar = view->bar;
         bar.contentHeight = std::max(height, ToWin(view->contentHeight, scale));
         bar.contentWidth = std::max(width, ToWin(view->contentWidth, scale));
