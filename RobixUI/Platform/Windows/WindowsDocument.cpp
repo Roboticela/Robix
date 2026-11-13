@@ -250,13 +250,26 @@ struct ScrollRegion {
     int contentHeight = 0;
     int scrollX = 0;
     int scrollY = 0;
+    int paintedX = 0;
+    int paintedY = 0;
     int opBegin = 0;
     int opEnd = 0;
+    int opacityX = 0;
+    int opacityY = 0;
+    int shownX = 0;
+    int shownY = 0;
+    unsigned idleX = 0;
+    unsigned idleY = 0;
+    int hotX = 0;
+    int hotY = 0;
+    bool dragX = false;
+    bool dragY = false;
 };
 
 std::vector<ScrollRegion> gRegions;
 int gRegionDrag = -1;
 int gRegionGrab = 0;
+int gRegionAxis = 0;
 
 struct FieldEdit {
     std::string value;
@@ -3511,6 +3524,12 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     const bool clipChildren = !scrolls && (overflowName == "clip" || overflowName == "hidden" || clipFlag == "true" ||
                                             clipFlag == "1" || clipFlag == "yes");
     const bool root = x == 0 && y == 0 && (name == "screen" || name == "window" || name == "page");
+    if (scrolls && !root && askedHeight > 0 && boxHeight > askedHeight) {
+        boxHeight = askedHeight;
+        if (hasBackground && background < ops.size()) {
+            ops[background].height = boxHeight;
+        }
+    }
     if (scrolls && !root) {
         int right = x;
         int bottom = y;
@@ -3557,6 +3576,8 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
                 }
                 region.scrollX = std::max(0, std::min(offsetX, std::max(0, region.contentWidth - region.width)));
                 region.scrollY = std::max(0, std::min(offsetY, std::max(0, region.contentHeight - region.height)));
+                region.paintedX = region.scrollX;
+                region.paintedY = region.scrollY;
             }
             gRegions.push_back(region);
         }
@@ -4206,48 +4227,56 @@ bool PrepareDrawn(PaintOp& op, int index) {
     return op.width > 0 && op.height > 0;
 }
 
+bool PushRegionClip(RoboGPU* gpu, int index, int scrollY, double scale) {
+    if (!(scale > 0.0)) {
+        scale = 1.0;
+    }
+    for (int regionIndex = static_cast<int>(gRegions.size()) - 1; regionIndex >= 0; --regionIndex) {
+        const ScrollRegion& region = gRegions[static_cast<std::size_t>(regionIndex)];
+        if (index < region.opBegin || index >= region.opEnd) {
+            continue;
+        }
+        int spanX = region.width;
+        int spanY = region.height;
+        if (region.contentHeight > region.height) {
+            spanX -= ScrollBarThick();
+        }
+        if (region.contentWidth > region.width) {
+            spanY -= ScrollBarThick();
+        }
+        if (spanX < 1) {
+            spanX = 1;
+        }
+        if (spanY < 1) {
+            spanY = 1;
+        }
+        const int x = ScaleLen(region.x - gScrollX, scale);
+        const int y = ScaleLen(region.y - scrollY, scale);
+        const int right = ScaleLen(region.x - gScrollX + spanX, scale);
+        const int bottom = ScaleLen(region.y - scrollY + spanY, scale);
+        RoboGPUPushScissor(gpu, x, y, std::max(1, right - x), std::max(1, bottom - y));
+        return true;
+    }
+    return false;
+}
+
 void PaintPrepared(RoboGPU* gpu, const PaintOp& op, int index, int scrollY, int viewHeight, bool light) {
     PaintOp drawn = op;
     if (!PrepareDrawn(drawn, index)) {
         return;
     }
+    const bool clipped = PushRegionClip(gpu, index, scrollY, 1.0);
     PaintOne(gpu, drawn, scrollY, viewHeight, light, index);
+    if (clipped) {
+        RoboGPUPopScissor(gpu);
+    }
 }
 
 void PaintRegionBars(RoboGPU* gpu, int scrollY, int viewHeight, double scale) {
-    if (gpu == nullptr) {
-        return;
-    }
-    if (!(scale > 0.0)) {
-        scale = 1.0;
-    }
-    const int thick = ScrollBarThick();
-    for (const ScrollRegion& region : gRegions) {
-        if (region.contentWidth <= region.width || region.width <= thick) {
-            continue;
-        }
-        const int maxScroll = std::max(1, region.contentWidth - region.width);
-        const int docX = region.x - gScrollX;
-        const int docY = region.y + region.height - thick - scrollY;
-        int docW = region.width;
-        if (region.contentHeight > region.height) {
-            docW -= thick;
-        }
-        const int barX = ScaleLen(docX, scale);
-        const int barY = ScaleLen(docY, scale);
-        const int barW = std::max(1, ScaleLen(docX + docW, scale) - barX);
-        const int barH = std::max(4, ScaleLen(thick, scale));
-        if (docW <= thick || barY + barH < 0 || barY > viewHeight) {
-            continue;
-        }
-        const int thumbDoc = std::max(thick, docW * region.width / std::max(1, region.contentWidth));
-        const int travel = std::max(1, docW - thumbDoc);
-        const int thumbDocX = docX + region.scrollX * travel / maxScroll;
-        const int thumbX = ScaleLen(thumbDocX, scale);
-        const int thumbW = std::max(4, ScaleLen(thumbDocX + thumbDoc, scale) - thumbX);
-        RoboGPUFillRect(gpu, barX, barY, barW, barH, 0xFF2A3142u);
-        RoboGPUFillRect(gpu, thumbX, barY, std::min(thumbW, barW), barH, 0xFF8B93A7u);
-        }
+    (void)gpu;
+    (void)scrollY;
+    (void)viewHeight;
+    (void)scale;
 }
 
 void PaintOps(RoboGPU* gpu, const std::vector<PaintOp>& ops, int scrollY, int viewHeight, bool light) {
@@ -4567,7 +4596,22 @@ void PublishControls(int* contentHeight, std::vector<WindowControl>* controls, i
 }
 
 SceneRect OpBounds(const PaintOp& op, int scrollY) {
-    SceneRect bounds{op.x, op.y - scrollY, op.width, op.height};
+    int shiftX = gScrollX;
+    int shiftY = scrollY;
+    if (!gScene.ops.empty()) {
+        const int index = static_cast<int>(&op - gScene.ops.data());
+        if (index >= 0 && index < static_cast<int>(gScene.ops.size())) {
+            for (const ScrollRegion& region : gRegions) {
+                if (index < region.opBegin || index >= region.opEnd) {
+                    continue;
+                }
+                shiftX += region.scrollX;
+                shiftY += region.scrollY;
+                break;
+            }
+        }
+    }
+    SceneRect bounds{op.x - shiftX, op.y - shiftY, op.width, op.height};
     if (op.button) {
         const int pad = std::max(op.borderPx, Px(14));
         bounds.x -= pad;
@@ -4803,18 +4847,31 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
 }
 
 void PaintSceneRect(RoboGPU* gpu, SceneRect rect, int scrollY, int viewHeight, bool light) {
-    GrowRect(rect, scrollY, gScene.viewWidth, viewHeight);
+    const bool strip = rect.width > 0 && rect.height > 0 && (rect.width <= 32 || rect.height <= 32);
+    if (strip) {
+        ClipRect(rect, gScene.viewWidth, viewHeight);
+    } else {
+        GrowRect(rect, scrollY, gScene.viewWidth, viewHeight);
+    }
     if (rect.width <= 0 || rect.height <= 0) {
         return;
     }
-    const long long area = static_cast<long long>(rect.width) * rect.height;
-    const long long full = static_cast<long long>(gScene.viewWidth) * gScene.viewHeight;
-    if (full > 0 && area * 5 > full * 3) {
-        RoboGPUClear(gpu, gScene.background);
-        PaintOps(gpu, gScene.ops, scrollY, viewHeight, light);
-        return;
+    if (!strip) {
+        const long long area = static_cast<long long>(rect.width) * rect.height;
+        const long long full = static_cast<long long>(gScene.viewWidth) * gScene.viewHeight;
+        if (full > 0 && area * 5 > full * 3) {
+            RoboGPUClear(gpu, gScene.background);
+            PaintOps(gpu, gScene.ops, scrollY, viewHeight, light);
+            return;
+        }
+    }
+    if (strip) {
+        RoboGPUPushScissor(gpu, rect.x, rect.y, rect.width, rect.height);
     }
     ReplayRect(gpu, rect, scrollY, viewHeight, light);
+    if (strip) {
+        RoboGPUPopScissor(gpu);
+    }
 }
 
 void FieldVisual(const Editor& editor, int& x, int& y) {
@@ -5418,6 +5475,96 @@ std::string FieldSelectedText() {
     return {};
 }
 
+struct RegionBar {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    int track = 0;
+    int trackSpan = 0;
+    int thumb = 0;
+    int thumbSpan = 0;
+    int arrow = 0;
+};
+
+bool RegionBarBox(const ScrollRegion& region, bool vertical, RegionBar& bar) {
+    const bool yOverflow = region.contentHeight > region.height;
+    const bool xOverflow = region.contentWidth > region.width;
+    if (vertical ? !yOverflow : !xOverflow) {
+        return false;
+    }
+    const int edge = std::max(1, Px(2));
+    const int thick = std::max(1, Px(6));
+    const int arrow = std::max(1, Px(6));
+    const int gap = std::max(1, Px(3));
+    const int minThumb = std::max(thick, Px(28));
+    const int corner = (vertical ? xOverflow : yOverflow) ? thick + edge : 0;
+    if (vertical) {
+        bar.width = thick;
+        bar.x = region.x + region.width - edge - thick;
+        bar.y = region.y + edge;
+        bar.height = region.height - edge * 2 - corner;
+    } else {
+        bar.height = thick;
+        bar.y = region.y + region.height - edge - thick;
+        bar.x = region.x + edge;
+        bar.width = region.width - edge * 2 - corner;
+    }
+    if (bar.width <= 0 || bar.height <= 0) {
+        return false;
+    }
+    bar.arrow = arrow;
+    const int span = vertical ? bar.height : bar.width;
+    int trackSpan = span - (arrow + gap) * 2;
+    int track = arrow + gap;
+    if (trackSpan < minThumb) {
+        trackSpan = span > minThumb ? minThumb : span;
+        track = std::max(0, (span - trackSpan) / 2);
+    }
+    const int content = vertical ? region.contentHeight : region.contentWidth;
+    const int view = vertical ? region.height : region.width;
+    const int scroll = vertical ? region.scrollY : region.scrollX;
+    const int maxScroll = std::max(1, content - view);
+    int thumbSpan = content > 0 ? trackSpan * view / content : trackSpan;
+    if (thumbSpan < minThumb) {
+        thumbSpan = minThumb;
+    }
+    if (thumbSpan > trackSpan) {
+        thumbSpan = trackSpan;
+    }
+    const int travel = std::max(1, trackSpan - thumbSpan);
+    bar.track = track;
+    bar.trackSpan = trackSpan;
+    bar.thumbSpan = thumbSpan;
+    bar.thumb = track + (content > view ? scroll * travel / maxScroll : 0);
+    return true;
+}
+
+int RegionPart(const RegionBar& bar, bool vertical, int docX, int docY) {
+    const int along = vertical ? docY - bar.y : docX - bar.x;
+    const int span = vertical ? bar.height : bar.width;
+    if (along < bar.arrow) {
+        return 1;
+    }
+    if (along >= span - bar.arrow) {
+        return 2;
+    }
+    if (along >= bar.thumb && along < bar.thumb + bar.thumbSpan) {
+        return 3;
+    }
+    return 4;
+}
+
+void WakeRegion(ScrollRegion& region, bool vertical) {
+    if (vertical) {
+        region.opacityY = 255;
+        region.idleY = GetTickCount();
+    } else {
+        region.opacityX = 255;
+        region.idleX = GetTickCount();
+    }
+}
+
 bool MotionFramePending() {
     if (!gScene.valid) {
         return false;
@@ -6005,6 +6152,7 @@ void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int 
         if (docTop + prepared.height < 0 || docTop > docView) {
             continue;
         }
+        const bool clipped = PushRegionClip(gpu, static_cast<int>(index), scrollY, scale);
         PaintOp scaled = prepared;
         scaled.x = ScaleLen(prepared.x, scale);
         scaled.y = ScaleLen(docTop, scale);
@@ -6016,6 +6164,9 @@ void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int 
         scaled.size = std::max(1, ScaleLen(std::max(1, prepared.size), scale));
         scaled.borderPx = prepared.borderPx > 0 ? std::max(1, ScaleLen(prepared.borderPx, scale)) : 0;
         PaintOne(gpu, scaled, 0, screenHeight, gScene.light, static_cast<int>(index));
+        if (clipped) {
+            RoboGPUPopScissor(gpu);
+        }
     }
     PaintRegionBars(gpu, scrollY, screenHeight, scale);
     gScene.scrollY = scrollY;
@@ -6328,6 +6479,7 @@ int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy) {
         }
         if (region.scrollX != before) {
             used = true;
+            WakeRegion(region, false);
         }
     }
     if (dy != 0 && region.contentHeight > region.height) {
@@ -6342,6 +6494,7 @@ int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy) {
         }
         if (region.scrollY != before) {
             used = true;
+            WakeRegion(region, true);
         }
     }
     return used ? 1 : 0;
@@ -6349,68 +6502,327 @@ int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy) {
 
 int WindowsDocumentScrollHit(int docX, int docY) {
     gRegionDrag = -1;
-    const int thick = ScrollBarThick();
+    for (ScrollRegion& region : gRegions) {
+        region.dragX = false;
+        region.dragY = false;
+    }
     for (int index = static_cast<int>(gRegions.size()) - 1; index >= 0; --index) {
         ScrollRegion& region = gRegions[static_cast<std::size_t>(index)];
-        if (region.contentWidth <= region.width) {
-            continue;
+        for (int axis = 0; axis < 2; ++axis) {
+            const bool vertical = axis == 0;
+            RegionBar bar;
+            if (!RegionBarBox(region, vertical, bar)) {
+                continue;
+            }
+            if (docX < bar.x || docX >= bar.x + bar.width || docY < bar.y || docY >= bar.y + bar.height) {
+                continue;
+            }
+            const int part = RegionPart(bar, vertical, docX, docY);
+            WakeRegion(region, vertical);
+            if (part == 3) {
+                gRegionDrag = index;
+                gRegionAxis = axis;
+                gRegionGrab = (vertical ? docY - bar.y : docX - bar.x) - bar.thumb;
+                if (vertical) {
+                    region.dragY = true;
+                } else {
+                    region.dragX = true;
+                }
+                return vertical ? 5 : 3;
+            }
+            const int maxScroll = std::max(1, (vertical ? region.contentHeight - region.height : region.contentWidth - region.width));
+            const int step = std::max(1, Px(56));
+            int& scroll = vertical ? region.scrollY : region.scrollX;
+            if (part == 1) {
+                scroll = std::max(0, scroll - step);
+            } else if (part == 2) {
+                scroll = std::min(maxScroll, scroll + step);
+            } else {
+                const int along = (vertical ? docY - bar.y : docX - bar.x) - bar.thumbSpan / 2;
+                int pos = along - bar.track;
+                const int travel = std::max(1, bar.trackSpan - bar.thumbSpan);
+                if (pos < 0) {
+                    pos = 0;
+                }
+                if (pos > travel) {
+                    pos = travel;
+                }
+                scroll = maxScroll * pos / travel;
+            }
+            return 4;
         }
-        const int barY = region.y + region.height - thick;
-        int barW = region.width;
-        if (region.contentHeight > region.height) {
-            barW -= thick;
-        }
-        if (barW <= thick || docX < region.x || docX >= region.x + barW || docY < barY || docY >= barY + thick) {
-            continue;
-        }
-        const int maxScroll = std::max(1, region.contentWidth - region.width);
-        const int thumb = std::max(thick, barW * region.width / std::max(1, region.contentWidth));
-        const int travel = std::max(1, barW - thumb);
-        const int thumbX = region.x + region.scrollX * travel / maxScroll;
-        gRegionDrag = index;
-        if (docX >= thumbX && docX < thumbX + thumb) {
-            gRegionGrab = docX - thumbX;
-            return 3;
-        }
-        int pos = docX - region.x - thumb / 2;
-        if (pos < 0) {
-            pos = 0;
-        }
-        if (pos > travel) {
-            pos = travel;
-        }
-        region.scrollX = maxScroll * pos / travel;
-        return 4;
     }
     return 0;
 }
 
-int WindowsDocumentScrollDrag(int docX) {
+int WindowsDocumentScrollDrag(int docX, int docY) {
     if (gRegionDrag < 0 || gRegionDrag >= static_cast<int>(gRegions.size())) {
         return 0;
     }
     ScrollRegion& region = gRegions[static_cast<std::size_t>(gRegionDrag)];
-    const int thick = ScrollBarThick();
-    int barW = region.width;
-    if (region.contentHeight > region.height) {
-        barW -= thick;
+    const bool vertical = gRegionAxis == 0;
+    RegionBar bar;
+    if (!RegionBarBox(region, vertical, bar)) {
+        return 0;
     }
-    const int maxScroll = std::max(1, region.contentWidth - region.width);
-    const int thumb = std::max(thick, barW * region.width / std::max(1, region.contentWidth));
-    const int travel = std::max(1, barW - thumb);
-    int pos = docX - region.x - gRegionGrab;
+    const int along = vertical ? docY - bar.y : docX - bar.x;
+    const int travel = std::max(1, bar.trackSpan - bar.thumbSpan);
+    int pos = along - gRegionGrab - bar.track;
     if (pos < 0) {
         pos = 0;
     }
     if (pos > travel) {
         pos = travel;
     }
-    const int before = region.scrollX;
-    region.scrollX = maxScroll * pos / travel;
-    return region.scrollX != before ? 1 : 0;
+    if (travel > 4 && pos >= travel - 1) {
+        pos = travel;
+    }
+    const int maxScroll = std::max(0, (vertical ? region.contentHeight - region.height : region.contentWidth - region.width));
+    int& scroll = vertical ? region.scrollY : region.scrollX;
+    const int before = scroll;
+    if (pos <= 0) {
+        scroll = 0;
+    } else if (pos >= travel) {
+        scroll = maxScroll;
+    } else {
+        scroll = static_cast<int>((static_cast<long long>(pos) * maxScroll + travel / 2) / travel);
+    }
+    WakeRegion(region, vertical);
+    return scroll != before ? 1 : 0;
 }
 
-void WindowsDocumentScrollEnd() { gRegionDrag = -1; }
+void WindowsDocumentScrollEnd() {
+    if (gRegionDrag >= 0 && gRegionDrag < static_cast<int>(gRegions.size())) {
+        ScrollRegion& region = gRegions[static_cast<std::size_t>(gRegionDrag)];
+        region.dragX = false;
+        region.dragY = false;
+        region.idleX = GetTickCount();
+        region.idleY = GetTickCount();
+    }
+    gRegionDrag = -1;
+}
+
+int WindowsDocumentRegionHover(int docX, int docY) {
+    int changed = 0;
+    for (ScrollRegion& region : gRegions) {
+        const int oldX = region.hotX;
+        const int oldY = region.hotY;
+        region.hotX = 0;
+        region.hotY = 0;
+        for (int axis = 0; axis < 2; ++axis) {
+            const bool vertical = axis == 0;
+            RegionBar bar;
+            if (!RegionBarBox(region, vertical, bar)) {
+                continue;
+            }
+            if (docX < bar.x || docX >= bar.x + bar.width || docY < bar.y || docY >= bar.y + bar.height) {
+                continue;
+            }
+            const int part = RegionPart(bar, vertical, docX, docY);
+            if (vertical) {
+                region.hotY = part;
+            } else {
+                region.hotX = part;
+            }
+            const int before = vertical ? region.opacityY : region.opacityX;
+            WakeRegion(region, vertical);
+            if (before != 255) {
+                changed = 1;
+            }
+        }
+        if (region.hotX != oldX || region.hotY != oldY) {
+            changed = 1;
+        }
+    }
+    return changed;
+}
+
+int WindowsDocumentRegionFade(unsigned now) {
+    int changed = 0;
+    for (ScrollRegion& region : gRegions) {
+        const auto drop = [&](int& opacity, unsigned idle, bool held) {
+            if (opacity <= 0 || held || now - idle <= 900u) {
+                return;
+            }
+            const int step = opacity / 6;
+            opacity -= step < 8 ? 8 : step;
+            if (opacity < 0) {
+                opacity = 0;
+            }
+            changed = 1;
+        };
+        drop(region.opacityY, region.idleY, region.hotY != 0 || region.dragY);
+        drop(region.opacityX, region.idleX, region.hotX != 0 || region.dragX);
+    }
+    return changed;
+}
+
+int WindowsDocumentRegionRects(WindowPatch* patches, int capacity) {
+    int count = 0;
+    for (const ScrollRegion& region : gRegions) {
+        if (region.scrollX == region.paintedX && region.scrollY == region.paintedY) {
+            continue;
+        }
+        if (patches == nullptr || count >= capacity) {
+            return -1;
+        }
+        patches[count].x = region.x;
+        patches[count].y = region.y;
+        patches[count].width = region.width;
+        patches[count].height = region.height;
+        ++count;
+    }
+    return count;
+}
+
+void WindowsDocumentPaintMovedRegions(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight) {
+    if (gpu == nullptr || !gScene.valid) {
+        return;
+    }
+    for (const ScrollRegion& region : gRegions) {
+        if (region.scrollX == region.paintedX && region.scrollY == region.paintedY) {
+            continue;
+        }
+        const int x = region.x - gScrollX;
+        const int y = region.y - scrollY;
+        if (region.width <= 0 || region.height <= 0 || y + region.height < 0 || y > viewHeight || x + region.width < 0 || x > viewWidth) {
+            continue;
+        }
+        RoboGPUFillRect(gpu, x, y, region.width, region.height, gScene.background);
+        const int plate = region.opBegin - 1;
+        if (plate >= 0 && plate < static_cast<int>(gScene.ops.size())) {
+            const PaintOp& back = gScene.ops[static_cast<std::size_t>(plate)];
+            if (!back.text && back.x == region.x && back.y == region.y) {
+                PaintPrepared(gpu, back, plate, scrollY, viewHeight, gScene.light);
+            }
+        }
+        const int end = std::min(region.opEnd, static_cast<int>(gScene.ops.size()));
+        for (int index = region.opBegin; index < end; ++index) {
+            PaintPrepared(gpu, gScene.ops[static_cast<std::size_t>(index)], index, scrollY, viewHeight, gScene.light);
+        }
+    }
+}
+
+void WindowsDocumentRegionMarkPainted() {
+    for (ScrollRegion& region : gRegions) {
+        region.paintedX = region.scrollX;
+        region.paintedY = region.scrollY;
+    }
+}
+
+void BlendPill(RoboGPU* gpu, int x, int y, int width, int height, RoboU32 color, int cover) {
+    if (gpu == nullptr || cover <= 0 || width <= 0 || height <= 0) {
+        return;
+    }
+    const int radius = std::min(width, height) / 2;
+    for (int row = 0; row < height; ++row) {
+        for (int col = 0; col < width; ++col) {
+            if (radius > 0) {
+                const int dx = col < radius ? radius - col : (col >= width - radius ? col - (width - 1 - radius) : 0);
+                const int dy = row < radius ? radius - row : (row >= height - radius ? row - (height - 1 - radius) : 0);
+                if (dx * dx + dy * dy > radius * radius) {
+                    continue;
+                }
+            }
+            RoboGPUBlendPixel(gpu, x + col, y + row, color, static_cast<RoboU8>(cover));
+        }
+    }
+    RoboDamageAdd(&gpu->damage, x, y, width, height);
+}
+
+void BlendArrow(RoboGPU* gpu, int x, int y, int size, bool vertical, bool start, RoboU32 color, int cover) {
+    if (gpu == nullptr || cover <= 0 || size <= 0) {
+        return;
+    }
+    for (int row = 0; row < size; ++row) {
+        for (int col = 0; col < size; ++col) {
+            const int along = vertical ? row : col;
+            const int across = vertical ? col : row;
+            const int tip = start ? along : size - 1 - along;
+            const int half = size / 2;
+            if (std::abs(across - half) * 2 > tip) {
+                continue;
+            }
+            RoboGPUBlendPixel(gpu, x + col, y + row, color, static_cast<RoboU8>(cover));
+        }
+    }
+    RoboDamageAdd(&gpu->damage, x, y, size, size);
+}
+
+void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight, double scale) {
+    if (gpu == nullptr || !gScene.valid) {
+        return;
+    }
+    if (!(scale > 0.0)) {
+        scale = 1.0;
+    }
+    const bool light = gScene.light;
+    const RoboU32 track = ThemeColor("border-default", light);
+    const RoboU32 rest = FieldMix(ThemeColor("border-strong", light), ThemeColor("text-tertiary", light), 45);
+    const RoboU32 hover = ThemeColor("text-tertiary", light);
+    const RoboU32 press = FieldMix(ThemeColor("text-tertiary", light), ThemeColor("text-primary", light), 58);
+    const auto place = [&](int doc, int origin, bool across) {
+        return ScaleLen(doc - origin, scale);
+    };
+    for (ScrollRegion& region : gRegions) {
+        for (int axis = 0; axis < 2; ++axis) {
+            const bool vertical = axis == 0;
+            RegionBar bar;
+            const bool shaped = RegionBarBox(region, vertical, bar);
+            int& opacity = vertical ? region.opacityY : region.opacityX;
+            int& shown = vertical ? region.shownY : region.shownX;
+            if (!shaped || (opacity <= 0 && shown <= 0)) {
+                shown = 0;
+                continue;
+            }
+            const int x = place(bar.x, gScrollX, true);
+            const int y = place(bar.y, scrollY, false);
+            const int width = std::max(1, place(bar.x + bar.width, gScrollX, true) - x);
+            const int height = std::max(1, place(bar.y + bar.height, scrollY, false) - y);
+            if (opacity < shown) {
+                RoboGPUPushScissor(gpu, x, y, width, height);
+                const int plate = region.opBegin - 1;
+                if (plate >= 0 && plate < static_cast<int>(gScene.ops.size())) {
+                    const PaintOp& back = gScene.ops[static_cast<std::size_t>(plate)];
+                    if (!back.text && back.x == region.x && back.y == region.y) {
+                        PaintPrepared(gpu, back, plate, scrollY, viewHeight, light);
+                    }
+                }
+                const int end = std::min(region.opEnd, static_cast<int>(gScene.ops.size()));
+                for (int index = region.opBegin; index < end; ++index) {
+                    PaintPrepared(gpu, gScene.ops[static_cast<std::size_t>(index)], index, scrollY, viewHeight, light);
+                }
+                RoboGPUPopScissor(gpu);
+            }
+            shown = opacity;
+            if (opacity <= 0) {
+                continue;
+            }
+            const int hot = vertical ? region.hotY : region.hotX;
+            const bool drag = vertical ? region.dragY : region.dragX;
+            const int arrow = std::max(1, ScaleLen(bar.arrow, scale));
+            const int trackPos = place((vertical ? bar.y : bar.x) + bar.track, vertical ? scrollY : gScrollX, vertical);
+            const int thumbPos = place((vertical ? bar.y : bar.x) + bar.thumb, vertical ? scrollY : gScrollX, vertical);
+            const int trackSpan = std::max(1, ScaleLen(bar.trackSpan, scale));
+            const int thumbSpan = std::max(1, ScaleLen(bar.thumbSpan, scale));
+            const RoboU32 thumbInk = drag ? press : (hot == 3 ? hover : rest);
+            const RoboU32 startInk = hot == 1 ? press : rest;
+            const RoboU32 endInk = hot == 2 ? press : rest;
+            if (vertical) {
+                BlendPill(gpu, x, trackPos, width, trackSpan, track, opacity);
+                BlendPill(gpu, x, thumbPos, width, thumbSpan, thumbInk, opacity);
+                BlendArrow(gpu, x, y, std::min(arrow, width), true, true, startInk, opacity);
+                BlendArrow(gpu, x, y + height - arrow, std::min(arrow, width), true, false, endInk, opacity);
+            } else {
+                BlendPill(gpu, trackPos, y, trackSpan, height, track, opacity);
+                BlendPill(gpu, thumbPos, y, thumbSpan, height, thumbInk, opacity);
+                BlendArrow(gpu, x, y, std::min(arrow, height), false, true, startInk, opacity);
+                BlendArrow(gpu, x + width - arrow, y, std::min(arrow, height), false, false, endInk, opacity);
+            }
+            (void)viewWidth;
+        }
+    }
+}
 
 std::string CookKind(const std::string& raw) {
     std::string lower = Lower(raw);

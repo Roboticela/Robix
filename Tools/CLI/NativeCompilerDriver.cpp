@@ -350,7 +350,7 @@ NativeBuildResult LinkFreestanding(const std::string& clang,
               "pml4: .skip 4096\n"
               "pdpt: .skip 4096\n"
               ".align 16\n"
-              ".skip 16384\n"
+              ".skip 262144\n"
               "stack_top:\n"
               ".section .payload, \"ax\"\n"
               ".incbin \"" + ForwardSlashes(payloadBin.string()) + "\"\n");

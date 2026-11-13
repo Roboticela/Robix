@@ -293,6 +293,9 @@ void WindowDragScrollBar(WindowScrollState& bar, int pointerY) {
     if (pos > travel) {
         pos = travel;
     }
+    if (travel > 4 && pos >= travel - 1) {
+        pos = travel;
+    }
     if (pos <= 0) {
         bar.scrollY = 0;
     } else if (pos >= travel) {
@@ -445,6 +448,9 @@ void WindowDragScrollBarX(WindowScrollState& bar, int pointerX) {
         pos = 0;
     }
     if (pos > travel) {
+        pos = travel;
+    }
+    if (travel > 4 && pos >= travel - 1) {
         pos = travel;
     }
     if (pos <= 0) {

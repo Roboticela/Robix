@@ -94,11 +94,20 @@ void WindowsDocumentSetScrollX(int scrollX);
 /* Scroll the overflow region under a document point. 1 when that region moved. */
 int WindowsDocumentScrollBy(int docX, int docY, int dx, int dy);
 
-/* 3 when the pointer is on a nested horizontal thumb, 4 when the track moved, 0 otherwise. */
+/* 3 horizontal thumb, 5 vertical thumb, 4 when an arrow or track moved, 0 otherwise. */
 int WindowsDocumentScrollHit(int docX, int docY);
 
-int WindowsDocumentScrollDrag(int docX);
+int WindowsDocumentScrollDrag(int docX, int docY);
 void WindowsDocumentScrollEnd();
+/* 1 when a nested bar must be shown or recolored. */
+int WindowsDocumentRegionHover(int docX, int docY);
+/* 1 when a nested bar faded. */
+int WindowsDocumentRegionFade(unsigned now);
+void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight, double scale);
+/* Document rectangles whose nested scroll offset changed. -1 asks for a full raster. */
+int WindowsDocumentRegionRects(WindowPatch* patches, int capacity);
+void WindowsDocumentPaintMovedRegions(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight);
+void WindowsDocumentRegionMarkPainted();
 
 /* Index of the Input under a document point, or -1. */
 int WindowsDocumentFieldAt(int docX, int docY);

@@ -172,7 +172,7 @@ bool AsmMnemonicAllowed(std::string_view arch, std::string_view mnemonic) {
         return listed({ "nop", "ret", "li", "mv", "add", "sub", "lw", "sw", "ld", "sd",
                         "jal", "jalr", "ecall", "ebreak", "wfi", "fence" });
     }
-    return listed({ "nop", "cli", "sti", "hlt", "mov", "movb", "movw", "movl", "movq",
+    return listed({ "nop", "cli", "sti", "hlt", "ud2", "mov", "movb", "movw", "movl", "movq",
                     "out", "outb", "outw", "outl", "in", "inb", "inw", "inl",
                     "lgdt", "lidt", "ljmp", "ljmpl", "ltr", "rdmsr", "wrmsr", "invlpg",
                     "int", "iret", "iretq", "push", "pushq", "pop", "popq", "ret", "jmp", "call",
@@ -208,6 +208,7 @@ struct ModuleCtx {
     std::set<std::string> cpuFns;
     std::set<std::string> isrFns;
     std::set<std::string> faultIsrs;
+    std::set<std::string> trapIsrs;
     std::set<std::string> timerIsrs;
     std::string preemptA;
     std::string preemptB;
@@ -2229,12 +2230,12 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 Val addr = Coerce(Operand(inst, 0), NTy::I64, inst.location);
                 m_body << "  " << vname << " = inttoptr i64 " << addr.repr << " to ptr\n";
                 m_vals[id] = Val{ vname, NTy::Ptr };
-            } else if (inst.textImm == "CPU.TSC" || inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP" ||
+            } else if (inst.textImm == "CPU.TSC" || inst.textImm == "CPU.ReadCR2" || inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP" ||
                        inst.textImm == "CPU.WriteCR3" || inst.textImm == "CPU.ExchangeRSP" ||
                        inst.textImm == "CPU.SavedRSP" || inst.textImm == "CPU.LGDT" ||
                        inst.textImm == "CPU.LIDT" || inst.textImm == "CPU.BootInfo" ||
                        inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" ||
-                       inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Catch" || inst.textImm == "CPU.Release" ||
+                       inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Trap" || inst.textImm == "CPU.Catch" || inst.textImm == "CPU.Release" ||
                        inst.textImm == "CPU.Run" || inst.textImm == "CPU.Int3" || inst.textImm == "Timer.Arm" ||
                        inst.textImm == "Timer.Preempt" || inst.textImm == "System.Call") {
                 if (m_ctx.options.asmArch != "x86_64") {
@@ -2255,8 +2256,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                 } else if (inst.textImm == "CPU.Int3") {
                     m_body << "  call void asm sideeffect \"int3\", \"~{dirflag},~{fpsr},~{flags},~{memory}\"()\n";
                     m_vals[id] = Val{ "0", NTy::Void };
-                } else if (inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP") {
-                    const char* text = inst.textImm == "CPU.ReadCR3" ? "movq %cr3, $0" : "movq %rsp, $0";
+                } else if (inst.textImm == "CPU.ReadCR2" || inst.textImm == "CPU.ReadCR3" || inst.textImm == "CPU.ReadRSP") {
+                    const char* text = inst.textImm == "CPU.ReadCR2" ? "movq %cr2, $0" : inst.textImm == "CPU.ReadCR3" ? "movq %cr3, $0" : "movq %rsp, $0";
                     m_body << "  " << vname << " = call i64 asm sideeffect \"" << text
                            << "\", \"=r,~{dirflag},~{fpsr},~{flags}\"()\n";
                     m_vals[id] = Val{ vname, NTy::I64 };
@@ -2292,8 +2293,8 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_body << "  call void asm sideeffect \"" << op << "\", \"r,~{dirflag},~{fpsr},~{flags},~{memory}\"(ptr "
                            << mem << ")\n";
                     m_vals[id] = Val{ "0", NTy::Void };
-                } else if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault") {
-                    const bool isr = inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault";
+                } else if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Trap") {
+                    const bool isr = inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Trap";
                     const std::string sym = isr
                                                 ? ("@rx_isr_" + inst.secondaryText)
                                                 : ("@rx_fn_" + inst.secondaryText);
@@ -2968,7 +2969,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         if (inst.textImm == "CPU.ExchangeRSP" || inst.textImm == "CPU.SavedRSP") ctx.usesSwitch = true;
         if (inst.textImm == "CPU.Catch" || inst.textImm == "CPU.Release") ctx.usesCatch = true;
         if (inst.textImm == "System.Call") ctx.usesSyscall = true;
-        if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Run" ||
+        if (inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Trap" || inst.textImm == "CPU.Run" ||
             inst.textImm == "Timer.Arm" || inst.textImm == "Timer.Preempt") {
             if (!inst.secondaryText.empty()) {
                 if (inst.textImm == "Timer.Preempt") {
@@ -2988,8 +2989,9 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                     }
                 } else {
                     ctx.cpuFns.insert(inst.secondaryText);
-                    if (inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "Timer.Arm") ctx.isrFns.insert(inst.secondaryText);
+                    if (inst.textImm == "CPU.Handler" || inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Trap" || inst.textImm == "Timer.Arm") ctx.isrFns.insert(inst.secondaryText);
                     if (inst.textImm == "CPU.Fault") ctx.faultIsrs.insert(inst.secondaryText);
+                    if (inst.textImm == "CPU.Trap") ctx.trapIsrs.insert(inst.secondaryText);
                     if (inst.textImm == "Timer.Arm") {
                         ctx.timerIsrs.insert(inst.secondaryText);
                         ctx.usesPages = true;
@@ -3307,7 +3309,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  call void asm sideeffect \"" << EscapeLLVMString(syscall) << "\", \"\"()\n";
         out << "  unreachable\n}\n\n";
     }
-    if (ctx.usesCatch || !ctx.faultIsrs.empty()) {
+    if (ctx.usesCatch || !ctx.faultIsrs.empty() || !ctx.trapIsrs.empty()) {
         out << "@rx_fault_guard_on = global i64 0, align 8\n";
         out << "@rx_fault_guard_rip = global i64 0, align 8\n";
         out << "@rx_fault_guard_rsp = global i64 0, align 8\n";
@@ -3343,10 +3345,17 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "  store i64 0, ptr @rx_fault_guard_on, align 8\n  ret void\n}\n\n";
     }
     for (const std::string& isr : ctx.isrFns) {
-        if (ctx.faultIsrs.count(isr)) {
+        if (ctx.faultIsrs.count(isr) || ctx.trapIsrs.count(isr)) {
+            const std::string open = ctx.faultIsrs.count(isr)
+                                         ? "popq %rax\nmovabsq $20992, %rdx\nmovq %rax, (%rdx)\n"
+                                         : "";
             const std::string text =
-                "popq %rax\n"
-                "movabsq $20992, %rdx\n"
+                open +
+                "movq (%rsp), %rax\n"
+                "movabsq $21024, %rdx\n"
+                "movq %rax, (%rdx)\n"
+                "movq %cr2, %rax\n"
+                "movabsq $21032, %rdx\n"
                 "movq %rax, (%rdx)\n"
                 "testb $3, 8(%rsp)\n"
                 "jz 1f\n"
@@ -3365,6 +3374,16 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 "movq $16, 32(%rsp)\n"
                 "iretq\n"
                 "1:\n"
+                "movabsq $21040, %rax\n"
+                "movq (%rax), %rax\n"
+                "testq %rax, %rax\n"
+                "jz 4f\n"
+                "pushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
+                "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n"
+                "call rx_fn_" + isr + "\n"
+                "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
+                "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\n"
+                "4:\n"
                 "movq rx_fault_guard_on(%rip), %rcx\n"
                 "testq %rcx, %rcx\n"
                 "jz 2f\n"
@@ -3381,7 +3400,17 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 "pushq rx_fault_guard_rip(%rip)\n"
                 "xorq %rax, %rax\n"
                 "iretq\n"
-                "2:\ncli\n3:\nhlt\njmp 3b\n";
+                "2:\n"
+                "movabsq $21040, %rax\n"
+                "movq (%rax), %rax\n"
+                "testq %rax, %rax\n"
+                "jnz 3f\n"
+                "pushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
+                "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n"
+                "call rx_fn_" + isr + "\n"
+                "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
+                "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\n"
+                "3:\ncli\n5:\nhlt\njmp 5b\n";
             std::string doubled;
             for (char ch : text) {
                 if (ch == '$') doubled.push_back('$');
@@ -3398,10 +3427,12 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         const std::string text =
             "pushq %rax\npushq %rcx\npushq %rdx\npushq %rsi\npushq %rdi\n"
             "pushq %r8\npushq %r9\npushq %r10\npushq %r11\n"
+            "pushq %rbx\npushq %rbp\npushq %r12\npushq %r13\npushq %r14\npushq %r15\n"
             "movabsq $$21248, %r11\nmovq %rax, (%r11)\n"
             "movabsq $$21256, %r11\nmovq %rdi, (%r11)\n" +
             eoi +
             "call rx_fn_" + isr + "\n"
+            "popq %r15\npopq %r14\npopq %r13\npopq %r12\npopq %rbp\npopq %rbx\n"
             "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
             "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\npopq %rax\n"
             "iretq";
@@ -3933,7 +3964,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %pix = load i32, ptr %sp, align 4\n  %wide = zext i32 %pix to i64\n  ret i64 %wide\n}\n\n";
         }
         if (m_options.freestanding) {
-            out << "define i64 @rx_display_bar() {\nentry:\n  br label %slot\n";
+            out << "define i64 @rx_display_bar() #0 {\nentry:\n  br label %slot\n";
             out << "slot:\n  %dev = phi i64 [ 0, %entry ], [ %nextdev, %advance ]\n";
             out << "  %finished = icmp uge i64 %dev, 32\n";
             out << "  br i1 %finished, label %fallback, label %probe\n";
@@ -3976,7 +4007,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "advance:\n  %nextdev = add i64 %dev, 1\n  br label %slot\n";
             out << "fallback:\n  ret i64 3758096384\n}\n\n";
             out << "@rx.frame.front = internal global i64 0, align 8\n";
-            out << "define void @rx_copy_band(i64 %src, i64 %dst, i64 %y, i64 %stride, i64 %rows, i64 %clip, i64 %index, i64 %workers) {\n";
+            out << "define void @rx_copy_band(i64 %src, i64 %dst, i64 %y, i64 %stride, i64 %rows, i64 %clip, i64 %index, i64 %workers) #0 {\n";
             out << "entry:\n  %none = icmp slt i64 %workers, 1\n  br i1 %none, label %out, label %go\n";
             out << "go:\n  %start0 = mul i64 %rows, %index\n  %start = udiv i64 %start0, %workers\n";
             out << "  %nexti = add i64 %index, 1\n  %end0 = mul i64 %rows, %nexti\n  %end = udiv i64 %end0, %workers\n";
@@ -3995,7 +4026,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  %qnext = add i64 %qi, 1\n  br label %qword\n";
             out << "rstep:\n  %rnext = add i64 %r, 1\n  br label %row\n";
             out << "out:\n  ret void\n}\n\n";
-            out << "define void @rx_scan_copy(i64 %src, i64 %dst, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %fw, i64 %fh) {\n";
+            out << "define void @rx_scan_copy(i64 %src, i64 %dst, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %fw, i64 %fh) #0 {\n";
             out << "entry:\n  %corep = inttoptr i64 393344 to ptr\n  %core32 = load volatile i32, ptr %corep, align 4\n";
             out << "  %cores = zext i32 %core32 to i64\n  %at0 = icmp eq i64 %x, 0\n  %full = icmp eq i64 %rw, %fw\n";
             out << "  %fe = and i64 %fw, 1\n  %even = icmp eq i64 %fe, 0\n  %span0 = and i1 %at0, %full\n  %span = and i1 %span0, %even\n";
@@ -4060,7 +4091,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "icont:\n  %ixnext = add i64 %ix, 1\n  br label %irow\n";
             out << "istep:\n  %iynext = add i64 %iy, 1\n  br label %irows\n";
             out << "copied:\n  ret void\n}\n\n";
-            out << "define i64 @rx_frame_present(i64 %frame) noinline {\nentry:\n";
+            out << "define i64 @rx_frame_present(i64 %frame) noinline #0 {\nentry:\n";
             out << "  %p = inttoptr i64 %frame to ptr\n";
             out << "  %fw32 = load i32, ptr %p, align 4\n";
             out << "  %fw = zext i32 %fw32 to i64\n";
@@ -4091,7 +4122,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  call void @rx_scan_copy(i64 %srci, i64 %dsti, i64 0, i64 0, i64 %fw, i64 %fh, i64 %fw, i64 %fh)\n";
             out << "  %shown = load volatile i8, ptr %dst, align 1\n";
             out << "  %byte = zext i8 %shown to i64\n  ret i64 %byte\n}\n\n";
-            out << "define i64 @rx_frame_flush(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh) noinline {\nentry:\n";
+            out << "define i64 @rx_frame_flush(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh) noinline #0 {\nentry:\n";
             out << "  %p = inttoptr i64 %frame to ptr\n";
             out << "  %fw32 = load i32, ptr %p, align 4\n";
             out << "  %fw = zext i32 %fw32 to i64\n";
@@ -5034,7 +5065,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         else if (m_options.asmArch == "arm") cpu = "cortex-a15";
         else if (m_options.asmArch == "riscv64") cpu = "generic-rv64";
         out << "attributes #0 = { nounwind "
-            << (m_options.asmArch == "x86_64" ? "\"no-red-zone\"=\"true\" " : "")
+            << (m_options.asmArch == "x86_64" ? "noredzone " : "")
             << "\"target-cpu\"=\"" << cpu << "\" \"no-trapping-math\"=\"true\" }\n";
     } else if (m_options.profile == BuildProfile::Release) {
         out << "attributes #0 = { nounwind \"target-cpu\"=\"skylake\" \"target-features\"=\"+64bit,+adx,+aes,+avx,+avx2,+bmi,+bmi2,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves\" \"no-trapping-math\"=\"true\" \"unsafe-fp-math\"=\"true\" \"approx-func-fp-math\"=\"true\" \"stack-protector-buffer-size\"=\"8\" hot }\n";

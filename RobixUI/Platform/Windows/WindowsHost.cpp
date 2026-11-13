@@ -1181,12 +1181,14 @@ void Draw(HostView* view) {
         int patchCount = CollectWindowsDocumentPatches(view->hotControl, view->pressedControl, view->focusControl, patches, 32);
         WindowPatch textPatches[32]{};
         int textCount = WindowsDocumentTextPatches(textPatches, 32);
+        WindowPatch regionPatches[16]{};
+        const int regionCount = WindowsDocumentRegionRects(regionPatches, 16);
         bool fresh = false;
         bool usedSheet = false;
         if (zoomed) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
-                const bool dirty = rebuilt || fresh || scaleChanged || patchCount != 0 || textCount != 0 || view->shownScroll != view->scrollY ||
+                const bool dirty = rebuilt || fresh || scaleChanged || patchCount != 0 || textCount != 0 || regionCount != 0 || view->shownScroll != view->scrollY ||
                                    view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue();
                 if (dirty) {
                     BindSheet(view, true);
@@ -1196,6 +1198,7 @@ void Draw(HostView* view) {
                     view->shownScroll = view->scrollY;
                     view->shownScrollX = view->scrollX;
                     WindowsDocumentTextMarkPainted();
+                    WindowsDocumentRegionMarkPainted();
                 } else if (caretDue || fieldDue) {
                     BindSheet(view, true);
                     WindowsDocumentSetScrollX(view->scrollX);
@@ -1211,7 +1214,7 @@ void Draw(HostView* view) {
         } else if (wide) {
             const bool scrollYChanged = previousScroll != view->scrollY;
             const bool scrollXChanged = previousScrollX != view->scrollX;
-            const bool structural = rebuilt || previousScroll < 0 || previousScrollX < 0 || patchCount < 0 || textCount < 0;
+            const bool structural = rebuilt || previousScroll < 0 || previousScrollX < 0 || patchCount < 0 || textCount < 0 || regionCount < 0;
             if (structural || scrollXChanged || scrollYChanged || scaleChanged) {
                 WindowsDocumentSetScrollX(view->scrollX);
                 BindSheet(view, false);
@@ -1221,7 +1224,8 @@ void Draw(HostView* view) {
                 view->gpuFull = true;
                 view->gpuScroll = view->scrollY;
                 WindowsDocumentTextMarkPainted();
-            } else if (patchCount > 0 || textCount > 0 || WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue() || caretDue || fieldDue) {
+                WindowsDocumentRegionMarkPainted();
+            } else if (patchCount > 0 || textCount > 0 || regionCount > 0 || WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue() || caretDue || fieldDue) {
                 WindowsDocumentSetScrollX(view->scrollX);
                 BindSheet(view, false);
                 for (int index = 0; index < patchCount; ++index) {
@@ -1231,6 +1235,10 @@ void Draw(HostView* view) {
                 for (int index = 0; index < textCount; ++index) {
                     WindowsDocumentPaintWindowRect(&view->gpu, textPatches[index].x, textPatches[index].y, textPatches[index].width,
                                                    textPatches[index].height, view->scrollY, width, height);
+                }
+                if (regionCount > 0) {
+                    WindowsDocumentPaintMovedRegions(&view->gpu, view->scrollY, width, height);
+                    WindowsDocumentRegionMarkPainted();
                 }
                 if (WindowsDocumentNeedsSpin()) {
                     WindowPatch spinRects[32]{};
@@ -1262,7 +1270,7 @@ void Draw(HostView* view) {
             WindowsDocumentSetScrollX(0);
             usedSheet = layout >= 0 && EnsureSheet(view, std::max(width, layoutW), view->contentHeight, fresh);
             if (usedSheet) {
-                if (rebuilt || fresh || patchCount < 0 || textCount < 0) {
+                if (rebuilt || fresh || patchCount < 0 || textCount < 0 || regionCount < 0) {
                     BindSheet(view, true);
                     RasterWindowsDocument(&view->gpu);
                     BindSheet(view, false);
@@ -1272,6 +1280,7 @@ void Draw(HostView* view) {
                     patchCount = 0;
                     textCount = 0;
                     WindowsDocumentTextMarkPainted();
+                    WindowsDocumentRegionMarkPainted();
                 } else if (WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue()) {
                     WindowPatch spinRects[32]{};
                     const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
@@ -1286,7 +1295,7 @@ void Draw(HostView* view) {
                         ++patchCount;
                     }
                 }
-                if (patchCount > 0 || textCount > 0) {
+                if (patchCount > 0 || textCount > 0 || regionCount > 0) {
                     BindSheet(view, true);
                     for (int index = 0; index < patchCount; ++index) {
                         PaintWindowsDocumentRect(&view->gpu, patches[index].x, patches[index].y, patches[index].width,
@@ -1296,8 +1305,14 @@ void Draw(HostView* view) {
                         WindowsDocumentRepaintRect(&view->gpu, textPatches[index].x, textPatches[index].y, textPatches[index].width,
                                                    textPatches[index].height);
                     }
+                    if (regionCount > 0) {
+                        WindowsDocumentPaintMovedRegions(&view->gpu, 0, std::max(width, layoutW), view->contentHeight);
+                    }
                     BindSheet(view, false);
                     WindowsDocumentTextMarkPainted();
+                    if (regionCount > 0) {
+                        WindowsDocumentRegionMarkPainted();
+                    }
                     if (WindowsDocumentMotionDue()) {
                         WindowsDocumentMotionMark();
                     }
@@ -1310,6 +1325,10 @@ void Draw(HostView* view) {
                 }
                 for (int index = 0; index < textCount && visibleCount < 64; ++index) {
                     visible[visibleCount] = textPatches[index];
+                    ++visibleCount;
+                }
+                for (int index = 0; index < regionCount && visibleCount < 64; ++index) {
+                    visible[visibleCount] = regionPatches[index];
                     ++visibleCount;
                 }
                 if ((caretDue || fieldDue) && !(rebuilt || fresh || patchCount < 0 || textCount < 0)) {
@@ -1378,6 +1397,7 @@ void Draw(HostView* view) {
                 }
             }
         }
+        WindowsDocumentPaintRegionBars(&view->gpu, view->scrollY, width, height, scale);
         if (view->gpu.damage.full == ROBO_TRUE || (bar.opacity > 0 && barChanged)) {
             PaintWindowScrollBar(&view->gpu, bar);
         }
@@ -1630,7 +1650,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 const int docX = x < 0 ? -1 : view->scrollX + ToDoc(x, pointerScale);
                 const int docY = y < 0 ? -1 : view->scrollY + ToDoc(y, pointerScale);
                 if (view->regionDrag && message == WM_MOUSEMOVE) {
-                    if (WindowsDocumentScrollDrag(docX) != 0) {
+                    if (WindowsDocumentScrollDrag(docX, docY) != 0) {
                         Request(view);
                     }
                     return 0;
@@ -1708,7 +1728,8 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     const int nest = WindowsDocumentScrollHit(docX, docY);
                     if (nest != 0) {
                         SetFocus(window);
-                        view->regionDrag = nest == 3;
+                        view->regionDrag = nest == 3 || nest == 5;
+                        SetTimer(window, 2, 50, nullptr);
                         SetCapture(window);
                         Request(view);
                         return 0;
@@ -1805,6 +1826,12 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     view->pointerY = y;
                 }
                 if (message == WM_MOUSEMOVE || message == WM_MOUSELEAVE) {
+                    const int hoverX = message == WM_MOUSELEAVE ? -1 : docX;
+                    const int hoverY = message == WM_MOUSELEAVE ? -1 : docY;
+                    if (WindowsDocumentRegionHover(hoverX, hoverY) != 0) {
+                        SetTimer(window, 2, 50, nullptr);
+                        Request(view);
+                    }
                     if (view->pinch.hot != zoomHit) {
                         view->pinch.hot = zoomHit;
                         if (zoomHit != 0) {
@@ -1982,6 +2009,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 const int docY = view->scrollY + ToDoc(cursor.y, scale);
                 const int docStep = ToDoc(step, scale);
                 if (WindowsDocumentScrollBy(docX, docY, shift ? docStep : 0, shift ? 0 : docStep) != 0) {
+                    SetTimer(window, 2, 50, nullptr);
                     Request(view);
                     return 0;
                 }
@@ -2033,6 +2061,7 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                 const int docY = view->scrollY + ToDoc(cursor.y, scale);
                 const int docStep = ToDoc(step, scale);
                 if (WindowsDocumentScrollBy(docX, docY, docStep, 0) != 0) {
+                    SetTimer(window, 2, 50, nullptr);
                     Request(view);
                     return 0;
                 }
@@ -2421,6 +2450,9 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                     if (view->bar.opacityX < 0) {
                         view->bar.opacityX = 0;
                     }
+                    paint = true;
+                }
+                if (WindowsDocumentRegionFade(GetTickCount()) != 0) {
                     paint = true;
                 }
                 if (paint) {

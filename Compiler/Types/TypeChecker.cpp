@@ -1480,10 +1480,10 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
             }
             if (recvType.baseName == "CPU" &&
                 (expr.text == "Halt" || expr.text == "Pause" || expr.text == "CLI" || expr.text == "STI" || expr.text == "TSC" ||
-                 expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
+                 expr.text == "ReadCR2" || expr.text == "ReadCR3" || expr.text == "WriteCR3" || expr.text == "ReadRSP" ||
                  expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "LGDT" ||
                  expr.text == "LIDT" || expr.text == "BootInfo" || expr.text == "Function" ||
-                 expr.text == "Handler" || expr.text == "Fault" || expr.text == "Catch" || expr.text == "Release" ||
+                 expr.text == "Handler" || expr.text == "Fault" || expr.text == "Trap" || expr.text == "Catch" || expr.text == "Release" ||
                  expr.text == "Run" || expr.text == "Int3")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
@@ -1491,10 +1491,10 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                         "'CPU." + expr.text + "' changes CPU state and requires 'Unsafe { ... }'.",
                         expr.location);
                 }
-                const bool returnsInt = expr.text == "TSC" || expr.text == "ReadCR3" || expr.text == "ReadRSP" ||
+                const bool returnsInt = expr.text == "TSC" || expr.text == "ReadCR2" || expr.text == "ReadCR3" || expr.text == "ReadRSP" ||
                                         expr.text == "ExchangeRSP" || expr.text == "SavedRSP" ||
                                         expr.text == "BootInfo" || expr.text == "Function" ||
-                                        expr.text == "Handler" || expr.text == "Fault" || expr.text == "Catch";
+                                        expr.text == "Handler" || expr.text == "Fault" || expr.text == "Trap" || expr.text == "Catch";
                 expr.inferredType = MakePrimitiveType(returnsInt ? "Int" : "Void");
                 return expr.inferredType;
             }

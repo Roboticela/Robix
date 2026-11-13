@@ -2415,7 +2415,8 @@ IRValue SSAIRBuilder::LowerExpr(const Frontend::ExprNode& expr) {
             if (expr.left && expr.left->kind == Frontend::ExprKind::MemberAccess && expr.left->left &&
                 expr.left->left->kind == Frontend::ExprKind::Identifier &&
                 ((expr.left->left->text == "CPU" &&
-                  (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Fault" || expr.left->text == "Run")) ||
+                  (expr.left->text == "Function" || expr.left->text == "Handler" || expr.left->text == "Fault" ||
+                   expr.left->text == "Trap" || expr.left->text == "Run")) ||
                  (expr.left->left->text == "Timer" && (expr.left->text == "Arm" || expr.left->text == "Preempt")))) {
                 const std::string member = expr.left->left->text + "." + expr.left->text;
                 if (member == "Timer.Preempt") {

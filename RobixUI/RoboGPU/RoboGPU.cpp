@@ -499,6 +499,12 @@ void RoboGPUBlendPixel(RoboGPU* gpu, RoboI32 x, RoboI32 y, RoboU32 colorARGB, Ro
       x >= static_cast<RoboI32>(gpu->info.width) || y >= static_cast<RoboI32>(gpu->info.height)) {
     return;
   }
+  if (gpu->scissorDepth > 0) {
+    const RoboGPUScissor& clip = gpu->scissorStack[gpu->scissorDepth - 1];
+    if (x < clip.x || y < clip.y || x >= clip.x + clip.width || y >= clip.y + clip.height) {
+      return;
+    }
+  }
   const RoboU32 pitch = RoboGPUPitch(gpu);
   auto* row = reinterpret_cast<RoboU32*>(RoboFrameBufferRow(gpu->back, pitch, y));
   const RoboU8 r = static_cast<RoboU8>((colorARGB >> 16) & 0xFF);

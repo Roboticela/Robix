@@ -1319,6 +1319,8 @@ VMValue BytecodeVM::ExecuteChunk(const BytecodeChunk& chunk, const std::vector<V
                     const std::int64_t cmos = regs[inst.callArgRegs[0]].AsInt();
                     const std::int64_t seconds = ((cmos >> 4) & 15) * 10 + (cmos & 15);
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ seconds };
+                } else if (inst.symbolImm == "CPU.ReadCR2") {
+                    if (inst.destReg != 0) regs[inst.destReg] = VMValue{ std::int64_t{ 0 } };
                 } else if (inst.symbolImm == "CPU.TSC") {
                     m_tsc += 1;
                     if (inst.destReg != 0) regs[inst.destReg] = VMValue{ m_tsc };

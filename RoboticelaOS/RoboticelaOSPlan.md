@@ -874,6 +874,36 @@ Behavior only. No windows, panes, or drawing.
 - [ ] A hall sensor and a human-presence sensor
 - [ ] Fast initial link setup for a wireless network
 
+## Remaining open gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### CPU, images, and keys
+
+- [ ] A process enclave whose memory the kernel cannot read after it is entered
+- [ ] User interrupts delivered without a normal kernel entry
+- [ ] Processor trace that records taken branches for the crash dump
+- [ ] XTS and a hardware inline-encryption engine on the block path
+- [ ] A read-only compressed system image, and a cpio parser for the init ramdisk
+- [ ] Long names on FAT volumes
+- [ ] Unicode normalization where directory lookup is case-insensitive
+- [ ] Byte-range locks that cover only part of a file
+- [ ] A firmware file cache a driver can request by name
+- [ ] Machine-owner keys, a secure-boot revocation list, and a TPM event log
+- [ ] Device attestation and link encryption negotiated with a PCIe device
+- [ ] A data-movement accelerator and a crypto accelerator the block and TLS paths can offload to
+
+### Buses and names
+
+- [ ] SDIO, eMMC command queueing, and NVMe sanitize
+- [ ] SCSI extended copy between two disks without a host buffer
+- [ ] Bluetooth host traffic over a UART, and a one-pulse-per-second input
+- [ ] A point-to-point line discipline for a dial-up or direct serial link
+- [ ] Wi-Fi Direct and a Bluetooth mesh route
+- [ ] A secure element that answers an application-protocol data unit
+- [ ] RADIUS for the existing 802.1X path
+- [ ] A directory-services referral when the account is not on this machine
+
 ## Order to implement
 
 1. IRQ return path, APIC timer, monotonic clock, heap, and wait queues. Later drivers block and interrupt on these.
@@ -899,3 +929,4 @@ Behavior only. No windows, panes, or drawing.
 21. Idle-page demotion, Kerberos, priority flow control, and guest virtio acceleration.
 22. Device assignment to a guest, shared virtual addressing, suspend blockers, and sealed memory.
 23. Swap preference, file capabilities, CXL hot-add, post-copy migration, and Wi-Fi multi-link.
+24. Enclaves, inline encryption, device attestation, and the remaining buses.

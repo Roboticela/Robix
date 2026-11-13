@@ -948,6 +948,7 @@ Robo.sceneSet = function (name, key, value) {
     var pos = (drag.axis === "y" ? event.clientY - box.top : event.clientX - box.left) - drag.grab - drag.bar._start;
     if (pos < 0) pos = 0;
     if (pos > travel) pos = travel;
+    if (travel > 4 && pos >= travel - 1) pos = travel;
     if (drag.axis === "y") port.scrollTop = drag.bar._max * pos / travel;
     else port.scrollLeft = drag.bar._max * pos / travel;
     place();
