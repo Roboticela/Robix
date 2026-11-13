@@ -467,4 +467,18 @@
       </View>
     </View>
   </ScrollView>
+
+  <Text value="List" fontSize="22" font="sans-semibold"/>
+  <Text value="One child is built for each item. The key stays with that child when the collection changes." fontSize="13"/>
+  <List key="id" width="720" direction="column" gap="8">
+    <Template>
+      <View direction="row" gap="12" align="center" width="720" height="44" background="#1C2430" padding="10">
+        <View width="18" height="18" background="{color}"/>
+        <Text value="{value}" fontSize="14"/>
+      </View>
+    </Template>
+    <Item id="blue" value="Blue lamp, dry dock" color="#0E7AFF"/>
+    <Item id="green" value="Green lamp, inner harbor" color="#2F9E44"/>
+    <Item id="hull" value="Hull light, east wharf" color="#C4553A"/>
+  </List>
 </Screen>

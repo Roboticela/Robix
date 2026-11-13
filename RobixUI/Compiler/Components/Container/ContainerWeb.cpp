@@ -170,6 +170,8 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-textfield [contenteditable],.robo-textarea [contenteditable]{min-height:1.4em;outline:none}\n";
   css << ".robo-select [data-panel]{display:none}\n";
   css << ".robo-select[data-open=true] [data-panel]{display:block}\n";
+  css << ".robo-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;width:100%;max-width:100%;min-width:0;box-sizing:border-box}\n";
+  css << ".robo-list>li{list-style:none;margin:0;padding:0;min-width:0}\n";
   css << ".robo-scroll{overflow:auto;position:relative;min-height:0;min-width:0;scrollbar-width:none}\n";
   css << ".robo-scroll::-webkit-scrollbar{width:0;height:0}\n";
   css << ".robo-scroll>.robo-bars{position:fixed;inset:auto;z-index:5}\n";

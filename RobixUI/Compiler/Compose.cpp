@@ -1,6 +1,7 @@
 #include "Compose.hpp"
 
 #include "ComponentTier.hpp"
+#include "Components/List/RoboList.hpp"
 
 #include <cmath>
 #include <filesystem>
@@ -567,6 +568,21 @@ std::vector<RoboXMLNode> ExpandNode(const RoboXMLNode& node, Scope& scope, const
         return {};
     }
     const std::string kind = Lower(node.name);
+    if (kind == "list") {
+        RoboXMLNode copy = node;
+        std::string diagnostic;
+        if (!RoboListMaterialize(copy, diagnostic)) {
+            std::cerr << "warning: " << diagnostic << "\n";
+            return {node};
+        }
+        copy.children = ExpandList(copy.children, scope, components, slot, depth + 1);
+        RoboXMLNode out;
+        out.name = copy.name;
+        out.text = Substitute(copy.text, scope);
+        for (const auto& entry : copy.attrs) out.attrs[entry.first] = Substitute(entry.second, scope);
+        out.children = std::move(copy.children);
+        return {std::move(out)};
+    }
     if (kind == "import" || kind == "component" || kind == "item") return {};
     if (kind == "data") {
         const std::string name = Attr(node, "name");

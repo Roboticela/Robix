@@ -417,7 +417,8 @@ bool IsText(const std::string& name) {
 
 bool IsBox(const std::string& name) {
     return name == "screen" || name == "window" || name == "page" || name == "container" || name == "view" ||
-           name == "board" || name == "box" || name == "flex" || name == "stack" || name == "canvas" || name == "scrollview";
+           name == "board" || name == "box" || name == "flex" || name == "stack" || name == "canvas" || name == "scrollview" ||
+           name == "list";
 }
 
 bool Named(const std::string& name, const std::string& face, const char* key) {

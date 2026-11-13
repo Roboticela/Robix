@@ -271,6 +271,8 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         }
     } else if (paint == "scrollview" || paint == "scroll") {
         className = "robo-scroll";
+    } else if (paint == "list") {
+        className = "robo-list";
     } else if (RoboWebIsContainerBox(name) || RoboWebIsContainerBox(paint)) {
         className = RoboWebContainerClass();
     } else {
@@ -409,6 +411,13 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         RoboWebAddDecl(style, "gap", RoboWebCssValue(library, RoboXMLAttr(node, "gap"), false));
         RoboWebAddDecl(style, "padding", RoboWebCssValue(library, RoboXMLAttr(node, "padding"), false));
     }
+    if (name == "list") {
+        RoboWebAddDecl(style, "display", "flex");
+        RoboWebAddDecl(style, "flex-direction", "column");
+        RoboWebAddDecl(style, "margin", "0");
+        RoboWebAddDecl(style, "padding", "0");
+        RoboWebAddDecl(style, "list-style", "none");
+    }
     if (name == "scrollview" || name == "scroll") {
         RoboWebAddDecl(style, "position", "relative");
         const std::string axis = Lower(RoboXMLAttr(node, "axis").empty() ? "vertical" : RoboXMLAttr(node, "axis"));
@@ -498,7 +507,21 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         html += Escape(body);
     }
     for (const RoboXMLNode& child : node.children) {
+        const bool listItem = name == "list";
+        if (listItem) {
+            html += "<li";
+            const std::string itemKey = RoboXMLAttr(child, "key");
+            if (!itemKey.empty()) {
+                html += " data-key=\"";
+                html += Escape(itemKey);
+                html += "\"";
+            }
+            html += ">";
+        }
         EmitNode(html, child, library, depth + 1);
+        if (listItem) {
+            html += "</li>";
+        }
     }
     html += "</";
     html += tag;

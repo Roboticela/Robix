@@ -12,14 +12,14 @@ Whatever you implement, first make sure that the OS has that much easy features 
 
 ### Interrupts and time
 
-- [ ] IRQ gates above vector 31, including the timer vector, with a return path that resumes the interrupted thread
+- [x] IRQ gates above vector 31, including the timer vector, with a return path that resumes the interrupted thread
 - [ ] Separate handlers for page fault, general protection, double fault, and invalid opcode, each reporting the fault address instead of halting every trap the same way
-- [ ] Legacy INTx delivery through the I/O APIC, with a mask, an acknowledge, and a shared-line handler list
-- [ ] MSI and MSI-X allocation, message write, and teardown
-- [ ] Spurious IRQ and NMI handling that does not kill the machine
+- [x] Legacy INTx delivery through the I/O APIC, with a mask, an acknowledge, and a shared-line handler list
+- [x] MSI and MSI-X allocation, message write, and teardown
+- [x] Spurious IRQ and NMI handling that does not kill the machine
 - [ ] Local APIC timer as the scheduler tick on every core
-- [ ] TSC calibration against a known timer, plus a monotonic clock and a wall clock
-- [ ] One-shot kernel timers and a sleep that wakes on the next tick or sooner
+- [x] TSC calibration against a known timer, plus a monotonic clock and a wall clock
+- [x] One-shot kernel timers and a sleep that wakes on the next tick or sooner
 - [ ] HPET when the firmware publishes it, used when the APIC timer is unavailable
 
 ### Memory

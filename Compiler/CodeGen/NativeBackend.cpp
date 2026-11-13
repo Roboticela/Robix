@@ -3325,11 +3325,11 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
         out << "define void @rx_cpu_release() { ret void }\n\n";
     }
     if (ctx.usesCatch && m_options.freestanding) {
-        out << "define i64 @rx_cpu_catch() noinline nounwind {\n";
-        out << "  %r = call i64 asm sideeffect \""
-            << "movq (%rsp), %rax\\0A"
-            << "leaq 8(%rsp), %rcx\\0A"
-            << "movq %rax, rx_fault_guard_rip(%rip)\\0A"
+        out << "define i64 @rx_cpu_catch() naked nounwind {\n";
+        out << "  call void asm sideeffect \""
+            << "movq 8(%rsp), %rdx\\0A"
+            << "leaq 16(%rsp), %rcx\\0A"
+            << "movq %rdx, rx_fault_guard_rip(%rip)\\0A"
             << "movq %rcx, rx_fault_guard_rsp(%rip)\\0A"
             << "movq %rbx, rx_fault_guard_rbx(%rip)\\0A"
             << "movq %rbp, rx_fault_guard_rbp(%rip)\\0A"
@@ -3338,9 +3338,11 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             << "movq %r14, rx_fault_guard_r14(%rip)\\0A"
             << "movq %r15, rx_fault_guard_r15(%rip)\\0A"
             << "movq $$1, rx_fault_guard_on(%rip)\\0A"
+            << "addq $$16, %rsp\\0A"
             << "movq $$1, %rax\\0A"
-            << "\", \"={rax},~{rcx},~{dirflag},~{fpsr},~{flags},~{memory}\"()\n";
-        out << "  ret i64 %r\n}\n\n";
+            << "jmpq *%rdx\\0A"
+            << "\", \"\"()\n";
+        out << "  unreachable\n}\n\n";
         out << "define void @rx_cpu_release() noinline nounwind {\n";
         out << "  store i64 0, ptr @rx_fault_guard_on, align 8\n  ret void\n}\n\n";
     }

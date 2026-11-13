@@ -24,6 +24,7 @@ const Entry kEntries[] = {
     {"input", RoboUITier::Compiler, "Input", false},
     {"textfield", RoboUITier::Compiler, "Input", false},
     {"scrollview", RoboUITier::Compiler, "ScrollView", false},
+    {"list", RoboUITier::Compiler, "List", false},
     {"span", RoboUITier::Part, "Text", false},
     {"at", RoboUITier::Part, "View", false},
 };

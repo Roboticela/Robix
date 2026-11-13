@@ -445,10 +445,14 @@ Depends on: C2. Scroll bars are parts of this primitive.
 
 Depends on: C2, C12. Repetition of a template over a collection. The template is any earlier primitive.
 
-- [ ] `List` schema: items, key, template
-- [ ] Build one child per item
-- [ ] Recycle children when the collection changes
-- [ ] Test asserts three children and their keys
+`RoboListRead` accepts items, key, and template. Items are a comma list or `Item` children. The template is the name of an earlier primitive, or one `Template` child. One child is built for each item. A child that keeps its key keeps its identity. A new key reuses a child that left the collection. Painting clips a row that falls outside the list box.
+
+- [x] `List` schema: items, key, template
+- [x] Build one child per item
+- [x] Recycle children when the collection changes
+- [x] Test asserts three children and their keys
+
+`Tests/UI/RoboListTests.cpp` passed, 49 checks. The keys are `blue`, `green`, and `hull`. After the collection changes, `gamma` and `beta` keep their identities and `delta` reuses the child `alpha` left behind. A row past the list box is clipped.
 
 ### Stage C14 — Events
 
@@ -883,8 +887,9 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/View3D/` | Stage C8. `RoboView3D` reads source, camera, width, and height. `Scene3D` is the same primitive. One frame of the `.rx3d` scene is painted into the box. |
 | `RobixUI/Compiler/Components/Input/` | Stage C11. `RoboInput` reads value, placeholder, mask, multiline, disabled, and `CursorColor`. `TextField` is the same primitive. The caret and the selection are parts. |
 | `RobixUI/Compiler/Components/ScrollView/` | Stage C12. `RoboScrollView` reads axis and offset. The child moves inside a clipped viewport. The track and the thumb are parts. |
-| `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D`, `Input`, and `ScrollView` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |
+| `RobixUI/Compiler/Components/List/` | Stage C13. `RoboList` reads items, key, and template. One child is built per item, and a surviving key keeps its identity. |
+| `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D`, `Input`, `ScrollView`, and `List` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |
 | `RobixUI/Compiler/Compose.cpp` | Expands library components. Library stages use it. |
 | `RobixUI/Compiler/Components/*/*Web.cpp` | Hand-written HTML emitters for the plan primitives. Stage C21 replaces them with the web face. |
 
-`Video`, `Audio`, and `List` have no compiler unit yet. They begin at their stage.
+`Video` and `Audio` have no compiler unit yet. They begin at their stage.

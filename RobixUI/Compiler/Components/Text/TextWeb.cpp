@@ -182,6 +182,11 @@ std::string RoboWebBuiltinTag(const RoboXMLNode& node, const std::string& paint)
     return "input";
   }
   if (paint == "textarea") return "textarea";
+  if (paint == "list") {
+    const std::string numbered = RoboWebLower(RoboXMLAttr(node, "numbered"));
+    if (numbered == "true" || numbered == "yes" || numbered == "on" || numbered == "1") return "ol";
+    return "ul";
+  }
   if (paint == "text" || paint == "span" || paint == "caption" || paint == "eyebrow" || paint == "subhead") return "span";
   return "div";
 }
