@@ -122,7 +122,6 @@ struct CachedCanvas {
 std::vector<CachedCanvas> gCanvases;
 unsigned gPictureClock = 0;
 bool gVideoDirty = false;
-bool gFramePainted = false;
 
 int PictureFor(const std::filesystem::path& file) {
     const std::string key = file.string();
@@ -6037,6 +6036,7 @@ void WindowsDocumentMotionMark() {
     MotionFramesShown();
 }
 
+
 bool WindowsDocumentTextAt(int docX, int docY) {
     int run = -1;
     int offset = 0;
@@ -6393,6 +6393,25 @@ void WindowsDocumentScrollWindow(RoboGPU* gpu, int previousScroll, int scrollY, 
     PaintWindowsDocumentView(gpu, scrollY, viewWidth, viewHeight);
 }
 
+void PaintOpScaled(RoboGPU* gpu, const PaintOp& prepared, int index, int scrollY, int screenHeight, double scale) {
+    const int docTop = prepared.y - scrollY;
+    const bool clipped = PushRegionClip(gpu, index, scrollY, scale);
+    PaintOp scaled = prepared;
+    scaled.x = ScaleLen(prepared.x, scale);
+    scaled.y = ScaleLen(docTop, scale);
+    scaled.width = std::max(1, ScaleLen(prepared.x + prepared.width, scale) - scaled.x);
+    scaled.height = std::max(1, ScaleLen(docTop + prepared.height, scale) - scaled.y);
+    scaled.radius = ScaleLen(prepared.radius, scale);
+    scaled.wrapWidth = std::max(1, gScene.ops[static_cast<std::size_t>(index)].width);
+    scaled.wrapSize = std::max(1, gScene.ops[static_cast<std::size_t>(index)].size);
+    scaled.size = std::max(1, ScaleLen(std::max(1, prepared.size), scale));
+    scaled.borderPx = prepared.borderPx > 0 ? std::max(1, ScaleLen(prepared.borderPx, scale)) : 0;
+    PaintOne(gpu, scaled, 0, screenHeight, gScene.light, index);
+    if (clipped) {
+        RoboGPUPopScissor(gpu);
+    }
+}
+
 void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int screenHeight, double scale) {
     RoboWindowsInstallFontRaster(nullptr, 0);
     if (gpu == nullptr || !gScene.valid || screenWidth <= 0 || screenHeight <= 0) {
@@ -6414,26 +6433,109 @@ void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int 
         if (docTop + prepared.height < 0 || docTop > docView) {
             continue;
         }
-        const bool clipped = PushRegionClip(gpu, static_cast<int>(index), scrollY, scale);
-        PaintOp scaled = prepared;
-        scaled.x = ScaleLen(prepared.x, scale);
-        scaled.y = ScaleLen(docTop, scale);
-        scaled.width = std::max(1, ScaleLen(prepared.x + prepared.width, scale) - scaled.x);
-        scaled.height = std::max(1, ScaleLen(docTop + prepared.height, scale) - scaled.y);
-        scaled.radius = ScaleLen(prepared.radius, scale);
-        scaled.wrapWidth = std::max(1, gScene.ops[index].width);
-        scaled.wrapSize = std::max(1, gScene.ops[index].size);
-        scaled.size = std::max(1, ScaleLen(std::max(1, prepared.size), scale));
-        scaled.borderPx = prepared.borderPx > 0 ? std::max(1, ScaleLen(prepared.borderPx, scale)) : 0;
-        PaintOne(gpu, scaled, 0, screenHeight, gScene.light, static_cast<int>(index));
-        if (clipped) {
-            RoboGPUPopScissor(gpu);
-        }
+        PaintOpScaled(gpu, prepared, static_cast<int>(index), scrollY, screenHeight, scale);
     }
     PaintRegionBars(gpu, scrollY, screenHeight, scale);
     gScene.scrollY = scrollY;
     gPaintScale = previous;
     MotionFramesShown();
+}
+
+bool WindowsDocumentPaintScaledRect(RoboGPU* gpu, int x, int y, int width, int height, int scrollY, int screenWidth,
+                                    int screenHeight, double scale, int* screenX, int* screenY, int* screenW, int* screenH) {
+    if (screenX != nullptr) {
+        *screenX = 0;
+    }
+    if (screenY != nullptr) {
+        *screenY = 0;
+    }
+    if (screenW != nullptr) {
+        *screenW = 0;
+    }
+    if (screenH != nullptr) {
+        *screenH = 0;
+    }
+    if (gpu == nullptr || !gScene.valid || width <= 0 || height <= 0 || screenWidth <= 0 || screenHeight <= 0) {
+        return false;
+    }
+    if (!(scale > 0.0)) {
+        scale = 1.0;
+    }
+    const double previous = gPaintScale;
+    gPaintScale = scale;
+    const int docView = std::max(1, static_cast<int>(std::lround(static_cast<double>(screenHeight) / scale)));
+    int left = screenWidth;
+    int top = screenHeight;
+    int right = 0;
+    int bottom = 0;
+    bool any = false;
+    for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
+        const PaintOp& op = gScene.ops[index];
+        if (!DocumentHits(op, x, y, width, height)) {
+            continue;
+        }
+        PaintOp prepared = op;
+        if (!PrepareDrawn(prepared, static_cast<int>(index))) {
+            continue;
+        }
+        const int docTop = prepared.y - scrollY;
+        if (docTop + prepared.height < 0 || docTop > docView) {
+            continue;
+        }
+        int boxX = ScaleLen(prepared.x, scale);
+        int boxY = ScaleLen(docTop, scale);
+        int boxW = std::max(1, ScaleLen(prepared.x + prepared.width, scale) - boxX);
+        int boxH = std::max(1, ScaleLen(docTop + prepared.height, scale) - boxY);
+        if (boxX < 0) {
+            boxW += boxX;
+            boxX = 0;
+        }
+        if (boxY < 0) {
+            boxH += boxY;
+            boxY = 0;
+        }
+        if (boxX + boxW > screenWidth) {
+            boxW = screenWidth - boxX;
+        }
+        if (boxY + boxH > screenHeight) {
+            boxH = screenHeight - boxY;
+        }
+        if (boxW <= 0 || boxH <= 0) {
+            continue;
+        }
+        RoboGPUFillRect(gpu, boxX, boxY, boxW, boxH, gScene.background);
+        PaintOpScaled(gpu, prepared, static_cast<int>(index), scrollY, screenHeight, scale);
+        if (boxX < left) {
+            left = boxX;
+        }
+        if (boxY < top) {
+            top = boxY;
+        }
+        if (boxX + boxW > right) {
+            right = boxX + boxW;
+        }
+        if (boxY + boxH > bottom) {
+            bottom = boxY + boxH;
+        }
+        any = true;
+    }
+    gPaintScale = previous;
+    if (!any) {
+        return false;
+    }
+    if (screenX != nullptr) {
+        *screenX = left;
+    }
+    if (screenY != nullptr) {
+        *screenY = top;
+    }
+    if (screenW != nullptr) {
+        *screenW = right - left;
+    }
+    if (screenH != nullptr) {
+        *screenH = bottom - top;
+    }
+    return true;
 }
 
 void RasterWindowsDocument(RoboGPU* gpu) {
@@ -6697,7 +6799,6 @@ void WindowsDocumentSetPictureClock(unsigned clock) {
         picture.cacheFrame = -1;
         picture.videoShown = sampleMs;
         gVideoDirty = true;
-        gFramePainted = true;
     }
 }
 
@@ -7064,7 +7165,7 @@ void BlendArrow(RoboGPU* gpu, int x, int y, int size, bool vertical, bool start,
     RoboDamageAdd(&gpu->damage, x, y, size, size);
 }
 
-void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight, double scale) {
+void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight, double scale, bool force) {
     if (gpu == nullptr || !gScene.valid) {
         return;
     }
@@ -7098,25 +7199,12 @@ void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, in
             const bool drag = vertical ? region.dragY : region.dragX;
             int& trackedHot = vertical ? region.barHotY : region.barHotX;
             bool& trackedDrag = vertical ? region.barDragY : region.barDragX;
-            bool covered = false;
-            if (gFramePainted) {
-                for (const PaintOp& op : gScene.ops) {
-                    if (op.picture < 0 || op.picture >= static_cast<int>(gPictures.size()) ||
-                        gPictures[static_cast<std::size_t>(op.picture)].videoFile.empty()) {
-                        continue;
-                    }
-                    if (op.x < bar.x + bar.width && op.x + op.width > bar.x && op.y < bar.y + bar.height && op.y + op.height > bar.y) {
-                        covered = true;
-                        break;
-                    }
-                }
-            }
             const bool moved = region.scrollX != region.barScrollX || region.scrollY != region.barScrollY;
             const bool look = opacity != shown || hot != trackedHot || drag != trackedDrag;
-            if (!covered && !moved && !look && opacity > 0 && shown > 0) {
+            if (!force && !moved && !look && opacity > 0 && shown > 0) {
                 continue;
             }
-            if (covered || moved || opacity < shown) {
+            if (!force && (moved || opacity < shown)) {
                 RoboGPUPushScissor(gpu, x, y, width, height);
                 const int plate = region.opBegin - 1;
                 if (plate >= 0 && plate < static_cast<int>(gScene.ops.size())) {
@@ -7161,7 +7249,6 @@ void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, in
         region.barScrollX = region.scrollX;
         region.barScrollY = region.scrollY;
     }
-    gFramePainted = false;
 }
 
 std::string CookKind(const std::string& raw) {

@@ -45,6 +45,9 @@ void WindowsDocumentScrollWindow(RoboGPU* gpu, int previousScroll, int scrollY, 
 
 /* Paint the visible document already scaled into screen pixels, so zoomed controls stay sharp. */
 void PaintWindowsDocumentScaled(RoboGPU* gpu, int scrollY, int screenWidth, int screenHeight, double scale);
+/* Paints one document rectangle into an already scaled view. The screen box is where those pixels landed. */
+bool WindowsDocumentPaintScaledRect(RoboGPU* gpu, int x, int y, int width, int height, int scrollY, int screenWidth,
+                                    int screenHeight, double scale, int* screenX, int* screenY, int* screenW, int* screenH);
 
 /* Recolor controls whose pointer or focus state changed. Patches are document rectangles. -1 means raster the sheet. */
 int CollectWindowsDocumentPatches(int hotControl, int pressedControl, int focusControl, WindowPatch* patches, int capacity);
@@ -105,7 +108,7 @@ void WindowsDocumentScrollEnd();
 int WindowsDocumentRegionHover(int docX, int docY);
 /* 1 when a nested bar faded. */
 int WindowsDocumentRegionFade(unsigned now);
-void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight, double scale);
+void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight, double scale, bool force);
 /* Document rectangles whose nested scroll offset changed. -1 asks for a full raster. */
 int WindowsDocumentRegionRects(WindowPatch* patches, int capacity);
 void WindowsDocumentPaintMovedRegions(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight);

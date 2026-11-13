@@ -194,7 +194,7 @@ $mains = @(
 )
 $linkLibs = @(
     "-lws2_32", "-lsecur32", "-lcrypt32", "-luser32", "-lgdi32", "-lshell32",
-    "-ldwrite", "-ld3d11", "-ldxgi", "-lole32", "-loleaut32", "-lwindowscodecs", "-lwinhttp", "-liphlpapi",
+    "-ldwrite", "-ld3d11", "-ldxgi", "-ld3dcompiler", "-lole32", "-loleaut32", "-lwindowscodecs", "-lwinhttp", "-liphlpapi",
     "-lwinmm", "-lmfplat", "-lmfreadwrite", "-lmfuuid"
 )
 $linkFailed = @()

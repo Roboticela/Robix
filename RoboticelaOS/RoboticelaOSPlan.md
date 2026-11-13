@@ -79,23 +79,23 @@ Whatever you implement, first make sure that the OS has that much easy features 
 
 ### Device model
 
-- [ ] Bus scan past bus 0, walking PCI-to-PCI bridges and secondary buses
-- [ ] BAR sizing, allocation, and MMIO or port mapping for every function
-- [ ] Driver object with probe, start, stop, and interrupt hooks, not only an integer id
-- [ ] Character-device operations: open, read, write, ioctl
-- [ ] Block-device operations: read sectors, write sectors, flush, and a request queue
-- [ ] Hotplug and unplug that stop the driver and release the BARs and IRQs
-- [ ] Package load of a later vendor driver that replaces the basic driver without a reboot
-- [ ] Kernel log with severity, readable from user space, not only port 1016 bytes
+- [x] Bus scan past bus 0, walking PCI-to-PCI bridges and secondary buses
+- [x] BAR sizing, allocation, and MMIO or port mapping for every function
+- [x] Driver object with probe, start, stop, and interrupt hooks, not only an integer id
+- [x] Character-device operations: open, read, write, ioctl
+- [x] Block-device operations: read sectors, write sectors, flush, and a request queue
+- [x] Hotplug and unplug that stop the driver and release the BARs and IRQs
+- [x] Package load of a later vendor driver that replaces the basic driver without a reboot
+- [x] Kernel log with severity, readable from user space, not only port 1016 bytes
 
 ### Platform
 
 - [ ] ACPI table walk: RSDP, RSDT or XSDT, FADT, MADT, MCFG, and DSDT
-- [ ] AML interpreter enough to evaluate `_STA`, `_HID`, `_CRS`, `_PRT`, and power methods
-- [ ] PCI interrupt routing from `_PRT` when the MADT has no IOAPIC override
-- [ ] Machine shutdown and reboot through the ACPI reset register or keyboard controller
-- [ ] Suspend to RAM and resume, restoring BARs, IRQs, and the timer
-- [ ] EC and lid, sleep-button, and power-button events delivered to user space
+- [x] AML interpreter enough to evaluate `_STA`, `_HID`, `_CRS`, `_PRT`, and power methods
+- [x] PCI interrupt routing from `_PRT` when the MADT has no IOAPIC override
+- [x] Machine shutdown and reboot through the ACPI reset register or keyboard controller
+- [x] Suspend to RAM and resume, restoring BARs, IRQs, and the timer
+- [x] EC and lid, sleep-button, and power-button events delivered to user space
 
 ### Network stack
 
@@ -111,14 +111,14 @@ These are the class drivers that should make a device usable before any vendor p
 
 ### Platform and buses
 
-- [ ] PCI host bridge and PCI-to-PCI bridge, so devices behind a bridge are enumerated and routed
-- [ ] LPC or ISA bridge, so the legacy keyboard, RTC, timer, and serial ports stay reachable
+- [x] PCI host bridge and PCI-to-PCI bridge, so devices behind a bridge are enumerated and routed
+- [x] LPC or ISA bridge, so the legacy keyboard, RTC, timer, and serial ports stay reachable
 - [ ] ACPI embedded controller
-- [ ] Generic DMA controller for ISA-style devices that still need it
-- [ ] SD and eMMC host (SDHCI) so laptop cards and onboard flash work without a vendor host driver
+- [x] Generic DMA controller for ISA-style devices that still need it
+- [x] SD and eMMC host (SDHCI) so laptop cards and onboard flash work without a vendor host driver
 - [ ] I2C and SPI controller class, enough to reach HID-over-I2C touchpads and sensor chips
-- [ ] SMBus class that completes the existing id with real block read and write
-- [ ] Virtio transport that programs notification, queues, and MSI, covering net, block, gpu, input, and console
+- [x] SMBus class that completes the existing id with real block read and write
+- [x] Virtio transport that programs notification, queues, and MSI, covering net, block, gpu, input, and console
 
 ### Display
 
@@ -985,6 +985,336 @@ Behavior only. No windows, panes, or drawing.
 - [ ] Write-protect faults delivered to a user handler
 - [ ] Serial over LAN through the baseboard controller
 
+## Further remaining gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Memory, traces, and pixels
+
+- [ ] A compressed-RAM block device that can back swap
+- [ ] A minimum memory reserve the reclaim code cannot take from a control group
+- [ ] Tracing limited to a process and its descendants
+- [ ] Stacked security modules, plus a program attached to a trace point and to a control-group socket
+- [ ] The init ramdisk extended into a PCR, and a boot-configuration block read before the command line
+- [ ] Function-graph tracing with more than one instance
+- [ ] A lockless kernel log ring that a panic can flush
+- [ ] An asynchronous modeset that returns before the hardware finishes
+- [ ] A color transform matrix on a display plane
+- [ ] Multiplanar video buffers and compressed audio over HDMI
+- [ ] Panel replay that stops the link while the image is unchanged
+- [ ] Several CSI-2 virtual channels from one camera link
+
+### Load, hotplug, and guests
+
+- [ ] Compressed kernel modules
+- [ ] A modalias coldplug that binds drivers already present at boot
+- [ ] A filesystem of EFI variables and a config filesystem for gadget and storage targets
+- [ ] An NVMe host memory buffer, and namespace create and delete
+- [ ] A PCIe attention button and surprise removal
+- [ ] Migration of a confidential guest, including its accepted pages
+
+## Still unnamed gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Links and field buses
+
+- [ ] CAN FD, ISO-TP, and J1939
+- [ ] FlexRay
+- [ ] A credit-based shaper and packet pacing from a socket timestamp
+- [ ] LLDP and an SFP cage driven over MDIO
+- [ ] Ethernet forward-error correction and a flow-director rule
+- [ ] Synchronous Ethernet locked to the same clock as the precision-time hardware
+- [ ] TCP authentication options
+- [ ] A multishot accept that re-arms without another submit
+
+### Devices and guest accelerators
+
+- [ ] Guest halt-poll, a virtio sound device, and a virtio GPU that accepts a command stream
+- [ ] A vDPA device a guest can use without a software exit on each buffer
+- [ ] Scalable I/O virtualization
+- [ ] USB gadget audio and gadget HID
+- [ ] USB-PD vendor-defined messages and a Type-C retimer
+- [ ] A haptic motor and speaker current sense
+- [ ] Camera metadata beside the image, and D-PHY or C-PHY on the camera link
+- [ ] A keyboard backlight and an indicator LED
+- [ ] NVMe zone append and weighted round-robin queues
+- [ ] A dirty-log ring the hypervisor shares with its user process
+- [ ] Securebits that keep or clear capabilities across `exec`
+- [ ] Embedded DisplayPort advanced link power management
+
+## Additional unnamed gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Time, packets, and industrial links
+
+- [ ] Frame replication so one stream leaves on two ports and the receiver keeps a single copy
+- [ ] A network-emulator queue that adds delay, loss, and reordering
+- [ ] One-step precision-time stamps and a hardware pin for an external pulse
+- [ ] An ACPI power-management timer and a nonstop time-stamp counter
+- [ ] A wake alarm that fires while the machine is suspended
+- [ ] PROFINET and EtherNet/IP cyclic I/O
+- [ ] An NVMe compare command and dataset-management hints
+
+### Accelerators, USB, and launch
+
+- [ ] Virtualized performance counters inside a guest
+- [ ] A software vDPA device and an IOMMU file descriptor a user process can program
+- [ ] Virtio power-management and a zoned virtio disk
+- [ ] A USB gadget camera
+- [ ] A USB billboard that advertises alternate modes
+- [ ] A USB4 host router and a preboot access list for tunneled PCIe
+- [ ] Enclave launch control and a quote of that enclave
+- [ ] Tile-register state saved with the rest of the extended processor state
+- [ ] A microcode reload while the system is running
+- [ ] A PCIe enclosure LED controlled without a SCSI enclosure
+
+## Next unnamed gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Field I/O and PCIe power
+
+- [ ] CANopen and Modbus TCP
+- [ ] IO-Link
+- [ ] GOOSE and sampled-value streams on an IEC 61850 network
+- [ ] Diagnostics over IP and a unified diagnostic session
+- [ ] PCIe active-state power management and latency-tolerance reporting
+- [ ] CXL dynamic capacity that grows or shrinks a memory region
+- [ ] A DRAM page repair that retires a bad row
+- [ ] A corrected machine-check interrupt, with a storm limit that stops the reports
+- [ ] A PCI option ROM mapped only while it is being read
+- [ ] A manually operated retention latch and a PCIe slot power controller
+
+### Locks, scheduling, and USB power
+
+- [ ] Open-file-description locks that are not shared across `dup`
+- [ ] An extensible scheduler a loaded program can run
+- [ ] A low memory threshold that warns before the minimum reserve
+- [ ] Polled completion of asynchronous I/O
+- [ ] A USB4 time-management unit
+- [ ] Programmable and extended-range USB power delivery
+- [ ] An electromechanical interlock that reports the slot is safe to power
+
+## Field and link gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Protocols
+
+- [ ] MACsec on an Ethernet link, with a key agreement tied to 802.1X
+- [ ] CAN XL
+- [ ] SENT and PSI5 sensor frames
+- [ ] BACnet, DNP3, and HART
+- [ ] DeviceNet and AS-Interface
+- [ ] POWERLINK
+- [ ] SOME/IP service discovery and remote procedure calls
+- [ ] SecOC so a field-bus payload carries an authenticator
+- [ ] Diagnostics over XCP
+- [ ] Hotspot 2.0 and EAP-TTLS
+- [ ] Bluetooth enhanced credit-based flow control and periodic advertising with responses
+
+### Memory, control, and PCIe mailboxes
+
+- [ ] CXL.cache so a device can coherently use host memory
+- [ ] A control-group kill that signals every member
+- [ ] A low-water memory line below the high threshold and above the reserve
+- [ ] A live kernel update that keeps assigned devices across the new image
+- [ ] A PCIe data-object exchange mailbox
+- [ ] An RDMA charge inside a control group
+- [ ] A threaded control group whose threads can be placed independently
+
+## Transport and clock gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Transports
+
+- [ ] QUIC, and HTTP/3 on top of it
+- [ ] MPLS and IPv6 segment routing
+- [ ] Bidirectional forwarding detection
+- [ ] RoCEv2, iWARP, IPoIB, and iSCSI extensions for RDMA
+- [ ] Shared-memory communications over RDMA and over an internal link
+- [ ] 464XLAT so an IPv6-only host reaches an IPv4 peer
+- [ ] Secure RTP and a port-control mapping
+- [ ] Receive-flow steering and transmit-queue selection by CPU
+- [ ] Enhanced transmission selection and a data-center bridging exchange
+
+### Industrial publish and device control
+
+- [ ] OPC UA publish and subscribe
+- [ ] A data-distribution service with realtime publication
+- [ ] CC-Link IE and Sercos
+- [ ] A device-link health report, a driver reload that keeps the port, and a firmware coredump region
+- [ ] A digital phase-locked loop that holds its output when the reference is lost
+- [ ] An InfiniBand subnet manager
+- [ ] A clock holdover interval reported to the precision-time client
+
+## Media and control gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Media, buildings, and vehicles
+
+- [ ] AES67 audio and SMPTE ST 2110 essence over the precision-time clock
+- [ ] IEEE 1722 audio-video transport
+- [ ] A genlock input that locks a media clock
+- [ ] NMOS registration and discovery of a media sender
+- [ ] DALI lighting, DMX512, and KNX
+- [ ] MQTT and CoAP for constrained devices
+- [ ] A shared-memory publish path that does not pass through a broker
+- [ ] On-board diagnostics on top of the unified diagnostic session
+
+### Scheduling and link power
+
+- [ ] Edge-triggered readiness, distinct from level-triggered poll
+- [ ] A BPF memory arena shared with a loaded program
+- [ ] A realtime bandwidth cap so deadline and realtime threads cannot consume every core
+- [ ] Last-branch records captured with a performance sample
+- [ ] A control group that asks for memory reclaim without waiting for pressure
+- [ ] PCIe L1 substates and optimized buffer flush and fill
+- [ ] A continuous camera torch, separate from the flash pulse
+
+## Session and fabric gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Sessions and lighting
+
+- [ ] RTSP, RTCP, and a SIP session that negotiates a media stream
+- [ ] Secure Reliable Transport for a contribution feed
+- [ ] JPEG XS as an ST 2110 video essence
+- [ ] The SMPTE 2059 profile on the precision-time clock
+- [ ] A linear timecode input
+- [ ] Art-Net and streaming ACN on top of DMX512
+- [ ] Lightweight M2M device management over CoAP
+- [ ] Sparkplug birth and death certificates on MQTT
+- [ ] A WebSocket, an AMQP broker connection, and a gRPC call
+
+### Fabrics and placement
+
+- [ ] An NVMe controller memory buffer
+- [ ] Asymmetric namespace access with states a multipath layer can use
+- [ ] An NVMe telemetry log
+- [ ] Flexible data placement that picks an endurance group
+- [ ] NVMe over TCP protected by TLS
+- [ ] A SCSI RDMA protocol path beside iSCSI extensions for RDMA
+
+## Redundancy and management gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Redundant links and sessions
+
+- [ ] Parallel redundancy and high-availability seamless redundancy
+- [ ] A media-redundancy protocol ring and a device-level ring
+- [ ] IEC 60870-5-104 and MMS for an IEC 61850 server
+- [ ] NETCONF with a YANG model
+- [ ] IPFIX and sFlow exports
+- [ ] Two-way active measurement
+- [ ] An EVPN route and an MPLS pseudowire
+- [ ] STUN, TURN, and connectivity checks that pick a media path
+- [ ] NMOS connection management that activates a registered sender
+- [ ] ST 2110-40 ancillary data
+- [ ] A compressed contribution stream in the NDI format
+
+### NVMe commands still open
+
+- [ ] An NVMe persistent-memory region
+- [ ] Write-uncorrectable and an NVMe format
+- [ ] A zone random-write area
+- [ ] In-band NVMe authentication with a challenge response
+
+## Routing and enrollment gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Routes
+
+- [ ] OSPF, IS-IS, and BGP
+- [ ] MPLS label distribution
+- [ ] Bit-indexed explicit replication
+- [ ] Multicast source discovery and source-specific multicast
+- [ ] Equal-cost multipath and fast reroute
+- [ ] A multi-chassis link aggregation
+- [ ] Graceful restart of a routing adjacency
+- [ ] Route-origin validation
+- [ ] A BGP flow specification installed in the packet filter
+- [ ] A path-computation element
+
+### Identity and checks
+
+- [ ] TACACS and Diameter
+- [ ] A certificate-transparency log and automatic certificate enrollment
+- [ ] SMB over QUIC
+- [ ] An NFS server-side copy
+- [ ] `SEEK_DATA` and `SEEK_HOLE`
+- [ ] A kernel thread that polls an asynchronous submission queue
+- [ ] A kernel address sanitizer and a data-race detector
+- [ ] Timer slack and a clocksource watchdog
+- [ ] A paravisor for a confidential guest, and assignment of a device into that guest
+- [ ] gNMI streaming and RESTCONF
+
+## Enrollment and multicast gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Enrollment, files, and detectors
+
+- [ ] An uninitialized-memory detector and a sampled page-fault detector
+- [ ] Simple certificate enrollment, enrollment over secure transport, and the certificate management protocol
+- [ ] DANE records that bind a certificate to a DNS name
+- [ ] SSH host and user certificates
+- [ ] An SMB witness and a persistent handle that survives a short disconnect
+- [ ] NFS over RDMA
+- [ ] A registered file table for asynchronous I/O
+- [ ] HTTP/2 streams over one connection
+- [ ] An end-to-end counter and CRC on a field-bus payload
+
+### Multicast and tunnels
+
+- [ ] RSVP traffic engineering
+- [ ] Unequal-cost multipath
+- [ ] A multicast VPN
+- [ ] A BGP monitoring session
+- [ ] Nonstop routing so a restart does not drop the forwarding table
+- [ ] Babel
+- [ ] IGMPv3 and MLDv2 source filters
+- [ ] In-situ operations, administration, and maintenance
+- [ ] A route-based IPsec tunnel and NAT traversal for its handshake
+- [ ] Seamless forwarding detection
+- [ ] Microloop avoidance after a routing change
+
+## Tunnel and steering gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Tunnels and names
+
+- [ ] A policy-based IPsec tunnel, an authentication header, and a handshake that survives a NAT address change
+- [ ] A handshake cookie on the encrypted UDP tunnel
+- [ ] Zenoh discovery and a ROS 2 graph over the data-distribution service
+- [ ] An AUTOSAR protocol-data-unit gateway
+- [ ] The 802.1AS profile on the precision-time clock
+- [ ] A simple two-way active measurement session and a one-way delay measurement
+- [ ] Alternate marking of packets and postcard telemetry
+- [ ] A traceroute that reports each hop
+- [ ] SMB directory leases, continuous availability, and SMB Direct
+- [ ] NTLM and SPNEGO
+- [ ] NFS id mapping and an NFS referral
+
+### Steering and samples
+
+- [ ] Receive packet steering onto the core that will consume the packet
+- [ ] A flower classifier offloaded to the NIC
+- [ ] An anycast gateway and integrated routing and bridging
+- [ ] Multipoint label distribution and topology-independent loop-free alternates
+- [ ] A HID program written in BPF
+- [ ] A BPF token that delegates permission to load a program
+- [ ] An undefined-behavior sanitizer in the kernel
+- [ ] Instruction-based sampling on the performance counters
+
 ## Order to implement
 
 1. IRQ return path, APIC timer, monotonic clock, heap, and wait queues. Later drivers block and interrupt on these.
@@ -1014,3 +1344,15 @@ Behavior only. No windows, panes, or drawing.
 25. Futex requeue, measurement logs, IOMMU dirty logging, DNS64, and NVMe self-test.
 26. Path confinement, kernel TLS, sensor FIFOs, and the management buses.
 27. Storage expanders, the camera pipeline, confidential page accept, and memory thresholds.
+28. Compressed swap, tracing instances, NVMe namespaces, and confidential migration.
+29. CAN FD, link-layer hardware, virtio sound and GPU commands, and zone append.
+30. Frame replication, industrial Ethernet, enclave quotes, and a USB4 host router.
+31. CANopen, PCIe link power, dynamic CXL capacity, and USB extended-range power.
+32. MACsec, field-protocol authentication, CXL.cache, and a live kernel update.
+33. QUIC, RDMA transports, forwarding detection, and clock holdover.
+34. Timed media transport, building buses, edge-triggered poll, and PCIe L1 substates.
+35. Media session setup, lighting-over-network, NVMe telemetry, and NVMe over TCP.
+36. Redundant industrial rings, flow exports, media-path checks, and the remaining NVMe commands.
+37. Routing protocols, certificate enrollment, SMB over QUIC, and a paravisor.
+38. Certificate enrollment protocols, multicast VPN, NFS over RDMA, and route-based IPsec.
+39. Policy-based IPsec, SMB Direct, packet steering, and BPF tokens.

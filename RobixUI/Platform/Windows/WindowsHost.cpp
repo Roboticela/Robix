@@ -1,4 +1,5 @@
 #include "WindowsHost.hpp"
+#include "WindowsCompositor.hpp"
 #include "WindowsDocument.hpp"
 #include "WindowsIcon.hpp"
 #include "WindowsScroll.hpp"
@@ -113,6 +114,10 @@ struct HostView {
     std::string document;
     WindowRunOptions* watched = nullptr;
     int gpuScroll = -1;
+    RoboCompositor* compositor = nullptr;
+    bool compositorFailed = false;
+    double shownLayout = 1;
+    float shownGpuScale = 1;
     int presentIndex = 0;
     bool bufferReady[2] = {};
     RECT recent[2][16] = {};
@@ -511,6 +516,42 @@ bool EnsureViewport(HostView* view, int width, int height, bool& fresh) {
     return true;
 }
 
+void CopyViewportRect(HostView* view, int x, int y, int width, int height) {
+    if (view->sheet == nullptr || view->back == nullptr || width <= 0 || height <= 0) {
+        return;
+    }
+    if (x < 0) {
+        width += x;
+        x = 0;
+    }
+    if (y < 0) {
+        height += y;
+        y = 0;
+    }
+    const int limitW = static_cast<int>(std::min(view->pixelWidth, view->sheetWidth));
+    const int limitH = static_cast<int>(std::min(view->pixelHeight, view->sheetHeight));
+    if (x >= limitW || y >= limitH) {
+        return;
+    }
+    if (x + width > limitW) {
+        width = limitW - x;
+    }
+    if (y + height > limitH) {
+        height = limitH - y;
+    }
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    const UINT srcPitch = view->sheetWidth * 4u;
+    const UINT dstPitch = view->pixelWidth * 4u;
+    for (int row = 0; row < height; ++row) {
+        std::memcpy(view->back + (static_cast<size_t>(y + row) * dstPitch) + static_cast<size_t>(x) * 4u,
+                    view->sheet + (static_cast<size_t>(y + row) * srcPitch) + static_cast<size_t>(x) * 4u,
+                    static_cast<size_t>(width) * 4u);
+    }
+    RoboDamageAdd(&view->gpu.damage, x, y, width, height);
+}
+
 void ComposeZoomed(HostView* view, double scale, bool viewport) {
     const int dstW = static_cast<int>(view->pixelWidth);
     const int dstH = static_cast<int>(view->pixelHeight);
@@ -518,6 +559,13 @@ void ComposeZoomed(HostView* view, double scale, bool viewport) {
     const int srcH = static_cast<int>(view->sheetHeight);
     const UINT srcPitch = view->sheetWidth * 4u;
     const UINT dstPitch = view->pixelWidth * 4u;
+    if (std::abs(scale - 1.0) < 0.0005 && viewport && srcW == dstW && srcH >= dstH) {
+        std::memcpy(view->back, view->sheet, static_cast<size_t>(dstPitch) * static_cast<size_t>(dstH));
+        view->gpuScroll = -1;
+        view->gpuFull = true;
+        RoboGPUMarkFullDamage(&view->gpu);
+        return;
+    }
     const int scroll = viewport ? 0 : view->scrollY;
     for (int y = 0; y < dstH; ++y) {
         int srcY = scroll + static_cast<int>(static_cast<double>(y) / scale);
@@ -684,8 +732,60 @@ bool Publish(HostView* view) {
         }
         view->uploadBusy = false;
     }
-    if (RoboDamageIsEmpty(&view->gpu.damage)) {
+    const float gpuScale = (view->pinchLive && view->shownPaint > 0.0)
+                               ? static_cast<float>(PageScale(view) / view->shownPaint)
+                               : 1.f;
+    const bool scaleMove = std::fabs(gpuScale - view->shownGpuScale) > 0.0005f;
+    if (RoboDamageIsEmpty(&view->gpu.damage) && !scaleMove) {
         return true;
+    }
+    if (!view->compositorFailed) {
+        if (view->compositor == nullptr) {
+            view->compositor = RoboCompositorCreate(view->device);
+            if (view->compositor == nullptr) {
+                view->compositorFailed = true;
+            }
+        }
+        if (view->compositor != nullptr) {
+            const bool full = view->gpu.damage.full == ROBO_TRUE || view->gpuFull;
+            int damageX[ROBO_DAMAGE_MAX_RECTS]{};
+            int damageY[ROBO_DAMAGE_MAX_RECTS]{};
+            int damageW[ROBO_DAMAGE_MAX_RECTS]{};
+            int damageH[ROBO_DAMAGE_MAX_RECTS]{};
+            int damageCount = 0;
+            if (!full) {
+                damageCount = static_cast<int>(view->gpu.damage.count);
+                if (damageCount > static_cast<int>(ROBO_DAMAGE_MAX_RECTS)) {
+                    damageCount = static_cast<int>(ROBO_DAMAGE_MAX_RECTS);
+                }
+                for (int index = 0; index < damageCount; ++index) {
+                    const RoboDamageRect& rect = view->gpu.damage.rects[index];
+                    damageX[index] = rect.x;
+                    damageY[index] = rect.y;
+                    damageW[index] = rect.width;
+                    damageH[index] = rect.height;
+                }
+            }
+            const int presented = RoboCompositorPublish(view->compositor, view->context, view->swap, view->back, view->pixelWidth,
+                                                        view->pixelHeight, view->pixelWidth * 4u, full, damageX, damageY, damageW, damageH,
+                                                        damageCount, gpuScale, static_cast<float>(view->pinchAnchorX),
+                                                        static_cast<float>(view->pinchAnchorY));
+            if (presented == 0) {
+                return false;
+            }
+            if (presented > 0) {
+                view->gpuFull = false;
+                view->gpuScroll = view->scrollY;
+                view->shownGpuScale = gpuScale;
+                view->presentIndex ^= 1;
+                RoboDamageClear(&view->gpu.damage);
+                view->shownScroll = view->scrollY;
+                return true;
+            }
+            RoboCompositorDestroy(view->compositor);
+            view->compositor = nullptr;
+            view->compositorFailed = true;
+        }
     }
     const bool full = view->gpu.damage.full == ROBO_TRUE;
     RECT dirty[24]{};
@@ -1124,7 +1224,8 @@ void Draw(HostView* view) {
     }
     RoboGPUResetScissor(&view->gpu);
     SyncPageZoom(view);
-    const double scale = PageScale(view);
+    const double liveScale = PageScale(view);
+    const double scale = (view->pinchLive && view->shownPaint > 0.0) ? view->shownPaint : liveScale;
     const bool zoomed = std::abs(scale - 1.0) > 0.0005;
     const bool scaleChanged = std::abs(view->shownPaint - scale) > 0.0005;
     if (view->screen) {
@@ -1148,14 +1249,16 @@ void Draw(HostView* view) {
                                                  view->pressedControl, pointerDocX, pointerDocY, &view->contentHeight,
                                                  &view->controls);
         const bool rebuilt = layout > 0;
-        if (scaleChanged && view->pinchAnchorX >= 0 && view->shownPaint > 0.0 && scale > 0.0) {
-            const double oldScale = view->shownPaint;
+        const double layoutScale = LayoutScale(view);
+        const bool layoutScaleChanged = std::abs(view->shownLayout - layoutScale) > 0.0005;
+        if (layoutScaleChanged && view->pinchAnchorX >= 0 && view->shownLayout > 0.0 && layoutScale > 0.0) {
+            const double oldScale = view->shownLayout;
             view->scrollX = static_cast<int>(std::lround(static_cast<double>(view->scrollX) +
                                                          static_cast<double>(view->pinchAnchorX) / oldScale -
-                                                         static_cast<double>(view->pinchAnchorX) / scale));
+                                                         static_cast<double>(view->pinchAnchorX) / layoutScale));
             view->scrollY = static_cast<int>(std::lround(static_cast<double>(view->scrollY) +
                                                          static_cast<double>(view->pinchAnchorY) / oldScale -
-                                                         static_cast<double>(view->pinchAnchorY) / scale));
+                                                         static_cast<double>(view->pinchAnchorY) / layoutScale));
         }
         const int maxScroll = std::max(0, view->contentHeight - visibleH);
         if (view->scrollY > maxScroll) {
@@ -1186,12 +1289,18 @@ void Draw(HostView* view) {
         const int regionCount = WindowsDocumentRegionRects(regionPatches, 16);
         bool fresh = false;
         bool usedSheet = false;
+        bool sheetRefresh = false;
         if (zoomed) {
             usedSheet = EnsureViewport(view, width, height, fresh);
             if (usedSheet) {
-                const bool dirty = rebuilt || fresh || scaleChanged || patchCount != 0 || textCount != 0 || regionCount != 0 || view->shownScroll != view->scrollY ||
-                                   view->shownScrollX != view->scrollX || WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue();
-                if (dirty) {
+                const bool pageDirty = rebuilt || fresh || scaleChanged || patchCount != 0 || textCount != 0 || regionCount != 0 ||
+                                       view->shownScroll != view->scrollY || view->shownScrollX != view->scrollX;
+                const bool motion = WindowsDocumentMotionDue();
+                const bool spin = WindowsDocumentNeedsSpin();
+                WindowPatch screens[32]{};
+                int screenCount = 0;
+                bool refresh = false;
+                if (pageDirty) {
                     BindSheet(view, true);
                     WindowsDocumentSetScrollX(view->scrollX);
                     PaintWindowsDocumentScaled(&view->gpu, view->scrollY, width, height, scale);
@@ -1200,17 +1309,57 @@ void Draw(HostView* view) {
                     view->shownScrollX = view->scrollX;
                     WindowsDocumentTextMarkPainted();
                     WindowsDocumentRegionMarkPainted();
-                } else if (caretDue || fieldDue) {
+                    refresh = true;
+                } else if (spin || motion || caretDue || fieldDue) {
                     BindSheet(view, true);
                     WindowsDocumentSetScrollX(view->scrollX);
-                    int caretX = 0;
-                    int caretY = 0;
-                    int caretW = 0;
-                    int caretH = 0;
-                    WindowsDocumentFieldPaintScaled(&view->gpu, view->scrollY, height, scale, caretX, caretY, caretW, caretH);
+                    const auto paintPatch = [&](const WindowPatch& patch) {
+                        int screenX = 0;
+                        int screenY = 0;
+                        int screenW = 0;
+                        int screenH = 0;
+                        if (!WindowsDocumentPaintScaledRect(&view->gpu, patch.x, patch.y, patch.width, patch.height, view->scrollY, width, height,
+                                                           scale, &screenX, &screenY, &screenW, &screenH) ||
+                            screenCount >= 32) {
+                            return;
+                        }
+                        screens[screenCount] = WindowPatch{screenX, screenY, screenW, screenH};
+                        ++screenCount;
+                    };
+                    if (spin) {
+                        WindowPatch spinRects[32]{};
+                        const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
+                        for (int index = 0; index < spinCount; ++index) {
+                            paintPatch(spinRects[index]);
+                        }
+                    }
+                    if (motion) {
+                        WindowPatch motionRects[32]{};
+                        const int motionCount = WindowsDocumentMotionRects(motionRects, 32);
+                        for (int index = 0; index < motionCount; ++index) {
+                            paintPatch(motionRects[index]);
+                        }
+                    }
+                    if (caretDue || fieldDue) {
+                        int caretX = 0;
+                        int caretY = 0;
+                        int caretW = 0;
+                        int caretH = 0;
+                        WindowsDocumentFieldPaintScaled(&view->gpu, view->scrollY, height, scale, caretX, caretY, caretW, caretH);
+                        refresh = true;
+                    }
                     BindSheet(view, false);
                 }
-                ComposeZoomed(view, 1.0, true);
+                if (motion) {
+                    WindowsDocumentMotionMark();
+                }
+                if (refresh) {
+                    ComposeZoomed(view, 1.0, true);
+                } else {
+                    for (int index = 0; index < screenCount; ++index) {
+                        CopyViewportRect(view, screens[index].x, screens[index].y, screens[index].width, screens[index].height);
+                    }
+                }
             }
         } else if (wide) {
             const bool scrollYChanged = previousScroll != view->scrollY;
@@ -1347,6 +1496,7 @@ void Draw(HostView* view) {
                 if (view->zoomBoxH > 0) {
                     ClearZoomBox(view);
                 }
+                sheetRefresh = view->shownScroll < 0 || view->scrollY != view->shownScroll;
                 ComposeSheet(view, visible, visibleCount);
             }
         }
@@ -1363,6 +1513,7 @@ void Draw(HostView* view) {
         bar.pixelHeight = height;
         const int maxDocY = std::max(0, view->contentHeight - visibleH);
         const int maxDocX = std::max(0, view->contentWidth - visibleW);
+        view->shownLayout = LayoutScale(view);
         view->shownPaint = scale;
         bar.scrollY = view->scrollY <= 0 ? 0 : (view->scrollY >= maxDocY ? std::max(0, bar.contentHeight - height) : ToWin(view->scrollY, scale));
         bar.scrollX = view->scrollX <= 0 ? 0 : (view->scrollX >= maxDocX ? std::max(0, bar.contentWidth - width) : ToWin(view->scrollX, scale));
@@ -1398,7 +1549,7 @@ void Draw(HostView* view) {
                 RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
             }
         }
-        WindowsDocumentPaintRegionBars(&view->gpu, view->scrollY, width, height, scale);
+        WindowsDocumentPaintRegionBars(&view->gpu, view->scrollY, width, height, scale, sheetRefresh);
         if (paintBar) {
             PaintWindowScrollBar(&view->gpu, bar);
         }
@@ -1462,7 +1613,7 @@ void Draw(HostView* view) {
     view->painted = true;
     if (!view->frameNoted) {
         std::printf("framebuffer %ux%u\n", view->pixelWidth, view->pixelHeight);
-        std::printf("renderer platform-framebuffer\n");
+        std::printf("renderer %s\n", view->compositor != nullptr ? "tile-compositor" : "platform-framebuffer");
         view->frameNoted = true;
     }
     if (!view->stayOpen) {
@@ -1474,6 +1625,8 @@ void Release(HostView* view) {
     if (view == nullptr) {
         return;
     }
+    RoboCompositorDestroy(view->compositor);
+    view->compositor = nullptr;
     if (view->upload != nullptr) {
         view->upload->Release();
         view->upload = nullptr;
@@ -2539,8 +2692,12 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                         view->pinchX[slot] = view->pinchX[last];
                         view->pinchY[slot] = view->pinchY[last];
                         --view->pinchCount;
+                        const bool wasPinch = view->pinchLive;
                         view->pinchLive = false;
                         view->panLive = false;
+                        if (wasPinch) {
+                            Request(view);
+                        }
                     }
                     if (view->pinchCount == 2) {
                         const double dx = static_cast<double>(view->pinchX[0] - view->pinchX[1]);
@@ -2562,7 +2719,11 @@ LRESULT CALLBACK Procedure(HWND window, UINT message, WPARAM wParam, LPARAM lPar
                             }
                         }
                     } else {
+                        const bool wasPinch = view->pinchLive;
                         view->pinchLive = false;
+                        if (wasPinch) {
+                            Request(view);
+                        }
                     }
                     return 0;
                 }
