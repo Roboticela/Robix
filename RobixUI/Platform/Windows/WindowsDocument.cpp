@@ -122,6 +122,7 @@ struct CachedCanvas {
 std::vector<CachedCanvas> gCanvases;
 unsigned gPictureClock = 0;
 bool gVideoDirty = false;
+bool gFramePainted = false;
 
 int PictureFor(const std::filesystem::path& file) {
     const std::string key = file.string();
@@ -207,7 +208,8 @@ int VideoFor(const std::filesystem::path& file, int timeMs, bool playing, int de
             int frameWidth = 0;
             int frameHeight = 0;
             int sampleMs = 0;
-            if (WindowsVideoFrame(file, timeMs, picture.image.pixels, frameWidth, frameHeight, sampleMs, destWidth, destHeight, clip.duration) &&
+            if (WindowsVideoFrame(file, timeMs, picture.image.pixels, frameWidth, frameHeight, sampleMs, destWidth, destHeight, clip.duration,
+                                  playing) &&
                 !picture.image.pixels.empty()) {
                 picture.image.sourceWidth = frameWidth;
                 picture.image.sourceHeight = frameHeight;
@@ -362,6 +364,12 @@ struct ScrollRegion {
     int hotY = 0;
     bool dragX = false;
     bool dragY = false;
+    int barScrollX = -1;
+    int barScrollY = -1;
+    int barHotX = -1;
+    int barHotY = -1;
+    bool barDragX = false;
+    bool barDragY = false;
 };
 
 std::vector<ScrollRegion> gRegions;
@@ -6676,7 +6684,7 @@ void WindowsDocumentSetPictureClock(unsigned clock) {
         int width = 0;
         int height = 0;
         int sampleMs = 0;
-        if (!WindowsVideoFrame(picture.videoFile, at, pixels, width, height, sampleMs, boxW, boxH, picture.videoDuration) || pixels.empty()) {
+        if (!WindowsVideoFrame(picture.videoFile, at, pixels, width, height, sampleMs, boxW, boxH, picture.videoDuration, true) || pixels.empty()) {
             continue;
         }
         if (sampleMs == picture.videoShown && width == picture.image.sourceWidth && height == picture.image.sourceHeight) {
@@ -6689,6 +6697,7 @@ void WindowsDocumentSetPictureClock(unsigned clock) {
         picture.cacheFrame = -1;
         picture.videoShown = sampleMs;
         gVideoDirty = true;
+        gFramePainted = true;
     }
 }
 
@@ -7085,7 +7094,29 @@ void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, in
             const int y = place(bar.y, scrollY, false);
             const int width = std::max(1, place(bar.x + bar.width, gScrollX, true) - x);
             const int height = std::max(1, place(bar.y + bar.height, scrollY, false) - y);
-            if (opacity < shown) {
+            const int hot = vertical ? region.hotY : region.hotX;
+            const bool drag = vertical ? region.dragY : region.dragX;
+            int& trackedHot = vertical ? region.barHotY : region.barHotX;
+            bool& trackedDrag = vertical ? region.barDragY : region.barDragX;
+            bool covered = false;
+            if (gFramePainted) {
+                for (const PaintOp& op : gScene.ops) {
+                    if (op.picture < 0 || op.picture >= static_cast<int>(gPictures.size()) ||
+                        gPictures[static_cast<std::size_t>(op.picture)].videoFile.empty()) {
+                        continue;
+                    }
+                    if (op.x < bar.x + bar.width && op.x + op.width > bar.x && op.y < bar.y + bar.height && op.y + op.height > bar.y) {
+                        covered = true;
+                        break;
+                    }
+                }
+            }
+            const bool moved = region.scrollX != region.barScrollX || region.scrollY != region.barScrollY;
+            const bool look = opacity != shown || hot != trackedHot || drag != trackedDrag;
+            if (!covered && !moved && !look && opacity > 0 && shown > 0) {
+                continue;
+            }
+            if (covered || moved || opacity < shown) {
                 RoboGPUPushScissor(gpu, x, y, width, height);
                 const int plate = region.opBegin - 1;
                 if (plate >= 0 && plate < static_cast<int>(gScene.ops.size())) {
@@ -7101,11 +7132,11 @@ void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, in
                 RoboGPUPopScissor(gpu);
             }
             shown = opacity;
+            trackedHot = hot;
+            trackedDrag = drag;
             if (opacity <= 0) {
                 continue;
             }
-            const int hot = vertical ? region.hotY : region.hotX;
-            const bool drag = vertical ? region.dragY : region.dragX;
             const int arrow = std::max(1, ScaleLen(bar.arrow, scale));
             const int trackPos = place((vertical ? bar.y : bar.x) + bar.track, vertical ? scrollY : gScrollX, vertical);
             const int thumbPos = place((vertical ? bar.y : bar.x) + bar.thumb, vertical ? scrollY : gScrollX, vertical);
@@ -7127,7 +7158,10 @@ void WindowsDocumentPaintRegionBars(RoboGPU* gpu, int scrollY, int viewWidth, in
             }
             (void)viewWidth;
         }
+        region.barScrollX = region.scrollX;
+        region.barScrollY = region.scrollY;
     }
+    gFramePainted = false;
 }
 
 std::string CookKind(const std::string& raw) {

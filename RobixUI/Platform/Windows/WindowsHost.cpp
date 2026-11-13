@@ -1372,37 +1372,37 @@ void Draw(HostView* view) {
                                 bar.drag != view->shownDrag || bar.hot != view->shownHot || previousScroll != view->scrollY;
         const bool barChangedX = bar.opacityX != view->shownOpacityX || bar.partX != view->shownPartX || bar.holdX != view->shownHoldX ||
                                  bar.dragX != view->shownDragX || bar.hotX != view->shownHotX || previousScrollX != view->scrollX;
-        if (!zoomed && view->gpu.damage.full != ROBO_TRUE) {
-            if (barChanged) {
-                int barX = 0;
-                int barY = 0;
-                int barW = 0;
-                int barH = 0;
-                WindowScrollBarRect(bar, barX, barY, barW, barH);
-                if (usedSheet) {
-                    CopyVisible(view, barX, barY, barW, barH);
-                } else {
-                    RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
-                }
+        const bool paintBar = bar.opacity > 0 && (barChanged || view->gpu.damage.full == ROBO_TRUE);
+        const bool paintBarX = bar.opacityX > 0 && (barChangedX || view->gpu.damage.full == ROBO_TRUE);
+        if (!zoomed && paintBar) {
+            int barX = 0;
+            int barY = 0;
+            int barW = 0;
+            int barH = 0;
+            WindowScrollBarRect(bar, barX, barY, barW, barH);
+            if (usedSheet) {
+                CopyVisible(view, barX, barY, barW, barH);
+            } else {
+                RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
             }
-            if (barChangedX) {
-                int barX = 0;
-                int barY = 0;
-                int barW = 0;
-                int barH = 0;
-                WindowScrollBarXRect(bar, barX, barY, barW, barH);
-                if (usedSheet) {
-                    CopyVisible(view, barX, barY, barW, barH);
-                } else {
-                    RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
-                }
+        }
+        if (!zoomed && paintBarX) {
+            int barX = 0;
+            int barY = 0;
+            int barW = 0;
+            int barH = 0;
+            WindowScrollBarXRect(bar, barX, barY, barW, barH);
+            if (usedSheet) {
+                CopyVisible(view, barX, barY, barW, barH);
+            } else {
+                RestoreWindowsDocumentRect(&view->gpu, barX, barY, barW, barH);
             }
         }
         WindowsDocumentPaintRegionBars(&view->gpu, view->scrollY, width, height, scale);
-        if (view->gpu.damage.full == ROBO_TRUE || (bar.opacity > 0 && barChanged)) {
+        if (paintBar) {
             PaintWindowScrollBar(&view->gpu, bar);
         }
-        if (view->gpu.damage.full == ROBO_TRUE || (bar.opacityX > 0 && barChangedX)) {
+        if (paintBarX) {
             PaintWindowScrollBarX(&view->gpu, bar);
         }
         if (view->focusControl >= 0 && view->focusControl < static_cast<int>(view->controls.size())) {

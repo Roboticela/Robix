@@ -17,6 +17,8 @@
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
+#include <mmsystem.h>
+#include <cstdint>
 
 namespace Robix::UI {
 namespace {
@@ -48,6 +50,14 @@ int gPublishH = 0;
 int gPublishMs = -1;
 int gPublishGen = 0;
 int gServedGen = -1;
+bool gWantSound = false;
+HWAVEOUT gSound = nullptr;
+WAVEHDR gSoundHeader{};
+std::vector<std::int16_t> gSoundPcm;
+int gSoundRate = 0;
+int gSoundChannels = 0;
+std::wstring gSoundPath;
+std::wstring gSoundMiss;
 
 void Release(IUnknown* object) {
     if (object != nullptr) {
@@ -322,6 +332,152 @@ bool PullFrame(int& sampleMs) {
     return true;
 }
 
+void StopSound() {
+    if (gSound == nullptr) {
+        return;
+    }
+    waveOutReset(gSound);
+    if ((gSoundHeader.dwFlags & WHDR_PREPARED) != 0) {
+        waveOutUnprepareHeader(gSound, &gSoundHeader, sizeof(gSoundHeader));
+    }
+    waveOutClose(gSound);
+    gSound = nullptr;
+    gSoundHeader = {};
+}
+
+void StartSound(int fromMs) {
+    if (gSoundPcm.empty() || gSoundRate < 8000 || gSoundChannels < 1) {
+        return;
+    }
+    if (gSound != nullptr) {
+        waveOutReset(gSound);
+        if ((gSoundHeader.dwFlags & WHDR_PREPARED) != 0) {
+            waveOutUnprepareHeader(gSound, &gSoundHeader, sizeof(gSoundHeader));
+        }
+        gSoundHeader = {};
+    } else {
+        WAVEFORMATEX format{};
+        format.wFormatTag = WAVE_FORMAT_PCM;
+        format.nChannels = static_cast<WORD>(gSoundChannels);
+        format.nSamplesPerSec = static_cast<DWORD>(gSoundRate);
+        format.wBitsPerSample = 16;
+        format.nBlockAlign = static_cast<WORD>(gSoundChannels * 2);
+        format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
+        if (waveOutOpen(&gSound, WAVE_MAPPER, &format, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
+            gSound = nullptr;
+            return;
+        }
+    }
+    std::size_t offset = 0;
+    if (fromMs > 0) {
+        offset = static_cast<std::size_t>(fromMs) * static_cast<std::size_t>(gSoundRate) / 1000u * static_cast<std::size_t>(gSoundChannels);
+    }
+    if (offset >= gSoundPcm.size()) {
+        offset = 0;
+    }
+    gSoundHeader.lpData = reinterpret_cast<LPSTR>(gSoundPcm.data() + offset);
+    gSoundHeader.dwBufferLength = static_cast<DWORD>((gSoundPcm.size() - offset) * sizeof(std::int16_t));
+    if (waveOutPrepareHeader(gSound, &gSoundHeader, sizeof(gSoundHeader)) != MMSYSERR_NOERROR ||
+        waveOutWrite(gSound, &gSoundHeader, sizeof(gSoundHeader)) != MMSYSERR_NOERROR) {
+        StopSound();
+    }
+}
+
+bool LoadSound(const std::filesystem::path& file) {
+    IMFSourceReader* reader = nullptr;
+    if (FAILED(MFCreateSourceReaderFromURL(file.wstring().c_str(), nullptr, &reader)) || reader == nullptr) {
+        return false;
+    }
+    reader->SetStreamSelection(static_cast<DWORD>(MF_SOURCE_READER_ALL_STREAMS), FALSE);
+    reader->SetStreamSelection(static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM), TRUE);
+    IMFMediaType* requested = nullptr;
+    if (FAILED(MFCreateMediaType(&requested)) || requested == nullptr) {
+        reader->Release();
+        return false;
+    }
+    requested->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+    requested->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
+    requested->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, 16);
+    const bool typed = SUCCEEDED(reader->SetCurrentMediaType(static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM), nullptr, requested));
+    requested->Release();
+    if (!typed) {
+        reader->Release();
+        return false;
+    }
+    IMFMediaType* current = nullptr;
+    UINT32 rate = 0;
+    UINT32 channels = 0;
+    if (SUCCEEDED(reader->GetCurrentMediaType(static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM), &current)) && current != nullptr) {
+        current->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &rate);
+        current->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &channels);
+        current->Release();
+    }
+    std::vector<std::int16_t> samples;
+    const std::size_t cap = (rate > 0 && channels > 0) ? static_cast<std::size_t>(rate) * channels * 30u : 48000u * 2u * 30u;
+    while (samples.size() < cap) {
+        IMFSample* sample = nullptr;
+        DWORD flags = 0;
+        if (FAILED(reader->ReadSample(static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM), 0, nullptr, &flags, nullptr, &sample))) {
+            break;
+        }
+        if ((flags & MF_SOURCE_READERF_ENDOFSTREAM) != 0) {
+            Release(sample);
+            break;
+        }
+        if (sample == nullptr) {
+            continue;
+        }
+        IMFMediaBuffer* buffer = nullptr;
+        if (SUCCEEDED(sample->ConvertToContiguousBuffer(&buffer)) && buffer != nullptr) {
+            BYTE* data = nullptr;
+            DWORD length = 0;
+            if (SUCCEEDED(buffer->Lock(&data, nullptr, &length)) && data != nullptr && (length / 2) > 0) {
+                const auto* pcm = reinterpret_cast<const std::int16_t*>(data);
+                samples.insert(samples.end(), pcm, pcm + (length / sizeof(std::int16_t)));
+                buffer->Unlock();
+            }
+            Release(buffer);
+        }
+        Release(sample);
+    }
+    reader->Release();
+    if (samples.empty() || rate == 0 || channels == 0) {
+        return false;
+    }
+    gSoundPcm = std::move(samples);
+    gSoundRate = static_cast<int>(rate);
+    gSoundChannels = static_cast<int>(channels);
+    return true;
+}
+
+void KeepSound(const std::wstring& path, bool want, int fromMs, bool rewind) {
+    if (!want) {
+        StopSound();
+        return;
+    }
+    const std::filesystem::path file(path);
+    if (path != gSoundPath) {
+        StopSound();
+        gSoundPcm.clear();
+        gSoundRate = 0;
+        gSoundChannels = 0;
+        gSoundPath = path;
+        gSoundMiss.clear();
+        if (gSoundMiss == path || !LoadSound(file)) {
+            gSoundMiss = path;
+            return;
+        }
+        rewind = true;
+        fromMs = 0;
+    }
+    if (gSoundPcm.empty() || path == gSoundMiss) {
+        return;
+    }
+    if (rewind || gSound == nullptr) {
+        StartSound(fromMs);
+    }
+}
+
 void PumpMain() {
     const HRESULT started = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     (void)started;
@@ -336,6 +492,7 @@ void PumpMain() {
         int destW = 0;
         int destH = 0;
         int duration = 0;
+        bool wantSound = false;
         int slack = 8;
         {
             std::unique_lock<std::mutex> lock(gMutex);
@@ -352,6 +509,7 @@ void PumpMain() {
             destW = gWantW;
             destH = gWantH;
             duration = gWantDuration;
+            wantSound = gWantSound;
         }
         if (path.empty()) {
             continue;
@@ -368,12 +526,17 @@ void PumpMain() {
             haveFit = false;
         }
         bool decoded = false;
+        bool rewind = false;
+        int rewindMs = 0;
         if (duration > 1 && gHeldMs >= duration) {
             SeekReader(0);
+            rewind = true;
             int nextMs = 0;
             decoded = PullFrame(nextMs);
         } else if (!gHeld.empty() && wantMs + 120 < gHeldMs) {
             SeekReader(wantMs);
+            rewind = true;
+            rewindMs = wantMs;
             int nextMs = 0;
             decoded = PullFrame(nextMs);
         } else if (gHeld.empty() || wantMs > gHeldMs + 2) {
@@ -387,6 +550,7 @@ void PumpMain() {
         int outH = 0;
         FitSize(destW, destH, outW, outH);
         if (!decoded && haveFit && outW == fittedW && outH == fittedH) {
+            KeepSound(path, wantSound, rewindMs, rewind);
             continue;
         }
         if (outW == gWidth && outH == gHeight) {
@@ -406,8 +570,10 @@ void PumpMain() {
             ++gPublishGen;
         }
         gCv.notify_all();
+        KeepSound(path, wantSound, rewindMs, rewind);
     }
     CloseReader();
+    StopSound();
 }
 
 void EnsurePump() {
@@ -427,7 +593,7 @@ void EnsurePump() {
 }  // namespace
 
 bool WindowsVideoFrame(const std::filesystem::path& file, int timeMs, std::vector<RoboU32>& pixels, int& width, int& height, int& sampleMs,
-                       int destWidth, int destHeight, int durationMs) {
+                       int destWidth, int destHeight, int durationMs, bool withSound) {
     pixels.clear();
     width = 0;
     height = 0;
@@ -449,6 +615,7 @@ bool WindowsVideoFrame(const std::filesystem::path& file, int timeMs, std::vecto
     if (durationMs > 0) {
         gWantDuration = durationMs;
     }
+    gWantSound = withSound;
     gWake = true;
     gCv.notify_all();
     if (gPublish.empty()) {

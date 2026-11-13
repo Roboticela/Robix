@@ -59,23 +59,23 @@ Whatever you implement, first make sure that the OS has that much easy features 
 
 ### Syscalls and IPC
 
-- [ ] Syscall table with a number, an argument check, and a return, replacing the single echo path
-- [ ] `read`, `write`, `open`, `close`, `lseek`, `ioctl`, `mmap`, `brk`
-- [ ] `fork`, `exec`, `exit`, `wait`, `getpid`, `kill`
-- [ ] `pipe` and a poll or select that sleeps until a descriptor is ready
-- [ ] Message ports that block the sender or receiver instead of only completing a boot round-trip
-- [ ] Futex-style wait and wake on a user word so user locks do not spin
+- [x] Syscall table with a number, an argument check, and a return, replacing the single echo path
+- [x] `read`, `write`, `open`, `close`, `lseek`, `ioctl`, `mmap`, `brk`
+- [x] `fork`, `exec`, `exit`, `wait`, `getpid`, `kill`
+- [x] `pipe` and a poll or select that sleeps until a descriptor is ready
+- [x] Message ports that block the sender or receiver instead of only completing a boot round-trip
+- [x] Futex-style wait and wake on a user word so user locks do not spin
 
 ### Files
 
-- [ ] Path lookup with directories, `.`, `..`, and a mount table
-- [ ] Directory create, remove, rename, and read
-- [ ] Permission bits checked against the caller credential
-- [ ] Partition scan for MBR and GPT, then a mount of the chosen volume
-- [ ] Robo volume format with files larger than one sector and a free-block map
-- [ ] FAT32 read and write so USB sticks and firmware disks work before a vendor storage stack
-- [ ] Device filesystem where each bound driver appears as a node
-- [ ] Process and kernel status filesystem for live inspection
+- [x] Path lookup with directories, `.`, `..`, and a mount table
+- [x] Directory create, remove, rename, and read
+- [x] Permission bits checked against the caller credential
+- [x] Partition scan for MBR and GPT, then a mount of the chosen volume
+- [x] Robo volume format with files larger than one sector and a free-block map
+- [x] FAT32 read and write so USB sticks and firmware disks work before a vendor storage stack
+- [x] Device filesystem where each bound driver appears as a node
+- [x] Process and kernel status filesystem for live inspection
 
 ### Device model
 
@@ -904,6 +904,87 @@ Behavior only. No windows, panes, or drawing.
 - [ ] RADIUS for the existing 802.1X path
 - [ ] A directory-services referral when the account is not on this machine
 
+## Later open gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Calls, logs, and migration
+
+- [ ] Futex requeue, so a wake can move a waiter from one word to another
+- [ ] `pidfd_getfd` and a spawn that places the child in a control group
+- [ ] `cachestat` and a mount-information call that does not walk a path
+- [ ] An IMA measurement log, distinct from the TPM event log
+- [ ] TPM non-volatile storage and a policy that ties a key to PCR values
+- [ ] A unified kernel image the firmware boots as one signed file
+- [ ] IOMMU dirty-bit logging so an assigned device can move with a guest
+- [ ] Encrypted virtual-CPU state that the host sees only while the guest is exited
+- [ ] Hardware feedback for the scheduler, precise performance samples, and a userspace enqueue to a shared accelerator queue
+
+### Names, radio, and device commands
+
+- [ ] DNS64, a NetBIOS name, and an NFS lock manager with its port mapper
+- [ ] A distributed-file-system referral
+- [ ] A regulatory database the wireless stack consults by country code
+- [ ] Tunneled direct link setup, neighbor awareness, and fine timing measurement
+- [ ] Bluetooth broadcast audio and direction finding
+- [ ] A security-key PIN and a resident key stored on the authenticator
+- [ ] NVMe boot partitions, a device self-test, and an NVMe copy command
+- [ ] An I2C bus bit-banged on GPIO when no controller is present
+
+## Still later gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Paths, packets, and traces
+
+- [ ] Path lookup that stays inside a directory tree and refuses magic links
+- [ ] A registered buffer ring for asynchronous I/O
+- [ ] Kernel TLS that encrypts a TCP stream on the socket
+- [ ] A remote console that sends kernel log lines over UDP
+- [ ] Kernel probes on a function entry and return
+- [ ] A timeline of explicit sync points a device can wait on
+- [ ] Several kernel virtual terminals switched from the keyboard
+- [ ] An audio DSP that runs a loaded firmware graph
+- [ ] HDMI consumer-electronics control and enhanced audio return
+
+### Platform buses and sensors
+
+- [ ] I3C, SPMI, and SLIMbus
+- [ ] Management-component transport and a platform-level data model
+- [ ] An IPMB link to a baseboard controller
+- [ ] An ACPI watchdog description the hardware watchdog driver uses
+- [ ] A unified sensor interface with a hardware FIFO and a watermark
+- [ ] A smart-battery pack that reports cycles and chemistry
+- [ ] An electronic privacy shutter the camera driver honors
+- [ ] ACPI notifications when a video output appears or disappears
+
+## Next open gaps
+
+Behavior only. No windows, panes, or drawing.
+
+### Disks, names, and cameras
+
+- [ ] A SAS expander and a SATA port multiplier
+- [ ] Fibre Channel over Ethernet
+- [ ] SCSI enclosure services that report slot power and a locate light
+- [ ] A local cache of file data fetched from a network volume
+- [ ] DNS over HTTPS
+- [ ] EAP-TLS on the existing 802.1X path
+- [ ] An image-signal processor, a lens focus motor, and a camera flash
+- [ ] One media request that binds a buffer to a single captured frame
+- [ ] Compressed and tiled framebuffer storage
+- [ ] A user pointer the GPU can take a fault on
+- [ ] An HDMI picture infoframe and local dimming of the panel
+- [ ] A function filesystem a USB gadget uses to exchange buffers
+
+### Guests and limits
+
+- [ ] A confidential guest that accepts each page before it is used
+- [ ] Huge-page charges accounted inside a control group
+- [ ] A high memory threshold that starts reclaim before the out-of-memory killer
+- [ ] Write-protect faults delivered to a user handler
+- [ ] Serial over LAN through the baseboard controller
+
 ## Order to implement
 
 1. IRQ return path, APIC timer, monotonic clock, heap, and wait queues. Later drivers block and interrupt on these.
@@ -930,3 +1011,6 @@ Behavior only. No windows, panes, or drawing.
 22. Device assignment to a guest, shared virtual addressing, suspend blockers, and sealed memory.
 23. Swap preference, file capabilities, CXL hot-add, post-copy migration, and Wi-Fi multi-link.
 24. Enclaves, inline encryption, device attestation, and the remaining buses.
+25. Futex requeue, measurement logs, IOMMU dirty logging, DNS64, and NVMe self-test.
+26. Path confinement, kernel TLS, sensor FIFOs, and the management buses.
+27. Storage expanders, the camera pipeline, confidential page accept, and memory thresholds.
