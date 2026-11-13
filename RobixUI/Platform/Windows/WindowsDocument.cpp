@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cctype>
+#include <cstring>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -155,11 +156,15 @@ bool VideoPlaying(const RoboXMLNode& node) {
     return playing == "true" || playing == "yes" || playing == "on" || playing == "1";
 }
 
-int VideoFor(const std::filesystem::path& file, int timeMs, bool playing) {
+int VideoFor(const std::filesystem::path& file, int timeMs, bool playing, int destWidth, int destHeight) {
     const std::string key = std::string("video|") + file.string() + "|" + std::to_string(timeMs) + "|" + (playing ? "1" : "0");
     for (int index = 0; index < static_cast<int>(gPictures.size()); ++index) {
         if (gPictures[static_cast<std::size_t>(index)].key == key) {
-            return gPictures[static_cast<std::size_t>(index)].ok ? index : -1;
+            if (gPictures[static_cast<std::size_t>(index)].ok) {
+                return index;
+            }
+            gPictures.erase(gPictures.begin() + index);
+            break;
         }
     }
     CachedPicture picture;
@@ -202,7 +207,8 @@ int VideoFor(const std::filesystem::path& file, int timeMs, bool playing) {
             int frameWidth = 0;
             int frameHeight = 0;
             int sampleMs = 0;
-            if (WindowsVideoFrame(file, timeMs, picture.image.pixels, frameWidth, frameHeight, sampleMs)) {
+            if (WindowsVideoFrame(file, timeMs, picture.image.pixels, frameWidth, frameHeight, sampleMs, destWidth, destHeight, clip.duration) &&
+                !picture.image.pixels.empty()) {
                 picture.image.sourceWidth = frameWidth;
                 picture.image.sourceHeight = frameHeight;
                 picture.image.format = clip.format;
@@ -767,7 +773,65 @@ const RoboU32* PicturePixels(const RoboImageRecord& image, int frame, std::size_
     return image.pixels.data();
 }
 
+void BlitVideoRows(RoboGPU* gpu, int x, int y, int width, int height, const std::vector<RoboU32>& pixels) {
+    if (gpu == nullptr || gpu->back == nullptr || width < 1 || height < 1 || pixels.empty()) {
+        return;
+    }
+    int left = x;
+    int top = y;
+    int right = x + width;
+    int bottom = y + height;
+    if (gpu->scissorDepth > 0) {
+        const RoboGPUScissor& clip = gpu->scissorStack[gpu->scissorDepth - 1];
+        if (left < clip.x) {
+            left = clip.x;
+        }
+        if (top < clip.y) {
+            top = clip.y;
+        }
+        if (right > clip.x + clip.width) {
+            right = clip.x + clip.width;
+        }
+        if (bottom > clip.y + clip.height) {
+            bottom = clip.y + clip.height;
+        }
+    }
+    if (left < 0) {
+        left = 0;
+    }
+    if (top < 0) {
+        top = 0;
+    }
+    if (right > static_cast<int>(gpu->info.width)) {
+        right = static_cast<int>(gpu->info.width);
+    }
+    if (bottom > static_cast<int>(gpu->info.height)) {
+        bottom = static_cast<int>(gpu->info.height);
+    }
+    if (right <= left || bottom <= top) {
+        return;
+    }
+    const RoboU32 pitch = RoboGPUPitch(gpu);
+    for (int row = top; row < bottom; ++row) {
+        const int sourceRow = row - y;
+        const int sourceCol = left - x;
+        const std::size_t index = static_cast<std::size_t>(sourceRow) * static_cast<std::size_t>(width) + static_cast<std::size_t>(sourceCol);
+        if (index >= pixels.size()) {
+            break;
+        }
+        auto* dest = reinterpret_cast<RoboU32*>(RoboFrameBufferRow(gpu->back, pitch, row)) + left;
+        const int count = std::min(right - left, static_cast<int>(pixels.size() - index));
+        std::memcpy(dest, pixels.data() + index, static_cast<std::size_t>(count) * sizeof(RoboU32));
+    }
+    RoboGPUMarkDamage(gpu, left, top, right - left, bottom - top);
+}
+
 void BlendPicture(RoboGPU* gpu, const PaintOp& op, int y, const std::vector<RoboU32>& pixels) {
+    if (gpu != nullptr && gpu->xrgb == ROBO_TRUE && op.picture >= 0 && op.picture < static_cast<int>(gPictures.size()) &&
+        !gPictures[static_cast<std::size_t>(op.picture)].videoFile.empty()) {
+        BlitVideoRows(gpu, op.x, y, op.width, op.height, pixels);
+        return;
+    }
     const int width = std::min(op.width, static_cast<int>(pixels.size()));
     for (int row = 0; row < op.height; ++row) {
         for (int column = 0; column < op.width; ++column) {
@@ -829,6 +893,16 @@ void PaintPicture(RoboGPU* gpu, const PaintOp& op, int y) {
     const int sourceWidth = image.sourceWidth;
     const int sourceHeight = image.sourceHeight;
     if (pixels == nullptr || sourceWidth <= 0 || sourceHeight <= 0) {
+        BlendPicture(gpu, op, y, cached.cache);
+        return;
+    }
+    if (!cached.videoFile.empty() && sourceWidth == op.width && sourceHeight == op.height &&
+        count == static_cast<std::size_t>(sourceWidth) * static_cast<std::size_t>(sourceHeight)) {
+        cached.cache.assign(pixels, pixels + count);
+        cached.cacheW = op.width;
+        cached.cacheH = op.height;
+        cached.cacheFrame = frameIndex;
+        cached.cacheFit = fit;
         BlendPicture(gpu, op, y, cached.cache);
         return;
     }
@@ -2565,7 +2639,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
             if (file.is_relative()) {
                 file = gDocumentDir / file;
             }
-            box.picture = VideoFor(file, VideoClock(node), VideoPlaying(node));
+            box.picture = VideoFor(file, VideoClock(node), VideoPlaying(node), boxW, boxH);
         }
         box.pictureFit = "contain";
         ops.push_back(box);
@@ -6588,14 +6662,21 @@ void WindowsDocumentSetPictureClock(unsigned clock) {
         if (picture.videoDuration > 1 && at >= picture.videoDuration) {
             at %= picture.videoDuration;
         }
-        if (picture.videoShown >= 0 && at + 20 >= picture.videoShown && at <= picture.videoShown + 30) {
-            continue;
+        int boxW = 0;
+        int boxH = 0;
+        const int pictureIndex = static_cast<int>(&picture - gPictures.data());
+        for (const PaintOp& op : gScene.ops) {
+            if (op.picture == pictureIndex && op.width > 0 && op.height > 0) {
+                boxW = op.width;
+                boxH = op.height;
+                break;
+            }
         }
         std::vector<RoboU32> pixels;
         int width = 0;
         int height = 0;
         int sampleMs = 0;
-        if (!WindowsVideoFrame(picture.videoFile, at, pixels, width, height, sampleMs) || pixels.empty()) {
+        if (!WindowsVideoFrame(picture.videoFile, at, pixels, width, height, sampleMs, boxW, boxH, picture.videoDuration) || pixels.empty()) {
             continue;
         }
         if (sampleMs == picture.videoShown && width == picture.image.sourceWidth && height == picture.image.sourceHeight) {
@@ -6609,6 +6690,15 @@ void WindowsDocumentSetPictureClock(unsigned clock) {
         picture.videoShown = sampleMs;
         gVideoDirty = true;
     }
+}
+
+bool WindowsDocumentVideoPlaying() {
+    for (const CachedPicture& picture : gPictures) {
+        if (picture.ok && picture.videoPlaying && !picture.videoFile.empty()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool WindowsDocumentNeedsMotion() {

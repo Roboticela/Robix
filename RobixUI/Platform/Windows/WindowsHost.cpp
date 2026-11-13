@@ -1445,10 +1445,13 @@ void Draw(HostView* view) {
     if (view->window != nullptr) {
         KillTimer(view->window, 3);
         if (view->stayOpen && view->screen && (WindowsDocumentNeedsSpin() || WindowsDocumentNeedsMotion())) {
-            if (!view->spinArmed) {
+            static int armedMs = 0;
+            const int motionMs = WindowsDocumentVideoPlaying() ? 16 : 50;
+            if (!view->spinArmed || armedMs != motionMs) {
                 view->spinClock = GetTickCount();
-                SetTimer(view->window, 4, 50, nullptr);
+                SetTimer(view->window, 4, static_cast<UINT>(motionMs), nullptr);
                 view->spinArmed = true;
+                armedMs = motionMs;
             }
         } else if (view->spinArmed) {
             KillTimer(view->window, 4);

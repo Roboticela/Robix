@@ -17,7 +17,7 @@ Whatever you implement, first make sure that the OS has that much easy features 
 - [x] Legacy INTx delivery through the I/O APIC, with a mask, an acknowledge, and a shared-line handler list
 - [x] MSI and MSI-X allocation, message write, and teardown
 - [x] Spurious IRQ and NMI handling that does not kill the machine
-- [ ] Local APIC timer as the scheduler tick on every core
+- [x] Local APIC timer as the scheduler tick on every core
 - [x] TSC calibration against a known timer, plus a monotonic clock and a wall clock
 - [x] One-shot kernel timers and a sleep that wakes on the next tick or sooner
 - [x] HPET when the firmware publishes it, used when the APIC timer is unavailable
@@ -48,14 +48,14 @@ Whatever you implement, first make sure that the OS has that much easy features 
 
 ### Processes
 
-- [ ] Stable pid allocation, parent links, and zombie reaping beyond the single proof child
-- [ ] `exec` of a Robo executable from the VFS into a fresh user address space
-- [ ] Threads that share an address space and have private stacks
-- [ ] Signals that a process can block, catch, or default, delivered on return to user mode
-- [ ] Process groups and sessions so a shell can own a foreground job
-- [ ] File-descriptor table per process: dup, close-on-exec, and a shared open-file object
-- [ ] User and kernel copies that reject pointers aimed at kernel memory
-- [ ] Credential checks on open, kill, and device ioctl, using the existing allow table
+- [x] Stable pid allocation, parent links, and zombie reaping beyond the single proof child
+- [x] `exec` of a Robo executable from the VFS into a fresh user address space
+- [x] Threads that share an address space and have private stacks
+- [x] Signals that a process can block, catch, or default, delivered on return to user mode
+- [x] Process groups and sessions so a shell can own a foreground job
+- [x] File-descriptor table per process: dup, close-on-exec, and a shared open-file object
+- [x] User and kernel copies that reject pointers aimed at kernel memory
+- [x] Credential checks on open, kill, and device ioctl, using the existing allow table
 
 ### Syscalls and IPC
 

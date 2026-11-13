@@ -1,6 +1,11 @@
 #include "WindowsVideo.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <condition_variable>
 #include <cstddef>
+#include <mutex>
+#include <thread>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -26,6 +31,23 @@ int gHeight = 0;
 int gStride = 0;
 int gHeldMs = -1;
 std::vector<RoboU32> gHeld;
+
+std::mutex gMutex;
+std::condition_variable gCv;
+bool gStarted = false;
+bool gStop = false;
+bool gWake = false;
+std::wstring gWantPath;
+int gWantMs = 0;
+int gWantW = 0;
+int gWantH = 0;
+int gWantDuration = 0;
+std::vector<RoboU32> gPublish;
+int gPublishW = 0;
+int gPublishH = 0;
+int gPublishMs = -1;
+int gPublishGen = 0;
+int gServedGen = -1;
 
 void Release(IUnknown* object) {
     if (object != nullptr) {
@@ -54,8 +76,6 @@ bool OpenReader(const std::filesystem::path& file) {
         return true;
     }
     CloseReader();
-    const HRESULT started = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-    (void)started;
     if (!gMediaReady) {
         gMediaReady = SUCCEEDED(MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET));
     }
@@ -68,6 +88,7 @@ bool OpenReader(const std::filesystem::path& file) {
     }
     attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE);
     attributes->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE);
+    attributes->SetUINT32(MF_LOW_LATENCY, TRUE);
     IMFSourceReader* reader = nullptr;
     const HRESULT opened = MFCreateSourceReaderFromURL(path.c_str(), attributes, &reader);
     Release(attributes);
@@ -152,36 +173,17 @@ bool CopySample(IMFSample* sample) {
             const int used = packed ? gTypeWidth * 4 : rowBytes;
             const BYTE* top = stride < 0 ? data + static_cast<std::size_t>(gTypeHeight - 1) * static_cast<std::size_t>(used) : data;
             const int step = stride < 0 ? -used : used;
-            const bool half = gTypeWidth >= 1280 && gTypeHeight >= 720 && (gTypeWidth % 2) == 0 && (gTypeHeight % 2) == 0;
-            const int outWidth = half ? gTypeWidth / 2 : gTypeWidth;
-            const int outHeight = half ? gTypeHeight / 2 : gTypeHeight;
-            gHeld.resize(static_cast<std::size_t>(outWidth) * static_cast<std::size_t>(outHeight));
-            for (int y = 0; y < outHeight; ++y) {
-                const int sourceY = half ? y * 2 : y;
-                const BYTE* row = top + static_cast<std::ptrdiff_t>(sourceY) * step;
-                const BYTE* below = half ? row + step : row;
-                for (int x = 0; x < outWidth; ++x) {
-                    const int sourceX = half ? x * 2 : x;
-                    const BYTE* pixel = row + static_cast<std::size_t>(sourceX) * 4;
-                    int red = pixel[2];
-                    int green = pixel[1];
-                    int blue = pixel[0];
-                    if (half) {
-                        const BYTE* across = pixel + 4;
-                        const BYTE* lower = below + static_cast<std::size_t>(sourceX) * 4;
-                        red += across[2] + lower[2] + lower[6];
-                        green += across[1] + lower[1] + lower[5];
-                        blue += across[0] + lower[0] + lower[4];
-                        red /= 4;
-                        green /= 4;
-                        blue /= 4;
-                    }
-                    gHeld[static_cast<std::size_t>(y) * static_cast<std::size_t>(outWidth) + static_cast<std::size_t>(x)] =
-                        0xFF000000u | (static_cast<RoboU32>(red) << 16) | (static_cast<RoboU32>(green) << 8) | static_cast<RoboU32>(blue);
+            gHeld.resize(static_cast<std::size_t>(gTypeWidth) * static_cast<std::size_t>(gTypeHeight));
+            for (int y = 0; y < gTypeHeight; ++y) {
+                const BYTE* row = top + static_cast<std::ptrdiff_t>(y) * step;
+                RoboU32* dest = gHeld.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(gTypeWidth);
+                for (int x = 0; x < gTypeWidth; ++x) {
+                    const BYTE* pixel = row + static_cast<std::size_t>(x) * 4;
+                    dest[x] = 0xFF000000u | (static_cast<RoboU32>(pixel[2]) << 16) | (static_cast<RoboU32>(pixel[1]) << 8) | pixel[0];
                 }
             }
-            gWidth = outWidth;
-            gHeight = outHeight;
+            gWidth = gTypeWidth;
+            gHeight = gTypeHeight;
             copied = true;
         }
     }
@@ -236,48 +238,233 @@ void SeekReader(int timeMs) {
     gHeld.clear();
 }
 
+void ScaleArea(const std::vector<RoboU32>& source, int sourceWidth, int sourceHeight, int destWidth, int destHeight, std::vector<RoboU32>& dest) {
+    dest.resize(static_cast<std::size_t>(destWidth) * static_cast<std::size_t>(destHeight));
+    if (destWidth == sourceWidth && destHeight == sourceHeight) {
+        dest = source;
+        return;
+    }
+    std::vector<int> x0(static_cast<std::size_t>(destWidth));
+    std::vector<int> x1(static_cast<std::size_t>(destWidth));
+    for (int x = 0; x < destWidth; ++x) {
+        x0[static_cast<std::size_t>(x)] = x * sourceWidth / destWidth;
+        int end = (x + 1) * sourceWidth / destWidth;
+        if (end <= x0[static_cast<std::size_t>(x)]) {
+            end = x0[static_cast<std::size_t>(x)] + 1;
+        }
+        if (end > sourceWidth) {
+            end = sourceWidth;
+        }
+        x1[static_cast<std::size_t>(x)] = end;
+    }
+    for (int y = 0; y < destHeight; ++y) {
+        int y0 = y * sourceHeight / destHeight;
+        int y1 = (y + 1) * sourceHeight / destHeight;
+        if (y1 <= y0) {
+            y1 = y0 + 1;
+        }
+        if (y1 > sourceHeight) {
+            y1 = sourceHeight;
+        }
+        RoboU32* row = dest.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(destWidth);
+        for (int x = 0; x < destWidth; ++x) {
+            const int left = x0[static_cast<std::size_t>(x)];
+            const int right = x1[static_cast<std::size_t>(x)];
+            int red = 0;
+            int green = 0;
+            int blue = 0;
+            int count = 0;
+            for (int sampleY = y0; sampleY < y1; ++sampleY) {
+                const RoboU32* sourceRow = source.data() + static_cast<std::size_t>(sampleY) * static_cast<std::size_t>(sourceWidth);
+                for (int sampleX = left; sampleX < right; ++sampleX) {
+                    const RoboU32 pixel = sourceRow[sampleX];
+                    red += static_cast<int>((pixel >> 16) & 255u);
+                    green += static_cast<int>((pixel >> 8) & 255u);
+                    blue += static_cast<int>(pixel & 255u);
+                    ++count;
+                }
+            }
+            if (count < 1) {
+                count = 1;
+            }
+            row[x] = 0xFF000000u | (static_cast<RoboU32>(red / count) << 16) | (static_cast<RoboU32>(green / count) << 8) |
+                     static_cast<RoboU32>(blue / count);
+        }
+    }
+}
+
+void FitSize(int destWidth, int destHeight, int& outWidth, int& outHeight) {
+    outWidth = gWidth;
+    outHeight = gHeight;
+    if (destWidth < 1 || destHeight < 1 || gWidth < 1 || gHeight < 1) {
+        return;
+    }
+    if (destWidth >= gWidth && destHeight >= gHeight) {
+        return;
+    }
+    if (static_cast<long long>(destWidth) * gHeight <= static_cast<long long>(destHeight) * gWidth) {
+        outWidth = destWidth;
+        outHeight = std::max(1, gHeight * destWidth / gWidth);
+    } else {
+        outHeight = destHeight;
+        outWidth = std::max(1, gWidth * destHeight / gHeight);
+    }
+}
+
+bool PullFrame(int& sampleMs) {
+    if (!ReadForward(sampleMs)) {
+        SeekReader(0);
+        if (!ReadForward(sampleMs)) {
+            return false;
+        }
+    }
+    gHeldMs = sampleMs;
+    return true;
+}
+
+void PumpMain() {
+    const HRESULT started = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    (void)started;
+    std::wstring open;
+    int fittedW = 0;
+    int fittedH = 0;
+    bool haveFit = false;
+    std::vector<RoboU32> fitted;
+    while (true) {
+        std::wstring path;
+        int wantMs = 0;
+        int destW = 0;
+        int destH = 0;
+        int duration = 0;
+        int slack = 8;
+        {
+            std::unique_lock<std::mutex> lock(gMutex);
+            if (gHeldMs >= 0 && gWantMs > gHeldMs + 20) {
+                slack = 0;
+            }
+            gCv.wait_for(lock, std::chrono::milliseconds(slack), [] { return gStop || gWake; });
+            gWake = false;
+            if (gStop) {
+                break;
+            }
+            path = gWantPath;
+            wantMs = gWantMs;
+            destW = gWantW;
+            destH = gWantH;
+            duration = gWantDuration;
+        }
+        if (path.empty()) {
+            continue;
+        }
+        const std::filesystem::path file(path);
+        if (path != open) {
+            CloseReader();
+            if (!OpenReader(file)) {
+                continue;
+            }
+            open = path;
+            fittedW = 0;
+            fittedH = 0;
+            haveFit = false;
+        }
+        bool decoded = false;
+        if (duration > 1 && gHeldMs >= duration) {
+            SeekReader(0);
+            int nextMs = 0;
+            decoded = PullFrame(nextMs);
+        } else if (!gHeld.empty() && wantMs + 120 < gHeldMs) {
+            SeekReader(wantMs);
+            int nextMs = 0;
+            decoded = PullFrame(nextMs);
+        } else if (gHeld.empty() || wantMs > gHeldMs + 2) {
+            int nextMs = 0;
+            decoded = PullFrame(nextMs);
+        }
+        if (gHeld.empty() || gWidth < 1 || gHeight < 1) {
+            continue;
+        }
+        int outW = 0;
+        int outH = 0;
+        FitSize(destW, destH, outW, outH);
+        if (!decoded && haveFit && outW == fittedW && outH == fittedH) {
+            continue;
+        }
+        if (outW == gWidth && outH == gHeight) {
+            fitted = gHeld;
+        } else {
+            ScaleArea(gHeld, gWidth, gHeight, outW, outH, fitted);
+        }
+        fittedW = outW;
+        fittedH = outH;
+        haveFit = true;
+        {
+            std::lock_guard<std::mutex> lock(gMutex);
+            gPublish.swap(fitted);
+            gPublishW = outW;
+            gPublishH = outH;
+            gPublishMs = gHeldMs;
+            ++gPublishGen;
+        }
+        gCv.notify_all();
+    }
+    CloseReader();
+}
+
+void EnsurePump() {
+    bool start = false;
+    {
+        std::lock_guard<std::mutex> lock(gMutex);
+        if (!gStarted) {
+            gStarted = true;
+            start = true;
+        }
+    }
+    if (start) {
+        std::thread(PumpMain).detach();
+    }
+}
+
 }  // namespace
 
-bool WindowsVideoFrame(const std::filesystem::path& file, int timeMs, std::vector<RoboU32>& pixels, int& width, int& height, int& sampleMs) {
+bool WindowsVideoFrame(const std::filesystem::path& file, int timeMs, std::vector<RoboU32>& pixels, int& width, int& height, int& sampleMs,
+                       int destWidth, int destHeight, int durationMs) {
     pixels.clear();
     width = 0;
     height = 0;
     sampleMs = 0;
-    if (file.empty() || !OpenReader(file)) {
+    if (file.empty()) {
         return false;
     }
     if (timeMs < 0) {
         timeMs = 0;
     }
-    const bool jump = gHeldMs < 0 || timeMs + 40 < gHeldMs;
-    if (jump) {
-        SeekReader(timeMs);
-    } else if (timeMs <= gHeldMs + 30 && !gHeld.empty()) {
-        width = gWidth;
-        height = gHeight;
-        sampleMs = gHeldMs;
-        return true;
+    EnsurePump();
+    std::unique_lock<std::mutex> lock(gMutex);
+    gWantPath = file.wstring();
+    gWantMs = timeMs;
+    if (destWidth > 0 && destHeight > 0) {
+        gWantW = destWidth;
+        gWantH = destHeight;
     }
-    int seen = gHeldMs;
-    int nextMs = 0;
-    if (!ReadForward(nextMs)) {
-        SeekReader(0);
-        if (!ReadForward(nextMs)) {
-            nextMs = -1;
-        }
+    if (durationMs > 0) {
+        gWantDuration = durationMs;
     }
-    if (nextMs >= 0) {
-        seen = nextMs;
-        gHeldMs = nextMs;
+    gWake = true;
+    gCv.notify_all();
+    if (gPublish.empty()) {
+        gCv.wait_for(lock, std::chrono::milliseconds(1500), [] { return !gPublish.empty() || gStop; });
     }
-    (void)seen;
-    if (gHeld.empty()) {
+    if (gPublish.empty()) {
         return false;
     }
-    pixels = gHeld;
-    width = gWidth;
-    height = gHeight;
-    sampleMs = gHeldMs < 0 ? 0 : gHeldMs;
+    width = gPublishW;
+    height = gPublishH;
+    sampleMs = gPublishMs < 0 ? 0 : gPublishMs;
+    if (gPublishGen == gServedGen) {
+        return true;
+    }
+    pixels = gPublish;
+    gServedGen = gPublishGen;
     return true;
 }
 

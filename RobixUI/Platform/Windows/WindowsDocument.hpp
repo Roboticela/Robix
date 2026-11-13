@@ -69,6 +69,8 @@ void WindowsDocumentSetPictureClock(unsigned clock);
 
 /* True while a shown picture has more than one frame. */
 bool WindowsDocumentNeedsMotion();
+/* True while a video clip is playing. The host ticks faster so the picture stays smooth. */
+bool WindowsDocumentVideoPlaying();
 /* True only when an animated picture has advanced to a frame that is not on screen yet. */
 bool WindowsDocumentMotionDue();
 void WindowsDocumentMotionMark();
