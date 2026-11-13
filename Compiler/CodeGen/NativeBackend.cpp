@@ -3386,6 +3386,13 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
                 "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\n"
                 "4:\n"
+                "movabsq $21048, %rax\n"
+                "movq (%rax), %rcx\n"
+                "testq %rcx, %rcx\n"
+                "jz 6f\n"
+                "movq $0, (%rax)\n"
+                "iretq\n"
+                "6:\n"
                 "movq rx_fault_guard_on(%rip), %rcx\n"
                 "testq %rcx, %rcx\n"
                 "jz 2f\n"
@@ -3412,6 +3419,12 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 "call rx_fn_" + isr + "\n"
                 "popq %r11\npopq %r10\npopq %r9\npopq %r8\n"
                 "popq %rdi\npopq %rsi\npopq %rdx\npopq %rcx\n"
+                "movabsq $21048, %rax\n"
+                "movq (%rax), %rcx\n"
+                "testq %rcx, %rcx\n"
+                "jz 3f\n"
+                "movq $0, (%rax)\n"
+                "iretq\n"
                 "3:\ncli\n5:\nhlt\njmp 5b\n";
             std::string doubled;
             for (char ch : text) {
@@ -3492,7 +3505,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             }
             out << "  ret i64 %ret\n}\n\n";
         }
-        out << "define void @rx_frame_fill(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %color) noinline {\n";
+        out << "define void @rx_frame_fill(i64 %frame, i64 %x, i64 %y, i64 %rw, i64 %rh, i64 %color) noinline #0 {\n";
         out << "entry:\n";
         out << "  %p = inttoptr i64 %frame to ptr\n";
         out << "  %fw32 = load i32, ptr %p, align 4\n";
@@ -3584,7 +3597,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 }
                 out << "]\n";
             }
-            out << "define i64 @rx_gamma_mix(i64 %ink, i64 %dst, i64 %cov) {\n";
+            out << "define i64 @rx_gamma_mix(i64 %ink, i64 %dst, i64 %cov) #0 {\n";
             out << "entry:\n  %inv = sub i64 255, %cov\n  br label %ch\n";
             out << "ch:\n  %i = phi i64 [ 0, %entry ], [ %next, %step ]\n  %acc = phi i64 [ 0, %entry ], [ %acc2, %step ]\n";
             out << "  %done = icmp uge i64 %i, 3\n  br i1 %done, label %end, label %step\n";
@@ -3607,7 +3620,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 out << "@rx.platform.sheet = global i64 0, align 8\n";
             }
             out << "@rx.platform.ready = global i64 0, align 8\n";
-            out << "define i64 @rx_platform_paint(i64 %frame, i64 %scroll) {\n";
+            out << "define i64 @rx_platform_paint(i64 %frame, i64 %scroll) #0 {\n";
             out << "entry:\n  %heldSheet = load i64, ptr @rx.platform.sheet, align 8\n";
             if (!m_options.freestanding) {
                 out << "  %needSheet = icmp eq i64 %heldSheet, 0\n  br i1 %needSheet, label %alloc, label %sized\n";
@@ -3750,7 +3763,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "sheetdone:\n  ret i64 1\n";
             out << "chromed:\n  call void @rx_platform_chrome(i64 %frame, i64 %scroll)\n";
             out << "  store i64 %scroll, ptr @rx.platform.scroll, align 8\n  ret i64 1\n}\n\n";
-            out << "define i64 @rx_platform_scroll(i64 %frame, i64 %request) {\n";
+            out << "define i64 @rx_platform_scroll(i64 %frame, i64 %request) #0 {\n";
             out << "  %p = inttoptr i64 %frame to ptr\n";
             out << "  %hptr = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hptr, align 4\n  %fh = zext i32 %fh32 to i64\n";
             out << "  %span = call i64 @rx_platform_height()\n  %room = sub i64 %span, %fh\n";
@@ -3780,7 +3793,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
                 out << "i32 " << ctx.platformMotion[index];
             }
             out << "\n]\n\n";
-            out << "define void @rx_platform_chrome(i64 %frame, i64 %scroll) {\n";
+            out << "define void @rx_platform_chrome(i64 %frame, i64 %scroll) #0 {\n";
             out << "entry:\n  %p = inttoptr i64 %frame to ptr\n";
             out << "  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
             out << "  %hp = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
@@ -3819,7 +3832,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "  call void @rx_platform_arrow(i64 %frame, i64 %barX, i64 2, i64 1)\n";
             out << "  %downY0 = add i64 2, %barH\n  %downY = sub i64 %downY0, 6\n";
             out << "  call void @rx_platform_arrow(i64 %frame, i64 %barX, i64 %downY, i64 0)\n  ret void\n}\n\n";
-            out << "define void @rx_platform_pill(i64 %frame, i64 %x, i64 %y, i64 %w, i64 %h, i64 %color) {\n";
+            out << "define void @rx_platform_pill(i64 %frame, i64 %x, i64 %y, i64 %w, i64 %h, i64 %color) #0 {\n";
             out << "entry:\n  %p = inttoptr i64 %frame to ptr\n  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
             out << "  %hp = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
             out << "  %base = getelementptr i8, ptr %p, i64 8\n  %rad0 = icmp ult i64 %w, %h\n  %rad1 = select i1 %rad0, i64 %w, i64 %h\n";
@@ -3866,7 +3879,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "colnext:\n  %rxnext = add i64 %rx, 1\n  br label %col\n";
             out << "rowdone:\n  %rynext = add i64 %ry, 1\n  br label %row\n";
             out << "end:\n  ret void\n}\n\n";
-            out << "define void @rx_platform_arrow(i64 %frame, i64 %x, i64 %y, i64 %up) {\n";
+            out << "define void @rx_platform_arrow(i64 %frame, i64 %x, i64 %y, i64 %up) #0 {\n";
             out << "entry:\n  %p = inttoptr i64 %frame to ptr\n  %fw32 = load i32, ptr %p, align 4\n  %fw = zext i32 %fw32 to i64\n";
             out << "  %hp = getelementptr i8, ptr %p, i64 4\n  %fh32 = load i32, ptr %hp, align 4\n  %fh = zext i32 %fh32 to i64\n";
             out << "  %base = getelementptr i8, ptr %p, i64 8\n  br label %row\n";
@@ -3923,7 +3936,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             out << "k7:\n  %is7 = icmp eq i64 %kind, 7\n  br i1 %is7, label %py, label %none\n";
             out << "py:\n  ret i64 " << ctx.platformProbeY << "\n";
             out << "none:\n  ret i64 0\n}\n\n";
-            out << "define i64 @rx_platform_motion(i64 %frame, i64 %clock, i64 %scroll) {\n";
+            out << "define i64 @rx_platform_motion(i64 %frame, i64 %clock, i64 %scroll) #0 {\n";
             out << "entry:\n  %frames = add i64 " << motionFrames << ", 0\n  %many = icmp sgt i64 %frames, 1\n";
             out << "  br i1 %many, label %go, label %miss\n";
             out << "miss:\n  ret i64 0\n";

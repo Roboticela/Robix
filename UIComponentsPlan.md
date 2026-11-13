@@ -408,9 +408,15 @@ Depends on: C2, C4. A frame is an image with a clock. No page loader.
 
 Depends on: C1. Sound has no box. Transport state is still a component so library players can bind it.
 
-- [ ] `Audio` schema: source, time, playing, volume
-- [ ] Decode and play through the host output
-- [ ] Test asserts duration and the time after a fixed seek
+`RoboAudioRead` accepts source, time, playing, and volume, and rejects an unknown attribute, a bad clock or volume, the wrong tag, and a child. `RoboAudioDecode` opens the formats below. PCM containers, MIDI, and G.711 fill samples. The other formats report duration from their header, and the Windows host asks Media Foundation to decode a file the built-in reader did not turn into samples. `RoboAudioSeek` moves the clock. A live stream stays at 0.
+
+Lossy: MP3, AAC, M4A, OGG, Opus, WMA, AMR, MP2, AC3, E-AC-3, and MP4 audio. Lossless: FLAC, ALAC, WavPack, Monkey's Audio, TTA, TAK, OptimFROG, and MPEG-4 ALS. Uncompressed: WAV, AIFF, AIF, AU, PCM, BWF, RF64, and CAF. Music: MIDI, MID, KAR, MOD, XM, IT, S3M, NSF, and SPC. Surround and professional: DTS, DTS-HD, Dolby TrueHD, AC-4, Atmos inside a supported container, and DSD (DSF, DFF). Voice: AMR-NB, AMR-WB, GSM, G.711 ulaw and alaw, G.722, G.729, Speex, and SILK. Streams and playlists: HLS, DASH, WebM, MKA, Icecast and Shoutcast, M3U, M3U8, PLS, WPL, and ASX.
+
+- [x] `Audio` schema: source, time, playing, volume
+- [x] Decode and play through the host output
+- [x] Test asserts duration and the time after a fixed seek
+
+`Tests/UI/RoboAudioTests.cpp` passed, 145 checks. The fixture is a one-second WAV. A seek to 250 ms leaves the clock at 250 ms. A seek past the end stops at 1000 ms. Playback from 500 ms starts on that sample, and volume 50 scales it.
 
 ### Stage C11 — TextField
 
@@ -452,7 +458,7 @@ Depends on: C2, C12. Repetition of a template over a collection. The template is
 - [x] Recycle children when the collection changes
 - [x] Test asserts three children and their keys
 
-`Tests/UI/RoboListTests.cpp` passed, 49 checks. The keys are `blue`, `green`, and `hull`. After the collection changes, `gamma` and `beta` keep their identities and `delta` reuses the child `alpha` left behind. A row past the list box is clipped.
+`Tests/UI/RoboListTests.cpp` passed, 52 checks. The keys are `blue`, `green`, and `hull`. After the collection changes, `gamma` and `beta` keep their identities and `delta` reuses the child `alpha` left behind. A row past the list box is clipped. `Audio` is an allowed template.
 
 ### Stage C14 — Events
 
@@ -888,8 +894,9 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/Input/` | Stage C11. `RoboInput` reads value, placeholder, mask, multiline, disabled, and `CursorColor`. `TextField` is the same primitive. The caret and the selection are parts. |
 | `RobixUI/Compiler/Components/ScrollView/` | Stage C12. `RoboScrollView` reads axis and offset. The child moves inside a clipped viewport. The track and the thumb are parts. |
 | `RobixUI/Compiler/Components/List/` | Stage C13. `RoboList` reads items, key, and template. One child is built per item, and a surviving key keeps its identity. |
-| `RobixUI/Compiler/ComponentTier.cpp` | Lists `View3D`, `Input`, `ScrollView`, and `List` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |
+| `RobixUI/Compiler/Components/Audio/` | Stage C10. `RoboAudio` reads source, time, playing, and volume. It decodes the sound and keeps the clock. |
+| `RobixUI/Compiler/ComponentTier.cpp` | Lists `Audio`, `View3D`, `Input`, `ScrollView`, and `List` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |
 | `RobixUI/Compiler/Compose.cpp` | Expands library components. Library stages use it. |
 | `RobixUI/Compiler/Components/*/*Web.cpp` | Hand-written HTML emitters for the plan primitives. Stage C21 replaces them with the web face. |
 
-`Video` and `Audio` have no compiler unit yet. They begin at their stage.
+`Video` has no compiler unit yet. It begins at its stage.

@@ -55,6 +55,8 @@ void TestSchema() {
           "Container is the View primitive");
     Check(Load("<List Template=\"ScrollView\" Items=\"one\"/>", list, diagnostic) && list.templateKind == "scrollview",
           "ScrollView is an earlier primitive");
+    Check(Load("<List Template=\"Audio\" Items=\"one\"/>", list, diagnostic) && list.templateKind == "audio",
+          "Audio is an earlier primitive");
 
     Check(!Load("<List Items=\"alpha\" Tilt=\"1\"/>", list, diagnostic) && diagnostic.find("R8201") != std::string::npos,
           "an unknown attribute is rejected");
@@ -113,6 +115,20 @@ void TestBuild() {
     Check(list.children.size() == 3 && list.children[0].key == "blue" && list.children[0].value == "blue" &&
               list.children[0].color == 0xFF0E7AFFu && list.children[1].y == 8 && list.contentHeight == 24,
           "comma items become three placed children");
+
+    const char* harbor =
+        "<List key=\"id\" width=\"720\" direction=\"column\" gap=\"8\">"
+        "<Template><View background=\"#1C2430\"><View background=\"{color}\"/><Text value=\"{value}\"/></View></Template>"
+        "<Item id=\"blue\" value=\"Blue lamp, dry dock\" color=\"#0E7AFF\"/>"
+        "<Item id=\"green\" value=\"Green lamp, inner harbor\" color=\"#2F9E44\"/>"
+        "<Item id=\"hull\" value=\"Hull light, east wharf\" color=\"#C4553A\"/>"
+        "</List>";
+    Check(RoboXMLParse(harbor, document) && RoboListMaterialize(document.root, diagnostic), "a list with direction still builds");
+    Check(document.root.children.size() == 3 && document.root.children[0].children.size() == 2 &&
+              document.root.children[0].children[1].attrs["value"] == "Blue lamp, dry dock" &&
+              document.root.children[1].children[1].attrs["value"] == "Green lamp, inner harbor" &&
+              document.root.children[2].children[1].attrs["value"] == "Hull light, east wharf",
+          "the harbor rows replace the template text");
 }
 
 void TestRecycle() {

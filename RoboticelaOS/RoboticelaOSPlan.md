@@ -24,16 +24,16 @@ Whatever you implement, first make sure that the OS has that much easy features 
 
 ### Memory
 
-- [ ] Kernel heap with allocate, free, and alignment, backed by the frame allocator
-- [ ] Page-fault handler that maps an anonymous page and returns to the faulting instruction
-- [ ] Per-process address space loaded on every context switch
-- [ ] Copy-on-write pages for a forked address space
+- [x] Kernel heap with allocate, free, and alignment, backed by the frame allocator
+- [x] Page-fault handler that maps an anonymous page and returns to the faulting instruction
+- [x] Per-process address space loaded on every context switch
+- [x] Copy-on-write pages for a forked address space
 - [ ] `mmap` and `munmap` for anonymous memory, with guard gaps the fault handler refuses to fill
-- [ ] Shared memory object that two processes can map
-- [ ] Physical-page pin and unpin for drivers that program DMA
-- [ ] IOMMU (or a bounce buffer when no IOMMU is present) so a device cannot write arbitrary RAM
-- [ ] Firmware framebuffer and ACPI regions reserved so the frame allocator never hands them out
-- [ ] Kernel stack guard page per thread
+- [x] Shared memory object that two processes can map
+- [x] Physical-page pin and unpin for drivers that program DMA
+- [x] IOMMU (or a bounce buffer when no IOMMU is present) so a device cannot write arbitrary RAM
+- [x] Firmware framebuffer and ACPI regions reserved so the frame allocator never hands them out
+- [x] Kernel stack guard page per thread
 
 ### CPU and scheduling
 

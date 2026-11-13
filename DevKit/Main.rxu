@@ -481,4 +481,8 @@
     <Item id="green" value="Green lamp, inner harbor" color="#2F9E44"/>
     <Item id="hull" value="Hull light, east wharf" color="#C4553A"/>
   </List>
+
+  <Text value="Audio" fontSize="22" font="sans-semibold"/>
+  <Text value="A sound and its clock. The harbor tone is one second of PCM." fontSize="13"/>
+  <Audio source="Audio/Harbor.wav" time="0" playing="true" volume="70"/>
 </Screen>

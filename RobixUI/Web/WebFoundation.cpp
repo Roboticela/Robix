@@ -39,6 +39,37 @@ namespace fs = std::filesystem;
 namespace Robix::UI {
 namespace {
 
+fs::path gAudioDocument;
+fs::path gAudioOut;
+
+std::string Lower(std::string text);
+
+std::string PublishAudio(const std::string& source) {
+    if (source.empty()) {
+        return source;
+    }
+    const std::string key = Lower(source);
+    if (key.rfind("http://", 0) == 0 || key.rfind("https://", 0) == 0) {
+        return source;
+    }
+    fs::path file(source);
+    if (file.is_relative() && !gAudioDocument.empty()) {
+        file = gAudioDocument.parent_path() / file;
+    }
+    std::error_code error;
+    if (gAudioOut.empty() || !fs::is_regular_file(file, error)) {
+        return source;
+    }
+    const fs::path folder = gAudioOut / "audio";
+    fs::create_directories(folder, error);
+    const fs::path dest = folder / file.filename();
+    fs::copy_file(file, dest, fs::copy_options::overwrite_existing, error);
+    if (error) {
+        return source;
+    }
+    return "audio/" + file.filename().string();
+}
+
 fs::path FindUpFrom(fs::path dir, const fs::path& relative) {
     for (int depth = 0; depth < 8 && !dir.empty(); ++depth) {
         std::error_code error;
@@ -215,6 +246,34 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
     }
     if (name == "image") {
         RoboWebEmitImage(html, node, library);
+        return;
+    }
+    if (name == "audio") {
+        const std::string source = PublishAudio(RoboXMLAttr(node, "source").empty() ? RoboXMLAttr(node, "src") : RoboXMLAttr(node, "source"));
+        const std::string playing = Lower(RoboXMLAttr(node, "playing"));
+        const bool play = playing == "true" || playing == "yes" || playing == "on" || playing == "1";
+        html += "<audio class=\"robo-audio\"";
+        if (play) {
+            html += " autoplay";
+        }
+        if (!source.empty()) {
+            html += " src=\"";
+            html += Escape(source);
+            html += "\"";
+        }
+        const std::string volume = RoboXMLAttr(node, "volume");
+        if (!volume.empty()) {
+            html += " data-volume=\"";
+            html += Escape(volume);
+            html += "\"";
+        }
+        const std::string time = RoboXMLAttr(node, "time");
+        if (!time.empty() && time != "0") {
+            html += " data-time=\"";
+            html += Escape(time);
+            html += "\"";
+        }
+        html += "></audio>";
         return;
     }
     if (name == "icon" || name == "svg" || RoboCompilerIsIconNode(node)) {
@@ -585,6 +644,8 @@ bool WriteWebFoundation(const fs::path& outRoot, const fs::path& document, std::
     RoboWebMotionReset();
     RoboWebUseDocument(document);
     RoboWebImageReset(document, outRoot, compileImages);
+    gAudioDocument = document;
+    gAudioOut = outRoot;
     if (!document.empty()) {
         RoboXMLDocument xml;
         const std::string source = ReadText(document);
@@ -1149,6 +1210,21 @@ Robo.sceneSet = function (name, key, value) {
 )JS";
     js += RoboWebReelScript();
     js += RoboWebImageScript();
+    js += R"JS(
+document.querySelectorAll("audio.robo-audio").forEach(function (node) {
+  var apply = function () {
+    var volume = Number(node.getAttribute("data-volume"));
+    if (volume >= 0 && volume <= 100) node.volume = volume / 100;
+    var time = Number(node.getAttribute("data-time"));
+    if (time > 0 && !node._roboTime) {
+      node.currentTime = time / 1000;
+      node._roboTime = true;
+    }
+  };
+  node.addEventListener("loadedmetadata", apply);
+  apply();
+});
+)JS";
 
     if (!Robix::D3::CommitViews(outRoot, error)) return false;
     std::string page = html.str();

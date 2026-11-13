@@ -1,5 +1,6 @@
 #include "WindowsDocument.hpp"
 #include "../ViewZoom.hpp"
+#include "WindowsAudio.hpp"
 #include "WindowsIcon.hpp"
 
 #include "../../Compiler/RoboCompilerShared.hpp"
@@ -1556,6 +1557,9 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     }
     const std::string name = Lower(node.name);
     const std::string face = RoboUIFace(node);
+    if (name == "audio") {
+        return 0;
+    }
     if (name == "image") {
         int natural = AttrLength(node, "height");
         if (natural <= 0) {
@@ -2440,6 +2444,9 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     if (shown.empty()) shown = Lower(RoboXMLAttr(node, "visible"));
     if (shown == "false" || shown == "0" || shown == "no" || shown == "off" || shown == "hidden" ||
         (shown.empty() && Lower(RoboXMLAttr(node, "hidden")) == "true")) {
+        return 0;
+    }
+    if (name == "audio") {
         return 0;
     }
     if (name == "input" || name == "textfield") {
@@ -4721,6 +4728,7 @@ bool BuildScene(RoboGPU* gpu, const std::string& path, bool light, int viewWidth
         gScene.valid = false;
         return false;
     }
+    WindowsAudioSync(document.root, gDocumentDir);
     std::vector<WindowControl> controls;
     HitState hits;
     hits.controls = &controls;
@@ -5749,12 +5757,46 @@ bool WindowsDocumentFieldPaintScaled(RoboGPU* gpu, int scrollY, int screenHeight
 
 unsigned WindowsDocumentFieldRevision() { return gFieldRevision; }
 
+void ContentShift(int index, int& scrollX, int& scrollY) {
+    scrollX = 0;
+    scrollY = 0;
+    for (const ScrollRegion& region : gRegions) {
+        if (index < region.opBegin || index >= region.opEnd) {
+            continue;
+        }
+        scrollX = region.scrollX;
+        scrollY = region.scrollY;
+        return;
+    }
+}
+
+bool DocumentHits(const PaintOp& op, int x, int y, int width, int height) {
+    return op.width > 0 && op.height > 0 && op.x < x + width && op.x + op.width > x && op.y < y + height && op.y + op.height > y;
+}
+
 void WindowsDocumentPaintWindowRect(RoboGPU* gpu, int x, int y, int width, int height, int scrollY, int viewWidth, int viewHeight) {
     if (gpu == nullptr || !gScene.valid || width <= 0 || height <= 0 || viewWidth <= 0 || viewHeight <= 0) {
         return;
     }
-    int left = x - gScrollX;
-    int top = y - scrollY;
+    int shiftX = 0;
+    int shiftY = 0;
+    bool found = false;
+    for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
+        const PaintOp& op = gScene.ops[index];
+        if (!DocumentHits(op, x, y, width, height)) {
+            continue;
+        }
+        ContentShift(static_cast<int>(index), shiftX, shiftY);
+        found = true;
+        if (shiftX != 0 || shiftY != 0) {
+            break;
+        }
+    }
+    if (!found) {
+        return;
+    }
+    int left = x - gScrollX - shiftX;
+    int top = y - scrollY - shiftY;
     int right = left + width;
     int bottom = top + height;
     if (left < 0) {
@@ -5775,10 +5817,7 @@ void WindowsDocumentPaintWindowRect(RoboGPU* gpu, int x, int y, int width, int h
     RoboGPUFillRect(gpu, left, top, right - left, bottom - top, gScene.background);
     for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
         const PaintOp& op = gScene.ops[index];
-        if (op.width <= 0 || op.height <= 0) {
-            continue;
-        }
-        if (op.x + op.width <= x || op.x >= x + width || op.y + op.height <= y || op.y >= y + height) {
+        if (!DocumentHits(op, x, y, width, height)) {
             continue;
         }
         PaintPrepared(gpu, op, static_cast<int>(index), scrollY, viewHeight, gScene.light);
@@ -5976,6 +6015,18 @@ void WindowsDocumentRepaintRect(RoboGPU* gpu, int x, int y, int width, int heigh
     if (rect.width <= 0 || rect.height <= 0) {
         return;
     }
+    int shiftX = 0;
+    int shiftY = 0;
+    for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
+        const PaintOp& op = gScene.ops[index];
+        if (!DocumentHits(op, rect.x, rect.y, rect.width, rect.height)) {
+            continue;
+        }
+        ContentShift(static_cast<int>(index), shiftX, shiftY);
+        if (shiftX != 0 || shiftY != 0) {
+            break;
+        }
+    }
     RoboU32 backdrop = gScene.background;
     const int midX = rect.x + rect.width / 2;
     const int midY = rect.y + rect.height / 2;
@@ -5987,7 +6038,7 @@ void WindowsDocumentRepaintRect(RoboGPU* gpu, int x, int y, int width, int heigh
             backdrop = op.fill;
         }
     }
-    RoboGPUFillRect(gpu, rect.x, rect.y, rect.width, rect.height, backdrop);
+    RoboGPUFillRect(gpu, rect.x - gScrollX - shiftX, rect.y - shiftY, rect.width, rect.height, backdrop);
     for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
         const PaintOp& op = gScene.ops[index];
         if (op.width > 0 && op.height > 0 && op.x < rect.x + rect.width && op.x + op.width > rect.x && op.y < rect.y + rect.height &&
@@ -6110,6 +6161,7 @@ void PaintWindowsDocumentView(RoboGPU* gpu, int scrollY, int viewWidth, int view
     if (gpu == nullptr || !gScene.valid || viewWidth <= 0 || viewHeight <= 0) {
         return;
     }
+    RoboGPUResetScissor(gpu);
     RoboGPUClear(gpu, gScene.background);
     PaintOps(gpu, gScene.ops, scrollY, viewHeight, gScene.light);
     gScene.scrollY = scrollY;

@@ -7,11 +7,13 @@
 namespace {
 
 const char* const ROBO_LIST_ATTRIBUTES[] = {
-    "id", "items", "key", "template", "numbered", "width", "height", "itemheight", "item-height", "gap",
+    "id",        "name",     "items",    "key",       "template", "numbered", "width",    "height",
+    "itemheight","item-height","gap",    "direction", "align",    "justify",  "padding",  "background",
+    "overflow",  "margin",   "minwidth", "maxwidth",  "minheight","maxheight","wrap",
 };
 
 const char* const ROBO_LIST_TEMPLATES[] = {
-    "view", "text", "image", "icon", "svg", "canvas", "view3d", "input", "scrollview",
+    "view", "text", "image", "icon", "svg", "canvas", "view3d", "input", "scrollview", "audio",
 };
 
 const RoboU32 ROBO_LIST_PALETTE[] = {

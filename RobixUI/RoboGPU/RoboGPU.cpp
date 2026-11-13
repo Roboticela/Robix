@@ -201,6 +201,13 @@ void RoboGPUPopScissor(RoboGPU* gpu) {
   --gpu->scissorDepth;
 }
 
+void RoboGPUResetScissor(RoboGPU* gpu) {
+  if (gpu == ROBO_NULL) {
+    return;
+  }
+  gpu->scissorDepth = 0;
+}
+
 /* fb_fillrect / sys_fillrect — word stores + 8-pixel unroll on cached back. */
 static void RoboGPUFillSpan32(RoboU32* pixels, RoboI32 count, RoboU32 color) {
   while (count >= 8) {

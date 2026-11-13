@@ -1122,6 +1122,7 @@ void Draw(HostView* view) {
     if (view == nullptr || !view->ready || view->back == nullptr) {
         return;
     }
+    RoboGPUResetScissor(&view->gpu);
     SyncPageZoom(view);
     const double scale = PageScale(view);
     const bool zoomed = std::abs(scale - 1.0) > 0.0005;

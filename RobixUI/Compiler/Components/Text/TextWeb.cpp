@@ -155,7 +155,7 @@ bool RoboWebIsAllowedTag(const std::string& tag) {
          tag == "h3" || tag == "h4" || tag == "h5" || tag == "h6" || tag == "input" || tag == "textarea" ||
          tag == "label" || tag == "select" || tag == "option" || tag == "ul" || tag == "ol" || tag == "li" ||
          tag == "nav" || tag == "section" || tag == "header" || tag == "footer" || tag == "main" || tag == "form" ||
-         tag == "article" || tag == "aside";
+         tag == "article" || tag == "aside" || tag == "audio" || tag == "video" || tag == "source";
 }
 
 std::string RoboWebBuiltinTag(const RoboXMLNode& node, const std::string& paint) {
@@ -182,6 +182,8 @@ std::string RoboWebBuiltinTag(const RoboXMLNode& node, const std::string& paint)
     return "input";
   }
   if (paint == "textarea") return "textarea";
+  if (paint == "audio") return "audio";
+  if (paint == "video") return "video";
   if (paint == "list") {
     const std::string numbered = RoboWebLower(RoboXMLAttr(node, "numbered"));
     if (numbered == "true" || numbered == "yes" || numbered == "on" || numbered == "1") return "ol";
