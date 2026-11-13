@@ -129,9 +129,9 @@ These are the class drivers that should make a device usable before any vendor p
 
 ### Input
 
-- [ ] PS/2 keyboard with scan-code set 1 and 2, key up, key down, and lock LEDs
-- [ ] PS/2 mouse with packet sync, buttons, and wheel
-- [ ] PCI input-controller class (class 9), which `Choose` currently does not bind
+- [x] PS/2 keyboard with scan-code set 1 and 2, key up, key down, and lock LEDs
+- [x] PS/2 mouse with packet sync, buttons, and wheel
+- [x] PCI input-controller class (class 9), which `Choose` currently does not bind
 - [ ] HID keyboard, mouse, and touch collections turned into the existing input queue
 - [ ] HID-over-I2C touchpad that reports absolute contact from the real descriptor, not only a parsed sample
 - [ ] Power, sleep, and lid buttons as input events
@@ -139,7 +139,7 @@ These are the class drivers that should make a device usable before any vendor p
 ### USB
 
 - [ ] xHCI host that runs command, event, and transfer rings and recovers a halted endpoint
-- [ ] EHCI and UHCI or OHCI fallback for machines without xHCI
+- [x] EHCI and UHCI or OHCI fallback for machines without xHCI
 - [ ] USB hub driver, including transaction translator, so a device behind a hub enumerates
 - [ ] USB HID boot keyboard and boot mouse, plus full report devices
 - [ ] USB mass-storage bulk-only transport, with a block device on top
@@ -149,7 +149,7 @@ These are the class drivers that should make a device usable before any vendor p
 - [ ] USB CDC-ACM serial
 - [ ] USB CDC-ECM, NCM, and RNDIS, presented as an Ethernet device
 - [ ] USB Bluetooth HCI transport that attaches to the Bluetooth class driver
-- [ ] USB serial-bus class binding for every host controller subclass, not only subclass 3
+- [x] USB serial-bus class binding for every host controller subclass, not only subclass 3
 
 ### Storage
 

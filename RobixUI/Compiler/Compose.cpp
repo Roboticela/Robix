@@ -1,6 +1,7 @@
 #include "Compose.hpp"
 
 #include "ComponentTier.hpp"
+#include "Components/Event/RoboEvent.hpp"
 #include "Components/List/RoboList.hpp"
 
 #include <cmath>
@@ -495,10 +496,12 @@ void ApplyEvents(RoboXMLNode& node, const Component& component) {
 }
 
 std::vector<std::string> EventsInRx(const std::string& source) {
-    static const char* names[] = {"OnClick", "OnDoubleClick", "OnChange", "OnInput", "OnPointerDown", "OnPointerUp",
-                                  "OnPointerMove", "OnFocus", "OnBlur", "OnKeyDown", "OnKeyUp", "OnContextMenu"};
+    static const char* extra[] = {"OnPointerDown", "OnPointerUp", "OnPointerMove"};
     std::vector<std::string> found;
-    for (const char* name : names) {
+    for (const char* name : ROBO_EVENT_NAMES) {
+        if (source.find(name) != std::string::npos) found.emplace_back(name);
+    }
+    for (const char* name : extra) {
         if (source.find(name) != std::string::npos) found.emplace_back(name);
     }
     return found;

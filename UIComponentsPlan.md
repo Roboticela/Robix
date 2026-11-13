@@ -470,70 +470,74 @@ Depends on: C2, C12. Repetition of a template over a collection. The template is
 
 Depends on: C2. The hit target is the topmost primitive under the point.
 
-- [ ] Pointer: `OnClick`
-- [ ] Pointer: `OnDoubleClick`
-- [ ] Pointer: `OnHover`
-- [ ] Pointer: `OnMouseDown`
-- [ ] Pointer: `OnMouseUp`
-- [ ] Pointer: `OnContextMenu`
-- [ ] Touch: `OnTap`
-- [ ] Touch: `OnLongPress`
-- [ ] Touch: `OnSwipe`
-- [ ] Touch: `OnDrag`
-- [ ] Touch: `OnDrop`
-- [ ] Touch: `OnPinch`
-- [ ] Touch: `OnRotate`
-- [ ] Keyboard: `OnKeyDown`
-- [ ] Keyboard: `OnKeyUp`
-- [ ] Keyboard: `OnFocus`
-- [ ] Keyboard: `OnBlur`
-- [ ] Keyboard: `OnSubmit`
-- [ ] Value: `OnChange`
-- [ ] Value: `OnInput`
-- [ ] Value: `OnValueChange`
-- [ ] Value: `OnSelectionChange`
-- [ ] Lifecycle: `OnMount`
-- [ ] Lifecycle: `OnUnmount`
-- [ ] Lifecycle: `OnUpdate`
-- [ ] Layout: `OnResize`
-- [ ] Layout: `OnLayout`
-- [ ] Layout: `OnVisibilityChange`
-- [ ] Scroll: `OnScroll`
-- [ ] Scroll: `OnScrollStart`
-- [ ] Scroll: `OnScrollEnd`
-- [ ] Media: `OnLoad`
-- [ ] Media: `OnError`
-- [ ] Media: `OnPlay`
-- [ ] Media: `OnPause`
-- [ ] Media: `OnEnd`
-- [ ] Media: `OnTimeUpdate`
-- [ ] Test plays a click script and asserts the hit id
+- [x] Pointer: `OnClick`
+- [x] Pointer: `OnDoubleClick`
+- [x] Pointer: `OnHover`
+- [x] Pointer: `OnMouseDown`
+- [x] Pointer: `OnMouseUp`
+- [x] Pointer: `OnContextMenu`
+- [x] Touch: `OnTap`
+- [x] Touch: `OnLongPress`
+- [x] Touch: `OnSwipe`
+- [x] Touch: `OnDrag`
+- [x] Touch: `OnDrop`
+- [x] Touch: `OnPinch`
+- [x] Touch: `OnRotate`
+- [x] Keyboard: `OnKeyDown`
+- [x] Keyboard: `OnKeyUp`
+- [x] Keyboard: `OnFocus`
+- [x] Keyboard: `OnBlur`
+- [x] Keyboard: `OnSubmit`
+- [x] Value: `OnChange`
+- [x] Value: `OnInput`
+- [x] Value: `OnValueChange`
+- [x] Value: `OnSelectionChange`
+- [x] Lifecycle: `OnMount`
+- [x] Lifecycle: `OnUnmount`
+- [x] Lifecycle: `OnUpdate`
+- [x] Layout: `OnResize`
+- [x] Layout: `OnLayout`
+- [x] Layout: `OnVisibilityChange`
+- [x] Scroll: `OnScroll`
+- [x] Scroll: `OnScrollStart`
+- [x] Scroll: `OnScrollEnd`
+- [x] Media: `OnLoad`
+- [x] Media: `OnError`
+- [x] Media: `OnPlay`
+- [x] Media: `OnPause`
+- [x] Media: `OnEnd`
+- [x] Media: `OnTimeUpdate`
+- [x] Test plays a click script and asserts the hit id
+
+`Tests/UI/RoboEventTests.cpp` passed, 77 checks. A click at `(8, 8)` hits `lamp`, then the same record reaches `page`. A later overlapping sibling wins. A mouse up on another target is not a click. A second click 200 ms later is a double click, and 301 ms is not. After the lamp unmounts, that point hits `page`.
 
 ### Stage C15 — State, conditions, and actions
 
 Depends on: C14.
 
-- [ ] `State`
-- [ ] `SetState`
-- [ ] `Conditional`
-- [ ] `Show`
-- [ ] `Hide`
-- [ ] `Enable`
-- [ ] `Disable`
-- [ ] `Toggle`
-- [ ] `Navigate`
-- [ ] `Focus`
-- [ ] `Blur`
-- [ ] `ScrollTo`
-- [ ] `Validate`
-- [ ] `Submit`
-- [ ] `Reset`
-- [ ] `Execute`
-- [ ] `Delay`
-- [ ] `Sequence`
-- [ ] `Parallel`
-- [ ] Test sets state from a click and asserts the new value
-- [ ] Test runs a sequence of two actions in order
+- [x] `State`
+- [x] `SetState`
+- [x] `Conditional`
+- [x] `Show`
+- [x] `Hide`
+- [x] `Enable`
+- [x] `Disable`
+- [x] `Toggle`
+- [x] `Navigate`
+- [x] `Focus`
+- [x] `Blur`
+- [x] `ScrollTo`
+- [x] `Validate`
+- [x] `Submit`
+- [x] `Reset`
+- [x] `Execute`
+- [x] `Delay`
+- [x] `Sequence`
+- [x] `Parallel`
+- [x] Test sets state from a click and asserts the new value
+- [x] Test runs a sequence of two actions in order
+
+`Tests/UI/RoboActionTests.cpp` passed, 40 checks. A click at `(8, 8)` sets `lamp` from `off` to `on`, then the parent action sets `room` to `lit`. The sequence writes `one` and then `two`. A delay of 40 ms sits between them. `Navigate` to `dock` hides `home`. An empty required field does not submit.
 
 ### Stage C16 — Gestures
 
@@ -900,6 +904,8 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/Input/` | Stage C11. `RoboInput` reads value, placeholder, mask, multiline, disabled, and `CursorColor`. `TextField` is the same primitive. The caret and the selection are parts. |
 | `RobixUI/Compiler/Components/ScrollView/` | Stage C12. `RoboScrollView` reads axis and offset. The child moves inside a clipped viewport. The track and the thumb are parts. |
 | `RobixUI/Compiler/Components/List/` | Stage C13. `RoboList` reads items, key, and template. One child is built per item, and a surviving key keeps its identity. |
+| `RobixUI/Compiler/Components/Event/` | Stage C14. `RoboEvent` reads a script and delivers each record to the topmost primitive, then to its parents. |
+| `RobixUI/Compiler/Components/Action/` | Stage C15. `RoboAction` keeps named state and runs the behavior verbs. A click handler is an action name. |
 | `RobixUI/Compiler/Components/Video/` | Stage C9. `RoboVideo` reads source, time, and playing. It decodes a frame and keeps the clock. |
 | `RobixUI/Compiler/Components/Audio/` | Stage C10. `RoboAudio` reads source, time, playing, and volume. It decodes the sound and keeps the clock. |
 | `RobixUI/Compiler/ComponentTier.cpp` | Lists `Video`, `Audio`, `View3D`, `Input`, `ScrollView`, and `List` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |

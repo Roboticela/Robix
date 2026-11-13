@@ -5068,22 +5068,10 @@ void PaintSceneRect(RoboGPU* gpu, SceneRect rect, int scrollY, int viewHeight, b
     if (rect.width <= 0 || rect.height <= 0) {
         return;
     }
-    if (!strip) {
-        const long long area = static_cast<long long>(rect.width) * rect.height;
-        const long long full = static_cast<long long>(gScene.viewWidth) * gScene.viewHeight;
-        if (full > 0 && area * 5 > full * 3) {
-            RoboGPUClear(gpu, gScene.background);
-            PaintOps(gpu, gScene.ops, scrollY, viewHeight, light);
-            return;
-        }
-    }
-    if (strip) {
-        RoboGPUPushScissor(gpu, rect.x, rect.y, rect.width, rect.height);
-    }
+    RoboGPUPushScissor(gpu, rect.x, rect.y, rect.width, rect.height);
     ReplayRect(gpu, rect, scrollY, viewHeight, light);
-    if (strip) {
-        RoboGPUPopScissor(gpu);
-    }
+    RoboGPUPopScissor(gpu);
+    (void)strip;
 }
 
 void FieldVisual(const Editor& editor, int& x, int& y) {
@@ -6034,6 +6022,39 @@ bool WindowsDocumentMotionDue() { return gVideoDirty || MotionFramePending(); }
 void WindowsDocumentMotionMark() {
     gVideoDirty = false;
     MotionFramesShown();
+}
+
+void WindowsDocumentPaintVideoFrames(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight) {
+    if (gpu == nullptr || !gScene.valid || viewWidth <= 0 || viewHeight <= 0) {
+        return;
+    }
+    for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
+        const PaintOp& op = gScene.ops[index];
+        if (op.picture < 0 || op.picture >= static_cast<int>(gPictures.size()) || op.width < 1 || op.height < 1) {
+            continue;
+        }
+        const CachedPicture& picture = gPictures[static_cast<std::size_t>(op.picture)];
+        if (picture.videoFile.empty() || picture.image.sourceWidth != op.width || picture.image.sourceHeight != op.height) {
+            continue;
+        }
+        const std::size_t count = static_cast<std::size_t>(op.width) * static_cast<std::size_t>(op.height);
+        if (picture.image.pixels.size() < count) {
+            continue;
+        }
+        int shiftX = 0;
+        int shiftY = 0;
+        ContentShift(static_cast<int>(index), shiftX, shiftY);
+        const int x = op.x - gScrollX - shiftX;
+        const int y = op.y - scrollY - shiftY;
+        if (x + op.width <= 0 || y + op.height <= 0 || x >= viewWidth || y >= viewHeight) {
+            continue;
+        }
+        const bool clipped = PushRegionClip(gpu, static_cast<int>(index), scrollY, 1.0);
+        BlitVideoRows(gpu, x, y, op.width, op.height, picture.image.pixels);
+        if (clipped) {
+            RoboGPUPopScissor(gpu);
+        }
+    }
 }
 
 

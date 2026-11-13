@@ -1372,7 +1372,8 @@ void Draw(HostView* view) {
             const bool scrollYChanged = previousScroll != view->scrollY;
             const bool scrollXChanged = previousScrollX != view->scrollX;
             const bool structural = rebuilt || previousScroll < 0 || previousScrollX < 0 || patchCount < 0 || textCount < 0 || regionCount < 0;
-            if (structural || scrollXChanged || scrollYChanged || scaleChanged) {
+            const bool interact = patchCount != 0 || textCount != 0 || regionCount != 0;
+            if (structural || scrollXChanged || scrollYChanged || scaleChanged || interact) {
                 WindowsDocumentSetScrollX(view->scrollX);
                 BindSheet(view, false);
                 PaintWindowsDocumentView(&view->gpu, view->scrollY, width, height);
@@ -1406,12 +1407,7 @@ void Draw(HostView* view) {
                     }
                 }
                 if (WindowsDocumentMotionDue()) {
-                    WindowPatch motionRects[32]{};
-                    const int motionCount = WindowsDocumentMotionRects(motionRects, 32);
-                    for (int index = 0; index < motionCount; ++index) {
-                        WindowsDocumentPaintWindowRect(&view->gpu, motionRects[index].x, motionRects[index].y, motionRects[index].width,
-                                                       motionRects[index].height, view->scrollY, width, height);
-                    }
+                    WindowsDocumentPaintVideoFrames(&view->gpu, view->scrollY, width, height);
                     WindowsDocumentMotionMark();
                 }
                 if (caretDue || fieldDue) {
@@ -1427,7 +1423,8 @@ void Draw(HostView* view) {
             WindowsDocumentSetScrollX(0);
             usedSheet = layout >= 0 && EnsureSheet(view, std::max(width, layoutW), view->contentHeight, fresh);
             if (usedSheet) {
-                if (rebuilt || fresh || patchCount < 0 || textCount < 0 || regionCount < 0) {
+                const bool fullPage = rebuilt || fresh || patchCount != 0 || textCount != 0 || regionCount != 0;
+                if (fullPage) {
                     BindSheet(view, true);
                     RasterWindowsDocument(&view->gpu);
                     BindSheet(view, false);
@@ -1438,21 +1435,17 @@ void Draw(HostView* view) {
                     textCount = 0;
                     WindowsDocumentTextMarkPainted();
                     WindowsDocumentRegionMarkPainted();
-                } else if (WindowsDocumentNeedsSpin() || WindowsDocumentMotionDue()) {
+                } else if (WindowsDocumentNeedsSpin()) {
                     WindowPatch spinRects[32]{};
                     const int spinCount = WindowsDocumentSpinRects(spinRects, 32);
                     for (int index = 0; index < spinCount && patchCount < 32; ++index) {
                         patches[patchCount] = spinRects[index];
                         ++patchCount;
                     }
-                    WindowPatch motionRects[32]{};
-                    const int motionCount = WindowsDocumentMotionRects(motionRects, 32);
-                    for (int index = 0; index < motionCount && patchCount < 32; ++index) {
-                        patches[patchCount] = motionRects[index];
-                        ++patchCount;
-                    }
                 }
-                if (patchCount > 0 || textCount > 0 || regionCount > 0) {
+                WindowPatch motionRects[32]{};
+                const int motionCount = !fullPage && WindowsDocumentMotionDue() ? WindowsDocumentMotionRects(motionRects, 32) : 0;
+                if (!fullPage && (patchCount > 0 || textCount > 0 || regionCount > 0 || motionCount > 0)) {
                     BindSheet(view, true);
                     for (int index = 0; index < patchCount; ++index) {
                         PaintWindowsDocumentRect(&view->gpu, patches[index].x, patches[index].y, patches[index].width,
@@ -1465,13 +1458,14 @@ void Draw(HostView* view) {
                     if (regionCount > 0) {
                         WindowsDocumentPaintMovedRegions(&view->gpu, 0, std::max(width, layoutW), view->contentHeight);
                     }
+                    if (motionCount > 0) {
+                        WindowsDocumentPaintVideoFrames(&view->gpu, 0, std::max(width, layoutW), view->contentHeight);
+                        WindowsDocumentMotionMark();
+                    }
                     BindSheet(view, false);
                     WindowsDocumentTextMarkPainted();
                     if (regionCount > 0) {
                         WindowsDocumentRegionMarkPainted();
-                    }
-                    if (WindowsDocumentMotionDue()) {
-                        WindowsDocumentMotionMark();
                     }
                 }
                 WindowPatch visible[64]{};
@@ -1486,6 +1480,10 @@ void Draw(HostView* view) {
                 }
                 for (int index = 0; index < regionCount && visibleCount < 64; ++index) {
                     visible[visibleCount] = regionPatches[index];
+                    ++visibleCount;
+                }
+                for (int index = 0; index < motionCount && visibleCount < 64; ++index) {
+                    visible[visibleCount] = motionRects[index];
                     ++visibleCount;
                 }
                 if ((caretDue || fieldDue) && !(rebuilt || fresh || patchCount < 0 || textCount < 0)) {

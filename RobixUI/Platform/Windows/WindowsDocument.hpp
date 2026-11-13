@@ -77,6 +77,8 @@ bool WindowsDocumentVideoPlaying();
 /* True only when an animated picture has advanced to a frame that is not on screen yet. */
 bool WindowsDocumentMotionDue();
 void WindowsDocumentMotionMark();
+/* Copies the current video frame into its box. Does not redraw the rest of the page. */
+void WindowsDocumentPaintVideoFrames(RoboGPU* gpu, int scrollY, int viewWidth, int viewHeight);
 
 /* Document rectangles of pictures that animate. */
 int WindowsDocumentMotionRects(WindowPatch* patches, int capacity);
