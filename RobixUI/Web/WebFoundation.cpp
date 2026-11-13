@@ -6,6 +6,7 @@
 #include "../Compiler/Components/Container/ContainerWeb.hpp"
 #include "../Compiler/Components/Canvas/CanvasWeb.hpp"
 #include "../Compiler/Components/Image/ImageWeb.hpp"
+#include "../Compiler/Components/Video/RoboVideo.hpp"
 #include "../Compiler/Components/Svg/SvgWeb.hpp"
 #include "../Compiler/Components/Screen/Screen.hpp"
 #include "../Compiler/Compose.hpp"
@@ -44,7 +45,7 @@ fs::path gAudioOut;
 
 std::string Lower(std::string text);
 
-std::string PublishAudio(const std::string& source) {
+std::string PublishMedia(const std::string& source, const char* folderName) {
     if (source.empty()) {
         return source;
     }
@@ -60,14 +61,107 @@ std::string PublishAudio(const std::string& source) {
     if (gAudioOut.empty() || !fs::is_regular_file(file, error)) {
         return source;
     }
-    const fs::path folder = gAudioOut / "audio";
+    const fs::path folder = gAudioOut / folderName;
     fs::create_directories(folder, error);
     const fs::path dest = folder / file.filename();
     fs::copy_file(file, dest, fs::copy_options::overwrite_existing, error);
     if (error) {
         return source;
     }
-    return "audio/" + file.filename().string();
+    return std::string(folderName) + "/" + file.filename().string();
+}
+
+std::string PublishAudio(const std::string& source) {
+    return PublishMedia(source, "audio");
+}
+
+std::string Base64(const std::vector<RoboU8>& bytes) {
+    static const char* alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    out.reserve((bytes.size() + 2) / 3 * 4);
+    for (std::size_t index = 0; index < bytes.size(); index += 3) {
+        const int first = bytes[index];
+        const int second = index + 1 < bytes.size() ? bytes[index + 1] : 0;
+        const int third = index + 2 < bytes.size() ? bytes[index + 2] : 0;
+        const int word = (first << 16) | (second << 8) | third;
+        out.push_back(alphabet[(word >> 18) & 63]);
+        out.push_back(alphabet[(word >> 12) & 63]);
+        out.push_back(index + 1 < bytes.size() ? alphabet[(word >> 6) & 63] : '=');
+        out.push_back(index + 2 < bytes.size() ? alphabet[word & 63] : '=');
+    }
+    return out;
+}
+
+std::string VideoPoster(const std::string& source, int timeMs) {
+    if (source.empty()) {
+        return {};
+    }
+    const std::string key = Lower(source);
+    if (key.rfind("http://", 0) == 0 || key.rfind("https://", 0) == 0) {
+        return {};
+    }
+    fs::path file(source);
+    if (file.is_relative() && !gAudioDocument.empty()) {
+        file = gAudioDocument.parent_path() / file;
+    }
+    std::ifstream in(file, std::ios::binary);
+    std::vector<RoboU8> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    RoboVideoClip clip;
+    if (bytes.empty() || !RoboVideoDecode(clip, bytes.data(), bytes.size(), file.string())) {
+        return {};
+    }
+    RoboVideoSeek(clip, timeMs);
+    if (clip.width < 1 || clip.height < 1 || clip.width > 640 || clip.height > 360 || clip.frames.empty()) {
+        return {};
+    }
+    RoboVideoBox box;
+    box.width = clip.width;
+    box.height = clip.height;
+    if (!RoboVideoPaint(clip, box)) {
+        return {};
+    }
+    const int stride = ((box.width * 3 + 3) / 4) * 4;
+    std::vector<RoboU8> bmp(static_cast<std::size_t>(54 + stride * box.height), 0);
+    const auto put16 = [&](int offset, int value) {
+        bmp[static_cast<std::size_t>(offset)] = static_cast<RoboU8>(value);
+        bmp[static_cast<std::size_t>(offset + 1)] = static_cast<RoboU8>(value >> 8);
+    };
+    const auto put32 = [&](int offset, int value) {
+        put16(offset, value);
+        put16(offset + 2, value >> 16);
+    };
+    bmp[0] = 'B';
+    bmp[1] = 'M';
+    put32(2, static_cast<int>(bmp.size()));
+    put32(10, 54);
+    put32(14, 40);
+    put32(18, box.width);
+    put32(22, box.height);
+    put16(26, 1);
+    put16(28, 24);
+    put32(34, stride * box.height);
+    for (int y = 0; y < box.height; ++y) {
+        const int sourceRow = box.height - 1 - y;
+        for (int x = 0; x < box.width; ++x) {
+            const RoboU32 pixel = box.pixels[static_cast<std::size_t>(sourceRow) * static_cast<std::size_t>(box.width) + static_cast<std::size_t>(x)];
+            const std::size_t pos = static_cast<std::size_t>(54 + y * stride + x * 3);
+            bmp[pos] = static_cast<RoboU8>(pixel);
+            bmp[pos + 1] = static_cast<RoboU8>(pixel >> 8);
+            bmp[pos + 2] = static_cast<RoboU8>(pixel >> 16);
+        }
+    }
+    return "data:image/bmp;base64," + Base64(bmp);
+}
+
+int VideoClock(const std::string& time) {
+    int value = 0;
+    for (char ch : time) {
+        if (ch < '0' || ch > '9') {
+            return 0;
+        }
+        value = value * 10 + (ch - '0');
+    }
+    return value;
 }
 
 fs::path FindUpFrom(fs::path dir, const fs::path& relative) {
@@ -252,9 +346,9 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
         const std::string source = PublishAudio(RoboXMLAttr(node, "source").empty() ? RoboXMLAttr(node, "src") : RoboXMLAttr(node, "source"));
         const std::string playing = Lower(RoboXMLAttr(node, "playing"));
         const bool play = playing == "true" || playing == "yes" || playing == "on" || playing == "1";
-        html += "<audio class=\"robo-audio\"";
+        html += "<audio class=\"robo-audio\" preload=\"auto\"";
         if (play) {
-            html += " autoplay";
+            html += " data-playing=\"true\"";
         }
         if (!source.empty()) {
             html += " src=\"";
@@ -274,6 +368,49 @@ void EmitNode(std::string& html, const RoboXMLNode& node, const RoboFoundationLi
             html += "\"";
         }
         html += "></audio>";
+        return;
+    }
+    if (name == "video") {
+        const std::string raw = RoboXMLAttr(node, "source").empty() ? RoboXMLAttr(node, "src") : RoboXMLAttr(node, "source");
+        const std::string source = PublishMedia(raw, "video");
+        const std::string playing = Lower(RoboXMLAttr(node, "playing"));
+        const bool play = playing == "true" || playing == "yes" || playing == "on" || playing == "1";
+        const std::string time = RoboXMLAttr(node, "time");
+        const std::string poster = VideoPoster(raw, VideoClock(time));
+        std::string style;
+        const std::string width = RoboXMLAttr(node, "width");
+        const std::string height = RoboXMLAttr(node, "height");
+        if (!width.empty()) {
+            style += "width:" + width + "px;";
+        }
+        if (!height.empty()) {
+            style += "height:" + height + "px;";
+        }
+        html += "<video class=\"robo-video\" preload=\"auto\" playsinline";
+        if (play) {
+            html += " data-playing=\"true\"";
+        }
+        if (!source.empty()) {
+            html += " src=\"";
+            html += Escape(source);
+            html += "\"";
+        }
+        if (!poster.empty()) {
+            html += " poster=\"";
+            html += poster;
+            html += "\"";
+        }
+        if (!time.empty() && time != "0") {
+            html += " data-time=\"";
+            html += Escape(time);
+            html += "\"";
+        }
+        if (!style.empty()) {
+            html += " style=\"";
+            html += Escape(style);
+            html += "\"";
+        }
+        html += "></video>";
         return;
     }
     if (name == "icon" || name == "svg" || RoboCompilerIsIconNode(node)) {
@@ -1211,19 +1348,44 @@ Robo.sceneSet = function (name, key, value) {
     js += RoboWebReelScript();
     js += RoboWebImageScript();
     js += R"JS(
-document.querySelectorAll("audio.robo-audio").forEach(function (node) {
-  var apply = function () {
-    var volume = Number(node.getAttribute("data-volume"));
-    if (volume >= 0 && volume <= 100) node.volume = volume / 100;
-    var time = Number(node.getAttribute("data-time"));
-    if (time > 0 && !node._roboTime) {
-      node.currentTime = time / 1000;
-      node._roboTime = true;
+(function () {
+  function arm(node) {
+    var raw = node.getAttribute("data-volume");
+    if (raw !== null) {
+      var volume = Number(raw);
+      if (volume >= 0 && volume <= 100) node.volume = volume / 100;
     }
-  };
-  node.addEventListener("loadedmetadata", apply);
-  apply();
-});
+    var time = Number(node.getAttribute("data-time"));
+    if (time > 0) {
+      try { node.currentTime = time / 1000; } catch (error) {}
+    }
+  }
+  function start(node) {
+    if (!node || node._roboHeard || node.getAttribute("data-playing") !== "true") return;
+    arm(node);
+    var attempt = node.play();
+    if (!attempt || !attempt.then) return;
+    attempt.then(function () {
+      node._roboHeard = true;
+    }).catch(function (error) {
+      if (!error || error.name !== "NotAllowedError") node._roboHeard = true;
+    });
+  }
+  function show(node) {
+    arm(node);
+    if (node.tagName === "VIDEO") {
+      node.addEventListener("loadedmetadata", function () { arm(node); });
+    }
+    start(node);
+  }
+  document.querySelectorAll("audio.robo-audio, video.robo-video").forEach(show);
+  ["pointerdown", "keydown"].forEach(function (name) {
+    document.addEventListener(name, function () {
+      document.querySelectorAll("audio.robo-audio, video.robo-video").forEach(start);
+    }, true);
+  });
+  window.RoboAudioStart = start;
+})();
 )JS";
 
     if (!Robix::D3::CommitViews(outRoot, error)) return false;

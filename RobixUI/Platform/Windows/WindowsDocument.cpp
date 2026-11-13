@@ -11,6 +11,7 @@
 #include "../../Compiler/RoboXML.hpp"
 #include "../../Compiler/Components/Canvas/RoboCanvas.hpp"
 #include "../../Compiler/Components/Image/RoboImage.hpp"
+#include "../../Compiler/Components/Video/RoboVideo.hpp"
 #include "../../RoboGPU/RoboGPU.hpp"
 #include "../../RoboGPU/RoboText.hpp"
 
@@ -125,6 +126,72 @@ int PictureFor(const std::filesystem::path& file) {
     std::ifstream in(file, std::ios::binary);
     std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     picture.ok = !bytes.empty() && RoboImageDecode(picture.image, bytes.data(), bytes.size());
+    gPictures.push_back(std::move(picture));
+    return gPictures.back().ok ? static_cast<int>(gPictures.size()) - 1 : -1;
+}
+
+int VideoClock(const RoboXMLNode& node) {
+    const std::string time = RoboXMLAttr(node, "time");
+    int value = 0;
+    for (char ch : time) {
+        if (ch < '0' || ch > '9') {
+            return 0;
+        }
+        value = value * 10 + (ch - '0');
+    }
+    return value;
+}
+
+bool VideoPlaying(const RoboXMLNode& node) {
+    const std::string playing = Lower(RoboXMLAttr(node, "playing"));
+    return playing == "true" || playing == "yes" || playing == "on" || playing == "1";
+}
+
+int VideoFor(const std::filesystem::path& file, int timeMs, bool playing) {
+    const std::string key = std::string("video|") + file.string() + "|" + std::to_string(timeMs) + "|" + (playing ? "1" : "0");
+    for (int index = 0; index < static_cast<int>(gPictures.size()); ++index) {
+        if (gPictures[static_cast<std::size_t>(index)].key == key) {
+            return gPictures[static_cast<std::size_t>(index)].ok ? index : -1;
+        }
+    }
+    CachedPicture picture;
+    picture.key = key;
+    std::ifstream in(file, std::ios::binary);
+    std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    RoboVideoClip clip;
+    if (!bytes.empty() && RoboVideoDecode(clip, bytes.data(), bytes.size(), file.string())) {
+        RoboVideoNode video;
+        video.time = timeMs;
+        video.playing = playing;
+        RoboVideoBind(video, clip);
+        const std::size_t count = static_cast<std::size_t>(std::max(0, clip.width)) * static_cast<std::size_t>(std::max(0, clip.height));
+        const int stored = count == 0 ? 0 : static_cast<int>(clip.frames.size() / count);
+        if (stored > 0) {
+            picture.image.sourceWidth = clip.width;
+            picture.image.sourceHeight = clip.height;
+            picture.image.format = clip.format;
+            const int step = clip.frameMs > 0 ? clip.frameMs : 1;
+            if (playing && stored > 1) {
+                picture.image.pixels.assign(clip.frames.begin(), clip.frames.begin() + static_cast<std::ptrdiff_t>(count));
+                picture.image.frames = clip.frames;
+                picture.image.frameCount = stored;
+                picture.image.delays.assign(static_cast<std::size_t>(stored), step);
+            } else {
+                int index = clip.time / step;
+                if (index >= stored) {
+                    index = stored - 1;
+                }
+                if (index < 0) {
+                    index = 0;
+                }
+                const std::size_t begin = static_cast<std::size_t>(index) * count;
+                picture.image.pixels.assign(clip.frames.begin() + static_cast<std::ptrdiff_t>(begin),
+                                            clip.frames.begin() + static_cast<std::ptrdiff_t>(begin + count));
+                picture.image.frameCount = 1;
+            }
+            picture.ok = true;
+        }
+    }
     gPictures.push_back(std::move(picture));
     return gPictures.back().ok ? static_cast<int>(gPictures.size()) - 1 : -1;
 }
@@ -1560,7 +1627,7 @@ int ContentWidth(const RoboXMLNode& node, int maxWidth) {
     if (name == "audio") {
         return 0;
     }
-    if (name == "image") {
+    if (name == "image" || name == "video") {
         int natural = AttrLength(node, "height");
         if (natural <= 0) {
             natural = Px(160);
@@ -2448,6 +2515,39 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
     }
     if (name == "audio") {
         return 0;
+    }
+    if (name == "video") {
+        int boxH = AttrLength(node, "height");
+        if (boxH <= 0) {
+            boxH = AttrLength(node, "width");
+        }
+        if (boxH <= 0) {
+            boxH = Px(180);
+        }
+        int boxW = width;
+        const int askedW = AttrLength(node, "width");
+        if (askedW > 0) {
+            boxW = std::min(width, askedW);
+        }
+        PaintOp box;
+        box.x = x;
+        box.y = y;
+        box.width = boxW;
+        box.height = boxH;
+        const std::string source = RoboXMLAttr(node, "source").empty() ? RoboXMLAttr(node, "src") : RoboXMLAttr(node, "source");
+        if (!source.empty() && !gDocumentDir.empty()) {
+            std::filesystem::path file(source);
+            if (file.is_relative()) {
+                file = gDocumentDir / file;
+            }
+            box.picture = VideoFor(file, VideoClock(node), VideoPlaying(node));
+        }
+        if (box.picture < 0) {
+            box.fill = ThemeColor("bg-secondary", light);
+        }
+        box.pictureFit = "contain";
+        ops.push_back(box);
+        return boxH;
     }
     if (name == "input" || name == "textfield") {
         return PlaceField(node, x, y, width, light, ops);

@@ -397,12 +397,18 @@ Depends on: C2. The scene raster from the OS plan supplies the pixels. The `.rx3
 
 ### Stage C9 — Video
 
-Depends on: C2, C4. A frame is an image with a clock. No page loader.
+Depends on: C2, C4. A frame is an image with a clock. No page loader. Video player chrome is L13.
 
-- [ ] `Video` schema: source, time, playing
-- [ ] Decode a frame into the box
-- [ ] Clock reports time
-- [ ] Test asserts a pixel at a fixed timestamp
+`RoboVideoRead` accepts source, time, playing, width, and height, and rejects an unknown attribute, a bad clock or size, the wrong tag, and a child. `RoboVideoDecode` opens the formats below. An uncompressed AVI fills frames. The other formats report codec, size, duration, and projection from the header. `RoboVideoSeek` moves the clock. A seek past the end stops on the last millisecond, and a live playlist stays at 0. The Windows host paints the frame at that time into the box. The web face is a `video` element with no controls. The decoded frame is its poster, and playback follows the same first-gesture rule as audio.
+
+Common: MP4, MKV, AVI, MOV, WMV, FLV, WebM, MPEG, MPG, M4V, 3GP, 3G2, and VOB. Professional: MXF, ProRes, DNxHD, DNxHR, XAVC, AVC-Intra, CineForm, R3D, BRAW, and ARRIRAW. MPEG: MPEG-1, MPEG-2, MPEG-4, MPEG-TS, MPEG-PS, M2V, M2TS, and MTS. Mobile: 3GP, 3G2, MP4, M4V, MOV, and AVI. Streaming: HLS, MPEG-DASH, MPEG-TS, WebM, MP4, FLV, and CMAF. Legacy: ASF, RM, RMVB, VCD, SVCD, DVR-MS, WTV, NSV, FLI, FLC, AMV, and MTV. Codecs named from the header: H.264, H.265, H.266, AV1, VP8, VP9, MPEG-1, MPEG-2, MPEG-4 Part 2, Theora, DivX, Xvid, H.263, MJPEG, VC-1, and WMV9. 360 and VR: equirectangular, spherical, cubemap, and VR180 inside MP4, MKV, or WebM. Animated: GIF, APNG, animated WebP, AVIF, and HEIF. Disc: DVD-Video, Blu-ray, AVCHD, and HD DVD.
+
+- [x] `Video` schema: source, time, playing
+- [x] Decode a frame into the box
+- [x] Clock reports time
+- [x] Test asserts a pixel at a fixed timestamp
+
+`Tests/UI/RoboVideoTests.cpp` passed, 131 checks. The fixture is a 4×4 uncompressed AVI. Each frame is 100 ms. The pixel at 0 ms is red, `#FF0000`. The pixel at 100 ms is blue, `#0000FF`. A seek past the end stops at 200 ms and stays on that blue frame.
 
 ### Stage C10 — Audio
 
@@ -458,7 +464,7 @@ Depends on: C2, C12. Repetition of a template over a collection. The template is
 - [x] Recycle children when the collection changes
 - [x] Test asserts three children and their keys
 
-`Tests/UI/RoboListTests.cpp` passed, 52 checks. The keys are `blue`, `green`, and `hull`. After the collection changes, `gamma` and `beta` keep their identities and `delta` reuses the child `alpha` left behind. A row past the list box is clipped. `Audio` is an allowed template.
+`Tests/UI/RoboListTests.cpp` passed, 53 checks. The keys are `blue`, `green`, and `hull`. After the collection changes, `gamma` and `beta` keep their identities and `delta` reuses the child `alpha` left behind. A row past the list box is clipped. `Video` and `Audio` are allowed templates.
 
 ### Stage C14 — Events
 
@@ -894,9 +900,10 @@ These files exist. Their boxes above stay open until the stage test has been run
 | `RobixUI/Compiler/Components/Input/` | Stage C11. `RoboInput` reads value, placeholder, mask, multiline, disabled, and `CursorColor`. `TextField` is the same primitive. The caret and the selection are parts. |
 | `RobixUI/Compiler/Components/ScrollView/` | Stage C12. `RoboScrollView` reads axis and offset. The child moves inside a clipped viewport. The track and the thumb are parts. |
 | `RobixUI/Compiler/Components/List/` | Stage C13. `RoboList` reads items, key, and template. One child is built per item, and a surviving key keeps its identity. |
+| `RobixUI/Compiler/Components/Video/` | Stage C9. `RoboVideo` reads source, time, and playing. It decodes a frame and keeps the clock. |
 | `RobixUI/Compiler/Components/Audio/` | Stage C10. `RoboAudio` reads source, time, playing, and volume. It decodes the sound and keeps the clock. |
-| `RobixUI/Compiler/ComponentTier.cpp` | Lists `Audio`, `View3D`, `Input`, `ScrollView`, and `List` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |
+| `RobixUI/Compiler/ComponentTier.cpp` | Lists `Video`, `Audio`, `View3D`, `Input`, `ScrollView`, and `List` as compiler tags. `Scene3D` resolves to `View3D`. `TextField` resolves to `Input`. |
 | `RobixUI/Compiler/Compose.cpp` | Expands library components. Library stages use it. |
 | `RobixUI/Compiler/Components/*/*Web.cpp` | Hand-written HTML emitters for the plan primitives. Stage C21 replaces them with the web face. |
 
-`Video` has no compiler unit yet. It begins at its stage.
+`Video` and `Audio` are compiler units. Library chrome for them begins at L13.

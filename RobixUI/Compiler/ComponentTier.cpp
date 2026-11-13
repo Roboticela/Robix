@@ -19,6 +19,7 @@ const Entry kEntries[] = {
     {"text", RoboUITier::Compiler, "Text", false},
     {"svg", RoboUITier::Compiler, "Svg", false},
     {"image", RoboUITier::Compiler, "Image", false},
+    {"video", RoboUITier::Compiler, "Video", false},
     {"audio", RoboUITier::Compiler, "Audio", false},
     {"view3d", RoboUITier::Compiler, "View3D", false},
     {"scene3d", RoboUITier::Compiler, "View3D", false},

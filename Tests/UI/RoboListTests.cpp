@@ -55,6 +55,8 @@ void TestSchema() {
           "Container is the View primitive");
     Check(Load("<List Template=\"ScrollView\" Items=\"one\"/>", list, diagnostic) && list.templateKind == "scrollview",
           "ScrollView is an earlier primitive");
+    Check(Load("<List Template=\"Video\" Items=\"one\"/>", list, diagnostic) && list.templateKind == "video",
+          "Video is an earlier primitive");
     Check(Load("<List Template=\"Audio\" Items=\"one\"/>", list, diagnostic) && list.templateKind == "audio",
           "Audio is an earlier primitive");
 

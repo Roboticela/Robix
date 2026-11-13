@@ -1484,7 +1484,10 @@ TypeNode TypeChecker::CheckExpression(ExprNode& expr) {
                  expr.text == "ExchangeRSP" || expr.text == "SavedRSP" || expr.text == "LGDT" ||
                  expr.text == "LIDT" || expr.text == "BootInfo" || expr.text == "Function" ||
                  expr.text == "Handler" || expr.text == "Fault" || expr.text == "Trap" || expr.text == "Catch" || expr.text == "Release" ||
-                 expr.text == "Run" || expr.text == "Int3")) {
+                 expr.text == "Run" || expr.text == "Int3" ||
+                 expr.text == "ArmFPU" || expr.text == "MarkTask" || expr.text == "ClearTask" ||
+                 expr.text == "TouchFPU" || expr.text == "TouchSSE" ||
+                 expr.text == "SaveFPU" || expr.text == "LoadFPU" || expr.text == "ProbeFrame")) {
                 if (m_unsafeDepth <= 0) {
                     m_diagnostics.ReportError(
                         "R1006",

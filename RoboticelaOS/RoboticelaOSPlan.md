@@ -20,7 +20,7 @@ Whatever you implement, first make sure that the OS has that much easy features 
 - [ ] Local APIC timer as the scheduler tick on every core
 - [x] TSC calibration against a known timer, plus a monotonic clock and a wall clock
 - [x] One-shot kernel timers and a sleep that wakes on the next tick or sooner
-- [ ] HPET when the firmware publishes it, used when the APIC timer is unavailable
+- [x] HPET when the firmware publishes it, used when the APIC timer is unavailable
 
 ### Memory
 
@@ -37,13 +37,13 @@ Whatever you implement, first make sure that the OS has that much easy features 
 
 ### CPU and scheduling
 
-- [ ] Full register save and restore on switch, including the FPU and SSE state, switched lazily
-- [ ] Per-CPU data: current thread, kernel stack, and IRQ nesting count
-- [ ] Wait queues: a thread sleeps on an object and one wake or wake-all resumes it
-- [ ] Blocking locks that sleep, and spin locks that are IRQ-safe
-- [ ] Priority levels and a preemption point from the timer tick
-- [ ] Idle loop per core that halts until the next interrupt
-- [ ] Deferred work that runs after interrupt return, for driver bottom halves
+- [x] Full register save and restore on switch, including the FPU and SSE state, switched lazily
+- [x] Per-CPU data: current thread, kernel stack, and IRQ nesting count
+- [x] Wait queues: a thread sleeps on an object and one wake or wake-all resumes it
+- [x] Blocking locks that sleep, and spin locks that are IRQ-safe
+- [x] Priority levels and a preemption point from the timer tick
+- [x] Idle loop per core that halts until the next interrupt
+- [x] Deferred work that runs after interrupt return, for driver bottom halves
 - [ ] CPU bring-up that leaves application processors in the idle loop instead of a one-shot proof
 
 ### Processes

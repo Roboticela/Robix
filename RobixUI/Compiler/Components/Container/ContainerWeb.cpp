@@ -171,6 +171,8 @@ void RoboWebAppendContainerCss(std::ostream& css) {
   css << ".robo-select [data-panel]{display:none}\n";
   css << ".robo-select[data-open=true] [data-panel]{display:block}\n";
   css << ".robo-audio{position:absolute;width:0;height:0;margin:0;padding:0;border:0;outline:none;box-shadow:none;opacity:0;overflow:hidden;pointer-events:none}\n";
+  css << ".robo-video{display:block;width:100%;max-width:100%;height:auto;object-fit:contain;background:var(--bg-secondary);border:0;outline:none;box-shadow:none}\n";
+  css << "@media (min-width:768px){.robo-video{max-width:720px}}\n";
   css << ".robo-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;width:100%;max-width:100%;min-width:0;box-sizing:border-box}\n";
   css << ".robo-list>li{list-style:none;margin:0;padding:0;min-width:0}\n";
   css << ".robo-scroll{overflow:auto;position:relative;min-height:0;min-width:0;scrollbar-width:none}\n";

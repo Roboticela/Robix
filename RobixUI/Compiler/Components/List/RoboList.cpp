@@ -13,7 +13,7 @@ const char* const ROBO_LIST_ATTRIBUTES[] = {
 };
 
 const char* const ROBO_LIST_TEMPLATES[] = {
-    "view", "text", "image", "icon", "svg", "canvas", "view3d", "input", "scrollview", "audio",
+    "view", "text", "image", "icon", "svg", "canvas", "view3d", "input", "scrollview", "video", "audio",
 };
 
 const RoboU32 ROBO_LIST_PALETTE[] = {

@@ -2236,7 +2236,11 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                        inst.textImm == "CPU.LIDT" || inst.textImm == "CPU.BootInfo" ||
                        inst.textImm == "CPU.Function" || inst.textImm == "CPU.Handler" ||
                        inst.textImm == "CPU.Fault" || inst.textImm == "CPU.Trap" || inst.textImm == "CPU.Catch" || inst.textImm == "CPU.Release" ||
-                       inst.textImm == "CPU.Run" || inst.textImm == "CPU.Int3" || inst.textImm == "Timer.Arm" ||
+                       inst.textImm == "CPU.Run" || inst.textImm == "CPU.Int3" ||
+                       inst.textImm == "CPU.ArmFPU" || inst.textImm == "CPU.MarkTask" || inst.textImm == "CPU.ClearTask" ||
+                       inst.textImm == "CPU.TouchFPU" || inst.textImm == "CPU.TouchSSE" ||
+                       inst.textImm == "CPU.SaveFPU" || inst.textImm == "CPU.LoadFPU" || inst.textImm == "CPU.ProbeFrame" ||
+                       inst.textImm == "Timer.Arm" ||
                        inst.textImm == "Timer.Preempt" || inst.textImm == "System.Call") {
                 if (m_ctx.options.asmArch != "x86_64") {
                     Err("N9010", inst.textImm + " exists on x86_64 only.", inst.location);
@@ -2248,6 +2252,42 @@ void FnEmitter::EmitInstruction(const IR::IRInstruction& inst) {
                     m_vals[id] = Val{ vname, NTy::I64 };
                 } else if (inst.textImm == "CPU.Release") {
                     m_body << "  call void @rx_cpu_release()\n";
+                    m_vals[id] = Val{ "0", NTy::Void };
+                } else if (inst.textImm == "CPU.ArmFPU" || inst.textImm == "CPU.MarkTask" || inst.textImm == "CPU.ClearTask" ||
+                           inst.textImm == "CPU.TouchFPU" || inst.textImm == "CPU.TouchSSE" ||
+                           inst.textImm == "CPU.SaveFPU" || inst.textImm == "CPU.LoadFPU" || inst.textImm == "CPU.ProbeFrame") {
+                    if (!m_ctx.options.freestanding) {
+                        m_vals[id] = Val{ "0", NTy::Void };
+                        break;
+                    }
+                    if (inst.textImm == "CPU.ArmFPU") {
+                        m_body << "  call void asm sideeffect \"movq %cr4, %rax\\0Aorq $$1536, %rax\\0Amovq %rax, %cr4\", \"~{rax},~{dirflag},~{flags},~{memory}\"()\n";
+                    } else if (inst.textImm == "CPU.MarkTask") {
+                        m_body << "  call void asm sideeffect \"movq %cr0, %rax\\0Aorq $$8, %rax\\0Amovq %rax, %cr0\", \"~{rax},~{dirflag},~{flags},~{memory}\"()\n";
+                    } else if (inst.textImm == "CPU.ClearTask") {
+                        m_body << "  call void asm sideeffect \"movq %cr0, %rax\\0Aandq $$-9, %rax\\0Amovq %rax, %cr0\", \"~{rax},~{dirflag},~{flags},~{memory}\"()\n";
+                    } else if (inst.textImm == "CPU.TouchFPU") {
+                        m_body << "  call void asm sideeffect \"fnop\", \"~{dirflag},~{fpsr},~{flags}\"()\n";
+                    } else if (inst.textImm == "CPU.TouchSSE") {
+                        m_body << "  call void asm sideeffect \"xorps %xmm0, %xmm0\", \"~{dirflag},~{fpsr},~{flags}\"()\n";
+                    } else if ((inst.textImm == "CPU.SaveFPU" || inst.textImm == "CPU.LoadFPU" || inst.textImm == "CPU.ProbeFrame") && !inst.operandIds.empty()) {
+                        Val area = Coerce(Operand(inst, 0), NTy::I64, inst.location);
+                        if (inst.textImm == "CPU.SaveFPU") {
+                            m_body << "  call void asm sideeffect \"fxsave64 ($0)\", \"r,~{dirflag},~{fpsr},~{flags},~{memory}\"(i64 "
+                                   << area.repr << ")\n";
+                        } else if (inst.textImm == "CPU.LoadFPU") {
+                            m_body << "  call void asm sideeffect \"fxrstor64 ($0)\", \"r,~{dirflag},~{fpsr},~{flags},~{memory}\"(i64 "
+                                   << area.repr << ")\n";
+                        } else {
+                            m_body << "  call void asm sideeffect \"movq $0, %rax\\0A"
+                                   << "movq %rbx, 0(%rax)\\0Amovq %rbp, 8(%rax)\\0A"
+                                   << "movq %r12, 16(%rax)\\0Amovq %r13, 24(%rax)\\0A"
+                                   << "movq %r14, 32(%rax)\\0Amovq %r15, 40(%rax)\\0A"
+                                   << "movq %rsp, 48(%rax)\\0Amovq $$7, %rbx\\0A"
+                                   << "movq 0(%rax), %rbx\\0Amovq %rbx, 56(%rax)\", \"r,~{rax},~{rbx},~{dirflag},~{flags},~{memory}\"(i64 "
+                                   << area.repr << ")\n";
+                        }
+                    }
                     m_vals[id] = Val{ "0", NTy::Void };
                 } else if (inst.textImm == "CPU.TSC") {
                     m_body << "  " << vname
@@ -3327,8 +3367,8 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
     if (ctx.usesCatch && m_options.freestanding) {
         out << "define i64 @rx_cpu_catch() naked nounwind {\n";
         out << "  call void asm sideeffect \""
-            << "movq 8(%rsp), %rdx\\0A"
-            << "leaq 16(%rsp), %rcx\\0A"
+            << "movq (%rsp), %rdx\\0A"
+            << "leaq 8(%rsp), %rcx\\0A"
             << "movq %rdx, rx_fault_guard_rip(%rip)\\0A"
             << "movq %rcx, rx_fault_guard_rsp(%rip)\\0A"
             << "movq %rbx, rx_fault_guard_rbx(%rip)\\0A"
@@ -3338,7 +3378,7 @@ std::optional<std::string> NativeLLVMEmitter::Emit(const IR::IRModule& mod) {
             << "movq %r14, rx_fault_guard_r14(%rip)\\0A"
             << "movq %r15, rx_fault_guard_r15(%rip)\\0A"
             << "movq $$1, rx_fault_guard_on(%rip)\\0A"
-            << "addq $$16, %rsp\\0A"
+            << "addq $$8, %rsp\\0A"
             << "movq $$1, %rax\\0A"
             << "jmpq *%rdx\\0A"
             << "\", \"\"()\n";
