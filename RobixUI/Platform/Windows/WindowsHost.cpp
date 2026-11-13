@@ -427,7 +427,8 @@ void CopyVisible(HostView* view, int x, int y, int width, int height) {
     if (width <= 0 || height <= 0) {
         return;
     }
-    const UINT pitch = view->pixelWidth * 4u;
+    const UINT srcPitch = view->sheetWidth * 4u;
+    const UINT dstPitch = view->pixelWidth * 4u;
     int sheetRow = view->scrollY + y;
     int destY = y;
     int rows = height;
@@ -454,8 +455,8 @@ void CopyVisible(HostView* view, int x, int y, int width, int height) {
         return;
     }
     for (int row = 0; row < rows; ++row) {
-        std::memcpy(view->back + (static_cast<size_t>(destY + row) * pitch) + static_cast<size_t>(x) * 4u,
-                    view->sheet + (static_cast<size_t>(sheetRow + row) * pitch) + static_cast<size_t>(x) * 4u,
+        std::memcpy(view->back + (static_cast<size_t>(destY + row) * dstPitch) + static_cast<size_t>(x) * 4u,
+                    view->sheet + (static_cast<size_t>(sheetRow + row) * srcPitch) + static_cast<size_t>(x) * 4u,
                     static_cast<size_t>(width) * 4u);
     }
     RoboDamageAdd(&view->gpu.damage, x, destY, width, rows);
@@ -477,7 +478,15 @@ void ComposeSheet(HostView* view, const WindowPatch* patches, int patchCount) {
         if (y > limit) {
             y = limit > 0 ? limit : 0;
         }
-        std::memcpy(view->back, view->sheet + static_cast<size_t>(y) * pitch, static_cast<size_t>(pitch) * view->pixelHeight);
+        if (view->sheetWidth == view->pixelWidth) {
+            std::memcpy(view->back, view->sheet + static_cast<size_t>(y) * pitch, static_cast<size_t>(pitch) * view->pixelHeight);
+        } else {
+            const UINT srcPitch = view->sheetWidth * 4u;
+            for (UINT row = 0; row < view->pixelHeight; ++row) {
+                std::memcpy(view->back + static_cast<size_t>(row) * pitch,
+                            view->sheet + static_cast<size_t>(y + row) * srcPitch, pitch);
+            }
+        }
         view->shownScroll = view->scrollY;
         view->gpuFull = true;
         view->gpuScroll = view->scrollY;
@@ -736,7 +745,7 @@ bool Publish(HostView* view) {
                                ? static_cast<float>(PageScale(view) / view->shownPaint)
                                : 1.f;
     const bool scaleMove = std::fabs(gpuScale - view->shownGpuScale) > 0.0005f;
-    if (RoboDamageIsEmpty(&view->gpu.damage) && !scaleMove) {
+    if (RoboDamageIsEmpty(&view->gpu.damage) && !scaleMove && !view->gpuFull) {
         return true;
     }
     if (!view->compositorFailed) {
@@ -747,7 +756,7 @@ bool Publish(HostView* view) {
             }
         }
         if (view->compositor != nullptr) {
-            const bool full = view->gpu.damage.full == ROBO_TRUE || view->gpuFull;
+            const bool full = view->gpuFull || view->gpu.damage.full == ROBO_TRUE;
             int damageX[ROBO_DAMAGE_MAX_RECTS]{};
             int damageY[ROBO_DAMAGE_MAX_RECTS]{};
             int damageW[ROBO_DAMAGE_MAX_RECTS]{};
@@ -782,9 +791,7 @@ bool Publish(HostView* view) {
                 view->shownScroll = view->scrollY;
                 return true;
             }
-            RoboCompositorDestroy(view->compositor);
-            view->compositor = nullptr;
-            view->compositorFailed = true;
+            return false;
         }
     }
     const bool full = view->gpu.damage.full == ROBO_TRUE;

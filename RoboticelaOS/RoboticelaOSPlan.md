@@ -122,9 +122,9 @@ These are the class drivers that should make a device usable before any vendor p
 
 ### Display
 
-- [ ] Firmware framebuffer driver (GOP or VESA) that binds every display, including Intel, NVIDIA, and AMD, and sets a mode from the boot handoff
-- [ ] Software cursor plane on that framebuffer
-- [ ] Modeset to the panel’s native size when the firmware reports more than one mode
+- [x] Firmware framebuffer driver (GOP or VESA) that binds every display, including Intel, NVIDIA, and AMD, and sets a mode from the boot handoff
+- [x] Software cursor plane on that framebuffer
+- [x] Modeset to the panel’s native size when the firmware reports more than one mode
 - [ ] Backlight through ACPI `_BCL` / `_BCM` so a laptop panel is visible
 
 ### Input

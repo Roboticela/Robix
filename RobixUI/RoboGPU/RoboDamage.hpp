@@ -49,7 +49,27 @@ inline void RoboDamageAdd(RoboDamageList* list, RoboI32 x, RoboI32 y, RoboI32 wi
     return;
   }
   if (list->count >= ROBO_DAMAGE_MAX_RECTS) {
-    RoboDamageMarkFull(list);
+    RoboI32 x0 = x;
+    RoboI32 y0 = y;
+    RoboI32 x1 = x + width;
+    RoboI32 y1 = y + height;
+    for (RoboU32 index = 0; index < list->count; ++index) {
+      const RoboDamageRect& rect = list->rects[index];
+      if (rect.x < x0) {
+        x0 = rect.x;
+      }
+      if (rect.y < y0) {
+        y0 = rect.y;
+      }
+      if (rect.x + rect.width > x1) {
+        x1 = rect.x + rect.width;
+      }
+      if (rect.y + rect.height > y1) {
+        y1 = rect.y + rect.height;
+      }
+    }
+    list->rects[0] = RoboDamageRect{x0, y0, x1 - x0, y1 - y0};
+    list->count = 1;
     return;
   }
   list->rects[list->count++] = RoboDamageRect{x, y, width, height};
