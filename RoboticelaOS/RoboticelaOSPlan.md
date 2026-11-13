@@ -13,7 +13,7 @@ Whatever you implement, first make sure that the OS has that much easy features 
 ### Interrupts and time
 
 - [x] IRQ gates above vector 31, including the timer vector, with a return path that resumes the interrupted thread
-- [ ] Separate handlers for page fault, general protection, double fault, and invalid opcode, each reporting the fault address instead of halting every trap the same way
+- [x] Separate handlers for page fault, general protection, double fault, and invalid opcode, each reporting the fault address instead of halting every trap the same way
 - [x] Legacy INTx delivery through the I/O APIC, with a mask, an acknowledge, and a shared-line handler list
 - [x] MSI and MSI-X allocation, message write, and teardown
 - [x] Spurious IRQ and NMI handling that does not kill the machine
@@ -28,7 +28,7 @@ Whatever you implement, first make sure that the OS has that much easy features 
 - [x] Page-fault handler that maps an anonymous page and returns to the faulting instruction
 - [x] Per-process address space loaded on every context switch
 - [x] Copy-on-write pages for a forked address space
-- [ ] `mmap` and `munmap` for anonymous memory, with guard gaps the fault handler refuses to fill
+- [x] `mmap` and `munmap` for anonymous memory, with guard gaps the fault handler refuses to fill
 - [x] Shared memory object that two processes can map
 - [x] Physical-page pin and unpin for drivers that program DMA
 - [x] IOMMU (or a bounce buffer when no IOMMU is present) so a device cannot write arbitrary RAM
@@ -44,7 +44,7 @@ Whatever you implement, first make sure that the OS has that much easy features 
 - [x] Priority levels and a preemption point from the timer tick
 - [x] Idle loop per core that halts until the next interrupt
 - [x] Deferred work that runs after interrupt return, for driver bottom halves
-- [ ] CPU bring-up that leaves application processors in the idle loop instead of a one-shot proof
+- [x] CPU bring-up that leaves application processors in the idle loop instead of a one-shot proof
 
 ### Processes
 

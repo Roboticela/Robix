@@ -2,6 +2,7 @@
 #include "../ViewZoom.hpp"
 #include "WindowsAudio.hpp"
 #include "WindowsIcon.hpp"
+#include "WindowsVideo.hpp"
 
 #include "../../Compiler/RoboCompilerShared.hpp"
 #include "../../Compiler/RoboCompilerWebShared.hpp"
@@ -98,6 +99,12 @@ struct CachedPicture {
     int shownFrame = -1;
     std::string cacheFit;
     std::vector<RoboU32> cache;
+    bool videoPlaying = false;
+    std::filesystem::path videoFile;
+    int videoStart = 0;
+    int videoDuration = 0;
+    int videoShown = -1;
+    unsigned videoAnchor = 0;
 };
 
 std::vector<CachedPicture> gPictures;
@@ -113,6 +120,7 @@ struct CachedCanvas {
 
 std::vector<CachedCanvas> gCanvases;
 unsigned gPictureClock = 0;
+bool gVideoDirty = false;
 
 int PictureFor(const std::filesystem::path& file) {
     const std::string key = file.string();
@@ -190,6 +198,22 @@ int VideoFor(const std::filesystem::path& file, int timeMs, bool playing) {
                 picture.image.frameCount = 1;
             }
             picture.ok = true;
+        } else {
+            int frameWidth = 0;
+            int frameHeight = 0;
+            int sampleMs = 0;
+            if (WindowsVideoFrame(file, timeMs, picture.image.pixels, frameWidth, frameHeight, sampleMs)) {
+                picture.image.sourceWidth = frameWidth;
+                picture.image.sourceHeight = frameHeight;
+                picture.image.format = clip.format;
+                picture.image.frameCount = 1;
+                picture.videoPlaying = playing;
+                picture.videoFile = file;
+                picture.videoStart = timeMs;
+                picture.videoDuration = clip.duration;
+                picture.videoShown = sampleMs;
+                picture.ok = true;
+            }
         }
     }
     gPictures.push_back(std::move(picture));
@@ -2534,6 +2558,7 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
         box.y = y;
         box.width = boxW;
         box.height = boxH;
+        box.fill = ThemeColor("bg-secondary", light);
         const std::string source = RoboXMLAttr(node, "source").empty() ? RoboXMLAttr(node, "src") : RoboXMLAttr(node, "source");
         if (!source.empty() && !gDocumentDir.empty()) {
             std::filesystem::path file(source);
@@ -2541,9 +2566,6 @@ int PlaceNode(const RoboXMLNode& node, int x, int y, int width, bool light, std:
                 file = gDocumentDir / file;
             }
             box.picture = VideoFor(file, VideoClock(node), VideoPlaying(node));
-        }
-        if (box.picture < 0) {
-            box.fill = ThemeColor("bg-secondary", light);
         }
         box.pictureFit = "contain";
         ops.push_back(box);
@@ -5914,6 +5936,7 @@ void WindowsDocumentPaintWindowRect(RoboGPU* gpu, int x, int y, int width, int h
     if (right <= left || bottom <= top) {
         return;
     }
+    RoboGPUPushScissor(gpu, left, top, right - left, bottom - top);
     RoboGPUFillRect(gpu, left, top, right - left, bottom - top, gScene.background);
     for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
         const PaintOp& op = gScene.ops[index];
@@ -5922,11 +5945,15 @@ void WindowsDocumentPaintWindowRect(RoboGPU* gpu, int x, int y, int width, int h
         }
         PaintPrepared(gpu, op, static_cast<int>(index), scrollY, viewHeight, gScene.light);
     }
+    RoboGPUPopScissor(gpu);
 }
 
-bool WindowsDocumentMotionDue() { return MotionFramePending(); }
+bool WindowsDocumentMotionDue() { return gVideoDirty || MotionFramePending(); }
 
-void WindowsDocumentMotionMark() { MotionFramesShown(); }
+void WindowsDocumentMotionMark() {
+    gVideoDirty = false;
+    MotionFramesShown();
+}
 
 bool WindowsDocumentTextAt(int docX, int docY) {
     int run = -1;
@@ -6435,25 +6462,20 @@ void PaintWindowsDocumentRect(RoboGPU* gpu, int x, int y, int width, int height)
     if (rect.width <= 0 || rect.height <= 0) {
         return;
     }
-    for (const PaintOp& op : gScene.ops) {
-        if (op.button && OpHits(op, rect)) {
-            ClearButtonShape(gpu, op);
-        } else if (!op.button && !op.text && (op.picture >= 0 ? OpHits(op, rect) : OpInside(op, rect))) {
-            const RoboU32 backdrop = ReadPixel(gpu, op.x, op.y);
-            for (int row = 0; row < op.height; ++row) {
-                for (int col = 0; col < op.width; ++col) {
-                    WritePixel(gpu, op.x + col, op.y + row, backdrop);
-                }
-            }
+    const RoboU32 backdrop = ReadPixel(gpu, rect.x, rect.y);
+    RoboGPUPushScissor(gpu, rect.x, rect.y, rect.width, rect.height);
+    for (int row = 0; row < rect.height; ++row) {
+        for (int col = 0; col < rect.width; ++col) {
+            WritePixel(gpu, rect.x + col, rect.y + row, backdrop);
         }
     }
     for (std::size_t index = 0; index < gScene.ops.size(); ++index) {
         const PaintOp& op = gScene.ops[index];
-        const bool picture = op.picture >= 0 && OpHits(op, rect);
-        if ((op.button && OpHits(op, rect)) || picture || (!op.button && !picture && OpInside(op, rect))) {
+        if (OpHits(op, rect)) {
             PaintPrepared(gpu, op, static_cast<int>(index), 0, limit, gScene.light);
         }
     }
+    RoboGPUPopScissor(gpu);
     RoboDamageClear(&gpu->damage);
 }
 
@@ -6552,11 +6574,51 @@ int WindowsDocumentSpinRects(WindowPatch* patches, int capacity) {
 
 void WindowsDocumentSetPictureClock(unsigned clock) {
     gPictureClock = clock;
+    for (CachedPicture& picture : gPictures) {
+        if (!picture.ok || !picture.videoPlaying || picture.videoFile.empty() || picture.image.sourceWidth < 1 || picture.image.sourceHeight < 1) {
+            continue;
+        }
+        if (picture.videoAnchor == 0) {
+            picture.videoAnchor = clock == 0 ? 1 : clock;
+        }
+        int at = picture.videoStart + static_cast<int>(clock - picture.videoAnchor);
+        if (at < 0) {
+            at = 0;
+        }
+        if (picture.videoDuration > 1 && at >= picture.videoDuration) {
+            at %= picture.videoDuration;
+        }
+        if (picture.videoShown >= 0 && at + 20 >= picture.videoShown && at <= picture.videoShown + 30) {
+            continue;
+        }
+        std::vector<RoboU32> pixels;
+        int width = 0;
+        int height = 0;
+        int sampleMs = 0;
+        if (!WindowsVideoFrame(picture.videoFile, at, pixels, width, height, sampleMs) || pixels.empty()) {
+            continue;
+        }
+        if (sampleMs == picture.videoShown && width == picture.image.sourceWidth && height == picture.image.sourceHeight) {
+            continue;
+        }
+        picture.image.pixels = std::move(pixels);
+        picture.image.sourceWidth = width;
+        picture.image.sourceHeight = height;
+        picture.cacheW = 0;
+        picture.cacheFrame = -1;
+        picture.videoShown = sampleMs;
+        gVideoDirty = true;
+    }
 }
 
 bool WindowsDocumentNeedsMotion() {
     if (!gScene.valid) {
         return false;
+    }
+    for (const CachedPicture& picture : gPictures) {
+        if (picture.ok && picture.videoPlaying) {
+            return true;
+        }
     }
     for (const PaintOp& op : gScene.ops) {
         if (op.picture < 0 || op.picture >= static_cast<int>(gPictures.size())) {
@@ -6578,7 +6640,8 @@ int WindowsDocumentMotionRects(WindowPatch* patches, int capacity) {
         if (op.picture < 0 || op.picture >= static_cast<int>(gPictures.size()) || op.width <= 0 || op.height <= 0) {
             continue;
         }
-        if (gPictures[static_cast<std::size_t>(op.picture)].image.frameCount <= 1) {
+        if (gPictures[static_cast<std::size_t>(op.picture)].image.frameCount <= 1 &&
+            !gPictures[static_cast<std::size_t>(op.picture)].videoPlaying) {
             continue;
         }
         if (count >= capacity) {

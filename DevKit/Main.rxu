@@ -487,6 +487,6 @@
   <Audio source="Audio/Harbor.wav" time="0" playing="true" volume="70"/>
 
   <Text value="Video" fontSize="22" font="sans-semibold"/>
-  <Text value="A frame and its clock. At 100 ms the harbor frame is blue." fontSize="13"/>
-  <Video source="Video/Harbor.mp4" time="100" playing="false" width="720" height="180"/>
+  <Text value="A frame and its clock. The harbor clip plays in the box." fontSize="13"/>
+  <Video source="Video/Harbor.mp4" time="0" playing="true" width="720" height="405"/>
 </Screen>
