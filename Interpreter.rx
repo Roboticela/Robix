@@ -756,6 +756,10 @@ Public Class Interpreter {
         If (pattern.Left != Null && pattern.Left.Kind == AstKind.IntegerLiteral) {
             Return scrutinee.Kind == ValueKind.Integer && scrutinee.Integer == ParseInteger(pattern.Left.Text);
         }
+        If (pattern.Text == "Int" || pattern.Text == "Int64") { Return scrutinee.Kind == ValueKind.Integer; }
+        If (pattern.Text == "String") { Return scrutinee.Kind == ValueKind.Text; }
+        If (pattern.Text == "Bool") { Return scrutinee.Kind == ValueKind.Boolean; }
+        If (pattern.Text == "Float" || pattern.Text == "Double" || pattern.Text == "Float64") { Return scrutinee.Kind == ValueKind.Float; }
         If (pattern.Text.Length() > 0 && scrutinee.Text == pattern.Text) {
             Return True;
         }

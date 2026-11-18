@@ -833,11 +833,92 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.While) { This.EmitWhile(node); Return; }
         If (node.Kind == AstKind.For) { This.EmitFor(node); Return; }
         If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
+        If (node.Kind == AstKind.Match) { This.EmitMatch(node); Return; }
         If (node.Kind == AstKind.ExpressionStatement) {
             If (node.Left != Null) { This.EmitExpr(node.Left); }
             Return;
         }
         If (node.Kind == AstKind.Assignment) { This.EmitAssignment(node); }
+    }
+
+    Private Function EmitMatch(AstNode node) -> Void {
+        IrValue scrutinee = This.Pair("0", "Int");
+        If (node.Left != Null) { scrutinee = This.EmitExpr(node.Left); }
+        String payload = scrutinee.Value;
+        String tag = "0";
+        String typeName = "0";
+        Bool boxed = This.IsAnyType(scrutinee.TypeName);
+        If (boxed) {
+            tag = This.LoadObjectField(scrutinee.Value, "0");
+            payload = This.LoadObjectField(scrutinee.Value, "1");
+            typeName = This.LoadObjectField(scrutinee.Value, "2");
+        }
+        String done = This.Label("mend");
+        For arm In node.Children {
+            String next = This.Label("mnext");
+            String body = This.Label("mbody");
+            Bool wildcard = arm.Left != Null && arm.Left.FlagA;
+            If (wildcard) {
+                This.Branch(body);
+            } Else {
+                String cond = This.EmitPatternCond(arm.Left, boxed, tag, typeName, scrutinee.TypeName);
+                This.Emit("br i1 " + cond + ", label %" + body + ", label %" + next);
+                This.Terminated = True;
+            }
+            This.Block(body);
+            Int mark = This.ScopeCount;
+            If (arm.Left != Null) { This.BindMatchName(arm.Left, payload); }
+            If (arm.Right != Null) {
+                If (arm.Right.Kind == AstKind.Block) { This.EmitStatement(arm.Right); }
+                If (arm.Right.Kind != AstKind.Block) { This.EmitExpr(arm.Right); }
+            }
+            If (!This.Terminated) { This.Branch(done); }
+            This.ScopeCount = mark;
+            This.Block(next);
+        }
+        If (!This.Terminated) { This.Branch(done); }
+        This.Block(done);
+    }
+
+    Private Function EmitPatternCond(AstNode? pattern, Bool boxed, String tag, String typeName, String staticType) -> String {
+        String expected = "";
+        If (pattern != Null) { expected = pattern.Text; }
+        If (!boxed) {
+            String flag = This.Fresh("cond");
+            String same = "0";
+            If (expected.Length() == 0 || staticType == expected) { same = "1"; }
+            This.Emit(flag + " = icmp eq i64 " + same + ", 1");
+            Return flag;
+        }
+        Int code = 0;
+        If (expected == "Int" || expected == "Int64") { code = 1; }
+        If (expected == "String") { code = 2; }
+        If (expected == "Bool") { code = 3; }
+        If (expected == "Char") { code = 4; }
+        If (expected == "Float" || expected == "Double" || expected == "Float64") { code = 5; }
+        If (code > 0) {
+            String flag = This.Fresh("cond");
+            This.Emit(flag + " = icmp eq i64 " + tag + ", " + code.ToString());
+            Return flag;
+        }
+        String tagOk = This.Fresh("cond");
+        This.Emit(tagOk + " = icmp eq i64 " + tag + ", 8");
+        Var args = List<String>();
+        args.Add(typeName);
+        args.Add(This.StringConst(expected));
+        IrValue same = This.CallRuntime("rx_str_eq", args, False);
+        String nameOk = This.Fresh("cond");
+        This.Emit(nameOk + " = icmp ne i64 " + same.Value + ", 0");
+        String both = This.Fresh("cond");
+        This.Emit(both + " = and i1 " + tagOk + ", " + nameOk);
+        Return both;
+    }
+
+    Private Function BindMatchName(AstNode pattern, String payload) -> Void {
+        If (pattern.Name.Length() == 0 || pattern.Name == "_" || pattern.Name == "()") { Return; }
+        String bindType = pattern.Text;
+        If (bindType.Length() == 0) { bindType = "Any"; }
+        This.Alloca(pattern.Name, bindType, payload);
     }
 
     Private Function EmitIf(AstNode node) -> Void {
@@ -1151,6 +1232,10 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.Range) { Return This.EmitRange(node); }
         If (node.Kind == AstKind.Binary) { Return This.EmitBinary(node); }
         If (node.Kind == AstKind.Assignment) { Return This.EmitAssignment(node); }
+        If (node.Kind == AstKind.Match) {
+            This.EmitMatch(node);
+            Return This.Pair("0", "Void");
+        }
         If (node.Kind == AstKind.ArrayLiteral) { Return This.EmitArrayLiteral(node); }
         If (node.Kind == AstKind.MapLiteral) { Return This.EmitMapLiteral(node); }
         If (node.Kind == AstKind.SetLiteral) { Return This.EmitSetLiteral(node); }
@@ -2436,6 +2521,13 @@ Public Class NativeProgram {
         Var created = List<String>();
         created.Add("3");
         IrValue obj = This.CallRuntime("rx_obj_new", created, False);
+        ClassInfo info = This.FindClass(value.TypeName);
+        If (info.Name != "" && (info.KindName == "Struct" || info.KindName == "Class")) {
+            This.StoreObjectField(obj.Value, "0", "8");
+            This.StoreObjectField(obj.Value, "1", value.Value);
+            This.StoreObjectField(obj.Value, "2", This.StringConst(value.TypeName));
+            Return This.Pair(obj.Value, "Any");
+        }
         This.StoreObjectField(obj.Value, "0", This.ValueTag(value.TypeName));
         This.StoreObjectField(obj.Value, "1", value.Value);
         This.StoreObjectField(obj.Value, "2", This.ElementTag(value.TypeName));

@@ -347,7 +347,9 @@ Public Class TypeChecker {
                 wildcard = True;
             }
             This.PushScope();
-            This.BindPattern(arm.Left, "Unknown");
+            String patternType = "Unknown";
+            If (arm.Left != Null && arm.Left.Text.Length() > 0) { patternType = arm.Left.Text; }
+            This.BindPattern(arm.Left, patternType);
             If (arm.Right != Null) { This.CheckNode(arm.Right); }
             This.PopScope();
         }

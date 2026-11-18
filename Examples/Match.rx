@@ -1,0 +1,49 @@
+// Match unwraps an Any value by its runtime type.
+Package Robotics.Match;
+
+Import Robix.Core;
+
+
+Struct RoboPoint {
+    Public Float X;
+    Public Float Y;
+}
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Match an Any value against a struct, a string, an integer, and a fallback.";
+    Input: args = "Command-line arguments";
+    Processing: "Store four different values in Any and print the matching arm.";
+    Output: "The point's X, the label, the count, and the fallback text.";
+} {
+    Var point: Any = RoboPoint { X: 1.5, Y: 2.5 };
+    Var label: Any = "robot";
+    Var count: Any = 9;
+    Var flag: Any = True;
+    Match point {
+        RoboPoint p => Print(p.X);
+        String s => Print(s);
+        Int n => Print(n);
+        _ => Print("Unknown value");
+    }
+    Match label {
+        RoboPoint p => Print(p.X);
+        String s => Print(s);
+        Int n => Print(n);
+        _ => Print("Unknown value");
+    }
+    Match count {
+        RoboPoint p => Print(p.X);
+        String s => Print(s);
+        Int n => Print(n);
+        _ => Print("Unknown value");
+    }
+    Match flag {
+        RoboPoint p => Print(p.X);
+        String s => Print(s);
+        Int n => Print(n);
+        _ => Print("Unknown value");
+    }
+    Return 0;
+}

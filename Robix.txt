@@ -110,16 +110,6 @@ Ref<Mut Int> mutableAddress = Ref(Mut motorSpeed);
 Function<Int, Int, Int> mathFunc = RoboAdd;
 Enumerate<Int> enumerateItems = [1, 2, 3].Enumerate();
 
-// Any can hold any legal Robix value, including user-defined structures,
-// functions, collections, and nullable values. Pattern matching safely unwraps it.
-Var universal: Any = RoboPoint { X: 1.0, Y: 2.0 };
-Match universal {
-    RoboPoint p => Print(p.X);
-    String s => Print(s);
-    Int n => Print(n);
-    _ => Print("Unknown value");
-}
-
 // Generic constraints and user-defined generic types.
 Struct RoboResult<TValue, TError> {
     Public Bool IsSuccess;
