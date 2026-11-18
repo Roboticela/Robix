@@ -228,6 +228,10 @@ Public Class TypeChecker {
         If (node.Initializer != Null && inferred.Length() > 0 && node.Type != Null) {
             This.RequireAssignable(node.Initializer, declared, inferred);
         }
+        Int fixed = This.FixedCount(declared);
+        If (fixed >= 0 && node.Initializer != Null && node.Initializer.Kind == AstKind.ArrayLiteral && node.Initializer.Children.Count() != fixed) {
+            This.diagnostics.TypeError("RX103", "A fixed array needs exactly " + fixed.ToString() + " elements.", node.Line, node.Column, declared, node.Initializer.Children.Count().ToString() + " elements", "Match the declared length.");
+        }
         Bool nullable = declared.EndsWith("?") || declared == "Null";
         This.Define(node.Name, declared, node.FlagA && !node.FlagB, nullable, node.Initializer != Null, False, False, node.FlagB, node.Line, node.Column);
         If (node.Kind != AstKind.Field && node.Initializer == Null && !node.FlagA) {
@@ -409,11 +413,37 @@ Public Class TypeChecker {
         If (node.Kind == AstKind.CharLiteral) { Return "Char"; }
         If (node.Kind == AstKind.BooleanLiteral) { Return "Bool"; }
         If (node.Kind == AstKind.NullLiteral) { Return "Null"; }
-        If (node.Kind == AstKind.ArrayLiteral) { Return "Array<Unknown>"; }
-        If (node.Kind == AstKind.MapLiteral) { Return "Map<Unknown, Unknown>"; }
-        If (node.Kind == AstKind.SetLiteral) { Return "Set<Unknown>"; }
-        If (node.Kind == AstKind.TupleLiteral) { Return "Tuple"; }
-        If (node.Kind == AstKind.RecordLiteral) { Return node.Name; }
+        If (node.Kind == AstKind.ArrayLiteral) { Return "Array<" + This.LiteralElement(node) + ">"; }
+        If (node.Kind == AstKind.MapLiteral) {
+            String valueType = "Int";
+            For child In node.Children {
+                If (child.Left != Null) { valueType = This.Infer(child.Left); }
+            }
+            Return "Map<String, " + valueType + ">";
+        }
+        If (node.Kind == AstKind.SetLiteral) { Return "Set<" + This.LiteralElement(node) + ">"; }
+        If (node.Kind == AstKind.TupleLiteral) {
+            String text = "(";
+            Bool first = True;
+            For child In node.Children {
+                If (!first) { text = text + ", "; }
+                text = text + This.Infer(child);
+                first = False;
+            }
+            Return text + ")";
+        }
+        If (node.Kind == AstKind.RecordLiteral) {
+            String text = "{";
+            Bool first = True;
+            For child In node.Children {
+                String fieldType = "Int";
+                If (child.Left != Null) { fieldType = This.Infer(child.Left); }
+                If (!first) { text = text + ", "; }
+                text = text + child.Name + ": " + fieldType;
+                first = False;
+            }
+            Return text + "}";
+        }
         If (node.Kind == AstKind.ObjectLiteral) {
             For child In node.Children {
                 If (child.Left != Null) { This.Infer(child.Left); }
@@ -457,6 +487,11 @@ Public Class TypeChecker {
             String right = This.Infer(node.Right);
             If (node.Operator == "&&" || node.Operator == "||" || node.Operator == "And" || node.Operator == "Or" || node.Operator == "==" || node.Operator == "!=" || node.Operator == "<" || node.Operator == ">" || node.Operator == "<=" || node.Operator == ">=" || node.Operator == "Equal") {
                 Return "Bool";
+            }
+            If (node.Operator == "??") {
+                If (left.EndsWith("?")) { Return This.StripOptional(left); }
+                If (left == "Null") { Return right; }
+                Return left;
             }
             If (node.Operator == "+" && (left == "String" || right == "String")) {
                 Return "String";
@@ -569,6 +604,9 @@ Public Class TypeChecker {
             Return;
         }
         If (This.WidensTo(wanted, given)) {
+            Return;
+        }
+        If (This.SameElements(wanted, given)) {
             Return;
         }
         If (This.IsNumeric(wanted) && This.IsNumeric(given) && wanted != given) {
@@ -791,7 +829,18 @@ Public Class TypeChecker {
             If (type.Children.Count() > 0) {
                 element = This.TypeText(type.Children[0]);
             }
+            If (type.FlagC && type.Right != Null) { Return "[" + element + "; " + type.Right.Text + "]"; }
             Return "[" + element + "]";
+        }
+        If (type.Name == "{}") {
+            String joined = "{";
+            Bool first = True;
+            For child In type.Children {
+                If (!first) { joined = joined + ", "; }
+                joined = joined + child.Name + ": " + This.TypeText(child.Type);
+                first = False;
+            }
+            Return joined + "}";
         }
         String text = type.Text + type.Name;
         If (type.Children.Count() > 0) {
@@ -838,6 +887,51 @@ Public Class TypeChecker {
             Return actual == "Float" || actual == "Double" || actual == "Float16" || actual == "Float32" || actual == "Float64";
         }
         Return False;
+    }
+
+    Private Function LiteralElement(AstNode node) -> String {
+        String element = "Int";
+        Bool first = True;
+        For child In node.Children {
+            String item = This.Infer(child);
+            If (first) {
+                element = item;
+                If (element == "") { element = "Int"; }
+                first = False;
+            }
+        }
+        Return element;
+    }
+
+    Private Function ElementName(String typeName) -> String {
+        If (typeName.StartsWith("List:")) { Return typeName.Substring(5); }
+        If (typeName.StartsWith("Array<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
+        If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
+        If (typeName.StartsWith("Set<") && typeName.EndsWith(">")) { Return typeName.Substring(4, typeName.Length() - 5); }
+        If (typeName.StartsWith("[") && typeName.EndsWith("]")) {
+            String body = typeName.Substring(1, typeName.Length() - 2);
+            Int semi = body.IndexOf(";");
+            If (semi >= 0) { Return body.Substring(0, semi); }
+            Return body;
+        }
+        Return "";
+    }
+
+    Private Function SameElements(String expected, String actual) -> Bool {
+        String left = This.ElementName(expected);
+        String right = This.ElementName(actual);
+        If (left == "" || left != right) { Return False; }
+        If (expected.StartsWith("Map") || actual.StartsWith("Map")) { Return False; }
+        If (expected.StartsWith("Set<") != actual.StartsWith("Set<")) { Return False; }
+        Return True;
+    }
+
+    Private Function FixedCount(String typeName) -> Int {
+        Int semi = typeName.IndexOf("; ");
+        If (semi < 0 || !typeName.EndsWith("]")) { Return -1; }
+        String number = typeName.Substring(semi + 2, typeName.Length() - semi - 3);
+        If (number == "") { Return -1; }
+        Return ParseInteger(number);
     }
 
     Private Function IsNumeric(String typeName) -> Bool {

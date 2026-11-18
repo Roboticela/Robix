@@ -48,6 +48,106 @@ static int64_t rx_clamp_index(int64_t length, int64_t index) {
     return index;
 }
 
+typedef struct RxMap {
+    int64_t *keys;
+    int64_t *values;
+    int64_t count;
+    int64_t cap;
+    int64_t kind;
+} RxMap;
+
+static int rx_key_eq(int64_t kind, int64_t left, int64_t right) {
+    if (kind == 1) {
+        return strcmp(rx_cstr(left), rx_cstr(right)) == 0;
+    }
+    return left == right;
+}
+
+int64_t rx_map_new(int64_t kind) {
+    RxMap *map = calloc(1, sizeof(RxMap));
+    if (map != NULL) {
+        map->kind = kind;
+    }
+    return (int64_t)(uintptr_t)map;
+}
+
+void rx_map_put(int64_t map, int64_t key, int64_t item) {
+    RxMap *value = (RxMap *)(uintptr_t)map;
+    int64_t index = 0;
+    int64_t cap = 0;
+    int64_t *keys = NULL;
+    int64_t *items = NULL;
+    if (value == NULL) {
+        return;
+    }
+    while (index < value->count) {
+        if (rx_key_eq(value->kind, value->keys[index], key)) {
+            value->values[index] = item;
+            return;
+        }
+        index = index + 1;
+    }
+    if (value->count + 1 > value->cap) {
+        cap = value->cap == 0 ? 8 : value->cap * 2;
+        keys = realloc(value->keys, (size_t)cap * sizeof(int64_t));
+        items = realloc(value->values, (size_t)cap * sizeof(int64_t));
+        if (keys == NULL || items == NULL) {
+            return;
+        }
+        value->keys = keys;
+        value->values = items;
+        value->cap = cap;
+    }
+    value->keys[value->count] = key;
+    value->values[value->count] = item;
+    value->count = value->count + 1;
+}
+
+int64_t rx_map_get(int64_t map, int64_t key) {
+    RxMap *value = (RxMap *)(uintptr_t)map;
+    int64_t index = 0;
+    if (value == NULL) {
+        return 0;
+    }
+    while (index < value->count) {
+        if (rx_key_eq(value->kind, value->keys[index], key)) {
+            return value->values[index];
+        }
+        index = index + 1;
+    }
+    return 0;
+}
+
+void rx_set_add(int64_t list, int64_t item, int64_t kind) {
+    RxList *value = (RxList *)(uintptr_t)list;
+    int64_t index = 0;
+    if (value == NULL) {
+        return;
+    }
+    while (index < value->count) {
+        if (rx_key_eq(kind, value->items[index], item)) {
+            return;
+        }
+        index = index + 1;
+    }
+    rx_list_add(list, item);
+}
+
+int64_t rx_set_has(int64_t list, int64_t item, int64_t kind) {
+    RxList *value = (RxList *)(uintptr_t)list;
+    int64_t index = 0;
+    if (value == NULL) {
+        return 0;
+    }
+    while (index < value->count) {
+        if (rx_key_eq(kind, value->items[index], item)) {
+            return 1;
+        }
+        index = index + 1;
+    }
+    return 0;
+}
+
 int64_t rx_list_new(void) {
     RxList *list = calloc(1, sizeof(RxList));
     return (int64_t)(uintptr_t)list;

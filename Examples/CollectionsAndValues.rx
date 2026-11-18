@@ -6,20 +6,30 @@ Import Robix.Core;
 
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Build the standard collection literals.";
+    Description: "Build collection literals and read their values.";
     Input: args = "Command-line arguments";
-    Processing: "Create an array, map, set, tuple, and record.";
-    Output: "The first sensor reading.";
+    Processing: "Index an array, list, map, tuple, and record, and fill a null name.";
+    Output: "The first sensor reading and the display name.";
 } {
     Array<Int> sensorReads = [1, 2, 3, 4];
+    [Int; 4] fixedCounts = [0, 0, 0, 0];
     List<String> robotNames = ["RoboAlpha", "RoboBeta"];
     Map<String, Int> robotScores = {"Alpha": 10, "Beta": 20};
-    Set<Int> uniqueReadings = {1, 2, 3};
+    Set<Int> uniqueReadings = {1, 2, 2, 3};
     (Int, String) pair = (42, "ready");
     { X: Int, Y: Int } point = { X: 10, Y: 20 };
     String? maybeName = Null;
     Let displayName = maybeName ?? "Unnamed";
     Print(sensorReads[0]);
+    Print(fixedCounts[3]);
+    Print(robotNames[1]);
+    Print(robotScores["Alpha"]);
+    Print(uniqueReadings.Count());
+    Print(uniqueReadings.Contains(2));
+    Print(pair[0]);
+    Print(pair[1]);
+    Print(point.X);
+    Print(point.Y);
     Print(displayName);
-    Return sensorReads[0];
+    Return 0;
 }

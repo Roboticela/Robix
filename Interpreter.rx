@@ -380,7 +380,10 @@ Public Class Interpreter {
         If (node.Kind == AstKind.NullLiteral) { Return This.MakeNull(); }
         If (node.Kind == AstKind.Name) { Return This.Lookup(node.Name); }
         If (node.Kind == AstKind.ObjectLiteral) { Return This.MakeObject(node); }
-        If (node.Kind == AstKind.ArrayLiteral || node.Kind == AstKind.TupleLiteral || node.Kind == AstKind.SetLiteral) {
+        If (node.Kind == AstKind.RecordLiteral) { Return This.MakeRecord(node); }
+        If (node.Kind == AstKind.MapLiteral) { Return This.MakeMap(node); }
+        If (node.Kind == AstKind.SetLiteral) { Return This.MakeSet(node); }
+        If (node.Kind == AstKind.ArrayLiteral || node.Kind == AstKind.TupleLiteral) {
             Value array = This.MakeArray();
             For child In node.Children {
                 array.Elements.Add(This.Evaluate(child));
@@ -407,6 +410,11 @@ Public Class Interpreter {
                 Return This.MakeInt(next);
             }
             Return operand;
+        }
+        If (node.Kind == AstKind.Binary && node.Operator == "??") {
+            Value left = This.Evaluate(node.Left);
+            If (left.Kind == ValueKind.Null || left.Kind == ValueKind.None) { Return This.Evaluate(node.Right); }
+            Return left;
         }
         If (node.Kind == AstKind.Binary || node.Kind == AstKind.Range) {
             Return This.EvaluateBinary(node);
@@ -478,6 +486,15 @@ Public Class Interpreter {
         }
         If (node.Kind == AstKind.Index) {
             Value target = This.Evaluate(node.Left);
+            If (target.Text == "Map") {
+                Value key = This.Evaluate(node.Right);
+                Int pair = 0;
+                While (pair + 1 < target.Elements.Count()) {
+                    If (This.Same(target.Elements[pair], key)) { Return target.Elements[pair + 1]; }
+                    pair = pair + 2;
+                }
+                Return This.MakeInt(0);
+            }
             Int index = This.Evaluate(node.Right).Integer;
             If (index >= 0 && index < target.Elements.Count()) {
                 Return target.Elements[index];
@@ -604,6 +621,12 @@ Public Class Interpreter {
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) {
             Value target = This.Evaluate(node.Left.Left);
+            If (node.Left.Name == "Contains" && arguments.Count() > 0) {
+                For element In target.Elements {
+                    If (This.Same(element, arguments[0])) { Return This.MakeBool(True); }
+                }
+                Return This.MakeBool(False);
+            }
             If (node.Left.Name == "Count" || node.Left.Name == "Length") {
                 If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.Length()); }
                 Return This.MakeInt(target.Elements.Count());
@@ -761,6 +784,42 @@ Public Class Interpreter {
             }
         }
         Return This.MakeInt(0);
+    }
+
+    Private Function MakeRecord(AstNode node) -> Value {
+        Value obj = This.MakeObjectValue("");
+        For child In node.Children {
+            Value field = This.MakeInt(0);
+            If (child.Left != Null) { field = This.Evaluate(child.Left); }
+            obj.FieldNames.Add(child.Name);
+            obj.Elements.Add(field);
+        }
+        Return obj;
+    }
+
+    Private Function MakeMap(AstNode node) -> Value {
+        Value map = This.MakeArray();
+        map.Text = "Map";
+        For child In node.Children {
+            map.Elements.Add(This.MakeText(child.Name));
+            If (child.Left != Null) { map.Elements.Add(This.Evaluate(child.Left)); }
+            If (child.Left == Null) { map.Elements.Add(This.MakeInt(0)); }
+        }
+        Return map;
+    }
+
+    Private Function MakeSet(AstNode node) -> Value {
+        Value set = This.MakeArray();
+        set.Text = "Set";
+        For child In node.Children {
+            Value item = This.Evaluate(child);
+            Bool seen = False;
+            For existing In set.Elements {
+                If (This.Same(existing, item)) { seen = True; }
+            }
+            If (!seen) { set.Elements.Add(item); }
+        }
+        Return set;
     }
 
     Private Function MakeObject(AstNode node) -> Value {

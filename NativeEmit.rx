@@ -524,8 +524,8 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
-        String voids = "rx_list_add rx_list_set rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
+        String voids = "rx_list_add rx_list_set rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
         While (start < names.Length()) {
@@ -1084,7 +1084,14 @@ Public Class NativeProgram {
                 IrValue value = This.CallRuntime("rx_str_get", args, False);
                 Return This.Pair(value.Value, "Char");
             }
+            If (collection.TypeName.StartsWith("Map<")) {
+                IrValue value = This.CallRuntime("rx_map_get", args, False);
+                Return This.Pair(value.Value, This.MapValueType(collection.TypeName));
+            }
             String value = This.LoadListItem(collection.Value, index.Value);
+            If (collection.TypeName.StartsWith("(")) {
+                Return This.Pair(value, This.TupleElement(collection.TypeName, index.Value));
+            }
             Return This.Pair(value, This.ElementType(collection.TypeName));
         }
         If (node.Kind == AstKind.Unary) {
@@ -1123,6 +1130,10 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.Binary) { Return This.EmitBinary(node); }
         If (node.Kind == AstKind.Assignment) { Return This.EmitAssignment(node); }
         If (node.Kind == AstKind.ArrayLiteral) { Return This.EmitArrayLiteral(node); }
+        If (node.Kind == AstKind.MapLiteral) { Return This.EmitMapLiteral(node); }
+        If (node.Kind == AstKind.SetLiteral) { Return This.EmitSetLiteral(node); }
+        If (node.Kind == AstKind.TupleLiteral) { Return This.EmitTupleLiteral(node); }
+        If (node.Kind == AstKind.RecordLiteral) { Return This.EmitRecordLiteral(node); }
         If (node.Kind == AstKind.ObjectLiteral) { Return This.EmitObjectLiteral(node); }
         Return This.Pair("0", "Int");
     }
@@ -1197,6 +1208,13 @@ Public Class NativeProgram {
         If (info.Name != "" && slot >= 0) {
             String loaded = This.LoadObjectField(receiver.Value, slot.ToString());
             Return This.Pair(loaded, This.FieldType(info, target));
+        }
+        If (receiver.TypeName.StartsWith("{")) {
+            Int recordSlot = This.RecordSlot(receiver.TypeName, target);
+            If (recordSlot >= 0) {
+                String loaded = This.LoadObjectField(receiver.Value, recordSlot.ToString());
+                Return This.Pair(loaded, This.RecordFieldType(receiver.TypeName, target));
+            }
         }
         Return This.Pair(receiver.Value, receiver.TypeName);
     }
@@ -1366,6 +1384,17 @@ Public Class NativeProgram {
             String ret = method.ReturnType;
             If (ret == "") { ret = "Int"; }
             Return This.Pair(value.Value, ret);
+        }
+        If (member.Name == "Contains" && receiver.TypeName.StartsWith("Set<")) {
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            String kind = "0";
+            If (This.ElementType(receiver.TypeName) == "String") { kind = "1"; }
+            args.Add(kind);
+            IrValue value = This.CallRuntime("rx_set_has", args, False);
+            Return This.Pair(value.Value, "Bool");
         }
         If (member.Name == "Count") {
             Var args = List<String>();
@@ -1625,6 +1654,7 @@ Public Class NativeProgram {
     Private Function EmitBinary(AstNode node) -> IrValue {
         If (node.Operator == "&&") { Return This.ShortCircuit(node, False); }
         If (node.Operator == "||") { Return This.ShortCircuit(node, True); }
+        If (node.Operator == "??") { Return This.EmitCoalesce(node); }
         IrValue left = This.EmitExpr(node.Left);
         IrValue right = This.EmitExpr(node.Right);
         If (This.IsFloatType(left.TypeName) || This.IsFloatType(right.TypeName)) {
@@ -1836,8 +1866,50 @@ Public Class NativeProgram {
             }
             Return "List:" + element;
         }
-        If (name.EndsWith("?")) { Return This.ResolveAlias(name.Substring(0, name.Length() - 1)); }
-        Return This.ResolveAlias(name);
+        If (name == "Array" || name == "Set" || name == "Map") {
+            String text = name + "<";
+            Bool first = True;
+            For child In node.Children {
+                If (!first) { text = text + ", "; }
+                String argument = This.TypeName(child);
+                If (argument == "") { argument = "Int"; }
+                text = text + argument;
+                first = False;
+            }
+            If (first) { text = text + "Int"; }
+            text = text + ">";
+            If (node.FlagA) { text = text + "?"; }
+            Return text;
+        }
+        If (name == "()") {
+            String text = "(";
+            Bool first = True;
+            For child In node.Children {
+                If (!first) { text = text + ", "; }
+                text = text + This.TypeName(child);
+                first = False;
+            }
+            Return text + ")";
+        }
+        If (name == "{}") {
+            String text = "{";
+            Bool first = True;
+            For child In node.Children {
+                If (!first) { text = text + ", "; }
+                text = text + child.Name + ": " + This.TypeName(child.Type);
+                first = False;
+            }
+            Return text + "}";
+        }
+        If (name == "[]") {
+            String element = "Int";
+            If (node.Children.Count() > 0) { element = This.TypeName(node.Children[0]); }
+            If (node.FlagC && node.Right != Null) { Return "[" + element + "; " + node.Right.Text + "]"; }
+            Return "[" + element + "]";
+        }
+        String resolved = This.ResolveAlias(name);
+        If (node.FlagA && !resolved.EndsWith("?")) { resolved = resolved + "?"; }
+        Return resolved;
     }
 
     Private Function ResolveAlias(String name) -> String {
@@ -1915,12 +1987,193 @@ Public Class NativeProgram {
     }
 
     Private Function IsList(String typeName) -> Bool {
-        Return typeName.StartsWith("List:");
+        Return typeName.StartsWith("List:") || typeName.StartsWith("List<") || typeName.StartsWith("Array<") || typeName.StartsWith("Set<") || typeName.StartsWith("[");
     }
 
     Private Function ElementType(String typeName) -> String {
-        If (!This.IsList(typeName)) { Return "Int"; }
-        Return typeName.Substring(5);
+        If (typeName.StartsWith("List:")) { Return typeName.Substring(5); }
+        If (typeName.StartsWith("Array<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
+        If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
+        If (typeName.StartsWith("Set<") && typeName.EndsWith(">")) { Return typeName.Substring(4, typeName.Length() - 5); }
+        If (typeName.StartsWith("[") && typeName.EndsWith("]")) {
+            String body = typeName.Substring(1, typeName.Length() - 2);
+            Int semi = body.IndexOf(";");
+            If (semi >= 0) { Return body.Substring(0, semi); }
+            Return body;
+        }
+        Return "Int";
+    }
+
+    Private Function MapValueType(String typeName) -> String {
+        Int comma = typeName.IndexOf(", ");
+        If (comma < 0 || !typeName.EndsWith(">")) { Return "Int"; }
+        Return typeName.Substring(comma + 2, typeName.Length() - comma - 3);
+    }
+
+    Private Function TupleElement(String typeName, String indexText) -> String {
+        Int index = 0;
+        Int cursor = 0;
+        String number = "";
+        Int digit = 0;
+        While (digit < indexText.Length()) {
+            Char character = indexText.GetChar(digit);
+            If (character < '0' || character > '9') { Return "Int"; }
+            number = number + indexText.Substring(digit, 1);
+            digit = digit + 1;
+        }
+        If (number != "") { index = ParseInteger(number); }
+        String body = typeName.Substring(1, typeName.Length() - 2);
+        Int start = 0;
+        While (start <= body.Length()) {
+            Int comma = body.IndexOf(", ", start);
+            String piece = "";
+            If (comma < 0) {
+                piece = body.Substring(start);
+            } Else {
+                piece = body.Substring(start, comma - start);
+            }
+            If (cursor == index) { Return piece; }
+            If (comma < 0) { Return "Int"; }
+            cursor = cursor + 1;
+            start = comma + 2;
+        }
+        Return "Int";
+    }
+
+    Private Function RecordSlot(String typeName, String field) -> Int {
+        String body = typeName.Substring(1, typeName.Length() - 2);
+        Int slot = 0;
+        Int start = 0;
+        While (start <= body.Length()) {
+            Int comma = body.IndexOf(", ", start);
+            String piece = "";
+            If (comma < 0) {
+                piece = body.Substring(start);
+            } Else {
+                piece = body.Substring(start, comma - start);
+            }
+            Int colon = piece.IndexOf(": ");
+            String name = piece;
+            If (colon >= 0) { name = piece.Substring(0, colon); }
+            If (name == field) { Return slot; }
+            If (comma < 0) { Return -1; }
+            slot = slot + 1;
+            start = comma + 2;
+        }
+        Return -1;
+    }
+
+    Private Function RecordFieldType(String typeName, String field) -> String {
+        String body = typeName.Substring(1, typeName.Length() - 2);
+        Int start = 0;
+        While (start <= body.Length()) {
+            Int comma = body.IndexOf(", ", start);
+            String piece = "";
+            If (comma < 0) {
+                piece = body.Substring(start);
+            } Else {
+                piece = body.Substring(start, comma - start);
+            }
+            Int colon = piece.IndexOf(": ");
+            If (colon >= 0 && piece.Substring(0, colon) == field) { Return piece.Substring(colon + 2); }
+            If (comma < 0) { Return "Int"; }
+            start = comma + 2;
+        }
+        Return "Int";
+    }
+
+    Private Function EmitCoalesce(AstNode node) -> IrValue {
+        IrValue left = This.EmitExpr(node.Left);
+        IrValue right = This.EmitExpr(node.Right);
+        String flag = This.Fresh("v");
+        This.Emit(flag + " = icmp eq i64 " + left.Value + ", 0");
+        String result = This.Fresh("v");
+        This.Emit(result + " = select i1 " + flag + ", i64 " + right.Value + ", i64 " + left.Value);
+        String typeName = left.TypeName;
+        If (typeName.EndsWith("?")) { typeName = typeName.Substring(0, typeName.Length() - 1); }
+        If (typeName == "Null") { typeName = right.TypeName; }
+        Return This.Pair(result, typeName);
+    }
+
+    Private Function EmitMapLiteral(AstNode node) -> IrValue {
+        Var created = List<String>();
+        created.Add("1");
+        IrValue map = This.CallRuntime("rx_map_new", created, False);
+        String valueType = "Int";
+        Bool first = True;
+        For child In node.Children {
+            IrValue field = This.EmitExpr(child.Left);
+            If (first) {
+                valueType = field.TypeName;
+                If (valueType == "") { valueType = "Int"; }
+                first = False;
+            }
+            Var args = List<String>();
+            args.Add(map.Value);
+            args.Add(This.StringConst(child.Name));
+            args.Add(field.Value);
+            This.CallRuntime("rx_map_put", args, True);
+        }
+        Return This.Pair(map.Value, "Map<String, " + valueType + ">");
+    }
+
+    Private Function EmitSetLiteral(AstNode node) -> IrValue {
+        IrValue list = This.CallRuntime("rx_list_new", List<String>(), False);
+        String element = "Int";
+        Bool first = True;
+        For child In node.Children {
+            IrValue item = This.EmitExpr(child);
+            If (first) {
+                element = item.TypeName;
+                If (element == "") { element = "Int"; }
+                first = False;
+            }
+            String kind = "0";
+            If (element == "String") { kind = "1"; }
+            Var args = List<String>();
+            args.Add(list.Value);
+            args.Add(item.Value);
+            args.Add(kind);
+            This.CallRuntime("rx_set_add", args, True);
+        }
+        Return This.Pair(list.Value, "Set<" + element + ">");
+    }
+
+    Private Function EmitTupleLiteral(AstNode node) -> IrValue {
+        IrValue list = This.CallRuntime("rx_list_new", List<String>(), False);
+        String typeName = "(";
+        Bool first = True;
+        For child In node.Children {
+            IrValue item = This.EmitExpr(child);
+            If (!first) { typeName = typeName + ", "; }
+            typeName = typeName + item.TypeName;
+            first = False;
+            Var args = List<String>();
+            args.Add(list.Value);
+            args.Add(item.Value);
+            This.CallRuntime("rx_list_add", args, True);
+        }
+        Return This.Pair(list.Value, typeName + ")");
+    }
+
+    Private Function EmitRecordLiteral(AstNode node) -> IrValue {
+        Int fields = node.Children.Count();
+        If (fields < 1) { fields = 1; }
+        Var created = List<String>();
+        created.Add(fields.ToString());
+        IrValue obj = This.CallRuntime("rx_obj_new", created, False);
+        String typeName = "{";
+        Bool first = True;
+        Int slot = 0;
+        For child In node.Children {
+            IrValue field = This.EmitExpr(child.Left);
+            This.StoreObjectField(obj.Value, slot.ToString(), field.Value);
+            If (!first) { typeName = typeName + ", "; }
+            typeName = typeName + child.Name + ": " + field.TypeName;
+            first = False;
+            slot = slot + 1;
+        }
+        Return This.Pair(obj.Value, typeName + "}");
     }
 
     Private Function Stem(String fileName) -> String {

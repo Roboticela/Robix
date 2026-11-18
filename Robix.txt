@@ -99,11 +99,6 @@ Type RoboBox<T> = Storage<T>;
 // 4. Composite types, collections, tuples, and universal values
 // -----------------------------------------------------------------------------
 
-Array<Int> sensorReads = [1, 2, 3, 4];
-[Int; 4] fixedCounts = [0, 0, 0, 0];
-List<String> robotNames = ["RoboAlpha", "RoboBeta"];
-Map<String, Int> robotScores = {"Alpha": 10, "Beta": 20};
-Set<Int> uniqueReadings = {1, 2, 3};
 Queue<Int> pendingJobs = Queue<Int>();
 Stack<String> history = Stack<String>();
 Span<Byte> bytes = [0x01, 0x02, 0x03];
@@ -114,14 +109,11 @@ Pointer<Mut Byte> mutableBytePointer = Null;
 Ref<Int> addressOfValue = Ref(motorSpeed);
 Ref<Mut Int> mutableAddress = Ref(Mut motorSpeed);
 
-(Int, String) pair = (42, "ready");
 Tuple tupleValue = Tuple(1, "two", True);
 Function<Int, Int, Int> mathFunc = RoboAdd;
-String? maybeName = Null;
 Option<Int> optionalValue = Some(5);
 Result<Float, String> resultValue = Success(3.14);
 Enumerate<Int> enumerateItems = [1, 2, 3].Enumerate();
-{ X: Int, Y: Int } point = { X: 10, Y: 20 };
 
 // Any can hold any legal Robix value, including user-defined structures,
 // functions, collections, and nullable values. Pattern matching safely unwraps it.
@@ -153,7 +145,6 @@ Var isNull = maybeName == Null;
 Var ternary = enabled ? 1 : 0;
 Var range = 0..10;
 Var inclusiveRange = 1..=10;
-Var coalesce = maybeName ?? "default";
 Var comparison = (motorSpeed >= 100) Is Bool;
 
 // Readable operator aliases are available as named functions or infix words.

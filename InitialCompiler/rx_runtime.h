@@ -13,6 +13,11 @@ typedef struct RxList {
     int64_t cap;
 } RxList;
 
+int64_t rx_map_new(int64_t kind);
+void rx_map_put(int64_t map, int64_t key, int64_t value);
+int64_t rx_map_get(int64_t map, int64_t key);
+void rx_set_add(int64_t list, int64_t item, int64_t kind);
+int64_t rx_set_has(int64_t list, int64_t item, int64_t kind);
 int64_t rx_list_new(void);
 int64_t rx_list_count(int64_t list);
 int64_t rx_list_get(int64_t list, int64_t index);
