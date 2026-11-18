@@ -101,6 +101,10 @@ Public Class NativeProgram {
     Public List<String> LoopContinue;
     Public List<String> LoopBreak;
     Public Int LoopCount;
+    Public List<String> GlobalNames;
+    Public List<String> GlobalSlots;
+    Public List<String> GlobalTypes;
+    Public String InitSymbol;
 
     Public Constructor() {
         This.Classes = List<ClassInfo>();
@@ -121,6 +125,10 @@ Public Class NativeProgram {
         This.LoopContinue = List<String>();
         This.LoopBreak = List<String>();
         This.LoopCount = 0;
+        This.GlobalNames = List<String>();
+        This.GlobalSlots = List<String>();
+        This.GlobalTypes = List<String>();
+        This.InitSymbol = "";
     }
 
     Public Function Collect(List<String> fileNames, List<AstNode> modules) -> Void
@@ -166,6 +174,7 @@ Public Class NativeProgram {
         This.FileName = fileName;
         This.Defined = List<String>();
         String parts = This.RuntimeDeclarations();
+        parts = parts + This.PrepareGlobals(module);
         For child In module.Children {
             If (child.Kind == AstKind.Class) {
                 parts = parts + This.EmitClassMembers(child);
@@ -474,19 +483,23 @@ Public Class NativeProgram {
         }
         If (!found) { Return ""; }
         String symbol = This.FunctionSymbol(This.FileName, "Main");
+        String startup = "";
+        If (This.InitSymbol != "") {
+            startup = "  call void @" + This.InitSymbol + "()\n";
+        }
         String returnType = This.TypeName(mainNode.Type);
         String call = "";
         If (mainNode.Parameters.Count() == 0) {
             If (returnType == "ExecutionResult") {
-                call = "  %result = call i64 @" + symbol + "()\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
+                call = startup + "  %result = call i64 @" + symbol + "()\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
             } Else {
-                call = "  %result = call i64 @" + symbol + "()\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
+                call = startup + "  %result = call i64 @" + symbol + "()\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
             }
         } Else {
             If (returnType == "ExecutionResult") {
-                call = "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
+                call = startup + "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
             } Else {
-                call = "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
+                call = startup + "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
             }
         }
         Return "declare i64 @rx_args(i32, ptr)\ndeclare void @rx_finish_result(i64)\n\ndefine i32 @main(i32 %argc, ptr %argv) {\n" + call + "}\n";
@@ -539,6 +552,68 @@ Public Class NativeProgram {
         This.LoopContinue = List<String>();
         This.LoopBreak = List<String>();
         This.LoopCount = 0;
+        This.BindGlobals();
+    }
+
+    Private Function BindGlobals() -> Void {
+        Int index = 0;
+        While (index < This.GlobalNames.Count()) {
+            This.Bind(This.GlobalNames[index], This.GlobalSlots[index], This.GlobalTypes[index]);
+            index = index + 1;
+        }
+    }
+
+    Private Function PrepareGlobals(AstNode module) -> String {
+        This.GlobalNames = List<String>();
+        This.GlobalSlots = List<String>();
+        This.GlobalTypes = List<String>();
+        This.InitSymbol = "";
+        Var nodes = List<AstNode>();
+        For child In module.Children {
+            This.CollectGlobals(child, nodes);
+        }
+        If (nodes.Count() == 0) { Return ""; }
+        String declarations = "";
+        Int index = 0;
+        For node In nodes {
+            String slot = "@g" + index.ToString();
+            declarations = declarations + slot + " = global i64 0\n";
+            String typeName = This.TypeName(node.Type);
+            If (typeName == "") { typeName = "Int"; }
+            This.GlobalNames.Add(node.Name);
+            This.GlobalSlots.Add(slot);
+            This.GlobalTypes.Add(typeName);
+            index = index + 1;
+        }
+        This.InitSymbol = "rxinit_" + This.Stem(This.FileName);
+        This.ResetFunction("", "Void");
+        This.Raw("define void @" + This.InitSymbol + "() {");
+        This.Raw("Lentry:");
+        index = 0;
+        For node In nodes {
+            String value = "0";
+            If (node.Initializer != Null) {
+                IrValue initial = This.EmitExpr(node.Initializer);
+                value = initial.Value;
+                If (node.Type == Null && initial.TypeName != "") {
+                    This.GlobalTypes[index] = initial.TypeName;
+                    This.ScopeTypes[index] = initial.TypeName;
+                }
+            }
+            This.Emit("store i64 " + value + ", ptr " + This.GlobalSlots[index]);
+            index = index + 1;
+        }
+        If (!This.Terminated) { This.Emit("ret void"); }
+        This.Raw("}");
+        Return declarations + This.JoinFunction();
+    }
+
+    Private Function CollectGlobals(AstNode node, List<AstNode> nodes) -> Void {
+        If (node.Kind != AstKind.Variable) { Return; }
+        If (node.Name != "") { nodes.Add(node); }
+        For child In node.Children {
+            This.CollectGlobals(child, nodes);
+        }
     }
 
     Private Function Fresh(String prefix) -> String {
@@ -830,8 +905,11 @@ Public Class NativeProgram {
 
     Private Function EmitExpr(AstNode node) -> IrValue {
         If (node.Kind == AstKind.IntegerLiteral) { Return This.Pair(This.Digits(node.Text), "Int"); }
-        If (node.Kind == AstKind.FloatLiteral) { Return This.Pair("0", "Int"); }
-        If (node.Kind == AstKind.StringLiteral) { Return This.Pair(This.StringConst(node.Text), "String"); }
+        If (node.Kind == AstKind.FloatLiteral) { Return This.Pair(This.EmitFloatBits(node.Text), "Float"); }
+        If (node.Kind == AstKind.StringLiteral) {
+            If (node.FlagA && node.Children.Count() > 0) { Return This.EmitInterpolation(node); }
+            Return This.Pair(This.StringConst(node.Text), "String");
+        }
         If (node.Kind == AstKind.CharLiteral) {
             If (node.Text.Length() == 0) { Return This.Pair("0", "Char"); }
             Return This.Pair(node.Text.GetChar(0).ToInt().ToString(), "Char");
@@ -873,6 +951,15 @@ Public Class NativeProgram {
                 String result = This.Fresh("v");
                 This.Emit(result + " = zext i1 " + flag + " to i64");
                 Return This.Pair(result, "Bool");
+            }
+            If (node.Operator == "-" && This.IsFloatType(value.TypeName)) {
+                String operand = This.Fresh("v");
+                This.Emit(operand + " = bitcast i64 " + value.Value + " to double");
+                String negated = This.Fresh("v");
+                This.Emit(negated + " = fneg double " + operand);
+                String bits = This.Fresh("v");
+                This.Emit(bits + " = bitcast double " + negated + " to i64");
+                Return This.Pair(bits, "Float");
             }
             String result = This.Fresh("v");
             This.Emit(result + " = sub i64 0, " + value.Value);
@@ -1236,6 +1323,10 @@ Public Class NativeProgram {
             IrValue result = This.CallRuntime("rx_str_from_char", args, False);
             Return This.Pair(result.Value, "String");
         }
+        If (This.IsFloatType(valueType)) {
+            IrValue result = This.CallRuntime("rx_F64Text", args, False);
+            Return This.Pair(result.Value, "String");
+        }
         IrValue result = This.CallRuntime("rx_str_from_int", args, False);
         Return This.Pair(result.Value, "String");
     }
@@ -1290,6 +1381,12 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_str_to_int", intArgs, False);
             Return This.Pair(value.Value, "Int");
         }
+        If (method == "ToFloat") {
+            Var floatArgs = List<String>();
+            floatArgs.Add(receiver);
+            IrValue value = This.CallRuntime("rx_F64Parse", floatArgs, False);
+            Return This.Pair(value.Value, "Float");
+        }
         If (method == "ToString") { Return This.Pair(receiver, "String"); }
         If (method == "Replace") {
             If (arguments.Count() > 1) { args.Add(arguments[1]); }
@@ -1341,6 +1438,9 @@ Public Class NativeProgram {
         If (node.Operator == "||") { Return This.ShortCircuit(node, True); }
         IrValue left = This.EmitExpr(node.Left);
         IrValue right = This.EmitExpr(node.Right);
+        If (This.IsFloatType(left.TypeName) || This.IsFloatType(right.TypeName)) {
+            Return This.EmitFloatBinary(node.Operator, left, right);
+        }
         If (node.Operator == "+") {
             If (This.IsString(left.TypeName) || This.IsString(right.TypeName)) {
                 String leftValue = left.Value;
@@ -1604,22 +1704,112 @@ Public Class NativeProgram {
     }
 
     Private Function Digits(String text) -> String {
-        String cleaned = "";
-        Int index = 0;
-        While (index < text.Length()) {
-            Int code = text.GetChar(index).ToInt();
-            If (code == 45 || (code >= 48 && code <= 57)) { cleaned = cleaned + text.Substring(index, 1); }
-            index = index + 1;
-        }
-        If (cleaned == "" || cleaned == "-") { Return "0"; }
-        Return cleaned;
+        Return ParseInteger(text).ToString();
     }
 
     Private Function PrintKind(String typeName) -> Int {
         If (typeName == "String") { Return 1; }
         If (typeName == "Bool") { Return 2; }
         If (typeName == "Char") { Return 3; }
+        If (This.IsFloatType(typeName)) { Return 4; }
         Return 0;
+    }
+
+    Private Function IsFloatType(String typeName) -> Bool {
+        Return typeName == "Float" || typeName == "Double" || typeName == "Float16" || typeName == "Float32" || typeName == "Float64";
+    }
+
+    Private Function IsFloat32Literal(String text) -> Bool {
+        String lower = text.Replace("_", "").ToLower();
+        If (lower.EndsWith("f64")) { Return False; }
+        Return lower.EndsWith("f32") || lower.EndsWith("f");
+    }
+
+    Private Function FloatSpelling(String text) -> String {
+        String cleaned = StripNumericSuffix(text.Replace("_", ""));
+        If (cleaned == "" || cleaned == "-" || cleaned == "." || cleaned == "-.") { Return "0.0"; }
+        Return cleaned;
+    }
+
+    Private Function EmitFloatBits(String text) -> String {
+        String spelling = This.FloatSpelling(text);
+        If (This.IsFloat32Literal(text)) {
+            String source = This.Fresh("v");
+            This.Emit(source + " = bitcast double " + spelling + " to i64");
+            String asDouble = This.Fresh("v");
+            This.Emit(asDouble + " = bitcast i64 " + source + " to double");
+            String narrow = This.Fresh("v");
+            This.Emit(narrow + " = fptrunc double " + asDouble + " to float");
+            String wide = This.Fresh("v");
+            This.Emit(wide + " = fpext float " + narrow + " to double");
+            String bits = This.Fresh("v");
+            This.Emit(bits + " = bitcast double " + wide + " to i64");
+            Return bits;
+        }
+        String bits = This.Fresh("v");
+        This.Emit(bits + " = bitcast double " + spelling + " to i64");
+        Return bits;
+    }
+
+    Private Function EmitInterpolation(AstNode node) -> IrValue {
+        String text = This.StringConst("");
+        For child In node.Children {
+            String piece = This.StringConst("");
+            If (child.Kind == AstKind.Interpolation && child.Left != Null) {
+                IrValue value = This.EmitExpr(child.Left);
+                IrValue rendered = This.ToStringValue(value.Value, value.TypeName);
+                piece = rendered.Value;
+            } Else If (child.Text != "") {
+                piece = This.StringConst(child.Text);
+            }
+            Var args = List<String>();
+            args.Add(text);
+            args.Add(piece);
+            IrValue joined = This.CallRuntime("rx_str_concat", args, False);
+            text = joined.Value;
+        }
+        Return This.Pair(text, "String");
+    }
+
+    Private Function FloatOperand(IrValue value) -> String {
+        If (This.IsFloatType(value.TypeName)) { Return value.Value; }
+        String converted = This.Fresh("v");
+        This.Emit(converted + " = sitofp i64 " + value.Value + " to double");
+        String bits = This.Fresh("v");
+        This.Emit(bits + " = bitcast double " + converted + " to i64");
+        Return bits;
+    }
+
+    Private Function EmitFloatBinary(String operator, IrValue left, IrValue right) -> IrValue {
+        String leftBits = This.FloatOperand(left);
+        String rightBits = This.FloatOperand(right);
+        String leftDouble = This.Fresh("v");
+        String rightDouble = This.Fresh("v");
+        This.Emit(leftDouble + " = bitcast i64 " + leftBits + " to double");
+        This.Emit(rightDouble + " = bitcast i64 " + rightBits + " to double");
+        If (operator == "==" || operator == "!=" || operator == "<" || operator == ">" || operator == "<=" || operator == ">=") {
+            String predicate = "oeq";
+            If (operator == "!=") { predicate = "one"; }
+            If (operator == "<") { predicate = "olt"; }
+            If (operator == ">") { predicate = "ogt"; }
+            If (operator == "<=") { predicate = "ole"; }
+            If (operator == ">=") { predicate = "oge"; }
+            String flag = This.Fresh("v");
+            This.Emit(flag + " = fcmp " + predicate + " double " + leftDouble + ", " + rightDouble);
+            String result = This.Fresh("v");
+            This.Emit(result + " = zext i1 " + flag + " to i64");
+            Return This.Pair(result, "Bool");
+        }
+        String opcode = "fadd";
+        If (operator == "-") { opcode = "fsub"; }
+        If (operator == "*") { opcode = "fmul"; }
+        If (operator == "/") { opcode = "fdiv"; }
+        If (operator == "%") { opcode = "frem"; }
+        String computed = This.Fresh("v");
+        This.Emit(computed + " = " + opcode + " double " + leftDouble + ", " + rightDouble);
+        String bits = This.Fresh("v");
+        This.Emit(bits + " = bitcast double " + computed + " to i64");
+        Return This.Pair(bits, "Float");
     }
 
     Private Function ExternSymbol(String name) -> String {

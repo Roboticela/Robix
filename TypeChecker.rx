@@ -537,6 +537,9 @@ Public Class TypeChecker {
         If (expected.EndsWith("?") && (actual == "Null" || actual == This.StripOptional(expected))) {
             Return;
         }
+        If (This.WidensTo(expected, actual)) {
+            Return;
+        }
         If (This.IsNumeric(expected) && This.IsNumeric(actual) && expected != actual) {
             This.diagnostics.TypeError("RX109", "Numeric conversion would narrow or change representation.", node.Line, node.Column, expected, actual, "Use an explicit conversion such as " + expected + ".FromChecked.");
             Return;
@@ -766,6 +769,16 @@ Public Class TypeChecker {
             Return typeName.Substring(0, typeName.Length() - 1);
         }
         Return typeName;
+    }
+
+    Private Function WidensTo(String expected, String actual) -> Bool {
+        If (expected == "Int" || expected == "Int64") {
+            Return actual == "Int" || actual == "Int8" || actual == "Int16" || actual == "Int32" || actual == "Int64";
+        }
+        If (expected == "Float" || expected == "Double" || expected == "Float64") {
+            Return actual == "Float" || actual == "Double" || actual == "Float16" || actual == "Float32" || actual == "Float64";
+        }
+        Return False;
     }
 
     Private Function IsNumeric(String typeName) -> Bool {

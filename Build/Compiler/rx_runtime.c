@@ -293,6 +293,72 @@ double rx_str_to_double(int64_t text) {
     return strtod(rx_cstr(text), NULL);
 }
 
+static int64_t rx_f64_box(double value) {
+    int64_t bits = 0;
+    memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+static double rx_f64_unbox(int64_t bits) {
+    double value = 0;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static void rx_f64_format(double value, char *buffer, size_t size) {
+    snprintf(buffer, size, "%.15g", value);
+}
+
+int64_t rx_F64Parse(int64_t text) {
+    return rx_f64_box(strtod(rx_cstr(text), NULL));
+}
+
+int64_t rx_F32Parse(int64_t text) {
+    return rx_f64_box((double)strtof(rx_cstr(text), NULL));
+}
+
+int64_t rx_F64Text(int64_t bits) {
+    char buffer[64];
+    rx_f64_format(rx_f64_unbox(bits), buffer, sizeof(buffer));
+    return rx_box(rx_copy_n(buffer, (int64_t)strlen(buffer)));
+}
+
+int64_t rx_F64FromInt(int64_t value) {
+    return rx_f64_box((double)value);
+}
+
+int64_t rx_F64Add(int64_t left, int64_t right) {
+    return rx_f64_box(rx_f64_unbox(left) + rx_f64_unbox(right));
+}
+
+int64_t rx_F64Sub(int64_t left, int64_t right) {
+    return rx_f64_box(rx_f64_unbox(left) - rx_f64_unbox(right));
+}
+
+int64_t rx_F64Mul(int64_t left, int64_t right) {
+    return rx_f64_box(rx_f64_unbox(left) * rx_f64_unbox(right));
+}
+
+int64_t rx_F64Div(int64_t left, int64_t right) {
+    return rx_f64_box(rx_f64_unbox(left) / rx_f64_unbox(right));
+}
+
+int64_t rx_F64Neg(int64_t bits) {
+    return rx_f64_box(-rx_f64_unbox(bits));
+}
+
+int64_t rx_F64Cmp(int64_t left, int64_t right) {
+    double first = rx_f64_unbox(left);
+    double second = rx_f64_unbox(right);
+    if (first < second) {
+        return -1;
+    }
+    if (first > second) {
+        return 1;
+    }
+    return 0;
+}
+
 int64_t rx_str_from_int(int64_t value) {
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "%lld", (long long)value);
@@ -349,6 +415,10 @@ void rx_print(int64_t value, int64_t kind) {
         fputs(value ? "True" : "False", stdout);
     } else if (kind == 3) {
         fputc((int)value, stdout);
+    } else if (kind == 4) {
+        char buffer[64];
+        rx_f64_format(rx_f64_unbox(value), buffer, sizeof(buffer));
+        fputs(buffer, stdout);
     } else {
         printf("%lld", (long long)value);
     }

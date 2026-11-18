@@ -67,6 +67,11 @@ Public Class Interpreter {
     } {
         This.PushScope();
         This.CollectFunctions(module);
+        For child In module.Children {
+            If (child.Kind == AstKind.Variable) {
+                This.ExecuteNode(child);
+            }
+        }
         AstNode? entry = This.FindFunction("Main");
         Int exitCode = 0;
         If (entry != Null) {
@@ -345,8 +350,7 @@ Public Class Interpreter {
             Return This.MakeInt(ParseInteger(node.Text));
         }
         If (node.Kind == AstKind.FloatLiteral) {
-            String number = StripNumericSuffix(node.Text).Replace("_", "");
-            Return This.MakeFloat(number.ToFloat());
+            Return This.ParseFloat(node.Text);
         }
         If (node.Kind == AstKind.StringLiteral) {
             If (node.FlagA && node.Children.Count() > 0) {
@@ -375,6 +379,9 @@ Public Class Interpreter {
         }
         If (node.Kind == AstKind.Unary) {
             Value operand = This.Evaluate(node.Left);
+            If (node.Operator == "-" && operand.Kind == ValueKind.Float) {
+                Return This.MakeFloatBits(F64Neg(operand.Integer));
+            }
             If (node.Operator == "-" && operand.Kind == ValueKind.Integer) {
                 Return This.MakeInt(-operand.Integer);
             }
@@ -456,12 +463,12 @@ Public Class Interpreter {
             }
             Return range;
         }
+        If (left.Kind == ValueKind.Float || right.Kind == ValueKind.Float) {
+            Return This.EvaluateFloat(node.Operator, left, right);
+        }
         If (node.Operator == "+") {
             If (left.Kind == ValueKind.Text || right.Kind == ValueKind.Text) {
                 Return This.MakeText(This.Display(left) + This.Display(right));
-            }
-            If (left.Kind == ValueKind.Float || right.Kind == ValueKind.Float) {
-                Return This.MakeFloat(This.AsFloat(left) + This.AsFloat(right));
             }
             Return This.MakeInt(left.Integer + right.Integer);
         }
@@ -690,11 +697,46 @@ Public Class Interpreter {
         Return value;
     }
 
-    Private Function MakeFloat(Float number) -> Value {
+    Private Function MakeFloatBits(Int bits) -> Value {
         Value value = Value();
         value.Kind = ValueKind.Float;
-        value.FloatValue = number;
+        value.Integer = bits;
         Return value;
+    }
+
+    Private Function ParseFloat(String text) -> Value {
+        String compact = text.Replace("_", "");
+        String lower = compact.ToLower();
+        String number = StripNumericSuffix(compact);
+        If (lower.EndsWith("f64")) {
+            Return This.MakeFloatBits(F64Parse(number));
+        }
+        If (lower.EndsWith("f32") || lower.EndsWith("f")) {
+            Return This.MakeFloatBits(F32Parse(number));
+        }
+        Return This.MakeFloatBits(F64Parse(number));
+    }
+
+    Private Function FloatBits(Value value) -> Int {
+        If (value.Kind == ValueKind.Float) { Return value.Integer; }
+        Return F64FromInt(value.Integer);
+    }
+
+    Private Function EvaluateFloat(String operator, Value left, Value right) -> Value {
+        Int first = This.FloatBits(left);
+        Int second = This.FloatBits(right);
+        If (operator == "+") { Return This.MakeFloatBits(F64Add(first, second)); }
+        If (operator == "-") { Return This.MakeFloatBits(F64Sub(first, second)); }
+        If (operator == "*") { Return This.MakeFloatBits(F64Mul(first, second)); }
+        If (operator == "/") { Return This.MakeFloatBits(F64Div(first, second)); }
+        Int compared = F64Cmp(first, second);
+        If (operator == "==") { Return This.MakeBool(compared == 0); }
+        If (operator == "!=") { Return This.MakeBool(compared != 0); }
+        If (operator == "<") { Return This.MakeBool(compared < 0); }
+        If (operator == ">") { Return This.MakeBool(compared > 0); }
+        If (operator == "<=") { Return This.MakeBool(compared <= 0); }
+        If (operator == ">=") { Return This.MakeBool(compared >= 0); }
+        Return This.MakeFloatBits(first);
     }
 
     Private Function MakeBool(Bool number) -> Value {
@@ -746,6 +788,7 @@ Public Class Interpreter {
 
     Private Function Same(Value left, Value right) -> Bool {
         If (left.Kind != right.Kind) { Return False; }
+        If (left.Kind == ValueKind.Float) { Return F64Cmp(left.Integer, right.Integer) == 0; }
         If (left.Kind == ValueKind.Integer) { Return left.Integer == right.Integer; }
         If (left.Kind == ValueKind.Boolean) { Return left.Boolean == right.Boolean; }
         If (left.Kind == ValueKind.Text) { Return left.Text == right.Text; }
@@ -753,14 +796,9 @@ Public Class Interpreter {
         Return False;
     }
 
-    Private Function AsFloat(Value value) -> Float {
-        If (value.Kind == ValueKind.Float) { Return value.FloatValue; }
-        Return value.Integer.ToFloat();
-    }
-
     Private Function Display(Value value) -> String {
         If (value.Kind == ValueKind.Integer) { Return value.Integer.ToString(); }
-        If (value.Kind == ValueKind.Float) { Return value.FloatValue.ToString(); }
+        If (value.Kind == ValueKind.Float) { Return F64Text(value.Integer); }
         If (value.Kind == ValueKind.Boolean) {
             If (value.Boolean) { Return "True"; }
             Return "False";
@@ -780,3 +818,14 @@ Public Class Interpreter {
         Return "";
     }
 }
+
+Private Extern Function F64Parse(String text) -> Int;
+Private Extern Function F32Parse(String text) -> Int;
+Private Extern Function F64Text(Int bits) -> String;
+Private Extern Function F64FromInt(Int value) -> Int;
+Private Extern Function F64Add(Int left, Int right) -> Int;
+Private Extern Function F64Sub(Int left, Int right) -> Int;
+Private Extern Function F64Mul(Int left, Int right) -> Int;
+Private Extern Function F64Div(Int left, Int right) -> Int;
+Private Extern Function F64Neg(Int bits) -> Int;
+Private Extern Function F64Cmp(Int left, Int right) -> Int;

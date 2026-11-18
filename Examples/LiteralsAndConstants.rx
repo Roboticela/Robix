@@ -11,7 +11,7 @@ Public Function Main(Args<String> args) -> Int
 Explain {
     Description: "Print representative Robix literals.";
     Input: args = "Command-line arguments";
-    Processing: "Bind literals of every built-in form and print two of them.";
+    Processing: "Bind literals of every built-in form and print them.";
     Output: "Zero.";
 } {
     // A line comment sits beside the declarations.
@@ -35,6 +35,16 @@ Explain {
     String rawText = r"[0-9]+";
     Print(message);
     Print(interpolated);
+    Print(hexValue);
+    Print(binaryValue);
+    Print(octalValue);
+    Print(signedInt);
+    Print(piValue);
+    Print(scientific);
+    Print(float32Value);
+    Print(doubleValue);
+    Print(letter);
     Print(MAX_SPEED);
+    Print(PI_VALUE);
     Return 0;
 }

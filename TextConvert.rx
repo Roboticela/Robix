@@ -65,23 +65,82 @@ Explain {
     Processing: "Cut a known width or precision suffix from the end.";
     Output: "The spelling without its suffix.";
 } {
-    String lower = text.ToLower();
-    If (lower.EndsWith("i64") || lower.EndsWith("i32") || lower.EndsWith("i16") || lower.EndsWith("u64") || lower.EndsWith("u32") || lower.EndsWith("u16")) {
-        Return text.Substring(0, text.Length() - 3);
+    Return text.Substring(0, NumericBodyEnd(text));
+}
+
+Private Function NumericBodyEnd(String text) -> Int {
+    Int index = 0;
+    If (index < text.Length()) {
+        Char sign = text.GetChar(index);
+        If (sign == '+' || sign == '-') { index = index + 1; }
     }
-    If (lower.EndsWith("i8") || lower.EndsWith("u8") || lower.EndsWith("f32") || lower.EndsWith("f64")) {
-        Return text.Substring(0, text.Length() - 2);
+    String rest = text.Substring(index).ToLower();
+    If (rest.StartsWith("0x")) {
+        index = index + 2;
+        While (index < text.Length() && (text.GetChar(index) == '_' || DigitValue(text.GetChar(index)) >= 0)) {
+            index = index + 1;
+        }
+        Return index;
     }
-    If (lower.EndsWith("f16")) {
-        Return text.Substring(0, text.Length() - 3);
+    If (rest.StartsWith("0b")) {
+        index = index + 2;
+        While (index < text.Length()) {
+            Char digit = text.GetChar(index);
+            If (digit == '_' || digit == '0' || digit == '1') { index = index + 1; }
+            Else { Break; }
+        }
+        Return index;
     }
-    If (text.Length() > 0) {
-        Char last = text.GetChar(text.Length() - 1);
-        If (last == 'd' || last == 'D' || last == 'm' || last == 'M' || last == 'f' || last == 'F' || last == 'u' || last == 'U') {
-            Return text.Substring(0, text.Length() - 1);
+    If (rest.StartsWith("0o")) {
+        index = index + 2;
+        While (index < text.Length()) {
+            Char digit = text.GetChar(index);
+            If (digit == '_' || (digit >= '0' && digit <= '7')) { index = index + 1; }
+            Else { Break; }
+        }
+        Return index;
+    }
+    While (index < text.Length()) {
+        Char digit = text.GetChar(index);
+        If (digit == '_' || (digit >= '0' && digit <= '9')) { index = index + 1; }
+        Else { Break; }
+    }
+    If (index < text.Length() && text.GetChar(index) == '.') {
+        Int dot = index + 1;
+        If (dot < text.Length()) {
+            Char fraction = text.GetChar(dot);
+            If (fraction >= '0' && fraction <= '9') {
+                index = dot + 1;
+                While (index < text.Length()) {
+                    Char digit = text.GetChar(index);
+                    If (digit == '_' || (digit >= '0' && digit <= '9')) { index = index + 1; }
+                    Else { Break; }
+                }
+            }
         }
     }
-    Return text;
+    If (index < text.Length()) {
+        Char marker = text.GetChar(index);
+        If (marker == 'e' || marker == 'E') {
+            Int exponent = index + 1;
+            If (exponent < text.Length()) {
+                Char sign = text.GetChar(exponent);
+                If (sign == '+' || sign == '-') { exponent = exponent + 1; }
+            }
+            If (exponent < text.Length()) {
+                Char digit = text.GetChar(exponent);
+                If (digit >= '0' && digit <= '9') {
+                    index = exponent + 1;
+                    While (index < text.Length()) {
+                        Char next = text.GetChar(index);
+                        If (next == '_' || (next >= '0' && next <= '9')) { index = index + 1; }
+                        Else { Break; }
+                    }
+                }
+            }
+        }
+    }
+    Return index;
 }
 
 Public Function NumericSuffix(String text) -> String
