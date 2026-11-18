@@ -1867,6 +1867,36 @@ static int class_has_ctor(Class *class, int arity) {
     return 0;
 }
 
+static void emit_extern_func(Func *func) {
+    int void_ret = func->ret == NULL || func->ret[0] == 0 || same(func->ret, "Void");
+    const char *ret = void_ret ? "void" : c_type(func->ret);
+    emitf("int64_t rx_%s(", c_name(func->name));
+    for (int index = 0; index < func->nparams; index++) {
+        if (index > 0) emit(", ");
+        emit("int64_t");
+    }
+    if (func->nparams == 0) emit("void");
+    emit(");\n");
+    emitf("static %s %s(", ret, func->cname);
+    emit_params(func, 0);
+    emit(") {\n    ");
+    if (!void_ret) {
+        if (is_string(func->ret)) emit("return RXS(");
+        else emitf("return (%s)(", ret);
+    }
+    emitf("rx_%s(", c_name(func->name));
+    for (int index = 0; index < func->nparams; index++) {
+        if (index > 0) emit(", ");
+        const char *param_type = func->params[index].type;
+        const char *param_name = c_name(func->params[index].name);
+        if (is_string(param_type) || !is_scalar(param_type)) emitf("RXL(%s)", param_name);
+        else emitf("(int64_t)%s", param_name);
+    }
+    emit(")");
+    if (!void_ret) emit(")");
+    emit(";\n}\n");
+}
+
 static void declare_func(Func *func) {
     if (func->is_ctor) {
         emitf("static void %s_ctor_%d(", c_name(func->owner), func->nparams);
@@ -2023,7 +2053,8 @@ static void emit_program(const char *output_c, const char *entry_path) {
         for (int method = 0; method < classes[index].nmethods; method++) declare_func(&classes[index].methods[method]);
     }
     for (int index = 0; index < nfuncs; index++) {
-        if (!funcs[index].is_extern) declare_func(&funcs[index]);
+        if (funcs[index].is_extern && !same(funcs[index].name, "RunProcess")) emit_extern_func(&funcs[index]);
+        else declare_func(&funcs[index]);
     }
     emit("static int64_t RunProcess(char *command);\n\n");
     for (int index = 0; index < nclasses; index++) {

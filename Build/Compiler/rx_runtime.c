@@ -57,8 +57,25 @@ typedef struct RxMap {
 } RxMap;
 
 static int rx_key_eq(int64_t kind, int64_t left, int64_t right) {
+    int64_t left_tag = 0;
+    int64_t right_tag = 0;
+    int64_t left_payload = 0;
+    int64_t right_payload = 0;
     if (kind == 1) {
         return strcmp(rx_cstr(left), rx_cstr(right)) == 0;
+    }
+    if (kind == 2) {
+        left_tag = rx_obj_get(left, 0);
+        right_tag = rx_obj_get(right, 0);
+        left_payload = rx_obj_get(left, 1);
+        right_payload = rx_obj_get(right, 1);
+        if (left_tag != right_tag) {
+            return 0;
+        }
+        if (left_tag == 2) {
+            return strcmp(rx_cstr(left_payload), rx_cstr(right_payload)) == 0;
+        }
+        return left_payload == right_payload;
     }
     return left == right;
 }
@@ -159,6 +176,63 @@ int64_t rx_list_count(int64_t list) {
         return 0;
     }
     return value->count;
+}
+
+int64_t rx_list_take_front(int64_t list) {
+    RxList *value = (RxList *)(uintptr_t)list;
+    int64_t item = 0;
+    int64_t index = 0;
+    if (value == NULL || value->count <= 0) {
+        return 0;
+    }
+    item = value->items[0];
+    while (index + 1 < value->count) {
+        value->items[index] = value->items[index + 1];
+        index = index + 1;
+    }
+    value->count = value->count - 1;
+    return item;
+}
+
+int64_t rx_list_take_back(int64_t list) {
+    RxList *value = (RxList *)(uintptr_t)list;
+    if (value == NULL || value->count <= 0) {
+        return 0;
+    }
+    value->count = value->count - 1;
+    return value->items[value->count];
+}
+
+int64_t rx_range(int64_t start, int64_t end, int64_t inclusive) {
+    int64_t list = rx_list_new();
+    int64_t last = end;
+    int64_t cursor = start;
+    if (inclusive == 0) {
+        last = end - 1;
+    }
+    while (cursor <= last) {
+        rx_list_add(list, cursor);
+        cursor = cursor + 1;
+    }
+    return list;
+}
+
+int64_t rx_BitAnd(int64_t left, int64_t right) { return left & right; }
+int64_t rx_BitOr(int64_t left, int64_t right) { return left | right; }
+int64_t rx_BitXor(int64_t left, int64_t right) { return left ^ right; }
+
+int64_t rx_Shl(int64_t left, int64_t right) {
+    if (right < 0 || right >= 64) {
+        return 0;
+    }
+    return left << (unsigned)right;
+}
+
+int64_t rx_Shr(int64_t left, int64_t right) {
+    if (right < 0 || right >= 64) {
+        return left < 0 ? -1 : 0;
+    }
+    return left >> (unsigned)right;
 }
 
 int64_t rx_list_get(int64_t list, int64_t index) {
@@ -755,6 +829,42 @@ static int64_t rx_tagged_text(int64_t tag, int64_t payload) {
         return rx_text_literal("Null");
     }
     return rx_str_from_int(payload);
+}
+
+int64_t rx_any_list_text(int64_t list) {
+    int64_t count = rx_list_count(list);
+    int64_t text = rx_text_literal("[");
+    int64_t comma = rx_text_literal(", ");
+    int64_t index = 0;
+    while (index < count) {
+        if (index > 0) {
+            text = rx_str_concat(text, comma);
+        }
+        text = rx_str_concat(text, rx_AnyText(rx_list_get(list, index)));
+        index = index + 1;
+    }
+    return rx_str_concat(text, rx_text_literal("]"));
+}
+
+int64_t rx_any_map_text(int64_t map) {
+    RxMap *value = (RxMap *)(uintptr_t)map;
+    int64_t text = rx_text_literal("{");
+    int64_t comma = rx_text_literal(", ");
+    int64_t sep = rx_text_literal(": ");
+    int64_t index = 0;
+    if (value == NULL) {
+        return rx_text_literal("{}");
+    }
+    while (index < value->count) {
+        if (index > 0) {
+            text = rx_str_concat(text, comma);
+        }
+        text = rx_str_concat(text, value->keys[index]);
+        text = rx_str_concat(text, sep);
+        text = rx_str_concat(text, rx_AnyText(value->values[index]));
+        index = index + 1;
+    }
+    return rx_str_concat(text, rx_text_literal("}"));
 }
 
 int64_t rx_AnyText(int64_t box) {

@@ -99,8 +99,6 @@ Type RoboBox<T> = Storage<T>;
 // 4. Composite types, collections, tuples, and universal values
 // -----------------------------------------------------------------------------
 
-Queue<Int> pendingJobs = Queue<Int>();
-Stack<String> history = Stack<String>();
 Span<Byte> bytes = [0x01, 0x02, 0x03];
 
 Pointer<Int> dataPointer = Null;
@@ -109,10 +107,7 @@ Pointer<Mut Byte> mutableBytePointer = Null;
 Ref<Int> addressOfValue = Ref(motorSpeed);
 Ref<Mut Int> mutableAddress = Ref(Mut motorSpeed);
 
-Tuple tupleValue = Tuple(1, "two", True);
 Function<Int, Int, Int> mathFunc = RoboAdd;
-Option<Int> optionalValue = Some(5);
-Result<Float, String> resultValue = Success(3.14);
 Enumerate<Int> enumerateItems = [1, 2, 3].Enumerate();
 
 // Any can hold any legal Robix value, including user-defined structures,
@@ -135,22 +130,6 @@ Struct RoboResult<TValue, TError> {
 // -----------------------------------------------------------------------------
 // 5. Operators, expressions, custom operators, and operator functions
 // -----------------------------------------------------------------------------
-
-Var shifted = 1 << 3;
-Var arithmeticShift = -8 >> 1;
-Var bitwiseAnd = 0x0F & 0x0F;
-Var bitwiseOr = 0x01 | 0x02;
-Var bitwiseXor = 0x05 ^ 0x03;
-Var isNull = maybeName == Null;
-Var ternary = enabled ? 1 : 0;
-Var range = 0..10;
-Var inclusiveRange = 1..=10;
-Var comparison = (motorSpeed >= 100) Is Bool;
-
-// Readable operator aliases are available as named functions or infix words.
-Var readableAnd = enabled And (batteryLevel > 0);
-Var readableEqual = motorSpeed Equal 150;
-Var readableNot = Not enabled;
 
 // Every built-in operator has a callable function form.
 Bool same = Operators.Equal(10, 10);

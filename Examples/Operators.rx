@@ -1,52 +1,60 @@
-// Built-in operators, word operators, and a custom operator.
+// Shifts, bitwise operators, words, ranges, queues, stacks, and options.
 Package Robotics.Operators;
 
 Import Robix.Core;
 
 
-Operator "⊗" Precedence 70 LeftAssociative
-    Function RoboMultiply(Int left, Int right) -> Int
-    Explain {
-        Description: "Multiply two integers with the custom tensor operator.";
-        Input: left = "Left operand", right = "Right operand";
-        Processing: "Multiply the operands.";
-        Output: "The product.";
-    } {
-        Return left * right;
-    }
-
-Struct RoboVector {
-    Public Float X;
-    Public Float Y;
-
-    Public Operator +(RoboVector left, RoboVector right) -> RoboVector
-    Explain {
-        Description: "Add two vectors componentwise.";
-        Input: left = "Left vector", right = "Right vector";
-        Processing: "Add X and Y.";
-        Output: "The vector sum.";
-    } {
-        Return RoboVector { X: left.X + right.X, Y: left.Y + right.Y };
-    }
-}
-
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Evaluate arithmetic, logic, ranges, and the custom operator.";
+    Description: "Exercise operators, ranges, queues, stacks, and wrapped values.";
     Input: args = "Command-line arguments";
-    Processing: "Compute a custom product and a readable conjunction.";
-    Output: "The custom product.";
+    Processing: "Shift, combine bits, build a range, and read a queue and a stack.";
+    Output: "The shifted value and the first queued job.";
 } {
-    Var batteryLevel = 80;
     Var enabled = True;
-    Var sum = 10 + 5;
-    Var shifted = 1 << 3;
-    Var logicalAnd = (batteryLevel > 20) && (batteryLevel < 100);
-    Var readableAnd = enabled And logicalAnd;
-    Var ternary = enabled ? 1 : 0;
+    Var batteryLevel = 80;
+    String? missing = Null;
+    String? present = "ready";
+    Print(1 << 3);
+    Print(-8 >> 1);
+    Print(0x0F & 0x0F);
+    Print(0x01 | 0x02);
+    Print(0x05 ^ 0x03);
+    Print(enabled ? 1 : 0);
+    Print(enabled And (batteryLevel > 0));
+    Print(150 Equal 150);
+    Print(Not enabled);
+    Print(missing == Null);
+    Print(present == Null);
+    Print((batteryLevel >= 100) Is Bool);
+
     Var range = 0..10;
     Var inclusiveRange = 1..=10;
-    Int customProduct = 6 ⊗ 7;
-    Print(customProduct);
-    Return customProduct;
+    Print(range.Count());
+    Print(range[0]);
+    Print(range[9]);
+    Print(inclusiveRange.Count());
+    Print(inclusiveRange[0]);
+    Print(inclusiveRange[9]);
+
+    Queue<Int> pendingJobs = Queue<Int>();
+    pendingJobs.Enqueue(4);
+    pendingJobs.Enqueue(5);
+    Print(pendingJobs.Dequeue());
+    Print(pendingJobs.Peek());
+    Stack<String> history = Stack<String>();
+    history.Push("alpha");
+    history.Push("beta");
+    Print(history.Pop());
+    Print(history.Peek());
+
+    Option<Int> optionalValue = Some(5);
+    Result<Float, String> resultValue = Success(3.14);
+    Tuple packed = Tuple(1, "two", True);
+    Print(optionalValue.Value());
+    Print(resultValue.Value());
+    Print(packed[0]);
+    Print(packed[1]);
+    Print(packed[2]);
+    Return 0;
 }

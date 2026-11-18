@@ -215,6 +215,10 @@ Public Class TypeChecker {
         String inferred = "";
         If (node.Initializer != Null) {
             inferred = This.Infer(node.Initializer);
+            If (node.Initializer.Kind == AstKind.Range) { inferred = "Array<Int>"; }
+            If (node.Type == Null && node.Initializer.Kind == AstKind.ArrayLiteral) { inferred = "Array<Any>"; }
+            If (node.Type == Null && node.Initializer.Kind == AstKind.MapLiteral) { inferred = "Map<String, Any>"; }
+            If (node.Type == Null && node.Initializer.Kind == AstKind.SetLiteral) { inferred = "Set<Any>"; }
         }
         If (declared.Length() == 0) {
             declared = inferred;
@@ -415,10 +419,16 @@ Public Class TypeChecker {
         If (node.Kind == AstKind.NullLiteral) { Return "Null"; }
         If (node.Kind == AstKind.ArrayLiteral) { Return "Array<" + This.LiteralElement(node) + ">"; }
         If (node.Kind == AstKind.MapLiteral) {
-            String valueType = "Int";
+            String valueType = "";
+            Bool mixed = False;
             For child In node.Children {
-                If (child.Left != Null) { valueType = This.Infer(child.Left); }
+                String item = "Int";
+                If (child.Left != Null) { item = This.Infer(child.Left); }
+                If (valueType == "") { valueType = item; }
+                If (item != valueType) { mixed = True; }
             }
+            If (mixed) { valueType = "Any"; }
+            If (valueType == "") { valueType = "Int"; }
             Return "Map<String, " + valueType + ">";
         }
         If (node.Kind == AstKind.SetLiteral) { Return "Set<" + This.LiteralElement(node) + ">"; }
@@ -581,7 +591,9 @@ Public Class TypeChecker {
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
         }
-        If (name == "Some" || name == "Success" || name == "Failure" || name == "Error" || name == "None") {
+        If (name == "Some") { Return "Option<" + This.CallArgumentType(node) + ">"; }
+        If (name == "Tuple") { Return This.CallTupleType(node); }
+        If (name == "Success" || name == "Failure" || name == "Error" || name == "None") {
             Return name;
         }
         If (name == "Input") { Return "String"; }
@@ -609,6 +621,11 @@ Public Class TypeChecker {
         If (This.SameElements(wanted, given)) {
             Return;
         }
+        If (wanted.StartsWith("Option<") && given.StartsWith("Option<")) { Return; }
+        If (wanted.StartsWith("Result<") && (given.StartsWith("Result<") || given == "Success" || given == "Failure")) { Return; }
+        If (wanted == "Tuple" && given.StartsWith("(")) { Return; }
+        If (wanted.StartsWith("Queue<") && given.StartsWith("Queue<")) { Return; }
+        If (wanted.StartsWith("Stack<") && given.StartsWith("Stack<")) { Return; }
         If (This.IsNumeric(wanted) && This.IsNumeric(given) && wanted != given) {
             This.diagnostics.TypeError("RX109", "Numeric conversion would narrow or change representation.", node.Line, node.Column, wanted, given, "Use an explicit conversion such as " + wanted + ".FromChecked.");
             Return;
@@ -889,17 +906,35 @@ Public Class TypeChecker {
         Return False;
     }
 
-    Private Function LiteralElement(AstNode node) -> String {
-        String element = "Int";
+    Private Function CallArgumentType(AstNode node) -> String {
+        If (node.Parameters.Count() == 0 || node.Parameters[0].Left == Null) { Return "Int"; }
+        String argument = This.Infer(node.Parameters[0].Left);
+        If (argument == "") { Return "Int"; }
+        Return argument;
+    }
+
+    Private Function CallTupleType(AstNode node) -> String {
+        String text = "(";
         Bool first = True;
+        For argument In node.Parameters {
+            If (!first) { text = text + ", "; }
+            String argumentType = "Int";
+            If (argument.Left != Null) { argumentType = This.Infer(argument.Left); }
+            text = text + argumentType;
+            first = False;
+        }
+        Return text + ")";
+    }
+
+    Private Function LiteralElement(AstNode node) -> String {
+        String element = "";
         For child In node.Children {
             String item = This.Infer(child);
-            If (first) {
-                element = item;
-                If (element == "") { element = "Int"; }
-                first = False;
-            }
+            If (item == "") { item = "Int"; }
+            If (element == "") { element = item; }
+            If (item != element) { Return "Any"; }
         }
+        If (element == "") { Return "Int"; }
         Return element;
     }
 

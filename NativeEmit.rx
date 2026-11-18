@@ -109,6 +109,7 @@ Public Class NativeProgram {
     Public String InitSymbol;
     Public List<String> AliasNames;
     Public List<String> AliasTargets;
+    Public Bool UntypedLiteral;
 
     Public Constructor() {
         This.Classes = List<ClassInfo>();
@@ -135,6 +136,7 @@ Public Class NativeProgram {
         This.InitSymbol = "";
         This.AliasNames = List<String>();
         This.AliasTargets = List<String>();
+        This.UntypedLiteral = False;
     }
 
     Public Function Collect(List<String> fileNames, List<AstNode> modules) -> Void
@@ -275,8 +277,10 @@ Public Class NativeProgram {
     }
 
     Private Function FindClass(String name) -> ClassInfo {
+        String wanted = name;
+        If (wanted.EndsWith("?")) { wanted = wanted.Substring(0, wanted.Length() - 1); }
         For info In This.Classes {
-            If (info.Name == name) { Return info; }
+            If (info.Name == wanted) { Return info; }
         }
         Return ClassInfo();
     }
@@ -524,7 +528,7 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
         String voids = "rx_list_add rx_list_set rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
@@ -786,10 +790,13 @@ Public Class NativeProgram {
             String value = "0";
             String sourceType = "Int";
             If (node.Initializer != Null) {
+                Bool open = typeName == "" && (node.Initializer.Kind == AstKind.ArrayLiteral || node.Initializer.Kind == AstKind.MapLiteral || node.Initializer.Kind == AstKind.SetLiteral);
+                If (open) { This.UntypedLiteral = True; }
                 IrValue initial = This.EmitExpr(node.Initializer);
+                This.UntypedLiteral = False;
                 value = initial.Value;
                 sourceType = initial.TypeName;
-                If (typeName == "") { typeName = sourceType; }
+                If (typeName == "" || typeName == "Tuple") { typeName = sourceType; }
             }
             If (typeName == "") { typeName = "Int"; }
             If (This.IsAnyType(typeName)) {
@@ -979,7 +986,19 @@ Public Class NativeProgram {
         If (node.Left.Kind == AstKind.Index) {
             IrValue collection = This.EmitExpr(node.Left.Left);
             IrValue index = This.EmitExpr(node.Left.Right);
-            This.StoreListItem(collection.Value, index.Value, value.Value);
+            IrValue stored = value;
+            If (This.ElementType(collection.TypeName) == "Any" || This.MapValueType(collection.TypeName) == "Any") {
+                stored = This.BoxAny(value);
+            }
+            If (collection.TypeName.StartsWith("Map<")) {
+                Var args = List<String>();
+                args.Add(collection.Value);
+                args.Add(index.Value);
+                args.Add(stored.Value);
+                This.CallRuntime("rx_map_put", args, True);
+            } Else {
+                This.StoreListItem(collection.Value, index.Value, stored.Value);
+            }
         }
         Return value;
     }
@@ -1107,7 +1126,7 @@ Public Class NativeProgram {
                 Return This.Pair(next, current.TypeName);
             }
             IrValue value = This.EmitExpr(node.Left);
-            If (node.Operator == "!") {
+            If (node.Operator == "!" || node.Operator == "Not") {
                 String flag = This.Fresh("v");
                 This.Emit(flag + " = icmp eq i64 " + value.Value + ", 0");
                 String result = This.Fresh("v");
@@ -1127,6 +1146,9 @@ Public Class NativeProgram {
             This.Emit(result + " = sub i64 0, " + value.Value);
             Return This.Pair(result, value.TypeName);
         }
+        If (node.Kind == AstKind.Ternary) { Return This.EmitTernary(node); }
+        If (node.Kind == AstKind.TypeCheck) { Return This.EmitTypeCheck(node); }
+        If (node.Kind == AstKind.Range) { Return This.EmitRange(node); }
         If (node.Kind == AstKind.Binary) { Return This.EmitBinary(node); }
         If (node.Kind == AstKind.Assignment) { Return This.EmitAssignment(node); }
         If (node.Kind == AstKind.ArrayLiteral) { Return This.EmitArrayLiteral(node); }
@@ -1245,6 +1267,18 @@ Public Class NativeProgram {
                 IrValue text = This.CallRuntime("rx_AnyText", textArgs, False);
                 printed = text.Value;
                 kind = "1";
+            } Else If (types.Count() > 0 && (types[0] == "Array<Any>" || types[0] == "Set<Any>")) {
+                Var textArgs = List<String>();
+                textArgs.Add(printed);
+                IrValue text = This.CallRuntime("rx_any_list_text", textArgs, False);
+                printed = text.Value;
+                kind = "1";
+            } Else If (types.Count() > 0 && types[0].StartsWith("Map<") && This.MapValueType(types[0]) == "Any") {
+                Var textArgs = List<String>();
+                textArgs.Add(printed);
+                IrValue text = This.CallRuntime("rx_any_map_text", textArgs, False);
+                printed = text.Value;
+                kind = "1";
             } Else If (types.Count() > 0) {
                 kind = This.PrintKind(types[0]).ToString();
             }
@@ -1257,6 +1291,18 @@ Public Class NativeProgram {
         If (left.Name == "Input") {
             IrValue value = This.CallRuntime("rx_Input", List<String>(), False);
             Return This.Pair(value.Value, "String");
+        }
+        If (left.Name == "Queue" || left.Name == "Stack") {
+            String element = "Int";
+            If (left.Children.Count() > 0) {
+                element = This.TypeName(left.Children[0]);
+                If (element == "") { element = "Int"; }
+            }
+            IrValue value = This.CallRuntime("rx_list_new", List<String>(), False);
+            Return This.Pair(value.Value, left.Name + "<" + element + ">");
+        }
+        If (left.Name == "Some" || left.Name == "Success" || left.Name == "Tuple") {
+            Return This.EmitWrapped(left.Name, arguments, types);
         }
         If (left.Name == "List") {
             String element = "Int";
@@ -1385,13 +1431,28 @@ Public Class NativeProgram {
             If (ret == "") { ret = "Int"; }
             Return This.Pair(value.Value, ret);
         }
+        If (receiver.TypeName.StartsWith("Queue<") || receiver.TypeName.StartsWith("Stack<")) {
+            Return This.SequenceCall(member.Name, receiver.Value, receiver.TypeName, arguments);
+        }
+        If (member.Name == "Value" && (receiver.TypeName.StartsWith("Option<") || receiver.TypeName.StartsWith("Result<"))) {
+            String loaded = This.LoadListItem(receiver.Value, "0");
+            Return This.Pair(loaded, This.WrappedType(receiver.TypeName));
+        }
         If (member.Name == "Contains" && receiver.TypeName.StartsWith("Set<")) {
+            String kind = "0";
+            String probe = "0";
+            String probeType = "Int";
+            If (types.Count() > 0 && types[0] != "") { probeType = types[0]; }
+            If (arguments.Count() > 0) { probe = arguments[0]; }
+            If (This.ElementType(receiver.TypeName) == "String") { kind = "1"; }
+            If (This.ElementType(receiver.TypeName) == "Any") {
+                kind = "2";
+                IrValue boxed = This.BoxAny(This.Pair(probe, probeType));
+                probe = boxed.Value;
+            }
             Var args = List<String>();
             args.Add(receiver.Value);
-            If (arguments.Count() > 0) { args.Add(arguments[0]); }
-            If (arguments.Count() == 0) { args.Add("0"); }
-            String kind = "0";
-            If (This.ElementType(receiver.TypeName) == "String") { kind = "1"; }
+            args.Add(probe);
             args.Add(kind);
             IrValue value = This.CallRuntime("rx_set_has", args, False);
             Return This.Pair(value.Value, "Bool");
@@ -1652,8 +1713,8 @@ Public Class NativeProgram {
     }
 
     Private Function EmitBinary(AstNode node) -> IrValue {
-        If (node.Operator == "&&") { Return This.ShortCircuit(node, False); }
-        If (node.Operator == "||") { Return This.ShortCircuit(node, True); }
+        If (node.Operator == "&&" || node.Operator == "And") { Return This.ShortCircuit(node, False); }
+        If (node.Operator == "||" || node.Operator == "Or") { Return This.ShortCircuit(node, True); }
         If (node.Operator == "??") { Return This.EmitCoalesce(node); }
         IrValue left = This.EmitExpr(node.Left);
         IrValue right = This.EmitExpr(node.Right);
@@ -1702,7 +1763,17 @@ Public Class NativeProgram {
             This.Emit(result + " = srem i64 " + left.Value + ", " + right.Value);
             Return This.Pair(result, "Int");
         }
-        If (node.Operator == "==" || node.Operator == "!=") {
+        If (node.Operator == "<<" || node.Operator == ">>" || node.Operator == "&" || node.Operator == "|" || node.Operator == "^") {
+            String opcode = "and";
+            If (node.Operator == "<<") { opcode = "shl"; }
+            If (node.Operator == ">>") { opcode = "ashr"; }
+            If (node.Operator == "|") { opcode = "or"; }
+            If (node.Operator == "^") { opcode = "xor"; }
+            String result = This.Fresh("v");
+            This.Emit(result + " = " + opcode + " i64 " + left.Value + ", " + right.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (node.Operator == "==" || node.Operator == "!=" || node.Operator == "Equal") {
             If (This.IsString(left.TypeName) || This.IsString(right.TypeName)) {
                 Var args = List<String>();
                 args.Add(left.Value);
@@ -1866,7 +1937,7 @@ Public Class NativeProgram {
             }
             Return "List:" + element;
         }
-        If (name == "Array" || name == "Set" || name == "Map") {
+        If (name == "Array" || name == "Set" || name == "Map" || name == "Queue" || name == "Stack" || name == "Option" || name == "Result") {
             String text = name + "<";
             Bool first = True;
             For child In node.Children {
@@ -1987,7 +2058,7 @@ Public Class NativeProgram {
     }
 
     Private Function IsList(String typeName) -> Bool {
-        Return typeName.StartsWith("List:") || typeName.StartsWith("List<") || typeName.StartsWith("Array<") || typeName.StartsWith("Set<") || typeName.StartsWith("[");
+        Return typeName.StartsWith("List:") || typeName.StartsWith("List<") || typeName.StartsWith("Array<") || typeName.StartsWith("Set<") || typeName.StartsWith("Queue<") || typeName.StartsWith("Stack<") || typeName.StartsWith("Option<") || typeName.StartsWith("[");
     }
 
     Private Function ElementType(String typeName) -> String {
@@ -1995,6 +2066,9 @@ Public Class NativeProgram {
         If (typeName.StartsWith("Array<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
         If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
         If (typeName.StartsWith("Set<") && typeName.EndsWith(">")) { Return typeName.Substring(4, typeName.Length() - 5); }
+        If (typeName.StartsWith("Queue<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
+        If (typeName.StartsWith("Stack<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
+        If (typeName.StartsWith("Option<") && typeName.EndsWith(">")) { Return typeName.Substring(7, typeName.Length() - 8); }
         If (typeName.StartsWith("[") && typeName.EndsWith("]")) {
             String body = typeName.Substring(1, typeName.Length() - 2);
             Int semi = body.IndexOf(";");
@@ -2082,6 +2156,94 @@ Public Class NativeProgram {
         Return "Int";
     }
 
+    Private Function EmitTernary(AstNode node) -> IrValue {
+        IrValue condition = This.EmitExpr(node.Condition);
+        IrValue left = This.EmitExpr(node.Left);
+        IrValue right = This.EmitExpr(node.Right);
+        String flag = This.Fresh("v");
+        This.Emit(flag + " = icmp ne i64 " + condition.Value + ", 0");
+        String result = This.Fresh("v");
+        This.Emit(result + " = select i1 " + flag + ", i64 " + left.Value + ", i64 " + right.Value);
+        Return This.Pair(result, left.TypeName);
+    }
+
+    Private Function EmitTypeCheck(AstNode node) -> IrValue {
+        String actual = "Unknown";
+        If (node.Left != Null) { actual = This.EmitExpr(node.Left).TypeName; }
+        String expected = This.TypeName(node.Type);
+        If (actual.EndsWith("?")) { actual = actual.Substring(0, actual.Length() - 1); }
+        If (actual == expected) { Return This.Pair("1", "Bool"); }
+        Return This.Pair("0", "Bool");
+    }
+
+    Private Function EmitRange(AstNode node) -> IrValue {
+        IrValue start = This.EmitExpr(node.Left);
+        IrValue end = This.EmitExpr(node.Right);
+        String inclusive = "0";
+        If (node.FlagA || node.Operator == "..=") { inclusive = "1"; }
+        Var args = List<String>();
+        args.Add(start.Value);
+        args.Add(end.Value);
+        args.Add(inclusive);
+        IrValue list = This.CallRuntime("rx_range", args, False);
+        Return This.Pair(list.Value, "Array<Int>");
+    }
+
+    Private Function EmitWrapped(String name, List<String> arguments, List<String> types) -> IrValue {
+        IrValue list = This.CallRuntime("rx_list_new", List<String>(), False);
+        String typeName = "";
+        Bool first = True;
+        Int index = 0;
+        For argument In arguments {
+            Var args = List<String>();
+            args.Add(list.Value);
+            args.Add(argument);
+            This.CallRuntime("rx_list_add", args, True);
+            If (!first) { typeName = typeName + ", "; }
+            String argumentType = "Int";
+            If (index < types.Count() && types[index] != "") { argumentType = types[index]; }
+            typeName = typeName + argumentType;
+            first = False;
+            index = index + 1;
+        }
+        If (name == "Some") { Return This.Pair(list.Value, "Option<" + typeName + ">"); }
+        If (name == "Success") { Return This.Pair(list.Value, "Result<" + typeName + ", String>"); }
+        Return This.Pair(list.Value, "(" + typeName + ")");
+    }
+
+    Private Function WrappedType(String typeName) -> String {
+        Int open = typeName.IndexOf("<");
+        Int comma = typeName.IndexOf(", ");
+        If (open < 0) { Return "Int"; }
+        If (comma > open) { Return typeName.Substring(open + 1, comma - open - 1); }
+        If (typeName.EndsWith(">")) { Return typeName.Substring(open + 1, typeName.Length() - open - 2); }
+        Return "Int";
+    }
+
+    Private Function SequenceCall(String method, String receiver, String typeName, List<String> arguments) -> IrValue {
+        If (method == "Enqueue" || method == "Push") {
+            Return This.ListMethod("Add", receiver, typeName, arguments);
+        }
+        If (method == "Dequeue" || method == "Pop") {
+            String symbol = "rx_list_take_back";
+            If (method == "Dequeue") { symbol = "rx_list_take_front"; }
+            Var args = List<String>();
+            args.Add(receiver);
+            IrValue value = This.CallRuntime(symbol, args, False);
+            Return This.Pair(value.Value, This.ElementType(typeName));
+        }
+        If (method == "Peek") {
+            String index = "0";
+            If (typeName.StartsWith("Stack<")) {
+                String count = This.LoadListCount(receiver);
+                index = This.Fresh("v");
+                This.Emit(index + " = sub i64 " + count + ", 1");
+            }
+            Return This.Pair(This.LoadListItem(receiver, index), This.ElementType(typeName));
+        }
+        Return This.Pair("0", "Int");
+    }
+
     Private Function EmitCoalesce(AstNode node) -> IrValue {
         IrValue left = This.EmitExpr(node.Left);
         IrValue right = This.EmitExpr(node.Right);
@@ -2099,43 +2261,70 @@ Public Class NativeProgram {
         Var created = List<String>();
         created.Add("1");
         IrValue map = This.CallRuntime("rx_map_new", created, False);
+        Var values = List<String>();
+        Var types = List<String>();
         String valueType = "Int";
-        Bool first = True;
+        Bool mixed = False;
         For child In node.Children {
             IrValue field = This.EmitExpr(child.Left);
-            If (first) {
-                valueType = field.TypeName;
-                If (valueType == "") { valueType = "Int"; }
-                first = False;
+            String itemType = field.TypeName;
+            If (itemType == "") { itemType = "Int"; }
+            If (types.Count() == 0) { valueType = itemType; }
+            If (itemType != valueType) { mixed = True; }
+            values.Add(field.Value);
+            types.Add(itemType);
+        }
+        Int index = 0;
+        For child In node.Children {
+            String payload = values[index];
+            If (mixed || This.UntypedLiteral) {
+                IrValue boxed = This.BoxAny(This.Pair(values[index], types[index]));
+                payload = boxed.Value;
             }
             Var args = List<String>();
             args.Add(map.Value);
             args.Add(This.StringConst(child.Name));
-            args.Add(field.Value);
+            args.Add(payload);
             This.CallRuntime("rx_map_put", args, True);
+            index = index + 1;
         }
+        If (mixed || This.UntypedLiteral) { valueType = "Any"; }
         Return This.Pair(map.Value, "Map<String, " + valueType + ">");
     }
 
     Private Function EmitSetLiteral(AstNode node) -> IrValue {
         IrValue list = This.CallRuntime("rx_list_new", List<String>(), False);
+        Var values = List<String>();
+        Var types = List<String>();
         String element = "Int";
-        Bool first = True;
+        Bool mixed = False;
         For child In node.Children {
             IrValue item = This.EmitExpr(child);
-            If (first) {
-                element = item.TypeName;
-                If (element == "") { element = "Int"; }
-                first = False;
+            String itemType = item.TypeName;
+            If (itemType == "") { itemType = "Int"; }
+            If (types.Count() == 0) { element = itemType; }
+            If (itemType != element) { mixed = True; }
+            values.Add(item.Value);
+            types.Add(itemType);
+        }
+        String kind = "0";
+        If (element == "String") { kind = "1"; }
+        If (mixed || This.UntypedLiteral) { kind = "2"; }
+        Int index = 0;
+        For stored In values {
+            String payload = stored;
+            If (mixed || This.UntypedLiteral) {
+                IrValue boxed = This.BoxAny(This.Pair(stored, types[index]));
+                payload = boxed.Value;
             }
-            String kind = "0";
-            If (element == "String") { kind = "1"; }
             Var args = List<String>();
             args.Add(list.Value);
-            args.Add(item.Value);
+            args.Add(payload);
             args.Add(kind);
             This.CallRuntime("rx_set_add", args, True);
+            index = index + 1;
         }
+        If (mixed || This.UntypedLiteral) { Return This.Pair(list.Value, "Set<Any>"); }
         Return This.Pair(list.Value, "Set<" + element + ">");
     }
 
@@ -2291,20 +2480,33 @@ Public Class NativeProgram {
 
     Private Function EmitArrayLiteral(AstNode node) -> IrValue {
         IrValue list = This.CallRuntime("rx_list_new", List<String>(), False);
+        Var values = List<String>();
+        Var types = List<String>();
         String element = "Int";
-        Bool first = True;
+        Bool mixed = False;
         For child In node.Children {
             IrValue item = This.EmitExpr(child);
-            If (first) {
-                element = item.TypeName;
-                If (element == "") { element = "Int"; }
-                first = False;
+            String itemType = item.TypeName;
+            If (itemType == "") { itemType = "Int"; }
+            If (types.Count() == 0) { element = itemType; }
+            If (itemType != element) { mixed = True; }
+            values.Add(item.Value);
+            types.Add(itemType);
+        }
+        Int index = 0;
+        For stored In values {
+            String payload = stored;
+            If (mixed || This.UntypedLiteral) {
+                IrValue boxed = This.BoxAny(This.Pair(stored, types[index]));
+                payload = boxed.Value;
             }
             Var args = List<String>();
             args.Add(list.Value);
-            args.Add(item.Value);
+            args.Add(payload);
             This.CallRuntime("rx_list_add", args, True);
+            index = index + 1;
         }
+        If (mixed || This.UntypedLiteral) { Return This.Pair(list.Value, "Array<Any>"); }
         Return This.Pair(list.Value, "List:" + element);
     }
 

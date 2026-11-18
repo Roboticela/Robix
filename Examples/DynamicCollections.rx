@@ -1,0 +1,42 @@
+// Lists, dictionaries, tuples, and sets without an element type.
+Package Robotics.DynamicCollections;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Store mixed values in untyped collections.";
+    Input: args = "Command-line arguments";
+    Processing: "Build a list, dictionary, tuple, and set, then replace two entries.";
+    Output: "The mixed values and the replaced entries.";
+} {
+    Let items = [1, "two", True, 3.5];
+    Let scores = {"Alpha": 10, "Beta": "ready", "On": True};
+    Let pack = (7, "pair", False);
+    Let tags = {1, "beta", 1, True};
+    Let numbers = [4, 5];
+    Print(items);
+    Print(items[0]);
+    Print(items[1]);
+    Print(items[2]);
+    Print(items[3]);
+    Print(scores);
+    Print(scores["Alpha"]);
+    Print(scores["Beta"]);
+    Print(scores["On"]);
+    Print(pack[0]);
+    Print(pack[1]);
+    Print(pack[2]);
+    Print(tags.Count());
+    Print(tags.Contains(1));
+    Print(tags.Contains("beta"));
+    Print(tags.Contains("missing"));
+    items[0] = "changed";
+    scores["Alpha"] = "fast";
+    numbers[0] = "later";
+    Print(items[0]);
+    Print(scores["Alpha"]);
+    Print(numbers);
+    Return 0;
+}

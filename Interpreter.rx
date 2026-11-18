@@ -438,6 +438,29 @@ Public Class Interpreter {
                 If (index >= 0) { target.Elements[index] = value; }
                 Return value;
             }
+            If (node.Left != Null && node.Left.Kind == AstKind.Index) {
+                Value target = This.Evaluate(node.Left.Left);
+                If (target.Text == "Map") {
+                    Value key = This.Evaluate(node.Left.Right);
+                    Int pair = 0;
+                    Bool found = False;
+                    While (pair + 1 < target.Elements.Count()) {
+                        If (This.Same(target.Elements[pair], key)) {
+                            target.Elements[pair + 1] = value;
+                            found = True;
+                        }
+                        pair = pair + 2;
+                    }
+                    If (!found) {
+                        target.Elements.Add(key);
+                        target.Elements.Add(value);
+                    }
+                    Return value;
+                }
+                Int slot = This.Evaluate(node.Left.Right).Integer;
+                If (slot >= 0 && slot < target.Elements.Count()) { target.Elements[slot] = value; }
+                Return value;
+            }
             If (node.Left != Null && node.Left.Kind == AstKind.Name) {
                 Value current = This.Lookup(node.Left.Name);
                 If (node.Operator == "+=") { value = This.MakeInt(current.Integer + value.Integer); }
@@ -460,6 +483,12 @@ Public Class Interpreter {
                 Return This.Evaluate(node.Left);
             }
             Return This.Evaluate(node.Right);
+        }
+        If (node.Kind == AstKind.TypeCheck) {
+            Value value = This.Evaluate(node.Left);
+            String expected = "";
+            If (node.Type != Null) { expected = node.Type.Name; }
+            Return This.MakeBool(This.TypeMatches(value, expected));
         }
         If (node.Kind == AstKind.Call) {
             Return This.EvaluateCall(node);
@@ -553,6 +582,11 @@ Public Class Interpreter {
             }
             Return This.MakeInt(left.Integer % right.Integer);
         }
+        If (node.Operator == "<<") { Return This.MakeInt(Shl(left.Integer, right.Integer)); }
+        If (node.Operator == ">>") { Return This.MakeInt(Shr(left.Integer, right.Integer)); }
+        If (node.Operator == "&") { Return This.MakeInt(BitAnd(left.Integer, right.Integer)); }
+        If (node.Operator == "|") { Return This.MakeInt(BitOr(left.Integer, right.Integer)); }
+        If (node.Operator == "^") { Return This.MakeInt(BitXor(left.Integer, right.Integer)); }
         If (node.Operator == "==" || node.Operator == "Equal") { Return This.MakeBool(This.Same(left, right)); }
         If (node.Operator == "!=") { Return This.MakeBool(!This.Same(left, right)); }
         If (node.Operator == "<") { Return This.MakeBool(left.Integer < right.Integer); }
@@ -603,6 +637,19 @@ Public Class Interpreter {
             Return This.MakeVoid();
         }
         If (name == "Input") { Return This.MakeText(ReadLine()); }
+        If (name == "Queue" || name == "Stack") {
+            Value collection = This.MakeArray();
+            collection.Text = name;
+            Return collection;
+        }
+        If (name == "Some" || name == "Success" || name == "Tuple") {
+            Value wrapper = This.MakeArray();
+            wrapper.Text = name;
+            For argument In arguments {
+                wrapper.Elements.Add(argument);
+            }
+            Return wrapper;
+        }
         AstNode? function = This.FindFunction(name);
         If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name) {
             Value value = This.Lookup(name);
@@ -621,6 +668,18 @@ Public Class Interpreter {
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) {
             Value target = This.Evaluate(node.Left.Left);
+            If (node.Left.Name == "Enqueue" || node.Left.Name == "Push") {
+                If (arguments.Count() > 0) { target.Elements.Add(arguments[0]); }
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "Dequeue") { Return This.TakeFront(target); }
+            If (node.Left.Name == "Pop") { Return This.TakeBack(target); }
+            If (node.Left.Name == "Peek") {
+                If (target.Elements.Count() == 0) { Return This.MakeInt(0); }
+                If (target.Text == "Stack") { Return target.Elements[target.Elements.Count() - 1]; }
+                Return target.Elements[0];
+            }
+            If (node.Left.Name == "Value" && target.Elements.Count() > 0) { Return target.Elements[0]; }
             If (node.Left.Name == "Contains" && arguments.Count() > 0) {
                 For element In target.Elements {
                     If (This.Same(element, arguments[0])) { Return This.MakeBool(True); }
@@ -657,14 +716,6 @@ Public Class Interpreter {
                 }
                 Return This.MakeInt(target.Integer);
             }
-        }
-        If (name == "Some" || name == "Success" || name == "Tuple") {
-            Value wrapper = This.MakeArray();
-            wrapper.Text = name;
-            For argument In arguments {
-                wrapper.Elements.Add(argument);
-            }
-            Return wrapper;
         }
         Return This.MakeVoid();
     }
@@ -784,6 +835,42 @@ Public Class Interpreter {
             }
         }
         Return This.MakeInt(0);
+    }
+
+    Private Function TakeFront(Value collection) -> Value {
+        If (collection.Elements.Count() == 0) { Return This.MakeInt(0); }
+        Value item = collection.Elements[0];
+        Var kept = List<Value>();
+        Int index = 1;
+        While (index < collection.Elements.Count()) {
+            kept.Add(collection.Elements[index]);
+            index = index + 1;
+        }
+        collection.Elements = kept;
+        Return item;
+    }
+
+    Private Function TakeBack(Value collection) -> Value {
+        Int count = collection.Elements.Count();
+        If (count == 0) { Return This.MakeInt(0); }
+        Value item = collection.Elements[count - 1];
+        Var kept = List<Value>();
+        Int index = 0;
+        While (index + 1 < count) {
+            kept.Add(collection.Elements[index]);
+            index = index + 1;
+        }
+        collection.Elements = kept;
+        Return item;
+    }
+
+    Private Function TypeMatches(Value value, String expected) -> Bool {
+        If (expected == "Bool") { Return value.Kind == ValueKind.Boolean; }
+        If (expected == "String") { Return value.Kind == ValueKind.Text; }
+        If (expected == "Float" || expected == "Double") { Return value.Kind == ValueKind.Float; }
+        If (expected == "Null") { Return value.Kind == ValueKind.Null; }
+        If (expected == "Int" || expected == "Int64") { Return value.Kind == ValueKind.Integer; }
+        Return False;
     }
 
     Private Function MakeRecord(AstNode node) -> Value {
@@ -1020,6 +1107,28 @@ Public Class Interpreter {
         }
         If (value.Kind == ValueKind.Text) { Return value.Text; }
         If (value.Kind == ValueKind.Null) { Return "Null"; }
+        If (value.Kind == ValueKind.Array && value.Text == "Map") {
+            String text = "{";
+            Int index = 0;
+            While (index + 1 < value.Elements.Count()) {
+                If (index > 0) { text = text + ", "; }
+                text = text + This.Display(value.Elements[index]);
+                text = text + ": ";
+                text = text + This.Display(value.Elements[index + 1]);
+                index = index + 2;
+            }
+            Return text + "}";
+        }
+        If (value.Kind == ValueKind.Array && value.Text == "Set") {
+            String text = "{";
+            Int index = 0;
+            For element In value.Elements {
+                If (index > 0) { text = text + ", "; }
+                text = text + This.Display(element);
+                index = index + 1;
+            }
+            Return text + "}";
+        }
         If (value.Kind == ValueKind.Array) {
             String text = "[";
             Int index = 0;
@@ -1046,3 +1155,8 @@ Private Extern Function F64Neg(Int bits) -> Int;
 Private Extern Function F64Cmp(Int left, Int right) -> Int;
 Private Extern Function FloatToInt(Int bits) -> Int;
 Private Extern Function ReadLine() -> String;
+Private Extern Function BitAnd(Int left, Int right) -> Int;
+Private Extern Function BitOr(Int left, Int right) -> Int;
+Private Extern Function BitXor(Int left, Int right) -> Int;
+Private Extern Function Shl(Int left, Int right) -> Int;
+Private Extern Function Shr(Int left, Int right) -> Int;
