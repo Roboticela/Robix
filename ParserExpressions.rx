@@ -118,16 +118,16 @@ Public Partial Class Parser {
             AstNode node = This.Make(AstKind.IntegerLiteral, start);
             node.Text = This.Advance().Text;
             node.Suffix = NumericSuffix(node.Text);
-            Return node;
+            Return This.ParsePostfix(node);
         }
         If (This.Check(TokenKind.FloatLiteral)) {
             AstNode node = This.Make(AstKind.FloatLiteral, start);
             node.Text = This.Advance().Text;
             node.Suffix = NumericSuffix(node.Text);
-            Return node;
+            Return This.ParsePostfix(node);
         }
         If (This.Check(TokenKind.StringLiteral)) {
-            Return This.ParseStringLiteral();
+            Return This.ParsePostfix(This.ParseStringLiteral());
         }
         If (This.Check(TokenKind.CharLiteral)) {
             AstNode node = This.Make(AstKind.CharLiteral, start);

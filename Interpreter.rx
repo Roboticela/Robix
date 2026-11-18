@@ -14,7 +14,8 @@ Public Enum ValueKind {
     Null,
     Array,
     Function,
-    Void
+    Void,
+    Object
 }
 
 Public Class Value {
@@ -24,6 +25,7 @@ Public Class Value {
     Public Bool Boolean;
     Public String Text;
     Public List<Value> Elements;
+    Public List<String> FieldNames;
     Public AstNode? FunctionNode;
 
     Public Constructor() {
@@ -33,6 +35,7 @@ Public Class Value {
         This.Boolean = False;
         This.Text = "";
         This.Elements = List<Value>();
+        This.FieldNames = List<String>();
         This.FunctionNode = Null;
     }
 }
@@ -46,6 +49,7 @@ Public Class Interpreter {
     Private String signal;
     Private Value returnValue;
     Private List<AstNode> functions;
+    Private List<AstNode> types;
 
     Public Constructor() {
         This.names = List<String>();
@@ -56,6 +60,7 @@ Public Class Interpreter {
         This.signal = "";
         This.returnValue = This.MakeVoid();
         This.functions = List<AstNode>();
+        This.types = List<AstNode>();
     }
 
     Public Function Execute(AstNode module, List<String> arguments) -> Int
@@ -122,7 +127,11 @@ Public Class Interpreter {
                 This.functions.Add(child);
                 This.Define(child.Name, This.MakeFunction(child));
             }
-            If (child.Kind == AstKind.Class || child.Kind == AstKind.Block) {
+            If (child.Kind == AstKind.Class) {
+                This.types.Add(child);
+                This.CollectFunctions(child);
+            }
+            If (child.Kind == AstKind.Block) {
                 This.CollectFunctions(child);
             }
         }
@@ -370,6 +379,7 @@ Public Class Interpreter {
         If (node.Kind == AstKind.BooleanLiteral) { Return This.MakeBool(node.FlagA); }
         If (node.Kind == AstKind.NullLiteral) { Return This.MakeNull(); }
         If (node.Kind == AstKind.Name) { Return This.Lookup(node.Name); }
+        If (node.Kind == AstKind.ObjectLiteral) { Return This.MakeObject(node); }
         If (node.Kind == AstKind.ArrayLiteral || node.Kind == AstKind.TupleLiteral || node.Kind == AstKind.SetLiteral) {
             Value array = This.MakeArray();
             For child In node.Children {
@@ -414,6 +424,12 @@ Public Class Interpreter {
                 Return value;
             }
             Value value = This.Evaluate(node.Right);
+            If (node.Left != Null && node.Left.Kind == AstKind.Member) {
+                Value target = This.Evaluate(node.Left.Left);
+                Int index = This.FieldIndex(target, node.Left.Name);
+                If (index >= 0) { target.Elements[index] = value; }
+                Return value;
+            }
             If (node.Left != Null && node.Left.Kind == AstKind.Name) {
                 Value current = This.Lookup(node.Left.Name);
                 If (node.Operator == "+=") { value = This.MakeInt(current.Integer + value.Integer); }
@@ -441,7 +457,18 @@ Public Class Interpreter {
             Return This.EvaluateCall(node);
         }
         If (node.Kind == AstKind.Member) {
+            If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+                Int typeIndex = This.TypeIndex(node.Left.Name);
+                If (typeIndex >= 0 && This.types[typeIndex].Text == "Enum") {
+                    Return This.MakeInt(This.EnumOrdinal(This.types[typeIndex], node.Name));
+                }
+            }
             Value target = This.Evaluate(node.Left);
+            If (target.Kind == ValueKind.Object) {
+                Int index = This.FieldIndex(target, node.Name);
+                If (index >= 0 && index < target.Elements.Count()) { Return target.Elements[index]; }
+                Return This.MakeInt(0);
+            }
             If (node.Name == "Length" || node.Name == "Count") {
                 If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.Length()); }
                 Return This.MakeInt(target.Elements.Count());
@@ -558,7 +585,7 @@ Public Class Interpreter {
             }
             Return This.MakeVoid();
         }
-        If (name == "Input") { Return This.MakeText(Input()); }
+        If (name == "Input") { Return This.MakeText(ReadLine()); }
         AstNode? function = This.FindFunction(name);
         If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name) {
             Value value = This.Lookup(name);
@@ -568,6 +595,12 @@ Public Class Interpreter {
         }
         If (function != Null) {
             Return This.CallFunction(function, arguments);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
+            Int typeIndex = This.TypeIndex(node.Left.Left.Name);
+            If (typeIndex >= 0 && This.types[typeIndex].Text == "Enum") {
+                Return This.MakeEnumValue(This.types[typeIndex], node.Left.Name, arguments);
+            }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) {
             Value target = This.Evaluate(node.Left.Left);
@@ -583,18 +616,18 @@ Public Class Interpreter {
             If (node.Left.Name == "ToUpper") { Return This.MakeText(This.Display(target).ToUpper()); }
             If (node.Left.Name == "ToLower") { Return This.MakeText(This.Display(target).ToLower()); }
             If (node.Left.Name == "ToFloat") {
-                If (target.Kind == ValueKind.Text) { Return This.MakeFloatBits(F64Parse(target.Text)); }
+                If (target.Kind == ValueKind.Text) { Return This.MakeFloatBits(ParseF64(target.Text)); }
                 If (target.Kind == ValueKind.Float) { Return target; }
                 If (target.Kind == ValueKind.Boolean) {
                     Int bit = 0;
                     If (target.Boolean) { bit = 1; }
-                    Return This.MakeFloatBits(F64FromInt(bit));
+                    Return This.MakeFloatBits(FloatFromInt(bit));
                 }
-                Return This.MakeFloatBits(F64FromInt(target.Integer));
+                Return This.MakeFloatBits(FloatFromInt(target.Integer));
             }
             If (node.Left.Name == "ToInt") {
                 If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.ToInt()); }
-                If (target.Kind == ValueKind.Float) { Return This.MakeInt(F64ToInt(target.Integer)); }
+                If (target.Kind == ValueKind.Float) { Return This.MakeInt(FloatToInt(target.Integer)); }
                 If (target.Kind == ValueKind.Boolean) {
                     If (target.Boolean) { Return This.MakeInt(1); }
                     Return This.MakeInt(0);
@@ -691,6 +724,90 @@ Public Class Interpreter {
         This.Define(name, value);
     }
 
+    Private Function TypeIndex(String name) -> Int {
+        Int index = 0;
+        For typeNode In This.types {
+            If (typeNode.Name == name) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function EnumOrdinal(AstNode typeNode, String name) -> Int {
+        Int ordinal = 0;
+        For child In typeNode.Children {
+            If (child.Kind == AstKind.EnumMember) {
+                If (child.Name == name) { Return ordinal; }
+                ordinal = ordinal + 1;
+            }
+        }
+        Return 0;
+    }
+
+    Private Function MakeEnumValue(AstNode typeNode, String name, List<Value> arguments) -> Value {
+        For child In typeNode.Children {
+            If (child.Kind == AstKind.EnumMember && child.Name == name) {
+                If (child.Parameters.Count() == 0) { Return This.MakeInt(This.EnumOrdinal(typeNode, name)); }
+                Value obj = This.MakeObjectValue(typeNode.Name);
+                Int index = 0;
+                For parameter In child.Parameters {
+                    obj.FieldNames.Add(parameter.Name);
+                    Value field = This.MakeInt(0);
+                    If (index < arguments.Count()) { field = arguments[index]; }
+                    obj.Elements.Add(field);
+                    index = index + 1;
+                }
+                Return obj;
+            }
+        }
+        Return This.MakeInt(0);
+    }
+
+    Private Function MakeObject(AstNode node) -> Value {
+        Value obj = This.MakeObjectValue(node.Name);
+        Int typeIndex = This.TypeIndex(node.Name);
+        If (typeIndex >= 0) {
+            For field In This.types[typeIndex].Children {
+                If (field.Kind == AstKind.Field) {
+                    obj.FieldNames.Add(field.Name);
+                    obj.Elements.Add(This.MakeInt(0));
+                }
+            }
+        }
+        For child In node.Children {
+            Value field = This.MakeInt(0);
+            If (child.Left != Null) { field = This.Evaluate(child.Left); }
+            Int index = This.FieldIndex(obj, child.Name);
+            If (index < 0) {
+                obj.FieldNames.Add(child.Name);
+                obj.Elements.Add(field);
+            } Else {
+                obj.Elements[index] = field;
+            }
+        }
+        Return obj;
+    }
+
+    Private Function MakeObjectValue(String typeName) -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Object;
+        value.Text = typeName;
+        value.Integer = 0;
+        value.Boolean = False;
+        value.Elements = List<Value>();
+        value.FieldNames = List<String>();
+        Return value;
+    }
+
+    Private Function FieldIndex(Value value, String name) -> Int {
+        Int index = 0;
+        For field In value.FieldNames {
+            If (field == name) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
     Private Function Lookup(String name) -> Value {
         Int index = This.names.Count() - 1;
         While (index >= 0) {
@@ -748,17 +865,17 @@ Public Class Interpreter {
         String lower = compact.ToLower();
         String number = StripNumericSuffix(compact);
         If (lower.EndsWith("f64")) {
-            Return This.MakeFloatBits(F64Parse(number));
+            Return This.MakeFloatBits(ParseF64(number));
         }
         If (lower.EndsWith("f32") || lower.EndsWith("f")) {
             Return This.MakeFloatBits(F32Parse(number));
         }
-        Return This.MakeFloatBits(F64Parse(number));
+        Return This.MakeFloatBits(ParseF64(number));
     }
 
     Private Function FloatBits(Value value) -> Int {
         If (value.Kind == ValueKind.Float) { Return value.Integer; }
-        Return F64FromInt(value.Integer);
+        Return FloatFromInt(value.Integer);
     }
 
     Private Function EvaluateFloat(String operator, Value left, Value right) -> Value {
@@ -837,7 +954,7 @@ Public Class Interpreter {
 
     Private Function Display(Value value) -> String {
         If (value.Kind == ValueKind.Integer) { Return value.Integer.ToString(); }
-        If (value.Kind == ValueKind.Float) { Return F64Text(value.Integer); }
+        If (value.Kind == ValueKind.Float) { Return TextF64(value.Integer); }
         If (value.Kind == ValueKind.Boolean) {
             If (value.Boolean) { Return "True"; }
             Return "False";
@@ -858,15 +975,15 @@ Public Class Interpreter {
     }
 }
 
-Private Extern Function F64Parse(String text) -> Int;
+Private Extern Function ParseF64(String text) -> Int;
 Private Extern Function F32Parse(String text) -> Int;
-Private Extern Function F64Text(Int bits) -> String;
-Private Extern Function F64FromInt(Int value) -> Int;
+Private Extern Function TextF64(Int bits) -> String;
+Private Extern Function FloatFromInt(Int value) -> Int;
 Private Extern Function F64Add(Int left, Int right) -> Int;
 Private Extern Function F64Sub(Int left, Int right) -> Int;
 Private Extern Function F64Mul(Int left, Int right) -> Int;
 Private Extern Function F64Div(Int left, Int right) -> Int;
 Private Extern Function F64Neg(Int bits) -> Int;
 Private Extern Function F64Cmp(Int left, Int right) -> Int;
-Private Extern Function F64ToInt(Int bits) -> Int;
-Private Extern Function Input() -> String;
+Private Extern Function FloatToInt(Int bits) -> Int;
+Private Extern Function ReadLine() -> String;

@@ -38,6 +38,8 @@ Public Class TypeChecker {
     Private Int unsafeDepth;
     Private Int asyncDepth;
     Private Int functionDepth;
+    Private List<String> aliasNames;
+    Private List<String> aliasTargets;
 
     Public Constructor(DiagnosticBag diagnostics) {
         This.diagnostics = diagnostics;
@@ -47,6 +49,8 @@ Public Class TypeChecker {
         This.unsafeDepth = 0;
         This.asyncDepth = 0;
         This.functionDepth = 0;
+        This.aliasNames = List<String>();
+        This.aliasTargets = List<String>();
     }
 
     Public Function Check(AstNode module) -> Void
@@ -57,6 +61,7 @@ Public Class TypeChecker {
         Output: "No return value. Diagnostics are stored in the bag.";
     } {
         This.PushScope();
+        This.CollectAliases(module);
         This.PredeclareFunctions(module);
         For child In module.Children {
             This.CheckNode(child);
@@ -218,6 +223,8 @@ Public Class TypeChecker {
             This.diagnostics.TypeError("RX102", "A variable needs a declared type or an initializer.", node.Line, node.Column, "a static type", "missing", "Add a type or an initializer.");
             declared = "Unknown";
         }
+        declared = This.ResolveType(declared);
+        inferred = This.ResolveType(inferred);
         If (node.Initializer != Null && inferred.Length() > 0 && node.Type != Null) {
             This.RequireAssignable(node.Initializer, declared, inferred);
         }
@@ -253,7 +260,7 @@ Public Class TypeChecker {
                 If (parameter.Type == Null && This.strict && node.Kind != AstKind.Lambda) {
                     This.MissingType(parameter, "Parameter");
                 }
-                String parameterType = This.TypeText(parameter.Type);
+                String parameterType = This.ResolveType(This.TypeText(parameter.Type));
                 This.Define(parameter.Name, parameterType, parameter.FlagA, parameterType.EndsWith("?"), True, False, False, False, parameter.Line, parameter.Column);
             }
         }
@@ -406,7 +413,13 @@ Public Class TypeChecker {
         If (node.Kind == AstKind.MapLiteral) { Return "Map<Unknown, Unknown>"; }
         If (node.Kind == AstKind.SetLiteral) { Return "Set<Unknown>"; }
         If (node.Kind == AstKind.TupleLiteral) { Return "Tuple"; }
-        If (node.Kind == AstKind.RecordLiteral || node.Kind == AstKind.ObjectLiteral) { Return node.Name; }
+        If (node.Kind == AstKind.RecordLiteral) { Return node.Name; }
+        If (node.Kind == AstKind.ObjectLiteral) {
+            For child In node.Children {
+                If (child.Left != Null) { This.Infer(child.Left); }
+            }
+            Return node.Name;
+        }
         If (node.Kind == AstKind.Name) {
             Symbol? symbol = This.Find(node.Name);
             If (symbol == Null) {
@@ -547,25 +560,27 @@ Public Class TypeChecker {
         If (!This.strict) {
             Return;
         }
-        If (expected.Length() == 0 || actual.Length() == 0 || expected == "Unknown" || actual == "Unknown" || expected == "Any" || expected == "Dynamic" || expected == actual) {
+        String wanted = This.ResolveType(expected);
+        String given = This.ResolveType(actual);
+        If (wanted.Length() == 0 || given.Length() == 0 || wanted == "Unknown" || given == "Unknown" || wanted == "Any" || wanted == "Dynamic" || wanted == given) {
             Return;
         }
-        If (expected.EndsWith("?") && (actual == "Null" || actual == This.StripOptional(expected))) {
+        If (wanted.EndsWith("?") && (given == "Null" || given == This.StripOptional(wanted))) {
             Return;
         }
-        If (This.WidensTo(expected, actual)) {
+        If (This.WidensTo(wanted, given)) {
             Return;
         }
-        If (This.IsNumeric(expected) && This.IsNumeric(actual) && expected != actual) {
-            This.diagnostics.TypeError("RX109", "Numeric conversion would narrow or change representation.", node.Line, node.Column, expected, actual, "Use an explicit conversion such as " + expected + ".FromChecked.");
+        If (This.IsNumeric(wanted) && This.IsNumeric(given) && wanted != given) {
+            This.diagnostics.TypeError("RX109", "Numeric conversion would narrow or change representation.", node.Line, node.Column, wanted, given, "Use an explicit conversion such as " + wanted + ".FromChecked.");
             Return;
         }
-        If (actual == "Null" && !expected.EndsWith("?")) {
-            This.diagnostics.TypeError("RX110", "Null cannot be assigned to a non-nullable type.", node.Line, node.Column, expected, "Null", "Declare the destination as " + expected + "? .");
+        If (given == "Null" && !wanted.EndsWith("?")) {
+            This.diagnostics.TypeError("RX110", "Null cannot be assigned to a non-nullable type.", node.Line, node.Column, wanted, "Null", "Declare the destination as " + wanted + "? .");
             Return;
         }
-        If (expected != actual) {
-            This.diagnostics.TypeError("RX103", "This value is not assignable to the destination.", node.Line, node.Column, expected, actual, "Change the value or the declared type.");
+        If (wanted != given) {
+            This.diagnostics.TypeError("RX103", "This value is not assignable to the destination.", node.Line, node.Column, wanted, given, "Change the value or the declared type.");
         }
     }
 
@@ -714,6 +729,34 @@ Public Class TypeChecker {
             markIndex = markIndex + 1;
         }
         This.marks = keptMarks;
+    }
+
+    Private Function CollectAliases(AstNode node) -> Void {
+        For child In node.Children {
+            If (child.Kind == AstKind.TypeAlias && child.Parameters.Count() == 0) {
+                This.aliasNames.Add(child.Name);
+                String target = "";
+                If (child.Type != Null) { target = child.Type.Name; }
+                This.aliasTargets.Add(target);
+            }
+        }
+    }
+
+    Private Function ResolveType(String name) -> String {
+        Int guard = 0;
+        String current = name;
+        While (guard < 8) {
+            String next = "";
+            Int index = 0;
+            For alias In This.aliasNames {
+                If (alias == current) { next = This.aliasTargets[index]; }
+                index = index + 1;
+            }
+            If (next == "" || next == current) { Return current; }
+            current = next;
+            guard = guard + 1;
+        }
+        Return current;
     }
 
     Private Function TypeText(AstNode? type) -> String {

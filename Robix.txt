@@ -79,9 +79,6 @@ Let preciseDouble = Double.From("3.141592653589793", precision: 15);
 
 // Direct conversion methods. Try variants report conversion failure without
 // throwing; checked conversions throw on invalid or out-of-range values.
-String numberText = integerValue.ToString();
-Int textNumber = "123".ToInt();
-Float textFloat = "12.5".ToFloat();
 Int roundedNumber = 12.8.ToInt(Rounding.Nearest);
 Int truncatedNumber = 12.8.ToInt(Rounding.Truncate);
 String floatText = piValue.ToString(format: "F4");
@@ -89,14 +86,6 @@ Result<Int, ConversionError> safeNumber = "123".TryToInt();
 Int checkedNumber = Float(12.0).ToInt(checked: True);
 
 // User-defined types and aliases.
-Type RoboSpeed = Int;
-Type RobotId = String;
-
-Struct RoboPoint {
-    Public Float X;
-    Public Float Y;
-}
-
 Struct RoboColor {
     Public UInt8 Red;
     Public UInt8 Green;
@@ -105,13 +94,6 @@ Struct RoboColor {
 
 Type Pair<TLeft, TRight> = (TLeft, TRight);
 Type RoboBox<T> = Storage<T>;
-
-// Enum values may carry data.
-Enum RoboPinMode {
-    Input,
-    Output,
-    Alternate(Int pinNumber)
-}
 
 // -----------------------------------------------------------------------------
 // 4. Composite types, collections, tuples, and universal values

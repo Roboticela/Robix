@@ -746,6 +746,12 @@ int64_t rx_AnyLower(int64_t box) {
     return rx_str_lower(rx_any_field(box, 1));
 }
 
+int64_t rx_ParseF64(int64_t text) { return rx_F64Parse(text); }
+int64_t rx_TextF64(int64_t bits) { return rx_F64Text(bits); }
+int64_t rx_FloatFromInt(int64_t value) { return rx_F64FromInt(value); }
+int64_t rx_FloatToInt(int64_t bits) { return rx_F64ToInt(bits); }
+int64_t rx_ReadLine(void) { return rx_Input(); }
+
 int64_t rx_Input(void) {
     char *line = NULL;
     size_t capacity = 0;

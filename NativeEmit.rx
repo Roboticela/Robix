@@ -48,6 +48,7 @@ Public Class ClassInfo {
     Public List<MethodInfo> Methods;
     Public List<String> EnumNames;
     Public List<Int> EnumValues;
+    Public List<AstNode> EnumMembers;
     Public List<AstNode> Constructors;
     Public List<String> ConstructorFiles;
 
@@ -59,6 +60,7 @@ Public Class ClassInfo {
         This.Methods = List<MethodInfo>();
         This.EnumNames = List<String>();
         This.EnumValues = List<Int>();
+        This.EnumMembers = List<AstNode>();
         This.Constructors = List<AstNode>();
         This.ConstructorFiles = List<String>();
     }
@@ -105,6 +107,8 @@ Public Class NativeProgram {
     Public List<String> GlobalSlots;
     Public List<String> GlobalTypes;
     Public String InitSymbol;
+    Public List<String> AliasNames;
+    Public List<String> AliasTargets;
 
     Public Constructor() {
         This.Classes = List<ClassInfo>();
@@ -129,6 +133,8 @@ Public Class NativeProgram {
         This.GlobalSlots = List<String>();
         This.GlobalTypes = List<String>();
         This.InitSymbol = "";
+        This.AliasNames = List<String>();
+        This.AliasTargets = List<String>();
     }
 
     Public Function Collect(List<String> fileNames, List<AstNode> modules) -> Void
@@ -145,6 +151,12 @@ Public Class NativeProgram {
             For child In module.Children {
                 If (child.Kind == AstKind.Class) {
                     This.AddClass(fileName, child);
+                }
+                If (child.Kind == AstKind.TypeAlias && child.Parameters.Count() == 0) {
+                    This.AliasNames.Add(child.Name);
+                    String target = "";
+                    If (child.Type != Null) { target = child.Type.Name; }
+                    This.AliasTargets.Add(target);
                 }
                 If (child.Kind == AstKind.Function || child.Kind == AstKind.Extern) {
                     This.AddFunction(fileName, child);
@@ -213,6 +225,15 @@ Public Class NativeProgram {
             If (child.Kind == AstKind.EnumMember && This.EnumValue(info, child.Name) < 0) {
                 info.EnumNames.Add(child.Name);
                 info.EnumValues.Add(info.EnumNames.Count() - 1);
+                info.EnumMembers.Add(child);
+                For parameter In child.Parameters {
+                    If (parameter.Name != "" && This.FieldSlot(info, parameter.Name) < 0) {
+                        info.Fields.Add(parameter.Name);
+                        String fieldType = This.TypeName(parameter.Type);
+                        If (fieldType == "") { fieldType = "Int"; }
+                        info.FieldTypes.Add(fieldType);
+                    }
+                }
             }
             If (child.Kind == AstKind.Function) {
                 MethodInfo method = MethodInfo();
@@ -227,10 +248,6 @@ Public Class NativeProgram {
                 info.Constructors.Add(child);
                 info.ConstructorFiles.Add(fileName);
             }
-        }
-        If (info.KindName == "Enum") {
-            info.Fields = List<String>();
-            info.FieldTypes = List<String>();
         }
     }
 
@@ -398,6 +415,7 @@ Public Class NativeProgram {
     Private Function DeclareExtern(AstNode node) -> String {
         If (node.Name == "RunProcess") { Return ""; }
         String symbol = This.ExternSymbol(node.Name);
+        If (symbol == "rx_F64Parse" || symbol == "rx_F64Text" || symbol == "rx_F64FromInt" || symbol == "rx_F64ToInt" || symbol == "rx_Input") { Return ""; }
         String args = "";
         Int count = node.Parameters.Count();
         Int index = 0;
@@ -1105,6 +1123,7 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.Binary) { Return This.EmitBinary(node); }
         If (node.Kind == AstKind.Assignment) { Return This.EmitAssignment(node); }
         If (node.Kind == AstKind.ArrayLiteral) { Return This.EmitArrayLiteral(node); }
+        If (node.Kind == AstKind.ObjectLiteral) { Return This.EmitObjectLiteral(node); }
         Return This.Pair("0", "Int");
     }
 
@@ -1173,8 +1192,8 @@ Public Class NativeProgram {
         }
         IrValue receiver = This.EmitExpr(node.Left);
         ClassInfo info = This.FindClass(receiver.TypeName);
-        If (info.Name != "" && info.KindName == "Enum") { Return This.Pair(receiver.Value, "Int"); }
         Int slot = This.FieldSlot(info, target);
+        If (info.Name != "" && info.KindName == "Enum" && slot < 0) { Return This.Pair(receiver.Value, "Int"); }
         If (info.Name != "" && slot >= 0) {
             String loaded = This.LoadObjectField(receiver.Value, slot.ToString());
             Return This.Pair(loaded, This.FieldType(info, target));
@@ -1307,7 +1326,24 @@ Public Class NativeProgram {
         }
         IrValue receiver = This.EmitExpr(member.Left);
         If (This.IsAnyType(receiver.TypeName)) { Return This.AnyCall(member.Name, receiver.Value); }
-        If (member.Name == "ToInt") { Return This.Pair(receiver.Value, "Int"); }
+        If (member.Name == "ToInt") {
+            If (This.IsString(receiver.TypeName)) { Return This.StringMethod(member.Name, receiver.Value, arguments); }
+            If (This.IsFloatType(receiver.TypeName)) {
+                Var args = List<String>();
+                args.Add(receiver.Value);
+                IrValue value = This.CallRuntime("rx_F64ToInt", args, False);
+                Return This.Pair(value.Value, "Int");
+            }
+            Return This.Pair(receiver.Value, "Int");
+        }
+        If (member.Name == "ToFloat") {
+            If (This.IsString(receiver.TypeName)) { Return This.StringMethod(member.Name, receiver.Value, arguments); }
+            If (This.IsFloatType(receiver.TypeName)) { Return receiver; }
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            IrValue value = This.CallRuntime("rx_F64FromInt", args, False);
+            Return This.Pair(value.Value, "Float");
+        }
         If (member.Name == "ToString") { Return This.ToStringValue(receiver.Value, receiver.TypeName); }
         If (This.IsString(receiver.TypeName) && This.IsStringMethod(member.Name)) {
             Return This.StringMethod(member.Name, receiver.Value, arguments);
@@ -1392,6 +1428,10 @@ Public Class NativeProgram {
             If (arguments.Count() == 0) { args.Add("0"); }
             IrValue value = This.CallRuntime("rx_env_get", args, False);
             Return This.Pair(value.Value, "String");
+        }
+        ClassInfo enumInfo = This.FindClass(owner);
+        If (enumInfo.Name != "" && enumInfo.KindName == "Enum") {
+            Return This.EmitEnumCall(enumInfo, method, arguments);
         }
         If (owner == "Process" && method == "Run") {
             Var args = List<String>();
@@ -1796,8 +1836,74 @@ Public Class NativeProgram {
             }
             Return "List:" + element;
         }
-        If (name.EndsWith("?")) { Return name.Substring(0, name.Length() - 1); }
-        Return name;
+        If (name.EndsWith("?")) { Return This.ResolveAlias(name.Substring(0, name.Length() - 1)); }
+        Return This.ResolveAlias(name);
+    }
+
+    Private Function ResolveAlias(String name) -> String {
+        Int guard = 0;
+        String current = name;
+        While (guard < 8) {
+            String next = "";
+            Int index = 0;
+            For alias In This.AliasNames {
+                If (alias == current) { next = This.AliasTargets[index]; }
+                index = index + 1;
+            }
+            If (next == "" || next == current) { Return current; }
+            current = next;
+            guard = guard + 1;
+        }
+        Return current;
+    }
+
+    Private Function EmitObjectLiteral(AstNode node) -> IrValue {
+        ClassInfo info = This.FindClass(node.Name);
+        Int fields = info.Fields.Count();
+        If (fields < 1) { fields = 1; }
+        Var created = List<String>();
+        created.Add(fields.ToString());
+        IrValue obj = This.CallRuntime("rx_obj_new", created, False);
+        For child In node.Children {
+            Int slot = This.FieldSlot(info, child.Name);
+            If (slot >= 0 && child.Left != Null) {
+                IrValue field = This.EmitExpr(child.Left);
+                This.StoreObjectField(obj.Value, slot.ToString(), field.Value);
+            }
+        }
+        String typeName = node.Name;
+        If (typeName == "") { typeName = "Int"; }
+        Return This.Pair(obj.Value, typeName);
+    }
+
+    Private Function EmitEnumCall(ClassInfo info, String method, List<String> arguments) -> IrValue {
+        Int ordinal = This.EnumValue(info, method);
+        AstNode member = AstNode();
+        Bool found = False;
+        For candidate In info.EnumMembers {
+            If (candidate.Name == method) {
+                member = candidate;
+                found = True;
+            }
+        }
+        If (found && member.Parameters.Count() > 0) {
+            Int fields = info.Fields.Count();
+            If (fields < 1) { fields = 1; }
+            Var created = List<String>();
+            created.Add(fields.ToString());
+            IrValue obj = This.CallRuntime("rx_obj_new", created, False);
+            Int index = 0;
+            For parameter In member.Parameters {
+                String arg = "0";
+                If (index < arguments.Count()) { arg = arguments[index]; }
+                Int slot = This.FieldSlot(info, parameter.Name);
+                If (slot >= 0) { This.StoreObjectField(obj.Value, slot.ToString(), arg); }
+                index = index + 1;
+            }
+            Return This.Pair(obj.Value, info.Name);
+        }
+        If (ordinal < 0) { ordinal = 0; }
+        Return This.Pair(ordinal.ToString(), "Int");
     }
 
     Private Function IsVoid(String typeName) -> Bool {
