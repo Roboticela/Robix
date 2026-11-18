@@ -576,14 +576,25 @@ Public Class NativeProgram {
         String declarations = "";
         Int index = 0;
         For node In nodes {
-            String slot = "@g" + index.ToString();
-            declarations = declarations + slot + " = global i64 0\n";
-            String typeName = This.TypeName(node.Type);
-            If (typeName == "") { typeName = "Int"; }
-            This.GlobalNames.Add(node.Name);
-            This.GlobalSlots.Add(slot);
-            This.GlobalTypes.Add(typeName);
-            index = index + 1;
+            If (node.FlagC) {
+                For child In node.Children {
+                    String slot = "@g" + index.ToString();
+                    declarations = declarations + slot + " = global i64 0\n";
+                    This.GlobalNames.Add(child.Name);
+                    This.GlobalSlots.Add(slot);
+                    This.GlobalTypes.Add("Int");
+                    index = index + 1;
+                }
+            } Else {
+                String slot = "@g" + index.ToString();
+                declarations = declarations + slot + " = global i64 0\n";
+                String typeName = This.TypeName(node.Type);
+                If (typeName == "") { typeName = "Int"; }
+                This.GlobalNames.Add(node.Name);
+                This.GlobalSlots.Add(slot);
+                This.GlobalTypes.Add(typeName);
+                index = index + 1;
+            }
         }
         This.InitSymbol = "rxinit_" + This.Stem(This.FileName);
         This.ResetFunction("", "Void");
@@ -591,17 +602,40 @@ Public Class NativeProgram {
         This.Raw("Lentry:");
         index = 0;
         For node In nodes {
-            String value = "0";
-            If (node.Initializer != Null) {
-                IrValue initial = This.EmitExpr(node.Initializer);
-                value = initial.Value;
-                If (node.Type == Null && initial.TypeName != "") {
-                    This.GlobalTypes[index] = initial.TypeName;
-                    This.ScopeTypes[index] = initial.TypeName;
+            If (node.FlagC && node.Initializer != Null && node.Initializer.Kind == AstKind.TupleLiteral) {
+                Int part = 0;
+                For child In node.Children {
+                    String value = "0";
+                    String typeName = "Int";
+                    If (part < node.Initializer.Children.Count()) {
+                        IrValue initial = This.EmitExpr(node.Initializer.Children[part]);
+                        value = initial.Value;
+                        If (initial.TypeName != "") { typeName = initial.TypeName; }
+                    }
+                    This.GlobalTypes[index] = typeName;
+                    This.ScopeTypes[index] = typeName;
+                    This.Emit("store i64 " + value + ", ptr " + This.GlobalSlots[index]);
+                    index = index + 1;
+                    part = part + 1;
+                }
+            } Else If (!node.FlagC) {
+                String value = "0";
+                If (node.Initializer != Null) {
+                    IrValue initial = This.EmitExpr(node.Initializer);
+                    value = initial.Value;
+                    If (node.Type == Null && initial.TypeName != "") {
+                        This.GlobalTypes[index] = initial.TypeName;
+                        This.ScopeTypes[index] = initial.TypeName;
+                    }
+                }
+                This.Emit("store i64 " + value + ", ptr " + This.GlobalSlots[index]);
+                index = index + 1;
+            } Else {
+                For child In node.Children {
+                    This.Emit("store i64 0, ptr " + This.GlobalSlots[index]);
+                    index = index + 1;
                 }
             }
-            This.Emit("store i64 " + value + ", ptr " + This.GlobalSlots[index]);
-            index = index + 1;
         }
         If (!This.Terminated) { This.Emit("ret void"); }
         This.Raw("}");
@@ -610,6 +644,10 @@ Public Class NativeProgram {
 
     Private Function CollectGlobals(AstNode node, List<AstNode> nodes) -> Void {
         If (node.Kind != AstKind.Variable) { Return; }
+        If (node.FlagC) {
+            nodes.Add(node);
+            Return;
+        }
         If (node.Name != "") { nodes.Add(node); }
         For child In node.Children {
             This.CollectGlobals(child, nodes);
@@ -722,6 +760,10 @@ Public Class NativeProgram {
         If (This.Terminated) { Return; }
         If (node.Kind == AstKind.Explain || node.Kind == AstKind.ExplainEntry) { Return; }
         If (node.Kind == AstKind.Variable) {
+            If (node.FlagC) {
+                This.EmitTupleBinding(node);
+                Return;
+            }
             String typeName = This.TypeName(node.Type);
             String value = "0";
             If (node.Initializer != Null) {
@@ -730,7 +772,8 @@ Public Class NativeProgram {
                 If (typeName == "") { typeName = initial.TypeName; }
             }
             If (typeName == "") { typeName = "Int"; }
-            This.Alloca(node.Name, typeName, value);
+            If (node.Name != "") { This.Alloca(node.Name, typeName, value); }
+            For child In node.Children { This.EmitStatement(child); }
             Return;
         }
         If (node.Kind == AstKind.Return) {
@@ -882,25 +925,101 @@ Public Class NativeProgram {
         This.Emit("store i64 " + value + ", ptr " + found.Value);
     }
 
-    Private Function EmitAssignment(AstNode node) -> Void {
-        IrValue value = This.EmitExpr(node.Right);
-        If (node.Left == Null) { Return; }
+    Private Function EmitAssignment(AstNode node) -> IrValue {
+        If (node.Left != Null && node.Left.Kind == AstKind.TupleLiteral) {
+            Return This.EmitTupleAssignment(node);
+        }
+        IrValue value = This.Pair("0", "Int");
+        If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Operator != "=" && node.Operator != "") {
+            IrValue current = This.Lookup(node.Left.Name);
+            IrValue loaded = This.Pair(This.LoadSlot(current.Value), current.TypeName);
+            IrValue right = This.EmitExpr(node.Right);
+            value = This.CombineAssignment(node.Operator, loaded, right);
+            This.StoreName(node.Left.Name, value.Value);
+            Return value;
+        }
+        If (node.Right != Null) { value = This.EmitExpr(node.Right); }
+        If (node.Left == Null) { Return value; }
         If (node.Left.Kind == AstKind.Name) {
             This.StoreName(node.Left.Name, value.Value);
-            Return;
+            Return value;
         }
         If (node.Left.Kind == AstKind.Member) {
             IrValue receiver = This.EmitExpr(node.Left.Left);
             Int index = This.FieldSlot(This.FindClass(receiver.TypeName), node.Left.Name);
             If (index < 0) { index = 0; }
             This.StoreObjectField(receiver.Value, index.ToString(), value.Value);
-            Return;
+            Return value;
         }
         If (node.Left.Kind == AstKind.Index) {
             IrValue collection = This.EmitExpr(node.Left.Left);
             IrValue index = This.EmitExpr(node.Left.Right);
             This.StoreListItem(collection.Value, index.Value, value.Value);
         }
+        Return value;
+    }
+
+    Private Function CombineAssignment(String operator, IrValue left, IrValue right) -> IrValue {
+        AstNode synthetic = AstNode();
+        synthetic.Kind = AstKind.Binary;
+        synthetic.Operator = "+";
+        If (operator == "-=") { synthetic.Operator = "-"; }
+        If (operator == "*=") { synthetic.Operator = "*"; }
+        If (operator == "/=") { synthetic.Operator = "/"; }
+        If (operator == "%=") { synthetic.Operator = "%"; }
+        If (This.IsFloatType(left.TypeName) || This.IsFloatType(right.TypeName)) {
+            Return This.EmitFloatBinary(synthetic.Operator, left, right);
+        }
+        String result = This.Fresh("v");
+        String opcode = "add";
+        If (synthetic.Operator == "-") { opcode = "sub"; }
+        If (synthetic.Operator == "*") { opcode = "mul"; }
+        If (synthetic.Operator == "/") { opcode = "sdiv"; }
+        If (synthetic.Operator == "%") { opcode = "srem"; }
+        This.Emit(result + " = " + opcode + " i64 " + left.Value + ", " + right.Value);
+        Return This.Pair(result, "Int");
+    }
+
+    Private Function EmitTupleBinding(AstNode node) -> Void {
+        If (node.Initializer != Null && node.Initializer.Kind == AstKind.TupleLiteral) {
+            Int index = 0;
+            For child In node.Children {
+                String typeName = "Int";
+                String value = "0";
+                If (index < node.Initializer.Children.Count()) {
+                    IrValue initial = This.EmitExpr(node.Initializer.Children[index]);
+                    value = initial.Value;
+                    If (initial.TypeName != "") { typeName = initial.TypeName; }
+                }
+                This.Alloca(child.Name, typeName, value);
+                index = index + 1;
+            }
+            Return;
+        }
+        For child In node.Children {
+            This.Alloca(child.Name, "Int", "0");
+        }
+    }
+
+    Private Function EmitTupleAssignment(AstNode node) -> IrValue {
+        Var values = List<String>();
+        Var types = List<String>();
+        If (node.Right != Null && node.Right.Kind == AstKind.TupleLiteral) {
+            For child In node.Right.Children {
+                IrValue initial = This.EmitExpr(child);
+                values.Add(initial.Value);
+                types.Add(initial.TypeName);
+            }
+        }
+        Int index = 0;
+        For target In node.Left.Children {
+            String value = "0";
+            If (index < values.Count()) { value = values[index]; }
+            If (target.Kind == AstKind.Name) { This.StoreName(target.Name, value); }
+            index = index + 1;
+        }
+        If (values.Count() == 0) { Return This.Pair("0", "Int"); }
+        Return This.Pair(values[0], types[0]);
     }
 
     Private Function EmitExpr(AstNode node) -> IrValue {
@@ -944,6 +1063,17 @@ Public Class NativeProgram {
             Return This.Pair(value, This.ElementType(collection.TypeName));
         }
         If (node.Kind == AstKind.Unary) {
+            If ((node.Operator == "++" || node.Operator == "--") && node.Left != Null && node.Left.Kind == AstKind.Name) {
+                IrValue current = This.Lookup(node.Left.Name);
+                String loaded = This.LoadSlot(current.Value);
+                String next = This.Fresh("v");
+                String opcode = "add";
+                If (node.Operator == "--") { opcode = "sub"; }
+                This.Emit(next + " = " + opcode + " i64 " + loaded + ", 1");
+                This.StoreName(node.Left.Name, next);
+                If (node.FlagA) { Return This.Pair(loaded, current.TypeName); }
+                Return This.Pair(next, current.TypeName);
+            }
             IrValue value = This.EmitExpr(node.Left);
             If (node.Operator == "!") {
                 String flag = This.Fresh("v");
@@ -966,10 +1096,7 @@ Public Class NativeProgram {
             Return This.Pair(result, value.TypeName);
         }
         If (node.Kind == AstKind.Binary) { Return This.EmitBinary(node); }
-        If (node.Kind == AstKind.Assignment) {
-            This.EmitAssignment(node);
-            Return This.Pair("0", "Void");
-        }
+        If (node.Kind == AstKind.Assignment) { Return This.EmitAssignment(node); }
         Return This.Pair("0", "Int");
     }
 

@@ -66,19 +66,6 @@ anything = [1, 2, 3];
 Var dynamicValue: Dynamic = "hello";
 dynamicValue = 25;
 
-// Multiple declarations and assignments.
-Int x = 20, j = 30, k, f;
-x = j = 20;
-(x, j, k) = (20, 30, 40);
-Let (firstName, lastName) = ("Robo", "Bot");
-(x, j) = (j, x);                     // swap
-
-Var counter = 0;
-counter++;
-counter--;
-counter += 5;
-counter *= 2;
-
 // Functions may initialize variables and values can be converted in place.
 Var reading: Any = Input();
 reading = reading.ToString();

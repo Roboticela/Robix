@@ -389,11 +389,12 @@ Public Class Interpreter {
                 Return This.MakeBool(!This.IsTruthy(operand));
             }
             If ((node.Operator == "++" || node.Operator == "--") && node.Left != Null && node.Left.Kind == AstKind.Name) {
-                Int next = operand.Integer + 1;
-                If (node.Operator == "--") { next = operand.Integer - 1; }
-                Value updated = This.MakeInt(next);
-                This.Assign(node.Left.Name, updated);
-                Return updated;
+                Int current = operand.Integer;
+                Int next = current + 1;
+                If (node.Operator == "--") { next = current - 1; }
+                This.Assign(node.Left.Name, This.MakeInt(next));
+                If (node.FlagA) { Return This.MakeInt(current); }
+                Return This.MakeInt(next);
             }
             Return operand;
         }
@@ -401,11 +402,31 @@ Public Class Interpreter {
             Return This.EvaluateBinary(node);
         }
         If (node.Kind == AstKind.Assignment) {
+            If (node.Left != Null && node.Left.Kind == AstKind.TupleLiteral) {
+                Value value = This.Evaluate(node.Right);
+                Int index = 0;
+                For target In node.Left.Children {
+                    Value part = This.MakeNull();
+                    If (index < value.Elements.Count()) { part = value.Elements[index]; }
+                    If (target.Kind == AstKind.Name) { This.Assign(target.Name, part); }
+                    index = index + 1;
+                }
+                Return value;
+            }
             Value value = This.Evaluate(node.Right);
             If (node.Left != Null && node.Left.Kind == AstKind.Name) {
-                If (node.Operator == "+=") { value = This.MakeInt(This.Lookup(node.Left.Name).Integer + value.Integer); }
-                If (node.Operator == "-=") { value = This.MakeInt(This.Lookup(node.Left.Name).Integer - value.Integer); }
-                If (node.Operator == "*=") { value = This.MakeInt(This.Lookup(node.Left.Name).Integer * value.Integer); }
+                Value current = This.Lookup(node.Left.Name);
+                If (node.Operator == "+=") { value = This.MakeInt(current.Integer + value.Integer); }
+                If (node.Operator == "-=") { value = This.MakeInt(current.Integer - value.Integer); }
+                If (node.Operator == "*=") { value = This.MakeInt(current.Integer * value.Integer); }
+                If (node.Operator == "/=") {
+                    If (value.Integer == 0) { value = This.MakeInt(0); }
+                    If (value.Integer != 0) { value = This.MakeInt(current.Integer / value.Integer); }
+                }
+                If (node.Operator == "%=") {
+                    If (value.Integer == 0) { value = This.MakeInt(0); }
+                    If (value.Integer != 0) { value = This.MakeInt(current.Integer % value.Integer); }
+                }
                 This.Assign(node.Left.Name, value);
             }
             Return value;

@@ -78,8 +78,10 @@ Public Class TypeChecker {
     Private Function CheckNode(AstNode node) -> Void {
         If (node.Kind == AstKind.Variable || node.Kind == AstKind.Field) {
             This.CheckVariable(node);
-            For child In node.Children {
-                This.CheckVariable(child);
+            If (!node.FlagC) {
+                For child In node.Children {
+                    This.CheckVariable(child);
+                }
             }
             Return;
         }
@@ -192,11 +194,15 @@ Public Class TypeChecker {
 
     Private Function CheckVariable(AstNode node) -> Void {
         If (node.Name.Length() == 0 && node.FlagC) {
-            If (node.Initializer != Null) {
-                This.Infer(node.Initializer);
-            }
+            Int index = 0;
             For child In node.Children {
-                This.Define(child.Name, "Unknown", child.FlagA, False, True, False, False, False, child.Line, child.Column);
+                String typeName = "Unknown";
+                If (node.Initializer != Null && node.Initializer.Kind == AstKind.TupleLiteral && index < node.Initializer.Children.Count()) {
+                    typeName = This.Infer(node.Initializer.Children[index]);
+                    If (typeName == "") { typeName = "Unknown"; }
+                }
+                This.Define(child.Name, typeName, child.FlagA, False, True, False, False, False, child.Line, child.Column);
+                index = index + 1;
             }
             Return;
         }
@@ -350,6 +356,20 @@ Public Class TypeChecker {
         String actual = "";
         If (node.Right != Null) {
             actual = This.Infer(node.Right);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.TupleLiteral) {
+            For target In node.Left.Children {
+                If (target.Kind == AstKind.Name) {
+                    Symbol? symbol = This.Find(target.Name);
+                    If (symbol != Null) {
+                        If (!symbol.Mutable || symbol.IsConst) {
+                            This.diagnostics.TypeError("RX103", "Cannot assign to immutable '" + symbol.Name + "'.", node.Line, node.Column, "a Var binding", symbol.TypeName, "Declare it with Var.");
+                        }
+                        symbol.Initialized = True;
+                    }
+                }
+            }
+            Return;
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Name) {
             Symbol? symbol = This.Find(node.Left.Name);

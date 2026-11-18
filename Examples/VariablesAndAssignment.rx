@@ -8,23 +8,29 @@ Public Function Main(Args<String> args) -> Int
 Explain {
     Description: "Exercise immutable bindings, mutable bindings, and tuple assignment.";
     Input: args = "Command-line arguments";
-    Processing: "Swap two integers and increment a counter.";
-    Output: "The swapped left value.";
+    Processing: "Assign several names, swap a pair, and update a counter.";
+    Output: "The counter after the compound updates.";
 } {
-    Let robotName = "Roboticela";
-    Var batteryLevel = 100;
-    Let speed: Float = 100.0;
-    Int motorSpeed = 150;
-    Var anything: Any = 42;
-    anything = "now text";
-    Int x = 20, j = 30;
+    Int x = 20, j = 30, k = 0, f = 0;
+    x = j = 20;
+    Print(x);
+    Print(j);
+    (x, j, k) = (20, 30, 40);
+    Print(k);
     (x, j) = (j, x);
+    Print(x);
+    Print(j);
     Let (firstName, lastName) = ("Robo", "Bot");
+    Print(firstName);
+    Print(lastName);
     Var counter = 0;
     counter++;
+    counter--;
     counter += 5;
-    Print(robotName);
-    Print(firstName);
-    Print(x);
-    Return x;
+    counter *= 2;
+    Int shown = counter++;
+    Print(shown);
+    Print(counter);
+    Print(f);
+    Return 0;
 }
