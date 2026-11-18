@@ -1,4 +1,4 @@
-// Let, Var, inference, Any, multiple names, and assignment.
+// Let, Var, multiple names, and assignment.
 Package Robotics.Variables;
 
 Import Robix.Core;

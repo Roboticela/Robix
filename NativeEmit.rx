@@ -506,7 +506,7 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
         String voids = "rx_list_add rx_list_set rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
@@ -766,12 +766,18 @@ Public Class NativeProgram {
             }
             String typeName = This.TypeName(node.Type);
             String value = "0";
+            String sourceType = "Int";
             If (node.Initializer != Null) {
                 IrValue initial = This.EmitExpr(node.Initializer);
                 value = initial.Value;
-                If (typeName == "") { typeName = initial.TypeName; }
+                sourceType = initial.TypeName;
+                If (typeName == "") { typeName = sourceType; }
             }
             If (typeName == "") { typeName = "Int"; }
+            If (This.IsAnyType(typeName)) {
+                IrValue boxed = This.BoxAny(This.Pair(value, sourceType));
+                value = boxed.Value;
+            }
             If (node.Name != "") { This.Alloca(node.Name, typeName, value); }
             For child In node.Children { This.EmitStatement(child); }
             Return;
@@ -941,6 +947,7 @@ Public Class NativeProgram {
         If (node.Right != Null) { value = This.EmitExpr(node.Right); }
         If (node.Left == Null) { Return value; }
         If (node.Left.Kind == AstKind.Name) {
+            value = This.ValueForStore(node.Left.Name, value);
             This.StoreName(node.Left.Name, value.Value);
             Return value;
         }
@@ -1097,6 +1104,7 @@ Public Class NativeProgram {
         }
         If (node.Kind == AstKind.Binary) { Return This.EmitBinary(node); }
         If (node.Kind == AstKind.Assignment) { Return This.EmitAssignment(node); }
+        If (node.Kind == AstKind.ArrayLiteral) { Return This.EmitArrayLiteral(node); }
         Return This.Pair("0", "Int");
     }
 
@@ -1191,14 +1199,27 @@ Public Class NativeProgram {
 
     Private Function EmitNamedCall(AstNode left, List<String> arguments, List<String> types) -> IrValue {
         If (left.Name == "Print") {
+            String printed = "0";
             String kind = "0";
-            If (types.Count() > 0) { kind = This.PrintKind(types[0]).ToString(); }
+            If (arguments.Count() > 0) { printed = arguments[0]; }
+            If (types.Count() > 0 && This.IsAnyType(types[0])) {
+                Var textArgs = List<String>();
+                textArgs.Add(printed);
+                IrValue text = This.CallRuntime("rx_AnyText", textArgs, False);
+                printed = text.Value;
+                kind = "1";
+            } Else If (types.Count() > 0) {
+                kind = This.PrintKind(types[0]).ToString();
+            }
             Var args = List<String>();
-            If (arguments.Count() > 0) { args.Add(arguments[0]); }
-            If (arguments.Count() == 0) { args.Add("0"); }
+            args.Add(printed);
             args.Add(kind);
             This.CallRuntime("rx_print", args, True);
             Return This.Pair("0", "Void");
+        }
+        If (left.Name == "Input") {
+            IrValue value = This.CallRuntime("rx_Input", List<String>(), False);
+            Return This.Pair(value.Value, "String");
         }
         If (left.Name == "List") {
             String element = "Int";
@@ -1285,6 +1306,7 @@ Public Class NativeProgram {
             If (staticCall.TypeName != "Missing") { Return staticCall; }
         }
         IrValue receiver = This.EmitExpr(member.Left);
+        If (This.IsAnyType(receiver.TypeName)) { Return This.AnyCall(member.Name, receiver.Value); }
         If (member.Name == "ToInt") { Return This.Pair(receiver.Value, "Int"); }
         If (member.Name == "ToString") { Return This.ToStringValue(receiver.Value, receiver.TypeName); }
         If (This.IsString(receiver.TypeName) && This.IsStringMethod(member.Name)) {
@@ -1840,6 +1862,91 @@ Public Class NativeProgram {
         If (typeName == "Char") { Return 3; }
         If (This.IsFloatType(typeName)) { Return 4; }
         Return 0;
+    }
+
+    Private Function IsAnyType(String typeName) -> Bool {
+        Return typeName == "Any" || typeName == "Dynamic";
+    }
+
+    Private Function ValueTag(String typeName) -> String {
+        If (typeName == "String") { Return "2"; }
+        If (typeName == "Bool") { Return "3"; }
+        If (typeName == "Char") { Return "4"; }
+        If (This.IsFloatType(typeName)) { Return "5"; }
+        If (typeName == "Null") { Return "6"; }
+        If (This.IsList(typeName) || typeName.StartsWith("Array")) { Return "7"; }
+        Return "1";
+    }
+
+    Private Function ElementTag(String typeName) -> String {
+        If (This.IsList(typeName)) { Return This.ValueTag(This.ElementType(typeName)); }
+        Return "0";
+    }
+
+    Private Function BoxAny(IrValue value) -> IrValue {
+        If (This.IsAnyType(value.TypeName)) { Return value; }
+        Var created = List<String>();
+        created.Add("3");
+        IrValue obj = This.CallRuntime("rx_obj_new", created, False);
+        This.StoreObjectField(obj.Value, "0", This.ValueTag(value.TypeName));
+        This.StoreObjectField(obj.Value, "1", value.Value);
+        This.StoreObjectField(obj.Value, "2", This.ElementTag(value.TypeName));
+        Return This.Pair(obj.Value, "Any");
+    }
+
+    Private Function ValueForStore(String name, IrValue value) -> IrValue {
+        IrValue found = This.Lookup(name);
+        If (This.IsAnyType(found.TypeName)) { Return This.BoxAny(value); }
+        Return value;
+    }
+
+    Private Function AnyCall(String method, String receiver) -> IrValue {
+        Var args = List<String>();
+        args.Add(receiver);
+        If (method == "ToString") {
+            IrValue value = This.CallRuntime("rx_AnyText", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (method == "ToInt") {
+            IrValue value = This.CallRuntime("rx_AnyToInt", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        If (method == "ToFloat") {
+            IrValue value = This.CallRuntime("rx_AnyToFloat", args, False);
+            Return This.Pair(value.Value, "Float");
+        }
+        If (method == "Length" || method == "Count") {
+            IrValue value = This.CallRuntime("rx_AnyLength", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        If (method == "ToUpper") {
+            IrValue value = This.CallRuntime("rx_AnyUpper", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (method == "ToLower") {
+            IrValue value = This.CallRuntime("rx_AnyLower", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        Return This.Pair("0", "Int");
+    }
+
+    Private Function EmitArrayLiteral(AstNode node) -> IrValue {
+        IrValue list = This.CallRuntime("rx_list_new", List<String>(), False);
+        String element = "Int";
+        Bool first = True;
+        For child In node.Children {
+            IrValue item = This.EmitExpr(child);
+            If (first) {
+                element = item.TypeName;
+                If (element == "") { element = "Int"; }
+                first = False;
+            }
+            Var args = List<String>();
+            args.Add(list.Value);
+            args.Add(item.Value);
+            This.CallRuntime("rx_list_add", args, True);
+        }
+        Return This.Pair(list.Value, "List:" + element);
     }
 
     Private Function IsFloatType(String typeName) -> Bool {

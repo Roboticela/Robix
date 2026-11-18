@@ -221,9 +221,6 @@ Public Class TypeChecker {
         If (node.Initializer != Null && inferred.Length() > 0 && node.Type != Null) {
             This.RequireAssignable(node.Initializer, declared, inferred);
         }
-        If (declared == "Dynamic" && This.strict && This.unsafeDepth == 0) {
-            This.diagnostics.TypeError("RX106", "Dynamic is prohibited in Strict code outside an Unsafe boundary.", node.Line, node.Column, "a static type", "Dynamic", "Use a concrete type, Any, or an Unsafe block.");
-        }
         Bool nullable = declared.EndsWith("?") || declared == "Null";
         This.Define(node.Name, declared, node.FlagA && !node.FlagB, nullable, node.Initializer != Null, False, False, node.FlagB, node.Line, node.Column);
         If (node.Kind != AstKind.Field && node.Initializer == Null && !node.FlagA) {
@@ -483,10 +480,9 @@ Public Class TypeChecker {
             If (left.EndsWith("?") && !node.FlagA && This.strict) {
                 This.diagnostics.TypeError("RX110", "A nullable value needs a check, '?.', or '!' before member access.", node.Line, node.Column, This.StripOptional(left), left, "Use '?.' or test the value against Null.");
             }
-            If (node.Name == "ToString" || node.Name == "Length" || node.Name == "Count") {
-                If (node.Name == "ToString") { Return "String"; }
-                Return "Int";
-            }
+            If (node.Name == "ToString" || node.Name == "ToUpper" || node.Name == "ToLower") { Return "String"; }
+            If (node.Name == "ToFloat") { Return "Float"; }
+            If (node.Name == "ToInt" || node.Name == "Length" || node.Name == "Count") { Return "Int"; }
             Return "Unknown";
         }
         If (node.Kind == AstKind.Index) {
@@ -551,7 +547,7 @@ Public Class TypeChecker {
         If (!This.strict) {
             Return;
         }
-        If (expected.Length() == 0 || actual.Length() == 0 || expected == "Unknown" || actual == "Unknown" || expected == "Any" || expected == actual) {
+        If (expected.Length() == 0 || actual.Length() == 0 || expected == "Unknown" || actual == "Unknown" || expected == "Any" || expected == "Dynamic" || expected == actual) {
             Return;
         }
         If (expected.EndsWith("?") && (actual == "Null" || actual == This.StripOptional(expected))) {

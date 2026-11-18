@@ -347,6 +347,10 @@ int64_t rx_F64Neg(int64_t bits) {
     return rx_f64_box(-rx_f64_unbox(bits));
 }
 
+int64_t rx_F64ToInt(int64_t bits) {
+    return (int64_t)rx_f64_unbox(bits);
+}
+
 int64_t rx_F64Cmp(int64_t left, int64_t right) {
     double first = rx_f64_unbox(left);
     double second = rx_f64_unbox(right);
@@ -620,4 +624,139 @@ int64_t rx_args(int32_t argc, char **argv) {
 
 void rx_finish_result(int64_t result) {
     (void)result;
+}
+
+static int64_t rx_text_literal(const char *text) {
+    return rx_box(rx_copy_n(text, (int64_t)strlen(text)));
+}
+
+static int64_t rx_any_field(int64_t box, int64_t index) {
+    int64_t *fields = (int64_t *)(uintptr_t)box;
+    if (fields == NULL) {
+        return 0;
+    }
+    return fields[index];
+}
+
+static int64_t rx_tagged_text(int64_t tag, int64_t payload) {
+    if (tag == 2) {
+        return payload;
+    }
+    if (tag == 3) {
+        return rx_str_from_bool(payload);
+    }
+    if (tag == 4) {
+        return rx_str_from_char(payload);
+    }
+    if (tag == 5) {
+        return rx_F64Text(payload);
+    }
+    if (tag == 6) {
+        return rx_text_literal("Null");
+    }
+    return rx_str_from_int(payload);
+}
+
+int64_t rx_AnyText(int64_t box) {
+    if (box == 0) {
+        return rx_text_literal("Null");
+    }
+    int64_t tag = rx_any_field(box, 0);
+    int64_t payload = rx_any_field(box, 1);
+    if (tag != 7) {
+        return rx_tagged_text(tag, payload);
+    }
+    int64_t element = rx_any_field(box, 2);
+    int64_t count = rx_list_count(payload);
+    int64_t text = rx_text_literal("[");
+    int64_t comma = rx_text_literal(", ");
+    int64_t index = 0;
+    while (index < count) {
+        if (index > 0) {
+            text = rx_str_concat(text, comma);
+        }
+        text = rx_str_concat(text, rx_tagged_text(element, rx_list_get(payload, index)));
+        index = index + 1;
+    }
+    return rx_str_concat(text, rx_text_literal("]"));
+}
+
+int64_t rx_AnyToInt(int64_t box) {
+    if (box == 0) {
+        return 0;
+    }
+    int64_t tag = rx_any_field(box, 0);
+    int64_t payload = rx_any_field(box, 1);
+    if (tag == 2) {
+        return rx_str_to_int(payload);
+    }
+    if (tag == 5) {
+        return rx_F64ToInt(payload);
+    }
+    if (tag == 1 || tag == 3 || tag == 4) {
+        return payload;
+    }
+    return 0;
+}
+
+int64_t rx_AnyToFloat(int64_t box) {
+    if (box == 0) {
+        return rx_F64FromInt(0);
+    }
+    int64_t tag = rx_any_field(box, 0);
+    int64_t payload = rx_any_field(box, 1);
+    if (tag == 5) {
+        return payload;
+    }
+    if (tag == 2) {
+        return rx_F64Parse(payload);
+    }
+    if (tag == 1 || tag == 3 || tag == 4) {
+        return rx_F64FromInt(payload);
+    }
+    return rx_F64FromInt(0);
+}
+
+int64_t rx_AnyLength(int64_t box) {
+    if (box == 0) {
+        return 0;
+    }
+    int64_t tag = rx_any_field(box, 0);
+    int64_t payload = rx_any_field(box, 1);
+    if (tag == 2) {
+        return rx_str_len(payload);
+    }
+    if (tag == 7) {
+        return rx_list_count(payload);
+    }
+    return 0;
+}
+
+int64_t rx_AnyUpper(int64_t box) {
+    if (box == 0 || rx_any_field(box, 0) != 2) {
+        return rx_text_literal("");
+    }
+    return rx_str_upper(rx_any_field(box, 1));
+}
+
+int64_t rx_AnyLower(int64_t box) {
+    if (box == 0 || rx_any_field(box, 0) != 2) {
+        return rx_text_literal("");
+    }
+    return rx_str_lower(rx_any_field(box, 1));
+}
+
+int64_t rx_Input(void) {
+    char *line = NULL;
+    size_t capacity = 0;
+    ssize_t count = getline(&line, &capacity, stdin);
+    if (count < 0) {
+        free(line);
+        return rx_text_literal("");
+    }
+    while (count > 0 && (line[count - 1] == '\n' || line[count - 1] == '\r')) {
+        count = count - 1;
+        line[count] = 0;
+    }
+    return rx_box(line);
 }

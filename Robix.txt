@@ -52,25 +52,6 @@ Float32 sensorPrecision = Float32.From(3.14159, precision: 5);
 Decimal billingAmount = Decimal.From("19.99", scale: 2);
 
 // -----------------------------------------------------------------------------
-// 2. Variables, inference, dynamic values, and assignments
-// -----------------------------------------------------------------------------
-
-// Any can hold values of different types. The current value retains its type.
-Var anything: Any = 42;
-anything = "now text";
-anything = True;
-anything = [1, 2, 3];
-
-// Dynamic is an optional dynamically evaluated type. Any is the safer general
-// purpose boxed value; Dynamic permits runtime member resolution.
-Var dynamicValue: Dynamic = "hello";
-dynamicValue = 25;
-
-// Functions may initialize variables and values can be converted in place.
-Var reading: Any = Input();
-reading = reading.ToString();
-
-// -----------------------------------------------------------------------------
 // 3. Type system, conversions, precision, and user-defined types
 // -----------------------------------------------------------------------------
 
@@ -106,12 +87,6 @@ Int truncatedNumber = 12.8.ToInt(Rounding.Truncate);
 String floatText = piValue.ToString(format: "F4");
 Result<Int, ConversionError> safeNumber = "123".TryToInt();
 Int checkedNumber = Float(12.0).ToInt(checked: True);
-
-// Conversion does not destroy the original variable unless reassigned.
-Var originalValue: Any = 42;
-Let asText = originalValue.ToString();
-Let asFloat = originalValue.ToFloat();
-Let stillOriginal = originalValue;
 
 // User-defined types and aliases.
 Type RoboSpeed = Int;

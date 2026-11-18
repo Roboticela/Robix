@@ -558,6 +558,7 @@ Public Class Interpreter {
             }
             Return This.MakeVoid();
         }
+        If (name == "Input") { Return This.MakeText(Input()); }
         AstNode? function = This.FindFunction(name);
         If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name) {
             Value value = This.Lookup(name);
@@ -579,8 +580,25 @@ Public Class Interpreter {
                 Return This.MakeVoid();
             }
             If (node.Left.Name == "ToString") { Return This.MakeText(This.Display(target)); }
+            If (node.Left.Name == "ToUpper") { Return This.MakeText(This.Display(target).ToUpper()); }
+            If (node.Left.Name == "ToLower") { Return This.MakeText(This.Display(target).ToLower()); }
+            If (node.Left.Name == "ToFloat") {
+                If (target.Kind == ValueKind.Text) { Return This.MakeFloatBits(F64Parse(target.Text)); }
+                If (target.Kind == ValueKind.Float) { Return target; }
+                If (target.Kind == ValueKind.Boolean) {
+                    Int bit = 0;
+                    If (target.Boolean) { bit = 1; }
+                    Return This.MakeFloatBits(F64FromInt(bit));
+                }
+                Return This.MakeFloatBits(F64FromInt(target.Integer));
+            }
             If (node.Left.Name == "ToInt") {
                 If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.ToInt()); }
+                If (target.Kind == ValueKind.Float) { Return This.MakeInt(F64ToInt(target.Integer)); }
+                If (target.Kind == ValueKind.Boolean) {
+                    If (target.Boolean) { Return This.MakeInt(1); }
+                    Return This.MakeInt(0);
+                }
                 Return This.MakeInt(target.Integer);
             }
         }
@@ -850,3 +868,5 @@ Private Extern Function F64Mul(Int left, Int right) -> Int;
 Private Extern Function F64Div(Int left, Int right) -> Int;
 Private Extern Function F64Neg(Int bits) -> Int;
 Private Extern Function F64Cmp(Int left, Int right) -> Int;
+Private Extern Function F64ToInt(Int bits) -> Int;
+Private Extern Function Input() -> String;

@@ -1,0 +1,40 @@
+// Any keeps the current value's type. Dynamic resolves members from that value.
+Package Robotics.AnyValues;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Reassign Any and Dynamic, then convert without changing the original.";
+    Input: args = "Command-line arguments";
+    Processing: "Store an int, text, a bool, and a list, then read one line.";
+    Output: "Each stored value, the dynamic length and upper text, and the original number.";
+} {
+    Var anything: Any = 42;
+    Print(anything);
+    anything = "now text";
+    Print(anything);
+    anything = True;
+    Print(anything);
+    anything = [1, 2, 3];
+    Print(anything);
+
+    Var dynamicValue: Dynamic = "hello";
+    Print(dynamicValue.Length());
+    Print(dynamicValue.ToUpper());
+    dynamicValue = 25;
+    Print(dynamicValue);
+
+    Var originalValue: Any = 42;
+    Let asText = originalValue.ToString();
+    Let asFloat = originalValue.ToFloat();
+    Print(asText);
+    Print(asFloat);
+    Print(originalValue);
+
+    Var reading: Any = Input();
+    reading = reading.ToString();
+    Print(reading);
+    Return 0;
+}
