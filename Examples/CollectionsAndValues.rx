@@ -1,0 +1,25 @@
+// Arrays, lists, maps, sets, tuples, records, and nullable values.
+Package Robotics.Collections;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Build the standard collection literals.";
+    Input: args = "Command-line arguments";
+    Processing: "Create an array, map, set, tuple, and record.";
+    Output: "The first sensor reading.";
+} {
+    Array<Int> sensorReads = [1, 2, 3, 4];
+    List<String> robotNames = ["RoboAlpha", "RoboBeta"];
+    Map<String, Int> robotScores = {"Alpha": 10, "Beta": 20};
+    Set<Int> uniqueReadings = {1, 2, 3};
+    (Int, String) pair = (42, "ready");
+    { X: Int, Y: Int } point = { X: 10, Y: 20 };
+    String? maybeName = Null;
+    Let displayName = maybeName ?? "Unnamed";
+    Print(sensorReads[0]);
+    Print(displayName);
+    Return sensorReads[0];
+}

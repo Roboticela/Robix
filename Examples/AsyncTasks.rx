@@ -1,0 +1,31 @@
+// Async functions, promises, await, and timers.
+Package Robotics.Async;
+
+Import Robix.Core;
+
+
+Public Async Function RoboCalibrate(Int raw) -> Task<Float>
+Explain {
+    Description: "Scale a raw sensor reading.";
+    Input: raw = "Uncalibrated reading";
+    Processing: "Convert the reading and multiply by the calibration factor.";
+    Output: "The calibrated reading.";
+} {
+    Return raw.ToFloat() * 1.25;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Build a resolved promise and a one-shot timer.";
+    Input: args = "Command-line arguments";
+    Processing: "Create a promise and register a timeout callback.";
+    Output: "Zero.";
+} {
+    Let promiseValue: Promise<Int> = Promise<Int>.Create((resolve, reject) => {
+        resolve(42);
+    });
+    TimerHandle timeoutHandle = Timer.SetTimeout(() => Print("Runs once"), Duration.Seconds(1));
+    timeoutHandle.Cancel();
+    Print("Async syntax is ready");
+    Return 0;
+}

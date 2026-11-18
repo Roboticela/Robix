@@ -1,0 +1,484 @@
+// Statements, patterns, and blocks for the Robix parser.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Partial Class Parser {
+    Private Function ParseBlock() -> AstNode {
+        Token start = This.Expect(TokenKind.OpenBrace, "Expected '{' to open a block.");
+        AstNode block = This.Make(AstKind.Block, start);
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBrace)) {
+            Int before = This.position;
+            If (This.Match(TokenKind.Semicolon)) {
+                Continue;
+            }
+            block.Children.Add(This.ParseItem());
+            If (This.position == before) {
+                This.Advance();
+            }
+        }
+        This.Expect(TokenKind.CloseBrace, "Expected '}' to close a block.");
+        This.Finish(block, start);
+        Return block;
+    }
+
+    Private Function ParseStatement() -> AstNode {
+        If (This.Check(TokenKind.Semicolon)) {
+            Token start = This.Advance();
+            Return This.Make(AstKind.Block, start);
+        }
+        If (This.Check(TokenKind.OpenBrace)) {
+            Return This.ParseBlock();
+        }
+        If (This.Check(TokenKind.If)) {
+            Return This.ParseIf();
+        }
+        If (This.Check(TokenKind.Match)) {
+            Return This.ParseMatch();
+        }
+        If (This.Check(TokenKind.For)) {
+            Return This.ParseFor();
+        }
+        If (This.Check(TokenKind.While)) {
+            Return This.ParseWhile();
+        }
+        If (This.Check(TokenKind.Do)) {
+            Return This.ParseDoWhile();
+        }
+        If (This.Check(TokenKind.Repeat)) {
+            Return This.ParseRepeat();
+        }
+        If (This.Check(TokenKind.Loop)) {
+            Return This.ParseLoop();
+        }
+        If (This.Check(TokenKind.Break)) {
+            Return This.ParseSimple(AstKind.Break);
+        }
+        If (This.Check(TokenKind.Continue)) {
+            Return This.ParseSimple(AstKind.Continue);
+        }
+        If (This.Check(TokenKind.Return)) {
+            Return This.ParseReturn();
+        }
+        If (This.Check(TokenKind.Yield)) {
+            Return This.ParseYield();
+        }
+        If (This.Check(TokenKind.Throw)) {
+            Return This.ParseThrow();
+        }
+        If (This.Check(TokenKind.Try)) {
+            Return This.ParseTry();
+        }
+        If (This.Check(TokenKind.Defer)) {
+            Return This.ParseDefer();
+        }
+        If (This.Check(TokenKind.Using)) {
+            Return This.ParseUsing();
+        }
+        If (This.Check(TokenKind.Unsafe)) {
+            Return This.ParseUnsafe();
+        }
+        If (This.Check(TokenKind.Lock)) {
+            Return This.ParseLock();
+        }
+        If (This.Check(TokenKind.Goto)) {
+            Return This.ParseGoto();
+        }
+        If (This.Check(TokenKind.Asm)) {
+            Return This.ParseAsm();
+        }
+        If (This.Check(TokenKind.Await) && This.Look(1).Kind == TokenKind.For) {
+            Token start = This.Advance();
+            AstNode awaitLoop = This.ParseFor();
+            awaitLoop.FlagA = True;
+            awaitLoop.Line = start.Line;
+            awaitLoop.Column = start.Column;
+            Return awaitLoop;
+        }
+        If (This.Check(TokenKind.Await)) {
+            Token start = This.Advance();
+            AstNode node = This.Make(AstKind.Await, start);
+            node.Left = This.ParseExpression();
+            This.Expect(TokenKind.Semicolon, "Expected ';' after Await.");
+            This.Finish(node, start);
+            Return node;
+        }
+        If (This.Check(TokenKind.Identifier) && This.Look(1).Kind == TokenKind.Colon) {
+            Token start = This.Advance();
+            This.Advance();
+            AstNode label = This.Make(AstKind.Label, start);
+            label.Name = start.Text;
+            This.Finish(label, start);
+            Return label;
+        }
+        Token start = This.Peek();
+        AstNode expression = This.ParseExpression();
+        AstNode statement = This.Make(AstKind.ExpressionStatement, start);
+        statement.Left = expression;
+        This.Expect(TokenKind.Semicolon, "Expected ';' after the expression.");
+        This.Finish(statement, start);
+        Return statement;
+    }
+
+    Private Function ParseIf() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.If, start);
+        node.Condition = This.ParseCondition();
+        node.Body = This.ParseBody();
+        If (This.Match(TokenKind.Else)) {
+            If (This.Check(TokenKind.If)) {
+                node.Otherwise = This.ParseIf();
+            } Else {
+                node.Otherwise = This.ParseBody();
+            }
+        }
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseCondition() -> AstNode {
+        Bool parenthesized = This.Match(TokenKind.OpenParen);
+        AstNode condition = This.ParseExpression();
+        If (parenthesized) {
+            This.Expect(TokenKind.CloseParen, "Expected ')' after the condition.");
+        }
+        Return condition;
+    }
+
+    Private Function ParseBody() -> AstNode {
+        If (This.Check(TokenKind.OpenBrace)) {
+            Return This.ParseBlock();
+        }
+        Return This.ParseStatement();
+    }
+
+    Private Function ParseMatch() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Match, start);
+        node.Left = This.ParseExpression();
+        This.Expect(TokenKind.OpenBrace, "Expected '{' to open Match.");
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBrace)) {
+            node.Children.Add(This.ParseMatchArm());
+        }
+        This.Expect(TokenKind.CloseBrace, "Expected '}' to close Match.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseMatchArm() -> AstNode {
+        Token start = This.Peek();
+        AstNode arm = This.Make(AstKind.MatchArm, start);
+        arm.Left = This.ParsePattern();
+        This.Expect(TokenKind.FatArrow, "Expected '=>' in a Match arm.");
+        If (This.Check(TokenKind.OpenBrace)) {
+            arm.Right = This.ParseBlock();
+        } Else {
+            arm.Right = This.ParseExpression();
+        }
+        If (!This.Match(TokenKind.Comma)) {
+            This.AcceptSemicolon();
+        }
+        This.Finish(arm, start);
+        Return arm;
+    }
+
+    Private Function ParsePattern() -> AstNode {
+        Token start = This.Peek();
+        AstNode pattern = This.Make(AstKind.Pattern, start);
+        If (This.Check(TokenKind.OpenParen)) {
+            This.Advance();
+            pattern.Name = "()";
+            While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
+                pattern.Children.Add(This.ParsePattern());
+                If (!This.Match(TokenKind.Comma)) {
+                    Break;
+                }
+            }
+            This.Expect(TokenKind.CloseParen, "Expected ')' in a tuple pattern.");
+            This.Finish(pattern, start);
+            Return pattern;
+        }
+        If (This.Check(TokenKind.Identifier) && This.Peek().Text == "_") {
+            This.Advance();
+            pattern.FlagA = True;
+            pattern.Name = "_";
+            This.Finish(pattern, start);
+            Return pattern;
+        }
+        If (This.IsLiteralToken(This.Peek().Kind)) {
+            pattern.Left = This.ParseUnary();
+            If (This.Check(TokenKind.DotDot) || This.Check(TokenKind.DotDotEqual)) {
+                pattern.Operator = This.Advance().Text;
+                pattern.Right = This.ParseUnary();
+                pattern.FlagB = pattern.Operator == "..=";
+            }
+            This.Finish(pattern, start);
+            Return pattern;
+        }
+        String first = This.ParseAnyName();
+        If (This.Match(TokenKind.OpenParen)) {
+            pattern.Text = first;
+            While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
+                pattern.Children.Add(This.ParsePattern());
+                If (!This.Match(TokenKind.Comma)) {
+                    Break;
+                }
+            }
+            This.Expect(TokenKind.CloseParen, "Expected ')' in a constructor pattern.");
+            This.Finish(pattern, start);
+            Return pattern;
+        }
+        If (This.Check(TokenKind.Identifier)) {
+            pattern.Text = first;
+            pattern.Name = This.ParseIdentifierText("Expected a pattern binding.");
+            This.Finish(pattern, start);
+            Return pattern;
+        }
+        pattern.Name = first;
+        If (This.Check(TokenKind.DotDot) || This.Check(TokenKind.DotDotEqual)) {
+            pattern.Left = This.Make(AstKind.Name, start);
+            pattern.Left.Name = first;
+            pattern.Operator = This.Advance().Text;
+            pattern.Right = This.ParseUnary();
+            pattern.FlagB = pattern.Operator == "..=";
+            pattern.Name = "";
+        }
+        This.Finish(pattern, start);
+        Return pattern;
+    }
+
+    Private Function ParseFor() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.For, start);
+        If (This.Check(TokenKind.OpenParen) && This.ForHeaderIsCStyle()) {
+            node.FlagB = True;
+            This.Advance();
+            If (!This.Check(TokenKind.Semicolon)) {
+                node.Initializer = This.ParseForClause();
+            }
+            This.Expect(TokenKind.Semicolon, "Expected ';' in a For header.");
+            If (!This.Check(TokenKind.Semicolon)) {
+                node.Condition = This.ParseExpression();
+            }
+            This.Expect(TokenKind.Semicolon, "Expected ';' after the For condition.");
+            If (!This.Check(TokenKind.CloseParen)) {
+                node.Extra = This.ParseExpression();
+            }
+            This.Expect(TokenKind.CloseParen, "Expected ')' to close For.");
+        } Else {
+            node.Left = This.ParsePattern();
+            This.Expect(TokenKind.In, "Expected 'In' in a For loop.");
+            node.Right = This.ParseExpression();
+        }
+        node.Body = This.ParseBody();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseForClause() -> AstNode {
+        If (This.Check(TokenKind.Let) || This.Check(TokenKind.Var)) {
+            Return This.ParseLetVar(List<String>());
+        }
+        If (This.LooksLikeTypedVariable()) {
+            Return This.ParseTypedVariable(List<String>());
+        }
+        Return This.ParseExpression();
+    }
+
+    Private Function ForHeaderIsCStyle() -> Bool {
+        Int depth = 0;
+        Int index = This.position;
+        While (index < This.tokenCount) {
+            TokenKind kind = This.tokens[index].Kind;
+            If (kind == TokenKind.OpenParen || kind == TokenKind.OpenBrace || kind == TokenKind.OpenBracket) {
+                depth = depth + 1;
+            } Else If (kind == TokenKind.CloseParen || kind == TokenKind.CloseBrace || kind == TokenKind.CloseBracket) {
+                depth = depth - 1;
+                If (depth == 0) {
+                    Return False;
+                }
+            } Else If (kind == TokenKind.Semicolon && depth == 1) {
+                Return True;
+            } Else If (kind == TokenKind.In && depth == 1) {
+                Return False;
+            }
+            If (kind == TokenKind.EndOfFile) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function ParseWhile() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.While, start);
+        node.Condition = This.ParseCondition();
+        node.Body = This.ParseBody();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseDoWhile() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.DoWhile, start);
+        node.Body = This.ParseBody();
+        This.Expect(TokenKind.While, "Expected 'While' after Do.");
+        node.Condition = This.ParseCondition();
+        This.Expect(TokenKind.Semicolon, "Expected ';' after Do While.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseRepeat() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Repeat, start);
+        node.Condition = This.ParseExpression();
+        node.Body = This.ParseBody();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseLoop() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Loop, start);
+        node.Body = This.ParseBody();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseSimple(AstKind kind) -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(kind, start);
+        This.Expect(TokenKind.Semicolon, "Expected ';'.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseReturn() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Return, start);
+        If (!This.Check(TokenKind.Semicolon) && !This.Check(TokenKind.CloseBrace)) {
+            node.Left = This.ParseExpression();
+        }
+        This.Expect(TokenKind.Semicolon, "Expected ';' after Return.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseYield() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Yield, start);
+        node.Left = This.ParseExpression();
+        This.Expect(TokenKind.Semicolon, "Expected ';' after Yield.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseThrow() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Throw, start);
+        node.Left = This.ParseExpression();
+        This.Expect(TokenKind.Semicolon, "Expected ';' after Throw.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseTry() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Try, start);
+        node.Body = This.ParseBlock();
+        While (This.Check(TokenKind.Catch)) {
+            Token catchStart = This.Advance();
+            AstNode caught = This.Make(AstKind.Catch, catchStart);
+            If (This.Match(TokenKind.OpenParen)) {
+                If (This.StartsTypeAtCursor()) {
+                    caught.Type = This.ParseType();
+                }
+                If (This.Check(TokenKind.Identifier)) {
+                    caught.Name = This.ParseIdentifierText("Expected the catch name.");
+                }
+                This.Expect(TokenKind.CloseParen, "Expected ')' after Catch.");
+            }
+            caught.Body = This.ParseBlock();
+            node.Children.Add(caught);
+        }
+        If (This.Match(TokenKind.Finally)) {
+            node.Extra = This.ParseBlock();
+        }
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseDefer() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Defer, start);
+        node.Body = This.ParseBlock();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseUsing() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Using, start);
+        If (This.Check(TokenKind.Identifier) && This.Look(1).Kind == TokenKind.Assign) {
+            node.Name = This.ParseIdentifierText("Expected a Using name.");
+            This.Advance();
+            node.Initializer = This.ParseExpression();
+        } Else {
+            node.Initializer = This.ParseExpression();
+        }
+        node.Body = This.ParseBody();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseUnsafe() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Unsafe, start);
+        node.Body = This.ParseBlock();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseLock() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Lock, start);
+        node.Left = This.ParseExpression();
+        node.Body = This.ParseBody();
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseGoto() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Goto, start);
+        node.Name = This.ParseIdentifierText("Expected a label name.");
+        This.Expect(TokenKind.Semicolon, "Expected ';' after Goto.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseAsm() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Asm, start);
+        This.Expect(TokenKind.OpenParen, "Expected '(' after ASM.");
+        If (This.Check(TokenKind.StringLiteral)) {
+            node.Text = This.Advance().Text;
+        } Else {
+            node.Left = This.ParseExpression();
+        }
+        While (This.Match(TokenKind.Comma)) {
+            node.Parameters.Add(This.ParseArgument());
+        }
+        This.Expect(TokenKind.CloseParen, "Expected ')' after ASM.");
+        This.Expect(TokenKind.Semicolon, "Expected ';' after ASM.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function IsLiteralToken(TokenKind kind) -> Bool {
+        Return kind == TokenKind.IntegerLiteral || kind == TokenKind.FloatLiteral || kind == TokenKind.StringLiteral || kind == TokenKind.CharLiteral || kind == TokenKind.True || kind == TokenKind.False || kind == TokenKind.Null;
+    }
+}

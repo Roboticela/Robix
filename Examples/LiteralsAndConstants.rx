@@ -1,0 +1,40 @@
+// Comments, numeric bases, suffixes, strings, and constants.
+Package Robotics.Literals;
+
+Import Robix.Core;
+
+
+Const Int MAX_SPEED = 500;
+Const Float PI_VALUE = 3.14159;
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Print representative Robix literals.";
+    Input: args = "Command-line arguments";
+    Processing: "Bind literals of every built-in form and print two of them.";
+    Output: "Zero.";
+} {
+    // A line comment sits beside the declarations.
+    /* Block comments
+       may span lines. */
+    Int integerValue = 42;
+    Int largeInteger = 1_000;
+    Int hexValue = 0xFFF;
+    Int binaryValue = 0b1010;
+    Int octalValue = 0o755;
+    Int signedInt = 42i32;
+    Float piValue = 3.14;
+    Float scientific = 1.5e-3;
+    Float float32Value = 1.0f32;
+    Double doubleValue = 1.0d;
+    Decimal decimalValue = 42.0m;
+    Bool enabled = True;
+    Char letter = 'A';
+    String message = "Hello, Robix!";
+    String interpolated = $"Robot {message} speed is {integerValue}";
+    String rawText = r"[0-9]+";
+    Print(message);
+    Print(interpolated);
+    Print(MAX_SPEED);
+    Return 0;
+}

@@ -1,0 +1,195 @@
+// Compiler and interpreter diagnostics.
+// Strict compilation fills expected type, actual type, and a correction.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Enum DiagnosticSeverity {
+    Warning,
+    Error
+}
+
+Public Struct Diagnostic {
+    Public DiagnosticSeverity Severity;
+    Public String Code;
+    Public String Message;
+    Public Int Line;
+    Public Int Column;
+    Public String Expected;
+    Public String Actual;
+    Public String Correction;
+}
+
+Public Class DiagnosticBag {
+    Private List<Diagnostic> items;
+
+    Public Constructor() {
+        This.items = List<Diagnostic>();
+    }
+
+    Public Function Add(
+        DiagnosticSeverity severity,
+        String code,
+        String message,
+        Int line,
+        Int column,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void
+    Explain {
+        Description: "Record one diagnostic with source location and type context.";
+        Input: severity = "Warning or error", code = "Stable diagnostic code", message = "Text shown to the programmer", line = "1-based line", column = "1-based column", expected = "Expected type or token", actual = "Actual type or token", correction = "Suggested repair";
+        Processing: "Append the diagnostic to this bag.";
+        Output: "No return value.";
+    } {
+        Diagnostic item = Diagnostic();
+        item.Severity = severity;
+        item.Code = code;
+        item.Message = message;
+        item.Line = line;
+        item.Column = column;
+        item.Expected = expected;
+        item.Actual = actual;
+        item.Correction = correction;
+        This.items.Add(item);
+    }
+
+    Public Function Error(String code, String message, Int line, Int column) -> Void
+    Explain {
+        Description: "Record an error diagnostic.";
+        Input: code = "Stable diagnostic code", message = "Error text", line = "1-based line", column = "1-based column";
+        Processing: "Store an error with empty type context.";
+        Output: "No return value.";
+    } {
+        This.Add(DiagnosticSeverity.Error, code, message, line, column, "", "", "");
+    }
+
+    Public Function Warning(String code, String message, Int line, Int column) -> Void
+    Explain {
+        Description: "Record a warning diagnostic.";
+        Input: code = "Stable diagnostic code", message = "Warning text", line = "1-based line", column = "1-based column";
+        Processing: "Store a warning with empty type context.";
+        Output: "No return value.";
+    } {
+        This.Add(DiagnosticSeverity.Warning, code, message, line, column, "", "", "");
+    }
+
+    Public Function TypeError(
+        String code,
+        String message,
+        Int line,
+        Int column,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void
+    Explain {
+        Description: "Record a strict type error with expected and actual types.";
+        Input: code = "Stable diagnostic code", message = "Error text", line = "1-based line", column = "1-based column", expected = "Expected type", actual = "Actual type", correction = "Suggested repair";
+        Processing: "Store an error that strict compilation cannot downgrade.";
+        Output: "No return value.";
+    } {
+        This.Add(DiagnosticSeverity.Error, code, message, line, column, expected, actual, correction);
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Return how many diagnostics are stored.";
+        Input: None;
+        Processing: "Read the diagnostic list size.";
+        Output: "The number of stored diagnostics.";
+    } {
+        Return This.items.Count();
+    }
+
+    Public Function ErrorCount() -> Int
+    Explain {
+        Description: "Return how many stored diagnostics are errors.";
+        Input: None;
+        Processing: "Count diagnostics whose severity is error.";
+        Output: "The number of errors.";
+    } {
+        Int count = 0;
+        For item In This.items {
+            If (item.Severity == DiagnosticSeverity.Error) {
+                count = count + 1;
+            }
+        }
+        Return count;
+    }
+
+    Public Function SyntaxErrorCount() -> Int
+    Explain {
+        Description: "Return how many syntax errors are stored.";
+        Input: None;
+        Processing: "Count errors whose code starts with RX0.";
+        Output: "The number of syntax errors.";
+    } {
+        Int count = 0;
+        For item In This.items {
+            If (item.Severity == DiagnosticSeverity.Error && item.Code.StartsWith("RX0")) {
+                count = count + 1;
+            }
+        }
+        Return count;
+    }
+
+    Public Function Truncate(Int count) -> Void
+    Explain {
+        Description: "Drop diagnostics recorded after a speculative parse.";
+        Input: count = "Number of diagnostics to keep";
+        Processing: "Rebuild the list from the kept prefix.";
+        Output: "No return value.";
+    } {
+        Var limit = count;
+        If (limit >= This.items.Count()) {
+            Return;
+        }
+        If (limit < 0) {
+            limit = 0;
+        }
+        Var kept = List<Diagnostic>();
+        Int index = 0;
+        For item In This.items {
+            If (index >= limit) {
+                Break;
+            }
+            kept.Add(item);
+            index = index + 1;
+        }
+        This.items = kept;
+    }
+
+    Public Function All() -> List<Diagnostic>
+    Explain {
+        Description: "Return the stored diagnostics in source order.";
+        Input: None;
+        Processing: "Share the diagnostic list.";
+        Output: "The diagnostic list.";
+    } {
+        Return This.items;
+    }
+}
+
+Public Function FormatDiagnostic(Diagnostic item) -> String
+Explain {
+    Description: "Format one diagnostic as a single line.";
+    Input: item = "Diagnostic to format";
+    Processing: "Combine severity, location, code, message, and type context.";
+    Output: "A display line.";
+} {
+    String severity = "warning";
+    If (item.Severity == DiagnosticSeverity.Error) {
+        severity = "error";
+    }
+    String line = severity + " " + item.Code + " " + item.Line.ToString() + ":" + item.Column.ToString() + " " + item.Message;
+    If (item.Expected.Length() > 0 || item.Actual.Length() > 0) {
+        line = line + " expected " + item.Expected + ", actual " + item.Actual;
+    }
+    If (item.Correction.Length() > 0) {
+        line = line + " correction: " + item.Correction;
+    }
+    Return line;
+}

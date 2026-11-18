@@ -1,0 +1,26 @@
+// Standard exit codes and execution results.
+Package Robotics.Exit;
+
+Import Robix.Core;
+
+
+Enum ExitCode {
+    Success = 0,
+    WarningExecution = 1,
+    ErrorExecution = 2,
+    Custom(Int code)
+}
+
+Public Function Main(Args<String> args) -> ExecutionResult
+Explain {
+    Description: "Return a standard successful execution result.";
+    Input: args = "Command-line arguments";
+    Processing: "Report success when help is absent, and success after printing help too.";
+    Output: "An ExecutionResult whose code is Success.";
+} {
+    If (args.Contains("--help")) {
+        Print("Usage: ExitCodes [--help]");
+        Return ExecutionResult(ExitCode.Success, "Help displayed.");
+    }
+    Return ExecutionResult(ExitCode.Success, "Program completed successfully.");
+}

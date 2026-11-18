@@ -1,0 +1,149 @@
+// Syntax tree for every Robix construct in the language reference.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Enum AstKind {
+    Missing,
+    Module,
+    Package,
+    Import,
+    Permissions,
+    Attribute,
+    Explain,
+    ExplainEntry,
+    Variable,
+    Parameter,
+    Function,
+    Class,
+    Field,
+    Constructor,
+    Destructor,
+    EnumMember,
+    Implement,
+    Connect,
+    TypeAlias,
+    Operator,
+    Macro,
+    Extern,
+    Block,
+    If,
+    Match,
+    MatchArm,
+    Pattern,
+    For,
+    While,
+    DoWhile,
+    Repeat,
+    Loop,
+    Break,
+    Continue,
+    Return,
+    Yield,
+    Throw,
+    Try,
+    Catch,
+    Defer,
+    Using,
+    Unsafe,
+    Asm,
+    Goto,
+    Label,
+    Lock,
+    ExpressionStatement,
+    Name,
+    IntegerLiteral,
+    FloatLiteral,
+    StringLiteral,
+    CharLiteral,
+    BooleanLiteral,
+    NullLiteral,
+    ArrayLiteral,
+    MapLiteral,
+    SetLiteral,
+    TupleLiteral,
+    RecordLiteral,
+    ObjectLiteral,
+    Binary,
+    Unary,
+    Ternary,
+    Call,
+    Member,
+    Index,
+    Range,
+    Cast,
+    TypeCheck,
+    Lambda,
+    Await,
+    Propagate,
+    Unwrap,
+    Assignment,
+    Type,
+    Argument,
+    Constraint,
+    Interpolation
+}
+
+// Field roles by kind are fixed so the checker and interpreter agree.
+// Name, Text, Operator, Suffix, Number, and FlagA/FlagB/FlagC carry the
+// small payload. Type, Body, Initializer, Condition, Left, Right, Extra,
+// and Otherwise carry child trees. Parameters, Members, Children, and
+// Attributes carry lists.
+Public Class AstNode {
+    Public AstKind Kind;
+    Public Int Line;
+    Public Int Column;
+    Public Int EndLine;
+    Public Int EndColumn;
+    Public String Name;
+    Public String Text;
+    Public String Operator;
+    Public String Suffix;
+    Public Int Number;
+    Public Bool FlagA;
+    Public Bool FlagB;
+    Public Bool FlagC;
+    Public List<String> Modifiers;
+    Public List<AstNode> Attributes;
+    Public List<AstNode> Children;
+    Public List<AstNode> Parameters;
+    Public List<AstNode> Members;
+    Public AstNode? Type;
+    Public AstNode? Body;
+    Public AstNode? Initializer;
+    Public AstNode? Condition;
+    Public AstNode? Left;
+    Public AstNode? Right;
+    Public AstNode? Extra;
+    Public AstNode? Otherwise;
+
+    Public Constructor() {
+        This.Kind = AstKind.Missing;
+        This.Line = 1;
+        This.Column = 1;
+        This.EndLine = 1;
+        This.EndColumn = 1;
+        This.Name = "";
+        This.Text = "";
+        This.Operator = "";
+        This.Suffix = "";
+        This.Number = 0;
+        This.FlagA = False;
+        This.FlagB = False;
+        This.FlagC = False;
+        This.Modifiers = List<String>();
+        This.Attributes = List<AstNode>();
+        This.Children = List<AstNode>();
+        This.Parameters = List<AstNode>();
+        This.Members = List<AstNode>();
+        This.Type = Null;
+        This.Body = Null;
+        This.Initializer = Null;
+        This.Condition = Null;
+        This.Left = Null;
+        This.Right = Null;
+        This.Extra = Null;
+        This.Otherwise = Null;
+    }
+}

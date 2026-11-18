@@ -1,0 +1,52 @@
+// Built-in operators, word operators, and a custom operator.
+Package Robotics.Operators;
+
+Import Robix.Core;
+
+
+Operator "⊗" Precedence 70 LeftAssociative
+    Function RoboMultiply(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two integers with the custom tensor operator.";
+        Input: left = "Left operand", right = "Right operand";
+        Processing: "Multiply the operands.";
+        Output: "The product.";
+    } {
+        Return left * right;
+    }
+
+Struct RoboVector {
+    Public Float X;
+    Public Float Y;
+
+    Public Operator +(RoboVector left, RoboVector right) -> RoboVector
+    Explain {
+        Description: "Add two vectors componentwise.";
+        Input: left = "Left vector", right = "Right vector";
+        Processing: "Add X and Y.";
+        Output: "The vector sum.";
+    } {
+        Return RoboVector { X: left.X + right.X, Y: left.Y + right.Y };
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Evaluate arithmetic, logic, ranges, and the custom operator.";
+    Input: args = "Command-line arguments";
+    Processing: "Compute a custom product and a readable conjunction.";
+    Output: "The custom product.";
+} {
+    Var batteryLevel = 80;
+    Var enabled = True;
+    Var sum = 10 + 5;
+    Var shifted = 1 << 3;
+    Var logicalAnd = (batteryLevel > 20) && (batteryLevel < 100);
+    Var readableAnd = enabled And logicalAnd;
+    Var ternary = enabled ? 1 : 0;
+    Var range = 0..10;
+    Var inclusiveRange = 1..=10;
+    Int customProduct = 6 ⊗ 7;
+    Print(customProduct);
+    Return customProduct;
+}

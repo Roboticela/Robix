@@ -1,0 +1,256 @@
+// Naming rules from the Robix reference.
+// Variables and parameters use camelCase.
+// Constants use CAPITAL_CASE.
+// Functions, types, and filenames use PascalCase.
+// Abbreviations keep their conventional spelling.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Class NameChecker {
+    Private DiagnosticBag diagnostics;
+    Private List<String> acronyms;
+    Private Bool enabled;
+
+    Public Constructor(DiagnosticBag diagnostics, Bool enabled) {
+        This.diagnostics = diagnostics;
+        This.enabled = enabled;
+        This.acronyms = List<String>();
+        This.acronyms.Add("HTTPS");
+        This.acronyms.Add("HTTP");
+        This.acronyms.Add("GPIO");
+        This.acronyms.Add("UART");
+        This.acronyms.Add("ONNX");
+        This.acronyms.Add("HTML");
+        This.acronyms.Add("JSON");
+        This.acronyms.Add("YAML");
+        This.acronyms.Add("SQL");
+        This.acronyms.Add("XML");
+        This.acronyms.Add("TCP");
+        This.acronyms.Add("UDP");
+        This.acronyms.Add("DNS");
+        This.acronyms.Add("TLS");
+        This.acronyms.Add("SSH");
+        This.acronyms.Add("SSL");
+        This.acronyms.Add("SPI");
+        This.acronyms.Add("I2C");
+        This.acronyms.Add("PWM");
+        This.acronyms.Add("USB");
+        This.acronyms.Add("PCI");
+        This.acronyms.Add("PDF");
+        This.acronyms.Add("CSS");
+        This.acronyms.Add("DOM");
+        This.acronyms.Add("ORM");
+        This.acronyms.Add("FFI");
+        This.acronyms.Add("API");
+        This.acronyms.Add("CLI");
+        This.acronyms.Add("ASM");
+        This.acronyms.Add("QR");
+        This.acronyms.Add("AI");
+    }
+
+    Public Function Check(AstNode module, String fileName) -> Void
+    Explain {
+        Description: "Check declaration names and the source file name.";
+        Input: module = "Parsed module", fileName = "Source file name";
+        Processing: "Warn for names that break camelCase, CAPITAL_CASE, PascalCase, or abbreviation spelling. The interpreter skips these warnings.";
+        Output: "No return value.";
+    } {
+        If (!This.enabled) {
+            Return;
+        }
+        This.CheckFileName(fileName);
+        This.Walk(module);
+    }
+
+    Private Function CheckFileName(String fileName) -> Void {
+        String base = fileName;
+        Int slash = fileName.LastIndexOf("/");
+        If (slash >= 0) {
+            base = fileName.Substring(slash + 1);
+        }
+        If (base.EndsWith(".rx")) {
+            base = base.Substring(0, base.Length() - 3);
+        }
+        If (base.Length() == 0 || base == "Robix") {
+            Return;
+        }
+        If (!This.IsPascalCase(base)) {
+            This.diagnostics.Warning("RX030", "File name '" + base + "' should use PascalCase.", 1, 1);
+        }
+        This.CheckAcronyms(base, 1, 1);
+    }
+
+    Private Function Walk(AstNode node) -> Void {
+        If (node.Kind == AstKind.Variable || node.Kind == AstKind.Parameter || node.Kind == AstKind.Field) {
+            If (node.FlagB || This.HasModifier(node, "Const")) {
+                This.RequireConstant(node.Name, node.Line, node.Column);
+            } Else If (node.Kind == AstKind.Field) {
+                This.RequirePascal(node.Name, node.Line, node.Column, "Field");
+            } Else If (node.Name.Length() > 0 && node.Name != "_") {
+                This.RequireCamel(node.Name, node.Line, node.Column, "Variable");
+            }
+            For child In node.Children {
+                This.Walk(child);
+            }
+        } Else If (node.Kind == AstKind.Function || node.Kind == AstKind.Macro || node.Kind == AstKind.Extern) {
+            This.RequirePascal(node.Name, node.Line, node.Column, "Function");
+        } Else If (node.Kind == AstKind.Class || node.Kind == AstKind.TypeAlias || node.Kind == AstKind.Implement) {
+            This.RequirePascal(node.Name, node.Line, node.Column, node.Text);
+        } Else If (node.Kind == AstKind.EnumMember) {
+            This.RequirePascal(node.Name, node.Line, node.Column, "Enum member");
+        }
+        For child In node.Children {
+            This.Walk(child);
+        }
+        For child In node.Parameters {
+            This.Walk(child);
+        }
+        For child In node.Members {
+            This.Walk(child);
+        }
+        If (node.Body != Null) {
+            This.Walk(node.Body);
+        }
+        If (node.Otherwise != Null) {
+            This.Walk(node.Otherwise);
+        }
+        If (node.Extra != Null && node.Extra.Kind != AstKind.Explain) {
+            This.Walk(node.Extra);
+        }
+    }
+
+    Private Function RequireCamel(String name, Int line, Int column, String label) -> Void {
+        If (name.Length() == 0) {
+            Return;
+        }
+        If (!This.IsCamelCase(name)) {
+            This.diagnostics.Warning("RX031", label + " '" + name + "' should use camelCase.", line, column);
+        }
+        This.CheckAcronyms(name, line, column);
+    }
+
+    Private Function RequirePascal(String name, Int line, Int column, String label) -> Void {
+        If (name.Length() == 0) {
+            Return;
+        }
+        If (!This.IsPascalCase(name)) {
+            This.diagnostics.Warning("RX032", label + " '" + name + "' should use PascalCase.", line, column);
+        }
+        This.CheckAcronyms(name, line, column);
+    }
+
+    Private Function RequireConstant(String name, Int line, Int column) -> Void {
+        If (name.Length() == 0) {
+            Return;
+        }
+        If (!This.IsConstantCase(name)) {
+            This.diagnostics.Warning("RX033", "Constant '" + name + "' should use CAPITAL_CASE.", line, column);
+        }
+        This.CheckAcronyms(name, line, column);
+    }
+
+    Private Function IsCamelCase(String name) -> Bool {
+        Char first = name.GetChar(0);
+        If (!(first >= 'a' && first <= 'z')) {
+            Return False;
+        }
+        Return !name.Contains("_");
+    }
+
+    Private Function IsPascalCase(String name) -> Bool {
+        Char first = name.GetChar(0);
+        If (!(first >= 'A' && first <= 'Z')) {
+            Return False;
+        }
+        Return !name.Contains("_");
+    }
+
+    Private Function IsConstantCase(String name) -> Bool {
+        Int index = 0;
+        Bool letter = False;
+        Char previous = '\0';
+        While (index < name.Length()) {
+            Char character = name.GetChar(index);
+            Bool upper = character >= 'A' && character <= 'Z';
+            Bool digit = character >= '0' && character <= '9';
+            If (character == '_') {
+                If (index == 0 || index == name.Length() - 1 || previous == '_') {
+                    Return False;
+                }
+            } Else If (!(upper || digit)) {
+                Return False;
+            } Else {
+                letter = True;
+            }
+            previous = character;
+            index = index + 1;
+        }
+        Return letter;
+    }
+
+    Private Function CheckAcronyms(String name, Int line, Int column) -> Void {
+        Int index = 0;
+        While (index < name.Length()) {
+            If (name.GetChar(index) == '_') {
+                index = index + 1;
+                Continue;
+            }
+            String acronym = This.MatchAcronym(name, index);
+            If (acronym.Length() > 0) {
+                String actual = name.Substring(index, acronym.Length());
+                If (actual != acronym) {
+                    This.diagnostics.Warning(
+                        "RX034",
+                        "Abbreviation '" + actual + "' should be written '" + acronym + "'.",
+                        line,
+                        column
+                    );
+                }
+                index = index + acronym.Length();
+            } Else {
+                index = index + 1;
+                While (index < name.Length()) {
+                    Char character = name.GetChar(index);
+                    If (character == '_' || (character >= 'A' && character <= 'Z')) {
+                        Break;
+                    }
+                    index = index + 1;
+                }
+            }
+        }
+    }
+
+    Private Function MatchAcronym(String name, Int index) -> String {
+        Int best = 0;
+        String found = "";
+        While (best < This.acronyms.Count()) {
+            String acronym = This.acronyms[best];
+            If (index + acronym.Length() <= name.Length()) {
+                String slice = name.Substring(index, acronym.Length());
+                If (slice.ToUpper() == acronym) {
+                    Bool boundary = index + acronym.Length() == name.Length();
+                    If (!boundary) {
+                        Char next = name.GetChar(index + acronym.Length());
+                        boundary = next == '_' || (next >= 'A' && next <= 'Z') || (next >= '0' && next <= '9');
+                    }
+                    If (boundary && acronym.Length() > found.Length()) {
+                        found = acronym;
+                    }
+                }
+            }
+            best = best + 1;
+        }
+        Return found;
+    }
+
+    Private Function HasModifier(AstNode node, String name) -> Bool {
+        For modifier In node.Modifiers {
+            If (modifier.ToLower() == name.ToLower()) {
+                Return True;
+            }
+        }
+        Return False;
+    }
+}

@@ -1,0 +1,45 @@
+// Explain blocks, named arguments, params, tuples, and lambdas.
+Package Robotics.Functions;
+
+Import Robix.Core;
+
+
+Public Function RoboAdd(Int a, Int b) -> Int
+Explain {
+    Description: "Add two integers.";
+    Input: a = "Left operand", b = "Right operand";
+    Processing: "Add the operands.";
+    Output: "The sum.";
+} {
+    Return a + b;
+}
+
+Public Function RoboSum(Params<Int> values) -> Int
+Explain {
+    Description: "Sum any number of integers.";
+    Input: values = "Zero or more integer values";
+    Processing: "Add every supplied value.";
+    Output: "The total.";
+} {
+    Int total = 0;
+    For value In values {
+        total = total + value;
+    }
+    Return total;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Call named, variadic, and lambda functions.";
+    Input: args = "Command-line arguments";
+    Processing: "Add with named arguments and square a number.";
+    Output: "The squared value.";
+} {
+    Int namedResult = RoboAdd(b: 3, a: 10);
+    Int manyValues = RoboSum(1, 2, 3, 4);
+    Let square = (Int n) => n * n;
+    Int squared = square(4);
+    Print(namedResult);
+    Print(squared);
+    Return squared;
+}

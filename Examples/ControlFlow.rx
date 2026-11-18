@@ -1,0 +1,40 @@
+// Conditions, match, C-style loops, ranges, and repeat.
+Package Robotics.ControlFlow;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Walk the Robix control-flow forms.";
+    Input: args = "Command-line arguments";
+    Processing: "Branch on battery level and count with For, While, and Repeat.";
+    Output: "The final counter.";
+} {
+    Var batteryLevel = 80;
+    If (batteryLevel >= 80) {
+        Print("Battery is full");
+    } Else If (batteryLevel >= 30) {
+        Print("Battery is sufficient");
+    } Else {
+        Print("Low battery");
+    }
+    If batteryLevel >= 80 {
+        Print("Parentheses are optional");
+    }
+    Var counter = 0;
+    For (Int index = 0; index < 3; index++) {
+        counter = counter + 1;
+    }
+    For index In 0..2 {
+        counter = counter + 1;
+    }
+    While (counter < 8) {
+        counter++;
+    }
+    Repeat 2 {
+        counter = counter + 1;
+    }
+    Print(counter);
+    Return counter;
+}

@@ -1,0 +1,795 @@
+// Strict type checks required before Robix can compile a module.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Class Symbol {
+    Public String Name;
+    Public String TypeName;
+    Public Bool Mutable;
+    Public Bool Nullable;
+    Public Bool Initialized;
+    Public Bool IsFunction;
+    Public Bool IsAsync;
+    Public Bool IsConst;
+    Public Int Line;
+    Public Int Column;
+
+    Public Constructor() {
+        This.Name = "";
+        This.TypeName = "";
+        This.Mutable = False;
+        This.Nullable = False;
+        This.Initialized = False;
+        This.IsFunction = False;
+        This.IsAsync = False;
+        This.IsConst = False;
+        This.Line = 1;
+        This.Column = 1;
+    }
+}
+
+Public Class TypeChecker {
+    Private DiagnosticBag diagnostics;
+    Private Bool strict;
+    Private List<Symbol> symbols;
+    Private List<Int> marks;
+    Private Int unsafeDepth;
+    Private Int asyncDepth;
+    Private Int functionDepth;
+
+    Public Constructor(DiagnosticBag diagnostics) {
+        This.diagnostics = diagnostics;
+        This.strict = True;
+        This.symbols = List<Symbol>();
+        This.marks = List<Int>();
+        This.unsafeDepth = 0;
+        This.asyncDepth = 0;
+        This.functionDepth = 0;
+    }
+
+    Public Function Check(AstNode module) -> Void
+    Explain {
+        Description: "Apply Robix type rules to a parsed module.";
+        Input: module = "Parsed module";
+        Processing: "Check declarations, assignments, calls, nullability, async use, returns, and matches. Checking is always strict.";
+        Output: "No return value. Diagnostics are stored in the bag.";
+    } {
+        This.PushScope();
+        This.PredeclareFunctions(module);
+        For child In module.Children {
+            This.CheckNode(child);
+        }
+        This.PopScope();
+    }
+
+    Private Function PredeclareFunctions(AstNode node) -> Void {
+        For child In node.Children {
+            If (child.Kind == AstKind.Function || child.Kind == AstKind.Extern) {
+                This.RegisterFunction(child);
+            }
+            If (child.Kind == AstKind.Class || child.Kind == AstKind.Block) {
+                This.PredeclareFunctions(child);
+            }
+        }
+    }
+
+    Private Function CheckNode(AstNode node) -> Void {
+        If (node.Kind == AstKind.Variable || node.Kind == AstKind.Field) {
+            This.CheckVariable(node);
+            For child In node.Children {
+                This.CheckVariable(child);
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Function || node.Kind == AstKind.Extern || node.Kind == AstKind.Lambda) {
+            This.CheckFunction(node);
+            Return;
+        }
+        If (node.Kind == AstKind.Class || node.Kind == AstKind.Implement) {
+            For child In node.Children {
+                This.CheckNode(child);
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Operator) {
+            If (node.Body != Null) {
+                This.CheckNode(node.Body);
+            }
+            For child In node.Parameters {
+                If (child.Type == Null && This.strict) {
+                    This.MissingType(child, "Operator parameter");
+                }
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Block || node.Kind == AstKind.Package || node.Kind == AstKind.Unsafe || node.Kind == AstKind.Lock || node.Kind == AstKind.Defer || node.Kind == AstKind.Using || node.Kind == AstKind.Loop || node.Kind == AstKind.Repeat) {
+            This.CheckScoped(node);
+            Return;
+        }
+        If (node.Kind == AstKind.If) {
+            This.CheckIf(node);
+            Return;
+        }
+        If (node.Kind == AstKind.While || node.Kind == AstKind.DoWhile) {
+            String condition = This.Infer(node.Condition);
+            This.RequireBool(node.Condition, condition);
+            If (node.Body != Null) {
+                This.CheckScoped(node.Body);
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.For) {
+            This.CheckFor(node);
+            Return;
+        }
+        If (node.Kind == AstKind.Match) {
+            This.CheckMatch(node);
+            Return;
+        }
+        If (node.Kind == AstKind.Try) {
+            If (node.Body != Null) { This.CheckScoped(node.Body); }
+            For caught In node.Children {
+                This.PushScope();
+                If (caught.Name.Length() > 0) {
+                    This.Define(caught.Name, This.TypeText(caught.Type), False, False, True, False, False, False, caught.Line, caught.Column);
+                }
+                If (caught.Body != Null) { This.CheckNode(caught.Body); }
+                This.PopScope();
+            }
+            If (node.Extra != Null) { This.CheckScoped(node.Extra); }
+            Return;
+        }
+        If (node.Kind == AstKind.Return || node.Kind == AstKind.Yield || node.Kind == AstKind.Throw || node.Kind == AstKind.Await) {
+            If (node.Left != Null) { This.Infer(node.Left); }
+            If (node.Kind == AstKind.Await && This.asyncDepth == 0 && This.strict) {
+                This.diagnostics.TypeError("RX107", "Await is only valid inside an Async function or top-level async context.", node.Line, node.Column, "Async Function", "synchronous context", "Move Await into an Async Function.");
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.ExpressionStatement) {
+            String typeName = This.Infer(node.Left);
+            If (typeName.StartsWith("Task<") || typeName.StartsWith("Promise<")) {
+                This.diagnostics.Warning("RX114", "Unobserved Task. Await it or detach it with Task.Detach.", node.Line, node.Column);
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Assignment) {
+            This.CheckAssignment(node);
+            Return;
+        }
+        For child In node.Children {
+            This.CheckNode(child);
+        }
+    }
+
+    Private Function CheckScoped(AstNode node) -> Void {
+        Bool unsafe = node.Kind == AstKind.Unsafe;
+        If (unsafe) {
+            This.unsafeDepth = This.unsafeDepth + 1;
+        }
+        This.PushScope();
+        If (node.Kind == AstKind.Block || node.Kind == AstKind.Package || node.Kind == AstKind.Unsafe) {
+            This.PredeclareFunctions(node);
+            For child In node.Children {
+                This.CheckNode(child);
+            }
+        } Else If (node.Body != Null) {
+            This.CheckNode(node.Body);
+        }
+        If (node.Kind == AstKind.Using && node.Initializer != Null) {
+            This.Infer(node.Initializer);
+        }
+        If (node.Kind == AstKind.Repeat && node.Condition != Null) {
+            This.Infer(node.Condition);
+        }
+        This.PopScope();
+        If (unsafe) {
+            This.unsafeDepth = This.unsafeDepth - 1;
+        }
+    }
+
+    Private Function CheckVariable(AstNode node) -> Void {
+        If (node.Name.Length() == 0 && node.FlagC) {
+            If (node.Initializer != Null) {
+                This.Infer(node.Initializer);
+            }
+            For child In node.Children {
+                This.Define(child.Name, "Unknown", child.FlagA, False, True, False, False, False, child.Line, child.Column);
+            }
+            Return;
+        }
+        String declared = This.TypeText(node.Type);
+        String inferred = "";
+        If (node.Initializer != Null) {
+            inferred = This.Infer(node.Initializer);
+        }
+        If (declared.Length() == 0) {
+            declared = inferred;
+        }
+        If (declared.Length() == 0 && This.strict) {
+            This.diagnostics.TypeError("RX102", "A variable needs a declared type or an initializer.", node.Line, node.Column, "a static type", "missing", "Add a type or an initializer.");
+            declared = "Unknown";
+        }
+        If (node.Initializer != Null && inferred.Length() > 0 && node.Type != Null) {
+            This.RequireAssignable(node.Initializer, declared, inferred);
+        }
+        If (declared == "Dynamic" && This.strict && This.unsafeDepth == 0) {
+            This.diagnostics.TypeError("RX106", "Dynamic is prohibited in Strict code outside an Unsafe boundary.", node.Line, node.Column, "a static type", "Dynamic", "Use a concrete type, Any, or an Unsafe block.");
+        }
+        Bool nullable = declared.EndsWith("?") || declared == "Null";
+        This.Define(node.Name, declared, node.FlagA && !node.FlagB, nullable, node.Initializer != Null, False, False, node.FlagB, node.Line, node.Column);
+        If (node.Kind != AstKind.Field && node.Initializer == Null && !node.FlagA) {
+            This.diagnostics.TypeError("RX103", "An immutable value must be initialized.", node.Line, node.Column, declared, "uninitialized", "Initialize the Let binding.");
+        }
+    }
+
+    Private Function CheckFunction(AstNode node) -> Void {
+        If (node.Kind == AstKind.Function || node.Kind == AstKind.Extern) {
+            This.RegisterFunction(node);
+        }
+        Bool publicFunction = This.HasModifier(node, "Public");
+        If (publicFunction && node.Kind == AstKind.Function && node.Extra == Null) {
+            If (This.strict) {
+                This.diagnostics.TypeError("RX105", "A public function requires an Explain block in Strict mode.", node.Line, node.Column, "Explain { ... }", "missing", "Add Description, Input, Processing, and Output.");
+            } Else {
+                This.diagnostics.Warning("RX105", "A public function is missing its Explain block.", node.Line, node.Column);
+            }
+        }
+        String returnType = This.TypeText(node.Type);
+        If (node.Kind != AstKind.Lambda && returnType.Length() == 0 && This.strict) {
+            This.diagnostics.TypeError("RX104", "A function requires a return type in Strict mode.", node.Line, node.Column, "-> Type", "missing", "Add a return type. Use Void when there is no result.");
+        }
+        If ((node.FlagA || This.HasModifier(node, "Async")) && returnType.Length() > 0 && !returnType.StartsWith("Task<") && !returnType.StartsWith("Promise<")) {
+            This.diagnostics.TypeError("RX104", "An Async function returns Task<T> or Promise<T>.", node.Line, node.Column, "Task<T>", returnType, "Change the return type to Task<T>.");
+        }
+        This.PushScope();
+        For parameter In node.Parameters {
+            If (!parameter.FlagC) {
+                If (parameter.Type == Null && This.strict && node.Kind != AstKind.Lambda) {
+                    This.MissingType(parameter, "Parameter");
+                }
+                String parameterType = This.TypeText(parameter.Type);
+                This.Define(parameter.Name, parameterType, parameter.FlagA, parameterType.EndsWith("?"), True, False, False, False, parameter.Line, parameter.Column);
+            }
+        }
+        For parameter In node.Members {
+            If (parameter.FlagC) {
+                This.Define(parameter.Name, "Type", False, False, True, False, False, False, parameter.Line, parameter.Column);
+            }
+        }
+        This.functionDepth = This.functionDepth + 1;
+        If (node.FlagA || This.HasModifier(node, "Async")) {
+            This.asyncDepth = This.asyncDepth + 1;
+        }
+        If (node.Body != Null) {
+            This.CheckNode(node.Body);
+            If (This.strict && returnType.Length() > 0 && returnType != "Void" && returnType != "Task<Void>" && returnType != "Promise<Void>" && !This.ReturnsAlways(node.Body) && node.Left == Null) {
+                This.diagnostics.TypeError("RX108", "A non-Void function can finish without returning a value.", node.Line, node.Column, returnType, "missing return", "Return a value on every path.");
+            }
+        }
+        If (node.Left != Null) {
+            String bodyType = This.Infer(node.Left);
+            If (returnType.Length() > 0) {
+                This.RequireAssignable(node.Left, This.InnerTask(returnType), bodyType);
+            }
+        }
+        If (node.FlagA || This.HasModifier(node, "Async")) {
+            This.asyncDepth = This.asyncDepth - 1;
+        }
+        This.functionDepth = This.functionDepth - 1;
+        This.PopScope();
+        If (node.Kind == AstKind.Function && returnType == "Int" && (node.Name == "Main" || node.Name == "LegacyMain")) {
+            This.diagnostics.Warning("RX112", "Main should return ExitCode or ExecutionResult instead of a raw integer.", node.Line, node.Column);
+        }
+    }
+
+    Private Function CheckIf(AstNode node) -> Void {
+        String condition = This.Infer(node.Condition);
+        This.RequireBool(node.Condition, condition);
+        Symbol? narrowed = This.NoteNullNarrowing(node.Condition);
+        Symbol? excluded = This.NoteNullExit(node.Condition);
+        If (narrowed != Null) {
+            narrowed.Nullable = False;
+            If (node.Body != Null) { This.CheckScoped(node.Body); }
+            narrowed.Nullable = True;
+        } Else {
+            If (node.Body != Null) { This.CheckScoped(node.Body); }
+        }
+        If (excluded != Null) {
+            If (node.Body != Null && This.ReturnsAlways(node.Body)) {
+                excluded.Nullable = False;
+            }
+        }
+        If (node.Otherwise != Null) { This.CheckNode(node.Otherwise); }
+    }
+
+    Private Function CheckFor(AstNode node) -> Void {
+        This.PushScope();
+        If (node.FlagB) {
+            If (node.Initializer != Null) { This.CheckNode(node.Initializer); }
+            If (node.Condition != Null) {
+                This.RequireBool(node.Condition, This.Infer(node.Condition));
+            }
+            If (node.Extra != Null) { This.Infer(node.Extra); }
+        } Else {
+            If (node.Right != Null) { This.Infer(node.Right); }
+            This.BindPattern(node.Left, "Unknown");
+        }
+        If (node.Body != Null) { This.CheckNode(node.Body); }
+        This.PopScope();
+    }
+
+    Private Function CheckMatch(AstNode node) -> Void {
+        If (node.Left != Null) { This.Infer(node.Left); }
+        Bool wildcard = False;
+        For arm In node.Children {
+            If (arm.Left != Null && arm.Left.FlagA) {
+                wildcard = True;
+            }
+            This.PushScope();
+            This.BindPattern(arm.Left, "Unknown");
+            If (arm.Right != Null) { This.CheckNode(arm.Right); }
+            This.PopScope();
+        }
+        If (!wildcard && node.Children.Count() > 0 && This.strict) {
+            Bool closed = False;
+            For arm In node.Children {
+                If (arm.Left != Null && (arm.Left.Text == "Success" || arm.Left.Text == "Some" || arm.Left.Name == "Success" || arm.Left.Name == "Some")) {
+                    closed = True;
+                }
+            }
+            If (closed) {
+                This.diagnostics.TypeError("RX111", "Match on Result or Option must be exhaustive or include a fallback arm.", node.Line, node.Column, "all cases or _", "partial match", "Add a wildcard arm.");
+            }
+        }
+    }
+
+    Private Function CheckAssignment(AstNode node) -> Void {
+        String actual = "";
+        If (node.Right != Null) {
+            actual = This.Infer(node.Right);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            Symbol? symbol = This.Find(node.Left.Name);
+            If (symbol == Null && This.IsCamel(node.Left.Name)) {
+                This.Undefined(node.Left);
+            } Else If (symbol != Null) {
+                If (!symbol.Mutable || symbol.IsConst) {
+                    This.diagnostics.TypeError("RX103", "Cannot assign to immutable '" + symbol.Name + "'.", node.Line, node.Column, "a Var binding", symbol.TypeName, "Declare it with Var.");
+                }
+                symbol.Initialized = True;
+                If (symbol.TypeName.Length() > 0) {
+                    This.RequireAssignable(node, symbol.TypeName, actual);
+                }
+            }
+        } Else If (node.Left != Null) {
+            This.Infer(node.Left);
+        }
+    }
+
+    Private Function Infer(AstNode? node) -> String {
+        If (node == Null) {
+            Return "";
+        }
+        If (node.Kind == AstKind.IntegerLiteral) {
+            If (node.Suffix.Length() == 0) { Return "Int"; }
+            Return SuffixTypeName(node.Suffix);
+        }
+        If (node.Kind == AstKind.FloatLiteral) {
+            If (node.Suffix.Length() == 0) { Return "Float"; }
+            Return SuffixTypeName(node.Suffix);
+        }
+        If (node.Kind == AstKind.StringLiteral || node.Kind == AstKind.Interpolation) { Return "String"; }
+        If (node.Kind == AstKind.CharLiteral) { Return "Char"; }
+        If (node.Kind == AstKind.BooleanLiteral) { Return "Bool"; }
+        If (node.Kind == AstKind.NullLiteral) { Return "Null"; }
+        If (node.Kind == AstKind.ArrayLiteral) { Return "Array<Unknown>"; }
+        If (node.Kind == AstKind.MapLiteral) { Return "Map<Unknown, Unknown>"; }
+        If (node.Kind == AstKind.SetLiteral) { Return "Set<Unknown>"; }
+        If (node.Kind == AstKind.TupleLiteral) { Return "Tuple"; }
+        If (node.Kind == AstKind.RecordLiteral || node.Kind == AstKind.ObjectLiteral) { Return node.Name; }
+        If (node.Kind == AstKind.Name) {
+            Symbol? symbol = This.Find(node.Name);
+            If (symbol == Null) {
+                If (This.IsCamel(node.Name)) {
+                    This.Undefined(node);
+                }
+                Return "Unknown";
+            }
+            If (!symbol.Initialized && !symbol.IsFunction && This.strict) {
+                This.diagnostics.TypeError("RX102", "'" + node.Name + "' is read before it is assigned.", node.Line, node.Column, symbol.TypeName, "uninitialized", "Assign the variable before reading it.");
+            }
+            If (!symbol.Nullable && symbol.TypeName.EndsWith("?")) {
+                Return This.StripOptional(symbol.TypeName);
+            }
+            Return symbol.TypeName;
+        }
+        If (node.Kind == AstKind.Assignment) {
+            This.CheckAssignment(node);
+            Return This.Infer(node.Right);
+        }
+        If (node.Kind == AstKind.Unary || node.Kind == AstKind.Unwrap || node.Kind == AstKind.Propagate) {
+            String inner = This.Infer(node.Left);
+            If (node.Kind == AstKind.Propagate || node.Kind == AstKind.Unwrap) {
+                If (inner.EndsWith("?")) {
+                    Return inner.Substring(0, inner.Length() - 1);
+                }
+            }
+            If (node.Operator == "!" || node.Operator == "Not") {
+                Return "Bool";
+            }
+            Return inner;
+        }
+        If (node.Kind == AstKind.Binary || node.Kind == AstKind.Range) {
+            String left = This.Infer(node.Left);
+            String right = This.Infer(node.Right);
+            If (node.Operator == "&&" || node.Operator == "||" || node.Operator == "And" || node.Operator == "Or" || node.Operator == "==" || node.Operator == "!=" || node.Operator == "<" || node.Operator == ">" || node.Operator == "<=" || node.Operator == ">=" || node.Operator == "Equal") {
+                Return "Bool";
+            }
+            If (node.Operator == "+" && (left == "String" || right == "String")) {
+                Return "String";
+            }
+            If (left == "Float" || right == "Float" || left == "Double" || right == "Double") {
+                If (left != right && This.IsNumeric(left) && This.IsNumeric(right) && This.strict) {
+                    This.diagnostics.TypeError("RX109", "Strict mode does not mix numeric types implicitly.", node.Line, node.Column, left, right, "Convert one operand explicitly.");
+                }
+            }
+            Return left;
+        }
+        If (node.Kind == AstKind.Ternary) {
+            This.RequireBool(node.Condition, This.Infer(node.Condition));
+            String left = This.Infer(node.Left);
+            String right = This.Infer(node.Right);
+            If (left == right) { Return left; }
+            Return left;
+        }
+        If (node.Kind == AstKind.TypeCheck) {
+            This.Infer(node.Left);
+            Return "Bool";
+        }
+        If (node.Kind == AstKind.Await) {
+            If (This.asyncDepth == 0 && This.functionDepth > 0 && This.strict) {
+                This.diagnostics.TypeError("RX107", "Await is only valid inside an Async function.", node.Line, node.Column, "Async Function", "synchronous function", "Mark the function Async.");
+            }
+            Return This.InnerTask(This.Infer(node.Left));
+        }
+        If (node.Kind == AstKind.Call) {
+            Return This.InferCall(node);
+        }
+        If (node.Kind == AstKind.Member) {
+            String left = This.Infer(node.Left);
+            If (left.EndsWith("?") && !node.FlagA && This.strict) {
+                This.diagnostics.TypeError("RX110", "A nullable value needs a check, '?.', or '!' before member access.", node.Line, node.Column, This.StripOptional(left), left, "Use '?.' or test the value against Null.");
+            }
+            If (node.Name == "ToString" || node.Name == "Length" || node.Name == "Count") {
+                If (node.Name == "ToString") { Return "String"; }
+                Return "Int";
+            }
+            Return "Unknown";
+        }
+        If (node.Kind == AstKind.Index) {
+            This.Infer(node.Left);
+            This.Infer(node.Right);
+            Return "Unknown";
+        }
+        If (node.Kind == AstKind.Lambda) {
+            This.CheckFunction(node);
+            Return "Function";
+        }
+        If (node.Kind == AstKind.Match || node.Kind == AstKind.Block || node.Kind == AstKind.If) {
+            This.CheckNode(node);
+            Return "Unknown";
+        }
+        For child In node.Children {
+            This.Infer(child);
+        }
+        If (node.Left != Null) { This.Infer(node.Left); }
+        If (node.Right != Null) { This.Infer(node.Right); }
+        Return "Unknown";
+    }
+
+    Private Function InferCall(AstNode node) -> String {
+        String name = "";
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            name = node.Left.Name;
+            Symbol? symbol = This.Find(name);
+            If (symbol != Null) {
+                If (symbol.IsFunction) {
+                    If (symbol.IsAsync) {
+                        Return symbol.TypeName;
+                    }
+                    Return symbol.TypeName;
+                }
+            }
+            If (symbol == Null && This.IsCamel(name)) {
+                This.Undefined(node.Left);
+            }
+        } Else If (node.Left != Null) {
+            This.Infer(node.Left);
+        }
+        For argument In node.Parameters {
+            If (argument.Left != Null) {
+                This.Infer(argument.Left);
+            }
+        }
+        If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
+            Return "Void";
+        }
+        If (name == "Some" || name == "Success" || name == "Failure" || name == "Error" || name == "None") {
+            Return name;
+        }
+        If (name == "Input") { Return "String"; }
+        If (This.IsTypeName(name)) {
+            Return name;
+        }
+        Return "Unknown";
+    }
+
+    Private Function RequireAssignable(AstNode node, String expected, String actual) -> Void {
+        If (!This.strict) {
+            Return;
+        }
+        If (expected.Length() == 0 || actual.Length() == 0 || expected == "Unknown" || actual == "Unknown" || expected == "Any" || expected == actual) {
+            Return;
+        }
+        If (expected.EndsWith("?") && (actual == "Null" || actual == This.StripOptional(expected))) {
+            Return;
+        }
+        If (This.IsNumeric(expected) && This.IsNumeric(actual) && expected != actual) {
+            This.diagnostics.TypeError("RX109", "Numeric conversion would narrow or change representation.", node.Line, node.Column, expected, actual, "Use an explicit conversion such as " + expected + ".FromChecked.");
+            Return;
+        }
+        If (actual == "Null" && !expected.EndsWith("?")) {
+            This.diagnostics.TypeError("RX110", "Null cannot be assigned to a non-nullable type.", node.Line, node.Column, expected, "Null", "Declare the destination as " + expected + "? .");
+            Return;
+        }
+        If (expected != actual) {
+            This.diagnostics.TypeError("RX103", "This value is not assignable to the destination.", node.Line, node.Column, expected, actual, "Change the value or the declared type.");
+        }
+    }
+
+    Private Function RequireBool(AstNode? node, String actual) -> Void {
+        If (!This.strict) {
+            Return;
+        }
+        If (node == Null) {
+            Return;
+        }
+        If (actual.Length() == 0 || actual == "Unknown" || actual == "Bool") {
+            Return;
+        }
+        This.diagnostics.TypeError("RX103", "A condition must be Bool. Robix does not use truthy coercion.", node.Line, node.Column, "Bool", actual, "Compare the value explicitly.");
+    }
+
+    Private Function MissingType(AstNode node, String label) -> Void {
+        This.diagnostics.TypeError("RX104", label + " '" + node.Name + "' is missing a type.", node.Line, node.Column, "Type name", "missing", "Declare the parameter type.");
+    }
+
+    Private Function Undefined(AstNode node) -> Void {
+        If (!This.strict) {
+            Return;
+        }
+        This.diagnostics.TypeError("RX102", "'" + node.Name + "' is not declared.", node.Line, node.Column, "a declared name", node.Name, "Declare the variable before using it.");
+    }
+
+    Private Function NoteNullNarrowing(AstNode? condition) -> Symbol? {
+        If (condition == Null) {
+            Return Null;
+        }
+        If (condition.Kind != AstKind.Binary) {
+            Return Null;
+        }
+        If (condition.Operator == "!=" && condition.Right != Null && condition.Right.Kind == AstKind.NullLiteral && condition.Left != Null && condition.Left.Kind == AstKind.Name) {
+            Return This.Find(condition.Left.Name);
+        }
+        Return Null;
+    }
+
+    Private Function NoteNullExit(AstNode? condition) -> Symbol? {
+        If (condition == Null) {
+            Return Null;
+        }
+        If (condition.Kind != AstKind.Binary) {
+            Return Null;
+        }
+        If (condition.Operator == "==" && condition.Right != Null && condition.Right.Kind == AstKind.NullLiteral && condition.Left != Null && condition.Left.Kind == AstKind.Name) {
+            Return This.Find(condition.Left.Name);
+        }
+        Return Null;
+    }
+
+    Private Function BindPattern(AstNode? pattern, String typeName) -> Void {
+        If (pattern == Null) {
+            Return;
+        }
+        If (pattern.Name.Length() > 0 && pattern.Name != "_" && pattern.Name != "()") {
+            If (This.IsCamel(pattern.Name) || pattern.Text.Length() > 0) {
+                This.Define(pattern.Name, typeName, False, False, True, False, False, False, pattern.Line, pattern.Column);
+            }
+        }
+        For child In pattern.Children {
+            This.BindPattern(child, typeName);
+        }
+    }
+
+    Private Function ReturnsAlways(AstNode node) -> Bool {
+        If (node.Kind == AstKind.Return) {
+            Return True;
+        }
+        If (node.Kind == AstKind.Block) {
+            For child In node.Children {
+                If (This.ReturnsAlways(child)) {
+                    Return True;
+                }
+            }
+            Return False;
+        }
+        If (node.Kind == AstKind.If && node.Body != Null && node.Otherwise != Null) {
+            Return This.ReturnsAlways(node.Body) && This.ReturnsAlways(node.Otherwise);
+        }
+        Return False;
+    }
+
+    Private Function RegisterFunction(AstNode node) -> Void {
+        If (node.Name.Length() == 0) {
+            Return;
+        }
+        If (This.Find(node.Name) != Null) {
+            Return;
+        }
+        String returnType = This.TypeText(node.Type);
+        This.Define(node.Name, returnType, False, False, True, True, node.FlagA || This.HasModifier(node, "Async"), False, node.Line, node.Column);
+    }
+
+    Private Function Define(String name, String typeName, Bool mutable, Bool nullable, Bool initialized, Bool isFunction, Bool isAsync, Bool isConst, Int line, Int column) -> Void {
+        If (name.Length() == 0) {
+            Return;
+        }
+        Symbol symbol = Symbol();
+        symbol.Name = name;
+        symbol.TypeName = typeName;
+        symbol.Mutable = mutable;
+        symbol.Nullable = nullable;
+        symbol.Initialized = initialized;
+        symbol.IsFunction = isFunction;
+        symbol.IsAsync = isAsync;
+        symbol.IsConst = isConst;
+        symbol.Line = line;
+        symbol.Column = column;
+        This.symbols.Add(symbol);
+    }
+
+    Private Function Find(String name) -> Symbol? {
+        Int index = This.symbols.Count() - 1;
+        While (index >= 0) {
+            If (This.symbols[index].Name == name) {
+                Return This.symbols[index];
+            }
+            index = index - 1;
+        }
+        Return Null;
+    }
+
+    Private Function PushScope() -> Void {
+        This.marks.Add(This.symbols.Count());
+    }
+
+    Private Function PopScope() -> Void {
+        If (This.marks.Count() == 0) {
+            Return;
+        }
+        Int mark = This.marks[This.marks.Count() - 1];
+        Var keptSymbols = List<Symbol>();
+        Int index = 0;
+        While (index < mark && index < This.symbols.Count()) {
+            keptSymbols.Add(This.symbols[index]);
+            index = index + 1;
+        }
+        This.symbols = keptSymbols;
+        Var keptMarks = List<Int>();
+        Int markIndex = 0;
+        While (markIndex < This.marks.Count() - 1) {
+            keptMarks.Add(This.marks[markIndex]);
+            markIndex = markIndex + 1;
+        }
+        This.marks = keptMarks;
+    }
+
+    Private Function TypeText(AstNode? type) -> String {
+        If (type == Null) {
+            Return "";
+        }
+        If (type.Kind != AstKind.Type) {
+            Return type.Name;
+        }
+        If (type.Name == "|") {
+            String joined = "";
+            For child In type.Children {
+                If (joined.Length() > 0) {
+                    joined = joined + " | ";
+                }
+                joined = joined + This.TypeText(child);
+            }
+            Return joined;
+        }
+        If (type.Name == "()") {
+            String joined = "(";
+            Bool first = True;
+            For child In type.Children {
+                If (!first) { joined = joined + ", "; }
+                joined = joined + This.TypeText(child);
+                first = False;
+            }
+            Return joined + ")";
+        }
+        If (type.Name == "[]") {
+            String element = "Unknown";
+            If (type.Children.Count() > 0) {
+                element = This.TypeText(type.Children[0]);
+            }
+            Return "[" + element + "]";
+        }
+        String text = type.Text + type.Name;
+        If (type.Children.Count() > 0) {
+            text = text + "<";
+            Bool first = True;
+            For child In type.Children {
+                If (!first) { text = text + ", "; }
+                text = text + This.TypeText(child);
+                first = False;
+            }
+            text = text + ">";
+        }
+        If (type.FlagB) {
+            text = text + "[]";
+        }
+        If (type.FlagA) {
+            text = text + "?";
+        }
+        Return text;
+    }
+
+    Private Function InnerTask(String typeName) -> String {
+        If (typeName.StartsWith("Task<") && typeName.EndsWith(">")) {
+            Return typeName.Substring(5, typeName.Length() - 6);
+        }
+        If (typeName.StartsWith("Promise<") && typeName.EndsWith(">")) {
+            Return typeName.Substring(8, typeName.Length() - 9);
+        }
+        Return typeName;
+    }
+
+    Private Function StripOptional(String typeName) -> String {
+        If (typeName.EndsWith("?")) {
+            Return typeName.Substring(0, typeName.Length() - 1);
+        }
+        Return typeName;
+    }
+
+    Private Function IsNumeric(String typeName) -> Bool {
+        Return typeName == "Int" || typeName == "UInt" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
+    }
+
+    Private Function IsTypeName(String name) -> Bool {
+        Return name == "Int" || name == "UInt" || name == "Float" || name == "Double" || name == "Decimal" || name == "Bool" || name == "Char" || name == "String" || name == "Byte";
+    }
+
+    Private Function IsCamel(String name) -> Bool {
+        If (name.Length() == 0) {
+            Return False;
+        }
+        Char first = name.GetChar(0);
+        Return first >= 'a' && first <= 'z';
+    }
+
+    Private Function HasModifier(AstNode node, String name) -> Bool {
+        For modifier In node.Modifiers {
+            If (modifier.ToLower() == name.ToLower()) {
+                Return True;
+            }
+        }
+        Return False;
+    }
+}

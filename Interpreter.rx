@@ -1,0 +1,782 @@
+// Tree-walk interpreter for Robix's executable syntax.
+Package Robix.Runtime;
+
+Import Robix.Core;
+Import Robix.Syntax;
+
+
+Public Enum ValueKind {
+    None,
+    Integer,
+    Float,
+    Boolean,
+    Text,
+    Null,
+    Array,
+    Function,
+    Void
+}
+
+Public Class Value {
+    Public ValueKind Kind;
+    Public Int Integer;
+    Public Float FloatValue;
+    Public Bool Boolean;
+    Public String Text;
+    Public List<Value> Elements;
+    Public AstNode? FunctionNode;
+
+    Public Constructor() {
+        This.Kind = ValueKind.None;
+        This.Integer = 0;
+        This.FloatValue = 0.0;
+        This.Boolean = False;
+        This.Text = "";
+        This.Elements = List<Value>();
+        This.FunctionNode = Null;
+    }
+}
+
+Public Class Interpreter {
+    Private List<String> names;
+    Private List<Value> values;
+    Private List<Int> marks;
+    Private List<String> lines;
+    Private List<String> runtimeErrors;
+    Private String signal;
+    Private Value returnValue;
+    Private List<AstNode> functions;
+
+    Public Constructor() {
+        This.names = List<String>();
+        This.values = List<Value>();
+        This.marks = List<Int>();
+        This.lines = List<String>();
+        This.runtimeErrors = List<String>();
+        This.signal = "";
+        This.returnValue = This.MakeVoid();
+        This.functions = List<AstNode>();
+    }
+
+    Public Function Execute(AstNode module, List<String> arguments) -> Int
+    Explain {
+        Description: "Execute a parsed Robix module.";
+        Input: module = "Module syntax tree", arguments = "Command-line arguments passed to Main";
+        Processing: "Define functions, then call Main when it exists. Otherwise run top-level statements.";
+        Output: "The process exit integer.";
+    } {
+        This.PushScope();
+        This.CollectFunctions(module);
+        AstNode? entry = This.FindFunction("Main");
+        Int exitCode = 0;
+        If (entry != Null) {
+            Value argumentArray = This.MakeArray();
+            For argument In arguments {
+                argumentArray.Elements.Add(This.MakeText(argument));
+            }
+            Var args = List<Value>();
+            args.Add(argumentArray);
+            Value result = This.CallFunction(entry, args);
+            If (result.Kind == ValueKind.Integer) {
+                exitCode = result.Integer;
+            }
+        } Else {
+            For child In module.Children {
+                If (child.Kind != AstKind.Function && child.Kind != AstKind.Class) {
+                    This.ExecuteNode(child);
+                }
+            }
+        }
+        This.PopScope();
+        Return exitCode;
+    }
+
+    Public Function Lines() -> List<String>
+    Explain {
+        Description: "Return text written by Print during execution.";
+        Input: None;
+        Processing: "Read the captured output lines.";
+        Output: "The output lines in order.";
+    } {
+        Return This.lines;
+    }
+
+    Public Function RuntimeErrors() -> List<String>
+    Explain {
+        Description: "Return runtime type and evaluation errors.";
+        Input: None;
+        Processing: "Read errors reported while the module ran.";
+        Output: "The runtime error lines.";
+    } {
+        Return This.runtimeErrors;
+    }
+
+    Private Function CollectFunctions(AstNode node) -> Void {
+        For child In node.Children {
+            If (child.Kind == AstKind.Function) {
+                This.functions.Add(child);
+                This.Define(child.Name, This.MakeFunction(child));
+            }
+            If (child.Kind == AstKind.Class || child.Kind == AstKind.Block) {
+                This.CollectFunctions(child);
+            }
+        }
+    }
+
+    Private Function ExecuteNode(AstNode node) -> Value {
+        If (This.signal.Length() > 0 && node.Kind != AstKind.Function) {
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Block || node.Kind == AstKind.Unsafe || node.Kind == AstKind.Defer || node.Kind == AstKind.Lock) {
+            Return This.ExecuteBlock(node);
+        }
+        If (node.Kind == AstKind.Variable) {
+            Return This.ExecuteVariable(node);
+        }
+        If (node.Kind == AstKind.ExpressionStatement) {
+            If (node.Left != Null) {
+                Return This.Evaluate(node.Left);
+            }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.If) {
+            If (This.IsTruthy(This.Evaluate(node.Condition))) {
+                If (node.Body != Null) { Return This.ExecuteNode(node.Body); }
+            } Else If (node.Otherwise != Null) {
+                Return This.ExecuteNode(node.Otherwise);
+            }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.While) {
+            While (This.signal.Length() == 0 && This.IsTruthy(This.Evaluate(node.Condition))) {
+                If (node.Body != Null) { This.ExecuteNode(node.Body); }
+                If (This.signal == "break") { This.signal = ""; Break; }
+                If (This.signal == "continue") { This.signal = ""; }
+            }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.DoWhile) {
+            If (node.Body != Null) { This.ExecuteNode(node.Body); }
+            While (This.signal.Length() == 0 && This.IsTruthy(This.Evaluate(node.Condition))) {
+                If (node.Body != Null) { This.ExecuteNode(node.Body); }
+                If (This.signal == "break") { This.signal = ""; Break; }
+                If (This.signal == "continue") { This.signal = ""; }
+            }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Repeat) {
+            Int count = This.Evaluate(node.Condition).Integer;
+            Int index = 0;
+            While (index < count && This.signal.Length() == 0) {
+                If (node.Body != Null) { This.ExecuteNode(node.Body); }
+                If (This.signal == "break") { This.signal = ""; Break; }
+                If (This.signal == "continue") { This.signal = ""; }
+                index = index + 1;
+            }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Loop) {
+            While (This.signal.Length() == 0) {
+                If (node.Body != Null) { This.ExecuteNode(node.Body); }
+                If (This.signal == "break") { This.signal = ""; Break; }
+                If (This.signal == "continue") { This.signal = ""; }
+            }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.For) {
+            Return This.ExecuteFor(node);
+        }
+        If (node.Kind == AstKind.Return) {
+            If (node.Left != Null) {
+                This.returnValue = This.Evaluate(node.Left);
+            } Else {
+                This.returnValue = This.MakeVoid();
+            }
+            This.signal = "return";
+            Return This.returnValue;
+        }
+        If (node.Kind == AstKind.Break) {
+            This.signal = "break";
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Continue) {
+            This.signal = "continue";
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Match) {
+            Return This.ExecuteMatch(node);
+        }
+        If (node.Kind == AstKind.Try) {
+            If (node.Body != Null) { This.ExecuteNode(node.Body); }
+            If (node.Extra != Null) { This.ExecuteNode(node.Extra); }
+            Return This.MakeVoid();
+        }
+        For child In node.Children {
+            This.ExecuteNode(child);
+            If (This.signal.Length() > 0) {
+                Break;
+            }
+        }
+        Return This.MakeVoid();
+    }
+
+    Private Function ExecuteBlock(AstNode node) -> Value {
+        This.PushScope();
+        This.CollectFunctions(node);
+        Value last = This.MakeVoid();
+        For child In node.Children {
+            last = This.ExecuteNode(child);
+            If (This.signal.Length() > 0) {
+                Break;
+            }
+        }
+        This.PopScope();
+        Return last;
+    }
+
+    Private Function ExecuteVariable(AstNode node) -> Value {
+        If (node.FlagC) {
+            Value value = This.MakeNull();
+            If (node.Initializer != Null) {
+                value = This.Evaluate(node.Initializer);
+            }
+            Int index = 0;
+            For child In node.Children {
+                Value part = This.MakeNull();
+                If (index < value.Elements.Count()) {
+                    part = value.Elements[index];
+                }
+                This.Define(child.Name, part);
+                index = index + 1;
+            }
+            Return value;
+        }
+        Value initial = This.MakeNull();
+        If (node.Initializer != Null) {
+            initial = This.Evaluate(node.Initializer);
+        }
+        This.Define(node.Name, initial);
+        For child In node.Children {
+            This.ExecuteVariable(child);
+        }
+        Return initial;
+    }
+
+    Private Function ExecuteFor(AstNode node) -> Value {
+        This.PushScope();
+        If (node.FlagB) {
+            If (node.Initializer != Null) { This.ExecuteNode(node.Initializer); }
+            While (This.signal.Length() == 0) {
+                If (node.Condition != Null && !This.IsTruthy(This.Evaluate(node.Condition))) {
+                    Break;
+                }
+                If (node.Condition == Null && node.Initializer == Null) {
+                    Break;
+                }
+                If (node.Body != Null) { This.ExecuteNode(node.Body); }
+                If (This.signal == "break") { This.signal = ""; Break; }
+                If (This.signal == "continue") { This.signal = ""; }
+                If (node.Extra != Null) { This.Evaluate(node.Extra); }
+                If (node.Condition == Null) {
+                    Break;
+                }
+            }
+        } Else If (node.Right != Null && node.Right.Kind == AstKind.Range) {
+            Int start = This.Evaluate(node.Right.Left).Integer;
+            Int end = This.Evaluate(node.Right.Right).Integer;
+            Int cursor = start;
+            Int last = end;
+            If (!node.Right.FlagA) {
+                last = end - 1;
+            }
+            While (cursor <= last && This.signal.Length() == 0) {
+                If (node.Left != Null) {
+                    This.Define(node.Left.Name, This.MakeInt(cursor));
+                }
+                If (node.Body != Null) { This.ExecuteNode(node.Body); }
+                If (This.signal == "break") { This.signal = ""; Break; }
+                If (This.signal == "continue") { This.signal = ""; }
+                cursor = cursor + 1;
+            }
+        } Else {
+            Value collection = This.Evaluate(node.Right);
+            For element In collection.Elements {
+                If (node.Left != Null) {
+                    This.Define(node.Left.Name, element);
+                }
+                If (node.Body != Null) { This.ExecuteNode(node.Body); }
+                If (This.signal == "break") { This.signal = ""; Break; }
+                If (This.signal == "continue") { This.signal = ""; }
+            }
+        }
+        This.PopScope();
+        Return This.MakeVoid();
+    }
+
+    Private Function ExecuteMatch(AstNode node) -> Value {
+        Value scrutinee = This.MakeNull();
+        If (node.Left != Null) {
+            scrutinee = This.Evaluate(node.Left);
+        }
+        For arm In node.Children {
+            If (arm.Left != Null && (arm.Left.FlagA || This.PatternMatches(arm.Left, scrutinee))) {
+                This.PushScope();
+                This.BindPattern(arm.Left, scrutinee);
+                Value result = This.MakeVoid();
+                If (arm.Right != Null) {
+                    If (arm.Right.Kind == AstKind.Block) {
+                        result = This.ExecuteNode(arm.Right);
+                    } Else {
+                        result = This.Evaluate(arm.Right);
+                    }
+                }
+                This.PopScope();
+                Return result;
+            }
+        }
+        Return This.MakeVoid();
+    }
+
+    Private Function Evaluate(AstNode? node) -> Value {
+        If (node == Null) {
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.IntegerLiteral) {
+            Return This.MakeInt(ParseInteger(node.Text));
+        }
+        If (node.Kind == AstKind.FloatLiteral) {
+            String number = StripNumericSuffix(node.Text).Replace("_", "");
+            Return This.MakeFloat(number.ToFloat());
+        }
+        If (node.Kind == AstKind.StringLiteral) {
+            If (node.FlagA && node.Children.Count() > 0) {
+                String text = "";
+                For child In node.Children {
+                    If (child.Kind == AstKind.Interpolation) {
+                        text = text + This.Display(This.Evaluate(child.Left));
+                    } Else {
+                        text = text + child.Text;
+                    }
+                }
+                Return This.MakeText(text);
+            }
+            Return This.MakeText(node.Text);
+        }
+        If (node.Kind == AstKind.CharLiteral) { Return This.MakeText(node.Text); }
+        If (node.Kind == AstKind.BooleanLiteral) { Return This.MakeBool(node.FlagA); }
+        If (node.Kind == AstKind.NullLiteral) { Return This.MakeNull(); }
+        If (node.Kind == AstKind.Name) { Return This.Lookup(node.Name); }
+        If (node.Kind == AstKind.ArrayLiteral || node.Kind == AstKind.TupleLiteral || node.Kind == AstKind.SetLiteral) {
+            Value array = This.MakeArray();
+            For child In node.Children {
+                array.Elements.Add(This.Evaluate(child));
+            }
+            Return array;
+        }
+        If (node.Kind == AstKind.Unary) {
+            Value operand = This.Evaluate(node.Left);
+            If (node.Operator == "-" && operand.Kind == ValueKind.Integer) {
+                Return This.MakeInt(-operand.Integer);
+            }
+            If (node.Operator == "!" || node.Operator == "Not") {
+                Return This.MakeBool(!This.IsTruthy(operand));
+            }
+            If ((node.Operator == "++" || node.Operator == "--") && node.Left != Null && node.Left.Kind == AstKind.Name) {
+                Int next = operand.Integer + 1;
+                If (node.Operator == "--") { next = operand.Integer - 1; }
+                Value updated = This.MakeInt(next);
+                This.Assign(node.Left.Name, updated);
+                Return updated;
+            }
+            Return operand;
+        }
+        If (node.Kind == AstKind.Binary || node.Kind == AstKind.Range) {
+            Return This.EvaluateBinary(node);
+        }
+        If (node.Kind == AstKind.Assignment) {
+            Value value = This.Evaluate(node.Right);
+            If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+                If (node.Operator == "+=") { value = This.MakeInt(This.Lookup(node.Left.Name).Integer + value.Integer); }
+                If (node.Operator == "-=") { value = This.MakeInt(This.Lookup(node.Left.Name).Integer - value.Integer); }
+                If (node.Operator == "*=") { value = This.MakeInt(This.Lookup(node.Left.Name).Integer * value.Integer); }
+                This.Assign(node.Left.Name, value);
+            }
+            Return value;
+        }
+        If (node.Kind == AstKind.Ternary) {
+            If (This.IsTruthy(This.Evaluate(node.Condition))) {
+                Return This.Evaluate(node.Left);
+            }
+            Return This.Evaluate(node.Right);
+        }
+        If (node.Kind == AstKind.Call) {
+            Return This.EvaluateCall(node);
+        }
+        If (node.Kind == AstKind.Member) {
+            Value target = This.Evaluate(node.Left);
+            If (node.Name == "Length" || node.Name == "Count") {
+                If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.Length()); }
+                Return This.MakeInt(target.Elements.Count());
+            }
+            If (node.Name == "ToString") { Return This.MakeText(This.Display(target)); }
+            Return This.MakeText(This.Display(target));
+        }
+        If (node.Kind == AstKind.Index) {
+            Value target = This.Evaluate(node.Left);
+            Int index = This.Evaluate(node.Right).Integer;
+            If (index >= 0 && index < target.Elements.Count()) {
+                Return target.Elements[index];
+            }
+            If (target.Kind == ValueKind.Text && index >= 0 && index < target.Text.Length()) {
+                Return This.MakeText(target.Text.Substring(index, 1));
+            }
+            This.runtimeErrors.Add("Index is outside the collection.");
+            Return This.MakeNull();
+        }
+        If (node.Kind == AstKind.Await || node.Kind == AstKind.Unwrap || node.Kind == AstKind.Propagate) {
+            Return This.Evaluate(node.Left);
+        }
+        If (node.Kind == AstKind.Block || node.Kind == AstKind.If || node.Kind == AstKind.Match) {
+            Return This.ExecuteNode(node);
+        }
+        Return This.MakeVoid();
+    }
+
+    Private Function EvaluateBinary(AstNode node) -> Value {
+        Value left = This.Evaluate(node.Left);
+        Value right = This.Evaluate(node.Right);
+        If (node.Kind == AstKind.Range) {
+            Value range = This.MakeArray();
+            Int cursor = left.Integer;
+            Int end = right.Integer;
+            If (!node.FlagA) { end = end - 1; }
+            While (cursor <= end) {
+                range.Elements.Add(This.MakeInt(cursor));
+                cursor = cursor + 1;
+            }
+            Return range;
+        }
+        If (node.Operator == "+") {
+            If (left.Kind == ValueKind.Text || right.Kind == ValueKind.Text) {
+                Return This.MakeText(This.Display(left) + This.Display(right));
+            }
+            If (left.Kind == ValueKind.Float || right.Kind == ValueKind.Float) {
+                Return This.MakeFloat(This.AsFloat(left) + This.AsFloat(right));
+            }
+            Return This.MakeInt(left.Integer + right.Integer);
+        }
+        If (node.Operator == "-") { Return This.MakeInt(left.Integer - right.Integer); }
+        If (node.Operator == "*") { Return This.MakeInt(left.Integer * right.Integer); }
+        If (node.Operator == "/") {
+            If (right.Integer == 0) {
+                This.runtimeErrors.Add("Division by zero.");
+                Return This.MakeInt(0);
+            }
+            Return This.MakeInt(left.Integer / right.Integer);
+        }
+        If (node.Operator == "%") {
+            If (right.Integer == 0) {
+                This.runtimeErrors.Add("Division by zero.");
+                Return This.MakeInt(0);
+            }
+            Return This.MakeInt(left.Integer % right.Integer);
+        }
+        If (node.Operator == "==" || node.Operator == "Equal") { Return This.MakeBool(This.Same(left, right)); }
+        If (node.Operator == "!=") { Return This.MakeBool(!This.Same(left, right)); }
+        If (node.Operator == "<") { Return This.MakeBool(left.Integer < right.Integer); }
+        If (node.Operator == ">") { Return This.MakeBool(left.Integer > right.Integer); }
+        If (node.Operator == "<=") { Return This.MakeBool(left.Integer <= right.Integer); }
+        If (node.Operator == ">=") { Return This.MakeBool(left.Integer >= right.Integer); }
+        If (node.Operator == "&&" || node.Operator == "And") { Return This.MakeBool(This.IsTruthy(left) && This.IsTruthy(right)); }
+        If (node.Operator == "||" || node.Operator == "Or") { Return This.MakeBool(This.IsTruthy(left) || This.IsTruthy(right)); }
+        Return left;
+    }
+
+    Private Function EvaluateCall(AstNode node) -> Value {
+        Var arguments = List<Value>();
+        For argument In node.Parameters {
+            If (argument.Left != Null) {
+                arguments.Add(This.Evaluate(argument.Left));
+            }
+        }
+        String name = "";
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            name = node.Left.Name;
+        }
+        If (name == "Print") {
+            String line = "";
+            For argument In arguments {
+                If (line.Length() > 0) { line = line + " "; }
+                line = line + This.Display(argument);
+            }
+            This.lines.Add(line);
+            Return This.MakeVoid();
+        }
+        If (name == "Assert" || name == "AssertTrue") {
+            If (arguments.Count() == 0 || !This.IsTruthy(arguments[0])) {
+                This.runtimeErrors.Add("Assertion failed.");
+            }
+            Return This.MakeVoid();
+        }
+        If (name == "AssertFalse") {
+            If (arguments.Count() > 0 && This.IsTruthy(arguments[0])) {
+                This.runtimeErrors.Add("Assertion failed.");
+            }
+            Return This.MakeVoid();
+        }
+        If (name == "AssertEqual") {
+            If (arguments.Count() >= 2 && !This.Same(arguments[0], arguments[1])) {
+                This.runtimeErrors.Add("Assertion failed.");
+            }
+            Return This.MakeVoid();
+        }
+        AstNode? function = This.FindFunction(name);
+        If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name) {
+            Value value = This.Lookup(name);
+            If (value.Kind == ValueKind.Function) {
+                function = value.FunctionNode;
+            }
+        }
+        If (function != Null) {
+            Return This.CallFunction(function, arguments);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member) {
+            Value target = This.Evaluate(node.Left.Left);
+            If (node.Left.Name == "Count" || node.Left.Name == "Length") {
+                If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.Length()); }
+                Return This.MakeInt(target.Elements.Count());
+            }
+            If (node.Left.Name == "Add" && arguments.Count() > 0) {
+                target.Elements.Add(arguments[0]);
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "ToString") { Return This.MakeText(This.Display(target)); }
+            If (node.Left.Name == "ToInt") {
+                If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.ToInt()); }
+                Return This.MakeInt(target.Integer);
+            }
+        }
+        If (name == "Some" || name == "Success" || name == "Tuple") {
+            Value wrapper = This.MakeArray();
+            wrapper.Text = name;
+            For argument In arguments {
+                wrapper.Elements.Add(argument);
+            }
+            Return wrapper;
+        }
+        Return This.MakeVoid();
+    }
+
+    Private Function CallFunction(AstNode function, List<Value> arguments) -> Value {
+        This.PushScope();
+        Int index = 0;
+        For parameter In function.Parameters {
+            If (!parameter.FlagC) {
+                Value argument = This.MakeNull();
+                If (index < arguments.Count()) {
+                    argument = arguments[index];
+                } Else If (parameter.Initializer != Null) {
+                    argument = This.Evaluate(parameter.Initializer);
+                }
+                This.Define(parameter.Name, argument);
+                index = index + 1;
+            }
+        }
+        String previous = This.signal;
+        Value previousReturn = This.returnValue;
+        This.signal = "";
+        This.returnValue = This.MakeVoid();
+        If (function.Body != Null) {
+            This.ExecuteNode(function.Body);
+        } Else If (function.Left != Null) {
+            This.returnValue = This.Evaluate(function.Left);
+        }
+        Value result = This.returnValue;
+        This.signal = previous;
+        This.returnValue = previousReturn;
+        This.PopScope();
+        Return result;
+    }
+
+    Private Function PatternMatches(AstNode pattern, Value scrutinee) -> Bool {
+        If (pattern.FlagA) { Return True; }
+        If (pattern.Left != Null && pattern.Left.Kind == AstKind.IntegerLiteral) {
+            Return scrutinee.Kind == ValueKind.Integer && scrutinee.Integer == ParseInteger(pattern.Left.Text);
+        }
+        If (pattern.Text.Length() > 0 && scrutinee.Text == pattern.Text) {
+            Return True;
+        }
+        If (pattern.Name.Length() > 0 && pattern.Text.Length() == 0 && pattern.Children.Count() == 0) {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function BindPattern(AstNode pattern, Value scrutinee) -> Void {
+        If (pattern.Name.Length() > 0 && pattern.Name != "_" && pattern.Name != "()") {
+            This.Define(pattern.Name, scrutinee);
+        }
+    }
+
+    Private Function FindFunction(String name) -> AstNode? {
+        For function In This.functions {
+            If (function.Name == name) {
+                Return function;
+            }
+        }
+        Return Null;
+    }
+
+    Private Function Define(String name, Value value) -> Void {
+        If (name.Length() == 0) { Return; }
+        This.names.Add(name);
+        This.values.Add(value);
+    }
+
+    Private Function Assign(String name, Value value) -> Void {
+        Int index = This.names.Count() - 1;
+        While (index >= 0) {
+            If (This.names[index] == name) {
+                This.values[index] = value;
+                Return;
+            }
+            index = index - 1;
+        }
+        This.Define(name, value);
+    }
+
+    Private Function Lookup(String name) -> Value {
+        Int index = This.names.Count() - 1;
+        While (index >= 0) {
+            If (This.names[index] == name) {
+                Return This.values[index];
+            }
+            index = index - 1;
+        }
+        This.runtimeErrors.Add("Name '" + name + "' is not defined at runtime.");
+        Return This.MakeNull();
+    }
+
+    Private Function PushScope() -> Void {
+        This.marks.Add(This.names.Count());
+    }
+
+    Private Function PopScope() -> Void {
+        If (This.marks.Count() == 0) { Return; }
+        Int mark = This.marks[This.marks.Count() - 1];
+        Var keptNames = List<String>();
+        Var keptValues = List<Value>();
+        Int index = 0;
+        While (index < mark) {
+            keptNames.Add(This.names[index]);
+            keptValues.Add(This.values[index]);
+            index = index + 1;
+        }
+        This.names = keptNames;
+        This.values = keptValues;
+        Var keptMarks = List<Int>();
+        Int markIndex = 0;
+        While (markIndex < This.marks.Count() - 1) {
+            keptMarks.Add(This.marks[markIndex]);
+            markIndex = markIndex + 1;
+        }
+        This.marks = keptMarks;
+    }
+
+    Private Function MakeInt(Int number) -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Integer;
+        value.Integer = number;
+        Return value;
+    }
+
+    Private Function MakeFloat(Float number) -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Float;
+        value.FloatValue = number;
+        Return value;
+    }
+
+    Private Function MakeBool(Bool number) -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Boolean;
+        value.Boolean = number;
+        Return value;
+    }
+
+    Private Function MakeText(String text) -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Text;
+        value.Text = text;
+        Return value;
+    }
+
+    Private Function MakeNull() -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Null;
+        Return value;
+    }
+
+    Private Function MakeVoid() -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Void;
+        Return value;
+    }
+
+    Private Function MakeArray() -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Array;
+        Return value;
+    }
+
+    Private Function MakeFunction(AstNode node) -> Value {
+        Value value = Value();
+        value.Kind = ValueKind.Function;
+        value.FunctionNode = node;
+        value.Text = node.Name;
+        Return value;
+    }
+
+    Private Function IsTruthy(Value value) -> Bool {
+        If (value.Kind == ValueKind.Boolean) { Return value.Boolean; }
+        If (value.Kind == ValueKind.Integer) { Return value.Integer != 0; }
+        If (value.Kind == ValueKind.Null || value.Kind == ValueKind.None || value.Kind == ValueKind.Void) { Return False; }
+        Return True;
+    }
+
+    Private Function Same(Value left, Value right) -> Bool {
+        If (left.Kind != right.Kind) { Return False; }
+        If (left.Kind == ValueKind.Integer) { Return left.Integer == right.Integer; }
+        If (left.Kind == ValueKind.Boolean) { Return left.Boolean == right.Boolean; }
+        If (left.Kind == ValueKind.Text) { Return left.Text == right.Text; }
+        If (left.Kind == ValueKind.Null) { Return True; }
+        Return False;
+    }
+
+    Private Function AsFloat(Value value) -> Float {
+        If (value.Kind == ValueKind.Float) { Return value.FloatValue; }
+        Return value.Integer.ToFloat();
+    }
+
+    Private Function Display(Value value) -> String {
+        If (value.Kind == ValueKind.Integer) { Return value.Integer.ToString(); }
+        If (value.Kind == ValueKind.Float) { Return value.FloatValue.ToString(); }
+        If (value.Kind == ValueKind.Boolean) {
+            If (value.Boolean) { Return "True"; }
+            Return "False";
+        }
+        If (value.Kind == ValueKind.Text) { Return value.Text; }
+        If (value.Kind == ValueKind.Null) { Return "Null"; }
+        If (value.Kind == ValueKind.Array) {
+            String text = "[";
+            Int index = 0;
+            For element In value.Elements {
+                If (index > 0) { text = text + ", "; }
+                text = text + This.Display(element);
+                index = index + 1;
+            }
+            Return text + "]";
+        }
+        Return "";
+    }
+}

@@ -1,0 +1,46 @@
+// Parses one snippet for every syntax area in the Robix reference.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Function CoverSyntax() -> Int
+Explain {
+    Description: "Parse a snippet for every Robix syntax area and report how many fail.";
+    Input: None;
+    Processing: "Lex and parse each representative snippet. A snippet fails when the parser reports a syntax error.";
+    Output: "The number of snippets that produced a syntax error.";
+} {
+    Var snippets = List<String>();
+    snippets.Add("Package Robotics.SyntaxExamples; Import Robix.Core; Import Robix.Math As Math; Import Robix.String.*; Package Robotics.SyntaxExamples { Permissions { Robix.Core; Robix.Math; } }");
+    snippets.Add("Const Int MAX_SPEED = 500; Const Float PI_VALUE = 3.14159; Int integerValue = 42; Int largeInteger = 1_000; Int hexValue = 0xFFF; Int binaryValue = 0b1010; Int octalValue = 0o755; Int signedInt = 42i32; Float piValue = 3.14; Float scientific = 1.5e-3; Bool enabled = True; Char letter = 'A'; String message = \"Hello, Robix!\"; String rawText = r\"[0-9]+\";");
+    snippets.Add("Let name = \"Roboticela\"; Var batteryLevel = 100; Let speed: Float = 100.0; Int x = 20, j = 30; (x, j) = (j, x); Let (firstName, lastName) = (\"Robo\", \"Bot\"); Var counter = 0; counter++; counter += 5; Var anything: Any = 42; anything = \"now text\";");
+    snippets.Add("Int integerValue = 42; String numberText = integerValue.ToString(); Int textNumber = \"123\".ToInt(); Type RoboSpeed = Int; Struct RoboPoint { Public Float X; Public Float Y; } Enum RoboPinMode { Input, Output, Alternate(Int pinNumber) } Int<24> customWidth = Int<24>.From(100);");
+    snippets.Add("Array<Int> sensorReads = [1, 2, 3, 4]; List<String> robotNames = [\"RoboAlpha\", \"RoboBeta\"]; Map<String, Int> robotScores = {\"Alpha\": 10, \"Beta\": 20}; Set<Int> uniqueReadings = {1, 2, 3}; (Int, String) pair = (42, \"ready\"); { X: Int, Y: Int } point = { X: 10, Y: 20 }; String? maybeName = Null;");
+    snippets.Add("Var batteryLevel = 100; Var enabled = True; Var sum = 10 + 5; Var shifted = 1 << 3; Var logicalAnd = (batteryLevel > 20) && (batteryLevel < 100); Var readableAnd = enabled And (batteryLevel > 0); Var ternary = enabled ? 1 : 0; Var range = 0..10; Var inclusiveRange = 1..=10; Operator \"⊗\" Precedence 70 LeftAssociative Function RoboMultiply(Int left, Int right) -> Int { Return left * right; } Int customProduct = 6 ⊗ 7;");
+    snippets.Add("Public Function RoboAdd(Int a, Int b) -> Int Explain { Description: \"Add two integers.\"; Input: a = \"Left operand\", b = \"Right operand\"; Processing: \"Add the operands.\"; Output: \"The sum.\"; } { Return a + b; } Int namedResult = RoboAdd(b: 3, a: 10); Public Function RoboSum(Params<Int> values) -> Int Explain { Description: \"Sum integers.\"; Input: values = \"Values\"; Processing: \"Add them.\"; Output: \"The total.\"; } { Int total = 0; For value In values { total += value; } Return total; } Let square = (Int n) => n * n;");
+    snippets.Add("Public Async Function RoboCalibrate(Int raw) -> Task<Float> { Return raw.ToFloat() * 1.25; } Let promiseValue: Promise<Int> = Promise<Int>.Create((resolve, reject) => { resolve(42); }); TimerHandle timeoutHandle = Timer.SetTimeout(() => Print(\"once\"), Duration.Seconds(1));");
+    snippets.Add("Public Abstract Class RoboRobot { Protected String robotName; Public Abstract Function Move() -> Void; } Public Class RoboWalkingRobot : RoboRobot { Public Constructor(String name) : Base.Constructor() { robotName = name; } Public Override Function Move() -> Void { Print(\"Walking forward\"); } Public Destructor() { } } Public Interface RoboDrivable { Public Function Move() -> Void; } Public Trait RoboResettable { Public Function Reset() -> Void; } Public Service RoboStatusService { Public Function GetStatus(Int id) -> Int; } Implement RoboStatusService { Public Function GetStatus(Int id) -> Int { Return id; } } Connect RoboStatusService;");
+    snippets.Add("Var batteryLevel = 100; If (batteryLevel >= 80) { Print(\"full\"); } Else If (batteryLevel >= 30) { Print(\"ok\"); } Else { Print(\"low\"); } If batteryLevel >= 80 { Print(\"optional parentheses\"); } For (Int index = 0; index < 10; index++) { Print(index); } For index In 0..10 { Print(index); } While (batteryLevel > 20) { batteryLevel -= 10; } Do { Print(\"check\"); } While (batteryLevel > 0); Repeat 5 { Print(\"Hello\"); } Loop { Break; }");
+    snippets.Add("Try { Throw RoboException(\"Sensor failure\"); } Catch (RoboException error) { Print(error.Message); } Finally { Print(\"done\"); } Defer { Print(\"leave\"); } Unsafe { Int sensorValue = 100; Pointer<Int> sensorPointer = Pointer.Of(sensorValue); *sensorPointer = 250; } ASM(\"NOP\"); Goto RoboLabel; RoboLabel: Print(\"jump target\");");
+    snippets.Add("Unsafe { Pointer<Byte> memory = Memory.Allocate<Byte>(1024); *memory = 42; Memory.Free(memory); } Lock sensorLock { Print(\"locked\"); } Atomic<Int> sharedCounter = Atomic<Int>(0); sharedCounter.Increment();");
+    snippets.Add("String message = \"Robix\"; Print(message); AssertEqual(42, 42); String upperName = message.ToUpper(); Array<Int> sensorReads = [1, 2, 3]; sensorReads.Add(5); Let doubled = sensorReads.Map((Int n) => n * 2);");
+    snippets.Add("Int absolute = Math.Abs(-12); Int minimum = Math.Min(10, 30); String fileName = Robix.Files.Name(\"/tmp/robot.rx\");");
+    snippets.Add("@Deprecated(\"Use RoboController instead.\") Public Class RoboLegacyController { Public String Name; } @Author(\"Robix Team\") @Version(\"1.0\") @ThreadSafe Public Class RoboController { Public Function Start() -> Void { Print(\"Started\"); } }");
+    snippets.Add("Var valueAsFloat = 3.0f32; Int castValue = Int(valueAsFloat); Var universal: Any = \"text\"; If (valueAsFloat Is Float) { Print(\"float\"); } If (universal Is String textValue) { Print(textValue); } Let checkedCast = universal.As<String>();");
+    snippets.Add("String? optionalUser = \"RoboUser\"; If (optionalUser != Null) { Print(optionalUser); } Let displayName = optionalUser ?? \"Unknown\"; Option<Int> optionalValue = Some(5); Match optionalValue { Some(value) => Print(value); None() => Print(\"No value\"); _ => Print(\"other\"); }");
+    snippets.Add("Enum ExitCode { Success = 0, WarningExecution = 1, Custom(Int code) } Public Function Main(Args<String> args) -> ExecutionResult Explain { Description: \"Start the program.\"; Input: args = \"Command arguments\"; Processing: \"Print help or finish.\"; Output: \"A standard execution result.\"; } { Return ExecutionResult(ExitCode.Success, \"Program completed successfully.\"); }");
+    snippets.Add("Public Const Int MAX_RETRY_COUNT = 5; Public Final Class RoboFinalController { Public Override Function Initialize() -> Void { Print(\"Initialized\"); } } Public Partial Class RoboPartialController { Public Function RoboStep() -> Void { Print(\"Step\"); } } Public Macro RoboTwice(body) { body; body; } Extern Function NativeReadSensor() -> Int CallingConvention C;");
+    snippets.Add("Var batteryLevel = 80; Let label = Match batteryLevel { 80..=100 => \"Full\", 30..80 => \"Normal\", _ => \"Low\" };");
+    Int failures = 0;
+    For snippet In snippets {
+        DiagnosticBag diagnostics = DiagnosticBag();
+        Lexer lexer = Lexer(snippet, diagnostics);
+        Parser parser = Parser(lexer.Tokenize(), diagnostics);
+        parser.Parse();
+        If (diagnostics.SyntaxErrorCount() > 0) {
+            failures = failures + 1;
+        }
+    }
+    Return failures;
+}

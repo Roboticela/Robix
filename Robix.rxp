@@ -1,0 +1,80 @@
+Project "Robix"
+{
+    Type: Executable;
+    Version: "1.0.0";
+    Description: "Robix compiler and interpreter";
+
+    Source
+    {
+        Include: "*.rx";
+        Exclude: "Examples/**";
+    }
+
+    Compiler
+    {
+        TypeSafety: Strict;
+        WarningsAsErrors: false;
+        Nullable: Enabled;
+        OverflowChecks: Enabled;
+        BoundsChecks: Enabled;
+    }
+
+    Configurations
+    {
+        Debug
+        {
+            Optimization: None;
+            DebugSymbols: true;
+        }
+
+        Release
+        {
+            Optimization: Speed;
+            DebugSymbols: false;
+        }
+
+        Development
+        {
+            Optimization: Balanced;
+            DebugSymbols: true;
+        }
+    }
+
+    Output
+    {
+        Directory: "Build/Compiler";
+        IntermediateDirectory: "Build/temp";
+        Name: "Robix";
+    }
+
+    Tasks
+    {
+        Task "Clean"
+        {
+            Delete: "Build/temp";
+        }
+
+        Task "Restore"
+        {
+            Restore: Dependencies;
+        }
+
+        Task "Build"
+        {
+            DependsOn: "Restore";
+            Compile: Source;
+        }
+
+        Task "Test"
+        {
+            DependsOn: "Build";
+            RunTests: "Examples/**/*.rx";
+        }
+
+        Task "Publish"
+        {
+            DependsOn: "Build";
+            Package: Output;
+        }
+    }
+}

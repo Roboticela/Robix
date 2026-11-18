@@ -1,0 +1,74 @@
+// Constants, final and partial types, macros, and extern functions.
+Package Robotics.Advanced;
+
+Import Robix.Core;
+
+
+Public Const Int MAX_RETRY_COUNT = 5;
+
+Public Abstract Class RoboBaseController {
+    Public Abstract Function Initialize() -> Void
+    Explain {
+        Description: "Initialize the controller.";
+        Input: None;
+        Processing: "Prepare the controller for use.";
+        Output: "No return value.";
+    };
+}
+
+Public Final Class RoboFinalController : RoboBaseController {
+    Public Override Function Initialize() -> Void
+    Explain {
+        Description: "Initialize the final controller.";
+        Input: None;
+        Processing: "Print that initialization finished.";
+        Output: "No return value.";
+    } {
+        Print("Initialized");
+    }
+}
+
+Public Partial Class RoboPartialController {
+    Public Function RoboStep() -> Void
+    Explain {
+        Description: "Advance the controller one step.";
+        Input: None;
+        Processing: "Print the step.";
+        Output: "No return value.";
+    } {
+        Print("Step");
+    }
+}
+
+Public Partial Class RoboPartialController {
+    Public Function RoboStop() -> Void
+    Explain {
+        Description: "Stop the controller.";
+        Input: None;
+        Processing: "Print the stop.";
+        Output: "No return value.";
+    } {
+        Print("Stop");
+    }
+}
+
+Public Macro RoboTwice(body) {
+    body;
+    body;
+}
+
+Extern Function NativeReadSensor() -> Int
+    CallingConvention C;
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Initialize the final controller and report the retry limit.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the override and print the constant.";
+    Output: "The retry limit.";
+} {
+    RoboFinalController controller = RoboFinalController();
+    controller.Initialize();
+    Print(MAX_RETRY_COUNT);
+    Return MAX_RETRY_COUNT;
+}

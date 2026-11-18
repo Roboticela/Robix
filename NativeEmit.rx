@@ -1,0 +1,1719 @@
+// Lower a type-checked Robix module to LLVM IR for the host Linux processor.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Class EscapeText {
+    Public String Text;
+    Public Int Bytes;
+
+    Public Constructor() {
+        This.Text = "";
+        This.Bytes = 0;
+    }
+}
+
+Public Class IrValue {
+    Public String Value;
+    Public String TypeName;
+
+    Public Constructor() {
+        This.Value = "0";
+        This.TypeName = "Int";
+    }
+}
+
+Public Class MethodInfo {
+    Public String Name;
+    Public String FileName;
+    Public Int ArgumentCount;
+    Public String ReturnType;
+    Public AstNode Node;
+
+    Public Constructor() {
+        This.Name = "";
+        This.FileName = "";
+        This.ArgumentCount = 0;
+        This.ReturnType = "";
+        This.Node = AstNode();
+    }
+}
+
+Public Class ClassInfo {
+    Public String Name;
+    Public String KindName;
+    Public List<String> Fields;
+    Public List<String> FieldTypes;
+    Public List<MethodInfo> Methods;
+    Public List<String> EnumNames;
+    Public List<Int> EnumValues;
+    Public List<AstNode> Constructors;
+    Public List<String> ConstructorFiles;
+
+    Public Constructor() {
+        This.Name = "";
+        This.KindName = "Class";
+        This.Fields = List<String>();
+        This.FieldTypes = List<String>();
+        This.Methods = List<MethodInfo>();
+        This.EnumNames = List<String>();
+        This.EnumValues = List<Int>();
+        This.Constructors = List<AstNode>();
+        This.ConstructorFiles = List<String>();
+    }
+}
+
+Public Class FunctionInfo {
+    Public String Name;
+    Public String FileName;
+    Public Int ArgumentCount;
+    Public String ReturnType;
+    Public Bool IsExtern;
+    Public AstNode Node;
+
+    Public Constructor() {
+        This.Name = "";
+        This.FileName = "";
+        This.ArgumentCount = 0;
+        This.ReturnType = "";
+        This.IsExtern = False;
+        This.Node = AstNode();
+    }
+}
+
+Public Class NativeProgram {
+    Public List<ClassInfo> Classes;
+    Public List<FunctionInfo> Functions;
+    Public Int Serial;
+    Public String FileName;
+    Public String Owner;
+    Public String ReturnType;
+    Public List<String> Lines;
+    Public List<String> Strings;
+    Public List<String> Defined;
+    Public Int Counter;
+    Public Bool Terminated;
+    Public List<String> ScopeNames;
+    Public List<String> ScopeSlots;
+    Public List<String> ScopeTypes;
+    Public Int ScopeCount;
+    Public List<String> LoopContinue;
+    Public List<String> LoopBreak;
+    Public Int LoopCount;
+
+    Public Constructor() {
+        This.Classes = List<ClassInfo>();
+        This.Functions = List<FunctionInfo>();
+        This.Serial = 0;
+        This.FileName = "";
+        This.Owner = "";
+        This.ReturnType = "";
+        This.Lines = List<String>();
+        This.Strings = List<String>();
+        This.Defined = List<String>();
+        This.Counter = 0;
+        This.Terminated = False;
+        This.ScopeNames = List<String>();
+        This.ScopeSlots = List<String>();
+        This.ScopeTypes = List<String>();
+        This.ScopeCount = 0;
+        This.LoopContinue = List<String>();
+        This.LoopBreak = List<String>();
+        This.LoopCount = 0;
+    }
+
+    Public Function Collect(List<String> fileNames, List<AstNode> modules) -> Void
+    Explain {
+        Description: "Record class layouts and functions for every module in a program.";
+        Input: fileNames = "Source paths parallel to modules", modules = "Type-checked module trees";
+        Processing: "Merge partial classes and remember which file defines each method.";
+        Output: "A program model the LLVM lowering can share across files.";
+    } {
+        Int index = 0;
+        While (index < modules.Count()) {
+            String fileName = fileNames[index];
+            AstNode module = modules[index];
+            For child In module.Children {
+                If (child.Kind == AstKind.Class) {
+                    This.AddClass(fileName, child);
+                }
+                If (child.Kind == AstKind.Function || child.Kind == AstKind.Extern) {
+                    This.AddFunction(fileName, child);
+                }
+            }
+            index = index + 1;
+        }
+        ClassInfo resultType = ClassInfo();
+        resultType.Name = "ExecutionResult";
+        resultType.KindName = "Class";
+        resultType.Fields.Add("Code");
+        resultType.FieldTypes.Add("Int");
+        resultType.Fields.Add("Message");
+        resultType.FieldTypes.Add("String");
+        resultType.Fields.Add("Details");
+        resultType.FieldTypes.Add("String");
+        This.Classes.Add(resultType);
+    }
+
+    Public Function EmitFile(String fileName, AstNode module, Bool isEntry) -> String
+    Explain {
+        Description: "Print LLVM IR for one type-checked Robix module.";
+        Input: fileName = "Module path", module = "Type-checked tree", isEntry = "True when this file owns main";
+        Processing: "Lower functions, methods, and constructors to LLVM IR and declare the rest.";
+        Output: "LLVM IR text for this file.";
+    } {
+        This.FileName = fileName;
+        This.Defined = List<String>();
+        String parts = This.RuntimeDeclarations();
+        For child In module.Children {
+            If (child.Kind == AstKind.Class) {
+                parts = parts + This.EmitClassMembers(child);
+            }
+            If (child.Kind == AstKind.Function) {
+                parts = parts + This.EmitPlain(child);
+            }
+            If (child.Kind == AstKind.Extern) {
+                parts = parts + This.DeclareExtern(child);
+            }
+        }
+        parts = parts + This.DeclareForeign();
+        If (isEntry) {
+            parts = parts + This.EntryMain(module);
+        }
+        Return parts;
+    }
+
+    Private Function AddClass(String fileName, AstNode node) -> Void {
+        ClassInfo info = This.FindClass(node.Name);
+        If (info.Name == "") {
+            info = ClassInfo();
+            info.Name = node.Name;
+            This.Classes.Add(info);
+        }
+        If (node.Text != "") {
+            info.KindName = node.Text;
+        }
+        For child In node.Children {
+            If (child.Kind == AstKind.Field && This.FieldSlot(info, child.Name) < 0) {
+                info.Fields.Add(child.Name);
+                String fieldType = This.TypeName(child.Type);
+                If (fieldType == "") { fieldType = "Int"; }
+                info.FieldTypes.Add(fieldType);
+            }
+            If (child.Kind == AstKind.EnumMember && This.EnumValue(info, child.Name) < 0) {
+                info.EnumNames.Add(child.Name);
+                info.EnumValues.Add(info.EnumNames.Count() - 1);
+            }
+            If (child.Kind == AstKind.Function) {
+                MethodInfo method = MethodInfo();
+                method.Name = child.Name;
+                method.FileName = fileName;
+                method.ArgumentCount = child.Parameters.Count();
+                method.ReturnType = This.TypeName(child.Type);
+                method.Node = child;
+                This.PutMethod(info, method);
+            }
+            If (child.Kind == AstKind.Constructor) {
+                info.Constructors.Add(child);
+                info.ConstructorFiles.Add(fileName);
+            }
+        }
+        If (info.KindName == "Enum") {
+            info.Fields = List<String>();
+            info.FieldTypes = List<String>();
+        }
+    }
+
+    Private Function PutMethod(ClassInfo info, MethodInfo method) -> Void {
+        Int index = 0;
+        For existing In info.Methods {
+            If (existing.Name == method.Name) {
+                info.Methods[index] = method;
+                Return;
+            }
+            index = index + 1;
+        }
+        info.Methods.Add(method);
+    }
+
+    Private Function AddFunction(String fileName, AstNode node) -> Void {
+        FunctionInfo record = FunctionInfo();
+        record.Name = node.Name;
+        record.FileName = fileName;
+        record.ArgumentCount = node.Parameters.Count();
+        record.ReturnType = This.TypeName(node.Type);
+        record.IsExtern = node.Kind == AstKind.Extern;
+        record.Node = node;
+        This.Functions.Add(record);
+    }
+
+    Private Function FindClass(String name) -> ClassInfo {
+        For info In This.Classes {
+            If (info.Name == name) { Return info; }
+        }
+        Return ClassInfo();
+    }
+
+    Private Function FindFunction(String name, String fileName) -> FunctionInfo {
+        FunctionInfo first = FunctionInfo();
+        Bool found = False;
+        For record In This.Functions {
+            If (record.Name == name) {
+                If (!found) {
+                    first = record;
+                    found = True;
+                }
+                If (record.FileName == fileName) { Return record; }
+            }
+        }
+        Return first;
+    }
+
+    Private Function FunctionCount(String name) -> Int {
+        Int count = 0;
+        For record In This.Functions {
+            If (record.Name == name) { count = count + 1; }
+        }
+        Return count;
+    }
+
+    Private Function FunctionSymbol(String fileName, String name) -> String {
+        If (This.FunctionCount(name) == 1) { Return "rxf_" + name; }
+        Return "rxf_" + This.Stem(fileName) + "_" + name;
+    }
+
+    Private Function EmitClassMembers(AstNode node) -> String {
+        ClassInfo info = This.FindClass(node.Name);
+        String parts = "";
+        Int index = 0;
+        For ctor In info.Constructors {
+            String ctorFile = info.ConstructorFiles[index];
+            If (ctorFile == This.FileName) {
+                String symbol = "rxm_" + node.Name + "_new";
+                If (!This.IsDefined(symbol)) {
+                    This.AddDefined(symbol);
+                    parts = parts + This.EmitConstructor(symbol, node.Name, ctor);
+                }
+            }
+            index = index + 1;
+        }
+        For method In info.Methods {
+            If (method.FileName == This.FileName) {
+                String symbol = "rxm_" + node.Name + "_" + method.Name;
+                If (!This.IsDefined(symbol)) {
+                    This.AddDefined(symbol);
+                    parts = parts + This.EmitMethod(symbol, node.Name, method);
+                }
+            }
+        }
+        Return parts;
+    }
+
+    Private Function EmitConstructor(String symbol, String className, AstNode node) -> String {
+        This.ResetFunction(className, "Void");
+        String arguments = "i64 %p_This";
+        For parameter In node.Parameters {
+            arguments = arguments + ", i64 %" + This.SafeArg(parameter.Name);
+        }
+        This.Raw("define void @" + symbol + "(" + arguments + ") {");
+        This.Raw("Lentry:");
+        This.Alloca("This", className, "%p_This");
+        For parameter In node.Parameters {
+            String parameterType = This.TypeName(parameter.Type);
+            If (parameterType == "") { parameterType = "Int"; }
+            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+        }
+        If (node.Body != Null) { This.EmitStatement(node.Body); }
+        If (!This.Terminated) { This.Emit("ret void"); }
+        This.Raw("}");
+        Return This.JoinFunction();
+    }
+
+    Private Function EmitMethod(String symbol, String className, MethodInfo method) -> String {
+        This.ResetFunction(className, method.ReturnType);
+        String arguments = "i64 %p_This";
+        For parameter In method.Node.Parameters {
+            arguments = arguments + ", i64 %" + This.SafeArg(parameter.Name);
+        }
+        String ret = "i64";
+        If (This.IsVoid(method.ReturnType)) { ret = "void"; }
+        This.Raw("define " + ret + " @" + symbol + "(" + arguments + ") {");
+        This.Raw("Lentry:");
+        This.Alloca("This", className, "%p_This");
+        For parameter In method.Node.Parameters {
+            String parameterType = This.TypeName(parameter.Type);
+            If (parameterType == "") { parameterType = "Int"; }
+            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+        }
+        If (method.Node.Body != Null) { This.EmitStatement(method.Node.Body); }
+        If (!This.Terminated) {
+            If (This.IsVoid(method.ReturnType)) { This.Emit("ret void"); }
+            If (!This.IsVoid(method.ReturnType)) { This.Emit("ret i64 0"); }
+        }
+        This.Raw("}");
+        Return This.JoinFunction();
+    }
+
+    Private Function EmitPlain(AstNode node) -> String {
+        FunctionInfo record = This.FindFunction(node.Name, This.FileName);
+        String symbol = This.FunctionSymbol(record.FileName, node.Name);
+        If (This.IsDefined(symbol)) { Return ""; }
+        This.AddDefined(symbol);
+        This.ResetFunction("", record.ReturnType);
+        String arguments = "";
+        Bool first = True;
+        For parameter In node.Parameters {
+            If (!first) { arguments = arguments + ", "; }
+            arguments = arguments + "i64 %" + This.SafeArg(parameter.Name);
+            first = False;
+        }
+        String ret = "i64";
+        If (This.IsVoid(record.ReturnType)) { ret = "void"; }
+        This.Raw("define " + ret + " @" + symbol + "(" + arguments + ") {");
+        This.Raw("Lentry:");
+        For parameter In node.Parameters {
+            String parameterType = This.TypeName(parameter.Type);
+            If (parameterType == "") { parameterType = "Int"; }
+            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+        }
+        If (node.Body != Null) { This.EmitStatement(node.Body); }
+        If (!This.Terminated) {
+            If (This.IsVoid(record.ReturnType)) { This.Emit("ret void"); }
+            If (!This.IsVoid(record.ReturnType)) { This.Emit("ret i64 0"); }
+        }
+        This.Raw("}");
+        Return This.JoinFunction();
+    }
+
+    Private Function DeclareExtern(AstNode node) -> String {
+        If (node.Name == "RunProcess") { Return ""; }
+        String symbol = This.ExternSymbol(node.Name);
+        String args = "";
+        Int count = node.Parameters.Count();
+        Int index = 0;
+        While (index < count) {
+            If (index > 0) { args = args + ", "; }
+            args = args + "i64";
+            index = index + 1;
+        }
+        String ret = "i64";
+        If (This.IsVoid(This.TypeName(node.Type))) { ret = "void"; }
+        Return "declare " + ret + " @" + symbol + "(" + args + ")\n";
+    }
+
+    Private Function DeclareForeign() -> String {
+        String parts = "";
+        For record In This.Functions {
+            String symbol = This.FunctionSymbol(record.FileName, record.Name);
+            If (!record.IsExtern && !This.IsDefined(symbol)) {
+                String args = "";
+                Int index = 0;
+                While (index < record.ArgumentCount) {
+                    If (index > 0) { args = args + ", "; }
+                    args = args + "i64";
+                    index = index + 1;
+                }
+                String ret = "i64";
+                If (This.IsVoid(record.ReturnType)) { ret = "void"; }
+                parts = parts + "declare " + ret + " @" + symbol + "(" + args + ")\n";
+                This.AddDefined(symbol);
+            }
+        }
+        For info In This.Classes {
+            If (info.Name != "ExecutionResult") {
+                For method In info.Methods {
+                    String symbol = "rxm_" + info.Name + "_" + method.Name;
+                    If (method.FileName != This.FileName && !This.IsDefined(symbol)) {
+                        String args = "i64";
+                        Int index = 0;
+                        While (index < method.ArgumentCount) {
+                            args = args + ", i64";
+                            index = index + 1;
+                        }
+                        String ret = "i64";
+                        If (This.IsVoid(method.ReturnType)) { ret = "void"; }
+                        parts = parts + "declare " + ret + " @" + symbol + "(" + args + ")\n";
+                        This.AddDefined(symbol);
+                    }
+                }
+                Bool definedHere = False;
+                Int foreignArgs = -1;
+                Int index = 0;
+                For ctor In info.Constructors {
+                    If (info.ConstructorFiles[index] == This.FileName) { definedHere = True; }
+                    If (info.ConstructorFiles[index] != This.FileName && foreignArgs < 0) {
+                        foreignArgs = ctor.Parameters.Count();
+                    }
+                    index = index + 1;
+                }
+                String symbol = "rxm_" + info.Name + "_new";
+                If (!definedHere && foreignArgs >= 0 && !This.IsDefined(symbol)) {
+                    String args = "i64";
+                    Int arg = 0;
+                    While (arg < foreignArgs) {
+                        args = args + ", i64";
+                        arg = arg + 1;
+                    }
+                    parts = parts + "declare void @" + symbol + "(" + args + ")\n";
+                    This.AddDefined(symbol);
+                }
+            }
+        }
+        Return parts;
+    }
+
+    Private Function EntryMain(AstNode module) -> String {
+        AstNode mainNode = AstNode();
+        Bool found = False;
+        For child In module.Children {
+            If (child.Kind == AstKind.Function && child.Name == "Main") {
+                mainNode = child;
+                found = True;
+            }
+        }
+        If (!found) { Return ""; }
+        String symbol = This.FunctionSymbol(This.FileName, "Main");
+        String returnType = This.TypeName(mainNode.Type);
+        String call = "";
+        If (mainNode.Parameters.Count() == 0) {
+            If (returnType == "ExecutionResult") {
+                call = "  %result = call i64 @" + symbol + "()\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
+            } Else {
+                call = "  %result = call i64 @" + symbol + "()\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
+            }
+        } Else {
+            If (returnType == "ExecutionResult") {
+                call = "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
+            } Else {
+                call = "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
+            }
+        }
+        Return "declare i64 @rx_args(i32, ptr)\ndeclare void @rx_finish_result(i64)\n\ndefine i32 @main(i32 %argc, ptr %argv) {\n" + call + "}\n";
+    }
+
+    Private Function RuntimeDeclarations() -> String {
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process";
+        String voids = "rx_list_add rx_list_set rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
+        String lines = "";
+        Int start = 0;
+        While (start < names.Length()) {
+            Int end = names.IndexOf(" ", start);
+            String name = "";
+            If (end < 0) {
+                name = names.Substring(start);
+                start = names.Length();
+            } Else {
+                name = names.Substring(start, end - start);
+                start = end + 1;
+            }
+            lines = lines + "declare i64 @" + name + "(...)\n";
+        }
+        start = 0;
+        While (start < voids.Length()) {
+            Int end = voids.IndexOf(" ", start);
+            String name = "";
+            If (end < 0) {
+                name = voids.Substring(start);
+                start = voids.Length();
+            } Else {
+                name = voids.Substring(start, end - start);
+                start = end + 1;
+            }
+            lines = lines + "declare void @" + name + "(...)\n";
+        }
+        Return lines + "\n";
+    }
+
+    Private Function ResetFunction(String owner, String returnType) -> Void {
+        This.Owner = owner;
+        This.ReturnType = returnType;
+        This.Lines = List<String>();
+        This.Strings = List<String>();
+        This.Counter = 0;
+        This.Terminated = False;
+        This.ScopeNames = List<String>();
+        This.ScopeSlots = List<String>();
+        This.ScopeTypes = List<String>();
+        This.ScopeCount = 0;
+        This.LoopContinue = List<String>();
+        This.LoopBreak = List<String>();
+        This.LoopCount = 0;
+    }
+
+    Private Function Fresh(String prefix) -> String {
+        This.Counter = This.Counter + 1;
+        Return "%" + prefix + This.Counter.ToString();
+    }
+
+    Private Function Label(String prefix) -> String {
+        This.Counter = This.Counter + 1;
+        Return prefix + This.Counter.ToString();
+    }
+
+    Private Function Emit(String text) -> Void {
+        If (!This.Terminated) { This.Lines.Add("  " + text); }
+    }
+
+    Private Function Raw(String text) -> Void {
+        This.Lines.Add(text);
+    }
+
+    Private Function Branch(String label) -> Void {
+        This.Emit("br label %" + label);
+        This.Terminated = True;
+    }
+
+    Private Function Block(String name) -> Void {
+        This.Lines.Add(name + ":");
+        This.Terminated = False;
+    }
+
+    Private Function Bind(String name, String slot, String typeName) -> Void {
+        If (This.ScopeCount < This.ScopeNames.Count()) {
+            This.ScopeNames[This.ScopeCount] = name;
+            This.ScopeSlots[This.ScopeCount] = slot;
+            This.ScopeTypes[This.ScopeCount] = typeName;
+        } Else {
+            This.ScopeNames.Add(name);
+            This.ScopeSlots.Add(slot);
+            This.ScopeTypes.Add(typeName);
+        }
+        This.ScopeCount = This.ScopeCount + 1;
+    }
+
+    Private Function Lookup(String name) -> IrValue {
+        Int index = This.ScopeCount - 1;
+        While (index >= 0) {
+            If (This.ScopeNames[index] == name) {
+                Return This.Pair(This.ScopeSlots[index], This.ScopeTypes[index]);
+            }
+            index = index - 1;
+        }
+        Return This.Pair("", "");
+    }
+
+    Private Function Alloca(String name, String typeName, String value) -> String {
+        String slot = This.Fresh("slot");
+        This.Emit(slot + " = alloca i64");
+        This.Emit("store i64 " + value + ", ptr " + slot);
+        This.Bind(name, slot, typeName);
+        Return slot;
+    }
+
+    Private Function LoadSlot(String slot) -> String {
+        String loaded = This.Fresh("v");
+        This.Emit(loaded + " = load i64, ptr " + slot);
+        Return loaded;
+    }
+
+    Private Function StringConst(String text) -> String {
+        This.Strings.Add(text);
+        Int index = This.Strings.Count();
+        EscapeText escaped = This.Escape(text);
+        Int length = escaped.Bytes + 1;
+        String name = "@str" + index.ToString();
+        String pointer = This.Fresh("str");
+        This.Emit(pointer + " = getelementptr [" + length.ToString() + " x i8], ptr " + name + ", i64 0, i64 0");
+        String packed = This.Fresh("v");
+        This.Emit(packed + " = ptrtoint ptr " + pointer + " to i64");
+        Return packed;
+    }
+
+    Private Function CallRuntime(String symbol, List<String> args, Bool voidCall) -> IrValue {
+        String rendered = "";
+        Int index = 0;
+        For arg In args {
+            If (index > 0) { rendered = rendered + ", "; }
+            rendered = rendered + "i64 " + arg;
+            index = index + 1;
+        }
+        If (voidCall) {
+            This.Emit("call void @" + symbol + "(" + rendered + ")");
+            Return This.Pair("0", "Void");
+        }
+        String result = This.Fresh("v");
+        This.Emit(result + " = call i64 @" + symbol + "(" + rendered + ")");
+        Return This.Pair(result, "Int");
+    }
+
+    Private Function EmitBlock(AstNode node) -> Void {
+        Int mark = This.ScopeCount;
+        For child In node.Children { This.EmitStatement(child); }
+        This.ScopeCount = mark;
+    }
+
+    Private Function EmitStatement(AstNode node) -> Void {
+        If (This.Terminated) { Return; }
+        If (node.Kind == AstKind.Explain || node.Kind == AstKind.ExplainEntry) { Return; }
+        If (node.Kind == AstKind.Variable) {
+            String typeName = This.TypeName(node.Type);
+            String value = "0";
+            If (node.Initializer != Null) {
+                IrValue initial = This.EmitExpr(node.Initializer);
+                value = initial.Value;
+                If (typeName == "") { typeName = initial.TypeName; }
+            }
+            If (typeName == "") { typeName = "Int"; }
+            This.Alloca(node.Name, typeName, value);
+            Return;
+        }
+        If (node.Kind == AstKind.Return) {
+            If (This.IsVoid(This.ReturnType)) {
+                This.Emit("ret void");
+            } Else {
+                String value = "0";
+                If (node.Left != Null) {
+                    IrValue returned = This.EmitExpr(node.Left);
+                    value = returned.Value;
+                }
+                This.Emit("ret i64 " + value);
+            }
+            This.Terminated = True;
+            Return;
+        }
+        If (node.Kind == AstKind.Break && This.LoopCount > 0) {
+            This.Branch(This.LoopBreak[This.LoopCount - 1]);
+            Return;
+        }
+        If (node.Kind == AstKind.Continue && This.LoopCount > 0) {
+            This.Branch(This.LoopContinue[This.LoopCount - 1]);
+            Return;
+        }
+        If (node.Kind == AstKind.If) { This.EmitIf(node); Return; }
+        If (node.Kind == AstKind.While) { This.EmitWhile(node); Return; }
+        If (node.Kind == AstKind.For) { This.EmitFor(node); Return; }
+        If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
+        If (node.Kind == AstKind.ExpressionStatement) {
+            If (node.Left != Null) { This.EmitExpr(node.Left); }
+            Return;
+        }
+        If (node.Kind == AstKind.Assignment) { This.EmitAssignment(node); }
+    }
+
+    Private Function EmitIf(AstNode node) -> Void {
+        IrValue condition = This.EmitExpr(node.Condition);
+        String flag = This.Fresh("cond");
+        This.Emit(flag + " = icmp ne i64 " + condition.Value + ", 0");
+        String thenLabel = This.Label("then");
+        String elseLabel = This.Label("else");
+        String mergeLabel = This.Label("merge");
+        This.Emit("br i1 " + flag + ", label %" + thenLabel + ", label %" + elseLabel);
+        This.Terminated = True;
+        This.Block(thenLabel);
+        If (node.Body != Null) { This.EmitStatement(node.Body); }
+        If (!This.Terminated) { This.Branch(mergeLabel); }
+        This.Block(elseLabel);
+        If (node.Otherwise != Null) { This.EmitStatement(node.Otherwise); }
+        If (!This.Terminated) { This.Branch(mergeLabel); }
+        This.Block(mergeLabel);
+    }
+
+    Private Function EmitWhile(AstNode node) -> Void {
+        String head = This.Label("while");
+        String body = This.Label("wbody");
+        String done = This.Label("wend");
+        This.Branch(head);
+        This.Block(head);
+        IrValue condition = This.EmitExpr(node.Condition);
+        String flag = This.Fresh("cond");
+        This.Emit(flag + " = icmp ne i64 " + condition.Value + ", 0");
+        This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+        This.Terminated = True;
+        This.Block(body);
+        This.PushLoop(head, done);
+        If (node.Body != Null) { This.EmitStatement(node.Body); }
+        This.PopLoop();
+        If (!This.Terminated) { This.Branch(head); }
+        This.Block(done);
+    }
+
+    Private Function EmitFor(AstNode node) -> Void {
+        String itemName = "item";
+        If (node.Left != Null && node.Left.Name != "") { itemName = node.Left.Name; }
+        If (node.Right != Null && node.Right.Kind == AstKind.Range) {
+            IrValue start = This.EmitExpr(node.Right.Left);
+            IrValue end = This.EmitExpr(node.Right.Right);
+            This.Alloca(itemName, "Int", start.Value);
+            String head = This.Label("for");
+            String body = This.Label("fbody");
+            String step = This.Label("fstep");
+            String done = This.Label("fend");
+            This.Branch(head);
+            This.Block(head);
+            String current = This.LoadName(itemName);
+            String flag = This.Fresh("cond");
+            String op = "slt";
+            If (node.Right.Operator == "..=") { op = "sle"; }
+            This.Emit(flag + " = icmp " + op + " i64 " + current + ", " + end.Value);
+            This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+            This.Terminated = True;
+            This.Block(body);
+            This.PushLoop(step, done);
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            This.PopLoop();
+            If (!This.Terminated) { This.Branch(step); }
+            This.Block(step);
+            String now = This.LoadName(itemName);
+            String next = This.Fresh("v");
+            This.Emit(next + " = add i64 " + now + ", 1");
+            This.StoreName(itemName, next);
+            This.Branch(head);
+            This.Block(done);
+            Return;
+        }
+        IrValue collection = This.Pair("0", "List:Int");
+        If (node.Right != Null) { collection = This.EmitExpr(node.Right); }
+        This.Alloca(itemName, This.ElementType(collection.TypeName), "0");
+        String indexName = itemName + "#index";
+        This.Alloca(indexName, "Int", "0");
+        String total = This.LoadListCount(collection.Value);
+        String head = This.Label("for");
+        String body = This.Label("fbody");
+        String step = This.Label("fstep");
+        String done = This.Label("fend");
+        This.Branch(head);
+        This.Block(head);
+        String index = This.LoadName(indexName);
+        String flag = This.Fresh("cond");
+        This.Emit(flag + " = icmp slt i64 " + index + ", " + total);
+        This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+        This.Terminated = True;
+        This.Block(body);
+        String item = This.LoadListItem(collection.Value, This.LoadName(indexName));
+        This.StoreName(itemName, item);
+        This.PushLoop(step, done);
+        If (node.Body != Null) { This.EmitStatement(node.Body); }
+        This.PopLoop();
+        If (!This.Terminated) { This.Branch(step); }
+        This.Block(step);
+        String now = This.LoadName(indexName);
+        String next = This.Fresh("v");
+        This.Emit(next + " = add i64 " + now + ", 1");
+        This.StoreName(indexName, next);
+        This.Branch(head);
+        This.Block(done);
+    }
+
+    Private Function LoadName(String name) -> String {
+        IrValue found = This.Lookup(name);
+        If (found.Value == "") { Return "0"; }
+        Return This.LoadSlot(found.Value);
+    }
+
+    Private Function StoreName(String name, String value) -> Void {
+        IrValue found = This.Lookup(name);
+        If (found.Value == "") { Return; }
+        This.Emit("store i64 " + value + ", ptr " + found.Value);
+    }
+
+    Private Function EmitAssignment(AstNode node) -> Void {
+        IrValue value = This.EmitExpr(node.Right);
+        If (node.Left == Null) { Return; }
+        If (node.Left.Kind == AstKind.Name) {
+            This.StoreName(node.Left.Name, value.Value);
+            Return;
+        }
+        If (node.Left.Kind == AstKind.Member) {
+            IrValue receiver = This.EmitExpr(node.Left.Left);
+            Int index = This.FieldSlot(This.FindClass(receiver.TypeName), node.Left.Name);
+            If (index < 0) { index = 0; }
+            This.StoreObjectField(receiver.Value, index.ToString(), value.Value);
+            Return;
+        }
+        If (node.Left.Kind == AstKind.Index) {
+            IrValue collection = This.EmitExpr(node.Left.Left);
+            IrValue index = This.EmitExpr(node.Left.Right);
+            This.StoreListItem(collection.Value, index.Value, value.Value);
+        }
+    }
+
+    Private Function EmitExpr(AstNode node) -> IrValue {
+        If (node.Kind == AstKind.IntegerLiteral) { Return This.Pair(This.Digits(node.Text), "Int"); }
+        If (node.Kind == AstKind.FloatLiteral) { Return This.Pair("0", "Int"); }
+        If (node.Kind == AstKind.StringLiteral) { Return This.Pair(This.StringConst(node.Text), "String"); }
+        If (node.Kind == AstKind.CharLiteral) {
+            If (node.Text.Length() == 0) { Return This.Pair("0", "Char"); }
+            Return This.Pair(node.Text.GetChar(0).ToInt().ToString(), "Char");
+        }
+        If (node.Kind == AstKind.BooleanLiteral) {
+            If (node.FlagA) { Return This.Pair("1", "Bool"); }
+            Return This.Pair("0", "Bool");
+        }
+        If (node.Kind == AstKind.NullLiteral) { Return This.Pair("0", "Null"); }
+        If (node.Kind == AstKind.Name) {
+            If (node.Name == "True" && This.Lookup(node.Name).Value == "") { Return This.Pair("1", "Bool"); }
+            If (node.Name == "False" && This.Lookup(node.Name).Value == "") { Return This.Pair("0", "Bool"); }
+            IrValue found = This.Lookup(node.Name);
+            If (found.Value != "") { Return This.Pair(This.LoadSlot(found.Value), found.TypeName); }
+            ClassInfo info = This.FindClass(node.Name);
+            If (info.Name != "") { Return This.Pair("0", node.Name); }
+            Return This.Pair("0", "Int");
+        }
+        If (node.Kind == AstKind.Member) { Return This.EmitMember(node); }
+        If (node.Kind == AstKind.Call) { Return This.EmitCall(node); }
+        If (node.Kind == AstKind.Index) {
+            IrValue collection = This.EmitExpr(node.Left);
+            IrValue index = This.EmitExpr(node.Right);
+            Var args = List<String>();
+            args.Add(collection.Value);
+            args.Add(index.Value);
+            If (This.IsString(collection.TypeName)) {
+                IrValue value = This.CallRuntime("rx_str_get", args, False);
+                Return This.Pair(value.Value, "Char");
+            }
+            String value = This.LoadListItem(collection.Value, index.Value);
+            Return This.Pair(value, This.ElementType(collection.TypeName));
+        }
+        If (node.Kind == AstKind.Unary) {
+            IrValue value = This.EmitExpr(node.Left);
+            If (node.Operator == "!") {
+                String flag = This.Fresh("v");
+                This.Emit(flag + " = icmp eq i64 " + value.Value + ", 0");
+                String result = This.Fresh("v");
+                This.Emit(result + " = zext i1 " + flag + " to i64");
+                Return This.Pair(result, "Bool");
+            }
+            String result = This.Fresh("v");
+            This.Emit(result + " = sub i64 0, " + value.Value);
+            Return This.Pair(result, value.TypeName);
+        }
+        If (node.Kind == AstKind.Binary) { Return This.EmitBinary(node); }
+        If (node.Kind == AstKind.Assignment) {
+            This.EmitAssignment(node);
+            Return This.Pair("0", "Void");
+        }
+        Return This.Pair("0", "Int");
+    }
+
+    Private Function LoadObjectField(String object, String index) -> String {
+        String pointer = This.Fresh("p");
+        This.Emit(pointer + " = inttoptr i64 " + object + " to ptr");
+        String slot = This.Fresh("s");
+        This.Emit(slot + " = getelementptr i64, ptr " + pointer + ", i64 " + index);
+        String loaded = This.Fresh("v");
+        This.Emit(loaded + " = load i64, ptr " + slot);
+        Return loaded;
+    }
+
+    Private Function StoreObjectField(String object, String index, String value) -> Void {
+        String pointer = This.Fresh("p");
+        This.Emit(pointer + " = inttoptr i64 " + object + " to ptr");
+        String slot = This.Fresh("s");
+        This.Emit(slot + " = getelementptr i64, ptr " + pointer + ", i64 " + index);
+        This.Emit("store i64 " + value + ", ptr " + slot);
+    }
+
+    Private Function LoadListCount(String list) -> String {
+        String pointer = This.Fresh("p");
+        This.Emit(pointer + " = inttoptr i64 " + list + " to ptr");
+        String slot = This.Fresh("s");
+        This.Emit(slot + " = getelementptr i64, ptr " + pointer + ", i64 1");
+        String loaded = This.Fresh("v");
+        This.Emit(loaded + " = load i64, ptr " + slot);
+        Return loaded;
+    }
+
+    Private Function LoadListItem(String list, String index) -> String {
+        String pointer = This.Fresh("p");
+        This.Emit(pointer + " = inttoptr i64 " + list + " to ptr");
+        String items = This.Fresh("items");
+        This.Emit(items + " = load ptr, ptr " + pointer);
+        String slot = This.Fresh("s");
+        This.Emit(slot + " = getelementptr i64, ptr " + items + ", i64 " + index);
+        String loaded = This.Fresh("v");
+        This.Emit(loaded + " = load i64, ptr " + slot);
+        Return loaded;
+    }
+
+    Private Function StoreListItem(String list, String index, String value) -> Void {
+        String pointer = This.Fresh("p");
+        This.Emit(pointer + " = inttoptr i64 " + list + " to ptr");
+        String items = This.Fresh("items");
+        This.Emit(items + " = load ptr, ptr " + pointer);
+        String slot = This.Fresh("s");
+        This.Emit(slot + " = getelementptr i64, ptr " + items + ", i64 " + index);
+        This.Emit("store i64 " + value + ", ptr " + slot);
+    }
+
+    Private Function EmitMember(AstNode node) -> IrValue {
+        String target = node.Name;
+        If (node.Left != Null && node.Left.Kind == AstKind.Name && This.Lookup(node.Left.Name).Value == "") {
+            If (node.Left.Name == "ExitCode") {
+                Int code = This.ExitCodeValue(target);
+                If (code >= 0) { Return This.Pair(code.ToString(), "Int"); }
+            }
+            ClassInfo named = This.FindClass(node.Left.Name);
+            If (named.Name != "") {
+                Int ordinal = This.EnumValue(named, target);
+                If (ordinal >= 0) { Return This.Pair(ordinal.ToString(), "Int"); }
+            }
+        }
+        IrValue receiver = This.EmitExpr(node.Left);
+        ClassInfo info = This.FindClass(receiver.TypeName);
+        If (info.Name != "" && info.KindName == "Enum") { Return This.Pair(receiver.Value, "Int"); }
+        Int slot = This.FieldSlot(info, target);
+        If (info.Name != "" && slot >= 0) {
+            String loaded = This.LoadObjectField(receiver.Value, slot.ToString());
+            Return This.Pair(loaded, This.FieldType(info, target));
+        }
+        Return This.Pair(receiver.Value, receiver.TypeName);
+    }
+
+    Private Function EmitCall(AstNode node) -> IrValue {
+        Var arguments = List<String>();
+        Var types = List<String>();
+        For argument In node.Parameters {
+            AstNode valueNode = argument;
+            If (argument.Kind == AstKind.Argument && argument.Left != Null) { valueNode = argument.Left; }
+            IrValue value = This.EmitExpr(valueNode);
+            arguments.Add(value.Value);
+            types.Add(value.TypeName);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) { Return This.EmitNamedCall(node.Left, arguments, types); }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member) { Return This.EmitMethodCall(node.Left, arguments, types); }
+        Return This.Pair("0", "Int");
+    }
+
+    Private Function EmitNamedCall(AstNode left, List<String> arguments, List<String> types) -> IrValue {
+        If (left.Name == "Print") {
+            String kind = "0";
+            If (types.Count() > 0) { kind = This.PrintKind(types[0]).ToString(); }
+            Var args = List<String>();
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            args.Add(kind);
+            This.CallRuntime("rx_print", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (left.Name == "List") {
+            String element = "Int";
+            If (left.Children.Count() > 0) {
+                element = This.TypeName(left.Children[0]);
+                If (element == "") { element = "Int"; }
+            }
+            IrValue value = This.CallRuntime("rx_list_new", List<String>(), False);
+            Return This.Pair(value.Value, "List:" + element);
+        }
+        If (left.Name == "ExecutionResult") { Return This.MakeResult(arguments); }
+        If (left.Name == "RunProcess") {
+            Var args = List<String>();
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            IrValue value = This.CallRuntime("rx_process", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        ClassInfo info = This.FindClass(left.Name);
+        If (info.Name != "") { Return This.Construct(left.Name, info, arguments); }
+        FunctionInfo record = This.FindFunction(left.Name, This.FileName);
+        If (record.Name != "") {
+            If (record.IsExtern) {
+                IrValue value = This.CallRuntime(This.ExternSymbol(left.Name), arguments, False);
+                String ret = record.ReturnType;
+                If (ret == "") { ret = "Int"; }
+                Return This.Pair(value.Value, ret);
+            }
+            String symbol = This.FunctionSymbol(record.FileName, left.Name);
+            If (This.IsVoid(record.ReturnType)) {
+                This.CallRuntime(symbol, arguments, True);
+                Return This.Pair("0", "Void");
+            }
+            IrValue value = This.CallRuntime(symbol, arguments, False);
+            String ret = record.ReturnType;
+            If (ret == "") { ret = "Int"; }
+            Return This.Pair(value.Value, ret);
+        }
+        Return This.Pair("0", "Int");
+    }
+
+    Private Function MakeResult(List<String> arguments) -> IrValue {
+        Var created = List<String>();
+        created.Add("3");
+        IrValue value = This.CallRuntime("rx_obj_new", created, False);
+        String code = "0";
+        String message = "0";
+        String details = "0";
+        If (arguments.Count() > 0) { code = arguments[0]; }
+        If (arguments.Count() > 1) { message = arguments[1]; }
+        If (arguments.Count() > 2) { details = arguments[2]; }
+        This.SetField(value.Value, "0", code);
+        This.SetField(value.Value, "1", message);
+        This.SetField(value.Value, "2", details);
+        Return This.Pair(value.Value, "ExecutionResult");
+    }
+
+    Private Function Construct(String name, ClassInfo info, List<String> arguments) -> IrValue {
+        Int fields = info.Fields.Count();
+        If (fields < 1) { fields = 1; }
+        Var created = List<String>();
+        created.Add(fields.ToString());
+        IrValue value = This.CallRuntime("rx_obj_new", created, False);
+        AstNode ctor = AstNode();
+        Bool found = False;
+        For candidate In info.Constructors {
+            If (candidate.Parameters.Count() == arguments.Count()) {
+                ctor = candidate;
+                found = True;
+            }
+        }
+        If (found) {
+            Var args = List<String>();
+            args.Add(value.Value);
+            For argument In arguments { args.Add(argument); }
+            This.CallRuntime("rxm_" + name + "_new", args, True);
+        }
+        Return This.Pair(value.Value, name);
+    }
+
+    Private Function EmitMethodCall(AstNode member, List<String> arguments, List<String> types) -> IrValue {
+        If (member.Left != Null && member.Left.Kind == AstKind.Name && This.Lookup(member.Left.Name).Value == "") {
+            IrValue staticCall = This.EmitStaticCall(member.Left.Name, member.Name, arguments, types);
+            If (staticCall.TypeName != "Missing") { Return staticCall; }
+        }
+        IrValue receiver = This.EmitExpr(member.Left);
+        If (member.Name == "ToInt") { Return This.Pair(receiver.Value, "Int"); }
+        If (member.Name == "ToString") { Return This.ToStringValue(receiver.Value, receiver.TypeName); }
+        If (This.IsString(receiver.TypeName) && This.IsStringMethod(member.Name)) {
+            Return This.StringMethod(member.Name, receiver.Value, arguments);
+        }
+        If (This.IsList(receiver.TypeName) && This.IsListMethod(member.Name)) {
+            Return This.ListMethod(member.Name, receiver.Value, receiver.TypeName, arguments);
+        }
+        ClassInfo info = This.FindClass(receiver.TypeName);
+        MethodInfo method = This.FindMethod(info, member.Name);
+        If (method.Name != "") {
+            String symbol = "rxm_" + receiver.TypeName + "_" + member.Name;
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            For argument In arguments { args.Add(argument); }
+            If (This.IsVoid(method.ReturnType)) {
+                This.CallRuntime(symbol, args, True);
+                Return This.Pair("0", "Void");
+            }
+            IrValue value = This.CallRuntime(symbol, args, False);
+            String ret = method.ReturnType;
+            If (ret == "") { ret = "Int"; }
+            Return This.Pair(value.Value, ret);
+        }
+        If (member.Name == "Count") {
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            IrValue value = This.CallRuntime("rx_list_count", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        If (member.Name == "Add") {
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            This.CallRuntime("rx_list_add", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (member.Name == "Length") {
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            IrValue value = This.CallRuntime("rx_str_len", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        Return This.Pair("0", "Int");
+    }
+
+    Private Function EmitStaticCall(String owner, String method, List<String> arguments, List<String> types) -> IrValue {
+        If (owner == "String" && method == "From") {
+            String valueType = "Int";
+            If (types.Count() > 0) { valueType = types[0]; }
+            String value = "0";
+            If (arguments.Count() > 0) { value = arguments[0]; }
+            Return This.ToStringValue(value, valueType);
+        }
+        If (owner == "String" && method == "FromChars") {
+            Var args = List<String>();
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            IrValue value = This.CallRuntime("rx_str_from_chars", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (owner == "Char" && method == "From") {
+            If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Char"); }
+            Return This.Pair("0", "Char");
+        }
+        If (owner == "Byte" && method == "From") {
+            String value = "0";
+            If (arguments.Count() > 0) { value = arguments[0]; }
+            String result = This.Fresh("v");
+            This.Emit(result + " = and i64 " + value + ", 255");
+            Return This.Pair(result, "Int");
+        }
+        If (owner == "ExitCode" && method == "Custom") {
+            If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Int"); }
+            Return This.Pair("0", "Int");
+        }
+        If (owner == "Files") { Return This.FilesCall(method, arguments); }
+        If (owner == "Directory") { Return This.DirectoryCall(method, arguments); }
+        If (owner == "Environment" && method == "Get") {
+            Var args = List<String>();
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            IrValue value = This.CallRuntime("rx_env_get", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (owner == "Process" && method == "Run") {
+            Var args = List<String>();
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            IrValue value = This.CallRuntime("rx_process", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        Return This.Pair("0", "Missing");
+    }
+
+    Private Function FilesCall(String method, List<String> arguments) -> IrValue {
+        Var args = List<String>();
+        If (method == "ReadText" || method == "Exists" || method == "Delete") {
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+        } Else {
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() < 1) { args.Add("0"); }
+            If (arguments.Count() > 1) { args.Add(arguments[1]); }
+            If (arguments.Count() < 2) { args.Add("0"); }
+        }
+        If (method == "ReadText") {
+            IrValue value = This.CallRuntime("rx_file_read", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (method == "WriteText") {
+            This.CallRuntime("rx_file_write_text", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (method == "WriteBytes") {
+            This.CallRuntime("rx_file_write_bytes", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (method == "Exists") {
+            IrValue value = This.CallRuntime("rx_file_exists", args, False);
+            Return This.Pair(value.Value, "Bool");
+        }
+        If (method == "Delete") {
+            This.CallRuntime("rx_file_delete", args, True);
+            Return This.Pair("0", "Void");
+        }
+        Return This.Pair("0", "Void");
+    }
+
+    Private Function DirectoryCall(String method, List<String> arguments) -> IrValue {
+        Var args = List<String>();
+        If (arguments.Count() > 0) { args.Add(arguments[0]); }
+        If (arguments.Count() == 0) { args.Add("0"); }
+        If (method == "Create") {
+            This.CallRuntime("rx_dir_create", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (method == "Delete") {
+            This.CallRuntime("rx_dir_delete", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (method == "Exists") {
+            IrValue value = This.CallRuntime("rx_dir_exists", args, False);
+            Return This.Pair(value.Value, "Bool");
+        }
+        If (method == "Files") {
+            IrValue value = This.CallRuntime("rx_dir_files", args, False);
+            Return This.Pair(value.Value, "List:String");
+        }
+        Return This.Pair("0", "Void");
+    }
+
+    Private Function ToStringValue(String value, String valueType) -> IrValue {
+        If (This.IsString(valueType)) { Return This.Pair(value, "String"); }
+        Var args = List<String>();
+        args.Add(value);
+        If (valueType == "Bool") {
+            IrValue result = This.CallRuntime("rx_str_from_bool", args, False);
+            Return This.Pair(result.Value, "String");
+        }
+        If (valueType == "Char") {
+            IrValue result = This.CallRuntime("rx_str_from_char", args, False);
+            Return This.Pair(result.Value, "String");
+        }
+        IrValue result = This.CallRuntime("rx_str_from_int", args, False);
+        Return This.Pair(result.Value, "String");
+    }
+
+    Private Function StringMethod(String method, String receiver, List<String> arguments) -> IrValue {
+        Var args = List<String>();
+        args.Add(receiver);
+        If (method == "Length") {
+            IrValue value = This.CallRuntime("rx_str_len", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        If (method == "ToLower") {
+            IrValue value = This.CallRuntime("rx_str_lower", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (method == "ToUpper") {
+            IrValue value = This.CallRuntime("rx_str_upper", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (arguments.Count() > 0) { args.Add(arguments[0]); }
+        If (method == "StartsWith") {
+            IrValue value = This.CallRuntime("rx_str_starts", args, False);
+            Return This.Pair(value.Value, "Bool");
+        }
+        If (method == "EndsWith") {
+            IrValue value = This.CallRuntime("rx_str_ends", args, False);
+            Return This.Pair(value.Value, "Bool");
+        }
+        If (method == "Contains") {
+            IrValue value = This.CallRuntime("rx_str_contains", args, False);
+            Return This.Pair(value.Value, "Bool");
+        }
+        If (method == "IndexOf") {
+            If (arguments.Count() > 1) { args.Add(arguments[1]); }
+            If (arguments.Count() <= 1) { args.Add("0"); }
+            IrValue value = This.CallRuntime("rx_str_index", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        If (method == "LastIndexOf") {
+            If (arguments.Count() > 1) { args.Add(arguments[1]); }
+            If (arguments.Count() <= 1) { args.Add("-1"); }
+            IrValue value = This.CallRuntime("rx_str_rindex", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        If (method == "GetChar") {
+            IrValue value = This.CallRuntime("rx_str_get", args, False);
+            Return This.Pair(value.Value, "Char");
+        }
+        If (method == "ToInt") {
+            Var intArgs = List<String>();
+            intArgs.Add(receiver);
+            IrValue value = This.CallRuntime("rx_str_to_int", intArgs, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        If (method == "ToString") { Return This.Pair(receiver, "String"); }
+        If (method == "Replace") {
+            If (arguments.Count() > 1) { args.Add(arguments[1]); }
+            IrValue value = This.CallRuntime("rx_str_replace", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (method == "Substring") {
+            String start = "0";
+            If (arguments.Count() > 0) { start = arguments[0]; }
+            String length = "0";
+            If (arguments.Count() > 1) {
+                length = arguments[1];
+            } Else {
+                Var lenArgs = List<String>();
+                lenArgs.Add(receiver);
+                IrValue total = This.CallRuntime("rx_str_len", lenArgs, False);
+                length = This.Fresh("v");
+                This.Emit(length + " = sub i64 " + total.Value + ", " + start);
+            }
+            Var subArgs = List<String>();
+            subArgs.Add(receiver);
+            subArgs.Add(start);
+            subArgs.Add(length);
+            IrValue value = This.CallRuntime("rx_str_substr", subArgs, False);
+            Return This.Pair(value.Value, "String");
+        }
+        Return This.Pair("0", "Int");
+    }
+
+    Private Function ListMethod(String method, String receiver, String receiverType, List<String> arguments) -> IrValue {
+        If (method == "Add") {
+            Var args = List<String>();
+            args.Add(receiver);
+            If (arguments.Count() > 0) { args.Add(arguments[0]); }
+            If (arguments.Count() == 0) { args.Add("0"); }
+            This.CallRuntime("rx_list_add", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (method == "Count") {
+            String value = This.LoadListCount(receiver);
+            Return This.Pair(value, "Int");
+        }
+        If (method == "ToArray") { Return This.Pair(receiver, receiverType); }
+        Return This.Pair("0", "Int");
+    }
+
+    Private Function EmitBinary(AstNode node) -> IrValue {
+        If (node.Operator == "&&") { Return This.ShortCircuit(node, False); }
+        If (node.Operator == "||") { Return This.ShortCircuit(node, True); }
+        IrValue left = This.EmitExpr(node.Left);
+        IrValue right = This.EmitExpr(node.Right);
+        If (node.Operator == "+") {
+            If (This.IsString(left.TypeName) || This.IsString(right.TypeName)) {
+                String leftValue = left.Value;
+                String rightValue = right.Value;
+                If (!This.IsString(left.TypeName)) {
+                    IrValue converted = This.ToStringValue(left.Value, left.TypeName);
+                    leftValue = converted.Value;
+                }
+                If (!This.IsString(right.TypeName)) {
+                    IrValue converted = This.ToStringValue(right.Value, right.TypeName);
+                    rightValue = converted.Value;
+                }
+                Var args = List<String>();
+                args.Add(leftValue);
+                args.Add(rightValue);
+                IrValue value = This.CallRuntime("rx_str_concat", args, False);
+                Return This.Pair(value.Value, "String");
+            }
+            String result = This.Fresh("v");
+            This.Emit(result + " = add i64 " + left.Value + ", " + right.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (node.Operator == "-") {
+            String result = This.Fresh("v");
+            This.Emit(result + " = sub i64 " + left.Value + ", " + right.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (node.Operator == "*") {
+            String result = This.Fresh("v");
+            This.Emit(result + " = mul i64 " + left.Value + ", " + right.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (node.Operator == "/") {
+            String result = This.Fresh("v");
+            This.Emit(result + " = sdiv i64 " + left.Value + ", " + right.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (node.Operator == "%") {
+            String result = This.Fresh("v");
+            This.Emit(result + " = srem i64 " + left.Value + ", " + right.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (node.Operator == "==" || node.Operator == "!=") {
+            If (This.IsString(left.TypeName) || This.IsString(right.TypeName)) {
+                Var args = List<String>();
+                args.Add(left.Value);
+                args.Add(right.Value);
+                IrValue value = This.CallRuntime("rx_str_eq", args, False);
+                If (node.Operator == "!=") {
+                    String result = This.Fresh("v");
+                    This.Emit(result + " = xor i64 " + value.Value + ", 1");
+                    Return This.Pair(result, "Bool");
+                }
+                Return This.Pair(value.Value, "Bool");
+            }
+            String predicate = "eq";
+            If (node.Operator == "!=") { predicate = "ne"; }
+            String flag = This.Fresh("v");
+            This.Emit(flag + " = icmp " + predicate + " i64 " + left.Value + ", " + right.Value);
+            String result = This.Fresh("v");
+            This.Emit(result + " = zext i1 " + flag + " to i64");
+            Return This.Pair(result, "Bool");
+        }
+        String predicate = "slt";
+        If (node.Operator == ">") { predicate = "sgt"; }
+        If (node.Operator == "<=") { predicate = "sle"; }
+        If (node.Operator == ">=") { predicate = "sge"; }
+        String flag = This.Fresh("v");
+        This.Emit(flag + " = icmp " + predicate + " i64 " + left.Value + ", " + right.Value);
+        String result = This.Fresh("v");
+        This.Emit(result + " = zext i1 " + flag + " to i64");
+        Return This.Pair(result, "Bool");
+    }
+
+    Private Function ShortCircuit(AstNode node, Bool isOr) -> IrValue {
+        IrValue left = This.EmitExpr(node.Left);
+        String rightLabel = This.Label("rhs");
+        String mergeLabel = This.Label("logic");
+        String resultSlot = This.Fresh("logic");
+        This.Emit(resultSlot + " = alloca i64");
+        String flag = This.Fresh("cond");
+        This.Emit(flag + " = icmp ne i64 " + left.Value + ", 0");
+        If (isOr) {
+            This.Emit("store i64 1, ptr " + resultSlot);
+            This.Emit("br i1 " + flag + ", label %" + mergeLabel + ", label %" + rightLabel);
+        } Else {
+            This.Emit("store i64 0, ptr " + resultSlot);
+            This.Emit("br i1 " + flag + ", label %" + rightLabel + ", label %" + mergeLabel);
+        }
+        This.Terminated = True;
+        This.Block(rightLabel);
+        IrValue right = This.EmitExpr(node.Right);
+        String rightFlag = This.Fresh("cond");
+        This.Emit(rightFlag + " = icmp ne i64 " + right.Value + ", 0");
+        String rightValue = This.Fresh("v");
+        This.Emit(rightValue + " = zext i1 " + rightFlag + " to i64");
+        This.Emit("store i64 " + rightValue + ", ptr " + resultSlot);
+        This.Branch(mergeLabel);
+        This.Block(mergeLabel);
+        Return This.Pair(This.LoadSlot(resultSlot), "Bool");
+    }
+
+    Private Function JoinFunction() -> String {
+        This.Serial = This.Serial + 1;
+        String serial = This.Serial.ToString();
+        String globals = "";
+        Int index = 0;
+        For text In This.Strings {
+            index = index + 1;
+            EscapeText escaped = This.Escape(text);
+            Int length = escaped.Bytes + 1;
+            globals = globals + "@.str." + serial + "." + index.ToString() + " = private unnamed_addr constant [" + length.ToString() + " x i8] c\"" + escaped.Text + "\\00\"\n";
+        }
+        String body = "";
+        For line In This.Lines { body = body + line + "\n"; }
+        Int replaceIndex = This.Strings.Count();
+        While (replaceIndex > 0) {
+            body = body.Replace("@str" + replaceIndex.ToString(), "@.str." + serial + "." + replaceIndex.ToString());
+            replaceIndex = replaceIndex - 1;
+        }
+        Return globals + body + "\n";
+    }
+
+    Private Function SetField(String object, String index, String value) -> Void {
+        This.StoreObjectField(object, index, value);
+    }
+
+    Private Function PushLoop(String cont, String brk) -> Void {
+        If (This.LoopCount < This.LoopContinue.Count()) {
+            This.LoopContinue[This.LoopCount] = cont;
+            This.LoopBreak[This.LoopCount] = brk;
+        } Else {
+            This.LoopContinue.Add(cont);
+            This.LoopBreak.Add(brk);
+        }
+        This.LoopCount = This.LoopCount + 1;
+    }
+
+    Private Function PopLoop() -> Void {
+        This.LoopCount = This.LoopCount - 1;
+    }
+
+    Private Function IsDefined(String symbol) -> Bool {
+        For name In This.Defined {
+            If (name == symbol) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function AddDefined(String symbol) -> Void {
+        This.Defined.Add(symbol);
+    }
+
+    Private Function FindMethod(ClassInfo info, String name) -> MethodInfo {
+        For method In info.Methods {
+            If (method.Name == name) { Return method; }
+        }
+        Return MethodInfo();
+    }
+
+    Private Function FieldSlot(ClassInfo info, String name) -> Int {
+        Int index = 0;
+        For field In info.Fields {
+            If (field == name) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function FieldType(ClassInfo info, String name) -> String {
+        Int index = 0;
+        For field In info.Fields {
+            If (field == name) { Return info.FieldTypes[index]; }
+            index = index + 1;
+        }
+        Return "Int";
+    }
+
+    Private Function EnumValue(ClassInfo info, String name) -> Int {
+        Int index = 0;
+        For item In info.EnumNames {
+            If (item == name) { Return info.EnumValues[index]; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Pair(String value, String typeName) -> IrValue {
+        IrValue item = IrValue();
+        item.Value = value;
+        item.TypeName = typeName;
+        Return item;
+    }
+
+    Private Function TypeName(AstNode? node) -> String {
+        If (node == Null) { Return ""; }
+        String name = node.Name;
+        If (name == "Args") { Return "List:String"; }
+        If (name == "List") {
+            String element = "Int";
+            If (node.Children.Count() > 0) {
+                element = This.TypeName(node.Children[0]);
+                If (element == "") { element = "Int"; }
+            }
+            Return "List:" + element;
+        }
+        If (name.EndsWith("?")) { Return name.Substring(0, name.Length() - 1); }
+        Return name;
+    }
+
+    Private Function IsVoid(String typeName) -> Bool {
+        Return typeName == "" || typeName == "Void";
+    }
+
+    Private Function IsString(String typeName) -> Bool {
+        Return typeName == "String";
+    }
+
+    Private Function IsList(String typeName) -> Bool {
+        Return typeName.StartsWith("List:");
+    }
+
+    Private Function ElementType(String typeName) -> String {
+        If (!This.IsList(typeName)) { Return "Int"; }
+        Return typeName.Substring(5);
+    }
+
+    Private Function Stem(String fileName) -> String {
+        String stemText = fileName;
+        Int slash = fileName.LastIndexOf("/");
+        If (slash >= 0) { stemText = fileName.Substring(slash + 1); }
+        If (stemText.EndsWith(".rx")) { stemText = stemText.Substring(0, stemText.Length() - 3); }
+        String cleaned = "";
+        Int index = 0;
+        While (index < stemText.Length()) {
+            Int code = stemText.GetChar(index).ToInt();
+            If ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                cleaned = cleaned + stemText.Substring(index, 1);
+            } Else {
+                cleaned = cleaned + "_";
+            }
+            index = index + 1;
+        }
+        Return cleaned;
+    }
+
+    Private Function SafeArg(String name) -> String {
+        String cleaned = "";
+        Int index = 0;
+        While (index < name.Length()) {
+            Int code = name.GetChar(index).ToInt();
+            If ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                cleaned = cleaned + name.Substring(index, 1);
+            } Else {
+                cleaned = cleaned + "_";
+            }
+            index = index + 1;
+        }
+        If (cleaned == "") { cleaned = "arg"; }
+        Return "p_" + cleaned;
+    }
+
+    Private Function Digits(String text) -> String {
+        String cleaned = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            Int code = text.GetChar(index).ToInt();
+            If (code == 45 || (code >= 48 && code <= 57)) { cleaned = cleaned + text.Substring(index, 1); }
+            index = index + 1;
+        }
+        If (cleaned == "" || cleaned == "-") { Return "0"; }
+        Return cleaned;
+    }
+
+    Private Function PrintKind(String typeName) -> Int {
+        If (typeName == "String") { Return 1; }
+        If (typeName == "Bool") { Return 2; }
+        If (typeName == "Char") { Return 3; }
+        Return 0;
+    }
+
+    Private Function ExternSymbol(String name) -> String {
+        If (name == "RunProcess") { Return "rx_process"; }
+        Return "rx_" + name;
+    }
+
+    Private Function ExitCodeValue(String name) -> Int {
+        If (name == "Success" || name == "SuccessfulExecution") { Return 0; }
+        If (name == "WarningExecution") { Return 1; }
+        If (name == "ErrorExecution") { Return 2; }
+        If (name == "FatalErrorExecution") { Return 3; }
+        If (name == "InvalidArguments") { Return 4; }
+        If (name == "PermissionDenied") { Return 5; }
+        If (name == "ResourceUnavailable") { Return 6; }
+        Return -1;
+    }
+
+    Private Function IsStringMethod(String name) -> Bool {
+        Return name == "Length" || name == "Substring" || name == "GetChar" || name == "ToLower" || name == "ToUpper" || name == "StartsWith" || name == "EndsWith" || name == "Replace" || name == "IndexOf" || name == "LastIndexOf" || name == "Contains" || name == "ToInt" || name == "ToFloat" || name == "ToString";
+    }
+
+    Private Function IsListMethod(String name) -> Bool {
+        Return name == "Add" || name == "Count" || name == "ToArray";
+    }
+
+    Private Function Escape(String text) -> EscapeText {
+        EscapeText result = EscapeText();
+        Int index = 0;
+        While (index < text.Length()) {
+            Int code = text.GetChar(index).ToInt();
+            If (code == 92) {
+                result.Text = result.Text + "\\\\";
+                result.Bytes = result.Bytes + 1;
+            } Else If (code == 34) {
+                result.Text = result.Text + "\\22";
+                result.Bytes = result.Bytes + 1;
+            } Else If (code == 10) {
+                result.Text = result.Text + "\\0A";
+                result.Bytes = result.Bytes + 1;
+            } Else If (code == 13) {
+                result.Text = result.Text + "\\0D";
+                result.Bytes = result.Bytes + 1;
+            } Else If (code == 9) {
+                result.Text = result.Text + "\\09";
+                result.Bytes = result.Bytes + 1;
+            } Else If (code == 0) {
+                result.Text = result.Text + "\\00";
+                result.Bytes = result.Bytes + 1;
+            } Else If (code >= 32 && code < 127) {
+                result.Text = result.Text + text.Substring(index, 1);
+                result.Bytes = result.Bytes + 1;
+            } Else {
+                result = This.AppendUtf8(result, code);
+            }
+            index = index + 1;
+        }
+        Return result;
+    }
+
+    Private Function AppendUtf8(EscapeText result, Int code) -> EscapeText {
+        If (code < 128) {
+            result.Text = result.Text + This.HexByte(code);
+            result.Bytes = result.Bytes + 1;
+            Return result;
+        }
+        If (code < 2048) {
+            result.Text = result.Text + This.HexByte(192 + code / 64) + This.HexByte(128 + code % 64);
+            result.Bytes = result.Bytes + 2;
+            Return result;
+        }
+        If (code < 65536) {
+            result.Text = result.Text + This.HexByte(224 + code / 4096) + This.HexByte(128 + (code / 64) % 64) + This.HexByte(128 + code % 64);
+            result.Bytes = result.Bytes + 3;
+            Return result;
+        }
+        result.Text = result.Text + This.HexByte(240 + code / 262144) + This.HexByte(128 + (code / 4096) % 64) + This.HexByte(128 + (code / 64) % 64) + This.HexByte(128 + code % 64);
+        result.Bytes = result.Bytes + 4;
+        Return result;
+    }
+
+    Private Function HexByte(Int value) -> String {
+        Int high = value / 16;
+        Int low = value % 16;
+        Return "\\" + This.HexDigit(high) + This.HexDigit(low);
+    }
+
+    Private Function HexDigit(Int value) -> String {
+        If (value < 10) { Return value.ToString(); }
+        If (value == 10) { Return "A"; }
+        If (value == 11) { Return "B"; }
+        If (value == 12) { Return "C"; }
+        If (value == 13) { Return "D"; }
+        If (value == 14) { Return "E"; }
+        Return "F";
+    }
+}

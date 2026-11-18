@@ -1,0 +1,37 @@
+// Casts, type tests, Option, Result, and null-coalescing.
+Package Robotics.Patterns;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Narrow values with type tests and match Option.";
+    Input: args = "Command-line arguments";
+    Processing: "Cast a float, test a dynamic payload, and match Some.";
+    Output: "The value stored in the option.";
+} {
+    Var valueAsFloat = 3.0f32;
+    Int castValue = Int(valueAsFloat);
+    Var universal: Any = "text";
+    If (valueAsFloat Is Float) {
+        Print("float");
+    }
+    If (universal Is String textValue) {
+        Print(textValue);
+    }
+    Let checkedCast = universal.As<String>();
+    String? optionalUser = "RoboUser";
+    If (optionalUser != Null) {
+        Print(optionalUser);
+    }
+    Let displayName = optionalUser ?? "Unknown";
+    Option<Int> optionalValue = Some(5);
+    Match optionalValue {
+        Some(value) => Print(value),
+        None() => Print("No value"),
+        _ => Print("other")
+    }
+    Print(displayName);
+    Return castValue;
+}

@@ -1,0 +1,16 @@
+// A single lexeme produced from Robix source.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Struct Token {
+    Public TokenKind Kind;
+    Public String Text;
+    Public Int Line;
+    Public Int Column;
+    Public Int Length;
+    Public Bool IsInterpolated;
+    Public Bool IsRaw;
+    Public Bool IsMultiline;
+}

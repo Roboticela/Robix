@@ -1,0 +1,35 @@
+// Widths, suffixes, aliases, structs, and data-carrying enums.
+Package Robotics.Types;
+
+Import Robix.Core;
+
+
+Type RoboSpeed = Int;
+
+Struct RoboPoint {
+    Public Float X;
+    Public Float Y;
+}
+
+Enum RoboPinMode {
+    Input,
+    Output,
+    Alternate(Int pinNumber)
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Convert a literal and build a point.";
+    Input: args = "Command-line arguments";
+    Processing: "Convert text to an integer and construct a RoboPoint.";
+    Output: "The converted integer.";
+} {
+    Int integerValue = 42;
+    String numberText = integerValue.ToString();
+    Int textNumber = "123".ToInt();
+    Int<24> customWidth = Int<24>.From(100);
+    RoboPoint point = RoboPoint { X: 1.0, Y: 2.0 };
+    Print(numberText);
+    Print(point.X);
+    Return textNumber;
+}

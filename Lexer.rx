@@ -1,0 +1,619 @@
+// Lexer for the complete Robix syntax.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Class Lexer {
+    Private String source;
+    Private Int index;
+    Private Int line;
+    Private Int column;
+    Private List<Token> tokens;
+    Private DiagnosticBag diagnostics;
+    Private List<String> keywordLower;
+    Private List<String> keywordCanonical;
+    Private List<TokenKind> keywordKinds;
+
+    Public Constructor(String source, DiagnosticBag diagnostics) {
+        This.source = source;
+        This.index = 0;
+        This.line = 1;
+        This.column = 1;
+        This.tokens = List<Token>();
+        This.diagnostics = diagnostics;
+        This.keywordLower = List<String>();
+        This.keywordCanonical = List<String>();
+        This.keywordKinds = List<TokenKind>();
+        This.RegisterKeywords();
+    }
+
+    Public Function Tokenize() -> List<Token>
+    Explain {
+        Description: "Turn Robix source text into a token list ending with end of file.";
+        Input: None;
+        Processing: "Skip whitespace and comments, then read each literal, name, and operator.";
+        Output: "The tokens in source order.";
+    } {
+        While (This.index < This.source.Length()) {
+            This.SkipTrivia();
+            If (This.index >= This.source.Length()) {
+                Break;
+            }
+            This.ReadToken();
+        }
+        This.Add(TokenKind.EndOfFile, "", False, False, False);
+        Return This.tokens;
+    }
+
+    Private Function Register(String canonical, TokenKind kind) -> Void {
+        This.keywordLower.Add(canonical.ToLower());
+        This.keywordCanonical.Add(canonical);
+        This.keywordKinds.Add(kind);
+    }
+
+    Private Function RegisterKeywords() -> Void {
+        This.Register("Package", TokenKind.Package);
+        This.Register("Import", TokenKind.Import);
+        This.Register("As", TokenKind.As);
+        This.Register("Permissions", TokenKind.Permissions);
+        This.Register("Let", TokenKind.Let);
+        This.Register("Var", TokenKind.Var);
+        This.Register("Const", TokenKind.Const);
+        This.Register("Function", TokenKind.Function);
+        This.Register("Public", TokenKind.Public);
+        This.Register("Private", TokenKind.Private);
+        This.Register("Protected", TokenKind.Protected);
+        This.Register("Internal", TokenKind.Internal);
+        This.Register("Explain", TokenKind.Explain);
+        This.Register("Return", TokenKind.Return);
+        This.Register("Async", TokenKind.Async);
+        This.Register("Await", TokenKind.Await);
+        This.Register("Iterator", TokenKind.Iterator);
+        This.Register("Yield", TokenKind.Yield);
+        This.Register("Consteval", TokenKind.Consteval);
+        This.Register("Params", TokenKind.Params);
+        This.Register("Mut", TokenKind.Mut);
+        This.Register("Ref", TokenKind.Ref);
+        This.Register("Class", TokenKind.Class);
+        This.Register("Struct", TokenKind.Struct);
+        This.Register("Interface", TokenKind.Interface);
+        This.Register("Trait", TokenKind.Trait);
+        This.Register("Enum", TokenKind.Enum);
+        This.Register("Service", TokenKind.Service);
+        This.Register("Implement", TokenKind.Implement);
+        This.Register("Implements", TokenKind.Implements);
+        This.Register("Connect", TokenKind.Connect);
+        This.Register("Abstract", TokenKind.Abstract);
+        This.Register("Override", TokenKind.Override);
+        This.Register("Virtual", TokenKind.Virtual);
+        This.Register("Sealed", TokenKind.Sealed);
+        This.Register("Final", TokenKind.Final);
+        This.Register("Static", TokenKind.Static);
+        This.Register("Partial", TokenKind.Partial);
+        This.Register("Constructor", TokenKind.Constructor);
+        This.Register("Destructor", TokenKind.Destructor);
+        This.Register("Base", TokenKind.Base);
+        This.Register("This", TokenKind.This);
+        This.Register("If", TokenKind.If);
+        This.Register("Else", TokenKind.Else);
+        This.Register("Match", TokenKind.Match);
+        This.Register("For", TokenKind.For);
+        This.Register("In", TokenKind.In);
+        This.Register("While", TokenKind.While);
+        This.Register("Do", TokenKind.Do);
+        This.Register("Repeat", TokenKind.Repeat);
+        This.Register("Loop", TokenKind.Loop);
+        This.Register("Break", TokenKind.Break);
+        This.Register("Continue", TokenKind.Continue);
+        This.Register("Try", TokenKind.Try);
+        This.Register("Catch", TokenKind.Catch);
+        This.Register("Finally", TokenKind.Finally);
+        This.Register("Throw", TokenKind.Throw);
+        This.Register("Defer", TokenKind.Defer);
+        This.Register("Using", TokenKind.Using);
+        This.Register("Unsafe", TokenKind.Unsafe);
+        This.Register("Lock", TokenKind.Lock);
+        This.Register("ASM", TokenKind.Asm);
+        This.Register("Goto", TokenKind.Goto);
+        This.Register("Operator", TokenKind.Operator);
+        This.Register("Precedence", TokenKind.Precedence);
+        This.Register("LeftAssociative", TokenKind.LeftAssociative);
+        This.Register("RightAssociative", TokenKind.RightAssociative);
+        This.Register("And", TokenKind.And);
+        This.Register("Or", TokenKind.Or);
+        This.Register("Not", TokenKind.Not);
+        This.Register("Equal", TokenKind.Equal);
+        This.Register("Is", TokenKind.Is);
+        This.Register("Where", TokenKind.Where);
+        This.Register("Type", TokenKind.Type);
+        This.Register("Macro", TokenKind.Macro);
+        This.Register("Extern", TokenKind.Extern);
+        This.Register("CallingConvention", TokenKind.CallingConvention);
+        This.Register("True", TokenKind.True);
+        This.Register("False", TokenKind.False);
+        This.Register("Null", TokenKind.Null);
+        This.Register("Void", TokenKind.Void);
+        This.Register("Any", TokenKind.Any);
+        This.Register("Dynamic", TokenKind.Dynamic);
+        This.Register("Int", TokenKind.Int);
+        This.Register("UInt", TokenKind.UInt);
+        This.Register("Float", TokenKind.Float);
+        This.Register("Double", TokenKind.Double);
+        This.Register("Decimal", TokenKind.Decimal);
+        This.Register("Bool", TokenKind.Bool);
+        This.Register("Char", TokenKind.Char);
+        This.Register("String", TokenKind.String);
+        This.Register("Out", TokenKind.Out);
+        This.Register("Clobber", TokenKind.Clobber);
+    }
+
+    Private Function SkipTrivia() -> Void {
+        While (This.index < This.source.Length()) {
+            Char character = This.source.GetChar(This.index);
+            If (character == ' ' || character == '\t' || character == '\r') {
+                This.AdvanceChar();
+            } Else If (character == '\n') {
+                This.AdvanceChar();
+            } Else If (character == '/' && This.PeekChar(1) == '/') {
+                This.AdvanceChar();
+                This.AdvanceChar();
+                While (This.index < This.source.Length() && This.source.GetChar(This.index) != '\n') {
+                    This.AdvanceChar();
+                }
+            } Else If (character == '/' && This.PeekChar(1) == '*') {
+                Int startLine = This.line;
+                Int startColumn = This.column;
+                This.AdvanceChar();
+                This.AdvanceChar();
+                Bool closed = False;
+                While (This.index < This.source.Length()) {
+                    If (This.source.GetChar(This.index) == '*' && This.PeekChar(1) == '/') {
+                        This.AdvanceChar();
+                        This.AdvanceChar();
+                        closed = True;
+                        Break;
+                    }
+                    This.AdvanceChar();
+                }
+                If (!closed) {
+                    This.diagnostics.Error("RX001", "Unclosed block comment.", startLine, startColumn);
+                }
+            } Else {
+                Break;
+            }
+        }
+    }
+
+    Private Function ReadToken() -> Void {
+        Char character = This.source.GetChar(This.index);
+        If ((character == 'r' || character == 'R') && (This.PeekChar(1) == '"' || (This.PeekChar(1) == '$' && This.PeekChar(2) == '"'))) {
+            This.AdvanceChar();
+            Bool interpolated = False;
+            If (This.PeekChar(0) == '$') {
+                interpolated = True;
+                This.AdvanceChar();
+            }
+            This.ReadString(interpolated, True);
+            Return;
+        }
+        If (character == '$' && This.PeekChar(1) == '"') {
+            This.AdvanceChar();
+            This.ReadString(True, False);
+            Return;
+        }
+        If (This.IsIdentifierStart(character)) {
+            This.ReadIdentifierOrKeyword();
+            Return;
+        }
+        If (This.IsDigit(character)) {
+            This.ReadNumber();
+            Return;
+        }
+        If (character == '"') {
+            This.ReadString(False, False);
+            Return;
+        }
+        If (character == '\'') {
+            This.ReadChar();
+            Return;
+        }
+        This.ReadOperatorOrDelimiter();
+    }
+
+    Private Function ReadIdentifierOrKeyword() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        While (This.index < This.source.Length() && This.IsIdentifierPart(This.source.GetChar(This.index))) {
+            This.AdvanceChar();
+        }
+        String text = This.source.Substring(start, This.index - start);
+        TokenKind kind = TokenKind.Identifier;
+        Int found = 0;
+        Bool matched = False;
+        String lower = text.ToLower();
+        While (found < This.keywordLower.Count()) {
+            If (This.keywordLower[found] == lower) {
+                matched = True;
+                Break;
+            }
+            found = found + 1;
+        }
+        If (matched) {
+            kind = This.keywordKinds[found];
+            If (text != This.keywordCanonical[found]) {
+                This.diagnostics.Warning(
+                    "RX005",
+                    "Keyword '" + text + "' should be written '" + This.keywordCanonical[found] + "'.",
+                    startLine,
+                    startColumn
+                );
+            }
+        }
+        Token token = Token();
+        token.Kind = kind;
+        token.Text = text;
+        token.Line = startLine;
+        token.Column = startColumn;
+        token.Length = text.Length();
+        token.IsInterpolated = False;
+        token.IsRaw = False;
+        token.IsMultiline = False;
+        This.tokens.Add(token);
+    }
+
+    Private Function ReadNumber() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        Bool isFloat = False;
+        If (This.source.GetChar(This.index) == '0' && This.index + 1 < This.source.Length()) {
+            Char marker = This.source.GetChar(This.index + 1);
+            If (marker == 'x' || marker == 'X' || marker == 'b' || marker == 'B' || marker == 'o' || marker == 'O') {
+                This.AdvanceChar();
+                This.AdvanceChar();
+                While (This.index < This.source.Length()) {
+                    Char digit = This.source.GetChar(This.index);
+                    If (This.IsDigit(digit) || digit == '_' || DigitValue(digit) >= 0) {
+                        This.AdvanceChar();
+                    } Else {
+                        Break;
+                    }
+                }
+            }
+        }
+        If (This.index == start) {
+            While (This.index < This.source.Length()) {
+                Char digit = This.source.GetChar(This.index);
+                If (This.IsDigit(digit) || digit == '_') {
+                    This.AdvanceChar();
+                } Else {
+                    Break;
+                }
+            }
+        }
+        If (This.index < This.source.Length() && This.source.GetChar(This.index) == '.' && This.PeekChar(1) != '.' && This.IsDigit(This.PeekChar(1))) {
+            isFloat = True;
+            This.AdvanceChar();
+            While (This.index < This.source.Length()) {
+                Char digit = This.source.GetChar(This.index);
+                If (This.IsDigit(digit) || digit == '_') {
+                    This.AdvanceChar();
+                } Else {
+                    Break;
+                }
+            }
+        }
+        If (This.index < This.source.Length()) {
+            Char marker = This.source.GetChar(This.index);
+            If (marker == 'e' || marker == 'E') {
+                Int saved = This.index;
+                Int savedLine = This.line;
+                Int savedColumn = This.column;
+                This.AdvanceChar();
+                If (This.index < This.source.Length() && (This.source.GetChar(This.index) == '+' || This.source.GetChar(This.index) == '-')) {
+                    This.AdvanceChar();
+                }
+                If (This.index < This.source.Length() && This.IsDigit(This.source.GetChar(This.index))) {
+                    isFloat = True;
+                    While (This.index < This.source.Length() && (This.IsDigit(This.source.GetChar(This.index)) || This.source.GetChar(This.index) == '_')) {
+                        This.AdvanceChar();
+                    }
+                } Else {
+                    This.index = saved;
+                    This.line = savedLine;
+                    This.column = savedColumn;
+                }
+            }
+        }
+        While (This.index < This.source.Length() && This.IsSuffixChar(This.source.GetChar(This.index))) {
+            Char suffixChar = This.source.GetChar(This.index);
+            If (This.IsDigit(suffixChar)) {
+                This.AdvanceChar();
+            } Else If (suffixChar == 'i' || suffixChar == 'u' || suffixChar == 'f' || suffixChar == 'd' || suffixChar == 'm' || suffixChar == 'I' || suffixChar == 'U' || suffixChar == 'F' || suffixChar == 'D' || suffixChar == 'M') {
+                This.AdvanceChar();
+            } Else {
+                Break;
+            }
+        }
+        String text = This.source.Substring(start, This.index - start);
+        Token token = Token();
+        If (isFloat) {
+            token.Kind = TokenKind.FloatLiteral;
+        } Else {
+            token.Kind = TokenKind.IntegerLiteral;
+        }
+        token.Text = text;
+        token.Line = startLine;
+        token.Column = startColumn;
+        token.Length = text.Length();
+        This.tokens.Add(token);
+    }
+
+    Private Function ReadString(Bool interpolated, Bool raw) -> Void {
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        Bool multiline = False;
+        If (This.StartsWith("\"\"\"")) {
+            multiline = True;
+            This.AdvanceChar();
+            This.AdvanceChar();
+            This.AdvanceChar();
+        } Else {
+            This.AdvanceChar();
+        }
+        Var chars = List<Char>();
+        Bool closed = False;
+        While (This.index < This.source.Length()) {
+            If (multiline && This.StartsWith("\"\"\"")) {
+                This.AdvanceChar();
+                This.AdvanceChar();
+                This.AdvanceChar();
+                closed = True;
+                Break;
+            }
+            If (!multiline && This.source.GetChar(This.index) == '"') {
+                This.AdvanceChar();
+                closed = True;
+                Break;
+            }
+            Char character = This.source.GetChar(This.index);
+            If (!raw && character == '\\') {
+                This.AdvanceChar();
+                If (This.index >= This.source.Length()) {
+                    Break;
+                }
+                Char escaped = This.source.GetChar(This.index);
+                This.AdvanceChar();
+                If (escaped == 'n') { chars.Add('\n'); }
+                Else If (escaped == 'r') { chars.Add('\r'); }
+                Else If (escaped == 't') { chars.Add('\t'); }
+                Else If (escaped == '0') { chars.Add('\0'); }
+                Else If (escaped == '\\' || escaped == '"' || escaped == '\'') { chars.Add(escaped); }
+                Else If (escaped == 'u') {
+                    Int code = 0;
+                    Int count = 0;
+                    While (count < 4 && This.index < This.source.Length()) {
+                        Int digit = DigitValue(This.source.GetChar(This.index));
+                        If (digit < 0) {
+                            Break;
+                        }
+                        code = code * 16 + digit;
+                        This.AdvanceChar();
+                        count = count + 1;
+                    }
+                    chars.Add(Char.From(code));
+                } Else {
+                    chars.Add(escaped);
+                }
+            } Else {
+                chars.Add(character);
+                This.AdvanceChar();
+            }
+        }
+        If (!closed) {
+            This.diagnostics.Error("RX002", "Unclosed string literal.", startLine, startColumn);
+        }
+        Token token = Token();
+        token.Kind = TokenKind.StringLiteral;
+        token.Text = String.FromChars(chars);
+        token.Line = startLine;
+        token.Column = startColumn;
+        token.Length = token.Text.Length();
+        token.IsInterpolated = interpolated;
+        token.IsRaw = raw;
+        token.IsMultiline = multiline;
+        This.tokens.Add(token);
+    }
+
+    Private Function ReadChar() -> Void {
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        This.AdvanceChar();
+        Var chars = List<Char>();
+        If (This.index < This.source.Length() && This.source.GetChar(This.index) == '\\') {
+            This.AdvanceChar();
+            If (This.index < This.source.Length()) {
+                Char escaped = This.source.GetChar(This.index);
+                This.AdvanceChar();
+                If (escaped == 'n') { chars.Add('\n'); }
+                Else If (escaped == 'r') { chars.Add('\r'); }
+                Else If (escaped == 't') { chars.Add('\t'); }
+                Else If (escaped == '0') { chars.Add('\0'); }
+                Else { chars.Add(escaped); }
+            }
+        } Else If (This.index < This.source.Length()) {
+            chars.Add(This.source.GetChar(This.index));
+            This.AdvanceChar();
+        }
+        If (This.index < This.source.Length() && This.source.GetChar(This.index) == '\'') {
+            This.AdvanceChar();
+        } Else {
+            This.diagnostics.Error("RX003", "Unclosed character literal.", startLine, startColumn);
+        }
+        Token token = Token();
+        token.Kind = TokenKind.CharLiteral;
+        token.Text = String.FromChars(chars);
+        token.Line = startLine;
+        token.Column = startColumn;
+        token.Length = token.Text.Length();
+        This.tokens.Add(token);
+    }
+
+    Private Function ReadOperatorOrDelimiter() -> Void {
+        If (This.StartsWith("...")) { This.TakeFixed(TokenKind.DotDotDot, 3); Return; }
+        If (This.StartsWith("..=")) { This.TakeFixed(TokenKind.DotDotEqual, 3); Return; }
+        If (This.StartsWith("..")) { This.TakeFixed(TokenKind.DotDot, 2); Return; }
+        If (This.StartsWith("=>")) { This.TakeFixed(TokenKind.FatArrow, 2); Return; }
+        If (This.StartsWith("->")) { This.TakeFixed(TokenKind.Arrow, 2); Return; }
+        If (This.StartsWith("?.")) { This.TakeFixed(TokenKind.QuestionDot, 2); Return; }
+        If (This.StartsWith("??")) { This.TakeFixed(TokenKind.QuestionQuestion, 2); Return; }
+        If (This.StartsWith("==")) { This.TakeFixed(TokenKind.EqualEqual, 2); Return; }
+        If (This.StartsWith("!=")) { This.TakeFixed(TokenKind.BangEqual, 2); Return; }
+        If (This.StartsWith("<=")) { This.TakeFixed(TokenKind.LessEqual, 2); Return; }
+        If (This.StartsWith(">=")) { This.TakeFixed(TokenKind.GreaterEqual, 2); Return; }
+        If (This.StartsWith("&&")) { This.TakeFixed(TokenKind.AmpAmp, 2); Return; }
+        If (This.StartsWith("||")) { This.TakeFixed(TokenKind.PipePipe, 2); Return; }
+        If (This.StartsWith("<<")) { This.TakeFixed(TokenKind.LessLess, 2); Return; }
+        If (This.StartsWith(">>")) { This.TakeFixed(TokenKind.GreaterGreater, 2); Return; }
+        If (This.StartsWith("+=")) { This.TakeFixed(TokenKind.PlusAssign, 2); Return; }
+        If (This.StartsWith("-=")) { This.TakeFixed(TokenKind.MinusAssign, 2); Return; }
+        If (This.StartsWith("*=")) { This.TakeFixed(TokenKind.StarAssign, 2); Return; }
+        If (This.StartsWith("/=")) { This.TakeFixed(TokenKind.SlashAssign, 2); Return; }
+        If (This.StartsWith("%=")) { This.TakeFixed(TokenKind.PercentAssign, 2); Return; }
+        If (This.StartsWith("&=")) { This.TakeFixed(TokenKind.AmpersandAssign, 2); Return; }
+        If (This.StartsWith("|=")) { This.TakeFixed(TokenKind.PipeAssign, 2); Return; }
+        If (This.StartsWith("^=")) { This.TakeFixed(TokenKind.CaretAssign, 2); Return; }
+        If (This.StartsWith("++")) { This.TakeFixed(TokenKind.PlusPlus, 2); Return; }
+        If (This.StartsWith("--")) { This.TakeFixed(TokenKind.MinusMinus, 2); Return; }
+
+        Char character = This.source.GetChar(This.index);
+        If (character == '(') { This.TakeFixed(TokenKind.OpenParen, 1); Return; }
+        If (character == ')') { This.TakeFixed(TokenKind.CloseParen, 1); Return; }
+        If (character == '[') { This.TakeFixed(TokenKind.OpenBracket, 1); Return; }
+        If (character == ']') { This.TakeFixed(TokenKind.CloseBracket, 1); Return; }
+        If (character == '{') { This.TakeFixed(TokenKind.OpenBrace, 1); Return; }
+        If (character == '}') { This.TakeFixed(TokenKind.CloseBrace, 1); Return; }
+        If (character == ',') { This.TakeFixed(TokenKind.Comma, 1); Return; }
+        If (character == ';') { This.TakeFixed(TokenKind.Semicolon, 1); Return; }
+        If (character == ':') { This.TakeFixed(TokenKind.Colon, 1); Return; }
+        If (character == '.') { This.TakeFixed(TokenKind.Dot, 1); Return; }
+        If (character == '@') { This.TakeFixed(TokenKind.At, 1); Return; }
+        If (character == '+') { This.TakeFixed(TokenKind.Plus, 1); Return; }
+        If (character == '-') { This.TakeFixed(TokenKind.Minus, 1); Return; }
+        If (character == '*') { This.TakeFixed(TokenKind.Star, 1); Return; }
+        If (character == '/') { This.TakeFixed(TokenKind.Slash, 1); Return; }
+        If (character == '%') { This.TakeFixed(TokenKind.Percent, 1); Return; }
+        If (character == '=') { This.TakeFixed(TokenKind.Assign, 1); Return; }
+        If (character == '<') { This.TakeFixed(TokenKind.Less, 1); Return; }
+        If (character == '>') { This.TakeFixed(TokenKind.Greater, 1); Return; }
+        If (character == '&') { This.TakeFixed(TokenKind.Ampersand, 1); Return; }
+        If (character == '|') { This.TakeFixed(TokenKind.Pipe, 1); Return; }
+        If (character == '^') { This.TakeFixed(TokenKind.Caret, 1); Return; }
+        If (character == '~') { This.TakeFixed(TokenKind.Tilde, 1); Return; }
+        If (character == '!') { This.TakeFixed(TokenKind.Bang, 1); Return; }
+        If (character == '?') { This.TakeFixed(TokenKind.Question, 1); Return; }
+
+        If (This.IsCustomOperatorChar(character)) {
+            Int start = This.index;
+            Int startLine = This.line;
+            Int startColumn = This.column;
+            While (This.index < This.source.Length() && This.IsCustomOperatorChar(This.source.GetChar(This.index))) {
+                This.AdvanceChar();
+            }
+            String text = This.source.Substring(start, This.index - start);
+            Token token = Token();
+            token.Kind = TokenKind.CustomOperator;
+            token.Text = text;
+            token.Line = startLine;
+            token.Column = startColumn;
+            token.Length = text.Length();
+            This.tokens.Add(token);
+            Return;
+        }
+
+        This.diagnostics.Error("RX004", "Unexpected character '" + String.From(character) + "'.", This.line, This.column);
+        This.TakeFixed(TokenKind.Unknown, 1);
+    }
+
+    Private Function TakeFixed(TokenKind kind, Int length) -> Void {
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        String text = This.source.Substring(This.index, length);
+        Int count = 0;
+        While (count < length) {
+            This.AdvanceChar();
+            count = count + 1;
+        }
+        Token token = Token();
+        token.Kind = kind;
+        token.Text = text;
+        token.Line = startLine;
+        token.Column = startColumn;
+        token.Length = length;
+        This.tokens.Add(token);
+    }
+
+    Private Function Add(TokenKind kind, String text, Bool interpolated, Bool raw, Bool multiline) -> Void {
+        Token token = Token();
+        token.Kind = kind;
+        token.Text = text;
+        token.Line = This.line;
+        token.Column = This.column;
+        token.Length = text.Length();
+        token.IsInterpolated = interpolated;
+        token.IsRaw = raw;
+        token.IsMultiline = multiline;
+        This.tokens.Add(token);
+    }
+
+    Private Function AdvanceChar() -> Void {
+        If (This.index >= This.source.Length()) {
+            Return;
+        }
+        Char character = This.source.GetChar(This.index);
+        This.index = This.index + 1;
+        If (character == '\n') {
+            This.line = This.line + 1;
+            This.column = 1;
+        } Else {
+            This.column = This.column + 1;
+        }
+    }
+
+    Private Function PeekChar(Int offset) -> Char {
+        Int position = This.index + offset;
+        If (position < 0 || position >= This.source.Length()) {
+            Return '\0';
+        }
+        Return This.source.GetChar(position);
+    }
+
+    Private Function StartsWith(String text) -> Bool {
+        If (This.index + text.Length() > This.source.Length()) {
+            Return False;
+        }
+        Return This.source.Substring(This.index, text.Length()) == text;
+    }
+
+    Private Function IsDigit(Char character) -> Bool {
+        Return character >= '0' && character <= '9';
+    }
+
+    Private Function IsIdentifierStart(Char character) -> Bool {
+        Return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || character == '_';
+    }
+
+    Private Function IsIdentifierPart(Char character) -> Bool {
+        Return This.IsIdentifierStart(character) || This.IsDigit(character);
+    }
+
+    Private Function IsSuffixChar(Char character) -> Bool {
+        Return This.IsDigit(character) || character == 'i' || character == 'u' || character == 'f' || character == 'd' || character == 'm' || character == 'I' || character == 'U' || character == 'F' || character == 'D' || character == 'M';
+    }
+
+    Private Function IsCustomOperatorChar(Char character) -> Bool {
+        Return character > '~';
+    }
+}

@@ -1,0 +1,26 @@
+// Packages, imports, aliases, wildcard imports, and permissions.
+Package Robotics.Packages;
+
+Import Robix.Core;
+Import Robix.Math As Math;
+Import Robix.String.*;
+
+
+Package Robotics.Packages {
+    Permissions {
+        Robix.Core;
+        Robix.Math;
+        Robix.String;
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show that the package and its imports loaded.";
+    Input: args = "Command-line arguments";
+    Processing: "Print the package name.";
+    Output: "Zero.";
+} {
+    Print("Robotics.Packages");
+    Return 0;
+}

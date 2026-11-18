@@ -1,0 +1,37 @@
+// Attributes on classes.
+Package Robotics.Attributes;
+
+Import Robix.Core;
+
+
+@Deprecated("Use RoboController instead.")
+Public Class RoboLegacyController {
+    Public String Name;
+}
+
+@Author("Robix Team")
+@Version("1.0")
+@ThreadSafe
+Public Class RoboController {
+    Public Function Start() -> Void
+    Explain {
+        Description: "Start the controller.";
+        Input: None;
+        Processing: "Print that the controller started.";
+        Output: "No return value.";
+    } {
+        Print("Started");
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Start the attributed controller.";
+    Input: args = "Command-line arguments";
+    Processing: "Construct the controller and call Start.";
+    Output: "Zero.";
+} {
+    RoboController controller = RoboController();
+    controller.Start();
+    Return 0;
+}

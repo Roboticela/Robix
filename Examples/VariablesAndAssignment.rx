@@ -1,0 +1,30 @@
+// Let, Var, inference, Any, multiple names, and assignment.
+Package Robotics.Variables;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise immutable bindings, mutable bindings, and tuple assignment.";
+    Input: args = "Command-line arguments";
+    Processing: "Swap two integers and increment a counter.";
+    Output: "The swapped left value.";
+} {
+    Let robotName = "Roboticela";
+    Var batteryLevel = 100;
+    Let speed: Float = 100.0;
+    Int motorSpeed = 150;
+    Var anything: Any = 42;
+    anything = "now text";
+    Int x = 20, j = 30;
+    (x, j) = (j, x);
+    Let (firstName, lastName) = ("Robo", "Bot");
+    Var counter = 0;
+    counter++;
+    counter += 5;
+    Print(robotName);
+    Print(firstName);
+    Print(x);
+    Return x;
+}

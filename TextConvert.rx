@@ -1,0 +1,126 @@
+// Numeric conversions used by the lexer helpers and the interpreter.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Function DigitValue(Char character) -> Int
+Explain {
+    Description: "Convert a hex digit character to its integer value.";
+    Input: character = "A digit or a hex letter";
+    Processing: "Look the character up in a base-16 digit table.";
+    Output: "The digit value, or -1 when the character is not a digit.";
+} {
+    String digits = "0123456789abcdef";
+    String one = String.From(character).ToLower();
+    Int index = digits.IndexOf(one);
+    Return index;
+}
+
+Public Function ParseInteger(String text) -> Int
+Explain {
+    Description: "Parse a Robix integer literal, including base prefixes and separators.";
+    Input: text = "Integer spelling such as 1_000, 0xFFF, 0b1010, or 0o755";
+    Processing: "Strip separators and suffixes, then accumulate the value in the detected base.";
+    Output: "The integer value.";
+} {
+    String cleaned = text.Replace("_", "");
+    cleaned = StripNumericSuffix(cleaned);
+    Int sign = 1;
+    Int start = 0;
+    If (cleaned.StartsWith("-")) {
+        sign = -1;
+        start = 1;
+    } Else If (cleaned.StartsWith("+")) {
+        start = 1;
+    }
+    Int base = 10;
+    String rest = cleaned.Substring(start);
+    If (rest.StartsWith("0x") || rest.StartsWith("0X")) {
+        base = 16;
+        start = start + 2;
+    } Else If (rest.StartsWith("0b") || rest.StartsWith("0B")) {
+        base = 2;
+        start = start + 2;
+    } Else If (rest.StartsWith("0o") || rest.StartsWith("0O")) {
+        base = 8;
+        start = start + 2;
+    }
+    Int value = 0;
+    While (start < cleaned.Length()) {
+        Int digit = DigitValue(cleaned.GetChar(start));
+        If (digit < 0 || digit >= base) {
+            Break;
+        }
+        value = value * base + digit;
+        start = start + 1;
+    }
+    Return value * sign;
+}
+
+Public Function StripNumericSuffix(String text) -> String
+Explain {
+    Description: "Remove a Robix numeric suffix from a literal spelling.";
+    Input: text = "Literal spelling that may end in i32, u32, f32, d, or m";
+    Processing: "Cut a known width or precision suffix from the end.";
+    Output: "The spelling without its suffix.";
+} {
+    String lower = text.ToLower();
+    If (lower.EndsWith("i64") || lower.EndsWith("i32") || lower.EndsWith("i16") || lower.EndsWith("u64") || lower.EndsWith("u32") || lower.EndsWith("u16")) {
+        Return text.Substring(0, text.Length() - 3);
+    }
+    If (lower.EndsWith("i8") || lower.EndsWith("u8") || lower.EndsWith("f32") || lower.EndsWith("f64")) {
+        Return text.Substring(0, text.Length() - 2);
+    }
+    If (lower.EndsWith("f16")) {
+        Return text.Substring(0, text.Length() - 3);
+    }
+    If (text.Length() > 0) {
+        Char last = text.GetChar(text.Length() - 1);
+        If (last == 'd' || last == 'D' || last == 'm' || last == 'M' || last == 'f' || last == 'F' || last == 'u' || last == 'U') {
+            Return text.Substring(0, text.Length() - 1);
+        }
+    }
+    Return text;
+}
+
+Public Function NumericSuffix(String text) -> String
+Explain {
+    Description: "Return the numeric suffix of a literal, if one is present.";
+    Input: text = "Literal spelling";
+    Processing: "Compare the spelling with the same spelling after suffix removal.";
+    Output: "The suffix, or an empty string.";
+} {
+    String stripped = StripNumericSuffix(text);
+    If (stripped.Length() == text.Length()) {
+        Return "";
+    }
+    Return text.Substring(stripped.Length());
+}
+
+Public Function SuffixTypeName(String suffix) -> String
+Explain {
+    Description: "Map a numeric suffix to its Robix type name.";
+    Input: suffix = "Suffix such as i32, u8, f32, d, or m";
+    Processing: "Select the canonical type name for that suffix.";
+    Output: "The type name, or Int when the suffix is empty.";
+} {
+    String lower = suffix.ToLower();
+    If (lower == "" ) {
+        Return "Int";
+    }
+    If (lower == "i8") { Return "Int8"; }
+    If (lower == "i16") { Return "Int16"; }
+    If (lower == "i32") { Return "Int32"; }
+    If (lower == "i64") { Return "Int64"; }
+    If (lower == "u" || lower == "u8") { Return "UInt8"; }
+    If (lower == "u16") { Return "UInt16"; }
+    If (lower == "u32") { Return "UInt32"; }
+    If (lower == "u64") { Return "UInt64"; }
+    If (lower == "f" || lower == "f32") { Return "Float32"; }
+    If (lower == "f16") { Return "Float16"; }
+    If (lower == "f64") { Return "Float64"; }
+    If (lower == "d") { Return "Double"; }
+    If (lower == "m") { Return "Decimal"; }
+    Return "Int";
+}

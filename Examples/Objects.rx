@@ -1,0 +1,102 @@
+// Classes, inheritance, interfaces, traits, services, and constructors.
+Package Robotics.Objects;
+
+Import Robix.Core;
+
+
+Public Abstract Class RoboRobot {
+    Protected String RobotName = "";
+
+    Public Abstract Function Move() -> Void
+    Explain {
+        Description: "Move the robot.";
+        Input: None;
+        Processing: "Perform the movement defined by the derived robot.";
+        Output: "No return value.";
+    };
+
+    Public Function GetName() -> String
+    Explain {
+        Description: "Return the robot name.";
+        Input: None;
+        Processing: "Read the stored name.";
+        Output: "The robot name.";
+    } {
+        Return RobotName;
+    }
+}
+
+Public Interface RoboDrivable {
+    Public Function Move() -> Void
+    Explain {
+        Description: "Move a drivable robot.";
+        Input: None;
+        Processing: "Perform the drive motion.";
+        Output: "No return value.";
+    };
+}
+
+Public Class RoboWalkingRobot : RoboRobot, RoboDrivable {
+    Public Constructor(String name) : Base.Constructor() {
+        RobotName = name;
+    }
+
+    Public Override Function Move() -> Void
+    Explain {
+        Description: "Walk the robot forward.";
+        Input: None;
+        Processing: "Print the walking action.";
+        Output: "No return value.";
+    } {
+        Print("Walking forward");
+    }
+
+    Public Destructor() {
+    }
+}
+
+Public Trait RoboResettable {
+    Public Function Reset() -> Void
+    Explain {
+        Description: "Reset the robot state.";
+        Input: None;
+        Processing: "Return the robot to its initial state.";
+        Output: "No return value.";
+    };
+}
+
+Public Service RoboStatusService {
+    Public Function GetStatus(Int id) -> Int
+    Explain {
+        Description: "Return a status code for an id.";
+        Input: id = "Status identifier";
+        Processing: "Look up the status.";
+        Output: "The status code.";
+    };
+}
+
+Implement RoboStatusService {
+    Public Function GetStatus(Int id) -> Int
+    Explain {
+        Description: "Return the supplied status id.";
+        Input: id = "Status identifier";
+        Processing: "Return the id unchanged.";
+        Output: "The same id.";
+    } {
+        Return id;
+    }
+}
+
+Connect RoboStatusService;
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Construct a walking robot and print its movement.";
+    Input: args = "Command-line arguments";
+    Processing: "Create the robot and call Move.";
+    Output: "Zero.";
+} {
+    RoboWalkingRobot robot = RoboWalkingRobot("RoboWalker");
+    robot.Move();
+    Return 0;
+}

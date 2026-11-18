@@ -1,0 +1,106 @@
+// Binary package image for a checked Robix module.
+// Magic is the four bytes R B X 1. The image keeps every syntax node.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Class Emitter {
+    Private List<Byte> bytes;
+
+    Public Constructor() {
+        This.bytes = List<Byte>();
+    }
+
+    Public Function Emit(AstNode module) -> List<Byte>
+    Explain {
+        Description: "Write a checked module into a Robix binary package.";
+        Input: module = "Module syntax tree";
+        Processing: "Write the RBX1 header and then every syntax node.";
+        Output: "The package bytes.";
+    } {
+        This.bytes = List<Byte>();
+        This.WriteByte(82);
+        This.WriteByte(66);
+        This.WriteByte(88);
+        This.WriteByte(1);
+        This.WriteInt(1);
+        This.WriteInt(1);
+        This.WriteString(module.Name);
+        This.WriteNode(module);
+        Return This.bytes;
+    }
+
+    Private Function WriteNode(AstNode node) -> Void {
+        This.WriteInt(node.Kind.ToInt());
+        This.WriteInt(node.Line);
+        This.WriteInt(node.Column);
+        This.WriteString(node.Name);
+        This.WriteString(node.Text);
+        This.WriteString(node.Operator);
+        This.WriteString(node.Suffix);
+        This.WriteInt(node.Number);
+        This.WriteByte(This.Flag(node.FlagA));
+        This.WriteByte(This.Flag(node.FlagB));
+        This.WriteByte(This.Flag(node.FlagC));
+        This.WriteInt(node.Modifiers.Count());
+        For modifier In node.Modifiers {
+            This.WriteString(modifier);
+        }
+        This.WriteOptional(node.Type);
+        This.WriteOptional(node.Body);
+        This.WriteOptional(node.Initializer);
+        This.WriteOptional(node.Condition);
+        This.WriteOptional(node.Left);
+        This.WriteOptional(node.Right);
+        This.WriteOptional(node.Extra);
+        This.WriteOptional(node.Otherwise);
+        This.WriteList(node.Attributes);
+        This.WriteList(node.Children);
+        This.WriteList(node.Parameters);
+        This.WriteList(node.Members);
+    }
+
+    Private Function WriteOptional(AstNode? node) -> Void {
+        If (node == Null) {
+            This.WriteByte(0);
+            Return;
+        }
+        This.WriteByte(1);
+        This.WriteNode(node);
+    }
+
+    Private Function WriteList(List<AstNode> nodes) -> Void {
+        This.WriteInt(nodes.Count());
+        For node In nodes {
+            This.WriteNode(node);
+        }
+    }
+
+    Private Function WriteString(String text) -> Void {
+        This.WriteInt(text.Length());
+        Int index = 0;
+        While (index < text.Length()) {
+            This.WriteByte(text.GetChar(index).ToInt());
+            index = index + 1;
+        }
+    }
+
+    Private Function WriteInt(Int value) -> Void {
+        This.WriteByte(value % 256);
+        This.WriteByte((value / 256) % 256);
+        This.WriteByte((value / 65536) % 256);
+        This.WriteByte((value / 16777216) % 256);
+    }
+
+    Private Function WriteByte(Int value) -> Void {
+        This.bytes.Add(Byte.From(value % 256));
+    }
+
+    Private Function Flag(Bool value) -> Int {
+        If (value) {
+            Return 1;
+        }
+        Return 0;
+    }
+}

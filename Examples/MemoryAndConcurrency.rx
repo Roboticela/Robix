@@ -1,0 +1,26 @@
+// Allocation, locks, and atomic counters.
+Package Robotics.Memory;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Allocate a byte, update it, and increment an atomic counter.";
+    Input: args = "Command-line arguments";
+    Processing: "Write one byte under an unsafe block and increment shared state under a lock.";
+    Output: "The atomic counter value after one increment.";
+} {
+    Unsafe {
+        Pointer<Byte> memory = Memory.Allocate<Byte>(1024);
+        *memory = 42;
+        Memory.Free(memory);
+    }
+    Var sensorLock = "sensor";
+    Lock sensorLock {
+        Print("locked");
+    }
+    Atomic<Int> sharedCounter = Atomic<Int>(0);
+    sharedCounter.Increment();
+    Return 1;
+}

@@ -1,0 +1,906 @@
+// Expressions, types, and operator precedence for the Robix parser.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Partial Class Parser {
+    Public Function ParseExpressionOnly() -> AstNode
+    Explain {
+        Description: "Parse one expression that fills the token list.";
+        Input: None;
+        Processing: "Parse an expression and require that no tokens remain.";
+        Output: "The expression syntax tree.";
+    } {
+        AstNode expression = This.ParseExpression();
+        If (!This.IsAtEnd()) {
+            This.Error("RX019", "Unexpected tokens after the expression.");
+        }
+        Return expression;
+    }
+
+    Private Function ParseExpression() -> AstNode {
+        If (This.IsExpressionStop(This.Peek().Kind)) {
+            Token start = This.Peek();
+            AstNode missing = This.Make(AstKind.Missing, start);
+            This.Error("RX020", "Expected an expression.");
+            Return missing;
+        }
+        AstNode left = This.ParsePrecedence(0);
+        If (This.IsAssignment(This.Peek().Kind)) {
+            Token op = This.Advance();
+            AstNode assignment = This.Make(AstKind.Assignment, op);
+            assignment.Left = left;
+            assignment.Operator = op.Text;
+            assignment.Right = This.ParseExpression();
+            assignment.Line = left.Line;
+            assignment.Column = left.Column;
+            Return assignment;
+        }
+        Return left;
+    }
+
+    Private Function ParsePrecedence(Int minimum) -> AstNode {
+        AstNode left = This.ParseUnary();
+        While (!This.IsAtEnd()) {
+            Int power = This.BinaryPrecedence(This.Peek());
+            If (power < 0 || power < minimum) {
+                Break;
+            }
+            If (This.Check(TokenKind.Question)) {
+                Token op = This.Advance();
+                AstNode node = This.Make(AstKind.Ternary, op);
+                node.Condition = left;
+                node.Left = This.ParseExpression();
+                This.Expect(TokenKind.Colon, "Expected ':' in a conditional expression.");
+                node.Right = This.ParsePrecedence(power);
+                node.Line = left.Line;
+                node.Column = left.Column;
+                left = node;
+                Continue;
+            }
+            If (This.Check(TokenKind.Is)) {
+                Token op = This.Advance();
+                AstNode node = This.Make(AstKind.TypeCheck, op);
+                node.Left = left;
+                node.Type = This.ParseType();
+                If (This.Check(TokenKind.Identifier)) {
+                    node.Name = This.ParseIdentifierText("Expected a binding name.");
+                    node.FlagA = True;
+                }
+                node.Line = left.Line;
+                node.Column = left.Column;
+                left = node;
+                Continue;
+            }
+            Token op = This.Advance();
+            Int nextMinimum = power + 1;
+            If (This.IsRightAssociative(op)) {
+                nextMinimum = power;
+            }
+            AstNode right = This.ParsePrecedence(nextMinimum);
+            AstNode node = This.Make(AstKind.Binary, op);
+            If (op.Kind == TokenKind.DotDot || op.Kind == TokenKind.DotDotEqual) {
+                node.Kind = AstKind.Range;
+                node.FlagA = op.Kind == TokenKind.DotDotEqual;
+            }
+            node.Left = left;
+            node.Right = right;
+            node.Operator = op.Text;
+            node.Line = left.Line;
+            node.Column = left.Column;
+            left = node;
+        }
+        Return left;
+    }
+
+    Private Function ParseUnary() -> AstNode {
+        If (This.Check(TokenKind.Async) && This.Look(1).Kind == TokenKind.Function) {
+            Return This.ParseLambda(True);
+        }
+        If (This.IsPrefixOperator(This.Peek().Kind)) {
+            Token op = This.Advance();
+            AstNode node = This.Make(AstKind.Unary, op);
+            node.Operator = op.Text;
+            node.Left = This.ParseUnary();
+            If (op.Kind == TokenKind.Await) {
+                node.Kind = AstKind.Await;
+            }
+            This.Finish(node, op);
+            Return node;
+        }
+        Return This.ParsePrimary();
+    }
+
+    Private Function ParsePrimary() -> AstNode {
+        Token start = This.Peek();
+        If (This.Check(TokenKind.IntegerLiteral)) {
+            AstNode node = This.Make(AstKind.IntegerLiteral, start);
+            node.Text = This.Advance().Text;
+            node.Suffix = NumericSuffix(node.Text);
+            Return node;
+        }
+        If (This.Check(TokenKind.FloatLiteral)) {
+            AstNode node = This.Make(AstKind.FloatLiteral, start);
+            node.Text = This.Advance().Text;
+            node.Suffix = NumericSuffix(node.Text);
+            Return node;
+        }
+        If (This.Check(TokenKind.StringLiteral)) {
+            Return This.ParseStringLiteral();
+        }
+        If (This.Check(TokenKind.CharLiteral)) {
+            AstNode node = This.Make(AstKind.CharLiteral, start);
+            node.Text = This.Advance().Text;
+            Return node;
+        }
+        If (This.Check(TokenKind.True) || This.Check(TokenKind.False)) {
+            AstNode node = This.Make(AstKind.BooleanLiteral, start);
+            node.Text = This.Advance().Text;
+            node.FlagA = start.Kind == TokenKind.True;
+            Return node;
+        }
+        If (This.Check(TokenKind.Null)) {
+            This.Advance();
+            Return This.Make(AstKind.NullLiteral, start);
+        }
+        If (This.Check(TokenKind.Match)) {
+            Return This.ParseMatch();
+        }
+        If (This.Check(TokenKind.Function) && This.Look(1).Kind == TokenKind.OpenParen) {
+            Return This.ParseLambda(False);
+        }
+        If (This.Check(TokenKind.OpenParen)) {
+            If (This.IsLambdaAhead()) {
+                Return This.ParseParenLambda(False);
+            }
+            This.Advance();
+            AstNode expression = This.ParseExpression();
+            If (This.Match(TokenKind.Comma)) {
+                AstNode tuple = This.Make(AstKind.TupleLiteral, start);
+                tuple.Children.Add(expression);
+                While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
+                    tuple.Children.Add(This.ParseExpression());
+                    If (!This.Match(TokenKind.Comma)) {
+                        Break;
+                    }
+                }
+                This.Expect(TokenKind.CloseParen, "Expected ')' after the tuple.");
+                Return tuple;
+            }
+            This.Expect(TokenKind.CloseParen, "Expected ')'.");
+            Return expression;
+        }
+        If (This.Check(TokenKind.OpenBracket)) {
+            Return This.ParseArrayLiteral();
+        }
+        If (This.Check(TokenKind.OpenBrace)) {
+            Return This.ParseBraceLiteral();
+        }
+        If (This.Check(TokenKind.Identifier) || This.IsWord(This.Peek().Text)) {
+            AstNode name = This.Make(AstKind.Name, start);
+            name.Name = This.Advance().Text;
+            name.Text = name.Name;
+            This.TryAttachGeneric(name);
+            Return This.ParsePostfix(name);
+        }
+        This.Error("RX021", "Expected an expression.");
+        If (!This.IsAtEnd() && !This.IsExpressionStop(This.Peek().Kind)) {
+            This.Advance();
+        }
+        Return This.Make(AstKind.Missing, start);
+    }
+
+    Private Function ParsePostfix(AstNode left) -> AstNode {
+        Var current = left;
+        While (!This.IsAtEnd()) {
+            If (This.Check(TokenKind.OpenParen)) {
+                Token start = This.Peek();
+                AstNode call = This.Make(AstKind.Call, start);
+                call.Left = current;
+                call.Parameters = This.ParseArgumentList();
+                call.Line = current.Line;
+                call.Column = current.Column;
+                current = call;
+                Continue;
+            }
+            If (This.Check(TokenKind.OpenBracket)) {
+                Token start = This.Advance();
+                AstNode index = This.Make(AstKind.Index, start);
+                index.Left = current;
+                index.Right = This.ParseExpression();
+                This.Expect(TokenKind.CloseBracket, "Expected ']'.");
+                index.Line = current.Line;
+                index.Column = current.Column;
+                current = index;
+                Continue;
+            }
+            If (This.Check(TokenKind.Dot) || This.Check(TokenKind.QuestionDot)) {
+                Token dot = This.Advance();
+                AstNode member = This.Make(AstKind.Member, dot);
+                member.Left = current;
+                member.FlagA = dot.Kind == TokenKind.QuestionDot;
+                member.Name = This.ParseAnyName();
+                member.Line = current.Line;
+                member.Column = current.Column;
+                This.TryAttachGeneric(member);
+                current = member;
+                Continue;
+            }
+            If (This.Check(TokenKind.PlusPlus) || This.Check(TokenKind.MinusMinus)) {
+                Token op = This.Advance();
+                AstNode node = This.Make(AstKind.Unary, op);
+                node.Operator = op.Text;
+                node.FlagA = True;
+                node.Left = current;
+                node.Line = current.Line;
+                node.Column = current.Column;
+                current = node;
+                Continue;
+            }
+            If (This.Check(TokenKind.Bang)) {
+                Token op = This.Advance();
+                AstNode node = This.Make(AstKind.Unwrap, op);
+                node.Left = current;
+                node.Line = current.Line;
+                node.Column = current.Column;
+                current = node;
+                Continue;
+            }
+            If (This.Check(TokenKind.Question) && !This.StartsExpression(This.Look(1).Kind)) {
+                Token op = This.Advance();
+                AstNode node = This.Make(AstKind.Propagate, op);
+                node.Left = current;
+                node.Line = current.Line;
+                node.Column = current.Column;
+                current = node;
+                Continue;
+            }
+            If (This.Check(TokenKind.OpenBrace) && This.BraceIsObjectLiteral()) {
+                current = This.ParseObjectLiteral(current);
+                Continue;
+            }
+            Break;
+        }
+        Return current;
+    }
+
+    Private Function ParseStringLiteral() -> AstNode {
+        Token token = This.Advance();
+        AstNode node = This.Make(AstKind.StringLiteral, token);
+        node.Text = token.Text;
+        node.FlagA = token.IsInterpolated;
+        node.FlagB = token.IsRaw;
+        node.FlagC = token.IsMultiline;
+        If (token.IsInterpolated) {
+            This.SplitInterpolation(node, token.Text);
+        }
+        Return node;
+    }
+
+    Private Function SplitInterpolation(AstNode node, String text) -> Void {
+        Var current = List<Char>();
+        Int index = 0;
+        While (index < text.Length()) {
+            Char character = text.GetChar(index);
+            If (character == '{' && index + 1 < text.Length() && text.GetChar(index + 1) == '{') {
+                current.Add('{');
+                index = index + 2;
+                Continue;
+            }
+            If (character == '}' && index + 1 < text.Length() && text.GetChar(index + 1) == '}') {
+                current.Add('}');
+                index = index + 2;
+                Continue;
+            }
+            If (character == '{') {
+                If (current.Count() > 0) {
+                    AstNode piece = AstNode();
+                    piece.Kind = AstKind.StringLiteral;
+                    piece.Text = String.FromChars(current);
+                    node.Children.Add(piece);
+                    current = List<Char>();
+                }
+                index = index + 1;
+                Int depth = 1;
+                Int start = index;
+                Bool inString = False;
+                While (index < text.Length() && depth > 0) {
+                    Char holeChar = text.GetChar(index);
+                    If (holeChar == '"' && (index == start || text.GetChar(index - 1) != '\\')) {
+                        inString = !inString;
+                    }
+                    If (!inString && holeChar == '{') {
+                        depth = depth + 1;
+                    }
+                    If (!inString && holeChar == '}') {
+                        depth = depth - 1;
+                        If (depth == 0) {
+                            Break;
+                        }
+                    }
+                    index = index + 1;
+                }
+                String hole = text.Substring(start, index - start);
+                If (index < text.Length() && text.GetChar(index) == '}') {
+                    index = index + 1;
+                }
+                DiagnosticBag holeDiagnostics = DiagnosticBag();
+                Lexer holeLexer = Lexer(hole, holeDiagnostics);
+                Parser holeParser = Parser(holeLexer.Tokenize(), holeDiagnostics);
+                AstNode expression = holeParser.ParseExpressionOnly();
+                AstNode piece = AstNode();
+                piece.Kind = AstKind.Interpolation;
+                piece.Left = expression;
+                piece.Text = hole;
+                node.Children.Add(piece);
+                Continue;
+            }
+            current.Add(character);
+            index = index + 1;
+        }
+        If (current.Count() > 0) {
+            AstNode piece = AstNode();
+            piece.Kind = AstKind.StringLiteral;
+            piece.Text = String.FromChars(current);
+            node.Children.Add(piece);
+        }
+    }
+
+    Private Function ParseArrayLiteral() -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.ArrayLiteral, start);
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBracket)) {
+            node.Children.Add(This.ParseExpression());
+            If (!This.Match(TokenKind.Comma)) {
+                Break;
+            }
+        }
+        This.Expect(TokenKind.CloseBracket, "Expected ']' to close the array.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseBraceLiteral() -> AstNode {
+        Token start = This.Advance();
+        If (This.Check(TokenKind.CloseBrace)) {
+            This.Advance();
+            AstNode empty = This.Make(AstKind.RecordLiteral, start);
+            empty.FlagA = True;
+            Return empty;
+        }
+        Bool entry = (This.Check(TokenKind.Identifier) || This.Check(TokenKind.StringLiteral)) && This.Look(1).Kind == TokenKind.Colon;
+        AstKind kind = AstKind.SetLiteral;
+        If (entry && This.Check(TokenKind.StringLiteral)) {
+            kind = AstKind.MapLiteral;
+        } Else If (entry) {
+            kind = AstKind.RecordLiteral;
+        }
+        AstNode node = This.Make(kind, start);
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBrace)) {
+            If ((kind == AstKind.MapLiteral || kind == AstKind.RecordLiteral) && (This.Check(TokenKind.Identifier) || This.Check(TokenKind.StringLiteral)) && This.Look(1).Kind == TokenKind.Colon) {
+                AstNode pair = This.Make(AstKind.Argument, This.Peek());
+                pair.Name = This.Advance().Text;
+                This.Advance();
+                pair.Left = This.ParseExpression();
+                node.Children.Add(pair);
+            } Else {
+                node.Children.Add(This.ParseExpression());
+            }
+            If (!This.Match(TokenKind.Comma)) {
+                Break;
+            }
+        }
+        This.Expect(TokenKind.CloseBrace, "Expected '}' to close the literal.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseObjectLiteral(AstNode typeName) -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.ObjectLiteral, start);
+        node.Name = typeName.Name;
+        node.Left = typeName;
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBrace)) {
+            AstNode field = This.Make(AstKind.Argument, This.Peek());
+            field.Name = This.ParseAnyName();
+            This.Expect(TokenKind.Colon, "Expected ':' in an object literal.");
+            field.Left = This.ParseExpression();
+            node.Children.Add(field);
+            If (!This.Match(TokenKind.Comma)) {
+                Break;
+            }
+        }
+        This.Expect(TokenKind.CloseBrace, "Expected '}' to close the object literal.");
+        node.Line = typeName.Line;
+        node.Column = typeName.Column;
+        Return node;
+    }
+
+    Private Function ParseLambda(Bool isAsync) -> AstNode {
+        Token start = This.Peek();
+        If (isAsync) {
+            This.Advance();
+        }
+        This.Expect(TokenKind.Function, "Expected 'Function'.");
+        AstNode node = This.Make(AstKind.Lambda, start);
+        node.FlagB = isAsync;
+        node.Parameters = This.ParseParameterList();
+        If (This.Match(TokenKind.FatArrow)) {
+            node.FlagA = True;
+            If (This.Check(TokenKind.OpenBrace)) {
+                node.Body = This.ParseBlock();
+                node.FlagA = False;
+            } Else {
+                node.Left = This.ParseExpression();
+            }
+        } Else {
+            node.Body = This.ParseBlock();
+        }
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseParenLambda(Bool isAsync) -> AstNode {
+        Token start = This.Peek();
+        AstNode node = This.Make(AstKind.Lambda, start);
+        node.FlagB = isAsync;
+        node.Parameters = This.ParseParameterList();
+        This.Expect(TokenKind.FatArrow, "Expected '=>' in a lambda.");
+        If (This.Check(TokenKind.OpenBrace)) {
+            node.Body = This.ParseBlock();
+        } Else {
+            node.FlagA = True;
+            node.Left = This.ParseExpression();
+        }
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseArgumentList() -> List<AstNode> {
+        Var arguments = List<AstNode>();
+        This.Expect(TokenKind.OpenParen, "Expected '('.");
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
+            arguments.Add(This.ParseArgument());
+            If (!This.Match(TokenKind.Comma)) {
+                Break;
+            }
+        }
+        This.Expect(TokenKind.CloseParen, "Expected ')'.");
+        Return arguments;
+    }
+
+    Private Function ParseArgument() -> AstNode {
+        Token start = This.Peek();
+        AstNode argument = This.Make(AstKind.Argument, start);
+        If (This.Match(TokenKind.DotDotDot)) {
+            argument.FlagA = True;
+            argument.Left = This.ParseExpression();
+            Return argument;
+        }
+        If ((This.Check(TokenKind.Identifier) || This.Check(TokenKind.Out) || This.Check(TokenKind.In) || This.Check(TokenKind.Clobber)) && This.Look(1).Kind == TokenKind.Colon) {
+            argument.Name = This.Advance().Text;
+            This.Advance();
+            argument.Left = This.ParseExpression();
+            Return argument;
+        }
+        argument.Left = This.ParseExpression();
+        This.Finish(argument, start);
+        Return argument;
+    }
+
+    Private Function ParseType() -> AstNode {
+        AstNode first = This.ParseTypeSuffix(This.ParseTypeAtom());
+        If (!This.Check(TokenKind.Pipe)) {
+            Return first;
+        }
+        Token start = This.Peek();
+        AstNode union = This.Make(AstKind.Type, start);
+        union.Name = "|";
+        union.Children.Add(first);
+        While (This.Match(TokenKind.Pipe)) {
+            union.Children.Add(This.ParseTypeSuffix(This.ParseTypeAtom()));
+        }
+        union.Line = first.Line;
+        union.Column = first.Column;
+        Return union;
+    }
+
+    Private Function ParseTypeSuffix(AstNode type) -> AstNode {
+        While (This.Match(TokenKind.Question)) {
+            type.FlagA = True;
+        }
+        While (This.Match(TokenKind.OpenBracket)) {
+            If (This.Match(TokenKind.CloseBracket)) {
+                type.FlagB = True;
+            } Else {
+                This.Error("RX022", "Expected ']' after '[' in an array type.");
+                Break;
+            }
+        }
+        Return type;
+    }
+
+    Private Function ParseTypeAtom() -> AstNode {
+        Token start = This.Peek();
+        If (This.Check(TokenKind.OpenBracket)) {
+            This.Advance();
+            AstNode element = This.ParseType();
+            AstNode node = This.Make(AstKind.Type, start);
+            node.Name = "[]";
+            node.Children.Add(element);
+            If (This.Match(TokenKind.Semicolon)) {
+                node.FlagC = True;
+                node.Right = This.ParseExpression();
+            }
+            This.Expect(TokenKind.CloseBracket, "Expected ']' to close the array type.");
+            Return node;
+        }
+        If (This.Check(TokenKind.OpenParen)) {
+            This.Advance();
+            AstNode node = This.Make(AstKind.Type, start);
+            node.Name = "()";
+            While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
+                node.Children.Add(This.ParseType());
+                If (!This.Match(TokenKind.Comma)) {
+                    Break;
+                }
+            }
+            This.Expect(TokenKind.CloseParen, "Expected ')' to close the tuple type.");
+            Return node;
+        }
+        If (This.Check(TokenKind.OpenBrace)) {
+            This.Advance();
+            AstNode node = This.Make(AstKind.Type, start);
+            node.Name = "{}";
+            While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBrace)) {
+                AstNode field = This.Make(AstKind.Field, This.Peek());
+                field.Name = This.ParseAnyName();
+                This.Expect(TokenKind.Colon, "Expected ':' in a record type.");
+                field.Type = This.ParseType();
+                node.Children.Add(field);
+                If (!This.Match(TokenKind.Comma)) {
+                    This.AcceptSemicolon();
+                    If (This.Check(TokenKind.CloseBrace)) {
+                        Break;
+                    }
+                    If (!This.Check(TokenKind.Identifier) && !This.IsPrimaryName(This.Peek().Kind)) {
+                        Break;
+                    }
+                }
+            }
+            This.Expect(TokenKind.CloseBrace, "Expected '}' to close the record type.");
+            Return node;
+        }
+        AstNode named = This.Make(AstKind.Type, start);
+        If (This.Match(TokenKind.Const)) {
+            named.Text = "Const";
+        }
+        If (This.Match(TokenKind.Mut)) {
+            named.Text = named.Text + "Mut";
+        }
+        named.Name = This.ParseAnyName();
+        If (This.Check(TokenKind.Less)) {
+            This.Advance();
+            While (!This.IsAtEnd() && !This.Check(TokenKind.Greater) && !This.Check(TokenKind.GreaterGreater)) {
+                If (This.Check(TokenKind.IntegerLiteral)) {
+                    AstNode width = This.Make(AstKind.Type, This.Peek());
+                    width.Name = This.Advance().Text;
+                    width.FlagB = True;
+                    named.Children.Add(width);
+                } Else {
+                    named.Children.Add(This.ParseTypeArgument());
+                }
+                If (!This.Match(TokenKind.Comma)) {
+                    Break;
+                }
+            }
+            This.ConsumeGreater("Expected '>' after type arguments.");
+        }
+        Return named;
+    }
+
+    Private Function ParseTypeArgument() -> AstNode {
+        String prefix = "";
+        If (This.Match(TokenKind.Const)) {
+            prefix = "Const";
+        }
+        If (This.Match(TokenKind.Mut)) {
+            prefix = prefix + "Mut";
+        }
+        AstNode type = This.ParseType();
+        If (prefix.Length() > 0 && type.Text.Length() == 0) {
+            type.Text = prefix;
+        }
+        Return type;
+    }
+
+    Private Function TryAttachGeneric(AstNode node) -> Void {
+        If (!This.Check(TokenKind.Less)) {
+            Return;
+        }
+        If (!This.GenericFollows()) {
+            Return;
+        }
+        Int savedPosition = This.position;
+        Int savedDiagnostics = This.diagnostics.Count();
+        This.Advance();
+        Var arguments = List<AstNode>();
+        Bool failed = False;
+        While (!This.IsAtEnd() && !This.Check(TokenKind.Greater) && !This.Check(TokenKind.GreaterGreater)) {
+            If (This.Check(TokenKind.IntegerLiteral)) {
+                AstNode width = This.Make(AstKind.Type, This.Peek());
+                width.Name = This.Advance().Text;
+                width.FlagB = True;
+                arguments.Add(width);
+            } Else If (This.StartsTypeAtCursor()) {
+                arguments.Add(This.ParseType());
+            } Else {
+                failed = True;
+                Break;
+            }
+            If (!This.Match(TokenKind.Comma)) {
+                Break;
+            }
+        }
+        If (failed || !This.ConsumeGreater("Expected '>'.")) {
+            This.position = savedPosition;
+            This.diagnostics.Truncate(savedDiagnostics);
+            Return;
+        }
+        For argument In arguments {
+            node.Children.Add(argument);
+        }
+    }
+
+    Private Function GenericFollows() -> Bool {
+        Int saved = This.lookIndex;
+        This.lookIndex = This.position;
+        Bool closed = This.SkipAngles();
+        Bool follows = False;
+        If (closed && This.lookIndex < This.tokenCount) {
+            TokenKind kind = This.tokens[This.lookIndex].Kind;
+            follows = kind == TokenKind.OpenParen || kind == TokenKind.OpenBrace || kind == TokenKind.Dot || kind == TokenKind.Comma || kind == TokenKind.CloseParen || kind == TokenKind.CloseBracket || kind == TokenKind.CloseBrace || kind == TokenKind.FatArrow;
+        }
+        This.lookIndex = saved;
+        Return follows;
+    }
+
+    Private Function LooksLikeTypedVariable() -> Bool {
+        This.lookIndex = This.position;
+        If (!This.SkipTypeLook()) {
+            Return False;
+        }
+        If (This.lookIndex >= This.tokenCount) {
+            Return False;
+        }
+        Token name = This.tokens[This.lookIndex];
+        Return name.Kind == TokenKind.Identifier || This.IsWord(name.Text);
+    }
+
+    Private Function StartsTypeAtCursor() -> Bool {
+        This.lookIndex = This.position;
+        Int saved = This.lookIndex;
+        Bool result = This.SkipTypeAtom();
+        This.lookIndex = saved;
+        Return result;
+    }
+
+    Private Function SkipTypeLook() -> Bool {
+        If (!This.SkipTypeAtom()) {
+            Return False;
+        }
+        This.SkipTypeSuffixLook();
+        While (This.LookKind() == TokenKind.Pipe) {
+            This.lookIndex = This.lookIndex + 1;
+            If (!This.SkipTypeAtom()) {
+                Return False;
+            }
+            This.SkipTypeSuffixLook();
+        }
+        Return True;
+    }
+
+    Private Function SkipTypeSuffixLook() -> Void {
+        While (This.LookKind() == TokenKind.Question) {
+            This.lookIndex = This.lookIndex + 1;
+        }
+        While (This.LookKind() == TokenKind.OpenBracket) {
+            If (!This.SkipNest(TokenKind.OpenBracket, TokenKind.CloseBracket)) {
+                Return;
+            }
+        }
+    }
+
+    Private Function SkipTypeAtom() -> Bool {
+        TokenKind kind = This.LookKind();
+        If (kind == TokenKind.OpenBracket || kind == TokenKind.OpenParen || kind == TokenKind.OpenBrace) {
+            TokenKind closeKind = TokenKind.CloseBracket;
+            If (kind == TokenKind.OpenParen) {
+                closeKind = TokenKind.CloseParen;
+            }
+            If (kind == TokenKind.OpenBrace) {
+                closeKind = TokenKind.CloseBrace;
+            }
+            Return This.SkipNest(kind, closeKind);
+        }
+        If (kind == TokenKind.Const || kind == TokenKind.Mut) {
+            This.lookIndex = This.lookIndex + 1;
+            kind = This.LookKind();
+        }
+        If (!(kind == TokenKind.Identifier || This.IsTypeKeyword(kind) || This.IsPrimaryName(kind) || kind == TokenKind.Ref || kind == TokenKind.Function)) {
+            Return False;
+        }
+        This.lookIndex = This.lookIndex + 1;
+        If (This.LookKind() == TokenKind.Less) {
+            Return This.SkipAngles();
+        }
+        Return True;
+    }
+
+    Private Function SkipAngles() -> Bool {
+        If (This.LookKind() != TokenKind.Less) {
+            Return False;
+        }
+        This.lookIndex = This.lookIndex + 1;
+        Int depth = 1;
+        While (This.lookIndex < This.tokenCount && depth > 0) {
+            TokenKind kind = This.LookKind();
+            If (kind == TokenKind.Less) {
+                depth = depth + 1;
+            } Else If (kind == TokenKind.Greater) {
+                depth = depth - 1;
+            } Else If (kind == TokenKind.GreaterGreater) {
+                depth = depth - 2;
+            } Else If (kind == TokenKind.EndOfFile || kind == TokenKind.Semicolon) {
+                Return False;
+            }
+            This.lookIndex = This.lookIndex + 1;
+        }
+        Return depth <= 0;
+    }
+
+    Private Function SkipNest(TokenKind openKind, TokenKind closeKind) -> Bool {
+        If (This.LookKind() != openKind) {
+            Return False;
+        }
+        Int depth = 0;
+        While (This.lookIndex < This.tokenCount) {
+            TokenKind kind = This.LookKind();
+            If (kind == openKind) {
+                depth = depth + 1;
+            } Else If (kind == closeKind) {
+                depth = depth - 1;
+                This.lookIndex = This.lookIndex + 1;
+                If (depth == 0) {
+                    Return True;
+                }
+                Continue;
+            } Else If (kind == TokenKind.EndOfFile) {
+                Return False;
+            }
+            This.lookIndex = This.lookIndex + 1;
+        }
+        Return False;
+    }
+
+    Private Function LookKind() -> TokenKind {
+        If (This.lookIndex < 0 || This.lookIndex >= This.tokenCount) {
+            Return TokenKind.EndOfFile;
+        }
+        Return This.tokens[This.lookIndex].Kind;
+    }
+
+    Private Function BinaryPrecedence(Token token) -> Int {
+        Int custom = This.CustomPrecedence(token.Text);
+        If (custom >= 0 && (token.Kind == TokenKind.CustomOperator || token.Kind == TokenKind.Identifier)) {
+            Return custom;
+        }
+        If (token.Kind == TokenKind.QuestionQuestion) { Return 8; }
+        If (token.Kind == TokenKind.PipePipe || token.Kind == TokenKind.Or) { Return 10; }
+        If (token.Kind == TokenKind.AmpAmp || token.Kind == TokenKind.And) { Return 15; }
+        If (token.Kind == TokenKind.Pipe) { Return 20; }
+        If (token.Kind == TokenKind.Caret) { Return 25; }
+        If (token.Kind == TokenKind.Ampersand) { Return 30; }
+        If (token.Kind == TokenKind.EqualEqual || token.Kind == TokenKind.BangEqual || token.Kind == TokenKind.Equal) { Return 35; }
+        If (token.Kind == TokenKind.Less || token.Kind == TokenKind.Greater || token.Kind == TokenKind.LessEqual || token.Kind == TokenKind.GreaterEqual || token.Kind == TokenKind.Is) { Return 40; }
+        If (token.Kind == TokenKind.LessLess || token.Kind == TokenKind.GreaterGreater) { Return 50; }
+        If (token.Kind == TokenKind.DotDot || token.Kind == TokenKind.DotDotEqual) { Return 55; }
+        If (token.Kind == TokenKind.Plus || token.Kind == TokenKind.Minus) { Return 60; }
+        If (token.Kind == TokenKind.Star || token.Kind == TokenKind.Slash || token.Kind == TokenKind.Percent) { Return 70; }
+        If (token.Kind == TokenKind.Question) { Return 5; }
+        If (token.Kind == TokenKind.CustomOperator) {
+            If (custom >= 0) {
+                Return custom;
+            }
+            Return 70;
+        }
+        Return -1;
+    }
+
+    Private Function CustomPrecedence(String text) -> Int {
+        Int index = 0;
+        While (index < This.operatorNames.Count()) {
+            If (This.operatorNames[index] == text) {
+                Return This.operatorPrecedence[index];
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function IsRightAssociative(Token token) -> Bool {
+        Int index = 0;
+        While (index < This.operatorNames.Count()) {
+            If (This.operatorNames[index] == token.Text) {
+                Return This.operatorRightAssociative[index];
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function IsAssignment(TokenKind kind) -> Bool {
+        Return kind == TokenKind.Assign || kind == TokenKind.PlusAssign || kind == TokenKind.MinusAssign || kind == TokenKind.StarAssign || kind == TokenKind.SlashAssign || kind == TokenKind.PercentAssign || kind == TokenKind.AmpersandAssign || kind == TokenKind.PipeAssign || kind == TokenKind.CaretAssign;
+    }
+
+    Private Function IsPrefixOperator(TokenKind kind) -> Bool {
+        Return kind == TokenKind.Bang || kind == TokenKind.Not || kind == TokenKind.Minus || kind == TokenKind.Plus || kind == TokenKind.Tilde || kind == TokenKind.Star || kind == TokenKind.Ampersand || kind == TokenKind.PlusPlus || kind == TokenKind.MinusMinus || kind == TokenKind.Await;
+    }
+
+    Private Function IsExpressionStop(TokenKind kind) -> Bool {
+        Return kind == TokenKind.EndOfFile || kind == TokenKind.Semicolon || kind == TokenKind.Comma || kind == TokenKind.CloseParen || kind == TokenKind.CloseBracket || kind == TokenKind.CloseBrace || kind == TokenKind.Colon || kind == TokenKind.FatArrow;
+    }
+
+    Private Function StartsExpression(TokenKind kind) -> Bool {
+        Return kind == TokenKind.Identifier || kind == TokenKind.IntegerLiteral || kind == TokenKind.FloatLiteral || kind == TokenKind.StringLiteral || kind == TokenKind.CharLiteral || kind == TokenKind.True || kind == TokenKind.False || kind == TokenKind.Null || kind == TokenKind.OpenParen || kind == TokenKind.OpenBracket || kind == TokenKind.OpenBrace || kind == TokenKind.Function || kind == TokenKind.Match || kind == TokenKind.Await || kind == TokenKind.Not || kind == TokenKind.Bang || kind == TokenKind.Minus || kind == TokenKind.This || kind == TokenKind.Base || This.IsTypeKeyword(kind);
+    }
+
+    Private Function IsLambdaAhead() -> Bool {
+        If (!This.Check(TokenKind.OpenParen)) {
+            Return False;
+        }
+        Int depth = 0;
+        Int index = This.position;
+        While (index < This.tokenCount) {
+            TokenKind kind = This.tokens[index].Kind;
+            If (kind == TokenKind.OpenParen) {
+                depth = depth + 1;
+            } Else If (kind == TokenKind.CloseParen) {
+                depth = depth - 1;
+                If (depth == 0) {
+                    Return index + 1 < This.tokenCount && This.tokens[index + 1].Kind == TokenKind.FatArrow;
+                }
+            } Else If (kind == TokenKind.EndOfFile) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function BraceIsObjectLiteral() -> Bool {
+        TokenKind first = This.Look(1).Kind;
+        TokenKind second = This.Look(2).Kind;
+        If (first == TokenKind.CloseBrace) {
+            Return True;
+        }
+        Return (first == TokenKind.Identifier || This.IsPrimaryName(first)) && second == TokenKind.Colon;
+    }
+
+    Private Function IsOperatorToken(TokenKind kind) -> Bool {
+        Return This.BinaryPrecedence(This.Peek()) >= 0 || kind == TokenKind.Plus || kind == TokenKind.Minus || kind == TokenKind.Star || kind == TokenKind.Slash || kind == TokenKind.EqualEqual || kind == TokenKind.Bang || kind == TokenKind.Less || kind == TokenKind.Greater || kind == TokenKind.CustomOperator || kind == TokenKind.PlusPlus || kind == TokenKind.MinusMinus;
+    }
+
+    Private Function IsPrimaryName(TokenKind kind) -> Bool {
+        Return kind == TokenKind.This || kind == TokenKind.Base || kind == TokenKind.Void || This.IsTypeKeyword(kind);
+    }
+
+    Private Function IsTypeKeyword(TokenKind kind) -> Bool {
+        Return kind == TokenKind.Void || kind == TokenKind.Any || kind == TokenKind.Dynamic || kind == TokenKind.Int || kind == TokenKind.UInt || kind == TokenKind.Float || kind == TokenKind.Double || kind == TokenKind.Decimal || kind == TokenKind.Bool || kind == TokenKind.Char || kind == TokenKind.String;
+    }
+
+    Private Function IsNameKeyword(TokenKind kind) -> Bool {
+        Return This.IsTypeKeyword(kind) || kind == TokenKind.This || kind == TokenKind.Base || kind == TokenKind.Function || kind == TokenKind.True || kind == TokenKind.False || kind == TokenKind.Null || kind == TokenKind.Ref || kind == TokenKind.Type || kind == TokenKind.Constructor || kind == TokenKind.Destructor;
+    }
+}

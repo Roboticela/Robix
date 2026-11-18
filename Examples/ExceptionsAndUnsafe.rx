@@ -1,0 +1,34 @@
+// Try, catch, finally, defer, unsafe pointers, assembly, and labels.
+Package Robotics.Safety;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show structured cleanup, unsafe pointer write, and a local jump.";
+    Input: args = "Command-line arguments";
+    Processing: "Catch a thrown value, write through a pointer, and jump to a label.";
+    Output: "The value written through the pointer.";
+} {
+    Try {
+        Throw RoboException("Sensor failure");
+    } Catch (RoboException error) {
+        Print(error.Message);
+    } Finally {
+        Print("Cleanup complete");
+    }
+    Defer {
+        Print("Scope left");
+    }
+    Int sensorValue = 100;
+    Unsafe {
+        Pointer<Int> sensorPointer = Pointer.Of(sensorValue);
+        *sensorPointer = 250;
+    }
+    ASM("NOP");
+    Goto RoboLabel;
+    RoboLabel:
+    Print(sensorValue);
+    Return sensorValue;
+}

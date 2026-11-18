@@ -1,0 +1,89 @@
+// Front end shared by robixc and the Robix interpreter.
+Package Robix.Syntax;
+
+Import Robix.Core;
+
+
+Public Class CompileResult {
+    Public AstNode Module;
+    Public List<Byte> Image;
+    Public String NativeIr;
+    Public Bool Succeeded;
+    Public Int SyntaxErrors;
+    Public Int Errors;
+
+    Public Constructor() {
+        This.Module = AstNode();
+        This.Image = List<Byte>();
+        This.NativeIr = "";
+        This.Succeeded = False;
+        This.SyntaxErrors = 0;
+        This.Errors = 0;
+    }
+}
+
+Public Class SyntaxCompiler {
+    Public Function CompileSource(String source, String fileName, Bool compile) -> CompileResult
+    Explain {
+        Description: "Lex, parse, name-check, and type-check Robix source.";
+        Input: source = "Robix source text", fileName = "File name used for naming diagnostics", compile = "True to emit a package image";
+        Processing: "Parse the syntax and apply the always-strict type rules. Emit a package when compile is true.";
+        Output: "The module, diagnostics outcome, and package bytes when compilation succeeds.";
+    } {
+        DiagnosticBag diagnostics = DiagnosticBag();
+        CompileResult result = CompileResult();
+        Lexer lexer = Lexer(source, diagnostics);
+        Parser parser = Parser(lexer.Tokenize(), diagnostics);
+        AstNode module = parser.Parse();
+        NameChecker names = NameChecker(diagnostics, compile);
+        names.Check(module, fileName);
+        TypeChecker types = TypeChecker(diagnostics);
+        types.Check(module);
+        result.Module = module;
+        result.SyntaxErrors = diagnostics.SyntaxErrorCount();
+        result.Errors = diagnostics.ErrorCount();
+        If (result.Errors == 0) {
+            If (compile) {
+                NativeProgram native = NativeProgram();
+                Var names = List<String>();
+                names.Add(fileName);
+                Var modules = List<AstNode>();
+                modules.Add(module);
+                native.Collect(names, modules);
+                result.NativeIr = native.EmitFile(fileName, module, True);
+            }
+            result.Succeeded = True;
+        }
+        result.Module.Number = diagnostics.Count();
+        This.AttachDiagnostics(result.Module, diagnostics);
+        Return result;
+    }
+
+    Public Function DiagnosticsOf(CompileResult result) -> List<String>
+    Explain {
+        Description: "Return formatted diagnostics stored on a compile result.";
+        Input: result = "Result produced by CompileSource";
+        Processing: "Read the diagnostic lines saved on the module.";
+        Output: "One display line per diagnostic.";
+    } {
+        Var lines = List<String>();
+        For child In result.Module.Attributes {
+            If (child.Kind == AstKind.ExplainEntry) {
+                lines.Add(child.Text);
+            }
+        }
+        Return lines;
+    }
+
+    Private Function AttachDiagnostics(AstNode module, DiagnosticBag diagnostics) -> Void {
+        For item In diagnostics.All() {
+            AstNode entry = AstNode();
+            entry.Kind = AstKind.ExplainEntry;
+            entry.Text = FormatDiagnostic(item);
+            entry.Name = item.Code;
+            entry.Line = item.Line;
+            entry.Column = item.Column;
+            module.Attributes.Add(entry);
+        }
+    }
+}

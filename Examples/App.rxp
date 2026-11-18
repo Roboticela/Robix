@@ -1,0 +1,82 @@
+Project "MyApplication"
+{
+    Type: Executable;
+    Version: "1.0.0";
+    Description: "My cross-platform Robix application";
+
+    Source: "src/**/*.rx";
+
+    Dependencies
+    {
+        "Robix.Collections";
+        "Robix.Networking";
+        "Robix.Math";
+    }
+
+    Compiler
+    {
+        TypeSafety: Strict;
+        WarningsAsErrors: true;
+        Nullable: Enabled;
+        OverflowChecks: Enabled;
+        BoundsChecks: Enabled;
+    }
+
+    Configurations
+    {
+        Debug
+        {
+            Optimization: None;
+            DebugSymbols: true;
+        }
+
+        Release
+        {
+            Optimization: Speed;
+            DebugSymbols: false;
+        }
+    }
+
+    Output
+    {
+        Directory: "build";
+        Name: "MyApplication";
+    }
+
+    Testing
+    {
+        Source: "tests/**/*.rx";
+        Parallel: true;
+    }
+
+    Tasks
+    {
+        Task "Clean"
+        {
+            Delete: "build";
+        }
+
+        Task "Restore"
+        {
+            Restore: Dependencies;
+        }
+
+        Task "Build"
+        {
+            DependsOn: "Restore";
+            Compile: Source;
+        }
+
+        Task "Test"
+        {
+            DependsOn: "Build";
+            RunTests: Testing.Source;
+        }
+
+        Task "Publish"
+        {
+            DependsOn: "Test";
+            Package: Output;
+        }
+    }
+}

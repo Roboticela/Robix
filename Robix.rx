@@ -1,0 +1,77 @@
+// robix runs a module or checks its syntax.
+Package Robix.Tools;
+
+Import Robix.Core;
+Import Robix.Syntax;
+Import Robix.Runtime;
+
+
+Public Function Main(Args<String> args) -> ExecutionResult
+Explain {
+    Description: "Run a Robix module or check that its syntax and types are accepted.";
+        Input: args = "A project task, or run <file>, check <file>, or cover";
+        Processing: "Build the .rxp project, or parse one source file and run or check it.";
+    Output: "A standard execution result.";
+} {
+    If (args.Count() == 0) {
+        Return ExecuteProject(args);
+    }
+    String command = args[0].ToLower();
+    If (command == "cover") {
+        Int failures = CoverSyntax();
+        If (failures > 0) {
+            Return ExecutionResult(ExitCode.ErrorExecution, "Syntax coverage reported failures.");
+        }
+        Return ExecutionResult(ExitCode.Success, "Syntax coverage passed.");
+    }
+    If (IsProjectCommand(command, args)) {
+        Return ExecuteProject(args);
+    }
+    If (args.Count() < 2) {
+        Return ExecuteProject(args);
+    }
+    String source = Files.ReadText(args[1]);
+    SyntaxCompiler compiler = SyntaxCompiler();
+    Bool compile = command == "check";
+    CompileResult result = compiler.CompileSource(source, args[1], compile);
+    For line In compiler.DiagnosticsOf(result) {
+        Print(line);
+    }
+    If (command == "check") {
+        If (!result.Succeeded) {
+            Return ExecutionResult(ExitCode.ErrorExecution, "Check failed.");
+        }
+        Return ExecutionResult(ExitCode.Success, "Check passed.");
+    }
+    If (result.Errors > 0) {
+        Return ExecutionResult(ExitCode.ErrorExecution, "The module has syntax or type errors.");
+    }
+    Var programArguments = List<String>();
+    Int index = 2;
+    While (index < args.Count()) {
+        programArguments.Add(args[index]);
+        index = index + 1;
+    }
+    Interpreter interpreter = Interpreter();
+    Int exitCode = interpreter.Execute(result.Module, programArguments);
+    For line In interpreter.Lines() {
+        Print(line);
+    }
+    For line In interpreter.RuntimeErrors() {
+        Print(line);
+    }
+    If (exitCode != 0) {
+        Return ExecutionResult(ExitCode.Custom(exitCode), "The module returned a non-zero code.");
+    }
+    Return ExecutionResult(ExitCode.Success, "Program completed successfully.");
+}
+
+Private Function IsProjectCommand(String command, List<String> args) -> Bool {
+    If (command == "run" || command == "check") {
+        If (args.Count() < 2) {
+            Return True;
+        }
+        Return !args[1].EndsWith(".rx");
+    }
+    Return command != "cover";
+}

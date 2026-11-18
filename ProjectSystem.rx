@@ -1,0 +1,1336 @@
+// Loads a .rxp project and runs its build tasks.
+Package Robix.Build;
+
+Import Robix.Core;
+Import Robix.Syntax;
+Import Robix.Runtime;
+
+
+Public Class ProjectNode {
+    Public String Kind;
+    Public String Name;
+    Public String Text;
+    Public Bool Found;
+    Public Int Line;
+    Public List<ProjectNode> Children;
+
+    Public Constructor() {
+        This.Kind = "";
+        This.Name = "";
+        This.Text = "";
+        This.Found = True;
+        This.Line = 1;
+        This.Children = List<ProjectNode>();
+    }
+}
+
+Public Class ProjectEngine {
+    Private String SourceText;
+    Private Int Position;
+    Private Int Line;
+    Private List<String> Diagnostics;
+    Private List<String> VariableNames;
+    Private List<String> VariableValues;
+    Private List<ProjectNode> Functions;
+    Private String Configuration;
+    Private Bool Verbose;
+    Private Bool NoCache;
+    Private Bool DryRun;
+    Private String Filter;
+    Private String ProjectPath;
+    Private String ProjectDirectory;
+    Private Bool WarningsAsErrors;
+    Private Int CompiledCount;
+    Private Int SkippedCount;
+
+    Public Constructor() {
+        This.SourceText = "";
+        This.Position = 0;
+        This.Line = 1;
+        This.Diagnostics = List<String>();
+        This.VariableNames = List<String>();
+        This.VariableValues = List<String>();
+        This.Functions = List<ProjectNode>();
+        This.Configuration = "Debug";
+        This.Verbose = False;
+        This.NoCache = False;
+        This.DryRun = False;
+        This.Filter = "";
+        This.ProjectPath = "";
+        This.ProjectDirectory = ".";
+        This.WarningsAsErrors = False;
+        This.CompiledCount = 0;
+        This.SkippedCount = 0;
+    }
+
+    Public Function Run(List<String> args) -> ExecutionResult
+    Explain {
+        Description: "Build, run, test, or inspect the Robix project in the working directory.";
+        Input: args = "A task name and optional --Configuration, --Verbose, --NoCache, --DryRun, and --Filter options";
+        Processing: "Find the .rxp file, parse it, and execute the requested task. The default task is Build.";
+        Output: "Success when the task finishes, or an execution error when the project is invalid.";
+    } {
+        This.ReadOptions(args);
+        String command = This.CommandOf(args);
+        If (command == "help") {
+            This.PrintHelp();
+            Return ExecutionResult(ExitCode.Success, "");
+        }
+        If (command == "version") {
+            Print("Robix 1.0.0");
+            Return ExecutionResult(ExitCode.Success, "");
+        }
+        String projectPath = This.FindProject();
+        If (projectPath == "") {
+            Print("No .rxp project file was found.");
+            Return ExecutionResult(ExitCode.InvalidArguments, "A .rxp project is required.");
+        }
+        This.ProjectPath = projectPath;
+        This.ProjectDirectory = This.ParentDirectory(projectPath);
+        ProjectNode root = This.ParseFile(Files.ReadText(projectPath));
+        If (This.Diagnostics.Count() > 0) {
+            This.PrintDiagnostics();
+            Return ExecutionResult(ExitCode.ErrorExecution, "The project file is invalid.");
+        }
+        This.CollectVariables(root);
+        This.Resolve(root);
+        String problem = This.Validate(root);
+        If (problem != "") {
+            Return ExecutionResult(ExitCode.ErrorExecution, problem);
+        }
+        If (command == "list") {
+            This.PrintTasks(root);
+            Return ExecutionResult(ExitCode.Success, "");
+        }
+        If (command == "info") {
+            This.PrintInfo(root);
+            Return ExecutionResult(ExitCode.Success, "");
+        }
+        If (command == "check") {
+            Return ExecutionResult(ExitCode.Success, "Project check passed.");
+        }
+        If (command == "rebuild") {
+            This.ExecuteTask(root, "Clean");
+            command = "build";
+        }
+        If (command == "") {
+            command = "build";
+        }
+        Bool ok = This.ExecuteTask(root, This.CanonicalTask(command));
+        If (!ok) {
+            This.PrintDiagnostics();
+            Return ExecutionResult(ExitCode.ErrorExecution, "The task failed.");
+        }
+        Return ExecutionResult(ExitCode.Success, "Task " + This.CanonicalTask(command) + " completed.");
+    }
+
+    Private Function ReadOptions(List<String> args) -> Void {
+        Int index = 0;
+        While (index < args.Count()) {
+            String arg = args[index];
+            If (arg == "--Verbose") {
+                This.Verbose = True;
+            }
+            If (arg == "--NoCache") {
+                This.NoCache = True;
+            }
+            If (arg == "--DryRun") {
+                This.DryRun = True;
+            }
+            If (arg == "--Configuration" && index + 1 < args.Count()) {
+                index = index + 1;
+                This.Configuration = args[index];
+            }
+            If (arg == "--Filter" && index + 1 < args.Count()) {
+                index = index + 1;
+                This.Filter = args[index];
+            }
+            index = index + 1;
+        }
+        This.DefineVariable("Configuration", This.Configuration);
+    }
+
+    Private Function CommandOf(List<String> args) -> String {
+        Int index = 0;
+        While (index < args.Count()) {
+            String arg = args[index];
+            If (!arg.StartsWith("--")) {
+                Return arg.ToLower();
+            }
+            If (arg == "--Configuration" || arg == "--Filter") {
+                index = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function CanonicalTask(String command) -> String {
+        If (command == "build") { Return "Build"; }
+        If (command == "clean") { Return "Clean"; }
+        If (command == "run") { Return "Run"; }
+        If (command == "test") { Return "Test"; }
+        If (command == "restore") { Return "Restore"; }
+        If (command == "publish") { Return "Publish"; }
+        If (command == "pack") { Return "Pack"; }
+        If (command == "check") { Return "Check"; }
+        Return command;
+    }
+
+    Private Function FindProject() -> String {
+        Var matches = List<String>();
+        For relative In Directory.Files(".") {
+            If (relative.EndsWith(".rxp") && !relative.Contains("/")) {
+                matches.Add(relative);
+            }
+        }
+        If (matches.Count() == 0) {
+            Return "";
+        }
+        Return matches[0];
+    }
+
+    Private Function ParentDirectory(String path) -> String {
+        Int slash = path.LastIndexOf("/");
+        If (slash < 0) {
+            Return ".";
+        }
+        Return path.Substring(0, slash);
+    }
+
+    Private Function DefineVariable(String name, String value) -> Void {
+        Int index = 0;
+        While (index < This.VariableNames.Count()) {
+            If (This.VariableNames[index] == name) {
+                This.VariableValues[index] = value;
+                Return;
+            }
+            index = index + 1;
+        }
+        This.VariableNames.Add(name);
+        This.VariableValues.Add(value);
+    }
+
+    Private Function LookupVariable(String name) -> String {
+        Int index = 0;
+        While (index < This.VariableNames.Count()) {
+            If (This.VariableNames[index] == name) {
+                Return This.VariableValues[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function HasVariable(String name) -> Bool {
+        Int index = 0;
+        While (index < This.VariableNames.Count()) {
+            If (This.VariableNames[index] == name) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function CollectVariables(ProjectNode root) -> Void {
+        This.CollectFrom(root);
+        This.DefineVariable("Configuration", This.Configuration);
+    }
+
+    Private Function CollectFrom(ProjectNode node) -> Void {
+        If (node.Name == "Variables") {
+            For item In node.Children {
+                If (item.Kind == "Property") {
+                    This.DefineVariable(item.Name, item.Text);
+                }
+            }
+        }
+        If (node.Kind == "Function") {
+            This.Functions.Add(node);
+        }
+        For child In node.Children {
+            This.CollectFrom(child);
+        }
+    }
+
+    Private Function Resolve(ProjectNode node) -> Void {
+        If (node.Kind == "Property" || node.Kind == "Item" || node.Kind == "Call" || node.Kind == "Function") {
+            node.Text = This.ResolveText(node.Text);
+        }
+        If (node.Kind == "Project" && This.HasVariable(node.Name)) {
+            node.Name = This.LookupVariable(node.Name);
+        }
+        For child In node.Children {
+            This.Resolve(child);
+        }
+    }
+
+    Private Function ResolveText(String text) -> String {
+        If (This.HasVariable(text)) {
+            Return This.LookupVariable(text);
+        }
+        ProjectNode call = This.FindFunction(text);
+        If (call.Found) {
+            Return call.Text;
+        }
+        Return text;
+    }
+
+    Private Function FindFunction(String name) -> ProjectNode {
+        For item In This.Functions {
+            If (item.Name == name) {
+                Return item;
+            }
+        }
+        ProjectNode missing = ProjectNode();
+        missing.Found = False;
+        Return missing;
+    }
+
+    Private Function Validate(ProjectNode root) -> String {
+        ProjectNode project = This.FindChild(root, "Project");
+        If (!project.Found && root.Kind == "Project") {
+            project = root;
+        }
+        If (!project.Found) {
+            Return "A Project block is required.";
+        }
+        String projectType = This.Property(project, "Type");
+        If (projectType == "") {
+            projectType = "Executable";
+        }
+        If (!This.KnownType(projectType)) {
+            Return "Unknown project type '" + projectType + "'.";
+        }
+        String safety = This.Property(This.FindChild(project, "Compiler"), "TypeSafety");
+        If (safety == "") {
+            safety = This.Property(This.FindChild(project, "Build"), "TypeSafety");
+        }
+        If (safety != "" && safety != "Strict") {
+            Return "Type checking is always strict. TypeSafety cannot be '" + safety + "'.";
+        }
+        Return "";
+    }
+
+    Private Function KnownType(String projectType) -> Bool {
+        Return projectType == "Executable" || projectType == "Library" || projectType == "StaticLibrary" || projectType == "SharedLibrary" || projectType == "ConsoleApplication" || projectType == "GUIApplication" || projectType == "Test";
+    }
+
+    Private Function PrintHelp() -> Void {
+        Print("robix                  Build the current project");
+        Print("robix Build            Build the project");
+        Print("robix Clean            Remove generated files");
+        Print("robix Rebuild          Clean and build");
+        Print("robix Run              Build and run the project");
+        Print("robix run File.rx      Run one source file");
+        Print("robix Test             Run the test task");
+        Print("robix Restore          Write Robix.lock");
+        Print("robix Publish          Package the output");
+        Print("robix Pack             Package the output");
+        Print("robix Check            Validate the .rxp file");
+        Print("robix check File.rx    Type-check one source file");
+        Print("robix List             List tasks");
+        Print("robix Info             Show project information");
+        Print("robix Help             Show this help");
+        Print("robix Version          Show the tool version");
+        Print("robix cover            Parse every syntax area");
+        Print("Options: --Configuration Debug|Release|Development --Verbose --NoCache --DryRun --Filter text");
+    }
+
+    Private Function PrintInfo(ProjectNode root) -> Void {
+        ProjectNode project = This.ProjectOf(root);
+        Print("Project: " + project.Name);
+        Print("Type: " + This.OrDefault(This.Property(project, "Type"), "Executable"));
+        Print("Version: " + This.OrDefault(This.Property(project, "Version"), "1.0.0"));
+        Print("Description: " + This.Property(project, "Description"));
+        Print("Configuration: " + This.Configuration);
+        Print("Output: " + This.OutputDirectory(project) + "/" + This.OutputName(project));
+        Print("File: " + This.ProjectPath);
+    }
+
+    Private Function PrintTasks(ProjectNode root) -> Void {
+        ProjectNode tasks = This.FindChild(This.ProjectOf(root), "Tasks");
+        If (!tasks.Found || tasks.Children.Count() == 0) {
+            Print("Build");
+            Print("Clean");
+            Print("Restore");
+            Print("Test");
+            Print("Run");
+            Print("Publish");
+            Return;
+        }
+        For task In tasks.Children {
+            Print(task.Name);
+        }
+    }
+
+    Private Function ProjectOf(ProjectNode root) -> ProjectNode {
+        If (root.Kind == "Project") {
+            Return root;
+        }
+        ProjectNode project = This.FindChild(root, "Project");
+        If (project.Found) {
+            Return project;
+        }
+        Return root;
+    }
+
+    Private Function ExecuteTask(ProjectNode root, String taskName) -> Bool {
+        ProjectNode project = This.ProjectOf(root);
+        ProjectNode tasks = This.FindChild(project, "Tasks");
+        ProjectNode task = This.FindTask(tasks, taskName);
+        If (task.Found) {
+            Return This.RunTask(project, task, List<String>());
+        }
+        If (taskName == "Build") { Return This.CompileSources(project); }
+        If (taskName == "Clean") { Return This.Clean(project); }
+        If (taskName == "Restore") { Return This.Restore(project); }
+        If (taskName == "Test") { Return This.RunDiscoveredTests(project); }
+        If (taskName == "Run") {
+            If (!This.CompileSources(project)) { Return False; }
+            Return This.RunEntry(project);
+        }
+        If (taskName == "Publish" || taskName == "Pack") {
+            If (!This.CompileSources(project)) { Return False; }
+            Return This.PackageOutput(project);
+        }
+        If (taskName == "Check") { Return True; }
+        This.Diagnostics.Add("Unknown task '" + taskName + "'.");
+        Return False;
+    }
+
+    Private Function FindTask(ProjectNode tasks, String taskName) -> ProjectNode {
+        If (!tasks.Found) {
+            ProjectNode missing = ProjectNode();
+            missing.Found = False;
+            Return missing;
+        }
+        For task In tasks.Children {
+            If (task.Name == taskName || task.Name.ToLower() == taskName.ToLower()) {
+                Return task;
+            }
+        }
+        ProjectNode missing = ProjectNode();
+        missing.Found = False;
+        Return missing;
+    }
+
+    Private Function RunTask(ProjectNode project, ProjectNode task, List<String> stack) -> Bool {
+        For active In stack {
+            If (active == task.Name) {
+                This.Diagnostics.Add("Task cycle at '" + task.Name + "'.");
+                Return False;
+            }
+        }
+        stack.Add(task.Name);
+        If (task.Name == "Clean") {
+            Return This.Clean(project);
+        }
+        If (This.Verbose) {
+            Print("Task " + task.Name);
+        }
+        For child In task.Children {
+            If (!This.TaskAllows(child)) {
+                Continue;
+            }
+            If (child.Name == "DependsOn") {
+                ProjectNode dependency = This.FindTask(This.FindChild(project, "Tasks"), child.Text);
+                If (!dependency.Found) {
+                    If (!This.ExecuteTask(project, child.Text)) { Return False; }
+                } Else {
+                    If (!This.RunTask(project, dependency, stack)) { Return False; }
+                }
+            } Else If (child.Name == "Delete") {
+                If (!This.DeletePath(child.Text)) { Return False; }
+            } Else If (child.Name == "CreateDirectory") {
+                If (!This.DryRun) { Directory.Create(This.Join(This.ProjectDirectory, child.Text)); }
+            } Else If (child.Name == "Compile" || child.Name == "Build") {
+                If (!This.CompileSources(project)) { Return False; }
+            } Else If (child.Name == "Restore") {
+                If (!This.Restore(project)) { Return False; }
+            } Else If (child.Name == "RunTests") {
+                If (!This.RunTests(project, child.Text)) { Return False; }
+            } Else If (child.Name == "Run") {
+                If (!This.RunEntry(project)) { Return False; }
+            } Else If (child.Name == "Package" || child.Name == "Publish") {
+                If (!This.PackageOutput(project)) { Return False; }
+            } Else If (child.Name == "Copy") {
+                Print("Copy " + child.Text);
+            } Else If (child.Name == "Generate") {
+                If (!This.DryRun) { Directory.Create(This.Join(This.ProjectDirectory, child.Text)); }
+            } Else If (child.Kind == "If") {
+                If (!This.RunTask(project, child, stack)) { Return False; }
+            }
+        }
+        Return True;
+    }
+
+    Private Function TaskAllows(ProjectNode node) -> Bool {
+        If (node.Kind != "If") {
+            Return True;
+        }
+        Return This.ConditionMatches(node.Text);
+    }
+
+    Private Function ConditionMatches(String expression) -> Bool {
+        Int marker = expression.IndexOf("==");
+        If (marker < 0) {
+            Return This.LookupVariable(expression) == "true";
+        }
+        String left = This.Trim(expression.Substring(0, marker));
+        String right = This.Trim(expression.Substring(marker + 2));
+        String actual = left;
+        If (This.HasVariable(left)) {
+            actual = This.LookupVariable(left);
+        }
+        Return actual == right;
+    }
+
+    Private Function CompileSources(ProjectNode project) -> Bool {
+        Var files = This.SourceFiles(project);
+        If (files.Count() == 0) {
+            This.Diagnostics.Add("No .rx source files matched the project.");
+            Return False;
+        }
+        String warnings = This.Property(This.FindChild(project, "Compiler"), "WarningsAsErrors");
+        This.WarningsAsErrors = warnings == "true" || warnings == "True";
+        String outputDirectory = This.OutputDirectory(project);
+        If (!This.DryRun) {
+            Directory.Create(outputDirectory);
+            Directory.Create(This.IntermediateDirectory(project));
+        }
+        String entry = This.EntryFile(project, files);
+        Var names = List<String>();
+        Var modules = List<AstNode>();
+        Bool ok = True;
+        SyntaxCompiler compiler = SyntaxCompiler();
+        For relative In files {
+            String full = This.Join(This.ProjectDirectory, relative);
+            CompileResult result = compiler.CompileSource(Files.ReadText(full), relative, False);
+            Bool failed = !result.Succeeded;
+            For line In compiler.DiagnosticsOf(result) {
+                If (This.WarningsAsErrors && line.StartsWith("warning")) { failed = True; }
+                If (This.Verbose || line.StartsWith("error") || (This.WarningsAsErrors && line.StartsWith("warning"))) {
+                    Print(relative + ": " + line);
+                }
+            }
+            If (failed) {
+                This.Diagnostics.Add(relative + " failed to compile.");
+                ok = False;
+            } Else {
+                names.Add(relative);
+                modules.Add(result.Module);
+            }
+        }
+        If (!ok) { Return False; }
+        NativeProgram native = NativeProgram();
+        native.Collect(names, modules);
+        Int index = 0;
+        For relative In names {
+            If (relative != entry) {
+                If (!This.CompileOne(project, relative, False, native, modules[index])) { ok = False; }
+            }
+            index = index + 1;
+        }
+        If (entry != "" && ok) {
+            index = 0;
+            For relative In names {
+                If (relative == entry) {
+                    If (!This.CompileOne(project, relative, True, native, modules[index])) { ok = False; }
+                }
+                index = index + 1;
+            }
+        }
+        Print("Compiled " + This.CompiledCount.ToString() + " file(s), skipped " + This.SkippedCount.ToString() + " unchanged file(s).");
+        If (ok && !This.DryRun) {
+            Directory.Delete(This.IntermediateDirectory(project));
+        }
+        Return ok;
+    }
+
+    Private Function CompileOne(ProjectNode project, String relative, Bool entry, NativeProgram native, AstNode module) -> Bool {
+        String full = This.Join(This.ProjectDirectory, relative);
+        String output = This.OutputPath(project, relative, entry);
+        String source = Files.ReadText(full);
+        String hash = This.Fingerprint(source);
+        If (!This.NoCache && !This.DryRun && Files.Exists(output) && This.Cached(relative) == hash) {
+            This.SkippedCount = This.SkippedCount + 1;
+            If (This.Verbose) { Print("Unchanged " + relative); }
+            Return True;
+        }
+        If (This.DryRun) {
+            Print("Compile " + relative + " -> " + output);
+            Return True;
+        }
+        String ir = native.EmitFile(relative, module, entry);
+        String stem = This.FileStem(relative);
+        String llPath = This.IntermediateDirectory(project) + "/" + stem + ".ll";
+        String objectPath = This.IntermediateDirectory(project) + "/" + stem + ".o";
+        Files.WriteText(llPath, ir);
+        String flags = This.OptimizeFlag() + " " + This.DebugFlag();
+        String compile = "clang " + flags + " -fPIC -c -o \"" + objectPath + "\" \"" + llPath + "\"";
+        If (RunProcess(compile) != 0) {
+            This.Diagnostics.Add(relative + " failed to compile.");
+            Return False;
+        }
+        String link = "";
+        If (entry && This.IsApplication(project)) {
+            String libs = "";
+            For item In Directory.Files(This.OutputDirectory(project)) {
+                If (item.EndsWith(".bin") && !item.StartsWith("Compiler/") && !item.Contains("/Compiler/")) {
+                    libs = libs + " \"" + This.OutputDirectory(project) + "/" + item + "\"";
+                }
+            }
+            link = "clang " + flags + " -fPIE -o \"" + output + "\" \"" + objectPath + "\" \"" + This.RuntimeFile() + "\"" + libs + " -Wl,-rpath,'$ORIGIN'";
+        } Else {
+            link = "clang " + flags + " -shared -Wl,-soname," + stem + ".bin -o \"" + output + "\" \"" + objectPath + "\"";
+        }
+        If (RunProcess(link) != 0) {
+            This.Diagnostics.Add(relative + " failed to compile.");
+            Return False;
+        }
+        This.Remember(relative, hash);
+        This.CompiledCount = This.CompiledCount + 1;
+        If (This.Verbose) { Print("Compiled " + output); }
+        Return True;
+    }
+
+    Private Function SourceFiles(ProjectNode project) -> List<String> {
+        Var included = List<String>();
+        Var excluded = List<String>();
+        ProjectNode source = This.FindChild(project, "Source");
+        If (!source.Found) {
+            String inline = This.Property(project, "Source");
+            If (inline != "") { included.Add(inline); }
+        } Else If (source.Kind == "Property") {
+            included.Add(source.Text);
+        } Else {
+            For child In source.Children {
+                If (child.Name == "Include" || child.Kind == "Item") { included.Add(child.Text); }
+                If (child.Name == "Exclude") { excluded.Add(child.Text); }
+            }
+        }
+        If (included.Count() == 0) {
+            included.Add("**/*.rx");
+        }
+        Var files = List<String>();
+        For relative In Directory.Files(This.ProjectDirectory) {
+            If (!relative.EndsWith(".rx")) { Continue; }
+            If (This.MatchesAny(relative, excluded)) { Continue; }
+            If (!This.MatchesAny(relative, included)) { Continue; }
+            files.Add(relative);
+        }
+        Return files;
+    }
+
+    Private Function MatchesAny(String path, List<String> patterns) -> Bool {
+        For pattern In patterns {
+            If (This.MatchPattern(path, pattern)) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function MatchPattern(String path, String pattern) -> Bool {
+        Var pathParts = This.Split(path);
+        Var patternParts = This.Split(pattern);
+        Return This.MatchParts(pathParts, 0, patternParts, 0);
+    }
+
+    Private Function MatchParts(List<String> pathParts, Int pathIndex, List<String> patternParts, Int patternIndex) -> Bool {
+        If (patternIndex >= patternParts.Count()) {
+            Return pathIndex >= pathParts.Count();
+        }
+        If (patternParts[patternIndex] == "**") {
+            If (This.MatchParts(pathParts, pathIndex, patternParts, patternIndex + 1)) { Return True; }
+            If (pathIndex < pathParts.Count() && This.MatchParts(pathParts, pathIndex + 1, patternParts, patternIndex)) { Return True; }
+            Return False;
+        }
+        If (pathIndex >= pathParts.Count()) { Return False; }
+        If (!This.MatchSegment(pathParts[pathIndex], patternParts[patternIndex])) { Return False; }
+        Return This.MatchParts(pathParts, pathIndex + 1, patternParts, patternIndex + 1);
+    }
+
+    Private Function MatchSegment(String text, String pattern) -> Bool {
+        If (pattern == "*") { Return True; }
+        If (pattern.StartsWith("*") && pattern.EndsWith("*") && pattern.Length() > 1) {
+            String inner = pattern.Substring(1, pattern.Length() - 2);
+            Return text.Contains(inner);
+        }
+        If (pattern.StartsWith("*")) { Return text.EndsWith(pattern.Substring(1)); }
+        If (pattern.EndsWith("*")) { Return text.StartsWith(pattern.Substring(0, pattern.Length() - 1)); }
+        Return text == pattern;
+    }
+
+    Private Function Split(String path) -> List<String> {
+        Var parts = List<String>();
+        String current = "";
+        Int index = 0;
+        While (index < path.Length()) {
+            Char character = path.GetChar(index);
+            If (character == '/' || character == '\\') {
+                If (current.Length() > 0) { parts.Add(current); }
+                current = "";
+            } Else {
+                current = current + String.From(character);
+            }
+            index = index + 1;
+        }
+        If (current.Length() > 0) { parts.Add(current); }
+        Return parts;
+    }
+
+    Private Function EntryFile(ProjectNode project, List<String> files) -> String {
+        ProjectNode source = This.FindChild(project, "Source");
+        String chosen = This.Property(source, "Entry");
+        If (chosen != "") { Return chosen; }
+        String preferred = This.OutputName(project) + ".rx";
+        For relative In files {
+            If (relative == preferred || relative.EndsWith("/" + preferred)) { Return relative; }
+        }
+        For relative In files {
+            String full = This.Join(This.ProjectDirectory, relative);
+            If (Files.ReadText(full).Contains("Function Main")) { Return relative; }
+        }
+        If (files.Count() > 0) { Return files[0]; }
+        Return "";
+    }
+
+    Private Function OutputDirectory(ProjectNode project) -> String {
+        ProjectNode output = This.FindChild(project, "Output");
+        String directory = This.Property(output, "Directory");
+        If (directory == "") { directory = "build"; }
+        Return This.Join(This.ProjectDirectory, directory);
+    }
+
+    Private Function OutputName(ProjectNode project) -> String {
+        ProjectNode output = This.FindChild(project, "Output");
+        String name = This.Property(output, "Name");
+        If (name == "") { name = project.Name; }
+        If (name == "") { name = "Application"; }
+        Return name;
+    }
+
+    Private Function OutputPath(ProjectNode project, String relative, Bool entry) -> String {
+        String directory = This.OutputDirectory(project);
+        String fileName = relative;
+        Int slash = relative.LastIndexOf("/");
+        If (slash >= 0) { fileName = relative.Substring(slash + 1); }
+        Int dot = fileName.LastIndexOf(".");
+        If (dot >= 0) { fileName = fileName.Substring(0, dot); }
+        String extension = ".bin";
+        If (entry && This.IsApplication(project)) {
+            fileName = This.OutputName(project);
+            extension = ".app";
+        }
+        Return directory + "/" + fileName + extension;
+    }
+
+    Private Function IsApplication(ProjectNode project) -> Bool {
+        String projectType = This.OrDefault(This.Property(project, "Type"), "Executable");
+        Return projectType == "Executable" || projectType == "ConsoleApplication" || projectType == "GUIApplication";
+    }
+
+    Private Function Clean(ProjectNode project) -> Bool {
+        String directory = This.OutputDirectory(project);
+        String temp = This.IntermediateDirectory(project);
+        If (This.DryRun) {
+            Print("Delete " + temp);
+            Print("Delete generated programs in " + directory);
+            Return True;
+        }
+        Directory.Delete(temp);
+        For relative In Directory.Files(directory) {
+            If (relative.EndsWith(".app") || relative.EndsWith(".bin")) {
+                Files.Delete(directory + "/" + relative);
+            }
+        }
+        Print("Cleaned " + directory);
+        Return True;
+    }
+
+    Private Function IntermediateDirectory(ProjectNode project) -> String {
+        ProjectNode output = This.FindChild(project, "Output");
+        String directory = This.Property(output, "IntermediateDirectory");
+        If (directory == "") { directory = "Build/temp"; }
+        Return This.Join(This.ProjectDirectory, directory);
+    }
+
+    Private Function FileStem(String relative) -> String {
+        String fileName = relative;
+        Int slash = relative.LastIndexOf("/");
+        If (slash >= 0) { fileName = relative.Substring(slash + 1); }
+        Int dot = fileName.LastIndexOf(".");
+        If (dot >= 0) { fileName = fileName.Substring(0, dot); }
+        Return fileName;
+    }
+
+    Private Function OptimizeFlag() -> String {
+        If (This.Configuration == "Release") { Return "-O3 -flto"; }
+        If (This.Configuration == "Development") { Return "-O2"; }
+        Return "-O0";
+    }
+
+    Private Function DebugFlag() -> String {
+        If (This.Configuration == "Release") { Return ""; }
+        Return "-g";
+    }
+
+    Private Function RuntimeFile() -> String {
+        String installed = This.Join(This.ProjectDirectory, "Build/Compiler/rx_runtime.c");
+        If (Files.Exists(installed)) { Return installed; }
+        Return This.Join(This.ProjectDirectory, "InitialCompiler/rx_runtime.c");
+    }
+
+    Private Function DeletePath(String path) -> Bool {
+        String full = This.Join(This.ProjectDirectory, path);
+        If (This.DryRun) {
+            Print("Delete " + full);
+            Return True;
+        }
+        Directory.Delete(full);
+        Return True;
+    }
+
+    Private Function Restore(ProjectNode project) -> Bool {
+        ProjectNode dependencies = This.FindChild(project, "Dependencies");
+        String text = "# Robix.lock\n";
+        If (dependencies.Found) {
+            text = text + This.LockLines(dependencies);
+        }
+        String lockPath = This.Join(This.ProjectDirectory, "Robix.lock");
+        If (This.DryRun) {
+            Print("Restore " + lockPath);
+            Return True;
+        }
+        Files.WriteText(lockPath, text);
+        Print("Wrote " + lockPath);
+        Return True;
+    }
+
+    Private Function LockLines(ProjectNode node) -> String {
+        String text = "";
+        For child In node.Children {
+            If (child.Kind == "Item" || child.Name == "Package") {
+                String version = child.Text;
+                If (version == "" || version == child.Name) { version = "*"; }
+                text = text + child.Name + " " + version + "\n";
+            } Else If (child.Children.Count() > 0) {
+                text = text + This.LockLines(child);
+            }
+        }
+        Return text;
+    }
+
+    Private Function RunDiscoveredTests(ProjectNode project) -> Bool {
+        ProjectNode testing = This.FindChild(project, "Testing");
+        String pattern = This.Property(testing, "Source");
+        If (pattern == "") { pattern = "tests/**/*.rx"; }
+        Return This.RunTests(project, pattern);
+    }
+
+    Private Function RunTests(ProjectNode project, String pattern) -> Bool {
+        Int passed = 0;
+        Int failed = 0;
+        For relative In Directory.Files(This.ProjectDirectory) {
+            If (!relative.EndsWith(".rx")) { Continue; }
+            If (!This.MatchPattern(relative, pattern)) { Continue; }
+            If (This.Filter != "" && !relative.Contains(This.Filter)) { Continue; }
+            If (This.CheckTest(relative)) {
+                passed = passed + 1;
+            } Else {
+                failed = failed + 1;
+            }
+        }
+        Print("Tests passed " + passed.ToString() + ", failed " + failed.ToString() + ".");
+        Return failed == 0;
+    }
+
+    Private Function CheckTest(String relative) -> Bool {
+        String full = This.Join(This.ProjectDirectory, relative);
+        String source = Files.ReadText(full);
+        SyntaxCompiler compiler = SyntaxCompiler();
+        CompileResult result = compiler.CompileSource(source, relative, True);
+        If (!result.Succeeded) {
+            Print("FAIL " + relative);
+            Return False;
+        }
+        If (!source.Contains("Function Main")) {
+            Print("PASS " + relative);
+            Return True;
+        }
+        Interpreter interpreter = Interpreter();
+        Int exitCode = interpreter.Execute(result.Module, List<String>());
+        For line In interpreter.Lines() { Print(line); }
+        If (exitCode != 0 || interpreter.RuntimeErrors().Count() > 0) {
+            Print("FAIL " + relative);
+            Return False;
+        }
+        Print("PASS " + relative);
+        Return True;
+    }
+
+    Private Function RunEntry(ProjectNode project) -> Bool {
+        Var files = This.SourceFiles(project);
+        String entry = This.EntryFile(project, files);
+        If (entry == "") {
+            This.Diagnostics.Add("The project has no entry file.");
+            Return False;
+        }
+        String source = Files.ReadText(This.Join(This.ProjectDirectory, entry));
+        SyntaxCompiler compiler = SyntaxCompiler();
+        CompileResult result = compiler.CompileSource(source, entry, False);
+        If (result.Errors > 0) {
+            For line In compiler.DiagnosticsOf(result) { Print(line); }
+            Return False;
+        }
+        Interpreter interpreter = Interpreter();
+        Int exitCode = interpreter.Execute(result.Module, List<String>());
+        For line In interpreter.Lines() { Print(line); }
+        For line In interpreter.RuntimeErrors() { Print(line); }
+        Return exitCode == 0 && interpreter.RuntimeErrors().Count() == 0;
+    }
+
+    Private Function PackageOutput(ProjectNode project) -> Bool {
+        String directory = This.OutputDirectory(project);
+        String name = This.OutputName(project);
+        String manifest = directory + "/" + name + ".package";
+        String text = "Name: " + name + "\nVersion: " + This.OrDefault(This.Property(project, "Version"), "1.0.0") + "\nConfiguration: " + This.Configuration + "\n";
+        If (This.DryRun) {
+            Print("Package " + manifest);
+            Return True;
+        }
+        Directory.Create(directory);
+        Files.WriteText(manifest, text);
+        Print("Packaged " + manifest);
+        Return True;
+    }
+
+    Private Function Fingerprint(String text) -> String {
+        Int total = text.Length();
+        Int index = 0;
+        While (index < text.Length()) {
+            total = total + text.GetChar(index).ToInt();
+            index = index + 1;
+        }
+        Return total.ToString();
+    }
+
+    Private Function CachePath() -> String {
+        Return This.Join(This.ProjectDirectory, "Build/temp/robix.cache");
+    }
+
+    Private Function Cached(String relative) -> String {
+        String path = This.CachePath();
+        If (!Files.Exists(path)) { Return ""; }
+        String text = Files.ReadText(path);
+        Var lines = This.SplitLines(text);
+        For line In lines {
+            Int space = line.IndexOf(" ");
+            If (space > 0 && line.Substring(0, space) == relative) {
+                Return line.Substring(space + 1);
+            }
+        }
+        Return "";
+    }
+
+    Private Function Remember(String relative, String hash) -> Void {
+        String path = This.CachePath();
+        Directory.Create(This.ParentDirectory(path));
+        String prior = "";
+        If (Files.Exists(path)) { prior = Files.ReadText(path); }
+        Files.WriteText(path, prior + relative + " " + hash + "\n");
+    }
+
+    Private Function SplitLines(String text) -> List<String> {
+        Var lines = List<String>();
+        String current = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            Char character = text.GetChar(index);
+            If (character == '\n') {
+                lines.Add(current);
+                current = "";
+            } Else If (character != '\r') {
+                current = current + String.From(character);
+            }
+            index = index + 1;
+        }
+        If (current.Length() > 0) { lines.Add(current); }
+        Return lines;
+    }
+
+    Private Function Join(String directory, String relative) -> String {
+        If (directory == "" || directory == ".") { Return relative; }
+        If (relative.StartsWith("/")) { Return relative; }
+        Return directory + "/" + relative;
+    }
+
+    Private Function Property(ProjectNode node, String name) -> String {
+        If (!node.Found) { Return ""; }
+        For child In node.Children {
+            If (child.Name == name) { Return child.Text; }
+        }
+        Return "";
+    }
+
+    Private Function FindChild(ProjectNode node, String name) -> ProjectNode {
+        For child In node.Children {
+            If (child.Name == name) { Return child; }
+        }
+        For child In node.Children {
+            If (child.Kind == name) { Return child; }
+        }
+        ProjectNode missing = ProjectNode();
+        missing.Found = False;
+        Return missing;
+    }
+
+    Private Function OrDefault(String value, String fallback) -> String {
+        If (value == "") { Return fallback; }
+        Return value;
+    }
+
+    Private Function Trim(String text) -> String {
+        Int start = 0;
+        Int end = text.Length();
+        While (start < end && (text.GetChar(start) == ' ' || text.GetChar(start) == '\t')) {
+            start = start + 1;
+        }
+        While (end > start && (text.GetChar(end - 1) == ' ' || text.GetChar(end - 1) == '\t')) {
+            end = end - 1;
+        }
+        Return text.Substring(start, end - start);
+    }
+
+    Private Function PrintDiagnostics() -> Void {
+        For line In This.Diagnostics {
+            Print(line);
+        }
+    }
+
+    Private Function ParseFile(String source) -> ProjectNode {
+        This.SourceText = source;
+        This.Position = 0;
+        This.Line = 1;
+        ProjectNode root = ProjectNode();
+        root.Kind = "File";
+        This.Skip();
+        While (!This.Ended()) {
+            root.Children.Add(This.ParseItem());
+            This.Skip();
+        }
+        Return root;
+    }
+
+    Private Function ParseItem() -> ProjectNode {
+        This.Skip();
+        If (This.PeekChar() == '}') {
+            ProjectNode empty = ProjectNode();
+            empty.Kind = "Empty";
+            Return empty;
+        }
+        If (This.StartsWith("If ") || This.StartsWith("If\n") || This.StartsWith("If{")) {
+            Return This.ParseIf();
+        }
+        If (This.StartsWith("Function ") || This.StartsWith("Function\n")) {
+            Return This.ParseFunction();
+        }
+        If (This.StartsWith("Const ")) {
+            This.Consume("Const");
+            This.Skip();
+        }
+        If (This.StartsWith("Let ")) {
+            This.Consume("Let");
+            This.Skip();
+        }
+        ProjectNode node = ProjectNode();
+        node.Line = This.Line;
+        If (This.PeekChar() == '"') {
+            node.Kind = "Item";
+            node.Name = This.ParseString();
+            node.Text = node.Name;
+            This.Skip();
+            If (This.WordAhead()) {
+                String label = This.ParseIdentifier();
+                This.Skip();
+                If (This.PeekChar() == ':') { This.AdvanceChar(); }
+                This.Skip();
+                node.Name = node.Text;
+                node.Text = This.ParseExpression();
+                node.Kind = "Item";
+                If (label != "Version") { node.Name = label; }
+            }
+            This.OptionalSemicolon();
+            Return node;
+        }
+        String name = This.ParseIdentifier();
+        node.Name = name;
+        node.Line = This.Line;
+        This.Skip();
+        If (This.PeekChar() == '"') {
+            node.Text = This.ParseString();
+            node.Name = name;
+            This.Skip();
+        }
+        If (This.PeekChar() == '(') {
+            This.AdvanceChar();
+            This.Skip();
+            If (This.PeekChar() == ')') { This.AdvanceChar(); }
+            node.Kind = "Call";
+            node.Text = name;
+            This.Skip();
+        }
+        If (This.PeekChar() == ':') {
+            This.AdvanceChar();
+            This.Skip();
+            If (This.WordAhead() && This.EqualsBeforeStop()) {
+                This.ParseIdentifier();
+                This.Skip();
+            }
+            If (This.PeekChar() == '=') {
+                This.AdvanceChar();
+                This.Skip();
+            }
+            node.Kind = "Property";
+            node.Text = This.ParseExpression();
+            This.OptionalSemicolon();
+            Return node;
+        }
+        If (This.PeekChar() == '{') {
+            node.Kind = "Block";
+            If (name == "Project") { node.Kind = "Project"; }
+            If (name == "Task") { node.Kind = "Task"; }
+            If (name == "Function") { node.Kind = "Function"; }
+            If (node.Text != "" && name == "Project") { node.Name = node.Text; }
+            If (node.Text != "" && name == "Task") { node.Name = node.Text; }
+            node.Children = This.ParseBlock();
+            Return node;
+        }
+        node.Kind = "Property";
+        If (node.Text == "") { node.Text = name; }
+        This.OptionalSemicolon();
+        Return node;
+    }
+
+    Private Function ParseIf() -> ProjectNode {
+        This.Consume("If");
+        This.Skip();
+        ProjectNode node = ProjectNode();
+        node.Kind = "If";
+        node.Line = This.Line;
+        String expression = "";
+        While (!This.Ended() && This.PeekChar() != '{') {
+            expression = expression + String.From(This.AdvanceChar());
+        }
+        node.Text = This.Trim(expression);
+        node.Name = "If";
+        node.Children = This.ParseBlock();
+        Return node;
+    }
+
+    Private Function ParseFunction() -> ProjectNode {
+        This.Consume("Function");
+        This.Skip();
+        ProjectNode node = ProjectNode();
+        node.Kind = "Function";
+        node.Name = This.ParseIdentifier();
+        This.Skip();
+        If (This.PeekChar() == '(') {
+            While (!This.Ended() && This.PeekChar() != ')') { This.AdvanceChar(); }
+            If (This.PeekChar() == ')') { This.AdvanceChar(); }
+        }
+        This.Skip();
+        If (This.PeekChar() == ':') {
+            This.AdvanceChar();
+            This.Skip();
+            This.ParseIdentifier();
+        }
+        This.Skip();
+        node.Children = This.ParseBlock();
+        For child In node.Children {
+            If (child.Name == "Return") { node.Text = child.Text; }
+        }
+        Return node;
+    }
+
+    Private Function ParseBlock() -> List<ProjectNode> {
+        Var children = List<ProjectNode>();
+        This.Skip();
+        If (This.PeekChar() == '{') { This.AdvanceChar(); }
+        This.Skip();
+        While (!This.Ended() && This.PeekChar() != '}') {
+            ProjectNode child = This.ParseItem();
+            If (child.Kind != "Empty") { children.Add(child); }
+            This.Skip();
+        }
+        If (This.PeekChar() == '}') { This.AdvanceChar(); }
+        Return children;
+    }
+
+    Private Function ParseExpression() -> String {
+        String value = This.ParsePrimary();
+        This.Skip();
+        While (This.PeekChar() == '+') {
+            This.AdvanceChar();
+            This.Skip();
+            value = value + This.ParsePrimary();
+            This.Skip();
+        }
+        Return value;
+    }
+
+    Private Function ParsePrimary() -> String {
+        This.Skip();
+        If (This.PeekChar() == '"') { Return This.ParseString(); }
+        If (This.WordAhead()) {
+            String name = This.ParseIdentifier();
+            This.Skip();
+            If (This.PeekChar() == '(') {
+                This.AdvanceChar();
+                This.Skip();
+                If (This.PeekChar() == ')') { This.AdvanceChar(); }
+                ProjectNode call = This.FindFunction(name);
+                If (call.Found) { Return call.Text; }
+                Return name;
+            }
+            Return name;
+        }
+        String raw = "";
+        While (!This.Ended() && This.PeekChar() != ';' && This.PeekChar() != ',' && This.PeekChar() != '}' && This.PeekChar() != '+' && This.PeekChar() != '{') {
+            raw = raw + String.From(This.AdvanceChar());
+        }
+        Return This.Trim(raw);
+    }
+
+    Private Function ParseString() -> String {
+        This.AdvanceChar();
+        String text = "";
+        While (!This.Ended() && This.PeekChar() != '"') {
+            Char character = This.AdvanceChar();
+            If (character == '\\' && !This.Ended()) {
+                Char escaped = This.AdvanceChar();
+                If (escaped == 'n') { text = text + "\n"; }
+                Else { text = text + String.From(escaped); }
+            } Else {
+                text = text + String.From(character);
+            }
+        }
+        If (This.PeekChar() == '"') { This.AdvanceChar(); }
+        Return text;
+    }
+
+    Private Function ParseIdentifier() -> String {
+        String text = "";
+        While (This.WordChar(This.PeekChar())) {
+            text = text + String.From(This.AdvanceChar());
+        }
+        Return text;
+    }
+
+    Private Function WordChar(Char character) -> Bool {
+        Return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '_' || character == '.';
+    }
+
+    Private Function EqualsBeforeStop() -> Bool {
+        Int offset = 0;
+        While (This.LookChar(offset) != '\0' && This.LookChar(offset) != ';' && This.LookChar(offset) != '{' && This.LookChar(offset) != '}') {
+            If (This.LookChar(offset) == '=') { Return True; }
+            offset = offset + 1;
+        }
+        Return False;
+    }
+
+    Private Function WordAhead() -> Bool {
+        Char character = This.PeekChar();
+        Return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || character == '_';
+    }
+
+    Private Function IdentifierLength() -> Int {
+        Int offset = 0;
+        While (This.WordChar(This.LookChar(offset))) {
+            offset = offset + 1;
+        }
+        Return offset;
+    }
+
+    Private Function OptionalSemicolon() -> Void {
+        This.Skip();
+        If (This.PeekChar() == ';') { This.AdvanceChar(); }
+    }
+
+    Private Function Consume(String text) -> Void {
+        Int index = 0;
+        While (index < text.Length()) {
+            This.AdvanceChar();
+            index = index + 1;
+        }
+    }
+
+    Private Function Skip() -> Void {
+        Bool moving = True;
+        While (moving && !This.Ended()) {
+            moving = False;
+            Char character = This.PeekChar();
+            If (character == ' ' || character == '\t' || character == '\r' || character == '\n') {
+                This.AdvanceChar();
+                moving = True;
+            } Else If (character == '/' && This.LookChar(1) == '/') {
+                While (!This.Ended() && This.PeekChar() != '\n') { This.AdvanceChar(); }
+                moving = True;
+            } Else If (character == '/' && This.LookChar(1) == '*') {
+                This.AdvanceChar();
+                This.AdvanceChar();
+                While (!This.Ended() && !(This.PeekChar() == '*' && This.LookChar(1) == '/')) { This.AdvanceChar(); }
+                If (!This.Ended()) { This.AdvanceChar(); This.AdvanceChar(); }
+                moving = True;
+            }
+        }
+    }
+
+    Private Function StartsWith(String text) -> Bool {
+        Int index = 0;
+        While (index < text.Length()) {
+            If (This.LookChar(index) != text.GetChar(index)) { Return False; }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function PeekChar() -> Char {
+        If (This.Position >= This.SourceText.Length()) { Return '\0'; }
+        Return This.SourceText.GetChar(This.Position);
+    }
+
+    Private Function LookChar(Int offset) -> Char {
+        Int index = This.Position + offset;
+        If (index < 0 || index >= This.SourceText.Length()) { Return '\0'; }
+        Return This.SourceText.GetChar(index);
+    }
+
+    Private Function AdvanceChar() -> Char {
+        Char character = This.PeekChar();
+        If (This.Position < This.SourceText.Length()) {
+            This.Position = This.Position + 1;
+            If (character == '\n') { This.Line = This.Line + 1; }
+        }
+        Return character;
+    }
+
+    Private Function Ended() -> Bool {
+        Return This.Position >= This.SourceText.Length();
+    }
+}
+
+Private Extern Function RunProcess(String command) -> Int;
+
+Public Function ExecuteProject(List<String> args) -> ExecutionResult
+Explain {
+    Description: "Run a Robix project task from the .rxp file in the working directory.";
+    Input: args = "Task name and build options";
+    Processing: "Delegate to the project engine.";
+    Output: "The task result.";
+} {
+    ProjectEngine engine = ProjectEngine();
+    Return engine.Run(args);
+}

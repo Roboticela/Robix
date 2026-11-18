@@ -1,0 +1,27 @@
+// Built-in conversions, collection helpers, and math functions.
+Package Robotics.Builtins;
+
+Import Robix.Core;
+Import Robix.Math As Math;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Call built-in text, collection, and math operations.";
+    Input: args = "Command-line arguments";
+    Processing: "Transform text, map an array, and take an absolute value.";
+    Output: "The absolute value.";
+} {
+    String message = "Robix";
+    Print(message);
+    AssertEqual(42, 42);
+    String upperName = message.ToUpper();
+    Array<Int> sensorReads = [1, 2, 3];
+    sensorReads.Add(5);
+    Let doubled = sensorReads.Map((Int n) => n * 2);
+    Int absolute = Math.Abs(-12);
+    Int minimum = Math.Min(10, 30);
+    Print(upperName);
+    Print(absolute);
+    Return absolute;
+}

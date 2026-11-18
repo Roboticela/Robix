@@ -1,0 +1,36 @@
+// Strict type rules: declared types, null checks, and exhaustive returns.
+Package Robotics.StrictMode;
+
+Import Robix.Core;
+
+
+Public Function TypedAdd(Int a, Int b) -> Int
+Explain {
+    Description: "Add two statically typed integers.";
+    Input: a = "Left operand", b = "Right operand";
+    Processing: "Add the operands.";
+    Output: "The sum.";
+} {
+    Return a + b;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Use nullable narrowing and a typed helper.";
+    Input: args = "Command-line arguments";
+    Processing: "Read an optional name only after a null check.";
+    Output: "The sum of 2 and 3.";
+} {
+    Let typedName: String = "RoboBot";
+    Var typedCount: Int = 10;
+    Let inferredValue = 25;
+    String? optionalName = "Robo";
+    If (optionalName != Null) {
+        Print(optionalName);
+    }
+    Let displayName = optionalName ?? "Unknown";
+    Int sum = TypedAdd(2, 3);
+    Print(displayName);
+    Print(typedName);
+    Return sum;
+}

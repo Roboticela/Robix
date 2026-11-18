@@ -1,0 +1,24 @@
+// Runnable program using declarations, loops, arithmetic, and Main.
+Package Robotics.Hello;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Greet the operator and total the numbers from 1 through 5.";
+    Input: args = "Command-line arguments";
+    Processing: "Add the inclusive range and print the greeting and total.";
+    Output: "Zero when the greeting has been printed.";
+} {
+    Var total = 0;
+    For index In 1..=5 {
+        total = total + index;
+    }
+    Print("Hello, Robix");
+    Print(total);
+    If (args.Count() > 0) {
+        Print(args[0]);
+    }
+    Return 0;
+}

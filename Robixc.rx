@@ -1,0 +1,45 @@
+// robixc compiles a Strict Robix module into a binary package.
+Package Robix.Tools;
+
+Import Robix.Core;
+Import Robix.Syntax;
+
+
+Public Function Main(Args<String> args) -> ExecutionResult
+Explain {
+    Description: "Compile one Robix source file into a Linux executable.";
+    Input: args = "The source path and an optional output path";
+    Processing: "Parse the syntax, apply the always-strict type rules, emit LLVM IR, and let clang write the executable.";
+    Output: "Success when the module is strict and type-safe.";
+} {
+    If (args.Count() == 0) {
+        Print("Usage: robixc Source.rx Output.app");
+        Return ExecutionResult(ExitCode.InvalidArguments, "A source file is required.");
+    }
+    String sourcePath = args[0];
+    String outputPath = "Build/Program.app";
+    If (args.Count() > 1) {
+        outputPath = args[1];
+    }
+    String source = Files.ReadText(sourcePath);
+    SyntaxCompiler compiler = SyntaxCompiler();
+    CompileResult result = compiler.CompileSource(source, sourcePath, True);
+    For line In compiler.DiagnosticsOf(result) {
+        Print(line);
+    }
+    If (!result.Succeeded) {
+        Return ExecutionResult(ExitCode.ErrorExecution, "Compilation failed.");
+    }
+    String llPath = outputPath + ".ll";
+    Files.WriteText(llPath, result.NativeIr);
+    String runtime = "Build/Compiler/rx_runtime.c";
+    If (!Files.Exists(runtime)) { runtime = "InitialCompiler/rx_runtime.c"; }
+    String command = "clang -O3 -flto -fPIE -o \"" + outputPath + "\" \"" + llPath + "\" \"" + runtime + "\"";
+    Int code = RunProcess(command);
+    If (code != 0) {
+        Return ExecutionResult(ExitCode.ErrorExecution, "Clang failed.");
+    }
+    Return ExecutionResult(ExitCode.Success, "Wrote " + outputPath + ".");
+}
+
+Private Extern Function RunProcess(String command) -> Int;
