@@ -1,0 +1,49 @@
+// Tests for Emitter.rx.
+
+Test Emit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WriteNode {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WriteOptional {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WriteList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WriteString {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WriteInt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WriteByte {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Flag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

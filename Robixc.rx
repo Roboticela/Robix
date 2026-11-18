@@ -3,6 +3,7 @@ Package Robix.Tools;
 
 Import Robix.Core;
 Import Robix.Syntax;
+Import Robix.Runtime;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
@@ -28,6 +29,11 @@ Explain {
         Print(line);
     }
     If (!result.Succeeded) {
+        Return ExecutionResult(ExitCode.ErrorExecution, "Compilation failed.");
+    }
+    Interpreter tests = Interpreter();
+    For line In tests.RequireTests(sourcePath, result.Module) {
+        Print(line);
         Return ExecutionResult(ExitCode.ErrorExecution, "Compilation failed.");
     }
     String llPath = outputPath + ".ll";

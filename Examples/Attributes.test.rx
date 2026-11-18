@@ -1,0 +1,13 @@
+// Tests for Examples/Attributes.rx.
+
+Test Start {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

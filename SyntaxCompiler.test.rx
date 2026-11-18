@@ -1,0 +1,19 @@
+// Tests for SyntaxCompiler.rx.
+
+Test CompileSource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DiagnosticsOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AttachDiagnostics {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

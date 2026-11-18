@@ -159,5 +159,6 @@ Public Enum TokenKind {
     Char,
     String,
     Out,
-    Clobber
+    Clobber,
+    Test
 }

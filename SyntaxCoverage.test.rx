@@ -1,0 +1,79 @@
+// Tests for SyntaxCoverage.rx.
+
+Test CoverSyntax {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboMultiply {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboAdd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboSum {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboCalibrate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Move {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Reset {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetStatus {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Start {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Initialize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboStep {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NativeReadSensor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

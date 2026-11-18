@@ -61,6 +61,7 @@ Public Class Lexer {
         This.Register("Var", TokenKind.Var);
         This.Register("Const", TokenKind.Const);
         This.Register("Function", TokenKind.Function);
+        This.Register("Test", TokenKind.Test);
         This.Register("Public", TokenKind.Public);
         This.Register("Private", TokenKind.Private);
         This.Register("Protected", TokenKind.Protected);

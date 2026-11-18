@@ -10,6 +10,9 @@
 // Add clear examples at Examples folder for every possible use of that feature or syntax which is implemented with real examples.
 The lagnuage will can have both entry point from procedural with private int main and also from class procedural one will be more dominant. Will give error both by interpreter and compiler if two are defined at once in one file.
 
+// Their must be Filename.test.rx file for each and every file which will have tests for each function in that file and if this file not exists or tests not exists then interpreter will ignore while the compiler will give error.
+
+
 Package Robotics.SyntaxExamples;
 
 Import Robix.Core;
@@ -120,6 +123,45 @@ Struct RoboResult<TValue, TError> {
 // -----------------------------------------------------------------------------
 // 5. Operators, expressions, custom operators, and operator functions
 // -----------------------------------------------------------------------------
+
+// Every built-in operator has a callable function form.
+Bool same = Operators.Equal(10, 10);
+Int added = Operators.Add(10, 20);
+Int negated = Operators.Negate(10);
+Bool ordered = Operators.GreaterThan(20, 10);
+Bool both = Operators.And(True, False);
+
+// A custom operator is declared once and can be used in either form.
+// Precedence and associativity must be declared to avoid ambiguity.
+Operator "⊗" Precedence 70 LeftAssociative
+    Function RoboMultiply(Int left, Int right) -> Int {
+    Return left * right;
+}
+
+// Both expressions call the same implementation.
+Int customProduct = 6 ⊗ 7;
+Int customProductCall = RoboMultiply(6, 7);
+Int operatorCall = Operators.Call("⊗", 6, 7);
+
+// Operator implementations may be attached to user-defined types through
+// Operator blocks in classes, structs, enums, interfaces, traits, or services.
+Struct RoboVector {
+    Public Float X;
+    Public Float Y;
+
+    Public Operator +(RoboVector left, RoboVector right) -> RoboVector {
+        Return RoboVector { X: left.X + right.X, Y: left.Y + right.Y };
+    }
+
+    Public Operator ==(RoboVector left, RoboVector right) -> Bool {
+        Return left.X == right.X And left.Y == right.Y;
+    }
+}
+
+RoboVector vectorA = RoboVector { X: 1, Y: 2 };
+RoboVector vectorB = RoboVector { X: 3, Y: 4 };
+RoboVector vectorC = vectorA + vectorB;
+RoboVector vectorD = Operators.Add(vectorA, vectorB);
 
 // Operator overloads must obey type-safety rules. Implementations are resolved
 // consistently for classes, structs, interfaces, traits, enums, and services.

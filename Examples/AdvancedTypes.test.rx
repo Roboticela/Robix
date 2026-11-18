@@ -1,0 +1,31 @@
+// Tests for Examples/AdvancedTypes.rx.
+
+Test Initialize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboStep {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboStop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NativeReadSensor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

@@ -72,6 +72,9 @@ Public Partial Class Parser {
     }
 
     Private Function ParseItemAfterModifiers(List<String> modifiers) -> AstNode {
+        If (This.Check(TokenKind.Test)) {
+            Return This.ParseTest(modifiers);
+        }
         If (This.Check(TokenKind.Package)) {
             Return This.ParsePackage(modifiers);
         }
@@ -118,6 +121,100 @@ Public Partial Class Parser {
             This.Error("RX010", "A declaration must follow these modifiers.");
         }
         Return This.ParseStatement();
+    }
+
+    Private Function ParseTest(List<String> modifiers) -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Test, start);
+        node.Name = This.ParseAnyName();
+        If (This.Match(TokenKind.Dot)) {
+            node.Text = node.Name;
+            node.Name = This.ParseAnyName();
+        }
+        This.Expect(TokenKind.OpenBrace, "Expected '{' to open a test.");
+        This.ParseTestSections(node);
+        This.Expect(TokenKind.CloseBrace, "Expected '}' to close a test.");
+        This.CopyModifiers(node, modifiers);
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseTestSections(AstNode node) -> Void {
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBrace)) {
+            If (This.Match(TokenKind.Semicolon)) {
+                Continue;
+            }
+            If (This.Check(TokenKind.Identifier) && This.Peek().Text == "Case") {
+                node.Children.Add(This.ParseTestCase(node));
+                Continue;
+            }
+            String label = This.ParseAnyName();
+            This.Expect(TokenKind.Colon, "Expected ':' after a test label.");
+            If (label == "Input") {
+                node.FlagA = True;
+                While (!This.IsAtEnd() && !This.Check(TokenKind.Semicolon) && !This.Check(TokenKind.CloseBrace)) {
+                    If (This.Check(TokenKind.Identifier) && This.IsTestLabel(This.Peek().Text) && This.Look(1).Kind == TokenKind.Colon) {
+                        Break;
+                    }
+                    AstNode binding = This.Make(AstKind.Argument, This.Peek());
+                    binding.Name = This.ParseAnyName();
+                    This.Expect(TokenKind.Assign, "Expected '=' in a test input.");
+                    binding.Initializer = This.ParseExpression();
+                    node.Parameters.Add(binding);
+                    If (!This.Match(TokenKind.Comma)) {
+                        Break;
+                    }
+                }
+            } Else If (label == "Constraint") {
+                node.Left = This.ParseExpression();
+            } Else If (label == "Processing") {
+                node.Right = This.ParseExpression();
+            } Else If (label == "Output") {
+                node.Extra = This.ParseExpression();
+            } Else If (This.IsTestCheck(label)) {
+                node.Children.Add(This.ParseTestCheck(label));
+            } Else {
+                This.Error("RX018", "Expected a test label such as Input, Case, Assert, or Equal.");
+                This.ParseExpression();
+            }
+            This.Match(TokenKind.Semicolon);
+        }
+    }
+
+    Private Function ParseTestCase(AstNode parent) -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Test, start);
+        node.FlagB = True;
+        node.Name = parent.Name;
+        If (This.Check(TokenKind.StringLiteral)) {
+            node.Text = This.Advance().Text;
+        } Else {
+            node.Text = This.ParseAnyName();
+        }
+        This.Expect(TokenKind.OpenBrace, "Expected '{' to open a test case.");
+        This.ParseTestSections(node);
+        This.Expect(TokenKind.CloseBrace, "Expected '}' to close a test case.");
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function ParseTestCheck(String label) -> AstNode {
+        AstNode check = This.Make(AstKind.Constraint, This.Peek());
+        check.Name = label;
+        check.Left = This.ParseExpression();
+        If (This.Match(TokenKind.Comma)) {
+            check.Right = This.ParseExpression();
+        }
+        This.Finish(check, This.Peek());
+        Return check;
+    }
+
+    Private Function IsTestLabel(String name) -> Bool {
+        Return name == "Input" || name == "Constraint" || name == "Processing" || name == "Output" || name == "Case" || This.IsTestCheck(name);
+    }
+
+    Private Function IsTestCheck(String name) -> Bool {
+        Return name == "Assert" || name == "True" || name == "False" || name == "Equal" || name == "NotEqual" || name == "Greater" || name == "Less" || name == "GreaterEqual" || name == "LessEqual" || name == "Contains" || name == "Expect" || name == "Empty" || name == "NotEmpty" || name == "Null" || name == "NotNull" || name == "Fails";
     }
 
     Private Function ParsePackage(List<String> modifiers) -> AstNode {

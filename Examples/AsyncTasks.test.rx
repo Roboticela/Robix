@@ -1,0 +1,13 @@
+// Tests for Examples/AsyncTasks.rx.
+
+Test RoboCalibrate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

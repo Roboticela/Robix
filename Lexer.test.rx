@@ -1,0 +1,121 @@
+// Tests for Lexer.rx.
+
+Test Tokenize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Register {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RegisterKeywords {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SkipTrivia {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadIdentifierOrKeyword {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadNumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadString {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadOperatorOrDelimiter {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TakeFixed {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Add {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AdvanceChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PeekChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StartsWith {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsDigit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsIdentifierStart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsIdentifierPart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsSuffixChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsCustomOperatorChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

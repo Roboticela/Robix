@@ -1,0 +1,73 @@
+// Tests for NameChecker.rx.
+
+Test Check {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckFileName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Walk {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RequireCamel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RequirePascal {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RequireConstant {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsCamelCase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsPascalCase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsConstantCase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckAcronyms {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MatchAcronym {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test HasModifier {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

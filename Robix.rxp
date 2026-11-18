@@ -8,6 +8,7 @@ Project "Robix"
     {
         Include: "*.rx";
         Exclude: "Examples/**";
+        Exclude: "**/*.test.rx";
     }
 
     Compiler

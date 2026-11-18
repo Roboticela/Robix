@@ -1,0 +1,13 @@
+// Tests for Robixc.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunProcess {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

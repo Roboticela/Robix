@@ -1,0 +1,7 @@
+// Tests for Examples/MemoryAndConcurrency.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

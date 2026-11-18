@@ -1,0 +1,7 @@
+// Tests for Examples/Operators.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

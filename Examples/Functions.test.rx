@@ -1,0 +1,38 @@
+// Tests for Examples/Functions.rx.
+
+Test RoboAdd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboSum {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboAdd {
+    Case "positives" {
+        Input: a = 10, b = 20;
+        Constraint: a >= 0 And b >= 0;
+        Assert: a + b == 30;
+        Equal: Result, a + b;
+        NotEqual: Result, 0;
+        Greater: Result, a;
+        Less: a, Result;
+        Expect: 30;
+        Output: 30;
+    }
+    Case "identity" {
+        Input: a = 0, b = 7;
+        Equal: Result, b;
+        Output: 7;
+    }
+}

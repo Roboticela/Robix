@@ -82,7 +82,8 @@ Public Enum AstKind {
     Type,
     Argument,
     Constraint,
-    Interpolation
+    Interpolation,
+    Test
 }
 
 // Field roles by kind are fixed so the checker and interpreter agree.

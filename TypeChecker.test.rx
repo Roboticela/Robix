@@ -1,0 +1,247 @@
+// Tests for TypeChecker.rx.
+
+Test Check {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PredeclareFunctions {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckNode {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckScoped {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckVariable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckIf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckFor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckMatch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckAssignment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Infer {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test InferCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RequireAssignable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RequireBool {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MissingType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Undefined {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NoteNullNarrowing {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NoteNullExit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindPattern {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReturnsAlways {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RegisterFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Define {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Find {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PushScope {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PopScope {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CollectAliases {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResolveType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test InnerTask {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StripOptional {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WidensTo {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CallArgumentType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CallTupleType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LiteralElement {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ElementName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SameElements {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FixedCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNumeric {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsTypeName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsCamel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test HasModifier {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

@@ -1,0 +1,61 @@
+// Tests for Diagnostic.rx.
+
+Test Add {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Error {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Warning {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeError {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Count {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ErrorCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SyntaxErrorCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Truncate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test All {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FormatDiagnostic {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

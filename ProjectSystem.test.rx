@@ -1,0 +1,523 @@
+// Tests for ProjectSystem.rx.
+
+Test Run {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadOptions {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CommandOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CanonicalTask {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindProject {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParentDirectory {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DefineVariable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LookupVariable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test HasVariable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CollectVariables {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CollectFrom {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Resolve {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResolveText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Validate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KnownType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PrintHelp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PrintInfo {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PrintTasks {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ProjectOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExecuteTask {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindTask {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunTask {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TaskAllows {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ConditionMatches {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CompileSources {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CompileOne {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SourceFiles {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MatchesAny {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MatchPattern {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MatchParts {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MatchSegment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Split {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EntryFile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OutputDirectory {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OutputName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OutputPath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsApplication {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Clean {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IntermediateDirectory {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FileStem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OptimizeFlag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DebugFlag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RuntimeFile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DeletePath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Restore {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LockLines {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunDiscoveredTests {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunTests {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckTest {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunEntry {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PackageOutput {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Fingerprint {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CachePath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Cached {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Remember {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SplitLines {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Join {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Property {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindChild {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OrDefault {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Trim {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PrintDiagnostics {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseFile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseItem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseIf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseBlock {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseExpression {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParsePrimary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseString {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseIdentifier {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WordChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EqualsBeforeStop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WordAhead {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IdentifierLength {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OptionalSemicolon {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Consume {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Skip {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StartsWith {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PeekChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LookChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AdvanceChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Ended {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunProcess {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExecuteProject {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

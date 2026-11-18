@@ -1,0 +1,475 @@
+// Tests for Interpreter.rx.
+
+Test TestTitle {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExpectsFailure {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunChecks {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunCheck {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsEmptyValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CompareValues {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StringStatic {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TextCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Execute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Lines {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RequireTests {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RuntimeErrors {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CollectTestNames {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test HasTestName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunParsedTests {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunOneTest {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CollectFunctions {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExecuteNode {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExecuteBlock {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExecuteVariable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExecuteFor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExecuteMatch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Evaluate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvaluateBinary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvaluateCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OperatorLibrary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CallFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PatternMatches {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindPattern {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Define {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Assign {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EnumOrdinal {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeEnumValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TakeFront {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TakeBack {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeMatches {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeRecord {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeMap {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeSet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeObject {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeObjectValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FieldIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Lookup {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PushScope {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PopScope {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeInt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeFloatBits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseFloat {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FloatBits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvaluateFloat {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeBool {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeNull {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeVoid {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeArray {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsTruthy {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Same {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Display {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseF64 {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test F32Parse {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TextF64 {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FloatFromInt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test F64Add {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test F64Sub {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test F64Mul {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test F64Div {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test F64Neg {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test F64Cmp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FloatToInt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadLine {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BitAnd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BitOr {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BitXor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Shl {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Shr {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

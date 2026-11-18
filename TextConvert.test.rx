@@ -1,0 +1,130 @@
+// Tests for TextConvert.rx.
+
+Test DigitValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseInteger {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StripNumericSuffix {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NumericBodyEnd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NumericSuffix {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SuffixTypeName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseInteger {
+    Input: text = "1_000";
+    Constraint: text != "";
+    Processing: 1000;
+    Output: 1000;
+}
+
+Test ParseInteger {
+    Input: text = "0x10";
+    Constraint: text != "";
+    Processing: 16;
+    Output: 16;
+}
+
+Test StripNumericSuffix {
+    Input: text = "12i32";
+    Constraint: text != "";
+    Processing: "12";
+    Output: "12";
+}
+
+Test NumericBodyEnd {
+    Input: text = "12i32";
+    Constraint: text != "";
+    Processing: 2;
+    Output: 2;
+}
+
+Test NumericSuffix {
+    Input: text = "12i32";
+    Constraint: text != "";
+    Processing: "i32";
+    Output: "i32";
+}
+
+Test SuffixTypeName {
+    Input: suffix = "i32";
+    Constraint: suffix != "";
+    Processing: "Int32";
+    Output: "Int32";
+}
+
+Test SuffixTypeName {
+    Input: suffix = "";
+    Processing: "Int";
+    Output: "Int";
+}
+
+Test ParseInteger {
+    Case "thousands separator" {
+        Input: text = "1_000";
+        Assert: text != "";
+        True: text.Length() > 0;
+        False: text == "";
+        Equal: text, "1_000";
+        NotEqual: text, "1000";
+        Greater: text.Length(), 4;
+        Less: 3, text.Length();
+        GreaterEqual: text.Length(), 5;
+        LessEqual: text.Length(), 5;
+        Contains: text, "_";
+        NotEmpty: text;
+        NotNull: text;
+        Expect: 1000;
+        Output: 1000;
+    }
+    Case "hex" {
+        Input: text = "0x10";
+        Assert: text.StartsWith("0x");
+        Equal: Result, 16;
+        Expect: 16;
+        Output: 16;
+    }
+}
+
+Test SuffixTypeName {
+    Case "signed 32-bit" {
+        Input: suffix = "i32";
+        Contains: suffix, "32";
+        NotEmpty: suffix;
+        Equal: suffix, "i32";
+        NotEqual: suffix, "u32";
+        Expect: "Int32";
+        Output: "Int32";
+    }
+    Case "missing suffix" {
+        Input: suffix = "";
+        Empty: suffix;
+        Expect: "Int";
+        Output: "Int";
+    }
+}

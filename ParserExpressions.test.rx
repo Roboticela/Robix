@@ -1,0 +1,253 @@
+// Tests for ParserExpressions.rx.
+
+Test ParseExpressionOnly {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseExpression {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParsePrecedence {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseUnary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParsePrimary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParsePostfix {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseStringLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SplitInterpolation {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseArrayLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseBraceLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseObjectLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseLambda {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseParenLambda {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseArgumentList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseArgument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTypeSuffix {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTypeAtom {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTypeArgument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TryAttachGeneric {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GenericFollows {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LooksLikeTypedVariable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StartsTypeAtCursor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SkipTypeLook {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SkipTypeSuffixLook {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SkipTypeAtom {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SkipAngles {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SkipNest {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LookKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BinaryPrecedence {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CustomPrecedence {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsRightAssociative {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsAssignment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsPrefixOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsExpressionStop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StartsExpression {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsLambdaAhead {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BraceIsObjectLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsOperatorToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsPrimaryName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsTypeKeyword {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNameKeyword {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

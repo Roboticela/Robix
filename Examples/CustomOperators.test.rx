@@ -1,0 +1,20 @@
+// Tests for Examples/CustomOperators.rx.
+
+Test RoboMultiply {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboMultiply {
+    Input: left = 6, right = 7;
+    Constraint: left > 0 And right > 0;
+    Processing: left * right;
+    Output: 42;
+}

@@ -1,0 +1,27 @@
+// Tests for Robix.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsProjectCommand {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsProjectCommand {
+    Input: command = "build", args = ["build"];
+    Constraint: command != "";
+    Processing: True;
+    Output: True;
+}
+
+Test IsProjectCommand {
+    Input: command = "run", args = ["run", "File.rx"];
+    Constraint: command != "";
+    Processing: False;
+    Output: False;
+}

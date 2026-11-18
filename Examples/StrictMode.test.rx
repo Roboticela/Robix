@@ -1,0 +1,37 @@
+// Tests for Examples/StrictMode.rx.
+
+Test TypedAdd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypedAdd {
+    Case "adds the inputs" {
+        Input: a = 2, b = 3;
+        Constraint: a >= 0;
+        Assert: a + b == 5;
+        True: a < b;
+        False: a > b;
+        Equal: a + b, 5;
+        NotEqual: a, b;
+        Greater: b, a;
+        Less: a, b;
+        GreaterEqual: Result, 5;
+        LessEqual: Result, 5;
+        Expect: 5;
+        Output: 5;
+    }
+    Case "zero stays zero" {
+        Input: a = 0, b = 0;
+        Equal: Result, 0;
+        NotNull: Result;
+        Output: 0;
+    }
+}

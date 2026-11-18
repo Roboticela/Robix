@@ -1,0 +1,391 @@
+// Tests for Parser.rx.
+
+Test ParseTestSections {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTestCase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTestCheck {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsTestCheck {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Parse {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseItem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseItemAfterModifiers {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTest {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsTestLabel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParsePackage {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseImport {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParsePermissions {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseLetVar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseConst {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTypedVariable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseExtraDeclarators {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseGenericParameters {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseGenericParameterList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseParameterList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseParameter {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseWhere {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseExplain {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTypeDeclaration {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseBaseReference {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTypeBody {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseMember {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseConstructor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseDestructor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseEnumBody {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseImplement {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseConnect {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTypeAlias {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseMacro {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseExtern {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseAttributeList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseModifierList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseQualifiedName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseIdentifierText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseAnyName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsWord {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseOperatorTokenText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RememberOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsFunctionStart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsUntypedName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsTypeDeclarationKeyword {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsModifier {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ModifierHas {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CopyModifiers {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AcceptSemicolon {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Peek {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Look {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Previous {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsAtEnd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Check {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Match {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Advance {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Expect {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ConsumeGreater {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Error {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Make {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Finish {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

@@ -1,0 +1,163 @@
+// Tests for ParserStatements.rx.
+
+Test ParseBlock {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseStatement {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseIf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseCondition {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseBody {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseMatch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseMatchArm {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParsePattern {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseFor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseForClause {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ForHeaderIsCStyle {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseWhile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseDoWhile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseRepeat {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseLoop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseSimple {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseReturn {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseYield {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseThrow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseTry {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseDefer {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseUsing {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseUnsafe {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseLock {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseGoto {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseAsm {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsLiteralToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

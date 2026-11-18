@@ -1,0 +1,823 @@
+// Tests for NativeEmit.rx.
+
+Test Collect {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitFile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AddClass {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PutMethod {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AddFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindClass {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RememberModuleOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RememberClassOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OperatorResult {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SafeOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OperatorIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OperatorSymbol {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OperatorType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FunctionCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FunctionSymbol {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitClassMembers {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitConstructor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitMethod {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitOperatorFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitPlain {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DeclareExtern {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DeclareForeign {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EntryMain {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RuntimeDeclarations {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResetFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindGlobals {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PrepareGlobals {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CollectGlobals {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Fresh {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Label {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Emit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Raw {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Branch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Block {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Bind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Lookup {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Alloca {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LoadSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StringConst {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CallRuntime {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitBlock {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitStatement {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitMatch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitPatternCond {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindMatchName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitIf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitWhile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitFor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LoadName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StoreName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitAssignment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CombineAssignment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitTupleBinding {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitTupleAssignment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitExpr {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LoadObjectField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StoreObjectField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LoadListCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LoadListItem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StoreListItem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitMember {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitNamedCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MakeResult {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Construct {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LiteralArgument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitOperatorLibrary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitMethodCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitStaticCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FilesCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DirectoryCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ToStringValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StringMethod {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ListMethod {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitBinary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ShortCircuit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test JoinFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SetField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PushLoop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PopLoop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsDefined {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AddDefined {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindMethod {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FieldSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FieldType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EnumValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Pair {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResolveAlias {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitObjectLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitEnumCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsVoid {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsString {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ElementType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MapValueType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TupleElement {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RecordSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RecordFieldType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitTernary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitTypeCheck {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitRange {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitWrapped {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WrappedType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SequenceCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitCoalesce {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitMapLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitSetLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitTupleLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitRecordLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Stem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SafeArg {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Digits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PrintKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsAnyType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ValueTag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ElementTag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BoxAny {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ValueForStore {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AnyCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitArrayLiteral {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsFloatType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsFloat32Literal {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FloatSpelling {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitFloatBits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitInterpolation {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FloatOperand {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EmitFloatBinary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExternSymbol {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExitCodeValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsStringMethod {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsListMethod {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Escape {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AppendUtf8 {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test HexByte {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test HexDigit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

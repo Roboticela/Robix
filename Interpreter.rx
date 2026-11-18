@@ -115,6 +115,51 @@ Public Class Interpreter {
         Return This.lines;
     }
 
+    Public Function RequireTests(String sourcePath, AstNode module) -> List<String>
+    Explain {
+        Description: "Require a companion test file and run its function tests.";
+        Input: sourcePath = "Source file path", module = "Parsed source module";
+        Processing: "The interpreter ignores a missing companion. The compiler reports a missing file or a function without a test, then runs every test.";
+        Output: "Error lines. An empty list means the tests passed or this run is not enforcing them.";
+    } {
+        Var errors = List<String>();
+        If (sourcePath.EndsWith(".test.rx") || !sourcePath.EndsWith(".rx")) {
+            Return errors;
+        }
+        String companion = sourcePath.Substring(0, sourcePath.Length() - 3) + ".test.rx";
+        If (!Files.Exists(companion)) {
+            errors.Add("error RX120 " + sourcePath + " requires " + companion + ".");
+            Return errors;
+        }
+        DiagnosticBag diagnostics = DiagnosticBag();
+        Lexer lexer = Lexer(Files.ReadText(companion), diagnostics);
+        Parser parser = Parser(lexer.Tokenize(), diagnostics);
+        AstNode tests = parser.Parse();
+        If (diagnostics.ErrorCount() > 0) {
+            For item In diagnostics.All() {
+                errors.Add(FormatDiagnostic(item));
+            }
+            Return errors;
+        }
+        Var functions = List<String>();
+        This.CollectTestNames(module, AstKind.Function, functions);
+        Var covered = List<String>();
+        This.CollectTestNames(tests, AstKind.Test, covered);
+        For name In functions {
+            If (!This.HasTestName(covered, name)) {
+                errors.Add("error RX120 " + companion + " has no test for '" + name + "'.");
+            }
+        }
+        If (errors.Count() > 0) {
+            Return errors;
+        }
+        This.PushScope();
+        This.CollectFunctions(module);
+        This.RunParsedTests(tests, errors);
+        This.PopScope();
+        Return errors;
+    }
+
     Public Function RuntimeErrors() -> List<String>
     Explain {
         Description: "Return runtime type and evaluation errors.";
@@ -123,6 +168,244 @@ Public Class Interpreter {
         Output: "The runtime error lines.";
     } {
         Return This.runtimeErrors;
+    }
+
+    Private Function CollectTestNames(AstNode node, AstKind kind, List<String> names) -> Void {
+        If (node.Kind == kind && node.Name != "" && !This.HasTestName(names, node.Name)) {
+            names.Add(node.Name);
+        }
+        For child In node.Children {
+            This.CollectTestNames(child, kind, names);
+        }
+        If (node.Body != Null) {
+            This.CollectTestNames(node.Body, kind, names);
+        }
+    }
+
+    Private Function HasTestName(List<String> names, String name) -> Bool {
+        For existing In names {
+            If (existing == name) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function RunParsedTests(AstNode node, List<String> errors) -> Void {
+        If (node.Kind == AstKind.Test) {
+            Bool hasCase = False;
+            For child In node.Children {
+                If (child.Kind == AstKind.Test && child.FlagB) { hasCase = True; }
+            }
+            If (node.FlagB || !hasCase) {
+                String failure = This.RunOneTest(node);
+                If (failure != "") { errors.Add(failure); }
+            }
+        }
+        For child In node.Children {
+            This.RunParsedTests(child, errors);
+        }
+        If (node.Body != Null) {
+            This.RunParsedTests(node.Body, errors);
+        }
+    }
+
+    Private Function RunOneTest(AstNode test) -> String {
+        This.runtimeErrors = List<String>();
+        This.PushScope();
+        For binding In test.Parameters {
+            Value value = This.MakeInt(0);
+            If (binding.Initializer != Null) { value = This.Evaluate(binding.Initializer); }
+            This.Define(binding.Name, value);
+        }
+        If (This.runtimeErrors.Count() > 0) {
+            String message = This.runtimeErrors[0];
+            This.PopScope();
+            Return "error RX121 Test " + test.Name + " failed. " + message;
+        }
+        If (test.Left != Null && !This.IsTruthy(This.Evaluate(test.Left))) {
+            This.PopScope();
+            Return "error RX121 Test " + test.Name + " failed. Constraint was false.";
+        }
+        Value processing = This.MakeVoid();
+        Bool hasProcessing = test.Right != Null;
+        If (hasProcessing) { processing = This.Evaluate(test.Right); }
+        Value expected = This.MakeVoid();
+        Bool hasOutput = test.Extra != Null;
+        If (hasOutput) { expected = This.Evaluate(test.Extra); }
+        If (This.runtimeErrors.Count() > 0) {
+            String message = This.runtimeErrors[0];
+            This.PopScope();
+            Return "error RX121 Test " + test.Name + " failed. " + message;
+        }
+        Bool hasCheck = False;
+        For child In test.Children {
+            If (child.Kind != AstKind.Test) { hasCheck = True; }
+        }
+        If (!test.FlagA && !hasOutput && !hasCheck) {
+            This.PopScope();
+            Return "error RX121 Test " + This.TestTitle(test) + " must declare Output.";
+        }
+        Bool expectFailure = This.ExpectsFailure(test);
+        Value actual = This.MakeVoid();
+        Bool called = False;
+        If (test.FlagA) {
+            AstNode? function = This.FindFunction(test.Name);
+            If (function == Null) {
+                This.PopScope();
+                Return "error RX121 Test " + This.TestTitle(test) + " failed. The function is not defined.";
+            }
+            Var arguments = List<Value>();
+            For parameter In function.Parameters {
+                If (!parameter.FlagC) {
+                    Value argument = This.MakeInt(0);
+                    For binding In test.Parameters {
+                        If (binding.Name == parameter.Name) { argument = This.Lookup(parameter.Name); }
+                    }
+                    arguments.Add(argument);
+                }
+            }
+            actual = This.CallFunction(function, arguments);
+            called = True;
+            If (This.runtimeErrors.Count() > 0 && !expectFailure) {
+                String message = This.runtimeErrors[0];
+                This.PopScope();
+                Return "error RX121 Test " + This.TestTitle(test) + " failed. " + message;
+            }
+            If (This.runtimeErrors.Count() == 0 && expectFailure) {
+                This.PopScope();
+                Return "error RX121 Test " + This.TestTitle(test) + " failed. The call was expected to fail.";
+            }
+            This.runtimeErrors = List<String>();
+            If (!expectFailure) {
+                This.Define("Result", actual);
+                If (hasOutput && !This.Same(actual, expected)) {
+                    This.PopScope();
+                    Return "error RX121 Test " + This.TestTitle(test) + " failed. Output expected " + This.Display(expected) + " but the function returned " + This.Display(actual) + ".";
+                }
+                If (hasProcessing && !This.Same(actual, processing)) {
+                    This.PopScope();
+                    Return "error RX121 Test " + This.TestTitle(test) + " failed. Processing expected " + This.Display(processing) + " but the function returned " + This.Display(actual) + ".";
+                }
+            }
+        } Else If (hasProcessing && hasOutput && !This.Same(processing, expected)) {
+            This.PopScope();
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Processing and Output do not match.";
+        }
+        String checkFailure = This.RunChecks(test, actual, called);
+        This.PopScope();
+        Return checkFailure;
+    }
+
+    Private Function TestTitle(AstNode test) -> String {
+        If (test.Text == "") { Return test.Name; }
+        Return test.Name + " " + test.Text;
+    }
+
+    Private Function ExpectsFailure(AstNode test) -> Bool {
+        For child In test.Children {
+            If (child.Name == "Fails" && child.Left != Null && This.IsTruthy(This.Evaluate(child.Left))) {
+                Return True;
+            }
+        }
+        Return False;
+    }
+
+    Private Function RunChecks(AstNode test, Value actual, Bool called) -> String {
+        For child In test.Children {
+            If (child.Kind == AstKind.Test || child.Name == "Fails") { Continue; }
+            String failure = This.RunCheck(test, child, actual, called);
+            If (failure != "") { Return failure; }
+        }
+        Return "";
+    }
+
+    Private Function RunCheck(AstNode test, AstNode check, Value actual, Bool called) -> String {
+        Value left = This.MakeVoid();
+        Value right = This.MakeVoid();
+        If (check.Left != Null) { left = This.Evaluate(check.Left); }
+        If (check.Right != Null) { right = This.Evaluate(check.Right); }
+        If (This.runtimeErrors.Count() > 0) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. " + This.runtimeErrors[0];
+        }
+        String label = check.Name;
+        If ((label == "Assert" || label == "True") && !This.IsTruthy(left)) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. " + label + " was false.";
+        }
+        If (label == "False" && This.IsTruthy(left)) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. False was true.";
+        }
+        If (label == "Equal" && !This.Same(left, right)) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Equal expected " + This.Display(right) + " but got " + This.Display(left) + ".";
+        }
+        If (label == "NotEqual" && This.Same(left, right)) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. NotEqual got " + This.Display(left) + ".";
+        }
+        If (label == "Greater" && This.CompareValues(left, right) <= 0) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Greater expected " + This.Display(left) + " > " + This.Display(right) + ".";
+        }
+        If (label == "Less" && This.CompareValues(left, right) >= 0) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Less expected " + This.Display(left) + " < " + This.Display(right) + ".";
+        }
+        If (label == "GreaterEqual" && This.CompareValues(left, right) < 0) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. GreaterEqual expected " + This.Display(left) + " >= " + This.Display(right) + ".";
+        }
+        If (label == "LessEqual" && This.CompareValues(left, right) > 0) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. LessEqual expected " + This.Display(left) + " <= " + This.Display(right) + ".";
+        }
+        If (label == "Contains" && !left.Text.Contains(right.Text)) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Contains expected " + This.Display(right) + " in " + This.Display(left) + ".";
+        }
+        If (label == "Expect") {
+            If (!called) {
+                Return "error RX121 Test " + This.TestTitle(test) + " failed. Expect needs Input so the function is called.";
+            }
+            If (!This.Same(actual, left)) {
+                Return "error RX121 Test " + This.TestTitle(test) + " failed. Expect expected " + This.Display(left) + " but the function returned " + This.Display(actual) + ".";
+            }
+        }
+        If (label == "Empty" && !This.IsEmptyValue(left)) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Empty was not empty.";
+        }
+        If (label == "NotEmpty" && This.IsEmptyValue(left)) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. NotEmpty was empty.";
+        }
+        If (label == "Null" && left.Kind != ValueKind.Null) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Null got " + This.Display(left) + ".";
+        }
+        If (label == "NotNull" && left.Kind == ValueKind.Null) {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. NotNull got Null.";
+        }
+        Return "";
+    }
+
+    Private Function IsEmptyValue(Value value) -> Bool {
+        If (value.Kind == ValueKind.Null || value.Kind == ValueKind.None) { Return True; }
+        If (value.Kind == ValueKind.Text) { Return value.Text.Length() == 0; }
+        If (value.Kind == ValueKind.Array) { Return value.Elements.Count() == 0; }
+        Return False;
+    }
+
+    Private Function CompareValues(Value left, Value right) -> Int {
+        If (left.Kind == ValueKind.Float || right.Kind == ValueKind.Float) {
+            Return F64Cmp(This.FloatBits(left), This.FloatBits(right));
+        }
+        If (left.Kind == ValueKind.Text && right.Kind == ValueKind.Text) {
+            Int length = left.Text.Length();
+            If (right.Text.Length() < length) { length = right.Text.Length(); }
+            Int index = 0;
+            While (index < length) {
+                Int leftCode = left.Text.GetChar(index).ToInt();
+                Int rightCode = right.Text.GetChar(index).ToInt();
+                If (leftCode < rightCode) { Return -1; }
+                If (leftCode > rightCode) { Return 1; }
+                index = index + 1;
+            }
+            If (left.Text.Length() < right.Text.Length()) { Return -1; }
+            If (left.Text.Length() > right.Text.Length()) { Return 1; }
+            Return 0;
+        }
+        If (left.Integer < right.Integer) { Return -1; }
+        If (left.Integer > right.Integer) { Return 1; }
+        Return 0;
     }
 
     Private Function CollectFunctions(AstNode node) -> Void {
@@ -618,6 +901,14 @@ Public Class Interpreter {
         If (node.Operator == "^") { Return This.MakeInt(BitXor(left.Integer, right.Integer)); }
         If (node.Operator == "==" || node.Operator == "Equal") { Return This.MakeBool(This.Same(left, right)); }
         If (node.Operator == "!=") { Return This.MakeBool(!This.Same(left, right)); }
+        If (left.Kind == ValueKind.Text && right.Kind == ValueKind.Text && left.Text.Length() == 1 && right.Text.Length() == 1) {
+            Int leftCode = left.Text.GetChar(0).ToInt();
+            Int rightCode = right.Text.GetChar(0).ToInt();
+            If (node.Operator == "<") { Return This.MakeBool(leftCode < rightCode); }
+            If (node.Operator == ">") { Return This.MakeBool(leftCode > rightCode); }
+            If (node.Operator == "<=") { Return This.MakeBool(leftCode <= rightCode); }
+            If (node.Operator == ">=") { Return This.MakeBool(leftCode >= rightCode); }
+        }
         If (node.Operator == "<") { Return This.MakeBool(left.Integer < right.Integer); }
         If (node.Operator == ">") { Return This.MakeBool(left.Integer > right.Integer); }
         If (node.Operator == "<=") { Return This.MakeBool(left.Integer <= right.Integer); }
@@ -699,7 +990,14 @@ Public Class Interpreter {
             }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) {
+            If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "String") {
+                Return This.StringStatic(node.Left.Name, arguments);
+            }
             Value target = This.Evaluate(node.Left.Left);
+            If (target.Kind == ValueKind.Text) {
+                Value textCall = This.TextCall(node.Left.Name, target, arguments);
+                If (textCall.Kind != ValueKind.None) { Return textCall; }
+            }
             If (node.Left.Name == "Enqueue" || node.Left.Name == "Push") {
                 If (arguments.Count() > 0) { target.Elements.Add(arguments[0]); }
                 Return This.MakeVoid();
@@ -750,6 +1048,44 @@ Public Class Interpreter {
             }
         }
         Return This.MakeVoid();
+    }
+
+    Private Function StringStatic(String name, List<Value> arguments) -> Value {
+        If (name == "From" && arguments.Count() > 0) {
+            If (arguments[0].Kind == ValueKind.Text) { Return arguments[0]; }
+            If (arguments[0].Kind == ValueKind.Integer) { Return This.MakeText(String.From(Char.From(arguments[0].Integer))); }
+            Return This.MakeText(This.Display(arguments[0]));
+        }
+        Return This.MakeText("");
+    }
+
+    Private Function TextCall(String name, Value target, List<Value> arguments) -> Value {
+        String text = target.Text;
+        If (name == "GetChar") {
+            Int index = 0;
+            If (arguments.Count() > 0) { index = arguments[0].Integer; }
+            If (index < 0 || index >= text.Length()) { Return This.MakeText(""); }
+            Return This.MakeText(text.Substring(index, 1));
+        }
+        If (name == "Substring") {
+            Int start = 0;
+            If (arguments.Count() > 0) { start = arguments[0].Integer; }
+            Int length = text.Length() - start;
+            If (arguments.Count() > 1) { length = arguments[1].Integer; }
+            If (start < 0) { start = 0; }
+            If (length < 0) { length = 0; }
+            If (start > text.Length()) { start = text.Length(); }
+            If (start + length > text.Length()) { length = text.Length() - start; }
+            Return This.MakeText(text.Substring(start, length));
+        }
+        If (name == "StartsWith" && arguments.Count() > 0) { Return This.MakeBool(text.StartsWith(arguments[0].Text)); }
+        If (name == "EndsWith" && arguments.Count() > 0) { Return This.MakeBool(text.EndsWith(arguments[0].Text)); }
+        If (name == "Contains" && arguments.Count() > 0) { Return This.MakeBool(text.Contains(arguments[0].Text)); }
+        If (name == "IndexOf" && arguments.Count() > 0) { Return This.MakeInt(text.IndexOf(arguments[0].Text)); }
+        If (name == "Replace" && arguments.Count() > 1) { Return This.MakeText(text.Replace(arguments[0].Text, arguments[1].Text)); }
+        If (name == "ToLower") { Return This.MakeText(text.ToLower()); }
+        If (name == "ToUpper") { Return This.MakeText(text.ToUpper()); }
+        Return Value();
     }
 
     Private Function FindOperator(String key) -> Int {

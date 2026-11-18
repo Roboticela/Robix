@@ -1,0 +1,31 @@
+// Tests for Examples/Objects.rx.
+
+Test Move {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Reset {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetStatus {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
