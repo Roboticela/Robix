@@ -363,8 +363,10 @@ Public Class Lexer {
         } Else {
             This.AdvanceChar();
         }
+        Int contentStart = This.index;
         Var chars = List<Char>();
         Bool closed = False;
+        Bool escaped = False;
         While (This.index < This.source.Length()) {
             If (multiline && This.StartsWith("\"\"\"")) {
                 This.AdvanceChar();
@@ -380,18 +382,19 @@ Public Class Lexer {
             }
             Char character = This.source.GetChar(This.index);
             If (!raw && character == '\\') {
+                escaped = True;
                 This.AdvanceChar();
                 If (This.index >= This.source.Length()) {
                     Break;
                 }
-                Char escaped = This.source.GetChar(This.index);
+                Char escapeChar = This.source.GetChar(This.index);
                 This.AdvanceChar();
-                If (escaped == 'n') { chars.Add('\n'); }
-                Else If (escaped == 'r') { chars.Add('\r'); }
-                Else If (escaped == 't') { chars.Add('\t'); }
-                Else If (escaped == '0') { chars.Add('\0'); }
-                Else If (escaped == '\\' || escaped == '"' || escaped == '\'') { chars.Add(escaped); }
-                Else If (escaped == 'u') {
+                If (escapeChar == 'n') { chars.Add('\n'); }
+                Else If (escapeChar == 'r') { chars.Add('\r'); }
+                Else If (escapeChar == 't') { chars.Add('\t'); }
+                Else If (escapeChar == '0') { chars.Add('\0'); }
+                Else If (escapeChar == '\\' || escapeChar == '"' || escapeChar == '\'') { chars.Add(escapeChar); }
+                Else If (escapeChar == 'u') {
                     Int code = 0;
                     Int count = 0;
                     While (count < 4 && This.index < This.source.Length()) {
@@ -405,7 +408,7 @@ Public Class Lexer {
                     }
                     chars.Add(Char.From(code));
                 } Else {
-                    chars.Add(escaped);
+                    chars.Add(escapeChar);
                 }
             } Else {
                 chars.Add(character);
@@ -417,7 +420,14 @@ Public Class Lexer {
         }
         Token token = Token();
         token.Kind = TokenKind.StringLiteral;
-        token.Text = String.FromChars(chars);
+        If (!escaped && closed) {
+            Int contentEnd = This.index - 1;
+            If (multiline) { contentEnd = This.index - 3; }
+            If (contentEnd < contentStart) { contentEnd = contentStart; }
+            token.Text = This.source.Substring(contentStart, contentEnd - contentStart);
+        } Else {
+            token.Text = String.FromChars(chars);
+        }
         token.Line = startLine;
         token.Column = startColumn;
         token.Length = token.Text.Length();

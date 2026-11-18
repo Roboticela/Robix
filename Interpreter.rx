@@ -50,6 +50,8 @@ Public Class Interpreter {
     Private Value returnValue;
     Private List<AstNode> functions;
     Private List<AstNode> types;
+    Private List<String> operatorKeys;
+    Private List<AstNode> operatorNodes;
 
     Public Constructor() {
         This.names = List<String>();
@@ -61,6 +63,8 @@ Public Class Interpreter {
         This.returnValue = This.MakeVoid();
         This.functions = List<AstNode>();
         This.types = List<AstNode>();
+        This.operatorKeys = List<String>();
+        This.operatorNodes = List<AstNode>();
     }
 
     Public Function Execute(AstNode module, List<String> arguments) -> Int
@@ -127,8 +131,22 @@ Public Class Interpreter {
                 This.functions.Add(child);
                 This.Define(child.Name, This.MakeFunction(child));
             }
+            If (child.Kind == AstKind.Operator) {
+                If (child.Body != Null && child.Body.Kind == AstKind.Function) {
+                    This.functions.Add(child.Body);
+                    This.Define(child.Body.Name, This.MakeFunction(child.Body));
+                    This.operatorKeys.Add(child.Operator);
+                    This.operatorNodes.Add(child.Body);
+                }
+            }
             If (child.Kind == AstKind.Class) {
                 This.types.Add(child);
+                For member In child.Children {
+                    If (member.Kind == AstKind.Operator) {
+                        This.operatorKeys.Add(child.Name + member.Operator);
+                        This.operatorNodes.Add(member);
+                    }
+                }
                 This.CollectFunctions(child);
             }
             If (child.Kind == AstKind.Block) {
@@ -546,6 +564,17 @@ Public Class Interpreter {
     Private Function EvaluateBinary(AstNode node) -> Value {
         Value left = This.Evaluate(node.Left);
         Value right = This.Evaluate(node.Right);
+        Int overload = -1;
+        If (left.Kind == ValueKind.Object && right.Kind == ValueKind.Object) {
+            overload = This.FindOperator(left.Text + node.Operator);
+        }
+        If (overload < 0) { overload = This.FindOperator(node.Operator); }
+        If (overload >= 0) {
+            Var args = List<Value>();
+            args.Add(left);
+            args.Add(right);
+            Return This.CallFunction(This.operatorNodes[overload], args);
+        }
         If (node.Kind == AstKind.Range) {
             Value range = This.MakeArray();
             Int cursor = left.Integer;
@@ -650,6 +679,9 @@ Public Class Interpreter {
             }
             Return wrapper;
         }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Operators") {
+            Return This.OperatorLibrary(node.Left.Name, arguments);
+        }
         AstNode? function = This.FindFunction(name);
         If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name) {
             Value value = This.Lookup(name);
@@ -718,6 +750,63 @@ Public Class Interpreter {
             }
         }
         Return This.MakeVoid();
+    }
+
+    Private Function FindOperator(String key) -> Int {
+        Int index = 0;
+        While (index < This.operatorKeys.Count()) {
+            If (This.operatorKeys[index] == key) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function OperatorLibrary(String name, List<Value> arguments) -> Value {
+        If (name == "Call") {
+            If (arguments.Count() == 0) { Return This.MakeInt(0); }
+            Int index = This.FindOperator(arguments[0].Text);
+            If (index < 0) { Return This.MakeInt(0); }
+            Var rest = List<Value>();
+            Int argumentIndex = 1;
+            While (argumentIndex < arguments.Count()) {
+                rest.Add(arguments[argumentIndex]);
+                argumentIndex = argumentIndex + 1;
+            }
+            Return This.CallFunction(This.operatorNodes[index], rest);
+        }
+        If (arguments.Count() == 0) { Return This.MakeInt(0); }
+        If (name == "Negate") {
+            If (arguments[0].Kind == ValueKind.Float) { Return This.MakeFloatBits(F64Neg(arguments[0].Integer)); }
+            Return This.MakeInt(0 - arguments[0].Integer);
+        }
+        If (arguments.Count() < 2) { Return This.MakeInt(0); }
+        If (name == "Add") {
+            If (arguments[0].Kind == ValueKind.Object && arguments[1].Kind == ValueKind.Object) {
+                Int index = This.FindOperator(arguments[0].Text + "+");
+                If (index >= 0) { Return This.CallFunction(This.operatorNodes[index], arguments); }
+            }
+            If (arguments[0].Kind == ValueKind.Float || arguments[1].Kind == ValueKind.Float) {
+                Return This.EvaluateFloat("+", arguments[0], arguments[1]);
+            }
+            Return This.MakeInt(arguments[0].Integer + arguments[1].Integer);
+        }
+        If (name == "Equal") {
+            If (arguments[0].Kind == ValueKind.Object && arguments[1].Kind == ValueKind.Object) {
+                Int index = This.FindOperator(arguments[0].Text + "==");
+                If (index >= 0) { Return This.CallFunction(This.operatorNodes[index], arguments); }
+            }
+            Return This.MakeBool(This.Same(arguments[0], arguments[1]));
+        }
+        If (name == "GreaterThan") {
+            If (arguments[0].Kind == ValueKind.Float || arguments[1].Kind == ValueKind.Float) {
+                Return This.EvaluateFloat(">", arguments[0], arguments[1]);
+            }
+            Return This.MakeBool(arguments[0].Integer > arguments[1].Integer);
+        }
+        If (name == "And") {
+            Return This.MakeBool(This.IsTruthy(arguments[0]) && This.IsTruthy(arguments[1]));
+        }
+        Return This.MakeInt(0);
     }
 
     Private Function CallFunction(AstNode function, List<Value> arguments) -> Value {

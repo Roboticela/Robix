@@ -101,14 +101,23 @@ Public Class TypeChecker {
             Return;
         }
         If (node.Kind == AstKind.Operator) {
-            If (node.Body != Null) {
-                This.CheckNode(node.Body);
-            }
             For child In node.Parameters {
                 If (child.Type == Null && This.strict) {
                     This.MissingType(child, "Operator parameter");
                 }
             }
+            If (node.Body != Null && node.Body.Kind == AstKind.Function) {
+                This.CheckNode(node.Body);
+                Return;
+            }
+            This.PushScope();
+            For child In node.Parameters {
+                String parameterType = This.ResolveType(This.TypeText(child.Type));
+                If (parameterType == "") { parameterType = "Unknown"; }
+                This.Define(child.Name, parameterType, False, False, True, False, False, False, child.Line, child.Column);
+            }
+            If (node.Body != Null) { This.CheckNode(node.Body); }
+            This.PopScope();
             Return;
         }
         If (node.Kind == AstKind.Block || node.Kind == AstKind.Package || node.Kind == AstKind.Unsafe || node.Kind == AstKind.Lock || node.Kind == AstKind.Defer || node.Kind == AstKind.Using || node.Kind == AstKind.Loop || node.Kind == AstKind.Repeat) {

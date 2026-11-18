@@ -1,0 +1,53 @@
+// Callable operators, a custom product operator, and struct operator overloads.
+Package Robotics.CustomOperators;
+
+Import Robix.Core;
+
+
+Operator "⊗" Precedence 70 LeftAssociative
+    Function RoboMultiply(Int left, Int right) -> Int {
+    Return left * right;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise callable operators and struct overloads.";
+    Input: args = "Command-line arguments";
+    Processing: "Call built-in operator functions, a custom operator, and vector addition.";
+    Output: "The operator results and the summed vector.";
+} {
+    Print(Operators.Equal(10, 10));
+    Print(Operators.Add(10, 20));
+    Print(Operators.Negate(10));
+    Print(Operators.GreaterThan(20, 10));
+    Print(Operators.And(True, False));
+
+    Print(6 ⊗ 7);
+    Print(RoboMultiply(6, 7));
+    Print(Operators.Call("⊗", 6, 7));
+
+    RoboVector vectorA = RoboVector { X: 1.0, Y: 2.0 };
+    RoboVector vectorB = RoboVector { X: 3.0, Y: 4.0 };
+    RoboVector vectorC = vectorA + vectorB;
+    RoboVector vectorD = Operators.Add(vectorA, vectorB);
+    RoboVector vectorE = RoboVector { X: 1.0, Y: 2.0 };
+    Print(vectorC.X);
+    Print(vectorC.Y);
+    Print(vectorA == vectorB);
+    Print(vectorA == vectorE);
+    Print(vectorD.X);
+    Return 0;
+}
+
+Struct RoboVector {
+    Public Float X;
+    Public Float Y;
+
+    Public Operator +(RoboVector left, RoboVector right) -> RoboVector {
+        Return RoboVector { X: left.X + right.X, Y: left.Y + right.Y };
+    }
+
+    Public Operator ==(RoboVector left, RoboVector right) -> Bool {
+        Return left.X == right.X And left.Y == right.Y;
+    }
+}

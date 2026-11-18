@@ -109,6 +109,9 @@ Public Class NativeProgram {
     Public String InitSymbol;
     Public List<String> AliasNames;
     Public List<String> AliasTargets;
+    Public List<String> OperatorKeys;
+    Public List<String> OperatorSymbols;
+    Public List<String> OperatorReturns;
     Public Bool UntypedLiteral;
 
     Public Constructor() {
@@ -136,6 +139,9 @@ Public Class NativeProgram {
         This.InitSymbol = "";
         This.AliasNames = List<String>();
         This.AliasTargets = List<String>();
+        This.OperatorKeys = List<String>();
+        This.OperatorSymbols = List<String>();
+        This.OperatorReturns = List<String>();
         This.UntypedLiteral = False;
     }
 
@@ -162,6 +168,9 @@ Public Class NativeProgram {
                 }
                 If (child.Kind == AstKind.Function || child.Kind == AstKind.Extern) {
                     This.AddFunction(fileName, child);
+                }
+                If (child.Kind == AstKind.Operator) {
+                    This.RememberModuleOperator(fileName, child);
                 }
             }
             index = index + 1;
@@ -195,6 +204,9 @@ Public Class NativeProgram {
             }
             If (child.Kind == AstKind.Function) {
                 parts = parts + This.EmitPlain(child);
+            }
+            If (child.Kind == AstKind.Operator && child.Body != Null && child.Body.Kind == AstKind.Function) {
+                parts = parts + This.EmitPlain(child.Body);
             }
             If (child.Kind == AstKind.Extern) {
                 parts = parts + This.DeclareExtern(child);
@@ -250,6 +262,9 @@ Public Class NativeProgram {
                 info.Constructors.Add(child);
                 info.ConstructorFiles.Add(fileName);
             }
+            If (child.Kind == AstKind.Operator) {
+                This.RememberClassOperator(node.Name, child);
+            }
         }
     }
 
@@ -300,6 +315,62 @@ Public Class NativeProgram {
         Return first;
     }
 
+    Private Function RememberModuleOperator(String fileName, AstNode node) -> Void {
+        If (node.Body == Null || node.Body.Kind != AstKind.Function) { Return; }
+        This.AddFunction(fileName, node.Body);
+        This.OperatorKeys.Add(node.Operator);
+        This.OperatorSymbols.Add(This.FunctionSymbol(fileName, node.Body.Name));
+        This.OperatorReturns.Add(This.OperatorResult(node.Body.Type));
+    }
+
+    Private Function RememberClassOperator(String className, AstNode node) -> Void {
+        This.OperatorKeys.Add(className + node.Operator);
+        This.OperatorSymbols.Add("rxm_" + className + "_" + This.SafeOperator(node.Operator));
+        This.OperatorReturns.Add(This.OperatorResult(node.Type));
+    }
+
+    Private Function OperatorResult(AstNode? typeNode) -> String {
+        String name = This.TypeName(typeNode);
+        If (name == "") { Return "Int"; }
+        Return name;
+    }
+
+    Private Function SafeOperator(String symbol) -> String {
+        If (symbol == "+") { Return "add"; }
+        If (symbol == "-") { Return "sub"; }
+        If (symbol == "==") { Return "eq"; }
+        If (symbol == "!=") { Return "ne"; }
+        If (symbol == "*") { Return "mul"; }
+        If (symbol == "/") { Return "div"; }
+        If (symbol == "⊗") { Return "tensor"; }
+        Return "custom";
+    }
+
+    Private Function OperatorIndex(String key) -> Int {
+        Int index = 0;
+        While (index < This.OperatorKeys.Count()) {
+            If (This.OperatorKeys[index] == key) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function OperatorSymbol(String leftType, String rightType, String symbol) -> String {
+        Int typed = This.OperatorIndex(leftType + symbol);
+        If (typed >= 0) { Return This.OperatorSymbols[typed]; }
+        Int bare = This.OperatorIndex(symbol);
+        If (bare >= 0) { Return This.OperatorSymbols[bare]; }
+        Return "";
+    }
+
+    Private Function OperatorType(String leftType, String rightType, String symbol) -> String {
+        Int typed = This.OperatorIndex(leftType + symbol);
+        If (typed >= 0) { Return This.OperatorReturns[typed]; }
+        Int bare = This.OperatorIndex(symbol);
+        If (bare >= 0) { Return This.OperatorReturns[bare]; }
+        Return "Int";
+    }
+
     Private Function FunctionCount(String name) -> Int {
         Int count = 0;
         For record In This.Functions {
@@ -334,6 +405,15 @@ Public Class NativeProgram {
                 If (!This.IsDefined(symbol)) {
                     This.AddDefined(symbol);
                     parts = parts + This.EmitMethod(symbol, node.Name, method);
+                }
+            }
+        }
+        For child In node.Children {
+            If (child.Kind == AstKind.Operator) {
+                String symbol = "rxm_" + node.Name + "_" + This.SafeOperator(child.Operator);
+                If (!This.IsDefined(symbol)) {
+                    This.AddDefined(symbol);
+                    parts = parts + This.EmitOperatorFunction(symbol, child);
                 }
             }
         }
@@ -380,6 +460,34 @@ Public Class NativeProgram {
         If (!This.Terminated) {
             If (This.IsVoid(method.ReturnType)) { This.Emit("ret void"); }
             If (!This.IsVoid(method.ReturnType)) { This.Emit("ret i64 0"); }
+        }
+        This.Raw("}");
+        Return This.JoinFunction();
+    }
+
+    Private Function EmitOperatorFunction(String symbol, AstNode node) -> String {
+        String returnType = This.OperatorResult(node.Type);
+        This.ResetFunction("", returnType);
+        String arguments = "";
+        Bool first = True;
+        For parameter In node.Parameters {
+            If (!first) { arguments = arguments + ", "; }
+            arguments = arguments + "i64 %" + This.SafeArg(parameter.Name);
+            first = False;
+        }
+        String ret = "i64";
+        If (This.IsVoid(returnType)) { ret = "void"; }
+        This.Raw("define " + ret + " @" + symbol + "(" + arguments + ") {");
+        This.Raw("Lentry:");
+        For parameter In node.Parameters {
+            String parameterType = This.TypeName(parameter.Type);
+            If (parameterType == "") { parameterType = "Int"; }
+            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+        }
+        If (node.Body != Null) { This.EmitStatement(node.Body); }
+        If (!This.Terminated) {
+            If (This.IsVoid(returnType)) { This.Emit("ret void"); }
+            If (!This.IsVoid(returnType)) { This.Emit("ret i64 0"); }
         }
         This.Raw("}");
         Return This.JoinFunction();
@@ -1337,6 +1445,9 @@ Public Class NativeProgram {
             types.Add(value.TypeName);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Name) { Return This.EmitNamedCall(node.Left, arguments, types); }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Operators") {
+            Return This.EmitOperatorLibrary(node, arguments, types);
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) { Return This.EmitMethodCall(node.Left, arguments, types); }
         Return This.Pair("0", "Int");
     }
@@ -1466,6 +1577,99 @@ Public Class NativeProgram {
             This.CallRuntime("rxm_" + name + "_new", args, True);
         }
         Return This.Pair(value.Value, name);
+    }
+
+    Private Function LiteralArgument(AstNode node, Int position) -> String {
+        If (position < 0 || position >= node.Parameters.Count()) { Return ""; }
+        AstNode argument = node.Parameters[position];
+        If (argument.Kind == AstKind.Argument && argument.Left != Null) { argument = argument.Left; }
+        If (argument.Kind == AstKind.StringLiteral) { Return argument.Text; }
+        Return "";
+    }
+
+    Private Function EmitOperatorLibrary(AstNode node, List<String> arguments, List<String> types) -> IrValue {
+        String name = node.Left.Name;
+        If (name == "Call") {
+            String symbol = This.OperatorSymbol("", "", This.LiteralArgument(node, 0));
+            Var args = List<String>();
+            Int index = 1;
+            While (index < arguments.Count()) {
+                args.Add(arguments[index]);
+                index = index + 1;
+            }
+            If (symbol == "") { Return This.Pair("0", "Int"); }
+            IrValue called = This.CallRuntime(symbol, args, False);
+            Return This.Pair(called.Value, This.OperatorType("", "", This.LiteralArgument(node, 0)));
+        }
+        If (arguments.Count() == 0) { Return This.Pair("0", "Int"); }
+        If (name == "Negate") {
+            IrValue value = This.Pair(arguments[0], types[0]);
+            If (This.IsFloatType(types[0])) {
+                String operand = This.Fresh("v");
+                This.Emit(operand + " = bitcast i64 " + value.Value + " to double");
+                String negated = This.Fresh("v");
+                This.Emit(negated + " = fneg double " + operand);
+                String bits = This.Fresh("v");
+                This.Emit(bits + " = bitcast double " + negated + " to i64");
+                Return This.Pair(bits, "Float");
+            }
+            String result = This.Fresh("v");
+            This.Emit(result + " = sub i64 0, " + value.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (arguments.Count() < 2) { Return This.Pair("0", "Int"); }
+        IrValue left = This.Pair(arguments[0], types[0]);
+        IrValue right = This.Pair(arguments[1], types[1]);
+        If (name == "Add") {
+            String symbol = This.OperatorSymbol(types[0], types[1], "+");
+            If (symbol != "") {
+                Var args = List<String>();
+                args.Add(left.Value);
+                args.Add(right.Value);
+                IrValue called = This.CallRuntime(symbol, args, False);
+                Return This.Pair(called.Value, This.OperatorType(types[0], types[1], "+"));
+            }
+            If (This.IsFloatType(types[0]) || This.IsFloatType(types[1])) { Return This.EmitFloatBinary("+", left, right); }
+            String result = This.Fresh("v");
+            This.Emit(result + " = add i64 " + left.Value + ", " + right.Value);
+            Return This.Pair(result, "Int");
+        }
+        If (name == "Equal") {
+            String symbol = This.OperatorSymbol(types[0], types[1], "==");
+            If (symbol != "") {
+                Var args = List<String>();
+                args.Add(left.Value);
+                args.Add(right.Value);
+                IrValue called = This.CallRuntime(symbol, args, False);
+                Return This.Pair(called.Value, "Bool");
+            }
+            If (This.IsFloatType(types[0]) || This.IsFloatType(types[1])) { Return This.EmitFloatBinary("==", left, right); }
+            String flag = This.Fresh("v");
+            This.Emit(flag + " = icmp eq i64 " + left.Value + ", " + right.Value);
+            String result = This.Fresh("v");
+            This.Emit(result + " = zext i1 " + flag + " to i64");
+            Return This.Pair(result, "Bool");
+        }
+        If (name == "GreaterThan") {
+            If (This.IsFloatType(types[0]) || This.IsFloatType(types[1])) { Return This.EmitFloatBinary(">", left, right); }
+            String flag = This.Fresh("v");
+            This.Emit(flag + " = icmp sgt i64 " + left.Value + ", " + right.Value);
+            String result = This.Fresh("v");
+            This.Emit(result + " = zext i1 " + flag + " to i64");
+            Return This.Pair(result, "Bool");
+        }
+        If (name == "And") {
+            String leftFlag = This.Fresh("v");
+            String rightFlag = This.Fresh("v");
+            String both = This.Fresh("v");
+            String result = This.Fresh("v");
+            This.Emit(leftFlag + " = icmp ne i64 " + left.Value + ", 0");
+            This.Emit(rightFlag + " = icmp ne i64 " + right.Value + ", 0");
+            This.Emit(both + " = and i1 " + leftFlag + ", " + rightFlag);
+            This.Emit(result + " = zext i1 " + both + " to i64");
+            Return This.Pair(result, "Bool");
+        }
+        Return This.Pair("0", "Int");
     }
 
     Private Function EmitMethodCall(AstNode member, List<String> arguments, List<String> types) -> IrValue {
@@ -1803,6 +2007,14 @@ Public Class NativeProgram {
         If (node.Operator == "??") { Return This.EmitCoalesce(node); }
         IrValue left = This.EmitExpr(node.Left);
         IrValue right = This.EmitExpr(node.Right);
+        String overload = This.OperatorSymbol(left.TypeName, right.TypeName, node.Operator);
+        If (overload != "") {
+            Var args = List<String>();
+            args.Add(left.Value);
+            args.Add(right.Value);
+            IrValue called = This.CallRuntime(overload, args, False);
+            Return This.Pair(called.Value, This.OperatorType(left.TypeName, right.TypeName, node.Operator));
+        }
         If (This.IsFloatType(left.TypeName) || This.IsFloatType(right.TypeName)) {
             Return This.EmitFloatBinary(node.Operator, left, right);
         }
