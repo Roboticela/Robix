@@ -1,823 +1,1068 @@
 // Tests for NativeEmit.rx.
 
 Test Collect {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty collection" {
+        Input: fileNames = [], modules = [];
+        Assert: True;
+    }
 }
 
 Test EmitFile {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "emit module skeleton" {
+        Input: fileName = "main.rx", module = AstNode(Children: []), isEntry = False;
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test AddClass {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add empty class" {
+        Input: fileName = "a.rx", node = AstNode(Name: "MyClass", Children: []);
+        Assert: This.FindClass("MyClass").Name == "MyClass";
+    }
 }
 
 Test PutMethod {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "put method info" {
+        Input: info = ClassInfo(), method = MethodInfo();
+        Assert: True;
+    }
 }
 
 Test AddFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add empty function" {
+        Input: fileName = "a.rx", node = AstNode(Name: "myFunc", Parameters: []);
+        Assert: This.FindFunction("myFunc", "a.rx").Name == "myFunc";
+    }
 }
 
 Test FindClass {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "not found" {
+        Input: name = "NonExistent";
+        Assert: Result.Name == "";
+    }
 }
 
 Test FindFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "not found" {
+        Input: name = "f", fileName = "f.rx";
+        Assert: Result.Name == "";
+    }
 }
 
 Test RememberModuleOperator {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "operator node" {
+        Input: fileName = "a.rx", node = AstNode(Parameters: []);
+        Assert: True;
+    }
 }
 
 Test RememberClassOperator {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "class operator node" {
+        Input: className = "C", node = AstNode(Parameters: []);
+        Assert: True;
+    }
 }
 
 Test OperatorResult {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "null type node" {
+        Input: typeNode = Null;
+        Output: "Int";
+    }
 }
 
 Test SafeOperator {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add" {
+        Input: symbol = "+";
+        Output: "add";
+    }
+    Case "sub" {
+        Input: symbol = "-";
+        Output: "sub";
+    }
 }
 
 Test OperatorIndex {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "absent key" {
+        Input: key = "none";
+        Output: -1;
+    }
 }
 
 Test OperatorSymbol {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "absent symbol" {
+        Input: leftType = "Int", rightType = "Int", symbol = "+";
+        Output: "";
+    }
 }
 
 Test OperatorType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "default type" {
+        Input: leftType = "Int", rightType = "Int", symbol = "+";
+        Output: "Int";
+    }
 }
 
 Test FunctionCount {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "absent count" {
+        Input: name = "f";
+        Output: 0;
+    }
 }
 
 Test FunctionSymbol {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "symbol name" {
+        Input: fileName = "main.rx", name = "run";
+        Assert: Result.Contains("run");
+    }
 }
 
 Test EmitClassMembers {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty class" {
+        Input: node = AstNode(Children: []);
+        Assert: Result.Length() >= 0;
+    }
 }
 
 Test EmitConstructor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "constructor node" {
+        Input: symbol = "init", className = "C", node = AstNode(Parameters: [], Body: AstNode(Children: []));
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test EmitMethod {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty method" {
+        Input: symbol = "m", className = "C", method = MethodInfo();
+        Assert: Result.Length() >= 0;
+    }
 }
 
 Test EmitOperatorFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "operator func" {
+        Input: symbol = "op", node = AstNode(Parameters: [], Body: AstNode(Children: []));
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test EmitPlain {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "plain func" {
+        Input: node = AstNode(Parameters: [], Body: AstNode(Children: []));
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test DeclareExtern {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "extern func" {
+        Input: node = AstNode(Name: "ext", Parameters: []);
+        Assert: Result.Length() >= 0;
+    }
 }
 
 Test DeclareForeign {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "foreign decls" {
+        Input:;
+        Assert: Result.Length() >= 0;
+    }
 }
 
 Test EntryMain {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "main wrapper" {
+        Input: module = AstNode(Children: [AstNode(Kind: AstKind.Function, Name: "Main", Parameters: [])]);
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test RuntimeDeclarations {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "runtime decls" {
+        Input:;
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test ResetFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "reset state" {
+        Input: owner = "Owner", returnType = "Int";
+        Assert: True;
+    }
 }
 
 Test BindGlobals {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "bind globals" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test PrepareGlobals {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty globals" {
+        Input: module = AstNode(Children: []);
+        Assert: Result.Length() >= 0;
+    }
 }
 
 Test CollectGlobals {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "collect globals" {
+        Input: node = AstNode(Children: []), nodes = [];
+        Assert: True;
+    }
 }
 
 Test Fresh {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "fresh symbol" {
+        Input: prefix = "t";
+        Assert: Result.StartsWith("%t");
+    }
 }
 
 Test Label {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "label name" {
+        Input: prefix = "lbl";
+        Assert: Result.StartsWith("lbl");
+    }
 }
 
 Test Emit {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "emit instruction" {
+        Input: text = "; comment";
+        Assert: True;
+    }
 }
 
 Test Raw {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "raw text" {
+        Input: text = "; comment";
+        Assert: True;
+    }
 }
 
 Test Branch {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "branch label" {
+        Input: label = "lbl1";
+        Assert: True;
+    }
 }
 
 Test Block {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "block name" {
+        Input: name = "entry";
+        Assert: True;
+    }
 }
 
 Test Bind {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "bind variable" {
+        Input: name = "x", slot = "%slot_x", typeName = "Int";
+        Assert: This.Lookup("x").Value == "%slot_x";
+    }
 }
 
 Test Lookup {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "lookup variable" {
+        Input: name = "x";
+        Assert: Result.Value == "";
+    }
 }
 
 Test Alloca {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "alloca slot" {
+        Input: name = "y", typeName = "Int", value = "0";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test LoadSlot {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "load slot value" {
+        Input: slot = "%slot_x";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test StringConst {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "string constant" {
+        Input: text = "hello";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test CallRuntime {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "call void runtime" {
+        Input: symbol = "rx_init", args = [], voidCall = True;
+        Assert: Result != Null;
+    }
 }
 
 Test EmitBlock {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty block" {
+        Input: node = AstNode(Children: []);
+        Assert: True;
+    }
 }
 
 Test EmitStatement {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "expression statement" {
+        Input: node = AstNode(Kind: AstKind.ExpressionStatement, Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "1"));
+        Assert: True;
+    }
 }
 
 Test EmitMatch {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "match statement" {
+        Input: node = AstNode(Condition: AstNode(Kind: AstKind.IntegerLiteral, Text: "1"), Children: []);
+        Assert: True;
+    }
 }
 
 Test EmitPatternCond {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "null pattern" {
+        Input: pattern = Null, boxed = False, tag = "1", typeName = "Int", staticType = "Int";
+        Assert: Result.Length() >= 0;
+    }
 }
 
 Test BindMatchName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "bind match name" {
+        Input: pattern = AstNode(Name: "x"), payload = "%payload";
+        Assert: True;
+    }
 }
 
 Test EmitIf {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "if statement" {
+        Input: node = AstNode(Condition: AstNode(Kind: AstKind.BooleanLiteral, Text: "True"), Body: AstNode(Children: []));
+        Assert: True;
+    }
 }
 
 Test EmitWhile {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "while statement" {
+        Input: node = AstNode(Condition: AstNode(Kind: AstKind.BooleanLiteral, Text: "False"), Body: AstNode(Children: []));
+        Assert: True;
+    }
 }
 
 Test EmitFor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "for statement" {
+        Input: node = AstNode(Condition: AstNode(Kind: AstKind.ArrayLiteral, Children: []), Body: AstNode(Children: []));
+        Assert: True;
+    }
 }
 
 Test LoadName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "load name" {
+        Input: name = "x";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test StoreName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "store name" {
+        Input: name = "x", value = "10";
+        Assert: True;
+    }
 }
 
 Test EmitAssignment {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "assign expr" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.Name, Name: "x"), Right: AstNode(Kind: AstKind.IntegerLiteral, Text: "5"));
+        Assert: Result != Null;
+    }
 }
 
 Test CombineAssignment {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "plus assign" {
+        Input: operator = "+=", left = IrValue(), right = IrValue();
+        Assert: Result != Null;
+    }
 }
 
 Test EmitTupleBinding {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "tuple binding" {
+        Input: node = AstNode(Children: []);
+        Assert: True;
+    }
 }
 
 Test EmitTupleAssignment {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "tuple assign" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test EmitExpr {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "literal expr" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "42");
+        Assert: Result.TypeName == "Int";
+    }
 }
 
 Test LoadObjectField {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "load field" {
+        Input: object = "%obj", index = "0";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test StoreObjectField {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "store field" {
+        Input: object = "%obj", index = "0", value = "1";
+        Assert: True;
+    }
 }
 
 Test LoadListCount {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "list count" {
+        Input: list = "%list";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test LoadListItem {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "list item" {
+        Input: list = "%list", index = "0";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test StoreListItem {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "store list item" {
+        Input: list = "%list", index = "0", value = "1";
+        Assert: True;
+    }
 }
 
 Test EmitMember {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "member expr" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.Name, Name: "x"), Name: "Length");
+        Assert: Result != Null;
+    }
 }
 
 Test EmitCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "call expr" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.Name, Name: "f"), Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test EmitNamedCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "named call" {
+        Input: left = AstNode(Name: "f"), arguments = [], types = [];
+        Assert: Result != Null;
+    }
 }
 
 Test MakeResult {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "make result value" {
+        Input: arguments = ["0", "%msg"];
+        Assert: Result != Null;
+    }
 }
 
 Test Construct {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "construct class" {
+        Input: name = "MyClass", info = ClassInfo(), arguments = [];
+        Assert: Result != Null;
+    }
 }
 
 Test LiteralArgument {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "string literal" {
+        Input: node = AstNode(Parameters: [AstNode(Kind: AstKind.StringLiteral, Text: "add")]), position = 0;
+        Output: "add";
+    }
 }
 
 Test EmitOperatorLibrary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "operator library call" {
+        Input: node = AstNode(Name: "Add"), arguments = ["1", "2"], types = ["Int", "Int"];
+        Assert: Result != Null;
+    }
 }
 
 Test EmitMethodCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "method call" {
+        Input: member = AstNode(Left: AstNode(Kind: AstKind.Name, Name: "x"), Name: "ToString"), arguments = [], types = [];
+        Assert: Result != Null;
+    }
 }
 
 Test EmitStaticCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "static call" {
+        Input: owner = "String", method = "From", arguments = ["65"], types = ["Int"];
+        Assert: Result != Null;
+    }
 }
 
 Test FilesCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "files exists" {
+        Input: method = "Exists", arguments = ["%str"];
+        Assert: Result != Null;
+    }
 }
 
 Test DirectoryCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "dir exists" {
+        Input: method = "Exists", arguments = ["%str"];
+        Assert: Result != Null;
+    }
 }
 
 Test ToStringValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "int to string" {
+        Input: value = "42", valueType = "Int";
+        Assert: Result.TypeName == "String";
+    }
 }
 
 Test StringMethod {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "length" {
+        Input: method = "Length", receiver = "%str", arguments = [];
+        Assert: Result.TypeName == "Int";
+    }
 }
 
 Test ListMethod {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "count" {
+        Input: method = "Count", receiver = "%list", receiverType = "List:Int", arguments = [];
+        Assert: Result.TypeName == "Int";
+    }
 }
 
 Test EmitBinary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "binary compare" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "1"), Right: AstNode(Kind: AstKind.IntegerLiteral, Text: "2"));
+        Assert: Result != Null;
+    }
 }
 
 Test ShortCircuit {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "short circuit or" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.BooleanLiteral, Text: "True"), Right: AstNode(Kind: AstKind.BooleanLiteral, Text: "False")), isOr = True;
+        Assert: Result.TypeName == "Bool";
+    }
 }
 
 Test JoinFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "join function lines" {
+        Input:;
+        Assert: Result.Length() >= 0;
+    }
 }
 
 Test SetField {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "set field" {
+        Input: object = "%obj", index = "0", value = "1";
+        Assert: True;
+    }
 }
 
 Test PushLoop {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "push loop" {
+        Input: cont = "loop_c", brk = "loop_b";
+        Assert: True;
+    }
 }
 
 Test PopLoop {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "pop loop" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test IsDefined {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "absent symbol" {
+        Input: symbol = "testSym";
+        Output: False;
+    }
 }
 
 Test AddDefined {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add symbol" {
+        Input: symbol = "testSym";
+        Assert: This.IsDefined("testSym") == True;
+    }
 }
 
 Test FindMethod {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "missing method" {
+        Input: info = ClassInfo(), name = "missing";
+        Assert: Result.Name == "";
+    }
 }
 
 Test FieldSlot {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "missing field" {
+        Input: info = ClassInfo(), name = "missing";
+        Output: -1;
+    }
 }
 
 Test FieldType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "missing field" {
+        Input: info = ClassInfo(), name = "missing";
+        Output: "Int";
+    }
 }
 
 Test EnumValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "missing member" {
+        Input: info = ClassInfo(), name = "missing";
+        Output: -1;
+    }
 }
 
 Test Pair {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "ir value pair" {
+        Input: value = "%1", typeName = "Int";
+        Assert: Result.Value == "%1" && Result.TypeName == "Int";
+    }
 }
 
 Test TypeName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "null type" {
+        Input: node = Null;
+        Output: "";
+    }
+    Case "named type" {
+        Input: node = AstNode(Name: "String");
+        Output: "String";
+    }
 }
 
 Test ResolveAlias {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "unaliased" {
+        Input: name = "MyType";
+        Output: "MyType";
+    }
 }
 
 Test EmitObjectLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty object literal" {
+        Input: node = AstNode(Name: "C", Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test EmitEnumCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "enum call" {
+        Input: info = ClassInfo(), method = "Value", arguments = [];
+        Assert: Result != Null;
+    }
 }
 
 Test IsVoid {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "void" {
+        Input: typeName = "Void";
+        Output: True;
+    }
+    Case "int" {
+        Input: typeName = "Int";
+        Output: False;
+    }
 }
 
 Test IsString {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "string" {
+        Input: typeName = "String";
+        Output: True;
+    }
+    Case "int" {
+        Input: typeName = "Int";
+        Output: False;
+    }
 }
 
 Test IsList {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "list" {
+        Input: typeName = "List:Int";
+        Output: True;
+    }
+    Case "int" {
+        Input: typeName = "Int";
+        Output: False;
+    }
 }
 
 Test ElementType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "list element" {
+        Input: typeName = "List:String";
+        Output: "String";
+    }
+    Case "array element" {
+        Input: typeName = "Array:Int";
+        Output: "Int";
+    }
 }
 
 Test MapValueType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "map value" {
+        Input: typeName = "Map<String, Int>";
+        Output: "Int";
+    }
 }
 
 Test TupleElement {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "first element" {
+        Input: typeName = "(Int, String)", indexText = "0";
+        Output: "Int";
+    }
 }
 
 Test RecordSlot {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "first slot" {
+        Input: typeName = "{x: Int}", field = "x";
+        Output: 0;
+    }
 }
 
 Test RecordFieldType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "field type" {
+        Input: typeName = "Record{x: Int}", field = "x";
+        Output: "Int";
+    }
 }
 
 Test EmitTernary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "ternary expr" {
+        Input: node = AstNode(Condition: AstNode(Kind: AstKind.BooleanLiteral, Text: "True"), Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "1"), Right: AstNode(Kind: AstKind.IntegerLiteral, Text: "2"));
+        Assert: Result != Null;
+    }
 }
 
 Test EmitTypeCheck {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "type check expr" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "1"), Text: "Int");
+        Assert: Result != Null;
+    }
 }
 
 Test EmitRange {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "range expr" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "1"), Right: AstNode(Kind: AstKind.IntegerLiteral, Text: "5"));
+        Assert: Result != Null;
+    }
 }
 
 Test EmitWrapped {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "wrapped call" {
+        Input: name = "Wrap", arguments = [], types = [];
+        Assert: Result != Null;
+    }
 }
 
 Test WrappedType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "option type" {
+        Input: typeName = "Option:Int";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test SequenceCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "sequence call" {
+        Input: method = "Count", receiver = "%seq", typeName = "List:Int", arguments = [];
+        Assert: Result != Null;
+    }
 }
 
 Test EmitCoalesce {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "coalesce expr" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "1"), Right: AstNode(Kind: AstKind.IntegerLiteral, Text: "2"));
+        Assert: Result != Null;
+    }
 }
 
 Test EmitMapLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty map literal" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test EmitSetLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty set literal" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test EmitTupleLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty tuple literal" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test EmitRecordLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty record literal" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test Stem {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "path stem" {
+        Input: fileName = "src/Lexer.rx";
+        Output: "Lexer";
+    }
+    Case "simple file" {
+        Input: fileName = "Parser.rx";
+        Output: "Parser";
+    }
 }
 
 Test SafeArg {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "identifier" {
+        Input: name = "x";
+        Output: "p_x";
+    }
+    Case "empty" {
+        Input: name = "";
+        Output: "p_arg";
+    }
 }
 
 Test Digits {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "number digits" {
+        Input: text = "123";
+        Output: "123";
+    }
 }
 
 Test PrintKind {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "string kind" {
+        Input: typeName = "String";
+        Output: 1;
+    }
+    Case "bool kind" {
+        Input: typeName = "Bool";
+        Output: 2;
+    }
+    Case "char kind" {
+        Input: typeName = "Char";
+        Output: 3;
+    }
+    Case "int kind" {
+        Input: typeName = "Int";
+        Output: 0;
+    }
 }
 
 Test IsAnyType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "any" {
+        Input: typeName = "Any";
+        Output: True;
+    }
+    Case "dynamic" {
+        Input: typeName = "Dynamic";
+        Output: True;
+    }
+    Case "int" {
+        Input: typeName = "Int";
+        Output: False;
+    }
 }
 
 Test ValueTag {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "string tag" {
+        Input: typeName = "String";
+        Output: "2";
+    }
+    Case "bool tag" {
+        Input: typeName = "Bool";
+        Output: "3";
+    }
+    Case "int tag" {
+        Input: typeName = "Int";
+        Output: "1";
+    }
 }
 
 Test ElementTag {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "list element tag" {
+        Input: typeName = "List:String";
+        Output: "2";
+    }
+    Case "int tag" {
+        Input: typeName = "Int";
+        Output: "0";
+    }
 }
 
 Test BoxAny {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "box int value" {
+        Input: value = IrValue();
+        Assert: Result.TypeName == "Any";
+    }
 }
 
 Test ValueForStore {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "value for store" {
+        Input: name = "x", value = IrValue();
+        Assert: Result != Null;
+    }
 }
 
 Test AnyCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "any to string" {
+        Input: method = "ToString", receiver = "%any";
+        Assert: Result != Null;
+    }
 }
 
 Test EmitArrayLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty array literal" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
 }
 
 Test IsFloatType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "float" {
+        Input: typeName = "Float";
+        Output: True;
+    }
+    Case "int" {
+        Input: typeName = "Int";
+        Output: False;
+    }
 }
 
 Test IsFloat32Literal {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "float literal with f" {
+        Input: text = "3.14f";
+        Output: True;
+    }
+    Case "plain float" {
+        Input: text = "3.14";
+        Output: False;
+    }
 }
 
 Test FloatSpelling {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "strip suffix" {
+        Input: text = "1.5f";
+        Output: "1.5";
+    }
+    Case "empty text" {
+        Input: text = "";
+        Output: "0.0";
+    }
 }
 
 Test EmitFloatBits {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "float bits" {
+        Input: text = "3.14";
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test EmitInterpolation {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty interpolation" {
+        Input: node = AstNode(Children: []);
+        Assert: Result.TypeName == "String";
+    }
 }
 
 Test FloatOperand {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "float operand" {
+        Input: value = IrValue();
+        Assert: Result.Length() > 0;
+    }
 }
 
 Test EmitFloatBinary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add floats" {
+        Input: operator = "+", left = IrValue(), right = IrValue();
+        Assert: Result.TypeName == "Float";
+    }
 }
 
 Test ExternSymbol {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "run process" {
+        Input: name = "RunProcess";
+        Output: "rx_process";
+    }
+    Case "other" {
+        Input: name = "native_call";
+        Output: "rx_native_call";
+    }
 }
 
 Test ExitCodeValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "success" {
+        Input: name = "Success";
+        Output: 0;
+    }
+    Case "error" {
+        Input: name = "ErrorExecution";
+        Output: 2;
+    }
+    Case "unknown" {
+        Input: name = "Unknown";
+        Output: -1;
+    }
 }
 
 Test IsStringMethod {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "length" {
+        Input: name = "Length";
+        Output: True;
+    }
+    Case "foo" {
+        Input: name = "Foo";
+        Output: False;
+    }
 }
 
 Test IsListMethod {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add" {
+        Input: name = "Add";
+        Output: True;
+    }
+    Case "bar" {
+        Input: name = "Bar";
+        Output: False;
+    }
 }
 
 Test Escape {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "plain text" {
+        Input: text = "hello";
+        Assert: Result.Bytes == 5 && Result.Text == "hello";
+    }
 }
 
 Test AppendUtf8 {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "ascii char" {
+        Input: result = EscapeText(), code = 65;
+        Assert: result.Bytes == 1;
+    }
 }
 
 Test HexByte {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "zero" {
+        Input: value = 0;
+        Output: "\\00";
+    }
+    Case "65" {
+        Input: value = 65;
+        Output: "\\41";
+    }
 }
 
 Test HexDigit {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "9" {
+        Input: value = 9;
+        Output: "9";
+    }
+    Case "10" {
+        Input: value = 10;
+        Output: "A";
+    }
+    Case "15" {
+        Input: value = 15;
+        Output: "F";
+    }
 }

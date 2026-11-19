@@ -1240,6 +1240,7 @@ Public Class ProjectEngine {
     }
 
     Private Function WordChar(Char character) -> Bool {
+        If (character == '\0') { Return False; }
         Return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '_' || character == '.';
     }
 
@@ -1254,12 +1255,13 @@ Public Class ProjectEngine {
 
     Private Function WordAhead() -> Bool {
         Char character = This.PeekChar();
+        If (character == '\0') { Return False; }
         Return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || character == '_';
     }
 
     Private Function IdentifierLength() -> Int {
         Int offset = 0;
-        While (This.WordChar(This.LookChar(offset))) {
+        While (This.LookChar(offset) != '\0' && This.WordChar(This.LookChar(offset))) {
             offset = offset + 1;
         }
         Return offset;

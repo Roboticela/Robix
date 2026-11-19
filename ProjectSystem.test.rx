@@ -1,522 +1,697 @@
 // Tests for ProjectSystem.rx.
 
-Test Run {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ReadOptions {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test CanonicalTask {
+    Case "build" {
+        Input: command = "build";
+        Output: "Build";
+    }
+    Case "clean" {
+        Input: command = "clean";
+        Output: "Clean";
+    }
+    Case "test" {
+        Input: command = "test";
+        Output: "Test";
+    }
+    Case "restore" {
+        Input: command = "restore";
+        Output: "Restore";
+    }
+    Case "publish" {
+        Input: command = "publish";
+        Output: "Publish";
+    }
 }
 
 Test CommandOf {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CanonicalTask {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test FindProject {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty args" {
+        Input: args = [];
+        Output: "";
+    }
+    Case "first non-flag" {
+        Input: args = ["build", "--Verbose"];
+        Output: "build";
+    }
+    Case "skip config value" {
+        Input: args = ["--Configuration", "Release", "clean"];
+        Output: "clean";
+    }
 }
 
 Test ParentDirectory {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test DefineVariable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test LookupVariable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test HasVariable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CollectVariables {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CollectFrom {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Resolve {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ResolveText {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test FindFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Validate {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test KnownType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test PrintHelp {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test PrintInfo {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test PrintTasks {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ProjectOf {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ExecuteTask {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test FindTask {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunTask {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test TaskAllows {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ConditionMatches {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CompileSources {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CompileOne {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test SourceFiles {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MatchesAny {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MatchPattern {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MatchParts {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MatchSegment {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Split {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test EntryFile {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test OutputDirectory {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test OutputName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test OutputPath {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test IsApplication {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Clean {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test IntermediateDirectory {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "nested path" {
+        Input: path = "src/tools/robix.rx";
+        Output: "src/tools";
+    }
+    Case "root path" {
+        Input: path = "robix.rx";
+        Output: ".";
+    }
 }
 
 Test FileStem {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test OptimizeFlag {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test DebugFlag {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RuntimeFile {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test DeletePath {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Restore {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test LockLines {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunDiscoveredTests {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunTests {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CheckTest {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunEntry {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test PackageOutput {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Fingerprint {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CachePath {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Cached {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Remember {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test SplitLines {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Join {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Property {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test FindChild {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test OrDefault {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "simple file" {
+        Input: relative = "src/Lexer.rx";
+        Output: "Lexer";
+    }
+    Case "dotted file" {
+        Input: relative = "Lexer.test.rx";
+        Output: "Lexer.test";
+    }
 }
 
 Test Trim {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "spaces" {
+        Input: text = "  hello world  ";
+        Output: "hello world";
+    }
+    Case "tabs" {
+        Input: text = "\t robix \t";
+        Output: "robix";
+    }
 }
 
-Test PrintDiagnostics {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Join {
+    Case "dot directory" {
+        Input: directory = ".", relative = "file.rx";
+        Output: "file.rx";
+    }
+    Case "nested directory" {
+        Input: directory = "Build", relative = "Compiler";
+        Output: "Build/Compiler";
+    }
+    Case "empty directory" {
+        Input: directory = "", relative = "file.rx";
+        Output: "file.rx";
+    }
 }
 
-Test ParseFile {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Split {
+    Case "three segments" {
+        Input: path = "foo/bar/baz";
+        Assert: Result.Count() == 3 && Result[0] == "foo" && Result[1] == "bar" && Result[2] == "baz";
+    }
 }
 
-Test ParseItem {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test SplitLines {
+    Case "two lines" {
+        Input: text = "line1\nline2";
+        Assert: Result.Count() == 2 && Result[0] == "line1" && Result[1] == "line2";
+    }
 }
 
-Test ParseIf {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test KnownType {
+    Case "executable" {
+        Input: projectType = "Executable";
+        Output: True;
+    }
+    Case "library" {
+        Input: projectType = "Library";
+        Output: True;
+    }
+    Case "unknown" {
+        Input: projectType = "InvalidType";
+        Output: False;
+    }
 }
 
-Test ParseFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MatchSegment {
+    Case "exact match" {
+        Input: text = "abc", pattern = "abc";
+        Output: True;
+    }
+    Case "wildcard match" {
+        Input: text = "test.rx", pattern = "*.rx";
+        Output: True;
+    }
+    Case "wildcard mismatch" {
+        Input: text = "test.txt", pattern = "*.rx";
+        Output: False;
+    }
 }
 
-Test ParseBlock {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MatchPattern {
+    Case "match extension" {
+        Input: path = "src/main.rx", pattern = "**/*.rx";
+        Output: True;
+    }
+    Case "mismatch extension" {
+        Input: path = "src/main.txt", pattern = "**/*.rx";
+        Output: False;
+    }
 }
 
-Test ParseExpression {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MatchesAny {
+    Case "matches one pattern" {
+        Input: path = "src/main.rx", patterns = ["*.txt", "**/*.rx"];
+        Output: True;
+    }
+    Case "matches none" {
+        Input: path = "src/main.c", patterns = ["*.txt", "*.rx"];
+        Output: False;
+    }
 }
 
-Test ParsePrimary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MatchParts {
+    Case "exact parts" {
+        Input: pathParts = ["src", "main.rx"], pathIndex = 0, patternParts = ["src", "main.rx"], patternIndex = 0;
+        Output: True;
+    }
 }
 
-Test ParseString {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test OrDefault {
+    Case "non-empty" {
+        Input: value = "custom", fallback = "default";
+        Output: "custom";
+    }
+    Case "empty" {
+        Input: value = "", fallback = "default";
+        Output: "default";
+    }
 }
 
-Test ParseIdentifier {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Property {
+    Case "found property" {
+        Input: node = ProjectNode(Found: True, Children: [ProjectNode(Name: "Type", Text: "Executable")]), name = "Type";
+        Output: "Executable";
+    }
+    Case "missing property" {
+        Input: node = ProjectNode(Found: True, Children: []), name = "Type";
+        Output: "";
+    }
+}
+
+Test FindChild {
+    Case "found child" {
+        Input: node = ProjectNode(Children: [ProjectNode(Name: "Config")]), name = "Config";
+        Assert: Result.Name == "Config";
+    }
+    Case "missing child" {
+        Input: node = ProjectNode(Children: []), name = "Config";
+        Assert: !Result.Found;
+    }
 }
 
 Test WordChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "letter" {
+        Input: character = "a";
+        Output: True;
+    }
+    Case "digit" {
+        Input: character = "5";
+        Output: True;
+    }
+    Case "underscore" {
+        Input: character = "_";
+        Output: True;
+    }
+    Case "punctuation" {
+        Input: character = "!";
+        Output: False;
+    }
 }
 
 Test EqualsBeforeStop {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "at eof" {
+        Input:;
+        Assert: Result == False;
+    }
 }
 
 Test WordAhead {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "at eof" {
+        Input:;
+        Assert: Result == False;
+    }
 }
 
 Test IdentifierLength {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test OptionalSemicolon {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Consume {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Skip {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test StartsWith {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test PeekChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test LookChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test AdvanceChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "at eof" {
+        Input:;
+        Assert: Result == 0;
+    }
 }
 
 Test Ended {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "at eof" {
+        Input:;
+        Assert: Result == True;
+    }
 }
 
-Test RunProcess {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test StartsWith {
+    Case "at eof" {
+        Input: text = "abc";
+        Assert: Result == False;
+    }
+}
+
+Test PeekChar {
+    Case "at eof" {
+        Input:;
+        Assert: Result == "\0";
+    }
+}
+
+Test LookChar {
+    Case "at eof" {
+        Input: offset = 0;
+        Assert: Result == "\0";
+    }
+}
+
+Test AdvanceChar {
+    Case "at eof" {
+        Input:;
+        Assert: Result == "\0";
+    }
+}
+
+Test Skip {
+    Case "skip whitespace at eof" {
+        Input:;
+        Assert: True;
+    }
+}
+
+Test Consume {
+    Case "consume token" {
+        Input: text = "abc";
+        Assert: True;
+    }
+}
+
+Test OptionalSemicolon {
+    Case "optional semicolon at eof" {
+        Input:;
+        Assert: True;
+    }
+}
+
+Test ParseString {
+    Case "at eof" {
+        Input:;
+        Assert: Result == "";
+    }
+}
+
+Test ParseIdentifier {
+    Case "at eof" {
+        Input:;
+        Assert: Result == "";
+    }
+}
+
+Test ParsePrimary {
+    Case "at eof" {
+        Input:;
+        Assert: Result == "";
+    }
+}
+
+Test ParseExpression {
+    Case "at eof" {
+        Input:;
+        Assert: Result == "";
+    }
+}
+
+Test ParseBlock {
+    Case "at eof" {
+        Input:;
+        Assert: Result.Count() == 0;
+    }
+}
+
+Test ParseFunction {
+    Case "parse function node" {
+        Input:;
+        Assert: Result.Kind == "Function";
+    }
+}
+
+Test ParseIf {
+    Case "parse if node" {
+        Input:;
+        Assert: Result.Kind == "If";
+    }
+}
+
+Test ParseItem {
+    Case "parse item at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
+}
+
+Test ParseFile {
+    Case "parse valid project" {
+        Input: source = "Project \"Demo\" { Type: Executable; }";
+        Assert: Result.Kind == "File" && Result.Children.Count() > 0 && Result.Children[0].Name == "Demo";
+    }
+}
+
+Test FindFunction {
+    Case "absent function" {
+        Input: name = "func";
+        Assert: !Result.Found;
+    }
+}
+
+Test DefineVariable {
+    Case "define var" {
+        Input: name = "Config", value = "Release";
+        Assert: True;
+    }
+}
+
+Test LookupVariable {
+    Case "missing" {
+        Input: name = "Config";
+        Output: "";
+    }
+}
+
+Test HasVariable {
+    Case "missing" {
+        Input: name = "Config";
+        Output: False;
+    }
+}
+
+Test CollectVariables {
+    Case "collect empty" {
+        Input: root = ProjectNode();
+        Assert: True;
+    }
+}
+
+Test CollectFrom {
+    Case "collect from empty" {
+        Input: node = ProjectNode();
+        Assert: True;
+    }
+}
+
+Test Resolve {
+    Case "resolve empty" {
+        Input: node = ProjectNode();
+        Assert: True;
+    }
+}
+
+Test ResolveText {
+    Case "plain text" {
+        Input: text = "hello";
+        Output: "hello";
+    }
+}
+
+Test ConditionMatches {
+    Case "equal expr" {
+        Input: expression = "a == a";
+        Output: True;
+    }
+    Case "unequal expr" {
+        Input: expression = "a == b";
+        Output: False;
+    }
+}
+
+Test TaskAllows {
+    Case "no condition" {
+        Input: node = ProjectNode();
+        Output: True;
+    }
+}
+
+Test ProjectOf {
+    Case "project of root" {
+        Input: root = ProjectNode();
+        Assert: Result != Null;
+    }
+}
+
+Test FindTask {
+    Case "task not found" {
+        Input: tasks = ProjectNode(), taskName = "Build";
+        Assert: !Result.Found;
+    }
+}
+
+Test Validate {
+    Case "empty project is invalid" {
+        Input: root = ProjectNode();
+        Assert: Result != "";
+    }
+}
+
+Test PrintHelp {
+    Case "prints help" {
+        Input:;
+        Assert: True;
+    }
+}
+
+Test PrintInfo {
+    Case "prints info" {
+        Input: root = ProjectNode();
+        Assert: True;
+    }
+}
+
+Test PrintTasks {
+    Case "prints tasks" {
+        Input: root = ProjectNode();
+        Assert: True;
+    }
+}
+
+Test PrintDiagnostics {
+    Case "prints diagnostics" {
+        Input:;
+        Assert: True;
+    }
+}
+
+Test ReadOptions {
+    Case "options flags" {
+        Input: args = ["--Verbose", "--NoCache"];
+        Assert: True;
+    }
+}
+
+Test OptimizeFlag {
+    Case "debug opt flag" {
+        Input:;
+        Assert: Result == "-O0";
+    }
+}
+
+Test DebugFlag {
+    Case "debug debug flag" {
+        Input:;
+        Assert: Result == "-g";
+    }
+}
+
+Test Fingerprint {
+    Case "fingerprint non-empty" {
+        Input: text = "hello";
+        Assert: Result.Length() > 0;
+    }
+}
+
+Test CachePath {
+    Case "cache file path" {
+        Input:;
+        Assert: Result.Contains(".cache");
+    }
+}
+
+Test Cached {
+    Case "uncached file" {
+        Input: relative = "main.rx";
+        Assert: Result == "";
+    }
+}
+
+Test Remember {
+    Case "remember hash" {
+        Input: relative = "main.rx", hash = "abc";
+        Assert: True;
+    }
+}
+
+Test OutputName {
+    Case "default output name" {
+        Input: project = ProjectNode();
+        Assert: Result == "Application";
+    }
+}
+
+Test OutputDirectory {
+    Case "default output directory" {
+        Input: project = ProjectNode();
+        Assert: Result.Length() > 0;
+    }
+}
+
+Test OutputPath {
+    Case "entry output path" {
+        Input: project = ProjectNode(), relative = "main.rx", entry = True;
+        Assert: Result.Length() > 0;
+    }
+}
+
+Test IntermediateDirectory {
+    Case "temp directory" {
+        Input: project = ProjectNode();
+        Assert: Result.Length() > 0;
+    }
+}
+
+Test IsApplication {
+    Case "default is application" {
+        Input: project = ProjectNode();
+        Assert: Result == True;
+    }
+}
+
+Test RuntimeFile {
+    Case "runtime c file" {
+        Input:;
+        Assert: Result.Contains("rx_runtime.c");
+    }
+}
+
+Test DeletePath {
+    Case "delete nonexistent" {
+        Input: path = "nonexistent_temp_file_12345";
+        Assert: Result == True;
+    }
+}
+
+Test SourceFiles {
+    Case "empty project sources" {
+        Input: project = ProjectNode();
+        Assert: Result.Count() >= 0;
+    }
+}
+
+Test EntryFile {
+    Case "empty files" {
+        Input: project = ProjectNode(), files = [];
+        Assert: Result == "";
+    }
+}
+
+Test FindProject {
+    Case "find project file" {
+        Input:;
+        Assert: Result.Contains(".rxp");
+    }
+}
+
+Test LockLines {
+    Case "lock lines from project" {
+        Input: node = ProjectNode();
+        Assert: Result.Length() >= 0;
+    }
+}
+
+Test CheckTest {
+    Case "check nonexistent file" {
+        Input: relative = "nonexistent.rx";
+        Assert: Result == True;
+    }
+}
+
+Test Restore {
+    Case "restore project" {
+        Input: project = ProjectNode();
+        Assert: Result == True;
+    }
+}
+
+Test Clean {
+    Case "clean project" {
+        Input: project = ProjectNode();
+        Assert: Result == True;
+    }
+}
+
+Test CompileOne {
+    Case "dry run or mock compile" {
+        Input: project = ProjectNode(), relative = "a.rx", entry = False, native = NativeProgram(), module = AstNode();
+        Assert: Result == False;
+    }
+}
+
+Test CompileSources {
+    Case "empty project compile sources" {
+        Input: project = ProjectNode();
+        Assert: Result == False;
+    }
+}
+
+Test PackageOutput {
+    Case "package empty output" {
+        Input: project = ProjectNode();
+        Assert: Result == True;
+    }
+}
+
+Test RunEntry {
+    Case "run entry with no files" {
+        Input: project = ProjectNode();
+        Assert: Result == False;
+    }
+}
+
+Test RunDiscoveredTests {
+    Case "run discovered tests" {
+        Input: project = ProjectNode();
+        Assert: Result == True;
+    }
+}
+
+Test RunTests {
+    Case "run tests with pattern" {
+        Input: project = ProjectNode(), pattern = "none/**/*.rx";
+        Assert: Result == True;
+    }
+}
+
+Test RunTask {
+    Case "run empty task" {
+        Input: project = ProjectNode(), task = ProjectNode(), stack = [];
+        Assert: Result == True;
+    }
+}
+
+Test ExecuteTask {
+    Case "execute missing task" {
+        Input: root = ProjectNode(), taskName = "UnknownTask";
+        Assert: Result == False;
+    }
+}
+
+Test Run {
+    Case "run help command" {
+        Input: args = ["help"];
+        Assert: Result.Code == 0;
+    }
 }
 
 Test ExecuteProject {
+    Case "execute project help" {
+        Input: args = ["help"];
+        Assert: True;
+    }
+}
+
+Test RunProcess {
     Constraint: True;
     Processing: True;
     Output: True;

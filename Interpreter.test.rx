@@ -1,315 +1,440 @@
 // Tests for Interpreter.rx.
 
-Test HasName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MakeInt {
+    Case "make integer value" {
+        Input: number = 42;
+        Assert: Result.Kind == ValueKind.Integer && Result.Integer == 42;
+    }
 }
 
-Test FindTestFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MakeBool {
+    Case "make boolean true" {
+        Input: number = True;
+        Assert: Result.Kind == ValueKind.Boolean && Result.Boolean == True;
+    }
+    Case "make boolean false" {
+        Input: number = False;
+        Assert: Result.Kind == ValueKind.Boolean && Result.Boolean == False;
+    }
 }
 
-Test PrepareThis {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MakeText {
+    Case "make text value" {
+        Input: text = "hello";
+        Assert: Result.Kind == ValueKind.Text && Result.Text == "hello";
+    }
 }
 
-Test BlankValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MakeNull {
+    Case "make null value" {
+        Input:;
+        Assert: Result.Kind == ValueKind.Null;
+    }
 }
 
-Test BlankArgument {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MakeVoid {
+    Case "make void value" {
+        Input:;
+        Assert: Result.Kind == ValueKind.Void;
+    }
 }
 
-Test BlankObject {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MakeArray {
+    Case "make empty array" {
+        Input:;
+        Assert: Result.Kind == ValueKind.Array && Result.Elements.Count() == 0;
+    }
 }
 
-Test Describe {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test TestTitle {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ExpectsFailure {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunChecks {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunCheck {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test IsEmptyValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CompareValues {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test StringStatic {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test TextCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Execute {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Lines {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RequireTests {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RuntimeErrors {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CollectTestNames {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test HasTestName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunParsedTests {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RunOneTest {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CollectFunctions {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ExecuteNode {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ExecuteBlock {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ExecuteVariable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ExecuteFor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test ExecuteMatch {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Evaluate {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test EvaluateBinary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test EvaluateCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test FindOperator {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test OperatorLibrary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test CallFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test PatternMatches {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test BindPattern {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test FindFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Define {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Assign {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test TypeIndex {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test EnumOrdinal {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeEnumValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test TakeFront {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test TakeBack {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test TypeMatches {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeRecord {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeMap {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeSet {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeObject {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test MakeFunction {
+    Case "make function value" {
+        Input: node = AstNode(Name: "testFunc");
+        Assert: Result.Kind == ValueKind.Function && Result.Text == "testFunc";
+    }
 }
 
 Test MakeObjectValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "make object value" {
+        Input: typeName = "Person";
+        Assert: Result.Kind == ValueKind.Object && Result.Text == "Person";
+    }
+}
+
+Test MakeObject {
+    Case "make object node" {
+        Input: node = AstNode(Name: "Widget", Children: []);
+        Assert: Result.Kind == ValueKind.Object && Result.Text == "Widget";
+    }
+}
+
+Test BlankObject {
+    Case "blank object" {
+        Input: typeName = "Widget";
+        Assert: Result.Kind == ValueKind.Object && Result.Text == "Widget";
+    }
+}
+
+Test MakeRecord {
+    Case "make record" {
+        Input: node = AstNode(Children: [AstNode(Name: "x", Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "10"))]);
+        Assert: Result.Kind == ValueKind.Object && Result.Elements.Count() == 1;
+    }
+}
+
+Test MakeMap {
+    Case "make map" {
+        Input: node = AstNode(Children: [AstNode(Name: "key", Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "5"))]);
+        Assert: Result.Text == "Map" && Result.Elements.Count() == 2;
+    }
+}
+
+Test MakeSet {
+    Case "make set" {
+        Input: node = AstNode(Children: [AstNode(Kind: AstKind.IntegerLiteral, Text: "1")]);
+        Assert: Result.Text == "Set" && Result.Elements.Count() == 1;
+    }
 }
 
 Test FieldIndex {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "found field" {
+        Input: value = Value(FieldNames: ["age"]), name = "age";
+        Output: 0;
+    }
+    Case "missing field" {
+        Input: value = Value(FieldNames: ["age"]), name = "name";
+        Output: -1;
+    }
+}
+
+Test BlankValue {
+    Case "string" {
+        Input: typeName = "String";
+        Assert: Result.Kind == ValueKind.Text && Result.Text == "";
+    }
+    Case "int" {
+        Input: typeName = "Int";
+        Assert: Result.Kind == ValueKind.Integer && Result.Integer == 0;
+    }
+    Case "bool" {
+        Input: typeName = "Bool";
+        Assert: Result.Kind == ValueKind.Boolean && Result.Boolean == False;
+    }
+}
+
+Test BlankArgument {
+    Case "default parameter" {
+        Input: parameter = AstNode();
+        Assert: Result.Kind == ValueKind.Integer;
+    }
+}
+
+Test Describe {
+    Case "integer" {
+        Input: value = MakeInt(7);
+        Output: "Int:7";
+    }
+    Case "boolean" {
+        Input: value = MakeBool(True);
+        Output: "Bool:True";
+    }
+    Case "null" {
+        Input: value = MakeNull();
+        Output: "Null:";
+    }
+}
+
+Test TestTitle {
+    Case "name only" {
+        Input: test = AstNode(Name: "MyTest", Text: "");
+        Output: "MyTest";
+    }
+    Case "with text" {
+        Input: test = AstNode(Name: "MyTest", Text: "case 1");
+        Output: "MyTest case 1";
+    }
+}
+
+Test ExpectsFailure {
+    Case "no fails child" {
+        Input: test = AstNode(Children: []);
+        Output: False;
+    }
+    Case "fails child" {
+        Input: test = AstNode(Children: [AstNode(Name: "Fails", Left: AstNode(Kind: AstKind.BooleanLiteral, FlagA: True))]);
+        Output: True;
+    }
+}
+
+Test HasTestName {
+    Case "present" {
+        Input: names = ["alpha", "beta"], name = "beta";
+        Output: True;
+    }
+    Case "absent" {
+        Input: names = ["alpha", "beta"], name = "gamma";
+        Output: False;
+    }
+}
+
+Test CollectTestNames {
+    Case "collects test name" {
+        Input: node = AstNode(Kind: AstKind.Test, Name: "TestOne", Children: []), kind = AstKind.Test, names = [];
+        Assert: names.Count() == 1 && names[0] == "TestOne";
+    }
+}
+
+Test IsTruthy {
+    Case "true bool" {
+        Input: value = MakeBool(True);
+        Output: True;
+    }
+    Case "false bool" {
+        Input: value = MakeBool(False);
+        Output: False;
+    }
+    Case "nonzero int" {
+        Input: value = MakeInt(5);
+        Output: True;
+    }
+    Case "zero int" {
+        Input: value = MakeInt(0);
+        Output: False;
+    }
+    Case "null is falsy" {
+        Input: value = MakeNull();
+        Output: False;
+    }
+}
+
+Test Same {
+    Case "same ints" {
+        Input: left = MakeInt(10), right = MakeInt(10);
+        Output: True;
+    }
+    Case "different ints" {
+        Input: left = MakeInt(10), right = MakeInt(20);
+        Output: False;
+    }
+    Case "same text" {
+        Input: left = MakeText("a"), right = MakeText("a");
+        Output: True;
+    }
+    Case "both null" {
+        Input: left = MakeNull(), right = MakeNull();
+        Output: True;
+    }
+}
+
+Test Display {
+    Case "int" {
+        Input: value = MakeInt(123);
+        Output: "123";
+    }
+    Case "bool" {
+        Input: value = MakeBool(True);
+        Output: "True";
+    }
+    Case "text" {
+        Input: value = MakeText("abc");
+        Output: "abc";
+    }
+    Case "null" {
+        Input: value = MakeNull();
+        Output: "Null";
+    }
+}
+
+Test IsEmptyValue {
+    Case "empty text" {
+        Input: value = MakeText("");
+        Output: True;
+    }
+    Case "non-empty text" {
+        Input: value = MakeText("x");
+        Output: False;
+    }
+    Case "null is empty" {
+        Input: value = MakeNull();
+        Output: True;
+    }
+}
+
+Test CompareValues {
+    Case "less" {
+        Input: left = MakeInt(5), right = MakeInt(10);
+        Output: -1;
+    }
+    Case "greater" {
+        Input: left = MakeInt(10), right = MakeInt(5);
+        Output: 1;
+    }
+    Case "equal" {
+        Input: left = MakeInt(5), right = MakeInt(5);
+        Output: 0;
+    }
+}
+
+Test TypeMatches {
+    Case "bool matches" {
+        Input: value = MakeBool(True), expected = "Bool";
+        Output: True;
+    }
+    Case "int matches" {
+        Input: value = MakeInt(42), expected = "Int";
+        Output: True;
+    }
+    Case "text matches" {
+        Input: value = MakeText("hi"), expected = "String";
+        Output: True;
+    }
+    Case "mismatch" {
+        Input: value = MakeInt(42), expected = "String";
+        Output: False;
+    }
+}
+
+Test TakeFront {
+    Case "empty collection" {
+        Input: collection = MakeArray();
+        Assert: Result.Integer == 0;
+    }
+}
+
+Test TakeBack {
+    Case "empty collection" {
+        Input: collection = MakeArray();
+        Assert: Result.Integer == 0;
+    }
+}
+
+Test FindOperator {
+    Case "absent returns -1" {
+        Input: key = "+";
+        Output: -1;
+    }
+}
+
+Test TypeIndex {
+    Case "absent returns -1" {
+        Input: name = "UnknownType";
+        Output: -1;
+    }
+}
+
+Test EnumOrdinal {
+    Case "first member" {
+        Input: typeNode = AstNode(Children: [AstNode(Kind: AstKind.EnumMember, Name: "A"), AstNode(Kind: AstKind.EnumMember, Name: "B")]), name = "A";
+        Output: 0;
+    }
+    Case "second member" {
+        Input: typeNode = AstNode(Children: [AstNode(Kind: AstKind.EnumMember, Name: "A"), AstNode(Kind: AstKind.EnumMember, Name: "B")]), name = "B";
+        Output: 1;
+    }
+}
+
+Test LookupBuiltinEnum {
+    Case "astkind missing" {
+        Input: typeName = "AstKind", memberName = "Missing";
+        Output: 0;
+    }
+    Case "tokenkind identifier" {
+        Input: typeName = "TokenKind", memberName = "Identifier";
+        Output: 2;
+    }
+    Case "exitcode success" {
+        Input: typeName = "ExitCode", memberName = "Success";
+        Output: 0;
+    }
+}
+
+Test LookupAstKind {
+    Case "Missing" {
+        Input: name = "Missing";
+        Output: 0;
+    }
+    Case "Module" {
+        Input: name = "Module";
+        Output: 1;
+    }
+}
+
+Test LookupTokenKind {
+    Case "EndOfFile" {
+        Input: name = "EndOfFile";
+        Output: 0;
+    }
+    Case "Identifier" {
+        Input: name = "Identifier";
+        Output: 2;
+    }
+}
+
+Test MakeEnumValue {
+    Case "simple enum" {
+        Input: typeNode = AstNode(Name: "Color", Children: [AstNode(Kind: AstKind.EnumMember, Name: "Red", Parameters: [])]), name = "Red", arguments = [];
+        Assert: Result.Integer == 0;
+    }
+}
+
+Test StringStatic {
+    Case "from text" {
+        Input: name = "From", arguments = [MakeText("abc")];
+        Assert: Result.Text == "abc";
+    }
+}
+
+Test TextCall {
+    Case "substring" {
+        Input: name = "Substring", target = MakeText("hello"), arguments = [MakeInt(1), MakeInt(3)];
+        Assert: Result.Text == "ell";
+    }
+    Case "getchar" {
+        Input: name = "GetChar", target = MakeText("hello"), arguments = [MakeInt(0)];
+        Assert: Result.Text == "h";
+    }
+}
+
+Test OperatorLibrary {
+    Case "negate" {
+        Input: name = "Negate", arguments = [MakeInt(5)];
+        Assert: Result.Integer == -5;
+    }
+    Case "add" {
+        Input: name = "Add", arguments = [MakeInt(3), MakeInt(4)];
+        Assert: Result.Integer == 7;
+    }
+}
+
+Test PatternMatches {
+    Case "wildcard flagA" {
+        Input: pattern = AstNode(FlagA: True), scrutinee = MakeInt(10);
+        Output: True;
+    }
+    Case "type match" {
+        Input: pattern = AstNode(Text: "Int"), scrutinee = MakeInt(10);
+        Output: True;
+    }
+}
+
+Test BindPattern {
+    Case "bind identifier" {
+        Input: pattern = AstNode(Name: "testPatternVar"), scrutinee = MakeInt(77);
+        Assert: This.Lookup("testPatternVar").Integer == 77;
+    }
+}
+
+Test Define {
+    Case "define variable" {
+        Input: name = "myDefinedVar", value = MakeInt(88);
+        Assert: This.Lookup("myDefinedVar").Integer == 88;
+    }
+}
+
+Test Assign {
+    Case "assign existing" {
+        Input: name = "name", value = Value(Kind: ValueKind.Int, Integer: 99);
+        Assert: True;
+    }
 }
 
 Test Lookup {
@@ -318,100 +443,203 @@ Test Lookup {
     Output: True;
 }
 
-Test PushScope {
+Test HasName {
     Constraint: True;
     Processing: True;
     Output: True;
+}
+
+Test PushScope {
+    Case "push scope" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test PopScope {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "pop scope" {
+        Input:;
+        Assert: True;
+    }
 }
 
-Test MakeInt {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test EvaluateBinary {
+    Case "binary evaluation" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "7"), Right: AstNode(Kind: AstKind.IntegerLiteral, Text: "4"));
+        Assert: Result.Integer == 7;
+    }
+}
+
+Test Evaluate {
+    Case "int literal" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "123");
+        Assert: Result.Integer == 123;
+    }
+    Case "string literal" {
+        Input: node = AstNode(Kind: AstKind.StringLiteral, Text: "abc");
+        Assert: Result.Text == "abc";
+    }
+}
+
+Test ExecuteVariable {
+    Case "declare variable" {
+        Input: node = AstNode(Name: "xVar", Initializer: AstNode(Kind: AstKind.IntegerLiteral, Text: "55"));
+        Assert: This.Lookup("xVar").Integer == 55;
+    }
+}
+
+Test ExecuteBlock {
+    Case "block execution" {
+        Input: node = AstNode(Children: [AstNode(Kind: AstKind.IntegerLiteral, Text: "1")]);
+        Assert: Result != Null;
+    }
+}
+
+Test ExecuteNode {
+    Case "expression statement" {
+        Input: node = AstNode(Kind: AstKind.ExpressionStatement, Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "42"));
+        Assert: Result.Integer == 42;
+    }
+}
+
+Test ExecuteFor {
+    Case "empty for" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
+}
+
+Test ExecuteMatch {
+    Case "empty match" {
+        Input: node = AstNode(Children: []);
+        Assert: Result != Null;
+    }
+}
+
+Test EvaluateCall {
+    Case "call non-existent" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.Name, Name: "noFunc"), Children: []);
+        Assert: Result != Null;
+    }
+}
+
+Test CallFunction {
+    Case "call function node" {
+        Input: function = AstNode(Name: "f", Parameters: [], Body: AstNode(Children: [AstNode(Kind: AstKind.Return, Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "99"))])), arguments = [];
+        Assert: Result.Integer == 99;
+    }
+}
+
+Test FindFunction {
+    Case "not found" {
+        Input: name = "dummyFunc";
+        Output: Null;
+    }
+}
+
+Test FindTestFunction {
+    Case "not found" {
+        Input: owner = "", name = "dummyFunc";
+        Output: Null;
+    }
+}
+
+Test PrepareThis {
+    Case "prepare parser" {
+        Input: owner = "Parser";
+        Assert: True;
+    }
+}
+
+Test RunCheck {
+    Case "assert true" {
+        Input: test = AstNode(Name: "T"), check = AstNode(Name: "Assert", Left: AstNode(Kind: AstKind.BooleanLiteral, FlagA: True)), actual = MakeVoid(), called = False;
+        Output: "";
+    }
+}
+
+Test RunChecks {
+    Case "empty children" {
+        Input: test = AstNode(Name: "T", Children: []), actual = MakeVoid(), called = False;
+        Output: "";
+    }
+}
+
+Test RunOneTest {
+    Case "simple passing test" {
+        Input: test = AstNode(Name: "Stub", Left: AstNode(Kind: AstKind.BooleanLiteral, FlagA: True), Extra: AstNode(Kind: AstKind.BooleanLiteral, FlagA: True), Children: []);
+        Output: "";
+    }
+}
+
+Test RunParsedTests {
+    Case "empty test suite" {
+        Input: node = AstNode(Children: []), errors = [];
+        Assert: errors.Count() == 0;
+    }
+}
+
+Test CollectFunctions {
+    Case "collect from empty module" {
+        Input: node = AstNode(Children: []);
+        Assert: True;
+    }
+}
+
+Test RequireTests {
+    Case "test file returns no errors" {
+        Input: sourcePath = "empty.test.rx", module = AstNode(Children: []);
+        Assert: Result.Count() == 0;
+    }
+}
+
+Test Lines {
+    Case "initial lines" {
+        Input:;
+        Assert: Result.Count() == 0;
+    }
+}
+
+Test RuntimeErrors {
+    Case "initial errors" {
+        Input:;
+        Assert: Result.Count() == 0;
+    }
+}
+
+Test Execute {
+    Case "execute empty module" {
+        Input: module = AstNode(Children: []), arguments = [];
+        Assert: Result == 0;
+    }
 }
 
 Test MakeFloatBits {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "zero float" {
+        Input: bits = 0;
+        Assert: Result.Kind == ValueKind.Float;
+    }
 }
 
 Test ParseFloat {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse float literal" {
+        Input: text = "3.14";
+        Assert: Result.Kind == ValueKind.Float;
+    }
 }
 
 Test FloatBits {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "bits of float" {
+        Input: value = MakeFloatBits(0);
+        Assert: Result == 0;
+    }
 }
 
 Test EvaluateFloat {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeBool {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeText {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeNull {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeVoid {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeArray {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test MakeFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test IsTruthy {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Same {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Display {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add float zeros" {
+        Input: operator = "+", left = MakeFloatBits(0), right = MakeFloatBits(0);
+        Assert: Result.Kind == ValueKind.Float;
+    }
 }
 
 Test ParseF64 {

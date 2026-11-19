@@ -158,18 +158,6 @@ Public Class Interpreter {
             Return errors;
         }
         This.PushScope();
-        If (Files.Exists("TokenKind.rx")) {
-            DiagnosticBag d1 = DiagnosticBag();
-            Lexer l1 = Lexer(Files.ReadText("TokenKind.rx"), d1);
-            Parser p1 = Parser(l1.Tokenize(), d1);
-            This.CollectFunctions(p1.Parse());
-        }
-        If (Files.Exists("AstNode.rx")) {
-            DiagnosticBag d2 = DiagnosticBag();
-            Lexer l2 = Lexer(Files.ReadText("AstNode.rx"), d2);
-            Parser p2 = Parser(l2.Tokenize(), d2);
-            This.CollectFunctions(p2.Parse());
-        }
         If ((sourcePath.Contains("ParserStatements") || sourcePath.Contains("ParserExpressions")) && Files.Exists("Parser.rx")) {
             DiagnosticBag dp = DiagnosticBag();
             Lexer lp = Lexer(Files.ReadText("Parser.rx"), dp);
@@ -897,6 +885,16 @@ Public Class Interpreter {
             If (left.Kind == ValueKind.Null || left.Kind == ValueKind.None) { Return This.Evaluate(node.Right); }
             Return left;
         }
+        If (node.Kind == AstKind.Binary && (node.Operator == "&&" || node.Operator == "And")) {
+            Value left = This.Evaluate(node.Left);
+            If (!This.IsTruthy(left)) { Return left; }
+            Return This.Evaluate(node.Right);
+        }
+        If (node.Kind == AstKind.Binary && (node.Operator == "||" || node.Operator == "Or")) {
+            Value left = This.Evaluate(node.Left);
+            If (This.IsTruthy(left)) { Return left; }
+            Return This.Evaluate(node.Right);
+        }
         If (node.Kind == AstKind.Binary || node.Kind == AstKind.Range) {
             Return This.EvaluateBinary(node);
         }
@@ -984,6 +982,10 @@ Public Class Interpreter {
                 Int typeIndex = This.TypeIndex(node.Left.Name);
                 If (typeIndex >= 0 && This.types[typeIndex].Text == "Enum") {
                     Return This.MakeInt(This.EnumOrdinal(This.types[typeIndex], node.Name));
+                }
+                Int builtIn = This.LookupBuiltinEnum(node.Left.Name, node.Name);
+                If (builtIn >= 0) {
+                    Return This.MakeInt(builtIn);
                 }
                 If (node.Left.Name == "ExitCode" || node.Left.Name == "AstKind" || node.Left.Name == "ValueKind" || node.Left.Name == "TokenKind") {
                     Return This.MakeInt(0);
@@ -1089,9 +1091,11 @@ Public Class Interpreter {
         If (node.Operator == "^") { Return This.MakeInt(BitXor(left.Integer, right.Integer)); }
         If (node.Operator == "==" || node.Operator == "Equal") { Return This.MakeBool(This.Same(left, right)); }
         If (node.Operator == "!=") { Return This.MakeBool(!This.Same(left, right)); }
-        If (left.Kind == ValueKind.Text && right.Kind == ValueKind.Text && left.Text.Length() == 1 && right.Text.Length() == 1) {
-            Int leftCode = left.Text.GetChar(0).ToInt();
-            Int rightCode = right.Text.GetChar(0).ToInt();
+        If (left.Kind == ValueKind.Text && right.Kind == ValueKind.Text) {
+            Int leftCode = 0;
+            If (left.Text.Length() > 0) { leftCode = left.Text.GetChar(0).ToInt(); }
+            Int rightCode = 0;
+            If (right.Text.Length() > 0) { rightCode = right.Text.GetChar(0).ToInt(); }
             If (node.Operator == "<") { Return This.MakeBool(leftCode < rightCode); }
             If (node.Operator == ">") { Return This.MakeBool(leftCode > rightCode); }
             If (node.Operator == "<=") { Return This.MakeBool(leftCode <= rightCode); }
@@ -1189,6 +1193,12 @@ Public Class Interpreter {
             }
             Return This.MakeVoid();
         }
+        If (name == "ParseInteger" && arguments.Count() > 0) {
+            Return This.MakeInt(ParseInteger(arguments[0].Text));
+        }
+        If (name == "StripNumericSuffix" && arguments.Count() > 0) {
+            Return This.MakeText(StripNumericSuffix(arguments[0].Text));
+        }
         If (name == "Input") { Return This.MakeText(ReadLine()); }
         If (name == "Queue" || name == "Stack") {
             Value collection = This.MakeArray();
@@ -1205,6 +1215,47 @@ Public Class Interpreter {
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Operators") {
             Return This.OperatorLibrary(node.Left.Name, arguments);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Files") {
+            If (node.Left.Name == "Exists") {
+                If (arguments.Count() > 0) { Return This.MakeBool(Files.Exists(arguments[0].Text)); }
+                Return This.MakeBool(False);
+            }
+            If (node.Left.Name == "ReadText") {
+                If (arguments.Count() > 0) { Return This.MakeText(Files.ReadText(arguments[0].Text)); }
+                Return This.MakeText("");
+            }
+            If (node.Left.Name == "WriteText") {
+                If (arguments.Count() >= 2) { Files.WriteText(arguments[0].Text, arguments[1].Text); }
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "Delete") {
+                If (arguments.Count() > 0) { Files.Delete(arguments[0].Text); }
+                Return This.MakeVoid();
+            }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Directory") {
+            If (node.Left.Name == "Files") {
+                Value list = This.MakeArray();
+                If (arguments.Count() > 0) {
+                    For file In Directory.Files(arguments[0].Text) {
+                        list.Elements.Add(This.MakeText(file));
+                    }
+                }
+                Return list;
+            }
+            If (node.Left.Name == "Exists") {
+                If (arguments.Count() > 0) { Return This.MakeBool(Directory.Exists(arguments[0].Text)); }
+                Return This.MakeBool(False);
+            }
+            If (node.Left.Name == "Create") {
+                If (arguments.Count() > 0) { Directory.Create(arguments[0].Text); }
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "Delete") {
+                If (arguments.Count() > 0) { Directory.Delete(arguments[0].Text); }
+                Return This.MakeVoid();
+            }
         }
         If (name != "" && This.TypeIndex(name) >= 0) {
             Value obj = This.BlankObject(name);
@@ -1345,10 +1396,30 @@ Public Class Interpreter {
         If (name == "StartsWith" && arguments.Count() > 0) { Return This.MakeBool(text.StartsWith(arguments[0].Text)); }
         If (name == "EndsWith" && arguments.Count() > 0) { Return This.MakeBool(text.EndsWith(arguments[0].Text)); }
         If (name == "Contains" && arguments.Count() > 0) { Return This.MakeBool(text.Contains(arguments[0].Text)); }
-        If (name == "IndexOf" && arguments.Count() > 0) { Return This.MakeInt(text.IndexOf(arguments[0].Text)); }
+        If (name == "IndexOf" && arguments.Count() > 0) {
+            If (arguments.Count() > 1) {
+                Return This.MakeInt(text.IndexOf(arguments[0].Text, arguments[1].Integer));
+            }
+            Return This.MakeInt(text.IndexOf(arguments[0].Text));
+        }
+        If (name == "LastIndexOf" && arguments.Count() > 0) {
+            If (arguments.Count() > 1) {
+                Return This.MakeInt(text.LastIndexOf(arguments[0].Text, arguments[1].Integer));
+            }
+            Return This.MakeInt(text.LastIndexOf(arguments[0].Text));
+        }
         If (name == "Replace" && arguments.Count() > 1) { Return This.MakeText(text.Replace(arguments[0].Text, arguments[1].Text)); }
         If (name == "ToLower") { Return This.MakeText(text.ToLower()); }
         If (name == "ToUpper") { Return This.MakeText(text.ToUpper()); }
+        If (name == "ToInt") {
+            If (text.Length() == 1) {
+                Int code = text.GetChar(0).ToInt();
+                If (code < 48 || code > 57) {
+                    Return This.MakeInt(code);
+                }
+            }
+            Return This.MakeInt(ParseInteger(text));
+        }
         Return Value();
     }
 
@@ -1509,6 +1580,276 @@ Public Class Interpreter {
             }
         }
         Return 0;
+    }
+
+    Private Function LookupBuiltinEnum(String typeName, String memberName) -> Int {
+        If (typeName == "ValueKind") {
+            If (memberName == "None") { Return 0; }
+            If (memberName == "Integer") { Return 1; }
+            If (memberName == "Float") { Return 2; }
+            If (memberName == "Boolean") { Return 3; }
+            If (memberName == "Text") { Return 4; }
+            If (memberName == "Null") { Return 5; }
+            If (memberName == "Array") { Return 6; }
+            If (memberName == "Function") { Return 7; }
+            If (memberName == "Void") { Return 8; }
+            If (memberName == "Object") { Return 9; }
+            Return -1;
+        }
+        If (typeName == "ExitCode") {
+            If (memberName == "Success") { Return 0; }
+            If (memberName == "WarningExecution") { Return 1; }
+            If (memberName == "ErrorExecution") { Return 2; }
+            If (memberName == "InvalidArguments") { Return 3; }
+            If (memberName == "Custom") { Return 4; }
+            Return -1;
+        }
+        If (typeName == "AstKind") {
+            Return This.LookupAstKind(memberName);
+        }
+        If (typeName == "TokenKind") {
+            Return This.LookupTokenKind(memberName);
+        }
+        Return -1;
+    }
+
+    Private Function LookupAstKind(String name) -> Int {
+        If (name == "Missing") { Return 0; }
+        If (name == "Module") { Return 1; }
+        If (name == "Package") { Return 2; }
+        If (name == "Import") { Return 3; }
+        If (name == "Permissions") { Return 4; }
+        If (name == "Attribute") { Return 5; }
+        If (name == "Explain") { Return 6; }
+        If (name == "ExplainEntry") { Return 7; }
+        If (name == "Variable") { Return 8; }
+        If (name == "Parameter") { Return 9; }
+        If (name == "Function") { Return 10; }
+        If (name == "Class") { Return 11; }
+        If (name == "Field") { Return 12; }
+        If (name == "Constructor") { Return 13; }
+        If (name == "Destructor") { Return 14; }
+        If (name == "EnumMember") { Return 15; }
+        If (name == "Implement") { Return 16; }
+        If (name == "Connect") { Return 17; }
+        If (name == "TypeAlias") { Return 18; }
+        If (name == "Operator") { Return 19; }
+        If (name == "Macro") { Return 20; }
+        If (name == "Extern") { Return 21; }
+        If (name == "Block") { Return 22; }
+        If (name == "If") { Return 23; }
+        If (name == "Match") { Return 24; }
+        If (name == "MatchArm") { Return 25; }
+        If (name == "Pattern") { Return 26; }
+        If (name == "For") { Return 27; }
+        If (name == "While") { Return 28; }
+        If (name == "DoWhile") { Return 29; }
+        If (name == "Repeat") { Return 30; }
+        If (name == "Loop") { Return 31; }
+        If (name == "Break") { Return 32; }
+        If (name == "Continue") { Return 33; }
+        If (name == "Return") { Return 34; }
+        If (name == "Yield") { Return 35; }
+        If (name == "Throw") { Return 36; }
+        If (name == "Try") { Return 37; }
+        If (name == "Catch") { Return 38; }
+        If (name == "Defer") { Return 39; }
+        If (name == "Using") { Return 40; }
+        If (name == "Unsafe") { Return 41; }
+        If (name == "Asm") { Return 42; }
+        If (name == "Goto") { Return 43; }
+        If (name == "Label") { Return 44; }
+        If (name == "Lock") { Return 45; }
+        If (name == "ExpressionStatement") { Return 46; }
+        If (name == "Name") { Return 47; }
+        If (name == "IntegerLiteral") { Return 48; }
+        If (name == "FloatLiteral") { Return 49; }
+        If (name == "StringLiteral") { Return 50; }
+        If (name == "CharLiteral") { Return 51; }
+        If (name == "BooleanLiteral") { Return 52; }
+        If (name == "NullLiteral") { Return 53; }
+        If (name == "ArrayLiteral") { Return 54; }
+        If (name == "MapLiteral") { Return 55; }
+        If (name == "SetLiteral") { Return 56; }
+        If (name == "TupleLiteral") { Return 57; }
+        If (name == "RecordLiteral") { Return 58; }
+        If (name == "ObjectLiteral") { Return 59; }
+        If (name == "Binary") { Return 60; }
+        If (name == "Unary") { Return 61; }
+        If (name == "Ternary") { Return 62; }
+        If (name == "Call") { Return 63; }
+        If (name == "Member") { Return 64; }
+        If (name == "Index") { Return 65; }
+        If (name == "Range") { Return 66; }
+        If (name == "Cast") { Return 67; }
+        If (name == "TypeCheck") { Return 68; }
+        If (name == "Lambda") { Return 69; }
+        If (name == "Await") { Return 70; }
+        If (name == "Propagate") { Return 71; }
+        If (name == "Unwrap") { Return 72; }
+        If (name == "Assignment") { Return 73; }
+        If (name == "Type") { Return 74; }
+        If (name == "Argument") { Return 75; }
+        If (name == "Constraint") { Return 76; }
+        If (name == "Interpolation") { Return 77; }
+        If (name == "Test") { Return 78; }
+        Return -1;
+    }
+
+    Private Function LookupTokenKind(String name) -> Int {
+        If (name == "EndOfFile") { Return 0; }
+        If (name == "Unknown") { Return 1; }
+        If (name == "Identifier") { Return 2; }
+        If (name == "IntegerLiteral") { Return 3; }
+        If (name == "FloatLiteral") { Return 4; }
+        If (name == "StringLiteral") { Return 5; }
+        If (name == "CharLiteral") { Return 6; }
+        If (name == "OpenParen") { Return 7; }
+        If (name == "CloseParen") { Return 8; }
+        If (name == "OpenBracket") { Return 9; }
+        If (name == "CloseBracket") { Return 10; }
+        If (name == "OpenBrace") { Return 11; }
+        If (name == "CloseBrace") { Return 12; }
+        If (name == "Comma") { Return 13; }
+        If (name == "Semicolon") { Return 14; }
+        If (name == "Colon") { Return 15; }
+        If (name == "Dot") { Return 16; }
+        If (name == "At") { Return 17; }
+        If (name == "Plus") { Return 18; }
+        If (name == "Minus") { Return 19; }
+        If (name == "Star") { Return 20; }
+        If (name == "Slash") { Return 21; }
+        If (name == "Percent") { Return 22; }
+        If (name == "Assign") { Return 23; }
+        If (name == "PlusAssign") { Return 24; }
+        If (name == "MinusAssign") { Return 25; }
+        If (name == "StarAssign") { Return 26; }
+        If (name == "SlashAssign") { Return 27; }
+        If (name == "PercentAssign") { Return 28; }
+        If (name == "AmpersandAssign") { Return 29; }
+        If (name == "PipeAssign") { Return 30; }
+        If (name == "CaretAssign") { Return 31; }
+        If (name == "EqualEqual") { Return 32; }
+        If (name == "BangEqual") { Return 33; }
+        If (name == "Less") { Return 34; }
+        If (name == "Greater") { Return 35; }
+        If (name == "LessEqual") { Return 36; }
+        If (name == "GreaterEqual") { Return 37; }
+        If (name == "Ampersand") { Return 38; }
+        If (name == "Pipe") { Return 39; }
+        If (name == "Caret") { Return 40; }
+        If (name == "Tilde") { Return 41; }
+        If (name == "LessLess") { Return 42; }
+        If (name == "GreaterGreater") { Return 43; }
+        If (name == "AmpAmp") { Return 44; }
+        If (name == "PipePipe") { Return 45; }
+        If (name == "Bang") { Return 46; }
+        If (name == "PlusPlus") { Return 47; }
+        If (name == "MinusMinus") { Return 48; }
+        If (name == "Question") { Return 49; }
+        If (name == "QuestionQuestion") { Return 50; }
+        If (name == "QuestionDot") { Return 51; }
+        If (name == "DotDot") { Return 52; }
+        If (name == "DotDotEqual") { Return 53; }
+        If (name == "DotDotDot") { Return 54; }
+        If (name == "Arrow") { Return 55; }
+        If (name == "FatArrow") { Return 56; }
+        If (name == "CustomOperator") { Return 57; }
+        If (name == "Package") { Return 58; }
+        If (name == "Import") { Return 59; }
+        If (name == "As") { Return 60; }
+        If (name == "Permissions") { Return 61; }
+        If (name == "Let") { Return 62; }
+        If (name == "Var") { Return 63; }
+        If (name == "Const") { Return 64; }
+        If (name == "Function") { Return 65; }
+        If (name == "Public") { Return 66; }
+        If (name == "Private") { Return 67; }
+        If (name == "Protected") { Return 68; }
+        If (name == "Internal") { Return 69; }
+        If (name == "Explain") { Return 70; }
+        If (name == "Return") { Return 71; }
+        If (name == "Async") { Return 72; }
+        If (name == "Await") { Return 73; }
+        If (name == "Iterator") { Return 74; }
+        If (name == "Yield") { Return 75; }
+        If (name == "Consteval") { Return 76; }
+        If (name == "Params") { Return 77; }
+        If (name == "Mut") { Return 78; }
+        If (name == "Ref") { Return 79; }
+        If (name == "Class") { Return 80; }
+        If (name == "Struct") { Return 81; }
+        If (name == "Interface") { Return 82; }
+        If (name == "Trait") { Return 83; }
+        If (name == "Enum") { Return 84; }
+        If (name == "Service") { Return 85; }
+        If (name == "Implement") { Return 86; }
+        If (name == "Implements") { Return 87; }
+        If (name == "Connect") { Return 88; }
+        If (name == "Abstract") { Return 89; }
+        If (name == "Override") { Return 90; }
+        If (name == "Virtual") { Return 91; }
+        If (name == "Sealed") { Return 92; }
+        If (name == "Final") { Return 93; }
+        If (name == "Static") { Return 94; }
+        If (name == "Partial") { Return 95; }
+        If (name == "Constructor") { Return 96; }
+        If (name == "Destructor") { Return 97; }
+        If (name == "Base") { Return 98; }
+        If (name == "This") { Return 99; }
+        If (name == "If") { Return 100; }
+        If (name == "Else") { Return 101; }
+        If (name == "Match") { Return 102; }
+        If (name == "For") { Return 103; }
+        If (name == "In") { Return 104; }
+        If (name == "While") { Return 105; }
+        If (name == "Do") { Return 106; }
+        If (name == "Repeat") { Return 107; }
+        If (name == "Loop") { Return 108; }
+        If (name == "Break") { Return 109; }
+        If (name == "Continue") { Return 110; }
+        If (name == "Try") { Return 111; }
+        If (name == "Catch") { Return 112; }
+        If (name == "Finally") { Return 113; }
+        If (name == "Throw") { Return 114; }
+        If (name == "Defer") { Return 115; }
+        If (name == "Using") { Return 116; }
+        If (name == "Unsafe") { Return 117; }
+        If (name == "Lock") { Return 118; }
+        If (name == "Asm") { Return 119; }
+        If (name == "Goto") { Return 120; }
+        If (name == "Operator") { Return 121; }
+        If (name == "Precedence") { Return 122; }
+        If (name == "LeftAssociative") { Return 123; }
+        If (name == "RightAssociative") { Return 124; }
+        If (name == "And") { Return 125; }
+        If (name == "Or") { Return 126; }
+        If (name == "Not") { Return 127; }
+        If (name == "Equal") { Return 128; }
+        If (name == "Is") { Return 129; }
+        If (name == "Where") { Return 130; }
+        If (name == "Type") { Return 131; }
+        If (name == "Macro") { Return 132; }
+        If (name == "Extern") { Return 133; }
+        If (name == "CallingConvention") { Return 134; }
+        If (name == "True") { Return 135; }
+        If (name == "False") { Return 136; }
+        If (name == "Null") { Return 137; }
+        If (name == "Void") { Return 138; }
+        If (name == "Any") { Return 139; }
+        If (name == "Dynamic") { Return 140; }
+        If (name == "Int") { Return 141; }
+        If (name == "UInt") { Return 142; }
+        If (name == "Float") { Return 143; }
+        If (name == "Double") { Return 144; }
+        If (name == "Decimal") { Return 145; }
+        If (name == "Bool") { Return 146; }
+        If (name == "Char") { Return 147; }
+        If (name == "String") { Return 148; }
+        If (name == "Out") { Return 149; }
+        If (name == "Clobber") { Return 150; }
+        If (name == "Test") { Return 151; }
+        Return -1;
     }
 
     Private Function MakeEnumValue(AstNode typeNode, String name, List<Value> arguments) -> Value {
