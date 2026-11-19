@@ -1,9 +1,11 @@
 // Tests for Robixc.rx.
 
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "requires source file when arguments are empty" {
+        Input: args = [];
+        Assert: Result != Null;
+        Equal: Result.Message, "A source file is required.";
+    }
 }
 
 Test RunProcess {

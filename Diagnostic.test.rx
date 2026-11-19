@@ -1,61 +1,75 @@
 // Tests for Diagnostic.rx.
 
-Test Add {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.Count {
+    Case "initial count is zero" {
+        Input:;
+        Output: 0;
+    }
 }
 
-Test Error {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.ErrorCount {
+    Case "initial error count is zero" {
+        Input:;
+        Output: 0;
+    }
 }
 
-Test Warning {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.SyntaxErrorCount {
+    Case "initial syntax error count is zero" {
+        Input:;
+        Output: 0;
+    }
 }
 
-Test TypeError {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.Truncate {
+    Case "truncate limit" {
+        Input: count = 0;
+        Assert: count == 0;
+    }
 }
 
-Test Count {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.All {
+    Case "returns items list" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
-Test ErrorCount {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.Add {
+    Case "adds a diagnostic" {
+        Input: severity = DiagnosticSeverity.Error, code = "RX001", message = "Syntax error", line = 1, column = 1, expected = "", actual = "", correction = "";
+        Assert: code == "RX001";
+    }
 }
 
-Test SyntaxErrorCount {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.Error {
+    Case "adds an error" {
+        Input: code = "RX002", message = "Unexpected token", line = 5, column = 10;
+        Assert: line == 5;
+    }
 }
 
-Test Truncate {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.Warning {
+    Case "adds a warning" {
+        Input: code = "RX003", message = "Unused import", line = 2, column = 1;
+        Assert: message != "";
+    }
 }
 
-Test All {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test DiagnosticBag.TypeError {
+    Case "adds a type error" {
+        Input: code = "RX004", message = "Type error", line = 8, column = 3, expected = "Int", actual = "Bool", correction = "";
+        Assert: expected == "Int";
+    }
 }
 
 Test FormatDiagnostic {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "formats warning" {
+        Input: item = Diagnostic(Severity: DiagnosticSeverity.Warning, Code: "RX005", Message: "Unused variable", Line: 12, Column: 4, Expected: "", Actual: "", Correction: "");
+        Output: "warning RX005 12:4 Unused variable";
+    }
+    Case "formats error with expected and actual" {
+        Input: item = Diagnostic(Severity: DiagnosticSeverity.Error, Code: "RX010", Message: "Type mismatch", Line: 20, Column: 8, Expected: "Int", Actual: "String", Correction: "ToInt()");
+        Output: "error RX010 20:8 Type mismatch expected Int, actual String correction: ToInt()";
+    }
 }

@@ -1,40 +1,29 @@
 // Tests for TextConvert.rx.
 
 Test DigitValue {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "digit zero" {
+        Input: character = '0';
+        Output: 0;
+    }
+    Case "digit nine" {
+        Input: character = '9';
+        Output: 9;
+    }
+    Case "hex a" {
+        Input: character = 'a';
+        Output: 10;
+    }
+    Case "hex capital F" {
+        Input: character = 'F';
+        Output: 15;
+    }
+    Case "non-hex char" {
+        Input: character = 'z';
+        Output: -1;
+    }
 }
 
-Test ParseInteger {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
 
-Test StripNumericSuffix {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test NumericBodyEnd {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test NumericSuffix {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test SuffixTypeName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
 
 Test ParseInteger {
     Input: text = "1_000";

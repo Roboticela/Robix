@@ -1,19 +1,22 @@
 // Tests for SyntaxCompiler.rx.
 
-Test CompileSource {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test SyntaxCompiler.CompileSource {
+    Case "compiles valid snippet" {
+        Input: source = "Package Robotics.Sample;", fileName = "Sample.rx", compile = False;
+        Assert: Result != Null;
+    }
 }
 
-Test DiagnosticsOf {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test SyntaxCompiler.DiagnosticsOf {
+    Case "empty module has no diagnostics" {
+        Input: result = CompileResult();
+        Assert: Result != Null;
+    }
 }
 
-Test AttachDiagnostics {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test SyntaxCompiler.AttachDiagnostics {
+    Case "attaches diagnostics" {
+        Input: module = AstNode(), diagnostics = DiagnosticBag();
+        Assert: module.Attributes.Count() == 0;
+    }
 }

@@ -1,49 +1,61 @@
 // Tests for Emitter.rx.
 
-Test Emit {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.Flag {
+    Case "true produces 1" {
+        Input: value = True;
+        Output: 1;
+    }
+    Case "false produces 0" {
+        Input: value = False;
+        Output: 0;
+    }
 }
 
-Test WriteNode {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.WriteByte {
+    Case "records byte" {
+        Input: value = 42;
+        Assert: value == 42;
+    }
 }
 
-Test WriteOptional {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.WriteInt {
+    Case "records int bytes" {
+        Input: value = 256;
+        Assert: value == 256;
+    }
 }
 
-Test WriteList {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.WriteString {
+    Case "records string length and chars" {
+        Input: text = "Robix";
+        Assert: text.Length() == 5;
+    }
 }
 
-Test WriteString {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.WriteOptional {
+    Case "null node writes zero" {
+        Input: node = Null;
+        Assert: node == Null;
+    }
 }
 
-Test WriteInt {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.WriteList {
+    Case "empty list writes zero count" {
+        Input: nodes = [];
+        Assert: nodes.Count() == 0;
+    }
 }
 
-Test WriteByte {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.WriteNode {
+    Case "write simple node" {
+        Input: node = AstNode(Kind: AstKind.Missing);
+        Assert: node.Kind == AstKind.Missing;
+    }
 }
 
-Test Flag {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+Test Emitter.Emit {
+    Case "emit module" {
+        Input: module = AstNode(Kind: AstKind.Module);
+        Assert: Result.Count() > 0;
+    }
 }

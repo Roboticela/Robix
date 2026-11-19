@@ -1,253 +1,327 @@
 // Tests for ParserExpressions.rx.
 
 Test ParseExpressionOnly {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse expression only at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseExpression {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse expression at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParsePrecedence {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse precedence 0" {
+        Input: minimum = 0;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseUnary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse unary at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParsePrimary {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse primary at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParsePostfix {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse postfix at eof" {
+        Input: left = AstNode();
+        Assert: Result != Null;
+    }
 }
 
 Test ParseStringLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse string literal at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test SplitInterpolation {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "split simple text" {
+        Input: node = AstNode(), text = "hello";
+        Assert: node != Null;
+    }
 }
 
 Test ParseArrayLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse array literal at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseBraceLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse brace literal at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseObjectLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse object literal at eof" {
+        Input: typeName = AstNode();
+        Assert: Result != Null;
+    }
 }
 
 Test ParseLambda {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse lambda at eof" {
+        Input: isAsync = False;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseParenLambda {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse paren lambda at eof" {
+        Input: isAsync = False;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseArgumentList {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse argument list at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseArgument {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse argument at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse type at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTypeSuffix {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse type suffix at eof" {
+        Input: type = AstNode();
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTypeAtom {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse type atom at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTypeArgument {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse type argument at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test TryAttachGeneric {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "try attach generic" {
+        Input: target = AstNode();
+        Assert: target != Null;
+    }
 }
 
 Test GenericFollows {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "generic follows at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test LooksLikeTypedVariable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "looks like typed variable at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test StartsTypeAtCursor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "starts type at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test SkipTypeLook {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "skip type look at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test SkipTypeSuffixLook {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "skip type suffix look at eof" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test SkipTypeAtom {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "skip type atom at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test SkipAngles {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "skip angles at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test SkipNest {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "skip nest at eof" {
+        Input: open = TokenKind.OpenParen, close = TokenKind.CloseParen;
+        Output: False;
+    }
 }
 
 Test LookKind {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "look kind at eof" {
+        Input:;
+        Output: TokenKind.EndOfFile;
+    }
 }
 
 Test BinaryPrecedence {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "plus precedence is 60" {
+        Input: token = Token(Kind: TokenKind.Plus);
+        Output: 60;
+    }
 }
 
 Test CustomPrecedence {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "unregistered custom precedence is minus one" {
+        Input: name = "⊗";
+        Output: -1;
+    }
 }
 
 Test IsRightAssociative {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "unregistered operator is not right associative" {
+        Input: token = Token(Text: "+");
+        Output: False;
+    }
 }
 
 Test IsAssignment {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "assign is assignment" {
+        Input: kind = TokenKind.Assign;
+        Output: True;
+    }
+    Case "equal equal is not assignment" {
+        Input: kind = TokenKind.EqualEqual;
+        Output: False;
+    }
 }
 
 Test IsPrefixOperator {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "minus is prefix operator" {
+        Input: kind = TokenKind.Minus;
+        Output: True;
+    }
+    Case "assign is not prefix operator" {
+        Input: kind = TokenKind.Assign;
+        Output: False;
+    }
 }
 
 Test IsExpressionStop {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "eof is expression stop" {
+        Input: kind = TokenKind.EndOfFile;
+        Output: True;
+    }
+    Case "plus is not expression stop" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }
 
 Test StartsExpression {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "identifier starts expression" {
+        Input: kind = TokenKind.Identifier;
+        Output: True;
+    }
+    Case "close paren does not start expression" {
+        Input: kind = TokenKind.CloseParen;
+        Output: False;
+    }
 }
 
 Test IsLambdaAhead {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "lambda ahead at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test BraceIsObjectLiteral {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "brace is object literal at eof" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test IsOperatorToken {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "plus is operator token" {
+        Input: kind = TokenKind.Plus;
+        Output: True;
+    }
+    Case "eof is not operator token" {
+        Input: kind = TokenKind.EndOfFile;
+        Output: False;
+    }
 }
 
 Test IsPrimaryName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "this is primary name" {
+        Input: kind = TokenKind.This;
+        Output: True;
+    }
+    Case "plus is not primary name" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }
 
 Test IsTypeKeyword {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "int is type keyword" {
+        Input: kind = TokenKind.Int;
+        Output: True;
+    }
+    Case "plus is not type keyword" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }
 
 Test IsNameKeyword {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "this is name keyword" {
+        Input: kind = TokenKind.This;
+        Output: True;
+    }
+    Case "plus is not name keyword" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }

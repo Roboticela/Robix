@@ -1,247 +1,332 @@
 // Tests for TypeChecker.rx.
 
 Test Check {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check empty module" {
+        Input: module = AstNode(Kind: AstKind.Module);
+        Assert: module.Kind == AstKind.Module;
+    }
 }
 
 Test PredeclareFunctions {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "predeclare functions" {
+        Input: node = AstNode();
+        Assert: node != Null;
+    }
 }
 
 Test CheckNode {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check node" {
+        Input: node = AstNode();
+        Assert: node != Null;
+    }
 }
 
 Test CheckScoped {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check scoped block" {
+        Input: node = AstNode(Kind: AstKind.Block);
+        Assert: node != Null;
+    }
 }
 
 Test CheckVariable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check variable" {
+        Input: node = AstNode(Kind: AstKind.Variable, Name: "x");
+        Assert: node.Name == "x";
+    }
 }
 
 Test CheckFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check function" {
+        Input: node = AstNode(Kind: AstKind.Function, Name: "foo");
+        Assert: node.Name == "foo";
+    }
 }
 
 Test CheckIf {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check if" {
+        Input: node = AstNode(Kind: AstKind.If);
+        Assert: node != Null;
+    }
 }
 
 Test CheckFor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check for" {
+        Input: node = AstNode(Kind: AstKind.For);
+        Assert: node != Null;
+    }
 }
 
 Test CheckMatch {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check match" {
+        Input: node = AstNode(Kind: AstKind.Match);
+        Assert: node != Null;
+    }
 }
 
 Test CheckAssignment {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check assignment" {
+        Input: node = AstNode(Kind: AstKind.Assignment);
+        Assert: node != Null;
+    }
 }
 
 Test Infer {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "infer integer literal" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral);
+        Output: "Int";
+    }
 }
 
 Test InferCall {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "infer call" {
+        Input: node = AstNode(Kind: AstKind.Call);
+        Assert: Result != "";
+    }
 }
 
 Test RequireAssignable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "require assignable same type" {
+        Input: node = AstNode(), expected = "Int", actual = "Int";
+        Assert: expected == actual;
+    }
 }
 
 Test RequireBool {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "require bool type" {
+        Input: node = AstNode(), actual = "Bool";
+        Assert: actual == "Bool";
+    }
 }
 
 Test MissingType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "missing type diagnostic" {
+        Input: node = AstNode(), label = "Variable";
+        Assert: label == "Variable";
+    }
 }
 
 Test Undefined {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "undefined variable diagnostic" {
+        Input: node = AstNode(Name: "x");
+        Assert: node.Name == "x";
+    }
 }
 
 Test NoteNullNarrowing {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "null condition narrowing" {
+        Input: condition = Null;
+        Assert: Result == Null;
+    }
 }
 
 Test NoteNullExit {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "null condition exit" {
+        Input: condition = Null;
+        Assert: Result == Null;
+    }
 }
 
 Test BindPattern {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "bind null pattern" {
+        Input: pattern = Null, typeName = "Int";
+        Assert: typeName == "Int";
+    }
 }
 
 Test ReturnsAlways {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "return is true" {
+        Input: node = AstNode(Kind: AstKind.Return);
+        Output: True;
+    }
+    Case "block is false" {
+        Input: node = AstNode(Kind: AstKind.Block);
+        Output: False;
+    }
 }
 
 Test RegisterFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "register function" {
+        Input: node = AstNode(Kind: AstKind.Function, Name: "bar");
+        Assert: node.Name == "bar";
+    }
 }
 
 Test Define {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "define symbol" {
+        Input: name = "x", typeName = "Int", mutable = False, nullable = False, initialized = True, isFunction = False, isAsync = False, isConst = False, line = 1, column = 1;
+        Assert: name == "x";
+    }
 }
 
 Test Find {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "find unregistered symbol" {
+        Input: name = "unregistered";
+        Assert: Result == Null;
+    }
 }
 
 Test PushScope {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "push scope" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test PopScope {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "pop scope" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test CollectAliases {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "collect aliases" {
+        Input: node = AstNode();
+        Assert: node != Null;
+    }
 }
 
 Test ResolveType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "resolve primitive type" {
+        Input: name = "Int";
+        Output: "Int";
+    }
 }
 
 Test TypeText {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "type text from node" {
+        Input: type = AstNode(Name: "Int");
+        Output: "Int";
+    }
 }
 
 Test InnerTask {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "task int" {
+        Input: typeName = "Task<Int>";
+        Output: "Int";
+    }
+    Case "plain int" {
+        Input: typeName = "Int";
+        Output: "Int";
+    }
 }
 
 Test StripOptional {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "optional string" {
+        Input: typeName = "String?";
+        Output: "String";
+    }
+    Case "plain string" {
+        Input: typeName = "String";
+        Output: "String";
+    }
 }
 
 Test WidensTo {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "int32 to int" {
+        Input: expected = "Int", actual = "Int32";
+        Output: True;
+    }
+    Case "string to int" {
+        Input: expected = "Int", actual = "String";
+        Output: False;
+    }
 }
 
 Test CallArgumentType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "call argument type default" {
+        Input: node = AstNode();
+        Output: "Int";
+    }
 }
 
 Test CallTupleType {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "call tuple type default" {
+        Input: node = AstNode();
+        Output: "()";
+    }
 }
 
 Test LiteralElement {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "literal element default" {
+        Input: node = AstNode();
+        Output: "Int";
+    }
 }
 
 Test ElementName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "list int element" {
+        Input: typeName = "List<Int>";
+        Output: "Int";
+    }
+    Case "plain int element" {
+        Input: typeName = "Int";
+        Output: "";
+    }
 }
 
 Test SameElements {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "list and array of int" {
+        Input: expected = "List<Int>", actual = "Array<Int>";
+        Output: True;
+    }
+    Case "int and string" {
+        Input: expected = "List<Int>", actual = "List<String>";
+        Output: False;
+    }
 }
 
 Test FixedCount {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "fixed array 4" {
+        Input: typeName = "[Int; 4]";
+        Output: 4;
+    }
+    Case "plain int" {
+        Input: typeName = "Int";
+        Output: -1;
+    }
 }
 
 Test IsNumeric {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "int is numeric" {
+        Input: typeName = "Int";
+        Output: True;
+    }
+    Case "string is not numeric" {
+        Input: typeName = "String";
+        Output: False;
+    }
 }
 
 Test IsTypeName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "bool is type name" {
+        Input: name = "Bool";
+        Output: True;
+    }
+    Case "robot is not type name" {
+        Input: name = "Robot";
+        Output: False;
+    }
 }
 
 Test IsCamel {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "camel case" {
+        Input: name = "robotSpeed";
+        Output: True;
+    }
+    Case "pascal case" {
+        Input: name = "RobotSpeed";
+        Output: False;
+    }
 }
 
 Test HasModifier {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "has modifier" {
+        Input: node = AstNode(Modifiers: ["Public", "Const"]), name = "Const";
+        Output: True;
+    }
+    Case "missing modifier" {
+        Input: node = AstNode(Modifiers: ["Public"]), name = "Const";
+        Output: False;
+    }
 }

@@ -1,163 +1,194 @@
 // Tests for ParserStatements.rx.
 
 Test ParseBlock {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse block at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseStatement {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse statement at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseIf {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse if at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseCondition {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse condition at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseBody {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse body at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseMatch {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse match at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseMatchArm {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse match arm at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParsePattern {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse pattern at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseFor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse for at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseForClause {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse for clause at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ForHeaderIsCStyle {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty header is not c style" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test ParseWhile {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse while at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseDoWhile {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse do while at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseRepeat {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse repeat at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseLoop {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse loop at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseSimple {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse simple break" {
+        Input: kind = AstKind.Break, keyword = "Break";
+        Assert: Result != Null;
+    }
 }
 
 Test ParseReturn {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse return at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseYield {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse yield at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseThrow {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse throw at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTry {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse try at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseDefer {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse defer at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseUsing {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse using at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseUnsafe {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse unsafe at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseLock {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse lock at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseGoto {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse goto at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseAsm {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse asm at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test IsLiteralToken {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "integer literal is true" {
+        Input: kind = TokenKind.IntegerLiteral;
+        Output: True;
+    }
+    Case "open paren is false" {
+        Input: kind = TokenKind.OpenParen;
+        Output: False;
+    }
 }

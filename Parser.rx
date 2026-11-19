@@ -128,7 +128,7 @@ Public Partial Class Parser {
         AstNode node = This.Make(AstKind.Test, start);
         node.Name = This.ParseAnyName();
         If (This.Match(TokenKind.Dot)) {
-            node.Text = node.Name;
+            node.Suffix = node.Name;
             node.Name = This.ParseAnyName();
         }
         This.Expect(TokenKind.OpenBrace, "Expected '{' to open a test.");
@@ -186,6 +186,7 @@ Public Partial Class Parser {
         AstNode node = This.Make(AstKind.Test, start);
         node.FlagB = True;
         node.Name = parent.Name;
+        node.Suffix = parent.Suffix;
         If (This.Check(TokenKind.StringLiteral)) {
             node.Text = This.Advance().Text;
         } Else {
@@ -214,7 +215,7 @@ Public Partial Class Parser {
     }
 
     Private Function IsTestCheck(String name) -> Bool {
-        Return name == "Assert" || name == "True" || name == "False" || name == "Equal" || name == "NotEqual" || name == "Greater" || name == "Less" || name == "GreaterEqual" || name == "LessEqual" || name == "Contains" || name == "Expect" || name == "Empty" || name == "NotEmpty" || name == "Null" || name == "NotNull" || name == "Fails";
+        Return name == "Assert" || name == "True" || name == "False" || name == "Equal" || name == "NotEqual" || name == "Greater" || name == "Less" || name == "GreaterEqual" || name == "LessEqual" || name == "Contains" || name == "Expect" || name == "Empty" || name == "NotEmpty" || name == "Null" || name == "NotNull" || name == "Fails" || name == "Show";
     }
 
     Private Function ParsePackage(List<String> modifiers) -> AstNode {

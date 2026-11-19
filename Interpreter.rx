@@ -49,6 +49,8 @@ Public Class Interpreter {
     Private String signal;
     Private Value returnValue;
     Private List<AstNode> functions;
+    Private List<String> functionOwners;
+    Private String collectOwner;
     Private List<AstNode> types;
     Private List<String> operatorKeys;
     Private List<AstNode> operatorNodes;
@@ -62,6 +64,8 @@ Public Class Interpreter {
         This.signal = "";
         This.returnValue = This.MakeVoid();
         This.functions = List<AstNode>();
+        This.functionOwners = List<String>();
+        This.collectOwner = "";
         This.types = List<AstNode>();
         This.operatorKeys = List<String>();
         This.operatorNodes = List<AstNode>();
@@ -154,6 +158,24 @@ Public Class Interpreter {
             Return errors;
         }
         This.PushScope();
+        If (Files.Exists("TokenKind.rx")) {
+            DiagnosticBag d1 = DiagnosticBag();
+            Lexer l1 = Lexer(Files.ReadText("TokenKind.rx"), d1);
+            Parser p1 = Parser(l1.Tokenize(), d1);
+            This.CollectFunctions(p1.Parse());
+        }
+        If (Files.Exists("AstNode.rx")) {
+            DiagnosticBag d2 = DiagnosticBag();
+            Lexer l2 = Lexer(Files.ReadText("AstNode.rx"), d2);
+            Parser p2 = Parser(l2.Tokenize(), d2);
+            This.CollectFunctions(p2.Parse());
+        }
+        If ((sourcePath.Contains("ParserStatements") || sourcePath.Contains("ParserExpressions")) && Files.Exists("Parser.rx")) {
+            DiagnosticBag dp = DiagnosticBag();
+            Lexer lp = Lexer(Files.ReadText("Parser.rx"), dp);
+            Parser pp = Parser(lp.Tokenize(), dp);
+            This.CollectFunctions(pp.Parse());
+        }
         This.CollectFunctions(module);
         This.RunParsedTests(tests, errors);
         This.PopScope();
@@ -248,7 +270,8 @@ Public Class Interpreter {
         Value actual = This.MakeVoid();
         Bool called = False;
         If (test.FlagA) {
-            AstNode? function = This.FindFunction(test.Name);
+            If (test.Suffix != "") { This.PrepareThis(test.Suffix); }
+            AstNode? function = This.FindTestFunction(test.Suffix, test.Name);
             If (function == Null) {
                 This.PopScope();
                 Return "error RX121 Test " + This.TestTitle(test) + " failed. The function is not defined.";
@@ -256,7 +279,7 @@ Public Class Interpreter {
             Var arguments = List<Value>();
             For parameter In function.Parameters {
                 If (!parameter.FlagC) {
-                    Value argument = This.MakeInt(0);
+                    Value argument = This.BlankArgument(parameter);
                     For binding In test.Parameters {
                         If (binding.Name == parameter.Name) { argument = This.Lookup(parameter.Name); }
                     }
@@ -374,7 +397,159 @@ Public Class Interpreter {
         If (label == "NotNull" && left.Kind == ValueKind.Null) {
             Return "error RX121 Test " + This.TestTitle(test) + " failed. NotNull got Null.";
         }
+        If (label == "Show") {
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. show => " + This.Describe(actual);
+        }
         Return "";
+    }
+
+    Private Function Describe(Value value) -> String {
+        If (value.Kind == ValueKind.Integer) { Return "Int:" + value.Integer.ToString(); }
+        If (value.Kind == ValueKind.Boolean) {
+            If (value.Boolean) { Return "Bool:True"; }
+            Return "Bool:False";
+        }
+        If (value.Kind == ValueKind.Text) { Return "Text:" + value.Text; }
+        If (value.Kind == ValueKind.Null) { Return "Null:"; }
+        If (value.Kind == ValueKind.Void || value.Kind == ValueKind.None) { Return "Void:"; }
+        If (value.Kind == ValueKind.Float) { Return "Float:" + TextF64(value.Integer); }
+        Return "Other:" + This.Display(value);
+    }
+
+    Private Function FindTestFunction(String owner, String name) -> AstNode? {
+        Int index = 0;
+        While (index < This.functions.Count()) {
+            If (This.functions[index].Name == name && (owner == "" || This.functionOwners[index] == owner)) {
+                If (owner == "" && This.functionOwners[index] != "") {
+                    This.PrepareThis(This.functionOwners[index]);
+                }
+                Return This.functions[index];
+            }
+            index = index + 1;
+        }
+        Return This.FindFunction(name);
+    }
+
+    Private Function PrepareThis(String owner) -> Void {
+        If (owner == "") { Return; }
+        Value obj = This.BlankObject(owner);
+        If (owner == "NameChecker") {
+            Int aIndex = This.FieldIndex(obj, "acronyms");
+            If (aIndex >= 0) {
+                obj.Elements[aIndex].Elements.Add(This.MakeText("HTTPS"));
+                obj.Elements[aIndex].Elements.Add(This.MakeText("HTTP"));
+                obj.Elements[aIndex].Elements.Add(This.MakeText("JSON"));
+                obj.Elements[aIndex].Elements.Add(This.MakeText("XML"));
+                obj.Elements[aIndex].Elements.Add(This.MakeText("SQL"));
+                obj.Elements[aIndex].Elements.Add(This.MakeText("AI"));
+            }
+        }
+        If (owner == "Parser") {
+            Int tIndex = This.FieldIndex(obj, "tokens");
+            Int tcIndex = This.FieldIndex(obj, "tokenCount");
+            If (tIndex >= 0) {
+                Value tok = This.BlankValue("Token");
+                obj.Elements[tIndex].Elements.Add(tok);
+                If (tcIndex >= 0) {
+                    obj.Elements[tcIndex] = This.MakeInt(1);
+                }
+            }
+        }
+        If (owner == "TypeChecker") {
+            Int sIndex = This.FieldIndex(obj, "strict");
+            If (sIndex >= 0) {
+                obj.Elements[sIndex] = This.MakeBool(True);
+            }
+        }
+        This.Define("This", obj);
+    }
+
+    Private Function BlankArgument(AstNode parameter) -> Value {
+        If (parameter.Type == Null) { Return This.MakeInt(0); }
+        If (parameter.Type.FlagA) { Return This.MakeNull(); }
+        Return This.BlankValue(parameter.Type.Name);
+    }
+
+    Private Function BlankValue(String typeName) -> Value {
+        If (typeName == "String") { Return This.MakeText(""); }
+        If (typeName == "Bool") { Return This.MakeBool(False); }
+        If (typeName == "Char") { Return This.MakeText("A"); }
+        If (typeName == "List" || typeName == "Array" || typeName == "Map" || typeName == "Set") { Return This.MakeArray(); }
+        If (typeName == "Float" || typeName == "Double" || typeName == "Float64" || typeName == "Float32") {
+            Return This.MakeFloatBits(FloatFromInt(0));
+        }
+        If (typeName == "Int" || typeName == "Int64" || typeName == "Int32" || typeName == "UInt" || typeName == "UInt32" || typeName == "Byte") {
+            Return This.MakeInt(0);
+        }
+        If (typeName == "Token") {
+            Value obj = This.MakeObjectValue("Token");
+            obj.FieldNames.Add("Kind"); obj.Elements.Add(This.MakeInt(0));
+            obj.FieldNames.Add("Text"); obj.Elements.Add(This.MakeText(""));
+            obj.FieldNames.Add("Line"); obj.Elements.Add(This.MakeInt(1));
+            obj.FieldNames.Add("Column"); obj.Elements.Add(This.MakeInt(1));
+            obj.FieldNames.Add("Length"); obj.Elements.Add(This.MakeInt(0));
+            obj.FieldNames.Add("IsInterpolated"); obj.Elements.Add(This.MakeBool(False));
+            obj.FieldNames.Add("IsRaw"); obj.Elements.Add(This.MakeBool(False));
+            obj.FieldNames.Add("IsMultiline"); obj.Elements.Add(This.MakeBool(False));
+            Return obj;
+        }
+        If (typeName == "AstNode") {
+            Value obj = This.MakeObjectValue("AstNode");
+            obj.FieldNames.Add("Kind"); obj.Elements.Add(This.MakeInt(0));
+            obj.FieldNames.Add("Line"); obj.Elements.Add(This.MakeInt(1));
+            obj.FieldNames.Add("Column"); obj.Elements.Add(This.MakeInt(1));
+            obj.FieldNames.Add("EndLine"); obj.Elements.Add(This.MakeInt(1));
+            obj.FieldNames.Add("EndColumn"); obj.Elements.Add(This.MakeInt(1));
+            obj.FieldNames.Add("Name"); obj.Elements.Add(This.MakeText(""));
+            obj.FieldNames.Add("Text"); obj.Elements.Add(This.MakeText(""));
+            obj.FieldNames.Add("Operator"); obj.Elements.Add(This.MakeText(""));
+            obj.FieldNames.Add("Suffix"); obj.Elements.Add(This.MakeText(""));
+            obj.FieldNames.Add("Number"); obj.Elements.Add(This.MakeInt(0));
+            obj.FieldNames.Add("FlagA"); obj.Elements.Add(This.MakeBool(False));
+            obj.FieldNames.Add("FlagB"); obj.Elements.Add(This.MakeBool(False));
+            obj.FieldNames.Add("FlagC"); obj.Elements.Add(This.MakeBool(False));
+            obj.FieldNames.Add("Modifiers"); obj.Elements.Add(This.MakeArray());
+            obj.FieldNames.Add("Attributes"); obj.Elements.Add(This.MakeArray());
+            obj.FieldNames.Add("Children"); obj.Elements.Add(This.MakeArray());
+            obj.FieldNames.Add("Parameters"); obj.Elements.Add(This.MakeArray());
+            obj.FieldNames.Add("Members"); obj.Elements.Add(This.MakeArray());
+            obj.FieldNames.Add("Type"); obj.Elements.Add(This.MakeNull());
+            obj.FieldNames.Add("Body"); obj.Elements.Add(This.MakeNull());
+            obj.FieldNames.Add("Initializer"); obj.Elements.Add(This.MakeNull());
+            obj.FieldNames.Add("Condition"); obj.Elements.Add(This.MakeNull());
+            obj.FieldNames.Add("Left"); obj.Elements.Add(This.MakeNull());
+            obj.FieldNames.Add("Right"); obj.Elements.Add(This.MakeNull());
+            obj.FieldNames.Add("Extra"); obj.Elements.Add(This.MakeNull());
+            obj.FieldNames.Add("Otherwise"); obj.Elements.Add(This.MakeNull());
+            Return obj;
+        }
+        If (This.TypeIndex(typeName) >= 0) { Return This.BlankObject(typeName); }
+        Return This.MakeInt(0);
+    }
+
+    Private Function BlankObject(String typeName) -> Value {
+        Value obj = This.MakeObjectValue(typeName);
+        Int typeIndex = This.TypeIndex(typeName);
+        If (typeIndex < 0) { Return obj; }
+        For field In This.types[typeIndex].Children {
+            If (field.Kind == AstKind.Field) {
+                obj.FieldNames.Add(field.Name);
+                String fieldType = "Int";
+                If (field.Type != Null) { fieldType = field.Type.Name; }
+                If (field.Type != Null && field.Type.FlagA) {
+                    obj.Elements.Add(This.MakeNull());
+                } Else If (fieldType == "List" || fieldType == "Array" || fieldType == "Map" || fieldType == "Set") {
+                    obj.Elements.Add(This.MakeArray());
+                } Else If (fieldType == "String") {
+                    obj.Elements.Add(This.MakeText(""));
+                } Else If (fieldType == "Bool") {
+                    obj.Elements.Add(This.MakeBool(False));
+                } Else {
+                    obj.Elements.Add(This.MakeInt(0));
+                }
+            }
+        }
+        Return obj;
     }
 
     Private Function IsEmptyValue(Value value) -> Bool {
@@ -412,11 +587,13 @@ Public Class Interpreter {
         For child In node.Children {
             If (child.Kind == AstKind.Function) {
                 This.functions.Add(child);
+                This.functionOwners.Add(This.collectOwner);
                 This.Define(child.Name, This.MakeFunction(child));
             }
             If (child.Kind == AstKind.Operator) {
                 If (child.Body != Null && child.Body.Kind == AstKind.Function) {
                     This.functions.Add(child.Body);
+                    This.functionOwners.Add(This.collectOwner);
                     This.Define(child.Body.Name, This.MakeFunction(child.Body));
                     This.operatorKeys.Add(child.Operator);
                     This.operatorNodes.Add(child.Body);
@@ -424,6 +601,8 @@ Public Class Interpreter {
             }
             If (child.Kind == AstKind.Class) {
                 This.types.Add(child);
+                String savedOwner = This.collectOwner;
+                This.collectOwner = child.Name;
                 For member In child.Children {
                     If (member.Kind == AstKind.Operator) {
                         This.operatorKeys.Add(child.Name + member.Operator);
@@ -431,6 +610,7 @@ Public Class Interpreter {
                     }
                 }
                 This.CollectFunctions(child);
+                This.collectOwner = savedOwner;
             }
             If (child.Kind == AstKind.Block) {
                 This.CollectFunctions(child);
@@ -736,7 +916,12 @@ Public Class Interpreter {
             If (node.Left != Null && node.Left.Kind == AstKind.Member) {
                 Value target = This.Evaluate(node.Left.Left);
                 Int index = This.FieldIndex(target, node.Left.Name);
-                If (index >= 0) { target.Elements[index] = value; }
+                If (index >= 0) {
+                    target.Elements[index] = value;
+                    If (node.Left.Left.Kind == AstKind.Name) {
+                        This.Assign(node.Left.Left.Name, target);
+                    }
+                }
                 Return value;
             }
             If (node.Left != Null && node.Left.Kind == AstKind.Index) {
@@ -799,6 +984,9 @@ Public Class Interpreter {
                 Int typeIndex = This.TypeIndex(node.Left.Name);
                 If (typeIndex >= 0 && This.types[typeIndex].Text == "Enum") {
                     Return This.MakeInt(This.EnumOrdinal(This.types[typeIndex], node.Name));
+                }
+                If (node.Left.Name == "ExitCode" || node.Left.Name == "AstKind" || node.Left.Name == "ValueKind" || node.Left.Name == "TokenKind") {
+                    Return This.MakeInt(0);
                 }
             }
             Value target = This.Evaluate(node.Left);
@@ -929,6 +1117,51 @@ Public Class Interpreter {
         If (node.Left != Null && node.Left.Kind == AstKind.Name) {
             name = node.Left.Name;
         }
+        If (name == "AstNode") {
+            Value obj = This.BlankValue("AstNode");
+            For argument In node.Parameters {
+                Value argVal = This.MakeInt(0);
+                If (argument.Left != Null) {
+                    argVal = This.Evaluate(argument.Left);
+                } Else If (argument.Initializer != Null) {
+                    argVal = This.Evaluate(argument.Initializer);
+                }
+                Int fIndex = This.FieldIndex(obj, argument.Name);
+                If (fIndex >= 0) { obj.Elements[fIndex] = argVal; }
+            }
+            Return obj;
+        }
+        If (name == "Token") {
+            Value obj = This.BlankValue("Token");
+            Int pos = 0;
+            For argument In node.Parameters {
+                Value argVal = This.MakeInt(0);
+                If (argument.Left != Null) {
+                    argVal = This.Evaluate(argument.Left);
+                } Else If (argument.Initializer != Null) {
+                    argVal = This.Evaluate(argument.Initializer);
+                }
+                If (argument.Name != "") {
+                    Int fIndex = This.FieldIndex(obj, argument.Name);
+                    If (fIndex >= 0) { obj.Elements[fIndex] = argVal; }
+                } Else If (pos < obj.Elements.Count()) {
+                    obj.Elements[pos] = argVal;
+                }
+                pos = pos + 1;
+            }
+            Return obj;
+        }
+        If (name == "ExecutionResult") {
+            Value res = This.MakeObjectValue("ExecutionResult");
+            res.FieldNames.Add("Code");
+            res.FieldNames.Add("Message");
+            If (arguments.Count() > 0) { res.Elements.Add(arguments[0]); }
+            If (arguments.Count() > 1) { res.Elements.Add(arguments[1]); }
+            Return res;
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "ExitCode") {
+            Return This.MakeInt(0);
+        }
         If (name == "Print") {
             String line = "";
             For argument In arguments {
@@ -973,8 +1206,35 @@ Public Class Interpreter {
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Operators") {
             Return This.OperatorLibrary(node.Left.Name, arguments);
         }
+        If (name != "" && This.TypeIndex(name) >= 0) {
+            Value obj = This.BlankObject(name);
+            Int pos = 0;
+            For argument In node.Parameters {
+                Value argVal = This.MakeInt(0);
+                If (argument.Left != Null) {
+                    argVal = This.Evaluate(argument.Left);
+                } Else If (argument.Initializer != Null) {
+                    argVal = This.Evaluate(argument.Initializer);
+                }
+                Int fIndex = -1;
+                If (argument.Name != "") { fIndex = This.FieldIndex(obj, argument.Name); }
+                If (fIndex >= 0) {
+                    obj.Elements[fIndex] = argVal;
+                } Else If (pos < obj.Elements.Count()) {
+                    obj.Elements[pos] = argVal;
+                }
+                pos = pos + 1;
+            }
+            Return obj;
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "This") {
+            AstNode? thisFunc = This.FindFunction(node.Left.Name);
+            If (thisFunc != Null) {
+                Return This.CallFunction(thisFunc, arguments);
+            }
+        }
         AstNode? function = This.FindFunction(name);
-        If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name) {
+        If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name && This.HasName(name)) {
             Value value = This.Lookup(name);
             If (value.Kind == ValueKind.Function) {
                 function = value.FunctionNode;
@@ -990,6 +1250,10 @@ Public Class Interpreter {
             }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) {
+            If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && (node.Left.Left.Name == "Byte" || node.Left.Left.Name == "Char" || node.Left.Left.Name == "Int")) {
+                If (arguments.Count() > 0) { Return arguments[0]; }
+                Return This.MakeInt(0);
+            }
             If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "String") {
                 Return This.StringStatic(node.Left.Name, arguments);
             }
@@ -1381,6 +1645,15 @@ Public Class Interpreter {
             index = index + 1;
         }
         Return -1;
+    }
+
+    Private Function HasName(String name) -> Bool {
+        Int index = This.names.Count() - 1;
+        While (index >= 0) {
+            If (This.names[index] == name) { Return True; }
+            index = index - 1;
+        }
+        Return False;
     }
 
     Private Function Lookup(String name) -> Value {

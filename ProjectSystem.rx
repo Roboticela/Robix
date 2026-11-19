@@ -519,6 +519,7 @@ Public Class ProjectEngine {
                 This.Diagnostics.Add(relative + " failed to compile.");
                 ok = False;
             } Else {
+                Print("Checking " + relative);
                 Interpreter tests = Interpreter();
                 For line In tests.RequireTests(full, result.Module) {
                     Print(line);

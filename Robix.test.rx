@@ -7,21 +7,24 @@ Test Main {
 }
 
 Test IsProjectCommand {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test IsProjectCommand {
-    Input: command = "build", args = ["build"];
-    Constraint: command != "";
-    Processing: True;
-    Output: True;
-}
-
-Test IsProjectCommand {
-    Input: command = "run", args = ["run", "File.rx"];
-    Constraint: command != "";
-    Processing: False;
-    Output: False;
+    Case "build is project command" {
+        Input: command = "build", args = ["build"];
+        Constraint: command != "";
+        Processing: True;
+        Output: True;
+    }
+    Case "run with rx file is single file run" {
+        Input: command = "run", args = ["run", "File.rx"];
+        Constraint: command != "";
+        Processing: False;
+        Output: False;
+    }
+    Case "check with rx file is single file check" {
+        Input: command = "check", args = ["check", "File.rx"];
+        Output: False;
+    }
+    Case "cover is not project command" {
+        Input: command = "cover", args = ["cover"];
+        Output: False;
+    }
 }

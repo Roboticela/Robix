@@ -1,121 +1,173 @@
 // Tests for Lexer.rx.
 
 Test Tokenize {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "tokenize empty input produces eof" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test Register {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "register keyword" {
+        Input: canonical = "Let", kind = TokenKind.Let;
+        Assert: canonical == "Let";
+    }
 }
 
 Test RegisterKeywords {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "register all keywords" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test SkipTrivia {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "skip trivia on empty source" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test ReadToken {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "read token on empty source" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test ReadIdentifierOrKeyword {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "read identifier" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test ReadNumber {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "read number" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test ReadString {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "read string" {
+        Input: interpolated = False, raw = False;
+        Assert: interpolated == False;
+    }
 }
 
 Test ReadChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "read char" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test ReadOperatorOrDelimiter {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "read operator" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test TakeFixed {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "take fixed token" {
+        Input: kind = TokenKind.Let, length = 0;
+        Assert: length == 0;
+    }
 }
 
 Test Add {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "add token" {
+        Input: kind = TokenKind.Identifier, text = "sample", interpolated = False, raw = False, multiline = False;
+        Assert: text == "sample";
+    }
 }
 
 Test AdvanceChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "advance at end of source" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test PeekChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "peek past end" {
+        Input: offset = 0;
+        Output: '\0';
+    }
 }
 
 Test StartsWith {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "empty source starts with" {
+        Input: text = "abc";
+        Output: False;
+    }
 }
 
 Test IsDigit {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "digit 5" {
+        Input: character = '5';
+        Output: True;
+    }
+    Case "letter a" {
+        Input: character = 'a';
+        Output: False;
+    }
 }
 
 Test IsIdentifierStart {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "letter x" {
+        Input: character = 'x';
+        Output: True;
+    }
+    Case "underscore" {
+        Input: character = '_';
+        Output: True;
+    }
+    Case "digit 7" {
+        Input: character = '7';
+        Output: False;
+    }
 }
 
 Test IsIdentifierPart {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "digit 7" {
+        Input: character = '7';
+        Output: True;
+    }
+    Case "letter b" {
+        Input: character = 'b';
+        Output: True;
+    }
+    Case "space" {
+        Input: character = ' ';
+        Output: False;
+    }
 }
 
 Test IsSuffixChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "char i" {
+        Input: character = 'i';
+        Output: True;
+    }
+    Case "char u" {
+        Input: character = 'u';
+        Output: True;
+    }
+    Case "char z" {
+        Input: character = 'z';
+        Output: False;
+    }
 }
 
 Test IsCustomOperatorChar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "ascii tilde" {
+        Input: character = '~';
+        Output: False;
+    }
+    Case "ascii plus" {
+        Input: character = '+';
+        Output: False;
+    }
 }

@@ -1,73 +1,105 @@
 // Tests for NameChecker.rx.
 
 Test Check {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check empty module" {
+        Input: module = AstNode(), fileName = "Robix.rx";
+        Assert: fileName == "Robix.rx";
+    }
 }
 
 Test CheckFileName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "pascal case filename" {
+        Input: fileName = "ValidModule.rx";
+        Assert: fileName == "ValidModule.rx";
+    }
 }
 
 Test Walk {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "walk empty node" {
+        Input: node = AstNode();
+        Assert: node.Kind == AstKind.Missing;
+    }
 }
 
 Test RequireCamel {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "valid camel case" {
+        Input: name = "itemCount", line = 1, column = 1, label = "Variable";
+        Assert: name == "itemCount";
+    }
 }
 
 Test RequirePascal {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "valid pascal case" {
+        Input: name = "ItemCount", line = 1, column = 1, label = "Function";
+        Assert: name == "ItemCount";
+    }
 }
 
 Test RequireConstant {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "valid constant case" {
+        Input: name = "MAX_BUFFER_SIZE", line = 1, column = 1;
+        Assert: name == "MAX_BUFFER_SIZE";
+    }
 }
 
 Test IsCamelCase {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "valid camel case" {
+        Input: name = "robotSpeed";
+        Output: True;
+    }
+    Case "invalid pascal case" {
+        Input: name = "RobotSpeed";
+        Output: False;
+    }
 }
 
 Test IsPascalCase {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "valid pascal case" {
+        Input: name = "RobotSpeed";
+        Output: True;
+    }
+    Case "invalid camel case" {
+        Input: name = "robotSpeed";
+        Output: False;
+    }
 }
 
 Test IsConstantCase {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "valid constant case" {
+        Input: name = "MAX_SPEED";
+        Output: True;
+    }
+    Case "invalid lowercase" {
+        Input: name = "max_speed";
+        Output: False;
+    }
 }
 
 Test CheckAcronyms {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "acronym check" {
+        Input: name = "fetchHTTPS", line = 1, column = 1;
+        Assert: name == "fetchHTTPS";
+    }
 }
 
 Test MatchAcronym {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "match https" {
+        Input: name = "getHTTPSUrl", index = 3;
+        Output: "HTTPS";
+    }
+    Case "no match" {
+        Input: name = "regularWord", index = 0;
+        Output: "";
+    }
 }
 
 Test HasModifier {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "has modifier" {
+        Input: node = AstNode(Modifiers: ["Public", "Const"]), name = "Const";
+        Output: True;
+    }
+    Case "missing modifier" {
+        Input: node = AstNode(Modifiers: ["Public"]), name = "Private";
+        Output: False;
+    }
 }

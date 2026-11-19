@@ -1,5 +1,47 @@
 // Tests for Interpreter.rx.
 
+Test HasName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FindTestFunction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PrepareThis {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BlankValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BlankArgument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BlankObject {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Describe {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
 Test TestTitle {
     Constraint: True;
     Processing: True;

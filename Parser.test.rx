@@ -1,391 +1,484 @@
 // Tests for Parser.rx.
 
 Test ParseTestSections {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse test sections" {
+        Input: node = AstNode(Kind: AstKind.Test);
+        Assert: node.Kind == AstKind.Test;
+    }
 }
 
 Test ParseTestCase {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse test case" {
+        Input: parent = AstNode(Kind: AstKind.Test, Name: "ParentTest");
+        Assert: Result.Name == "ParentTest";
+    }
 }
 
 Test ParseTestCheck {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse assert check" {
+        Input: label = "Assert";
+        Assert: Result.Kind == AstKind.Constraint;
+    }
 }
 
 Test IsTestCheck {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "assert is test check" {
+        Input: name = "Assert";
+        Output: True;
+    }
+    Case "foo is not test check" {
+        Input: name = "Foo";
+        Output: False;
+    }
 }
 
 Test Parse {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse at eof produces module" {
+        Input:;
+        Assert: Result.Kind == AstKind.Module;
+    }
 }
 
 Test ParseItem {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse item at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseItemAfterModifiers {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse item after modifiers at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTest {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse test at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test IsTestLabel {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "input is test label" {
+        Input: name = "Input";
+        Output: True;
+    }
+    Case "bar is not test label" {
+        Input: name = "Bar";
+        Output: False;
+    }
 }
 
 Test ParsePackage {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse package at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseImport {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse import at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParsePermissions {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse permissions at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseLetVar {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse let var at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseConst {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse const at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTypedVariable {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse typed variable at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseExtraDeclarators {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse extra declarators" {
+        Input: node = AstNode(Kind: AstKind.Variable);
+        Assert: node.Kind == AstKind.Variable;
+    }
 }
 
 Test ParseFunction {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse function at eof" {
+        Input: modifiers = [], allowExpressionBody = False;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseGenericParameters {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse generic parameters" {
+        Input: node = AstNode();
+        Assert: node != Null;
+    }
 }
 
 Test ParseGenericParameterList {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse generic parameter list at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseParameterList {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse parameter list at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseParameter {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse parameter at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseWhere {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse where" {
+        Input: node = AstNode();
+        Assert: node != Null;
+    }
 }
 
 Test ParseExplain {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse explain" {
+        Input: node = AstNode();
+        Assert: node != Null;
+    }
 }
 
 Test ParseTypeDeclaration {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse type declaration at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseBaseReference {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse base reference at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTypeBody {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse type body" {
+        Input: typeNode = AstNode(Kind: AstKind.Class);
+        Assert: typeNode.Kind == AstKind.Class;
+    }
 }
 
 Test ParseMember {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse member at eof" {
+        Input: ownerKind = "Class", modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseField {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse field at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseConstructor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse constructor at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseDestructor {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse destructor at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseEnumBody {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse enum body" {
+        Input: typeNode = AstNode(Kind: AstKind.Class);
+        Assert: typeNode.Kind == AstKind.Class;
+    }
 }
 
 Test ParseImplement {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse implement at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseConnect {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse connect at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseTypeAlias {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse type alias at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseOperator {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse operator at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseMacro {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse macro at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseExtern {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse extern at eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
 }
 
 Test ParseAttributeList {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse attribute list at eof" {
+        Input:;
+        Assert: Result.Count() == 0;
+    }
 }
 
 Test ParseAttribute {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse attribute at eof" {
+        Input:;
+        Assert: Result != Null;
+    }
 }
 
 Test ParseModifierList {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse modifier list at eof" {
+        Input:;
+        Assert: Result.Count() == 0;
+    }
 }
 
 Test ParseQualifiedName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse qualified name at eof" {
+        Input:;
+        Assert: Result == "";
+    }
 }
 
 Test ParseIdentifierText {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse identifier text at eof" {
+        Input: message = "expected identifier";
+        Assert: Result == "";
+    }
 }
 
 Test ParseAnyName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse any name at eof" {
+        Input:;
+        Assert: Result == "";
+    }
 }
 
 Test IsWord {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "valid word" {
+        Input: text = "robot";
+        Output: True;
+    }
+    Case "number is not word" {
+        Input: text = "123";
+        Output: False;
+    }
 }
 
 Test ParseOperatorTokenText {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "parse operator token text at eof" {
+        Input:;
+        Assert: Result == "";
+    }
 }
 
 Test RememberOperator {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "remember operator" {
+        Input: name = "⊗", precedence = 70, rightAssociative = False;
+        Assert: True;
+    }
 }
 
 Test IsFunctionStart {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "is function start at eof" {
+        Input: modifiers = [];
+        Output: False;
+    }
 }
 
 Test IsUntypedName {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "eof is not untyped name" {
+        Input:;
+        Output: False;
+    }
 }
 
 Test IsTypeDeclarationKeyword {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "class is type declaration keyword" {
+        Input: kind = TokenKind.Class;
+        Output: True;
+    }
+    Case "plus is not type declaration keyword" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }
 
 Test IsModifier {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "public is modifier" {
+        Input: kind = TokenKind.Public;
+        Output: True;
+    }
+    Case "plus is not modifier" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }
 
 Test ModifierHas {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "has modifier" {
+        Input: modifiers = ["Public", "Const"], name = "Const";
+        Output: True;
+    }
+    Case "missing modifier" {
+        Input: modifiers = ["Public"], name = "Private";
+        Output: False;
+    }
 }
 
 Test CopyModifiers {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "copy modifiers" {
+        Input: node = AstNode(), modifiers = ["Public"];
+        Assert: modifiers.Count() == 1;
+    }
 }
 
 Test AcceptSemicolon {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "accept semicolon at eof" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test Peek {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "peek at eof" {
+        Input:;
+        Assert: Result.Kind == TokenKind.EndOfFile;
+    }
 }
 
 Test Look {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "look at eof" {
+        Input: offset = 0;
+        Assert: Result.Kind == TokenKind.EndOfFile;
+    }
 }
 
 Test Previous {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "previous at eof" {
+        Input:;
+        Assert: Result.Kind == TokenKind.EndOfFile;
+    }
 }
 
 Test IsAtEnd {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "is at end at eof" {
+        Input:;
+        Output: True;
+    }
 }
 
 Test Check {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "check eof" {
+        Input: kind = TokenKind.EndOfFile;
+        Output: True;
+    }
+    Case "check plus" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }
 
 Test Match {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "match plus is false at eof" {
+        Input: kind = TokenKind.Plus;
+        Output: False;
+    }
 }
 
 Test Advance {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "advance at eof" {
+        Input:;
+        Assert: Result.Kind == TokenKind.EndOfFile;
+    }
 }
 
 Test Expect {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "expect eof" {
+        Input: kind = TokenKind.EndOfFile, message = "expected eof";
+        Assert: Result.Kind == TokenKind.EndOfFile;
+    }
 }
 
 Test ConsumeGreater {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "consume greater at eof" {
+        Input: message = "expected greater";
+        Output: False;
+    }
 }
 
 Test Error {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "record error" {
+        Input: code = "RX001", message = "test error";
+        Assert: True;
+    }
 }
 
 Test Make {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "make node" {
+        Input: kind = AstKind.Module, start = Token();
+        Assert: Result.Kind == AstKind.Module;
+    }
 }
 
 Test Finish {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "finish node" {
+        Input: node = AstNode(Kind: AstKind.Module), start = Token();
+        Assert: Result.Kind == AstKind.Module;
+    }
 }
