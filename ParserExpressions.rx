@@ -132,13 +132,13 @@ Public Partial Class Parser {
         If (This.Check(TokenKind.CharLiteral)) {
             AstNode node = This.Make(AstKind.CharLiteral, start);
             node.Text = This.Advance().Text;
-            Return node;
+            Return This.ParsePostfix(node);
         }
         If (This.Check(TokenKind.True) || This.Check(TokenKind.False)) {
             AstNode node = This.Make(AstKind.BooleanLiteral, start);
             node.Text = This.Advance().Text;
             node.FlagA = start.Kind == TokenKind.True;
-            Return node;
+            Return This.ParsePostfix(node);
         }
         If (This.Check(TokenKind.Null)) {
             This.Advance();
@@ -166,16 +166,16 @@ Public Partial Class Parser {
                     }
                 }
                 This.Expect(TokenKind.CloseParen, "Expected ')' after the tuple.");
-                Return tuple;
+                Return This.ParsePostfix(tuple);
             }
             This.Expect(TokenKind.CloseParen, "Expected ')'.");
-            Return expression;
+            Return This.ParsePostfix(expression);
         }
         If (This.Check(TokenKind.OpenBracket)) {
-            Return This.ParseArrayLiteral();
+            Return This.ParsePostfix(This.ParseArrayLiteral());
         }
         If (This.Check(TokenKind.OpenBrace)) {
-            Return This.ParseBraceLiteral();
+            Return This.ParsePostfix(This.ParseBraceLiteral());
         }
         If (This.Check(TokenKind.Identifier) || This.IsWord(This.Peek().Text)) {
             AstNode name = This.Make(AstKind.Name, start);

@@ -377,18 +377,41 @@ Public Class TypeChecker {
     }
 
     Private Function CheckMatch(AstNode node) -> Void {
-        If (node.Left != Null) { This.Infer(node.Left); }
+        String scrutineeType = "";
+        If (node.Left != Null) { scrutineeType = This.Infer(node.Left); }
         Bool wildcard = False;
+        Bool hasSome = False;
+        Bool hasNone = False;
+        Bool hasSuccess = False;
+        Bool hasError = False;
         For arm In node.Children {
             If (arm.Left != Null && arm.Left.FlagA) {
                 wildcard = True;
             }
+            If (arm.Left != Null) {
+                String tag = arm.Left.Text;
+                If (tag == "") { tag = arm.Left.Name; }
+                If (tag == "Some") { hasSome = True; }
+                If (tag == "None") { hasNone = True; }
+                If (tag == "Success") { hasSuccess = True; }
+                If (tag == "Error" || tag == "Failure") { hasError = True; }
+            }
             This.PushScope();
             String patternType = "Unknown";
-            If (arm.Left != Null && arm.Left.Text.Length() > 0) { patternType = arm.Left.Text; }
+            If (arm.Left != Null && (arm.Left.Text == "Some" || arm.Left.Text == "Success")) {
+                patternType = This.ElementName(scrutineeType);
+                If (patternType == "") { patternType = "Int"; }
+            } Else If (arm.Left != Null && (arm.Left.Text == "Error" || arm.Left.Text == "Failure")) {
+                patternType = "String";
+            } Else If (arm.Left != Null && arm.Left.Text.Length() > 0) {
+                patternType = arm.Left.Text;
+            }
             This.BindPattern(arm.Left, patternType);
             If (arm.Right != Null) { This.CheckNode(arm.Right); }
             This.PopScope();
+        }
+        If ((hasSome && hasNone) || (hasSuccess && hasError)) {
+            wildcard = True;
         }
         If (!wildcard && node.Children.Count() > 0 && This.strict) {
             Bool closed = False;
@@ -525,6 +548,11 @@ Public Class TypeChecker {
                 If (inner.EndsWith("?")) {
                     Return inner.Substring(0, inner.Length() - 1);
                 }
+                If (inner.StartsWith("Option<") || inner.StartsWith("Result<")) {
+                    String elem = This.ElementName(inner);
+                    If (elem != "") { Return elem; }
+                    Return "Int";
+                }
             }
             If (node.Operator == "!" || node.Operator == "Not") {
                 Return "Bool";
@@ -561,6 +589,11 @@ Public Class TypeChecker {
         }
         If (node.Kind == AstKind.TypeCheck) {
             This.Infer(node.Left);
+            If (node.FlagA && node.Name != "") {
+                String targetType = This.ResolveType(This.TypeText(node.Type));
+                If (targetType == "") { targetType = "Any"; }
+                This.Define(node.Name, targetType, False, False, True, False, False, False, node.Line, node.Column);
+            }
             Return "Bool";
         }
         If (node.Kind == AstKind.Await) {
@@ -577,7 +610,7 @@ Public Class TypeChecker {
             If (left.EndsWith("?") && !node.FlagA && This.strict) {
                 This.diagnostics.TypeError("RX110", "A nullable value needs a check, '?.', or '!' before member access.", node.Line, node.Column, This.StripOptional(left), left, "Use '?.' or test the value against Null.");
             }
-            If (node.Name == "ToString" || node.Name == "ToUpper" || node.Name == "ToLower") { Return "String"; }
+            If (node.Name == "ToString" || node.Name == "ToUpper" || node.Name == "ToLower" || node.Name == "Trim") { Return "String"; }
             If (node.Name == "ToFloat") { Return "Float"; }
             If (node.Name == "ToInt" || node.Name == "Length" || node.Name == "Count") { Return "Int"; }
             Return "Unknown";
@@ -637,7 +670,7 @@ Public Class TypeChecker {
                 This.Undefined(node.Left);
             }
         } Else If (node.Left != Null) {
-            If (node.Left.Kind == AstKind.Member && node.Left.Name == "Enumerate" && node.Left.Left != Null) {
+            If (node.Left.Kind == AstKind.Member && node.Left.Left != Null) {
                 receiverType = This.Infer(node.Left.Left);
             } Else {
                 This.Infer(node.Left);
@@ -655,15 +688,70 @@ Public Class TypeChecker {
             Return symbolReturn;
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) {
-            If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Math") {
-                If (node.Left.Name == "Min" || node.Left.Name == "Max" || node.Left.Name == "Abs" || node.Left.Name == "Clamp") {
+            String owner = "";
+            If (node.Left.Left != Null && (node.Left.Left.Kind == AstKind.Name || node.Left.Left.Kind == AstKind.Member)) {
+                owner = node.Left.Left.Name;
+            }
+            If (owner == "Operators") {
+                If (node.Left.Name == "Equal" || node.Left.Name == "GreaterThan" || node.Left.Name == "And") {
+                    Return "Bool";
+                }
+                If (node.Left.Name == "Add" || node.Left.Name == "Negate") {
                     Return This.CallArgumentType(node);
+                }
+                Return "Unknown";
+            }
+            If (owner == "Math") {
+                If (node.Left.Name == "Min" || node.Left.Name == "Max" || node.Left.Name == "Abs" || node.Left.Name == "Clamp" || node.Left.Name == "Gcd" || node.Left.Name == "IntegerSquareRoot") {
+                    Return This.CallArgumentType(node);
+                }
+            }
+            If (owner == "RoboString" || owner == "String") {
+                If (node.Left.Name == "FormatInt" || node.Left.Name == "Digit") {
+                    Return "String";
+                }
+            }
+            If (owner == "Files") {
+                If (node.Left.Name == "Name" || node.Left.Name == "Join" || node.Left.Name == "ReadText") {
+                    Return "String";
+                }
+                If (node.Left.Name == "Exists") {
+                    Return "Bool";
                 }
             }
             If (node.Left.Name == "Enumerate") {
                 String elem = This.ElementName(receiverType);
                 If (elem == "") { elem = "Int"; }
                 Return "Enumerate<" + elem + ">";
+            }
+            If (node.Left.Name == "Trim" || node.Left.Name == "Replace" || node.Left.Name == "Substring" || node.Left.Name == "ToString" || node.Left.Name == "ToUpper" || node.Left.Name == "ToLower") {
+                Return "String";
+            }
+            If (node.Left.Name == "Split") {
+                Return "Array<String>";
+            }
+            If (node.Left.Name == "Contains" || node.Left.Name == "StartsWith" || node.Left.Name == "EndsWith") {
+                Return "Bool";
+            }
+            If (node.Left.Name == "Sort" || node.Left.Name == "Reverse" || node.Left.Name == "Add") {
+                Return "Void";
+            }
+            If (node.Left.Name == "Map" || node.Left.Name == "Filter") {
+                If (receiverType == "" || receiverType == "Unknown") { Return "Array<Int>"; }
+                Return receiverType;
+            }
+            If (node.Left.Name == "Reduce") {
+                Return This.CallArgumentType(node);
+            }
+            If ((node.Left.Name == "As" || node.Left.Name == "Cast") && node.Left.Children.Count() > 0) {
+                Return This.ResolveType(This.TypeText(node.Left.Children[0]));
+            }
+            If (node.Left.Name == "AsOptional" && node.Left.Children.Count() > 0) {
+                Return This.ResolveType(This.TypeText(node.Left.Children[0])) + "?";
+            }
+            If (node.Left.Name == "Length" || node.Left.Name == "Count" || node.Left.Name == "ToInt") {
+                If (node.Left.FlagA) { Return "Int?"; }
+                Return "Int";
             }
         }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
@@ -674,7 +762,12 @@ Public Class TypeChecker {
         If (name == "Success" || name == "Failure" || name == "Error" || name == "None") {
             Return name;
         }
-        If (name == "Input") { Return "String"; }
+        If (name == "Input") {
+            If (node.Left != Null && node.Left.Children.Count() > 0) {
+                Return This.TypeText(node.Left.Children[0]);
+            }
+            Return "String";
+        }
         If (This.IsTypeName(name)) {
             Return name;
         }
@@ -699,8 +792,8 @@ Public Class TypeChecker {
         If (This.SameElements(wanted, given)) {
             Return;
         }
-        If (wanted.StartsWith("Option<") && given.StartsWith("Option<")) { Return; }
-        If (wanted.StartsWith("Result<") && (given.StartsWith("Result<") || given == "Success" || given == "Failure")) { Return; }
+        If (wanted.StartsWith("Option<") && (given.StartsWith("Option<") || given == "None")) { Return; }
+        If (wanted.StartsWith("Result<") && (given.StartsWith("Result<") || given == "Success" || given == "Failure" || given == "Error")) { Return; }
         If (wanted == "Tuple" && given.StartsWith("(")) { Return; }
         If (wanted.StartsWith("Queue<") && given.StartsWith("Queue<")) { Return; }
         If (wanted.StartsWith("Stack<") && given.StartsWith("Stack<")) { Return; }
@@ -1036,6 +1129,12 @@ Public Class TypeChecker {
         If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
         If (typeName.StartsWith("Set<") && typeName.EndsWith(">")) { Return typeName.Substring(4, typeName.Length() - 5); }
         If (typeName.StartsWith("Enumerate<") && typeName.EndsWith(">")) { Return typeName.Substring(10, typeName.Length() - 11); }
+        If (typeName.StartsWith("Option<") && typeName.EndsWith(">")) { Return typeName.Substring(7, typeName.Length() - 8); }
+        If (typeName.StartsWith("Result<") && typeName.EndsWith(">")) {
+            Int comma = typeName.IndexOf(",");
+            If (comma > 7) { Return typeName.Substring(7, comma - 7); }
+            Return "Int";
+        }
         If (typeName.StartsWith("[") && typeName.EndsWith("]")) {
             String body = typeName.Substring(1, typeName.Length() - 2);
             Int semi = body.IndexOf(";");

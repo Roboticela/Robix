@@ -1,7 +1,33 @@
 // Tests for Examples/ExitCodes.rx.
 
+Test RoboInitialize {
+    Case "hardware present" {
+        Input: hardwareAvailable = True;
+        Assert: Result.Code == 0;
+    }
+    Case "hardware absent" {
+        Input: hardwareAvailable = False;
+        Assert: Result.Code == 6;
+    }
+}
+
+Test RoboRun {
+    Case "missing config" {
+        Input:;
+        Assert: Result.Code == 100;
+    }
+}
+
+Test LegacyMain {
+    Case "legacy zero" {
+        Input:;
+        Output: 0;
+    }
+}
+
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "run exit codes" {
+        Input: args = [];
+        Assert: Result.Code == 0;
+    }
 }

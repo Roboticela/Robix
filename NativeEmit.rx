@@ -245,7 +245,11 @@ Public Class NativeProgram {
             }
             If (child.Kind == AstKind.EnumMember && This.EnumValue(info, child.Name) < 0) {
                 info.EnumNames.Add(child.Name);
-                info.EnumValues.Add(info.EnumNames.Count() - 1);
+                Int enumVal = info.EnumNames.Count() - 1;
+                If (child.Initializer != Null && child.Initializer.Kind == AstKind.IntegerLiteral) {
+                    enumVal = ParseInteger(child.Initializer.Text);
+                }
+                info.EnumValues.Add(enumVal);
                 info.EnumMembers.Add(child);
                 For parameter In child.Parameters {
                     If (parameter.Name != "" && This.FieldSlot(info, parameter.Name) < 0) {
@@ -689,8 +693,8 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_dir_exists rx_dir_files rx_env_get rx_process rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
-        String voids = "rx_list_add rx_list_set rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
+        String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
         While (start < names.Length()) {
@@ -1021,6 +1025,14 @@ Public Class NativeProgram {
             Bool wildcard = arm.Left != Null && arm.Left.FlagA;
             If (wildcard) {
                 This.Branch(body);
+            } Else If (!boxed && arm.Left != Null && (arm.Left.Text == "Some" || arm.Left.Text == "Success" || arm.Left.Text == "None" || arm.Left.Text == "Error" || arm.Left.Text == "Failure")) {
+                String wtag = This.LoadListItem(scrutinee.Value, "1");
+                String cond = This.Fresh("cond");
+                String want = "0";
+                If (arm.Left.Text == "Some" || arm.Left.Text == "Success") { want = "1"; }
+                This.Emit(cond + " = icmp eq i64 " + wtag + ", " + want);
+                This.Emit("br i1 " + cond + ", label %" + body + ", label %" + next);
+                This.Terminated = True;
             } Else {
                 String cond = This.EmitPatternCond(arm.Left, boxed, tag, typeName, scrutinee.TypeName);
                 This.Emit("br i1 " + cond + ", label %" + body + ", label %" + next);
@@ -1028,7 +1040,19 @@ Public Class NativeProgram {
             }
             This.Block(body);
             Int mark = This.ScopeCount;
-            If (arm.Left != Null) { This.BindMatchName(arm.Left, payload); }
+            If (arm.Left != Null) {
+                If (arm.Left.Children.Count() > 0) {
+                    AstNode child = arm.Left.Children[0];
+                    If (child.Name.Length() > 0 && child.Name != "_") {
+                        String innerVal = This.LoadListItem(payload, "0");
+                        String innerType = This.WrappedType(scrutinee.TypeName);
+                        If (arm.Left.Text == "Error" || arm.Left.Text == "Failure") { innerType = "String"; }
+                        This.Alloca(child.Name, innerType, innerVal);
+                    }
+                } Else {
+                    This.BindMatchName(arm.Left, payload);
+                }
+            }
             If (arm.Right != Null) {
                 If (arm.Right.Kind == AstKind.Block) { This.EmitStatement(arm.Right); }
                 If (arm.Right.Kind != AstKind.Block) { This.EmitExpr(arm.Right); }
@@ -1532,6 +1556,18 @@ Public Class NativeProgram {
             This.EmitMatch(node);
             Return This.Pair("0", "Void");
         }
+        If (node.Kind == AstKind.Unwrap || node.Kind == AstKind.Propagate) {
+            If (node.Left == Null) { Return This.Pair("0", "Int"); }
+            IrValue inner = This.EmitExpr(node.Left);
+            If (inner.TypeName.EndsWith("?")) {
+                Return This.Pair(inner.Value, inner.TypeName.Substring(0, inner.TypeName.Length() - 1));
+            }
+            If (inner.TypeName.StartsWith("Option<") || inner.TypeName.StartsWith("Result<")) {
+                String unwrapped = This.LoadListItem(inner.Value, "0");
+                Return This.Pair(unwrapped, This.WrappedType(inner.TypeName));
+            }
+            Return inner;
+        }
         If (node.Kind == AstKind.Lambda) { Return This.Pair("0", "Lambda:" + node.Name); }
         If (node.Kind == AstKind.ArrayLiteral) { Return This.EmitArrayLiteral(node); }
         If (node.Kind == AstKind.MapLiteral) { Return This.EmitMapLiteral(node); }
@@ -1743,8 +1779,17 @@ Public Class NativeProgram {
             This.CallRuntime("rx_print", args, True);
             Return This.Pair("0", "Void");
         }
+        If (left.Name == "Assert" || left.Name == "AssertTrue" || left.Name == "AssertFalse" || left.Name == "AssertEqual" || left.Name == "AssertNear") {
+            Return This.Pair("0", "Void");
+        }
         If (left.Name == "Input") {
             IrValue value = This.CallRuntime("rx_Input", List<String>(), False);
+            If (left.Children.Count() > 0 && This.TypeName(left.Children[0]) == "Int") {
+                Var parseArgs = List<String>();
+                parseArgs.Add(value.Value);
+                IrValue parsed = This.CallRuntime("rx_str_to_int", parseArgs, False);
+                Return This.Pair(parsed.Value, "Int");
+            }
             Return This.Pair(value.Value, "String");
         }
         If (left.Name == "Queue" || left.Name == "Stack") {
@@ -1756,7 +1801,7 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_list_new", List<String>(), False);
             Return This.Pair(value.Value, left.Name + "<" + element + ">");
         }
-        If (left.Name == "Some" || left.Name == "Success" || left.Name == "Tuple") {
+        If (left.Name == "Some" || left.Name == "Success" || left.Name == "Error" || left.Name == "Failure" || left.Name == "None" || left.Name == "Tuple") {
             Return This.EmitWrapped(left.Name, arguments, types);
         }
         If (left.Name == "List") {
@@ -1769,6 +1814,39 @@ Public Class NativeProgram {
             Return This.Pair(value.Value, "List:" + element);
         }
         If (left.Name == "ExecutionResult") { Return This.MakeResult(arguments); }
+        If (left.Name == "Int" && arguments.Count() > 0) {
+            If (types.Count() > 0 && This.IsFloatType(types[0])) {
+                Var args = List<String>();
+                args.Add(arguments[0]);
+                IrValue v = This.CallRuntime("rx_F64ToInt", args, False);
+                Return This.Pair(v.Value, "Int");
+            }
+            If (types.Count() > 0 && This.IsString(types[0])) {
+                Var args = List<String>();
+                args.Add(arguments[0]);
+                IrValue v = This.CallRuntime("rx_str_to_int", args, False);
+                Return This.Pair(v.Value, "Int");
+            }
+            Return This.Pair(arguments[0], "Int");
+        }
+        If (left.Name == "Float" && arguments.Count() > 0) {
+            If (types.Count() > 0 && This.IsFloatType(types[0])) { Return This.Pair(arguments[0], "Float"); }
+            If (types.Count() > 0 && This.IsString(types[0])) {
+                Var args = List<String>();
+                args.Add(arguments[0]);
+                IrValue v = This.CallRuntime("rx_F64Parse", args, False);
+                Return This.Pair(v.Value, "Float");
+            }
+            Var args = List<String>();
+            args.Add(arguments[0]);
+            IrValue v = This.CallRuntime("rx_F64FromInt", args, False);
+            Return This.Pair(v.Value, "Float");
+        }
+        If (left.Name == "String" && arguments.Count() > 0) {
+            String argType = "Int";
+            If (types.Count() > 0 && types[0] != "") { argType = types[0]; }
+            Return This.ToStringValue(arguments[0], argType);
+        }
         If (left.Name == "RunProcess") {
             Var args = List<String>();
             If (arguments.Count() > 0) { args.Add(arguments[0]); }
@@ -1942,7 +2020,20 @@ Public Class NativeProgram {
             IrValue staticCall = This.EmitStaticCall(member.Left.Name, member.Name, arguments, types);
             If (staticCall.TypeName != "Missing") { Return staticCall; }
         }
+        If (member.Left != Null && member.Left.Kind == AstKind.Member && member.Left.Left != Null && member.Left.Left.Kind == AstKind.Name && member.Left.Left.Name == "Robix") {
+            IrValue staticCall = This.EmitStaticCall(member.Left.Name, member.Name, arguments, types);
+            If (staticCall.TypeName != "Missing") { Return staticCall; }
+        }
         IrValue receiver = This.EmitExpr(member.Left);
+        If ((member.Name == "As" || member.Name == "AsOptional" || member.Name == "Cast") && member.Children.Count() > 0) {
+            String targetType = This.TypeName(member.Children[0]);
+            String val = receiver.Value;
+            If (This.IsAnyType(receiver.TypeName)) {
+                val = This.LoadObjectField(receiver.Value, "1");
+            }
+            If (member.Name == "AsOptional") { targetType = targetType + "?"; }
+            Return This.Pair(val, targetType);
+        }
         If (This.IsAnyType(receiver.TypeName)) { Return This.AnyCall(member.Name, receiver.Value); }
         If (member.Name == "ToInt") {
             If (This.IsString(receiver.TypeName)) { Return This.StringMethod(member.Name, receiver.Value, arguments); }
@@ -1992,7 +2083,7 @@ Public Class NativeProgram {
             String loaded = This.LoadListItem(receiver.Value, "0");
             Return This.Pair(loaded, This.WrappedType(receiver.TypeName));
         }
-        If (member.Name == "Contains" && receiver.TypeName.StartsWith("Set<")) {
+        If (member.Name == "Contains") {
             String kind = "0";
             String probe = "0";
             String probeType = "Int";
@@ -2034,10 +2125,137 @@ Public Class NativeProgram {
         If (member.Name == "Enumerate") {
             Return This.Pair(receiver.Value, "Enumerate<" + This.ElementType(receiver.TypeName) + ">");
         }
+        If (member.Name == "Sort") {
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            This.CallRuntime("rx_list_sort", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (member.Name == "Reverse") {
+            Var args = List<String>();
+            args.Add(receiver.Value);
+            This.CallRuntime("rx_list_reverse", args, True);
+            Return This.Pair("0", "Void");
+        }
+        If (member.Name == "Map" && types.Count() > 0 && types[0].StartsWith("Lambda:")) {
+            String lambdaName = types[0].Substring(7);
+            String fnSym = This.FunctionSymbol(This.FileName, lambdaName);
+            IrValue outList = This.CallRuntime("rx_list_new", List<String>(), False);
+            String total = This.LoadListCount(receiver.Value);
+            String idxSlot = "#map_" + This.Label("m");
+            This.Alloca(idxSlot, "Int", "0");
+            String head = This.Label("map_head");
+            String body = This.Label("map_body");
+            String done = This.Label("map_done");
+            This.Branch(head);
+            This.Block(head);
+            String cur = This.LoadName(idxSlot);
+            String flag = This.Fresh("cond");
+            This.Emit(flag + " = icmp slt i64 " + cur + ", " + total);
+            This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+            This.Terminated = True;
+            This.Block(body);
+            String item = This.LoadListItem(receiver.Value, cur);
+            Var callArgs = List<String>();
+            callArgs.Add(item);
+            IrValue mapped = This.CallRuntime(fnSym, callArgs, False);
+            Var addArgs = List<String>();
+            addArgs.Add(outList.Value);
+            addArgs.Add(mapped.Value);
+            This.CallRuntime("rx_list_add", addArgs, True);
+            String next = This.Fresh("v");
+            This.Emit(next + " = add i64 " + cur + ", 1");
+            This.StoreName(idxSlot, next);
+            This.Branch(head);
+            This.Block(done);
+            Return This.Pair(outList.Value, "Array<Int>");
+        }
+        If (member.Name == "Filter" && types.Count() > 0 && types[0].StartsWith("Lambda:")) {
+            String lambdaName = types[0].Substring(7);
+            String fnSym = This.FunctionSymbol(This.FileName, lambdaName);
+            IrValue outList = This.CallRuntime("rx_list_new", List<String>(), False);
+            String total = This.LoadListCount(receiver.Value);
+            String idxSlot = "#flt_" + This.Label("f");
+            This.Alloca(idxSlot, "Int", "0");
+            String head = This.Label("flt_head");
+            String body = This.Label("flt_body");
+            String keep = This.Label("flt_keep");
+            String step = This.Label("flt_step");
+            String done = This.Label("flt_done");
+            This.Branch(head);
+            This.Block(head);
+            String cur = This.LoadName(idxSlot);
+            String flag = This.Fresh("cond");
+            This.Emit(flag + " = icmp slt i64 " + cur + ", " + total);
+            This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+            This.Terminated = True;
+            This.Block(body);
+            String item = This.LoadListItem(receiver.Value, cur);
+            Var callArgs = List<String>();
+            callArgs.Add(item);
+            IrValue pred = This.CallRuntime(fnSym, callArgs, False);
+            String keepFlag = This.Fresh("cond");
+            This.Emit(keepFlag + " = icmp ne i64 " + pred.Value + ", 0");
+            This.Emit("br i1 " + keepFlag + ", label %" + keep + ", label %" + step);
+            This.Terminated = True;
+            This.Block(keep);
+            Var addArgs = List<String>();
+            addArgs.Add(outList.Value);
+            addArgs.Add(item);
+            This.CallRuntime("rx_list_add", addArgs, True);
+            This.Branch(step);
+            This.Block(step);
+            String next = This.Fresh("v");
+            This.Emit(next + " = add i64 " + cur + ", 1");
+            This.StoreName(idxSlot, next);
+            This.Branch(head);
+            This.Block(done);
+            Return This.Pair(outList.Value, receiver.TypeName);
+        }
+        If (member.Name == "Reduce" && arguments.Count() >= 2 && types.Count() >= 2 && types[1].StartsWith("Lambda:")) {
+            String lambdaName = types[1].Substring(7);
+            String fnSym = This.FunctionSymbol(This.FileName, lambdaName);
+            String accSlot = "#red_acc_" + This.Label("ra");
+            This.Alloca(accSlot, "Int", arguments[0]);
+            String total = This.LoadListCount(receiver.Value);
+            String idxSlot = "#red_idx_" + This.Label("ri");
+            This.Alloca(idxSlot, "Int", "0");
+            String head = This.Label("red_head");
+            String body = This.Label("red_body");
+            String done = This.Label("red_done");
+            This.Branch(head);
+            This.Block(head);
+            String cur = This.LoadName(idxSlot);
+            String flag = This.Fresh("cond");
+            This.Emit(flag + " = icmp slt i64 " + cur + ", " + total);
+            This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+            This.Terminated = True;
+            This.Block(body);
+            String item = This.LoadListItem(receiver.Value, cur);
+            String curAcc = This.LoadName(accSlot);
+            Var callArgs = List<String>();
+            callArgs.Add(curAcc);
+            callArgs.Add(item);
+            IrValue nextAcc = This.CallRuntime(fnSym, callArgs, False);
+            This.StoreName(accSlot, nextAcc.Value);
+            String next = This.Fresh("v");
+            This.Emit(next + " = add i64 " + cur + ", 1");
+            This.StoreName(idxSlot, next);
+            This.Branch(head);
+            This.Block(done);
+            String finalAcc = This.LoadName(accSlot);
+            Return This.Pair(finalAcc, "Int");
+        }
         Return This.Pair("0", "Int");
     }
 
     Private Function EmitStaticCall(String owner, String method, List<String> arguments, List<String> types) -> IrValue {
+        If ((owner == "RoboString" || owner == "String") && (method == "FormatInt" || method == "Digit")) {
+            Var args = List<String>();
+            If (arguments.Count() > 0) { args.Add(arguments[0]); } Else { args.Add("0"); }
+            IrValue value = This.CallRuntime("rx_str_from_int", args, False);
+            Return This.Pair(value.Value, "String");
+        }
         If (owner == "String" && method == "From") {
             String valueType = "Int";
             If (types.Count() > 0) { valueType = types[0]; }
@@ -2091,6 +2309,30 @@ Public Class NativeProgram {
                 This.Emit(res + " = select i1 " + flag + ", i64 " + neg + ", i64 " + arguments[0]);
                 Return This.Pair(res, "Int");
             }
+            If (method == "Clamp" && arguments.Count() >= 3) {
+                String lowFlag = This.Fresh("v");
+                This.Emit(lowFlag + " = icmp slt i64 " + arguments[0] + ", " + arguments[1]);
+                String lowClamp = This.Fresh("v");
+                This.Emit(lowClamp + " = select i1 " + lowFlag + ", i64 " + arguments[1] + ", i64 " + arguments[0]);
+                String highFlag = This.Fresh("v");
+                This.Emit(highFlag + " = icmp sgt i64 " + lowClamp + ", " + arguments[2]);
+                String res = This.Fresh("v");
+                This.Emit(res + " = select i1 " + highFlag + ", i64 " + arguments[2] + ", i64 " + lowClamp);
+                Return This.Pair(res, "Int");
+            }
+            If (method == "Gcd" && arguments.Count() >= 2) {
+                Var args = List<String>();
+                args.Add(arguments[0]);
+                args.Add(arguments[1]);
+                IrValue value = This.CallRuntime("rx_math_gcd", args, False);
+                Return This.Pair(value.Value, "Int");
+            }
+            If (method == "IntegerSquareRoot" && arguments.Count() >= 1) {
+                Var args = List<String>();
+                args.Add(arguments[0]);
+                IrValue value = This.CallRuntime("rx_math_isqrt", args, False);
+                Return This.Pair(value.Value, "Int");
+            }
         }
         If (owner == "Files") { Return This.FilesCall(method, arguments); }
         If (owner == "Directory") { Return This.DirectoryCall(method, arguments); }
@@ -2117,7 +2359,7 @@ Public Class NativeProgram {
 
     Private Function FilesCall(String method, List<String> arguments) -> IrValue {
         Var args = List<String>();
-        If (method == "ReadText" || method == "Exists" || method == "Delete") {
+        If (method == "ReadText" || method == "Exists" || method == "Delete" || method == "Name") {
             If (arguments.Count() > 0) { args.Add(arguments[0]); }
             If (arguments.Count() == 0) { args.Add("0"); }
         } Else {
@@ -2145,6 +2387,14 @@ Public Class NativeProgram {
         If (method == "Delete") {
             This.CallRuntime("rx_file_delete", args, True);
             Return This.Pair("0", "Void");
+        }
+        If (method == "Name") {
+            IrValue value = This.CallRuntime("rx_file_name", args, False);
+            Return This.Pair(value.Value, "String");
+        }
+        If (method == "Join") {
+            IrValue value = This.CallRuntime("rx_file_join", args, False);
+            Return This.Pair(value.Value, "String");
         }
         Return This.Pair("0", "Void");
     }
@@ -2207,7 +2457,15 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_str_upper", args, False);
             Return This.Pair(value.Value, "String");
         }
+        If (method == "Trim") {
+            IrValue value = This.CallRuntime("rx_str_trim", args, False);
+            Return This.Pair(value.Value, "String");
+        }
         If (arguments.Count() > 0) { args.Add(arguments[0]); }
+        If (method == "Split") {
+            IrValue value = This.CallRuntime("rx_str_split", args, False);
+            Return This.Pair(value.Value, "Array<String>");
+        }
         If (method == "StartsWith") {
             IrValue value = This.CallRuntime("rx_str_starts", args, False);
             Return This.Pair(value.Value, "Bool");
@@ -2759,11 +3017,30 @@ Public Class NativeProgram {
     }
 
     Private Function EmitTypeCheck(AstNode node) -> IrValue {
-        String actual = "Unknown";
-        If (node.Left != Null) { actual = This.EmitExpr(node.Left).TypeName; }
+        IrValue left = This.Pair("0", "Unknown");
+        If (node.Left != Null) { left = This.EmitExpr(node.Left); }
+        String actual = left.TypeName;
         String expected = This.TypeName(node.Type);
         If (actual.EndsWith("?")) { actual = actual.Substring(0, actual.Length() - 1); }
-        If (actual == expected) { Return This.Pair("1", "Bool"); }
+        If (This.IsAnyType(actual)) {
+            String tag = This.LoadObjectField(left.Value, "0");
+            String payload = This.LoadObjectField(left.Value, "1");
+            String wantedTag = This.ValueTag(expected);
+            String flag = This.Fresh("cond");
+            This.Emit(flag + " = icmp eq i64 " + tag + ", " + wantedTag);
+            String res = This.Fresh("v");
+            This.Emit(res + " = zext i1 " + flag + " to i64");
+            If (node.FlagA && node.Name != "") {
+                This.Alloca(node.Name, expected, payload);
+            }
+            Return This.Pair(res, "Bool");
+        }
+        If (node.FlagA && node.Name != "") {
+            This.Alloca(node.Name, expected, left.Value);
+        }
+        If (actual == expected || (This.IsFloatType(actual) && This.IsFloatType(expected))) {
+            Return This.Pair("1", "Bool");
+        }
         Return This.Pair("0", "Bool");
     }
 
@@ -2797,8 +3074,28 @@ Public Class NativeProgram {
             first = False;
             index = index + 1;
         }
+        If (arguments.Count() == 0) {
+            Var zeroArgs = List<String>();
+            zeroArgs.Add(list.Value);
+            zeroArgs.Add("0");
+            This.CallRuntime("rx_list_add", zeroArgs, True);
+        }
+        If (name == "Some" || name == "Success") {
+            Var tagArgs = List<String>();
+            tagArgs.Add(list.Value);
+            tagArgs.Add("1");
+            This.CallRuntime("rx_list_add", tagArgs, True);
+        }
+        If (name == "None" || name == "Error" || name == "Failure") {
+            Var tagArgs = List<String>();
+            tagArgs.Add(list.Value);
+            tagArgs.Add("0");
+            This.CallRuntime("rx_list_add", tagArgs, True);
+        }
         If (name == "Some") { Return This.Pair(list.Value, "Option<" + typeName + ">"); }
+        If (name == "None") { Return This.Pair(list.Value, "Option<Int>"); }
         If (name == "Success") { Return This.Pair(list.Value, "Result<" + typeName + ", String>"); }
+        If (name == "Error" || name == "Failure") { Return This.Pair(list.Value, "Result<Int, String>"); }
         Return This.Pair(list.Value, "(" + typeName + ")");
     }
 
@@ -2996,10 +3293,12 @@ Public Class NativeProgram {
     }
 
     Private Function PrintKind(String typeName) -> Int {
-        If (typeName == "String") { Return 1; }
-        If (typeName == "Bool") { Return 2; }
-        If (typeName == "Char") { Return 3; }
-        If (This.IsFloatType(typeName)) { Return 4; }
+        String clean = typeName;
+        If (clean.EndsWith("?")) { clean = clean.Substring(0, clean.Length() - 1); }
+        If (clean == "String") { Return 1; }
+        If (clean == "Bool") { Return 2; }
+        If (clean == "Char") { Return 3; }
+        If (This.IsFloatType(clean)) { Return 4; }
         Return 0;
     }
 
@@ -3222,7 +3521,7 @@ Public Class NativeProgram {
     }
 
     Private Function IsStringMethod(String name) -> Bool {
-        Return name == "Length" || name == "Substring" || name == "GetChar" || name == "ToLower" || name == "ToUpper" || name == "StartsWith" || name == "EndsWith" || name == "Replace" || name == "IndexOf" || name == "LastIndexOf" || name == "Contains" || name == "ToInt" || name == "ToFloat" || name == "ToString";
+        Return name == "Length" || name == "Substring" || name == "GetChar" || name == "ToLower" || name == "ToUpper" || name == "Trim" || name == "Split" || name == "StartsWith" || name == "EndsWith" || name == "Replace" || name == "IndexOf" || name == "LastIndexOf" || name == "Contains" || name == "ToInt" || name == "ToFloat" || name == "ToString";
     }
 
     Private Function IsListMethod(String name) -> Bool {

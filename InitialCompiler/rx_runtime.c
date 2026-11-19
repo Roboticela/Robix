@@ -976,3 +976,119 @@ int64_t rx_Input(void) {
     }
     return rx_box(line);
 }
+
+int64_t rx_str_trim(int64_t text) {
+    const char *raw = rx_cstr(text);
+    int64_t len = (int64_t)strlen(raw);
+    int64_t start = 0;
+    while (start < len && (raw[start] == ' ' || raw[start] == '\t' || raw[start] == '\n' || raw[start] == '\r')) {
+        start = start + 1;
+    }
+    int64_t end = len;
+    while (end > start && (raw[end - 1] == ' ' || raw[end - 1] == '\t' || raw[end - 1] == '\n' || raw[end - 1] == '\r')) {
+        end = end - 1;
+    }
+    return rx_box(rx_copy_n(raw + start, end - start));
+}
+
+int64_t rx_str_split(int64_t text, int64_t sep) {
+    int64_t list = rx_list_new();
+    const char *raw = rx_cstr(text);
+    const char *delim = rx_cstr(sep);
+    int64_t raw_len = (int64_t)strlen(raw);
+    int64_t delim_len = (int64_t)strlen(delim);
+    if (delim_len == 0) {
+        rx_list_add(list, rx_box(rx_copy_n(raw, raw_len)));
+        return list;
+    }
+    int64_t start = 0;
+    while (start <= raw_len) {
+        const char *found = strstr(raw + start, delim);
+        if (found == NULL) {
+            rx_list_add(list, rx_box(rx_copy_n(raw + start, raw_len - start)));
+            break;
+        }
+        int64_t pos = (int64_t)(found - raw);
+        rx_list_add(list, rx_box(rx_copy_n(raw + start, pos - start)));
+        start = pos + delim_len;
+    }
+    return list;
+}
+
+void rx_list_sort(int64_t list) {
+    RxList *ptr = (RxList *)(uintptr_t)list;
+    if (ptr == NULL || ptr->count < 2) {
+        return;
+    }
+    for (int64_t i = 0; i < ptr->count - 1; i++) {
+        for (int64_t j = i + 1; j < ptr->count; j++) {
+            if (ptr->items[j] < ptr->items[i]) {
+                int64_t tmp = ptr->items[i];
+                ptr->items[i] = ptr->items[j];
+                ptr->items[j] = tmp;
+            }
+        }
+    }
+}
+
+void rx_list_reverse(int64_t list) {
+    RxList *ptr = (RxList *)(uintptr_t)list;
+    if (ptr == NULL || ptr->count < 2) {
+        return;
+    }
+    int64_t left = 0;
+    int64_t right = ptr->count - 1;
+    while (left < right) {
+        int64_t tmp = ptr->items[left];
+        ptr->items[left] = ptr->items[right];
+        ptr->items[right] = tmp;
+        left = left + 1;
+        right = right - 1;
+    }
+}
+
+int64_t rx_math_gcd(int64_t a, int64_t b) {
+    if (a < 0) { a = -a; }
+    if (b < 0) { b = -b; }
+    while (b != 0) {
+        int64_t t = a % b;
+        a = b;
+        b = t;
+    }
+    return a;
+}
+
+int64_t rx_math_isqrt(int64_t n) {
+    if (n <= 0) {
+        return 0;
+    }
+    int64_t r = 0;
+    while ((r + 1) * (r + 1) <= n) {
+        r = r + 1;
+    }
+    return r;
+}
+
+int64_t rx_file_name(int64_t path) {
+    const char *raw = rx_cstr(path);
+    const char *slash = strrchr(raw, '/');
+    if (slash == NULL) {
+        return rx_box(rx_copy_n(raw, (int64_t)strlen(raw)));
+    }
+    return rx_box(rx_copy_n(slash + 1, (int64_t)strlen(slash + 1)));
+}
+
+int64_t rx_file_join(int64_t dir, int64_t name) {
+    const char *d = rx_cstr(dir);
+    const char *n = rx_cstr(name);
+    int64_t dlen = (int64_t)strlen(d);
+    int64_t nlen = (int64_t)strlen(n);
+    if (dlen == 0) {
+        return rx_box(rx_copy_n(n, nlen));
+    }
+    if (d[dlen - 1] == '/') {
+        return rx_str_concat(dir, name);
+    }
+    int64_t slash = rx_box(rx_copy_n("/", 1));
+    return rx_str_concat(rx_str_concat(dir, slash), name);
+}

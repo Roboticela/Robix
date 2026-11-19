@@ -5,8 +5,10 @@ Import Robix.Core;
 
 
 @Deprecated("Use RoboController instead.")
+@JsonSerializable()
 Public Class RoboLegacyController {
-    Public String Name;
+    Private String robotId;
+    Public String name;
 }
 
 @Author("Robix Team")

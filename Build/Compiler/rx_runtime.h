@@ -90,5 +90,13 @@ int64_t rx_env_get(int64_t name);
 int64_t rx_process(int64_t command);
 int64_t rx_args(int32_t argc, char **argv);
 void rx_finish_result(int64_t result);
+int64_t rx_str_trim(int64_t text);
+int64_t rx_str_split(int64_t text, int64_t sep);
+void rx_list_sort(int64_t list);
+void rx_list_reverse(int64_t list);
+int64_t rx_math_gcd(int64_t a, int64_t b);
+int64_t rx_math_isqrt(int64_t n);
+int64_t rx_file_name(int64_t path);
+int64_t rx_file_join(int64_t dir, int64_t name);
 
 #endif

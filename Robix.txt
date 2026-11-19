@@ -13,33 +13,6 @@ The lagnuage will can have both entry point from procedural with private int mai
 // Their must be Filename.test.rx file for each and every file which will have tests for each function in that file and if this file not exists or tests not exists then interpreter will ignore while the compiler will give error.
 
 
-Package Robotics.SyntaxExamples;
-
-Import Robix.Core;
-Import Robix.Math As Math;
-Import Robix.String As RoboString;
-// Import Robix.Math.*; makes its public names directly available.
-// Without an alias or wildcard import, use Robix.Math.IntegerSquareRoot(...).
-
-// -----------------------------------------------------------------------------
-// 0. Packages, imports, and permissions
-// -----------------------------------------------------------------------------
-
-Package Robotics.SyntaxExamples {
-    Permissions {
-        Robix.Core;
-        Robix.Math;
-        Robix.String;
-    }
-}
-
-// Import rules:
-// - Import Module;        use Module.Member(...).
-// - Import Module As M;   use M.Member(...).
-// - Import Module.*;      use public members directly.
-// - Explicit imports avoid accidental name collisions.
-// - Private members are never imported by another package.
-
 // -----------------------------------------------------------------------------
 // 1. Literals and constants
 // -----------------------------------------------------------------------------
@@ -118,52 +91,6 @@ Struct RoboResult<TValue, TError> {
     Public TValue? Value;
     Public TError? Error;
 }
-
-// -----------------------------------------------------------------------------
-// 5. Operators, expressions, custom operators, and operator functions
-// -----------------------------------------------------------------------------
-
-// Every built-in operator has a callable function form.
-Bool same = Operators.Equal(10, 10);
-Int added = Operators.Add(10, 20);
-Int negated = Operators.Negate(10);
-Bool ordered = Operators.GreaterThan(20, 10);
-Bool both = Operators.And(True, False);
-
-// A custom operator is declared once and can be used in either form.
-// Precedence and associativity must be declared to avoid ambiguity.
-Operator "⊗" Precedence 70 LeftAssociative
-    Function RoboMultiply(Int left, Int right) -> Int {
-    Return left * right;
-}
-
-// Both expressions call the same implementation.
-Int customProduct = 6 ⊗ 7;
-Int customProductCall = RoboMultiply(6, 7);
-Int operatorCall = Operators.Call("⊗", 6, 7);
-
-// Operator implementations may be attached to user-defined types through
-// Operator blocks in classes, structs, enums, interfaces, traits, or services.
-Struct RoboVector {
-    Public Float X;
-    Public Float Y;
-
-    Public Operator +(RoboVector left, RoboVector right) -> RoboVector {
-        Return RoboVector { X: left.X + right.X, Y: left.Y + right.Y };
-    }
-
-    Public Operator ==(RoboVector left, RoboVector right) -> Bool {
-        Return left.X == right.X And left.Y == right.Y;
-    }
-}
-
-RoboVector vectorA = RoboVector { X: 1, Y: 2 };
-RoboVector vectorB = RoboVector { X: 3, Y: 4 };
-RoboVector vectorC = vectorA + vectorB;
-RoboVector vectorD = Operators.Add(vectorA, vectorB);
-
-// Operator overloads must obey type-safety rules. Implementations are resolved
-// consistently for classes, structs, interfaces, traits, enums, and services.
 
 // -----------------------------------------------------------------------------
 // 6. Functions, arguments, documentation, and return values
@@ -440,7 +367,6 @@ Public Iterator Function RoboCount(Int start, Int end) -> Int {
 
 // Anonymous functions and lambdas.
 Let noNameTask = Task.Run(Function() => RoboWorker(1));
-Let inlineResult = [1, 2, 3].Map(Function(n) => n * 2);
 
 // Partial application and function composition.
 Let addTen = RoboAdd.Partial(10);
@@ -586,20 +512,6 @@ Connect RoboStatusService;
 // 8. Statements, conditions, loops, and command-line arguments
 // -----------------------------------------------------------------------------
 
-Match resultValue {
-    Success(value) => Print(value);
-    Error(message) => Print(message);
-    _ => Print(0);
-}
-
-// Console arguments are available through Main(args) or the Args global.
-Public Function Main(Args<String> args) -> ExitCode {
-    For argument In args {
-        Print(argument);
-    }
-    Return ExitCode.Success;
-}
-
 // Applications may be launched with console controls, for example:
 // robix run RobotApp --console=off
 // robix run RobotApp --console=on --port=8080
@@ -669,209 +581,10 @@ sharedCounter.Increment();
 Task task = Task.Run(Function() => RoboWorker(1));
 Await task;
 
-// -----------------------------------------------------------------------------
-// 11. Built-in functions, methods, and conversions
-// -----------------------------------------------------------------------------
-
-String inputText = Input();
-Int parsedInt = Input<Int>();
-Assert(enabled);
-AssertTrue(enabled);
-AssertFalse(!enabled);
-AssertEqual(42, 42);
-AssertNear(3.14, 3.14159265, 0.01);
-Success(5);
-Error("failed");
-Some(7);
-None();
-Tuple(1, 2);
-
-String namesText = "Robix".ToString();
-Int nameLength = message.Length();
-Int count = sensorReads.Count();
-Enumerate<Int> entries = sensorReads.Enumerate();
-
-// Common string helpers.
-Bool hasRobot = message.Contains("Robix");
-String upperName = robotName.ToUpper();
-String lowerName = robotName.ToLower();
-String trimmed = "  robot  ".Trim();
-Array<String> parts = "a,b,c".Split(",");
-String replaced = message.Replace("Robix", "Robix Language");
-
-// Common collection helpers.
-sensorReads.Add(5);
-Bool containsValue = sensorReads.Contains(3);
-sensorReads.Sort();
-sensorReads.Reverse();
-Let doubled = sensorReads.Map(Function(n) => n * 2);
-Let filtered = sensorReads.Filter(Function(n) => n > 2);
-Int reduced = sensorReads.Reduce(0, Function(total, n) => total + n);
-
-// -----------------------------------------------------------------------------
-// 12. Standard library usage
-// -----------------------------------------------------------------------------
-
-Int absolute = Math.Abs(-12);
-Int minimum = Math.Min(10, 30);
-Int maximum = Math.Max(10, 30);
-Int clamped = Math.Clamp(42, 10, 30);
-Int gcdValue = Math.Gcd(48, 18);
-Int sqrtValue = Math.IntegerSquareRoot(81);
-
-String numberAsText = RoboString.FormatInt(1234);
-String digitText = RoboString.Digit(7);
-
-String fileName = Robix.Files.Name("/tmp/robot.rx");
-String joined = Robix.Files.Join("/tmp", "robot.rx");
-Bool exists = Robix.Files.Exists("/tmp/robot.rx");
-
 // Standard library namespaces should provide discoverable, documented APIs
 // for math, strings, collections, files, paths, dates, time, networking,
 // serialization, logging, processes, environment, cryptography, testing,
 // reflection, diagnostics, hardware, and concurrency.
-
-// -----------------------------------------------------------------------------
-// 13. Attributes, metadata, visibility, and packages
-// -----------------------------------------------------------------------------
-
-@Deprecated("Use RoboController instead.")
-@JsonSerializable()
-Public Class RoboLegacyController {
-    Private String robotId;
-    Public String name;
-}
-
-@Author("Robix Team")
-@Version("1.0")
-@ThreadSafe
-Public Class RoboController {
-    Public Function Start() -> Void {
-        Print("Started");
-    }
-}
-
-// Attributes may apply to packages, modules, classes, structs, enums,
-// interfaces, traits, services, functions, properties, fields, and parameters.
-// Custom attributes can be declared and inspected through reflection.
-
-// -----------------------------------------------------------------------------
-// 14. Type checks, casts, and pattern matching
-// -----------------------------------------------------------------------------
-
-Var valueAsFloat = 3.0f32;
-Int castValue = Int(valueAsFloat);
-Float castFloat = Float(42);
-String castString = String(42);
-
-If (valueAsFloat Is Float) {
-    Print("float");
-}
-
-If (universal Is String textValue) {
-    Print(textValue);
-}
-
-Let checkedCast = universal.As<String>();
-Let optionalCast = universal.AsOptional<String>();
-Let requiredCast = universal.Cast<String>();
-
-// -----------------------------------------------------------------------------
-// 15. Nullability, Option, Result, and error handling
-// -----------------------------------------------------------------------------
-
-String? optionalUser = "RoboUser";
-If (optionalUser != Null) {
-    Print(optionalUser);
-}
-
-Match optionalValue {
-    Some(value) => Print(value);
-    None() => Print("No value");
-}
-
-Match resultValue {
-    Success(score) => Print(score);
-    Error(message) => Print(message);
-}
-
-// ? propagates errors from functions returning Result or Option.
-Public Function RoboReadBattery() -> Result<Int, RoboError> {
-    Int value = Hardware.ReadBattery()?;
-    Return Success(value);
-}
-
-// -----------------------------------------------------------------------------
-// 16. Standard execution results and custom exit codes
-// -----------------------------------------------------------------------------
-
-// Programs return a standard ExitCode rather than unexplained integers.
-// The process still receives an integer exit code from the runtime.
-Enum ExitCode {
-    Success = 0,
-    SuccessfulExecution = 0,
-    WarningExecution = 1,
-    ErrorExecution = 2,
-    FatalErrorExecution = 3,
-    InvalidArguments = 4,
-    PermissionDenied = 5,
-    ResourceUnavailable = 6,
-    Custom(Int code)
-}
-
-Struct ExecutionResult {
-    Public ExitCode Code;
-    Public String Message;
-    Public Any? Details;
-
-    Public Constructor(ExitCode code, String message, Any? details = Null) {
-        Code = code;
-        Message = message;
-        Details = details;
-    }
-}
-
-// Return a standard result.
-Public Function RoboInitialize() -> ExecutionResult {
-    If (!Hardware.IsAvailable()) {
-        Return ExecutionResult(
-            ExitCode.ResourceUnavailable,
-            "Required hardware is unavailable."
-        );
-    }
-    Return ExecutionResult(ExitCode.Success, "Initialization completed.");
-}
-
-// Define custom application-specific codes and messages.
-Enum RoboAppExitCode {
-    Success = 0,
-    ConfigurationMissing = 100,
-    SensorFailure = 101,
-    MotorFailure = 102,
-    Custom(Int code)
-}
-
-Public Function RoboRun() -> ExecutionResult {
-    If (!Files.Exists("robot.config")) {
-        Return ExecutionResult(
-            ExitCode.Custom(100),
-            "Configuration file robot.config was not found.",
-            { ApplicationCode: RoboAppExitCode.ConfigurationMissing }
-        );
-    }
-    Return ExecutionResult(ExitCode.Success, "Robot started successfully.");
-}
-
-// Legacy integer returns remain supported for compatibility, but using a raw
-// integer in Main produces a warning recommending ExitCode or ExecutionResult.
-// Strict mode may reject undocumented raw exit codes.
-Public Function LegacyMain() -> Int {
-    Return 0; // Warning: prefer ExitCode.Success.
-}
-
-// The runtime maps ExecutionResult.Code to the process exit integer and makes
-// the message/details available to the host, logs, or caller. A message is not
-// itself encoded into the operating-system integer exit status.
 
 // -----------------------------------------------------------------------------
 // 17. More declarations, aliases, and advanced type features
@@ -920,24 +633,6 @@ Public Macro RoboTwice(body) {
 TypeInfo controllerType = Reflect.TypeOf(RoboController);
 Any instance = Reflect.Create(controllerType);
 Reflect.Invoke(instance, "Start");
-
-// -----------------------------------------------------------------------------
-// 18. Entry point
-// -----------------------------------------------------------------------------
-
-Public Function Main(Args<String> args) -> ExecutionResult {
-    Print("Robix syntax examples loaded.");
-
-    If (args.Contains("--help")) {
-        Print("Usage: RobotApp [--console=on|off]");
-        Return ExecutionResult(ExitCode.Success, "Help displayed.");
-    }
-
-    Return ExecutionResult(
-        ExitCode.Success,
-        "Program completed successfully."
-    );
-}
 
 // -----------------------------------------------------------------------------
 // 19. Language design rules summary

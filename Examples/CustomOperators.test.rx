@@ -1,20 +1,17 @@
 // Tests for Examples/CustomOperators.rx.
 
 Test RoboMultiply {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "multiply six and seven" {
+        Input: left = 6, right = 7;
+        Constraint: left > 0 And right > 0;
+        Processing: left * right;
+        Output: 42;
+    }
 }
 
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RoboMultiply {
-    Input: left = 6, right = 7;
-    Constraint: left > 0 And right > 0;
-    Processing: left * right;
-    Output: 42;
+    Case "run custom operators" {
+        Input: args = [];
+        Output: 0;
+    }
 }

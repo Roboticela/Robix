@@ -1,18 +1,44 @@
-// Casts, type tests, Option, Result, and null-coalescing.
+// Casts, type tests, Option, Result, error propagation, and null-coalescing.
 Package Robotics.Patterns;
 
 Import Robix.Core;
 
 
+Public Function ReadBatteryLevel() -> Result<Int, String>
+Explain {
+    Description: "Return a successful sample battery reading.";
+    Input: None;
+    Processing: "Wrap 85 in Success.";
+    Output: "A Result containing 85.";
+} {
+    Return Success(85);
+}
+
+Public Function RoboReadBattery() -> Result<Int, String>
+Explain {
+    Description: "Propagate battery reading through '?'.";
+    Input: None;
+    Processing: "Unwrap ReadBatteryLevel with '?' and return Success.";
+    Output: "A Result containing the battery level.";
+} {
+    Int value = ReadBatteryLevel()?;
+    Return Success(value);
+}
+
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Narrow values with type tests and match Option.";
+    Description: "Narrow values with type tests, convert types, and match Option and Result.";
     Input: args = "Command-line arguments";
-    Processing: "Cast a float, test a dynamic payload, and match Some.";
-    Output: "The value stored in the option.";
+    Processing: "Exercise Int/Float/String casts, Is bindings, As/AsOptional/Cast, null checks, Option, Result, and '?'.";
+    Output: "The integer cast result.";
 } {
     Var valueAsFloat = 3.0f32;
     Int castValue = Int(valueAsFloat);
+    Float castFloat = Float(42);
+    String castString = String(42);
+    Print(castFloat);
+    Print(castString);
+
     Var universal: Any = "text";
     If (valueAsFloat Is Float) {
         Print("float");
@@ -21,17 +47,42 @@ Explain {
         Print(textValue);
     }
     Let checkedCast = universal.As<String>();
+    Let optionalCast = universal.AsOptional<String>();
+    Let requiredCast = universal.Cast<String>();
+    Print(checkedCast);
+    Print(optionalCast);
+    Print(requiredCast);
+
     String? optionalUser = "RoboUser";
     If (optionalUser != Null) {
         Print(optionalUser);
     }
     Let displayName = optionalUser ?? "Unknown";
+    Print(displayName);
+
     Option<Int> optionalValue = Some(5);
     Match optionalValue {
-        Some(value) => Print(value),
-        None() => Print("No value"),
-        _ => Print("other")
+        Some(value) => Print(value);
+        None() => Print("No value");
     }
-    Print(displayName);
+    Option<Int> missingValue = None();
+    Match missingValue {
+        Some(value) => Print(value);
+        None() => Print("No value");
+    }
+
+    Result<Int, String> resultValue = Success(95);
+    Match resultValue {
+        Success(score) => Print(score);
+        Error(message) => Print(message);
+    }
+    Result<Int, String> errorResult = Error("Sensor timeout");
+    Match errorResult {
+        Success(score) => Print(score);
+        Error(message) => Print(message);
+    }
+
+    Result<Int, String> battery = RoboReadBattery();
+    Print(battery.Value());
     Return castValue;
 }

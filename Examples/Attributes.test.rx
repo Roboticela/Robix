@@ -1,13 +1,15 @@
 // Tests for Examples/Attributes.rx.
 
 Test Start {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "start controller" {
+        Input:;
+        Assert: True;
+    }
 }
 
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "run attributes" {
+        Input: args = [];
+        Output: 0;
+    }
 }

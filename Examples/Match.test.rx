@@ -1,7 +1,8 @@
 // Tests for Examples/Match.rx.
 
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "run match" {
+        Input: args = [];
+        Output: 0;
+    }
 }

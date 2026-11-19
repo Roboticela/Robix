@@ -1,27 +1,108 @@
-// Built-in conversions, collection helpers, and math functions.
+// Built-in functions, assertions, conversions, string/collection helpers, and standard library.
 Package Robotics.Builtins;
 
 Import Robix.Core;
 Import Robix.Math As Math;
+Import Robix.String As RoboString;
+Import Robix.Files;
 
 
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Call built-in text, collection, and math operations.";
+    Description: "Exercise built-in functions, assertions, string/collection helpers, and standard library APIs.";
     Input: args = "Command-line arguments";
-    Processing: "Transform text, map an array, and take an absolute value.";
-    Output: "The absolute value.";
+    Processing: "Run assertions, wrappers, string/list methods, Math helpers, RoboString formatting, and Robix.Files utilities.";
+    Output: "Zero after printing results.";
 } {
-    String message = "Robix";
-    Print(message);
+    Bool enabled = True;
+    Assert(enabled);
+    AssertTrue(enabled);
+    AssertFalse(!enabled);
     AssertEqual(42, 42);
-    String upperName = message.ToUpper();
-    Array<Int> sensorReads = [1, 2, 3];
+    AssertNear(3.14, 3.14159265, 0.01);
+
+    Success(5);
+    Error("failed");
+    Some(7);
+    None();
+    Tuple(1, 2);
+
+    String message = "Robix robot";
+    String robotName = "Robot";
+    String namesText = "Robix".ToString();
+    Int nameLength = message.Length();
+
+    Array<Int> sensorReads = [3, 1, 2];
+    Int initialCount = sensorReads.Count();
+    Enumerate<Int> entries = sensorReads.Enumerate();
+    For (idx, val) In entries {
+        Print(idx);
+        Print(val);
+    }
+
+    Bool hasRobot = message.Contains("Robix");
+    String upperName = robotName.ToUpper();
+    String lowerName = robotName.ToLower();
+    String trimmed = "  robot  ".Trim();
+    Array<String> parts = "a,b,c".Split(",");
+    String replaced = message.Replace("Robix", "Robix Language");
+
     sensorReads.Add(5);
-    Let doubled = sensorReads.Map((Int n) => n * 2);
+    Bool containsValue = sensorReads.Contains(3);
+    sensorReads.Sort();
+    Print(sensorReads[0]);
+    sensorReads.Reverse();
+    Print(sensorReads[0]);
+
+    Let doubled = sensorReads.Map(Function(n) => n * 2);
+    Let filtered = sensorReads.Filter(Function(n) => n > 2);
+    Int reduced = sensorReads.Reduce(0, Function(total, n) => total + n);
+    Let inlineResult = [1, 2, 3].Map(Function(n) => n * 2);
+
     Int absolute = Math.Abs(-12);
     Int minimum = Math.Min(10, 30);
+    Int maximum = Math.Max(10, 30);
+    Int clamped = Math.Clamp(42, 10, 30);
+    Int gcdValue = Math.Gcd(48, 18);
+    Int sqrtValue = Math.IntegerSquareRoot(81);
+
+    String numberAsText = RoboString.FormatInt(1234);
+    String digitText = RoboString.Digit(7);
+
+    String fileName = Robix.Files.Name("/tmp/robot.rx");
+    String joined = Robix.Files.Join("/tmp", "robot.rx");
+    Bool exists = Robix.Files.Exists("/tmp/robot.rx");
+
+    String inputText = Input();
+    Int parsedInt = Input<Int>();
+
+    Print(namesText);
+    Print(nameLength);
+    Print(initialCount);
+    Print(hasRobot);
     Print(upperName);
+    Print(lowerName);
+    Print(trimmed);
+    Print(parts.Count());
+    Print(parts[1]);
+    Print(replaced);
+    Print(containsValue);
+    Print(doubled[0]);
+    Print(filtered.Count());
+    Print(reduced);
+    Print(inlineResult[2]);
     Print(absolute);
-    Return absolute;
+    Print(minimum);
+    Print(maximum);
+    Print(clamped);
+    Print(gcdValue);
+    Print(sqrtValue);
+    Print(numberAsText);
+    Print(digitText);
+    Print(fileName);
+    Print(joined);
+    Print(exists);
+    Print(inputText);
+    Print(parsedInt);
+    Return 0;
 }

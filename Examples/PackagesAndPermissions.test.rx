@@ -1,7 +1,8 @@
 // Tests for Examples/PackagesAndPermissions.rx.
 
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "run packages" {
+        Input: args = [];
+        Output: 0;
+    }
 }

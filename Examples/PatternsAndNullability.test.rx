@@ -1,7 +1,22 @@
 // Tests for Examples/PatternsAndNullability.rx.
 
+Test ReadBatteryLevel {
+    Case "read battery level" {
+        Input:;
+        Assert: Result.Value() == 85;
+    }
+}
+
+Test RoboReadBattery {
+    Case "propagate battery level" {
+        Input:;
+        Assert: Result.Value() == 85;
+    }
+}
+
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "run patterns and nullability" {
+        Input: args = [];
+        Output: 3;
+    }
 }

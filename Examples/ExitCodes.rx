@@ -1,4 +1,4 @@
-// Standard exit codes and execution results.
+// Standard exit codes, custom enum codes, and execution results.
 Package Robotics.Exit;
 
 Import Robix.Core;
@@ -6,18 +6,82 @@ Import Robix.Core;
 
 Enum ExitCode {
     Success = 0,
+    SuccessfulExecution = 0,
     WarningExecution = 1,
     ErrorExecution = 2,
+    FatalErrorExecution = 3,
+    InvalidArguments = 4,
+    PermissionDenied = 5,
+    ResourceUnavailable = 6,
     Custom(Int code)
+}
+
+Enum RoboAppExitCode {
+    Success = 0,
+    ConfigurationMissing = 100,
+    SensorFailure = 101,
+    MotorFailure = 102
+}
+
+Public Function RoboInitialize(Bool hardwareAvailable = True) -> ExecutionResult
+Explain {
+    Description: "Initialize hardware and return a standard execution result.";
+    Input: hardwareAvailable = "True when required hardware is present";
+    Processing: "Return ResourceUnavailable when absent or Success when available.";
+    Output: "An ExecutionResult describing initialization.";
+} {
+    If (!hardwareAvailable) {
+        Return ExecutionResult(
+            ExitCode.ResourceUnavailable,
+            "Required hardware is unavailable."
+        );
+    }
+    Return ExecutionResult(ExitCode.Success, "Initialization completed.");
+}
+
+Public Function RoboRun() -> ExecutionResult
+Explain {
+    Description: "Start the robot using its config file when present.";
+    Input: None;
+    Processing: "Check whether robot.config exists and return a structured result.";
+    Output: "An ExecutionResult with details.";
+} {
+    If (!Files.Exists("robot.config")) {
+        Return ExecutionResult(
+            ExitCode.Custom(100),
+            "Configuration file robot.config was not found.",
+            { ApplicationCode: RoboAppExitCode.ConfigurationMissing }
+        );
+    }
+    Return ExecutionResult(ExitCode.Success, "Robot started successfully.");
+}
+
+Public Function LegacyMain() -> Int
+Explain {
+    Description: "Demonstrate legacy raw integer exit status compatibility.";
+    Input: None;
+    Processing: "Return zero directly.";
+    Output: "Zero.";
+} {
+    Return 0;
 }
 
 Public Function Main(Args<String> args) -> ExecutionResult
 Explain {
     Description: "Return a standard successful execution result.";
     Input: args = "Command-line arguments";
-    Processing: "Report success when help is absent, and success after printing help too.";
+    Processing: "Exercise RoboInitialize, RoboRun, and LegacyMain, then report success.";
     Output: "An ExecutionResult whose code is Success.";
 } {
+    ExecutionResult initResult = RoboInitialize(True);
+    ExecutionResult runResult = RoboRun();
+    Int legacy = LegacyMain();
+    Print(initResult.Code);
+    Print(initResult.Message);
+    Print(runResult.Code);
+    Print(runResult.Message);
+    Print(RoboAppExitCode.ConfigurationMissing);
+    Print(legacy);
     If (args.Contains("--help")) {
         Print("Usage: ExitCodes [--help]");
         Return ExecutionResult(ExitCode.Success, "Help displayed.");
