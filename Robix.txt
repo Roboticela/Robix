@@ -111,7 +111,6 @@ Ref<Int> addressOfValue = Ref(motorSpeed);
 Ref<Mut Int> mutableAddress = Ref(Mut motorSpeed);
 
 Function<Int, Int, Int> mathFunc = RoboAdd;
-Enumerate<Int> enumerateItems = [1, 2, 3].Enumerate();
 
 // Generic constraints and user-defined generic types.
 Struct RoboResult<TValue, TError> {
@@ -170,26 +169,6 @@ RoboVector vectorD = Operators.Add(vectorA, vectorB);
 // 6. Functions, arguments, documentation, and return values
 // -----------------------------------------------------------------------------
 
-Public Function RoboAdd(Int a, Int b) -> Int
-Explain {
-    Description: "Add two integers.";
-    Input: a = "Left operand", b = "Right operand";
-    Processing: "Add the operands.";
-    Output: "The sum.";
-} {
-    Return a + b;
-}
-
-Public Function RoboSetName(String name) -> Void
-Explain {
-    Description: "Set the robot's display name.";
-    Input: name = "New display name";
-    Processing: "Store the supplied name.";
-    Output: "No return value.";
-} {
-    robotName = name;
-}
-
 Public Function RoboUpdate(Mut Int speed, Ref<Mut String> name) -> Void
 Explain {
     Description: "Update a speed and a referenced name.";
@@ -200,74 +179,6 @@ Explain {
     speed = speed + 10;
     name.Value = "RoboRunner";
 }
-
-Public Function RoboCompute(Int value = 0, Int scale = 1) -> Int
-Explain {
-    Description: "Multiply a value by a scale.";
-    Input: value = "Value to multiply", scale = "Multiplier";
-    Processing: "Multiply value by scale.";
-    Output: "The product.";
-} {
-    Return value * scale;
-}
-
-// Named and optional arguments.
-Int defaultResult = RoboCompute();
-Int namedResult = RoboCompute(scale: 3, value: 10);
-
-// Variadic arguments support any number of values, with typed and Any forms.
-Public Function RoboSum(Params<Int> values) -> Int
-Explain {
-    Description: "Sum any number of integers.";
-    Input: values = "Zero or more integer values";
-    Processing: "Add every supplied value.";
-    Output: "The total.";
-} {
-    Int total = 0;
-    For value In values {
-        total += value;
-    }
-    Return total;
-}
-
-Int manyValues = RoboSum(1, 2, 3, 4, 5);
-Int fromArray = RoboSum(...sensorReads);
-
-Public Function RoboLog(Params<Any> values) -> Void
-Explain {
-    Description: "Print any number of values.";
-    Input: values = "Values of any supported type";
-    Processing: "Convert each value to text and print it.";
-    Output: "No return value.";
-} {
-    For value In values {
-        Print(value.ToString());
-    }
-}
-
-// Generic functions.
-Public Function RoboIdentity<T>(T value) -> T
-Explain {
-    Description: "Return the supplied value unchanged.";
-    Input: value = "Value of any inferred type";
-    Processing: "Return the same value.";
-    Output: "The original value.";
-} {
-    Return value;
-}
-
-// Multiple return values and tuple deconstruction.
-Public Function RoboMinMax(Int a, Int b) -> (Int min, Int max)
-Explain {
-    Description: "Return the smaller and larger values.";
-    Input: a = "First value", b = "Second value";
-    Processing: "Compare both values.";
-    Output: "A tuple containing min and max.";
-} {
-    Return (Math.Min(a, b), Math.Max(a, b));
-}
-
-Let (minimumValue, maximumValue) = RoboMinMax(10, 30);
 
 // Async, Promise/Task, timers, cancellation, and scheduling.
 // Robix uses Task<T> as its standard asynchronous operation type. Promise<T>
@@ -527,18 +438,9 @@ Public Iterator Function RoboCount(Int start, Int end) -> Int {
     }
 }
 
-Public Consteval Function RoboSquare(Int n) -> Int {
-    Return n * n;
-}
-
 // Anonymous functions and lambdas.
-Let anonymousAdd = Function(Int a, Int b) => a + b;
-Let square = (Int n) => n * n;
 Let noNameTask = Task.Run(Function() => RoboWorker(1));
 Let inlineResult = [1, 2, 3].Map(Function(n) => n * 2);
-Let callback = Function(value) {
-    Print(value);
-};
 
 // Partial application and function composition.
 Let addTen = RoboAdd.Partial(10);
@@ -688,51 +590,6 @@ Match resultValue {
     Success(value) => Print(value);
     Error(message) => Print(message);
     _ => Print(0);
-}
-
-For (Int index = 0; index < 10; index++) {
-    Print(index);
-}
-
-For robot In robotNames {
-    Print(robot);
-}
-
-For (index, value) In sensorReads.Enumerate() {
-    Print(index);
-    Print(value);
-}
-
-While (batteryLevel > 20) {
-    batteryLevel -= 10;
-}
-
-Do {
-    Print("Sensor check");
-} While (enabled);
-
-Repeat 5 {
-    Print("Hello");
-}
-
-Loop {
-    ReadSensor();
-    If (!enabled) {
-        Break;
-    }
-    Continue;
-}
-
-// Direct infinite loops and C/C++-style increment/decrement are supported.
-Loop {
-    ReadSensor();
-}
-For (Var i = 0; ; i++) {
-    If (i >= 10) Break;
-}
-Var backwards = 10;
-While (backwards > 0) {
-    backwards--;
 }
 
 // Console arguments are available through Main(args) or the Args global.

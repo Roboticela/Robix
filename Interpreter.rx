@@ -165,6 +165,11 @@ Public Class Interpreter {
             This.CollectFunctions(pp.Parse());
         }
         This.CollectFunctions(module);
+        For child In module.Children {
+            If (child.Kind == AstKind.Variable) {
+                This.ExecuteNode(child);
+            }
+        }
         This.RunParsedTests(tests, errors);
         This.PopScope();
         Return errors;
@@ -750,19 +755,17 @@ Public Class Interpreter {
         If (node.FlagB) {
             If (node.Initializer != Null) { This.ExecuteNode(node.Initializer); }
             While (This.signal.Length() == 0) {
-                If (node.Condition != Null && !This.IsTruthy(This.Evaluate(node.Condition))) {
+                If (node.Condition == Null && node.Initializer == Null && node.Extra == Null && node.Body == Null) {
                     Break;
                 }
-                If (node.Condition == Null && node.Initializer == Null) {
+                If (node.Condition != Null && !This.IsTruthy(This.Evaluate(node.Condition))) {
                     Break;
                 }
                 If (node.Body != Null) { This.ExecuteNode(node.Body); }
                 If (This.signal == "break") { This.signal = ""; Break; }
                 If (This.signal == "continue") { This.signal = ""; }
+                If (This.signal.Length() > 0) { Break; }
                 If (node.Extra != Null) { This.Evaluate(node.Extra); }
-                If (node.Condition == Null) {
-                    Break;
-                }
             }
         } Else If (node.Right != Null && node.Right.Kind == AstKind.Range) {
             Int start = This.Evaluate(node.Right.Left).Integer;
@@ -772,9 +775,12 @@ Public Class Interpreter {
             If (!node.Right.FlagA) {
                 last = end - 1;
             }
+            If (node.Left != Null && node.Left.Name != "") {
+                This.Define(node.Left.Name, This.MakeInt(start));
+            }
             While (cursor <= last && This.signal.Length() == 0) {
-                If (node.Left != Null) {
-                    This.Define(node.Left.Name, This.MakeInt(cursor));
+                If (node.Left != Null && node.Left.Name != "") {
+                    This.Assign(node.Left.Name, This.MakeInt(cursor));
                 }
                 If (node.Body != Null) { This.ExecuteNode(node.Body); }
                 If (This.signal == "break") { This.signal = ""; Break; }
@@ -783,9 +789,30 @@ Public Class Interpreter {
             }
         } Else {
             Value collection = This.Evaluate(node.Right);
+            If (node.Left != Null) {
+                If (node.Left.Children.Count() > 0) {
+                    For part In node.Left.Children {
+                        This.Define(part.Name, This.MakeNull());
+                    }
+                } Else If (node.Left.Name != "") {
+                    This.Define(node.Left.Name, This.MakeNull());
+                }
+            }
             For element In collection.Elements {
                 If (node.Left != Null) {
-                    This.Define(node.Left.Name, element);
+                    If (node.Left.Children.Count() > 0) {
+                        Int partIndex = 0;
+                        For part In node.Left.Children {
+                            Value partValue = This.MakeNull();
+                            If (partIndex < element.Elements.Count()) {
+                                partValue = element.Elements[partIndex];
+                            }
+                            This.Assign(part.Name, partValue);
+                            partIndex = partIndex + 1;
+                        }
+                    } Else If (node.Left.Name != "") {
+                        This.Assign(node.Left.Name, element);
+                    }
                 }
                 If (node.Body != Null) { This.ExecuteNode(node.Body); }
                 If (This.signal == "break") { This.signal = ""; Break; }
@@ -859,6 +886,7 @@ Public Class Interpreter {
             }
             Return array;
         }
+        If (node.Kind == AstKind.Lambda) { Return This.MakeFunction(node); }
         If (node.Kind == AstKind.Unary) {
             Value operand = This.Evaluate(node.Left);
             If (node.Operator == "-" && operand.Kind == ValueKind.Float) {
@@ -946,17 +974,19 @@ Public Class Interpreter {
                 Return value;
             }
             If (node.Left != Null && node.Left.Kind == AstKind.Name) {
-                Value current = This.Lookup(node.Left.Name);
-                If (node.Operator == "+=") { value = This.MakeInt(current.Integer + value.Integer); }
-                If (node.Operator == "-=") { value = This.MakeInt(current.Integer - value.Integer); }
-                If (node.Operator == "*=") { value = This.MakeInt(current.Integer * value.Integer); }
-                If (node.Operator == "/=") {
-                    If (value.Integer == 0) { value = This.MakeInt(0); }
-                    If (value.Integer != 0) { value = This.MakeInt(current.Integer / value.Integer); }
-                }
-                If (node.Operator == "%=") {
-                    If (value.Integer == 0) { value = This.MakeInt(0); }
-                    If (value.Integer != 0) { value = This.MakeInt(current.Integer % value.Integer); }
+                If (node.Operator != "=" && node.Operator != "") {
+                    Value current = This.Lookup(node.Left.Name);
+                    If (node.Operator == "+=") { value = This.MakeInt(current.Integer + value.Integer); }
+                    If (node.Operator == "-=") { value = This.MakeInt(current.Integer - value.Integer); }
+                    If (node.Operator == "*=") { value = This.MakeInt(current.Integer * value.Integer); }
+                    If (node.Operator == "/=") {
+                        If (value.Integer == 0) { value = This.MakeInt(0); }
+                        If (value.Integer != 0) { value = This.MakeInt(current.Integer / value.Integer); }
+                    }
+                    If (node.Operator == "%=") {
+                        If (value.Integer == 0) { value = This.MakeInt(0); }
+                        If (value.Integer != 0) { value = This.MakeInt(current.Integer % value.Integer); }
+                    }
                 }
                 This.Assign(node.Left.Name, value);
             }
@@ -1292,9 +1322,79 @@ Public Class Interpreter {
             }
         }
         If (function != Null) {
-            Return This.CallFunction(function, arguments);
+            Var callArgs = List<Value>();
+            Int paramIndex = 0;
+            For parameter In function.Parameters {
+                If (!parameter.FlagC) {
+                    If (parameter.FlagB) {
+                        Value pack = This.MakeArray();
+                        Int argIndex = paramIndex;
+                        While (argIndex < node.Parameters.Count() && argIndex < arguments.Count()) {
+                            AstNode rawNode = node.Parameters[argIndex];
+                            Value rawVal = arguments[argIndex];
+                            If (rawNode.FlagA) {
+                                For spreadItem In rawVal.Elements {
+                                    pack.Elements.Add(spreadItem);
+                                }
+                            } Else {
+                                pack.Elements.Add(rawVal);
+                            }
+                            argIndex = argIndex + 1;
+                        }
+                        callArgs.Add(pack);
+                    } Else {
+                        Bool matched = False;
+                        Value chosen = This.MakeNull();
+                        Int searchIndex = 0;
+                        While (searchIndex < node.Parameters.Count() && searchIndex < arguments.Count()) {
+                            If (node.Parameters[searchIndex].Name == parameter.Name && parameter.Name != "") {
+                                chosen = arguments[searchIndex];
+                                matched = True;
+                            }
+                            searchIndex = searchIndex + 1;
+                        }
+                        If (!matched && paramIndex < node.Parameters.Count() && paramIndex < arguments.Count() && node.Parameters[paramIndex].Name == "") {
+                            chosen = arguments[paramIndex];
+                            matched = True;
+                        }
+                        If (!matched && parameter.Initializer != Null) {
+                            chosen = This.Evaluate(parameter.Initializer);
+                            matched = True;
+                        }
+                        callArgs.Add(chosen);
+                    }
+                    paramIndex = paramIndex + 1;
+                }
+            }
+            Return This.CallFunction(function, callArgs);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
+            If (node.Left.Left.Name == "Math") {
+                If (node.Left.Name == "Min" && arguments.Count() >= 2) {
+                    If (arguments[0].Kind == ValueKind.Float) {
+                        If (F64Cmp(arguments[0].Integer, arguments[1].Integer) <= 0) { Return arguments[0]; }
+                        Return arguments[1];
+                    }
+                    If (arguments[0].Integer <= arguments[1].Integer) { Return arguments[0]; }
+                    Return arguments[1];
+                }
+                If (node.Left.Name == "Max" && arguments.Count() >= 2) {
+                    If (arguments[0].Kind == ValueKind.Float) {
+                        If (F64Cmp(arguments[0].Integer, arguments[1].Integer) >= 0) { Return arguments[0]; }
+                        Return arguments[1];
+                    }
+                    If (arguments[0].Integer >= arguments[1].Integer) { Return arguments[0]; }
+                    Return arguments[1];
+                }
+                If (node.Left.Name == "Abs" && arguments.Count() >= 1) {
+                    If (arguments[0].Kind == ValueKind.Float) {
+                        If (F64Cmp(arguments[0].Integer, FloatFromInt(0)) < 0) { Return This.MakeFloatBits(F64Neg(arguments[0].Integer)); }
+                        Return arguments[0];
+                    }
+                    If (arguments[0].Integer < 0) { Return This.MakeInt(0 - arguments[0].Integer); }
+                    Return arguments[0];
+                }
+            }
             Int typeIndex = This.TypeIndex(node.Left.Left.Name);
             If (typeIndex >= 0 && This.types[typeIndex].Text == "Enum") {
                 Return This.MakeEnumValue(This.types[typeIndex], node.Left.Name, arguments);
@@ -1312,6 +1412,18 @@ Public Class Interpreter {
             If (target.Kind == ValueKind.Text) {
                 Value textCall = This.TextCall(node.Left.Name, target, arguments);
                 If (textCall.Kind != ValueKind.None) { Return textCall; }
+            }
+            If (node.Left.Name == "Enumerate") {
+                Value pairs = This.MakeArray();
+                Int idx = 0;
+                For item In target.Elements {
+                    Value pair = This.MakeArray();
+                    pair.Elements.Add(This.MakeInt(idx));
+                    pair.Elements.Add(item);
+                    pairs.Elements.Add(pair);
+                    idx = idx + 1;
+                }
+                Return pairs;
             }
             If (node.Left.Name == "Enqueue" || node.Left.Name == "Push") {
                 If (arguments.Count() > 0) { target.Elements.Add(arguments[0]); }

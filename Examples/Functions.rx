@@ -1,8 +1,10 @@
-// Explain blocks, named arguments, params, tuples, and lambdas.
+// Explain blocks, default/named args, params, spread, generics, tuple returns, consteval, and lambdas.
 Package Robotics.Functions;
 
 Import Robix.Core;
 
+
+Var robotName = "Robo";
 
 Public Function RoboAdd(Int a, Int b) -> Int
 Explain {
@@ -14,6 +16,26 @@ Explain {
     Return a + b;
 }
 
+Public Function RoboSetName(String name) -> Void
+Explain {
+    Description: "Set the robot's display name.";
+    Input: name = "New display name";
+    Processing: "Store the supplied name.";
+    Output: "No return value.";
+} {
+    robotName = name;
+}
+
+Public Function RoboCompute(Int value = 0, Int scale = 1) -> Int
+Explain {
+    Description: "Multiply a value by a scale.";
+    Input: value = "Value to multiply", scale = "Multiplier";
+    Processing: "Multiply value by scale.";
+    Output: "The product.";
+} {
+    Return value * scale;
+}
+
 Public Function RoboSum(Params<Int> values) -> Int
 Explain {
     Description: "Sum any number of integers.";
@@ -23,23 +45,92 @@ Explain {
 } {
     Int total = 0;
     For value In values {
-        total = total + value;
+        total += value;
     }
     Return total;
 }
 
+Public Function RoboLog(Params<Any> values) -> Void
+Explain {
+    Description: "Print any number of values.";
+    Input: values = "Values of any supported type";
+    Processing: "Convert each value to text and print it.";
+    Output: "No return value.";
+} {
+    For value In values {
+        Print(value.ToString());
+    }
+}
+
+Public Function RoboIdentity<T>(T value) -> T
+Explain {
+    Description: "Return the supplied value unchanged.";
+    Input: value = "Value of any inferred type";
+    Processing: "Return the same value.";
+    Output: "The original value.";
+} {
+    Return value;
+}
+
+Public Function RoboMinMax(Int a, Int b) -> (Int min, Int max)
+Explain {
+    Description: "Return the smaller and larger values.";
+    Input: a = "First value", b = "Second value";
+    Processing: "Compare both values.";
+    Output: "A tuple containing min and max.";
+} {
+    Return (Math.Min(a, b), Math.Max(a, b));
+}
+
+Public Consteval Function RoboSquare(Int n) -> Int
+Explain {
+    Description: "Square an integer.";
+    Input: n = "Integer to square";
+    Processing: "Multiply n by itself.";
+    Output: "The squared integer.";
+} {
+    Return n * n;
+}
+
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Call named, variadic, and lambda functions.";
+    Description: "Exercise defaults, named args, variadics, generics, tuple unpacking, consteval, and lambdas.";
     Input: args = "Command-line arguments";
-    Processing: "Add with named arguments and square a number.";
-    Output: "The squared value.";
+    Processing: "Invoke each function form and print its results.";
+    Output: "Zero when all calls complete.";
 } {
-    Int namedResult = RoboAdd(b: 3, a: 10);
-    Int manyValues = RoboSum(1, 2, 3, 4);
-    Let square = (Int n) => n * n;
-    Int squared = square(4);
+    RoboSetName("RoboRunner");
+    Print(robotName);
+
+    Int defaultResult = RoboCompute();
+    Int namedResult = RoboCompute(scale: 3, value: 10);
+    Print(defaultResult);
     Print(namedResult);
-    Print(squared);
-    Return squared;
+
+    Int manyValues = RoboSum(1, 2, 3, 4, 5);
+    Array<Int> sensorReads = [10, 20, 30];
+    Int fromArray = RoboSum(...sensorReads);
+    Print(manyValues);
+    Print(fromArray);
+
+    RoboLog(42, "ready", True);
+
+    Print(RoboIdentity(99));
+    Print(RoboIdentity("same"));
+
+    Let (minimumValue, maximumValue) = RoboMinMax(30, 10);
+    Print(minimumValue);
+    Print(maximumValue);
+
+    Print(RoboSquare(5));
+
+    Let anonymousAdd = Function(Int a, Int b) => a + b;
+    Let square = (Int n) => n * n;
+    Let callback = Function(Int value) {
+        Print(value);
+    };
+    Print(anonymousAdd(7, 8));
+    Print(square(4));
+    callback(123);
+    Return 0;
 }

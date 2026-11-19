@@ -208,12 +208,31 @@ Public Class TypeChecker {
 
     Private Function CheckVariable(AstNode node) -> Void {
         If (node.Name.Length() == 0 && node.FlagC) {
+            String tupleType = "";
+            If (node.Initializer != Null && node.Initializer.Kind != AstKind.TupleLiteral) {
+                tupleType = This.Infer(node.Initializer);
+            }
             Int index = 0;
             For child In node.Children {
                 String typeName = "Unknown";
                 If (node.Initializer != Null && node.Initializer.Kind == AstKind.TupleLiteral && index < node.Initializer.Children.Count()) {
                     typeName = This.Infer(node.Initializer.Children[index]);
                     If (typeName == "") { typeName = "Unknown"; }
+                } Else If (tupleType.StartsWith("(") && tupleType.EndsWith(")")) {
+                    String inner = tupleType.Substring(1, tupleType.Length() - 2);
+                    Int start = 0;
+                    Int partIdx = 0;
+                    While (start <= inner.Length()) {
+                        Int comma = inner.IndexOf(", ", start);
+                        If (comma < 0) {
+                            If (partIdx == index) { typeName = inner.Substring(start); }
+                            Break;
+                        }
+                        If (partIdx == index) { typeName = inner.Substring(start, comma - start); Break; }
+                        start = comma + 2;
+                        partIdx = partIdx + 1;
+                    }
+                    If (typeName == "" || typeName == "Unknown") { typeName = "Int"; }
                 }
                 This.Define(child.Name, typeName, child.FlagA, False, True, False, False, False, child.Line, child.Column);
                 index = index + 1;
@@ -278,6 +297,10 @@ Public Class TypeChecker {
                     This.MissingType(parameter, "Parameter");
                 }
                 String parameterType = This.ResolveType(This.TypeText(parameter.Type));
+                If (parameter.FlagB) {
+                    If (parameterType == "") { parameterType = "Any"; }
+                    parameterType = "Array<" + parameterType + ">";
+                }
                 This.Define(parameter.Name, parameterType, parameter.FlagA, parameterType.EndsWith("?"), True, False, False, False, parameter.Line, parameter.Column);
             }
         }
@@ -341,8 +364,13 @@ Public Class TypeChecker {
             }
             If (node.Extra != Null) { This.Infer(node.Extra); }
         } Else {
-            If (node.Right != Null) { This.Infer(node.Right); }
-            This.BindPattern(node.Left, "Unknown");
+            String rightType = "Unknown";
+            If (node.Right != Null) { rightType = This.Infer(node.Right); }
+            If (node.Left != Null && node.Left.Name != "()" && !rightType.StartsWith("Enumerate<")) {
+                String elemType = This.ElementName(rightType);
+                If (elemType != "") { rightType = elemType; }
+            }
+            This.BindPattern(node.Left, rightType);
         }
         If (node.Body != Null) { This.CheckNode(node.Body); }
         This.PopScope();
@@ -561,7 +589,19 @@ Public Class TypeChecker {
         }
         If (node.Kind == AstKind.Lambda) {
             This.CheckFunction(node);
-            Return "Function";
+            If (node.Type != Null) { Return "Lambda:" + This.TypeText(node.Type); }
+            If (node.Left != Null) {
+                This.PushScope();
+                For parameter In node.Parameters {
+                    String pType = This.ResolveType(This.TypeText(parameter.Type));
+                    If (pType == "") { pType = "Unknown"; }
+                    This.Define(parameter.Name, pType, parameter.FlagA, False, True, False, False, False, parameter.Line, parameter.Column);
+                }
+                String bodyType = This.Infer(node.Left);
+                This.PopScope();
+                If (bodyType != "") { Return "Lambda:" + bodyType; }
+            }
+            Return "Lambda:Void";
         }
         If (node.Kind == AstKind.Match || node.Kind == AstKind.Block || node.Kind == AstKind.If) {
             This.CheckNode(node);
@@ -577,26 +617,53 @@ Public Class TypeChecker {
 
     Private Function InferCall(AstNode node) -> String {
         String name = "";
+        String symbolReturn = "";
+        String receiverType = "";
         If (node.Left != Null && node.Left.Kind == AstKind.Name) {
             name = node.Left.Name;
             Symbol? symbol = This.Find(name);
             If (symbol != Null) {
-                If (symbol.IsFunction) {
-                    If (symbol.IsAsync) {
-                        Return symbol.TypeName;
+                If (symbol.TypeName.StartsWith("Lambda:")) {
+                    symbolReturn = symbol.TypeName.Substring(7);
+                } Else If (symbol.IsFunction) {
+                    If (symbol.TypeName == "T") {
+                        symbolReturn = "T";
+                    } Else {
+                        symbolReturn = symbol.TypeName;
                     }
-                    Return symbol.TypeName;
                 }
             }
             If (symbol == Null && This.IsCamel(name)) {
                 This.Undefined(node.Left);
             }
         } Else If (node.Left != Null) {
-            This.Infer(node.Left);
+            If (node.Left.Kind == AstKind.Member && node.Left.Name == "Enumerate" && node.Left.Left != Null) {
+                receiverType = This.Infer(node.Left.Left);
+            } Else {
+                This.Infer(node.Left);
+            }
         }
         For argument In node.Parameters {
             If (argument.Left != Null) {
                 This.Infer(argument.Left);
+            }
+        }
+        If (symbolReturn == "T") {
+            Return This.CallArgumentType(node);
+        }
+        If (symbolReturn != "") {
+            Return symbolReturn;
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member) {
+            If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Math") {
+                If (node.Left.Name == "Min" || node.Left.Name == "Max" || node.Left.Name == "Abs" || node.Left.Name == "Clamp") {
+                    Return This.CallArgumentType(node);
+                }
+            }
+            If (node.Left.Name == "Enumerate") {
+                String elem = This.ElementName(receiverType);
+                If (elem == "") { elem = "Int"; }
+                Return "Enumerate<" + elem + ">";
             }
         }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
@@ -637,6 +704,7 @@ Public Class TypeChecker {
         If (wanted == "Tuple" && given.StartsWith("(")) { Return; }
         If (wanted.StartsWith("Queue<") && given.StartsWith("Queue<")) { Return; }
         If (wanted.StartsWith("Stack<") && given.StartsWith("Stack<")) { Return; }
+        If (wanted.StartsWith("Enumerate<") && given.StartsWith("Enumerate<")) { Return; }
         If (This.IsNumeric(wanted) && This.IsNumeric(given) && wanted != given) {
             This.diagnostics.TypeError("RX109", "Numeric conversion would narrow or change representation.", node.Line, node.Column, wanted, given, "Use an explicit conversion such as " + wanted + ".FromChecked.");
             Return;
@@ -702,6 +770,19 @@ Public Class TypeChecker {
 
     Private Function BindPattern(AstNode? pattern, String typeName) -> Void {
         If (pattern == Null) {
+            Return;
+        }
+        If (pattern.Name == "()" && pattern.Children.Count() > 0) {
+            Int idx = 0;
+            For child In pattern.Children {
+                String partType = "Unknown";
+                If (typeName.StartsWith("Enumerate<")) {
+                    If (idx == 0) { partType = "Int"; }
+                    Else { partType = This.ElementName(typeName); }
+                }
+                This.BindPattern(child, partType);
+                idx = idx + 1;
+            }
             Return;
         }
         If (pattern.Name.Length() > 0 && pattern.Name != "_" && pattern.Name != "()") {
@@ -954,6 +1035,7 @@ Public Class TypeChecker {
         If (typeName.StartsWith("Array<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
         If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
         If (typeName.StartsWith("Set<") && typeName.EndsWith(">")) { Return typeName.Substring(4, typeName.Length() - 5); }
+        If (typeName.StartsWith("Enumerate<") && typeName.EndsWith(">")) { Return typeName.Substring(10, typeName.Length() - 11); }
         If (typeName.StartsWith("[") && typeName.EndsWith("]")) {
             String body = typeName.Substring(1, typeName.Length() - 2);
             Int semi = body.IndexOf(";");

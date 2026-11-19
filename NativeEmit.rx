@@ -173,6 +173,7 @@ Public Class NativeProgram {
                     This.RememberModuleOperator(fileName, child);
                 }
             }
+            This.CollectLambdas(fileName, module);
             index = index + 1;
         }
         ClassInfo resultType = ClassInfo();
@@ -196,6 +197,7 @@ Public Class NativeProgram {
     } {
         This.FileName = fileName;
         This.Defined = List<String>();
+        This.CollectLambdas(fileName, module);
         String parts = This.RuntimeDeclarations();
         parts = parts + This.PrepareGlobals(module);
         For child In module.Children {
@@ -210,6 +212,11 @@ Public Class NativeProgram {
             }
             If (child.Kind == AstKind.Extern) {
                 parts = parts + This.DeclareExtern(child);
+            }
+        }
+        For record In This.Functions {
+            If (record.FileName == fileName && record.Node.Kind == AstKind.Lambda) {
+                parts = parts + This.EmitPlain(record.Node);
             }
         }
         parts = parts + This.DeclareForeign();
@@ -289,6 +296,41 @@ Public Class NativeProgram {
         record.IsExtern = node.Kind == AstKind.Extern;
         record.Node = node;
         This.Functions.Add(record);
+    }
+
+    Private Function CollectLambdas(String fileName, AstNode node) -> Void {
+        If (node.Kind == AstKind.Lambda) {
+            If (node.Name == "") {
+                node.Name = "Lambda_" + This.Functions.Count().ToString();
+            }
+            FunctionInfo existing = This.FindFunction(node.Name, fileName);
+            If (existing.Name == "") {
+                FunctionInfo record = FunctionInfo();
+                record.Name = node.Name;
+                record.FileName = fileName;
+                record.ArgumentCount = node.Parameters.Count();
+                String ret = This.TypeName(node.Type);
+                If (ret == "") {
+                    If (node.Left != Null) { ret = "Int"; }
+                    Else { ret = "Void"; }
+                }
+                record.ReturnType = ret;
+                record.IsExtern = False;
+                record.Node = node;
+                This.Functions.Add(record);
+            }
+        }
+        For child In node.Children {
+            This.CollectLambdas(fileName, child);
+        }
+        For param In node.Parameters {
+            This.CollectLambdas(fileName, param);
+        }
+        If (node.Left != Null) { This.CollectLambdas(fileName, node.Left); }
+        If (node.Right != Null) { This.CollectLambdas(fileName, node.Right); }
+        If (node.Initializer != Null) { This.CollectLambdas(fileName, node.Initializer); }
+        If (node.Body != Null) { This.CollectLambdas(fileName, node.Body); }
+        If (node.Otherwise != Null) { This.CollectLambdas(fileName, node.Otherwise); }
     }
 
     Private Function FindClass(String name) -> ClassInfo {
@@ -513,9 +555,20 @@ Public Class NativeProgram {
         For parameter In node.Parameters {
             String parameterType = This.TypeName(parameter.Type);
             If (parameterType == "") { parameterType = "Int"; }
+            If (parameter.FlagB) { parameterType = "Array<" + parameterType + ">"; }
             This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
-        If (node.Body != Null) { This.EmitStatement(node.Body); }
+        If (node.Body != Null) {
+            This.EmitStatement(node.Body);
+        } Else If (node.Left != Null) {
+            IrValue exprVal = This.EmitExpr(node.Left);
+            If (This.IsVoid(record.ReturnType)) {
+                This.Emit("ret void");
+            } Else {
+                This.Emit("ret i64 " + exprVal.Value);
+            }
+            This.Terminated = True;
+        }
         If (!This.Terminated) {
             If (This.IsVoid(record.ReturnType)) { This.Emit("ret void"); }
             If (!This.IsVoid(record.ReturnType)) { This.Emit("ret i64 0"); }
@@ -938,7 +991,7 @@ Public Class NativeProgram {
             Return;
         }
         If (node.Kind == AstKind.If) { This.EmitIf(node); Return; }
-        If (node.Kind == AstKind.While) { This.EmitWhile(node); Return; }
+        If (node.Kind == AstKind.While || node.Kind == AstKind.DoWhile || node.Kind == AstKind.Repeat || node.Kind == AstKind.Loop) { This.EmitWhile(node); Return; }
         If (node.Kind == AstKind.For) { This.EmitFor(node); Return; }
         If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
         If (node.Kind == AstKind.Match) { This.EmitMatch(node); Return; }
@@ -1048,6 +1101,66 @@ Public Class NativeProgram {
     }
 
     Private Function EmitWhile(AstNode node) -> Void {
+        If (node.Kind == AstKind.DoWhile) {
+            String body = This.Label("dbody");
+            String check = This.Label("dcheck");
+            String done = This.Label("dend");
+            This.Branch(body);
+            This.Block(body);
+            This.PushLoop(check, done);
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            This.PopLoop();
+            If (!This.Terminated) { This.Branch(check); }
+            This.Block(check);
+            IrValue condition = This.EmitExpr(node.Condition);
+            String flag = This.Fresh("cond");
+            This.Emit(flag + " = icmp ne i64 " + condition.Value + ", 0");
+            This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+            This.Terminated = True;
+            This.Block(done);
+            Return;
+        }
+        If (node.Kind == AstKind.Repeat) {
+            IrValue count = This.EmitExpr(node.Condition);
+            String idxName = "#repeat_" + This.Label("r");
+            This.Alloca(idxName, "Int", "0");
+            String head = This.Label("repeat");
+            String body = This.Label("rbody");
+            String step = This.Label("rstep");
+            String done = This.Label("rend");
+            This.Branch(head);
+            This.Block(head);
+            String current = This.LoadName(idxName);
+            String flag = This.Fresh("cond");
+            This.Emit(flag + " = icmp slt i64 " + current + ", " + count.Value);
+            This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+            This.Terminated = True;
+            This.Block(body);
+            This.PushLoop(step, done);
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            This.PopLoop();
+            If (!This.Terminated) { This.Branch(step); }
+            This.Block(step);
+            String now = This.LoadName(idxName);
+            String next = This.Fresh("v");
+            This.Emit(next + " = add i64 " + now + ", 1");
+            This.StoreName(idxName, next);
+            This.Branch(head);
+            This.Block(done);
+            Return;
+        }
+        If (node.Kind == AstKind.Loop) {
+            String body = This.Label("lbody");
+            String done = This.Label("lend");
+            This.Branch(body);
+            This.Block(body);
+            This.PushLoop(body, done);
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            This.PopLoop();
+            If (!This.Terminated) { This.Branch(body); }
+            This.Block(done);
+            Return;
+        }
         String head = This.Label("while");
         String body = This.Label("wbody");
         String done = This.Label("wend");
@@ -1067,6 +1180,48 @@ Public Class NativeProgram {
     }
 
     Private Function EmitFor(AstNode node) -> Void {
+        Int mark = This.ScopeCount;
+        If (node.FlagB) {
+            If (node.Initializer != Null) {
+                If (node.Initializer.Kind == AstKind.Variable || node.Initializer.Kind == AstKind.Assignment) {
+                    This.EmitStatement(node.Initializer);
+                } Else {
+                    This.EmitExpr(node.Initializer);
+                }
+            }
+            String head = This.Label("for");
+            String body = This.Label("fbody");
+            String step = This.Label("fstep");
+            String done = This.Label("fend");
+            This.Branch(head);
+            This.Block(head);
+            If (node.Condition != Null) {
+                IrValue condition = This.EmitExpr(node.Condition);
+                String flag = This.Fresh("cond");
+                This.Emit(flag + " = icmp ne i64 " + condition.Value + ", 0");
+                This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
+                This.Terminated = True;
+            } Else {
+                This.Branch(body);
+            }
+            This.Block(body);
+            This.PushLoop(step, done);
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            This.PopLoop();
+            If (!This.Terminated) { This.Branch(step); }
+            This.Block(step);
+            If (node.Extra != Null) {
+                If (node.Extra.Kind == AstKind.Assignment) {
+                    This.EmitAssignment(node.Extra);
+                } Else {
+                    This.EmitExpr(node.Extra);
+                }
+            }
+            This.Branch(head);
+            This.Block(done);
+            This.ScopeCount = mark;
+            Return;
+        }
         String itemName = "item";
         If (node.Left != Null && node.Left.Name != "") { itemName = node.Left.Name; }
         If (node.Right != Null && node.Right.Kind == AstKind.Range) {
@@ -1098,11 +1253,22 @@ Public Class NativeProgram {
             This.StoreName(itemName, next);
             This.Branch(head);
             This.Block(done);
+            This.ScopeCount = mark;
             Return;
         }
         IrValue collection = This.Pair("0", "List:Int");
         If (node.Right != Null) { collection = This.EmitExpr(node.Right); }
-        This.Alloca(itemName, This.ElementType(collection.TypeName), "0");
+        Bool tuplePattern = node.Left != Null && node.Left.Children.Count() >= 2;
+        String tupleIndexVar = "";
+        String tupleValueVar = "";
+        If (tuplePattern) {
+            tupleIndexVar = node.Left.Children[0].Name;
+            tupleValueVar = node.Left.Children[1].Name;
+            This.Alloca(tupleIndexVar, "Int", "0");
+            This.Alloca(tupleValueVar, This.ElementType(collection.TypeName), "0");
+        } Else {
+            This.Alloca(itemName, This.ElementType(collection.TypeName), "0");
+        }
         String indexName = itemName + "#index";
         This.Alloca(indexName, "Int", "0");
         String total = This.LoadListCount(collection.Value);
@@ -1118,8 +1284,14 @@ Public Class NativeProgram {
         This.Emit("br i1 " + flag + ", label %" + body + ", label %" + done);
         This.Terminated = True;
         This.Block(body);
-        String item = This.LoadListItem(collection.Value, This.LoadName(indexName));
-        This.StoreName(itemName, item);
+        String currentIndex = This.LoadName(indexName);
+        String item = This.LoadListItem(collection.Value, currentIndex);
+        If (tuplePattern) {
+            This.StoreName(tupleIndexVar, currentIndex);
+            This.StoreName(tupleValueVar, item);
+        } Else {
+            This.StoreName(itemName, item);
+        }
         This.PushLoop(step, done);
         If (node.Body != Null) { This.EmitStatement(node.Body); }
         This.PopLoop();
@@ -1131,6 +1303,7 @@ Public Class NativeProgram {
         This.StoreName(indexName, next);
         This.Branch(head);
         This.Block(done);
+        This.ScopeCount = mark;
     }
 
     Private Function LoadName(String name) -> String {
@@ -1223,6 +1396,21 @@ Public Class NativeProgram {
                     IrValue initial = This.EmitExpr(node.Initializer.Children[index]);
                     value = initial.Value;
                     If (initial.TypeName != "") { typeName = initial.TypeName; }
+                }
+                This.Alloca(child.Name, typeName, value);
+                index = index + 1;
+            }
+            Return;
+        }
+        If (node.Initializer != Null) {
+            IrValue tuple = This.EmitExpr(node.Initializer);
+            Int index = 0;
+            For child In node.Children {
+                String indexText = index.ToString();
+                String value = This.LoadListItem(tuple.Value, indexText);
+                String typeName = "Int";
+                If (tuple.TypeName.StartsWith("(")) {
+                    typeName = This.TupleElement(tuple.TypeName, indexText);
                 }
                 This.Alloca(child.Name, typeName, value);
                 index = index + 1;
@@ -1344,6 +1532,7 @@ Public Class NativeProgram {
             This.EmitMatch(node);
             Return This.Pair("0", "Void");
         }
+        If (node.Kind == AstKind.Lambda) { Return This.Pair("0", "Lambda:" + node.Name); }
         If (node.Kind == AstKind.ArrayLiteral) { Return This.EmitArrayLiteral(node); }
         If (node.Kind == AstKind.MapLiteral) { Return This.EmitMapLiteral(node); }
         If (node.Kind == AstKind.SetLiteral) { Return This.EmitSetLiteral(node); }
@@ -1444,7 +1633,77 @@ Public Class NativeProgram {
             arguments.Add(value.Value);
             types.Add(value.TypeName);
         }
-        If (node.Left != Null && node.Left.Kind == AstKind.Name) { Return This.EmitNamedCall(node.Left, arguments, types); }
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            String targetName = node.Left.Name;
+            IrValue local = This.Lookup(node.Left.Name);
+            If (local.TypeName.StartsWith("Lambda:")) {
+                targetName = local.TypeName.Substring(7);
+            }
+            FunctionInfo record = This.FindFunction(targetName, This.FileName);
+            If (record.Name != "" && !record.IsExtern && record.Node.Parameters.Count() > 0) {
+                Var alignedArgs = List<String>();
+                Var alignedTypes = List<String>();
+                Int paramIndex = 0;
+                For parameter In record.Node.Parameters {
+                    If (!parameter.FlagC) {
+                        If (parameter.FlagB) {
+                            String elemType = This.TypeName(parameter.Type);
+                            If (elemType == "") { elemType = "Int"; }
+                            If (paramIndex == node.Parameters.Count() - 1 && paramIndex < arguments.Count() && node.Parameters[paramIndex].FlagA) {
+                                alignedArgs.Add(arguments[paramIndex]);
+                                alignedTypes.Add("Array<" + elemType + ">");
+                            } Else {
+                                IrValue pack = This.CallRuntime("rx_list_new", List<String>(), False);
+                                Int argIdx = paramIndex;
+                                While (argIdx < node.Parameters.Count() && argIdx < arguments.Count()) {
+                                    String itemVal = arguments[argIdx];
+                                    If (This.IsAnyType(elemType) && !This.IsAnyType(types[argIdx])) {
+                                        IrValue boxed = This.BoxAny(This.Pair(itemVal, types[argIdx]));
+                                        itemVal = boxed.Value;
+                                    }
+                                    Var addArgs = List<String>();
+                                    addArgs.Add(pack.Value);
+                                    addArgs.Add(itemVal);
+                                    This.CallRuntime("rx_list_add", addArgs, True);
+                                    argIdx = argIdx + 1;
+                                }
+                                alignedArgs.Add(pack.Value);
+                                alignedTypes.Add("Array<" + elemType + ">");
+                            }
+                        } Else {
+                            Bool matched = False;
+                            String chosenVal = "0";
+                            String chosenType = "Int";
+                            Int searchIdx = 0;
+                            While (searchIdx < node.Parameters.Count() && searchIdx < arguments.Count()) {
+                                If (node.Parameters[searchIdx].Name == parameter.Name && parameter.Name != "") {
+                                    chosenVal = arguments[searchIdx];
+                                    chosenType = types[searchIdx];
+                                    matched = True;
+                                }
+                                searchIdx = searchIdx + 1;
+                            }
+                            If (!matched && paramIndex < node.Parameters.Count() && paramIndex < arguments.Count() && node.Parameters[paramIndex].Name == "") {
+                                chosenVal = arguments[paramIndex];
+                                chosenType = types[paramIndex];
+                                matched = True;
+                            }
+                            If (!matched && parameter.Initializer != Null) {
+                                IrValue defVal = This.EmitExpr(parameter.Initializer);
+                                chosenVal = defVal.Value;
+                                chosenType = defVal.TypeName;
+                                matched = True;
+                            }
+                            alignedArgs.Add(chosenVal);
+                            alignedTypes.Add(chosenType);
+                        }
+                        paramIndex = paramIndex + 1;
+                    }
+                }
+                Return This.EmitNamedCall(node.Left, alignedArgs, alignedTypes);
+            }
+            Return This.EmitNamedCall(node.Left, arguments, types);
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Operators") {
             Return This.EmitOperatorLibrary(node, arguments, types);
         }
@@ -1519,21 +1778,27 @@ Public Class NativeProgram {
         }
         ClassInfo info = This.FindClass(left.Name);
         If (info.Name != "") { Return This.Construct(left.Name, info, arguments); }
-        FunctionInfo record = This.FindFunction(left.Name, This.FileName);
+        String targetName = left.Name;
+        IrValue local = This.Lookup(left.Name);
+        If (local.TypeName.StartsWith("Lambda:")) {
+            targetName = local.TypeName.Substring(7);
+        }
+        FunctionInfo record = This.FindFunction(targetName, This.FileName);
         If (record.Name != "") {
             If (record.IsExtern) {
-                IrValue value = This.CallRuntime(This.ExternSymbol(left.Name), arguments, False);
+                IrValue value = This.CallRuntime(This.ExternSymbol(targetName), arguments, False);
                 String ret = record.ReturnType;
                 If (ret == "") { ret = "Int"; }
                 Return This.Pair(value.Value, ret);
             }
-            String symbol = This.FunctionSymbol(record.FileName, left.Name);
+            String symbol = This.FunctionSymbol(record.FileName, targetName);
             If (This.IsVoid(record.ReturnType)) {
                 This.CallRuntime(symbol, arguments, True);
                 Return This.Pair("0", "Void");
             }
             IrValue value = This.CallRuntime(symbol, arguments, False);
             String ret = record.ReturnType;
+            If (ret == "T" && types.Count() > 0 && types[0] != "") { ret = types[0]; }
             If (ret == "") { ret = "Int"; }
             Return This.Pair(value.Value, ret);
         }
@@ -1766,6 +2031,9 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_str_len", args, False);
             Return This.Pair(value.Value, "Int");
         }
+        If (member.Name == "Enumerate") {
+            Return This.Pair(receiver.Value, "Enumerate<" + This.ElementType(receiver.TypeName) + ">");
+        }
         Return This.Pair("0", "Int");
     }
 
@@ -1798,6 +2066,31 @@ Public Class NativeProgram {
         If (owner == "ExitCode" && method == "Custom") {
             If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Int"); }
             Return This.Pair("0", "Int");
+        }
+        If (owner == "Math") {
+            If (method == "Min" && arguments.Count() >= 2) {
+                String flag = This.Fresh("v");
+                This.Emit(flag + " = icmp sle i64 " + arguments[0] + ", " + arguments[1]);
+                String res = This.Fresh("v");
+                This.Emit(res + " = select i1 " + flag + ", i64 " + arguments[0] + ", i64 " + arguments[1]);
+                Return This.Pair(res, "Int");
+            }
+            If (method == "Max" && arguments.Count() >= 2) {
+                String flag = This.Fresh("v");
+                This.Emit(flag + " = icmp sge i64 " + arguments[0] + ", " + arguments[1]);
+                String res = This.Fresh("v");
+                This.Emit(res + " = select i1 " + flag + ", i64 " + arguments[0] + ", i64 " + arguments[1]);
+                Return This.Pair(res, "Int");
+            }
+            If (method == "Abs" && arguments.Count() >= 1) {
+                String neg = This.Fresh("v");
+                This.Emit(neg + " = sub i64 0, " + arguments[0]);
+                String flag = This.Fresh("v");
+                This.Emit(flag + " = icmp slt i64 " + arguments[0] + ", 0");
+                String res = This.Fresh("v");
+                This.Emit(res + " = select i1 " + flag + ", i64 " + neg + ", i64 " + arguments[0]);
+                Return This.Pair(res, "Int");
+            }
         }
         If (owner == "Files") { Return This.FilesCall(method, arguments); }
         If (owner == "Directory") { Return This.DirectoryCall(method, arguments); }
@@ -2234,7 +2527,7 @@ Public Class NativeProgram {
             }
             Return "List:" + element;
         }
-        If (name == "Array" || name == "Set" || name == "Map" || name == "Queue" || name == "Stack" || name == "Option" || name == "Result") {
+        If (name == "Array" || name == "Set" || name == "Map" || name == "Queue" || name == "Stack" || name == "Option" || name == "Result" || name == "Enumerate") {
             String text = name + "<";
             Bool first = True;
             For child In node.Children {
@@ -2366,6 +2659,7 @@ Public Class NativeProgram {
         If (typeName.StartsWith("Queue<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
         If (typeName.StartsWith("Stack<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
         If (typeName.StartsWith("Option<") && typeName.EndsWith(">")) { Return typeName.Substring(7, typeName.Length() - 8); }
+        If (typeName.StartsWith("Enumerate<") && typeName.EndsWith(">")) { Return typeName.Substring(10, typeName.Length() - 11); }
         If (typeName.StartsWith("[") && typeName.EndsWith("]")) {
             String body = typeName.Substring(1, typeName.Length() - 2);
             Int semi = body.IndexOf(";");

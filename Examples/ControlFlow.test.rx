@@ -1,7 +1,8 @@
 // Tests for Examples/ControlFlow.rx.
 
 Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
+    Case "run control flow" {
+        Input: args = [];
+        Output: 0;
+    }
 }

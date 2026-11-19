@@ -35,6 +35,13 @@ Test AddFunction {
     }
 }
 
+Test CollectLambdas {
+    Case "collect lambda from node" {
+        Input: fileName = "a.rx", node = AstNode(Kind: AstKind.Lambda);
+        Assert: True;
+    }
+}
+
 Test FindClass {
     Case "not found" {
         Input: name = "NonExistent";

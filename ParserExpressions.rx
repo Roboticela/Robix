@@ -541,7 +541,11 @@ Public Partial Class Parser {
             AstNode node = This.Make(AstKind.Type, start);
             node.Name = "()";
             While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
-                node.Children.Add(This.ParseType());
+                AstNode element = This.ParseType();
+                If (This.Check(TokenKind.Identifier)) {
+                    element.Text = This.Advance().Text;
+                }
+                node.Children.Add(element);
                 If (!This.Match(TokenKind.Comma)) {
                     Break;
                 }

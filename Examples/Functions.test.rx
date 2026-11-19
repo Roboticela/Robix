@@ -1,24 +1,6 @@
 // Tests for Examples/Functions.rx.
 
 Test RoboAdd {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RoboSum {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test Main {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}
-
-Test RoboAdd {
     Case "positives" {
         Input: a = 10, b = 20;
         Constraint: a >= 0 And b >= 0;
@@ -34,5 +16,65 @@ Test RoboAdd {
         Input: a = 0, b = 7;
         Equal: Result, b;
         Output: 7;
+    }
+}
+
+Test RoboSetName {
+    Case "set robot name" {
+        Input: name = "RoboRunner";
+        Assert: True;
+    }
+}
+
+Test RoboCompute {
+    Case "explicit args" {
+        Input: value = 10, scale = 3;
+        Output: 30;
+    }
+}
+
+Test RoboSum {
+    Case "sum array" {
+        Input: values = [1, 2, 3, 4, 5];
+        Output: 15;
+    }
+}
+
+Test RoboLog {
+    Case "log values" {
+        Input: values = ["hello", 42];
+        Assert: True;
+    }
+}
+
+Test RoboIdentity {
+    Case "identity int" {
+        Input: value = 99;
+        Output: 99;
+    }
+    Case "identity string" {
+        Input: value = "same";
+        Output: "same";
+    }
+}
+
+Test RoboMinMax {
+    Case "ordered pair" {
+        Input: a = 30, b = 10;
+        Assert: Result[0] == 10 && Result[1] == 30;
+    }
+}
+
+Test RoboSquare {
+    Case "square five" {
+        Input: n = 5;
+        Output: 25;
+    }
+}
+
+Test Main {
+    Case "run main" {
+        Input: args = [];
+        Output: 0;
     }
 }
