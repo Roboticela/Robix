@@ -51,12 +51,14 @@ Public Class ClassInfo {
     Public List<AstNode> EnumMembers;
     Public List<AstNode> Constructors;
     Public List<String> ConstructorFiles;
+    Public String Parameters;
 
     Public Constructor() {
         This.Name = "";
         This.KindName = "Class";
         This.Fields = List<String>();
         This.FieldTypes = List<String>();
+        This.Parameters = "";
         This.Methods = List<MethodInfo>();
         This.EnumNames = List<String>();
         This.EnumValues = List<Int>();
@@ -244,6 +246,7 @@ Public Class NativeProgram {
         If (node.Text != "") {
             info.KindName = node.Text;
         }
+        If (info.Parameters == "") { info.Parameters = This.GenericParameterText(node); }
         For child In node.Children {
             If (child.Kind == AstKind.Field && This.FieldSlot(info, child.Name) < 0) {
                 info.Fields.Add(child.Name);
@@ -346,8 +349,7 @@ Public Class NativeProgram {
     }
 
     Private Function FindClass(String name) -> ClassInfo {
-        String wanted = name;
-        If (wanted.EndsWith("?")) { wanted = wanted.Substring(0, wanted.Length() - 1); }
+        String wanted = This.ClassHead(name);
         For info In This.Classes {
             If (info.Name == wanted) { Return info; }
         }
@@ -1408,7 +1410,7 @@ Public Class NativeProgram {
             ClassInfo owner = This.FindClass(receiver.TypeName);
             Int index = This.FieldSlot(owner, node.Left.Name);
             If (index < 0) { index = 0; }
-            String fieldType = This.FieldType(owner, node.Left.Name);
+            String fieldType = This.AppliedFieldType(receiver.TypeName, owner.Parameters, This.FieldType(owner, node.Left.Name));
             If (This.IsWrappedInteger(fieldType)) { value = This.Pair(This.WrapInteger(value.Value, fieldType), fieldType); }
             This.StoreObjectField(receiver.Value, index.ToString(), value.Value);
             Return value;
@@ -1704,7 +1706,8 @@ Public Class NativeProgram {
         If (info.Name != "" && info.KindName == "Enum" && slot < 0) { Return This.Pair(receiver.Value, "Int"); }
         If (info.Name != "" && slot >= 0) {
             String loaded = This.LoadObjectField(receiver.Value, slot.ToString());
-            Return This.Pair(loaded, This.FieldType(info, target));
+            String fieldType = This.AppliedFieldType(receiver.TypeName, info.Parameters, This.FieldType(info, target));
+            Return This.Pair(loaded, fieldType);
         }
         If (target == "Value" && receiver.TypeName.StartsWith("Ref<")) {
             String pointer = This.Fresh("p");
@@ -2823,6 +2826,51 @@ Public Class NativeProgram {
         Return -1;
     }
 
+    Private Function GenericParameterText(AstNode node) -> String {
+        String text = "";
+        For parameter In node.Parameters {
+            If (parameter.FlagC) {
+                If (text != "") { text = text + ", "; }
+                text = text + parameter.Name;
+            }
+        }
+        Return text;
+    }
+
+    Private Function ClassHead(String name) -> String {
+        String head = name;
+        If (head.EndsWith("?")) { head = head.Substring(0, head.Length() - 1); }
+        Int open = head.IndexOf("<");
+        If (open > 0 && head.EndsWith(">")) { head = head.Substring(0, open); }
+        Return head;
+    }
+
+    Private Function AppliedFieldType(String receiver, String parameters, String fieldType) -> String {
+        If (parameters == "" || fieldType == "") { Return fieldType; }
+        String clean = receiver;
+        If (clean.EndsWith("?")) { clean = clean.Substring(0, clean.Length() - 1); }
+        Int open = clean.IndexOf("<");
+        If (open < 0 || !clean.EndsWith(">")) { Return fieldType; }
+        String arguments = clean.Substring(open + 1, clean.Length() - open - 2);
+        Return This.SubstituteAlias(fieldType, parameters, arguments);
+    }
+
+    Private Function ObjectTypeName(AstNode node) -> String {
+        String typeName = node.Name;
+        If (typeName == "") { typeName = "Int"; }
+        If (node.Left == Null || node.Left.Children.Count() == 0) { Return typeName; }
+        String text = typeName + "<";
+        Bool first = True;
+        For child In node.Left.Children {
+            If (!first) { text = text + ", "; }
+            String argument = This.TypeName(child);
+            If (argument == "") { argument = "Int"; }
+            text = text + argument;
+            first = False;
+        }
+        Return text + ">";
+    }
+
     Private Function FieldType(ClassInfo info, String name) -> String {
         Int index = 0;
         For field In info.Fields {
@@ -3020,7 +3068,8 @@ Public Class NativeProgram {
     }
 
     Private Function EmitObjectLiteral(AstNode node) -> IrValue {
-        ClassInfo info = This.FindClass(node.Name);
+        String typeName = This.ObjectTypeName(node);
+        ClassInfo info = This.FindClass(typeName);
         Int fields = info.Fields.Count();
         If (fields < 1) { fields = 1; }
         Var created = List<String>();
@@ -3030,14 +3079,12 @@ Public Class NativeProgram {
             Int slot = This.FieldSlot(info, child.Name);
             If (slot >= 0 && child.Left != Null) {
                 IrValue field = This.EmitExpr(child.Left);
-                String fieldType = This.FieldType(info, child.Name);
+                String fieldType = This.AppliedFieldType(typeName, info.Parameters, This.FieldType(info, child.Name));
                 String stored = field.Value;
                 If (This.IsWrappedInteger(fieldType)) { stored = This.WrapInteger(stored, fieldType); }
                 This.StoreObjectField(obj.Value, slot.ToString(), stored);
             }
         }
-        String typeName = node.Name;
-        If (typeName == "") { typeName = "Int"; }
         Return This.Pair(obj.Value, typeName);
     }
 

@@ -45,6 +45,8 @@ Public Class TypeChecker {
     Private List<String> fieldOwners;
     Private List<String> fieldNames;
     Private List<String> fieldTypes;
+    Private List<String> genericOwners;
+    Private List<String> genericParameters;
     Private List<String> functionNames;
     Private List<String> functionSignatures;
 
@@ -63,6 +65,8 @@ Public Class TypeChecker {
         This.fieldOwners = List<String>();
         This.fieldNames = List<String>();
         This.fieldTypes = List<String>();
+        This.genericOwners = List<String>();
+        This.genericParameters = List<String>();
         This.functionNames = List<String>();
         This.functionSignatures = List<String>();
     }
@@ -110,7 +114,14 @@ Public Class TypeChecker {
         }
         If (node.Kind == AstKind.Class || node.Kind == AstKind.Implement) {
             String previousType = This.currentType;
-            If (node.Kind == AstKind.Class) { This.currentType = node.Name; }
+            If (node.Kind == AstKind.Class) {
+                This.currentType = node.Name;
+                String parameters = This.GenericParameterText(node);
+                If (parameters != "" && This.GenericParametersOf(node.Name) == "") {
+                    This.genericOwners.Add(node.Name);
+                    This.genericParameters.Add(parameters);
+                }
+            }
             For child In node.Children {
                 This.CheckNode(child);
             }
@@ -557,14 +568,15 @@ Public Class TypeChecker {
             Return text + "}";
         }
         If (node.Kind == AstKind.ObjectLiteral) {
+            String applied = This.AppliedObjectType(node);
             For child In node.Children {
                 If (child.Left != Null) {
                     String actual = This.Infer(child.Left);
-                    String expected = This.FieldTypeOf(node.Name, child.Name);
+                    String expected = This.FieldTypeOf(applied, child.Name);
                     If (expected != "") { This.RequireAssignable(child.Left, expected, actual); }
                 }
             }
-            Return node.Name;
+            Return applied;
         }
         If (node.Kind == AstKind.Name) {
             Symbol? symbol = This.Find(node.Name);
@@ -662,6 +674,8 @@ Public Class TypeChecker {
             If (node.Name == "ToString" || node.Name == "ToUpper" || node.Name == "ToLower" || node.Name == "Trim") { Return "String"; }
             If (node.Name == "ToFloat") { Return "Float"; }
             If (node.Name == "ToInt" || node.Name == "Length" || node.Name == "Count") { Return "Int"; }
+            String fieldType = This.FieldTypeOf(left, node.Name);
+            If (fieldType != "") { Return fieldType; }
             Return "Unknown";
         }
         If (node.Kind == AstKind.Index) {
@@ -1196,13 +1210,73 @@ Public Class TypeChecker {
         Return token;
     }
 
-    Private Function FieldTypeOf(String owner, String name) -> String {
+    Private Function GenericParameterText(AstNode node) -> String {
+        String text = "";
+        For parameter In node.Parameters {
+            If (parameter.FlagC) {
+                If (text != "") { text = text + ", "; }
+                text = text + parameter.Name;
+            }
+        }
+        Return text;
+    }
+
+    Private Function GenericParametersOf(String name) -> String {
         Int index = 0;
-        While (index < This.fieldOwners.Count() && index < This.fieldNames.Count() && index < This.fieldTypes.Count()) {
-            If (This.fieldOwners[index] == owner && This.fieldNames[index] == name) { Return This.fieldTypes[index]; }
+        While (index < This.genericOwners.Count() && index < This.genericParameters.Count()) {
+            If (This.genericOwners[index] == name) { Return This.genericParameters[index]; }
             index = index + 1;
         }
         Return "";
+    }
+
+    Private Function AppliedOwner(String owner) -> String {
+        String head = owner;
+        If (head.EndsWith("?")) { head = head.Substring(0, head.Length() - 1); }
+        Int open = head.IndexOf("<");
+        If (open > 0 && head.EndsWith(">")) { head = head.Substring(0, open); }
+        Return head;
+    }
+
+    Private Function TypeArguments(String owner) -> String {
+        String clean = owner;
+        If (clean.EndsWith("?")) { clean = clean.Substring(0, clean.Length() - 1); }
+        Int open = clean.IndexOf("<");
+        If (open < 0 || !clean.EndsWith(">")) { Return ""; }
+        Return clean.Substring(open + 1, clean.Length() - open - 2);
+    }
+
+    Private Function AppliedObjectType(AstNode node) -> String {
+        String typeName = node.Name;
+        If (typeName == "") { Return ""; }
+        If (node.Left == Null || node.Left.Children.Count() == 0) { Return typeName; }
+        String text = typeName + "<";
+        Bool first = True;
+        For child In node.Left.Children {
+            If (!first) { text = text + ", "; }
+            String argument = This.TypeText(child);
+            If (argument == "") { argument = child.Name; }
+            If (argument == "") { argument = "Int"; }
+            text = text + argument;
+            first = False;
+        }
+        Return text + ">";
+    }
+
+    Private Function FieldTypeOf(String owner, String name) -> String {
+        String head = This.AppliedOwner(owner);
+        String found = "";
+        Int index = 0;
+        While (index < This.fieldOwners.Count() && index < This.fieldNames.Count() && index < This.fieldTypes.Count()) {
+            If (This.fieldOwners[index] == head && This.fieldNames[index] == name) { found = This.fieldTypes[index]; }
+            index = index + 1;
+        }
+        String arguments = This.TypeArguments(owner);
+        String parameters = This.GenericParametersOf(head);
+        If (found != "" && arguments != "" && parameters != "") {
+            Return This.SubstituteAlias(found, parameters, arguments);
+        }
+        Return found;
     }
 
     Private Function TypeText(AstNode? type) -> String {

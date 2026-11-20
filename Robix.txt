@@ -24,13 +24,6 @@ Float<128> wideFloat = Float<128>.From(1.0);
 // 4. Composite types, collections, tuples, and universal values
 // -----------------------------------------------------------------------------
 
-// Generic constraints and user-defined generic types.
-Struct RoboResult<TValue, TError> {
-    Public Bool IsSuccess;
-    Public TValue? Value;
-    Public TError? Error;
-}
-
 // -----------------------------------------------------------------------------
 // 6. Functions, arguments, documentation, and return values
 // -----------------------------------------------------------------------------

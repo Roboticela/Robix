@@ -1,0 +1,29 @@
+// A generic struct substitutes its type parameters into each field.
+Package Robotics.GenericStruct;
+
+Import Robix.Core;
+
+
+Struct RoboResult<TValue, TError> {
+    Public Bool IsSuccess;
+    Public TValue? Value;
+    Public TError? Error;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Build a successful result and a failed result.";
+    Input: args = "Command-line arguments";
+    Processing: "Store an integer value and a string error in RoboResult<Int, String>.";
+    Output: "The success flag, the value, and the error.";
+} {
+    RoboResult<Int, String> ok = RoboResult<Int, String> { IsSuccess: True, Value: 7, Error: Null };
+    Print(ok.IsSuccess);
+    Print(ok.Value);
+    Print(ok.Error == Null);
+    RoboResult<Int, String> failed = RoboResult<Int, String> { IsSuccess: False, Value: Null, Error: "sensor" };
+    Print(failed.IsSuccess);
+    Print(failed.Value == Null);
+    Print(failed.Error);
+    Return 0;
+}

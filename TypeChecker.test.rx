@@ -232,6 +232,49 @@ Test ReplaceParameter {
     }
 }
 
+Test GenericParameterText {
+    Case "no parameters" {
+        Input: node = AstNode();
+        Output: "";
+    }
+}
+
+Test GenericParametersOf {
+    Case "unknown type" {
+        Input: name = "RoboResult";
+        Output: "";
+    }
+}
+
+Test AppliedOwner {
+    Case "generic struct" {
+        Input: owner = "RoboResult<Int, String>";
+        Output: "RoboResult";
+    }
+    Case "plain struct" {
+        Input: owner = "RoboColor";
+        Output: "RoboColor";
+    }
+}
+
+Test TypeArguments {
+    Case "two arguments" {
+        Input: owner = "RoboResult<Int, String>";
+        Output: "Int, String";
+    }
+    Case "no arguments" {
+        Input: owner = "RoboColor";
+        Output: "";
+    }
+}
+
+Test AppliedObjectType {
+    Case "bare name" {
+        Input: node = AstNode(Name: "RoboResult");
+        Output: "RoboResult";
+    }
+}
+
 Test FieldTypeOf {
     Case "unknown field" {
         Input: owner = "RoboColor", name = "Red";

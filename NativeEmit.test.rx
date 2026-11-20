@@ -1086,6 +1086,38 @@ Test RefPayload {
     }
 }
 
+Test GenericParameterText {
+    Case "no parameters" {
+        Input: node = AstNode();
+        Output: "";
+    }
+}
+
+Test ClassHead {
+    Case "generic optional" {
+        Input: name = "RoboResult<Int, String>?";
+        Output: "RoboResult";
+    }
+}
+
+Test AppliedFieldType {
+    Case "error field" {
+        Input: receiver = "RoboResult<Int, String>", parameters = "TValue, TError", fieldType = "TError?";
+        Output: "String?";
+    }
+    Case "plain field" {
+        Input: receiver = "RoboColor", parameters = "", fieldType = "UInt8";
+        Output: "UInt8";
+    }
+}
+
+Test ObjectTypeName {
+    Case "bare struct" {
+        Input: node = AstNode(Name: "RoboResult");
+        Output: "RoboResult";
+    }
+}
+
 Test ExitCodeValue {
     Case "success" {
         Input: name = "Success";
