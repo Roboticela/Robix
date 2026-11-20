@@ -9,6 +9,7 @@ const { keywordCaseEdits, tokenize } = require("./lib/scanner");
 const { formatRobix, formatProject } = require("./lib/format");
 const { analyze } = require("./lib/analyze");
 const { complete, hover, signature, definition, referencesIn, semanticSpans } = require("./lib/intellisense");
+const { extractTests, functionNames, selectTests, buildCompanion, caseTitles } = require("./lib/run-target");
 const { SEMANTIC_TYPES, SEMANTIC_MODIFIERS } = require("./lib/keywords");
 
 const legend = new vscode.SemanticTokensLegend(SEMANTIC_TYPES, SEMANTIC_MODIFIERS);
@@ -40,6 +41,7 @@ function activate(context) {
         vscode.languages.registerDocumentFormattingEditProvider("robix-project", formattingProvider(true)),
         vscode.languages.registerCodeLensProvider("robix", codeLensProvider()),
         vscode.commands.registerCommand("robix.run", () => runActive("run")),
+        vscode.commands.registerCommand("robix.runSymbol", (target) => runSymbol(target)),
         vscode.commands.registerCommand("robix.compile", () => runActive("compile")),
         vscode.commands.registerCommand("robix.release", () => runActive("release")),
         vscode.commands.registerCommand("robix.check", () => {
@@ -473,16 +475,25 @@ function codeLensProvider() {
             const doc = analyze(document.getText());
             const lenses = [];
             for (const symbol of doc.symbols) {
-                const runnable = symbol.kind === "function" && (symbol.name === "Main" || String(symbol.detail || "").startsWith("Test "));
+                const isTest = String(symbol.detail || "").startsWith("Test ");
+                const runnable = !isTest && symbol.name && (symbol.kind === "function" || symbol.kind === "method" || symbol.kind === "class");
                 if (!runnable) {
                     continue;
                 }
-                const range = offsetRange(document, symbol.start, symbol.end || symbol.start + symbol.name.length);
-                lenses.push(
-                    new vscode.CodeLens(range, { title: "$(play) Run", command: "robix.run", tooltip: "Run with the interpreter (F5)" }),
-                    new vscode.CodeLens(range, { title: "$(tools) Compile", command: "robix.compile", tooltip: "Temporary compilation (Ctrl+F5)" }),
-                    new vscode.CodeLens(range, { title: "$(package) Release", command: "robix.release", tooltip: "Production build (Ctrl+Shift+F5)" })
-                );
+                const range = offsetRange(document, symbol.nameStart || symbol.start, symbol.nameEnd || symbol.end || symbol.start);
+                lenses.push(new vscode.CodeLens(range, {
+                    title: "$(play) Run",
+                    command: "robix.runSymbol",
+                    tooltip: `Run ${symbol.name} and its test cases`,
+                    arguments: [{
+                        uri: document.uri.toString(),
+                        name: symbol.name,
+                        kind: symbol.kind,
+                        container: symbol.container || "",
+                        line: range.start.line,
+                        character: range.start.character
+                    }]
+                }));
             }
             return lenses;
         }
@@ -618,6 +629,129 @@ async function runActive(mode) {
     } else {
         await buildDocument(document, mode === "release");
     }
+}
+
+async function runSymbol(target) {
+    if (!target || !target.uri || !target.name) {
+        return;
+    }
+    const uri = vscode.Uri.parse(target.uri);
+    const document = await vscode.workspace.openTextDocument(uri);
+    if (document.isDirty) {
+        await document.save();
+    }
+    const sourcePath = implementationPath(document.uri.fsPath);
+    if (!sourcePath || !fs.existsSync(sourcePath)) {
+        vscode.window.showErrorMessage(`No Robix source was found for ${target.name}.`);
+        return;
+    }
+    const source = fs.readFileSync(sourcePath, "utf8");
+    const tests = loadTests(sourcePath, document);
+    const selected = uniqueTests(selectTests(tests, target));
+    const title = target.container && target.kind === "method" ? `${target.container}.${target.name}` : target.name;
+    if (selected.length === 0) {
+        output.show(true);
+        output.appendLine(`Run ${title}`);
+        output.appendLine(`${title} has no test cases.`);
+        vscode.window.showInformationMessage(`${title} has no test cases.`);
+        return;
+    }
+    const tool = compilerPath(document);
+    if (!tool) {
+        missingTool("compiler");
+        return;
+    }
+    const directory = path.join(os.tmpdir(), "robix-run", `${Date.now()}`);
+    fs.mkdirSync(directory, { recursive: true });
+    const tempSource = path.join(directory, path.basename(sourcePath).replace(/\.test\.rx$/, ".rx"));
+    fs.writeFileSync(tempSource, source);
+    fs.writeFileSync(tempSource.replace(/\.rx$/, ".test.rx"), buildCompanion(selected, functionNames(source)));
+    const destination = path.join(directory, "program.app");
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Run ${title}` }, async () => {
+        output.show(true);
+        output.appendLine(`Run ${title}`);
+        for (const test of selected) {
+            const cases = caseTitles(test);
+            const heading = `${test.owner ? `${test.owner}.` : ""}${test.name}`;
+            if (cases.length === 0) {
+                output.appendLine(`  ${heading}`);
+            }
+            for (const item of cases) {
+                output.appendLine(`  ${heading}  ${item}`);
+            }
+        }
+        const result = await runProcess(tool, [tempSource, destination], projectRoot(sourcePath));
+        const text = result.out || "";
+        const problems = text.split(/\r?\n/).filter((line) => /^error\b/i.test(line.trim()) || /^FAIL\b/.test(line.trim()));
+        const found = [];
+        if (problems.length) {
+            output.appendLine(problems.join("\n"));
+            const parsed = parseToolOutput(document, problems.join("\n"));
+            if (parsed.length) {
+                found.push(...parsed);
+            } else {
+                const diagnostic = new vscode.Diagnostic(
+                    new vscode.Range(target.line || 0, target.character || 0, target.line || 0, (target.character || 0) + target.name.length),
+                    problems.join("\n"),
+                    vscode.DiagnosticSeverity.Error
+                );
+                diagnostic.source = "Robix";
+                diagnostic.code = "RX121";
+                found.push(diagnostic);
+            }
+            vscode.window.showErrorMessage(`${title} failed. See the Robix output.`);
+        } else {
+            output.appendLine(`PASS ${title}`);
+            vscode.window.showInformationMessage(`${title} passed.`);
+        }
+        const previous = diagnostics().get(document.uri) || [];
+        const kept = [...previous].filter((item) => item.code !== "RX121");
+        diagnostics().set(document.uri, kept.concat(found));
+        for (const extra of [`${destination}`, `${destination}.ll`]) {
+            if (fs.existsSync(extra)) {
+                fs.unlinkSync(extra);
+            }
+        }
+    });
+}
+
+function implementationPath(filePath) {
+    if (filePath.endsWith(".test.rx")) {
+        const source = filePath.slice(0, -".test.rx".length) + ".rx";
+        if (fs.existsSync(source)) {
+            return source;
+        }
+    }
+    return filePath.endsWith(".rx") ? filePath : "";
+}
+
+function loadTests(sourcePath, document) {
+    const chunks = [];
+    const seen = new Set();
+    function add(file) {
+        if (!file || seen.has(file) || !fs.existsSync(file)) {
+            return;
+        }
+        seen.add(file);
+        chunks.push(fs.readFileSync(file, "utf8"));
+    }
+    add(sourcePath);
+    add(sourcePath.replace(/\.rx$/, ".test.rx"));
+    if (document && document.uri.fsPath !== sourcePath) {
+        add(document.uri.fsPath);
+    }
+    return chunks.flatMap((text) => extractTests(text));
+}
+
+function uniqueTests(tests) {
+    const seen = new Set();
+    return tests.filter((test) => {
+        if (seen.has(test.text)) {
+            return false;
+        }
+        seen.add(test.text);
+        return true;
+    });
 }
 
 async function runDocument(document) {

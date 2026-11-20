@@ -1,9 +1,12 @@
 {
-    "name": "robix",
+    "name": "Robix",
     "displayName": "Robix",
-    "description": "Highlighting, IntelliSense, formatting, and running for the Robix language.",
+    "description": "Robix is Roboticela's type-safe language: PascalCase you can read aloud, the control of C, an interpreter to run it, and a compiler that builds a native executable.",
     "version": "1.0.0",
-    "publisher": "robix",
+    "publisher": "Roboticela",
+    "author": {
+        "name": "Roboticela"
+    },
     "license": "AGPL-3.0",
     "engines": {
         "vscode": "^1.85.0"
@@ -13,10 +16,13 @@
         "Formatters",
         "Snippets"
     ],
+    "icon": "icons/RobixLanguage.png",
     "keywords": [
         "robix",
         "rx",
-        "rxp"
+        "rxp",
+        "rxu",
+        "rx3d"
     ],
     "main": "./extension.js",
     "scripts": {
@@ -34,15 +40,37 @@
                 "extensions": [".rx"],
                 "configuration": "./language-configuration.json",
                 "icon": {
-                    "light": "./icons/robix.svg",
-                    "dark": "./icons/robix.svg"
+                    "light": "./icons/Robix.svg",
+                    "dark": "./icons/Robix.svg"
                 }
             },
             {
                 "id": "robix-project",
                 "aliases": ["Robix Project", "robix-project"],
                 "extensions": [".rxp"],
-                "configuration": "./language-configuration-project.json"
+                "configuration": "./language-configuration-project.json",
+                "icon": {
+                    "light": "./icons/RobixProject.svg",
+                    "dark": "./icons/RobixProject.svg"
+                }
+            },
+            {
+                "id": "robix-ui",
+                "aliases": ["Robix UI", "robix-ui"],
+                "extensions": [".rxu"],
+                "icon": {
+                    "light": "./icons/RobixUI.svg",
+                    "dark": "./icons/RobixUI.svg"
+                }
+            },
+            {
+                "id": "robix-3d",
+                "aliases": ["Robix 3D", "robix-3d"],
+                "extensions": [".rx3d"],
+                "icon": {
+                    "light": "./icons/Robix3D.svg",
+                    "dark": "./icons/Robix3D.svg"
+                }
             }
         ],
         "grammars": [
@@ -120,16 +148,46 @@
                     "strings": false
                 },
                 "editor.snippetSuggestions": "top",
-                "editor.bracketPairColorization.enabled": true,
-                "editor.guides.bracketPairs": "active",
+                "editor.renderLineHighlight": "line",
+                "editor.renderWhitespace": "boundary",
+                "editor.guides.indentation": true,
+                "editor.guides.highlightActiveIndentation": true,
+                "editor.bracketPairColorization.enabled": false,
+                "editor.matchBrackets": "always",
+                "editor.occurrencesHighlight": "singleFile",
+                "editor.selectionHighlight": true,
                 "editor.stickyScroll.enabled": true
             },
             "[robix-project]": {
                 "editor.tabSize": 4,
                 "editor.insertSpaces": true,
                 "editor.formatOnSave": true,
-                "editor.bracketPairColorization.enabled": true,
-                "editor.guides.bracketPairs": "active"
+                "editor.renderLineHighlight": "line",
+                "editor.renderWhitespace": "boundary",
+                "editor.guides.indentation": true,
+                "editor.guides.highlightActiveIndentation": true,
+                "editor.bracketPairColorization.enabled": false,
+                "editor.matchBrackets": "always"
+            },
+            "[robix-ui]": {
+                "editor.tabSize": 4,
+                "editor.insertSpaces": true,
+                "editor.renderLineHighlight": "line",
+                "editor.renderWhitespace": "boundary",
+                "editor.guides.indentation": true,
+                "editor.guides.highlightActiveIndentation": true,
+                "editor.bracketPairColorization.enabled": false,
+                "editor.matchBrackets": "always"
+            },
+            "[robix-3d]": {
+                "editor.tabSize": 4,
+                "editor.insertSpaces": true,
+                "editor.renderLineHighlight": "line",
+                "editor.renderWhitespace": "boundary",
+                "editor.guides.indentation": true,
+                "editor.guides.highlightActiveIndentation": true,
+                "editor.bracketPairColorization.enabled": false,
+                "editor.matchBrackets": "always"
             }
         },
         "commands": [

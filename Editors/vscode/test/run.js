@@ -7,6 +7,7 @@ const { tokenize, keywordCaseEdits } = require("../lib/scanner");
 const { formatRobix, formatProject } = require("../lib/format");
 const { analyze } = require("../lib/analyze");
 const { complete, hover, signature: signatureHelp, definition } = require("../lib/intellisense");
+const { extractTests, functionNames, selectTests, buildCompanion } = require("../lib/run-target");
 
 const root = path.resolve(__dirname, "../../..");
 let failed = 0;
@@ -144,6 +145,23 @@ check("classes, enums, and tests keep their members", () => {
     const tests = analyze(fs.readFileSync(path.join(root, "NativeEmit.test.rx"), "utf8"));
     assert.ok(tests.symbols.some((symbol) => symbol.name === "EmitDestructors"));
     assert.ok(!tests.diagnostics.some((item) => item.severity === "error" && item.message.includes("already declared")));
+});
+
+check("a function run keeps only that function's tests", () => {
+    const source = fs.readFileSync(path.join(root, "NameChecker.rx"), "utf8");
+    const tests = extractTests(fs.readFileSync(path.join(root, "NameChecker.test.rx"), "utf8"));
+    const selected = selectTests(tests, { name: "Check", kind: "function", container: "" });
+    assert.strictEqual(selected.length, 1);
+    assert.ok(selected[0].text.includes("check empty module"));
+    const companion = buildCompanion(selected, functionNames(source));
+    assert.ok(companion.includes("Test Check {"));
+    assert.ok(companion.includes("check empty module"));
+    assert.ok(!companion.includes("walk empty node"));
+    assert.ok(companion.includes("Test Walk {"));
+    const dotted = extractTests("Test RxuMessages.Add {\n    Case \"records a code\" {\n        Output: True;\n    }\n}\n");
+    assert.deepStrictEqual(dotted.map((test) => `${test.owner}.${test.name}`), ["RxuMessages.Add"]);
+    const classTests = selectTests(dotted, { name: "RxuMessages", kind: "class", container: "" });
+    assert.strictEqual(classTests.length, 1);
 });
 
 check("user names are not recased", () => {
