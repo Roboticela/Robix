@@ -1,0 +1,41 @@
+// WaitUntil polls once. The simulated network is already connected.
+Package Robotics.WaitUntil;
+
+Import Robix.Core;
+
+
+Public Async Function RoboWaitForConnection() -> Task<Bool>
+Explain {
+    Description: "Wait until the network reports a connection.";
+    Input: "No parameters.";
+    Processing: "Poll Network.IsConnected once, with a 100 ms interval and a 10 second timeout.";
+    Output: "True when the predicate succeeds.";
+} {
+    Return Await Async.WaitUntil(
+        () => Network.IsConnected(),
+        interval: Duration.Milliseconds(100),
+        timeout: Duration.Seconds(10)
+    );
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print the connection result.";
+    Input: "No parameters.";
+    Processing: "Await the polling helper and print the boolean.";
+    Output: "True";
+} {
+    Bool connected = Await RoboWaitForConnection();
+    Print(connected);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show the polling helper.";
+    Input: args = "Command-line arguments";
+    Processing: "Start the connection check.";
+    Output: "True";
+} {
+    RoboShow();
+    Return 0;
+}

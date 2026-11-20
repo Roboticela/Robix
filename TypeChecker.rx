@@ -1511,6 +1511,8 @@ Public Class TypeChecker {
         If (owner == "Timer" && name == "Sleep") { Return "Task<Void>"; }
         If (owner == "Duration" && (name == "Milliseconds" || name == "Seconds")) { Return "Int"; }
         If (owner == "Hardware" && name == "ReadSensor") { Return "Int"; }
+        If (owner == "Async" && name == "WaitUntil") { Return "Task<Bool>"; }
+        If (owner == "Network" && name == "IsConnected") { Return "Bool"; }
         Return "";
     }
 

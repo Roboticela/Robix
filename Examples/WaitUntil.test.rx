@@ -1,0 +1,19 @@
+// Tests for Examples/WaitUntil.rx.
+
+Test RoboWaitForConnection {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

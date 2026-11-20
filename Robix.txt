@@ -21,15 +21,6 @@ The lagnuage will can have both entry point from procedural with private int mai
 // 6. Functions, arguments, documentation, and return values
 // -----------------------------------------------------------------------------
 
-// Polling helper: stop when the predicate succeeds or timeout expires.
-Public Async Function RoboWaitForConnection() -> Task<Bool> {
-    Return Await Async.WaitUntil(
-        () => Network.IsConnected(),
-        interval: Duration.Milliseconds(100),
-        timeout: Duration.Seconds(10)
-    );
-}
-
 // Async iteration and streams support backpressure and cancellation.
 Public Async Function RoboWatchSensors(CancellationToken token) -> Task<Void> {
     AsyncStream<Int> readings = Hardware.WatchSensor(token);

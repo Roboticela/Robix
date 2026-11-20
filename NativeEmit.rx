@@ -2597,6 +2597,30 @@ Public Class NativeProgram {
             Return This.Pair("0", "Task<Int>");
         }
         If (owner == "Task" && method == "WhenAll") { Return This.EmitWhenAll(arguments, types); }
+        If (owner == "Network" && method == "IsConnected") { Return This.Pair("1", "Bool"); }
+        If (owner == "Async" && method == "WaitUntil") {
+            String lambdaName = "";
+            If (types.Count() > 0) { lambdaName = types[0]; }
+            If (lambdaName.StartsWith("Lambda:")) { lambdaName = lambdaName.Substring(7); }
+            String result = "0";
+            If (lambdaName != "") {
+                FunctionInfo predicate = This.FindFunction(lambdaName, This.FileName);
+                If (predicate.Name != "") {
+                    String symbol = This.FunctionSymbol(predicate.FileName, lambdaName);
+                    If (This.IsVoid(predicate.ReturnType)) {
+                        This.CallRuntime(symbol, List<String>(), True);
+                    } Else {
+                        IrValue value = This.CallRuntime(symbol, List<String>(), False);
+                        result = value.Value;
+                    }
+                }
+            }
+            String flag = This.Fresh("gate");
+            This.Emit(flag + " = icmp ne i64 " + result + ", 0");
+            String bit = This.Fresh("v");
+            This.Emit(bit + " = zext i1 " + flag + " to i64");
+            Return This.Pair(bit, "Task<Bool>");
+        }
         If (owner == "Network" && method == "SendText") {
             If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Task<String>"); }
             Return This.Pair("0", "Task<String>");

@@ -327,6 +327,10 @@ Test TaskCallType {
         Input: owner = "Hardware", name = "ReadSensor";
         Output: "Int";
     }
+    Case "wait" {
+        Input: owner = "Async", name = "WaitUntil";
+        Output: "Task<Bool>";
+    }
     Case "seconds" {
         Input: owner = "Duration", name = "Seconds";
         Output: "Int";

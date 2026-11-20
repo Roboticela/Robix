@@ -778,6 +778,10 @@ Test IsTaskLibrary {
         Input: owner = "Function", name = "Throttle";
         Output: True;
     }
+    Case "wait" {
+        Input: owner = "Async", name = "WaitUntil";
+        Output: True;
+    }
     Case "when all" {
         Input: owner = "Task", name = "WhenAll";
         Output: True;
@@ -836,6 +840,10 @@ Test TaskLibraryValue {
     Case "throttle" {
         Input: owner = "Function", name = "Throttle", supplied = [];
         Assert: Result.Text == "";
+    }
+    Case "wait" {
+        Input: owner = "Async", name = "WaitUntil", supplied = [];
+        Assert: Result.Boolean == False;
     }
     Case "when all" {
         Input: owner = "Task", name = "WhenAll", supplied = [];

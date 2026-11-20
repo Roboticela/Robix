@@ -2624,7 +2624,8 @@ Public Class Interpreter {
         If (owner == "Task" && (name == "Delay" || name == "Yield" || name == "FromResult" || name == "Run" || name == "WhenAll")) { Return True; }
         If (owner == "Scheduler" && (name == "QueueMicrotask" || name == "Queue")) { Return True; }
         If (owner == "Function" && (name == "Debounce" || name == "Throttle")) { Return True; }
-        If (owner == "Network" && name == "SendText") { Return True; }
+        If (owner == "Network" && (name == "SendText" || name == "IsConnected")) { Return True; }
+        If (owner == "Async" && name == "WaitUntil") { Return True; }
         If (owner == "Promise" && (name == "All" || name == "Race" || name == "Any" || name == "AllSettled")) { Return True; }
         If (owner == "Duration" && (name == "Milliseconds" || name == "Seconds")) { Return True; }
         If (owner == "Hardware" && name == "ReadSensor") { Return True; }
@@ -2690,6 +2691,14 @@ Public Class Interpreter {
                 tuple.Elements.Add(item);
             }
             Return tuple;
+        }
+        If (owner == "Network" && name == "IsConnected") { Return This.MakeBool(True); }
+        If (owner == "Async" && name == "WaitUntil") {
+            If (supplied.Count() > 0 && supplied[0].Kind == ValueKind.Function && supplied[0].FunctionNode != Null) {
+                Value result = This.CallFunction(supplied[0].FunctionNode, List<Value>());
+                Return This.MakeBool(This.IsTruthy(result));
+            }
+            Return This.MakeBool(False);
         }
         If (owner == "Network" && name == "SendText") {
             If (supplied.Count() > 0) { Return supplied[0]; }
