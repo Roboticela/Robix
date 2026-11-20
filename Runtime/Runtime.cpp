@@ -555,12 +555,40 @@ int64_t Ownership::Keep(int64_t pointer) {
     return 0;
 }
 
+#if defined(_WIN32)
+static void *AllocateTracked(size_t bytes, size_t alignment) {
+    uintptr_t raw = 0;
+    uintptr_t aligned = 0;
+    if (alignment < sizeof(void *)) {
+        alignment = sizeof(void *);
+    }
+    raw = (uintptr_t)std::calloc(1, bytes + alignment + sizeof(void *));
+    if (raw == 0) {
+        return NULL;
+    }
+    aligned = (raw + sizeof(void *) + alignment - 1) & ~(uintptr_t)(alignment - 1);
+    ((void **)aligned)[-1] = (void *)raw;
+    return (void *)aligned;
+}
+
+static void FreeTracked(void *pointer) {
+    if (pointer == NULL) {
+        return;
+    }
+    std::free(((void **)pointer)[-1]);
+}
+#endif
+
 int64_t Ownership::Allocate(int64_t bytes) {
     void *memory = NULL;
     if (bytes < 1) {
         bytes = 1;
     }
+#if defined(_WIN32)
+    memory = AllocateTracked((size_t)bytes, sizeof(void *));
+#else
     memory = static_cast<void*>(std::calloc(1, (size_t)bytes));
+#endif
     return (int64_t)(uintptr_t)memory;
 }
 
@@ -576,10 +604,7 @@ int64_t Ownership::AllocateAligned(int64_t bytes, int64_t alignment) {
         alignment = (int64_t)sizeof(void *);
     }
 #if defined(_WIN32)
-    if ((bytes % alignment) != 0) {
-        bytes += alignment - (bytes % alignment);
-    }
-    memory = aligned_alloc((size_t)alignment, (size_t)bytes);
+    memory = AllocateTracked((size_t)bytes, (size_t)alignment);
     if (memory == NULL) {
         return 0;
     }
@@ -587,8 +612,8 @@ int64_t Ownership::AllocateAligned(int64_t bytes, int64_t alignment) {
     if (posix_memalign(&memory, (size_t)alignment, (size_t)bytes) != 0) {
         return 0;
     }
-#endif
     memset(memory, 0, (size_t)bytes);
+#endif
     return (int64_t)(uintptr_t)memory;
 }
 
@@ -875,7 +900,11 @@ void Ownership::Free(int64_t pointer) {
         Ownership::Release(pointer);
         return;
     }
+#if defined(_WIN32)
+    FreeTracked((void *)(uintptr_t)pointer);
+#else
     free((void *)(uintptr_t)pointer);
+#endif
 }
 
 int64_t Text::Length(int64_t text) {
@@ -1404,7 +1433,7 @@ void Files::WriteBytes(int64_t path, int64_t bytes) {
 
 int64_t Files::Exists(int64_t path) {
 #if defined(_WIN32)
-    DWORD attr = GetFileAttributesA(Text::Characters(path));
+    DWORD attr = ::GetFileAttributesA(Text::Characters(path));
     if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY) != 0) {
         return 0;
     }
@@ -1420,7 +1449,7 @@ int64_t Files::Exists(int64_t path) {
 
 void Files::Delete(int64_t path) {
 #if defined(_WIN32)
-    DeleteFileA(Text::Characters(path));
+    ::DeleteFileA(Text::Characters(path));
 #else
     unlink(Text::Characters(path));
 #endif
@@ -1435,7 +1464,7 @@ void Files::MakeParents(const char *path) {
 #if defined(_WIN32)
         if ((mark == '/' || mark == '\\') && index > 0) {
             copy[index] = 0;
-            CreateDirectoryA(copy, NULL);
+            ::CreateDirectoryA(copy, NULL);
             copy[index] = mark;
         }
 #else
@@ -1448,7 +1477,7 @@ void Files::MakeParents(const char *path) {
         index = index + 1;
     }
 #if defined(_WIN32)
-    CreateDirectoryA(copy, NULL);
+    ::CreateDirectoryA(copy, NULL);
 #else
     mkdir(copy, 0755);
 #endif
@@ -1461,20 +1490,20 @@ void Files::CreateDirectory(int64_t path) {
 
 void Files::RemoveTree(const char *path) {
 #if defined(_WIN32)
-    DWORD attr = GetFileAttributesA(path);
+    DWORD attr = ::GetFileAttributesA(path);
     if (attr == INVALID_FILE_ATTRIBUTES) {
         return;
     }
     if ((attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-        DeleteFileA(path);
+        ::DeleteFileA(path);
         return;
     }
     char pattern[4096];
     snprintf(pattern, sizeof(pattern), "%s\\*", path);
     WIN32_FIND_DATAA found;
-    HANDLE handle = FindFirstFileA(pattern, &found);
+    HANDLE handle = ::FindFirstFileA(pattern, &found);
     if (handle == INVALID_HANDLE_VALUE) {
-        RemoveDirectoryA(path);
+        ::RemoveDirectoryA(path);
         return;
     }
     do {
@@ -1484,9 +1513,9 @@ void Files::RemoveTree(const char *path) {
         char child[4096];
         snprintf(child, sizeof(child), "%s\\%s", path, found.cFileName);
         Files::RemoveTree(child);
-    } while (FindNextFileA(handle, &found));
-    FindClose(handle);
-    RemoveDirectoryA(path);
+    } while (::FindNextFileA(handle, &found));
+    ::FindClose(handle);
+    ::RemoveDirectoryA(path);
 #else
     struct stat info;
     if (lstat(path, &info) != 0) {
@@ -1520,7 +1549,7 @@ void Files::DeleteDirectory(int64_t path) {
 
 int64_t Files::DirectoryExists(int64_t path) {
 #if defined(_WIN32)
-    DWORD attr = GetFileAttributesA(Text::Characters(path));
+    DWORD attr = ::GetFileAttributesA(Text::Characters(path));
     if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
         return 0;
     }
@@ -1545,7 +1574,7 @@ void Files::Walk(int64_t list, const char *root, const char *relative) {
     char pattern[4096];
     snprintf(pattern, sizeof(pattern), "%s\\*", full);
     WIN32_FIND_DATAA found;
-    HANDLE handle = FindFirstFileA(pattern, &found);
+    HANDLE handle = ::FindFirstFileA(pattern, &found);
     if (handle == INVALID_HANDLE_VALUE) {
         return;
     }
@@ -1564,8 +1593,8 @@ void Files::Walk(int64_t list, const char *root, const char *relative) {
         } else {
             List::Add(list, Text::Box(Text::CopyBytes(childRel, (int64_t)strlen(childRel))));
         }
-    } while (FindNextFileA(handle, &found));
-    FindClose(handle);
+    } while (::FindNextFileA(handle, &found));
+    ::FindClose(handle);
 #else
     DIR *dir = opendir(full);
     if (dir == NULL) {
@@ -1843,17 +1872,34 @@ int64_t Float64::ToIntAlias(int64_t bits) { return Float64::ToInt(bits); }
 int64_t Process::ReadLine(void) { return Process::Input(); }
 
 int64_t Process::Input(void) {
-    char *line = NULL;
-    size_t capacity = 0;
-    ssize_t count = getline(&line, &capacity, stdin);
-    if (count < 0) {
-        free(line);
+    size_t capacity = 64;
+    size_t used = 0;
+    int mark = 0;
+    char *line = static_cast<char *>(std::malloc(capacity));
+    if (line == NULL) {
         return Text::Literal("");
     }
-    while (count > 0 && (line[count - 1] == '\n' || line[count - 1] == '\r')) {
-        count = count - 1;
-        line[count] = 0;
+    while ((mark = std::fgetc(stdin)) != EOF && mark != '\n') {
+        if (mark == '\r') {
+            continue;
+        }
+        if (used + 2 > capacity) {
+            char *grown = static_cast<char *>(std::realloc(line, capacity * 2));
+            if (grown == NULL) {
+                std::free(line);
+                return Text::Literal("");
+            }
+            line = grown;
+            capacity = capacity * 2;
+        }
+        line[used] = (char)mark;
+        used = used + 1;
     }
+    if (mark == EOF && used == 0) {
+        std::free(line);
+        return Text::Literal("");
+    }
+    line[used] = 0;
     return Text::Box(line);
 }
 

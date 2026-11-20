@@ -31,9 +31,10 @@ mkdir -p "$cache/llvm-mingw-linux" "$cache/llvm-mingw-windows"
 tar -xJf "$linux_tar" -C "$cache/llvm-mingw-linux"
 unzip -q "$windows_zip" -d "$cache/llvm-mingw-windows"
 
-cross=$(find "$cache/llvm-mingw-linux" -type f -name 'x86_64-w64-mingw32-clang++' | head -n 1)
-cross_ar=$(find "$cache/llvm-mingw-linux" -type f -name 'x86_64-w64-mingw32-llvm-ar' -o -type f -name 'llvm-ar' | head -n 1)
-if [[ -z "$cross" || -z "$cross_ar" ]]; then
+toolchain=$(find "$cache/llvm-mingw-linux" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+cross="$toolchain/bin/x86_64-w64-mingw32-clang++"
+cross_ar="$toolchain/bin/llvm-ar"
+if [[ ! -x "$cross" || ! -x "$cross_ar" ]]; then
     echo "error: the Windows cross compiler was not found in the toolchain" >&2
     exit 1
 fi
