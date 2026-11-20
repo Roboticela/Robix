@@ -51,6 +51,11 @@ Public Class TypeChecker {
     Private List<String> functionNames;
     Private List<String> functionSignatures;
     Private List<AstNode> functionNodes;
+    Private List<String> labelNames;
+    Private List<Int> labelDepths;
+    Private List<String> gotoNames;
+    Private List<Int> gotoDepths;
+    Private List<Int> gotoLines;
 
     Public Constructor(DiagnosticBag diagnostics) {
         This.diagnostics = diagnostics;
@@ -73,6 +78,11 @@ Public Class TypeChecker {
         This.functionNames = List<String>();
         This.functionSignatures = List<String>();
         This.functionNodes = List<AstNode>();
+        This.labelNames = List<String>();
+        This.labelDepths = List<Int>();
+        This.gotoNames = List<String>();
+        This.gotoDepths = List<Int>();
+        This.gotoLines = List<Int>();
     }
 
     Public Function Check(AstNode module) -> Void
@@ -103,6 +113,15 @@ Public Class TypeChecker {
     }
 
     Private Function CheckNode(AstNode node) -> Void {
+        If (node.Kind == AstKind.Label) {
+            This.labelNames.Add(node.Name);
+            This.labelDepths.Add(This.marks.Count());
+        }
+        If (node.Kind == AstKind.Goto) {
+            This.gotoNames.Add(node.Name);
+            This.gotoDepths.Add(This.marks.Count());
+            This.gotoLines.Add(node.Line);
+        }
         If (node.Kind == AstKind.Variable || node.Kind == AstKind.Field) {
             This.CheckVariable(node);
             If (!node.FlagC) {
@@ -360,6 +379,11 @@ Public Class TypeChecker {
         If (isAsync && returnType.Length() > 0 && !returnType.StartsWith("Task<") && !returnType.StartsWith("Promise<")) {
             This.diagnostics.TypeError("RX104", "An Async function returns Task<T> or Promise<T>.", node.Line, node.Column, "Task<T>", returnType, "Change the return type to Task<T>.");
         }
+        This.labelNames = List<String>();
+        This.labelDepths = List<Int>();
+        This.gotoNames = List<String>();
+        This.gotoDepths = List<Int>();
+        This.gotoLines = List<Int>();
         String previousReturn = This.currentReturn;
         This.currentReturn = returnType;
         This.PushScope();
@@ -403,6 +427,19 @@ Public Class TypeChecker {
         }
         This.functionDepth = This.functionDepth - 1;
         This.PopScope();
+        Int jump = 0;
+        While (jump < This.gotoNames.Count()) {
+            Int labelDepth = -1;
+            Int label = 0;
+            While (label < This.labelNames.Count()) {
+                If (This.labelNames[label] == This.gotoNames[jump]) { labelDepth = This.labelDepths[label]; }
+                label = label + 1;
+            }
+            If (labelDepth > This.gotoDepths[jump]) {
+                This.diagnostics.TypeError("RX119", "Goto cannot jump into a scope.", This.gotoLines[jump], 1, "a label in the current scope", "a deeper scope", "Jump only within the current scope or to an outer label.");
+            }
+            jump = jump + 1;
+        }
         This.currentReturn = previousReturn;
         If (node.Kind == AstKind.Function && returnType == "Int" && (node.Name == "Main" || node.Name == "LegacyMain")) {
             This.diagnostics.Warning("RX112", "Main should return ExitCode or ExecutionResult instead of a raw integer.", node.Line, node.Column);
@@ -668,6 +705,7 @@ Public Class TypeChecker {
                 If (left == "Null") { Return right; }
                 Return left;
             }
+            If (node.Operator == "+" && left.StartsWith("Pointer<")) { Return left; }
             If (node.Operator == "+" && (left == "String" || right == "String")) {
                 Return "String";
             }
@@ -800,6 +838,11 @@ Public Class TypeChecker {
                 owner = node.Left.Left.Name;
             }
             If (owner == "Pointer" && node.Left.Name == "Of") { Return "Pointer<Int>"; }
+            If (owner == "Memory" && node.Left.Name == "Allocate") { Return "Pointer<Byte>"; }
+            If (owner == "Memory" && (node.Left.Name == "Copy" || node.Left.Name == "Free")) { Return "Void"; }
+            If (owner == "Volatile" && node.Left.Name == "Store") { Return "Void"; }
+            If (owner == "Volatile" && node.Left.Name == "Load") { Return "Int"; }
+            If (node.Left.Name == "Increment" && receiverType.StartsWith("Atomic<")) { Return "Int"; }
             If (owner == "Files" && node.Left.Name == "Open") { Return "File"; }
             If (node.Left.Name == "Read" && receiverType == "File") { Return "String"; }
             If (node.Left.Name == "Partial") {
@@ -916,6 +959,7 @@ Public Class TypeChecker {
         If (name == "CancellationSource") { Return "CancellationSource"; }
         If (name == "AsyncLock") { Return "AsyncLock"; }
         If (name == "RoboException") { Return "RoboException"; }
+        If (name == "Atomic") { Return "Atomic<Int>"; }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
         }

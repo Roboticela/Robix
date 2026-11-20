@@ -1,26 +1,61 @@
-// Allocation, locks, and atomic counters.
+// Allocate bytes, copy them, update volatile memory, and increment an atomic counter.
 Package Robotics.Memory;
 
 Import Robix.Core;
 
 
+Public Function RoboWorker(Int amount) -> Int
+Explain {
+    Description: "Return the amount of work.";
+    Input: amount = "Work amount";
+    Processing: "Return the amount unchanged.";
+    Output: "The same amount.";
+} {
+    Return amount;
+}
+
+Public Async Function RoboFinish() -> Task<Int>
+Explain {
+    Description: "Await a task that is already complete.";
+    Input: "No input";
+    Processing: "Run RoboWorker through Task.Run and await it.";
+    Output: "The worker result.";
+} {
+    Task<Int> task = Task.Run(Function() => RoboWorker(1));
+    Int finished = Await task;
+    Return finished;
+}
+
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Allocate a byte, update it, and increment an atomic counter.";
+    Description: "Allocate memory, copy a byte, and update shared state.";
     Input: args = "Command-line arguments";
-    Processing: "Write one byte under an unsafe block and increment shared state under a lock.";
-    Output: "The atomic counter value after one increment.";
+    Processing: "Write a byte, copy it eight bytes later, store through volatile pointers, lock, and increment.";
+    Output: "The written byte, the copied byte, the volatile value, the lock line, the counter, and the task.";
 } {
     Unsafe {
         Pointer<Byte> memory = Memory.Allocate<Byte>(1024);
         *memory = 42;
+        Pointer<Byte> next = memory + 8;
+        Memory.Copy(next, memory, 128);
+        Print(*memory);
+        Print(*next);
         Memory.Free(memory);
+    }
+    Int cell = 0;
+    Pointer<Int> sourcePointer = Pointer.Of(cell);
+    Pointer<Int> targetPointer = Pointer.Of(cell);
+    Unsafe {
+        Volatile.Store(targetPointer, 42);
+        Int loaded = Volatile.Load(sourcePointer);
+        Print(loaded);
     }
     Var sensorLock = "sensor";
     Lock sensorLock {
         Print("locked");
     }
     Atomic<Int> sharedCounter = Atomic<Int>(0);
-    sharedCounter.Increment();
-    Return 1;
+    Print(sharedCounter.Increment());
+    Print(RoboFinish());
+    Return 0;
 }

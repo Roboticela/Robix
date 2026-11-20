@@ -670,7 +670,12 @@ Public Class Interpreter {
             This.signal = "throw";
             Return This.MakeVoid();
         }
-        If (node.Kind == AstKind.Block || node.Kind == AstKind.Lock) {
+        If (node.Kind == AstKind.Lock) {
+            If (node.Left != Null) { This.Evaluate(node.Left); }
+            If (node.Body != Null) { This.ExecuteNode(node.Body); }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Block) {
             Return This.ExecuteBlock(node);
         }
         If (node.Kind == AstKind.Variable) {
@@ -996,6 +1001,11 @@ Public Class Interpreter {
             If (node.Operator == "-" && operand.Kind == ValueKind.Integer) {
                 Return This.MakeInt(-operand.Integer);
             }
+            If (node.Operator == "*" && operand.Text == "Ptr" && operand.Elements.Count() > 0) {
+                Value storage = operand.Elements[0];
+                If (operand.Integer >= 0 && operand.Integer < storage.Elements.Count()) { Return storage.Elements[operand.Integer]; }
+                Return This.MakeInt(0);
+            }
             If (node.Operator == "*" && (operand.Text.StartsWith("Ref:") || operand.Text.StartsWith("MutRef:"))) {
                 Return This.Lookup(This.ReferenceTarget(operand.Text));
             }
@@ -1045,6 +1055,11 @@ Public Class Interpreter {
             Value value = This.Evaluate(node.Right);
             If (node.Left != Null && node.Left.Kind == AstKind.Unary && node.Left.Operator == "*") {
                 Value target = This.Evaluate(node.Left.Left);
+                If (target.Text == "Ptr" && target.Elements.Count() > 0) {
+                    Value storage = target.Elements[0];
+                    If (target.Integer >= 0 && target.Integer < storage.Elements.Count()) { storage.Elements[target.Integer] = value; }
+                    Return value;
+                }
                 If (target.Text.StartsWith("Ref:") || target.Text.StartsWith("MutRef:")) {
                     This.Assign(This.ReferenceTarget(target.Text), value);
                 }
@@ -1233,6 +1248,13 @@ Public Class Interpreter {
             Return This.EvaluateFloat(node.Operator, left, right);
         }
         If (node.Operator == "+") {
+            If (left.Text == "Ptr") {
+                Value shifted = This.MakeArray();
+                shifted.Text = "Ptr";
+                shifted.Integer = left.Integer + right.Integer;
+                If (left.Elements.Count() > 0) { shifted.Elements.Add(left.Elements[0]); }
+                Return shifted;
+            }
             If (left.Kind == ValueKind.Text || right.Kind == ValueKind.Text) {
                 Return This.MakeText(This.Display(left) + This.Display(right));
             }
@@ -1373,6 +1395,13 @@ Public Class Interpreter {
             If (arguments.Count() > 0) { Return arguments[0]; }
             Return This.MakeText("");
         }
+        If (name == "Atomic") {
+            Value atomic = This.MakeArray();
+            atomic.Text = "Atomic";
+            If (arguments.Count() > 0) { atomic.Elements.Add(arguments[0]); }
+            If (arguments.Count() == 0) { atomic.Elements.Add(This.MakeInt(0)); }
+            Return atomic;
+        }
         If (name == "RoboException") {
             Value error = This.MakeArray();
             error.Text = "RoboException";
@@ -1449,6 +1478,60 @@ Public Class Interpreter {
                 wrapper.Elements.Add(argument);
             }
             Return wrapper;
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Memory") {
+            If (node.Left.Name == "Allocate") {
+                Int count = 1;
+                If (arguments.Count() > 0) { count = arguments[0].Integer; }
+                Value storage = This.MakeArray();
+                storage.Text = "Bytes";
+                Int index = 0;
+                While (index < count) {
+                    storage.Elements.Add(This.MakeInt(0));
+                    index = index + 1;
+                }
+                Value pointer = This.MakeArray();
+                pointer.Text = "Ptr";
+                pointer.Integer = 0;
+                pointer.Elements.Add(storage);
+                Return pointer;
+            }
+            If (node.Left.Name == "Copy" && arguments.Count() >= 3) {
+                Value dest = arguments[0];
+                Value source = arguments[1];
+                Int count = arguments[2].Integer;
+                If (dest.Text == "Ptr" && source.Text == "Ptr" && dest.Elements.Count() > 0 && source.Elements.Count() > 0) {
+                    Value destStorage = dest.Elements[0];
+                    Value sourceStorage = source.Elements[0];
+                    Int index = 0;
+                    While (index < count) {
+                        Int from = source.Integer + index;
+                        Int to = dest.Integer + index;
+                        If (from >= 0 && to >= 0 && from < sourceStorage.Elements.Count() && to < destStorage.Elements.Count()) {
+                            destStorage.Elements[to] = sourceStorage.Elements[from];
+                        }
+                        index = index + 1;
+                    }
+                }
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "Free") { Return This.MakeVoid(); }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Volatile") {
+            If (node.Left.Name == "Store" && arguments.Count() >= 2) {
+                Value target = arguments[0];
+                If (target.Text.StartsWith("MutRef:") || target.Text.StartsWith("Ref:")) {
+                    This.Assign(This.ReferenceTarget(target.Text), arguments[1]);
+                }
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "Load" && arguments.Count() > 0) {
+                Value target = arguments[0];
+                If (target.Text.StartsWith("MutRef:") || target.Text.StartsWith("Ref:")) {
+                    Return This.Lookup(This.ReferenceTarget(target.Text));
+                }
+                Return This.MakeInt(0);
+            }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Operators") {
             Return This.OperatorLibrary(node.Left.Name, arguments);
@@ -1737,6 +1820,12 @@ Public Class Interpreter {
             If (node.Left.Name == "Message" && target.Text == "RoboException") {
                 If (target.Elements.Count() > 0) { Return target.Elements[0]; }
                 Return This.MakeText("");
+            }
+            If (node.Left.Name == "Increment" && target.Text == "Atomic") {
+                Int next = 1;
+                If (target.Elements.Count() > 0) { next = target.Elements[0].Integer + 1; }
+                target.Elements[0] = This.MakeInt(next);
+                Return This.MakeInt(next);
             }
             If (node.Left.Name == "AcquireAsync") { Return target; }
             If (node.Left.Name == "WithTimeout") { Return target; }

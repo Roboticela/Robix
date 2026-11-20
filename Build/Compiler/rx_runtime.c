@@ -296,6 +296,20 @@ void rx_obj_set(int64_t object, int64_t index, int64_t value) {
     fields[index] = value;
 }
 
+void rx_mem_copy(int64_t dest, int64_t src, int64_t count) {
+    if (dest == 0 || src == 0 || count <= 0) {
+        return;
+    }
+    memmove((void *)(uintptr_t)dest, (void *)(uintptr_t)src, (size_t)count);
+}
+
+void rx_free(int64_t pointer) {
+    if (pointer == 0) {
+        return;
+    }
+    free((void *)(uintptr_t)pointer);
+}
+
 int64_t rx_str_len(int64_t text) {
     return (int64_t)strlen(rx_cstr(text));
 }

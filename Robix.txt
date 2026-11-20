@@ -161,38 +161,8 @@ Connect RoboStatusService;
 // The runtime owns console creation; applications can inspect Runtime.Console.Enabled.
 
 // -----------------------------------------------------------------------------
-// 9. Exceptions, defer, using, unsafe, assembly, and labels
-// -----------------------------------------------------------------------------
-
-// Goto is restricted to legal control-flow regions and cannot jump into scopes
-// that would bypass initialization, cleanup, or resource-safety rules.
-
-// -----------------------------------------------------------------------------
 // 10. Memory, pointers, references, and concurrency
 // -----------------------------------------------------------------------------
-
-Unsafe {
-    Pointer<Byte> memory = Memory.Allocate<Byte>(1024);
-    *memory = 42;
-    Pointer<Byte> next = memory + 8;
-    Memory.Copy(next, memory, 128);
-    Memory.Free(memory);
-}
-
-Unsafe {
-    Volatile.Store(targetPointer, 42);
-    Int loaded = Volatile.Load(sourcePointer);
-}
-
-Lock sensorLock {
-    UpdateSharedSensorState();
-}
-
-Atomic<Int> sharedCounter = Atomic<Int>(0);
-sharedCounter.Increment();
-
-Task task = Task.Run(Function() => RoboWorker(1));
-Await task;
 
 // Standard library namespaces should provide discoverable, documented APIs
 // for math, strings, collections, files, paths, dates, time, networking,

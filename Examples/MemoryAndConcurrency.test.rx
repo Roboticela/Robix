@@ -1,5 +1,17 @@
 // Tests for Examples/MemoryAndConcurrency.rx.
 
+Test RoboWorker {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboFinish {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
 Test Main {
     Constraint: True;
     Processing: True;

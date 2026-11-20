@@ -725,7 +725,7 @@ Public Class NativeProgram {
 
     Private Function RuntimeDeclarations() -> String {
         String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_list_text rx_settle_list rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F64ToIntMode rx_F64ToIntChecked rx_F64Format rx_str_is_int rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
-        String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
+        String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete rx_mem_copy rx_free";
         String lines = "";
         Int start = 0;
         While (start < names.Length()) {
@@ -1090,6 +1090,11 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.If) { This.EmitIf(node); Return; }
         If (node.Kind == AstKind.While || node.Kind == AstKind.DoWhile || node.Kind == AstKind.Repeat || node.Kind == AstKind.Loop) { This.EmitWhile(node); Return; }
         If (node.Kind == AstKind.For) { This.EmitFor(node); Return; }
+        If (node.Kind == AstKind.Lock) {
+            If (node.Left != Null) { This.EmitExpr(node.Left); }
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            Return;
+        }
         If (node.Kind == AstKind.Using) {
             Int mark = This.ScopeCount;
             IrValue lease = This.Pair("0", "AsyncLock");
@@ -2056,6 +2061,15 @@ Public Class NativeProgram {
     }
 
     Private Function EmitNamedCall(AstNode left, List<String> arguments, List<String> types) -> IrValue {
+        If (left.Name == "Atomic") {
+            Var created = List<String>();
+            created.Add("1");
+            IrValue atomic = This.CallRuntime("rx_obj_new", created, False);
+            String initial = "0";
+            If (arguments.Count() > 0) { initial = arguments[0]; }
+            This.StoreObjectField(atomic.Value, "0", initial);
+            Return This.Pair(atomic.Value, "Atomic<Int>");
+        }
         If (left.Name == "RoboException") {
             Var created = List<String>();
             created.Add("1");
@@ -2463,6 +2477,13 @@ Public Class NativeProgram {
             If (staticCall.TypeName != "Missing") { Return staticCall; }
         }
         IrValue receiver = This.EmitExpr(member.Left);
+        If (member.Name == "Increment" && receiver.TypeName.StartsWith("Atomic<")) {
+            String current = This.LoadObjectField(receiver.Value, "0");
+            String next = This.Fresh("v");
+            This.Emit(next + " = add i64 " + current + ", 1");
+            This.StoreObjectField(receiver.Value, "0", next);
+            Return This.Pair(next, "Int");
+        }
         If (member.Name == "Read" && receiver.TypeName == "File") { Return This.Pair(receiver.Value, "String"); }
         If (member.Name == "Message" && receiver.TypeName == "RoboException") {
             Return This.Pair(This.LoadObjectField(receiver.Value, "0"), "String");
@@ -2902,6 +2923,51 @@ Public Class NativeProgram {
             This.Emit(scaled + " = mul i64 " + arguments[0] + ", 1000");
             Return This.Pair(scaled, "Int");
         }
+        If (owner == "Memory" && method == "Allocate") {
+            String bytes = "1";
+            If (arguments.Count() > 0) { bytes = arguments[0]; }
+            Var created = List<String>();
+            created.Add(bytes);
+            IrValue memory = This.CallRuntime("rx_obj_new", created, False);
+            Return This.Pair(memory.Value, "Pointer<Byte>");
+        }
+        If (owner == "Memory" && method == "Copy") {
+            Var copied = List<String>();
+            If (arguments.Count() > 0) { copied.Add(arguments[0]); }
+            If (arguments.Count() < 1) { copied.Add("0"); }
+            If (arguments.Count() > 1) { copied.Add(arguments[1]); }
+            If (arguments.Count() < 2) { copied.Add("0"); }
+            If (arguments.Count() > 2) { copied.Add(arguments[2]); }
+            If (arguments.Count() < 3) { copied.Add("0"); }
+            This.CallRuntime("rx_mem_copy", copied, True);
+            Return This.Pair("0", "Void");
+        }
+        If (owner == "Memory" && method == "Free") {
+            Var released = List<String>();
+            If (arguments.Count() > 0) { released.Add(arguments[0]); }
+            If (arguments.Count() == 0) { released.Add("0"); }
+            This.CallRuntime("rx_free", released, True);
+            Return This.Pair("0", "Void");
+        }
+        If (owner == "Volatile" && method == "Store") {
+            String pointerValue = "0";
+            String stored = "0";
+            If (arguments.Count() > 0) { pointerValue = arguments[0]; }
+            If (arguments.Count() > 1) { stored = arguments[1]; }
+            String pointer = This.Fresh("p");
+            This.Emit(pointer + " = inttoptr i64 " + pointerValue + " to ptr");
+            This.Emit("store i64 " + stored + ", ptr " + pointer);
+            Return This.Pair("0", "Void");
+        }
+        If (owner == "Volatile" && method == "Load") {
+            String pointerValue = "0";
+            If (arguments.Count() > 0) { pointerValue = arguments[0]; }
+            String pointer = This.Fresh("p");
+            This.Emit(pointer + " = inttoptr i64 " + pointerValue + " to ptr");
+            String loaded = This.Fresh("v");
+            This.Emit(loaded + " = load i64, ptr " + pointer);
+            Return This.Pair(loaded, "Int");
+        }
         If (owner == "Hardware" && method == "ReadSensor") { Return This.Pair("40", "Int"); }
         If (owner == "Hardware" && method == "WatchSensor") {
             IrValue stream = This.CallRuntime("rx_list_new", List<String>(), False);
@@ -3142,6 +3208,11 @@ Public Class NativeProgram {
             Return This.EmitFloatBinary(node.Operator, left, right);
         }
         If (node.Operator == "+") {
+            If (left.TypeName.StartsWith("Pointer<")) {
+                String shifted = This.Fresh("v");
+                This.Emit(shifted + " = add i64 " + left.Value + ", " + right.Value);
+                Return This.Pair(shifted, left.TypeName);
+            }
             If (This.IsString(left.TypeName) || This.IsString(right.TypeName)) {
                 String leftValue = left.Value;
                 String rightValue = right.Value;
