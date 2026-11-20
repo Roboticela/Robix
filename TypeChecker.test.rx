@@ -320,6 +320,39 @@ Test IsCamel {
     }
 }
 
+Test FitsIntegerLiteral {
+    Case "int8 accepts minus twelve" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "12"), expected = "Int8";
+        Output: True;
+    }
+    Case "uint8 rejects 256" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "256"), expected = "UInt8";
+        Output: False;
+    }
+}
+
+Test FitsFloatLiteral {
+    Case "float literal fits float32" {
+        Input: node = AstNode(Kind: AstKind.FloatLiteral, Text: "1.0"), expected = "Float32";
+        Output: True;
+    }
+    Case "integer literal is not a float literal" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "1"), expected = "Float32";
+        Output: False;
+    }
+}
+
+Test FitsDecimalLiteral {
+    Case "float literal fits decimal" {
+        Input: node = AstNode(Kind: AstKind.FloatLiteral, Text: "42.0"), expected = "Decimal";
+        Output: True;
+    }
+    Case "string does not fit decimal" {
+        Input: node = AstNode(Kind: AstKind.StringLiteral, Text: "42.0"), expected = "Decimal";
+        Output: False;
+    }
+}
+
 Test HasModifier {
     Case "has modifier" {
         Input: node = AstNode(Modifiers: ["Public", "Const"]), name = "Const";

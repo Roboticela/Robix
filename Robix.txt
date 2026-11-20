@@ -14,44 +14,16 @@ The lagnuage will can have both entry point from procedural with private int mai
 
 
 // -----------------------------------------------------------------------------
-// 1. Literals and constants
-// -----------------------------------------------------------------------------
-
-UInt32 unsignedValue = 42u32;
-Decimal decimalValue = 42.0m;
-
-// Numeric suffixes remain available for exact control. Type helper functions
-// provide a clearer alternative when a suffix is inconvenient.
-UInt32 port = UInt32.From(14);
-Int64 largeValue = Int64.From(9_000_000_000);
-Float32 sensorPrecision = Float32.From(3.14159, precision: 5);
-Decimal billingAmount = Decimal.From("19.99", scale: 2);
-
-// -----------------------------------------------------------------------------
 // 3. Type system, conversions, precision, and user-defined types
 // -----------------------------------------------------------------------------
 
-Int8 smallNumber = -12;
-UInt8 byteValue = 255;
-Int16 shortValue = 1234;
-Int32 standardInteger = 123456;
-Int64 longValue = 9_223_372_036_854_775_807;
 UInt64 bigUnsigned = 18_446_744_073_709_551_615;
 Float16 halfPrecision = 1.0;
-Float32 singlePrecision = 1.0;
-Float64 doublePrecision = 1.0;
-Decimal exactDecimal = 42.0;
 
 // Arbitrary-width integer types are available through a bit-width parameter.
 // Examples: Int<24>, UInt<128>, Int<256>, Float<128>.
 Int<24> customWidth = Int<24>.From(100);
 UInt<128> veryLargeUnsigned = UInt<128>.From(1000);
-
-// Generic numeric constructors avoid memorizing literal suffixes.
-Let exactInt = Int.From("14");
-Let exactUInt = UInt.From(14);
-Let preciseFloat = Float.From("3.1415926535", precision: 10);
-Let preciseDouble = Double.From("3.141592653589793", precision: 15);
 
 // Direct conversion methods. Try variants report conversion failure without
 // throwing; checked conversions throw on invalid or out-of-range values.

@@ -584,7 +584,7 @@ Public Class NativeProgram {
     Private Function DeclareExtern(AstNode node) -> String {
         If (node.Name == "RunProcess") { Return ""; }
         String symbol = This.ExternSymbol(node.Name);
-        If (symbol == "rx_F64Parse" || symbol == "rx_F64Text" || symbol == "rx_F64FromInt" || symbol == "rx_F64ToInt" || symbol == "rx_Input") { Return ""; }
+        If (symbol == "rx_F64Parse" || symbol == "rx_F64Text" || symbol == "rx_F64FromInt" || symbol == "rx_F64ToInt" || symbol == "rx_F32Parse" || symbol == "rx_FormatFixed" || symbol == "rx_Input") { Return ""; }
         String args = "";
         Int count = node.Parameters.Count();
         Int index = 0;
@@ -693,7 +693,7 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F32Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
         String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
@@ -964,6 +964,19 @@ Public Class NativeProgram {
                 If (typeName == "" || typeName == "Tuple") { typeName = sourceType; }
             }
             If (typeName == "") { typeName = "Int"; }
+            If (typeName == "Decimal" && sourceType != "Decimal" && node.Initializer != Null) {
+                If (node.Initializer.Kind == AstKind.FloatLiteral) {
+                    value = This.StringConst(This.FloatSpelling(node.Initializer.Text));
+                } Else If (node.Initializer.Kind == AstKind.IntegerLiteral) {
+                    value = This.StringConst(This.Digits(node.Initializer.Text) + ".0");
+                }
+            }
+            If ((typeName == "Float32" || typeName == "Float16") && This.IsFloatType(sourceType) && sourceType != "Float32" && sourceType != "Float16") {
+                value = This.NarrowFloat32(value);
+            }
+            If (This.IsWrappedInteger(typeName) && !This.IsFloatType(sourceType) && !This.IsString(sourceType) && sourceType != "Decimal") {
+                value = This.WrapInteger(value, typeName);
+            }
             If (This.IsAnyType(typeName)) {
                 IrValue boxed = This.BoxAny(This.Pair(value, sourceType));
                 value = boxed.Value;
@@ -1468,8 +1481,15 @@ Public Class NativeProgram {
     }
 
     Private Function EmitExpr(AstNode node) -> IrValue {
-        If (node.Kind == AstKind.IntegerLiteral) { Return This.Pair(This.Digits(node.Text), "Int"); }
-        If (node.Kind == AstKind.FloatLiteral) { Return This.Pair(This.EmitFloatBits(node.Text), "Float"); }
+        If (node.Kind == AstKind.IntegerLiteral) {
+            String literalType = This.LiteralTypeName(node.Text);
+            Return This.Pair(This.WrapInteger(This.Digits(node.Text), literalType), literalType);
+        }
+        If (node.Kind == AstKind.FloatLiteral) {
+            String literalType = This.LiteralTypeName(node.Text);
+            If (literalType == "Decimal") { Return This.Pair(This.StringConst(This.FloatSpelling(node.Text)), "Decimal"); }
+            Return This.Pair(This.EmitFloatBits(node.Text), literalType);
+        }
         If (node.Kind == AstKind.StringLiteral) {
             If (node.FlagA && node.Children.Count() > 0) { Return This.EmitInterpolation(node); }
             Return This.Pair(This.StringConst(node.Text), "String");
@@ -1660,6 +1680,9 @@ Public Class NativeProgram {
     }
 
     Private Function EmitCall(AstNode node) -> IrValue {
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericType(node.Left.Left.Name)) {
+            Return This.EmitNumericFrom(node);
+        }
         Var arguments = List<String>();
         Var types = List<String>();
         For argument In node.Parameters {
@@ -3298,6 +3321,7 @@ Public Class NativeProgram {
         If (clean == "String") { Return 1; }
         If (clean == "Bool") { Return 2; }
         If (clean == "Char") { Return 3; }
+        If (clean == "Decimal") { Return 1; }
         If (This.IsFloatType(clean)) { Return 4; }
         Return 0;
     }
@@ -3405,6 +3429,144 @@ Public Class NativeProgram {
         }
         If (mixed || This.UntypedLiteral) { Return This.Pair(list.Value, "Array<Any>"); }
         Return This.Pair(list.Value, "List:" + element);
+    }
+
+    Private Function EmitNumericFrom(AstNode node) -> IrValue {
+        String typeName = node.Left.Left.Name;
+        String valueReg = "0";
+        String valueType = "Int";
+        String places = "-1";
+        Bool hasValue = False;
+        For argument In node.Parameters {
+            If (argument.Left == Null) { Continue; }
+            If (argument.Name == "precision" || argument.Name == "scale") {
+                IrValue place = This.EmitExpr(argument.Left);
+                places = place.Value;
+            } Else If (!hasValue) {
+                IrValue value = This.EmitExpr(argument.Left);
+                valueReg = value.Value;
+                valueType = value.TypeName;
+                hasValue = True;
+            }
+        }
+        If (typeName == "Decimal") {
+            String text = valueReg;
+            If (valueType != "String" && valueType != "Decimal") {
+                IrValue rendered = This.ToStringValue(valueReg, valueType);
+                text = rendered.Value;
+            }
+            Var args = List<String>();
+            args.Add(text);
+            args.Add(places);
+            IrValue formatted = This.CallRuntime("rx_FormatFixed", args, False);
+            Return This.Pair(formatted.Value, "Decimal");
+        }
+        If (typeName == "Float" || typeName == "Double" || typeName == "Float16" || typeName == "Float32" || typeName == "Float64") {
+            String text = valueReg;
+            If (!This.IsString(valueType) && valueType != "Decimal") {
+                IrValue rendered = This.ToStringValue(valueReg, valueType);
+                text = rendered.Value;
+            }
+            Var args = List<String>();
+            args.Add(text);
+            args.Add(places);
+            IrValue formatted = This.CallRuntime("rx_FormatFixed", args, False);
+            Var parseArgs = List<String>();
+            parseArgs.Add(formatted.Value);
+            String parser = "rx_F64Parse";
+            If (typeName == "Float32" || typeName == "Float16") { parser = "rx_F32Parse"; }
+            IrValue bits = This.CallRuntime(parser, parseArgs, False);
+            Return This.Pair(bits.Value, typeName);
+        }
+        String integer = valueReg;
+        If (This.IsString(valueType)) {
+            Var args = List<String>();
+            args.Add(valueReg);
+            IrValue parsed = This.CallRuntime("rx_str_to_int", args, False);
+            integer = parsed.Value;
+        } Else If (This.IsFloatType(valueType)) {
+            Var args = List<String>();
+            args.Add(valueReg);
+            IrValue parsed = This.CallRuntime("rx_F64ToInt", args, False);
+            integer = parsed.Value;
+        }
+        Return This.Pair(This.WrapInteger(integer, typeName), typeName);
+    }
+
+    Private Function LiteralTypeName(String text) -> String {
+        String lower = text.ToLower();
+        If (This.DigitSuffix(lower, "u64")) { Return "UInt64"; }
+        If (This.DigitSuffix(lower, "u32")) { Return "UInt32"; }
+        If (This.DigitSuffix(lower, "u16")) { Return "UInt16"; }
+        If (This.DigitSuffix(lower, "u8") || This.DigitSuffix(lower, "u")) { Return "UInt8"; }
+        If (This.DigitSuffix(lower, "i64")) { Return "Int64"; }
+        If (This.DigitSuffix(lower, "i32")) { Return "Int32"; }
+        If (This.DigitSuffix(lower, "i16")) { Return "Int16"; }
+        If (This.DigitSuffix(lower, "i8")) { Return "Int8"; }
+        If (This.DigitSuffix(lower, "f64")) { Return "Float64"; }
+        If (This.DigitSuffix(lower, "f32") || This.DigitSuffix(lower, "f")) { Return "Float32"; }
+        If (This.DigitSuffix(lower, "f16")) { Return "Float16"; }
+        If (This.DigitSuffix(lower, "m")) { Return "Decimal"; }
+        If (This.DigitSuffix(lower, "d")) { Return "Double"; }
+        If (text.Contains(".")) { Return "Float"; }
+        Return "Int";
+    }
+
+    Private Function DigitSuffix(String lower, String suffix) -> Bool {
+        If (!lower.EndsWith(suffix)) { Return False; }
+        If (lower.Length() <= suffix.Length()) { Return False; }
+        Char before = lower.GetChar(lower.Length() - suffix.Length() - 1);
+        Return before >= '0' && before <= '9';
+    }
+
+    Private Function IsNumericType(String typeName) -> Bool {
+        Return typeName == "Int" || typeName == "UInt" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName == "Byte" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
+    }
+
+    Private Function IsWrappedInteger(String typeName) -> Bool {
+        Return typeName == "Int8" || typeName == "Int16" || typeName == "Int32" || typeName == "UInt8" || typeName == "UInt16" || typeName == "UInt32" || typeName == "Byte";
+    }
+
+    Private Function WrapInteger(String value, String typeName) -> String {
+        If (typeName == "UInt8" || typeName == "Byte") {
+            String result = This.Fresh("v");
+            This.Emit(result + " = and i64 " + value + ", 255");
+            Return result;
+        }
+        If (typeName == "UInt16") {
+            String result = This.Fresh("v");
+            This.Emit(result + " = and i64 " + value + ", 65535");
+            Return result;
+        }
+        If (typeName == "UInt32") {
+            String result = This.Fresh("v");
+            This.Emit(result + " = and i64 " + value + ", 4294967295");
+            Return result;
+        }
+        If (typeName == "Int8") { Return This.SignExtend(value, "i8"); }
+        If (typeName == "Int16") { Return This.SignExtend(value, "i16"); }
+        If (typeName == "Int32") { Return This.SignExtend(value, "i32"); }
+        Return value;
+    }
+
+    Private Function SignExtend(String value, String width) -> String {
+        String narrowed = This.Fresh("v");
+        This.Emit(narrowed + " = trunc i64 " + value + " to " + width);
+        String result = This.Fresh("v");
+        This.Emit(result + " = sext " + width + " " + narrowed + " to i64");
+        Return result;
+    }
+
+    Private Function NarrowFloat32(String bits) -> String {
+        String asDouble = This.Fresh("v");
+        This.Emit(asDouble + " = bitcast i64 " + bits + " to double");
+        String narrow = This.Fresh("v");
+        This.Emit(narrow + " = fptrunc double " + asDouble + " to float");
+        String wide = This.Fresh("v");
+        This.Emit(wide + " = fpext float " + narrow + " to double");
+        String result = This.Fresh("v");
+        This.Emit(result + " = bitcast double " + wide + " to i64");
+        Return result;
     }
 
     Private Function IsFloatType(String typeName) -> Bool {

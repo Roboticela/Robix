@@ -501,6 +501,19 @@ int64_t rx_F64FromInt(int64_t value) {
     return rx_f64_box((double)value);
 }
 
+int64_t rx_FormatFixed(int64_t text, int64_t places) {
+    const char *raw = rx_cstr(text);
+    if (places < 0) {
+        return rx_box(rx_copy_n(raw, (int64_t)strlen(raw)));
+    }
+    if (places > 18) {
+        places = 18;
+    }
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "%.*f", (int)places, strtod(raw, NULL));
+    return rx_box(rx_copy_n(buffer, (int64_t)strlen(buffer)));
+}
+
 int64_t rx_F64Add(int64_t left, int64_t right) {
     return rx_f64_box(rx_f64_unbox(left) + rx_f64_unbox(right));
 }

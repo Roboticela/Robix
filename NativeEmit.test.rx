@@ -1059,6 +1059,86 @@ Test HexByte {
     }
 }
 
+Test LiteralTypeName {
+    Case "plain integer" {
+        Input: text = "42";
+        Output: "Int";
+    }
+    Case "unsigned suffix" {
+        Input: text = "42u32";
+        Output: "UInt32";
+    }
+    Case "decimal suffix" {
+        Input: text = "42.0m";
+        Output: "Decimal";
+    }
+    Case "hex is not a float suffix" {
+        Input: text = "0xFF";
+        Output: "Int";
+    }
+}
+
+Test DigitSuffix {
+    Case "digit before suffix" {
+        Input: lower = "42u32", suffix = "u32";
+        Output: True;
+    }
+    Case "hex letter is not a decimal digit" {
+        Input: lower = "0xff", suffix = "f";
+        Output: False;
+    }
+}
+
+Test EmitNumericFrom {
+    Case "uint32 from" {
+        Input: node = AstNode(Left: AstNode(Kind: AstKind.Member, Name: "From", Left: AstNode(Kind: AstKind.Name, Name: "UInt32")), Parameters: [AstNode(Kind: AstKind.Argument, Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "14"))]);
+        Assert: Result.TypeName == "UInt32";
+    }
+}
+
+Test IsNumericType {
+    Case "decimal is numeric" {
+        Input: typeName = "Decimal";
+        Output: True;
+    }
+    Case "bool is not numeric" {
+        Input: typeName = "Bool";
+        Output: False;
+    }
+}
+
+Test IsWrappedInteger {
+    Case "uint32 wraps" {
+        Input: typeName = "UInt32";
+        Output: True;
+    }
+    Case "int64 stays full width" {
+        Input: typeName = "Int64";
+        Output: False;
+    }
+}
+
+Test WrapInteger {
+    Case "mask uint8" {
+        Input: value = "300", typeName = "UInt8";
+        Assert: Result.StartsWith("%");
+    }
+}
+
+Test SignExtend {
+    Case "sign extend int8" {
+        Input: value = "128", width = "i8";
+        Assert: Result.StartsWith("%");
+    }
+}
+
+Test NarrowFloat32 {
+    Case "narrow a double bit pattern" {
+        Input: bits = "0";
+        Assert: Result.StartsWith("%");
+    }
+}
+
 Test HexDigit {
     Case "9" {
         Input: value = 9;

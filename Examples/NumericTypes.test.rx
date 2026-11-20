@@ -1,0 +1,7 @@
+// Tests for Examples/NumericTypes.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

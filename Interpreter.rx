@@ -747,6 +747,9 @@ Public Class Interpreter {
         If (node.Initializer != Null) {
             initial = This.Evaluate(node.Initializer);
         }
+        If (node.Type != Null) {
+            initial = This.AdaptNumeric(node.Type.Name, initial, node.Initializer);
+        }
         This.Define(node.Name, initial);
         For child In node.Children {
             This.ExecuteVariable(child);
@@ -856,7 +859,7 @@ Public Class Interpreter {
             Return This.MakeVoid();
         }
         If (node.Kind == AstKind.IntegerLiteral) {
-            Return This.MakeInt(ParseInteger(node.Text));
+            Return This.MakeWidth(SuffixTypeName(NumericSuffix(node.Text)), ParseInteger(node.Text));
         }
         If (node.Kind == AstKind.FloatLiteral) {
             Return This.ParseFloat(node.Text);
@@ -1162,6 +1165,9 @@ Public Class Interpreter {
         String name = "";
         If (node.Left != Null && node.Left.Kind == AstKind.Name) {
             name = node.Left.Name;
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericOwner(node.Left.Left.Name)) {
+            Return This.NumericFrom(node.Left.Left.Name, node, arguments);
         }
         If (name == "AstNode") {
             Value obj = This.BlankValue("AstNode");
@@ -2395,7 +2401,192 @@ Public Class Interpreter {
         If (lower.EndsWith("f32") || lower.EndsWith("f")) {
             Return This.MakeFloatBits(F32Parse(number));
         }
+        If (lower.EndsWith("m")) {
+            Return This.MakeText(number);
+        }
         Return This.MakeFloatBits(ParseF64(number));
+    }
+
+    Private Function AdaptNumeric(String typeName, Value value, AstNode? initializer) -> Value {
+        If (typeName == "Decimal") {
+            If (value.Kind == ValueKind.Text) { Return value; }
+            If (initializer != Null) {
+                If (initializer.Kind == AstKind.FloatLiteral) {
+                    Return This.MakeText(StripNumericSuffix(initializer.Text.Replace("_", "")));
+                }
+                If (initializer.Kind == AstKind.IntegerLiteral) {
+                    Return This.MakeText(ParseInteger(initializer.Text).ToString() + ".0");
+                }
+            }
+            Return value;
+        }
+        If (initializer != Null) {
+            If ((typeName == "Float32" || typeName == "Float16") && initializer.Kind == AstKind.FloatLiteral) {
+                Return This.MakeFloatBits(F32Parse(StripNumericSuffix(initializer.Text.Replace("_", ""))));
+            }
+        }
+        If (value.Kind == ValueKind.Integer && (typeName == "Int8" || typeName == "Int16" || typeName == "Int32" || typeName == "UInt8" || typeName == "UInt16" || typeName == "UInt32" || typeName == "Byte")) {
+            Return This.MakeWidth(typeName, value.Integer);
+        }
+        Return value;
+    }
+
+    Private Function NumericFrom(String typeName, AstNode node, List<Value> arguments) -> Value {
+        Int places = -1;
+        Bool hasPlaces = False;
+        Int index = 0;
+        Int valueIndex = 0;
+        Bool hasValue = False;
+        For argument In node.Parameters {
+            If (argument.Name == "precision" || argument.Name == "scale") {
+                If (index < arguments.Count()) {
+                    places = arguments[index].Integer;
+                    hasPlaces = True;
+                }
+            } Else If (!hasValue) {
+                valueIndex = index;
+                hasValue = True;
+            }
+            index = index + 1;
+        }
+        Value source = This.MakeInt(0);
+        If (hasValue && valueIndex < arguments.Count()) { source = arguments[valueIndex]; }
+        If (typeName == "Decimal") {
+            String text = This.NumericText(source);
+            If (hasPlaces) { text = This.FixedText(text, places); }
+            Else If (!text.Contains(".")) { text = text + ".0"; }
+            Return This.MakeText(text);
+        }
+        If (typeName == "Float" || typeName == "Double" || typeName == "Float16" || typeName == "Float32" || typeName == "Float64") {
+            String text = This.NumericText(source);
+            If (hasPlaces) { text = This.FixedText(text, places); }
+            If (typeName == "Float32" || typeName == "Float16") { Return This.MakeFloatBits(F32Parse(text)); }
+            Return This.MakeFloatBits(ParseF64(text));
+        }
+        Int number = 0;
+        If (source.Kind == ValueKind.Text) { number = ParseInteger(source.Text); }
+        Else If (source.Kind == ValueKind.Float) { number = FloatToInt(source.Integer); }
+        Else { number = source.Integer; }
+        Return This.MakeWidth(typeName, number);
+    }
+
+    Private Function NumericText(Value source) -> String {
+        If (source.Kind == ValueKind.Text) { Return source.Text; }
+        If (source.Kind == ValueKind.Float) { Return TextF64(source.Integer); }
+        Return source.Integer.ToString();
+    }
+
+    Private Function IsNumericOwner(String typeName) -> Bool {
+        Return typeName == "Int" || typeName == "UInt" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName == "Byte" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
+    }
+
+    Private Function MakeWidth(String typeName, Int number) -> Value {
+        If (typeName == "Int8") { Return This.MakeInt(This.SignExtend(number, 8)); }
+        If (typeName == "UInt8" || typeName == "Byte") { Return This.MakeInt(This.Mask(number, 255)); }
+        If (typeName == "Int16") { Return This.MakeInt(This.SignExtend(number, 16)); }
+        If (typeName == "UInt16") { Return This.MakeInt(This.Mask(number, 65535)); }
+        If (typeName == "Int32") { Return This.MakeInt(This.SignExtend(number, 32)); }
+        If (typeName == "UInt32") { Return This.MakeInt(This.Mask(number, 4294967295)); }
+        If ((typeName == "UInt" || typeName == "UInt64") && number < 0) { Return This.MakeInt(0); }
+        Return This.MakeInt(number);
+    }
+
+    Private Function Mask(Int number, Int mask) -> Int {
+        Int span = mask + 1;
+        Int value = number % span;
+        If (value < 0) { value = value + span; }
+        Return value;
+    }
+
+    Private Function SignExtend(Int number, Int bits) -> Int {
+        Int mask = 255;
+        Int sign = 128;
+        If (bits == 16) {
+            mask = 65535;
+            sign = 32768;
+        }
+        If (bits == 32) {
+            mask = 4294967295;
+            sign = 2147483648;
+        }
+        Int masked = This.Mask(number, mask);
+        If (masked >= sign) {
+            Return masked - (mask + 1);
+        }
+        Return masked;
+    }
+
+    Private Function FixedText(String text, Int places) -> String {
+        If (places < 0) { Return text; }
+        String body = text;
+        String sign = "";
+        If (body.StartsWith("-")) {
+            sign = "-";
+            body = body.Substring(1);
+        }
+        Int dot = body.IndexOf(".");
+        String whole = body;
+        String frac = "";
+        If (dot >= 0) {
+            whole = body.Substring(0, dot);
+            frac = body.Substring(dot + 1);
+        }
+        If (whole == "") { whole = "0"; }
+        While (frac.Length() < places + 1) { frac = frac + "0"; }
+        String kept = "";
+        If (places > 0) { kept = frac.Substring(0, places); }
+        Int roundUp = 0;
+        Int nextRaw = frac.GetChar(places).ToInt();
+        Int next = nextRaw;
+        If (nextRaw >= 48) { next = nextRaw - 48; }
+        If (next > 5) { roundUp = 1; }
+        If (next == 5) {
+            Bool more = False;
+            Int cursor = places + 1;
+            While (cursor < frac.Length()) {
+                If (frac.GetChar(cursor) != '0') { more = True; }
+                cursor = cursor + 1;
+            }
+            Int lastRaw = whole.GetChar(whole.Length() - 1).ToInt();
+            Int last = lastRaw;
+            If (lastRaw >= 48) { last = lastRaw - 48; }
+            If (places > 0) {
+                lastRaw = kept.GetChar(places - 1).ToInt();
+                last = lastRaw;
+                If (lastRaw >= 48) { last = lastRaw - 48; }
+            }
+            If (more || last % 2 == 1) { roundUp = 1; }
+        }
+        If (places == 0) {
+            If (roundUp == 1) { whole = This.AddNumeric(whole); }
+            Return sign + whole;
+        }
+        String combined = whole + kept;
+        If (roundUp == 1) { combined = This.AddNumeric(combined); }
+        String newWhole = combined.Substring(0, combined.Length() - places);
+        String newFrac = combined.Substring(combined.Length() - places);
+        Return sign + newWhole + "." + newFrac;
+    }
+
+    Private Function AddNumeric(String digits) -> String {
+        String result = "";
+        Int carry = 1;
+        Int index = digits.Length() - 1;
+        While (index >= 0) {
+            Int raw = digits.GetChar(index).ToInt();
+            Int digit = raw + carry;
+            If (raw >= 48) { digit = raw - 48 + carry; }
+            carry = 0;
+            If (digit >= 10) {
+                digit = digit - 10;
+                carry = 1;
+            }
+            String table = "0123456789";
+            result = table.Substring(digit, 1) + result;
+            index = index - 1;
+        }
+        If (carry == 1) { result = "1" + result; }
+        Return result;
     }
 
     Private Function FloatBits(Value value) -> Int {

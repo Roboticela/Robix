@@ -719,6 +719,9 @@ Public Class TypeChecker {
                     Return "Bool";
                 }
             }
+            If (node.Left.Name == "From" && This.IsNumeric(owner)) {
+                Return owner;
+            }
             If (node.Left.Name == "Enumerate") {
                 String elem = This.ElementName(receiverType);
                 If (elem == "") { elem = "Int"; }
@@ -799,6 +802,9 @@ Public Class TypeChecker {
         If (wanted.StartsWith("Stack<") && given.StartsWith("Stack<")) { Return; }
         If (wanted.StartsWith("Enumerate<") && given.StartsWith("Enumerate<")) { Return; }
         If (This.IsNumeric(wanted) && This.IsNumeric(given) && wanted != given) {
+            If (This.FitsIntegerLiteral(node, wanted) || This.FitsFloatLiteral(node, wanted) || This.FitsDecimalLiteral(node, wanted)) {
+                Return;
+            }
             This.diagnostics.TypeError("RX109", "Numeric conversion would narrow or change representation.", node.Line, node.Column, wanted, given, "Use an explicit conversion such as " + wanted + ".FromChecked.");
             Return;
         }
@@ -1159,6 +1165,36 @@ Public Class TypeChecker {
         String number = typeName.Substring(semi + 2, typeName.Length() - semi - 3);
         If (number == "") { Return -1; }
         Return ParseInteger(number);
+    }
+
+    Private Function FitsIntegerLiteral(AstNode node, String expected) -> Bool {
+        Int sign = 1;
+        AstNode literal = node;
+        If (node.Kind == AstKind.Unary && node.Operator == "-" && node.Left != Null && node.Left.Kind == AstKind.IntegerLiteral) {
+            sign = -1;
+            literal = node.Left;
+        }
+        If (literal.Kind != AstKind.IntegerLiteral) { Return False; }
+        Int value = ParseInteger(literal.Text) * sign;
+        If (expected == "Int" || expected == "Int64") { Return True; }
+        If (expected == "UInt" || expected == "UInt64") { Return value >= 0; }
+        If (expected == "Int8") { Return value >= -128 && value <= 127; }
+        If (expected == "UInt8" || expected == "Byte") { Return value >= 0 && value <= 255; }
+        If (expected == "Int16") { Return value >= -32768 && value <= 32767; }
+        If (expected == "UInt16") { Return value >= 0 && value <= 65535; }
+        If (expected == "Int32") { Return value >= -2147483648 && value <= 2147483647; }
+        If (expected == "UInt32") { Return value >= 0 && value <= 4294967295; }
+        Return False;
+    }
+
+    Private Function FitsFloatLiteral(AstNode node, String expected) -> Bool {
+        If (node.Kind != AstKind.FloatLiteral) { Return False; }
+        Return expected == "Float" || expected == "Double" || expected == "Float16" || expected == "Float32" || expected == "Float64";
+    }
+
+    Private Function FitsDecimalLiteral(AstNode node, String expected) -> Bool {
+        If (expected != "Decimal") { Return False; }
+        Return node.Kind == AstKind.FloatLiteral || node.Kind == AstKind.IntegerLiteral;
     }
 
     Private Function IsNumeric(String typeName) -> Bool {

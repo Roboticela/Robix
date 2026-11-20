@@ -743,3 +743,90 @@ Test Shr {
     Processing: True;
     Output: True;
 }
+
+Test AdaptNumeric {
+    Case "decimal keeps a float literal spelling" {
+        Input: typeName = "Decimal", value = MakeInt(0), initializer = AstNode(Kind: AstKind.FloatLiteral, Text: "42.0");
+        Assert: Result.Text == "42.0";
+    }
+    Case "uint8 wraps the stored integer" {
+        Input: typeName = "UInt8", value = MakeInt(300), initializer = AstNode(Kind: AstKind.IntegerLiteral, Text: "300");
+        Assert: Result.Integer == 44;
+    }
+}
+
+Test NumericFrom {
+    Case "uint32 from integer" {
+        Input: typeName = "UInt32", node = AstNode(Parameters: [AstNode(Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "14"))]), arguments = [MakeInt(14)];
+        Assert: Result.Integer == 14;
+    }
+    Case "decimal from text and scale" {
+        Input: typeName = "Decimal", node = AstNode(Parameters: [AstNode(Left: AstNode(Kind: AstKind.StringLiteral, Text: "19.99")), AstNode(Name: "scale", Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "2"))]), arguments = [MakeText("19.99"), MakeInt(2)];
+        Assert: Result.Text == "19.99";
+    }
+    Case "int8 from a negative integer" {
+        Input: typeName = "Int8", node = AstNode(Parameters: [AstNode(Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "-12"))]), arguments = [MakeInt(-12)];
+        Assert: Result.Integer == -12;
+    }
+}
+
+Test NumericText {
+    Case "integer text" {
+        Input: source = MakeInt(14);
+        Output: "14";
+    }
+}
+
+Test IsNumericOwner {
+    Case "float32 is numeric" {
+        Input: typeName = "Float32";
+        Output: True;
+    }
+    Case "string is not numeric" {
+        Input: typeName = "String";
+        Output: False;
+    }
+}
+
+Test MakeWidth {
+    Case "int8 keeps a small negative" {
+        Input: typeName = "Int8", number = -12;
+        Assert: Result.Integer == -12;
+    }
+    Case "uint8 wraps 256" {
+        Input: typeName = "UInt8", number = 256;
+        Assert: Result.Integer == 0;
+    }
+}
+
+Test Mask {
+    Case "low eight bits" {
+        Input: number = 300, mask = 255;
+        Output: 44;
+    }
+}
+
+Test SignExtend {
+    Case "128 becomes int8 minimum" {
+        Input: number = 128, bits = 8;
+        Output: -128;
+    }
+}
+
+Test FixedText {
+    Case "five decimal places" {
+        Input: text = "3.14159", places = 5;
+        Output: "3.14159";
+    }
+    Case "half to even" {
+        Input: text = "1.25", places = 1;
+        Output: "1.2";
+    }
+}
+
+Test AddNumeric {
+    Case "carry through nines" {
+        Input: digits = "999";
+        Output: "1000";
+    }
+}

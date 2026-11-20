@@ -1,0 +1,51 @@
+// Fixed-width numbers, exact decimals, and numeric From constructors.
+Package Robotics.NumericTypes;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Construct fixed-width numbers and exact decimals.";
+    Input: args = "Command-line arguments";
+    Processing: "Use suffixes and From constructors, then print each value.";
+    Output: "The constructed numbers.";
+} {
+    UInt32 unsignedValue = 42u32;
+    Decimal decimalValue = 42.0m;
+    UInt32 port = UInt32.From(14);
+    Int64 largeValue = Int64.From(9_000_000_000);
+    Float32 sensorPrecision = Float32.From(3.14159, precision: 5);
+    Decimal billingAmount = Decimal.From("19.99", scale: 2);
+    Int8 smallNumber = -12;
+    UInt8 byteValue = 255;
+    Int16 shortValue = 1234;
+    Int32 standardInteger = 123456;
+    Int64 longValue = 9_223_372_036_854_775_807;
+    Float32 singlePrecision = 1.0;
+    Float64 doublePrecision = 1.0;
+    Decimal exactDecimal = 42.0;
+    Int exactInt = Int.From("14");
+    UInt exactUInt = UInt.From(14);
+    Float preciseFloat = Float.From("3.1415926535", precision: 10);
+    Double preciseDouble = Double.From("3.141592653589793", precision: 15);
+    Print(unsignedValue);
+    Print(decimalValue);
+    Print(port);
+    Print(largeValue);
+    Print(sensorPrecision);
+    Print(billingAmount);
+    Print(smallNumber);
+    Print(byteValue);
+    Print(shortValue);
+    Print(standardInteger);
+    Print(longValue);
+    Print(singlePrecision);
+    Print(doublePrecision);
+    Print(exactDecimal);
+    Print(exactInt);
+    Print(exactUInt);
+    Print(preciseFloat);
+    Print(preciseDouble);
+    Return 0;
+}
