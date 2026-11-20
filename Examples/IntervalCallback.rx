@@ -1,0 +1,20 @@
+// SetInterval schedules a repeating callback. ClearInterval stops it before the first tick.
+Package Robotics.IntervalCallback;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Schedule a repeating callback and clear it.";
+    Input: args = "Command-line arguments";
+    Processing: "Create a 500 ms interval, then clear the handle before it ticks.";
+    Output: "No callback text, because the interval was cleared.";
+} {
+    TimerHandle intervalHandle = Timer.SetInterval(
+        () => Print("Repeats every 500 ms."),
+        Duration.Milliseconds(500)
+    );
+    Timer.ClearInterval(intervalHandle);
+    Return 0;
+}

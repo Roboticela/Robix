@@ -972,7 +972,7 @@ Public Class NativeProgram {
                 This.UntypedLiteral = False;
                 value = initial.Value;
                 sourceType = initial.TypeName;
-                If (typeName == "" || typeName == "Tuple" || sourceType.StartsWith("Lambda:")) { typeName = sourceType; }
+                If (typeName == "" || typeName == "Tuple" || sourceType.StartsWith("Lambda:") || sourceType.StartsWith("Throttle:")) { typeName = sourceType; }
             }
             If (typeName == "") { typeName = "Int"; }
             If (typeName == "Decimal" && sourceType != "Decimal" && node.Initializer != Null) {
@@ -1034,6 +1034,10 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.For) { This.EmitFor(node); Return; }
         If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
         If (node.Kind == AstKind.Match) { This.EmitMatch(node); Return; }
+        If (node.Kind == AstKind.Try) {
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            Return;
+        }
         If (node.Kind == AstKind.Await) {
             If (node.Left != Null) { This.EmitExpr(node.Left); }
             Return;
@@ -1757,6 +1761,9 @@ Public Class NativeProgram {
             String fieldType = This.AppliedFieldType(receiver.TypeName, info.Parameters, This.FieldType(info, target));
             Return This.Pair(loaded, fieldType);
         }
+        If (target == "Token" && receiver.TypeName == "CancellationSource") {
+            Return This.Pair(receiver.Value, "CancellationToken");
+        }
         If (target == "Value" && receiver.TypeName.StartsWith("Ref<")) {
             String pointer = This.Fresh("p");
             This.Emit(pointer + " = inttoptr i64 " + receiver.Value + " to ptr");
@@ -1785,6 +1792,9 @@ Public Class NativeProgram {
             Return This.EmitLegacyRead(node);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Task" && (node.Left.Name == "FromResult" || node.Left.Name == "Run")) {
+            Return This.EmitTask(node);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Scheduler" && (node.Left.Name == "QueueMicrotask" || node.Left.Name == "Queue")) {
             Return This.EmitTask(node);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericType(node.Left.Left.Name)) {
@@ -1885,6 +1895,14 @@ Public Class NativeProgram {
     }
 
     Private Function EmitNamedCall(AstNode left, List<String> arguments, List<String> types) -> IrValue {
+        If (left.Name == "CancellationSource") {
+            Var created = List<String>();
+            created.Add("2");
+            IrValue source = This.CallRuntime("rx_obj_new", created, False);
+            This.StoreObjectField(source.Value, "0", "0");
+            This.StoreObjectField(source.Value, "1", "0");
+            Return This.Pair(source.Value, "CancellationSource");
+        }
         If (left.Name == "TimeoutError") {
             If (arguments.Count() > 0) { Return This.Pair(arguments[0], "String"); }
             Return This.Pair("0", "String");
@@ -2008,6 +2026,31 @@ Public Class NativeProgram {
         If (info.Name != "") { Return This.Construct(left.Name, info, arguments); }
         String targetName = left.Name;
         IrValue local = This.Lookup(left.Name);
+        If (local.TypeName.StartsWith("Throttle:")) {
+            String handle = This.LoadSlot(local.Value);
+            String flag = This.LoadObjectField(handle, "0");
+            String open = This.Fresh("gate");
+            This.Emit(open + " = icmp eq i64 " + flag + ", 0");
+            String thenLabel = This.Label("then");
+            String elseLabel = This.Label("else");
+            String mergeLabel = This.Label("merge");
+            This.Emit("br i1 " + open + ", label %" + thenLabel + ", label %" + elseLabel);
+            This.Terminated = True;
+            This.Block(thenLabel);
+            This.StoreObjectField(handle, "0", "1");
+            String lambdaName = local.TypeName.Substring(9);
+            FunctionInfo gated = This.FindFunction(lambdaName, This.FileName);
+            If (gated.Name != "") {
+                String symbol = This.FunctionSymbol(gated.FileName, lambdaName);
+                If (This.IsVoid(gated.ReturnType)) { This.CallRuntime(symbol, arguments, True); }
+                Else { This.CallRuntime(symbol, arguments, False); }
+            }
+            If (!This.Terminated) { This.Branch(mergeLabel); }
+            This.Block(elseLabel);
+            If (!This.Terminated) { This.Branch(mergeLabel); }
+            This.Block(mergeLabel);
+            Return This.Pair("0", "Void");
+        }
         If (local.TypeName.StartsWith("Lambda:")) {
             targetName = local.TypeName.Substring(7);
         }
@@ -2176,6 +2219,23 @@ Public Class NativeProgram {
         }
         IrValue receiver = This.EmitExpr(member.Left);
         If (member.Name == "WithTimeout") { Return receiver; }
+        If (member.Name == "Cancel" && receiver.TypeName == "TimerHandle") {
+            This.StoreObjectField(receiver.Value, "0", "1");
+            Return This.Pair("0", "Void");
+        }
+        If (member.Name == "Cancel" && receiver.TypeName == "CancellationSource") {
+            This.StoreObjectField(receiver.Value, "0", "1");
+            String message = "0";
+            If (arguments.Count() > 0) { message = arguments[0]; }
+            This.StoreObjectField(receiver.Value, "1", message);
+            Return This.Pair("0", "Void");
+        }
+        If (member.Name == "ThrowIfCancellationRequested") {
+            String flag = This.LoadObjectField(receiver.Value, "0");
+            String open = This.Fresh("v");
+            This.Emit(open + " = icmp eq i64 " + flag + ", 0");
+            Return This.Pair("0", "Void");
+        }
         If ((member.Name == "As" || member.Name == "AsOptional" || member.Name == "Cast") && member.Children.Count() > 0) {
             String targetType = This.TypeName(member.Children[0]);
             String val = receiver.Value;
@@ -2516,6 +2576,22 @@ Public Class NativeProgram {
         If (owner == "Promise" && (method == "Create" || method == "FromCallback" || method == "Resolved" || method == "Rejected")) { Return This.Pair("0", "Promise<Int>"); }
         If (owner == "LegacyApi" && method == "ReadText") { Return This.Pair("0", "String"); }
         If (owner == "Task" && (method == "Delay" || method == "Yield")) { Return This.Pair("0", "Void"); }
+        If (owner == "Timer" && method == "Sleep") { Return This.Pair("0", "Void"); }
+        If (owner == "Function" && method == "Debounce") {
+            If (types.Count() > 0 && types[0] != "") { Return This.Pair("0", types[0]); }
+            Return This.Pair("0", "Lambda:Void");
+        }
+        If (owner == "Function" && method == "Throttle") {
+            String lambdaType = "Lambda:Void";
+            If (types.Count() > 0 && types[0] != "") { lambdaType = types[0]; }
+            String lambdaName = lambdaType;
+            If (lambdaName.StartsWith("Lambda:")) { lambdaName = lambdaName.Substring(7); }
+            Var created = List<String>();
+            created.Add("1");
+            IrValue handle = This.CallRuntime("rx_obj_new", created, False);
+            This.StoreObjectField(handle.Value, "0", "0");
+            Return This.Pair(handle.Value, "Throttle:" + lambdaName);
+        }
         If (owner == "Task" && (method == "FromResult" || method == "Run")) {
             If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Task<Int>"); }
             Return This.Pair("0", "Task<Int>");
@@ -2536,6 +2612,17 @@ Public Class NativeProgram {
             Return This.Pair(scaled, "Int");
         }
         If (owner == "Hardware" && method == "ReadSensor") { Return This.Pair("40", "Int"); }
+        If (owner == "Timer" && (method == "SetTimeout" || method == "SetInterval" || method == "SetIntervalAsync")) {
+            Var created = List<String>();
+            created.Add("2");
+            IrValue handle = This.CallRuntime("rx_obj_new", created, False);
+            This.StoreObjectField(handle.Value, "0", "0");
+            Return This.Pair(handle.Value, "TimerHandle");
+        }
+        If (owner == "Timer" && (method == "ClearInterval" || method == "Clear")) {
+            If (arguments.Count() > 0) { This.StoreObjectField(arguments[0], "0", "1"); }
+            Return This.Pair("0", "Void");
+        }
         Return This.Pair("0", "Missing");
     }
 
@@ -3624,7 +3711,7 @@ Public Class NativeProgram {
         If (clean == "String") { Return 1; }
         If (clean == "Bool") { Return 2; }
         If (clean == "Char") { Return 3; }
-        If (clean == "Decimal") { Return 1; }
+        If (clean == "Decimal" || clean.StartsWith("Float<")) { Return 1; }
         If (clean == "Byte" || clean.StartsWith("UInt")) { Return 5; }
         If (This.IsFloatType(clean)) { Return 4; }
         Return 0;
@@ -3767,6 +3854,29 @@ Public Class NativeProgram {
             args.Add(places);
             IrValue formatted = This.CallRuntime("rx_FormatFixed", args, False);
             Return This.Pair(formatted.Value, "Decimal");
+        }
+        If (typeName.StartsWith("Float<")) {
+            String text = valueReg;
+            AstNode literal = AstNode();
+            Bool foundLiteral = False;
+            For argument In node.Parameters {
+                If (argument.Name == "precision" || argument.Name == "scale") { Continue; }
+                literal = argument;
+                If (literal.Kind == AstKind.Argument && literal.Left != Null) { literal = literal.Left; }
+                foundLiteral = True;
+                Break;
+            }
+            If (foundLiteral && literal.Kind == AstKind.FloatLiteral) {
+                text = This.StringConst(This.FloatSpelling(literal.Text));
+            } Else If (foundLiteral && literal.Kind == AstKind.IntegerLiteral) {
+                String digits = This.Digits(literal.Text);
+                If (digits.IndexOf(".") < 0) { digits = digits + ".0"; }
+                text = This.StringConst(digits);
+            } Else If (!This.IsString(valueType) && valueType != "Decimal") {
+                IrValue rendered = This.ToStringValue(valueReg, valueType);
+                text = rendered.Value;
+            }
+            Return This.Pair(text, typeName);
         }
         If (typeName == "Float" || typeName == "Double" || typeName == "Float16" || typeName == "Float32" || typeName == "Float64") {
             String text = valueReg;

@@ -1,0 +1,19 @@
+// Tests for Examples/Debounce.rx.
+
+Test SaveDraft {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RefreshDashboard {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

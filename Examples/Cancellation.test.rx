@@ -1,0 +1,32 @@
+// Tests for Examples/Cancellation.rx.
+
+Test ProcessStep {
+    Case "step" {
+        Input: index = 1;
+        Assert: True;
+    }
+}
+
+Test RoboCancelableWork {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboCancelExample {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

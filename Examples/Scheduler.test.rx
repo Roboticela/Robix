@@ -1,0 +1,19 @@
+// Tests for Examples/Scheduler.rx.
+
+Test RoboSchedule {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

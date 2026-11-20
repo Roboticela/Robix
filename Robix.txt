@@ -17,85 +17,9 @@ The lagnuage will can have both entry point from procedural with private int mai
 // 3. Type system, conversions, precision, and user-defined types
 // -----------------------------------------------------------------------------
 
-// Arbitrary-width floating types, such as Float<128>, are still open.
-Float<128> wideFloat = Float<128>.From(1.0);
-
-// -----------------------------------------------------------------------------
-// 4. Composite types, collections, tuples, and universal values
-// -----------------------------------------------------------------------------
-
 // -----------------------------------------------------------------------------
 // 6. Functions, arguments, documentation, and return values
 // -----------------------------------------------------------------------------
-
-// Cancellation is cooperative. Pass a token to operations that support it.
-Public Async Function RoboCancelableWork(CancellationToken token) -> Task<Int> {
-    For index In 0..100 {
-        token.ThrowIfCancellationRequested();
-        Await Task.Delay(Duration.Milliseconds(20), token);
-        ProcessStep(index);
-    }
-    Return 100;
-}
-
-Public Async Function RoboCancelExample() -> Task<Void> {
-    CancellationSource source = CancellationSource();
-    Task<Int> work = RoboCancelableWork(source.Token);
-
-    Await Task.Delay(Duration.Seconds(1));
-    source.Cancel("User requested cancellation.");
-
-    Try {
-        Int result = Await work;
-        Print(result);
-    } Catch (OperationCanceledError error) {
-        Print(error.Message);
-    }
-}
-
-// One-shot timeout callbacks. The returned handle can cancel the callback.
-TimerHandle timeoutHandle = Timer.SetTimeout(
-    () => Print("Runs once after one second."),
-    Duration.Seconds(1)
-);
-timeoutHandle.Cancel();
-
-// Interval callbacks repeat until cancelled. Intervals should not overlap by
-// default: if a callback takes longer than the interval, the next tick waits.
-TimerHandle intervalHandle = Timer.SetInterval(
-    () => Print("Repeats every 500 ms."),
-    Duration.Milliseconds(500)
-);
-Timer.ClearInterval(intervalHandle);
-
-// Async timeout/interval callbacks are supported as well.
-TimerHandle asyncInterval = Timer.SetIntervalAsync(
-    Async Function() {
-        Int reading = Await RoboReadSensor();
-        Print(reading);
-    },
-    Duration.Seconds(2),
-    overlap: False
-);
-Timer.Clear(asyncInterval);
-
-// Promise-based delay and scheduling helpers.
-Await Task.Delay(Duration.Seconds(1));
-Await Timer.Sleep(Duration.Milliseconds(250));
-Task.Yield();                         // Continue on a later scheduler turn.
-Scheduler.QueueMicrotask(() => Print("Microtask"));
-Scheduler.Queue(() => Print("Scheduled task"));
-
-// Debounce runs after calls stop arriving for the specified duration.
-// Throttle allows at most one execution per time window.
-Let saveDebounced = Function.Debounce(
-    (String value) => SaveDraft(value),
-    Duration.Milliseconds(300)
-);
-Let updateThrottled = Function.Throttle(
-    () => RefreshDashboard(),
-    Duration.Seconds(1)
-);
 
 // Polling helper: stop when the predicate succeeds or timeout expires.
 Public Async Function RoboWaitForConnection() -> Task<Bool> {

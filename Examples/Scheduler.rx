@@ -1,0 +1,40 @@
+// Delay, sleep, and yield finish immediately. Queued callbacks run in order.
+Package Robotics.Scheduler;
+
+Import Robix.Core;
+
+
+Public Async Function RoboSchedule() -> Task<Void>
+Explain {
+    Description: "Delay, sleep, yield, then run two scheduled callbacks.";
+    Input: "No parameters.";
+    Processing: "Wait with no real sleep, then queue a microtask and a task.";
+    Output: "Microtask, then Scheduled task.";
+} {
+    Await Task.Delay(Duration.Seconds(1));
+    Await Timer.Sleep(Duration.Milliseconds(250));
+    Task.Yield();
+    Scheduler.QueueMicrotask(() => Print("Microtask"));
+    Scheduler.Queue(() => Print("Scheduled task"));
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Run the scheduling example.";
+    Input: "No parameters.";
+    Processing: "Await the scheduled work.";
+    Output: "The two scheduled lines.";
+} {
+    Await RoboSchedule();
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show delay and scheduler helpers.";
+    Input: args = "Command-line arguments";
+    Processing: "Start the scheduling example.";
+    Output: "Microtask, then Scheduled task.";
+} {
+    RoboShow();
+    Return 0;
+}

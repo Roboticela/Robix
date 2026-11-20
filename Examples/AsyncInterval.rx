@@ -1,0 +1,34 @@
+// SetIntervalAsync schedules an async callback. Clear stops it before the first tick.
+Package Robotics.AsyncInterval;
+
+Import Robix.Core;
+
+
+Public Async Function RoboReadSensor() -> Task<Int>
+Explain {
+    Description: "Read one simulated sensor value.";
+    Input: "No parameters.";
+    Processing: "Return the simulated sensor reading.";
+    Output: "The integer 40.";
+} {
+    Return 40;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Schedule an async interval and clear it.";
+    Input: args = "Command-line arguments";
+    Processing: "Create a two-second async interval with overlap disabled, then clear the handle.";
+    Output: "No reading, because the interval was cleared.";
+} {
+    TimerHandle asyncInterval = Timer.SetIntervalAsync(
+        Async Function() {
+            Int reading = Await RoboReadSensor();
+            Print(reading);
+        },
+        Duration.Seconds(2),
+        overlap: False
+    );
+    Timer.Clear(asyncInterval);
+    Return 0;
+}

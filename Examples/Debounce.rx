@@ -1,0 +1,47 @@
+// Debounce keeps every trailing call. Throttle keeps the first call in the window.
+Package Robotics.Debounce;
+
+Import Robix.Core;
+
+
+Public Function SaveDraft(String value) -> Void
+Explain {
+    Description: "Print one draft value.";
+    Input: value = "The draft text";
+    Processing: "Print the supplied text.";
+    Output: "The draft text.";
+} {
+    Print(value);
+}
+
+Public Function RefreshDashboard() -> Void
+Explain {
+    Description: "Print the dashboard refresh.";
+    Input: "No parameters.";
+    Processing: "Print the refresh marker.";
+    Output: "refresh";
+} {
+    Print("refresh");
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Create a debounced save and a throttled refresh, then call them.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the debounced function twice and the throttled function twice.";
+    Output: "one, two, and one refresh.";
+} {
+    Let saveDebounced = Function.Debounce(
+        (String value) => SaveDraft(value),
+        Duration.Milliseconds(300)
+    );
+    Let updateThrottled = Function.Throttle(
+        () => RefreshDashboard(),
+        Duration.Seconds(1)
+    );
+    saveDebounced("one");
+    saveDebounced("two");
+    updateThrottled();
+    updateThrottled();
+    Return 0;
+}

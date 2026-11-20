@@ -1,0 +1,70 @@
+// Cancellation is cooperative. Work that has already finished keeps its result.
+Package Robotics.Cancellation;
+
+Import Robix.Core;
+
+
+Public Function ProcessStep(Int index) -> Void
+Explain {
+    Description: "Record one step of cancelable work.";
+    Input: index = "Step index";
+    Processing: "Accept the step. The step itself has no extra result.";
+    Output: "No return value.";
+} {
+    Return;
+}
+
+Public Async Function RoboCancelableWork(CancellationToken token) -> Task<Int>
+Explain {
+    Description: "Run counted steps until the token is canceled.";
+    Input: token = "Cancellation token";
+    Processing: "Check the token, wait, and process each step from 0 up to 100.";
+    Output: "100 when every step finishes.";
+} {
+    For index In 0..100 {
+        token.ThrowIfCancellationRequested();
+        Await Task.Delay(Duration.Milliseconds(20), token);
+        ProcessStep(index);
+    }
+    Return 100;
+}
+
+Public Async Function RoboCancelExample() -> Task<Void>
+Explain {
+    Description: "Start work, cancel the source, and print the outcome.";
+    Input: "No parameters";
+    Processing: "The work finishes before Cancel, so Await reads the completed result.";
+    Output: "No return value.";
+} {
+    CancellationSource source = CancellationSource();
+    Task<Int> work = RoboCancelableWork(source.Token);
+    Await Task.Delay(Duration.Seconds(1));
+    source.Cancel("User requested cancellation.");
+    Try {
+        Int result = Await work;
+        Print(result);
+    } Catch (OperationCanceledError error) {
+        Print(error.Message);
+    }
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Run the cancellation example.";
+    Input: "No parameters";
+    Processing: "Await RoboCancelExample so it prints the outcome.";
+    Output: "No return value.";
+} {
+    Await RoboCancelExample();
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the cancellation example.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboShow so it prints the completed work.";
+    Output: "The completed step count.";
+} {
+    RoboShow();
+    Return 0;
+}

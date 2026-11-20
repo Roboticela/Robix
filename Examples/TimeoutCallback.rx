@@ -1,0 +1,20 @@
+// SetTimeout schedules one callback. Cancel stops it before it runs.
+Package Robotics.TimeoutCallback;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Schedule a one-shot callback and cancel it.";
+    Input: args = "Command-line arguments";
+    Processing: "Create a one-second timeout, then cancel the handle before it fires.";
+    Output: "No callback text, because the handle was cancelled.";
+} {
+    TimerHandle timeoutHandle = Timer.SetTimeout(
+        () => Print("Runs once after one second."),
+        Duration.Seconds(1)
+    );
+    timeoutHandle.Cancel();
+    Return 0;
+}

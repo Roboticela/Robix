@@ -342,7 +342,8 @@ Public Class TypeChecker {
         If (node.Kind != AstKind.Lambda && returnType.Length() == 0 && This.strict) {
             This.diagnostics.TypeError("RX104", "A function requires a return type in Strict mode.", node.Line, node.Column, "-> Type", "missing", "Add a return type. Use Void when there is no result.");
         }
-        If ((node.FlagA || This.HasModifier(node, "Async")) && returnType.Length() > 0 && !returnType.StartsWith("Task<") && !returnType.StartsWith("Promise<")) {
+        Bool isAsync = node.FlagA || This.HasModifier(node, "Async") || (node.Kind == AstKind.Lambda && node.FlagB);
+        If (isAsync && returnType.Length() > 0 && !returnType.StartsWith("Task<") && !returnType.StartsWith("Promise<")) {
             This.diagnostics.TypeError("RX104", "An Async function returns Task<T> or Promise<T>.", node.Line, node.Column, "Task<T>", returnType, "Change the return type to Task<T>.");
         }
         String previousReturn = This.currentReturn;
@@ -367,7 +368,7 @@ Public Class TypeChecker {
             }
         }
         This.functionDepth = This.functionDepth + 1;
-        If (node.FlagA || This.HasModifier(node, "Async")) {
+        If (isAsync) {
             This.asyncDepth = This.asyncDepth + 1;
         }
         If (node.Body != Null) {
@@ -382,7 +383,7 @@ Public Class TypeChecker {
                 This.RequireAssignable(node.Left, This.InnerTask(returnType), bodyType);
             }
         }
-        If (node.FlagA || This.HasModifier(node, "Async")) {
+        If (isAsync) {
             This.asyncDepth = This.asyncDepth - 1;
         }
         This.functionDepth = This.functionDepth - 1;
@@ -693,6 +694,8 @@ Public Class TypeChecker {
             If (node.Name == "ToInt" || node.Name == "Length" || node.Name == "Count") { Return "Int"; }
             String fieldType = This.FieldTypeOf(left, node.Name);
             If (fieldType != "") { Return fieldType; }
+            If (node.Name == "Token") { Return "CancellationToken"; }
+            If (node.Name == "Message") { Return "String"; }
             Return "Unknown";
         }
         If (node.Kind == AstKind.Index) {
@@ -778,6 +781,7 @@ Public Class TypeChecker {
                 If (receiverType == "") { Return "Task<String>"; }
                 Return receiverType;
             }
+            If (node.Left.Name == "ThrowIfCancellationRequested" || node.Left.Name == "Cancel") { Return "Void"; }
             String library = This.TaskCallType(owner, node.Left.Name);
             If (library != "") { Return library; }
             If (owner == "Task" && (node.Left.Name == "FromResult" || node.Left.Name == "Run")) {
@@ -787,6 +791,15 @@ Public Class TypeChecker {
             }
             If (owner == "Task" && node.Left.Name == "WhenAll") { Return "Task<" + This.WhenAllType(node) + ">"; }
             If (owner == "Network" && node.Left.Name == "SendText") { Return "Task<String>"; }
+            If (owner == "Timer" && (node.Left.Name == "SetTimeout" || node.Left.Name == "SetInterval" || node.Left.Name == "SetIntervalAsync")) { Return "TimerHandle"; }
+            If (owner == "Timer" && (node.Left.Name == "ClearInterval" || node.Left.Name == "Clear")) { Return "Void"; }
+            If (owner == "Scheduler" && (node.Left.Name == "QueueMicrotask" || node.Left.Name == "Queue")) { Return "Void"; }
+            If (owner == "Function" && (node.Left.Name == "Debounce" || node.Left.Name == "Throttle")) {
+                String argument = This.CallArgumentType(node);
+                If (argument.StartsWith("Lambda:")) { Return argument; }
+                If (argument == "") { Return "Lambda:Void"; }
+                Return "Lambda:" + argument;
+            }
             If (owner == "Promise" && (node.Left.Name == "All" || node.Left.Name == "Race" || node.Left.Name == "Any" || node.Left.Name == "AllSettled")) {
                 Return This.PromiseCombinatorType(node, node.Left.Name);
             }
@@ -866,6 +879,7 @@ Public Class TypeChecker {
         }
         If (name == "Ref") { Return "Ref<" + This.ReferenceType(node) + ">"; }
         If (name == "TimeoutError") { Return "String"; }
+        If (name == "CancellationSource") { Return "CancellationSource"; }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
         }
@@ -1494,6 +1508,7 @@ Public Class TypeChecker {
 
     Private Function TaskCallType(String owner, String name) -> String {
         If (owner == "Task" && (name == "Delay" || name == "Yield")) { Return "Task<Void>"; }
+        If (owner == "Timer" && name == "Sleep") { Return "Task<Void>"; }
         If (owner == "Duration" && (name == "Milliseconds" || name == "Seconds")) { Return "Int"; }
         If (owner == "Hardware" && name == "ReadSensor") { Return "Int"; }
         Return "";

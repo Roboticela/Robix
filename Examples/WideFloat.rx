@@ -1,0 +1,17 @@
+// Float<128> keeps the decimal spelling of a value wider than 64 bits.
+Package Robotics.WideFloat;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Construct a 128-bit float.";
+    Input: args = "Command-line arguments";
+    Processing: "Build Float<128> from the literal 1.0 and print it.";
+    Output: "The wide float spelling.";
+} {
+    Float<128> wideFloat = Float<128>.From(1.0);
+    Print(wideFloat);
+    Return 0;
+}

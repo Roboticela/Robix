@@ -319,6 +319,10 @@ Test TaskCallType {
         Input: owner = "Task", name = "Delay";
         Output: "Task<Void>";
     }
+    Case "sleep" {
+        Input: owner = "Timer", name = "Sleep";
+        Output: "Task<Void>";
+    }
     Case "sensor" {
         Input: owner = "Hardware", name = "ReadSensor";
         Output: "Int";

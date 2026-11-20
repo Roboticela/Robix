@@ -762,6 +762,22 @@ Test IsTaskLibrary {
         Input: owner = "Task", name = "FromResult";
         Output: True;
     }
+    Case "sleep" {
+        Input: owner = "Timer", name = "Sleep";
+        Output: True;
+    }
+    Case "queue" {
+        Input: owner = "Scheduler", name = "Queue";
+        Output: True;
+    }
+    Case "debounce" {
+        Input: owner = "Function", name = "Debounce";
+        Output: True;
+    }
+    Case "throttle" {
+        Input: owner = "Function", name = "Throttle";
+        Output: True;
+    }
     Case "when all" {
         Input: owner = "Task", name = "WhenAll";
         Output: True;
@@ -772,6 +788,26 @@ Test IsTaskLibrary {
     }
     Case "seconds" {
         Input: owner = "Duration", name = "Seconds";
+        Output: True;
+    }
+    Case "timeout" {
+        Input: owner = "Timer", name = "SetTimeout";
+        Output: True;
+    }
+    Case "interval" {
+        Input: owner = "Timer", name = "SetInterval";
+        Output: True;
+    }
+    Case "clear interval" {
+        Input: owner = "Timer", name = "ClearInterval";
+        Output: True;
+    }
+    Case "async interval" {
+        Input: owner = "Timer", name = "SetIntervalAsync";
+        Output: True;
+    }
+    Case "clear" {
+        Input: owner = "Timer", name = "Clear";
         Output: True;
     }
 }
@@ -785,6 +821,22 @@ Test TaskLibraryValue {
         Input: owner = "Task", name = "FromResult", supplied = [];
         Assert: Result.Integer == 0;
     }
+    Case "sleep" {
+        Input: owner = "Timer", name = "Sleep", supplied = [];
+        Assert: Result.Text == "";
+    }
+    Case "queue" {
+        Input: owner = "Scheduler", name = "Queue", supplied = [];
+        Assert: Result.Text == "";
+    }
+    Case "debounce" {
+        Input: owner = "Function", name = "Debounce", supplied = [];
+        Assert: Result.Text == "";
+    }
+    Case "throttle" {
+        Input: owner = "Function", name = "Throttle", supplied = [];
+        Assert: Result.Text == "";
+    }
     Case "when all" {
         Input: owner = "Task", name = "WhenAll", supplied = [];
         Assert: Result.Text == "";
@@ -796,6 +848,26 @@ Test TaskLibraryValue {
     Case "seconds" {
         Input: owner = "Duration", name = "Seconds", supplied = [];
         Assert: Result.Integer == 0;
+    }
+    Case "timeout" {
+        Input: owner = "Timer", name = "SetTimeout", supplied = [];
+        Assert: Result.Text == "TimerHandle";
+    }
+    Case "interval" {
+        Input: owner = "Timer", name = "SetInterval", supplied = [];
+        Assert: Result.Text == "TimerHandle";
+    }
+    Case "clear interval" {
+        Input: owner = "Timer", name = "ClearInterval", supplied = [];
+        Assert: Result.Text == "";
+    }
+    Case "async interval" {
+        Input: owner = "Timer", name = "SetIntervalAsync", supplied = [];
+        Assert: Result.Text == "TimerHandle";
+    }
+    Case "clear" {
+        Input: owner = "Timer", name = "Clear", supplied = [];
+        Assert: Result.Text == "";
     }
 }
 

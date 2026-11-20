@@ -703,6 +703,10 @@ Public Class Interpreter {
             If (node.Extra != Null) { This.ExecuteNode(node.Extra); }
             Return This.MakeVoid();
         }
+        If (node.Kind == AstKind.Await) {
+            If (node.Left != Null) { This.Evaluate(node.Left); }
+            Return This.MakeVoid();
+        }
         For child In node.Children {
             This.ExecuteNode(child);
             If (This.signal.Length() > 0) {
@@ -1253,6 +1257,13 @@ Public Class Interpreter {
             If (arguments.Count() > 0) { Return arguments[0]; }
             Return This.MakeText("");
         }
+        If (name == "CancellationSource") {
+            Value source = This.MakeArray();
+            source.Text = "CancellationSource";
+            source.Elements.Add(This.MakeInt(0));
+            source.Elements.Add(This.MakeText(""));
+            Return source;
+        }
         If (name == "Print") {
             String line = "";
             For argument In arguments {
@@ -1414,6 +1425,11 @@ Public Class Interpreter {
         If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name && This.HasName(name)) {
             Value value = This.Lookup(name);
             If (value.Kind == ValueKind.Function) {
+                If (value.Text.StartsWith("Throttle:")) {
+                    If (value.Elements.Count() > 0 && value.Elements[0].Integer != 0) { Return This.MakeVoid(); }
+                    If (value.Elements.Count() == 0) { value.Elements.Add(This.MakeInt(1)); }
+                    Else { value.Elements[0] = This.MakeInt(1); }
+                }
                 function = value.FunctionNode;
             }
         }
@@ -1550,6 +1566,22 @@ Public Class Interpreter {
             }
             Value target = This.Evaluate(node.Left.Left);
             If (node.Left.Name == "WithTimeout") { Return target; }
+            If (node.Left.Name == "Token" && target.Text == "CancellationSource") { Return target; }
+            If (node.Left.Name == "Cancel" && target.Text == "TimerHandle") {
+                If (target.Elements.Count() > 0) { target.Elements[0] = This.MakeInt(1); }
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "Cancel" && target.Text == "CancellationSource") {
+                If (target.Elements.Count() > 0) { target.Elements[0] = This.MakeInt(1); }
+                If (target.Elements.Count() > 1 && arguments.Count() > 0) { target.Elements[1] = arguments[0]; }
+                Return This.MakeVoid();
+            }
+            If (node.Left.Name == "ThrowIfCancellationRequested") {
+                If (target.Elements.Count() > 0 && target.Elements[0].Integer != 0) {
+                    This.runtimeErrors.Add("Operation canceled.");
+                }
+                Return This.MakeVoid();
+            }
             If (node.Left.FlagA && (target.Kind == ValueKind.Null || target.Kind == ValueKind.None)) {
                 Return This.MakeNull();
             }
@@ -2590,10 +2622,13 @@ Public Class Interpreter {
 
     Private Function IsTaskLibrary(String owner, String name) -> Bool {
         If (owner == "Task" && (name == "Delay" || name == "Yield" || name == "FromResult" || name == "Run" || name == "WhenAll")) { Return True; }
+        If (owner == "Scheduler" && (name == "QueueMicrotask" || name == "Queue")) { Return True; }
+        If (owner == "Function" && (name == "Debounce" || name == "Throttle")) { Return True; }
         If (owner == "Network" && name == "SendText") { Return True; }
         If (owner == "Promise" && (name == "All" || name == "Race" || name == "Any" || name == "AllSettled")) { Return True; }
         If (owner == "Duration" && (name == "Milliseconds" || name == "Seconds")) { Return True; }
         If (owner == "Hardware" && name == "ReadSensor") { Return True; }
+        If (owner == "Timer" && (name == "SetTimeout" || name == "SetInterval" || name == "SetIntervalAsync" || name == "ClearInterval" || name == "Clear" || name == "Sleep")) { Return True; }
         Return False;
     }
 
@@ -2607,11 +2642,43 @@ Public Class Interpreter {
             Return This.MakeInt(0);
         }
         If (owner == "Hardware" && name == "ReadSensor") { Return This.MakeInt(40); }
+        If (owner == "Timer" && (name == "SetTimeout" || name == "SetInterval" || name == "SetIntervalAsync")) {
+            Value handle = This.MakeArray();
+            handle.Text = "TimerHandle";
+            handle.Elements.Add(This.MakeInt(0));
+            If (supplied.Count() > 0) { handle.Elements.Add(supplied[0]); }
+            Return handle;
+        }
+        If (owner == "Timer" && (name == "ClearInterval" || name == "Clear")) {
+            If (supplied.Count() > 0 && supplied[0].Text == "TimerHandle" && supplied[0].Elements.Count() > 0) {
+                supplied[0].Elements[0] = This.MakeInt(1);
+            }
+            Return This.MakeVoid();
+        }
         If (owner == "Task" && name == "FromResult") {
             If (supplied.Count() > 0) { Return supplied[0]; }
             Return This.MakeInt(0);
         }
         If (owner == "Task" && name == "Run") {
+            If (supplied.Count() > 0 && supplied[0].Kind == ValueKind.Function && supplied[0].FunctionNode != Null) {
+                Return This.CallFunction(supplied[0].FunctionNode, List<Value>());
+            }
+            Return This.MakeVoid();
+        }
+        If (owner == "Function" && name == "Debounce") {
+            If (supplied.Count() > 0) { Return supplied[0]; }
+            Return This.MakeVoid();
+        }
+        If (owner == "Function" && name == "Throttle") {
+            If (supplied.Count() > 0 && supplied[0].Kind == ValueKind.Function) {
+                Value wrap = This.MakeFunction(supplied[0].FunctionNode);
+                wrap.Text = "Throttle:" + supplied[0].Text;
+                wrap.Elements.Add(This.MakeInt(0));
+                Return wrap;
+            }
+            Return This.MakeVoid();
+        }
+        If (owner == "Scheduler" && (name == "QueueMicrotask" || name == "Queue")) {
             If (supplied.Count() > 0 && supplied[0].Kind == ValueKind.Function && supplied[0].FunctionNode != Null) {
                 Return This.CallFunction(supplied[0].FunctionNode, List<Value>());
             }
@@ -2778,6 +2845,18 @@ Public Class Interpreter {
             If (hasPlaces) { text = This.FixedText(text, places); }
             If (typeName == "Float32" || typeName == "Float16") { Return This.MakeFloatBits(F32Parse(text)); }
             Return This.MakeFloatBits(ParseF64(text));
+        }
+        If (typeName.StartsWith("Float<")) {
+            String text = This.NumericText(source);
+            If (hasValue && valueIndex < node.Parameters.Count()) {
+                AstNode valueNode = node.Parameters[valueIndex];
+                If (valueNode.Kind == AstKind.Argument && valueNode.Left != Null) { valueNode = valueNode.Left; }
+                If (valueNode.Kind == AstKind.FloatLiteral || valueNode.Kind == AstKind.IntegerLiteral) {
+                    text = StripNumericSuffix(valueNode.Text.Replace("_", ""));
+                    If (valueNode.Kind == AstKind.IntegerLiteral && text.IndexOf(".") < 0) { text = text + ".0"; }
+                }
+            }
+            Return This.MakeText(text);
         }
         Int number = 0;
         If (source.Kind == ValueKind.Text) { number = ParseInteger(source.Text); }
