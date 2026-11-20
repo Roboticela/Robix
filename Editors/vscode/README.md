@@ -158,7 +158,11 @@ Run uses the interpreter. It is the way you see what the program prints.
 
 The same three actions are on the editor title bar, in the right-click menu, and in the Command Palette as **Robix: Run**, **Robix: Compile**, and **Robix: Check**. The status bar shows **Robix** while a Robix file is active. Click it to run.
 
-Extra arguments for a program started with Run go in `robix.run.arguments`. The tools are found in `Build/bootstrap`. Set `robix.interpreterPath` or `robix.compilerPath` if they live somewhere else.
+Extra arguments for a program started with Run go in `robix.run.arguments`.
+
+The editor looks for `robix` and `robixc` on your PATH. A setting is used only when you fill in `robix.interpreterPath` or `robix.compilerPath`. Inside a Robix checkout, `Build/bootstrap` is the last place it looks.
+
+GitHub Actions builds three files. `robix-linux-x64.zip` and `robix-windows-x64.zip` are the toolchains. Each one already contains clang++, so nothing else has to be installed to compile. Unzip the archive for your system and add its `Robix/Bin` directory to PATH. On Linux the commands are `Robix` and `Robixc`. `Robix` runs a program. `Robixc` compiles every `.rx` file in a folder into one program and links the compiled runtime in `Library/Runtime.lib`. The Windows archive has the same folders, `clang++.exe`, and the Windows runtime. `Roboticela.Robix.vsix` is the editor package: choose **Extensions: Install from VSIX** and select that file. A tagged release publishes all three. Any other run keeps them as workflow artifacts.
 
 ### Run one function or class
 

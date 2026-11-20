@@ -1,0 +1,71 @@
+name: Robix
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Compile and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the C compiler
+        run: sudo apt-get update && sudo apt-get install -y clang zip unzip xz-utils curl
+
+      - name: Compile the toolchain zip
+        run: bash .github/scripts/package-toolchain.sh
+
+      - name: Package the VS Code extension
+        run: node .github/scripts/package-vsix.js
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: robix-packages
+          path: |
+            dist/robix-linux-x64.zip
+            dist/robix-windows-x64.zip
+            dist/Roboticela.Robix.vsix
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/robix-linux-x64.zip \
+            dist/robix-windows-x64.zip \
+            dist/Roboticela.Robix.vsix \
+            --title "Robix ${GITHUB_REF_NAME}" \
+            --notes "$(cat <<EOF
+          ## Tools
+
+          Unzip the archive for your system. clang++ is already inside it.
+
+          Linux:
+
+          \`\`\`bash
+          unzip robix-linux-x64.zip
+          export PATH=\"\$PWD/Robix/Bin:\$PATH\"
+          Robix run Hello.rx
+          Robixc SourceFolder Program
+          \`\`\`
+
+          Windows: unzip \`robix-windows-x64.zip\` and add \`Robix\\Bin\` to \`PATH\`. The layout matches Linux, including \`clang++.exe\` and the compiled runtime.
+
+          ## Editor
+
+          In VS Code or Cursor, choose **Extensions: Install from VSIX** and select \`Roboticela.Robix.vsix\`.
+          The editor finds \`Robix\` and \`Robixc\` on \`PATH\`.
+          EOF
+          )"

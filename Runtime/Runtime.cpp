@@ -3,12 +3,18 @@
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
-#include <dirent.h>
 #include <cerrno>
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <malloc.h>
+#else
+#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
 
 class Ownership;
 class Text;
@@ -569,9 +575,19 @@ int64_t Ownership::AllocateAligned(int64_t bytes, int64_t alignment) {
     if ((alignment & (alignment - 1)) != 0) {
         alignment = (int64_t)sizeof(void *);
     }
+#if defined(_WIN32)
+    if ((bytes % alignment) != 0) {
+        bytes += alignment - (bytes % alignment);
+    }
+    memory = aligned_alloc((size_t)alignment, (size_t)bytes);
+    if (memory == NULL) {
+        return 0;
+    }
+#else
     if (posix_memalign(&memory, (size_t)alignment, (size_t)bytes) != 0) {
         return 0;
     }
+#endif
     memset(memory, 0, (size_t)bytes);
     return (int64_t)(uintptr_t)memory;
 }
@@ -1387,15 +1403,27 @@ void Files::WriteBytes(int64_t path, int64_t bytes) {
 }
 
 int64_t Files::Exists(int64_t path) {
+#if defined(_WIN32)
+    DWORD attr = GetFileAttributesA(Text::Characters(path));
+    if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        return 0;
+    }
+    return 1;
+#else
     struct stat info;
     if (stat(Text::Characters(path), &info) != 0) {
         return 0;
     }
     return S_ISREG(info.st_mode) ? 1 : 0;
+#endif
 }
 
 void Files::Delete(int64_t path) {
+#if defined(_WIN32)
+    DeleteFileA(Text::Characters(path));
+#else
     unlink(Text::Characters(path));
+#endif
 }
 
 void Files::MakeParents(const char *path) {
@@ -1403,14 +1431,27 @@ void Files::MakeParents(const char *path) {
     int64_t length = (int64_t)strlen(copy);
     int64_t index = 0;
     while (index < length) {
-        if (copy[index] == '/' && index > 0) {
+        char mark = copy[index];
+#if defined(_WIN32)
+        if ((mark == '/' || mark == '\\') && index > 0) {
+            copy[index] = 0;
+            CreateDirectoryA(copy, NULL);
+            copy[index] = mark;
+        }
+#else
+        if (mark == '/' && index > 0) {
             copy[index] = 0;
             mkdir(copy, 0755);
             copy[index] = '/';
         }
+#endif
         index = index + 1;
     }
+#if defined(_WIN32)
+    CreateDirectoryA(copy, NULL);
+#else
     mkdir(copy, 0755);
+#endif
     free(copy);
 }
 
@@ -1419,6 +1460,34 @@ void Files::CreateDirectory(int64_t path) {
 }
 
 void Files::RemoveTree(const char *path) {
+#if defined(_WIN32)
+    DWORD attr = GetFileAttributesA(path);
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+        return;
+    }
+    if ((attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+        DeleteFileA(path);
+        return;
+    }
+    char pattern[4096];
+    snprintf(pattern, sizeof(pattern), "%s\\*", path);
+    WIN32_FIND_DATAA found;
+    HANDLE handle = FindFirstFileA(pattern, &found);
+    if (handle == INVALID_HANDLE_VALUE) {
+        RemoveDirectoryA(path);
+        return;
+    }
+    do {
+        if (strcmp(found.cFileName, ".") == 0 || strcmp(found.cFileName, "..") == 0) {
+            continue;
+        }
+        char child[4096];
+        snprintf(child, sizeof(child), "%s\\%s", path, found.cFileName);
+        Files::RemoveTree(child);
+    } while (FindNextFileA(handle, &found));
+    FindClose(handle);
+    RemoveDirectoryA(path);
+#else
     struct stat info;
     if (lstat(path, &info) != 0) {
         return;
@@ -1442,6 +1511,7 @@ void Files::RemoveTree(const char *path) {
     }
     closedir(dir);
     rmdir(path);
+#endif
 }
 
 void Files::DeleteDirectory(int64_t path) {
@@ -1449,11 +1519,19 @@ void Files::DeleteDirectory(int64_t path) {
 }
 
 int64_t Files::DirectoryExists(int64_t path) {
+#if defined(_WIN32)
+    DWORD attr = GetFileAttributesA(Text::Characters(path));
+    if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+        return 0;
+    }
+    return 1;
+#else
     struct stat info;
     if (stat(Text::Characters(path), &info) != 0) {
         return 0;
     }
     return S_ISDIR(info.st_mode) ? 1 : 0;
+#endif
 }
 
 void Files::Walk(int64_t list, const char *root, const char *relative) {
@@ -1463,6 +1541,32 @@ void Files::Walk(int64_t list, const char *root, const char *relative) {
     } else {
         snprintf(full, sizeof(full), "%s/%s", root, relative);
     }
+#if defined(_WIN32)
+    char pattern[4096];
+    snprintf(pattern, sizeof(pattern), "%s\\*", full);
+    WIN32_FIND_DATAA found;
+    HANDLE handle = FindFirstFileA(pattern, &found);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    do {
+        if (strcmp(found.cFileName, ".") == 0 || strcmp(found.cFileName, "..") == 0) {
+            continue;
+        }
+        char childRel[4096];
+        if (relative[0] == 0) {
+            snprintf(childRel, sizeof(childRel), "%s", found.cFileName);
+        } else {
+            snprintf(childRel, sizeof(childRel), "%s/%s", relative, found.cFileName);
+        }
+        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+            Files::Walk(list, root, childRel);
+        } else {
+            List::Add(list, Text::Box(Text::CopyBytes(childRel, (int64_t)strlen(childRel))));
+        }
+    } while (FindNextFileA(handle, &found));
+    FindClose(handle);
+#else
     DIR *dir = opendir(full);
     if (dir == NULL) {
         return;
@@ -1491,6 +1595,7 @@ void Files::Walk(int64_t list, const char *root, const char *relative) {
         }
     }
     closedir(dir);
+#endif
 }
 
 int64_t Files::List(int64_t path) {
@@ -1516,10 +1621,14 @@ int64_t Process::Run(int64_t command) {
     if (code == -1) {
         return 1;
     }
+#if defined(_WIN32)
+    return code;
+#else
     if (WIFEXITED(code)) {
         return WEXITSTATUS(code);
     }
     return 1;
+#endif
 }
 
 int64_t Process::Arguments(int32_t argc, char **argv) {

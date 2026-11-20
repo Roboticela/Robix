@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+cache="$root/dist/.cache"
+mkdir -p "$cache"
+linux_tar="$cache/llvm-mingw-linux.tar.xz"
+windows_zip="$cache/llvm-mingw-windows.zip"
+linux_url="https://github.com/mstorsjo/llvm-mingw/releases/download/20261117/llvm-mingw-20261117-ucrt-ubuntu-22.04-x86_64.tar.xz"
+windows_url="https://github.com/mstorsjo/llvm-mingw/releases/download/20261117/llvm-mingw-20261117-ucrt-x86_64.zip"
+
+fetch() {
+    local url="$1"
+    local file="$2"
+    local minimum="$3"
+    local size=0
+    if [[ -f "$file" ]]; then
+        size=$(stat -c%s "$file")
+    fi
+    if (( size < minimum )); then
+        curl -L --fail --retry 3 -o "$file.part" "$url"
+        mv "$file.part" "$file"
+    fi
+}
+
+fetch "$linux_url" "$linux_tar" 80000000
+fetch "$windows_url" "$windows_zip" 180000000
+
+rm -rf "$cache/llvm-mingw-linux" "$cache/llvm-mingw-windows"
+mkdir -p "$cache/llvm-mingw-linux" "$cache/llvm-mingw-windows"
+tar -xJf "$linux_tar" -C "$cache/llvm-mingw-linux"
+unzip -q "$windows_zip" -d "$cache/llvm-mingw-windows"
+
+cross=$(find "$cache/llvm-mingw-linux" -type f -name 'x86_64-w64-mingw32-clang++' | head -n 1)
+cross_ar=$(find "$cache/llvm-mingw-linux" -type f -name 'x86_64-w64-mingw32-llvm-ar' -o -type f -name 'llvm-ar' | head -n 1)
+if [[ -z "$cross" || -z "$cross_ar" ]]; then
+    echo "error: the Windows cross compiler was not found in the toolchain" >&2
+    exit 1
+fi
+
+stage="$root/dist/windows-stage/Robix"
+rm -rf "$root/dist/windows-stage"
+mkdir -p "$stage/Bin" "$stage/Packages/Builtin" "$stage/Packages/Installed" \
+    "$stage/Library" "$stage/Runtime" "$stage/Shared/Tools" \
+    "$stage/Shared/Syntax" "$stage/Shared/Runtime" "$stage/Shared/Build" "$stage/Shared/UI" \
+    "$stage/Packages/Builtin/Robix.Syntax" "$stage/Packages/Builtin/Robix.Runtime" \
+    "$stage/Packages/Builtin/Robix.Build" "$stage/Packages/Builtin/Robix.Tools" \
+    "$stage/Packages/Builtin/Robix.UI"
+
+windows_root=$(find "$cache/llvm-mingw-windows" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+cp -a "$windows_root"/. "$stage/Shared/Tools/Clang/"
+install -m 644 "$root/.github/packaging/Robixc.ps1" "$stage/Bin/Robixc.ps1"
+install -m 644 "$root/.github/packaging/Robixc.cmd" "$stage/Bin/Robixc.cmd"
+
+"$cross" -std=c++17 -O3 -c -o "$stage/Runtime/Runtime.o" "$root/Runtime/Runtime.cpp"
+"$cross_ar" rcs "$stage/Library/Runtime.lib" "$stage/Runtime/Runtime.o"
+file "$stage/Runtime/Runtime.o" | grep -E -q "COFF|PE32|Windows"
+
+cat > "$stage/README.txt" <<'EOF'
+Robix toolchain for Windows
+
+Bin\Robixc.cmd            Compiles a folder of Robix files when Shared\Tools\Compiler.exe is present.
+Shared\Tools\Clang\bin    clang++.exe and the rest of the bundled compiler.
+Library\Runtime.lib       Runtime library used when linking a program.
+Runtime\Runtime.o         Compiled Windows runtime.
+Packages\Builtin          Built-in package area.
+Packages\Installed        Place installed packages here.
+Shared                    Compiled files, grouped by area. UI files are in Shared\UI.
+
+Add Bin to PATH. clang++.exe is inside this zip. No separate compiler install is required.
+
+The folders match the Linux toolchain. Robix.exe is not included yet: rebuilding the language compiler currently emits invalid LLVM, so there is no Windows interpreter binary.
+EOF
+
+archive="$root/dist/robix-windows-x64.zip"
+rm -f "$archive"
+(
+    cd "$root/dist/windows-stage"
+    zip -r "$archive" Robix
+)
+echo "Packaged $archive"

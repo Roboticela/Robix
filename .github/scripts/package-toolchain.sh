@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+stage="$root/dist/Robix"
+rm -rf "$stage"
+mkdir -p "$stage/Bin" "$stage/Packages/Builtin" "$stage/Packages/Installed" \
+    "$stage/Library" "$stage/Runtime" "$stage/Shared/Tools" \
+    "$stage/Shared/Syntax" "$stage/Shared/Runtime" "$stage/Shared/Build" "$stage/Shared/UI"
+
+if ! command -v clang++ >/dev/null 2>&1; then
+    echo "error: clang++ is required on the build machine so it can be bundled" >&2
+    exit 1
+fi
+
+bash "$root/.github/scripts/bundle-linux-clang.sh" "$stage/Shared/Tools/Clang" "$stage/Library/Link"
+install -m 755 "$root/.github/packaging/clang++" "$stage/Shared/Tools/clang++"
+install -m 755 "$root/.github/packaging/clang++" "$stage/Bin/clang++"
+"$stage/Bin/clang++" -std=c++17 -O3 -fPIC -c -o "$stage/Runtime/Runtime.o" "$root/Runtime/Runtime.cpp"
+"$stage/Shared/Tools/Clang/bin/llvm-ar" rcs "$stage/Library/Runtime.lib" "$stage/Runtime/Runtime.o"
+
+install -m 755 "$root/Build/bootstrap/robix-run.app" "$stage/Bin/Robix"
+install -m 755 "$root/Build/bootstrap/robixc.app" "$stage/Shared/Tools/Compiler"
+install -m 755 "$root/.github/packaging/Robixc" "$stage/Bin/Robixc"
+
+place_bin() {
+    local source="$1"
+    local area="$2"
+    local package="$3"
+    local name
+    name="$(basename "$source")"
+    if [[ ! -f "$source" ]]; then
+        return 0
+    fi
+    install -m 644 "$source" "$stage/Shared/$area/$name"
+    mkdir -p "$stage/Packages/Builtin/$package"
+    install -m 644 "$source" "$stage/Packages/Builtin/$package/$name"
+}
+
+syntax=(
+    Lexer.bin Parser.bin ParserExpressions.bin ParserStatements.bin
+    Token.bin TokenKind.bin TypeChecker.bin NameChecker.bin
+    NativeEmit.bin Emitter.bin SyntaxCompiler.bin Diagnostic.bin
+    AstNode.bin TextConvert.bin SyntaxCoverage.bin
+)
+for name in "${syntax[@]}"; do
+    place_bin "$root/Build/Compiler/$name" Syntax Robix.Syntax
+done
+place_bin "$root/Build/Compiler/Interpreter.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
+place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
+
+mkdir -p "$stage/Packages/Builtin/Robix.UI" "$stage/Shared/UI"
+
+if find "$stage" \( -path '*/Clang/*' -o -path '*/Link/*' \) -prune -o \( -name '*.cpp' -o -name '*.cc' -o -name '*.rx' \) -print | grep -q .; then
+    echo "error: the package still contains source files" >&2
+    find "$stage" -name '*.cpp' -o -name '*.cc' -o -name '*.rx'
+    exit 1
+fi
+
+cat > "$stage/README.txt" <<'EOF'
+Robix toolchain
+
+Bin/Robix                 Run a Robix program. No compiler is required.
+Bin/Robixc                Compile a folder of Robix files into one program.
+Packages/Builtin          Compiled built-in packages.
+Packages/Installed        Place installed packages here.
+Bin/clang++               The C++ compiler used by Robixc. It is included.
+Library/Runtime.lib       Runtime library used when linking a program.
+Library/Link              Libraries used while linking a program.
+Runtime/Runtime.o         Compiled runtime.
+Shared                    Compiled .bin files, grouped by area. UI files are in Shared/UI.
+
+Add Bin to PATH:
+
+    export PATH="$PWD/Robix/Bin:$PATH"
+    Robix run Hello.rx
+    Robixc SourceFolder Program
+
+Nothing else has to be installed. Robixc uses the clang++ in this zip.
+EOF
+
+hello="$root/Examples/HelloRobot.rx"
+"$stage/Bin/Robix" run "$hello" | grep -q "Hello, Robix"
+
+folder="$(mktemp -d)"
+cp "$root/Examples/HelloRobot.rx" "$root/Examples/HelloRobot.test.rx" "$folder/"
+cat > "$folder/Extra.rx" <<'EOF'
+Package Robotics.Extra;
+
+Public Function Extra() -> Int
+Explain {
+    Description: "Return one.";
+    Processing: "Return the value.";
+    Output: "The value one.";
+} {
+    Return 1;
+}
+EOF
+cat > "$folder/Extra.test.rx" <<'EOF'
+Test Extra {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+EOF
+"$stage/Bin/Robixc" "$folder" "$folder/Hello"
+"$folder/Hello" | grep -q "Hello, Robix"
+rm -rf "$folder"
+
+archive="$root/dist/robix-linux-x64.zip"
+rm -f "$archive"
+(
+    cd "$root/dist"
+    zip -r "robix-linux-x64.zip" Robix
+)
+echo "Packaged $archive"
+if [[ "${SKIP_WINDOWS:-}" != "1" ]]; then
+    bash "$root/.github/scripts/package-windows.sh"
+fi

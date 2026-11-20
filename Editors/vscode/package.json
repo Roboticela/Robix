@@ -103,12 +103,12 @@
                 "robix.interpreterPath": {
                     "type": "string",
                     "default": "",
-                    "description": "Path to the Robix interpreter. Leave empty to use Build/bootstrap/robix-run.app."
+                    "description": "Path to the Robix interpreter. Leave empty to use robix from PATH, then Build/bootstrap/robix-run.app."
                 },
                 "robix.compilerPath": {
                     "type": "string",
                     "default": "",
-                    "description": "Path to the Robix compiler. Leave empty to use Build/bootstrap/robixc.app."
+                    "description": "Path to the Robix compiler. Leave empty to use robixc from PATH, then Build/bootstrap/robixc.app."
                 },
                 "robix.autoCorrectKeywords": {
                     "type": "boolean",

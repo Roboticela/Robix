@@ -8,6 +8,7 @@ const { formatRobix, formatProject } = require("../lib/format");
 const { analyze } = require("../lib/analyze");
 const { complete, hover, signature: signatureHelp, definition } = require("../lib/intellisense");
 const { extractTests, functionNames, selectTests, buildCompanion } = require("../lib/run-target");
+const { findTool } = require("../lib/tools");
 
 const root = path.resolve(__dirname, "../../..");
 let failed = 0;
@@ -162,6 +163,40 @@ check("a function run keeps only that function's tests", () => {
     assert.deepStrictEqual(dotted.map((test) => `${test.owner}.${test.name}`), ["RxuMessages.Add"]);
     const classTests = selectTests(dotted, { name: "RxuMessages", kind: "class", container: "" });
     assert.strictEqual(classTests.length, 1);
+});
+
+check("tools are found on PATH before the project build", () => {
+    const files = new Set(["/opt/robix/bin/robix", "/work/Build/bootstrap/robix-run.app"]);
+    const found = findTool({
+        configured: "",
+        pathEnv: "/usr/bin:/opt/robix/bin",
+        delimiter: ":",
+        names: ["robix", "robix.exe"],
+        root: "/work",
+        relatives: ["Build/bootstrap/robix-run.app"],
+        exists: (file) => files.has(file)
+    });
+    assert.strictEqual(found, "/opt/robix/bin/robix");
+    const fallback = findTool({
+        configured: "",
+        pathEnv: "/usr/bin",
+        delimiter: ":",
+        names: ["robix"],
+        root: "/work",
+        relatives: ["Build/bootstrap/robix-run.app"],
+        exists: (file) => files.has(file)
+    });
+    assert.strictEqual(fallback, "/work/Build/bootstrap/robix-run.app");
+    const pinned = findTool({
+        configured: "/custom/robix",
+        pathEnv: "/opt/robix/bin",
+        delimiter: ":",
+        names: ["robix"],
+        root: "/work",
+        relatives: ["Build/bootstrap/robix-run.app"],
+        exists: (file) => file === "/custom/robix" || files.has(file)
+    });
+    assert.strictEqual(pinned, "/custom/robix");
 });
 
 check("user names are not recased", () => {

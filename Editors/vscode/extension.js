@@ -10,6 +10,7 @@ const { formatRobix, formatProject } = require("./lib/format");
 const { analyze } = require("./lib/analyze");
 const { complete, hover, signature, definition, referencesIn, semanticSpans } = require("./lib/intellisense");
 const { extractTests, functionNames, selectTests, buildCompanion, caseTitles } = require("./lib/run-target");
+const { findTool } = require("./lib/tools");
 const { SEMANTIC_TYPES, SEMANTIC_MODIFIERS } = require("./lib/keywords");
 
 const legend = new vscode.SemanticTokensLegend(SEMANTIC_TYPES, SEMANTIC_MODIFIERS);
@@ -834,39 +835,26 @@ function notify(ok, success, failure) {
 }
 
 function missingTool(kind) {
-    vscode.window.showErrorMessage(`The Robix ${kind} was not found. Set robix.${kind}Path to the executable.`);
+    const command = kind === "compiler" ? "Robixc" : "Robix";
+    vscode.window.showErrorMessage(`The Robix ${kind} was not found on PATH. Install it or set robix.${kind}Path to the ${command} executable.`);
 }
 
 function interpreterPath(document) {
-    const configured = String(config().get("interpreterPath") || "");
-    if (configured) {
-        return configured;
-    }
-    return firstExisting(projectRoot(document.uri.fsPath), [
-        "Build/bootstrap/robix-run.app",
-        "Build/Compiler/Robix.app"
-    ]);
+    return findTool({
+        configured: config().get("interpreterPath"),
+        names: ["Robix", "robix", "robix.exe", "robix-run", "robix-run.app"],
+        root: projectRoot(document.uri.fsPath),
+        relatives: ["Build/bootstrap/robix-run.app", "Build/Compiler/Robix.app"]
+    });
 }
 
 function compilerPath(document) {
-    const configured = String(config().get("compilerPath") || "");
-    if (configured) {
-        return configured;
-    }
-    return firstExisting(projectRoot(document.uri.fsPath), [
-        "Build/bootstrap/robixc.app",
-        "Build/Compiler/Robixc.bin"
-    ]);
-}
-
-function firstExisting(root, relatives) {
-    for (const relative of relatives) {
-        const candidate = path.join(root, relative);
-        if (fs.existsSync(candidate)) {
-            return candidate;
-        }
-    }
-    return "";
+    return findTool({
+        configured: config().get("compilerPath"),
+        names: ["Robixc", "Robixc.cmd", "robixc", "robixc.exe", "robixc.app"],
+        root: projectRoot(document.uri.fsPath),
+        relatives: ["Build/bootstrap/robixc.app", "Build/Compiler/Robixc.bin"]
+    });
 }
 
 function projectRoot(filePath) {
