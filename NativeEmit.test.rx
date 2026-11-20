@@ -645,6 +645,45 @@ Test ResolveAlias {
     }
 }
 
+Test ApplyAlias {
+    Case "unknown alias" {
+        Input: name = "Pair<Int, String>";
+        Output: "";
+    }
+}
+
+Test SubstituteAlias {
+    Case "pair of types" {
+        Input: target = "(TLeft, TRight)", parameters = "TLeft, TRight", arguments = "Int, String";
+        Output: "(Int, String)";
+    }
+    Case "storage argument" {
+        Input: target = "Storage<T>", parameters = "T", arguments = "Int";
+        Output: "Storage<Int>";
+    }
+}
+
+Test SplitTypeList {
+    Case "two types" {
+        Input: text = "Int, String", parts = [];
+        Assert: parts.Count() == 2;
+    }
+}
+
+Test TrimType {
+    Case "trim spaces" {
+        Input: text = " Int ";
+        Output: "Int";
+    }
+}
+
+Test ReplaceParameter {
+    Case "replace matching token" {
+        Input: token = "T", names = ["T"], values = ["Int"];
+        Output: "Int";
+    }
+}
+
 Test EmitObjectLiteral {
     Case "empty object literal" {
         Input: node = AstNode(Name: "C", Children: []);
@@ -1030,6 +1069,20 @@ Test EmitTryToInt {
     Case "text" {
         Input: receiver = "0", typeName = "String";
         Assert: Result.TypeName == "Result<Int, ConversionError>";
+    }
+}
+
+Test EmitReference {
+    Case "missing target" {
+        Input: node = AstNode(Name: "Ref");
+        Assert: Result.TypeName == "Ref<Int>";
+    }
+}
+
+Test RefPayload {
+    Case "mutable integer" {
+        Input: typeName = "Ref<Mut Int>";
+        Output: "Int";
     }
 }
 

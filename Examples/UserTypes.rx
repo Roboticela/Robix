@@ -1,0 +1,36 @@
+// Struct fields with a fixed width, and generic type aliases.
+Package Robotics.UserTypes;
+
+Import Robix.Core;
+
+
+Struct RoboColor {
+    Public UInt8 Red;
+    Public UInt8 Green;
+    Public UInt8 Blue;
+}
+
+Type Pair<TLeft, TRight> = (TLeft, TRight);
+Type RoboBox<T> = Storage<T>;
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Build a color struct and use generic aliases.";
+    Input: args = "Command-line arguments";
+    Processing: "Store three byte channels, a pair, and a boxed integer.";
+    Output: "The color channels, the pair, and the boxed value.";
+} {
+    RoboColor color = RoboColor { Red: 255, Green: 16, Blue: 1 };
+    Print(color.Red);
+    Print(color.Green);
+    Print(color.Blue);
+    color.Blue = 40;
+    Print(color.Blue);
+    Pair<Int, String> reading = (7, "arm");
+    Print(reading[0]);
+    Print(reading[1]);
+    Storage<Int> direct = 4.As<Storage<Int>>();
+    RoboBox<Int> boxed = direct;
+    Print(boxed);
+    Return 0;
+}

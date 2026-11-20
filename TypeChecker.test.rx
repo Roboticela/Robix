@@ -193,6 +193,52 @@ Test ResolveType {
     }
 }
 
+Test ApplyAlias {
+    Case "unknown alias" {
+        Input: name = "Pair<Int, String>";
+        Output: "";
+    }
+}
+
+Test SubstituteAlias {
+    Case "pair of types" {
+        Input: target = "(TLeft, TRight)", parameters = "TLeft, TRight", arguments = "Int, String";
+        Output: "(Int, String)";
+    }
+    Case "nested argument" {
+        Input: target = "Storage<T>", parameters = "T", arguments = "Map<String, Int>";
+        Output: "Storage<Map<String, Int>>";
+    }
+}
+
+Test SplitTypeList {
+    Case "two types" {
+        Input: text = "Int, String", parts = [];
+        Assert: parts.Count() == 2;
+    }
+}
+
+Test TrimType {
+    Case "trim spaces" {
+        Input: text = " Int ";
+        Output: "Int";
+    }
+}
+
+Test ReplaceParameter {
+    Case "replace matching token" {
+        Input: token = "T", names = ["T"], values = ["Int"];
+        Output: "Int";
+    }
+}
+
+Test FieldTypeOf {
+    Case "unknown field" {
+        Input: owner = "RoboColor", name = "Red";
+        Output: "";
+    }
+}
+
 Test TypeText {
     Case "type text from node" {
         Input: type = AstNode(Name: "Int");
@@ -250,6 +296,38 @@ Test CallTupleType {
 Test LiteralElement {
     Case "literal element default" {
         Input: node = AstNode();
+        Output: "Int";
+    }
+}
+
+Test FunctionSignature {
+    Case "empty function" {
+        Input: node = AstNode();
+        Output: "Function<Void>";
+    }
+}
+
+Test FunctionTypeOf {
+    Case "unknown function" {
+        Input: name = "RoboAdd";
+        Output: "";
+    }
+}
+
+Test ReferenceType {
+    Case "missing argument" {
+        Input: node = AstNode();
+        Output: "Int";
+    }
+}
+
+Test RefPayload {
+    Case "mutable integer" {
+        Input: typeName = "Ref<Mut Int>";
+        Output: "Int";
+    }
+    Case "plain integer" {
+        Input: typeName = "Ref<Int>";
         Output: "Int";
     }
 }

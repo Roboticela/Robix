@@ -40,6 +40,13 @@ Public Class TypeChecker {
     Private Int functionDepth;
     Private List<String> aliasNames;
     Private List<String> aliasTargets;
+    Private List<String> aliasParameters;
+    Private String currentType;
+    Private List<String> fieldOwners;
+    Private List<String> fieldNames;
+    Private List<String> fieldTypes;
+    Private List<String> functionNames;
+    Private List<String> functionSignatures;
 
     Public Constructor(DiagnosticBag diagnostics) {
         This.diagnostics = diagnostics;
@@ -51,6 +58,13 @@ Public Class TypeChecker {
         This.functionDepth = 0;
         This.aliasNames = List<String>();
         This.aliasTargets = List<String>();
+        This.aliasParameters = List<String>();
+        This.currentType = "";
+        This.fieldOwners = List<String>();
+        This.fieldNames = List<String>();
+        This.fieldTypes = List<String>();
+        This.functionNames = List<String>();
+        This.functionSignatures = List<String>();
     }
 
     Public Function Check(AstNode module) -> Void
@@ -95,9 +109,12 @@ Public Class TypeChecker {
             Return;
         }
         If (node.Kind == AstKind.Class || node.Kind == AstKind.Implement) {
+            String previousType = This.currentType;
+            If (node.Kind == AstKind.Class) { This.currentType = node.Name; }
             For child In node.Children {
                 This.CheckNode(child);
             }
+            This.currentType = previousType;
             Return;
         }
         If (node.Kind == AstKind.Operator) {
@@ -257,7 +274,15 @@ Public Class TypeChecker {
         }
         declared = This.ResolveType(declared);
         inferred = This.ResolveType(inferred);
-        If (node.Initializer != Null && inferred.Length() > 0 && node.Type != Null) {
+        Bool spanLiteral = declared.StartsWith("Span<") && node.Initializer != Null && node.Initializer.Kind == AstKind.ArrayLiteral;
+        If (spanLiteral) {
+            String element = This.ElementName(declared);
+            If (element == "") { element = "Byte"; }
+            For child In node.Initializer.Children {
+                This.RequireAssignable(child, element, This.Infer(child));
+            }
+        }
+        If (!spanLiteral && node.Initializer != Null && inferred.Length() > 0 && node.Type != Null) {
             This.RequireAssignable(node.Initializer, declared, inferred);
         }
         Int fixed = This.FixedCount(declared);
@@ -266,6 +291,11 @@ Public Class TypeChecker {
         }
         Bool nullable = declared.EndsWith("?") || declared == "Null";
         This.Define(node.Name, declared, node.FlagA && !node.FlagB, nullable, node.Initializer != Null, False, False, node.FlagB, node.Line, node.Column);
+        If (node.Kind == AstKind.Field && This.currentType != "") {
+            This.fieldOwners.Add(This.currentType);
+            This.fieldNames.Add(node.Name);
+            This.fieldTypes.Add(declared);
+        }
         If (node.Kind != AstKind.Field && node.Initializer == Null && !node.FlagA) {
             This.diagnostics.TypeError("RX103", "An immutable value must be initialized.", node.Line, node.Column, declared, "uninitialized", "Initialize the Let binding.");
         }
@@ -458,6 +488,16 @@ Public Class TypeChecker {
                     This.RequireAssignable(node, symbol.TypeName, actual);
                 }
             }
+        } Else If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
+            Symbol? symbol = This.Find(node.Left.Left.Name);
+            If (symbol != Null) {
+                If (node.Left.Name == "Value" && symbol.TypeName.StartsWith("Ref<") && !symbol.TypeName.Contains("Mut")) {
+                    This.diagnostics.TypeError("RX103", "A read-only reference cannot be assigned.", node.Line, node.Column, "Ref<Mut " + This.RefPayload(symbol.TypeName) + ">", symbol.TypeName, "Bind the reference with Ref(Mut name).");
+                }
+                String expected = This.FieldTypeOf(symbol.TypeName, node.Left.Name);
+                If (expected != "" && node.Right != Null) { This.RequireAssignable(node.Right, expected, actual); }
+            }
+            This.Infer(node.Left);
         } Else If (node.Left != Null) {
             This.Infer(node.Left);
         }
@@ -518,7 +558,11 @@ Public Class TypeChecker {
         }
         If (node.Kind == AstKind.ObjectLiteral) {
             For child In node.Children {
-                If (child.Left != Null) { This.Infer(child.Left); }
+                If (child.Left != Null) {
+                    String actual = This.Infer(child.Left);
+                    String expected = This.FieldTypeOf(node.Name, child.Name);
+                    If (expected != "") { This.RequireAssignable(child.Left, expected, actual); }
+                }
             }
             Return node.Name;
         }
@@ -532,6 +576,10 @@ Public Class TypeChecker {
             }
             If (!symbol.Initialized && !symbol.IsFunction && This.strict) {
                 This.diagnostics.TypeError("RX102", "'" + node.Name + "' is read before it is assigned.", node.Line, node.Column, symbol.TypeName, "uninitialized", "Assign the variable before reading it.");
+            }
+            If (symbol.IsFunction) {
+                String signature = This.FunctionTypeOf(node.Name);
+                If (signature != "") { Return signature; }
             }
             If (!symbol.Nullable && symbol.TypeName.EndsWith("?")) {
                 Return This.StripOptional(symbol.TypeName);
@@ -557,6 +605,7 @@ Public Class TypeChecker {
             If (node.Operator == "!" || node.Operator == "Not") {
                 Return "Bool";
             }
+            If (node.Operator == "Mut") { Return "Mut " + inner; }
             Return inner;
         }
         If (node.Kind == AstKind.Binary || node.Kind == AstKind.Range) {
@@ -762,6 +811,7 @@ Public Class TypeChecker {
                 Return "Int";
             }
         }
+        If (name == "Ref") { Return "Ref<" + This.ReferenceType(node) + ">"; }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
         }
@@ -800,6 +850,7 @@ Public Class TypeChecker {
         If (This.SameElements(wanted, given)) {
             Return;
         }
+        If (wanted.StartsWith("Pointer<") && given == "Null") { Return; }
         If (wanted.StartsWith("Option<") && (given.StartsWith("Option<") || given == "None")) { Return; }
         If (wanted.StartsWith("Result<") && (given.StartsWith("Result<") || given == "Success" || given == "Failure" || given == "Error")) { Return; }
         If (wanted == "Tuple" && given.StartsWith("(")) { Return; }
@@ -926,6 +977,52 @@ Public Class TypeChecker {
         }
         String returnType = This.TypeText(node.Type);
         This.Define(node.Name, returnType, False, False, True, True, node.FlagA || This.HasModifier(node, "Async"), False, node.Line, node.Column);
+        This.functionNames.Add(node.Name);
+        This.functionSignatures.Add(This.FunctionSignature(node));
+    }
+
+    Private Function FunctionSignature(AstNode node) -> String {
+        String text = "Function<";
+        Bool first = True;
+        For parameter In node.Parameters {
+            If (!parameter.FlagC) {
+                If (!first) { text = text + ", "; }
+                String parameterType = This.TypeText(parameter.Type);
+                If (parameterType == "") { parameterType = "Int"; }
+                text = text + parameterType;
+                first = False;
+            }
+        }
+        If (!first) { text = text + ", "; }
+        String returnType = This.TypeText(node.Type);
+        If (returnType == "") { returnType = "Void"; }
+        Return text + returnType + ">";
+    }
+
+    Private Function FunctionTypeOf(String name) -> String {
+        Int index = 0;
+        While (index < This.functionNames.Count() && index < This.functionSignatures.Count()) {
+            If (This.functionNames[index] == name) { Return This.functionSignatures[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function ReferenceType(AstNode node) -> String {
+        If (node.Parameters.Count() == 0 || node.Parameters[0].Left == Null) { Return "Int"; }
+        AstNode argument = node.Parameters[0].Left;
+        If (argument.Kind == AstKind.Unary && argument.Operator == "Mut" && argument.Left != Null) {
+            Return "Mut " + This.Infer(argument.Left);
+        }
+        Return This.Infer(argument);
+    }
+
+    Private Function RefPayload(String typeName) -> String {
+        If (!typeName.StartsWith("Ref<") || !typeName.EndsWith(">")) { Return "Int"; }
+        String inner = typeName.Substring(4, typeName.Length() - 5);
+        If (inner.StartsWith("Mut ")) { Return inner.Substring(4); }
+        If (inner.StartsWith("Const ")) { Return inner.Substring(6); }
+        Return inner;
     }
 
     Private Function Define(String name, String typeName, Bool mutable, Bool nullable, Bool initialized, Bool isFunction, Bool isAsync, Bool isConst, Int line, Int column) -> Void {
@@ -984,11 +1081,17 @@ Public Class TypeChecker {
 
     Private Function CollectAliases(AstNode node) -> Void {
         For child In node.Children {
-            If (child.Kind == AstKind.TypeAlias && child.Parameters.Count() == 0) {
+            If (child.Kind == AstKind.TypeAlias) {
                 This.aliasNames.Add(child.Name);
                 String target = "";
-                If (child.Type != Null) { target = child.Type.Name; }
+                If (child.Type != Null) { target = This.TypeText(child.Type); }
                 This.aliasTargets.Add(target);
+                String parameters = "";
+                For parameter In child.Parameters {
+                    If (parameters != "") { parameters = parameters + ", "; }
+                    parameters = parameters + parameter.Name;
+                }
+                This.aliasParameters.Add(parameters);
             }
         }
     }
@@ -1000,14 +1103,106 @@ Public Class TypeChecker {
             String next = "";
             Int index = 0;
             For alias In This.aliasNames {
-                If (alias == current) { next = This.aliasTargets[index]; }
+                If (alias == current && This.aliasParameters[index] == "") { next = This.aliasTargets[index]; }
                 index = index + 1;
             }
+            If (next == "") { next = This.ApplyAlias(current); }
             If (next == "" || next == current) { Return current; }
             current = next;
             guard = guard + 1;
         }
         Return current;
+    }
+
+    Private Function ApplyAlias(String name) -> String {
+        Int open = name.IndexOf("<");
+        If (open < 0 || !name.EndsWith(">")) { Return ""; }
+        String head = name.Substring(0, open);
+        String arguments = name.Substring(open + 1, name.Length() - open - 2);
+        Int index = 0;
+        For alias In This.aliasNames {
+            If (alias == head && This.aliasParameters[index] != "") {
+                Return This.SubstituteAlias(This.aliasTargets[index], This.aliasParameters[index], arguments);
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function SubstituteAlias(String target, String parameters, String arguments) -> String {
+        Var names = List<String>();
+        Var values = List<String>();
+        This.SplitTypeList(parameters, names);
+        This.SplitTypeList(arguments, values);
+        String result = "";
+        String token = "";
+        Int index = 0;
+        While (index < target.Length()) {
+            Char character = target.GetChar(index);
+            Bool word = character == '_' || (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9');
+            If (word) {
+                token = token + target.Substring(index, 1);
+            } Else {
+                If (token != "") {
+                    result = result + This.ReplaceParameter(token, names, values);
+                    token = "";
+                }
+                result = result + target.Substring(index, 1);
+            }
+            index = index + 1;
+        }
+        If (token != "") { result = result + This.ReplaceParameter(token, names, values); }
+        Return result;
+    }
+
+    Private Function SplitTypeList(String text, List<String> parts) -> Void {
+        String current = "";
+        Int depth = 0;
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == "<") {
+                depth = depth + 1;
+                current = current + character;
+            } Else If (character == ">") {
+                If (depth > 0) { depth = depth - 1; }
+                current = current + character;
+            } Else If (character == "," && depth == 0) {
+                parts.Add(This.TrimType(current));
+                current = "";
+                If (index + 1 < text.Length() && text.Substring(index + 1, 1) == " ") { index = index + 1; }
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        If (current != "") { parts.Add(This.TrimType(current)); }
+    }
+
+    Private Function TrimType(String text) -> String {
+        Int start = 0;
+        Int end = text.Length();
+        While (start < end && text.Substring(start, 1) == " ") { start = start + 1; }
+        While (end > start && text.Substring(end - 1, 1) == " ") { end = end - 1; }
+        Return text.Substring(start, end - start);
+    }
+
+    Private Function ReplaceParameter(String token, List<String> names, List<String> values) -> String {
+        Int index = 0;
+        While (index < names.Count() && index < values.Count()) {
+            If (names[index] == token) { Return values[index]; }
+            index = index + 1;
+        }
+        Return token;
+    }
+
+    Private Function FieldTypeOf(String owner, String name) -> String {
+        Int index = 0;
+        While (index < This.fieldOwners.Count() && index < This.fieldNames.Count() && index < This.fieldTypes.Count()) {
+            If (This.fieldOwners[index] == owner && This.fieldNames[index] == name) { Return This.fieldTypes[index]; }
+            index = index + 1;
+        }
+        Return "";
     }
 
     Private Function TypeText(AstNode? type) -> String {
@@ -1055,7 +1250,10 @@ Public Class TypeChecker {
             }
             Return joined + "}";
         }
-        String text = type.Text + type.Name;
+        String text = type.Name;
+        If (type.Text == "Const" || type.Text == "Mut") { text = type.Text + " " + type.Name; }
+        If (type.Text == "ConstMut") { text = "Const Mut " + type.Name; }
+        If (type.Text != "Const" && type.Text != "Mut" && type.Text != "ConstMut") { text = type.Text + type.Name; }
         If (type.Children.Count() > 0) {
             text = text + "<";
             Bool first = True;
@@ -1135,6 +1333,7 @@ Public Class TypeChecker {
     }
 
     Private Function ElementName(String typeName) -> String {
+        If (typeName.StartsWith("Span<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
         If (typeName.StartsWith("List:")) { Return typeName.Substring(5); }
         If (typeName.StartsWith("Array<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
         If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
@@ -1314,7 +1513,7 @@ Public Class TypeChecker {
     }
 
     Private Function IsNumeric(String typeName) -> Bool {
-        Return typeName == "Int" || typeName == "UInt" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
+        Return typeName == "Int" || typeName == "UInt" || typeName == "Byte" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
     }
 
     Private Function IsTypeName(String name) -> Bool {

@@ -710,6 +710,35 @@ Test F64Cmp {
     Output: True;
 }
 
+Test MakeReference {
+    Case "empty reference" {
+        Input: node = AstNode();
+        Assert: Result.Text == "Ref:";
+    }
+}
+
+Test IsMutableReference {
+    Case "mutable" {
+        Input: text = "MutRef:motorSpeed";
+        Output: True;
+    }
+    Case "read only" {
+        Input: text = "Ref:motorSpeed";
+        Output: False;
+    }
+}
+
+Test ReferenceTarget {
+    Case "mutable name" {
+        Input: text = "MutRef:motorSpeed";
+        Output: "motorSpeed";
+    }
+    Case "read only name" {
+        Input: text = "Ref:motorSpeed";
+        Output: "motorSpeed";
+    }
+}
+
 Test FormatPlaces {
     Case "four places" {
         Input: format = "F4";

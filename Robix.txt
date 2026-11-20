@@ -20,29 +20,9 @@ The lagnuage will can have both entry point from procedural with private int mai
 // Arbitrary-width floating types, such as Float<128>, are still open.
 Float<128> wideFloat = Float<128>.From(1.0);
 
-// User-defined types and aliases.
-Struct RoboColor {
-    Public UInt8 Red;
-    Public UInt8 Green;
-    Public UInt8 Blue;
-}
-
-Type Pair<TLeft, TRight> = (TLeft, TRight);
-Type RoboBox<T> = Storage<T>;
-
 // -----------------------------------------------------------------------------
 // 4. Composite types, collections, tuples, and universal values
 // -----------------------------------------------------------------------------
-
-Span<Byte> bytes = [0x01, 0x02, 0x03];
-
-Pointer<Int> dataPointer = Null;
-Pointer<Const Int> readOnlyPointer = Null;
-Pointer<Mut Byte> mutableBytePointer = Null;
-Ref<Int> addressOfValue = Ref(motorSpeed);
-Ref<Mut Int> mutableAddress = Ref(Mut motorSpeed);
-
-Function<Int, Int, Int> mathFunc = RoboAdd;
 
 // Generic constraints and user-defined generic types.
 Struct RoboResult<TValue, TError> {

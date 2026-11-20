@@ -98,6 +98,14 @@ Public Partial Class Parser {
         If (This.Check(TokenKind.Async) && This.Look(1).Kind == TokenKind.Function) {
             Return This.ParseLambda(True);
         }
+        If (This.Check(TokenKind.Mut)) {
+            Token op = This.Advance();
+            AstNode node = This.Make(AstKind.Unary, op);
+            node.Operator = "Mut";
+            node.Left = This.ParseUnary();
+            This.Finish(node, op);
+            Return node;
+        }
         If (This.IsPrefixOperator(This.Peek().Kind)) {
             Token op = This.Advance();
             AstNode node = This.Make(AstKind.Unary, op);

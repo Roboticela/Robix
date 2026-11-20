@@ -1,0 +1,14 @@
+// Tests for Examples/References.rx.
+
+Test RoboAdd {
+    Case "add two integers" {
+        Input: left = 20, right = 22;
+        Output: 42;
+    }
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

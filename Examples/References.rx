@@ -1,0 +1,44 @@
+// Spans, null pointers, references, and function values.
+Package Robotics.References;
+
+Import Robix.Core;
+
+
+Public Function RoboAdd(Int left, Int right) -> Int
+Explain {
+    Description: "Add two integers.";
+    Input: left = "First integer", right = "Second integer";
+    Processing: "Add the two integers.";
+    Output: "The sum.";
+} {
+    Return left + right;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Read a byte span, null pointers, a reference, and a function value.";
+    Input: args = "Command-line arguments";
+    Processing: "Index the span, test null pointers, update a speed through a reference, and call RoboAdd.";
+    Output: "The bytes, null tests, updated speed, and sum.";
+} {
+    Span<Byte> bytes = [0x01, 0x02, 0x03];
+    Print(bytes[0]);
+    Print(bytes[1]);
+    Print(bytes[2]);
+    Int motorSpeed = 40;
+    Pointer<Int> dataPointer = Null;
+    Pointer<Const Int> readOnlyPointer = Null;
+    Pointer<Mut Byte> mutableBytePointer = Null;
+    Print(dataPointer == Null);
+    Print(readOnlyPointer == Null);
+    Print(mutableBytePointer == Null);
+    Ref<Int> addressOfValue = Ref(motorSpeed);
+    Ref<Mut Int> mutableAddress = Ref(Mut motorSpeed);
+    Print(addressOfValue.Value);
+    mutableAddress.Value = 55;
+    Print(motorSpeed);
+    Print(addressOfValue.Value);
+    Function<Int, Int, Int> mathFunc = RoboAdd;
+    Print(mathFunc(20, 22));
+    Return 0;
+}

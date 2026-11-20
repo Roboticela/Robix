@@ -109,6 +109,7 @@ Public Class NativeProgram {
     Public String InitSymbol;
     Public List<String> AliasNames;
     Public List<String> AliasTargets;
+    Public List<String> AliasParameters;
     Public List<String> OperatorKeys;
     Public List<String> OperatorSymbols;
     Public List<String> OperatorReturns;
@@ -139,6 +140,7 @@ Public Class NativeProgram {
         This.InitSymbol = "";
         This.AliasNames = List<String>();
         This.AliasTargets = List<String>();
+        This.AliasParameters = List<String>();
         This.OperatorKeys = List<String>();
         This.OperatorSymbols = List<String>();
         This.OperatorReturns = List<String>();
@@ -160,11 +162,17 @@ Public Class NativeProgram {
                 If (child.Kind == AstKind.Class) {
                     This.AddClass(fileName, child);
                 }
-                If (child.Kind == AstKind.TypeAlias && child.Parameters.Count() == 0) {
+                If (child.Kind == AstKind.TypeAlias) {
                     This.AliasNames.Add(child.Name);
                     String target = "";
-                    If (child.Type != Null) { target = child.Type.Name; }
+                    If (child.Type != Null) { target = This.TypeName(child.Type); }
                     This.AliasTargets.Add(target);
+                    String parameters = "";
+                    For parameter In child.Parameters {
+                        If (parameters != "") { parameters = parameters + ", "; }
+                        parameters = parameters + parameter.Name;
+                    }
+                    This.AliasParameters.Add(parameters);
                 }
                 If (child.Kind == AstKind.Function || child.Kind == AstKind.Extern) {
                     This.AddFunction(fileName, child);
@@ -961,7 +969,7 @@ Public Class NativeProgram {
                 This.UntypedLiteral = False;
                 value = initial.Value;
                 sourceType = initial.TypeName;
-                If (typeName == "" || typeName == "Tuple") { typeName = sourceType; }
+                If (typeName == "" || typeName == "Tuple" || sourceType.StartsWith("Lambda:")) { typeName = sourceType; }
             }
             If (typeName == "") { typeName = "Int"; }
             If (typeName == "Decimal" && sourceType != "Decimal" && node.Initializer != Null) {
@@ -1386,10 +1394,22 @@ Public Class NativeProgram {
             This.StoreName(node.Left.Name, value.Value);
             Return value;
         }
+            If (node.Left.Kind == AstKind.Member && node.Left.Name == "Value") {
+            IrValue receiver = This.EmitExpr(node.Left.Left);
+            If (receiver.TypeName.StartsWith("Ref<")) {
+                String pointer = This.Fresh("p");
+                This.Emit(pointer + " = inttoptr i64 " + receiver.Value + " to ptr");
+                This.Emit("store i64 " + value.Value + ", ptr " + pointer);
+                Return value;
+            }
+        }
         If (node.Left.Kind == AstKind.Member) {
             IrValue receiver = This.EmitExpr(node.Left.Left);
-            Int index = This.FieldSlot(This.FindClass(receiver.TypeName), node.Left.Name);
+            ClassInfo owner = This.FindClass(receiver.TypeName);
+            Int index = This.FieldSlot(owner, node.Left.Name);
             If (index < 0) { index = 0; }
+            String fieldType = This.FieldType(owner, node.Left.Name);
+            If (This.IsWrappedInteger(fieldType)) { value = This.Pair(This.WrapInteger(value.Value, fieldType), fieldType); }
             This.StoreObjectField(receiver.Value, index.ToString(), value.Value);
             Return value;
         }
@@ -1521,6 +1541,8 @@ Public Class NativeProgram {
             If (found.Value != "") { Return This.Pair(This.LoadSlot(found.Value), found.TypeName); }
             ClassInfo info = This.FindClass(node.Name);
             If (info.Name != "") { Return This.Pair("0", node.Name); }
+            FunctionInfo namedFunction = This.FindFunction(node.Name, This.FileName);
+            If (namedFunction.Name != "") { Return This.Pair("0", "Lambda:" + node.Name); }
             Return This.Pair("0", "Int");
         }
         If (node.Kind == AstKind.Member) { Return This.EmitMember(node); }
@@ -1684,6 +1706,13 @@ Public Class NativeProgram {
             String loaded = This.LoadObjectField(receiver.Value, slot.ToString());
             Return This.Pair(loaded, This.FieldType(info, target));
         }
+        If (target == "Value" && receiver.TypeName.StartsWith("Ref<")) {
+            String pointer = This.Fresh("p");
+            This.Emit(pointer + " = inttoptr i64 " + receiver.Value + " to ptr");
+            String loaded = This.Fresh("v");
+            This.Emit(loaded + " = load i64, ptr " + pointer);
+            Return This.Pair(loaded, This.RefPayload(receiver.TypeName));
+        }
         If (receiver.TypeName.StartsWith("{")) {
             Int recordSlot = This.RecordSlot(receiver.TypeName, target);
             If (recordSlot >= 0) {
@@ -1695,6 +1724,9 @@ Public Class NativeProgram {
     }
 
     Private Function EmitCall(AstNode node) -> IrValue {
+        If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
+            Return This.EmitReference(node);
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericType(node.Left.Left.Name)) {
             Return This.EmitNumericFrom(node);
         }
@@ -2883,6 +2915,7 @@ Public Class NativeProgram {
             resolved = resolved + ">";
         }
         If (node.FlagA && !resolved.EndsWith("?")) { resolved = resolved + "?"; }
+        If (node.Children.Count() > 0 || node.FlagA) { Return This.ResolveAlias(resolved); }
         Return resolved;
     }
 
@@ -2893,14 +2926,97 @@ Public Class NativeProgram {
             String next = "";
             Int index = 0;
             For alias In This.AliasNames {
-                If (alias == current) { next = This.AliasTargets[index]; }
+                If (alias == current && index < This.AliasParameters.Count() && This.AliasParameters[index] == "") { next = This.AliasTargets[index]; }
                 index = index + 1;
             }
+            If (next == "") { next = This.ApplyAlias(current); }
             If (next == "" || next == current) { Return current; }
             current = next;
             guard = guard + 1;
         }
         Return current;
+    }
+
+    Private Function ApplyAlias(String name) -> String {
+        Int open = name.IndexOf("<");
+        If (open < 0 || !name.EndsWith(">")) { Return ""; }
+        String head = name.Substring(0, open);
+        String arguments = name.Substring(open + 1, name.Length() - open - 2);
+        Int index = 0;
+        For alias In This.AliasNames {
+            If (alias == head && index < This.AliasParameters.Count() && This.AliasParameters[index] != "") {
+                Return This.SubstituteAlias(This.AliasTargets[index], This.AliasParameters[index], arguments);
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function SubstituteAlias(String target, String parameters, String arguments) -> String {
+        Var names = List<String>();
+        Var values = List<String>();
+        This.SplitTypeList(parameters, names);
+        This.SplitTypeList(arguments, values);
+        String result = "";
+        String token = "";
+        Int index = 0;
+        While (index < target.Length()) {
+            Char character = target.GetChar(index);
+            Bool word = character == '_' || (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9');
+            If (word) {
+                token = token + target.Substring(index, 1);
+            } Else {
+                If (token != "") {
+                    result = result + This.ReplaceParameter(token, names, values);
+                    token = "";
+                }
+                result = result + target.Substring(index, 1);
+            }
+            index = index + 1;
+        }
+        If (token != "") { result = result + This.ReplaceParameter(token, names, values); }
+        Return result;
+    }
+
+    Private Function SplitTypeList(String text, List<String> parts) -> Void {
+        String current = "";
+        Int depth = 0;
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == "<") {
+                depth = depth + 1;
+                current = current + character;
+            } Else If (character == ">") {
+                If (depth > 0) { depth = depth - 1; }
+                current = current + character;
+            } Else If (character == "," && depth == 0) {
+                parts.Add(This.TrimType(current));
+                current = "";
+                If (index + 1 < text.Length() && text.Substring(index + 1, 1) == " ") { index = index + 1; }
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        If (current != "") { parts.Add(This.TrimType(current)); }
+    }
+
+    Private Function TrimType(String text) -> String {
+        Int start = 0;
+        Int end = text.Length();
+        While (start < end && text.Substring(start, 1) == " ") { start = start + 1; }
+        While (end > start && text.Substring(end - 1, 1) == " ") { end = end - 1; }
+        Return text.Substring(start, end - start);
+    }
+
+    Private Function ReplaceParameter(String token, List<String> names, List<String> values) -> String {
+        Int index = 0;
+        While (index < names.Count() && index < values.Count()) {
+            If (names[index] == token) { Return values[index]; }
+            index = index + 1;
+        }
+        Return token;
     }
 
     Private Function EmitObjectLiteral(AstNode node) -> IrValue {
@@ -2914,7 +3030,10 @@ Public Class NativeProgram {
             Int slot = This.FieldSlot(info, child.Name);
             If (slot >= 0 && child.Left != Null) {
                 IrValue field = This.EmitExpr(child.Left);
-                This.StoreObjectField(obj.Value, slot.ToString(), field.Value);
+                String fieldType = This.FieldType(info, child.Name);
+                String stored = field.Value;
+                If (This.IsWrappedInteger(fieldType)) { stored = This.WrapInteger(stored, fieldType); }
+                This.StoreObjectField(obj.Value, slot.ToString(), stored);
             }
         }
         String typeName = node.Name;
@@ -3828,6 +3947,35 @@ Public Class NativeProgram {
         String result = This.Fresh("v");
         This.Emit(result + " = phi i64 [ " + success.Value + ", %" + thenLabel + " ], [ " + failure.Value + ", %" + elseLabel + " ]");
         Return This.Pair(result, "Result<Int, ConversionError>");
+    }
+
+    Private Function EmitReference(AstNode node) -> IrValue {
+        String typeName = "Ref<Int>";
+        If (node.Parameters.Count() == 0 || node.Parameters[0].Left == Null) { Return This.Pair("0", typeName); }
+        AstNode argument = node.Parameters[0].Left;
+        Bool mutable = False;
+        If (argument.Kind == AstKind.Unary && argument.Operator == "Mut" && argument.Left != Null) {
+            mutable = True;
+            argument = argument.Left;
+        }
+        If (argument.Kind != AstKind.Name) { Return This.Pair("0", typeName); }
+        IrValue found = This.Lookup(argument.Name);
+        If (found.Value == "") { Return This.Pair("0", typeName); }
+        String inner = found.TypeName;
+        If (inner == "") { inner = "Int"; }
+        typeName = "Ref<" + inner + ">";
+        If (mutable) { typeName = "Ref<Mut " + inner + ">"; }
+        String packed = This.Fresh("v");
+        This.Emit(packed + " = ptrtoint ptr " + found.Value + " to i64");
+        Return This.Pair(packed, typeName);
+    }
+
+    Private Function RefPayload(String typeName) -> String {
+        If (!typeName.StartsWith("Ref<") || !typeName.EndsWith(">")) { Return "Int"; }
+        String inner = typeName.Substring(4, typeName.Length() - 5);
+        If (inner.StartsWith("Mut ")) { Return inner.Substring(4); }
+        If (inner.StartsWith("Const ")) { Return inner.Substring(6); }
+        Return inner;
     }
 
     Private Function ExitCodeValue(String name) -> Int {

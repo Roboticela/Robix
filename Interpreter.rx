@@ -946,6 +946,13 @@ Public Class Interpreter {
                 Return value;
             }
             Value value = This.Evaluate(node.Right);
+            If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "Value") {
+                Value target = This.Evaluate(node.Left.Left);
+                If (This.IsMutableReference(target.Text)) {
+                    This.Assign(This.ReferenceTarget(target.Text), value);
+                    Return value;
+                }
+            }
             If (node.Left != Null && node.Left.Kind == AstKind.Member) {
                 Value target = This.Evaluate(node.Left.Left);
                 Int index = This.FieldIndex(target, node.Left.Name);
@@ -1037,6 +1044,9 @@ Public Class Interpreter {
                 Int index = This.FieldIndex(target, node.Name);
                 If (index >= 0 && index < target.Elements.Count()) { Return target.Elements[index]; }
                 Return This.MakeInt(0);
+            }
+            If (node.Name == "Value" && (target.Text.StartsWith("Ref:") || target.Text.StartsWith("MutRef:"))) {
+                Return This.Lookup(This.ReferenceTarget(target.Text));
             }
             If (node.Name == "Length" || node.Name == "Count") {
                 If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.Length()); }
@@ -1156,6 +1166,9 @@ Public Class Interpreter {
     }
 
     Private Function EvaluateCall(AstNode node) -> Value {
+        If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
+            Return This.MakeReference(node);
+        }
         Var arguments = List<Value>();
         For argument In node.Parameters {
             If (argument.Left != Null) {
@@ -1981,6 +1994,29 @@ Public Class Interpreter {
             Return This.MakeInt(F64ToIntMode(bits, arguments[0].Integer));
         }
         Return This.MakeInt(FloatToInt(bits));
+    }
+
+    Private Function MakeReference(AstNode node) -> Value {
+        Value reference = This.MakeArray();
+        reference.Text = "Ref:";
+        If (node.Parameters.Count() == 0 || node.Parameters[0].Left == Null) { Return reference; }
+        AstNode argument = node.Parameters[0].Left;
+        If (argument.Kind == AstKind.Unary && argument.Operator == "Mut" && argument.Left != Null) {
+            argument = argument.Left;
+            reference.Text = "MutRef:";
+        }
+        If (argument.Kind == AstKind.Name) { reference.Text = reference.Text + argument.Name; }
+        Return reference;
+    }
+
+    Private Function IsMutableReference(String text) -> Bool {
+        Return text.StartsWith("MutRef:");
+    }
+
+    Private Function ReferenceTarget(String text) -> String {
+        If (text.StartsWith("MutRef:")) { Return text.Substring(7); }
+        If (text.StartsWith("Ref:")) { Return text.Substring(4); }
+        Return "";
     }
 
     Private Function EnumOrdinal(AstNode typeNode, String name) -> Int {
