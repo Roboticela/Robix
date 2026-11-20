@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install the C compiler
-        run: sudo apt-get update && sudo apt-get install -y clang lld zip unzip xz-utils curl
+        run: sudo apt-get update && sudo apt-get install -y clang llvm lld zip unzip xz-utils curl
 
       - name: Compile the toolchain zip
         run: bash .github/scripts/package-toolchain.sh

@@ -8,10 +8,23 @@ mkdir -p "$stage/Bin" "$stage/Packages/Builtin" "$stage/Packages/Installed" \
     "$stage/Library" "$stage/Runtime" "$stage/Shared/Tools" \
     "$stage/Shared/Syntax" "$stage/Shared/Runtime" "$stage/Shared/Build" "$stage/Shared/UI"
 
-if ! command -v llc >/dev/null 2>&1 || ! command -v clang++ >/dev/null 2>&1; then
-    echo "error: llc and clang++ are required on the build machine" >&2
-    exit 1
-fi
+shopt -s nullglob
+for tool in llc clang++ ld.lld; do
+    if command -v "$tool" >/dev/null 2>&1; then
+        continue
+    fi
+    for candidate in /usr/bin/"$tool"-* /usr/lib/llvm-*/bin/"$tool"; do
+        if [[ -x "$candidate" ]]; then
+            ln -sfn "$candidate" "/tmp/$tool"
+            export PATH="/tmp:$PATH"
+            break
+        fi
+    done
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "error: $tool was not found on the build machine" >&2
+        exit 1
+    fi
+done
 
 bash "$root/.github/scripts/bundle-llvm.sh" "$stage/Shared/Tools/Llvm" "$stage/Library/Link"
 install -m 755 "$root/.github/packaging/clang++" "$stage/Shared/Tools/clang++"
