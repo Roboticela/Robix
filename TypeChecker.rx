@@ -67,6 +67,19 @@ Public Class TypeChecker {
     Private List<String> memberNames;
     Private List<String> memberVisibility;
     Private List<String> memberKinds;
+    Private List<String> ownedNames;
+    Private List<String> ownedStates;
+    Private List<Int> ownedDepths;
+    Private List<Int> ownedLines;
+    Private List<Int> ownedColumns;
+    Private List<String> edgeFrom;
+    Private List<String> edgeTo;
+    Private List<AstNode> ownedDefers;
+    Private List<Int> ownedDeferDepths;
+    Private List<String> ownedReturns;
+    Private Int ownedDepth;
+    Private Int leakLoopDepth;
+    Private Int leakCount;
 
     Public Constructor(DiagnosticBag diagnostics) {
         This.diagnostics = diagnostics;
@@ -105,13 +118,16 @@ Public Class TypeChecker {
         This.memberNames = List<String>();
         This.memberVisibility = List<String>();
         This.memberKinds = List<String>();
+        This.ResetLeak();
+        This.ownedReturns = List<String>();
+        This.leakCount = 0;
     }
 
     Public Function Check(AstNode module) -> Void
     Explain {
         Description: "Apply Robix type rules to a parsed module.";
         Input: module = "Parsed module";
-        Processing: "Check declarations, assignments, calls, nullability, async use, returns, and matches. Checking is always strict.";
+        Processing: "Check declarations, assignments, calls, nullability, async use, returns, matches, and prove that every allocation is freed. Checking is always strict.";
         Output: "No return value. Diagnostics are stored in the bag.";
     } {
         This.currentPackage = "";
@@ -154,6 +170,7 @@ Public Class TypeChecker {
         If (entryPoints > 1) {
             This.diagnostics.TypeError("RX122", "A file can define only one Main.", entryLine, entryColumn, "one Main", entryPoints.ToString() + " entry points", "Keep either the function Main or the class Main.");
         }
+        This.CheckLeaks(module);
         This.PopScope();
     }
 
@@ -2296,5 +2313,679 @@ Public Class TypeChecker {
             }
         }
         Return False;
+    }
+
+    Private Function CheckLeaks(AstNode module) -> Int {
+        This.leakCount = 0;
+        This.ownedReturns = List<String>();
+        Int guard = 0;
+        Bool changed = True;
+        While (changed && guard < 64) {
+            guard = guard + 1;
+            changed = This.CollectOwnedReturns(module);
+        }
+        This.ResetLeak();
+        This.ScanLeaks(module);
+        Return This.leakCount;
+    }
+
+    Private Function CollectOwnedReturns(AstNode node) -> Bool {
+        Bool changed = False;
+        If (node.Kind == AstKind.Function || node.Kind == AstKind.Lambda) {
+            If (node.Name != "" && !This.ReturnIsOwned(node.Name) && This.ReturnsOwned(node)) {
+                This.ownedReturns.Add(node.Name + "");
+                changed = True;
+            }
+        }
+        For child In node.Children {
+            If (This.CollectOwnedReturns(child)) { changed = True; }
+        }
+        If (node.Body != Null) {
+            If (This.CollectOwnedReturns(node.Body)) { changed = True; }
+        }
+        Return changed;
+    }
+
+    Private Function ReturnIsOwned(String name) -> Bool {
+        For item In This.ownedReturns {
+            If (item == name) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function ReturnsOwned(AstNode function) -> Bool {
+        If (function.Left != Null && This.ExpressionOwns(function, function.Left)) { Return True; }
+        If (function.Body != Null && This.StatementOwns(function, function.Body)) { Return True; }
+        Return False;
+    }
+
+    Private Function StatementOwns(AstNode function, AstNode node) -> Bool {
+        If (node.Kind == AstKind.Function || node.Kind == AstKind.Lambda) { Return False; }
+        If (node.Kind == AstKind.Return && node.Left != Null && This.ExpressionOwns(function, node.Left)) { Return True; }
+        If (node.Body != Null && This.StatementOwns(function, node.Body)) { Return True; }
+        If (node.Otherwise != Null && This.StatementOwns(function, node.Otherwise)) { Return True; }
+        If (node.Left != Null && node.Kind == AstKind.Return && This.ExpressionOwns(function, node.Left)) { Return True; }
+        For child In node.Children {
+            If (This.StatementOwns(function, child)) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function ExpressionOwns(AstNode function, AstNode node) -> Bool {
+        If (node.Kind == AstKind.Argument && node.Left != Null) { Return This.ExpressionOwns(function, node.Left); }
+        String role = This.CallRole(node);
+        If (role == "allocate") { Return True; }
+        If (node.Kind == AstKind.Call && node.Left != Null && node.Left.Kind == AstKind.Name && This.ReturnIsOwned(node.Left.Name)) { Return True; }
+        If (node.Kind == AstKind.Name && This.NameOwns(function, function.Body, node.Name)) { Return True; }
+        Return False;
+    }
+
+    Private Function NameOwns(AstNode function, AstNode? node, String name) -> Bool {
+        If (node == Null) { Return False; }
+        If (node.Kind == AstKind.Function || node.Kind == AstKind.Lambda) { Return False; }
+        If (node.Kind == AstKind.Variable && node.Name == name && node.Initializer != Null && This.ExpressionOwns(function, node.Initializer)) { Return True; }
+        If (node.Kind == AstKind.Assignment && node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == name && node.Right != Null && This.ExpressionOwns(function, node.Right)) { Return True; }
+        If (node.Body != Null && This.NameOwns(function, node.Body, name)) { Return True; }
+        If (node.Initializer != Null && This.NameOwns(function, node.Initializer, name)) { Return True; }
+        If (node.Right != Null && This.NameOwns(function, node.Right, name)) { Return True; }
+        For child In node.Children {
+            If (This.NameOwns(function, child, name)) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function ResetLeak() -> Void {
+        This.ownedNames = List<String>();
+        This.ownedStates = List<String>();
+        This.ownedDepths = List<Int>();
+        This.ownedLines = List<Int>();
+        This.ownedColumns = List<Int>();
+        This.edgeFrom = List<String>();
+        This.edgeTo = List<String>();
+        This.ownedDefers = List<AstNode>();
+        This.ownedDeferDepths = List<Int>();
+        This.ownedDepth = 0;
+        This.leakLoopDepth = -1;
+    }
+
+    Private Function ScanLeaks(AstNode node) -> Bool {
+        If (node.Kind == AstKind.Function || node.Kind == AstKind.Lambda || node.Kind == AstKind.Destructor) {
+            Var savedNames = This.CopyNames();
+            Var savedStates = This.CopyStates();
+            Var savedDepths = This.CopyDepths();
+            Var savedLines = This.CopyLines();
+            Var savedColumns = This.CopyColumns();
+            Var savedFrom = This.CopyEdges(This.edgeFrom);
+            Var savedTo = This.CopyEdges(This.edgeTo);
+            Int savedDepth = This.ownedDepth;
+            Int savedLoop = This.leakLoopDepth;
+            String savedReturn = This.currentReturn + "";
+            This.ResetLeak();
+            This.currentReturn = This.TypeText(node.Type) + "";
+            Bool falls = True;
+            If (node.Body != Null) { falls = This.ScanLeaks(node.Body); }
+            If (node.Left != Null) {
+                String kind = This.AllocationKind(node.Left);
+                If (kind == "allocate" && !This.currentReturn.StartsWith("Pointer")) {
+                    This.ReportLeak(node.Left, "This allocation is discarded.", "freed", "discarded");
+                }
+            }
+            If (falls) { This.RunDefers(0); This.DropOwned(0); }
+            This.ownedNames = savedNames;
+            This.ownedStates = savedStates;
+            This.ownedDepths = savedDepths;
+            This.ownedLines = savedLines;
+            This.ownedColumns = savedColumns;
+            This.edgeFrom = savedFrom;
+            This.edgeTo = savedTo;
+            This.ownedDepth = savedDepth;
+            This.leakLoopDepth = savedLoop;
+            This.currentReturn = savedReturn;
+            Return True;
+        }
+        If (node.Kind == AstKind.Class) {
+            This.ResetLeak();
+            For child In node.Children {
+                If (child.Kind == AstKind.Field && child.Initializer != Null) {
+                    This.NotePointer(child.Name, child.Initializer, child.Line, child.Column);
+                }
+            }
+            AstNode? destructor = Null;
+            For child In node.Children {
+                If (child.Kind == AstKind.Destructor) { destructor = child; }
+            }
+            Bool fieldLive = This.HasLive();
+            If (fieldLive && destructor == Null) {
+                This.DropOwned(0);
+            } Else If (destructor != Null && destructor.Body != Null) {
+                Bool falls = This.ScanLeaks(destructor.Body);
+                If (falls) { This.RunDefers(0); This.DropOwned(0); }
+            }
+            For child In node.Children {
+                If (child.Kind == AstKind.Function || child.Kind == AstKind.Lambda) { This.ScanLeaks(child); }
+            }
+            Return True;
+        }
+        If (node.Kind == AstKind.Defer) {
+            If (node.Body != Null) {
+                This.ownedDefers.Add(node.Body);
+                This.ownedDeferDepths.Add(This.ownedDepth);
+            }
+            Return True;
+        }
+        If (node.Kind == AstKind.Block || node.Kind == AstKind.Unsafe || node.Kind == AstKind.Lock || node.Kind == AstKind.Using || node.Kind == AstKind.Package || node.Kind == AstKind.Module) {
+            This.ownedDepth = This.ownedDepth + 1;
+            Int deferMark = This.ownedDefers.Count();
+            Bool falls = True;
+            For child In node.Children {
+                If (!This.ScanLeaks(child)) {
+                    falls = False;
+                    Break;
+                }
+            }
+            If (falls) {
+                This.RunDefers(This.ownedDepth);
+                This.DropOwned(This.ownedDepth);
+            }
+            This.TrimDefers(deferMark);
+            This.ownedDepth = This.ownedDepth - 1;
+            Return falls;
+        }
+        If (node.Kind == AstKind.Variable) {
+            If (node.Name != "" && node.Initializer != Null) {
+                This.NotePointer(node.Name, node.Initializer, node.Line, node.Column);
+            }
+            For child In node.Children { This.ScanLeaks(child); }
+            Return True;
+        }
+        If (node.Kind == AstKind.Assignment) {
+            If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Right != Null) {
+                This.NotePointer(node.Left.Name, node.Right, node.Line, node.Column);
+                Return True;
+            }
+            String owner = "";
+            If (node.Left != Null) { owner = This.DirectName(node.Left.Left); }
+            String value = "";
+            If (node.Right != Null) { value = This.DirectName(node.Right); }
+            If (owner != "" && value != "") { This.NoteEdge(node, owner, value); }
+            If (node.Right != Null) {
+                String kind = This.AllocationKind(node.Right);
+                If (kind == "allocate" || kind == "move") {
+                    This.ReportLeak(node, "Moving an allocation into a field or element cannot be proved freed.", "a pointer variable freed by Memory.Free", "stored in a field");
+                    If (kind == "move") { This.ReleaseOwned(value, node, True); }
+                }
+            }
+            Return True;
+        }
+        If (node.Kind == AstKind.Return) {
+            If (node.Left != Null) {
+                String kind = This.AllocationKind(node.Left);
+                String returned = This.DirectName(node.Left);
+                If (kind == "move" && This.currentReturn.StartsWith("Pointer")) {
+                    This.ReleaseOwned(returned, node, True);
+                } Else If (kind == "allocate" && This.currentReturn.StartsWith("Pointer")) {
+                    Return False;
+                } Else If (kind == "allocate" || kind == "move") {
+                    This.ReportLeak(node, "Returning this allocation drops the last proof that it is freed.", "Memory.Free or a Pointer return", "a lost owner");
+                    If (kind == "move") { This.ReleaseOwned(returned, node, True); }
+                }
+            }
+            This.RunDefers(0);
+            This.DropOwned(0);
+            Return False;
+        }
+        If (node.Kind == AstKind.Break || node.Kind == AstKind.Continue) {
+            Int limit = This.leakLoopDepth;
+            If (limit < 0) { limit = 0; }
+            This.RunDefers(limit);
+            This.DropOwned(limit);
+            Return False;
+        }
+        If (node.Kind == AstKind.If) {
+            Return This.ScanBranches(node.Body, node.Otherwise, node);
+        }
+        If (node.Kind == AstKind.Loop && (node.Body == Null || !This.ContainsBreak(node.Body))) {
+            Var savedLoopStates = This.CopyStates();
+            Int savedLoopCount = This.ownedNames.Count();
+            If (node.Body != Null) { This.ScanLeaks(node.Body); }
+            This.TrimOwned(savedLoopCount);
+            This.ApplyStates(savedLoopStates);
+            Return False;
+        }
+        If (node.Kind == AstKind.While || node.Kind == AstKind.DoWhile || node.Kind == AstKind.For || node.Kind == AstKind.Repeat) {
+            Var saved = This.CopyStates();
+            Int savedCount = This.ownedNames.Count();
+            Int savedLoop = This.leakLoopDepth;
+            This.leakLoopDepth = This.ownedDepth + 1;
+            This.ownedDepth = This.ownedDepth + 1;
+            If (node.Body != Null) { This.ScanLeaks(node.Body); }
+            Int index = 0;
+            While (index < savedCount && index < This.ownedStates.Count()) {
+                If (This.ownedStates[index] != saved[index]) {
+                    This.ReportLeak(node, "A loop may free only an allocation created inside that loop.", "the same owner after the loop", This.ownedNames[index]);
+                    This.ownedStates[index] = saved[index] + "";
+                }
+                index = index + 1;
+            }
+            This.DropOwned(This.ownedDepth);
+            This.TrimOwned(savedCount);
+            This.ownedDepth = This.ownedDepth - 1;
+            This.leakLoopDepth = savedLoop;
+            Return True;
+        }
+        If (node.Kind == AstKind.Match) {
+            Var saved = This.CopyStates();
+            Int savedCount = This.ownedNames.Count();
+            Bool anyFall = False;
+            Bool haveState = False;
+            Var joined = List<String>();
+            For arm In node.Children {
+                This.ApplyStates(saved);
+                This.TrimOwned(savedCount);
+                This.ownedDepth = This.ownedDepth + 1;
+                Bool falls = True;
+                If (arm.Right != Null) { falls = This.ScanLeaks(arm.Right); }
+                This.DropOwned(This.ownedDepth);
+                This.ownedDepth = This.ownedDepth - 1;
+                Var armStates = This.CopyStates();
+                If (falls) {
+                    If (!haveState) {
+                        joined = armStates;
+                        haveState = True;
+                        anyFall = True;
+                    } Else {
+                        This.CompareStates(joined, armStates, savedCount, arm);
+                        joined = This.CopyStates();
+                    }
+                }
+            }
+            This.TrimOwned(savedCount);
+            If (!anyFall) {
+                This.ApplyStates(saved);
+                Return False;
+            }
+            This.ApplyStates(joined);
+            Return True;
+        }
+        If (node.Kind == AstKind.Try) {
+            Var trySaved = This.CopyStates();
+            Int tryCount = This.ownedNames.Count();
+            If (node.Extra != Null) {
+                This.ownedDefers.Add(node.Extra);
+                This.ownedDeferDepths.Add(This.ownedDepth);
+            }
+            Bool tryFalls = True;
+            If (node.Body != Null) { tryFalls = This.ScanLeaks(node.Body); }
+            This.TrimOwned(tryCount);
+            For caught In node.Children {
+                This.ApplyStates(trySaved);
+                This.TrimOwned(tryCount);
+                If (caught.Body != Null) { This.ScanLeaks(caught.Body); }
+                This.TrimOwned(tryCount);
+            }
+            This.ApplyStates(trySaved);
+            Return tryFalls;
+        }
+        If (node.Kind == AstKind.ExpressionStatement) {
+            If (node.Left != Null) { This.ScanLeaks(node.Left); }
+            Return True;
+        }
+        If (node.Kind == AstKind.Call) {
+            String role = This.CallRole(node);
+            If (role == "free") {
+                AstNode? argument = This.ArgumentExpression(node, 0);
+                If (argument != Null && This.AllocationKind(argument) == "allocate") { Return True; }
+                String name = "";
+                If (argument != Null) { name = This.DirectName(argument); }
+                If (name == "") {
+                    This.ReportLeak(node, "Memory.Free must name the pointer that owns the allocation.", "the owning pointer", "an unknown address");
+                } Else {
+                    This.ReleaseOwned(name, node, False);
+                }
+                Return True;
+            }
+            If (role == "contain") {
+                String owner = "";
+                If (node.Left != Null) { owner = This.DirectName(node.Left.Left); }
+                AstNode? argument = This.ArgumentExpression(node, 0);
+                String value = "";
+                If (argument != Null) { value = This.DirectName(argument); }
+                If (owner != "" && value != "") { This.NoteEdge(node, owner, value); }
+                If (argument != Null && (This.AllocationKind(argument) == "allocate" || This.AllocationKind(argument) == "move")) {
+                    This.ReportLeak(node, "Storing an allocation in a collection cannot be proved freed.", "Memory.Free on the owning pointer", "stored value");
+                    If (value != "") { This.ReleaseOwned(value, node, True); }
+                }
+            }
+            If (role == "allocate") {
+                This.ReportLeak(node, "This allocation is discarded.", "a pointer variable", "no owner");
+            }
+            For argument In node.Parameters {
+                If (argument.Left != Null && role != "free" && role != "contain" && role != "allocate") { This.ScanLeaks(argument.Left); }
+            }
+            Return True;
+        }
+        If (node.Kind == AstKind.Explain || node.Kind == AstKind.ExplainEntry || node.Kind == AstKind.Import || node.Kind == AstKind.Type || node.Kind == AstKind.TypeAlias) { Return True; }
+        If (node.Body != Null) { This.ScanLeaks(node.Body); }
+        If (node.Left != Null && node.Kind != AstKind.Member && node.Kind != AstKind.Name) { This.ScanLeaks(node.Left); }
+        If (node.Right != Null) { This.ScanLeaks(node.Right); }
+        If (node.Otherwise != Null) { This.ScanLeaks(node.Otherwise); }
+        For child In node.Children { This.ScanLeaks(child); }
+        Return True;
+    }
+
+    Private Function ScanBranches(AstNode? first, AstNode? second, AstNode node) -> Bool {
+        Var saved = This.CopyStates();
+        Int savedCount = This.ownedNames.Count();
+        Int savedDefers = This.ownedDefers.Count();
+        This.ownedDepth = This.ownedDepth + 1;
+        Bool firstFalls = True;
+        If (first != Null) { firstFalls = This.ScanLeaks(first); }
+        This.DropOwned(This.ownedDepth);
+        This.ownedDepth = This.ownedDepth - 1;
+        Var firstStates = This.CopyStates();
+        This.TrimOwned(savedCount);
+        This.TrimDefers(savedDefers);
+        This.ApplyStates(saved);
+        This.ownedDepth = This.ownedDepth + 1;
+        Bool secondFalls = True;
+        If (second != Null) { secondFalls = This.ScanLeaks(second); }
+        If (second == Null) { secondFalls = True; }
+        This.DropOwned(This.ownedDepth);
+        This.ownedDepth = This.ownedDepth - 1;
+        Var secondStates = This.CopyStates();
+        This.TrimOwned(savedCount);
+        This.TrimDefers(savedDefers);
+        If (firstFalls && secondFalls) {
+            This.CompareStates(firstStates, secondStates, savedCount, node);
+            Return True;
+        }
+        If (firstFalls) { This.ApplyStates(firstStates); Return True; }
+        If (secondFalls) { This.ApplyStates(secondStates); Return True; }
+        This.ApplyStates(saved);
+        Return False;
+    }
+
+    Private Function NotePointer(String name, AstNode source, Int line, Int column) -> Void {
+        If (name == "") { Return; }
+        Int index = This.OwnedIndex(name);
+        If (index < 0) {
+            This.ownedNames.Add(name + "");
+            This.ownedStates.Add("none");
+            This.ownedDepths.Add(This.ownedDepth);
+            This.ownedLines.Add(line);
+            This.ownedColumns.Add(column);
+            index = This.ownedNames.Count() - 1;
+        }
+        String kind = This.AllocationKind(source);
+        If (kind == "allocate" || kind == "move") {
+            If (This.ownedStates[index] == "live") {
+                This.ReportLeak(source, "Assigning this pointer leaks the allocation it already owns.", "Memory.Free before the assignment", name);
+            }
+            If (kind == "move") {
+                String sourceName = This.DirectName(source);
+                Int sourceIndex = This.OwnedIndex(sourceName);
+                If (sourceIndex >= 0 && This.ownedStates[sourceIndex] == "live") {
+                    This.ownedStates[sourceIndex] = "freed";
+                } Else {
+                    kind = "none";
+                }
+            }
+            If (kind == "allocate" || kind == "move") {
+                This.ownedStates[index] = "live";
+                This.ownedLines[index] = line;
+                This.ownedColumns[index] = column;
+                Return;
+            }
+        }
+        If (This.ownedStates[index] == "live") {
+            This.ReportLeak(source, "Assigning this pointer leaks the allocation it already owns.", "Memory.Free before the assignment", name);
+        }
+        This.ownedStates[index] = "none";
+    }
+
+    Private Function ReleaseOwned(String name, AstNode node, Bool transfer) -> Void {
+        Int index = This.OwnedIndex(name);
+        If (index < 0 || This.ownedStates[index] != "live") {
+            If (!transfer) {
+                This.ReportLeak(node, "Memory.Free does not free a live allocation.", "a live owning pointer", name);
+            }
+            Return;
+        }
+        This.ownedStates[index] = "freed";
+    }
+
+    Private Function DropOwned(Int depth) -> Void {
+        Int index = 0;
+        While (index < This.ownedNames.Count()) {
+            If (This.ownedStates[index] == "live" && This.ownedDepths[index] >= depth) {
+                This.ReportLeakAt(This.ownedLines[index], This.ownedColumns[index], "Owned memory is not freed on this path.", "Memory.Free on every path", This.ownedNames[index]);
+                This.ownedStates[index] = "freed";
+            }
+            index = index + 1;
+        }
+    }
+
+    Private Function ContainsBreak(AstNode node) -> Bool {
+        If (node.Kind == AstKind.Break) { Return True; }
+        If (node.Kind == AstKind.Function || node.Kind == AstKind.Lambda || node.Kind == AstKind.Loop) { Return False; }
+        If (node.Body != Null && This.ContainsBreak(node.Body)) { Return True; }
+        If (node.Otherwise != Null && This.ContainsBreak(node.Otherwise)) { Return True; }
+        For child In node.Children {
+            If (This.ContainsBreak(child)) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function HasLive() -> Bool {
+        For state In This.ownedStates {
+            If (state == "live") { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function AllocationKind(AstNode? node) -> String {
+        If (node == Null) { Return "none"; }
+        If (node.Kind == AstKind.Argument) { Return This.AllocationKind(node.Left); }
+        If (This.CallRole(node) == "allocate") { Return "allocate"; }
+        If (node.Kind == AstKind.Call && node.Left != Null && node.Left.Kind == AstKind.Name && This.ReturnIsOwned(node.Left.Name)) { Return "allocate"; }
+        If (node.Kind == AstKind.Name) {
+            Int index = This.OwnedIndex(node.Name);
+            If (index >= 0 && This.ownedStates[index] == "live") { Return "move"; }
+        }
+        If (node.Kind == AstKind.Binary && node.Operator == "+" && node.Left != Null) {
+            String left = This.DirectName(node.Left);
+            If (left != "" && This.OwnedIndex(left) >= 0) { Return "borrow"; }
+        }
+        Return "none";
+    }
+
+    Private Function CallRole(AstNode node) -> String {
+        If (node.Kind != AstKind.Call || node.Left == Null || node.Left.Kind != AstKind.Member) { Return ""; }
+        String owner = "";
+        If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) { owner = node.Left.Left.Name; }
+        String method = node.Left.Name;
+        If (owner == "Memory" && (method == "Allocate" || method == "AllocateAligned" || method == "AllocateZeroed")) { Return "allocate"; }
+        If (owner == "Memory" && method == "Free") { Return "free"; }
+        If (owner == "Pointer" && method == "Of") { Return "borrow"; }
+        If (method == "Add" || method == "Put" || method == "Insert" || method == "Push" || method == "Enqueue") { Return "contain"; }
+        Return "";
+    }
+
+    Private Function ArgumentExpression(AstNode node, Int position) -> AstNode? {
+        If (position < 0 || position >= node.Parameters.Count()) { Return Null; }
+        AstNode argument = node.Parameters[position];
+        If (argument.Kind == AstKind.Argument) { Return argument.Left; }
+        Return argument;
+    }
+
+    Private Function DirectName(AstNode? node) -> String {
+        If (node == Null) { Return ""; }
+        If (node.Kind == AstKind.Argument) { Return This.DirectName(node.Left); }
+        If (node.Kind == AstKind.Name) { Return node.Name + ""; }
+        If (node.Kind == AstKind.Member && node.Left != Null) { Return This.DirectName(node.Left); }
+        Return "";
+    }
+
+    Private Function NoteEdge(AstNode node, String owner, String value) -> Void {
+        If (owner == value || This.LeakReaches(value, owner)) {
+            This.ReportLeak(node, "This store cycles ownership, so reference counts never reach zero.", "an acyclic store", owner);
+            Return;
+        }
+        This.edgeFrom.Add(owner + "");
+        This.edgeTo.Add(value + "");
+    }
+
+    Private Function LeakReaches(String start, String goal) -> Bool {
+        If (start == "" || goal == "") { Return False; }
+        If (start == goal) { Return True; }
+        Var seen = List<String>();
+        Var queue = List<String>();
+        queue.Add(start + "");
+        While (queue.Count() > 0) {
+            String current = queue[0] + "";
+            Var rest = List<String>();
+            Int skip = 0;
+            For item In queue {
+                If (skip > 0) { rest.Add(item + ""); }
+                skip = skip + 1;
+            }
+            queue = rest;
+            Bool known = False;
+            For item In seen {
+                If (item == current) { known = True; }
+            }
+            If (!known) {
+                seen.Add(current + "");
+                Int index = 0;
+                While (index < This.edgeFrom.Count() && index < This.edgeTo.Count()) {
+                    If (This.edgeFrom[index] == current) {
+                        If (This.edgeTo[index] == goal) { Return True; }
+                        queue.Add(This.edgeTo[index] + "");
+                    }
+                    index = index + 1;
+                }
+            }
+        }
+        Return False;
+    }
+
+    Private Function OwnedIndex(String name) -> Int {
+        Int index = 0;
+        While (index < This.ownedNames.Count()) {
+            If (This.ownedNames[index] == name) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function ReportLeak(AstNode node, String message, String expected, String actual) -> Void {
+        This.ReportLeakAt(node.Line, node.Column, message, expected, actual);
+    }
+
+    Private Function ReportLeakAt(Int line, Int column, String message, String expected, String actual) -> Void {
+        This.leakCount = This.leakCount + 1;
+        This.diagnostics.TypeError("RX141", message, line, column, expected, actual, "Free the allocation on every path, or break the ownership cycle.");
+    }
+
+    Private Function CopyStates() -> List<String> {
+        Var copy = List<String>();
+        For state In This.ownedStates { copy.Add(state + ""); }
+        Return copy;
+    }
+
+    Private Function CopyNames() -> List<String> {
+        Var copy = List<String>();
+        For name In This.ownedNames { copy.Add(name + ""); }
+        Return copy;
+    }
+
+    Private Function CopyDepths() -> List<Int> {
+        Var copy = List<Int>();
+        For depth In This.ownedDepths { copy.Add(depth); }
+        Return copy;
+    }
+
+    Private Function CopyLines() -> List<Int> {
+        Var copy = List<Int>();
+        For line In This.ownedLines { copy.Add(line); }
+        Return copy;
+    }
+
+    Private Function CopyColumns() -> List<Int> {
+        Var copy = List<Int>();
+        For column In This.ownedColumns { copy.Add(column); }
+        Return copy;
+    }
+
+    Private Function CopyEdges(List<String> edges) -> List<String> {
+        Var copy = List<String>();
+        For edge In edges { copy.Add(edge + ""); }
+        Return copy;
+    }
+
+    Private Function ApplyStates(List<String> states) -> Void {
+        Int index = 0;
+        While (index < states.Count() && index < This.ownedStates.Count()) {
+            This.ownedStates[index] = states[index] + "";
+            index = index + 1;
+        }
+    }
+
+    Private Function CompareStates(List<String> left, List<String> right, Int count, AstNode node) -> Void {
+        Int index = 0;
+        While (index < count && index < left.Count() && index < right.Count() && index < This.ownedStates.Count()) {
+            If (left[index] != right[index]) {
+                This.ReportLeak(node, "This allocation is not freed on every path.", "freed on every path", This.ownedNames[index]);
+                This.ownedStates[index] = "freed";
+            } Else {
+                This.ownedStates[index] = left[index] + "";
+            }
+            index = index + 1;
+        }
+    }
+
+    Private Function TrimOwned(Int count) -> Void {
+        Var names = List<String>();
+        Var states = List<String>();
+        Var depths = List<Int>();
+        Var lines = List<Int>();
+        Var columns = List<Int>();
+        Int index = 0;
+        While (index < count && index < This.ownedNames.Count()) {
+            names.Add(This.ownedNames[index] + "");
+            states.Add(This.ownedStates[index] + "");
+            depths.Add(This.ownedDepths[index]);
+            lines.Add(This.ownedLines[index]);
+            columns.Add(This.ownedColumns[index]);
+            index = index + 1;
+        }
+        This.ownedNames = names;
+        This.ownedStates = states;
+        This.ownedDepths = depths;
+        This.ownedLines = lines;
+        This.ownedColumns = columns;
+    }
+
+    Private Function TrimDefers(Int count) -> Void {
+        Var nodes = List<AstNode>();
+        Var depths = List<Int>();
+        Int index = 0;
+        While (index < count && index < This.ownedDefers.Count()) {
+            nodes.Add(This.ownedDefers[index]);
+            depths.Add(This.ownedDeferDepths[index]);
+            index = index + 1;
+        }
+        This.ownedDefers = nodes;
+        This.ownedDeferDepths = depths;
+    }
+
+    Private Function RunDefers(Int depth) -> Void {
+        Int index = This.ownedDefers.Count() - 1;
+        While (index >= 0) {
+            If (index < This.ownedDeferDepths.Count() && This.ownedDeferDepths[index] >= depth) {
+                This.ScanLeaks(This.ownedDefers[index]);
+            }
+            index = index - 1;
+        }
     }
 }

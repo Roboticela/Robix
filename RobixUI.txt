@@ -1,0 +1,807 @@
+# Robix UI (RXU) — Master Implementation Plan & Verification Checklist
+
+**Status:** Not started · **Scope:** RXU language, Robix.UI framework, Linux GTK4 integration, universal desktop architecture, future Windows/macOS parity.  
+**Source:** `Plan.md` (3,794 lines; all major sections consolidated, including later amendments).  
+**Purpose:** Execute in dependency order, check each deliverable only after verification, and prevent features from being lost between releases.
+
+> This document is an implementation plan, **not a claim that any feature already exists**. Every box begins unchecked. RXU grammar/API examples in the source are proposed until formalized in P00.
+
+## How to operate this plan
+- [ ] Each task must have a tracked issue/PR linked to its ID (for example `P06.04`) and a test or other reproducible evidence.
+- [ ] Check `[x]` only when code, automated tests, documentation, and integration are merged; use the progress register for status such as blocked/in review (do not mark partially complete as checked).
+- [ ] For each phase, run its exit gate, record test commands and results, obtain sign-off, then advance to the next phase; parallel work is acceptable only when dependencies are satisfied.
+- [ ] Whenever behavior changes, update the specification, test suite, example application, and the source-to-task coverage table together.
+- [ ] The source is aspirational: tests and design reviews confirm implementation. A checked planning item alone is not proof of a working feature.
+
+### Completion evidence template (copy per checkpoint)
+```text
+Checkpoint ID: Pxx.yy / Gxx
+Status: Not started | In progress | Blocked | In review | Verified
+Owner: 
+Issue/PR/commit: 
+Acceptance test(s) + command: 
+Observed output / CI link: 
+Docs / example updated: 
+Linux result: 
+Windows result (when supported): 
+macOS result (when supported): 
+Known limitations / follow-up ID: 
+Reviewer / date: 
+```
+
+## Release milestones
+- [ ] **M0 — Spec frozen:** P00–P02 signed off.
+- [ ] **M1 — Headless runtime:** P03–P07 signed off.
+- [ ] **M2 — Linux MVP:** P08–P13 and the MVP checks signed off.
+- [ ] **M3 — Full RXU framework:** P14–P21 signed off.
+- [ ] **M4 — Cross-platform parity:** P22–P24 signed off.
+- [ ] **M5 — Final completeness audit:** P25 signed off, no open blocking coverage gaps.
+
+## P00 — Specification reconciliation and non-negotiable decisions
+**Objective:** Freeze one coherent contract before implementation.  
+**Dependencies:** None  
+**Source coverage:** Original §§1–25; amendments on document loading, strict validation and universal cross-platform behavior (source lines 2100–3794)
+
+- [ ] **P00.01** Adopt **RX = logic/behavior**; **RXU = UI structure**; `.rxp` = common project config; Robix internals hide OS differences.
+- [ ] **P00.02** Choose canonical document loading `UI.Load(path)` / `UI.LoadMany(paths)`; explicitly decide whether `Import UI "..."` is deprecated, optional compile-time alias, or supported alongside path loading.
+- [ ] **P00.03** Distinguish `UI.Load(path)` (live independent document), `<Import Source>` (component definitions), and `<Include Source>` (embedded markup); define whether all three exist and exactly how they differ.
+- [ ] **P00.04** Freeze markup grammar: XML-inspired tags, quoting/escaping, self-closing tags, no required XML declaration/version/ordinary namespaces, structural nesting, whitespace and comments.
+- [ ] **P00.05** Freeze expression grammar for `{...}` versus `{Binding ...}`, `{Resource ...}`, `{Localization ...}`; resolve literal interpolation, names, safe calls and ambiguity.
+- [ ] **P00.06** Freeze control-flow syntax (`If/Else/ElseIf`, `Each/For/ForEach`, `Switch/Choose/When/Default/Otherwise`, `Include/Import`, `Let/Set/Bind`); decide whether bounded `While` is allowed.
+- [ ] **P00.07** Freeze component, property, event, resource, rendering and backend contracts with versioning and compatibility policy.
+- [ ] **P00.08** Choose strict universal shared renderer/behavior with minimal adapters; document how the earlier hybrid native/custom proposal is constrained by the later **one universal implementation** requirement.
+- [ ] **P00.09** Define cross-platform promise precisely: same source and project, automatically selected adapter, separately built native target binaries as necessary; specify fallback/error behavior.
+- [ ] **P00.10** Specify canonical spellings and aliases (`Color`/`Foreground`, `IsActive`/`Visible`, `UI.Load`/`UIApplication`, `OnLoad`/`OnLoaded`, duplicate `Canvas` roles).
+- [ ] **P00.11** Write architecture decision records (ADRs), executable examples, negative examples, and a versioned acceptance matrix.
+- [ ] **G00 — PHASE SIGN-OFF:** ADRs approved; no contradictory public syntax/API examples remain; design/spec tests created.; attach evidence and reviewer approval in the checkpoint register.
+
+## P01 — Repo, packages, toolchain and quality baseline
+**Objective:** Create a reproducible multi-package workspace.  
+**Dependencies:** P00  
+**Source coverage:** Original §§1, 13, 22–23
+
+- [ ] **P01.01** Create packages `Robix.UI`, `Robix.UI.Controls`, `Robix.UI.Linux`, future `Robix.UI.Windows` and `Robix.UI.MacOS` stubs.
+- [ ] **P01.02** Create universal modules: Core, RXU, Components, Properties, Resources, Binding, Events, Input, Layout, Styles, Animation, Rendering, Drawing, Navigation, Dialogs, Accessibility, Localization, Platform, Diagnostics, Testing.
+- [ ] **P01.03** Create backend directories for GTK/native interop, windowing, input and rendering while forbidding GTK imports in universal modules.
+- [ ] **P01.04** Wire `.rx`, `.rxu`, `.rxp` project layouts and asset paths for icons/images/fonts.
+- [ ] **P01.05** Configure formatter, static checks, unit/integration tests, CI matrix, crash reporting, fixtures and test artifact retention.
+- [ ] **P01.06** Create example applications, test fixture naming and golden UI screenshot comparison harness.
+- [ ] **P01.07** Define package manifests, optional modules (`Charts`, `Media`, `Data`, `Advanced`, `Designer`) and release version strategy.
+- [ ] **G01 — PHASE SIGN-OFF:** Clean checkout builds and tests from one command on Linux; dependency boundary test blocks platform leakage.; attach evidence and reviewer approval in the checkpoint register.
+
+## P02 — RXU parser, grammar and diagnostics
+**Objective:** Parse all legal RXU into a lossless, position-aware syntax tree.  
+**Dependencies:** P00–P01  
+**Source coverage:** Original §§2, 4, 20; strict syntax amendments
+
+- [ ] **P02.01** Implement lexer/tokenizer for elements, attributes, strings, escaping, comments, whitespace and self-closing tags.
+- [ ] **P02.02** Implement strict parser with source spans and explicit errors for mismatched, missing and malformed tags.
+- [ ] **P02.03** Parse numeric, Boolean, floating-point, string and typed expression values.
+- [ ] **P02.04** Parse embedded expression/binding/resource/localization syntax without interpreting strings as arbitrary code.
+- [ ] **P02.05** Parse `Resources`, component definitions, imports/includes, templates and declarative control structures.
+- [ ] **P02.06** Define deterministic grammar rules for `Else` association and `Choose`/`When`/`Default` structures.
+- [ ] **P02.07** Implement parser fuzz, malformed-input, UTF-8/Unicode, escape and nesting tests.
+- [ ] **P02.08** Emit stable diagnostic codes with filename, line, column, range, expected/received, and actionable message.
+- [ ] **P02.09** Ensure no silently accepted invalid syntax during successful builds.
+- [ ] **G02 — PHASE SIGN-OFF:** All valid fixtures parse identically; negative fixtures fail with precise source locations.; attach evidence and reviewer approval in the checkpoint register.
+
+## P03 — Document manager and live component tree
+**Objective:** Separate immutable definitions from independent live UI instances.  
+**Dependencies:** P02  
+**Source coverage:** Original §§1, 7, 10, 18, 21; amended document loading and manager
+
+- [ ] **P03.01** Define syntax tree, validated document definition, instantiated `UIDocument`, and component instance as separate types.
+- [ ] **P03.02** Implement `DocumentManager`, component registry, names/IDs, parent/children relationships, ownership and lifecycle.
+- [ ] **P03.03** Implement `UI.Load(path)`, `LoadAsync`, `LoadMany`, `Reload`, `ReloadAsync`, `Unload`, `CreateDocument`, `GetDocuments`, `GetDocument`, `GetRoot`.
+- [ ] **P03.04** Make loading independent of showing; implement document-level Show/Hide/Close semantics as specified.
+- [ ] **P03.05** Ensure loaded documents have isolated identities, state, component trees and document resources unless sharing is explicit.
+- [ ] **P03.06** Implement component queries by name, ID, type and hierarchical path; define missing lookup as `Option<T>` or equivalent.
+- [ ] **P03.07** Implement stable identity and duplicate-ID handling, attachment/detachment, disposal and dangling-reference safeguards.
+- [ ] **P03.08** Test concurrent documents, load/unload cycles, failed loads and deterministic cleanup.
+- [ ] **G03 — PHASE SIGN-OFF:** Two documents with same component names coexist; after unloading, no live handles/resources leak.; attach evidence and reviewer approval in the checkpoint register.
+
+## P04 — Typed dependency property system
+**Objective:** Provide a single typed property system for every control.  
+**Dependencies:** P03  
+**Source coverage:** Original §§2, 6–7, 16
+
+- [ ] **P04.01** Define `UIElement`/`FrameworkElement`/`Control`/`Panel` hierarchy or composition and typed property metadata.
+- [ ] **P04.02** Implement all common properties and validation: Name, Id, Width, Height, Min/MaxWidth/Height, Visible, Enabled, Opacity, Margin, Padding, Background, Color/Foreground, fonts, alignments, Cursor, ToolTip, Style, Class, Tag.
+- [ ] **P04.03** Implement layout properties: Orientation, Spacing, Row/Column, RowSpan/ColumnSpan, content alignments, GridColumns/Rows, Dock, Wrap, ClipToBounds.
+- [ ] **P04.04** Implement appearance properties: BorderColor/Width, CornerRadius, Shadow, TextAlignment/Decoration, Icon, Image, Animation and component-specific attributes.
+- [ ] **P04.05** Implement typed values and conversion rules for Color, Brush, Thickness, Dimension, Duration, numbers, Boolean and enums; reject invalid conversion.
+- [ ] **P04.06** Implement defaults, change notifications, inheritance, effective-value precedence (animation > local > style > inherited > default) and invalidation flags.
+- [ ] **P04.07** Implement direct RX property access plus `SetAttribute`, `GetAttribute`, `HasAttribute`, `RemoveAttribute`, `ResetAttribute`, `GetAttributeNames`, `GetAttributeType`, `SetAttributes`.
+- [ ] **P04.08** Implement transactions `BeginUpdate`/`EndUpdate`, `ApplyChanges`, `Refresh`, `Invalidate`, `InvalidateLayout` with one batched repaint when possible.
+- [ ] **P04.09** Test schema-specific allowed properties, invalid/unknown properties, precedence, conversions and transaction rollback/error semantics.
+- [ ] **G04 — PHASE SIGN-OFF:** Typed property conformance suite passes for every registered control and invalid writes cannot bypass typing.; attach evidence and reviewer approval in the checkpoint register.
+
+## P05 — Resources, styling, themes and templates
+**Objective:** Provide consistent scoped resource lookup and declarative styling.  
+**Dependencies:** P04  
+**Source coverage:** Original §§3, 10–11, 16
+
+- [ ] **P05.01** Implement resource types: Color, Brush, Number, String, Boolean, Font, Style, Template, Image, Icon, Dimension, Thickness, Duration, Animation, Data, Theme.
+- [ ] **P05.02** Implement lookup order: component → ancestors → document → application → built-in defaults.
+- [ ] **P05.03** Implement local overriding, app-wide resource registry, duplicate-key rules and missing/cyclic-resource diagnostics.
+- [ ] **P05.04** Implement `{Resource Key}` with typed values, dynamic refresh policy and fallback behavior.
+- [ ] **P05.05** Implement `Style`/`Setter` and style class application with deterministic precedence.
+- [ ] **P05.06** Implement state styles: Hover, Pressed, Disabled, Focused and other states selected in P00.
+- [ ] **P05.07** Implement themes, resource changes and theme switching without duplicating controls.
+- [ ] **P05.08** Implement definition-based templates and visual-template application while retaining component behavior.
+- [ ] **P05.09** Test nested shadowing, state transitions, theme reload, style precedence and template binding.
+- [ ] **G05 — PHASE SIGN-OFF:** Reusable style and template work across documents and backend-neutral controls.; attach evidence and reviewer approval in the checkpoint register.
+
+## P06 — RX compiler and build integration
+**Objective:** Make RXU a first-class strict build input.  
+**Dependencies:** P02–P05  
+**Source coverage:** Original §§20, 25; strict compilation amendments
+
+- [ ] **P06.01** Connect RX `.rx` and RXU `.rxu` import/loading to `.rxp` project/build asset management.
+- [ ] **P06.02** Implement RXU import resolver, component definition resolver, library/import/include resolution and circular import checks.
+- [ ] **P06.03** Implement component, property, nesting, resource and reference type checking.
+- [ ] **P06.04** Implement expression, binding target/source, conversion and missing event-handler validation.
+- [ ] **P06.05** Implement duplicate ID, missing asset, invalid control flow and backend capability diagnostics.
+- [ ] **P06.06** Validate all reachable `.rxu` files (including dynamically referenced packaged assets per policy) during build.
+- [ ] **P06.07** Provide meaningful stable `RXUxxx` diagnostics with source spans and fix suggestions.
+- [ ] **P06.08** Implement required runtime validation for dynamic values not statically known.
+- [ ] **P06.09** Write success/failure compile fixtures and ensure invalid RXU fails packaging rather than silently continuing.
+- [ ] **G06 — PHASE SIGN-OFF:** CLI build fails on every specified error class and reports location/expected type.; attach evidence and reviewer approval in the checkpoint register.
+
+## P07 — Reactive values, expressions and binding engine
+**Objective:** Keep RX state and RXU views consistent.  
+**Dependencies:** P04, P06  
+**Source coverage:** Original §§8, 24; dynamic data, binding modes, realtime variables and reactive collections amendments
+
+- [ ] **P07.01** Implement `Observable<T>`, `ObservableList<T>` or equivalent and scoped `DataContext` inheritance.
+- [ ] **P07.02** Implement expression interpreter/type checker: property and collection access, comparisons, arithmetic, logic, null checks, conditional expressions and safe approved functions.
+- [ ] **P07.03** Implement change dependency tracking, subscriptions, unsubscribe/dispose, cycle detection and bounded recalculation.
+- [ ] **P07.04** Implement binding modes `OneWay`, `TwoWay`, `OneTime`, `OneWayToSource`, `Reactive`, `Manual`.
+- [ ] **P07.05** Implement bindings for nested values (`User.Name`), input changes and dynamic collection mutations.
+- [ ] **P07.06** Implement converters, invert option, fallbacks, null handling, validation errors, update triggers and diagnostics.
+- [ ] **P07.07** Implement explicit data refresh and interaction with direct property setting/styling precedence.
+- [ ] **P07.08** Test real-time changes, two-way input, list add/remove/reorder, stale subscriptions and reentrant update loops.
+- [ ] **P07.09** Ensure sensitive inputs such as PasswordBox are handled securely and not inadvertently logged.
+- [ ] **G07 — PHASE SIGN-OFF:** Reactive login and list fixtures update without manual UI refresh; no leak after document disposal.; attach evidence and reviewer approval in the checkpoint register.
+
+## P08 — Backend abstraction and automatic OS integration
+**Objective:** Keep application code unaware of the platform.  
+**Dependencies:** P00–P04  
+**Source coverage:** Original §§13–14, 22; universal architecture and automatic platform amendments
+
+- [ ] **P08.01** Finalize internal `IUIPlatformBackend` signatures (window/component lifetime, property sync, input, measurement, render, invalidation, clipboard, dialogs, display/scale, state restore, shutdown).
+- [ ] **P08.02** Implement capability descriptor: windows, menus, dialogs, clipboard, accessibility, touch/mouse/keyboard, HiDPI, file dialogs, graphics acceleration, notifications, screens.
+- [ ] **P08.03** Implement automatic platform discovery and backend selection without OS-specific project code.
+- [ ] **P08.04** Define universal fallback behavior and explicit unsupported-capability diagnostics.
+- [ ] **P08.05** Implement common rendering command and semantic input interfaces; forbid platform-widget types in public Robix UI APIs.
+- [ ] **P08.06** Implement backend contract mocks/virtual backend for headless testing and later Windows/macOS parity.
+- [ ] **P08.07** Test that one `.rx`+`.rxu`+`.rxp` project uses no conditional OS source imports or config.
+- [ ] **G08 — PHASE SIGN-OFF:** Backend conformance tests pass against mock backend; universal modules have no GTK/native imports.; attach evidence and reviewer approval in the checkpoint register.
+
+## P09 — Linux GTK4 adapter, app loop and threading
+**Objective:** Run a live Linux window with safe event and lifecycle management.  
+**Dependencies:** P03, P08  
+**Source coverage:** Original §§13, 17–18; platform adapter amendments
+
+- [ ] **P09.01** Implement GTK4 native interop and initial window create/destroy/display integration.
+- [ ] **P09.02** Implement `UIApplication.Create`, `Run`, `Shutdown`, `Exit`, main window management and clean process exit.
+- [ ] **P09.03** Implement Window Show/Hide/Close/Activate/Minimize/Maximize/Restore/Title/Size/Position/State.
+- [ ] **P09.04** Implement input/event loop integration, HiDPI scale, clipboard, dialogs and file picker native bridges as supported.
+- [ ] **P09.05** Implement UI dispatcher `Dispatch`, `DispatchAsync`, `Invoke`, `InvokeAsync`, `Post`, `Schedule`, `CheckAccess`, `IsUIThread`.
+- [ ] **P09.06** Enforce UI-thread mutation rules; support async background jobs without freezing the event loop.
+- [ ] **P09.07** Implement component/window disposal and GTK object lifecycle synchronization.
+- [ ] **P09.08** Test startup, resize, close, reopen, background work and wrong-thread mutation behavior.
+- [ ] **G09 — PHASE SIGN-OFF:** Sample app opens and closes cleanly on Linux; UI stays responsive under async workload.; attach evidence and reviewer approval in the checkpoint register.
+
+## P10 — Universal layout and drawing
+**Objective:** Implement measure–arrange–render consistently across platforms.  
+**Dependencies:** P04, P08–P09  
+**Source coverage:** Original §§5, 13–16; universal rendering amendments
+
+- [ ] **P10.01** Implement `Measure(availableSize)` → `Arrange(finalRectangle)` → `Render()` lifecycle.
+- [ ] **P10.02** Implement auto/fixed/content/percentage sizing, min/max constraints, spacing, margin/padding and alignment.
+- [ ] **P10.03** Implement clipping, coordinate transforms, density scaling, DPI changes, nested layouts and overflow handling.
+- [ ] **P10.04** Implement layout invalidation, incremental recomputation and caching.
+- [ ] **P10.05** Implement StackPanel, Grid, Panel, View and ScrollView layouts first.
+- [ ] **P10.06** Implement DockPanel, WrapPanel, Canvas, Overlay, FlexPanel, UniformGrid, SplitView, ConstraintPanel and TabView as applicable.
+- [ ] **P10.07** Implement universal primitives for text, images, shapes, brushes, paths, borders and shadows.
+- [ ] **P10.08** Implement native window integration but shared layout/rendering behavior; document unavoidable OS font/window-decoration differences.
+- [ ] **P10.09** Test golden geometry and screenshot fixtures at small/large windows, different DPI, RTL and nested scrolling.
+- [ ] **G10 — PHASE SIGN-OFF:** Reference layouts have deterministic geometry and correct visual output on Linux/virtual backend.; attach evidence and reviewer approval in the checkpoint register.
+
+## P11 — Core controls — Linux MVP
+**Objective:** Deliver the small useful control set with complete property/event/binding contracts.  
+**Dependencies:** P04, P07, P09–P10  
+**Source coverage:** Original §§5, 23–24
+
+- [ ] **P11.01** Implement Window, View, Panel, StackPanel and Grid.
+- [ ] **P11.02** Implement Text, Image and Button.
+- [ ] **P11.03** Implement TextBox and CheckBox; input focus and keyboard accessibility.
+- [ ] **P11.04** Implement ScrollView and ListView (with core list updates).
+- [ ] **P11.05** Implement Dialog and Spinner for load/error states.
+- [ ] **P11.06** Apply shared styles, resources, basic themes and common properties to every MVP control.
+- [ ] **P11.07** Ensure click, input/change, binding, enabled/disabled and runtime property changes work.
+- [ ] **P11.08** Provide app examples for login, dashboard and dynamically modified controls.
+- [ ] **G11 — PHASE SIGN-OFF:** MVP acceptance script in the release section passes on Linux with no placeholders.; attach evidence and reviewer approval in the checkpoint register.
+
+## P12 — Complete input, routed events and actions
+**Objective:** Capture user interaction and component lifecycle through typed RX handlers.  
+**Dependencies:** P03–P04, P09–P11  
+**Source coverage:** Original §9; expanded event taxonomy and capture amendments
+
+- [ ] **P12.01** Implement event metadata, typed event args, handler binding (`OnClick="Handler"`) and handler signature verification.
+- [ ] **P12.02** Implement programmatic `+=` / `-=` subscribe/unsubscribe, `Click()`, `RaiseEvent()` and explicit synthetic-vs-real input distinction.
+- [ ] **P12.03** Implement capture/bubble or other chosen event propagation semantics, cancellation, consumption and event priority.
+- [ ] **P12.04** Implement pointer, mouse, hover, wheel and context-menu event family (see inventory E1).
+- [ ] **P12.05** Implement keyboard, shortcut, text-input, focus and navigation event family (E2).
+- [ ] **P12.06** Implement lifecycle, value/selection and window events (E3–E5).
+- [ ] **P12.07** Implement drag/drop, layout/render and animation events (E6–E8).
+- [ ] **P12.08** Implement event registration/capture from RX at component, document and global appropriate scopes.
+- [ ] **P12.09** Implement component actions callable from RX; define action result and thread-safety contracts.
+- [ ] **P12.10** Test ordering, unsubscribe, exceptions, disposal, propagation and handler type mismatches.
+- [ ] **G12 — PHASE SIGN-OFF:** Every event in inventory has a documented support status and passing conformance fixture or explicit approved exclusion.; attach evidence and reviewer approval in the checkpoint register.
+
+## P13 — Runtime component inspection and mutation
+**Objective:** Allow full safe manipulation of the live tree from RX without reload.  
+**Dependencies:** P03–P04, P09–P12  
+**Source coverage:** Original §7; full RX component control amendments
+
+- [ ] **P13.01** Implement `Find<T>`, `FindById<T>`, `FindAll<T>`, `FindByName<T>`, `FindByPath<T>` and traversal methods.
+- [ ] **P13.02** Implement runtime `Create`, `Add`, `Insert`, `Remove`, `Replace`, `Clear`, `Move` and parent/child/sibling inspection.
+- [ ] **P13.03** Implement read/write typed properties plus `SetAttribute*` generic APIs and bulk mutation.
+- [ ] **P13.04** Implement component method/action invocation and event subscription from RX.
+- [ ] **P13.05** Implement controlled UI tree update transactions with layout/render coalescing.
+- [ ] **P13.06** Implement same-name scopes, detached node behavior, stable IDs and mutation during events.
+- [ ] **P13.07** Test state preservation, attached/detached lifecycle, invalid insertion, cross-document move and memory safety.
+- [ ] **G13 — PHASE SIGN-OFF:** An RX test creates, modifies, reorders, replaces and removes controls while the window stays open.; attach evidence and reviewer approval in the checkpoint register.
+
+## P14 — Declarative control flow and component communication
+**Objective:** Create/reconcile UI branches and repeated elements in response to state.  
+**Dependencies:** P03, P07, P13  
+**Source coverage:** Original §4; decision-making and component communication amendments
+
+- [ ] **P14.01** Implement `If`/`Else`/`ElseIf` with branch switching and lifecycle handling.
+- [ ] **P14.02** Implement `Each`/`For`/`ForEach` and optional bounded `While` only if approved in P00.
+- [ ] **P14.03** Implement `Choose`/`Switch`/`When`/`Default`/`Otherwise` and nested scopes.
+- [ ] **P14.04** Implement `Let`/`Set`/`Bind` local declaration and update rules.
+- [ ] **P14.05** Implement `Include` of reusable markup distinct from component `Import`.
+- [ ] **P14.06** Implement stable keyed iteration, collection diffs and preservation of compatible child state.
+- [ ] **P14.07** Implement component-to-component communication through parent/child access, typed events, binding and shared state.
+- [ ] **P14.08** Test branch changes, nested loops, empty lists, missing keys and circular communication safeguards.
+- [ ] **G14 — PHASE SIGN-OFF:** Changing RX observables updates conditionals and repeated UI with correct teardown/state preservation.; attach evidence and reviewer approval in the checkpoint register.
+
+## P15 — Reusable component libraries and templates
+**Objective:** Make RXU composition first-class and typed.  
+**Dependencies:** P03–P07, P14  
+**Source coverage:** Original §§10–11; reusable components amendment
+
+- [ ] **P15.01** Implement `<Component>` definitions and `<Components>` multi-definition files.
+- [ ] **P15.02** Implement RXU `<Import Source>` for reusable definitions without instantiating a document/window.
+- [ ] **P15.03** Implement public/private typed parameters, output values, default values, methods and named internal children.
+- [ ] **P15.04** Implement custom events, state, resource/style scopes, lifecycle hooks and validation.
+- [ ] **P15.05** Implement nesting and reference to a component instance from RX.
+- [ ] **P15.06** Implement visual templates that can replace appearance without replacing behavior.
+- [ ] **P15.07** Test component library versioning, import collision, transitive imports and repeated instantiation.
+- [ ] **G15 — PHASE SIGN-OFF:** One custom component is instantiated twice with isolated state and usable typed RX APIs.; attach evidence and reviewer approval in the checkpoint register.
+
+## P16 — Full control catalog coverage
+**Objective:** Complete every control family listed in the source.  
+**Dependencies:** P10–P15  
+**Source coverage:** Original §5; advanced components roadmap
+
+- [ ] **P16.01** Implement root/container catalog C1 beyond MVP.
+- [ ] **P16.02** Implement display catalog C2 beyond MVP.
+- [ ] **P16.03** Implement input catalog C3 beyond MVP, including password, date/time, number, file and color input.
+- [ ] **P16.04** Implement collection catalog C4 beyond MVP, including DataGrid editing and virtualized large lists.
+- [ ] **P16.05** Implement navigation/window catalog C5 beyond MVP.
+- [ ] **P16.06** Implement drawing catalog C6 and vector geometry APIs.
+- [ ] **P16.07** Test property schemas, bindings, accessibility, focus, states and common events for **each** catalog member.
+- [ ] **P16.08** Publish a control support matrix mapping every catalog entry to source, test and documentation.
+- [ ] **G16 — PHASE SIGN-OFF:** All catalog controls in C1–C6 marked verified; any deferral approved and does not count toward complete scope.; attach evidence and reviewer approval in the checkpoint register.
+
+## P17 — Navigation, overlays, dialogs and advanced application flows
+**Objective:** Support realistic multi-window/multi-view applications.  
+**Dependencies:** P09, P11–P16  
+**Source coverage:** Original §§5, 18, 22–24
+
+- [ ] **P17.01** Implement navigation views, pages, history, route state, breadcrumbs and navigation events.
+- [ ] **P17.02** Implement Menu/MenuItem, Toolbar, StatusBar, TitleBar and TabItem.
+- [ ] **P17.03** Implement Popup, Flyout, Drawer, Dialog and modal focus/keyboard handling.
+- [ ] **P17.04** Implement multiple documents/windows and show/hide/close/reopen coordination.
+- [ ] **P17.05** Implement save/restore window/document state under explicit API and lifetime rules.
+- [ ] **P17.06** Test focus containment, modality, popup placement, nested navigation and teardown.
+- [ ] **G17 — PHASE SIGN-OFF:** A sample multi-page app with dialogs/navigation passes functional and accessibility tests.; attach evidence and reviewer approval in the checkpoint register.
+
+## P18 — Animations, transitions and clock
+**Objective:** Implement declarative and runtime animations with shared timing.  
+**Dependencies:** P04–P05, P10–P12  
+**Source coverage:** Original §§11–12, 16, 19
+
+- [ ] **P18.01** Implement shared frame timing/scheduler and animation resource definitions.
+- [ ] **P18.02** Implement fade, move, scale, rotate, color, size, opacity and custom-property transitions.
+- [ ] **P18.03** Implement animation API Create/Start/Stop/Pause/Resume/Reverse/SetDuration/SetEasing/SetRepeat/OnCompleted.
+- [ ] **P18.04** Implement easing Linear, EaseIn, EaseOut, EaseInOut, Cubic, Bounce, Elastic, Back.
+- [ ] **P18.05** Implement animation event bindings and interaction with effective property precedence.
+- [ ] **P18.06** Implement reduced-motion preferences and animation disposal/cancellation.
+- [ ] **P18.07** Test frame determinism under virtual clock, interrupt/reverse, transition state and no stray timers.
+- [ ] **G18 — PHASE SIGN-OFF:** All listed animation types and easing functions pass automated tests; reduced motion is respected.; attach evidence and reviewer approval in the checkpoint register.
+
+I want complete same animation system as framer motion, so implement all features which framer motion has.
+
+## P19 — Accessibility and internationalization
+**Objective:** Make the framework accessible and locale-aware end to end.  
+**Dependencies:** P04, P09–P18  
+**Source coverage:** Original §19; universal accessibility amendment
+
+- [ ] **P19.01** Implement AccessibilityName/Description/Role and semantic accessibility tree.
+- [ ] **P19.02** Implement keyboard navigation, focus order, screen reader integration, high contrast, text scaling and accessible dialogs.
+- [ ] **P19.03** Implement reduced-motion support and touch/keyboard alternatives.
+- [ ] **P19.04** Implement `{Localization Key}` and `Localization.Get`, translation packs and locale selection.
+- [ ] **P19.05** Implement locale-specific dates/numbers, Unicode, font fallback and dynamic language changes.
+- [ ] **P19.06** Implement RTL text and layout flow with mirrored direction where specified.
+- [ ] **P19.07** Run automated accessibility tests and a manual screen-reader/keyboard test matrix.
+- [ ] **G19 — PHASE SIGN-OFF:** All MVP/full controls have accessibility mapping and representative locales pass RTL/Unicode tests.; attach evidence and reviewer approval in the checkpoint register.
+
+## P20 — Hot reload, diagnostics and developer experience
+**Objective:** Safely reflect source edits in running applications.  
+**Dependencies:** P02–P07, P13–P15  
+**Source coverage:** Original §§20–22; hot reload
+
+- [ ] **P20.01** Implement optional development-time RXU file watcher with debouncing and source isolation.
+- [ ] **P20.02** Implement parse → validate → diff → reconcile → state preserve → redraw hot-reload pipeline.
+- [ ] **P20.03** Preserve compatible focus, input, scroll and component state across updates.
+- [ ] **P20.04** On invalid edits, keep last valid UI and show precise diagnostics without corrupting the live tree.
+- [ ] **P20.05** Implement UI component inspector, tree/property/event/binding diagnostics and log tracing.
+- [ ] **P20.06** Implement fast, safe `UI.Reload`/`ReloadAsync` and disable file-watcher hot reload in production by default.
+- [ ] **P20.07** Test add/remove/rename, binding changes, invalid edits, repeated reload and memory/resource cleanup.
+- [ ] **G20 — PHASE SIGN-OFF:** Edit RXU while sample runs; valid changes apply without restart and invalid changes preserve previous state.; attach evidence and reviewer approval in the checkpoint register.
+
+## P21 — Testing framework, performance, security and hardening
+**Objective:** Prevent regressions and handle real-world conditions.  
+**Dependencies:** P01–P20  
+**Source coverage:** Original §§17, 20, 22–23; validation/reliability amendments
+
+- [ ] **P21.01** Implement `Robix.UI.Testing` virtual backend, input simulation, fake clock and deterministic screenshots.
+- [ ] **P21.02** Implement unit, compiler-negative, API contract, integration, end-to-end and stress suites.
+- [ ] **P21.03** Benchmark large component trees, nested bindings, list virtualization, invalidation and animation frame time.
+- [ ] **P21.04** Instrument subscriptions, allocations, document unloading, memory leaks and UI-thread hangs.
+- [ ] **P21.05** Harden file/resource path handling, expression safe-call restrictions, imports and error handling.
+- [ ] **P21.06** Test async cancellation, invalid backend capabilities and runtime property errors.
+- [ ] **P21.07** Publish performance budgets, regression thresholds, test matrix and reproducible results.
+- [ ] **G21 — PHASE SIGN-OFF:** CI green with published coverage/perf targets and zero critical correctness/security regressions.; attach evidence and reviewer approval in the checkpoint register.
+
+## P22 — Windows backend (internal adapter only)
+**Objective:** Run identical RX/RXU project on Windows without app code changes.  
+**Dependencies:** P08–P21  
+**Source coverage:** Original §§13, 23; universal cross-platform amendments
+
+- [ ] **P22.01** Implement Windows windowing/input/clipboard/dialogs/display/scale/accessibility adapter.
+- [ ] **P22.02** Implement graphics surface and rendering integration for the universal rendering/layout engine.
+- [ ] **P22.03** Advertise Windows capabilities and fallbacks through same internal contract.
+- [ ] **P22.04** Integrate target build selection without requiring OS-specific `.rxp` or application source.
+- [ ] **P22.05** Run shared contract, core UI screenshot/geometry, event, binding and accessibility suite.
+- [ ] **P22.06** Document OS-native differences that cannot be fully normalized.
+- [ ] **G22 — PHASE SIGN-OFF:** Identical sample sources pass Windows and Linux automated/interactive parity matrix.; attach evidence and reviewer approval in the checkpoint register.
+
+## P23 — macOS backend (internal adapter only)
+**Objective:** Run identical RX/RXU project on macOS without app code changes.  
+**Dependencies:** P08–P22  
+**Source coverage:** Original §§13, 23; universal cross-platform amendments
+
+- [ ] **P23.01** Implement macOS windowing/input/clipboard/dialogs/display/scale/accessibility adapter.
+- [ ] **P23.02** Implement universal rendering surface integration and backend capability/fallback handling.
+- [ ] **P23.03** Integrate target builds and automatic backend selection without app code changes.
+- [ ] **P23.04** Run identical contract, layout, rendering, binding, event and accessibility suites.
+- [ ] **P23.05** Document unavoidable native differences and compare with Linux and Windows.
+- [ ] **G23 — PHASE SIGN-OFF:** Identical sample sources pass macOS, Windows and Linux parity matrix.; attach evidence and reviewer approval in the checkpoint register.
+
+## P24 — Cross-platform packaging and developer experience
+**Objective:** Make write-once behavior verifiable for ordinary developers.  
+**Dependencies:** P22–P23  
+**Source coverage:** Original §§13, 25; all final cross-platform amendments
+
+- [ ] **P24.01** Implement `.rxp` build defaults that do not require OS-specific config for ordinary apps.
+- [ ] **P24.02** Automate OS target detection, per-target packaging and toolchain capability checks.
+- [ ] **P24.03** Keep application `.rx`, `.rxu`, assets and project file byte-identical across target builds.
+- [ ] **P24.04** Implement universal fallbacks for unsupported native services wherever feasible and explicit errors otherwise.
+- [ ] **P24.05** Test clipboard, dialog, input, DPI, RTL, accessibility, resource loading and window events on each OS.
+- [ ] **P24.06** Publish cross-platform getting-started and supported-feature parity matrix.
+- [ ] **P24.07** Verify application code requires no `IsLinux`, `IsWindows`, conditional imports or alternative component definitions.
+- [ ] **G24 — PHASE SIGN-OFF:** Fresh sample project builds for all supported targets with unchanged app sources and config.; attach evidence and reviewer approval in the checkpoint register.
+
+## P25 — Final source-to-implementation audit and release
+**Objective:** Prove nothing from the source plan was silently omitted.  
+**Dependencies:** P00–P24  
+**Source coverage:** All 3,794 lines, all original and amended requirements
+
+- [ ] **P25.01** Reconcile each section of `Plan.md` against phases, task IDs and test files using the source coverage ledger below.
+- [ ] **P25.02** Confirm all resource types R1, control types C1–C6, events E1–E8, layout types L1 and API families A1–A7 are implemented and documented.
+- [ ] **P25.03** Validate original full end-to-end sample plus amended dashboard example against the frozen syntax.
+- [ ] **P25.04** Run full test suites in clean environments for Linux, Windows, macOS and record build/test output.
+- [ ] **P25.05** Complete compatibility, accessibility, security, localization, performance and memory-leak reviews.
+- [ ] **P25.06** Confirm no TODOs/stubs/unimplemented APIs in released scope; list known limitations with explicit acceptance.
+- [ ] **P25.07** Validate documentation, tutorial, migration notes, public API references and package release notes.
+- [ ] **P25.08** Sign off final acceptance report with traceable evidence for every checkbox.
+- [ ] **G25 — PHASE SIGN-OFF:** Every item has evidence, all gates signed, no open mandatory item or unapproved exception.; attach evidence and reviewer approval in the checkpoint register.
+
+## Canonical feature inventories — check every named member
+The inventories are a **second completeness layer**. Completing a phase heading does not automatically complete these individual items. Each entry needs its own test and documentation record.
+
+### R1 — Resource types
+- [ ] `Color`
+- [ ] `Brush`
+- [ ] `Number`
+- [ ] `String`
+- [ ] `Boolean`
+- [ ] `Font`
+- [ ] `Style`
+- [ ] `Template`
+- [ ] `Image`
+- [ ] `Icon`
+- [ ] `Dimension`
+- [ ] `Thickness`
+- [ ] `Duration`
+- [ ] `Animation`
+- [ ] `Data`
+- [ ] `Theme`
+
+### C1 — Root/container components
+- [ ] `Application`
+- [ ] `Window`
+- [ ] `View`
+- [ ] `Control`
+- [ ] `Container`
+- [ ] `Panel`
+- [ ] `StackPanel`
+- [ ] `Grid`
+- [ ] `DockPanel`
+- [ ] `WrapPanel`
+- [ ] `ScrollView`
+- [ ] `Canvas`
+- [ ] `Overlay`
+- [ ] `SplitView`
+- [ ] `TabView`
+
+### C2 — Text/display components
+- [ ] `Text`
+- [ ] `Label`
+- [ ] `RichText`
+- [ ] `Image`
+- [ ] `Icon`
+- [ ] `ProgressBar`
+- [ ] `Spinner`
+- [ ] `Divider`
+- [ ] `Badge`
+- [ ] `Tooltip`
+- [ ] `Placeholder`
+
+### C3 — Input components
+- [ ] `Button`
+- [ ] `TextBox`
+- [ ] `PasswordBox`
+- [ ] `TextArea`
+- [ ] `CheckBox`
+- [ ] `RadioButton`
+- [ ] `Switch`
+- [ ] `Slider`
+- [ ] `NumberBox`
+- [ ] `ComboBox`
+- [ ] `DropDown`
+- [ ] `DatePicker`
+- [ ] `TimePicker`
+- [ ] `ColorPicker`
+- [ ] `FilePicker`
+
+### C4 — Collection components
+- [ ] `ListView`
+- [ ] `GridView`
+- [ ] `TreeView`
+- [ ] `Table`
+- [ ] `DataGrid`
+- [ ] `Repeater`
+- [ ] `Carousel`
+- [ ] `ItemsView`
+
+### C5 — Navigation/window components
+- [ ] `NavigationView`
+- [ ] `Menu`
+- [ ] `MenuItem`
+- [ ] `TabItem`
+- [ ] `Breadcrumb`
+- [ ] `Dialog`
+- [ ] `Popup`
+- [ ] `Flyout`
+- [ ] `Drawer`
+- [ ] `StatusBar`
+- [ ] `TitleBar`
+- [ ] `Toolbar`
+
+### C6 — Drawing components
+- [ ] `Canvas`
+- [ ] `Rectangle`
+- [ ] `Circle`
+- [ ] `Ellipse`
+- [ ] `Line`
+- [ ] `Path`
+- [ ] `Polygon`
+- [ ] `Polyline`
+
+### L1 — Layout implementations
+- [ ] `StackPanel`
+- [ ] `Grid`
+- [ ] `DockPanel`
+- [ ] `WrapPanel`
+- [ ] `Canvas`
+- [ ] `Overlay`
+- [ ] `FlexPanel`
+- [ ] `UniformGrid`
+- [ ] `SplitView`
+- [ ] `ConstraintPanel`
+- [ ] `ScrollView`
+- [ ] `TabView`
+
+### E1 — Pointer/mouse — Event coverage
+- [ ] `OnClick`
+- [ ] `OnDoubleClick`
+- [ ] `OnPointerDown`
+- [ ] `OnPointerUp`
+- [ ] `OnPointerMove`
+- [ ] `OnPointerEnter`
+- [ ] `OnPointerLeave`
+- [ ] `OnPointerCancel`
+- [ ] `OnMouseDown`
+- [ ] `OnMouseUp`
+- [ ] `OnMouseMove`
+- [ ] `OnMouseEnter`
+- [ ] `OnMouseLeave`
+- [ ] `OnMouseWheel`
+- [ ] `OnContextMenu`
+- [ ] `OnRightClick`
+- [ ] `OnMiddleClick`
+- [ ] `OnPressed`
+- [ ] `OnReleased`
+- [ ] `OnHover`
+- [ ] `OnLeave`
+
+### E2 — Keyboard/focus — Event coverage
+- [ ] `OnKeyDown`
+- [ ] `OnKeyUp`
+- [ ] `OnKeyPress`
+- [ ] `OnTextInput`
+- [ ] `OnShortcut`
+- [ ] `OnFocus`
+- [ ] `OnBlur`
+- [ ] `OnTab`
+- [ ] `OnEscape`
+- [ ] `OnEnter`
+
+### E3 — Lifecycle — Event coverage
+- [ ] `OnCreate`
+- [ ] `OnInitialize`
+- [ ] `OnLoad`
+- [ ] `OnLoaded`
+- [ ] `OnUnload`
+- [ ] `OnUnloaded`
+- [ ] `OnDestroy`
+- [ ] `OnDispose`
+- [ ] `OnShow`
+- [ ] `OnHide`
+- [ ] `OnEnable`
+- [ ] `OnDisable`
+- [ ] `OnUpdate`
+
+### E4 — Input/value/selection — Event coverage
+- [ ] `OnChange`
+- [ ] `OnValueChange`
+- [ ] `OnTextChange`
+- [ ] `OnInput`
+- [ ] `OnSubmit`
+- [ ] `OnSelect`
+- [ ] `OnDeselect`
+- [ ] `OnChecked`
+- [ ] `OnUnchecked`
+- [ ] `OnExpand`
+- [ ] `OnCollapse`
+
+### E5 — Window — Event coverage
+- [ ] `OnWindowOpen`
+- [ ] `OnWindowClose`
+- [ ] `OnWindowClosing`
+- [ ] `OnWindowResize`
+- [ ] `OnWindowMove`
+- [ ] `OnWindowMinimize`
+- [ ] `OnWindowMaximize`
+- [ ] `OnWindowRestore`
+- [ ] `OnWindowFocus`
+- [ ] `OnWindowBlur`
+
+### E6 — Drag/drop — Event coverage
+- [ ] `OnDragStart`
+- [ ] `OnDrag`
+- [ ] `OnDragEnd`
+- [ ] `OnDragEnter`
+- [ ] `OnDragLeave`
+- [ ] `OnDragOver`
+- [ ] `OnDrop`
+
+### E7 — Layout/render — Event coverage
+- [ ] `OnResize`
+- [ ] `OnMove`
+- [ ] `OnLayout`
+- [ ] `OnMeasure`
+- [ ] `OnRender`
+- [ ] `OnVisibilityChange`
+- [ ] `OnSizeChange`
+- [ ] `OnPositionChange`
+
+### E8 — Animation — Event coverage
+- [ ] `OnAnimationStart`
+- [ ] `OnAnimationUpdate`
+- [ ] `OnAnimationComplete`
+- [ ] `OnAnimationCancel`
+
+### A1 — Document — Public API family (final names governed by P00)
+- [ ] `UI.Load`
+- [ ] `UI.LoadAsync`
+- [ ] `UI.LoadMany`
+- [ ] `UI.Reload`
+- [ ] `UI.ReloadAsync`
+- [ ] `UI.Unload`
+- [ ] `UI.GetDocuments`
+- [ ] `UI.GetDocument`
+- [ ] `UI.GetRoot`
+- [ ] `UI.GetComponent`
+- [ ] `UI.GetComponents`
+- [ ] `UI.CreateDocument`
+- [ ] `UI.Show`
+- [ ] `UI.Hide`
+- [ ] `UI.Close`
+
+### A2 — Component queries — Public API family (final names governed by P00)
+- [ ] `Find<T>`
+- [ ] `FindById<T>`
+- [ ] `FindAll<T>`
+- [ ] `FindByName<T>`
+- [ ] `FindByPath<T>`
+- [ ] `GetRoot`
+- [ ] `GetChildren`
+- [ ] `GetParent`
+- [ ] `GetSibling`
+
+### A3 — Attributes — Public API family (final names governed by P00)
+- [ ] `SetAttribute`
+- [ ] `GetAttribute`
+- [ ] `HasAttribute`
+- [ ] `RemoveAttribute`
+- [ ] `ResetAttribute`
+- [ ] `GetAttributeNames`
+- [ ] `GetAttributeType`
+- [ ] `SetAttributes`
+
+### A4 — Tree mutation — Public API family (final names governed by P00)
+- [ ] `Create`
+- [ ] `Add`
+- [ ] `Insert`
+- [ ] `Remove`
+- [ ] `Replace`
+- [ ] `Clear`
+- [ ] `Move`
+- [ ] `BeginUpdate`
+- [ ] `EndUpdate`
+- [ ] `ApplyChanges`
+- [ ] `Refresh`
+- [ ] `Invalidate`
+- [ ] `InvalidateLayout`
+
+### A5 — Dispatcher — Public API family (final names governed by P00)
+- [ ] `UI.Dispatch`
+- [ ] `UI.DispatchAsync`
+- [ ] `UI.Invoke`
+- [ ] `UI.InvokeAsync`
+- [ ] `UI.CheckAccess`
+- [ ] `UI.IsUIThread`
+- [ ] `UI.BeginUpdate`
+- [ ] `UI.EndUpdate`
+- [ ] `UI.Post`
+- [ ] `UI.Schedule`
+
+### A6 — App/window — Public API family (final names governed by P00)
+- [ ] `UIApplication.Create`
+- [ ] `UIApplication.Run`
+- [ ] `UIApplication.Shutdown`
+- [ ] `UIApplication.Exit`
+- [ ] `UIApplication.GetMainWindow`
+- [ ] `Window.Show`
+- [ ] `Window.Hide`
+- [ ] `Window.Close`
+- [ ] `Window.Activate`
+- [ ] `Window.Minimize`
+- [ ] `Window.Maximize`
+- [ ] `Window.Restore`
+- [ ] `Window.SetTitle`
+- [ ] `Window.SetSize`
+- [ ] `Window.SetPosition`
+- [ ] `Window.SetState`
+
+### A7 — Animation — Public API family (final names governed by P00)
+- [ ] `Animation.Create`
+- [ ] `Animation.Start`
+- [ ] `Animation.Stop`
+- [ ] `Animation.Pause`
+- [ ] `Animation.Resume`
+- [ ] `Animation.Reverse`
+- [ ] `Animation.SetDuration`
+- [ ] `Animation.SetEasing`
+- [ ] `Animation.SetRepeat`
+- [ ] `Animation.OnCompleted`
+
+## Linux MVP release acceptance — run end to end
+- [ ] Launch a single application window from `.rx` loading a separate `.rxu` path.
+- [ ] Display StackPanel + Grid with text, image, basic styles and scoped resources.
+- [ ] Interact with Button, TextBox, CheckBox, ScrollView, ListView and Dialog.
+- [ ] Bind an RX observable to text and implement a two-way TextBox binding.
+- [ ] Trigger typed click handler and change component property directly from RX.
+- [ ] Create and remove a child from RX while application is running.
+- [ ] Handle async work without freezing UI and shut down cleanly.
+- [ ] Show invalid RXU fails build with exact line/column diagnostics.
+- [ ] Pass keyboard, focus, display scaling and basic accessibility smoke tests.
+- [ ] Build and run from a fresh clone with documented commands.
+
+## Source coverage ledger
+| Source `Plan.md` scope | Primary checkpoints |
+|---|---|
+| Original §§1–4: imports, syntax, resources, control flow | P00, P02, P03, P05, P06, P14 |
+| Original §5: complete control catalog | P11, P16; inventories C1–C6 |
+| Original §§6–7: properties/direct RX manipulation | P04, P13; inventories A2–A4 |
+| Original §§8–9: bindings/events | P07, P12; inventories E1–E8 |
+| Original §§10–12: components, styles, animations | P05, P15, P18 |
+| Original §§13–16: platform, drawing, layout, dependency properties | P00, P04, P08–P10, P22–P24 |
+| Original §§17–21: threading, lifecycle, a11y, validation, hot reload | P06, P09, P19, P20 |
+| Original §§22–25: APIs, roadmap, examples, decisions | All phases; inventories A1–A7; MVP checks |
+| Amendment: path-based document loading, multiple docs | P00, P03 |
+| Amendment: reusable RXU imports and component libraries | P00, P15 |
+| Amendment: dynamic data, reactive collections and binding modes | P07, P14 |
+| Amendment: comprehensive event categories/capture | P12; E1–E8 |
+| Amendment: RX tree control and component decisions/communication | P13–P15 |
+| Amendment: strict compiler, parser, type safety | P00, P02, P06 |
+| Amendment: universal implementation/minimal platform adapters | P00, P08, P10, P22–P24 |
+| Final amendment: no platform-specific app code/config | P00, P24–P25 |
+
+## Master gate register
+| Gate | Status | Owner | Evidence link | Reviewer/date |
+|---|---|---|---|---|
+| G00 | ☐ Not started | — | — | — |
+| G01 | ☐ Not started | — | — | — |
+| G02 | ☐ Not started | — | — | — |
+| G03 | ☐ Not started | — | — | — |
+| G04 | ☐ Not started | — | — | — |
+| G05 | ☐ Not started | — | — | — |
+| G06 | ☐ Not started | — | — | — |
+| G07 | ☐ Not started | — | — | — |
+| G08 | ☐ Not started | — | — | — |
+| G09 | ☐ Not started | — | — | — |
+| G10 | ☐ Not started | — | — | — |
+| G11 | ☐ Not started | — | — | — |
+| G12 | ☐ Not started | — | — | — |
+| G13 | ☐ Not started | — | — | — |
+| G14 | ☐ Not started | — | — | — |
+| G15 | ☐ Not started | — | — | — |
+| G16 | ☐ Not started | — | — | — |
+| G17 | ☐ Not started | — | — | — |
+| G18 | ☐ Not started | — | — | — |
+| G19 | ☐ Not started | — | — | — |
+| G20 | ☐ Not started | — | — | — |
+| G21 | ☐ Not started | — | — | — |
+| G22 | ☐ Not started | — | — | — |
+| G23 | ☐ Not started | — | — | — |
+| G24 | ☐ Not started | — | — | — |
+| G25 | ☐ Not started | — | — | — |
+
+## Completion definition
+- [ ] Every phase task and every named inventory item is checked and linked to proof.
+- [ ] Every G00–G25 gate has a recorded reviewer approval.
+- [ ] All MVP, full-framework, and three-platform E2E tests pass from clean builds.
+- [ ] No unresolved specification conflict, missing mandatory implementation, undocumented limitation or critical defect remains.
+- [ ] Release notes and supported platform/capability matrix match verified behavior.
+
+**Important:** The source includes evolving/partly conflicting design proposals. P00 makes them explicit and locks a canonical specification; later phases implement that approved contract. Platform-independent user code does not mean one native executable is portable unchanged between operating systems.

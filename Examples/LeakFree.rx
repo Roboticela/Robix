@@ -1,0 +1,40 @@
+// Allocations the compiler can prove are freed, with no collector.
+Package Robotics.LeakFree;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Free one allocation on every branch and keep a string list acyclic.";
+    Input: args = "Command-line arguments";
+    Processing: "Allocate a byte buffer, free it on both branches, then store a string.";
+    Output: "The list length.";
+} {
+    Unsafe {
+        Pointer<Byte> memory = Memory.Allocate(8);
+        If (args.Count() == 0) {
+            Memory.Free(memory);
+        } Else {
+            Memory.Free(memory);
+        }
+    }
+    List<String> items = List<String>();
+    items.Add("arm");
+    Print(items.Count());
+    Return 0;
+}
+
+Public Function ReleaseLater(Int size) -> Int
+Explain {
+    Description: "Free an allocation through Defer so every exit releases it.";
+    Input: size = "Number of bytes to allocate";
+    Processing: "Allocate the buffer and free it when the function leaves.";
+    Output: "The requested size.";
+} {
+    Pointer<Byte> memory = Memory.Allocate(size);
+    Defer {
+        Memory.Free(memory);
+    }
+    Return size;
+}

@@ -1,0 +1,14 @@
+// Tests for Examples/LeakFree.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReleaseLater {
+    Case "returns the size" {
+        Input: size = 4;
+        Assert: Result == 4;
+    }
+}

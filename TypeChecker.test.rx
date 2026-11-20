@@ -727,3 +727,222 @@ Test IsAmbiguousMember {
     Processing: True;
     Output: True;
 }
+
+Test CheckLeaks {
+    Case "empty module owns nothing" {
+        Input: module = AstNode(Kind: AstKind.Module);
+        Assert: Result == 0;
+    }
+}
+
+Test CollectOwnedReturns {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReturnIsOwned {
+    Case "unknown function" {
+        Input: name = "Missing";
+        Assert: Result == False;
+    }
+}
+
+Test ReturnsOwned {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StatementOwns {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExpressionOwns {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NameOwns {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResetLeak {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ScanLeaks {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ScanBranches {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NotePointer {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReleaseOwned {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DropOwned {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ContainsBreak {
+    Case "break statement" {
+        Input: node = AstNode(Kind: AstKind.Break);
+        Assert: Result == True;
+    }
+}
+
+Test HasLive {
+    Case "no owners" {
+        Input:;
+        Assert: Result == False;
+    }
+}
+
+Test AllocationKind {
+    Case "missing expression" {
+        Input: node = Null;
+        Assert: Result == "none";
+    }
+}
+
+Test CallRole {
+    Case "memory allocate" {
+        Input: node = AstNode(Kind: AstKind.Call, Left: AstNode(Kind: AstKind.Member, Name: "Allocate", Left: AstNode(Kind: AstKind.Name, Name: "Memory")));
+        Assert: Result == "allocate";
+    }
+}
+
+Test ArgumentExpression {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DirectName {
+    Case "plain name" {
+        Input: node = AstNode(Kind: AstKind.Name, Name: "memory");
+        Assert: Result == "memory";
+    }
+}
+
+Test NoteEdge {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LeakReaches {
+    Case "empty graph" {
+        Input: start = "left", goal = "right";
+        Assert: Result == False;
+    }
+}
+
+Test OwnedIndex {
+    Case "missing owner" {
+        Input: name = "memory";
+        Assert: Result == -1;
+    }
+}
+
+Test ReportLeak {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReportLeakAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CopyStates {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CopyNames {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CopyDepths {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CopyLines {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CopyColumns {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CopyEdges {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyStates {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CompareStates {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TrimOwned {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TrimDefers {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunDefers {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
