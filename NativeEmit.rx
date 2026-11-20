@@ -584,7 +584,7 @@ Public Class NativeProgram {
     Private Function DeclareExtern(AstNode node) -> String {
         If (node.Name == "RunProcess") { Return ""; }
         String symbol = This.ExternSymbol(node.Name);
-        If (symbol == "rx_F64Parse" || symbol == "rx_F64Text" || symbol == "rx_F64FromInt" || symbol == "rx_F64ToInt" || symbol == "rx_F32Parse" || symbol == "rx_F16Parse" || symbol == "rx_U64Parse" || symbol == "rx_FormatFixed" || symbol == "rx_Input") { Return ""; }
+        If (symbol == "rx_F64Parse" || symbol == "rx_F64Text" || symbol == "rx_F64FromInt" || symbol == "rx_F64ToInt" || symbol == "rx_F64ToIntMode" || symbol == "rx_F64ToIntChecked" || symbol == "rx_F64Format" || symbol == "rx_str_is_int" || symbol == "rx_F32Parse" || symbol == "rx_F16Parse" || symbol == "rx_U64Parse" || symbol == "rx_FormatFixed" || symbol == "rx_Input") { Return ""; }
         String args = "";
         Int count = node.Parameters.Count();
         Int index = 0;
@@ -693,7 +693,7 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F64ToIntMode rx_F64ToIntChecked rx_F64Format rx_str_is_int rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
         String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
@@ -1666,6 +1666,10 @@ Public Class NativeProgram {
                 Int code = This.ExitCodeValue(target);
                 If (code >= 0) { Return This.Pair(code.ToString(), "Int"); }
             }
+            If (node.Left.Name == "Rounding") {
+                Int code = This.RoundingValue(target);
+                If (code >= 0) { Return This.Pair(code.ToString(), "Int"); }
+            }
             ClassInfo named = This.FindClass(node.Left.Name);
             If (named.Name != "") {
                 Int ordinal = This.EnumValue(named, target);
@@ -2069,14 +2073,10 @@ Public Class NativeProgram {
             Return This.Pair(val, targetType);
         }
         If (This.IsAnyType(receiver.TypeName)) { Return This.AnyCall(member.Name, receiver.Value); }
+        If (member.Name == "TryToInt") { Return This.EmitTryToInt(receiver.Value, receiver.TypeName); }
         If (member.Name == "ToInt") {
             If (This.IsString(receiver.TypeName)) { Return This.StringMethod(member.Name, receiver.Value, arguments); }
-            If (This.IsFloatType(receiver.TypeName)) {
-                Var args = List<String>();
-                args.Add(receiver.Value);
-                IrValue value = This.CallRuntime("rx_F64ToInt", args, False);
-                Return This.Pair(value.Value, "Int");
-            }
+            If (This.IsFloatType(receiver.TypeName)) { Return This.EmitFloatToInt(receiver.Value, arguments, types); }
             Return This.Pair(receiver.Value, "Int");
         }
         If (member.Name == "ToFloat") {
@@ -2087,7 +2087,16 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_F64FromInt", args, False);
             Return This.Pair(value.Value, "Float");
         }
-        If (member.Name == "ToString") { Return This.ToStringValue(receiver.Value, receiver.TypeName); }
+        If (member.Name == "ToString") {
+            If (arguments.Count() > 0 && types.Count() > 0 && This.IsString(types[0]) && This.IsFloatType(receiver.TypeName)) {
+                Var args = List<String>();
+                args.Add(receiver.Value);
+                args.Add(arguments[0]);
+                IrValue value = This.CallRuntime("rx_F64Format", args, False);
+                Return This.Pair(value.Value, "String");
+            }
+            Return This.ToStringValue(receiver.Value, receiver.TypeName);
+        }
         If (This.IsString(receiver.TypeName) && This.IsStringMethod(member.Name)) {
             Return This.StringMethod(member.Name, receiver.Value, arguments);
         }
@@ -3731,6 +3740,94 @@ Public Class NativeProgram {
     Private Function ExternSymbol(String name) -> String {
         If (name == "RunProcess") { Return "rx_process"; }
         Return "rx_" + name;
+    }
+
+    Private Function RoundingValue(String name) -> Int {
+        If (name == "Nearest") { Return 0; }
+        If (name == "Truncate") { Return 1; }
+        Return -1;
+    }
+
+    Private Function EmitFloatToInt(String bits, List<String> arguments, List<String> types) -> IrValue {
+        If (arguments.Count() > 0 && types.Count() > 0 && types[0] == "Bool") {
+            Return This.EmitCheckedFloatToInt(bits, arguments[0]);
+        }
+        If (arguments.Count() > 0) {
+            Var args = List<String>();
+            args.Add(bits);
+            args.Add(arguments[0]);
+            IrValue value = This.CallRuntime("rx_F64ToIntMode", args, False);
+            Return This.Pair(value.Value, "Int");
+        }
+        Var args = List<String>();
+        args.Add(bits);
+        IrValue value = This.CallRuntime("rx_F64ToInt", args, False);
+        Return This.Pair(value.Value, "Int");
+    }
+
+    Private Function EmitCheckedFloatToInt(String bits, String flagValue) -> IrValue {
+        String flag = This.Fresh("cond");
+        This.Emit(flag + " = icmp ne i64 " + flagValue + ", 0");
+        String thenLabel = This.Label("chk");
+        String elseLabel = This.Label("raw");
+        String mergeLabel = This.Label("cvt");
+        This.Emit("br i1 " + flag + ", label %" + thenLabel + ", label %" + elseLabel);
+        This.Terminated = True;
+        This.Block(thenLabel);
+        Var checkedArgs = List<String>();
+        checkedArgs.Add(bits);
+        IrValue checked = This.CallRuntime("rx_F64ToIntChecked", checkedArgs, False);
+        This.Branch(mergeLabel);
+        This.Block(elseLabel);
+        Var rawArgs = List<String>();
+        rawArgs.Add(bits);
+        IrValue raw = This.CallRuntime("rx_F64ToInt", rawArgs, False);
+        This.Branch(mergeLabel);
+        This.Block(mergeLabel);
+        String result = This.Fresh("v");
+        This.Emit(result + " = phi i64 [ " + checked.Value + ", %" + thenLabel + " ], [ " + raw.Value + ", %" + elseLabel + " ]");
+        Return This.Pair(result, "Int");
+    }
+
+    Private Function EmitTryToInt(String receiver, String typeName) -> IrValue {
+        If (!This.IsString(typeName)) {
+            Var badArgs = List<String>();
+            badArgs.Add(This.StringConst("InvalidText"));
+            Var badTypes = List<String>();
+            badTypes.Add("String");
+            Return This.EmitWrapped("Error", badArgs, badTypes);
+        }
+        Var checkArgs = List<String>();
+        checkArgs.Add(receiver);
+        IrValue ok = This.CallRuntime("rx_str_is_int", checkArgs, False);
+        String flag = This.Fresh("cond");
+        This.Emit(flag + " = icmp ne i64 " + ok.Value + ", 0");
+        String thenLabel = This.Label("ok");
+        String elseLabel = This.Label("bad");
+        String mergeLabel = This.Label("try");
+        This.Emit("br i1 " + flag + ", label %" + thenLabel + ", label %" + elseLabel);
+        This.Terminated = True;
+        This.Block(thenLabel);
+        Var parseArgs = List<String>();
+        parseArgs.Add(receiver);
+        IrValue parsed = This.CallRuntime("rx_str_to_int", parseArgs, False);
+        Var goodArgs = List<String>();
+        goodArgs.Add(parsed.Value);
+        Var goodTypes = List<String>();
+        goodTypes.Add("Int");
+        IrValue success = This.EmitWrapped("Success", goodArgs, goodTypes);
+        This.Branch(mergeLabel);
+        This.Block(elseLabel);
+        Var errorArgs = List<String>();
+        errorArgs.Add(This.StringConst("InvalidText"));
+        Var errorTypes = List<String>();
+        errorTypes.Add("String");
+        IrValue failure = This.EmitWrapped("Error", errorArgs, errorTypes);
+        This.Branch(mergeLabel);
+        This.Block(mergeLabel);
+        String result = This.Fresh("v");
+        This.Emit(result + " = phi i64 [ " + success.Value + ", %" + thenLabel + " ], [ " + failure.Value + ", %" + elseLabel + " ]");
+        Return This.Pair(result, "Result<Int, ConversionError>");
     }
 
     Private Function ExitCodeValue(String name) -> Int {

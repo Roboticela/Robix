@@ -1028,7 +1028,7 @@ Public Class Interpreter {
                 If (builtIn >= 0) {
                     Return This.MakeInt(builtIn);
                 }
-                If (node.Left.Name == "ExitCode" || node.Left.Name == "AstKind" || node.Left.Name == "ValueKind" || node.Left.Name == "TokenKind") {
+                If (node.Left.Name == "ExitCode" || node.Left.Name == "AstKind" || node.Left.Name == "ValueKind" || node.Left.Name == "TokenKind" || node.Left.Name == "Rounding") {
                     Return This.MakeInt(0);
                 }
             }
@@ -1632,7 +1632,13 @@ Public Class Interpreter {
                 }
                 Return acc;
             }
-            If (node.Left.Name == "ToString") { Return This.MakeText(This.Display(target)); }
+            If (node.Left.Name == "TryToInt") { Return This.TryInteger(target); }
+            If (node.Left.Name == "ToString") {
+                If (arguments.Count() > 0 && arguments[0].Kind == ValueKind.Text && target.Kind == ValueKind.Float && This.FormatPlaces(arguments[0].Text) >= 0) {
+                    Return This.MakeText(F64Format(target.Integer, arguments[0].Text));
+                }
+                Return This.MakeText(This.Display(target));
+            }
             If (node.Left.Name == "ToUpper") { Return This.MakeText(This.Display(target).ToUpper()); }
             If (node.Left.Name == "ToLower") { Return This.MakeText(This.Display(target).ToLower()); }
             If (node.Left.Name == "ToFloat") {
@@ -1647,7 +1653,7 @@ Public Class Interpreter {
             }
             If (node.Left.Name == "ToInt") {
                 If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.ToInt()); }
-                If (target.Kind == ValueKind.Float) { Return This.MakeInt(FloatToInt(target.Integer)); }
+                If (target.Kind == ValueKind.Float) { Return This.ConvertFloat(target.Integer, arguments); }
                 If (target.Kind == ValueKind.Boolean) {
                     If (target.Boolean) { Return This.MakeInt(1); }
                     Return This.MakeInt(0);
@@ -1914,6 +1920,69 @@ Public Class Interpreter {
         Return -1;
     }
 
+    Private Function FormatPlaces(String format) -> Int {
+        If (format.Length() < 2) { Return -1; }
+        String head = format.Substring(0, 1);
+        If (head != "F" && head != "f") { Return -1; }
+        Int places = 0;
+        Int index = 1;
+        While (index < format.Length()) {
+            Int raw = format.GetChar(index).ToInt();
+            Int digit = raw;
+            If (raw >= 48) { digit = raw - 48; }
+            If (digit < 0 || digit > 9) { Return -1; }
+            places = places * 10 + digit;
+            index = index + 1;
+        }
+        Return places;
+    }
+
+    Private Function IntegerText(String text) -> Bool {
+        If (text.Length() == 0) { Return False; }
+        Int index = 0;
+        String first = text.Substring(0, 1);
+        If (first == "+" || first == "-") {
+            If (text.Length() == 1) { Return False; }
+            index = 1;
+        }
+        While (index < text.Length()) {
+            Int raw = text.GetChar(index).ToInt();
+            Int digit = raw;
+            If (raw >= 48) { digit = raw - 48; }
+            If (digit < 0 || digit > 9) { Return False; }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function TryIntegerTag(String text) -> String {
+        Value parsed = This.TryInteger(This.MakeText(text));
+        Return parsed.Text;
+    }
+
+    Private Function TryInteger(Value target) -> Value {
+        Value result = This.MakeArray();
+        If (target.Kind == ValueKind.Text && This.IntegerText(target.Text)) {
+            result.Text = "Success";
+            result.Elements.Add(This.MakeInt(ParseInteger(target.Text)));
+            Return result;
+        }
+        result.Text = "Error";
+        result.Elements.Add(This.MakeText("InvalidText"));
+        Return result;
+    }
+
+    Private Function ConvertFloat(Int bits, List<Value> arguments) -> Value {
+        If (arguments.Count() > 0 && arguments[0].Kind == ValueKind.Boolean) {
+            If (arguments[0].Boolean) { Return This.MakeInt(F64ToIntChecked(bits)); }
+            Return This.MakeInt(FloatToInt(bits));
+        }
+        If (arguments.Count() > 0 && arguments[0].Kind == ValueKind.Integer) {
+            Return This.MakeInt(F64ToIntMode(bits, arguments[0].Integer));
+        }
+        Return This.MakeInt(FloatToInt(bits));
+    }
+
     Private Function EnumOrdinal(AstNode typeNode, String name) -> Int {
         Int ordinal = 0;
         For child In typeNode.Children {
@@ -1948,6 +2017,11 @@ Public Class Interpreter {
             If (memberName == "ErrorExecution") { Return 2; }
             If (memberName == "InvalidArguments") { Return 3; }
             If (memberName == "Custom") { Return 4; }
+            Return -1;
+        }
+        If (typeName == "Rounding") {
+            If (memberName == "Nearest") { Return 0; }
+            If (memberName == "Truncate") { Return 1; }
             Return -1;
         }
         If (typeName == "AstKind") {
@@ -2762,6 +2836,9 @@ Private Extern Function F64Div(Int left, Int right) -> Int;
 Private Extern Function F64Neg(Int bits) -> Int;
 Private Extern Function F64Cmp(Int left, Int right) -> Int;
 Private Extern Function FloatToInt(Int bits) -> Int;
+Private Extern Function F64ToIntMode(Int bits, Int mode) -> Int;
+Private Extern Function F64ToIntChecked(Int bits) -> Int;
+Private Extern Function F64Format(Int bits, String format) -> String;
 Private Extern Function U64Parse(String text) -> Int;
 Private Extern Function F16Parse(String text) -> Int;
 Private Extern Function ReadLine() -> String;

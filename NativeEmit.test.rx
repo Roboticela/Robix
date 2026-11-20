@@ -997,6 +997,42 @@ Test ExternSymbol {
     }
 }
 
+Test RoundingValue {
+    Case "nearest" {
+        Input: name = "Nearest";
+        Output: 0;
+    }
+    Case "truncate" {
+        Input: name = "Truncate";
+        Output: 1;
+    }
+    Case "unknown" {
+        Input: name = "Away";
+        Output: -1;
+    }
+}
+
+Test EmitFloatToInt {
+    Case "plain float" {
+        Input: bits = "0", arguments = [], types = [];
+        Assert: Result.TypeName == "Int";
+    }
+}
+
+Test EmitCheckedFloatToInt {
+    Case "checked flag" {
+        Input: bits = "0", flagValue = "1";
+        Assert: Result.TypeName == "Int";
+    }
+}
+
+Test EmitTryToInt {
+    Case "text" {
+        Input: receiver = "0", typeName = "String";
+        Assert: Result.TypeName == "Result<Int, ConversionError>";
+    }
+}
+
 Test ExitCodeValue {
     Case "success" {
         Input: name = "Success";

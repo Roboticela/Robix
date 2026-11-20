@@ -538,6 +538,77 @@ int64_t rx_F64ToInt(int64_t bits) {
     return (int64_t)rx_f64_unbox(bits);
 }
 
+int64_t rx_F64ToIntMode(int64_t bits, int64_t mode) {
+    double value = rx_f64_unbox(bits);
+    if (mode == 0) {
+        if (value >= 0) {
+            value = value + 0.5;
+        } else {
+            value = value - 0.5;
+        }
+    }
+    return (int64_t)value;
+}
+
+int64_t rx_F64ToIntChecked(int64_t bits) {
+    double value = rx_f64_unbox(bits);
+    if (!(value == value) || value >= 9223372036854775808.0 || value < -9223372036854775808.0) {
+        fputs("error RX121 Conversion is out of range.\n", stderr);
+        exit(1);
+    }
+    return (int64_t)value;
+}
+
+int64_t rx_F64Format(int64_t bits, int64_t format) {
+    const char *spec = rx_cstr(format);
+    double value = rx_f64_unbox(bits);
+    char buffer[128];
+    int fixed = 0;
+    int places = 0;
+    if ((spec[0] == 'F' || spec[0] == 'f') && spec[1] >= '0' && spec[1] <= '9') {
+        fixed = 1;
+        const char *scan = spec + 1;
+        while (*scan != 0) {
+            if (*scan < '0' || *scan > '9') {
+                fixed = 0;
+                break;
+            }
+            places = places * 10 + (*scan - '0');
+            scan++;
+        }
+    }
+    if (fixed) {
+        if (places > 18) {
+            places = 18;
+        }
+        snprintf(buffer, sizeof(buffer), "%.*f", places, value);
+    } else {
+        rx_f64_format(value, buffer, sizeof(buffer));
+    }
+    return rx_box(rx_copy_n(buffer, (int64_t)strlen(buffer)));
+}
+
+int64_t rx_str_is_int(int64_t text) {
+    const char *raw = rx_cstr(text);
+    if (raw[0] == 0) {
+        return 0;
+    }
+    size_t index = 0;
+    if (raw[0] == '+' || raw[0] == '-') {
+        if (raw[1] == 0) {
+            return 0;
+        }
+        index = 1;
+    }
+    while (raw[index] != 0) {
+        if (raw[index] < '0' || raw[index] > '9') {
+            return 0;
+        }
+        index++;
+    }
+    return 1;
+}
+
 int64_t rx_F64Cmp(int64_t left, int64_t right) {
     double first = rx_f64_unbox(left);
     double second = rx_f64_unbox(right);

@@ -1,0 +1,31 @@
+// Rounding, formatted text, fallible parsing, and checked conversion.
+Package Robotics.Conversions;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Convert floats and text with an explicit policy.";
+    Input: args = "Command-line arguments";
+    Processing: "Round, truncate, format, parse, and check a float.";
+    Output: "The converted numbers and the parse failure.";
+} {
+    Float piValue = 3.141592653589793;
+    Int roundedNumber = 12.8.ToInt(Rounding.Nearest);
+    Int truncatedNumber = 12.8.ToInt(Rounding.Truncate);
+    String floatText = piValue.ToString(format: "F4");
+    Result<Int, ConversionError> safeNumber = "123".TryToInt();
+    Result<Int, ConversionError> badNumber = "nope".TryToInt();
+    Int checkedNumber = Float(12.0).ToInt(checked: True);
+    Print(roundedNumber);
+    Print(truncatedNumber);
+    Print(floatText);
+    Print(safeNumber.Value());
+    Match badNumber {
+        Success(number) => Print(number);
+        Error(message) => Print(message);
+    }
+    Print(checkedNumber);
+    Return 0;
+}

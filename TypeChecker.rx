@@ -756,6 +756,7 @@ Public Class TypeChecker {
             If (node.Left.Name == "AsOptional" && node.Left.Children.Count() > 0) {
                 Return This.ResolveType(This.TypeText(node.Left.Children[0])) + "?";
             }
+            If (node.Left.Name == "TryToInt") { Return "Result<Int, ConversionError>"; }
             If (node.Left.Name == "Length" || node.Left.Name == "Count" || node.Left.Name == "ToInt") {
                 If (node.Left.FlagA) { Return "Int?"; }
                 Return "Int";

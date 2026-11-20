@@ -345,6 +345,14 @@ Test LookupBuiltinEnum {
         Input: typeName = "ExitCode", memberName = "Success";
         Output: 0;
     }
+    Case "rounding nearest" {
+        Input: typeName = "Rounding", memberName = "Nearest";
+        Output: 0;
+    }
+    Case "rounding truncate" {
+        Input: typeName = "Rounding", memberName = "Truncate";
+        Output: 1;
+    }
 }
 
 Test LookupAstKind {
@@ -697,6 +705,56 @@ Test F64Neg {
 }
 
 Test F64Cmp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FormatPlaces {
+    Case "four places" {
+        Input: format = "F4";
+        Output: 4;
+    }
+    Case "plain text" {
+        Input: format = "text";
+        Output: -1;
+    }
+}
+
+Test IntegerText {
+    Case "digits" {
+        Input: text = "123";
+        Output: True;
+    }
+    Case "signed digits" {
+        Input: text = "-12";
+        Output: True;
+    }
+    Case "words" {
+        Input: text = "nope";
+        Output: False;
+    }
+}
+
+Test TryIntegerTag {
+    Case "digits" {
+        Input: text = "123";
+        Output: "Success";
+    }
+    Case "words" {
+        Input: text = "nope";
+        Output: "Error";
+    }
+}
+
+Test TryInteger {
+    Case "digits succeed" {
+        Input: target = "123";
+        Assert: True;
+    }
+}
+
+Test ConvertFloat {
     Constraint: True;
     Processing: True;
     Output: True;
