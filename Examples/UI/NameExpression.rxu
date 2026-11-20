@@ -1,0 +1,2 @@
+<!-- A bare name is a value expression. Binding is only the Binding keyword. -->
+<Text Value={Joints}/>

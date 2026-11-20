@@ -1,0 +1,6 @@
+<!-- Else binds to the later If, not the earlier one. -->
+<Panel>
+  <If Name="A"></If>
+  <If Name="B"></If>
+  <Else Name="C"/>
+</Panel>

@@ -1,0 +1,2 @@
+<!-- Bind records a target and a binding source. It is not connected here. -->
+<Bind Target="Text" Source={Binding Joint}/>

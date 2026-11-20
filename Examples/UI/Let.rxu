@@ -1,0 +1,2 @@
+<!-- Let records a named value. It is not evaluated here. -->
+<Let Name="Title" Value="Arm"/>

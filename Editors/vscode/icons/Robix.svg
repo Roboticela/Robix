@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Robix programming language symbol</title>
+  <!-- Transparent background. White outside + dark inside outlines work on light and dark editors. -->
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <!-- Green code brackets -->
+    <path d="M179 122 66 256l113 134" stroke="#F8FAFC" stroke-width="66"/>
+    <path d="M333 122 446 256 333 390" stroke="#F8FAFC" stroke-width="66"/>
+    <path d="M179 122 66 256l113 134" stroke="#10203B" stroke-width="54"/>
+    <path d="M333 122 446 256 333 390" stroke="#10203B" stroke-width="54"/>
+    <path d="M179 122 66 256l113 134" stroke="#16E8A5" stroke-width="37"/>
+    <path d="M333 122 446 256 333 390" stroke="#16E8A5" stroke-width="37"/>
+    <!-- robotic connectors -->
+    <path d="M202 256h108M256 178v156" stroke="#F8FAFC" stroke-width="39"/>
+    <path d="M202 256h108M256 178v156" stroke="#10203B" stroke-width="29"/>
+    <!-- amber core -->
+    <path d="m256 198 54 30v56l-54 30-54-30v-56z" fill="#FFB629" stroke="#F8FAFC" stroke-width="15"/>
+    <path d="m256 198 54 30v56l-54 30-54-30v-56z" stroke="#10203B" stroke-width="10"/>
+    <!-- green nodes -->
+    <circle cx="256" cy="150" r="27" fill="#16E8A5" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="150" r="27" stroke="#10203B" stroke-width="8"/>
+    <circle cx="256" cy="362" r="27" fill="#16E8A5" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="362" r="27" stroke="#10203B" stroke-width="8"/>
+  </g>
+</svg>

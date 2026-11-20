@@ -1,0 +1,2 @@
+<!-- Any other braced text is a value expression and is not executed. -->
+<Text Value={Panel.Width}/>

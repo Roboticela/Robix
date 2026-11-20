@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Robix UI file (.rxu)</title>
+  <desc>Transparent purple code brackets and nodes surrounding a cyan UI window</desc>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#F8FAFC" stroke-width="66"/>
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#10203B" stroke-width="54"/>
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#A78BFA" stroke-width="37"/>
+    <path d="M256 180v29M256 304v28" stroke="#F8FAFC" stroke-width="37"/>
+    <path d="M256 180v29M256 304v28" stroke="#10203B" stroke-width="27"/>
+    <circle cx="256" cy="150" r="27" fill="#A78BFA" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="150" r="27" stroke="#10203B" stroke-width="8"/>
+    <circle cx="256" cy="362" r="27" fill="#A78BFA" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="362" r="27" stroke="#10203B" stroke-width="8"/>
+    <rect x="173" y="203" width="166" height="106" rx="19" fill="#22D3EE" stroke="#F8FAFC" stroke-width="16"/>
+    <rect x="173" y="203" width="166" height="106" rx="19" stroke="#10203B" stroke-width="10"/>
+    <path d="M182 237h148" stroke="#10203B" stroke-width="10"/>
+    <circle cx="197" cy="220" r="5" fill="#10203B"/>
+    <circle cx="215" cy="220" r="5" fill="#10203B"/>
+    <rect x="192" y="250" width="43" height="42" rx="7" fill="#10203B"/>
+    <rect x="244" y="250" width="74" height="13" rx="5" fill="#10203B"/>
+    <rect x="244" y="271" width="53" height="13" rx="5" fill="#10203B"/>
+  </g>
+</svg>

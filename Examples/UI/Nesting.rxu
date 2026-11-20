@@ -1,0 +1,8 @@
+<!-- Nested elements keep their parent and child order. -->
+<Window>
+  <Panel>
+    <Panel>
+      <Label Text="Nest"/>
+    </Panel>
+  </Panel>
+</Window>

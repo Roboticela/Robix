@@ -1,0 +1,4 @@
+<!-- ForEach stores the same items expression and item name. -->
+<ForEach Items={Joints} As="joint">
+  <Text Value={joint}/>
+</ForEach>

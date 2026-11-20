@@ -1,0 +1,2 @@
+<!-- {Localization Name} stores a localization key and does not translate it. -->
+<Text Value={Localization Title}/>

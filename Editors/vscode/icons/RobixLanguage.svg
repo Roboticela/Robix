@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 256 256" fill="none">
+  <title>Robix — complete language ecosystem</title>
+  <desc>Transparent Robix logo with code brackets and a four-part robotic core representing source, projects, UI, and 3D.</desc>
+  <!-- A narrow light halo plus navy edge keeps the mark legible on all editor themes. -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M77 64 25 128 77 192" stroke="#F8FAFC" stroke-width="28"/>
+    <path d="M179 64 231 128 179 192" stroke="#F8FAFC" stroke-width="28"/>
+    <path d="M77 64 25 128 77 192" stroke="#17233B" stroke-width="23"/>
+    <path d="M179 64 231 128 179 192" stroke="#17233B" stroke-width="23"/>
+    <path d="M77 64 25 128 77 192" stroke="#18C88A" stroke-width="16"/>
+    <path d="M179 64 231 128 179 192" stroke="#18C88A" stroke-width="16"/>
+  </g>
+  <!-- Robotic signal nodes -->
+  <path d="M128 45V65M128 191V211" stroke="#F8FAFC" stroke-width="17" stroke-linecap="round"/>
+  <path d="M128 45V65M128 191V211" stroke="#17233B" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="128" cy="36" r="15" fill="#F8FAFC"/>
+  <circle cx="128" cy="36" r="12" fill="#17233B"/>
+  <circle cx="128" cy="36" r="8.5" fill="#8B5CF6"/>
+  <circle cx="128" cy="220" r="15" fill="#F8FAFC"/>
+  <circle cx="128" cy="220" r="12" fill="#17233B"/>
+  <circle cx="128" cy="220" r="8.5" fill="#8B5CF6"/>
+  <!-- Four facets, one unified core: RX / RXP / RXU / RX3D -->
+  <path d="M128 70 186 128 128 186 70 128Z" fill="#17233B" stroke="#F8FAFC" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M128 79 177 128 128 128Z" fill="#FC784F"/>
+  <path d="M177 128 128 177 128 128Z" fill="#29C7DF"/>
+  <path d="M128 177 79 128 128 128Z" fill="#EC4EAD"/>
+  <path d="M79 128 128 79 128 128Z" fill="#F6BA45"/>
+  <path d="M128 79V177M79 128H177" stroke="#17233B" stroke-width="5"/>
+  <circle cx="128" cy="128" r="15" fill="#17233B"/>
+  <circle cx="128" cy="128" r="9" fill="#F8FAFC"/>
+</svg>

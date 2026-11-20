@@ -1,0 +1,2 @@
+<!-- {Binding Name} stores a binding and does not run it. -->
+<Button Text={Binding Joint}/>

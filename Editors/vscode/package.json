@@ -1,0 +1,240 @@
+{
+    "name": "robix",
+    "displayName": "Robix",
+    "description": "Highlighting, IntelliSense, formatting, and running for the Robix language.",
+    "version": "1.0.0",
+    "publisher": "robix",
+    "license": "AGPL-3.0",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Programming Languages",
+        "Formatters",
+        "Snippets"
+    ],
+    "keywords": [
+        "robix",
+        "rx",
+        "rxp"
+    ],
+    "main": "./extension.js",
+    "scripts": {
+        "test": "node test/run.js"
+    },
+    "activationEvents": [
+        "onLanguage:robix",
+        "onLanguage:robix-project"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "robix",
+                "aliases": ["Robix", "robix"],
+                "extensions": [".rx"],
+                "configuration": "./language-configuration.json",
+                "icon": {
+                    "light": "./icons/robix.svg",
+                    "dark": "./icons/robix.svg"
+                }
+            },
+            {
+                "id": "robix-project",
+                "aliases": ["Robix Project", "robix-project"],
+                "extensions": [".rxp"],
+                "configuration": "./language-configuration-project.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "robix",
+                "scopeName": "source.robix",
+                "path": "./syntaxes/robix.tmLanguage.json"
+            },
+            {
+                "language": "robix-project",
+                "scopeName": "source.robix.project",
+                "path": "./syntaxes/robix-project.tmLanguage.json"
+            }
+        ],
+        "themes": [
+            {
+                "label": "Robix Dark",
+                "uiTheme": "vs-dark",
+                "path": "./themes/robix-dark.json"
+            },
+            {
+                "label": "Robix Light",
+                "uiTheme": "vs",
+                "path": "./themes/robix-light.json"
+            }
+        ],
+        "configuration": {
+            "title": "Robix",
+            "properties": {
+                "robix.interpreterPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the Robix interpreter. Leave empty to use Build/bootstrap/robix-run.app."
+                },
+                "robix.compilerPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the Robix compiler. Leave empty to use Build/bootstrap/robixc.app."
+                },
+                "robix.autoCorrectKeywords": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Rewrite keywords to PascalCase when a word is finished. Names you declare are left alone."
+                },
+                "robix.format.indentSize": {
+                    "type": "number",
+                    "default": 4,
+                    "minimum": 1,
+                    "description": "Spaces used for each indentation level."
+                },
+                "robix.diagnostics.enable": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Check the open file with the Robix tools and the built-in language service."
+                },
+                "robix.run.arguments": {
+                    "type": "array",
+                    "default": [],
+                    "items": { "type": "string" },
+                    "description": "Extra arguments passed to a program started with Run."
+                }
+            }
+        },
+        "configurationDefaults": {
+            "[robix]": {
+                "editor.tabSize": 4,
+                "editor.insertSpaces": true,
+                "editor.detectIndentation": false,
+                "editor.formatOnSave": true,
+                "editor.wordBasedSuggestions": "off",
+                "editor.suggest.showWords": false,
+                "editor.quickSuggestions": {
+                    "other": true,
+                    "comments": false,
+                    "strings": false
+                },
+                "editor.snippetSuggestions": "top",
+                "editor.bracketPairColorization.enabled": true,
+                "editor.guides.bracketPairs": "active",
+                "editor.stickyScroll.enabled": true
+            },
+            "[robix-project]": {
+                "editor.tabSize": 4,
+                "editor.insertSpaces": true,
+                "editor.formatOnSave": true,
+                "editor.bracketPairColorization.enabled": true,
+                "editor.guides.bracketPairs": "active"
+            }
+        },
+        "commands": [
+            {
+                "command": "robix.run",
+                "title": "Run",
+                "category": "Robix",
+                "icon": "$(play)"
+            },
+            {
+                "command": "robix.compile",
+                "title": "Compile",
+                "category": "Robix",
+                "icon": "$(tools)"
+            },
+            {
+                "command": "robix.release",
+                "title": "Release",
+                "category": "Robix",
+                "icon": "$(package)"
+            },
+            {
+                "command": "robix.check",
+                "title": "Check",
+                "category": "Robix",
+                "icon": "$(check)"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "robix.run",
+                "key": "f5",
+                "when": "editorTextFocus && (editorLangId == robix || editorLangId == robix-project)"
+            },
+            {
+                "command": "robix.compile",
+                "key": "ctrl+f5",
+                "mac": "cmd+f5",
+                "when": "editorTextFocus && (editorLangId == robix || editorLangId == robix-project)"
+            },
+            {
+                "command": "robix.release",
+                "key": "ctrl+shift+f5",
+                "mac": "cmd+shift+f5",
+                "when": "editorTextFocus && (editorLangId == robix || editorLangId == robix-project)"
+            },
+            {
+                "command": "robix.check",
+                "key": "shift+f5",
+                "when": "editorTextFocus && editorLangId == robix"
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                {
+                    "command": "robix.run",
+                    "when": "editorLangId == robix || editorLangId == robix-project",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "robix.compile",
+                    "when": "editorLangId == robix || editorLangId == robix-project",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "robix.release",
+                    "when": "editorLangId == robix || editorLangId == robix-project",
+                    "group": "navigation@3"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "robix.run",
+                    "when": "editorLangId == robix || editorLangId == robix-project",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "robix.compile",
+                    "when": "editorLangId == robix || editorLangId == robix-project",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "robix.release",
+                    "when": "editorLangId == robix || editorLangId == robix-project",
+                    "group": "navigation@3"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "robix.run",
+                    "when": "editorLangId == robix || editorLangId == robix-project"
+                },
+                {
+                    "command": "robix.compile",
+                    "when": "editorLangId == robix || editorLangId == robix-project"
+                },
+                {
+                    "command": "robix.release",
+                    "when": "editorLangId == robix || editorLangId == robix-project"
+                },
+                {
+                    "command": "robix.check",
+                    "when": "editorLangId == robix"
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,4 @@
+<!-- Component records a reusable definition. It is not instantiated here. -->
+<Component Name="Move">
+  <Button Text={Binding Joint}/>
+</Component>

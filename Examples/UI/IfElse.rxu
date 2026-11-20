@@ -1,0 +1,9 @@
+<!-- A following Else belongs to the nearest If. -->
+<Panel>
+  <If Condition={LoggedIn}>
+    <Text Value="Hi"/>
+  </If>
+  <Else>
+    <Text Value="Go"/>
+  </Else>
+</Panel>

@@ -1,0 +1,2 @@
+<!-- RXU005: a braced expression must be closed. -->
+<Text>{Name</Text>

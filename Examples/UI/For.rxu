@@ -1,0 +1,4 @@
+<!-- For stores the same items expression and item name. -->
+<For Items={Joints} As="joint">
+  <Text Value={joint}/>
+</For>

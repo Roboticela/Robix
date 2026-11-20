@@ -1,0 +1,42 @@
+{
+    "name": "Robix Project",
+    "scopeName": "source.robix.project",
+    "patterns": [
+        { "include": "#comment" },
+        { "include": "#string" },
+        { "include": "#number" },
+        { "include": "#keyword" }
+    ],
+    "repository": {
+        "comment": {
+            "patterns": [
+                { "name": "comment.line.double-slash.robix", "match": "//.*" },
+                { "name": "comment.block.robix", "begin": "/\\*", "end": "\\*/" }
+            ]
+        },
+        "string": {
+            "name": "string.quoted.double.robix",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                { "name": "constant.character.escape.robix", "match": "\\\\." }
+            ]
+        },
+        "number": {
+            "name": "constant.numeric.robix",
+            "match": "\\b\\d+(?:\\.\\d+)?\\b"
+        },
+        "keyword": {
+            "patterns": [
+                {
+                    "name": "keyword.other.robix",
+                    "match": "\\b(?:Project|Type|Version|Description|Source|Include|Exclude|Compiler|TypeSafety|WarningsAsErrors|Nullable|OverflowChecks|BoundsChecks|Configurations|Debug|Release|Development|Optimization|DebugSymbols|Output|Directory|IntermediateDirectory|Name|Tasks|Task|Delete|Restore|DependsOn|Compile|RunTests|Package|Permissions|Dependencies|Testing|Parallel)\\b"
+                },
+                {
+                    "name": "constant.language.robix",
+                    "match": "\\b(?:true|false|Executable|Library|Strict|Enabled|None|Speed|Balanced)\\b"
+                }
+            ]
+        }
+    }
+}

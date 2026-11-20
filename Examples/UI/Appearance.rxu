@@ -1,0 +1,2 @@
+<!-- Appearance properties belong on a control. -->
+<Button Background="#FFFFFF" Color="#336699" FontFamily="Roboto" FontSize="14" FontWeight="Bold" BorderColor="#112233" BorderWidth="1" CornerRadius="4,4,4,4" Shadow="None" TextAlignment="Center" TextDecoration="Underline" Icon="save" Image="arm.png" Animation="fade" Duration="200ms"/>

@@ -1,0 +1,2 @@
+<!-- {Resource Name} stores a resource reference and does not load it. -->
+<Text Value={Resource Accent}/>

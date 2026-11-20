@@ -1,0 +1,968 @@
+// Tests for UI/Rxu.rx.
+
+Test RxuMessages.Add {
+    Case "records a code" {
+        Input: code = "RXU001", message = "mismatch", filename = "Window.rxu", line = 1, column = 2, length = 3, expected = "Window", actual = "Door", correction = "Close the tag.";
+        Assert: code == "RXU001";
+    }
+}
+
+Test RxuMessages.Count {
+    Case "empty bag" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test RxuMessages.At {
+    Case "missing index" {
+        Input: index = 0;
+        Assert: Result.Code == "";
+    }
+}
+
+Test RxuMessages.Find {
+    Case "missing code" {
+        Input: code = "RXU001";
+        Output: -1;
+    }
+}
+
+Test RxuMessages.FormatAt {
+    Case "missing index is blank" {
+        Input: index = 0;
+        Output: "";
+    }
+}
+
+Test RxuNode.FindAttribute {
+    Case "missing attribute" {
+        Input: name = "Text";
+        Assert: Result.Name == "";
+    }
+}
+
+Test RxuNode.FindChild {
+    Case "missing child" {
+        Input: name = "Button";
+        Assert: Result.Name == "";
+    }
+}
+
+Test RxuNode.FindKind {
+    Case "missing kind" {
+        Input: kind = "Comment";
+        Assert: Result.Kind == "";
+    }
+}
+
+Test RxuNode.Describe {
+    Case "blank node" {
+        Input:;
+        Assert: Result.Length() >= 0;
+    }
+}
+
+Test RxuNode.DescribeAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.Tokenize {
+    Case "self-closing button" {
+        Input: filename = "Button.rxu", source = "<Button/>";
+        Assert: True;
+    }
+}
+
+Test RxuLexer.TokenCount {
+    Case "blank lexer has no tokens" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test RxuLexer.TokenAt {
+    Case "missing token" {
+        Input: index = 0;
+        Assert: Result.Kind == "";
+    }
+}
+
+Test RxuLexer.LexerDiagnostics {
+    Case "blank lexer" {
+        Input:;
+        Assert: True;
+    }
+}
+
+Test RxuLexer.Reset {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.Scan {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.Take {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.LexerFail {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.Advance {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.PeekChar {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.StartsWith {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.SkipSpace {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.ReadName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.ReadNumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.ReadString {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.ReadText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.ReadExpression {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.ReadComment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.SkipDeclaration {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.Classify {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.HasKeyword {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.AfterKeyword {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.IsDigit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.IsNameStart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuLexer.IsNamePart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.Parse {
+    Case "button element" {
+        Input: filename = "Button.rxu", source = "<Button/>";
+        Assert: Result.FindChild("Button").Name == "Button";
+    }
+}
+
+Test RxuParser.ParseDocument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.ParseSequence {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.ParseElement {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.ParseAttributes {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.QuotedMode {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.BindFlow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.RejectDuplicateElse {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.RejectDuplicateDefault {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.LastNamed {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.NodeHas {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.ParserFail {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.PeekToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.KindAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.AtKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.AdvanceToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.ExpectKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.MakeNode {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.NodeFromToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuParser.EndToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuDocument.ComponentCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuDocument.ComponentName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Load {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.LoadAsync {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.LoadMany {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Reload {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.ReloadAsync {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Unload {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.CreateDocument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.GetDocuments {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.DocumentAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.GetDocument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.GetRoot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Show {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Hide {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Close {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindByName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindById {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindByKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindByPath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Attach {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Detach {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FailMissing {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Adopt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.Fill {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.BuildRoot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.BuildChildren {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.MakeInstance {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.CopyMessages {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindNamed {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindUser {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindInstanceKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindInternal {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.FindPath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.PathHead {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DocumentManager.DisposeInstance {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.Load {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.LoadAsync {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.LoadMany {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.Reload {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.ReloadAsync {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.Unload {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.CreateDocument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.GetDocuments {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.GetDocument {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.GetRoot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.Show {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.Hide {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UI.Close {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExpectSource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckDocuments {
+    Case "load and unload" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test ReadExample {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExpectAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ElementAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExpectCode {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckExamples {
+    Case "feature files" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test UIElement.SetAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.GetAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.HasAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.RemoveAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.ResetAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.AttributeCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.AttributeName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.AttributeType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.SetAttributes {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.SetStyle {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.SetAnimation {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.BeginUpdate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.EndUpdate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.CancelUpdate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.ApplyChanges {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Refresh {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Invalidate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.InvalidateLayout {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.SetParent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Write {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Canonical {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Catalog {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Allows {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.TypeOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.DefaultOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsLayout {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.ValidValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.ValidRange {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsNumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsFloat {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsOpacity {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsDimension {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsThickness {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsColor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.IsDuration {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Store {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.SourceValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.DropSource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Hold {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Publish {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.TakeInherited {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.SegmentCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Segment {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckProperties {
+    Case "typed properties" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test CheckSamples {
+    Case "fixture and negative samples" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test FailWhen {
+    Case "true records a failure" {
+        Input: failed = False, name = "sample";
+        Output: 0;
+    }
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

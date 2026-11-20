@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Robix project file (.rxp) icon</title>
+  <desc>Transparent Robix code brackets and blue nodes, with three pink connected project modules at the center.</desc>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <!-- Robix signature electric-blue code chevrons -->
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#F8FAFC" stroke-width="66"/>
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#10203B" stroke-width="54"/>
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#38BDF8" stroke-width="37"/>
+    <!-- Blue terminal nodes, as in .rx -->
+    <path d="M256 182v33M256 297v33" stroke="#F8FAFC" stroke-width="37"/>
+    <path d="M256 182v33M256 297v33" stroke="#10203B" stroke-width="27"/>
+    <circle cx="256" cy="150" r="27" fill="#38BDF8" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="150" r="27" stroke="#10203B" stroke-width="8"/>
+    <circle cx="256" cy="362" r="27" fill="#38BDF8" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="362" r="27" stroke="#10203B" stroke-width="8"/>
+    <!-- Project graph: one module feeding two submodules -->
+    <path d="M256 256v12M205 268h102M205 268v12M307 268v12" stroke="#F8FAFC" stroke-width="21"/>
+    <path d="M256 256v12M205 268h102M205 268v12M307 268v12" stroke="#10203B" stroke-width="13"/>
+    <rect x="225" y="204" width="62" height="55" rx="12" fill="#F472B6" stroke="#F8FAFC" stroke-width="12"/>
+    <rect x="225" y="204" width="62" height="55" rx="12" stroke="#10203B" stroke-width="8"/>
+    <rect x="174" y="281" width="62" height="55" rx="12" fill="#F472B6" stroke="#F8FAFC" stroke-width="12"/>
+    <rect x="174" y="281" width="62" height="55" rx="12" stroke="#10203B" stroke-width="8"/>
+    <rect x="276" y="281" width="62" height="55" rx="12" fill="#F472B6" stroke="#F8FAFC" stroke-width="12"/>
+    <rect x="276" y="281" width="62" height="55" rx="12" stroke="#10203B" stroke-width="8"/>
+  </g>
+</svg>

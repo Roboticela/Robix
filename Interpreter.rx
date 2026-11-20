@@ -620,7 +620,7 @@ Public Class Interpreter {
         Int typeIndex = This.TypeIndex(typeName);
         If (typeIndex < 0) { Return existing; }
         String previous = This.constructing;
-        This.constructing = typeName;
+        This.constructing = typeName + "";
         AstNode ctor = AstNode();
         Bool found = False;
         Int best = 999;

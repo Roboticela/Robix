@@ -1,0 +1,160 @@
+"use strict";
+
+const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+const { tokenize, keywordCaseEdits } = require("../lib/scanner");
+const { formatRobix, formatProject } = require("../lib/format");
+const { analyze } = require("../lib/analyze");
+const { complete, hover, signature: signatureHelp, definition } = require("../lib/intellisense");
+
+const root = path.resolve(__dirname, "../../..");
+let failed = 0;
+
+function check(name, fn) {
+    try {
+        fn();
+        console.log(`ok  ${name}`);
+    } catch (error) {
+        failed += 1;
+        console.error(`FAIL ${name}`);
+        console.error(error.stack || error.message);
+    }
+}
+
+function signature(source) {
+    return tokenize(source).tokens
+        .filter((token) => token.kind !== "comment" && token.kind !== "eof")
+        .map((token) => (token.kind === "keyword" ? token.canonical : token.text))
+        .join("\n");
+}
+
+function commentsOf(source) {
+    return tokenize(source).tokens.filter((token) => token.kind === "comment").map((token) => token.text).join("\n");
+}
+
+check("keywords keep PascalCase and ASM", () => {
+    const { tokens } = tokenize("function IF asm ASM string myValue");
+    const words = tokens.filter((token) => token.kind !== "eof").map((token) => token.canonical || token.text);
+    assert.deepStrictEqual(words, ["Function", "If", "ASM", "ASM", "String", "myValue"]);
+    assert.strictEqual(tokens.find((token) => token.text === "myValue").kind, "identifier");
+});
+
+check("strings, comments, and ranges stay whole", () => {
+    const source = 'r$"a\\n{name}" // note\n/* block */ 1..=5 1..2 0xFF';
+    const kinds = tokenize(source).tokens.filter((token) => token.kind !== "eof").map((token) => token.kind);
+    assert.deepStrictEqual(kinds, ["string", "comment", "comment", "number", "operator", "number", "number", "operator", "number", "number"]);
+});
+
+check("keyword case waits for a boundary and ignores names", () => {
+    assert.strictEqual(keywordCaseEdits("function", 8, "n").length, 0);
+    const spaced = keywordCaseEdits("function ", 8, " ");
+    assert.strictEqual(spaced.length, 1);
+    assert.strictEqual(spaced[0].text, "Function");
+    assert.strictEqual(keywordCaseEdits("myfunction ", 11, " ").length, 0);
+    const pasted = keywordCaseEdits("if(true) { return false; }", 0, "if(true) { return false; }");
+    assert.deepStrictEqual(pasted.map((edit) => edit.text), ["If", "True", "Return", "False"]);
+});
+
+check("formatter keeps every token and is stable", () => {
+    const files = [];
+    function walk(dir) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (entry.name === "Build" || entry.name === "Editors" || entry.name === "node_modules") {
+                continue;
+            }
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                walk(full);
+            } else if (entry.name.endsWith(".rx") || entry.name.endsWith(".rxp")) {
+                files.push(full);
+            }
+        }
+    }
+    walk(root);
+    assert.ok(files.length > 40, `expected source files, found ${files.length}`);
+    for (const file of files) {
+        const source = fs.readFileSync(file, "utf8");
+        const formatted = file.endsWith(".rxp") ? formatProject(source) : formatRobix(source);
+        assert.strictEqual(signature(formatted), signature(source), `tokens changed in ${path.relative(root, file)}`);
+        assert.strictEqual(commentsOf(formatted), commentsOf(source), `comments changed in ${path.relative(root, file)}`);
+        const again = file.endsWith(".rxp") ? formatProject(formatted) : formatRobix(formatted);
+        assert.strictEqual(again, formatted, `unstable format in ${path.relative(root, file)}`);
+    }
+});
+
+check("statements, braces, and keyword case are formatted", () => {
+    const messy = 'package robotics.hello;\nimport robix.core;\npublic function main(Args<string> args)->int explain{description:"Hi";input:none;processing:"Add";output:"Zero";}{var total=0;for index in 1..=5{total=total+index;}if(total>0){print(total);}else{print(0);}return 0;}\n';
+    const formatted = formatRobix(messy);
+    assert.ok(formatted.includes("Package robotics.hello;"), formatted);
+    assert.ok(formatted.includes("Import robix.core;"), formatted);
+    assert.ok(formatted.includes("Public Function main(Args<String> args) -> Int\nExplain {"), formatted);
+    assert.ok(formatted.includes("For index In 1..=5 {"), formatted);
+    assert.ok(formatted.includes("} Else {"), formatted);
+    assert.ok(!formatted.includes("function"), formatted);
+    assert.ok(formatted.includes("myValue") === false);
+    const lines = formatted.trim().split("\n");
+    assert.ok(lines.every((line, index) => index === 0 || !line.endsWith(" ") ), "trailing space");
+    assert.strictEqual(formatRobix(formatted), formatted);
+});
+
+check("hello robot exposes symbols, completion, hover, and signatures", () => {
+    const source = fs.readFileSync(path.join(root, "Examples/HelloRobot.rx"), "utf8");
+    const doc = analyze(source);
+    const names = doc.symbols.map((symbol) => `${symbol.kind}:${symbol.name}`);
+    assert.ok(names.includes("function:Main"), names.join(", "));
+    assert.ok(names.includes("parameter:args"));
+    assert.ok(names.includes("variable:total"));
+    assert.ok(names.includes("variable:index"));
+    const errors = doc.diagnostics.filter((item) => item.severity === "error");
+    assert.deepStrictEqual(errors.map((item) => item.message), []);
+    const atTotal = source.indexOf("total = total");
+    const items = complete(source, atTotal).items.map((item) => item.label);
+    assert.ok(items.includes("Print"));
+    assert.ok(items.includes("Function"));
+    assert.ok(items.includes("total"));
+    assert.ok(items.includes("Int"));
+    const call = source.indexOf("Count");
+    const members = complete(source, call + 2).items.map((item) => item.label);
+    assert.ok(members.includes("Count") || members.includes("ToString"), members.join(", "));
+    const main = hover(source, source.indexOf("Function Main") + "Function ".length);
+    assert.ok(main.contents.includes("Main"));
+    const sign = signatureHelp(source, source.indexOf("Count()") + "Count(".length);
+    assert.ok(sign);
+    const defined = definition(source, source.indexOf("total ="));
+    assert.ok(defined.some((symbol) => symbol.name === "total"));
+});
+
+check("structural diagnostics catch broken code", () => {
+    const source = "Package Demo;\n\nPublic Function Main() -> Int {\n    Break;\n    Await work();\n    Return notDeclared;\n}\n";
+    const doc = analyze(source);
+    const messages = doc.diagnostics.map((item) => item.message);
+    assert.ok(messages.some((message) => message.includes("outside a loop")), messages.join("\n"));
+    assert.ok(messages.some((message) => message.includes("Await")), messages.join("\n"));
+    assert.ok(messages.some((message) => message.includes("notDeclared")), messages.join("\n"));
+    const mismatch = analyze("Package Demo;\nPublic Function Main() -> Int {\n    Return 0;\n");
+    assert.ok(mismatch.diagnostics.some((item) => item.message.includes("Unclosed")));
+});
+
+check("classes, enums, and tests keep their members", () => {
+    const objects = analyze(fs.readFileSync(path.join(root, "Examples/Objects.rx"), "utf8"));
+    assert.ok(objects.symbols.some((symbol) => symbol.kind === "class" && symbol.name === "RoboRobot"));
+    assert.ok(objects.symbols.some((symbol) => symbol.member && symbol.name === "Move"));
+    assert.ok(objects.symbols.some((symbol) => symbol.kind === "enumMember" && symbol.name === "Idle"));
+    const tests = analyze(fs.readFileSync(path.join(root, "NativeEmit.test.rx"), "utf8"));
+    assert.ok(tests.symbols.some((symbol) => symbol.name === "EmitDestructors"));
+    assert.ok(!tests.diagnostics.some((item) => item.severity === "error" && item.message.includes("already declared")));
+});
+
+check("user names are not recased", () => {
+    const source = "Package Demo;\n\nPublic Function Main() -> Int {\n    Var myValue = 1;\n    Return myValue;\n}\n";
+    const formatted = formatRobix(source);
+    assert.ok(formatted.includes("myValue"));
+    assert.ok(!formatted.includes("MyValue"));
+});
+
+if (failed > 0) {
+    console.error(`\n${failed} failed`);
+    process.exit(1);
+}
+console.log("\nall passed");

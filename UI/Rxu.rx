@@ -1,0 +1,3122 @@
+// RXU markup lexer and strict parser.
+// RX is logic. RXU is UI structure. The .rxp file is the project.
+// UI.Load will open a live document later. Import records a component file.
+// Include records embedded markup. This parser does not load either file.
+// Tags are XML-inspired, quoted or braced attributes, comments, and self-closing tags.
+// There is no XML declaration and no namespace. Else binds to the nearest If.
+// When, Default, and Otherwise bind to the nearest Choose or Switch.
+// While is rejected. {Binding}, {Resource}, and {Localization} are not executed.
+// A bare {Name} is a value expression. Quoted numbers and true/false keep their value mode.
+// UI.Load reads a document. Import and Include still do not open their files.
+// Loading does not show a document. Each load has its own tree and component names.
+// Properties are typed. Animation wins over local, style, inherited, then the default.
+Package Robix.UI;
+
+Import Robix.Core;
+
+
+Public Class RxuDiagnostic {
+    Public String Code;
+    Public String Message;
+    Public String Filename;
+    Public Int Line;
+    Public Int Column;
+    Public Int Length;
+    Public String Expected;
+    Public String Actual;
+    Public String Correction;
+
+    Public Constructor() {
+        This.Code = "";
+        This.Message = "";
+        This.Filename = "";
+        This.Line = 1;
+        This.Column = 1;
+        This.Length = 0;
+        This.Expected = "";
+        This.Actual = "";
+        This.Correction = "";
+    }
+}
+
+Public Class RxuMessages {
+    Private List<RxuDiagnostic> items;
+
+    Public Constructor() {
+        This.items = List<RxuDiagnostic>();
+    }
+
+    Public Function Add(
+        String code,
+        String message,
+        String filename,
+        Int line,
+        Int column,
+        Int length,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void
+    Explain {
+        Description: "Record one RXU diagnostic with its source location and repair.";
+        Input: code = "Stable RXU code", message = "What is wrong", filename = "Markup file name", line = "1-based line", column = "1-based column", length = "Span length", expected = "Expected markup", actual = "Markup that was found", correction = "How to repair it";
+        Processing: "Copy the text and append the diagnostic.";
+        Output: "No return value.";
+    } {
+        RxuDiagnostic item = RxuDiagnostic();
+        item.Code = code + "";
+        item.Message = message + "";
+        item.Filename = filename + "";
+        item.Line = line;
+        item.Column = column;
+        item.Length = length;
+        item.Expected = expected + "";
+        item.Actual = actual + "";
+        item.Correction = correction + "";
+        This.items.Add(item);
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Return how many RXU diagnostics are stored.";
+        Input: None;
+        Processing: "Read the diagnostic list size.";
+        Output: "The number of stored diagnostics.";
+    } {
+        Return This.items.Count();
+    }
+
+    Public Function At(Int index) -> RxuDiagnostic
+    Explain {
+        Description: "Return one stored RXU diagnostic.";
+        Input: index = "Zero-based diagnostic index";
+        Processing: "Read that diagnostic, or a blank one when the index is outside the list.";
+        Output: "The diagnostic at that index.";
+    } {
+        If (index < 0 || index >= This.items.Count()) {
+            Return RxuDiagnostic();
+        }
+        Return This.items[index];
+    }
+
+    Public Function Find(String code) -> Int
+    Explain {
+        Description: "Find the first diagnostic with a code.";
+        Input: code = "Stable RXU code";
+        Processing: "Scan the stored diagnostics.";
+        Output: "The index, or -1 when the code is absent.";
+    } {
+        Int index = 0;
+        While (index < This.items.Count()) {
+            If (This.items[index].Code == code) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Public Function FormatAt(Int index) -> String
+    Explain {
+        Description: "Format one diagnostic with file, position, span, and repair.";
+        Input: index = "Zero-based diagnostic index";
+        Processing: "Join the location, code, message, expected value, actual value, and correction.";
+        Output: "The diagnostic line, or an empty string when the index is absent.";
+    } {
+        If (index < 0 || index >= This.items.Count()) {
+            Return "";
+        }
+        RxuDiagnostic item = This.At(index);
+        String location = item.Line.ToString() + ":" + item.Column.ToString();
+        If (item.Filename != "") {
+            location = item.Filename + ":" + location;
+        }
+        String text = location + ": length " + item.Length.ToString() + ": error " + item.Code + " " + item.Message;
+        If (item.Expected != "" || item.Actual != "") {
+            text = text + " expected " + item.Expected + ", actual " + item.Actual;
+        }
+        If (item.Correction != "") {
+            text = text + " correction: " + item.Correction;
+        }
+        Return text;
+    }
+}
+
+Public Class RxuToken {
+    Public String Kind;
+    Public String Text;
+    Public String Mode;
+    Public Int Line;
+    Public Int Column;
+    Public Int Length;
+    Public Int Index;
+
+    Public Constructor() {
+        This.Kind = "";
+        This.Text = "";
+        This.Mode = "";
+        This.Line = 1;
+        This.Column = 1;
+        This.Length = 0;
+        This.Index = 0;
+    }
+}
+
+Public Class RxuNode {
+    Public String Kind;
+    Public String Name;
+    Public String Text;
+    Public String Mode;
+    Public Int Line;
+    Public Int Column;
+    Public Int Length;
+    Public List<RxuNode> Attributes;
+    Public List<RxuNode> Children;
+    Public RxuMessages Messages;
+
+    Public Constructor() {
+        This.Kind = "";
+        This.Name = "";
+        This.Text = "";
+        This.Mode = "";
+        This.Line = 1;
+        This.Column = 1;
+        This.Length = 0;
+        This.Attributes = List<RxuNode>();
+        This.Children = List<RxuNode>();
+        This.Messages = RxuMessages();
+    }
+
+    Public Function FindAttribute(String name) -> RxuNode
+    Explain {
+        Description: "Find a direct attribute by name.";
+        Input: name = "Attribute name";
+        Processing: "Scan the attributes of this node.";
+        Output: "The attribute, or a blank node when it is missing.";
+    } {
+        For attribute In This.Attributes {
+            If (attribute.Name == name) {
+                Return attribute;
+            }
+        }
+        Return RxuNode();
+    }
+
+    Public Function FindChild(String name) -> RxuNode
+    Explain {
+        Description: "Find a direct element child by name.";
+        Input: name = "Element name";
+        Processing: "Scan the direct children.";
+        Output: "The element, or a blank node when it is missing.";
+    } {
+        For child In This.Children {
+            If (child.Kind == "Element" && child.Name == name) {
+                Return child;
+            }
+        }
+        Return RxuNode();
+    }
+
+    Public Function FindKind(String kind) -> RxuNode
+    Explain {
+        Description: "Find a direct child by node kind.";
+        Input: kind = "Document, Element, Text, Comment, Expression, or Attribute";
+        Processing: "Scan the direct children.";
+        Output: "The child, or a blank node when it is missing.";
+    } {
+        For child In This.Children {
+            If (child.Kind == kind) {
+                Return child;
+            }
+        }
+        Return RxuNode();
+    }
+
+    Public Function Describe() -> String
+    Explain {
+        Description: "Describe this node and its children.";
+        Input: None;
+        Processing: "Write the kind, name, mode, text, and attributes, then each child.";
+        Output: "A multiline description.";
+    } {
+        Return This.DescribeAt(0);
+    }
+
+    Private Function DescribeAt(Int depth) -> String {
+        String line = "";
+        Int pad = 0;
+        While (pad < depth) {
+            line = line + "  ";
+            pad = pad + 1;
+        }
+        line = line + This.Kind;
+        If (This.Name != "") {
+            line = line + " " + This.Name;
+        }
+        If (This.Mode != "") {
+            line = line + " " + This.Mode;
+        }
+        If (This.Text != "") {
+            line = line + " " + This.Text;
+        }
+        For attribute In This.Attributes {
+            line = line + " " + attribute.Name + "=" + attribute.Mode + ":" + attribute.Text;
+        }
+        For child In This.Children {
+            line = line + "\n" + child.DescribeAt(depth + 1);
+        }
+        Return line;
+    }
+}
+
+Public Class RxuLexer {
+    Private String filename;
+    Private String source;
+    Private Int index;
+    Private Int line;
+    Private Int column;
+    Private Bool inTag;
+    Private String classified;
+    Private List<RxuToken> tokens;
+    Private RxuMessages messages;
+
+    Public Constructor() {
+        This.filename = "";
+        This.source = "";
+        This.index = 0;
+        This.line = 1;
+        This.column = 1;
+        This.inTag = False;
+        This.classified = "";
+        This.tokens = List<RxuToken>();
+        This.messages = RxuMessages();
+    }
+
+    Public Function Tokenize(String filename, String source) -> Void
+    Explain {
+        Description: "Turn RXU markup into tokens.";
+        Input: filename = "Markup file name", source = "RXU source text";
+        Processing: "Read tags, attributes, strings, comments, text, and expressions.";
+        Output: "No return value. The tokens stay on this lexer.";
+    } {
+        This.Reset(filename, source);
+        This.Scan();
+        This.Take("End", "", "", This.line, This.column, This.index);
+    }
+
+    Public Function TokenCount() -> Int
+    Explain {
+        Description: "Return how many tokens were read.";
+        Input: None;
+        Processing: "Read the token list size.";
+        Output: "The number of tokens, including End.";
+    } {
+        Return This.tokens.Count();
+    }
+
+    Public Function TokenAt(Int index) -> RxuToken
+    Explain {
+        Description: "Return one token by index.";
+        Input: index = "Zero-based token index";
+        Processing: "Read that token, or a blank token when the index is outside the list.";
+        Output: "The token at that index.";
+    } {
+        If (index < 0 || index >= This.tokens.Count()) {
+            Return RxuToken();
+        }
+        Return This.tokens[index];
+    }
+
+    Public Function LexerDiagnostics() -> RxuMessages
+    Explain {
+        Description: "Return the diagnostics recorded while tokenizing.";
+        Input: None;
+        Processing: "Hand back the message bag filled by Tokenize.";
+        Output: "The lexer diagnostics.";
+    } {
+        Return This.messages;
+    }
+
+    Private Function Reset(String filename, String source) -> Void {
+        This.filename = filename + "";
+        This.source = source + "";
+        This.index = 0;
+        This.line = 1;
+        This.column = 1;
+        This.inTag = False;
+        This.classified = "";
+        This.tokens = List<RxuToken>();
+        This.messages = RxuMessages();
+    }
+
+    Private Function Scan() -> Void {
+        Int guard = 0;
+        Int limit = This.source.Length() + 8;
+        While (This.index < This.source.Length() && guard < limit) {
+            Int before = This.index;
+            If (This.inTag) {
+                This.SkipSpace();
+                If (This.index >= This.source.Length()) {
+                    Break;
+                }
+                If (This.StartsWith("<!--")) {
+                    This.ReadComment();
+                } Else If (This.PeekChar(0) == ">") {
+                    Int start = This.index;
+                    Int startLine = This.line;
+                    Int startColumn = This.column;
+                    This.Advance();
+                    This.Take("Close", ">", "", startLine, startColumn, start);
+                    This.inTag = False;
+                } Else If (This.PeekChar(0) == "/") {
+                    Int start = This.index;
+                    Int startLine = This.line;
+                    Int startColumn = This.column;
+                    This.Advance();
+                    This.Take("Slash", "/", "", startLine, startColumn, start);
+                } Else If (This.PeekChar(0) == "=") {
+                    Int start = This.index;
+                    Int startLine = This.line;
+                    Int startColumn = This.column;
+                    This.Advance();
+                    This.Take("Equals", "=", "", startLine, startColumn, start);
+                } Else If (This.PeekChar(0) == "\"" || This.PeekChar(0) == "'") {
+                    This.ReadString();
+                } Else If (This.PeekChar(0) == "{") {
+                    This.ReadExpression();
+                } Else If (This.IsDigit(This.PeekChar(0))) {
+                    This.ReadNumber();
+                } Else If (This.IsNameStart(This.PeekChar(0))) {
+                    This.ReadName();
+                    If (This.PeekChar(0) == ":") {
+                        This.LexerFail("RXU015", "XML namespaces are not allowed.", This.line, This.column, "a name without a namespace", ":", "Remove the namespace prefix.");
+                        This.Advance();
+                        While (This.IsNamePart(This.PeekChar(0))) {
+                            This.Advance();
+                        }
+                    }
+                } Else {
+                    This.LexerFail("RXU003", "This character is not valid inside a tag.", This.line, This.column, "a name, value, '/' or '>'", This.PeekChar(0), "Rewrite the tag.");
+                    This.Advance();
+                }
+            } Else If (This.StartsWith("<!--")) {
+                This.ReadComment();
+            } Else If (This.StartsWith("<?")) {
+                This.SkipDeclaration();
+            } Else If (This.StartsWith("<!")) {
+                This.LexerFail("RXU003", "This markup is not a comment or a tag.", This.line, This.column, "<!-- or a tag", "<!", "Use a tag or a comment.");
+                While (This.index < This.source.Length() && This.PeekChar(0) != ">") {
+                    This.Advance();
+                }
+                If (This.PeekChar(0) == ">") {
+                    This.Advance();
+                }
+            } Else If (This.PeekChar(0) == "<") {
+                Int start = This.index;
+                Int startLine = This.line;
+                Int startColumn = This.column;
+                This.Advance();
+                This.Take("Open", "<", "", startLine, startColumn, start);
+                This.inTag = True;
+            } Else If (This.PeekChar(0) == "{") {
+                This.ReadExpression();
+            } Else {
+                This.ReadText();
+            }
+            If (This.index == before) {
+                This.LexerFail("RXU003", "The markup could not be read here.", This.line, This.column, "more markup", This.PeekChar(0), "Remove the invalid character.");
+                This.Advance();
+            }
+            guard = guard + 1;
+        }
+    }
+
+    Private Function Take(String kind, String text, String mode, Int line, Int column, Int start) -> Void {
+        RxuToken token = RxuToken();
+        token.Kind = kind + "";
+        token.Text = text + "";
+        token.Mode = mode + "";
+        token.Line = line;
+        token.Column = column;
+        token.Index = start;
+        token.Length = This.index - start;
+        If (token.Length < 0) {
+            token.Length = 0;
+        }
+        This.tokens.Add(token);
+    }
+
+    Private Function LexerFail(
+        String code,
+        String message,
+        Int line,
+        Int column,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void {
+        This.messages.Add(code, message, This.filename, line, column, 1, expected, actual, correction);
+    }
+
+    Private Function Advance() -> Void {
+        If (This.index >= This.source.Length()) {
+            Return;
+        }
+        String character = This.PeekChar(0);
+        This.index = This.index + 1;
+        If (character == "\n") {
+            This.line = This.line + 1;
+            This.column = 1;
+        } Else {
+            This.column = This.column + 1;
+        }
+    }
+
+    Private Function PeekChar(Int offset) -> String {
+        Int position = This.index + offset;
+        If (position < 0 || position >= This.source.Length()) {
+            Return "";
+        }
+        Return This.source.Substring(position, 1);
+    }
+
+    Private Function StartsWith(String text) -> Bool {
+        If (This.index + text.Length() > This.source.Length()) {
+            Return False;
+        }
+        Return This.source.Substring(This.index, text.Length()) == text;
+    }
+
+    Private Function SkipSpace() -> Void {
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == " " || character == "\t" || character == "\r" || character == "\n") {
+                This.Advance();
+            } Else {
+                Break;
+            }
+        }
+    }
+
+    Private Function ReadName() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        This.Advance();
+        While (This.IsNamePart(This.PeekChar(0))) {
+            This.Advance();
+        }
+        String text = This.source.Substring(start, This.index - start);
+        String kind = "Name";
+        If (text == "true" || text == "false" || text == "True" || text == "False") {
+            kind = "Boolean";
+        }
+        This.Take(kind, text, "", startLine, startColumn, start);
+    }
+
+    Private Function ReadNumber() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        While (This.IsDigit(This.PeekChar(0))) {
+            This.Advance();
+        }
+        If (This.PeekChar(0) == "." && This.IsDigit(This.PeekChar(1))) {
+            This.Advance();
+            While (This.IsDigit(This.PeekChar(0))) {
+                This.Advance();
+            }
+        }
+        String text = This.source.Substring(start, This.index - start);
+        This.Take("Number", text, "", startLine, startColumn, start);
+    }
+
+    Private Function ReadString() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        String quote = This.PeekChar(0);
+        This.Advance();
+        String value = "";
+        Int chunk = This.index;
+        Bool closed = False;
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == "\\") {
+                If (This.index > chunk) {
+                    value = value + This.source.Substring(chunk, This.index - chunk);
+                }
+                This.Advance();
+                String escaped = This.PeekChar(0);
+                If (escaped == "n") {
+                    value = value + "\n";
+                } Else If (escaped == "r") {
+                    value = value + "\r";
+                } Else If (escaped == "t") {
+                    value = value + "\t";
+                } Else If (escaped == "") {
+                    value = value + "\\";
+                } Else {
+                    value = value + escaped;
+                }
+                If (escaped != "") {
+                    This.Advance();
+                }
+                chunk = This.index;
+            } Else If (character == quote) {
+                If (This.index > chunk) {
+                    value = value + This.source.Substring(chunk, This.index - chunk);
+                }
+                This.Advance();
+                closed = True;
+                Break;
+            } Else {
+                This.Advance();
+            }
+        }
+        If (!closed) {
+            If (This.index > chunk) {
+                value = value + This.source.Substring(chunk, This.index - chunk);
+            }
+            This.LexerFail("RXU004", "This string is not closed.", startLine, startColumn, quote, "end of document", "Close the string with the same quote.");
+        }
+        This.Take("String", value, "String", startLine, startColumn, start);
+    }
+
+    Private Function ReadText() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == "<" || character == "{") {
+                Break;
+            }
+            This.Advance();
+        }
+        If (This.index == start) {
+            Return;
+        }
+        String text = This.source.Substring(start, This.index - start);
+        This.Take("Text", text, "", startLine, startColumn, start);
+    }
+
+    Private Function ReadExpression() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        This.Advance();
+        Int depth = 1;
+        Bool closed = False;
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == "\"" || character == "'") {
+                String quote = character;
+                This.Advance();
+                While (This.index < This.source.Length() && This.PeekChar(0) != quote) {
+                    If (This.PeekChar(0) == "\\") {
+                        This.Advance();
+                    }
+                    If (This.index < This.source.Length()) {
+                        This.Advance();
+                    }
+                }
+                If (This.PeekChar(0) == quote) {
+                    This.Advance();
+                }
+            } Else If (character == "{") {
+                depth = depth + 1;
+                This.Advance();
+            } Else If (character == "}") {
+                depth = depth - 1;
+                This.Advance();
+                If (depth == 0) {
+                    closed = True;
+                    Break;
+                }
+            } Else {
+                This.Advance();
+            }
+        }
+        Int bodyStart = start + 1;
+        Int bodyLength = This.index - bodyStart;
+        If (closed) {
+            bodyLength = bodyLength - 1;
+        }
+        If (bodyLength < 0) {
+            bodyLength = 0;
+        }
+        String body = This.source.Substring(bodyStart, bodyLength);
+        If (!closed) {
+            This.LexerFail("RXU005", "This expression is not closed.", startLine, startColumn, "}", "end of document", "Close the expression with '}'.");
+        }
+        String mode = This.Classify(body, startLine, startColumn);
+        This.Take("Expression", This.classified, mode, startLine, startColumn, start);
+    }
+
+    Private Function ReadComment() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        This.Advance();
+        This.Advance();
+        This.Advance();
+        This.Advance();
+        Int body = This.index;
+        Bool closed = False;
+        While (This.index < This.source.Length()) {
+            If (This.StartsWith("-->")) {
+                String text = This.source.Substring(body, This.index - body);
+                This.Advance();
+                This.Advance();
+                This.Advance();
+                This.Take("Comment", text, "", startLine, startColumn, start);
+                closed = True;
+                Break;
+            }
+            This.Advance();
+        }
+        If (!closed) {
+            String text = "";
+            If (This.index > body) {
+                text = This.source.Substring(body, This.index - body);
+            }
+            This.LexerFail("RXU006", "This comment is not closed.", startLine, startColumn, "-->", "end of document", "End the comment with -->.");
+            This.Take("Comment", text, "", startLine, startColumn, start);
+        }
+    }
+
+    Private Function SkipDeclaration() -> Void {
+        This.LexerFail("RXU009", "An XML declaration is not allowed.", This.line, This.column, "an element", "<?", "Remove the XML declaration.");
+        While (This.index < This.source.Length()) {
+            If (This.StartsWith("?>")) {
+                This.Advance();
+                This.Advance();
+                Break;
+            }
+            If (This.PeekChar(0) == ">") {
+                This.Advance();
+                Break;
+            }
+            This.Advance();
+        }
+    }
+
+    Private Function Classify(String body, Int line, Int column) -> String {
+        String text = body.Trim();
+        If (text.Length() == 0) {
+            This.LexerFail("RXU007", "An expression cannot be empty.", line, column, "a value, binding, resource, or localization", "empty", "Write the expression inside the braces.");
+            This.classified = "";
+            Return "Expression";
+        }
+        If (This.HasKeyword(text, "Binding")) {
+            This.classified = This.AfterKeyword(text, "Binding");
+            Return "Binding";
+        }
+        If (This.HasKeyword(text, "Resource")) {
+            This.classified = This.AfterKeyword(text, "Resource");
+            Return "Resource";
+        }
+        If (This.HasKeyword(text, "Localization")) {
+            This.classified = This.AfterKeyword(text, "Localization");
+            Return "Localization";
+        }
+        This.classified = text + "";
+        Return "Expression";
+    }
+
+    Private Function HasKeyword(String text, String keyword) -> Bool {
+        If (text == keyword) {
+            Return True;
+        }
+        If (text.StartsWith(keyword) && text.Length() > keyword.Length()) {
+            String next = text.Substring(keyword.Length(), 1);
+            If (next == " " || next == "\t") {
+                Return True;
+            }
+        }
+        Return False;
+    }
+
+    Private Function AfterKeyword(String text, String keyword) -> String {
+        If (text == keyword) {
+            Return "";
+        }
+        Return text.Substring(keyword.Length() + 1).Trim() + "";
+    }
+
+    Private Function IsDigit(String character) -> Bool {
+        If (character.Length() != 1) {
+            Return False;
+        }
+        Return character >= "0" && character <= "9";
+    }
+
+    Private Function IsNameStart(String character) -> Bool {
+        If (character.Length() != 1) {
+            Return False;
+        }
+        If (character >= "A" && character <= "Z") {
+            Return True;
+        }
+        If (character >= "a" && character <= "z") {
+            Return True;
+        }
+        Return character == "_";
+    }
+
+    Private Function IsNamePart(String character) -> Bool {
+        If (This.IsNameStart(character) || This.IsDigit(character)) {
+            Return True;
+        }
+        Return character == "-";
+    }
+}
+
+Public Class RxuParser {
+    Private String filename;
+    Private List<RxuToken> tokens;
+    Private RxuMessages messages;
+    Private Int index;
+
+    Public Constructor() {
+        This.filename = "";
+        This.tokens = List<RxuToken>();
+        This.messages = RxuMessages();
+        This.index = 0;
+    }
+
+    Public Function Parse(String filename, String source) -> RxuNode
+    Explain {
+        Description: "Parse RXU markup into a position-aware tree.";
+        Input: filename = "Markup file name", source = "RXU source text";
+        Processing: "Tokenize the markup, parse elements, and bind Else and choice branches.";
+        Output: "The document tree. Diagnostics are stored on the document.";
+    } {
+        RxuLexer lexer = RxuLexer();
+        This.filename = filename + "";
+        lexer.Tokenize(filename, source);
+        This.messages = lexer.LexerDiagnostics();
+        This.tokens = List<RxuToken>();
+        Int count = lexer.TokenCount();
+        Int cursor = 0;
+        While (cursor < count) {
+            This.tokens.Add(lexer.TokenAt(cursor));
+            cursor = cursor + 1;
+        }
+        This.index = 0;
+        RxuNode document = This.ParseDocument();
+        document.Messages = This.messages;
+        Return document;
+    }
+
+    Private Function ParseDocument() -> RxuNode {
+        RxuNode document = This.MakeNode("Document", This.filename, "", "", 1, 1, 0);
+        This.ParseSequence(document);
+        If (!This.AtKind("End")) {
+            RxuToken extra = This.PeekToken();
+            This.ParserFail("RXU003", "Markup remains after the document.", extra.Line, extra.Column, extra.Length, "end of document", extra.Kind, "Remove the extra markup.");
+        }
+        document.Messages = This.messages;
+        Return document;
+    }
+
+    Private Function ParseSequence(RxuNode parent) -> Void {
+        RxuNode held = RxuNode();
+        held.Name = parent.Name + "";
+        Int guard = 0;
+        While (!This.AtKind("End") && guard < This.tokens.Count() + 2) {
+            If (This.AtKind("Open") && This.KindAt(1) == "Slash") {
+                Break;
+            }
+            Int before = This.index;
+            If (This.AtKind("Open")) {
+                held.Children.Add(This.ParseElement());
+            } Else If (This.AtKind("Text")) {
+                held.Children.Add(This.NodeFromToken("Text"));
+            } Else If (This.AtKind("Comment")) {
+                held.Children.Add(This.NodeFromToken("Comment"));
+            } Else If (This.AtKind("Expression")) {
+                held.Children.Add(This.NodeFromToken("Expression"));
+            } Else {
+                RxuToken bad = This.PeekToken();
+                This.ParserFail("RXU003", "This token cannot appear here.", bad.Line, bad.Column, bad.Length, "an element, text, comment, or expression", bad.Kind, "Rewrite this part of the markup.");
+                This.AdvanceToken();
+            }
+            If (This.index == before) {
+                This.AdvanceToken();
+            }
+            guard = guard + 1;
+        }
+        This.BindFlow(held);
+        parent.Children = List<RxuNode>();
+        Int cursor = 0;
+        While (cursor < held.Children.Count()) {
+            parent.Children.Add(held.Children[cursor]);
+            cursor = cursor + 1;
+        }
+    }
+
+    Private Function ParseElement() -> RxuNode {
+        RxuToken open = This.ExpectKind("Open", "RXU003", "A tag must start with '<'.", "<", "Start the tag with '<'.");
+        RxuToken name = This.ExpectKind("Name", "RXU003", "A tag needs a name.", "a name", "Write the element name after '<'.");
+        If (name.Text == "While") {
+            This.ParserFail("RXU008", "While is not allowed in RXU.", name.Line, name.Column, name.Length, "If, Each, or For", "While", "Use If, Each, For, or ForEach.");
+        }
+        RxuNode node = This.MakeNode("Element", name.Text, "", "Pair", open.Line, open.Column, open.Length);
+        This.ParseAttributes(node);
+        If (This.AtKind("Slash")) {
+            This.AdvanceToken();
+            RxuToken close = This.ExpectKind("Close", "RXU003", "A self-closing tag must end with '/>'.", ">", "End the tag with '/>'.");
+            node.Mode = "Empty";
+            node.Length = close.Index + close.Length - open.Index;
+            If (node.Length < 0) {
+                node.Length = 1;
+            }
+            Return node;
+        }
+        RxuToken close = This.ExpectKind("Close", "RXU003", "A tag must end with '>'.", ">", "End the tag with '>'.");
+        This.ParseSequence(node);
+        If (This.AtKind("End")) {
+            This.ParserFail("RXU002", "This tag is not closed.", open.Line, open.Column, open.Length, "</" + name.Text + ">", "end of document", "Add the matching end tag.");
+            node.Length = close.Index + close.Length - open.Index;
+            If (node.Length < 0) {
+                node.Length = 1;
+            }
+            Return node;
+        }
+        This.ExpectKind("Open", "RXU003", "An end tag must start with '</'.", "</", "Close the element with an end tag.");
+        This.ExpectKind("Slash", "RXU003", "An end tag must start with '</'.", "/", "Write '/' after '<'.");
+        RxuToken endName = This.ExpectKind("Name", "RXU003", "An end tag needs the element name.", name.Text, "Write the matching element name.");
+        If (endName.Text != name.Text) {
+            This.ParserFail("RXU001", "The end tag does not match the open tag.", endName.Line, endName.Column, endName.Length, name.Text, endName.Text, "Close <" + name.Text + "> with </" + name.Text + ">.");
+        }
+        RxuToken endClose = This.ExpectKind("Close", "RXU003", "An end tag must end with '>'.", ">", "End the tag with '>'.");
+        node.Length = endClose.Index + endClose.Length - open.Index;
+        If (node.Length < 0) {
+            node.Length = 1;
+        }
+        Return node;
+    }
+
+    Private Function ParseAttributes(RxuNode node) -> Void {
+        While (This.AtKind("Name")) {
+            Int before = This.index;
+            RxuToken attributeName = This.PeekToken();
+            This.AdvanceToken();
+            String mode = "Boolean";
+            String text = "true";
+            Int length = attributeName.Length;
+            Int valueIndex = attributeName.Index;
+            Int valueLength = attributeName.Length;
+            If (This.AtKind("Equals")) {
+                This.AdvanceToken();
+                RxuToken value = This.PeekToken();
+                If (value.Kind == "String" || value.Kind == "Number" || value.Kind == "Boolean" || value.Kind == "Expression") {
+                    mode = "String";
+                    If (value.Kind == "String") {
+                        mode = This.QuotedMode(value.Text);
+                    } Else If (value.Kind == "Number") {
+                        mode = "Number";
+                        If (value.Text.Contains(".")) {
+                            mode = "Float";
+                        }
+                    } Else If (value.Kind == "Boolean") {
+                        mode = "Boolean";
+                    } Else If (value.Kind == "Expression") {
+                        mode = value.Mode;
+                    }
+                    text = value.Text;
+                    valueIndex = value.Index;
+                    valueLength = value.Length;
+                    This.AdvanceToken();
+                } Else {
+                    This.ParserFail("RXU003", "An attribute needs a quoted value or an expression.", value.Line, value.Column, value.Length, "a value", value.Kind, "Quote the value or write a braced expression.");
+                }
+            }
+            length = valueIndex + valueLength - attributeName.Index;
+            If (length < 0) {
+                length = attributeName.Length;
+            }
+            RxuNode attribute = This.MakeNode("Attribute", attributeName.Text, text, mode, attributeName.Line, attributeName.Column, length);
+            node.Attributes.Add(attribute);
+            If (This.index == before) {
+                This.AdvanceToken();
+            }
+        }
+    }
+
+    Private Function BindFlow(RxuNode parent) -> Void {
+        RxuNode held = RxuNode();
+        held.Name = parent.Name + "";
+        Int count = parent.Children.Count();
+        Int cursor = 0;
+        While (cursor < count) {
+            RxuNode node = parent.Children[cursor];
+            If (node.Kind == "Element" && (node.Name == "Else" || node.Name == "ElseIf")) {
+                If (parent.Name == "If" || parent.Name == "ElseIf") {
+                    This.RejectDuplicateElse(held, node);
+                    held.Children.Add(node);
+                } Else {
+                    Int owner = This.LastNamed(held, "If");
+                    If (owner < 0) {
+                        This.ParserFail("RXU010", "Else and ElseIf must follow an If.", node.Line, node.Column, node.Length, "If", node.Name, "Put this branch after an If.");
+                        held.Children.Add(node);
+                    } Else {
+                        This.RejectDuplicateElse(held.Children[owner], node);
+                        held.Children[owner].Children.Add(node);
+                    }
+                }
+            } Else If (node.Kind == "Element" && (node.Name == "When" || node.Name == "Default" || node.Name == "Otherwise")) {
+                If (parent.Name == "Choose" || parent.Name == "Switch") {
+                    This.RejectDuplicateDefault(held, node);
+                    held.Children.Add(node);
+                } Else {
+                    Int owner = This.LastNamed(held, "Choose");
+                    If (owner < 0) {
+                        owner = This.LastNamed(held, "Switch");
+                    }
+                    If (owner < 0) {
+                        This.ParserFail("RXU011", "This branch needs a Choose or Switch.", node.Line, node.Column, node.Length, "Choose or Switch", node.Name, "Place it after Choose or Switch.");
+                        held.Children.Add(node);
+                    } Else {
+                        This.RejectDuplicateDefault(held.Children[owner], node);
+                        held.Children[owner].Children.Add(node);
+                    }
+                }
+            } Else {
+                held.Children.Add(node);
+            }
+            cursor = cursor + 1;
+        }
+        parent.Children = List<RxuNode>();
+        cursor = 0;
+        While (cursor < held.Children.Count()) {
+            parent.Children.Add(held.Children[cursor]);
+            cursor = cursor + 1;
+        }
+    }
+
+    Private Function RejectDuplicateElse(RxuNode parent, RxuNode node) -> Void {
+        If (node.Name == "Else" && This.NodeHas(parent, "Else")) {
+            This.ParserFail("RXU012", "An If already has an Else.", node.Line, node.Column, node.Length, "one Else", "another Else", "Keep a single Else on this If.");
+        }
+        If (node.Name == "ElseIf" && This.NodeHas(parent, "Else")) {
+            This.ParserFail("RXU012", "ElseIf cannot follow Else.", node.Line, node.Column, node.Length, "ElseIf before Else", "ElseIf after Else", "Move ElseIf before Else.");
+        }
+    }
+
+    Private Function RejectDuplicateDefault(RxuNode parent, RxuNode node) -> Void {
+        If ((node.Name == "Default" || node.Name == "Otherwise") && (This.NodeHas(parent, "Default") || This.NodeHas(parent, "Otherwise"))) {
+            This.ParserFail("RXU013", "A choice already has a default branch.", node.Line, node.Column, node.Length, "one Default or Otherwise", node.Name, "Keep a single default branch.");
+        }
+    }
+
+    Private Function LastNamed(RxuNode parent, String name) -> Int {
+        Int cursor = parent.Children.Count() - 1;
+        While (cursor >= 0) {
+            RxuNode item = parent.Children[cursor];
+            If (item.Kind == "Element" && item.Name == name) {
+                Return cursor;
+            }
+            cursor = cursor - 1;
+        }
+        Return -1;
+    }
+
+    Private Function NodeHas(RxuNode parent, String name) -> Bool {
+        Int cursor = 0;
+        While (cursor < parent.Children.Count()) {
+            RxuNode node = parent.Children[cursor];
+            If (node.Kind == "Element" && node.Name == name) {
+                Return True;
+            }
+            cursor = cursor + 1;
+        }
+        Return False;
+    }
+
+    Private Function ParserFail(
+        String code,
+        String message,
+        Int line,
+        Int column,
+        Int length,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void {
+        Int span = length;
+        If (span < 1) {
+            span = 1;
+        }
+        This.messages.Add(code, message, This.filename, line, column, span, expected, actual, correction);
+    }
+
+    Private Function PeekToken() -> RxuToken {
+        If (This.index < 0 || This.index >= This.tokens.Count()) {
+            Return This.EndToken();
+        }
+        Return This.tokens[This.index];
+    }
+
+    Private Function KindAt(Int offset) -> String {
+        Int at = This.index + offset;
+        If (at < 0 || at >= This.tokens.Count()) {
+            Return "End";
+        }
+        Return This.tokens[at].Kind;
+    }
+
+    Private Function AtKind(String kind) -> Bool {
+        Return This.PeekToken().Kind == kind;
+    }
+
+    Private Function AdvanceToken() -> Void {
+        If (This.index < This.tokens.Count()) {
+            This.index = This.index + 1;
+        }
+    }
+
+    Private Function ExpectKind(String kind, String code, String message, String expected, String correction) -> RxuToken {
+        RxuToken token = This.PeekToken();
+        If (token.Kind == kind) {
+            This.AdvanceToken();
+            Return token;
+        }
+        This.ParserFail(code, message, token.Line, token.Column, token.Length, expected, token.Kind, correction);
+        If (token.Kind != "End") {
+            This.AdvanceToken();
+        }
+        Return token;
+    }
+
+    Private Function QuotedMode(String text) -> String {
+        If (text == "true" || text == "false" || text == "True" || text == "False") {
+            Return "Boolean";
+        }
+        Int index = 0;
+        If (text.Length() > 0 && text.Substring(0, 1) == "-") {
+            index = 1;
+        }
+        If (index >= text.Length()) {
+            Return "String";
+        }
+        Bool digit = False;
+        Bool dot = False;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == "." && !dot && digit) {
+                dot = True;
+                digit = False;
+            } Else If (character >= "0" && character <= "9") {
+                digit = True;
+            } Else {
+                Return "String";
+            }
+            index = index + 1;
+        }
+        If (!digit) {
+            Return "String";
+        }
+        If (dot) {
+            Return "Float";
+        }
+        Return "Number";
+    }
+
+    Private Function MakeNode(String kind, String name, String text, String mode, Int line, Int column, Int length) -> RxuNode {
+        RxuNode node = RxuNode();
+        node.Kind = kind + "";
+        node.Name = name + "";
+        node.Text = text + "";
+        node.Mode = mode + "";
+        node.Line = line;
+        node.Column = column;
+        node.Length = length;
+        Return node;
+    }
+
+    Private Function NodeFromToken(String kind) -> RxuNode {
+        RxuToken token = This.PeekToken();
+        String name = "";
+        If (kind == "Expression") {
+            name = token.Mode;
+        }
+        RxuNode node = This.MakeNode(kind, name, token.Text, token.Mode, token.Line, token.Column, token.Length);
+        This.AdvanceToken();
+        Return node;
+    }
+
+    Private Function EndToken() -> RxuToken {
+        RxuToken token = RxuToken();
+        token.Kind = "End";
+        token.Line = 1;
+        token.Column = 1;
+        Return token;
+    }
+}
+
+Public Class RxuInstance {
+    Public String Id;
+    Public String UserId;
+    Public String Name;
+    Public String Kind;
+    Public String Text;
+    Public String ParentId;
+    Public String DocumentId;
+    Public Bool Disposed;
+    Public List<RxuInstance> Children;
+
+    Public Constructor() {
+        This.Id = "";
+        This.UserId = "";
+        This.Name = "";
+        This.Kind = "";
+        This.Text = "";
+        This.ParentId = "";
+        This.DocumentId = "";
+        This.Disposed = False;
+        This.Children = List<RxuInstance>();
+    }
+}
+
+Public Class RxuDocument {
+    Public String Id;
+    Public String Path;
+    Public String Source;
+    Public String State;
+    Public RxuInstance Root;
+    Public RxuMessages Messages;
+    Public Bool Disposed;
+    Public List<String> componentNames;
+    Public List<RxuNode> componentNodes;
+    Public List<String> seenIds;
+
+    Public Constructor() {
+        This.Id = "";
+        This.Path = "";
+        This.Source = "";
+        This.State = "";
+        This.Root = RxuInstance();
+        This.Messages = RxuMessages();
+        This.Disposed = False;
+        This.componentNames = List<String>();
+        This.componentNodes = List<RxuNode>();
+        This.seenIds = List<String>();
+    }
+
+    Public Function ComponentCount() -> Int
+    Explain {
+        Description: "Return how many component definitions this document recorded.";
+        Input: None;
+        Processing: "Read this document's component list.";
+        Output: "The number of recorded components.";
+    } {
+        Return This.componentNames.Count();
+    }
+
+    Public Function ComponentName(Int index) -> String
+    Explain {
+        Description: "Return one recorded component name.";
+        Input: index = "Zero-based component index";
+        Processing: "Read the name at that index.";
+        Output: "The component name, or empty text when the index is outside the list.";
+    } {
+        If (index < 0 || index >= This.componentNames.Count()) {
+            Return "";
+        }
+        Return This.componentNames[index];
+    }
+}
+
+Public Class DocumentManager {
+    Private List<RxuDocument> documents;
+    Private Int nextDocument;
+    Private Int nextNode;
+
+    Public Constructor() {
+        This.documents = List<RxuDocument>();
+        This.nextDocument = 0;
+        This.nextNode = 0;
+    }
+
+    Public Function Load(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU file into a new document.";
+        Input: path = "Path of the markup file";
+        Processing: "Read the file, parse it, and keep a private component tree.";
+        Output: "The loaded document, or a failed document when the file or markup is invalid.";
+    } {
+        If (!Files.Exists(path)) {
+            Return This.FailMissing(path);
+        }
+        Return This.Adopt(path, Files.ReadText(path));
+    }
+
+    Public Function LoadAsync(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU file and finish before returning.";
+        Input: path = "Path of the markup file";
+        Processing: "Call Load. This headless runtime has no background loader.";
+        Output: "The same document Load returns.";
+    } {
+        Return This.Load(path);
+    }
+
+    Public Function LoadMany(List<String> paths) -> Int
+    Explain {
+        Description: "Load several RXU files.";
+        Input: paths = "Markup file paths";
+        Processing: "Load each path as its own document.";
+        Output: "The number of documents added.";
+    } {
+        Int added = 0;
+        Int index = 0;
+        While (index < paths.Count()) {
+            This.Load(paths[index]);
+            added = added + 1;
+            index = index + 1;
+        }
+        Return added;
+    }
+
+    Public Function Reload(String id) -> RxuDocument
+    Explain {
+        Description: "Parse a loaded document again and keep its id.";
+        Input: id = "Document id";
+        Processing: "Read the stored source or file, replace the tree, and return to Loaded.";
+        Output: "The same document, or a blank document when the id is gone.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.Id == "") {
+            Return document;
+        }
+        String source = document.Source;
+        If (document.Path != "" && document.Path != "memory" && Files.Exists(document.Path)) {
+            source = Files.ReadText(document.Path);
+        }
+        This.Fill(document, document.Path, source);
+        Return document;
+    }
+
+    Public Function ReloadAsync(String id) -> RxuDocument
+    Explain {
+        Description: "Reload a document and finish before returning.";
+        Input: id = "Document id";
+        Processing: "Call Reload. This headless runtime has no background loader.";
+        Output: "The same document Reload returns.";
+    } {
+        Return This.Reload(id);
+    }
+
+    Public Function Unload(String id) -> Void
+    Explain {
+        Description: "Drop a document and mark its tree disposed.";
+        Input: id = "Document id";
+        Processing: "Dispose the instance tree and remove the document.";
+        Output: "No return value.";
+    } {
+        Int index = 0;
+        While (index < This.documents.Count()) {
+            If (This.documents[index].Id == id) {
+                This.DisposeInstance(This.documents[index].Root);
+                This.documents[index].Disposed = True;
+                This.documents[index].State = "Unloaded";
+                This.documents[index].Root = RxuInstance();
+                Int cursor = 0;
+                Var kept = List<RxuDocument>();
+                While (cursor < This.documents.Count()) {
+                    If (cursor != index) {
+                        kept.Add(This.documents[cursor]);
+                    }
+                    cursor = cursor + 1;
+                }
+                This.documents = kept;
+                Return;
+            }
+            index = index + 1;
+        }
+    }
+
+    Public Function CreateDocument(String source) -> RxuDocument
+    Explain {
+        Description: "Create a document from markup text.";
+        Input: source = "RXU markup";
+        Processing: "Parse the text into a private document with path memory.";
+        Output: "The created document.";
+    } {
+        Return This.Adopt("memory", source);
+    }
+
+    Public Function GetDocuments() -> Int
+    Explain {
+        Description: "Count the documents that are still loaded.";
+        Input: None;
+        Processing: "Read the live document list.";
+        Output: "The number of live documents.";
+    } {
+        Return This.documents.Count();
+    }
+
+    Public Function DocumentAt(Int index) -> RxuDocument
+    Explain {
+        Description: "Return one live document.";
+        Input: index = "Zero-based document index";
+        Processing: "Read the document at that index.";
+        Output: "The document, or a blank document when the index is outside the list.";
+    } {
+        If (index < 0 || index >= This.documents.Count()) {
+            Return RxuDocument();
+        }
+        Return This.documents[index];
+    }
+
+    Public Function GetDocument(String id) -> RxuDocument
+    Explain {
+        Description: "Find a live document by id.";
+        Input: id = "Document id";
+        Processing: "Scan the live documents.";
+        Output: "The document, or a blank document when it is missing or unloaded.";
+    } {
+        Int index = 0;
+        While (index < This.documents.Count()) {
+            If (This.documents[index].Id == id) {
+                Return This.documents[index];
+            }
+            index = index + 1;
+        }
+        Return RxuDocument();
+    }
+
+    Public Function GetRoot(String id) -> RxuInstance
+    Explain {
+        Description: "Return the root instance of a live document.";
+        Input: id = "Document id";
+        Processing: "Find the document and read its root.";
+        Output: "The root instance, or a blank instance when the document is missing.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.Id == "") {
+            Return RxuInstance();
+        }
+        Return document.Root;
+    }
+
+    Public Function Show(String id) -> Void
+    Explain {
+        Description: "Mark a loaded document shown without creating a window.";
+        Input: id = "Document id";
+        Processing: "Change Loaded, Hidden, or Closed to Shown.";
+        Output: "No return value.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.State == "Loaded" || document.State == "Hidden" || document.State == "Closed") {
+            document.State = "Shown";
+        }
+    }
+
+    Public Function Hide(String id) -> Void
+    Explain {
+        Description: "Mark a shown document hidden.";
+        Input: id = "Document id";
+        Processing: "Change Shown to Hidden.";
+        Output: "No return value.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.State == "Shown") {
+            document.State = "Hidden";
+        }
+    }
+
+    Public Function Close(String id) -> Void
+    Explain {
+        Description: "Mark a document closed without unloading it.";
+        Input: id = "Document id";
+        Processing: "Change a live document to Closed and keep its tree.";
+        Output: "No return value.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.State == "Loaded" || document.State == "Shown" || document.State == "Hidden") {
+            document.State = "Closed";
+        }
+    }
+
+    Public Function FindByName(String id, String name) -> RxuInstance
+    Explain {
+        Description: "Find an instance by its Name attribute.";
+        Input: id = "Document id", name = "Name attribute";
+        Processing: "Walk the live tree.";
+        Output: "The first match, or a blank instance.";
+    } {
+        Return This.FindNamed(This.GetRoot(id), name);
+    }
+
+    Public Function FindById(String id, String userId) -> RxuInstance
+    Explain {
+        Description: "Find an instance by its Id attribute.";
+        Input: id = "Document id", userId = "Element Id attribute";
+        Processing: "Walk the live tree. The first Id wins.";
+        Output: "The first match, or a blank instance.";
+    } {
+        Return This.FindUser(This.GetRoot(id), userId);
+    }
+
+    Public Function FindByKind(String id, String kind) -> RxuInstance
+    Explain {
+        Description: "Find an instance by its element name.";
+        Input: id = "Document id", kind = "Element name";
+        Processing: "Walk the live tree.";
+        Output: "The first match, or a blank instance.";
+    } {
+        Return This.FindInstanceKind(This.GetRoot(id), kind);
+    }
+
+    Public Function FindByPath(String id, String path) -> RxuInstance
+    Explain {
+        Description: "Find an instance by a slash-separated element path.";
+        Input: id = "Document id", path = "Element path such as Window/Panel/Button";
+        Processing: "Match each path segment to an element name.";
+        Output: "The instance, or a blank instance.";
+    } {
+        Return This.FindPath(This.GetRoot(id), path);
+    }
+
+    Public Function Attach(String id, String parentId, String kind, String name) -> RxuInstance
+    Explain {
+        Description: "Add a live instance under a parent.";
+        Input: id = "Document id", parentId = "Internal parent id", kind = "Element name", name = "Name attribute";
+        Processing: "Create an instance and add it to the parent. The markup definition is unchanged.";
+        Output: "The new instance, or a blank instance when the parent is missing.";
+    } {
+        RxuInstance parent = This.FindInternal(This.GetRoot(id), parentId);
+        If (parent.Id == "") {
+            Return RxuInstance();
+        }
+        This.nextNode = This.nextNode + 1;
+        RxuInstance child = RxuInstance();
+        child.Id = "n" + This.nextNode.ToString();
+        child.Kind = kind + "";
+        child.Name = name + "";
+        child.ParentId = parent.Id + "";
+        child.DocumentId = id + "";
+        parent.Children.Add(child);
+        Return child;
+    }
+
+    Public Function Detach(String id, String instanceId) -> Void
+    Explain {
+        Description: "Remove a live instance from its parent.";
+        Input: id = "Document id", instanceId = "Internal instance id";
+        Processing: "Drop the instance from its parent and mark that subtree disposed.";
+        Output: "No return value.";
+    } {
+        RxuInstance instance = This.FindInternal(This.GetRoot(id), instanceId);
+        If (instance.Id == "" || instance.ParentId == "") {
+            Return;
+        }
+        RxuInstance parent = This.FindInternal(This.GetRoot(id), instance.ParentId);
+        Var kept = List<RxuInstance>();
+        Int index = 0;
+        While (index < parent.Children.Count()) {
+            If (parent.Children[index].Id != instanceId) {
+                kept.Add(parent.Children[index]);
+            }
+            index = index + 1;
+        }
+        parent.Children = List<RxuInstance>();
+        index = 0;
+        While (index < kept.Count()) {
+            parent.Children.Add(kept[index]);
+            index = index + 1;
+        }
+        This.DisposeInstance(instance);
+    }
+
+    Private Function FailMissing(String path) -> RxuDocument {
+        This.nextDocument = This.nextDocument + 1;
+        RxuDocument document = RxuDocument();
+        document.Id = "d" + This.nextDocument.ToString();
+        document.Path = path + "";
+        document.State = "Failed";
+        document.Messages.Add("RXU017", "This document file was not found.", path, 1, 1, 1, "an RXU file", path, "Create the file or correct the path.");
+        This.documents.Add(document);
+        Return document;
+    }
+
+    Private Function Adopt(String path, String source) -> RxuDocument {
+        This.nextDocument = This.nextDocument + 1;
+        RxuDocument document = RxuDocument();
+        document.Id = "d" + This.nextDocument.ToString();
+        This.Fill(document, path, source);
+        This.documents.Add(document);
+        Return document;
+    }
+
+    Private Function Fill(RxuDocument document, String path, String source) -> Void {
+        document.Path = path + "";
+        document.Source = source + "";
+        document.Disposed = False;
+        document.Messages = RxuMessages();
+        document.componentNames = List<String>();
+        document.componentNodes = List<RxuNode>();
+        document.seenIds = List<String>();
+        document.Root = RxuInstance();
+        RxuParser parser = RxuParser();
+        RxuNode tree = parser.Parse(path, source);
+        This.CopyMessages(tree.Messages, document.Messages);
+        If (document.Messages.Count() > 0) {
+            document.State = "Failed";
+            Return;
+        }
+        document.State = "Loaded";
+        document.Root = This.BuildRoot(tree, document);
+    }
+
+    Private Function BuildRoot(RxuNode tree, RxuDocument document) -> RxuInstance {
+        Int elements = 0;
+        Int cursor = 0;
+        RxuNode only = RxuNode();
+        While (cursor < tree.Children.Count()) {
+            If (tree.Children[cursor].Kind == "Element") {
+                elements = elements + 1;
+                If (elements == 1) {
+                    only = tree.Children[cursor];
+                }
+            }
+            cursor = cursor + 1;
+        }
+        If (elements == 1) {
+            RxuInstance root = This.MakeInstance(only, document, "");
+            This.BuildChildren(root, only, document);
+            Return root;
+        }
+        This.nextNode = This.nextNode + 1;
+        RxuInstance holder = RxuInstance();
+        holder.Id = "n" + This.nextNode.ToString();
+        holder.Kind = "Document";
+        holder.DocumentId = document.Id + "";
+        This.BuildChildren(holder, tree, document);
+        Return holder;
+    }
+
+    Private Function BuildChildren(RxuInstance parent, RxuNode node, RxuDocument document) -> Void {
+        Int cursor = 0;
+        While (cursor < node.Children.Count()) {
+            RxuNode child = node.Children[cursor];
+            If (child.Kind == "Element") {
+                If (child.Name == "Component") {
+                    String componentName = child.FindAttribute("Name").Text + "";
+                    If (componentName != "") {
+                        document.componentNames.Add(componentName);
+                        document.componentNodes.Add(child);
+                    }
+                }
+                RxuInstance instance = This.MakeInstance(child, document, parent.Id);
+                parent.Children.Add(instance);
+                This.BuildChildren(instance, child, document);
+            }
+            cursor = cursor + 1;
+        }
+    }
+
+    Private Function MakeInstance(RxuNode node, RxuDocument document, String parentId) -> RxuInstance {
+        This.nextNode = This.nextNode + 1;
+        RxuInstance instance = RxuInstance();
+        instance.Id = "n" + This.nextNode.ToString();
+        instance.Kind = node.Name + "";
+        instance.Name = node.FindAttribute("Name").Text + "";
+        instance.UserId = node.FindAttribute("Id").Text + "";
+        instance.Text = node.FindAttribute("Text").Text + "";
+        instance.ParentId = parentId + "";
+        instance.DocumentId = document.Id + "";
+        If (instance.UserId != "") {
+            Int index = 0;
+            Bool seen = False;
+            While (index < document.seenIds.Count()) {
+                If (document.seenIds[index] == instance.UserId) {
+                    seen = True;
+                }
+                index = index + 1;
+            }
+            If (seen) {
+                document.Messages.Add("RXU016", "This Id is already used in the document.", document.Path, node.Line, node.Column, node.Length, "a unique Id", instance.UserId, "Give this element a different Id.");
+            } Else {
+                document.seenIds.Add(instance.UserId);
+            }
+        }
+        Return instance;
+    }
+
+    Private Function CopyMessages(RxuMessages source, RxuMessages target) -> Void {
+        Int index = 0;
+        While (index < source.Count()) {
+            RxuDiagnostic item = source.At(index);
+            target.Add(item.Code, item.Message, item.Filename, item.Line, item.Column, item.Length, item.Expected, item.Actual, item.Correction);
+            index = index + 1;
+        }
+    }
+
+    Private Function FindNamed(RxuInstance node, String name) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.Name == name && name != "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindNamed(node.Children[index], name);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindUser(RxuInstance node, String userId) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.UserId == userId && userId != "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindUser(node.Children[index], userId);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindInstanceKind(RxuInstance node, String kind) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.Kind == kind && kind != "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindInstanceKind(node.Children[index], kind);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindInternal(RxuInstance node, String instanceId) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.Id == instanceId) {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindInternal(node.Children[index], instanceId);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindPath(RxuInstance node, String path) -> RxuInstance {
+        If (node.Id == "" || node.Disposed || path == "") {
+            Return RxuInstance();
+        }
+        Int slash = path.IndexOf("/");
+        String head = path;
+        String tail = "";
+        If (slash >= 0) {
+            head = path.Substring(0, slash);
+            tail = path.Substring(slash + 1, path.Length() - slash - 1);
+        }
+        If (node.Kind != head) {
+            Return RxuInstance();
+        }
+        If (tail == "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            If (node.Children[index].Kind == This.PathHead(tail)) {
+                RxuInstance found = This.FindPath(node.Children[index], tail);
+                If (found.Id != "") {
+                    Return found;
+                }
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function PathHead(String path) -> String {
+        Int slash = path.IndexOf("/");
+        If (slash < 0) {
+            Return path;
+        }
+        Return path.Substring(0, slash);
+    }
+
+    Private Function DisposeInstance(RxuInstance node) -> Void {
+        node.Disposed = True;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            This.DisposeInstance(node.Children[index]);
+            index = index + 1;
+        }
+    }
+}
+
+Public Class UI {
+    Public DocumentManager Documents;
+
+    Public Constructor() {
+        This.Documents = DocumentManager();
+    }
+
+    Public Function Load(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU document.";
+        Input: path = "Path of the markup file";
+        Processing: "Ask the document manager to load the file.";
+        Output: "The loaded document.";
+    } {
+        Return This.Documents.Load(path);
+    }
+
+    Public Function LoadAsync(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU document and finish before returning.";
+        Input: path = "Path of the markup file";
+        Processing: "Ask the document manager to load the file now.";
+        Output: "The loaded document.";
+    } {
+        Return This.Documents.LoadAsync(path);
+    }
+
+    Public Function LoadMany(List<String> paths) -> Int
+    Explain {
+        Description: "Load several RXU documents.";
+        Input: paths = "Markup file paths";
+        Processing: "Ask the document manager to load each file.";
+        Output: "The number of documents added.";
+    } {
+        Return This.Documents.LoadMany(paths);
+    }
+
+    Public Function Reload(String id) -> RxuDocument
+    Explain {
+        Description: "Reload one document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to parse the document again.";
+        Output: "The reloaded document.";
+    } {
+        Return This.Documents.Reload(id);
+    }
+
+    Public Function ReloadAsync(String id) -> RxuDocument
+    Explain {
+        Description: "Reload one document and finish before returning.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to reload the document now.";
+        Output: "The reloaded document.";
+    } {
+        Return This.Documents.ReloadAsync(id);
+    }
+
+    Public Function Unload(String id) -> Void
+    Explain {
+        Description: "Unload one document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to drop the document.";
+        Output: "No return value.";
+    } {
+        This.Documents.Unload(id);
+    }
+
+    Public Function CreateDocument(String source) -> RxuDocument
+    Explain {
+        Description: "Create a document from markup text.";
+        Input: source = "RXU markup";
+        Processing: "Ask the document manager to parse the text.";
+        Output: "The created document.";
+    } {
+        Return This.Documents.CreateDocument(source);
+    }
+
+    Public Function GetDocuments() -> Int
+    Explain {
+        Description: "Count the live documents.";
+        Input: None;
+        Processing: "Ask the document manager for the live count.";
+        Output: "The number of live documents.";
+    } {
+        Return This.Documents.GetDocuments();
+    }
+
+    Public Function GetDocument(String id) -> RxuDocument
+    Explain {
+        Description: "Find a live document by id.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager for that document.";
+        Output: "The document, or a blank document.";
+    } {
+        Return This.Documents.GetDocument(id);
+    }
+
+    Public Function GetRoot(String id) -> RxuInstance
+    Explain {
+        Description: "Return the root instance of a document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager for the root.";
+        Output: "The root instance, or a blank instance.";
+    } {
+        Return This.Documents.GetRoot(id);
+    }
+
+    Public Function Show(String id) -> Void
+    Explain {
+        Description: "Show a document without loading it again.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to mark the document shown.";
+        Output: "No return value.";
+    } {
+        This.Documents.Show(id);
+    }
+
+    Public Function Hide(String id) -> Void
+    Explain {
+        Description: "Hide a shown document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to mark the document hidden.";
+        Output: "No return value.";
+    } {
+        This.Documents.Hide(id);
+    }
+
+    Public Function Close(String id) -> Void
+    Explain {
+        Description: "Close a document without unloading it.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to mark the document closed.";
+        Output: "No return value.";
+    } {
+        This.Documents.Close(id);
+    }
+}
+
+Public Class UIElement {
+    Public String Kind;
+    Public Int ChangeCount;
+    Public Bool Invalidated;
+    Public Bool LayoutInvalidated;
+    Public RxuMessages Messages;
+    Public List<UIElement> children;
+    Private Int updateDepth;
+    Private List<String> names;
+    Private List<String> values;
+    Private List<String> sources;
+    Private List<String> pendingNames;
+    Private List<String> pendingValues;
+
+    Public Constructor() {
+        This.Kind = "UIElement";
+        This.ChangeCount = 0;
+        This.Invalidated = False;
+        This.LayoutInvalidated = False;
+        This.Messages = RxuMessages();
+        This.children = List<UIElement>();
+        This.updateDepth = 0;
+        This.names = List<String>();
+        This.values = List<String>();
+        This.sources = List<String>();
+        This.pendingNames = List<String>();
+        This.pendingValues = List<String>();
+    }
+
+    Public Function SetAttribute(String name, String value) -> Bool
+    Explain {
+        Description: "Set a local property when the value matches its type.";
+        Input: name = "Property name", value = "New value";
+        Processing: "Reject an unknown, disallowed, or mistyped value. Queue it inside an update.";
+        Output: "True when the value is accepted.";
+    } {
+        Return This.Write("Local", name, value);
+    }
+
+    Public Function GetAttribute(String name) -> String
+    Explain {
+        Description: "Read the effective property value.";
+        Input: name = "Property name";
+        Processing: "Choose animation, then local, style, inherited, then the default.";
+        Output: "The effective text, or empty text when the property is unknown.";
+    } {
+        String stored = This.Canonical(name);
+        If (This.TypeOf(stored) == "") {
+            Return "";
+        }
+        String chosen = This.SourceValue(stored, "Animation");
+        If (chosen == "") {
+            chosen = This.SourceValue(stored, "Local");
+        }
+        If (chosen == "") {
+            chosen = This.SourceValue(stored, "Style");
+        }
+        If (chosen == "") {
+            chosen = This.SourceValue(stored, "Inherited");
+        }
+        If (chosen == "") {
+            Return This.DefaultOf(stored);
+        }
+        Return chosen;
+    }
+
+    Public Function HasAttribute(String name) -> Bool
+    Explain {
+        Description: "Report whether a local value is set.";
+        Input: name = "Property name";
+        Processing: "Look for a local entry. Foreground uses Color.";
+        Output: "True when a local value is present.";
+    } {
+        Return This.SourceValue(This.Canonical(name), "Local") != "";
+    }
+
+    Public Function RemoveAttribute(String name) -> Bool
+    Explain {
+        Description: "Remove the local value.";
+        Input: name = "Property name";
+        Processing: "Drop the local entry and leave style, animation, and inherited values.";
+        Output: "True when a local value was removed.";
+    } {
+        Return This.DropSource(This.Canonical(name), "Local");
+    }
+
+    Public Function ResetAttribute(String name) -> Void
+    Explain {
+        Description: "Clear local, style, and animation values.";
+        Input: name = "Property name";
+        Processing: "Drop those sources so inherited or the default shows through.";
+        Output: "No return value.";
+    } {
+        String stored = This.Canonical(name);
+        This.DropSource(stored, "Local");
+        This.DropSource(stored, "Style");
+        This.DropSource(stored, "Animation");
+    }
+
+    Public Function AttributeCount() -> Int
+    Explain {
+        Description: "Count the properties this element kind allows.";
+        Input: None;
+        Processing: "Read the catalog for this kind.";
+        Output: "The number of property names.";
+    } {
+        Return This.SegmentCount(This.Catalog());
+    }
+
+    Public Function AttributeName(Int index) -> String
+    Explain {
+        Description: "Return one allowed property name.";
+        Input: index = "Zero-based catalog index";
+        Processing: "Read that segment of the catalog.";
+        Output: "The property name, or empty text when the index is outside the catalog.";
+    } {
+        Return This.Segment(This.Catalog(), index);
+    }
+
+    Public Function AttributeType(String name) -> String
+    Explain {
+        Description: "Return the type name of a property.";
+        Input: name = "Property name";
+        Processing: "Resolve aliases and read the type.";
+        Output: "The type name, or empty text when the property is unknown.";
+    } {
+        Return This.TypeOf(This.Canonical(name));
+    }
+
+    Public Function SetAttributes(RxuNode node) -> Int
+    Explain {
+        Description: "Apply the attributes of a parsed element.";
+        Input: node = "Parsed element";
+        Processing: "Set each attribute and count the ones that are rejected.";
+        Output: "The number of rejected attributes.";
+    } {
+        Int failed = 0;
+        Int index = 0;
+        While (index < node.Attributes.Count()) {
+            RxuNode attribute = node.Attributes[index];
+            If (!This.SetAttribute(attribute.Name, attribute.Text)) {
+                failed = failed + 1;
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Public Function SetStyle(String name, String value) -> Bool
+    Explain {
+        Description: "Set a style value.";
+        Input: name = "Property name", value = "Style value";
+        Processing: "Validate the value and store it as Style.";
+        Output: "True when the value is accepted.";
+    } {
+        Return This.Write("Style", name, value);
+    }
+
+    Public Function SetAnimation(String name, String value) -> Bool
+    Explain {
+        Description: "Set an animation value.";
+        Input: name = "Property name", value = "Animation value";
+        Processing: "Validate the value and store it as Animation.";
+        Output: "True when the value is accepted.";
+    } {
+        Return This.Write("Animation", name, value);
+    }
+
+    Public Function BeginUpdate() -> Void
+    Explain {
+        Description: "Start a batched property update.";
+        Input: None;
+        Processing: "Increase the update depth. Local writes wait for the outer end.";
+        Output: "No return value.";
+    } {
+        This.updateDepth = This.updateDepth + 1;
+    }
+
+    Public Function EndUpdate() -> Int
+    Explain {
+        Description: "End one update level and apply the batch at the outer end.";
+        Input: None;
+        Processing: "Apply queued local values once and raise one change notice.";
+        Output: "The number of values applied, or zero when the batch is still open.";
+    } {
+        If (This.updateDepth == 0) {
+            Return 0;
+        }
+        This.updateDepth = This.updateDepth - 1;
+        If (This.updateDepth > 0) {
+            Return 0;
+        }
+        Return This.ApplyChanges();
+    }
+
+    Public Function CancelUpdate() -> Void
+    Explain {
+        Description: "Drop a batched update.";
+        Input: None;
+        Processing: "Clear the queued values and the update depth.";
+        Output: "No return value.";
+    } {
+        This.updateDepth = 0;
+        This.pendingNames = List<String>();
+        This.pendingValues = List<String>();
+    }
+
+    Public Function ApplyChanges() -> Int
+    Explain {
+        Description: "Apply queued local values.";
+        Input: None;
+        Processing: "Write the queue, mark the element dirty, and count one change.";
+        Output: "The number of values applied.";
+    } {
+        Int count = This.pendingNames.Count();
+        Int index = 0;
+        While (index < count) {
+            This.Store("Local", This.pendingNames[index], This.pendingValues[index]);
+            If (This.IsLayout(This.pendingNames[index])) {
+                This.LayoutInvalidated = True;
+            }
+            This.Publish(This.pendingNames[index]);
+            index = index + 1;
+        }
+        This.pendingNames = List<String>();
+        This.pendingValues = List<String>();
+        If (count > 0) {
+            This.Invalidated = True;
+            This.ChangeCount = This.ChangeCount + 1;
+        }
+        Return count;
+    }
+
+    Public Function Refresh() -> Void
+    Explain {
+        Description: "Clear the dirty flags after a refresh.";
+        Input: None;
+        Processing: "Set both invalidation flags to false.";
+        Output: "No return value.";
+    } {
+        This.Invalidated = False;
+        This.LayoutInvalidated = False;
+    }
+
+    Public Function Invalidate() -> Void
+    Explain {
+        Description: "Mark the element for a repaint.";
+        Input: None;
+        Processing: "Set the paint invalidation flag.";
+        Output: "No return value.";
+    } {
+        This.Invalidated = True;
+    }
+
+    Public Function InvalidateLayout() -> Void
+    Explain {
+        Description: "Mark the element for layout and repaint.";
+        Input: None;
+        Processing: "Set the layout and paint invalidation flags.";
+        Output: "No return value.";
+    } {
+        This.Invalidated = True;
+        This.LayoutInvalidated = True;
+    }
+
+    Public Function SetParent(UIElement parent) -> Void
+    Explain {
+        Description: "Attach this element to a parent and inherit values.";
+        Input: parent = "Parent element";
+        Processing: "Record the parent and copy inheritable effective values.";
+        Output: "No return value.";
+    } {
+        parent.children.Add(This);
+        This.TakeInherited(parent, "Color");
+        This.TakeInherited(parent, "FontFamily");
+        This.TakeInherited(parent, "FontSize");
+        This.TakeInherited(parent, "FontWeight");
+        This.TakeInherited(parent, "Cursor");
+        This.TakeInherited(parent, "TextAlignment");
+    }
+
+    Private Function Write(String source, String name, String value) -> Bool {
+        String stored = This.Canonical(name);
+        String typeName = This.TypeOf(stored);
+        If (typeName == "") {
+            This.Messages.Add("RXU019", "This property is unknown.", "", 1, 1, name.Length(), "a known property", name, "Use a property from the catalog.");
+            Return False;
+        }
+        If (!This.Allows(stored)) {
+            This.Messages.Add("RXU020", "This property is not allowed on this element.", "", 1, 1, name.Length(), This.Kind, name, "Move the property to an element that allows it.");
+            Return False;
+        }
+        If (!This.ValidValue(stored, value) || !This.ValidRange(stored, value)) {
+            This.Messages.Add("RXU018", "This value does not match the property type.", "", 1, 1, value.Length(), typeName, value, "Use a value of the property type.");
+            Return False;
+        }
+        If (source == "Local" && This.updateDepth > 0) {
+            This.Hold(stored, value);
+            Return True;
+        }
+        This.Store(source, stored, value);
+        If (This.IsLayout(stored)) {
+            This.LayoutInvalidated = True;
+        }
+        This.Invalidated = True;
+        This.ChangeCount = This.ChangeCount + 1;
+        This.Publish(stored);
+        Return True;
+    }
+
+    Private Function Canonical(String name) -> String {
+        If (name == "Foreground") {
+            Return "Color";
+        }
+        Return name;
+    }
+
+    Private Function Catalog() -> String {
+        String common = "Name,Id,Visible,Enabled,Opacity,Tag,Class";
+        String framework = "Width,Height,MinWidth,MinHeight,MaxWidth,MaxHeight,Margin,Padding,HorizontalAlignment,VerticalAlignment,Cursor,ToolTip,Style";
+        String layout = "Orientation,Spacing,Row,Column,RowSpan,ColumnSpan,HorizontalContentAlignment,VerticalContentAlignment,GridColumns,GridRows,Dock,Wrap,ClipToBounds";
+        String appearance = "Background,Color,Foreground,FontFamily,FontSize,FontWeight,BorderColor,BorderWidth,CornerRadius,Shadow,TextAlignment,TextDecoration,Icon,Image,Animation,Duration";
+        If (This.Kind == "Panel") {
+            Return common + "," + framework + "," + layout;
+        }
+        If (This.Kind == "Control" || This.Kind == "Button") {
+            Return common + "," + framework + "," + appearance;
+        }
+        If (This.Kind == "Window" || This.Kind == "FrameworkElement") {
+            Return common + "," + framework + ",Title";
+        }
+        Return common;
+    }
+
+    Private Function Allows(String name) -> Bool {
+        Int index = 0;
+        String catalog = This.Catalog();
+        Int count = This.SegmentCount(catalog);
+        While (index < count) {
+            If (This.Segment(catalog, index) == name || (name == "Color" && This.Segment(catalog, index) == "Foreground")) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function TypeOf(String name) -> String {
+        If (name == "Name" || name == "Id" || name == "Tag" || name == "Class" || name == "Style" || name == "ToolTip" || name == "FontFamily" || name == "Icon" || name == "Image" || name == "Animation" || name == "Title") {
+            Return "String";
+        }
+        If (name == "Width" || name == "Height") {
+            Return "Dimension";
+        }
+        If (name == "MinWidth" || name == "MinHeight" || name == "MaxWidth" || name == "MaxHeight" || name == "BorderWidth" || name == "Spacing" || name == "Row" || name == "Column" || name == "RowSpan" || name == "ColumnSpan" || name == "GridColumns" || name == "GridRows") {
+            Return "Number";
+        }
+        If (name == "Opacity" || name == "FontSize") {
+            Return "Float";
+        }
+        If (name == "Visible" || name == "Enabled" || name == "ClipToBounds" || name == "Wrap") {
+            Return "Boolean";
+        }
+        If (name == "Margin" || name == "Padding" || name == "CornerRadius") {
+            Return "Thickness";
+        }
+        If (name == "Shadow") {
+            Return "Shadow";
+        }
+        If (name == "Background" || name == "BorderColor") {
+            Return "Brush";
+        }
+        If (name == "Color") {
+            Return "Color";
+        }
+        If (name == "Cursor") {
+            Return "Cursor";
+        }
+        If (name == "HorizontalAlignment" || name == "VerticalAlignment" || name == "HorizontalContentAlignment" || name == "VerticalContentAlignment" || name == "TextAlignment") {
+            Return "Alignment";
+        }
+        If (name == "Orientation") {
+            Return "Orientation";
+        }
+        If (name == "Dock") {
+            Return "Dock";
+        }
+        If (name == "FontWeight") {
+            Return "FontWeight";
+        }
+        If (name == "TextDecoration") {
+            Return "TextDecoration";
+        }
+        If (name == "Duration") {
+            Return "Duration";
+        }
+        Return "";
+    }
+
+    Private Function DefaultOf(String name) -> String {
+        If (name == "Visible" || name == "Enabled") {
+            Return "true";
+        }
+        If (name == "Opacity") {
+            Return "1";
+        }
+        If (name == "Width" || name == "Height") {
+            Return "Auto";
+        }
+        If (name == "HorizontalAlignment" || name == "VerticalAlignment" || name == "HorizontalContentAlignment" || name == "VerticalContentAlignment") {
+            Return "Stretch";
+        }
+        If (name == "Cursor") {
+            Return "Arrow";
+        }
+        If (name == "Orientation") {
+            Return "Vertical";
+        }
+        If (name == "Dock") {
+            Return "Fill";
+        }
+        If (name == "Wrap" || name == "ClipToBounds") {
+            Return "false";
+        }
+        If (name == "FontSize") {
+            Return "14";
+        }
+        If (name == "FontWeight") {
+            Return "Normal";
+        }
+        If (name == "TextAlignment") {
+            Return "Start";
+        }
+        If (name == "TextDecoration" || name == "Shadow" || name == "Background") {
+            Return "None";
+        }
+        If (name == "Color" || name == "BorderColor") {
+            Return "#000000";
+        }
+        If (name == "BorderWidth" || name == "Spacing" || name == "Row" || name == "Column" || name == "Margin" || name == "Padding" || name == "CornerRadius") {
+            Return "0";
+        }
+        If (name == "RowSpan" || name == "ColumnSpan" || name == "GridColumns" || name == "GridRows") {
+            Return "1";
+        }
+        If (name == "Duration") {
+            Return "0ms";
+        }
+        Return "";
+    }
+
+    Private Function IsLayout(String name) -> Bool {
+        String typeName = This.TypeOf(name);
+        If (typeName == "Dimension" || typeName == "Thickness" || typeName == "Orientation" || typeName == "Dock" || typeName == "Alignment") {
+            Return True;
+        }
+        If (name == "Spacing" || name == "Row" || name == "Column" || name == "RowSpan" || name == "ColumnSpan" || name == "GridColumns" || name == "GridRows" || name == "Wrap" || name == "ClipToBounds" || name == "MinWidth" || name == "MinHeight" || name == "MaxWidth" || name == "MaxHeight") {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function ValidValue(String name, String value) -> Bool {
+        String typeName = This.TypeOf(name);
+        If (typeName == "String") {
+            Return True;
+        }
+        If (typeName == "Number") {
+            Return This.IsNumber(value);
+        }
+        If (typeName == "Float") {
+            If (name == "Opacity") {
+                Return This.IsOpacity(value);
+            }
+            Return This.IsFloat(value);
+        }
+        If (typeName == "Boolean") {
+            Return value == "true" || value == "false" || value == "True" || value == "False";
+        }
+        If (typeName == "Dimension") {
+            Return This.IsDimension(value);
+        }
+        If (typeName == "Thickness") {
+            Return This.IsThickness(value);
+        }
+        If (typeName == "Shadow") {
+            Return value == "None" || This.IsThickness(value);
+        }
+        If (typeName == "Color") {
+            Return This.IsColor(value);
+        }
+        If (typeName == "Brush") {
+            Return value == "None" || This.IsColor(value) || (value.StartsWith("Solid ") && This.IsColor(value.Substring(6, value.Length() - 6)));
+        }
+        If (typeName == "Duration") {
+            Return This.IsDuration(value);
+        }
+        If (typeName == "Alignment") {
+            Return value == "Start" || value == "Center" || value == "End" || value == "Stretch";
+        }
+        If (typeName == "Cursor") {
+            Return value == "Arrow" || value == "Hand" || value == "Text" || value == "Wait";
+        }
+        If (typeName == "Orientation") {
+            Return value == "Horizontal" || value == "Vertical";
+        }
+        If (typeName == "Dock") {
+            Return value == "Left" || value == "Right" || value == "Top" || value == "Bottom" || value == "Fill";
+        }
+        If (typeName == "FontWeight") {
+            Return value == "Normal" || value == "Bold";
+        }
+        If (typeName == "TextDecoration") {
+            Return value == "None" || value == "Underline";
+        }
+        Return False;
+    }
+
+    Private Function ValidRange(String name, String value) -> Bool {
+        If (name == "MinWidth" || name == "MinHeight" || name == "MaxWidth" || name == "MaxHeight") {
+            String pair = "MaxWidth";
+            String current = This.GetAttribute(name);
+            If (name == "MinWidth") {
+                pair = "MaxWidth";
+            }
+            If (name == "MinHeight") {
+                pair = "MaxHeight";
+            }
+            If (name == "MaxWidth") {
+                pair = "MinWidth";
+            }
+            If (name == "MaxHeight") {
+                pair = "MinHeight";
+            }
+            String other = This.GetAttribute(pair);
+            If (other == "" || value == "") {
+                Return True;
+            }
+            Int next = value.ToInt();
+            Int previous = other.ToInt();
+            If (name.StartsWith("Min") && previous < next) {
+                Return False;
+            }
+            If (name.StartsWith("Max") && next < previous) {
+                Return False;
+            }
+            If (current == value) {
+                Return True;
+            }
+        }
+        Return True;
+    }
+
+    Private Function IsNumber(String value) -> Bool {
+        Int index = 0;
+        If (value.Length() > 0 && value.Substring(0, 1) == "-") {
+            index = 1;
+        }
+        If (index >= value.Length()) {
+            Return False;
+        }
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsFloat(String value) -> Bool {
+        Int dots = 0;
+        Int digits = 0;
+        Int index = 0;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character == ".") {
+                dots = dots + 1;
+            } Else If (character >= "0" && character <= "9") {
+                digits = digits + 1;
+            } Else {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return digits > 0 && dots < 2;
+    }
+
+    Private Function IsOpacity(String value) -> Bool {
+        If (value == "0" || value == "1" || value == "0.0" || value == "1.0") {
+            Return True;
+        }
+        If (value.Length() < 3 || value.Substring(0, 2) != "0.") {
+            Return False;
+        }
+        Int index = 2;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsDimension(String value) -> Bool {
+        If (value == "Auto" || value == "*") {
+            Return True;
+        }
+        If (value.EndsWith("px")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("*")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return This.IsNumber(value);
+    }
+
+    Private Function IsThickness(String value) -> Bool {
+        Int parts = 1;
+        Int index = 0;
+        String current = "";
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character == ",") {
+                If (!This.IsNumber(current)) {
+                    Return False;
+                }
+                current = "";
+                parts = parts + 1;
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        Return This.IsNumber(current) && (parts == 1 || parts == 2 || parts == 4);
+    }
+
+    Private Function IsColor(String value) -> Bool {
+        If (value == "Black" || value == "White" || value == "Transparent") {
+            Return True;
+        }
+        If (value.Length() < 4 || value.Substring(0, 1) != "#") {
+            Return False;
+        }
+        Int length = value.Length() - 1;
+        If (length != 3 && length != 4 && length != 6 && length != 8) {
+            Return False;
+        }
+        Int index = 1;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsDuration(String value) -> Bool {
+        If (value.EndsWith("ms")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("s")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return False;
+    }
+
+    Private Function Store(String source, String name, String value) -> Void {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name && This.sources[index] == source) {
+                This.values[index] = value + "";
+                Return;
+            }
+            index = index + 1;
+        }
+        This.names.Add(name + "");
+        This.values.Add(value + "");
+        This.sources.Add(source + "");
+    }
+
+    Private Function SourceValue(String name, String source) -> String {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name && This.sources[index] == source) {
+                Return This.values[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function DropSource(String name, String source) -> Bool {
+        Int found = 0;
+        Var keptNames = List<String>();
+        Var keptValues = List<String>();
+        Var keptSources = List<String>();
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name && This.sources[index] == source) {
+                found = 1;
+            } Else {
+                keptNames.Add(This.names[index]);
+                keptValues.Add(This.values[index]);
+                keptSources.Add(This.sources[index]);
+            }
+            index = index + 1;
+        }
+        This.names = keptNames;
+        This.values = keptValues;
+        This.sources = keptSources;
+        Return found == 1;
+    }
+
+    Private Function Hold(String name, String value) -> Void {
+        Int index = 0;
+        While (index < This.pendingNames.Count()) {
+            If (This.pendingNames[index] == name) {
+                This.pendingValues[index] = value + "";
+                Return;
+            }
+            index = index + 1;
+        }
+        This.pendingNames.Add(name + "");
+        This.pendingValues.Add(value + "");
+    }
+
+    Private Function Publish(String name) -> Void {
+        If (name != "Color" && name != "FontFamily" && name != "FontSize" && name != "FontWeight" && name != "Cursor" && name != "TextAlignment") {
+            Return;
+        }
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeInherited(This, name);
+            index = index + 1;
+        }
+    }
+
+    Private Function TakeInherited(UIElement parent, String name) -> Void {
+        If (This.SourceValue(name, "Animation") != "" || This.SourceValue(name, "Local") != "" || This.SourceValue(name, "Style") != "") {
+            Return;
+        }
+        This.Store("Inherited", name, parent.GetAttribute(name));
+    }
+
+    Private Function SegmentCount(String catalog) -> Int {
+        If (catalog == "") {
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            If (catalog.Substring(index, 1) == ",") {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Segment(String catalog, Int wanted) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            If (catalog.Substring(index, 1) == ",") {
+                If (seen == wanted) {
+                    Return catalog.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (seen == wanted) {
+            Return catalog.Substring(start, catalog.Length() - start);
+        }
+        Return "";
+    }
+}
+
+Private Function ReadExample(String path) -> RxuNode {
+    RxuParser parser = RxuParser();
+    Return parser.Parse(path, Files.ReadText(path));
+}
+
+Private Function ExpectAttribute(String path, String element, String attribute, String mode, String text) -> Int {
+    RxuNode document = ReadExample(path);
+    RxuNode node = document.FindChild(element);
+    RxuNode value = node.FindAttribute(attribute);
+    Bool bad = document.Messages.Count() != 0 || node.Name != element || value.Mode != mode || value.Text != text;
+    Return FailWhen(bad, path);
+}
+
+Private Function ElementAt(RxuNode parent, Int nth) -> RxuNode {
+    Int seen = 0;
+    Int cursor = 0;
+    While (cursor < parent.Children.Count()) {
+        RxuNode child = parent.Children[cursor];
+        If (child.Kind == "Element") {
+            If (seen == nth) {
+                Return child;
+            }
+            seen = seen + 1;
+        }
+        cursor = cursor + 1;
+    }
+    Return RxuNode();
+}
+
+Private Function ExpectCode(String path, String code) -> Int {
+    RxuNode document = ReadExample(path);
+    Return FailWhen(document.Messages.Find(code) < 0, path);
+}
+
+Private Function ExpectSource(String name, String source, String code) -> Int {
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse(name, source);
+    Return FailWhen(document.Messages.Find(code) < 0, name);
+}
+
+Public Function CheckExamples() -> Int
+Explain {
+    Description: "Parse every RXU example and check the feature it demonstrates.";
+    Input: None;
+    Processing: "Accept Examples/UI markup and require the matching diagnostic for Examples/UI/Rejected.";
+    Output: "The number of failed example checks.";
+} {
+    Int failed = 0;
+    failed = failed + ExpectAttribute("Examples/UI/Element.rxu", "Window", "Title", "String", "Arm");
+    failed = failed + ExpectAttribute("Examples/UI/SelfClosing.rxu", "Button", "Text", "String", "Move");
+    failed = failed + ExpectAttribute("Examples/UI/StringValue.rxu", "Text", "Value", "String", "Line\nNext");
+    failed = failed + ExpectAttribute("Examples/UI/NumberValue.rxu", "Window", "Width", "Number", "320");
+    failed = failed + ExpectAttribute("Examples/UI/FloatValue.rxu", "Window", "Opacity", "Float", "0.5");
+    failed = failed + ExpectAttribute("Examples/UI/BooleanValue.rxu", "Window", "Enabled", "Boolean", "true");
+    failed = failed + ExpectAttribute("Examples/UI/BooleanValue.rxu", "Window", "Visible", "Boolean", "true");
+    failed = failed + ExpectAttribute("Examples/UI/Binding.rxu", "Button", "Text", "Binding", "Joint");
+    failed = failed + ExpectAttribute("Examples/UI/ResourceExpression.rxu", "Text", "Value", "Resource", "Accent");
+    failed = failed + ExpectAttribute("Examples/UI/Localization.rxu", "Text", "Value", "Localization", "Title");
+    failed = failed + ExpectAttribute("Examples/UI/ValueExpression.rxu", "Text", "Value", "Expression", "Panel.Width");
+    failed = failed + ExpectAttribute("Examples/UI/NameExpression.rxu", "Text", "Value", "Expression", "Joints");
+    failed = failed + ExpectAttribute("Examples/UI/Component.rxu", "Component", "Name", "String", "Move");
+    failed = failed + ExpectAttribute("Examples/UI/Import.rxu", "Import", "Source", "String", "Theme.rxu");
+    failed = failed + ExpectAttribute("Examples/UI/Include.rxu", "Include", "Source", "String", "Part.rxu");
+    failed = failed + ExpectAttribute("Examples/UI/Let.rxu", "Let", "Name", "String", "Title");
+    failed = failed + ExpectAttribute("Examples/UI/Set.rxu", "Set", "Value", "Number", "320");
+    failed = failed + ExpectAttribute("Examples/UI/Bind.rxu", "Bind", "Source", "Binding", "Joint");
+    failed = failed + ExpectAttribute("Examples/UI/Unicode.rxu", "Label", "Text", "String", "Café");
+    failed = failed + ExpectAttribute("Examples/UI/Escapes.rxu", "Text", "Value", "String", "A\rB\tC\\D");
+    RxuNode nesting = ReadExample("Examples/UI/Nesting.rxu");
+    RxuNode leaf = nesting.FindChild("Window").FindChild("Panel").FindChild("Panel").FindChild("Label");
+    failed = failed + FailWhen(nesting.Messages.Count() != 0 || leaf.FindAttribute("Text").Text != "Nest", "Examples/UI/Nesting.rxu");
+    RxuNode comment = ReadExample("Examples/UI/Comment.rxu");
+    failed = failed + FailWhen(comment.Messages.Count() != 0 || comment.FindChild("Panel").FindKind("Comment").Text != " arm panel ", "Examples/UI/Comment.rxu");
+    RxuNode embedded = ReadExample("Examples/UI/EmbeddedBinding.rxu");
+    RxuNode embeddedValue = embedded.FindChild("Panel").FindKind("Expression");
+    failed = failed + FailWhen(embedded.Messages.Count() != 0 || embeddedValue.Mode != "Binding" || embeddedValue.Text != "User.Name", "Examples/UI/EmbeddedBinding.rxu");
+    RxuNode space = ReadExample("Examples/UI/Whitespace.rxu");
+    failed = failed + FailWhen(space.Messages.Count() != 0 || space.FindChild("Panel").FindKind("Text").Text != " Hi ", "Examples/UI/Whitespace.rxu");
+    RxuNode button = ReadExample("Examples/UI/SelfClosing.rxu").FindChild("Button");
+    failed = failed + FailWhen(button.Mode != "Empty", "Examples/UI/SelfClosing.rxu mode");
+    RxuNode paired = ReadExample("Examples/UI/Element.rxu").FindChild("Window");
+    failed = failed + FailWhen(paired.Mode != "Pair", "Examples/UI/Element.rxu mode");
+    RxuNode color = ReadExample("Examples/UI/Resources.rxu").FindChild("Resources").FindChild("Color");
+    failed = failed + FailWhen(color.FindAttribute("Name").Text != "Accent" || color.FindAttribute("Value").Text != "#336699", "Examples/UI/Resources.rxu color");
+    RxuNode move = ReadExample("Examples/UI/Component.rxu").FindChild("Component").FindChild("Button");
+    failed = failed + FailWhen(move.FindAttribute("Text").Mode != "Binding" || move.FindAttribute("Text").Text != "Joint", "Examples/UI/Component.rxu button");
+    RxuNode branch = ReadExample("Examples/UI/IfElse.rxu");
+    RxuNode ifNode = branch.FindChild("Panel").FindChild("If");
+    failed = failed + FailWhen(branch.Messages.Count() != 0 || ifNode.FindAttribute("Condition").Text != "LoggedIn" || ifNode.FindChild("Else").FindChild("Text").FindAttribute("Value").Text != "Go" || branch.FindChild("Panel").FindChild("Else").Name != "", "Examples/UI/IfElse.rxu");
+    RxuNode elseIf = ReadExample("Examples/UI/ElseIf.rxu");
+    RxuNode elseIfNode = elseIf.FindChild("Panel").FindChild("If");
+    failed = failed + FailWhen(elseIf.Messages.Count() != 0 || elseIfNode.FindChild("ElseIf").FindAttribute("Condition").Text != "Guest" || elseIfNode.FindChild("Else").FindChild("Text").FindAttribute("Value").Text != "Go" || elseIf.FindChild("Panel").FindChild("ElseIf").Name != "", "Examples/UI/ElseIf.rxu");
+    RxuNode nearest = ReadExample("Examples/UI/NearestElse.rxu");
+    RxuNode nearestPanel = nearest.FindChild("Panel");
+    failed = failed + FailWhen(nearest.Messages.Count() != 0 || ElementAt(nearestPanel, 1).FindChild("Else").FindAttribute("Name").Text != "C" || ElementAt(nearestPanel, 0).FindChild("Else").Name != "" || ElementAt(nearestPanel, 2).Name != "", "Examples/UI/NearestElse.rxu");
+    RxuNode choose = ReadExample("Examples/UI/Choose.rxu");
+    RxuNode chooseNode = choose.FindChild("Choose");
+    failed = failed + FailWhen(choose.Messages.Count() != 0 || chooseNode.FindAttribute("Value").Mode != "Expression" || chooseNode.FindChild("When").FindAttribute("Value").Text != "Live" || chooseNode.FindChild("Otherwise").FindChild("Text").FindAttribute("Value").Text != "Idle", "Examples/UI/Choose.rxu");
+    RxuNode switchNode = ReadExample("Examples/UI/Switch.rxu").FindChild("Switch");
+    failed = failed + FailWhen(switchNode.FindChild("When").FindAttribute("Value").Text != "Live" || switchNode.FindChild("Default").FindChild("Text").FindAttribute("Value").Text != "Idle", "Examples/UI/Switch.rxu");
+    RxuNode adopted = ReadExample("Examples/UI/AdoptedWhen.rxu");
+    RxuNode adoptedPanel = adopted.FindChild("Panel");
+    failed = failed + FailWhen(adopted.Messages.Count() != 0 || ElementAt(adoptedPanel, 1).Name != "" || ElementAt(adoptedPanel, 0).FindChild("When").FindAttribute("Value").Text != "On", "Examples/UI/AdoptedWhen.rxu");
+    RxuNode each = ReadExample("Examples/UI/Each.rxu").FindChild("Each");
+    failed = failed + FailWhen(each.FindAttribute("Items").Mode != "Expression" || each.FindAttribute("Items").Text != "Joints" || each.FindAttribute("As").Text != "joint" || each.FindChild("Text").FindAttribute("Value").Text != "joint", "Examples/UI/Each.rxu");
+    RxuNode forNode = ReadExample("Examples/UI/For.rxu").FindChild("For");
+    failed = failed + FailWhen(forNode.FindAttribute("Items").Text != "Joints" || forNode.FindChild("Text").FindAttribute("Value").Mode != "Expression", "Examples/UI/For.rxu");
+    RxuNode forEach = ReadExample("Examples/UI/ForEach.rxu").FindChild("ForEach");
+    failed = failed + FailWhen(forEach.FindAttribute("As").Text != "joint" || forEach.FindChild("Text").FindAttribute("Value").Text != "joint", "Examples/UI/ForEach.rxu");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Mismatch.rxu", "RXU001");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Unclosed.rxu", "RXU002");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Malformed.rxu", "RXU003");
+    failed = failed + ExpectCode("Examples/UI/Rejected/UnclosedString.rxu", "RXU004");
+    failed = failed + ExpectCode("Examples/UI/Rejected/UnclosedExpression.rxu", "RXU005");
+    failed = failed + ExpectCode("Examples/UI/Rejected/UnclosedComment.rxu", "RXU006");
+    failed = failed + ExpectCode("Examples/UI/Rejected/EmptyExpression.rxu", "RXU007");
+    failed = failed + ExpectCode("Examples/UI/Rejected/While.rxu", "RXU008");
+    failed = failed + ExpectCode("Examples/UI/Rejected/XmlDeclaration.rxu", "RXU009");
+    failed = failed + ExpectCode("Examples/UI/Rejected/LooseElse.rxu", "RXU010");
+    failed = failed + ExpectCode("Examples/UI/Rejected/OrphanWhen.rxu", "RXU011");
+    failed = failed + ExpectCode("Examples/UI/Rejected/DuplicateElse.rxu", "RXU012");
+    failed = failed + ExpectCode("Examples/UI/Rejected/ElseIfAfterElse.rxu", "RXU012");
+    failed = failed + ExpectCode("Examples/UI/Rejected/DuplicateDefault.rxu", "RXU013");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Namespace.rxu", "RXU015");
+    failed = failed + ExpectSource("nest-open.rxu", "<A><B><C>", "RXU002");
+    failed = failed + ExpectSource("nest-mismatch.rxu", "<A><B></A>", "RXU001");
+    failed = failed + ExpectSource("deep-empty.rxu", "<A><B>{}</B></A>", "RXU007");
+    failed = failed + ExpectSource("nested-while.rxu", "<A><While/></A>", "RXU008");
+    Return failed;
+}
+
+Public Function CheckDocuments() -> Int
+Explain {
+    Description: "Load, query, show, and unload independent RXU documents.";
+    Input: None;
+    Processing: "Use the Examples/UI documents and markup text. Loading stays separate from showing.";
+    Output: "The number of failed document checks.";
+} {
+    Int failed = 0;
+    UI app = UI();
+    RxuDocument first = app.Load("Examples/UI/LiveDocument.rxu");
+    RxuDocument second = app.LoadAsync("Examples/UI/SecondDocument.rxu");
+    failed = failed + FailWhen(first.State != "Loaded" || second.State != "Loaded" || first.Id == second.Id, "document load");
+    failed = failed + FailWhen(app.GetRoot(first.Id).Kind != "Window" || app.GetRoot(first.Id).Name != "Arm", "document root");
+    first.Root.Name = "Changed";
+    failed = failed + FailWhen(app.GetDocument(second.Id).Root.Name != "Other", "document isolation");
+    failed = failed + FailWhen(first.ComponentCount() != 1 || second.ComponentCount() != 1 || first.ComponentName(0) != "Move" || second.ComponentName(0) != "Move", "document components");
+    failed = failed + FailWhen(app.Documents.FindByName(first.Id, "Controls").Kind != "Panel", "find name");
+    failed = failed + FailWhen(app.Documents.FindById(first.Id, "move").Name != "Move", "find id");
+    failed = failed + FailWhen(app.Documents.FindByKind(first.Id, "Panel").Name != "Controls", "find kind");
+    failed = failed + FailWhen(app.Documents.FindByPath(first.Id, "Window/Panel/Button").Name != "Move", "find path");
+    failed = failed + FailWhen(first.Messages.Find("RXU016") < 0, "duplicate id");
+    RxuInstance added = app.Documents.Attach(first.Id, app.GetRoot(first.Id).Id, "Label", "Extra");
+    failed = failed + FailWhen(added.Name != "Extra" || app.Documents.FindByName(first.Id, "Extra").Id != added.Id, "attach");
+    app.Documents.Detach(first.Id, added.Id);
+    failed = failed + FailWhen(app.Documents.FindByName(first.Id, "Extra").Id != "", "detach");
+    app.Show(first.Id);
+    failed = failed + FailWhen(app.GetDocument(first.Id).State != "Shown", "show");
+    app.Hide(first.Id);
+    failed = failed + FailWhen(app.GetDocument(first.Id).State != "Hidden", "hide");
+    app.Close(first.Id);
+    failed = failed + FailWhen(app.GetDocument(first.Id).State != "Closed" || app.GetRoot(first.Id).Kind != "Window", "close");
+    String firstId = first.Id + "";
+    app.Unload(firstId);
+    failed = failed + FailWhen(app.GetDocument(firstId).Id != "" || app.GetRoot(firstId).Id != "" || app.GetDocument(second.Id).Root.Name != "Other", "unload");
+    RxuDocument created = app.CreateDocument("<Window Name=\"One\"/>");
+    created.Root.Name = "Edited";
+    RxuDocument again = app.ReloadAsync(created.Id);
+    failed = failed + FailWhen(again.Id != created.Id || again.State != "Loaded" || again.Root.Name != "One", "reload");
+    Var paths = List<String>();
+    paths.Add("Examples/UI/Element.rxu");
+    paths.Add("Examples/UI/Unicode.rxu");
+    Int before = app.GetDocuments();
+    Int addedCount = app.LoadMany(paths);
+    failed = failed + FailWhen(addedCount != 2 || app.GetDocuments() != before + 2, "load many");
+    RxuDocument missing = app.Load("Examples/UI/NoSuchDocument.rxu");
+    failed = failed + FailWhen(missing.State != "Failed" || missing.Messages.Find("RXU017") < 0, "missing file");
+    RxuDocument broken = app.Load("Examples/UI/Rejected/Mismatch.rxu");
+    failed = failed + FailWhen(broken.State != "Failed" || broken.Messages.Find("RXU001") < 0 || broken.Root.Id != "", "failed parse");
+    Return failed;
+}
+
+Public Function CheckProperties() -> Int
+Explain {
+    Description: "Check typed properties, precedence, inheritance, and batched updates.";
+    Input: None;
+    Processing: "Apply the Examples/UI property files and the direct precedence cases.";
+    Output: "The number of failed property checks.";
+} {
+    Int failed = 0;
+    UIElement button = UIElement();
+    button.Kind = "Button";
+    RxuNode properties = ReadExample("Examples/UI/Properties.rxu").FindChild("Button");
+    failed = failed + FailWhen(button.SetAttributes(properties) != 0 || button.GetAttribute("Width") != "120" || button.GetAttribute("Opacity") != "0.8" || button.GetAttribute("Margin") != "4,8" || button.GetAttribute("Name") != "Save", "Examples/UI/Properties.rxu");
+    UIElement panel = UIElement();
+    panel.Kind = "Panel";
+    RxuNode layout = ReadExample("Examples/UI/Layout.rxu").FindChild("Panel");
+    failed = failed + FailWhen(panel.SetAttributes(layout) != 0 || panel.GetAttribute("Orientation") != "Vertical" || panel.GetAttribute("GridColumns") != "3" || panel.GetAttribute("Dock") != "Left" || panel.GetAttribute("ClipToBounds") != "true", "Examples/UI/Layout.rxu");
+    UIElement face = UIElement();
+    face.Kind = "Button";
+    RxuNode appearance = ReadExample("Examples/UI/Appearance.rxu").FindChild("Button");
+    failed = failed + FailWhen(face.SetAttributes(appearance) != 0 || face.GetAttribute("BorderColor") != "#112233" || face.GetAttribute("Duration") != "200ms" || face.GetAttribute("Shadow") != "None" || face.GetAttribute("FontWeight") != "Bold", "Examples/UI/Appearance.rxu");
+    UIElement broken = UIElement();
+    broken.Kind = "Button";
+    RxuNode invalid = ReadExample("Examples/UI/InvalidProperties.rxu").FindChild("Button");
+    failed = failed + FailWhen(broken.SetAttributes(invalid) != 4 || broken.GetAttribute("Width") != "Auto" || broken.Messages.Find("RXU018") < 0 || broken.Messages.Find("RXU019") < 0 || broken.Messages.Find("RXU020") < 0, "Examples/UI/InvalidProperties.rxu");
+    failed = failed + FailWhen(button.AttributeType("Foreground") != "Color" || button.AttributeType("Width") != "Dimension", "property type");
+    failed = failed + FailWhen(button.HasAttribute("Width") != True || button.HasAttribute("MaxWidth") != False, "local attribute");
+    button.RemoveAttribute("Height");
+    button.SetStyle("Height", "40");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "40", "style value");
+    button.SetAttribute("Height", "80");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "80", "local wins");
+    button.RemoveAttribute("Height");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "40" || button.HasAttribute("Height") != False, "remove local");
+    button.SetAnimation("Height", "12");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "12", "animation wins");
+    button.ResetAttribute("Height");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "Auto", "reset attribute");
+    UIElement owner = UIElement();
+    owner.Kind = "Control";
+    owner.SetAttribute("Color", "#112233");
+    UIElement child = UIElement();
+    child.Kind = "Button";
+    child.SetParent(owner);
+    failed = failed + FailWhen(child.GetAttribute("Color") != "#112233", "inherit color");
+    child.SetAttribute("Color", "#FFFFFF");
+    owner.SetAttribute("Color", "#000000");
+    failed = failed + FailWhen(child.GetAttribute("Color") != "#FFFFFF" || child.GetAttribute("Foreground") != "#FFFFFF", "local color alias");
+    child.SetAnimation("Foreground", "#FF0000");
+    failed = failed + FailWhen(child.GetAttribute("Color") != "#FF0000", "animation alias");
+    failed = failed + FailWhen(button.SetAttribute("MinWidth", "20") != True || button.SetAttribute("MaxWidth", "10") != False, "min max");
+    Int changes = button.ChangeCount;
+    button.BeginUpdate();
+    button.SetAttribute("Width", "10");
+    button.SetAttribute("Height", "20");
+    button.CancelUpdate();
+    failed = failed + FailWhen(button.GetAttribute("Width") != "120" || button.ChangeCount != changes, "cancel update");
+    button.BeginUpdate();
+    button.BeginUpdate();
+    button.SetAttribute("Width", "30");
+    failed = failed + FailWhen(button.EndUpdate() != 0 || button.GetAttribute("Width") != "120", "nested update");
+    failed = failed + FailWhen(button.EndUpdate() != 1 || button.GetAttribute("Width") != "30" || button.ChangeCount != changes + 1, "end update");
+    failed = failed + FailWhen(button.LayoutInvalidated != True, "layout invalid");
+    button.Refresh();
+    failed = failed + FailWhen(button.Invalidated != False || button.LayoutInvalidated != False, "refresh");
+    button.InvalidateLayout();
+    failed = failed + FailWhen(button.Invalidated != True || button.LayoutInvalidated != True, "invalidate layout");
+    failed = failed + FailWhen(button.AttributeCount() < 20 || button.AttributeName(0) != "Name", "catalog");
+    Return failed;
+}
+
+Public Function CheckSamples() -> Int
+Explain {
+    Description: "Parse the RXU fixture, the examples, and the negative samples.";
+    Input: None;
+    Processing: "Accept the window fixture and the Examples/UI files, and reject malformed markup with stable codes.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    String fixture = Files.ReadText("UI/Fixtures/Window.rxu");
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("UI/Fixtures/Window.rxu", fixture);
+    RxuNode window = document.FindChild("Window");
+    If (document.Messages.Count() != 0 || window.Name != "Window") {
+        failed = failed + 1;
+        Print("RXU fail fixture");
+        Print(document.Describe());
+        Int item = 0;
+        While (item < document.Messages.Count() && item < 6) {
+            Print(document.Messages.FormatAt(item));
+            item = item + 1;
+        }
+        Print(document.Messages.Count());
+    }
+    If (window.FindAttribute("Title").Text != "Arm" || window.FindAttribute("Title").Mode != "String") {
+        failed = failed + 1;
+        Print("RXU fail title");
+    }
+    If (window.FindAttribute("Width").Text != "320" || window.FindAttribute("Width").Mode != "Number") {
+        failed = failed + 1;
+        Print("RXU fail width");
+    }
+    If (window.FindAttribute("Opacity").Text != "0.5" || window.FindAttribute("Opacity").Mode != "Float") {
+        failed = failed + 1;
+        Print("RXU fail opacity");
+    }
+    If (window.FindAttribute("Enabled").Text != "true" || window.FindAttribute("Enabled").Mode != "Boolean") {
+        failed = failed + 1;
+        Print("RXU fail enabled");
+    }
+    If (window.FindKind("Comment").Text != " arm panel ") {
+        failed = failed + 1;
+        Print("RXU fail comment");
+    }
+    RxuNode color = window.FindChild("Resources").FindChild("Color");
+    If (color.FindAttribute("Name").Text != "Accent" || color.FindAttribute("Value").Text != "#336699") {
+        failed = failed + 1;
+        Print("RXU fail resources");
+    }
+    RxuNode button = window.FindChild("Component").FindChild("Button");
+    If (button.Mode != "Empty" || button.FindAttribute("Text").Mode != "Binding" || button.FindAttribute("Text").Text != "Joint") {
+        failed = failed + 1;
+        Print("RXU fail binding");
+    }
+    If (window.FindChild("Import").FindAttribute("Source").Text != "Theme.rxu" || window.FindChild("Include").FindAttribute("Source").Text != "Part.rxu") {
+        failed = failed + 1;
+        Print("RXU fail import");
+    }
+    Int textCount = 0;
+    Int cursor = 0;
+    While (cursor < window.Children.Count()) {
+        RxuNode child = window.Children[cursor];
+        If (child.Kind == "Element" && child.Name == "Text") {
+            If (textCount == 0 && (child.FindAttribute("Value").Text != "Line\nNext" || child.FindAttribute("Value").Mode != "String")) {
+                failed = failed + 1;
+                Print("RXU fail escape");
+            }
+            If (textCount == 1 && (child.FindAttribute("Value").Mode != "Resource" || child.FindAttribute("Value").Text != "Accent")) {
+                failed = failed + 1;
+                Print("RXU fail resource expression");
+            }
+            If (textCount == 2 && (child.FindAttribute("Value").Mode != "Localization" || child.FindAttribute("Value").Text != "Title")) {
+                failed = failed + 1;
+                Print("RXU fail localization");
+            }
+            If (textCount == 3 && (child.FindAttribute("Value").Mode != "Expression" || child.FindAttribute("Value").Text != "Panel.Width")) {
+                failed = failed + 1;
+                Print("RXU fail value expression");
+            }
+            textCount = textCount + 1;
+        }
+        cursor = cursor + 1;
+    }
+    If (textCount != 4) {
+        failed = failed + 1;
+        Print("RXU fail text count");
+    }
+    RxuNode branch = window.FindChild("If");
+    If (branch.FindChild("Text").FindAttribute("Value").Text != "Hi" || branch.FindChild("Else").FindChild("Text").FindAttribute("Value").Text != "Go" || window.FindChild("Else").Name != "") {
+        failed = failed + 1;
+        Print("RXU fail else");
+    }
+    RxuNode choice = window.FindChild("Choose");
+    If (choice.FindChild("When").FindAttribute("Value").Text != "Live" || choice.FindChild("Otherwise").FindChild("Text").FindAttribute("Value").Text != "Idle") {
+        failed = failed + 1;
+        Print("RXU fail choose");
+    }
+    If (window.FindChild("Each").FindAttribute("Items").Mode != "Expression" || window.FindChild("Each").FindAttribute("Items").Text != "Joints") {
+        failed = failed + 1;
+        Print("RXU fail each");
+    }
+    If (window.FindChild("Label").FindAttribute("Text").Text != "Café") {
+        failed = failed + 1;
+        Print("RXU fail unicode");
+    }
+    failed = failed + FailWhen(parser.Parse("Button.rxu", "<Button Text=\"Hi\"/>").FindChild("Button").FindAttribute("Text").Text != "Hi", "quoted button");
+    failed = failed + FailWhen(parser.Parse("Flag.rxu", "<A Enabled/>").FindChild("A").FindAttribute("Enabled").Text != "true", "bare flag");
+    failed = failed + FailWhen(parser.Parse("Space.rxu", "<A> Hi </A>").FindChild("A").FindKind("Text").Text != " Hi ", "text");
+    RxuNode expression = parser.Parse("Bind.rxu", "<A>{Binding User.Name}</A>").FindChild("A").FindKind("Expression");
+    failed = failed + FailWhen(expression.Mode != "Binding" || expression.Text != "User.Name", "binding text");
+    RxuNode mismatch = parser.Parse("Bad.rxu", "<Window></Door>");
+    failed = failed + FailWhen(mismatch.Messages.Find("RXU001") < 0 || mismatch.Messages.At(mismatch.Messages.Find("RXU001")).Expected != "Window" || mismatch.Messages.At(mismatch.Messages.Find("RXU001")).Actual != "Door", "mismatch");
+    failed = failed + FailWhen(parser.Parse("Open.rxu", "<Window>").Messages.Find("RXU002") < 0, "unclosed");
+    failed = failed + FailWhen(parser.Parse("Loop.rxu", "<While></While>").Messages.Find("RXU008") < 0, "while");
+    failed = failed + FailWhen(parser.Parse("Xml.rxu", "<?xml version=\"1.0\"?><A/>").Messages.Find("RXU009") < 0, "xml");
+    failed = failed + FailWhen(parser.Parse("Empty.rxu", "<A>{}</A>").Messages.Find("RXU007") < 0, "empty expression");
+    failed = failed + FailWhen(parser.Parse("Namespace.rxu", "<ui:Button/>").Messages.Find("RXU015") < 0, "namespace");
+    failed = failed + FailWhen(parser.Parse("Loose.rxu", "<Else/>").Messages.Find("RXU010") < 0, "loose else");
+    failed = failed + FailWhen(parser.Parse("Quote.rxu", "<A Text=\"Hi>").Messages.Find("RXU004") < 0, "string");
+    failed = failed + FailWhen(parser.Parse("Brace.rxu", "<A>{Name</A>").Messages.Find("RXU005") < 0, "expression");
+    failed = failed + FailWhen(parser.Parse("Note.rxu", "<!-- comment").Messages.Find("RXU006") < 0, "comment");
+    failed = failed + FailWhen(parser.Parse("Broken.rxu", "<>").Messages.Find("RXU003") < 0, "malformed");
+    failed = failed + FailWhen(parser.Parse("Two.rxu", "<If></If><Else/><Else/>").Messages.Find("RXU012") < 0, "duplicate else");
+    failed = failed + FailWhen(parser.Parse("Defaults.rxu", "<Choose></Choose><Default/><Otherwise/>").Messages.Find("RXU013") < 0, "duplicate default");
+    failed = failed + FailWhen(parser.Parse("Orphan.rxu", "<When/>").Messages.Find("RXU011") < 0, "orphan when");
+    RxuNode nested = parser.Parse("Nest.rxu", "<If Name=\"A\"></If><If Name=\"B\"></If><Else Name=\"C\"/>");
+    failed = failed + FailWhen(nested.Messages.Count() != 0 || nested.Children.Count() != 2 || nested.Children[1].FindChild("Else").FindAttribute("Name").Text != "C" || nested.Children[0].FindChild("Else").Name != "", "nearest else");
+    RxuNode adopted = parser.Parse("Adopt.rxu", "<Choose Name=\"C\"></Choose><When Value=\"On\"/>");
+    failed = failed + FailWhen(adopted.Messages.Count() != 0 || adopted.Children.Count() != 1 || adopted.FindChild("Choose").FindChild("When").FindAttribute("Value").Text != "On", "adopted when");
+    RxuLexer lexer = RxuLexer();
+    lexer.Tokenize("Button.rxu", "<Button/>");
+    failed = failed + FailWhen(lexer.TokenCount() != 5 || lexer.TokenAt(0).Kind != "Open" || lexer.TokenAt(1).Text != "Button" || lexer.TokenAt(2).Kind != "Slash" || lexer.TokenAt(3).Kind != "Close" || lexer.TokenAt(4).Kind != "End", "tokens");
+    failed = failed + CheckExamples();
+    failed = failed + CheckDocuments();
+    failed = failed + CheckProperties();
+    If (failed == 0) {
+        Print("RXU checks passed");
+    } Else {
+        Print("RXU checks failed");
+        Print(failed);
+    }
+    Return failed;
+}
+
+Private Function FailWhen(Bool failed, String name) -> Int {
+    If (failed) {
+        Print("RXU fail " + name);
+        Return 1;
+    }
+    Return 0;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the RXU parser checks.";
+    Input: args = "Command-line arguments";
+    Processing: "Parse the fixture and the negative samples.";
+    Output: "Zero when every check passed.";
+} {
+    Int ignored = args.Count();
+    If (ignored < 0) {
+        Return 1;
+    }
+    Return CheckSamples();
+}

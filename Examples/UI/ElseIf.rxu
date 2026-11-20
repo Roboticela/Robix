@@ -1,0 +1,12 @@
+<!-- ElseIf and Else both belong to the nearest If, with ElseIf first. -->
+<Panel>
+  <If Condition={LoggedIn}>
+    <Text Value="Hi"/>
+  </If>
+  <ElseIf Condition={Guest}>
+    <Text Value="Guest"/>
+  </ElseIf>
+  <Else>
+    <Text Value="Go"/>
+  </Else>
+</Panel>

@@ -1,0 +1,2 @@
+<!-- A binding can also be the body of an element. -->
+<Panel>{Binding User.Name}</Panel>

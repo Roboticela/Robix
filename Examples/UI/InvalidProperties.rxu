@@ -1,0 +1,2 @@
+<!-- A bad value, a bad opacity, a panel property, and an unknown name are rejected. -->
+<Button Width="wide" Opacity="2" GridColumns="2" Nope="1"/>

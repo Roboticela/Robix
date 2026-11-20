@@ -1,0 +1,2 @@
+<!-- Quoted \r, \t, and \\ are stored as characters. -->
+<Text Value="A\rB\tC\\D"/>

@@ -1,0 +1,11 @@
+<!-- A live document. The second move Id is a duplicate. Import is not loaded. -->
+<Window Id="main" Name="Arm" Title="Arm">
+  <Panel Id="panel" Name="Controls">
+    <Button Id="move" Name="Move" Text="Move"/>
+    <Button Id="move" Name="Duplicate" Text="Duplicate"/>
+  </Panel>
+  <Component Name="Move">
+    <Button Text={Binding Joint}/>
+  </Component>
+  <Import Source="Theme.rxu"/>
+</Window>

@@ -1,0 +1,6 @@
+<!-- Another document with the same component name and its own tree. -->
+<Window Id="other" Name="Other">
+  <Component Name="Move">
+    <Button Text="Other"/>
+  </Component>
+</Window>

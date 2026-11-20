@@ -1,0 +1,2 @@
+<!-- Common and framework properties on a button. -->
+<Button Name="Save" Id="save" Width="120" Height="32" Enabled="true" Opacity="0.8" Margin="4,8" HorizontalAlignment="Center" Cursor="Hand" ToolTip="Save" Visible="true"/>

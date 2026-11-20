@@ -1,0 +1,4 @@
+<!-- Each stores the items expression and the item name. -->
+<Each Items={Joints} As="joint">
+  <Text Value={joint}/>
+</Each>

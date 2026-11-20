@@ -1,0 +1,4 @@
+<!-- RXU012: ElseIf cannot follow Else. -->
+<If></If>
+<Else/>
+<ElseIf/>

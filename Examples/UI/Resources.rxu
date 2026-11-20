@@ -1,0 +1,4 @@
+<!-- Resources record named values. They are not applied here. -->
+<Resources>
+  <Color Name="Accent" Value="#336699"/>
+</Resources>

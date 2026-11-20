@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Robix 3D file (.rx3d)</title>
+  <desc>Transparent icon with coral code brackets and connected nodes framing an isometric turquoise 3D cube</desc>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <!-- Matching Robix brackets: light keyline, dark outline, vibrant fill -->
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#F8FAFC" stroke-width="66"/>
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#10203B" stroke-width="54"/>
+    <path d="M179 122 66 256l113 134M333 122 446 256 333 390" stroke="#FB923C" stroke-width="37"/>
+    <!-- Robotics nodes -->
+    <path d="M256 173v34M256 306v34" stroke="#F8FAFC" stroke-width="37"/>
+    <path d="M256 173v34M256 306v34" stroke="#10203B" stroke-width="27"/>
+    <circle cx="256" cy="146" r="27" fill="#FB923C" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="146" r="27" stroke="#10203B" stroke-width="8"/>
+    <circle cx="256" cy="366" r="27" fill="#FB923C" stroke="#F8FAFC" stroke-width="13"/>
+    <circle cx="256" cy="366" r="27" stroke="#10203B" stroke-width="8"/>
+    <!-- Isometric cube, thick legible faces for 16-24px view -->
+    <path d="M256 188 335 232 256 278 177 232Z" fill="#99F6E4" stroke="#F8FAFC" stroke-width="16"/>
+    <path d="M177 232 256 278v83l-79-46Z" fill="#2DD4BF" stroke="#F8FAFC" stroke-width="16"/>
+    <path d="M335 232 256 278v83l79-46Z" fill="#0D9488" stroke="#F8FAFC" stroke-width="16"/>
+    <path d="M256 188 335 232v83l-79 46-79-46v-83Z" stroke="#10203B" stroke-width="10"/>
+    <path d="M177 232 256 278 335 232M256 278v83" stroke="#10203B" stroke-width="10"/>
+  </g>
+</svg>

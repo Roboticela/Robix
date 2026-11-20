@@ -1,0 +1,2 @@
+<!-- Import records a component file. This parser does not load Theme.rxu. -->
+<Import Source="Theme.rxu"/>

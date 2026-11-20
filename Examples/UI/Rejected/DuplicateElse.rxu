@@ -1,0 +1,4 @@
+<!-- RXU012: an If can have only one Else. -->
+<If></If>
+<Else/>
+<Else/>

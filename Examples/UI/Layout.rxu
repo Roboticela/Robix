@@ -1,0 +1,2 @@
+<!-- Layout properties belong on a panel. -->
+<Panel Orientation="Vertical" Spacing="8" Row="1" Column="2" RowSpan="1" ColumnSpan="2" GridColumns="3" GridRows="2" Dock="Left" Wrap="false" ClipToBounds="true" HorizontalContentAlignment="Start"/>

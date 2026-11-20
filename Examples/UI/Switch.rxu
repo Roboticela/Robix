@@ -1,0 +1,9 @@
+<!-- When and Default belong to the nearest Switch. -->
+<Switch Value={Mode}>
+  <When Value="Live">
+    <Text Value="Live"/>
+  </When>
+  <Default>
+    <Text Value="Idle"/>
+  </Default>
+</Switch>

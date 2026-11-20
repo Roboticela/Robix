@@ -1,6 +1,8 @@
 # Robix UI (RXU) — Master Implementation Plan & Verification Checklist
 
-**Status:** Not started · **Scope:** RXU language, Robix.UI framework, Linux GTK4 integration, universal desktop architecture, future Windows/macOS parity.  
+Write examples also for each feature in Examples/UI folder.
+
+**Status:** In progress · **Scope:** RXU language, Robix.UI framework, Linux GTK4 integration, universal desktop architecture, future Windows/macOS parity.  
 **Source:** `Plan.md` (3,794 lines; all major sections consolidated, including later amendments).  
 **Purpose:** Execute in dependency order, check each deliverable only after verification, and prevent features from being lost between releases.
 
@@ -42,12 +44,6 @@ Reviewer / date:
 **Dependencies:** None  
 **Source coverage:** Original §§1–25; amendments on document loading, strict validation and universal cross-platform behavior (source lines 2100–3794)
 
-- [ ] **P00.01** Adopt **RX = logic/behavior**; **RXU = UI structure**; `.rxp` = common project config; Robix internals hide OS differences.
-- [ ] **P00.02** Choose canonical document loading `UI.Load(path)` / `UI.LoadMany(paths)`; explicitly decide whether `Import UI "..."` is deprecated, optional compile-time alias, or supported alongside path loading.
-- [ ] **P00.03** Distinguish `UI.Load(path)` (live independent document), `<Import Source>` (component definitions), and `<Include Source>` (embedded markup); define whether all three exist and exactly how they differ.
-- [ ] **P00.04** Freeze markup grammar: XML-inspired tags, quoting/escaping, self-closing tags, no required XML declaration/version/ordinary namespaces, structural nesting, whitespace and comments.
-- [ ] **P00.05** Freeze expression grammar for `{...}` versus `{Binding ...}`, `{Resource ...}`, `{Localization ...}`; resolve literal interpolation, names, safe calls and ambiguity.
-- [ ] **P00.06** Freeze control-flow syntax (`If/Else/ElseIf`, `Each/For/ForEach`, `Switch/Choose/When/Default/Otherwise`, `Include/Import`, `Let/Set/Bind`); decide whether bounded `While` is allowed.
 - [ ] **P00.07** Freeze component, property, event, resource, rendering and backend contracts with versioning and compatibility policy.
 - [ ] **P00.08** Choose strict universal shared renderer/behavior with minimal adapters; document how the earlier hybrid native/custom proposal is constrained by the later **one universal implementation** requirement.
 - [ ] **P00.09** Define cross-platform promise precisely: same source and project, automatically selected adapter, separately built native target binaries as necessary; specify fallback/error behavior.
@@ -74,14 +70,6 @@ Reviewer / date:
 **Dependencies:** P00–P01  
 **Source coverage:** Original §§2, 4, 20; strict syntax amendments
 
-- [ ] **P02.01** Implement lexer/tokenizer for elements, attributes, strings, escaping, comments, whitespace and self-closing tags.
-- [ ] **P02.02** Implement strict parser with source spans and explicit errors for mismatched, missing and malformed tags.
-- [ ] **P02.03** Parse numeric, Boolean, floating-point, string and typed expression values.
-- [ ] **P02.04** Parse embedded expression/binding/resource/localization syntax without interpreting strings as arbitrary code.
-- [ ] **P02.05** Parse `Resources`, component definitions, imports/includes, templates and declarative control structures.
-- [ ] **P02.06** Define deterministic grammar rules for `Else` association and `Choose`/`When`/`Default` structures.
-- [ ] **P02.07** Implement parser fuzz, malformed-input, UTF-8/Unicode, escape and nesting tests.
-- [ ] **P02.08** Emit stable diagnostic codes with filename, line, column, range, expected/received, and actionable message.
 - [ ] **P02.09** Ensure no silently accepted invalid syntax during successful builds.
 - [ ] **G02 — PHASE SIGN-OFF:** All valid fixtures parse identically; negative fixtures fail with precise source locations.; attach evidence and reviewer approval in the checkpoint register.
 
@@ -90,14 +78,6 @@ Reviewer / date:
 **Dependencies:** P02  
 **Source coverage:** Original §§1, 7, 10, 18, 21; amended document loading and manager
 
-- [ ] **P03.01** Define syntax tree, validated document definition, instantiated `UIDocument`, and component instance as separate types.
-- [ ] **P03.02** Implement `DocumentManager`, component registry, names/IDs, parent/children relationships, ownership and lifecycle.
-- [ ] **P03.03** Implement `UI.Load(path)`, `LoadAsync`, `LoadMany`, `Reload`, `ReloadAsync`, `Unload`, `CreateDocument`, `GetDocuments`, `GetDocument`, `GetRoot`.
-- [ ] **P03.04** Make loading independent of showing; implement document-level Show/Hide/Close semantics as specified.
-- [ ] **P03.05** Ensure loaded documents have isolated identities, state, component trees and document resources unless sharing is explicit.
-- [ ] **P03.06** Implement component queries by name, ID, type and hierarchical path; define missing lookup as `Option<T>` or equivalent.
-- [ ] **P03.07** Implement stable identity and duplicate-ID handling, attachment/detachment, disposal and dangling-reference safeguards.
-- [ ] **P03.08** Test concurrent documents, load/unload cycles, failed loads and deterministic cleanup.
 - [ ] **G03 — PHASE SIGN-OFF:** Two documents with same component names coexist; after unloading, no live handles/resources leak.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P04 — Typed dependency property system
@@ -105,15 +85,6 @@ Reviewer / date:
 **Dependencies:** P03  
 **Source coverage:** Original §§2, 6–7, 16
 
-- [ ] **P04.01** Define `UIElement`/`FrameworkElement`/`Control`/`Panel` hierarchy or composition and typed property metadata.
-- [ ] **P04.02** Implement all common properties and validation: Name, Id, Width, Height, Min/MaxWidth/Height, Visible, Enabled, Opacity, Margin, Padding, Background, Color/Foreground, fonts, alignments, Cursor, ToolTip, Style, Class, Tag.
-- [ ] **P04.03** Implement layout properties: Orientation, Spacing, Row/Column, RowSpan/ColumnSpan, content alignments, GridColumns/Rows, Dock, Wrap, ClipToBounds.
-- [ ] **P04.04** Implement appearance properties: BorderColor/Width, CornerRadius, Shadow, TextAlignment/Decoration, Icon, Image, Animation and component-specific attributes.
-- [ ] **P04.05** Implement typed values and conversion rules for Color, Brush, Thickness, Dimension, Duration, numbers, Boolean and enums; reject invalid conversion.
-- [ ] **P04.06** Implement defaults, change notifications, inheritance, effective-value precedence (animation > local > style > inherited > default) and invalidation flags.
-- [ ] **P04.07** Implement direct RX property access plus `SetAttribute`, `GetAttribute`, `HasAttribute`, `RemoveAttribute`, `ResetAttribute`, `GetAttributeNames`, `GetAttributeType`, `SetAttributes`.
-- [ ] **P04.08** Implement transactions `BeginUpdate`/`EndUpdate`, `ApplyChanges`, `Refresh`, `Invalidate`, `InvalidateLayout` with one batched repaint when possible.
-- [ ] **P04.09** Test schema-specific allowed properties, invalid/unknown properties, precedence, conversions and transaction rollback/error semantics.
 - [ ] **G04 — PHASE SIGN-OFF:** Typed property conformance suite passes for every registered control and invalid writes cannot bypass typing.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P05 — Resources, styling, themes and templates

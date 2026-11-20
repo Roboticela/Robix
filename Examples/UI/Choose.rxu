@@ -1,0 +1,9 @@
+<!-- When and Otherwise belong to the nearest Choose. -->
+<Choose Value={Mode}>
+  <When Value="Live">
+    <Text Value="Live"/>
+  </When>
+  <Otherwise>
+    <Text Value="Idle"/>
+  </Otherwise>
+</Choose>

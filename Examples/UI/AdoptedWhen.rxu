@@ -1,0 +1,5 @@
+<!-- A following When is moved onto the nearest Choose. -->
+<Panel>
+  <Choose Name="C"></Choose>
+  <When Value="On"/>
+</Panel>

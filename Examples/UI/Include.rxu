@@ -1,0 +1,2 @@
+<!-- Include records embedded markup. This parser does not load Part.rxu. -->
+<Include Source="Part.rxu"/>

@@ -1,0 +1,2 @@
+<!-- true and false are Booleans. A bare attribute means true. -->
+<Window Enabled="true" Visible/>

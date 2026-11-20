@@ -1,0 +1,33 @@
+<Window Title="Arm" Width="320" Opacity="0.5" Enabled="true">
+  <!-- arm panel -->
+  <Resources>
+    <Color Name="Accent" Value="#336699"/>
+  </Resources>
+  <Component Name="Move">
+    <Button Text={Binding Joint}/>
+  </Component>
+  <Import Source="Theme.rxu"/>
+  <Include Source="Part.rxu"/>
+  <Text Value="Line\nNext"/>
+  <Text Value={Resource Accent}/>
+  <Text Value={Localization Title}/>
+  <Text Value={Panel.Width}/>
+  <If Condition={LoggedIn}>
+    <Text Value="Hi"/>
+  </If>
+  <Else>
+    <Text Value="Go"/>
+  </Else>
+  <Choose Value={Mode}>
+    <When Value="Live">
+      <Text Value="Live"/>
+    </When>
+    <Otherwise>
+      <Text Value="Idle"/>
+    </Otherwise>
+  </Choose>
+  <Each Items={Joints} As="joint">
+    <Text Value={joint}/>
+  </Each>
+  <Label Text="Café"/>
+</Window>

@@ -1,0 +1,4 @@
+<!-- RXU013: a choice can have only one default branch. -->
+<Choose></Choose>
+<Default/>
+<Otherwise/>
