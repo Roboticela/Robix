@@ -17,13 +17,8 @@ The lagnuage will can have both entry point from procedural with private int mai
 // 3. Type system, conversions, precision, and user-defined types
 // -----------------------------------------------------------------------------
 
-UInt64 bigUnsigned = 18_446_744_073_709_551_615;
-Float16 halfPrecision = 1.0;
-
-// Arbitrary-width integer types are available through a bit-width parameter.
-// Examples: Int<24>, UInt<128>, Int<256>, Float<128>.
-Int<24> customWidth = Int<24>.From(100);
-UInt<128> veryLargeUnsigned = UInt<128>.From(1000);
+// Arbitrary-width floating types, such as Float<128>, are still open.
+Float<128> wideFloat = Float<128>.From(1.0);
 
 // Direct conversion methods. Try variants report conversion failure without
 // throwing; checked conversions throw on invalid or out-of-range values.

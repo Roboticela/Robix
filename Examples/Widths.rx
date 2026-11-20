@@ -1,0 +1,25 @@
+// Unsigned 64-bit values, half precision, and explicit bit widths.
+Package Robotics.Widths;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Construct wide integers and a half-precision float.";
+    Input: args = "Command-line arguments";
+    Processing: "Parse the full unsigned range, a half, and two bit widths.";
+    Output: "The constructed numbers.";
+} {
+    UInt64 bigUnsigned = 18_446_744_073_709_551_615;
+    Float16 halfPrecision = 1.0;
+    Float16 tenth = 0.1;
+    Int<24> customWidth = Int<24>.From(100);
+    UInt<128> veryLargeUnsigned = UInt<128>.From(1000);
+    Print(bigUnsigned);
+    Print(halfPrecision);
+    Print(tenth);
+    Print(customWidth);
+    Print(veryLargeUnsigned);
+    Return 0;
+}

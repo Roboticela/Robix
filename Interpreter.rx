@@ -1167,7 +1167,11 @@ Public Class Interpreter {
             name = node.Left.Name;
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericOwner(node.Left.Left.Name)) {
-            Return This.NumericFrom(node.Left.Left.Name, node, arguments);
+            String fullName = node.Left.Left.Name;
+            If (node.Left.Left.Children.Count() > 0) {
+                fullName = fullName + "<" + node.Left.Left.Children[0].Name + ">";
+            }
+            Return This.NumericFrom(fullName, node, arguments);
         }
         If (name == "AstNode") {
             Value obj = This.BlankValue("AstNode");
@@ -2421,8 +2425,17 @@ Public Class Interpreter {
             Return value;
         }
         If (initializer != Null) {
-            If ((typeName == "Float32" || typeName == "Float16") && initializer.Kind == AstKind.FloatLiteral) {
+            If (typeName == "Float16" && initializer.Kind == AstKind.FloatLiteral) {
+                Return This.MakeFloatBits(F16Parse(StripNumericSuffix(initializer.Text.Replace("_", ""))));
+            }
+            If (typeName == "Float32" && initializer.Kind == AstKind.FloatLiteral) {
                 Return This.MakeFloatBits(F32Parse(StripNumericSuffix(initializer.Text.Replace("_", ""))));
+            }
+            If (initializer.Kind == AstKind.IntegerLiteral && This.IsWideUnsigned(typeName)) {
+                String digits = initializer.Text.Replace("_", "");
+                Value wide = This.MakeInt(U64Parse(digits));
+                If (wide.Integer < 0) { wide.Text = "u:" + digits; }
+                Return wide;
             }
         }
         If (value.Kind == ValueKind.Integer && (typeName == "Int8" || typeName == "Int16" || typeName == "Int32" || typeName == "UInt8" || typeName == "UInt16" || typeName == "UInt32" || typeName == "Byte")) {
@@ -2480,14 +2493,39 @@ Public Class Interpreter {
         Return typeName == "Int" || typeName == "UInt" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName == "Byte" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
     }
 
+    Private Function BitWidth(String typeName) -> Int {
+        If (typeName == "Int8" || typeName == "UInt8" || typeName == "Byte") { Return 8; }
+        If (typeName == "Int16" || typeName == "UInt16") { Return 16; }
+        If (typeName == "Int32" || typeName == "UInt32") { Return 32; }
+        If (typeName == "Int" || typeName == "Int64" || typeName == "UInt" || typeName == "UInt64") { Return 64; }
+        Int open = typeName.IndexOf("<");
+        If (open < 0 || !typeName.EndsWith(">")) { Return 0; }
+        String inner = typeName.Substring(open + 1, typeName.Length() - open - 2);
+        If (inner == "") { Return 0; }
+        Return ParseInteger(inner);
+    }
+
+    Private Function IsWideUnsigned(String typeName) -> Bool {
+        If (!(typeName == "UInt" || typeName == "UInt64" || typeName.StartsWith("UInt<"))) { Return False; }
+        Return This.BitWidth(typeName) >= 64;
+    }
+
     Private Function MakeWidth(String typeName, Int number) -> Value {
-        If (typeName == "Int8") { Return This.MakeInt(This.SignExtend(number, 8)); }
-        If (typeName == "UInt8" || typeName == "Byte") { Return This.MakeInt(This.Mask(number, 255)); }
-        If (typeName == "Int16") { Return This.MakeInt(This.SignExtend(number, 16)); }
-        If (typeName == "UInt16") { Return This.MakeInt(This.Mask(number, 65535)); }
-        If (typeName == "Int32") { Return This.MakeInt(This.SignExtend(number, 32)); }
-        If (typeName == "UInt32") { Return This.MakeInt(This.Mask(number, 4294967295)); }
-        If ((typeName == "UInt" || typeName == "UInt64") && number < 0) { Return This.MakeInt(0); }
+        Int bits = This.BitWidth(typeName);
+        Bool unsigned = typeName == "Byte" || typeName.StartsWith("UInt");
+        If (bits > 0 && bits < 64) {
+            If (unsigned) {
+                Int span = 1;
+                Int count = 0;
+                While (count < bits) {
+                    span = span * 2;
+                    count = count + 1;
+                }
+                Return This.MakeInt(This.Mask(number, span - 1));
+            }
+            Return This.MakeInt(This.SignExtend(number, bits));
+        }
+        If (unsigned && number < 0 && !typeName.StartsWith("UInt<")) { Return This.MakeInt(0); }
         Return This.MakeInt(number);
     }
 
@@ -2499,20 +2537,17 @@ Public Class Interpreter {
     }
 
     Private Function SignExtend(Int number, Int bits) -> Int {
-        Int mask = 255;
-        Int sign = 128;
-        If (bits == 16) {
-            mask = 65535;
-            sign = 32768;
+        If (bits <= 0) { Return number; }
+        If (bits >= 63) { Return number; }
+        Int span = 1;
+        Int count = 0;
+        While (count < bits) {
+            span = span * 2;
+            count = count + 1;
         }
-        If (bits == 32) {
-            mask = 4294967295;
-            sign = 2147483648;
-        }
-        Int masked = This.Mask(number, mask);
-        If (masked >= sign) {
-            Return masked - (mask + 1);
-        }
+        Int masked = This.Mask(number, span - 1);
+        Int sign = span / 2;
+        If (masked >= sign) { Return masked - span; }
         Return masked;
     }
 
@@ -2669,7 +2704,10 @@ Public Class Interpreter {
     }
 
     Private Function Display(Value value) -> String {
-        If (value.Kind == ValueKind.Integer) { Return value.Integer.ToString(); }
+        If (value.Kind == ValueKind.Integer) {
+            If (value.Text.StartsWith("u:")) { Return value.Text.Substring(2); }
+            Return value.Integer.ToString();
+        }
         If (value.Kind == ValueKind.Float) { Return TextF64(value.Integer); }
         If (value.Kind == ValueKind.Boolean) {
             If (value.Boolean) { Return "True"; }
@@ -2724,6 +2762,8 @@ Private Extern Function F64Div(Int left, Int right) -> Int;
 Private Extern Function F64Neg(Int bits) -> Int;
 Private Extern Function F64Cmp(Int left, Int right) -> Int;
 Private Extern Function FloatToInt(Int bits) -> Int;
+Private Extern Function U64Parse(String text) -> Int;
+Private Extern Function F16Parse(String text) -> Int;
 Private Extern Function ReadLine() -> String;
 Private Extern Function BitAnd(Int left, Int right) -> Int;
 Private Extern Function BitOr(Int left, Int right) -> Int;

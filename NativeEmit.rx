@@ -584,7 +584,7 @@ Public Class NativeProgram {
     Private Function DeclareExtern(AstNode node) -> String {
         If (node.Name == "RunProcess") { Return ""; }
         String symbol = This.ExternSymbol(node.Name);
-        If (symbol == "rx_F64Parse" || symbol == "rx_F64Text" || symbol == "rx_F64FromInt" || symbol == "rx_F64ToInt" || symbol == "rx_F32Parse" || symbol == "rx_FormatFixed" || symbol == "rx_Input") { Return ""; }
+        If (symbol == "rx_F64Parse" || symbol == "rx_F64Text" || symbol == "rx_F64FromInt" || symbol == "rx_F64ToInt" || symbol == "rx_F32Parse" || symbol == "rx_F16Parse" || symbol == "rx_U64Parse" || symbol == "rx_FormatFixed" || symbol == "rx_Input") { Return ""; }
         String args = "";
         Int count = node.Parameters.Count();
         Int index = 0;
@@ -693,7 +693,7 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F32Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
         String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
@@ -971,8 +971,19 @@ Public Class NativeProgram {
                     value = This.StringConst(This.Digits(node.Initializer.Text) + ".0");
                 }
             }
-            If ((typeName == "Float32" || typeName == "Float16") && This.IsFloatType(sourceType) && sourceType != "Float32" && sourceType != "Float16") {
+            If (typeName == "Float16" && node.Initializer != Null && node.Initializer.Kind == AstKind.FloatLiteral) {
+                Var halfArgs = List<String>();
+                halfArgs.Add(This.StringConst(This.FloatSpelling(node.Initializer.Text)));
+                IrValue half = This.CallRuntime("rx_F16Parse", halfArgs, False);
+                value = half.Value;
+            } Else If (typeName == "Float32" && This.IsFloatType(sourceType) && sourceType != "Float32") {
                 value = This.NarrowFloat32(value);
+            }
+            If (This.IsWideUnsigned(typeName) && node.Initializer != Null && node.Initializer.Kind == AstKind.IntegerLiteral) {
+                Var wideArgs = List<String>();
+                wideArgs.Add(This.StringConst(node.Initializer.Text.Replace("_", "")));
+                IrValue wide = This.CallRuntime("rx_U64Parse", wideArgs, False);
+                value = wide.Value;
             }
             If (This.IsWrappedInteger(typeName) && !This.IsFloatType(sourceType) && !This.IsString(sourceType) && sourceType != "Decimal") {
                 value = This.WrapInteger(value, typeName);
@@ -2850,6 +2861,18 @@ Public Class NativeProgram {
             Return "[" + element + "]";
         }
         String resolved = This.ResolveAlias(name);
+        If (node.Children.Count() > 0) {
+            resolved = resolved + "<";
+            Bool firstChild = True;
+            For child In node.Children {
+                If (!firstChild) { resolved = resolved + ", "; }
+                String argument = child.Name;
+                If (argument == "") { argument = This.TypeName(child); }
+                resolved = resolved + argument;
+                firstChild = False;
+            }
+            resolved = resolved + ">";
+        }
         If (node.FlagA && !resolved.EndsWith("?")) { resolved = resolved + "?"; }
         Return resolved;
     }
@@ -3322,6 +3345,7 @@ Public Class NativeProgram {
         If (clean == "Bool") { Return 2; }
         If (clean == "Char") { Return 3; }
         If (clean == "Decimal") { Return 1; }
+        If (clean == "Byte" || clean.StartsWith("UInt")) { Return 5; }
         If (This.IsFloatType(clean)) { Return 4; }
         Return 0;
     }
@@ -3433,6 +3457,9 @@ Public Class NativeProgram {
 
     Private Function EmitNumericFrom(AstNode node) -> IrValue {
         String typeName = node.Left.Left.Name;
+        If (node.Left.Left.Children.Count() > 0) {
+            typeName = typeName + "<" + node.Left.Left.Children[0].Name + ">";
+        }
         String valueReg = "0";
         String valueType = "Int";
         String places = "-1";
@@ -3474,7 +3501,8 @@ Public Class NativeProgram {
             Var parseArgs = List<String>();
             parseArgs.Add(formatted.Value);
             String parser = "rx_F64Parse";
-            If (typeName == "Float32" || typeName == "Float16") { parser = "rx_F32Parse"; }
+            If (typeName == "Float32") { parser = "rx_F32Parse"; }
+            If (typeName == "Float16") { parser = "rx_F16Parse"; }
             IrValue bits = This.CallRuntime(parser, parseArgs, False);
             Return This.Pair(bits.Value, typeName);
         }
@@ -3523,8 +3551,27 @@ Public Class NativeProgram {
         Return typeName == "Int" || typeName == "UInt" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName == "Byte" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
     }
 
+    Private Function BitWidth(String typeName) -> Int {
+        If (typeName == "Int8" || typeName == "UInt8" || typeName == "Byte") { Return 8; }
+        If (typeName == "Int16" || typeName == "UInt16") { Return 16; }
+        If (typeName == "Int32" || typeName == "UInt32") { Return 32; }
+        If (typeName == "Int" || typeName == "Int64" || typeName == "UInt" || typeName == "UInt64") { Return 64; }
+        Int open = typeName.IndexOf("<");
+        If (open < 0 || !typeName.EndsWith(">")) { Return 0; }
+        String inner = typeName.Substring(open + 1, typeName.Length() - open - 2);
+        If (inner == "") { Return 0; }
+        Return ParseInteger(inner);
+    }
+
+    Private Function IsWideUnsigned(String typeName) -> Bool {
+        If (!(typeName == "UInt" || typeName == "UInt64" || typeName.StartsWith("UInt<"))) { Return False; }
+        Return This.BitWidth(typeName) >= 64;
+    }
+
     Private Function IsWrappedInteger(String typeName) -> Bool {
-        Return typeName == "Int8" || typeName == "Int16" || typeName == "Int32" || typeName == "UInt8" || typeName == "UInt16" || typeName == "UInt32" || typeName == "Byte";
+        If (typeName == "Int8" || typeName == "Int16" || typeName == "Int32" || typeName == "UInt8" || typeName == "UInt16" || typeName == "UInt32" || typeName == "Byte") { Return True; }
+        Int bits = This.BitWidth(typeName);
+        Return bits > 0 && bits < 64;
     }
 
     Private Function WrapInteger(String value, String typeName) -> String {
@@ -3546,6 +3593,21 @@ Public Class NativeProgram {
         If (typeName == "Int8") { Return This.SignExtend(value, "i8"); }
         If (typeName == "Int16") { Return This.SignExtend(value, "i16"); }
         If (typeName == "Int32") { Return This.SignExtend(value, "i32"); }
+        Int bits = This.BitWidth(typeName);
+        If (bits > 0 && bits < 64) {
+            If (typeName.StartsWith("UInt") || typeName == "Byte") {
+                Int span = 1;
+                Int count = 0;
+                While (count < bits) {
+                    span = span * 2;
+                    count = count + 1;
+                }
+                String result = This.Fresh("v");
+                This.Emit(result + " = and i64 " + value + ", " + (span - 1).ToString());
+                Return result;
+            }
+            Return This.SignExtend(value, "i" + bits.ToString());
+        }
         Return value;
     }
 

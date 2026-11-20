@@ -599,6 +599,90 @@ int64_t rx_str_from_chars(int64_t list) {
     return (int64_t)(uintptr_t)copy;
 }
 
+static uint16_t rx_f32_to_f16(float value) {
+    uint32_t bits = 0;
+    memcpy(&bits, &value, sizeof(bits));
+    uint32_t sign = (bits >> 16) & 0x8000u;
+    int32_t exponent = (int32_t)((bits >> 23) & 0xFFu) - 127 + 15;
+    uint32_t fraction = bits & 0x7FFFFFu;
+    if (((bits >> 23) & 0xFFu) == 0xFFu) {
+        if (fraction == 0) {
+            return (uint16_t)(sign | 0x7C00u);
+        }
+        return (uint16_t)(sign | 0x7E00u);
+    }
+    if (exponent <= 0) {
+        if (exponent < -10) {
+            return (uint16_t)sign;
+        }
+        fraction = (fraction | 0x800000u) >> (uint32_t)(1 - exponent);
+        if ((fraction & 0x1000u) != 0) {
+            fraction += 0x2000u;
+        }
+        return (uint16_t)(sign | (fraction >> 13));
+    }
+    if (exponent >= 31) {
+        return (uint16_t)(sign | 0x7C00u);
+    }
+    if ((fraction & 0x1000u) != 0) {
+        fraction += 0x2000u;
+        if ((fraction & 0x800000u) != 0) {
+            fraction = 0;
+            exponent++;
+            if (exponent >= 31) {
+                return (uint16_t)(sign | 0x7C00u);
+            }
+        }
+    }
+    return (uint16_t)(sign | ((uint32_t)exponent << 10) | (fraction >> 13));
+}
+
+static float rx_f16_to_f32(uint16_t value) {
+    uint32_t sign = ((uint32_t)value & 0x8000u) << 16;
+    uint32_t exponent = (value >> 10) & 0x1Fu;
+    uint32_t fraction = value & 0x3FFu;
+    uint32_t bits = 0;
+    if (exponent == 0) {
+        if (fraction == 0) {
+            bits = sign;
+        } else {
+            exponent = 1;
+            while ((fraction & 0x400u) == 0) {
+                fraction <<= 1;
+                exponent--;
+            }
+            fraction &= 0x3FFu;
+            bits = sign | ((exponent + (127u - 15u)) << 23) | (fraction << 13);
+        }
+    } else if (exponent == 31) {
+        bits = sign | 0x7F800000u | (fraction << 13);
+    } else {
+        bits = sign | ((exponent + (127u - 15u)) << 23) | (fraction << 13);
+    }
+    float result = 0;
+    memcpy(&result, &bits, sizeof(result));
+    return result;
+}
+
+int64_t rx_U64Parse(int64_t text) {
+    const char *raw = rx_cstr(text);
+    char buffer[96];
+    int64_t count = 0;
+    while (*raw != 0 && count < 95) {
+        if (*raw != '_') {
+            buffer[count++] = *raw;
+        }
+        raw++;
+    }
+    buffer[count] = 0;
+    return (int64_t)strtoull(buffer, NULL, 10);
+}
+
+int64_t rx_F16Parse(int64_t text) {
+    float value = strtof(rx_cstr(text), NULL);
+    return rx_f64_box((double)rx_f16_to_f32(rx_f32_to_f16(value)));
+}
+
 void rx_print(int64_t value, int64_t kind) {
     if (kind == 1) {
         fputs(rx_cstr(value), stdout);
@@ -610,6 +694,8 @@ void rx_print(int64_t value, int64_t kind) {
         char buffer[64];
         rx_f64_format(rx_f64_unbox(value), buffer, sizeof(buffer));
         fputs(buffer, stdout);
+    } else if (kind == 5) {
+        printf("%llu", (unsigned long long)value);
     } else {
         printf("%lld", (long long)value);
     }

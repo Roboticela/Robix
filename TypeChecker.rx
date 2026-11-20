@@ -720,7 +720,11 @@ Public Class TypeChecker {
                 }
             }
             If (node.Left.Name == "From" && This.IsNumeric(owner)) {
-                Return owner;
+                String fullName = owner;
+                If (node.Left.Left.Children.Count() > 0) {
+                    fullName = owner + "<" + node.Left.Left.Children[0].Name + ">";
+                }
+                Return fullName;
             }
             If (node.Left.Name == "Enumerate") {
                 String elem = This.ElementName(receiverType);
@@ -1061,7 +1065,7 @@ Public Class TypeChecker {
             }
             text = text + ">";
         }
-        If (type.FlagB) {
+        If (type.FlagB && !This.DigitsOnly(type.Name)) {
             text = text + "[]";
         }
         If (type.FlagA) {
@@ -1167,6 +1171,118 @@ Public Class TypeChecker {
         Return ParseInteger(number);
     }
 
+    Private Function DigitsOnly(String text) -> Bool {
+        If (text.Length() == 0) { Return False; }
+        Int index = 0;
+        While (index < text.Length()) {
+            Char character = text.GetChar(index);
+            If (character < '0' || character > '9') { Return False; }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function WidthBits(String typeName) -> Int {
+        If (typeName == "Int8" || typeName == "UInt8" || typeName == "Byte") { Return 8; }
+        If (typeName == "Int16" || typeName == "UInt16") { Return 16; }
+        If (typeName == "Int32" || typeName == "UInt32") { Return 32; }
+        If (typeName == "Int" || typeName == "Int64" || typeName == "UInt" || typeName == "UInt64") { Return 64; }
+        Int open = typeName.IndexOf("<");
+        If (open < 0 || !typeName.EndsWith(">")) { Return 0; }
+        If (!typeName.StartsWith("Int") && !typeName.StartsWith("UInt")) { Return 0; }
+        String inner = typeName.Substring(open + 1, typeName.Length() - open - 2);
+        If (inner == "") { Return 0; }
+        Return ParseInteger(inner);
+    }
+
+    Private Function CleanDigits(String text) -> String {
+        String digits = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            Char character = text.GetChar(index);
+            If (character >= '0' && character <= '9') { digits = digits + text.Substring(index, 1); }
+            index = index + 1;
+        }
+        If (digits == "") { Return "0"; }
+        Int start = 0;
+        While (start < digits.Length() - 1 && digits.GetChar(start) == '0') { start = start + 1; }
+        Return digits.Substring(start);
+    }
+
+    Private Function DigitAt(String text, Int index) -> Int {
+        Int raw = text.GetChar(index).ToInt();
+        If (raw >= 48) { Return raw - 48; }
+        Return raw;
+    }
+
+    Private Function DigitChar(Int digit) -> String {
+        String table = "0123456789";
+        Var index = digit;
+        If (index < 0) { index = 0; }
+        If (index > 9) { index = 9; }
+        Return table.Substring(index, 1);
+    }
+
+    Private Function DoubleDecimal(String digits) -> String {
+        String result = "";
+        Int carry = 0;
+        Int index = digits.Length() - 1;
+        While (index >= 0) {
+            Int digit = This.DigitAt(digits, index) * 2 + carry;
+            carry = 0;
+            If (digit >= 10) {
+                carry = 1;
+                digit = digit - 10;
+            }
+            result = This.DigitChar(digit) + result;
+            index = index - 1;
+        }
+        If (carry == 1) { result = "1" + result; }
+        Return result;
+    }
+
+    Private Function MinusOneDecimal(String digits) -> String {
+        If (digits == "0") { Return "0"; }
+        String result = "";
+        Int borrow = 1;
+        Int index = digits.Length() - 1;
+        While (index >= 0) {
+            Int digit = This.DigitAt(digits, index) - borrow;
+            borrow = 0;
+            If (digit < 0) {
+                digit = digit + 10;
+                borrow = 1;
+            }
+            result = This.DigitChar(digit) + result;
+            index = index - 1;
+        }
+        Return This.CleanDigits(result);
+    }
+
+    Private Function PowerLimit(Int bits, Bool includeTop) -> String {
+        If (bits <= 0) { Return "0"; }
+        String digits = "1";
+        Int count = 0;
+        While (count < bits) {
+            digits = This.DoubleDecimal(digits);
+            count = count + 1;
+        }
+        If (!includeTop) { digits = This.MinusOneDecimal(digits); }
+        Return digits;
+    }
+
+    Private Function DigitsWithin(String digits, String limit) -> Bool {
+        If (digits.Length() != limit.Length()) { Return digits.Length() < limit.Length(); }
+        Int index = 0;
+        While (index < digits.Length()) {
+            Int left = This.DigitAt(digits, index);
+            Int right = This.DigitAt(limit, index);
+            If (left != right) { Return left < right; }
+            index = index + 1;
+        }
+        Return True;
+    }
+
     Private Function FitsIntegerLiteral(AstNode node, String expected) -> Bool {
         Int sign = 1;
         AstNode literal = node;
@@ -1175,16 +1291,15 @@ Public Class TypeChecker {
             literal = node.Left;
         }
         If (literal.Kind != AstKind.IntegerLiteral) { Return False; }
-        Int value = ParseInteger(literal.Text) * sign;
-        If (expected == "Int" || expected == "Int64") { Return True; }
-        If (expected == "UInt" || expected == "UInt64") { Return value >= 0; }
-        If (expected == "Int8") { Return value >= -128 && value <= 127; }
-        If (expected == "UInt8" || expected == "Byte") { Return value >= 0 && value <= 255; }
-        If (expected == "Int16") { Return value >= -32768 && value <= 32767; }
-        If (expected == "UInt16") { Return value >= 0 && value <= 65535; }
-        If (expected == "Int32") { Return value >= -2147483648 && value <= 2147483647; }
-        If (expected == "UInt32") { Return value >= 0 && value <= 4294967295; }
-        Return False;
+        Int bits = This.WidthBits(expected);
+        If (bits <= 0) { Return False; }
+        String digits = This.CleanDigits(literal.Text);
+        Bool unsigned = expected == "Byte" || expected.StartsWith("UInt");
+        If (sign < 0) {
+            If (unsigned) { Return False; }
+            Return This.DigitsWithin(digits, This.PowerLimit(bits - 1, True));
+        }
+        Return This.DigitsWithin(digits, This.PowerLimit(bits, False));
     }
 
     Private Function FitsFloatLiteral(AstNode node, String expected) -> Bool {

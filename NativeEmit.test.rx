@@ -1089,6 +1089,24 @@ Test DigitSuffix {
     }
 }
 
+Test BitWidth {
+    Case "generic width" {
+        Input: typeName = "Int<24>";
+        Output: 24;
+    }
+}
+
+Test IsWideUnsigned {
+    Case "uint64" {
+        Input: typeName = "UInt64";
+        Output: True;
+    }
+    Case "int24" {
+        Input: typeName = "Int<24>";
+        Output: False;
+    }
+}
+
 Test EmitNumericFrom {
     Case "uint32 from" {
         Input: node = AstNode(Left: AstNode(Kind: AstKind.Member, Name: "From", Left: AstNode(Kind: AstKind.Name, Name: "UInt32")), Parameters: [AstNode(Kind: AstKind.Argument, Left: AstNode(Kind: AstKind.IntegerLiteral, Text: "14"))]);

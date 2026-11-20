@@ -321,12 +321,95 @@ Test IsCamel {
 }
 
 Test FitsIntegerLiteral {
-    Case "int8 accepts minus twelve" {
+    Case "int8 accepts twelve" {
         Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "12"), expected = "Int8";
         Output: True;
     }
     Case "uint8 rejects 256" {
         Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "256"), expected = "UInt8";
+        Output: False;
+    }
+    Case "uint64 accepts its maximum" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "18_446_744_073_709_551_615"), expected = "UInt64";
+        Output: True;
+    }
+    Case "int24 accepts one hundred" {
+        Input: node = AstNode(Kind: AstKind.IntegerLiteral, Text: "100"), expected = "Int<24>";
+        Output: True;
+    }
+}
+
+Test DigitsOnly {
+    Case "width digits" {
+        Input: text = "24";
+        Output: True;
+    }
+    Case "named type" {
+        Input: text = "Int";
+        Output: False;
+    }
+}
+
+Test WidthBits {
+    Case "explicit width" {
+        Input: typeName = "Int<24>";
+        Output: 24;
+    }
+    Case "uint64" {
+        Input: typeName = "UInt64";
+        Output: 64;
+    }
+}
+
+Test CleanDigits {
+    Case "strip separators" {
+        Input: text = "1_000";
+        Output: "1000";
+    }
+}
+
+Test DigitAt {
+    Case "first digit" {
+        Input: text = "42", index = 0;
+        Output: 4;
+    }
+}
+
+Test DigitChar {
+    Case "four" {
+        Input: digit = 4;
+        Output: "4";
+    }
+}
+
+Test DoubleDecimal {
+    Case "double one hundred" {
+        Input: digits = "100";
+        Output: "200";
+    }
+}
+
+Test MinusOneDecimal {
+    Case "subtract one" {
+        Input: digits = "256";
+        Output: "255";
+    }
+}
+
+Test PowerLimit {
+    Case "eight bit maximum" {
+        Input: bits = 8, includeTop = False;
+        Output: "255";
+    }
+}
+
+Test DigitsWithin {
+    Case "equal limit" {
+        Input: digits = "255", limit = "255";
+        Output: True;
+    }
+    Case "above limit" {
+        Input: digits = "256", limit = "255";
         Output: False;
     }
 }

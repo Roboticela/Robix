@@ -797,6 +797,10 @@ Test MakeWidth {
         Input: typeName = "UInt8", number = 256;
         Assert: Result.Integer == 0;
     }
+    Case "int24 keeps one hundred" {
+        Input: typeName = "Int<24>", number = 100;
+        Assert: Result.Integer == 100;
+    }
 }
 
 Test Mask {
@@ -810,6 +814,28 @@ Test SignExtend {
     Case "128 becomes int8 minimum" {
         Input: number = 128, bits = 8;
         Output: -128;
+    }
+    Case "24 bit boundary" {
+        Input: number = 8388608, bits = 24;
+        Output: -8388608;
+    }
+}
+
+Test BitWidth {
+    Case "generic width" {
+        Input: typeName = "UInt<128>";
+        Output: 128;
+    }
+}
+
+Test IsWideUnsigned {
+    Case "uint64 is wide" {
+        Input: typeName = "UInt64";
+        Output: True;
+    }
+    Case "uint32 is not wide" {
+        Input: typeName = "UInt32";
+        Output: False;
     }
 }
 
