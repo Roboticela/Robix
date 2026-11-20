@@ -1,4 +1,4 @@
-// Try, catch, finally, defer, unsafe pointers, assembly, and labels.
+// Catch a thrown error, clean up, write through a pointer, and jump to a label.
 Package Robotics.Safety;
 
 Import Robix.Core;
@@ -6,10 +6,10 @@ Import Robix.Core;
 
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Show structured cleanup, unsafe pointer write, and a local jump.";
+    Description: "Show exceptions, defer, files, unsafe pointers, assembly, and goto.";
     Input: args = "Command-line arguments";
-    Processing: "Catch a thrown value, write through a pointer, and jump to a label.";
-    Output: "The value written through the pointer.";
+    Processing: "Catch a sensor error, read a log path, store through a pointer, copy a register, and jump.";
+    Output: "The error, the cleanup, the log path, the pointer value, the copied register, then the deferred line.";
 } {
     Try {
         Throw RoboException("Sensor failure");
@@ -19,16 +19,28 @@ Explain {
         Print("Cleanup complete");
     }
     Defer {
-        Print("Scope left");
+        Print("Runs when the current scope exits");
     }
-    Int sensorValue = 100;
+    Using file = Files.Open("robot.log") {
+        Print(file.Read());
+    }
     Unsafe {
+        Int sensorValue = 100;
         Pointer<Int> sensorPointer = Pointer.Of(sensorValue);
         *sensorPointer = 250;
+        Print(sensorValue);
     }
+    Int x = 1;
+    Int y = 0;
+    Int value = 1;
+    Int port = 2;
     ASM("NOP");
+    ASM("movq $1, $0", Out: y, In: x);
+    ASM("outb $0, $1", In: value, In: port, Clobber: "memory");
+    Print(y);
     Goto RoboLabel;
+    Print("skipped");
     RoboLabel:
-    Print(sensorValue);
-    Return sensorValue;
+    Print("jump target");
+    Return 0;
 }

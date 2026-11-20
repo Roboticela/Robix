@@ -970,12 +970,35 @@ Public Class NativeProgram {
 
     Private Function EmitBlock(AstNode node) -> Void {
         Int mark = This.ScopeCount;
-        For child In node.Children { This.EmitStatement(child); }
+        Bool emittedDefers = False;
+        For child In node.Children {
+            If (child.Kind == AstKind.Defer) { Continue; }
+            If (child.Kind == AstKind.Return) {
+                This.EmitDefers(node);
+                emittedDefers = True;
+            }
+            This.EmitStatement(child);
+        }
+        If (!emittedDefers) { This.EmitDefers(node); }
         This.ScopeCount = mark;
     }
 
+    Private Function EmitDefers(AstNode node) -> Void {
+        Int index = node.Children.Count() - 1;
+        While (index >= 0) {
+            AstNode child = node.Children[index];
+            If (child.Kind == AstKind.Defer && child.Body != Null) {
+                Bool stopped = This.Terminated;
+                This.Terminated = False;
+                This.EmitStatement(child.Body);
+                If (!This.Terminated) { This.Terminated = stopped; }
+            }
+            index = index - 1;
+        }
+    }
+
     Private Function EmitStatement(AstNode node) -> Void {
-        If (This.Terminated) { Return; }
+        If (This.Terminated && node.Kind != AstKind.Label) { Return; }
         If (node.Kind == AstKind.Explain || node.Kind == AstKind.ExplainEntry) { Return; }
         If (node.Kind == AstKind.Variable) {
             If (node.FlagC) {
@@ -1079,9 +1102,70 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
         If (node.Kind == AstKind.Match) { This.EmitMatch(node); Return; }
         If (node.Kind == AstKind.Try) {
+            This.Alloca("#threw", "Int", "0");
+            This.Alloca("#thrown", "RoboException", "0");
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            String flag = This.LoadName("#threw");
+            String cond = This.Fresh("cond");
+            This.Emit(cond + " = icmp ne i64 " + flag + ", 0");
+            String catchLabel = This.Label("catch");
+            String finallyLabel = This.Label("finally");
+            This.Emit("br i1 " + cond + ", label %" + catchLabel + ", label %" + finallyLabel);
+            This.Terminated = True;
+            This.Block(catchLabel);
+            If (node.Children.Count() > 0) {
+                AstNode caught = node.Children[0];
+                If (caught.Name != "") { This.Alloca(caught.Name, "RoboException", This.LoadName("#thrown")); }
+                If (caught.Body != Null) { This.EmitStatement(caught.Body); }
+            }
+            If (!This.Terminated) { This.Branch(finallyLabel); }
+            This.Block(finallyLabel);
+            If (node.Extra != Null) { This.EmitStatement(node.Extra); }
+            Return;
+        }
+        If (node.Kind == AstKind.Unsafe) {
             If (node.Body != Null) { This.EmitStatement(node.Body); }
             Return;
         }
+        If (node.Kind == AstKind.Goto) {
+            This.Branch(node.Name);
+            This.Terminated = True;
+            Return;
+        }
+        If (node.Kind == AstKind.Label) {
+            If (!This.Terminated) { This.Branch(node.Name); }
+            This.Block(node.Name);
+            Return;
+        }
+        If (node.Kind == AstKind.Asm) {
+            If (node.Text.IndexOf("movq") >= 0) {
+                String outName = "";
+                String input = "0";
+                For param In node.Parameters {
+                    If (param.Name == "Out" && param.Left != Null && param.Left.Kind == AstKind.Name) { outName = param.Left.Name; }
+                    If (param.Name == "In" && param.Left != Null) {
+                        IrValue supplied = This.EmitExpr(param.Left);
+                        input = supplied.Value;
+                    }
+                }
+                If (outName != "") { This.StoreName(outName, input); }
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Throw) {
+            String payload = "0";
+            If (node.Left != Null) {
+                IrValue error = This.EmitExpr(node.Left);
+                payload = error.Value;
+            }
+            IrValue slot = This.Lookup("#thrown");
+            If (slot.Value != "") {
+                This.StoreName("#thrown", payload);
+                This.StoreName("#threw", "1");
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Defer) { Return; }
         If (node.Kind == AstKind.Await) {
             If (node.Left != Null) { This.EmitExpr(node.Left); }
             Return;
@@ -1475,6 +1559,13 @@ Public Class NativeProgram {
         }
         If (node.Right != Null) { value = This.EmitExpr(node.Right); }
         If (node.Left == Null) { Return value; }
+        If (node.Left.Kind == AstKind.Unary && node.Left.Operator == "*" && node.Left.Left != Null) {
+            IrValue pointerValue = This.EmitExpr(node.Left.Left);
+            String pointer = This.Fresh("p");
+            This.Emit(pointer + " = inttoptr i64 " + pointerValue.Value + " to ptr");
+            This.Emit("store i64 " + value.Value + ", ptr " + pointer);
+            Return value;
+        }
         If (node.Left.Kind == AstKind.Name) {
             value = This.ValueForStore(node.Left.Name, value);
             This.StoreName(node.Left.Name, value.Value);
@@ -1678,6 +1769,13 @@ Public Class NativeProgram {
                 Return This.Pair(next, current.TypeName);
             }
             IrValue value = This.EmitExpr(node.Left);
+            If (node.Operator == "*" && value.TypeName.StartsWith("Pointer<")) {
+                String pointer = This.Fresh("p");
+                This.Emit(pointer + " = inttoptr i64 " + value.Value + " to ptr");
+                String loaded = This.Fresh("v");
+                This.Emit(loaded + " = load i64, ptr " + pointer);
+                Return This.Pair(loaded, "Int");
+            }
             If (node.Operator == "!" || node.Operator == "Not") {
                 String flag = This.Fresh("v");
                 This.Emit(flag + " = icmp eq i64 " + value.Value + ", 0");
@@ -1805,6 +1903,9 @@ Public Class NativeProgram {
             String fieldType = This.AppliedFieldType(receiver.TypeName, info.Parameters, This.FieldType(info, target));
             Return This.Pair(loaded, fieldType);
         }
+        If (target == "Message" && receiver.TypeName == "RoboException") {
+            Return This.Pair(This.LoadObjectField(receiver.Value, "0"), "String");
+        }
         If (target == "Token" && receiver.TypeName == "CancellationSource") {
             Return This.Pair(receiver.Value, "CancellationToken");
         }
@@ -1840,6 +1941,22 @@ Public Class NativeProgram {
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Scheduler" && (node.Left.Name == "QueueMicrotask" || node.Left.Name == "Queue")) {
             Return This.EmitTask(node);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Pointer" && node.Left.Name == "Of") {
+            AstNode target = AstNode();
+            If (node.Parameters.Count() > 0) {
+                target = node.Parameters[0];
+                If (target.Kind == AstKind.Argument && target.Left != Null) { target = target.Left; }
+            }
+            If (target.Kind == AstKind.Name) {
+                IrValue found = This.Lookup(target.Name);
+                If (found.Value != "") {
+                    String packed = This.Fresh("v");
+                    This.Emit(packed + " = ptrtoint ptr " + found.Value + " to i64");
+                    Return This.Pair(packed, "Pointer<Int>");
+                }
+            }
+            Return This.Pair("0", "Pointer<Int>");
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericType(node.Left.Left.Name)) {
             Return This.EmitNumericFrom(node);
@@ -1939,6 +2056,15 @@ Public Class NativeProgram {
     }
 
     Private Function EmitNamedCall(AstNode left, List<String> arguments, List<String> types) -> IrValue {
+        If (left.Name == "RoboException") {
+            Var created = List<String>();
+            created.Add("1");
+            IrValue error = This.CallRuntime("rx_obj_new", created, False);
+            String message = "0";
+            If (arguments.Count() > 0) { message = arguments[0]; }
+            This.StoreObjectField(error.Value, "0", message);
+            Return This.Pair(error.Value, "RoboException");
+        }
         If (left.Name == "AsyncLock") {
             Var created = List<String>();
             created.Add("1");
@@ -2337,6 +2463,10 @@ Public Class NativeProgram {
             If (staticCall.TypeName != "Missing") { Return staticCall; }
         }
         IrValue receiver = This.EmitExpr(member.Left);
+        If (member.Name == "Read" && receiver.TypeName == "File") { Return This.Pair(receiver.Value, "String"); }
+        If (member.Name == "Message" && receiver.TypeName == "RoboException") {
+            Return This.Pair(This.LoadObjectField(receiver.Value, "0"), "String");
+        }
         If (member.Name == "AcquireAsync") { Return This.Pair(receiver.Value, "Task<AsyncLock>"); }
         If (member.Name == "WithTimeout") { Return receiver; }
         If (member.Name == "Cancel" && receiver.TypeName == "TimerHandle") {
@@ -2796,6 +2926,10 @@ Public Class NativeProgram {
     }
 
     Private Function FilesCall(String method, List<String> arguments) -> IrValue {
+        If (method == "Open") {
+            If (arguments.Count() > 0) { Return This.Pair(arguments[0], "File"); }
+            Return This.Pair(This.StringConst(""), "File");
+        }
         Var args = List<String>();
         If (method == "ReadText" || method == "Exists" || method == "Delete" || method == "Name") {
             If (arguments.Count() > 0) { args.Add(arguments[0]); }

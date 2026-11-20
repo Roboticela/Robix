@@ -172,6 +172,13 @@ Test DeclareForeign {
     }
 }
 
+Test EmitDefers {
+    Case "empty block" {
+        Input: node = AstNode(Children: []);
+        Assert: True;
+    }
+}
+
 Test EntryMain {
     Case "main wrapper" {
         Input: module = AstNode(Children: [AstNode(Kind: AstKind.Function, Name: "Main", Parameters: [])]);

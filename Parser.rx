@@ -72,6 +72,14 @@ Public Partial Class Parser {
     }
 
     Private Function ParseItemAfterModifiers(List<String> modifiers) -> AstNode {
+        If (This.ModifierHas(modifiers, "Unsafe") && This.Check(TokenKind.OpenBrace)) {
+            Token start = This.Peek();
+            AstNode node = This.Make(AstKind.Unsafe, start);
+            node.Body = This.ParseBlock();
+            This.CopyModifiers(node, modifiers);
+            This.Finish(node, start);
+            Return node;
+        }
         If (This.Check(TokenKind.Test)) {
             Return This.ParseTest(modifiers);
         }
@@ -116,6 +124,18 @@ Public Partial Class Parser {
         }
         If (This.Check(TokenKind.OpenParen) && This.LooksLikeTypedTupleBinding()) {
             Return This.ParseTypedTupleBinding(modifiers);
+        }
+        If (This.Check(TokenKind.Unsafe) || This.Peek().Text == "Unsafe") {
+            Return This.ParseUnsafe();
+        }
+        If (This.Check(TokenKind.Defer) || This.Peek().Text == "Defer") {
+            Return This.ParseDefer();
+        }
+        If (This.Check(TokenKind.Goto) || This.Peek().Text == "Goto") {
+            Return This.ParseGoto();
+        }
+        If (This.Check(TokenKind.Asm) || This.Peek().Text == "ASM") {
+            Return This.ParseAsm();
         }
         If (This.LooksLikeTypedVariable()) {
             Return This.ParseTypedVariable(modifiers);

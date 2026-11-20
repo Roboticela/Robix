@@ -48,7 +48,9 @@ Public Class Interpreter {
     Private List<String> runtimeErrors;
     Private String signal;
     Private Value returnValue;
+    Private Value thrown;
     Private List<Value> yields;
+    Private List<AstNode> defers;
     Private List<AstNode> functions;
     Private List<String> functionOwners;
     Private String collectOwner;
@@ -65,7 +67,9 @@ Public Class Interpreter {
         This.runtimeErrors = List<String>();
         This.signal = "";
         This.returnValue = This.MakeVoid();
+        This.thrown = This.MakeVoid();
         This.yields = List<Value>();
+        This.defers = List<AstNode>();
         This.functions = List<AstNode>();
         This.functionOwners = List<String>();
         This.collectOwner = "";
@@ -618,6 +622,12 @@ Public Class Interpreter {
     }
 
     Private Function ExecuteNode(AstNode node) -> Value {
+        If (This.signal.StartsWith("goto:")) {
+            If (node.Kind == AstKind.Label && This.signal == "goto:" + node.Name) {
+                This.signal = "";
+            }
+            Return This.MakeVoid();
+        }
         If (This.signal.Length() > 0 && node.Kind != AstKind.Function) {
             Return This.MakeVoid();
         }
@@ -630,7 +640,37 @@ Public Class Interpreter {
             This.PopScope();
             Return This.MakeVoid();
         }
-        If (node.Kind == AstKind.Block || node.Kind == AstKind.Unsafe || node.Kind == AstKind.Defer || node.Kind == AstKind.Lock) {
+        If (node.Kind == AstKind.Unsafe) {
+            If (node.Body != Null) { Return This.ExecuteNode(node.Body); }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Defer) {
+            If (node.Body != Null) { This.defers.Add(node.Body); }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Goto) {
+            This.signal = "goto:" + node.Name;
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Label) { Return This.MakeVoid(); }
+        If (node.Kind == AstKind.Asm) {
+            If (node.Text.IndexOf("movq") >= 0) {
+                String outName = "";
+                Value input = This.MakeInt(0);
+                For param In node.Parameters {
+                    If (param.Name == "Out" && param.Left != Null && param.Left.Kind == AstKind.Name) { outName = param.Left.Name; }
+                    If (param.Name == "In" && param.Left != Null) { input = This.Evaluate(param.Left); }
+                }
+                If (outName != "") { This.Assign(outName, input); }
+            }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Throw) {
+            If (node.Left != Null) { This.thrown = This.Evaluate(node.Left); }
+            This.signal = "throw";
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.Block || node.Kind == AstKind.Lock) {
             Return This.ExecuteBlock(node);
         }
         If (node.Kind == AstKind.Variable) {
@@ -717,7 +757,24 @@ Public Class Interpreter {
         }
         If (node.Kind == AstKind.Try) {
             If (node.Body != Null) { This.ExecuteNode(node.Body); }
-            If (node.Extra != Null) { This.ExecuteNode(node.Extra); }
+            If (This.signal == "throw") {
+                This.signal = "";
+                If (node.Children.Count() > 0) {
+                    AstNode caught = node.Children[0];
+                    This.PushScope();
+                    If (caught.Name != "") { This.Define(caught.Name, This.thrown); }
+                    If (caught.Body != Null) { This.ExecuteNode(caught.Body); }
+                    This.PopScope();
+                } Else {
+                    This.signal = "throw";
+                }
+            }
+            If (node.Extra != Null) {
+                String saved = This.signal;
+                This.signal = "";
+                This.ExecuteNode(node.Extra);
+                If (This.signal == "") { This.signal = saved; }
+            }
             Return This.MakeVoid();
         }
         If (node.Kind == AstKind.Await) {
@@ -737,11 +794,27 @@ Public Class Interpreter {
         This.PushScope();
         This.CollectFunctions(node);
         Value last = This.MakeVoid();
+        Int deferMark = This.defers.Count();
         For child In node.Children {
             last = This.ExecuteNode(child);
+            If (This.signal.StartsWith("goto:")) { Continue; }
             If (This.signal.Length() > 0) {
                 Break;
             }
+        }
+        While (This.defers.Count() > deferMark) {
+            AstNode pending = This.defers[This.defers.Count() - 1];
+            Var kept = List<AstNode>();
+            Int index = 0;
+            While (index < This.defers.Count() - 1) {
+                kept.Add(This.defers[index]);
+                index = index + 1;
+            }
+            This.defers = kept;
+            String saved = This.signal;
+            This.signal = "";
+            This.ExecuteNode(pending);
+            If (This.signal == "") { This.signal = saved; }
         }
         This.PopScope();
         Return last;
@@ -923,6 +996,9 @@ Public Class Interpreter {
             If (node.Operator == "-" && operand.Kind == ValueKind.Integer) {
                 Return This.MakeInt(-operand.Integer);
             }
+            If (node.Operator == "*" && (operand.Text.StartsWith("Ref:") || operand.Text.StartsWith("MutRef:"))) {
+                Return This.Lookup(This.ReferenceTarget(operand.Text));
+            }
             If (node.Operator == "!" || node.Operator == "Not") {
                 Return This.MakeBool(!This.IsTruthy(operand));
             }
@@ -967,6 +1043,13 @@ Public Class Interpreter {
                 Return value;
             }
             Value value = This.Evaluate(node.Right);
+            If (node.Left != Null && node.Left.Kind == AstKind.Unary && node.Left.Operator == "*") {
+                Value target = This.Evaluate(node.Left.Left);
+                If (target.Text.StartsWith("Ref:") || target.Text.StartsWith("MutRef:")) {
+                    This.Assign(This.ReferenceTarget(target.Text), value);
+                }
+                Return value;
+            }
             If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "Value") {
                 Value target = This.Evaluate(node.Left.Left);
                 If (This.IsMutableReference(target.Text)) {
@@ -1072,6 +1155,14 @@ Public Class Interpreter {
             If (node.Name == "Length" || node.Name == "Count") {
                 If (target.Kind == ValueKind.Text) { Return This.MakeInt(target.Text.Length()); }
                 Return This.MakeInt(target.Elements.Count());
+            }
+            If (node.Name == "Message" && target.Text == "RoboException") {
+                If (target.Elements.Count() > 0) { Return target.Elements[0]; }
+                Return This.MakeText("");
+            }
+            If (node.Name == "Read" && target.Text == "File") {
+                If (target.Elements.Count() > 0) { Return target.Elements[0]; }
+                Return This.MakeText("");
             }
             If (node.Name == "ToString") { Return This.MakeText(This.Display(target)); }
             Return This.MakeText(This.Display(target));
@@ -1190,6 +1281,14 @@ Public Class Interpreter {
     }
 
     Private Function EvaluateCall(AstNode node) -> Value {
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Pointer" && node.Left.Name == "Of") {
+            Value reference = This.MakeArray();
+            reference.Text = "MutRef:";
+            If (node.Parameters.Count() > 0 && node.Parameters[0].Left != Null && node.Parameters[0].Left.Kind == AstKind.Name) {
+                reference.Text = "MutRef:" + node.Parameters[0].Left.Name;
+            }
+            Return reference;
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
             Return This.MakeReference(node);
         }
@@ -1274,6 +1373,13 @@ Public Class Interpreter {
             If (arguments.Count() > 0) { Return arguments[0]; }
             Return This.MakeText("");
         }
+        If (name == "RoboException") {
+            Value error = This.MakeArray();
+            error.Text = "RoboException";
+            If (arguments.Count() > 0) { error.Elements.Add(arguments[0]); }
+            If (arguments.Count() == 0) { error.Elements.Add(This.MakeText("")); }
+            Return error;
+        }
         If (name == "AsyncLock") {
             Value gate = This.MakeArray();
             gate.Text = "AsyncLock";
@@ -1348,6 +1454,13 @@ Public Class Interpreter {
             Return This.OperatorLibrary(node.Left.Name, arguments);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && (node.Left.Left.Kind == AstKind.Name || node.Left.Left.Kind == AstKind.Member) && node.Left.Left.Name == "Files") {
+            If (node.Left.Name == "Open") {
+                Value file = This.MakeArray();
+                file.Text = "File";
+                If (arguments.Count() > 0) { file.Elements.Add(arguments[0]); }
+                If (arguments.Count() == 0) { file.Elements.Add(This.MakeText("")); }
+                Return file;
+            }
             If (node.Left.Name == "Exists") {
                 If (arguments.Count() > 0) { Return This.MakeBool(Files.Exists(arguments[0].Text)); }
                 Return This.MakeBool(False);
@@ -1617,6 +1730,14 @@ Public Class Interpreter {
                 Return This.StringStatic(node.Left.Name, arguments);
             }
             Value target = This.Evaluate(node.Left.Left);
+            If (node.Left.Name == "Read" && target.Text == "File") {
+                If (target.Elements.Count() > 0) { Return target.Elements[0]; }
+                Return This.MakeText("");
+            }
+            If (node.Left.Name == "Message" && target.Text == "RoboException") {
+                If (target.Elements.Count() > 0) { Return target.Elements[0]; }
+                Return This.MakeText("");
+            }
             If (node.Left.Name == "AcquireAsync") { Return target; }
             If (node.Left.Name == "WithTimeout") { Return target; }
             If (node.Left.Name == "Token" && target.Text == "CancellationSource") { Return target; }

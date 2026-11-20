@@ -654,6 +654,7 @@ Public Class TypeChecker {
                 Return "Bool";
             }
             If (node.Operator == "Mut") { Return "Mut " + inner; }
+            If (node.Operator == "*" && inner.StartsWith("Pointer<")) { Return "Int"; }
             Return inner;
         }
         If (node.Kind == AstKind.Binary || node.Kind == AstKind.Range) {
@@ -798,6 +799,9 @@ Public Class TypeChecker {
             If (node.Left.Left != Null && (node.Left.Left.Kind == AstKind.Name || node.Left.Left.Kind == AstKind.Member)) {
                 owner = node.Left.Left.Name;
             }
+            If (owner == "Pointer" && node.Left.Name == "Of") { Return "Pointer<Int>"; }
+            If (owner == "Files" && node.Left.Name == "Open") { Return "File"; }
+            If (node.Left.Name == "Read" && receiverType == "File") { Return "String"; }
             If (node.Left.Name == "Partial") {
                 AstNode? target = This.FunctionNodeOf(owner);
                 If (target != Null) {
@@ -911,6 +915,7 @@ Public Class TypeChecker {
         If (name == "TimeoutError") { Return "String"; }
         If (name == "CancellationSource") { Return "CancellationSource"; }
         If (name == "AsyncLock") { Return "AsyncLock"; }
+        If (name == "RoboException") { Return "RoboException"; }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
         }
