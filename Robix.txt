@@ -28,62 +28,6 @@ Float<128> wideFloat = Float<128>.From(1.0);
 // 6. Functions, arguments, documentation, and return values
 // -----------------------------------------------------------------------------
 
-Public Function RoboUpdate(Mut Int speed, Ref<Mut String> name) -> Void
-Explain {
-    Description: "Update a speed and a referenced name.";
-    Input: speed = "Mutable speed", name = "Mutable name reference";
-    Processing: "Increase speed and replace the name.";
-    Output: "No return value.";
-} {
-    speed = speed + 10;
-    name.Value = "RoboRunner";
-}
-
-// Async, Promise/Task, timers, cancellation, and scheduling.
-// Robix uses Task<T> as its standard asynchronous operation type. Promise<T>
-// is a compatible promise-style name for APIs that expose resolve/reject.
-// Async functions can call other async functions directly. Calling an async
-// function starts/returns its operation; Await observes its eventual result.
-// Await is only valid inside Async functions (or an async top-level context).
-
-Public Async Function RoboReadSensor() -> Task<Int> {
-    Await Task.Delay(Duration.Milliseconds(50));
-    Return Hardware.ReadSensor();
-}
-
-Public Async Function RoboCalculateReading() -> Task<Float> {
-    // No special wrapper is needed to call another async function.
-    Int raw = Await RoboReadSensor();
-    Float calibrated = Await RoboCalibrate(raw);
-    Return calibrated;
-}
-
-Public Async Function RoboCalibrate(Int raw) -> Task<Float> {
-    Await Task.Yield();
-    Return raw.ToFloat() * 1.25;
-}
-
-// Async functions may call one another at any depth. The compiler checks
-// awaited return types and propagates failures through the Task chain.
-Public Async Function RoboRunWorkflow() -> Task<String> {
-    Int reading = Await RoboReadSensor();
-    Float result = Await RoboCalibrate(reading);
-    Return $"Calibrated reading: {result}";
-}
-
-// A Promise is a one-time value that will be fulfilled or rejected later.
-// Task<T> and Promise<T> interoperate; APIs may choose either spelling.
-Let promiseValue: Promise<Int> = Promise<Int>.Create(
-    (resolve, reject) => {
-        resolve(42);
-    }
-);
-
-Public Async Function RoboUsePromise() -> Task<Int> {
-    Int value = Await promiseValue;
-    Return value;
-}
-
 // Create a promise from callback-based APIs.
 Let callbackPromise = Promise<String>.FromCallback(
     (resolve, reject) => LegacyApi.ReadText(
@@ -91,10 +35,6 @@ Let callbackPromise = Promise<String>.FromCallback(
         onError: error => reject(error)
     )
 );
-
-// Resolve/reject explicitly, or use the concise completed/faulted factories.
-Let completed = Promise<Int>.Resolved(10);
-Let failed = Promise<Int>.Rejected("Sensor unavailable");
 
 // Promise/Task composition.
 Public Async Function RoboComposeTasks() -> Task<Int> {

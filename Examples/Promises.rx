@@ -1,0 +1,45 @@
+// A promise is fulfilled by resolve, Resolved, or Rejected, then Await reads it.
+Package Robotics.Promises;
+
+Import Robix.Core;
+
+
+Public Async Function RoboUsePromise() -> Task<Int>
+Explain {
+    Description: "Await a promise created with an executor.";
+    Input: "No parameters";
+    Processing: "Create a promise, resolve it with 42, and await it.";
+    Output: "The resolved integer.";
+} {
+    Let promiseValue: Promise<Int> = Promise<Int>.Create((resolve, reject) => {
+        resolve(42);
+    });
+    Int value = Await promiseValue;
+    Return value;
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print a created promise, a resolved promise, and a rejected promise.";
+    Input: "No parameters";
+    Processing: "Await each promise and print its payload.";
+    Output: "No return value.";
+} {
+    Int created = Await RoboUsePromise();
+    Print(created);
+    Let completed = Promise<Int>.Resolved(10);
+    Print(Await completed);
+    Let failed = Promise<String>.Rejected("Sensor unavailable");
+    Print(Await failed);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the promise examples.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboShow so it prints the awaited promise values.";
+    Output: "The created value, the resolved value, and the rejection message.";
+} {
+    RoboShow();
+    Return 0;
+}

@@ -289,6 +289,28 @@ Test TypeText {
     }
 }
 
+Test PromiseTypeOf {
+    Case "default integer" {
+        Input: member = AstNode();
+        Output: "Promise<Int>";
+    }
+}
+
+Test TaskCallType {
+    Case "delay" {
+        Input: owner = "Task", name = "Delay";
+        Output: "Task<Void>";
+    }
+    Case "sensor" {
+        Input: owner = "Hardware", name = "ReadSensor";
+        Output: "Int";
+    }
+    Case "unknown" {
+        Input: owner = "Math", name = "Min";
+        Output: "";
+    }
+}
+
 Test InnerTask {
     Case "task int" {
         Input: typeName = "Task<Int>";
@@ -340,6 +362,27 @@ Test LiteralElement {
     Case "literal element default" {
         Input: node = AstNode();
         Output: "Int";
+    }
+}
+
+Test FunctionNodeOf {
+    Case "unknown function" {
+        Input: name = "RoboUpdate";
+        Assert: True;
+    }
+}
+
+Test ArgumentName {
+    Case "missing argument" {
+        Input: call = AstNode(), position = 0, parameterName = "speed";
+        Output: "";
+    }
+}
+
+Test CheckMutableArguments {
+    Case "no parameters" {
+        Input: call = AstNode(), function = AstNode();
+        Output: True;
     }
 }
 

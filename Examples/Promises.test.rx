@@ -1,0 +1,19 @@
+// Tests for Examples/Promises.rx.
+
+Test RoboUsePromise {
+    Case "resolved by the executor" {
+        Output: 42;
+    }
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

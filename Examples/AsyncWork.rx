@@ -1,0 +1,77 @@
+// Async functions return Task<T>. Await reads the result.
+Package Robotics.AsyncWork;
+
+Import Robix.Core;
+
+
+Public Async Function RoboReadSensor() -> Task<Int>
+Explain {
+    Description: "Read the simulated sensor.";
+    Input: "No parameters";
+    Processing: "Wait for the sensor interval and read the hardware value.";
+    Output: "The sensor reading.";
+} {
+    Await Task.Delay(Duration.Milliseconds(50));
+    Return Hardware.ReadSensor();
+}
+
+Public Async Function RoboCalibrate(Int raw) -> Task<Float>
+Explain {
+    Description: "Scale a raw sensor reading.";
+    Input: raw = "Uncalibrated reading";
+    Processing: "Yield once, convert the reading, and multiply by 1.25.";
+    Output: "The calibrated reading.";
+} {
+    Await Task.Yield();
+    Return raw.ToFloat() * 1.25;
+}
+
+Public Async Function RoboCalculateReading() -> Task<Float>
+Explain {
+    Description: "Read the sensor and calibrate it.";
+    Input: "No parameters";
+    Processing: "Await the sensor, then await calibration.";
+    Output: "The calibrated reading.";
+} {
+    Int raw = Await RoboReadSensor();
+    Float calibrated = Await RoboCalibrate(raw);
+    Return calibrated;
+}
+
+Public Async Function RoboRunWorkflow() -> Task<String>
+Explain {
+    Description: "Format the calibrated sensor reading.";
+    Input: "No parameters";
+    Processing: "Await the sensor and its calibration, then format the result.";
+    Output: "The calibration report.";
+} {
+    Int reading = Await RoboReadSensor();
+    Float result = Await RoboCalibrate(reading);
+    Return $"Calibrated reading: {result}";
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print the sensor, the calibrated reading, and the report.";
+    Input: "No parameters";
+    Processing: "Await each async operation and print its result.";
+    Output: "No return value.";
+} {
+    Int raw = Await RoboReadSensor();
+    Print(raw);
+    Float reading = Await RoboCalculateReading();
+    Print(reading);
+    String report = Await RoboRunWorkflow();
+    Print(report);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the async sensor workflow.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboShow and let it print the awaited results.";
+    Output: "The sensor value, the calibrated float, and the report.";
+} {
+    RoboShow();
+    Return 0;
+}

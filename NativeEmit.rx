@@ -570,6 +570,7 @@ Public Class NativeProgram {
             String parameterType = This.TypeName(parameter.Type);
             If (parameterType == "") { parameterType = "Int"; }
             If (parameter.FlagB) { parameterType = "Array<" + parameterType + ">"; }
+            If (parameter.FlagA) { parameterType = "MutBind:" + parameterType; }
             This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
         If (node.Body != Null) {
@@ -1033,6 +1034,10 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.For) { This.EmitFor(node); Return; }
         If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
         If (node.Kind == AstKind.Match) { This.EmitMatch(node); Return; }
+        If (node.Kind == AstKind.Await) {
+            If (node.Left != Null) { This.EmitExpr(node.Left); }
+            Return;
+        }
         If (node.Kind == AstKind.ExpressionStatement) {
             If (node.Left != Null) { This.EmitExpr(node.Left); }
             Return;
@@ -1367,13 +1372,44 @@ Public Class NativeProgram {
     Private Function LoadName(String name) -> String {
         IrValue found = This.Lookup(name);
         If (found.Value == "") { Return "0"; }
+        If (found.TypeName.StartsWith("MutBind:")) {
+            String pointer = This.LoadSlot(found.Value);
+            String address = This.Fresh("p");
+            This.Emit(address + " = inttoptr i64 " + pointer + " to ptr");
+            String loaded = This.Fresh("v");
+            This.Emit(loaded + " = load i64, ptr " + address);
+            Return loaded;
+        }
         Return This.LoadSlot(found.Value);
     }
 
     Private Function StoreName(String name, String value) -> Void {
         IrValue found = This.Lookup(name);
         If (found.Value == "") { Return; }
+        If (found.TypeName.StartsWith("MutBind:")) {
+            String pointer = This.LoadSlot(found.Value);
+            String address = This.Fresh("p");
+            This.Emit(address + " = inttoptr i64 " + pointer + " to ptr");
+            This.Emit("store i64 " + value + ", ptr " + address);
+            Return;
+        }
         This.Emit("store i64 " + value + ", ptr " + found.Value);
+    }
+
+    Private Function AliasPayload(String typeName) -> String {
+        If (typeName.StartsWith("MutBind:")) { Return typeName.Substring(8); }
+        Return typeName;
+    }
+
+    Private Function MutableAddress(AstNode argument) -> String {
+        AstNode valueNode = argument;
+        If (argument.Kind == AstKind.Argument && argument.Left != Null) { valueNode = argument.Left; }
+        If (valueNode.Kind != AstKind.Name) { Return ""; }
+        IrValue found = This.Lookup(valueNode.Name);
+        If (found.Value == "") { Return ""; }
+        String packed = This.Fresh("v");
+        This.Emit(packed + " = ptrtoint ptr " + found.Value + " to i64");
+        Return packed;
     }
 
     Private Function EmitAssignment(AstNode node) -> IrValue {
@@ -1383,7 +1419,7 @@ Public Class NativeProgram {
         IrValue value = This.Pair("0", "Int");
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Operator != "=" && node.Operator != "") {
             IrValue current = This.Lookup(node.Left.Name);
-            IrValue loaded = This.Pair(This.LoadSlot(current.Value), current.TypeName);
+            IrValue loaded = This.Pair(This.LoadName(node.Left.Name), This.AliasPayload(current.TypeName));
             IrValue right = This.EmitExpr(node.Right);
             value = This.CombineAssignment(node.Operator, loaded, right);
             This.StoreName(node.Left.Name, value.Value);
@@ -1536,11 +1572,20 @@ Public Class NativeProgram {
             Return This.Pair("0", "Bool");
         }
         If (node.Kind == AstKind.NullLiteral) { Return This.Pair("0", "Null"); }
+        If (node.Kind == AstKind.Await) {
+            If (node.Left == Null) { Return This.Pair("0", "Void"); }
+            IrValue waited = This.EmitExpr(node.Left);
+            If (waited.TypeName.StartsWith("Promise<") && waited.TypeName.EndsWith(">")) {
+                String payload = This.LoadObjectField(waited.Value, "0");
+                Return This.Pair(payload, waited.TypeName.Substring(8, waited.TypeName.Length() - 9));
+            }
+            Return waited;
+        }
         If (node.Kind == AstKind.Name) {
             If (node.Name == "True" && This.Lookup(node.Name).Value == "") { Return This.Pair("1", "Bool"); }
             If (node.Name == "False" && This.Lookup(node.Name).Value == "") { Return This.Pair("0", "Bool"); }
             IrValue found = This.Lookup(node.Name);
-            If (found.Value != "") { Return This.Pair(This.LoadSlot(found.Value), found.TypeName); }
+            If (found.Value != "") { Return This.Pair(This.LoadName(node.Name), This.AliasPayload(found.TypeName)); }
             ClassInfo info = This.FindClass(node.Name);
             If (info.Name != "") { Return This.Pair("0", node.Name); }
             FunctionInfo namedFunction = This.FindFunction(node.Name, This.FileName);
@@ -1730,6 +1775,9 @@ Public Class NativeProgram {
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
             Return This.EmitReference(node);
         }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
+            Return This.EmitPromise(node);
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericType(node.Left.Left.Name)) {
             Return This.EmitNumericFrom(node);
         }
@@ -1745,6 +1793,9 @@ Public Class NativeProgram {
         If (node.Left != Null && node.Left.Kind == AstKind.Name) {
             String targetName = node.Left.Name;
             IrValue local = This.Lookup(node.Left.Name);
+            If (local.TypeName == "PromiseResolve" || local.TypeName == "PromiseReject") {
+                Return This.SettlePromise(local, arguments);
+            }
             If (local.TypeName.StartsWith("Lambda:")) {
                 targetName = local.TypeName.Substring(7);
             }
@@ -1796,6 +1847,10 @@ Public Class NativeProgram {
                                 chosenVal = arguments[paramIndex];
                                 chosenType = types[paramIndex];
                                 matched = True;
+                                If (parameter.FlagA) {
+                                    String address = This.MutableAddress(node.Parameters[paramIndex]);
+                                    If (address != "") { chosenVal = address; }
+                                }
                             }
                             If (!matched && parameter.Initializer != Null) {
                                 IrValue defVal = This.EmitExpr(parameter.Initializer);
@@ -2432,6 +2487,13 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_process", args, False);
             Return This.Pair(value.Value, "Int");
         }
+        If (owner == "Promise" && (method == "Create" || method == "Resolved" || method == "Rejected")) { Return This.Pair("0", "Promise<Int>"); }
+        If (owner == "Task" && (method == "Delay" || method == "Yield")) { Return This.Pair("0", "Void"); }
+        If (owner == "Duration" && method == "Milliseconds") {
+            If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Int"); }
+            Return This.Pair("0", "Int");
+        }
+        If (owner == "Hardware" && method == "ReadSensor") { Return This.Pair("40", "Int"); }
         Return This.Pair("0", "Missing");
     }
 
@@ -3994,6 +4056,68 @@ Public Class NativeProgram {
         String result = This.Fresh("v");
         This.Emit(result + " = phi i64 [ " + success.Value + ", %" + thenLabel + " ], [ " + failure.Value + ", %" + elseLabel + " ]");
         Return This.Pair(result, "Result<Int, ConversionError>");
+    }
+
+    Private Function PromiseTypeName(AstNode member) -> String {
+        String argument = "Int";
+        If (member.Left != Null && member.Left.Children.Count() > 0) {
+            String text = This.TypeName(member.Left.Children[0]);
+            If (text != "") { argument = text; }
+        }
+        Return "Promise<" + argument + ">";
+    }
+
+    Private Function EmitPromise(AstNode node) -> IrValue {
+        String method = "";
+        String typeName = "Promise<Int>";
+        If (node.Left != Null) {
+            method = node.Left.Name;
+            typeName = This.PromiseTypeName(node.Left);
+        }
+        Var created = List<String>();
+        created.Add("3");
+        IrValue obj = This.CallRuntime("rx_obj_new", created, False);
+        If (method == "Resolved" || method == "Rejected") {
+            String payload = "0";
+            If (node.Parameters.Count() > 0) {
+                AstNode valueNode = node.Parameters[0];
+                If (valueNode.Kind == AstKind.Argument && valueNode.Left != Null) { valueNode = valueNode.Left; }
+                IrValue value = This.EmitExpr(valueNode);
+                payload = value.Value;
+            }
+            This.StoreObjectField(obj.Value, "0", payload);
+            If (method == "Rejected") { This.StoreObjectField(obj.Value, "1", "1"); }
+            This.StoreObjectField(obj.Value, "2", "1");
+        }
+        If (method == "Create") {
+            Int mark = This.ScopeCount;
+            AstNode lambda = AstNode();
+            If (node.Parameters.Count() > 0) {
+                lambda = node.Parameters[0];
+                If (lambda.Kind == AstKind.Argument && lambda.Left != Null) { lambda = lambda.Left; }
+            }
+            String resolveName = "resolve";
+            String rejectName = "reject";
+            If (lambda.Parameters.Count() > 0 && lambda.Parameters[0].Name != "") { resolveName = lambda.Parameters[0].Name; }
+            If (lambda.Parameters.Count() > 1 && lambda.Parameters[1].Name != "") { rejectName = lambda.Parameters[1].Name; }
+            This.Alloca(resolveName, "PromiseResolve", obj.Value);
+            This.Alloca(rejectName, "PromiseReject", obj.Value);
+            If (lambda.Body != Null) { This.EmitStatement(lambda.Body); }
+            If (lambda.Body == Null && lambda.Left != Null) { This.EmitExpr(lambda.Left); }
+            This.ScopeCount = mark;
+        }
+        Return This.Pair(obj.Value, typeName);
+    }
+
+    Private Function SettlePromise(IrValue callback, List<String> arguments) -> IrValue {
+        String promise = This.LoadSlot(callback.Value);
+        String payload = "0";
+        If (arguments.Count() > 0) { payload = arguments[0]; }
+        This.StoreObjectField(promise, "0", payload);
+        If (callback.TypeName == "PromiseReject") { This.StoreObjectField(promise, "1", "1"); }
+        If (callback.TypeName != "PromiseReject") { This.StoreObjectField(promise, "1", "0"); }
+        This.StoreObjectField(promise, "2", "1");
+        Return This.Pair(payload, "Int");
     }
 
     Private Function EmitReference(AstNode node) -> IrValue {

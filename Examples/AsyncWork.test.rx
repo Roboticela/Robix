@@ -1,0 +1,38 @@
+// Tests for Examples/AsyncWork.rx.
+
+Test RoboReadSensor {
+    Case "simulated sensor" {
+        Output: 40;
+    }
+}
+
+Test RoboCalibrate {
+    Case "scale forty" {
+        Input: raw = 40;
+        Assert: True;
+    }
+}
+
+Test RoboCalculateReading {
+    Case "read and scale" {
+        Assert: True;
+    }
+}
+
+Test RoboRunWorkflow {
+    Case "format the reading" {
+        Assert: True;
+    }
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

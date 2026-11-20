@@ -1,0 +1,31 @@
+// A Mut parameter writes back, and a mutable reference updates a string.
+Package Robotics.Update;
+
+Import Robix.Core;
+
+
+Public Function RoboUpdate(Mut Int speed, Ref<Mut String> name) -> Void
+Explain {
+    Description: "Update a speed and a referenced name.";
+    Input: speed = "Mutable speed", name = "Mutable name reference";
+    Processing: "Increase speed and replace the name.";
+    Output: "No return value.";
+} {
+    speed = speed + 10;
+    name.Value = "RoboRunner";
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Increase a speed and replace a robot name.";
+    Input: args = "Command-line arguments";
+    Processing: "Pass a mutable speed and a mutable string reference to RoboUpdate.";
+    Output: "The updated speed and the new name.";
+} {
+    Int speed = 30;
+    String robotName = "arm";
+    RoboUpdate(speed, Ref(Mut robotName));
+    Print(speed);
+    Print(robotName);
+    Return 0;
+}

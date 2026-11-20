@@ -1072,6 +1072,45 @@ Test EmitTryToInt {
     }
 }
 
+Test PromiseTypeName {
+    Case "default integer" {
+        Input: member = AstNode();
+        Output: "Promise<Int>";
+    }
+}
+
+Test EmitPromise {
+    Case "empty call" {
+        Input: node = AstNode();
+        Assert: Result.TypeName == "Promise<Int>";
+    }
+}
+
+Test SettlePromise {
+    Case "resolve integer" {
+        Input: callback = IrValue(TypeName: "PromiseResolve", Value: "0"), arguments = [];
+        Assert: Result.Value == "0";
+    }
+}
+
+Test AliasPayload {
+    Case "mutable integer" {
+        Input: typeName = "MutBind:Int";
+        Output: "Int";
+    }
+    Case "plain string" {
+        Input: typeName = "String";
+        Output: "String";
+    }
+}
+
+Test MutableAddress {
+    Case "missing variable" {
+        Input: argument = AstNode();
+        Output: "";
+    }
+}
+
 Test EmitReference {
     Case "missing target" {
         Input: node = AstNode(Name: "Ref");

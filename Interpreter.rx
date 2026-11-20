@@ -1078,6 +1078,9 @@ Public Class Interpreter {
         }
         If (node.Kind == AstKind.Await || node.Kind == AstKind.Unwrap || node.Kind == AstKind.Propagate) {
             Value inner = This.Evaluate(node.Left);
+            If (node.Kind == AstKind.Await && inner.Kind == ValueKind.Array && inner.Text == "Promise" && inner.Elements.Count() > 0) {
+                Return inner.Elements[0];
+            }
             If ((node.Kind == AstKind.Propagate || node.Kind == AstKind.Unwrap) && inner.Kind == ValueKind.Array && (inner.Text == "Some" || inner.Text == "Success") && inner.Elements.Count() > 0) {
                 Return inner.Elements[0];
             }
@@ -1169,6 +1172,9 @@ Public Class Interpreter {
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
             Return This.MakeReference(node);
         }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
+            Return This.MakePromiseCall(node);
+        }
         Var arguments = List<Value>();
         For argument In node.Parameters {
             If (argument.Left != Null) {
@@ -1178,6 +1184,12 @@ Public Class Interpreter {
         String name = "";
         If (node.Left != Null && node.Left.Kind == AstKind.Name) {
             name = node.Left.Name;
+        }
+        If (name != "" && This.HasName(name)) {
+            Value callee = This.Lookup(name);
+            If (callee.Text == "PromiseResolve" || callee.Text == "PromiseReject") {
+                Return This.SettlePromise(callee, arguments);
+            }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericOwner(node.Left.Left.Name)) {
             String fullName = node.Left.Left.Name;
@@ -1422,17 +1434,24 @@ Public Class Interpreter {
                     } Else {
                         Bool matched = False;
                         Value chosen = This.MakeNull();
+                        AstNode source = AstNode();
                         Int searchIndex = 0;
                         While (searchIndex < node.Parameters.Count() && searchIndex < arguments.Count()) {
                             If (node.Parameters[searchIndex].Name == parameter.Name && parameter.Name != "") {
                                 chosen = arguments[searchIndex];
+                                source = node.Parameters[searchIndex];
                                 matched = True;
                             }
                             searchIndex = searchIndex + 1;
                         }
                         If (!matched && paramIndex < node.Parameters.Count() && paramIndex < arguments.Count() && node.Parameters[paramIndex].Name == "") {
                             chosen = arguments[paramIndex];
+                            source = node.Parameters[paramIndex];
                             matched = True;
+                        }
+                        If (matched && parameter.FlagA) {
+                            If (source.Kind == AstKind.Argument && source.Left != Null) { source = source.Left; }
+                            If (source.Kind == AstKind.Name) { chosen = This.MakeAlias(source.Name); }
                         }
                         If (!matched && parameter.Initializer != Null) {
                             chosen = This.Evaluate(parameter.Initializer);
@@ -1499,6 +1518,9 @@ Public Class Interpreter {
                 }
                 Return This.MakeInt(r);
             }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsTaskLibrary(node.Left.Left.Name, node.Left.Name)) {
+            Return This.TaskLibraryValue(node.Left.Left.Name, node.Left.Name, arguments);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
             Int typeIndex = This.TypeIndex(node.Left.Left.Name);
@@ -1913,15 +1935,25 @@ Public Class Interpreter {
     }
 
     Private Function Assign(String name, Value value) -> Void {
+        Var sought = name;
         Int index = This.names.Count() - 1;
+        Int hops = 0;
         While (index >= 0) {
-            If (This.names[index] == name) {
+            If (This.names[index] == sought) {
+                String target = "";
+                If (This.values[index].Kind == ValueKind.Integer) { target = This.AliasTarget(This.values[index].Text); }
+                If (target != "" && hops < 8) {
+                    sought = target;
+                    hops = hops + 1;
+                    index = index - 1;
+                    Continue;
+                }
                 This.values[index] = value;
                 Return;
             }
             index = index - 1;
         }
-        This.Define(name, value);
+        This.Define(sought, value);
     }
 
     Private Function TypeIndex(String name) -> Int {
@@ -2454,15 +2486,107 @@ Public Class Interpreter {
     }
 
     Private Function Lookup(String name) -> Value {
+        Var sought = name;
         Int index = This.names.Count() - 1;
+        Int hops = 0;
         While (index >= 0) {
-            If (This.names[index] == name) {
+            If (This.names[index] == sought) {
+                String target = "";
+                If (This.values[index].Kind == ValueKind.Integer) { target = This.AliasTarget(This.values[index].Text); }
+                If (target != "" && hops < 8) {
+                    sought = target;
+                    hops = hops + 1;
+                    index = index - 1;
+                    Continue;
+                }
                 Return This.values[index];
             }
             index = index - 1;
         }
-        This.runtimeErrors.Add("Name '" + name + "' is not defined at runtime.");
+        This.runtimeErrors.Add("Name '" + sought + "' is not defined at runtime.");
         Return This.MakeNull();
+    }
+
+    Private Function MakePromise() -> Value {
+        Value promise = This.MakeArray();
+        promise.Text = "Promise";
+        promise.Elements.Add(This.MakeNull());
+        promise.Elements.Add(This.MakeBool(False));
+        promise.Elements.Add(This.MakeBool(False));
+        Return promise;
+    }
+
+    Private Function IsPromiseCallback(String text) -> Bool {
+        Return text == "PromiseResolve" || text == "PromiseReject";
+    }
+
+    Private Function MakePromiseCall(AstNode node) -> Value {
+        String method = "";
+        If (node.Left != Null) { method = node.Left.Name; }
+        Value promise = This.MakePromise();
+        If (method == "Resolved" || method == "Rejected") {
+            Value payload = This.MakeNull();
+            If (node.Parameters.Count() > 0 && node.Parameters[0].Left != Null) {
+                payload = This.Evaluate(node.Parameters[0].Left);
+            }
+            promise.Elements[0] = payload;
+            If (method == "Rejected") { promise.Elements[1] = This.MakeBool(True); }
+            promise.Elements[2] = This.MakeBool(True);
+            Return promise;
+        }
+        If (method == "Create" && node.Parameters.Count() > 0) {
+            AstNode lambda = node.Parameters[0];
+            If (lambda.Kind == AstKind.Argument && lambda.Left != Null) { lambda = lambda.Left; }
+            Value resolve = This.MakeInt(0);
+            resolve.Text = "PromiseResolve";
+            resolve.Elements.Add(promise);
+            Value reject = This.MakeInt(0);
+            reject.Text = "PromiseReject";
+            reject.Elements.Add(promise);
+            Var callbacks = List<Value>();
+            callbacks.Add(resolve);
+            callbacks.Add(reject);
+            This.CallFunction(lambda, callbacks);
+        }
+        Return promise;
+    }
+
+    Private Function SettlePromise(Value callee, List<Value> supplied) -> Value {
+        If (callee.Elements.Count() == 0) { Return This.MakeVoid(); }
+        Value promise = callee.Elements[0];
+        Value payload = This.MakeNull();
+        If (supplied.Count() > 0) { payload = supplied[0]; }
+        promise.Elements[0] = payload;
+        promise.Elements[1] = This.MakeBool(callee.Text == "PromiseReject");
+        promise.Elements[2] = This.MakeBool(True);
+        Return payload;
+    }
+
+    Private Function IsTaskLibrary(String owner, String name) -> Bool {
+        If (owner == "Task" && (name == "Delay" || name == "Yield")) { Return True; }
+        If (owner == "Duration" && name == "Milliseconds") { Return True; }
+        If (owner == "Hardware" && name == "ReadSensor") { Return True; }
+        Return False;
+    }
+
+    Private Function TaskLibraryValue(String owner, String name, List<Value> supplied) -> Value {
+        If (owner == "Duration" && name == "Milliseconds") {
+            If (supplied.Count() > 0) { Return supplied[0]; }
+            Return This.MakeInt(0);
+        }
+        If (owner == "Hardware" && name == "ReadSensor") { Return This.MakeInt(40); }
+        Return This.MakeVoid();
+    }
+
+    Private Function MakeAlias(String name) -> Value {
+        Value alias = This.MakeInt(0);
+        alias.Text = "MutBind:" + name;
+        Return alias;
+    }
+
+    Private Function AliasTarget(String text) -> String {
+        If (text.StartsWith("MutBind:")) { Return text.Substring(8); }
+        Return "";
     }
 
     Private Function PushScope() -> Void {

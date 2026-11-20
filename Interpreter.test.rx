@@ -710,6 +710,74 @@ Test F64Cmp {
     Output: True;
 }
 
+Test MakePromise {
+    Case "empty promise" {
+        Input:;
+        Assert: Result.Text == "Promise";
+    }
+}
+
+Test IsPromiseCallback {
+    Case "resolve" {
+        Input: text = "PromiseResolve";
+        Output: True;
+    }
+    Case "plain" {
+        Input: text = "Promise";
+        Output: False;
+    }
+}
+
+Test MakePromiseCall {
+    Case "empty call" {
+        Input: node = AstNode();
+        Assert: Result.Text == "Promise";
+    }
+}
+
+Test SettlePromise {
+    Case "missing promise" {
+        Input: callee = Value(), supplied = [];
+        Assert: True;
+    }
+}
+
+Test IsTaskLibrary {
+    Case "delay" {
+        Input: owner = "Task", name = "Delay";
+        Output: True;
+    }
+    Case "plain math" {
+        Input: owner = "Math", name = "Min";
+        Output: False;
+    }
+}
+
+Test TaskLibraryValue {
+    Case "sensor" {
+        Input: owner = "Hardware", name = "ReadSensor", supplied = [];
+        Assert: Result.Integer == 40;
+    }
+}
+
+Test MakeAlias {
+    Case "speed alias" {
+        Input: name = "speed";
+        Assert: Result.Text == "MutBind:speed";
+    }
+}
+
+Test AliasTarget {
+    Case "alias" {
+        Input: text = "MutBind:speed";
+        Output: "speed";
+    }
+    Case "reference" {
+        Input: text = "Ref:speed";
+        Output: "";
+    }
+}
+
 Test MakeReference {
     Case "empty reference" {
         Input: node = AstNode();
