@@ -655,3 +655,75 @@ Test HasModifier {
         Output: False;
     }
 }
+
+Test CollectTypes {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeFlagOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PackageOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MemberVisibility {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MemberKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckTypeRules {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test HasConcrete {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DeclaringOwner {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BaseDeclaringOwner {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckVisibility {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Derives {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsAmbiguousMember {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

@@ -1,0 +1,61 @@
+// Tests for Examples/LanguageRules.rx.
+
+Test Scale {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Total {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Bounds {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Identity {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadLevel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LabelLevel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadPromise {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ArmOnce {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FreshToken {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

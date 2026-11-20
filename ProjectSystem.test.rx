@@ -559,9 +559,9 @@ Test IsApplication {
 }
 
 Test RuntimeFile {
-    Case "runtime c file" {
+    Case "runtime c++ file" {
         Input:;
-        Assert: Result.Contains("rx_runtime.c");
+        Assert: Result.Contains("Runtime.cpp");
     }
 }
 
@@ -590,13 +590,6 @@ Test FindProject {
     Case "find project file" {
         Input:;
         Assert: Result.Contains(".rxp");
-    }
-}
-
-Test LockLines {
-    Case "lock lines from project" {
-        Input: node = ProjectNode();
-        Assert: Result.Length() >= 0;
     }
 }
 

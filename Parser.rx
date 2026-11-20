@@ -480,6 +480,10 @@ Public Partial Class Parser {
         This.Expect(TokenKind.OpenParen, "Expected '(' before parameters.");
         While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
             parameters.Add(This.ParseParameter());
+            If (parameters.Count() > 256) {
+                This.Error("RX140", "A parameter list exceeds the resource limit of 256.");
+                Break;
+            }
             If (!This.Match(TokenKind.Comma)) {
                 Break;
             }
@@ -628,7 +632,7 @@ Public Partial Class Parser {
             Int before = This.position;
             List<AstNode> attributes = This.ParseAttributeList();
             List<String> modifiers = This.ParseModifierList();
-            AstNode member = This.ParseMember(typeNode.Text, modifiers);
+            AstNode member = This.ParseMember(typeNode, modifiers);
             For attribute In attributes {
                 member.Attributes.Add(attribute);
             }
@@ -641,9 +645,13 @@ Public Partial Class Parser {
         This.Expect(TokenKind.CloseBrace, "Expected '}' to close the type body.");
     }
 
-    Private Function ParseMember(String ownerKind, List<String> modifiers) -> AstNode {
+    Private Function ParseMember(AstNode owner, List<String> modifiers) -> AstNode {
+        String ownerKind = owner.Text;
         If (This.Check(TokenKind.Constructor)) {
             Return This.ParseConstructor(modifiers);
+        }
+        If (This.IsNamedConstructor(owner.Name)) {
+            Return This.ParseNamedConstructor(modifiers);
         }
         If (This.Check(TokenKind.Destructor)) {
             Return This.ParseDestructor(modifiers);
@@ -692,6 +700,28 @@ Public Partial Class Parser {
     Private Function ParseConstructor(List<String> modifiers) -> AstNode {
         Token start = This.Advance();
         AstNode node = This.Make(AstKind.Constructor, start);
+        node.Parameters = This.ParseParameterList();
+        While (This.Match(TokenKind.Colon)) {
+            node.Children.Add(This.ParseExpression());
+        }
+        If (This.Check(TokenKind.OpenBrace)) {
+            node.Body = This.ParseBlock();
+        }
+        This.CopyModifiers(node, modifiers);
+        This.Finish(node, start);
+        Return node;
+    }
+
+    Private Function IsNamedConstructor(String typeName) -> Bool {
+        If (typeName.Length() == 0 || This.IsAtEnd()) { Return False; }
+        If (This.Peek().Text != typeName) { Return False; }
+        Return This.Look(1).Kind == TokenKind.OpenParen;
+    }
+
+    Private Function ParseNamedConstructor(List<String> modifiers) -> AstNode {
+        Token start = This.Advance();
+        AstNode node = This.Make(AstKind.Constructor, start);
+        node.Name = start.Text;
         node.Parameters = This.ParseParameterList();
         While (This.Match(TokenKind.Colon)) {
             node.Children.Add(This.ParseExpression());

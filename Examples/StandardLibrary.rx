@@ -1,0 +1,60 @@
+// Discoverable standard library namespaces.
+Package Robotics.StandardLibrary;
+
+Import Robix.Core;
+Import Robix.Math As Math;
+Import Robix.Paths As Paths;
+Import Robix.Date As Date;
+Import Robix.Time As Time;
+Import Robix.Net As Net;
+Import Robix.Json As Json;
+Import Robix.Log As Log;
+Import Robix.Process As Process;
+Import Robix.Environment As Environment;
+Import Robix.Crypto As Crypto;
+Import Robix.Testing As Testing;
+Import Robix.Reflection As Reflect;
+Import Robix.Diagnostics As Diagnostics;
+Import Robix.Hardware As Hardware;
+Import Robix.Concurrency As Concurrency;
+Import Robix.Collection As Collection;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Call each standard library namespace.";
+    Input: args = "Command-line arguments";
+    Processing: "Use math, strings, collections, files, paths, dates, time, networking, serialization, logging, processes, environment, cryptography, testing, reflection, diagnostics, hardware, and concurrency.";
+    Output: "Zero after printing each result.";
+} {
+    Print(Library.Contains("Math"));
+    Print(Math.Abs(-12));
+    Print("Robot".ToUpper());
+    Array<Int> readings = [3, 1, 2];
+    Print(readings.Count());
+    Print(Collection.Count(readings));
+    Print(Robix.Files.Name("/tmp/robot.rx"));
+    Print(Paths.Join("/tmp", "robot.rx"));
+    Print(Paths.Directory("/tmp/robot.rx"));
+    Print(Paths.Extension("/tmp/robot.rx"));
+    Print(Date.Year("2026-11-20"));
+    Print(Date.Month("2026-11-20"));
+    Print(Date.Day("2026-11-20"));
+    Print(Time.Millis(2));
+    Print(Time.Seconds(2500));
+    Print(Net.Host("robot.local:8080"));
+    Print(Net.Port("robot.local:8080"));
+    Print(Json.Quote("arm"));
+    Print(Json.Object("port", 8080));
+    Log.Info("ready");
+    Log.Error("check");
+    Print(Process.Count());
+    Print(Environment.Get("ROBIX"));
+    Print(Crypto.Hash("arm"));
+    Print(Testing.Equal(4, 4));
+    Print(Reflect.TypeOf(String));
+    Print(Diagnostics.Format("RX1", "ready"));
+    Print(Hardware.ReadSensor());
+    Print(Concurrency.Workers());
+    Return 0;
+}

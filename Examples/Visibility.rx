@@ -1,0 +1,197 @@
+// Visibility, constructor shorthand, many parameters, and inheritance conflicts.
+Package Robotics.Visibility;
+
+Import Robix.Core;
+
+
+Public Function SumChannels(Int a, Int b, Int c, Int d, Int e, Int f, Int g, Int h, Int i, Int j, Int k, Int l, Int m, Int n, Int o, Int p) -> Int
+Explain {
+    Description: "Add sixteen channel readings.";
+    Input: a = "Channel 1", b = "Channel 2", c = "Channel 3", d = "Channel 4", e = "Channel 5", f = "Channel 6", g = "Channel 7", h = "Channel 8", i = "Channel 9", j = "Channel 10", k = "Channel 11", l = "Channel 12", m = "Channel 13", n = "Channel 14", o = "Channel 15", p = "Channel 16";
+    Processing: "Add every channel. The language does not impose a small fixed parameter limit.";
+    Output: "The sum of the channels.";
+} {
+    Return a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p;
+}
+
+Public Class Gauge {
+    Public String label;
+    Protected Int level;
+    Private Int secret;
+    Internal Int serial;
+
+    Public Gauge(String name, Int serialNumber) {
+        label = name;
+        level = 5;
+        secret = 1;
+        serial = serialNumber;
+    }
+
+    Public Function ReadLabel() -> String
+    Explain {
+        Description: "Return the public label.";
+        Input: None;
+        Processing: "Read the public field.";
+        Output: "The label.";
+    } {
+        Return label;
+    }
+
+    Public Function ReadLevel() -> Int
+    Explain {
+        Description: "Return the protected level.";
+        Input: None;
+        Processing: "Read the protected field from the declaring type.";
+        Output: "The level.";
+    } {
+        Return level;
+    }
+
+    Public Function ReadSecret() -> Int
+    Explain {
+        Description: "Return the private secret.";
+        Input: None;
+        Processing: "Read the private field from the declaring type.";
+        Output: "The secret.";
+    } {
+        Return secret;
+    }
+
+    Public Function ReadSerial() -> Int
+    Explain {
+        Description: "Return the internal serial.";
+        Input: None;
+        Processing: "Read the internal field from the declaring package.";
+        Output: "The serial.";
+    } {
+        Return serial;
+    }
+}
+
+Public Class GaugeView : Gauge {
+    Public GaugeView(String name) : Base.Constructor(name, 7) {
+        level = level + 1;
+    }
+
+    Public Function ReadView() -> Int
+    Explain {
+        Description: "Return the derived view of level and serial.";
+        Input: None;
+        Processing: "Read the protected level and the internal serial.";
+        Output: "The combined view.";
+    } {
+        Return level + serial;
+    }
+}
+
+Public Class LeftArm {
+    Public Function Read() -> Int
+    Explain {
+        Description: "Read the left arm.";
+        Input: None;
+        Processing: "Return the left reading.";
+        Output: "1";
+    } {
+        Return 1;
+    }
+}
+
+Public Class RightArm {
+    Public Function Read() -> Int
+    Explain {
+        Description: "Read the right arm.";
+        Input: None;
+        Processing: "Return the right reading.";
+        Output: "2";
+    } {
+        Return 2;
+    }
+}
+
+Public Class DualArm : LeftArm, RightArm {
+    Public Override Function Read() -> Int
+    Explain {
+        Description: "Resolve the inherited Read conflict.";
+        Input: None;
+        Processing: "Call each base by name and add the readings.";
+        Output: "The combined reading.";
+    } {
+        Return LeftArm.Read() + RightArm.Read();
+    }
+}
+
+Public Class Motor {
+    Public Virtual Function Spin() -> Int
+    Explain {
+        Description: "Spin at the base speed.";
+        Input: None;
+        Processing: "Return the base speed.";
+        Output: "3";
+    } {
+        Return 3;
+    }
+}
+
+Public Class FastMotor : Motor {
+    Public FastMotor() : Base.Constructor() {
+    }
+
+    Public Override Function Spin() -> Int
+    Explain {
+        Description: "Spin at the overridden speed.";
+        Input: None;
+        Processing: "Replace the virtual base speed.";
+        Output: "9";
+    } {
+        Return 9;
+    }
+}
+
+Public Final Class SealedCore {
+    Public Function Value() -> Int
+    Explain {
+        Description: "Return the sealed core value.";
+        Input: None;
+        Processing: "Read the core constant.";
+        Output: "4";
+    } {
+        Return 4;
+    }
+}
+
+Public Class Machine {
+    Public Function ReadCore() -> Int
+    Explain {
+        Description: "Read a sealed core through composition.";
+        Input: None;
+        Processing: "Construct the sealed core and read its value instead of inheriting it.";
+        Output: "The core value.";
+    } {
+        SealedCore core = SealedCore();
+        Return core.Value();
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise visibility, constructor shorthand, and inheritance.";
+    Input: args = "Command-line arguments";
+    Processing: "Sum sixteen channels, then read public, protected, private, and internal state, a resolved conflict, an override, and a composed sealed core.";
+    Output: "Zero after printing the readings.";
+} {
+    Print(SumChannels(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1));
+    Gauge gauge = Gauge("arm", 3);
+    Print(gauge.ReadLabel());
+    Print(gauge.ReadLevel());
+    Print(gauge.ReadSecret());
+    Print(gauge.ReadSerial());
+    GaugeView view = GaugeView("view");
+    Print(view.ReadView());
+    DualArm dual = DualArm();
+    Print(dual.Read());
+    FastMotor motor = FastMotor();
+    Print(motor.Spin());
+    Machine machine = Machine();
+    Print(machine.ReadCore());
+    Return 0;
+}

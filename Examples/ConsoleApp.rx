@@ -1,0 +1,18 @@
+// The runtime owns the console. The program only inspects it.
+Package Robotics.ConsoleApp;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Report the console flag and port supplied by the runtime.";
+    Input: args = "Command-line arguments, excluding runtime console options";
+    Processing: "Read Runtime.Console.Enabled and Runtime.Console.Port.";
+    Output: "Zero after printing the console state.";
+} {
+    Print(Runtime.Console.Enabled);
+    Print(Runtime.Console.Port);
+    Print(args.Count());
+    Return 0;
+}

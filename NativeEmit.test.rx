@@ -196,7 +196,14 @@ Test EntryMain {
 Test RuntimeDeclarations {
     Case "runtime decls" {
         Input:;
-        Assert: Result.Length() > 0;
+        Assert: Result.Contains("Object_Create");
+    }
+}
+
+Test RuntimeSymbol {
+    Case "object create" {
+        Input: symbol = "rx_obj_new";
+        Assert: Result == "Object_Create";
     }
 }
 

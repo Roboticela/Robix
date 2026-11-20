@@ -60,6 +60,9 @@ Public Class Interpreter {
     Private List<String> operatorKeys;
     Private List<AstNode> operatorNodes;
     Private Bool inTests;
+    Private Bool consoleEnabled;
+    Private Int consolePort;
+    Private List<String> programArguments;
 
     Public Constructor() {
         This.names = List<String>();
@@ -81,6 +84,20 @@ Public Class Interpreter {
         This.operatorKeys = List<String>();
         This.operatorNodes = List<AstNode>();
         This.inTests = False;
+        This.consoleEnabled = True;
+        This.consolePort = 0;
+        This.programArguments = List<String>();
+    }
+
+    Public Function SetConsole(Bool enabled, Int port) -> Void
+    Explain {
+        Description: "Choose whether the runtime creates a console and which port it owns.";
+        Input: enabled = "False hides program output", port = "Console port, or zero when unset";
+        Processing: "Store the console flag and port. Print and logs honor the flag.";
+        Output: "No return value.";
+    } {
+        This.consoleEnabled = enabled;
+        This.consolePort = port;
     }
 
     Public Function Execute(AstNode module, List<String> arguments) -> Int
@@ -90,6 +107,7 @@ Public Class Interpreter {
         Processing: "Define functions, then call Main when it exists. Otherwise run top-level statements.";
         Output: "The process exit integer.";
     } {
+        This.programArguments = arguments;
         This.PushScope();
         This.CollectFunctions(module);
         For child In module.Children {
@@ -1265,6 +1283,10 @@ Public Class Interpreter {
             Return This.EvaluateCall(node);
         }
         If (node.Kind == AstKind.Member) {
+            If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "Console" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Runtime") {
+                If (node.Name == "Enabled") { Return This.MakeBool(This.consoleEnabled); }
+                If (node.Name == "Port") { Return This.MakeInt(This.consolePort); }
+            }
             If (node.Left != Null && node.Left.Kind == AstKind.Name) {
                 Int typeIndex = This.TypeIndex(node.Left.Name);
                 If (typeIndex >= 0 && This.types[typeIndex].Text == "Enum") {
@@ -1423,6 +1445,10 @@ Public Class Interpreter {
     }
 
     Private Function EvaluateCall(AstNode node) -> Value {
+        If (node.Parameters.Count() > 256) {
+            This.runtimeErrors.Add("A call exceeds the argument resource limit of 256.");
+            Return This.MakeVoid();
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Pointer" && node.Left.Name == "Of") {
             Value reference = This.MakeArray();
             reference.Text = "MutRef:";
@@ -1457,6 +1483,8 @@ Public Class Interpreter {
                 arguments.Add(This.Evaluate(argument.Left));
             }
         }
+        Value library = This.StandardLibrary(node, arguments);
+        If (library.Kind != ValueKind.None) { Return library; }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Reflect" && node.Left.Name == "Create" && arguments.Count() > 0) {
             Var none = List<Value>();
             Return This.RunConstructor(arguments[0].Text, none, This.BlankObject(arguments[0].Text));
@@ -1583,6 +1611,7 @@ Public Class Interpreter {
             Return source;
         }
         If (name == "Print") {
+            If (!This.consoleEnabled) { Return This.MakeVoid(); }
             String line = "";
             For argument In arguments {
                 If (line.Length() > 0) { line = line + " "; }
@@ -2984,7 +3013,7 @@ Public Class Interpreter {
     Private Function MakeObjectValue(String typeName) -> Value {
         Value value = Value();
         value.Kind = ValueKind.Object;
-        value.Text = typeName;
+        value.Text = typeName + "";
         value.Integer = 0;
         value.Boolean = False;
         value.Elements = List<Value>();
@@ -3599,7 +3628,7 @@ Public Class Interpreter {
     Private Function MakeText(String text) -> Value {
         Value value = Value();
         value.Kind = ValueKind.Text;
-        value.Text = text;
+        value.Text = text + "";
         Return value;
     }
 
@@ -3644,6 +3673,130 @@ Public Class Interpreter {
         If (left.Kind == ValueKind.Text) { Return left.Text == right.Text; }
         If (left.Kind == ValueKind.Null) { Return True; }
         Return False;
+    }
+
+    Private Function StandardLibrary(AstNode node, List<Value> arguments) -> Value {
+        Value missed = Value();
+        missed.Kind = ValueKind.None;
+        If (node.Left == Null || node.Left.Kind != AstKind.Member || node.Left.Left == Null) { Return missed; }
+        String owner = node.Left.Left.Name;
+        String method = node.Left.Name;
+        String text = "";
+        If (arguments.Count() > 0) { text = arguments[0].Text; }
+        If (owner == "Paths") {
+            If (method == "Name") {
+                Int slash = text.LastIndexOf("/");
+                If (slash < 0) { Return This.MakeText(text); }
+                Return This.MakeText(text.Substring(slash + 1));
+            }
+            If (method == "Directory") {
+                Int slash = text.LastIndexOf("/");
+                If (slash < 0) { Return This.MakeText(""); }
+                Return This.MakeText(text.Substring(0, slash));
+            }
+            If (method == "Extension") {
+                Int dot = text.LastIndexOf(".");
+                Int slash = text.LastIndexOf("/");
+                If (dot < 0 || dot < slash) { Return This.MakeText(""); }
+                Return This.MakeText(text.Substring(dot));
+            }
+            If (method == "Join") {
+                String file = "";
+                If (arguments.Count() > 1) { file = arguments[1].Text; }
+                If (text.Length() == 0) { Return This.MakeText(file); }
+                If (text.EndsWith("/")) { Return This.MakeText(text + file); }
+                Return This.MakeText(text + "/" + file);
+            }
+        }
+        If (owner == "Date" && text.Length() >= 10) {
+            Int year = ParseInteger(text.Substring(0, 4));
+            Int month = ParseInteger(text.Substring(5, 2));
+            Int day = ParseInteger(text.Substring(8, 2));
+            If (method == "Year") { Return This.MakeInt(year); }
+            If (method == "Month") { Return This.MakeInt(month); }
+            If (method == "Day") { Return This.MakeInt(day); }
+        }
+        If (owner == "Date") { Return This.MakeInt(0); }
+        If (owner == "Time") {
+            Int value = 0;
+            If (arguments.Count() > 0) { value = arguments[0].Integer; }
+            If (method == "Millis") { Return This.MakeInt(value * 1000); }
+            If (method == "Seconds") { Return This.MakeInt(value / 1000); }
+        }
+        If (owner == "Net") {
+            Int colon = text.LastIndexOf(":");
+            If (method == "Host") {
+                If (colon < 0) { Return This.MakeText(text); }
+                Return This.MakeText(text.Substring(0, colon));
+            }
+            If (method == "Port") {
+                If (colon < 0) { Return This.MakeInt(0); }
+                Return This.MakeInt(ParseInteger(text.Substring(colon + 1)));
+            }
+        }
+        If (owner == "Json") {
+            If (method == "Quote") { Return This.MakeText("\"" + text + "\""); }
+            If (method == "Object") {
+                String valueText = "";
+                If (arguments.Count() > 1) { valueText = This.Display(arguments[1]); }
+                Return This.MakeText("{\"" + text + "\":" + valueText + "}");
+            }
+        }
+        If (owner == "Log" && (method == "Info" || method == "Error")) {
+            If (This.consoleEnabled) {
+                String prefix = "info";
+                If (method == "Error") { prefix = "error"; }
+                String body = "";
+                If (arguments.Count() > 0) { body = This.Display(arguments[0]); }
+                This.lines.Add(prefix + " " + body);
+            }
+            Return This.MakeVoid();
+        }
+        If (owner == "Process" && method == "Count") { Return This.MakeInt(This.programArguments.Count()); }
+        If (owner == "Process" && method == "Argument") {
+            Int index = 0;
+            If (arguments.Count() > 0) { index = arguments[0].Integer; }
+            If (index < 0 || index >= This.programArguments.Count()) { Return This.MakeText(""); }
+            Return This.MakeText(This.programArguments[index]);
+        }
+        If (owner == "Environment" && method == "Get") {
+            If (text == "ROBIX") { Return This.MakeText("1"); }
+            If (text == "ROBIX_CONSOLE") {
+                If (This.consoleEnabled) { Return This.MakeText("on"); }
+                Return This.MakeText("off");
+            }
+            If (text == "PORT") { Return This.MakeText(This.consolePort.ToString()); }
+            Return This.MakeText("");
+        }
+        If (owner == "Crypto" && method == "Hash") {
+            Int hash = 5381;
+            Int index = 0;
+            While (index < text.Length()) {
+                hash = hash * 33 + text.GetChar(index).ToInt();
+                index = index + 1;
+            }
+            If (hash < 0) { hash = 0 - hash; }
+            Return This.MakeInt(hash);
+        }
+        If (owner == "Testing" && method == "Equal") {
+            If (arguments.Count() < 2) { Return This.MakeBool(False); }
+            Return This.MakeBool(This.Same(arguments[0], arguments[1]));
+        }
+        If (owner == "Diagnostics" && method == "Format") {
+            String message = "";
+            If (arguments.Count() > 1) { message = This.Display(arguments[1]); }
+            Return This.MakeText(text + ": " + message);
+        }
+        If (owner == "Library" && method == "Contains") {
+            Bool known = text == "Math" || text == "String" || text == "Collection" || text == "Files" || text == "Paths" || text == "Date" || text == "Time" || text == "Net" || text == "Json" || text == "Log" || text == "Process" || text == "Environment" || text == "Crypto" || text == "Testing" || text == "Reflect" || text == "Diagnostics" || text == "Hardware" || text == "Concurrency";
+            Return This.MakeBool(known);
+        }
+        If (owner == "Collection" && method == "Count") {
+            If (arguments.Count() == 0) { Return This.MakeInt(0); }
+            Return This.MakeInt(arguments[0].Elements.Count());
+        }
+        If (owner == "Concurrency" && method == "Workers") { Return This.MakeInt(1); }
+        Return missed;
     }
 
     Private Function Display(Value value) -> String {

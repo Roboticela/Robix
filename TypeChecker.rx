@@ -59,6 +59,14 @@ Public Class TypeChecker {
     Private List<String> gotoNames;
     Private List<Int> gotoDepths;
     Private List<Int> gotoLines;
+    Private String currentPackage;
+    Private List<String> typeNames;
+    Private List<String> typeFlags;
+    Private List<String> typePackages;
+    Private List<String> memberOwners;
+    Private List<String> memberNames;
+    Private List<String> memberVisibility;
+    Private List<String> memberKinds;
 
     Public Constructor(DiagnosticBag diagnostics) {
         This.diagnostics = diagnostics;
@@ -89,6 +97,14 @@ Public Class TypeChecker {
         This.gotoNames = List<String>();
         This.gotoDepths = List<Int>();
         This.gotoLines = List<Int>();
+        This.currentPackage = "";
+        This.typeNames = List<String>();
+        This.typeFlags = List<String>();
+        This.typePackages = List<String>();
+        This.memberOwners = List<String>();
+        This.memberNames = List<String>();
+        This.memberVisibility = List<String>();
+        This.memberKinds = List<String>();
     }
 
     Public Function Check(AstNode module) -> Void
@@ -98,7 +114,19 @@ Public Class TypeChecker {
         Processing: "Check declarations, assignments, calls, nullability, async use, returns, and matches. Checking is always strict.";
         Output: "No return value. Diagnostics are stored in the bag.";
     } {
+        This.currentPackage = "";
+        This.typeNames = List<String>();
+        This.typeFlags = List<String>();
+        This.typePackages = List<String>();
+        This.memberOwners = List<String>();
+        This.memberNames = List<String>();
+        This.memberVisibility = List<String>();
+        This.memberKinds = List<String>();
+        This.baseOwners = List<String>();
+        This.baseNames = List<String>();
         This.PushScope();
+        This.CollectTypes(module);
+        This.currentPackage = "";
         This.CollectAliases(module);
         This.PredeclareFunctions(module);
         For child In module.Children {
@@ -141,6 +169,9 @@ Public Class TypeChecker {
     }
 
     Private Function CheckNode(AstNode node) -> Void {
+        If (node.Kind == AstKind.Package && node.Name != "") {
+            This.currentPackage = node.Name;
+        }
         If (node.Kind == AstKind.Label) {
             This.labelNames.Add(node.Name);
             This.labelDepths.Add(This.marks.Count());
@@ -174,10 +205,7 @@ Public Class TypeChecker {
                     This.genericOwners.Add(node.Name);
                     This.genericParameters.Add(parameters);
                 }
-                For baseType In node.Members {
-                    This.baseOwners.Add(node.Name);
-                    This.baseNames.Add(baseType.Name);
-                }
+                This.CheckTypeRules(node);
             }
             For child In node.Children {
                 This.CheckNode(child);
@@ -428,7 +456,7 @@ Public Class TypeChecker {
                 This.diagnostics.Warning("RX105", "A public function is missing its Explain block.", node.Line, node.Column);
             }
         }
-        String returnType = This.TypeText(node.Type);
+        String returnType = This.TypeText(node.Type) + "";
         If (node.Kind != AstKind.Lambda && returnType.Length() == 0 && This.strict) {
             This.diagnostics.TypeError("RX104", "A function requires a return type in Strict mode.", node.Line, node.Column, "-> Type", "missing", "Add a return type. Use Void when there is no result.");
         }
@@ -441,8 +469,8 @@ Public Class TypeChecker {
         This.gotoNames = List<String>();
         This.gotoDepths = List<Int>();
         This.gotoLines = List<Int>();
-        String previousReturn = This.currentReturn;
-        This.currentReturn = returnType;
+        String previousReturn = This.currentReturn + "";
+        This.currentReturn = returnType + "";
         This.PushScope();
         This.DefineTypeFields();
         For parameter In node.Parameters {
@@ -720,6 +748,9 @@ Public Class TypeChecker {
             If (!symbol.Initialized && !symbol.IsFunction && This.strict) {
                 This.diagnostics.TypeError("RX102", "'" + node.Name + "' is read before it is assigned.", node.Line, node.Column, symbol.TypeName, "uninitialized", "Assign the variable before reading it.");
             }
+            If (This.currentType != "" && This.IsAmbiguousMember(This.currentType, node.Name)) {
+                This.diagnostics.TypeError("RX131", "'" + node.Name + "' is inherited from more than one base.", node.Line, node.Column, "one member", "multiple bases", "Use BaseName.Member, an Override, or composition.");
+            }
             If (symbol.IsFunction) {
                 String signature = This.FunctionTypeOf(node.Name);
                 If (signature != "") { Return signature; }
@@ -800,7 +831,16 @@ Public Class TypeChecker {
             Return This.InferCall(node);
         }
         If (node.Kind == AstKind.Member) {
+            If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "Console" && node.Left.Left != Null && node.Left.Left.Name == "Runtime") {
+                If (node.Name == "Enabled") { Return "Bool"; }
+                If (node.Name == "Port") { Return "Int"; }
+            }
             String left = This.Infer(node.Left);
+            String accessOwner = This.AppliedOwner(left);
+            If (node.Left != Null && node.Left.Kind == AstKind.Name && This.TypeFlagOf(node.Left.Name) != "") {
+                accessOwner = node.Left.Name;
+            }
+            This.CheckVisibility(accessOwner, node.Name, node);
             If (left.EndsWith("?") && !node.FlagA && This.strict) {
                 This.diagnostics.TypeError("RX110", "A nullable value needs a check, '?.', or '!' before member access.", node.Line, node.Column, This.StripOptional(left), left, "Use '?.' or test the value against Null.");
             }
@@ -875,6 +915,11 @@ Public Class TypeChecker {
         } Else If (node.Left != Null) {
             If (node.Left.Kind == AstKind.Member && node.Left.Left != Null) {
                 receiverType = This.Infer(node.Left.Left);
+                String accessOwner = This.AppliedOwner(receiverType);
+                If (node.Left.Left.Kind == AstKind.Name && This.TypeFlagOf(node.Left.Left.Name) != "") {
+                    accessOwner = node.Left.Left.Name;
+                }
+                This.CheckVisibility(accessOwner, node.Left.Name, node.Left);
             } Else {
                 This.Infer(node.Left);
             }
@@ -973,6 +1018,25 @@ Public Class TypeChecker {
                     Return "Bool";
                 }
             }
+            If (owner == "Paths") {
+                If (node.Left.Name == "Name" || node.Left.Name == "Join" || node.Left.Name == "Directory" || node.Left.Name == "Extension") { Return "String"; }
+            }
+            If (owner == "Date" && (node.Left.Name == "Year" || node.Left.Name == "Month" || node.Left.Name == "Day")) { Return "Int"; }
+            If (owner == "Time" && (node.Left.Name == "Seconds" || node.Left.Name == "Millis")) { Return "Int"; }
+            If (owner == "Net" && node.Left.Name == "Host") { Return "String"; }
+            If (owner == "Net" && node.Left.Name == "Port") { Return "Int"; }
+            If (owner == "Json" && (node.Left.Name == "Quote" || node.Left.Name == "Object")) { Return "String"; }
+            If (owner == "Log" && (node.Left.Name == "Info" || node.Left.Name == "Error")) { Return "Void"; }
+            If (owner == "Process" && node.Left.Name == "Count") { Return "Int"; }
+            If (owner == "Process" && node.Left.Name == "Argument") { Return "String"; }
+            If (owner == "Environment" && node.Left.Name == "Get") { Return "String"; }
+            If (owner == "Crypto" && node.Left.Name == "Hash") { Return "Int"; }
+            If (owner == "Testing" && node.Left.Name == "Equal") { Return "Bool"; }
+            If (owner == "Diagnostics" && node.Left.Name == "Format") { Return "String"; }
+            If (owner == "Library" && node.Left.Name == "Contains") { Return "Bool"; }
+            If (owner == "Collection" && node.Left.Name == "Count") { Return "Int"; }
+            If (owner == "Concurrency" && node.Left.Name == "Workers") { Return "Int"; }
+            If (owner == "Hardware" && node.Left.Name == "ReadSensor") { Return "Int"; }
             If (node.Left.Name == "From" && This.IsNumeric(owner)) {
                 String fullName = owner;
                 If (node.Left.Left.Children.Count() > 0) {
@@ -1038,6 +1102,10 @@ Public Class TypeChecker {
                 Return This.TypeText(node.Left.Children[0]);
             }
             Return "String";
+        }
+        If (name != "" && This.TypeFlagOf(name) == "Abstract") {
+            This.diagnostics.TypeError("RX132", "Cannot construct abstract type '" + name + "'.", node.Line, node.Column, "a concrete type", name, "Construct a derived type instead.");
+            Return name;
         }
         If (This.IsTypeName(name)) {
             Return name;
@@ -1332,7 +1400,17 @@ Public Class TypeChecker {
                 base = base + 1;
             }
             If (owned) {
-                This.Define(This.fieldNames[index], This.fieldTypes[index], True, False, True, False, False, False, 1, 1);
+                String visibility = This.MemberVisibility(This.fieldOwners[index], This.fieldNames[index]);
+                Bool allowed = True;
+                If (visibility == "Private" && This.fieldOwners[index] != This.currentType) { allowed = False; }
+                If (visibility == "Protected" && This.fieldOwners[index] != This.currentType && !This.Derives(This.currentType, This.fieldOwners[index])) { allowed = False; }
+                If (visibility == "Internal" && This.fieldOwners[index] != This.currentType) {
+                    String ownerPackage = This.PackageOf(This.fieldOwners[index]);
+                    If (ownerPackage == "" || ownerPackage != This.currentPackage) { allowed = False; }
+                }
+                If (allowed) {
+                    This.Define(This.fieldNames[index], This.fieldTypes[index], True, False, True, False, False, False, 1, 1);
+                }
             }
             index = index + 1;
         }
@@ -1343,8 +1421,8 @@ Public Class TypeChecker {
             Return;
         }
         Symbol symbol = Symbol();
-        symbol.Name = name;
-        symbol.TypeName = typeName;
+        symbol.Name = name + "";
+        symbol.TypeName = typeName + "";
         symbol.Mutable = mutable;
         symbol.Nullable = nullable;
         symbol.Initialized = initialized;
@@ -1583,7 +1661,7 @@ Public Class TypeChecker {
             Return "";
         }
         If (type.Kind != AstKind.Type) {
-            Return type.Name;
+            Return type.Name + "";
         }
         If (type.Name == "|") {
             String joined = "";
@@ -1593,7 +1671,7 @@ Public Class TypeChecker {
                 }
                 joined = joined + This.TypeText(child);
             }
-            Return joined;
+            Return joined + "";
         }
         If (type.Name == "()") {
             String joined = "(";
@@ -1623,10 +1701,9 @@ Public Class TypeChecker {
             }
             Return joined + "}";
         }
-        String text = type.Name;
+        String text = type.Name + "";
         If (type.Text == "Const" || type.Text == "Mut") { text = type.Text + " " + type.Name; }
         If (type.Text == "ConstMut") { text = "Const Mut " + type.Name; }
-        If (type.Text != "Const" && type.Text != "Mut" && type.Text != "ConstMut") { text = type.Text + type.Name; }
         If (type.Children.Count() > 0) {
             text = text + "<";
             Bool first = True;
@@ -1643,7 +1720,7 @@ Public Class TypeChecker {
         If (type.FlagA) {
             text = text + "?";
         }
-        Return text;
+        Return text + "";
     }
 
     Private Function PromiseTypeOf(AstNode member) -> String {
@@ -1966,6 +2043,250 @@ Public Class TypeChecker {
         }
         Char first = name.GetChar(0);
         Return first >= 'a' && first <= 'z';
+    }
+
+    Private Function CollectTypes(AstNode node) -> Void {
+        If (node.Kind == AstKind.Package && node.Name != "") {
+            This.currentPackage = node.Name;
+        }
+        If (node.Kind == AstKind.Class) {
+            String flag = "Open";
+            If (This.HasModifier(node, "Sealed") || This.HasModifier(node, "Final")) { flag = "Sealed"; }
+            Else If (This.HasModifier(node, "Abstract") || node.Text == "Interface" || node.Text == "Trait" || node.Text == "Service") { flag = "Abstract"; }
+            This.typeNames.Add(node.Name);
+            This.typeFlags.Add(flag);
+            This.typePackages.Add(This.currentPackage);
+            For baseType In node.Members {
+                This.baseOwners.Add(node.Name);
+                This.baseNames.Add(baseType.Name);
+            }
+            For child In node.Children {
+                If (child.Kind == AstKind.Field || child.Kind == AstKind.Function) {
+                    String visibility = "Public";
+                    If (This.HasModifier(child, "Private")) { visibility = "Private"; }
+                    Else If (This.HasModifier(child, "Protected")) { visibility = "Protected"; }
+                    Else If (This.HasModifier(child, "Internal")) { visibility = "Internal"; }
+                    String kind = "Concrete";
+                    If (child.Kind == AstKind.Field) { kind = "Field"; }
+                    Else If (This.HasModifier(child, "Sealed") || This.HasModifier(child, "Final")) { kind = "Sealed"; }
+                    Else If (This.HasModifier(child, "Abstract") || (child.Body == Null && child.Left == Null)) { kind = "Abstract"; }
+                    This.memberOwners.Add(node.Name);
+                    This.memberNames.Add(child.Name);
+                    This.memberVisibility.Add(visibility);
+                    This.memberKinds.Add(kind);
+                }
+                If (child.Kind == AstKind.Class) { This.CollectTypes(child); }
+            }
+        }
+        If (node.Kind != AstKind.Class) {
+            For child In node.Children {
+                This.CollectTypes(child);
+            }
+            If (node.Body != Null) { This.CollectTypes(node.Body); }
+        }
+    }
+
+    Private Function TypeFlagOf(String name) -> String {
+        Int index = 0;
+        While (index < This.typeNames.Count() && index < This.typeFlags.Count()) {
+            If (This.typeNames[index] == name) { Return This.typeFlags[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function PackageOf(String name) -> String {
+        Int index = 0;
+        While (index < This.typeNames.Count() && index < This.typePackages.Count()) {
+            If (This.typeNames[index] == name) { Return This.typePackages[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function MemberVisibility(String owner, String name) -> String {
+        Int index = 0;
+        While (index < This.memberOwners.Count() && index < This.memberNames.Count() && index < This.memberVisibility.Count()) {
+            If (This.memberOwners[index] == owner && This.memberNames[index] == name) { Return This.memberVisibility[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function MemberKind(String owner, String name) -> String {
+        Int index = 0;
+        While (index < This.memberOwners.Count() && index < This.memberNames.Count() && index < This.memberKinds.Count()) {
+            If (This.memberOwners[index] == owner && This.memberNames[index] == name) { Return This.memberKinds[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function CheckTypeRules(AstNode node) -> Void {
+        For baseType In node.Members {
+            If (This.TypeFlagOf(baseType.Name) == "Sealed") {
+                This.diagnostics.TypeError("RX130", "'" + node.Name + "' cannot inherit from sealed type '" + baseType.Name + "'.", node.Line, node.Column, "an open base", "sealed " + baseType.Name, "Use composition instead of inheriting a sealed type.");
+            }
+        }
+        If (This.TypeFlagOf(node.Name) != "Abstract") {
+            Var seen = List<String>();
+            seen.Add(node.Name);
+            Int cursor = 0;
+            While (cursor < seen.Count() && cursor < 64) {
+                Int base = 0;
+                While (base < This.baseOwners.Count()) {
+                    If (This.baseOwners[base] == seen[cursor]) {
+                        String baseName = This.baseNames[base];
+                        Bool known = False;
+                        For item In seen {
+                            If (item == baseName) { known = True; }
+                        }
+                        If (!known) { seen.Add(baseName); }
+                    }
+                    base = base + 1;
+                }
+                cursor = cursor + 1;
+            }
+            Var reported = List<String>();
+            Int seenIndex = 1;
+            While (seenIndex < seen.Count()) {
+                Int member = 0;
+                While (member < This.memberOwners.Count()) {
+                    If (This.memberOwners[member] == seen[seenIndex] && This.memberKinds[member] == "Abstract") {
+                        String memberName = This.memberNames[member];
+                        Bool already = False;
+                        For item In reported {
+                            If (item == memberName) { already = True; }
+                        }
+                        If (!already && !This.HasConcrete(node.Name, memberName)) {
+                            reported.Add(memberName);
+                            This.diagnostics.TypeError("RX134", "'" + node.Name + "' must implement '" + memberName + "'.", node.Line, node.Column, "an implementation", "missing", "Add an Override or a concrete member.");
+                        }
+                    }
+                    member = member + 1;
+                }
+                seenIndex = seenIndex + 1;
+            }
+        }
+        For child In node.Children {
+            If (child.Kind == AstKind.Function && This.HasModifier(child, "Override")) {
+                String found = This.BaseDeclaringOwner(node.Name, child.Name);
+                If (found == "") {
+                    This.diagnostics.TypeError("RX133", "Override '" + child.Name + "' does not match a base member.", child.Line, child.Column, "a base member", "no base member", "Remove Override or inherit the member.");
+                } Else If (This.MemberKind(found, child.Name) == "Sealed") {
+                    This.diagnostics.TypeError("RX138", "'" + child.Name + "' is sealed and cannot be overridden.", child.Line, child.Column, "a new member", "sealed " + child.Name, "Remove Override.");
+                }
+            }
+        }
+    }
+
+    Private Function HasConcrete(String typeName, String memberName) -> Bool {
+        Var pending = List<String>();
+        pending.Add(typeName);
+        Int cursor = 0;
+        While (cursor < pending.Count() && cursor < 64) {
+            String current = pending[cursor];
+            Int index = 0;
+            While (index < This.memberOwners.Count()) {
+                If (This.memberOwners[index] == current && This.memberNames[index] == memberName) {
+                    If (This.memberKinds[index] == "Concrete" || This.memberKinds[index] == "Sealed") { Return True; }
+                }
+                index = index + 1;
+            }
+            Int base = 0;
+            While (base < This.baseOwners.Count()) {
+                If (This.baseOwners[base] == current) { pending.Add(This.baseNames[base]); }
+                base = base + 1;
+            }
+            cursor = cursor + 1;
+        }
+        Return False;
+    }
+
+    Private Function DeclaringOwner(String owner, String memberName) -> String {
+        Var pending = List<String>();
+        pending.Add(owner);
+        Int cursor = 0;
+        While (cursor < pending.Count() && cursor < 64) {
+            String current = pending[cursor];
+            If (This.MemberVisibility(current, memberName) != "") { Return current; }
+            Int base = 0;
+            While (base < This.baseOwners.Count()) {
+                If (This.baseOwners[base] == current) { pending.Add(This.baseNames[base]); }
+                base = base + 1;
+            }
+            cursor = cursor + 1;
+        }
+        Return "";
+    }
+
+    Private Function BaseDeclaringOwner(String owner, String memberName) -> String {
+        Int index = 0;
+        While (index < This.baseOwners.Count()) {
+            If (This.baseOwners[index] == owner) {
+                String found = This.DeclaringOwner(This.baseNames[index], memberName);
+                If (found != "") { Return found; }
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function CheckVisibility(String owner, String memberName, AstNode node) -> Void {
+        If (owner == "" || This.TypeFlagOf(owner) == "") { Return; }
+        String declaring = This.DeclaringOwner(owner, memberName);
+        If (declaring == "") { Return; }
+        String visibility = This.MemberVisibility(declaring, memberName);
+        If (visibility == "" || visibility == "Public") { Return; }
+        If (visibility == "Private") {
+            If (This.currentType == declaring) { Return; }
+            This.diagnostics.TypeError("RX135", "'" + memberName + "' is private to '" + declaring + "'.", node.Line, node.Column, "a member of " + declaring, "private access", "Use a public method of the declaring type.");
+            Return;
+        }
+        If (visibility == "Protected") {
+            If (This.currentType == declaring || This.Derives(This.currentType, declaring)) { Return; }
+            This.diagnostics.TypeError("RX136", "'" + memberName + "' is protected in '" + declaring + "'.", node.Line, node.Column, "the declaring type or a derived type", "outside access", "Use a public method or move the call into a derived type.");
+            Return;
+        }
+        If (visibility == "Internal") {
+            If (This.currentType == declaring) { Return; }
+            String ownerPackage = This.PackageOf(declaring);
+            If (ownerPackage != "" && ownerPackage == This.currentPackage) { Return; }
+            This.diagnostics.TypeError("RX137", "'" + memberName + "' is internal to package '" + ownerPackage + "'.", node.Line, node.Column, "the same package", "another package", "Expose a public method or stay in the declaring package.");
+        }
+    }
+
+    Private Function Derives(String derived, String base) -> Bool {
+        If (derived == "" || base == "") { Return False; }
+        If (derived == base) { Return True; }
+        Var pending = List<String>();
+        pending.Add(derived);
+        Int cursor = 0;
+        While (cursor < pending.Count() && cursor < 64) {
+            Int index = 0;
+            While (index < This.baseOwners.Count()) {
+                If (This.baseOwners[index] == pending[cursor]) {
+                    If (This.baseNames[index] == base) { Return True; }
+                    pending.Add(This.baseNames[index]);
+                }
+                index = index + 1;
+            }
+            cursor = cursor + 1;
+        }
+        Return False;
+    }
+
+    Private Function IsAmbiguousMember(String typeName, String memberName) -> Bool {
+        If (memberName == "" || This.MemberVisibility(typeName, memberName) != "") { Return False; }
+        Int hits = 0;
+        Int index = 0;
+        While (index < This.baseOwners.Count()) {
+            If (This.baseOwners[index] == typeName && This.DeclaringOwner(This.baseNames[index], memberName) != "") {
+                hits = hits + 1;
+            }
+            index = index + 1;
+        }
+        Return hits > 1;
     }
 
     Private Function HasModifier(AstNode node, String name) -> Bool {

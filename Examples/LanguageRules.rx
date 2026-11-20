@@ -1,0 +1,141 @@
+// Executable summary of the language rules.
+Package Robotics.LanguageRules;
+
+Import Robix.Core;
+
+
+Public Function Scale(Int value = 2, Int factor = 3) -> Int
+Explain {
+    Description: "Scale a value, using defaults or named arguments.";
+    Input: value = "Starting value", factor = "Multiplier";
+    Processing: "Multiply the value by the factor.";
+    Output: "The product.";
+} {
+    Return value * factor;
+}
+
+Public Function Total(Params<Int> values) -> Int
+Explain {
+    Description: "Sum a variadic list of integers.";
+    Input: values = "Integers to add";
+    Processing: "Add each value.";
+    Output: "The total.";
+} {
+    Int sum = 0;
+    For item In values {
+        sum = sum + item;
+    }
+    Return sum;
+}
+
+Public Function Bounds(Int left, Int right) -> (Int low, Int high)
+Explain {
+    Description: "Return the lower and higher values.";
+    Input: left = "First value", right = "Second value";
+    Processing: "Compare the two values.";
+    Output: "A tuple of the lower and higher values.";
+} {
+    Return (Math.Min(left, right), Math.Max(left, right));
+}
+
+Public Function Identity<T>(T value) -> T
+Explain {
+    Description: "Return the same value.";
+    Input: value = "Any value";
+    Processing: "Return the argument unchanged.";
+    Output: "The same value.";
+} {
+    Return value;
+}
+
+Public Async Function ReadLevel() -> Task<Int>
+Explain {
+    Description: "Read a battery level asynchronously.";
+    Input: None;
+    Processing: "Return the level as a task.";
+    Output: "The level.";
+} {
+    Return 80;
+}
+
+Public Async Function LabelLevel() -> Task<String>
+Explain {
+    Description: "Compose one async function with another.";
+    Input: None;
+    Processing: "Await the level and format it.";
+    Output: "The label.";
+} {
+    Int level = Await ReadLevel();
+    Return "Battery: " + level.ToString();
+}
+
+Public Async Function ReadPromise() -> Task<Int>
+Explain {
+    Description: "Await a resolved promise.";
+    Input: None;
+    Processing: "Create a resolved promise and await it.";
+    Output: "The resolved value.";
+} {
+    Let completed = Promise<Int>.Resolved(4);
+    Return Await completed;
+}
+
+Public Function ArmOnce() -> Void
+Explain {
+    Description: "Arm a one-shot timer.";
+    Input: None;
+    Processing: "Schedule a timeout with a duration.";
+    Output: "No return value.";
+} {
+    Timer.SetTimeout(() => Print("once"), Duration.Seconds(1));
+}
+
+Public Function FreshToken() -> CancellationToken
+Explain {
+    Description: "Create a cancellation token.";
+    Input: None;
+    Processing: "Open a cancellation source. Timeout stays a separate duration.";
+    Output: "The token.";
+} {
+    CancellationSource source = CancellationSource();
+    Return source.Token;
+}
+
+Public Function Main(Args<String> args) -> ExecutionResult
+Explain {
+    Description: "Exercise the language rules in one program.";
+    Input: args = "Command-line arguments";
+    Processing: "Use Any, inference, conversion, widths, assignment, functions, operators, the library, async results, and a standard exit result.";
+    Output: "Success when the rules have been exercised.";
+} {
+    Var anything: Any = 42;
+    anything = "now text";
+    Let inferred = 100;
+    String numberText = inferred.ToString();
+    Int parsed = "123".ToInt();
+    Int<24> width = Int<24>.From(100);
+    Int x = 20, y = 30;
+    (x, y) = (y, x);
+    Int scaled = Scale(factor: 4, value: 5);
+    Int summed = Total(1, 2, 3);
+    Let (low, high) = Bounds(8, 3);
+    Let square = (Int n) => n * n;
+    Int identified = Identity(9);
+    Print(anything);
+    Print(numberText);
+    Print(parsed);
+    Print(width);
+    Print(x);
+    Print(y);
+    Print(scaled);
+    Print(summed);
+    Print(low);
+    Print(high);
+    Print(square(4));
+    Print(identified);
+    Print(Operators.Add(10, 20));
+    Print(Library.Contains("Math"));
+    Scheduler.Queue(() => Print("queued"));
+    FreshToken();
+    Return ExecutionResult(ExitCode.Success, "Program completed successfully.");
+}

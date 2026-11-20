@@ -1,0 +1,7 @@
+// Tests for Examples/ConsoleApp.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

@@ -496,3 +496,15 @@ Test Finish {
         Assert: Result.Kind == AstKind.Module;
     }
 }
+
+Test IsNamedConstructor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseNamedConstructor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

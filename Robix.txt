@@ -1,83 +1,9 @@
-// Robix language syntax reference
-// Revised design incorporating the improvement notes throughout the original file.
-// This is an illustrative language specification and example module.
-// Features marked as proposed describe intended Robix behavior and require compiler support.
-
 // The language will have both compiler and interpreter called robix and robixc.
-// The language is always strict. The compiler and the interpreter both enforce type safety and only accept a module when every type resolves.
 // The language must have same performance as C and C++ and must provide same control over hardware while easy like below syntax.
 // Windows comes later.
 // Add clear examples at Examples folder for every possible use of that feature or syntax which is implemented with real examples.
 
-// Their must be Filename.test.rx file for each and every file which will have tests for each function in that file and if this file not exists or tests not exists then interpreter will ignore while the compiler will give error.
 
-// Function declarations may use any supported number of parameters. The
-// compiler/runtime may enforce resource limits, but the language has no
-// arbitrary small fixed argument-count limit.
-
-// -----------------------------------------------------------------------------
-// 7. Classes, structs, interfaces, traits, enums, and services
-// -----------------------------------------------------------------------------
-
-// Traditional constructor-name syntax may also be supported as shorthand.
-// Name conflicts in multiple inheritance must be resolved with BaseName.Member
-// or an Override declaration.
-
-// Visibility rules:
-// Public: accessible everywhere permitted.
-// Protected: accessible in the declaring type and derived types.
-// Private: accessible only inside the declaring type.
-// Internal: accessible inside the same package/module.
-// Inheritance supports abstract, virtual, override, sealed/final, and explicit
-// base calls. Composition is preferred where multiple inheritance is ambiguous.
-
-// -----------------------------------------------------------------------------
-// 8. Statements, conditions, loops, and command-line arguments
-// -----------------------------------------------------------------------------
-
-// Applications may be launched with console controls, for example:
-// robix run RobotApp --console=off
-// robix run RobotApp --console=on --port=8080
-// The runtime owns console creation; applications can inspect Runtime.Console.Enabled.
-
-// Standard library namespaces should provide discoverable, documented APIs
-// for math, strings, collections, files, paths, dates, time, networking,
-// serialization, logging, processes, environment, cryptography, testing,
-// reflection, diagnostics, hardware, and concurrency.
-
-// -----------------------------------------------------------------------------
-// 19. Language design rules summary
-// -----------------------------------------------------------------------------
-
-// 1. Any stores values of any type. Dynamic enables runtime member binding.
-// 2. Type inference chooses a suitable type from the initializer.
-// 3. Conversions are available as value methods and type constructors.
-// 4. Numeric widths and floating precision can be selected explicitly.
-// 5. Multi-declaration, tuple assignment, and chained assignment are supported.
-// 6. Functions support defaults, named arguments, generics, variadic arguments,
-//    multiple returns, async behavior, iterators, and anonymous expressions.
-// 7. Operators have callable function forms. Custom operators declare
-//    precedence/associativity and can be implemented for user-defined types.
-// 8. OOP supports access modifiers, constructors, destructors, base calls,
-//    abstract/virtual/override/final members, and controlled multiple inheritance.
-// 9. Main receives command-line arguments and returns a standard ExitCode or
-//    ExecutionResult. Raw integer exit values remain a warned compatibility path.
-// 10. Standard library APIs should have consistent naming, documentation,
-//     error handling, and discoverable module organization.
-// 11. Async Function returns Task<T>; Await unwraps its result. Async functions
-//     compose directly with other async functions.
-// 12. Promise<T> interoperates with Task<T> and supports resolve/reject,
-//     chaining, and All/Race/Any/AllSettled combinators.
-// 13. Timer supports one-shot timeouts, repeating intervals, async callbacks,
-//     cancellation handles, delay, debounce, throttle, and polling.
-// 14. Cancellation is cooperative through CancellationToken; timeout and
-//     cancellation remain distinct concepts.
-// 15. Async streams, async locks, scheduler queues, and top-level Await are
-//     supported with defined runtime scheduling and error semantics.
-// 16. Strict checking covers variables, inference, functions, generics, nullability,
-//     numeric conversions, collections, OOP, operators, async code, errors,
-//     FFI boundaries, and control-flow exhaustiveness.
-//
 // -----------------------------------------------------------------------------
 // 20. Mandatory type-safe programming
 // -----------------------------------------------------------------------------

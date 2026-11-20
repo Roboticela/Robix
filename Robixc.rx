@@ -10,7 +10,7 @@ Public Function Main(Args<String> args) -> ExecutionResult
 Explain {
     Description: "Compile one Robix source file into a Linux executable.";
     Input: args = "The source path and an optional output path";
-    Processing: "Parse the syntax, apply the always-strict type rules, emit LLVM IR, and let clang write the executable.";
+    Processing: "Parse the syntax, apply the always-strict type rules, emit LLVM IR, and let clang++ write the executable.";
     Output: "Success when the module is strict and type-safe.";
 } {
     If (args.Count() == 0) {
@@ -38,9 +38,8 @@ Explain {
     }
     String llPath = outputPath + ".ll";
     Files.WriteText(llPath, result.NativeIr);
-    String runtime = "Build/Compiler/rx_runtime.c";
-    If (!Files.Exists(runtime)) { runtime = "InitialCompiler/rx_runtime.c"; }
-    String command = "clang -O3 -flto -fPIE -o \"" + outputPath + "\" \"" + llPath + "\" \"" + runtime + "\"";
+    String runtime = "Runtime/Runtime.cpp";
+    String command = "clang++ -std=c++17 -O3 -flto -fPIE -o \"" + outputPath + "\" \"" + llPath + "\" \"" + runtime + "\"";
     Int code = RunProcess(command);
     If (code != 0) {
         Return ExecutionResult(ExitCode.ErrorExecution, "Clang failed.");

@@ -42,6 +42,8 @@ Public Class ProjectEngine {
     Private Bool WarningsAsErrors;
     Private Int CompiledCount;
     Private Int SkippedCount;
+    Private Bool ConsoleEnabled;
+    Private Int ConsolePort;
 
     Public Constructor() {
         This.SourceText = "";
@@ -61,6 +63,8 @@ Public Class ProjectEngine {
         This.WarningsAsErrors = False;
         This.CompiledCount = 0;
         This.SkippedCount = 0;
+        This.ConsoleEnabled = True;
+        This.ConsolePort = 0;
     }
 
     Public Function Run(List<String> args) -> ExecutionResult
@@ -137,6 +141,9 @@ Public Class ProjectEngine {
             If (arg == "--DryRun") {
                 This.DryRun = True;
             }
+            If (arg == "--console=off") { This.ConsoleEnabled = False; }
+            If (arg == "--console=on") { This.ConsoleEnabled = True; }
+            If (arg.StartsWith("--port=")) { This.ConsolePort = ParseInteger(arg.Substring(7)); }
             If (arg == "--Configuration" && index + 1 < args.Count()) {
                 index = index + 1;
                 This.Configuration = args[index];
@@ -325,7 +332,7 @@ Public Class ProjectEngine {
         Print("robix Run              Build and run the project");
         Print("robix run File.rx      Run one source file");
         Print("robix Test             Run the test task");
-        Print("robix Restore          Write Robix.lock");
+        Print("robix Restore          Use the project file");
         Print("robix Publish          Package the output");
         Print("robix Pack             Package the output");
         Print("robix Check            Validate the .rxp file");
@@ -580,7 +587,7 @@ Public Class ProjectEngine {
         String objectPath = This.IntermediateDirectory(project) + "/" + stem + ".o";
         Files.WriteText(llPath, ir);
         String flags = This.OptimizeFlag() + " " + This.DebugFlag();
-        String compile = "clang " + flags + " -fPIC -c -o \"" + objectPath + "\" \"" + llPath + "\"";
+        String compile = "clang++ " + flags + " -fPIC -c -o \"" + objectPath + "\" \"" + llPath + "\"";
         If (RunProcess(compile) != 0) {
             This.Diagnostics.Add(relative + " failed to compile.");
             Return False;
@@ -593,9 +600,9 @@ Public Class ProjectEngine {
                     libs = libs + " \"" + This.OutputDirectory(project) + "/" + item + "\"";
                 }
             }
-            link = "clang " + flags + " -fPIE -Wl,--export-dynamic -o \"" + output + "\" \"" + objectPath + "\" \"" + This.RuntimeFile() + "\"" + libs + " -Wl,-rpath,'$ORIGIN'";
+            link = "clang++ -std=c++17 " + flags + " -fPIE -Wl,--export-dynamic -o \"" + output + "\" \"" + objectPath + "\" \"" + This.RuntimeFile() + "\"" + libs + " -Wl,-rpath,'$ORIGIN'";
         } Else {
-            link = "clang " + flags + " -shared -Wl,-soname," + stem + ".bin -o \"" + output + "\" \"" + objectPath + "\"";
+            link = "clang++ " + flags + " -shared -Wl,-soname," + stem + ".bin -o \"" + output + "\" \"" + objectPath + "\"";
         }
         If (RunProcess(link) != 0) {
             This.Diagnostics.Add(relative + " failed to compile.");
@@ -788,9 +795,7 @@ Public Class ProjectEngine {
     }
 
     Private Function RuntimeFile() -> String {
-        String installed = This.Join(This.ProjectDirectory, "Build/Compiler/rx_runtime.c");
-        If (Files.Exists(installed)) { Return installed; }
-        Return This.Join(This.ProjectDirectory, "InitialCompiler/rx_runtime.c");
+        Return This.Join(This.ProjectDirectory, "Runtime/Runtime.cpp");
     }
 
     Private Function DeletePath(String path) -> Bool {
@@ -804,33 +809,8 @@ Public Class ProjectEngine {
     }
 
     Private Function Restore(ProjectNode project) -> Bool {
-        ProjectNode dependencies = This.FindChild(project, "Dependencies");
-        String text = "# Robix.lock\n";
-        If (dependencies.Found) {
-            text = text + This.LockLines(dependencies);
-        }
-        String lockPath = This.Join(This.ProjectDirectory, "Robix.lock");
-        If (This.DryRun) {
-            Print("Restore " + lockPath);
-            Return True;
-        }
-        Files.WriteText(lockPath, text);
-        Print("Wrote " + lockPath);
+        This.FindChild(project, "Dependencies");
         Return True;
-    }
-
-    Private Function LockLines(ProjectNode node) -> String {
-        String text = "";
-        For child In node.Children {
-            If (child.Kind == "Item" || child.Name == "Package") {
-                String version = child.Text;
-                If (version == "" || version == child.Name) { version = "*"; }
-                text = text + child.Name + " " + version + "\n";
-            } Else If (child.Children.Count() > 0) {
-                text = text + This.LockLines(child);
-            }
-        }
-        Return text;
     }
 
     Private Function RunDiscoveredTests(ProjectNode project) -> Bool {
@@ -896,6 +876,7 @@ Public Class ProjectEngine {
             Return False;
         }
         Interpreter interpreter = Interpreter();
+        interpreter.SetConsole(This.ConsoleEnabled, This.ConsolePort);
         Int exitCode = interpreter.Execute(result.Module, List<String>());
         For line In interpreter.Lines() { Print(line); }
         For line In interpreter.RuntimeErrors() { Print(line); }

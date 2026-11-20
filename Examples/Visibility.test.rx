@@ -1,0 +1,67 @@
+// Tests for Examples/Visibility.rx.
+
+Test SumChannels {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadLabel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadLevel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadSecret {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadSerial {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadView {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Read {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Spin {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Value {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadCore {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

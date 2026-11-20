@@ -646,7 +646,7 @@ Public Class NativeProgram {
         }
         String ret = "i64";
         If (This.IsVoid(This.TypeName(node.Type))) { ret = "void"; }
-        Return "declare " + ret + " @" + symbol + "(" + args + ")\n";
+        Return "declare " + ret + " @" + This.RuntimeSymbol(symbol) + "(" + args + ")\n";
     }
 
     Private Function DeclareForeign() -> String {
@@ -752,7 +752,7 @@ Public Class NativeProgram {
             ClassInfo info = This.FindClass(className);
             Int fields = info.Fields.Count();
             If (fields < 1) { fields = 1; }
-            receiver = "%self = call i64 @rx_obj_new(i64 " + fields.ToString() + ")\n  ";
+            receiver = "%self = call i64 @Object_Create(i64 " + fields.ToString() + ")\n  ";
         }
         String startup = "";
         If (This.InitSymbol != "") {
@@ -772,15 +772,15 @@ Public Class NativeProgram {
                 call = startup + "  " + invoke + "\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
             }
         } Else {
-            If (className == "") { invoke = "%packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)"; }
-            If (className != "") { invoke = "%packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  " + receiver + "%result = call i64 @" + symbol + "(i64 %self, i64 %packed)"; }
+            If (className == "") { invoke = "%packed = call i64 @Process_Arguments(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)"; }
+            If (className != "") { invoke = "%packed = call i64 @Process_Arguments(i32 %argc, ptr %argv)\n  " + receiver + "%result = call i64 @" + symbol + "(i64 %self, i64 %packed)"; }
             If (returnType == "ExecutionResult") {
                 call = startup + "  " + invoke + "\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
             } Else {
                 call = startup + "  " + invoke + "\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
             }
         }
-        Return "declare i64 @rx_args(i32, ptr)\ndeclare void @rx_finish_result(i64)\n\ndefine i32 @main(i32 %argc, ptr %argv) {\n" + call + "}\n";
+        Return "declare i64 @Process_Arguments(i32, ptr)\ndeclare void @Process_Finish(i64)\n\ndefine i32 @main(i32 %argc, ptr %argv) {\n" + call + "}\n";
     }
 
     Private Function RuntimeDeclarations() -> String {
@@ -798,7 +798,7 @@ Public Class NativeProgram {
                 name = names.Substring(start, end - start);
                 start = end + 1;
             }
-            lines = lines + "declare i64 @" + name + "(...)\n";
+            lines = lines + "declare i64 @" + This.RuntimeSymbol(name) + "(...)\n";
         }
         start = 0;
         While (start < voids.Length()) {
@@ -811,7 +811,7 @@ Public Class NativeProgram {
                 name = voids.Substring(start, end - start);
                 start = end + 1;
             }
-            lines = lines + "declare void @" + name + "(...)\n";
+            lines = lines + "declare void @" + This.RuntimeSymbol(name) + "(...)\n";
         }
         Return lines + "\n";
     }
@@ -1056,7 +1056,7 @@ Public Class NativeProgram {
     Private Function BeginFrame() -> Void {
         String depth = This.Fresh("v");
         String slot = This.Fresh("slot");
-        This.Emit(depth + " = call i64 @rx_mark_depth()");
+        This.Emit(depth + " = call i64 @Ownership_MarkDepth()");
         This.Emit(slot + " = alloca i64");
         This.Emit("store i64 " + depth + ", ptr " + slot);
         This.MarkSlot = slot;
@@ -1136,7 +1136,103 @@ Public Class NativeProgram {
         Return packed;
     }
 
+    Private Function RuntimeSymbol(String symbol) -> String {
+        If (symbol == "rx_str_len") { Return "Text_Length"; }
+        If (symbol == "rx_str_eq") { Return "Text_Equals"; }
+        If (symbol == "rx_str_concat") { Return "Text_Concat"; }
+        If (symbol == "rx_str_substr") { Return "Text_Substring"; }
+        If (symbol == "rx_str_get") { Return "Text_Character"; }
+        If (symbol == "rx_str_lower") { Return "Text_Lower"; }
+        If (symbol == "rx_str_upper") { Return "Text_Upper"; }
+        If (symbol == "rx_str_starts") { Return "Text_StartsWith"; }
+        If (symbol == "rx_str_ends") { Return "Text_EndsWith"; }
+        If (symbol == "rx_str_contains") { Return "Text_Contains"; }
+        If (symbol == "rx_str_index") { Return "Text_IndexOf"; }
+        If (symbol == "rx_str_rindex") { Return "Text_LastIndexOf"; }
+        If (symbol == "rx_str_replace") { Return "Text_Replace"; }
+        If (symbol == "rx_str_to_int") { Return "Text_ToInt"; }
+        If (symbol == "rx_str_from_int") { Return "Text_FromInt"; }
+        If (symbol == "rx_str_from_bool") { Return "Text_FromBool"; }
+        If (symbol == "rx_str_from_char") { Return "Text_FromChar"; }
+        If (symbol == "rx_str_from_chars") { Return "Text_FromChars"; }
+        If (symbol == "rx_str_trim") { Return "Text_Trim"; }
+        If (symbol == "rx_str_split") { Return "Text_Split"; }
+        If (symbol == "rx_str_is_int") { Return "Text_IsInt"; }
+        If (symbol == "rx_list_new") { Return "List_Create"; }
+        If (symbol == "rx_list_count") { Return "List_Count"; }
+        If (symbol == "rx_list_get") { Return "List_Get"; }
+        If (symbol == "rx_list_add") { Return "List_Add"; }
+        If (symbol == "rx_list_set") { Return "List_Set"; }
+        If (symbol == "rx_list_take_front") { Return "List_TakeFront"; }
+        If (symbol == "rx_list_take_back") { Return "List_TakeBack"; }
+        If (symbol == "rx_list_text") { Return "List_TextOf"; }
+        If (symbol == "rx_list_sort") { Return "List_Sort"; }
+        If (symbol == "rx_list_reverse") { Return "List_Reverse"; }
+        If (symbol == "rx_settle_list") { Return "List_Settle"; }
+        If (symbol == "rx_range") { Return "List_Range"; }
+        If (symbol == "rx_map_new") { Return "Map_Create"; }
+        If (symbol == "rx_map_put") { Return "Map_Put"; }
+        If (symbol == "rx_map_get") { Return "Map_Get"; }
+        If (symbol == "rx_set_add") { Return "Map_AddToSet"; }
+        If (symbol == "rx_set_has") { Return "Map_SetHas"; }
+        If (symbol == "rx_obj_new") { Return "Object_Create"; }
+        If (symbol == "rx_obj_get") { Return "Object_Get"; }
+        If (symbol == "rx_obj_set") { Return "Object_Set"; }
+        If (symbol == "rx_file_read") { Return "Files_Read"; }
+        If (symbol == "rx_file_write_text") { Return "Files_WriteText"; }
+        If (symbol == "rx_file_write_bytes") { Return "Files_WriteBytes"; }
+        If (symbol == "rx_file_exists") { Return "Files_Exists"; }
+        If (symbol == "rx_file_delete") { Return "Files_Delete"; }
+        If (symbol == "rx_file_name") { Return "Files_Name"; }
+        If (symbol == "rx_file_join") { Return "Files_Join"; }
+        If (symbol == "rx_dir_create") { Return "Files_CreateDirectory"; }
+        If (symbol == "rx_dir_delete") { Return "Files_DeleteDirectory"; }
+        If (symbol == "rx_dir_exists") { Return "Files_DirectoryExists"; }
+        If (symbol == "rx_dir_files") { Return "Files_List"; }
+        If (symbol == "rx_print") { Return "Process_Print"; }
+        If (symbol == "rx_env_get") { Return "Process_Environment"; }
+        If (symbol == "rx_process") { Return "Process_Run"; }
+        If (symbol == "rx_args") { Return "Process_Arguments"; }
+        If (symbol == "rx_finish_result") { Return "Process_Finish"; }
+        If (symbol == "rx_Input") { Return "Process_Input"; }
+        If (symbol == "rx_math_gcd") { Return "Math_GreatestCommonDivisor"; }
+        If (symbol == "rx_math_isqrt") { Return "Math_IntegerSquareRoot"; }
+        If (symbol == "rx_alloc") { Return "Ownership_Allocate"; }
+        If (symbol == "rx_alloc_aligned") { Return "Ownership_AllocateAligned"; }
+        If (symbol == "rx_mem_copy") { Return "Ownership_Copy"; }
+        If (symbol == "rx_free") { Return "Ownership_Free"; }
+        If (symbol == "rx_retain") { Return "Ownership_Retain"; }
+        If (symbol == "rx_release") { Return "Ownership_Release"; }
+        If (symbol == "rx_scope_push") { Return "Ownership_PushScope"; }
+        If (symbol == "rx_scope_pop") { Return "Ownership_PopScope"; }
+        If (symbol == "rx_give") { Return "Ownership_Give"; }
+        If (symbol == "rx_mark_depth") { Return "Ownership_MarkDepth"; }
+        If (symbol == "rx_scope_unwind") { Return "Ownership_Unwind"; }
+        If (symbol == "rx_keep") { Return "Ownership_Keep"; }
+        If (symbol == "rx_F64Parse") { Return "Float64_Parse"; }
+        If (symbol == "rx_F64Text") { Return "Float64_Text"; }
+        If (symbol == "rx_F64FromInt") { Return "Float64_FromInt"; }
+        If (symbol == "rx_F64ToInt") { Return "Float64_ToInt"; }
+        If (symbol == "rx_F64ToIntMode") { Return "Float64_ToIntMode"; }
+        If (symbol == "rx_F64ToIntChecked") { Return "Float64_ToIntChecked"; }
+        If (symbol == "rx_F64Format") { Return "Float64_Format"; }
+        If (symbol == "rx_FormatFixed") { Return "Float64_FormatFixed"; }
+        If (symbol == "rx_F32Parse") { Return "Float32_Parse"; }
+        If (symbol == "rx_F16Parse") { Return "Float16_Parse"; }
+        If (symbol == "rx_U64Parse") { Return "Unsigned64_Parse"; }
+        If (symbol == "rx_AnyText") { Return "Any_Text"; }
+        If (symbol == "rx_any_list_text") { Return "Any_ListText"; }
+        If (symbol == "rx_any_map_text") { Return "Any_MapText"; }
+        If (symbol == "rx_AnyToInt") { Return "Any_ToInt"; }
+        If (symbol == "rx_AnyToFloat") { Return "Any_ToFloat"; }
+        If (symbol == "rx_AnyLength") { Return "Any_Length"; }
+        If (symbol == "rx_AnyUpper") { Return "Any_Upper"; }
+        If (symbol == "rx_AnyLower") { Return "Any_Lower"; }
+        Return symbol;
+    }
+
     Private Function CallRuntime(String symbol, List<String> args, Bool voidCall) -> IrValue {
+        symbol = This.RuntimeSymbol(symbol);
         String rendered = "";
         Int index = 0;
         For arg In args {

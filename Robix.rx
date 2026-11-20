@@ -48,11 +48,18 @@ Explain {
     }
     Var programArguments = List<String>();
     Int index = 2;
+    Bool consoleOn = True;
+    Int consolePort = 0;
     While (index < args.Count()) {
-        programArguments.Add(args[index]);
+        String arg = args[index];
+        If (arg == "--console=off") { consoleOn = False; }
+        Else If (arg == "--console=on") { consoleOn = True; }
+        Else If (arg.StartsWith("--port=")) { consolePort = ParseInteger(arg.Substring(7)); }
+        Else { programArguments.Add(arg); }
         index = index + 1;
     }
     Interpreter interpreter = Interpreter();
+    interpreter.SetConsole(consoleOn, consolePort);
     Int exitCode = interpreter.Execute(result.Module, programArguments);
     For line In interpreter.Lines() {
         Print(line);
