@@ -97,9 +97,28 @@ Public Class Interpreter {
                 This.ExecuteNode(child);
             }
         }
-        AstNode? entry = This.FindFunction("Main");
+        AstNode? entry = AstNode();
+        Bool entryFound = False;
+        String entryOwner = "";
+        Int entryCount = 0;
+        Int entryIndex = 0;
+        While (entryIndex < This.functions.Count()) {
+            If (This.functions[entryIndex].Name == "Main") {
+                entryCount = entryCount + 1;
+                entry = This.functions[entryIndex];
+                entryFound = True;
+                entryOwner = This.functionOwners[entryIndex];
+            }
+            entryIndex = entryIndex + 1;
+        }
         Int exitCode = 0;
-        If (entry != Null) {
+        If (entryCount > 1) {
+            This.runtimeErrors.Add("A file can define only one Main.");
+            This.PopScope();
+            Return 1;
+        }
+        If (entryFound && entry != Null) {
+            If (entryOwner != "") { This.PrepareThis(entryOwner); }
             Value argumentArray = This.MakeArray();
             For argument In arguments {
                 argumentArray.Elements.Add(This.MakeText(argument));

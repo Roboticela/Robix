@@ -1690,6 +1690,21 @@ static Expr gen_expr(Node *value) {
 }
 
 static void emit_stmt(Node *stmt);
+static void emit_stmt_body(Node *stmt);
+
+static void emit_owned_store(const char *type, const char *slot, const char *code) {
+    if (is_scalar(type)) {
+        emitf("%s = %s;\n", slot, code);
+        return;
+    }
+    emit("{\n");
+    emitf("%s rx_next = %s;\n", c_type(type), code);
+    emitf("%s *rx_slot = &(%s);\n", c_type(type), slot);
+    emit("rx_keep(RXL(rx_next));\n");
+    emit("if (rx_next != *rx_slot) rx_release(RXL(*rx_slot));\n");
+    emit("*rx_slot = rx_next;\n");
+    emit("}\n");
+}
 
 static void emit_assign(Node *stmt) {
     const char *op = stmt->text;
@@ -1699,7 +1714,8 @@ static void emit_assign(Node *stmt) {
         Var *var = find_var(left->text);
         char *name = c_name(left->text);
         char *code = same(right.type, "Null") && var && !is_scalar(var->type) ? "NULL" : right.code;
-        if (same(op, "=")) emitf("%s = %s;\n", name, code);
+        if (same(op, "=") && var) emit_owned_store(var->type, name, code);
+        else if (same(op, "=")) emitf("%s = %s;\n", name, code);
         else emitf("%s = %s %c (%s);\n", name, name, op[0], code);
         return;
     }
@@ -1709,7 +1725,9 @@ static void emit_assign(Node *stmt) {
         char *field_name = field ? c_name(field->name) : c_name(left->text);
         char *code = right.code;
         if (field && same(right.type, "Null") && !is_scalar(field->type)) code = "NULL";
-        if (same(op, "=")) emitf("(%s)->%s = %s;\n", receiver.code, field_name, code);
+        char *slot = fmt("(%s)->%s", receiver.code, field_name);
+        if (same(op, "=") && field) emit_owned_store(field->type, slot, code);
+        else if (same(op, "=")) emitf("%s = %s;\n", slot, code);
         else emitf("(%s)->%s = (%s)->%s %c (%s);\n", receiver.code, field_name, receiver.code, field_name, op[0], code);
         return;
     }
@@ -1723,7 +1741,7 @@ static void emit_assign(Node *stmt) {
     note_missing(stmt->line, "unsupported assignment");
 }
 
-static void emit_stmt(Node *stmt) {
+static void emit_stmt_body(Node *stmt) {
     if (stmt == NULL || stmt->kind == N_NONE) return;
     if (stmt->line > 0 && current_file) emitf("#line %d \"%s\"\n", stmt->line, current_file);
     if (stmt->kind == N_BLOCK) {
@@ -1744,6 +1762,7 @@ static void emit_stmt(Node *stmt) {
             add_var(stmt->text, type);
             char *code = same(init.type, "Null") && !is_scalar(type) ? "NULL" : init.code;
             emitf("%s %s = %s;\n", c_type(type), c_name(stmt->text), code);
+            if (!is_scalar(type)) emitf("rx_keep(RXL(%s));\n", c_name(stmt->text));
             return;
         }
         if (type == NULL || type[0] == 0) type = "Int";
@@ -1752,6 +1771,7 @@ static void emit_stmt(Node *stmt) {
             Expr init = gen_expr(stmt->a);
             char *code = same(init.type, "Null") && !is_scalar(type) ? "NULL" : init.code;
             emitf("%s %s = %s;\n", c_type(type), c_name(stmt->text), code);
+            if (!is_scalar(type)) emitf("rx_keep(RXL(%s));\n", c_name(stmt->text));
         } else {
             const char *zero = is_scalar(type) ? (is_float_type(type) ? "0.0" : "0") : "NULL";
             emitf("%s %s = %s;\n", c_type(type), c_name(stmt->text), zero);
@@ -1810,11 +1830,15 @@ static void emit_stmt(Node *stmt) {
     if (stmt->kind == N_RETURN) {
         if (stmt->a == NULL || same(ret_type, "Void") || ret_type == NULL || ret_type[0] == 0) {
             if (stmt->a) gen_expr(stmt->a);
+            emit("rx_scope_pop();\n");
             emit("return;\n");
         } else {
             Expr value = gen_expr(stmt->a);
             char *code = same(value.type, "Null") && !is_scalar(ret_type) ? "NULL" : value.code;
-            emitf("return %s;\n", code);
+            emitf("%s rx_ret = %s;\n", c_type(ret_type), code);
+            if (!is_scalar(ret_type)) emit("rx_keep(RXL(rx_ret));\n");
+            emit("rx_scope_pop();\n");
+            emit("return rx_ret;\n");
         }
         return;
     }
@@ -1829,6 +1853,17 @@ static void emit_stmt(Node *stmt) {
         return;
     }
     if (stmt->kind == N_ASSIGN) emit_assign(stmt);
+}
+
+static void emit_stmt(Node *stmt) {
+    if (stmt == NULL || stmt->kind == N_NONE) return;
+    if (stmt->kind == N_BLOCK) {
+        emit_stmt_body(stmt);
+        return;
+    }
+    emit("rx_scope_push();\n");
+    emit_stmt_body(stmt);
+    if (stmt->kind != N_RETURN) emit("rx_scope_pop();\n");
 }
 
 static void emit_params(Func *func, int with_this) {

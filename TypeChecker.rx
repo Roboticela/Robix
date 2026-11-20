@@ -104,6 +104,28 @@ Public Class TypeChecker {
         For child In module.Children {
             This.CheckNode(child);
         }
+        Int entryPoints = 0;
+        Int entryLine = 1;
+        Int entryColumn = 1;
+        For child In module.Children {
+            If (child.Kind == AstKind.Function && child.Name == "Main") {
+                entryPoints = entryPoints + 1;
+                entryLine = child.Line;
+                entryColumn = child.Column;
+            }
+            If (child.Kind == AstKind.Class) {
+                For member In child.Children {
+                    If (member.Kind == AstKind.Function && member.Name == "Main") {
+                        entryPoints = entryPoints + 1;
+                        entryLine = member.Line;
+                        entryColumn = member.Column;
+                    }
+                }
+            }
+        }
+        If (entryPoints > 1) {
+            This.diagnostics.TypeError("RX122", "A file can define only one Main.", entryLine, entryColumn, "one Main", entryPoints.ToString() + " entry points", "Keep either the function Main or the class Main.");
+        }
         This.PopScope();
     }
 

@@ -593,7 +593,7 @@ Public Class ProjectEngine {
                     libs = libs + " \"" + This.OutputDirectory(project) + "/" + item + "\"";
                 }
             }
-            link = "clang " + flags + " -fPIE -o \"" + output + "\" \"" + objectPath + "\" \"" + This.RuntimeFile() + "\"" + libs + " -Wl,-rpath,'$ORIGIN'";
+            link = "clang " + flags + " -fPIE -Wl,--export-dynamic -o \"" + output + "\" \"" + objectPath + "\" \"" + This.RuntimeFile() + "\"" + libs + " -Wl,-rpath,'$ORIGIN'";
         } Else {
             link = "clang " + flags + " -shared -Wl,-soname," + stem + ".bin -o \"" + output + "\" \"" + objectPath + "\"";
         }

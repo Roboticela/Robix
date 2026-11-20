@@ -677,7 +677,7 @@ int64_t rx_str_concat(int64_t left, int64_t right) {
     memcpy(copy, a, (size_t)an);
     memcpy(copy + an, b, (size_t)bn);
     copy[an + bn] = 0;
-    return (int64_t)(uintptr_t)copy;
+    return rx_box(copy);
 }
 
 int64_t rx_str_substr(int64_t text, int64_t start, int64_t length) {
@@ -1362,6 +1362,14 @@ static int64_t rx_tagged_text(int64_t tag, int64_t payload) {
     return rx_str_from_int(payload);
 }
 
+static int64_t rx_join(int64_t text, int64_t extra) {
+    int64_t next = rx_str_concat(text, extra);
+    if (next != text) {
+        rx_release(text);
+    }
+    return next;
+}
+
 int64_t rx_list_text(int64_t list, int64_t tag) {
     int64_t count = rx_list_count(list);
     int64_t text = rx_text_literal("[");
@@ -1369,12 +1377,12 @@ int64_t rx_list_text(int64_t list, int64_t tag) {
     int64_t index = 0;
     while (index < count) {
         if (index > 0) {
-            text = rx_str_concat(text, comma);
+            text = rx_join(text, comma);
         }
-        text = rx_str_concat(text, rx_tagged_text(tag, rx_list_get(list, index)));
+        text = rx_join(text, rx_tagged_text(tag, rx_list_get(list, index)));
         index = index + 1;
     }
-    return rx_str_concat(text, rx_text_literal("]"));
+    return rx_join(text, rx_text_literal("]"));
 }
 
 int64_t rx_settle_list(int64_t list) {
@@ -1396,12 +1404,12 @@ int64_t rx_any_list_text(int64_t list) {
     int64_t index = 0;
     while (index < count) {
         if (index > 0) {
-            text = rx_str_concat(text, comma);
+            text = rx_join(text, comma);
         }
-        text = rx_str_concat(text, rx_AnyText(rx_list_get(list, index)));
+        text = rx_join(text, rx_AnyText(rx_list_get(list, index)));
         index = index + 1;
     }
-    return rx_str_concat(text, rx_text_literal("]"));
+    return rx_join(text, rx_text_literal("]"));
 }
 
 int64_t rx_any_map_text(int64_t map) {
@@ -1415,14 +1423,14 @@ int64_t rx_any_map_text(int64_t map) {
     }
     while (index < value->count) {
         if (index > 0) {
-            text = rx_str_concat(text, comma);
+            text = rx_join(text, comma);
         }
-        text = rx_str_concat(text, value->keys[index]);
-        text = rx_str_concat(text, sep);
-        text = rx_str_concat(text, rx_AnyText(value->values[index]));
+        text = rx_join(text, value->keys[index]);
+        text = rx_join(text, sep);
+        text = rx_join(text, rx_AnyText(value->values[index]));
         index = index + 1;
     }
-    return rx_str_concat(text, rx_text_literal("}"));
+    return rx_join(text, rx_text_literal("}"));
 }
 
 int64_t rx_AnyText(int64_t box) {
@@ -1441,12 +1449,12 @@ int64_t rx_AnyText(int64_t box) {
     int64_t index = 0;
     while (index < count) {
         if (index > 0) {
-            text = rx_str_concat(text, comma);
+            text = rx_join(text, comma);
         }
-        text = rx_str_concat(text, rx_tagged_text(element, rx_list_get(payload, index)));
+        text = rx_join(text, rx_tagged_text(element, rx_list_get(payload, index)));
         index = index + 1;
     }
-    return rx_str_concat(text, rx_text_literal("]"));
+    return rx_join(text, rx_text_literal("]"));
 }
 
 int64_t rx_AnyToInt(int64_t box) {

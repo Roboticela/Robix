@@ -713,10 +713,21 @@ Public Class NativeProgram {
     Private Function EntryMain(AstNode module) -> String {
         AstNode mainNode = AstNode();
         Bool found = False;
+        String className = "";
         For child In module.Children {
             If (child.Kind == AstKind.Function && child.Name == "Main") {
                 mainNode = child;
                 found = True;
+                className = "";
+            }
+            If (!found && child.Kind == AstKind.Class) {
+                For member In child.Children {
+                    If (member.Kind == AstKind.Function && member.Name == "Main") {
+                        mainNode = member;
+                        found = True;
+                        className = child.Name;
+                    }
+                }
             }
         }
         If (!found) {
@@ -735,23 +746,38 @@ Public Class NativeProgram {
             Return This.JoinFunction();
         }
         String symbol = This.FunctionSymbol(This.FileName, "Main");
+        String receiver = "";
+        If (className != "") {
+            symbol = "rxm_" + className + "_Main";
+            ClassInfo info = This.FindClass(className);
+            Int fields = info.Fields.Count();
+            If (fields < 1) { fields = 1; }
+            receiver = "%self = call i64 @rx_obj_new(i64 " + fields.ToString() + ")\n  ";
+        }
         String startup = "";
         If (This.InitSymbol != "") {
             startup = "  call void @" + This.InitSymbol + "()\n";
         }
         String returnType = This.TypeName(mainNode.Type);
         String call = "";
+        String invoke = "%result = call i64 @" + symbol + "(";
+        If (className != "") { invoke = receiver + invoke + "i64 %self"; }
+        If (className == "") { invoke = invoke; }
         If (mainNode.Parameters.Count() == 0) {
+            If (className == "") { invoke = "%result = call i64 @" + symbol + "()"; }
+            If (className != "") { invoke = receiver + "%result = call i64 @" + symbol + "(i64 %self)"; }
             If (returnType == "ExecutionResult") {
-                call = startup + "  %result = call i64 @" + symbol + "()\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
+                call = startup + "  " + invoke + "\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
             } Else {
-                call = startup + "  %result = call i64 @" + symbol + "()\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
+                call = startup + "  " + invoke + "\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
             }
         } Else {
+            If (className == "") { invoke = "%packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)"; }
+            If (className != "") { invoke = "%packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  " + receiver + "%result = call i64 @" + symbol + "(i64 %self, i64 %packed)"; }
             If (returnType == "ExecutionResult") {
-                call = startup + "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
+                call = startup + "  " + invoke + "\n  %rp = inttoptr i64 %result to ptr\n  %code64 = load i64, ptr %rp\n  %code = trunc i64 %code64 to i32\n  ret i32 %code\n";
             } Else {
-                call = startup + "  %packed = call i64 @rx_args(i32 %argc, ptr %argv)\n  %result = call i64 @" + symbol + "(i64 %packed)\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
+                call = startup + "  " + invoke + "\n  %code = trunc i64 %result to i32\n  ret i32 %code\n";
             }
         }
         Return "declare i64 @rx_args(i32, ptr)\ndeclare void @rx_finish_result(i64)\n\ndefine i32 @main(i32 %argc, ptr %argv) {\n" + call + "}\n";

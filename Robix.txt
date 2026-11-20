@@ -8,7 +8,6 @@
 // The language must have same performance as C and C++ and must provide same control over hardware while easy like below syntax.
 // Windows comes later.
 // Add clear examples at Examples folder for every possible use of that feature or syntax which is implemented with real examples.
-The lagnuage will can have both entry point from procedural with private int main and also from class procedural one will be more dominant. Will give error both by interpreter and compiler if two are defined at once in one file.
 
 // Their must be Filename.test.rx file for each and every file which will have tests for each function in that file and if this file not exists or tests not exists then interpreter will ignore while the compiler will give error.
 

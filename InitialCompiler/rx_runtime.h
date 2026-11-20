@@ -98,5 +98,13 @@ int64_t rx_math_gcd(int64_t a, int64_t b);
 int64_t rx_math_isqrt(int64_t n);
 int64_t rx_file_name(int64_t path);
 int64_t rx_file_join(int64_t dir, int64_t name);
+void rx_retain(int64_t pointer);
+void rx_release(int64_t pointer);
+void rx_scope_push(void);
+void rx_scope_pop(void);
+void rx_give(int64_t pointer);
+int64_t rx_keep(int64_t pointer);
+int64_t rx_mark_depth(void);
+void rx_scope_unwind(int64_t depth);
 
 #endif

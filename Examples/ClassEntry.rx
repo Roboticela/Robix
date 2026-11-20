@@ -1,0 +1,18 @@
+// A class Main is the program entry when the file has no function Main.
+Package Robotics.ClassEntry;
+
+Import Robix.Core;
+
+
+Public Class RobotProgram {
+    Public Function Main(Args<String> args) -> Int
+    Explain {
+        Description: "Start the program from the class.";
+        Input: args = "Command-line arguments";
+        Processing: "Print the argument count.";
+        Output: "The argument count.";
+    } {
+        Print(args.Count());
+        Return args.Count();
+    }
+}
