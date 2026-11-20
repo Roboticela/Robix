@@ -3,65 +3,60 @@ set -eu
 
 HERE=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 ROOT=$HERE
-while [ ! -x "$ROOT/Shared/Tools/Clang/bin/clang++" ]; do
+while [ ! -x "$ROOT/Shared/Tools/Llvm/bin/llc" ]; do
     parent=$(dirname "$ROOT")
     if [ "$parent" = "$ROOT" ]; then
-        echo "error: the bundled clang++ is missing" >&2
+        echo "error: the bundled llc is missing" >&2
         exit 1
     fi
     ROOT=$parent
 done
-CLANG="$ROOT/Shared/Tools/Clang/bin/clang++"
-export LD_LIBRARY_PATH="$ROOT/Shared/Tools/Clang/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export PATH="$ROOT/Shared/Tools/Clang/bin:$PATH"
+LLC="$ROOT/Shared/Tools/Llvm/bin/llc"
+export LD_LIBRARY_PATH="$ROOT/Shared/Tools/Llvm/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-if [ ! -x "$CLANG" ]; then
-    echo "error: the bundled clang++ is missing" >&2
+if [ "${ROBIX_OBJECT_ONLY:-0}" != "1" ]; then
+    echo "error: machine code is generated with llc, not clang++" >&2
     exit 1
 fi
 
-if [ "${ROBIX_OBJECT_ONLY:-0}" = "1" ]; then
-    out=""
-    ll=""
-    previous=""
-    for argument in "$@"; do
-        if [ "$previous" = "-o" ]; then
-            out=$argument
-        fi
-        case "$argument" in
-            *.ll) ll=$argument ;;
-        esac
-        previous=$argument
-    done
-    if [ -z "$out" ] || [ -z "$ll" ]; then
-        echo "error: the compiler did not provide an object and an IR file" >&2
-        exit 1
+out=""
+ll=""
+previous=""
+for argument in "$@"; do
+    if [ "$previous" = "-o" ]; then
+        out=$argument
     fi
-    if [ "${ROBIX_KEEP_MAIN:-1}" != "1" ]; then
-        awk '
-            BEGIN { skip = 0; depth = 0 }
-            skip == 0 && index($0, "define i32 @main") == 1 { skip = 1; depth = 0 }
-            skip == 1 {
-                opens = 0
-                closes = 0
-                text = $0
-                count = length(text)
-                position = 1
-                while (position <= count) {
-                    mark = substr(text, position, 1)
-                    if (mark == "{") { opens = opens + 1 }
-                    if (mark == "}") { closes = closes + 1 }
-                    position = position + 1
-                }
-                depth = depth + opens - closes
-                if (opens + closes > 0 && depth <= 0) { skip = 0 }
-                next
-            }
-            { print }
-        ' "$ll" > "$ll.stripped"
-        mv "$ll.stripped" "$ll"
-    fi
-    exec "$CLANG" -c -o "$out" "$ll"
+    case "$argument" in
+        *.ll) ll=$argument ;;
+    esac
+    previous=$argument
+done
+if [ -z "$out" ] || [ -z "$ll" ]; then
+    echo "error: the compiler did not provide an object and an IR file" >&2
+    exit 1
 fi
-
-exec "$CLANG" "$@"
+if [ "${ROBIX_KEEP_MAIN:-1}" != "1" ]; then
+    awk '
+        BEGIN { skip = 0; depth = 0 }
+        skip == 0 && index($0, "define i32 @main") == 1 { skip = 1; depth = 0 }
+        skip == 1 {
+            opens = 0
+            closes = 0
+            text = $0
+            count = length(text)
+            position = 1
+            while (position <= count) {
+                mark = substr(text, position, 1)
+                if (mark == "{") { opens = opens + 1 }
+                if (mark == "}") { closes = closes + 1 }
+                position = position + 1
+            }
+            depth = depth + opens - closes
+            if (opens + closes > 0 && depth <= 0) { skip = 0 }
+            next
+        }
+        { print }
+    ' "$ll" > "$ll.stripped"
+    mv "$ll.stripped" "$ll"
+fi
+exec "$LLC" -filetype=obj -O3 -relocation-model=pic -mtriple=x86_64-pc-linux-gnu -o "$out" "$ll"

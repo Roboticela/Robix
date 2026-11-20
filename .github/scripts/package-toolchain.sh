@@ -8,16 +8,15 @@ mkdir -p "$stage/Bin" "$stage/Packages/Builtin" "$stage/Packages/Installed" \
     "$stage/Library" "$stage/Runtime" "$stage/Shared/Tools" \
     "$stage/Shared/Syntax" "$stage/Shared/Runtime" "$stage/Shared/Build" "$stage/Shared/UI"
 
-if ! command -v clang++ >/dev/null 2>&1; then
-    echo "error: clang++ is required on the build machine so it can be bundled" >&2
+if ! command -v llc >/dev/null 2>&1 || ! command -v clang++ >/dev/null 2>&1; then
+    echo "error: llc and clang++ are required on the build machine" >&2
     exit 1
 fi
 
-bash "$root/.github/scripts/bundle-linux-clang.sh" "$stage/Shared/Tools/Clang" "$stage/Library/Link"
+bash "$root/.github/scripts/bundle-llvm.sh" "$stage/Shared/Tools/Llvm" "$stage/Library/Link"
 install -m 755 "$root/.github/packaging/clang++" "$stage/Shared/Tools/clang++"
-install -m 755 "$root/.github/packaging/clang++" "$stage/Bin/clang++"
-"$stage/Bin/clang++" -std=c++17 -O3 -fPIC -c -o "$stage/Runtime/Runtime.o" "$root/Runtime/Runtime.cpp"
-"$stage/Shared/Tools/Clang/bin/llvm-ar" rcs "$stage/Library/Runtime.lib" "$stage/Runtime/Runtime.o"
+clang++ -std=c++17 -O3 -fPIC -c -o "$stage/Runtime/Runtime.o" "$root/Runtime/Runtime.cpp"
+ar rcs "$stage/Library/Runtime.lib" "$stage/Runtime/Runtime.o"
 
 install -m 755 "$root/Build/bootstrap/robix-run.app" "$stage/Bin/Robix"
 install -m 755 "$root/Build/bootstrap/robixc.app" "$stage/Shared/Tools/Compiler"
@@ -52,7 +51,7 @@ place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
 
 mkdir -p "$stage/Packages/Builtin/Robix.UI" "$stage/Shared/UI"
 
-if find "$stage" \( -path '*/Clang/*' -o -path '*/Link/*' \) -prune -o \( -name '*.cpp' -o -name '*.cc' -o -name '*.rx' \) -print | grep -q .; then
+if find "$stage" \( -path '*/Llvm/*' -o -path '*/Link/*' \) -prune -o \( -name '*.cpp' -o -name '*.cc' -o -name '*.rx' \) -print | grep -q .; then
     echo "error: the package still contains source files" >&2
     find "$stage" -name '*.cpp' -o -name '*.cc' -o -name '*.rx'
     exit 1
@@ -65,7 +64,7 @@ Bin/Robix                 Run a Robix program. No compiler is required.
 Bin/Robixc                Compile a folder of Robix files into one program.
 Packages/Builtin          Compiled built-in packages.
 Packages/Installed        Place installed packages here.
-Bin/clang++               The C++ compiler used by Robixc. It is included.
+Shared/Tools/Llvm/bin    llc generates machine code. ld.lld links the program.
 Library/Runtime.lib       Runtime library used when linking a program.
 Library/Link              Libraries used while linking a program.
 Runtime/Runtime.o         Compiled runtime.
@@ -77,7 +76,7 @@ Add Bin to PATH:
     Robix run Hello.rx
     Robixc SourceFolder Program
 
-Nothing else has to be installed. Robixc uses the clang++ in this zip.
+Nothing else has to be installed. Robixc uses the bundled llc and lld.
 EOF
 
 hello="$root/Examples/HelloRobot.rx"

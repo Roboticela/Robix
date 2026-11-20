@@ -82,24 +82,23 @@ while IFS= read -r source; do
     printf '%s\n' "$object" >> "$work/objects.txt"
 done < "$list"
 
-clang="$ROOT/Bin/clang++"
-if [ ! -x "$clang" ]; then
-    echo "error: the bundled clang++ is missing" >&2
+lld="$ROOT/Shared/Tools/Llvm/bin/ld.lld"
+if [ ! -x "$lld" ]; then
+    echo "error: the bundled lld is missing" >&2
     exit 1
 fi
+export LD_LIBRARY_PATH="$ROOT/Shared/Tools/Llvm/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # shellcheck disable=SC2046
-"$clang" -std=c++17 -O3 -fPIE -pie -nostdlib \
-    -Wl,-dynamic-linker,/lib64/ld-linux-x86-64.so.2 \
-    -L"$ROOT/Library/Link" \
+"$lld" -m elf_x86_64 -pie -dynamic-linker /lib64/ld-linux-x86-64.so.2 \
+    -o "$output" \
     "$ROOT/Library/Link/Scrt1.o" \
     "$ROOT/Library/Link/crti.o" \
     "$ROOT/Library/Link/crtbeginS.o" \
     $(cat "$work/objects.txt") \
     "$ROOT/Library/Runtime.lib" \
-    "$ROOT/Shared/Tools/Clang/lib/clang/"*"/lib/linux/libclang_rt.builtins-x86_64.a" \
+    -L"$ROOT/Library/Link" \
     -lstdc++ -lm -lc -lgcc -lgcc_s \
     "$ROOT/Library/Link/crtendS.o" \
-    "$ROOT/Library/Link/crtn.o" \
-    -o "$output"
+    "$ROOT/Library/Link/crtn.o"
 chmod +x "$output"

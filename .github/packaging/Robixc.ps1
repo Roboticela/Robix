@@ -1,15 +1,16 @@
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Engine = Join-Path $Root "Shared\Tools\Compiler.exe"
-$Clang = Join-Path $Root "Shared\Tools\Clang\bin\clang++.exe"
+$Lld = Join-Path $Root "Shared\Tools\Llvm\bin\ld.lld.exe"
 $Runtime = Join-Path $Root "Library\Runtime.lib"
+$Lib = Join-Path $Root "Shared\Tools\Llvm\x86_64-w64-mingw32\lib"
 
 function Show-Usage {
     Write-Error "Robixc compiles every Robix file in a folder into one program.`nUsage: Robixc <Folder> <Output>`n       Robixc <File.rx> [More.rx ...] <Output>"
     exit 1
 }
 
-if ($args.Count -lt 2 -or -not (Test-Path $Engine) -or -not (Test-Path $Clang)) {
+if ($args.Count -lt 2 -or -not (Test-Path $Engine) -or -not (Test-Path $Lld)) {
     Show-Usage
 }
 
@@ -55,7 +56,19 @@ try {
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         $objects += $object
     }
-    & $Clang -O3 -o $output @objects $Runtime
+    $builtins = Get-ChildItem -Path (Join-Path $Root "Shared\Tools\Llvm\lib\clang") -Recurse -Filter "libclang_rt.builtins-x86_64.a" | Select-Object -First 1
+    & $Lld -m i386pep -o $output `
+        (Join-Path $Lib "crt2.o") `
+        (Join-Path $Lib "crtbegin.o") `
+        @objects `
+        $Runtime `
+        "-L$Lib" `
+        "-L$(Join-Path $Lib '..\mingw\lib')" `
+        "-lc++" "-lmingw32" $builtins.FullName `
+        "-lunwind" "-lmoldname" "-lmingwex" "-lmsvcrt" "-ladvapi32" "-lshell32" "-luser32" "-lkernel32" `
+        "-lmingw32" $builtins.FullName `
+        "-lunwind" "-lmoldname" "-lmingwex" "-lmsvcrt" "-lkernel32" `
+        (Join-Path $Lib "crtend.o")
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } finally {
     Remove-Item -Recurse -Force $work
