@@ -1042,6 +1042,19 @@ Public Class TypeChecker {
             Return;
         }
         If (wanted.StartsWith("Pointer<") && given == "Null") { Return; }
+        If (wanted.Contains(" | ")) {
+            Var parts = List<String>();
+            String rest = wanted;
+            While (rest.Contains(" | ")) {
+                Int bar = rest.IndexOf(" | ");
+                parts.Add(rest.Substring(0, bar));
+                rest = rest.Substring(bar + 3);
+            }
+            parts.Add(rest);
+            For part In parts {
+                If (part == given) { Return; }
+            }
+        }
         If (wanted.StartsWith("Option<") && (given.StartsWith("Option<") || given == "None")) { Return; }
         If (wanted.StartsWith("Result<") && (given.StartsWith("Result<") || given == "Success" || given == "Failure" || given == "Error")) { Return; }
         If (wanted == "Tuple" && given.StartsWith("(")) { Return; }
@@ -1143,6 +1156,13 @@ Public Class TypeChecker {
 
     Private Function ReturnsAlways(AstNode node) -> Bool {
         If (node.Kind == AstKind.Return) {
+            Return True;
+        }
+        If (node.Kind == AstKind.Match) {
+            If (node.Children.Count() == 0) { Return False; }
+            For arm In node.Children {
+                If (arm.Right == Null || !This.ReturnsAlways(arm.Right)) { Return False; }
+            }
             Return True;
         }
         If (node.Kind == AstKind.Block) {

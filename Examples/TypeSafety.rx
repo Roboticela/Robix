@@ -1,0 +1,46 @@
+// Definite types, Any matching, and closed unions.
+Package Robotics.TypeSafety;
+
+Import Robix.Core;
+
+
+Type SensorValue = Int | Float | String;
+
+Public Function DescribeSensor(SensorValue value) -> String
+Explain {
+    Description: "Describe one sensor reading.";
+    Input: value = "An integer, float, or string reading";
+    Processing: "Match the closed union and format the reading.";
+    Output: "A label for the reading.";
+} {
+    Match value {
+        Int number => Return $"Integer: {number}",
+        Float number => Return $"Float: {number}",
+        String text => Return $"Text: {text}"
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show fixed bindings, an Any match, and a closed union.";
+    Input: args = "Command-line arguments";
+    Processing: "Store readings, match an Any payload, and describe three sensor values.";
+    Output: "The first reading, the next reading, the matched number, and three descriptions.";
+} {
+    Let readings: Array<Float> = [1.2, 2.4, 3.6];
+    Var nextReading: Float;
+    nextReading = 4.2;
+    Print(readings[0]);
+    Print(nextReading);
+    Var payload: Any = 42;
+    Match payload {
+        Int number => Print(number + 1),
+        String text => Print(text.Length()),
+        Bool flag => Print(flag),
+        _ => Print("Unsupported payload type")
+    }
+    Print(DescribeSensor(7));
+    Print(DescribeSensor(1.5));
+    Print(DescribeSensor("lidar"));
+    Return 0;
+}

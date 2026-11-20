@@ -173,6 +173,14 @@ Public Partial Class Parser {
         This.Expect(TokenKind.FatArrow, "Expected '=>' in a Match arm.");
         If (This.Check(TokenKind.OpenBrace)) {
             arm.Right = This.ParseBlock();
+        } Else If (This.Check(TokenKind.Return)) {
+            Token returned = This.Advance();
+            AstNode result = This.Make(AstKind.Return, returned);
+            If (!This.Check(TokenKind.Comma) && !This.Check(TokenKind.Semicolon) && !This.Check(TokenKind.CloseBrace)) {
+                result.Left = This.ParseExpression();
+            }
+            This.Finish(result, returned);
+            arm.Right = result;
         } Else {
             arm.Right = This.ParseExpression();
         }

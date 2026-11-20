@@ -103,7 +103,10 @@ Public Class NativeProgram {
     Public List<String> ScopeNames;
     Public List<String> ScopeSlots;
     Public List<String> ScopeTypes;
+    Public List<String> ScopeOwned;
     Public Int ScopeCount;
+    Public Int GlobalCount;
+    Public String MarkSlot;
     Public List<String> LoopContinue;
     Public List<String> LoopBreak;
     Public Int LoopCount;
@@ -135,7 +138,10 @@ Public Class NativeProgram {
         This.ScopeNames = List<String>();
         This.ScopeSlots = List<String>();
         This.ScopeTypes = List<String>();
+        This.ScopeOwned = List<String>();
         This.ScopeCount = 0;
+        This.GlobalCount = 0;
+        This.MarkSlot = "";
         This.LoopContinue = List<String>();
         This.LoopBreak = List<String>();
         This.LoopCount = 0;
@@ -512,15 +518,16 @@ Public Class NativeProgram {
         }
         This.Raw("define void @" + symbol + "(" + arguments + ") {");
         This.Raw("Lentry:");
-        This.Alloca("This", className, "%p_This");
+        This.BeginFrame();
+        This.AllocaBorrowed("This", className, "%p_This");
         For parameter In node.Parameters {
             String parameterType = This.TypeName(parameter.Type);
             If (parameterType == "") { parameterType = "Int"; }
-            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+            This.AllocaBorrowed(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
         For child In node.Children { This.EmitExpr(child); }
         If (node.Body != Null) { This.EmitStatement(node.Body); }
-        If (!This.Terminated) { This.Emit("ret void"); }
+        If (!This.Terminated) { This.FinishReturn("0", "Void", False, True); }
         This.Raw("}");
         Return This.JoinFunction();
     }
@@ -535,17 +542,15 @@ Public Class NativeProgram {
         If (This.IsVoid(method.ReturnType)) { ret = "void"; }
         This.Raw("define " + ret + " @" + symbol + "(" + arguments + ") {");
         This.Raw("Lentry:");
-        This.Alloca("This", className, "%p_This");
+        This.BeginFrame();
+        This.AllocaBorrowed("This", className, "%p_This");
         For parameter In method.Node.Parameters {
             String parameterType = This.TypeName(parameter.Type);
             If (parameterType == "") { parameterType = "Int"; }
-            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+            This.AllocaBorrowed(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
         If (method.Node.Body != Null) { This.EmitStatement(method.Node.Body); }
-        If (!This.Terminated) {
-            If (This.IsVoid(method.ReturnType)) { This.Emit("ret void"); }
-            If (!This.IsVoid(method.ReturnType)) { This.Emit("ret i64 0"); }
-        }
+        If (!This.Terminated) { This.FinishReturn("0", method.ReturnType, False, This.IsVoid(method.ReturnType)); }
         This.Raw("}");
         Return This.JoinFunction();
     }
@@ -564,16 +569,14 @@ Public Class NativeProgram {
         If (This.IsVoid(returnType)) { ret = "void"; }
         This.Raw("define " + ret + " @" + symbol + "(" + arguments + ") {");
         This.Raw("Lentry:");
+        This.BeginFrame();
         For parameter In node.Parameters {
             String parameterType = This.TypeName(parameter.Type);
             If (parameterType == "") { parameterType = "Int"; }
-            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+            This.AllocaBorrowed(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
         If (node.Body != Null) { This.EmitStatement(node.Body); }
-        If (!This.Terminated) {
-            If (This.IsVoid(returnType)) { This.Emit("ret void"); }
-            If (!This.IsVoid(returnType)) { This.Emit("ret i64 0"); }
-        }
+        If (!This.Terminated) { This.FinishReturn("0", returnType, False, This.IsVoid(returnType)); }
         This.Raw("}");
         Return This.JoinFunction();
     }
@@ -595,12 +598,13 @@ Public Class NativeProgram {
         If (This.IsVoid(record.ReturnType)) { ret = "void"; }
         This.Raw("define " + ret + " @" + symbol + "(" + arguments + ") {");
         This.Raw("Lentry:");
+        This.BeginFrame();
         For parameter In node.Parameters {
             String parameterType = This.TypeName(parameter.Type);
             If (parameterType == "") { parameterType = "Int"; }
             If (parameter.FlagB) { parameterType = "Array<" + parameterType + ">"; }
             If (parameter.FlagA) { parameterType = "MutBind:" + parameterType; }
-            This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
+            This.AllocaBorrowed(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
         Bool iterator = node.Kind == AstKind.Function && node.FlagB;
         If (iterator) {
@@ -612,18 +616,17 @@ Public Class NativeProgram {
         } Else If (node.Left != Null) {
             IrValue exprVal = This.EmitExpr(node.Left);
             If (This.IsVoid(record.ReturnType)) {
-                This.Emit("ret void");
+                This.FinishReturn("0", "Void", False, True);
             } Else {
-                This.Emit("ret i64 " + exprVal.Value);
+                This.FinishReturn(exprVal.Value, exprVal.TypeName, True, False);
             }
-            This.Terminated = True;
         }
         If (!This.Terminated) {
-            This.EmitDestructors();
             If (iterator) {
-                This.Emit("ret i64 " + This.LoadName("#yields"));
-            } Else If (This.IsVoid(record.ReturnType)) { This.Emit("ret void"); }
-            Else { This.Emit("ret i64 0"); }
+                This.FinishReturn(This.LoadName("#yields"), "Array<" + record.ReturnType + ">", True, False);
+            } Else {
+                This.FinishReturn("0", record.ReturnType, False, This.IsVoid(record.ReturnType));
+            }
         }
         This.Raw("}");
         Return This.JoinFunction();
@@ -720,6 +723,7 @@ Public Class NativeProgram {
             This.ResetFunction("", "Void");
             This.Raw("define i32 @main(i32 %argc, ptr %argv) {");
             This.Raw("Lentry:");
+        This.BeginFrame();
             If (This.InitSymbol != "") {
                 This.Emit("call void @" + This.InitSymbol + "()");
             }
@@ -754,8 +758,8 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_list_text rx_settle_list rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F64ToIntMode rx_F64ToIntChecked rx_F64Format rx_str_is_int rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
-        String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete rx_mem_copy rx_free";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_list_text rx_settle_list rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F64ToIntMode rx_F64ToIntChecked rx_F64Format rx_str_is_int rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input rx_alloc rx_alloc_aligned rx_keep rx_mark_depth";
+        String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete rx_mem_copy rx_free rx_retain rx_release rx_scope_push rx_scope_pop rx_give rx_scope_unwind";
         String lines = "";
         Int start = 0;
         While (start < names.Length()) {
@@ -796,7 +800,9 @@ Public Class NativeProgram {
         This.ScopeNames = List<String>();
         This.ScopeSlots = List<String>();
         This.ScopeTypes = List<String>();
+        This.ScopeOwned = List<String>();
         This.ScopeCount = 0;
+        This.MarkSlot = "";
         This.LoopContinue = List<String>();
         This.LoopBreak = List<String>();
         This.LoopCount = 0;
@@ -809,6 +815,7 @@ Public Class NativeProgram {
             This.Bind(This.GlobalNames[index], This.GlobalSlots[index], This.GlobalTypes[index]);
             index = index + 1;
         }
+        This.GlobalCount = This.ScopeCount;
     }
 
     Private Function PrepareGlobals(AstNode module) -> String {
@@ -848,6 +855,7 @@ Public Class NativeProgram {
         This.ResetFunction("", "Void");
         This.Raw("define void @" + This.InitSymbol + "() {");
         This.Raw("Lentry:");
+        This.BeginFrame();
         index = 0;
         For node In nodes {
             If (node.FlagC && node.Initializer != Null && node.Initializer.Kind == AstKind.TupleLiteral) {
@@ -862,6 +870,7 @@ Public Class NativeProgram {
                     }
                     This.GlobalTypes[index] = typeName;
                     This.ScopeTypes[index] = typeName;
+                    If (!This.IsPlain(typeName)) { This.Take(value); }
                     This.Emit("store i64 " + value + ", ptr " + This.GlobalSlots[index]);
                     index = index + 1;
                     part = part + 1;
@@ -875,6 +884,7 @@ Public Class NativeProgram {
                         This.GlobalTypes[index] = initial.TypeName;
                         This.ScopeTypes[index] = initial.TypeName;
                     }
+                    If (!This.IsPlain(initial.TypeName)) { This.Take(value); }
                 }
                 This.Emit("store i64 " + value + ", ptr " + This.GlobalSlots[index]);
                 index = index + 1;
@@ -885,7 +895,7 @@ Public Class NativeProgram {
                 }
             }
         }
-        If (!This.Terminated) { This.Emit("ret void"); }
+        If (!This.Terminated) { This.FinishReturn("0", "Void", False, True); }
         This.Raw("}");
         Return declarations + This.JoinFunction();
     }
@@ -935,10 +945,12 @@ Public Class NativeProgram {
             This.ScopeNames[This.ScopeCount] = name;
             This.ScopeSlots[This.ScopeCount] = slot;
             This.ScopeTypes[This.ScopeCount] = typeName;
+            This.ScopeOwned[This.ScopeCount] = "0";
         } Else {
             This.ScopeNames.Add(name);
             This.ScopeSlots.Add(slot);
             This.ScopeTypes.Add(typeName);
+            This.ScopeOwned.Add("0");
         }
         This.ScopeCount = This.ScopeCount + 1;
     }
@@ -954,11 +966,110 @@ Public Class NativeProgram {
         Return This.Pair("", "");
     }
 
-    Private Function Alloca(String name, String typeName, String value) -> String {
+    Private Function IsPlain(String typeName) -> Bool {
+        If (typeName == "" || typeName == "Void" || typeName == "Int" || typeName == "Bool" || typeName == "Char" || typeName == "Byte") { Return True; }
+        If (typeName.StartsWith("Pointer<") || typeName.StartsWith("MutBind:")) { Return True; }
+        If (This.IsNumericType(typeName)) { Return True; }
+        Return False;
+    }
+
+    Private Function Retain(String value) -> Void {
+        Var args = List<String>();
+        args.Add(value);
+        This.CallRuntime("rx_retain", args, True);
+    }
+
+    Private Function Release(String value) -> Void {
+        Var args = List<String>();
+        args.Add(value);
+        This.CallRuntime("rx_release", args, True);
+    }
+
+    Private Function Give(String value) -> Void {
+        Var args = List<String>();
+        args.Add(value);
+        This.CallRuntime("rx_give", args, True);
+    }
+
+    Private Function Take(String value) -> Void {
+        Var args = List<String>();
+        args.Add(value);
+        IrValue kept = This.CallRuntime("rx_keep", args, False);
+        String miss = This.Fresh("cond");
+        String retainLabel = This.Label("own");
+        String heldLabel = This.Label("owned");
+        This.Emit(miss + " = icmp eq i64 " + kept.Value + ", 0");
+        This.Emit("br i1 " + miss + ", label %" + retainLabel + ", label %" + heldLabel);
+        This.Terminated = True;
+        This.Block(retainLabel);
+        This.Retain(value);
+        This.Branch(heldLabel);
+        This.Block(heldLabel);
+    }
+
+    Private Function OwnTop() -> Void {
+        If (This.ScopeCount > 0) { This.ScopeOwned[This.ScopeCount - 1] = "1"; }
+    }
+
+    Private Function ReleaseOwned(Int mark) -> Void {
+        Int index = This.ScopeCount - 1;
+        While (index >= mark) {
+            If (index < This.ScopeOwned.Count() && This.ScopeOwned[index] == "1") {
+                This.ScopeOwned[index] = "0";
+                This.Release(This.LoadSlot(This.ScopeSlots[index]));
+            }
+            index = index - 1;
+        }
+    }
+
+    Private Function DropScope(Int mark) -> Void {
+        This.ReleaseOwned(mark);
+        This.ScopeCount = mark;
+    }
+
+    Private Function BeginFrame() -> Void {
+        String depth = This.Fresh("v");
+        String slot = This.Fresh("slot");
+        This.Emit(depth + " = call i64 @rx_mark_depth()");
+        This.Emit(slot + " = alloca i64");
+        This.Emit("store i64 " + depth + ", ptr " + slot);
+        This.MarkSlot = slot;
+    }
+
+    Private Function FinishReturn(String value, String typeName, Bool hasValue, Bool isVoid) -> Void {
+        If (hasValue && !This.IsPlain(typeName)) { This.Take(value); }
+        If (This.MarkSlot != "") {
+            String saved = This.LoadSlot(This.MarkSlot);
+            Var args = List<String>();
+            args.Add(saved);
+            This.CallRuntime("rx_scope_unwind", args, True);
+        }
+        This.EmitDestructors();
+        This.ReleaseOwned(0);
+        If (hasValue && !This.IsPlain(typeName)) { This.Give(value); }
+        If (isVoid) { This.Emit("ret void"); }
+        Else If (hasValue) { This.Emit("ret i64 " + value); }
+        Else { This.Emit("ret i64 0"); }
+        This.Terminated = True;
+    }
+
+    Private Function AllocaBorrowed(String name, String typeName, String value) -> String {
+        If (!This.IsPlain(typeName)) { This.Retain(value); }
         String slot = This.Fresh("slot");
         This.Emit(slot + " = alloca i64");
         This.Emit("store i64 " + value + ", ptr " + slot);
         This.Bind(name, slot, typeName);
+        If (!This.IsPlain(typeName)) { This.OwnTop(); }
+        Return slot;
+    }
+
+    Private Function Alloca(String name, String typeName, String value) -> String {
+        If (!This.IsPlain(typeName)) { This.Take(value); }
+        String slot = This.Fresh("slot");
+        This.Emit(slot + " = alloca i64");
+        This.Emit("store i64 " + value + ", ptr " + slot);
+        This.Bind(name, slot, typeName);
+        If (!This.IsPlain(typeName)) { This.OwnTop(); }
         Return slot;
     }
 
@@ -1028,7 +1139,7 @@ Public Class NativeProgram {
             This.EmitStatement(child);
         }
         If (!emittedDefers) { This.EmitDefers(node); }
-        This.ScopeCount = mark;
+        This.DropScope(mark);
     }
 
     Private Function EmitDefers(AstNode node) -> Void {
@@ -1046,6 +1157,14 @@ Public Class NativeProgram {
     }
 
     Private Function EmitStatement(AstNode node) -> Void {
+        If (This.Terminated && node.Kind != AstKind.Label) { Return; }
+        Bool boundary = node.Kind != AstKind.Block && node.Kind != AstKind.Unsafe && node.Kind != AstKind.Explain && node.Kind != AstKind.ExplainEntry;
+        If (boundary) { This.CallRuntime("rx_scope_push", List<String>(), True); }
+        This.EmitStatementBody(node);
+        If (boundary && !This.Terminated) { This.CallRuntime("rx_scope_pop", List<String>(), True); }
+    }
+
+    Private Function EmitStatementBody(AstNode node) -> Void {
         If (This.Terminated && node.Kind != AstKind.Label) { Return; }
         If (node.Kind == AstKind.Explain || node.Kind == AstKind.ExplainEntry) { Return; }
         If (node.Kind == AstKind.Variable) {
@@ -1114,18 +1233,12 @@ Public Class NativeProgram {
             Return;
         }
         If (node.Kind == AstKind.Return) {
-            This.EmitDestructors();
-            If (This.IsVoid(This.ReturnType)) {
-                This.Emit("ret void");
+            If (This.IsVoid(This.ReturnType) || node.Left == Null) {
+                This.FinishReturn("0", This.ReturnType, False, This.IsVoid(This.ReturnType));
             } Else {
-                String value = "0";
-                If (node.Left != Null) {
-                    IrValue returned = This.EmitExpr(node.Left);
-                    value = returned.Value;
-                }
-                This.Emit("ret i64 " + value);
+                IrValue returned = This.EmitExpr(node.Left);
+                This.FinishReturn(returned.Value, returned.TypeName, True, False);
             }
-            This.Terminated = True;
             Return;
         }
         If (node.Kind == AstKind.Break && This.LoopCount > 0) {
@@ -1150,7 +1263,17 @@ Public Class NativeProgram {
             If (node.Initializer != Null) { lease = This.EmitExpr(node.Initializer); }
             If (node.Name != "") { This.Alloca(node.Name, lease.TypeName, lease.Value); }
             If (node.Body != Null) { This.EmitStatement(node.Body); }
-            This.ScopeCount = mark;
+            If (node.Name != "" && lease.TypeName.StartsWith("Pointer<")) {
+                IrValue slot = This.Lookup(node.Name);
+                If (slot.Value != "") {
+                    String address = This.LoadSlot(slot.Value);
+                    Var released = List<String>();
+                    released.Add(address);
+                    This.CallRuntime("rx_free", released, True);
+                    This.Emit("store i64 0, ptr " + slot.Value);
+                }
+            }
+            This.DropScope(mark);
             Return;
         }
         If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
@@ -1237,7 +1360,7 @@ Public Class NativeProgram {
         String payload = scrutinee.Value;
         String tag = "0";
         String typeName = "0";
-        Bool boxed = This.IsAnyType(scrutinee.TypeName);
+        Bool boxed = This.IsAnyType(scrutinee.TypeName) || scrutinee.TypeName.Contains(" | ");
         If (boxed) {
             tag = This.LoadObjectField(scrutinee.Value, "0");
             payload = This.LoadObjectField(scrutinee.Value, "1");
@@ -1279,11 +1402,11 @@ Public Class NativeProgram {
                 }
             }
             If (arm.Right != Null) {
-                If (arm.Right.Kind == AstKind.Block) { This.EmitStatement(arm.Right); }
-                If (arm.Right.Kind != AstKind.Block) { This.EmitExpr(arm.Right); }
+                If (arm.Right.Kind == AstKind.Block || arm.Right.Kind == AstKind.Return) { This.EmitStatement(arm.Right); }
+                If (arm.Right.Kind != AstKind.Block && arm.Right.Kind != AstKind.Return) { This.EmitExpr(arm.Right); }
             }
             If (!This.Terminated) { This.Branch(done); }
-            This.ScopeCount = mark;
+            This.DropScope(mark);
             This.Block(next);
         }
         If (!This.Terminated) { This.Branch(done); }
@@ -1468,7 +1591,7 @@ Public Class NativeProgram {
             }
             This.Branch(head);
             This.Block(done);
-            This.ScopeCount = mark;
+            This.DropScope(mark);
             Return;
         }
         String itemName = "item";
@@ -1502,7 +1625,7 @@ Public Class NativeProgram {
             This.StoreName(itemName, next);
             This.Branch(head);
             This.Block(done);
-            This.ScopeCount = mark;
+            This.DropScope(mark);
             Return;
         }
         IrValue collection = This.Pair("0", "List:Int");
@@ -1552,7 +1675,7 @@ Public Class NativeProgram {
         This.StoreName(indexName, next);
         This.Branch(head);
         This.Block(done);
-        This.ScopeCount = mark;
+        This.DropScope(mark);
     }
 
     Private Function LoadName(String name) -> String {
@@ -1560,7 +1683,15 @@ Public Class NativeProgram {
         If (found.Value == "") {
             ClassInfo info = This.FindClass(This.Owner);
             Int slot = This.FieldSlot(info, name);
-            If (slot >= 0) { Return This.LoadObjectField(This.LoadSlot(This.Lookup("This").Value), slot.ToString()); }
+            If (slot >= 0) {
+                String loadedField = This.LoadObjectField(This.LoadSlot(This.Lookup("This").Value), slot.ToString());
+                String fieldType = This.FieldType(info, name);
+                If (!This.IsPlain(fieldType)) {
+                    This.Retain(loadedField);
+                    This.Give(loadedField);
+                }
+                Return loadedField;
+            }
             Return "0";
         }
         If (found.TypeName.StartsWith("MutBind:")) {
@@ -1571,7 +1702,12 @@ Public Class NativeProgram {
             This.Emit(loaded + " = load i64, ptr " + address);
             Return loaded;
         }
-        Return This.LoadSlot(found.Value);
+        String loadedName = This.LoadSlot(found.Value);
+        If (!This.IsPlain(found.TypeName)) {
+            This.Retain(loadedName);
+            This.Give(loadedName);
+        }
+        Return loadedName;
     }
 
     Private Function StoreName(String name, String value) -> Void {
@@ -1590,6 +1726,20 @@ Public Class NativeProgram {
             This.Emit(address + " = inttoptr i64 " + pointer + " to ptr");
             This.Emit("store i64 " + value + ", ptr " + address);
             Return;
+        }
+        If (!This.IsPlain(found.TypeName)) {
+            This.Take(value);
+            Int ownedIndex = This.ScopeCount - 1;
+            While (ownedIndex >= 0) {
+                If (This.ScopeNames[ownedIndex] == name) {
+                    If (This.ScopeOwned[ownedIndex] == "1" || ownedIndex < This.GlobalCount) {
+                        This.Release(This.LoadSlot(found.Value));
+                    }
+                    ownedIndex = -1;
+                } Else {
+                    ownedIndex = ownedIndex - 1;
+                }
+            }
         }
         This.Emit("store i64 " + value + ", ptr " + found.Value);
     }
@@ -1627,9 +1777,7 @@ Public Class NativeProgram {
         If (node.Left == Null) { Return value; }
         If (node.Left.Kind == AstKind.Unary && node.Left.Operator == "*" && node.Left.Left != Null) {
             IrValue pointerValue = This.EmitExpr(node.Left.Left);
-            String pointer = This.Fresh("p");
-            This.Emit(pointer + " = inttoptr i64 " + pointerValue.Value + " to ptr");
-            This.Emit("store i64 " + value.Value + ", ptr " + pointer);
+            This.StoreThrough(pointerValue.Value, pointerValue.TypeName, value.Value);
             Return value;
         }
         If (node.Left.Kind == AstKind.Name) {
@@ -1843,11 +1991,7 @@ Public Class NativeProgram {
             }
             IrValue value = This.EmitExpr(node.Left);
             If (node.Operator == "*" && value.TypeName.StartsWith("Pointer<")) {
-                String pointer = This.Fresh("p");
-                This.Emit(pointer + " = inttoptr i64 " + value.Value + " to ptr");
-                String loaded = This.Fresh("v");
-                This.Emit(loaded + " = load i64, ptr " + pointer);
-                Return This.Pair(loaded, "Int");
+                Return This.LoadThrough(value.Value, value.TypeName);
             }
             If (node.Operator == "!" || node.Operator == "Not") {
                 String flag = This.Fresh("v");
@@ -1912,8 +2056,11 @@ Public Class NativeProgram {
 
     Private Function StoreObjectField(String object, String index, String value) -> Void {
         String pointer = This.Fresh("p");
-        This.Emit(pointer + " = inttoptr i64 " + object + " to ptr");
         String slot = This.Fresh("s");
+        String old = This.LoadObjectField(object, index);
+        This.Retain(value);
+        This.Release(old);
+        This.Emit(pointer + " = inttoptr i64 " + object + " to ptr");
         This.Emit(slot + " = getelementptr i64, ptr " + pointer + ", i64 " + index);
         This.Emit("store i64 " + value + ", ptr " + slot);
     }
@@ -2235,6 +2382,12 @@ Public Class NativeProgram {
                                 chosenVal = defVal.Value;
                                 chosenType = defVal.TypeName;
                                 matched = True;
+                            }
+                            String paramType = This.TypeName(parameter.Type);
+                            If (paramType.Contains(" | ") && !chosenType.Contains(" | ")) {
+                                IrValue boxed = This.BoxAny(This.Pair(chosenVal, chosenType));
+                                chosenVal = boxed.Value;
+                                chosenType = paramType;
                             }
                             alignedArgs.Add(chosenVal);
                             alignedTypes.Add(chosenType);
@@ -3204,7 +3357,18 @@ Public Class NativeProgram {
             If (arguments.Count() > 0) { bytes = arguments[0]; }
             Var created = List<String>();
             created.Add(bytes);
-            IrValue memory = This.CallRuntime("rx_obj_new", created, False);
+            IrValue memory = This.CallRuntime("rx_alloc", created, False);
+            Return This.Pair(memory.Value, "Pointer<Byte>");
+        }
+        If (owner == "Memory" && method == "AllocateAligned") {
+            String bytes = "1";
+            String alignment = "8";
+            If (arguments.Count() > 0) { bytes = arguments[0]; }
+            If (arguments.Count() > 1) { alignment = arguments[1]; }
+            Var created = List<String>();
+            created.Add(bytes);
+            created.Add(alignment);
+            IrValue memory = This.CallRuntime("rx_alloc_aligned", created, False);
             Return This.Pair(memory.Value, "Pointer<Byte>");
         }
         If (owner == "Memory" && method == "Copy") {
@@ -3228,21 +3392,19 @@ Public Class NativeProgram {
         If (owner == "Volatile" && method == "Store") {
             String pointerValue = "0";
             String stored = "0";
+            String pointerType = "Pointer<Int>";
             If (arguments.Count() > 0) { pointerValue = arguments[0]; }
             If (arguments.Count() > 1) { stored = arguments[1]; }
-            String pointer = This.Fresh("p");
-            This.Emit(pointer + " = inttoptr i64 " + pointerValue + " to ptr");
-            This.Emit("store i64 " + stored + ", ptr " + pointer);
+            If (types.Count() > 0 && types[0].StartsWith("Pointer<")) { pointerType = types[0]; }
+            This.StoreThrough(pointerValue, pointerType, stored);
             Return This.Pair("0", "Void");
         }
         If (owner == "Volatile" && method == "Load") {
             String pointerValue = "0";
+            String pointerType = "Pointer<Int>";
             If (arguments.Count() > 0) { pointerValue = arguments[0]; }
-            String pointer = This.Fresh("p");
-            This.Emit(pointer + " = inttoptr i64 " + pointerValue + " to ptr");
-            String loaded = This.Fresh("v");
-            This.Emit(loaded + " = load i64, ptr " + pointer);
-            Return This.Pair(loaded, "Int");
+            If (types.Count() > 0 && types[0].StartsWith("Pointer<")) { pointerType = types[0]; }
+            Return This.LoadThrough(pointerValue, pointerType);
         }
         If (owner == "Hardware" && method == "ReadSensor") { Return This.Pair("40", "Int"); }
         If (owner == "Hardware" && method == "WatchSensor") {
@@ -3466,6 +3628,100 @@ Public Class NativeProgram {
         Return This.Pair("0", "Int");
     }
 
+    Private Function PointerBytes(String pointerType) -> Int {
+        If (!pointerType.StartsWith("Pointer<") || !pointerType.EndsWith(">")) { Return 8; }
+        String inner = pointerType.Substring(8, pointerType.Length() - 9);
+        If (inner == "Float" || inner == "Double" || inner == "Float64") { Return 8; }
+        If (inner == "Float32") { Return 4; }
+        If (inner == "Bool" || inner == "Byte" || inner == "Int8" || inner == "UInt8") { Return 1; }
+        If (inner == "Int16" || inner == "UInt16" || inner == "Char") { Return 2; }
+        If (inner == "Int32" || inner == "UInt32") { Return 4; }
+        Int bits = This.BitWidth(inner);
+        If (bits >= 8) { Return bits / 8; }
+        Return 8;
+    }
+
+    Private Function PointerSigned(String pointerType) -> Bool {
+        If (!pointerType.StartsWith("Pointer<") || !pointerType.EndsWith(">")) { Return True; }
+        String inner = pointerType.Substring(8, pointerType.Length() - 9);
+        Return inner == "Int" || inner == "Int8" || inner == "Int16" || inner == "Int32" || inner == "Int64" || inner == "Char";
+    }
+
+    Private Function LoadThrough(String address, String pointerType) -> IrValue {
+        Int bytes = This.PointerBytes(pointerType);
+        String pointer = This.Fresh("p");
+        String loaded = This.Fresh("v");
+        This.Emit(pointer + " = inttoptr i64 " + address + " to ptr");
+        If (pointerType.Contains("Float") || pointerType.Contains("Double")) {
+            String bits = "64";
+            If (bytes == 4) { bits = "32"; }
+            String wide = This.Fresh("v");
+            This.Emit(loaded + " = load " + This.FloatIr(bits) + ", ptr " + pointer);
+            This.Emit(wide + " = bitcast " + This.FloatIr(bits) + " " + loaded + " to i" + bits);
+            If (bits == "64") { Return This.Pair(wide, "Float"); }
+            String extended = This.Fresh("v");
+            This.Emit(extended + " = zext i" + bits + " " + wide + " to i64");
+            Return This.Pair(extended, "Float");
+        }
+        If (bytes == 8) {
+            This.Emit(loaded + " = load i64, ptr " + pointer);
+            Return This.Pair(loaded, "Int");
+        }
+        String width = (bytes * 8).ToString();
+        String narrow = This.Fresh("v");
+        This.Emit(narrow + " = load i" + width + ", ptr " + pointer);
+        String opcode = "zext";
+        If (This.PointerSigned(pointerType)) { opcode = "sext"; }
+        This.Emit(loaded + " = " + opcode + " i" + width + " " + narrow + " to i64");
+        Return This.Pair(loaded, "Int");
+    }
+
+    Private Function StoreThrough(String address, String pointerType, String value) -> Void {
+        Int bytes = This.PointerBytes(pointerType);
+        String pointer = This.Fresh("p");
+        This.Emit(pointer + " = inttoptr i64 " + address + " to ptr");
+        If (pointerType.Contains("Float") || pointerType.Contains("Double")) {
+            String bits = "64";
+            If (bytes == 4) { bits = "32"; }
+            String current = value;
+            If (bits != "64") {
+                String narrowed = This.Fresh("v");
+                This.Emit(narrowed + " = trunc i64 " + value + " to i" + bits);
+                current = narrowed;
+            }
+            String wide = This.Fresh("v");
+            This.Emit(wide + " = bitcast i" + bits + " " + current + " to " + This.FloatIr(bits));
+            This.Emit("store " + This.FloatIr(bits) + " " + wide + ", ptr " + pointer);
+            Return;
+        }
+        If (bytes == 8) {
+            This.Emit("store i64 " + value + ", ptr " + pointer);
+            Return;
+        }
+        String width = (bytes * 8).ToString();
+        String narrow = This.Fresh("v");
+        This.Emit(narrow + " = trunc i64 " + value + " to i" + width);
+        This.Emit("store i" + width + " " + narrow + ", ptr " + pointer);
+    }
+
+    Private Function ShiftPointer(String address, String pointerType, String offset) -> IrValue {
+        Int bytes = This.PointerBytes(pointerType);
+        String moved = This.Fresh("v");
+        If (bytes == 1) {
+            This.Emit(moved + " = add i64 " + address + ", " + offset);
+            Return This.Pair(moved, pointerType);
+        }
+        String scaled = This.Fresh("v");
+        This.Emit(scaled + " = mul i64 " + offset + ", " + bytes.ToString());
+        This.Emit(moved + " = add i64 " + address + ", " + scaled);
+        Return This.Pair(moved, pointerType);
+    }
+
+    Private Function FloatIr(String bits) -> String {
+        If (bits == "32") { Return "float"; }
+        Return "double";
+    }
+
     Private Function EmitBinary(AstNode node) -> IrValue {
         If (node.Operator == "&&" || node.Operator == "And") { Return This.ShortCircuit(node, False); }
         If (node.Operator == "||" || node.Operator == "Or") { Return This.ShortCircuit(node, True); }
@@ -3485,9 +3741,7 @@ Public Class NativeProgram {
         }
         If (node.Operator == "+") {
             If (left.TypeName.StartsWith("Pointer<")) {
-                String shifted = This.Fresh("v");
-                This.Emit(shifted + " = add i64 " + left.Value + ", " + right.Value);
-                Return This.Pair(shifted, left.TypeName);
+                Return This.ShiftPointer(left.Value, left.TypeName, right.Value);
             }
             If (This.IsString(left.TypeName) || This.IsString(right.TypeName)) {
                 String leftValue = left.Value;
@@ -3762,6 +4016,14 @@ Public Class NativeProgram {
             If (first) { text = text + "Int"; }
             text = text + ">";
             If (node.FlagA) { text = text + "?"; }
+            Return text;
+        }
+        If (name == "|") {
+            String text = "";
+            For child In node.Children {
+                If (text != "") { text = text + " | "; }
+                text = text + This.TypeName(child);
+            }
             Return text;
         }
         If (name == "()") {
@@ -4908,7 +5170,7 @@ Public Class NativeProgram {
             This.Alloca(rejectName, "PromiseReject", obj.Value);
             If (lambda.Body != Null) { This.EmitStatement(lambda.Body); }
             If (lambda.Body == Null && lambda.Left != Null) { This.EmitExpr(lambda.Left); }
-            This.ScopeCount = mark;
+            This.DropScope(mark);
         }
         Return This.Pair(obj.Value, typeName);
     }
@@ -4994,7 +5256,7 @@ Public Class NativeProgram {
         IrValue result = This.Pair("0", "Void");
         If (lambda.Body != Null) { This.EmitStatement(lambda.Body); }
         If (lambda.Body == Null && lambda.Left != Null) { result = This.EmitExpr(lambda.Left); }
-        This.ScopeCount = mark;
+        This.DropScope(mark);
         String resultType = result.TypeName;
         If (resultType.StartsWith("Lambda:")) { resultType = resultType.Substring(7); }
         If (resultType == "") { resultType = "Void"; }
@@ -5012,7 +5274,7 @@ Public Class NativeProgram {
                 This.Alloca(parameterName, "String", note);
                 If (lambda.Body != Null) { This.EmitStatement(lambda.Body); }
                 If (lambda.Body == Null && lambda.Left != Null) { This.EmitExpr(lambda.Left); }
-                This.ScopeCount = mark;
+                This.DropScope(mark);
             }
         }
         Return This.Pair(note, "String");

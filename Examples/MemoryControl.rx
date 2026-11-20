@@ -1,0 +1,30 @@
+// Byte-level memory, plus automatic release of a string and a list.
+Package Robotics.MemoryControl;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise manual bytes and automatic string ownership.";
+    Input: args = "Unused command-line arguments";
+    Processing: "Write two bytes, copy the first, build a string, and print them.";
+    Output: "42, 42, and abcd.";
+} {
+    Unsafe {
+        Pointer<Byte> memory = Memory.Allocate(8);
+        *memory = 42;
+        Pointer<Byte> next = memory + 1;
+        *next = 7;
+        Memory.Copy(next, memory, 1);
+        Print(*memory);
+        Print(*next);
+        Memory.Free(memory);
+    }
+    String text = "ab" + "cd";
+    Print(text);
+    List<String> items = List<String>();
+    items.Add(text);
+    Print(items.Count());
+    Return 0;
+}

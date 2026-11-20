@@ -90,13 +90,8 @@ The lagnuage will can have both entry point from procedural with private int mai
 // ----------------------------------------
 
 // Every variable has one statically known type in Strict mode.
-Let readings: Array<Float> = [1.2, 2.4, 3.6];
-
 // An uninitialized variable MUST declare its type and MUST be assigned before
 // its first read. Definite-assignment analysis checks every control-flow path.
-Var nextReading: Float;
-nextReading = 4.2;
-
 // Var does not mean dynamically typed. Its type is fixed after inference.
 // Use a declared union or Any when multiple value types are genuinely needed.
 
@@ -105,14 +100,6 @@ nextReading = 4.2;
 
 // Any can store a value of any Robix type, but it does not permit arbitrary
 // operations. A value must be narrowed or checked before type-specific use.
-Var payload: Any = 42;
-
-Match payload {
-    Int number => Print(number + 1),
-    String text => Print(text.Length()),
-    Bool flag => Print(flag),
-    _ => Print("Unsupported payload type")
-}
 
 // Dynamic performs runtime member lookup. It is permitted in interpreter
 // Runtime mode, but is prohibited in Strict compiled code unless isolated
@@ -120,15 +107,6 @@ Match payload {
 // Dynamic externalValue;          // compile-time error in Strict mode
 
 // Prefer a closed union when the set of possible types is known.
-Type SensorValue = Int | Float | String;
-
-Function DescribeSensor(SensorValue value) -> String {
-    Match value {
-        Int number => Return $"Integer: {number}",
-        Float number => Return $"Float: {number}",
-        String text => Return $"Text: {text}"
-    }
-}
 
 // Union matches must be exhaustive, or include a fallback arm.
 // The compiler narrows the value's type within each matching branch.

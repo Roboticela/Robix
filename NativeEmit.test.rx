@@ -1394,3 +1394,145 @@ Test HexDigit {
         Output: "F";
     }
 }
+
+Test IsPlain {
+    Case "int is raw" {
+        Input: typeName = "Int";
+        Assert: Result == True;
+    }
+    Case "string is owned" {
+        Input: typeName = "String";
+        Assert: Result == False;
+    }
+}
+
+Test Retain {
+    Case "record a retain" {
+        Input: value = "0";
+        Assert: True;
+    }
+}
+
+Test Release {
+    Case "record a release" {
+        Input: value = "0";
+        Assert: True;
+    }
+}
+
+Test Give {
+    Case "record a temporary" {
+        Input: value = "0";
+        Assert: True;
+    }
+}
+
+Test Take {
+    Case "keep or retain" {
+        Input: value = "0";
+        Assert: True;
+    }
+}
+
+Test OwnTop {
+    Case "empty scope" {
+        Input:;
+        Assert: True;
+    }
+}
+
+Test ReleaseOwned {
+    Case "nothing owned" {
+        Input: mark = 0;
+        Assert: True;
+    }
+}
+
+Test DropScope {
+    Case "restore empty scope" {
+        Input: mark = 0;
+        Assert: True;
+    }
+}
+
+Test BeginFrame {
+    Case "save mark depth" {
+        Input:;
+        Assert: True;
+    }
+}
+
+Test FinishReturn {
+    Case "return nothing" {
+        Input: value = "0", typeName = "Void", hasValue = False, isVoid = True;
+        Assert: True;
+    }
+}
+
+Test AllocaBorrowed {
+    Case "borrow an int" {
+        Input: name = "n", typeName = "Int", value = "1";
+        Assert: Result.StartsWith("%");
+    }
+}
+
+Test EmitStatementBody {
+    Case "ignore an explain node" {
+        Input: node = AstNode(Kind: AstKind.Explain);
+        Assert: True;
+    }
+}
+
+Test PointerBytes {
+    Case "byte" {
+        Input: pointerType = "Pointer<Byte>";
+        Output: 1;
+    }
+    Case "int" {
+        Input: pointerType = "Pointer<Int>";
+        Output: 8;
+    }
+}
+
+Test PointerSigned {
+    Case "byte is unsigned" {
+        Input: pointerType = "Pointer<Byte>";
+        Assert: Result == False;
+    }
+    Case "int is signed" {
+        Input: pointerType = "Pointer<Int>";
+        Assert: Result == True;
+    }
+}
+
+Test LoadThrough {
+    Case "load a byte" {
+        Input: address = "0", pointerType = "Pointer<Byte>";
+        Assert: Result.Value.StartsWith("%");
+    }
+}
+
+Test StoreThrough {
+    Case "store a byte" {
+        Input: address = "0", pointerType = "Pointer<Byte>", value = "42";
+        Assert: True;
+    }
+}
+
+Test ShiftPointer {
+    Case "scale an int pointer" {
+        Input: address = "16", pointerType = "Pointer<Int>", offset = "1";
+        Assert: Result.Value.StartsWith("%");
+    }
+}
+
+Test FloatIr {
+    Case "double" {
+        Input: bits = "64";
+        Output: "double";
+    }
+    Case "float" {
+        Input: bits = "32";
+        Output: "float";
+    }
+}

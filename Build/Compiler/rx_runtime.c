@@ -19,11 +19,13 @@ static char *rx_cstr(int64_t text) {
     return (char *)(uintptr_t)text;
 }
 
+static int64_t rx_export(int64_t pointer, int kind, int64_t aux);
+
 static int64_t rx_box(char *text) {
     if (text == NULL) {
         text = calloc(1, 1);
     }
-    return (int64_t)(uintptr_t)text;
+    return rx_export((int64_t)(uintptr_t)text, 1, 0);
 }
 
 static char *rx_copy_n(const char *text, int64_t length) {
@@ -56,6 +58,319 @@ typedef struct RxMap {
     int64_t kind;
 } RxMap;
 
+/* Deterministic ownership. Not a garbage collector: every heap string, list,
+   map, and object has a refcount, and the compiler releases it at scope exit
+   or when a temporary dies. Raw Memory.Allocate pointers are not tracked. */
+enum { RX_KIND_STR = 1, RX_KIND_LIST = 2, RX_KIND_OBJ = 3, RX_KIND_MAP = 4 };
+
+typedef struct RxOwn {
+    int64_t pointer;
+    int32_t count;
+    int32_t kind;
+    int32_t aux;
+    int32_t state;
+} RxOwn;
+
+enum { RX_EMPTY = 0, RX_LIVE = 1, RX_TOMB = 2 };
+
+static RxOwn *rx_owns = NULL;
+static int rx_own_cap = 0;
+static int rx_own_live = 0;
+static int64_t *rx_temps = NULL;
+static int rx_temp_count = 0;
+static int rx_temp_cap = 0;
+static int *rx_marks = NULL;
+static int rx_mark_count = 0;
+static int rx_mark_cap = 0;
+
+static uint64_t rx_own_hash(int64_t pointer) {
+    return (uint64_t)pointer * 11400714819323198485ull;
+}
+
+static void rx_own_grow(void) {
+    int next = rx_own_cap == 0 ? 1024 : rx_own_cap * 2;
+    RxOwn *grown = calloc((size_t)next, sizeof(RxOwn));
+    int index = 0;
+    if (grown == NULL) {
+        return;
+    }
+    while (index < rx_own_cap) {
+        if (rx_owns[index].state == RX_LIVE) {
+            uint64_t slot = rx_own_hash(rx_owns[index].pointer) % (uint64_t)next;
+            while (grown[slot].state == RX_LIVE) {
+                slot = (slot + 1) % (uint64_t)next;
+            }
+            grown[slot] = rx_owns[index];
+        }
+        index = index + 1;
+    }
+    free(rx_owns);
+    rx_owns = grown;
+    rx_own_cap = next;
+}
+
+static RxOwn *rx_own_find(int64_t pointer, int create) {
+    uint64_t slot = 0;
+    uint64_t first_tomb = (uint64_t)-1;
+    int seen = 0;
+    if (pointer == 0) {
+        return NULL;
+    }
+    if (rx_own_cap == 0) {
+        if (!create) {
+            return NULL;
+        }
+        rx_own_grow();
+    }
+    slot = rx_own_hash(pointer) % (uint64_t)rx_own_cap;
+    while (seen < rx_own_cap) {
+        RxOwn *entry = &rx_owns[slot];
+        if (entry->state == RX_EMPTY) {
+            if (!create) {
+                return NULL;
+            }
+            if (first_tomb != (uint64_t)-1) {
+                return &rx_owns[first_tomb];
+            }
+            return entry;
+        }
+        if (entry->state == RX_TOMB && first_tomb == (uint64_t)-1) {
+            first_tomb = slot;
+        }
+        if (entry->state == RX_LIVE && entry->pointer == pointer) {
+            return entry;
+        }
+        slot = (slot + 1) % (uint64_t)rx_own_cap;
+        seen = seen + 1;
+    }
+    if (create && first_tomb != (uint64_t)-1) {
+        return &rx_owns[first_tomb];
+    }
+    return NULL;
+}
+
+void rx_release(int64_t pointer);
+
+static void rx_destroy_own(int64_t pointer, int kind, int aux) {
+    if (kind == RX_KIND_LIST) {
+        RxList *list = (RxList *)(uintptr_t)pointer;
+        int64_t count = list == NULL ? 0 : list->count;
+        int64_t *items = list == NULL ? NULL : list->items;
+        int64_t index = 0;
+        if (list != NULL) {
+            list->items = NULL;
+            list->count = 0;
+        }
+        while (index < count) {
+            rx_release(items[index]);
+            index = index + 1;
+        }
+        free(items);
+        free(list);
+        return;
+    }
+    if (kind == RX_KIND_MAP) {
+        RxMap *map = (RxMap *)(uintptr_t)pointer;
+        int64_t count = map == NULL ? 0 : map->count;
+        int64_t *keys = map == NULL ? NULL : map->keys;
+        int64_t *values = map == NULL ? NULL : map->values;
+        int64_t index = 0;
+        if (map != NULL) {
+            map->keys = NULL;
+            map->values = NULL;
+            map->count = 0;
+        }
+        while (index < count) {
+            rx_release(keys[index]);
+            rx_release(values[index]);
+            index = index + 1;
+        }
+        free(keys);
+        free(values);
+        free(map);
+        return;
+    }
+    if (kind == RX_KIND_OBJ) {
+        int64_t *fields = (int64_t *)(uintptr_t)pointer;
+        int64_t index = 0;
+        while (index < aux) {
+            int64_t child = fields[index];
+            fields[index] = 0;
+            rx_release(child);
+            index = index + 1;
+        }
+        free(fields);
+        return;
+    }
+    free((void *)(uintptr_t)pointer);
+}
+
+static void rx_track(int64_t pointer, int kind, int64_t aux) {
+    RxOwn *entry = NULL;
+    if (pointer == 0) {
+        return;
+    }
+    if (rx_own_cap == 0 || rx_own_live * 10 > rx_own_cap * 7) {
+        rx_own_grow();
+    }
+    entry = rx_own_find(pointer, 1);
+    if (entry == NULL) {
+        return;
+    }
+    if (entry->state == RX_LIVE && entry->pointer == pointer) {
+        entry->count = entry->count + 1;
+        return;
+    }
+    entry->pointer = pointer;
+    entry->count = 1;
+    entry->kind = kind;
+    entry->aux = (int32_t)aux;
+    entry->state = RX_LIVE;
+    rx_own_live = rx_own_live + 1;
+}
+
+static void rx_temp_push(int64_t pointer) {
+    if (pointer == 0) {
+        return;
+    }
+    if (rx_temp_count == rx_temp_cap) {
+        int next = rx_temp_cap == 0 ? 256 : rx_temp_cap * 2;
+        int64_t *grown = realloc(rx_temps, (size_t)next * sizeof(int64_t));
+        if (grown == NULL) {
+            return;
+        }
+        rx_temps = grown;
+        rx_temp_cap = next;
+    }
+    rx_temps[rx_temp_count] = pointer;
+    rx_temp_count = rx_temp_count + 1;
+}
+
+static int64_t rx_export(int64_t pointer, int kind, int64_t aux) {
+    if (pointer == 0) {
+        return 0;
+    }
+    rx_track(pointer, kind, aux);
+    rx_temp_push(pointer);
+    return pointer;
+}
+
+void rx_release(int64_t pointer) {
+    RxOwn *entry = rx_own_find(pointer, 0);
+    int kind = 0;
+    int aux = 0;
+    if (entry == NULL || entry->state != RX_LIVE) {
+        return;
+    }
+    entry->count = entry->count - 1;
+    if (entry->count > 0) {
+        return;
+    }
+    kind = entry->kind;
+    aux = entry->aux;
+    entry->state = RX_TOMB;
+    entry->pointer = 0;
+    entry->count = 0;
+    rx_own_live = rx_own_live - 1;
+    rx_destroy_own(pointer, kind, aux);
+}
+
+void rx_retain(int64_t pointer) {
+    RxOwn *entry = rx_own_find(pointer, 0);
+    if (entry == NULL || entry->state != RX_LIVE) {
+        return;
+    }
+    entry->count = entry->count + 1;
+}
+
+void rx_scope_push(void) {
+    if (rx_mark_count == rx_mark_cap) {
+        int next = rx_mark_cap == 0 ? 64 : rx_mark_cap * 2;
+        int *grown = realloc(rx_marks, (size_t)next * sizeof(int));
+        if (grown == NULL) {
+            return;
+        }
+        rx_marks = grown;
+        rx_mark_cap = next;
+    }
+    rx_marks[rx_mark_count] = rx_temp_count;
+    rx_mark_count = rx_mark_count + 1;
+}
+
+void rx_scope_pop(void) {
+    int mark = 0;
+    if (rx_mark_count > 0) {
+        rx_mark_count = rx_mark_count - 1;
+        mark = rx_marks[rx_mark_count];
+    }
+    while (rx_temp_count > mark) {
+        rx_temp_count = rx_temp_count - 1;
+        rx_release(rx_temps[rx_temp_count]);
+    }
+}
+
+void rx_give(int64_t pointer) {
+    rx_temp_push(pointer);
+}
+
+int64_t rx_mark_depth(void) {
+    return rx_mark_count;
+}
+
+void rx_scope_unwind(int64_t depth) {
+    while (rx_mark_count > depth) {
+        rx_scope_pop();
+    }
+}
+
+int64_t rx_keep(int64_t pointer) {
+    int start = 0;
+    int index = 0;
+    if (pointer == 0) {
+        return 0;
+    }
+    if (rx_mark_count > 0) {
+        start = rx_marks[rx_mark_count - 1];
+    }
+    index = rx_temp_count - 1;
+    while (index >= start) {
+        if (rx_temps[index] == pointer) {
+            rx_temps[index] = rx_temps[rx_temp_count - 1];
+            rx_temp_count = rx_temp_count - 1;
+            return 1;
+        }
+        index = index - 1;
+    }
+    return 0;
+}
+
+int64_t rx_alloc(int64_t bytes) {
+    void *memory = NULL;
+    if (bytes < 1) {
+        bytes = 1;
+    }
+    memory = calloc(1, (size_t)bytes);
+    return (int64_t)(uintptr_t)memory;
+}
+
+int64_t rx_alloc_aligned(int64_t bytes, int64_t alignment) {
+    void *memory = NULL;
+    if (bytes < 1) {
+        bytes = 1;
+    }
+    if (alignment < sizeof(void *)) {
+        alignment = (int64_t)sizeof(void *);
+    }
+    if ((alignment & (alignment - 1)) != 0) {
+        alignment = (int64_t)sizeof(void *);
+    }
+    if (posix_memalign(&memory, (size_t)alignment, (size_t)bytes) != 0) {
+        return 0;
+    }
+    memset(memory, 0, (size_t)bytes);
+    return (int64_t)(uintptr_t)memory;
+}
+
 static int rx_key_eq(int64_t kind, int64_t left, int64_t right) {
     int64_t left_tag = 0;
     int64_t right_tag = 0;
@@ -85,7 +400,7 @@ int64_t rx_map_new(int64_t kind) {
     if (map != NULL) {
         map->kind = kind;
     }
-    return (int64_t)(uintptr_t)map;
+    return rx_export((int64_t)(uintptr_t)map, RX_KIND_MAP, 0);
 }
 
 void rx_map_put(int64_t map, int64_t key, int64_t item) {
@@ -99,6 +414,8 @@ void rx_map_put(int64_t map, int64_t key, int64_t item) {
     }
     while (index < value->count) {
         if (rx_key_eq(value->kind, value->keys[index], key)) {
+            rx_release(value->values[index]);
+            rx_retain(item);
             value->values[index] = item;
             return;
         }
@@ -115,6 +432,8 @@ void rx_map_put(int64_t map, int64_t key, int64_t item) {
         value->values = items;
         value->cap = cap;
     }
+    rx_retain(key);
+    rx_retain(item);
     value->keys[value->count] = key;
     value->values[value->count] = item;
     value->count = value->count + 1;
@@ -167,7 +486,7 @@ int64_t rx_set_has(int64_t list, int64_t item, int64_t kind) {
 
 int64_t rx_list_new(void) {
     RxList *list = calloc(1, sizeof(RxList));
-    return (int64_t)(uintptr_t)list;
+    return rx_export((int64_t)(uintptr_t)list, RX_KIND_LIST, 0);
 }
 
 int64_t rx_list_count(int64_t list) {
@@ -186,6 +505,9 @@ int64_t rx_list_take_front(int64_t list) {
         return 0;
     }
     item = value->items[0];
+    if (rx_own_find(item, 0) != NULL) {
+        rx_temp_push(item);
+    }
     while (index + 1 < value->count) {
         value->items[index] = value->items[index + 1];
         index = index + 1;
@@ -196,11 +518,16 @@ int64_t rx_list_take_front(int64_t list) {
 
 int64_t rx_list_take_back(int64_t list) {
     RxList *value = (RxList *)(uintptr_t)list;
+    int64_t item = 0;
     if (value == NULL || value->count <= 0) {
         return 0;
     }
     value->count = value->count - 1;
-    return value->items[value->count];
+    item = value->items[value->count];
+    if (rx_own_find(item, 0) != NULL) {
+        rx_temp_push(item);
+    }
+    return item;
 }
 
 int64_t rx_range(int64_t start, int64_t end, int64_t inclusive) {
@@ -257,6 +584,9 @@ void rx_list_add(int64_t list, int64_t item) {
         value->items = items;
         value->cap = cap;
     }
+    if (rx_own_find(list, 0) != NULL) {
+        rx_retain(item);
+    }
     value->items[value->count] = item;
     value->count = value->count + 1;
 }
@@ -269,15 +599,20 @@ void rx_list_set(int64_t list, int64_t index, int64_t item) {
     while (value->count <= index) {
         rx_list_add(list, 0);
     }
+    if (rx_own_find(list, 0) != NULL) {
+        rx_release(value->items[index]);
+        rx_retain(item);
+    }
     value->items[index] = item;
 }
 
 int64_t rx_obj_new(int64_t fields) {
+    int64_t *object = NULL;
     if (fields < 1) {
         fields = 1;
     }
-    int64_t *object = calloc((size_t)fields, sizeof(int64_t));
-    return (int64_t)(uintptr_t)object;
+    object = calloc((size_t)fields, sizeof(int64_t));
+    return rx_export((int64_t)(uintptr_t)object, RX_KIND_OBJ, fields);
 }
 
 int64_t rx_obj_get(int64_t object, int64_t index) {
@@ -290,8 +625,13 @@ int64_t rx_obj_get(int64_t object, int64_t index) {
 
 void rx_obj_set(int64_t object, int64_t index, int64_t value) {
     int64_t *fields = (int64_t *)(uintptr_t)object;
+    RxOwn *owner = rx_own_find(object, 0);
     if (fields == NULL || index < 0) {
         return;
+    }
+    if (owner != NULL && owner->state == RX_LIVE && index < owner->aux) {
+        rx_retain(value);
+        rx_release(fields[index]);
     }
     fields[index] = value;
 }
@@ -304,7 +644,14 @@ void rx_mem_copy(int64_t dest, int64_t src, int64_t count) {
 }
 
 void rx_free(int64_t pointer) {
+    RxOwn *entry = NULL;
     if (pointer == 0) {
+        return;
+    }
+    entry = rx_own_find(pointer, 0);
+    if (entry != NULL && entry->state == RX_LIVE) {
+        entry->count = 1;
+        rx_release(pointer);
         return;
     }
     free((void *)(uintptr_t)pointer);

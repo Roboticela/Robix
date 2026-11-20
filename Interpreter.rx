@@ -1041,7 +1041,7 @@ Public Class Interpreter {
                 This.BindPattern(arm.Left, scrutinee);
                 Value result = This.MakeVoid();
                 If (arm.Right != Null) {
-                    If (arm.Right.Kind == AstKind.Block) {
+                    If (arm.Right.Kind == AstKind.Block || arm.Right.Kind == AstKind.Return) {
                         result = This.ExecuteNode(arm.Right);
                     } Else {
                         result = This.Evaluate(arm.Right);
