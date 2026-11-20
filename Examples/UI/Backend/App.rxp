@@ -1,0 +1,14 @@
+Project "Arm"
+{
+    Source
+    {
+        Include: "App.rx";
+        Include: "App.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Window";
+        Capability: "Button";
+    }
+}

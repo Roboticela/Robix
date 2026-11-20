@@ -113,13 +113,6 @@ Reviewer / date:
 **Dependencies:** P00–P04  
 **Source coverage:** Original §§13–14, 22; universal architecture and automatic platform amendments
 
-- [ ] **P08.01** Finalize internal `IUIPlatformBackend` signatures (window/component lifetime, property sync, input, measurement, render, invalidation, clipboard, dialogs, display/scale, state restore, shutdown).
-- [ ] **P08.02** Implement capability descriptor: windows, menus, dialogs, clipboard, accessibility, touch/mouse/keyboard, HiDPI, file dialogs, graphics acceleration, notifications, screens.
-- [ ] **P08.03** Implement automatic platform discovery and backend selection without OS-specific project code.
-- [ ] **P08.04** Define universal fallback behavior and explicit unsupported-capability diagnostics.
-- [ ] **P08.05** Implement common rendering command and semantic input interfaces; forbid platform-widget types in public Robix UI APIs.
-- [ ] **P08.06** Implement backend contract mocks/virtual backend for headless testing and later Windows/macOS parity.
-- [ ] **P08.07** Test that one `.rx`+`.rxu`+`.rxp` project uses no conditional OS source imports or config.
 - [ ] **G08 — PHASE SIGN-OFF:** Backend conformance tests pass against mock backend; universal modules have no GTK/native imports.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P09 — Linux GTK4 adapter, app loop and threading

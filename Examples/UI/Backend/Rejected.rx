@@ -1,0 +1,2 @@
+// This sample names a platform widget and must fail the universal check.
+Gtk

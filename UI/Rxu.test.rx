@@ -1606,6 +1606,199 @@ Test BindingEngine.ChangeCase {
     Output: True;
 }
 
+Test UIBackend.UseHost {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.Supports {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.OpenWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.CloseWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.OpenComponent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.CloseComponent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.SyncProperty {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.OfferInput {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.MeasureNode {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.Draw {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.MarkDirty {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.CopyClipboard {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.PasteClipboard {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.OpenDialog {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.OpenFile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.Notify {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.OpenMenu {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.ReadScale {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.ReadScreens {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.SaveState {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.RestoreState {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.ShutDown {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.LogCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.LogAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.ProjectClean {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.Allow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.Remember {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.BackendNote {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.KnownKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.Leaked {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIBackend.FindId {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckBackend {
+    Case "backend" {
+        Input:;
+        Output: 0;
+    }
+}
+
 Test CheckBindings {
     Case "bindings" {
         Input:;

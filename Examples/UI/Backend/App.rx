@@ -1,0 +1,6 @@
+// The host selects the backend. This file names no platform.
+Package Sample;
+
+Public Function Main() -> Int {
+    Return 0;
+}

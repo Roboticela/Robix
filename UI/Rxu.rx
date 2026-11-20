@@ -16,6 +16,8 @@
 // Bindings read observable values. A data context is inherited by descendants that do not set their own.
 // OneWay, TwoWay, OneTime, OneWayToSource, Reactive, and Manual are the binding modes.
 // Password values are stored for the control and masked in diagnostics.
+// A universal backend records windows, input, drawing, and clipboard work.
+// The host name selects it. Application files do not name a platform.
 Package Robix.UI;
 
 Import Robix.Core;
@@ -5119,6 +5121,547 @@ Public Class BindingEngine {
     }
 }
 
+Public Class UIBackend {
+    Public RxuMessages Messages;
+    Public String Name;
+    Private List<String> capabilities;
+    Private List<String> log;
+    Private List<String> windows;
+    Private List<String> components;
+    Private List<String> componentWindows;
+    Private String clipboard;
+    Private Bool running;
+    Private Int screens;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.Name = "";
+        This.capabilities = List<String>();
+        This.log = List<String>();
+        This.windows = List<String>();
+        This.components = List<String>();
+        This.componentWindows = List<String>();
+        This.clipboard = "";
+        This.running = True;
+        This.screens = 1;
+        This.UseHost("");
+    }
+
+    Public Function UseHost(String host) -> String
+    Explain {
+        Description: "Select a backend from the host name.";
+        Input: host = "linux, windows, macos, or empty for headless";
+        Processing: "Choose capabilities in this library. The project does not import a platform.";
+        Output: "The selected backend name.";
+    } {
+        This.capabilities = List<String>();
+        This.running = True;
+        This.Allow("Window");
+        This.Allow("Mouse");
+        This.Allow("Keyboard");
+        This.Allow("Clipboard");
+        This.Allow("Screen");
+        This.Allow("Accessibility");
+        If (host == "linux" || host == "windows" || host == "macos") {
+            This.Allow("Menu");
+            This.Allow("Dialog");
+            This.Allow("HiDPI");
+            This.Allow("FileDialog");
+            This.Allow("Graphics");
+            This.Allow("Notification");
+            This.screens = 2;
+        } Else {
+            This.screens = 1;
+        }
+        If (host == "linux" || host == "macos") {
+            This.Allow("Touch");
+        }
+        If (host == "linux") {
+            This.Name = "Linux";
+        } Else {
+            If (host == "windows") {
+                This.Name = "Windows";
+            } Else {
+                If (host == "macos") {
+                    This.Name = "Mac";
+                } Else {
+                    This.Name = "Headless";
+                }
+            }
+        }
+        Return This.Name;
+    }
+
+    Public Function Supports(String capability) -> Bool
+    Explain {
+        Description: "Report whether the selected backend supports a capability.";
+        Input: capability = "Window, Menu, Dialog, Clipboard, Accessibility, Touch, Mouse, Keyboard, HiDPI, FileDialog, Graphics, Notification, or Screen";
+        Processing: "Look through the selected capability list.";
+        Output: "True when the capability is available.";
+    } {
+        Return This.FindId(This.capabilities, capability) >= 0;
+    }
+
+    Public Function OpenWindow(String id, String title) -> Bool
+    Explain {
+        Description: "Open a window through the universal backend.";
+        Input: id = "Window id", title = "Window title";
+        Processing: "Record the window when the backend is running and can host windows.";
+        Output: "True when the window is open.";
+    } {
+        If (!This.running || !This.Supports("Window")) {
+            This.BackendNote("RXU045", "This backend cannot open a window.", "Window");
+            Return False;
+        }
+        If (This.FindId(This.windows, id) < 0) {
+            This.windows.Add(id + "");
+        }
+        This.Remember("OpenWindow " + id + " " + title);
+        Return True;
+    }
+
+    Public Function CloseWindow(String id) -> Bool
+    Explain {
+        Description: "Close a window and its components.";
+        Input: id = "Window id";
+        Processing: "Drop the window and every component that belongs to it.";
+        Output: "True when the window existed.";
+    } {
+        If (This.FindId(This.windows, id) < 0) {
+            Return False;
+        }
+        List<String> nextIds = List<String>();
+        Int index = 0;
+        While (index < This.windows.Count()) {
+            If (This.windows[index] != id) {
+                nextIds.Add(This.windows[index]);
+            }
+            index = index + 1;
+        }
+        This.windows = nextIds;
+        List<String> kept = List<String>();
+        List<String> keptWindows = List<String>();
+        index = 0;
+        While (index < This.components.Count()) {
+            If (This.componentWindows[index] != id) {
+                kept.Add(This.components[index]);
+                keptWindows.Add(This.componentWindows[index]);
+            }
+            index = index + 1;
+        }
+        This.components = kept;
+        This.componentWindows = keptWindows;
+        This.Remember("CloseWindow " + id);
+        Return True;
+    }
+
+    Public Function OpenComponent(String windowId, String id, String kind) -> Bool
+    Explain {
+        Description: "Create a universal component inside a window.";
+        Input: windowId = "Parent window", id = "Component id", kind = "Universal element kind";
+        Processing: "Reject platform widget names. Record a known kind in an open window.";
+        Output: "True when the component is created.";
+    } {
+        If (This.Leaked(kind) || !This.KnownKind(kind)) {
+            This.BackendNote("RXU046", "Platform widget types are not part of the public UI API.", kind);
+            Return False;
+        }
+        If (This.FindId(This.windows, windowId) < 0) {
+            Return False;
+        }
+        If (This.FindId(This.components, id) < 0) {
+            This.components.Add(id + "");
+            This.componentWindows.Add(windowId + "");
+        }
+        This.Remember("OpenComponent " + windowId + " " + id + " " + kind);
+        Return True;
+    }
+
+    Public Function CloseComponent(String id) -> Bool
+    Explain {
+        Description: "Destroy one component.";
+        Input: id = "Component id";
+        Processing: "Remove it from the live component list.";
+        Output: "True when the component existed.";
+    } {
+        Int found = This.FindId(This.components, id);
+        If (found < 0) {
+            Return False;
+        }
+        List<String> kept = List<String>();
+        List<String> keptWindows = List<String>();
+        Int index = 0;
+        While (index < This.components.Count()) {
+            If (index != found) {
+                kept.Add(This.components[index]);
+                keptWindows.Add(This.componentWindows[index]);
+            }
+            index = index + 1;
+        }
+        This.components = kept;
+        This.componentWindows = keptWindows;
+        This.Remember("CloseComponent " + id);
+        Return True;
+    }
+
+    Public Function SyncProperty(String id, String name, String value) -> Bool
+    Explain {
+        Description: "Send one property value to the backend.";
+        Input: id = "Component id", name = "Property name", value = "Property value";
+        Processing: "Record the sync for a live component.";
+        Output: "True when the component exists.";
+    } {
+        If (This.FindId(This.components, id) < 0) {
+            Return False;
+        }
+        This.Remember("Sync " + id + " " + name + " " + value);
+        Return True;
+    }
+
+    Public Function OfferInput(String kind, String value) -> Bool
+    Explain {
+        Description: "Deliver one semantic input event.";
+        Input: kind = "Pointer, Key, Touch, or Scroll", value = "Event text";
+        Processing: "Require the matching pointer, key, or touch capability.";
+        Output: "True when the backend accepts the event.";
+    } {
+        String needed = "Mouse";
+        If (kind == "Key") {
+            needed = "Keyboard";
+        }
+        If (kind == "Touch") {
+            needed = "Touch";
+        }
+        If (kind != "Pointer" && kind != "Key" && kind != "Touch" && kind != "Scroll") {
+            This.BackendNote("RXU046", "This input is not a universal event.", kind);
+            Return False;
+        }
+        If (!This.Supports(needed)) {
+            This.BackendNote("RXU045", "This backend cannot accept this input.", needed);
+            Return False;
+        }
+        This.Remember("Input " + kind + " " + value);
+        Return True;
+    }
+
+    Public Function MeasureNode(String id) -> String
+    Explain {
+        Description: "Measure a component.";
+        Input: id = "Component id";
+        Processing: "Return a width and height for a live component.";
+        Output: "The size text, or 0,0 when the component is missing.";
+    } {
+        If (This.FindId(This.components, id) < 0) {
+            Return "0,0";
+        }
+        This.Remember("Measure " + id);
+        Return "120,32";
+    }
+
+    Public Function Draw(String command, String value) -> Bool
+    Explain {
+        Description: "Record one universal drawing command.";
+        Input: command = "Fill, Stroke, Text, Clip, Push, or Pop", value = "Command argument";
+        Processing: "Reject platform commands. Without graphics acceleration, record a software fallback.";
+        Output: "True when the command is universal.";
+    } {
+        If (This.Leaked(command) || !This.KnownKind(command) && command != "Fill" && command != "Stroke" && command != "Text" && command != "Clip" && command != "Push" && command != "Pop") {
+            This.BackendNote("RXU046", "This drawing command is not universal.", command);
+            Return False;
+        }
+        If (command != "Fill" && command != "Stroke" && command != "Text" && command != "Clip" && command != "Push" && command != "Pop") {
+            This.BackendNote("RXU046", "This drawing command is not universal.", command);
+            Return False;
+        }
+        If (!This.Supports("Graphics")) {
+            This.BackendNote("RXU045", "Graphics acceleration is unavailable, so software drawing is used.", "Graphics");
+            This.Remember("Software " + command + " " + value);
+            Return True;
+        }
+        This.Remember("Draw " + command + " " + value);
+        Return True;
+    }
+
+    Public Function MarkDirty(String id) -> Bool
+    Explain {
+        Description: "Mark a component for another frame.";
+        Input: id = "Component id";
+        Processing: "Record the invalidation.";
+        Output: "True when the component exists.";
+    } {
+        If (This.FindId(This.components, id) < 0) {
+            Return False;
+        }
+        This.Remember("Dirty " + id);
+        Return True;
+    }
+
+    Public Function CopyClipboard(String text) -> Bool
+    Explain {
+        Description: "Copy text to the universal clipboard.";
+        Input: text = "Clipboard text";
+        Processing: "Store the text when clipboard is supported.";
+        Output: "True when the text is stored.";
+    } {
+        If (!This.Supports("Clipboard")) {
+            This.BackendNote("RXU045", "This backend has no clipboard.", "Clipboard");
+            Return False;
+        }
+        This.clipboard = text + "";
+        This.Remember("Copy " + text);
+        Return True;
+    }
+
+    Public Function PasteClipboard() -> String
+    Explain {
+        Description: "Read the universal clipboard.";
+        Input: None;
+        Processing: "Return the stored text when clipboard is supported.";
+        Output: "The clipboard text, or empty text.";
+    } {
+        If (!This.Supports("Clipboard")) {
+            This.BackendNote("RXU045", "This backend has no clipboard.", "Clipboard");
+            Return "";
+        }
+        This.Remember("Paste");
+        Return This.clipboard;
+    }
+
+    Public Function OpenDialog(String title, String message) -> Bool
+    Explain {
+        Description: "Show a dialog or record a universal fallback.";
+        Input: title = "Dialog title", message = "Dialog message";
+        Processing: "Use a message fallback when dialogs are unavailable.";
+        Output: "True when the dialog or its fallback is recorded.";
+    } {
+        If (!This.Supports("Dialog")) {
+            This.BackendNote("RXU045", "This backend falls back to an inline message.", "Dialog");
+            This.Remember("Fallback Dialog " + title);
+            Return True;
+        }
+        This.Remember("Dialog " + title + " " + message);
+        Return True;
+    }
+
+    Public Function OpenFile(String title) -> String
+    Explain {
+        Description: "Choose a file or record a fallback.";
+        Input: title = "Picker title";
+        Processing: "Return a sample path when file dialogs exist. Otherwise record a fallback.";
+        Output: "The chosen path, or empty text.";
+    } {
+        If (!This.Supports("FileDialog")) {
+            This.BackendNote("RXU045", "This backend has no file dialog.", "FileDialog");
+            This.Remember("Fallback File " + title);
+            Return "";
+        }
+        This.Remember("File " + title);
+        Return "arm.rxu";
+    }
+
+    Public Function Notify(String text) -> Bool
+    Explain {
+        Description: "Post a notification or record a fallback.";
+        Input: text = "Notification text";
+        Processing: "Use a log fallback when notifications are unavailable.";
+        Output: "True when the notice or its fallback is recorded.";
+    } {
+        If (!This.Supports("Notification")) {
+            This.BackendNote("RXU045", "This backend falls back to the log.", "Notification");
+            This.Remember("Fallback Notification " + text);
+            Return True;
+        }
+        This.Remember("Notification " + text);
+        Return True;
+    }
+
+    Public Function OpenMenu(String id) -> Bool
+    Explain {
+        Description: "Open a menu or record a fallback.";
+        Input: id = "Menu id";
+        Processing: "Use a command fallback when menus are unavailable.";
+        Output: "True when the menu or its fallback is recorded.";
+    } {
+        If (!This.Supports("Menu")) {
+            This.BackendNote("RXU045", "This backend falls back to a command.", "Menu");
+            This.Remember("Fallback Menu " + id);
+            Return True;
+        }
+        This.Remember("Menu " + id);
+        Return True;
+    }
+
+    Public Function ReadScale() -> String
+    Explain {
+        Description: "Read the display scale.";
+        Input: None;
+        Processing: "Return 2 when HiDPI is supported and 1 otherwise.";
+        Output: "The scale text.";
+    } {
+        If (!This.Supports("HiDPI")) {
+            This.BackendNote("RXU045", "HiDPI is unavailable, so the scale stays at 1.", "HiDPI");
+            Return "1";
+        }
+        Return "2";
+    }
+
+    Public Function ReadScreens() -> Int
+    Explain {
+        Description: "Count the screens the backend knows.";
+        Input: None;
+        Processing: "Read the selected screen count.";
+        Output: "The number of screens.";
+    } {
+        If (!This.Supports("Screen")) {
+            This.BackendNote("RXU045", "This backend reports no screen.", "Screen");
+            Return 0;
+        }
+        Return This.screens;
+    }
+
+    Public Function SaveState() -> String
+    Explain {
+        Description: "Save the open window ids.";
+        Input: None;
+        Processing: "Join the window ids.";
+        Output: "The saved state.";
+    } {
+        String text = "";
+        Int index = 0;
+        While (index < This.windows.Count()) {
+            If (index > 0) {
+                text = text + ",";
+            }
+            text = text + This.windows[index];
+            index = index + 1;
+        }
+        This.Remember("Save " + text);
+        Return text;
+    }
+
+    Public Function RestoreState(String text) -> Bool
+    Explain {
+        Description: "Restore windows from saved ids.";
+        Input: text = "Comma-separated window ids";
+        Processing: "Replace the open window list.";
+        Output: "True when the state is restored.";
+    } {
+        This.windows = List<String>();
+        String current = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == ",") {
+                If (current != "") {
+                    This.windows.Add(current);
+                }
+                current = "";
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        If (current != "") {
+            This.windows.Add(current);
+        }
+        This.Remember("Restore " + text);
+        Return True;
+    }
+
+    Public Function ShutDown() -> Void
+    Explain {
+        Description: "Stop the backend and drop live windows.";
+        Input: None;
+        Processing: "Mark the backend stopped and clear windows and components.";
+        Output: "No return value.";
+    } {
+        This.running = False;
+        This.windows = List<String>();
+        This.components = List<String>();
+        This.componentWindows = List<String>();
+        This.Remember("ShutDown");
+    }
+
+    Public Function LogCount() -> Int
+    Explain {
+        Description: "Count recorded backend operations.";
+        Input: None;
+        Processing: "Read the operation log size.";
+        Output: "The number of log entries.";
+    } {
+        Return This.log.Count();
+    }
+
+    Public Function LogAt(Int index) -> String
+    Explain {
+        Description: "Read one recorded backend operation.";
+        Input: index = "Zero-based log index";
+        Processing: "Return that entry, or empty text when the index is outside the log.";
+        Output: "The log entry.";
+    } {
+        If (index < 0 || index >= This.log.Count()) {
+            Return "";
+        }
+        Return This.log[index];
+    }
+
+    Public Function ProjectClean(String path) -> Bool
+    Explain {
+        Description: "Reject platform-specific project text.";
+        Input: path = "Project, logic, or markup path";
+        Processing: "Read the file and refuse platform widget names and OS conditionals.";
+        Output: "True when the file stays universal.";
+    } {
+        If (!Files.Exists(path)) {
+            This.BackendNote("RXU017", "This project file was not found.", path);
+            Return False;
+        }
+        String text = Files.ReadText(path);
+        If (This.Leaked(text) || text.Contains("#if") || text.Contains("OperatingSystem")) {
+            This.BackendNote("RXU046", "This project names a platform.", path);
+            Return False;
+        }
+        Return True;
+    }
+
+    Private Function Allow(String capability) -> Void {
+        If (This.FindId(This.capabilities, capability) < 0) {
+            This.capabilities.Add(capability + "");
+        }
+    }
+
+    Private Function Remember(String entry) -> Void {
+        This.log.Add(entry + "");
+    }
+
+    Private Function BackendNote(String code, String message, String actual) -> Void {
+        This.Messages.Add(code, message, "", 1, 1, actual.Length(), "a universal backend operation", actual, "Use a capability the selected backend provides.");
+    }
+
+    Private Function KnownKind(String kind) -> Bool {
+        String catalog = ",Window,Panel,Button,Text,Label,Image,Border,";
+        Return catalog.Contains("," + kind + ",");
+    }
+
+    Private Function Leaked(String text) -> Bool {
+        If (text.Contains("Gtk") || text.Contains("HWND") || text.Contains("NSWindow") || text.Contains("NSView")) {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function FindId(List<String> items, String id) -> Int {
+        Int index = 0;
+        While (index < items.Count()) {
+            If (items[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+}
+
 Private Function ReadExample(String path) -> RxuNode {
     RxuParser parser = RxuParser();
     Return parser.Parse(path, Files.ReadText(path));
@@ -5619,6 +6162,48 @@ Explain {
     Return failed;
 }
 
+Public Function CheckBackend() -> Int
+Explain {
+    Description: "Check backend selection, capabilities, fallbacks, and universal projects.";
+    Input: None;
+    Processing: "Drive the headless backend and read the universal sample project.";
+    Output: "The number of failed backend checks.";
+} {
+    Int failed = 0;
+    UIBackend backend = UIBackend();
+    failed = failed + FailWhen(backend.UseHost("") != "Headless" || backend.Supports("Graphics") || !backend.Supports("Window") || !backend.Supports("Clipboard") || !backend.Supports("Accessibility") || backend.ReadScreens() != 1 || backend.ReadScale() != "1" || backend.Messages.Find("RXU045") < 0, "headless backend");
+    failed = failed + FailWhen(backend.UseHost("linux") != "Linux" || !backend.Supports("HiDPI") || !backend.Supports("Touch") || !backend.Supports("Graphics") || !backend.Supports("Dialog") || !backend.Supports("FileDialog") || !backend.Supports("Notification") || !backend.Supports("Menu") || backend.ReadScreens() != 2 || backend.ReadScale() != "2", "linux backend");
+    failed = failed + FailWhen(backend.UseHost("windows") != "Windows" || backend.Supports("Touch") || !backend.Supports("Graphics"), "windows backend");
+    failed = failed + FailWhen(backend.UseHost("macos") != "Mac" || !backend.Supports("Touch"), "mac backend");
+    backend.UseHost("");
+    failed = failed + FailWhen(backend.OpenWindow("main", "Arm") != True || backend.OpenComponent("main", "save", "Button") != True || backend.SyncProperty("save", "Name", "Save") != True || backend.MeasureNode("save") != "120,32", "backend lifetime");
+    failed = failed + FailWhen(backend.OpenComponent("main", "bad", "GtkButton") != False || backend.Messages.Find("RXU046") < 0, "platform widget");
+    failed = failed + FailWhen(backend.OfferInput("Pointer", "1,2") != True || backend.OfferInput("Key", "S") != True || backend.OfferInput("Scroll", "1") != True || backend.OfferInput("Touch", "1") != False || backend.MarkDirty("save") != True, "semantic input");
+    failed = failed + FailWhen(backend.CopyClipboard("arm") != True || backend.PasteClipboard() != "arm", "clipboard");
+    failed = failed + FailWhen(backend.SaveState() != "main" || backend.CloseWindow("main") != True || backend.OpenComponent("main", "save", "Button") != False || backend.RestoreState("main") != True || backend.OpenComponent("main", "save", "Button") != True, "state restore");
+    failed = failed + FailWhen(backend.Draw("Fill", "#336699") != True || backend.Draw("GtkBox", "") != False, "drawing");
+    failed = failed + FailWhen(backend.OpenDialog("Confirm", "Save") != True || backend.OpenFile("Open") != "" || backend.Notify("Done") != True || backend.OpenMenu("File") != True, "backend fallback");
+    backend.ShutDown();
+    failed = failed + FailWhen(backend.OpenWindow("main", "Arm") != False, "backend shutdown");
+    Bool sawSoftware = False;
+    Bool sawDialog = False;
+    Bool sawStop = False;
+    Int index = 0;
+    While (index < backend.LogCount()) {
+        String entry = backend.LogAt(index);
+        If (entry == "Software Fill #336699") { sawSoftware = True; }
+        If (entry == "Fallback Dialog Confirm") { sawDialog = True; }
+        If (entry == "ShutDown") { sawStop = True; }
+        index = index + 1;
+    }
+    failed = failed + FailWhen(!sawSoftware || !sawDialog || !sawStop || backend.LogAt(0) != "OpenWindow main Arm", "backend log");
+    RxuNode markup = ReadExample("Examples/UI/Backend.rxu");
+    failed = failed + FailWhen(markup.Messages.Count() != 0 || markup.FindChild("Window").FindAttribute("Title").Text != "Arm", "Examples/UI/Backend.rxu");
+    UIBackend project = UIBackend();
+    failed = failed + FailWhen(project.ProjectClean("Examples/UI/Backend/App.rxp") != True || project.ProjectClean("Examples/UI/Backend/App.rx") != True || project.ProjectClean("Examples/UI/Backend/App.rxu") != True || project.ProjectClean("Examples/UI/Backend/Rejected.rx") != False || project.Messages.Find("RXU046") < 0, "universal project");
+    Return failed;
+}
+
 Public Function CheckSamples() -> Int
 Explain {
     Description: "Parse the RXU fixture, the examples, and the negative samples.";
@@ -5756,6 +6341,7 @@ Explain {
     failed = failed + CheckResources();
     failed = failed + CheckBuild();
     failed = failed + CheckBindings();
+    failed = failed + CheckBackend();
     If (failed == 0) {
         Print("RXU checks passed");
     } Else {
