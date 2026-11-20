@@ -38,15 +38,24 @@ jobs:
           if-no-files-found: error
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+            title="Robix ${GITHUB_REF_NAME}"
+          else
+            tag="latest"
+            title="Robix latest"
+          fi
+          gh release delete "${tag}" --cleanup-tag --yes || true
+          gh release create "${tag}" \
             dist/robix-linux-x64.zip \
             dist/robix-windows-x64.zip \
             dist/Roboticela.Robix.vsix \
-            --title "Robix ${GITHUB_REF_NAME}" \
+            --target "${GITHUB_SHA}" \
+            --title "${title}" \
             --notes "$(cat <<EOF
           ## Tools
 
