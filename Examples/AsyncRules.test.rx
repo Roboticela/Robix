@@ -1,0 +1,25 @@
+// Tests for Examples/AsyncRules.rx.
+
+Test RoboFetch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboUseFetch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

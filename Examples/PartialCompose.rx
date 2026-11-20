@@ -1,0 +1,40 @@
+// Partial binds the first argument. Compose applies the second function, then the first.
+Package Robotics.PartialCompose;
+
+Import Robix.Core;
+
+
+Public Function RoboAdd(Int left, Int right) -> Int
+Explain {
+    Description: "Add two integers.";
+    Input: left = "First integer", right = "Second integer";
+    Processing: "Return the sum.";
+    Output: "The sum.";
+} {
+    Return left + right;
+}
+
+Public Function square(Int n) -> Int
+Explain {
+    Description: "Square an integer.";
+    Input: n = "The integer";
+    Processing: "Multiply the integer by itself.";
+    Output: "The square.";
+} {
+    Return n * n;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show partial application and composition.";
+    Input: args = "Command-line arguments";
+    Processing: "Add 10 to 10, then square 3 plus 1.";
+    Output: "20, then 16.";
+} {
+    Let addTen = RoboAdd.Partial(10);
+    Int twenty = addTen(10);
+    Print(twenty);
+    Let transform = Function.Compose(square, Function(n) => n + 1);
+    Print(transform(3));
+    Return 0;
+}

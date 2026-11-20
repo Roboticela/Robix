@@ -1,0 +1,18 @@
+// An executable module can Await at the top level when it has no Main.
+Package Robotics.TopLevelAwait;
+
+Import Robix.Core;
+
+
+Public Async Function RoboRunWorkflow() -> Task<String>
+Explain {
+    Description: "Run the workflow and report the calibrated reading.";
+    Input: "No parameters.";
+    Processing: "Print the calibration report and return the same text.";
+    Output: "Calibrated reading: 50";
+} {
+    Print("Calibrated reading: 50");
+    Return "Calibrated reading: 50";
+}
+
+Await RoboRunWorkflow();

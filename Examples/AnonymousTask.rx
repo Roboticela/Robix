@@ -1,0 +1,27 @@
+// Task.Run accepts an anonymous Function lambda and runs it immediately.
+Package Robotics.AnonymousTask;
+
+Import Robix.Core;
+
+
+Public Function RoboWorker(Int amount) -> Int
+Explain {
+    Description: "Return the amount of work.";
+    Input: amount = "Work amount";
+    Processing: "Return the amount unchanged.";
+    Output: "The same amount.";
+} {
+    Return amount;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run an anonymous function through Task.Run.";
+    Input: args = "Command-line arguments";
+    Processing: "Run Function() => RoboWorker(1) and print the task value.";
+    Output: "1";
+} {
+    Let noNameTask = Task.Run(Function() => RoboWorker(1));
+    Print(noNameTask);
+    Return 0;
+}

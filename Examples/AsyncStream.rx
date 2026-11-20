@@ -1,0 +1,40 @@
+// WatchSensor yields one reading. Await For prints each item immediately.
+Package Robotics.AsyncStream;
+
+Import Robix.Core;
+
+
+Public Async Function RoboWatchSensors(CancellationToken token) -> Task<Void>
+Explain {
+    Description: "Print each reading from the sensor stream.";
+    Input: token = "Cancellation token for the watch";
+    Processing: "Open the sensor stream and print every reading.";
+    Output: "The sensor reading.";
+} {
+    AsyncStream<Int> readings = Hardware.WatchSensor(token);
+    Await For reading In readings {
+        Print(reading);
+    }
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Start a sensor watch.";
+    Input: "No parameters.";
+    Processing: "Create a cancellation source and await the watch.";
+    Output: "The sensor reading.";
+} {
+    CancellationSource source = CancellationSource();
+    Await RoboWatchSensors(source.Token);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show async stream iteration.";
+    Input: args = "Command-line arguments";
+    Processing: "Start the sensor watch.";
+    Output: "40";
+} {
+    RoboShow();
+    Return 0;
+}

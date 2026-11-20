@@ -192,12 +192,15 @@ Public Class TypeChecker {
         If (node.Kind == AstKind.Return || node.Kind == AstKind.Yield || node.Kind == AstKind.Throw || node.Kind == AstKind.Await) {
             String actual = "";
             If (node.Left != Null) { actual = This.Infer(node.Left); }
+            If (node.Kind == AstKind.Yield && node.Left != Null && This.currentReturn != "" && This.currentReturn != "Void") {
+                This.RequireAssignable(node.Left, This.currentReturn, actual);
+            }
             If (node.Kind == AstKind.Return && node.Left != Null && This.currentReturn != "" && This.currentReturn != "Void" && This.currentReturn != "Task<Void>" && This.currentReturn != "Promise<Void>") {
                 String expected = This.currentReturn;
                 If (This.asyncDepth > 0) { expected = This.InnerTask(This.currentReturn); }
                 This.RequireAssignable(node.Left, expected, actual);
             }
-            If (node.Kind == AstKind.Await && This.asyncDepth == 0 && This.strict) {
+            If (node.Kind == AstKind.Await && This.asyncDepth == 0 && This.functionDepth > 0 && This.strict) {
                 This.diagnostics.TypeError("RX107", "Await is only valid inside an Async function or top-level async context.", node.Line, node.Column, "Async Function", "synchronous context", "Move Await into an Async Function.");
             }
             Return;
@@ -219,6 +222,17 @@ Public Class TypeChecker {
     }
 
     Private Function CheckScoped(AstNode node) -> Void {
+        If (node.Kind == AstKind.Using) {
+            This.PushScope();
+            String leaseType = "AsyncLock";
+            If (node.Initializer != Null) { leaseType = This.Infer(node.Initializer); }
+            If (node.Name != "") {
+                This.Define(node.Name, leaseType, False, False, True, False, False, False, node.Line, node.Column);
+            }
+            If (node.Body != Null) { This.CheckNode(node.Body); }
+            This.PopScope();
+            Return;
+        }
         Bool unsafe = node.Kind == AstKind.Unsafe;
         If (unsafe) {
             This.unsafeDepth = This.unsafeDepth + 1;
@@ -373,7 +387,8 @@ Public Class TypeChecker {
         }
         If (node.Body != Null) {
             This.CheckNode(node.Body);
-            If (This.strict && returnType.Length() > 0 && returnType != "Void" && returnType != "Task<Void>" && returnType != "Promise<Void>" && !This.ReturnsAlways(node.Body) && node.Left == Null) {
+            Bool isIterator = node.Kind == AstKind.Function && node.FlagB;
+            If (!isIterator && This.strict && returnType.Length() > 0 && returnType != "Void" && returnType != "Task<Void>" && returnType != "Promise<Void>" && !This.ReturnsAlways(node.Body) && node.Left == Null) {
                 This.diagnostics.TypeError("RX108", "A non-Void function can finish without returning a value.", node.Line, node.Column, returnType, "missing return", "Return a value on every path.");
             }
         }
@@ -425,6 +440,9 @@ Public Class TypeChecker {
         } Else {
             String rightType = "Unknown";
             If (node.Right != Null) { rightType = This.Infer(node.Right); }
+            If (node.FlagA && This.asyncDepth == 0 && This.strict) {
+                This.diagnostics.TypeError("RX107", "Await For is only valid inside an Async function.", node.Line, node.Column, "Async Function", "synchronous function", "Mark the function Async.");
+            }
             If (node.Left != Null && node.Left.Name != "()" && !rightType.StartsWith("Enumerate<")) {
                 String elemType = This.ElementName(rightType);
                 If (elemType != "") { rightType = elemType; }
@@ -748,6 +766,9 @@ Public Class TypeChecker {
                         symbolReturn = "T";
                     } Else {
                         symbolReturn = symbol.TypeName;
+                        If (function != Null) {
+                            If (function.FlagB) { symbolReturn = "Array<" + symbol.TypeName + ">"; }
+                        }
                     }
                 }
             }
@@ -777,6 +798,15 @@ Public Class TypeChecker {
             If (node.Left.Left != Null && (node.Left.Left.Kind == AstKind.Name || node.Left.Left.Kind == AstKind.Member)) {
                 owner = node.Left.Left.Name;
             }
+            If (node.Left.Name == "Partial") {
+                AstNode? target = This.FunctionNodeOf(owner);
+                If (target != Null) {
+                    If (target.Type != Null) { Return "Lambda:" + This.TypeText(target.Type); }
+                }
+                Return "Lambda:Int";
+            }
+            If (owner == "Function" && node.Left.Name == "Compose") { Return "Lambda:Int"; }
+            If (node.Left.Name == "AcquireAsync") { Return "Task<AsyncLock>"; }
             If (node.Left.Name == "WithTimeout") {
                 If (receiverType == "") { Return "Task<String>"; }
                 Return receiverType;
@@ -880,6 +910,7 @@ Public Class TypeChecker {
         If (name == "Ref") { Return "Ref<" + This.ReferenceType(node) + ">"; }
         If (name == "TimeoutError") { Return "String"; }
         If (name == "CancellationSource") { Return "CancellationSource"; }
+        If (name == "AsyncLock") { Return "AsyncLock"; }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
         }
@@ -1032,6 +1063,13 @@ Public Class TypeChecker {
         }
         If (node.Kind == AstKind.If && node.Body != Null && node.Otherwise != Null) {
             Return This.ReturnsAlways(node.Body) && This.ReturnsAlways(node.Otherwise);
+        }
+        If (node.Kind == AstKind.Try && node.Body != Null && node.Children.Count() > 0) {
+            If (!This.ReturnsAlways(node.Body)) { Return False; }
+            For caught In node.Children {
+                If (caught.Body == Null || !This.ReturnsAlways(caught.Body)) { Return False; }
+            }
+            Return True;
         }
         Return False;
     }
@@ -1508,9 +1546,11 @@ Public Class TypeChecker {
 
     Private Function TaskCallType(String owner, String name) -> String {
         If (owner == "Task" && (name == "Delay" || name == "Yield")) { Return "Task<Void>"; }
+        If (owner == "Task" && name == "Detach") { Return "Void"; }
         If (owner == "Timer" && name == "Sleep") { Return "Task<Void>"; }
         If (owner == "Duration" && (name == "Milliseconds" || name == "Seconds")) { Return "Int"; }
         If (owner == "Hardware" && name == "ReadSensor") { Return "Int"; }
+        If (owner == "Hardware" && name == "WatchSensor") { Return "AsyncStream<Int>"; }
         If (owner == "Async" && name == "WaitUntil") { Return "Task<Bool>"; }
         If (owner == "Network" && name == "IsConnected") { Return "Bool"; }
         Return "";
@@ -1579,6 +1619,7 @@ Public Class TypeChecker {
         If (typeName.StartsWith("Span<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
         If (typeName.StartsWith("List:")) { Return typeName.Substring(5); }
         If (typeName.StartsWith("Array<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
+        If (typeName.StartsWith("AsyncStream<") && typeName.EndsWith(">")) { Return typeName.Substring(12, typeName.Length() - 13); }
         If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
         If (typeName.StartsWith("Set<") && typeName.EndsWith(">")) { Return typeName.Substring(4, typeName.Length() - 5); }
         If (typeName.StartsWith("Enumerate<") && typeName.EndsWith(">")) { Return typeName.Substring(10, typeName.Length() - 11); }

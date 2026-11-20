@@ -1,0 +1,42 @@
+// SendText succeeds, so Await stays in Try and returns Success.
+Package Robotics.TryNetwork;
+
+Import Robix.Core;
+
+
+Public Async Function RoboTryNetwork() -> Task<Result<String, NetworkError>>
+Explain {
+    Description: "Send text and convert the outcome to a Result.";
+    Input: "No parameters.";
+    Processing: "Await the send inside Try, and return Failure if a network error is caught.";
+    Output: "Success with the sent text.";
+} {
+    Try {
+        String response = Await Network.SendText("ping");
+        Return Success(response);
+    } Catch (NetworkError error) {
+        Return Failure(error);
+    }
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print the network result.";
+    Input: "No parameters.";
+    Processing: "Await the result and print it.";
+    Output: "Success:ping";
+} {
+    Result<String, NetworkError> outcome = Await RoboTryNetwork();
+    Print(outcome);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show rejected-task handling on the success path.";
+    Input: args = "Command-line arguments";
+    Processing: "Start the network attempt.";
+    Output: "Success:ping";
+} {
+    RoboShow();
+    Return 0;
+}

@@ -1,0 +1,51 @@
+// Download awaits one response. The iterator yields every index in the range.
+Package Robotics.DownloadAndCount;
+
+Import Robix.Core;
+
+
+Public Async Function RoboDownload() -> Task<String>
+Explain {
+    Description: "Download a text response.";
+    Input: "No parameters.";
+    Processing: "Send a network request asynchronously.";
+    Output: "Downloaded text.";
+} {
+    String data = Await Network.SendText("ping");
+    Return data;
+}
+
+Public Iterator Function RoboCount(Int start, Int end) -> Int
+Explain {
+    Description: "Yield every integer from start through end.";
+    Input: start = "First index", end = "Last index";
+    Processing: "Yield each index in the inclusive range.";
+    Output: "The yielded integers.";
+} {
+    For index In start..=end {
+        Yield index;
+    }
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print the download and the counted range.";
+    Input: "No parameters.";
+    Processing: "Await the download, then print the iterator values.";
+    Output: "ping, then 1, 2, and 3.";
+} {
+    String data = Await RoboDownload();
+    Print(data);
+    Print(RoboCount(1, 3));
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show download and iterator count.";
+    Input: args = "Command-line arguments";
+    Processing: "Start the demonstration.";
+    Output: "ping, then 1, 2, and 3.";
+} {
+    RoboShow();
+    Return 0;
+}

@@ -1,0 +1,7 @@
+// Tests for Examples/TopLevelAwait.rx.
+
+Test RoboRunWorkflow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

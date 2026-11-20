@@ -573,6 +573,11 @@ Public Class NativeProgram {
             If (parameter.FlagA) { parameterType = "MutBind:" + parameterType; }
             This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
+        Bool iterator = node.Kind == AstKind.Function && node.FlagB;
+        If (iterator) {
+            IrValue bucket = This.CallRuntime("rx_list_new", List<String>(), False);
+            This.Alloca("#yields", "Array<" + record.ReturnType + ">", bucket.Value);
+        }
         If (node.Body != Null) {
             This.EmitStatement(node.Body);
         } Else If (node.Left != Null) {
@@ -585,8 +590,10 @@ Public Class NativeProgram {
             This.Terminated = True;
         }
         If (!This.Terminated) {
-            If (This.IsVoid(record.ReturnType)) { This.Emit("ret void"); }
-            If (!This.IsVoid(record.ReturnType)) { This.Emit("ret i64 0"); }
+            If (iterator) {
+                This.Emit("ret i64 " + This.LoadName("#yields"));
+            } Else If (This.IsVoid(record.ReturnType)) { This.Emit("ret void"); }
+            Else { This.Emit("ret i64 0"); }
         }
         This.Raw("}");
         Return This.JoinFunction();
@@ -679,7 +686,20 @@ Public Class NativeProgram {
                 found = True;
             }
         }
-        If (!found) { Return ""; }
+        If (!found) {
+            This.ResetFunction("", "Void");
+            This.Raw("define i32 @main(i32 %argc, ptr %argv) {");
+            This.Raw("Lentry:");
+            If (This.InitSymbol != "") {
+                This.Emit("call void @" + This.InitSymbol + "()");
+            }
+            For child In module.Children {
+                If (child.Kind == AstKind.Await) { This.EmitStatement(child); }
+            }
+            If (!This.Terminated) { This.Emit("ret i32 0"); }
+            This.Raw("}");
+            Return This.JoinFunction();
+        }
         String symbol = This.FunctionSymbol(This.FileName, "Main");
         String startup = "";
         If (This.InitSymbol != "") {
@@ -972,7 +992,7 @@ Public Class NativeProgram {
                 This.UntypedLiteral = False;
                 value = initial.Value;
                 sourceType = initial.TypeName;
-                If (typeName == "" || typeName == "Tuple" || sourceType.StartsWith("Lambda:") || sourceType.StartsWith("Throttle:")) { typeName = sourceType; }
+                If (typeName == "" || typeName == "Tuple" || sourceType.StartsWith("Lambda:") || sourceType.StartsWith("Throttle:") || sourceType.StartsWith("Partial:") || sourceType.StartsWith("Compose:")) { typeName = sourceType; }
             }
             If (typeName == "") { typeName = "Int"; }
             If (typeName == "Decimal" && sourceType != "Decimal" && node.Initializer != Null) {
@@ -1007,6 +1027,21 @@ Public Class NativeProgram {
             For child In node.Children { This.EmitStatement(child); }
             Return;
         }
+        If (node.Kind == AstKind.Yield) {
+            String item = "0";
+            If (node.Left != Null) {
+                IrValue value = This.EmitExpr(node.Left);
+                item = value.Value;
+            }
+            IrValue bucket = This.Lookup("#yields");
+            If (bucket.Value != "") {
+                Var args = List<String>();
+                args.Add(This.LoadName("#yields"));
+                args.Add(item);
+                This.CallRuntime("rx_list_add", args, True);
+            }
+            Return;
+        }
         If (node.Kind == AstKind.Return) {
             If (This.IsVoid(This.ReturnType)) {
                 This.Emit("ret void");
@@ -1032,6 +1067,15 @@ Public Class NativeProgram {
         If (node.Kind == AstKind.If) { This.EmitIf(node); Return; }
         If (node.Kind == AstKind.While || node.Kind == AstKind.DoWhile || node.Kind == AstKind.Repeat || node.Kind == AstKind.Loop) { This.EmitWhile(node); Return; }
         If (node.Kind == AstKind.For) { This.EmitFor(node); Return; }
+        If (node.Kind == AstKind.Using) {
+            Int mark = This.ScopeCount;
+            IrValue lease = This.Pair("0", "AsyncLock");
+            If (node.Initializer != Null) { lease = This.EmitExpr(node.Initializer); }
+            If (node.Name != "") { This.Alloca(node.Name, lease.TypeName, lease.Value); }
+            If (node.Body != Null) { This.EmitStatement(node.Body); }
+            This.ScopeCount = mark;
+            Return;
+        }
         If (node.Kind == AstKind.Block) { This.EmitBlock(node); Return; }
         If (node.Kind == AstKind.Match) { This.EmitMatch(node); Return; }
         If (node.Kind == AstKind.Try) {
@@ -1895,6 +1939,13 @@ Public Class NativeProgram {
     }
 
     Private Function EmitNamedCall(AstNode left, List<String> arguments, List<String> types) -> IrValue {
+        If (left.Name == "AsyncLock") {
+            Var created = List<String>();
+            created.Add("1");
+            IrValue gate = This.CallRuntime("rx_obj_new", created, False);
+            This.StoreObjectField(gate.Value, "0", "0");
+            Return This.Pair(gate.Value, "AsyncLock");
+        }
         If (left.Name == "CancellationSource") {
             Var created = List<String>();
             created.Add("2");
@@ -1930,6 +1981,20 @@ Public Class NativeProgram {
                 textArgs.Add(printed);
                 textArgs.Add(tag);
                 IrValue text = This.CallRuntime("rx_list_text", textArgs, False);
+                printed = text.Value;
+                kind = "1";
+            } Else If (types.Count() > 0 && types[0].StartsWith("Result<")) {
+                String tag = This.LoadListItem(printed, "1");
+                String payload = This.LoadListItem(printed, "0");
+                IrValue payloadText = This.ToStringValue(payload, This.WrappedType(types[0]));
+                String flag = This.Fresh("cond");
+                This.Emit(flag + " = icmp eq i64 " + tag + ", 1");
+                String prefix = This.Fresh("v");
+                This.Emit(prefix + " = select i1 " + flag + ", i64 " + This.StringConst("Success:") + ", i64 " + This.StringConst("Failure:"));
+                Var joined = List<String>();
+                joined.Add(prefix);
+                joined.Add(payloadText.Value);
+                IrValue text = This.CallRuntime("rx_str_concat", joined, False);
                 printed = text.Value;
                 kind = "1";
             } Else If (types.Count() > 0 && types[0].StartsWith("Map<") && This.MapValueType(types[0]) == "Any") {
@@ -2026,6 +2091,59 @@ Public Class NativeProgram {
         If (info.Name != "") { Return This.Construct(left.Name, info, arguments); }
         String targetName = left.Name;
         IrValue local = This.Lookup(left.Name);
+        If (local.TypeName.StartsWith("Partial:")) {
+            String functionName = local.TypeName.Substring(8);
+            String bound = This.LoadSlot(local.Value);
+            Var full = List<String>();
+            full.Add(bound);
+            For arg In arguments { full.Add(arg); }
+            FunctionInfo target = This.FindFunction(functionName, This.FileName);
+            If (target.Name != "") {
+                String symbol = This.FunctionSymbol(target.FileName, functionName);
+                If (This.IsVoid(target.ReturnType)) {
+                    This.CallRuntime(symbol, full, True);
+                    Return This.Pair("0", "Void");
+                }
+                IrValue value = This.CallRuntime(symbol, full, False);
+                String ret = target.ReturnType;
+                If (ret == "") { ret = "Int"; }
+                Return This.Pair(value.Value, ret);
+            }
+        }
+        If (local.TypeName.StartsWith("Compose:")) {
+            String rest = local.TypeName.Substring(8);
+            Int colon = rest.IndexOf(":");
+            String outerName = rest;
+            String innerName = "";
+            If (colon >= 0) {
+                outerName = rest.Substring(0, colon);
+                innerName = rest.Substring(colon + 1);
+            }
+            String mid = "0";
+            FunctionInfo innerFn = This.FindFunction(innerName, This.FileName);
+            If (innerFn.Name != "") {
+                String symbol = This.FunctionSymbol(innerFn.FileName, innerName);
+                If (This.IsVoid(innerFn.ReturnType)) { This.CallRuntime(symbol, arguments, True); }
+                Else {
+                    IrValue value = This.CallRuntime(symbol, arguments, False);
+                    mid = value.Value;
+                }
+            }
+            Var outerArgs = List<String>();
+            outerArgs.Add(mid);
+            FunctionInfo outerFn = This.FindFunction(outerName, This.FileName);
+            If (outerFn.Name != "") {
+                String symbol = This.FunctionSymbol(outerFn.FileName, outerName);
+                If (This.IsVoid(outerFn.ReturnType)) {
+                    This.CallRuntime(symbol, outerArgs, True);
+                    Return This.Pair("0", "Void");
+                }
+                IrValue value = This.CallRuntime(symbol, outerArgs, False);
+                String ret = outerFn.ReturnType;
+                If (ret == "") { ret = "Int"; }
+                Return This.Pair(value.Value, ret);
+            }
+        }
         If (local.TypeName.StartsWith("Throttle:")) {
             String handle = This.LoadSlot(local.Value);
             String flag = This.LoadObjectField(handle, "0");
@@ -2071,6 +2189,7 @@ Public Class NativeProgram {
             String ret = record.ReturnType;
             If (ret == "T" && types.Count() > 0 && types[0] != "") { ret = types[0]; }
             If (ret == "") { ret = "Int"; }
+            If (record.Node.Kind == AstKind.Function && record.Node.FlagB) { ret = "Array<" + ret + ">"; }
             Return This.Pair(value.Value, ret);
         }
         Return This.Pair("0", "Int");
@@ -2218,6 +2337,7 @@ Public Class NativeProgram {
             If (staticCall.TypeName != "Missing") { Return staticCall; }
         }
         IrValue receiver = This.EmitExpr(member.Left);
+        If (member.Name == "AcquireAsync") { Return This.Pair(receiver.Value, "Task<AsyncLock>"); }
         If (member.Name == "WithTimeout") { Return receiver; }
         If (member.Name == "Cancel" && receiver.TypeName == "TimerHandle") {
             This.StoreObjectField(receiver.Value, "0", "1");
@@ -2575,8 +2695,25 @@ Public Class NativeProgram {
         }
         If (owner == "Promise" && (method == "Create" || method == "FromCallback" || method == "Resolved" || method == "Rejected")) { Return This.Pair("0", "Promise<Int>"); }
         If (owner == "LegacyApi" && method == "ReadText") { Return This.Pair("0", "String"); }
-        If (owner == "Task" && (method == "Delay" || method == "Yield")) { Return This.Pair("0", "Void"); }
+        If (owner == "Task" && (method == "Delay" || method == "Yield" || method == "Detach")) { Return This.Pair("0", "Void"); }
         If (owner == "Timer" && method == "Sleep") { Return This.Pair("0", "Void"); }
+        If (method == "Partial") {
+            FunctionInfo target = This.FindFunction(owner, This.FileName);
+            If (target.Name != "") {
+                String bound = "0";
+                If (arguments.Count() > 0) { bound = arguments[0]; }
+                Return This.Pair(bound, "Partial:" + owner);
+            }
+        }
+        If (owner == "Function" && method == "Compose") {
+            String outer = "Int";
+            String inner = "Int";
+            If (types.Count() > 0 && types[0] != "") { outer = types[0]; }
+            If (types.Count() > 1 && types[1] != "") { inner = types[1]; }
+            If (outer.StartsWith("Lambda:")) { outer = outer.Substring(7); }
+            If (inner.StartsWith("Lambda:")) { inner = inner.Substring(7); }
+            Return This.Pair("0", "Compose:" + outer + ":" + inner);
+        }
         If (owner == "Function" && method == "Debounce") {
             If (types.Count() > 0 && types[0] != "") { Return This.Pair("0", types[0]); }
             Return This.Pair("0", "Lambda:Void");
@@ -2636,6 +2773,14 @@ Public Class NativeProgram {
             Return This.Pair(scaled, "Int");
         }
         If (owner == "Hardware" && method == "ReadSensor") { Return This.Pair("40", "Int"); }
+        If (owner == "Hardware" && method == "WatchSensor") {
+            IrValue stream = This.CallRuntime("rx_list_new", List<String>(), False);
+            Var reading = List<String>();
+            reading.Add(stream.Value);
+            reading.Add("40");
+            This.CallRuntime("rx_list_add", reading, True);
+            Return This.Pair(stream.Value, "AsyncStream<Int>");
+        }
         If (owner == "Timer" && (method == "SetTimeout" || method == "SetInterval" || method == "SetIntervalAsync")) {
             Var created = List<String>();
             created.Add("2");
@@ -3349,6 +3494,7 @@ Public Class NativeProgram {
     Private Function ElementType(String typeName) -> String {
         If (typeName.StartsWith("List:")) { Return typeName.Substring(5); }
         If (typeName.StartsWith("Array<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }
+        If (typeName.StartsWith("AsyncStream<") && typeName.EndsWith(">")) { Return typeName.Substring(12, typeName.Length() - 13); }
         If (typeName.StartsWith("List<") && typeName.EndsWith(">")) { Return typeName.Substring(5, typeName.Length() - 6); }
         If (typeName.StartsWith("Set<") && typeName.EndsWith(">")) { Return typeName.Substring(4, typeName.Length() - 5); }
         If (typeName.StartsWith("Queue<") && typeName.EndsWith(">")) { Return typeName.Substring(6, typeName.Length() - 7); }

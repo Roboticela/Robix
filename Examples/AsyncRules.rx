@@ -1,0 +1,49 @@
+// Await reads Task<T>. Detach runs a task without leaving it unobserved.
+Package Robotics.AsyncRules;
+
+Import Robix.Core;
+
+
+Public Async Function RoboFetch() -> Task<String>
+Explain {
+    Description: "Send one text message.";
+    Input: "No parameters.";
+    Processing: "Await the network send.";
+    Output: "The sent text.";
+} {
+    String data = Await Network.SendText("ping");
+    Return data;
+}
+
+Public Async Function RoboUseFetch() -> Task<String>
+Explain {
+    Description: "Call another async function and await it.";
+    Input: "No parameters.";
+    Processing: "Await RoboFetch directly.";
+    Output: "The fetched text.";
+} {
+    Return Await RoboFetch();
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Detach one fetch and print another.";
+    Input: "No parameters.";
+    Processing: "Detach a task, then await a second fetch and print it.";
+    Output: "ping";
+} {
+    Task.Detach(RoboFetch());
+    String data = Await RoboUseFetch();
+    Print(data);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show async call, await, and detach.";
+    Input: args = "Command-line arguments";
+    Processing: "Start the async demonstration.";
+    Output: "ping";
+} {
+    RoboShow();
+    Return 0;
+}

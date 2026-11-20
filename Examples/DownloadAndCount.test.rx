@@ -1,0 +1,25 @@
+// Tests for Examples/DownloadAndCount.rx.
+
+Test RoboDownload {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

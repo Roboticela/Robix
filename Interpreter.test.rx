@@ -774,12 +774,20 @@ Test IsTaskLibrary {
         Input: owner = "Function", name = "Debounce";
         Output: True;
     }
+    Case "compose" {
+        Input: owner = "Function", name = "Compose";
+        Output: True;
+    }
     Case "throttle" {
         Input: owner = "Function", name = "Throttle";
         Output: True;
     }
     Case "wait" {
         Input: owner = "Async", name = "WaitUntil";
+        Output: True;
+    }
+    Case "watch" {
+        Input: owner = "Hardware", name = "WatchSensor";
         Output: True;
     }
     Case "when all" {
@@ -837,6 +845,10 @@ Test TaskLibraryValue {
         Input: owner = "Function", name = "Debounce", supplied = [];
         Assert: Result.Text == "";
     }
+    Case "compose" {
+        Input: owner = "Function", name = "Compose", supplied = [];
+        Assert: Result.Text == "Compose";
+    }
     Case "throttle" {
         Input: owner = "Function", name = "Throttle", supplied = [];
         Assert: Result.Text == "";
@@ -844,6 +856,10 @@ Test TaskLibraryValue {
     Case "wait" {
         Input: owner = "Async", name = "WaitUntil", supplied = [];
         Assert: Result.Boolean == False;
+    }
+    Case "watch" {
+        Input: owner = "Hardware", name = "WatchSensor", supplied = [];
+        Assert: Result.Text == "AsyncStream";
     }
     Case "when all" {
         Input: owner = "Task", name = "WhenAll", supplied = [];

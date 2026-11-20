@@ -1,0 +1,48 @@
+// AcquireAsync grants the lease immediately. Using runs the protected update.
+Package Robotics.AsyncLock;
+
+Import Robix.Core;
+
+
+Public Function UpdateSharedState() -> Void
+Explain {
+    Description: "Print the shared-state update.";
+    Input: "No parameters.";
+    Processing: "Print the update marker.";
+    Output: "updated";
+} {
+    Print("updated");
+}
+
+Public Async Function RoboSafeUpdate(AsyncLock gate) -> Task<Void>
+Explain {
+    Description: "Update shared state while holding an async lock.";
+    Input: gate = "The async lock";
+    Processing: "Acquire the lease and update the shared state.";
+    Output: "updated";
+} {
+    Using lease = Await gate.AcquireAsync();
+    UpdateSharedState();
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Create a lock and run the safe update.";
+    Input: "No parameters.";
+    Processing: "Await the locked update.";
+    Output: "updated";
+} {
+    AsyncLock gate = AsyncLock();
+    Await RoboSafeUpdate(gate);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show the async lock.";
+    Input: args = "Command-line arguments";
+    Processing: "Start the locked update.";
+    Output: "updated";
+} {
+    RoboShow();
+    Return 0;
+}

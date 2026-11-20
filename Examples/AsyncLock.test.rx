@@ -1,0 +1,25 @@
+// Tests for Examples/AsyncLock.rx.
+
+Test UpdateSharedState {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboSafeUpdate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

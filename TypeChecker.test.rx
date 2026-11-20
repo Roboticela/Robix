@@ -319,6 +319,10 @@ Test TaskCallType {
         Input: owner = "Task", name = "Delay";
         Output: "Task<Void>";
     }
+    Case "detach" {
+        Input: owner = "Task", name = "Detach";
+        Output: "Void";
+    }
     Case "sleep" {
         Input: owner = "Timer", name = "Sleep";
         Output: "Task<Void>";
@@ -326,6 +330,10 @@ Test TaskCallType {
     Case "sensor" {
         Input: owner = "Hardware", name = "ReadSensor";
         Output: "Int";
+    }
+    Case "watch" {
+        Input: owner = "Hardware", name = "WatchSensor";
+        Output: "AsyncStream<Int>";
     }
     Case "wait" {
         Input: owner = "Async", name = "WaitUntil";
