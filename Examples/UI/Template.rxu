@@ -1,0 +1,6 @@
+<!-- A template supplies the visual root and leaves the control kind in place. -->
+<Template Name="ArmButton">
+  <Border>
+    <Content/>
+  </Border>
+</Template>

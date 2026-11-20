@@ -1,0 +1,7 @@
+Project "BadReference"
+{
+    Source
+    {
+        Include: "BadReference.rxu";
+    }
+}

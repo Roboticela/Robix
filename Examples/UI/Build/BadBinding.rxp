@@ -1,0 +1,12 @@
+Project "BadBinding"
+{
+    Source
+    {
+        Include: "BadBinding.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Button";
+    }
+}

@@ -1,0 +1,13 @@
+Project "BadNest"
+{
+    Source
+    {
+        Include: "BadNest.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Button";
+        Capability: "Window";
+    }
+}

@@ -92,15 +92,6 @@ Reviewer / date:
 **Dependencies:** P04  
 **Source coverage:** Original §§3, 10–11, 16
 
-- [ ] **P05.01** Implement resource types: Color, Brush, Number, String, Boolean, Font, Style, Template, Image, Icon, Dimension, Thickness, Duration, Animation, Data, Theme.
-- [ ] **P05.02** Implement lookup order: component → ancestors → document → application → built-in defaults.
-- [ ] **P05.03** Implement local overriding, app-wide resource registry, duplicate-key rules and missing/cyclic-resource diagnostics.
-- [ ] **P05.04** Implement `{Resource Key}` with typed values, dynamic refresh policy and fallback behavior.
-- [ ] **P05.05** Implement `Style`/`Setter` and style class application with deterministic precedence.
-- [ ] **P05.06** Implement state styles: Hover, Pressed, Disabled, Focused and other states selected in P00.
-- [ ] **P05.07** Implement themes, resource changes and theme switching without duplicating controls.
-- [ ] **P05.08** Implement definition-based templates and visual-template application while retaining component behavior.
-- [ ] **P05.09** Test nested shadowing, state transitions, theme reload, style precedence and template binding.
 - [ ] **G05 — PHASE SIGN-OFF:** Reusable style and template work across documents and backend-neutral controls.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P06 — RX compiler and build integration
@@ -108,15 +99,6 @@ Reviewer / date:
 **Dependencies:** P02–P05  
 **Source coverage:** Original §§20, 25; strict compilation amendments
 
-- [ ] **P06.01** Connect RX `.rx` and RXU `.rxu` import/loading to `.rxp` project/build asset management.
-- [ ] **P06.02** Implement RXU import resolver, component definition resolver, library/import/include resolution and circular import checks.
-- [ ] **P06.03** Implement component, property, nesting, resource and reference type checking.
-- [ ] **P06.04** Implement expression, binding target/source, conversion and missing event-handler validation.
-- [ ] **P06.05** Implement duplicate ID, missing asset, invalid control flow and backend capability diagnostics.
-- [ ] **P06.06** Validate all reachable `.rxu` files (including dynamically referenced packaged assets per policy) during build.
-- [ ] **P06.07** Provide meaningful stable `RXUxxx` diagnostics with source spans and fix suggestions.
-- [ ] **P06.08** Implement required runtime validation for dynamic values not statically known.
-- [ ] **P06.09** Write success/failure compile fixtures and ensure invalid RXU fails packaging rather than silently continuing.
 - [ ] **G06 — PHASE SIGN-OFF:** CLI build fails on every specified error class and reports location/expected type.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P07 — Reactive values, expressions and binding engine
@@ -124,15 +106,6 @@ Reviewer / date:
 **Dependencies:** P04, P06  
 **Source coverage:** Original §§8, 24; dynamic data, binding modes, realtime variables and reactive collections amendments
 
-- [ ] **P07.01** Implement `Observable<T>`, `ObservableList<T>` or equivalent and scoped `DataContext` inheritance.
-- [ ] **P07.02** Implement expression interpreter/type checker: property and collection access, comparisons, arithmetic, logic, null checks, conditional expressions and safe approved functions.
-- [ ] **P07.03** Implement change dependency tracking, subscriptions, unsubscribe/dispose, cycle detection and bounded recalculation.
-- [ ] **P07.04** Implement binding modes `OneWay`, `TwoWay`, `OneTime`, `OneWayToSource`, `Reactive`, `Manual`.
-- [ ] **P07.05** Implement bindings for nested values (`User.Name`), input changes and dynamic collection mutations.
-- [ ] **P07.06** Implement converters, invert option, fallbacks, null handling, validation errors, update triggers and diagnostics.
-- [ ] **P07.07** Implement explicit data refresh and interaction with direct property setting/styling precedence.
-- [ ] **P07.08** Test real-time changes, two-way input, list add/remove/reorder, stale subscriptions and reentrant update loops.
-- [ ] **P07.09** Ensure sensitive inputs such as PasswordBox are handled securely and not inadvertently logged.
 - [ ] **G07 — PHASE SIGN-OFF:** Reactive login and list fixtures update without manual UI refresh; no leak after document disposal.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P08 — Backend abstraction and automatic OS integration

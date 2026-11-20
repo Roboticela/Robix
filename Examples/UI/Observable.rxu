@@ -1,0 +1,3 @@
+<Window DataContext="User">
+  <Button ToolTip={Binding Name} Mode="OneWay"/>
+</Window>

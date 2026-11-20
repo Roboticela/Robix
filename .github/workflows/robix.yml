@@ -34,6 +34,7 @@ jobs:
           path: |
             dist/robix-linux-x64.zip
             dist/robix-windows-x64.zip
+            dist/Update-*.zip
             dist/Roboticela.Robix.vsix
           if-no-files-found: error
 
@@ -42,24 +43,33 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          version="$(bash .github/scripts/version.sh)"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             tag="${GITHUB_REF_NAME}"
-            title="Robix ${GITHUB_REF_NAME}"
           else
             tag="latest"
-            title="Robix latest"
+          fi
+          title="Robix ${version}"
+          shopt -s nullglob
+          updates=(dist/Update-*.zip)
+          if [ "${#updates[@]}" -eq 0 ]; then
+            echo "error: Update-${version} archives were not built" >&2
+            exit 1
           fi
           gh release delete "${tag}" --cleanup-tag --yes || true
           gh release create "${tag}" \
             dist/robix-linux-x64.zip \
             dist/robix-windows-x64.zip \
+            "${updates[@]}" \
             dist/Roboticela.Robix.vsix \
             --target "${GITHUB_SHA}" \
             --title "${title}" \
             --notes "$(cat <<EOF
-          ## Tools
+          ## Tools ${version}
 
-          Unzip the archive for your system. llc and lld are already inside it.
+          The version is written in \`Robix/VERSION.txt\`.
+
+          Unzip the full archive for a new install. llc and lld are already inside it.
 
           Linux:
 
@@ -71,6 +81,10 @@ jobs:
           \`\`\`
 
           Windows: unzip \`robix-windows-x64.zip\` and add \`Robix\\Bin\` to \`PATH\`. The layout matches Linux. \`llc.exe\` generates the machine code and \`ld.lld.exe\` links it with the compiled runtime.
+
+          ## Update
+
+          \`Update-${version}-linux-x64.zip\` and \`Update-${version}-windows-x64.zip\` contain the same Robix files without LLVM. Unzip the matching archive over an existing \`Robix\` folder. \`Shared/Tools/Llvm\` and \`Library/Link\` stay where they are.
 
           ## Editor
 

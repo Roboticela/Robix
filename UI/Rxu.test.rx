@@ -940,6 +940,693 @@ Test UIElement.Segment {
     Output: True;
 }
 
+Test UIElement.ClearStyle {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.Set {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.Get {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.TypeOfKey {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.Has {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.Count {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.KeyAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.Remove {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.Load {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.IndexOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.KnownType {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.Valid {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.IsNumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.IsColor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.IsDimension {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.IsThickness {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceTable.IsDuration {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StyleSheet.AddSetter {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StyleSheet.SetterCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StyleSheet.Load {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StyleSheet.Apply {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StyleSheet.Wins {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StyleSheet.KnownState {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.Resolve {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.Bind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.RefreshBindings {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.AddTheme {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.SwitchTheme {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.LoadTemplate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.ApplyTemplate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ResourceLibrary.FindRaw {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.Accepts {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.AddInclude {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.AddAsset {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.AddHandler {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.AddCapability {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.LoadGraph {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.ReadProject {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.PackageReady {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.RuntimeCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildLoad {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildCollect {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildVerify {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildLine {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildQuoted {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildResolve {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildDirectory {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildHas {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildKnown {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildProbeKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildSkip {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildCopy {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildPop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuBuild.BuildNote {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.SetDataContext {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.ClearDataContext {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.ContextKey {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UIElement.TakeDataContext {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.CheckExpression {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.EvaluateExpression {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.DependencyCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.DependencyAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprTernary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprOr {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprAnd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprCompare {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprAdd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprMul {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprUnary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprPrimary {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprPath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprNumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprDigits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprWord {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprOperator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprCase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprSkip {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprPeek {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprEat {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprIsDigit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprIsLetter {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RxuExpression.ExprFail {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.DefineValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ChangeValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ReadValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.HasPath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.DefineList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.AddItem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.RemoveItem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.MoveItem {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ItemAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ItemCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.BindTo {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.PushInput {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.RefreshBound {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.DisposeBound {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.DisposeAll {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ActiveCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.TraceValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ApplyBound {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.NotifyWatchers {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.DependsOn {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ConvertText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ConvertBack {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.MaskText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.PlainPath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.FindValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.FindList {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindingEngine.ChangeCase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckBindings {
+    Case "bindings" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test CheckBuild {
+    Case "project build" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test CheckResources {
+    Case "resources styles themes" {
+        Input:;
+        Output: 0;
+    }
+}
+
 Test CheckProperties {
     Case "typed properties" {
         Input:;

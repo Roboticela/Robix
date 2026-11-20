@@ -1,0 +1,4 @@
+<!-- Switching a theme replaces application resources and keeps the same control. -->
+<Theme Name="Dark">
+  <Color Name="Accent" Value="#112233"/>
+</Theme>

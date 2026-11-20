@@ -162,7 +162,7 @@ Extra arguments for a program started with Run go in `robix.run.arguments`.
 
 The editor looks for `robix` and `robixc` on your PATH. A setting is used only when you fill in `robix.interpreterPath` or `robix.compilerPath`. Inside a Robix checkout, `Build/bootstrap` is the last place it looks.
 
-GitHub Actions builds three files. `robix-linux-x64.zip` and `robix-windows-x64.zip` are the toolchains. Each one already contains LLVM's `llc` and `lld`, so nothing else has to be installed to compile. Unzip the archive for your system and add its `Robix/Bin` directory to PATH. On Linux the commands are `Robix` and `Robixc`. `Robix` runs a program. `Robixc` compiles every `.rx` file in a folder into one program: `llc` writes the machine code and `lld` links the compiled runtime in `Library/Runtime.lib`. The Windows archive has the same folders, `llc.exe`, `ld.lld.exe`, and the Windows runtime. `Roboticela.Robix.vsix` is the editor package: choose **Extensions: Install from VSIX** and select that file. A tagged release publishes all three. Any other run keeps them as workflow artifacts.
+GitHub Actions builds the toolchains, their updates, and the editor. The version is `VERSION` in the repository and is written to `Robix/VERSION.txt`. A tag such as `v1.2.3` uses that tag as the version. `robix-linux-x64.zip` and `robix-windows-x64.zip` are the full toolchains. Each one already contains LLVM's `llc` and `lld`, so nothing else has to be installed to compile. Unzip the archive for your system and add its `Robix/Bin` directory to PATH. On Linux the commands are `Robix` and `Robixc`. `Robix` runs a program. `Robixc` compiles every `.rx` file in a folder into one program: `llc` writes the machine code and `lld` links the compiled runtime in `Library/Runtime.lib`. The Windows archive has the same folders, `llc.exe`, `ld.lld.exe`, and the Windows runtime. `Update-[Version]-linux-x64.zip` and `Update-[Version]-windows-x64.zip` contain everything except LLVM. Unzip the matching update over an existing `Robix` folder to replace the tools, runtime, and packages. `Shared/Tools/Llvm` and `Library/Link` stay in place. `Roboticela.Robix.vsix` is the editor package at the same version: choose **Extensions: Install from VSIX** and select that file. A push to main publishes these files on the `latest` release. A version tag publishes a release for that version.
 
 ### Run one function or class
 
@@ -193,3 +193,9 @@ The extension itself uses the Robix language mark in the Extensions view.
 | --- | --- |
 | Comment or uncomment the line | Ctrl+/ |
 | Comment or uncomment the block | Shift+Alt+A |
+
+## License
+
+Robix, including this editor, is licensed under the GNU Affero General Public License, version 3. The complete license is the `LICENSE` file in this package.
+
+LLVM is not part of that license. When the toolchain archive includes `llc` and `lld`, their license is `Shared/Tools/Llvm/LLVM-LICENSE` in that archive. The C and C++ libraries used only to link a program have their own files, `Library/Link/LICENSE-GLIBC` and `Library/Link/LICENSE-GCC`.

@@ -461,13 +461,23 @@ function tokenize(source) {
     return { tokens, diagnostics };
 }
 
+function keywordContinues(lower) {
+    for (const word of KEYWORDS.keys()) {
+        if (word.length > lower.length && word.startsWith(lower)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function keywordCaseEdits(text, changeOffset, inserted) {
-    if (!inserted || /^[A-Za-z0-9_]+$/.test(inserted)) {
+    if (!inserted) {
         return [];
     }
     const { tokens } = tokenize(text);
     const edits = [];
-    const boundaryOnly = /^[^A-Za-z0-9_]+$/.test(inserted);
+    const lettersOnly = /^[A-Za-z0-9_]+$/.test(inserted);
+    const boundaryOnly = !lettersOnly && /^[^A-Za-z0-9_]+$/.test(inserted);
     const regionStart = changeOffset;
     const regionEnd = changeOffset + inserted.length;
     for (const token of tokens) {
@@ -479,9 +489,15 @@ function keywordCaseEdits(text, changeOffset, inserted) {
         if (!closed) {
             continue;
         }
-        const hit = boundaryOnly
-            ? token.end === changeOffset
-            : token.start >= regionStart && token.end <= regionEnd;
+        let hit = false;
+        if (boundaryOnly) {
+            hit = token.end === changeOffset;
+        } else if (!lettersOnly) {
+            hit = token.start >= regionStart && token.end <= regionEnd;
+        } else if (token.end !== changeOffset) {
+            const overlaps = token.start < regionEnd && token.end > regionStart;
+            hit = overlaps && !keywordContinues(token.text.toLowerCase());
+        }
         if (hit) {
             edits.push({ start: token.start, end: token.end, text: token.canonical });
         }

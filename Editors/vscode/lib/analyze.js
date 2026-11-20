@@ -6,6 +6,7 @@ const {
     BUILTIN_FUNCTIONS,
     BUILTIN_TYPES,
     NAMESPACES,
+    PACKAGES,
     modifierMask
 } = require("./keywords");
 
@@ -51,7 +52,8 @@ function parseFile(source, tokens, symbols, diagnostics, known) {
         relax: 0,
         container: "",
         fuel: 0,
-        localStack: [[]]
+        localStack: [[]],
+        imports: new Set()
     };
     checkDelimiters(state);
     while (!done(state)) {
@@ -61,6 +63,7 @@ function parseFile(source, tokens, symbols, diagnostics, known) {
             eat(state);
         }
     }
+    colorImportedUses(state);
     reportUnknown(state);
 }
 
@@ -455,7 +458,7 @@ function parseModifiers(state) {
 
 function parsePackage(state) {
     const keyword = eat(state);
-    const name = readDotted(state, "namespace");
+    const name = readDotted(state, "namespace", true);
     const symbol = addSymbol(state, symbolAt(keyword, name || "Package", "namespace", name, true, true));
     paint(keyword, "keyword", [], "");
     if (name) {
@@ -470,7 +473,7 @@ function parsePackage(state) {
 
 function parseImport(state) {
     const keyword = eat(state);
-    const dotted = readDotted(state, "namespace");
+    const dotted = readDotted(state, "namespace", false);
     let alias = dotted.split(".").pop();
     if (peek(state) && peek(state).text === ".") {
         eat(state);
@@ -483,7 +486,11 @@ function parseImport(state) {
         const aliasToken = peek(state);
         if (aliasToken && aliasToken.kind === "identifier") {
             alias = aliasToken.text;
-            paint(aliasToken, "namespace", ["declaration"], "decl");
+            const known = isKnownPackage(state, dotted);
+            paint(aliasToken, known ? "namespace" : "variable", known ? ["declaration", "defaultLibrary"] : [], known ? "decl" : "use");
+            if (known) {
+                rememberImport(state, alias);
+            }
             eat(state);
         }
     }
@@ -495,14 +502,10 @@ function parseImport(state) {
     symbol.token = keyword;
 }
 
-function readDotted(state, role) {
-    let name = "";
+function readDotted(state, role, declared) {
+    const parts = [];
     while (peek(state) && (peek(state).kind === "identifier" || (peek(state).kind === "keyword" && /^[A-Z]/.test(peek(state).canonical)))) {
-        if (name) {
-            name += ".";
-        }
-        name += peek(state).text;
-        paint(peek(state), "namespace", [], role === "namespace" ? "decl" : "use");
+        parts.push(peek(state));
         eat(state);
         if (peek(state) && peek(state).text === ".") {
             const after = state.tokens[state.index + 1];
@@ -513,7 +516,66 @@ function readDotted(state, role) {
         }
         break;
     }
+    const name = parts.map((token) => token.text).join(".");
+    const known = Boolean(declared) || isKnownPackage(state, name);
+    for (const token of parts) {
+        if (known) {
+            paint(token, "namespace", ["defaultLibrary"], role === "namespace" ? "decl" : "use");
+        } else {
+            paint(token, "variable", [], "use");
+        }
+    }
+    if (known && name) {
+        rememberImport(state, name);
+    }
     return name;
+}
+
+function isKnownPackage(state, name) {
+    const lower = String(name || "").toLowerCase();
+    if (!lower) {
+        return false;
+    }
+    if (PACKAGES.some((item) => {
+        const packageName = item.toLowerCase();
+        return packageName === lower || packageName.startsWith(`${lower}.`);
+    })) {
+        return true;
+    }
+    if (Object.keys(NAMESPACES).some((item) => item.toLowerCase() === lower)) {
+        return true;
+    }
+    if (state.known) {
+        for (const known of state.known) {
+            if (String(known).toLowerCase() === lower) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function rememberImport(state, name) {
+    for (const part of String(name).split(".")) {
+        if (part) {
+            state.imports.add(part);
+            state.imports.add(part.toLowerCase());
+        }
+    }
+}
+
+function colorImportedUses(state) {
+    for (const token of state.tokens) {
+        if (token.kind !== "identifier" || token.role === "decl") {
+            continue;
+        }
+        if (token.semType === "function" || token.semType === "method" || token.semType === "macro" || token.semType === "class") {
+            continue;
+        }
+        if (state.imports.has(token.text) || state.imports.has(token.text.toLowerCase())) {
+            paint(token, "namespace", ["defaultLibrary"], "use");
+        }
+    }
 }
 
 function parseFunction(state, mods, isMethod) {
@@ -1419,7 +1481,7 @@ function scanExpression(state, stop) {
             const previous = previousCode(state);
             const next = nextCode(state);
             if (previous && (previous.text === "." || previous.text === "?.")) {
-                paint(token, "property", [], "member");
+                paint(token, next && next.text === "(" ? "method" : "property", [], next && next.text === "(" ? "call" : "member");
             } else if (next && next.text === "(") {
                 paint(token, "function", [], "call");
             } else if (next && next.text === ":" && previous && previous.text !== "?") {

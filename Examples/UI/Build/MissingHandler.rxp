@@ -1,0 +1,12 @@
+Project "MissingHandler"
+{
+    Source
+    {
+        Include: "MissingHandler.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Button";
+    }
+}

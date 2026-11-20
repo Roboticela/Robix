@@ -1,0 +1,12 @@
+Project "BadProperty"
+{
+    Source
+    {
+        Include: "BadProperty.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Button";
+    }
+}

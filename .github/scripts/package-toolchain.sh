@@ -70,27 +70,7 @@ if find "$stage" \( -path '*/Llvm/*' -o -path '*/Link/*' \) -prune -o \( -name '
     exit 1
 fi
 
-cat > "$stage/README.txt" <<'EOF'
-Robix toolchain
-
-Bin/Robix                 Run a Robix program. No compiler is required.
-Bin/Robixc                Compile a folder of Robix files into one program.
-Packages/Builtin          Compiled built-in packages.
-Packages/Installed        Place installed packages here.
-Shared/Tools/Llvm/bin    llc generates machine code. ld.lld links the program.
-Library/Runtime.lib       Runtime library used when linking a program.
-Library/Link              Libraries used while linking a program.
-Runtime/Runtime.o         Compiled runtime.
-Shared                    Compiled .bin files, grouped by area. UI files are in Shared/UI.
-
-Add Bin to PATH:
-
-    export PATH="$PWD/Robix/Bin:$PATH"
-    Robix run Hello.rx
-    Robixc SourceFolder Program
-
-Nothing else has to be installed. Robixc uses the bundled llc and lld.
-EOF
+bash "$root/.github/scripts/install-docs.sh" "$stage"
 
 hello="$root/Examples/HelloRobot.rx"
 "$stage/Bin/Robix" run "$hello" | grep -q "Hello, Robix"
@@ -120,12 +100,20 @@ EOF
 "$folder/Hello" | grep -q "Hello, Robix"
 rm -rf "$folder"
 
+bash "$root/.github/scripts/package-update.sh" "$stage" linux-x64
+
 archive="$root/dist/robix-linux-x64.zip"
 rm -f "$archive"
 (
     cd "$root/dist"
     zip -r "robix-linux-x64.zip" Robix
 )
+for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-LICENSE' 'Robix/Library/Link/LICENSE-GCC' 'Robix/Library/Link/LICENSE-GLIBC'; do
+    if ! unzip -l "$archive" | grep -F -q "$required"; then
+        echo "error: ${archive} is missing ${required}" >&2
+        exit 1
+    fi
+done
 echo "Packaged $archive"
 if [[ "${SKIP_WINDOWS:-}" != "1" ]]; then
     bash "$root/.github/scripts/package-windows.sh"

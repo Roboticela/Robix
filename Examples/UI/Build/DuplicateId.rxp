@@ -1,0 +1,12 @@
+Project "DuplicateId"
+{
+    Source
+    {
+        Include: "DuplicateId.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Button";
+    }
+}

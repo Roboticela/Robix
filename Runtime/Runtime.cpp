@@ -962,7 +962,7 @@ int64_t Text::MapCase(int64_t text, int upper) {
         copy[index] = (char)(upper ? toupper(character) : tolower(character));
         index = index + 1;
     }
-    return (int64_t)(uintptr_t)copy;
+    return Text::Box(copy);
 }
 
 int64_t Text::Lower(int64_t text) {
@@ -1067,7 +1067,7 @@ int64_t Text::Replace(int64_t text, int64_t oldText, int64_t newText) {
         scan = hit + oldLen;
     }
     strcpy(out, scan);
-    return (int64_t)(uintptr_t)copy;
+    return Text::Box(copy);
 }
 
 int64_t Text::ToInt(int64_t text) {
@@ -1245,9 +1245,12 @@ int64_t Text::FromBool(int64_t value) {
 
 int64_t Text::FromChar(int64_t value) {
     char *copy = static_cast<char*>(std::malloc(2));
+    if (copy == NULL) {
+        return Text::Box(NULL);
+    }
     copy[0] = (char)value;
     copy[1] = 0;
-    return (int64_t)(uintptr_t)copy;
+    return Text::Box(copy);
 }
 
 int64_t Text::FromChars(int64_t list) {
@@ -1256,6 +1259,9 @@ int64_t Text::FromChars(int64_t list) {
         return Text::Box(Text::CopyBytes("", 0));
     }
     char *copy = static_cast<char*>(std::malloc((size_t)chars->count * 4 + 1));
+    if (copy == NULL) {
+        return Text::Box(NULL);
+    }
     int64_t out = 0;
     int64_t index = 0;
     while (index < chars->count) {
@@ -1278,7 +1284,7 @@ int64_t Text::FromChars(int64_t list) {
         index = index + 1;
     }
     copy[out] = 0;
-    return (int64_t)(uintptr_t)copy;
+    return Text::Box(copy);
 }
 
 std::uint16_t Float32::ToFloat16(float value) {
@@ -1397,10 +1403,14 @@ int64_t Files::Read(int64_t path) {
     }
     fseek(file, 0, SEEK_SET);
     char *copy = static_cast<char*>(std::malloc((size_t)size + 1));
+    if (copy == NULL) {
+        fclose(file);
+        return Text::Box(NULL);
+    }
     size_t got = fread(copy, 1, (size_t)size, file);
     copy[got] = 0;
     fclose(file);
-    return (int64_t)(uintptr_t)copy;
+    return Text::Box(copy);
 }
 
 void Files::WriteText(int64_t path, int64_t text) {

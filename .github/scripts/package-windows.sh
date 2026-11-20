@@ -74,21 +74,9 @@ install -m 644 "$root/.github/packaging/Robixc.cmd" "$stage/Bin/Robixc.cmd"
 "$cross_ar" rcs "$stage/Library/Runtime.lib" "$stage/Runtime/Runtime.o"
 file "$stage/Runtime/Runtime.o" | grep -E -q "COFF|PE32|Windows"
 
-cat > "$stage/README.txt" <<'EOF'
-Robix toolchain for Windows
+bash "$root/.github/scripts/install-docs.sh" "$stage"
 
-Bin\Robixc.cmd            Compiles a folder of Robix files when Shared\Tools\Compiler.exe is present.
-Shared\Tools\Llvm\bin     llc.exe generates machine code. ld.lld.exe links the program.
-Library\Runtime.lib       Runtime library used when linking a program.
-Runtime\Runtime.o         Compiled Windows runtime.
-Packages\Builtin          Built-in package area.
-Packages\Installed        Place installed packages here.
-Shared                    Compiled files, grouped by area. UI files are in Shared\UI.
-
-Add Bin to PATH. llc and lld are inside this zip. No separate compiler install is required.
-
-The folders match the Linux toolchain. Robix.exe is not included yet: rebuilding the language compiler currently emits invalid LLVM, so there is no Windows interpreter binary.
-EOF
+bash "$root/.github/scripts/package-update.sh" "$stage" windows-x64
 
 archive="$root/dist/robix-windows-x64.zip"
 rm -f "$archive"
@@ -96,4 +84,10 @@ rm -f "$archive"
     cd "$root/dist/windows-stage"
     zip -r "$archive" Robix
 )
+for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-LICENSE'; do
+    if ! unzip -l "$archive" | grep -F -q "$required"; then
+        echo "error: ${archive} is missing ${required}" >&2
+        exit 1
+    fi
+done
 echo "Packaged $archive"

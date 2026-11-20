@@ -1,0 +1,7 @@
+Project "BadSyntax"
+{
+    Source
+    {
+        Include: "BadSyntax.rxu";
+    }
+}

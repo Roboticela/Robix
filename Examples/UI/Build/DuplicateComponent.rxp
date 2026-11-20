@@ -1,0 +1,8 @@
+Project "DuplicateComponent"
+{
+    Source
+    {
+        Include: "DuplicateA.rxu";
+        Include: "DuplicateB.rxu";
+    }
+}

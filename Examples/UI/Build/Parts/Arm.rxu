@@ -1,0 +1,3 @@
+<Component Name="Move">
+  <Button Name="Move" Width="40"/>
+</Component>

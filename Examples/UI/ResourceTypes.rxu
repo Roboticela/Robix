@@ -1,0 +1,19 @@
+<!-- One resource of each supported type. -->
+<Resources>
+  <Color Name="Ink" Value="#112233"/>
+  <Brush Name="Canvas" Value="None"/>
+  <Number Name="Gap" Value="8"/>
+  <String Name="Title" Value="Arm"/>
+  <Boolean Name="Ready" Value="true"/>
+  <Font Name="Body" Value="Roboto"/>
+  <Style Name="Look" Value="Primary"/>
+  <Template Name="Shell" Value="ArmButton"/>
+  <Image Name="Mark" Value="arm.png"/>
+  <Icon Name="Save" Value="save"/>
+  <Dimension Name="IconSize" Value="16"/>
+  <Thickness Name="Pad" Value="4,8"/>
+  <Duration Name="Fast" Value="120ms"/>
+  <Animation Name="Fade" Value="fade"/>
+  <Data Name="Empty" Value="{}"/>
+  <Theme Name="Light" Value="Light"/>
+</Resources>

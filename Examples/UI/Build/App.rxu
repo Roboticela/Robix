@@ -1,0 +1,13 @@
+<Window Title="Arm" Width="320" Name="Arm">
+  <Panel Name="Controls">
+    <Button Name="Save" Width="80" OnClick="Save" Background={Resource Ink}/>
+    <Button Name="Joint" Width={Binding Joint}/>
+    <Image Image="arm.png"/>
+    <Move Name="Go"/>
+  </Panel>
+  <Resources>
+    <Color Name="Ink" Value="#112233"/>
+  </Resources>
+  <Import Source="Theme.rxu"/>
+  <Include Source="Parts/Arm.rxu"/>
+</Window>

@@ -99,16 +99,16 @@
         "struct": "#86C691",
         "interface": "#B8D7A3",
         "enum": "#B8D7A3",
-        "enumMember": "#DCDCDC",
+        "enumMember": "#B8D7A3",
         "typeParameter": "#B8D7A3",
-        "function": "#DCDCAA",
-        "method": "#DCDCAA",
-        "macro": "#DCDCAA",
+        "function": "#F0C674",
+        "method": "#F0C674",
+        "macro": "#F0C674",
         "parameter": "#9CDCFE",
         "variable": "#9CDCFE",
         "variable.readonly": "#9CDCFE",
         "property": "#DCDCDC",
-        "namespace": "#DCDCDC",
+        "namespace": "#4FC1FF",
         "decorator": "#4EC9B0",
         "string": "#D69D85",
         "number": "#B5CEA8",
@@ -134,7 +134,11 @@
         },
         {
             "scope": ["entity.name.function", "support.function"],
-            "settings": { "foreground": "#DCDCAA" }
+            "settings": { "foreground": "#F0C674" }
+        },
+        {
+            "scope": ["entity.name.namespace"],
+            "settings": { "foreground": "#4FC1FF" }
         },
         {
             "scope": ["variable", "variable.parameter", "variable.other"],

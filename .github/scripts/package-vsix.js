@@ -6,6 +6,11 @@ const { spawnSync } = require("child_process");
 
 const extensionRoot = path.resolve(__dirname, "../../Editors/vscode");
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, "package.json"), "utf8"));
+const versionFile = path.resolve(__dirname, "../../VERSION");
+const tagged = process.env.GITHUB_REF_TYPE === "tag" && String(process.env.GITHUB_REF_NAME || "").startsWith("v")
+    ? process.env.GITHUB_REF_NAME.slice(1)
+    : "";
+manifest.version = process.env.ROBIX_VERSION || tagged || fs.readFileSync(versionFile, "utf8").trim();
 const stage = path.resolve(__dirname, "../../dist/vsix");
 const output = path.resolve(__dirname, `../../dist/${manifest.publisher}.${manifest.name}.vsix`);
 
@@ -30,6 +35,19 @@ for (const item of include) {
     }
     fs.cpSync(from, path.join(stage, "extension", item), { recursive: true });
 }
+const license = path.resolve(__dirname, "../../LICENSE");
+const licenseText = fs.readFileSync(license);
+if (licenseText.length < 30000 || !licenseText.includes("GNU AFFERO GENERAL PUBLIC LICENSE")) {
+    throw new Error("LICENSE is not the complete Robix license");
+}
+fs.writeFileSync(path.join(stage, "extension", "LICENSE"), licenseText);
+const readmeText = fs.readFileSync(path.join(stage, "extension", "README.md"), "utf8");
+if (readmeText.length < 2000 || !readmeText.includes("GNU Affero General Public License")) {
+    throw new Error("The editor README is missing its license section");
+}
+const stagedManifest = JSON.parse(fs.readFileSync(path.join(stage, "extension", "package.json"), "utf8"));
+stagedManifest.version = manifest.version;
+fs.writeFileSync(path.join(stage, "extension", "package.json"), `${JSON.stringify(stagedManifest, null, 4)}\n`);
 
 const description = String(manifest.description || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const tags = (manifest.keywords || []).join(",");

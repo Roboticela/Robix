@@ -3,6 +3,7 @@
 const { analyze } = require("./analyze");
 const {
     KEYWORD_WORDS,
+    KEYWORDS,
     KEYWORD_DOCS,
     keywordInfo,
     SNIPPETS,
@@ -127,16 +128,21 @@ function scopeItems(doc, offset, external) {
             sort: info && info.isType ? "3" : "4"
         });
     }
+    const typed = wordAt(doc.source, offset).text.toLowerCase();
+    const typedKeyword = KEYWORDS.has(typed);
     for (const snippet of SNIPPETS) {
+        if (typedKeyword && snippet.label.toLowerCase().startsWith(typed)) {
+            continue;
+        }
         add({
             label: snippet.label,
             kind: "snippet",
             detail: snippet.detail || "snippet",
-            documentation: "Inserts a Robix snippet.",
+            documentation: "Inserts a Robix snippet. Choose it explicitly; typing a keyword inserts only the keyword.",
             insert: snippet.insert,
             snippet: true,
-            filter: `${snippet.label} ${snippet.label.toLowerCase()}`,
-            sort: "0"
+            filter: `snippet:${snippet.label}`,
+            sort: "9"
         });
     }
     for (const symbol of visibleSymbols(doc, offset)) {
@@ -504,7 +510,14 @@ function semanticSpans(source) {
                 const position = positionAt(source, offset);
                 const deltaLine = position.line - previousLine;
                 const deltaCharacter = deltaLine === 0 ? position.character - previousCharacter : position.character;
-                const type = Math.max(0, SEMANTIC_TYPES.indexOf(token.semType || "variable"));
+                const type = SEMANTIC_TYPES.indexOf(token.semType || "variable");
+                if (type < 0) {
+                    offset = pieceEnd >= token.end ? token.end : pieceEnd + 1;
+                    if (pieceEnd >= token.end) {
+                        break;
+                    }
+                    continue;
+                }
                 data.push(deltaLine, deltaCharacter, length, type, token.semMods || 0);
                 previousLine = position.line;
                 previousCharacter = position.character;

@@ -1,0 +1,12 @@
+Project "MissingImport"
+{
+    Source
+    {
+        Include: "MissingImport.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Window";
+    }
+}

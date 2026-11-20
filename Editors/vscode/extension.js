@@ -37,7 +37,7 @@ function activate(context) {
         vscode.languages.registerRenameProvider("robix", renameProvider()),
         vscode.languages.registerDocumentSymbolProvider("robix", symbolProvider()),
         vscode.languages.registerFoldingRangeProvider("robix", foldingProvider()),
-        vscode.languages.registerDocumentSemanticTokensProvider("robix", semanticProvider()),
+        vscode.languages.registerDocumentSemanticTokensProvider("robix", semanticProvider(), legend),
         vscode.languages.registerDocumentFormattingEditProvider("robix", formattingProvider(false)),
         vscode.languages.registerDocumentFormattingEditProvider("robix-project", formattingProvider(true)),
         vscode.languages.registerCodeLensProvider("robix", codeLensProvider()),
@@ -220,7 +220,9 @@ function completionProvider() {
                 completion.detail = item.detail;
                 completion.documentation = item.documentation ? new vscode.MarkdownString(item.documentation) : undefined;
                 completion.filterText = item.filter;
-                completion.sortText = `${item.sort || "9"}${item.label}`;
+                completion.sortText = item.snippet ? `z${item.label}` : `${item.sort || "9"}${item.label}`;
+                completion.preselect = false;
+                completion.commitCharacters = [];
                 completion.insertText = item.snippet ? new vscode.SnippetString(item.insert) : item.insert;
                 completion.range = new vscode.Range(document.positionAt(result.replaceStart), document.positionAt(result.replaceEnd));
                 return completion;

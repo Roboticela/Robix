@@ -1,0 +1,27 @@
+Project "Arm"
+{
+    Source
+    {
+        Include: "App.rxu";
+        Include: "Parts/Arm.rxu";
+        Include: "Theme.rxu";
+    }
+
+    Assets
+    {
+        Asset: "arm.png";
+    }
+
+    Handlers
+    {
+        Handler: "Save";
+    }
+
+    Backend
+    {
+        Capability: "Window";
+        Capability: "Panel";
+        Capability: "Button";
+        Capability: "Image";
+    }
+}

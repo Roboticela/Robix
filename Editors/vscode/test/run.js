@@ -6,7 +6,8 @@ const path = require("path");
 const { tokenize, keywordCaseEdits } = require("../lib/scanner");
 const { formatRobix, formatProject } = require("../lib/format");
 const { analyze } = require("../lib/analyze");
-const { complete, hover, signature: signatureHelp, definition } = require("../lib/intellisense");
+const { complete, hover, signature: signatureHelp, definition, semanticSpans } = require("../lib/intellisense");
+const { SEMANTIC_TYPES } = require("../lib/keywords");
 const { extractTests, functionNames, selectTests, buildCompanion } = require("../lib/run-target");
 const { findTool } = require("../lib/tools");
 
@@ -56,6 +57,42 @@ check("keyword case waits for a boundary and ignores names", () => {
     assert.strictEqual(keywordCaseEdits("myfunction ", 11, " ").length, 0);
     const pasted = keywordCaseEdits("if(true) { return false; }", 0, "if(true) { return false; }");
     assert.deepStrictEqual(pasted.map((edit) => edit.text), ["If", "True", "Return", "False"]);
+    assert.strictEqual(keywordCaseEdits("if", 1, "f")[0].text, "If");
+    assert.strictEqual(keywordCaseEdits("asm", 2, "m")[0].text, "ASM");
+    assert.strictEqual(keywordCaseEdits("in", 1, "n").length, 0);
+    assert.strictEqual(keywordCaseEdits("myValue", 6, "e").length, 0);
+});
+
+check("functions and known packages are colored, unknown packages are not", () => {
+    const source = "Import Robix.Math;\nImport Missing.Thing;\nFunction Main() -> Int {\n    Return Math.Abs(1);\n    Print(1);\n}\n";
+    const doc = analyze(source);
+    const typed = (text) => doc.tokens.filter((token) => token.text === text).map((token) => token.semType);
+    assert.deepStrictEqual(typed("Robix"), ["namespace"]);
+    assert.deepStrictEqual(typed("Math"), ["namespace", "namespace"]);
+    assert.deepStrictEqual(typed("Missing"), ["variable"]);
+    assert.deepStrictEqual(typed("Thing"), ["variable"]);
+    assert.deepStrictEqual(typed("Main"), ["function"]);
+    assert.deepStrictEqual(typed("Abs"), ["method"]);
+    assert.deepStrictEqual(typed("Print"), ["function"]);
+    const spans = semanticSpans(source);
+    const functionType = SEMANTIC_TYPES.indexOf("function");
+    const namespaceType = SEMANTIC_TYPES.indexOf("namespace");
+    assert.ok(functionType > 0);
+    assert.strictEqual(namespaceType, 0);
+    assert.ok(spans.data.includes(functionType));
+    assert.ok(spans.data.includes(namespaceType));
+});
+
+check("typing a keyword does not offer its template", () => {
+    const items = complete("if", 2).items;
+    assert.ok(items.some((item) => item.kind === "keyword" && item.label === "If"));
+    assert.ok(!items.some((item) => item.snippet && item.label.toLowerCase().startsWith("if")));
+    const open = complete("\n", 1).items;
+    const keyword = open.find((item) => item.kind === "keyword" && item.label === "If");
+    const snippet = open.find((item) => item.snippet);
+    assert.ok(keyword);
+    assert.ok(snippet);
+    assert.ok(snippet.sort > keyword.sort);
 });
 
 check("formatter keeps every token and is stable", () => {

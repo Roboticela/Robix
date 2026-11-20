@@ -1,0 +1,9 @@
+<!-- A style class. State setters override the base setter for that state. -->
+<Style Name="Primary">
+  <Setter Property="Background" Value="#336699"/>
+  <Setter Property="Background" Value="#224466" State="Hover"/>
+  <Setter Property="Background" Value="#112233" State="Pressed"/>
+  <Setter Property="Opacity" Value="0.4" State="Disabled"/>
+  <Setter Property="BorderColor" Value="#FFFFFF" State="Focused"/>
+  <Setter Property="Background" Value="#000000" State="Spin"/>
+</Style>

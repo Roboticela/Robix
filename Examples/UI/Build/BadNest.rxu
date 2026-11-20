@@ -1,0 +1,4 @@
+<Button Name="Host">
+  <Window Title="Inner"/>
+  <Setter Property="Width" Value="1"/>
+</Button>

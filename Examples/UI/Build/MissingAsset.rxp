@@ -1,0 +1,12 @@
+Project "MissingAsset"
+{
+    Source
+    {
+        Include: "MissingAsset.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Image";
+    }
+}

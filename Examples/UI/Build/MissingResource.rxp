@@ -1,0 +1,12 @@
+Project "MissingResource"
+{
+    Source
+    {
+        Include: "MissingResource.rxu";
+    }
+
+    Backend
+    {
+        Capability: "Button";
+    }
+}

@@ -10,6 +10,12 @@
 // UI.Load reads a document. Import and Include still do not open their files.
 // Loading does not show a document. Each load has its own tree and component names.
 // Properties are typed. Animation wins over local, style, inherited, then the default.
+// A resource is found on the component, then ancestors, the document, the application, then the built-in value.
+// A project file lists RXU includes, assets, handlers, and backend capabilities.
+// The build loads those files, resolves Import and Include, and refuses to package invalid markup.
+// Bindings read observable values. A data context is inherited by descendants that do not set their own.
+// OneWay, TwoWay, OneTime, OneWayToSource, Reactive, and Manual are the binding modes.
+// Password values are stored for the control and masked in diagnostics.
 Package Robix.UI;
 
 Import Robix.Core;
@@ -1920,7 +1926,11 @@ Public Class UIElement {
     Public Int ChangeCount;
     Public Bool Invalidated;
     Public Bool LayoutInvalidated;
+    Public String TemplateName;
+    Public String VisualKind;
     Public RxuMessages Messages;
+    Private String contextKey;
+    Private Bool contextLocal;
     Public List<UIElement> children;
     Private Int updateDepth;
     Private List<String> names;
@@ -1934,7 +1944,11 @@ Public Class UIElement {
         This.ChangeCount = 0;
         This.Invalidated = False;
         This.LayoutInvalidated = False;
+        This.TemplateName = "";
+        This.VisualKind = "";
         This.Messages = RxuMessages();
+        This.contextKey = "";
+        This.contextLocal = False;
         This.children = List<UIElement>();
         This.updateDepth = 0;
         This.names = List<String>();
@@ -1989,6 +2003,16 @@ Public Class UIElement {
         Output: "True when a local value is present.";
     } {
         Return This.SourceValue(This.Canonical(name), "Local") != "";
+    }
+
+    Public Function Accepts(String name) -> Bool
+    Explain {
+        Description: "Report whether this element allows a property.";
+        Input: name = "Property name";
+        Processing: "Use the element kind catalog. Foreground uses Color.";
+        Output: "True when the property is allowed.";
+    } {
+        Return This.Allows(This.Canonical(name));
     }
 
     Public Function RemoveAttribute(String name) -> Bool
@@ -2071,6 +2095,16 @@ Public Class UIElement {
         Output: "True when the value is accepted.";
     } {
         Return This.Write("Style", name, value);
+    }
+
+    Public Function ClearStyle(String name) -> Void
+    Explain {
+        Description: "Remove one style value.";
+        Input: name = "Property name";
+        Processing: "Drop the style source so local, inherited, or the default shows through.";
+        Output: "No return value.";
+    } {
+        This.DropSource(This.Canonical(name), "Style");
     }
 
     Public Function SetAnimation(String name, String value) -> Bool
@@ -2188,12 +2222,73 @@ Public Class UIElement {
         Output: "No return value.";
     } {
         parent.children.Add(This);
+        This.TakeDataContext(parent.ContextKey());
         This.TakeInherited(parent, "Color");
         This.TakeInherited(parent, "FontFamily");
         This.TakeInherited(parent, "FontSize");
         This.TakeInherited(parent, "FontWeight");
         This.TakeInherited(parent, "Cursor");
         This.TakeInherited(parent, "TextAlignment");
+    }
+
+    Public Function SetDataContext(String key) -> Void
+    Explain {
+        Description: "Set this element's data context and pass it to descendants.";
+        Input: key = "Context path such as User";
+        Processing: "Remember a local context and copy it onto descendants that do not have their own.";
+        Output: "No return value.";
+    } {
+        This.contextKey = key + "";
+        This.contextLocal = True;
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeDataContext(key);
+            index = index + 1;
+        }
+    }
+
+    Public Function ClearDataContext(String inherited) -> Void
+    Explain {
+        Description: "Drop the local data context and inherit another.";
+        Input: inherited = "Context key from the parent, or empty";
+        Processing: "Clear the local flag and copy the inherited key onto descendants that do not have their own.";
+        Output: "No return value.";
+    } {
+        This.contextLocal = False;
+        This.contextKey = inherited + "";
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeDataContext(inherited);
+            index = index + 1;
+        }
+    }
+
+    Public Function ContextKey() -> String
+    Explain {
+        Description: "Read the effective data context key.";
+        Input: None;
+        Processing: "Return the local key or the key copied from an ancestor.";
+        Output: "The context key, or empty text when none is set.";
+    } {
+        Return This.contextKey;
+    }
+
+    Public Function TakeDataContext(String key) -> Void
+    Explain {
+        Description: "Inherit a data context when this element does not have its own.";
+        Input: key = "Ancestor context key";
+        Processing: "Keep a local context. Otherwise copy the key and pass it downward.";
+        Output: "No return value.";
+    } {
+        If (This.contextLocal) {
+            Return;
+        }
+        This.contextKey = key + "";
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeDataContext(key);
+            index = index + 1;
+        }
     }
 
     Private Function Write(String source, String name, String value) -> Bool {
@@ -2704,6 +2799,2326 @@ Public Class UIElement {
     }
 }
 
+Public Class ResourceTable {
+    Public RxuMessages Messages;
+    Private List<String> keys;
+    Private List<String> types;
+    Private List<String> values;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.keys = List<String>();
+        This.types = List<String>();
+        This.values = List<String>();
+    }
+
+    Public Function Set(String typeName, String key, String value) -> Bool
+    Explain {
+        Description: "Store one typed resource.";
+        Input: typeName = "Resource type", key = "Resource name", value = "Resource value";
+        Processing: "Reject an unknown type, a mistyped value, or a duplicate key.";
+        Output: "True when the resource is stored.";
+    } {
+        If (!This.KnownType(typeName) || !This.Valid(typeName, value)) {
+            This.Messages.Add("RXU021", "This resource value does not match its type.", "", 1, 1, value.Length(), typeName, value, "Use a value of the declared resource type.");
+            Return False;
+        }
+        If (This.Has(key)) {
+            This.Messages.Add("RXU023", "This resource key is already defined here.", "", 1, 1, key.Length(), "one value", key, "Override it in a nearer scope or remove the old value.");
+            Return False;
+        }
+        This.keys.Add(key + "");
+        This.types.Add(typeName + "");
+        This.values.Add(value + "");
+        Return True;
+    }
+
+    Public Function Get(String key) -> String
+    Explain {
+        Description: "Read one resource value.";
+        Input: key = "Resource name";
+        Processing: "Find the key in this table only.";
+        Output: "The stored value, or empty text when it is missing.";
+    } {
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.values[index];
+    }
+
+    Public Function TypeOfKey(String key) -> String
+    Explain {
+        Description: "Read the type of one resource.";
+        Input: key = "Resource name";
+        Processing: "Find the key in this table only.";
+        Output: "The type name, or empty text when it is missing.";
+    } {
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.types[index];
+    }
+
+    Public Function Has(String key) -> Bool
+    Explain {
+        Description: "Report whether this table defines a key.";
+        Input: key = "Resource name";
+        Processing: "Scan this table only.";
+        Output: "True when the key is present.";
+    } {
+        Return This.IndexOf(key) >= 0;
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Count the resources in this table.";
+        Input: None;
+        Processing: "Read the key list size.";
+        Output: "The number of resources.";
+    } {
+        Return This.keys.Count();
+    }
+
+    Public Function KeyAt(Int index) -> String
+    Explain {
+        Description: "Return one resource key.";
+        Input: index = "Zero-based index";
+        Processing: "Read the key at that index.";
+        Output: "The key, or empty text when the index is outside the table.";
+    } {
+        If (index < 0 || index >= This.keys.Count()) {
+            Return "";
+        }
+        Return This.keys[index];
+    }
+
+    Public Function Remove(String key) -> Bool
+    Explain {
+        Description: "Remove one resource from this table.";
+        Input: key = "Resource name";
+        Processing: "Drop the key, type, and value together.";
+        Output: "True when the key was present.";
+    } {
+        Int found = This.IndexOf(key);
+        If (found < 0) {
+            Return False;
+        }
+        Var keptKeys = List<String>();
+        Var keptTypes = List<String>();
+        Var keptValues = List<String>();
+        Int index = 0;
+        While (index < This.keys.Count()) {
+            If (index != found) {
+                keptKeys.Add(This.keys[index]);
+                keptTypes.Add(This.types[index]);
+                keptValues.Add(This.values[index]);
+            }
+            index = index + 1;
+        }
+        This.keys = keptKeys;
+        This.types = keptTypes;
+        This.values = keptValues;
+        Return True;
+    }
+
+    Public Function Load(RxuNode node) -> Int
+    Explain {
+        Description: "Load resource elements from markup.";
+        Input: node = "Resources element";
+        Processing: "Read each typed child and count the ones that are rejected.";
+        Output: "The number of rejected resources.";
+    } {
+        Int failed = 0;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && This.KnownType(child.Name)) {
+                If (!This.Set(child.Name, child.FindAttribute("Name").Text, child.FindAttribute("Value").Text)) {
+                    failed = failed + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Private Function IndexOf(String key) -> Int {
+        Int index = 0;
+        While (index < This.keys.Count()) {
+            If (This.keys[index] == key) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function KnownType(String typeName) -> Bool {
+        String catalog = "Color,Brush,Number,String,Boolean,Font,Style,Template,Image,Icon,Dimension,Thickness,Duration,Animation,Data,Theme";
+        Int start = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            If (catalog.Substring(index, 1) == ",") {
+                If (catalog.Substring(start, index - start) == typeName) {
+                    Return True;
+                }
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return catalog.Substring(start, catalog.Length() - start) == typeName;
+    }
+
+    Private Function Valid(String typeName, String value) -> Bool {
+        If (value.Length() > 0 && value.Substring(0, 1) == "@") {
+            Return True;
+        }
+        If (typeName == "String" || typeName == "Font" || typeName == "Style" || typeName == "Template" || typeName == "Image" || typeName == "Icon" || typeName == "Animation" || typeName == "Data" || typeName == "Theme") {
+            Return True;
+        }
+        If (typeName == "Number") {
+            Return This.IsNumber(value);
+        }
+        If (typeName == "Boolean") {
+            Return value == "true" || value == "false" || value == "True" || value == "False";
+        }
+        If (typeName == "Color") {
+            Return This.IsColor(value);
+        }
+        If (typeName == "Brush") {
+            Return value == "None" || This.IsColor(value);
+        }
+        If (typeName == "Dimension") {
+            Return This.IsDimension(value);
+        }
+        If (typeName == "Thickness") {
+            Return This.IsThickness(value);
+        }
+        If (typeName == "Duration") {
+            Return This.IsDuration(value);
+        }
+        Return False;
+    }
+
+    Private Function IsNumber(String value) -> Bool {
+        Int index = 0;
+        If (value.Length() > 0 && value.Substring(0, 1) == "-") {
+            index = 1;
+        }
+        If (index >= value.Length()) {
+            Return False;
+        }
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsColor(String value) -> Bool {
+        If (value == "Black" || value == "White" || value == "Transparent") {
+            Return True;
+        }
+        If (value.Length() < 4 || value.Substring(0, 1) != "#") {
+            Return False;
+        }
+        Int length = value.Length() - 1;
+        If (length != 3 && length != 4 && length != 6 && length != 8) {
+            Return False;
+        }
+        Int index = 1;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsDimension(String value) -> Bool {
+        If (value == "Auto" || value == "*") {
+            Return True;
+        }
+        If (value.EndsWith("px")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("*")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return This.IsNumber(value);
+    }
+
+    Private Function IsThickness(String value) -> Bool {
+        Int parts = 1;
+        Int index = 0;
+        String current = "";
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character == ",") {
+                If (!This.IsNumber(current)) {
+                    Return False;
+                }
+                current = "";
+                parts = parts + 1;
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        Return This.IsNumber(current) && (parts == 1 || parts == 2 || parts == 4);
+    }
+
+    Private Function IsDuration(String value) -> Bool {
+        If (value.EndsWith("ms")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("s")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return False;
+    }
+}
+
+Public Class StyleSheet {
+    Public RxuMessages Messages;
+    Private List<String> names;
+    Private List<String> states;
+    Private List<String> properties;
+    Private List<String> values;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.names = List<String>();
+        This.states = List<String>();
+        This.properties = List<String>();
+        This.values = List<String>();
+    }
+
+    Public Function AddSetter(String name, String state, String property, String value) -> Bool
+    Explain {
+        Description: "Add one style setter.";
+        Input: name = "Style name", state = "Empty, Hover, Pressed, Disabled, or Focused", property = "Property name", value = "Property value";
+        Processing: "Keep the setter when the state is known.";
+        Output: "True when the setter is stored.";
+    } {
+        If (!This.KnownState(state)) {
+            This.Messages.Add("RXU025", "This style state is unknown.", "", 1, 1, state.Length(), "Hover, Pressed, Disabled, or Focused", state, "Use one of the known states.");
+            Return False;
+        }
+        This.names.Add(name + "");
+        This.states.Add(state + "");
+        This.properties.Add(property + "");
+        This.values.Add(value + "");
+        Return True;
+    }
+
+    Public Function SetterCount() -> Int
+    Explain {
+        Description: "Count the stored setters.";
+        Input: None;
+        Processing: "Read the setter list size.";
+        Output: "The number of setters.";
+    } {
+        Return This.names.Count();
+    }
+
+    Public Function Load(RxuNode node) -> Int
+    Explain {
+        Description: "Load Style and Setter markup.";
+        Input: node = "Style element";
+        Processing: "Read each Setter, including its State.";
+        Output: "The number of rejected setters.";
+    } {
+        Int failed = 0;
+        String name = node.FindAttribute("Name").Text;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && child.Name == "Setter") {
+                If (!This.AddSetter(name, child.FindAttribute("State").Text, child.FindAttribute("Property").Text, child.FindAttribute("Value").Text)) {
+                    failed = failed + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Public Function Apply(UIElement element, String name, String state) -> Int
+    Explain {
+        Description: "Apply one style class and state to an element.";
+        Input: element = "Target element", name = "Style name", state = "Current state";
+        Processing: "Clear the style's properties, then apply the state setter or the base setter.";
+        Output: "The number of setters applied.";
+    } {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name) {
+                element.ClearStyle(This.properties[index]);
+            }
+            index = index + 1;
+        }
+        Int applied = 0;
+        index = 0;
+        While (index < This.names.Count()) {
+            If (This.Wins(name, state, index)) {
+                If (element.SetStyle(This.properties[index], This.values[index])) {
+                    applied = applied + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return applied;
+    }
+
+    Private Function Wins(String name, String state, Int index) -> Bool {
+        If (This.names[index] != name) {
+            Return False;
+        }
+        If (This.states[index] == state) {
+            Return True;
+        }
+        If (This.states[index] != "") {
+            Return False;
+        }
+        Int cursor = 0;
+        While (cursor < This.names.Count()) {
+            If (This.names[cursor] == name && This.properties[cursor] == This.properties[index] && This.states[cursor] == state) {
+                Return False;
+            }
+            cursor = cursor + 1;
+        }
+        Return True;
+    }
+
+    Private Function KnownState(String state) -> Bool {
+        Return state == "" || state == "Hover" || state == "Pressed" || state == "Disabled" || state == "Focused";
+    }
+}
+
+Public Class ResourceLibrary {
+    Public ResourceTable Document;
+    Public ResourceTable Application;
+    Public ResourceTable Builtins;
+    Public StyleSheet Styles;
+    Public RxuMessages Messages;
+    Private List<String> themeNames;
+    Private List<String> themeKeys;
+    Private List<String> themeTypes;
+    Private List<String> themeValues;
+    Private List<UIElement> targets;
+    Private List<String> targetProperties;
+    Private List<String> targetKeys;
+    Private List<String> targetFallbacks;
+    Private List<String> templateNames;
+    Private List<String> templateRoots;
+
+    Public Constructor() {
+        This.Document = ResourceTable();
+        This.Application = ResourceTable();
+        This.Builtins = ResourceTable();
+        This.Styles = StyleSheet();
+        This.Messages = RxuMessages();
+        This.themeNames = List<String>();
+        This.themeKeys = List<String>();
+        This.themeTypes = List<String>();
+        This.themeValues = List<String>();
+        This.targets = List<UIElement>();
+        This.targetProperties = List<String>();
+        This.targetKeys = List<String>();
+        This.targetFallbacks = List<String>();
+        This.templateNames = List<String>();
+        This.templateRoots = List<String>();
+        This.Builtins.Set("Color", "Accent", "#336699");
+        This.Builtins.Set("Number", "Spacing", "8");
+        This.Builtins.Set("String", "FontFamily", "Roboto");
+        This.Builtins.Set("Boolean", "Enabled", "true");
+        This.Builtins.Set("Font", "Body", "Roboto");
+        This.Builtins.Set("Dimension", "IconSize", "16");
+        This.Builtins.Set("Thickness", "Pad", "4");
+        This.Builtins.Set("Duration", "Fast", "120ms");
+        This.Builtins.Set("Brush", "Canvas", "None");
+        This.Builtins.Set("Image", "Mark", "arm.png");
+        This.Builtins.Set("Icon", "Save", "save");
+        This.Builtins.Set("Style", "Base", "Primary");
+        This.Builtins.Set("Template", "Button", "ArmButton");
+        This.Builtins.Set("Animation", "Fade", "fade");
+        This.Builtins.Set("Data", "Empty", "{}");
+        This.Builtins.Set("Theme", "Light", "Light");
+    }
+
+    Public Function Resolve(ResourceTable component, ResourceTable ancestor, String key, String fallback) -> String
+    Explain {
+        Description: "Find a resource through the scope chain.";
+        Input: component = "Nearest table", ancestor = "Ancestor table", key = "Resource name", fallback = "Value used when the key is missing";
+        Processing: "Search the component, ancestor, document, application, and built-in tables. Follow @ aliases.";
+        Output: "The resolved value, or the fallback.";
+    } {
+        String current = key + "";
+        Var seen = List<String>();
+        Int depth = 0;
+        While (depth < 8) {
+            Int seenIndex = 0;
+            While (seenIndex < seen.Count()) {
+                If (seen[seenIndex] == current) {
+                    This.Messages.Add("RXU022", "This resource alias is cyclic.", "", 1, 1, current.Length(), "an acyclic alias", current, "Break the alias cycle.");
+                    Return fallback + "";
+                }
+                seenIndex = seenIndex + 1;
+            }
+            seen.Add(current);
+            String value = This.FindRaw(component, ancestor, current);
+            If (value == "") {
+                This.Messages.Add("RXU024", "This resource was not found.", "", 1, 1, current.Length(), "a defined resource", current, "Define the resource or use the fallback.");
+                Return fallback + "";
+            }
+            If (value.Length() > 0 && value.Substring(0, 1) == "@") {
+                current = value.Substring(1, value.Length() - 1);
+            } Else {
+                Return value;
+            }
+            depth = depth + 1;
+        }
+        This.Messages.Add("RXU022", "This resource alias is cyclic.", "", 1, 1, key.Length(), "an acyclic alias", key, "Break the alias cycle.");
+        Return fallback + "";
+    }
+
+    Public Function Bind(UIElement element, String property, String key, String fallback) -> Bool
+    Explain {
+        Description: "Apply a resource to a property and remember it.";
+        Input: element = "Target element", property = "Property name", key = "Resource name", fallback = "Fallback value";
+        Processing: "Resolve the key and set the property. A later refresh uses the same key.";
+        Output: "True when the property accepts the value.";
+    } {
+        String value = This.Resolve(ResourceTable(), ResourceTable(), key, fallback);
+        Bool applied = element.SetAttribute(property, value);
+        This.targets.Add(element);
+        This.targetProperties.Add(property + "");
+        This.targetKeys.Add(key + "");
+        This.targetFallbacks.Add(fallback + "");
+        Return applied;
+    }
+
+    Public Function RefreshBindings() -> Int
+    Explain {
+        Description: "Reapply every resource binding.";
+        Input: None;
+        Processing: "Resolve each remembered key and write the property again.";
+        Output: "The number of bindings refreshed.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < This.targets.Count()) {
+            String value = This.Resolve(ResourceTable(), ResourceTable(), This.targetKeys[index], This.targetFallbacks[index]);
+            If (This.targets[index].SetAttribute(This.targetProperties[index], value)) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function AddTheme(RxuNode node) -> Int
+    Explain {
+        Description: "Record a theme's resources.";
+        Input: node = "Theme element";
+        Processing: "Store each typed child under the theme name.";
+        Output: "The number of rejected theme resources.";
+    } {
+        Int failed = 0;
+        String name = node.FindAttribute("Name").Text + "";
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element") {
+                String typeName = child.Name;
+                String key = child.FindAttribute("Name").Text;
+                String value = child.FindAttribute("Value").Text;
+                ResourceTable check = ResourceTable();
+                If (check.Set(typeName, key, value)) {
+                    This.themeNames.Add(name);
+                    This.themeKeys.Add(key + "");
+                    This.themeTypes.Add(typeName + "");
+                    This.themeValues.Add(value + "");
+                } Else {
+                    failed = failed + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Public Function SwitchTheme(String name) -> Bool
+    Explain {
+        Description: "Replace application resources with one theme.";
+        Input: name = "Theme name";
+        Processing: "Write that theme into the application table and refresh bindings. Elements are not copied.";
+        Output: "True when the theme has at least one resource.";
+    } {
+        Int found = 0;
+        Int index = 0;
+        While (index < This.themeNames.Count()) {
+            If (This.themeNames[index] == name) {
+                If (This.Application.Has(This.themeKeys[index])) {
+                    This.Application.Remove(This.themeKeys[index]);
+                }
+                This.Application.Set(This.themeTypes[index], This.themeKeys[index], This.themeValues[index]);
+                found = found + 1;
+            }
+            index = index + 1;
+        }
+        This.RefreshBindings();
+        Return found > 0;
+    }
+
+    Public Function LoadTemplate(RxuNode node) -> Bool
+    Explain {
+        Description: "Record a template visual without changing control behavior.";
+        Input: node = "Template element";
+        Processing: "Remember the template name and its first visual element.";
+        Output: "True when the template has a visual root.";
+    } {
+        String name = node.FindAttribute("Name").Text + "";
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element") {
+                This.templateNames.Add(name);
+                This.templateRoots.Add(child.Name + "");
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Public Function ApplyTemplate(UIElement element, String name) -> Bool
+    Explain {
+        Description: "Attach a template visual to an element.";
+        Input: element = "Target element", name = "Template name";
+        Processing: "Set the visual root and keep the element's kind.";
+        Output: "True when the template exists.";
+    } {
+        Int index = 0;
+        While (index < This.templateNames.Count()) {
+            If (This.templateNames[index] == name) {
+                element.TemplateName = name + "";
+                element.VisualKind = This.templateRoots[index] + "";
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function FindRaw(ResourceTable component, ResourceTable ancestor, String key) -> String {
+        If (component.Has(key)) {
+            Return component.Get(key);
+        }
+        If (ancestor.Has(key)) {
+            Return ancestor.Get(key);
+        }
+        If (This.Document.Has(key)) {
+            Return This.Document.Get(key);
+        }
+        If (This.Application.Has(key)) {
+            Return This.Application.Get(key);
+        }
+        If (This.Builtins.Has(key)) {
+            Return This.Builtins.Get(key);
+        }
+        Return "";
+    }
+}
+
+Public Class RxuBuild {
+    Public RxuMessages Messages;
+    Private List<String> includes;
+    Private List<String> assets;
+    Private List<String> handlers;
+    Private List<String> capabilities;
+    Private List<String> loaded;
+    Private List<String> stack;
+    Private List<String> componentNames;
+    Private List<String> resourceKeys;
+    Private List<String> idNames;
+    Private Int runtimeChecks;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.includes = List<String>();
+        This.assets = List<String>();
+        This.handlers = List<String>();
+        This.capabilities = List<String>();
+        This.loaded = List<String>();
+        This.stack = List<String>();
+        This.componentNames = List<String>();
+        This.resourceKeys = List<String>();
+        This.idNames = List<String>();
+        This.runtimeChecks = 0;
+        This.resourceKeys.Add("Accent");
+        This.resourceKeys.Add("Spacing");
+        This.resourceKeys.Add("FontFamily");
+        This.resourceKeys.Add("Enabled");
+        This.resourceKeys.Add("Body");
+        This.resourceKeys.Add("IconSize");
+        This.resourceKeys.Add("Pad");
+        This.resourceKeys.Add("Fast");
+        This.resourceKeys.Add("Canvas");
+        This.resourceKeys.Add("Mark");
+        This.resourceKeys.Add("Save");
+        This.resourceKeys.Add("Base");
+        This.resourceKeys.Add("Button");
+        This.resourceKeys.Add("Fade");
+        This.resourceKeys.Add("Empty");
+        This.resourceKeys.Add("Light");
+    }
+
+    Public Function AddInclude(String path) -> Void
+    Explain {
+        Description: "Add one project RXU file.";
+        Input: path = "Path listed by the project";
+        Processing: "Store the path when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.includes, path)) {
+            This.includes.Add(path + "");
+        }
+    }
+
+    Public Function AddAsset(String path) -> Void
+    Explain {
+        Description: "Add one packaged asset name.";
+        Input: path = "Asset path or file name";
+        Processing: "Store the name when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.assets, path)) {
+            This.assets.Add(path + "");
+        }
+    }
+
+    Public Function AddHandler(String name) -> Void
+    Explain {
+        Description: "Add one RX event handler the project defines.";
+        Input: name = "Handler name";
+        Processing: "Store the name when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.handlers, name)) {
+            This.handlers.Add(name + "");
+        }
+    }
+
+    Public Function AddCapability(String name) -> Void
+    Explain {
+        Description: "Add one backend capability.";
+        Input: name = "Element kind the backend can host";
+        Processing: "Store the capability when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.capabilities, name)) {
+            This.capabilities.Add(name + "");
+        }
+    }
+
+    Public Function LoadGraph() -> Int
+    Explain {
+        Description: "Load every project file and check the reachable markup.";
+        Input: None;
+        Processing: "Resolve imports, then check components, properties, resources, handlers, assets, and capabilities.";
+        Output: "The number of build diagnostics.";
+    } {
+        Int index = 0;
+        While (index < This.includes.Count()) {
+            This.BuildLoad(This.includes[index], This.includes[index], 1, 1, This.includes[index].Length());
+            index = index + 1;
+        }
+        Return This.Messages.Count();
+    }
+
+    Public Function ReadProject(String path) -> Int
+    Explain {
+        Description: "Read RXU assets from a project file and check them.";
+        Input: path = "Project file path";
+        Processing: "Read Include, Asset, Handler, and Capability entries, then load the graph.";
+        Output: "The number of build diagnostics.";
+    } {
+        If (!Files.Exists(path)) {
+            This.BuildNote("RXU017", "This project file was not found.", path, 1, 1, path.Length(), "a project file", path, "Create the project or correct the path.");
+            Return This.Messages.Count();
+        }
+        String text = Files.ReadText(path);
+        String directory = This.BuildDirectory(path);
+        String line = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == "\n") {
+                This.BuildLine(line, directory);
+                line = "";
+            } Else {
+                line = line + character;
+            }
+            index = index + 1;
+        }
+        This.BuildLine(line, directory);
+        Return This.LoadGraph();
+    }
+
+    Public Function PackageReady() -> Bool
+    Explain {
+        Description: "Report whether the project can be packaged.";
+        Input: None;
+        Processing: "A package requires an empty diagnostic list.";
+        Output: "True when the build found no errors.";
+    } {
+        Return This.Messages.Count() == 0;
+    }
+
+    Public Function RuntimeCount() -> Int
+    Explain {
+        Description: "Count values that must be checked again at runtime.";
+        Input: None;
+        Processing: "Count bindings, expressions, and localization values.";
+        Output: "The number of deferred checks.";
+    } {
+        Return This.runtimeChecks;
+    }
+
+    Private Function BuildLoad(String path, String fromFile, Int line, Int column, Int length) -> Void {
+        If (This.BuildHas(This.stack, path)) {
+            This.BuildNote("RXU026", "This import is circular.", fromFile, line, column, length, "an acyclic import", path, "Remove the import cycle.");
+            Return;
+        }
+        If (This.BuildHas(This.loaded, path)) {
+            Return;
+        }
+        If (!Files.Exists(path)) {
+            This.BuildNote("RXU027", "This imported file was not found.", fromFile, line, column, length, "an RXU file", path, "Create the file or correct the path.");
+            Return;
+        }
+        If (!This.BuildHas(This.includes, path)) {
+            This.BuildNote("RXU038", "This file is not a project asset.", fromFile, line, column, length, "a project include", path, "Add the file to the project.");
+            Return;
+        }
+        RxuParser parser = RxuParser();
+        RxuNode document = parser.Parse(path, Files.ReadText(path));
+        This.loaded.Add(path + "");
+        This.BuildCopy(document.Messages);
+        If (document.Messages.Count() != 0) {
+            Return;
+        }
+        This.stack.Add(path + "");
+        This.BuildCollect(document, path);
+        This.BuildPop();
+        This.idNames = List<String>();
+        This.BuildVerify(document, "", path);
+    }
+
+    Private Function BuildCollect(RxuNode node, String file) -> Void {
+        If (node.Kind == "Element") {
+            If (node.Name == "Component") {
+                String componentName = node.FindAttribute("Name").Text;
+                If (componentName == "") {
+                    This.BuildNote("RXU036", "A component needs a name.", file, node.Line, node.Column, node.Length, "a component name", "empty", "Set the Name attribute.");
+                } Else {
+                    If (This.BuildHas(This.componentNames, componentName)) {
+                        This.BuildNote("RXU036", "This component name is already defined.", file, node.Line, node.Column, node.Length, "one component", componentName, "Rename one component.");
+                    } Else {
+                        This.componentNames.Add(componentName + "");
+                    }
+                }
+            }
+            If (node.Name == "Import" || node.Name == "Include") {
+                String source = node.FindAttribute("Source").Text;
+                If (source == "") {
+                    This.BuildNote("RXU027", "This imported file was not found.", file, node.Line, node.Column, node.Length, "an RXU file", "empty", "Set the Source attribute.");
+                } Else {
+                    String full = This.BuildResolve(This.BuildDirectory(file), source);
+                    This.BuildLoad(full, file, node.Line, node.Column, node.Length);
+                }
+            }
+            If (node.Name == "Resources" || node.Name == "Theme") {
+                Int child = 0;
+                While (child < node.Children.Count()) {
+                    RxuNode item = node.Children[child];
+                    If (item.Kind == "Element") {
+                        String key = item.FindAttribute("Name").Text;
+                        If (key != "") {
+                            This.resourceKeys.Add(key + "");
+                        }
+                    }
+                    child = child + 1;
+                }
+            }
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            This.BuildCollect(node.Children[index], file);
+            index = index + 1;
+        }
+    }
+
+    Private Function BuildVerify(RxuNode node, String parent, String file) -> Void {
+        If (node.Kind != "Element") {
+            Int nested = 0;
+            While (nested < node.Children.Count()) {
+                This.BuildVerify(node.Children[nested], parent, file);
+                nested = nested + 1;
+            }
+            Return;
+        }
+        String element = node.Name;
+        String builtins = "Window,Panel,Button,Control,FrameworkElement,UIElement,Text,Label,Border,Image,Icon,Resources,Color,Brush,Number,String,Boolean,Font,Style,Template,Setter,Theme,Data,Animation,Dimension,Thickness,Duration,Component,Import,Include,If,Else,ElseIf,Each,For,ForEach,Choose,Switch,When,Default,Otherwise,Let,Set,Bind,Content,Dialog,Menu,Canvas";
+        If (!This.BuildKnown(builtins, element) && !This.BuildHas(This.componentNames, element)) {
+            This.BuildNote("RXU028", "This component is not defined.", file, node.Line, node.Column, node.Length, "a known element or component", element, "Define the component or use a known element.");
+        }
+        If (This.BuildKnown("Window,Panel,Button,Control,FrameworkElement,UIElement,Label,Text,Border,Image,Dialog,Menu,Canvas", element) && !This.BuildHas(This.capabilities, element)) {
+            This.BuildNote("RXU034", "This backend cannot host this element.", file, node.Line, node.Column, node.Length, "a supported capability", element, "Use an element the backend supports.");
+        }
+        If (element == "Window" && parent != "") {
+            This.BuildNote("RXU029", "A window cannot be nested.", file, node.Line, node.Column, node.Length, "a top-level window", parent, "Move the window to the top of the document.");
+        }
+        If (element == "Setter" && parent != "Style") {
+            This.BuildNote("RXU029", "A setter must belong to a style.", file, node.Line, node.Column, node.Length, "Style", parent, "Place the setter inside a Style.");
+        }
+        If (This.BuildKnown("Color,Brush,Number,String,Boolean,Font,Dimension,Thickness,Duration,Animation,Data", element) && parent != "Resources" && parent != "Theme") {
+            This.BuildNote("RXU029", "This resource must belong to a resource table.", file, node.Line, node.Column, node.Length, "Resources or Theme", parent, "Move it inside Resources or Theme.");
+        }
+        String userId = node.FindAttribute("Id").Text;
+        If (userId != "") {
+            If (This.BuildHas(This.idNames, userId)) {
+                This.BuildNote("RXU016", "This Id is already used in the document.", file, node.Line, node.Column, node.Length, "a unique Id", userId, "Give this element a different Id.");
+            } Else {
+                This.idNames.Add(userId + "");
+            }
+        }
+        Bool visual = This.BuildKnown("Window,Panel,Button,Control,FrameworkElement,UIElement,Label,Text,Border,Image", element);
+        UIElement probe = UIElement();
+        probe.Kind = This.BuildProbeKind(element);
+        Int attribute = 0;
+        While (attribute < node.Attributes.Count()) {
+            RxuNode item = node.Attributes[attribute];
+            Bool deferred = item.Mode == "Binding" || item.Mode == "Expression" || item.Mode == "Localization";
+            If (item.Name.StartsWith("On") && item.Name.Length() > 2) {
+                If (deferred) {
+                    This.runtimeChecks = This.runtimeChecks + 1;
+                } Else {
+                    If (!This.BuildHas(This.handlers, item.Text)) {
+                        This.BuildNote("RXU032", "This event handler is not defined.", file, item.Line, item.Column, item.Length, "a project handler", item.Text, "Define the handler or correct its name.");
+                    }
+                }
+            } Else {
+                If (!This.BuildSkip(element, item.Name)) {
+                    If (item.Mode == "Resource") {
+                        If (visual && !probe.Accepts(item.Name)) {
+                            This.BuildNote("RXU031", "This binding target is not a property of the element.", file, item.Line, item.Column, item.Length, "a property of " + element, item.Name, "Bind a property this element allows.");
+                        }
+                        If (!This.BuildHas(This.resourceKeys, item.Text)) {
+                            This.BuildNote("RXU030", "This resource was not found in the project.", file, item.Line, item.Column, item.Length, "a defined resource", item.Text, "Define the resource or use a built-in key.");
+                        }
+                    } Else {
+                        If (deferred) {
+                            If (visual && !probe.Accepts(item.Name)) {
+                                This.BuildNote("RXU031", "This binding target is not a property of the element.", file, item.Line, item.Column, item.Length, "a property of " + element, item.Name, "Bind a property this element allows.");
+                            } Else {
+                                This.runtimeChecks = This.runtimeChecks + 1;
+                            }
+                        } Else {
+                            If (visual) {
+                                Int before = probe.Messages.Count();
+                                probe.SetAttribute(item.Name, item.Text);
+                                Int after = before;
+                                While (after < probe.Messages.Count()) {
+                                    RxuDiagnostic diagnostic = probe.Messages.At(after);
+                                    This.BuildNote(diagnostic.Code, diagnostic.Message, file, item.Line, item.Column, item.Length, diagnostic.Expected, diagnostic.Actual, diagnostic.Correction);
+                                    after = after + 1;
+                                }
+                            } Else {
+                                If (This.BuildKnown(builtins, element)) {
+                                    This.BuildNote("RXU019", "This property is unknown.", file, item.Line, item.Column, item.Length, "a known property", item.Name, "Remove the attribute or move it to an element that allows it.");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            If ((item.Name == "Image" || item.Name == "Icon") && !deferred && item.Mode != "Resource") {
+                String assetPath = This.BuildResolve(This.BuildDirectory(file), item.Text);
+                If (!This.BuildHas(This.assets, item.Text) || (!Files.Exists(assetPath) && !Files.Exists(item.Text))) {
+                    This.BuildNote("RXU033", "This asset is not in the project.", file, item.Line, item.Column, item.Length, "a packaged asset", item.Text, "Add the file to the project assets.");
+                }
+            }
+            attribute = attribute + 1;
+        }
+        Int child = 0;
+        While (child < node.Children.Count()) {
+            This.BuildVerify(node.Children[child], element, file);
+            child = child + 1;
+        }
+    }
+
+    Private Function BuildLine(String line, String directory) -> Void {
+        String value = This.BuildQuoted(line);
+        If (value == "") {
+            Return;
+        }
+        If (line.Contains("Include:")) {
+            This.AddInclude(This.BuildResolve(directory, value));
+        }
+        If (line.Contains("Asset:")) {
+            This.AddAsset(value);
+            This.AddAsset(This.BuildResolve(directory, value));
+        }
+        If (line.Contains("Handler:")) {
+            This.AddHandler(value);
+        }
+        If (line.Contains("Capability:")) {
+            This.AddCapability(value);
+        }
+    }
+
+    Private Function BuildQuoted(String line) -> String {
+        Int start = -1;
+        Int index = 0;
+        While (index < line.Length()) {
+            If (line.Substring(index, 1) == "\"") {
+                If (start < 0) {
+                    start = index + 1;
+                } Else {
+                    Return line.Substring(start, index - start);
+                }
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function BuildResolve(String directory, String source) -> String {
+        If (directory == "" || source.StartsWith("/")) {
+            Return source;
+        }
+        Return directory + "/" + source;
+    }
+
+    Private Function BuildDirectory(String path) -> String {
+        Int last = -1;
+        Int index = 0;
+        While (index < path.Length()) {
+            If (path.Substring(index, 1) == "/") {
+                last = index;
+            }
+            index = index + 1;
+        }
+        If (last < 0) {
+            Return "";
+        }
+        Return path.Substring(0, last);
+    }
+
+    Private Function BuildHas(List<String> items, String name) -> Bool {
+        Int index = 0;
+        While (index < items.Count()) {
+            If (items[index] == name) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function BuildKnown(String catalog, String name) -> Bool {
+        Return ("," + catalog + ",").Contains("," + name + ",");
+    }
+
+    Private Function BuildProbeKind(String element) -> String {
+        If (element == "Window" || element == "Panel" || element == "FrameworkElement" || element == "Control" || element == "UIElement") {
+            Return element;
+        }
+        Return "Button";
+    }
+
+    Private Function BuildSkip(String element, String attribute) -> Bool {
+        If (attribute == "Name" || attribute == "Id") {
+            Return True;
+        }
+        If ((element == "Import" || element == "Include") && attribute == "Source") {
+            Return True;
+        }
+        If ((element == "Each" || element == "For" || element == "ForEach") && (attribute == "Items" || attribute == "As")) {
+            Return True;
+        }
+        If (element == "Setter" && (attribute == "State" || attribute == "Property" || attribute == "Value")) {
+            Return True;
+        }
+        If (element == "When" && attribute == "Value") {
+            Return True;
+        }
+        If ((element == "Let" || element == "Set") && attribute == "Value") {
+            Return True;
+        }
+        If (element == "Bind" && (attribute == "Target" || attribute == "Source")) {
+            Return True;
+        }
+        If (This.BuildKnown("Color,Brush,Number,String,Boolean,Font,Style,Template,Image,Icon,Dimension,Thickness,Duration,Animation,Data,Theme", element) && (attribute == "Name" || attribute == "Value")) {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function BuildCopy(RxuMessages source) -> Void {
+        Int index = 0;
+        While (index < source.Count()) {
+            RxuDiagnostic item = source.At(index);
+            This.BuildNote(item.Code, item.Message, item.Filename, item.Line, item.Column, item.Length, item.Expected, item.Actual, item.Correction);
+            index = index + 1;
+        }
+    }
+
+    Private Function BuildPop() -> Void {
+        List<String> next = List<String>();
+        Int index = 0;
+        While (index < This.stack.Count() - 1) {
+            next.Add(This.stack[index]);
+            index = index + 1;
+        }
+        This.stack = next;
+    }
+
+    Private Function BuildNote(
+        String code,
+        String message,
+        String filename,
+        Int line,
+        Int column,
+        Int length,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void {
+        This.Messages.Add(code, message, filename, line, column, length, expected, actual, correction);
+    }
+}
+
+Public Class Observable {
+    Public String Key;
+    Public String Value;
+    Public Bool Secret;
+
+    Public Constructor() {
+        This.Key = "";
+        This.Value = "";
+        This.Secret = False;
+    }
+}
+
+Public Class ObservableList {
+    Public String Key;
+    Public List<String> Items;
+
+    Public Constructor() {
+        This.Key = "";
+        This.Items = List<String>();
+    }
+}
+
+Public Class Binding {
+    Public String Mode;
+    Public UIElement Target;
+    Public String Property;
+    Public String Expression;
+    Public String Converter;
+    Public Bool Invert;
+    Public String Fallback;
+    Public String Trigger;
+    Public String Context;
+    Public String Source;
+    Public Bool Secret;
+    Public Bool Active;
+    Public Bool Once;
+    Public List<String> Dependencies;
+    Public String Applied;
+
+    Public Constructor() {
+        This.Mode = "OneWay";
+        This.Target = UIElement();
+        This.Property = "";
+        This.Expression = "";
+        This.Converter = "";
+        This.Invert = False;
+        This.Fallback = "";
+        This.Trigger = "Change";
+        This.Context = "";
+        This.Source = "";
+        This.Secret = False;
+        This.Active = True;
+        This.Once = False;
+        This.Dependencies = List<String>();
+        This.Applied = "";
+    }
+}
+
+Public Class RxuExpression {
+    Public RxuMessages Messages;
+    Public String TypeName;
+    Public String Value;
+    Private String text;
+    Private Int cursor;
+    Private Bool failed;
+    Private BindingEngine scope;
+    Private String context;
+    Private List<String> dependencies;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.TypeName = "";
+        This.Value = "";
+        This.text = "";
+        This.cursor = 0;
+        This.failed = False;
+        This.scope = BindingEngine();
+        This.context = "";
+        This.dependencies = List<String>();
+    }
+
+    Public Function CheckExpression(String source) -> String
+    Explain {
+        Description: "Type-check one binding expression.";
+        Input: source = "Expression text";
+        Processing: "Accept paths, comparisons, arithmetic, logic, null checks, conditionals, and approved functions.";
+        Output: "The result type, or Error.";
+    } {
+        This.text = source + "";
+        This.cursor = 0;
+        This.failed = False;
+        This.Messages = RxuMessages();
+        This.dependencies = List<String>();
+        This.TypeName = This.ExprTernary(False);
+        This.ExprSkip();
+        If (This.cursor < This.text.Length()) {
+            This.ExprFail("RXU044", "This expression has trailing text.", This.text.Substring(This.cursor, This.text.Length() - This.cursor));
+            This.TypeName = "Error";
+        }
+        If (This.failed) {
+            Return "Error";
+        }
+        Return This.TypeName;
+    }
+
+    Public Function EvaluateExpression(String source, BindingEngine scope, String context) -> String
+    Explain {
+        Description: "Evaluate one binding expression.";
+        Input: source = "Expression text", scope = "Observable values", context = "Data context key";
+        Processing: "Read only the paths the expression uses and reject unknown functions.";
+        Output: "The value text, or empty text when the result is null or invalid.";
+    } {
+        This.text = source + "";
+        This.cursor = 0;
+        This.failed = False;
+        This.Messages = RxuMessages();
+        This.dependencies = List<String>();
+        This.scope = scope;
+        This.context = context + "";
+        This.Value = "";
+        This.TypeName = This.ExprTernary(True);
+        This.ExprSkip();
+        If (This.cursor < This.text.Length()) {
+            This.ExprFail("RXU044", "This expression has trailing text.", This.text.Substring(This.cursor, This.text.Length() - This.cursor));
+        }
+        If (This.failed || This.TypeName == "Null" || This.TypeName == "Error") {
+            This.Value = "";
+            Return "";
+        }
+        Return This.Value;
+    }
+
+    Public Function DependencyCount() -> Int
+    Explain {
+        Description: "Count the paths read by the last expression.";
+        Input: None;
+        Processing: "Read the recorded path list.";
+        Output: "The number of paths.";
+    } {
+        Return This.dependencies.Count();
+    }
+
+    Public Function DependencyAt(Int index) -> String
+    Explain {
+        Description: "Read one path used by the last expression.";
+        Input: index = "Zero-based path index";
+        Processing: "Return that path, or empty text when the index is outside the list.";
+        Output: "The path.";
+    } {
+        If (index < 0 || index >= This.dependencies.Count()) {
+            Return "";
+        }
+        Return This.dependencies[index];
+    }
+
+    Private Function ExprTernary(Bool live) -> String {
+        String condition = This.ExprOr(live);
+        String left = This.Value + "";
+        This.ExprSkip();
+        If (!This.ExprEat("?")) {
+            Return condition;
+        }
+        String yesType = This.ExprTernary(live);
+        String yes = This.Value + "";
+        This.ExprSkip();
+        If (!This.ExprEat(":")) {
+            This.ExprFail("RXU044", "A conditional needs a false branch.", ":");
+            Return "Error";
+        }
+        String noType = This.ExprTernary(live);
+        String no = This.Value + "";
+        If (condition == "Error" || yesType == "Error" || noType == "Error") {
+            Return "Error";
+        }
+        If (condition != "Boolean") {
+            This.ExprFail("RXU044", "A conditional test must be Boolean.", condition);
+            Return "Error";
+        }
+        String chosen = yesType;
+        If (yesType != noType) {
+            chosen = "String";
+        }
+        If (live) {
+            If (left == "true") {
+                This.Value = yes;
+            } Else {
+                This.Value = no;
+            }
+        }
+        Return chosen;
+    }
+
+    Private Function ExprOr(Bool live) -> String {
+        String current = This.ExprAnd(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            If (!This.ExprEat("||")) {
+                Break;
+            }
+            String right = This.ExprAnd(live);
+            If (current != "Boolean" || right != "Boolean") {
+                This.ExprFail("RXU044", "Logic operands must be Boolean.", current);
+                Return "Error";
+            }
+            If (live) {
+                If (value == "true" || This.Value == "true") {
+                    value = "true";
+                } Else {
+                    value = "false";
+                }
+                This.Value = value;
+            }
+            current = "Boolean";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprAnd(Bool live) -> String {
+        String current = This.ExprCompare(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            If (!This.ExprEat("&&")) {
+                Break;
+            }
+            String right = This.ExprCompare(live);
+            If (current != "Boolean" || right != "Boolean") {
+                This.ExprFail("RXU044", "Logic operands must be Boolean.", current);
+                Return "Error";
+            }
+            If (live) {
+                If (value == "true" && This.Value == "true") {
+                    value = "true";
+                } Else {
+                    value = "false";
+                }
+                This.Value = value;
+            }
+            current = "Boolean";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprCompare(Bool live) -> String {
+        String current = This.ExprAdd(live);
+        String value = This.Value + "";
+        This.ExprSkip();
+        String op = This.ExprOperator();
+        If (op == "") {
+            Return current;
+        }
+        String right = This.ExprAdd(live);
+        String other = This.Value + "";
+        If (current == "Error" || right == "Error") {
+            Return "Error";
+        }
+        If (op != "==" && op != "!=" && current == "Null") {
+            This.ExprFail("RXU044", "Null can only be compared with == or !=.", op);
+            Return "Error";
+        }
+        If ((op == "<" || op == ">" || op == "<=" || op == ">=") && current != "Number") {
+            This.ExprFail("RXU044", "Ordered comparisons need numbers.", current);
+            Return "Error";
+        }
+        If (live) {
+            Bool same = value == other;
+            Bool less = False;
+            If (current == "Number" && right == "Number") {
+                less = value.ToInt() < other.ToInt();
+                same = value.ToInt() == other.ToInt();
+            }
+            Bool answer = False;
+            If (op == "==") { answer = same; }
+            If (op == "!=") { answer = !same; }
+            If (op == "<") { answer = less; }
+            If (op == ">") { answer = !less && !same; }
+            If (op == "<=") { answer = less || same; }
+            If (op == ">=") { answer = !less || same; }
+            If (answer) {
+                This.Value = "true";
+            } Else {
+                This.Value = "false";
+            }
+        }
+        Return "Boolean";
+    }
+
+    Private Function ExprAdd(Bool live) -> String {
+        String current = This.ExprMul(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            String op = "";
+            If (This.ExprEat("+")) {
+                op = "+";
+            } Else {
+                If (This.ExprEat("-")) {
+                    op = "-";
+                }
+            }
+            If (op == "") {
+                Break;
+            }
+            String right = This.ExprMul(live);
+            If (current != "Number" || right != "Number") {
+                This.ExprFail("RXU044", "Arithmetic operands must be numbers.", current);
+                Return "Error";
+            }
+            If (live) {
+                Int number = value.ToInt();
+                If (op == "+") {
+                    number = number + This.Value.ToInt();
+                } Else {
+                    number = number - This.Value.ToInt();
+                }
+                value = number.ToString();
+                This.Value = value;
+            }
+            current = "Number";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprMul(Bool live) -> String {
+        String current = This.ExprUnary(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            String op = "";
+            If (This.ExprEat("*")) {
+                op = "*";
+            } Else {
+                If (This.ExprEat("/")) {
+                    op = "/";
+                }
+            }
+            If (op == "") {
+                Break;
+            }
+            String right = This.ExprUnary(live);
+            If (current != "Number" || right != "Number") {
+                This.ExprFail("RXU044", "Arithmetic operands must be numbers.", current);
+                Return "Error";
+            }
+            If (live) {
+                Int number = value.ToInt();
+                Int divisor = This.Value.ToInt();
+                If (op == "*") {
+                    number = number * divisor;
+                } Else {
+                    If (divisor == 0) {
+                        This.ExprFail("RXU044", "Division by zero is not allowed.", "0");
+                        Return "Error";
+                    }
+                    number = number / divisor;
+                }
+                value = number.ToString();
+                This.Value = value;
+            }
+            current = "Number";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprUnary(Bool live) -> String {
+        This.ExprSkip();
+        If (This.ExprEat("!")) {
+            String inner = This.ExprUnary(live);
+            If (inner != "Boolean") {
+                This.ExprFail("RXU044", "Not must be applied to a Boolean.", inner);
+                Return "Error";
+            }
+            If (live) {
+                If (This.Value == "true") {
+                    This.Value = "false";
+                } Else {
+                    This.Value = "true";
+                }
+            }
+            Return "Boolean";
+        }
+        If (This.ExprEat("-")) {
+            String inner = This.ExprUnary(live);
+            If (inner != "Number") {
+                This.ExprFail("RXU044", "Negation must be applied to a number.", inner);
+                Return "Error";
+            }
+            If (live) {
+                This.Value = (0 - This.Value.ToInt()).ToString();
+            }
+            Return "Number";
+        }
+        Return This.ExprPrimary(live);
+    }
+
+    Private Function ExprPrimary(Bool live) -> String {
+        This.ExprSkip();
+        If (This.ExprEat("(")) {
+            String inner = This.ExprTernary(live);
+            This.ExprSkip();
+            If (!This.ExprEat(")")) {
+                This.ExprFail("RXU044", "This group is missing ')'.", ")");
+                Return "Error";
+            }
+            Return inner;
+        }
+        If (This.ExprPeek() == "\"") {
+            Return This.ExprText(live);
+        }
+        If (This.ExprIsDigit(This.ExprPeek())) {
+            Return This.ExprNumber(live);
+        }
+        String word = This.ExprWord();
+        If (word == "") {
+            This.ExprFail("RXU044", "This expression is missing a value.", "");
+            Return "Error";
+        }
+        If (word == "true" || word == "false") {
+            This.Value = word;
+            Return "Boolean";
+        }
+        If (word == "null") {
+            This.Value = "";
+            Return "Null";
+        }
+        This.ExprSkip();
+        If (This.ExprEat("(")) {
+            Return This.ExprCall(word, live);
+        }
+        Return This.ExprPath(word, live);
+    }
+
+    Private Function ExprCall(String name, Bool live) -> String {
+        String argument = This.ExprTernary(live);
+        String payload = This.Value + "";
+        This.ExprSkip();
+        If (!This.ExprEat(")")) {
+            This.ExprFail("RXU044", "A function call is missing ')'.", ")");
+            Return "Error";
+        }
+        If (name != "Length" && name != "Empty" && name != "Not" && name != "Count" && name != "Lower" && name != "Upper") {
+            This.ExprFail("RXU039", "This function is not approved.", name);
+            Return "Error";
+        }
+        If (name == "Not" && argument != "Boolean") {
+            This.ExprFail("RXU044", "Not expects a Boolean.", argument);
+            Return "Error";
+        }
+        If ((name == "Length" || name == "Empty" || name == "Lower" || name == "Upper") && argument != "String") {
+            This.ExprFail("RXU044", "This function expects text.", argument);
+            Return "Error";
+        }
+        If (name == "Count" && argument != "String") {
+            This.ExprFail("RXU044", "Count expects a collection path.", argument);
+            Return "Error";
+        }
+        If (!live) {
+            If (name == "Length" || name == "Count") { Return "Number"; }
+            If (name == "Empty" || name == "Not") { Return "Boolean"; }
+            Return "String";
+        }
+        If (name == "Length") {
+            This.Value = payload.Length().ToString();
+            Return "Number";
+        }
+        If (name == "Empty") {
+            If (payload.Length() == 0) { This.Value = "true"; } Else { This.Value = "false"; }
+            Return "Boolean";
+        }
+        If (name == "Not") {
+            If (payload == "true") { This.Value = "false"; } Else { This.Value = "true"; }
+            Return "Boolean";
+        }
+        If (name == "Lower") {
+            This.Value = This.ExprCase(payload, False);
+            Return "String";
+        }
+        If (name == "Upper") {
+            This.Value = This.ExprCase(payload, True);
+            Return "String";
+        }
+        String listName = payload;
+        If (This.dependencies.Count() > 0) {
+            listName = This.dependencies[This.dependencies.Count() - 1];
+        }
+        This.Value = This.scope.ItemCount(listName).ToString();
+        Return "Number";
+    }
+
+    Private Function ExprPath(String head, Bool live) -> String {
+        String path = head + "";
+        While (True) {
+            If (!This.ExprEat(".")) {
+                Break;
+            }
+            String part = This.ExprWord();
+            If (part == "" && This.ExprIsDigit(This.ExprPeek())) {
+                part = This.ExprDigits();
+            }
+            If (part == "") {
+                This.ExprFail("RXU044", "A path is missing a name.", ".");
+                Return "Error";
+            }
+            path = path + "." + part;
+        }
+        String full = path;
+        If (This.context != "" && !path.Contains(".")) {
+            full = This.context + "." + path;
+        }
+        This.dependencies.Add(full + "");
+        If (full.EndsWith(".Count")) {
+            If (!live) {
+                Return "Number";
+            }
+            String listName = full.Substring(0, full.Length() - 6);
+            This.dependencies.Add(listName + "");
+            This.Value = This.scope.ItemCount(listName).ToString();
+            Return "Number";
+        }
+        If (!live) {
+            Return "String";
+        }
+        Int dot = full.Length() - 1;
+        While (dot >= 0) {
+            If (full.Substring(dot, 1) == ".") {
+                Break;
+            }
+            dot = dot - 1;
+        }
+        If (dot >= 0) {
+            String tail = full.Substring(dot + 1, full.Length() - dot - 1);
+            If (This.ExprIsDigit(tail.Substring(0, 1))) {
+                String listName = full.Substring(0, dot);
+                This.dependencies.Add(listName + "");
+                String item = This.scope.ItemAt(listName, tail.ToInt());
+                If (item == "") {
+                    This.Value = "";
+                    Return "Null";
+                }
+                This.Value = item;
+                Return "String";
+            }
+        }
+        If (!This.scope.HasPath(full)) {
+            This.Value = "";
+            Return "Null";
+        }
+        This.Value = This.scope.ReadValue(full);
+        Return "String";
+    }
+
+    Private Function ExprText(Bool live) -> String {
+        This.cursor = This.cursor + 1;
+        String value = "";
+        While (This.cursor < This.text.Length() && This.ExprPeek() != "\"") {
+            value = value + This.ExprPeek();
+            This.cursor = This.cursor + 1;
+        }
+        If (!This.ExprEat("\"")) {
+            This.ExprFail("RXU044", "This string is not closed.", "\"");
+            Return "Error";
+        }
+        If (live) {
+            This.Value = value;
+        }
+        Return "String";
+    }
+
+    Private Function ExprNumber(Bool live) -> String {
+        String digits = This.ExprDigits();
+        If (live) {
+            This.Value = digits;
+        }
+        Return "Number";
+    }
+
+    Private Function ExprDigits() -> String {
+        String digits = "";
+        While (This.ExprIsDigit(This.ExprPeek())) {
+            digits = digits + This.ExprPeek();
+            This.cursor = This.cursor + 1;
+        }
+        Return digits;
+    }
+
+    Private Function ExprWord() -> String {
+        String word = "";
+        String character = This.ExprPeek();
+        If (!This.ExprIsLetter(character)) {
+            Return "";
+        }
+        While (This.ExprIsLetter(This.ExprPeek()) || This.ExprIsDigit(This.ExprPeek())) {
+            word = word + This.ExprPeek();
+            This.cursor = This.cursor + 1;
+        }
+        Return word;
+    }
+
+    Private Function ExprOperator() -> String {
+        If (This.ExprEat("==")) { Return "=="; }
+        If (This.ExprEat("!=")) { Return "!="; }
+        If (This.ExprEat("<=")) { Return "<="; }
+        If (This.ExprEat(">=")) { Return ">="; }
+        If (This.ExprEat("<")) { Return "<"; }
+        If (This.ExprEat(">")) { Return ">"; }
+        Return "";
+    }
+
+    Private Function ExprCase(String value, Bool upper) -> String {
+        String result = "";
+        Int index = 0;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (upper && character >= "a" && character <= "z") {
+                If (character == "a") { character = "A"; }
+                If (character == "b") { character = "B"; }
+                If (character == "c") { character = "C"; }
+                If (character == "d") { character = "D"; }
+                If (character == "e") { character = "E"; }
+                If (character == "f") { character = "F"; }
+                If (character == "g") { character = "G"; }
+                If (character == "h") { character = "H"; }
+                If (character == "i") { character = "I"; }
+                If (character == "j") { character = "J"; }
+                If (character == "k") { character = "K"; }
+                If (character == "l") { character = "L"; }
+                If (character == "m") { character = "M"; }
+                If (character == "n") { character = "N"; }
+                If (character == "o") { character = "O"; }
+                If (character == "p") { character = "P"; }
+                If (character == "q") { character = "Q"; }
+                If (character == "r") { character = "R"; }
+                If (character == "s") { character = "S"; }
+                If (character == "t") { character = "T"; }
+                If (character == "u") { character = "U"; }
+                If (character == "v") { character = "V"; }
+                If (character == "w") { character = "W"; }
+                If (character == "x") { character = "X"; }
+                If (character == "y") { character = "Y"; }
+                If (character == "z") { character = "Z"; }
+            }
+            If (!upper && character >= "A" && character <= "Z") {
+                If (character == "A") { character = "a"; }
+                If (character == "B") { character = "b"; }
+                If (character == "C") { character = "c"; }
+                If (character == "D") { character = "d"; }
+                If (character == "E") { character = "e"; }
+                If (character == "F") { character = "f"; }
+                If (character == "G") { character = "g"; }
+                If (character == "H") { character = "h"; }
+                If (character == "I") { character = "i"; }
+                If (character == "J") { character = "j"; }
+                If (character == "K") { character = "k"; }
+                If (character == "L") { character = "l"; }
+                If (character == "M") { character = "m"; }
+                If (character == "N") { character = "n"; }
+                If (character == "O") { character = "o"; }
+                If (character == "P") { character = "p"; }
+                If (character == "Q") { character = "q"; }
+                If (character == "R") { character = "r"; }
+                If (character == "S") { character = "s"; }
+                If (character == "T") { character = "t"; }
+                If (character == "U") { character = "u"; }
+                If (character == "V") { character = "v"; }
+                If (character == "W") { character = "w"; }
+                If (character == "X") { character = "x"; }
+                If (character == "Y") { character = "y"; }
+                If (character == "Z") { character = "z"; }
+            }
+            result = result + character;
+            index = index + 1;
+        }
+        Return result;
+    }
+
+    Private Function ExprSkip() -> Void {
+        While (This.cursor < This.text.Length()) {
+            String character = This.ExprPeek();
+            If (character != " " && character != "\t") {
+                Return;
+            }
+            This.cursor = This.cursor + 1;
+        }
+    }
+
+    Private Function ExprPeek() -> String {
+        If (This.cursor >= This.text.Length()) {
+            Return "";
+        }
+        Return This.text.Substring(This.cursor, 1);
+    }
+
+    Private Function ExprEat(String token) -> Bool {
+        This.ExprSkip();
+        If (This.cursor + token.Length() > This.text.Length()) {
+            Return False;
+        }
+        If (This.text.Substring(This.cursor, token.Length()) == token) {
+            This.cursor = This.cursor + token.Length();
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function ExprIsDigit(String character) -> Bool {
+        Return character >= "0" && character <= "9";
+    }
+
+    Private Function ExprIsLetter(String character) -> Bool {
+        If (character >= "A" && character <= "Z") { Return True; }
+        If (character >= "a" && character <= "z") { Return True; }
+        Return character == "_";
+    }
+
+    Private Function ExprFail(String code, String message, String actual) -> Void {
+        This.failed = True;
+        This.TypeName = "Error";
+        This.Messages.Add(code, message, "", 1, This.cursor + 1, actual.Length(), "a valid expression", actual, "Rewrite the expression with approved operations.");
+    }
+}
+
+Public Class BindingEngine {
+    Public RxuMessages Messages;
+    Private List<Observable> values;
+    Private List<ObservableList> lists;
+    Private List<Binding> bindings;
+    Private Int updateDepth;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.values = List<Observable>();
+        This.lists = List<ObservableList>();
+        This.bindings = List<Binding>();
+        This.updateDepth = 0;
+    }
+
+    Public Function DefineValue(String key, String value, Bool secret) -> Void
+    Explain {
+        Description: "Create or replace an observable value.";
+        Input: key = "Value path", value = "Initial text", secret = "True when the value must not be logged";
+        Processing: "Store the value and notify active bindings.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindValue(key);
+        If (index < 0) {
+            Observable created = Observable();
+            created.Key = key + "";
+            created.Value = value + "";
+            created.Secret = secret;
+            This.values.Add(created);
+        } Else {
+            This.values[index].Value = value + "";
+            This.values[index].Secret = secret;
+        }
+        This.NotifyWatchers(key);
+    }
+
+    Public Function ChangeValue(String key, String value) -> Void
+    Explain {
+        Description: "Change an observable value and refresh dependent bindings.";
+        Input: key = "Value path", value = "New text";
+        Processing: "Store a different value and notify watchers. An unchanged value does not refresh.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindValue(key);
+        If (index < 0) {
+            This.DefineValue(key, value, False);
+            Return;
+        }
+        If (This.values[index].Value == value) {
+            Return;
+        }
+        This.values[index].Value = value + "";
+        This.NotifyWatchers(key);
+    }
+
+    Public Function ReadValue(String key) -> String
+    Explain {
+        Description: "Read an observable value.";
+        Input: key = "Value path";
+        Processing: "Find the stored text.";
+        Output: "The value, or empty text when the path is missing.";
+    } {
+        Int index = This.FindValue(key);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.values[index].Value;
+    }
+
+    Public Function HasPath(String key) -> Bool
+    Explain {
+        Description: "Report whether a value or collection exists.";
+        Input: key = "Path";
+        Processing: "Look through values and collections.";
+        Output: "True when the path is defined.";
+    } {
+        If (This.FindValue(key) >= 0) {
+            Return True;
+        }
+        Return This.FindList(key) >= 0;
+    }
+
+    Public Function DefineList(String key) -> Void
+    Explain {
+        Description: "Create an observable collection.";
+        Input: key = "Collection name";
+        Processing: "Store an empty collection when it does not already exist.";
+        Output: "No return value.";
+    } {
+        If (This.FindList(key) >= 0) {
+            Return;
+        }
+        ObservableList created = ObservableList();
+        created.Key = key + "";
+        This.lists.Add(created);
+    }
+
+    Public Function AddItem(String key, String value) -> Void
+    Explain {
+        Description: "Append one collection item.";
+        Input: key = "Collection name", value = "Item text";
+        Processing: "Add the item and notify bindings that read the collection.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0) {
+            This.DefineList(key);
+            index = This.FindList(key);
+        }
+        This.lists[index].Items.Add(value + "");
+        This.NotifyWatchers(key);
+    }
+
+    Public Function RemoveItem(String key, Int item) -> Void
+    Explain {
+        Description: "Remove one collection item.";
+        Input: key = "Collection name", item = "Zero-based index";
+        Processing: "Rebuild the collection without that index and notify bindings.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0 || item < 0 || item >= This.lists[index].Items.Count()) {
+            Return;
+        }
+        List<String> next = List<String>();
+        Int cursor = 0;
+        While (cursor < This.lists[index].Items.Count()) {
+            If (cursor != item) {
+                next.Add(This.lists[index].Items[cursor]);
+            }
+            cursor = cursor + 1;
+        }
+        This.lists[index].Items = next;
+        This.NotifyWatchers(key);
+    }
+
+    Public Function MoveItem(String key, Int from, Int to) -> Void
+    Explain {
+        Description: "Move one collection item.";
+        Input: key = "Collection name", from = "Current index", to = "New index";
+        Processing: "Reorder the item and notify bindings.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0 || from < 0 || to < 0 || from >= This.lists[index].Items.Count() || to >= This.lists[index].Items.Count()) {
+            Return;
+        }
+        String moving = This.lists[index].Items[from] + "";
+        This.RemoveItem(key, from);
+        Int target = to;
+        List<String> next = List<String>();
+        Int cursor = 0;
+        While (cursor < This.lists[index].Items.Count()) {
+            If (cursor == target) {
+                next.Add(moving);
+            }
+            next.Add(This.lists[index].Items[cursor]);
+            cursor = cursor + 1;
+        }
+        If (target >= This.lists[index].Items.Count()) {
+            next.Add(moving);
+        }
+        This.lists[index].Items = next;
+        This.NotifyWatchers(key);
+    }
+
+    Public Function ItemAt(String key, Int item) -> String
+    Explain {
+        Description: "Read one collection item.";
+        Input: key = "Collection name", item = "Zero-based index";
+        Processing: "Return the item text.";
+        Output: "The item, or empty text when it is missing.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0 || item < 0 || item >= This.lists[index].Items.Count()) {
+            Return "";
+        }
+        Return This.lists[index].Items[item];
+    }
+
+    Public Function ItemCount(String key) -> Int
+    Explain {
+        Description: "Count collection items.";
+        Input: key = "Collection name";
+        Processing: "Read the collection size.";
+        Output: "The number of items, or zero when the collection is missing.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0) {
+            Return 0;
+        }
+        Return This.lists[index].Items.Count();
+    }
+
+    Public Function BindTo(UIElement target, String property, String expression, String mode, String converter, Bool invert, String fallback, String trigger, String context) -> Int
+    Explain {
+        Description: "Bind an element property to an expression.";
+        Input: target = "Element", property = "Property name", expression = "Source expression", mode = "OneWay, TwoWay, OneTime, OneWayToSource, Reactive, or Manual", converter = "Upper, Lower, Not, or empty", invert = "True to flip a Boolean", fallback = "Text used when the source is missing", trigger = "Change, Input, or Explicit", context = "Data context key";
+        Processing: "Store the subscription and apply it unless the mode waits for input or an explicit refresh.";
+        Output: "The binding index.";
+    } {
+        Binding created = Binding();
+        created.Target = target;
+        created.Property = property + "";
+        created.Expression = expression + "";
+        created.Mode = mode + "";
+        created.Converter = converter + "";
+        created.Invert = invert;
+        created.Fallback = fallback + "";
+        created.Trigger = trigger + "";
+        created.Context = context + "";
+        created.Secret = target.Kind == "PasswordBox" || property == "Password";
+        created.Source = This.PlainPath(expression, context);
+        created.Active = True;
+        This.bindings.Add(created);
+        Int index = This.bindings.Count() - 1;
+        If (mode != "Manual" && mode != "OneWayToSource" && trigger != "Explicit") {
+            This.ApplyBound(index, True);
+        }
+        Return index;
+    }
+
+    Public Function PushInput(Int index, String value) -> Bool
+    Explain {
+        Description: "Apply a user edit to a bound property.";
+        Input: index = "Binding index", value = "Edited text";
+        Processing: "Write the property. Two-way and source bindings also write the observable.";
+        Output: "True when the property accepts the text.";
+    } {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return False;
+        }
+        Binding item = This.bindings[index];
+        Bool accepted = item.Target.SetAttribute(item.Property, value);
+        If (item.Active && item.Source != "" && (item.Mode == "TwoWay" || item.Mode == "OneWayToSource" || item.Trigger == "Input")) {
+            This.ChangeValue(item.Source, This.ConvertBack(item, value));
+        }
+        Return accepted;
+    }
+
+    Public Function RefreshBound(Int index) -> Bool
+    Explain {
+        Description: "Refresh one binding explicitly.";
+        Input: index = "Binding index";
+        Processing: "Evaluate the expression again, including manual bindings. Animation still wins over the written local value.";
+        Output: "True when the binding was applied.";
+    } {
+        Return This.ApplyBound(index, True);
+    }
+
+    Public Function DisposeBound(Int index) -> Void
+    Explain {
+        Description: "Unsubscribe one binding.";
+        Input: index = "Binding index";
+        Processing: "Mark it inactive and drop its dependencies.";
+        Output: "No return value.";
+    } {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return;
+        }
+        This.bindings[index].Active = False;
+        This.bindings[index].Dependencies = List<String>();
+    }
+
+    Public Function DisposeAll() -> Void
+    Explain {
+        Description: "Drop every binding subscription.";
+        Input: None;
+        Processing: "Deactivate each binding so later changes do not reach disposed documents.";
+        Output: "No return value.";
+    } {
+        Int index = 0;
+        While (index < This.bindings.Count()) {
+            This.DisposeBound(index);
+            index = index + 1;
+        }
+    }
+
+    Public Function ActiveCount() -> Int
+    Explain {
+        Description: "Count active subscriptions.";
+        Input: None;
+        Processing: "Count bindings that have not been disposed.";
+        Output: "The number of active bindings.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < This.bindings.Count()) {
+            If (This.bindings[index].Active) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function TraceValue(Int index) -> String
+    Explain {
+        Description: "Read the last applied binding text for diagnostics.";
+        Input: index = "Binding index";
+        Processing: "Mask password values.";
+        Output: "The applied text, or bullets when the value is secret.";
+    } {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return "";
+        }
+        If (This.bindings[index].Secret) {
+            Return "••••";
+        }
+        Return This.bindings[index].Applied;
+    }
+
+    Private Function ApplyBound(Int index, Bool forced) -> Bool {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return False;
+        }
+        If (This.updateDepth >= 8) {
+            This.Messages.Add("RXU040", "This binding update is cyclic.", "", 1, 1, 1, "an update that settles", "a repeated update", "Break the binding cycle.");
+            Return False;
+        }
+        Binding item = This.bindings[index];
+        If (!item.Active && !forced) {
+            Return False;
+        }
+        If (!forced) {
+            If (item.Mode == "Manual" || item.Mode == "OneWayToSource" || item.Trigger == "Explicit") {
+                Return False;
+            }
+            If (item.Mode == "OneTime" && item.Once) {
+                Return False;
+            }
+        }
+        This.updateDepth = This.updateDepth + 1;
+        RxuExpression expression = RxuExpression();
+        String raw = expression.EvaluateExpression(item.Expression, This, item.Context);
+        item.Dependencies = List<String>();
+        Int watch = 0;
+        While (watch < expression.DependencyCount()) {
+            item.Dependencies.Add(expression.DependencyAt(watch));
+            watch = watch + 1;
+        }
+        String shown = raw;
+        If (expression.TypeName == "Null" || expression.TypeName == "Error" || raw == "") {
+            shown = item.Fallback;
+        } Else {
+            shown = This.ConvertText(item, raw);
+        }
+        item.Applied = shown + "";
+        Bool accepted = True;
+        If (item.Mode != "OneWayToSource" || forced) {
+            If (item.Secret && !item.Target.Accepts(item.Property)) {
+                accepted = False;
+            } Else {
+                accepted = item.Target.SetAttribute(item.Property, shown);
+            }
+            If (!accepted) {
+                This.Messages.Add("RXU041", "This binding value was rejected.", "", 1, 1, 1, "a value the property accepts", This.MaskText(item, shown), "Change the binding or the fallback.");
+            }
+        }
+        If (expression.Messages.Find("RXU039") >= 0 || expression.Messages.Find("RXU044") >= 0) {
+            Int diagnostic = 0;
+            While (diagnostic < expression.Messages.Count()) {
+                RxuDiagnostic found = expression.Messages.At(diagnostic);
+                This.Messages.Add(found.Code, found.Message, "", found.Line, found.Column, found.Length, found.Expected, This.MaskText(item, found.Actual), found.Correction);
+                diagnostic = diagnostic + 1;
+            }
+        }
+        If (item.Mode == "OneTime") {
+            item.Once = True;
+            item.Active = False;
+        }
+        If ((item.Mode == "TwoWay" || item.Mode == "OneWayToSource") && item.Source != "" && accepted) {
+            If (This.ReadValue(item.Source) != shown) {
+                This.ChangeValue(item.Source, shown);
+            }
+        }
+        This.updateDepth = This.updateDepth - 1;
+        Return accepted;
+    }
+
+    Private Function NotifyWatchers(String key) -> Void {
+        Int index = 0;
+        While (index < This.bindings.Count()) {
+            If (This.DependsOn(index, key)) {
+                This.ApplyBound(index, False);
+            }
+            index = index + 1;
+        }
+    }
+
+    Private Function DependsOn(Int index, String key) -> Bool {
+        Binding item = This.bindings[index];
+        If (!item.Active || item.Mode == "Manual" || item.Mode == "OneWayToSource" || item.Trigger == "Explicit") {
+            Return False;
+        }
+        Int watch = 0;
+        While (watch < item.Dependencies.Count()) {
+            String used = item.Dependencies[watch];
+            If (used == key || used.StartsWith(key + ".") || key.StartsWith(used + ".")) {
+                Return True;
+            }
+            watch = watch + 1;
+        }
+        Return False;
+    }
+
+    Private Function ConvertText(Binding item, String value) -> String {
+        String shown = value + "";
+        If (item.Converter == "Upper") { shown = This.ChangeCase(shown, True); }
+        If (item.Converter == "Lower") { shown = This.ChangeCase(shown, False); }
+        If (item.Converter == "Not" || item.Invert) {
+            If (shown == "true") { shown = "false"; }
+            Else { If (shown == "false") { shown = "true"; } }
+        }
+        Return shown;
+    }
+
+    Private Function ConvertBack(Binding item, String value) -> String {
+        String stored = value + "";
+        If (item.Converter == "Not" || item.Invert) {
+            If (stored == "true") { Return "false"; }
+            If (stored == "false") { Return "true"; }
+        }
+        Return stored;
+    }
+
+    Private Function MaskText(Binding item, String value) -> String {
+        If (item.Secret) {
+            Return "••••";
+        }
+        Return value;
+    }
+
+    Private Function PlainPath(String expression, String context) -> String {
+        String text = expression.Trim();
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            Bool name = (character >= "A" && character <= "Z") || (character >= "a" && character <= "z") || (character >= "0" && character <= "9") || character == "_" || character == ".";
+            If (!name) {
+                Return "";
+            }
+            index = index + 1;
+        }
+        If (context != "" && !text.Contains(".")) {
+            Return context + "." + text;
+        }
+        Return text;
+    }
+
+    Private Function FindValue(String key) -> Int {
+        Int index = 0;
+        While (index < This.values.Count()) {
+            If (This.values[index].Key == key) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function FindList(String key) -> Int {
+        Int index = 0;
+        While (index < This.lists.Count()) {
+            If (This.lists[index].Key == key) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function ChangeCase(String value, Bool upper) -> String {
+        RxuExpression helper = RxuExpression();
+        If (upper) {
+            Return helper.EvaluateExpression("Upper(\"" + value + "\")", This, "");
+        }
+        Return helper.EvaluateExpression("Lower(\"" + value + "\")", This, "");
+    }
+}
+
 Private Function ReadExample(String path) -> RxuNode {
     RxuParser parser = RxuParser();
     Return parser.Parse(path, Files.ReadText(path));
@@ -2956,6 +5371,254 @@ Explain {
     Return failed;
 }
 
+Public Function CheckResources() -> Int
+Explain {
+    Description: "Check resource lookup, styles, themes, and templates.";
+    Input: None;
+    Processing: "Load the Examples/UI resource files and apply them to elements.";
+    Output: "The number of failed resource checks.";
+} {
+    Int failed = 0;
+    ResourceLibrary library = ResourceLibrary();
+    RxuNode resources = ReadExample("Examples/UI/Resources.rxu").FindChild("Resources");
+    failed = failed + FailWhen(library.Document.Load(resources) != 0 || library.Document.Get("Accent") != "#336699", "Examples/UI/Resources.rxu");
+    RxuNode typed = ReadExample("Examples/UI/ResourceTypes.rxu").FindChild("Resources");
+    ResourceTable types = ResourceTable();
+    failed = failed + FailWhen(types.Load(typed) != 0 || types.Count() != 16 || types.TypeOfKey("Pad") != "Thickness", "Examples/UI/ResourceTypes.rxu");
+    ResourceTable component = ResourceTable();
+    ResourceTable ancestor = ResourceTable();
+    component.Set("Color", "Accent", "#111111");
+    ancestor.Set("Color", "Accent", "#333333");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#111111", "component resource");
+    component.Remove("Accent");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#333333", "ancestor resource");
+    ancestor.Remove("Accent");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#336699", "document resource");
+    library.Document.Remove("Accent");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#336699", "builtin resource");
+    failed = failed + FailWhen(component.Set("Color", "Accent", "#111111") != True || component.Set("Color", "Accent", "#222222") != False || component.Get("Accent") != "#111111" || component.Messages.Find("RXU023") < 0, "duplicate resource");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Missing", "Black") != "Black" || library.Messages.Find("RXU024") < 0, "missing resource");
+    component.Set("Color", "Loop", "@Back");
+    component.Set("Color", "Back", "@Loop");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Loop", "Black") != "Black" || library.Messages.Find("RXU022") < 0, "cyclic resource");
+    failed = failed + FailWhen(component.Set("Color", "Bad", "nope") != False || component.Messages.Find("RXU021") < 0, "bad resource");
+    UIElement button = UIElement();
+    button.Kind = "Button";
+    button.SetAttribute("Name", "Save");
+    library.Document.Set("Color", "Accent", "#336699");
+    failed = failed + FailWhen(library.Bind(button, "Background", "Accent", "#000000") != True || button.GetAttribute("Background") != "#336699", "resource binding");
+    RxuNode theme = ReadExample("Examples/UI/Theme.rxu").FindChild("Theme");
+    library.Document.Remove("Accent");
+    failed = failed + FailWhen(library.AddTheme(theme) != 0 || library.SwitchTheme("Dark") != True || button.GetAttribute("Background") != "#112233" || button.GetAttribute("Name") != "Save", "Examples/UI/Theme.rxu");
+    RxuNode style = ReadExample("Examples/UI/Styles.rxu").FindChild("Style");
+    failed = failed + FailWhen(library.Styles.Load(style) != 1, "Examples/UI/Styles.rxu");
+    UIElement styled = UIElement();
+    styled.Kind = "Button";
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "") < 1 || styled.GetAttribute("Background") != "#336699", "base style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Hover") < 1 || styled.GetAttribute("Background") != "#224466", "hover style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Pressed") < 1 || styled.GetAttribute("Background") != "#112233", "pressed style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Disabled") < 1 || styled.GetAttribute("Opacity") != "0.4", "disabled style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Focused") < 1 || styled.GetAttribute("BorderColor") != "#FFFFFF", "focused style");
+    styled.SetAttribute("Background", "#ABCDEF");
+    library.Styles.Apply(styled, "Primary", "Hover");
+    failed = failed + FailWhen(styled.GetAttribute("Background") != "#ABCDEF", "local beats style");
+    RxuNode template = ReadExample("Examples/UI/Template.rxu").FindChild("Template");
+    failed = failed + FailWhen(library.LoadTemplate(template) != True || library.ApplyTemplate(styled, "ArmButton") != True || styled.Kind != "Button" || styled.VisualKind != "Border" || styled.TemplateName != "ArmButton", "Examples/UI/Template.rxu");
+    Return failed;
+}
+
+Public Function CheckBuild() -> Int
+Explain {
+    Description: "Check project loading, import resolution, and packaging failures.";
+    Input: None;
+    Processing: "Load the Examples/UI/Build projects and require each invalid project to fail packaging.";
+    Output: "The number of failed build checks.";
+} {
+    Int failed = 0;
+    RxuBuild ready = RxuBuild();
+    failed = failed + FailWhen(ready.ReadProject("Examples/UI/Build/App.rxp") != 0 || ready.PackageReady() != True || ready.RuntimeCount() < 1, "Examples/UI/Build/App.rxp");
+    RxuBuild typed = RxuBuild();
+    Int span = typed.ReadProject("Examples/UI/Build/BadProperty.rxp");
+    Int typedAt = typed.Messages.Find("RXU018");
+    failed = failed + FailWhen(span == 0 || typedAt < 0 || typed.Messages.Find("RXU019") < 0 || typed.PackageReady() != False || typed.Messages.FormatAt(typedAt).Contains("length") != True, "Examples/UI/Build/BadProperty.rxp");
+    RxuBuild nest = RxuBuild();
+    failed = failed + FailWhen(nest.ReadProject("Examples/UI/Build/BadNest.rxp") == 0 || nest.Messages.Find("RXU029") < 0 || nest.PackageReady() != False, "Examples/UI/Build/BadNest.rxp");
+    RxuBuild missing = RxuBuild();
+    failed = failed + FailWhen(missing.ReadProject("Examples/UI/Build/MissingImport.rxp") == 0 || missing.Messages.Find("RXU027") < 0 || missing.PackageReady() != False, "Examples/UI/Build/MissingImport.rxp");
+    RxuBuild cycle = RxuBuild();
+    failed = failed + FailWhen(cycle.ReadProject("Examples/UI/Build/Cycle.rxp") == 0 || cycle.Messages.Find("RXU026") < 0 || cycle.PackageReady() != False, "Examples/UI/Build/Cycle.rxp");
+    RxuBuild handler = RxuBuild();
+    failed = failed + FailWhen(handler.ReadProject("Examples/UI/Build/MissingHandler.rxp") == 0 || handler.Messages.Find("RXU032") < 0 || handler.PackageReady() != False, "Examples/UI/Build/MissingHandler.rxp");
+    RxuBuild asset = RxuBuild();
+    failed = failed + FailWhen(asset.ReadProject("Examples/UI/Build/MissingAsset.rxp") == 0 || asset.Messages.Find("RXU033") < 0 || asset.PackageReady() != False, "Examples/UI/Build/MissingAsset.rxp");
+    RxuBuild backend = RxuBuild();
+    failed = failed + FailWhen(backend.ReadProject("Examples/UI/Build/Unsupported.rxp") == 0 || backend.Messages.Find("RXU034") < 0 || backend.PackageReady() != False, "Examples/UI/Build/Unsupported.rxp");
+    RxuBuild reference = RxuBuild();
+    failed = failed + FailWhen(reference.ReadProject("Examples/UI/Build/BadReference.rxp") == 0 || reference.Messages.Find("RXU028") < 0 || reference.PackageReady() != False, "Examples/UI/Build/BadReference.rxp");
+    RxuBuild duplicate = RxuBuild();
+    failed = failed + FailWhen(duplicate.ReadProject("Examples/UI/Build/DuplicateComponent.rxp") == 0 || duplicate.Messages.Find("RXU036") < 0 || duplicate.PackageReady() != False, "Examples/UI/Build/DuplicateComponent.rxp");
+    RxuBuild resource = RxuBuild();
+    failed = failed + FailWhen(resource.ReadProject("Examples/UI/Build/MissingResource.rxp") == 0 || resource.Messages.Find("RXU030") < 0 || resource.PackageReady() != False, "Examples/UI/Build/MissingResource.rxp");
+    RxuBuild binding = RxuBuild();
+    failed = failed + FailWhen(binding.ReadProject("Examples/UI/Build/BadBinding.rxp") == 0 || binding.Messages.Find("RXU031") < 0 || binding.PackageReady() != False, "Examples/UI/Build/BadBinding.rxp");
+    RxuBuild identity = RxuBuild();
+    failed = failed + FailWhen(identity.ReadProject("Examples/UI/Build/DuplicateId.rxp") == 0 || identity.Messages.Find("RXU016") < 0 || identity.PackageReady() != False, "Examples/UI/Build/DuplicateId.rxp");
+    RxuBuild syntax = RxuBuild();
+    failed = failed + FailWhen(syntax.ReadProject("Examples/UI/Build/BadSyntax.rxp") == 0 || syntax.Messages.Find("RXU008") < 0 || syntax.PackageReady() != False, "Examples/UI/Build/BadSyntax.rxp");
+    RxuBuild outside = RxuBuild();
+    failed = failed + FailWhen(outside.ReadProject("Examples/UI/Build/Unlisted.rxp") == 0 || outside.Messages.Find("RXU038") < 0 || outside.PackageReady() != False, "Examples/UI/Build/Unlisted.rxp");
+    Return failed;
+}
+
+Public Function CheckBindings() -> Int
+Explain {
+    Description: "Check observables, expressions, binding modes, and secret values.";
+    Input: None;
+    Processing: "Load the binding examples and apply live values, collections, converters, and disposal.";
+    Output: "The number of failed binding checks.";
+} {
+    Int failed = 0;
+    RxuNode observed = ReadExample("Examples/UI/Observable.rxu");
+    failed = failed + FailWhen(observed.Messages.Count() != 0 || observed.FindChild("Window").FindAttribute("DataContext").Text != "User" || observed.FindChild("Window").FindChild("Button").FindAttribute("ToolTip").Mode != "Binding" || observed.FindChild("Window").FindChild("Button").FindAttribute("ToolTip").Text != "Name", "Examples/UI/Observable.rxu");
+    RxuNode modes = ReadExample("Examples/UI/BindingModes.rxu");
+    failed = failed + FailWhen(modes.Messages.Count() != 0 || modes.FindChild("Button").FindAttribute("Mode").Text != "TwoWay", "Examples/UI/BindingModes.rxu");
+    RxuNode converted = ReadExample("Examples/UI/BindingConvert.rxu");
+    failed = failed + FailWhen(converted.Messages.Count() != 0 || converted.FindChild("Button").FindAttribute("Converter").Text != "Upper" || converted.FindChild("Button").FindAttribute("Fallback").Text != "Guest", "Examples/UI/BindingConvert.rxu");
+    RxuNode secret = ReadExample("Examples/UI/PasswordBox.rxu");
+    failed = failed + FailWhen(secret.Messages.Count() != 0 || secret.FindChild("PasswordBox").FindAttribute("Name").Mode != "Binding" || secret.FindChild("PasswordBox").FindAttribute("Name").Text != "Password", "Examples/UI/PasswordBox.rxu");
+    UIElement scope = UIElement();
+    scope.Kind = "Window";
+    scope.SetDataContext("User");
+    UIElement child = UIElement();
+    child.Kind = "Button";
+    child.SetParent(scope);
+    UIElement nested = UIElement();
+    nested.Kind = "Button";
+    nested.SetParent(child);
+    failed = failed + FailWhen(child.ContextKey() != "User" || nested.ContextKey() != "User", "data context");
+    child.SetDataContext("Local");
+    scope.SetDataContext("Account");
+    failed = failed + FailWhen(child.ContextKey() != "Local" || nested.ContextKey() != "Local" || scope.ContextKey() != "Account", "local data context");
+    child.ClearDataContext(scope.ContextKey());
+    failed = failed + FailWhen(child.ContextKey() != "Account" || nested.ContextKey() != "Account", "cleared data context");
+    RxuExpression math = RxuExpression();
+    failed = failed + FailWhen(math.CheckExpression("1 + 2 * 3") != "Number" || math.EvaluateExpression("1 + 2 * 3", BindingEngine(), "") != "7", "arithmetic");
+    failed = failed + FailWhen(math.CheckExpression("(1 + 2) * 3") != "Number" || math.EvaluateExpression("(1 + 2) * 3", BindingEngine(), "") != "9", "grouped arithmetic");
+    failed = failed + FailWhen(math.CheckExpression("1 + 2 == 3") != "Boolean" || math.EvaluateExpression("1 + 2 == 3", BindingEngine(), "") != "true", "comparison");
+    failed = failed + FailWhen(math.EvaluateExpression("!false && (false || true)", BindingEngine(), "") != "true", "logic");
+    failed = failed + FailWhen(math.EvaluateExpression("1 > 2 ? \"no\" : \"yes\"", BindingEngine(), "") != "yes", "conditional");
+    failed = failed + FailWhen(math.EvaluateExpression("Length(\"ab\")", BindingEngine(), "") != "2" || math.EvaluateExpression("Empty(\"\")", BindingEngine(), "") != "true" || math.EvaluateExpression("Lower(\"ADA\")", BindingEngine(), "") != "ada" || math.EvaluateExpression("Upper(\"ada\")", BindingEngine(), "") != "ADA" || math.EvaluateExpression("Not(true)", BindingEngine(), "") != "false", "approved functions");
+    failed = failed + FailWhen(math.CheckExpression("Unknown(1)") != "Error" || math.Messages.Find("RXU039") < 0, "unknown function");
+    failed = failed + FailWhen(math.CheckExpression("1 + true") != "Error" || math.Messages.Find("RXU044") < 0, "bad arithmetic");
+    failed = failed + FailWhen(math.EvaluateExpression("null == null", BindingEngine(), "") != "true", "null check");
+    BindingEngine engine = BindingEngine();
+    engine.DefineValue("User.Name", "Ada", False);
+    engine.DefineValue("Flag", "true", False);
+    engine.DefineList("Joints");
+    engine.AddItem("Joints", "A");
+    engine.AddItem("Joints", "B");
+    UIElement title = UIElement();
+    title.Kind = "Window";
+    title.SetDataContext("User");
+    Int live = engine.BindTo(title, "Title", "Name", "OneWay", "", False, "Guest", "Change", title.ContextKey());
+    failed = failed + FailWhen(title.GetAttribute("Title") != "Ada" || math.DependencyCount() < 0 || engine.ReadValue("User.Name") != "Ada", "nested binding");
+    engine.ChangeValue("User.Name", "Bea");
+    failed = failed + FailWhen(title.GetAttribute("Title") != "Bea", "live binding");
+    UIElement once = UIElement();
+    once.Kind = "Window";
+    Int onceIndex = engine.BindTo(once, "Title", "User.Name", "OneTime", "", False, "", "Change", "");
+    engine.ChangeValue("User.Name", "Cara");
+    failed = failed + FailWhen(once.GetAttribute("Title") != "Bea" || title.GetAttribute("Title") != "Cara", "one time binding");
+    UIElement manual = UIElement();
+    manual.Kind = "Window";
+    Int manualIndex = engine.BindTo(manual, "Title", "User.Name", "Manual", "", False, "", "Explicit", "");
+    failed = failed + FailWhen(manual.GetAttribute("Title") != "", "manual binding");
+    engine.RefreshBound(manualIndex);
+    failed = failed + FailWhen(manual.GetAttribute("Title") != "Cara", "explicit refresh");
+    UIElement source = UIElement();
+    source.Kind = "Window";
+    source.SetAttribute("Title", "Kept");
+    Int sourceIndex = engine.BindTo(source, "Title", "User.Name", "OneWayToSource", "", False, "", "Input", "");
+    engine.ChangeValue("User.Name", "Dora");
+    failed = failed + FailWhen(source.GetAttribute("Title") != "Kept" || engine.PushInput(sourceIndex, "Edit") != True || engine.ReadValue("User.Name") != "Edit", "source binding");
+    UIElement both = UIElement();
+    both.Kind = "Window";
+    Int bothIndex = engine.BindTo(both, "Title", "User.Name", "TwoWay", "", False, "", "Change", "");
+    failed = failed + FailWhen(engine.PushInput(bothIndex, "Faye") != True || engine.ReadValue("User.Name") != "Faye" || both.GetAttribute("Title") != "Faye", "two way binding");
+    UIElement upper = UIElement();
+    upper.Kind = "Window";
+    engine.DefineValue("Label", "ada", False);
+    engine.BindTo(upper, "Title", "Label", "OneWay", "Upper", False, "", "Change", "");
+    failed = failed + FailWhen(upper.GetAttribute("Title") != "ADA", "converter");
+    UIElement missing = UIElement();
+    missing.Kind = "Window";
+    engine.BindTo(missing, "Title", "Missing", "OneWay", "", False, "Guest", "Change", "");
+    failed = failed + FailWhen(missing.GetAttribute("Title") != "Guest", "fallback");
+    UIElement blank = UIElement();
+    blank.Kind = "Window";
+    engine.BindTo(blank, "Title", "null", "OneWay", "", False, "Guest", "Change", "");
+    failed = failed + FailWhen(blank.GetAttribute("Title") != "Guest", "null fallback");
+    UIElement width = UIElement();
+    width.Kind = "Window";
+    engine.BindTo(width, "Width", "\"wide\"", "OneWay", "", False, "", "Change", "");
+    failed = failed + FailWhen(width.GetAttribute("Width") != "Auto" || engine.Messages.Find("RXU041") < 0, "rejected binding");
+    UIElement styled = UIElement();
+    styled.Kind = "Window";
+    engine.DefineValue("Heading", "Ada", False);
+    engine.BindTo(styled, "Title", "Heading", "OneWay", "", False, "", "Change", "");
+    styled.SetStyle("Title", "Styled");
+    failed = failed + FailWhen(styled.GetAttribute("Title") != "Ada", "binding beats style");
+    styled.SetAnimation("Title", "Anim");
+    Int styledIndex = engine.BindTo(styled, "Title", "Heading", "Reactive", "", False, "", "Change", "");
+    engine.RefreshBound(styledIndex);
+    failed = failed + FailWhen(styled.GetAttribute("Title") != "Anim", "animation beats binding");
+    UIElement listTitle = UIElement();
+    listTitle.Kind = "Window";
+    Int listIndex = engine.BindTo(listTitle, "ToolTip", "Joints.0", "Reactive", "", False, "", "Change", "");
+    failed = failed + FailWhen(listTitle.GetAttribute("ToolTip") != "A" || engine.ItemCount("Joints") != 2, "collection binding");
+    engine.MoveItem("Joints", 0, 1);
+    failed = failed + FailWhen(engine.ItemAt("Joints", 0) != "B" || listTitle.GetAttribute("ToolTip") != "B", "collection reorder");
+    engine.RemoveItem("Joints", 0);
+    failed = failed + FailWhen(listTitle.GetAttribute("ToolTip") != "A", "collection remove");
+    engine.AddItem("Joints", "C");
+    failed = failed + FailWhen(engine.ItemCount("Joints") != 2 || math.EvaluateExpression("Count(Joints)", engine, "") != "2", "collection add");
+    UIElement stale = UIElement();
+    stale.Kind = "Window";
+    Int staleIndex = engine.BindTo(stale, "Title", "Heading", "OneWay", "", False, "", "Change", "");
+    engine.DisposeBound(staleIndex);
+    engine.ChangeValue("Heading", "Bea");
+    failed = failed + FailWhen(stale.GetAttribute("Title") != "Ada" || styled.GetAttribute("Title") != "Anim", "stale subscription");
+    Int before = engine.ActiveCount();
+    engine.DisposeAll();
+    engine.ChangeValue("Heading", "Cara");
+    failed = failed + FailWhen(before < 1 || engine.ActiveCount() != 0 || stale.GetAttribute("Title") != "Ada", "disposed bindings");
+    BindingEngine cycle = BindingEngine();
+    cycle.DefineValue("Flag", "true", False);
+    UIElement flag = UIElement();
+    flag.Kind = "Button";
+    cycle.BindTo(flag, "Enabled", "Flag", "TwoWay", "", True, "", "Change", "");
+    failed = failed + FailWhen(cycle.Messages.Find("RXU040") < 0, "binding cycle");
+    BindingEngine vault = BindingEngine();
+    vault.DefineValue("Password", "s3cret", True);
+    UIElement box = UIElement();
+    box.Kind = "PasswordBox";
+    Int boxIndex = vault.BindTo(box, "ToolTip", "Password", "OneWay", "", False, "", "Change", "");
+    Int diagnostic = 0;
+    Bool leaked = False;
+    While (diagnostic < vault.Messages.Count()) {
+        If (vault.Messages.FormatAt(diagnostic).Contains("s3cret")) {
+            leaked = True;
+        }
+        diagnostic = diagnostic + 1;
+    }
+    failed = failed + FailWhen(vault.TraceValue(boxIndex) != "••••" || vault.Messages.Find("RXU041") < 0 || leaked || box.GetAttribute("ToolTip") != "", "password binding");
+    Int ignored = live + onceIndex + listIndex;
+    If (ignored < 0) {
+        failed = failed + 1;
+    }
+    Return failed;
+}
+
 Public Function CheckSamples() -> Int
 Explain {
     Description: "Parse the RXU fixture, the examples, and the negative samples.";
@@ -3090,6 +5753,9 @@ Explain {
     failed = failed + CheckExamples();
     failed = failed + CheckDocuments();
     failed = failed + CheckProperties();
+    failed = failed + CheckResources();
+    failed = failed + CheckBuild();
+    failed = failed + CheckBindings();
     If (failed == 0) {
         Print("RXU checks passed");
     } Else {

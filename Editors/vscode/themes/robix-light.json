@@ -99,7 +99,7 @@
         "struct": "#2B91AF",
         "interface": "#2B91AF",
         "enum": "#2B91AF",
-        "enumMember": "#000000",
+        "enumMember": "#2B91AF",
         "typeParameter": "#2B91AF",
         "function": "#74531F",
         "method": "#74531F",
@@ -108,7 +108,7 @@
         "variable": "#1F377F",
         "variable.readonly": "#1F377F",
         "property": "#000000",
-        "namespace": "#000000",
+        "namespace": "#0451A5",
         "decorator": "#2B91AF",
         "string": "#A31515",
         "number": "#098658",
@@ -135,6 +135,10 @@
         {
             "scope": ["entity.name.function", "support.function"],
             "settings": { "foreground": "#74531F" }
+        },
+        {
+            "scope": ["entity.name.namespace"],
+            "settings": { "foreground": "#0451A5" }
         },
         {
             "scope": ["variable", "variable.parameter", "variable.other"],

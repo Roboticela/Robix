@@ -1,0 +1,8 @@
+Project "Cycle"
+{
+    Source
+    {
+        Include: "CycleA.rxu";
+        Include: "CycleB.rxu";
+    }
+}

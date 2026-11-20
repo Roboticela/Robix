@@ -1,0 +1,43 @@
+#!/bin/sh
+# Advance VERSION by 0.0.1 and keep the editor manifest and tool banner on that number.
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+version_file="$root/VERSION"
+if [ ! -f "$version_file" ]; then
+    printf '%s\n' '0.0.0' > "$version_file"
+fi
+
+current=$(tr -d '[:space:]' < "$version_file")
+major=$(printf '%s' "$current" | cut -d. -f1 | sed 's/[^0-9].*//')
+minor=$(printf '%s' "$current" | cut -d. -f2 | sed 's/[^0-9].*//')
+patch=$(printf '%s' "$current" | cut -d. -f3 | sed 's/[^0-9].*//')
+
+case "$major" in ''|*[!0-9]*) echo "error: VERSION must start as major.minor.patch" >&2; exit 1 ;; esac
+case "$minor" in ''|*[!0-9]*) echo "error: VERSION must start as major.minor.patch" >&2; exit 1 ;; esac
+case "$patch" in ''|*[!0-9]*) echo "error: VERSION must start as major.minor.patch" >&2; exit 1 ;; esac
+
+next=$(printf '%s.%s.%s' "$major" "$minor" "$((patch + 1))")
+printf '%s\n' "$next" > "$version_file"
+
+package="$root/Editors/vscode/package.json"
+if [ -f "$package" ]; then
+    sed -i "0,/\"version\": \"[0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\"/s//\"version\": \"$next\"/" "$package"
+    if ! grep -q "\"version\": \"$next\"" "$package"; then
+        echo "error: could not advance the extension version" >&2
+        exit 1
+    fi
+fi
+
+tool="$root/ProjectSystem.rx"
+if [ -f "$tool" ]; then
+    sed -i "0,/Print(\"Robix [0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\")/s//Print(\"Robix $next\")/" "$tool"
+    if ! grep -q "Print(\"Robix $next\")" "$tool"; then
+        echo "error: could not advance the tool version" >&2
+        exit 1
+    fi
+fi
+
+git add -- VERSION Editors/vscode/package.json ProjectSystem.rx
