@@ -120,14 +120,6 @@ Reviewer / date:
 **Dependencies:** P03, P08  
 **Source coverage:** Original §§13, 17–18; platform adapter amendments
 
-- [ ] **P09.01** Implement GTK4 native interop and initial window create/destroy/display integration.
-- [ ] **P09.02** Implement `UIApplication.Create`, `Run`, `Shutdown`, `Exit`, main window management and clean process exit.
-- [ ] **P09.03** Implement Window Show/Hide/Close/Activate/Minimize/Maximize/Restore/Title/Size/Position/State.
-- [ ] **P09.04** Implement input/event loop integration, HiDPI scale, clipboard, dialogs and file picker native bridges as supported.
-- [ ] **P09.05** Implement UI dispatcher `Dispatch`, `DispatchAsync`, `Invoke`, `InvokeAsync`, `Post`, `Schedule`, `CheckAccess`, `IsUIThread`.
-- [ ] **P09.06** Enforce UI-thread mutation rules; support async background jobs without freezing the event loop.
-- [ ] **P09.07** Implement component/window disposal and GTK object lifecycle synchronization.
-- [ ] **P09.08** Test startup, resize, close, reopen, background work and wrong-thread mutation behavior.
 - [ ] **G09 — PHASE SIGN-OFF:** Sample app opens and closes cleanly on Linux; UI stays responsive under async workload.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P10 — Universal layout and drawing

@@ -1792,6 +1792,307 @@ Test UIBackend.FindId {
     Output: True;
 }
 
+Test LinuxApp.CreateApp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.OpenAppWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.RunApp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ShutdownApp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ExitApp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadPhase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadExit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadMain {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ShowWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.HideWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.CloseAppWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ActivateWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.MinimizeWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.MaximizeWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.RestoreWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.RetitleWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ResizeWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.MoveWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadWindowState {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadWindowTitle {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadWindowSize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadWindowPosition {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.PostWork {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.DispatchWork {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.DispatchLater {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.InvokeWork {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.InvokeLater {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ScheduleWork {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.CheckAccess {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.IsUIThread {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.EnterBackground {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.LeaveBackground {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.PumpApp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.DisposeWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ReadScale {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.CopyText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.PasteText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.ChooseFile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AskDialog {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.TraceCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.TraceAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppGuard {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppAlive {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppApply {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppTake {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppTrace {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LinuxApp.AppNote {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckLinux {
+    Case "linux application" {
+        Input:;
+        Output: 0;
+    }
+}
+
 Test CheckBackend {
     Case "backend" {
         Input:;
