@@ -1249,6 +1249,10 @@ Public Class Interpreter {
             If (node.Left.Name == "Custom" && arguments.Count() > 0) { Return arguments[0]; }
             Return This.MakeInt(0);
         }
+        If (name == "TimeoutError") {
+            If (arguments.Count() > 0) { Return arguments[0]; }
+            Return This.MakeText("");
+        }
         If (name == "Print") {
             String line = "";
             For argument In arguments {
@@ -1545,6 +1549,7 @@ Public Class Interpreter {
                 Return This.StringStatic(node.Left.Name, arguments);
             }
             Value target = This.Evaluate(node.Left.Left);
+            If (node.Left.Name == "WithTimeout") { Return target; }
             If (node.Left.FlagA && (target.Kind == ValueKind.Null || target.Kind == ValueKind.None)) {
                 Return This.MakeNull();
             }
@@ -2586,7 +2591,8 @@ Public Class Interpreter {
     Private Function IsTaskLibrary(String owner, String name) -> Bool {
         If (owner == "Task" && (name == "Delay" || name == "Yield" || name == "FromResult" || name == "Run" || name == "WhenAll")) { Return True; }
         If (owner == "Network" && name == "SendText") { Return True; }
-        If (owner == "Duration" && name == "Milliseconds") { Return True; }
+        If (owner == "Promise" && (name == "All" || name == "Race" || name == "Any" || name == "AllSettled")) { Return True; }
+        If (owner == "Duration" && (name == "Milliseconds" || name == "Seconds")) { Return True; }
         If (owner == "Hardware" && name == "ReadSensor") { Return True; }
         Return False;
     }
@@ -2594,6 +2600,10 @@ Public Class Interpreter {
     Private Function TaskLibraryValue(String owner, String name, List<Value> supplied) -> Value {
         If (owner == "Duration" && name == "Milliseconds") {
             If (supplied.Count() > 0) { Return supplied[0]; }
+            Return This.MakeInt(0);
+        }
+        If (owner == "Duration" && name == "Seconds") {
+            If (supplied.Count() > 0) { Return This.MakeInt(supplied[0].Integer * 1000); }
             Return This.MakeInt(0);
         }
         If (owner == "Hardware" && name == "ReadSensor") { Return This.MakeInt(40); }
@@ -2617,6 +2627,22 @@ Public Class Interpreter {
         If (owner == "Network" && name == "SendText") {
             If (supplied.Count() > 0) { Return supplied[0]; }
             Return This.MakeText("");
+        }
+        If (owner == "Promise" && (name == "All" || name == "Race" || name == "Any" || name == "AllSettled")) {
+            Value jobs = This.MakeArray();
+            If (supplied.Count() > 0) { jobs = supplied[0]; }
+            If (name == "Race" || name == "Any") {
+                If (jobs.Elements.Count() > 0) { Return jobs.Elements[0]; }
+                Return This.MakeInt(0);
+            }
+            If (name == "AllSettled") {
+                Value outcomes = This.MakeArray();
+                For item In jobs.Elements {
+                    outcomes.Elements.Add(This.MakeText("Fulfilled:" + This.Display(item)));
+                }
+                Return outcomes;
+            }
+            Return jobs;
         }
         Return This.MakeVoid();
     }

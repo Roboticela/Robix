@@ -1079,6 +1079,13 @@ Test PromiseTypeName {
     }
 }
 
+Test EmitPromiseJoin {
+    Case "all" {
+        Input: method = "All", arguments = [], types = [];
+        Assert: Result.TypeName == "Task<Array<Int>>";
+    }
+}
+
 Test EmitWhenAll {
     Case "empty" {
         Input: arguments = [], types = [];

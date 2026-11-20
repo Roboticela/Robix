@@ -1,0 +1,38 @@
+// Promise.All, Race, Any, and AllSettled read completed task values.
+Package Robotics.PromiseCombinators;
+
+Import Robix.Core;
+
+
+Public Async Function RoboPromiseCombinators() -> Task<Void>
+Explain {
+    Description: "Combine three completed tasks.";
+    Input: "No parameters";
+    Processing: "Await All, Race, Any, and AllSettled, then print each result.";
+    Output: "No return value.";
+} {
+    Array<Task<Int>> jobs = [
+        Task.Run(() => 10),
+        Task.Run(() => 20),
+        Task.Run(() => 30)
+    ];
+    Array<Int> allValues = Await Promise.All(jobs);
+    Int firstSettled = Await Promise.Race(jobs);
+    Int firstSuccessful = Await Promise.Any(jobs);
+    Array<PromiseSettlement<Int>> outcomes = Await Promise.AllSettled(jobs);
+    Print(allValues);
+    Print(firstSettled);
+    Print(firstSuccessful);
+    Print(outcomes);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the promise combinators.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboPromiseCombinators so it prints the combined results.";
+    Output: "The combined values, the first result, and each settlement.";
+} {
+    RoboPromiseCombinators();
+    Return 0;
+}

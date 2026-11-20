@@ -296,6 +296,17 @@ Test PromiseTypeOf {
     }
 }
 
+Test PromiseCombinatorType {
+    Case "all" {
+        Input: node = AstNode(), method = "All";
+        Output: "Promise<Array<Int>>";
+    }
+    Case "race" {
+        Input: node = AstNode(), method = "Race";
+        Output: "Promise<Int>";
+    }
+}
+
 Test WhenAllType {
     Case "empty" {
         Input: node = AstNode();
@@ -310,6 +321,10 @@ Test TaskCallType {
     }
     Case "sensor" {
         Input: owner = "Hardware", name = "ReadSensor";
+        Output: "Int";
+    }
+    Case "seconds" {
+        Input: owner = "Duration", name = "Seconds";
         Output: "Int";
     }
     Case "unknown" {

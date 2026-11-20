@@ -1001,6 +1001,33 @@ static int64_t rx_tagged_text(int64_t tag, int64_t payload) {
     return rx_str_from_int(payload);
 }
 
+int64_t rx_list_text(int64_t list, int64_t tag) {
+    int64_t count = rx_list_count(list);
+    int64_t text = rx_text_literal("[");
+    int64_t comma = rx_text_literal(", ");
+    int64_t index = 0;
+    while (index < count) {
+        if (index > 0) {
+            text = rx_str_concat(text, comma);
+        }
+        text = rx_str_concat(text, rx_tagged_text(tag, rx_list_get(list, index)));
+        index = index + 1;
+    }
+    return rx_str_concat(text, rx_text_literal("]"));
+}
+
+int64_t rx_settle_list(int64_t list) {
+    int64_t count = rx_list_count(list);
+    int64_t settled = rx_list_new();
+    int64_t prefix = rx_text_literal("Fulfilled:");
+    int64_t index = 0;
+    while (index < count) {
+        rx_list_add(settled, rx_str_concat(prefix, rx_str_from_int(rx_list_get(list, index))));
+        index = index + 1;
+    }
+    return settled;
+}
+
 int64_t rx_any_list_text(int64_t list) {
     int64_t count = rx_list_count(list);
     int64_t text = rx_text_literal("[");

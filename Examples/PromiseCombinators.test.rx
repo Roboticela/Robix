@@ -1,0 +1,13 @@
+// Tests for Examples/PromiseCombinators.rx.
+
+Test RoboPromiseCombinators {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

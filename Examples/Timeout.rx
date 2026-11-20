@@ -1,0 +1,53 @@
+// WithTimeout keeps a completed result and accepts a timeout path.
+Package Robotics.Timeout;
+
+Import Robix.Core;
+
+
+Public Async Function RoboDownloadWithTimeout() -> Task<String>
+Explain {
+    Description: "Read text, or fail if the read takes too long.";
+    Input: "No parameters";
+    Processing: "Send ping with a five-second timeout and an error message.";
+    Output: "The text when the send finishes within the timeout.";
+} {
+    Return Await Network.SendText("ping").WithTimeout(
+        Duration.Seconds(5),
+        onTimeout: TimeoutError("Download took too long.")
+    );
+}
+
+Public Async Function RoboDownloadWithFallback() -> Task<String>
+Explain {
+    Description: "Read text, or use a fallback if the read takes too long.";
+    Input: "No parameters";
+    Processing: "Send ping with a three-second timeout and an offline fallback.";
+    Output: "The text when the send finishes within the timeout.";
+} {
+    Return Await Network.SendText("ping").WithTimeout(
+        Duration.Seconds(3),
+        fallback: "offline"
+    );
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print both timeout calls.";
+    Input: "No parameters";
+    Processing: "Await the error form and the fallback form, then print each result.";
+    Output: "No return value.";
+} {
+    Print(Await RoboDownloadWithTimeout());
+    Print(Await RoboDownloadWithFallback());
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the timeout examples.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboShow so it prints both results.";
+    Output: "The text from each completed send.";
+} {
+    RoboShow();
+    Return 0;
+}

@@ -774,6 +774,10 @@ Public Class TypeChecker {
             If (node.Left.Left != Null && (node.Left.Left.Kind == AstKind.Name || node.Left.Left.Kind == AstKind.Member)) {
                 owner = node.Left.Left.Name;
             }
+            If (node.Left.Name == "WithTimeout") {
+                If (receiverType == "") { Return "Task<String>"; }
+                Return receiverType;
+            }
             String library = This.TaskCallType(owner, node.Left.Name);
             If (library != "") { Return library; }
             If (owner == "Task" && (node.Left.Name == "FromResult" || node.Left.Name == "Run")) {
@@ -783,6 +787,9 @@ Public Class TypeChecker {
             }
             If (owner == "Task" && node.Left.Name == "WhenAll") { Return "Task<" + This.WhenAllType(node) + ">"; }
             If (owner == "Network" && node.Left.Name == "SendText") { Return "Task<String>"; }
+            If (owner == "Promise" && (node.Left.Name == "All" || node.Left.Name == "Race" || node.Left.Name == "Any" || node.Left.Name == "AllSettled")) {
+                Return This.PromiseCombinatorType(node, node.Left.Name);
+            }
             If (owner == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "FromCallback" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
                 Return This.PromiseTypeOf(node.Left);
             }
@@ -858,6 +865,7 @@ Public Class TypeChecker {
             }
         }
         If (name == "Ref") { Return "Ref<" + This.ReferenceType(node) + ">"; }
+        If (name == "TimeoutError") { Return "String"; }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
         }
@@ -1439,6 +1447,30 @@ Public Class TypeChecker {
         Return "Promise<" + argument + ">";
     }
 
+    Private Function PromiseCombinatorType(AstNode node, String method) -> String {
+        String argument = "Array<Task<Int>>";
+        If (node.Parameters.Count() > 0 && node.Parameters[0].Left != Null) {
+            String inferred = This.Infer(node.Parameters[0].Left);
+            If (inferred != "") { argument = inferred; }
+        }
+        String element = "Int";
+        If (argument.StartsWith("Array<") && argument.EndsWith(">")) {
+            element = argument.Substring(6, argument.Length() - 7);
+        } Else If (argument.StartsWith("List:")) {
+            element = argument.Substring(5);
+        }
+        If (element.StartsWith("Task<") && element.EndsWith(">")) {
+            element = element.Substring(5, element.Length() - 6);
+        }
+        If (element.StartsWith("Promise<") && element.EndsWith(">")) {
+            element = element.Substring(8, element.Length() - 9);
+        }
+        If (element.StartsWith("Lambda:")) { element = element.Substring(7); }
+        If (method == "All") { Return "Promise<Array<" + element + ">>"; }
+        If (method == "AllSettled") { Return "Promise<Array<PromiseSettlement<" + element + ">>>"; }
+        Return "Promise<" + element + ">";
+    }
+
     Private Function WhenAllType(AstNode node) -> String {
         String text = "(";
         Bool first = True;
@@ -1462,7 +1494,7 @@ Public Class TypeChecker {
 
     Private Function TaskCallType(String owner, String name) -> String {
         If (owner == "Task" && (name == "Delay" || name == "Yield")) { Return "Task<Void>"; }
-        If (owner == "Duration" && name == "Milliseconds") { Return "Int"; }
+        If (owner == "Duration" && (name == "Milliseconds" || name == "Seconds")) { Return "Int"; }
         If (owner == "Hardware" && name == "ReadSensor") { Return "Int"; }
         Return "";
     }

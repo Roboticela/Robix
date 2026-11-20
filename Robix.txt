@@ -28,42 +28,6 @@ Float<128> wideFloat = Float<128>.From(1.0);
 // 6. Functions, arguments, documentation, and return values
 // -----------------------------------------------------------------------------
 
-// Promise combinators, corresponding to common JavaScript Promise helpers.
-Public Async Function RoboPromiseCombinators() -> Task<Void> {
-    Array<Task<Int>> jobs = [
-        Task.Run(() => 10),
-        Task.Run(() => 20),
-        Task.Run(() => 30)
-    ];
-
-    Array<Int> allValues = Await Promise.All(jobs);
-    Int firstSettled = Await Promise.Race(jobs);
-    Int firstSuccessful = Await Promise.Any(jobs);
-    Array<PromiseSettlement<Int>> outcomes = Await Promise.AllSettled(jobs);
-
-    Print(allValues);
-    Print(firstSettled);
-    Print(firstSuccessful);
-    Print(outcomes);
-}
-
-// Timeout: fail or return a fallback if an operation takes too long.
-// Timeout does not necessarily stop the underlying operation unless a
-// cancellation token is also supplied.
-Public Async Function RoboDownloadWithTimeout() -> Task<String> {
-    Return Await Network.SendText("ping").WithTimeout(
-        Duration.Seconds(5),
-        onTimeout: TimeoutError("Download took too long.")
-    );
-}
-
-Public Async Function RoboDownloadWithFallback() -> Task<String> {
-    Return Await Network.SendText("ping").WithTimeout(
-        Duration.Seconds(3),
-        fallback: "offline"
-    );
-}
-
 // Cancellation is cooperative. Pass a token to operations that support it.
 Public Async Function RoboCancelableWork(CancellationToken token) -> Task<Int> {
     For index In 0..100 {

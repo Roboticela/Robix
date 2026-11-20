@@ -704,7 +704,7 @@ Public Class NativeProgram {
     }
 
     Private Function RuntimeDeclarations() -> String {
-        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F64ToIntMode rx_F64ToIntChecked rx_F64Format rx_str_is_int rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
+        String names = "rx_str_len rx_str_eq rx_str_concat rx_str_substr rx_str_get rx_str_lower rx_str_upper rx_str_starts rx_str_ends rx_str_contains rx_str_index rx_str_rindex rx_str_replace rx_str_to_int rx_str_from_int rx_str_from_bool rx_str_from_char rx_str_from_chars rx_str_trim rx_str_split rx_list_new rx_list_count rx_list_get rx_list_take_front rx_list_take_back rx_list_text rx_settle_list rx_range rx_map_new rx_map_get rx_set_has rx_obj_new rx_obj_get rx_file_read rx_file_exists rx_file_name rx_file_join rx_dir_exists rx_dir_files rx_env_get rx_process rx_math_gcd rx_math_isqrt rx_F64Parse rx_F64Text rx_F64FromInt rx_F64ToInt rx_F64ToIntMode rx_F64ToIntChecked rx_F64Format rx_str_is_int rx_F32Parse rx_F16Parse rx_U64Parse rx_FormatFixed rx_AnyText rx_any_list_text rx_any_map_text rx_AnyToInt rx_AnyToFloat rx_AnyLength rx_AnyUpper rx_AnyLower rx_Input";
         String voids = "rx_list_add rx_list_set rx_list_sort rx_list_reverse rx_map_put rx_set_add rx_obj_set rx_print rx_file_write_text rx_file_write_bytes rx_file_delete rx_dir_create rx_dir_delete";
         String lines = "";
         Int start = 0;
@@ -1885,6 +1885,10 @@ Public Class NativeProgram {
     }
 
     Private Function EmitNamedCall(AstNode left, List<String> arguments, List<String> types) -> IrValue {
+        If (left.Name == "TimeoutError") {
+            If (arguments.Count() > 0) { Return This.Pair(arguments[0], "String"); }
+            Return This.Pair("0", "String");
+        }
         If (left.Name == "Print") {
             String printed = "0";
             String kind = "0";
@@ -1899,6 +1903,15 @@ Public Class NativeProgram {
                 Var textArgs = List<String>();
                 textArgs.Add(printed);
                 IrValue text = This.CallRuntime("rx_any_list_text", textArgs, False);
+                printed = text.Value;
+                kind = "1";
+            } Else If (types.Count() > 0 && (types[0].StartsWith("Array<") || types[0].StartsWith("List:") || types[0].StartsWith("List<"))) {
+                String tag = This.ValueTag(This.ElementType(types[0]));
+                If (types[0].IndexOf("PromiseSettlement<") >= 0) { tag = "2"; }
+                Var textArgs = List<String>();
+                textArgs.Add(printed);
+                textArgs.Add(tag);
+                IrValue text = This.CallRuntime("rx_list_text", textArgs, False);
                 printed = text.Value;
                 kind = "1";
             } Else If (types.Count() > 0 && types[0].StartsWith("Map<") && This.MapValueType(types[0]) == "Any") {
@@ -2162,6 +2175,7 @@ Public Class NativeProgram {
             If (staticCall.TypeName != "Missing") { Return staticCall; }
         }
         IrValue receiver = This.EmitExpr(member.Left);
+        If (member.Name == "WithTimeout") { Return receiver; }
         If ((member.Name == "As" || member.Name == "AsOptional" || member.Name == "Cast") && member.Children.Count() > 0) {
             String targetType = This.TypeName(member.Children[0]);
             String val = receiver.Value;
@@ -2496,6 +2510,9 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_process", args, False);
             Return This.Pair(value.Value, "Int");
         }
+        If (owner == "Promise" && (method == "All" || method == "Race" || method == "Any" || method == "AllSettled")) {
+            Return This.EmitPromiseJoin(method, arguments, types);
+        }
         If (owner == "Promise" && (method == "Create" || method == "FromCallback" || method == "Resolved" || method == "Rejected")) { Return This.Pair("0", "Promise<Int>"); }
         If (owner == "LegacyApi" && method == "ReadText") { Return This.Pair("0", "String"); }
         If (owner == "Task" && (method == "Delay" || method == "Yield")) { Return This.Pair("0", "Void"); }
@@ -2511,6 +2528,12 @@ Public Class NativeProgram {
         If (owner == "Duration" && method == "Milliseconds") {
             If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Int"); }
             Return This.Pair("0", "Int");
+        }
+        If (owner == "Duration" && method == "Seconds") {
+            If (arguments.Count() == 0) { Return This.Pair("0", "Int"); }
+            String scaled = This.Fresh("v");
+            This.Emit(scaled + " = mul i64 " + arguments[0] + ", 1000");
+            Return This.Pair(scaled, "Int");
         }
         If (owner == "Hardware" && method == "ReadSensor") { Return This.Pair("40", "Int"); }
         Return This.Pair("0", "Missing");
@@ -4127,6 +4150,35 @@ Public Class NativeProgram {
             This.ScopeCount = mark;
         }
         Return This.Pair(obj.Value, typeName);
+    }
+
+    Private Function EmitPromiseJoin(String method, List<String> arguments, List<String> types) -> IrValue {
+        String list = "0";
+        String listType = "Array<Task<Int>>";
+        If (arguments.Count() > 0) { list = arguments[0]; }
+        If (types.Count() > 0 && types[0] != "") { listType = types[0]; }
+        String element = "Int";
+        If (listType.StartsWith("Array<") && listType.EndsWith(">")) {
+            element = listType.Substring(6, listType.Length() - 7);
+        } Else If (listType.StartsWith("List:")) {
+            element = listType.Substring(5);
+        }
+        If (element.StartsWith("Task<") && element.EndsWith(">")) {
+            element = element.Substring(5, element.Length() - 6);
+        }
+        If (element.StartsWith("Promise<") && element.EndsWith(">")) {
+            element = element.Substring(8, element.Length() - 9);
+        }
+        If (method == "All") { Return This.Pair(list, "Task<Array<" + element + ">>"); }
+        If (method == "AllSettled") {
+            Var args = List<String>();
+            args.Add(list);
+            IrValue settled = This.CallRuntime("rx_settle_list", args, False);
+            Return This.Pair(settled.Value, "Task<Array<PromiseSettlement<" + element + ">>>");
+        }
+        String first = "0";
+        If (arguments.Count() > 0) { first = This.LoadListItem(list, "0"); }
+        Return This.Pair(first, "Task<" + element + ">");
     }
 
     Private Function EmitWhenAll(List<String> arguments, List<String> types) -> IrValue {

@@ -766,6 +766,14 @@ Test IsTaskLibrary {
         Input: owner = "Task", name = "WhenAll";
         Output: True;
     }
+    Case "promise all" {
+        Input: owner = "Promise", name = "All";
+        Output: True;
+    }
+    Case "seconds" {
+        Input: owner = "Duration", name = "Seconds";
+        Output: True;
+    }
 }
 
 Test TaskLibraryValue {
@@ -780,6 +788,14 @@ Test TaskLibraryValue {
     Case "when all" {
         Input: owner = "Task", name = "WhenAll", supplied = [];
         Assert: Result.Text == "";
+    }
+    Case "promise all" {
+        Input: owner = "Promise", name = "All", supplied = [];
+        Assert: Result.Text == "";
+    }
+    Case "seconds" {
+        Input: owner = "Duration", name = "Seconds", supplied = [];
+        Assert: Result.Integer == 0;
     }
 }
 

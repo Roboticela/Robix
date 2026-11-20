@@ -1,0 +1,25 @@
+// Tests for Examples/Timeout.rx.
+
+Test RoboDownloadWithTimeout {
+    Case "completed send" {
+        Output: "ping";
+    }
+}
+
+Test RoboDownloadWithFallback {
+    Case "completed send" {
+        Output: "ping";
+    }
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
