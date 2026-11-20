@@ -106,6 +106,20 @@ Test ParseConst {
     }
 }
 
+Test LooksLikeTypedTupleBinding {
+    Case "eof" {
+        Input:;
+        Output: False;
+    }
+}
+
+Test ParseTypedTupleBinding {
+    Case "eof" {
+        Input: modifiers = [];
+        Assert: Result != Null;
+    }
+}
+
 Test ParseTypedVariable {
     Case "parse typed variable at eof" {
         Input: modifiers = [];

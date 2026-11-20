@@ -1,0 +1,26 @@
+// Tests for Examples/ComposeTasks.rx.
+
+Test RoboWorker {
+    Case "five" {
+        Input: amount = 5;
+        Output: 5;
+    }
+}
+
+Test RoboComposeTasks {
+    Case "sum" {
+        Output: 15;
+    }
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

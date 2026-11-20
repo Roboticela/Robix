@@ -1079,6 +1079,20 @@ Test PromiseTypeName {
     }
 }
 
+Test EmitWhenAll {
+    Case "empty" {
+        Input: arguments = [], types = [];
+        Assert: Result != Null;
+    }
+}
+
+Test EmitTask {
+    Case "empty call" {
+        Input: node = AstNode();
+        Assert: Result.TypeName == "Task<Int>";
+    }
+}
+
 Test EmitPromise {
     Case "empty call" {
         Input: node = AstNode();
@@ -1090,6 +1104,13 @@ Test SettlePromise {
     Case "resolve integer" {
         Input: callback = IrValue(TypeName: "PromiseResolve", Value: "0"), arguments = [];
         Assert: Result.Value == "0";
+    }
+}
+
+Test EmitLegacyRead {
+    Case "no callback" {
+        Input: node = AstNode();
+        Assert: Result.TypeName == "String";
     }
 }
 

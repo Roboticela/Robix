@@ -114,6 +114,9 @@ Public Partial Class Parser {
         If (This.IsFunctionStart(modifiers)) {
             Return This.ParseFunction(modifiers, True);
         }
+        If (This.Check(TokenKind.OpenParen) && This.LooksLikeTypedTupleBinding()) {
+            Return This.ParseTypedTupleBinding(modifiers);
+        }
         If (This.LooksLikeTypedVariable()) {
             Return This.ParseTypedVariable(modifiers);
         }
@@ -325,6 +328,40 @@ Public Partial Class Parser {
         node.Modifiers.Add("Const");
         This.Finish(node, start);
         Return node;
+    }
+
+    Private Function LooksLikeTypedTupleBinding() -> Bool {
+        If (!This.Check(TokenKind.OpenParen)) { Return False; }
+        This.lookIndex = This.position + 1;
+        If (!This.SkipTypeLook()) { Return False; }
+        If (This.lookIndex >= This.tokenCount) { Return False; }
+        Token name = This.tokens[This.lookIndex];
+        Return name.Kind == TokenKind.Identifier || This.IsWord(name.Text);
+    }
+
+    Private Function ParseTypedTupleBinding(List<String> modifiers) -> AstNode {
+        Token start = This.Peek();
+        AstNode group = This.Make(AstKind.Variable, start);
+        group.FlagA = !This.ModifierHas(modifiers, "Const");
+        group.FlagB = This.ModifierHas(modifiers, "Const");
+        group.FlagC = True;
+        group.Name = "";
+        This.Advance();
+        While (!This.IsAtEnd() && !This.Check(TokenKind.CloseParen)) {
+            AstNode part = This.Make(AstKind.Variable, This.Peek());
+            part.Type = This.ParseType();
+            part.Name = This.ParseIdentifierText("Expected a name in this binding.");
+            part.FlagA = group.FlagA;
+            part.FlagB = group.FlagB;
+            group.Children.Add(part);
+            If (!This.Match(TokenKind.Comma)) { Break; }
+        }
+        This.Expect(TokenKind.CloseParen, "Expected ')' after the names.");
+        This.Expect(TokenKind.Assign, "Expected '=' after the names.");
+        group.Initializer = This.ParseExpression();
+        This.CopyModifiers(group, modifiers);
+        This.Finish(group, start);
+        Return group;
     }
 
     Private Function ParseTypedVariable(List<String> modifiers) -> AstNode {

@@ -1579,6 +1579,9 @@ Public Class NativeProgram {
                 String payload = This.LoadObjectField(waited.Value, "0");
                 Return This.Pair(payload, waited.TypeName.Substring(8, waited.TypeName.Length() - 9));
             }
+            If (waited.TypeName.StartsWith("Task<") && waited.TypeName.EndsWith(">")) {
+                Return This.Pair(waited.Value, waited.TypeName.Substring(5, waited.TypeName.Length() - 6));
+            }
             Return waited;
         }
         If (node.Kind == AstKind.Name) {
@@ -1775,8 +1778,14 @@ Public Class NativeProgram {
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
             Return This.EmitReference(node);
         }
-        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "FromCallback" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
             Return This.EmitPromise(node);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "LegacyApi" && node.Left.Name == "ReadText") {
+            Return This.EmitLegacyRead(node);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Task" && (node.Left.Name == "FromResult" || node.Left.Name == "Run")) {
+            Return This.EmitTask(node);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "From" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericType(node.Left.Left.Name)) {
             Return This.EmitNumericFrom(node);
@@ -2487,8 +2496,18 @@ Public Class NativeProgram {
             IrValue value = This.CallRuntime("rx_process", args, False);
             Return This.Pair(value.Value, "Int");
         }
-        If (owner == "Promise" && (method == "Create" || method == "Resolved" || method == "Rejected")) { Return This.Pair("0", "Promise<Int>"); }
+        If (owner == "Promise" && (method == "Create" || method == "FromCallback" || method == "Resolved" || method == "Rejected")) { Return This.Pair("0", "Promise<Int>"); }
+        If (owner == "LegacyApi" && method == "ReadText") { Return This.Pair("0", "String"); }
         If (owner == "Task" && (method == "Delay" || method == "Yield")) { Return This.Pair("0", "Void"); }
+        If (owner == "Task" && (method == "FromResult" || method == "Run")) {
+            If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Task<Int>"); }
+            Return This.Pair("0", "Task<Int>");
+        }
+        If (owner == "Task" && method == "WhenAll") { Return This.EmitWhenAll(arguments, types); }
+        If (owner == "Network" && method == "SendText") {
+            If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Task<String>"); }
+            Return This.Pair("0", "Task<String>");
+        }
         If (owner == "Duration" && method == "Milliseconds") {
             If (arguments.Count() > 0) { Return This.Pair(arguments[0], "Int"); }
             Return This.Pair("0", "Int");
@@ -3018,7 +3037,8 @@ Public Class NativeProgram {
             For child In node.Children {
                 If (!firstChild) { resolved = resolved + ", "; }
                 String argument = child.Name;
-                If (argument == "") { argument = This.TypeName(child); }
+                If (argument == "" || argument == "()" || argument == "{}" || argument == "[]") { argument = This.TypeName(child); }
+                If (argument == "") { argument = "Int"; }
                 resolved = resolved + argument;
                 firstChild = False;
             }
@@ -4089,7 +4109,7 @@ Public Class NativeProgram {
             If (method == "Rejected") { This.StoreObjectField(obj.Value, "1", "1"); }
             This.StoreObjectField(obj.Value, "2", "1");
         }
-        If (method == "Create") {
+        If (method == "Create" || method == "FromCallback") {
             Int mark = This.ScopeCount;
             AstNode lambda = AstNode();
             If (node.Parameters.Count() > 0) {
@@ -4107,6 +4127,82 @@ Public Class NativeProgram {
             This.ScopeCount = mark;
         }
         Return This.Pair(obj.Value, typeName);
+    }
+
+    Private Function EmitWhenAll(List<String> arguments, List<String> types) -> IrValue {
+        IrValue list = This.CallRuntime("rx_list_new", List<String>(), False);
+        String typeName = "(";
+        Bool first = True;
+        Int index = 0;
+        While (index < arguments.Count()) {
+            If (!first) { typeName = typeName + ", "; }
+            String itemType = "Int";
+            If (index < types.Count() && types[index] != "") { itemType = types[index]; }
+            If (itemType.StartsWith("Task<") && itemType.EndsWith(">")) {
+                itemType = itemType.Substring(5, itemType.Length() - 6);
+            }
+            If (itemType.StartsWith("Promise<") && itemType.EndsWith(">")) {
+                itemType = itemType.Substring(8, itemType.Length() - 9);
+            }
+            typeName = typeName + itemType;
+            first = False;
+            Var args = List<String>();
+            args.Add(list.Value);
+            args.Add(arguments[index]);
+            This.CallRuntime("rx_list_add", args, True);
+            index = index + 1;
+        }
+        Return This.Pair(list.Value, "Task<" + typeName + ">");
+    }
+
+    Private Function EmitTask(AstNode node) -> IrValue {
+        String method = "";
+        If (node.Left != Null) { method = node.Left.Name; }
+        If (method == "") { Return This.Pair("0", "Task<Int>"); }
+        If (method == "FromResult") {
+            String payload = "0";
+            String typeName = "Int";
+            If (node.Parameters.Count() > 0) {
+                AstNode valueNode = node.Parameters[0];
+                If (valueNode.Kind == AstKind.Argument && valueNode.Left != Null) { valueNode = valueNode.Left; }
+                IrValue value = This.EmitExpr(valueNode);
+                payload = value.Value;
+                If (value.TypeName != "") { typeName = value.TypeName; }
+            }
+            If (typeName.StartsWith("Lambda:")) { typeName = typeName.Substring(7); }
+            Return This.Pair(payload, "Task<" + typeName + ">");
+        }
+        AstNode lambda = AstNode();
+        If (node.Parameters.Count() > 0) {
+            lambda = node.Parameters[0];
+            If (lambda.Kind == AstKind.Argument && lambda.Left != Null) { lambda = lambda.Left; }
+        }
+        Int mark = This.ScopeCount;
+        IrValue result = This.Pair("0", "Void");
+        If (lambda.Body != Null) { This.EmitStatement(lambda.Body); }
+        If (lambda.Body == Null && lambda.Left != Null) { result = This.EmitExpr(lambda.Left); }
+        This.ScopeCount = mark;
+        String resultType = result.TypeName;
+        If (resultType.StartsWith("Lambda:")) { resultType = resultType.Substring(7); }
+        If (resultType == "") { resultType = "Void"; }
+        Return This.Pair(result.Value, "Task<" + resultType + ">");
+    }
+
+    Private Function EmitLegacyRead(AstNode node) -> IrValue {
+        String note = This.StringConst("robot-note");
+        For argument In node.Parameters {
+            If (argument.Name == "onSuccess" && argument.Left != Null) {
+                AstNode lambda = argument.Left;
+                Int mark = This.ScopeCount;
+                String parameterName = "text";
+                If (lambda.Parameters.Count() > 0 && lambda.Parameters[0].Name != "") { parameterName = lambda.Parameters[0].Name; }
+                This.Alloca(parameterName, "String", note);
+                If (lambda.Body != Null) { This.EmitStatement(lambda.Body); }
+                If (lambda.Body == Null && lambda.Left != Null) { This.EmitExpr(lambda.Left); }
+                This.ScopeCount = mark;
+            }
+        }
+        Return This.Pair(note, "String");
     }
 
     Private Function SettlePromise(IrValue callback, List<String> arguments) -> IrValue {

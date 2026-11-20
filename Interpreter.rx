@@ -1172,8 +1172,11 @@ Public Class Interpreter {
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
             Return This.MakeReference(node);
         }
-        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "FromCallback" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
             Return This.MakePromiseCall(node);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "LegacyApi" && node.Left.Name == "ReadText") {
+            Return This.MakeText(This.ReadLegacyText(node));
         }
         Var arguments = List<Value>();
         For argument In node.Parameters {
@@ -2534,7 +2537,7 @@ Public Class Interpreter {
             promise.Elements[2] = This.MakeBool(True);
             Return promise;
         }
-        If (method == "Create" && node.Parameters.Count() > 0) {
+        If ((method == "Create" || method == "FromCallback") && node.Parameters.Count() > 0) {
             AstNode lambda = node.Parameters[0];
             If (lambda.Kind == AstKind.Argument && lambda.Left != Null) { lambda = lambda.Left; }
             Value resolve = This.MakeInt(0);
@@ -2562,8 +2565,27 @@ Public Class Interpreter {
         Return payload;
     }
 
+    Private Function ReadLegacyText(AstNode node) -> String {
+        String note = "robot-note";
+        Int index = 0;
+        While (index < node.Parameters.Count()) {
+            AstNode argument = node.Parameters[index];
+            If (argument.Name == "onSuccess" && argument.Left != Null) {
+                Value callback = This.Evaluate(argument.Left);
+                If (callback.Kind == ValueKind.Function && callback.FunctionNode != Null) {
+                    Var supplied = List<Value>();
+                    supplied.Add(This.MakeText(note));
+                    This.CallFunction(callback.FunctionNode, supplied);
+                }
+            }
+            index = index + 1;
+        }
+        Return note;
+    }
+
     Private Function IsTaskLibrary(String owner, String name) -> Bool {
-        If (owner == "Task" && (name == "Delay" || name == "Yield")) { Return True; }
+        If (owner == "Task" && (name == "Delay" || name == "Yield" || name == "FromResult" || name == "Run" || name == "WhenAll")) { Return True; }
+        If (owner == "Network" && name == "SendText") { Return True; }
         If (owner == "Duration" && name == "Milliseconds") { Return True; }
         If (owner == "Hardware" && name == "ReadSensor") { Return True; }
         Return False;
@@ -2575,6 +2597,27 @@ Public Class Interpreter {
             Return This.MakeInt(0);
         }
         If (owner == "Hardware" && name == "ReadSensor") { Return This.MakeInt(40); }
+        If (owner == "Task" && name == "FromResult") {
+            If (supplied.Count() > 0) { Return supplied[0]; }
+            Return This.MakeInt(0);
+        }
+        If (owner == "Task" && name == "Run") {
+            If (supplied.Count() > 0 && supplied[0].Kind == ValueKind.Function && supplied[0].FunctionNode != Null) {
+                Return This.CallFunction(supplied[0].FunctionNode, List<Value>());
+            }
+            Return This.MakeVoid();
+        }
+        If (owner == "Task" && name == "WhenAll") {
+            Value tuple = This.MakeArray();
+            For item In supplied {
+                tuple.Elements.Add(item);
+            }
+            Return tuple;
+        }
+        If (owner == "Network" && name == "SendText") {
+            If (supplied.Count() > 0) { Return supplied[0]; }
+            Return This.MakeText("");
+        }
         Return This.MakeVoid();
     }
 

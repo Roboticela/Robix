@@ -189,6 +189,21 @@ Public Partial Class Parser {
             AstNode name = This.Make(AstKind.Name, start);
             name.Name = This.Advance().Text;
             name.Text = name.Name;
+            If (This.Check(TokenKind.FatArrow)) {
+                This.Advance();
+                AstNode lambda = This.Make(AstKind.Lambda, start);
+                AstNode parameter = This.Make(AstKind.Parameter, start);
+                parameter.Name = name.Name;
+                lambda.Parameters.Add(parameter);
+                If (This.Check(TokenKind.OpenBrace)) {
+                    lambda.Body = This.ParseBlock();
+                } Else {
+                    lambda.FlagA = True;
+                    lambda.Left = This.ParseExpression();
+                }
+                This.Finish(lambda, start);
+                Return lambda;
+            }
             This.TryAttachGeneric(name);
             Return This.ParsePostfix(name);
         }

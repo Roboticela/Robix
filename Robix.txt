@@ -28,30 +28,6 @@ Float<128> wideFloat = Float<128>.From(1.0);
 // 6. Functions, arguments, documentation, and return values
 // -----------------------------------------------------------------------------
 
-// Create a promise from callback-based APIs.
-Let callbackPromise = Promise<String>.FromCallback(
-    (resolve, reject) => LegacyApi.ReadText(
-        onSuccess: text => resolve(text),
-        onError: error => reject(error)
-    )
-);
-
-// Promise/Task composition.
-Public Async Function RoboComposeTasks() -> Task<Int> {
-    Int first = Await Task.FromResult(10);
-    Int second = Await Task.Run(() => RoboWorker(5));
-    Return first + second;
-}
-
-// Start work concurrently, then await the operations together.
-Public Async Function RoboParallelWork() -> Task<(String, Int)> {
-    Task<String> nameTask = Network.SendText("robot-name");
-    Task<Int> sensorTask = RoboReadSensor();
-
-    (String name, Int reading) = Await Task.WhenAll(nameTask, sensorTask);
-    Return (name, reading);
-}
-
 // Promise combinators, corresponding to common JavaScript Promise helpers.
 Public Async Function RoboPromiseCombinators() -> Task<Void> {
     Array<Task<Int>> jobs = [

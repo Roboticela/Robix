@@ -1,0 +1,48 @@
+// Task.FromResult and Task.Run produce values that Await can read.
+Package Robotics.ComposeTasks;
+
+Import Robix.Core;
+
+
+Public Function RoboWorker(Int amount) -> Int
+Explain {
+    Description: "Return the amount of work.";
+    Input: amount = "Work amount";
+    Processing: "Return the amount unchanged.";
+    Output: "The same amount.";
+} {
+    Return amount;
+}
+
+Public Async Function RoboComposeTasks() -> Task<Int>
+Explain {
+    Description: "Add a completed task to work started with Task.Run.";
+    Input: "No parameters";
+    Processing: "Await Task.FromResult and a Task.Run lambda that calls RoboWorker.";
+    Output: "The sum of the two task results.";
+} {
+    Int first = Await Task.FromResult(10);
+    Int second = Await Task.Run(() => RoboWorker(5));
+    Return first + second;
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print the composed task result.";
+    Input: "No parameters";
+    Processing: "Await RoboComposeTasks and print the sum.";
+    Output: "No return value.";
+} {
+    Print(Await RoboComposeTasks());
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the composed tasks.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboShow so it prints the sum.";
+    Output: "The sum of the completed task and the running task.";
+} {
+    RoboShow();
+    Return 0;
+}

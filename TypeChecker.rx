@@ -253,10 +253,14 @@ Public Class TypeChecker {
             Int index = 0;
             For child In node.Children {
                 String typeName = "Unknown";
-                If (node.Initializer != Null && node.Initializer.Kind == AstKind.TupleLiteral && index < node.Initializer.Children.Count()) {
+                If (child.Type != Null) {
+                    String declared = This.TypeText(child.Type);
+                    If (declared != "") { typeName = declared; }
+                }
+                If (typeName == "Unknown" && node.Initializer != Null && node.Initializer.Kind == AstKind.TupleLiteral && index < node.Initializer.Children.Count()) {
                     typeName = This.Infer(node.Initializer.Children[index]);
                     If (typeName == "") { typeName = "Unknown"; }
-                } Else If (tupleType.StartsWith("(") && tupleType.EndsWith(")")) {
+                } Else If (typeName == "Unknown" && tupleType.StartsWith("(") && tupleType.EndsWith(")")) {
                     String inner = tupleType.Substring(1, tupleType.Length() - 2);
                     Int start = 0;
                     Int partIdx = 0;
@@ -772,9 +776,17 @@ Public Class TypeChecker {
             }
             String library = This.TaskCallType(owner, node.Left.Name);
             If (library != "") { Return library; }
-            If (owner == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
+            If (owner == "Task" && (node.Left.Name == "FromResult" || node.Left.Name == "Run")) {
+                String argument = This.CallArgumentType(node);
+                If (argument.StartsWith("Lambda:")) { argument = argument.Substring(7); }
+                Return "Task<" + argument + ">";
+            }
+            If (owner == "Task" && node.Left.Name == "WhenAll") { Return "Task<" + This.WhenAllType(node) + ">"; }
+            If (owner == "Network" && node.Left.Name == "SendText") { Return "Task<String>"; }
+            If (owner == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "FromCallback" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
                 Return This.PromiseTypeOf(node.Left);
             }
+            If (owner == "LegacyApi" && node.Left.Name == "ReadText") { Return "String"; }
             If (owner == "Operators") {
                 If (node.Left.Name == "Equal" || node.Left.Name == "GreaterThan" || node.Left.Name == "And") {
                     Return "Bool";
@@ -1425,6 +1437,27 @@ Public Class TypeChecker {
             If (text != "") { argument = text; }
         }
         Return "Promise<" + argument + ">";
+    }
+
+    Private Function WhenAllType(AstNode node) -> String {
+        String text = "(";
+        Bool first = True;
+        For argument In node.Parameters {
+            If (!first) { text = text + ", "; }
+            String argumentType = "Int";
+            If (argument.Left != Null) { argumentType = This.Infer(argument.Left); }
+            If (argumentType == "") { argumentType = "Int"; }
+            If (argumentType.StartsWith("Task<") && argumentType.EndsWith(">")) {
+                argumentType = argumentType.Substring(5, argumentType.Length() - 6);
+            }
+            If (argumentType.StartsWith("Promise<") && argumentType.EndsWith(">")) {
+                argumentType = argumentType.Substring(8, argumentType.Length() - 9);
+            }
+            If (argumentType.StartsWith("Lambda:")) { argumentType = argumentType.Substring(7); }
+            text = text + argumentType;
+            first = False;
+        }
+        Return text + ")";
     }
 
     Private Function TaskCallType(String owner, String name) -> String {

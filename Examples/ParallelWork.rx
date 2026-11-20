@@ -1,0 +1,51 @@
+// Task.WhenAll reads several completed tasks as one tuple.
+Package Robotics.ParallelWork;
+
+Import Robix.Core;
+
+
+Public Async Function RoboReadSensor() -> Task<Int>
+Explain {
+    Description: "Read the simulated sensor.";
+    Input: "No parameters";
+    Processing: "Return the hardware sensor value.";
+    Output: "The sensor reading.";
+} {
+    Return Hardware.ReadSensor();
+}
+
+Public Async Function RoboParallelWork() -> Task<(String, Int)>
+Explain {
+    Description: "Read a network name and a sensor together.";
+    Input: "No parameters";
+    Processing: "Await Task.WhenAll on the name task and the sensor task.";
+    Output: "The name and the sensor reading.";
+} {
+    Task<String> nameTask = Network.SendText("robot-name");
+    Task<Int> sensorTask = RoboReadSensor();
+    (String name, Int reading) = Await Task.WhenAll(nameTask, sensorTask);
+    Return (name, reading);
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print the name and the sensor reading.";
+    Input: "No parameters";
+    Processing: "Await the parallel work and print each tuple field.";
+    Output: "No return value.";
+} {
+    (String name, Int reading) = Await RoboParallelWork();
+    Print(name);
+    Print(reading);
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the parallel work.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboShow so it prints both results.";
+    Output: "The network name and the sensor reading.";
+} {
+    RoboShow();
+    Return 0;
+}

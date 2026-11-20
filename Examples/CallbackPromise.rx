@@ -1,0 +1,43 @@
+// FromCallback settles a promise from a success callback.
+Package Robotics.CallbackPromise;
+
+Import Robix.Core;
+
+
+Public Async Function RoboReadLegacy() -> Task<String>
+Explain {
+    Description: "Read text through a callback-shaped legacy API.";
+    Input: "No parameters";
+    Processing: "Pass success and error lambdas to LegacyApi.ReadText, then await the promise.";
+    Output: "The text delivered to the success callback.";
+} {
+    Let callbackPromise = Promise<String>.FromCallback((resolve, reject) => {
+        LegacyApi.ReadText(
+            onSuccess: text => resolve(text),
+            onError: error => reject(error)
+        );
+    });
+    String note = Await callbackPromise;
+    Return note;
+}
+
+Public Async Function RoboShow() -> Task<Void>
+Explain {
+    Description: "Print the legacy callback text.";
+    Input: "No parameters";
+    Processing: "Await RoboReadLegacy and print the note.";
+    Output: "No return value.";
+} {
+    Print(Await RoboReadLegacy());
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run the callback promise.";
+    Input: args = "Command-line arguments";
+    Processing: "Start RoboShow so it prints the legacy note.";
+    Output: "The legacy note.";
+} {
+    RoboShow();
+    Return 0;
+}

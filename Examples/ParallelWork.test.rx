@@ -1,0 +1,25 @@
+// Tests for Examples/ParallelWork.rx.
+
+Test RoboReadSensor {
+    Case "sensor" {
+        Output: 40;
+    }
+}
+
+Test RoboParallelWork {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboShow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

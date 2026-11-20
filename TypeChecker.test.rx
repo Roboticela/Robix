@@ -296,6 +296,13 @@ Test PromiseTypeOf {
     }
 }
 
+Test WhenAllType {
+    Case "empty" {
+        Input: node = AstNode();
+        Output: "()";
+    }
+}
+
 Test TaskCallType {
     Case "delay" {
         Input: owner = "Task", name = "Delay";

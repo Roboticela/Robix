@@ -742,6 +742,13 @@ Test SettlePromise {
     }
 }
 
+Test ReadLegacyText {
+    Case "no callback" {
+        Input: node = AstNode();
+        Output: "robot-note";
+    }
+}
+
 Test IsTaskLibrary {
     Case "delay" {
         Input: owner = "Task", name = "Delay";
@@ -751,12 +758,28 @@ Test IsTaskLibrary {
         Input: owner = "Math", name = "Min";
         Output: False;
     }
+    Case "from result" {
+        Input: owner = "Task", name = "FromResult";
+        Output: True;
+    }
+    Case "when all" {
+        Input: owner = "Task", name = "WhenAll";
+        Output: True;
+    }
 }
 
 Test TaskLibraryValue {
     Case "sensor" {
         Input: owner = "Hardware", name = "ReadSensor", supplied = [];
         Assert: Result.Integer == 40;
+    }
+    Case "from result" {
+        Input: owner = "Task", name = "FromResult", supplied = [];
+        Assert: Result.Integer == 0;
+    }
+    Case "when all" {
+        Input: owner = "Task", name = "WhenAll", supplied = [];
+        Assert: Result.Text == "";
     }
 }
 
