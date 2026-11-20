@@ -46,11 +46,14 @@ Public Class TypeChecker {
     Private List<String> fieldOwners;
     Private List<String> fieldNames;
     Private List<String> fieldTypes;
+    Private List<String> baseOwners;
+    Private List<String> baseNames;
     Private List<String> genericOwners;
     Private List<String> genericParameters;
     Private List<String> functionNames;
     Private List<String> functionSignatures;
     Private List<AstNode> functionNodes;
+    Private List<String> macroNames;
     Private List<String> labelNames;
     Private List<Int> labelDepths;
     Private List<String> gotoNames;
@@ -73,11 +76,14 @@ Public Class TypeChecker {
         This.fieldOwners = List<String>();
         This.fieldNames = List<String>();
         This.fieldTypes = List<String>();
+        This.baseOwners = List<String>();
+        This.baseNames = List<String>();
         This.genericOwners = List<String>();
         This.genericParameters = List<String>();
         This.functionNames = List<String>();
         This.functionSignatures = List<String>();
         This.functionNodes = List<AstNode>();
+        This.macroNames = List<String>();
         This.labelNames = List<String>();
         This.labelDepths = List<Int>();
         This.gotoNames = List<String>();
@@ -137,12 +143,18 @@ Public Class TypeChecker {
         }
         If (node.Kind == AstKind.Class || node.Kind == AstKind.Implement) {
             String previousType = This.currentType;
-            If (node.Kind == AstKind.Class) {
+            If (node.Kind == AstKind.Class || node.Kind == AstKind.Implement) {
                 This.currentType = node.Name;
+            }
+            If (node.Kind == AstKind.Class) {
                 String parameters = This.GenericParameterText(node);
                 If (parameters != "" && This.GenericParametersOf(node.Name) == "") {
                     This.genericOwners.Add(node.Name);
                     This.genericParameters.Add(parameters);
+                }
+                For baseType In node.Members {
+                    This.baseOwners.Add(node.Name);
+                    This.baseNames.Add(baseType.Name);
                 }
             }
             For child In node.Children {
@@ -229,6 +241,29 @@ Public Class TypeChecker {
             If (typeName.StartsWith("Task<") || typeName.StartsWith("Promise<")) {
                 This.diagnostics.Warning("RX114", "Unobserved Task. Await it or detach it with Task.Detach.", node.Line, node.Column);
             }
+            Return;
+        }
+        If (node.Kind == AstKind.Macro) {
+            This.macroNames.Add(node.Name);
+            This.PushScope();
+            For parameter In node.Parameters {
+                This.Define(parameter.Name, "Any", False, False, True, False, False, False, parameter.Line, parameter.Column);
+            }
+            If (node.Body != Null) { This.CheckNode(node.Body); }
+            This.PopScope();
+            Return;
+        }
+        If (node.Kind == AstKind.Constructor || node.Kind == AstKind.Destructor) {
+            This.PushScope();
+            For parameter In node.Parameters {
+                String parameterType = This.ResolveType(This.TypeText(parameter.Type));
+                If (parameterType == "") { parameterType = "Unknown"; }
+                This.Define(parameter.Name, parameterType, True, False, True, False, False, False, parameter.Line, parameter.Column);
+            }
+            This.DefineTypeFields();
+            For child In node.Children { This.Infer(child); }
+            If (node.Body != Null) { This.CheckNode(node.Body); }
+            This.PopScope();
             Return;
         }
         If (node.Kind == AstKind.Assignment) {
@@ -387,6 +422,7 @@ Public Class TypeChecker {
         String previousReturn = This.currentReturn;
         This.currentReturn = returnType;
         This.PushScope();
+        This.DefineTypeFields();
         For parameter In node.Parameters {
             If (!parameter.FlagC) {
                 If (parameter.Type == Null && This.strict && node.Kind != AstKind.Lambda) {
@@ -837,6 +873,10 @@ Public Class TypeChecker {
             If (node.Left.Left != Null && (node.Left.Left.Kind == AstKind.Name || node.Left.Left.Kind == AstKind.Member)) {
                 owner = node.Left.Left.Name;
             }
+            If ((owner == "Base" || owner.StartsWith("Base<")) && (node.Left.Name == "Constructor" || node.Left.Name == "Destructor")) { Return "Void"; }
+            If (owner == "Reflect" && node.Left.Name == "TypeOf") { Return "TypeInfo"; }
+            If (owner == "Reflect" && node.Left.Name == "Create") { Return "Any"; }
+            If (owner == "Reflect" && node.Left.Name == "Invoke") { Return "Void"; }
             If (owner == "Pointer" && node.Left.Name == "Of") { Return "Pointer<Int>"; }
             If (owner == "Memory" && node.Left.Name == "Allocate") { Return "Pointer<Byte>"; }
             If (owner == "Memory" && (node.Left.Name == "Copy" || node.Left.Name == "Free")) { Return "Void"; }
@@ -962,6 +1002,9 @@ Public Class TypeChecker {
         If (name == "Atomic") { Return "Atomic<Int>"; }
         If (name == "Print" || name == "Assert" || name == "AssertTrue" || name == "AssertFalse" || name == "AssertEqual" || name == "AssertNear") {
             Return "Void";
+        }
+        For macroName In This.macroNames {
+            If (macroName == name) { Return "Void"; }
         }
         If (name == "Some") { Return "Option<" + This.CallArgumentType(node) + ">"; }
         If (name == "Tuple") { Return This.CallTupleType(node); }
@@ -1229,6 +1272,28 @@ Public Class TypeChecker {
         If (inner.StartsWith("Mut ")) { Return inner.Substring(4); }
         If (inner.StartsWith("Const ")) { Return inner.Substring(6); }
         Return inner;
+    }
+
+    Private Function DefineTypeFields() -> Void {
+        If (This.currentType == "") { Return; }
+        Int index = 0;
+        While (index < This.fieldOwners.Count()) {
+            Bool owned = This.fieldOwners[index] == This.currentType;
+            Int base = 0;
+            While (base < This.baseOwners.Count()) {
+                If (This.baseOwners[base] == This.currentType && This.baseNames[base] == This.fieldOwners[index]) { owned = True; }
+                Int grand = 0;
+                While (grand < This.baseOwners.Count()) {
+                    If (This.baseOwners[grand] == This.baseNames[base] && This.baseOwners[base] == This.currentType && This.baseNames[grand] == This.fieldOwners[index]) { owned = True; }
+                    grand = grand + 1;
+                }
+                base = base + 1;
+            }
+            If (owned) {
+                This.Define(This.fieldNames[index], This.fieldTypes[index], True, False, True, False, False, False, 1, 1);
+            }
+            index = index + 1;
+        }
     }
 
     Private Function Define(String name, String typeName, Bool mutable, Bool nullable, Bool initialized, Bool isFunction, Bool isAsync, Bool isConst, Int line, Int column) -> Void {

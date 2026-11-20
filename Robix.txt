@@ -12,10 +12,6 @@ The lagnuage will can have both entry point from procedural with private int mai
 
 // Their must be Filename.test.rx file for each and every file which will have tests for each function in that file and if this file not exists or tests not exists then interpreter will ignore while the compiler will give error.
 
-// -----------------------------------------------------------------------------
-// 6. Functions, arguments, documentation, and return values
-// -----------------------------------------------------------------------------
-
 // Function declarations may use any supported number of parameters. The
 // compiler/runtime may enforce resource limits, but the language has no
 // arbitrary small fixed argument-count limit.
@@ -24,124 +20,9 @@ The lagnuage will can have both entry point from procedural with private int mai
 // 7. Classes, structs, interfaces, traits, enums, and services
 // -----------------------------------------------------------------------------
 
-Public Abstract Class RoboRobot {
-    Protected String robotName;
-    Protected Int batteryLevel;
-
-    Public Abstract Function Move() -> Void;
-
-    Public Function GetBatteryLevel() -> Int {
-        Return batteryLevel;
-    }
-}
-
-// Simple Constructor and Destructor keywords.
-Public Class RoboWalkingRobot : RoboRobot, RoboDrivable {
-    Private String serialNumber;
-
-    Public Constructor(String name, String serial = "UNASSIGNED") {
-        Base.Constructor();
-        robotName = name;
-        serialNumber = serial;
-        batteryLevel = 100;
-    }
-
-    Public Override Function Move() -> Void {
-        Print("Walking forward");
-    }
-
-    Public Function GetSerialNumber() -> String {
-        Return serialNumber;
-    }
-
-    Public Destructor() {
-        // Release owned resources. Destructors should be deterministic and safe.
-    }
-}
-
 // Traditional constructor-name syntax may also be supported as shorthand.
-Public Class RoboFlyingRobot : RoboRobot {
-    Public Constructor(String name = "RoboFly") {
-        Base.Constructor();
-        robotName = name;
-        batteryLevel = 100;
-    }
-
-    Public Override Function Move() -> Void {
-        Print("Flying forward");
-    }
-}
-
-// Base constructor/destructor calls are explicit and ordered.
-Public Class RoboAdvancedRobot : RoboWalkingRobot {
-    Public Constructor(String name) : Base.Constructor(name) {
-        Print("Advanced robot initialized");
-    }
-
-    Public Destructor() {
-        Print("Advanced robot cleanup");
-        Base.Destructor();
-    }
-}
-
-// Multiple inheritance uses explicit base initialization. Name conflicts must
-// be resolved with BaseName.Member or an Override declaration.
-Public Class RoboHybridRobot : RoboWalkingRobot, RoboFlyingCapability {
-    Public Constructor(String name)
-        : Base<RoboWalkingRobot>.Constructor(name)
-        : Base<RoboFlyingCapability>.Constructor() {
-        robotName = name;
-    }
-
-    Public Override Function Move() -> Void {
-        Print("Walking and flying");
-    }
-}
-
-Public Struct RoboPoint {
-    Public Float X;
-    Public Float Y;
-
-    Public Constructor(Float x, Float y) {
-        X = x;
-        Y = y;
-    }
-}
-
-Public Interface RoboDrivable {
-    Public Function Move() -> Void;
-}
-
-Public Interface RoboComparable<T> {
-    Public Function CompareTo(T other) -> Int;
-}
-
-Public Trait RoboIterable<T> {
-    Public Function GetIterator() -> Iterator<T>;
-}
-
-Public Trait RoboCloneable<T> {
-    Public Function Clone() -> T;
-}
-
-Public Enum RoboState {
-    Idle,
-    Moving,
-    Charging,
-    Error(Int errorCode)
-}
-
-Public Service RoboStatusService {
-    Public Function GetStatus(Int id) -> Int;
-}
-
-Implement RoboStatusService {
-    Public Function GetStatus(Int id) -> Int {
-        Return id;
-    }
-}
-
-Connect RoboStatusService;
+// Name conflicts in multiple inheritance must be resolved with BaseName.Member
+// or an Override declaration.
 
 // Visibility rules:
 // Public: accessible everywhere permitted.
@@ -160,62 +41,10 @@ Connect RoboStatusService;
 // robix run RobotApp --console=on --port=8080
 // The runtime owns console creation; applications can inspect Runtime.Console.Enabled.
 
-// -----------------------------------------------------------------------------
-// 10. Memory, pointers, references, and concurrency
-// -----------------------------------------------------------------------------
-
 // Standard library namespaces should provide discoverable, documented APIs
 // for math, strings, collections, files, paths, dates, time, networking,
 // serialization, logging, processes, environment, cryptography, testing,
 // reflection, diagnostics, hardware, and concurrency.
-
-// -----------------------------------------------------------------------------
-// 17. More declarations, aliases, and advanced type features
-// -----------------------------------------------------------------------------
-
-Public Const Int MAX_RETRY_COUNT = 5;
-Public Static Int RoboGlobalCount = 0;
-
-Public Abstract Class RoboBaseController {
-    Public Abstract Function Initialize() -> Void;
-}
-
-Public Final Class RoboFinalController : RoboBaseController {
-    Public Override Function Initialize() -> Void {
-        Print("Initialized");
-    }
-}
-
-Public Partial Class RoboPartialController {
-    Public Function RoboStep() -> Void {
-        Print("Step");
-    }
-}
-
-Public Partial Class RoboPartialController {
-    Public Function RoboStop() -> Void {
-        Print("Stop");
-    }
-}
-
-Public Interface RoboCommand {
-    Public Function Execute() -> Void;
-}
-
-Public Trait RoboResettable {
-    Public Function Reset() -> Void;
-}
-
-Public Macro RoboTwice(body) {
-    // Compile-time macro expansion example.
-    body;
-    body;
-}
-
-// Reflection and dynamic invocation.
-TypeInfo controllerType = Reflect.TypeOf(RoboController);
-Any instance = Reflect.Create(controllerType);
-Reflect.Invoke(instance, "Start");
 
 // -----------------------------------------------------------------------------
 // 19. Language design rules summary

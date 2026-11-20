@@ -1,5 +1,12 @@
 // Tests for NativeEmit.rx.
 
+Test EmitDestructors {
+    Case "no locals" {
+        Input:;
+        Assert: True;
+    }
+}
+
 Test Collect {
     Case "empty collection" {
         Input: fileNames = [], modules = [];
@@ -455,6 +462,27 @@ Test EmitMember {
 Test EmitCall {
     Case "call expr" {
         Input: node = AstNode(Left: AstNode(Kind: AstKind.Name, Name: "f"), Children: []);
+        Assert: Result != Null;
+    }
+}
+
+Test EmitMacro {
+    Case "missing macro" {
+        Input: call = AstNode(Left: AstNode(Kind: AstKind.Name, Name: "Missing"));
+        Assert: Result != Null;
+    }
+}
+
+Test EmitMacroNode {
+    Case "empty node" {
+        Input: macro = AstNode(), call = AstNode(), node = AstNode();
+        Assert: True;
+    }
+}
+
+Test EmitReflect {
+    Case "empty call" {
+        Input: node = AstNode();
         Assert: Result != Null;
     }
 }

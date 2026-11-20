@@ -51,10 +51,12 @@ Public Class Interpreter {
     Private Value thrown;
     Private List<Value> yields;
     Private List<AstNode> defers;
+    Private String constructing;
     Private List<AstNode> functions;
     Private List<String> functionOwners;
     Private String collectOwner;
     Private List<AstNode> types;
+    Private List<AstNode> macros;
     Private List<String> operatorKeys;
     Private List<AstNode> operatorNodes;
     Private Bool inTests;
@@ -70,10 +72,12 @@ Public Class Interpreter {
         This.thrown = This.MakeVoid();
         This.yields = List<Value>();
         This.defers = List<AstNode>();
+        This.constructing = "";
         This.functions = List<AstNode>();
         This.functionOwners = List<String>();
         This.collectOwner = "";
         This.types = List<AstNode>();
+        This.macros = List<AstNode>();
         This.operatorKeys = List<String>();
         This.operatorNodes = List<AstNode>();
         This.inTests = False;
@@ -534,25 +538,107 @@ Public Class Interpreter {
         Value obj = This.MakeObjectValue(typeName);
         Int typeIndex = This.TypeIndex(typeName);
         If (typeIndex < 0) { Return obj; }
-        For field In This.types[typeIndex].Children {
-            If (field.Kind == AstKind.Field) {
-                obj.FieldNames.Add(field.Name);
-                String fieldType = "Int";
-                If (field.Type != Null) { fieldType = field.Type.Name; }
-                If (field.Type != Null && field.Type.FlagA) {
-                    obj.Elements.Add(This.MakeNull());
-                } Else If (fieldType == "List" || fieldType == "Array" || fieldType == "Map" || fieldType == "Set") {
-                    obj.Elements.Add(This.MakeArray());
-                } Else If (fieldType == "String") {
-                    obj.Elements.Add(This.MakeText(""));
-                } Else If (fieldType == "Bool") {
-                    obj.Elements.Add(This.MakeBool(False));
-                } Else {
-                    obj.Elements.Add(This.MakeInt(0));
+        For baseType In This.types[typeIndex].Members {
+            Int baseIndex = This.TypeIndex(baseType.Name);
+            If (baseIndex >= 0) {
+                For grand In This.types[baseIndex].Members {
+                    Int grandIndex = This.TypeIndex(grand.Name);
+                    If (grandIndex >= 0) {
+                        For field In This.types[grandIndex].Children {
+                            If (field.Kind == AstKind.Field && This.FieldIndex(obj, field.Name) < 0) {
+                                obj.FieldNames.Add(field.Name);
+                                obj.Elements.Add(This.FieldDefault(field));
+                            }
+                        }
+                    }
+                }
+                For field In This.types[baseIndex].Children {
+                    If (field.Kind == AstKind.Field && This.FieldIndex(obj, field.Name) < 0) {
+                        obj.FieldNames.Add(field.Name);
+                        obj.Elements.Add(This.FieldDefault(field));
+                    }
                 }
             }
         }
+        For field In This.types[typeIndex].Children {
+            If (field.Kind == AstKind.Field && This.FieldIndex(obj, field.Name) < 0) {
+                obj.FieldNames.Add(field.Name);
+                obj.Elements.Add(This.FieldDefault(field));
+            }
+        }
         Return obj;
+    }
+
+    Private Function FieldDefault(AstNode field) -> Value {
+        String fieldType = "Int";
+        If (field.Type != Null) { fieldType = field.Type.Name; }
+        If (field.Type != Null && field.Type.FlagA) { Return This.MakeNull(); }
+        If (fieldType == "List" || fieldType == "Array" || fieldType == "Map" || fieldType == "Set") { Return This.MakeArray(); }
+        If (fieldType == "String") { Return This.MakeText(""); }
+        If (fieldType == "Bool") { Return This.MakeBool(False); }
+        Return This.MakeInt(0);
+    }
+
+    Private Function RunConstructor(String typeName, List<Value> arguments, Value existing) -> Value {
+        Int typeIndex = This.TypeIndex(typeName);
+        If (typeIndex < 0) { Return existing; }
+        String previous = This.constructing;
+        This.constructing = typeName;
+        AstNode ctor = AstNode();
+        Bool found = False;
+        Int best = 999;
+        For child In This.types[typeIndex].Children {
+            If (child.Kind == AstKind.Constructor && child.Parameters.Count() >= arguments.Count() && child.Parameters.Count() < best) {
+                ctor = child;
+                found = True;
+                best = child.Parameters.Count();
+            }
+        }
+        If (!found) {
+            This.constructing = previous;
+            Return existing;
+        }
+        This.PushScope();
+        This.Define("This", existing);
+        Int index = 0;
+        For parameter In ctor.Parameters {
+            Value supplied = This.MakeInt(0);
+            If (index < arguments.Count()) { supplied = arguments[index]; }
+            If (index >= arguments.Count() && parameter.Initializer != Null) { supplied = This.Evaluate(parameter.Initializer); }
+            This.Define(parameter.Name, supplied);
+            index = index + 1;
+        }
+        For child In ctor.Children { This.Evaluate(child); }
+        If (ctor.Body != Null) { This.ExecuteNode(ctor.Body); }
+        This.PopScope();
+        This.constructing = previous;
+        Return existing;
+    }
+
+    Private Function RunDestructor(String typeName, Value obj) -> Void {
+        If (obj.Kind != ValueKind.Object) { Return; }
+        String mark = "#dead:" + typeName;
+        If (This.FieldIndex(obj, mark) >= 0) { Return; }
+        Int typeIndex = This.TypeIndex(typeName);
+        If (typeIndex < 0) { Return; }
+        AstNode dtor = AstNode();
+        Bool found = False;
+        For child In This.types[typeIndex].Children {
+            If (child.Kind == AstKind.Destructor && child.Body != Null) {
+                dtor = child;
+                found = True;
+            }
+        }
+        If (!found) { Return; }
+        obj.FieldNames.Add(mark);
+        obj.Elements.Add(This.MakeInt(1));
+        String saved = This.signal;
+        This.signal = "";
+        This.PushScope();
+        This.Define("This", obj);
+        This.ExecuteNode(dtor.Body);
+        This.PopScope();
+        If (This.signal == "") { This.signal = saved; }
     }
 
     Private Function IsEmptyValue(Value value) -> Bool {
@@ -602,8 +688,23 @@ Public Class Interpreter {
                     This.operatorNodes.Add(child.Body);
                 }
             }
+            If (child.Kind == AstKind.Implement) {
+                String savedOwner = This.collectOwner;
+                This.collectOwner = child.Name;
+                This.CollectFunctions(child);
+                This.collectOwner = savedOwner;
+            }
+            If (child.Kind == AstKind.Macro) {
+                This.macros.Add(child);
+            }
             If (child.Kind == AstKind.Class) {
-                This.types.Add(child);
+                Int existing = This.TypeIndex(child.Name);
+                If (existing < 0) {
+                    This.types.Add(child);
+                } Else {
+                    For member In child.Children { This.types[existing].Children.Add(member); }
+                    For baseType In child.Members { This.types[existing].Members.Add(baseType); }
+                }
                 String savedOwner = This.collectOwner;
                 This.collectOwner = child.Name;
                 For member In child.Children {
@@ -1314,6 +1415,17 @@ Public Class Interpreter {
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
             Return This.MakeReference(node);
         }
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            AstNode? macro = This.FindMacro(node.Left.Name);
+            If (macro != Null) { Return This.ExpandMacro(macro, node); }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Reflect" && node.Left.Name == "TypeOf") {
+            String typeName = "";
+            If (node.Parameters.Count() > 0 && node.Parameters[0].Left != Null && node.Parameters[0].Left.Kind == AstKind.Name) {
+                typeName = node.Parameters[0].Left.Name;
+            }
+            Return This.MakeText(typeName);
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "FromCallback" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
             Return This.MakePromiseCall(node);
         }
@@ -1325,6 +1437,35 @@ Public Class Interpreter {
             If (argument.Left != Null) {
                 arguments.Add(This.Evaluate(argument.Left));
             }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Reflect" && node.Left.Name == "Create" && arguments.Count() > 0) {
+            Var none = List<Value>();
+            Return This.RunConstructor(arguments[0].Text, none, This.BlankObject(arguments[0].Text));
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Reflect" && node.Left.Name == "Invoke" && arguments.Count() > 1 && arguments[0].Kind == ValueKind.Object) {
+            Var owners = List<String>();
+            owners.Add(arguments[0].Text);
+            Int cursor = 0;
+            While (cursor < owners.Count() && cursor < 8) {
+                Int mIdx = 0;
+                While (mIdx < This.functions.Count()) {
+                    If (This.functions[mIdx].Name == arguments[1].Text && This.functionOwners[mIdx] == owners[cursor] && This.functions[mIdx].Body != Null) {
+                        This.PushScope();
+                        This.Define("This", arguments[0]);
+                        Var none = List<Value>();
+                        Value res = This.CallFunction(This.functions[mIdx], none);
+                        This.PopScope();
+                        Return res;
+                    }
+                    mIdx = mIdx + 1;
+                }
+                Int ownerType = This.TypeIndex(owners[cursor]);
+                If (ownerType >= 0) {
+                    For baseType In This.types[ownerType].Members { owners.Add(baseType.Name); }
+                }
+                cursor = cursor + 1;
+            }
+            Return This.MakeVoid();
         }
         String name = "";
         If (node.Left != Null && node.Left.Kind == AstKind.Name) {
@@ -1614,25 +1755,32 @@ Public Class Interpreter {
             Return This.MakeText(This.Display(arguments[0]));
         }
         If (name != "" && This.TypeIndex(name) >= 0) {
-            Value obj = This.BlankObject(name);
-            Int pos = 0;
+            Bool named = False;
             For argument In node.Parameters {
-                Value argVal = This.MakeInt(0);
-                If (argument.Left != Null) {
-                    argVal = This.Evaluate(argument.Left);
-                } Else If (argument.Initializer != Null) {
-                    argVal = This.Evaluate(argument.Initializer);
-                }
-                Int fIndex = -1;
-                If (argument.Name != "") { fIndex = This.FieldIndex(obj, argument.Name); }
-                If (fIndex >= 0) {
-                    obj.Elements[fIndex] = argVal;
-                } Else If (pos < obj.Elements.Count()) {
-                    obj.Elements[pos] = argVal;
-                }
-                pos = pos + 1;
+                If (argument.Name != "") { named = True; }
             }
-            Return obj;
+            If (named) {
+                Value obj = This.BlankObject(name);
+                Int pos = 0;
+                For argument In node.Parameters {
+                    Value argVal = This.MakeInt(0);
+                    If (argument.Left != Null) {
+                        argVal = This.Evaluate(argument.Left);
+                    } Else If (argument.Initializer != Null) {
+                        argVal = This.Evaluate(argument.Initializer);
+                    }
+                    Int fIndex = -1;
+                    If (argument.Name != "") { fIndex = This.FieldIndex(obj, argument.Name); }
+                    If (fIndex >= 0) {
+                        obj.Elements[fIndex] = argVal;
+                    } Else If (pos < obj.Elements.Count()) {
+                        obj.Elements[pos] = argVal;
+                    }
+                    pos = pos + 1;
+                }
+                Return obj;
+            }
+            Return This.RunConstructor(name, arguments, This.BlankObject(name));
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "This") {
             AstNode? thisFunc = This.FindFunction(node.Left.Name);
@@ -1793,10 +1941,36 @@ Public Class Interpreter {
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsTaskLibrary(node.Left.Left.Name, node.Left.Name)) {
             Return This.TaskLibraryValue(node.Left.Left.Name, node.Left.Name, arguments);
         }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Base" && (node.Left.Name == "Constructor" || node.Left.Name == "Destructor")) {
+            String baseName = "";
+            If (node.Left.Left.Children.Count() > 0) { baseName = node.Left.Left.Children[0].Name; }
+            Value self = This.FindValue("This");
+            String currentType = This.constructing;
+            If (currentType == "" && self.Kind == ValueKind.Object) { currentType = self.Text; }
+            If (baseName == "" && currentType != "") {
+                Int selfType = This.TypeIndex(currentType);
+                If (selfType >= 0 && This.types[selfType].Members.Count() > 0) { baseName = This.types[selfType].Members[0].Name; }
+            }
+            If (node.Left.Name == "Destructor") {
+                This.RunDestructor(baseName, self);
+                Return This.MakeVoid();
+            }
+            If (self.Kind == ValueKind.Object) { Return This.RunConstructor(baseName, arguments, self); }
+            Return This.MakeVoid();
+        }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
             Int typeIndex = This.TypeIndex(node.Left.Left.Name);
             If (typeIndex >= 0 && This.types[typeIndex].Text == "Enum") {
                 Return This.MakeEnumValue(This.types[typeIndex], node.Left.Name, arguments);
+            }
+            If (typeIndex >= 0) {
+                Int method = 0;
+                While (method < This.functions.Count()) {
+                    If (This.functions[method].Name == node.Left.Name && This.functionOwners[method] == node.Left.Left.Name && This.functions[method].Body != Null) {
+                        Return This.CallFunction(This.functions[method], arguments);
+                    }
+                    method = method + 1;
+                }
             }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member) {
@@ -1862,16 +2036,26 @@ Public Class Interpreter {
                 If (textCall.Kind != ValueKind.None) { Return textCall; }
             }
             If (target.Kind == ValueKind.Object) {
-                Int mIdx = 0;
-                While (mIdx < This.functions.Count()) {
-                    If (This.functions[mIdx].Name == node.Left.Name && This.functionOwners[mIdx] == target.Text) {
-                        This.PushScope();
-                        This.Define("This", target);
-                        Value res = This.CallFunction(This.functions[mIdx], arguments);
-                        This.PopScope();
-                        Return res;
+                Var owners = List<String>();
+                owners.Add(target.Text);
+                Int cursor = 0;
+                While (cursor < owners.Count() && cursor < 8) {
+                    Int mIdx = 0;
+                    While (mIdx < This.functions.Count()) {
+                        If (This.functions[mIdx].Name == node.Left.Name && This.functionOwners[mIdx] == owners[cursor] && This.functions[mIdx].Body != Null) {
+                            This.PushScope();
+                            This.Define("This", target);
+                            Value res = This.CallFunction(This.functions[mIdx], arguments);
+                            This.PopScope();
+                            Return res;
+                        }
+                        mIdx = mIdx + 1;
                     }
-                    mIdx = mIdx + 1;
+                    Int ownerType = This.TypeIndex(owners[cursor]);
+                    If (ownerType >= 0) {
+                        For baseType In This.types[ownerType].Members { owners.Add(baseType.Name); }
+                    }
+                    cursor = cursor + 1;
                 }
             }
             If (node.Left.Name == "Enumerate") {
@@ -2266,6 +2450,14 @@ Public Class Interpreter {
                 Return;
             }
             index = index - 1;
+        }
+        Value self = This.FindValue("This");
+        If (name != "This" && self.Kind == ValueKind.Object) {
+            Int slot = This.FieldIndex(self, name);
+            If (slot >= 0) {
+                self.Elements[slot] = value;
+                Return;
+            }
         }
         This.Define(sought, value);
     }
@@ -2817,8 +3009,51 @@ Public Class Interpreter {
             }
             index = index - 1;
         }
+        Value self = This.FindValue("This");
+        If (name != "This" && self.Kind == ValueKind.Object) {
+            Int slot = This.FieldIndex(self, name);
+            If (slot >= 0) { Return self.Elements[slot]; }
+        }
         This.runtimeErrors.Add("Name '" + sought + "' is not defined at runtime.");
         Return This.MakeNull();
+    }
+
+    Private Function FindMacro(String name) -> AstNode? {
+        For macro In This.macros {
+            If (macro.Name == name) { Return macro; }
+        }
+        Return Null;
+    }
+
+    Private Function ExpandMacro(AstNode macro, AstNode call) -> Value {
+        If (macro.Body == Null) { Return This.MakeVoid(); }
+        Return This.ExpandMacroNode(macro, call, macro.Body);
+    }
+
+    Private Function ExpandMacroNode(AstNode macro, AstNode call, AstNode node) -> Value {
+        If (node.Kind == AstKind.Block) {
+            For child In node.Children { This.ExpandMacroNode(macro, call, child); }
+            Return This.MakeVoid();
+        }
+        If (node.Kind == AstKind.ExpressionStatement && node.Left != Null && node.Left.Kind == AstKind.Name) {
+            Int slot = 0;
+            For parameter In macro.Parameters {
+                If (parameter.Name == node.Left.Name && slot < call.Parameters.Count() && call.Parameters[slot].Left != Null) {
+                    Return This.Evaluate(call.Parameters[slot].Left);
+                }
+                slot = slot + 1;
+            }
+        }
+        Return This.ExecuteNode(node);
+    }
+
+    Private Function FindValue(String name) -> Value {
+        Int index = This.names.Count() - 1;
+        While (index >= 0) {
+            If (This.names[index] == name) { Return This.values[index]; }
+            index = index - 1;
+        }
+        Return This.MakeVoid();
     }
 
     Private Function MakePromise() -> Value {
@@ -3032,6 +3267,13 @@ Public Class Interpreter {
     Private Function PopScope() -> Void {
         If (This.marks.Count() == 0) { Return; }
         Int mark = This.marks[This.marks.Count() - 1];
+        Int dying = This.names.Count() - 1;
+        While (dying >= mark) {
+            If (This.names[dying] != "This" && This.values[dying].Kind == ValueKind.Object) {
+                This.RunDestructor(This.values[dying].Text, This.values[dying]);
+            }
+            dying = dying - 1;
+        }
         Var keptNames = List<String>();
         Var keptValues = List<Value>();
         Int index = 0;

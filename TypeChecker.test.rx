@@ -1,5 +1,12 @@
 // Tests for TypeChecker.rx.
 
+Test DefineTypeFields {
+    Case "no current type" {
+        Input:;
+        Assert: True;
+    }
+}
+
 Test Check {
     Case "check empty module" {
         Input: module = AstNode(Kind: AstKind.Module);

@@ -1,11 +1,12 @@
-// Classes, inheritance, interfaces, traits, services, and constructors.
+// Classes, inheritance, structs, enums, and services.
 Package Robotics.Objects;
 
 Import Robix.Core;
 
 
 Public Abstract Class RoboRobot {
-    Protected String RobotName = "";
+    Protected String robotName;
+    Protected Int batteryLevel;
 
     Public Abstract Function Move() -> Void
     Explain {
@@ -15,14 +16,14 @@ Public Abstract Class RoboRobot {
         Output: "No return value.";
     };
 
-    Public Function GetName() -> String
+    Public Function GetBatteryLevel() -> Int
     Explain {
-        Description: "Return the robot name.";
+        Description: "Return the battery level.";
         Input: None;
-        Processing: "Read the stored name.";
-        Output: "The robot name.";
+        Processing: "Read the stored battery level.";
+        Output: "The battery level.";
     } {
-        Return RobotName;
+        Return batteryLevel;
     }
 }
 
@@ -36,9 +37,49 @@ Public Interface RoboDrivable {
     };
 }
 
+Public Interface RoboComparable<T> {
+    Public Function CompareTo(T other) -> Int
+    Explain {
+        Description: "Compare this value with another.";
+        Input: other = "The other value";
+        Processing: "Return the comparison result.";
+        Output: "An integer comparison.";
+    };
+}
+
+Public Trait RoboIterable<T> {
+    Public Function GetIterator() -> Iterator<T>
+    Explain {
+        Description: "Return an iterator.";
+        Input: None;
+        Processing: "Create the iterator.";
+        Output: "The iterator.";
+    };
+}
+
+Public Trait RoboCloneable<T> {
+    Public Function Clone() -> T
+    Explain {
+        Description: "Clone the value.";
+        Input: None;
+        Processing: "Return a copy.";
+        Output: "The copy.";
+    };
+}
+
+Public Class RoboFlyingCapability {
+    Public Constructor() {
+    }
+}
+
 Public Class RoboWalkingRobot : RoboRobot, RoboDrivable {
-    Public Constructor(String name) : Base.Constructor() {
-        RobotName = name;
+    Private String serialNumber;
+
+    Public Constructor(String name, String serial = "UNASSIGNED") {
+        Base.Constructor();
+        robotName = name;
+        serialNumber = serial;
+        batteryLevel = 100;
     }
 
     Public Override Function Move() -> Void
@@ -51,18 +92,92 @@ Public Class RoboWalkingRobot : RoboRobot, RoboDrivable {
         Print("Walking forward");
     }
 
+    Public Function GetSerialNumber() -> String
+    Explain {
+        Description: "Return the serial number.";
+        Input: None;
+        Processing: "Read the stored serial number.";
+        Output: "The serial number.";
+    } {
+        Return serialNumber;
+    }
+
     Public Destructor() {
     }
 }
 
-Public Trait RoboResettable {
-    Public Function Reset() -> Void
+Public Class RoboFlyingRobot : RoboRobot {
+    Public Constructor(String name = "RoboFly") {
+        Base.Constructor();
+        robotName = name;
+        batteryLevel = 100;
+    }
+
+    Public Override Function Move() -> Void
     Explain {
-        Description: "Reset the robot state.";
+        Description: "Fly the robot forward.";
         Input: None;
-        Processing: "Return the robot to its initial state.";
+        Processing: "Print the flying action.";
         Output: "No return value.";
-    };
+    } {
+        Print("Flying forward");
+    }
+
+    Public Function GetName() -> String
+    Explain {
+        Description: "Return the robot name.";
+        Input: None;
+        Processing: "Read the stored name.";
+        Output: "The robot name.";
+    } {
+        Return robotName;
+    }
+}
+
+Public Class RoboAdvancedRobot : RoboWalkingRobot {
+    Public Constructor(String name) : Base.Constructor(name) {
+        Print("Advanced robot initialized");
+    }
+
+    Public Destructor() {
+        Print("Advanced robot cleanup");
+        Base.Destructor();
+    }
+}
+
+Public Class RoboHybridRobot : RoboWalkingRobot, RoboFlyingCapability {
+    Public Constructor(String name)
+        : Base<RoboWalkingRobot>.Constructor(name)
+        : Base<RoboFlyingCapability>.Constructor() {
+        robotName = name;
+    }
+
+    Public Override Function Move() -> Void
+    Explain {
+        Description: "Walk and fly.";
+        Input: None;
+        Processing: "Print the combined action.";
+        Output: "No return value.";
+    } {
+        Print("Walking and flying");
+    }
+}
+
+Public Struct RoboPoint {
+    Public Float X;
+    Public Float Y;
+
+    Public Constructor(Float x, Float y) {
+        X = x;
+        Y = y;
+    }
+}
+
+Public Enum RoboState {
+    Idle,
+    Moving,
+    Charging,
+    Error(Int errorCode)
 }
 
 Public Service RoboStatusService {
@@ -91,12 +206,26 @@ Connect RoboStatusService;
 
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Construct a walking robot and print its movement.";
+    Description: "Construct robots, a point, and a status service.";
     Input: args = "Command-line arguments";
-    Processing: "Create the robot and call Move.";
-    Output: "Zero.";
+    Processing: "Move each robot, print stored values, and read a service.";
+    Output: "Zero after the robot report.";
 } {
-    RoboWalkingRobot robot = RoboWalkingRobot("RoboWalker");
-    robot.Move();
+    RoboWalkingRobot walker = RoboWalkingRobot("Walker");
+    walker.Move();
+    Print(walker.GetBatteryLevel());
+    Print(walker.GetSerialNumber());
+    RoboFlyingRobot flyer = RoboFlyingRobot();
+    Print(flyer.GetName());
+    flyer.Move();
+    RoboAdvancedRobot advanced = RoboAdvancedRobot("Advanced");
+    advanced.Move();
+    RoboHybridRobot hybrid = RoboHybridRobot("Hybrid");
+    hybrid.Move();
+    RoboPoint point = RoboPoint(1.5, 2.5);
+    Print(point.X);
+    Print(point.Y);
+    Print(RoboState.Idle);
+    Print(RoboStatusService.GetStatus(7));
     Return 0;
 }

@@ -1,0 +1,136 @@
+// Constants, static state, partial types, macros, and reflection.
+Package Robotics.Declarations;
+
+Import Robix.Core;
+
+
+Public Const Int MAX_RETRY_COUNT = 5;
+Public Static Int RoboGlobalCount = 0;
+
+Public Abstract Class RoboBaseController {
+    Public Abstract Function Initialize() -> Void
+    Explain {
+        Description: "Initialize the controller.";
+        Input: None;
+        Processing: "Prepare the controller for use.";
+        Output: "No return value.";
+    };
+}
+
+Public Final Class RoboFinalController : RoboBaseController {
+    Public Override Function Initialize() -> Void
+    Explain {
+        Description: "Initialize the final controller.";
+        Input: None;
+        Processing: "Print that initialization finished.";
+        Output: "No return value.";
+    } {
+        Print("Initialized");
+    }
+}
+
+Public Partial Class RoboPartialController {
+    Public Function RoboStep() -> Void
+    Explain {
+        Description: "Advance the controller one step.";
+        Input: None;
+        Processing: "Print the step.";
+        Output: "No return value.";
+    } {
+        Print("Step");
+    }
+}
+
+Public Partial Class RoboPartialController {
+    Public Function RoboStop() -> Void
+    Explain {
+        Description: "Stop the controller.";
+        Input: None;
+        Processing: "Print the stop.";
+        Output: "No return value.";
+    } {
+        Print("Stop");
+    }
+}
+
+Public Interface RoboCommand {
+    Public Function Execute() -> Void
+    Explain {
+        Description: "Run the command.";
+        Input: None;
+        Processing: "Perform the command.";
+        Output: "No return value.";
+    };
+}
+
+Public Trait RoboResettable {
+    Public Function Reset() -> Void
+    Explain {
+        Description: "Reset the value.";
+        Input: None;
+        Processing: "Restore the initial state.";
+        Output: "No return value.";
+    };
+}
+
+Public Class RoboController : RoboCommand, RoboResettable {
+    Public Function Execute() -> Void
+    Explain {
+        Description: "Run the controller command.";
+        Input: None;
+        Processing: "Print the command.";
+        Output: "No return value.";
+    } {
+        Print("Execute");
+    }
+
+    Public Function Reset() -> Void
+    Explain {
+        Description: "Reset the controller.";
+        Input: None;
+        Processing: "Print the reset.";
+        Output: "No return value.";
+    } {
+        Print("Reset");
+    }
+
+    Public Function Start() -> Void
+    Explain {
+        Description: "Start the controller.";
+        Input: None;
+        Processing: "Print the start.";
+        Output: "No return value.";
+    } {
+        Print("Start");
+    }
+}
+
+Public Macro RoboTwice(body) {
+    body;
+    body;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise declarations, a macro, and reflection.";
+    Input: args = "Command-line arguments";
+    Processing: "Initialize a controller, update the static count, run both partial methods, expand the macro, and invoke Start.";
+    Output: "Zero after the reflected call.";
+} {
+    RoboFinalController controller = RoboFinalController();
+    controller.Initialize();
+    Print(MAX_RETRY_COUNT);
+    RoboGlobalCount = RoboGlobalCount + 1;
+    Print(RoboGlobalCount);
+    RoboPartialController steps = RoboPartialController();
+    steps.RoboStep();
+    steps.RoboStop();
+    RoboController command = RoboController();
+    command.Execute();
+    command.Reset();
+    RoboTwice(Print("Twice"));
+    TypeInfo controllerType = Reflect.TypeOf(RoboController);
+    Any instance = Reflect.Create(controllerType);
+    Reflect.Invoke(instance, "Start");
+    Return 0;
+}

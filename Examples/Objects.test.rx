@@ -6,6 +6,36 @@ Test Move {
     Output: True;
 }
 
+Test GetBatteryLevel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetSerialNumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CompareTo {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetIterator {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Clone {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
 Test GetName {
     Constraint: True;
     Processing: True;

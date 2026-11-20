@@ -51,6 +51,7 @@ Public Class ClassInfo {
     Public List<AstNode> EnumMembers;
     Public List<AstNode> Constructors;
     Public List<String> ConstructorFiles;
+    Public List<String> Bases;
     Public String Parameters;
 
     Public Constructor() {
@@ -65,6 +66,7 @@ Public Class ClassInfo {
         This.EnumMembers = List<AstNode>();
         This.Constructors = List<AstNode>();
         This.ConstructorFiles = List<String>();
+        This.Bases = List<String>();
     }
 }
 
@@ -115,6 +117,7 @@ Public Class NativeProgram {
     Public List<String> OperatorKeys;
     Public List<String> OperatorSymbols;
     Public List<String> OperatorReturns;
+    Public List<AstNode> MacroNodes;
     Public Bool UntypedLiteral;
 
     Public Constructor() {
@@ -146,6 +149,7 @@ Public Class NativeProgram {
         This.OperatorKeys = List<String>();
         This.OperatorSymbols = List<String>();
         This.OperatorReturns = List<String>();
+        This.MacroNodes = List<AstNode>();
         This.UntypedLiteral = False;
     }
 
@@ -161,7 +165,7 @@ Public Class NativeProgram {
             String fileName = fileNames[index];
             AstNode module = modules[index];
             For child In module.Children {
-                If (child.Kind == AstKind.Class) {
+                If (child.Kind == AstKind.Class || child.Kind == AstKind.Implement) {
                     This.AddClass(fileName, child);
                 }
                 If (child.Kind == AstKind.TypeAlias) {
@@ -178,6 +182,9 @@ Public Class NativeProgram {
                 }
                 If (child.Kind == AstKind.Function || child.Kind == AstKind.Extern) {
                     This.AddFunction(fileName, child);
+                }
+                If (child.Kind == AstKind.Macro) {
+                    This.MacroNodes.Add(child);
                 }
                 If (child.Kind == AstKind.Operator) {
                     This.RememberModuleOperator(fileName, child);
@@ -247,6 +254,18 @@ Public Class NativeProgram {
             info.KindName = node.Text;
         }
         If (info.Parameters == "") { info.Parameters = This.GenericParameterText(node); }
+        For baseType In node.Members {
+            info.Bases.Add(baseType.Name);
+            ClassInfo baseInfo = This.FindClass(baseType.Name);
+            Int field = 0;
+            While (field < baseInfo.Fields.Count()) {
+                If (This.FieldSlot(info, baseInfo.Fields[field]) < 0) {
+                    info.Fields.Add(baseInfo.Fields[field]);
+                    info.FieldTypes.Add(baseInfo.FieldTypes[field]);
+                }
+                field = field + 1;
+            }
+        }
         For child In node.Children {
             If (child.Kind == AstKind.Field && This.FieldSlot(info, child.Name) < 0) {
                 info.Fields.Add(child.Name);
@@ -277,6 +296,15 @@ Public Class NativeProgram {
                 method.FileName = fileName;
                 method.ArgumentCount = child.Parameters.Count();
                 method.ReturnType = This.TypeName(child.Type);
+                method.Node = child;
+                This.PutMethod(info, method);
+            }
+            If (child.Kind == AstKind.Destructor) {
+                MethodInfo method = MethodInfo();
+                method.Name = "Destructor";
+                method.FileName = fileName;
+                method.ArgumentCount = 0;
+                method.ReturnType = "Void";
                 method.Node = child;
                 This.PutMethod(info, method);
             }
@@ -490,6 +518,7 @@ Public Class NativeProgram {
             If (parameterType == "") { parameterType = "Int"; }
             This.Alloca(parameter.Name, parameterType, "%" + This.SafeArg(parameter.Name));
         }
+        For child In node.Children { This.EmitExpr(child); }
         If (node.Body != Null) { This.EmitStatement(node.Body); }
         If (!This.Terminated) { This.Emit("ret void"); }
         This.Raw("}");
@@ -590,6 +619,7 @@ Public Class NativeProgram {
             This.Terminated = True;
         }
         If (!This.Terminated) {
+            This.EmitDestructors();
             If (iterator) {
                 This.Emit("ret i64 " + This.LoadName("#yields"));
             } Else If (This.IsVoid(record.ReturnType)) { This.Emit("ret void"); }
@@ -841,7 +871,7 @@ Public Class NativeProgram {
                 If (node.Initializer != Null) {
                     IrValue initial = This.EmitExpr(node.Initializer);
                     value = initial.Value;
-                    If (node.Type == Null && initial.TypeName != "") {
+                    If ((node.Type == Null && initial.TypeName != "") || initial.TypeName.StartsWith("TypeInfo:")) {
                         This.GlobalTypes[index] = initial.TypeName;
                         This.ScopeTypes[index] = initial.TypeName;
                     }
@@ -932,6 +962,24 @@ Public Class NativeProgram {
         Return slot;
     }
 
+    Private Function EmitDestructors() -> Void {
+        Int index = 0;
+        While (index < This.ScopeCount) {
+            String typeName = This.ScopeTypes[index];
+            String name = This.ScopeNames[index];
+            If (name != "This") {
+                ClassInfo info = This.FindClass(typeName);
+                MethodInfo method = This.FindMethod(info, "Destructor");
+                If (method.Name != "") {
+                    Var args = List<String>();
+                    args.Add(This.LoadSlot(This.ScopeSlots[index]));
+                    This.CallRuntime("rxm_" + typeName + "_Destructor", args, True);
+                }
+            }
+            index = index + 1;
+        }
+    }
+
     Private Function LoadSlot(String slot) -> String {
         String loaded = This.Fresh("v");
         This.Emit(loaded + " = load i64, ptr " + slot);
@@ -1015,7 +1063,7 @@ Public Class NativeProgram {
                 This.UntypedLiteral = False;
                 value = initial.Value;
                 sourceType = initial.TypeName;
-                If (typeName == "" || typeName == "Tuple" || sourceType.StartsWith("Lambda:") || sourceType.StartsWith("Throttle:") || sourceType.StartsWith("Partial:") || sourceType.StartsWith("Compose:")) { typeName = sourceType; }
+                If (typeName == "" || typeName == "Tuple" || typeName == "TypeInfo" || sourceType.StartsWith("Lambda:") || sourceType.StartsWith("Throttle:") || sourceType.StartsWith("Partial:") || sourceType.StartsWith("Compose:") || sourceType.StartsWith("TypeInfo:")) { typeName = sourceType; }
             }
             If (typeName == "") { typeName = "Int"; }
             If (typeName == "Decimal" && sourceType != "Decimal" && node.Initializer != Null) {
@@ -1066,6 +1114,7 @@ Public Class NativeProgram {
             Return;
         }
         If (node.Kind == AstKind.Return) {
+            This.EmitDestructors();
             If (This.IsVoid(This.ReturnType)) {
                 This.Emit("ret void");
             } Else {
@@ -1508,7 +1557,12 @@ Public Class NativeProgram {
 
     Private Function LoadName(String name) -> String {
         IrValue found = This.Lookup(name);
-        If (found.Value == "") { Return "0"; }
+        If (found.Value == "") {
+            ClassInfo info = This.FindClass(This.Owner);
+            Int slot = This.FieldSlot(info, name);
+            If (slot >= 0) { Return This.LoadObjectField(This.LoadSlot(This.Lookup("This").Value), slot.ToString()); }
+            Return "0";
+        }
         If (found.TypeName.StartsWith("MutBind:")) {
             String pointer = This.LoadSlot(found.Value);
             String address = This.Fresh("p");
@@ -1522,7 +1576,14 @@ Public Class NativeProgram {
 
     Private Function StoreName(String name, String value) -> Void {
         IrValue found = This.Lookup(name);
-        If (found.Value == "") { Return; }
+        If (found.Value == "") {
+            ClassInfo info = This.FindClass(This.Owner);
+            Int slot = This.FieldSlot(info, name);
+            If (slot >= 0 && This.Lookup("This").Value != "") {
+                This.StoreObjectField(This.LoadSlot(This.Lookup("This").Value), slot.ToString(), value);
+            }
+            Return;
+        }
         If (found.TypeName.StartsWith("MutBind:")) {
             String pointer = This.LoadSlot(found.Value);
             String address = This.Fresh("p");
@@ -1733,6 +1794,13 @@ Public Class NativeProgram {
             If (node.Name == "False" && This.Lookup(node.Name).Value == "") { Return This.Pair("0", "Bool"); }
             IrValue found = This.Lookup(node.Name);
             If (found.Value != "") { Return This.Pair(This.LoadName(node.Name), This.AliasPayload(found.TypeName)); }
+            ClassInfo ownerInfo = This.FindClass(This.Owner);
+            Int fieldSlot = This.FieldSlot(ownerInfo, node.Name);
+            If (fieldSlot >= 0 && This.Lookup("This").Value != "") {
+                String fieldType = "Int";
+                If (fieldSlot < ownerInfo.FieldTypes.Count()) { fieldType = ownerInfo.FieldTypes[fieldSlot]; }
+                Return This.Pair(This.LoadObjectField(This.LoadSlot(This.Lookup("This").Value), fieldSlot.ToString()), fieldType);
+            }
             ClassInfo info = This.FindClass(node.Name);
             If (info.Name != "") { Return This.Pair("0", node.Name); }
             FunctionInfo namedFunction = This.FindFunction(node.Name, This.FileName);
@@ -1931,9 +1999,134 @@ Public Class NativeProgram {
         Return This.Pair(receiver.Value, receiver.TypeName);
     }
 
+    Private Function EmitMacro(AstNode call) -> IrValue {
+        If (call.Left == Null) { Return This.Pair("0", "Missing"); }
+        AstNode definition = AstNode();
+        Bool found = False;
+        For candidate In This.MacroNodes {
+            If (candidate.Name == call.Left.Name) {
+                definition = candidate;
+                found = True;
+            }
+        }
+        If (!found || definition.Body == Null) { Return This.Pair("0", "Missing"); }
+        This.EmitMacroNode(definition, call, definition.Body);
+        Return This.Pair("0", "Macro");
+    }
+
+    Private Function EmitMacroNode(AstNode macro, AstNode call, AstNode node) -> Void {
+        If (node.Kind == AstKind.Block) {
+            For child In node.Children { This.EmitMacroNode(macro, call, child); }
+            Return;
+        }
+        If (node.Kind == AstKind.ExpressionStatement && node.Left != Null && node.Left.Kind == AstKind.Name) {
+            Int slot = 0;
+            For parameter In macro.Parameters {
+                If (parameter.Name == node.Left.Name && slot < call.Parameters.Count()) {
+                    AstNode argument = call.Parameters[slot];
+                    If (argument.Kind == AstKind.Argument && argument.Left != Null) { argument = argument.Left; }
+                    This.EmitExpr(argument);
+                    Return;
+                }
+                slot = slot + 1;
+            }
+        }
+        This.EmitStatement(node);
+    }
+
+    Private Function EmitReflect(AstNode node) -> IrValue {
+        String method = "";
+        If (node.Left != Null) { method = node.Left.Name; }
+        If (method == "TypeOf") {
+            String typeName = "Unknown";
+            If (node.Parameters.Count() > 0) {
+                AstNode arg = node.Parameters[0];
+                If (arg.Kind == AstKind.Argument && arg.Left != Null) { arg = arg.Left; }
+                If (arg.Kind == AstKind.Name) { typeName = arg.Name; }
+            }
+            Return This.Pair(This.StringConst(typeName), "TypeInfo:" + typeName);
+        }
+        If (method == "Create") {
+            String className = "";
+            If (node.Parameters.Count() > 0) {
+                AstNode arg = node.Parameters[0];
+                If (arg.Kind == AstKind.Argument && arg.Left != Null) { arg = arg.Left; }
+                IrValue value = This.EmitExpr(arg);
+                If (value.TypeName.StartsWith("TypeInfo:")) {
+                    className = value.TypeName.Substring(9, value.TypeName.Length() - 9);
+                } Else If (This.FindClass(value.TypeName).Name != "") {
+                    className = This.FindClass(value.TypeName).Name;
+                }
+            }
+            If (className == "") { Return This.Pair("0", "Any"); }
+            Var none = List<String>();
+            Return This.Construct(className, This.FindClass(className), none);
+        }
+        If (method == "Invoke") {
+            String methodName = "";
+            AstNode receiverNode = AstNode();
+            If (node.Parameters.Count() > 0) {
+                receiverNode = node.Parameters[0];
+                If (receiverNode.Kind == AstKind.Argument && receiverNode.Left != Null) { receiverNode = receiverNode.Left; }
+            }
+            If (node.Parameters.Count() > 1) {
+                AstNode nameNode = node.Parameters[1];
+                If (nameNode.Kind == AstKind.Argument && nameNode.Left != Null) { nameNode = nameNode.Left; }
+                If (nameNode.Kind == AstKind.StringLiteral) { methodName = nameNode.Text; }
+            }
+            If (methodName == "") { Return This.Pair("0", "Void"); }
+            IrValue receiver = This.EmitExpr(receiverNode);
+            If (This.IsAnyType(receiver.TypeName)) {
+                String payload = This.LoadObjectField(receiver.Value, "1");
+                String typeText = This.LoadObjectField(receiver.Value, "2");
+                String done = This.Label("reflect");
+                For info In This.Classes {
+                    MethodInfo foundMethod = This.FindMethod(info, methodName);
+                    If (foundMethod.Name != "" && foundMethod.Node.Body != Null) {
+                        String next = This.Label("reflect");
+                        String hit = This.Label("reflect");
+                        Var compared = List<String>();
+                        compared.Add(typeText);
+                        compared.Add(This.StringConst(info.Name));
+                        IrValue same = This.CallRuntime("rx_str_eq", compared, False);
+                        String flag = This.Fresh("cond");
+                        This.Emit(flag + " = icmp ne i64 " + same.Value + ", 0");
+                        This.Emit("br i1 " + flag + ", label %" + hit + ", label %" + next);
+                        This.Terminated = True;
+                        This.Block(hit);
+                        Var callArgs = List<String>();
+                        callArgs.Add(payload);
+                        This.CallRuntime("rxm_" + info.Name + "_" + methodName, callArgs, This.IsVoid(foundMethod.ReturnType));
+                        This.Branch(done);
+                        This.Block(next);
+                    }
+                }
+                This.Branch(done);
+                This.Block(done);
+                Return This.Pair("0", "Void");
+            }
+            ClassInfo info = This.FindClass(receiver.TypeName);
+            MethodInfo foundMethod = This.FindMethod(info, methodName);
+            If (foundMethod.Name != "" && foundMethod.Node.Body != Null) {
+                Var callArgs = List<String>();
+                callArgs.Add(receiver.Value);
+                This.CallRuntime("rxm_" + info.Name + "_" + methodName, callArgs, This.IsVoid(foundMethod.ReturnType));
+            }
+            Return This.Pair("0", "Void");
+        }
+        Return This.Pair("0", "Void");
+    }
+
     Private Function EmitCall(AstNode node) -> IrValue {
         If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Ref") {
             Return This.EmitReference(node);
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            IrValue macro = This.EmitMacro(node);
+            If (macro.TypeName == "Macro") { Return This.Pair(macro.Value, "Void"); }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Reflect") {
+            Return This.EmitReflect(node);
         }
         If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Name == "Promise" && (node.Left.Name == "Create" || node.Left.Name == "FromCallback" || node.Left.Name == "Resolved" || node.Left.Name == "Rejected")) {
             Return This.EmitPromise(node);
@@ -2359,16 +2552,27 @@ Public Class NativeProgram {
         IrValue value = This.CallRuntime("rx_obj_new", created, False);
         AstNode ctor = AstNode();
         Bool found = False;
+        Int best = 999;
         For candidate In info.Constructors {
-            If (candidate.Parameters.Count() == arguments.Count()) {
+            If (candidate.Parameters.Count() >= arguments.Count() && candidate.Parameters.Count() < best) {
                 ctor = candidate;
                 found = True;
+                best = candidate.Parameters.Count();
             }
         }
         If (found) {
             Var args = List<String>();
             args.Add(value.Value);
-            For argument In arguments { args.Add(argument); }
+            Int index = 0;
+            For parameter In ctor.Parameters {
+                If (index < arguments.Count()) { args.Add(arguments[index]); }
+                If (index >= arguments.Count() && parameter.Initializer != Null) {
+                    IrValue initial = This.EmitExpr(parameter.Initializer);
+                    args.Add(initial.Value);
+                }
+                If (index >= arguments.Count() && parameter.Initializer == Null) { args.Add("0"); }
+                index = index + 1;
+            }
             This.CallRuntime("rxm_" + name + "_new", args, True);
         }
         Return This.Pair(value.Value, name);
@@ -2468,6 +2672,44 @@ Public Class NativeProgram {
     }
 
     Private Function EmitMethodCall(AstNode member, List<String> arguments, List<String> types) -> IrValue {
+        If ((member.Name == "Constructor" || member.Name == "Destructor") && member.Left != Null && member.Left.Name == "Base") {
+            String baseName = "";
+            If (member.Left.Children.Count() > 0) { baseName = member.Left.Children[0].Name; }
+            ClassInfo current = This.FindClass(This.Owner);
+            If (baseName == "" && current.Bases.Count() > 0) { baseName = current.Bases[0]; }
+            ClassInfo baseInfo = This.FindClass(baseName);
+            If (member.Name == "Destructor") {
+                MethodInfo method = This.FindMethod(baseInfo, "Destructor");
+                If (method.Name == "" || This.Lookup("This").Value == "") { Return This.Pair("0", "Void"); }
+                Var args = List<String>();
+                args.Add(This.LoadSlot(This.Lookup("This").Value));
+                This.CallRuntime("rxm_" + baseName + "_Destructor", args, True);
+                Return This.Pair("0", "Void");
+            }
+            If (baseInfo.Constructors.Count() == 0 || This.Lookup("This").Value == "") { Return This.Pair("0", "Void"); }
+            AstNode ctor = baseInfo.Constructors[0];
+            Int best = 999;
+            For candidate In baseInfo.Constructors {
+                If (candidate.Parameters.Count() >= arguments.Count() && candidate.Parameters.Count() < best) {
+                    ctor = candidate;
+                    best = candidate.Parameters.Count();
+                }
+            }
+            Var args = List<String>();
+            args.Add(This.LoadSlot(This.Lookup("This").Value));
+            Int index = 0;
+            For parameter In ctor.Parameters {
+                If (index < arguments.Count()) { args.Add(arguments[index]); }
+                If (index >= arguments.Count() && parameter.Initializer != Null) {
+                    IrValue initial = This.EmitExpr(parameter.Initializer);
+                    args.Add(initial.Value);
+                }
+                If (index >= arguments.Count() && parameter.Initializer == Null) { args.Add("0"); }
+                index = index + 1;
+            }
+            This.CallRuntime("rxm_" + baseName + "_new", args, True);
+            Return This.Pair("0", "Void");
+        }
         If (member.Left != Null && member.Left.Kind == AstKind.Name && This.Lookup(member.Left.Name).Value == "") {
             IrValue staticCall = This.EmitStaticCall(member.Left.Name, member.Name, arguments, types);
             If (staticCall.TypeName != "Missing") { Return staticCall; }
@@ -2548,9 +2790,26 @@ Public Class NativeProgram {
             Return This.ListMethod(member.Name, receiver.Value, receiver.TypeName, arguments);
         }
         ClassInfo info = This.FindClass(receiver.TypeName);
+        String methodOwner = info.Name;
         MethodInfo method = This.FindMethod(info, member.Name);
+        If (method.Name == "") {
+            Var owners = List<String>();
+            For baseName In info.Bases { owners.Add(baseName); }
+            Int cursor = 0;
+            While (cursor < owners.Count() && cursor < 8) {
+                ClassInfo baseInfo = This.FindClass(owners[cursor]);
+                MethodInfo candidate = This.FindMethod(baseInfo, member.Name);
+                If (candidate.Name != "") {
+                    method = candidate;
+                    methodOwner = baseInfo.Name;
+                    Break;
+                }
+                For baseName In baseInfo.Bases { owners.Add(baseName); }
+                cursor = cursor + 1;
+            }
+        }
         If (method.Name != "") {
-            String symbol = "rxm_" + receiver.TypeName + "_" + member.Name;
+            String symbol = "rxm_" + methodOwner + "_" + member.Name;
             Var args = List<String>();
             args.Add(receiver.Value);
             For argument In arguments { args.Add(argument); }
@@ -2829,6 +3088,23 @@ Public Class NativeProgram {
             If (arguments.Count() == 0) { args.Add("0"); }
             IrValue value = This.CallRuntime("rx_env_get", args, False);
             Return This.Pair(value.Value, "String");
+        }
+        ClassInfo service = This.FindClass(owner);
+        If (service.Name != "" && service.KindName != "Enum") {
+            MethodInfo serviceMethod = This.FindMethod(service, method);
+            If (serviceMethod.Name != "") {
+                Var args = List<String>();
+                args.Add("0");
+                For argument In arguments { args.Add(argument); }
+                If (This.IsVoid(serviceMethod.ReturnType)) {
+                    This.CallRuntime("rxm_" + service.Name + "_" + serviceMethod.Name, args, True);
+                    Return This.Pair("0", "Void");
+                }
+                IrValue value = This.CallRuntime("rxm_" + service.Name + "_" + serviceMethod.Name, args, False);
+                String resultType = serviceMethod.ReturnType;
+                If (resultType == "") { resultType = "Int"; }
+                Return This.Pair(value.Value, resultType);
+            }
         }
         ClassInfo enumInfo = This.FindClass(owner);
         If (enumInfo.Name != "" && enumInfo.KindName == "Enum") {

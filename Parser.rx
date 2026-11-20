@@ -591,6 +591,9 @@ Public Partial Class Parser {
         }
         While (This.Match(TokenKind.Colon) || This.Match(TokenKind.Implements)) {
             node.Members.Add(This.ParseBaseReference());
+            While (This.Match(TokenKind.Comma)) {
+                node.Members.Add(This.ParseBaseReference());
+            }
         }
         If (node.Text == "Enum") {
             This.ParseEnumBody(node);

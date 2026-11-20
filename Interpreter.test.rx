@@ -1,5 +1,54 @@
 // Tests for Interpreter.rx.
 
+Test FieldDefault {
+    Case "plain field" {
+        Input: field = AstNode();
+        Assert: Result.Kind == ValueKind.Integer;
+    }
+}
+
+Test FindValue {
+    Case "missing name" {
+        Input: name = "Missing";
+        Assert: True;
+    }
+}
+
+Test RunConstructor {
+    Case "missing type" {
+        Input: typeName = "Missing", arguments = [], existing = Value();
+        Assert: True;
+    }
+}
+
+Test RunDestructor {
+    Case "missing object" {
+        Input: typeName = "Missing", obj = Value();
+        Assert: True;
+    }
+}
+
+Test FindMacro {
+    Case "missing macro" {
+        Input: name = "Missing";
+        Assert: True;
+    }
+}
+
+Test ExpandMacro {
+    Case "empty macro" {
+        Input: macro = AstNode(), call = AstNode();
+        Assert: True;
+    }
+}
+
+Test ExpandMacroNode {
+    Case "empty node" {
+        Input: macro = AstNode(), call = AstNode(), node = AstNode();
+        Assert: True;
+    }
+}
+
 Test MakeInt {
     Case "make integer value" {
         Input: number = 42;

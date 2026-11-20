@@ -1,0 +1,43 @@
+// Tests for Examples/Declarations.rx.
+
+Test Initialize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboStep {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RoboStop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Execute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Reset {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Start {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
