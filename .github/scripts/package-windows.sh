@@ -152,7 +152,7 @@ for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-
     fi
 done
 
-if [[ "$file_list" =~ Robix/Bin/.*(\.ps1|\.cmd) ]]; then
+if [[ "$file_list" =~ Robix/Bin/[^[:space:]/]+\.(ps1|cmd) ]]; then
     echo "error: ${archive} contains .ps1 or .cmd files in Bin/" >&2
     exit 1
 fi
