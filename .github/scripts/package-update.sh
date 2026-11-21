@@ -34,19 +34,20 @@ rm -f "$archive"
     cd "$temp"
     zip -r "$archive" Robix
 )
-if unzip -l "$archive" | grep -E -q 'Shared/Tools/Llvm/|Library/Link/'; then
+file_list=$(unzip -l "$archive" | tr '\\' '/')
+if [[ "$file_list" =~ (Shared/Tools/Llvm/|Library/Link/) ]]; then
     echo "error: ${archive} still contains LLVM files" >&2
     exit 1
 fi
-if ! unzip -l "$archive" | grep -q 'Bin/'; then
+if [[ "$file_list" != *"Bin/"* ]]; then
     echo "error: ${archive} is missing the Robix files" >&2
     exit 1
 fi
-if ! unzip -l "$archive" | grep -F -q 'Robix/README.md'; then
+if [[ "$file_list" != *"Robix/README.md"* ]]; then
     echo "error: ${archive} is missing README.md" >&2
     exit 1
 fi
-if ! unzip -l "$archive" | grep -F -q 'Robix/LICENSE'; then
+if [[ "$file_list" != *"Robix/LICENSE"* ]]; then
     echo "error: ${archive} is missing LICENSE" >&2
     exit 1
 fi

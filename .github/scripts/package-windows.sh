@@ -129,6 +129,10 @@ place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
 place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
 
 bash "$root/.github/scripts/install-docs.sh" "$stage"
+cp -f "$root/README.md" "$stage/README.md"
+cp -f "$root/LICENSE" "$stage/LICENSE"
+mkdir -p "$stage/Shared/Tools/Llvm"
+cp -f "$root/Licenses/LLVM-LICENSE" "$stage/Shared/Tools/Llvm/LLVM-LICENSE"
 
 bash "$root/.github/scripts/package-update.sh" "$stage" windows-x64
 
@@ -139,14 +143,16 @@ rm -f "$archive"
     zip -r "$archive" Robix
 )
 
+file_list=$(unzip -l "$archive" | tr '\\' '/')
+
 for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-LICENSE' 'Robix/Bin/Robix.exe' 'Robix/Bin/Robixc.exe'; do
-    if ! unzip -l "$archive" | grep -F -q "$required"; then
+    if [[ "$file_list" != *"$required"* ]]; then
         echo "error: ${archive} is missing ${required}" >&2
         exit 1
     fi
 done
 
-if unzip -l "$archive" | grep -E 'Robix/Bin/.*\.(ps1|cmd)'; then
+if [[ "$file_list" =~ Robix/Bin/.*(\.ps1|\.cmd) ]]; then
     echo "error: ${archive} contains .ps1 or .cmd files in Bin/" >&2
     exit 1
 fi

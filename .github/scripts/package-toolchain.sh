@@ -108,8 +108,9 @@ rm -f "$archive"
     cd "$root/dist"
     zip -r "robix-linux-x64.zip" Robix
 )
+file_list=$(unzip -l "$archive" | tr '\\' '/')
 for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-LICENSE' 'Robix/Library/Link/LICENSE-GCC' 'Robix/Library/Link/LICENSE-GLIBC'; do
-    if ! unzip -l "$archive" | grep -F -q "$required"; then
+    if [[ "$file_list" != *"$required"* ]]; then
         echo "error: ${archive} is missing ${required}" >&2
         exit 1
     fi
