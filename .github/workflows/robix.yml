@@ -11,35 +11,79 @@ permissions:
   contents: write
 
 jobs:
-  package:
-    name: Compile and package
+  build-linux:
+    name: Build Linux
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
 
-      - name: Install the C compiler
+      - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y clang llvm lld zip unzip xz-utils curl
 
-      - name: Compile the toolchain zip
+      - name: Compile the Linux toolchain
         run: bash .github/scripts/package-toolchain.sh
+        env:
+          SKIP_WINDOWS: "1"
 
       - name: Package the VS Code extension
         run: node .github/scripts/package-vsix.js
 
-      - name: Upload the packages
+      - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
-          name: robix-packages
+          name: robix-linux-packages
           path: |
             dist/robix-linux-x64.zip
-            dist/robix-windows-x64.zip
-            dist/Update-*.zip
+            dist/Update-*-linux-x64.zip
             dist/Roboticela.Robix.vsix
           if-no-files-found: error
 
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: choco install zip unzip -y
+
+      - name: Compile the Windows toolchain
+        shell: bash
+        run: bash .github/scripts/package-windows.sh
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: robix-windows-packages
+          path: |
+            dist/robix-windows-x64.zip
+            dist/Update-*-windows-x64.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Download Linux packages
+        uses: actions/download-artifact@v4
+        with:
+          name: robix-linux-packages
+          path: dist
+
+      - name: Download Windows packages
+        uses: actions/download-artifact@v4
+        with:
+          name: robix-windows-packages
+          path: dist
+
       - name: Publish the release
-        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -53,7 +97,7 @@ jobs:
           shopt -s nullglob
           updates=(dist/Update-*.zip)
           if [ "${#updates[@]}" -eq 0 ]; then
-            echo "error: Update-${version} archives were not built" >&2
+            echo "error: Update-${version} archives were not found" >&2
             exit 1
           fi
           gh release delete "${tag}" --cleanup-tag --yes || true
@@ -80,7 +124,16 @@ jobs:
           Robixc SourceFolder Program
           \`\`\`
 
-          Windows: unzip \`robix-windows-x64.zip\` and add \`Robix\\Bin\` to \`PATH\`. The layout matches Linux. \`llc.exe\` generates the machine code and \`ld.lld.exe\` links it with the compiled runtime.
+          Windows:
+
+          \`\`\`powershell
+          Expand-Archive robix-windows-x64.zip
+          \$env:PATH = \"\$PWD\\Robix\\Bin;\$env:PATH\"
+          Robix.exe run Hello.rx
+          Robixc.exe SourceFolder Program.exe
+          \`\`\`
+
+          \`Robix.exe\` and \`Robixc.exe\` are located in \`Robix\\Bin\`.
 
           ## Update
 

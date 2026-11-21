@@ -59,7 +59,7 @@ Robixc SourceFolder Program
 
 ## Install on Windows
 
-Unzip `robix-windows-x64.zip`. The folders match the Linux toolchain. `llc.exe` and `ld.lld.exe` are in `Shared\Tools\Llvm\bin`. `Bin\Robixc.cmd` compiles a folder when `Shared\Tools\Compiler.exe` is present. This archive does not yet include `Robix.exe`, the Windows interpreter, because rebuilding that program still emits invalid LLVM.
+Unzip `robix-windows-x64.zip`. The folders match the Linux toolchain. `Robix.exe` and `Robixc.exe` are in `Bin`. `llc.exe` and `ld.lld.exe` are in `Shared\Tools\Llvm\bin`.
 
 Add `Bin` to `PATH` the same way you add any other folder.
 
@@ -69,7 +69,8 @@ Add `Bin` to `PATH` the same way you add any other folder.
 | --- | --- |
 | `Bin/Robix` | Linux interpreter. |
 | `Bin/Robixc` | Linux compiler driver. |
-| `Bin/Robixc.cmd` | Windows compiler driver. |
+| `Bin/Robix.exe` | Windows interpreter / runner. |
+| `Bin/Robixc.exe` | Windows compiler driver. |
 | `Packages/Builtin` | Compiled built-in packages. |
 | `Packages/Installed` | Place packages you install here. |
 | `Shared` | Compiled `.bin` files, grouped by area. UI files are in `Shared/UI`. |
