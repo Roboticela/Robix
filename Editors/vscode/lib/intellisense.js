@@ -459,6 +459,23 @@ function memberItems(doc, receiver, offset, external) {
             sort: "1"
         });
     }
+    const qualifier = packageQualifier(doc, receiver, offset);
+    if (qualifier) {
+        for (const entry of libraryFunctions()) {
+            if (!sameText(entry.packageName, qualifier)) {
+                continue;
+            }
+            add(entry.name, entry.signature, libraryDocument(entry), entry.kind === "field" ? "field" : "method");
+        }
+        const declared = new Set(["class", "struct", "enum", "interface", "trait", "service", "function", "macro"]);
+        for (const symbol of doc.symbols.concat(external || [])) {
+            if (symbol.member || !declared.has(symbol.kind) || !sameText(symbol.packageName, qualifier)) {
+                continue;
+            }
+            add(symbol.name, symbol.detail || symbol.kind, explainDocument(symbol) || symbol.detail, symbol.kind === "function" || symbol.kind === "macro" ? "method" : "field");
+        }
+        return items;
+    }
     const typeName = resolveType(doc, receiver, offset);
     const tables = [];
     if (typeName && TYPE_METHODS[typeName]) {
@@ -515,6 +532,19 @@ function canonicalKey(table, name) {
     }
     const lower = String(name).toLowerCase();
     return Object.keys(table).find((key) => key.toLowerCase() === lower) || "";
+}
+
+function packageQualifier(doc, name, offset) {
+    const matches = doc.symbols.filter((symbol) => {
+        if (symbol.kind !== "namespace" || symbol.member || !sameText(symbol.name, name)) {
+            return false;
+        }
+        if (!String(symbol.typeName || "").includes(".")) {
+            return false;
+        }
+        return symbol.fileWide || (offset >= symbol.visibleFrom && offset <= symbol.visibleTo);
+    });
+    return matches[0] ? matches[0].typeName : "";
 }
 
 function resolveType(doc, name, offset) {

@@ -340,6 +340,27 @@ check("a package requires a description and the editor shows it", () => {
     assert.ok(suggested && suggested.documentation.includes("Terminal text"));
 });
 
+check("an import alias completes that package", () => {
+    const source = "Package Demo\nExplain {\n    Description: \"Demo.\";\n};\nImport Robix.Core As Nm;\nPublic Function Main() -> Int {\n    Nm.\n    Return 0;\n}\n";
+    const labels = complete(source, source.indexOf("Nm.") + 3).items.map((item) => item.label);
+    assert.ok(labels.includes("Print"), labels.join(", "));
+    assert.ok(labels.includes("Some"), labels.join(", "));
+    assert.ok(!labels.includes("Length"), labels.join(", "));
+    assert.ok(!labels.includes("ToString"), labels.join(", "));
+    const math = "Package Demo\nExplain {\n    Description: \"Demo.\";\n};\nImport Robix.Math As Calc;\nPublic Function Main() -> Int {\n    Calc.\n    Return 0;\n}\n";
+    const mathLabels = complete(math, math.indexOf("Calc.") + 5).items.map((item) => item.label);
+    assert.ok(mathLabels.includes("Abs"), mathLabels.join(", "));
+    assert.ok(!mathLabels.includes("Length"), mathLabels.join(", "));
+    const plain = "Package Demo\nExplain {\n    Description: \"Demo.\";\n};\nImport Robix.Core;\nPublic Function Main() -> Int {\n    Core.\n    Return 0;\n}\n";
+    const coreLabels = complete(plain, plain.indexOf("Core.") + 5).items.map((item) => item.label);
+    assert.ok(coreLabels.includes("Print"), coreLabels.join(", "));
+    assert.ok(!coreLabels.includes("ToString"), coreLabels.join(", "));
+    const text = "Package Demo\nExplain {\n    Description: \"Demo.\";\n};\nPublic Function Main() -> Int {\n    Var name = \"Robix\";\n    name.\n    Return 0;\n}\n";
+    const textLabels = complete(text, text.indexOf("name.") + 5).items.map((item) => item.label);
+    assert.ok(textLabels.includes("Length"), textLabels.join(", "));
+    assert.ok(textLabels.includes("ToString"), textLabels.join(", "));
+});
+
 check("user names are not recased", () => {
     const source = "Package Demo;\n\nPublic Function Main() -> Int {\n    Var myValue = 1;\n    Return myValue;\n}\n";
     const formatted = formatRobix(source);

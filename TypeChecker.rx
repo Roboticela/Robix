@@ -42,6 +42,8 @@ Public Class TypeChecker {
     Private List<String> aliasNames;
     Private List<String> aliasTargets;
     Private List<String> aliasParameters;
+    Private List<String> importAliasNames;
+    Private List<String> importAliasPackages;
     Private String currentType;
     Private List<String> fieldOwners;
     Private List<String> fieldNames;
@@ -53,6 +55,10 @@ Public Class TypeChecker {
     Private List<String> functionNames;
     Private List<String> functionSignatures;
     Private List<AstNode> functionNodes;
+    Private List<String> packageFunctionNames;
+    Private List<String> packageFunctionPackages;
+    Private List<String> packageFunctionReturns;
+    Private Int packageFunctionDepth;
     Private List<String> macroNames;
     Private List<String> labelNames;
     Private List<Int> labelDepths;
@@ -97,6 +103,8 @@ Public Class TypeChecker {
         This.aliasNames = List<String>();
         This.aliasTargets = List<String>();
         This.aliasParameters = List<String>();
+        This.importAliasNames = List<String>();
+        This.importAliasPackages = List<String>();
         This.currentType = "";
         This.fieldOwners = List<String>();
         This.fieldNames = List<String>();
@@ -108,6 +116,10 @@ Public Class TypeChecker {
         This.functionNames = List<String>();
         This.functionSignatures = List<String>();
         This.functionNodes = List<AstNode>();
+        This.packageFunctionNames = List<String>();
+        This.packageFunctionPackages = List<String>();
+        This.packageFunctionReturns = List<String>();
+        This.packageFunctionDepth = 0;
         This.macroNames = List<String>();
         This.labelNames = List<String>();
         This.labelDepths = List<Int>();
@@ -139,6 +151,12 @@ Public Class TypeChecker {
         Output: "No return value. Diagnostics are stored in the bag.";
     } {
         This.currentPackage = "";
+        This.importAliasNames = List<String>();
+        This.importAliasPackages = List<String>();
+        This.packageFunctionNames = List<String>();
+        This.packageFunctionPackages = List<String>();
+        This.packageFunctionReturns = List<String>();
+        This.packageFunctionDepth = 0;
         This.typeNames = List<String>();
         This.typeFlags = List<String>();
         This.typePackages = List<String>();
@@ -155,6 +173,7 @@ Public Class TypeChecker {
         This.PushScope();
         This.CollectTypes(module);
         This.currentPackage = "";
+        This.CollectImportAliases(module);
         This.CollectAliases(module);
         This.PredeclareFunctions(module);
         For child In module.Children {
@@ -946,6 +965,17 @@ Public Class TypeChecker {
             Return This.InferCall(node);
         }
         If (node.Kind == AstKind.Member) {
+            If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+                String packageName = This.ImportPackage(node.Left.Name);
+                If (packageName != "") {
+                    String found = This.PackageMemberType(packageName, node.Name);
+                    If (found == "") {
+                        This.diagnostics.TypeError("RX174", "'" + node.Name + "' is not in package '" + packageName + "'.", node.Line, node.Column, "a member of " + packageName, node.Name, "Use a type or function from that package.");
+                        Return "Unknown";
+                    }
+                    Return found;
+                }
+            }
             If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "Console" && node.Left.Left != Null && node.Left.Left.Name == "Runtime") {
                 If (node.Name == "Enabled") { Return "Bool"; }
                 If (node.Name == "Port") { Return "Int"; }
@@ -1047,7 +1077,18 @@ Public Class TypeChecker {
             If (symbol == Null && This.IsCamel(name)) {
                 This.Undefined(node.Left);
             }
-        } Else If (node.Left != Null) {
+        } Else If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
+            String packageName = This.ImportPackage(node.Left.Left.Name);
+            If (packageName != "") {
+                String found = This.PackageMemberType(packageName, node.Left.Name);
+                If (found == "") {
+                    This.diagnostics.TypeError("RX174", "'" + node.Left.Name + "' is not in package '" + packageName + "'.", node.Line, node.Column, "a member of " + packageName, node.Left.Name, "Use a type or function from that package.");
+                    Return "Unknown";
+                }
+                Return found;
+            }
+        }
+        If (node.Left != Null && node.Left.Kind != AstKind.Name) {
             If (node.Left.Kind == AstKind.Member && node.Left.Left != Null) {
                 receiverType = This.Infer(node.Left.Left);
                 String accessOwner = This.AppliedOwner(receiverType);
@@ -2194,8 +2235,20 @@ Public Class TypeChecker {
     }
 
     Private Function CollectTypes(AstNode node) -> Void {
+        Bool enteredFunction = False;
         If (node.Kind == AstKind.Package && node.Name != "") {
             This.currentPackage = node.Name;
+        }
+        If (node.Kind == AstKind.Function) {
+            If (This.packageFunctionDepth == 0 && This.currentPackage != "") {
+                This.packageFunctionNames.Add(node.Name);
+                This.packageFunctionPackages.Add(This.currentPackage);
+                String result = "Void";
+                If (node.Type != Null) { result = This.TypeText(node.Type); }
+                This.packageFunctionReturns.Add(result);
+            }
+            This.packageFunctionDepth = This.packageFunctionDepth + 1;
+            enteredFunction = True;
         }
         If (node.Kind == AstKind.Class) {
             String flag = "Open";
@@ -2237,6 +2290,70 @@ Public Class TypeChecker {
             }
             If (node.Body != Null) { This.CollectTypes(node.Body); }
         }
+        If (enteredFunction) {
+            This.packageFunctionDepth = This.packageFunctionDepth - 1;
+        }
+    }
+
+    Private Function CollectImportAliases(AstNode node) -> Void {
+        For child In node.Children {
+            If (child.Kind == AstKind.Import && child.Name != "") {
+                String alias = child.Text;
+                If (alias == "") { alias = This.PackageLeaf(child.Name); }
+                If (alias != "") {
+                    This.importAliasNames.Add(alias);
+                    This.importAliasPackages.Add(child.Name);
+                }
+            }
+            If (child.Kind == AstKind.Package || child.Kind == AstKind.Block) {
+                This.CollectImportAliases(child);
+            }
+        }
+    }
+
+    Private Function PackageLeaf(String name) -> String {
+        Int dot = name.LastIndexOf(".");
+        If (dot < 0) { Return name; }
+        Return name.Substring(dot + 1);
+    }
+
+    Private Function ImportPackage(String name) -> String {
+        Int index = 0;
+        While (index < This.importAliasNames.Count() && index < This.importAliasPackages.Count()) {
+            If (This.importAliasNames[index] == name) { Return This.importAliasPackages[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function SamePackage(String left, String right) -> Bool {
+        If (left == "" || right == "") { Return False; }
+        If (left == right) { Return True; }
+        If (left.EndsWith("." + right) || right.EndsWith("." + left)) { Return True; }
+        Return False;
+    }
+
+    Private Function PackageMemberType(String packageName, String member) -> String {
+        Int index = 0;
+        While (index < This.typeNames.Count() && index < This.typePackages.Count()) {
+            If (This.typeNames[index] == member && This.SamePackage(This.typePackages[index], packageName)) {
+                Return member;
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.packageFunctionNames.Count() && index < This.packageFunctionPackages.Count() && index < This.packageFunctionReturns.Count()) {
+            If (This.packageFunctionNames[index] == member && This.SamePackage(This.packageFunctionPackages[index], packageName)) {
+                Return This.packageFunctionReturns[index];
+            }
+            index = index + 1;
+        }
+        If (This.SamePackage(packageName, "Robix.Core")) {
+            If (member == "Print") { Return "Void"; }
+            If (member == "Some" || member == "None") { Return "Option"; }
+            If (member == "Ok" || member == "Err") { Return "Result"; }
+        }
+        Return "";
     }
 
     Private Function TypeFlagOf(String name) -> String {

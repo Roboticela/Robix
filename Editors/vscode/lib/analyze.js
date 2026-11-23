@@ -886,7 +886,8 @@ function parseTypeDecl(state, mods, keyword) {
     const kind = keyword === "Enum" ? "enum" : keyword === "Interface" ? "interface" : keyword === "Trait" ? "trait" : keyword === "Service" ? "service" : keyword === "Struct" ? "struct" : "class";
     const symbol = addSymbol(state, {
         ...symbolAt(nameToken || keywordToken, name, kind, "", true, mods.includes("Public") || true),
-        detail: `${mods.join(" ")}${mods.length ? " " : ""}${keyword} ${name}`.trim()
+        detail: `${mods.join(" ")}${mods.length ? " " : ""}${keyword} ${name}`.trim(),
+        packageName: state.packageName || ""
     });
     const previous = state.container;
     state.container = name;

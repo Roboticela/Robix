@@ -63,6 +63,11 @@ Public Class Interpreter {
     Private Bool consoleEnabled;
     Private Int consolePort;
     Private List<String> programArguments;
+    Private List<String> importAliasNames;
+    Private List<String> importAliasPackages;
+    Private List<String> packageFunctionNames;
+    Private List<String> packageFunctionPackages;
+    Private String walkPackage;
 
     Public Constructor() {
         This.names = List<String>();
@@ -87,6 +92,11 @@ Public Class Interpreter {
         This.consoleEnabled = True;
         This.consolePort = 0;
         This.programArguments = List<String>();
+        This.importAliasNames = List<String>();
+        This.importAliasPackages = List<String>();
+        This.packageFunctionNames = List<String>();
+        This.packageFunctionPackages = List<String>();
+        This.walkPackage = "";
     }
 
     Public Function SetConsole(Bool enabled, Int port) -> Void
@@ -108,6 +118,11 @@ Public Class Interpreter {
         Output: "The process exit integer.";
     } {
         This.programArguments = arguments;
+        This.importAliasNames = List<String>();
+        This.importAliasPackages = List<String>();
+        This.packageFunctionNames = List<String>();
+        This.packageFunctionPackages = List<String>();
+        This.CollectImportAliases(module);
         This.PushScope();
         This.CollectFunctions(module);
         For child In module.Children {
@@ -1285,6 +1300,14 @@ Public Class Interpreter {
             Return This.EvaluateCall(node);
         }
         If (node.Kind == AstKind.Member) {
+            If (node.Left != Null && node.Left.Kind == AstKind.Name && This.ImportPackage(node.Left.Name) != "") {
+                String packageName = This.ImportPackage(node.Left.Name);
+                If (This.TypeIndex(node.Name) >= 0 || This.PackageFunction(packageName, node.Name) || This.CoreMember(packageName, node.Name)) {
+                    Return This.MakeText(node.Name);
+                }
+                This.runtimeErrors.Add("'" + node.Name + "' is not in package '" + packageName + "'.");
+                Return This.MakeNull();
+            }
             If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "Console" && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Runtime") {
                 If (node.Name == "Enabled") { Return This.MakeBool(This.consoleEnabled); }
                 If (node.Name == "Port") { Return This.MakeInt(This.consolePort); }
@@ -1449,6 +1472,96 @@ Public Class Interpreter {
         Return left;
     }
 
+    Private Function CollectImportAliases(AstNode node) -> Void {
+        This.walkPackage = "";
+        This.WalkPackage(node);
+    }
+
+    Private Function WalkPackage(AstNode node) -> Void {
+        If (node.Kind == AstKind.Package && node.Name != "") {
+            This.walkPackage = node.Name;
+        }
+        If (node.Kind == AstKind.Import && node.Name != "") {
+            String alias = node.Text;
+            If (alias == "") { alias = This.PackageLeaf(node.Name); }
+            If (alias != "") {
+                This.importAliasNames.Add(alias);
+                This.importAliasPackages.Add(node.Name);
+            }
+        }
+        If (node.Kind == AstKind.Function && This.walkPackage != "") {
+            This.packageFunctionNames.Add(node.Name);
+            This.packageFunctionPackages.Add(This.walkPackage);
+        }
+        If (node.Kind == AstKind.Class || node.Kind == AstKind.Function) { Return; }
+        For child In node.Children {
+            This.WalkPackage(child);
+        }
+    }
+
+    Private Function PackageFunction(String packageName, String member) -> Bool {
+        Int index = 0;
+        While (index < This.packageFunctionNames.Count() && index < This.packageFunctionPackages.Count()) {
+            If (This.packageFunctionNames[index] == member && (This.packageFunctionPackages[index] == packageName || This.packageFunctionPackages[index].EndsWith("." + packageName) || packageName.EndsWith("." + This.packageFunctionPackages[index]))) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function PackageLeaf(String name) -> String {
+        Int dot = name.LastIndexOf(".");
+        If (dot < 0) { Return name; }
+        Return name.Substring(dot + 1);
+    }
+
+    Private Function ImportPackage(String name) -> String {
+        Int index = 0;
+        While (index < This.importAliasNames.Count() && index < This.importAliasPackages.Count()) {
+            If (This.importAliasNames[index] == name) { Return This.importAliasPackages[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function CoreMember(String packageName, String member) -> Bool {
+        If (packageName != "Robix.Core" && !packageName.EndsWith(".Core")) { Return False; }
+        Return member == "Print" || member == "Some" || member == "None" || member == "Ok" || member == "Err";
+    }
+
+    Private Function CallPackage(String packageName, String member, List<Value> arguments) -> Value {
+        If (This.TypeIndex(member) >= 0) {
+            Return This.RunConstructor(member, arguments, This.BlankObject(member));
+        }
+        If (This.PackageFunction(packageName, member)) {
+            AstNode? function = This.FindFunction(member);
+            If (function != Null) {
+                Return This.CallFunction(function, arguments);
+            }
+        }
+        If (member == "Print" && This.CoreMember(packageName, member)) {
+            If (!This.consoleEnabled) { Return This.MakeVoid(); }
+            String line = "";
+            For argument In arguments {
+                If (line.Length() > 0) { line = line + " "; }
+                line = line + This.Display(argument);
+            }
+            This.lines.Add(line);
+            Return This.MakeVoid();
+        }
+        If (This.CoreMember(packageName, member)) {
+            Value wrapper = This.MakeArray();
+            wrapper.Text = member;
+            For argument In arguments {
+                wrapper.Elements.Add(argument);
+            }
+            Return wrapper;
+        }
+        This.runtimeErrors.Add("'" + member + "' is not in package '" + packageName + "'.");
+        Return This.MakeNull();
+    }
+
     Private Function EvaluateCall(AstNode node) -> Value {
         If (node.Parameters.Count() > 256) {
             This.runtimeErrors.Add("A call exceeds the argument resource limit of 256.");
@@ -1486,6 +1599,12 @@ Public Class Interpreter {
         For argument In node.Parameters {
             If (argument.Left != Null) {
                 arguments.Add(This.Evaluate(argument.Left));
+            }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
+            String packageName = This.ImportPackage(node.Left.Left.Name);
+            If (packageName != "") {
+                Return This.CallPackage(packageName, node.Left.Name, arguments);
             }
         }
         Value library = This.StandardLibrary(node, arguments);
