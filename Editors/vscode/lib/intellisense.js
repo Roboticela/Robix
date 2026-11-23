@@ -1,6 +1,7 @@
 "use strict";
 
 const { analyze } = require("./analyze");
+const { toPascal, toPascalName } = require("./names");
 const {
     KEYWORD_WORDS,
     KEYWORDS,
@@ -60,9 +61,15 @@ function complete(source, offset, external) {
             replaceEnd: word.end
         };
     }
-    if (/(?:^|\s)(?:Import|Package)\s+[\w.]*$/.test(line) || /(?:^|\s)As\s+\w*$/.test(line)) {
+    const declared = declarationContext(line);
+    if (declared && declared.kind === "namespace") {
+        const items = packageItems(external);
+        const corrected = toPascalName(declared.partial);
+        if (!declared.partial.endsWith(".") && corrected !== declared.partial) {
+            addCorrection(items, corrected, "namespace");
+        }
         return {
-            items: packageItems(external),
+            items,
             replaceStart: Math.max(lineStart(source, left), left - trailingName(line).length),
             replaceEnd: left
         };
@@ -77,11 +84,51 @@ function complete(source, offset, external) {
             replaceEnd: left
         };
     }
+    const items = scopeItems(doc, left, external);
+    if (declared && declared.partial) {
+        const corrected = toPascal(declared.partial);
+        if (corrected !== declared.partial) {
+            addCorrection(items, corrected, declared.kind);
+        }
+    }
     return {
-        items: scopeItems(doc, left, external),
+        items,
         replaceStart: word.start,
         replaceEnd: word.end
     };
+}
+
+function declarationContext(line) {
+    const packaged = /(?:^|\s)(?:import|package|connect)\s+([A-Za-z_][A-Za-z0-9_.]*)$/i.exec(line);
+    if (packaged) {
+        return { kind: "namespace", partial: packaged[1] };
+    }
+    const alias = /(?:^|\s)as\s+([A-Za-z_][A-Za-z0-9_]*)$/i.exec(line);
+    if (alias) {
+        return { kind: "namespace", partial: alias[1] };
+    }
+    const named = /(?:^|\s)(function|macro|class|struct|interface|trait|enum|service|type|test|implement)\s+([A-Za-z_][A-Za-z0-9_]*)$/i.exec(line);
+    if (!named) {
+        return null;
+    }
+    const keyword = named[1].toLowerCase();
+    const kind = keyword === "function" || keyword === "macro" || keyword === "test" ? "function" : "class";
+    return { kind, partial: named[2] };
+}
+
+function addCorrection(items, label, kind) {
+    if (!label || items.some((item) => item.label === label)) {
+        return;
+    }
+    items.unshift({
+        label,
+        kind,
+        detail: "PascalCase",
+        documentation: `The name is written ${label}.`,
+        insert: label,
+        filter: `${label.toLowerCase()} ${label}`,
+        sort: "0"
+    });
 }
 
 function wordAt(source, offset) {
@@ -124,7 +171,7 @@ function scopeItems(doc, offset, external) {
             detail: info && info.isType ? "type" : "keyword",
             documentation: KEYWORD_DOCS[word] || "",
             insert: word,
-            filter: `${word} ${word.toLowerCase()}`,
+            filter: `${word.toLowerCase()} ${word}`,
             sort: info && info.isType ? "3" : "4"
         });
     }
@@ -155,7 +202,7 @@ function scopeItems(doc, offset, external) {
             detail: builtin[1],
             documentation: builtin[2],
             insert: builtin[0],
-            filter: `${builtin[0]} ${builtin[0].toLowerCase()}`,
+            filter: `${builtin[0].toLowerCase()} ${builtin[0]}`,
             sort: "2"
         });
     }
@@ -166,7 +213,7 @@ function scopeItems(doc, offset, external) {
             detail: "type",
             documentation: `${typeName} is a Robix standard type.`,
             insert: typeName,
-            filter: `${typeName} ${typeName.toLowerCase()}`,
+            filter: `${typeName.toLowerCase()} ${typeName}`,
             sort: "3"
         });
     }
@@ -177,7 +224,7 @@ function scopeItems(doc, offset, external) {
             detail: "namespace",
             documentation: `${name} is part of the Robix standard library.`,
             insert: name,
-            filter: `${name} ${name.toLowerCase()}`,
+            filter: `${name.toLowerCase()} ${name}`,
             sort: "3"
         });
     }
@@ -201,7 +248,7 @@ function symbolItem(symbol, sort) {
         detail: symbol.detail || symbol.kind,
         documentation: symbol.detail || "",
         insert: symbol.name,
-        filter: `${symbol.name} ${symbol.name.toLowerCase()}`,
+        filter: `${symbol.name.toLowerCase()} ${symbol.name}`,
         sort
     };
 }
@@ -232,7 +279,7 @@ function memberItems(doc, receiver, offset, external) {
             detail,
             documentation: documentation || detail,
             insert: label,
-            filter: `${label} ${label.toLowerCase()}`,
+            filter: `${label.toLowerCase()} ${label}`,
             sort: "1"
         });
     }
@@ -241,11 +288,13 @@ function memberItems(doc, receiver, offset, external) {
     if (typeName && TYPE_METHODS[typeName]) {
         tables.push(TYPE_METHODS[typeName]);
     }
-    if (NAMESPACES[receiver]) {
-        tables.push(NAMESPACES[receiver]);
+    const receiverNamespace = canonicalKey(NAMESPACES, receiver);
+    const typeNamespace = canonicalKey(NAMESPACES, typeName);
+    if (receiverNamespace) {
+        tables.push(NAMESPACES[receiverNamespace]);
     }
-    if (NAMESPACES[typeName]) {
-        tables.push(NAMESPACES[typeName]);
+    if (typeNamespace && typeNamespace !== receiverNamespace) {
+        tables.push(NAMESPACES[typeNamespace]);
     }
     for (const table of tables) {
         for (const entry of table) {
@@ -254,7 +303,7 @@ function memberItems(doc, receiver, offset, external) {
     }
     const pools = doc.symbols.concat(external || []);
     for (const symbol of pools) {
-        if (!symbol.member || symbol.container !== receiver && symbol.container !== typeName) {
+        if (!symbol.member || !sameText(symbol.container, receiver) && !sameText(symbol.container, typeName)) {
             continue;
         }
         add(symbol.name, symbol.detail || symbol.kind, symbol.detail, symbol.kind === "property" || symbol.kind === "enumMember" ? "field" : "method");
@@ -267,11 +316,28 @@ function memberItems(doc, receiver, offset, external) {
     return items;
 }
 
-function resolveType(doc, name, offset) {
-    if (TYPE_METHODS[name] || NAMESPACES[name]) {
+function sameText(left, right) {
+    return String(left || "").toLowerCase() === String(right || "").toLowerCase();
+}
+
+function canonicalKey(table, name) {
+    if (!name || !table) {
+        return "";
+    }
+    if (table[name]) {
         return name;
     }
-    const matches = doc.symbols.filter((symbol) => symbol.name === name && !symbol.member && (symbol.fileWide || (offset >= symbol.visibleFrom && offset <= symbol.visibleTo)));
+    const lower = String(name).toLowerCase();
+    return Object.keys(table).find((key) => key.toLowerCase() === lower) || "";
+}
+
+function resolveType(doc, name, offset) {
+    const typed = canonicalKey(TYPE_METHODS, name);
+    const namespace = canonicalKey(NAMESPACES, name);
+    if (typed || namespace) {
+        return typed || namespace;
+    }
+    const matches = doc.symbols.filter((symbol) => sameText(symbol.name, name) && !symbol.member && (symbol.fileWide || (offset >= symbol.visibleFrom && offset <= symbol.visibleTo)));
     matches.sort((left, right) => Number(left.fileWide) - Number(right.fileWide));
     if (matches[0] && matches[0].typeName) {
         return matches[0].typeName;
@@ -297,7 +363,7 @@ function packageItems(external) {
         detail: "package",
         documentation: `Package ${name}`,
         insert: name,
-        filter: `${name} ${name.toLowerCase()}`,
+        filter: `${name.toLowerCase()} ${name}`,
         sort: "1"
     }));
 }
@@ -315,7 +381,7 @@ function attributeItems(external) {
         detail: "attribute",
         documentation: `Attribute @${name}`,
         insert: name,
-        filter: `${name} ${name.toLowerCase()}`,
+        filter: `${name.toLowerCase()} ${name}`,
         sort: "1"
     }));
 }

@@ -1,0 +1,5 @@
+Test Distance2 {
+    Constraint: GeometryDesk().Distance2(0, 0, 3, 4) == 5;
+    Processing: True;
+    Output: True;
+}

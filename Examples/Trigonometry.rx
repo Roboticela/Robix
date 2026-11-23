@@ -1,0 +1,890 @@
+// Robix.Math.Trigonometry: circular functions, inverse functions, and hyperbolic functions.
+Package Robotics.Trigonometry;
+
+Import Robix.Core;
+
+
+Class TrigDesk {
+    Private Float readySin;
+    Private Float readyCos;
+    Private Float angleA;
+    Private Float angleB;
+    Private String problem;
+
+    Public Constructor() {
+        readySin = 0.0;
+        readyCos = 1.0;
+        angleA = 0.0;
+        angleB = 0.0;
+        problem = "none";
+    }
+
+    Public Function Pi() -> Float
+    Explain {
+        Description: "Return pi.";
+        Input: "No parameters";
+        Processing: "Return the circle constant.";
+        Output: "Pi.";
+    } {
+        Return 3.141592653589793;
+    }
+
+    Public Function Sin(Float radians) -> Float
+    Explain {
+        Description: "Return the sine of an angle in radians.";
+        Input: radians = "Angle in radians";
+        Processing: "Reduce the angle and use the exact value or a series.";
+        Output: "The sine.";
+    } {
+        This.Prepare(This.ToDegrees(radians));
+        Return readySin;
+    }
+
+    Public Function Cos(Float radians) -> Float
+    Explain {
+        Description: "Return the cosine of an angle in radians.";
+        Input: radians = "Angle in radians";
+        Processing: "Reduce the angle and use the exact value or a series.";
+        Output: "The cosine.";
+    } {
+        This.Prepare(This.ToDegrees(radians));
+        Return readyCos;
+    }
+
+    Public Function Tan(Float radians) -> Float
+    Explain {
+        Description: "Return the tangent of an angle in radians.";
+        Input: radians = "Angle in radians";
+        Processing: "Divide the sine by the cosine.";
+        Output: "The tangent, or infinity when the cosine is zero.";
+    } {
+        This.Prepare(This.ToDegrees(radians));
+        If (This.Near(readyCos, 0.0) == 1) {
+            problem = "domain";
+            If (readySin < 0.0) { Return This.NegativeInfinity(); }
+            Return This.Infinity();
+        }
+        Return readySin / readyCos;
+    }
+
+    Public Function Cot(Float radians) -> Float
+    Explain {
+        Description: "Return the cotangent of an angle in radians.";
+        Input: radians = "Angle in radians";
+        Processing: "Divide the cosine by the sine.";
+        Output: "The cotangent, or infinity when the sine is zero.";
+    } {
+        This.Prepare(This.ToDegrees(radians));
+        If (This.Near(readySin, 0.0) == 1) {
+            problem = "domain";
+            If (readyCos < 0.0) { Return This.NegativeInfinity(); }
+            Return This.Infinity();
+        }
+        Return readyCos / readySin;
+    }
+
+    Public Function Sec(Float radians) -> Float
+    Explain {
+        Description: "Return the secant of an angle in radians.";
+        Input: radians = "Angle in radians";
+        Processing: "Return the reciprocal of the cosine.";
+        Output: "The secant, or infinity when the cosine is zero.";
+    } {
+        Float value = This.Cos(radians);
+        If (This.Near(value, 0.0) == 1) {
+            problem = "domain";
+            Return This.Infinity();
+        }
+        Return 1.0 / value;
+    }
+
+    Public Function Csc(Float radians) -> Float
+    Explain {
+        Description: "Return the cosecant of an angle in radians.";
+        Input: radians = "Angle in radians";
+        Processing: "Return the reciprocal of the sine.";
+        Output: "The cosecant, or infinity when the sine is zero.";
+    } {
+        Float value = This.Sin(radians);
+        If (This.Near(value, 0.0) == 1) {
+            problem = "domain";
+            Return This.Infinity();
+        }
+        Return 1.0 / value;
+    }
+
+    Public Function Asin(Float value) -> Float
+    Explain {
+        Description: "Return the inverse sine in radians.";
+        Input: value = "Sine, from -1 through 1";
+        Processing: "Return the angle from negative one quarter turn through one quarter turn.";
+        Output: "The angle in radians, or zero when the value is outside the domain.";
+    } {
+        Return This.ToRadians(This.AsinDegrees(value));
+    }
+
+    Public Function Acos(Float value) -> Float
+    Explain {
+        Description: "Return the inverse cosine in radians.";
+        Input: value = "Cosine, from -1 through 1";
+        Processing: "Subtract the inverse sine from a right angle.";
+        Output: "The angle in radians.";
+    } {
+        Return This.Pi() / 2.0 - This.Asin(value);
+    }
+
+    Public Function Atan(Float value) -> Float
+    Explain {
+        Description: "Return the inverse tangent in radians.";
+        Input: value = "Tangent";
+        Processing: "Use the exact values at zero and one, and a series elsewhere.";
+        Output: "The angle in radians.";
+    } {
+        If (value < 0.0) { Return 0.0 - This.Atan(0.0 - value); }
+        If (This.Near(value, 0.0) == 1) { Return 0.0; }
+        If (This.Near(value, 1.0) == 1) { Return This.Pi() / 4.0; }
+        If (value > 1.0) { Return This.Pi() / 2.0 - This.Atan(1.0 / value); }
+        Return This.AtanSeries(value);
+    }
+
+    Public Function Atan2(Float y, Float x) -> Float
+    Explain {
+        Description: "Return the inverse tangent of y divided by x.";
+        Input: y = "Vertical component", x = "Horizontal component";
+        Processing: "Place the angle in the correct quadrant.";
+        Output: "The angle in radians, or zero at the origin.";
+    } {
+        If (This.Near(x, 0.0) == 1 && This.Near(y, 0.0) == 1) {
+            problem = "domain";
+            Return 0.0;
+        }
+        If (This.Near(x, 0.0) == 1 && y > 0.0) { Return This.Pi() / 2.0; }
+        If (This.Near(x, 0.0) == 1 && y < 0.0) { Return 0.0 - This.Pi() / 2.0; }
+        Float width = x;
+        Float height = y;
+        If (width < 0.0) { width = 0.0 - width; }
+        If (height < 0.0) { height = 0.0 - height; }
+        Float turn = This.ToDegrees(This.Atan(height / width));
+        If (x < 0.0 && y >= 0.0) { turn = 180.0 - turn; }
+        If (x < 0.0 && y < 0.0) { turn = 0.0 - (180.0 - turn); }
+        If (x >= 0.0 && y < 0.0) { turn = 0.0 - turn; }
+        Return This.ToRadians(turn);
+    }
+
+    Public Function Acot(Float value) -> Float
+    Explain {
+        Description: "Return the inverse cotangent in radians.";
+        Input: value = "Cotangent";
+        Processing: "Take the inverse tangent of the reciprocal.";
+        Output: "The angle in radians.";
+    } {
+        If (This.Near(value, 0.0) == 1) { Return This.Pi() / 2.0; }
+        Return This.Atan(1.0 / value);
+    }
+
+    Public Function Asec(Float value) -> Float
+    Explain {
+        Description: "Return the inverse secant in radians.";
+        Input: value = "Secant, at least 1 in magnitude";
+        Processing: "Take the inverse cosine of the reciprocal.";
+        Output: "The angle in radians.";
+    } {
+        If (value > -1.0 && value < 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.Acos(1.0 / value);
+    }
+
+    Public Function Acsc(Float value) -> Float
+    Explain {
+        Description: "Return the inverse cosecant in radians.";
+        Input: value = "Cosecant, at least 1 in magnitude";
+        Processing: "Take the inverse sine of the reciprocal.";
+        Output: "The angle in radians.";
+    } {
+        If (value > -1.0 && value < 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.Asin(1.0 / value);
+    }
+
+    Public Function Sinh(Float value) -> Float
+    Explain {
+        Description: "Return the hyperbolic sine.";
+        Input: value = "Value";
+        Processing: "Use the exponential definition.";
+        Output: "The hyperbolic sine.";
+    } {
+        If (This.Near(value, 0.0) == 1) { Return 0.0; }
+        Float rise = This.Exp(value);
+        Float fall = This.Exp(0.0 - value);
+        Return (rise - fall) / 2.0;
+    }
+
+    Public Function Cosh(Float value) -> Float
+    Explain {
+        Description: "Return the hyperbolic cosine.";
+        Input: value = "Value";
+        Processing: "Use the exponential definition.";
+        Output: "The hyperbolic cosine.";
+    } {
+        Float rise = This.Exp(value);
+        Float fall = This.Exp(0.0 - value);
+        Return (rise + fall) / 2.0;
+    }
+
+    Public Function Tanh(Float value) -> Float
+    Explain {
+        Description: "Return the hyperbolic tangent.";
+        Input: value = "Value";
+        Processing: "Divide the hyperbolic sine by the hyperbolic cosine.";
+        Output: "The hyperbolic tangent.";
+    } {
+        If (This.Near(value, 0.0) == 1) { Return 0.0; }
+        Float rise = This.Exp(value);
+        Float fall = This.Exp(0.0 - value);
+        Return (rise - fall) / (rise + fall);
+    }
+
+    Public Function Coth(Float value) -> Float
+    Explain {
+        Description: "Return the hyperbolic cotangent.";
+        Input: value = "Value";
+        Processing: "Return the reciprocal of the hyperbolic tangent.";
+        Output: "The hyperbolic cotangent, or infinity at zero.";
+    } {
+        Float value2 = This.Tanh(value);
+        If (This.Near(value2, 0.0) == 1) {
+            problem = "domain";
+            Return This.Infinity();
+        }
+        Return 1.0 / value2;
+    }
+
+    Public Function Sech(Float value) -> Float
+    Explain {
+        Description: "Return the hyperbolic secant.";
+        Input: value = "Value";
+        Processing: "Return the reciprocal of the hyperbolic cosine.";
+        Output: "The hyperbolic secant.";
+    } {
+        Return 1.0 / This.Cosh(value);
+    }
+
+    Public Function Csch(Float value) -> Float
+    Explain {
+        Description: "Return the hyperbolic cosecant.";
+        Input: value = "Value";
+        Processing: "Return the reciprocal of the hyperbolic sine.";
+        Output: "The hyperbolic cosecant, or infinity at zero.";
+    } {
+        Float value2 = This.Sinh(value);
+        If (This.Near(value2, 0.0) == 1) {
+            problem = "domain";
+            Return This.Infinity();
+        }
+        Return 1.0 / value2;
+    }
+
+    Public Function Asinh(Float value) -> Float
+    Explain {
+        Description: "Return the inverse hyperbolic sine.";
+        Input: value = "Value";
+        Processing: "Take the logarithm of the matching positive value.";
+        Output: "The inverse hyperbolic sine.";
+    } {
+        Return This.Ln(value + This.Sqrt(value * value + 1.0));
+    }
+
+    Public Function Acosh(Float value) -> Float
+    Explain {
+        Description: "Return the inverse hyperbolic cosine.";
+        Input: value = "Value of at least 1";
+        Processing: "Take the logarithm of the matching positive value.";
+        Output: "The inverse hyperbolic cosine, or zero outside the domain.";
+    } {
+        If (value < 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.Ln(value + This.Sqrt(value * value - 1.0));
+    }
+
+    Public Function Atanh(Float value) -> Float
+    Explain {
+        Description: "Return the inverse hyperbolic tangent.";
+        Input: value = "Value between -1 and 1";
+        Processing: "Take half the logarithm of the matching ratio.";
+        Output: "The inverse hyperbolic tangent, or zero outside the domain.";
+    } {
+        If (value <= -1.0 || value >= 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return 0.5 * This.Ln((1.0 + value) / (1.0 - value));
+    }
+
+    Public Function Acoth(Float value) -> Float
+    Explain {
+        Description: "Return the inverse hyperbolic cotangent.";
+        Input: value = "Value of magnitude greater than 1";
+        Processing: "Take the inverse hyperbolic tangent of the reciprocal.";
+        Output: "The inverse hyperbolic cotangent.";
+    } {
+        If (value > -1.0 && value < 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.Atanh(1.0 / value);
+    }
+
+    Public Function Asech(Float value) -> Float
+    Explain {
+        Description: "Return the inverse hyperbolic secant.";
+        Input: value = "Value from 0 through 1";
+        Processing: "Take the inverse hyperbolic cosine of the reciprocal.";
+        Output: "The inverse hyperbolic secant.";
+    } {
+        If (value <= 0.0 || value > 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.Acosh(1.0 / value);
+    }
+
+    Public Function Acsch(Float value) -> Float
+    Explain {
+        Description: "Return the inverse hyperbolic cosecant.";
+        Input: value = "Nonzero value";
+        Processing: "Take the inverse hyperbolic sine of the reciprocal.";
+        Output: "The inverse hyperbolic cosecant.";
+    } {
+        If (This.Near(value, 0.0) == 1) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.Asinh(1.0 / value);
+    }
+
+    Public Function ToRadians(Float degrees) -> Float
+    Explain {
+        Description: "Convert degrees to radians.";
+        Input: degrees = "Angle in degrees";
+        Processing: "Multiply by pi and divide by 180.";
+        Output: "The angle in radians.";
+    } {
+        Return degrees * This.Pi() / 180.0;
+    }
+
+    Public Function ToDegrees(Float radians) -> Float
+    Explain {
+        Description: "Convert radians to degrees.";
+        Input: radians = "Angle in radians";
+        Processing: "Multiply by 180 and divide by pi.";
+        Output: "The angle in degrees.";
+    } {
+        Return radians * 180.0 / This.Pi();
+    }
+
+    Public Function ToGradians(Float degrees) -> Float
+    Explain {
+        Description: "Convert degrees to gradians.";
+        Input: degrees = "Angle in degrees";
+        Processing: "A right angle is 100 gradians.";
+        Output: "The angle in gradians.";
+    } {
+        Return degrees * 10.0 / 9.0;
+    }
+
+    Public Function ToTurns(Float degrees) -> Float
+    Explain {
+        Description: "Convert degrees to turns.";
+        Input: degrees = "Angle in degrees";
+        Processing: "Divide by 360.";
+        Output: "The angle in turns.";
+    } {
+        Return degrees / 360.0;
+    }
+
+    Public Function NormalizeDegrees(Float degrees) -> Float
+    Explain {
+        Description: "Wrap degrees into the range 0 through 360.";
+        Input: degrees = "Angle in degrees";
+        Processing: "Add or subtract full turns.";
+        Output: "The wrapped angle. 360 lands on 0.";
+    } {
+        Return This.Wrap(degrees);
+    }
+
+    Public Function NormalizeRadians(Float radians) -> Float
+    Explain {
+        Description: "Wrap radians into the range 0 through two pi.";
+        Input: radians = "Angle in radians";
+        Processing: "Wrap the equivalent degree angle and convert it back.";
+        Output: "The wrapped angle.";
+    } {
+        Return This.ToRadians(This.Wrap(This.ToDegrees(radians)));
+    }
+
+    Public Function Convert(Float value, String source, String target) -> Float
+    Explain {
+        Description: "Convert an angle between units.";
+        Input: value = "Angle", source = "degrees, radians, gradians, or turns", target = "degrees, radians, gradians, or turns";
+        Processing: "Convert through degrees.";
+        Output: "The converted angle.";
+    } {
+        Float degrees = value;
+        If (source == "radians") { degrees = This.ToDegrees(value); }
+        If (source == "gradians") { degrees = value * 0.9; }
+        If (source == "turns") { degrees = value * 360.0; }
+        If (target == "radians") { Return This.ToRadians(degrees); }
+        If (target == "gradians") { Return This.ToGradians(degrees); }
+        If (target == "turns") { Return This.ToTurns(degrees); }
+        Return degrees;
+    }
+
+    Public Function SinCos(Float radians) -> Float
+    Explain {
+        Description: "Store the sine and cosine.";
+        Input: radians = "Angle in radians";
+        Processing: "Compute both values from the same reduced angle.";
+        Output: "The sine. The cosine is stored.";
+    } {
+        This.Prepare(This.ToDegrees(radians));
+        Return readySin;
+    }
+
+    Public Function CosValue() -> Float
+    Explain {
+        Description: "Return the stored cosine.";
+        Input: "No parameters";
+        Processing: "Read the cosine from the latest paired evaluation.";
+        Output: "The cosine.";
+    } {
+        Return readyCos;
+    }
+
+    Public Function SinPi(Float turns) -> Float
+    Explain {
+        Description: "Return the sine of pi times a value.";
+        Input: turns = "Multiple of pi radians";
+        Processing: "Multiply the value by 180 degrees.";
+        Output: "The sine.";
+    } {
+        This.Prepare(turns * 180.0);
+        Return readySin;
+    }
+
+    Public Function CosPi(Float turns) -> Float
+    Explain {
+        Description: "Return the cosine of pi times a value.";
+        Input: turns = "Multiple of pi radians";
+        Processing: "Multiply the value by 180 degrees.";
+        Output: "The cosine.";
+    } {
+        This.Prepare(turns * 180.0);
+        Return readyCos;
+    }
+
+    Public Function TanPi(Float turns) -> Float
+    Explain {
+        Description: "Return the tangent of pi times a value.";
+        Input: turns = "Multiple of pi radians";
+        Processing: "Divide the paired sine by the paired cosine.";
+        Output: "The tangent.";
+    } {
+        This.Prepare(turns * 180.0);
+        If (This.Near(readyCos, 0.0) == 1) {
+            problem = "domain";
+            Return This.Infinity();
+        }
+        Return readySin / readyCos;
+    }
+
+    Public Function Hypot(Float x, Float y) -> Float
+    Explain {
+        Description: "Return the hypotenuse.";
+        Input: x = "First leg", y = "Second leg";
+        Processing: "Take the square root of the sum of squares.";
+        Output: "The hypotenuse.";
+    } {
+        Return This.Sqrt(x * x + y * y);
+    }
+
+    Public Function LawOfSines(Float sideA, Float angleA, Float sideB) -> Float
+    Explain {
+        Description: "Return the angle opposite the second side.";
+        Input: sideA = "First side", angleA = "Opposite angle in degrees", sideB = "Second side";
+        Processing: "Apply the law of sines.";
+        Output: "The opposite angle in degrees.";
+    } {
+        If (This.Near(sideA, 0.0) == 1) {
+            problem = "singular";
+            Return 0.0;
+        }
+        Float ratio = sideB * This.Sin(This.ToRadians(angleA)) / sideA;
+        Return This.AsinDegrees(ratio);
+    }
+
+    Public Function LawOfCosines(Float sideA, Float sideB, Float angle) -> Float
+    Explain {
+        Description: "Return the third side of a triangle.";
+        Input: sideA = "First side", sideB = "Second side", angle = "Included angle in degrees";
+        Processing: "Apply the law of cosines.";
+        Output: "The opposite side.";
+    } {
+        Float cosine = This.Cos(This.ToRadians(angle));
+        Return This.Sqrt(sideA * sideA + sideB * sideB - 2.0 * sideA * sideB * cosine);
+    }
+
+    Public Function SolveRight(Float opposite, Float adjacent) -> Float
+    Explain {
+        Description: "Solve a right triangle from its legs.";
+        Input: opposite = "Opposite leg", adjacent = "Adjacent leg";
+        Processing: "Store both acute angles and return the hypotenuse.";
+        Output: "The hypotenuse.";
+    } {
+        Float span = This.Hypot(opposite, adjacent);
+        angleA = This.ToDegrees(This.Atan(opposite / adjacent));
+        angleB = 90.0 - angleA;
+        Return span;
+    }
+
+    Public Function AngleA() -> Float
+    Explain {
+        Description: "Return the stored opposite angle.";
+        Input: "No parameters";
+        Processing: "Read the latest right-triangle solution.";
+        Output: "The angle in degrees.";
+    } {
+        Return angleA;
+    }
+
+    Public Function AngleB() -> Float
+    Explain {
+        Description: "Return the stored adjacent angle.";
+        Input: "No parameters";
+        Processing: "Read the latest right-triangle solution.";
+        Output: "The angle in degrees.";
+    } {
+        Return angleB;
+    }
+
+    Public Function Solve(String kind, Float value) -> Float
+    Explain {
+        Description: "Return a principal solution in degrees.";
+        Input: kind = "sin, cos, or tan", value = "Function value";
+        Processing: "Invert the named function.";
+        Output: "The angle in degrees.";
+    } {
+        If (kind == "cos") { Return 90.0 - This.AsinDegrees(value); }
+        If (kind == "tan") { Return This.ToDegrees(This.Atan(value)); }
+        Return This.AsinDegrees(value);
+    }
+
+    Public Function Identity(Float degrees) -> Float
+    Explain {
+        Description: "Evaluate the sine-cosine identity.";
+        Input: degrees = "Angle in degrees";
+        Processing: "Add the squares of the sine and cosine.";
+        Output: "The identity value. It is 1 for a real angle.";
+    } {
+        This.Prepare(degrees);
+        Return readySin * readySin + readyCos * readyCos;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest trigonometry error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Prepare(Float degrees) -> Int {
+        Float angle = This.Wrap(degrees);
+        Float reference = angle;
+        Float sinSign = 1.0;
+        Float cosSign = 1.0;
+        If (angle > 90.0 && angle <= 180.0) {
+            reference = 180.0 - angle;
+            cosSign = -1.0;
+        }
+        If (angle > 180.0 && angle <= 270.0) {
+            reference = angle - 180.0;
+            sinSign = -1.0;
+            cosSign = -1.0;
+        }
+        If (angle > 270.0) {
+            reference = 360.0 - angle;
+            sinSign = -1.0;
+        }
+        readySin = sinSign * This.SinRight(reference);
+        readyCos = cosSign * This.CosRight(reference);
+        Return 1;
+    }
+
+    Private Function SinRight(Float degrees) -> Float {
+        If (This.Near(degrees, 0.0) == 1) { Return 0.0; }
+        If (This.Near(degrees, 30.0) == 1) { Return 0.5; }
+        If (This.Near(degrees, 45.0) == 1) { Return 0.7071067811865476; }
+        If (This.Near(degrees, 60.0) == 1) { Return 0.8660254037844386; }
+        If (This.Near(degrees, 90.0) == 1) { Return 1.0; }
+        Return This.SinSeries(This.ToRadians(degrees));
+    }
+
+    Private Function CosRight(Float degrees) -> Float {
+        If (This.Near(degrees, 0.0) == 1) { Return 1.0; }
+        If (This.Near(degrees, 30.0) == 1) { Return 0.8660254037844386; }
+        If (This.Near(degrees, 45.0) == 1) { Return 0.7071067811865476; }
+        If (This.Near(degrees, 60.0) == 1) { Return 0.5; }
+        If (This.Near(degrees, 90.0) == 1) { Return 0.0; }
+        Return This.CosSeries(This.ToRadians(degrees));
+    }
+
+    Private Function AsinDegrees(Float value) -> Float {
+        If (value < -1.0 || value > 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        If (value < 0.0) { Return 0.0 - This.AsinDegrees(0.0 - value); }
+        If (This.Near(value, 0.0) == 1) { Return 0.0; }
+        If (This.Near(value, 0.5) == 1) { Return 30.0; }
+        If (This.Near(value, 0.7071067811865476) == 1) { Return 45.0; }
+        If (This.Near(value, 0.8660254037844386) == 1) { Return 60.0; }
+        If (This.Near(value, 1.0) == 1) { Return 90.0; }
+        Float low = 0.0;
+        Float high = 90.0;
+        Int step = 0;
+        While (step < 40) {
+            Float mid = (low + high) / 2.0;
+            If (This.SinDegrees(mid) < value) { low = mid; }
+            If (This.SinDegrees(mid) >= value) { high = mid; }
+            step = step + 1;
+        }
+        Return (low + high) / 2.0;
+    }
+
+    Private Function SinDegrees(Float degrees) -> Float {
+        This.Prepare(degrees);
+        Return readySin;
+    }
+
+    Private Function SinSeries(Float value) -> Float {
+        Float term = value;
+        Float sum = value;
+        Int index = 1;
+        While (index < 16) {
+            Float step = (index * 2).ToFloat();
+            term = term * (0.0 - value) * value / (step * (step + 1.0));
+            sum = sum + term;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function CosSeries(Float value) -> Float {
+        Float term = 1.0;
+        Float sum = 1.0;
+        Int index = 1;
+        While (index < 16) {
+            Float step = (index * 2 - 1).ToFloat();
+            term = term * (0.0 - value) * value / (step * (step + 1.0));
+            sum = sum + term;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function AtanSeries(Float value) -> Float {
+        Float power = value;
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < 24) {
+            Float divisor = (index * 2 + 1).ToFloat();
+            If (index % 2 == 0) { sum = sum + power / divisor; }
+            If (index % 2 == 1) { sum = sum - power / divisor; }
+            power = power * value * value;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function Exp(Float value) -> Float {
+        Float term = 1.0;
+        Float sum = 1.0;
+        Int index = 1;
+        While (index < 24) {
+            term = term * value / index.ToFloat();
+            sum = sum + term;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function Ln(Float value) -> Float {
+        If (value <= 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Float scaled = value;
+        Int extra = 0;
+        While (scaled >= 2.0) {
+            scaled = scaled / 2.0;
+            extra = extra + 1;
+        }
+        While (scaled < 1.0) {
+            scaled = scaled * 2.0;
+            extra = extra - 1;
+        }
+        Float y = (scaled - 1.0) / (scaled + 1.0);
+        Float power = y;
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < 24) {
+            sum = sum + power / (index * 2 + 1).ToFloat();
+            power = power * y * y;
+            index = index + 1;
+        }
+        Return 2.0 * sum + extra.ToFloat() * 0.6931471805599453;
+    }
+
+    Private Function Sqrt(Float value) -> Float {
+        If (value < 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        If (This.Near(value, 0.0) == 1) { Return 0.0; }
+        Int whole = value.ToInt();
+        If (whole.ToFloat() == value) {
+            Int root = 0;
+            Int found = 0;
+            While (found == 0 && root < 100000) {
+                Int next = root + 1;
+                If (next * next > whole) {
+                    If (root * root == whole) { Return root.ToFloat(); }
+                    found = 1;
+                }
+                If (next * next <= whole) { root = next; }
+            }
+        }
+        Float guess = value;
+        Int index = 0;
+        While (index < 24) {
+            guess = (guess + value / guess) / 2.0;
+            index = index + 1;
+        }
+        Return guess;
+    }
+
+    Private Function Wrap(Float value) -> Float {
+        Float turns = value;
+        While (turns >= 360.0) { turns = turns - 360.0; }
+        While (turns < 0.0) { turns = turns + 360.0; }
+        Return turns;
+    }
+
+    Private Function Near(Float value, Float target) -> Int {
+        Float diff = value - target;
+        If (diff < 0.0) { diff = 0.0 - diff; }
+        If (diff <= 0.000001) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Infinity() -> Float {
+        Return 1.0 / 0.0;
+    }
+
+    Private Function NegativeInfinity() -> Float {
+        Return 0.0 - This.Infinity();
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Evaluate sines, inverse functions, and hyperbolic functions.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the trigonometry desk and print each result.";
+    Output: "The trigonometry report.";
+} {
+    TrigDesk desk = TrigDesk();
+    Print(desk.Pi());
+    Print(desk.Sin(0.0));
+    Print(desk.Sin(desk.Pi() / 6.0));
+    Print(desk.Sin(desk.Pi() / 4.0));
+    Print(desk.Sin(desk.Pi() / 3.0));
+    Print(desk.Sin(desk.Pi() / 2.0));
+    Print(desk.Sin(desk.Pi()));
+    Print(desk.Sin(desk.Pi() * 3.0 / 2.0));
+    Print(desk.Sin(desk.Pi() / 12.0));
+    Print(desk.Cos(0.0));
+    Print(desk.Cos(desk.Pi() / 3.0));
+    Print(desk.Cos(desk.Pi() / 2.0));
+    Print(desk.Cos(desk.Pi()));
+    Print(desk.Cos(desk.Pi() / 12.0));
+    Print(desk.Tan(0.0));
+    Print(desk.Tan(desk.Pi() / 6.0));
+    Print(desk.Tan(desk.Pi() / 4.0));
+    Print(desk.Cot(desk.Pi() / 4.0));
+    Print(desk.Sec(0.0));
+    Print(desk.Csc(desk.Pi() / 2.0));
+    Print(desk.SinCos(desk.Pi() / 6.0));
+    Print(desk.CosValue());
+    Print(desk.Asin(0.5));
+    Print(desk.Acos(0.5));
+    Print(desk.Atan(1.0));
+    Print(desk.Atan2(1.0, 1.0));
+    Print(desk.Atan2(1.0, 0.0));
+    Print(desk.Atan2(0.0, -1.0));
+    Print(desk.Atan2(-1.0, -1.0));
+    Print(desk.Acot(1.0));
+    Print(desk.Asec(1.0));
+    Print(desk.Acsc(1.0));
+    Print(desk.ToRadians(180.0));
+    Print(desk.ToDegrees(desk.Pi()));
+    Print(desk.ToGradians(90.0));
+    Print(desk.ToTurns(180.0));
+    Print(desk.NormalizeDegrees(370.0));
+    Print(desk.NormalizeDegrees(-90.0));
+    Print(desk.NormalizeRadians(0.0 - desk.Pi() / 2.0));
+    Print(desk.Convert(180.0, "degrees", "radians"));
+    Print(desk.Convert(0.5, "turns", "degrees"));
+    Print(desk.Convert(100.0, "gradians", "degrees"));
+    Print(desk.SinPi(0.5));
+    Print(desk.CosPi(1.0));
+    Print(desk.TanPi(0.25));
+    Print(desk.Hypot(3.0, 4.0));
+    Print(desk.LawOfSines(2.0, 30.0, 2.0));
+    Print(desk.LawOfCosines(3.0, 4.0, 90.0));
+    Print(desk.SolveRight(3.0, 4.0));
+    Print(desk.AngleA());
+    Print(desk.AngleB());
+    Print(desk.SolveRight(1.0, 1.0));
+    Print(desk.AngleA());
+    Print(desk.AngleB());
+    Print(desk.Solve("sin", 0.5));
+    Print(desk.Solve("cos", 0.5));
+    Print(desk.Solve("tan", 1.0));
+    Print(desk.Identity(30.0));
+    Print(desk.Identity(15.0));
+    Print(desk.Sinh(0.0));
+    Print(desk.Cosh(0.0));
+    Print(desk.Tanh(0.0));
+    Print(desk.Sech(0.0));
+    Print(desk.Sinh(1.0));
+    Print(desk.Cosh(1.0));
+    Print(desk.Tanh(1.0));
+    Print(desk.Asinh(0.0));
+    Print(desk.Acosh(1.0));
+    Print(desk.Atanh(0.0));
+    Print(desk.Asinh(desk.Sinh(1.0)));
+    Print(desk.Fault());
+    Print(desk.Tan(desk.Pi() / 2.0));
+    Print(desk.Asin(2.0));
+    Print(desk.Fault());
+    Return 0;
+}

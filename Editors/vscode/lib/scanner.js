@@ -1,6 +1,7 @@
 "use strict";
 
 const { KEYWORDS, keywordInfo, modifierMask } = require("./keywords");
+const { declarationNameTokens, toPascal } = require("./names");
 
 const OPERATORS = [
     "...", "..=", "..", "=>", "->", "?.", "??", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>",
@@ -505,9 +506,39 @@ function keywordCaseEdits(text, changeOffset, inserted) {
     return edits;
 }
 
+function nameCaseEdits(text, changeOffset, inserted) {
+    if (!inserted || /^[A-Za-z0-9_]+$/.test(inserted)) {
+        return [];
+    }
+    const { tokens } = tokenize(text);
+    const regionStart = changeOffset;
+    const regionEnd = changeOffset + inserted.length;
+    const boundaryOnly = /^[^A-Za-z0-9_]+$/.test(inserted);
+    const edits = [];
+    for (const token of declarationNameTokens(tokens)) {
+        const corrected = toPascal(token.text);
+        if (!token.text || corrected === token.text) {
+            continue;
+        }
+        const nextChar = text[token.end];
+        const closed = token.end >= text.length || !/[A-Za-z0-9_]/.test(nextChar || "");
+        if (!closed) {
+            continue;
+        }
+        const hit = boundaryOnly
+            ? token.end === changeOffset
+            : token.start >= regionStart && token.end <= regionEnd;
+        if (hit) {
+            edits.push({ start: token.start, end: token.end, text: corrected });
+        }
+    }
+    return edits;
+}
+
 module.exports = {
     tokenize,
     keywordCaseEdits,
+    nameCaseEdits,
     isIdentStart,
     isIdentPart
 };

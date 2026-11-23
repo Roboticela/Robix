@@ -30,7 +30,7 @@ Explain {
 
 **Source and projects.** A `.rx` file is a Robix program or library. A `.rxp` file describes a project: its name, the files it includes, and whether the build is Debug or Release. A `.rxu` file is a Robix UI document. A `.rx3d` file is a Robix 3D scene.
 
-**Names.** Keywords are PascalCase: `Function`, `If`, `For`, `Return`, `Class`. `ASM` stays in capitals. The names you invent, such as `total` or `robotName`, stay exactly as you wrote them.
+**Names.** Keywords, packages, functions, and classes are PascalCase: `Function`, `Robix.Core`, `Main`, `NavHost`. `ASM` stays in capitals. Variables you invent, such as `total` or `robotName`, stay exactly as you wrote them.
 
 **Types.** Strict code gives every variable, parameter, and return value one known type. `Let` and `Const` bind a value that does not change. `Var` binds one that does. `Int`, `String`, `Bool`, lists, arrays, and your own types are checked before the program runs. `Option` carries a value that may be absent. `Result` carries a success or a failure. `Any` can hold more than one kind of value, and you narrow it before you use it.
 
@@ -66,7 +66,7 @@ The cursor line is a clear frame: the fill is transparent, and a thin border sit
 
 ### Completion
 
-Suggestions appear as you type. They include keywords, snippets, your functions, variables, parameters, types, imported packages, and names from the standard library. Typing `function` still offers `Function`, so the PascalCase form is what gets inserted.
+Suggestions appear as you type. They include keywords, snippets, your functions, variables, parameters, types, imported packages, and names from the standard library. Typing `function` still offers `Function`. Typing `robix.core`, `main`, or `navHost` offers `Robix.Core`, `Main`, and `NavHost`, so the PascalCase form is what gets inserted.
 
 | Action | Shortcut |
 | --- | --- |
@@ -107,11 +107,11 @@ List every place a function, variable, parameter, or type is used. Rename then c
 
 ### Keyword case
 
-Finish a keyword and it becomes the real spelling. `if` becomes `If`, `function` becomes `Function`, and `asm` becomes `ASM`. The change happens when the word is complete, on a space, a parenthesis, or a brace, so `functionality` is never rewritten while you are still typing it. Your own names are left alone. This is on by default. Turn it off with `robix.autoCorrectKeywords`.
+Finish a keyword and it becomes the real spelling. `if` becomes `If`, `function` becomes `Function`, and `asm` becomes `ASM`. A finished package, function, or class name is corrected the same way: `robix.core` becomes `Robix.Core`, `main` becomes `Main`, and `navHost` becomes `NavHost`. The change happens when the word is complete, on a space, a dot, a parenthesis, or a brace, so `functionality` is never rewritten while you are still typing it. Variables are left alone. This is on by default. Turn it off with `robix.autoCorrectKeywords`.
 
 ### Formatting
 
-The formatter gives the file the shape Robix is written in. Each statement is on its own line. A block's body is indented four spaces. The opening brace stays with the header in a `.rx` file, and a project file keeps its braces on their own lines. Keywords are written in PascalCase. Comments stay where they are, and the names you declared are not recased.
+The formatter gives the file the shape Robix is written in. Each statement is on its own line. A block's body is indented four spaces. The opening brace stays with the header in a `.rx` file, and a project file keeps its braces on their own lines. Keywords, package names, and function and class names are written in PascalCase. Comments stay where they are, and variable names are not recased.
 
 Format on save is already on for Robix files.
 

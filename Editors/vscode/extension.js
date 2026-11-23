@@ -5,7 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { spawn } = require("child_process");
-const { keywordCaseEdits, tokenize } = require("./lib/scanner");
+const { keywordCaseEdits, nameCaseEdits, tokenize } = require("./lib/scanner");
 const { formatRobix, formatProject } = require("./lib/format");
 const { analyze } = require("./lib/analyze");
 const { complete, hover, signature, definition, referencesIn, semanticSpans } = require("./lib/intellisense");
@@ -132,7 +132,9 @@ function correctKeywords(event) {
     }
     const edits = [];
     for (const change of event.contentChanges) {
-        edits.push(...keywordCaseEdits(event.document.getText(), change.rangeOffset, change.text));
+        const text = event.document.getText();
+        edits.push(...keywordCaseEdits(text, change.rangeOffset, change.text));
+        edits.push(...nameCaseEdits(text, change.rangeOffset, change.text));
     }
     if (edits.length === 0) {
         return;

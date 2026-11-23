@@ -1,0 +1,1107 @@
+// Robix.Math.Geometry: points, vectors, shapes, intersections, and transforms.
+Package Robix.Math.Geometry;
+
+Import Robix.Core;
+
+
+Class GeometryDesk {
+    Private Array<Int> px;
+    Private Array<Int> py;
+    Private Array<Int> hx;
+    Private Array<Int> hy;
+    Private Int pointCount;
+    Private Int hullCount;
+    Private Int lastX;
+    Private Int lastY;
+    Private Int lastZ;
+    Private Int boundWidth;
+    Private Int boundHeight;
+    Private Float unitX;
+    Private Float unitY;
+    Private String problem;
+
+    Public Constructor() {
+        px = [0, 0, 0, 0, 0, 0, 0, 0];
+        py = [0, 0, 0, 0, 0, 0, 0, 0];
+        hx = [0, 0, 0, 0, 0, 0, 0, 0];
+        hy = [0, 0, 0, 0, 0, 0, 0, 0];
+        pointCount = 0;
+        hullCount = 0;
+        lastX = 0;
+        lastY = 0;
+        lastZ = 0;
+        boundWidth = 0;
+        boundHeight = 0;
+        unitX = 0.0;
+        unitY = 0.0;
+        problem = "none";
+    }
+
+    Public Function Pi() -> Float
+    Explain {
+        Description: "Return pi.";
+        Input: "No parameters";
+        Processing: "Return the circle constant.";
+        Output: "Pi.";
+    } {
+        Return 3.141592653589793;
+    }
+
+    Public Function Distance2(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Return the distance between two points.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Take the square root when the squared distance is a perfect square.";
+        Output: "The distance, or -1 when it is not an integer.";
+    } {
+        Return This.Root(This.Squared2(x1, y1, x2, y2));
+    }
+
+    Public Function Distance3(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Return the distance between two points in space.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Take the square root when the squared distance is a perfect square.";
+        Output: "The distance, or -1 when it is not an integer.";
+    } {
+        Int dx = x2 - x1;
+        Int dy = y2 - y1;
+        Int dz = z2 - z1;
+        Return This.Root(dx * dx + dy * dy + dz * dz);
+    }
+
+    Public Function Squared2(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Return the squared planar distance.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Add the squares of the coordinate differences.";
+        Output: "The squared distance.";
+    } {
+        Int dx = x2 - x1;
+        Int dy = y2 - y1;
+        Return dx * dx + dy * dy;
+    }
+
+    Public Function Midpoint(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Store the midpoint of two points.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Average the coordinates when both sums are even.";
+        Output: "One when an integer midpoint is stored.";
+    } {
+        If ((x1 + x2) % 2 != 0 || (y1 + y2) % 2 != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        lastX = (x1 + x2) / 2;
+        lastY = (y1 + y2) / 2;
+        lastZ = 0;
+        Return 1;
+    }
+
+    Public Function Dot2(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Return a planar dot product.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Multiply matching coordinates and add them.";
+        Output: "The dot product.";
+    } {
+        Return x1 * x2 + y1 * y2;
+    }
+
+    Public Function Dot3(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Return a spatial dot product.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Multiply matching coordinates and add them.";
+        Output: "The dot product.";
+    } {
+        Return x1 * x2 + y1 * y2 + z1 * z2;
+    }
+
+    Public Function Cross2(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Return a planar cross product.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Subtract the crossed products.";
+        Output: "The signed magnitude.";
+    } {
+        Return x1 * y2 - y1 * x2;
+    }
+
+    Public Function Cross3(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Store a spatial cross product.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Compute each component.";
+        Output: "The x component. The other components are stored.";
+    } {
+        lastX = y1 * z2 - z1 * y2;
+        lastY = z1 * x2 - x1 * z2;
+        lastZ = x1 * y2 - y1 * x2;
+        Return lastX;
+    }
+
+    Public Function Length2(Int x, Int y) -> Int
+    Explain {
+        Description: "Return a planar vector length.";
+        Input: x = "X component", y = "Y component";
+        Processing: "Take the square root when the squared length is a perfect square.";
+        Output: "The length, or -1 when it is not an integer.";
+    } {
+        Return This.Root(x * x + y * y);
+    }
+
+    Public Function Normalize(Int x, Int y) -> Int
+    Explain {
+        Description: "Store a unit vector.";
+        Input: x = "X component", y = "Y component";
+        Processing: "Divide the components by the integer length.";
+        Output: "The length, or -1 when it is not an integer.";
+    } {
+        Int length = This.Length2(x, y);
+        If (length <= 0) { Return -1; }
+        unitX = x.ToFloat() / length.ToFloat();
+        unitY = y.ToFloat() / length.ToFloat();
+        Return length;
+    }
+
+    Public Function UnitX() -> Float
+    Explain {
+        Description: "Return the stored unit x component.";
+        Input: "No parameters";
+        Processing: "Read the latest normalization.";
+        Output: "The x component.";
+    } {
+        Return unitX;
+    }
+
+    Public Function UnitY() -> Float
+    Explain {
+        Description: "Return the stored unit y component.";
+        Input: "No parameters";
+        Processing: "Read the latest normalization.";
+        Output: "The y component.";
+    } {
+        Return unitY;
+    }
+
+    Public Function Plus2(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Store a vector sum.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Add the components.";
+        Output: "The x component.";
+    } {
+        lastX = x1 + x2;
+        lastY = y1 + y2;
+        lastZ = 0;
+        Return lastX;
+    }
+
+    Public Function Minus2(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Store a vector difference.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Subtract the components.";
+        Output: "The x component.";
+    } {
+        lastX = x1 - x2;
+        lastY = y1 - y2;
+        lastZ = 0;
+        Return lastX;
+    }
+
+    Public Function Scale2(Int x, Int y, Int factor) -> Int
+    Explain {
+        Description: "Store a scaled vector.";
+        Input: x = "X component", y = "Y component", factor = "Scale factor";
+        Processing: "Multiply both components.";
+        Output: "The x component.";
+    } {
+        lastX = x * factor;
+        lastY = y * factor;
+        lastZ = 0;
+        Return lastX;
+    }
+
+    Public Function Angle(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Return the angle between two vectors in degrees.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Return an exact angle for parallel and perpendicular vectors.";
+        Output: "The angle, or zero when it is not one of those angles.";
+    } {
+        Int dot = x1 * x2 + y1 * y2;
+        Int cross = x1 * y2 - y1 * x2;
+        If (dot == 0 && cross == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        If (dot == 0 && cross > 0) { Return 90; }
+        If (dot == 0 && cross < 0) { Return -90; }
+        If (cross == 0 && dot > 0) { Return 0; }
+        If (cross == 0 && dot < 0) { Return 180; }
+        problem = "angle";
+        Return 0;
+    }
+
+    Public Function Project(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Store the projection of one vector onto another.";
+        Input: x1 = "Source x", y1 = "Source y", x2 = "Target x", y2 = "Target y";
+        Processing: "Scale the target when the division is exact.";
+        Output: "One when an integer projection is stored.";
+    } {
+        Int span = x2 * x2 + y2 * y2;
+        If (span == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        Int dot = x1 * x2 + y1 * y2;
+        If ((x2 * dot) % span != 0 || (y2 * dot) % span != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        lastX = x2 * dot / span;
+        lastY = y2 * dot / span;
+        lastZ = 0;
+        Return 1;
+    }
+
+    Public Function Reflect(Int x, Int y, Int nx, Int ny) -> Int
+    Explain {
+        Description: "Reflect a vector across a normal.";
+        Input: x = "Vector x", y = "Vector y", nx = "Normal x", ny = "Normal y";
+        Processing: "Subtract twice the projection onto the normal.";
+        Output: "One when an integer reflection is stored.";
+    } {
+        Int span = nx * nx + ny * ny;
+        If (span == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        Int dot = x * nx + y * ny;
+        Int scale = 2 * dot;
+        If ((nx * scale) % span != 0 || (ny * scale) % span != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        lastX = x - nx * scale / span;
+        lastY = y - ny * scale / span;
+        lastZ = 0;
+        Return 1;
+    }
+
+    Public Function OnLine(Int x, Int y, Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Report whether a point lies on a line.";
+        Input: x = "Point x", y = "Point y", x1 = "First line x", y1 = "First line y", x2 = "Second line x", y2 = "Second line y";
+        Processing: "The cross product of the line and the point offset must be zero.";
+        Output: "One when the point is on the line.";
+    } {
+        Int cross = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1);
+        If (cross == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function OnSegment(Int x, Int y, Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Report whether a point lies on a segment.";
+        Input: x = "Point x", y = "Point y", x1 = "Start x", y1 = "Start y", x2 = "End x", y2 = "End y";
+        Processing: "Require the point to be on the line and inside the bounding box.";
+        Output: "One when the point is on the segment.";
+    } {
+        If (This.OnLine(x, y, x1, y1, x2, y2) == 0) { Return 0; }
+        If (x < x1 && x < x2) { Return 0; }
+        If (x > x1 && x > x2) { Return 0; }
+        If (y < y1 && y < y2) { Return 0; }
+        If (y > y1 && y > y2) { Return 0; }
+        Return 1;
+    }
+
+    Public Function Parallel(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Report whether two directions are parallel.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Compare the cross product with zero.";
+        Output: "One when the directions are parallel.";
+    } {
+        If (x1 * y2 - y1 * x2 == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Perpendicular(Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Report whether two directions are perpendicular.";
+        Input: x1 = "First x", y1 = "First y", x2 = "Second x", y2 = "Second y";
+        Processing: "Compare the dot product with zero.";
+        Output: "One when the directions are perpendicular.";
+    } {
+        If (x1 * x2 + y1 * y2 == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Intersect(Int x1, Int y1, Int dx1, Int dy1, Int x2, Int y2, Int dx2, Int dy2) -> Int
+    Explain {
+        Description: "Store the intersection of two lines.";
+        Input: x1 = "First origin x", y1 = "First origin y", dx1 = "First direction x", dy1 = "First direction y", x2 = "Second origin x", y2 = "Second origin y", dx2 = "Second direction x", dy2 = "Second direction y";
+        Processing: "Solve the parametric equations when the division is exact.";
+        Output: "One when an integer intersection is stored.";
+    } {
+        Int denom = dx1 * dy2 - dy1 * dx2;
+        If (denom == 0) {
+            problem = "parallel";
+            Return 0;
+        }
+        Int num = (x2 - x1) * dy2 - (y2 - y1) * dx2;
+        If (num % denom != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        Int step = num / denom;
+        lastX = x1 + step * dx1;
+        lastY = y1 + step * dy1;
+        lastZ = 0;
+        Return 1;
+    }
+
+    Public Function LineDistance(Int x, Int y, Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Return the distance from a point to a line.";
+        Input: x = "Point x", y = "Point y", x1 = "First line x", y1 = "First line y", x2 = "Second line x", y2 = "Second line y";
+        Processing: "Divide the absolute cross product by the line length.";
+        Output: "The distance, or -1 when it is not an integer.";
+    } {
+        Int cross = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1);
+        If (cross < 0) { cross = 0 - cross; }
+        Int span = This.Squared2(x1, y1, x2, y2);
+        If (span == 0) {
+            problem = "singular";
+            Return -1;
+        }
+        If ((cross * cross) % span != 0) {
+            problem = "irrational";
+            Return -1;
+        }
+        Return This.Root(cross * cross / span);
+    }
+
+    Public Function PlaneDistance(Int x, Int y, Int z, Int px0, Int py0, Int pz0, Int nx, Int ny, Int nz) -> Int
+    Explain {
+        Description: "Return the distance from a point to a plane.";
+        Input: x = "Point x", y = "Point y", z = "Point z", px0 = "Plane x", py0 = "Plane y", pz0 = "Plane z", nx = "Normal x", ny = "Normal y", nz = "Normal z";
+        Processing: "Divide the absolute normal projection by the normal length.";
+        Output: "The distance, or -1 when it is not an integer.";
+    } {
+        Int dot = (x - px0) * nx + (y - py0) * ny + (z - pz0) * nz;
+        If (dot < 0) { dot = 0 - dot; }
+        Int span = nx * nx + ny * ny + nz * nz;
+        If (span == 0) {
+            problem = "singular";
+            Return -1;
+        }
+        If ((dot * dot) % span != 0) {
+            problem = "irrational";
+            Return -1;
+        }
+        Return This.Root(dot * dot / span);
+    }
+
+    Public Function HitPlane(Int x, Int y, Int z, Int dx, Int dy, Int dz, Int px0, Int py0, Int pz0, Int nx, Int ny, Int nz) -> Int
+    Explain {
+        Description: "Store the intersection of a line and a plane.";
+        Input: x = "Line x", y = "Line y", z = "Line z", dx = "Direction x", dy = "Direction y", dz = "Direction z", px0 = "Plane x", py0 = "Plane y", pz0 = "Plane z", nx = "Normal x", ny = "Normal y", nz = "Normal z";
+        Processing: "Solve the line parameter when the division is exact.";
+        Output: "One when an integer intersection is stored.";
+    } {
+        Int denom = dx * nx + dy * ny + dz * nz;
+        If (denom == 0) {
+            problem = "parallel";
+            Return 0;
+        }
+        Int num = (px0 - x) * nx + (py0 - y) * ny + (pz0 - z) * nz;
+        If (num % denom != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        Int step = num / denom;
+        lastX = x + step * dx;
+        lastY = y + step * dy;
+        lastZ = z + step * dz;
+        Return 1;
+    }
+
+    Public Function ProjectPlane(Int x, Int y, Int z, Int px0, Int py0, Int pz0, Int nx, Int ny, Int nz) -> Int
+    Explain {
+        Description: "Store the projection of a point onto a plane.";
+        Input: x = "Point x", y = "Point y", z = "Point z", px0 = "Plane x", py0 = "Plane y", pz0 = "Plane z", nx = "Normal x", ny = "Normal y", nz = "Normal z";
+        Processing: "Subtract the normal component when the division is exact.";
+        Output: "One when an integer projection is stored.";
+    } {
+        Int span = nx * nx + ny * ny + nz * nz;
+        If (span == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        Int dot = (x - px0) * nx + (y - py0) * ny + (z - pz0) * nz;
+        If ((nx * dot) % span != 0 || (ny * dot) % span != 0 || (nz * dot) % span != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        lastX = x - nx * dot / span;
+        lastY = y - ny * dot / span;
+        lastZ = z - nz * dot / span;
+        Return 1;
+    }
+
+    Public Function RectArea(Int width, Int height) -> Int
+    Explain {
+        Description: "Return a rectangle area.";
+        Input: width = "Width", height = "Height";
+        Processing: "Multiply the sides.";
+        Output: "The area.";
+    } {
+        Return width * height;
+    }
+
+    Public Function RectPerimeter(Int width, Int height) -> Int
+    Explain {
+        Description: "Return a rectangle perimeter.";
+        Input: width = "Width", height = "Height";
+        Processing: "Add both sides and double the sum.";
+        Output: "The perimeter.";
+    } {
+        Return 2 * (width + height);
+    }
+
+    Public Function SquareArea(Int side) -> Int
+    Explain {
+        Description: "Return a square area.";
+        Input: side = "Side length";
+        Processing: "Square the side.";
+        Output: "The area.";
+    } {
+        Return side * side;
+    }
+
+    Public Function TriangleArea(Int a, Int b, Int c) -> Int
+    Explain {
+        Description: "Return a triangle area from its side lengths.";
+        Input: a = "First side", b = "Second side", c = "Third side";
+        Processing: "Use Heron when the squared area is a perfect square.";
+        Output: "The area, or -1 when it is not an integer.";
+    } {
+        If (a <= 0 || b <= 0 || c <= 0) { Return -1; }
+        If (a + b <= c || a + c <= b || b + c <= a) {
+            problem = "shape";
+            Return -1;
+        }
+        Int semi = a + b + c;
+        If (semi % 2 != 0) {
+            problem = "irrational";
+            Return -1;
+        }
+        semi = semi / 2;
+        Return This.Root(semi * (semi - a) * (semi - b) * (semi - c));
+    }
+
+    Public Function TrapezoidArea(Int low, Int high, Int height) -> Int
+    Explain {
+        Description: "Return a trapezoid area.";
+        Input: low = "First base", high = "Second base", height = "Height";
+        Processing: "Average the bases and multiply by the height.";
+        Output: "The area, or -1 when it is not an integer.";
+    } {
+        If ((low + high) % 2 != 0) {
+            problem = "fraction";
+            Return -1;
+        }
+        Return (low + high) / 2 * height;
+    }
+
+    Public Function ParallelogramArea(Int span, Int height) -> Int
+    Explain {
+        Description: "Return a parallelogram area.";
+        Input: span = "Base length", height = "Height";
+        Processing: "Multiply the base length by the height.";
+        Output: "The area.";
+    } {
+        Return span * height;
+    }
+
+    Public Function CircleArea(Int radius) -> Float
+    Explain {
+        Description: "Return a circle area.";
+        Input: radius = "Radius";
+        Processing: "Multiply pi by the squared radius.";
+        Output: "The area.";
+    } {
+        Float span = radius.ToFloat();
+        Return This.Pi() * span * span;
+    }
+
+    Public Function Circumference(Int radius) -> Float
+    Explain {
+        Description: "Return a circle circumference.";
+        Input: radius = "Radius";
+        Processing: "Multiply two pi by the radius.";
+        Output: "The circumference.";
+    } {
+        Return This.Pi() * 2.0 * radius.ToFloat();
+    }
+
+    Public Function EllipseArea(Int wide, Int tall) -> Float
+    Explain {
+        Description: "Return an ellipse area.";
+        Input: wide = "Horizontal radius", tall = "Vertical radius";
+        Processing: "Multiply pi by both radii.";
+        Output: "The area.";
+    } {
+        Return This.Pi() * wide.ToFloat() * tall.ToFloat();
+    }
+
+    Public Function SectorArea(Int radius, Int degrees) -> Float
+    Explain {
+        Description: "Return a circular sector area.";
+        Input: radius = "Radius", degrees = "Central angle in degrees";
+        Processing: "Take the requested fraction of the circle.";
+        Output: "The area.";
+    } {
+        Return This.CircleArea(radius) * degrees.ToFloat() / 360.0;
+    }
+
+    Public Function CubeVolume(Int side) -> Int
+    Explain {
+        Description: "Return a cube volume.";
+        Input: side = "Side length";
+        Processing: "Cube the side.";
+        Output: "The volume.";
+    } {
+        Return side * side * side;
+    }
+
+    Public Function CubeSurface(Int side) -> Int
+    Explain {
+        Description: "Return a cube surface area.";
+        Input: side = "Side length";
+        Processing: "Use six square faces.";
+        Output: "The surface area.";
+    } {
+        Return 6 * side * side;
+    }
+
+    Public Function CuboidVolume(Int width, Int height, Int depth) -> Int
+    Explain {
+        Description: "Return a cuboid volume.";
+        Input: width = "Width", height = "Height", depth = "Depth";
+        Processing: "Multiply the three sides.";
+        Output: "The volume.";
+    } {
+        Return width * height * depth;
+    }
+
+    Public Function CuboidSurface(Int width, Int height, Int depth) -> Int
+    Explain {
+        Description: "Return a cuboid surface area.";
+        Input: width = "Width", height = "Height", depth = "Depth";
+        Processing: "Add the three pair areas and double the sum.";
+        Output: "The surface area.";
+    } {
+        Return 2 * (width * height + width * depth + height * depth);
+    }
+
+    Public Function SphereVolume(Int radius) -> Float
+    Explain {
+        Description: "Return a sphere volume.";
+        Input: radius = "Radius";
+        Processing: "Use four thirds pi times the cubed radius.";
+        Output: "The volume.";
+    } {
+        Float span = radius.ToFloat();
+        Return 4.0 / 3.0 * This.Pi() * span * span * span;
+    }
+
+    Public Function CylinderVolume(Int radius, Int height) -> Float
+    Explain {
+        Description: "Return a cylinder volume.";
+        Input: radius = "Radius", height = "Height";
+        Processing: "Multiply the base area by the height.";
+        Output: "The volume.";
+    } {
+        Return This.CircleArea(radius) * height.ToFloat();
+    }
+
+    Public Function ConeVolume(Int radius, Int height) -> Float
+    Explain {
+        Description: "Return a cone volume.";
+        Input: radius = "Radius", height = "Height";
+        Processing: "Use one third of the surrounding cylinder.";
+        Output: "The volume.";
+    } {
+        Return This.CylinderVolume(radius, height) / 3.0;
+    }
+
+    Public Function PyramidVolume(Int baseArea, Int height) -> Int
+    Explain {
+        Description: "Return a pyramid volume.";
+        Input: baseArea = "Base area", height = "Height";
+        Processing: "Divide the base area times the height by three.";
+        Output: "The volume, or -1 when it is not an integer.";
+    } {
+        Int product = baseArea * height;
+        If (product % 3 != 0) {
+            problem = "fraction";
+            Return -1;
+        }
+        Return product / 3;
+    }
+
+    Public Function PrismVolume(Int baseArea, Int length) -> Int
+    Explain {
+        Description: "Return a prism volume.";
+        Input: baseArea = "Base area", length = "Length";
+        Processing: "Multiply the base area by the length.";
+        Output: "The volume.";
+    } {
+        Return baseArea * length;
+    }
+
+    Public Function TetraVolume(Int ax, Int ay, Int az, Int bx, Int by, Int bz, Int cx, Int cy, Int cz) -> Int
+    Explain {
+        Description: "Return the volume of a tetrahedron from the origin.";
+        Input: ax = "First x", ay = "First y", az = "First z", bx = "Second x", by = "Second y", bz = "Second z", cx = "Third x", cy = "Third y", cz = "Third z";
+        Processing: "Divide the absolute scalar triple product by six.";
+        Output: "The volume, or -1 when it is not an integer.";
+    } {
+        Int det = ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
+        If (det < 0) { det = 0 - det; }
+        If (det % 6 != 0) {
+            problem = "fraction";
+            Return -1;
+        }
+        Return det / 6;
+    }
+
+    Public Function HoldsCircle(Int x, Int y, Int cx, Int cy, Int radius) -> Int
+    Explain {
+        Description: "Report whether a circle contains a point.";
+        Input: x = "Point x", y = "Point y", cx = "Center x", cy = "Center y", radius = "Radius";
+        Processing: "Compare the squared distance with the squared radius. The boundary counts.";
+        Output: "One when the point is inside.";
+    } {
+        If (This.Squared2(x, y, cx, cy) <= radius * radius) { Return 1; }
+        Return 0;
+    }
+
+    Public Function HoldsRect(Int x, Int y, Int left, Int low, Int right, Int high) -> Int
+    Explain {
+        Description: "Report whether a rectangle contains a point.";
+        Input: x = "Point x", y = "Point y", left = "Left", low = "Bottom", right = "Right", high = "Top";
+        Processing: "Include the boundary.";
+        Output: "One when the point is inside.";
+    } {
+        If (x < left || x > right || y < low || y > high) { Return 0; }
+        Return 1;
+    }
+
+    Public Function OverlapRect(Int left, Int low, Int right, Int high, Int otherLeft, Int otherLow, Int otherRight, Int otherHigh) -> Int
+    Explain {
+        Description: "Report whether two rectangles overlap.";
+        Input: left = "First left", low = "First bottom", right = "First right", high = "First top", otherLeft = "Second left", otherLow = "Second bottom", otherRight = "Second right", otherHigh = "Second top";
+        Processing: "Touching edges count as an overlap.";
+        Output: "One when the rectangles overlap.";
+    } {
+        If (right < otherLeft || otherRight < left) { Return 0; }
+        If (high < otherLow || otherHigh < low) { Return 0; }
+        Return 1;
+    }
+
+    Public Function OverlapCircle(Int x1, Int y1, Int r1, Int x2, Int y2, Int r2) -> Int
+    Explain {
+        Description: "Report whether two disks overlap.";
+        Input: x1 = "First center x", y1 = "First center y", r1 = "First radius", x2 = "Second center x", y2 = "Second center y", r2 = "Second radius";
+        Processing: "Compare the squared distance with the squared sum of the radii.";
+        Output: "One when the disks touch or overlap.";
+    } {
+        Int reach = r1 + r2;
+        If (This.Squared2(x1, y1, x2, y2) <= reach * reach) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Closest(Int x, Int y, Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Store the closest point on a segment.";
+        Input: x = "Point x", y = "Point y", x1 = "Start x", y1 = "Start y", x2 = "End x", y2 = "End y";
+        Processing: "Project the point and clamp it to the segment.";
+        Output: "One when an integer closest point is stored.";
+    } {
+        Int dx = x2 - x1;
+        Int dy = y2 - y1;
+        Int span = dx * dx + dy * dy;
+        If (span == 0) {
+            lastX = x1;
+            lastY = y1;
+            lastZ = 0;
+            Return 1;
+        }
+        Int dot = (x - x1) * dx + (y - y1) * dy;
+        If (dot <= 0) {
+            lastX = x1;
+            lastY = y1;
+            lastZ = 0;
+            Return 1;
+        }
+        If (dot >= span) {
+            lastX = x2;
+            lastY = y2;
+            lastZ = 0;
+            Return 1;
+        }
+        If ((dx * dot) % span != 0 || (dy * dot) % span != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        lastX = x1 + dx * dot / span;
+        lastY = y1 + dy * dot / span;
+        lastZ = 0;
+        Return 1;
+    }
+
+    Public Function Place(Int x, Int y) -> Int
+    Explain {
+        Description: "Store a polygon point.";
+        Input: x = "X coordinate", y = "Y coordinate";
+        Processing: "Append the point, up to eight points.";
+        Output: "The point index, or -1 when the polygon is full.";
+    } {
+        If (pointCount >= 8) { Return -1; }
+        px[pointCount] = x;
+        py[pointCount] = y;
+        pointCount = pointCount + 1;
+        Return pointCount - 1;
+    }
+
+    Public Function Reset() -> Int
+    Explain {
+        Description: "Clear the stored polygon.";
+        Input: "No parameters";
+        Processing: "Drop the stored points and hull.";
+        Output: "Zero.";
+    } {
+        pointCount = 0;
+        hullCount = 0;
+        Return 0;
+    }
+
+    Public Function PolygonArea() -> Int
+    Explain {
+        Description: "Return the stored polygon area.";
+        Input: "No parameters";
+        Processing: "Use the shoelace formula.";
+        Output: "The area, or -1 when it is not an integer.";
+    } {
+        If (pointCount < 3) { Return -1; }
+        Int sum = 0;
+        Int index = 0;
+        While (index < pointCount) {
+            Int next = This.Wrap(index + 1);
+            sum = sum + px[index] * py[next] - px[next] * py[index];
+            index = index + 1;
+        }
+        If (sum < 0) { sum = 0 - sum; }
+        If (sum % 2 != 0) {
+            problem = "fraction";
+            Return -1;
+        }
+        Return sum / 2;
+    }
+
+    Public Function Bounds() -> Int
+    Explain {
+        Description: "Store the polygon bounding box.";
+        Input: "No parameters";
+        Processing: "Measure the width and height of the stored points.";
+        Output: "The width.";
+    } {
+        If (pointCount == 0) { Return 0; }
+        Int lowX = px[0];
+        Int highX = px[0];
+        Int lowY = py[0];
+        Int highY = py[0];
+        Int index = 1;
+        While (index < pointCount) {
+            If (px[index] < lowX) { lowX = px[index]; }
+            If (px[index] > highX) { highX = px[index]; }
+            If (py[index] < lowY) { lowY = py[index]; }
+            If (py[index] > highY) { highY = py[index]; }
+            index = index + 1;
+        }
+        boundWidth = highX - lowX;
+        boundHeight = highY - lowY;
+        lastX = lowX;
+        lastY = lowY;
+        Return boundWidth;
+    }
+
+    Public Function BoundHeight() -> Int
+    Explain {
+        Description: "Return the stored bounding height.";
+        Input: "No parameters";
+        Processing: "Read the latest bounding box.";
+        Output: "The height.";
+    } {
+        Return boundHeight;
+    }
+
+    Public Function Convex() -> Int
+    Explain {
+        Description: "Report whether the stored polygon is convex.";
+        Input: "No parameters";
+        Processing: "Every turn must have the same direction.";
+        Output: "One when the polygon is convex.";
+    } {
+        If (pointCount < 3) { Return 0; }
+        Int sign = 0;
+        Int index = 0;
+        While (index < pointCount) {
+            Int next = This.Wrap(index + 1);
+            Int later = This.Wrap(index + 2);
+            Int turn = This.Turn(px[index], py[index], px[next], py[next], px[later], py[later]);
+            If (turn != 0) {
+                Int current = 1;
+                If (turn < 0) { current = -1; }
+                If (sign == 0) { sign = current; }
+                If (sign != current) { Return 0; }
+            }
+            index = index + 1;
+        }
+        If (sign == 0) { Return 0; }
+        Return 1;
+    }
+
+    Public Function Hull() -> Int
+    Explain {
+        Description: "Build the convex hull of the stored points.";
+        Input: "No parameters";
+        Processing: "Use a monotone chain.";
+        Output: "The number of hull vertices.";
+    } {
+        This.SortPoints();
+        hullCount = 0;
+        If (pointCount == 0) { Return 0; }
+        Int lower = 0;
+        Int index = 0;
+        While (index < pointCount) {
+            While (lower >= 2 && This.Turn(hx[lower - 2], hy[lower - 2], hx[lower - 1], hy[lower - 1], px[index], py[index]) <= 0) {
+                lower = lower - 1;
+            }
+            hx[lower] = px[index];
+            hy[lower] = py[index];
+            lower = lower + 1;
+            index = index + 1;
+        }
+        Int upper = lower;
+        index = pointCount - 2;
+        While (index >= 0) {
+            While (upper >= lower + 1 && This.Turn(hx[upper - 2], hy[upper - 2], hx[upper - 1], hy[upper - 1], px[index], py[index]) <= 0) {
+                upper = upper - 1;
+            }
+            hx[upper] = px[index];
+            hy[upper] = py[index];
+            upper = upper + 1;
+            index = index - 1;
+        }
+        hullCount = upper - 1;
+        If (hullCount < 1) { hullCount = pointCount; }
+        Return hullCount;
+    }
+
+    Public Function HullText() -> String
+    Explain {
+        Description: "Format the convex hull.";
+        Input: "No parameters";
+        Processing: "Join the hull vertices.";
+        Output: "The hull text.";
+    } {
+        If (hullCount == 0) { Return "none"; }
+        String built = "";
+        Int index = 0;
+        While (index < hullCount) {
+            If (index > 0) { built = built + ";"; }
+            built = built + This.IntText(hx[index]) + "," + This.IntText(hy[index]);
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Public Function ResultX() -> Int
+    Explain {
+        Description: "Return the stored x result.";
+        Input: "No parameters";
+        Processing: "Read the latest geometry result.";
+        Output: "The x value.";
+    } {
+        Return lastX;
+    }
+
+    Public Function ResultY() -> Int
+    Explain {
+        Description: "Return the stored y result.";
+        Input: "No parameters";
+        Processing: "Read the latest geometry result.";
+        Output: "The y value.";
+    } {
+        Return lastY;
+    }
+
+    Public Function ResultZ() -> Int
+    Explain {
+        Description: "Return the stored z result.";
+        Input: "No parameters";
+        Processing: "Read the latest geometry result.";
+        Output: "The z value.";
+    } {
+        Return lastZ;
+    }
+
+    Public Function Translate(Int x, Int y, Int dx, Int dy) -> Int
+    Explain {
+        Description: "Store a translated point.";
+        Input: x = "X coordinate", y = "Y coordinate", dx = "X offset", dy = "Y offset";
+        Processing: "Add the offset.";
+        Output: "The translated x coordinate.";
+    } {
+        lastX = x + dx;
+        lastY = y + dy;
+        lastZ = 0;
+        Return lastX;
+    }
+
+    Public Function Rotate(Int x, Int y) -> Int
+    Explain {
+        Description: "Store a quarter turn around the origin.";
+        Input: x = "X coordinate", y = "Y coordinate";
+        Processing: "Map the point to its negative y and original x.";
+        Output: "The rotated x coordinate.";
+    } {
+        lastX = 0 - y;
+        lastY = x;
+        lastZ = 0;
+        Return lastX;
+    }
+
+    Public Function Mirror(Int x, Int y, Int axis) -> Int
+    Explain {
+        Description: "Reflect a point across an axis.";
+        Input: x = "X coordinate", y = "Y coordinate", axis = "Zero for the x axis and one for the y axis";
+        Processing: "Flip the selected coordinate.";
+        Output: "The reflected x coordinate.";
+    } {
+        lastX = x;
+        lastY = y;
+        If (axis == 0) { lastY = 0 - y; }
+        If (axis == 1) { lastX = 0 - x; }
+        lastZ = 0;
+        Return lastX;
+    }
+
+    Public Function Convert(Int x, Int y, Int sourceX, Int sourceY, Int targetX, Int targetY) -> Int
+    Explain {
+        Description: "Convert a point between translated frames.";
+        Input: x = "Local x", y = "Local y", sourceX = "Source origin x", sourceY = "Source origin y", targetX = "Target origin x", targetY = "Target origin y";
+        Processing: "Move from the source origin into the target origin.";
+        Output: "The converted x coordinate.";
+    } {
+        lastX = sourceX + x - targetX;
+        lastY = sourceY + y - targetY;
+        lastZ = 0;
+        Return lastX;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest geometry error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Root(Int value) -> Int {
+        If (value < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int root = This.WholeSqrt(value);
+        If (root * root != value) {
+            problem = "irrational";
+            Return -1;
+        }
+        Return root;
+    }
+
+    Private Function WholeSqrt(Int value) -> Int {
+        Int guess = 0;
+        While (guess < 100000) {
+            Int next = guess + 1;
+            If (next * next > value) { Return guess; }
+            guess = next;
+        }
+        Return guess;
+    }
+
+    Private Function Turn(Int ox, Int oy, Int ax, Int ay, Int bx, Int by) -> Int {
+        Return (ax - ox) * (by - oy) - (ay - oy) * (bx - ox);
+    }
+
+    Private Function Wrap(Int index) -> Int {
+        Int value = index;
+        While (value >= pointCount) { value = value - pointCount; }
+        Return value;
+    }
+
+    Private Function SortPoints() -> Int {
+        Int index = 1;
+        While (index < pointCount) {
+            Int cursor = index;
+            While (cursor > 0) {
+                Int earlier = 0;
+                If (px[cursor] < px[cursor - 1]) { earlier = 1; }
+                If (px[cursor] == px[cursor - 1] && py[cursor] < py[cursor - 1]) { earlier = 1; }
+                If (earlier == 0) { cursor = 0; }
+                If (earlier == 1) {
+                    Int swapX = px[cursor];
+                    Int swapY = py[cursor];
+                    px[cursor] = px[cursor - 1];
+                    py[cursor] = py[cursor - 1];
+                    px[cursor - 1] = swapX;
+                    py[cursor - 1] = swapY;
+                    cursor = cursor - 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return pointCount;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        Int negative = 0;
+        If (remainingValue < 0) {
+            negative = 1;
+            remainingValue = 0 - remainingValue;
+        }
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        If (negative == 1) { Return "-" + built; }
+        Return built;
+    }
+}

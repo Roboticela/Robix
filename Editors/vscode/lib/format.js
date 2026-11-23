@@ -1,6 +1,7 @@
 "use strict";
 
 const { tokenize } = require("./scanner");
+const { declarationNameTokens, toPascal } = require("./names");
 const {
     TYPE_KEYWORDS,
     MODIFIER_KEYWORDS,
@@ -253,6 +254,7 @@ function spaceBefore(token, prev, state) {
 function formatRobix(source, options = {}) {
     const size = options.indentSize || 4;
     const { tokens } = tokenize(source);
+    const pascalNames = new Set(declarationNameTokens(tokens).map((token) => token.start));
     const writer = new Writer(size);
     const state = {
         writer,
@@ -388,7 +390,15 @@ function formatRobix(source, options = {}) {
     }
 
     function writeWord(token) {
-        writer.write(token.kind === "keyword" ? token.canonical : token.text);
+        if (token.kind === "keyword") {
+            writer.write(token.canonical);
+            return;
+        }
+        if (token.kind === "identifier" && pascalNames.has(token.start)) {
+            writer.write(toPascal(token.text));
+            return;
+        }
+        writer.write(token.text);
     }
 
     function openBrace(token, prev) {

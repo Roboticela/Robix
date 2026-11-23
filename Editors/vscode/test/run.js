@@ -3,7 +3,8 @@
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
-const { tokenize, keywordCaseEdits } = require("../lib/scanner");
+const { tokenize, keywordCaseEdits, nameCaseEdits } = require("../lib/scanner");
+const { declarationNameTokens, toPascal } = require("../lib/names");
 const { formatRobix, formatProject } = require("../lib/format");
 const { analyze } = require("../lib/analyze");
 const { complete, hover, signature: signatureHelp, definition, semanticSpans } = require("../lib/intellisense");
@@ -26,9 +27,19 @@ function check(name, fn) {
 }
 
 function signature(source) {
-    return tokenize(source).tokens
+    const { tokens } = tokenize(source);
+    const declared = new Set(declarationNameTokens(tokens).map((token) => token.start));
+    return tokens
         .filter((token) => token.kind !== "comment" && token.kind !== "eof")
-        .map((token) => (token.kind === "keyword" ? token.canonical : token.text))
+        .map((token) => {
+            if (token.kind === "keyword") {
+                return token.canonical;
+            }
+            if (declared.has(token.start)) {
+                return toPascal(token.text);
+            }
+            return token.text;
+        })
         .join("\n");
 }
 
@@ -61,6 +72,21 @@ check("keyword case waits for a boundary and ignores names", () => {
     assert.strictEqual(keywordCaseEdits("asm", 2, "m")[0].text, "ASM");
     assert.strictEqual(keywordCaseEdits("in", 1, "n").length, 0);
     assert.strictEqual(keywordCaseEdits("myValue", 6, "e").length, 0);
+});
+
+check("package, function, and class names become PascalCase", () => {
+    const packaged = nameCaseEdits("package robix.", "package robix".length, ".");
+    assert.deepStrictEqual(packaged.map((edit) => edit.text), ["Robix"]);
+    const imported = nameCaseEdits("import robix.core;", 0, "import robix.core;");
+    assert.deepStrictEqual(imported.map((edit) => edit.text), ["Robix", "Core"]);
+    const fn = nameCaseEdits("function main(", "function main".length, "(");
+    assert.deepStrictEqual(fn.map((edit) => edit.text), ["Main"]);
+    const typeName = nameCaseEdits("class navHost {", "class navHost".length, " {");
+    assert.deepStrictEqual(typeName.map((edit) => edit.text), ["NavHost"]);
+    const structName = nameCaseEdits("struct point ", "struct point".length, " ");
+    assert.deepStrictEqual(structName.map((edit) => edit.text), ["Point"]);
+    assert.strictEqual(nameCaseEdits("var myValue =", "var myValue ".length, "=").length, 0);
+    assert.strictEqual(nameCaseEdits("function main", 12, "n").length, 0);
 });
 
 check("functions and known packages are colored, unknown packages are not", () => {
@@ -125,9 +151,9 @@ check("formatter keeps every token and is stable", () => {
 check("statements, braces, and keyword case are formatted", () => {
     const messy = 'package robotics.hello;\nimport robix.core;\npublic function main(Args<string> args)->int explain{description:"Hi";input:none;processing:"Add";output:"Zero";}{var total=0;for index in 1..=5{total=total+index;}if(total>0){print(total);}else{print(0);}return 0;}\n';
     const formatted = formatRobix(messy);
-    assert.ok(formatted.includes("Package robotics.hello;"), formatted);
-    assert.ok(formatted.includes("Import robix.core;"), formatted);
-    assert.ok(formatted.includes("Public Function main(Args<String> args) -> Int\nExplain {"), formatted);
+    assert.ok(formatted.includes("Package Robotics.Hello;"), formatted);
+    assert.ok(formatted.includes("Import Robix.Core;"), formatted);
+    assert.ok(formatted.includes("Public Function Main(Args<String> args) -> Int\nExplain {"), formatted);
     assert.ok(formatted.includes("For index In 1..=5 {"), formatted);
     assert.ok(formatted.includes("} Else {"), formatted);
     assert.ok(!formatted.includes("function"), formatted);
@@ -234,6 +260,21 @@ check("tools are found on PATH before the project build", () => {
         exists: (file) => file === "/custom/robix" || files.has(file)
     });
     assert.strictEqual(pinned, "/custom/robix");
+});
+
+check("wrong case still suggests the PascalCase package, function, and class", () => {
+    const packages = complete("import robix.core", "import robix.core".length).items;
+    assert.ok(packages.some((item) => item.label === "Robix.Core" && item.insert === "Robix.Core"), packages.map((item) => item.label).join(", "));
+    const invented = complete("package robotics.hello", "package robotics.hello".length).items;
+    assert.ok(invented.some((item) => item.label === "Robotics.Hello" && item.insert === "Robotics.Hello"));
+    const fn = complete("function main", "function main".length).items;
+    assert.ok(fn.some((item) => item.label === "Main" && item.insert === "Main"));
+    const typeName = complete("class navHost", "class navHost".length).items;
+    assert.ok(typeName.some((item) => item.label === "NavHost" && item.insert === "NavHost"));
+    const call = complete("print", "print".length).items;
+    assert.ok(call.some((item) => item.label === "Print" && item.filter.startsWith("print")));
+    const members = complete("math.ab", "math.ab".length).items.map((item) => item.label);
+    assert.ok(members.includes("Abs"), members.join(", "));
 });
 
 check("user names are not recased", () => {
