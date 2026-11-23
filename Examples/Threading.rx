@@ -1,0 +1,612 @@
+// Robix.Threading: cooperative threads, a pool, and thread-local slots.
+Package Robotics.Threading;
+
+Import Robix.Core;
+
+
+Class ThreadDesk {
+    Private Array<Int> used;
+    Private Array<Int> state;
+    Private Array<Int> priority;
+    Private Array<Int> kind;
+    Private Array<Int> argument;
+    Private Array<Int> outcome;
+    Private Array<Int> local;
+    Private Array<Int> waits;
+    Private Array<String> names;
+    Private Int current;
+    Private Int clock;
+    Private Int shared;
+    Private Int minimum;
+    Private Int maximum;
+    Private Int completed;
+    Private Int queuedValue;
+
+    Public Constructor() {
+        used = [0, 0, 0, 0];
+        state = [0, 0, 0, 0];
+        priority = [0, 0, 0, 0];
+        kind = [0, 0, 0, 0];
+        argument = [0, 0, 0, 0];
+        outcome = [0, 0, 0, 0];
+        local = [0, 0, 0, 0];
+        waits = [0, 0, 0, 0];
+        names = ["", "", "", ""];
+        current = -1;
+        clock = 0;
+        shared = 0;
+        minimum = 1;
+        maximum = 4;
+        completed = 0;
+        queuedValue = 0;
+    }
+
+    Public Function CreateThread(String threadName, Int threadKind, Int rank) -> Int
+    Explain {
+        Description: "Create an unstarted thread.";
+        Input: threadName = "Thread name", threadKind = "0 worker, 1 background, 2 foreground", rank = "Priority";
+        Processing: "Store the thread in the first empty slot.";
+        Output: "The slot, or -1.";
+    } {
+        Int slot = 0;
+        While (slot < 4) {
+            If (used[slot] == 0) {
+                used[slot] = 1;
+                state[slot] = 1;
+                kind[slot] = threadKind;
+                priority[slot] = rank;
+                names[slot] = threadName;
+                argument[slot] = 0;
+                outcome[slot] = 0;
+                local[slot] = 0;
+                waits[slot] = 0;
+                Return slot;
+            }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Public Function StartWith(Int slot, Int amount) -> Int
+    Explain {
+        Description: "Start a thread with an argument.";
+        Input: slot = "Thread slot", amount = "Work argument";
+        Processing: "Store the argument and start the thread.";
+        Output: "One when the thread starts.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        argument[slot] = amount;
+        Return This.StartThread(slot);
+    }
+
+    Public Function StartThread(Int slot) -> Int
+    Explain {
+        Description: "Start an unstarted thread.";
+        Input: slot = "Thread slot";
+        Processing: "Run one step and mark the thread running.";
+        Output: "One when the thread starts.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        If (state[slot] != 1) { Return 0; }
+        state[slot] = 2;
+        outcome[slot] = argument[slot] + 1;
+        current = slot;
+        Return 1;
+    }
+
+    Public Function SleepFor(Int slot, Int ticks) -> Int
+    Explain {
+        Description: "Put a running thread to sleep.";
+        Input: slot = "Thread slot", ticks = "Ticks to wait";
+        Processing: "Mark the thread waiting and advance the clock.";
+        Output: "The clock, or zero.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        If (state[slot] != 2) { Return 0; }
+        state[slot] = 3;
+        waits[slot] = ticks;
+        clock = clock + ticks;
+        Return clock;
+    }
+
+    Public Function JoinThread(Int slot) -> Int
+    Explain {
+        Description: "Wait until a thread stops.";
+        Input: slot = "Thread slot";
+        Processing: "Mark a live thread stopped. Aborted and interrupted threads stay unfinished.";
+        Output: "One when the thread stops.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        If (state[slot] == 5) { Return 0; }
+        If (state[slot] == 6) { Return 0; }
+        state[slot] = 4;
+        If (current == slot) { current = -1; }
+        Return 1;
+    }
+
+    Public Function JoinFor(Int slot, Int timeout) -> Int
+    Explain {
+        Description: "Join a thread when its wait fits in the timeout.";
+        Input: slot = "Thread slot", timeout = "Longest wait that can be joined";
+        Processing: "Leave a longer wait running.";
+        Output: "One when the thread stops.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        If (state[slot] == 3 && waits[slot] > timeout) { Return 0; }
+        Return This.JoinThread(slot);
+    }
+
+    Public Function AbortThread(Int slot) -> Int
+    Explain {
+        Description: "Abort a thread.";
+        Input: slot = "Thread slot";
+        Processing: "Mark the thread aborted.";
+        Output: "One.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        state[slot] = 5;
+        If (current == slot) { current = -1; }
+        Return 1;
+    }
+
+    Public Function InterruptThread(Int slot) -> Int
+    Explain {
+        Description: "Interrupt a thread.";
+        Input: slot = "Thread slot";
+        Processing: "Mark the thread interrupted.";
+        Output: "One.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        state[slot] = 6;
+        If (current == slot) { current = -1; }
+        Return 1;
+    }
+
+    Public Function YieldThread() -> Int
+    Explain {
+        Description: "Yield to the next running thread.";
+        Input: "No parameters";
+        Processing: "Advance the clock and select the next running thread.";
+        Output: "The current thread id, or zero.";
+    } {
+        clock = clock + 1;
+        Task.Yield();
+        Int cursor = 0;
+        If (current >= 0) { cursor = current + 1; }
+        Int steps = 0;
+        While (steps < 4) {
+            If (cursor >= 4) { cursor = 0; }
+            If (used[cursor] == 1 && state[cursor] == 2) {
+                current = cursor;
+                Return current + 1;
+            }
+            cursor = cursor + 1;
+            steps = steps + 1;
+        }
+        current = -1;
+        Return 0;
+    }
+
+    Public Function ThreadAlive(Int slot) -> Int
+    Explain {
+        Description: "Report whether a thread is alive.";
+        Input: slot = "Thread slot";
+        Processing: "Running and waiting threads are alive.";
+        Output: "One when the thread is alive.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        If (state[slot] == 2) { Return 1; }
+        If (state[slot] == 3) { Return 1; }
+        Return 0;
+    }
+
+    Public Function ThreadState(Int slot) -> String
+    Explain {
+        Description: "Return the state name.";
+        Input: slot = "Thread slot";
+        Processing: "Map the stored state to a name.";
+        Output: "The state name.";
+    } {
+        If (slot < 0) { Return "none"; }
+        If (slot > 3) { Return "none"; }
+        If (state[slot] == 1) { Return "unstarted"; }
+        If (state[slot] == 2) { Return "running"; }
+        If (state[slot] == 3) { Return "waiting"; }
+        If (state[slot] == 4) { Return "stopped"; }
+        If (state[slot] == 5) { Return "aborted"; }
+        If (state[slot] == 6) { Return "interrupted"; }
+        Return "none";
+    }
+
+    Public Function ThreadId(Int slot) -> Int
+    Explain {
+        Description: "Return the thread id.";
+        Input: slot = "Thread slot";
+        Processing: "Add one to the slot.";
+        Output: "The thread id, or zero.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        Return slot + 1;
+    }
+
+    Public Function ThreadName(Int slot) -> String
+    Explain {
+        Description: "Return the thread name.";
+        Input: slot = "Thread slot";
+        Processing: "Read the stored name.";
+        Output: "The name, or none.";
+    } {
+        If (slot < 0) { Return "none"; }
+        If (slot > 3) { Return "none"; }
+        If (names[slot] == "") { Return "none"; }
+        Return names[slot];
+    }
+
+    Public Function SetThreadName(Int slot, String threadName) -> Int
+    Explain {
+        Description: "Rename a thread.";
+        Input: slot = "Thread slot", threadName = "New name";
+        Processing: "Store the name.";
+        Output: "One when the name is stored.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        names[slot] = threadName;
+        Return 1;
+    }
+
+    Public Function ThreadPriority(Int slot) -> Int
+    Explain {
+        Description: "Return the thread priority.";
+        Input: slot = "Thread slot";
+        Processing: "Read the stored priority.";
+        Output: "The priority.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        Return priority[slot];
+    }
+
+    Public Function SetThreadPriority(Int slot, Int rank) -> Int
+    Explain {
+        Description: "Change the thread priority.";
+        Input: slot = "Thread slot", rank = "New priority";
+        Processing: "Store the priority.";
+        Output: "The stored priority.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        priority[slot] = rank;
+        Return priority[slot];
+    }
+
+    Public Function KindName(Int slot) -> String
+    Explain {
+        Description: "Return the thread kind.";
+        Input: slot = "Thread slot";
+        Processing: "Map the stored kind to a name.";
+        Output: "worker, background, or foreground.";
+    } {
+        If (slot < 0) { Return "none"; }
+        If (slot > 3) { Return "none"; }
+        If (kind[slot] == 1) { Return "background"; }
+        If (kind[slot] == 2) { Return "foreground"; }
+        Return "worker";
+    }
+
+    Public Function CurrentThread() -> Int
+    Explain {
+        Description: "Return the current thread id.";
+        Input: "No parameters";
+        Processing: "Read the current slot.";
+        Output: "The thread id, or zero.";
+    } {
+        If (current < 0) { Return 0; }
+        Return current + 1;
+    }
+
+    Public Function Clock() -> Int
+    Explain {
+        Description: "Return the scheduler clock.";
+        Input: "No parameters";
+        Processing: "Read the tick count.";
+        Output: "The clock.";
+    } {
+        Return clock;
+    }
+
+    Public Function Result(Int slot) -> Int
+    Explain {
+        Description: "Return the thread result.";
+        Input: slot = "Thread slot";
+        Processing: "Read the value produced at start.";
+        Output: "The result.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        Return outcome[slot];
+    }
+
+    Public Function SetLocal(Int slot, Int value) -> Int
+    Explain {
+        Description: "Store a thread-local value.";
+        Input: slot = "Thread slot", value = "Local value";
+        Processing: "Store the value on that thread.";
+        Output: "The stored value.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        local[slot] = value;
+        Return local[slot];
+    }
+
+    Public Function GetLocal(Int slot) -> Int
+    Explain {
+        Description: "Read a thread-local value.";
+        Input: slot = "Thread slot";
+        Processing: "Read the value on that thread.";
+        Output: "The local value.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        Return local[slot];
+    }
+
+    Public Function ClearLocal(Int slot) -> Int
+    Explain {
+        Description: "Clear a thread-local value.";
+        Input: slot = "Thread slot";
+        Processing: "Set the local value to zero.";
+        Output: "Zero.";
+    } {
+        If (slot < 0) { Return 0; }
+        If (slot > 3) { Return 0; }
+        local[slot] = 0;
+        Return 0;
+    }
+
+    Public Function SetMinimum(Int count) -> Int
+    Explain {
+        Description: "Set the pool minimum.";
+        Input: count = "Minimum threads";
+        Processing: "Store the minimum when it does not exceed the maximum.";
+        Output: "One when the minimum is stored.";
+    } {
+        If (count > maximum) { Return 0; }
+        minimum = count;
+        Return 1;
+    }
+
+    Public Function SetMaximum(Int count) -> Int
+    Explain {
+        Description: "Set the pool maximum.";
+        Input: count = "Maximum accepted work items";
+        Processing: "Store the maximum when it is at least the minimum.";
+        Output: "One when the maximum is stored.";
+    } {
+        If (count < minimum) { Return 0; }
+        maximum = count;
+        Return 1;
+    }
+
+    Public Function Busy() -> Int
+    Explain {
+        Description: "Count alive threads.";
+        Input: "No parameters";
+        Processing: "Count running and waiting threads.";
+        Output: "The alive count.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 4) {
+            If (state[slot] == 2) { count = count + 1; }
+            If (state[slot] == 3) { count = count + 1; }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function Available() -> Int
+    Explain {
+        Description: "Return how many more pool threads can run.";
+        Input: "No parameters";
+        Processing: "Subtract the alive count from the maximum.";
+        Output: "The free count.";
+    } {
+        Int room = maximum - This.Busy();
+        If (room < 0) { Return 0; }
+        Return room;
+    }
+
+    Public Function QueueItem(Int amount) -> Int
+    Explain {
+        Description: "Run one pool item under a lock.";
+        Input: amount = "Amount to add";
+        Processing: "Reject work past the maximum. Otherwise add the amount and increment the atomic counter.";
+        Output: "The shared total, or zero when the pool is full.";
+    } {
+        If (completed >= maximum) { Return 0; }
+        Var gate = "pool";
+        Lock gate {
+            shared = shared + amount;
+            Atomic<Int> counter = Atomic<Int>(completed);
+            completed = counter.Increment();
+        }
+        Return shared;
+    }
+
+    Public Function Shared() -> Int
+    Explain {
+        Description: "Return the shared total.";
+        Input: "No parameters";
+        Processing: "Read the locked total.";
+        Output: "The total.";
+    } {
+        Return shared;
+    }
+
+    Public Function Completed() -> Int
+    Explain {
+        Description: "Return how many pool items finished.";
+        Input: "No parameters";
+        Processing: "Read the atomic completion count.";
+        Output: "The count.";
+    } {
+        Return completed;
+    }
+
+    Public Function StoreQueued(Int produced) -> Int
+    Explain {
+        Description: "Store the result of queued asynchronous work.";
+        Input: produced = "Value produced by the task";
+        Processing: "Store the value.";
+        Output: "The stored value.";
+    } {
+        queuedValue = produced;
+        Return queuedValue;
+    }
+
+    Public Function Info(Int slot) -> String
+    Explain {
+        Description: "Describe one thread.";
+        Input: slot = "Thread slot";
+        Processing: "Join the name, state, and kind.";
+        Output: "The description.";
+    } {
+        Return This.ThreadName(slot) + " " + This.ThreadState(slot) + " " + This.KindName(slot);
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the pool.";
+        Input: "No parameters";
+        Processing: "Join the completion count, alive count, free count, minimum, and maximum.";
+        Output: "The pool statistics.";
+    } {
+        Return "completed=" + This.IntText(completed) + ",busy=" + This.IntText(This.Busy()) + ",available=" + This.IntText(This.Available()) + ",min=" + This.IntText(minimum) + ",max=" + This.IntText(maximum);
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remaining = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            built = digits.Substring(digit, 1) + built;
+            remaining = remaining / 10;
+        }
+        Return built;
+    }
+}
+
+Public Function StepWork() -> Int
+Explain {
+    Description: "Return the asynchronous work value.";
+    Input: "No parameters";
+    Processing: "Return eight.";
+    Output: "Eight.";
+} {
+    Return 8;
+}
+
+Public Async Function Pause(ThreadDesk desk) -> Task<Void>
+Explain {
+    Description: "Sleep and yield, then wait the current thread for one tick.";
+    Input: desk = "Thread desk";
+    Processing: "Await the runtime sleep and yield, then record one tick.";
+    Output: "No return value.";
+} {
+    Await Timer.Sleep(Duration.Milliseconds(1));
+    Await Task.Yield();
+    Int slot = desk.CurrentThread() - 1;
+    desk.SleepFor(slot, 1);
+}
+
+Public Async Function FinishQueued(ThreadDesk desk) -> Task<Void>
+Explain {
+    Description: "Run queued work and store its result.";
+    Input: desk = "Thread desk";
+    Processing: "Await Task.Run and store the value.";
+    Output: "No return value.";
+} {
+    Int produced = Await Task.Run(Function() => StepWork());
+    Print(desk.StoreQueued(produced));
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Schedule threads, join them, and run a small pool.";
+    Input: args = "Command-line arguments";
+    Processing: "Start, sleep, join, yield, interrupt, abort, and queue work.";
+    Output: "The threading report.";
+} {
+    ThreadDesk desk = ThreadDesk();
+    Print(desk.CreateThread("arm", 2, 2));
+    Print(desk.ThreadId(0));
+    Print(desk.ThreadName(0));
+    Print(desk.ThreadState(0));
+    Print(desk.ThreadAlive(0));
+    Print(desk.ThreadPriority(0));
+    Print(desk.KindName(0));
+    Print(desk.StartWith(0, 10));
+    Print(desk.ThreadState(0));
+    Print(desk.Result(0));
+    Print(desk.CurrentThread());
+    Print(desk.ThreadAlive(0));
+    Print(desk.SleepFor(0, 5));
+    Print(desk.ThreadState(0));
+    Print(desk.JoinFor(0, 3));
+    Print(desk.ThreadState(0));
+    Print(desk.JoinFor(0, 5));
+    Print(desk.ThreadState(0));
+    Print(desk.ThreadAlive(0));
+    Print(desk.CurrentThread());
+    Print(desk.CreateThread("leg", 1, 1));
+    Print(desk.StartWith(1, 4));
+    Print(desk.Result(1));
+    Print(desk.CreateThread("wheel", 0, 0));
+    Print(desk.StartWith(2, 1));
+    Print(desk.YieldThread());
+    Pause(desk);
+    Print(desk.Clock());
+    Print(desk.ThreadState(1));
+    Print(desk.InterruptThread(1));
+    Print(desk.ThreadState(1));
+    Print(desk.ThreadAlive(1));
+    Print(desk.AbortThread(2));
+    Print(desk.ThreadState(2));
+    Print(desk.JoinThread(2));
+    Print(desk.SetMinimum(1));
+    Print(desk.SetMaximum(2));
+    Print(desk.Available());
+    Print(desk.QueueItem(3));
+    Print(desk.QueueItem(4));
+    Print(desk.QueueItem(1));
+    Print(desk.Shared());
+    Print(desk.Completed());
+    Print(desk.Stats());
+    Print(desk.SetLocal(1, 9));
+    Print(desk.GetLocal(1));
+    Print(desk.ClearLocal(1));
+    Print(desk.GetLocal(1));
+    Print(desk.SetThreadName(1, "knee"));
+    Print(desk.ThreadName(1));
+    Print(desk.SetThreadPriority(1, 2));
+    Print(desk.ThreadPriority(1));
+    Print(desk.Info(0));
+    FinishQueued(desk);
+    Return 0;
+}
