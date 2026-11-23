@@ -1,0 +1,513 @@
+// Robix.Diagnostics: reports, stack frames, runtime facts, and listeners.
+Package Robotics.Diagnostics;
+
+Import Robix.Core;
+
+
+Class DiagnosticLog {
+    Private String records;
+    Private String frames;
+    Private String source0;
+    Private String listener0;
+    Private Int live0;
+    Private String source1;
+    Private String listener1;
+    Private Int live1;
+    Private String heard;
+    Private String context;
+    Private Int operations;
+
+    Public Constructor() {
+        records = "";
+        frames = "";
+        source0 = "";
+        listener0 = "";
+        live0 = 0;
+        source1 = "";
+        listener1 = "";
+        live1 = 0;
+        heard = "none";
+        context = "default";
+        operations = 0;
+    }
+
+    Public Function Configure(String name) -> String
+    Explain {
+        Description: "Set the diagnostic context.";
+        Input: name = "Context name";
+        Processing: "Store the context.";
+        Output: "The stored context.";
+    } {
+        context = name;
+        Return context;
+    }
+
+    Public Function Info(String code, String message, String fileName, Int line, Int column) -> Int
+    Explain {
+        Description: "Report an informational diagnostic.";
+        Input: code = "Diagnostic code", message = "Message", fileName = "Source file", line = "Line", column = "Column";
+        Processing: "Store a level-zero diagnostic.";
+        Output: "One.";
+    } {
+        Return This.Report(0, code, message, fileName, line, column);
+    }
+
+    Public Function Warning(String code, String message, String fileName, Int line, Int column) -> Int
+    Explain {
+        Description: "Report a warning.";
+        Input: code = "Diagnostic code", message = "Message", fileName = "Source file", line = "Line", column = "Column";
+        Processing: "Store a level-one diagnostic.";
+        Output: "One.";
+    } {
+        Return This.Report(1, code, message, fileName, line, column);
+    }
+
+    Public Function Error(String code, String message, String fileName, Int line, Int column) -> Int
+    Explain {
+        Description: "Report an error.";
+        Input: code = "Diagnostic code", message = "Message", fileName = "Source file", line = "Line", column = "Column";
+        Processing: "Store a level-two diagnostic.";
+        Output: "One.";
+    } {
+        Return This.Report(2, code, message, fileName, line, column);
+    }
+
+    Public Function Critical(String code, String message, String fileName, Int line, Int column) -> Int
+    Explain {
+        Description: "Report a critical diagnostic.";
+        Input: code = "Diagnostic code", message = "Message", fileName = "Source file", line = "Line", column = "Column";
+        Processing: "Store a level-three diagnostic.";
+        Output: "One.";
+    } {
+        Return This.Report(3, code, message, fileName, line, column);
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Count stored diagnostics.";
+        Input: "No parameters";
+        Processing: "Count the records.";
+        Output: "The count.";
+    } {
+        Return This.Pieces(records);
+    }
+
+    Public Function CountLevel(Int level) -> Int
+    Explain {
+        Description: "Count diagnostics at one severity.";
+        Input: level = "Zero info, one warning, two error, three critical";
+        Processing: "Count matching records.";
+        Output: "The count.";
+    } {
+        String digit = This.Digit(level);
+        Int count = 0;
+        Int index = 0;
+        Int total = This.Pieces(records);
+        While (index < total) {
+            If (This.Field(This.Piece(records, index), 0) == digit) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function At(Int index) -> String
+    Explain {
+        Description: "Read one diagnostic.";
+        Input: index = "Diagnostic index";
+        Processing: "Format the severity, code, location, and message.";
+        Output: "The diagnostic text, or none.";
+    } {
+        If (index < 0 || index >= This.Pieces(records)) { Return "none"; }
+        String record = This.Piece(records, index);
+        String text = This.LevelName(This.Number(This.Field(record, 0)));
+        text = text + " " + This.Field(record, 1);
+        text = text + " " + This.Field(record, 2) + ":" + This.Field(record, 3) + ":" + This.Field(record, 4);
+        text = text + " " + This.Field(record, 5);
+        Return text;
+    }
+
+    Public Function Snapshot() -> String
+    Explain {
+        Description: "Summarize the current diagnostics.";
+        Input: "No parameters";
+        Processing: "Count each severity.";
+        Output: "The severity counts.";
+    } {
+        String text = "info=" + This.IntText(This.CountLevel(0));
+        text = text + ",warning=" + This.IntText(This.CountLevel(1));
+        text = text + ",error=" + This.IntText(This.CountLevel(2));
+        text = text + ",critical=" + This.IntText(This.CountLevel(3));
+        Return text;
+    }
+
+    Public Function Clear() -> Int
+    Explain {
+        Description: "Remove every stored diagnostic.";
+        Input: "No parameters";
+        Processing: "Drop the records and return how many were removed.";
+        Output: "The removed count.";
+    } {
+        Int count = This.Pieces(records);
+        records = "";
+        Return count;
+    }
+
+    Public Function Enter(String name, String fileName, Int line) -> Int
+    Explain {
+        Description: "Push a stack frame.";
+        Input: name = "Function name", fileName = "Source file", line = "Line";
+        Processing: "Append the frame.";
+        Output: "The new stack depth.";
+    } {
+        String frame = name + "@" + fileName + ":" + This.IntText(line);
+        If (frames.Length() == 0) { frames = frame; }
+        If (frames.Length() > 0 && frames != frame) { frames = frames + "|" + frame; }
+        operations = operations + 1;
+        Return This.Depth();
+    }
+
+    Public Function Leave() -> Int
+    Explain {
+        Description: "Pop the current stack frame.";
+        Input: "No parameters";
+        Processing: "Remove the last frame.";
+        Output: "The new stack depth.";
+    } {
+        frames = This.DropLast(frames);
+        Return This.Depth();
+    }
+
+    Public Function Depth() -> Int
+    Explain {
+        Description: "Return the stack depth.";
+        Input: "No parameters";
+        Processing: "Count the frames.";
+        Output: "The depth.";
+    } {
+        Return This.Pieces(frames);
+    }
+
+    Public Function Current() -> String
+    Explain {
+        Description: "Return the current stack frame.";
+        Input: "No parameters";
+        Processing: "Read the last frame.";
+        Output: "The frame, or none.";
+    } {
+        Int count = This.Pieces(frames);
+        If (count == 0) { Return "none"; }
+        Return This.Piece(frames, count - 1);
+    }
+
+    Public Function Caller() -> String
+    Explain {
+        Description: "Return the caller stack frame.";
+        Input: "No parameters";
+        Processing: "Read the frame under the current one.";
+        Output: "The caller, or none.";
+    } {
+        Int count = This.Pieces(frames);
+        If (count < 2) { Return "none"; }
+        Return This.Piece(frames, count - 2);
+    }
+
+    Public Function Trace() -> String
+    Explain {
+        Description: "Return the whole stack trace.";
+        Input: "No parameters";
+        Processing: "Read the frame list.";
+        Output: "The trace, or none.";
+    } {
+        If (frames.Length() == 0) { Return "none"; }
+        Return frames;
+    }
+
+    Public Function RuntimeText() -> String
+    Explain {
+        Description: "Describe this runtime.";
+        Input: "No parameters";
+        Processing: "Read the platform and the Robix environment value.";
+        Output: "The runtime text.";
+    } {
+        Return "linux/x86_64 " + Environment.Get("ROBIX");
+    }
+
+    Public Function ArgumentCount() -> Int
+    Explain {
+        Description: "Return the process argument count.";
+        Input: "No parameters";
+        Processing: "Read the process argument count.";
+        Output: "The argument count.";
+    } {
+        Return Process.Count();
+    }
+
+    Public Function Failure() -> String
+    Explain {
+        Description: "Return the first critical message.";
+        Input: "No parameters";
+        Processing: "Search for a critical diagnostic.";
+        Output: "The message, or none.";
+    } {
+        Int index = 0;
+        Int total = This.Pieces(records);
+        While (index < total) {
+            String record = This.Piece(records, index);
+            If (This.Field(record, 0) == "3") { Return This.Field(record, 5); }
+            index = index + 1;
+        }
+        Return "none";
+    }
+
+    Public Function OpenSource(String name) -> Int
+    Explain {
+        Description: "Create a diagnostic source.";
+        Input: name = "Source name";
+        Processing: "Store the source in a free slot.";
+        Output: "One when the source was created.";
+    } {
+        If (live0 == 0) {
+            source0 = name;
+            listener0 = "";
+            live0 = 1;
+            Return 1;
+        }
+        If (live1 == 0) {
+            source1 = name;
+            listener1 = "";
+            live1 = 1;
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function Listen(String source, String listener) -> Int
+    Explain {
+        Description: "Subscribe a listener to a source.";
+        Input: source = "Source name", listener = "Listener name";
+        Processing: "Attach the listener to the matching source.";
+        Output: "One when the listener was subscribed.";
+    } {
+        If (live0 == 1 && source0 == source) {
+            listener0 = listener;
+            Return 1;
+        }
+        If (live1 == 1 && source1 == source) {
+            listener1 = listener;
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function Ignore(String source, String listener) -> Int
+    Explain {
+        Description: "Unsubscribe a listener.";
+        Input: source = "Source name", listener = "Listener name";
+        Processing: "Clear the listener when it matches.";
+        Output: "One when the listener was removed.";
+    } {
+        If (live0 == 1 && source0 == source && listener0 == listener) {
+            listener0 = "";
+            Return 1;
+        }
+        If (live1 == 1 && source1 == source && listener1 == listener) {
+            listener1 = "";
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function Write(String source, String code, String message) -> Int
+    Explain {
+        Description: "Write a diagnostic to a source.";
+        Input: source = "Source name", code = "Diagnostic code", message = "Message";
+        Processing: "Deliver it to a subscribed listener and store it.";
+        Output: "One when a listener received it.";
+    } {
+        String listener = "";
+        If (live0 == 1 && source0 == source && listener0 != "") { listener = listener0; }
+        If (listener == "" && live1 == 1 && source1 == source && listener1 != "") { listener = listener1; }
+        If (listener == "") { Return 0; }
+        heard = listener + " " + Diagnostics.Format(code, message);
+        This.Report(2, code, message, source, 1, 1);
+        Return 1;
+    }
+
+    Public Function Heard() -> String
+    Explain {
+        Description: "Return the latest listener delivery.";
+        Input: "No parameters";
+        Processing: "Read the stored delivery.";
+        Output: "The delivery, or none.";
+    } {
+        Return heard;
+    }
+
+    Public Function ListenerCount() -> Int
+    Explain {
+        Description: "Count subscribed listeners.";
+        Input: "No parameters";
+        Processing: "Count listeners that have a name.";
+        Output: "The listener count.";
+    } {
+        Int count = 0;
+        If (live0 == 1 && listener0 != "") { count = count + 1; }
+        If (live1 == 1 && listener1 != "") { count = count + 1; }
+        Return count;
+    }
+
+    Public Function Metrics() -> String
+    Explain {
+        Description: "Summarize diagnostic activity.";
+        Input: "No parameters";
+        Processing: "Combine the report count, stack depth, and listener count.";
+        Output: "The metrics text.";
+    } {
+        String text = "reports=" + This.IntText(This.Count());
+        text = text + ",depth=" + This.IntText(This.Depth());
+        text = text + ",listeners=" + This.IntText(This.ListenerCount());
+        text = text + ",steps=" + This.IntText(operations);
+        Return text;
+    }
+
+    Private Function Report(Int level, String code, String message, String fileName, Int line, Int column) -> Int {
+        String formatted = Diagnostics.Format(code, message);
+        String record = This.Digit(level) + "#" + code + "#" + fileName + "#" + This.IntText(line) + "#" + This.IntText(column) + "#" + formatted;
+        If (records.Length() == 0) { records = record; }
+        If (records.Length() > 0 && records != record) { records = records + "|" + record; }
+        operations = operations + 1;
+        Return 1;
+    }
+
+    Private Function LevelName(Int level) -> String {
+        If (level == 0) { Return "info"; }
+        If (level == 1) { Return "warning"; }
+        If (level == 2) { Return "error"; }
+        Return "critical";
+    }
+
+    Private Function Digit(Int level) -> String {
+        If (level == 0) { Return "0"; }
+        If (level == 1) { Return "1"; }
+        If (level == 2) { Return "2"; }
+        Return "3";
+    }
+
+    Private Function Number(String text) -> Int {
+        If (text == "0") { Return 0; }
+        If (text == "1") { Return 1; }
+        If (text == "2") { Return 2; }
+        If (text == "3") { Return 3; }
+        Return 0;
+    }
+
+    Private Function DropLast(String text) -> String {
+        If (text.Length() == 0) { Return ""; }
+        Int index = text.Length() - 1;
+        While (index >= 0 && This.CharAt(text, index) != "|") { index = index - 1; }
+        If (index < 0) { Return ""; }
+        Return text.Substring(0, index);
+    }
+
+    Private Function Pieces(String text) -> Int {
+        If (text.Length() == 0) { Return 0; }
+        Int count = 1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (This.CharAt(text, index) == "|") { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Piece(String text, Int position) -> String {
+        Int index = 0;
+        Int current = 0;
+        Int start = 0;
+        While (index < text.Length()) {
+            If (This.CharAt(text, index) == "|") {
+                If (current == position) { Return text.Substring(start, index - start); }
+                current = current + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (current == position) { Return text.Substring(start, text.Length() - start); }
+        Return "";
+    }
+
+    Private Function Field(String record, Int position) -> String {
+        Int current = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index < record.Length()) {
+            If (This.CharAt(record, index) == "#") {
+                If (current == position) { Return record.Substring(start, index - start); }
+                current = current + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (current == position) { Return record.Substring(start, record.Length() - start); }
+        Return "";
+    }
+
+    Private Function CharAt(String text, Int index) -> String {
+        Return text.Substring(index, 1);
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remaining = value;
+        String digits = "0123456789";
+        String text = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            text = digits.Substring(digit, 1) + text;
+            remaining = remaining / 10;
+        }
+        Return text;
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Report diagnostics, walk a stack, and deliver one listener event.";
+    Input: args = "Command-line arguments";
+    Processing: "Store four severities, clear them, and write to a subscribed source.";
+    Output: "The diagnostic report.";
+} {
+    DiagnosticLog log = DiagnosticLog();
+    Print(log.Configure("strict"));
+    Print(log.Info("RX10", "ready", "Diagnostics.rx", 2, 1));
+    Print(log.Warning("RX11", "hot", "Diagnostics.rx", 3, 1));
+    Print(log.Error("RX12", "stalled", "Diagnostics.rx", 4, 1));
+    Print(log.Critical("RX13", "failed", "Diagnostics.rx", 5, 1));
+    Print(log.Count());
+    Print(log.CountLevel(2));
+    Print(log.At(0));
+    Print(log.At(2));
+    Print(log.Snapshot());
+    Print(log.Failure());
+    Print(log.Clear());
+    Print(log.Count());
+    Print(log.Failure());
+    log.Enter("Main", "Diagnostics.rx", 1);
+    log.Enter("Check", "Diagnostics.rx", 8);
+    Print(log.Depth());
+    Print(log.Current());
+    Print(log.Caller());
+    Print(log.Leave());
+    Print(log.Trace());
+    Print(log.RuntimeText());
+    Print(log.ArgumentCount());
+    Print(log.OpenSource("motor"));
+    Print(log.Listen("motor", "console"));
+    Print(log.Write("motor", "RX200", "stalled"));
+    Print(log.Heard());
+    Print(log.Count());
+    Print(log.Ignore("motor", "console"));
+    Print(log.Write("motor", "RX201", "again"));
+    Print(log.Metrics());
+    Return 0;
+}

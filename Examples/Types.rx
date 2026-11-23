@@ -1,0 +1,555 @@
+// Robix.Types: type descriptors, assignability, conversion, and registration.
+Package Robotics.Types;
+
+Import Robix.Core;
+
+
+Struct TypeOutcome {
+    Public Int Ok;
+    Public String Text;
+
+    Public Constructor(Int ok, String text) {
+        Ok = ok;
+        Text = text;
+    }
+}
+
+Class TypeRegistry {
+    Private String catalog;
+
+    Public Constructor() {
+        catalog = "";
+        This.Add("Int", "primitive,numeric,integer,value", "Robix.Core", "", "", "", "");
+        This.Add("Float", "primitive,numeric,float,value", "Robix.Core", "", "", "", "");
+        This.Add("Bool", "primitive,boolean,value", "Robix.Core", "", "", "", "");
+        This.Add("Char", "primitive,character,value", "Robix.Core", "", "", "", "");
+        This.Add("String", "primitive,string,reference", "Robix.Core", "", "", "", "");
+        This.Add("Byte", "primitive,numeric,integer,value", "Robix.Core", "", "", "", "");
+        This.Add("Object", "class,reference", "Robix.Core", "", "", "", "");
+        This.Add("Robot", "class,reference", "Robotics.Types", "Object", "Movable", "", "");
+        This.Add("Point", "struct,value", "Robotics.Types", "", "", "", "");
+        This.Add("Color", "enum,value", "Robotics.Types", "", "", "", "");
+        This.Add("List", "generic,reference", "Robix.Collections", "", "", "", "T");
+        This.Add("IntOrString", "union,value", "Robix.Core", "", "", "Int+String", "");
+    }
+
+    Public Function Classify(String sample) -> String
+    Explain {
+        Description: "Infer a type name from a sample value.";
+        Input: sample = "Text form of a value";
+        Processing: "Recognize a boolean, a float, an integer, or text.";
+        Output: "The inferred type name.";
+    } {
+        If (sample == "true" || sample == "false" || sample == "True" || sample == "False") { Return "Bool"; }
+        If (This.IsFloatText(sample) == 1) { Return "Float"; }
+        If (This.IsIntText(sample) == 1) { Return "Int"; }
+        Return "String";
+    }
+
+    Public Function GetTypeName(String sample) -> String
+    Explain {
+        Description: "Return the type name of a sample.";
+        Input: sample = "Text form of a value";
+        Processing: "Classify the sample.";
+        Output: "The type name.";
+    } {
+        Return This.Classify(sample);
+    }
+
+    Public Function GetFullName(String typeName) -> String
+    Explain {
+        Description: "Return the namespace-qualified type name.";
+        Input: typeName = "Registered type name";
+        Processing: "Prefix the type with its namespace.";
+        Output: "The full name, or empty when missing.";
+    } {
+        String record = This.FindRecord(typeName);
+        If (record == "") { Return ""; }
+        String space = This.Field(record, 2);
+        If (space == "") { Return typeName; }
+        Return space + "." + typeName;
+    }
+
+    Public Function GetNamespace(String typeName) -> String
+    Explain {
+        Description: "Return the namespace of a type.";
+        Input: typeName = "Registered type name";
+        Processing: "Read the namespace field.";
+        Output: "The namespace, or empty.";
+    } {
+        Return This.Field(This.FindRecord(typeName), 2);
+    }
+
+    Public Function GetBase(String typeName) -> String
+    Explain {
+        Description: "Return the base type name.";
+        Input: typeName = "Registered type name";
+        Processing: "Read the base field.";
+        Output: "The base name, or none.";
+    } {
+        String parent = This.Field(This.FindRecord(typeName), 3);
+        If (parent == "") { Return "none"; }
+        Return parent;
+    }
+
+    Public Function GetInterfaces(String typeName) -> String
+    Explain {
+        Description: "Return the interfaces of a type.";
+        Input: typeName = "Registered type name";
+        Processing: "Read the interface list.";
+        Output: "The interfaces, or none.";
+    } {
+        String faces = This.Field(This.FindRecord(typeName), 4);
+        If (faces == "") { Return "none"; }
+        Return faces;
+    }
+
+    Public Function GetGenericArguments(String typeName) -> String
+    Explain {
+        Description: "Return the generic arguments of a type.";
+        Input: typeName = "Registered type name";
+        Processing: "Read the argument list.";
+        Output: "The arguments, or none.";
+    } {
+        String args = This.Field(This.FindRecord(typeName), 5);
+        If (args == "") { Return "none"; }
+        Return args;
+    }
+
+    Public Function GetGenericParameters(String typeName) -> String
+    Explain {
+        Description: "Return the generic parameters of a type.";
+        Input: typeName = "Registered type name";
+        Processing: "Read the parameter list.";
+        Output: "The parameters, or none.";
+    } {
+        String parameters = This.Field(This.FindRecord(typeName), 6);
+        If (parameters == "") { Return "none"; }
+        Return parameters;
+    }
+
+    Public Function IsType(String sample, String typeName) -> Int
+    Explain {
+        Description: "Test whether a sample has a type.";
+        Input: sample = "Text form of a value", typeName = "Expected type name";
+        Processing: "Compare the classified name with the expected name.";
+        Output: "One when the names match.";
+    } {
+        If (This.Classify(sample) == typeName) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsAssignable(String source, String destination) -> Int
+    Explain {
+        Description: "Test whether a source type may be stored in a destination.";
+        Input: source = "Source type", destination = "Destination type";
+        Processing: "Allow the same type, numeric widening, nullability, and inheritance.";
+        Output: "One when the assignment is allowed.";
+    } {
+        Return This.Assignable(source, destination);
+    }
+
+    Public Function IsCompatible(String source, String destination) -> Int
+    Explain {
+        Description: "Test whether two types can meet without a lossy conversion.";
+        Input: source = "First type", destination = "Second type";
+        Processing: "Accept either assignment direction, or two numeric types.";
+        Output: "One when the types are compatible.";
+    } {
+        If (This.Assignable(source, destination) == 1) { Return 1; }
+        If (This.Assignable(destination, source) == 1) { Return 1; }
+        If (This.HasFlag(source, "numeric") == 1 && This.HasFlag(destination, "numeric") == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsNullable(String typeName) -> Int
+    Explain {
+        Description: "Report whether a type accepts null.";
+        Input: typeName = "Type name";
+        Processing: "Look for the nullable flag.";
+        Output: "One when the type is nullable.";
+    } {
+        Return This.HasFlag(typeName, "nullable");
+    }
+
+    Public Function IsPrimitive(String typeName) -> Int
+    Explain {
+        Description: "Report whether a type is primitive.";
+        Input: typeName = "Type name";
+        Processing: "Look for the primitive flag.";
+        Output: "One when the type is primitive.";
+    } {
+        Return This.HasFlag(typeName, "primitive");
+    }
+
+    Public Function IsNumeric(String typeName) -> Int
+    Explain {
+        Description: "Report whether a type is numeric.";
+        Input: typeName = "Type name";
+        Processing: "Look for the numeric flag.";
+        Output: "One when the type is numeric.";
+    } {
+        Return This.HasFlag(typeName, "numeric");
+    }
+
+    Public Function IsReference(String typeName) -> Int
+    Explain {
+        Description: "Report whether a type is a reference type.";
+        Input: typeName = "Type name";
+        Processing: "Look for the reference flag.";
+        Output: "One when the type is a reference type.";
+    } {
+        Return This.HasFlag(typeName, "reference");
+    }
+
+    Public Function IsValue(String typeName) -> Int
+    Explain {
+        Description: "Report whether a type is a value type.";
+        Input: typeName = "Type name";
+        Processing: "Look for the value flag.";
+        Output: "One when the type is a value type.";
+    } {
+        Return This.HasFlag(typeName, "value");
+    }
+
+    Public Function IsGeneric(String typeName) -> Int
+    Explain {
+        Description: "Report whether a type has generic parameters or arguments.";
+        Input: typeName = "Type name";
+        Processing: "Look for arguments or parameters.";
+        Output: "One when the type is generic.";
+    } {
+        String record = This.FindRecord(typeName);
+        If (record == "") { Return 0; }
+        If (This.Field(record, 5) != "" || This.Field(record, 6) != "") { Return 1; }
+        Return 0;
+    }
+
+    Public Function CanConvert(String source, String destination) -> Int
+    Explain {
+        Description: "Report whether a conversion exists.";
+        Input: source = "Source type", destination = "Destination type";
+        Processing: "Allow assignment, numeric conversion, and conversion through text.";
+        Output: "One when a conversion exists.";
+    } {
+        If (This.Assignable(source, destination) == 1) { Return 1; }
+        If (destination == "String") { Return 1; }
+        If (source == "String" && (destination == "Int" || destination == "Float" || destination == "Bool")) { Return 1; }
+        If (This.HasFlag(source, "numeric") == 1 && This.HasFlag(destination, "numeric") == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function GetConversion(String source, String destination) -> String
+    Explain {
+        Description: "Name the conversion between two types.";
+        Input: source = "Source type", destination = "Destination type";
+        Processing: "Choose widen, narrow, parse, to-text, identity, or none.";
+        Output: "The conversion name.";
+    } {
+        If (source == destination) { Return "identity"; }
+        If (This.CanConvert(source, destination) == 0) { Return "none"; }
+        If (destination == "String") { Return "to-text"; }
+        If (source == "String") { Return "parse"; }
+        If (This.Assignable(source, destination) == 1) { Return "widen"; }
+        Return "narrow";
+    }
+
+    Public Function Convert(String source, String value, String destination) -> TypeOutcome
+    Explain {
+        Description: "Convert a value when the conversion is allowed.";
+        Input: source = "Source type", value = "Text form of the value", destination = "Destination type";
+        Processing: "Parse, widen, or render the value.";
+        Output: "The converted text, or an error.";
+    } {
+        If (This.CanConvert(source, destination) == 0) { Return TypeOutcome(0, "no-conversion"); }
+        If (destination == "String") { Return TypeOutcome(1, value); }
+        If (destination == "Bool") {
+            If (value == "true" || value == "True") { Return TypeOutcome(1, "true"); }
+            If (value == "false" || value == "False") { Return TypeOutcome(1, "false"); }
+            Return TypeOutcome(0, "type-error");
+        }
+        If (destination == "Float" && source == "Int") { Return TypeOutcome(1, value + ".0"); }
+        If (destination == "Int") {
+            If (This.IsIntText(value) == 0) { Return TypeOutcome(0, "type-error"); }
+            Return TypeOutcome(1, value);
+        }
+        Return TypeOutcome(1, value);
+    }
+
+    Public Function TryConvert(String source, String value, String destination) -> TypeOutcome
+    Explain {
+        Description: "Convert a value and report absence instead of throwing.";
+        Input: source = "Source type", value = "Text form of the value", destination = "Destination type";
+        Processing: "Use Convert and turn an error into none.";
+        Output: "The value, or none.";
+    } {
+        TypeOutcome outcome = This.Convert(source, value, destination);
+        If (outcome.Ok == 0) { Return TypeOutcome(0, "none"); }
+        Return outcome;
+    }
+
+    Public Function Register(String typeName, String flags, String namespaceName, String baseName) -> Int
+    Explain {
+        Description: "Register a type.";
+        Input: typeName = "Type name", flags = "Category flags", namespaceName = "Namespace", baseName = "Base type";
+        Processing: "Append the type when the name is new.";
+        Output: "One when the type was added.";
+    } {
+        If (typeName == "" || This.FindRecord(typeName) != "") { Return 0; }
+        This.Add(typeName, flags, namespaceName, baseName, "", "", "");
+        Return 1;
+    }
+
+    Public Function Unregister(String typeName) -> Int
+    Explain {
+        Description: "Remove a registered type.";
+        Input: typeName = "Type name";
+        Processing: "Rebuild the catalogue without that type.";
+        Output: "One when the type was removed.";
+    } {
+        If (This.FindRecord(typeName) == "") { Return 0; }
+        String kept = "";
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) != typeName && record != "") { kept = kept + record + "|"; }
+            index = end + 1;
+        }
+        catalog = kept;
+        Return 1;
+    }
+
+    Public Function Find(String typeName) -> Int
+    Explain {
+        Description: "Find a registered type.";
+        Input: typeName = "Type name";
+        Processing: "Search the catalogue.";
+        Output: "One when the type is present.";
+    } {
+        If (This.FindRecord(typeName) == "") { Return 0; }
+        Return 1;
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Count registered types.";
+        Input: "No parameters";
+        Processing: "Count catalogue records.";
+        Output: "The number of types.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            If (This.CharAt(catalog, index) == "|") { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function CreateArray(String elementType) -> String
+    Explain {
+        Description: "Create and register an array type.";
+        Input: elementType = "Element type name";
+        Processing: "Register Array<element> as a reference type.";
+        Output: "The array type name.";
+    } {
+        String name = "Array<" + elementType + ">";
+        If (This.FindRecord(name) == "") { This.Add(name, "array,reference", "Robix.Core", "", "", elementType, ""); }
+        Return name;
+    }
+
+    Public Function CreateNullable(String typeName) -> String
+    Explain {
+        Description: "Create and register a nullable type.";
+        Input: typeName = "Underlying type name";
+        Processing: "Register the type with a question mark and the nullable flag.";
+        Output: "The nullable type name.";
+    } {
+        String name = typeName + "?";
+        If (This.FindRecord(name) == "") { This.Add(name, "nullable,value", "Robix.Core", typeName, "", typeName, ""); }
+        Return name;
+    }
+
+    Public Function CreateGeneric(String definition, String arguments) -> String
+    Explain {
+        Description: "Create and register a closed generic type.";
+        Input: definition = "Generic definition", arguments = "Type arguments";
+        Processing: "Register definition<arguments>.";
+        Output: "The closed type name.";
+    } {
+        String name = definition + "<" + arguments + ">";
+        If (This.FindRecord(name) == "") { This.Add(name, "generic,reference", "Robix.Collections", "", "", arguments, "T"); }
+        Return name;
+    }
+
+    Public Function CreateFunction(String parameters, String returnType) -> String
+    Explain {
+        Description: "Create and register a function type.";
+        Input: parameters = "Parameter types", returnType = "Return type";
+        Processing: "Register (parameters) -> returnType.";
+        Output: "The function type name.";
+    } {
+        String name = "(" + parameters + ") -> " + returnType;
+        If (This.FindRecord(name) == "") { This.Add(name, "function,reference", "Robix.Core", "", "", parameters, ""); }
+        Return name;
+    }
+
+    Private Function Add(String typeName, String flags, String namespaceName, String baseName, String interfaces, String arguments, String parameters) -> Void {
+        catalog = catalog + typeName + "#" + flags + "#" + namespaceName + "#" + baseName + "#" + interfaces + "#" + arguments + "#" + parameters + "|";
+    }
+
+    Private Function CharAt(String text, Int index) -> String {
+        Return text.Substring(index, 1);
+    }
+
+    Private Function Field(String record, Int position) -> String {
+        Int index = 0;
+        Int current = 0;
+        Int start = 0;
+        While (index < record.Length()) {
+            String mark = This.CharAt(record, index);
+            If (mark == "#" || mark == "|") {
+                If (current == position) { Return record.Substring(start, index - start); }
+                current = current + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (current == position) { Return record.Substring(start, record.Length() - start); }
+        Return "";
+    }
+
+    Private Function FindRecord(String typeName) -> String {
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == typeName) { Return record; }
+            index = end + 1;
+        }
+        Return "";
+    }
+
+    Private Function HasFlag(String typeName, String flag) -> Int {
+        String flags = This.Field(This.FindRecord(typeName), 1);
+        String marked = "," + flags + ",";
+        If (marked.Contains("," + flag + ",")) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Assignable(String source, String destination) -> Int {
+        If (source == destination) { Return 1; }
+        If (source == "Byte" && (destination == "Int" || destination == "Float")) { Return 1; }
+        If (source == "Int" && destination == "Float") { Return 1; }
+        If (destination == source + "?") { Return 1; }
+        String current = source;
+        Int guard = 0;
+        While (guard < 4) {
+            String record = This.FindRecord(current);
+            If (record == "") { Return 0; }
+            String baseName = This.Field(record, 3);
+            If (baseName == "") { Return 0; }
+            If (baseName == destination) { Return 1; }
+            current = baseName;
+            guard = guard + 1;
+        }
+        Return 0;
+    }
+
+    Private Function IsIntText(String text) -> Int {
+        If (text.Length() == 0) { Return 0; }
+        Int index = 0;
+        If (This.CharAt(text, 0) == "-") {
+            If (text.Length() == 1) { Return 0; }
+            index = 1;
+        }
+        While (index < text.Length()) {
+            Int digit = text.GetChar(index).ToInt();
+            If (digit < 0 || digit > 9) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function IsFloatText(String text) -> Int {
+        Int dots = 0;
+        Int digits = 0;
+        Int index = 0;
+        If (text.Length() == 0) { Return 0; }
+        If (This.CharAt(text, 0) == "-") { index = 1; }
+        While (index < text.Length()) {
+            String mark = This.CharAt(text, index);
+            If (mark == ".") {
+                dots = dots + 1;
+            } Else {
+                Int digit = text.GetChar(index).ToInt();
+                If (digit < 0 || digit > 9) { Return 0; }
+                digits = digits + 1;
+            }
+            index = index + 1;
+        }
+        If (dots == 1 && digits > 0) { Return 1; }
+        Return 0;
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Inspect, compare, convert, and register types.";
+    Input: args = "Command-line arguments";
+    Processing: "Classify values, test assignability, convert text, and build constructed types.";
+    Output: "The type report.";
+} {
+    TypeRegistry types = TypeRegistry();
+    Print(types.GetTypeName("42"));
+    Print(types.GetTypeName("3.5"));
+    Print(types.GetTypeName("true"));
+    Print(types.GetTypeName("arm"));
+    Print(types.GetFullName("Int"));
+    Print(types.GetNamespace("Robot"));
+    Print(types.GetBase("Robot"));
+    Print(types.GetBase("Int"));
+    Print(types.GetInterfaces("Robot"));
+    Print(types.GetGenericParameters("List"));
+    Print(types.IsType("42", "Int"));
+    Print(types.IsType("arm", "Int"));
+    Print(types.IsPrimitive("Int"));
+    Print(types.IsPrimitive("Robot"));
+    Print(types.IsNumeric("Float"));
+    Print(types.IsNumeric("String"));
+    Print(types.IsReference("String"));
+    Print(types.IsValue("Point"));
+    Print(types.IsGeneric("List"));
+    Print(types.IsAssignable("Byte", "Int"));
+    Print(types.IsAssignable("Int", "Byte"));
+    Print(types.IsAssignable("Robot", "Object"));
+    Print(types.IsAssignable("Object", "Robot"));
+    Print(types.IsCompatible("Int", "Float"));
+    Print(types.CanConvert("Int", "String"));
+    Print(types.GetConversion("Byte", "Int"));
+    Print(types.GetConversion("Float", "Int"));
+    Print(types.GetConversion("String", "Int"));
+    Print(types.Convert("Int", "42", "String").Text);
+    Print(types.Convert("Int", "42", "Float").Text);
+    Print(types.TryConvert("String", "nope", "Int").Text);
+    Print(types.TryConvert("String", "15", "Int").Text);
+    Print(types.CreateNullable("Int"));
+    Print(types.IsNullable("Int?"));
+    Print(types.IsAssignable("Int", "Int?"));
+    Print(types.CreateArray("Int"));
+    Print(types.GetGenericArguments("Array<Int>"));
+    Print(types.CreateGeneric("List", "String"));
+    Print(types.IsGeneric("List<String>"));
+    Print(types.CreateFunction("Int, Int", "Bool"));
+    Int before = types.Count();
+    Print(types.Register("Widget", "class,reference", "Robotics.Types", "Object"));
+    Print(types.Find("Widget"));
+    Print(types.GetFullName("Widget"));
+    Print(types.Unregister("Widget"));
+    Print(types.Find("Widget"));
+    Print(types.Count() == before);
+    Return 0;
+}

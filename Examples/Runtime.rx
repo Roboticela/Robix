@@ -1,0 +1,547 @@
+// Robix.Runtime: lifecycle, host info, a small execution engine, and module loading.
+Package Robotics.Runtime;
+
+Import Robix.Core;
+
+
+Struct RunOutcome {
+    Public Int Ok;
+    Public Int Value;
+    Public String Message;
+
+    Public Constructor(Int ok, Int value, String message) {
+        Ok = ok;
+        Value = value;
+        Message = message;
+    }
+}
+
+Class RuntimeHost {
+    Private Int state;
+    Private String versionText;
+    Private String platformName;
+    Private String architectureName;
+    Private String configurationName;
+    Private String features;
+    Private Int executions;
+    Private Int instructions;
+    Private Int restarts;
+    Private Int asyncCompletions;
+    Private String moduleName;
+    Private String moduleSource;
+    Private String secondName;
+    Private String secondSource;
+    Private String frameName;
+    Private Int frameDepth;
+    Private Int slot0;
+    Private Int slot1;
+    Private Int slot2;
+    Private Int slot3;
+    Private Int depth;
+
+    Public Constructor() {
+        state = 0;
+        versionText = "1.0.0";
+        platformName = "linux";
+        architectureName = "x86_64";
+        configurationName = "";
+        features = "";
+        executions = 0;
+        instructions = 0;
+        restarts = 0;
+        asyncCompletions = 0;
+        moduleName = "";
+        moduleSource = "";
+        secondName = "";
+        secondSource = "";
+        frameName = "";
+        frameDepth = 0;
+        slot0 = 0;
+        slot1 = 0;
+        slot2 = 0;
+        slot3 = 0;
+        depth = 0;
+    }
+
+    Public Function Initialize(String name, String enabled) -> RunOutcome
+    Explain {
+        Description: "Configure the runtime and mark it ready.";
+        Input: name = "Configuration name", enabled = "Comma-separated features";
+        Processing: "Store the configuration when the runtime has not been disposed.";
+        Output: "Ready, or an error when disposed.";
+    } {
+        If (state == 5) { Return RunOutcome(0, 0, "disposed"); }
+        configurationName = name;
+        features = enabled;
+        state = 1;
+        Return RunOutcome(1, state, "ready");
+    }
+
+    Public Function Start() -> RunOutcome
+    Explain {
+        Description: "Start execution.";
+        Input: "No parameters";
+        Processing: "Move a ready or stopped runtime to running.";
+        Output: "Running, or an error.";
+    } {
+        If (state == 5) { Return RunOutcome(0, 0, "disposed"); }
+        If (state != 1 && state != 3) { Return RunOutcome(0, state, "not-ready"); }
+        state = 2;
+        Return RunOutcome(1, state, "running");
+    }
+
+    Public Function Stop() -> RunOutcome
+    Explain {
+        Description: "Stop execution.";
+        Input: "No parameters";
+        Processing: "Move a running runtime to stopped.";
+        Output: "Stopped, or an error.";
+    } {
+        If (state != 2) { Return RunOutcome(0, state, "not-running"); }
+        state = 3;
+        Return RunOutcome(1, state, "stopped");
+    }
+
+    Public Function Restart() -> RunOutcome
+    Explain {
+        Description: "Stop if needed, then start again.";
+        Input: "No parameters";
+        Processing: "Count the restart and return to running.";
+        Output: "Running, or an error.";
+    } {
+        If (state == 5) { Return RunOutcome(0, 0, "disposed"); }
+        If (state == 2) { state = 3; }
+        If (state != 1 && state != 3) { Return RunOutcome(0, state, "not-ready"); }
+        restarts = restarts + 1;
+        state = 2;
+        Return RunOutcome(1, restarts, "restarted");
+    }
+
+    Public Function Shutdown() -> RunOutcome
+    Explain {
+        Description: "Shut the runtime down.";
+        Input: "No parameters";
+        Processing: "Leave the running state and record shutdown.";
+        Output: "Shutdown, or an error when disposed.";
+    } {
+        If (state == 5) { Return RunOutcome(0, 0, "disposed"); }
+        state = 4;
+        Return RunOutcome(1, state, "shutdown");
+    }
+
+    Public Function Dispose() -> RunOutcome
+    Explain {
+        Description: "Release runtime resources.";
+        Input: "No parameters";
+        Processing: "Drop loaded modules and mark the runtime disposed.";
+        Output: "Disposed.";
+    } {
+        moduleName = "";
+        moduleSource = "";
+        secondName = "";
+        secondSource = "";
+        frameName = "";
+        frameDepth = 0;
+        state = 5;
+        Return RunOutcome(1, state, "disposed");
+    }
+
+    Public Function IsRunning() -> Int
+    Explain {
+        Description: "Report whether the runtime is running.";
+        Input: "No parameters";
+        Processing: "Compare the state with running.";
+        Output: "One when running, otherwise zero.";
+    } {
+        If (state == 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function GetState() -> String
+    Explain {
+        Description: "Return the lifecycle state name.";
+        Input: "No parameters";
+        Processing: "Map the state code to a name.";
+        Output: "The state name.";
+    } {
+        If (state == 1) { Return "ready"; }
+        If (state == 2) { Return "running"; }
+        If (state == 3) { Return "stopped"; }
+        If (state == 4) { Return "shutdown"; }
+        If (state == 5) { Return "disposed"; }
+        Return "idle";
+    }
+
+    Public Function GetVersion() -> String
+    Explain {
+        Description: "Return the runtime version.";
+        Input: "No parameters";
+        Processing: "Read the stored version.";
+        Output: "The version text.";
+    } {
+        Return versionText;
+    }
+
+    Public Function GetPlatform() -> String
+    Explain {
+        Description: "Return the host platform.";
+        Input: "No parameters";
+        Processing: "Read the platform name for this runtime.";
+        Output: "The platform name.";
+    } {
+        Return platformName;
+    }
+
+    Public Function GetArchitecture() -> String
+    Explain {
+        Description: "Return the host architecture.";
+        Input: "No parameters";
+        Processing: "Read the architecture name for this runtime.";
+        Output: "The architecture name.";
+    } {
+        Return architectureName;
+    }
+
+    Public Function GetConfiguration() -> String
+    Explain {
+        Description: "Return the active configuration name.";
+        Input: "No parameters";
+        Processing: "Read the name stored by Initialize.";
+        Output: "The configuration name.";
+    } {
+        Return configurationName;
+    }
+
+    Public Function GetInfo() -> String
+    Explain {
+        Description: "Return a one-line description of the host.";
+        Input: "No parameters";
+        Processing: "Combine platform, architecture, and version.";
+        Output: "The host description.";
+    } {
+        Return platformName + "/" + architectureName + " " + versionText;
+    }
+
+    Public Function IsFeatureSupported(String feature) -> Int
+    Explain {
+        Description: "Report whether a feature was enabled.";
+        Input: feature = "Feature name";
+        Processing: "Search the comma-separated feature list.";
+        Output: "One when the feature is enabled.";
+    } {
+        String marked = "," + features + ",";
+        String needle = "," + feature + ",";
+        If (marked.Contains(needle)) { Return 1; }
+        Return 0;
+    }
+
+    Public Function GetMetrics() -> String
+    Explain {
+        Description: "Return execution counters.";
+        Input: "No parameters";
+        Processing: "Format executions, instructions, restarts, and completed async runs.";
+        Output: "The metrics text.";
+    } {
+        Return executions.ToString() + " executions, " + instructions.ToString() + " instructions, " + restarts.ToString() + " restarts, " + asyncCompletions.ToString() + " async";
+    }
+
+    Public Function Execute(String program) -> RunOutcome
+    Explain {
+        Description: "Run a comma-separated stack program.";
+        Input: program = "Tokens such as push,2,push,3,add,halt";
+        Processing: "Push, add, subtract, multiply, and halt while the runtime is running.";
+        Output: "The value left on the stack.";
+    } {
+        If (state != 2) { Return RunOutcome(0, 0, "not-running"); }
+        Return This.RunProgram(program, 0);
+    }
+
+    Public Function ExecuteAsync(String program) -> RunOutcome
+    Explain {
+        Description: "Run a program to completion and record it as a finished task.";
+        Input: program = "Tokens such as push,10,push,4,sub,halt";
+        Processing: "Execute the program and count the completion.";
+        Output: "The finished task value.";
+    } {
+        If (state != 2) { Return RunOutcome(0, 0, "not-running"); }
+        RunOutcome outcome = This.RunProgram(program, 0);
+        asyncCompletions = asyncCompletions + 1;
+        Return RunOutcome(outcome.Ok, outcome.Value, "completed");
+    }
+
+    Public Function LoadModule(String name, String source) -> RunOutcome
+    Explain {
+        Description: "Load a module into a free slot.";
+        Input: name = "Module name", source = "Module program text";
+        Processing: "Store the module when a slot is free and the runtime is alive.";
+        Output: "Loaded, or an error.";
+    } {
+        If (state == 5 || state == 0) { Return RunOutcome(0, 0, "unavailable"); }
+        If (moduleName == "") {
+            moduleName = name;
+            moduleSource = source;
+            Return RunOutcome(1, 1, "loaded");
+        }
+        If (secondName == "") {
+            secondName = name;
+            secondSource = source;
+            Return RunOutcome(1, 2, "loaded");
+        }
+        Return RunOutcome(0, 2, "full");
+    }
+
+    Public Function FindModule(String name) -> Int
+    Explain {
+        Description: "Find a loaded module by name.";
+        Input: name = "Module name";
+        Processing: "Compare the name with both slots.";
+        Output: "The slot number, or zero.";
+    } {
+        If (moduleName == name) { Return 1; }
+        If (secondName == name) { Return 2; }
+        Return 0;
+    }
+
+    Public Function LoadedCount() -> Int
+    Explain {
+        Description: "Count loaded modules.";
+        Input: "No parameters";
+        Processing: "Count occupied slots.";
+        Output: "The number of loaded modules.";
+    } {
+        Int count = 0;
+        If (moduleName != "") { count = count + 1; }
+        If (secondName != "") { count = count + 1; }
+        Return count;
+    }
+
+    Public Function ReloadModule(String name, String source) -> RunOutcome
+    Explain {
+        Description: "Replace the source of a loaded module.";
+        Input: name = "Module name", source = "New program text";
+        Processing: "Write the new source into the matching slot.";
+        Output: "Reloaded, or missing.";
+    } {
+        If (moduleName == name) {
+            moduleSource = source;
+            Return RunOutcome(1, 1, "reloaded");
+        }
+        If (secondName == name) {
+            secondSource = source;
+            Return RunOutcome(1, 2, "reloaded");
+        }
+        Return RunOutcome(0, 0, "missing");
+    }
+
+    Public Function UnloadModule(String name) -> RunOutcome
+    Explain {
+        Description: "Unload a module.";
+        Input: name = "Module name";
+        Processing: "Clear the matching slot.";
+        Output: "Unloaded, or missing.";
+    } {
+        If (moduleName == name) {
+            moduleName = "";
+            moduleSource = "";
+            Return RunOutcome(1, 0, "unloaded");
+        }
+        If (secondName == name) {
+            secondName = "";
+            secondSource = "";
+            Return RunOutcome(1, 0, "unloaded");
+        }
+        Return RunOutcome(0, 0, "missing");
+    }
+
+    Public Function ExecuteModule(String name) -> RunOutcome
+    Explain {
+        Description: "Execute a loaded module.";
+        Input: name = "Module name";
+        Processing: "Run the module source on the stack engine.";
+        Output: "The module result.";
+    } {
+        If (state != 2) { Return RunOutcome(0, 0, "not-running"); }
+        If (moduleName == name) { Return This.RunProgram(moduleSource, 1); }
+        If (secondName == name) { Return This.RunProgram(secondSource, 1); }
+        Return RunOutcome(0, 0, "missing");
+    }
+
+    Public Function FrameName() -> String
+    Explain {
+        Description: "Return the active frame name.";
+        Input: "No parameters";
+        Processing: "Read the frame recorded by the last execution.";
+        Output: "The frame name, or empty.";
+    } {
+        Return frameName;
+    }
+
+    Public Function FrameDepth() -> Int
+    Explain {
+        Description: "Return the active frame depth.";
+        Input: "No parameters";
+        Processing: "Read the depth recorded by the last execution.";
+        Output: "The frame depth.";
+    } {
+        Return frameDepth;
+    }
+
+    Private Function ResetStack() -> Void {
+        slot0 = 0;
+        slot1 = 0;
+        slot2 = 0;
+        slot3 = 0;
+        depth = 0;
+    }
+
+    Private Function Push(Int value) -> Int {
+        If (depth == 0) { slot0 = value; }
+        If (depth == 1) { slot1 = value; }
+        If (depth == 2) { slot2 = value; }
+        If (depth == 3) { slot3 = value; }
+        If (depth >= 4) { Return 0; }
+        depth = depth + 1;
+        Return 1;
+    }
+
+    Private Function Pop() -> Int {
+        If (depth <= 0) { Return 0; }
+        depth = depth - 1;
+        If (depth == 0) { Return slot0; }
+        If (depth == 1) { Return slot1; }
+        If (depth == 2) { Return slot2; }
+        Return slot3;
+    }
+
+    Private Function ReadToken(String text, Int start) -> String {
+        Int cursor = start;
+        While (cursor < text.Length() && text.Substring(cursor, 1) == ",") {
+            cursor = cursor + 1;
+        }
+        Int end = cursor;
+        While (end < text.Length() && text.Substring(end, 1) != ",") {
+            end = end + 1;
+        }
+        If (end <= cursor) { Return ""; }
+        Return text.Substring(cursor, end - cursor);
+    }
+
+    Private Function TokenEnd(String text, Int start) -> Int {
+        Int cursor = start;
+        While (cursor < text.Length() && text.Substring(cursor, 1) == ",") {
+            cursor = cursor + 1;
+        }
+        Int end = cursor;
+        While (end < text.Length() && text.Substring(end, 1) != ",") {
+            end = end + 1;
+        }
+        If (end < text.Length() && text.Substring(end, 1) == ",") { Return end + 1; }
+        Return end;
+    }
+
+    Private Function ParseInt(String text) -> Int {
+        Int value = 0;
+        Int index = 0;
+        Int sign = 1;
+        If (text.Length() > 0 && text.Substring(0, 1) == "-") {
+            sign = 0 - 1;
+            index = 1;
+        }
+        While (index < text.Length()) {
+            Int digit = text.GetChar(index).ToInt();
+            value = value * 10 + digit;
+            index = index + 1;
+        }
+        Return value * sign;
+    }
+
+    Private Function RunProgram(String program, Int moduleRun) -> RunOutcome {
+        This.ResetStack();
+        frameName = "main";
+        If (moduleRun == 1) { frameName = "module"; }
+        frameDepth = 1;
+        Int cursor = 0;
+        Int halted = 0;
+        Int failed = 0;
+        While (cursor < program.Length() && halted == 0 && failed == 0) {
+            String token = This.ReadToken(program, cursor);
+            cursor = This.TokenEnd(program, cursor);
+            If (token == "") {
+                halted = 1;
+            } Else {
+                If (token == "push") {
+                    String number = This.ReadToken(program, cursor);
+                    cursor = This.TokenEnd(program, cursor);
+                    If (This.Push(This.ParseInt(number)) == 0) { failed = 1; }
+                    instructions = instructions + 1;
+                } Else {
+                    If (token == "add" || token == "sub" || token == "mul") {
+                        Int right = This.Pop();
+                        Int left = This.Pop();
+                        Int next = left + right;
+                        If (token == "sub") { next = left - right; }
+                        If (token == "mul") { next = left * right; }
+                        If (This.Push(next) == 0) { failed = 1; }
+                        instructions = instructions + 1;
+                    } Else {
+                        If (token == "halt") {
+                            halted = 1;
+                            instructions = instructions + 1;
+                        } Else {
+                            failed = 1;
+                        }
+                    }
+                }
+            }
+        }
+        executions = executions + 1;
+        frameDepth = 0;
+        If (failed == 1) { Return RunOutcome(0, 0, "invalid"); }
+        Int value = 0;
+        If (depth > 0) { value = This.Pop(); }
+        Return RunOutcome(1, value, "ok");
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Start a runtime, run programs, and load a module.";
+    Input: args = "Command-line arguments";
+    Processing: "Initialize, start, execute, reload a module, shut down, and dispose.";
+    Output: "The runtime report.";
+} {
+    RuntimeHost runtime = RuntimeHost();
+    Print(runtime.GetState());
+    Print(runtime.Initialize("robot", "execute,modules,metrics").Message);
+    Print(runtime.GetVersion());
+    Print(runtime.GetPlatform());
+    Print(runtime.GetArchitecture());
+    Print(runtime.GetInfo());
+    Print(runtime.GetConfiguration());
+    Print(runtime.IsFeatureSupported("execute"));
+    Print(runtime.IsFeatureSupported("graphics"));
+    Print(runtime.Start().Message);
+    Print(runtime.IsRunning());
+    Print(runtime.Execute("push,2,push,3,add,halt").Value);
+    Print(runtime.ExecuteAsync("push,10,push,4,sub,halt").Message);
+    Print(runtime.ExecuteAsync("push,10,push,4,sub,halt").Value);
+    Print(runtime.LoadModule("adder", "push,6,push,7,add,halt").Message);
+    Print(runtime.LoadModule("scale", "push,3,push,5,mul,halt").Message);
+    Print(runtime.LoadedCount());
+    Print(runtime.FindModule("scale"));
+    Print(runtime.FindModule("missing"));
+    Print(runtime.ExecuteModule("adder").Value);
+    Print(runtime.ReloadModule("adder", "push,8,push,1,add,halt").Message);
+    Print(runtime.ExecuteModule("adder").Value);
+    Print(runtime.FrameName());
+    Print(runtime.UnloadModule("scale").Message);
+    Print(runtime.LoadedCount());
+    Print(runtime.Restart().Message);
+    Print(runtime.GetMetrics());
+    Print(runtime.Stop().Message);
+    Print(runtime.Execute("push,1,halt").Message);
+    Print(runtime.Shutdown().Message);
+    Print(runtime.Dispose().Message);
+    Print(runtime.Start().Message);
+    Return 0;
+}
