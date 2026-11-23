@@ -67,7 +67,15 @@ mkdir -p "$stage/Bin" "$stage/Packages/Builtin" "$stage/Packages/Installed" \
 
 windows_root=$(find "$cache/llvm-mingw-windows" -mindepth 1 -maxdepth 1 -type d | head -n 1)
 cp -a "$windows_root"/. "$stage/Shared/Tools/Llvm/"
+link_driver=$(find "$stage/Shared/Tools/Llvm/bin" -maxdepth 1 -type f \( -name 'clang++.exe' -o -name 'clang++' \) | head -n 1)
+if [[ -z "$link_driver" ]]; then
+    echo "error: clang++ was not found in the Windows LLVM archive" >&2
+    exit 1
+fi
+saved_link="$cache/robix-clang++.exe"
+cp -a "$link_driver" "$saved_link"
 find "$stage/Shared/Tools/Llvm/bin" -maxdepth 1 \( -name 'clang' -o -name 'clang.exe' -o -name 'clang++' -o -name 'clang++.exe' -o -name '*-clang' -o -name '*-clang.exe' -o -name '*-clang++' -o -name '*-clang++.exe' -o -name '*-g++' -o -name '*-g++.exe' -o -name '*-gcc' -o -name '*-gcc.exe' \) -delete
+cp -a "$saved_link" "$stage/Shared/Tools/Llvm/bin/robix-clang++.exe"
 
 if [[ ! -x "$stage/Shared/Tools/Llvm/bin/llc.exe" && ! -f "$stage/Shared/Tools/Llvm/bin/llc.exe" ]]; then
     llvm_win="$cache/llvm-windows.tar.xz"
@@ -84,14 +92,20 @@ if [[ ! -x "$stage/Shared/Tools/Llvm/bin/llc.exe" && ! -f "$stage/Shared/Tools/L
     cp -a "$(dirname "$llc_exe")"/*.dll "$stage/Shared/Tools/Llvm/bin/" 2>/dev/null || true
 fi
 
-# Tool scripts in Shared/Tools
-install -m 644 "$root/.github/packaging/clang++.ps1" "$stage/Shared/Tools/clang++.ps1"
-install -m 644 "$root/.github/packaging/clang++.cmd" "$stage/Shared/Tools/clang++.cmd"
-install -m 644 "$root/.github/packaging/Robixc.ps1" "$stage/Shared/Tools/Robixc.ps1"
-
-# Compile Robix.exe and Robixc.exe directly into Bin/
-"$cross" -std=c++17 -O2 -o "$stage/Bin/Robix.exe" "$root/.github/packaging/Robix.cpp"
-"$cross" -std=c++17 -O2 -o "$stage/Bin/Robixc.exe" "$root/.github/packaging/Robixc.cpp"
+# The interpreter and the compiler engine are cross-compiled on Linux.
+# Static libc++ keeps them from requiring llvm-mingw DLLs at startup.
+windows_tools="$root/dist/windows-tools"
+if [[ ! -f "$windows_tools/Robix.exe" && -f "$windows_tools/windows-tools/Robix.exe" ]]; then
+    windows_tools="$windows_tools/windows-tools"
+fi
+if [[ ! -f "$windows_tools/Robix.exe" || ! -f "$windows_tools/Compiler.exe" ]]; then
+    echo "error: dist/windows-tools/Robix.exe and Compiler.exe are missing. Run .github/scripts/cross-compile-windows.sh on Linux first." >&2
+    exit 1
+fi
+cp -a "$windows_tools/Robix.exe" "$stage/Bin/Robix.exe"
+cp -a "$windows_tools/Compiler.exe" "$stage/Shared/Tools/Compiler.exe"
+"$cross" -std=c++17 -O2 -static -o "$stage/Bin/Robixc.exe" "$root/.github/packaging/Robixc.cpp"
+"$cross" -std=c++17 -O2 -static -o "$stage/Shared/Tools/clang++.exe" "$root/.github/packaging/clang++.cpp"
 
 # Ensure NO .ps1 or .cmd files in Bin/
 rm -f "$stage/Bin/"*.ps1 "$stage/Bin/"*.cmd
@@ -128,6 +142,69 @@ place_bin "$root/Build/Compiler/Interpreter.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
 place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
 
+is_pe() {
+    local sig
+    sig=$(od -An -t x1 -N 2 "$1" | tr -d ' \n')
+    [[ "$sig" == "4d5a" ]]
+}
+
+for required in "$stage/Bin/Robix.exe" "$stage/Bin/Robixc.exe" "$stage/Shared/Tools/Compiler.exe" "$stage/Shared/Tools/clang++.exe" "$stage/Shared/Tools/Llvm/bin/robix-clang++.exe" "$stage/Shared/Tools/Llvm/bin/llc.exe"; do
+    if [[ ! -f "$required" ]] || ! is_pe "$required"; then
+        echo "error: $required is not a Windows executable" >&2
+        exit 1
+    fi
+done
+
+if is_windows; then
+    smoke="$root/dist/windows-smoke"
+    rm -rf "$smoke"
+    mkdir -p "$smoke"
+    cp "$root/Examples/HelloRobot.rx" "$root/Examples/HelloRobot.test.rx" "$smoke/"
+    cat > "$smoke/Extra.rx" <<'EOF'
+Package Robotics.Extra;
+
+Public Function Extra() -> Int
+Explain {
+    Description: "Return one.";
+    Processing: "Return the value.";
+    Output: "The value one.";
+} {
+    Return 1;
+}
+EOF
+    cat > "$smoke/Extra.test.rx" <<'EOF'
+Test Extra {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+EOF
+    set +e
+    run_output=$("$stage/Bin/Robix.exe" run "$smoke/HelloRobot.rx" 2>&1)
+    run_status=$?
+    set -e
+    printf '%s\n' "$run_output"
+    if [[ "$run_status" -ne 0 || "$run_output" != *"Hello, Robix"* ]]; then
+        echo "error: Robix.exe could not run HelloRobot.rx (exit ${run_status})" >&2
+        exit 1
+    fi
+    "$stage/Bin/Robixc.exe" "$smoke" "$smoke/Hello.exe"
+    if [[ ! -f "$smoke/Hello.exe" ]]; then
+        echo "error: Robixc.exe did not write Hello.exe" >&2
+        exit 1
+    fi
+    set +e
+    compiled_output=$("$smoke/Hello.exe" 2>&1)
+    compiled_status=$?
+    set -e
+    printf '%s\n' "$compiled_output"
+    if [[ "$compiled_status" -ne 0 || "$compiled_output" != *"Hello, Robix"* ]]; then
+        echo "error: the program Robixc.exe compiled did not run (exit ${compiled_status})" >&2
+        exit 1
+    fi
+    rm -rf "$smoke"
+fi
+
 bash "$root/.github/scripts/install-docs.sh" "$stage"
 cp -f "$root/README.md" "$stage/README.md"
 cp -f "$root/LICENSE" "$stage/LICENSE"
@@ -145,7 +222,7 @@ rm -f "$archive"
 
 file_list=$(unzip -l "$archive" | tr '\\' '/')
 
-for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-LICENSE' 'Robix/Bin/Robix.exe' 'Robix/Bin/Robixc.exe'; do
+for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-LICENSE' 'Robix/Bin/Robix.exe' 'Robix/Bin/Robixc.exe' 'Robix/Shared/Tools/Compiler.exe' 'Robix/Shared/Tools/clang++.exe' 'Robix/Shared/Tools/Llvm/bin/robix-clang++.exe'; do
     if [[ "$file_list" != *"$required"* ]]; then
         echo "error: ${archive} is missing ${required}" >&2
         exit 1
