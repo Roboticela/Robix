@@ -1,5 +1,8 @@
 // The host selects the backend. This file names no platform.
-Package Sample;
+Package Sample
+Explain {
+    Description: "The host selects the backend. This file names no platform.";
+};
 
 Public Function Main() -> Int {
     Return 0;

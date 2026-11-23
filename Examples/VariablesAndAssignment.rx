@@ -1,5 +1,8 @@
 // Let, Var, multiple names, and assignment.
-Package Robotics.Variables;
+Package Robotics.Variables
+Explain {
+    Description: "Let, Var, multiple names, and assignment.";
+};
 
 Import Robix.Core;
 

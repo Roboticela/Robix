@@ -1,5 +1,8 @@
 // Live tree edits.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Live tree edits.";
+};
 
 Import Robix.Core;
 

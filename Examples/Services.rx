@@ -1,5 +1,8 @@
 // Robix.Services: shared contracts, errors, configuration, versions, resources, and logs.
-Package Robotics.Services;
+Package Robotics.Services
+Explain {
+    Description: "Robix.Services: shared contracts, errors, configuration, versions, resources, and logs.";
+};
 
 Import Robix.Core;
 

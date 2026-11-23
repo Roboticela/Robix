@@ -1,5 +1,8 @@
 // Catch a thrown error, clean up, write through a pointer, and jump to a label.
-Package Robotics.Safety;
+Package Robotics.Safety
+Explain {
+    Description: "Catch a thrown error, clean up, write through a pointer, and jump to a label.";
+};
 
 Import Robix.Core;
 

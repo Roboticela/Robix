@@ -1,5 +1,8 @@
 // Linux application queue. The gtk trace is a debug log.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Linux application queue. The gtk trace is a debug log.";
+};
 
 Import Robix.Core;
 

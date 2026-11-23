@@ -1,5 +1,8 @@
 // SetTimeout schedules one callback. Cancel stops it before it runs.
-Package Robotics.TimeoutCallback;
+Package Robotics.TimeoutCallback
+Explain {
+    Description: "SetTimeout schedules one callback. Cancel stops it before it runs.";
+};
 
 Import Robix.Core;
 

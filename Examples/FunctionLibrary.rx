@@ -1,5 +1,8 @@
 // Robix.Functions: invocation, composition, binding, memoization, and expression trees.
-Package Robotics.FunctionLibrary;
+Package Robotics.FunctionLibrary
+Explain {
+    Description: "Robix.Functions: invocation, composition, binding, memoization, and expression trees.";
+};
 
 Import Robix.Core;
 

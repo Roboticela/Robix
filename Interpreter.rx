@@ -1,5 +1,8 @@
 // Tree-walk interpreter for Robix's executable syntax.
-Package Robix.Runtime;
+Package Robix.Runtime
+Explain {
+    Description: "Tree-walk interpreter for Robix's executable syntax.";
+};
 
 Import Robix.Core;
 Import Robix.Syntax;
@@ -1664,6 +1667,9 @@ Public Class Interpreter {
         }
         If (name == "StripNumericSuffix" && arguments.Count() > 0) {
             Return This.MakeText(StripNumericSuffix(arguments[0].Text));
+        }
+        If (name == "ClockMillis") {
+            Return This.MakeInt(ClockMillis());
         }
         If (name == "Input") {
             String line = "";
@@ -3922,6 +3928,7 @@ Private Extern Function F64Format(Int bits, String format) -> String;
 Private Extern Function U64Parse(String text) -> Int;
 Private Extern Function F16Parse(String text) -> Int;
 Private Extern Function ReadLine() -> String;
+Private Extern Function ClockMillis() -> Int;
 Private Extern Function BitAnd(Int left, Int right) -> Int;
 Private Extern Function BitOr(Int left, Int right) -> Int;
 Private Extern Function BitXor(Int left, Int right) -> Int;

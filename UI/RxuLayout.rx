@@ -1,5 +1,8 @@
 // Measure, arrange, and the display list.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Measure, arrange, and the display list.";
+};
 
 Import Robix.Core;
 

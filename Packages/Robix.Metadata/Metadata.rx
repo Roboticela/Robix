@@ -1,5 +1,8 @@
 // Robix.Metadata: attribute definitions, annotations, and validated entries.
-Package Robix.Metadata;
+Package Robix.Metadata
+Explain {
+    Description: "Attribute definitions, annotations, and validated entries.";
+};
 
 Import Robix.Core;
 

@@ -1,5 +1,8 @@
 // SetIntervalAsync schedules an async callback. Clear stops it before the first tick.
-Package Robotics.AsyncInterval;
+Package Robotics.AsyncInterval
+Explain {
+    Description: "SetIntervalAsync schedules an async callback. Clear stops it before the first tick.";
+};
 
 Import Robix.Core;
 

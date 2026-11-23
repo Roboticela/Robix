@@ -326,6 +326,20 @@ check("unimported functions stay below local names and bring their package", () 
     assert.ok(explained.contents.includes("Greet the operator"));
 });
 
+check("a package requires a description and the editor shows it", () => {
+    const missing = analyze("Package Demo;\n");
+    assert.ok(missing.diagnostics.some((item) => item.code === "RX173"), missing.diagnostics.map((item) => item.message).join("\n"));
+    const source = "Package Robix.Console\nExplain {\n    Description: \"Terminal text and color.\";\n};\nImport Robix.Math;\n";
+    const doc = analyze(source);
+    assert.ok(!doc.diagnostics.some((item) => item.code === "RX173"));
+    const own = hover(source, source.indexOf("Robix.Console"));
+    assert.ok(own.contents.includes("Terminal text and color."));
+    const imported = hover(source, source.indexOf("Robix.Math"));
+    assert.ok(imported.contents.includes("Absolute value") || imported.contents.includes("logarithms"), imported.contents);
+    const suggested = complete("import robix.console", "import robix.console".length).items.find((item) => item.label === "Robix.Console");
+    assert.ok(suggested && suggested.documentation.includes("Terminal text"));
+});
+
 check("user names are not recased", () => {
     const source = "Package Demo;\n\nPublic Function Main() -> Int {\n    Var myValue = 1;\n    Return myValue;\n}\n";
     const formatted = formatRobix(source);

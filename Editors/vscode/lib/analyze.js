@@ -7,6 +7,7 @@ const {
     BUILTIN_TYPES,
     NAMESPACES,
     PACKAGES,
+    LIBRARY_PACKAGES,
     modifierMask
 } = require("./keywords");
 
@@ -476,6 +477,15 @@ function parsePackage(state) {
         state.packageName = name;
         symbol.detail = `Package ${name}`;
     }
+    if (peek(state) && textOf(peek(state)) === "Explain") {
+        symbol.explain = parseExplain(state);
+    }
+    const description = descriptionOf(symbol.explain);
+    if (description) {
+        symbol.summary = description;
+    } else {
+        diagnostic(state, "error", "RX173", `Package '${name || ""}' requires a Description.`, keyword);
+    }
     if (peek(state) && peek(state).text === "{") {
         parseRelaxedBlock(state);
     } else if (peek(state) && peek(state).text === ";") {
@@ -512,6 +522,7 @@ function parseImport(state) {
     }
     const symbol = addSymbol(state, symbolAt(keyword, alias, "namespace", dotted, true, true));
     symbol.detail = alias === dotted ? `Import ${dotted}` : `Import ${dotted} As ${alias}`;
+    symbol.summary = libraryDescription(dotted);
     symbol.token = keyword;
 }
 
@@ -542,6 +553,20 @@ function readDotted(state, role, declared) {
         rememberImport(state, name);
     }
     return name;
+}
+
+function descriptionOf(explain) {
+    const raw = String(explain && explain.description || "").trim();
+    if (raw.startsWith("\"") && raw.endsWith("\"") && raw.length >= 2) {
+        return raw.slice(1, -1).trim();
+    }
+    return "";
+}
+
+function libraryDescription(name) {
+    const lower = String(name || "").toLowerCase();
+    const key = Object.keys(LIBRARY_PACKAGES).find((item) => item.toLowerCase() === lower);
+    return key ? LIBRARY_PACKAGES[key] : "";
 }
 
 function isKnownPackage(state, name) {

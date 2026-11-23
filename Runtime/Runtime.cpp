@@ -4,6 +4,10 @@
 #include <cstring>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
+#if defined(_WIN32)
+#include <io.h>
+#endif
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -167,6 +171,12 @@ public:
     static std::int64_t List(std::int64_t path) asm("Files_List");
     static std::int64_t Name(std::int64_t path) asm("Files_Name");
     static std::int64_t Join(std::int64_t directory, std::int64_t name) asm("Files_Join");
+};
+
+class Clock {
+public:
+    static std::int64_t Millis() asm("rx_ClockMillis");
+    static std::int64_t SinceStart();
 };
 
 class Process {
@@ -1371,9 +1381,216 @@ int64_t Float16::Parse(int64_t text) {
     return Float64::Box((double)Float16::ToFloat32(Float32::ToFloat16(value)));
 }
 
+static int64_t g_clock_start = 0;
+static int g_clock_ready = 0;
+
+int64_t Clock::Millis() {
+    auto now = std::chrono::steady_clock::now().time_since_epoch();
+    return (int64_t)std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+}
+
+int64_t Clock::SinceStart() {
+    if (!g_clock_ready) {
+        g_clock_start = Clock::Millis();
+        g_clock_ready = 1;
+    }
+    int64_t now = Clock::Millis();
+    if (now < g_clock_start) {
+        return 0;
+    }
+    return now - g_clock_start;
+}
+
+struct ClockArm {
+    ClockArm() { (void)Clock::SinceStart(); }
+};
+
+static ClockArm g_clock_arm;
+
+static bool ColorWanted() {
+    const char *mode = std::getenv("ROBIX_COLOR");
+    if (mode != NULL) {
+        if (std::strcmp(mode, "always") == 0 || std::strcmp(mode, "on") == 0) {
+            return true;
+        }
+        if (std::strcmp(mode, "never") == 0 || std::strcmp(mode, "off") == 0) {
+            return false;
+        }
+    }
+    if (std::getenv("NO_COLOR") != NULL) {
+        return false;
+    }
+#if defined(_WIN32)
+    return _isatty(_fileno(stdout)) != 0;
+#else
+    return isatty(fileno(stdout)) != 0;
+#endif
+}
+
+static int HexNibble(char mark) {
+    if (mark >= '0' && mark <= '9') {
+        return mark - '0';
+    }
+    if (mark >= 'a' && mark <= 'f') {
+        return mark - 'a' + 10;
+    }
+    if (mark >= 'A' && mark <= 'F') {
+        return mark - 'A' + 10;
+    }
+    return -1;
+}
+
+static bool NamedColor(const char *name, int length, int *red, int *green, int *blue, int *bold) {
+    *bold = 0;
+    *red = 0;
+    *green = 0;
+    *blue = 0;
+    auto same = [&](const char *word) {
+        return (int)std::strlen(word) == length && std::strncmp(name, word, (size_t)length) == 0;
+    };
+    if (same("bold")) { *bold = 1; *red = -1; return true; }
+    if (same("red") || same("error")) { *red = 255; *green = 90; *blue = 90; return true; }
+    if (same("green") || same("success")) { *red = 80; *green = 220; *blue = 120; return true; }
+    if (same("yellow") || same("warning")) { *red = 255; *green = 196; *blue = 64; return true; }
+    if (same("blue") || same("info")) { *red = 80; *green = 180; *blue = 255; return true; }
+    if (same("cyan")) { *red = 80; *green = 220; *blue = 220; return true; }
+    if (same("magenta")) { *red = 230; *green = 120; *blue = 220; return true; }
+    if (same("white")) { *red = 240; *green = 240; *blue = 245; return true; }
+    if (same("gray") || same("grey") || same("muted")) { *red = 140; *green = 150; *blue = 165; return true; }
+    if (same("accent") || same("primary")) { *red = 180; *green = 140; *blue = 255; return true; }
+    if (same("secondary")) { *red = 128; *green = 128; *blue = 128; return true; }
+    return false;
+}
+
+static void WritePainted(const char *text) {
+    bool color = ColorWanted();
+    const char *cursor = text;
+    while (*cursor != 0) {
+        if (*cursor != '{') {
+            fputc(*cursor, stdout);
+            cursor++;
+            continue;
+        }
+        const char *end = std::strchr(cursor + 1, '}');
+        if (end == NULL) {
+            fputs(cursor, stdout);
+            return;
+        }
+        const char *tag = cursor + 1;
+        int length = (int)(end - tag);
+        int red = 0;
+        int green = 0;
+        int blue = 0;
+        int bold = 0;
+        bool known = false;
+        bool reset = false;
+        if (length == 0 || (length == 1 && tag[0] == '/') || (length == 5 && std::strncmp(tag, "reset", 5) == 0)) {
+            known = true;
+            reset = true;
+        } else if (length == 7 && tag[0] == '#') {
+            int high[6];
+            int index = 0;
+            known = true;
+            while (index < 6) {
+                high[index] = HexNibble(tag[index + 1]);
+                if (high[index] < 0) {
+                    known = false;
+                }
+                index++;
+            }
+            if (known) {
+                red = high[0] * 16 + high[1];
+                green = high[2] * 16 + high[3];
+                blue = high[4] * 16 + high[5];
+            }
+        } else if (length > 4 && std::strncmp(tag, "rgb:", 4) == 0) {
+            int channels[3] = {0, 0, 0};
+            int slot = 0;
+            int value = 0;
+            int seen = 0;
+            int index = 4;
+            known = true;
+            while (index <= length) {
+                char mark = index == length ? ',' : tag[index];
+                if (mark >= '0' && mark <= '9') {
+                    value = value * 10 + (mark - '0');
+                    seen = 1;
+                } else if (mark == ',' && slot < 3 && seen) {
+                    if (value > 255) {
+                        value = 255;
+                    }
+                    channels[slot] = value;
+                    slot++;
+                    value = 0;
+                    seen = 0;
+                } else {
+                    known = false;
+                }
+                index++;
+            }
+            if (known && slot == 3) {
+                red = channels[0];
+                green = channels[1];
+                blue = channels[2];
+            } else {
+                known = false;
+            }
+        } else if (NamedColor(tag, length, &red, &green, &blue, &bold)) {
+            known = true;
+        }
+        if (!known) {
+            fwrite(cursor, 1, (size_t)(end - cursor + 1), stdout);
+        } else if (color && reset) {
+            fputs("\033[0m", stdout);
+        } else if (color && bold && red < 0) {
+            fputs("\033[1m", stdout);
+        } else if (color) {
+            std::fprintf(stdout, "\033[%s38;2;%d;%d;%dm", bold ? "1;" : "", red, green, blue);
+        }
+        cursor = end + 1;
+    }
+}
+
+static void WriteStatus(const char *text) {
+    if (std::strchr(text, '{') != NULL) {
+        WritePainted(text);
+        return;
+    }
+    const char *word = NULL;
+    const char *role = NULL;
+    if (std::strncmp(text, "error ", 6) == 0) { word = "error"; role = "error"; }
+    else if (std::strncmp(text, "warning ", 8) == 0) { word = "warning"; role = "warning"; }
+    else if (std::strncmp(text, "note ", 5) == 0) { word = "note"; role = "info"; }
+    else if (std::strncmp(text, "info ", 5) == 0) { word = "info"; role = "info"; }
+    else if (std::strncmp(text, "PASS ", 5) == 0) { word = "PASS"; role = "success"; }
+    else if (std::strncmp(text, "FAIL ", 5) == 0) { word = "FAIL"; role = "error"; }
+    if (role == NULL) {
+        WritePainted(text);
+        return;
+    }
+    const char *rest = text + std::strlen(word) + 1;
+    int codeLength = 0;
+    while (rest[codeLength] != 0 && rest[codeLength] != ' ') {
+        codeLength++;
+    }
+    bool hasCode = codeLength > 1 && rest[codeLength] == ' ' && std::isupper((unsigned char)rest[0]);
+    char buffer[2048];
+    int wrote = 0;
+    if (hasCode) {
+        wrote = std::snprintf(buffer, sizeof(buffer), "{%s}%s{/} {accent}%.*s{/} %s", role, word, codeLength, rest, rest + codeLength + 1);
+    } else {
+        wrote = std::snprintf(buffer, sizeof(buffer), "{%s}%s{/} %s", role, word, rest);
+    }
+    if (wrote < 0 || wrote >= (int)sizeof(buffer)) {
+        WritePainted(text);
+        return;
+    }
+    WritePainted(buffer);
+}
+
 void Process::Print(int64_t value, int64_t kind) {
     if (kind == 1) {
-        fputs(Text::Characters(value), stdout);
+        WriteStatus(Text::Characters(value));
     } else if (kind == 2) {
         fputs(value ? "True" : "False", stdout);
     } else if (kind == 3) {
@@ -1681,7 +1898,37 @@ int64_t Process::Arguments(int32_t argc, char **argv) {
 }
 
 void Process::Finish(int64_t result) {
-    (void)result;
+    if (result == 0) {
+        return;
+    }
+    int64_t *fields = (int64_t *)(uintptr_t)result;
+    int64_t code = fields[0];
+    const char *reason = "";
+    if (fields[1] != 0) {
+        reason = (const char *)(uintptr_t)fields[1];
+    }
+    const char *tone = "error";
+    const char *name = "failed";
+    if (code == 0) { tone = "success"; name = "success"; }
+    else if (code == 1) { tone = "warning"; name = "warning"; }
+    else if (code == 2) { name = "execution error"; }
+    else if (code == 3) { name = "fatal error"; }
+    else if (code == 4) { name = "invalid arguments"; }
+    else if (code == 5) { name = "permission denied"; }
+    else if (code == 6) { name = "resource unavailable"; }
+    else { name = "custom"; }
+    int64_t elapsed = Clock::SinceStart();
+    WritePainted("{muted}────────────────────────────────{/}");
+    fputc('\n', stdout);
+    char head[160];
+    std::snprintf(head, sizeof(head), "{%s}exit %lld{/}  {%s}%s{/}  ", tone, (long long)code, tone, name);
+    WritePainted(head);
+    fputs(reason, stdout);
+    char tail[64];
+    std::snprintf(tail, sizeof(tail), "  {accent}%lld ms{/}", (long long)elapsed);
+    WritePainted(tail);
+    fputc('\n', stdout);
+    fflush(stdout);
 }
 
 int64_t Text::Literal(const char *text) {
@@ -1882,6 +2129,16 @@ int64_t Float64::ToIntAlias(int64_t bits) { return Float64::ToInt(bits); }
 int64_t Process::ReadLine(void) { return Process::Input(); }
 
 int64_t Process::Input(void) {
+    int interactive = 0;
+#if defined(_WIN32)
+    interactive = _isatty(_fileno(stdin));
+#else
+    interactive = isatty(fileno(stdin));
+#endif
+    if (interactive) {
+        WritePainted("{info}> {/}");
+        fflush(stdout);
+    }
     size_t capacity = 64;
     size_t used = 0;
     int mark = 0;

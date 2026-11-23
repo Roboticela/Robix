@@ -32,7 +32,10 @@
 // The control catalog covers every C1–C6 member. A support matrix names the source, the test, and the inventory.
 // A frame adopts the layout display list, damages changed slots, and hit-tests in device pixels. Pixels are rasterized outside Robix.
 // Navigation keeps pages, breadcrumbs, chrome, modal dialogs, and window snapshots.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Assembled from the Robix.UI sources in this folder. Edit those files, then run Tools/stitch-rxu.py.";
+};
 
 Import Robix.Core;
 

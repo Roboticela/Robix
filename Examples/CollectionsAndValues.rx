@@ -1,5 +1,8 @@
 // Arrays, lists, maps, sets, tuples, records, and nullable values.
-Package Robotics.Collections;
+Package Robotics.Collections
+Explain {
+    Description: "Arrays, lists, maps, sets, tuples, records, and nullable values.";
+};
 
 Import Robix.Core;
 

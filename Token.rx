@@ -1,5 +1,8 @@
 // A single lexeme produced from Robix source.
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "A single lexeme produced from Robix source.";
+};
 
 Import Robix.Core;
 

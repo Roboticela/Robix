@@ -1,5 +1,8 @@
 // Robix.Concurrency: parallel work, locked collections, atomics, and channels.
-Package Robix.Concurrency;
+Package Robix.Concurrency
+Explain {
+    Description: "Parallel work, locked collections, atomics, and channels.";
+};
 
 Import Robix.Core;
 

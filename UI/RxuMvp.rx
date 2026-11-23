@@ -1,5 +1,8 @@
 // MVP host.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "MVP host.";
+};
 
 Import Robix.Core;
 

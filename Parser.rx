@@ -1,5 +1,8 @@
 // Recursive-descent parser for Robix modules and declarations.
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "Recursive-descent parser for Robix modules and declarations.";
+};
 
 Import Robix.Core;
 
@@ -246,6 +249,9 @@ Public Partial Class Parser {
         Token start = This.Advance();
         AstNode node = This.Make(AstKind.Package, start);
         node.Name = This.ParseQualifiedName();
+        If (This.Check(TokenKind.Explain)) {
+            node.Extra = This.ParseExplain();
+        }
         This.CopyModifiers(node, modifiers);
         If (This.Match(TokenKind.OpenBrace)) {
             While (!This.IsAtEnd() && !This.Check(TokenKind.CloseBrace)) {

@@ -1,5 +1,8 @@
 // Robix.Console.Application: whether a finished console window should wait.
-Package Robix.Console.Application;
+Package Robix.Console.Application
+Explain {
+    Description: "Whether a finished console window should wait.";
+};
 
 Import Robix.Core;
 

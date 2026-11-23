@@ -1,5 +1,8 @@
 // Match unwraps an Any value by its runtime type.
-Package Robotics.Match;
+Package Robotics.Match
+Explain {
+    Description: "Match unwraps an Any value by its runtime type.";
+};
 
 Import Robix.Core;
 

@@ -1,5 +1,8 @@
 // Robix.Interfaces: the standard disposable, comparable, enumerable, and factory contracts.
-Package Robotics.Interfaces;
+Package Robotics.Interfaces
+Explain {
+    Description: "Robix.Interfaces: the standard disposable, comparable, enumerable, and factory contracts.";
+};
 
 Import Robix.Core;
 

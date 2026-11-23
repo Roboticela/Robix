@@ -1,5 +1,8 @@
 // Component libraries.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Component libraries.";
+};
 
 Import Robix.Core;
 

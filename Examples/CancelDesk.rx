@@ -1,5 +1,8 @@
 // Robix.Cancellation: tokens, linked sources, timeouts, groups, and scopes.
-Package Robotics.CancelDesk;
+Package Robotics.CancelDesk
+Explain {
+    Description: "Robix.Cancellation: tokens, linked sources, timeouts, groups, and scopes.";
+};
 
 Import Robix.Core;
 

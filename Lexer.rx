@@ -1,5 +1,8 @@
 // Lexer for the complete Robix syntax.
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "Lexer for the complete Robix syntax.";
+};
 
 Import Robix.Core;
 

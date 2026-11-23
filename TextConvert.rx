@@ -1,5 +1,8 @@
 // Numeric conversions used by the lexer helpers and the interpreter.
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "Numeric conversions used by the lexer helpers and the interpreter.";
+};
 
 Import Robix.Core;
 

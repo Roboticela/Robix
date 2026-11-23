@@ -1,5 +1,8 @@
 // Robix.Console.Input: a virtual line, prompt, and menu backend.
-Package Robix.Console.Input;
+Package Robix.Console.Input
+Explain {
+    Description: "A virtual line, prompt, and menu backend.";
+};
 
 Import Robix.Core;
 
@@ -114,6 +117,17 @@ Class InputDesk {
             index = index + 1;
         }
         Return built;
+    }
+
+    Public Function Prompt(String label) -> String
+    Explain {
+        Description: "Build a colored input prompt.";
+        Input: label = "Prompt label, or empty for a plain prompt";
+        Processing: "Paint the label in the info role.";
+        Output: "Markup the console and Print both understand.";
+    } {
+        If (label.Length() == 0) { Return "{info}> {/}"; }
+        Return "{info}" + label + "{/} {muted}> {/}";
     }
 
     Public Function AddItem(String label) -> Int

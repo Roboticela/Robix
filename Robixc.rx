@@ -1,9 +1,14 @@
 // robixc compiles a Strict Robix module into a binary package.
-Package Robix.Tools;
+Package Robix.Tools
+Explain {
+    Description: "Robixc compiles a Strict Robix module into a binary package.";
+};
 
 Import Robix.Core;
 Import Robix.Syntax;
 Import Robix.Runtime;
+
+Private Extern Function ClockMillis() -> Int;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
@@ -14,37 +19,62 @@ Explain {
     Output: "Success when the module is strict and type-safe.";
 } {
     If (args.Count() == 0) {
-        Print("Usage: robixc Source.rx Output.app");
-        Return ExecutionResult(ExitCode.InvalidArguments, "A source file is required.");
+        Print("{warning}Usage{/}  {accent}robixc{/} {bold}Source.rx{/} {muted}Output.app{/}");
+        Return FinishRun(ExitCode.InvalidArguments, "A source file is required.");
     }
     String sourcePath = args[0];
     String outputPath = "Build/Program.app";
     If (args.Count() > 1) {
         outputPath = args[1];
     }
+    Print("{accent}robixc{/} {bold}" + sourcePath + "{/}  {muted}->{/}  {bold}" + outputPath + "{/}");
     String source = Files.ReadText(sourcePath);
     SyntaxCompiler compiler = SyntaxCompiler();
+    Int compileStart = ClockMillis();
     CompileResult result = compiler.CompileSource(source, sourcePath, True);
+    Int compileTime = ClockMillis() - compileStart;
+    Int warnings = 0;
     For line In compiler.DiagnosticsOf(result) {
         Print(line);
+        If (line.StartsWith("warning")) { warnings = warnings + 1; }
     }
+    Print("{muted}compile{/}  {accent}" + compileTime.ToString() + " ms{/}  {muted}errors{/} {error}" + result.Errors.ToString() + "{/}  {muted}warnings{/} {warning}" + warnings.ToString() + "{/}");
     If (!result.Succeeded) {
-        Return ExecutionResult(ExitCode.ErrorExecution, "Compilation failed.");
+        Return FinishRun(ExitCode.ErrorExecution, "Compilation failed.");
     }
     Interpreter tests = Interpreter();
     For line In tests.RequireTests(sourcePath, result.Module) {
         Print(line);
-        Return ExecutionResult(ExitCode.ErrorExecution, "Compilation failed.");
+        Return FinishRun(ExitCode.ErrorExecution, "Compilation failed.");
     }
     String llPath = outputPath + ".ll";
     Files.WriteText(llPath, result.NativeIr);
     String runtime = "Runtime/Runtime.cpp";
     String command = "clang++ -std=c++17 -O3 -flto -fPIE -o \"" + outputPath + "\" \"" + llPath + "\" \"" + runtime + "\"";
+    Int linkStart = ClockMillis();
     Int code = RunProcess(command);
+    Int linkTime = ClockMillis() - linkStart;
+    Print("{muted}link{/}  {accent}" + linkTime.ToString() + " ms{/}");
     If (code != 0) {
-        Return ExecutionResult(ExitCode.ErrorExecution, "Clang failed.");
+        Return FinishRun(ExitCode.ErrorExecution, "Clang failed.");
     }
-    Return ExecutionResult(ExitCode.Success, "Wrote " + outputPath + ".");
+    Print("{success}wrote{/}  {bold}" + outputPath + "{/}");
+    Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
+}
+
+Private Function FinishRun(Int code, String reason) -> ExecutionResult {
+    String tone = "success";
+    String name = "success";
+    If (code == 1) { tone = "warning"; name = "warning"; }
+    If (code == 2) { tone = "error"; name = "execution error"; }
+    If (code == 3) { tone = "error"; name = "fatal error"; }
+    If (code == 4) { tone = "error"; name = "invalid arguments"; }
+    If (code == 5) { tone = "error"; name = "permission denied"; }
+    If (code == 6) { tone = "error"; name = "resource unavailable"; }
+    If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
+    Print("{muted}────────────────────────────────{/}");
+    Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason);
+    Return ExecutionResult(code, reason);
 }
 
 Private Extern Function RunProcess(String command) -> Int;

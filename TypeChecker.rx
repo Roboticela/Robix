@@ -1,5 +1,8 @@
 // Strict type checks required before Robix can compile a module.
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "Strict type checks required before Robix can compile a module.";
+};
 
 Import Robix.Core;
 
@@ -200,6 +203,7 @@ Public Class TypeChecker {
     Private Function CheckNode(AstNode node) -> Void {
         If (node.Kind == AstKind.Package && node.Name != "") {
             This.currentPackage = node.Name;
+            This.RequirePackageDescription(node);
         }
         If (node.Kind == AstKind.Label) {
             This.labelNames.Add(node.Name);
@@ -487,6 +491,20 @@ Public Class TypeChecker {
         }
         If (node.Kind != AstKind.Field && node.Initializer == Null && !node.FlagA) {
             This.diagnostics.TypeError("RX103", "An immutable value must be initialized.", node.Line, node.Column, declared, "uninitialized", "Initialize the Let binding.");
+        }
+    }
+
+    Private Function RequirePackageDescription(AstNode node) -> Void {
+        String description = "";
+        If (node.Extra != Null && node.Extra.Kind == AstKind.Explain) {
+            For entry In node.Extra.Children {
+                If (entry.Name == "Description") {
+                    description = entry.Text;
+                }
+            }
+        }
+        If (description.Length() == 0) {
+            This.diagnostics.TypeError("RX173", "Package '" + node.Name + "' requires a Description.", node.Line, node.Column, "Explain { Description: \"...\"; }", "missing", "Describe what this package does.");
         }
     }
 

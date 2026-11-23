@@ -1,5 +1,8 @@
 // Strict type rules: declared types, null checks, and exhaustive returns.
-Package Robotics.StrictMode;
+Package Robotics.StrictMode
+Explain {
+    Description: "Strict type rules: declared types, null checks, and exhaustive returns.";
+};
 
 Import Robix.Core;
 

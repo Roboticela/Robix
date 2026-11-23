@@ -1,5 +1,8 @@
 // WatchSensor yields one reading. Await For prints each item immediately.
-Package Robotics.AsyncStream;
+Package Robotics.AsyncStream
+Explain {
+    Description: "WatchSensor yields one reading. Await For prints each item immediately.";
+};
 
 Import Robix.Core;
 

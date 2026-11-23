@@ -1,5 +1,8 @@
 // Robix.Memory: blocks, copies, pools, and explicit release. There is no garbage collector.
-Package Robotics.Memory;
+Package Robotics.Memory
+Explain {
+    Description: "Robix.Memory: blocks, copies, pools, and explicit release. There is no garbage collector.";
+};
 
 Import Robix.Core;
 

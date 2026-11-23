@@ -1,5 +1,8 @@
 // Comments, numeric bases, suffixes, strings, and constants.
-Package Robotics.Literals;
+Package Robotics.Literals
+Explain {
+    Description: "Comments, numeric bases, suffixes, strings, and constants.";
+};
 
 Import Robix.Core;
 

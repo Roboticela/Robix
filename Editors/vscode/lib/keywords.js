@@ -1,5 +1,7 @@
 "use strict";
 
+const { LIBRARY_PACKAGES } = require("./library-packages");
+
 // Canonical Robix keywords. The lexer accepts any case and warns; the
 // language itself is PascalCase. ASM is the one all-caps keyword.
 const KEYWORD_WORDS = [
@@ -56,7 +58,7 @@ const CONTINUING_KEYWORDS = new Set([
 const VALUE_KEYWORDS = new Set(["True", "False", "Null", "This", "Base"]);
 
 const KEYWORD_DOCS = {
-    Package: "Names the module. One file starts with `Package Name;` and may repeat the package to declare permissions.",
+    Package: "Names the module. Every package requires Explain { Description: \"...\"; } so a programmer can see what it does.",
     Import: "Brings another package into this file. Use `As` for an alias or `.*` for a wildcard.",
     As: "Renames an import: `Import Robix.Math As Math`.",
     Permissions: "Lists the packages a package block is allowed to use.",
@@ -69,7 +71,7 @@ const KEYWORD_DOCS = {
     Private: "Visible only inside the declaring type.",
     Protected: "Visible inside the declaring type and types that extend it.",
     Internal: "Visible inside the declaring package.",
-    Explain: "Documents a function with Description, Input, Processing, and Output.",
+    Explain: "Documents a package or a function. A package requires Description. A function adds Input, Processing, and Output.",
     Return: "Returns a value from the current function. The value must match the declared result type.",
     Async: "Marks a function that returns `Task<T>` or `Promise<T>`.",
     Await: "Waits for a task or promise and produces its result type. Valid inside `Async` functions.",
@@ -306,16 +308,21 @@ const NAMESPACES = {
     Promise: TYPE_METHODS.Promise
 };
 
-const PACKAGES = [
-    "Robix.Core", "Robix.Math", "Robix.String", "Robix.Paths", "Robix.Date", "Robix.Time",
-    "Robix.Net", "Robix.Json", "Robix.Log", "Robix.Process", "Robix.Environment", "Robix.Crypto",
-    "Robix.Testing", "Robix.Reflection", "Robix.Diagnostics", "Robix.Hardware", "Robix.Concurrency",
-    "Robix.Collection", "Robix.Files"
-];
+const PACKAGES = [...new Set([
+    ...Object.keys(LIBRARY_PACKAGES),
+    "Robix.String", "Robix.Paths", "Robix.Date", "Robix.Time", "Robix.Net", "Robix.Json",
+    "Robix.Log", "Robix.Process", "Robix.Environment", "Robix.Crypto", "Robix.Testing",
+    "Robix.Hardware", "Robix.Collection", "Robix.Files"
+])];
 
 const ATTRIBUTES = ["Deprecated", "JsonSerializable", "Author", "Version", "ThreadSafe"];
 
 const SNIPPETS = [
+    {
+        label: "Package",
+        detail: "Package with Description",
+        insert: "Package ${1:Name}\nExplain {\n    Description: \"${2:What this package does.}\";\n};\n\n${0}"
+    },
     {
         label: "Function",
         detail: "Function with Explain",
@@ -440,6 +447,7 @@ module.exports = {
     BUILTIN_TYPES,
     TYPE_METHODS,
     NAMESPACES,
+    LIBRARY_PACKAGES,
     PACKAGES,
     ATTRIBUTES,
     SNIPPETS,

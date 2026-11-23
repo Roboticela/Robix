@@ -1,5 +1,8 @@
 // Task.FromResult and Task.Run produce values that Await can read.
-Package Robotics.ComposeTasks;
+Package Robotics.ComposeTasks
+Explain {
+    Description: "Task.FromResult and Task.Run produce values that Await can read.";
+};
 
 Import Robix.Core;
 

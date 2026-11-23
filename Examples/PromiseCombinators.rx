@@ -1,5 +1,8 @@
 // Promise.All, Race, Any, and AllSettled read completed task values.
-Package Robotics.PromiseCombinators;
+Package Robotics.PromiseCombinators
+Explain {
+    Description: "Promise.All, Race, Any, and AllSettled read completed task values.";
+};
 
 Import Robix.Core;
 

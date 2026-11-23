@@ -1,5 +1,8 @@
 // Async functions, promises, await, and timers.
-Package Robotics.Async;
+Package Robotics.Async
+Explain {
+    Description: "Async functions, promises, await, and timers.";
+};
 
 Import Robix.Core;
 

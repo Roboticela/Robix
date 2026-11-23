@@ -1,5 +1,8 @@
 // Robix.Logging: levels, filtering, and formatted records.
-Package Robix.Logging;
+Package Robix.Logging
+Explain {
+    Description: "Levels, filtering, and formatted records.";
+};
 
 Import Robix.Core;
 

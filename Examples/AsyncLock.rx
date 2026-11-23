@@ -1,5 +1,8 @@
 // AcquireAsync grants the lease immediately. Using runs the protected update.
-Package Robotics.AsyncLock;
+Package Robotics.AsyncLock
+Explain {
+    Description: "AcquireAsync grants the lease immediately. Using runs the protected update.";
+};
 
 Import Robix.Core;
 

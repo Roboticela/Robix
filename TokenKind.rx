@@ -1,5 +1,8 @@
 // Token kinds for the complete Robix syntax (sections 0 through 20).
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "Token kinds for the complete Robix syntax (sections 0 through 20).";
+};
 
 Import Robix.Core;
 

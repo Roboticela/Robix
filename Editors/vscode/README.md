@@ -40,7 +40,16 @@ Explain {
 
 **Types you define.** `Class` and `Struct` group fields and methods. `Interface` and `Trait` describe behavior another type can implement. `Enum` names a closed set of cases. A method belongs to its type, and a constructor builds a value of that type.
 
-**Packages.** `Package` names the file. `Import` brings another package in, with `As` when you want a shorter name. The public surface of a package is the contract other code is allowed to call.
+**Packages.** `Package` names the file, and every package must say what it does:
+
+```robix
+Package Robix.Console
+Explain {
+    Description: "Terminal text, color, and rich markup.";
+};
+```
+
+`Import` brings another package in, with `As` when you want a shorter name. Hover a package name to read its description. The public surface of a package is the contract other code is allowed to call.
 
 **Operators.** Arithmetic, comparison, and assignment use the usual signs. You can also define an operator of your own, including a symbol such as `⊗`, and give it a precedence.
 

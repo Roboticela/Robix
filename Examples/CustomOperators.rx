@@ -1,5 +1,8 @@
 // Callable operators, a custom product operator, and struct operator overloads.
-Package Robotics.CustomOperators;
+Package Robotics.CustomOperators
+Explain {
+    Description: "Callable operators, a custom product operator, and struct operator overloads.";
+};
 
 Import Robix.Core;
 

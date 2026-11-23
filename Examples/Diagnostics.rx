@@ -1,5 +1,8 @@
 // Robix.Diagnostics: reports, stack frames, runtime facts, and listeners.
-Package Robotics.Diagnostics;
+Package Robotics.Diagnostics
+Explain {
+    Description: "Robix.Diagnostics: reports, stack frames, runtime facts, and listeners.";
+};
 
 Import Robix.Core;
 

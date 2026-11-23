@@ -1,5 +1,8 @@
 // Allocations the compiler can prove are freed, with no collector.
-Package Robotics.LeakFree;
+Package Robotics.LeakFree
+Explain {
+    Description: "Allocations the compiler can prove are freed, with no collector.";
+};
 
 Import Robix.Core;
 

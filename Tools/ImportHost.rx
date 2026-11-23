@@ -1,0 +1,376 @@
+Package Robix.Tools
+Explain {
+    Description: "Check that each used package is imported, then run or check the source.";
+};
+
+Import Robix.Core;
+
+
+Class ImportHost {
+    Private String errors;
+
+    Public Constructor() {
+        errors = "";
+    }
+
+    Public Function Run(Args<String> args) -> Int
+    Explain {
+        Description: "Check imports and then run or check the source.";
+        Input: args = "The robix command and source path";
+        Processing: "Reject a package type used without its import, splice the imported packages, and delegate to the compiler.";
+        Output: "The compiler exit code, or 1 when an import is missing.";
+    } {
+        If (args.Count() < 2 || !args[1].EndsWith(".rx")) {
+            Return This.Forward(args);
+        }
+        String path = args[1];
+        If (!Files.Exists(path)) {
+            Return This.Forward(args);
+        }
+        String source = Files.ReadText(path);
+        This.RequireUses(source);
+        If (errors != "") {
+            Print(errors);
+            Return 1;
+        }
+        String unit = This.Expand(source, path);
+        Directory.Create("Build/temp");
+        Files.WriteText("Build/temp/robix-unit.rx", unit);
+        String core = "Build/bootstrap/robix-run-core.app";
+        If (!Files.Exists(core)) {
+            core = "Build/bootstrap/robix-run.app";
+        }
+        String command = "\"" + core + "\" \"" + args[0] + "\" \"Build/temp/robix-unit.rx\"";
+        Int index = 2;
+        While (index < args.Count()) {
+            command = command + " \"" + args[index] + "\"";
+            index = index + 1;
+        }
+        Return RunProcess(command);
+    }
+
+    Private Function Forward(Args<String> args) -> Int {
+        String core = "Build/bootstrap/robix-run-core.app";
+        If (!Files.Exists(core)) {
+            core = "Build/bootstrap/robix-run.app";
+        }
+        String command = "\"" + core + "\"";
+        Int index = 0;
+        While (index < args.Count()) {
+            command = command + " \"" + args[index] + "\"";
+            index = index + 1;
+        }
+        Return RunProcess(command);
+    }
+
+    Private Function Expand(String source, String sourcePath) -> String {
+        String combined = source;
+        String pending = This.DirectImports(source);
+        String seen = ";";
+        Int cursor = 0;
+        While (cursor < pending.Length()) {
+            Int mark = pending.IndexOf(";", cursor);
+            If (mark < 0) {
+                cursor = pending.Length();
+            } Else {
+                String name = "";
+                If (mark > cursor) {
+                    name = pending.Substring(cursor, mark - cursor);
+                }
+                cursor = mark + 1;
+                If (name != "" && !seen.Contains(";" + name + ";")) {
+                    seen = seen + name + ";";
+                    String packagePath = This.PackagePath(name);
+                    Int sameFile = 0;
+                    If (packagePath != "" && sourcePath.EndsWith(packagePath)) { sameFile = 1; }
+                    If (packagePath != "" && sameFile == 0) {
+                        String body = Files.ReadText(packagePath);
+                        combined = combined + "\n" + body;
+                        pending = pending + This.DirectImports(body);
+                    }
+                }
+            }
+        }
+        Return combined;
+    }
+
+    Private Function RequireUses(String source) -> Void {
+        String catalog = This.TypeCatalog();
+        String imported = ";" + This.DirectImports(source);
+        String declared = This.DeclaredNames(source);
+        String reported = ";";
+        String previous = "";
+        Int index = 0;
+        Int line = 1;
+        Int column = 1;
+        While (index < source.Length()) {
+            String piece = source.Substring(index, 1);
+            If (piece == "\n") {
+                line = line + 1;
+                column = 1;
+                index = index + 1;
+            } Else If (piece == "/" && index + 1 < source.Length() && source.Substring(index + 1, 1) == "/") {
+                While (index < source.Length() && source.Substring(index, 1) != "\n") {
+                    index = index + 1;
+                }
+            } Else If (piece == "\"") {
+                index = index + 1;
+                column = column + 1;
+                While (index < source.Length() && source.Substring(index, 1) != "\"") {
+                    If (source.Substring(index, 1) == "\\") {
+                        index = index + 2;
+                        column = column + 2;
+                    } Else {
+                        If (source.Substring(index, 1) == "\n") {
+                            line = line + 1;
+                            column = 1;
+                        } Else {
+                            column = column + 1;
+                        }
+                        index = index + 1;
+                    }
+                }
+                If (index < source.Length()) {
+                    index = index + 1;
+                    column = column + 1;
+                }
+                previous = "";
+            } Else If (This.IsNameStart(piece)) {
+                Int nameColumn = column;
+                String token = "";
+                While (index < source.Length() && This.IsNamePart(source.Substring(index, 1))) {
+                    token = token + source.Substring(index, 1);
+                    index = index + 1;
+                    column = column + 1;
+                }
+                If (previous != "." && !This.IsBinder(previous) && catalog.Contains(";" + token + "|") && !declared.Contains(";" + token + ";") && !reported.Contains(";" + token + ";")) {
+                    String packageName = This.CatalogPackage(catalog, token);
+                    If (packageName != "" && !imported.Contains(";" + packageName + ";")) {
+                        errors = errors + "error RX171 " + line.ToString() + ":" + nameColumn.ToString() + " '" + token + "' belongs to " + packageName + ". expected Import " + packageName + ", actual no import correction: Import " + packageName + " before using it.\n";
+                        reported = reported + token + ";";
+                    }
+                }
+                previous = token;
+            } Else {
+                If (piece != " " && piece != "\t" && piece != "\r") {
+                    previous = piece;
+                }
+                index = index + 1;
+                column = column + 1;
+            }
+        }
+    }
+
+    Private Function IsBinder(String token) -> Bool {
+        If (token == "Class" || token == "Struct" || token == "Enum" || token == "Interface" || token == "Function" || token == "Test" || token == "Package" || token == "Import") {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function IsNameStart(String piece) -> Bool {
+        If (piece >= "A" && piece <= "Z") { Return True; }
+        If (piece >= "a" && piece <= "z") { Return True; }
+        If (piece == "_") { Return True; }
+        Return False;
+    }
+
+    Private Function IsNamePart(String piece) -> Bool {
+        If (This.IsNameStart(piece)) { Return True; }
+        If (piece >= "0" && piece <= "9") { Return True; }
+        Return False;
+    }
+
+    Private Function TypeCatalog() -> String {
+        String catalog = ";";
+        Var files = Directory.Files("Packages");
+        Int index = 0;
+        While (index < files.Count()) {
+            String relative = files[index];
+            index = index + 1;
+            If (relative.EndsWith(".rx") && !relative.EndsWith(".test.rx")) {
+                String text = Files.ReadText("Packages/" + relative);
+                catalog = This.CollectTypes(text, This.PackageName(text), catalog);
+            }
+        }
+        Return catalog;
+    }
+
+    Private Function PackageName(String text) -> String {
+        Int index = 0;
+        Int lineStart = 0;
+        While (index <= text.Length()) {
+            Int atEnd = 0;
+            If (index == text.Length()) { atEnd = 1; }
+            If (atEnd == 1 || text.Substring(index, 1) == "\n") {
+                String trimmed = This.TrimLeft(text.Substring(lineStart, index - lineStart));
+                If (trimmed.StartsWith("Package ")) {
+                    Return This.ImportName(trimmed.Substring(8));
+                }
+                lineStart = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function CollectTypes(String text, String packageName, String catalog) -> String {
+        String built = catalog;
+        If (packageName == "") { Return built; }
+        Int index = 0;
+        Int lineStart = 0;
+        While (index <= text.Length()) {
+            Int atEnd = 0;
+            If (index == text.Length()) { atEnd = 1; }
+            If (atEnd == 1 || text.Substring(index, 1) == "\n") {
+                String name = This.TypeNameOn(This.TrimLeft(text.Substring(lineStart, index - lineStart)));
+                If (name != "" && !built.Contains(";" + name + "|")) {
+                    built = built + name + "|" + packageName + ";";
+                }
+                lineStart = index + 1;
+            }
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Private Function TypeNameOn(String trimmed) -> String {
+        String text = trimmed;
+        If (text.StartsWith("Public ")) { text = This.TrimLeft(text.Substring(7)); }
+        String kind = "";
+        If (text.StartsWith("Class ")) { kind = "Class "; }
+        If (text.StartsWith("Struct ")) { kind = "Struct "; }
+        If (text.StartsWith("Enum ")) { kind = "Enum "; }
+        If (text.StartsWith("Interface ")) { kind = "Interface "; }
+        If (kind == "") { Return ""; }
+        String name = This.BeforeMark(text.Substring(kind.Length()), " ");
+        name = This.BeforeMark(name, "{");
+        name = This.BeforeMark(name, ":");
+        name = This.BeforeMark(name, "<");
+        Return name;
+    }
+
+    Private Function DirectImports(String text) -> String {
+        String imported = "";
+        Int index = 0;
+        Int lineStart = 0;
+        While (index <= text.Length()) {
+            Int atEnd = 0;
+            If (index == text.Length()) { atEnd = 1; }
+            If (atEnd == 1 || text.Substring(index, 1) == "\n") {
+                String trimmed = This.TrimLeft(text.Substring(lineStart, index - lineStart));
+                If (trimmed.StartsWith("Import ")) {
+                    String name = This.ImportName(trimmed.Substring(7));
+                    If (name != "" && !imported.Contains(name + ";")) {
+                        imported = imported + name + ";";
+                    }
+                }
+                lineStart = index + 1;
+            }
+            index = index + 1;
+        }
+        Return imported;
+    }
+
+    Private Function DeclaredNames(String text) -> String {
+        String declared = ";";
+        String previous = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            String piece = text.Substring(index, 1);
+            If (piece == "\"") {
+                index = index + 1;
+                While (index < text.Length() && text.Substring(index, 1) != "\"") {
+                    If (text.Substring(index, 1) == "\\") { index = index + 2; }
+                    Else { index = index + 1; }
+                }
+                If (index < text.Length()) { index = index + 1; }
+                previous = "";
+            } Else If (piece == "/" && index + 1 < text.Length() && text.Substring(index + 1, 1) == "/") {
+                While (index < text.Length() && text.Substring(index, 1) != "\n") { index = index + 1; }
+            } Else If (This.IsNameStart(piece)) {
+                String token = "";
+                While (index < text.Length() && This.IsNamePart(text.Substring(index, 1))) {
+                    token = token + text.Substring(index, 1);
+                    index = index + 1;
+                }
+                If (This.IsBinder(previous) && !declared.Contains(";" + token + ";")) {
+                    declared = declared + token + ";";
+                }
+                previous = token;
+            } Else {
+                If (piece != " " && piece != "\t" && piece != "\r" && piece != "\n") { previous = piece; }
+                index = index + 1;
+            }
+        }
+        Return declared;
+    }
+
+    Private Function CatalogPackage(String catalog, String name) -> String {
+        String key = ";" + name + "|";
+        Int at = catalog.IndexOf(key);
+        If (at < 0) { Return ""; }
+        Return This.BeforeMark(catalog.Substring(at + key.Length()), ";");
+    }
+
+    Private Function ImportName(String text) -> String {
+        String name = This.BeforeMark(text, ";");
+        name = This.BeforeMark(name, " ");
+        name = This.BeforeMark(name, ".*");
+        Return name;
+    }
+
+    Private Function BeforeMark(String text, String mark) -> String {
+        Int at = text.IndexOf(mark);
+        If (at < 0) { Return This.TrimEdge(text); }
+        Return This.TrimEdge(text.Substring(0, at));
+    }
+
+    Private Function PackagePath(String packageName) -> String {
+        String leaf = packageName;
+        Int dot = 0;
+        Int index = 0;
+        While (index < packageName.Length()) {
+            If (packageName.Substring(index, 1) == ".") { dot = index; }
+            index = index + 1;
+        }
+        If (dot > 0) { leaf = packageName.Substring(dot + 1); }
+        String path = "Packages/" + packageName + "/" + leaf + ".rx";
+        If (Files.Exists(path)) { Return path; }
+        Return "";
+    }
+
+    Private Function TrimLeft(String text) -> String {
+        Int index = 0;
+        While (index < text.Length()) {
+            String piece = text.Substring(index, 1);
+            If (piece != " " && piece != "\t" && piece != "\r") { Return text.Substring(index); }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function TrimEdge(String text) -> String {
+        String trimmed = This.TrimLeft(text);
+        Int end = trimmed.Length();
+        While (end > 0) {
+            String piece = trimmed.Substring(end - 1, 1);
+            If (piece != " " && piece != "\t" && piece != "\r") { Return trimmed.Substring(0, end); }
+            end = end - 1;
+        }
+        Return "";
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Load package imports before the compiler runs.";
+    Input: args = "run or check, then the source file";
+    Processing: "Require each used package to be imported, then delegate.";
+    Output: "The compiler status.";
+} {
+    ImportHost host = ImportHost();
+    Return host.Run(args);
+}
+
+Private Extern Function RunProcess(String command) -> Int;

@@ -1,5 +1,8 @@
 // Async functions return Task<T>. Await reads the result.
-Package Robotics.AsyncWork;
+Package Robotics.AsyncWork
+Explain {
+    Description: "Async functions return Task<T>. Await reads the result.";
+};
 
 Import Robix.Core;
 

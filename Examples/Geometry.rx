@@ -1,5 +1,8 @@
 // Robix.Math.Geometry: points, vectors, shapes, intersections, and transforms.
-Package Robotics.Geometry;
+Package Robotics.Geometry
+Explain {
+    Description: "Robix.Math.Geometry: points, vectors, shapes, intersections, and transforms.";
+};
 
 Import Robix.Core;
 

@@ -1,5 +1,8 @@
 // Routed events.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Routed events.";
+};
 
 Import Robix.Core;
 

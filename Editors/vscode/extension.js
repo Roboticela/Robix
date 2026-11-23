@@ -579,7 +579,7 @@ function parseToolOutput(document, text) {
     const found = [];
     const pattern = /^(error|warning|info|note)\s+([A-Za-z][A-Za-z0-9]*)\s+(\d+):(\d+)\s+(.*)$/i;
     for (const line of String(text).split(/\r?\n/)) {
-        const match = pattern.exec(line.trim());
+        const match = pattern.exec(line.replace(/\u001b\[[0-9;]*m/g, "").trim());
         if (!match || match[2] === "RX005") {
             continue;
         }

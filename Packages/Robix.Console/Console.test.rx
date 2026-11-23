@@ -3,3 +3,9 @@ Test WriteLine {
     Processing: True;
     Output: True;
 }
+
+Test PaintPlain {
+    Constraint: ConsoleDesk().Paint("{red}Hi{/} {green}Robix{/}") == "Hi Robix";
+    Processing: True;
+    Output: True;
+}

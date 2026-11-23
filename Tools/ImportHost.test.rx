@@ -1,0 +1,125 @@
+Test Run {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Forward {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Expand {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RequireUses {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsBinder {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNameStart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNamePart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeCatalog {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PackageName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CollectTypes {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeNameOn {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DirectImports {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DeclaredNames {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatalogPackage {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ImportName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BeforeMark {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PackagePath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TrimLeft {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TrimEdge {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunProcess {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

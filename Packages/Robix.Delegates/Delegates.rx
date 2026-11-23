@@ -1,5 +1,8 @@
 // Robix.Delegates: bound calls, predicates, comparisons, and multicast invocation.
-Package Robix.Delegates;
+Package Robix.Delegates
+Explain {
+    Description: "Bound calls, predicates, comparisons, and multicast invocation.";
+};
 
 Import Robix.Core;
 

@@ -1,5 +1,8 @@
 // Robix.Console: terminal text. Colors come from Robix.Color. Themes come from Robix.Theme.
-Package Robotics.Console;
+Package Robotics.Console
+Explain {
+    Description: "Robix.Console: terminal text. Colors come from Robix.Color. Themes come from Robix.Theme.";
+};
 
 Import Robix.Core;
 Import Robix.Color;

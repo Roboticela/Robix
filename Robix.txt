@@ -15,8 +15,6 @@ This catalogue is a proposed package namespace specification for Robix. It conso
 - Conventional mixed-case names remain conventional where appropriate: `WebSocket`, `gRPC`, `WiFi`, `NoSQL`.
 - Package availability does not imply that every platform has the required hardware, native library, codec, accelerator, or system service.
 
-## 1. Core language and runtime
-
 ## 2. Mathematics and numerical computing
 
 7. Robix.Math.Probability

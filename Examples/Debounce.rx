@@ -1,5 +1,8 @@
 // Debounce keeps every trailing call. Throttle keeps the first call in the window.
-Package Robotics.Debounce;
+Package Robotics.Debounce
+Explain {
+    Description: "Debounce keeps every trailing call. Throttle keeps the first call in the window.";
+};
 
 Import Robix.Core;
 

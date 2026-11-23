@@ -1,5 +1,8 @@
 // Casts, type tests, Option, Result, error propagation, and null-coalescing.
-Package Robotics.Patterns;
+Package Robotics.Patterns
+Explain {
+    Description: "Casts, type tests, Option, Result, error propagation, and null-coalescing.";
+};
 
 Import Robix.Core;
 

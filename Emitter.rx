@@ -1,6 +1,9 @@
 // Binary package image for a checked Robix module.
 // Magic is the four bytes R B X 1. The image keeps every syntax node.
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "Binary package image for a checked Robix module.";
+};
 
 Import Robix.Core;
 

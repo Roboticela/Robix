@@ -1,12 +1,19 @@
 // Packages, imports, aliases, wildcard imports, and permissions.
-Package Robotics.Packages;
+Package Robotics.Packages
+Explain {
+    Description: "Packages, imports, aliases, wildcard imports, and permissions.";
+};
 
 Import Robix.Core;
 Import Robix.Math As Math;
 Import Robix.String.*;
 
 
-Package Robotics.Packages {
+Package Robotics.Packages
+Explain {
+    Description: "Packages, imports, aliases, wildcard imports, and permissions.";
+}
+{
     Permissions {
         Robix.Core;
         Robix.Math;

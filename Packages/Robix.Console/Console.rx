@@ -1,5 +1,11 @@
 // Robix.Console: terminal text. Colors come from Robix.Color. Themes come from Robix.Theme.
-Package Robix.Console;
+// Rich text uses {red}words{/}, {#rrggbb}words{/}, {rgb:255,128,0}words{/}, and roles
+// such as {success}, {warning}, {error}, {info}, {accent}, {muted}, and {bold}.
+// Print understands the same markup. SetInk changes the plain Write color. UseTheme changes the roles.
+Package Robix.Console
+Explain {
+    Description: "Terminal text. Colors come from Robix.Color. Themes come from Robix.Theme.";
+};
 
 Import Robix.Core;
 Import Robix.Color;
@@ -9,12 +15,64 @@ Import Robix.Theme;
 Class ConsoleDesk {
     Private String transcript;
     Private Int colorOn;
+    Private Int inkOn;
+    Private Int inkR;
+    Private Int inkG;
+    Private Int inkB;
+    Private Int primaryR;
+    Private Int primaryG;
+    Private Int primaryB;
+    Private Int secondaryR;
+    Private Int secondaryG;
+    Private Int secondaryB;
+    Private Int successR;
+    Private Int successG;
+    Private Int successB;
+    Private Int warningR;
+    Private Int warningG;
+    Private Int warningB;
+    Private Int errorR;
+    Private Int errorG;
+    Private Int errorB;
+    Private Int textR;
+    Private Int textG;
+    Private Int textB;
+    Private Int tagRed;
+    Private Int tagGreen;
+    Private Int tagBlue;
     Private String problem;
 
     Public Constructor() {
         transcript = "";
         colorOn = 0;
+        inkOn = 0;
+        inkR = 240;
+        inkG = 240;
+        inkB = 245;
+        primaryR = 180;
+        primaryG = 140;
+        primaryB = 255;
+        secondaryR = 140;
+        secondaryG = 150;
+        secondaryB = 165;
+        successR = 80;
+        successG = 220;
+        successB = 120;
+        warningR = 255;
+        warningG = 196;
+        warningB = 64;
+        errorR = 255;
+        errorG = 90;
+        errorB = 90;
+        textR = 240;
+        textG = 240;
+        textB = 245;
+        tagRed = 0;
+        tagGreen = 0;
+        tagBlue = 0;
         problem = "none";
+        ThemeDesk theme = ThemeDesk();
+        If (theme.Apply("dark") == 1) { This.CopyTheme(theme); }
     }
 
     Public Function UseColor(Int enabled) -> Int
@@ -36,7 +94,7 @@ Class ConsoleDesk {
         Processing: "Append it to the transcript.";
         Output: "The transcript length.";
     } {
-        transcript = transcript + text;
+        transcript = transcript + This.Ink(text);
         Return transcript.Length();
     }
 
@@ -47,7 +105,7 @@ Class ConsoleDesk {
         Processing: "Append the text and a newline.";
         Output: "The transcript length.";
     } {
-        transcript = transcript + text + "\n";
+        transcript = transcript + This.Ink(text) + "\n";
         Return transcript.Length();
     }
 
@@ -58,7 +116,7 @@ Class ConsoleDesk {
         Processing: "Prefix the information role.";
         Output: "The transcript length.";
     } {
-        Return This.WriteRole("info", text, 80, 180, 255);
+        Return This.WriteRole("info", text, primaryR, primaryG, primaryB);
     }
 
     Public Function WriteSuccess(String text) -> Int
@@ -68,7 +126,7 @@ Class ConsoleDesk {
         Processing: "Prefix the success role.";
         Output: "The transcript length.";
     } {
-        Return This.WriteRole("success", text, 0, 200, 0);
+        Return This.WriteRole("success", text, successR, successG, successB);
     }
 
     Public Function WriteWarning(String text) -> Int
@@ -78,7 +136,7 @@ Class ConsoleDesk {
         Processing: "Prefix the warning role.";
         Output: "The transcript length.";
     } {
-        Return This.WriteRole("warning", text, 255, 200, 0);
+        Return This.WriteRole("warning", text, warningR, warningG, warningB);
     }
 
     Public Function WriteError(String text) -> Int
@@ -88,7 +146,7 @@ Class ConsoleDesk {
         Processing: "Prefix the error role.";
         Output: "The transcript length.";
     } {
-        Return This.WriteRole("error", text, 255, 60, 60);
+        Return This.WriteRole("error", text, errorR, errorG, errorB);
     }
 
     Public Function WriteColored(String text, Int red, Int green, Int blue) -> Int
@@ -138,6 +196,80 @@ Class ConsoleDesk {
         Return problem;
     }
 
+    Public Function UseTheme(String name) -> Int
+    Explain {
+        Description: "Apply a theme to later role colors.";
+        Input: name = "dark or light";
+        Processing: "Copy the theme role channels.";
+        Output: "One when the theme is known.";
+    } {
+        ThemeDesk theme = ThemeDesk();
+        Int applied = theme.Apply(name);
+        If (applied == 0) {
+            problem = "theme";
+            Return 0;
+        }
+        This.CopyTheme(theme);
+        colorOn = 1;
+        Return 1;
+    }
+
+    Public Function SetInk(Int red, Int green, Int blue) -> Int
+    Explain {
+        Description: "Choose the color used by later plain text.";
+        Input: red = "Red", green = "Green", blue = "Blue";
+        Processing: "Store the ink and turn color on.";
+        Output: "One.";
+    } {
+        inkR = red;
+        inkG = green;
+        inkB = blue;
+        If (inkR < 0) { inkR = 0; }
+        If (inkG < 0) { inkG = 0; }
+        If (inkB < 0) { inkB = 0; }
+        If (inkR > 255) { inkR = 255; }
+        If (inkG > 255) { inkG = 255; }
+        If (inkB > 255) { inkB = 255; }
+        inkOn = 1;
+        colorOn = 1;
+        Return 1;
+    }
+
+    Public Function Paint(String text) -> String
+    Explain {
+        Description: "Turn rich markup into terminal text.";
+        Input: text = "Text with {role} spans";
+        Processing: "Replace known tags with true-color sequences when color is on, and drop them when color is off.";
+        Output: "The painted text.";
+    } {
+        Return This.Render(text);
+    }
+
+    Public Function WriteRich(String text) -> Int
+    Explain {
+        Description: "Write multi-color text.";
+        Input: text = "Text with {role} spans";
+        Processing: "Paint the markup and append it.";
+        Output: "The transcript length.";
+    } {
+        transcript = transcript + This.Render(text);
+        Return transcript.Length();
+    }
+
+    Public Function Report(String kind, String title, String detail) -> Int
+    Explain {
+        Description: "Write a status line in a role color.";
+        Input: kind = "success, warning, error, info, or accent", title = "Short title", detail = "Extra text";
+        Processing: "Paint the title in the role and the detail in the muted role.";
+        Output: "The transcript length.";
+    } {
+        String line = "{" + kind + "}" + title + "{/}";
+        If (detail.Length() > 0) {
+            line = line + "  {muted}" + detail + "{/}";
+        }
+        Return This.WriteLine(line);
+    }
+
     Private Function WriteRole(String role, String text, Int red, Int green, Int blue) -> Int {
         String body = role + ": " + text;
         If (colorOn == 0) { Return This.WriteLine(body); }
@@ -157,5 +289,157 @@ Class ConsoleDesk {
             remainingValue = remainingValue / 10;
         }
         Return built;
+    }
+
+    Private Function CopyTheme(ThemeDesk theme) -> Int {
+        primaryR = theme.RoleRed("primary");
+        primaryG = theme.RoleGreen("primary");
+        primaryB = theme.RoleBlue("primary");
+        secondaryR = theme.RoleRed("secondary");
+        secondaryG = theme.RoleGreen("secondary");
+        secondaryB = theme.RoleBlue("secondary");
+        successR = theme.RoleRed("success");
+        successG = theme.RoleGreen("success");
+        successB = theme.RoleBlue("success");
+        warningR = theme.RoleRed("warning");
+        warningG = theme.RoleGreen("warning");
+        warningB = theme.RoleBlue("warning");
+        errorR = theme.RoleRed("error");
+        errorG = theme.RoleGreen("error");
+        errorB = theme.RoleBlue("error");
+        textR = theme.RoleRed("text");
+        textG = theme.RoleGreen("text");
+        textB = theme.RoleBlue("text");
+        Return 1;
+    }
+
+    Private Function Ink(String text) -> String {
+        String body = This.Render(text);
+        If (inkOn == 1 && colorOn == 1 && text.IndexOf("{") < 0) {
+            body = This.Sequence(inkR, inkG, inkB) + body + "\u001b[0m";
+        }
+        Return body;
+    }
+
+    Private Function Render(String text) -> String {
+        String built = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            String mark = text.Substring(index, 1);
+            If (mark != "{") {
+                built = built + mark;
+                index = index + 1;
+            } Else {
+                Int close = text.IndexOf("}", index);
+                If (close < 0) {
+                    built = built + text.Substring(index, text.Length() - index);
+                    index = text.Length();
+                } Else {
+                    String tag = text.Substring(index + 1, close - index - 1);
+                    String painted = This.ApplyTag(tag);
+                    If (painted == "?") {
+                        built = built + text.Substring(index, close - index + 1);
+                    } Else {
+                        built = built + painted;
+                    }
+                    index = close + 1;
+                }
+            }
+        }
+        Return built;
+    }
+
+    Private Function ApplyTag(String tag) -> String {
+        If (tag == "" || tag == "/" || tag == "reset") {
+            If (colorOn == 0) { Return ""; }
+            Return "\u001b[0m";
+        }
+        If (tag == "bold") {
+            If (colorOn == 0) { Return ""; }
+            Return "\u001b[1m";
+        }
+        If (This.TagChannels(tag) == 0) { Return "?"; }
+        If (colorOn == 0) { Return ""; }
+        Return This.Sequence(tagRed, tagGreen, tagBlue);
+    }
+
+    Private Function Sequence(Int red, Int green, Int blue) -> String {
+        Return "\u001b[38;2;" + This.IntText(red) + ";" + This.IntText(green) + ";" + This.IntText(blue) + "m";
+    }
+
+    Private Function TagChannels(String tag) -> Int {
+        If (tag == "red") { tagRed = 255; tagGreen = 90; tagBlue = 90; Return 1; }
+        If (tag == "green") { tagRed = 80; tagGreen = 220; tagBlue = 120; Return 1; }
+        If (tag == "yellow") { tagRed = 255; tagGreen = 196; tagBlue = 64; Return 1; }
+        If (tag == "blue") { tagRed = 80; tagGreen = 180; tagBlue = 255; Return 1; }
+        If (tag == "cyan") { tagRed = 80; tagGreen = 220; tagBlue = 220; Return 1; }
+        If (tag == "magenta") { tagRed = 230; tagGreen = 120; tagBlue = 220; Return 1; }
+        If (tag == "white") { tagRed = 240; tagGreen = 240; tagBlue = 245; Return 1; }
+        If (tag == "gray" || tag == "grey" || tag == "muted" || tag == "secondary") {
+            tagRed = secondaryR; tagGreen = secondaryG; tagBlue = secondaryB; Return 1;
+        }
+        If (tag == "error") { tagRed = errorR; tagGreen = errorG; tagBlue = errorB; Return 1; }
+        If (tag == "warning") { tagRed = warningR; tagGreen = warningG; tagBlue = warningB; Return 1; }
+        If (tag == "success") { tagRed = successR; tagGreen = successG; tagBlue = successB; Return 1; }
+        If (tag == "info" || tag == "accent" || tag == "primary") {
+            tagRed = primaryR; tagGreen = primaryG; tagBlue = primaryB; Return 1;
+        }
+        If (tag == "text") { tagRed = textR; tagGreen = textG; tagBlue = textB; Return 1; }
+        If (tag.StartsWith("#") && tag.Length() == 7) {
+            ColorDesk color = ColorDesk();
+            color.Hex(tag);
+            If (color.Fault() != "none") { Return 0; }
+            tagRed = color.Red();
+            tagGreen = color.Green();
+            tagBlue = color.Blue();
+            Return 1;
+        }
+        If (tag.StartsWith("rgb:")) { Return This.ReadRgb(tag.Substring(4)); }
+        Return 0;
+    }
+
+    Private Function ReadRgb(String text) -> Int {
+        Int slot = 0;
+        Int value = 0;
+        Int seen = 0;
+        Int index = 0;
+        Int first = 0;
+        Int second = 0;
+        Int third = 0;
+        While (index <= text.Length()) {
+            String mark = ",";
+            If (index < text.Length()) { mark = text.Substring(index, 1); }
+            Int digit = This.DigitOf(mark);
+            If (digit >= 0) {
+                value = value * 10 + digit;
+                seen = 1;
+            } Else If (mark == "," && seen == 1 && slot < 3) {
+                If (value > 255) { value = 255; }
+                If (slot == 0) { first = value; }
+                If (slot == 1) { second = value; }
+                If (slot == 2) { third = value; }
+                slot = slot + 1;
+                value = 0;
+                seen = 0;
+            } Else {
+                Return 0;
+            }
+            index = index + 1;
+        }
+        If (slot != 3) { Return 0; }
+        tagRed = first;
+        tagGreen = second;
+        tagBlue = third;
+        Return 1;
+    }
+
+    Private Function DigitOf(String mark) -> Int {
+        String digits = "0123456789";
+        Int index = 0;
+        While (index < 10) {
+            If (mark == digits.Substring(index, 1)) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
     }
 }

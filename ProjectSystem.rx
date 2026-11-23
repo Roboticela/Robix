@@ -5,6 +5,8 @@ Import Robix.Core;
 Import Robix.Syntax;
 Import Robix.Runtime;
 
+Private Extern Function ClockMillis() -> Int;
+
 
 Public Class ProjectNode {
     Public String Kind;
@@ -44,6 +46,7 @@ Public Class ProjectEngine {
     Private Int SkippedCount;
     Private Bool ConsoleEnabled;
     Private Int ConsolePort;
+    Private Int Started;
 
     Public Constructor() {
         This.SourceText = "";
@@ -65,6 +68,7 @@ Public Class ProjectEngine {
         This.SkippedCount = 0;
         This.ConsoleEnabled = True;
         This.ConsolePort = 0;
+        This.Started = 0;
     }
 
     Public Function Run(List<String> args) -> ExecutionResult
@@ -74,44 +78,45 @@ Public Class ProjectEngine {
         Processing: "Find the .rxp file, parse it, and execute the requested task. The default task is Build.";
         Output: "Success when the task finishes, or an execution error when the project is invalid.";
     } {
+        This.Started = ClockMillis();
         This.ReadOptions(args);
         String command = This.CommandOf(args);
         If (command == "help") {
             This.PrintHelp();
-            Return ExecutionResult(ExitCode.Success, "");
+            Return This.Report(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("Robix 0.0.15");
-            Return ExecutionResult(ExitCode.Success, "");
+            Print("{accent}Robix{/} {muted}0.0.22{/}");
+            Return This.Report(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
         If (projectPath == "") {
-            Print("No .rxp project file was found.");
-            Return ExecutionResult(ExitCode.InvalidArguments, "A .rxp project is required.");
+            Print("{error}No .rxp project file was found.{/}");
+            Return This.Report(ExitCode.InvalidArguments, "A .rxp project is required.");
         }
         This.ProjectPath = projectPath;
         This.ProjectDirectory = This.ParentDirectory(projectPath);
         ProjectNode root = This.ParseFile(Files.ReadText(projectPath));
         If (This.Diagnostics.Count() > 0) {
             This.PrintDiagnostics();
-            Return ExecutionResult(ExitCode.ErrorExecution, "The project file is invalid.");
+            Return This.Report(ExitCode.ErrorExecution, "The project file is invalid.");
         }
         This.CollectVariables(root);
         This.Resolve(root);
         String problem = This.Validate(root);
         If (problem != "") {
-            Return ExecutionResult(ExitCode.ErrorExecution, problem);
+            Return This.Report(ExitCode.ErrorExecution, problem);
         }
         If (command == "list") {
             This.PrintTasks(root);
-            Return ExecutionResult(ExitCode.Success, "");
+            Return This.Report(ExitCode.Success, "");
         }
         If (command == "info") {
             This.PrintInfo(root);
-            Return ExecutionResult(ExitCode.Success, "");
+            Return This.Report(ExitCode.Success, "");
         }
         If (command == "check") {
-            Return ExecutionResult(ExitCode.Success, "Project check passed.");
+            Return This.Report(ExitCode.Success, "Project check passed.");
         }
         If (command == "rebuild") {
             This.ExecuteTask(root, "Clean");
@@ -123,9 +128,9 @@ Public Class ProjectEngine {
         Bool ok = This.ExecuteTask(root, This.CanonicalTask(command));
         If (!ok) {
             This.PrintDiagnostics();
-            Return ExecutionResult(ExitCode.ErrorExecution, "The task failed.");
+            Return This.Report(ExitCode.ErrorExecution, "The task failed.");
         }
-        Return ExecutionResult(ExitCode.Success, "Task " + This.CanonicalTask(command) + " completed.");
+        Return This.Report(ExitCode.Success, "Task " + This.CanonicalTask(command) + " completed.");
     }
 
     Private Function ReadOptions(List<String> args) -> Void {
@@ -325,6 +330,7 @@ Public Class ProjectEngine {
     }
 
     Private Function PrintHelp() -> Void {
+        Print("{accent}robix{/} {muted}commands{/}");
         Print("robix                  Build the current project");
         Print("robix Build            Build the project");
         Print("robix Clean            Remove generated files");
@@ -563,7 +569,7 @@ Public Class ProjectEngine {
                 index = index + 1;
             }
         }
-        Print("Compiled " + This.CompiledCount.ToString() + " file(s), skipped " + This.SkippedCount.ToString() + " unchanged file(s).");
+        Print("{success}compiled{/}  {accent}" + This.CompiledCount.ToString() + "{/} {muted}file(s), skipped{/} {accent}" + This.SkippedCount.ToString() + "{/} {muted}unchanged{/}");
         If (ok && !This.DryRun) {
             Directory.Delete(This.IntermediateDirectory(project));
         }
@@ -772,7 +778,7 @@ Public Class ProjectEngine {
                 Files.Delete(directory + "/" + relative);
             }
         }
-        Print("Cleaned " + directory);
+        Print("{success}cleaned{/}  {muted}" + directory + "{/}");
         Return True;
     }
 
@@ -842,7 +848,7 @@ Public Class ProjectEngine {
                 failed = failed + 1;
             }
         }
-        Print("Tests passed " + passed.ToString() + ", failed " + failed.ToString() + ".");
+        Print("{success}passed{/} {accent}" + passed.ToString() + "{/}  {error}failed{/} {accent}" + failed.ToString() + "{/}");
         Return failed == 0;
     }
 
@@ -888,7 +894,7 @@ Public Class ProjectEngine {
         interpreter.SetConsole(This.ConsoleEnabled, This.ConsolePort);
         Int exitCode = interpreter.Execute(result.Module, List<String>());
         For line In interpreter.Lines() { Print(line); }
-        For line In interpreter.RuntimeErrors() { Print(line); }
+        For line In interpreter.RuntimeErrors() { Print("{error}" + line + "{/}"); }
         Return exitCode == 0 && interpreter.RuntimeErrors().Count() == 0;
     }
 
@@ -903,7 +909,7 @@ Public Class ProjectEngine {
         }
         Directory.Create(directory);
         Files.WriteText(manifest, text);
-        Print("Packaged " + manifest);
+        Print("{success}packaged{/}  {muted}" + manifest + "{/}");
         Return True;
     }
 
@@ -1008,6 +1014,22 @@ Public Class ProjectEngine {
             end = end - 1;
         }
         Return text.Substring(start, end - start);
+    }
+
+    Private Function Report(Int code, String reason) -> ExecutionResult {
+        String tone = "success";
+        String name = "success";
+        If (code == 1) { tone = "warning"; name = "warning"; }
+        If (code == 2) { tone = "error"; name = "execution error"; }
+        If (code == 3) { tone = "error"; name = "fatal error"; }
+        If (code == 4) { tone = "error"; name = "invalid arguments"; }
+        If (code == 5) { tone = "error"; name = "permission denied"; }
+        If (code == 6) { tone = "error"; name = "resource unavailable"; }
+        If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
+        Int elapsed = ClockMillis() - This.Started;
+        Print("{muted}────────────────────────────────{/}");
+        Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason + "  {accent}" + elapsed.ToString() + " ms{/}");
+        Return ExecutionResult(code, reason);
     }
 
     Private Function PrintDiagnostics() -> Void {

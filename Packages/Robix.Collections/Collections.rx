@@ -1,5 +1,8 @@
 // Robix.Collections: lists, links, queues, maps, sets, bits, and a ring buffer.
-Package Robix.Collections;
+Package Robix.Collections
+Explain {
+    Description: "Lists, links, queues, maps, sets, bits, and a ring buffer.";
+};
 
 Import Robix.Core;
 

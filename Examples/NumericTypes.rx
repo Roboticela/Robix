@@ -1,5 +1,8 @@
 // Fixed-width numbers, exact decimals, and numeric From constructors.
-Package Robotics.NumericTypes;
+Package Robotics.NumericTypes
+Explain {
+    Description: "Fixed-width numbers, exact decimals, and numeric From constructors.";
+};
 
 Import Robix.Core;
 

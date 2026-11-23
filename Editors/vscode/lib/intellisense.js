@@ -13,6 +13,7 @@ const {
     TYPE_METHODS,
     NAMESPACES,
     PACKAGES,
+    LIBRARY_PACKAGES,
     ATTRIBUTES,
     SEMANTIC_TYPES
 } = require("./keywords");
@@ -262,15 +263,26 @@ function explainDocument(symbol) {
     if (!symbol) {
         return "";
     }
-    if (symbol.explain && symbol.explain.text) {
+        if (symbol.explain && symbol.explain.text) {
         const lines = [`**${symbol.name}**`];
         if (symbol.detail) {
             lines.push("", symbol.detail);
+        }
+        if (symbol.summary && symbol.kind === "namespace") {
+            lines.push("", symbol.summary);
         }
         if (symbol.packageName) {
             lines.push("", `Package \`${symbol.packageName}\``);
         }
         lines.push("", "```robix", symbol.explain.text, "```");
+        return lines.join("\n");
+    }
+    if (symbol.summary && symbol.kind === "namespace") {
+        const lines = [`**${symbol.name}**`];
+        if (symbol.detail) {
+            lines.push("", symbol.detail);
+        }
+        lines.push("", symbol.summary);
         return lines.join("\n");
     }
     if (symbol.summary || symbol.signature) {
@@ -535,7 +547,7 @@ function packageItems(external) {
         label: name,
         kind: "namespace",
         detail: "package",
-        documentation: `Package ${name}`,
+        documentation: LIBRARY_PACKAGES[name] ? `**${name}**\n\n${LIBRARY_PACKAGES[name]}` : `Package ${name}`,
         insert: name,
         filter: `${name.toLowerCase()} ${name}`,
         sort: "1"
@@ -566,6 +578,13 @@ function hover(source, offset) {
     if (!token) {
         return null;
     }
+    const packageName = dottedPackageAt(doc, token);
+    if (packageName.includes(".")) {
+        const described = packageDocument(doc, packageName);
+        if (described) {
+            return { contents: described, start: token.start, end: token.end };
+        }
+    }
     if (token.kind === "keyword") {
         const info = keywordInfo(token.canonical || token.text);
         if (!info) {
@@ -589,6 +608,39 @@ function hover(source, offset) {
         start: token.start,
         end: token.end
     };
+}
+
+function dottedPackageAt(doc, token) {
+    const tokens = doc.tokens.filter((item) => item.kind !== "eof");
+    const index = tokens.indexOf(token);
+    if (index < 0) {
+        return token.text || "";
+    }
+    let start = index;
+    while (start >= 2 && tokens[start - 1].text === "." && (tokens[start - 2].kind === "identifier" || tokens[start - 2].kind === "keyword")) {
+        start -= 2;
+    }
+    let end = index;
+    while (end + 2 < tokens.length && tokens[end + 1].text === "." && (tokens[end + 2].kind === "identifier" || tokens[end + 2].kind === "keyword")) {
+        end += 2;
+    }
+    const parts = [];
+    for (let cursor = start; cursor <= end; cursor += 2) {
+        parts.push(tokens[cursor].text);
+    }
+    return parts.join(".");
+}
+
+function packageDocument(doc, name) {
+    const symbol = doc.symbols.find((item) => item.kind === "namespace" && (sameText(item.name, name) || sameText(item.typeName, name)) && (item.explain || item.summary));
+    if (symbol) {
+        return explainDocument(symbol);
+    }
+    const key = Object.keys(LIBRARY_PACKAGES).find((item) => sameText(item, name));
+    if (!key) {
+        return "";
+    }
+    return `**${key}**\n\nPackage \`${key}\`\n\n${LIBRARY_PACKAGES[key]}`;
 }
 
 function declarationAt(doc, token, offset) {

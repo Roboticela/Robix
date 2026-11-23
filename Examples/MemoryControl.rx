@@ -1,5 +1,8 @@
 // Byte-level memory, plus automatic release of a string and a list.
-Package Robotics.MemoryControl;
+Package Robotics.MemoryControl
+Explain {
+    Description: "Byte-level memory, plus automatic release of a string and a list.";
+};
 
 Import Robix.Core;
 

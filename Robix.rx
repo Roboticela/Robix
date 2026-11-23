@@ -1,9 +1,14 @@
 // robix runs a module or checks its syntax.
-Package Robix.Tools;
+Package Robix.Tools
+Explain {
+    Description: "Robix runs a module or checks its syntax.";
+};
 
 Import Robix.Core;
 Import Robix.Syntax;
 Import Robix.Runtime;
+
+Private Extern Function ClockMillis() -> Int;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
@@ -20,9 +25,9 @@ Explain {
     If (command == "cover") {
         Int failures = CoverSyntax();
         If (failures > 0) {
-            Return ExecutionResult(ExitCode.ErrorExecution, "Syntax coverage reported failures.");
+            Return FinishRun(ExitCode.ErrorExecution, "Syntax coverage reported failures.");
         }
-        Return ExecutionResult(ExitCode.Success, "Syntax coverage passed.");
+        Return FinishRun(ExitCode.Success, "Syntax coverage passed.");
     }
     If (IsProjectCommand(command, args)) {
         Return ExecuteProject(args);
@@ -30,21 +35,27 @@ Explain {
     If (args.Count() < 2) {
         Return ExecuteProject(args);
     }
+    Print("{accent}robix{/} {muted}" + command + "{/} {bold}" + args[1] + "{/}");
     String source = Files.ReadText(args[1]);
     SyntaxCompiler compiler = SyntaxCompiler();
     Bool compile = command == "check";
+    Int compileStart = ClockMillis();
     CompileResult result = compiler.CompileSource(source, args[1], compile);
+    Int compileTime = ClockMillis() - compileStart;
+    Int warnings = 0;
     For line In compiler.DiagnosticsOf(result) {
         Print(line);
+        If (line.StartsWith("warning")) { warnings = warnings + 1; }
     }
+    Print("{muted}compile{/}  {accent}" + compileTime.ToString() + " ms{/}  {muted}errors{/} {error}" + result.Errors.ToString() + "{/}  {muted}warnings{/} {warning}" + warnings.ToString() + "{/}");
     If (command == "check") {
         If (!result.Succeeded) {
-            Return ExecutionResult(ExitCode.ErrorExecution, "Check failed.");
+            Return FinishRun(ExitCode.ErrorExecution, "Check failed.");
         }
-        Return ExecutionResult(ExitCode.Success, "Check passed.");
+        Return FinishRun(ExitCode.Success, "Check passed.");
     }
     If (result.Errors > 0) {
-        Return ExecutionResult(ExitCode.ErrorExecution, "The module has syntax or type errors.");
+        Return FinishRun(ExitCode.ErrorExecution, "The module has syntax or type errors.");
     }
     Var programArguments = List<String>();
     Int index = 2;
@@ -60,17 +71,38 @@ Explain {
     }
     Interpreter interpreter = Interpreter();
     interpreter.SetConsole(consoleOn, consolePort);
+    Int runStart = ClockMillis();
     Int exitCode = interpreter.Execute(result.Module, programArguments);
+    Int runTime = ClockMillis() - runStart;
+    If (interpreter.Lines().Count() > 0) {
+        Print("{muted}──────── output ────────{/}");
+    }
     For line In interpreter.Lines() {
         Print(line);
     }
     For line In interpreter.RuntimeErrors() {
-        Print(line);
+        Print("{error}" + line + "{/}");
     }
+    Print("{muted}run{/}  {accent}" + runTime.ToString() + " ms{/}");
     If (exitCode != 0) {
-        Return ExecutionResult(ExitCode.Custom(exitCode), "The module returned a non-zero code.");
+        Return FinishRun(exitCode, "The module returned a non-zero code.");
     }
-    Return ExecutionResult(ExitCode.Success, "Program completed successfully.");
+    Return FinishRun(ExitCode.Success, "Program completed successfully.");
+}
+
+Private Function FinishRun(Int code, String reason) -> ExecutionResult {
+    String tone = "success";
+    String name = "success";
+    If (code == 1) { tone = "warning"; name = "warning"; }
+    If (code == 2) { tone = "error"; name = "execution error"; }
+    If (code == 3) { tone = "error"; name = "fatal error"; }
+    If (code == 4) { tone = "error"; name = "invalid arguments"; }
+    If (code == 5) { tone = "error"; name = "permission denied"; }
+    If (code == 6) { tone = "error"; name = "resource unavailable"; }
+    If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
+    Print("{muted}────────────────────────────────{/}");
+    Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason);
+    Return ExecutionResult(code, reason);
 }
 
 Private Function IsProjectCommand(String command, List<String> args) -> Bool {

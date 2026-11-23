@@ -1,5 +1,8 @@
 // Constants, static state, partial types, macros, and reflection.
-Package Robotics.Declarations;
+Package Robotics.Declarations
+Explain {
+    Description: "Constants, static state, partial types, macros, and reflection.";
+};
 
 Import Robix.Core;
 

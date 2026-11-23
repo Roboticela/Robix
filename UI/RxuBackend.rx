@@ -1,5 +1,8 @@
 // Universal backend surface.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Universal backend surface.";
+};
 
 Import Robix.Core;
 

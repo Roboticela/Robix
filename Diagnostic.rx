@@ -1,6 +1,9 @@
 // Compiler and interpreter diagnostics.
 // Strict compilation fills expected type, actual type, and a correction.
-Package Robix.Syntax;
+Package Robix.Syntax
+Explain {
+    Description: "Compiler and interpreter diagnostics.";
+};
 
 Import Robix.Core;
 

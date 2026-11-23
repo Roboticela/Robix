@@ -1,5 +1,8 @@
 // Spans, null pointers, references, and function values.
-Package Robotics.References;
+Package Robotics.References
+Explain {
+    Description: "Spans, null pointers, references, and function values.";
+};
 
 Import Robix.Core;
 

@@ -1,5 +1,8 @@
 // Robix.Console.Input: a virtual line, prompt, and menu backend.
-Package Robotics.Input;
+Package Robotics.Input
+Explain {
+    Description: "Robix.Console.Input: a virtual line, prompt, and menu backend.";
+};
 
 Import Robix.Core;
 

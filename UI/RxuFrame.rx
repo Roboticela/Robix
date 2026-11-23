@@ -1,5 +1,8 @@
 // Damage, hit testing, and headless present.
-Package Robix.UI;
+Package Robix.UI
+Explain {
+    Description: "Damage, hit testing, and headless present.";
+};
 
 Import Robix.Core;
 

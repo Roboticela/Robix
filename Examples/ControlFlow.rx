@@ -1,5 +1,8 @@
 // Conditions, C-style For, ranges, Enumerate, For-In, While, Do-While, Repeat, Loop, and Break/Continue.
-Package Robotics.ControlFlow;
+Package Robotics.ControlFlow
+Explain {
+    Description: "Conditions, C-style For, ranges, Enumerate, For-In, While, Do-While, Repeat, Loop, and Break/Continue.";
+};
 
 Import Robix.Core;
 

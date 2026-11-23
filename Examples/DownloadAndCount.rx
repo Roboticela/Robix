@@ -1,5 +1,8 @@
 // Download awaits one response. The iterator yields every index in the range.
-Package Robotics.DownloadAndCount;
+Package Robotics.DownloadAndCount
+Explain {
+    Description: "Download awaits one response. The iterator yields every index in the range.";
+};
 
 Import Robix.Core;
 

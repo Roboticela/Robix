@@ -1,5 +1,8 @@
 // A generic struct substitutes its type parameters into each field.
-Package Robotics.GenericStruct;
+Package Robotics.GenericStruct
+Explain {
+    Description: "A generic struct substitutes its type parameters into each field.";
+};
 
 Import Robix.Core;
 
