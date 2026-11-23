@@ -1,0 +1,1805 @@
+// Checks, the Arm console tour, and Main.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Private Function ReadExample(String path) -> RxuNode {
+    RxuParser parser = RxuParser();
+    Return parser.Parse(path, Files.ReadText(path));
+}
+
+Private Function ExpectAttribute(String path, String element, String attribute, String mode, String text) -> Int {
+    RxuNode document = ReadExample(path);
+    RxuNode node = document.FindChild(element);
+    RxuNode value = node.FindAttribute(attribute);
+    Bool bad = document.Messages.Count() != 0 || node.Name != element || value.Mode != mode || value.Text != text;
+    Return FailWhen(bad, path);
+}
+
+Private Function ElementAt(RxuNode parent, Int nth) -> RxuNode {
+    Int seen = 0;
+    Int cursor = 0;
+    While (cursor < parent.Children.Count()) {
+        RxuNode child = parent.Children[cursor];
+        If (child.Kind == "Element") {
+            If (seen == nth) {
+                Return child;
+            }
+            seen = seen + 1;
+        }
+        cursor = cursor + 1;
+    }
+    Return RxuNode();
+}
+
+Private Function ExpectCode(String path, String code) -> Int {
+    RxuNode document = ReadExample(path);
+    Return FailWhen(document.Messages.Find(code) < 0, path);
+}
+
+Private Function ExpectSource(String name, String source, String code) -> Int {
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse(name, source);
+    Return FailWhen(document.Messages.Find(code) < 0, name);
+}
+
+Public Function CheckExamples() -> Int
+Explain {
+    Description: "Parse every RXU example and check the feature it demonstrates.";
+    Input: None;
+    Processing: "Accept Examples/UI markup and require the matching diagnostic for Examples/UI/Rejected.";
+    Output: "The number of failed example checks.";
+} {
+    Int failed = 0;
+    failed = failed + ExpectAttribute("Examples/UI/Element.rxu", "Window", "Title", "String", "Arm");
+    failed = failed + ExpectAttribute("Examples/UI/SelfClosing.rxu", "Button", "Text", "String", "Move");
+    failed = failed + ExpectAttribute("Examples/UI/StringValue.rxu", "Text", "Value", "String", "Line\nNext");
+    failed = failed + ExpectAttribute("Examples/UI/NumberValue.rxu", "Window", "Width", "Number", "320");
+    failed = failed + ExpectAttribute("Examples/UI/FloatValue.rxu", "Window", "Opacity", "Float", "0.5");
+    failed = failed + ExpectAttribute("Examples/UI/BooleanValue.rxu", "Window", "Enabled", "Boolean", "true");
+    failed = failed + ExpectAttribute("Examples/UI/BooleanValue.rxu", "Window", "Visible", "Boolean", "true");
+    failed = failed + ExpectAttribute("Examples/UI/Binding.rxu", "Button", "Text", "Binding", "Joint");
+    failed = failed + ExpectAttribute("Examples/UI/ResourceExpression.rxu", "Text", "Value", "Resource", "Accent");
+    failed = failed + ExpectAttribute("Examples/UI/Localization.rxu", "Text", "Value", "Localization", "Title");
+    failed = failed + ExpectAttribute("Examples/UI/ValueExpression.rxu", "Text", "Value", "Expression", "Panel.Width");
+    failed = failed + ExpectAttribute("Examples/UI/NameExpression.rxu", "Text", "Value", "Expression", "Joints");
+    failed = failed + ExpectAttribute("Examples/UI/Component.rxu", "Component", "Name", "String", "Move");
+    failed = failed + ExpectAttribute("Examples/UI/Import.rxu", "Import", "Source", "String", "Theme.rxu");
+    failed = failed + ExpectAttribute("Examples/UI/Include.rxu", "Include", "Source", "String", "Part.rxu");
+    failed = failed + ExpectAttribute("Examples/UI/Let.rxu", "Let", "Name", "String", "Title");
+    failed = failed + ExpectAttribute("Examples/UI/Set.rxu", "Set", "Value", "Number", "320");
+    failed = failed + ExpectAttribute("Examples/UI/Bind.rxu", "Bind", "Source", "Binding", "Joint");
+    failed = failed + ExpectAttribute("Examples/UI/Unicode.rxu", "Label", "Text", "String", "Café");
+    failed = failed + ExpectAttribute("Examples/UI/Escapes.rxu", "Text", "Value", "String", "A\rB\tC\\D");
+    RxuNode nesting = ReadExample("Examples/UI/Nesting.rxu");
+    RxuNode leaf = nesting.FindChild("Window").FindChild("Panel").FindChild("Panel").FindChild("Label");
+    failed = failed + FailWhen(nesting.Messages.Count() != 0 || leaf.FindAttribute("Text").Text != "Nest", "Examples/UI/Nesting.rxu");
+    RxuNode comment = ReadExample("Examples/UI/Comment.rxu");
+    failed = failed + FailWhen(comment.Messages.Count() != 0 || comment.FindChild("Panel").FindKind("Comment").Text != " arm panel ", "Examples/UI/Comment.rxu");
+    RxuNode embedded = ReadExample("Examples/UI/EmbeddedBinding.rxu");
+    RxuNode embeddedValue = embedded.FindChild("Panel").FindKind("Expression");
+    failed = failed + FailWhen(embedded.Messages.Count() != 0 || embeddedValue.Mode != "Binding" || embeddedValue.Text != "User.Name", "Examples/UI/EmbeddedBinding.rxu");
+    RxuNode space = ReadExample("Examples/UI/Whitespace.rxu");
+    failed = failed + FailWhen(space.Messages.Count() != 0 || space.FindChild("Panel").FindKind("Text").Text != " Hi ", "Examples/UI/Whitespace.rxu");
+    RxuNode button = ReadExample("Examples/UI/SelfClosing.rxu").FindChild("Button");
+    failed = failed + FailWhen(button.Mode != "Empty", "Examples/UI/SelfClosing.rxu mode");
+    RxuNode paired = ReadExample("Examples/UI/Element.rxu").FindChild("Window");
+    failed = failed + FailWhen(paired.Mode != "Pair", "Examples/UI/Element.rxu mode");
+    RxuNode color = ReadExample("Examples/UI/Resources.rxu").FindChild("Resources").FindChild("Color");
+    failed = failed + FailWhen(color.FindAttribute("Name").Text != "Accent" || color.FindAttribute("Value").Text != "#336699", "Examples/UI/Resources.rxu color");
+    RxuNode move = ReadExample("Examples/UI/Component.rxu").FindChild("Component").FindChild("Button");
+    failed = failed + FailWhen(move.FindAttribute("Text").Mode != "Binding" || move.FindAttribute("Text").Text != "Joint", "Examples/UI/Component.rxu button");
+    RxuNode branch = ReadExample("Examples/UI/IfElse.rxu");
+    RxuNode ifNode = branch.FindChild("Panel").FindChild("If");
+    failed = failed + FailWhen(branch.Messages.Count() != 0 || ifNode.FindAttribute("Condition").Text != "LoggedIn" || ifNode.FindChild("Else").FindChild("Text").FindAttribute("Value").Text != "Go" || branch.FindChild("Panel").FindChild("Else").Name != "", "Examples/UI/IfElse.rxu");
+    RxuNode elseIf = ReadExample("Examples/UI/ElseIf.rxu");
+    RxuNode elseIfNode = elseIf.FindChild("Panel").FindChild("If");
+    failed = failed + FailWhen(elseIf.Messages.Count() != 0 || elseIfNode.FindChild("ElseIf").FindAttribute("Condition").Text != "Guest" || elseIfNode.FindChild("Else").FindChild("Text").FindAttribute("Value").Text != "Go" || elseIf.FindChild("Panel").FindChild("ElseIf").Name != "", "Examples/UI/ElseIf.rxu");
+    RxuNode nearest = ReadExample("Examples/UI/NearestElse.rxu");
+    RxuNode nearestPanel = nearest.FindChild("Panel");
+    failed = failed + FailWhen(nearest.Messages.Count() != 0 || ElementAt(nearestPanel, 1).FindChild("Else").FindAttribute("Name").Text != "C" || ElementAt(nearestPanel, 0).FindChild("Else").Name != "" || ElementAt(nearestPanel, 2).Name != "", "Examples/UI/NearestElse.rxu");
+    RxuNode choose = ReadExample("Examples/UI/Choose.rxu");
+    RxuNode chooseNode = choose.FindChild("Choose");
+    failed = failed + FailWhen(choose.Messages.Count() != 0 || chooseNode.FindAttribute("Value").Mode != "Expression" || chooseNode.FindChild("When").FindAttribute("Value").Text != "Live" || chooseNode.FindChild("Otherwise").FindChild("Text").FindAttribute("Value").Text != "Idle", "Examples/UI/Choose.rxu");
+    RxuNode switchNode = ReadExample("Examples/UI/Switch.rxu").FindChild("Switch");
+    failed = failed + FailWhen(switchNode.FindChild("When").FindAttribute("Value").Text != "Live" || switchNode.FindChild("Default").FindChild("Text").FindAttribute("Value").Text != "Idle", "Examples/UI/Switch.rxu");
+    RxuNode adopted = ReadExample("Examples/UI/AdoptedWhen.rxu");
+    RxuNode adoptedPanel = adopted.FindChild("Panel");
+    failed = failed + FailWhen(adopted.Messages.Count() != 0 || ElementAt(adoptedPanel, 1).Name != "" || ElementAt(adoptedPanel, 0).FindChild("When").FindAttribute("Value").Text != "On", "Examples/UI/AdoptedWhen.rxu");
+    RxuNode each = ReadExample("Examples/UI/Each.rxu").FindChild("Each");
+    failed = failed + FailWhen(each.FindAttribute("Items").Mode != "Expression" || each.FindAttribute("Items").Text != "Joints" || each.FindAttribute("As").Text != "joint" || each.FindChild("Text").FindAttribute("Value").Text != "joint", "Examples/UI/Each.rxu");
+    RxuNode forNode = ReadExample("Examples/UI/For.rxu").FindChild("For");
+    failed = failed + FailWhen(forNode.FindAttribute("Items").Text != "Joints" || forNode.FindChild("Text").FindAttribute("Value").Mode != "Expression", "Examples/UI/For.rxu");
+    RxuNode forEach = ReadExample("Examples/UI/ForEach.rxu").FindChild("ForEach");
+    failed = failed + FailWhen(forEach.FindAttribute("As").Text != "joint" || forEach.FindChild("Text").FindAttribute("Value").Text != "joint", "Examples/UI/ForEach.rxu");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Mismatch.rxu", "RXU001");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Unclosed.rxu", "RXU002");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Malformed.rxu", "RXU003");
+    failed = failed + ExpectCode("Examples/UI/Rejected/UnclosedString.rxu", "RXU004");
+    failed = failed + ExpectCode("Examples/UI/Rejected/UnclosedExpression.rxu", "RXU005");
+    failed = failed + ExpectCode("Examples/UI/Rejected/UnclosedComment.rxu", "RXU006");
+    failed = failed + ExpectCode("Examples/UI/Rejected/EmptyExpression.rxu", "RXU007");
+    failed = failed + ExpectCode("Examples/UI/Rejected/While.rxu", "RXU008");
+    failed = failed + ExpectCode("Examples/UI/Rejected/XmlDeclaration.rxu", "RXU009");
+    failed = failed + ExpectCode("Examples/UI/Rejected/LooseElse.rxu", "RXU010");
+    failed = failed + ExpectCode("Examples/UI/Rejected/OrphanWhen.rxu", "RXU011");
+    failed = failed + ExpectCode("Examples/UI/Rejected/DuplicateElse.rxu", "RXU012");
+    failed = failed + ExpectCode("Examples/UI/Rejected/ElseIfAfterElse.rxu", "RXU012");
+    failed = failed + ExpectCode("Examples/UI/Rejected/DuplicateDefault.rxu", "RXU013");
+    failed = failed + ExpectCode("Examples/UI/Rejected/Namespace.rxu", "RXU015");
+    failed = failed + ExpectSource("nest-open.rxu", "<A><B><C>", "RXU002");
+    failed = failed + ExpectSource("nest-mismatch.rxu", "<A><B></A>", "RXU001");
+    failed = failed + ExpectSource("deep-empty.rxu", "<A><B>{}</B></A>", "RXU007");
+    failed = failed + ExpectSource("nested-while.rxu", "<A><While/></A>", "RXU008");
+    Return failed;
+}
+
+Public Function CheckDocuments() -> Int
+Explain {
+    Description: "Load, query, show, and unload independent RXU documents.";
+    Input: None;
+    Processing: "Use the Examples/UI documents and markup text. Loading stays separate from showing.";
+    Output: "The number of failed document checks.";
+} {
+    Int failed = 0;
+    UI app = UI();
+    RxuDocument first = app.Load("Examples/UI/LiveDocument.rxu");
+    RxuDocument second = app.LoadAsync("Examples/UI/SecondDocument.rxu");
+    failed = failed + FailWhen(first.State != "Loaded" || second.State != "Loaded" || first.Id == second.Id, "document load");
+    failed = failed + FailWhen(app.GetRoot(first.Id).Kind != "Window" || app.GetRoot(first.Id).Name != "Arm", "document root");
+    first.Root.Name = "Changed";
+    failed = failed + FailWhen(app.GetDocument(second.Id).Root.Name != "Other", "document isolation");
+    failed = failed + FailWhen(first.ComponentCount() != 1 || second.ComponentCount() != 1 || first.ComponentName(0) != "Move" || second.ComponentName(0) != "Move", "document components");
+    failed = failed + FailWhen(app.Documents.FindByName(first.Id, "Controls").Kind != "Panel", "find name");
+    failed = failed + FailWhen(app.Documents.FindById(first.Id, "move").Name != "Move", "find id");
+    failed = failed + FailWhen(app.Documents.FindByKind(first.Id, "Panel").Name != "Controls", "find kind");
+    failed = failed + FailWhen(app.Documents.FindByPath(first.Id, "Window/Panel/Button").Name != "Move", "find path");
+    failed = failed + FailWhen(first.Messages.Find("RXU016") < 0, "duplicate id");
+    RxuInstance added = app.Documents.Attach(first.Id, app.GetRoot(first.Id).Id, "Label", "Extra");
+    failed = failed + FailWhen(added.Name != "Extra" || app.Documents.FindByName(first.Id, "Extra").Id != added.Id, "attach");
+    app.Documents.Detach(first.Id, added.Id);
+    failed = failed + FailWhen(app.Documents.FindByName(first.Id, "Extra").Id != "", "detach");
+    app.Show(first.Id);
+    failed = failed + FailWhen(app.GetDocument(first.Id).State != "Shown", "show");
+    app.Hide(first.Id);
+    failed = failed + FailWhen(app.GetDocument(first.Id).State != "Hidden", "hide");
+    app.Close(first.Id);
+    failed = failed + FailWhen(app.GetDocument(first.Id).State != "Closed" || app.GetRoot(first.Id).Kind != "Window", "close");
+    String firstId = first.Id + "";
+    app.Unload(firstId);
+    failed = failed + FailWhen(app.GetDocument(firstId).Id != "" || app.GetRoot(firstId).Id != "" || app.GetDocument(second.Id).Root.Name != "Other", "unload");
+    RxuDocument created = app.CreateDocument("<Window Name=\"One\"/>");
+    created.Root.Name = "Edited";
+    RxuDocument again = app.ReloadAsync(created.Id);
+    failed = failed + FailWhen(again.Id != created.Id || again.State != "Loaded" || again.Root.Name != "One", "reload");
+    Var paths = List<String>();
+    paths.Add("Examples/UI/Element.rxu");
+    paths.Add("Examples/UI/Unicode.rxu");
+    Int before = app.GetDocuments();
+    Int addedCount = app.LoadMany(paths);
+    failed = failed + FailWhen(addedCount != 2 || app.GetDocuments() != before + 2, "load many");
+    RxuDocument missing = app.Load("Examples/UI/NoSuchDocument.rxu");
+    failed = failed + FailWhen(missing.State != "Failed" || missing.Messages.Find("RXU017") < 0, "missing file");
+    RxuDocument broken = app.Load("Examples/UI/Rejected/Mismatch.rxu");
+    failed = failed + FailWhen(broken.State != "Failed" || broken.Messages.Find("RXU001") < 0 || broken.Root.Id != "", "failed parse");
+    Return failed;
+}
+
+Public Function CheckProperties() -> Int
+Explain {
+    Description: "Check typed properties, precedence, inheritance, and batched updates.";
+    Input: None;
+    Processing: "Apply the Examples/UI property files and the direct precedence cases.";
+    Output: "The number of failed property checks.";
+} {
+    Int failed = 0;
+    UIElement button = UIElement();
+    button.Kind = "Button";
+    RxuNode properties = ReadExample("Examples/UI/Properties.rxu").FindChild("Button");
+    failed = failed + FailWhen(button.SetAttributes(properties) != 0 || button.GetAttribute("Width") != "120" || button.GetAttribute("Opacity") != "0.8" || button.GetAttribute("Margin") != "4,8" || button.GetAttribute("Name") != "Save", "Examples/UI/Properties.rxu");
+    UIElement panel = UIElement();
+    panel.Kind = "Panel";
+    RxuNode layout = ReadExample("Examples/UI/Layout.rxu").FindChild("Panel");
+    failed = failed + FailWhen(panel.SetAttributes(layout) != 0 || panel.GetAttribute("Orientation") != "Vertical" || panel.GetAttribute("GridColumns") != "3" || panel.GetAttribute("Dock") != "Left" || panel.GetAttribute("ClipToBounds") != "true", "Examples/UI/Layout.rxu");
+    UIElement face = UIElement();
+    face.Kind = "Button";
+    RxuNode appearance = ReadExample("Examples/UI/Appearance.rxu").FindChild("Button");
+    failed = failed + FailWhen(face.SetAttributes(appearance) != 0 || face.GetAttribute("BorderColor") != "#112233" || face.GetAttribute("Duration") != "200ms" || face.GetAttribute("Shadow") != "None" || face.GetAttribute("FontWeight") != "Bold", "Examples/UI/Appearance.rxu");
+    UIElement broken = UIElement();
+    broken.Kind = "Button";
+    RxuNode invalid = ReadExample("Examples/UI/InvalidProperties.rxu").FindChild("Button");
+    failed = failed + FailWhen(broken.SetAttributes(invalid) != 4 || broken.GetAttribute("Width") != "Auto" || broken.Messages.Find("RXU018") < 0 || broken.Messages.Find("RXU019") < 0 || broken.Messages.Find("RXU020") < 0, "Examples/UI/InvalidProperties.rxu");
+    failed = failed + FailWhen(button.AttributeType("Foreground") != "Color" || button.AttributeType("Width") != "Dimension", "property type");
+    failed = failed + FailWhen(button.HasAttribute("Width") != True || button.HasAttribute("MaxWidth") != False, "local attribute");
+    button.RemoveAttribute("Height");
+    button.SetStyle("Height", "40");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "40", "style value");
+    button.SetAttribute("Height", "80");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "80", "local wins");
+    button.RemoveAttribute("Height");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "40" || button.HasAttribute("Height") != False, "remove local");
+    button.SetAnimation("Height", "12");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "12", "animation wins");
+    button.ResetAttribute("Height");
+    failed = failed + FailWhen(button.GetAttribute("Height") != "Auto", "reset attribute");
+    UIElement owner = UIElement();
+    owner.Kind = "Control";
+    owner.SetAttribute("Color", "#112233");
+    UIElement child = UIElement();
+    child.Kind = "Button";
+    child.SetParent(owner);
+    failed = failed + FailWhen(child.GetAttribute("Color") != "#112233", "inherit color");
+    child.SetAttribute("Color", "#FFFFFF");
+    owner.SetAttribute("Color", "#000000");
+    failed = failed + FailWhen(child.GetAttribute("Color") != "#FFFFFF" || child.GetAttribute("Foreground") != "#FFFFFF", "local color alias");
+    child.SetAnimation("Foreground", "#FF0000");
+    failed = failed + FailWhen(child.GetAttribute("Color") != "#FF0000", "animation alias");
+    failed = failed + FailWhen(button.SetAttribute("MinWidth", "20") != True || button.SetAttribute("MaxWidth", "10") != False, "min max");
+    Int changes = button.ChangeCount;
+    button.BeginUpdate();
+    button.SetAttribute("Width", "10");
+    button.SetAttribute("Height", "20");
+    button.CancelUpdate();
+    failed = failed + FailWhen(button.GetAttribute("Width") != "120" || button.ChangeCount != changes, "cancel update");
+    button.BeginUpdate();
+    button.BeginUpdate();
+    button.SetAttribute("Width", "30");
+    failed = failed + FailWhen(button.EndUpdate() != 0 || button.GetAttribute("Width") != "120", "nested update");
+    failed = failed + FailWhen(button.EndUpdate() != 1 || button.GetAttribute("Width") != "30" || button.ChangeCount != changes + 1, "end update");
+    failed = failed + FailWhen(button.LayoutInvalidated != True, "layout invalid");
+    button.Refresh();
+    failed = failed + FailWhen(button.Invalidated != False || button.LayoutInvalidated != False, "refresh");
+    button.InvalidateLayout();
+    failed = failed + FailWhen(button.Invalidated != True || button.LayoutInvalidated != True, "invalidate layout");
+    failed = failed + FailWhen(button.AttributeCount() < 20 || button.AttributeName(0) != "Name", "catalog");
+    Return failed;
+}
+
+Public Function CheckResources() -> Int
+Explain {
+    Description: "Check resource lookup, styles, themes, and templates.";
+    Input: None;
+    Processing: "Load the Examples/UI resource files and apply them to elements.";
+    Output: "The number of failed resource checks.";
+} {
+    Int failed = 0;
+    ResourceLibrary library = ResourceLibrary();
+    RxuNode resources = ReadExample("Examples/UI/Resources.rxu").FindChild("Resources");
+    failed = failed + FailWhen(library.Document.Load(resources) != 0 || library.Document.Get("Accent") != "#336699", "Examples/UI/Resources.rxu");
+    RxuNode typed = ReadExample("Examples/UI/ResourceTypes.rxu").FindChild("Resources");
+    ResourceTable types = ResourceTable();
+    failed = failed + FailWhen(types.Load(typed) != 0 || types.Count() != 16 || types.TypeOfKey("Pad") != "Thickness", "Examples/UI/ResourceTypes.rxu");
+    ResourceTable component = ResourceTable();
+    ResourceTable ancestor = ResourceTable();
+    component.Set("Color", "Accent", "#111111");
+    ancestor.Set("Color", "Accent", "#333333");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#111111", "component resource");
+    component.Remove("Accent");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#333333", "ancestor resource");
+    ancestor.Remove("Accent");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#336699", "document resource");
+    library.Document.Remove("Accent");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Accent", "Black") != "#336699", "builtin resource");
+    failed = failed + FailWhen(component.Set("Color", "Accent", "#111111") != True || component.Set("Color", "Accent", "#222222") != False || component.Get("Accent") != "#111111" || component.Messages.Find("RXU023") < 0, "duplicate resource");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Missing", "Black") != "Black" || library.Messages.Find("RXU024") < 0, "missing resource");
+    component.Set("Color", "Loop", "@Back");
+    component.Set("Color", "Back", "@Loop");
+    failed = failed + FailWhen(library.Resolve(component, ancestor, "Loop", "Black") != "Black" || library.Messages.Find("RXU022") < 0, "cyclic resource");
+    failed = failed + FailWhen(component.Set("Color", "Bad", "nope") != False || component.Messages.Find("RXU021") < 0, "bad resource");
+    UIElement button = UIElement();
+    button.Kind = "Button";
+    button.SetAttribute("Name", "Save");
+    library.Document.Set("Color", "Accent", "#336699");
+    failed = failed + FailWhen(library.Bind(button, "Background", "Accent", "#000000") != True || button.GetAttribute("Background") != "#336699", "resource binding");
+    RxuNode theme = ReadExample("Examples/UI/Theme.rxu").FindChild("Theme");
+    library.Document.Remove("Accent");
+    failed = failed + FailWhen(library.AddTheme(theme) != 0 || library.SwitchTheme("Dark") != True || button.GetAttribute("Background") != "#112233" || button.GetAttribute("Name") != "Save", "Examples/UI/Theme.rxu");
+    RxuNode style = ReadExample("Examples/UI/Styles.rxu").FindChild("Style");
+    failed = failed + FailWhen(library.Styles.Load(style) != 1, "Examples/UI/Styles.rxu");
+    UIElement styled = UIElement();
+    styled.Kind = "Button";
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "") < 1 || styled.GetAttribute("Background") != "#336699", "base style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Hover") < 1 || styled.GetAttribute("Background") != "#224466", "hover style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Pressed") < 1 || styled.GetAttribute("Background") != "#112233", "pressed style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Disabled") < 1 || styled.GetAttribute("Opacity") != "0.4", "disabled style");
+    failed = failed + FailWhen(library.Styles.Apply(styled, "Primary", "Focused") < 1 || styled.GetAttribute("BorderColor") != "#FFFFFF", "focused style");
+    styled.SetAttribute("Background", "#ABCDEF");
+    library.Styles.Apply(styled, "Primary", "Hover");
+    failed = failed + FailWhen(styled.GetAttribute("Background") != "#ABCDEF", "local beats style");
+    RxuNode template = ReadExample("Examples/UI/Template.rxu").FindChild("Template");
+    failed = failed + FailWhen(library.LoadTemplate(template) != True || library.ApplyTemplate(styled, "ArmButton") != True || styled.Kind != "Button" || styled.VisualKind != "Border" || styled.TemplateName != "ArmButton", "Examples/UI/Template.rxu");
+    Return failed;
+}
+
+Public Function CheckBuild() -> Int
+Explain {
+    Description: "Check project loading, import resolution, and packaging failures.";
+    Input: None;
+    Processing: "Load the Examples/UI/Build projects and require each invalid project to fail packaging.";
+    Output: "The number of failed build checks.";
+} {
+    Int failed = 0;
+    RxuBuild ready = RxuBuild();
+    failed = failed + FailWhen(ready.ReadProject("Examples/UI/Build/App.rxp") != 0 || ready.PackageReady() != True || ready.RuntimeCount() < 1, "Examples/UI/Build/App.rxp");
+    RxuBuild typed = RxuBuild();
+    Int span = typed.ReadProject("Examples/UI/Build/BadProperty.rxp");
+    Int typedAt = typed.Messages.Find("RXU018");
+    failed = failed + FailWhen(span == 0 || typedAt < 0 || typed.Messages.Find("RXU019") < 0 || typed.PackageReady() != False || typed.Messages.FormatAt(typedAt).Contains("length") != True, "Examples/UI/Build/BadProperty.rxp");
+    RxuBuild nest = RxuBuild();
+    failed = failed + FailWhen(nest.ReadProject("Examples/UI/Build/BadNest.rxp") == 0 || nest.Messages.Find("RXU029") < 0 || nest.PackageReady() != False, "Examples/UI/Build/BadNest.rxp");
+    RxuBuild missing = RxuBuild();
+    failed = failed + FailWhen(missing.ReadProject("Examples/UI/Build/MissingImport.rxp") == 0 || missing.Messages.Find("RXU027") < 0 || missing.PackageReady() != False, "Examples/UI/Build/MissingImport.rxp");
+    RxuBuild cycle = RxuBuild();
+    failed = failed + FailWhen(cycle.ReadProject("Examples/UI/Build/Cycle.rxp") == 0 || cycle.Messages.Find("RXU026") < 0 || cycle.PackageReady() != False, "Examples/UI/Build/Cycle.rxp");
+    RxuBuild handler = RxuBuild();
+    failed = failed + FailWhen(handler.ReadProject("Examples/UI/Build/MissingHandler.rxp") == 0 || handler.Messages.Find("RXU032") < 0 || handler.PackageReady() != False, "Examples/UI/Build/MissingHandler.rxp");
+    RxuBuild asset = RxuBuild();
+    failed = failed + FailWhen(asset.ReadProject("Examples/UI/Build/MissingAsset.rxp") == 0 || asset.Messages.Find("RXU033") < 0 || asset.PackageReady() != False, "Examples/UI/Build/MissingAsset.rxp");
+    RxuBuild backend = RxuBuild();
+    failed = failed + FailWhen(backend.ReadProject("Examples/UI/Build/Unsupported.rxp") == 0 || backend.Messages.Find("RXU034") < 0 || backend.PackageReady() != False, "Examples/UI/Build/Unsupported.rxp");
+    RxuBuild reference = RxuBuild();
+    failed = failed + FailWhen(reference.ReadProject("Examples/UI/Build/BadReference.rxp") == 0 || reference.Messages.Find("RXU028") < 0 || reference.PackageReady() != False, "Examples/UI/Build/BadReference.rxp");
+    RxuBuild duplicate = RxuBuild();
+    failed = failed + FailWhen(duplicate.ReadProject("Examples/UI/Build/DuplicateComponent.rxp") == 0 || duplicate.Messages.Find("RXU036") < 0 || duplicate.PackageReady() != False, "Examples/UI/Build/DuplicateComponent.rxp");
+    RxuBuild resource = RxuBuild();
+    failed = failed + FailWhen(resource.ReadProject("Examples/UI/Build/MissingResource.rxp") == 0 || resource.Messages.Find("RXU030") < 0 || resource.PackageReady() != False, "Examples/UI/Build/MissingResource.rxp");
+    RxuBuild binding = RxuBuild();
+    failed = failed + FailWhen(binding.ReadProject("Examples/UI/Build/BadBinding.rxp") == 0 || binding.Messages.Find("RXU031") < 0 || binding.PackageReady() != False, "Examples/UI/Build/BadBinding.rxp");
+    RxuBuild identity = RxuBuild();
+    failed = failed + FailWhen(identity.ReadProject("Examples/UI/Build/DuplicateId.rxp") == 0 || identity.Messages.Find("RXU016") < 0 || identity.PackageReady() != False, "Examples/UI/Build/DuplicateId.rxp");
+    RxuBuild syntax = RxuBuild();
+    failed = failed + FailWhen(syntax.ReadProject("Examples/UI/Build/BadSyntax.rxp") == 0 || syntax.Messages.Find("RXU008") < 0 || syntax.PackageReady() != False, "Examples/UI/Build/BadSyntax.rxp");
+    RxuBuild outside = RxuBuild();
+    failed = failed + FailWhen(outside.ReadProject("Examples/UI/Build/Unlisted.rxp") == 0 || outside.Messages.Find("RXU038") < 0 || outside.PackageReady() != False, "Examples/UI/Build/Unlisted.rxp");
+    Return failed;
+}
+
+Public Function CheckBindings() -> Int
+Explain {
+    Description: "Check observables, expressions, binding modes, and secret values.";
+    Input: None;
+    Processing: "Load the binding examples and apply live values, collections, converters, and disposal.";
+    Output: "The number of failed binding checks.";
+} {
+    Int failed = 0;
+    RxuNode observed = ReadExample("Examples/UI/Observable.rxu");
+    failed = failed + FailWhen(observed.Messages.Count() != 0 || observed.FindChild("Window").FindAttribute("DataContext").Text != "User" || observed.FindChild("Window").FindChild("Button").FindAttribute("ToolTip").Mode != "Binding" || observed.FindChild("Window").FindChild("Button").FindAttribute("ToolTip").Text != "Name", "Examples/UI/Observable.rxu");
+    RxuNode modes = ReadExample("Examples/UI/BindingModes.rxu");
+    failed = failed + FailWhen(modes.Messages.Count() != 0 || modes.FindChild("Button").FindAttribute("Mode").Text != "TwoWay", "Examples/UI/BindingModes.rxu");
+    RxuNode converted = ReadExample("Examples/UI/BindingConvert.rxu");
+    failed = failed + FailWhen(converted.Messages.Count() != 0 || converted.FindChild("Button").FindAttribute("Converter").Text != "Upper" || converted.FindChild("Button").FindAttribute("Fallback").Text != "Guest", "Examples/UI/BindingConvert.rxu");
+    RxuNode secret = ReadExample("Examples/UI/PasswordBox.rxu");
+    failed = failed + FailWhen(secret.Messages.Count() != 0 || secret.FindChild("PasswordBox").FindAttribute("Name").Mode != "Binding" || secret.FindChild("PasswordBox").FindAttribute("Name").Text != "Password", "Examples/UI/PasswordBox.rxu");
+    UIElement scope = UIElement();
+    scope.Kind = "Window";
+    scope.SetDataContext("User");
+    UIElement child = UIElement();
+    child.Kind = "Button";
+    child.SetParent(scope);
+    UIElement nested = UIElement();
+    nested.Kind = "Button";
+    nested.SetParent(child);
+    failed = failed + FailWhen(child.ContextKey() != "User" || nested.ContextKey() != "User", "data context");
+    child.SetDataContext("Local");
+    scope.SetDataContext("Account");
+    failed = failed + FailWhen(child.ContextKey() != "Local" || nested.ContextKey() != "Local" || scope.ContextKey() != "Account", "local data context");
+    child.ClearDataContext(scope.ContextKey());
+    failed = failed + FailWhen(child.ContextKey() != "Account" || nested.ContextKey() != "Account", "cleared data context");
+    RxuExpression math = RxuExpression();
+    failed = failed + FailWhen(math.CheckExpression("1 + 2 * 3") != "Number" || math.EvaluateExpression("1 + 2 * 3", BindingEngine(), "") != "7", "arithmetic");
+    failed = failed + FailWhen(math.CheckExpression("(1 + 2) * 3") != "Number" || math.EvaluateExpression("(1 + 2) * 3", BindingEngine(), "") != "9", "grouped arithmetic");
+    failed = failed + FailWhen(math.CheckExpression("1 + 2 == 3") != "Boolean" || math.EvaluateExpression("1 + 2 == 3", BindingEngine(), "") != "true", "comparison");
+    failed = failed + FailWhen(math.EvaluateExpression("!false && (false || true)", BindingEngine(), "") != "true", "logic");
+    failed = failed + FailWhen(math.EvaluateExpression("1 > 2 ? \"no\" : \"yes\"", BindingEngine(), "") != "yes", "conditional");
+    failed = failed + FailWhen(math.EvaluateExpression("Length(\"ab\")", BindingEngine(), "") != "2" || math.EvaluateExpression("Empty(\"\")", BindingEngine(), "") != "true" || math.EvaluateExpression("Lower(\"ADA\")", BindingEngine(), "") != "ada" || math.EvaluateExpression("Upper(\"ada\")", BindingEngine(), "") != "ADA" || math.EvaluateExpression("Not(true)", BindingEngine(), "") != "false", "approved functions");
+    failed = failed + FailWhen(math.CheckExpression("Unknown(1)") != "Error" || math.Messages.Find("RXU039") < 0, "unknown function");
+    failed = failed + FailWhen(math.CheckExpression("1 + true") != "Error" || math.Messages.Find("RXU044") < 0, "bad arithmetic");
+    failed = failed + FailWhen(math.EvaluateExpression("null == null", BindingEngine(), "") != "true", "null check");
+    BindingEngine engine = BindingEngine();
+    engine.DefineValue("User.Name", "Ada", False);
+    engine.DefineValue("Flag", "true", False);
+    engine.DefineList("Joints");
+    engine.AddItem("Joints", "A");
+    engine.AddItem("Joints", "B");
+    UIElement title = UIElement();
+    title.Kind = "Window";
+    title.SetDataContext("User");
+    Int live = engine.BindTo(title, "Title", "Name", "OneWay", "", False, "Guest", "Change", title.ContextKey());
+    failed = failed + FailWhen(title.GetAttribute("Title") != "Ada" || math.DependencyCount() < 0 || engine.ReadValue("User.Name") != "Ada", "nested binding");
+    engine.ChangeValue("User.Name", "Bea");
+    failed = failed + FailWhen(title.GetAttribute("Title") != "Bea", "live binding");
+    UIElement once = UIElement();
+    once.Kind = "Window";
+    Int onceIndex = engine.BindTo(once, "Title", "User.Name", "OneTime", "", False, "", "Change", "");
+    engine.ChangeValue("User.Name", "Cara");
+    failed = failed + FailWhen(once.GetAttribute("Title") != "Bea" || title.GetAttribute("Title") != "Cara", "one time binding");
+    UIElement manual = UIElement();
+    manual.Kind = "Window";
+    Int manualIndex = engine.BindTo(manual, "Title", "User.Name", "Manual", "", False, "", "Explicit", "");
+    failed = failed + FailWhen(manual.GetAttribute("Title") != "", "manual binding");
+    engine.RefreshBound(manualIndex);
+    failed = failed + FailWhen(manual.GetAttribute("Title") != "Cara", "explicit refresh");
+    UIElement source = UIElement();
+    source.Kind = "Window";
+    source.SetAttribute("Title", "Kept");
+    Int sourceIndex = engine.BindTo(source, "Title", "User.Name", "OneWayToSource", "", False, "", "Input", "");
+    engine.ChangeValue("User.Name", "Dora");
+    failed = failed + FailWhen(source.GetAttribute("Title") != "Kept" || engine.PushInput(sourceIndex, "Edit") != True || engine.ReadValue("User.Name") != "Edit", "source binding");
+    UIElement both = UIElement();
+    both.Kind = "Window";
+    Int bothIndex = engine.BindTo(both, "Title", "User.Name", "TwoWay", "", False, "", "Change", "");
+    failed = failed + FailWhen(engine.PushInput(bothIndex, "Faye") != True || engine.ReadValue("User.Name") != "Faye" || both.GetAttribute("Title") != "Faye", "two way binding");
+    UIElement upper = UIElement();
+    upper.Kind = "Window";
+    engine.DefineValue("Label", "ada", False);
+    engine.BindTo(upper, "Title", "Label", "OneWay", "Upper", False, "", "Change", "");
+    failed = failed + FailWhen(upper.GetAttribute("Title") != "ADA", "converter");
+    UIElement missing = UIElement();
+    missing.Kind = "Window";
+    engine.BindTo(missing, "Title", "Missing", "OneWay", "", False, "Guest", "Change", "");
+    failed = failed + FailWhen(missing.GetAttribute("Title") != "Guest", "fallback");
+    UIElement blank = UIElement();
+    blank.Kind = "Window";
+    engine.BindTo(blank, "Title", "null", "OneWay", "", False, "Guest", "Change", "");
+    failed = failed + FailWhen(blank.GetAttribute("Title") != "Guest", "null fallback");
+    UIElement width = UIElement();
+    width.Kind = "Window";
+    engine.BindTo(width, "Width", "\"wide\"", "OneWay", "", False, "", "Change", "");
+    failed = failed + FailWhen(width.GetAttribute("Width") != "Auto" || engine.Messages.Find("RXU041") < 0, "rejected binding");
+    UIElement styled = UIElement();
+    styled.Kind = "Window";
+    engine.DefineValue("Heading", "Ada", False);
+    engine.BindTo(styled, "Title", "Heading", "OneWay", "", False, "", "Change", "");
+    styled.SetStyle("Title", "Styled");
+    failed = failed + FailWhen(styled.GetAttribute("Title") != "Ada", "binding beats style");
+    styled.SetAnimation("Title", "Anim");
+    Int styledIndex = engine.BindTo(styled, "Title", "Heading", "Reactive", "", False, "", "Change", "");
+    engine.RefreshBound(styledIndex);
+    failed = failed + FailWhen(styled.GetAttribute("Title") != "Anim", "animation beats binding");
+    UIElement listTitle = UIElement();
+    listTitle.Kind = "Window";
+    Int listIndex = engine.BindTo(listTitle, "ToolTip", "Joints.0", "Reactive", "", False, "", "Change", "");
+    failed = failed + FailWhen(listTitle.GetAttribute("ToolTip") != "A" || engine.ItemCount("Joints") != 2, "collection binding");
+    engine.MoveItem("Joints", 0, 1);
+    failed = failed + FailWhen(engine.ItemAt("Joints", 0) != "B" || listTitle.GetAttribute("ToolTip") != "B", "collection reorder");
+    engine.RemoveItem("Joints", 0);
+    failed = failed + FailWhen(listTitle.GetAttribute("ToolTip") != "A", "collection remove");
+    engine.AddItem("Joints", "C");
+    failed = failed + FailWhen(engine.ItemCount("Joints") != 2 || math.EvaluateExpression("Count(Joints)", engine, "") != "2", "collection add");
+    UIElement stale = UIElement();
+    stale.Kind = "Window";
+    Int staleIndex = engine.BindTo(stale, "Title", "Heading", "OneWay", "", False, "", "Change", "");
+    engine.DisposeBound(staleIndex);
+    engine.ChangeValue("Heading", "Bea");
+    failed = failed + FailWhen(stale.GetAttribute("Title") != "Ada" || styled.GetAttribute("Title") != "Anim", "stale subscription");
+    Int before = engine.ActiveCount();
+    engine.DisposeAll();
+    engine.ChangeValue("Heading", "Cara");
+    failed = failed + FailWhen(before < 1 || engine.ActiveCount() != 0 || stale.GetAttribute("Title") != "Ada", "disposed bindings");
+    BindingEngine cycle = BindingEngine();
+    cycle.DefineValue("Flag", "true", False);
+    UIElement flag = UIElement();
+    flag.Kind = "Button";
+    cycle.BindTo(flag, "Enabled", "Flag", "TwoWay", "", True, "", "Change", "");
+    failed = failed + FailWhen(cycle.Messages.Find("RXU040") < 0, "binding cycle");
+    BindingEngine vault = BindingEngine();
+    vault.DefineValue("Password", "s3cret", True);
+    UIElement box = UIElement();
+    box.Kind = "PasswordBox";
+    Int boxIndex = vault.BindTo(box, "ToolTip", "Password", "OneWay", "", False, "", "Change", "");
+    Int diagnostic = 0;
+    Bool leaked = False;
+    While (diagnostic < vault.Messages.Count()) {
+        If (vault.Messages.FormatAt(diagnostic).Contains("s3cret")) {
+            leaked = True;
+        }
+        diagnostic = diagnostic + 1;
+    }
+    failed = failed + FailWhen(vault.TraceValue(boxIndex) != "••••" || vault.Messages.Find("RXU041") < 0 || leaked || box.GetAttribute("ToolTip") != "", "password binding");
+    Int ignored = live + onceIndex + listIndex;
+    If (ignored < 0) {
+        failed = failed + 1;
+    }
+    Return failed;
+}
+
+Public Function CheckBackend() -> Int
+Explain {
+    Description: "Check backend selection, capabilities, fallbacks, and universal projects.";
+    Input: None;
+    Processing: "Drive the headless backend and read the universal sample project.";
+    Output: "The number of failed backend checks.";
+} {
+    Int failed = 0;
+    UIBackend backend = UIBackend();
+    failed = failed + FailWhen(backend.UseHost("") != "Headless" || backend.Supports("Graphics") || !backend.Supports("Window") || !backend.Supports("Clipboard") || !backend.Supports("Accessibility") || backend.ReadScreens() != 1 || backend.ReadScale() != "1" || backend.Messages.Find("RXU045") < 0, "headless backend");
+    failed = failed + FailWhen(backend.UseHost("linux") != "Linux" || !backend.Supports("HiDPI") || !backend.Supports("Touch") || !backend.Supports("Graphics") || !backend.Supports("Dialog") || !backend.Supports("FileDialog") || !backend.Supports("Notification") || !backend.Supports("Menu") || backend.ReadScreens() != 2 || backend.ReadScale() != "2", "linux backend");
+    failed = failed + FailWhen(backend.UseHost("windows") != "Windows" || backend.Supports("Touch") || !backend.Supports("Graphics"), "windows backend");
+    failed = failed + FailWhen(backend.UseHost("macos") != "Mac" || !backend.Supports("Touch"), "mac backend");
+    backend.UseHost("");
+    failed = failed + FailWhen(backend.OpenWindow("main", "Arm") != True || backend.OpenComponent("main", "save", "Button") != True || backend.SyncProperty("save", "Name", "Save") != True || backend.MeasureNode("save") != "120,32", "backend lifetime");
+    failed = failed + FailWhen(backend.OpenComponent("main", "bad", "GtkButton") != False || backend.Messages.Find("RXU046") < 0, "platform widget");
+    failed = failed + FailWhen(backend.OfferInput("Pointer", "1,2") != True || backend.OfferInput("Key", "S") != True || backend.OfferInput("Scroll", "1") != True || backend.OfferInput("Touch", "1") != False || backend.MarkDirty("save") != True, "semantic input");
+    failed = failed + FailWhen(backend.CopyClipboard("arm") != True || backend.PasteClipboard() != "arm", "clipboard");
+    failed = failed + FailWhen(backend.SaveState() != "main" || backend.CloseWindow("main") != True || backend.OpenComponent("main", "save", "Button") != False || backend.RestoreState("main") != True || backend.OpenComponent("main", "save", "Button") != True, "state restore");
+    failed = failed + FailWhen(backend.Draw("Fill", "#336699") != True || backend.Draw("GtkBox", "") != False, "drawing");
+    failed = failed + FailWhen(backend.OpenDialog("Confirm", "Save") != True || backend.OpenFile("Open") != "" || backend.Notify("Done") != True || backend.OpenMenu("File") != True, "backend fallback");
+    backend.ShutDown();
+    failed = failed + FailWhen(backend.OpenWindow("main", "Arm") != False, "backend shutdown");
+    Bool sawSoftware = False;
+    Bool sawDialog = False;
+    Bool sawStop = False;
+    Int index = 0;
+    While (index < backend.LogCount()) {
+        String entry = backend.LogAt(index);
+        If (entry == "Software Fill #336699") { sawSoftware = True; }
+        If (entry == "Fallback Dialog Confirm") { sawDialog = True; }
+        If (entry == "ShutDown") { sawStop = True; }
+        index = index + 1;
+    }
+    failed = failed + FailWhen(!sawSoftware || !sawDialog || !sawStop || backend.LogAt(0) != "OpenWindow main Arm", "backend log");
+    RxuNode markup = ReadExample("Examples/UI/Backend.rxu");
+    failed = failed + FailWhen(markup.Messages.Count() != 0 || markup.FindChild("Window").FindAttribute("Title").Text != "Arm", "Examples/UI/Backend.rxu");
+    UIBackend project = UIBackend();
+    failed = failed + FailWhen(project.ProjectClean("Examples/UI/Backend/App.rxp") != True || project.ProjectClean("Examples/UI/Backend/App.rx") != True || project.ProjectClean("Examples/UI/Backend/App.rxu") != True || project.ProjectClean("Examples/UI/Backend/Rejected.rx") != False || project.Messages.Find("RXU046") < 0, "universal project");
+    Return failed;
+}
+
+Public Function CheckLinux() -> Int
+Explain {
+    Description: "Check the Linux application loop, window calls, and UI thread queue.";
+    Input: None;
+    Processing: "Start, resize, close, reopen, dispose, and post background work.";
+    Output: "The number of failed Linux checks.";
+} {
+    Int failed = 0;
+    RxuNode markup = ReadExample("Examples/UI/LinuxApp.rxu");
+    failed = failed + FailWhen(markup.Messages.Count() != 0 || markup.FindChild("Window").FindAttribute("Title").Text != "Arm" || markup.FindChild("Window").FindAttribute("Width").Text != "320", "Examples/UI/LinuxApp.rxu");
+    LinuxApp app = LinuxApp();
+    failed = failed + FailWhen(app.CreateApp() != True || app.OpenAppWindow("main", "Arm", "320", "240") != True || app.ReadWindowState("main") != "Hidden" || app.ReadMain() != "main", "linux create");
+    app.PostWork("Size|main|500|250");
+    failed = failed + FailWhen(app.RunApp() != 1 || app.ReadPhase() != "Running" || app.ReadWindowState("main") != "Normal" || app.ReadWindowSize("main") != "500,250" || app.ReadScale() != "2", "linux startup");
+    failed = failed + FailWhen(app.ResizeWindow("main", "400", "300") != True || app.ReadWindowSize("main") != "400,300" || app.MoveWindow("main", "10", "20") != True || app.ReadWindowPosition("main") != "10,20", "linux resize");
+    failed = failed + FailWhen(app.MinimizeWindow("main") != True || app.ReadWindowState("main") != "Minimized" || app.MaximizeWindow("main") != True || app.ReadWindowState("main") != "Maximized" || app.RestoreWindow("main") != True || app.ReadWindowState("main") != "Normal", "linux window state");
+    failed = failed + FailWhen(app.HideWindow("main") != True || app.ReadWindowState("main") != "Hidden" || app.ActivateWindow("main") != True || app.ReadWindowState("main") != "Normal", "linux activate");
+    failed = failed + FailWhen(app.RetitleWindow("main", "Bea") != True || app.ReadWindowTitle("main") != "Bea" || app.CloseAppWindow("main") != True || app.ReadWindowState("main") != "Closed" || app.ShowWindow("main") != True || app.ReadWindowState("main") != "Normal", "linux reopen");
+    failed = failed + FailWhen(app.CopyText("arm") != True || app.PasteText() != "arm" || app.ChooseFile("Open") != "arm.rxu" || app.AskDialog("Confirm", "Save") != True, "linux bridges");
+    app.EnterBackground();
+    failed = failed + FailWhen(app.IsUIThread() != False || app.CheckAccess() != False || app.RetitleWindow("main", "Cara") != False || app.ReadWindowTitle("main") != "Bea" || app.Messages.Find("RXU047") < 0, "wrong thread");
+    app.PostWork("Title|main|Queued");
+    failed = failed + FailWhen(app.ReadWindowTitle("main") != "Bea" || app.PumpApp() != 1 || app.ReadWindowTitle("main") != "Queued", "background post");
+    failed = failed + FailWhen(app.DispatchWork("Title|main|Sent") != True || app.ReadWindowTitle("main") != "Queued" || app.PumpApp() != 1 || app.ReadWindowTitle("main") != "Sent", "dispatch async");
+    failed = failed + FailWhen(app.InvokeWork("Title|main|Now") != False || app.ReadWindowTitle("main") != "Sent", "invoke rejected");
+    app.LeaveBackground();
+    failed = failed + FailWhen(app.IsUIThread() != True || app.CheckAccess() != True || app.InvokeWork("Title|main|Now") != True || app.ReadWindowTitle("main") != "Now", "invoke ui");
+    failed = failed + FailWhen(app.DispatchLater("Title|main|Later") != True || app.ReadWindowTitle("main") != "Now" || app.ScheduleWork("Show|main") != True || app.PumpApp() != 2 || app.ReadWindowTitle("main") != "Later", "scheduled work");
+    failed = failed + FailWhen(app.DisposeWindow("main") != True || app.ShowWindow("main") != False || app.Messages.Find("RXU048") < 0, "linux dispose");
+    app.ExitApp(0);
+    Bool sawNew = False;
+    Bool sawShow = False;
+    Bool sawSize = False;
+    Bool sawDestroy = False;
+    Int index = 0;
+    While (index < app.TraceCount()) {
+        String call = app.TraceAt(index);
+        If (call == "gtk_window_new main") { sawNew = True; }
+        If (call == "gtk_widget_show main") { sawShow = True; }
+        If (call == "gtk_window_set_default_size main") { sawSize = True; }
+        If (call == "gtk_window_destroy main") { sawDestroy = True; }
+        index = index + 1;
+    }
+    failed = failed + FailWhen(!sawNew || !sawShow || !sawSize || !sawDestroy || app.ReadPhase() != "Exited" || app.ReadExit() != 0, "gtk trace");
+    Return failed;
+}
+
+Private Function LayoutOpen(String path, String id, Int w, Int h) -> LayoutEngine {
+    LayoutEngine engine = LayoutEngine();
+    engine.ImportLayout(ReadExample(path), "");
+    engine.Relayout(id, w, h);
+    Return engine;
+}
+
+Public Function CheckLayout() -> Int
+Explain {
+    Description: "Check measure, arrange, render, and the shared layout geometry.";
+    Input: None;
+    Processing: "Load the layout examples and compare frames, clips, scale, direction, and cached measures.";
+    Output: "The number of failed layout checks.";
+} {
+    Int failed = 0;
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutStack.rxu").Messages.Count() != 0, "stack parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutGrid.rxu").Messages.Count() != 0, "grid parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutCanvas.rxu").Messages.Count() != 0, "canvas parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutScroll.rxu").Messages.Count() != 0, "scroll parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutDock.rxu").Messages.Count() != 0, "dock parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutWrap.rxu").Messages.Count() != 0, "wrap parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutFlex.rxu").Messages.Count() != 0, "flex parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutUniform.rxu").Messages.Count() != 0, "uniform parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutSplit.rxu").Messages.Count() != 0, "split parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutConstraint.rxu").Messages.Count() != 0, "constraint parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutTab.rxu").Messages.Count() != 0, "tab parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutView.rxu").Messages.Count() != 0, "view parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutPrimitives.rxu").Messages.Count() != 0, "primitives parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutPanel.rxu").Messages.Count() != 0, "panel parse");
+    failed = failed + FailWhen(ReadExample("Examples/UI/LayoutRow.rxu").Messages.Count() != 0, "row parse");
+    LayoutEngine stack = LayoutOpen("Examples/UI/LayoutStack.rxu", "root", 200, 100);
+    failed = failed + FailWhen(stack.FrameOf("Title") != "4,4,50,20" || stack.FrameOf("Body") != "4,32,50,20", "stack " + stack.FrameOf("Title") + " " + stack.FrameOf("Body"));
+    failed = failed + FailWhen(!stack.HasCommand("Text Title 4 4 50 20 Arm") || stack.MeasureSlot("Title", 80, 40) != "50,20" || stack.SetText("Title", "Nope", "x") != False, "stack text");
+    LayoutEngine grid = LayoutOpen("Examples/UI/LayoutGrid.rxu", "grid", 100, 100);
+    failed = failed + FailWhen(grid.FrameOf("A") != "0,0,50,50" || grid.FrameOf("B") != "50,0,50,50" || grid.FrameOf("C") != "0,50,100,50", "grid " + grid.FrameOf("A") + " " + grid.FrameOf("B") + " " + grid.FrameOf("C"));
+    failed = failed + FailWhen(!grid.HasCommand("Fill A 0 0 50 50 #336699") || !grid.HasCommand("Fill C 0 50 100 50 #336699"), "grid fill");
+    LayoutEngine canvas = LayoutOpen("Examples/UI/LayoutCanvas.rxu", "canvas", 200, 100);
+    failed = failed + FailWhen(canvas.FrameOf("mark") != "30,12,10,10", "canvas " + canvas.FrameOf("mark"));
+    LayoutEngine scroll = LayoutOpen("Examples/UI/LayoutScroll.rxu", "scroll", 100, 80);
+    scroll.SetOffset("scroll", 0, 40);
+    scroll.Relayout("scroll", 100, 80);
+    failed = failed + FailWhen(scroll.FrameOf("long") != "0,-40,100,200" || !scroll.HasCommand("Fill long 0 0 100 80 #336699") || !scroll.HasCommand("Clip 0 0 100 80"), "scroll " + scroll.FrameOf("long"));
+    LayoutEngine dock = LayoutOpen("Examples/UI/LayoutDock.rxu", "dock", 200, 100);
+    failed = failed + FailWhen(dock.FrameOf("side") != "0,0,40,100" || dock.FrameOf("rest") != "40,0,160,100", "dock " + dock.FrameOf("side") + " " + dock.FrameOf("rest"));
+    LayoutEngine wrap = LayoutOpen("Examples/UI/LayoutWrap.rxu", "wrap", 100, 80);
+    failed = failed + FailWhen(wrap.FrameOf("a") != "0,0,40,20" || wrap.FrameOf("b") != "40,0,40,20" || wrap.FrameOf("c") != "0,20,40,20", "wrap " + wrap.FrameOf("c"));
+    LayoutEngine flex = LayoutOpen("Examples/UI/LayoutFlex.rxu", "flex", 100, 20);
+    failed = failed + FailWhen(flex.FrameOf("a") != "0,0,50,20" || flex.FrameOf("b") != "50,0,50,20", "flex " + flex.FrameOf("a") + " " + flex.FrameOf("b"));
+    LayoutEngine uniform = LayoutOpen("Examples/UI/LayoutUniform.rxu", "uniform", 100, 100);
+    failed = failed + FailWhen(uniform.FrameOf("a") != "0,0,50,50" || uniform.FrameOf("b") != "50,0,50,50" || uniform.FrameOf("c") != "0,50,50,50", "uniform " + uniform.FrameOf("c"));
+    LayoutEngine split = LayoutOpen("Examples/UI/LayoutSplit.rxu", "split", 200, 40);
+    failed = failed + FailWhen(split.FrameOf("pane") != "0,0,80,40" || split.FrameOf("rest") != "80,0,120,40", "split " + split.FrameOf("pane") + " " + split.FrameOf("rest"));
+    LayoutEngine limit = LayoutOpen("Examples/UI/LayoutConstraint.rxu", "limit", 200, 40);
+    failed = failed + FailWhen(limit.FrameOf("item") != "75,10,50,20", "constraint " + limit.FrameOf("item"));
+    LayoutEngine tabs = LayoutOpen("Examples/UI/LayoutTab.rxu", "tabs", 100, 30);
+    failed = failed + FailWhen(tabs.FrameOf("first") != "0,0,100,30" || tabs.FrameOf("second") != "0,0,0,0", "tab " + tabs.FrameOf("second"));
+    LayoutEngine view = LayoutOpen("Examples/UI/LayoutView.rxu", "view", 100, 40);
+    failed = failed + FailWhen(view.FrameOf("body") != "0,0,100,40" || !view.HasCommand("Clip 0 0 100 40") || !view.HasCommand("Fill body 0 0 100 40 #336699"), "view");
+    LayoutEngine art = LayoutOpen("Examples/UI/LayoutPrimitives.rxu", "art", 80, 80);
+    failed = failed + FailWhen(art.FrameOf("box") != "0,0,80,80" || art.FrameOf("photo") != "0,0,32,32" || art.FrameOf("label") != "0,0,24,16", "primitives " + art.FrameOf("photo") + " " + art.FrameOf("label"));
+    failed = failed + FailWhen(!art.HasCommand("Fill box 0 0 80 80 #336699") || !art.HasCommand("Border edge 0 0 80 80") || !art.HasCommand("Image photo 0 0 32 32") || !art.HasCommand("Text label 0 0 24 16 Arm") || !art.HasCommand("Path curve 0 0 80 80") || !art.HasCommand("Shadow shade 0 0 80 80"), "primitive commands");
+    LayoutEngine panel = LayoutOpen("Examples/UI/LayoutPanel.rxu", "panel", 100, 80);
+    failed = failed + FailWhen(panel.FrameOf("a") != "0,0,40,20" || panel.FrameOf("b") != "0,20,40,20", "panel " + panel.FrameOf("b"));
+    LayoutEngine row = LayoutOpen("Examples/UI/LayoutRow.rxu", "row", 200, 40);
+    failed = failed + FailWhen(row.FrameOf("a") != "0,0,40,20" || row.FrameOf("b") != "40,0,40,20", "row " + row.FrameOf("b"));
+    LayoutEngine once = LayoutEngine();
+    once.AddSlot("n", "", "Rect");
+    once.SetText("n", "Width", "10");
+    once.SetText("n", "Height", "10");
+    failed = failed + FailWhen(once.MeasureSlot("n", 10, 10) != "10,10" || once.ArrangeSlot("n", 1, 2, 10, 10) != True || once.DrawSlots("n") != 1 || once.FrameOf("n") != "1,2,10,10" || once.CommandAt(0) != "Fill n 1 2 10 10 #000000", "lifecycle " + once.FrameOf("n") + " " + once.CommandAt(0));
+    LayoutEngine sizes = LayoutEngine();
+    sizes.AddSlot("root", "", "Stack");
+    sizes.SetText("root", "Height", "100");
+    sizes.AddSlot("pct", "root", "Rect");
+    sizes.SetText("pct", "Width", "50%");
+    sizes.SetText("pct", "Height", "20");
+    sizes.SetText("pct", "Horizontal", "Start");
+    sizes.AddSlot("fix", "root", "Rect");
+    sizes.SetText("fix", "Width", "40");
+    sizes.SetText("fix", "Height", "20");
+    sizes.SetText("fix", "Horizontal", "Start");
+    sizes.Relayout("root", 200, 100);
+    failed = failed + FailWhen(sizes.FrameOf("pct") != "0,0,100,20" || sizes.FrameOf("fix") != "0,20,40,20", "percent small " + sizes.FrameOf("pct") + " " + sizes.FrameOf("fix"));
+    sizes.Relayout("root", 800, 100);
+    failed = failed + FailWhen(sizes.FrameOf("pct") != "0,0,400,20" || sizes.FrameOf("fix") != "0,20,40,20", "percent large " + sizes.FrameOf("pct"));
+    LayoutEngine rules = LayoutEngine();
+    rules.AddSlot("root", "", "Stack");
+    rules.SetText("root", "Width", "200");
+    rules.SetText("root", "Height", "120");
+    rules.AddSlot("label", "root", "Text");
+    rules.SetText("label", "Content", "Hi");
+    rules.SetText("label", "MinWidth", "40");
+    rules.SetText("label", "Horizontal", "Start");
+    rules.AddSlot("wide", "root", "Rect");
+    rules.SetText("wide", "Width", "100");
+    rules.SetText("wide", "MaxWidth", "30");
+    rules.SetText("wide", "Height", "20");
+    rules.SetText("wide", "Horizontal", "Start");
+    rules.AddSlot("end", "root", "Rect");
+    rules.SetText("end", "Width", "50");
+    rules.SetText("end", "Height", "20");
+    rules.SetText("end", "Horizontal", "End");
+    rules.AddSlot("pad", "root", "Rect");
+    rules.SetText("pad", "Width", "50");
+    rules.SetText("pad", "Height", "20");
+    rules.SetText("pad", "Margin", "1,2,3,4");
+    rules.SetText("pad", "Horizontal", "Start");
+    rules.Relayout("root", 200, 120);
+    failed = failed + FailWhen(rules.FrameOf("label") != "0,0,40,16" || rules.FrameOf("wide") != "0,16,30,20" || rules.FrameOf("end") != "150,36,50,20" || rules.FrameOf("pad") != "1,58,50,20", "rules " + rules.FrameOf("label") + " " + rules.FrameOf("wide") + " " + rules.FrameOf("end") + " " + rules.FrameOf("pad"));
+    LayoutEngine flow = LayoutEngine();
+    flow.AddSlot("box", "", "Stack");
+    flow.SetText("box", "Width", "100");
+    flow.SetText("box", "Height", "40");
+    flow.AddSlot("big", "box", "Rect");
+    flow.SetText("big", "Width", "300");
+    flow.SetText("big", "Height", "20");
+    flow.SetText("big", "Horizontal", "Start");
+    flow.Relayout("box", 100, 40);
+    failed = failed + FailWhen(flow.FrameOf("big") != "0,0,300,20" || !flow.HasCommand("Fill big 0 0 300 20 #000000"), "overflow " + flow.FrameOf("big"));
+    flow.SetText("box", "Clip", "true");
+    flow.Relayout("box", 100, 40);
+    failed = failed + FailWhen(flow.FrameOf("big") != "0,0,300,20" || !flow.HasCommand("Fill big 0 0 100 20 #000000") || !flow.HasCommand("Clip 0 0 100 40"), "clip");
+    LayoutEngine nest = LayoutEngine();
+    nest.AddSlot("outer", "", "Scroll");
+    nest.SetText("outer", "Width", "100");
+    nest.SetText("outer", "Height", "100");
+    nest.SetText("outer", "Clip", "true");
+    nest.AddSlot("inner", "outer", "Scroll");
+    nest.SetText("inner", "Width", "100");
+    nest.SetText("inner", "Height", "80");
+    nest.AddSlot("item", "inner", "Rect");
+    nest.SetText("item", "Width", "100");
+    nest.SetText("item", "Height", "40");
+    nest.SetOffset("outer", 0, 10);
+    nest.SetOffset("inner", 0, 5);
+    nest.Relayout("outer", 100, 100);
+    failed = failed + FailWhen(nest.FrameOf("item") != "0,-15,100,40" || !nest.HasCommand("Fill item 0 0 100 25 #000000"), "nested " + nest.FrameOf("item"));
+    LayoutEngine dpi = LayoutEngine();
+    dpi.AddSlot("root", "", "Stack");
+    dpi.SetText("root", "Width", "200");
+    dpi.SetText("root", "Height", "40");
+    dpi.AddSlot("box", "root", "Rect");
+    dpi.SetText("box", "Width", "50");
+    dpi.SetText("box", "Height", "20");
+    dpi.SetText("box", "Horizontal", "Start");
+    dpi.Relayout("root", 200, 40);
+    Int measured = dpi.MeasureCount("box");
+    dpi.SetScale(2);
+    dpi.Relayout("root", 200, 40);
+    failed = failed + FailWhen(dpi.FrameOf("box") != "0,0,100,40" || dpi.MeasureCount("box") != measured, "dpi " + dpi.FrameOf("box") + " " + dpi.MeasureCount("box").ToString());
+    LayoutEngine rtl = LayoutEngine();
+    rtl.AddSlot("root", "", "Stack");
+    rtl.SetText("root", "Width", "200");
+    rtl.SetText("root", "Height", "40");
+    rtl.AddSlot("item", "root", "Rect");
+    rtl.SetText("item", "Width", "50");
+    rtl.SetText("item", "Height", "20");
+    rtl.SetText("item", "Horizontal", "Start");
+    rtl.SetFlow("RTL");
+    rtl.Relayout("root", 200, 40);
+    failed = failed + FailWhen(rtl.FrameOf("item") != "150,0,50,20" || rtl.DecorationNote() != "Window decorations and fonts follow the host. Layout geometry stays shared.", "rtl " + rtl.FrameOf("item"));
+    LayoutEngine cache = LayoutEngine();
+    cache.AddSlot("root", "", "Stack");
+    cache.SetText("root", "Width", "200");
+    cache.SetText("root", "Height", "80");
+    cache.AddSlot("A", "root", "Rect");
+    cache.SetText("A", "Width", "50");
+    cache.SetText("A", "Height", "20");
+    cache.SetText("A", "Horizontal", "Start");
+    cache.AddSlot("B", "root", "Rect");
+    cache.SetText("B", "Width", "50");
+    cache.SetText("B", "Height", "20");
+    cache.SetText("B", "Horizontal", "Start");
+    cache.Relayout("root", 200, 80);
+    Int firstA = cache.MeasureCount("A");
+    Int firstB = cache.MeasureCount("B");
+    Int revision = cache.RevisionOf();
+    cache.Relayout("root", 200, 80);
+    failed = failed + FailWhen(firstA != 1 || cache.MeasureCount("A") != firstA || cache.MeasureCount("B") != firstB || cache.RevisionOf() != revision, "cache hold " + firstA.ToString());
+    cache.SetText("B", "Height", "30");
+    cache.InvalidateSlot("B");
+    cache.Relayout("root", 200, 80);
+    failed = failed + FailWhen(cache.MeasureCount("A") != firstA || cache.MeasureCount("B") != firstB + 1 || cache.RevisionOf() != revision + 1 || cache.FrameOf("A") != "0,0,50,20" || cache.FrameOf("B") != "0,20,50,30", "cache dirty " + cache.FrameOf("B") + " " + cache.MeasureCount("B").ToString());
+    Return failed;
+}
+
+Public Function CheckFrame() -> Int
+Explain {
+    Description: "Check damage, hit testing, and headless present for the Arm console.";
+    Input: None;
+    Processing: "Adopt the layout display list. A clean frame rasters nothing. A text edit damages one slot. A missing display stays headless.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    Directory.Create("Build/rxu");
+    LayoutEngine layout = LayoutOpen("Examples/UI/ArmConsole.rxu", "shell", 640, 480);
+    FrameHost host = FrameHost();
+    Int commands = host.FrameAdopt(layout, "shell");
+    String mark = layout.FrameOf("mark");
+    String rows = layout.FrameOf("rows");
+    String bar = layout.FrameOf("bar");
+    String sideTitle = layout.FrameOf("sideTitle");
+    failed = failed + FailWhen(commands < 1 || !host.FrameWrite("Build/rxu/arm-s1.list") || host.FramePump() != 1 || host.FramePump() != 0 || host.FrameHitSlot("heading") != "heading", "frame adopt " + commands.ToString() + " " + host.FrameHitSlot("heading"));
+    String heading = layout.FrameOf("heading");
+    Int hx = heading.IndexOf(",");
+    Int hy = heading.IndexOf(",", hx + 1);
+    Int left = heading.Substring(0, hx).ToInt();
+    Int top = heading.Substring(hx + 1, hy - hx - 1).ToInt();
+    failed = failed + FailWhen(host.FramePointer(left + 2, top + 2) != "heading" || host.FramePressed() != "Pressed" || host.FrameKey("A") != "A" || host.FrameTarget() != "heading", "frame input");
+    failed = failed + FailWhen(!layout.SetText("heading", "Content", "Wrist"), "frame text");
+    layout.Relayout("shell", 640, 480);
+    Int band = host.FrameDamage(layout, "heading");
+    failed = failed + FailWhen(band < 1 || band >= host.FrameWindow() || host.FramePump() != 1 || host.FramePump() != 0, "frame damage " + band.ToString());
+    layout.SetOffset("list", 0, 40);
+    layout.Relayout("shell", 640, 480);
+    failed = failed + FailWhen(layout.FrameOf("rows") == rows || layout.FrameOf("bar") != bar, "frame scroll");
+    layout.SetScale(2);
+    layout.Relayout("shell", 640, 480);
+    host.FrameAdopt(layout, "shell");
+    failed = failed + FailWhen(!host.FrameWrite("Build/rxu/arm-s2.list") || layout.FrameOf("mark") == mark, "frame scale");
+    layout.SetScale(1);
+    layout.SetFlow("RTL");
+    layout.Relayout("shell", 640, 480);
+    failed = failed + FailWhen(layout.FrameOf("sideTitle") == sideTitle, "frame rtl");
+    layout.SetFlow("LTR");
+    String sized = host.FrameResize(layout, "shell", 800, 600);
+    failed = failed + FailWhen(sized == "" || host.FramePresent("") || host.Messages.Find("RXU049") < 0 || host.FramePhase() != "Open", "frame present " + sized);
+    failed = failed + FailWhen(host.FrameClose() != "Closed" || host.FramePhase() != "Closed" || host.FramePump() != 0, "frame close");
+    Return failed;
+}
+
+Public Function CheckCatalog() -> Int
+Explain {
+    Description: "Check every C1–C6 control, its schema, and the support matrix.";
+    Input: None;
+    Processing: "Load the catalog example, then check properties, bindings, accessibility, focus, state, and events for each entry. DataGrid edits stay inside a virtual window. Drawing commands change geometry only.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("Examples/UI/Catalog.rxu", Files.ReadText("Examples/UI/Catalog.rxu"));
+    CatHost host = CatHost();
+    Int loaded = host.CatLoad(document);
+    String loadNote = loaded.ToString();
+    If (document.Messages.Count() > 0) {
+        loadNote = loadNote + " " + document.Messages.FormatAt(0);
+    }
+    failed = failed + FailWhen(document.Messages.Count() != 0 || loaded != 68, "catalog load " + loadNote);
+    failed = failed + FailWhen(host.CatCount() != 69 || !host.CatBeyond("DockPanel") || host.CatBeyond("Button") || host.CatBeyond("Nope") || host.CatFamilyOf("Canvas") != "C1", "catalog count " + host.CatCount().ToString());
+    Int beyond = 0;
+    Int index = 0;
+    Int count = host.CatCount();
+    While (index < count && failed == 0) {
+        String kind = host.CatKindAt(index);
+        String family = host.CatFamilyAt(index);
+        String id = "n" + index.ToString();
+        String source = "s" + index.ToString();
+        String problem = "";
+        If (!host.CatCreate(kind, id)) {
+            problem = "create";
+        }
+        If (problem == "" && !host.CatSchema(kind).Contains("Name")) {
+            problem = "schema";
+        }
+        If (problem == "" && (!host.CatSet(id, "ToolTip", "Hint") || host.CatSet(id, "Nope", "1"))) {
+            problem = "tip";
+        }
+        If (problem == "" && host.CatAccess(id) == "") {
+            problem = "role";
+        }
+        If (problem == "" && host.CatLabel(id) != id) {
+            problem = "label";
+        }
+        If (problem == "" && !host.CatBind(id, "ToolTip", source)) {
+            problem = "bind";
+        }
+        If (problem == "" && (host.CatSource(source, "Arm") != 1 || host.CatGet(id, "ToolTip") != "Arm")) {
+            problem = "source";
+        }
+        Bool can = host.CatCanFocus(id);
+        Bool took = host.CatFocus(id);
+        If (problem == "" && can != took) {
+            problem = "focus";
+        }
+        If (problem == "" && can && (host.CatFocused() != id || host.CatState(id) != "Focused")) {
+            problem = "focused";
+        }
+        If (problem == "" && !can && host.CatState(id) != "Normal") {
+            problem = "state";
+        }
+        If (problem == "" && (!host.CatRaise(id, "OnClick") || !host.CatHeard(id, "OnClick"))) {
+            problem = "event";
+        }
+        If (problem == "" && host.CatRaise(id, "Nope")) {
+            problem = "event-name";
+        }
+        If (problem == "" && !can && host.CatRaise(id, "OnFocus")) {
+            problem = "onfocus";
+        }
+        If (problem == "" && can && !host.CatHeard(id, "OnFocus") && !host.CatRaise(id, "OnFocus")) {
+            problem = "onfocus";
+        }
+        String expect = family + "|" + kind + "|Examples/UI/Catalog.rxu|CheckCatalog|RobixUI.txt";
+        If (problem == "" && host.CatEntry(index) != expect) {
+            problem = "matrix";
+        }
+        If (host.CatBeyond(kind)) {
+            beyond = beyond + 1;
+        }
+        failed = failed + FailWhen(problem != "", "catalog " + index.ToString() + " " + kind + " " + problem);
+        index = index + 1;
+    }
+    failed = failed + FailWhen(index == count && beyond != 55, "catalog beyond " + beyond.ToString());
+    Bool hidden = host.CatCreate("PasswordBox", "secretBox") && host.CatSet("secretBox", "Password", "Arm");
+    failed = failed + FailWhen(!hidden || host.CatGet("secretBox", "Value") != "***" || host.CatGet("secretBox", "Password") != "***" || host.CatSecret("secretBox") != "Arm" || host.CatSecret("plain") != "", "catalog password");
+    Bool dated = host.CatCreate("DatePicker", "when") && host.CatSet("when", "Value", "2026-11-22");
+    failed = failed + FailWhen(!dated || host.CatSet("when", "Value", "2026/11/22") || host.CatGet("when", "Value") != "2026-11-22" || !host.CatCreate("TimePicker", "clock") || !host.CatSet("clock", "Value", "09:30") || host.CatSet("clock", "Value", "9:30"), "catalog time");
+    Bool counted = host.CatCreate("NumberBox", "count") && host.CatSet("count", "Value", "50");
+    failed = failed + FailWhen(!counted || host.CatSet("count", "Value", "150") || host.CatGet("count", "Value") != "50" || !host.CatCreate("ColorPicker", "swatch") || !host.CatSet("swatch", "Value", "#336699") || host.CatSet("swatch", "Value", "blue") || !host.CatCreate("FilePicker", "pick") || !host.CatSet("pick", "Value", "arm.rxu") || host.CatSet("pick", "Value", "nopath"), "catalog input");
+    Bool grid = host.CatCreate("DataGrid", "sheet") && host.CatVirtual("sheet", 1000, 20) == 20;
+    Bool edited = grid && host.CatEdit("sheet", 3, 1, "Arm");
+    Bool cancelled = edited && host.CatCancelEdit("sheet");
+    Bool committed = cancelled && host.CatEdit("sheet", 3, 1, "Arm") && host.CatCommitEdit("sheet");
+    Bool slid = committed && host.CatScroll("sheet", 40) && host.CatEdit("sheet", 40, 0, "Leg");
+    failed = failed + FailWhen(!slid || host.CatTotal("sheet") != 1000 || host.CatMaterialized("sheet") != 20 || host.CatCell("sheet", 3, 1) != "Arm" || host.CatCell("sheet", 40, 0) != "Leg" || host.CatRow("sheet", 0) != "" || host.CatRow("sheet", 40) != "sheet#40" || host.CatEdit("sheet", 39, 0, "No") || host.CatState("sheet") != "Editing", "catalog grid");
+    Bool radios = host.CatCreate("RadioButton", "r1") && host.CatCreate("RadioButton", "r2") && host.CatSet("r1", "Group", "arm") && host.CatSet("r2", "Group", "arm") && host.CatSet("r1", "Checked", "true") && host.CatSet("r2", "Checked", "true");
+    failed = failed + FailWhen(!radios || host.CatGet("r1", "Checked") != "false" || host.CatGet("r2", "Checked") != "true" || host.CatState("r2") != "Checked", "catalog radio");
+    Bool dimmed = host.CatCreate("Button", "dim") && host.CatFocus("dim") && host.CatSet("dim", "Enabled", "false");
+    failed = failed + FailWhen(!dimmed || host.CatFocused() != "" || host.CatFocus("dim") || host.CatState("dim") != "Disabled" || host.CatRaise("dim", "OnClick"), "catalog disabled");
+    Bool pressed = host.CatCreate("Button", "p1") && host.CatCreate("Button", "p2") && host.CatRaise("p1", "OnPressed");
+    failed = failed + FailWhen(!pressed || host.CatState("p1") != "Pressed" || host.CatState("p2") != "Normal" || !host.CatHeard("p1", "OnPressed") || host.CatHeard("p2", "OnPressed"), "catalog press");
+    Bool shape = host.CatCreate("Rectangle", "shape") && host.CatGeometry("shape") == "M0,0 H10 V10 H0 Z" && host.CatHit("shape", 5, 5) && !host.CatHit("shape", 20, 20);
+    Bool sized = shape && host.CatCommand("shape", "Size", "20,30") == "M0,0 H20 V30 H0 Z" && host.CatCommand("shape", "Move", "4,5") == "M4,5 H24 V35 H4 Z";
+    Bool dot = sized && host.CatCreate("Circle", "dot") && host.CatHit("dot", 3, 4) && !host.CatHit("dot", 6, 0) && host.CatGeometry("dot") == "C0,0,5";
+    Bool egg = dot && host.CatCreate("Ellipse", "egg") && host.CatHit("egg", 6, 0) && !host.CatHit("egg", 7, 0);
+    Bool mark = egg && host.CatCreate("Line", "mark") && host.CatHit("mark", 5, 0) && !host.CatHit("mark", 5, 1) && host.CatCommand("mark", "To", "8,0") == "L0,0,8,0";
+    Bool curve = mark && host.CatCreate("Path", "curve") && host.CatHit("curve", 0, 0) && host.CatCommand("curve", "Add", "10,10") == "M0,0 L10,0 L10,10";
+    Bool poly = curve && host.CatCreate("Polygon", "poly") && host.CatHit("poly", 5, 5) && !host.CatHit("poly", 11, 5) && host.CatGeometry("poly").EndsWith("Z");
+    Bool wire = poly && host.CatCreate("Polyline", "wire") && host.CatHit("wire", 0, 0) && !host.CatHit("wire", 5, 5) && !host.CatGeometry("wire").EndsWith("Z");
+    failed = failed + FailWhen(!wire || host.CatCommand("Text", "Move", "1,1") != "" || !host.CatSchema("DockPanel").Contains("Dock") || !host.CatSchema("PasswordBox").Contains("Password") || !host.CatSchema("DataGrid").Contains("Items") || !host.CatSchema("Rectangle").Contains("Fill") || !host.CatSchema("NavigationView").Contains("Route"), "catalog draw");
+    Return failed;
+}
+
+Public Function CheckKit() -> Int
+Explain {
+    Description: "Check component libraries, instances, and templates.";
+    Input: None;
+    Processing: "Import definitions without a window, then instantiate the same component twice and keep their state apart.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    KitHost host = KitHost();
+    Int defined = host.KitImport("Examples/UI/Kit.rxu");
+    failed = failed + FailWhen(defined != 4 || host.KitWindows() != 0 || host.KitInstances("Badge") != 0 || !host.KitDefined("Badge") || !host.KitDefined("Secret") || host.KitVersion("ArmKit") != "1.2" || host.KitDefault("Badge", "Caption") != "Arm" || host.KitSource("Badge") != "ArmKit", "kit import " + defined.ToString());
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("Examples/UI/KitApp.rxu", Files.ReadText("Examples/UI/KitApp.rxu"));
+    Int loaded = host.KitLoad(document);
+    failed = failed + FailWhen(document.Messages.Count() != 0 || loaded != 5 || host.KitWindows() != 1 || host.KitCollisions() < 1 || host.KitVersion("ArmKit") != "1.2" || host.KitDefault("Badge", "Caption") != "Arm" || host.KitSource("Badge") != "ArmKit" || !host.KitDefined("Tag") || host.KitVersion("Extra") != "2.0" || host.KitSource("Tag") != "Extra" || host.KitInstances("Badge") != 3, "kit load " + loaded.ToString() + " " + host.KitCollisions().ToString());
+    failed = failed + FailWhen(host.KitGet("one", "Caption") != "Shoulder" || host.KitGet("two", "Caption") != "Elbow" || !host.KitSet("one", "Caption", "Wrist") || host.KitGet("two", "Caption") != "Elbow" || host.KitGet("one", "Caption") != "Wrist" || host.KitSet("one", "Seal", "no") || host.KitGet("one", "Seal") != "", "kit isolate");
+    String stamp = host.KitStamp("one");
+    failed = failed + FailWhen(host.KitCall("one", "Press") != 0 || host.KitGet("one", "Pressed") != "true" || host.KitGet("two", "Pressed") != "false" || host.KitHook("one", "OnLoaded") != 1 || !host.KitListen("one", "OnPressed", "Heard") || host.KitCall("one", "Press") != 1 || host.KitHook("one", "OnLoaded") != 1 || host.KitOutput("one", "Label") != "Wrist", "kit behavior");
+    String inner = host.KitPart("meter", "inner");
+    failed = failed + FailWhen(host.KitResource("one", "Accent") != "#336699" || host.KitResource("meter", "Accent") != "" || host.KitResource(inner, "Accent") != "#336699" || host.KitStyle("one", "Face") != "#112233" || host.KitGet("meter", "Value") != "3" || host.KitSet("meter", "Value", "wide") || host.KitGet("meter", "Value") != "3" || host.KitKind(inner) != "Badge" || host.KitParent(inner) != "meter" || host.KitGet(inner, "Pressed") != "false" || host.KitKind(host.KitPart("one", "caption")) != "Text", "kit scope");
+    failed = failed + FailWhen(!host.KitApplyTemplate("one", "Face") || host.KitAppearance("one") != "Face" || host.KitPartText("one", "caption") != "Face" || host.KitGet("one", "Caption") != "Wrist" || host.KitGet("one", "Pressed") != "true" || host.KitStamp("one") != stamp || host.KitCall("one", "Press") != 1, "kit template");
+    failed = failed + FailWhen(!host.KitCreate("Badge", "three", "Home") || host.KitInstances("Badge") != 4 || host.KitGet("three", "Caption") != "Arm" || host.KitGet("one", "Caption") != "Wrist" || host.KitCreate("Secret", "hidden", "Home") || host.KitFind("bad") != "" || host.KitGet("good", "Id") != "7" || host.KitInvalid() < 1 || host.KitFind("one") != "one" || host.KitPhase() != "Open", "kit create");
+    Return failed;
+}
+
+Public Function CheckFlow() -> Int
+Explain {
+    Description: "Check declarative branches, repeats, and communication.";
+    Input: None;
+    Processing: "Reconcile the flow example as slots change, including empty lists, missing keys, includes, and cycles.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("Examples/UI/Flow.rxu", Files.ReadText("Examples/UI/Flow.rxu"));
+    FlowHost host = FlowHost();
+    host.FlowAssign("LoggedIn", "false");
+    host.FlowAssign("Guest", "false");
+    host.FlowAssign("Mode", "Idle");
+    host.FlowAssign("Detail", "Hot");
+    host.FlowAssign("Joints", "Shoulder,Elbow");
+    host.FlowAssign("Groups", "A,B");
+    host.FlowAssign("Members", "1,2");
+    host.FlowAssign("Plain", "A,B");
+    Int loaded = host.FlowLoad(document);
+    failed = failed + FailWhen(document.Messages.Count() != 0 || loaded < 8 || !host.FlowHasText("Go") || host.FlowHasText("Hi") || host.FlowHasText("Guest") || !host.FlowHasText("Idle") || host.FlowHasText("Hot") || !host.FlowHasText("Shoulder") || !host.FlowHasText("Elbow") || !host.FlowHasText("1") || !host.FlowHasText("A") || !host.FlowHasText("Part") || !host.FlowHasText("Arm") || host.FlowLocal("Width") != "320" || host.FlowSetMiss() != 1 || host.FlowMissing() != 2 || host.FlowIncludes() != 1 || host.FlowIncludeAt(0) != "Examples/UI/FlowPart.rxu" || host.FlowImports() != 1 || host.FlowImportAt(0) != "Theme.rxu" || host.FlowFind("theme") != "" || host.FlowChildAt("host", 0) != "label" || host.FlowRepeatCount() != 8, "flow start " + document.Messages.Count().ToString() + " " + loaded.ToString() + " " + host.FlowRepeatCount().ToString() + " " + host.FlowLocal("Width") + " " + host.FlowMissing().ToString() + " " + host.FlowChildAt("host", 0));
+    failed = failed + FailWhen(!host.FlowUpdate("Title", "Desk") || host.FlowRead("label", "Text") != "Desk" || host.FlowLoad(document) < 8 || host.FlowRead("label", "Text") != "Desk" || host.FlowLocal("Title") != "Desk", "flow let");
+    failed = failed + FailWhen(!host.FlowUpdate("Width", "10") || host.FlowLocal("Width") != "10" || host.FlowLoad(document) < 8 || host.FlowLocal("Width") != "320", "flow set");
+    String elbow = host.FlowByText("Elbow");
+    String shoulder = host.FlowByText("Shoulder");
+    failed = failed + FailWhen(elbow == "" || !host.FlowPut(elbow, "Width", "40") || host.FlowStamp(elbow) == "", "flow key id");
+    host.FlowAssign("Joints", "Elbow,Wrist");
+    host.FlowLoad(document);
+    failed = failed + FailWhen(host.FlowRead(elbow, "Width") != "40" || host.FlowAttached(shoulder) || !host.FlowHasText("Wrist") || host.FlowRead(host.FlowByText("Wrist"), "Width") != "Auto" || !host.FlowHasText("Elbow"), "flow diff");
+    host.FlowAssign("LoggedIn", "true");
+    host.FlowLoad(document);
+    String hiStamp = host.FlowStamp("hi");
+    failed = failed + FailWhen(!host.FlowHasText("Hi") || host.FlowHasText("Go") || host.FlowAttached("go") || host.FlowDetachCount() < 1 || hiStamp == "", "flow if");
+    failed = failed + FailWhen(!host.FlowPut("hi", "Width", "30"), "flow hi width");
+    host.FlowAssign("LoggedIn", "false");
+    host.FlowAssign("Guest", "true");
+    host.FlowLoad(document);
+    failed = failed + FailWhen(!host.FlowHasText("Guest") || host.FlowAttached("hi") || host.FlowHasText("Hi"), "flow elseif");
+    host.FlowAssign("LoggedIn", "true");
+    host.FlowAssign("Guest", "false");
+    host.FlowLoad(document);
+    failed = failed + FailWhen(!host.FlowAttached("hi") || host.FlowRead("hi", "Width") != "30" || host.FlowStamp("hi") != hiStamp || host.FlowParent("hi") != "host", "flow return");
+    host.FlowAssign("Mode", "Live");
+    host.FlowLoad(document);
+    failed = failed + FailWhen(!host.FlowHasText("Hot") || host.FlowHasText("Idle") || host.FlowHasText("Warm") || host.FlowAttached("idle"), "flow choose");
+    host.FlowAssign("Detail", "Warm");
+    host.FlowLoad(document);
+    failed = failed + FailWhen(!host.FlowHasText("Warm") || host.FlowAttached("hot") || host.FlowHasText("Hot"), "flow nested choose");
+    host.FlowAssign("Members", "");
+    host.FlowLoad(document);
+    failed = failed + FailWhen(host.FlowHasText("1") || host.FlowRepeatCount() != 4, "flow nested empty " + host.FlowRepeatCount().ToString());
+    host.FlowAssign("Joints", "");
+    host.FlowLoad(document);
+    failed = failed + FailWhen(host.FlowAttached(elbow) || host.FlowRead(elbow, "Width") != "40" || host.FlowHasText("Elbow") || host.FlowRepeatCount() != 2 || host.FlowLocal("joint") != "", "flow empty");
+    failed = failed + FailWhen(!host.FlowListen("host", "OnClick", "Parent") || host.FlowRaise("hi", "OnClick") != 1, "flow event");
+    Int cycles = host.FlowCycles();
+    failed = failed + FailWhen(!host.FlowListen("host", "OnClick", "Loop") || host.FlowRaise("hi", "OnClick") < 1 || host.FlowCycles() <= cycles, "flow loop");
+    failed = failed + FailWhen(!host.FlowLink("label.Text", "Title") || !host.FlowPush("Title", "Loop") || host.FlowRead("label", "Text") != "Loop" || host.FlowCycles() <= cycles, "flow cycle");
+    RxuParser blocked = RxuParser();
+    RxuNode whileNode = blocked.Parse("while.rxu", "<While/>");
+    failed = failed + FailWhen(whileNode.Messages.Find("RXU008") < 0 || host.FlowWhileStatus() != "Rejected" || host.FlowPhase() != "Open" || !host.FlowAttached("host"), "flow while");
+    Return failed;
+}
+
+Public Function CheckTree() -> Int
+Explain {
+    Description: "Check live tree queries and edits.";
+    Input: None;
+    Processing: "Import the live example, then find, edit, move, replace, and remove controls while the window stays open.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("Examples/UI/LiveTree.rxu", Files.ReadText("Examples/UI/LiveTree.rxu"));
+    TreeHost host = TreeHost();
+    Int loaded = host.ImportTree(document);
+    failed = failed + FailWhen(document.Messages.Count() != 0 || loaded != 4 || host.TreePhase() != "Open" || !host.TreeFindId("Home") || host.TreeKind("Home") != "Window" || host.TreeParent("go") != "body" || host.TreeChildCount("body") != 2 || host.TreeChildAt("body", 0) != "heading" || host.TreeChildAt("body", 1) != "go" || host.TreeSibling("heading", 1) != "go" || host.TreeSibling("go", -1) != "heading" || host.TreeSibling("go", 1) != "" || host.TreeRoot("go") != "Home", "tree shape " + loaded.ToString() + " " + host.TreeChildAt("body", 0));
+    failed = failed + FailWhen(host.TreeFindKind("Button") != "go" || host.TreeFindName("heading") != "heading" || host.TreeFindPath("Home/body/go") != "go" || host.TreeRead("go", "Content") != "Start" || host.TreeRead("go", "Width") != "120" || host.TreeRead("heading", "Content") != "Arm" || host.TreeRead("Home", "Title") != "Home" || host.TreeMatchCount("Text") != 1, "tree find " + host.TreeFindPath("Home/body/go"));
+    String stamp = host.TreeStamp("go");
+    failed = failed + FailWhen(!host.TreeCreate("Text", "title2", "heading") || !host.TreeAdd("body", "title2") || host.TreeFindName("heading") != "heading" || host.TreeRead("title2", "Name") != "heading" || host.TreeMatchCount("Text") != 2 || host.TreeMatchAt("Text", 0) != "heading" || host.TreeMatchAt("Text", 1) != "title2" || host.TreeFindPath("Home/body/heading") != "heading", "tree names");
+    failed = failed + FailWhen(!host.TreePut("go", "Width", "80") || host.TreePut("go", "Width", "wide") || host.TreeRead("go", "Width") != "80" || !host.TreeSetAttribute("go", "Note", "arm") || !host.TreeHasAttribute("go", "Note") || host.TreeGetAttribute("go", "Note") != "arm" || !host.TreeDropAttribute("go", "Note") || host.TreeHasAttribute("go", "Note") || host.TreePutMany("go", "Height=40;Enabled=false") != 2 || host.TreeRead("go", "Height") != "40" || host.TreeRead("go", "Enabled") != "false" || host.TreePutMany("go", "Width=wide;Height=10") != -1 || host.TreeRead("go", "Height") != "40" || !host.TreeResetAttribute("go", "Enabled") || host.TreeRead("go", "Enabled") != "true", "tree props");
+    failed = failed + FailWhen(host.TreeMove("body", "go", 0) || host.TreeCreate("Button", "go", "Start") || !host.TreeCreate("Button", "temp", "Temp") || host.TreeAdd("missing", "temp") || host.TreeInsert("body", -1, "temp") || host.TreeMove("temp", "temp", 0) || host.TreeParent("go") != "body", "tree reject");
+    failed = failed + FailWhen(!host.TreeOpen("other", "Editor", "Window", "Editor") || !host.TreeCreate("Panel", "side", "side") || !host.TreeAdd("Editor", "side") || !host.TreeMove("go", "side", 0) || host.TreeDoc("go") != "other" || host.TreeParent("go") != "side" || host.TreeRead("go", "Content") != "Start" || host.TreeRead("go", "Width") != "80" || host.TreeStamp("go") != stamp || host.TreeRoot("go") != "Editor" || host.TreeFindPath("Editor/side/go") != "go" || host.TreeFindPath("Home/body/go") != "" || host.TreeChildCount("body") != 2, "tree move " + host.TreeDoc("go") + " " + host.TreeParent("go"));
+    failed = failed + FailWhen(!host.TreeReplace("go", "ToggleButton") || host.TreeKind("go") != "ToggleButton" || host.TreeStamp("go") != stamp || host.TreeRead("go", "Content") != "Start", "tree replace");
+    String extraStamp = "";
+    failed = failed + FailWhen(!host.TreeCreate("Button", "extra", "Extra") || !host.TreePut("extra", "Content", "Save") || !host.TreeAdd("body", "extra"), "tree extra");
+    extraStamp = host.TreeStamp("extra");
+    failed = failed + FailWhen(!host.TreeDetach("extra") || host.TreeAttached("extra") || host.TreeParent("extra") != "" || !host.TreeFindId("extra") || host.TreeRead("extra", "Content") != "Save" || !host.TreeAdd("body", "extra") || host.TreeRead("extra", "Content") != "Save", "tree detach");
+    failed = failed + FailWhen(host.TreeClear("body") != 3 || host.TreeChildCount("body") != 0 || host.TreeAttached("heading") || !host.TreeFindId("heading") || host.TreeCreate("Text", "heading", "heading") || host.TreeStamp("heading") == "", "tree clear");
+    Int layoutBefore = host.TreeLayoutCount();
+    Int renderBefore = host.TreeRenderCount();
+    failed = failed + FailWhen(!host.TreeBegin() || !host.TreePut("Home", "Title", "Desk") || !host.TreeCreate("Text", "late", "Late") || !host.TreeAdd("body", "late") || host.TreeLayoutCount() != layoutBefore || host.TreeRenderCount() != renderBefore || host.TreeCommit() != 1 || host.TreeLayoutCount() != layoutBefore + 1 || host.TreeRenderCount() != renderBefore + 1 || host.TreeRead("Home", "Title") != "Desk", "tree commit " + host.TreeLayoutCount().ToString());
+    failed = failed + FailWhen(!host.TreeBegin() || !host.TreePut("Home", "Title", "Nope") || !host.TreeRollback() || host.TreeRead("Home", "Title") != "Desk" || host.TreeLayoutCount() != layoutBefore + 1 || !host.TreeFindId("late"), "tree rollback");
+    failed = failed + FailWhen(!host.TreeAdd("body", "extra") || host.TreeChildCount("body") != 2 || host.TreeInvoke("extra", "RemoveSelf") != "Deferred" || host.TreeHeld() != 2 || host.TreeChildCount("body") != 1 || host.TreeAttached("extra") || !host.TreeFindId("extra") || host.TreeStamp("extra") != extraStamp || host.TreeInvoke("missing", "Enable") != "Missing" || host.TreeInvoke("late", "Nope") != "Rejected" || host.TreeInvoke("late", "Disable") != "Ok" || host.TreeRead("late", "Enabled") != "false", "tree action " + host.TreeHeld().ToString());
+    failed = failed + FailWhen(!host.TreeSubscribe("go", "OnClick", "Save") || host.TreeRaise("go", "OnClick") != 1 || host.TreeSubscribe("go", "Click", "Save") || !host.TreeUnsubscribe("go", "OnClick", "Save") || host.TreeRaise("go", "OnClick") != 0, "tree event");
+    failed = failed + FailWhen(host.TreePhase() != "Open" || !host.TreeAttached("Home") || !host.TreeAttached("Editor") || host.TreeAttributeCount("go") < 4, "tree open");
+    Return failed;
+}
+
+Public Function CheckEvents() -> Int
+Explain {
+    Description: "Check routed input, events, and actions.";
+    Input: None;
+    Processing: "Load the events example and exercise binding, priority, unsubscribe, cancel, consume, exceptions, scopes, and the full inventory.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("Examples/UI/Events.rxu", Files.ReadText("Examples/UI/Events.rxu"));
+    EventHost host = EventHost();
+    host.NoteHandler("Ready", "Event");
+    host.NoteHandler("ShellClick", "Event");
+    host.NoteHandler("Go", "Event");
+    host.NoteHandler("Key", "Event");
+    host.NoteHandler("Send", "Event");
+    host.NoteHandler("Bad", "String");
+    host.NoteHandler("Early", "Event");
+    host.NoteHandler("First", "Event");
+    host.NoteHandler("GoLate", "Event");
+    host.NoteHandler("DocClick", "Event");
+    host.NoteHandler("GlobalClick", "Event");
+    host.NoteHandler("Consume", "Event");
+    host.NoteHandler("Cancel", "Event");
+    host.NoteHandler("Throw", "Throws");
+    host.NoteHandler("Act", "Event");
+    host.NoteHandler("Wheel", "Event");
+    host.NoteHandler("Tabbed", "Event");
+    host.NoteHandler("Closed", "Event");
+    host.NoteHandler("Gone", "Event");
+    host.NoteHandler("Any", "Event");
+    Int loaded = host.ImportEvents(document);
+    failed = failed + FailWhen(document.Messages.Count() != 0 || loaded != 3 || host.MismatchTally() != 1 || host.TraceSize() != 3 || host.TraceAt(0) != "Target Arm OnLoaded Ready Real" || host.TraceAt(1) != "Bubble Arm OnLoaded Ready Real" || host.TraceAt(2) != "Bubble Arm OnLoaded Ready Real", "event import " + document.Messages.Count().ToString() + " " + loaded.ToString() + " " + host.MismatchTally().ToString() + " " + host.TraceSize().ToString() + " " + host.TraceAt(0));
+    host.ClearTrace();
+    failed = failed + FailWhen(!host.WatchEvent("Component", "shell", "OnClick", "Early", "Capture", 0) || !host.WatchEvent("Component", "shell", "OnClick", "First", "Bubble", 10) || !host.WatchEvent("Component", "go", "OnClick", "GoLate", "Bubble", 0) || !host.WatchEvent("Document", "", "OnClick", "DocClick", "Bubble", 0) || !host.WatchEvent("Global", "", "OnClick", "GlobalClick", "Bubble", 0), "event watch");
+    Int clicked = host.ClickEvent("go");
+    failed = failed + FailWhen(clicked != 7 || host.LastSource() != "Real" || host.LastButton() != "Left" || host.TraceAt(0) != "Capture shell OnClick Early Real" || host.TraceAt(1) != "Target go OnClick Go Real" || host.TraceAt(2) != "Target go OnClick GoLate Real" || host.TraceAt(3) != "Bubble shell OnClick First Real" || host.TraceAt(4) != "Bubble shell OnClick ShellClick Real" || host.TraceAt(5) != "Document * OnClick DocClick Real" || host.TraceAt(6) != "Global * OnClick GlobalClick Real", "event order " + clicked.ToString() + " " + host.TraceAt(0));
+    failed = failed + FailWhen(!host.UnwatchEvent("Component", "shell", "OnClick", "First", "Bubble") || host.UnwatchEvent("Component", "shell", "OnClick", "First", "Bubble"), "event unwatch");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.ClickEvent("go") != 6 || host.TraceAt(3) != "Bubble shell OnClick ShellClick Real", "event after unwatch " + host.TraceAt(3));
+    failed = failed + FailWhen(!host.WatchEvent("Component", "go", "OnClick", "Consume", "Bubble", 100), "event consume watch");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.ClickEvent("go") != 2 || !host.ConsumedFlag() || host.TraceAt(1) != "Target go OnClick Consume Real" || host.TraceAt(2) != "", "event consume");
+    failed = failed + FailWhen(!host.UnwatchEvent("Component", "go", "OnClick", "Consume", "Bubble") || !host.WatchEvent("Component", "go", "OnClick", "Cancel", "Bubble", 100), "event cancel watch");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.ClickEvent("go") != 2 || !host.CancelledFlag() || host.TraceAt(1) != "Target go OnClick Cancel Real", "event cancel");
+    host.UnwatchEvent("Component", "go", "OnClick", "Cancel", "Bubble");
+    failed = failed + FailWhen(host.WatchEvent("Component", "go", "OnClick", "Bad", "Bubble", 0) || host.MismatchTally() < 2, "event mismatch");
+    failed = failed + FailWhen(!host.WatchEvent("Component", "go", "OnClick", "Throw", "Bubble", 5), "event throw watch");
+    host.ClearTrace();
+    Int thrown = host.ClickEvent("go");
+    failed = failed + FailWhen(thrown != 7 || host.ExceptionTally() != 1 || host.TraceAt(1) != "Target go OnClick Throw Real" || host.TraceAt(2) != "Target go OnClick Go Real", "event throw " + thrown.ToString());
+    host.UnwatchEvent("Component", "go", "OnClick", "Throw", "Bubble");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.RaiseEvent("go", "OnHover", "Synthetic") != 0 || host.LastSource() != "Synthetic" || host.RaiseEvent("go", "OnNope", "Synthetic") != 0 || host.RaiseEvent("go", "OnClick", "Fake") != 0, "event synthetic");
+    failed = failed + FailWhen(!host.WatchEvent("Component", "go", "OnMouseWheel", "Wheel", "Bubble", 0) || host.PointEvent("go", "OnMouseWheel", 3, 4, "Wheel") != 1 || host.LastX() != 3 || host.LastY() != 4 || host.LastButton() != "Wheel", "event point");
+    failed = failed + FailWhen(!host.WatchEvent("Component", "go", "OnTab", "Tabbed", "Bubble", 0) || host.KeyIn("go", "OnKeyDown", "Tab", "") < 2 || host.LastKey() != "Tab", "event key");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.RunAction("go", "Submit") != "Ok" || host.TraceAt(0) != "Target go OnSubmit Send Real" || host.RunAction("go", "Nope") != "Rejected" || host.RunAction("missing", "Submit") != "Missing", "event action");
+    failed = failed + FailWhen(!host.WatchEvent("Component", "go", "OnWindowClosing", "Cancel", "Bubble", 0) || !host.WatchEvent("Component", "go", "OnWindowClose", "Closed", "Bubble", 0), "event close watch");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.RunAction("go", "Close") != "Ok" || !host.CancelledFlag() || host.TraceAt(0) != "Target go OnWindowClosing Cancel Real" || host.TraceAt(1) != "", "event close cancel");
+    host.UnwatchEvent("Component", "go", "OnWindowClosing", "Cancel", "Bubble");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.RunAction("go", "Close") != "Ok" || host.TraceAt(0) != "Target go OnWindowClose Closed Real", "event close");
+    failed = failed + FailWhen(!host.WatchEvent("Component", "go", "OnClick", "Act", "Bubble", 1), "event act watch");
+    host.ClearTrace();
+    failed = failed + FailWhen(host.ClickEvent("go") < 1 || host.LastAction() != "Busy" || host.EventDepth() != 0, "event busy " + host.LastAction());
+    host.UnwatchEvent("Component", "go", "OnClick", "Act", "Bubble");
+    failed = failed + FailWhen(!host.WatchEvent("Component", "go", "OnDispose", "Gone", "Bubble", 0), "event dispose watch");
+    host.ClearTrace();
+    failed = failed + FailWhen(!host.DisposeHost("go") || host.TraceAt(0) != "Target go OnDispose Gone Real" || host.ClickEvent("go") != 0 || host.DisposeHost("go") || host.RunAction("go", "Dispose") != "Missing", "event dispose");
+    failed = failed + FailWhen(host.ActionContract() != "Actions run on the UI thread. A nested action returns Busy." || host.KnownEventCount() != 84 || host.SupportOf("OnClick") != "Supported" || host.SupportOf("OnLeave") != "Supported" || host.SupportOf("OnEnter") != "Supported" || host.SupportOf("OnDispose") != "Supported" || host.SupportOf("OnSubmit") != "Supported" || host.SupportOf("OnWindowBlur") != "Supported" || host.SupportOf("OnDrop") != "Supported" || host.SupportOf("OnRender") != "Supported" || host.SupportOf("OnAnimationCancel") != "Supported" || host.SupportOf("OnNope") != "", "event support");
+    EventHost cover = EventHost();
+    cover.NoteHandler("Ready", "Event");
+    cover.NoteHandler("ShellClick", "Event");
+    cover.NoteHandler("Go", "Event");
+    cover.NoteHandler("Key", "Event");
+    cover.NoteHandler("Send", "Event");
+    cover.NoteHandler("Bad", "String");
+    cover.NoteHandler("Any", "Event");
+    cover.ImportEvents(document);
+    cover.ClearTrace();
+    Int covered = cover.CoverEvents("go");
+    failed = failed + FailWhen(covered < 84 || cover.SupportOf("OnDragOver") != "Supported" || cover.TraceAt(0) == "", "event cover " + covered.ToString());
+    Return failed;
+}
+
+Public Function CheckMvp() -> Int
+Explain {
+    Description: "Check the Linux MVP controls.";
+    Input: None;
+    Processing: "Load the login, dashboard, and dynamic examples, then exercise focus, typing, clicks, lists, dialogs, styles, and bindings.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    RxuParser parser = RxuParser();
+    RxuNode login = parser.Parse("Examples/UI/Login.rxu", Files.ReadText("Examples/UI/Login.rxu"));
+    MvpHost host = MvpHost();
+    Int loaded = host.ImportMvp(login);
+    failed = failed + FailWhen(login.Messages.Count() != 0 || loaded != 9 || host.MvpKind("Login") != "Window" || host.MvpKind("form") != "StackPanel" || host.MvpKind("user") != "TextBox" || host.MvpKind("submit") != "Button", "login import " + loaded.ToString());
+    failed = failed + FailWhen(!host.FocusMvp("user") || host.FocusName() != "user" || !host.TypeMvp("user", "ada") || host.ReadField("user", "Content") != "ada", "login type");
+    failed = failed + FailWhen(!host.KeyMvp("user", "Tab") || host.FocusName() != "secret", "login tab");
+    failed = failed + FailWhen(!host.ToggleMvp("stay") || host.ReadField("stay", "Checked") != "true", "login check");
+    failed = failed + FailWhen(!host.PressMvp("submit") || host.ClickTally() != 1, "login click");
+    failed = failed + FailWhen(!host.PutField("submit", "Enabled", "false") || host.PressMvp("submit") || host.ClickTally() != 1 || host.ReadField("submit", "Enabled") != "false", "login disabled");
+    failed = failed + FailWhen(host.PutField("submit", "Width", "wide") || host.ReadField("submit", "Width") != "120", "login width");
+    failed = failed + FailWhen(!host.SpinMvp("wait", True) || host.Spinning() != "wait" || !host.SpinMvp("wait", False) || host.Spinning() != "", "login spin");
+    failed = failed + FailWhen(!host.OpenNotice("error") || host.NoticeOpen() != "error" || !host.CloseNotice() || host.NoticeOpen() != "", "login dialog");
+    failed = failed + FailWhen(!host.StyleMvp("Primary", "#336699") || !host.ApplyMvp("submit", "Primary") || host.ReadField("submit", "Background") != "#336699", "login style");
+    failed = failed + FailWhen(!host.PutField("submit", "Background", "#000000") || !host.ApplyMvp("submit", "Primary") || host.ReadField("submit", "Background") != "#000000", "login local");
+    failed = failed + FailWhen(host.ReadField("title", "Color") != "#336699" || !host.UseTheme("Dark") || host.ReadField("title", "Color") != "#112233", "login theme");
+    failed = failed + FailWhen(!host.BindMvp("title", "Content", "Heading") || host.PushMvp("Heading", "Welcome") != 1 || host.ReadField("title", "Content") != "Welcome", "login bind");
+    failed = failed + FailWhen(!host.PutField("title", "Content", "Sign in") || host.PushMvp("Heading", "Other") != 0 || host.ReadField("title", "Content") != "Sign in", "login bind local");
+    RxuNode board = parser.Parse("Examples/UI/Dashboard.rxu", Files.ReadText("Examples/UI/Dashboard.rxu"));
+    MvpHost dash = MvpHost();
+    dash.ImportMvp(board);
+    failed = failed + FailWhen(board.Messages.Count() != 0 || dash.MvpKind("board") != "Grid" || dash.MvpKind("scroller") != "ScrollView" || dash.MvpKind("feed") != "ListView" || dash.MvpKind("mark") != "Image" || dash.MvpKind("stage") != "View" || dash.ReadField("mark", "Source") != "arm.png" || dash.ReadField("board", "Columns") != "2", "dashboard");
+    failed = failed + FailWhen(!dash.AddRow("feed", "Shoulder") || !dash.AddRow("feed", "Elbow") || dash.ReadField("feed", "Count") != "2" || dash.ReadField("feed", "Item0") != "Shoulder" || !dash.RemoveRow("feed", 0) || dash.ReadField("feed", "Count") != "1" || dash.ReadField("feed", "Item0") != "Elbow", "dashboard list");
+    RxuNode editor = parser.Parse("Examples/UI/Dynamic.rxu", Files.ReadText("Examples/UI/Dynamic.rxu"));
+    MvpHost live = MvpHost();
+    live.ImportMvp(editor);
+    failed = failed + FailWhen(editor.Messages.Count() != 0 || !live.AddMvp("Button", "extra") || live.MvpKind("extra") != "Button" || !live.PutField("extra", "Content", "Save") || live.ReadField("extra", "Content") != "Save" || !live.PressMvp("extra") || live.ClickTally() != 1 || live.AddMvp("Button", "extra"), "dynamic");
+    Return failed;
+}
+
+Public Function CheckNav() -> Int
+Explain {
+    Description: "Check navigation, chrome, dialogs, and window lifetime.";
+    Input: None;
+    Processing: "Load Examples/UI/Navigate.rxu. Move through nested routes, trap dialog focus, and save a window.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("Examples/UI/Navigate.rxu", Files.ReadText("Examples/UI/Navigate.rxu"));
+    NavHost host = NavHost();
+    Int pages = host.NavImport(document);
+    String home = host.NavGo("Home");
+    String joints = host.NavGo("Joints");
+    String elbow = host.NavGo("Joints/Elbow");
+    failed = failed + FailWhen(document.Messages.Count() != 0 || pages != 4 || home != "home" || joints != "joints" || elbow != "elbow" || host.NavHistoryCount() != 2 || host.NavCrumbCount() != 2 || host.NavCrumbAt(0) != "Joints" || host.NavCrumbAt(1) != "Elbow" || host.NavEventAt(0) != "Navigate Home", "nav route " + pages.ToString() + " " + elbow + " " + host.NavCrumbAt(0));
+    String back = host.NavBack();
+    String forward = host.NavForward();
+    failed = failed + FailWhen(back != "joints" || host.NavRoute() != "Joints/Elbow" || forward != "elbow" || host.NavPage() != "elbow", "nav history " + back + " " + forward + " " + host.NavRoute());
+    failed = failed + FailWhen(host.NavChromeCount() != 6 || host.NavChrome("file") != "Menu" || host.NavChrome("save") != "MenuItem" || host.NavChrome("tools") != "Toolbar" || host.NavChrome("status") != "StatusBar" || host.NavChrome("title") != "TitleBar" || host.NavChrome("tab") != "TabItem", "nav chrome " + host.NavChromeCount().ToString());
+    failed = failed + FailWhen(!host.NavMoveOverlay("tip", 12, 40) || !host.NavOpenOverlay("tip") || host.NavPopupAt("tip") != "12,40" || host.NavOverlayState("tip") != "Open" || !host.NavOpenOverlay("more") || !host.NavOpenOverlay("side") || !host.NavOpenOverlay("ask") || host.NavModal() != "ask" || host.NavFocused() != "ask" || host.NavFocus("home") || host.NavFocused() != "ask" || host.NavKey("Tab") != "ask" || host.NavKey("Escape") != "" || host.NavModal() != "" || host.NavOverlayState("ask") != "Closed", "nav dialog " + host.NavModal() + " " + host.NavFocused());
+    failed = failed + FailWhen(host.NavWindowCount() != 2 || !host.NavShowWindow("Desk") || !host.NavShowWindow("extra") || host.NavWindowState("extra") != "Shown" || !host.NavHideWindow("extra") || host.NavWindowState("extra") != "Hidden" || host.NavWindowState("Desk") != "Shown" || !host.NavCloseWindow("extra") || host.NavWindowState("extra") != "Closed" || host.NavShowWindow("extra") || !host.NavReopenWindow("extra") || host.NavWindowState("extra") != "Shown", "nav windows " + host.NavWindowState("extra"));
+    failed = failed + FailWhen(!host.NavSetTitle("Desk", "Desk") || !host.NavMoveWindow("Desk", 4, 8) || !host.NavSave("Desk") || !host.NavSetTitle("Desk", "Nope") || !host.NavMoveWindow("Desk", 9, 9) || !host.NavRestore("Desk") || host.NavReadTitle("Desk") != "Desk" || host.NavReadPosition("Desk") != "4,8", "nav save " + host.NavReadTitle("Desk") + " " + host.NavReadPosition("Desk"));
+    failed = failed + FailWhen(!host.NavDrop("settings") || host.NavAlive("settings") || host.NavGo("Settings") != "" || host.NavCloseHost() != "Closed" || host.NavPhase() != "Closed" || host.NavGo("Home") != "", "nav drop " + host.NavPhase());
+    Return failed;
+}
+
+Public Function CheckSamples() -> Int
+Explain {
+    Description: "Parse the RXU fixture, the examples, and the negative samples.";
+    Input: None;
+    Processing: "Accept the window fixture and the Examples/UI files, and reject malformed markup with stable codes.";
+    Output: "The number of failed checks.";
+} {
+    Int failed = 0;
+    String fixture = Files.ReadText("UI/Fixtures/Window.rxu");
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse("UI/Fixtures/Window.rxu", fixture);
+    RxuNode window = document.FindChild("Window");
+    If (document.Messages.Count() != 0 || window.Name != "Window") {
+        failed = failed + 1;
+        Print("RXU fail fixture");
+        Print(document.Describe());
+        Int item = 0;
+        While (item < document.Messages.Count() && item < 6) {
+            Print(document.Messages.FormatAt(item));
+            item = item + 1;
+        }
+        Print(document.Messages.Count());
+    }
+    If (window.FindAttribute("Title").Text != "Arm" || window.FindAttribute("Title").Mode != "String") {
+        failed = failed + 1;
+        Print("RXU fail title");
+    }
+    If (window.FindAttribute("Width").Text != "320" || window.FindAttribute("Width").Mode != "Number") {
+        failed = failed + 1;
+        Print("RXU fail width");
+    }
+    If (window.FindAttribute("Opacity").Text != "0.5" || window.FindAttribute("Opacity").Mode != "Float") {
+        failed = failed + 1;
+        Print("RXU fail opacity");
+    }
+    If (window.FindAttribute("Enabled").Text != "true" || window.FindAttribute("Enabled").Mode != "Boolean") {
+        failed = failed + 1;
+        Print("RXU fail enabled");
+    }
+    If (window.FindKind("Comment").Text != " arm panel ") {
+        failed = failed + 1;
+        Print("RXU fail comment");
+    }
+    RxuNode color = window.FindChild("Resources").FindChild("Color");
+    If (color.FindAttribute("Name").Text != "Accent" || color.FindAttribute("Value").Text != "#336699") {
+        failed = failed + 1;
+        Print("RXU fail resources");
+    }
+    RxuNode button = window.FindChild("Component").FindChild("Button");
+    If (button.Mode != "Empty" || button.FindAttribute("Text").Mode != "Binding" || button.FindAttribute("Text").Text != "Joint") {
+        failed = failed + 1;
+        Print("RXU fail binding");
+    }
+    If (window.FindChild("Import").FindAttribute("Source").Text != "Theme.rxu" || window.FindChild("Include").FindAttribute("Source").Text != "Part.rxu") {
+        failed = failed + 1;
+        Print("RXU fail import");
+    }
+    Int textCount = 0;
+    Int cursor = 0;
+    While (cursor < window.Children.Count()) {
+        RxuNode child = window.Children[cursor];
+        If (child.Kind == "Element" && child.Name == "Text") {
+            If (textCount == 0 && (child.FindAttribute("Value").Text != "Line\nNext" || child.FindAttribute("Value").Mode != "String")) {
+                failed = failed + 1;
+                Print("RXU fail escape");
+            }
+            If (textCount == 1 && (child.FindAttribute("Value").Mode != "Resource" || child.FindAttribute("Value").Text != "Accent")) {
+                failed = failed + 1;
+                Print("RXU fail resource expression");
+            }
+            If (textCount == 2 && (child.FindAttribute("Value").Mode != "Localization" || child.FindAttribute("Value").Text != "Title")) {
+                failed = failed + 1;
+                Print("RXU fail localization");
+            }
+            If (textCount == 3 && (child.FindAttribute("Value").Mode != "Expression" || child.FindAttribute("Value").Text != "Panel.Width")) {
+                failed = failed + 1;
+                Print("RXU fail value expression");
+            }
+            textCount = textCount + 1;
+        }
+        cursor = cursor + 1;
+    }
+    If (textCount != 4) {
+        failed = failed + 1;
+        Print("RXU fail text count");
+    }
+    RxuNode branch = window.FindChild("If");
+    If (branch.FindChild("Text").FindAttribute("Value").Text != "Hi" || branch.FindChild("Else").FindChild("Text").FindAttribute("Value").Text != "Go" || window.FindChild("Else").Name != "") {
+        failed = failed + 1;
+        Print("RXU fail else");
+    }
+    RxuNode choice = window.FindChild("Choose");
+    If (choice.FindChild("When").FindAttribute("Value").Text != "Live" || choice.FindChild("Otherwise").FindChild("Text").FindAttribute("Value").Text != "Idle") {
+        failed = failed + 1;
+        Print("RXU fail choose");
+    }
+    If (window.FindChild("Each").FindAttribute("Items").Mode != "Expression" || window.FindChild("Each").FindAttribute("Items").Text != "Joints") {
+        failed = failed + 1;
+        Print("RXU fail each");
+    }
+    If (window.FindChild("Label").FindAttribute("Text").Text != "Café") {
+        failed = failed + 1;
+        Print("RXU fail unicode");
+    }
+    failed = failed + FailWhen(parser.Parse("Button.rxu", "<Button Text=\"Hi\"/>").FindChild("Button").FindAttribute("Text").Text != "Hi", "quoted button");
+    failed = failed + FailWhen(parser.Parse("Flag.rxu", "<A Enabled/>").FindChild("A").FindAttribute("Enabled").Text != "true", "bare flag");
+    failed = failed + FailWhen(parser.Parse("Space.rxu", "<A> Hi </A>").FindChild("A").FindKind("Text").Text != " Hi ", "text");
+    RxuNode expression = parser.Parse("Bind.rxu", "<A>{Binding User.Name}</A>").FindChild("A").FindKind("Expression");
+    failed = failed + FailWhen(expression.Mode != "Binding" || expression.Text != "User.Name", "binding text");
+    RxuNode mismatch = parser.Parse("Bad.rxu", "<Window></Door>");
+    failed = failed + FailWhen(mismatch.Messages.Find("RXU001") < 0 || mismatch.Messages.At(mismatch.Messages.Find("RXU001")).Expected != "Window" || mismatch.Messages.At(mismatch.Messages.Find("RXU001")).Actual != "Door", "mismatch");
+    failed = failed + FailWhen(parser.Parse("Open.rxu", "<Window>").Messages.Find("RXU002") < 0, "unclosed");
+    failed = failed + FailWhen(parser.Parse("Loop.rxu", "<While></While>").Messages.Find("RXU008") < 0, "while");
+    failed = failed + FailWhen(parser.Parse("Xml.rxu", "<?xml version=\"1.0\"?><A/>").Messages.Find("RXU009") < 0, "xml");
+    failed = failed + FailWhen(parser.Parse("Empty.rxu", "<A>{}</A>").Messages.Find("RXU007") < 0, "empty expression");
+    failed = failed + FailWhen(parser.Parse("Namespace.rxu", "<ui:Button/>").Messages.Find("RXU015") < 0, "namespace");
+    failed = failed + FailWhen(parser.Parse("Loose.rxu", "<Else/>").Messages.Find("RXU010") < 0, "loose else");
+    failed = failed + FailWhen(parser.Parse("Quote.rxu", "<A Text=\"Hi>").Messages.Find("RXU004") < 0, "string");
+    failed = failed + FailWhen(parser.Parse("Brace.rxu", "<A>{Name</A>").Messages.Find("RXU005") < 0, "expression");
+    failed = failed + FailWhen(parser.Parse("Note.rxu", "<!-- comment").Messages.Find("RXU006") < 0, "comment");
+    failed = failed + FailWhen(parser.Parse("Broken.rxu", "<>").Messages.Find("RXU003") < 0, "malformed");
+    failed = failed + FailWhen(parser.Parse("Two.rxu", "<If></If><Else/><Else/>").Messages.Find("RXU012") < 0, "duplicate else");
+    failed = failed + FailWhen(parser.Parse("Defaults.rxu", "<Choose></Choose><Default/><Otherwise/>").Messages.Find("RXU013") < 0, "duplicate default");
+    failed = failed + FailWhen(parser.Parse("Orphan.rxu", "<When/>").Messages.Find("RXU011") < 0, "orphan when");
+    RxuNode nested = parser.Parse("Nest.rxu", "<If Name=\"A\"></If><If Name=\"B\"></If><Else Name=\"C\"/>");
+    failed = failed + FailWhen(nested.Messages.Count() != 0 || nested.Children.Count() != 2 || nested.Children[1].FindChild("Else").FindAttribute("Name").Text != "C" || nested.Children[0].FindChild("Else").Name != "", "nearest else");
+    RxuNode adopted = parser.Parse("Adopt.rxu", "<Choose Name=\"C\"></Choose><When Value=\"On\"/>");
+    failed = failed + FailWhen(adopted.Messages.Count() != 0 || adopted.Children.Count() != 1 || adopted.FindChild("Choose").FindChild("When").FindAttribute("Value").Text != "On", "adopted when");
+    RxuLexer lexer = RxuLexer();
+    lexer.Tokenize("Button.rxu", "<Button/>");
+    failed = failed + FailWhen(lexer.TokenCount() != 5 || lexer.TokenAt(0).Kind != "Open" || lexer.TokenAt(1).Text != "Button" || lexer.TokenAt(2).Kind != "Slash" || lexer.TokenAt(3).Kind != "Close" || lexer.TokenAt(4).Kind != "End", "tokens");
+    Mark("examples");
+    failed = failed + CheckExamples();
+    Mark("documents");
+    failed = failed + CheckDocuments();
+    Mark("properties");
+    failed = failed + CheckProperties();
+    Mark("resources");
+    failed = failed + CheckResources();
+    Mark("build");
+    failed = failed + CheckBuild();
+    Mark("bindings");
+    failed = failed + CheckBindings();
+    Mark("backend");
+    failed = failed + CheckBackend();
+    Mark("linux");
+    failed = failed + CheckLinux();
+    Mark("layout");
+    failed = failed + CheckLayout();
+    Mark("frame");
+    failed = failed + CheckFrame();
+    Mark("mvp");
+    failed = failed + CheckMvp();
+    Mark("events");
+    failed = failed + CheckEvents();
+    Mark("tree");
+    failed = failed + CheckTree();
+    Mark("flow");
+    failed = failed + CheckFlow();
+    Mark("kit");
+    failed = failed + CheckKit();
+    Mark("catalog");
+    failed = failed + CheckCatalog();
+    Mark("nav");
+    failed = failed + CheckNav();
+    Mark("done");
+    If (failed == 0) {
+        Print("RXU checks passed");
+    } Else {
+        Print("RXU checks failed");
+        Print(failed);
+    }
+    Return failed;
+}
+
+Private Function Mark(String name) -> Int {
+    Files.WriteText("Build/rxu/step.txt", name);
+    Return 0;
+}
+
+Private Function FailWhen(Bool failed, String name) -> Int {
+    If (failed) {
+        Print("RXU fail " + name);
+        Return 1;
+    }
+    Return 0;
+}
+
+Private Function ShowPad(Int depth) -> String {
+    String pad = "";
+    Int index = 0;
+    While (index < depth) {
+        pad = pad + "  ";
+        index = index + 1;
+    }
+    Return pad;
+}
+
+Private Function ShowCount(RxuNode node) -> Int {
+    Int count = 0;
+    If (node.Kind == "Element") {
+        count = 1;
+    }
+    Int index = 0;
+    While (index < node.Children.Count()) {
+        count = count + ShowCount(node.Children[index]);
+        index = index + 1;
+    }
+    Return count;
+}
+
+Private Function ShowFind(RxuNode node, String name) -> RxuNode {
+    If (node.Kind == "Element" && node.FindAttribute("Name").Text == name) {
+        Return node;
+    }
+    Int index = 0;
+    While (index < node.Children.Count()) {
+        RxuNode found = ShowFind(node.Children[index], name);
+        If (found.Name != "") {
+            Return found;
+        }
+        index = index + 1;
+    }
+    Return RxuNode();
+}
+
+Private Function ShowTree(RxuNode node, Int depth) -> Void {
+    If (node.Kind == "Document") {
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            ShowTree(node.Children[index], depth);
+            index = index + 1;
+        }
+        Return;
+    }
+    If (node.Kind == "Comment") {
+        Print(ShowPad(depth) + "comment:" + node.Text);
+        Return;
+    }
+    If (node.Kind != "Element") {
+        Return;
+    }
+    String line = ShowPad(depth) + node.Name;
+    Int attr = 0;
+    While (attr < node.Attributes.Count()) {
+        line = line + "  " + node.Attributes[attr].Name + "=" + node.Attributes[attr].Text;
+        If (node.Attributes[attr].Mode != "" && node.Attributes[attr].Mode != "String") {
+            line = line + " [" + node.Attributes[attr].Mode + "]";
+        }
+        attr = attr + 1;
+    }
+    Print(line);
+    Int child = 0;
+    While (child < node.Children.Count()) {
+        ShowTree(node.Children[child], depth + 1);
+        child = child + 1;
+    }
+}
+
+Public Function ShowArm() -> Int
+Explain {
+    Description: "Print the Arm console example with the UI pieces that exist.";
+    Input: None;
+    Processing: "Parse Examples/UI/ArmConsole.rxu, then load, resolve, bind, lay out, draw, and open it.";
+    Output: "Zero when the example parsed and loaded.";
+} {
+    String path = "Examples/UI/ArmConsole.rxu";
+    Print("Robix UI");
+    Print(path);
+    Print("Markup is parsed, then a document, resources, a style, a binding, layout, drawing, and a Linux window use that same file.");
+    RxuParser parser = RxuParser();
+    RxuNode document = parser.Parse(path, Files.ReadText(path));
+    Print(" ");
+    Print("--- Markup ---");
+    Print(ShowCount(document).ToString() + " elements, " + document.Messages.Count().ToString() + " diagnostics");
+    If (document.Messages.Count() != 0) {
+        Print(document.Messages.FormatAt(0));
+        Return 1;
+    }
+    ShowTree(document, 0);
+    Print(" ");
+    Print("--- Document ---");
+    UI app = UI();
+    RxuDocument loaded = app.Load(path);
+    Print("state " + loaded.State + ", id " + loaded.Id + ", root " + loaded.Root.Kind + " " + loaded.Root.Name);
+    If (loaded.State != "Loaded") {
+        If (loaded.Messages.Count() > 0) {
+            Print(loaded.Messages.FormatAt(0));
+        }
+        Return 1;
+    }
+    Print("component " + loaded.ComponentName(0));
+    Print("find shell -> " + app.Documents.FindByName(loaded.Id, "shell").Kind + " " + app.Documents.FindByName(loaded.Id, "shell").Name);
+    app.Show(loaded.Id);
+    Print("shown as " + app.GetDocument(loaded.Id).State);
+    Print(" ");
+    Print("--- Resources ---");
+    ResourceTable table = ResourceTable();
+    RxuNode resources = document.FindChild("Window").FindChild("Resources");
+    Int index = 0;
+    While (index < resources.Children.Count()) {
+        RxuNode item = resources.Children[index];
+        If (item.Kind == "Element") {
+            table.Set(item.Name, item.FindAttribute("Name").Text, item.FindAttribute("Value").Text);
+            Print(item.Name + " " + item.FindAttribute("Name").Text + " = " + item.FindAttribute("Value").Text);
+        }
+        index = index + 1;
+    }
+    ResourceLibrary library = ResourceLibrary();
+    Print("Ink follows @Accent -> " + library.Resolve(table, ResourceTable(), "Ink", "missing"));
+    Print("builtin FontFamily -> " + library.Resolve(ResourceTable(), ResourceTable(), "FontFamily", "missing"));
+    Print(" ");
+    Print("--- Style ---");
+    StyleSheet sheet = StyleSheet();
+    Int rejected = sheet.Load(document.FindChild("Window").FindChild("Style"));
+    UIElement save = UIElement();
+    save.Kind = "Button";
+    Int applied = sheet.Apply(save, "Primary", "Hover");
+    Print("Hover setters applied: " + applied.ToString() + ", rejected " + rejected.ToString());
+    Print("Background from the style: " + save.GetAttribute("Background"));
+    save.SetAttribute("Background", "#000000");
+    Print("A local value wins: " + save.GetAttribute("Background"));
+    Print(" ");
+    Print("--- Binding ---");
+    BindingEngine engine = BindingEngine();
+    engine.DefineValue("Joint", "shoulder", False);
+    engine.DefineList("Joints");
+    engine.AddItem("Joints", "shoulder");
+    engine.AddItem("Joints", "elbow");
+    engine.AddItem("Joints", "wrist");
+    UIElement heading = UIElement();
+    heading.Kind = "Window";
+    engine.BindTo(heading, "Title", "Joint", "OneWay", "Upper", False, "Arm", "Change", "");
+    Print("Joint shoulder, Upper converter -> " + heading.GetAttribute("Title"));
+    engine.ChangeValue("Joint", "wrist");
+    Print("Change the source to wrist -> " + heading.GetAttribute("Title"));
+    RxuExpression math = RxuExpression();
+    Print("Joints.Count -> " + math.EvaluateExpression("Joints.Count", engine, ""));
+    Print("Length(\"Arm\") -> " + math.EvaluateExpression("Length(\"Arm\")", BindingEngine(), ""));
+    Print("1 + 2 * 3 -> " + math.EvaluateExpression("1 + 2 * 3", BindingEngine(), ""));
+    Print(" ");
+    Print("--- Property ---");
+    UIElement box = UIElement();
+    box.Kind = "Button";
+    box.SetAttribute("Opacity", "1");
+    If (box.SetAttribute("Width", "wide")) {
+        Print("wide was accepted");
+    } Else {
+        Print("Width stays " + box.GetAttribute("Width") + " because wide is not a dimension");
+        Int at = box.Messages.Find("RXU018");
+        If (at >= 0) {
+            Print(box.Messages.FormatAt(at));
+        }
+    }
+    Print(" ");
+    Print("--- Layout ---");
+    Print("The shell panel is measured, arranged, and rendered in logical pixels.");
+    Print(LayoutEngine().DecorationNote());
+    RxuNode shell = document.FindChild("Window").FindChild("Panel");
+    LayoutEngine layout = LayoutEngine();
+    layout.ImportLayout(shell, "");
+    layout.Relayout("shell", 640, 480);
+    index = 0;
+    While (index < layout.Slots.Count()) {
+        String id = layout.Slots[index].Id;
+        Print(ShowPad(1) + id + "  " + layout.Slots[index].Kind + "  " + layout.FrameOf(id));
+        index = index + 1;
+    }
+    Directory.Create("Build/rxu");
+    String scene = "size 640 480\n";
+    Int sceneIndex = 0;
+    While (sceneIndex < layout.CommandCount()) {
+        scene = scene + layout.CommandAt(sceneIndex) + "\n";
+        sceneIndex = sceneIndex + 1;
+    }
+    Files.WriteText("Build/rxu/show.list", scene);
+    Print(" ");
+    Print("--- Drawing ---");
+    Print(layout.CommandCount().ToString() + " commands");
+    index = 0;
+    While (index < layout.CommandCount()) {
+        Print(ShowPad(1) + layout.CommandAt(index));
+        index = index + 1;
+    }
+    layout.SetOffset("list", 0, 40);
+    layout.Relayout("shell", 640, 480);
+    Print("Scroll the joint list by 40: rows " + layout.FrameOf("rows"));
+    layout.SetScale(2);
+    layout.Relayout("shell", 640, 480);
+    Print("Scale 2 doubles device pixels: mark " + layout.FrameOf("mark"));
+    layout.SetScale(1);
+    layout.SetFlow("RTL");
+    layout.Relayout("shell", 640, 480);
+    Print("Right to left mirrors inside the parent: sideTitle " + layout.FrameOf("sideTitle"));
+    Print(" ");
+    Print("--- Linux window ---");
+    LinuxApp host = LinuxApp();
+    host.OpenAppWindow("arm", "Arm console", "640", "480");
+    host.RunApp();
+    Print("phase " + host.ReadPhase() + ", state " + host.ReadWindowState("arm") + ", size " + host.ReadWindowSize("arm") + ", scale " + host.ReadScale());
+    index = 0;
+    While (index < host.TraceCount()) {
+        Print(ShowPad(1) + host.TraceAt(index));
+        index = index + 1;
+    }
+    Print(" ");
+    Print("--- Rejected markup ---");
+    RxuParser blockedParser = RxuParser();
+    RxuNode blocked = blockedParser.Parse("While.rxu", "<While/>");
+    If (blocked.Messages.Count() > 0) {
+        Print(blocked.Messages.FormatAt(0));
+    }
+    Print(" ");
+    Print("The example file is Examples/UI/ArmConsole.rxu.");
+    Print("Run ./show-ui.sh to print this again. Run UI/Rxu.rx with no argument to run the checks.");
+    Return 0;
+}
+
+Private Function LiveField(String text, Int item) -> String {
+    Int seen = 0;
+    Int start = 0;
+    Int index = 0;
+    While (index <= text.Length()) {
+        Bool boundary = index == text.Length();
+        If (!boundary) {
+            boundary = text.GetChar(index) == " ";
+        }
+        If (boundary) {
+            If (seen == item) {
+                Return text.Substring(start, index - start);
+            }
+            seen = seen + 1;
+            start = index + 1;
+        }
+        index = index + 1;
+    }
+    Return "";
+}
+
+Public Function ShowLive() -> Int
+Explain {
+    Description: "Keep the Arm console open and apply input from the surface.";
+    Input: None;
+    Processing: "Read pointer, key, resize, and close records. Route them through the event host, change the heading, and rewrite the display list. Close disposes the Linux queue.";
+    Output: "Zero when the window closed after a click and a key.";
+} {
+    RxuParser parser = RxuParser();
+    String path = "Examples/UI/ArmConsole.rxu";
+    RxuNode document = parser.Parse(path, Files.ReadText(path));
+    RxuNode shell = document.FindChild("Window").FindChild("Panel");
+    LayoutEngine layout = LayoutEngine();
+    layout.ImportLayout(shell, "");
+    layout.Relayout("shell", 640, 480);
+    FrameHost frame = FrameHost();
+    frame.FrameAdopt(layout, "shell");
+    EventHost events = EventHost();
+    events.NoteHandler("JointEdit", "Event");
+    events.ImportEvents(document);
+    events.WatchEvent("Component", "heading", "OnClick", "JointEdit", "Bubble", 0);
+    events.WatchEvent("Component", "heading", "OnKeyDown", "JointEdit", "Bubble", 0);
+    LinuxApp app = LinuxApp();
+    app.CreateApp();
+    app.OpenAppWindow("Arm", "Arm", "640", "480");
+    app.RunApp();
+    app.EnterBackground();
+    app.PostWork("Title|Arm|Clicked");
+    app.LeaveBackground();
+    Int handled = 0;
+    String clicked = "";
+    String keyed = "";
+    Bool open = True;
+    Files.WriteText("Build/rxu/ready.txt", "open\n");
+    While (open) {
+        String input = "";
+        If (Files.Exists("Build/rxu/input.txt")) {
+            input = Files.ReadText("Build/rxu/input.txt");
+        }
+        Int count = 0;
+        Int start = 0;
+        Int index = 0;
+        Bool changed = False;
+        While (index <= input.Length()) {
+            Bool boundary = index == input.Length();
+            If (!boundary) {
+                boundary = input.GetChar(index) == "\n";
+            }
+            If (boundary && index > start && count >= handled) {
+                String line = input.Substring(start, index - start);
+                String kind = LiveField(line, 0);
+                If (kind == "Pointer" && LiveField(line, 3) == "") {
+                    Int x = LiveField(line, 1).ToInt();
+                    Int y = LiveField(line, 2).ToInt();
+                    String hit = frame.FrameHit(x, y);
+                    If (hit == "") {
+                        hit = "heading";
+                    }
+                    app.Backend.OfferInput("Pointer", x.ToString() + " " + y.ToString());
+                    events.ClickEvent(hit);
+                    layout.SetText("heading", "Content", "Clicked");
+                    layout.Relayout("shell", 640, 480);
+                    frame.FrameDamage(layout, "heading");
+                    clicked = "Clicked";
+                    changed = True;
+                }
+                If (kind == "KeyRelease") {
+                    app.Backend.OfferInput("Key", LiveField(line, 1));
+                }
+                If (kind == "Key") {
+                    String key = LiveField(line, 1);
+                    app.Backend.OfferInput("Key", key);
+                    events.KeyIn("heading", "OnKeyDown", key, key);
+                    layout.SetText("heading", "Content", key);
+                    layout.Relayout("shell", 640, 480);
+                    frame.FrameDamage(layout, "heading");
+                    keyed = key + "";
+                    changed = True;
+                }
+                If (kind == "Scroll") {
+                    app.Backend.OfferInput("Scroll", LiveField(line, 1) + " " + LiveField(line, 2));
+                }
+                If (kind == "Resize") {
+                    Int wide = LiveField(line, 1).ToInt();
+                    Int high = LiveField(line, 2).ToInt();
+                    If (wide > 0 && high > 0) {
+                        frame.FrameResize(layout, "shell", wide, high);
+                    }
+                }
+                If (kind == "Close") {
+                    open = False;
+                }
+                handled = count + 1;
+            }
+            If (boundary) {
+                count = count + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (changed) {
+            String scene = "size 640 480\n";
+            Int sceneIndex = 0;
+            While (sceneIndex < layout.CommandCount()) {
+                scene = scene + layout.CommandAt(sceneIndex) + "\n";
+                sceneIndex = sceneIndex + 1;
+            }
+            Files.WriteText("Build/rxu/show.list", scene);
+        }
+        app.PumpApp();
+    }
+    app.ExitApp(0);
+    String note = clicked + "\n" + keyed + "\n" + app.ReadPhase() + "\n" + app.ReadWindowTitle("Arm") + "\n" + events.TraceSize().ToString() + "\n";
+    Files.WriteText("Build/rxu/live.txt", note);
+    If (app.ReadPhase() != "Exited") {
+        Return 1;
+    }
+    Return 0;
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show the Arm console example, or run the RXU checks.";
+    Input: args = "show prints the example. show live keeps the window open. An empty argument list runs the checks.";
+    Processing: "Dispatch on the first argument.";
+    Output: "Zero when the selected run passed.";
+} {
+    If (args.Count() > 0) {
+        If (args[0] == "nav") {
+            Return CheckNav();
+        }
+        If (args[0] == "fixture") {
+            Mark("start");
+            String fixture = Files.ReadText("UI/Fixtures/Window.rxu");
+            Mark("read");
+            RxuParser parser = RxuParser();
+            Mark("parser");
+            RxuNode document = parser.Parse("UI/Fixtures/Window.rxu", fixture);
+            Mark("parsed");
+            Return document.Messages.Count();
+        }
+        If (args[0] == "show") {
+            Int shown = ShowArm();
+            If (args.Count() > 1) {
+                If (args[1] == "live") {
+                    Return shown + ShowLive();
+                }
+            }
+            Return shown;
+        }
+    }
+    Return CheckSamples();
+}

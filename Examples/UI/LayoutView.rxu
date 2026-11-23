@@ -1,0 +1,3 @@
+<Panel Name="view" Tag="View" Width="100" Height="40">
+    <Panel Name="body" Tag="Rect" Background="#336699"/>
+</Panel>

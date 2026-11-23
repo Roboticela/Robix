@@ -1,0 +1,5 @@
+<Window Name="Arm" Title="Events" OnLoaded="Ready">
+  <Panel Name="shell" OnClick="ShellClick">
+    <Button Name="go" OnClick="Go" OnKeyDown="Key" OnSubmit="Send" OnHover="Bad"/>
+  </Panel>
+</Window>

@@ -1,0 +1,23 @@
+size 1280 960
+Image mark 16 16 64 64
+Text heading 96 16 80 48 Wrist
+Text status 192 16 160 48 Ready
+Text pose 16 904 64 40 Pose
+Text speed 104 904 64 40 Slow
+Text link 192 904 96 40 Linked
+Text sideTitle 16 112 96 40 Joints
+Clip 16 168 328 440
+Text rowShoulder 16 168 128 0 Shoulder
+Text rowElbow 16 168 80 40 Elbow
+Text rowWrist 16 216 80 56 Wrist
+Text rowGrip 16 280 64 56 Grip
+Text rowBase 16 344 64 56 Base
+Pop
+Clip 376 112 888 380
+Shadow glow 408 144 400 240
+Fill plate 408 144 400 240 #112233
+Path connector 536 252 160 16
+Fill joint 736 272 24 24 #336699
+Pop
+Text readout 376 492 80 32 Angle
+Border action 820 492 444 380

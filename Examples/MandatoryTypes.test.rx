@@ -1,0 +1,97 @@
+// Tests for Examples/MandatoryTypes.rx.
+
+Test Move {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetBatteryLevel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test First {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Compare {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SumAll {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MoveRobot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Increase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Describe {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LoadConfiguration {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadBattery {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NameOfRobot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetBatteryLabel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadRobotState {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlushLogs {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ShowAsync {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

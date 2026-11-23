@@ -1,0 +1,1211 @@
+// Observables, expressions, and bindings.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class Observable {
+    Public String Key;
+    Public String Value;
+    Public Bool Secret;
+
+    Public Constructor() {
+        This.Key = "";
+        This.Value = "";
+        This.Secret = False;
+    }
+}
+
+Public Class ObservableList {
+    Public String Key;
+    Public List<String> Items;
+
+    Public Constructor() {
+        This.Key = "";
+        This.Items = List<String>();
+    }
+}
+
+Public Class Binding {
+    Public String Mode;
+    Public UIElement Target;
+    Public String Property;
+    Public String Expression;
+    Public String Converter;
+    Public Bool Invert;
+    Public String Fallback;
+    Public String Trigger;
+    Public String Context;
+    Public String Source;
+    Public Bool Secret;
+    Public Bool Active;
+    Public Bool Once;
+    Public List<String> Dependencies;
+    Public String Applied;
+
+    Public Constructor() {
+        This.Mode = "OneWay";
+        This.Target = UIElement();
+        This.Property = "";
+        This.Expression = "";
+        This.Converter = "";
+        This.Invert = False;
+        This.Fallback = "";
+        This.Trigger = "Change";
+        This.Context = "";
+        This.Source = "";
+        This.Secret = False;
+        This.Active = True;
+        This.Once = False;
+        This.Dependencies = List<String>();
+        This.Applied = "";
+    }
+}
+
+Public Class RxuExpression {
+    Public RxuMessages Messages;
+    Public String TypeName;
+    Public String Value;
+    Private String text;
+    Private Int cursor;
+    Private Bool failed;
+    Private BindingEngine scope;
+    Private String context;
+    Private List<String> dependencies;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.TypeName = "";
+        This.Value = "";
+        This.text = "";
+        This.cursor = 0;
+        This.failed = False;
+        This.scope = BindingEngine();
+        This.context = "";
+        This.dependencies = List<String>();
+    }
+
+    Public Function CheckExpression(String source) -> String
+    Explain {
+        Description: "Type-check one binding expression.";
+        Input: source = "Expression text";
+        Processing: "Accept paths, comparisons, arithmetic, logic, null checks, conditionals, and approved functions.";
+        Output: "The result type, or Error.";
+    } {
+        This.text = source + "";
+        This.cursor = 0;
+        This.failed = False;
+        This.Messages = RxuMessages();
+        This.dependencies = List<String>();
+        This.TypeName = This.ExprTernary(False);
+        This.ExprSkip();
+        If (This.cursor < This.text.Length()) {
+            This.ExprFail("RXU044", "This expression has trailing text.", This.text.Substring(This.cursor, This.text.Length() - This.cursor));
+            This.TypeName = "Error";
+        }
+        If (This.failed) {
+            Return "Error";
+        }
+        Return This.TypeName;
+    }
+
+    Public Function EvaluateExpression(String source, BindingEngine scope, String context) -> String
+    Explain {
+        Description: "Evaluate one binding expression.";
+        Input: source = "Expression text", scope = "Observable values", context = "Data context key";
+        Processing: "Read only the paths the expression uses and reject unknown functions.";
+        Output: "The value text, or empty text when the result is null or invalid.";
+    } {
+        This.text = source + "";
+        This.cursor = 0;
+        This.failed = False;
+        This.Messages = RxuMessages();
+        This.dependencies = List<String>();
+        This.scope = scope;
+        This.context = context + "";
+        This.Value = "";
+        This.TypeName = This.ExprTernary(True);
+        This.ExprSkip();
+        If (This.cursor < This.text.Length()) {
+            This.ExprFail("RXU044", "This expression has trailing text.", This.text.Substring(This.cursor, This.text.Length() - This.cursor));
+        }
+        If (This.failed || This.TypeName == "Null" || This.TypeName == "Error") {
+            This.Value = "";
+            Return "";
+        }
+        Return This.Value;
+    }
+
+    Public Function DependencyCount() -> Int
+    Explain {
+        Description: "Count the paths read by the last expression.";
+        Input: None;
+        Processing: "Read the recorded path list.";
+        Output: "The number of paths.";
+    } {
+        Return This.dependencies.Count();
+    }
+
+    Public Function DependencyAt(Int index) -> String
+    Explain {
+        Description: "Read one path used by the last expression.";
+        Input: index = "Zero-based path index";
+        Processing: "Return that path, or empty text when the index is outside the list.";
+        Output: "The path.";
+    } {
+        If (index < 0 || index >= This.dependencies.Count()) {
+            Return "";
+        }
+        Return This.dependencies[index];
+    }
+
+    Private Function ExprTernary(Bool live) -> String {
+        String condition = This.ExprOr(live);
+        String left = This.Value + "";
+        This.ExprSkip();
+        If (!This.ExprEat("?")) {
+            Return condition;
+        }
+        String yesType = This.ExprTernary(live);
+        String yes = This.Value + "";
+        This.ExprSkip();
+        If (!This.ExprEat(":")) {
+            This.ExprFail("RXU044", "A conditional needs a false branch.", ":");
+            Return "Error";
+        }
+        String noType = This.ExprTernary(live);
+        String no = This.Value + "";
+        If (condition == "Error" || yesType == "Error" || noType == "Error") {
+            Return "Error";
+        }
+        If (condition != "Boolean") {
+            This.ExprFail("RXU044", "A conditional test must be Boolean.", condition);
+            Return "Error";
+        }
+        String chosen = yesType;
+        If (yesType != noType) {
+            chosen = "String";
+        }
+        If (live) {
+            If (left == "true") {
+                This.Value = yes;
+            } Else {
+                This.Value = no;
+            }
+        }
+        Return chosen;
+    }
+
+    Private Function ExprOr(Bool live) -> String {
+        String current = This.ExprAnd(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            If (!This.ExprEat("||")) {
+                Break;
+            }
+            String right = This.ExprAnd(live);
+            If (current != "Boolean" || right != "Boolean") {
+                This.ExprFail("RXU044", "Logic operands must be Boolean.", current);
+                Return "Error";
+            }
+            If (live) {
+                If (value == "true" || This.Value == "true") {
+                    value = "true";
+                } Else {
+                    value = "false";
+                }
+                This.Value = value;
+            }
+            current = "Boolean";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprAnd(Bool live) -> String {
+        String current = This.ExprCompare(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            If (!This.ExprEat("&&")) {
+                Break;
+            }
+            String right = This.ExprCompare(live);
+            If (current != "Boolean" || right != "Boolean") {
+                This.ExprFail("RXU044", "Logic operands must be Boolean.", current);
+                Return "Error";
+            }
+            If (live) {
+                If (value == "true" && This.Value == "true") {
+                    value = "true";
+                } Else {
+                    value = "false";
+                }
+                This.Value = value;
+            }
+            current = "Boolean";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprCompare(Bool live) -> String {
+        String current = This.ExprAdd(live);
+        String value = This.Value + "";
+        This.ExprSkip();
+        String op = This.ExprOperator();
+        If (op == "") {
+            Return current;
+        }
+        String right = This.ExprAdd(live);
+        String other = This.Value + "";
+        If (current == "Error" || right == "Error") {
+            Return "Error";
+        }
+        If (op != "==" && op != "!=" && current == "Null") {
+            This.ExprFail("RXU044", "Null can only be compared with == or !=.", op);
+            Return "Error";
+        }
+        If ((op == "<" || op == ">" || op == "<=" || op == ">=") && current != "Number") {
+            This.ExprFail("RXU044", "Ordered comparisons need numbers.", current);
+            Return "Error";
+        }
+        If (live) {
+            Bool same = value == other;
+            Bool less = False;
+            If (current == "Number" && right == "Number") {
+                less = value.ToInt() < other.ToInt();
+                same = value.ToInt() == other.ToInt();
+            }
+            Bool answer = False;
+            If (op == "==") { answer = same; }
+            If (op == "!=") { answer = !same; }
+            If (op == "<") { answer = less; }
+            If (op == ">") { answer = !less && !same; }
+            If (op == "<=") { answer = less || same; }
+            If (op == ">=") { answer = !less || same; }
+            If (answer) {
+                This.Value = "true";
+            } Else {
+                This.Value = "false";
+            }
+        }
+        Return "Boolean";
+    }
+
+    Private Function ExprAdd(Bool live) -> String {
+        String current = This.ExprMul(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            String op = "";
+            If (This.ExprEat("+")) {
+                op = "+";
+            } Else {
+                If (This.ExprEat("-")) {
+                    op = "-";
+                }
+            }
+            If (op == "") {
+                Break;
+            }
+            String right = This.ExprMul(live);
+            If (current != "Number" || right != "Number") {
+                This.ExprFail("RXU044", "Arithmetic operands must be numbers.", current);
+                Return "Error";
+            }
+            If (live) {
+                Int number = value.ToInt();
+                If (op == "+") {
+                    number = number + This.Value.ToInt();
+                } Else {
+                    number = number - This.Value.ToInt();
+                }
+                value = number.ToString();
+                This.Value = value;
+            }
+            current = "Number";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprMul(Bool live) -> String {
+        String current = This.ExprUnary(live);
+        String value = This.Value + "";
+        While (!This.failed) {
+            This.ExprSkip();
+            String op = "";
+            If (This.ExprEat("*")) {
+                op = "*";
+            } Else {
+                If (This.ExprEat("/")) {
+                    op = "/";
+                }
+            }
+            If (op == "") {
+                Break;
+            }
+            String right = This.ExprUnary(live);
+            If (current != "Number" || right != "Number") {
+                This.ExprFail("RXU044", "Arithmetic operands must be numbers.", current);
+                Return "Error";
+            }
+            If (live) {
+                Int number = value.ToInt();
+                Int divisor = This.Value.ToInt();
+                If (op == "*") {
+                    number = number * divisor;
+                } Else {
+                    If (divisor == 0) {
+                        This.ExprFail("RXU044", "Division by zero is not allowed.", "0");
+                        Return "Error";
+                    }
+                    number = number / divisor;
+                }
+                value = number.ToString();
+                This.Value = value;
+            }
+            current = "Number";
+        }
+        This.Value = value;
+        Return current;
+    }
+
+    Private Function ExprUnary(Bool live) -> String {
+        This.ExprSkip();
+        If (This.ExprEat("!")) {
+            String inner = This.ExprUnary(live);
+            If (inner != "Boolean") {
+                This.ExprFail("RXU044", "Not must be applied to a Boolean.", inner);
+                Return "Error";
+            }
+            If (live) {
+                If (This.Value == "true") {
+                    This.Value = "false";
+                } Else {
+                    This.Value = "true";
+                }
+            }
+            Return "Boolean";
+        }
+        If (This.ExprEat("-")) {
+            String inner = This.ExprUnary(live);
+            If (inner != "Number") {
+                This.ExprFail("RXU044", "Negation must be applied to a number.", inner);
+                Return "Error";
+            }
+            If (live) {
+                This.Value = (0 - This.Value.ToInt()).ToString();
+            }
+            Return "Number";
+        }
+        Return This.ExprPrimary(live);
+    }
+
+    Private Function ExprPrimary(Bool live) -> String {
+        This.ExprSkip();
+        If (This.ExprEat("(")) {
+            String inner = This.ExprTernary(live);
+            This.ExprSkip();
+            If (!This.ExprEat(")")) {
+                This.ExprFail("RXU044", "This group is missing ')'.", ")");
+                Return "Error";
+            }
+            Return inner;
+        }
+        If (This.ExprPeek() == "\"") {
+            Return This.ExprText(live);
+        }
+        If (This.ExprIsDigit(This.ExprPeek())) {
+            Return This.ExprNumber(live);
+        }
+        String word = This.ExprWord();
+        If (word == "") {
+            This.ExprFail("RXU044", "This expression is missing a value.", "");
+            Return "Error";
+        }
+        If (word == "true" || word == "false") {
+            This.Value = word;
+            Return "Boolean";
+        }
+        If (word == "null") {
+            This.Value = "";
+            Return "Null";
+        }
+        This.ExprSkip();
+        If (This.ExprEat("(")) {
+            Return This.ExprCall(word, live);
+        }
+        Return This.ExprPath(word, live);
+    }
+
+    Private Function ExprCall(String name, Bool live) -> String {
+        String argument = This.ExprTernary(live);
+        String payload = This.Value + "";
+        This.ExprSkip();
+        If (!This.ExprEat(")")) {
+            This.ExprFail("RXU044", "A function call is missing ')'.", ")");
+            Return "Error";
+        }
+        If (name != "Length" && name != "Empty" && name != "Not" && name != "Count" && name != "Lower" && name != "Upper") {
+            This.ExprFail("RXU039", "This function is not approved.", name);
+            Return "Error";
+        }
+        If (name == "Not" && argument != "Boolean") {
+            This.ExprFail("RXU044", "Not expects a Boolean.", argument);
+            Return "Error";
+        }
+        If ((name == "Length" || name == "Empty" || name == "Lower" || name == "Upper") && argument != "String") {
+            This.ExprFail("RXU044", "This function expects text.", argument);
+            Return "Error";
+        }
+        If (name == "Count" && argument != "String") {
+            This.ExprFail("RXU044", "Count expects a collection path.", argument);
+            Return "Error";
+        }
+        If (!live) {
+            If (name == "Length" || name == "Count") { Return "Number"; }
+            If (name == "Empty" || name == "Not") { Return "Boolean"; }
+            Return "String";
+        }
+        If (name == "Length") {
+            This.Value = payload.Length().ToString();
+            Return "Number";
+        }
+        If (name == "Empty") {
+            If (payload.Length() == 0) { This.Value = "true"; } Else { This.Value = "false"; }
+            Return "Boolean";
+        }
+        If (name == "Not") {
+            If (payload == "true") { This.Value = "false"; } Else { This.Value = "true"; }
+            Return "Boolean";
+        }
+        If (name == "Lower") {
+            This.Value = This.ExprCase(payload, False);
+            Return "String";
+        }
+        If (name == "Upper") {
+            This.Value = This.ExprCase(payload, True);
+            Return "String";
+        }
+        String listName = payload;
+        If (This.dependencies.Count() > 0) {
+            listName = This.dependencies[This.dependencies.Count() - 1];
+        }
+        This.Value = This.scope.ItemCount(listName).ToString();
+        Return "Number";
+    }
+
+    Private Function ExprPath(String head, Bool live) -> String {
+        String path = head + "";
+        While (True) {
+            If (!This.ExprEat(".")) {
+                Break;
+            }
+            String part = This.ExprWord();
+            If (part == "" && This.ExprIsDigit(This.ExprPeek())) {
+                part = This.ExprDigits();
+            }
+            If (part == "") {
+                This.ExprFail("RXU044", "A path is missing a name.", ".");
+                Return "Error";
+            }
+            path = path + "." + part;
+        }
+        String full = path;
+        If (This.context != "" && !path.Contains(".")) {
+            full = This.context + "." + path;
+        }
+        This.dependencies.Add(full + "");
+        If (full.EndsWith(".Count")) {
+            If (!live) {
+                Return "Number";
+            }
+            String listName = full.Substring(0, full.Length() - 6);
+            This.dependencies.Add(listName + "");
+            This.Value = This.scope.ItemCount(listName).ToString();
+            Return "Number";
+        }
+        If (!live) {
+            Return "String";
+        }
+        Int dot = full.Length() - 1;
+        While (dot >= 0) {
+            If (full.Substring(dot, 1) == ".") {
+                Break;
+            }
+            dot = dot - 1;
+        }
+        If (dot >= 0) {
+            String tail = full.Substring(dot + 1, full.Length() - dot - 1);
+            If (This.ExprIsDigit(tail.Substring(0, 1))) {
+                String listName = full.Substring(0, dot);
+                This.dependencies.Add(listName + "");
+                String item = This.scope.ItemAt(listName, tail.ToInt());
+                If (item == "") {
+                    This.Value = "";
+                    Return "Null";
+                }
+                This.Value = item;
+                Return "String";
+            }
+        }
+        If (!This.scope.HasPath(full)) {
+            This.Value = "";
+            Return "Null";
+        }
+        This.Value = This.scope.ReadValue(full);
+        Return "String";
+    }
+
+    Private Function ExprText(Bool live) -> String {
+        This.cursor = This.cursor + 1;
+        String value = "";
+        While (This.cursor < This.text.Length() && This.ExprPeek() != "\"") {
+            value = value + This.ExprPeek();
+            This.cursor = This.cursor + 1;
+        }
+        If (!This.ExprEat("\"")) {
+            This.ExprFail("RXU044", "This string is not closed.", "\"");
+            Return "Error";
+        }
+        If (live) {
+            This.Value = value;
+        }
+        Return "String";
+    }
+
+    Private Function ExprNumber(Bool live) -> String {
+        String digits = This.ExprDigits();
+        If (live) {
+            This.Value = digits;
+        }
+        Return "Number";
+    }
+
+    Private Function ExprDigits() -> String {
+        String digits = "";
+        While (This.ExprIsDigit(This.ExprPeek())) {
+            digits = digits + This.ExprPeek();
+            This.cursor = This.cursor + 1;
+        }
+        Return digits;
+    }
+
+    Private Function ExprWord() -> String {
+        String word = "";
+        String character = This.ExprPeek();
+        If (!This.ExprIsLetter(character)) {
+            Return "";
+        }
+        While (This.ExprIsLetter(This.ExprPeek()) || This.ExprIsDigit(This.ExprPeek())) {
+            word = word + This.ExprPeek();
+            This.cursor = This.cursor + 1;
+        }
+        Return word;
+    }
+
+    Private Function ExprOperator() -> String {
+        If (This.ExprEat("==")) { Return "=="; }
+        If (This.ExprEat("!=")) { Return "!="; }
+        If (This.ExprEat("<=")) { Return "<="; }
+        If (This.ExprEat(">=")) { Return ">="; }
+        If (This.ExprEat("<")) { Return "<"; }
+        If (This.ExprEat(">")) { Return ">"; }
+        Return "";
+    }
+
+    Private Function ExprCase(String value, Bool upper) -> String {
+        String result = "";
+        Int index = 0;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (upper && character >= "a" && character <= "z") {
+                If (character == "a") { character = "A"; }
+                If (character == "b") { character = "B"; }
+                If (character == "c") { character = "C"; }
+                If (character == "d") { character = "D"; }
+                If (character == "e") { character = "E"; }
+                If (character == "f") { character = "F"; }
+                If (character == "g") { character = "G"; }
+                If (character == "h") { character = "H"; }
+                If (character == "i") { character = "I"; }
+                If (character == "j") { character = "J"; }
+                If (character == "k") { character = "K"; }
+                If (character == "l") { character = "L"; }
+                If (character == "m") { character = "M"; }
+                If (character == "n") { character = "N"; }
+                If (character == "o") { character = "O"; }
+                If (character == "p") { character = "P"; }
+                If (character == "q") { character = "Q"; }
+                If (character == "r") { character = "R"; }
+                If (character == "s") { character = "S"; }
+                If (character == "t") { character = "T"; }
+                If (character == "u") { character = "U"; }
+                If (character == "v") { character = "V"; }
+                If (character == "w") { character = "W"; }
+                If (character == "x") { character = "X"; }
+                If (character == "y") { character = "Y"; }
+                If (character == "z") { character = "Z"; }
+            }
+            If (!upper && character >= "A" && character <= "Z") {
+                If (character == "A") { character = "a"; }
+                If (character == "B") { character = "b"; }
+                If (character == "C") { character = "c"; }
+                If (character == "D") { character = "d"; }
+                If (character == "E") { character = "e"; }
+                If (character == "F") { character = "f"; }
+                If (character == "G") { character = "g"; }
+                If (character == "H") { character = "h"; }
+                If (character == "I") { character = "i"; }
+                If (character == "J") { character = "j"; }
+                If (character == "K") { character = "k"; }
+                If (character == "L") { character = "l"; }
+                If (character == "M") { character = "m"; }
+                If (character == "N") { character = "n"; }
+                If (character == "O") { character = "o"; }
+                If (character == "P") { character = "p"; }
+                If (character == "Q") { character = "q"; }
+                If (character == "R") { character = "r"; }
+                If (character == "S") { character = "s"; }
+                If (character == "T") { character = "t"; }
+                If (character == "U") { character = "u"; }
+                If (character == "V") { character = "v"; }
+                If (character == "W") { character = "w"; }
+                If (character == "X") { character = "x"; }
+                If (character == "Y") { character = "y"; }
+                If (character == "Z") { character = "z"; }
+            }
+            result = result + character;
+            index = index + 1;
+        }
+        Return result;
+    }
+
+    Private Function ExprSkip() -> Void {
+        While (This.cursor < This.text.Length()) {
+            String character = This.ExprPeek();
+            If (character != " " && character != "\t") {
+                Return;
+            }
+            This.cursor = This.cursor + 1;
+        }
+    }
+
+    Private Function ExprPeek() -> String {
+        If (This.cursor >= This.text.Length()) {
+            Return "";
+        }
+        Return This.text.Substring(This.cursor, 1);
+    }
+
+    Private Function ExprEat(String token) -> Bool {
+        This.ExprSkip();
+        If (This.cursor + token.Length() > This.text.Length()) {
+            Return False;
+        }
+        If (This.text.Substring(This.cursor, token.Length()) == token) {
+            This.cursor = This.cursor + token.Length();
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function ExprIsDigit(String character) -> Bool {
+        Return character >= "0" && character <= "9";
+    }
+
+    Private Function ExprIsLetter(String character) -> Bool {
+        If (character >= "A" && character <= "Z") { Return True; }
+        If (character >= "a" && character <= "z") { Return True; }
+        Return character == "_";
+    }
+
+    Private Function ExprFail(String code, String message, String actual) -> Void {
+        This.failed = True;
+        This.TypeName = "Error";
+        This.Messages.Add(code, message, "", 1, This.cursor + 1, actual.Length(), "a valid expression", actual, "Rewrite the expression with approved operations.");
+    }
+}
+
+Public Class BindingEngine {
+    Public RxuMessages Messages;
+    Private List<Observable> values;
+    Private List<ObservableList> lists;
+    Private List<Binding> bindings;
+    Private Int updateDepth;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.values = List<Observable>();
+        This.lists = List<ObservableList>();
+        This.bindings = List<Binding>();
+        This.updateDepth = 0;
+    }
+
+    Public Function DefineValue(String key, String value, Bool secret) -> Void
+    Explain {
+        Description: "Create or replace an observable value.";
+        Input: key = "Value path", value = "Initial text", secret = "True when the value must not be logged";
+        Processing: "Store the value and notify active bindings.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindValue(key);
+        If (index < 0) {
+            Observable created = Observable();
+            created.Key = key + "";
+            created.Value = value + "";
+            created.Secret = secret;
+            This.values.Add(created);
+        } Else {
+            This.values[index].Value = value + "";
+            This.values[index].Secret = secret;
+        }
+        This.NotifyWatchers(key);
+    }
+
+    Public Function ChangeValue(String key, String value) -> Void
+    Explain {
+        Description: "Change an observable value and refresh dependent bindings.";
+        Input: key = "Value path", value = "New text";
+        Processing: "Store a different value and notify watchers. An unchanged value does not refresh.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindValue(key);
+        If (index < 0) {
+            This.DefineValue(key, value, False);
+            Return;
+        }
+        If (This.values[index].Value == value) {
+            Return;
+        }
+        This.values[index].Value = value + "";
+        This.NotifyWatchers(key);
+    }
+
+    Public Function ReadValue(String key) -> String
+    Explain {
+        Description: "Read an observable value.";
+        Input: key = "Value path";
+        Processing: "Find the stored text.";
+        Output: "The value, or empty text when the path is missing.";
+    } {
+        Int index = This.FindValue(key);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.values[index].Value;
+    }
+
+    Public Function HasPath(String key) -> Bool
+    Explain {
+        Description: "Report whether a value or collection exists.";
+        Input: key = "Path";
+        Processing: "Look through values and collections.";
+        Output: "True when the path is defined.";
+    } {
+        If (This.FindValue(key) >= 0) {
+            Return True;
+        }
+        Return This.FindList(key) >= 0;
+    }
+
+    Public Function DefineList(String key) -> Void
+    Explain {
+        Description: "Create an observable collection.";
+        Input: key = "Collection name";
+        Processing: "Store an empty collection when it does not already exist.";
+        Output: "No return value.";
+    } {
+        If (This.FindList(key) >= 0) {
+            Return;
+        }
+        ObservableList created = ObservableList();
+        created.Key = key + "";
+        This.lists.Add(created);
+    }
+
+    Public Function AddItem(String key, String value) -> Void
+    Explain {
+        Description: "Append one collection item.";
+        Input: key = "Collection name", value = "Item text";
+        Processing: "Add the item and notify bindings that read the collection.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0) {
+            This.DefineList(key);
+            index = This.FindList(key);
+        }
+        This.lists[index].Items.Add(value + "");
+        This.NotifyWatchers(key);
+    }
+
+    Public Function RemoveItem(String key, Int item) -> Void
+    Explain {
+        Description: "Remove one collection item.";
+        Input: key = "Collection name", item = "Zero-based index";
+        Processing: "Rebuild the collection without that index and notify bindings.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0 || item < 0 || item >= This.lists[index].Items.Count()) {
+            Return;
+        }
+        List<String> next = List<String>();
+        Int cursor = 0;
+        While (cursor < This.lists[index].Items.Count()) {
+            If (cursor != item) {
+                next.Add(This.lists[index].Items[cursor]);
+            }
+            cursor = cursor + 1;
+        }
+        This.lists[index].Items = next;
+        This.NotifyWatchers(key);
+    }
+
+    Public Function MoveItem(String key, Int from, Int to) -> Void
+    Explain {
+        Description: "Move one collection item.";
+        Input: key = "Collection name", from = "Current index", to = "New index";
+        Processing: "Reorder the item and notify bindings.";
+        Output: "No return value.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0 || from < 0 || to < 0 || from >= This.lists[index].Items.Count() || to >= This.lists[index].Items.Count()) {
+            Return;
+        }
+        String moving = This.lists[index].Items[from] + "";
+        This.RemoveItem(key, from);
+        Int target = to;
+        List<String> next = List<String>();
+        Int cursor = 0;
+        While (cursor < This.lists[index].Items.Count()) {
+            If (cursor == target) {
+                next.Add(moving);
+            }
+            next.Add(This.lists[index].Items[cursor]);
+            cursor = cursor + 1;
+        }
+        If (target >= This.lists[index].Items.Count()) {
+            next.Add(moving);
+        }
+        This.lists[index].Items = next;
+        This.NotifyWatchers(key);
+    }
+
+    Public Function ItemAt(String key, Int item) -> String
+    Explain {
+        Description: "Read one collection item.";
+        Input: key = "Collection name", item = "Zero-based index";
+        Processing: "Return the item text.";
+        Output: "The item, or empty text when it is missing.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0 || item < 0 || item >= This.lists[index].Items.Count()) {
+            Return "";
+        }
+        Return This.lists[index].Items[item];
+    }
+
+    Public Function ItemCount(String key) -> Int
+    Explain {
+        Description: "Count collection items.";
+        Input: key = "Collection name";
+        Processing: "Read the collection size.";
+        Output: "The number of items, or zero when the collection is missing.";
+    } {
+        Int index = This.FindList(key);
+        If (index < 0) {
+            Return 0;
+        }
+        Return This.lists[index].Items.Count();
+    }
+
+    Public Function BindTo(UIElement target, String property, String expression, String mode, String converter, Bool invert, String fallback, String trigger, String context) -> Int
+    Explain {
+        Description: "Bind an element property to an expression.";
+        Input: target = "Element", property = "Property name", expression = "Source expression", mode = "OneWay, TwoWay, OneTime, OneWayToSource, Reactive, or Manual", converter = "Upper, Lower, Not, or empty", invert = "True to flip a Boolean", fallback = "Text used when the source is missing", trigger = "Change, Input, or Explicit", context = "Data context key";
+        Processing: "Store the subscription and apply it unless the mode waits for input or an explicit refresh.";
+        Output: "The binding index.";
+    } {
+        Binding created = Binding();
+        created.Target = target;
+        created.Property = property + "";
+        created.Expression = expression + "";
+        created.Mode = mode + "";
+        created.Converter = converter + "";
+        created.Invert = invert;
+        created.Fallback = fallback + "";
+        created.Trigger = trigger + "";
+        created.Context = context + "";
+        created.Secret = target.Kind == "PasswordBox" || property == "Password";
+        created.Source = This.PlainPath(expression, context);
+        created.Active = True;
+        This.bindings.Add(created);
+        Int index = This.bindings.Count() - 1;
+        If (mode != "Manual" && mode != "OneWayToSource" && trigger != "Explicit") {
+            This.ApplyBound(index, True);
+        }
+        Return index;
+    }
+
+    Public Function PushInput(Int index, String value) -> Bool
+    Explain {
+        Description: "Apply a user edit to a bound property.";
+        Input: index = "Binding index", value = "Edited text";
+        Processing: "Write the property. Two-way and source bindings also write the observable.";
+        Output: "True when the property accepts the text.";
+    } {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return False;
+        }
+        Binding item = This.bindings[index];
+        Bool accepted = item.Target.SetAttribute(item.Property, value);
+        If (item.Active && item.Source != "" && (item.Mode == "TwoWay" || item.Mode == "OneWayToSource" || item.Trigger == "Input")) {
+            This.ChangeValue(item.Source, This.ConvertBack(item, value));
+        }
+        Return accepted;
+    }
+
+    Public Function RefreshBound(Int index) -> Bool
+    Explain {
+        Description: "Refresh one binding explicitly.";
+        Input: index = "Binding index";
+        Processing: "Evaluate the expression again, including manual bindings. Animation still wins over the written local value.";
+        Output: "True when the binding was applied.";
+    } {
+        Return This.ApplyBound(index, True);
+    }
+
+    Public Function DisposeBound(Int index) -> Void
+    Explain {
+        Description: "Unsubscribe one binding.";
+        Input: index = "Binding index";
+        Processing: "Mark it inactive and drop its dependencies.";
+        Output: "No return value.";
+    } {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return;
+        }
+        This.bindings[index].Active = False;
+        This.bindings[index].Dependencies = List<String>();
+    }
+
+    Public Function DisposeAll() -> Void
+    Explain {
+        Description: "Drop every binding subscription.";
+        Input: None;
+        Processing: "Deactivate each binding so later changes do not reach disposed documents.";
+        Output: "No return value.";
+    } {
+        Int index = 0;
+        While (index < This.bindings.Count()) {
+            This.DisposeBound(index);
+            index = index + 1;
+        }
+    }
+
+    Public Function ActiveCount() -> Int
+    Explain {
+        Description: "Count active subscriptions.";
+        Input: None;
+        Processing: "Count bindings that have not been disposed.";
+        Output: "The number of active bindings.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < This.bindings.Count()) {
+            If (This.bindings[index].Active) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function TraceValue(Int index) -> String
+    Explain {
+        Description: "Read the last applied binding text for diagnostics.";
+        Input: index = "Binding index";
+        Processing: "Mask password values.";
+        Output: "The applied text, or bullets when the value is secret.";
+    } {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return "";
+        }
+        If (This.bindings[index].Secret) {
+            Return "••••";
+        }
+        Return This.bindings[index].Applied;
+    }
+
+    Private Function ApplyBound(Int index, Bool forced) -> Bool {
+        If (index < 0 || index >= This.bindings.Count()) {
+            Return False;
+        }
+        If (This.updateDepth >= 8) {
+            This.Messages.Add("RXU040", "This binding update is cyclic.", "", 1, 1, 1, "an update that settles", "a repeated update", "Break the binding cycle.");
+            Return False;
+        }
+        Binding item = This.bindings[index];
+        If (!item.Active && !forced) {
+            Return False;
+        }
+        If (!forced) {
+            If (item.Mode == "Manual" || item.Mode == "OneWayToSource" || item.Trigger == "Explicit") {
+                Return False;
+            }
+            If (item.Mode == "OneTime" && item.Once) {
+                Return False;
+            }
+        }
+        This.updateDepth = This.updateDepth + 1;
+        RxuExpression expression = RxuExpression();
+        String raw = expression.EvaluateExpression(item.Expression, This, item.Context);
+        item.Dependencies = List<String>();
+        Int watch = 0;
+        While (watch < expression.DependencyCount()) {
+            item.Dependencies.Add(expression.DependencyAt(watch));
+            watch = watch + 1;
+        }
+        String shown = raw;
+        If (expression.TypeName == "Null" || expression.TypeName == "Error" || raw == "") {
+            shown = item.Fallback;
+        } Else {
+            shown = This.ConvertText(item, raw);
+        }
+        item.Applied = shown + "";
+        Bool accepted = True;
+        If (item.Mode != "OneWayToSource" || forced) {
+            If (item.Secret && !item.Target.Accepts(item.Property)) {
+                accepted = False;
+            } Else {
+                accepted = item.Target.SetAttribute(item.Property, shown);
+            }
+            If (!accepted) {
+                This.Messages.Add("RXU041", "This binding value was rejected.", "", 1, 1, 1, "a value the property accepts", This.MaskText(item, shown), "Change the binding or the fallback.");
+            }
+        }
+        If (expression.Messages.Find("RXU039") >= 0 || expression.Messages.Find("RXU044") >= 0) {
+            Int diagnostic = 0;
+            While (diagnostic < expression.Messages.Count()) {
+                RxuDiagnostic found = expression.Messages.At(diagnostic);
+                This.Messages.Add(found.Code, found.Message, "", found.Line, found.Column, found.Length, found.Expected, This.MaskText(item, found.Actual), found.Correction);
+                diagnostic = diagnostic + 1;
+            }
+        }
+        If (item.Mode == "OneTime") {
+            item.Once = True;
+            item.Active = False;
+        }
+        If ((item.Mode == "TwoWay" || item.Mode == "OneWayToSource") && item.Source != "" && accepted) {
+            If (This.ReadValue(item.Source) != shown) {
+                This.ChangeValue(item.Source, shown);
+            }
+        }
+        This.updateDepth = This.updateDepth - 1;
+        Return accepted;
+    }
+
+    Private Function NotifyWatchers(String key) -> Void {
+        Int index = 0;
+        While (index < This.bindings.Count()) {
+            If (This.DependsOn(index, key)) {
+                This.ApplyBound(index, False);
+            }
+            index = index + 1;
+        }
+    }
+
+    Private Function DependsOn(Int index, String key) -> Bool {
+        Binding item = This.bindings[index];
+        If (!item.Active || item.Mode == "Manual" || item.Mode == "OneWayToSource" || item.Trigger == "Explicit") {
+            Return False;
+        }
+        Int watch = 0;
+        While (watch < item.Dependencies.Count()) {
+            String used = item.Dependencies[watch];
+            If (used == key || used.StartsWith(key + ".") || key.StartsWith(used + ".")) {
+                Return True;
+            }
+            watch = watch + 1;
+        }
+        Return False;
+    }
+
+    Private Function ConvertText(Binding item, String value) -> String {
+        String shown = value + "";
+        If (item.Converter == "Upper") { shown = This.ChangeCase(shown, True); }
+        If (item.Converter == "Lower") { shown = This.ChangeCase(shown, False); }
+        If (item.Converter == "Not" || item.Invert) {
+            If (shown == "true") { shown = "false"; }
+            Else { If (shown == "false") { shown = "true"; } }
+        }
+        Return shown;
+    }
+
+    Private Function ConvertBack(Binding item, String value) -> String {
+        String stored = value + "";
+        If (item.Converter == "Not" || item.Invert) {
+            If (stored == "true") { Return "false"; }
+            If (stored == "false") { Return "true"; }
+        }
+        Return stored;
+    }
+
+    Private Function MaskText(Binding item, String value) -> String {
+        If (item.Secret) {
+            Return "••••";
+        }
+        Return value;
+    }
+
+    Private Function PlainPath(String expression, String context) -> String {
+        String text = expression.Trim();
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            Bool name = (character >= "A" && character <= "Z") || (character >= "a" && character <= "z") || (character >= "0" && character <= "9") || character == "_" || character == ".";
+            If (!name) {
+                Return "";
+            }
+            index = index + 1;
+        }
+        If (context != "" && !text.Contains(".")) {
+            Return context + "." + text;
+        }
+        Return text;
+    }
+
+    Private Function FindValue(String key) -> Int {
+        Int index = 0;
+        While (index < This.values.Count()) {
+            If (This.values[index].Key == key) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function FindList(String key) -> Int {
+        Int index = 0;
+        While (index < This.lists.Count()) {
+            If (This.lists[index].Key == key) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function ChangeCase(String value, Bool upper) -> String {
+        RxuExpression helper = RxuExpression();
+        If (upper) {
+            Return helper.EvaluateExpression("Upper(\"" + value + "\")", This, "");
+        }
+        Return helper.EvaluateExpression("Lower(\"" + value + "\")", This, "");
+    }
+}

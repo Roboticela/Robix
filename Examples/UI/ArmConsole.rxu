@@ -1,0 +1,73 @@
+<Window Name="Arm" Title="Arm console" Width="640" Height="480" Enabled="true">
+  <!-- Arm console: resources, bindings, and a docked stage. -->
+  <Resources>
+    <Color Name="Accent" Value="#336699"/>
+    <Color Name="Ink" Value="@Accent"/>
+    <Color Name="Plate" Value="#112233"/>
+    <Number Name="Spacing" Value="8"/>
+    <String Name="FontFamily" Value="Roboto"/>
+  </Resources>
+  <Style Name="Primary">
+    <Setter Property="Background" Value="#336699"/>
+    <Setter Property="Background" Value="#224466" State="Hover"/>
+    <Setter Property="Opacity" Value="0.4" State="Disabled"/>
+  </Style>
+  <Import Source="Theme.rxu"/>
+  <Include Source="Parts/Arm.rxu"/>
+  <Let Name="Title" Value="Arm console"/>
+  <Component Name="JointRow">
+    <Button Name="Save" Id="save" Text={Binding Joint} ToolTip={Resource Accent}/>
+  </Component>
+  <Bind Target="heading" Source={Binding Joint}/>
+  <If Condition={Ready}>
+    <Text Value="Live"/>
+  </If>
+  <Else>
+    <Text Value="Idle"/>
+  </Else>
+  <Choose Value={Mode}>
+    <When Value="Run">
+      <Text Value="Running"/>
+    </When>
+    <Otherwise>
+      <Text Value="Stopped"/>
+    </Otherwise>
+  </Choose>
+  <Each Items={Joints} As="joint">
+    <Text Value={joint}/>
+  </Each>
+  <Panel Name="shell" Tag="Dock" Width="640" Height="480">
+    <Panel Name="bar" Tag="Stack" Dock="Top" Height="48" Orientation="Horizontal" Spacing="8" Padding="8">
+      <Panel Name="mark" Tag="Image" Width="32" Height="32" VerticalAlignment="Start"/>
+      <Panel Name="heading" Tag="Text" Content="Arm" Height="24" VerticalAlignment="Start"/>
+      <Panel Name="status" Tag="Text" Content="Ready" Width="80" Height="24" VerticalAlignment="Start"/>
+    </Panel>
+    <Panel Name="foot" Tag="Stack" Dock="Bottom" Height="36" Orientation="Horizontal" Spacing="12" Padding="8">
+      <Panel Name="pose" Tag="Text" Content="Pose" Height="20" VerticalAlignment="Start"/>
+      <Panel Name="speed" Tag="Text" Content="Slow" Height="20" VerticalAlignment="Start"/>
+      <Panel Name="link" Tag="Text" Content="Linked" Height="20" VerticalAlignment="Start"/>
+    </Panel>
+    <Panel Name="side" Tag="Stack" Dock="Left" Width="180" Padding="8" Spacing="8">
+      <Panel Name="sideTitle" Tag="Text" Content="Joints" Height="20" HorizontalAlignment="Start"/>
+      <Panel Name="list" Tag="Scroll" Height="220" ClipToBounds="true">
+        <Panel Name="rows" Tag="Stack" Width="148" Height="280" Spacing="4">
+          <Panel Name="rowShoulder" Tag="Text" Content="Shoulder" Height="28" HorizontalAlignment="Start"/>
+          <Panel Name="rowElbow" Tag="Text" Content="Elbow" Height="28" HorizontalAlignment="Start"/>
+          <Panel Name="rowWrist" Tag="Text" Content="Wrist" Height="28" HorizontalAlignment="Start"/>
+          <Panel Name="rowGrip" Tag="Text" Content="Grip" Height="28" HorizontalAlignment="Start"/>
+          <Panel Name="rowBase" Tag="Text" Content="Base" Height="28" HorizontalAlignment="Start"/>
+        </Panel>
+      </Panel>
+    </Panel>
+    <Panel Name="stage" Tag="Grid" Dock="Fill" GridColumns="2" GridRows="2" Padding="8">
+      <Panel Name="preview" Tag="Canvas" Column="0" Row="0" ColumnSpan="2" ClipToBounds="true">
+        <Panel Name="glow" Tag="Shadow" Width="200" Height="120" Column="16" Row="16"/>
+        <Panel Name="plate" Tag="Rect" Width="200" Height="120" Column="16" Row="16" Background="#112233"/>
+        <Panel Name="connector" Tag="Path" Width="80" Height="8" Column="80" Row="70"/>
+        <Panel Name="joint" Tag="Rect" Width="12" Height="12" Column="180" Row="80" Background="#336699"/>
+      </Panel>
+      <Panel Name="readout" Tag="Text" Column="0" Row="1" Content="Angle" HorizontalAlignment="Start" VerticalAlignment="Start"/>
+      <Panel Name="action" Tag="Border" Column="1" Row="1"/>
+    </Panel>
+  </Panel>
+</Window>

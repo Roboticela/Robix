@@ -1,0 +1,882 @@
+// Typed element properties.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class UIElement {
+    Public String Kind;
+    Public Int ChangeCount;
+    Public Bool Invalidated;
+    Public Bool LayoutInvalidated;
+    Public String TemplateName;
+    Public String VisualKind;
+    Public RxuMessages Messages;
+    Private String contextKey;
+    Private Bool contextLocal;
+    Public List<UIElement> children;
+    Private Int updateDepth;
+    Private List<String> names;
+    Private List<String> values;
+    Private List<String> sources;
+    Private List<String> pendingNames;
+    Private List<String> pendingValues;
+
+    Public Constructor() {
+        This.Kind = "UIElement";
+        This.ChangeCount = 0;
+        This.Invalidated = False;
+        This.LayoutInvalidated = False;
+        This.TemplateName = "";
+        This.VisualKind = "";
+        This.Messages = RxuMessages();
+        This.contextKey = "";
+        This.contextLocal = False;
+        This.children = List<UIElement>();
+        This.updateDepth = 0;
+        This.names = List<String>();
+        This.values = List<String>();
+        This.sources = List<String>();
+        This.pendingNames = List<String>();
+        This.pendingValues = List<String>();
+    }
+
+    Public Function SetAttribute(String name, String value) -> Bool
+    Explain {
+        Description: "Set a local property when the value matches its type.";
+        Input: name = "Property name", value = "New value";
+        Processing: "Reject an unknown, disallowed, or mistyped value. Queue it inside an update.";
+        Output: "True when the value is accepted.";
+    } {
+        Return This.Write("Local", name, value);
+    }
+
+    Public Function GetAttribute(String name) -> String
+    Explain {
+        Description: "Read the effective property value.";
+        Input: name = "Property name";
+        Processing: "Choose animation, then local, style, inherited, then the default.";
+        Output: "The effective text, or empty text when the property is unknown.";
+    } {
+        String stored = This.Canonical(name);
+        If (This.TypeOf(stored) == "") {
+            Return "";
+        }
+        String chosen = This.SourceValue(stored, "Animation");
+        If (chosen == "") {
+            chosen = This.SourceValue(stored, "Local");
+        }
+        If (chosen == "") {
+            chosen = This.SourceValue(stored, "Style");
+        }
+        If (chosen == "") {
+            chosen = This.SourceValue(stored, "Inherited");
+        }
+        If (chosen == "") {
+            Return This.DefaultOf(stored);
+        }
+        Return chosen;
+    }
+
+    Public Function HasAttribute(String name) -> Bool
+    Explain {
+        Description: "Report whether a local value is set.";
+        Input: name = "Property name";
+        Processing: "Look for a local entry. Foreground uses Color.";
+        Output: "True when a local value is present.";
+    } {
+        Return This.SourceValue(This.Canonical(name), "Local") != "";
+    }
+
+    Public Function Accepts(String name) -> Bool
+    Explain {
+        Description: "Report whether this element allows a property.";
+        Input: name = "Property name";
+        Processing: "Use the element kind catalog. Foreground uses Color.";
+        Output: "True when the property is allowed.";
+    } {
+        Return This.Allows(This.Canonical(name));
+    }
+
+    Public Function RemoveAttribute(String name) -> Bool
+    Explain {
+        Description: "Remove the local value.";
+        Input: name = "Property name";
+        Processing: "Drop the local entry and leave style, animation, and inherited values.";
+        Output: "True when a local value was removed.";
+    } {
+        Return This.DropSource(This.Canonical(name), "Local");
+    }
+
+    Public Function ResetAttribute(String name) -> Void
+    Explain {
+        Description: "Clear local, style, and animation values.";
+        Input: name = "Property name";
+        Processing: "Drop those sources so inherited or the default shows through.";
+        Output: "No return value.";
+    } {
+        String stored = This.Canonical(name);
+        This.DropSource(stored, "Local");
+        This.DropSource(stored, "Style");
+        This.DropSource(stored, "Animation");
+    }
+
+    Public Function AttributeCount() -> Int
+    Explain {
+        Description: "Count the properties this element kind allows.";
+        Input: None;
+        Processing: "Read the catalog for this kind.";
+        Output: "The number of property names.";
+    } {
+        Return This.SegmentCount(This.Catalog());
+    }
+
+    Public Function AttributeName(Int index) -> String
+    Explain {
+        Description: "Return one allowed property name.";
+        Input: index = "Zero-based catalog index";
+        Processing: "Read that segment of the catalog.";
+        Output: "The property name, or empty text when the index is outside the catalog.";
+    } {
+        Return This.Segment(This.Catalog(), index);
+    }
+
+    Public Function AttributeType(String name) -> String
+    Explain {
+        Description: "Return the type name of a property.";
+        Input: name = "Property name";
+        Processing: "Resolve aliases and read the type.";
+        Output: "The type name, or empty text when the property is unknown.";
+    } {
+        Return This.TypeOf(This.Canonical(name));
+    }
+
+    Public Function SetAttributes(RxuNode node) -> Int
+    Explain {
+        Description: "Apply the attributes of a parsed element.";
+        Input: node = "Parsed element";
+        Processing: "Set each attribute and count the ones that are rejected.";
+        Output: "The number of rejected attributes.";
+    } {
+        Int failed = 0;
+        Int index = 0;
+        While (index < node.Attributes.Count()) {
+            RxuNode attribute = node.Attributes[index];
+            If (!This.SetAttribute(attribute.Name, attribute.Text)) {
+                failed = failed + 1;
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Public Function SetStyle(String name, String value) -> Bool
+    Explain {
+        Description: "Set a style value.";
+        Input: name = "Property name", value = "Style value";
+        Processing: "Validate the value and store it as Style.";
+        Output: "True when the value is accepted.";
+    } {
+        Return This.Write("Style", name, value);
+    }
+
+    Public Function ClearStyle(String name) -> Void
+    Explain {
+        Description: "Remove one style value.";
+        Input: name = "Property name";
+        Processing: "Drop the style source so local, inherited, or the default shows through.";
+        Output: "No return value.";
+    } {
+        This.DropSource(This.Canonical(name), "Style");
+    }
+
+    Public Function SetAnimation(String name, String value) -> Bool
+    Explain {
+        Description: "Set an animation value.";
+        Input: name = "Property name", value = "Animation value";
+        Processing: "Validate the value and store it as Animation.";
+        Output: "True when the value is accepted.";
+    } {
+        Return This.Write("Animation", name, value);
+    }
+
+    Public Function BeginUpdate() -> Void
+    Explain {
+        Description: "Start a batched property update.";
+        Input: None;
+        Processing: "Increase the update depth. Local writes wait for the outer end.";
+        Output: "No return value.";
+    } {
+        This.updateDepth = This.updateDepth + 1;
+    }
+
+    Public Function EndUpdate() -> Int
+    Explain {
+        Description: "End one update level and apply the batch at the outer end.";
+        Input: None;
+        Processing: "Apply queued local values once and raise one change notice.";
+        Output: "The number of values applied, or zero when the batch is still open.";
+    } {
+        If (This.updateDepth == 0) {
+            Return 0;
+        }
+        This.updateDepth = This.updateDepth - 1;
+        If (This.updateDepth > 0) {
+            Return 0;
+        }
+        Return This.ApplyChanges();
+    }
+
+    Public Function CancelUpdate() -> Void
+    Explain {
+        Description: "Drop a batched update.";
+        Input: None;
+        Processing: "Clear the queued values and the update depth.";
+        Output: "No return value.";
+    } {
+        This.updateDepth = 0;
+        This.pendingNames = List<String>();
+        This.pendingValues = List<String>();
+    }
+
+    Public Function ApplyChanges() -> Int
+    Explain {
+        Description: "Apply queued local values.";
+        Input: None;
+        Processing: "Write the queue, mark the element dirty, and count one change.";
+        Output: "The number of values applied.";
+    } {
+        Int count = This.pendingNames.Count();
+        Int index = 0;
+        While (index < count) {
+            This.Store("Local", This.pendingNames[index], This.pendingValues[index]);
+            If (This.IsLayout(This.pendingNames[index])) {
+                This.LayoutInvalidated = True;
+            }
+            This.Publish(This.pendingNames[index]);
+            index = index + 1;
+        }
+        This.pendingNames = List<String>();
+        This.pendingValues = List<String>();
+        If (count > 0) {
+            This.Invalidated = True;
+            This.ChangeCount = This.ChangeCount + 1;
+        }
+        Return count;
+    }
+
+    Public Function Refresh() -> Void
+    Explain {
+        Description: "Clear the dirty flags after a refresh.";
+        Input: None;
+        Processing: "Set both invalidation flags to false.";
+        Output: "No return value.";
+    } {
+        This.Invalidated = False;
+        This.LayoutInvalidated = False;
+    }
+
+    Public Function Invalidate() -> Void
+    Explain {
+        Description: "Mark the element for a repaint.";
+        Input: None;
+        Processing: "Set the paint invalidation flag.";
+        Output: "No return value.";
+    } {
+        This.Invalidated = True;
+    }
+
+    Public Function InvalidateLayout() -> Void
+    Explain {
+        Description: "Mark the element for layout and repaint.";
+        Input: None;
+        Processing: "Set the layout and paint invalidation flags.";
+        Output: "No return value.";
+    } {
+        This.Invalidated = True;
+        This.LayoutInvalidated = True;
+    }
+
+    Public Function SetParent(UIElement parent) -> Void
+    Explain {
+        Description: "Attach this element to a parent and inherit values.";
+        Input: parent = "Parent element";
+        Processing: "Record the parent and copy inheritable effective values.";
+        Output: "No return value.";
+    } {
+        parent.children.Add(This);
+        This.TakeDataContext(parent.ContextKey());
+        This.TakeInherited(parent, "Color");
+        This.TakeInherited(parent, "FontFamily");
+        This.TakeInherited(parent, "FontSize");
+        This.TakeInherited(parent, "FontWeight");
+        This.TakeInherited(parent, "Cursor");
+        This.TakeInherited(parent, "TextAlignment");
+    }
+
+    Public Function SetDataContext(String key) -> Void
+    Explain {
+        Description: "Set this element's data context and pass it to descendants.";
+        Input: key = "Context path such as User";
+        Processing: "Remember a local context and copy it onto descendants that do not have their own.";
+        Output: "No return value.";
+    } {
+        This.contextKey = key + "";
+        This.contextLocal = True;
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeDataContext(key);
+            index = index + 1;
+        }
+    }
+
+    Public Function ClearDataContext(String inherited) -> Void
+    Explain {
+        Description: "Drop the local data context and inherit another.";
+        Input: inherited = "Context key from the parent, or empty";
+        Processing: "Clear the local flag and copy the inherited key onto descendants that do not have their own.";
+        Output: "No return value.";
+    } {
+        This.contextLocal = False;
+        This.contextKey = inherited + "";
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeDataContext(inherited);
+            index = index + 1;
+        }
+    }
+
+    Public Function ContextKey() -> String
+    Explain {
+        Description: "Read the effective data context key.";
+        Input: None;
+        Processing: "Return the local key or the key copied from an ancestor.";
+        Output: "The context key, or empty text when none is set.";
+    } {
+        Return This.contextKey;
+    }
+
+    Public Function TakeDataContext(String key) -> Void
+    Explain {
+        Description: "Inherit a data context when this element does not have its own.";
+        Input: key = "Ancestor context key";
+        Processing: "Keep a local context. Otherwise copy the key and pass it downward.";
+        Output: "No return value.";
+    } {
+        If (This.contextLocal) {
+            Return;
+        }
+        This.contextKey = key + "";
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeDataContext(key);
+            index = index + 1;
+        }
+    }
+
+    Private Function Write(String source, String name, String value) -> Bool {
+        String stored = This.Canonical(name);
+        String typeName = This.TypeOf(stored);
+        If (typeName == "") {
+            This.Messages.Add("RXU019", "This property is unknown.", "", 1, 1, name.Length(), "a known property", name, "Use a property from the catalog.");
+            Return False;
+        }
+        If (!This.Allows(stored)) {
+            This.Messages.Add("RXU020", "This property is not allowed on this element.", "", 1, 1, name.Length(), This.Kind, name, "Move the property to an element that allows it.");
+            Return False;
+        }
+        If (!This.ValidValue(stored, value) || !This.ValidRange(stored, value)) {
+            This.Messages.Add("RXU018", "This value does not match the property type.", "", 1, 1, value.Length(), typeName, value, "Use a value of the property type.");
+            Return False;
+        }
+        If (source == "Local" && This.updateDepth > 0) {
+            This.Hold(stored, value);
+            Return True;
+        }
+        This.Store(source, stored, value);
+        If (This.IsLayout(stored)) {
+            This.LayoutInvalidated = True;
+        }
+        This.Invalidated = True;
+        This.ChangeCount = This.ChangeCount + 1;
+        This.Publish(stored);
+        Return True;
+    }
+
+    Private Function Canonical(String name) -> String {
+        If (name == "Foreground") {
+            Return "Color";
+        }
+        Return name;
+    }
+
+    Private Function Catalog() -> String {
+        String common = "Name,Id,Visible,Enabled,Opacity,Tag,Class";
+        String framework = "Width,Height,MinWidth,MinHeight,MaxWidth,MaxHeight,Margin,Padding,HorizontalAlignment,VerticalAlignment,Cursor,ToolTip,Style";
+        String layout = "Orientation,Spacing,Row,Column,RowSpan,ColumnSpan,HorizontalContentAlignment,VerticalContentAlignment,GridColumns,GridRows,Dock,Wrap,ClipToBounds";
+        String appearance = "Background,Color,Foreground,FontFamily,FontSize,FontWeight,BorderColor,BorderWidth,CornerRadius,Shadow,TextAlignment,TextDecoration,Icon,Image,Animation,Duration";
+        If (This.Kind == "Panel") {
+            Return common + "," + framework + "," + layout;
+        }
+        If (This.Kind == "Control" || This.Kind == "Button") {
+            Return common + "," + framework + "," + appearance;
+        }
+        If (This.Kind == "Window" || This.Kind == "FrameworkElement") {
+            Return common + "," + framework + ",Title";
+        }
+        Return common;
+    }
+
+    Private Function Allows(String name) -> Bool {
+        Int index = 0;
+        String catalog = This.Catalog();
+        Int count = This.SegmentCount(catalog);
+        While (index < count) {
+            If (This.Segment(catalog, index) == name || (name == "Color" && This.Segment(catalog, index) == "Foreground")) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function TypeOf(String name) -> String {
+        If (name == "Name" || name == "Id" || name == "Tag" || name == "Class" || name == "Style" || name == "ToolTip" || name == "FontFamily" || name == "Icon" || name == "Image" || name == "Animation" || name == "Title") {
+            Return "String";
+        }
+        If (name == "Width" || name == "Height") {
+            Return "Dimension";
+        }
+        If (name == "MinWidth" || name == "MinHeight" || name == "MaxWidth" || name == "MaxHeight" || name == "BorderWidth" || name == "Spacing" || name == "Row" || name == "Column" || name == "RowSpan" || name == "ColumnSpan" || name == "GridColumns" || name == "GridRows") {
+            Return "Number";
+        }
+        If (name == "Opacity" || name == "FontSize") {
+            Return "Float";
+        }
+        If (name == "Visible" || name == "Enabled" || name == "ClipToBounds" || name == "Wrap") {
+            Return "Boolean";
+        }
+        If (name == "Margin" || name == "Padding" || name == "CornerRadius") {
+            Return "Thickness";
+        }
+        If (name == "Shadow") {
+            Return "Shadow";
+        }
+        If (name == "Background" || name == "BorderColor") {
+            Return "Brush";
+        }
+        If (name == "Color") {
+            Return "Color";
+        }
+        If (name == "Cursor") {
+            Return "Cursor";
+        }
+        If (name == "HorizontalAlignment" || name == "VerticalAlignment" || name == "HorizontalContentAlignment" || name == "VerticalContentAlignment" || name == "TextAlignment") {
+            Return "Alignment";
+        }
+        If (name == "Orientation") {
+            Return "Orientation";
+        }
+        If (name == "Dock") {
+            Return "Dock";
+        }
+        If (name == "FontWeight") {
+            Return "FontWeight";
+        }
+        If (name == "TextDecoration") {
+            Return "TextDecoration";
+        }
+        If (name == "Duration") {
+            Return "Duration";
+        }
+        Return "";
+    }
+
+    Private Function DefaultOf(String name) -> String {
+        If (name == "Visible" || name == "Enabled") {
+            Return "true";
+        }
+        If (name == "Opacity") {
+            Return "1";
+        }
+        If (name == "Width" || name == "Height") {
+            Return "Auto";
+        }
+        If (name == "HorizontalAlignment" || name == "VerticalAlignment" || name == "HorizontalContentAlignment" || name == "VerticalContentAlignment") {
+            Return "Stretch";
+        }
+        If (name == "Cursor") {
+            Return "Arrow";
+        }
+        If (name == "Orientation") {
+            Return "Vertical";
+        }
+        If (name == "Dock") {
+            Return "Fill";
+        }
+        If (name == "Wrap" || name == "ClipToBounds") {
+            Return "false";
+        }
+        If (name == "FontSize") {
+            Return "14";
+        }
+        If (name == "FontWeight") {
+            Return "Normal";
+        }
+        If (name == "TextAlignment") {
+            Return "Start";
+        }
+        If (name == "TextDecoration" || name == "Shadow" || name == "Background") {
+            Return "None";
+        }
+        If (name == "Color" || name == "BorderColor") {
+            Return "#000000";
+        }
+        If (name == "BorderWidth" || name == "Spacing" || name == "Row" || name == "Column" || name == "Margin" || name == "Padding" || name == "CornerRadius") {
+            Return "0";
+        }
+        If (name == "RowSpan" || name == "ColumnSpan" || name == "GridColumns" || name == "GridRows") {
+            Return "1";
+        }
+        If (name == "Duration") {
+            Return "0ms";
+        }
+        Return "";
+    }
+
+    Private Function IsLayout(String name) -> Bool {
+        String typeName = This.TypeOf(name);
+        If (typeName == "Dimension" || typeName == "Thickness" || typeName == "Orientation" || typeName == "Dock" || typeName == "Alignment") {
+            Return True;
+        }
+        If (name == "Spacing" || name == "Row" || name == "Column" || name == "RowSpan" || name == "ColumnSpan" || name == "GridColumns" || name == "GridRows" || name == "Wrap" || name == "ClipToBounds" || name == "MinWidth" || name == "MinHeight" || name == "MaxWidth" || name == "MaxHeight") {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function ValidValue(String name, String value) -> Bool {
+        String typeName = This.TypeOf(name);
+        If (typeName == "String") {
+            Return True;
+        }
+        If (typeName == "Number") {
+            Return This.IsNumber(value);
+        }
+        If (typeName == "Float") {
+            If (name == "Opacity") {
+                Return This.IsOpacity(value);
+            }
+            Return This.IsFloat(value);
+        }
+        If (typeName == "Boolean") {
+            Return value == "true" || value == "false" || value == "True" || value == "False";
+        }
+        If (typeName == "Dimension") {
+            Return This.IsDimension(value);
+        }
+        If (typeName == "Thickness") {
+            Return This.IsThickness(value);
+        }
+        If (typeName == "Shadow") {
+            Return value == "None" || This.IsThickness(value);
+        }
+        If (typeName == "Color") {
+            Return This.IsColor(value);
+        }
+        If (typeName == "Brush") {
+            Return value == "None" || This.IsColor(value) || (value.StartsWith("Solid ") && This.IsColor(value.Substring(6, value.Length() - 6)));
+        }
+        If (typeName == "Duration") {
+            Return This.IsDuration(value);
+        }
+        If (typeName == "Alignment") {
+            Return value == "Start" || value == "Center" || value == "End" || value == "Stretch";
+        }
+        If (typeName == "Cursor") {
+            Return value == "Arrow" || value == "Hand" || value == "Text" || value == "Wait";
+        }
+        If (typeName == "Orientation") {
+            Return value == "Horizontal" || value == "Vertical";
+        }
+        If (typeName == "Dock") {
+            Return value == "Left" || value == "Right" || value == "Top" || value == "Bottom" || value == "Fill";
+        }
+        If (typeName == "FontWeight") {
+            Return value == "Normal" || value == "Bold";
+        }
+        If (typeName == "TextDecoration") {
+            Return value == "None" || value == "Underline";
+        }
+        Return False;
+    }
+
+    Private Function ValidRange(String name, String value) -> Bool {
+        If (name == "MinWidth" || name == "MinHeight" || name == "MaxWidth" || name == "MaxHeight") {
+            String pair = "MaxWidth";
+            String current = This.GetAttribute(name);
+            If (name == "MinWidth") {
+                pair = "MaxWidth";
+            }
+            If (name == "MinHeight") {
+                pair = "MaxHeight";
+            }
+            If (name == "MaxWidth") {
+                pair = "MinWidth";
+            }
+            If (name == "MaxHeight") {
+                pair = "MinHeight";
+            }
+            String other = This.GetAttribute(pair);
+            If (other == "" || value == "") {
+                Return True;
+            }
+            Int next = value.ToInt();
+            Int previous = other.ToInt();
+            If (name.StartsWith("Min") && previous < next) {
+                Return False;
+            }
+            If (name.StartsWith("Max") && next < previous) {
+                Return False;
+            }
+            If (current == value) {
+                Return True;
+            }
+        }
+        Return True;
+    }
+
+    Private Function IsNumber(String value) -> Bool {
+        Int index = 0;
+        If (value.Length() > 0 && value.Substring(0, 1) == "-") {
+            index = 1;
+        }
+        If (index >= value.Length()) {
+            Return False;
+        }
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsFloat(String value) -> Bool {
+        Int dots = 0;
+        Int digits = 0;
+        Int index = 0;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character == ".") {
+                dots = dots + 1;
+            } Else If (character >= "0" && character <= "9") {
+                digits = digits + 1;
+            } Else {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return digits > 0 && dots < 2;
+    }
+
+    Private Function IsOpacity(String value) -> Bool {
+        If (value == "0" || value == "1" || value == "0.0" || value == "1.0") {
+            Return True;
+        }
+        If (value.Length() < 3 || value.Substring(0, 2) != "0.") {
+            Return False;
+        }
+        Int index = 2;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsDimension(String value) -> Bool {
+        If (value == "Auto" || value == "*") {
+            Return True;
+        }
+        If (value.EndsWith("px")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("*")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return This.IsNumber(value);
+    }
+
+    Private Function IsThickness(String value) -> Bool {
+        Int parts = 1;
+        Int index = 0;
+        String current = "";
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character == ",") {
+                If (!This.IsNumber(current)) {
+                    Return False;
+                }
+                current = "";
+                parts = parts + 1;
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        Return This.IsNumber(current) && (parts == 1 || parts == 2 || parts == 4);
+    }
+
+    Private Function IsColor(String value) -> Bool {
+        If (value == "Black" || value == "White" || value == "Transparent") {
+            Return True;
+        }
+        If (value.Length() < 4 || value.Substring(0, 1) != "#") {
+            Return False;
+        }
+        Int length = value.Length() - 1;
+        If (length != 3 && length != 4 && length != 6 && length != 8) {
+            Return False;
+        }
+        Int index = 1;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsDuration(String value) -> Bool {
+        If (value.EndsWith("ms")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("s")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return False;
+    }
+
+    Private Function Store(String source, String name, String value) -> Void {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name && This.sources[index] == source) {
+                This.values[index] = value + "";
+                Return;
+            }
+            index = index + 1;
+        }
+        This.names.Add(name + "");
+        This.values.Add(value + "");
+        This.sources.Add(source + "");
+    }
+
+    Private Function SourceValue(String name, String source) -> String {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name && This.sources[index] == source) {
+                Return This.values[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function DropSource(String name, String source) -> Bool {
+        Int found = 0;
+        Var keptNames = List<String>();
+        Var keptValues = List<String>();
+        Var keptSources = List<String>();
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name && This.sources[index] == source) {
+                found = 1;
+            } Else {
+                keptNames.Add(This.names[index]);
+                keptValues.Add(This.values[index]);
+                keptSources.Add(This.sources[index]);
+            }
+            index = index + 1;
+        }
+        This.names = keptNames;
+        This.values = keptValues;
+        This.sources = keptSources;
+        Return found == 1;
+    }
+
+    Private Function Hold(String name, String value) -> Void {
+        Int index = 0;
+        While (index < This.pendingNames.Count()) {
+            If (This.pendingNames[index] == name) {
+                This.pendingValues[index] = value + "";
+                Return;
+            }
+            index = index + 1;
+        }
+        This.pendingNames.Add(name + "");
+        This.pendingValues.Add(value + "");
+    }
+
+    Private Function Publish(String name) -> Void {
+        If (name != "Color" && name != "FontFamily" && name != "FontSize" && name != "FontWeight" && name != "Cursor" && name != "TextAlignment") {
+            Return;
+        }
+        Int index = 0;
+        While (index < This.children.Count()) {
+            This.children[index].TakeInherited(This, name);
+            index = index + 1;
+        }
+    }
+
+    Private Function TakeInherited(UIElement parent, String name) -> Void {
+        If (This.SourceValue(name, "Animation") != "" || This.SourceValue(name, "Local") != "" || This.SourceValue(name, "Style") != "") {
+            Return;
+        }
+        This.Store("Inherited", name, parent.GetAttribute(name));
+    }
+
+    Private Function SegmentCount(String catalog) -> Int {
+        If (catalog == "") {
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            If (catalog.Substring(index, 1) == ",") {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Segment(String catalog, Int wanted) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            If (catalog.Substring(index, 1) == ",") {
+                If (seen == wanted) {
+                    Return catalog.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (seen == wanted) {
+            Return catalog.Substring(start, catalog.Length() - start);
+        }
+        Return "";
+    }
+}

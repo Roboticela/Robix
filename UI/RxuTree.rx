@@ -1,0 +1,1409 @@
+// Live tree edits.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class TreeHost {
+    Private List<String> ids;
+    Private List<String> kinds;
+    Private List<String> names;
+    Private List<String> parents;
+    Private List<String> docs;
+    Private List<String> orders;
+    Private List<String> stamps;
+    Private List<String> attachedFlags;
+    Private List<String> extras;
+    Private List<String> watches;
+    Private List<String> pending;
+    Private List<String> childIds;
+    Private List<String> matchIds;
+    Private List<String> snapIds;
+    Private List<String> snapKinds;
+    Private List<String> snapNames;
+    Private List<String> snapParents;
+    Private List<String> snapDocs;
+    Private List<String> snapOrders;
+    Private List<String> snapStamps;
+    Private List<String> snapAttached;
+    Private List<String> snapExtras;
+    Private List<String> snapWatches;
+    Private Int serial;
+    Private Int layoutCount;
+    Private Int renderCount;
+    Private Int held;
+    Private Bool tx;
+    Private Bool dirty;
+    Private Bool invoking;
+    Private String phase;
+
+    Public Constructor() {
+        This.ids = List<String>();
+        This.kinds = List<String>();
+        This.names = List<String>();
+        This.parents = List<String>();
+        This.docs = List<String>();
+        This.orders = List<String>();
+        This.stamps = List<String>();
+        This.attachedFlags = List<String>();
+        This.extras = List<String>();
+        This.watches = List<String>();
+        This.pending = List<String>();
+        This.childIds = List<String>();
+        This.matchIds = List<String>();
+        This.snapIds = List<String>();
+        This.snapKinds = List<String>();
+        This.snapNames = List<String>();
+        This.snapParents = List<String>();
+        This.snapDocs = List<String>();
+        This.snapOrders = List<String>();
+        This.snapStamps = List<String>();
+        This.snapAttached = List<String>();
+        This.snapExtras = List<String>();
+        This.snapWatches = List<String>();
+        This.serial = 1;
+        This.layoutCount = 0;
+        This.renderCount = 0;
+        This.held = 0;
+        This.tx = False;
+        This.dirty = False;
+        This.invoking = False;
+        This.phase = "Open";
+    }
+
+    Public Function ImportTree(RxuNode node) -> Int
+    Explain {
+        Description: "Import a live tree from markup.";
+        Input: node = "Document or element";
+        Processing: "Record each named control under the open main document and coalesce the first layout.";
+        Output: "The number of imported controls.";
+    } {
+        Int count = This.TreeWalk(node, "", "", 0);
+        This.phase = "Open";
+        If (count > 0) {
+            This.TreeNote();
+        }
+        Return count;
+    }
+
+    Public Function TreeOpen(String doc, String id, String kind, String name) -> Bool
+    Explain {
+        Description: "Open another document root without closing the current window.";
+        Input: doc = "Document id", id = "Stable control id", kind = "Control kind", name = "Visible name";
+        Processing: "Create an attached root. The window phase stays Open.";
+        Output: "True when the root was created.";
+    } {
+        If (doc == "" || id == "" || kind == "" || name == "" || This.TreeIndex(id) >= 0) {
+            Return False;
+        }
+        This.TreePlace(id, kind, name, "", doc, 0);
+        This.TreeNote();
+        Return True;
+    }
+
+    Public Function TreeCreate(String kind, String id, String name) -> Bool
+    Explain {
+        Description: "Create a detached control.";
+        Input: kind = "Control kind", id = "Stable control id", name = "Visible name";
+        Processing: "Store the control without a parent. The id is never reused.";
+        Output: "True when the control was created.";
+    } {
+        If (kind == "" || id == "" || name == "" || This.TreeIndex(id) >= 0) {
+            Return False;
+        }
+        This.TreePlace(id, kind, name, "", "", 0);
+        Return True;
+    }
+
+    Public Function TreeAdd(String parent, String id) -> Bool
+    Explain {
+        Description: "Attach a detached control at the end of a parent.";
+        Input: parent = "Parent id", id = "Detached control id";
+        Processing: "Reject a missing parent, a cycle, or a control that is already attached.";
+        Output: "True when the control was attached.";
+    } {
+        If (This.TreeIndex(parent) < 0) {
+            Return False;
+        }
+        This.TreeKids(parent);
+        Return This.TreeInsert(parent, This.childIds.Count(), id);
+    }
+
+    Public Function TreeInsert(String parent, Int index, String id) -> Bool
+    Explain {
+        Description: "Insert a detached control at a child index.";
+        Input: parent = "Parent id", index = "Zero-based index", id = "Detached control id";
+        Processing: "Shift later siblings. Reject a cycle, a live parent pointer, or an index past the end.";
+        Output: "True when the control was inserted.";
+    } {
+        Int parentIndex = This.TreeIndex(parent);
+        Int node = This.TreeIndex(id);
+        If (parentIndex < 0 || node < 0 || index < 0) {
+            Return False;
+        }
+        If (This.parents[node] != "" || This.docs[node] != "") {
+            Return False;
+        }
+        If (id == parent || This.TreeUnder(parent, id)) {
+            Return False;
+        }
+        This.TreeKids(parent);
+        If (index > This.childIds.Count()) {
+            Return False;
+        }
+        Int cursor = 0;
+        While (cursor < This.ids.Count()) {
+            If (This.parents[cursor] == parent && This.orders[cursor].ToInt() >= index) {
+                Int shifted = This.orders[cursor].ToInt() + 1;
+                This.orders[cursor] = shifted.ToString();
+            }
+            cursor = cursor + 1;
+        }
+        This.parents[node] = parent + "";
+        This.orders[node] = index.ToString();
+        This.TreeSetDoc(id, This.docs[parentIndex]);
+        This.TreeNote();
+        Return True;
+    }
+
+    Public Function TreeDetach(String id) -> Bool
+    Explain {
+        Description: "Remove a control from its parent without destroying its id.";
+        Input: id = "Control id";
+        Processing: "During an action the removal waits until the action returns. Otherwise the subtree leaves the document immediately.";
+        Output: "True when the control was removed or queued.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return False;
+        }
+        If (This.parents[node] == "" && This.docs[node] == "") {
+            Return False;
+        }
+        If (This.invoking) {
+            Int pendingIndex = 0;
+            While (pendingIndex < This.pending.Count()) {
+                If (This.pending[pendingIndex] == id) {
+                    Return True;
+                }
+                pendingIndex = pendingIndex + 1;
+            }
+            This.pending.Add(id);
+            Return True;
+        }
+        Return This.TreeUnlink(id);
+    }
+
+    Public Function TreeReplace(String id, String kind) -> Bool
+    Explain {
+        Description: "Replace a control kind and keep its id, children, and properties.";
+        Input: id = "Control id", kind = "New kind";
+        Processing: "The stable id and stored properties stay.";
+        Output: "True when the kind changed.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0 || kind == "") {
+            Return False;
+        }
+        This.kinds[node] = kind + "";
+        This.TreeNote();
+        Return True;
+    }
+
+    Public Function TreeClear(String id) -> Int
+    Explain {
+        Description: "Detach every direct child.";
+        Input: id = "Parent id";
+        Processing: "Each child subtree leaves the document and keeps its own state.";
+        Output: "The number of detached children, or -1 when the parent is missing.";
+    } {
+        If (This.TreeIndex(id) < 0) {
+            Return -1;
+        }
+        This.TreeKids(id);
+        List<String> copy = List<String>();
+        Int index = 0;
+        While (index < This.childIds.Count()) {
+            copy.Add(This.childIds[index]);
+            index = index + 1;
+        }
+        Int count = 0;
+        While (count < copy.Count()) {
+            This.TreeDetach(copy[count]);
+            count = count + 1;
+        }
+        Return count;
+    }
+
+    Public Function TreeMove(String id, String parent, Int index) -> Bool
+    Explain {
+        Description: "Move a control under a new parent, including across documents.";
+        Input: id = "Control id", parent = "New parent id", index = "Zero-based index";
+        Processing: "Reject a cycle or an index past the end. Properties and the stable id stay.";
+        Output: "True when the control moved.";
+    } {
+        Int node = This.TreeIndex(id);
+        Int parentIndex = This.TreeIndex(parent);
+        If (node < 0 || parentIndex < 0 || index < 0 || id == parent || This.TreeUnder(parent, id)) {
+            Return False;
+        }
+        This.TreeKids(parent);
+        Int count = This.childIds.Count();
+        If (This.parents[node] == parent) {
+            count = count - 1;
+        }
+        If (index > count) {
+            Return False;
+        }
+        If (!This.TreeUnlink(id)) {
+            Return False;
+        }
+        Return This.TreeInsert(parent, index, id);
+    }
+
+    Public Function TreeFindKind(String kind) -> String
+    Explain {
+        Description: "Find the first attached control of a kind.";
+        Input: kind = "Control kind";
+        Processing: "Walk each open document in tree order.";
+        Output: "The stable id, or empty text.";
+    } {
+        This.TreeGather("kind", kind);
+        If (This.matchIds.Count() == 0) {
+            Return "";
+        }
+        Return This.matchIds[0];
+    }
+
+    Public Function TreeFindId(String id) -> Bool
+    Explain {
+        Description: "Report whether a stable id exists.";
+        Input: id = "Stable id";
+        Processing: "Look up the id, attached or detached.";
+        Output: "True when the id is still stored.";
+    } {
+        Return This.TreeIndex(id) >= 0;
+    }
+
+    Public Function TreeFindName(String name) -> String
+    Explain {
+        Description: "Find the first attached control with a name.";
+        Input: name = "Visible name";
+        Processing: "Walk each open document in tree order. Later same names stay addressable by path.";
+        Output: "The stable id, or empty text.";
+    } {
+        This.TreeGather("name", name);
+        If (This.matchIds.Count() == 0) {
+            Return "";
+        }
+        Return This.matchIds[0];
+    }
+
+    Public Function TreeFindPath(String path) -> String
+    Explain {
+        Description: "Find an attached control by a slash path of names.";
+        Input: path = "Root/child/name";
+        Processing: "Walk from an open root through named children.";
+        Output: "The stable id, or empty text.";
+    } {
+        Int parts = This.TreePieces(path, "/");
+        If (parts == 0) {
+            Return "";
+        }
+        String name = This.TreePiece(path, "/", 0);
+        String current = "";
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (current == "" && This.parents[index] == "" && This.docs[index] != "" && This.names[index] == name) {
+                current = This.ids[index];
+            }
+            index = index + 1;
+        }
+        If (current == "") {
+            Return "";
+        }
+        Int part = 1;
+        While (part < parts) {
+            String want = This.TreePiece(path, "/", part);
+            This.TreeKids(current);
+            String next = "";
+            Int child = 0;
+            While (child < This.childIds.Count()) {
+                Int childIndex = This.TreeIndex(This.childIds[child]);
+                If (next == "" && childIndex >= 0 && This.names[childIndex] == want) {
+                    next = This.childIds[child];
+                }
+                child = child + 1;
+            }
+            If (next == "") {
+                Return "";
+            }
+            current = next + "";
+            part = part + 1;
+        }
+        Return current;
+    }
+
+    Public Function TreeMatchCount(String kind) -> Int
+    Explain {
+        Description: "Count attached controls of a kind.";
+        Input: kind = "Control kind";
+        Processing: "Walk each open document in tree order.";
+        Output: "The number of matches.";
+    } {
+        This.TreeGather("kind", kind);
+        Return This.matchIds.Count();
+    }
+
+    Public Function TreeMatchAt(String kind, Int index) -> String
+    Explain {
+        Description: "Return one attached match of a kind.";
+        Input: kind = "Control kind", index = "Zero-based match";
+        Processing: "Walk each open document in tree order.";
+        Output: "The stable id, or empty text.";
+    } {
+        This.TreeGather("kind", kind);
+        If (index < 0 || index >= This.matchIds.Count()) {
+            Return "";
+        }
+        Return This.matchIds[index];
+    }
+
+    Public Function TreeParent(String id) -> String
+    Explain {
+        Description: "Return the parent id.";
+        Input: id = "Control id";
+        Processing: "Read the stored parent. A detached root has none.";
+        Output: "The parent id, or empty text.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.parents[node];
+    }
+
+    Public Function TreeChildCount(String id) -> Int
+    Explain {
+        Description: "Count the direct children.";
+        Input: id = "Parent id";
+        Processing: "Collect the children in sibling order.";
+        Output: "The number of children, or -1 when the id is missing.";
+    } {
+        If (This.TreeIndex(id) < 0) {
+            Return -1;
+        }
+        This.TreeKids(id);
+        Return This.childIds.Count();
+    }
+
+    Public Function TreeChildAt(String id, Int index) -> String
+    Explain {
+        Description: "Return one direct child.";
+        Input: id = "Parent id", index = "Zero-based index";
+        Processing: "Collect the children in sibling order.";
+        Output: "The child id, or empty text.";
+    } {
+        If (This.TreeIndex(id) < 0) {
+            Return "";
+        }
+        This.TreeKids(id);
+        If (index < 0 || index >= This.childIds.Count()) {
+            Return "";
+        }
+        Return This.childIds[index];
+    }
+
+    Public Function TreeSibling(String id, Int step) -> String
+    Explain {
+        Description: "Return the previous or next sibling.";
+        Input: id = "Control id", step = "1 for next, -1 for previous";
+        Processing: "Move among the parent's children. There is no wrap.";
+        Output: "The sibling id, or empty text.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0 || This.parents[node] == "") {
+            Return "";
+        }
+        String parent = This.parents[node];
+        This.TreeKids(parent);
+        Int index = 0;
+        Int found = -1;
+        While (index < This.childIds.Count()) {
+            If (This.childIds[index] == id) {
+                found = index;
+            }
+            index = index + 1;
+        }
+        Int target = found + step;
+        If (found < 0 || target < 0 || target >= This.childIds.Count()) {
+            Return "";
+        }
+        Return This.childIds[target];
+    }
+
+    Public Function TreeRoot(String id) -> String
+    Explain {
+        Description: "Return the root of a control's subtree.";
+        Input: id = "Control id";
+        Processing: "Walk parent links to the top.";
+        Output: "The root id, or empty text.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        String current = id + "";
+        Int guard = 0;
+        While (This.TreeParent(current) != "" && guard < 64) {
+            current = This.TreeParent(current);
+            guard = guard + 1;
+        }
+        Return current;
+    }
+
+    Public Function TreePut(String id, String field, String value) -> Bool
+    Explain {
+        Description: "Write one typed property.";
+        Input: id = "Control id", field = "Property name", value = "Typed value";
+        Processing: "Reject a value of the wrong type and keep the previous one.";
+        Output: "True when the value was stored.";
+    } {
+        If (This.TreeIndex(id) < 0 || !This.TreeValid(field, value)) {
+            Return False;
+        }
+        If (field == "Name") {
+            Int node = This.TreeIndex(id);
+            This.names[node] = value + "";
+        }
+        This.TreeBagPut(id, field, value);
+        This.TreeNote();
+        Return True;
+    }
+
+    Public Function TreeRead(String id, String field) -> String
+    Explain {
+        Description: "Read one property.";
+        Input: id = "Control id", field = "Property name";
+        Processing: "Return the stored value, or the default for a known property.";
+        Output: "The value, or empty text.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        If (field == "Kind") {
+            Return This.kinds[node];
+        }
+        If (field == "Name") {
+            Return This.names[node];
+        }
+        If (field == "Id") {
+            Return This.ids[node];
+        }
+        String value = This.TreeBag(id, field);
+        If (value == "" && (field == "Width" || field == "Height")) {
+            Return "Auto";
+        }
+        If (value == "" && (field == "Enabled" || field == "Visible")) {
+            Return "true";
+        }
+        Return value;
+    }
+
+    Public Function TreeSetAttribute(String id, String name, String value) -> Bool
+    Explain {
+        Description: "Set a generic attribute.";
+        Input: id = "Control id", name = "Attribute name", value = "Raw value";
+        Processing: "Store the text without the typed property check.";
+        Output: "True when the attribute was stored.";
+    } {
+        If (This.TreeIndex(id) < 0 || name == "") {
+            Return False;
+        }
+        This.TreeBagPut(id, name, value);
+        This.TreeNote();
+        Return True;
+    }
+
+    Public Function TreeGetAttribute(String id, String name) -> String
+    Explain {
+        Description: "Read a generic attribute.";
+        Input: id = "Control id", name = "Attribute name";
+        Processing: "Read the stored text.";
+        Output: "The value, or empty text.";
+    } {
+        Return This.TreeBag(id, name);
+    }
+
+    Public Function TreeHasAttribute(String id, String name) -> Bool
+    Explain {
+        Description: "Report whether an attribute is stored.";
+        Input: id = "Control id", name = "Attribute name";
+        Processing: "Look for the attribute key.";
+        Output: "True when it is present.";
+    } {
+        Return This.TreeBagHas(id, name);
+    }
+
+    Public Function TreeDropAttribute(String id, String name) -> Bool
+    Explain {
+        Description: "Remove one generic attribute.";
+        Input: id = "Control id", name = "Attribute name";
+        Processing: "Drop the stored key.";
+        Output: "True when it was present.";
+    } {
+        If (!This.TreeBagHas(id, name)) {
+            Return False;
+        }
+        This.TreeBagDrop(id, name);
+        This.TreeNote();
+        Return True;
+    }
+
+    Public Function TreeResetAttribute(String id, String name) -> Bool
+    Explain {
+        Description: "Reset one attribute to its default.";
+        Input: id = "Control id", name = "Attribute name";
+        Processing: "Drop the stored key so a later read uses the default.";
+        Output: "True when it was present.";
+    } {
+        Return This.TreeDropAttribute(id, name);
+    }
+
+    Public Function TreeAttributeCount(String id) -> Int
+    Explain {
+        Description: "Count stored attributes.";
+        Input: id = "Control id";
+        Processing: "Count keys for this id.";
+        Output: "The number of attributes.";
+    } {
+        Return This.TreeBagCount(id);
+    }
+
+    Public Function TreeAttributeAt(String id, Int index) -> String
+    Explain {
+        Description: "Return one stored attribute name.";
+        Input: id = "Control id", index = "Zero-based attribute";
+        Processing: "Read the attribute key.";
+        Output: "The attribute name, or empty text.";
+    } {
+        Return This.TreeBagName(id, index);
+    }
+
+    Public Function TreePutMany(String id, String packed) -> Int
+    Explain {
+        Description: "Write several typed properties.";
+        Input: id = "Control id", packed = "Field=value pairs separated by semicolons";
+        Processing: "Reject the whole batch when any value is invalid.";
+        Output: "The number of values written, or -1.";
+    } {
+        If (This.TreeIndex(id) < 0) {
+            Return -1;
+        }
+        If (packed == "") {
+            Return 0;
+        }
+        Int parts = This.TreePieces(packed, ";");
+        Int index = 0;
+        While (index < parts) {
+            String piece = This.TreePiece(packed, ";", index);
+            Int mark = piece.IndexOf("=");
+            If (mark <= 0) {
+                Return -1;
+            }
+            String field = piece.Substring(0, mark);
+            String value = "";
+            If (piece.Length() > mark + 1) {
+                value = piece.Substring(mark + 1);
+            }
+            If (!This.TreeValid(field, value)) {
+                Return -1;
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < parts) {
+            String piece = This.TreePiece(packed, ";", index);
+            Int mark = piece.IndexOf("=");
+            String field = piece.Substring(0, mark);
+            String value = "";
+            If (piece.Length() > mark + 1) {
+                value = piece.Substring(mark + 1);
+            }
+            This.TreePut(id, field, value);
+            index = index + 1;
+        }
+        Return parts;
+    }
+
+    Public Function TreeInvoke(String id, String action) -> String
+    Explain {
+        Description: "Invoke a component action.";
+        Input: id = "Control id", action = "Action name";
+        Processing: "RemoveSelf is deferred until the action returns. Enable and Disable write Enabled.";
+        Output: "Ok, Deferred, Missing, or Rejected.";
+    } {
+        If (This.TreeIndex(id) < 0) {
+            Return "Missing";
+        }
+        If (action == "RemoveSelf") {
+            This.invoking = True;
+            Bool queued = This.TreeDetach(id);
+            This.held = This.TreeChildCount(This.TreeParent(id));
+            This.invoking = False;
+            This.TreeFlush();
+            If (queued) {
+                Return "Deferred";
+            }
+            Return "Rejected";
+        }
+        If (action == "Enable") {
+            This.TreePut(id, "Enabled", "true");
+            Return "Ok";
+        }
+        If (action == "Disable") {
+            This.TreePut(id, "Enabled", "false");
+            Return "Ok";
+        }
+        Return "Rejected";
+    }
+
+    Public Function TreeSubscribe(String id, String eventName, String handler) -> Bool
+    Explain {
+        Description: "Subscribe a handler on a control.";
+        Input: id = "Control id", eventName = "Event name", handler = "Handler name";
+        Processing: "Store an On* subscription for this control.";
+        Output: "True when the subscription is stored.";
+    } {
+        If (This.TreeIndex(id) < 0 || handler == "" || !eventName.StartsWith("On") || eventName.Length() < 3) {
+            Return False;
+        }
+        String row = id + " " + eventName + " " + handler;
+        Int index = 0;
+        While (index < This.watches.Count()) {
+            If (This.watches[index] == row) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        This.watches.Add(row);
+        Return True;
+    }
+
+    Public Function TreeUnsubscribe(String id, String eventName, String handler) -> Bool
+    Explain {
+        Description: "Remove one handler subscription.";
+        Input: id = "Control id", eventName = "Event name", handler = "Handler name";
+        Processing: "Drop the matching subscription.";
+        Output: "True when it was present.";
+    } {
+        String row = id + " " + eventName + " " + handler;
+        List<String> kept = List<String>();
+        Bool found = False;
+        Int index = 0;
+        While (index < This.watches.Count()) {
+            If (This.watches[index] == row) {
+                found = True;
+            } Else {
+                kept.Add(This.watches[index]);
+            }
+            index = index + 1;
+        }
+        This.watches = kept;
+        Return found;
+    }
+
+    Public Function TreeRaise(String id, String eventName) -> Int
+    Explain {
+        Description: "Raise one subscribed event on a control.";
+        Input: id = "Control id", eventName = "Event name";
+        Processing: "Count matching subscriptions.";
+        Output: "The number of handlers.";
+    } {
+        String prefix = id + " " + eventName + " ";
+        Int count = 0;
+        Int index = 0;
+        While (index < This.watches.Count()) {
+            If (This.watches[index].StartsWith(prefix)) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function TreeBegin() -> Bool
+    Explain {
+        Description: "Begin a tree transaction.";
+        Input: None;
+        Processing: "Snapshot the tree so layout can wait for the commit.";
+        Output: "True when the transaction started.";
+    } {
+        If (This.tx) {
+            Return False;
+        }
+        This.TreeSnap();
+        This.tx = True;
+        This.dirty = False;
+        Return True;
+    }
+
+    Public Function TreeCommit() -> Int
+    Explain {
+        Description: "Commit a tree transaction.";
+        Input: None;
+        Processing: "Coalesce every edit since begin into one layout and one render.";
+        Output: "1 when layout ran, otherwise 0.";
+    } {
+        If (!This.tx) {
+            Return 0;
+        }
+        This.tx = False;
+        If (!This.dirty) {
+            Return 0;
+        }
+        This.dirty = False;
+        This.layoutCount = This.layoutCount + 1;
+        This.renderCount = This.renderCount + 1;
+        Return 1;
+    }
+
+    Public Function TreeRollback() -> Bool
+    Explain {
+        Description: "Roll back a tree transaction.";
+        Input: None;
+        Processing: "Restore the snapshot. Layout does not run.";
+        Output: "True when the snapshot was restored.";
+    } {
+        If (!This.tx) {
+            Return False;
+        }
+        This.TreeRestore();
+        This.tx = False;
+        This.dirty = False;
+        Return True;
+    }
+
+    Public Function TreeLayoutCount() -> Int
+    Explain {
+        Description: "Return how many layouts have run.";
+        Input: None;
+        Processing: "Read the layout counter.";
+        Output: "The layout count.";
+    } {
+        Return This.layoutCount;
+    }
+
+    Public Function TreeRenderCount() -> Int
+    Explain {
+        Description: "Return how many renders have run.";
+        Input: None;
+        Processing: "Read the render counter.";
+        Output: "The render count.";
+    } {
+        Return This.renderCount;
+    }
+
+    Public Function TreePhase() -> String
+    Explain {
+        Description: "Return the window phase.";
+        Input: None;
+        Processing: "The live window stays open across edits.";
+        Output: "Open.";
+    } {
+        Return This.phase;
+    }
+
+    Public Function TreeDoc(String id) -> String
+    Explain {
+        Description: "Return the document that contains a control.";
+        Input: id = "Control id";
+        Processing: "Read the stored document. A detached control has none.";
+        Output: "The document id, or empty text.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.docs[node];
+    }
+
+    Public Function TreeKind(String id) -> String
+    Explain {
+        Description: "Return a control kind.";
+        Input: id = "Control id";
+        Processing: "Read the stored kind.";
+        Output: "The kind, or empty text.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.kinds[node];
+    }
+
+    Public Function TreeStamp(String id) -> String
+    Explain {
+        Description: "Return the stable creation stamp.";
+        Input: id = "Control id";
+        Processing: "The stamp stays the same across moves, renames, and replacement.";
+        Output: "The stamp, or empty text.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.stamps[node];
+    }
+
+    Public Function TreeAttached(String id) -> Bool
+    Explain {
+        Description: "Report whether a control is in an open document.";
+        Input: id = "Control id";
+        Processing: "A detached control keeps its id and loses its document.";
+        Output: "True when the control is attached.";
+    } {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return False;
+        }
+        Return This.attachedFlags[node] == "true";
+    }
+
+    Public Function TreeHeld() -> Int
+    Explain {
+        Description: "Return the child count observed while an action was still running.";
+        Input: None;
+        Processing: "Read the count captured before a deferred removal.";
+        Output: "The held child count.";
+    } {
+        Return This.held;
+    }
+
+    Private Function TreePlace(String id, String kind, String name, String parent, String doc, Int order) -> Int {
+        This.ids.Add(id);
+        This.kinds.Add(kind);
+        This.names.Add(name);
+        This.parents.Add(parent);
+        This.docs.Add(doc);
+        This.orders.Add(order.ToString());
+        This.stamps.Add(This.serial.ToString());
+        If (doc == "") {
+            This.attachedFlags.Add("false");
+        } Else {
+            This.attachedFlags.Add("true");
+        }
+        This.serial = This.serial + 1;
+        This.TreeBagPut(id, "Width", "Auto");
+        This.TreeBagPut(id, "Height", "Auto");
+        This.TreeBagPut(id, "Enabled", "true");
+        This.TreeBagPut(id, "Visible", "true");
+        Return 1;
+    }
+
+    Private Function TreeWalk(RxuNode node, String parentId, String doc, Int order) -> Int {
+        If (node.Kind != "Element") {
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.TreeWalk(node.Children[index], parentId, doc, order);
+                index = index + 1;
+            }
+            Return count;
+        }
+        String id = node.FindAttribute("Name").Text + "";
+        If (id == "" || This.TreeIndex(id) >= 0) {
+            Return 0;
+        }
+        String docName = doc + "";
+        If (parentId == "") {
+            docName = "main";
+        }
+        This.TreePlace(id, node.Name + "", id, parentId + "", docName, order);
+        Int attribute = 0;
+        While (attribute < node.Attributes.Count()) {
+            String attr = node.Attributes[attribute].Name + "";
+            If (attr != "Name" && attr != "") {
+                This.TreeBagPut(id, attr, node.Attributes[attribute].Text + "");
+            }
+            attribute = attribute + 1;
+        }
+        Int count = 1;
+        Int childOrder = 0;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element") {
+                count = count + This.TreeWalk(child, id, docName, childOrder);
+                childOrder = childOrder + 1;
+            } Else {
+                count = count + This.TreeWalk(child, id, docName, childOrder);
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function TreeIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function TreeKids(String parent) -> Int {
+        This.childIds = List<String>();
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.parents[index] == parent) {
+                This.childIds.Add(This.ids[index]);
+            }
+            index = index + 1;
+        }
+        Int slot = 0;
+        While (slot < This.childIds.Count()) {
+            Int best = slot;
+            Int other = slot + 1;
+            While (other < This.childIds.Count()) {
+                Int left = This.TreeIndex(This.childIds[best]);
+                Int right = This.TreeIndex(This.childIds[other]);
+                If (left >= 0 && right >= 0 && This.orders[right].ToInt() < This.orders[left].ToInt()) {
+                    best = other;
+                }
+                other = other + 1;
+            }
+            If (best != slot) {
+                String swap = This.childIds[slot] + "";
+                This.childIds[slot] = This.childIds[best];
+                This.childIds[best] = swap;
+            }
+            slot = slot + 1;
+        }
+        Return This.childIds.Count();
+    }
+
+    Private Function TreeUnder(String start, String ancestor) -> Bool {
+        String cursor = start + "";
+        Int guard = 0;
+        While (cursor != "" && guard < 64) {
+            If (cursor == ancestor) {
+                Return True;
+            }
+            Int node = This.TreeIndex(cursor);
+            If (node < 0) {
+                Return False;
+            }
+            cursor = This.parents[node];
+            guard = guard + 1;
+        }
+        Return False;
+    }
+
+    Private Function TreeUnlink(String id) -> Bool {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return False;
+        }
+        If (This.parents[node] == "" && This.docs[node] == "") {
+            Return False;
+        }
+        String old = This.parents[node] + "";
+        This.parents[node] = "";
+        This.TreeSetDoc(id, "");
+        If (old != "") {
+            This.TreeRenumber(old);
+        }
+        This.TreeNote();
+        Return True;
+    }
+
+    Private Function TreeSetDoc(String id, String doc) -> Int {
+        Int node = This.TreeIndex(id);
+        If (node < 0) {
+            Return 0;
+        }
+        This.TreeKids(id);
+        List<String> copy = List<String>();
+        Int index = 0;
+        While (index < This.childIds.Count()) {
+            copy.Add(This.childIds[index]);
+            index = index + 1;
+        }
+        This.docs[node] = doc + "";
+        If (doc == "") {
+            This.attachedFlags[node] = "false";
+        } Else {
+            This.attachedFlags[node] = "true";
+        }
+        Int child = 0;
+        While (child < copy.Count()) {
+            This.TreeSetDoc(copy[child], doc);
+            child = child + 1;
+        }
+        Return 1;
+    }
+
+    Private Function TreeRenumber(String parent) -> Int {
+        This.TreeKids(parent);
+        Int index = 0;
+        While (index < This.childIds.Count()) {
+            Int node = This.TreeIndex(This.childIds[index]);
+            If (node >= 0) {
+                This.orders[node] = index.ToString();
+            }
+            index = index + 1;
+        }
+        Return index;
+    }
+
+    Private Function TreeNote() -> Int {
+        If (This.tx) {
+            This.dirty = True;
+            Return 0;
+        }
+        This.layoutCount = This.layoutCount + 1;
+        This.renderCount = This.renderCount + 1;
+        Return 1;
+    }
+
+    Private Function TreeFlush() -> Int {
+        List<String> copy = List<String>();
+        Int index = 0;
+        While (index < This.pending.Count()) {
+            copy.Add(This.pending[index]);
+            index = index + 1;
+        }
+        This.pending = List<String>();
+        Int count = 0;
+        While (count < copy.Count()) {
+            This.TreeUnlink(copy[count]);
+            count = count + 1;
+        }
+        Return count;
+    }
+
+    Private Function TreeGather(String mode, String key) -> Int {
+        This.matchIds = List<String>();
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.parents[index] == "" && This.docs[index] != "") {
+                This.TreeCollect(This.ids[index], mode, key);
+            }
+            index = index + 1;
+        }
+        Return This.matchIds.Count();
+    }
+
+    Private Function TreeCollect(String id, String mode, String key) -> Int {
+        Int node = This.TreeIndex(id);
+        If (node < 0 || This.docs[node] == "") {
+            Return 0;
+        }
+        Bool chosen = False;
+        If (mode == "kind" && This.kinds[node] == key) {
+            chosen = True;
+        }
+        If (mode == "name" && This.names[node] == key) {
+            chosen = True;
+        }
+        If (chosen) {
+            This.matchIds.Add(id);
+        }
+        This.TreeKids(id);
+        List<String> copy = List<String>();
+        Int index = 0;
+        While (index < This.childIds.Count()) {
+            copy.Add(This.childIds[index]);
+            index = index + 1;
+        }
+        Int child = 0;
+        While (child < copy.Count()) {
+            This.TreeCollect(copy[child], mode, key);
+            child = child + 1;
+        }
+        Return 1;
+    }
+
+    Private Function TreeSnap() -> Int {
+        This.snapIds = List<String>();
+        This.snapKinds = List<String>();
+        This.snapNames = List<String>();
+        This.snapParents = List<String>();
+        This.snapDocs = List<String>();
+        This.snapOrders = List<String>();
+        This.snapStamps = List<String>();
+        This.snapAttached = List<String>();
+        This.snapExtras = List<String>();
+        This.snapWatches = List<String>();
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            This.snapIds.Add(This.ids[index]);
+            This.snapKinds.Add(This.kinds[index]);
+            This.snapNames.Add(This.names[index]);
+            This.snapParents.Add(This.parents[index]);
+            This.snapDocs.Add(This.docs[index]);
+            This.snapOrders.Add(This.orders[index]);
+            This.snapStamps.Add(This.stamps[index]);
+            This.snapAttached.Add(This.attachedFlags[index]);
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.extras.Count()) {
+            This.snapExtras.Add(This.extras[index]);
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.watches.Count()) {
+            This.snapWatches.Add(This.watches[index]);
+            index = index + 1;
+        }
+        Return This.snapIds.Count();
+    }
+
+    Private Function TreeRestore() -> Int {
+        This.ids = List<String>();
+        This.kinds = List<String>();
+        This.names = List<String>();
+        This.parents = List<String>();
+        This.docs = List<String>();
+        This.orders = List<String>();
+        This.stamps = List<String>();
+        This.attachedFlags = List<String>();
+        This.extras = List<String>();
+        This.watches = List<String>();
+        Int index = 0;
+        While (index < This.snapIds.Count()) {
+            This.ids.Add(This.snapIds[index]);
+            This.kinds.Add(This.snapKinds[index]);
+            This.names.Add(This.snapNames[index]);
+            This.parents.Add(This.snapParents[index]);
+            This.docs.Add(This.snapDocs[index]);
+            This.orders.Add(This.snapOrders[index]);
+            This.stamps.Add(This.snapStamps[index]);
+            This.attachedFlags.Add(This.snapAttached[index]);
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.snapExtras.Count()) {
+            This.extras.Add(This.snapExtras[index]);
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.snapWatches.Count()) {
+            This.watches.Add(This.snapWatches[index]);
+            index = index + 1;
+        }
+        Return This.ids.Count();
+    }
+
+    Private Function TreeBag(String id, String field) -> String {
+        String key = id + "." + field + "=";
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            String row = This.extras[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function TreeBagHas(String id, String field) -> Bool {
+        String key = id + "." + field + "=";
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            If (This.extras[index].StartsWith(key)) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function TreeBagPut(String id, String field, String value) -> Int {
+        String key = id + "." + field + "=";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            If (!This.extras[index].StartsWith(key)) {
+                kept.Add(This.extras[index]);
+            }
+            index = index + 1;
+        }
+        kept.Add(key + value);
+        This.extras = kept;
+        Return 1;
+    }
+
+    Private Function TreeBagDrop(String id, String field) -> Int {
+        String key = id + "." + field + "=";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            If (!This.extras[index].StartsWith(key)) {
+                kept.Add(This.extras[index]);
+            }
+            index = index + 1;
+        }
+        This.extras = kept;
+        Return 1;
+    }
+
+    Private Function TreeBagCount(String id) -> Int {
+        String prefix = id + ".";
+        Int count = 0;
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            If (This.extras[index].StartsWith(prefix)) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function TreeBagName(String id, Int item) -> String {
+        String prefix = id + ".";
+        Int seen = 0;
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            String row = This.extras[index];
+            If (row.StartsWith(prefix)) {
+                If (seen == item) {
+                    Int mark = row.IndexOf("=");
+                    If (mark > prefix.Length()) {
+                        Return row.Substring(prefix.Length(), mark - prefix.Length());
+                    }
+                    Return "";
+                }
+                seen = seen + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function TreeValid(String field, String value) -> Bool {
+        If (field == "Content" || field == "Title" || field == "Text" || field == "Name") {
+            Return True;
+        }
+        If (field == "Enabled" || field == "Visible") {
+            Return value == "true" || value == "false";
+        }
+        If (field == "Width" || field == "Height") {
+            Return This.TreeSize(value);
+        }
+        If (field == "Opacity") {
+            Return This.TreeOpacity(value);
+        }
+        If (field == "Columns" || field == "Rows" || field == "Spacing") {
+            Return This.TreeDigits(value);
+        }
+        If (field == "Background" || field == "Color") {
+            Return This.TreeColor(value);
+        }
+        Return False;
+    }
+
+    Private Function TreeDigits(String value) -> Bool {
+        If (value.Length() == 0) {
+            Return False;
+        }
+        Int index = 0;
+        While (index < value.Length()) {
+            String character = value.GetChar(index);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function TreeSize(String value) -> Bool {
+        If (value == "Auto" || value == "*") {
+            Return True;
+        }
+        String body = value + "";
+        If (value.EndsWith("px") && value.Length() > 2) {
+            body = value.Substring(0, value.Length() - 2);
+        } Else {
+            If (value.EndsWith("*") && value.Length() > 1) {
+                body = value.Substring(0, value.Length() - 1);
+            }
+        }
+        Return This.TreeDigits(body);
+    }
+
+    Private Function TreeOpacity(String value) -> Bool {
+        If (value == "0" || value == "1") {
+            Return True;
+        }
+        If (!value.StartsWith("0.") || value.Length() < 3) {
+            Return False;
+        }
+        Return This.TreeDigits(value.Substring(2));
+    }
+
+    Private Function TreeColor(String value) -> Bool {
+        If (value.Length() != 7 || !value.StartsWith("#")) {
+            Return False;
+        }
+        Int index = 1;
+        While (index < value.Length()) {
+            String character = value.GetChar(index);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function TreePieces(String text, String separator) -> Int {
+        If (text == "") {
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.GetChar(index) == separator) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function TreePiece(String text, String separator, Int item) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            Bool boundary = index == text.Length();
+            If (!boundary) {
+                boundary = text.GetChar(index) == separator;
+            }
+            If (boundary) {
+                If (seen == item) {
+                    Return text.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+}

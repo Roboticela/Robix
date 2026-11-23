@@ -1,0 +1,5 @@
+<Panel Name="wrap" Tag="Wrap" Width="100" Height="80">
+    <Panel Name="a" Tag="Rect" Width="40" Height="20"/>
+    <Panel Name="b" Tag="Rect" Width="40" Height="20"/>
+    <Panel Name="c" Tag="Rect" Width="40" Height="20"/>
+</Panel>

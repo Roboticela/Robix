@@ -1,0 +1,4 @@
+<Panel Name="split" Tag="Split" Width="200" Height="40">
+    <Panel Name="pane" Tag="Rect" Width="80"/>
+    <Panel Name="rest" Tag="Rect"/>
+</Panel>

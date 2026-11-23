@@ -188,7 +188,8 @@ Public Partial Class Parser {
         If (This.Check(TokenKind.Identifier) || This.IsWord(This.Peek().Text)) {
             AstNode name = This.Make(AstKind.Name, start);
             name.Name = This.Advance().Text;
-            name.Text = name.Name;
+            String writtenName = name.Name;
+            name.Text = writtenName;
             If (This.Check(TokenKind.FatArrow)) {
                 This.Advance();
                 AstNode lambda = This.Make(AstKind.Lambda, start);
@@ -682,7 +683,8 @@ Public Partial Class Parser {
 
     Private Function GenericFollows() -> Bool {
         Int saved = This.lookIndex;
-        This.lookIndex = This.position;
+        Int cursor = This.position;
+        This.lookIndex = cursor;
         Bool closed = This.SkipAngles();
         Bool follows = False;
         If (closed && This.lookIndex < This.tokenCount) {
@@ -694,7 +696,8 @@ Public Partial Class Parser {
     }
 
     Private Function LooksLikeTypedVariable() -> Bool {
-        This.lookIndex = This.position;
+        Int cursor = This.position;
+        This.lookIndex = cursor;
         If (!This.SkipTypeLook()) {
             Return False;
         }
@@ -706,7 +709,8 @@ Public Partial Class Parser {
     }
 
     Private Function StartsTypeAtCursor() -> Bool {
-        This.lookIndex = This.position;
+        Int cursor = This.position;
+        This.lookIndex = cursor;
         Int saved = This.lookIndex;
         Bool result = This.SkipTypeAtom();
         This.lookIndex = saved;

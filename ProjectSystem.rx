@@ -81,7 +81,7 @@ Public Class ProjectEngine {
             Return ExecutionResult(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("Robix 0.0.6");
+            Print("Robix 0.0.7");
             Return ExecutionResult(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
@@ -413,10 +413,13 @@ Public Class ProjectEngine {
             missing.Found = False;
             Return missing;
         }
-        For task In tasks.Children {
+        Int index = 0;
+        While (index < tasks.Children.Count()) {
+            ProjectNode task = tasks.Children[index];
             If (task.Name == taskName || task.Name.ToLower() == taskName.ToLower()) {
                 Return task;
             }
+            index = index + 1;
         }
         ProjectNode missing = ProjectNode();
         missing.Found = False;
@@ -703,12 +706,18 @@ Public Class ProjectEngine {
         String chosen = This.Property(source, "Entry");
         If (chosen != "") { Return chosen; }
         String preferred = This.OutputName(project) + ".rx";
-        For relative In files {
+        Int index = 0;
+        While (index < files.Count()) {
+            String relative = files[index];
             If (relative == preferred || relative.EndsWith("/" + preferred)) { Return relative; }
+            index = index + 1;
         }
-        For relative In files {
+        index = 0;
+        While (index < files.Count()) {
+            String relative = files[index];
             String full = This.Join(This.ProjectDirectory, relative);
             If (Files.ReadText(full).Contains("Function Main")) { Return relative; }
+            index = index + 1;
         }
         If (files.Count() > 0) { Return files[0]; }
         Return "";
@@ -967,11 +976,17 @@ Public Class ProjectEngine {
     }
 
     Private Function FindChild(ProjectNode node, String name) -> ProjectNode {
-        For child In node.Children {
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            ProjectNode child = node.Children[index];
             If (child.Name == name) { Return child; }
+            index = index + 1;
         }
-        For child In node.Children {
+        index = 0;
+        While (index < node.Children.Count()) {
+            ProjectNode child = node.Children[index];
             If (child.Kind == name) { Return child; }
+            index = index + 1;
         }
         ProjectNode missing = ProjectNode();
         missing.Found = False;
@@ -1041,14 +1056,16 @@ Public Class ProjectEngine {
         If (This.PeekChar() == '"') {
             node.Kind = "Item";
             node.Name = This.ParseString();
-            node.Text = node.Name;
+            String itemName = node.Name;
+            node.Text = itemName;
             This.Skip();
             If (This.WordAhead()) {
                 String label = This.ParseIdentifier();
                 This.Skip();
                 If (This.PeekChar() == ':') { This.AdvanceChar(); }
                 This.Skip();
-                node.Name = node.Text;
+                String itemText = node.Text;
+                node.Name = itemText;
                 node.Text = This.ParseExpression();
                 node.Kind = "Item";
                 If (label != "Version") { node.Name = label; }
@@ -1094,8 +1111,9 @@ Public Class ProjectEngine {
             If (name == "Project") { node.Kind = "Project"; }
             If (name == "Task") { node.Kind = "Task"; }
             If (name == "Function") { node.Kind = "Function"; }
-            If (node.Text != "" && name == "Project") { node.Name = node.Text; }
-            If (node.Text != "" && name == "Task") { node.Name = node.Text; }
+            String blockName = node.Text;
+            If (blockName != "" && name == "Project") { node.Name = blockName; }
+            If (blockName != "" && name == "Task") { node.Name = blockName; }
             node.Children = This.ParseBlock();
             Return node;
         }

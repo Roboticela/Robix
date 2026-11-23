@@ -1,0 +1,761 @@
+// Navigation, overlays, and window lifetime.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class NavHost {
+    Public RxuMessages Messages;
+    Private List<String> pageIds;
+    Private List<String> pageRoutes;
+    Private List<String> pageTitles;
+    Private List<String> pageAlive;
+    Private List<String> history;
+    Private List<String> future;
+    Private List<String> crumbs;
+    Private List<String> events;
+    Private List<String> chromeKinds;
+    Private List<String> chromeIds;
+    Private List<String> overlayKinds;
+    Private List<String> overlayIds;
+    Private List<String> overlayOpen;
+    Private List<String> overlayX;
+    Private List<String> overlayY;
+    Private List<String> windowIds;
+    Private List<String> windowTitles;
+    Private List<String> windowStates;
+    Private List<String> windowX;
+    Private List<String> windowY;
+    Private List<String> savedTitles;
+    Private List<String> savedX;
+    Private List<String> savedY;
+    Private String focus;
+    Private String modal;
+    Private String current;
+    Private String phase;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.pageIds = List<String>();
+        This.pageRoutes = List<String>();
+        This.pageTitles = List<String>();
+        This.pageAlive = List<String>();
+        This.history = List<String>();
+        This.future = List<String>();
+        This.crumbs = List<String>();
+        This.events = List<String>();
+        This.chromeKinds = List<String>();
+        This.chromeIds = List<String>();
+        This.overlayKinds = List<String>();
+        This.overlayIds = List<String>();
+        This.overlayOpen = List<String>();
+        This.overlayX = List<String>();
+        This.overlayY = List<String>();
+        This.windowIds = List<String>();
+        This.windowTitles = List<String>();
+        This.windowStates = List<String>();
+        This.windowX = List<String>();
+        This.windowY = List<String>();
+        This.savedTitles = List<String>();
+        This.savedX = List<String>();
+        This.savedY = List<String>();
+        This.focus = "";
+        This.modal = "";
+        This.current = "";
+        This.phase = "Open";
+    }
+
+    Public Function NavImport(RxuNode node) -> Int
+    Explain {
+        Description: "Import pages, chrome, overlays, and windows from markup.";
+        Input: node = "Document or element";
+        Processing: "Record each named page, menu, overlay, and window. Pages stay closed until navigation.";
+        Output: "The number of pages.";
+    } {
+        This.NavWalk(node);
+        Return This.pageIds.Count();
+    }
+
+    Public Function NavGo(String route) -> String
+    Explain {
+        Description: "Navigate to a route.";
+        Input: route = "Page route";
+        Processing: "Push the current page, clear the forward stack, and rebuild the breadcrumb.";
+        Output: "The page id, or empty text when the route is missing.";
+    } {
+        If (This.phase != "Open") {
+            Return "";
+        }
+        Int index = This.NavPageIndex(route);
+        If (index < 0) {
+            Return "";
+        }
+        If (This.current != "") {
+            This.history.Add(This.current + "");
+        }
+        This.future = List<String>();
+        This.current = This.pageIds[index] + "";
+        This.NavCrumbs(route);
+        This.NavNote("Navigate " + route);
+        Return This.current + "";
+    }
+
+    Public Function NavBack() -> String
+    Explain {
+        Description: "Return to the previous page.";
+        Input: None;
+        Processing: "Pop history and keep the current page for forward navigation.";
+        Output: "The page id, or empty text when history is empty.";
+    } {
+        If (This.phase != "Open" || This.history.Count() == 0) {
+            Return "";
+        }
+        String previous = This.history[This.history.Count() - 1] + "";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.history.Count() - 1) {
+            kept.Add(This.history[index]);
+            index = index + 1;
+        }
+        This.history = kept;
+        If (This.current != "") {
+            This.future.Add(This.current + "");
+        }
+        This.current = previous + "";
+        This.NavCrumbs(This.NavRouteOf(previous));
+        This.NavNote("Back " + This.NavRoute());
+        Return This.current + "";
+    }
+
+    Public Function NavForward() -> String
+    Explain {
+        Description: "Enter the page that was left by going back.";
+        Input: None;
+        Processing: "Pop the forward stack and push the current page onto history.";
+        Output: "The page id, or empty text when there is no forward page.";
+    } {
+        If (This.phase != "Open" || This.future.Count() == 0) {
+            Return "";
+        }
+        String next = This.future[This.future.Count() - 1] + "";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.future.Count() - 1) {
+            kept.Add(This.future[index]);
+            index = index + 1;
+        }
+        This.future = kept;
+        If (This.current != "") {
+            This.history.Add(This.current + "");
+        }
+        This.current = next + "";
+        This.NavCrumbs(This.NavRouteOf(next));
+        This.NavNote("Forward " + This.NavRoute());
+        Return This.current + "";
+    }
+
+    Public Function NavRoute() -> String
+    Explain {
+        Description: "Read the current route.";
+        Input: None;
+        Processing: "Look up the route of the current page.";
+        Output: "The route, or empty text.";
+    } {
+        Return This.NavRouteOf(This.current);
+    }
+
+    Public Function NavPage() -> String
+    Explain {
+        Description: "Read the current page id.";
+        Input: None;
+        Processing: "Return the id selected by the last navigation.";
+        Output: "The page id.";
+    } {
+        Return This.current + "";
+    }
+
+    Public Function NavHistoryCount() -> Int
+    Explain {
+        Description: "Count pages that can be reached by going back.";
+        Input: None;
+        Processing: "Read the history stack.";
+        Output: "The number of previous pages.";
+    } {
+        Return This.history.Count();
+    }
+
+    Public Function NavCrumbCount() -> Int
+    Explain {
+        Description: "Count breadcrumb segments.";
+        Input: None;
+        Processing: "Read the segments of the current route.";
+        Output: "The number of crumbs.";
+    } {
+        Return This.crumbs.Count();
+    }
+
+    Public Function NavCrumbAt(Int index) -> String
+    Explain {
+        Description: "Read one breadcrumb.";
+        Input: index = "Crumb index";
+        Processing: "Return that route segment.";
+        Output: "The segment, or empty text.";
+    } {
+        If (index < 0 || index >= This.crumbs.Count()) {
+            Return "";
+        }
+        Return This.crumbs[index] + "";
+    }
+
+    Public Function NavEventCount() -> Int
+    Explain {
+        Description: "Count navigation events.";
+        Input: None;
+        Processing: "Read the event log.";
+        Output: "The number of events.";
+    } {
+        Return This.events.Count();
+    }
+
+    Public Function NavEventAt(Int index) -> String
+    Explain {
+        Description: "Read one navigation event.";
+        Input: index = "Event index";
+        Processing: "Return the recorded text.";
+        Output: "The event, or empty text.";
+    } {
+        If (index < 0 || index >= This.events.Count()) {
+            Return "";
+        }
+        Return This.events[index] + "";
+    }
+
+    Public Function NavChrome(String id) -> String
+    Explain {
+        Description: "Read the kind of a menu, toolbar, status bar, title bar, or tab.";
+        Input: id = "Chrome id";
+        Processing: "Find the imported chrome item.";
+        Output: "The kind, or empty text.";
+    } {
+        Int index = This.NavChromeIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.chromeKinds[index] + "";
+    }
+
+    Public Function NavChromeCount() -> Int
+    Explain {
+        Description: "Count imported chrome items.";
+        Input: None;
+        Processing: "Read the chrome list.";
+        Output: "The number of items.";
+    } {
+        Return This.chromeIds.Count();
+    }
+
+    Public Function NavOpenOverlay(String id) -> Bool
+    Explain {
+        Description: "Open a popup, flyout, drawer, or dialog.";
+        Input: id = "Overlay id";
+        Processing: "Mark it open. A dialog becomes the modal focus owner.";
+        Output: "True when the overlay exists.";
+    } {
+        Int index = This.NavOverlayIndex(id);
+        If (index < 0 || This.phase != "Open") {
+            Return False;
+        }
+        This.overlayOpen[index] = "Open";
+        If (This.overlayKinds[index] == "Dialog") {
+            This.modal = id + "";
+            This.focus = id + "";
+        }
+        This.NavNote("Open " + id);
+        Return True;
+    }
+
+    Public Function NavCloseOverlay(String id) -> Bool
+    Explain {
+        Description: "Close an overlay.";
+        Input: id = "Overlay id";
+        Processing: "Mark it closed and release modal focus when it was the dialog.";
+        Output: "True when the overlay exists.";
+    } {
+        Int index = This.NavOverlayIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.overlayOpen[index] = "Closed";
+        If (This.modal == id) {
+            This.modal = "";
+            This.focus = "";
+        }
+        This.NavNote("Close " + id);
+        Return True;
+    }
+
+    Public Function NavOverlayState(String id) -> String
+    Explain {
+        Description: "Read whether an overlay is open.";
+        Input: id = "Overlay id";
+        Processing: "Return the stored state.";
+        Output: "Open, Closed, or empty text.";
+    } {
+        Int index = This.NavOverlayIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.overlayOpen[index] + "";
+    }
+
+    Public Function NavModal() -> String
+    Explain {
+        Description: "Read the modal dialog.";
+        Input: None;
+        Processing: "Return the dialog that owns focus.";
+        Output: "The dialog id, or empty text.";
+    } {
+        Return This.modal + "";
+    }
+
+    Public Function NavFocus(String id) -> Bool
+    Explain {
+        Description: "Move focus.";
+        Input: id = "Control id";
+        Processing: "Refuse a target outside the modal dialog.";
+        Output: "True when focus moved.";
+    } {
+        If (This.modal != "" && id != This.modal) {
+            Return False;
+        }
+        This.focus = id + "";
+        Return True;
+    }
+
+    Public Function NavFocused() -> String
+    Explain {
+        Description: "Read the focused id.";
+        Input: None;
+        Processing: "Return the id kept by the last focus change.";
+        Output: "The focused id.";
+    } {
+        Return This.focus + "";
+    }
+
+    Public Function NavKey(String key) -> String
+    Explain {
+        Description: "Handle a key while a dialog may be open.";
+        Input: key = "Tab or Escape";
+        Processing: "Tab stays inside the dialog. Escape closes it.";
+        Output: "The focused id after the key.";
+    } {
+        If (key == "Escape" && This.modal != "") {
+            This.NavCloseOverlay(This.modal);
+            Return "";
+        }
+        If (key == "Tab" && This.modal != "") {
+            This.focus = This.modal + "";
+            This.NavNote("Tab " + This.modal);
+            Return This.focus + "";
+        }
+        Return This.focus + "";
+    }
+
+    Public Function NavMoveOverlay(String id, Int x, Int y) -> Bool
+    Explain {
+        Description: "Place a popup.";
+        Input: id = "Overlay id", x = "X", y = "Y";
+        Processing: "Store the placement in logical pixels.";
+        Output: "True when the overlay exists.";
+    } {
+        Int index = This.NavOverlayIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.overlayX[index] = x.ToString();
+        This.overlayY[index] = y.ToString();
+        Return True;
+    }
+
+    Public Function NavPopupAt(String id) -> String
+    Explain {
+        Description: "Read a popup placement.";
+        Input: id = "Overlay id";
+        Processing: "Join the stored x and y.";
+        Output: "x,y or empty text.";
+    } {
+        Int index = This.NavOverlayIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.overlayX[index] + "," + This.overlayY[index];
+    }
+
+    Public Function NavWindowCount() -> Int
+    Explain {
+        Description: "Count windows.";
+        Input: None;
+        Processing: "Read the window list.";
+        Output: "The number of windows.";
+    } {
+        Return This.windowIds.Count();
+    }
+
+    Public Function NavWindowState(String id) -> String
+    Explain {
+        Description: "Read a window state.";
+        Input: id = "Window id";
+        Processing: "Return Hidden, Shown, or Closed.";
+        Output: "The state, or empty text.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.windowStates[index] + "";
+    }
+
+    Public Function NavShowWindow(String id) -> Bool
+    Explain {
+        Description: "Show a window that is not closed.";
+        Input: id = "Window id";
+        Processing: "A closed window must be reopened instead.";
+        Output: "True when the window is shown.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0 || This.windowStates[index] == "Closed") {
+            Return False;
+        }
+        This.windowStates[index] = "Shown";
+        This.NavNote("Show " + id);
+        Return True;
+    }
+
+    Public Function NavHideWindow(String id) -> Bool
+    Explain {
+        Description: "Hide a shown window.";
+        Input: id = "Window id";
+        Processing: "Keep the window so it can be shown again.";
+        Output: "True when the window exists.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0 || This.windowStates[index] == "Closed") {
+            Return False;
+        }
+        This.windowStates[index] = "Hidden";
+        This.NavNote("Hide " + id);
+        Return True;
+    }
+
+    Public Function NavCloseWindow(String id) -> Bool
+    Explain {
+        Description: "Close a window.";
+        Input: id = "Window id";
+        Processing: "Mark it closed and keep the record for reopen.";
+        Output: "True when the window exists.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.windowStates[index] = "Closed";
+        This.NavNote("Close " + id);
+        Return True;
+    }
+
+    Public Function NavReopenWindow(String id) -> Bool
+    Explain {
+        Description: "Open a closed window again.";
+        Input: id = "Window id";
+        Processing: "Change Closed to Shown.";
+        Output: "True when the window was closed.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0 || This.windowStates[index] != "Closed") {
+            Return False;
+        }
+        This.windowStates[index] = "Shown";
+        This.NavNote("Reopen " + id);
+        Return True;
+    }
+
+    Public Function NavSetTitle(String id, String title) -> Bool
+    Explain {
+        Description: "Change a window title.";
+        Input: id = "Window id", title = "Title";
+        Processing: "Store the title on that window.";
+        Output: "True when the window exists.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.windowTitles[index] = title + "";
+        Return True;
+    }
+
+    Public Function NavReadTitle(String id) -> String
+    Explain {
+        Description: "Read a window title.";
+        Input: id = "Window id";
+        Processing: "Return the stored title.";
+        Output: "The title, or empty text.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.windowTitles[index] + "";
+    }
+
+    Public Function NavMoveWindow(String id, Int x, Int y) -> Bool
+    Explain {
+        Description: "Move a window.";
+        Input: id = "Window id", x = "X", y = "Y";
+        Processing: "Store the position.";
+        Output: "True when the window exists.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.windowX[index] = x.ToString();
+        This.windowY[index] = y.ToString();
+        Return True;
+    }
+
+    Public Function NavReadPosition(String id) -> String
+    Explain {
+        Description: "Read a window position.";
+        Input: id = "Window id";
+        Processing: "Join the stored x and y.";
+        Output: "x,y or empty text.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.windowX[index] + "," + This.windowY[index];
+    }
+
+    Public Function NavSave(String id) -> Bool
+    Explain {
+        Description: "Save window title and position.";
+        Input: id = "Window id";
+        Processing: "Copy the current title and position into the saved slot.";
+        Output: "True when the window exists.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.savedTitles[index] = This.windowTitles[index] + "";
+        This.savedX[index] = This.windowX[index] + "";
+        This.savedY[index] = This.windowY[index] + "";
+        Return True;
+    }
+
+    Public Function NavRestore(String id) -> Bool
+    Explain {
+        Description: "Restore a saved window title and position.";
+        Input: id = "Window id";
+        Processing: "Copy the saved slot back onto the window.";
+        Output: "True when a snapshot exists.";
+    } {
+        Int index = This.NavWindowIndex(id);
+        If (index < 0 || This.savedTitles[index] == "") {
+            Return False;
+        }
+        This.windowTitles[index] = This.savedTitles[index] + "";
+        This.windowX[index] = This.savedX[index] + "";
+        This.windowY[index] = This.savedY[index] + "";
+        Return True;
+    }
+
+    Public Function NavDrop(String id) -> Bool
+    Explain {
+        Description: "Tear down a page.";
+        Input: id = "Page id";
+        Processing: "Mark the page dead so navigation cannot enter it.";
+        Output: "True when the page existed.";
+    } {
+        Int index = 0;
+        Bool found = False;
+        While (index < This.pageIds.Count()) {
+            If (This.pageIds[index] == id && This.pageAlive[index] == "true") {
+                This.pageAlive[index] = "false";
+                found = True;
+            }
+            index = index + 1;
+        }
+        If (This.current == id) {
+            This.current = "";
+            This.crumbs = List<String>();
+        }
+        This.NavNote("Drop " + id);
+        Return found;
+    }
+
+    Public Function NavAlive(String id) -> Bool
+    Explain {
+        Description: "Report whether a page is still in the navigation tree.";
+        Input: id = "Page id";
+        Processing: "A dropped page is not alive.";
+        Output: "True when the page can still be entered.";
+    } {
+        Int index = 0;
+        While (index < This.pageIds.Count()) {
+            If (This.pageIds[index] == id && This.pageAlive[index] == "true") {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Public Function NavCloseHost() -> String
+    Explain {
+        Description: "Close navigation.";
+        Input: None;
+        Processing: "Refuse later navigation and keep the event log.";
+        Output: "Closed.";
+    } {
+        This.phase = "Closed";
+        This.modal = "";
+        This.focus = "";
+        Return This.phase + "";
+    }
+
+    Public Function NavPhase() -> String
+    Explain {
+        Description: "Read the navigation phase.";
+        Input: None;
+        Processing: "Return Open or Closed.";
+        Output: "The phase name.";
+    } {
+        Return This.phase + "";
+    }
+
+    Private Function NavWalk(RxuNode node) -> Int {
+        Int count = 0;
+        If (node.Kind == "Element") {
+            String id = node.FindAttribute("Name").Text;
+            String kind = node.Name + "";
+            If (id != "") {
+                If (kind == "Page") {
+                    This.pageIds.Add(id + "");
+                    This.pageRoutes.Add(node.FindAttribute("Route").Text + "");
+                    This.pageTitles.Add(node.FindAttribute("Title").Text + "");
+                    This.pageAlive.Add("true");
+                    count = 1;
+                }
+                If (kind == "Menu" || kind == "MenuItem" || kind == "Toolbar" || kind == "StatusBar" || kind == "TitleBar" || kind == "TabItem") {
+                    This.chromeKinds.Add(kind + "");
+                    This.chromeIds.Add(id + "");
+                }
+                If (kind == "Popup" || kind == "Flyout" || kind == "Drawer" || kind == "Dialog") {
+                    This.overlayKinds.Add(kind + "");
+                    This.overlayIds.Add(id + "");
+                    This.overlayOpen.Add("Closed");
+                    This.overlayX.Add("0");
+                    This.overlayY.Add("0");
+                }
+                If (kind == "Window") {
+                    This.windowIds.Add(id + "");
+                    This.windowTitles.Add(node.FindAttribute("Title").Text + "");
+                    This.windowStates.Add("Hidden");
+                    This.windowX.Add("0");
+                    This.windowY.Add("0");
+                    This.savedTitles.Add("");
+                    This.savedX.Add("");
+                    This.savedY.Add("");
+                }
+            }
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            count = count + This.NavWalk(node.Children[index]);
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function NavPageIndex(String route) -> Int {
+        Int index = 0;
+        While (index < This.pageRoutes.Count()) {
+            If (This.pageRoutes[index] == route && This.pageAlive[index] == "true") {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function NavRouteOf(String id) -> String {
+        Int index = 0;
+        While (index < This.pageIds.Count()) {
+            If (This.pageIds[index] == id) {
+                Return This.pageRoutes[index] + "";
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function NavCrumbs(String route) -> Int {
+        This.crumbs = List<String>();
+        Int start = 0;
+        Int index = 0;
+        While (index <= route.Length()) {
+            Bool boundary = index == route.Length();
+            If (!boundary) {
+                boundary = route.GetChar(index) == "/";
+            }
+            If (boundary && index > start) {
+                This.crumbs.Add(route.Substring(start, index - start));
+            }
+            If (boundary) {
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return This.crumbs.Count();
+    }
+
+    Private Function NavNote(String text) -> Int {
+        This.events.Add(text + "");
+        Return This.events.Count();
+    }
+
+    Private Function NavChromeIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.chromeIds.Count()) {
+            If (This.chromeIds[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function NavOverlayIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.overlayIds.Count()) {
+            If (This.overlayIds[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function NavWindowIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.windowIds.Count()) {
+            If (This.windowIds[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+}

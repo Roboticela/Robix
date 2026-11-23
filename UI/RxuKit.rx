@@ -1,0 +1,1030 @@
+// Component libraries.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class KitHost {
+    Private List<String> defs;
+    Private List<String> defAccess;
+    Private List<String> defLibs;
+    Private List<String> libs;
+    Private List<String> versions;
+    Private List<String> params;
+    Private List<String> outputs;
+    Private List<String> methods;
+    Private List<String> events;
+    Private List<String> hooks;
+    Private List<String> states;
+    Private List<String> resources;
+    Private List<String> styles;
+    Private List<String> parts;
+    Private List<String> nested;
+    Private List<String> templates;
+    Private List<String> ids;
+    Private List<String> kinds;
+    Private List<String> parents;
+    Private List<String> stamps;
+    Private List<String> looks;
+    Private List<String> values;
+    Private List<String> heard;
+    Private List<String> chain;
+    Private Int serial;
+    Private Int collisions;
+    Private Int invalid;
+    Private Int windows;
+    Private Int spawned;
+
+    Public Constructor() {
+        This.defs = List<String>();
+        This.defAccess = List<String>();
+        This.defLibs = List<String>();
+        This.libs = List<String>();
+        This.versions = List<String>();
+        This.params = List<String>();
+        This.outputs = List<String>();
+        This.methods = List<String>();
+        This.events = List<String>();
+        This.hooks = List<String>();
+        This.states = List<String>();
+        This.resources = List<String>();
+        This.styles = List<String>();
+        This.parts = List<String>();
+        This.nested = List<String>();
+        This.templates = List<String>();
+        This.ids = List<String>();
+        This.kinds = List<String>();
+        This.parents = List<String>();
+        This.stamps = List<String>();
+        This.looks = List<String>();
+        This.values = List<String>();
+        This.heard = List<String>();
+        This.chain = List<String>();
+        This.serial = 1;
+        This.collisions = 0;
+        This.invalid = 0;
+        This.windows = 0;
+        This.spawned = 0;
+    }
+
+    Public Function KitImport(String path) -> Int
+    Explain {
+        Description: "Import a component library.";
+        Input: path = "Library file";
+        Processing: "Load definitions only. No window is opened and no instance is created.";
+        Output: "The number of new definitions.";
+    } {
+        Int before = This.defs.Count();
+        This.KitPull(path);
+        Return This.defs.Count() - before;
+    }
+
+    Public Function KitLoad(RxuNode node) -> Int
+    Explain {
+        Description: "Load an application that imports libraries and creates instances.";
+        Input: node = "Parsed document";
+        Processing: "Import definitions, then instantiate usages. A second definition of the same name collides and keeps the first.";
+        Output: "The number of component instances created.";
+    } {
+        This.spawned = 0;
+        This.KitWalk(node, "use", "", "");
+        Return This.spawned;
+    }
+
+    Public Function KitDefined(String name) -> Bool
+    Explain {
+        Description: "Report whether a component definition exists.";
+        Input: name = "Component name";
+        Processing: "Look up the definition table.";
+        Output: "True when it was defined.";
+    } {
+        Return This.KitKnown(name);
+    }
+
+    Public Function KitVersion(String library) -> String
+    Explain {
+        Description: "Return a library version.";
+        Input: library = "Library name";
+        Processing: "The first version wins when the same library is imported again.";
+        Output: "The version, or empty text.";
+    } {
+        Int index = 0;
+        While (index < This.libs.Count()) {
+            If (This.libs[index] == library) {
+                Return This.versions[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Public Function KitDefault(String kind, String name) -> String
+    Explain {
+        Description: "Return a parameter default.";
+        Input: kind = "Component name", name = "Parameter name";
+        Processing: "Read the first definition. A colliding import does not replace it.";
+        Output: "The default, or empty text.";
+    } {
+        Return This.KitParam(kind, name, 3);
+    }
+
+    Public Function KitSource(String kind) -> String
+    Explain {
+        Description: "Return the library that defined a component.";
+        Input: kind = "Component name";
+        Processing: "Read the first definition's library.";
+        Output: "The library name, or empty text.";
+    } {
+        Int index = 0;
+        While (index < This.defs.Count()) {
+            If (This.defs[index] == kind) {
+                Return This.defLibs[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Public Function KitWindows() -> Int
+    Explain {
+        Description: "Return how many windows were opened.";
+        Input: None;
+        Processing: "Importing a library does not open a window.";
+        Output: "The window count.";
+    } {
+        Return This.windows;
+    }
+
+    Public Function KitInstances(String kind) -> Int
+    Explain {
+        Description: "Count instances of a component.";
+        Input: kind = "Component name";
+        Processing: "Nested instances count separately from their parents.";
+        Output: "The instance count.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.kinds[index] == kind) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function KitCollisions() -> Int
+    Explain {
+        Description: "Return how many duplicate definitions were refused.";
+        Input: None;
+        Processing: "The first definition stays.";
+        Output: "The collision count.";
+    } {
+        Return This.collisions;
+    }
+
+    Public Function KitInvalid() -> Int
+    Explain {
+        Description: "Return how many values failed validation.";
+        Input: None;
+        Processing: "A missing required parameter or a wrong type is invalid.";
+        Output: "The invalid count.";
+    } {
+        Return This.invalid;
+    }
+
+    Public Function KitFind(String name) -> String
+    Explain {
+        Description: "Find an instance by its name.";
+        Input: name = "Instance name or id";
+        Processing: "The id is the instance name. Nested ids use parent/name.";
+        Output: "The id, or empty text.";
+    } {
+        If (This.KitIndex(name) >= 0) {
+            Return name;
+        }
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index].EndsWith("/" + name)) {
+                Return This.ids[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Public Function KitGet(String id, String field) -> String
+    Explain {
+        Description: "Read a public parameter or state value.";
+        Input: id = "Instance id", field = "Field name";
+        Processing: "Private parameters are hidden.";
+        Output: "The value, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        String access = This.KitParam(This.kinds[node], field, 4);
+        If (access == "Private") {
+            Return "";
+        }
+        Return This.KitTake(id, field);
+    }
+
+    Public Function KitSet(String id, String field, String value) -> Bool
+    Explain {
+        Description: "Write a public parameter.";
+        Input: id = "Instance id", field = "Parameter name", value = "Typed value";
+        Processing: "Reject a private parameter or a value of the wrong type and keep the previous value.";
+        Output: "True when the value was stored.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return False;
+        }
+        String kind = This.kinds[node];
+        String access = This.KitParam(kind, field, 4);
+        If (access != "Public") {
+            Return False;
+        }
+        String typeName = This.KitParam(kind, field, 2);
+        If (!This.KitTyped(typeName, value)) {
+            This.invalid = This.invalid + 1;
+            Return False;
+        }
+        This.KitPut(id, field, value);
+        Return True;
+    }
+
+    Public Function KitCall(String id, String method) -> Int
+    Explain {
+        Description: "Call a component method.";
+        Input: id = "Instance id", method = "Method name";
+        Processing: "Press updates only that instance and raises OnPressed. The method must be defined.";
+        Output: "The number of listeners notified, or -1 when the method is missing.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return -1;
+        }
+        String kind = This.kinds[node];
+        If (!This.KitHasRow(This.methods, kind + "|" + method)) {
+            Return -1;
+        }
+        If (method == "Press") {
+            This.KitPut(id, "Pressed", "true");
+        }
+        Return This.KitNotify(id, "OnPressed");
+    }
+
+    Public Function KitListen(String id, String eventName, String handler) -> Bool
+    Explain {
+        Description: "Listen for a custom event.";
+        Input: id = "Instance id", eventName = "Event name", handler = "Handler name";
+        Processing: "Store the listener on that instance only.";
+        Output: "True when the event is defined.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0 || handler == "") {
+            Return False;
+        }
+        If (!This.KitHasRow(This.events, This.kinds[node] + "|" + eventName)) {
+            Return False;
+        }
+        This.heard.Add(id + "|" + eventName + "|" + handler);
+        Return True;
+    }
+
+    Public Function KitOutput(String id, String name) -> String
+    Explain {
+        Description: "Read a component output.";
+        Input: id = "Instance id", name = "Output name";
+        Processing: "Read the source parameter of the output.";
+        Output: "The value, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        String source = This.KitRowValue(This.outputs, This.kinds[node] + "|" + name + "|");
+        If (source == "") {
+            Return "";
+        }
+        Return This.KitGet(id, source);
+    }
+
+    Public Function KitResource(String id, String name) -> String
+    Explain {
+        Description: "Read a resource from the instance's component scope.";
+        Input: id = "Instance id", name = "Resource name";
+        Processing: "Resources belong to the component definition, not to sibling components.";
+        Output: "The value, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.KitRowValue(This.resources, This.kinds[node] + "|" + name + "|");
+    }
+
+    Public Function KitStyle(String id, String name) -> String
+    Explain {
+        Description: "Read a style from the instance's component scope.";
+        Input: id = "Instance id", name = "Style name";
+        Processing: "Styles stay with the component when a template changes appearance.";
+        Output: "The value, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.KitRowValue(This.styles, This.kinds[node] + "|" + name + "|");
+    }
+
+    Public Function KitPart(String id, String name) -> String
+    Explain {
+        Description: "Return a named child.";
+        Input: id = "Instance id", name = "Child name";
+        Processing: "Named internals and nested components use parent/name.";
+        Output: "The child id, or empty text.";
+    } {
+        String child = id + "/" + name;
+        If (This.KitIndex(child) < 0) {
+            Return "";
+        }
+        Return child;
+    }
+
+    Public Function KitPartText(String id, String name) -> String
+    Explain {
+        Description: "Read the visible text of a named child.";
+        Input: id = "Instance id", name = "Child name";
+        Processing: "A template can change this text without changing parameters.";
+        Output: "The text, or empty text.";
+    } {
+        Return This.KitTake(id + "/" + name, "Text");
+    }
+
+    Public Function KitApplyTemplate(String id, String name) -> Bool
+    Explain {
+        Description: "Apply a visual template.";
+        Input: id = "Instance id", name = "Template name";
+        Processing: "Replace the named child's appearance. Parameters, state, and methods stay.";
+        Output: "True when the template exists.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return False;
+        }
+        String body = This.KitRowValue(This.templates, This.kinds[node] + "|" + name + "|");
+        If (body == "") {
+            Return False;
+        }
+        This.looks[node] = name + "";
+        Int mark = body.IndexOf("|");
+        String text = body + "";
+        If (mark >= 0 && body.Length() > mark + 1) {
+            text = body.Substring(mark + 1);
+        }
+        This.KitPut(id + "/caption", "Text", text);
+        Return True;
+    }
+
+    Public Function KitCreate(String kind, String id, String parent) -> Bool
+    Explain {
+        Description: "Create a component instance from RX.";
+        Input: kind = "Component name", id = "New instance id", parent = "Parent id";
+        Processing: "Use defaults. A private component cannot be created. State is isolated from other instances.";
+        Output: "True when the instance was created.";
+    } {
+        Return This.KitSpawn(kind, id, parent, "");
+    }
+
+    Public Function KitParent(String id) -> String
+    Explain {
+        Description: "Return the parent id.";
+        Input: id = "Instance id";
+        Processing: "Read the stored parent.";
+        Output: "The parent id, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.parents[node];
+    }
+
+    Public Function KitKind(String id) -> String
+    Explain {
+        Description: "Return an instance kind.";
+        Input: id = "Instance id";
+        Processing: "Read the stored kind.";
+        Output: "The kind, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.kinds[node];
+    }
+
+    Public Function KitStamp(String id) -> String
+    Explain {
+        Description: "Return the stable creation stamp.";
+        Input: id = "Instance id";
+        Processing: "The stamp does not change when a template or parameter changes.";
+        Output: "The stamp, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.stamps[node];
+    }
+
+    Public Function KitHook(String id, String name) -> Int
+    Explain {
+        Description: "Return how many times a lifecycle hook ran.";
+        Input: id = "Instance id", name = "Hook name";
+        Processing: "OnLoaded runs once at creation.";
+        Output: "The hook count.";
+    } {
+        String value = This.KitTake(id, "hook:" + name);
+        If (value == "") {
+            Return 0;
+        }
+        Return value.ToInt();
+    }
+
+    Public Function KitAppearance(String id) -> String
+    Explain {
+        Description: "Return the current visual template.";
+        Input: id = "Instance id";
+        Processing: "Native is the component body. A template name replaces it.";
+        Output: "The appearance name, or empty text.";
+    } {
+        Int node = This.KitIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.looks[node];
+    }
+
+    Public Function KitPhase() -> String
+    Explain {
+        Description: "Return the window phase.";
+        Input: None;
+        Processing: "Loading a library does not close the application window.";
+        Output: "Open.";
+    } {
+        Return "Open";
+    }
+
+    Private Function KitPull(String path) -> Int {
+        If (path == "" || !Files.Exists(path)) {
+            Return 0;
+        }
+        If (This.KitChainHas(path)) {
+            Return 0;
+        }
+        This.chain.Add(path);
+        RxuParser parser = RxuParser();
+        RxuNode library = parser.Parse(path, Files.ReadText(path));
+        This.KitWalk(library, "use", "", "");
+        This.KitChainDrop(path);
+        Return 1;
+    }
+
+    Private Function KitWalk(RxuNode node, String mode, String library, String owner) -> Int {
+        If (node.Kind != "Element") {
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.KitWalk(node.Children[index], mode, library, owner);
+                index = index + 1;
+            }
+            Return count;
+        }
+        String name = node.Name + "";
+        If (name == "Components") {
+            String libName = node.FindAttribute("Name").Text + "";
+            This.KitNoteLib(libName, node.FindAttribute("Version").Text + "");
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.KitWalk(node.Children[index], "lib", libName, "");
+                index = index + 1;
+            }
+            Return count;
+        }
+        If (name == "Import") {
+            Return This.KitPull(node.FindAttribute("Source").Text + "");
+        }
+        If (name == "Component" && mode != "def") {
+            String kind = node.FindAttribute("Name").Text + "";
+            String access = node.FindAttribute("Access").Text + "";
+            If (access == "") {
+                access = "Public";
+            }
+            If (!This.KitDefine(kind, library, access)) {
+                Return 0;
+            }
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.KitWalk(node.Children[index], "def", library, kind);
+                index = index + 1;
+            }
+            Return count;
+        }
+        If (mode == "def") {
+            Return This.KitMember(node, owner);
+        }
+        If (name == "Window") {
+            This.windows = This.windows + 1;
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.KitWalk(node.Children[index], "use", library, node.FindAttribute("Name").Text + "");
+                index = index + 1;
+            }
+            Return count;
+        }
+        If (This.KitKnown(name)) {
+            String id = node.FindAttribute("Name").Text + "";
+            If (This.KitSpawn(name, id, owner, This.KitOverrides(node))) {
+                Return 1;
+            }
+            Return 0;
+        }
+        Int count = 0;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            count = count + This.KitWalk(node.Children[index], mode, library, owner);
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function KitMember(RxuNode node, String owner) -> Int {
+        String name = node.Name + "";
+        If (name == "Parameter") {
+            String access = node.FindAttribute("Access").Text + "";
+            If (access == "") {
+                access = "Public";
+            }
+            String required = node.FindAttribute("Required").Text + "";
+            If (required != "true") {
+                required = "false";
+            }
+            String typeName = node.FindAttribute("Type").Text + "";
+            If (typeName == "") {
+                typeName = "String";
+            }
+            This.params.Add(owner + "|" + node.FindAttribute("Name").Text + "|" + typeName + "|" + node.FindAttribute("Default").Text + "|" + access + "|" + required);
+            Return 1;
+        }
+        If (name == "Output") {
+            This.outputs.Add(owner + "|" + node.FindAttribute("Name").Text + "|" + node.FindAttribute("Source").Text);
+            Return 1;
+        }
+        If (name == "State") {
+            This.states.Add(owner + "|" + node.FindAttribute("Name").Text + "|" + node.FindAttribute("Default").Text);
+            Return 1;
+        }
+        If (name == "Resource") {
+            This.resources.Add(owner + "|" + node.FindAttribute("Name").Text + "|" + node.FindAttribute("Value").Text);
+            Return 1;
+        }
+        If (name == "Style") {
+            String value = node.FindAttribute("Background").Text + "";
+            If (value == "") {
+                value = node.FindAttribute("Value").Text + "";
+            }
+            This.styles.Add(owner + "|" + node.FindAttribute("Name").Text + "|" + value);
+            Return 1;
+        }
+        If (name == "Method") {
+            This.methods.Add(owner + "|" + node.FindAttribute("Name").Text);
+            Return 1;
+        }
+        If (name == "Event") {
+            This.events.Add(owner + "|" + node.FindAttribute("Name").Text);
+            Return 1;
+        }
+        If (name == "Hook") {
+            This.hooks.Add(owner + "|" + node.FindAttribute("Name").Text);
+            Return 1;
+        }
+        If (name == "Template") {
+            String templateName = node.FindAttribute("Name").Text + "";
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                RxuNode child = node.Children[index];
+                If (child.Kind == "Element") {
+                    This.templates.Add(owner + "|" + templateName + "|" + child.Name + "|" + child.FindAttribute("Value").Text);
+                    Return 1;
+                }
+                index = index + 1;
+            }
+            Return 0;
+        }
+        String childName = node.FindAttribute("Name").Text + "";
+        If (childName == "") {
+            Return 0;
+        }
+        If (This.KitKnown(name)) {
+            This.nested.Add(owner + "|" + childName + "|" + name + "|" + This.KitOverrides(node));
+            Return 1;
+        }
+        This.parts.Add(owner + "|" + childName + "|" + name);
+        Return 1;
+    }
+
+    Private Function KitNoteLib(String name, String version) -> Int {
+        If (name == "") {
+            Return 0;
+        }
+        Int index = 0;
+        While (index < This.libs.Count()) {
+            If (This.libs[index] == name) {
+                Return 0;
+            }
+            index = index + 1;
+        }
+        This.libs.Add(name);
+        This.versions.Add(version);
+        Return 1;
+    }
+
+    Private Function KitDefine(String name, String library, String access) -> Bool {
+        If (name == "" || This.KitKnown(name)) {
+            This.collisions = This.collisions + 1;
+            Return False;
+        }
+        This.defs.Add(name);
+        This.defAccess.Add(access);
+        This.defLibs.Add(library);
+        Return True;
+    }
+
+    Private Function KitKnown(String name) -> Bool {
+        Int index = 0;
+        While (index < This.defs.Count()) {
+            If (This.defs[index] == name) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function KitSpawn(String kind, String id, String parent, String overrides) -> Bool {
+        If (id == "" || !This.KitKnown(kind) || This.KitIndex(id) >= 0) {
+            Return False;
+        }
+        Int defined = 0;
+        While (defined < This.defs.Count()) {
+            If (This.defs[defined] == kind && This.defAccess[defined] == "Private") {
+                Return False;
+            }
+            defined = defined + 1;
+        }
+        Int index = 0;
+        While (index < This.params.Count()) {
+            String row = This.params[index];
+            If (row.StartsWith(kind + "|")) {
+                String field = This.KitPiece(row, "|", 1);
+                String required = This.KitPiece(row, "|", 5);
+                String fallback = This.KitPiece(row, "|", 3);
+                String given = This.KitOverride(overrides, field);
+                If (required == "true" && given == "" && fallback == "") {
+                    This.invalid = This.invalid + 1;
+                    Return False;
+                }
+            }
+            index = index + 1;
+        }
+        This.ids.Add(id);
+        This.kinds.Add(kind);
+        This.parents.Add(parent);
+        This.stamps.Add(This.serial.ToString());
+        This.serial = This.serial + 1;
+        This.looks.Add("Native");
+        index = 0;
+        While (index < This.params.Count()) {
+            String row = This.params[index];
+            If (row.StartsWith(kind + "|")) {
+                String field = This.KitPiece(row, "|", 1);
+                String typeName = This.KitPiece(row, "|", 2);
+                String fallback = This.KitPiece(row, "|", 3);
+                String access = This.KitPiece(row, "|", 4);
+                String given = This.KitOverride(overrides, field);
+                String chosen = fallback + "";
+                If (given != "" && access == "Public" && This.KitTyped(typeName, given)) {
+                    chosen = given + "";
+                } Else {
+                    If (given != "" && access == "Public" && !This.KitTyped(typeName, given)) {
+                        This.invalid = This.invalid + 1;
+                    }
+                }
+                This.KitPut(id, field, chosen);
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.states.Count()) {
+            String row = This.states[index];
+            If (row.StartsWith(kind + "|")) {
+                This.KitPut(id, This.KitPiece(row, "|", 1), This.KitPiece(row, "|", 2));
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.parts.Count()) {
+            String row = This.parts[index];
+            If (row.StartsWith(kind + "|")) {
+                String partName = This.KitPiece(row, "|", 1);
+                String partKind = This.KitPiece(row, "|", 2);
+                String text = "";
+                If (partName == "caption") {
+                    text = This.KitTake(id, "Caption");
+                }
+                This.KitAddPart(id, partName, partKind, text);
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.nested.Count()) {
+            String row = This.nested[index];
+            If (row.StartsWith(kind + "|")) {
+                String childName = This.KitPiece(row, "|", 1);
+                String childKind = This.KitPiece(row, "|", 2);
+                String childOver = This.KitPiece(row, "|", 3);
+                This.KitSpawn(childKind, id + "/" + childName, id, childOver);
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < This.hooks.Count()) {
+            String row = This.hooks[index];
+            If (row == kind + "|OnLoaded") {
+                This.KitPut(id, "hook:OnLoaded", "1");
+            }
+            index = index + 1;
+        }
+        This.spawned = This.spawned + 1;
+        Return True;
+    }
+
+    Private Function KitAddPart(String parent, String name, String kind, String text) -> Int {
+        String id = parent + "/" + name;
+        If (This.KitIndex(id) >= 0) {
+            This.KitPut(id, "Text", text);
+            Return 0;
+        }
+        This.ids.Add(id);
+        This.kinds.Add(kind);
+        This.parents.Add(parent);
+        This.stamps.Add(This.serial.ToString());
+        This.serial = This.serial + 1;
+        This.looks.Add("Native");
+        This.KitPut(id, "Text", text);
+        Return 1;
+    }
+
+    Private Function KitOverrides(RxuNode node) -> String {
+        String text = "";
+        Int index = 0;
+        While (index < node.Attributes.Count()) {
+            String name = node.Attributes[index].Name + "";
+            If (name != "" && name != "Name") {
+                If (text != "") {
+                    text = text + ";";
+                }
+                text = text + name + "=" + node.Attributes[index].Text;
+            }
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Private Function KitOverride(String text, String field) -> String {
+        Int parts = This.KitPieces(text, ";");
+        Int index = 0;
+        While (index < parts) {
+            String piece = This.KitPiece(text, ";", index);
+            String prefix = field + "=";
+            If (piece.StartsWith(prefix)) {
+                If (piece.Length() <= prefix.Length()) {
+                    Return "";
+                }
+                Return piece.Substring(prefix.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function KitTake(String id, String field) -> String {
+        String key = id + "|" + field + "=";
+        Int index = 0;
+        While (index < This.values.Count()) {
+            String row = This.values[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function KitPut(String id, String field, String value) -> Int {
+        String key = id + "|" + field + "=";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.values.Count()) {
+            If (!This.values[index].StartsWith(key)) {
+                kept.Add(This.values[index]);
+            }
+            index = index + 1;
+        }
+        kept.Add(key + value);
+        This.values = kept;
+        Return 1;
+    }
+
+    Private Function KitParam(String kind, String name, Int item) -> String {
+        String prefix = kind + "|" + name + "|";
+        Int index = 0;
+        While (index < This.params.Count()) {
+            String row = This.params[index];
+            If (row.StartsWith(prefix)) {
+                Return This.KitPiece(row, "|", item);
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function KitHasRow(List<String> rows, String prefix) -> Bool {
+        Int index = 0;
+        While (index < rows.Count()) {
+            If (rows[index] == prefix || rows[index].StartsWith(prefix + "|")) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function KitRowValue(List<String> rows, String prefix) -> String {
+        Int index = 0;
+        While (index < rows.Count()) {
+            String row = rows[index];
+            If (row.StartsWith(prefix)) {
+                If (row.Length() <= prefix.Length()) {
+                    Return "";
+                }
+                Return row.Substring(prefix.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function KitNotify(String id, String eventName) -> Int {
+        String prefix = id + "|" + eventName + "|";
+        Int count = 0;
+        Int index = 0;
+        While (index < This.heard.Count()) {
+            If (This.heard[index].StartsWith(prefix)) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function KitIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function KitTyped(String typeName, String value) -> Bool {
+        If (typeName == "" || typeName == "String") {
+            Return True;
+        }
+        If (typeName == "Int") {
+            Return This.KitDigits(value);
+        }
+        If (typeName == "Bool") {
+            Return value == "true" || value == "false";
+        }
+        If (typeName == "Color") {
+            Return This.KitColor(value);
+        }
+        Return True;
+    }
+
+    Private Function KitDigits(String value) -> Bool {
+        If (value.Length() == 0) {
+            Return False;
+        }
+        Int index = 0;
+        While (index < value.Length()) {
+            String character = value.GetChar(index);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function KitColor(String value) -> Bool {
+        If (value.Length() != 7 || !value.StartsWith("#")) {
+            Return False;
+        }
+        Int index = 1;
+        While (index < value.Length()) {
+            String character = value.GetChar(index);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function KitChainHas(String path) -> Bool {
+        Int index = 0;
+        While (index < This.chain.Count()) {
+            If (This.chain[index] == path) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function KitChainDrop(String path) -> Int {
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.chain.Count()) {
+            If (This.chain[index] != path) {
+                kept.Add(This.chain[index]);
+            }
+            index = index + 1;
+        }
+        This.chain = kept;
+        Return 1;
+    }
+
+    Private Function KitPieces(String text, String separator) -> Int {
+        If (text == "") {
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.GetChar(index) == separator) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function KitPiece(String text, String separator, Int item) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            Bool boundary = index == text.Length();
+            If (!boundary) {
+                boundary = text.GetChar(index) == separator;
+            }
+            If (boundary) {
+                If (seen == item) {
+                    Return text.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+}

@@ -1,0 +1,6 @@
+<Window Name="Home" Title="Home" Width="800" Height="480">
+  <Panel Name="body">
+    <Text Name="heading" Content="Arm"/>
+    <Button Name="go" Content="Start" Width="120"/>
+  </Panel>
+</Window>

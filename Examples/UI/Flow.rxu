@@ -1,0 +1,45 @@
+<Panel Name="host">
+  <Let Name="Title" Value="Arm"/>
+  <Let Name="Width" Value="10"/>
+  <Set Name="Width" Value="320"/>
+  <Set Name="Missing" Value="1"/>
+  <Text Name="label" Value={Title}/>
+  <Bind Target="label" Source={Binding Title}/>
+  <If Condition={LoggedIn}>
+    <Text Name="hi" Value="Hi"/>
+  </If>
+  <ElseIf Condition={Guest}>
+    <Text Name="guest" Value="Guest"/>
+  </ElseIf>
+  <Else>
+    <Text Name="go" Value="Go"/>
+  </Else>
+  <Choose Value={Mode}>
+    <When Value="Live">
+      <Choose Value={Detail}>
+        <When Value="Hot">
+          <Text Name="hot" Value="Hot"/>
+        </When>
+        <Otherwise>
+          <Text Name="warm" Value="Warm"/>
+        </Otherwise>
+      </Choose>
+    </When>
+    <Otherwise>
+      <Text Name="idle" Value="Idle"/>
+    </Otherwise>
+  </Choose>
+  <Each Items={Joints} As="joint" Key={joint}>
+    <Text Value={joint}/>
+  </Each>
+  <Each Items={Groups} As="group" Key={group}>
+    <Each Items={Members} As="member" Key={member}>
+      <Text Value={member}/>
+    </Each>
+  </Each>
+  <Each Items={Plain} As="item">
+    <Text Value={item}/>
+  </Each>
+  <Include Source="Examples/UI/FlowPart.rxu"/>
+  <Import Source="Theme.rxu"/>
+</Panel>

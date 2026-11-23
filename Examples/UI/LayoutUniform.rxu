@@ -1,0 +1,5 @@
+<Panel Name="uniform" Tag="Uniform" Width="100" Height="100" GridColumns="2">
+    <Panel Name="a" Tag="Rect"/>
+    <Panel Name="b" Tag="Rect"/>
+    <Panel Name="c" Tag="Rect"/>
+</Panel>

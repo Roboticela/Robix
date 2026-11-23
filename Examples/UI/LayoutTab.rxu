@@ -1,0 +1,4 @@
+<Panel Name="tabs" Tag="Tab" Width="100" Height="30">
+    <Panel Name="first" Tag="Rect"/>
+    <Panel Name="second" Tag="Rect"/>
+</Panel>

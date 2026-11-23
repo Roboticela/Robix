@@ -1,0 +1,4 @@
+<Panel Name="root" Tag="Stack" Width="200" Height="100" Orientation="Vertical" Spacing="8" Padding="4">
+    <Panel Name="Title" Tag="Text" Width="50" Height="20" HorizontalAlignment="Start" Content="Arm"/>
+    <Panel Name="Body" Tag="Text" Width="50" Height="20" HorizontalAlignment="Start" Content="Body"/>
+</Panel>

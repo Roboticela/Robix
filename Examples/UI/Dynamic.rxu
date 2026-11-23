@@ -1,0 +1,5 @@
+<Window Name="Editor" Title="Editor" Width="480" Height="320">
+  <Panel Name="host">
+    <Text Name="label" Content="Joint"/>
+  </Panel>
+</Window>

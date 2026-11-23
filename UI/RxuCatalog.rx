@@ -1,0 +1,1276 @@
+// Control catalog.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class CatHost {
+    Private List<String> ids;
+    Private List<String> kinds;
+    Private List<String> values;
+    Private List<String> binds;
+    Private List<String> notes;
+    Private List<String> secrets;
+    Private List<String> cells;
+    Private List<String> families;
+    Private List<String> catalogKinds;
+    Private String focus;
+
+    Public Constructor() {
+        This.ids = List<String>();
+        This.kinds = List<String>();
+        This.values = List<String>();
+        This.binds = List<String>();
+        This.notes = List<String>();
+        This.secrets = List<String>();
+        This.cells = List<String>();
+        This.families = List<String>();
+        This.catalogKinds = List<String>();
+        This.focus = "";
+        This.CatFill("C1", "Application,Window,View,Control,Container,Panel,StackPanel,Grid,DockPanel,WrapPanel,ScrollView,Canvas,Overlay,SplitView,TabView");
+        This.CatFill("C2", "Text,Label,RichText,Image,Icon,ProgressBar,Spinner,Divider,Badge,Tooltip,Placeholder");
+        This.CatFill("C3", "Button,TextBox,PasswordBox,TextArea,CheckBox,RadioButton,Switch,Slider,NumberBox,ComboBox,DropDown,DatePicker,TimePicker,ColorPicker,FilePicker");
+        This.CatFill("C4", "ListView,GridView,TreeView,Table,DataGrid,Repeater,Carousel,ItemsView");
+        This.CatFill("C5", "NavigationView,Menu,MenuItem,TabItem,Breadcrumb,Dialog,Popup,Flyout,Drawer,StatusBar,TitleBar,Toolbar");
+        This.CatFill("C6", "Canvas,Rectangle,Circle,Ellipse,Line,Path,Polygon,Polyline");
+    }
+
+    Public Function CatLoad(RxuNode node) -> Int
+    Explain {
+        Description: "Create catalog controls from markup.";
+        Input: node = "Parsed document";
+        Processing: "Walk every element whose name is in C1–C6 and create it.";
+        Output: "The number of controls created.";
+    } {
+        Return This.CatWalk(node);
+    }
+
+    Public Function CatCount() -> Int
+    Explain {
+        Description: "Return how many catalog entries exist.";
+        Input: None;
+        Processing: "Count the family entries, including Canvas in both C1 and C6.";
+        Output: "The number of entries.";
+    } {
+        Return This.catalogKinds.Count();
+    }
+
+    Public Function CatEntry(Int item) -> String
+    Explain {
+        Description: "Return one support-matrix row.";
+        Input: item = "Zero-based catalog index";
+        Processing: "Map the entry to its example, its check, and the inventory document.";
+        Output: "family|kind|source|test|documentation, or empty text when the index is outside the catalog.";
+    } {
+        String family = This.CatFamilyAt(item);
+        String kind = This.CatKindAt(item);
+        If (family == "" || kind == "") {
+            Return "";
+        }
+        Return family + "|" + kind + "|Examples/UI/Catalog.rxu|CheckCatalog|RobixUI.txt";
+    }
+
+    Public Function CatKindAt(Int item) -> String
+    Explain {
+        Description: "Return the control kind at a catalog index.";
+        Input: item = "Zero-based catalog index";
+        Processing: "Read the kind from that entry.";
+        Output: "The kind, or empty text.";
+    } {
+        If (item < 0 || item >= This.catalogKinds.Count()) {
+            Return "";
+        }
+        Return This.catalogKinds[item];
+    }
+
+    Public Function CatFamilyAt(Int item) -> String
+    Explain {
+        Description: "Return the family at a catalog index.";
+        Input: item = "Zero-based catalog index";
+        Processing: "Read the family from that entry.";
+        Output: "The family code, or empty text.";
+    } {
+        If (item < 0 || item >= This.families.Count()) {
+            Return "";
+        }
+        Return This.families[item];
+    }
+
+    Public Function CatKnown(String kind) -> Bool
+    Explain {
+        Description: "Report whether a kind is in the catalog.";
+        Input: kind = "Control kind";
+        Processing: "Search the catalog entries.";
+        Output: "True when the kind is listed.";
+    } {
+        Int index = 0;
+        While (index < This.catalogKinds.Count()) {
+            If (This.catalogKinds[index] == kind) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Public Function CatFamilyOf(String kind) -> String
+    Explain {
+        Description: "Return the first family that lists a kind.";
+        Input: kind = "Control kind";
+        Processing: "Scan entries in order. Canvas belongs to C1 first and C6 as well.";
+        Output: "The family code, or empty text.";
+    } {
+        Int index = 0;
+        While (index < This.catalogKinds.Count()) {
+            If (This.catalogKinds[index] == kind) {
+                Return This.families[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Public Function CatBeyond(String kind) -> Bool
+    Explain {
+        Description: "Report whether a kind is outside the MVP set.";
+        Input: kind = "Control kind";
+        Processing: "Known kinds other than the original MVP controls are beyond MVP.";
+        Output: "True when the kind is in the catalog and is not an MVP control.";
+    } {
+        If (!This.CatKnown(kind)) {
+            Return False;
+        }
+        String mvp = ",Window,View,Panel,StackPanel,Grid,Text,Image,Button,TextBox,CheckBox,ScrollView,ListView,Dialog,Spinner,";
+        Return !mvp.Contains("," + kind + ",");
+    }
+
+    Public Function CatCreate(String kind, String id) -> Bool
+    Explain {
+        Description: "Create one catalog control.";
+        Input: kind = "Control kind", id = "Instance name";
+        Processing: "Reject an unknown kind, an empty name, or a duplicate name. Store defaults for that family.";
+        Output: "True when the control is created.";
+    } {
+        If (id == "" || !This.CatKnown(kind) || This.CatIndex(id) >= 0) {
+            Return False;
+        }
+        This.ids.Add(id);
+        This.kinds.Add(kind);
+        This.CatPut(id, "Visible", "true");
+        This.CatPut(id, "Enabled", "true");
+        This.CatPut(id, "Name", id);
+        If (kind == "NumberBox" || kind == "Slider") {
+            This.CatPut(id, "Min", "0");
+            This.CatPut(id, "Max", "100");
+        }
+        If (kind == "CheckBox" || kind == "RadioButton" || kind == "Switch") {
+            This.CatPut(id, "Checked", "false");
+        }
+        If (This.CatCollection(kind)) {
+            This.CatPut(id, "Start", "0");
+            This.CatPut(id, "Window", "0");
+            This.CatPut(id, "Total", "0");
+        }
+        If (This.CatDrawing(kind)) {
+            This.CatPut(id, "X", "0");
+            This.CatPut(id, "Y", "0");
+            This.CatPut(id, "Width", "10");
+            This.CatPut(id, "Height", "10");
+            This.CatPut(id, "Fill", "#336699");
+            This.CatPut(id, "Stroke", "#112233");
+            If (kind == "Circle") {
+                This.CatPut(id, "Radius", "5");
+            }
+            If (kind == "Ellipse") {
+                This.CatPut(id, "Rx", "6");
+                This.CatPut(id, "Ry", "4");
+            }
+            If (kind == "Line") {
+                This.CatPut(id, "X2", "10");
+                This.CatPut(id, "Y2", "0");
+            }
+            If (kind == "Path") {
+                This.CatPut(id, "Points", "M0,0 L10,0");
+            }
+            If (kind == "Polygon" || kind == "Polyline") {
+                This.CatPut(id, "Points", "0,0 10,0 10,10");
+            }
+        }
+        Return True;
+    }
+
+    Public Function CatSchema(String kind) -> String
+    Explain {
+        Description: "Return the property schema for a kind.";
+        Input: kind = "Control kind";
+        Processing: "Start from the common properties and add the family fields.";
+        Output: "A comma-separated property list, or empty text when the kind is unknown.";
+    } {
+        If (!This.CatKnown(kind)) {
+            Return "";
+        }
+        String common = "Name,Visible,Enabled,ToolTip";
+        If (kind == "Canvas") {
+            Return common + ",Orientation,Spacing,Dock,Columns,Rows,X,Y,Width,Height,Points,Fill,Stroke";
+        }
+        String family = This.CatFamilyOf(kind);
+        If (family == "C1") {
+            Return common + ",Orientation,Spacing,Dock,Columns,Rows";
+        }
+        If (family == "C2") {
+            Return common + ",Text,Source,Value";
+        }
+        If (family == "C3") {
+            String extra = common + ",Value,Placeholder";
+            If (kind == "PasswordBox") {
+                extra = extra + ",Password";
+            }
+            If (kind == "CheckBox" || kind == "RadioButton" || kind == "Switch") {
+                extra = extra + ",Checked";
+            }
+            If (kind == "RadioButton") {
+                extra = extra + ",Group";
+            }
+            If (kind == "NumberBox" || kind == "Slider") {
+                extra = extra + ",Min,Max";
+            }
+            Return extra;
+        }
+        If (family == "C4") {
+            Return common + ",Items,Selected,Columns";
+        }
+        If (family == "C5") {
+            Return common + ",Title,Open,Route";
+        }
+        If (family == "C6") {
+            String extra = common + ",X,Y,Width,Height,Fill,Stroke,Points";
+            If (kind == "Circle") {
+                extra = extra + ",Radius";
+            }
+            If (kind == "Ellipse") {
+                extra = extra + ",Rx,Ry";
+            }
+            If (kind == "Line") {
+                extra = extra + ",X2,Y2";
+            }
+            Return extra;
+        }
+        Return "";
+    }
+
+    Public Function CatSet(String id, String field, String value) -> Bool
+    Explain {
+        Description: "Set a typed property on a control.";
+        Input: id = "Instance name", field = "Property name", value = "Property value";
+        Processing: "Reject an unknown property or a value of the wrong type. A password is stored secretly and shown as a mask.";
+        Output: "True when the value is stored.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || !This.CatAccept(This.kinds[index], id, field, value)) {
+            Return False;
+        }
+        String kind = This.kinds[index];
+        If (kind == "PasswordBox" && (field == "Password" || field == "Value")) {
+            This.CatSecretPut(id, value);
+            String mask = This.CatMask(value);
+            This.CatPut(id, "Value", mask);
+            This.CatPut(id, "Password", mask);
+            Return True;
+        }
+        If (kind == "RadioButton" && field == "Checked" && value == "true") {
+            This.CatClearRadios(id);
+        }
+        This.CatPut(id, field, value);
+        If (field == "Enabled" && value == "false" && This.focus == id) {
+            This.focus = "";
+        }
+        Return True;
+    }
+
+    Public Function CatGet(String id, String field) -> String
+    Explain {
+        Description: "Read a property from a control.";
+        Input: id = "Instance name", field = "Property name";
+        Processing: "Return the stored value. A password reads back as its mask.";
+        Output: "The value, or empty text.";
+    } {
+        Return This.CatTake(id, field);
+    }
+
+    Public Function CatBind(String id, String field, String source) -> Bool
+    Explain {
+        Description: "Bind a property to a named source.";
+        Input: id = "Instance name", field = "Property name", source = "Source name";
+        Processing: "Keep one binding for that property. The source must be named.";
+        Output: "True when the binding is stored.";
+    } {
+        If (source == "" || This.CatIndex(id) < 0) {
+            Return False;
+        }
+        Int index = This.CatIndex(id);
+        If (!This.CatHasField(This.kinds[index], field)) {
+            Return False;
+        }
+        This.binds.Add(id + "|" + field + ">" + source);
+        Return True;
+    }
+
+    Public Function CatSource(String name, String value) -> Int
+    Explain {
+        Description: "Write a binding source and push it to bound properties.";
+        Input: name = "Source name", value = "Source value";
+        Processing: "Update every binding that reads this source when the value fits the property.";
+        Output: "The number of properties updated.";
+    } {
+        Return This.CatPush(name, value);
+    }
+
+    Public Function CatAccess(String id) -> String
+    Explain {
+        Description: "Return the accessibility role.";
+        Input: id = "Instance name";
+        Processing: "Map the control kind to a role.";
+        Output: "The role, or empty text when the control is missing.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.CatRole(This.kinds[index]);
+    }
+
+    Public Function CatLabel(String id) -> String
+    Explain {
+        Description: "Return the accessible name.";
+        Input: id = "Instance name";
+        Processing: "Use Name, then ToolTip.";
+        Output: "The label, or empty text.";
+    } {
+        String label = This.CatTake(id, "Name");
+        If (label == "") {
+            Return This.CatTake(id, "ToolTip");
+        }
+        Return label;
+    }
+
+    Public Function CatCanFocus(String id) -> Bool
+    Explain {
+        Description: "Report whether a control can take focus.";
+        Input: id = "Instance name";
+        Processing: "Input, collection, and navigation controls can take focus while they are visible and enabled.";
+        Output: "True when focus is allowed.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        If (This.CatTake(id, "Enabled") != "true" || This.CatTake(id, "Visible") != "true") {
+            Return False;
+        }
+        Return This.CatFocusKind(This.kinds[index]);
+    }
+
+    Public Function CatFocus(String id) -> Bool
+    Explain {
+        Description: "Move focus to a control.";
+        Input: id = "Instance name";
+        Processing: "Focus a visible enabled input, collection, or navigation control.";
+        Output: "True when that control is focused.";
+    } {
+        If (!This.CatCanFocus(id)) {
+            Return False;
+        }
+        This.focus = id + "";
+        Return True;
+    }
+
+    Public Function CatFocused() -> String
+    Explain {
+        Description: "Return the focused control.";
+        Input: None;
+        Processing: "Read the focus name.";
+        Output: "The focused name, or empty text.";
+    } {
+        Return This.focus;
+    }
+
+    Public Function CatState(String id) -> String
+    Explain {
+        Description: "Return the interaction state.";
+        Input: id = "Instance name";
+        Processing: "Disabled, editing, pressed, focused, and checked win in that order.";
+        Output: "The state name, or empty text when the control is missing.";
+    } {
+        If (This.CatIndex(id) < 0) {
+            Return "";
+        }
+        If (This.CatTake(id, "Enabled") != "true") {
+            Return "Disabled";
+        }
+        If (This.CatTake(id, "Editing") != "") {
+            Return "Editing";
+        }
+        If (This.CatTake(id, "Pressed") == "true") {
+            Return "Pressed";
+        }
+        If (This.focus == id) {
+            Return "Focused";
+        }
+        If (This.CatTake(id, "Checked") == "true") {
+            Return "Checked";
+        }
+        Return "Normal";
+    }
+
+    Public Function CatRaise(String id, String eventName) -> Bool
+    Explain {
+        Description: "Raise a common event on a control.";
+        Input: id = "Instance name", eventName = "Event name";
+        Processing: "Accept a common event on an enabled control. OnFocus requires a focusable control. OnPressed marks that control only.";
+        Output: "True when the event is recorded.";
+    } {
+        If (This.CatIndex(id) < 0 || eventName == "") {
+            Return False;
+        }
+        If (This.CatTake(id, "Enabled") != "true") {
+            Return False;
+        }
+        String common = ",OnClick,OnChange,OnValueChange,OnFocus,OnBlur,OnKeyDown,OnPressed,";
+        If (!common.Contains("," + eventName + ",")) {
+            Return False;
+        }
+        If (eventName == "OnFocus" && !This.CatCanFocus(id)) {
+            Return False;
+        }
+        If (eventName == "OnPressed") {
+            This.CatPut(id, "Pressed", "true");
+        }
+        If (eventName == "OnFocus") {
+            This.focus = id + "";
+        }
+        String key = id + "|" + eventName;
+        Int index = 0;
+        While (index < This.notes.Count()) {
+            If (This.notes[index] == key) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        This.notes.Add(key);
+        Return True;
+    }
+
+    Public Function CatHeard(String id, String eventName) -> Bool
+    Explain {
+        Description: "Report whether an event was raised.";
+        Input: id = "Instance name", eventName = "Event name";
+        Processing: "Look for that event on that control.";
+        Output: "True when it was recorded.";
+    } {
+        String key = id + "|" + eventName;
+        Int index = 0;
+        While (index < This.notes.Count()) {
+            If (This.notes[index] == key) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Public Function CatEdit(String id, Int row, Int column, String value) -> Bool
+    Explain {
+        Description: "Begin a DataGrid cell edit.";
+        Input: id = "DataGrid name", row = "Row index", column = "Column index", value = "Cell value";
+        Processing: "Edit a row inside the materialized window. The previous value is kept for cancel.";
+        Output: "True when the cell is editing.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || This.kinds[index] != "DataGrid" || column < 0) {
+            Return False;
+        }
+        Int start = This.CatInt(This.CatTake(id, "Start"));
+        Int window = This.CatInt(This.CatTake(id, "Window"));
+        If (row < start || row >= start + window) {
+            Return False;
+        }
+        This.CatPut(id, "Draft", This.CatReadCell(id, row, column));
+        This.CatPutCell(id, row, column, value);
+        This.CatPut(id, "Editing", row.ToString() + "," + column.ToString());
+        Return True;
+    }
+
+    Public Function CatCell(String id, Int row, Int column) -> String
+    Explain {
+        Description: "Read a DataGrid cell.";
+        Input: id = "DataGrid name", row = "Row index", column = "Column index";
+        Processing: "Read the stored cell.";
+        Output: "The cell text, or empty text.";
+    } {
+        Return This.CatReadCell(id, row, column);
+    }
+
+    Public Function CatCancelEdit(String id) -> Bool
+    Explain {
+        Description: "Cancel a DataGrid edit.";
+        Input: id = "DataGrid name";
+        Processing: "Restore the cell captured when the edit began.";
+        Output: "True when an edit was cancelled.";
+    } {
+        String editing = This.CatTake(id, "Editing");
+        If (editing == "") {
+            Return False;
+        }
+        Int row = This.CatInt(This.CatPiece(editing, ",", 0));
+        Int column = This.CatInt(This.CatPiece(editing, ",", 1));
+        This.CatPutCell(id, row, column, This.CatTake(id, "Draft"));
+        This.CatPut(id, "Editing", "");
+        This.CatPut(id, "Draft", "");
+        Return True;
+    }
+
+    Public Function CatCommitEdit(String id) -> Bool
+    Explain {
+        Description: "Commit a DataGrid edit.";
+        Input: id = "DataGrid name";
+        Processing: "Keep the edited cell and leave editing.";
+        Output: "True when an edit was committed.";
+    } {
+        If (This.CatTake(id, "Editing") == "") {
+            Return False;
+        }
+        This.CatPut(id, "Editing", "");
+        This.CatPut(id, "Draft", "");
+        Return True;
+    }
+
+    Public Function CatVirtual(String id, Int total, Int window) -> Int
+    Explain {
+        Description: "Virtualize a large collection.";
+        Input: id = "Collection name", total = "Full item count", window = "Materialized row count";
+        Processing: "Remember the total and materialize only the window. Rows outside the window are not created.";
+        Output: "The number of materialized rows, or 0 when this kind is not a collection.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || !This.CatCollection(This.kinds[index]) || total < 0 || window < 0) {
+            Return 0;
+        }
+        Int shown = window;
+        If (shown > total) {
+            shown = total;
+        }
+        This.CatPut(id, "Total", total.ToString());
+        This.CatPut(id, "Window", shown.ToString());
+        This.CatPut(id, "Start", "0");
+        Return shown;
+    }
+
+    Public Function CatScroll(String id, Int start) -> Bool
+    Explain {
+        Description: "Move a virtual window.";
+        Input: id = "Collection name", start = "First materialized row";
+        Processing: "Slide the window when the start still fits in the total.";
+        Output: "True when the window moves.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || !This.CatCollection(This.kinds[index]) || start < 0) {
+            Return False;
+        }
+        Int total = This.CatInt(This.CatTake(id, "Total"));
+        Int window = This.CatInt(This.CatTake(id, "Window"));
+        If (start >= total || start + window > total) {
+            Return False;
+        }
+        This.CatPut(id, "Start", start.ToString());
+        Return True;
+    }
+
+    Public Function CatMaterialized(String id) -> Int
+    Explain {
+        Description: "Return how many collection rows are materialized.";
+        Input: id = "Collection name";
+        Processing: "Read the virtual window size.";
+        Output: "The window size.";
+    } {
+        Return This.CatInt(This.CatTake(id, "Window"));
+    }
+
+    Public Function CatTotal(String id) -> Int
+    Explain {
+        Description: "Return the full collection size.";
+        Input: id = "Collection name";
+        Processing: "Read the stored total.";
+        Output: "The total row count.";
+    } {
+        Return This.CatInt(This.CatTake(id, "Total"));
+    }
+
+    Public Function CatRow(String id, Int item) -> String
+    Explain {
+        Description: "Return a materialized row name.";
+        Input: id = "Collection name", item = "Row index";
+        Processing: "Name a row only when it sits inside the virtual window.";
+        Output: "The row name, or empty text.";
+    } {
+        Int start = This.CatInt(This.CatTake(id, "Start"));
+        Int window = This.CatInt(This.CatTake(id, "Window"));
+        If (item < start || item >= start + window) {
+            Return "";
+        }
+        Return id + "#" + item.ToString();
+    }
+
+    Public Function CatGeometry(String id) -> String
+    Explain {
+        Description: "Return the vector geometry of a drawing control.";
+        Input: id = "Drawing name";
+        Processing: "Build a command string from the stored geometry.";
+        Output: "The command string, or empty text.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || !This.CatDrawing(This.kinds[index])) {
+            Return "";
+        }
+        String kind = This.kinds[index];
+        String x = This.CatTake(id, "X");
+        String y = This.CatTake(id, "Y");
+        If (kind == "Circle") {
+            Return "C" + x + "," + y + "," + This.CatTake(id, "Radius");
+        }
+        If (kind == "Ellipse") {
+            Return "E" + x + "," + y + "," + This.CatTake(id, "Rx") + "," + This.CatTake(id, "Ry");
+        }
+        If (kind == "Line") {
+            Return "L" + x + "," + y + "," + This.CatTake(id, "X2") + "," + This.CatTake(id, "Y2");
+        }
+        If (kind == "Path") {
+            Return This.CatTake(id, "Points");
+        }
+        If (kind == "Polygon") {
+            Return "P" + This.CatTake(id, "Points") + " Z";
+        }
+        If (kind == "Polyline") {
+            Return "P" + This.CatTake(id, "Points");
+        }
+        Int right = This.CatInt(x) + This.CatInt(This.CatTake(id, "Width"));
+        Int bottom = This.CatInt(y) + This.CatInt(This.CatTake(id, "Height"));
+        Return "M" + x + "," + y + " H" + right.ToString() + " V" + bottom.ToString() + " H" + x + " Z";
+    }
+
+    Public Function CatHit(String id, Int x, Int y) -> Bool
+    Explain {
+        Description: "Test whether a point hits a drawing.";
+        Input: id = "Drawing name", x = "Point x", y = "Point y";
+        Processing: "Use the kind's geometry. A polyline hits only its vertices.";
+        Output: "True when the point hits.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || !This.CatDrawing(This.kinds[index])) {
+            Return False;
+        }
+        String kind = This.kinds[index];
+        Int left = This.CatInt(This.CatTake(id, "X"));
+        Int top = This.CatInt(This.CatTake(id, "Y"));
+        If (kind == "Circle") {
+            Int radius = This.CatInt(This.CatTake(id, "Radius"));
+            Int dx = x - left;
+            Int dy = y - top;
+            If (dx < 0) {
+                dx = 0 - dx;
+            }
+            If (dy < 0) {
+                dy = 0 - dy;
+            }
+            Return dx * dx + dy * dy <= radius * radius;
+        }
+        If (kind == "Ellipse") {
+            Int rx = This.CatInt(This.CatTake(id, "Rx"));
+            Int ry = This.CatInt(This.CatTake(id, "Ry"));
+            Int dx = x - left;
+            Int dy = y - top;
+            If (dx < 0) {
+                dx = 0 - dx;
+            }
+            If (dy < 0) {
+                dy = 0 - dy;
+            }
+            Return dx * dx * ry * ry + dy * dy * rx * rx <= rx * rx * ry * ry;
+        }
+        If (kind == "Line") {
+            Int x2 = This.CatInt(This.CatTake(id, "X2"));
+            Int y2 = This.CatInt(This.CatTake(id, "Y2"));
+            If (top == y2 && y == top) {
+                Int minX = left;
+                Int maxX = x2;
+                If (x2 < left) {
+                    minX = x2;
+                    maxX = left;
+                }
+                Return x >= minX && x <= maxX;
+            }
+            If (left == x2 && x == left) {
+                Int minY = top;
+                Int maxY = y2;
+                If (y2 < top) {
+                    minY = y2;
+                    maxY = top;
+                }
+                Return y >= minY && y <= maxY;
+            }
+            Return False;
+        }
+        If (kind == "Path") {
+            Return This.CatTake(id, "Points").Contains(x.ToString() + "," + y.ToString());
+        }
+        If (kind == "Polyline") {
+            String points = " " + This.CatTake(id, "Points") + " ";
+            Return points.Contains(" " + x.ToString() + "," + y.ToString() + " ");
+        }
+        If (kind == "Polygon") {
+            Return This.CatInside(This.CatTake(id, "Points"), x, y);
+        }
+        Int right = left + This.CatInt(This.CatTake(id, "Width"));
+        Int bottom = top + This.CatInt(This.CatTake(id, "Height"));
+        Return x >= left && x < right && y >= top && y < bottom;
+    }
+
+    Public Function CatCommand(String id, String name, String value) -> String
+    Explain {
+        Description: "Apply a vector command.";
+        Input: id = "Drawing name", name = "Command name", value = "Command arguments";
+        Processing: "Move, resize, extend a line, or append a point, then return the geometry.";
+        Output: "The new geometry, or empty text when the command does not apply.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || !This.CatDrawing(This.kinds[index]) || name == "") {
+            Return "";
+        }
+        String kind = This.kinds[index];
+        If (name == "Move") {
+            This.CatPut(id, "X", This.CatPointX(value).ToString());
+            This.CatPut(id, "Y", This.CatPointY(value).ToString());
+            Return This.CatGeometry(id);
+        }
+        If (name == "Size") {
+            If (kind == "Circle") {
+                This.CatPut(id, "Radius", This.CatPointX(value).ToString());
+            } Else If (kind == "Ellipse") {
+                This.CatPut(id, "Rx", This.CatPointX(value).ToString());
+                This.CatPut(id, "Ry", This.CatPointY(value).ToString());
+            } Else {
+                This.CatPut(id, "Width", This.CatPointX(value).ToString());
+                This.CatPut(id, "Height", This.CatPointY(value).ToString());
+            }
+            Return This.CatGeometry(id);
+        }
+        If (name == "To" && kind == "Line") {
+            This.CatPut(id, "X2", This.CatPointX(value).ToString());
+            This.CatPut(id, "Y2", This.CatPointY(value).ToString());
+            Return This.CatGeometry(id);
+        }
+        If (name == "Add" && (kind == "Path" || kind == "Polygon" || kind == "Polyline")) {
+            String points = This.CatTake(id, "Points");
+            If (kind == "Path") {
+                points = points + " L" + value;
+            } Else {
+                points = points + " " + value;
+            }
+            This.CatPut(id, "Points", points);
+            Return This.CatGeometry(id);
+        }
+        Return "";
+    }
+
+    Public Function CatSecret(String id) -> String
+    Explain {
+        Description: "Read a password that display properties keep masked.";
+        Input: id = "PasswordBox name";
+        Processing: "Return the stored secret for a password box.";
+        Output: "The secret, or empty text.";
+    } {
+        Int index = This.CatIndex(id);
+        If (index < 0 || This.kinds[index] != "PasswordBox") {
+            Return "";
+        }
+        Return This.CatSecretTake(id);
+    }
+
+    Private Function CatWalk(RxuNode node) -> Int {
+        Int count = 0;
+        If (node.Kind == "Element" && This.CatKnown(node.Name)) {
+            String id = node.FindAttribute("Name").Text + "";
+            If (This.CatCreate(node.Name, id)) {
+                count = 1;
+            }
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            count = count + This.CatWalk(node.Children[index]);
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function CatFill(String family, String names) -> Int {
+        Int index = 0;
+        Int count = This.CatPieces(names, ",");
+        While (index < count) {
+            This.families.Add(family);
+            This.catalogKinds.Add(This.CatPiece(names, ",", index));
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function CatJoin(String family, String names) -> String {
+        String text = "";
+        Int index = 0;
+        Int count = This.CatPieces(names, ",");
+        While (index < count) {
+            If (text != "") {
+                text = text + ",";
+            }
+            text = text + family + ":" + This.CatPiece(names, ",", index);
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Private Function CatSlot(Int item) -> String {
+        String family = This.CatFamilyAt(item);
+        String kind = This.CatKindAt(item);
+        If (family == "" || kind == "") {
+            Return "";
+        }
+        Return family + ":" + kind;
+    }
+
+    Private Function CatIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function CatPut(String id, String field, String value) -> Int {
+        This.values.Add(id + "|" + field + "=" + value);
+        Return 1;
+    }
+
+    Private Function CatTake(String id, String field) -> String {
+        String key = id + "|" + field + "=";
+        Int index = This.values.Count() - 1;
+        While (index >= 0) {
+            String row = This.values[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index - 1;
+        }
+        Return "";
+    }
+
+    Private Function CatHasField(String kind, String field) -> Bool {
+        String schema = This.CatSchema(kind);
+        Return ("," + schema + ",").Contains("," + field + ",");
+    }
+
+    Private Function CatAccept(String kind, String id, String field, String value) -> Bool {
+        If (!This.CatHasField(kind, field)) {
+            Return False;
+        }
+        If (field == "Visible" || field == "Enabled" || field == "Checked" || field == "Open") {
+            Return value == "true" || value == "false";
+        }
+        If (field == "Orientation") {
+            Return value == "Horizontal" || value == "Vertical";
+        }
+        If (field == "Dock") {
+            Return value == "Left" || value == "Right" || value == "Top" || value == "Bottom" || value == "Fill";
+        }
+        If (field == "Spacing" || field == "Columns" || field == "Rows" || field == "Width" || field == "Height" || field == "Radius" || field == "Rx" || field == "Ry" || field == "Min" || field == "Max") {
+            Return This.CatNumber(value, False);
+        }
+        If (field == "X" || field == "Y" || field == "X2" || field == "Y2") {
+            Return This.CatNumber(value, False);
+        }
+        If (field == "Fill" || field == "Stroke") {
+            Return This.CatColor(value);
+        }
+        If (field == "Value" && (kind == "ProgressBar" || kind == "Spinner" || kind == "NumberBox" || kind == "Slider")) {
+            Return This.CatRange(id, value, 0, 100);
+        }
+        If (field == "Value" && kind == "DatePicker") {
+            Return This.CatDate(value);
+        }
+        If (field == "Value" && kind == "TimePicker") {
+            Return This.CatTime(value);
+        }
+        If (field == "Value" && kind == "ColorPicker") {
+            Return This.CatColor(value);
+        }
+        If (field == "Value" && kind == "FilePicker") {
+            Return This.CatFile(value);
+        }
+        Return True;
+    }
+
+    Private Function CatFocusKind(String kind) -> Bool {
+        String family = This.CatFamilyOf(kind);
+        Return family == "C3" || family == "C4" || family == "C5";
+    }
+
+    Private Function CatRole(String kind) -> String {
+        If (kind == "Application") {
+            Return "Application";
+        }
+        If (kind == "Window") {
+            Return "Window";
+        }
+        If (kind == "Dialog" || kind == "Popup" || kind == "Flyout" || kind == "Drawer") {
+            Return "Dialog";
+        }
+        If (kind == "Button" || kind == "DatePicker" || kind == "TimePicker" || kind == "ColorPicker" || kind == "FilePicker") {
+            Return "Button";
+        }
+        If (kind == "TextBox" || kind == "PasswordBox" || kind == "TextArea" || kind == "NumberBox") {
+            Return "TextBox";
+        }
+        If (kind == "CheckBox" || kind == "Switch") {
+            Return "CheckBox";
+        }
+        If (kind == "RadioButton") {
+            Return "Radio";
+        }
+        If (kind == "Slider") {
+            Return "Slider";
+        }
+        If (kind == "ComboBox" || kind == "DropDown") {
+            Return "ComboBox";
+        }
+        If (kind == "Text" || kind == "Label" || kind == "RichText" || kind == "Badge" || kind == "Placeholder") {
+            Return "Text";
+        }
+        If (kind == "Image" || kind == "Icon") {
+            Return "Image";
+        }
+        If (kind == "ProgressBar" || kind == "Spinner") {
+            Return "Progress";
+        }
+        If (kind == "Divider") {
+            Return "Separator";
+        }
+        If (kind == "Tooltip") {
+            Return "Tooltip";
+        }
+        If (kind == "Menu" || kind == "MenuItem") {
+            Return "Menu";
+        }
+        If (kind == "ListView" || kind == "GridView" || kind == "TreeView" || kind == "Table" || kind == "DataGrid" || kind == "Repeater" || kind == "Carousel" || kind == "ItemsView") {
+            Return "List";
+        }
+        If (kind == "Rectangle" || kind == "Circle" || kind == "Ellipse" || kind == "Line" || kind == "Path" || kind == "Polygon" || kind == "Polyline" || kind == "Canvas") {
+            Return "Drawing";
+        }
+        String family = This.CatFamilyOf(kind);
+        If (family == "C1") {
+            Return "Group";
+        }
+        If (family == "C5") {
+            Return "Navigation";
+        }
+        Return "Control";
+    }
+
+    Private Function CatCollection(String kind) -> Bool {
+        Return This.CatFamilyOf(kind) == "C4";
+    }
+
+    Private Function CatDrawing(String kind) -> Bool {
+        Return kind == "Canvas" || kind == "Rectangle" || kind == "Circle" || kind == "Ellipse" || kind == "Line" || kind == "Path" || kind == "Polygon" || kind == "Polyline";
+    }
+
+    Private Function CatMask(String value) -> String {
+        String mask = "";
+        Int index = 0;
+        While (index < value.Length()) {
+            mask = mask + "*";
+            index = index + 1;
+        }
+        Return mask;
+    }
+
+    Private Function CatSecretPut(String id, String value) -> Int {
+        This.secrets.Add(id + "=" + value);
+        Return 1;
+    }
+
+    Private Function CatSecretTake(String id) -> String {
+        String key = id + "=";
+        Int index = This.secrets.Count() - 1;
+        While (index >= 0) {
+            String row = This.secrets[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index - 1;
+        }
+        Return "";
+    }
+
+    Private Function CatClearRadios(String id) -> Int {
+        String group = This.CatTake(id, "Group");
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.kinds[index] == "RadioButton" && This.ids[index] != id && This.CatTake(This.ids[index], "Group") == group) {
+                This.CatPut(This.ids[index], "Checked", "false");
+            }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function CatNumber(String value, Bool allowSign) -> Bool {
+        If (value == "") {
+            Return False;
+        }
+        Int index = 0;
+        If (allowSign && value.GetChar(0) == "-") {
+            If (value.Length() == 1) {
+                Return False;
+            }
+            index = 1;
+        }
+        While (index < value.Length()) {
+            String character = value.GetChar(index);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function CatColor(String value) -> Bool {
+        If (value.Length() != 7 || value.GetChar(0) != "#") {
+            Return False;
+        }
+        Int index = 1;
+        While (index < 7) {
+            String character = value.GetChar(index);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function CatDate(String value) -> Bool {
+        If (value.Length() != 10 || value.GetChar(4) != "-" || value.GetChar(7) != "-") {
+            Return False;
+        }
+        Int index = 0;
+        While (index < 10) {
+            If (index != 4 && index != 7) {
+                String character = value.GetChar(index);
+                If (character < "0" || character > "9") {
+                    Return False;
+                }
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function CatTime(String value) -> Bool {
+        If (value.Length() != 5 || value.GetChar(2) != ":") {
+            Return False;
+        }
+        Int index = 0;
+        While (index < 5) {
+            If (index != 2) {
+                String character = value.GetChar(index);
+                If (character < "0" || character > "9") {
+                    Return False;
+                }
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function CatFile(String value) -> Bool {
+        Return value != "" && (value.Contains(".") || value.Contains("/"));
+    }
+
+    Private Function CatRange(String id, String value, Int low, Int high) -> Bool {
+        If (!This.CatNumber(value, False)) {
+            Return False;
+        }
+        Int number = value.ToInt();
+        String minText = This.CatTake(id, "Min");
+        String maxText = This.CatTake(id, "Max");
+        Int min = low;
+        Int max = high;
+        If (minText != "") {
+            min = minText.ToInt();
+        }
+        If (maxText != "") {
+            max = maxText.ToInt();
+        }
+        Return number >= min && number <= max;
+    }
+
+    Private Function CatPutCell(String id, Int row, Int column, String value) -> Int {
+        This.cells.Add(id + "|" + row.ToString() + "|" + column.ToString() + "=" + value);
+        Return 1;
+    }
+
+    Private Function CatReadCell(String id, Int row, Int column) -> String {
+        String key = id + "|" + row.ToString() + "|" + column.ToString() + "=";
+        Int index = This.cells.Count() - 1;
+        While (index >= 0) {
+            String rowText = This.cells[index];
+            If (rowText.StartsWith(key)) {
+                If (rowText.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return rowText.Substring(key.Length());
+            }
+            index = index - 1;
+        }
+        Return "";
+    }
+
+    Private Function CatPush(String name, String value) -> Int {
+        Int count = 0;
+        Int index = This.binds.Count() - 1;
+        While (index >= 0) {
+            String row = This.binds[index];
+            String id = This.CatPiece(row, "|", 0);
+            String rest = This.CatPiece(row, "|", 1);
+            String field = This.CatPiece(rest, ">", 0);
+            String source = This.CatPiece(rest, ">", 1);
+            String prefix = id + "|" + field + ">";
+            If (source == name && !This.CatNewer(index, prefix) && This.CatSet(id, field, value)) {
+                count = count + 1;
+            }
+            index = index - 1;
+        }
+        Return count;
+    }
+
+    Private Function CatNewer(Int before, String prefix) -> Bool {
+        Int index = before + 1;
+        While (index < This.binds.Count()) {
+            If (This.binds[index].StartsWith(prefix)) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function CatInside(String points, Int x, Int y) -> Bool {
+        Int index = 0;
+        Int count = This.CatPieces(points, " ");
+        Int minX = 0;
+        Int maxX = 0;
+        Int minY = 0;
+        Int maxY = 0;
+        Bool found = False;
+        While (index < count) {
+            String pair = This.CatPiece(points, " ", index);
+            Int px = This.CatPointX(pair);
+            Int py = This.CatPointY(pair);
+            If (!found) {
+                minX = px;
+                maxX = px;
+                minY = py;
+                maxY = py;
+                found = True;
+            }
+            If (px < minX) {
+                minX = px;
+            }
+            If (px > maxX) {
+                maxX = px;
+            }
+            If (py < minY) {
+                minY = py;
+            }
+            If (py > maxY) {
+                maxY = py;
+            }
+            index = index + 1;
+        }
+        If (!found) {
+            Return False;
+        }
+        Return x >= minX && x <= maxX && y >= minY && y <= maxY;
+    }
+
+    Private Function CatPointX(String value) -> Int {
+        Return This.CatInt(This.CatPiece(value, ",", 0));
+    }
+
+    Private Function CatPointY(String value) -> Int {
+        Return This.CatInt(This.CatPiece(value, ",", 1));
+    }
+
+    Private Function CatInt(String value) -> Int {
+        If (!This.CatNumber(value, False)) {
+            Return 0;
+        }
+        Return value.ToInt();
+    }
+
+    Private Function CatPieces(String text, String separator) -> Int {
+        If (text == "") {
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.GetChar(index) == separator) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function CatPiece(String text, String separator, Int item) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            Bool boundary = index == text.Length();
+            If (!boundary) {
+                boundary = text.GetChar(index) == separator;
+            }
+            If (boundary) {
+                If (seen == item) {
+                    Return text.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+}

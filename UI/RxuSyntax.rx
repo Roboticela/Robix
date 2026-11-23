@@ -1,0 +1,1146 @@
+// Markup tokens, nodes, lexer, and parser.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class RxuDiagnostic {
+    Public String Code;
+    Public String Message;
+    Public String Filename;
+    Public Int Line;
+    Public Int Column;
+    Public Int Length;
+    Public String Expected;
+    Public String Actual;
+    Public String Correction;
+
+    Public Constructor() {
+        This.Code = "";
+        This.Message = "";
+        This.Filename = "";
+        This.Line = 1;
+        This.Column = 1;
+        This.Length = 0;
+        This.Expected = "";
+        This.Actual = "";
+        This.Correction = "";
+    }
+}
+
+Public Class RxuMessages {
+    Private List<RxuDiagnostic> items;
+
+    Public Constructor() {
+        This.items = List<RxuDiagnostic>();
+    }
+
+    Public Function Add(
+        String code,
+        String message,
+        String filename,
+        Int line,
+        Int column,
+        Int length,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void
+    Explain {
+        Description: "Record one RXU diagnostic with its source location and repair.";
+        Input: code = "Stable RXU code", message = "What is wrong", filename = "Markup file name", line = "1-based line", column = "1-based column", length = "Span length", expected = "Expected markup", actual = "Markup that was found", correction = "How to repair it";
+        Processing: "Copy the text and append the diagnostic.";
+        Output: "No return value.";
+    } {
+        RxuDiagnostic item = RxuDiagnostic();
+        item.Code = code + "";
+        item.Message = message + "";
+        item.Filename = filename + "";
+        item.Line = line;
+        item.Column = column;
+        item.Length = length;
+        item.Expected = expected + "";
+        item.Actual = actual + "";
+        item.Correction = correction + "";
+        This.items.Add(item);
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Return how many RXU diagnostics are stored.";
+        Input: None;
+        Processing: "Read the diagnostic list size.";
+        Output: "The number of stored diagnostics.";
+    } {
+        Return This.items.Count();
+    }
+
+    Public Function At(Int index) -> RxuDiagnostic
+    Explain {
+        Description: "Return one stored RXU diagnostic.";
+        Input: index = "Zero-based diagnostic index";
+        Processing: "Read that diagnostic, or a blank one when the index is outside the list.";
+        Output: "The diagnostic at that index.";
+    } {
+        If (index < 0 || index >= This.items.Count()) {
+            Return RxuDiagnostic();
+        }
+        Return This.items[index];
+    }
+
+    Public Function Find(String code) -> Int
+    Explain {
+        Description: "Find the first diagnostic with a code.";
+        Input: code = "Stable RXU code";
+        Processing: "Scan the stored diagnostics.";
+        Output: "The index, or -1 when the code is absent.";
+    } {
+        Int index = 0;
+        While (index < This.items.Count()) {
+            If (This.items[index].Code == code) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Public Function FormatAt(Int index) -> String
+    Explain {
+        Description: "Format one diagnostic with file, position, span, and repair.";
+        Input: index = "Zero-based diagnostic index";
+        Processing: "Join the location, code, message, expected value, actual value, and correction.";
+        Output: "The diagnostic line, or an empty string when the index is absent.";
+    } {
+        If (index < 0 || index >= This.items.Count()) {
+            Return "";
+        }
+        RxuDiagnostic item = This.At(index);
+        String location = item.Line.ToString() + ":" + item.Column.ToString();
+        If (item.Filename != "") {
+            location = item.Filename + ":" + location;
+        }
+        String text = location + ": length " + item.Length.ToString() + ": error " + item.Code + " " + item.Message;
+        If (item.Expected != "" || item.Actual != "") {
+            text = text + " expected " + item.Expected + ", actual " + item.Actual;
+        }
+        If (item.Correction != "") {
+            text = text + " correction: " + item.Correction;
+        }
+        Return text;
+    }
+}
+
+Public Class RxuToken {
+    Public String Kind;
+    Public String Text;
+    Public String Mode;
+    Public Int Line;
+    Public Int Column;
+    Public Int Length;
+    Public Int Index;
+
+    Public Constructor() {
+        This.Kind = "";
+        This.Text = "";
+        This.Mode = "";
+        This.Line = 1;
+        This.Column = 1;
+        This.Length = 0;
+        This.Index = 0;
+    }
+}
+
+Public Class RxuNode {
+    Public String Kind;
+    Public String Name;
+    Public String Text;
+    Public String Mode;
+    Public Int Line;
+    Public Int Column;
+    Public Int Length;
+    Public List<RxuNode> Attributes;
+    Public List<RxuNode> Children;
+    Public RxuMessages Messages;
+
+    Public Constructor() {
+        This.Kind = "";
+        This.Name = "";
+        This.Text = "";
+        This.Mode = "";
+        This.Line = 1;
+        This.Column = 1;
+        This.Length = 0;
+        This.Attributes = List<RxuNode>();
+        This.Children = List<RxuNode>();
+        This.Messages = RxuMessages();
+    }
+
+    Public Function FindAttribute(String name) -> RxuNode
+    Explain {
+        Description: "Find a direct attribute by name.";
+        Input: name = "Attribute name";
+        Processing: "Scan the attributes of this node.";
+        Output: "The attribute, or a blank node when it is missing.";
+    } {
+        For attribute In This.Attributes {
+            If (attribute.Name == name) {
+                Return attribute;
+            }
+        }
+        Return RxuNode();
+    }
+
+    Public Function FindChild(String name) -> RxuNode
+    Explain {
+        Description: "Find a direct element child by name.";
+        Input: name = "Element name";
+        Processing: "Scan the direct children.";
+        Output: "The element, or a blank node when it is missing.";
+    } {
+        For child In This.Children {
+            If (child.Kind == "Element" && child.Name == name) {
+                Return child;
+            }
+        }
+        Return RxuNode();
+    }
+
+    Public Function FindKind(String kind) -> RxuNode
+    Explain {
+        Description: "Find a direct child by node kind.";
+        Input: kind = "Document, Element, Text, Comment, Expression, or Attribute";
+        Processing: "Scan the direct children.";
+        Output: "The child, or a blank node when it is missing.";
+    } {
+        For child In This.Children {
+            If (child.Kind == kind) {
+                Return child;
+            }
+        }
+        Return RxuNode();
+    }
+
+    Public Function Describe() -> String
+    Explain {
+        Description: "Describe this node and its children.";
+        Input: None;
+        Processing: "Write the kind, name, mode, text, and attributes, then each child.";
+        Output: "A multiline description.";
+    } {
+        Return This.DescribeAt(0);
+    }
+
+    Private Function DescribeAt(Int depth) -> String {
+        String line = "";
+        Int pad = 0;
+        While (pad < depth) {
+            line = line + "  ";
+            pad = pad + 1;
+        }
+        line = line + This.Kind;
+        If (This.Name != "") {
+            line = line + " " + This.Name;
+        }
+        If (This.Mode != "") {
+            line = line + " " + This.Mode;
+        }
+        If (This.Text != "") {
+            line = line + " " + This.Text;
+        }
+        For attribute In This.Attributes {
+            line = line + " " + attribute.Name + "=" + attribute.Mode + ":" + attribute.Text;
+        }
+        For child In This.Children {
+            line = line + "\n" + child.DescribeAt(depth + 1);
+        }
+        Return line;
+    }
+}
+
+Public Class RxuLexer {
+    Private String filename;
+    Private String source;
+    Private Int index;
+    Private Int line;
+    Private Int column;
+    Private Bool inTag;
+    Private String classified;
+    Private List<RxuToken> tokens;
+    Private RxuMessages messages;
+
+    Public Constructor() {
+        This.filename = "";
+        This.source = "";
+        This.index = 0;
+        This.line = 1;
+        This.column = 1;
+        This.inTag = False;
+        This.classified = "";
+        This.tokens = List<RxuToken>();
+        This.messages = RxuMessages();
+    }
+
+    Public Function Tokenize(String filename, String source) -> Void
+    Explain {
+        Description: "Turn RXU markup into tokens.";
+        Input: filename = "Markup file name", source = "RXU source text";
+        Processing: "Read tags, attributes, strings, comments, text, and expressions.";
+        Output: "No return value. The tokens stay on this lexer.";
+    } {
+        This.Reset(filename, source);
+        This.Scan();
+        This.Take("End", "", "", This.line, This.column, This.index);
+    }
+
+    Public Function TokenCount() -> Int
+    Explain {
+        Description: "Return how many tokens were read.";
+        Input: None;
+        Processing: "Read the token list size.";
+        Output: "The number of tokens, including End.";
+    } {
+        Return This.tokens.Count();
+    }
+
+    Public Function TokenAt(Int index) -> RxuToken
+    Explain {
+        Description: "Return one token by index.";
+        Input: index = "Zero-based token index";
+        Processing: "Read that token, or a blank token when the index is outside the list.";
+        Output: "The token at that index.";
+    } {
+        If (index < 0 || index >= This.tokens.Count()) {
+            Return RxuToken();
+        }
+        Return This.tokens[index];
+    }
+
+    Public Function LexerDiagnostics() -> RxuMessages
+    Explain {
+        Description: "Return the diagnostics recorded while tokenizing.";
+        Input: None;
+        Processing: "Hand back the message bag filled by Tokenize.";
+        Output: "The lexer diagnostics.";
+    } {
+        Return This.messages;
+    }
+
+    Private Function Reset(String filename, String source) -> Void {
+        This.filename = filename + "";
+        This.source = source + "";
+        This.index = 0;
+        This.line = 1;
+        This.column = 1;
+        This.inTag = False;
+        This.classified = "";
+        This.tokens = List<RxuToken>();
+        This.messages = RxuMessages();
+    }
+
+    Private Function Scan() -> Void {
+        Int guard = 0;
+        Int limit = This.source.Length() + 8;
+        While (This.index < This.source.Length() && guard < limit) {
+            Int before = This.index;
+            If (This.inTag) {
+                This.SkipSpace();
+                If (This.index >= This.source.Length()) {
+                    Break;
+                }
+                If (This.StartsWith("<!--")) {
+                    This.ReadComment();
+                } Else If (This.PeekChar(0) == ">") {
+                    Int start = This.index;
+                    Int startLine = This.line;
+                    Int startColumn = This.column;
+                    This.Advance();
+                    This.Take("Close", ">", "", startLine, startColumn, start);
+                    This.inTag = False;
+                } Else If (This.PeekChar(0) == "/") {
+                    Int start = This.index;
+                    Int startLine = This.line;
+                    Int startColumn = This.column;
+                    This.Advance();
+                    This.Take("Slash", "/", "", startLine, startColumn, start);
+                } Else If (This.PeekChar(0) == "=") {
+                    Int start = This.index;
+                    Int startLine = This.line;
+                    Int startColumn = This.column;
+                    This.Advance();
+                    This.Take("Equals", "=", "", startLine, startColumn, start);
+                } Else If (This.PeekChar(0) == "\"" || This.PeekChar(0) == "'") {
+                    This.ReadString();
+                } Else If (This.PeekChar(0) == "{") {
+                    This.ReadExpression();
+                } Else If (This.IsDigit(This.PeekChar(0))) {
+                    This.ReadNumber();
+                } Else If (This.IsNameStart(This.PeekChar(0))) {
+                    This.ReadName();
+                    If (This.PeekChar(0) == ":") {
+                        This.LexerFail("RXU015", "XML namespaces are not allowed.", This.line, This.column, "a name without a namespace", ":", "Remove the namespace prefix.");
+                        This.Advance();
+                        While (This.IsNamePart(This.PeekChar(0))) {
+                            This.Advance();
+                        }
+                    }
+                } Else {
+                    This.LexerFail("RXU003", "This character is not valid inside a tag.", This.line, This.column, "a name, value, '/' or '>'", This.PeekChar(0), "Rewrite the tag.");
+                    This.Advance();
+                }
+            } Else If (This.StartsWith("<!--")) {
+                This.ReadComment();
+            } Else If (This.StartsWith("<?")) {
+                This.SkipDeclaration();
+            } Else If (This.StartsWith("<!")) {
+                This.LexerFail("RXU003", "This markup is not a comment or a tag.", This.line, This.column, "<!-- or a tag", "<!", "Use a tag or a comment.");
+                While (This.index < This.source.Length() && This.PeekChar(0) != ">") {
+                    This.Advance();
+                }
+                If (This.PeekChar(0) == ">") {
+                    This.Advance();
+                }
+            } Else If (This.PeekChar(0) == "<") {
+                Int start = This.index;
+                Int startLine = This.line;
+                Int startColumn = This.column;
+                This.Advance();
+                This.Take("Open", "<", "", startLine, startColumn, start);
+                This.inTag = True;
+            } Else If (This.PeekChar(0) == "{") {
+                This.ReadExpression();
+            } Else {
+                This.ReadText();
+            }
+            If (This.index == before) {
+                This.LexerFail("RXU003", "The markup could not be read here.", This.line, This.column, "more markup", This.PeekChar(0), "Remove the invalid character.");
+                This.Advance();
+            }
+            guard = guard + 1;
+        }
+    }
+
+    Private Function Take(String kind, String text, String mode, Int line, Int column, Int start) -> Void {
+        RxuToken token = RxuToken();
+        token.Kind = kind + "";
+        token.Text = text + "";
+        token.Mode = mode + "";
+        token.Line = line;
+        token.Column = column;
+        token.Index = start;
+        token.Length = This.index - start;
+        If (token.Length < 0) {
+            token.Length = 0;
+        }
+        This.tokens.Add(token);
+    }
+
+    Private Function LexerFail(
+        String code,
+        String message,
+        Int line,
+        Int column,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void {
+        This.messages.Add(code, message, This.filename, line, column, 1, expected, actual, correction);
+    }
+
+    Private Function Advance() -> Void {
+        If (This.index >= This.source.Length()) {
+            Return;
+        }
+        String character = This.PeekChar(0);
+        This.index = This.index + 1;
+        If (character == "\n") {
+            This.line = This.line + 1;
+            This.column = 1;
+        } Else {
+            This.column = This.column + 1;
+        }
+    }
+
+    Private Function PeekChar(Int offset) -> String {
+        Int position = This.index + offset;
+        If (position < 0 || position >= This.source.Length()) {
+            Return "";
+        }
+        Return This.source.Substring(position, 1);
+    }
+
+    Private Function StartsWith(String text) -> Bool {
+        If (This.index + text.Length() > This.source.Length()) {
+            Return False;
+        }
+        Return This.source.Substring(This.index, text.Length()) == text;
+    }
+
+    Private Function SkipSpace() -> Void {
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == " " || character == "\t" || character == "\r" || character == "\n") {
+                This.Advance();
+            } Else {
+                Break;
+            }
+        }
+    }
+
+    Private Function ReadName() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        This.Advance();
+        While (This.IsNamePart(This.PeekChar(0))) {
+            This.Advance();
+        }
+        String text = This.source.Substring(start, This.index - start);
+        String kind = "Name";
+        If (text == "true" || text == "false" || text == "True" || text == "False") {
+            kind = "Boolean";
+        }
+        This.Take(kind, text, "", startLine, startColumn, start);
+    }
+
+    Private Function ReadNumber() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        While (This.IsDigit(This.PeekChar(0))) {
+            This.Advance();
+        }
+        If (This.PeekChar(0) == "." && This.IsDigit(This.PeekChar(1))) {
+            This.Advance();
+            While (This.IsDigit(This.PeekChar(0))) {
+                This.Advance();
+            }
+        }
+        String text = This.source.Substring(start, This.index - start);
+        This.Take("Number", text, "", startLine, startColumn, start);
+    }
+
+    Private Function ReadString() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        String quote = This.PeekChar(0);
+        This.Advance();
+        String value = "";
+        Int chunk = This.index;
+        Bool closed = False;
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == "\\") {
+                If (This.index > chunk) {
+                    value = value + This.source.Substring(chunk, This.index - chunk);
+                }
+                This.Advance();
+                String escaped = This.PeekChar(0);
+                If (escaped == "n") {
+                    value = value + "\n";
+                } Else If (escaped == "r") {
+                    value = value + "\r";
+                } Else If (escaped == "t") {
+                    value = value + "\t";
+                } Else If (escaped == "") {
+                    value = value + "\\";
+                } Else {
+                    value = value + escaped;
+                }
+                If (escaped != "") {
+                    This.Advance();
+                }
+                chunk = This.index;
+            } Else If (character == quote) {
+                If (This.index > chunk) {
+                    value = value + This.source.Substring(chunk, This.index - chunk);
+                }
+                This.Advance();
+                closed = True;
+                Break;
+            } Else {
+                This.Advance();
+            }
+        }
+        If (!closed) {
+            If (This.index > chunk) {
+                value = value + This.source.Substring(chunk, This.index - chunk);
+            }
+            This.LexerFail("RXU004", "This string is not closed.", startLine, startColumn, quote, "end of document", "Close the string with the same quote.");
+        }
+        This.Take("String", value, "String", startLine, startColumn, start);
+    }
+
+    Private Function ReadText() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == "<" || character == "{") {
+                Break;
+            }
+            This.Advance();
+        }
+        If (This.index == start) {
+            Return;
+        }
+        String text = This.source.Substring(start, This.index - start);
+        This.Take("Text", text, "", startLine, startColumn, start);
+    }
+
+    Private Function ReadExpression() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        This.Advance();
+        Int depth = 1;
+        Bool closed = False;
+        While (This.index < This.source.Length()) {
+            String character = This.PeekChar(0);
+            If (character == "\"" || character == "'") {
+                String quote = character;
+                This.Advance();
+                While (This.index < This.source.Length() && This.PeekChar(0) != quote) {
+                    If (This.PeekChar(0) == "\\") {
+                        This.Advance();
+                    }
+                    If (This.index < This.source.Length()) {
+                        This.Advance();
+                    }
+                }
+                If (This.PeekChar(0) == quote) {
+                    This.Advance();
+                }
+            } Else If (character == "{") {
+                depth = depth + 1;
+                This.Advance();
+            } Else If (character == "}") {
+                depth = depth - 1;
+                This.Advance();
+                If (depth == 0) {
+                    closed = True;
+                    Break;
+                }
+            } Else {
+                This.Advance();
+            }
+        }
+        Int bodyStart = start + 1;
+        Int bodyLength = This.index - bodyStart;
+        If (closed) {
+            bodyLength = bodyLength - 1;
+        }
+        If (bodyLength < 0) {
+            bodyLength = 0;
+        }
+        String body = This.source.Substring(bodyStart, bodyLength);
+        If (!closed) {
+            This.LexerFail("RXU005", "This expression is not closed.", startLine, startColumn, "}", "end of document", "Close the expression with '}'.");
+        }
+        String mode = This.Classify(body, startLine, startColumn);
+        This.Take("Expression", This.classified, mode, startLine, startColumn, start);
+    }
+
+    Private Function ReadComment() -> Void {
+        Int start = This.index;
+        Int startLine = This.line;
+        Int startColumn = This.column;
+        This.Advance();
+        This.Advance();
+        This.Advance();
+        This.Advance();
+        Int body = This.index;
+        Bool closed = False;
+        While (This.index < This.source.Length()) {
+            If (This.StartsWith("-->")) {
+                String text = This.source.Substring(body, This.index - body);
+                This.Advance();
+                This.Advance();
+                This.Advance();
+                This.Take("Comment", text, "", startLine, startColumn, start);
+                closed = True;
+                Break;
+            }
+            This.Advance();
+        }
+        If (!closed) {
+            String text = "";
+            If (This.index > body) {
+                text = This.source.Substring(body, This.index - body);
+            }
+            This.LexerFail("RXU006", "This comment is not closed.", startLine, startColumn, "-->", "end of document", "End the comment with -->.");
+            This.Take("Comment", text, "", startLine, startColumn, start);
+        }
+    }
+
+    Private Function SkipDeclaration() -> Void {
+        This.LexerFail("RXU009", "An XML declaration is not allowed.", This.line, This.column, "an element", "<?", "Remove the XML declaration.");
+        While (This.index < This.source.Length()) {
+            If (This.StartsWith("?>")) {
+                This.Advance();
+                This.Advance();
+                Break;
+            }
+            If (This.PeekChar(0) == ">") {
+                This.Advance();
+                Break;
+            }
+            This.Advance();
+        }
+    }
+
+    Private Function Classify(String body, Int line, Int column) -> String {
+        String text = body.Trim();
+        If (text.Length() == 0) {
+            This.LexerFail("RXU007", "An expression cannot be empty.", line, column, "a value, binding, resource, or localization", "empty", "Write the expression inside the braces.");
+            This.classified = "";
+            Return "Expression";
+        }
+        If (This.HasKeyword(text, "Binding")) {
+            This.classified = This.AfterKeyword(text, "Binding");
+            Return "Binding";
+        }
+        If (This.HasKeyword(text, "Resource")) {
+            This.classified = This.AfterKeyword(text, "Resource");
+            Return "Resource";
+        }
+        If (This.HasKeyword(text, "Localization")) {
+            This.classified = This.AfterKeyword(text, "Localization");
+            Return "Localization";
+        }
+        This.classified = text + "";
+        Return "Expression";
+    }
+
+    Private Function HasKeyword(String text, String keyword) -> Bool {
+        If (text == keyword) {
+            Return True;
+        }
+        If (text.StartsWith(keyword) && text.Length() > keyword.Length()) {
+            String next = text.Substring(keyword.Length(), 1);
+            If (next == " " || next == "\t") {
+                Return True;
+            }
+        }
+        Return False;
+    }
+
+    Private Function AfterKeyword(String text, String keyword) -> String {
+        If (text == keyword) {
+            Return "";
+        }
+        Return text.Substring(keyword.Length() + 1).Trim() + "";
+    }
+
+    Private Function IsDigit(String character) -> Bool {
+        If (character.Length() != 1) {
+            Return False;
+        }
+        Return character >= "0" && character <= "9";
+    }
+
+    Private Function IsNameStart(String character) -> Bool {
+        If (character.Length() != 1) {
+            Return False;
+        }
+        If (character >= "A" && character <= "Z") {
+            Return True;
+        }
+        If (character >= "a" && character <= "z") {
+            Return True;
+        }
+        Return character == "_";
+    }
+
+    Private Function IsNamePart(String character) -> Bool {
+        If (This.IsNameStart(character) || This.IsDigit(character)) {
+            Return True;
+        }
+        Return character == "-";
+    }
+}
+
+Public Class RxuParser {
+    Private String filename;
+    Private List<RxuToken> tokens;
+    Private RxuMessages messages;
+    Private Int index;
+
+    Public Constructor() {
+        This.filename = "";
+        This.tokens = List<RxuToken>();
+        This.messages = RxuMessages();
+        This.index = 0;
+    }
+
+    Public Function Parse(String filename, String source) -> RxuNode
+    Explain {
+        Description: "Parse RXU markup into a position-aware tree.";
+        Input: filename = "Markup file name", source = "RXU source text";
+        Processing: "Tokenize the markup, parse elements, and bind Else and choice branches.";
+        Output: "The document tree. Diagnostics are stored on the document.";
+    } {
+        RxuLexer lexer = RxuLexer();
+        This.filename = filename + "";
+        lexer.Tokenize(filename, source);
+        This.messages = lexer.LexerDiagnostics();
+        This.tokens = List<RxuToken>();
+        Int count = lexer.TokenCount();
+        Int cursor = 0;
+        While (cursor < count) {
+            This.tokens.Add(lexer.TokenAt(cursor));
+            cursor = cursor + 1;
+        }
+        This.index = 0;
+        RxuNode document = This.ParseDocument();
+        document.Messages = This.messages;
+        Return document;
+    }
+
+    Private Function ParseDocument() -> RxuNode {
+        RxuNode document = This.MakeNode("Document", This.filename, "", "", 1, 1, 0);
+        This.ParseSequence(document);
+        If (!This.AtKind("End")) {
+            RxuToken extra = This.PeekToken();
+            This.ParserFail("RXU003", "Markup remains after the document.", extra.Line, extra.Column, extra.Length, "end of document", extra.Kind, "Remove the extra markup.");
+        }
+        document.Messages = This.messages;
+        Return document;
+    }
+
+    Private Function ParseSequence(RxuNode parent) -> Void {
+        RxuNode held = RxuNode();
+        held.Name = parent.Name + "";
+        Int guard = 0;
+        While (!This.AtKind("End") && guard < This.tokens.Count() + 2) {
+            If (This.AtKind("Open") && This.KindAt(1) == "Slash") {
+                Break;
+            }
+            Int before = This.index;
+            If (This.AtKind("Open")) {
+                held.Children.Add(This.ParseElement());
+            } Else If (This.AtKind("Text")) {
+                held.Children.Add(This.NodeFromToken("Text"));
+            } Else If (This.AtKind("Comment")) {
+                held.Children.Add(This.NodeFromToken("Comment"));
+            } Else If (This.AtKind("Expression")) {
+                held.Children.Add(This.NodeFromToken("Expression"));
+            } Else {
+                RxuToken bad = This.PeekToken();
+                This.ParserFail("RXU003", "This token cannot appear here.", bad.Line, bad.Column, bad.Length, "an element, text, comment, or expression", bad.Kind, "Rewrite this part of the markup.");
+                This.AdvanceToken();
+            }
+            If (This.index == before) {
+                This.AdvanceToken();
+            }
+            guard = guard + 1;
+        }
+        This.BindFlow(held);
+        parent.Children = List<RxuNode>();
+        Int cursor = 0;
+        While (cursor < held.Children.Count()) {
+            parent.Children.Add(held.Children[cursor]);
+            cursor = cursor + 1;
+        }
+    }
+
+    Private Function ParseElement() -> RxuNode {
+        RxuToken open = This.ExpectKind("Open", "RXU003", "A tag must start with '<'.", "<", "Start the tag with '<'.");
+        RxuToken name = This.ExpectKind("Name", "RXU003", "A tag needs a name.", "a name", "Write the element name after '<'.");
+        If (name.Text == "While") {
+            This.ParserFail("RXU008", "While is not allowed in RXU.", name.Line, name.Column, name.Length, "If, Each, or For", "While", "Use If, Each, For, or ForEach.");
+        }
+        RxuNode node = This.MakeNode("Element", name.Text, "", "Pair", open.Line, open.Column, open.Length);
+        This.ParseAttributes(node);
+        If (This.AtKind("Slash")) {
+            This.AdvanceToken();
+            RxuToken close = This.ExpectKind("Close", "RXU003", "A self-closing tag must end with '/>'.", ">", "End the tag with '/>'.");
+            node.Mode = "Empty";
+            node.Length = close.Index + close.Length - open.Index;
+            If (node.Length < 0) {
+                node.Length = 1;
+            }
+            Return node;
+        }
+        RxuToken close = This.ExpectKind("Close", "RXU003", "A tag must end with '>'.", ">", "End the tag with '>'.");
+        This.ParseSequence(node);
+        If (This.AtKind("End")) {
+            This.ParserFail("RXU002", "This tag is not closed.", open.Line, open.Column, open.Length, "</" + name.Text + ">", "end of document", "Add the matching end tag.");
+            node.Length = close.Index + close.Length - open.Index;
+            If (node.Length < 0) {
+                node.Length = 1;
+            }
+            Return node;
+        }
+        This.ExpectKind("Open", "RXU003", "An end tag must start with '</'.", "</", "Close the element with an end tag.");
+        This.ExpectKind("Slash", "RXU003", "An end tag must start with '</'.", "/", "Write '/' after '<'.");
+        RxuToken endName = This.ExpectKind("Name", "RXU003", "An end tag needs the element name.", name.Text, "Write the matching element name.");
+        If (endName.Text != name.Text) {
+            This.ParserFail("RXU001", "The end tag does not match the open tag.", endName.Line, endName.Column, endName.Length, name.Text, endName.Text, "Close <" + name.Text + "> with </" + name.Text + ">.");
+        }
+        RxuToken endClose = This.ExpectKind("Close", "RXU003", "An end tag must end with '>'.", ">", "End the tag with '>'.");
+        node.Length = endClose.Index + endClose.Length - open.Index;
+        If (node.Length < 0) {
+            node.Length = 1;
+        }
+        Return node;
+    }
+
+    Private Function ParseAttributes(RxuNode node) -> Void {
+        While (This.AtKind("Name")) {
+            Int before = This.index;
+            RxuToken attributeName = This.PeekToken();
+            This.AdvanceToken();
+            String mode = "Boolean";
+            String text = "true";
+            Int length = attributeName.Length;
+            Int valueIndex = attributeName.Index;
+            Int valueLength = attributeName.Length;
+            If (This.AtKind("Equals")) {
+                This.AdvanceToken();
+                RxuToken value = This.PeekToken();
+                If (value.Kind == "String" || value.Kind == "Number" || value.Kind == "Boolean" || value.Kind == "Expression") {
+                    mode = "String";
+                    If (value.Kind == "String") {
+                        mode = This.QuotedMode(value.Text);
+                    } Else If (value.Kind == "Number") {
+                        mode = "Number";
+                        If (value.Text.Contains(".")) {
+                            mode = "Float";
+                        }
+                    } Else If (value.Kind == "Boolean") {
+                        mode = "Boolean";
+                    } Else If (value.Kind == "Expression") {
+                        mode = value.Mode;
+                    }
+                    text = value.Text;
+                    valueIndex = value.Index;
+                    valueLength = value.Length;
+                    This.AdvanceToken();
+                } Else {
+                    This.ParserFail("RXU003", "An attribute needs a quoted value or an expression.", value.Line, value.Column, value.Length, "a value", value.Kind, "Quote the value or write a braced expression.");
+                }
+            }
+            length = valueIndex + valueLength - attributeName.Index;
+            If (length < 0) {
+                length = attributeName.Length;
+            }
+            RxuNode attribute = This.MakeNode("Attribute", attributeName.Text, text, mode, attributeName.Line, attributeName.Column, length);
+            node.Attributes.Add(attribute);
+            If (This.index == before) {
+                This.AdvanceToken();
+            }
+        }
+    }
+
+    Private Function BindFlow(RxuNode parent) -> Void {
+        RxuNode held = RxuNode();
+        held.Name = parent.Name + "";
+        Int count = parent.Children.Count();
+        Int cursor = 0;
+        While (cursor < count) {
+            RxuNode node = parent.Children[cursor];
+            If (node.Kind == "Element" && (node.Name == "Else" || node.Name == "ElseIf")) {
+                If (parent.Name == "If" || parent.Name == "ElseIf") {
+                    This.RejectDuplicateElse(held, node);
+                    held.Children.Add(node);
+                } Else {
+                    Int owner = This.LastNamed(held, "If");
+                    If (owner < 0) {
+                        This.ParserFail("RXU010", "Else and ElseIf must follow an If.", node.Line, node.Column, node.Length, "If", node.Name, "Put this branch after an If.");
+                        held.Children.Add(node);
+                    } Else {
+                        This.RejectDuplicateElse(held.Children[owner], node);
+                        held.Children[owner].Children.Add(node);
+                    }
+                }
+            } Else If (node.Kind == "Element" && (node.Name == "When" || node.Name == "Default" || node.Name == "Otherwise")) {
+                If (parent.Name == "Choose" || parent.Name == "Switch") {
+                    This.RejectDuplicateDefault(held, node);
+                    held.Children.Add(node);
+                } Else {
+                    Int owner = This.LastNamed(held, "Choose");
+                    If (owner < 0) {
+                        owner = This.LastNamed(held, "Switch");
+                    }
+                    If (owner < 0) {
+                        This.ParserFail("RXU011", "This branch needs a Choose or Switch.", node.Line, node.Column, node.Length, "Choose or Switch", node.Name, "Place it after Choose or Switch.");
+                        held.Children.Add(node);
+                    } Else {
+                        This.RejectDuplicateDefault(held.Children[owner], node);
+                        held.Children[owner].Children.Add(node);
+                    }
+                }
+            } Else {
+                held.Children.Add(node);
+            }
+            cursor = cursor + 1;
+        }
+        parent.Children = List<RxuNode>();
+        cursor = 0;
+        While (cursor < held.Children.Count()) {
+            parent.Children.Add(held.Children[cursor]);
+            cursor = cursor + 1;
+        }
+    }
+
+    Private Function RejectDuplicateElse(RxuNode parent, RxuNode node) -> Void {
+        If (node.Name == "Else" && This.NodeHas(parent, "Else")) {
+            This.ParserFail("RXU012", "An If already has an Else.", node.Line, node.Column, node.Length, "one Else", "another Else", "Keep a single Else on this If.");
+        }
+        If (node.Name == "ElseIf" && This.NodeHas(parent, "Else")) {
+            This.ParserFail("RXU012", "ElseIf cannot follow Else.", node.Line, node.Column, node.Length, "ElseIf before Else", "ElseIf after Else", "Move ElseIf before Else.");
+        }
+    }
+
+    Private Function RejectDuplicateDefault(RxuNode parent, RxuNode node) -> Void {
+        If ((node.Name == "Default" || node.Name == "Otherwise") && (This.NodeHas(parent, "Default") || This.NodeHas(parent, "Otherwise"))) {
+            This.ParserFail("RXU013", "A choice already has a default branch.", node.Line, node.Column, node.Length, "one Default or Otherwise", node.Name, "Keep a single default branch.");
+        }
+    }
+
+    Private Function LastNamed(RxuNode parent, String name) -> Int {
+        Int cursor = parent.Children.Count() - 1;
+        While (cursor >= 0) {
+            RxuNode item = parent.Children[cursor];
+            If (item.Kind == "Element" && item.Name == name) {
+                Return cursor;
+            }
+            cursor = cursor - 1;
+        }
+        Return -1;
+    }
+
+    Private Function NodeHas(RxuNode parent, String name) -> Bool {
+        Int cursor = 0;
+        While (cursor < parent.Children.Count()) {
+            RxuNode node = parent.Children[cursor];
+            If (node.Kind == "Element" && node.Name == name) {
+                Return True;
+            }
+            cursor = cursor + 1;
+        }
+        Return False;
+    }
+
+    Private Function ParserFail(
+        String code,
+        String message,
+        Int line,
+        Int column,
+        Int length,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void {
+        Int span = length;
+        If (span < 1) {
+            span = 1;
+        }
+        This.messages.Add(code, message, This.filename, line, column, span, expected, actual, correction);
+    }
+
+    Private Function PeekToken() -> RxuToken {
+        If (This.index < 0 || This.index >= This.tokens.Count()) {
+            Return This.EndToken();
+        }
+        Return This.tokens[This.index];
+    }
+
+    Private Function KindAt(Int offset) -> String {
+        Int at = This.index + offset;
+        If (at < 0 || at >= This.tokens.Count()) {
+            Return "End";
+        }
+        Return This.tokens[at].Kind;
+    }
+
+    Private Function AtKind(String kind) -> Bool {
+        Return This.PeekToken().Kind == kind;
+    }
+
+    Private Function AdvanceToken() -> Void {
+        If (This.index < This.tokens.Count()) {
+            This.index = This.index + 1;
+        }
+    }
+
+    Private Function ExpectKind(String kind, String code, String message, String expected, String correction) -> RxuToken {
+        RxuToken token = This.PeekToken();
+        If (token.Kind == kind) {
+            This.AdvanceToken();
+            Return token;
+        }
+        This.ParserFail(code, message, token.Line, token.Column, token.Length, expected, token.Kind, correction);
+        If (token.Kind != "End") {
+            This.AdvanceToken();
+        }
+        Return token;
+    }
+
+    Private Function QuotedMode(String text) -> String {
+        If (text == "true" || text == "false" || text == "True" || text == "False") {
+            Return "Boolean";
+        }
+        Int index = 0;
+        If (text.Length() > 0 && text.Substring(0, 1) == "-") {
+            index = 1;
+        }
+        If (index >= text.Length()) {
+            Return "String";
+        }
+        Bool digit = False;
+        Bool dot = False;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == "." && !dot && digit) {
+                dot = True;
+                digit = False;
+            } Else If (character >= "0" && character <= "9") {
+                digit = True;
+            } Else {
+                Return "String";
+            }
+            index = index + 1;
+        }
+        If (!digit) {
+            Return "String";
+        }
+        If (dot) {
+            Return "Float";
+        }
+        Return "Number";
+    }
+
+    Private Function MakeNode(String kind, String name, String text, String mode, Int line, Int column, Int length) -> RxuNode {
+        RxuNode node = RxuNode();
+        node.Kind = kind + "";
+        node.Name = name + "";
+        node.Text = text + "";
+        node.Mode = mode + "";
+        node.Line = line;
+        node.Column = column;
+        node.Length = length;
+        Return node;
+    }
+
+    Private Function NodeFromToken(String kind) -> RxuNode {
+        RxuToken token = This.PeekToken();
+        String name = "";
+        If (kind == "Expression") {
+            name = token.Mode;
+        }
+        RxuNode node = This.MakeNode(kind, name, token.Text, token.Mode, token.Line, token.Column, token.Length);
+        This.AdvanceToken();
+        Return node;
+    }
+
+    Private Function EndToken() -> RxuToken {
+        RxuToken token = RxuToken();
+        token.Kind = "End";
+        token.Line = 1;
+        token.Column = 1;
+        Return token;
+    }
+}

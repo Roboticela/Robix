@@ -1,0 +1,873 @@
+// Routed events.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class EventHost {
+    Private List<String> ids;
+    Private List<String> kinds;
+    Private List<String> parents;
+    Private List<String> aliveFlags;
+    Private List<String> handlerNames;
+    Private List<String> handlerSigns;
+    Private List<String> watchScope;
+    Private List<String> watchId;
+    Private List<String> watchEvent;
+    Private List<String> watchHandler;
+    Private List<String> watchPhase;
+    Private List<String> watchPriority;
+    Private List<String> watchOrder;
+    Private List<String> watchLive;
+    Private List<String> trace;
+    Private Int mismatches;
+    Private Int exceptions;
+    Private Int depth;
+    Private Int serial;
+    Private String origin;
+    Private String button;
+    Private String pressedKey;
+    Private String typedText;
+    Private Int pointX;
+    Private Int pointY;
+    Private Bool cancelled;
+    Private Bool consumed;
+    Private String lastAction;
+    Private String catalog;
+
+    Public Constructor() {
+        This.ids = List<String>();
+        This.kinds = List<String>();
+        This.parents = List<String>();
+        This.aliveFlags = List<String>();
+        This.handlerNames = List<String>();
+        This.handlerSigns = List<String>();
+        This.watchScope = List<String>();
+        This.watchId = List<String>();
+        This.watchEvent = List<String>();
+        This.watchHandler = List<String>();
+        This.watchPhase = List<String>();
+        This.watchPriority = List<String>();
+        This.watchOrder = List<String>();
+        This.watchLive = List<String>();
+        This.trace = List<String>();
+        This.mismatches = 0;
+        This.exceptions = 0;
+        This.depth = 0;
+        This.serial = 0;
+        This.origin = "";
+        This.button = "";
+        This.pressedKey = "";
+        This.typedText = "";
+        This.pointX = 0;
+        This.pointY = 0;
+        This.cancelled = False;
+        This.consumed = False;
+        This.lastAction = "";
+        This.catalog = "OnClick,OnDoubleClick,OnPointerDown,OnPointerUp,OnPointerMove,OnPointerEnter,OnPointerLeave,OnPointerCancel,OnMouseDown,OnMouseUp,OnMouseMove,OnMouseEnter,OnMouseLeave,OnMouseWheel,OnContextMenu,OnRightClick,OnMiddleClick,OnPressed,OnReleased,OnHover,OnLeave,OnKeyDown,OnKeyUp,OnKeyPress,OnTextInput,OnShortcut,OnFocus,OnBlur,OnTab,OnEscape,OnEnter,OnCreate,OnInitialize,OnLoad,OnLoaded,OnUnload,OnUnloaded,OnDestroy,OnDispose,OnShow,OnHide,OnEnable,OnDisable,OnUpdate,OnChange,OnValueChange,OnTextChange,OnInput,OnSubmit,OnSelect,OnDeselect,OnChecked,OnUnchecked,OnExpand,OnCollapse,OnWindowOpen,OnWindowClose,OnWindowClosing,OnWindowResize,OnWindowMove,OnWindowMinimize,OnWindowMaximize,OnWindowRestore,OnWindowFocus,OnWindowBlur,OnDragStart,OnDrag,OnDragEnd,OnDragEnter,OnDragLeave,OnDragOver,OnDrop,OnResize,OnMove,OnLayout,OnMeasure,OnRender,OnVisibilityChange,OnSizeChange,OnPositionChange,OnAnimationStart,OnAnimationUpdate,OnAnimationComplete,OnAnimationCancel";
+    }
+
+    Public Function ImportEvents(RxuNode node) -> Int
+    Explain {
+        Description: "Import controls and On* handlers from markup.";
+        Input: node = "Document or element";
+        Processing: "Record each named control, bind On* attributes whose handler signature is Event, and raise the load events.";
+        Output: "The number of imported controls.";
+    } {
+        Return This.EvtWalk(node, "");
+    }
+
+    Public Function NoteHandler(String name, String signature) -> Bool
+    Explain {
+        Description: "Register the signature of an RX handler.";
+        Input: name = "Handler name", signature = "Event, Throws, or another type name";
+        Processing: "Store or replace the signature used when a handler is bound.";
+        Output: "True when the name and signature are both present.";
+    } {
+        If (name == "" || signature == "") {
+            Return False;
+        }
+        Int index = 0;
+        While (index < This.handlerNames.Count()) {
+            If (This.handlerNames[index] == name) {
+                This.handlerSigns[index] = signature + "";
+                Return True;
+            }
+            index = index + 1;
+        }
+        This.handlerNames.Add(name);
+        This.handlerSigns.Add(signature);
+        Return True;
+    }
+
+    Public Function WatchEvent(String scope, String id, String eventName, String handler, String phase, Int priority) -> Bool
+    Explain {
+        Description: "Subscribe a handler, the += operation.";
+        Input: scope = "Component, Document, or Global", id = "Control name", eventName = "Event name", handler = "Handler name", phase = "Capture or Bubble", priority = "Higher runs first";
+        Processing: "Reject an unknown event, a dead control, or a handler whose signature is not Event or Throws.";
+        Output: "True when the subscription was stored.";
+    } {
+        If (scope != "Component" && scope != "Document" && scope != "Global") {
+            Return False;
+        }
+        If (phase != "Capture" && phase != "Bubble") {
+            Return False;
+        }
+        If (!This.EvtKnown(eventName)) {
+            Return False;
+        }
+        String sign = This.EvtSignature(handler);
+        If (sign != "Event" && sign != "Throws") {
+            This.mismatches = This.mismatches + 1;
+            Return False;
+        }
+        String stored = id + "";
+        If (scope != "Component") {
+            stored = "*";
+        } Else {
+            If (!This.EvtAlive(id)) {
+                Return False;
+            }
+        }
+        This.watchScope.Add(scope);
+        This.watchId.Add(stored);
+        This.watchEvent.Add(eventName);
+        This.watchHandler.Add(handler);
+        This.watchPhase.Add(phase);
+        This.watchPriority.Add(priority.ToString());
+        This.watchOrder.Add(This.serial.ToString());
+        This.watchLive.Add("true");
+        This.serial = This.serial + 1;
+        Return True;
+    }
+
+    Public Function UnwatchEvent(String scope, String id, String eventName, String handler, String phase) -> Bool
+    Explain {
+        Description: "Unsubscribe a handler, the -= operation.";
+        Input: scope = "Component, Document, or Global", id = "Control name", eventName = "Event name", handler = "Handler name", phase = "Capture or Bubble";
+        Processing: "Mark the first matching live subscription dead.";
+        Output: "True when a subscription was removed.";
+    } {
+        String stored = id + "";
+        If (scope != "Component") {
+            stored = "*";
+        }
+        Int index = 0;
+        While (index < This.watchLive.Count()) {
+            If (This.watchLive[index] == "true" && This.watchScope[index] == scope && This.watchId[index] == stored && This.watchEvent[index] == eventName && This.watchHandler[index] == handler && This.watchPhase[index] == phase) {
+                This.watchLive[index] = "false";
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Public Function RaiseEvent(String id, String eventName, String source) -> Int
+    Explain {
+        Description: "Raise one event.";
+        Input: id = "Target control", eventName = "Event name", source = "Real or Synthetic";
+        Processing: "Route capture, the target, bubble, the document, then the global scope.";
+        Output: "The number of handlers that ran.";
+    } {
+        If (!This.EvtKnown(eventName) || (source != "Real" && source != "Synthetic") || !This.EvtAlive(id)) {
+            Return 0;
+        }
+        This.origin = source + "";
+        This.cancelled = False;
+        This.consumed = False;
+        This.depth = This.depth + 1;
+        Int fired = This.EvtRoute(id, eventName, source);
+        This.depth = This.depth - 1;
+        Return fired;
+    }
+
+    Public Function ClickEvent(String id) -> Int
+    Explain {
+        Description: "Click a control.";
+        Input: id = "Control name";
+        Processing: "Raise OnClick as real input with the left button.";
+        Output: "The number of handlers that ran.";
+    } {
+        This.button = "Left";
+        Return This.RaiseEvent(id, "OnClick", "Real");
+    }
+
+    Public Function PointEvent(String id, String eventName, Int x, Int y, String buttonName) -> Int
+    Explain {
+        Description: "Raise a pointer or mouse event with coordinates.";
+        Input: id = "Control name", eventName = "Pointer event", x = "X", y = "Y", buttonName = "Left, Middle, Right, or Wheel";
+        Processing: "Store the point and button, then raise the event as real input.";
+        Output: "The number of handlers that ran.";
+    } {
+        This.pointX = x;
+        This.pointY = y;
+        This.button = buttonName + "";
+        Return This.RaiseEvent(id, eventName, "Real");
+    }
+
+    Public Function KeyIn(String id, String eventName, String keyName, String text) -> Int
+    Explain {
+        Description: "Raise a keyboard event.";
+        Input: id = "Control name", eventName = "Keyboard event", keyName = "Key name", text = "Inserted text";
+        Processing: "Store the key and text. Enter, Tab, and Escape also raise their named events. A key press with text also raises OnTextInput.";
+        Output: "The number of handlers that ran.";
+    } {
+        This.pressedKey = keyName + "";
+        This.typedText = text + "";
+        Int fired = This.RaiseEvent(id, eventName, "Real");
+        If (eventName == "OnKeyDown" && keyName == "Enter") {
+            fired = fired + This.RaiseEvent(id, "OnEnter", "Real");
+        }
+        If (eventName == "OnKeyDown" && keyName == "Tab") {
+            fired = fired + This.RaiseEvent(id, "OnTab", "Real");
+        }
+        If (eventName == "OnKeyDown" && keyName == "Escape") {
+            fired = fired + This.RaiseEvent(id, "OnEscape", "Real");
+        }
+        If (eventName == "OnKeyPress" && text != "") {
+            fired = fired + This.RaiseEvent(id, "OnTextInput", "Real");
+        }
+        Return fired;
+    }
+
+    Public Function RunAction(String id, String action) -> String
+    Explain {
+        Description: "Run a component action on the UI thread.";
+        Input: id = "Control name", action = "Action name";
+        Processing: "A nested call during dispatch returns Busy and changes nothing. Otherwise the action raises its events.";
+        Output: "Ok, Busy, Missing, or Rejected.";
+    } {
+        If (This.depth > 0) {
+            Return "Busy";
+        }
+        If (!This.EvtAlive(id)) {
+            Return "Missing";
+        }
+        If (action == "Enable") {
+            This.RaiseEvent(id, "OnEnable", "Real");
+            Return "Ok";
+        }
+        If (action == "Disable") {
+            This.RaiseEvent(id, "OnDisable", "Real");
+            Return "Ok";
+        }
+        If (action == "Show") {
+            This.RaiseEvent(id, "OnShow", "Real");
+            This.RaiseEvent(id, "OnVisibilityChange", "Real");
+            Return "Ok";
+        }
+        If (action == "Hide") {
+            This.RaiseEvent(id, "OnHide", "Real");
+            This.RaiseEvent(id, "OnVisibilityChange", "Real");
+            Return "Ok";
+        }
+        If (action == "Submit") {
+            This.RaiseEvent(id, "OnSubmit", "Real");
+            Return "Ok";
+        }
+        If (action == "Select") {
+            This.RaiseEvent(id, "OnSelect", "Real");
+            Return "Ok";
+        }
+        If (action == "Deselect") {
+            This.RaiseEvent(id, "OnDeselect", "Real");
+            Return "Ok";
+        }
+        If (action == "Check") {
+            This.RaiseEvent(id, "OnChecked", "Real");
+            Return "Ok";
+        }
+        If (action == "Uncheck") {
+            This.RaiseEvent(id, "OnUnchecked", "Real");
+            Return "Ok";
+        }
+        If (action == "Expand") {
+            This.RaiseEvent(id, "OnExpand", "Real");
+            Return "Ok";
+        }
+        If (action == "Collapse") {
+            This.RaiseEvent(id, "OnCollapse", "Real");
+            Return "Ok";
+        }
+        If (action == "Open") {
+            This.RaiseEvent(id, "OnWindowOpen", "Real");
+            Return "Ok";
+        }
+        If (action == "Close") {
+            This.RaiseEvent(id, "OnWindowClosing", "Real");
+            If (!This.cancelled) {
+                This.RaiseEvent(id, "OnWindowClose", "Real");
+            }
+            Return "Ok";
+        }
+        If (action == "Resize") {
+            This.RaiseEvent(id, "OnResize", "Real");
+            This.RaiseEvent(id, "OnSizeChange", "Real");
+            This.RaiseEvent(id, "OnWindowResize", "Real");
+            Return "Ok";
+        }
+        If (action == "Move") {
+            This.RaiseEvent(id, "OnMove", "Real");
+            This.RaiseEvent(id, "OnPositionChange", "Real");
+            This.RaiseEvent(id, "OnWindowMove", "Real");
+            Return "Ok";
+        }
+        If (action == "Minimize") {
+            This.RaiseEvent(id, "OnWindowMinimize", "Real");
+            Return "Ok";
+        }
+        If (action == "Maximize") {
+            This.RaiseEvent(id, "OnWindowMaximize", "Real");
+            Return "Ok";
+        }
+        If (action == "Restore") {
+            This.RaiseEvent(id, "OnWindowRestore", "Real");
+            Return "Ok";
+        }
+        If (action == "Focus") {
+            This.RaiseEvent(id, "OnFocus", "Real");
+            This.RaiseEvent(id, "OnWindowFocus", "Real");
+            Return "Ok";
+        }
+        If (action == "Blur") {
+            This.RaiseEvent(id, "OnBlur", "Real");
+            This.RaiseEvent(id, "OnWindowBlur", "Real");
+            Return "Ok";
+        }
+        If (action == "Drag") {
+            This.RaiseEvent(id, "OnDragStart", "Real");
+            Return "Ok";
+        }
+        If (action == "Drop") {
+            This.RaiseEvent(id, "OnDrop", "Real");
+            Return "Ok";
+        }
+        If (action == "Measure") {
+            This.RaiseEvent(id, "OnMeasure", "Real");
+            This.RaiseEvent(id, "OnLayout", "Real");
+            Return "Ok";
+        }
+        If (action == "Render") {
+            This.RaiseEvent(id, "OnRender", "Real");
+            Return "Ok";
+        }
+        If (action == "Animate") {
+            This.RaiseEvent(id, "OnAnimationStart", "Real");
+            This.RaiseEvent(id, "OnAnimationUpdate", "Real");
+            This.RaiseEvent(id, "OnAnimationComplete", "Real");
+            Return "Ok";
+        }
+        If (action == "CancelAnimation") {
+            This.RaiseEvent(id, "OnAnimationCancel", "Real");
+            Return "Ok";
+        }
+        If (action == "Update") {
+            This.RaiseEvent(id, "OnUpdate", "Real");
+            Return "Ok";
+        }
+        If (action == "Change") {
+            This.RaiseEvent(id, "OnChange", "Real");
+            This.RaiseEvent(id, "OnValueChange", "Real");
+            Return "Ok";
+        }
+        If (action == "Input") {
+            This.RaiseEvent(id, "OnInput", "Real");
+            This.RaiseEvent(id, "OnTextChange", "Real");
+            Return "Ok";
+        }
+        If (action == "Load") {
+            This.RaiseEvent(id, "OnLoad", "Real");
+            This.RaiseEvent(id, "OnLoaded", "Real");
+            Return "Ok";
+        }
+        If (action == "Unload") {
+            This.RaiseEvent(id, "OnUnload", "Real");
+            This.RaiseEvent(id, "OnUnloaded", "Real");
+            Return "Ok";
+        }
+        If (action == "Dispose") {
+            This.DisposeHost(id);
+            Return "Ok";
+        }
+        Return "Rejected";
+    }
+
+    Public Function DisposeHost(String id) -> Bool
+    Explain {
+        Description: "Dispose a control.";
+        Input: id = "Control name";
+        Processing: "Raise OnDispose and OnDestroy, then refuse later events.";
+        Output: "True when the control was alive.";
+    } {
+        If (!This.EvtAlive(id)) {
+            Return False;
+        }
+        This.RaiseEvent(id, "OnDispose", "Real");
+        This.RaiseEvent(id, "OnDestroy", "Real");
+        Int index = This.EvtIndex(id);
+        This.aliveFlags[index] = "false";
+        Return True;
+    }
+
+    Public Function SupportOf(String eventName) -> String
+    Explain {
+        Description: "Return the support status of one inventory event.";
+        Input: eventName = "Event name";
+        Processing: "Every E1 through E8 name is supported. Unknown names have no status.";
+        Output: "Supported, or empty text.";
+    } {
+        If (This.EvtKnown(eventName)) {
+            Return "Supported";
+        }
+        Return "";
+    }
+
+    Public Function ActionContract() -> String
+    Explain {
+        Description: "Return the action thread contract.";
+        Input: None;
+        Processing: "Read the fixed contract.";
+        Output: "The contract sentence.";
+    } {
+        Return "Actions run on the UI thread. A nested action returns Busy.";
+    }
+
+    Public Function TraceAt(Int index) -> String
+    Explain {
+        Description: "Return one routed handler record.";
+        Input: index = "Zero-based trace row";
+        Processing: "Read the trace.";
+        Output: "The record, or empty text.";
+    } {
+        If (index < 0 || index >= This.trace.Count()) {
+            Return "";
+        }
+        Return This.trace[index];
+    }
+
+    Public Function TraceSize() -> Int
+    Explain {
+        Description: "Return how many handlers ran.";
+        Input: None;
+        Processing: "Read the trace length.";
+        Output: "The number of trace rows.";
+    } {
+        Return This.trace.Count();
+    }
+
+    Public Function ClearTrace() -> Int
+    Explain {
+        Description: "Clear the handler trace.";
+        Input: None;
+        Processing: "Drop recorded rows. Subscriptions stay.";
+        Output: "Zero.";
+    } {
+        This.trace = List<String>();
+        Return 0;
+    }
+
+    Public Function MismatchTally() -> Int
+    Explain {
+        Description: "Return how many handler signatures were rejected.";
+        Input: None;
+        Processing: "Read the mismatch counter.";
+        Output: "The number of rejected bindings.";
+    } {
+        Return This.mismatches;
+    }
+
+    Public Function ExceptionTally() -> Int
+    Explain {
+        Description: "Return how many handlers threw.";
+        Input: None;
+        Processing: "Read the exception counter.";
+        Output: "The number of thrown handlers.";
+    } {
+        Return This.exceptions;
+    }
+
+    Public Function LastSource() -> String
+    Explain {
+        Description: "Return Real or Synthetic for the last raise.";
+        Input: None;
+        Processing: "Read the stored source.";
+        Output: "The source name.";
+    } {
+        Return This.origin;
+    }
+
+    Public Function LastButton() -> String
+    Explain {
+        Description: "Return the last pointer button.";
+        Input: None;
+        Processing: "Read the stored button.";
+        Output: "The button name.";
+    } {
+        Return This.button;
+    }
+
+    Public Function LastKey() -> String
+    Explain {
+        Description: "Return the last key.";
+        Input: None;
+        Processing: "Read the stored key.";
+        Output: "The key name.";
+    } {
+        Return This.pressedKey;
+    }
+
+    Public Function LastText() -> String
+    Explain {
+        Description: "Return the last inserted text.";
+        Input: None;
+        Processing: "Read the stored text.";
+        Output: "The inserted text.";
+    } {
+        Return This.typedText;
+    }
+
+    Public Function LastX() -> Int
+    Explain {
+        Description: "Return the last pointer x.";
+        Input: None;
+        Processing: "Read the stored x.";
+        Output: "The x coordinate.";
+    } {
+        Return This.pointX;
+    }
+
+    Public Function LastY() -> Int
+    Explain {
+        Description: "Return the last pointer y.";
+        Input: None;
+        Processing: "Read the stored y.";
+        Output: "The y coordinate.";
+    } {
+        Return This.pointY;
+    }
+
+    Public Function CancelledFlag() -> Bool
+    Explain {
+        Description: "Return whether the last event was cancelled.";
+        Input: None;
+        Processing: "Read the cancel flag.";
+        Output: "True when a Cancel handler ran.";
+    } {
+        Return This.cancelled;
+    }
+
+    Public Function ConsumedFlag() -> Bool
+    Explain {
+        Description: "Return whether the last event was consumed.";
+        Input: None;
+        Processing: "Read the consume flag.";
+        Output: "True when a Consume handler ran.";
+    } {
+        Return This.consumed;
+    }
+
+    Public Function EventDepth() -> Int
+    Explain {
+        Description: "Return the current dispatch depth.";
+        Input: None;
+        Processing: "Read the depth counter.";
+        Output: "Zero when no event is running.";
+    } {
+        Return This.depth;
+    }
+
+    Public Function KnownEventCount() -> Int
+    Explain {
+        Description: "Return how many inventory events are supported.";
+        Input: None;
+        Processing: "Count the E1 through E8 names.";
+        Output: "The number of supported events.";
+    } {
+        Return This.EvtSlices(This.catalog);
+    }
+
+    Public Function LastAction() -> String
+    Explain {
+        Description: "Return the result of a nested action.";
+        Input: None;
+        Processing: "Read the result stored by the Act handler.";
+        Output: "The action result, or empty text.";
+    } {
+        Return This.lastAction;
+    }
+
+    Public Function CoverEvents(String id) -> Int
+    Explain {
+        Description: "Raise every supported event on one control.";
+        Input: id = "Control name";
+        Processing: "Subscribe Any and raise each inventory event as synthetic input.";
+        Output: "The number of new trace rows.";
+    } {
+        Int before = This.trace.Count();
+        Int count = This.EvtSlices(This.catalog);
+        Int index = 0;
+        While (index < count) {
+            String name = This.EvtSlice(This.catalog, index);
+            This.WatchEvent("Component", id, name, "Any", "Bubble", 0);
+            This.RaiseEvent(id, name, "Synthetic");
+            index = index + 1;
+        }
+        Return This.trace.Count() - before;
+    }
+
+    Private Function EvtWalk(RxuNode node, String parentId) -> Int {
+        If (node.Kind != "Element") {
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.EvtWalk(node.Children[index], parentId);
+                index = index + 1;
+            }
+            Return count;
+        }
+        String id = node.FindAttribute("Name").Text + "";
+        Int count = 0;
+        String next = parentId + "";
+        If (id != "" && This.EvtIndex(id) < 0) {
+            This.ids.Add(id);
+            This.kinds.Add(node.Name + "");
+            This.parents.Add(parentId + "");
+            This.aliveFlags.Add("true");
+            count = 1;
+            next = id + "";
+            Int attribute = 0;
+            While (attribute < node.Attributes.Count()) {
+                String attr = node.Attributes[attribute].Name + "";
+                If (This.EvtKnown(attr)) {
+                    String handler = node.Attributes[attribute].Text + "";
+                    This.WatchEvent("Component", id, attr, handler, "Bubble", 0);
+                }
+                attribute = attribute + 1;
+            }
+            This.RaiseEvent(id, "OnCreate", "Real");
+            This.RaiseEvent(id, "OnInitialize", "Real");
+            This.RaiseEvent(id, "OnLoad", "Real");
+            This.RaiseEvent(id, "OnLoaded", "Real");
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            count = count + This.EvtWalk(node.Children[index], next);
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function EvtIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function EvtKnown(String eventName) -> Bool {
+        If (eventName == "") {
+            Return False;
+        }
+        Return ("," + This.catalog + ",").Contains("," + eventName + ",");
+    }
+
+    Private Function EvtSignature(String handler) -> String {
+        Int index = 0;
+        While (index < This.handlerNames.Count()) {
+            If (This.handlerNames[index] == handler) {
+                Return This.handlerSigns[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function EvtParent(String id) -> String {
+        Int index = This.EvtIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.parents[index];
+    }
+
+    Private Function EvtAlive(String id) -> Bool {
+        Int index = This.EvtIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        Return This.aliveFlags[index] == "true";
+    }
+
+    Private Function EvtRoute(String id, String eventName, String source) -> Int {
+        Int fired = 0;
+        fired = fired + This.EvtDispatch("*", eventName, "Global", "Capture", "Global", source);
+        If (This.EvtStop()) {
+            Return fired;
+        }
+        fired = fired + This.EvtDispatch("*", eventName, "Document", "Capture", "Document", source);
+        If (This.EvtStop()) {
+            Return fired;
+        }
+        List<String> up = List<String>();
+        String cursor = id + "";
+        Int guard = 0;
+        While (cursor != "" && guard < 32) {
+            up.Add(cursor);
+            cursor = This.EvtParent(cursor);
+            guard = guard + 1;
+        }
+        Int index = up.Count() - 1;
+        While (index > 0) {
+            fired = fired + This.EvtDispatch(up[index], eventName, "Component", "Capture", "Capture", source);
+            If (This.EvtStop()) {
+                Return fired;
+            }
+            index = index - 1;
+        }
+        fired = fired + This.EvtDispatch(id, eventName, "Component", "Capture", "Target", source);
+        If (This.EvtStop()) {
+            Return fired;
+        }
+        fired = fired + This.EvtDispatch(id, eventName, "Component", "Bubble", "Target", source);
+        If (This.EvtStop()) {
+            Return fired;
+        }
+        index = 1;
+        While (index < up.Count()) {
+            fired = fired + This.EvtDispatch(up[index], eventName, "Component", "Bubble", "Bubble", source);
+            If (This.EvtStop()) {
+                Return fired;
+            }
+            index = index + 1;
+        }
+        fired = fired + This.EvtDispatch("*", eventName, "Document", "Bubble", "Document", source);
+        If (This.EvtStop()) {
+            Return fired;
+        }
+        fired = fired + This.EvtDispatch("*", eventName, "Global", "Bubble", "Global", source);
+        Return fired;
+    }
+
+    Private Function EvtDispatch(String id, String eventName, String scope, String phase, String label, String source) -> Int {
+        List<String> hits = List<String>();
+        Int index = 0;
+        While (index < This.watchLive.Count()) {
+            If (This.watchLive[index] == "true" && This.watchScope[index] == scope && This.watchEvent[index] == eventName && This.watchPhase[index] == phase && This.watchId[index] == id) {
+                hits.Add(index.ToString());
+            }
+            index = index + 1;
+        }
+        Int slot = 0;
+        While (slot < hits.Count()) {
+            Int best = slot;
+            Int other = slot + 1;
+            While (other < hits.Count()) {
+                Int left = hits[best].ToInt();
+                Int right = hits[other].ToInt();
+                Int leftPriority = This.watchPriority[left].ToInt();
+                Int rightPriority = This.watchPriority[right].ToInt();
+                Int leftOrder = This.watchOrder[left].ToInt();
+                Int rightOrder = This.watchOrder[right].ToInt();
+                Bool better = False;
+                If (rightPriority > leftPriority) {
+                    better = True;
+                }
+                If (rightPriority == leftPriority && rightOrder < leftOrder) {
+                    better = True;
+                }
+                If (better) {
+                    best = other;
+                }
+                other = other + 1;
+            }
+            If (best != slot) {
+                String swap = hits[slot] + "";
+                hits[slot] = hits[best];
+                hits[best] = swap;
+            }
+            slot = slot + 1;
+        }
+        Int fired = 0;
+        Int cursor = 0;
+        While (cursor < hits.Count()) {
+            Int hit = hits[cursor].ToInt();
+            This.EvtFire(id, eventName, This.watchHandler[hit], label, source);
+            fired = fired + 1;
+            If (This.EvtStop()) {
+                Return fired;
+            }
+            cursor = cursor + 1;
+        }
+        Return fired;
+    }
+
+    Private Function EvtFire(String id, String eventName, String handler, String label, String source) -> Int {
+        String sign = This.EvtSignature(handler);
+        If (sign == "Throws") {
+            This.exceptions = This.exceptions + 1;
+        }
+        String shown = id + "";
+        This.trace.Add(label + " " + shown + " " + eventName + " " + handler + " " + source);
+        If (handler == "Cancel") {
+            This.cancelled = True;
+        }
+        If (handler == "Consume") {
+            This.consumed = True;
+        }
+        If (handler == "Act") {
+            This.lastAction = This.RunAction(shown, "Disable");
+        }
+        Return 1;
+    }
+
+    Private Function EvtStop() -> Bool {
+        If (This.cancelled || This.consumed) {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function EvtCatalog() -> String {
+        Return This.catalog;
+    }
+
+    Private Function EvtSlices(String text) -> Int {
+        If (text == "") {
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.GetChar(index) == ",") {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function EvtSlice(String text, Int item) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            Bool boundary = index == text.Length();
+            If (!boundary) {
+                boundary = text.GetChar(index) == ",";
+            }
+            If (boundary) {
+                If (seen == item) {
+                    Return text.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+}

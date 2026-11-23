@@ -1,0 +1,49 @@
+// Scene for the Arm console window. The interpreter prints it; the GTK host paints it.
+Package Robix.UI;
+
+Import Robix.Core;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Print the Arm console scene for the Linux window.";
+    Input: args = "Unused command-line arguments";
+    Processing: "Print the layout measured for Examples/UI/ArmConsole.rxu.";
+    Output: "Zero after the scene is printed.";
+} {
+    If (args.Count() < 0) {
+        Return 1;
+    }
+    Print("size 640 480");
+    Print("title Arm console");
+    Print("fill 0 0 640 480 14 22 32");
+    Print("fill 0 0 640 48 26 40 56");
+    Print("fill 8 8 32 32 51 102 153");
+    Print("text 48 8 120 24 236 240 244 Arm");
+    Print("text 80 8 80 24 186 204 214 Ready");
+    Print("fill 0 444 640 36 18 28 40");
+    Print("text 8 452 32 20 190 198 206 Pose");
+    Print("text 52 452 40 20 190 198 206 Slow");
+    Print("text 96 452 64 20 190 198 206 Linked");
+    Print("fill 0 48 180 396 16 26 38");
+    Print("text 8 56 80 20 226 230 234 Joints");
+    Print("fill 8 84 164 220 10 16 26");
+    Print("clip 8 84 164 220");
+    Print("text 16 84 140 28 214 220 228 Shoulder");
+    Print("text 16 116 140 28 214 220 228 Elbow");
+    Print("text 16 148 140 28 214 220 228 Wrist");
+    Print("text 16 180 140 28 214 220 228 Grip");
+    Print("text 16 212 140 28 214 220 228 Base");
+    Print("pop");
+    Print("fill 180 48 460 396 12 18 28");
+    Print("clip 188 56 444 190");
+    Print("fill 188 56 444 190 8 14 22");
+    Print("fill 208 76 200 120 6 10 16");
+    Print("fill 204 72 200 120 17 34 51");
+    Print("fill 268 126 80 8 51 102 153");
+    Print("fill 368 136 12 12 51 102 153");
+    Print("pop");
+    Print("text 188 246 80 16 206 214 222 Angle");
+    Print("stroke 410 246 222 190 51 102 153");
+    Return 0;
+}

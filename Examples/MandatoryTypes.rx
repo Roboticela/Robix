@@ -1,0 +1,237 @@
+// Strict types: declarations, unions, signatures, async, null, numbers, collections, interfaces, operators, match, results, and unsafe boundaries.
+Package Robotics.MandatoryTypes;
+
+Import Robix.Core;
+
+
+Type SensorValue = Int | String;
+
+Public Interface IRobot {
+    Public Function Move(Float distance) -> Int
+    Explain {
+        Description: "Move the robot.";
+        Input: distance = "Distance to travel";
+        Processing: "Apply the distance at the robot's speed.";
+        Output: "The distance as an integer step.";
+    };
+}
+
+Public Class TypedRobot : IRobot {
+    Private Float speed;
+
+    Public Constructor(Float initialSpeed) {
+        speed = initialSpeed;
+    }
+
+    Public Function Move(Float distance) -> Int
+    Explain {
+        Description: "Move at the stored speed.";
+        Input: distance = "Distance to travel";
+        Processing: "Multiply the distance by the speed and round to an integer.";
+        Output: "The integer step.";
+    } {
+        Return (distance * speed).ToInt(Rounding.Nearest);
+    }
+
+    Public Function GetBatteryLevel() -> Int
+    Explain {
+        Description: "Return the battery level.";
+        Input: "No parameters";
+        Processing: "Read the fixed battery level.";
+        Output: "The battery level.";
+    } {
+        Return 84;
+    }
+}
+
+Struct RobotPosition {
+    Public Float X;
+    Public Float Y;
+
+    Public Constructor(Float x, Float y) {
+        X = x;
+        Y = y;
+    }
+
+    Public Operator +(RobotPosition left, RobotPosition right) -> RobotPosition {
+        Return RobotPosition(left.X + right.X, left.Y + right.Y);
+    }
+}
+
+Extern Function NativeReadSensor() -> Int
+    CallingConvention C;
+
+Private Function First<T>(Array<T> values) -> T
+    Where T: Copy {
+    Return values[0];
+}
+
+Private Function Compare<T>(T left, T right) -> Int
+    Where T: Comparable<T> {
+    If (left == right) { Return 0; }
+    Return 1;
+}
+
+Private Function SumAll(params Int[] values) -> Int {
+    Int total = 0;
+    For value In values {
+        total = total + value;
+    }
+    Return total;
+}
+
+Private Function MoveRobot(String robotId, Float distance = 1.0, Bool avoidObstacles = True) -> Int {
+    If (avoidObstacles) { Return distance.ToInt(Rounding.Nearest); }
+    Print(robotId);
+    Return 0;
+}
+
+Private Function Increase(mut Int value, Int amount) -> Int {
+    value = value + amount;
+    Return value;
+}
+
+Private Function Describe(SensorValue value) -> String {
+    Match value {
+        Int number => Return "Integer: " + number.ToString(),
+        String text => Return "Text: " + text
+    }
+}
+
+Private Function LoadConfiguration(String path) -> Result<String, String> {
+    Return Success(path);
+}
+
+Private Async Function ReadBattery() -> Task<Int> {
+    Return 84;
+}
+
+Private Async Function NameOfRobot() -> Task<String> {
+    Return "RoboBot";
+}
+
+Private Async Function GetBatteryLabel() -> Task<String> {
+    Int level = Await ReadBattery();
+    Return $"Battery: {level}%";
+}
+
+Private Async Function ReadRobotState() -> Task<Int> {
+    Task<Int> batteryTask = ReadBattery();
+    Task<String> nameTask = NameOfRobot();
+    (Int battery, String name) = Await Task.WhenAll(batteryTask, nameTask);
+    Print(name);
+    Print(battery);
+    Return battery;
+}
+
+Private Function FlushLogs() -> Int {
+    Print("logs flushed");
+    Return 1;
+}
+
+Private Async Function ShowAsync() -> Task<Void> {
+    String label = Await GetBatteryLabel();
+    Print(label);
+    Int state = Await ReadRobotState();
+    Print(state);
+    Task.Detach(FlushLogs(), onError: (error) => Print(error));
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise the strict type rules on one robot.";
+    Input: args = "Command-line arguments";
+    Processing: "Check declarations, narrowing, numbers, collections, operators, matches, results, and an unsafe boundary.";
+    Output: "Zero after the report.";
+} {
+    Let typedName: String = "RoboBot";
+    Var typedCount: Int = 10;
+    Let inferredValue = 25;
+    Print(typedName);
+    Print(inferredValue);
+    Var nextReading: Int;
+    nextReading = typedCount;
+    Print(nextReading);
+
+    Var payload: Any = 42;
+    If (payload Is Int) {
+        Int safePayload = payload;
+        Print(safePayload);
+    }
+
+    Let optionalName: String? = Null;
+    If (optionalName != Null) {
+        Print(optionalName);
+    }
+    Let displayName = optionalName ?? "Unknown";
+    Let nameLength = optionalName?.Length() ?? 0;
+    Print(displayName);
+    Print(nameLength);
+
+    Let wideNumber: Int64 = 9000000;
+    Let narrowNumber: Int = Int.FromChecked(wideNumber);
+    Let parsedNumber: Result<Int, ParseError> = Int.TryParse("123");
+    Let safeSum = Int.AddChecked(20, 30);
+    Let wrappedSum = Int.WrappingAdd(Int.MaxValue, 1);
+    Let cappedSum = UInt8.SaturatingAdd(250, 20);
+    Let exactDecimal: Decimal = Decimal.From("12.50", scale: 2);
+    Print(narrowNumber);
+    Match parsedNumber {
+        Success(number) => Print(number),
+        Failure(message) => Print(message)
+    }
+    Print(safeSum);
+    Print(wrappedSum);
+    Print(cappedSum);
+    Print(exactDecimal);
+
+    Let emptyNames: Array<String> = [];
+    Let motorSpeeds: List<Int> = [100, 120, 140];
+    Let coordinates: (Float, Float) = (10.5, 20.5);
+    RobotPosition position = RobotPosition(1.0, 2.0);
+    RobotPosition shifted = position + RobotPosition(3.0, 4.0);
+    Let robotById: Map<String, String> = Map<String, String>();
+    Print(emptyNames.Count());
+    Print(First<Int>(motorSpeeds));
+    Print(coordinates);
+    Print(shifted.X);
+    Print(shifted.Y);
+    Print(robotById.Count());
+
+    TypedRobot robot = TypedRobot(2.0);
+    Print(robot.Move(4.5));
+    Let reflected: Any = Reflect.Invoke(robot, "GetBatteryLevel");
+    If (reflected Is Int) {
+        Int reflectedBattery = reflected;
+        Print(reflectedBattery);
+    }
+
+    Print(Compare<Int>(20, 30));
+    Print(SumAll(1, 2, 3, 4));
+    Print(MoveRobot("bot", distance: 2.0));
+    Print(Increase(typedCount, 5));
+    Print(Describe(7));
+    Print(Describe("lidar"));
+    Match LoadConfiguration("robot.config") {
+        Success(config) => Print(config),
+        Failure(error) => Print(error)
+    }
+
+    Let batteryPercent = 80;
+    Let batteryState: String = Match batteryPercent {
+        80..=100 => "Full",
+        30..79 => "Normal",
+        0..29 => "Low"
+    };
+    Print(batteryState);
+
+    Unsafe {
+        Pointer<Byte> rawBuffer = Memory.Allocate(64);
+        Memory.Free(rawBuffer);
+        Var dynamicValue: Dynamic = "hello";
+        Print(dynamicValue.Length());
+    }
+
+    ShowAsync();
+    Return 0;
+}

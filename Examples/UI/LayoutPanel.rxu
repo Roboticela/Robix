@@ -1,0 +1,4 @@
+<Panel Name="panel" Tag="Panel" Width="100" Height="80" Orientation="Horizontal">
+    <Panel Name="a" Tag="Rect" Width="40" Height="20" HorizontalAlignment="Start"/>
+    <Panel Name="b" Tag="Rect" Width="40" Height="20" HorizontalAlignment="Start"/>
+</Panel>

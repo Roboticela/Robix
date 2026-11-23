@@ -20,11 +20,13 @@ Explain {
     anything = [1, 2, 3];
     Print(anything);
 
-    Var dynamicValue: Dynamic = "hello";
-    Print(dynamicValue.Length());
-    Print(dynamicValue.ToUpper());
-    dynamicValue = 25;
-    Print(dynamicValue);
+    Unsafe {
+        Var dynamicValue: Dynamic = "hello";
+        Print(dynamicValue.Length());
+        Print(dynamicValue.ToUpper());
+        dynamicValue = 25;
+        Print(dynamicValue);
+    }
 
     Var originalValue: Any = 42;
     Let asText = originalValue.ToString();

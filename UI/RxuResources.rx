@@ -1,0 +1,1117 @@
+// Resources, styles, themes, and the project build.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class ResourceTable {
+    Public RxuMessages Messages;
+    Private List<String> keys;
+    Private List<String> types;
+    Private List<String> values;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.keys = List<String>();
+        This.types = List<String>();
+        This.values = List<String>();
+    }
+
+    Public Function Set(String typeName, String key, String value) -> Bool
+    Explain {
+        Description: "Store one typed resource.";
+        Input: typeName = "Resource type", key = "Resource name", value = "Resource value";
+        Processing: "Reject an unknown type, a mistyped value, or a duplicate key.";
+        Output: "True when the resource is stored.";
+    } {
+        If (!This.KnownType(typeName) || !This.Valid(typeName, value)) {
+            This.Messages.Add("RXU021", "This resource value does not match its type.", "", 1, 1, value.Length(), typeName, value, "Use a value of the declared resource type.");
+            Return False;
+        }
+        If (This.Has(key)) {
+            This.Messages.Add("RXU023", "This resource key is already defined here.", "", 1, 1, key.Length(), "one value", key, "Override it in a nearer scope or remove the old value.");
+            Return False;
+        }
+        This.keys.Add(key + "");
+        This.types.Add(typeName + "");
+        This.values.Add(value + "");
+        Return True;
+    }
+
+    Public Function Get(String key) -> String
+    Explain {
+        Description: "Read one resource value.";
+        Input: key = "Resource name";
+        Processing: "Find the key in this table only.";
+        Output: "The stored value, or empty text when it is missing.";
+    } {
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.values[index];
+    }
+
+    Public Function TypeOfKey(String key) -> String
+    Explain {
+        Description: "Read the type of one resource.";
+        Input: key = "Resource name";
+        Processing: "Find the key in this table only.";
+        Output: "The type name, or empty text when it is missing.";
+    } {
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.types[index];
+    }
+
+    Public Function Has(String key) -> Bool
+    Explain {
+        Description: "Report whether this table defines a key.";
+        Input: key = "Resource name";
+        Processing: "Scan this table only.";
+        Output: "True when the key is present.";
+    } {
+        Return This.IndexOf(key) >= 0;
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Count the resources in this table.";
+        Input: None;
+        Processing: "Read the key list size.";
+        Output: "The number of resources.";
+    } {
+        Return This.keys.Count();
+    }
+
+    Public Function KeyAt(Int index) -> String
+    Explain {
+        Description: "Return one resource key.";
+        Input: index = "Zero-based index";
+        Processing: "Read the key at that index.";
+        Output: "The key, or empty text when the index is outside the table.";
+    } {
+        If (index < 0 || index >= This.keys.Count()) {
+            Return "";
+        }
+        Return This.keys[index];
+    }
+
+    Public Function Remove(String key) -> Bool
+    Explain {
+        Description: "Remove one resource from this table.";
+        Input: key = "Resource name";
+        Processing: "Drop the key, type, and value together.";
+        Output: "True when the key was present.";
+    } {
+        Int found = This.IndexOf(key);
+        If (found < 0) {
+            Return False;
+        }
+        Var keptKeys = List<String>();
+        Var keptTypes = List<String>();
+        Var keptValues = List<String>();
+        Int index = 0;
+        While (index < This.keys.Count()) {
+            If (index != found) {
+                keptKeys.Add(This.keys[index]);
+                keptTypes.Add(This.types[index]);
+                keptValues.Add(This.values[index]);
+            }
+            index = index + 1;
+        }
+        This.keys = keptKeys;
+        This.types = keptTypes;
+        This.values = keptValues;
+        Return True;
+    }
+
+    Public Function Load(RxuNode node) -> Int
+    Explain {
+        Description: "Load resource elements from markup.";
+        Input: node = "Resources element";
+        Processing: "Read each typed child and count the ones that are rejected.";
+        Output: "The number of rejected resources.";
+    } {
+        Int failed = 0;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && This.KnownType(child.Name)) {
+                If (!This.Set(child.Name, child.FindAttribute("Name").Text, child.FindAttribute("Value").Text)) {
+                    failed = failed + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Private Function IndexOf(String key) -> Int {
+        Int index = 0;
+        While (index < This.keys.Count()) {
+            If (This.keys[index] == key) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function KnownType(String typeName) -> Bool {
+        String catalog = "Color,Brush,Number,String,Boolean,Font,Style,Template,Image,Icon,Dimension,Thickness,Duration,Animation,Data,Theme";
+        Int start = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            If (catalog.Substring(index, 1) == ",") {
+                If (catalog.Substring(start, index - start) == typeName) {
+                    Return True;
+                }
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return catalog.Substring(start, catalog.Length() - start) == typeName;
+    }
+
+    Private Function Valid(String typeName, String value) -> Bool {
+        If (value.Length() > 0 && value.Substring(0, 1) == "@") {
+            Return True;
+        }
+        If (typeName == "String" || typeName == "Font" || typeName == "Style" || typeName == "Template" || typeName == "Image" || typeName == "Icon" || typeName == "Animation" || typeName == "Data" || typeName == "Theme") {
+            Return True;
+        }
+        If (typeName == "Number") {
+            Return This.IsNumber(value);
+        }
+        If (typeName == "Boolean") {
+            Return value == "true" || value == "false" || value == "True" || value == "False";
+        }
+        If (typeName == "Color") {
+            Return This.IsColor(value);
+        }
+        If (typeName == "Brush") {
+            Return value == "None" || This.IsColor(value);
+        }
+        If (typeName == "Dimension") {
+            Return This.IsDimension(value);
+        }
+        If (typeName == "Thickness") {
+            Return This.IsThickness(value);
+        }
+        If (typeName == "Duration") {
+            Return This.IsDuration(value);
+        }
+        Return False;
+    }
+
+    Private Function IsNumber(String value) -> Bool {
+        Int index = 0;
+        If (value.Length() > 0 && value.Substring(0, 1) == "-") {
+            index = 1;
+        }
+        If (index >= value.Length()) {
+            Return False;
+        }
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsColor(String value) -> Bool {
+        If (value == "Black" || value == "White" || value == "Transparent") {
+            Return True;
+        }
+        If (value.Length() < 4 || value.Substring(0, 1) != "#") {
+            Return False;
+        }
+        Int length = value.Length() - 1;
+        If (length != 3 && length != 4 && length != 6 && length != 8) {
+            Return False;
+        }
+        Int index = 1;
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function IsDimension(String value) -> Bool {
+        If (value == "Auto" || value == "*") {
+            Return True;
+        }
+        If (value.EndsWith("px")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("*")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return This.IsNumber(value);
+    }
+
+    Private Function IsThickness(String value) -> Bool {
+        Int parts = 1;
+        Int index = 0;
+        String current = "";
+        While (index < value.Length()) {
+            String character = value.Substring(index, 1);
+            If (character == ",") {
+                If (!This.IsNumber(current)) {
+                    Return False;
+                }
+                current = "";
+                parts = parts + 1;
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        Return This.IsNumber(current) && (parts == 1 || parts == 2 || parts == 4);
+    }
+
+    Private Function IsDuration(String value) -> Bool {
+        If (value.EndsWith("ms")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 2));
+        }
+        If (value.EndsWith("s")) {
+            Return This.IsNumber(value.Substring(0, value.Length() - 1));
+        }
+        Return False;
+    }
+}
+
+Public Class StyleSheet {
+    Public RxuMessages Messages;
+    Private List<String> names;
+    Private List<String> states;
+    Private List<String> properties;
+    Private List<String> values;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.names = List<String>();
+        This.states = List<String>();
+        This.properties = List<String>();
+        This.values = List<String>();
+    }
+
+    Public Function AddSetter(String name, String state, String property, String value) -> Bool
+    Explain {
+        Description: "Add one style setter.";
+        Input: name = "Style name", state = "Empty, Hover, Pressed, Disabled, or Focused", property = "Property name", value = "Property value";
+        Processing: "Keep the setter when the state is known.";
+        Output: "True when the setter is stored.";
+    } {
+        If (!This.KnownState(state)) {
+            This.Messages.Add("RXU025", "This style state is unknown.", "", 1, 1, state.Length(), "Hover, Pressed, Disabled, or Focused", state, "Use one of the known states.");
+            Return False;
+        }
+        This.names.Add(name + "");
+        This.states.Add(state + "");
+        This.properties.Add(property + "");
+        This.values.Add(value + "");
+        Return True;
+    }
+
+    Public Function SetterCount() -> Int
+    Explain {
+        Description: "Count the stored setters.";
+        Input: None;
+        Processing: "Read the setter list size.";
+        Output: "The number of setters.";
+    } {
+        Return This.names.Count();
+    }
+
+    Public Function Load(RxuNode node) -> Int
+    Explain {
+        Description: "Load Style and Setter markup.";
+        Input: node = "Style element";
+        Processing: "Read each Setter, including its State.";
+        Output: "The number of rejected setters.";
+    } {
+        Int failed = 0;
+        String name = node.FindAttribute("Name").Text;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && child.Name == "Setter") {
+                If (!This.AddSetter(name, child.FindAttribute("State").Text, child.FindAttribute("Property").Text, child.FindAttribute("Value").Text)) {
+                    failed = failed + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Public Function Apply(UIElement element, String name, String state) -> Int
+    Explain {
+        Description: "Apply one style class and state to an element.";
+        Input: element = "Target element", name = "Style name", state = "Current state";
+        Processing: "Clear the style's properties, then apply the state setter or the base setter.";
+        Output: "The number of setters applied.";
+    } {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == name) {
+                element.ClearStyle(This.properties[index]);
+            }
+            index = index + 1;
+        }
+        Int applied = 0;
+        index = 0;
+        While (index < This.names.Count()) {
+            If (This.Wins(name, state, index)) {
+                If (element.SetStyle(This.properties[index], This.values[index])) {
+                    applied = applied + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return applied;
+    }
+
+    Private Function Wins(String name, String state, Int index) -> Bool {
+        If (This.names[index] != name) {
+            Return False;
+        }
+        If (This.states[index] == state) {
+            Return True;
+        }
+        If (This.states[index] != "") {
+            Return False;
+        }
+        Int cursor = 0;
+        While (cursor < This.names.Count()) {
+            If (This.names[cursor] == name && This.properties[cursor] == This.properties[index] && This.states[cursor] == state) {
+                Return False;
+            }
+            cursor = cursor + 1;
+        }
+        Return True;
+    }
+
+    Private Function KnownState(String state) -> Bool {
+        Return state == "" || state == "Hover" || state == "Pressed" || state == "Disabled" || state == "Focused";
+    }
+}
+
+Public Class ResourceLibrary {
+    Public ResourceTable Document;
+    Public ResourceTable Application;
+    Public ResourceTable Builtins;
+    Public StyleSheet Styles;
+    Public RxuMessages Messages;
+    Private List<String> themeNames;
+    Private List<String> themeKeys;
+    Private List<String> themeTypes;
+    Private List<String> themeValues;
+    Private List<UIElement> targets;
+    Private List<String> targetProperties;
+    Private List<String> targetKeys;
+    Private List<String> targetFallbacks;
+    Private List<String> templateNames;
+    Private List<String> templateRoots;
+
+    Public Constructor() {
+        This.Document = ResourceTable();
+        This.Application = ResourceTable();
+        This.Builtins = ResourceTable();
+        This.Styles = StyleSheet();
+        This.Messages = RxuMessages();
+        This.themeNames = List<String>();
+        This.themeKeys = List<String>();
+        This.themeTypes = List<String>();
+        This.themeValues = List<String>();
+        This.targets = List<UIElement>();
+        This.targetProperties = List<String>();
+        This.targetKeys = List<String>();
+        This.targetFallbacks = List<String>();
+        This.templateNames = List<String>();
+        This.templateRoots = List<String>();
+        This.Builtins.Set("Color", "Accent", "#336699");
+        This.Builtins.Set("Number", "Spacing", "8");
+        This.Builtins.Set("String", "FontFamily", "Roboto");
+        This.Builtins.Set("Boolean", "Enabled", "true");
+        This.Builtins.Set("Font", "Body", "Roboto");
+        This.Builtins.Set("Dimension", "IconSize", "16");
+        This.Builtins.Set("Thickness", "Pad", "4");
+        This.Builtins.Set("Duration", "Fast", "120ms");
+        This.Builtins.Set("Brush", "Canvas", "None");
+        This.Builtins.Set("Image", "Mark", "arm.png");
+        This.Builtins.Set("Icon", "Save", "save");
+        This.Builtins.Set("Style", "Base", "Primary");
+        This.Builtins.Set("Template", "Button", "ArmButton");
+        This.Builtins.Set("Animation", "Fade", "fade");
+        This.Builtins.Set("Data", "Empty", "{}");
+        This.Builtins.Set("Theme", "Light", "Light");
+    }
+
+    Public Function Resolve(ResourceTable component, ResourceTable ancestor, String key, String fallback) -> String
+    Explain {
+        Description: "Find a resource through the scope chain.";
+        Input: component = "Nearest table", ancestor = "Ancestor table", key = "Resource name", fallback = "Value used when the key is missing";
+        Processing: "Search the component, ancestor, document, application, and built-in tables. Follow @ aliases.";
+        Output: "The resolved value, or the fallback.";
+    } {
+        String current = key + "";
+        Var seen = List<String>();
+        Int depth = 0;
+        While (depth < 8) {
+            Int seenIndex = 0;
+            While (seenIndex < seen.Count()) {
+                If (seen[seenIndex] == current) {
+                    This.Messages.Add("RXU022", "This resource alias is cyclic.", "", 1, 1, current.Length(), "an acyclic alias", current, "Break the alias cycle.");
+                    Return fallback + "";
+                }
+                seenIndex = seenIndex + 1;
+            }
+            seen.Add(current);
+            String value = This.FindRaw(component, ancestor, current);
+            If (value == "") {
+                This.Messages.Add("RXU024", "This resource was not found.", "", 1, 1, current.Length(), "a defined resource", current, "Define the resource or use the fallback.");
+                Return fallback + "";
+            }
+            If (value.Length() > 0 && value.Substring(0, 1) == "@") {
+                current = value.Substring(1, value.Length() - 1);
+            } Else {
+                Return value;
+            }
+            depth = depth + 1;
+        }
+        This.Messages.Add("RXU022", "This resource alias is cyclic.", "", 1, 1, key.Length(), "an acyclic alias", key, "Break the alias cycle.");
+        Return fallback + "";
+    }
+
+    Public Function Bind(UIElement element, String property, String key, String fallback) -> Bool
+    Explain {
+        Description: "Apply a resource to a property and remember it.";
+        Input: element = "Target element", property = "Property name", key = "Resource name", fallback = "Fallback value";
+        Processing: "Resolve the key and set the property. A later refresh uses the same key.";
+        Output: "True when the property accepts the value.";
+    } {
+        String value = This.Resolve(ResourceTable(), ResourceTable(), key, fallback);
+        Bool applied = element.SetAttribute(property, value);
+        This.targets.Add(element);
+        This.targetProperties.Add(property + "");
+        This.targetKeys.Add(key + "");
+        This.targetFallbacks.Add(fallback + "");
+        Return applied;
+    }
+
+    Public Function RefreshBindings() -> Int
+    Explain {
+        Description: "Reapply every resource binding.";
+        Input: None;
+        Processing: "Resolve each remembered key and write the property again.";
+        Output: "The number of bindings refreshed.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < This.targets.Count()) {
+            String value = This.Resolve(ResourceTable(), ResourceTable(), This.targetKeys[index], This.targetFallbacks[index]);
+            If (This.targets[index].SetAttribute(This.targetProperties[index], value)) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function AddTheme(RxuNode node) -> Int
+    Explain {
+        Description: "Record a theme's resources.";
+        Input: node = "Theme element";
+        Processing: "Store each typed child under the theme name.";
+        Output: "The number of rejected theme resources.";
+    } {
+        Int failed = 0;
+        String name = node.FindAttribute("Name").Text + "";
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element") {
+                String typeName = child.Name;
+                String key = child.FindAttribute("Name").Text;
+                String value = child.FindAttribute("Value").Text;
+                ResourceTable check = ResourceTable();
+                If (check.Set(typeName, key, value)) {
+                    This.themeNames.Add(name);
+                    This.themeKeys.Add(key + "");
+                    This.themeTypes.Add(typeName + "");
+                    This.themeValues.Add(value + "");
+                } Else {
+                    failed = failed + 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return failed;
+    }
+
+    Public Function SwitchTheme(String name) -> Bool
+    Explain {
+        Description: "Replace application resources with one theme.";
+        Input: name = "Theme name";
+        Processing: "Write that theme into the application table and refresh bindings. Elements are not copied.";
+        Output: "True when the theme has at least one resource.";
+    } {
+        Int found = 0;
+        Int index = 0;
+        While (index < This.themeNames.Count()) {
+            If (This.themeNames[index] == name) {
+                If (This.Application.Has(This.themeKeys[index])) {
+                    This.Application.Remove(This.themeKeys[index]);
+                }
+                This.Application.Set(This.themeTypes[index], This.themeKeys[index], This.themeValues[index]);
+                found = found + 1;
+            }
+            index = index + 1;
+        }
+        This.RefreshBindings();
+        Return found > 0;
+    }
+
+    Public Function LoadTemplate(RxuNode node) -> Bool
+    Explain {
+        Description: "Record a template visual without changing control behavior.";
+        Input: node = "Template element";
+        Processing: "Remember the template name and its first visual element.";
+        Output: "True when the template has a visual root.";
+    } {
+        String name = node.FindAttribute("Name").Text + "";
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element") {
+                This.templateNames.Add(name);
+                This.templateRoots.Add(child.Name + "");
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Public Function ApplyTemplate(UIElement element, String name) -> Bool
+    Explain {
+        Description: "Attach a template visual to an element.";
+        Input: element = "Target element", name = "Template name";
+        Processing: "Set the visual root and keep the element's kind.";
+        Output: "True when the template exists.";
+    } {
+        Int index = 0;
+        While (index < This.templateNames.Count()) {
+            If (This.templateNames[index] == name) {
+                element.TemplateName = name + "";
+                element.VisualKind = This.templateRoots[index] + "";
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function FindRaw(ResourceTable component, ResourceTable ancestor, String key) -> String {
+        If (component.Has(key)) {
+            Return component.Get(key);
+        }
+        If (ancestor.Has(key)) {
+            Return ancestor.Get(key);
+        }
+        If (This.Document.Has(key)) {
+            Return This.Document.Get(key);
+        }
+        If (This.Application.Has(key)) {
+            Return This.Application.Get(key);
+        }
+        If (This.Builtins.Has(key)) {
+            Return This.Builtins.Get(key);
+        }
+        Return "";
+    }
+}
+
+Public Class RxuBuild {
+    Public RxuMessages Messages;
+    Private List<String> includes;
+    Private List<String> assets;
+    Private List<String> handlers;
+    Private List<String> capabilities;
+    Private List<String> loaded;
+    Private List<String> stack;
+    Private List<String> componentNames;
+    Private List<String> resourceKeys;
+    Private List<String> idNames;
+    Private Int runtimeChecks;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.includes = List<String>();
+        This.assets = List<String>();
+        This.handlers = List<String>();
+        This.capabilities = List<String>();
+        This.loaded = List<String>();
+        This.stack = List<String>();
+        This.componentNames = List<String>();
+        This.resourceKeys = List<String>();
+        This.idNames = List<String>();
+        This.runtimeChecks = 0;
+        This.resourceKeys.Add("Accent");
+        This.resourceKeys.Add("Spacing");
+        This.resourceKeys.Add("FontFamily");
+        This.resourceKeys.Add("Enabled");
+        This.resourceKeys.Add("Body");
+        This.resourceKeys.Add("IconSize");
+        This.resourceKeys.Add("Pad");
+        This.resourceKeys.Add("Fast");
+        This.resourceKeys.Add("Canvas");
+        This.resourceKeys.Add("Mark");
+        This.resourceKeys.Add("Save");
+        This.resourceKeys.Add("Base");
+        This.resourceKeys.Add("Button");
+        This.resourceKeys.Add("Fade");
+        This.resourceKeys.Add("Empty");
+        This.resourceKeys.Add("Light");
+    }
+
+    Public Function AddInclude(String path) -> Void
+    Explain {
+        Description: "Add one project RXU file.";
+        Input: path = "Path listed by the project";
+        Processing: "Store the path when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.includes, path)) {
+            This.includes.Add(path + "");
+        }
+    }
+
+    Public Function AddAsset(String path) -> Void
+    Explain {
+        Description: "Add one packaged asset name.";
+        Input: path = "Asset path or file name";
+        Processing: "Store the name when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.assets, path)) {
+            This.assets.Add(path + "");
+        }
+    }
+
+    Public Function AddHandler(String name) -> Void
+    Explain {
+        Description: "Add one RX event handler the project defines.";
+        Input: name = "Handler name";
+        Processing: "Store the name when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.handlers, name)) {
+            This.handlers.Add(name + "");
+        }
+    }
+
+    Public Function AddCapability(String name) -> Void
+    Explain {
+        Description: "Add one backend capability.";
+        Input: name = "Element kind the backend can host";
+        Processing: "Store the capability when it is new.";
+        Output: "No return value.";
+    } {
+        If (!This.BuildHas(This.capabilities, name)) {
+            This.capabilities.Add(name + "");
+        }
+    }
+
+    Public Function LoadGraph() -> Int
+    Explain {
+        Description: "Load every project file and check the reachable markup.";
+        Input: None;
+        Processing: "Resolve imports, then check components, properties, resources, handlers, assets, and capabilities.";
+        Output: "The number of build diagnostics.";
+    } {
+        Int index = 0;
+        While (index < This.includes.Count()) {
+            This.BuildLoad(This.includes[index], This.includes[index], 1, 1, This.includes[index].Length());
+            index = index + 1;
+        }
+        Return This.Messages.Count();
+    }
+
+    Public Function ReadProject(String path) -> Int
+    Explain {
+        Description: "Read RXU assets from a project file and check them.";
+        Input: path = "Project file path";
+        Processing: "Read Include, Asset, Handler, and Capability entries, then load the graph.";
+        Output: "The number of build diagnostics.";
+    } {
+        If (!Files.Exists(path)) {
+            This.BuildNote("RXU017", "This project file was not found.", path, 1, 1, path.Length(), "a project file", path, "Create the project or correct the path.");
+            Return This.Messages.Count();
+        }
+        String text = Files.ReadText(path);
+        String directory = This.BuildDirectory(path);
+        String line = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == "\n") {
+                This.BuildLine(line, directory);
+                line = "";
+            } Else {
+                line = line + character;
+            }
+            index = index + 1;
+        }
+        This.BuildLine(line, directory);
+        Return This.LoadGraph();
+    }
+
+    Public Function PackageReady() -> Bool
+    Explain {
+        Description: "Report whether the project can be packaged.";
+        Input: None;
+        Processing: "A package requires an empty diagnostic list.";
+        Output: "True when the build found no errors.";
+    } {
+        Return This.Messages.Count() == 0;
+    }
+
+    Public Function RuntimeCount() -> Int
+    Explain {
+        Description: "Count values that must be checked again at runtime.";
+        Input: None;
+        Processing: "Count bindings, expressions, and localization values.";
+        Output: "The number of deferred checks.";
+    } {
+        Return This.runtimeChecks;
+    }
+
+    Private Function BuildLoad(String path, String fromFile, Int line, Int column, Int length) -> Void {
+        If (This.BuildHas(This.stack, path)) {
+            This.BuildNote("RXU026", "This import is circular.", fromFile, line, column, length, "an acyclic import", path, "Remove the import cycle.");
+            Return;
+        }
+        If (This.BuildHas(This.loaded, path)) {
+            Return;
+        }
+        If (!Files.Exists(path)) {
+            This.BuildNote("RXU027", "This imported file was not found.", fromFile, line, column, length, "an RXU file", path, "Create the file or correct the path.");
+            Return;
+        }
+        If (!This.BuildHas(This.includes, path)) {
+            This.BuildNote("RXU038", "This file is not a project asset.", fromFile, line, column, length, "a project include", path, "Add the file to the project.");
+            Return;
+        }
+        RxuParser parser = RxuParser();
+        RxuNode document = parser.Parse(path, Files.ReadText(path));
+        This.loaded.Add(path + "");
+        This.BuildCopy(document.Messages);
+        If (document.Messages.Count() != 0) {
+            Return;
+        }
+        This.stack.Add(path + "");
+        This.BuildCollect(document, path);
+        This.BuildPop();
+        This.idNames = List<String>();
+        This.BuildVerify(document, "", path);
+    }
+
+    Private Function BuildCollect(RxuNode node, String file) -> Void {
+        If (node.Kind == "Element") {
+            If (node.Name == "Component") {
+                String componentName = node.FindAttribute("Name").Text;
+                If (componentName == "") {
+                    This.BuildNote("RXU036", "A component needs a name.", file, node.Line, node.Column, node.Length, "a component name", "empty", "Set the Name attribute.");
+                } Else {
+                    If (This.BuildHas(This.componentNames, componentName)) {
+                        This.BuildNote("RXU036", "This component name is already defined.", file, node.Line, node.Column, node.Length, "one component", componentName, "Rename one component.");
+                    } Else {
+                        This.componentNames.Add(componentName + "");
+                    }
+                }
+            }
+            If (node.Name == "Import" || node.Name == "Include") {
+                String source = node.FindAttribute("Source").Text;
+                If (source == "") {
+                    This.BuildNote("RXU027", "This imported file was not found.", file, node.Line, node.Column, node.Length, "an RXU file", "empty", "Set the Source attribute.");
+                } Else {
+                    String full = This.BuildResolve(This.BuildDirectory(file), source);
+                    This.BuildLoad(full, file, node.Line, node.Column, node.Length);
+                }
+            }
+            If (node.Name == "Resources" || node.Name == "Theme") {
+                Int child = 0;
+                While (child < node.Children.Count()) {
+                    RxuNode item = node.Children[child];
+                    If (item.Kind == "Element") {
+                        String key = item.FindAttribute("Name").Text;
+                        If (key != "") {
+                            This.resourceKeys.Add(key + "");
+                        }
+                    }
+                    child = child + 1;
+                }
+            }
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            This.BuildCollect(node.Children[index], file);
+            index = index + 1;
+        }
+    }
+
+    Private Function BuildVerify(RxuNode node, String parent, String file) -> Void {
+        If (node.Kind != "Element") {
+            Int nested = 0;
+            While (nested < node.Children.Count()) {
+                This.BuildVerify(node.Children[nested], parent, file);
+                nested = nested + 1;
+            }
+            Return;
+        }
+        String element = node.Name;
+        String builtins = "Window,Panel,Button,Control,FrameworkElement,UIElement,Text,Label,Border,Image,Icon,Resources,Color,Brush,Number,String,Boolean,Font,Style,Template,Setter,Theme,Data,Animation,Dimension,Thickness,Duration,Component,Import,Include,If,Else,ElseIf,Each,For,ForEach,Choose,Switch,When,Default,Otherwise,Let,Set,Bind,Content,Dialog,Menu,Canvas";
+        If (!This.BuildKnown(builtins, element) && !This.BuildHas(This.componentNames, element)) {
+            This.BuildNote("RXU028", "This component is not defined.", file, node.Line, node.Column, node.Length, "a known element or component", element, "Define the component or use a known element.");
+        }
+        If (This.BuildKnown("Window,Panel,Button,Control,FrameworkElement,UIElement,Label,Text,Border,Image,Dialog,Menu,Canvas", element) && !This.BuildHas(This.capabilities, element)) {
+            This.BuildNote("RXU034", "This backend cannot host this element.", file, node.Line, node.Column, node.Length, "a supported capability", element, "Use an element the backend supports.");
+        }
+        If (element == "Window" && parent != "") {
+            This.BuildNote("RXU029", "A window cannot be nested.", file, node.Line, node.Column, node.Length, "a top-level window", parent, "Move the window to the top of the document.");
+        }
+        If (element == "Setter" && parent != "Style") {
+            This.BuildNote("RXU029", "A setter must belong to a style.", file, node.Line, node.Column, node.Length, "Style", parent, "Place the setter inside a Style.");
+        }
+        If (This.BuildKnown("Color,Brush,Number,String,Boolean,Font,Dimension,Thickness,Duration,Animation,Data", element) && parent != "Resources" && parent != "Theme") {
+            This.BuildNote("RXU029", "This resource must belong to a resource table.", file, node.Line, node.Column, node.Length, "Resources or Theme", parent, "Move it inside Resources or Theme.");
+        }
+        String userId = node.FindAttribute("Id").Text;
+        If (userId != "") {
+            If (This.BuildHas(This.idNames, userId)) {
+                This.BuildNote("RXU016", "This Id is already used in the document.", file, node.Line, node.Column, node.Length, "a unique Id", userId, "Give this element a different Id.");
+            } Else {
+                This.idNames.Add(userId + "");
+            }
+        }
+        Bool visual = This.BuildKnown("Window,Panel,Button,Control,FrameworkElement,UIElement,Label,Text,Border,Image", element);
+        UIElement probe = UIElement();
+        probe.Kind = This.BuildProbeKind(element);
+        Int attribute = 0;
+        While (attribute < node.Attributes.Count()) {
+            RxuNode item = node.Attributes[attribute];
+            Bool deferred = item.Mode == "Binding" || item.Mode == "Expression" || item.Mode == "Localization";
+            If (item.Name.StartsWith("On") && item.Name.Length() > 2) {
+                If (deferred) {
+                    This.runtimeChecks = This.runtimeChecks + 1;
+                } Else {
+                    If (!This.BuildHas(This.handlers, item.Text)) {
+                        This.BuildNote("RXU032", "This event handler is not defined.", file, item.Line, item.Column, item.Length, "a project handler", item.Text, "Define the handler or correct its name.");
+                    }
+                }
+            } Else {
+                If (!This.BuildSkip(element, item.Name)) {
+                    If (item.Mode == "Resource") {
+                        If (visual && !probe.Accepts(item.Name)) {
+                            This.BuildNote("RXU031", "This binding target is not a property of the element.", file, item.Line, item.Column, item.Length, "a property of " + element, item.Name, "Bind a property this element allows.");
+                        }
+                        If (!This.BuildHas(This.resourceKeys, item.Text)) {
+                            This.BuildNote("RXU030", "This resource was not found in the project.", file, item.Line, item.Column, item.Length, "a defined resource", item.Text, "Define the resource or use a built-in key.");
+                        }
+                    } Else {
+                        If (deferred) {
+                            If (visual && !probe.Accepts(item.Name)) {
+                                This.BuildNote("RXU031", "This binding target is not a property of the element.", file, item.Line, item.Column, item.Length, "a property of " + element, item.Name, "Bind a property this element allows.");
+                            } Else {
+                                This.runtimeChecks = This.runtimeChecks + 1;
+                            }
+                        } Else {
+                            If (visual) {
+                                Int before = probe.Messages.Count();
+                                probe.SetAttribute(item.Name, item.Text);
+                                Int after = before;
+                                While (after < probe.Messages.Count()) {
+                                    RxuDiagnostic diagnostic = probe.Messages.At(after);
+                                    This.BuildNote(diagnostic.Code, diagnostic.Message, file, item.Line, item.Column, item.Length, diagnostic.Expected, diagnostic.Actual, diagnostic.Correction);
+                                    after = after + 1;
+                                }
+                            } Else {
+                                If (This.BuildKnown(builtins, element)) {
+                                    This.BuildNote("RXU019", "This property is unknown.", file, item.Line, item.Column, item.Length, "a known property", item.Name, "Remove the attribute or move it to an element that allows it.");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            If ((item.Name == "Image" || item.Name == "Icon") && !deferred && item.Mode != "Resource") {
+                String assetPath = This.BuildResolve(This.BuildDirectory(file), item.Text);
+                If (!This.BuildHas(This.assets, item.Text) || (!Files.Exists(assetPath) && !Files.Exists(item.Text))) {
+                    This.BuildNote("RXU033", "This asset is not in the project.", file, item.Line, item.Column, item.Length, "a packaged asset", item.Text, "Add the file to the project assets.");
+                }
+            }
+            attribute = attribute + 1;
+        }
+        Int child = 0;
+        While (child < node.Children.Count()) {
+            This.BuildVerify(node.Children[child], element, file);
+            child = child + 1;
+        }
+    }
+
+    Private Function BuildLine(String line, String directory) -> Void {
+        String value = This.BuildQuoted(line);
+        If (value == "") {
+            Return;
+        }
+        If (line.Contains("Include:")) {
+            This.AddInclude(This.BuildResolve(directory, value));
+        }
+        If (line.Contains("Asset:")) {
+            This.AddAsset(value);
+            This.AddAsset(This.BuildResolve(directory, value));
+        }
+        If (line.Contains("Handler:")) {
+            This.AddHandler(value);
+        }
+        If (line.Contains("Capability:")) {
+            This.AddCapability(value);
+        }
+    }
+
+    Private Function BuildQuoted(String line) -> String {
+        Int start = -1;
+        Int index = 0;
+        While (index < line.Length()) {
+            If (line.Substring(index, 1) == "\"") {
+                If (start < 0) {
+                    start = index + 1;
+                } Else {
+                    Return line.Substring(start, index - start);
+                }
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function BuildResolve(String directory, String source) -> String {
+        If (directory == "" || source.StartsWith("/")) {
+            Return source;
+        }
+        Return directory + "/" + source;
+    }
+
+    Private Function BuildDirectory(String path) -> String {
+        Int last = -1;
+        Int index = 0;
+        While (index < path.Length()) {
+            If (path.Substring(index, 1) == "/") {
+                last = index;
+            }
+            index = index + 1;
+        }
+        If (last < 0) {
+            Return "";
+        }
+        Return path.Substring(0, last);
+    }
+
+    Private Function BuildHas(List<String> items, String name) -> Bool {
+        Int index = 0;
+        While (index < items.Count()) {
+            If (items[index] == name) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function BuildKnown(String catalog, String name) -> Bool {
+        Return ("," + catalog + ",").Contains("," + name + ",");
+    }
+
+    Private Function BuildProbeKind(String element) -> String {
+        If (element == "Window" || element == "Panel" || element == "FrameworkElement" || element == "Control" || element == "UIElement") {
+            Return element;
+        }
+        Return "Button";
+    }
+
+    Private Function BuildSkip(String element, String attribute) -> Bool {
+        If (attribute == "Name" || attribute == "Id") {
+            Return True;
+        }
+        If ((element == "Import" || element == "Include") && attribute == "Source") {
+            Return True;
+        }
+        If ((element == "Each" || element == "For" || element == "ForEach") && (attribute == "Items" || attribute == "As")) {
+            Return True;
+        }
+        If (element == "Setter" && (attribute == "State" || attribute == "Property" || attribute == "Value")) {
+            Return True;
+        }
+        If (element == "When" && attribute == "Value") {
+            Return True;
+        }
+        If ((element == "Let" || element == "Set") && attribute == "Value") {
+            Return True;
+        }
+        If (element == "Bind" && (attribute == "Target" || attribute == "Source")) {
+            Return True;
+        }
+        If (This.BuildKnown("Color,Brush,Number,String,Boolean,Font,Style,Template,Image,Icon,Dimension,Thickness,Duration,Animation,Data,Theme", element) && (attribute == "Name" || attribute == "Value")) {
+            Return True;
+        }
+        Return False;
+    }
+
+    Private Function BuildCopy(RxuMessages source) -> Void {
+        Int index = 0;
+        While (index < source.Count()) {
+            RxuDiagnostic item = source.At(index);
+            This.BuildNote(item.Code, item.Message, item.Filename, item.Line, item.Column, item.Length, item.Expected, item.Actual, item.Correction);
+            index = index + 1;
+        }
+    }
+
+    Private Function BuildPop() -> Void {
+        List<String> next = List<String>();
+        Int index = 0;
+        While (index < This.stack.Count() - 1) {
+            next.Add(This.stack[index]);
+            index = index + 1;
+        }
+        This.stack = next;
+    }
+
+    Private Function BuildNote(
+        String code,
+        String message,
+        String filename,
+        Int line,
+        Int column,
+        Int length,
+        String expected,
+        String actual,
+        String correction
+    ) -> Void {
+        This.Messages.Add(code, message, filename, line, column, length, expected, actual, correction);
+    }
+}

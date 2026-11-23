@@ -1,0 +1,9 @@
+<Components Name="Extra" Version="2.0">
+  <Import Source="Examples/UI/Kit.rxu"/>
+  <Component Name="Badge" Access="Public">
+    <Parameter Name="Caption" Type="String" Default="Other" Access="Public"/>
+  </Component>
+  <Component Name="Tag" Access="Public">
+    <Parameter Name="Caption" Type="String" Default="Tag" Access="Public"/>
+  </Component>
+</Components>

@@ -1,0 +1,67 @@
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+warning RX005 11550:26 Keyword 'params' should be written 'Params'.
+warning RX005 11581:14 Keyword 'params' should be written 'Params'.
+warning RX005 12121:18 Keyword 'params' should be written 'Params'.
+warning RX005 12231:29 Keyword 'params' should be written 'Params'.
+warning RX005 12232:31 Keyword 'params' should be written 'Params'.
+warning RX005 12252:29 Keyword 'params' should be written 'Params'.
+warning RX005 12253:31 Keyword 'params' should be written 'Params'.
+warning RX005 12400:29 Keyword 'params' should be written 'Params'.
+warning RX005 12401:31 Keyword 'params' should be written 'Params'.
+warning RX112 16805:8 Main should return ExitCode or ExecutionResult instead of a raw integer.
+
+Program received signal SIGSEGV, Segmentation fault.
+0x00005555555d7316 in rx_list_add ()
+#0  0x00005555555d7316 in rx_list_add ()
+#1  0x00005555555799e5 in Interpreter_Define ()
+#2  0x000055555557c687 in Interpreter_ExecuteVariable ()
+#3  0x0000555555565d84 in Interpreter_ExecuteNode ()
+#4  0x000055555557be00 in Interpreter_ExecuteBlock ()
+#5  0x0000555555565d15 in Interpreter_ExecuteNode ()
+#6  0x0000555555587fad in Interpreter_CallFunction ()
+#7  0x00005555555833c2 in Interpreter_EvaluateCall ()
+#8  0x000055555557ab97 in Interpreter_Evaluate ()
+#9  0x000055555557c2e7 in Interpreter_ExecuteVariable ()
+#10 0x0000555555565d84 in Interpreter_ExecuteNode ()
+#11 0x000055555557be00 in Interpreter_ExecuteBlock ()
+#12 0x0000555555565d15 in Interpreter_ExecuteNode ()
+#13 0x0000555555587fad in Interpreter_CallFunction ()
+#14 0x00005555555833c2 in Interpreter_EvaluateCall ()
+#15 0x000055555557ab97 in Interpreter_Evaluate ()
+#16 0x000055555557c2e7 in Interpreter_ExecuteVariable ()
+#17 0x0000555555565d84 in Interpreter_ExecuteNode ()
+#18 0x000055555557be00 in Interpreter_ExecuteBlock ()
+#19 0x0000555555565d15 in Interpreter_ExecuteNode ()
+#20 0x0000555555587fad in Interpreter_CallFunction ()
+#21 0x0000555555585778 in Interpreter_EvaluateCall ()
+#22 0x000055555557ab97 in Interpreter_Evaluate ()
+#23 0x000055555557b7cd in Interpreter_Evaluate ()
+#24 0x0000555555584d2d in Interpreter_EvaluateCall ()
+#25 0x000055555557ab97 in Interpreter_Evaluate ()
+#26 0x000055555557f385 in Interpreter_EvaluateBinary ()
+#27 0x000055555557a601 in Interpreter_Evaluate ()
+#28 0x0000555555580d0a in Interpreter_EvaluateCall ()
+#29 0x000055555557ab97 in Interpreter_Evaluate ()
+#30 0x000055555557f3a9 in Interpreter_EvaluateBinary ()
+#31 0x000055555557a601 in Interpreter_Evaluate ()
+#32 0x000055555557a836 in Interpreter_Evaluate ()
+#33 0x0000555555565dc0 in Interpreter_ExecuteNode ()
+#34 0x000055555557be00 in Interpreter_ExecuteBlock ()
+#35 0x0000555555565d15 in Interpreter_ExecuteNode ()
+#36 0x0000555555587fad in Interpreter_CallFunction ()
+#37 0x0000555555583b26 in Interpreter_EvaluateCall ()
+#38 0x000055555557ab97 in Interpreter_Evaluate ()
+#39 0x0000555555566306 in Interpreter_ExecuteNode ()
+#40 0x000055555557be00 in Interpreter_ExecuteBlock ()
+#41 0x0000555555565d15 in Interpreter_ExecuteNode ()
+#42 0x0000555555587fad in Interpreter_CallFunction ()
+#43 0x000055555555a1d4 in Interpreter_Execute ()
+#44 0x0000555555556c92 in main ()
+EXIT:0

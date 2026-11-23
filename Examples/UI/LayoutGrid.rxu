@@ -1,0 +1,5 @@
+<Panel Name="grid" Tag="Grid" Width="100" Height="100" GridColumns="2" GridRows="2">
+    <Panel Name="A" Tag="Rect" Column="0" Row="0" Background="#336699"/>
+    <Panel Name="B" Tag="Rect" Column="1" Row="0" Background="#336699"/>
+    <Panel Name="C" Tag="Rect" Column="0" Row="1" ColumnSpan="2" Background="#336699"/>
+</Panel>

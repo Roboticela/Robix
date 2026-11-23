@@ -1,0 +1,761 @@
+// Documents, instances, and the UI entry.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class RxuInstance {
+    Public String Id;
+    Public String UserId;
+    Public String Name;
+    Public String Kind;
+    Public String Text;
+    Public String ParentId;
+    Public String DocumentId;
+    Public Bool Disposed;
+    Public List<RxuInstance> Children;
+
+    Public Constructor() {
+        This.Id = "";
+        This.UserId = "";
+        This.Name = "";
+        This.Kind = "";
+        This.Text = "";
+        This.ParentId = "";
+        This.DocumentId = "";
+        This.Disposed = False;
+        This.Children = List<RxuInstance>();
+    }
+}
+
+Public Class RxuDocument {
+    Public String Id;
+    Public String Path;
+    Public String Source;
+    Public String State;
+    Public RxuInstance Root;
+    Public RxuMessages Messages;
+    Public Bool Disposed;
+    Public List<String> componentNames;
+    Public List<RxuNode> componentNodes;
+    Public List<String> seenIds;
+
+    Public Constructor() {
+        This.Id = "";
+        This.Path = "";
+        This.Source = "";
+        This.State = "";
+        This.Root = RxuInstance();
+        This.Messages = RxuMessages();
+        This.Disposed = False;
+        This.componentNames = List<String>();
+        This.componentNodes = List<RxuNode>();
+        This.seenIds = List<String>();
+    }
+
+    Public Function ComponentCount() -> Int
+    Explain {
+        Description: "Return how many component definitions this document recorded.";
+        Input: None;
+        Processing: "Read this document's component list.";
+        Output: "The number of recorded components.";
+    } {
+        Return This.componentNames.Count();
+    }
+
+    Public Function ComponentName(Int index) -> String
+    Explain {
+        Description: "Return one recorded component name.";
+        Input: index = "Zero-based component index";
+        Processing: "Read the name at that index.";
+        Output: "The component name, or empty text when the index is outside the list.";
+    } {
+        If (index < 0 || index >= This.componentNames.Count()) {
+            Return "";
+        }
+        Return This.componentNames[index];
+    }
+}
+
+Public Class DocumentManager {
+    Private List<RxuDocument> documents;
+    Private Int nextDocument;
+    Private Int nextNode;
+
+    Public Constructor() {
+        This.documents = List<RxuDocument>();
+        This.nextDocument = 0;
+        This.nextNode = 0;
+    }
+
+    Public Function Load(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU file into a new document.";
+        Input: path = "Path of the markup file";
+        Processing: "Read the file, parse it, and keep a private component tree.";
+        Output: "The loaded document, or a failed document when the file or markup is invalid.";
+    } {
+        If (!Files.Exists(path)) {
+            Return This.FailMissing(path);
+        }
+        Return This.Adopt(path, Files.ReadText(path));
+    }
+
+    Public Function LoadAsync(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU file and finish before returning.";
+        Input: path = "Path of the markup file";
+        Processing: "Call Load. This headless runtime has no background loader.";
+        Output: "The same document Load returns.";
+    } {
+        Return This.Load(path);
+    }
+
+    Public Function LoadMany(List<String> paths) -> Int
+    Explain {
+        Description: "Load several RXU files.";
+        Input: paths = "Markup file paths";
+        Processing: "Load each path as its own document.";
+        Output: "The number of documents added.";
+    } {
+        Int added = 0;
+        Int index = 0;
+        While (index < paths.Count()) {
+            This.Load(paths[index]);
+            added = added + 1;
+            index = index + 1;
+        }
+        Return added;
+    }
+
+    Public Function Reload(String id) -> RxuDocument
+    Explain {
+        Description: "Parse a loaded document again and keep its id.";
+        Input: id = "Document id";
+        Processing: "Read the stored source or file, replace the tree, and return to Loaded.";
+        Output: "The same document, or a blank document when the id is gone.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.Id == "") {
+            Return document;
+        }
+        String source = document.Source;
+        If (document.Path != "" && document.Path != "memory" && Files.Exists(document.Path)) {
+            source = Files.ReadText(document.Path);
+        }
+        This.Fill(document, document.Path, source);
+        Return document;
+    }
+
+    Public Function ReloadAsync(String id) -> RxuDocument
+    Explain {
+        Description: "Reload a document and finish before returning.";
+        Input: id = "Document id";
+        Processing: "Call Reload. This headless runtime has no background loader.";
+        Output: "The same document Reload returns.";
+    } {
+        Return This.Reload(id);
+    }
+
+    Public Function Unload(String id) -> Void
+    Explain {
+        Description: "Drop a document and mark its tree disposed.";
+        Input: id = "Document id";
+        Processing: "Dispose the instance tree and remove the document.";
+        Output: "No return value.";
+    } {
+        Int index = 0;
+        While (index < This.documents.Count()) {
+            If (This.documents[index].Id == id) {
+                This.DisposeInstance(This.documents[index].Root);
+                This.documents[index].Disposed = True;
+                This.documents[index].State = "Unloaded";
+                This.documents[index].Root = RxuInstance();
+                Int cursor = 0;
+                Var kept = List<RxuDocument>();
+                While (cursor < This.documents.Count()) {
+                    If (cursor != index) {
+                        kept.Add(This.documents[cursor]);
+                    }
+                    cursor = cursor + 1;
+                }
+                This.documents = kept;
+                Return;
+            }
+            index = index + 1;
+        }
+    }
+
+    Public Function CreateDocument(String source) -> RxuDocument
+    Explain {
+        Description: "Create a document from markup text.";
+        Input: source = "RXU markup";
+        Processing: "Parse the text into a private document with path memory.";
+        Output: "The created document.";
+    } {
+        Return This.Adopt("memory", source);
+    }
+
+    Public Function GetDocuments() -> Int
+    Explain {
+        Description: "Count the documents that are still loaded.";
+        Input: None;
+        Processing: "Read the live document list.";
+        Output: "The number of live documents.";
+    } {
+        Return This.documents.Count();
+    }
+
+    Public Function DocumentAt(Int index) -> RxuDocument
+    Explain {
+        Description: "Return one live document.";
+        Input: index = "Zero-based document index";
+        Processing: "Read the document at that index.";
+        Output: "The document, or a blank document when the index is outside the list.";
+    } {
+        If (index < 0 || index >= This.documents.Count()) {
+            Return RxuDocument();
+        }
+        Return This.documents[index];
+    }
+
+    Public Function GetDocument(String id) -> RxuDocument
+    Explain {
+        Description: "Find a live document by id.";
+        Input: id = "Document id";
+        Processing: "Scan the live documents.";
+        Output: "The document, or a blank document when it is missing or unloaded.";
+    } {
+        Int index = 0;
+        While (index < This.documents.Count()) {
+            If (This.documents[index].Id == id) {
+                Return This.documents[index];
+            }
+            index = index + 1;
+        }
+        Return RxuDocument();
+    }
+
+    Public Function GetRoot(String id) -> RxuInstance
+    Explain {
+        Description: "Return the root instance of a live document.";
+        Input: id = "Document id";
+        Processing: "Find the document and read its root.";
+        Output: "The root instance, or a blank instance when the document is missing.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.Id == "") {
+            Return RxuInstance();
+        }
+        Return document.Root;
+    }
+
+    Public Function Show(String id) -> Void
+    Explain {
+        Description: "Mark a loaded document shown without creating a window.";
+        Input: id = "Document id";
+        Processing: "Change Loaded, Hidden, or Closed to Shown.";
+        Output: "No return value.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.State == "Loaded" || document.State == "Hidden" || document.State == "Closed") {
+            document.State = "Shown";
+        }
+    }
+
+    Public Function Hide(String id) -> Void
+    Explain {
+        Description: "Mark a shown document hidden.";
+        Input: id = "Document id";
+        Processing: "Change Shown to Hidden.";
+        Output: "No return value.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.State == "Shown") {
+            document.State = "Hidden";
+        }
+    }
+
+    Public Function Close(String id) -> Void
+    Explain {
+        Description: "Mark a document closed without unloading it.";
+        Input: id = "Document id";
+        Processing: "Change a live document to Closed and keep its tree.";
+        Output: "No return value.";
+    } {
+        RxuDocument document = This.GetDocument(id);
+        If (document.State == "Loaded" || document.State == "Shown" || document.State == "Hidden") {
+            document.State = "Closed";
+        }
+    }
+
+    Public Function FindByName(String id, String name) -> RxuInstance
+    Explain {
+        Description: "Find an instance by its Name attribute.";
+        Input: id = "Document id", name = "Name attribute";
+        Processing: "Walk the live tree.";
+        Output: "The first match, or a blank instance.";
+    } {
+        Return This.FindNamed(This.GetRoot(id), name);
+    }
+
+    Public Function FindById(String id, String userId) -> RxuInstance
+    Explain {
+        Description: "Find an instance by its Id attribute.";
+        Input: id = "Document id", userId = "Element Id attribute";
+        Processing: "Walk the live tree. The first Id wins.";
+        Output: "The first match, or a blank instance.";
+    } {
+        Return This.FindUser(This.GetRoot(id), userId);
+    }
+
+    Public Function FindByKind(String id, String kind) -> RxuInstance
+    Explain {
+        Description: "Find an instance by its element name.";
+        Input: id = "Document id", kind = "Element name";
+        Processing: "Walk the live tree.";
+        Output: "The first match, or a blank instance.";
+    } {
+        Return This.FindInstanceKind(This.GetRoot(id), kind);
+    }
+
+    Public Function FindByPath(String id, String path) -> RxuInstance
+    Explain {
+        Description: "Find an instance by a slash-separated element path.";
+        Input: id = "Document id", path = "Element path such as Window/Panel/Button";
+        Processing: "Match each path segment to an element name.";
+        Output: "The instance, or a blank instance.";
+    } {
+        Return This.FindPath(This.GetRoot(id), path);
+    }
+
+    Public Function Attach(String id, String parentId, String kind, String name) -> RxuInstance
+    Explain {
+        Description: "Add a live instance under a parent.";
+        Input: id = "Document id", parentId = "Internal parent id", kind = "Element name", name = "Name attribute";
+        Processing: "Create an instance and add it to the parent. The markup definition is unchanged.";
+        Output: "The new instance, or a blank instance when the parent is missing.";
+    } {
+        RxuInstance parent = This.FindInternal(This.GetRoot(id), parentId);
+        If (parent.Id == "") {
+            Return RxuInstance();
+        }
+        This.nextNode = This.nextNode + 1;
+        RxuInstance child = RxuInstance();
+        child.Id = "n" + This.nextNode.ToString();
+        child.Kind = kind + "";
+        child.Name = name + "";
+        child.ParentId = parent.Id + "";
+        child.DocumentId = id + "";
+        parent.Children.Add(child);
+        Return child;
+    }
+
+    Public Function Detach(String id, String instanceId) -> Void
+    Explain {
+        Description: "Remove a live instance from its parent.";
+        Input: id = "Document id", instanceId = "Internal instance id";
+        Processing: "Drop the instance from its parent and mark that subtree disposed.";
+        Output: "No return value.";
+    } {
+        RxuInstance instance = This.FindInternal(This.GetRoot(id), instanceId);
+        If (instance.Id == "" || instance.ParentId == "") {
+            Return;
+        }
+        RxuInstance parent = This.FindInternal(This.GetRoot(id), instance.ParentId);
+        Var kept = List<RxuInstance>();
+        Int index = 0;
+        While (index < parent.Children.Count()) {
+            If (parent.Children[index].Id != instanceId) {
+                kept.Add(parent.Children[index]);
+            }
+            index = index + 1;
+        }
+        parent.Children = List<RxuInstance>();
+        index = 0;
+        While (index < kept.Count()) {
+            parent.Children.Add(kept[index]);
+            index = index + 1;
+        }
+        This.DisposeInstance(instance);
+    }
+
+    Private Function FailMissing(String path) -> RxuDocument {
+        This.nextDocument = This.nextDocument + 1;
+        RxuDocument document = RxuDocument();
+        document.Id = "d" + This.nextDocument.ToString();
+        document.Path = path + "";
+        document.State = "Failed";
+        document.Messages.Add("RXU017", "This document file was not found.", path, 1, 1, 1, "an RXU file", path, "Create the file or correct the path.");
+        This.documents.Add(document);
+        Return document;
+    }
+
+    Private Function Adopt(String path, String source) -> RxuDocument {
+        This.nextDocument = This.nextDocument + 1;
+        RxuDocument document = RxuDocument();
+        document.Id = "d" + This.nextDocument.ToString();
+        This.Fill(document, path, source);
+        This.documents.Add(document);
+        Return document;
+    }
+
+    Private Function Fill(RxuDocument document, String path, String source) -> Void {
+        document.Path = path + "";
+        document.Source = source + "";
+        document.Disposed = False;
+        document.Messages = RxuMessages();
+        document.componentNames = List<String>();
+        document.componentNodes = List<RxuNode>();
+        document.seenIds = List<String>();
+        document.Root = RxuInstance();
+        RxuParser parser = RxuParser();
+        RxuNode tree = parser.Parse(path, source);
+        This.CopyMessages(tree.Messages, document.Messages);
+        If (document.Messages.Count() > 0) {
+            document.State = "Failed";
+            Return;
+        }
+        document.State = "Loaded";
+        document.Root = This.BuildRoot(tree, document);
+    }
+
+    Private Function BuildRoot(RxuNode tree, RxuDocument document) -> RxuInstance {
+        Int elements = 0;
+        Int cursor = 0;
+        RxuNode only = RxuNode();
+        While (cursor < tree.Children.Count()) {
+            If (tree.Children[cursor].Kind == "Element") {
+                elements = elements + 1;
+                If (elements == 1) {
+                    only = tree.Children[cursor];
+                }
+            }
+            cursor = cursor + 1;
+        }
+        If (elements == 1) {
+            RxuInstance root = This.MakeInstance(only, document, "");
+            This.BuildChildren(root, only, document);
+            Return root;
+        }
+        This.nextNode = This.nextNode + 1;
+        RxuInstance holder = RxuInstance();
+        holder.Id = "n" + This.nextNode.ToString();
+        holder.Kind = "Document";
+        holder.DocumentId = document.Id + "";
+        This.BuildChildren(holder, tree, document);
+        Return holder;
+    }
+
+    Private Function BuildChildren(RxuInstance parent, RxuNode node, RxuDocument document) -> Void {
+        Int cursor = 0;
+        While (cursor < node.Children.Count()) {
+            RxuNode child = node.Children[cursor];
+            If (child.Kind == "Element") {
+                If (child.Name == "Component") {
+                    String componentName = child.FindAttribute("Name").Text + "";
+                    If (componentName != "") {
+                        document.componentNames.Add(componentName);
+                    }
+                }
+                RxuInstance instance = This.MakeInstance(child, document, parent.Id);
+                parent.Children.Add(instance);
+                This.BuildChildren(instance, child, document);
+            }
+            cursor = cursor + 1;
+        }
+    }
+
+    Private Function MakeInstance(RxuNode node, RxuDocument document, String parentId) -> RxuInstance {
+        This.nextNode = This.nextNode + 1;
+        RxuInstance instance = RxuInstance();
+        instance.Id = "n" + This.nextNode.ToString();
+        instance.Kind = node.Name + "";
+        instance.Name = node.FindAttribute("Name").Text + "";
+        instance.UserId = node.FindAttribute("Id").Text + "";
+        instance.Text = node.FindAttribute("Text").Text + "";
+        instance.ParentId = parentId + "";
+        instance.DocumentId = document.Id + "";
+        If (instance.UserId != "") {
+            Int index = 0;
+            Bool seen = False;
+            While (index < document.seenIds.Count()) {
+                If (document.seenIds[index] == instance.UserId) {
+                    seen = True;
+                }
+                index = index + 1;
+            }
+            If (seen) {
+                document.Messages.Add("RXU016", "This Id is already used in the document.", document.Path, node.Line, node.Column, node.Length, "a unique Id", instance.UserId, "Give this element a different Id.");
+            } Else {
+                document.seenIds.Add(instance.UserId);
+            }
+        }
+        Return instance;
+    }
+
+    Private Function CopyMessages(RxuMessages source, RxuMessages target) -> Void {
+        Int index = 0;
+        While (index < source.Count()) {
+            RxuDiagnostic item = source.At(index);
+            target.Add(item.Code, item.Message, item.Filename, item.Line, item.Column, item.Length, item.Expected, item.Actual, item.Correction);
+            index = index + 1;
+        }
+    }
+
+    Private Function FindNamed(RxuInstance node, String name) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.Name == name && name != "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindNamed(node.Children[index], name);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindUser(RxuInstance node, String userId) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.UserId == userId && userId != "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindUser(node.Children[index], userId);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindInstanceKind(RxuInstance node, String kind) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.Kind == kind && kind != "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindInstanceKind(node.Children[index], kind);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindInternal(RxuInstance node, String instanceId) -> RxuInstance {
+        If (node.Id == "" || node.Disposed) {
+            Return RxuInstance();
+        }
+        If (node.Id == instanceId) {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuInstance found = This.FindInternal(node.Children[index], instanceId);
+            If (found.Id != "") {
+                Return found;
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function FindPath(RxuInstance node, String path) -> RxuInstance {
+        If (node.Id == "" || node.Disposed || path == "") {
+            Return RxuInstance();
+        }
+        Int slash = path.IndexOf("/");
+        String head = path;
+        String tail = "";
+        If (slash >= 0) {
+            head = path.Substring(0, slash);
+            tail = path.Substring(slash + 1, path.Length() - slash - 1);
+        }
+        If (node.Kind != head) {
+            Return RxuInstance();
+        }
+        If (tail == "") {
+            Return node;
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            If (node.Children[index].Kind == This.PathHead(tail)) {
+                RxuInstance found = This.FindPath(node.Children[index], tail);
+                If (found.Id != "") {
+                    Return found;
+                }
+            }
+            index = index + 1;
+        }
+        Return RxuInstance();
+    }
+
+    Private Function PathHead(String path) -> String {
+        Int slash = path.IndexOf("/");
+        If (slash < 0) {
+            Return path;
+        }
+        Return path.Substring(0, slash);
+    }
+
+    Private Function DisposeInstance(RxuInstance node) -> Void {
+        node.Disposed = True;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            This.DisposeInstance(node.Children[index]);
+            index = index + 1;
+        }
+    }
+}
+
+Public Class UI {
+    Public DocumentManager Documents;
+
+    Public Constructor() {
+        This.Documents = DocumentManager();
+    }
+
+    Public Function Load(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU document.";
+        Input: path = "Path of the markup file";
+        Processing: "Ask the document manager to load the file.";
+        Output: "The loaded document.";
+    } {
+        Return This.Documents.Load(path);
+    }
+
+    Public Function LoadAsync(String path) -> RxuDocument
+    Explain {
+        Description: "Load one RXU document and finish before returning.";
+        Input: path = "Path of the markup file";
+        Processing: "Ask the document manager to load the file now.";
+        Output: "The loaded document.";
+    } {
+        Return This.Documents.LoadAsync(path);
+    }
+
+    Public Function LoadMany(List<String> paths) -> Int
+    Explain {
+        Description: "Load several RXU documents.";
+        Input: paths = "Markup file paths";
+        Processing: "Ask the document manager to load each file.";
+        Output: "The number of documents added.";
+    } {
+        Return This.Documents.LoadMany(paths);
+    }
+
+    Public Function Reload(String id) -> RxuDocument
+    Explain {
+        Description: "Reload one document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to parse the document again.";
+        Output: "The reloaded document.";
+    } {
+        Return This.Documents.Reload(id);
+    }
+
+    Public Function ReloadAsync(String id) -> RxuDocument
+    Explain {
+        Description: "Reload one document and finish before returning.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to reload the document now.";
+        Output: "The reloaded document.";
+    } {
+        Return This.Documents.ReloadAsync(id);
+    }
+
+    Public Function Unload(String id) -> Void
+    Explain {
+        Description: "Unload one document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to drop the document.";
+        Output: "No return value.";
+    } {
+        This.Documents.Unload(id);
+    }
+
+    Public Function CreateDocument(String source) -> RxuDocument
+    Explain {
+        Description: "Create a document from markup text.";
+        Input: source = "RXU markup";
+        Processing: "Ask the document manager to parse the text.";
+        Output: "The created document.";
+    } {
+        Return This.Documents.CreateDocument(source);
+    }
+
+    Public Function GetDocuments() -> Int
+    Explain {
+        Description: "Count the live documents.";
+        Input: None;
+        Processing: "Ask the document manager for the live count.";
+        Output: "The number of live documents.";
+    } {
+        Return This.Documents.GetDocuments();
+    }
+
+    Public Function GetDocument(String id) -> RxuDocument
+    Explain {
+        Description: "Find a live document by id.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager for that document.";
+        Output: "The document, or a blank document.";
+    } {
+        Return This.Documents.GetDocument(id);
+    }
+
+    Public Function GetRoot(String id) -> RxuInstance
+    Explain {
+        Description: "Return the root instance of a document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager for the root.";
+        Output: "The root instance, or a blank instance.";
+    } {
+        Return This.Documents.GetRoot(id);
+    }
+
+    Public Function Show(String id) -> Void
+    Explain {
+        Description: "Show a document without loading it again.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to mark the document shown.";
+        Output: "No return value.";
+    } {
+        This.Documents.Show(id);
+    }
+
+    Public Function Hide(String id) -> Void
+    Explain {
+        Description: "Hide a shown document.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to mark the document hidden.";
+        Output: "No return value.";
+    } {
+        This.Documents.Hide(id);
+    }
+
+    Public Function Close(String id) -> Void
+    Explain {
+        Description: "Close a document without unloading it.";
+        Input: id = "Document id";
+        Processing: "Ask the document manager to mark the document closed.";
+        Output: "No return value.";
+    } {
+        This.Documents.Close(id);
+    }
+}

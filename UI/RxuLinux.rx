@@ -1,0 +1,707 @@
+// Linux application queue. The gtk trace is a debug log.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class LinuxApp {
+    Public RxuMessages Messages;
+    Public UIBackend Backend;
+    Private List<String> ids;
+    Private List<String> titles;
+    Private List<String> states;
+    Private List<String> xs;
+    Private List<String> ys;
+    Private List<String> widths;
+    Private List<String> heights;
+    Private List<String> queue;
+    Private List<String> trace;
+    Private Bool running;
+    Private Bool background;
+    Private String phase;
+    Private Int exitCode;
+    Private String mainId;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.Backend = UIBackend();
+        This.ids = List<String>();
+        This.titles = List<String>();
+        This.states = List<String>();
+        This.xs = List<String>();
+        This.ys = List<String>();
+        This.widths = List<String>();
+        This.heights = List<String>();
+        This.queue = List<String>();
+        This.trace = List<String>();
+        This.running = False;
+        This.background = False;
+        This.phase = "Stopped";
+        This.exitCode = 0;
+        This.mainId = "";
+        This.CreateApp();
+    }
+
+    Public Function CreateApp() -> Bool
+    Explain {
+        Description: "Create the Linux application and select the Linux backend.";
+        Input: None;
+        Processing: "Start from a stopped application with an empty window list.";
+        Output: "True when the application is ready to run.";
+    } {
+        This.Backend = UIBackend();
+        This.Backend.UseHost("linux");
+        This.ids = List<String>();
+        This.titles = List<String>();
+        This.states = List<String>();
+        This.xs = List<String>();
+        This.ys = List<String>();
+        This.widths = List<String>();
+        This.heights = List<String>();
+        This.queue = List<String>();
+        This.trace = List<String>();
+        This.running = False;
+        This.background = False;
+        This.phase = "Stopped";
+        This.exitCode = 0;
+        This.mainId = "";
+        Return True;
+    }
+
+    Public Function OpenAppWindow(String id, String title, String width, String height) -> Bool
+    Explain {
+        Description: "Create a window before it is shown.";
+        Input: id = "Window id", title = "Title", width = "Width text", height = "Height text";
+        Processing: "Record the window and the GTK creation call.";
+        Output: "True when the window is created.";
+    } {
+        If (This.phase == "Exited" || This.AppIndex(id) >= 0) {
+            Return False;
+        }
+        This.ids.Add(id + "");
+        This.titles.Add(title + "");
+        This.states.Add("Hidden");
+        This.xs.Add("0");
+        This.ys.Add("0");
+        This.widths.Add(width + "");
+        This.heights.Add(height + "");
+        If (This.mainId == "") {
+            This.mainId = id + "";
+        }
+        This.Backend.OpenWindow(id, title);
+        This.AppTrace("gtk_window_new " + id);
+        Return True;
+    }
+
+    Public Function RunApp() -> Int
+    Explain {
+        Description: "Run the UI queue and show the main window.";
+        Input: None;
+        Processing: "Pump queued work and present the main window, then return.";
+        Output: "The number of queued operations that were applied.";
+    } {
+        This.running = True;
+        This.phase = "Running";
+        Int applied = This.PumpApp();
+        If (This.mainId != "" && This.ReadWindowState(This.mainId) == "Hidden") {
+            This.ShowWindow(This.mainId);
+        }
+        Return applied;
+    }
+
+    Public Function ShutdownApp() -> Void
+    Explain {
+        Description: "Dispose every window and stop the application.";
+        Input: None;
+        Processing: "Destroy live windows and mark the application stopped.";
+        Output: "No return value.";
+    } {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.states[index] != "Disposed") {
+                This.states[index] = "Disposed";
+                This.Backend.CloseWindow(This.ids[index]);
+                This.AppTrace("gtk_window_destroy " + This.ids[index]);
+            }
+            index = index + 1;
+        }
+        This.running = False;
+        This.background = False;
+        This.phase = "Stopped";
+        This.Backend.ShutDown();
+    }
+
+    Public Function ExitApp(Int code) -> Void
+    Explain {
+        Description: "Exit the process with a code.";
+        Input: code = "Process exit code";
+        Processing: "Shut down, then record the exit code.";
+        Output: "No return value.";
+    } {
+        This.exitCode = code;
+        This.ShutdownApp();
+        This.phase = "Exited";
+    }
+
+    Public Function ReadPhase() -> String
+    Explain {
+        Description: "Read the application phase.";
+        Input: None;
+        Processing: "Return Stopped, Running, or Exited.";
+        Output: "The phase name.";
+    } {
+        Return This.phase;
+    }
+
+    Public Function ReadExit() -> Int
+    Explain {
+        Description: "Read the exit code.";
+        Input: None;
+        Processing: "Return the code passed to Exit.";
+        Output: "The exit code.";
+    } {
+        Return This.exitCode;
+    }
+
+    Public Function ReadMain() -> String
+    Explain {
+        Description: "Read the main window id.";
+        Input: None;
+        Processing: "Return the first window id.";
+        Output: "The main window id.";
+    } {
+        Return This.mainId;
+    }
+
+    Public Function ShowWindow(String id) -> Bool
+    Explain {
+        Description: "Show a window.";
+        Input: id = "Window id";
+        Processing: "Present a hidden or closed window on the UI thread.";
+        Output: "True when the window is shown.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id) || This.ReadWindowState(id) == "Disposed") {
+            Return False;
+        }
+        Int index = This.AppIndex(id);
+        This.states[index] = "Normal";
+        This.AppTrace("gtk_widget_show " + id);
+        Return True;
+    }
+
+    Public Function HideWindow(String id) -> Bool
+    Explain {
+        Description: "Hide a window without destroying it.";
+        Input: id = "Window id";
+        Processing: "Mark the window hidden on the UI thread.";
+        Output: "True when the window is hidden.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        This.states[This.AppIndex(id)] = "Hidden";
+        This.AppTrace("gtk_widget_hide " + id);
+        Return True;
+    }
+
+    Public Function CloseAppWindow(String id) -> Bool
+    Explain {
+        Description: "Close a window without disposing it.";
+        Input: id = "Window id";
+        Processing: "Mark the window closed so it can be shown again.";
+        Output: "True when the window is closed.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        This.states[This.AppIndex(id)] = "Closed";
+        This.Backend.CloseWindow(id);
+        This.AppTrace("gtk_window_close " + id);
+        Return True;
+    }
+
+    Public Function ActivateWindow(String id) -> Bool
+    Explain {
+        Description: "Activate a window.";
+        Input: id = "Window id";
+        Processing: "Show it and mark it normal.";
+        Output: "True when the window is active.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        This.states[This.AppIndex(id)] = "Normal";
+        This.AppTrace("gtk_window_present " + id);
+        Return True;
+    }
+
+    Public Function MinimizeWindow(String id) -> Bool
+    Explain {
+        Description: "Minimize a window.";
+        Input: id = "Window id";
+        Processing: "Mark the window minimized.";
+        Output: "True when the window is minimized.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        This.states[This.AppIndex(id)] = "Minimized";
+        This.AppTrace("gtk_window_minimize " + id);
+        Return True;
+    }
+
+    Public Function MaximizeWindow(String id) -> Bool
+    Explain {
+        Description: "Maximize a window.";
+        Input: id = "Window id";
+        Processing: "Mark the window maximized.";
+        Output: "True when the window is maximized.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        This.states[This.AppIndex(id)] = "Maximized";
+        This.AppTrace("gtk_window_maximize " + id);
+        Return True;
+    }
+
+    Public Function RestoreWindow(String id) -> Bool
+    Explain {
+        Description: "Restore a minimized or maximized window.";
+        Input: id = "Window id";
+        Processing: "Mark the window normal.";
+        Output: "True when the window is restored.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        This.states[This.AppIndex(id)] = "Normal";
+        This.AppTrace("gtk_window_unminimize " + id);
+        Return True;
+    }
+
+    Public Function RetitleWindow(String id, String title) -> Bool
+    Explain {
+        Description: "Change a window title.";
+        Input: id = "Window id", title = "New title";
+        Processing: "Reject the change from a background turn.";
+        Output: "True when the title is stored.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        This.titles[This.AppIndex(id)] = title + "";
+        This.Backend.SyncProperty(id, "Title", title);
+        This.AppTrace("gtk_window_set_title " + id);
+        Return True;
+    }
+
+    Public Function ResizeWindow(String id, String width, String height) -> Bool
+    Explain {
+        Description: "Resize a window.";
+        Input: id = "Window id", width = "Width text", height = "Height text";
+        Processing: "Store the size on the UI thread.";
+        Output: "True when the size is stored.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        Int index = This.AppIndex(id);
+        This.widths[index] = width + "";
+        This.heights[index] = height + "";
+        This.Backend.SyncProperty(id, "Width", width);
+        This.AppTrace("gtk_window_set_default_size " + id);
+        Return True;
+    }
+
+    Public Function MoveWindow(String id, String x, String y) -> Bool
+    Explain {
+        Description: "Move a window.";
+        Input: id = "Window id", x = "Left position", y = "Top position";
+        Processing: "Store the position on the UI thread.";
+        Output: "True when the position is stored.";
+    } {
+        If (!This.AppGuard() || !This.AppAlive(id)) {
+            Return False;
+        }
+        Int index = This.AppIndex(id);
+        This.xs[index] = x + "";
+        This.ys[index] = y + "";
+        This.AppTrace("gtk_window_move " + id);
+        Return True;
+    }
+
+    Public Function ReadWindowState(String id) -> String
+    Explain {
+        Description: "Read a window state.";
+        Input: id = "Window id";
+        Processing: "Return Hidden, Normal, Minimized, Maximized, Closed, or Disposed.";
+        Output: "The state, or empty text when the id is unknown.";
+    } {
+        Int index = This.AppIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.states[index];
+    }
+
+    Public Function ReadWindowTitle(String id) -> String
+    Explain {
+        Description: "Read a window title.";
+        Input: id = "Window id";
+        Processing: "Return the stored title.";
+        Output: "The title, or empty text.";
+    } {
+        Int index = This.AppIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.titles[index];
+    }
+
+    Public Function ReadWindowSize(String id) -> String
+    Explain {
+        Description: "Read a window size.";
+        Input: id = "Window id";
+        Processing: "Join width and height.";
+        Output: "The size text.";
+    } {
+        Int index = This.AppIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.widths[index] + "," + This.heights[index];
+    }
+
+    Public Function ReadWindowPosition(String id) -> String
+    Explain {
+        Description: "Read a window position.";
+        Input: id = "Window id";
+        Processing: "Join the left and top positions.";
+        Output: "The position text.";
+    } {
+        Int index = This.AppIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.xs[index] + "," + This.ys[index];
+    }
+
+    Public Function PostWork(String work) -> Bool
+    Explain {
+        Description: "Queue work for the UI thread.";
+        Input: work = "Title, Size, Move, or Show command";
+        Processing: "Append the command. A background turn may post.";
+        Output: "True when the command is queued.";
+    } {
+        This.queue.Add(work + "");
+        Return True;
+    }
+
+    Public Function DispatchWork(String work) -> Bool
+    Explain {
+        Description: "Run work now on the UI thread, or queue it from the background.";
+        Input: work = "Queued command";
+        Processing: "Apply it immediately on the UI thread. Queue it from the background so the caller does not block.";
+        Output: "True when the work is accepted.";
+    } {
+        If (This.IsUIThread()) {
+            This.AppApply(work);
+            Return True;
+        }
+        Return This.PostWork(work);
+    }
+
+    Public Function DispatchLater(String work) -> Bool
+    Explain {
+        Description: "Queue work and return without waiting.";
+        Input: work = "Queued command";
+        Processing: "Always append the command.";
+        Output: "True when the command is queued.";
+    } {
+        Return This.PostWork(work);
+    }
+
+    Public Function InvokeWork(String work) -> Bool
+    Explain {
+        Description: "Run work on the UI thread and wait.";
+        Input: work = "Queued command";
+        Processing: "Apply it on the UI thread. Reject a background call instead of blocking.";
+        Output: "True when the work ran.";
+    } {
+        If (!This.IsUIThread()) {
+            This.AppNote("RXU047", "Invoke must run on the UI thread.", work);
+            Return False;
+        }
+        This.AppApply(work);
+        Return True;
+    }
+
+    Public Function InvokeLater(String work) -> Bool
+    Explain {
+        Description: "Queue work that the UI thread will run later.";
+        Input: work = "Queued command";
+        Processing: "Append the command and return.";
+        Output: "True when the command is queued.";
+    } {
+        Return This.PostWork(work);
+    }
+
+    Public Function ScheduleWork(String work) -> Bool
+    Explain {
+        Description: "Schedule work on the UI queue.";
+        Input: work = "Queued command";
+        Processing: "Append the command.";
+        Output: "True when the command is queued.";
+    } {
+        Return This.PostWork(work);
+    }
+
+    Public Function CheckAccess() -> Bool
+    Explain {
+        Description: "Report whether the caller may change the UI.";
+        Input: None;
+        Processing: "Allow changes only while the application is running on the UI thread.";
+        Output: "True when a UI change is allowed.";
+    } {
+        Return This.running && !This.background;
+    }
+
+    Public Function IsUIThread() -> Bool
+    Explain {
+        Description: "Report whether the caller is the UI thread.";
+        Input: None;
+        Processing: "Background turns are not the UI thread.";
+        Output: "True when the caller is the UI thread.";
+    } {
+        Return !This.background;
+    }
+
+    Public Function EnterBackground() -> Void
+    Explain {
+        Description: "Begin a background turn.";
+        Input: None;
+        Processing: "Mark the caller as off the UI thread.";
+        Output: "No return value.";
+    } {
+        This.background = True;
+    }
+
+    Public Function LeaveBackground() -> Void
+    Explain {
+        Description: "End a background turn.";
+        Input: None;
+        Processing: "Mark the caller as the UI thread again.";
+        Output: "No return value.";
+    } {
+        This.background = False;
+    }
+
+    Public Function PumpApp() -> Int
+    Explain {
+        Description: "Apply the queued UI work.";
+        Input: None;
+        Processing: "Run each queued command and return. The caller is not blocked after the queue is empty.";
+        Output: "The number of commands applied.";
+    } {
+        Int applied = 0;
+        Int guard = 0;
+        While (This.queue.Count() > 0 && guard < 100) {
+            This.AppApply(This.AppTake());
+            applied = applied + 1;
+            guard = guard + 1;
+        }
+        Return applied;
+    }
+
+    Public Function DisposeWindow(String id) -> Bool
+    Explain {
+        Description: "Destroy a window and its backend object.";
+        Input: id = "Window id";
+        Processing: "Mark it disposed and record the GTK destroy call.";
+        Output: "True when the window is disposed.";
+    } {
+        If (!This.AppGuard() || This.AppIndex(id) < 0 || This.ReadWindowState(id) == "Disposed") {
+            Return False;
+        }
+        This.states[This.AppIndex(id)] = "Disposed";
+        This.Backend.CloseWindow(id);
+        This.AppTrace("gtk_window_destroy " + id);
+        Return True;
+    }
+
+    Public Function ReadScale() -> String
+    Explain {
+        Description: "Read the Linux display scale.";
+        Input: None;
+        Processing: "Ask the Linux backend for the HiDPI scale.";
+        Output: "The scale text.";
+    } {
+        Return This.Backend.ReadScale();
+    }
+
+    Public Function CopyText(String text) -> Bool
+    Explain {
+        Description: "Copy text through the Linux clipboard bridge.";
+        Input: text = "Clipboard text";
+        Processing: "Delegate to the backend clipboard.";
+        Output: "True when the text is stored.";
+    } {
+        Return This.Backend.CopyClipboard(text);
+    }
+
+    Public Function PasteText() -> String
+    Explain {
+        Description: "Paste text through the Linux clipboard bridge.";
+        Input: None;
+        Processing: "Delegate to the backend clipboard.";
+        Output: "The clipboard text.";
+    } {
+        Return This.Backend.PasteClipboard();
+    }
+
+    Public Function ChooseFile(String title) -> String
+    Explain {
+        Description: "Open the Linux file picker bridge.";
+        Input: title = "Picker title";
+        Processing: "Delegate to the backend file dialog.";
+        Output: "The chosen path.";
+    } {
+        Return This.Backend.OpenFile(title);
+    }
+
+    Public Function AskDialog(String title, String message) -> Bool
+    Explain {
+        Description: "Open the Linux dialog bridge.";
+        Input: title = "Dialog title", message = "Dialog message";
+        Processing: "Delegate to the backend dialog.";
+        Output: "True when the dialog is recorded.";
+    } {
+        Return This.Backend.OpenDialog(title, message);
+    }
+
+    Public Function TraceCount() -> Int
+    Explain {
+        Description: "Count recorded GTK calls.";
+        Input: None;
+        Processing: "Read the trace size.";
+        Output: "The number of calls.";
+    } {
+        Return This.trace.Count();
+    }
+
+    Public Function TraceAt(Int index) -> String
+    Explain {
+        Description: "Read one recorded GTK call.";
+        Input: index = "Zero-based trace index";
+        Processing: "Return that call.";
+        Output: "The call text, or empty text.";
+    } {
+        If (index < 0 || index >= This.trace.Count()) {
+            Return "";
+        }
+        Return This.trace[index];
+    }
+
+    Private Function AppGuard() -> Bool {
+        If (This.background) {
+            This.AppNote("RXU047", "This change must run on the UI thread.", "background");
+            Return False;
+        }
+        Return True;
+    }
+
+    Private Function AppAlive(String id) -> Bool {
+        Int index = This.AppIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        If (This.states[index] == "Disposed") {
+            This.AppNote("RXU048", "This window has been disposed.", id);
+            Return False;
+        }
+        Return True;
+    }
+
+    Private Function AppIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function AppApply(String work) -> Void {
+        String op = This.AppField(work, 0);
+        String id = This.AppField(work, 1);
+        If (This.AppIndex(id) < 0 || This.ReadWindowState(id) == "Disposed") {
+            Return;
+        }
+        If (op == "Title") {
+            This.titles[This.AppIndex(id)] = This.AppField(work, 2);
+            This.AppTrace("gtk_window_set_title " + id);
+        }
+        If (op == "Size") {
+            This.widths[This.AppIndex(id)] = This.AppField(work, 2);
+            This.heights[This.AppIndex(id)] = This.AppField(work, 3);
+            This.AppTrace("gtk_window_set_default_size " + id);
+        }
+        If (op == "Move") {
+            This.xs[This.AppIndex(id)] = This.AppField(work, 2);
+            This.ys[This.AppIndex(id)] = This.AppField(work, 3);
+            This.AppTrace("gtk_window_move " + id);
+        }
+        If (op == "Show") {
+            This.states[This.AppIndex(id)] = "Normal";
+            This.AppTrace("gtk_widget_show " + id);
+        }
+    }
+
+    Private Function AppTake() -> String {
+        If (This.queue.Count() == 0) {
+            Return "";
+        }
+        String item = This.queue[0] + "";
+        List<String> rest = List<String>();
+        Int index = 1;
+        While (index < This.queue.Count()) {
+            rest.Add(This.queue[index]);
+            index = index + 1;
+        }
+        This.queue = rest;
+        Return item;
+    }
+
+    Private Function AppField(String text, Int wanted) -> String {
+        Int seen = 0;
+        String current = "";
+        Int index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == "|") {
+                If (seen == wanted) {
+                    Return current;
+                }
+                seen = seen + 1;
+                current = "";
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        If (seen == wanted) {
+            Return current;
+        }
+        Return "";
+    }
+
+    Private Function AppTrace(String call) -> Void {
+        This.trace.Add(call + "");
+    }
+
+    Private Function AppNote(String code, String message, String actual) -> Void {
+        This.Messages.Add(code, message, "", 1, 1, actual.Length(), "a UI-thread change", actual, "Post the change to the UI queue.");
+    }
+}

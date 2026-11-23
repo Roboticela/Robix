@@ -1,0 +1,8 @@
+<Panel Name="art" Tag="Overlay" Width="80" Height="80">
+    <Panel Name="box" Tag="Rect" Background="#336699"/>
+    <Panel Name="edge" Tag="Border"/>
+    <Panel Name="photo" Tag="Image" Width="32" Height="32" HorizontalAlignment="Start" VerticalAlignment="Start"/>
+    <Panel Name="label" Tag="Text" Content="Arm" HorizontalAlignment="Start" VerticalAlignment="Start"/>
+    <Panel Name="curve" Tag="Path"/>
+    <Panel Name="shade" Tag="Shadow"/>
+</Panel>

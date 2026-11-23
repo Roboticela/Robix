@@ -1,0 +1,3 @@
+<Panel Name="canvas" Tag="Canvas" Width="200" Height="100">
+    <Panel Name="mark" Tag="Rect" Width="10" Height="10" Column="30" Row="12"/>
+</Panel>

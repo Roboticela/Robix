@@ -2147,3 +2147,2495 @@ Test Main {
     Processing: True;
     Output: True;
 }
+
+Test LayoutEngine.AddSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SetText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.ImportLayout {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SetScale {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SetFlow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SetOffset {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.InvalidateSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.MeasureSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.ArrangeSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.DrawSlots {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.Relayout {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.FrameOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.CommandCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.CommandAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.MeasureCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.RevisionOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.DecorationNote {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.HasCommand {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotWrite {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotDirtyKids {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotKids {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotKid {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotSides {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotSide {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotFixed {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotClamp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotNatural {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotMeasure {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotArrange {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotDevice {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutEngine.SlotPaint {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LayoutOpen {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckLayout {
+    Case "layout geometry" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test ShowPad {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ShowCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ShowFind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ShowTree {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ShowArm {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ImportMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AddMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PutField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PressMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TypeMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ToggleMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FocusMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KeyMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test BindMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PushMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StyleMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UseTheme {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test AddRow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RemoveRow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test OpenNotice {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CloseNotice {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SpinMvp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ClickTally {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ChangeTally {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FocusName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NoticeOpen {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test Spinning {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpKnown {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpValid {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpApply {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpMark {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpLocal {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpFocusable {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpStep {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpBag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpBagPut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpSource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpSourcePut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpRows {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpOr {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpSize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpOpacity {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpDigits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpColor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpParts {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MvpPart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckMvp {
+    Case "mvp controls" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test ImportEvents {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test NoteHandler {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test WatchEvent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test UnwatchEvent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RaiseEvent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ClickEvent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test PointEvent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KeyIn {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test RunAction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DisposeHost {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SupportOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ActionContract {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TraceAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TraceSize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ClearTrace {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test MismatchTally {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ExceptionTally {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LastSource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LastButton {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LastKey {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LastText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LastX {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LastY {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CancelledFlag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ConsumedFlag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EventDepth {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KnownEventCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LastAction {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CoverEvents {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtWalk {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtKnown {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtSignature {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtParent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtAlive {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtRoute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtDispatch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtFire {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtStop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtCatalog {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtSlices {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test EvtSlice {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckEvents {
+    Case "routed events" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test ImportTree {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeOpen {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeCreate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeAdd {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeInsert {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeDetach {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeReplace {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeClear {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeMove {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeFindKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeFindId {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeFindName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeFindPath {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeMatchCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeMatchAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeParent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeChildCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeChildAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeSibling {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeRoot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreePut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeRead {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeSetAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeGetAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeHasAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeDropAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeResetAttribute {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeAttributeCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeAttributeAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreePutMany {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeInvoke {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeSubscribe {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeUnsubscribe {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeRaise {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeBegin {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeCommit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeRollback {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeLayoutCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeRenderCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreePhase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeDoc {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeStamp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeAttached {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeHeld {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreePlace {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeWalk {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeKids {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeUnder {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeUnlink {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeSetDoc {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeRenumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeNote {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeFlush {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeGather {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeCollect {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeSnap {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeRestore {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeBag {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeBagHas {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeBagPut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeBagDrop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeBagCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeBagName {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeValid {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeDigits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeSize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeOpacity {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreeColor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreePieces {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test TreePiece {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckTree {
+    Case "live tree" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test FlowAssign {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowLoad {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowUpdate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowRead {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowFind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowByText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowHasText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowAttached {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowParent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowChildCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowChildAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowPut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowListen {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowRaise {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowLink {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowPush {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowLocal {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowMissing {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowSetMiss {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowCycles {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowIncludes {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowImports {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowIncludeAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowImportAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowDetachCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowRepeatCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowStamp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowWhileStatus {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowPhase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowWalk {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowBranch {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowChoice {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowBody {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowEach {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowInclude {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowMaterial {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowResolve {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowSweep {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowScopeGet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowScopeHas {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowScopeSet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowSlotGet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowSlotSet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowQuiet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowKids {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowChainHas {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowChainDrop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowApplyLinks {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowPieces {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FlowPiece {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckFlow {
+    Case "declarative flow" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test KitImport {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitLoad {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitDefined {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitVersion {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitDefault {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitSource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitWindows {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitInstances {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitCollisions {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitInvalid {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitFind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitGet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitSet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitCall {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitListen {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitOutput {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitResource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitStyle {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitPart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitPartText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitApplyTemplate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitCreate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitParent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitStamp {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitHook {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitAppearance {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitPhase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitPull {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitWalk {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitMember {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitNoteLib {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitDefine {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitKnown {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitSpawn {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitAddPart {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitOverrides {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitOverride {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitTake {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitPut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitParam {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitHasRow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitRowValue {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitNotify {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitTyped {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitDigits {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitColor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitChainHas {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitChainDrop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitPieces {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test KitPiece {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckKit {
+    Case "component library" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test CatLoad {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatEntry {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatKindAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatFamilyAt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatKnown {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatFamilyOf {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatBeyond {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCreate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatSchema {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatSet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatGet {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatBind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatSource {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatAccess {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatLabel {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCanFocus {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatFocus {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatFocused {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatState {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatRaise {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatHeard {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatEdit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCell {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCancelEdit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCommitEdit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatVirtual {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatScroll {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatMaterialized {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatTotal {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatRow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatGeometry {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatHit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCommand {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatSecret {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatFill {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatWalk {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatJoin {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatIndex {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatPut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatTake {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatHasField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatAccept {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatFocusKind {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatRole {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatCollection {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatDrawing {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatMask {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatSecretPut {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatSecretTake {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatClearRadios {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatNumber {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatColor {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatDate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatTime {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatFile {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatRange {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatPutCell {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatReadCell {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatNewer {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatPush {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatInside {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatPointX {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatPointY {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatInt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatPieces {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CatPiece {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameAdopt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameWrite {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FramePump {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameDamage {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameBand {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameWindow {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameHit {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameHitSlot {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FramePointer {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameKey {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FramePressed {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameKeys {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameTarget {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameResize {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FramePresent {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameClose {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FramePhase {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameCollect {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameStored {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameStore {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FrameInt {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test FramePiece {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test LiveField {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ShowLive {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckFrame {
+    Case "frame raster" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test CheckCatalog {
+    Case "control catalog" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test NavImport { Constraint: True; Processing: True; Output: True; }
+Test NavGo { Constraint: True; Processing: True; Output: True; }
+Test NavBack { Constraint: True; Processing: True; Output: True; }
+Test NavForward { Constraint: True; Processing: True; Output: True; }
+Test NavRoute { Constraint: True; Processing: True; Output: True; }
+Test NavPage { Constraint: True; Processing: True; Output: True; }
+Test NavHistoryCount { Constraint: True; Processing: True; Output: True; }
+Test NavCrumbCount { Constraint: True; Processing: True; Output: True; }
+Test NavCrumbAt { Constraint: True; Processing: True; Output: True; }
+Test NavEventCount { Constraint: True; Processing: True; Output: True; }
+Test NavEventAt { Constraint: True; Processing: True; Output: True; }
+Test NavChrome { Constraint: True; Processing: True; Output: True; }
+Test NavChromeCount { Constraint: True; Processing: True; Output: True; }
+Test NavOpenOverlay { Constraint: True; Processing: True; Output: True; }
+Test NavCloseOverlay { Constraint: True; Processing: True; Output: True; }
+Test NavOverlayState { Constraint: True; Processing: True; Output: True; }
+Test NavModal { Constraint: True; Processing: True; Output: True; }
+Test NavFocus { Constraint: True; Processing: True; Output: True; }
+Test NavFocused { Constraint: True; Processing: True; Output: True; }
+Test NavKey { Constraint: True; Processing: True; Output: True; }
+Test NavMoveOverlay { Constraint: True; Processing: True; Output: True; }
+Test NavPopupAt { Constraint: True; Processing: True; Output: True; }
+Test NavWindowCount { Constraint: True; Processing: True; Output: True; }
+Test NavWindowState { Constraint: True; Processing: True; Output: True; }
+Test NavShowWindow { Constraint: True; Processing: True; Output: True; }
+Test NavHideWindow { Constraint: True; Processing: True; Output: True; }
+Test NavCloseWindow { Constraint: True; Processing: True; Output: True; }
+Test NavReopenWindow { Constraint: True; Processing: True; Output: True; }
+Test NavSetTitle { Constraint: True; Processing: True; Output: True; }
+Test NavReadTitle { Constraint: True; Processing: True; Output: True; }
+Test NavMoveWindow { Constraint: True; Processing: True; Output: True; }
+Test NavReadPosition { Constraint: True; Processing: True; Output: True; }
+Test NavSave { Constraint: True; Processing: True; Output: True; }
+Test NavRestore { Constraint: True; Processing: True; Output: True; }
+Test NavDrop { Constraint: True; Processing: True; Output: True; }
+Test NavAlive { Constraint: True; Processing: True; Output: True; }
+Test NavCloseHost { Constraint: True; Processing: True; Output: True; }
+Test NavPhase { Constraint: True; Processing: True; Output: True; }
+Test NavWalk { Constraint: True; Processing: True; Output: True; }
+Test NavPageIndex { Constraint: True; Processing: True; Output: True; }
+Test NavRouteOf { Constraint: True; Processing: True; Output: True; }
+Test NavCrumbs { Constraint: True; Processing: True; Output: True; }
+Test NavNote { Constraint: True; Processing: True; Output: True; }
+Test NavChromeIndex { Constraint: True; Processing: True; Output: True; }
+Test NavOverlayIndex { Constraint: True; Processing: True; Output: True; }
+Test NavWindowIndex { Constraint: True; Processing: True; Output: True; }
+
+Test Mark {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckNav {
+    Case "navigation" {
+        Input:;
+        Output: 0;
+    }
+}

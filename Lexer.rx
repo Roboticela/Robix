@@ -570,8 +570,10 @@ Public Class Lexer {
         Token token = Token();
         token.Kind = kind;
         token.Text = text;
-        token.Line = This.line;
-        token.Column = This.column;
+        Int tokenLine = This.line;
+        Int tokenColumn = This.column;
+        token.Line = tokenLine;
+        token.Column = tokenColumn;
         token.Length = text.Length();
         token.IsInterpolated = interpolated;
         token.IsRaw = raw;

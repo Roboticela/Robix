@@ -1,0 +1,4 @@
+<Panel Name="dock" Tag="Dock" Width="200" Height="100">
+    <Panel Name="side" Tag="Rect" Dock="Left" Width="40"/>
+    <Panel Name="rest" Tag="Rect" Dock="Fill"/>
+</Panel>

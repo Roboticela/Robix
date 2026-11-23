@@ -1,0 +1,11 @@
+<Window Name="Login" Title="Sign in" Width="360" Height="240">
+  <StackPanel Name="form" Orientation="Vertical" Spacing="8">
+    <Text Name="title" Content="Sign in"/>
+    <TextBox Name="user" Placeholder="Name"/>
+    <TextBox Name="secret" Placeholder="Password"/>
+    <CheckBox Name="stay" Content="Remember"/>
+    <Button Name="submit" Content="Enter" Width="120"/>
+    <Spinner Name="wait"/>
+    <Dialog Name="error" Title="Try again"/>
+  </StackPanel>
+</Window>

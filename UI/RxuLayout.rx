@@ -1,0 +1,1001 @@
+// Measure, arrange, and the display list.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class LayoutSlot {
+    Public String Id;
+    Public String Parent;
+    Public String Kind;
+    Public String Width;
+    Public String Height;
+    Public String MinWidth;
+    Public String MinHeight;
+    Public String MaxWidth;
+    Public String MaxHeight;
+    Public String Margin;
+    Public String Padding;
+    Public String Horizontal;
+    Public String Vertical;
+    Public String Orientation;
+    Public String Spacing;
+    Public String Dock;
+    Public String Row;
+    Public String Column;
+    Public String RowSpan;
+    Public String ColumnSpan;
+    Public String Columns;
+    Public String Rows;
+    Public String Clip;
+    Public String Content;
+    Public String Background;
+    Public Int X;
+    Public Int Y;
+    Public Int W;
+    Public Int H;
+    Public Int DesiredW;
+    Public Int DesiredH;
+    Public Int Measures;
+    Public Int ScrollX;
+    Public Int ScrollY;
+    Public Bool Dirty;
+    Public String Avail;
+
+    Public Constructor() {
+        This.Id = "";
+        This.Parent = "";
+        This.Kind = "Panel";
+        This.Width = "Auto";
+        This.Height = "Auto";
+        This.MinWidth = "0";
+        This.MinHeight = "0";
+        This.MaxWidth = "100000";
+        This.MaxHeight = "100000";
+        This.Margin = "0";
+        This.Padding = "0";
+        This.Horizontal = "Stretch";
+        This.Vertical = "Stretch";
+        This.Orientation = "Vertical";
+        This.Spacing = "0";
+        This.Dock = "";
+        This.Row = "0";
+        This.Column = "0";
+        This.RowSpan = "1";
+        This.ColumnSpan = "1";
+        This.Columns = "1";
+        This.Rows = "1";
+        This.Clip = "false";
+        This.Content = "";
+        This.Background = "#000000";
+        This.X = 0;
+        This.Y = 0;
+        This.W = 0;
+        This.H = 0;
+        This.DesiredW = 0;
+        This.DesiredH = 0;
+        This.Measures = 0;
+        This.ScrollX = 0;
+        This.ScrollY = 0;
+        This.Dirty = True;
+        This.Avail = "";
+    }
+}
+
+Public Class LayoutEngine {
+    Public List<LayoutSlot> Slots;
+    Public List<String> Commands;
+    Private Int scale;
+    Private String flow;
+    Private Int revision;
+    Private String lastKey;
+    Private Int sideL;
+    Private Int sideT;
+    Private Int sideR;
+    Private Int sideB;
+
+    Public Constructor() {
+        This.Slots = List<LayoutSlot>();
+        This.Commands = List<String>();
+        This.scale = 1;
+        This.flow = "LTR";
+        This.revision = 0;
+        This.lastKey = "";
+        This.sideL = 0;
+        This.sideT = 0;
+        This.sideR = 0;
+        This.sideB = 0;
+    }
+
+    Public Function AddSlot(String id, String parent, String kind) -> Int
+    Explain {
+        Description: "Add one layout node.";
+        Input: id = "Node name", parent = "Parent name, or empty for the root", kind = "Panel, Stack, Grid, View, Scroll, Dock, Wrap, Canvas, Overlay, Flex, Uniform, Split, Constraint, Tab, Text, Image, Rect, Border, Path, or Shadow";
+        Processing: "Store the node as dirty so the next pass measures it.";
+        Output: "The slot index.";
+    } {
+        LayoutSlot slot = LayoutSlot();
+        slot.Id = id + "";
+        slot.Parent = parent + "";
+        If (kind != "") {
+            slot.Kind = kind + "";
+        }
+        This.Slots.Add(slot);
+        Return This.Slots.Count() - 1;
+    }
+
+    Public Function SetText(String id, String field, String value) -> Bool
+    Explain {
+        Description: "Change one layout input.";
+        Input: id = "Node name", field = "Input name", value = "New text";
+        Processing: "Store the text and mark the node dirty.";
+        Output: "True when the field is known.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        Bool known = This.SlotWrite(index, field, value);
+        If (known) {
+            This.Slots[index].Dirty = True;
+        }
+        Return known;
+    }
+
+    Public Function ImportLayout(RxuNode node, String parent) -> Int
+    Explain {
+        Description: "Import layout markup into slots.";
+        Input: node = "Document or element", parent = "Parent name";
+        Processing: "Copy each element into a slot and walk its children.";
+        Output: "The number of imported elements.";
+    } {
+        If (node.Kind != "Element") {
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.ImportLayout(node.Children[index], parent);
+                index = index + 1;
+            }
+            Return count;
+        }
+        String id = node.FindAttribute("Name").Text;
+        If (id == "") {
+            id = "n" + This.Slots.Count().ToString();
+        }
+        String kind = node.FindAttribute("Tag").Text;
+        Int slot = This.AddSlot(id, parent, kind);
+        This.SlotWrite(slot, "Width", node.FindAttribute("Width").Text);
+        This.SlotWrite(slot, "Height", node.FindAttribute("Height").Text);
+        This.SlotWrite(slot, "MinWidth", node.FindAttribute("MinWidth").Text);
+        This.SlotWrite(slot, "MinHeight", node.FindAttribute("MinHeight").Text);
+        This.SlotWrite(slot, "MaxWidth", node.FindAttribute("MaxWidth").Text);
+        This.SlotWrite(slot, "MaxHeight", node.FindAttribute("MaxHeight").Text);
+        This.SlotWrite(slot, "Margin", node.FindAttribute("Margin").Text);
+        This.SlotWrite(slot, "Padding", node.FindAttribute("Padding").Text);
+        This.SlotWrite(slot, "Horizontal", node.FindAttribute("HorizontalAlignment").Text);
+        This.SlotWrite(slot, "Vertical", node.FindAttribute("VerticalAlignment").Text);
+        This.SlotWrite(slot, "Orientation", node.FindAttribute("Orientation").Text);
+        This.SlotWrite(slot, "Spacing", node.FindAttribute("Spacing").Text);
+        This.SlotWrite(slot, "Dock", node.FindAttribute("Dock").Text);
+        This.SlotWrite(slot, "Row", node.FindAttribute("Row").Text);
+        This.SlotWrite(slot, "Column", node.FindAttribute("Column").Text);
+        This.SlotWrite(slot, "RowSpan", node.FindAttribute("RowSpan").Text);
+        This.SlotWrite(slot, "ColumnSpan", node.FindAttribute("ColumnSpan").Text);
+        This.SlotWrite(slot, "Columns", node.FindAttribute("GridColumns").Text);
+        This.SlotWrite(slot, "Rows", node.FindAttribute("GridRows").Text);
+        This.SlotWrite(slot, "Clip", node.FindAttribute("ClipToBounds").Text);
+        This.SlotWrite(slot, "Content", node.FindAttribute("Content").Text);
+        This.SlotWrite(slot, "Background", node.FindAttribute("Background").Text);
+        Int count = 1;
+        Int child = 0;
+        While (child < node.Children.Count()) {
+            count = count + This.ImportLayout(node.Children[child], id);
+            child = child + 1;
+        }
+        Return count;
+    }
+
+    Public Function SetScale(Int value) -> Void
+    Explain {
+        Description: "Set the device scale.";
+        Input: value = "Scale, such as 1 or 2";
+        Processing: "Store the scale used when frames become device pixels.";
+        Output: "No return value.";
+    } {
+        Int scale = value;
+        If (scale < 1) {
+            scale = 1;
+        }
+        This.scale = scale;
+    }
+
+    Public Function SetFlow(String direction) -> Void
+    Explain {
+        Description: "Set the layout direction.";
+        Input: direction = "LTR or RTL";
+        Processing: "RTL mirrors arranged positions inside the parent.";
+        Output: "No return value.";
+    } {
+        If (direction == "RTL") {
+            This.flow = "RTL";
+        } Else {
+            This.flow = "LTR";
+        }
+    }
+
+    Public Function SetOffset(String id, Int x, Int y) -> Bool
+    Explain {
+        Description: "Set a scroll offset.";
+        Input: id = "Scroll view name", x = "Horizontal offset", y = "Vertical offset";
+        Processing: "Store the offset and mark the view dirty.";
+        Output: "True when the view exists.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.Slots[index].ScrollX = x;
+        This.Slots[index].ScrollY = y;
+        This.Slots[index].Dirty = True;
+        Return True;
+    }
+
+    Public Function InvalidateSlot(String id) -> Bool
+    Explain {
+        Description: "Mark one node for another layout pass.";
+        Input: id = "Node name";
+        Processing: "Set the dirty flag. Clean siblings keep their cached measure.";
+        Output: "True when the node exists.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.Slots[index].Dirty = True;
+        Return True;
+    }
+
+    Public Function MeasureSlot(String id, Int availableW, Int availableH) -> String
+    Explain {
+        Description: "Measure one node.";
+        Input: id = "Node name", availableW = "Available width", availableH = "Available height";
+        Processing: "Resolve auto, fixed, percent, min, and max sizes.";
+        Output: "The desired width and height.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return "0,0";
+        }
+        This.SlotMeasure(index, availableW, availableH);
+        Return This.Slots[index].DesiredW.ToString() + "," + This.Slots[index].DesiredH.ToString();
+    }
+
+    Public Function ArrangeSlot(String id, Int x, Int y, Int w, Int h) -> Bool
+    Explain {
+        Description: "Arrange one node into a rectangle.";
+        Input: id = "Node name", x = "Left", y = "Top", w = "Width", h = "Height";
+        Processing: "Place the node and its children.";
+        Output: "True when the node exists.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        This.SlotArrange(index, x, y, w, h);
+        Return True;
+    }
+
+    Public Function DrawSlots(String id) -> Int
+    Explain {
+        Description: "Render one arranged tree.";
+        Input: id = "Root name";
+        Processing: "Emit primitives, clips, and overflow clipping.";
+        Output: "The number of drawing commands.";
+    } {
+        This.Commands = List<String>();
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return 0;
+        }
+        This.SlotPaint(index, False, 0, 0, 0, 0);
+        Return This.Commands.Count();
+    }
+
+    Public Function Relayout(String id, Int w, Int h) -> Int
+    Explain {
+        Description: "Measure, arrange, and render one root.";
+        Input: id = "Root name", w = "Window width", h = "Window height";
+        Processing: "Reuse the cached pass when nothing is dirty and the viewport is unchanged.";
+        Output: "The number of drawing commands.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return 0;
+        }
+        String key = w.ToString() + "," + h.ToString() + "," + This.scale.ToString() + "," + This.flow;
+        If (key == This.lastKey && !This.Slots[index].Dirty && !This.SlotDirtyKids(index) && This.Commands.Count() > 0) {
+            Return This.Commands.Count();
+        }
+        If (key != This.lastKey) {
+            This.Slots[index].Dirty = True;
+        }
+        This.lastKey = key;
+        This.SlotMeasure(index, w, h);
+        This.SlotArrange(index, 0, 0, w, h);
+        Int count = This.DrawSlots(id);
+        This.revision = This.revision + 1;
+        Return count;
+    }
+
+    Public Function FrameOf(String id) -> String
+    Explain {
+        Description: "Read one arranged frame in device pixels.";
+        Input: id = "Node name";
+        Processing: "Apply direction and scale to the logical rectangle.";
+        Output: "x,y,w,h or empty text.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Int x = 0;
+        Int y = 0;
+        Int w = 0;
+        Int h = 0;
+        This.SlotDevice(index, x, y, w, h);
+        Return This.sideL.ToString() + "," + This.sideT.ToString() + "," + This.sideR.ToString() + "," + This.sideB.ToString();
+    }
+
+    Public Function CommandCount() -> Int
+    Explain {
+        Description: "Count drawing commands.";
+        Input: None;
+        Processing: "Read the command list size.";
+        Output: "The number of commands.";
+    } {
+        Return This.Commands.Count();
+    }
+
+    Public Function CommandAt(Int index) -> String
+    Explain {
+        Description: "Read one drawing command.";
+        Input: index = "Zero-based command index";
+        Processing: "Return that command.";
+        Output: "The command, or empty text.";
+    } {
+        If (index < 0 || index >= This.Commands.Count()) {
+            Return "";
+        }
+        Return This.Commands[index];
+    }
+
+    Public Function MeasureCount(String id) -> Int
+    Explain {
+        Description: "Count how many times a node was measured.";
+        Input: id = "Node name";
+        Processing: "Read the cached measure counter.";
+        Output: "The measure count.";
+    } {
+        Int index = This.SlotIndex(id);
+        If (index < 0) {
+            Return 0;
+        }
+        Return This.Slots[index].Measures;
+    }
+
+    Public Function RevisionOf() -> Int
+    Explain {
+        Description: "Read how many full layout passes ran.";
+        Input: None;
+        Processing: "Read the revision counter.";
+        Output: "The revision.";
+    } {
+        Return This.revision;
+    }
+
+    Public Function DecorationNote() -> String
+    Explain {
+        Description: "Describe host differences that layout does not own.";
+        Input: None;
+        Processing: "Return the shared note about fonts and window decorations.";
+        Output: "The note.";
+    } {
+        Return "Window decorations and fonts follow the host. Layout geometry stays shared.";
+    }
+
+    Public Function HasCommand(String text) -> Bool
+    Explain {
+        Description: "Find one drawing command.";
+        Input: text = "The full command";
+        Processing: "Scan the commands from the last render.";
+        Output: "True when that command was recorded.";
+    } {
+        Int index = 0;
+        While (index < This.Commands.Count()) {
+            If (This.Commands[index] == text) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function SlotWrite(Int index, String field, String value) -> Bool {
+        If (value == "") {
+            Return True;
+        }
+        If (field == "Width") { This.Slots[index].Width = value + ""; Return True; }
+        If (field == "Height") { This.Slots[index].Height = value + ""; Return True; }
+        If (field == "MinWidth") { This.Slots[index].MinWidth = value + ""; Return True; }
+        If (field == "MinHeight") { This.Slots[index].MinHeight = value + ""; Return True; }
+        If (field == "MaxWidth") { This.Slots[index].MaxWidth = value + ""; Return True; }
+        If (field == "MaxHeight") { This.Slots[index].MaxHeight = value + ""; Return True; }
+        If (field == "Margin") { This.Slots[index].Margin = value + ""; Return True; }
+        If (field == "Padding") { This.Slots[index].Padding = value + ""; Return True; }
+        If (field == "Horizontal") { This.Slots[index].Horizontal = value + ""; Return True; }
+        If (field == "Vertical") { This.Slots[index].Vertical = value + ""; Return True; }
+        If (field == "Orientation") { This.Slots[index].Orientation = value + ""; Return True; }
+        If (field == "Spacing") { This.Slots[index].Spacing = value + ""; Return True; }
+        If (field == "Dock") { This.Slots[index].Dock = value + ""; Return True; }
+        If (field == "Row") { This.Slots[index].Row = value + ""; Return True; }
+        If (field == "Column") { This.Slots[index].Column = value + ""; Return True; }
+        If (field == "RowSpan") { This.Slots[index].RowSpan = value + ""; Return True; }
+        If (field == "ColumnSpan") { This.Slots[index].ColumnSpan = value + ""; Return True; }
+        If (field == "Columns") { This.Slots[index].Columns = value + ""; Return True; }
+        If (field == "Rows") { This.Slots[index].Rows = value + ""; Return True; }
+        If (field == "Clip") { This.Slots[index].Clip = value + ""; Return True; }
+        If (field == "Content") { This.Slots[index].Content = value + ""; Return True; }
+        If (field == "Background") { This.Slots[index].Background = value + ""; Return True; }
+        Return False;
+    }
+
+    Private Function SlotIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.Slots.Count()) {
+            If (This.Slots[index].Id == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function SlotDirtyKids(Int index) -> Bool {
+        Int child = 0;
+        While (child < This.Slots.Count()) {
+            If (This.Slots[child].Parent == This.Slots[index].Id) {
+                If (This.Slots[child].Dirty || This.SlotDirtyKids(child)) {
+                    Return True;
+                }
+            }
+            child = child + 1;
+        }
+        Return False;
+    }
+
+    Private Function SlotKids(Int index) -> Int {
+        Int count = 0;
+        Int child = 0;
+        While (child < This.Slots.Count()) {
+            If (This.Slots[child].Parent == This.Slots[index].Id) {
+                count = count + 1;
+            }
+            child = child + 1;
+        }
+        Return count;
+    }
+
+    Private Function SlotKid(Int index, Int nth) -> Int {
+        Int seen = 0;
+        Int child = 0;
+        While (child < This.Slots.Count()) {
+            If (This.Slots[child].Parent == This.Slots[index].Id) {
+                If (seen == nth) {
+                    Return child;
+                }
+                seen = seen + 1;
+            }
+            child = child + 1;
+        }
+        Return -1;
+    }
+
+    Private Function SlotSides(String text) -> Void {
+        This.sideL = 0;
+        This.sideT = 0;
+        This.sideR = 0;
+        This.sideB = 0;
+        If (text == "") {
+            Return;
+        }
+        Int commas = 0;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.Substring(index, 1) == ",") {
+                commas = commas + 1;
+            }
+            index = index + 1;
+        }
+        If (commas == 0) {
+            Int value = text.ToInt();
+            This.sideL = value;
+            This.sideT = value;
+            This.sideR = value;
+            This.sideB = value;
+            Return;
+        }
+        Int part = 0;
+        String current = "";
+        index = 0;
+        While (index < text.Length()) {
+            String character = text.Substring(index, 1);
+            If (character == ",") {
+                This.SlotSide(part, current.ToInt());
+                part = part + 1;
+                current = "";
+            } Else {
+                current = current + character;
+            }
+            index = index + 1;
+        }
+        This.SlotSide(part, current.ToInt());
+    }
+
+    Private Function SlotSide(Int part, Int value) -> Void {
+        If (part == 0) { This.sideL = value; }
+        If (part == 1) { This.sideT = value; }
+        If (part == 2) { This.sideR = value; }
+        If (part == 3) { This.sideB = value; }
+    }
+
+    Private Function SlotFixed(String text, Int available, Int natural) -> Int {
+        If (text == "" || text == "Auto" || text == "Content") {
+            Return natural;
+        }
+        If (text.EndsWith("%") && text.Length() > 1) {
+            Int percent = text.Substring(0, text.Length() - 1).ToInt();
+            Return available * percent / 100;
+        }
+        Return text.ToInt();
+    }
+
+    Private Function SlotClamp(Int value, String minimum, String maximum) -> Int {
+        Int low = minimum.ToInt();
+        Int high = maximum.ToInt();
+        Int size = value;
+        If (high <= 0) {
+            high = 100000;
+        }
+        If (size < low) {
+            size = low;
+        }
+        If (size > high) {
+            size = high;
+        }
+        Return size;
+    }
+
+    Private Function SlotNatural(Int index) -> Void {
+        String kind = This.Slots[index].Kind;
+        String content = This.Slots[index].Content;
+        If (content == "") {
+            content = This.Slots[index].Id;
+        }
+        This.sideL = 40;
+        This.sideT = 40;
+        If (kind == "Text") {
+            This.sideL = content.Length() * 8;
+            This.sideT = 16;
+        }
+        If (kind == "Image") {
+            This.sideL = 32;
+            This.sideT = 32;
+        }
+    }
+
+    Private Function SlotMeasure(Int index, Int availableW, Int availableH) -> Void {
+        String key = availableW.ToString() + "," + availableH.ToString();
+        If (!This.Slots[index].Dirty && !This.SlotDirtyKids(index) && This.Slots[index].Measures > 0 && This.Slots[index].Avail == key) {
+            Return;
+        }
+        This.Slots[index].Measures = This.Slots[index].Measures + 1;
+        This.Slots[index].Avail = key;
+        This.SlotSides(This.Slots[index].Margin);
+        Int marginL = This.sideL;
+        Int marginT = This.sideT;
+        Int marginR = This.sideR;
+        Int marginB = This.sideB;
+        This.SlotNatural(index);
+        Int naturalW = This.sideL;
+        Int naturalH = This.sideT;
+        Int innerW = availableW - marginL - marginR;
+        Int innerH = availableH - marginT - marginB;
+        If (innerW < 0) { innerW = 0; }
+        If (innerH < 0) { innerH = 0; }
+        Int width = This.SlotClamp(This.SlotFixed(This.Slots[index].Width, innerW, naturalW), This.Slots[index].MinWidth, This.Slots[index].MaxWidth);
+        Int height = This.SlotClamp(This.SlotFixed(This.Slots[index].Height, innerH, naturalH), This.Slots[index].MinHeight, This.Slots[index].MaxHeight);
+        String kind = This.Slots[index].Kind;
+        If (kind == "Panel" || kind == "Stack" || kind == "Dock" || kind == "Wrap" || kind == "Flex" || kind == "Split") {
+            Int across = innerW;
+            If (width > 0 && This.Slots[index].Width != "Auto" && This.Slots[index].Width != "Content" && !This.Slots[index].Width.EndsWith("%")) {
+                across = width;
+            }
+            Int sum = 0;
+            Int broad = 0;
+            Int count = This.SlotKids(index);
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                This.SlotMeasure(kid, across, 10000);
+                Int outerW = This.Slots[kid].DesiredW;
+                Int outerH = This.Slots[kid].DesiredH;
+                This.SlotSides(This.Slots[kid].Margin);
+                outerW = outerW + This.sideL + This.sideR;
+                outerH = outerH + This.sideT + This.sideB;
+                If (outerW > broad) { broad = outerW; }
+                If (outerH > broad && (kind == "Stack" && This.Slots[index].Orientation == "Horizontal" || kind == "Flex" || kind == "Wrap")) {
+                    broad = outerH;
+                }
+                sum = sum + outerH;
+                If (kind == "Stack" && This.Slots[index].Orientation == "Horizontal" || kind == "Flex" || kind == "Wrap") {
+                    sum = sum - outerH + outerW;
+                }
+                child = child + 1;
+            }
+            This.SlotSides(This.Slots[index].Padding);
+            Int pad = This.sideL + This.sideR;
+            Int padH = This.sideT + This.sideB;
+            Int gap = 0;
+            If (count > 1) {
+                gap = This.Slots[index].Spacing.ToInt() * (count - 1);
+            }
+            If (This.Slots[index].Width == "Auto" || This.Slots[index].Width == "Content") {
+                width = broad + pad;
+            }
+            If (This.Slots[index].Height == "Auto" || This.Slots[index].Height == "Content") {
+                height = sum + gap + padH;
+            }
+        } Else {
+            Int extra = This.SlotKids(index);
+            Int nth = 0;
+            While (nth < extra) {
+                This.SlotMeasure(This.SlotKid(index, nth), innerW, innerH);
+                nth = nth + 1;
+            }
+        }
+        This.Slots[index].DesiredW = width;
+        This.Slots[index].DesiredH = height;
+        This.Slots[index].Dirty = False;
+    }
+
+    Private Function SlotArrange(Int index, Int x, Int y, Int w, Int h) -> Void {
+        This.SlotSides(This.Slots[index].Margin);
+        Int marginL = This.sideL;
+        Int marginT = This.sideT;
+        Int marginR = This.sideR;
+        Int marginB = This.sideB;
+        Int innerW = w - marginL - marginR;
+        Int innerH = h - marginT - marginB;
+        If (innerW < 0) { innerW = 0; }
+        If (innerH < 0) { innerH = 0; }
+        Int boxW = This.Slots[index].DesiredW;
+        Int boxH = This.Slots[index].DesiredH;
+        If (This.Slots[index].Horizontal == "Stretch") { boxW = innerW; }
+        If (This.Slots[index].Vertical == "Stretch") { boxH = innerH; }
+        Int boxX = x + marginL;
+        Int boxY = y + marginT;
+        If (This.Slots[index].Horizontal == "Center") { boxX = x + marginL + (innerW - boxW) / 2; }
+        If (This.Slots[index].Horizontal == "End") { boxX = x + marginL + innerW - boxW; }
+        If (This.Slots[index].Vertical == "Center") { boxY = y + marginT + (innerH - boxH) / 2; }
+        If (This.Slots[index].Vertical == "End") { boxY = y + marginT + innerH - boxH; }
+        This.Slots[index].X = boxX;
+        This.Slots[index].Y = boxY;
+        This.Slots[index].W = boxW;
+        This.Slots[index].H = boxH;
+        This.SlotSides(This.Slots[index].Padding);
+        Int padL = This.sideL;
+        Int padT = This.sideT;
+        Int padR = This.sideR;
+        Int padB = This.sideB;
+        Int contentX = boxX + padL;
+        Int contentY = boxY + padT;
+        Int contentW = boxW - padL - padR;
+        Int contentH = boxH - padT - padB;
+        If (contentW < 0) { contentW = 0; }
+        If (contentH < 0) { contentH = 0; }
+        String kind = This.Slots[index].Kind;
+        Int spacing = This.Slots[index].Spacing.ToInt();
+        Int count = This.SlotKids(index);
+        If (kind == "Panel" || (kind == "Stack" && This.Slots[index].Orientation != "Horizontal")) {
+            Int cursor = contentY;
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                This.SlotSides(This.Slots[kid].Margin);
+                Int outer = This.Slots[kid].DesiredH + This.sideT + This.sideB;
+                This.SlotArrange(kid, contentX, cursor, contentW, outer);
+                cursor = cursor + outer + spacing;
+                child = child + 1;
+            }
+        }
+        If (kind == "Stack" && This.Slots[index].Orientation == "Horizontal") {
+            Int cursor = contentX;
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                This.SlotSides(This.Slots[kid].Margin);
+                Int outer = This.Slots[kid].DesiredW + This.sideL + This.sideR;
+                This.SlotArrange(kid, cursor, contentY, outer, contentH);
+                cursor = cursor + outer + spacing;
+                child = child + 1;
+            }
+        }
+        If (kind == "Grid" || kind == "Uniform") {
+            Int columns = This.Slots[index].Columns.ToInt();
+            Int rows = This.Slots[index].Rows.ToInt();
+            If (columns < 1) { columns = 1; }
+            If (kind == "Uniform") {
+                rows = (count + columns - 1) / columns;
+            }
+            If (rows < 1) { rows = 1; }
+            Int cellW = contentW / columns;
+            Int cellH = contentH / rows;
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                Int column = This.Slots[kid].Column.ToInt();
+                Int row = This.Slots[kid].Row.ToInt();
+                Int columnSpan = This.Slots[kid].ColumnSpan.ToInt();
+                Int rowSpan = This.Slots[kid].RowSpan.ToInt();
+                If (kind == "Uniform") {
+                    column = child - (child / columns) * columns;
+                    row = child / columns;
+                    columnSpan = 1;
+                    rowSpan = 1;
+                }
+                If (columnSpan < 1) { columnSpan = 1; }
+                If (rowSpan < 1) { rowSpan = 1; }
+                This.SlotArrange(kid, contentX + column * cellW, contentY + row * cellH, cellW * columnSpan, cellH * rowSpan);
+                child = child + 1;
+            }
+        }
+        If (kind == "Dock") {
+            Int left = contentX;
+            Int top = contentY;
+            Int right = contentX + contentW;
+            Int bottom = contentY + contentH;
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                String dock = This.Slots[kid].Dock;
+                If (dock == "Left") {
+                    Int strip = This.Slots[kid].DesiredW;
+                    This.SlotArrange(kid, left, top, strip, bottom - top);
+                    left = left + strip;
+                } Else {
+                    If (dock == "Right") {
+                        Int strip = This.Slots[kid].DesiredW;
+                        right = right - strip;
+                        This.SlotArrange(kid, right, top, strip, bottom - top);
+                    } Else {
+                        If (dock == "Top") {
+                            Int strip = This.Slots[kid].DesiredH;
+                            This.SlotArrange(kid, left, top, right - left, strip);
+                            top = top + strip;
+                        } Else {
+                            If (dock == "Bottom") {
+                                Int strip = This.Slots[kid].DesiredH;
+                                bottom = bottom - strip;
+                                This.SlotArrange(kid, left, bottom, right - left, strip);
+                            } Else {
+                                This.SlotArrange(kid, left, top, right - left, bottom - top);
+                            }
+                        }
+                    }
+                }
+                child = child + 1;
+            }
+        }
+        If (kind == "Wrap") {
+            Int cursorX = contentX;
+            Int cursorY = contentY;
+            Int rowH = 0;
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                Int itemW = This.Slots[kid].DesiredW;
+                Int itemH = This.Slots[kid].DesiredH;
+                If (cursorX > contentX && cursorX + itemW > contentX + contentW) {
+                    cursorX = contentX;
+                    cursorY = cursorY + rowH + spacing;
+                    rowH = 0;
+                }
+                This.SlotArrange(kid, cursorX, cursorY, itemW, itemH);
+                cursorX = cursorX + itemW + spacing;
+                If (itemH > rowH) { rowH = itemH; }
+                child = child + 1;
+            }
+        }
+        If (kind == "Canvas") {
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                This.SlotArrange(kid, contentX + This.Slots[kid].Column.ToInt(), contentY + This.Slots[kid].Row.ToInt(), This.Slots[kid].DesiredW, This.Slots[kid].DesiredH);
+                child = child + 1;
+            }
+        }
+        If (kind == "Overlay" || kind == "View") {
+            Int child = 0;
+            Int limit = count;
+            If (kind == "View" && limit > 1) { limit = 1; }
+            While (child < limit) {
+                This.SlotArrange(This.SlotKid(index, child), contentX, contentY, contentW, contentH);
+                child = child + 1;
+            }
+        }
+        If (kind == "Flex") {
+            Int autos = 0;
+            Int fixed = 0;
+            Int child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                String width = This.Slots[kid].Width;
+                If (width == "Auto" || width == "Content" || width == "") {
+                    autos = autos + 1;
+                } Else {
+                    fixed = fixed + This.Slots[kid].DesiredW;
+                }
+                child = child + 1;
+            }
+            Int gap = 0;
+            If (count > 1) { gap = spacing * (count - 1); }
+            Int remain = contentW - fixed - gap;
+            If (remain < 0) { remain = 0; }
+            Int share = 0;
+            If (autos > 0) { share = remain / autos; }
+            Int cursor = contentX;
+            child = 0;
+            While (child < count) {
+                Int kid = This.SlotKid(index, child);
+                String width = This.Slots[kid].Width;
+                Int itemW = This.Slots[kid].DesiredW;
+                If (width == "Auto" || width == "Content" || width == "") { itemW = share; }
+                This.SlotArrange(kid, cursor, contentY, itemW, contentH);
+                cursor = cursor + itemW + spacing;
+                child = child + 1;
+            }
+        }
+        If (kind == "Split") {
+            Int pane = 0;
+            If (count > 0) { pane = This.Slots[This.SlotKid(index, 0)].DesiredW; }
+            If (count > 0) { This.SlotArrange(This.SlotKid(index, 0), contentX, contentY, pane, contentH); }
+            If (count > 1) { This.SlotArrange(This.SlotKid(index, 1), contentX + pane, contentY, contentW - pane, contentH); }
+        }
+        If (kind == "Constraint" && count > 0) {
+            Int kid = This.SlotKid(index, 0);
+            Int itemW = This.Slots[kid].DesiredW;
+            Int itemH = This.Slots[kid].DesiredH;
+            Int atX = contentX + (contentW - itemW) / 2;
+            Int atY = contentY + (contentH - itemH) / 2;
+            This.SlotArrange(kid, atX, atY, itemW, itemH);
+        }
+        If (kind == "Tab") {
+            Int child = 0;
+            While (child < count) {
+                If (child == 0) {
+                    This.SlotArrange(This.SlotKid(index, child), contentX, contentY, contentW, contentH);
+                } Else {
+                    This.SlotArrange(This.SlotKid(index, child), contentX, contentY, 0, 0);
+                }
+                child = child + 1;
+            }
+        }
+        If (kind == "Scroll" && count > 0) {
+            Int kid = This.SlotKid(index, 0);
+            This.SlotArrange(kid, contentX - This.Slots[index].ScrollX, contentY - This.Slots[index].ScrollY, This.Slots[kid].DesiredW, This.Slots[kid].DesiredH);
+        }
+    }
+
+    Private Function SlotDevice(Int index, Int x, Int y, Int w, Int h) -> Void {
+        Int left = This.Slots[index].X;
+        Int top = This.Slots[index].Y;
+        Int width = This.Slots[index].W;
+        Int height = This.Slots[index].H;
+        If (This.flow == "RTL") {
+            Int parent = This.SlotIndex(This.Slots[index].Parent);
+            Int origin = 0;
+            Int space = width;
+            If (parent >= 0) {
+                origin = This.Slots[parent].X;
+                space = This.Slots[parent].W;
+            }
+            left = origin + space - (This.Slots[index].X - origin) - width;
+        }
+        This.sideL = left * This.scale;
+        This.sideT = top * This.scale;
+        This.sideR = width * This.scale;
+        This.sideB = height * This.scale;
+    }
+
+    Private Function SlotPaint(Int index, Bool clipped, Int clipX, Int clipY, Int clipW, Int clipH) -> Void {
+        This.SlotDevice(index, 0, 0, 0, 0);
+        Int x = This.sideL;
+        Int y = This.sideT;
+        Int w = This.sideR;
+        Int h = This.sideB;
+        Int drawX = x;
+        Int drawY = y;
+        Int drawW = w;
+        Int drawH = h;
+        If (clipped) {
+            Int right = x + w;
+            Int bottom = y + h;
+            Int clipRight = clipX + clipW;
+            Int clipBottom = clipY + clipH;
+            If (drawX < clipX) { drawX = clipX; }
+            If (drawY < clipY) { drawY = clipY; }
+            If (right > clipRight) { right = clipRight; }
+            If (bottom > clipBottom) { bottom = clipBottom; }
+            drawW = right - drawX;
+            drawH = bottom - drawY;
+            If (drawW < 0) { drawW = 0; }
+            If (drawH < 0) { drawH = 0; }
+        }
+        String kind = This.Slots[index].Kind;
+        String id = This.Slots[index].Id;
+        String brush = This.Slots[index].Background;
+        If (kind == "Text") {
+            This.Commands.Add("Text " + id + " " + drawX.ToString() + " " + drawY.ToString() + " " + drawW.ToString() + " " + drawH.ToString() + " " + This.Slots[index].Content);
+        }
+        If (kind == "Image") {
+            This.Commands.Add("Image " + id + " " + drawX.ToString() + " " + drawY.ToString() + " " + drawW.ToString() + " " + drawH.ToString());
+        }
+        If (kind == "Rect") {
+            This.Commands.Add("Fill " + id + " " + drawX.ToString() + " " + drawY.ToString() + " " + drawW.ToString() + " " + drawH.ToString() + " " + brush);
+        }
+        If (kind == "Border") {
+            This.Commands.Add("Border " + id + " " + drawX.ToString() + " " + drawY.ToString() + " " + drawW.ToString() + " " + drawH.ToString());
+        }
+        If (kind == "Path") {
+            This.Commands.Add("Path " + id + " " + drawX.ToString() + " " + drawY.ToString() + " " + drawW.ToString() + " " + drawH.ToString());
+        }
+        If (kind == "Shadow") {
+            This.Commands.Add("Shadow " + id + " " + drawX.ToString() + " " + drawY.ToString() + " " + drawW.ToString() + " " + drawH.ToString());
+        }
+        Bool clips = This.Slots[index].Clip == "true" || kind == "View" || kind == "Scroll";
+        Int nextX = clipX;
+        Int nextY = clipY;
+        Int nextW = clipW;
+        Int nextH = clipH;
+        Bool nextClip = clipped;
+        If (clips) {
+            This.Commands.Add("Clip " + x.ToString() + " " + y.ToString() + " " + w.ToString() + " " + h.ToString());
+            nextX = x;
+            nextY = y;
+            nextW = w;
+            nextH = h;
+            If (clipped) {
+                Int right = x + w;
+                Int bottom = y + h;
+                Int clipRight = clipX + clipW;
+                Int clipBottom = clipY + clipH;
+                If (nextX < clipX) { nextX = clipX; }
+                If (nextY < clipY) { nextY = clipY; }
+                If (right > clipRight) { right = clipRight; }
+                If (bottom > clipBottom) { bottom = clipBottom; }
+                nextW = right - nextX;
+                nextH = bottom - nextY;
+                If (nextW < 0) { nextW = 0; }
+                If (nextH < 0) { nextH = 0; }
+            }
+            nextClip = True;
+        }
+        Int child = 0;
+        While (child < This.SlotKids(index)) {
+            This.SlotPaint(This.SlotKid(index, child), nextClip, nextX, nextY, nextW, nextH);
+            child = child + 1;
+        }
+        If (clips) {
+            This.Commands.Add("Pop");
+        }
+    }
+}

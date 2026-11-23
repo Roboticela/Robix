@@ -1,7 +1,7 @@
 // Naming rules from the Robix reference.
-// Variables and parameters use camelCase.
+// Variables, fields, and parameters use camelCase.
 // Constants use CAPITAL_CASE.
-// Functions, types, and filenames use PascalCase.
+// Functions, types, type parameters, and filenames use PascalCase.
 // Abbreviations keep their conventional spelling.
 Package Robix.Syntax;
 
@@ -86,12 +86,14 @@ Public Class NameChecker {
         If (node.Kind == AstKind.Variable || node.Kind == AstKind.Parameter || node.Kind == AstKind.Field) {
             If (node.FlagB || This.HasModifier(node, "Const")) {
                 This.RequireConstant(node.Name, node.Line, node.Column);
-            } Else If (node.Kind == AstKind.Field) {
-                This.RequirePascal(node.Name, node.Line, node.Column, "Field");
             } Else If (node.Kind == AstKind.Parameter && node.FlagC) {
                 This.RequirePascal(node.Name, node.Line, node.Column, "Type parameter");
             } Else If (node.Name.Length() > 0 && node.Name != "_") {
-                This.RequireCamel(node.Name, node.Line, node.Column, "Variable");
+                String label = "Variable";
+                If (node.Kind == AstKind.Field) {
+                    label = "Field";
+                }
+                This.RequireCamel(node.Name, node.Line, node.Column, label);
             }
             For child In node.Children {
                 This.Walk(child);

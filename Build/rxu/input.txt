@@ -1,0 +1,734 @@
+Scale 1
+Blur
+Resize 640 480
+Pointer 33 195 move
+Pointer 34 196 move
+Pointer 35 197 move
+Pointer 36 197 move
+Pointer 37 198 move
+Pointer 38 198 move
+Pointer 39 199 move
+Pointer 40 200 move
+Pointer 41 201 move
+Pointer 43 203 move
+Pointer 44 203 move
+Pointer 47 207 move
+Pointer 48 208 move
+Pointer 51 210 move
+Pointer 53 212 move
+Pointer 54 213 move
+Pointer 56 215 move
+Pointer 59 217 move
+Pointer 61 218 move
+Pointer 63 220 move
+Pointer 66 222 move
+Pointer 69 225 move
+Pointer 71 227 move
+Pointer 74 228 move
+Pointer 76 231 move
+Pointer 79 233 move
+Pointer 81 236 move
+Pointer 84 238 move
+Pointer 86 240 move
+Pointer 89 242 move
+Pointer 90 246 move
+Pointer 93 249 move
+Pointer 96 252 move
+Pointer 98 257 move
+Pointer 101 260 move
+Pointer 105 265 move
+Pointer 109 271 move
+Pointer 114 275 move
+Pointer 119 282 move
+Pointer 124 291 move
+Pointer 130 298 move
+Pointer 136 307 move
+Pointer 141 311 move
+Pointer 147 318 move
+Pointer 153 329 move
+Pointer 161 339 move
+Pointer 167 348 move
+Pointer 176 360 move
+Pointer 182 370 move
+Pointer 189 383 move
+Pointer 197 393 move
+Pointer 206 403 move
+Pointer 208 409 move
+Pointer 212 414 move
+Pointer 216 417 move
+Pointer 217 420 move
+Pointer 219 422 move
+Pointer 223 425 move
+Pointer 226 426 move
+Pointer 228 426 move
+Pointer 230 427 move
+Pointer 233 427 move
+Pointer 229 422 move
+Pointer 222 419 move
+Pointer 206 412 move
+Pointer 193 408 move
+Pointer 181 400 move
+Pointer 175 393 move
+Pointer 166 388 move
+Pointer 162 382 move
+Pointer 160 381 move
+Pointer 159 380 move
+Pointer 157 380 move
+Pointer 158 382 move
+Pointer 158 383 move
+Pointer 160 384 move
+Pointer 161 385 move
+Pointer 162 385 move
+Pointer 165 385 move
+Pointer 167 387 move
+Pointer 170 388 move
+Pointer 173 390 move
+Pointer 179 393 move
+Pointer 186 399 move
+Pointer 193 403 move
+Pointer 202 409 move
+Pointer 211 415 move
+Pointer 221 423 move
+Pointer 232 430 move
+Pointer 242 438 move
+Pointer 250 443 move
+Pointer 260 449 move
+Pointer 268 455 move
+Pointer 275 462 move
+Pointer 283 467 move
+Pointer 286 470 move
+Pointer 291 475 move
+Pointer 11 30 move
+Pointer 99 28 move
+Pointer 183 28 move
+Pointer 227 28 move
+Pointer 267 24 move
+Pointer 301 20 move
+Pointer 337 14 move
+Pointer 361 14 move
+Pointer 385 10 move
+Pointer 405 4 move
+Pointer 422 1 move
+Pointer 567 1 move
+Pointer 585 8 move
+Pointer 602 11 move
+Pointer 609 14 move
+Pointer 613 15 move
+Pointer 614 15 move
+Pointer 617 15 move
+Pointer 619 15 move
+Pointer 620 15 move
+Pointer 622 15 move
+Pointer 623 15 move
+Pointer 624 15 move
+Pointer 625 14 move
+Pointer 626 14 move
+Pointer 626 12 move
+Pointer 626 10 move
+Pointer 626 9 move
+Pointer 626 7 move
+Pointer 626 5 move
+Pointer 626 4 move
+Pointer 626 1 move
+Pointer 626 0 move
+Close
+Scale 1
+Blur
+Resize 640 480
+Pointer 628 448 move
+Pointer 566 438 move
+Pointer 502 430 move
+Pointer 478 428 move
+Pointer 452 426 move
+Pointer 430 420 move
+Pointer 413 418 move
+Pointer 403 418 move
+Pointer 400 417 move
+Pointer 397 417 move
+Pointer 396 416 move
+Pointer 395 416 move
+Pointer 393 414 move
+Pointer 392 413 move
+Pointer 391 412 move
+Pointer 390 411 move
+Pointer 385 406 move
+Pointer 382 403 move
+Pointer 378 399 move
+Pointer 375 394 move
+Pointer 371 389 move
+Pointer 366 384 move
+Pointer 361 380 move
+Pointer 359 377 move
+Pointer 358 376 move
+Pointer 358 374 move
+Pointer 358 372 move
+Pointer 358 369 move
+Pointer 360 367 move
+Pointer 364 365 move
+Pointer 374 362 move
+Pointer 390 359 move
+Pointer 409 357 move
+Pointer 433 357 move
+Pointer 457 357 move
+Pointer 485 357 move
+Pointer 513 357 move
+Pointer 541 357 move
+Pointer 573 357 move
+Pointer 599 357 move
+Pointer 625 357 move
+Resize 644 480
+Resize 652 480
+Resize 660 480
+Resize 667 480
+Resize 676 480
+Resize 689 480
+Resize 701 480
+Resize 707 480
+Resize 723 480
+Resize 741 480
+Resize 758 480
+Resize 778 480
+Resize 794 480
+Resize 820 480
+Resize 853 480
+Resize 872 480
+Resize 928 480
+Resize 1005 480
+Resize 1072 480
+Resize 1108 480
+Resize 1120 480
+Resize 1118 480
+Resize 1093 480
+Resize 1058 480
+Resize 935 480
+Resize 887 480
+Resize 756 480
+Resize 688 480
+Resize 640 480
+Pointer 321 309 move
+Pointer 321 310 move
+Pointer 321 313 move
+Pointer 321 316 move
+Pointer 321 322 move
+Pointer 321 327 move
+Pointer 316 335 move
+Pointer 315 339 move
+Pointer 309 346 move
+Pointer 307 352 move
+Pointer 303 358 move
+Pointer 300 363 move
+Pointer 297 367 move
+Pointer 294 373 move
+Pointer 292 376 move
+Pointer 291 377 move
+Pointer 287 379 move
+Pointer 286 381 move
+Pointer 284 386 move
+Pointer 280 390 move
+Pointer 279 393 move
+Pointer 278 395 move
+Pointer 275 398 move
+Pointer 273 400 move
+Pointer 272 404 move
+Pointer 270 406 move
+Pointer 268 408 move
+Pointer 265 411 move
+Pointer 264 413 move
+Pointer 263 414 move
+Pointer 260 417 move
+Pointer 259 419 move
+Pointer 258 420 move
+Pointer 254 423 move
+Pointer 253 424 move
+Pointer 252 425 move
+Pointer 250 427 move
+Pointer 250 428 move
+Pointer 249 429 move
+Pointer 248 430 move
+Pointer 248 432 move
+Pointer 248 433 move
+Pointer 247 434 move
+Pointer 247 435 move
+Pointer 245 437 move
+Pointer 245 438 move
+Pointer 244 440 move
+Pointer 243 442 move
+Pointer 242 443 move
+Pointer 242 444 move
+Pointer 242 445 move
+Pointer 240 450 move
+Pointer 239 451 move
+Pointer 239 453 move
+Pointer 239 454 move
+Pointer 238 456 move
+Pointer 238 458 move
+Pointer 238 458 move
+Pointer 238 459 move
+Pointer 238 460 move
+Pointer 238 463 move
+Pointer 240 465 move
+Pointer 240 467 move
+Pointer 241 468 move
+Pointer 241 469 move
+Pointer 241 470 move
+Pointer 242 472 move
+Pointer 242 473 move
+Pointer 242 474 move
+Pointer 243 475 move
+Pointer 243 477 move
+Pointer 244 478 move
+Pointer 245 479 move
+Resize 640 486
+Resize 640 502
+Resize 640 523
+Resize 640 539
+Resize 640 555
+Resize 640 566
+Resize 640 583
+Resize 640 604
+Resize 640 619
+Resize 640 658
+Resize 640 689
+Resize 640 719
+Resize 640 744
+Resize 640 764
+Resize 640 773
+Resize 640 774
+Resize 640 764
+Resize 640 638
+Resize 640 521
+Resize 640 480
+Resize 640 526
+Resize 640 636
+Resize 640 741
+Resize 640 770
+Resize 640 773
+Resize 640 774
+Resize 640 735
+Resize 640 549
+Resize 640 480
+Resize 640 568
+Resize 640 624
+Resize 640 638
+Resize 640 487
+Resize 640 480
+Resize 640 487
+Resize 640 512
+Resize 640 525
+Resize 640 531
+Resize 640 538
+Resize 640 553
+Resize 640 569
+Resize 640 559
+Resize 640 542
+Resize 640 540
+Pointer 483 539 move
+Pointer 500 532 move
+Pointer 519 527 move
+Pointer 527 526 move
+Pointer 538 524 move
+Pointer 549 521 move
+Pointer 557 521 move
+Pointer 568 520 move
+Pointer 575 518 move
+Pointer 579 518 move
+Pointer 585 518 move
+Pointer 589 517 move
+Pointer 592 515 move
+Pointer 596 514 move
+Pointer 601 513 move
+Pointer 602 513 move
+Pointer 605 512 move
+Pointer 607 510 move
+Pointer 608 509 move
+Pointer 610 508 move
+Pointer 611 508 move
+Pointer 612 508 move
+Pointer 613 508 move
+Pointer 615 508 move
+Pointer 615 508 move
+Pointer 618 508 move
+Pointer 620 509 move
+Pointer 621 511 move
+Pointer 622 512 move
+Pointer 623 513 move
+Pointer 623 515 move
+Pointer 624 517 move
+Pointer 625 519 move
+Pointer 625 521 move
+Pointer 625 524 move
+Pointer 625 525 move
+Pointer 626 527 move
+Pointer 626 529 move
+Pointer 627 530 move
+Pointer 627 531 move
+Pointer 628 533 move
+Pointer 628 534 move
+Pointer 630 536 move
+Pointer 630 537 move
+Pointer 630 538 move
+Pointer 630 539 move
+Resize 640 480
+Resize 640 527
+Resize 687 620
+Resize 695 637
+Resize 714 664
+Resize 715 667
+Resize 669 612
+Resize 640 480
+Resize 757 527
+Resize 910 596
+Resize 1025 649
+Resize 1043 659
+Resize 1053 663
+Resize 1035 640
+Resize 872 491
+Resize 640 480
+Resize 954 588
+Resize 1180 708
+Resize 1260 752
+Resize 1270 759
+Resize 1269 759
+Resize 944 687
+Resize 674 641
+Resize 640 612
+Resize 640 635
+Resize 826 693
+Resize 1108 733
+Resize 1274 767
+Resize 1414 805
+Resize 1436 816
+Resize 1389 792
+Resize 1286 740
+Resize 1108 644
+Resize 1028 579
+Resize 1001 545
+Resize 990 530
+Resize 982 521
+Resize 970 514
+Resize 898 485
+Resize 772 480
+Resize 640 480
+Pointer 322 299 move
+Pointer 322 287 move
+Pointer 324 277 move
+Pointer 327 270 move
+Pointer 335 255 move
+Pointer 347 242 move
+Pointer 358 225 move
+Pointer 370 211 move
+Pointer 383 198 move
+Pointer 399 182 move
+Pointer 413 168 move
+Pointer 429 152 move
+Pointer 442 141 move
+Pointer 453 128 move
+Pointer 464 117 move
+Pointer 482 102 move
+Pointer 495 90 move
+Pointer 508 77 move
+Pointer 524 61 move
+Pointer 540 51 move
+Pointer 553 40 move
+Pointer 563 31 move
+Pointer 573 21 move
+Pointer 583 15 move
+Pointer 589 9 move
+Pointer 594 5 move
+Pointer 596 4 move
+Pointer 598 2 move
+Pointer 600 0 move
+Close
+Scale 1
+Blur
+Resize 640 480
+Pointer 562 479 move
+Pointer 563 452 move
+Pointer 564 454 move
+Pointer 571 463 move
+Pointer 576 471 move
+Pointer 458 475 move
+Pointer 442 464 move
+Pointer 435 457 move
+Pointer 429 453 move
+Pointer 421 448 move
+Pointer 412 444 move
+Pointer 401 438 move
+Pointer 387 436 move
+Pointer 375 428 move
+Pointer 363 421 move
+Pointer 353 411 move
+Pointer 345 398 move
+Pointer 336 388 move
+Pointer 324 380 move
+Pointer 318 372 move
+Pointer 311 368 move
+Pointer 304 362 move
+Pointer 299 358 move
+Pointer 295 356 move
+Pointer 292 352 move
+Pointer 286 350 move
+Pointer 283 346 move
+Pointer 281 345 move
+Pointer 279 343 move
+Pointer 277 341 move
+Pointer 275 339 move
+Pointer 274 337 move
+Pointer 272 332 move
+Pointer 270 328 move
+Pointer 269 324 move
+Pointer 268 319 move
+Pointer 268 316 move
+Pointer 267 314 move
+Pointer 267 311 move
+Pointer 267 309 move
+Pointer 267 308 move
+Pointer 267 308
+Pointer 267 308 release
+Pointer 261 308 move
+Pointer 256 308 move
+Pointer 254 308 move
+Pointer 252 308 move
+Pointer 250 308 move
+Pointer 247 306 move
+Pointer 245 305 move
+Pointer 239 300 move
+Pointer 234 297 move
+Pointer 224 293 move
+Pointer 217 292 move
+Pointer 207 290 move
+Pointer 196 290 move
+Pointer 181 290 move
+Pointer 165 290 move
+Pointer 149 290 move
+Pointer 133 290 move
+Pointer 117 290 move
+Pointer 107 290 move
+Pointer 100 289 move
+Pointer 94 286 move
+Pointer 93 286 move
+Pointer 90 285 move
+Pointer 89 284 move
+Pointer 86 281 move
+Pointer 85 275 move
+Pointer 83 267 move
+Pointer 77 252 move
+Pointer 73 236 move
+Pointer 65 214 move
+Pointer 55 190 move
+Pointer 45 168 move
+Pointer 37 144 move
+Pointer 27 126 move
+Pointer 18 113 move
+Pointer 11 101 move
+Pointer 9 92 move
+Pointer 8 88 move
+Pointer 8 84 move
+Pointer 8 81 move
+Pointer 8 80 move
+Pointer 8 79 move
+Pointer 8 76 move
+Pointer 8 75 move
+Pointer 8 74 move
+Pointer 8 71 move
+Pointer 8 69 move
+Pointer 8 65 move
+Pointer 8 59 move
+Pointer 8 53 move
+Pointer 8 46 move
+Pointer 8 39 move
+Pointer 4 30 move
+Pointer 3 25 move
+Pointer 3 24 move
+Pointer 2 21 move
+Pointer 2 22 move
+Pointer 2 24 move
+Pointer 2 26 move
+Pointer 3 28 move
+Pointer 5 30 move
+Pointer 6 31 move
+Pointer 7 32 move
+Pointer 8 32 move
+Pointer 9 32 move
+Pointer 10 32 move
+Pointer 10 32 move
+Pointer 12 33 move
+Pointer 13 33 move
+Pointer 14 33 move
+Pointer 17 35 move
+Pointer 18 36 move
+Pointer 19 36 move
+Pointer 20 37 move
+Pointer 22 37 move
+Pointer 22 37
+Pointer 24 40 move
+Pointer 24 42 move
+Pointer 24 46 move
+Pointer 24 49 move
+Pointer 24 52 move
+Pointer 25 56 move
+Pointer 26 61 move
+Pointer 26 67 move
+Pointer 26 75 move
+Pointer 26 83 move
+Pointer 26 91 move
+Pointer 29 102 move
+Pointer 29 109 move
+Pointer 31 116 move
+Pointer 31 123 move
+Pointer 31 128 move
+Pointer 31 132 move
+Pointer 31 135 move
+Pointer 31 140 move
+Pointer 31 144 move
+Pointer 31 145 move
+Pointer 31 148 move
+Pointer 31 149 move
+Pointer 31 149 release
+Pointer 31 150 move
+Pointer 31 150 move
+Pointer 31 152 move
+Pointer 31 153 move
+Pointer 31 153 move
+Pointer 31 154 move
+Pointer 31 156 move
+Pointer 31 157 move
+Pointer 31 159 move
+Pointer 31 162 move
+Pointer 31 164 move
+Pointer 31 167 move
+Pointer 31 173 move
+Pointer 31 175 move
+Pointer 31 178 move
+Pointer 31 182 move
+Pointer 31 184 move
+Pointer 31 188 move
+Pointer 31 190 move
+Pointer 31 194 move
+Pointer 32 199 move
+Pointer 32 201 move
+Pointer 33 205 move
+Pointer 35 208 move
+Pointer 36 210 move
+Pointer 36 211 move
+Pointer 37 214 move
+Pointer 37 215 move
+Pointer 38 216 move
+Pointer 38 216
+Pointer 38 216 move
+Pointer 38 216 release
+Pointer 39 217 move
+Pointer 41 218 move
+Pointer 42 219 move
+Pointer 43 220 move
+Pointer 45 221 move
+Pointer 48 221 move
+Pointer 51 222 move
+Pointer 55 225 move
+Pointer 59 226 move
+Pointer 64 227 move
+Pointer 74 232 move
+Pointer 83 233 move
+Pointer 100 235 move
+Pointer 120 241 move
+Pointer 139 243 move
+Pointer 165 243 move
+Pointer 191 245 move
+Pointer 221 245 move
+Pointer 253 245 move
+Pointer 287 243 move
+Pointer 329 235 move
+Pointer 339 235 move
+Pointer 340 235 move
+Pointer 364 228 move
+Pointer 390 220 move
+Pointer 412 216 move
+Pointer 425 214 move
+Pointer 426 214 move
+Pointer 424 215 move
+Pointer 421 210 move
+Pointer 418 213 move
+Pointer 418 211 move
+Pointer 418 212 move
+Pointer 421 215 move
+Pointer 422 216 move
+Pointer 423 217 move
+Pointer 423 215 move
+Pointer 426 212 move
+Pointer 429 206 move
+Pointer 433 199 move
+Pointer 437 192 move
+Pointer 440 189 move
+Pointer 444 188 move
+Pointer 446 186 move
+Pointer 448 184 move
+Pointer 450 182 move
+Pointer 452 177 move
+Pointer 454 175 move
+Pointer 455 172 move
+Pointer 456 169 move
+Pointer 460 162 move
+Pointer 461 158 move
+Pointer 462 155 move
+Pointer 465 152 move
+Pointer 467 149 move
+Pointer 471 144 move
+Pointer 473 138 move
+Pointer 477 131 move
+Pointer 478 129 move
+Pointer 481 125 move
+Pointer 484 123 move
+Pointer 488 123 move
+Pointer 489 119 move
+Pointer 489 117 move
+Pointer 489 114 move
+Pointer 489 112 move
+Pointer 489 108 move
+Pointer 487 102 move
+Pointer 486 98 move
+Pointer 483 94 move
+Pointer 481 91 move
+Pointer 480 86 move
+Pointer 479 84 move
+Pointer 477 82 move
+Pointer 477 80 move
+Pointer 477 79 move
+Pointer 477 76 move
+Pointer 477 74 move
+Pointer 478 71 move
+Pointer 479 70 move
+Pointer 480 69 move
+Pointer 483 66 move
+Pointer 485 64 move
+Pointer 488 61 move
+Pointer 493 57 move
+Pointer 500 53 move
+Pointer 508 48 move
+Pointer 514 43 move
+Pointer 519 40 move
+Pointer 523 37 move
+Pointer 526 35 move
+Pointer 528 33 move
+Pointer 530 32 move
+Pointer 533 30 move
+Pointer 534 29 move
+Pointer 536 27 move
+Pointer 537 26 move
+Pointer 539 24 move
+Pointer 541 22 move
+Pointer 542 21 move
+Pointer 544 19 move
+Pointer 545 18 move
+Pointer 547 16 move
+Pointer 549 14 move
+Pointer 550 14 move
+Pointer 553 12 move
+Pointer 557 9 move
+Pointer 558 8 move
+Pointer 562 5 move
+Pointer 565 5 move
+Pointer 568 3 move
+Pointer 570 2 move
+Pointer 571 2 move
+Pointer 573 0 move
+Close

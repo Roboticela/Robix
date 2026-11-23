@@ -1,0 +1,21 @@
+<Window Name="Desk" Title="Desk">
+  <NavigationView Name="nav">
+    <Page Name="home" Route="Home" Title="Home"/>
+    <Page Name="joints" Route="Joints" Title="Joints">
+      <Page Name="elbow" Route="Joints/Elbow" Title="Elbow"/>
+    </Page>
+    <Page Name="settings" Route="Settings" Title="Settings"/>
+  </NavigationView>
+  <Menu Name="file" Text="File">
+    <MenuItem Name="save" Text="Save"/>
+  </Menu>
+  <Toolbar Name="tools" Text="Tools"/>
+  <StatusBar Name="status" Text="Ready"/>
+  <TitleBar Name="title" Text="Desk"/>
+  <TabItem Name="tab" Text="Arm"/>
+  <Popup Name="tip" Text="Hint"/>
+  <Flyout Name="more" Text="More"/>
+  <Drawer Name="side" Text="Joints"/>
+  <Dialog Name="ask" Title="Save changes"/>
+  <Window Name="extra" Title="Graph"/>
+</Window>

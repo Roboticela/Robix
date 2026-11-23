@@ -838,10 +838,14 @@ Public Class NativeProgram {
     Private Function BindGlobals() -> Void {
         Int index = 0;
         While (index < This.GlobalNames.Count()) {
-            This.Bind(This.GlobalNames[index], This.GlobalSlots[index], This.GlobalTypes[index]);
+            String globalName = This.GlobalNames[index];
+            String globalSlot = This.GlobalSlots[index];
+            String globalType = This.GlobalTypes[index];
+            This.Bind(globalName, globalSlot, globalType);
             index = index + 1;
         }
-        This.GlobalCount = This.ScopeCount;
+        Int scopeCount = This.ScopeCount;
+        This.GlobalCount = scopeCount;
     }
 
     Private Function PrepareGlobals(AstNode module) -> String {
@@ -1232,7 +1236,7 @@ Public Class NativeProgram {
     }
 
     Private Function CallRuntime(String symbol, List<String> args, Bool voidCall) -> IrValue {
-        symbol = This.RuntimeSymbol(symbol);
+        String resolved = This.RuntimeSymbol(symbol);
         String rendered = "";
         Int index = 0;
         For arg In args {
@@ -1241,11 +1245,11 @@ Public Class NativeProgram {
             index = index + 1;
         }
         If (voidCall) {
-            This.Emit("call void @" + symbol + "(" + rendered + ")");
+            This.Emit("call void @" + resolved + "(" + rendered + ")");
             Return This.Pair("0", "Void");
         }
         String result = This.Fresh("v");
-        This.Emit(result + " = call i64 @" + symbol + "(" + rendered + ")");
+        This.Emit(result + " = call i64 @" + resolved + "(" + rendered + ")");
         Return This.Pair(result, "Int");
     }
 
@@ -2210,13 +2214,11 @@ Public Class NativeProgram {
     }
 
     Private Function StoreListItem(String list, String index, String value) -> Void {
-        String pointer = This.Fresh("p");
-        This.Emit(pointer + " = inttoptr i64 " + list + " to ptr");
-        String items = This.Fresh("items");
-        This.Emit(items + " = load ptr, ptr " + pointer);
-        String slot = This.Fresh("s");
-        This.Emit(slot + " = getelementptr i64, ptr " + items + ", i64 " + index);
-        This.Emit("store i64 " + value + ", ptr " + slot);
+        Var args = List<String>();
+        args.Add(list);
+        args.Add(index);
+        args.Add(value);
+        This.CallRuntime("rx_list_set", args, True);
     }
 
     Private Function EmitMember(AstNode node) -> IrValue {
@@ -2828,12 +2830,15 @@ Public Class NativeProgram {
         AstNode ctor = AstNode();
         Bool found = False;
         Int best = 999;
-        For candidate In info.Constructors {
+        Int ctorIndex = 0;
+        While (ctorIndex < info.Constructors.Count()) {
+            AstNode candidate = info.Constructors[ctorIndex];
             If (candidate.Parameters.Count() >= arguments.Count() && candidate.Parameters.Count() < best) {
                 ctor = candidate;
                 found = True;
                 best = candidate.Parameters.Count();
             }
+            ctorIndex = ctorIndex + 1;
         }
         If (found) {
             Var args = List<String>();
@@ -2964,11 +2969,14 @@ Public Class NativeProgram {
             If (baseInfo.Constructors.Count() == 0 || This.Lookup("This").Value == "") { Return This.Pair("0", "Void"); }
             AstNode ctor = baseInfo.Constructors[0];
             Int best = 999;
-            For candidate In baseInfo.Constructors {
+            Int ctorIndex = 0;
+            While (ctorIndex < baseInfo.Constructors.Count()) {
+                AstNode candidate = baseInfo.Constructors[ctorIndex];
                 If (candidate.Parameters.Count() >= arguments.Count() && candidate.Parameters.Count() < best) {
                     ctor = candidate;
                     best = candidate.Parameters.Count();
                 }
+                ctorIndex = ctorIndex + 1;
             }
             Var args = List<String>();
             args.Add(This.LoadSlot(This.Lookup("This").Value));
@@ -4028,8 +4036,11 @@ Public Class NativeProgram {
     }
 
     Private Function FindMethod(ClassInfo info, String name) -> MethodInfo {
-        For method In info.Methods {
+        Int methodIndex = 0;
+        While (methodIndex < info.Methods.Count()) {
+            MethodInfo method = info.Methods[methodIndex];
             If (method.Name == name) { Return method; }
+            methodIndex = methodIndex + 1;
         }
         Return MethodInfo();
     }

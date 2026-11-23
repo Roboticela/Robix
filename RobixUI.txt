@@ -1,43 +1,8 @@
-# Robix UI (RXU) — Master Implementation Plan & Verification Checklist
-
-Write examples also for each feature in Examples/UI folder.
-
-**Status:** In progress · **Scope:** RXU language, Robix.UI framework, Linux GTK4 integration, universal desktop architecture, future Windows/macOS parity.  
-**Source:** `Plan.md` (3,794 lines; all major sections consolidated, including later amendments).  
-**Purpose:** Execute in dependency order, check each deliverable only after verification, and prevent features from being lost between releases.
-
-> This document is an implementation plan, **not a claim that any feature already exists**. Every box begins unchecked. RXU grammar/API examples in the source are proposed until formalized in P00.
-
-## How to operate this plan
 - [ ] Each task must have a tracked issue/PR linked to its ID (for example `P06.04`) and a test or other reproducible evidence.
 - [ ] Check `[x]` only when code, automated tests, documentation, and integration are merged; use the progress register for status such as blocked/in review (do not mark partially complete as checked).
 - [ ] For each phase, run its exit gate, record test commands and results, obtain sign-off, then advance to the next phase; parallel work is acceptable only when dependencies are satisfied.
 - [ ] Whenever behavior changes, update the specification, test suite, example application, and the source-to-task coverage table together.
 - [ ] The source is aspirational: tests and design reviews confirm implementation. A checked planning item alone is not proof of a working feature.
-
-### Completion evidence template (copy per checkpoint)
-```text
-Checkpoint ID: Pxx.yy / Gxx
-Status: Not started | In progress | Blocked | In review | Verified
-Owner: 
-Issue/PR/commit: 
-Acceptance test(s) + command: 
-Observed output / CI link: 
-Docs / example updated: 
-Linux result: 
-Windows result (when supported): 
-macOS result (when supported): 
-Known limitations / follow-up ID: 
-Reviewer / date: 
-```
-
-## Release milestones
-- [ ] **M0 — Spec frozen:** P00–P02 signed off.
-- [ ] **M1 — Headless runtime:** P03–P07 signed off.
-- [ ] **M2 — Linux MVP:** P08–P13 and the MVP checks signed off.
-- [ ] **M3 — Full RXU framework:** P14–P21 signed off.
-- [ ] **M4 — Cross-platform parity:** P22–P24 signed off.
-- [ ] **M5 — Final completeness audit:** P25 signed off, no open blocking coverage gaps.
 
 ## P00 — Specification reconciliation and non-negotiable decisions
 **Objective:** Freeze one coherent contract before implementation.  
@@ -56,7 +21,7 @@ Reviewer / date:
 **Dependencies:** P00  
 **Source coverage:** Original §§1, 13, 22–23
 
-- [ ] **P01.01** Create packages `Robix.UI`, `Robix.UI.Controls`, `Robix.UI.Linux`, future `Robix.UI.Windows` and `Robix.UI.MacOS` stubs.
+- [ ] **P01.01** Create packages `Robix.UI`, `Robix.UI.Controls`stubs.
 - [ ] **P01.02** Create universal modules: Core, RXU, Components, Properties, Resources, Binding, Events, Input, Layout, Styles, Animation, Rendering, Drawing, Navigation, Dialogs, Accessibility, Localization, Platform, Diagnostics, Testing.
 - [ ] **P01.03** Create backend directories for GTK/native interop, windowing, input and rendering while forbidding GTK imports in universal modules.
 - [ ] **P01.04** Wire `.rx`, `.rxu`, `.rxp` project layouts and asset paths for icons/images/fonts.
@@ -127,15 +92,6 @@ Reviewer / date:
 **Dependencies:** P04, P08–P09  
 **Source coverage:** Original §§5, 13–16; universal rendering amendments
 
-- [ ] **P10.01** Implement `Measure(availableSize)` → `Arrange(finalRectangle)` → `Render()` lifecycle.
-- [ ] **P10.02** Implement auto/fixed/content/percentage sizing, min/max constraints, spacing, margin/padding and alignment.
-- [ ] **P10.03** Implement clipping, coordinate transforms, density scaling, DPI changes, nested layouts and overflow handling.
-- [ ] **P10.04** Implement layout invalidation, incremental recomputation and caching.
-- [ ] **P10.05** Implement StackPanel, Grid, Panel, View and ScrollView layouts first.
-- [ ] **P10.06** Implement DockPanel, WrapPanel, Canvas, Overlay, FlexPanel, UniformGrid, SplitView, ConstraintPanel and TabView as applicable.
-- [ ] **P10.07** Implement universal primitives for text, images, shapes, brushes, paths, borders and shadows.
-- [ ] **P10.08** Implement native window integration but shared layout/rendering behavior; document unavoidable OS font/window-decoration differences.
-- [ ] **P10.09** Test golden geometry and screenshot fixtures at small/large windows, different DPI, RTL and nested scrolling.
 - [ ] **G10 — PHASE SIGN-OFF:** Reference layouts have deterministic geometry and correct visual output on Linux/virtual backend.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P11 — Core controls — Linux MVP
@@ -143,14 +99,6 @@ Reviewer / date:
 **Dependencies:** P04, P07, P09–P10  
 **Source coverage:** Original §§5, 23–24
 
-- [ ] **P11.01** Implement Window, View, Panel, StackPanel and Grid.
-- [ ] **P11.02** Implement Text, Image and Button.
-- [ ] **P11.03** Implement TextBox and CheckBox; input focus and keyboard accessibility.
-- [ ] **P11.04** Implement ScrollView and ListView (with core list updates).
-- [ ] **P11.05** Implement Dialog and Spinner for load/error states.
-- [ ] **P11.06** Apply shared styles, resources, basic themes and common properties to every MVP control.
-- [ ] **P11.07** Ensure click, input/change, binding, enabled/disabled and runtime property changes work.
-- [ ] **P11.08** Provide app examples for login, dashboard and dynamically modified controls.
 - [ ] **G11 — PHASE SIGN-OFF:** MVP acceptance script in the release section passes on Linux with no placeholders.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P12 — Complete input, routed events and actions
@@ -158,16 +106,6 @@ Reviewer / date:
 **Dependencies:** P03–P04, P09–P11  
 **Source coverage:** Original §9; expanded event taxonomy and capture amendments
 
-- [ ] **P12.01** Implement event metadata, typed event args, handler binding (`OnClick="Handler"`) and handler signature verification.
-- [ ] **P12.02** Implement programmatic `+=` / `-=` subscribe/unsubscribe, `Click()`, `RaiseEvent()` and explicit synthetic-vs-real input distinction.
-- [ ] **P12.03** Implement capture/bubble or other chosen event propagation semantics, cancellation, consumption and event priority.
-- [ ] **P12.04** Implement pointer, mouse, hover, wheel and context-menu event family (see inventory E1).
-- [ ] **P12.05** Implement keyboard, shortcut, text-input, focus and navigation event family (E2).
-- [ ] **P12.06** Implement lifecycle, value/selection and window events (E3–E5).
-- [ ] **P12.07** Implement drag/drop, layout/render and animation events (E6–E8).
-- [ ] **P12.08** Implement event registration/capture from RX at component, document and global appropriate scopes.
-- [ ] **P12.09** Implement component actions callable from RX; define action result and thread-safety contracts.
-- [ ] **P12.10** Test ordering, unsubscribe, exceptions, disposal, propagation and handler type mismatches.
 - [ ] **G12 — PHASE SIGN-OFF:** Every event in inventory has a documented support status and passing conformance fixture or explicit approved exclusion.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P13 — Runtime component inspection and mutation
@@ -175,13 +113,6 @@ Reviewer / date:
 **Dependencies:** P03–P04, P09–P12  
 **Source coverage:** Original §7; full RX component control amendments
 
-- [ ] **P13.01** Implement `Find<T>`, `FindById<T>`, `FindAll<T>`, `FindByName<T>`, `FindByPath<T>` and traversal methods.
-- [ ] **P13.02** Implement runtime `Create`, `Add`, `Insert`, `Remove`, `Replace`, `Clear`, `Move` and parent/child/sibling inspection.
-- [ ] **P13.03** Implement read/write typed properties plus `SetAttribute*` generic APIs and bulk mutation.
-- [ ] **P13.04** Implement component method/action invocation and event subscription from RX.
-- [ ] **P13.05** Implement controlled UI tree update transactions with layout/render coalescing.
-- [ ] **P13.06** Implement same-name scopes, detached node behavior, stable IDs and mutation during events.
-- [ ] **P13.07** Test state preservation, attached/detached lifecycle, invalid insertion, cross-document move and memory safety.
 - [ ] **G13 — PHASE SIGN-OFF:** An RX test creates, modifies, reorders, replaces and removes controls while the window stays open.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P14 — Declarative control flow and component communication
@@ -189,14 +120,6 @@ Reviewer / date:
 **Dependencies:** P03, P07, P13  
 **Source coverage:** Original §4; decision-making and component communication amendments
 
-- [ ] **P14.01** Implement `If`/`Else`/`ElseIf` with branch switching and lifecycle handling.
-- [ ] **P14.02** Implement `Each`/`For`/`ForEach` and optional bounded `While` only if approved in P00.
-- [ ] **P14.03** Implement `Choose`/`Switch`/`When`/`Default`/`Otherwise` and nested scopes.
-- [ ] **P14.04** Implement `Let`/`Set`/`Bind` local declaration and update rules.
-- [ ] **P14.05** Implement `Include` of reusable markup distinct from component `Import`.
-- [ ] **P14.06** Implement stable keyed iteration, collection diffs and preservation of compatible child state.
-- [ ] **P14.07** Implement component-to-component communication through parent/child access, typed events, binding and shared state.
-- [ ] **P14.08** Test branch changes, nested loops, empty lists, missing keys and circular communication safeguards.
 - [ ] **G14 — PHASE SIGN-OFF:** Changing RX observables updates conditionals and repeated UI with correct teardown/state preservation.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P15 — Reusable component libraries and templates
@@ -204,13 +127,6 @@ Reviewer / date:
 **Dependencies:** P03–P07, P14  
 **Source coverage:** Original §§10–11; reusable components amendment
 
-- [ ] **P15.01** Implement `<Component>` definitions and `<Components>` multi-definition files.
-- [ ] **P15.02** Implement RXU `<Import Source>` for reusable definitions without instantiating a document/window.
-- [ ] **P15.03** Implement public/private typed parameters, output values, default values, methods and named internal children.
-- [ ] **P15.04** Implement custom events, state, resource/style scopes, lifecycle hooks and validation.
-- [ ] **P15.05** Implement nesting and reference to a component instance from RX.
-- [ ] **P15.06** Implement visual templates that can replace appearance without replacing behavior.
-- [ ] **P15.07** Test component library versioning, import collision, transitive imports and repeated instantiation.
 - [ ] **G15 — PHASE SIGN-OFF:** One custom component is instantiated twice with isolated state and usable typed RX APIs.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P16 — Full control catalog coverage
@@ -218,14 +134,6 @@ Reviewer / date:
 **Dependencies:** P10–P15  
 **Source coverage:** Original §5; advanced components roadmap
 
-- [ ] **P16.01** Implement root/container catalog C1 beyond MVP.
-- [ ] **P16.02** Implement display catalog C2 beyond MVP.
-- [ ] **P16.03** Implement input catalog C3 beyond MVP, including password, date/time, number, file and color input.
-- [ ] **P16.04** Implement collection catalog C4 beyond MVP, including DataGrid editing and virtualized large lists.
-- [ ] **P16.05** Implement navigation/window catalog C5 beyond MVP.
-- [ ] **P16.06** Implement drawing catalog C6 and vector geometry APIs.
-- [ ] **P16.07** Test property schemas, bindings, accessibility, focus, states and common events for **each** catalog member.
-- [ ] **P16.08** Publish a control support matrix mapping every catalog entry to source, test and documentation.
 - [ ] **G16 — PHASE SIGN-OFF:** All catalog controls in C1–C6 marked verified; any deferral approved and does not count toward complete scope.; attach evidence and reviewer approval in the checkpoint register.
 
 ## P17 — Navigation, overlays, dialogs and advanced application flows
@@ -312,19 +220,7 @@ I want complete same animation system as framer motion, so implement all feature
 - [ ] **P22.06** Document OS-native differences that cannot be fully normalized.
 - [ ] **G22 — PHASE SIGN-OFF:** Identical sample sources pass Windows and Linux automated/interactive parity matrix.; attach evidence and reviewer approval in the checkpoint register.
 
-## P23 — macOS backend (internal adapter only)
-**Objective:** Run identical RX/RXU project on macOS without app code changes.  
-**Dependencies:** P08–P22  
-**Source coverage:** Original §§13, 23; universal cross-platform amendments
-
-- [ ] **P23.01** Implement macOS windowing/input/clipboard/dialogs/display/scale/accessibility adapter.
-- [ ] **P23.02** Implement universal rendering surface integration and backend capability/fallback handling.
-- [ ] **P23.03** Integrate target builds and automatic backend selection without app code changes.
-- [ ] **P23.04** Run identical contract, layout, rendering, binding, event and accessibility suites.
-- [ ] **P23.05** Document unavoidable native differences and compare with Linux and Windows.
-- [ ] **G23 — PHASE SIGN-OFF:** Identical sample sources pass macOS, Windows and Linux parity matrix.; attach evidence and reviewer approval in the checkpoint register.
-
-## P24 — Cross-platform packaging and developer experience
+## P23 — Cross-platform packaging and developer experience
 **Objective:** Make write-once behavior verifiable for ordinary developers.  
 **Dependencies:** P22–P23  
 **Source coverage:** Original §§13, 25; all final cross-platform amendments
@@ -338,7 +234,7 @@ I want complete same animation system as framer motion, so implement all feature
 - [ ] **P24.07** Verify application code requires no `IsLinux`, `IsWindows`, conditional imports or alternative component definitions.
 - [ ] **G24 — PHASE SIGN-OFF:** Fresh sample project builds for all supported targets with unchanged app sources and config.; attach evidence and reviewer approval in the checkpoint register.
 
-## P25 — Final source-to-implementation audit and release
+## P24 — Final source-to-implementation audit and release
 **Objective:** Prove nothing from the source plan was silently omitted.  
 **Dependencies:** P00–P24  
 **Source coverage:** All 3,794 lines, all original and amended requirements

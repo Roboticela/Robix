@@ -1,0 +1,880 @@
+// MVP host.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class MvpHost {
+    Public List<String> ids;
+    Public List<String> kinds;
+    Public List<String> texts;
+    Public List<String> enabledFlags;
+    Public List<String> visibles;
+    Public List<String> checks;
+    Public List<String> backgrounds;
+    Public List<String> extras;
+    Public List<String> locals;
+    Public List<String> binds;
+    Public List<String> sources;
+    Public List<String> styles;
+    Public List<String> rows;
+    Private String focus;
+    Private String notice;
+    Private String theme;
+    Private String spinning;
+    Private Int clicks;
+    Private Int changes;
+
+    Public Constructor() {
+        This.ids = List<String>();
+        This.kinds = List<String>();
+        This.texts = List<String>();
+        This.enabledFlags = List<String>();
+        This.visibles = List<String>();
+        This.checks = List<String>();
+        This.backgrounds = List<String>();
+        This.extras = List<String>();
+        This.locals = List<String>();
+        This.binds = List<String>();
+        This.sources = List<String>();
+        This.styles = List<String>();
+        This.rows = List<String>();
+        This.focus = "";
+        This.notice = "";
+        This.theme = "#336699";
+        This.spinning = "";
+        This.clicks = 0;
+        This.changes = 0;
+    }
+
+    Public Function ImportMvp(RxuNode node) -> Int
+    Explain {
+        Description: "Import MVP controls from markup.";
+        Input: node = "Document or element";
+        Processing: "Record each known control and walk its children.";
+        Output: "The number of imported controls.";
+    } {
+        If (node.Kind != "Element") {
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.ImportMvp(node.Children[index]);
+                index = index + 1;
+            }
+            Return count;
+        }
+        String kind = node.Name + "";
+        If (!This.MvpKnown(kind)) {
+            kind = node.FindAttribute("Tag").Text + "";
+        }
+        Int count = 0;
+        String id = node.FindAttribute("Name").Text + "";
+        If (This.MvpKnown(kind) && id != "" && This.MvpIndex(id) < 0) {
+            This.ids.Add(id);
+            This.kinds.Add(kind);
+            String content = node.FindAttribute("Content").Text + "";
+            If (content == "") {
+                content = node.FindAttribute("Title").Text + "";
+            }
+            If (content == "") {
+                content = node.FindAttribute("Text").Text + "";
+            }
+            This.texts.Add(content);
+            String enabled = node.FindAttribute("Enabled").Text + "";
+            If (enabled != "false") {
+                enabled = "true";
+            }
+            This.enabledFlags.Add(enabled);
+            String visible = node.FindAttribute("Visible").Text + "";
+            If (visible != "false") {
+                visible = "true";
+            }
+            This.visibles.Add(visible);
+            String checked = node.FindAttribute("Checked").Text + "";
+            If (checked != "true") {
+                checked = "false";
+            }
+            This.checks.Add(checked);
+            This.backgrounds.Add("");
+            This.MvpBagPut(id, "Width", This.MvpOr(node.FindAttribute("Width").Text, "Auto"));
+            This.MvpBagPut(id, "Height", This.MvpOr(node.FindAttribute("Height").Text, "Auto"));
+            This.MvpBagPut(id, "Source", node.FindAttribute("Source").Text + "");
+            This.MvpBagPut(id, "Placeholder", node.FindAttribute("Placeholder").Text + "");
+            This.MvpBagPut(id, "Orientation", This.MvpOr(node.FindAttribute("Orientation").Text, "Vertical"));
+            This.MvpBagPut(id, "Columns", This.MvpOr(node.FindAttribute("Columns").Text, "1"));
+            This.MvpBagPut(id, "Rows", This.MvpOr(node.FindAttribute("Rows").Text, "1"));
+            This.MvpBagPut(id, "Spacing", This.MvpOr(node.FindAttribute("Spacing").Text, "0"));
+            count = 1;
+        }
+        Int child = 0;
+        While (child < node.Children.Count()) {
+            count = count + This.ImportMvp(node.Children[child]);
+            child = child + 1;
+        }
+        Return count;
+    }
+
+    Public Function AddMvp(String kind, String id) -> Bool
+    Explain {
+        Description: "Add one control at runtime.";
+        Input: kind = "Control kind", id = "New control name";
+        Processing: "Reject an unknown kind or a duplicate name.";
+        Output: "True when the control was added.";
+    } {
+        If (!This.MvpKnown(kind) || id == "" || This.MvpIndex(id) >= 0) {
+            Return False;
+        }
+        This.ids.Add(id);
+        This.kinds.Add(kind);
+        This.texts.Add("");
+        This.enabledFlags.Add("true");
+        This.visibles.Add("true");
+        This.checks.Add("false");
+        This.backgrounds.Add("");
+        This.MvpBagPut(id, "Width", "Auto");
+        This.MvpBagPut(id, "Height", "Auto");
+        Return True;
+    }
+
+    Public Function PutField(String id, String field, String value) -> Bool
+    Explain {
+        Description: "Set one control property.";
+        Input: id = "Control name", field = "Property name", value = "New value";
+        Processing: "Reject a mistyped value and keep the previous one. A successful write is local.";
+        Output: "True when the value was stored.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || !This.MvpValid(field, value)) {
+            Return False;
+        }
+        This.MvpApply(index, field, value);
+        This.MvpMark(id, field);
+        This.changes = This.changes + 1;
+        Return True;
+    }
+
+    Public Function ReadField(String id, String field) -> String
+    Explain {
+        Description: "Read one control property.";
+        Input: id = "Control name", field = "Property name";
+        Processing: "Return the stored value, or the theme color when Color was not set.";
+        Output: "The value, or empty text when the control is missing.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        If (field == "Content" || field == "Title" || field == "Text") {
+            Return This.texts[index];
+        }
+        If (field == "Enabled") {
+            Return This.enabledFlags[index];
+        }
+        If (field == "Visible") {
+            Return This.visibles[index];
+        }
+        If (field == "Checked") {
+            Return This.checks[index];
+        }
+        If (field == "Background") {
+            Return This.backgrounds[index];
+        }
+        If (field == "Kind") {
+            Return This.kinds[index];
+        }
+        If (field == "Color") {
+            String color = This.MvpBag(id, "Color");
+            If (color == "") {
+                Return This.theme;
+            }
+            Return color;
+        }
+        If (field == "Count") {
+            Return This.MvpRows(id, -1);
+        }
+        If (field.StartsWith("Item")) {
+            Int item = field.Substring(4).ToInt();
+            Return This.MvpRows(id, item);
+        }
+        Return This.MvpBag(id, field);
+    }
+
+    Public Function PressMvp(String id) -> Bool
+    Explain {
+        Description: "Click a button.";
+        Input: id = "Button name";
+        Processing: "Ignore a disabled, hidden, or non-button control.";
+        Output: "True when the click was counted.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || This.kinds[index] != "Button" || This.enabledFlags[index] != "true" || This.visibles[index] != "true") {
+            Return False;
+        }
+        This.clicks = This.clicks + 1;
+        Return True;
+    }
+
+    Public Function TypeMvp(String id, String value) -> Bool
+    Explain {
+        Description: "Type into the focused text box.";
+        Input: id = "Text box name", value = "Characters to append";
+        Processing: "Require focus and an enabled text box.";
+        Output: "True when the text changed.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || This.focus != id || This.kinds[index] != "TextBox" || This.enabledFlags[index] != "true") {
+            Return False;
+        }
+        This.texts[index] = This.texts[index] + value;
+        This.changes = This.changes + 1;
+        Return True;
+    }
+
+    Public Function ToggleMvp(String id) -> Bool
+    Explain {
+        Description: "Toggle a check box.";
+        Input: id = "Check box name";
+        Processing: "Flip Checked when the control is an enabled check box.";
+        Output: "True when the value flipped.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || This.kinds[index] != "CheckBox" || This.enabledFlags[index] != "true") {
+            Return False;
+        }
+        If (This.checks[index] == "true") {
+            This.checks[index] = "false";
+        } Else {
+            This.checks[index] = "true";
+        }
+        This.changes = This.changes + 1;
+        Return True;
+    }
+
+    Public Function FocusMvp(String id) -> Bool
+    Explain {
+        Description: "Move keyboard focus.";
+        Input: id = "Control name";
+        Processing: "Focus an enabled button, text box, or check box.";
+        Output: "True when focus moved.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || !This.MvpFocusable(index)) {
+            Return False;
+        }
+        This.focus = id + "";
+        Return True;
+    }
+
+    Public Function KeyMvp(String id, String key) -> Bool
+    Explain {
+        Description: "Move focus from the keyboard.";
+        Input: id = "Focused control", key = "Tab or ShiftTab";
+        Processing: "Tab moves to the next focusable control. ShiftTab moves to the previous one.";
+        Output: "True when focus moved.";
+    } {
+        If (This.focus != id) {
+            Return False;
+        }
+        Int step = 0;
+        If (key == "Tab") {
+            step = 1;
+        }
+        If (key == "ShiftTab") {
+            step = -1;
+        }
+        If (step == 0) {
+            Return False;
+        }
+        String next = This.MvpStep(id, step);
+        If (next == "") {
+            Return False;
+        }
+        This.focus = next + "";
+        Return True;
+    }
+
+    Public Function BindMvp(String id, String field, String path) -> Bool
+    Explain {
+        Description: "Bind a control property to a source path.";
+        Input: id = "Control name", field = "Property name", path = "Source path";
+        Processing: "Store the binding and apply the current source when the property is not local.";
+        Output: "True when the control exists.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || field == "" || path == "") {
+            Return False;
+        }
+        This.binds.Add(id + "." + field + "=" + path);
+        String current = This.MvpSource(path);
+        If (current != "" && !This.MvpLocal(id, field)) {
+            This.MvpApply(index, field, current);
+        }
+        Return True;
+    }
+
+    Public Function PushMvp(String path, String value) -> Int
+    Explain {
+        Description: "Change a binding source.";
+        Input: path = "Source path", value = "New source value";
+        Processing: "Update every bound property that was not set locally.";
+        Output: "The number of controls updated.";
+    } {
+        This.MvpSourcePut(path, value);
+        Int updated = 0;
+        Int index = 0;
+        While (index < This.binds.Count()) {
+            String row = This.binds[index];
+            Int mark = row.IndexOf("=");
+            If (mark > 0 && row.Substring(mark + 1) == path) {
+                String head = row.Substring(0, mark);
+                Int dot = head.IndexOf(".");
+                If (dot > 0) {
+                    String id = head.Substring(0, dot);
+                    String field = head.Substring(dot + 1);
+                    Int slot = This.MvpIndex(id);
+                    If (slot >= 0 && !This.MvpLocal(id, field)) {
+                        This.MvpApply(slot, field, value);
+                        updated = updated + 1;
+                    }
+                }
+            }
+            index = index + 1;
+        }
+        Return updated;
+    }
+
+    Public Function StyleMvp(String name, String background) -> Bool
+    Explain {
+        Description: "Store a named style.";
+        Input: name = "Style name", background = "Background color";
+        Processing: "Remember the background for a later apply.";
+        Output: "True when the color is a hex color.";
+    } {
+        If (name == "" || !This.MvpColor(background)) {
+            Return False;
+        }
+        This.styles.Add(name + "=" + background);
+        Return True;
+    }
+
+    Public Function ApplyMvp(String id, String name) -> Bool
+    Explain {
+        Description: "Apply a named style.";
+        Input: id = "Control name", name = "Style name";
+        Processing: "Set the background unless a local background already won.";
+        Output: "True when the style exists.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0) {
+            Return False;
+        }
+        String background = "";
+        Int cursor = 0;
+        While (cursor < This.styles.Count()) {
+            String row = This.styles[cursor];
+            If (row.StartsWith(name + "=")) {
+                background = row.Substring(name.Length() + 1);
+            }
+            cursor = cursor + 1;
+        }
+        If (background == "") {
+            Return False;
+        }
+        If (!This.MvpLocal(id, "Background")) {
+            This.backgrounds[index] = background + "";
+        }
+        Return True;
+    }
+
+    Public Function UseTheme(String name) -> Bool
+    Explain {
+        Description: "Select the shared theme color.";
+        Input: name = "Light or Dark";
+        Processing: "Light and Dark choose the color inherited by controls without a local color.";
+        Output: "True when the theme name is known.";
+    } {
+        If (name == "Light") {
+            This.theme = "#F4F7FB";
+            Return True;
+        }
+        If (name == "Dark") {
+            This.theme = "#112233";
+            Return True;
+        }
+        Return False;
+    }
+
+    Public Function AddRow(String id, String item) -> Bool
+    Explain {
+        Description: "Append one list row.";
+        Input: id = "List view name", item = "Row text";
+        Processing: "Reject a control that is not a list view.";
+        Output: "True when the row was added.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || This.kinds[index] != "ListView") {
+            Return False;
+        }
+        This.rows.Add(id + "=" + item);
+        This.changes = This.changes + 1;
+        Return True;
+    }
+
+    Public Function RemoveRow(String id, Int item) -> Bool
+    Explain {
+        Description: "Remove one list row.";
+        Input: id = "List view name", item = "Zero-based row";
+        Processing: "Drop that row and keep the others in order.";
+        Output: "True when the row existed.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || This.kinds[index] != "ListView" || item < 0) {
+            Return False;
+        }
+        List<String> kept = List<String>();
+        Int seen = 0;
+        Bool removed = False;
+        Int cursor = 0;
+        While (cursor < This.rows.Count()) {
+            String row = This.rows[cursor];
+            Bool drop = False;
+            If (row.StartsWith(id + "=")) {
+                If (seen == item) {
+                    drop = True;
+                    removed = True;
+                }
+                seen = seen + 1;
+            }
+            If (!drop) {
+                kept.Add(row);
+            }
+            cursor = cursor + 1;
+        }
+        This.rows = kept;
+        If (removed) {
+            This.changes = This.changes + 1;
+        }
+        Return removed;
+    }
+
+    Public Function OpenNotice(String id) -> Bool
+    Explain {
+        Description: "Open a dialog.";
+        Input: id = "Dialog name";
+        Processing: "Show that dialog.";
+        Output: "True when the control is a dialog.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || This.kinds[index] != "Dialog") {
+            Return False;
+        }
+        This.notice = id + "";
+        Return True;
+    }
+
+    Public Function CloseNotice() -> Bool
+    Explain {
+        Description: "Close the open dialog.";
+        Input: None;
+        Processing: "Clear the open notice.";
+        Output: "True when a dialog was open.";
+    } {
+        If (This.notice == "") {
+            Return False;
+        }
+        This.notice = "";
+        Return True;
+    }
+
+    Public Function SpinMvp(String id, Bool active) -> Bool
+    Explain {
+        Description: "Start or stop a spinner.";
+        Input: id = "Spinner name", active = "True while work is in progress";
+        Processing: "Only a spinner can become the active indicator.";
+        Output: "True when the control is a spinner.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0 || This.kinds[index] != "Spinner") {
+            Return False;
+        }
+        If (active) {
+            This.spinning = id + "";
+        } Else {
+            If (This.spinning == id) {
+                This.spinning = "";
+            }
+        }
+        Return True;
+    }
+
+    Public Function MvpCount() -> Int
+    Explain {
+        Description: "Return how many controls are loaded.";
+        Input: None;
+        Processing: "Read the control list.";
+        Output: "The number of controls.";
+    } {
+        Return This.ids.Count();
+    }
+
+    Public Function MvpKind(String id) -> String
+    Explain {
+        Description: "Return one control kind.";
+        Input: id = "Control name";
+        Processing: "Read the stored kind.";
+        Output: "The kind, or empty text when the control is missing.";
+    } {
+        Int index = This.MvpIndex(id);
+        If (index < 0) {
+            Return "";
+        }
+        Return This.kinds[index];
+    }
+
+    Public Function ClickTally() -> Int
+    Explain {
+        Description: "Return how many button clicks were accepted.";
+        Input: None;
+        Processing: "Read the click counter.";
+        Output: "The number of accepted clicks.";
+    } {
+        Return This.clicks;
+    }
+
+    Public Function ChangeTally() -> Int
+    Explain {
+        Description: "Return how many values changed.";
+        Input: None;
+        Processing: "Read the change counter.";
+        Output: "The number of accepted edits.";
+    } {
+        Return This.changes;
+    }
+
+    Public Function FocusName() -> String
+    Explain {
+        Description: "Return the focused control.";
+        Input: None;
+        Processing: "Read the focus name.";
+        Output: "The focused name, or empty text.";
+    } {
+        Return This.focus;
+    }
+
+    Public Function NoticeOpen() -> String
+    Explain {
+        Description: "Return the open dialog.";
+        Input: None;
+        Processing: "Read the notice name.";
+        Output: "The dialog name, or empty text.";
+    } {
+        Return This.notice;
+    }
+
+    Public Function Spinning() -> String
+    Explain {
+        Description: "Return the active spinner.";
+        Input: None;
+        Processing: "Read the spinner name.";
+        Output: "The spinner name, or empty text.";
+    } {
+        Return This.spinning;
+    }
+
+    Private Function MvpIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function MvpKnown(String kind) -> Bool {
+        String names = "Window,View,Panel,StackPanel,Grid,Text,Image,Button,TextBox,CheckBox,ScrollView,ListView,Dialog,Spinner";
+        Int index = 0;
+        While (index < This.MvpParts(names)) {
+            If (This.MvpPart(names, index) == kind) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function MvpValid(String field, String value) -> Bool {
+        If (field == "Content" || field == "Title" || field == "Text" || field == "Source" || field == "Placeholder") {
+            Return True;
+        }
+        If (field == "Enabled" || field == "Visible" || field == "Checked") {
+            Return value == "true" || value == "false";
+        }
+        If (field == "Width" || field == "Height") {
+            Return This.MvpSize(value);
+        }
+        If (field == "Opacity") {
+            Return This.MvpOpacity(value);
+        }
+        If (field == "Columns" || field == "Rows" || field == "Spacing" || field == "Offset") {
+            Return This.MvpDigits(value);
+        }
+        If (field == "Orientation") {
+            Return value == "Horizontal" || value == "Vertical";
+        }
+        If (field == "Background" || field == "Color") {
+            Return This.MvpColor(value);
+        }
+        Return False;
+    }
+
+    Private Function MvpApply(Int index, String field, String value) -> Void {
+        If (field == "Content" || field == "Title" || field == "Text") {
+            This.texts[index] = value + "";
+            Return;
+        }
+        If (field == "Enabled") {
+            This.enabledFlags[index] = value + "";
+            Return;
+        }
+        If (field == "Visible") {
+            This.visibles[index] = value + "";
+            Return;
+        }
+        If (field == "Checked") {
+            This.checks[index] = value + "";
+            Return;
+        }
+        If (field == "Background") {
+            This.backgrounds[index] = value + "";
+            Return;
+        }
+        This.MvpBagPut(This.ids[index], field, value);
+    }
+
+    Private Function MvpMark(String id, String field) -> Void {
+        If (This.MvpLocal(id, field)) {
+            Return;
+        }
+        This.locals.Add(id + "." + field);
+    }
+
+    Private Function MvpLocal(String id, String field) -> Bool {
+        String key = id + "." + field;
+        Int index = 0;
+        While (index < This.locals.Count()) {
+            If (This.locals[index] == key) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function MvpFocusable(Int index) -> Bool {
+        String kind = This.kinds[index];
+        If (This.enabledFlags[index] != "true" || This.visibles[index] != "true") {
+            Return False;
+        }
+        Return kind == "Button" || kind == "TextBox" || kind == "CheckBox";
+    }
+
+    Private Function MvpStep(String id, Int step) -> String {
+        Int index = This.MvpIndex(id);
+        Int cursor = index + step;
+        While (cursor >= 0 && cursor < This.ids.Count()) {
+            If (This.MvpFocusable(cursor)) {
+                Return This.ids[cursor];
+            }
+            cursor = cursor + step;
+        }
+        Return "";
+    }
+
+    Private Function MvpBag(String id, String field) -> String {
+        String key = id + "." + field + "=";
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            String row = This.extras[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function MvpBagPut(String id, String field, String value) -> Void {
+        String key = id + "." + field + "=";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.extras.Count()) {
+            String row = This.extras[index];
+            If (!row.StartsWith(key)) {
+                kept.Add(row);
+            }
+            index = index + 1;
+        }
+        kept.Add(key + value);
+        This.extras = kept;
+    }
+
+    Private Function MvpSource(String path) -> String {
+        String key = path + "=";
+        Int index = 0;
+        While (index < This.sources.Count()) {
+            String row = This.sources[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function MvpSourcePut(String path, String value) -> Void {
+        String key = path + "=";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.sources.Count()) {
+            String row = This.sources[index];
+            If (!row.StartsWith(key)) {
+                kept.Add(row);
+            }
+            index = index + 1;
+        }
+        kept.Add(key + value);
+        This.sources = kept;
+    }
+
+    Private Function MvpRows(String id, Int item) -> String {
+        Int seen = 0;
+        Int index = 0;
+        String prefix = id + "=";
+        While (index < This.rows.Count()) {
+            String row = This.rows[index];
+            If (row.StartsWith(prefix)) {
+                If (item < 0) {
+                    seen = seen + 1;
+                } Else {
+                    If (seen == item) {
+                        If (row.Length() <= prefix.Length()) {
+                            Return "";
+                        }
+                        Return row.Substring(prefix.Length());
+                    }
+                    seen = seen + 1;
+                }
+            }
+            index = index + 1;
+        }
+        If (item < 0) {
+            Return seen.ToString();
+        }
+        Return "";
+    }
+
+    Private Function MvpOr(String value, String fallback) -> String {
+        If (value == "") {
+            Return fallback;
+        }
+        Return value + "";
+    }
+
+    Private Function MvpSize(String value) -> Bool {
+        If (value == "Auto" || value == "*") {
+            Return True;
+        }
+        String body = value + "";
+        If (value.EndsWith("px") && value.Length() > 2) {
+            body = value.Substring(0, value.Length() - 2);
+        } Else {
+            If (value.EndsWith("*") && value.Length() > 1) {
+                body = value.Substring(0, value.Length() - 1);
+            }
+        }
+        Return This.MvpDigits(body);
+    }
+
+    Private Function MvpOpacity(String value) -> Bool {
+        If (value == "0" || value == "1") {
+            Return True;
+        }
+        If (!value.StartsWith("0.") || value.Length() < 3) {
+            Return False;
+        }
+        Return This.MvpDigits(value.Substring(2));
+    }
+
+    Private Function MvpDigits(String value) -> Bool {
+        If (value.Length() == 0) {
+            Return False;
+        }
+        Int index = 0;
+        While (index < value.Length()) {
+            String character = value.GetChar(index);
+            If (character < "0" || character > "9") {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function MvpColor(String value) -> Bool {
+        If (value.Length() != 7 || !value.StartsWith("#")) {
+            Return False;
+        }
+        Int index = 1;
+        While (index < value.Length()) {
+            String character = value.GetChar(index);
+            Bool digit = character >= "0" && character <= "9";
+            Bool lower = character >= "a" && character <= "f";
+            Bool upper = character >= "A" && character <= "F";
+            If (!digit && !lower && !upper) {
+                Return False;
+            }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function MvpParts(String text) -> Int {
+        Int count = 1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.GetChar(index) == ",") {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function MvpPart(String text, Int item) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            Bool boundary = index == text.Length();
+            If (!boundary) {
+                boundary = text.GetChar(index) == ",";
+            }
+            If (boundary) {
+                If (seen == item) {
+                    Return text.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+}

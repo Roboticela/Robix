@@ -1,0 +1,25 @@
+<Components Name="ArmKit" Version="1.2">
+  <Component Name="Badge" Access="Public">
+    <Parameter Name="Caption" Type="String" Default="Arm" Access="Public"/>
+    <Parameter Name="Seal" Type="String" Default="ok" Access="Private"/>
+    <Output Name="Label" Type="String" Source="Caption"/>
+    <State Name="Pressed" Default="false"/>
+    <Resource Name="Accent" Value="#336699"/>
+    <Style Name="Face" Background="#112233"/>
+    <Method Name="Press"/>
+    <Event Name="OnPressed"/>
+    <Hook Name="OnLoaded"/>
+    <Template Name="Face">
+      <Text Name="caption" Value="Face"/>
+    </Template>
+    <Text Name="caption"/>
+  </Component>
+  <Component Name="Meter" Access="Public">
+    <Parameter Name="Value" Type="Int" Default="0" Access="Public"/>
+    <Badge Name="inner" Caption="Unit"/>
+  </Component>
+  <Component Name="Pin" Access="Public">
+    <Parameter Name="Id" Type="Int" Required="true" Access="Public"/>
+  </Component>
+  <Component Name="Secret" Access="Private"/>
+</Components>

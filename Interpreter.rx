@@ -713,13 +713,15 @@ Public Class Interpreter {
         For child In node.Children {
             If (child.Kind == AstKind.Function) {
                 This.functions.Add(child);
-                This.functionOwners.Add(This.collectOwner);
+                String ownerName = This.collectOwner;
+                This.functionOwners.Add(ownerName);
                 This.Define(child.Name, This.MakeFunction(child));
             }
             If (child.Kind == AstKind.Operator) {
                 If (child.Body != Null && child.Body.Kind == AstKind.Function) {
                     This.functions.Add(child.Body);
-                    This.functionOwners.Add(This.collectOwner);
+                    String operatorOwner = This.collectOwner;
+                    This.functionOwners.Add(operatorOwner);
                     This.Define(child.Body.Name, This.MakeFunction(child.Body));
                     This.operatorKeys.Add(child.Operator);
                     This.operatorNodes.Add(child.Body);
@@ -1299,6 +1301,9 @@ Public Class Interpreter {
                 If (node.Left.Name == "ExitCode" || node.Left.Name == "AstKind" || node.Left.Name == "ValueKind" || node.Left.Name == "TokenKind" || node.Left.Name == "Rounding") {
                     Return This.MakeInt(0);
                 }
+                If (node.Name == "MaxValue" && This.IsNumericOwner(node.Left.Name)) {
+                    Return This.MakeInt(This.NumericMax(node.Left.Name));
+                }
             }
             Value target = This.Evaluate(node.Left);
             If (target.Kind == ValueKind.Object) {
@@ -1531,6 +1536,19 @@ Public Class Interpreter {
             }
             Return This.NumericFrom(fullName, node, arguments);
         }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && This.IsNumericOwner(node.Left.Left.Name)) {
+            String numericOwner = node.Left.Left.Name;
+            If (node.Left.Name == "FromChecked" && arguments.Count() > 0) { Return This.MakeInt(arguments[0].Integer); }
+            If (node.Left.Name == "AddChecked" && arguments.Count() >= 2) { Return This.MakeInt(arguments[0].Integer + arguments[1].Integer); }
+            If (node.Left.Name == "WrappingAdd" && arguments.Count() >= 2) { Return This.MakeInt(This.WrapAdd(arguments[0].Integer, arguments[1].Integer)); }
+            If (node.Left.Name == "SaturatingAdd" && arguments.Count() >= 2) { Return This.MakeInt(This.SaturatingAdd(numericOwner, arguments[0].Integer, arguments[1].Integer)); }
+            If (node.Left.Name == "TryParse" && arguments.Count() > 0) { Return This.TryInteger(arguments[0]); }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name == "Decimal" && node.Left.Name == "From") {
+            String text = "0";
+            If (arguments.Count() > 0) { text = arguments[0].Text; }
+            Return This.MakeText(text);
+        }
         If (name == "AstNode") {
             Value obj = This.BlankValue("AstNode");
             For argument In node.Parameters {
@@ -1659,6 +1677,11 @@ Public Class Interpreter {
             Value collection = This.MakeArray();
             collection.Text = name;
             Return collection;
+        }
+        If (name == "Map") {
+            Value map = This.MakeArray();
+            map.Text = "Map";
+            Return map;
         }
         If (name == "Some" || name == "Success" || name == "Error" || name == "Failure" || name == "None" || name == "Tuple") {
             Value wrapper = This.MakeArray();
@@ -3459,6 +3482,36 @@ Public Class Interpreter {
         If (source.Kind == ValueKind.Text) { Return source.Text; }
         If (source.Kind == ValueKind.Float) { Return TextF64(source.Integer); }
         Return source.Integer.ToString();
+    }
+
+    Private Function NumericMax(String name) -> Int {
+        If (name == "UInt8" || name == "Byte") { Return 255; }
+        If (name == "Int8") { Return 127; }
+        If (name == "UInt16") { Return 65535; }
+        If (name == "Int16") { Return 32767; }
+        Return ParseInteger("9223372036854775807");
+    }
+
+    Private Function SaturatingAdd(String name, Int left, Int right) -> Int {
+        Int sum = left + right;
+        If (name == "UInt8" || name == "Byte") {
+            If (sum > 255) { Return 255; }
+            If (sum < 0) { Return 0; }
+        }
+        Return sum;
+    }
+
+    Private Function WrapAdd(Int left, Int right) -> Int {
+        If (left >= 0 && right >= 0) {
+            Int limit = ParseInteger("9223372036854775807");
+            If (right > 0 && left > limit - right) {
+                Int minimum = 0 - limit - 1;
+                Int over = left - (limit - right) - 1;
+                Return minimum + over;
+            }
+            Return left + right;
+        }
+        Return left + right;
     }
 
     Private Function IsNumericOwner(String typeName) -> Bool {

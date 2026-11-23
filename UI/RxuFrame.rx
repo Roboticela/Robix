@@ -1,0 +1,443 @@
+// Damage, hit testing, and headless present.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class FrameHost {
+    Public RxuMessages Messages;
+    Private List<String> commands;
+    Private List<String> names;
+    Private List<String> frames;
+    Private List<String> hits;
+    Private List<String> clips;
+    Private String phase;
+    Private String target;
+    Private String keys;
+    Private String pressed;
+    Private Int pending;
+    Private Int band;
+    Private Int width;
+    Private Int height;
+
+    Public Constructor() {
+        This.Messages = RxuMessages();
+        This.commands = List<String>();
+        This.names = List<String>();
+        This.frames = List<String>();
+        This.hits = List<String>();
+        This.clips = List<String>();
+        This.phase = "Open";
+        This.target = "";
+        This.keys = "";
+        This.pressed = "";
+        This.pending = 0;
+        This.band = 0;
+        This.width = 0;
+        This.height = 0;
+    }
+
+    Public Function FrameAdopt(LayoutEngine engine, String root) -> Int
+    Explain {
+        Description: "Adopt one arranged display list.";
+        Input: engine = "Laid-out engine", root = "Root slot name";
+        Processing: "Copy commands and device frames. The first present is pending. Later presents wait for damage.";
+        Output: "The number of drawing commands.";
+    } {
+        This.commands = List<String>();
+        This.names = List<String>();
+        This.frames = List<String>();
+        Int index = 0;
+        While (index < engine.CommandCount()) {
+            This.commands.Add(engine.CommandAt(index));
+            index = index + 1;
+        }
+        index = 0;
+        While (index < engine.Slots.Count()) {
+            String id = engine.Slots[index].Id;
+            This.names.Add(id);
+            This.frames.Add(engine.FrameOf(id));
+            index = index + 1;
+        }
+        String rootFrame = engine.FrameOf(root);
+        This.width = This.FrameInt(rootFrame, 2);
+        This.height = This.FrameInt(rootFrame, 3);
+        This.phase = "Open";
+        This.pending = 1;
+        This.FrameCollect();
+        Return This.commands.Count();
+    }
+
+    Public Function FrameWrite(String path) -> Bool
+    Explain {
+        Description: "Write the retained display list for the rasterizer.";
+        Input: path = "Output path";
+        Processing: "Write the device size and the same commands CommandAt returns.";
+        Output: "True when the list is written.";
+    } {
+        If (path == "" || This.commands.Count() == 0) {
+            Return False;
+        }
+        String text = "size " + This.width.ToString() + " " + This.height.ToString() + "\n";
+        Int index = 0;
+        While (index < This.commands.Count()) {
+            text = text + This.commands[index] + "\n";
+            index = index + 1;
+        }
+        Files.WriteText(path, text);
+        Return True;
+    }
+
+    Public Function FramePump() -> Int
+    Explain {
+        Description: "Run one frame of the universal clock.";
+        Input: None;
+        Processing: "A settled frame rasters nothing. One damaged region rasters once, then the frame is clean.";
+        Output: "1 when a damaged region must be rastered, otherwise 0.";
+    } {
+        If (This.phase != "Open" || This.pending == 0) {
+            Return 0;
+        }
+        This.pending = 0;
+        Return 1;
+    }
+
+    Public Function FrameDamage(LayoutEngine engine, String id) -> Int
+    Explain {
+        Description: "Union the old and new device rectangles of one slot.";
+        Input: engine = "Engine after the edit", id = "Slot name";
+        Processing: "The next frame rasters that union, not the whole window.";
+        Output: "The damaged area in device pixels.";
+    } {
+        String previous = This.FrameStored(id);
+        String next = engine.FrameOf(id);
+        Int left = This.FrameInt(previous, 0);
+        Int top = This.FrameInt(previous, 1);
+        Int right = left + This.FrameInt(previous, 2);
+        Int bottom = top + This.FrameInt(previous, 3);
+        Int nextLeft = This.FrameInt(next, 0);
+        Int nextTop = This.FrameInt(next, 1);
+        Int nextRight = nextLeft + This.FrameInt(next, 2);
+        Int nextBottom = nextTop + This.FrameInt(next, 3);
+        If (nextLeft < left) {
+            left = nextLeft;
+        }
+        If (nextTop < top) {
+            top = nextTop;
+        }
+        If (nextRight > right) {
+            right = nextRight;
+        }
+        If (nextBottom > bottom) {
+            bottom = nextBottom;
+        }
+        Int wide = right - left;
+        Int high = bottom - top;
+        If (wide < 0) {
+            wide = 0;
+        }
+        If (high < 0) {
+            high = 0;
+        }
+        This.band = wide * high;
+        This.pending = 1;
+        This.FrameStore(id, next);
+        Return This.band;
+    }
+
+    Public Function FrameBand() -> Int
+    Explain {
+        Description: "Return the last damaged area.";
+        Input: None;
+        Processing: "Read the union rectangle.";
+        Output: "The area in device pixels.";
+    } {
+        Return This.band;
+    }
+
+    Public Function FrameWindow() -> Int
+    Explain {
+        Description: "Return the window area.";
+        Input: None;
+        Processing: "Multiply the adopted device width and height.";
+        Output: "The window area.";
+    } {
+        Return This.width * This.height;
+    }
+
+    Public Function FrameHit(Int x, Int y) -> String
+    Explain {
+        Description: "Hit-test a device point.";
+        Input: x = "Device x", y = "Device y";
+        Processing: "Walk painted commands from front to back and honor clip rectangles.";
+        Output: "The target id, or empty text.";
+    } {
+        Int index = This.hits.Count() - 1;
+        While (index >= 0) {
+            String row = This.hits[index];
+            Int left = This.FrameInt(row, 1);
+            Int top = This.FrameInt(row, 2);
+            Int wide = This.FrameInt(row, 3);
+            Int high = This.FrameInt(row, 4);
+            If (x >= left && y >= top && x < left + wide && y < top + high) {
+                Return This.FramePiece(row, "|", 0);
+            }
+            index = index - 1;
+        }
+        Return "";
+    }
+
+    Public Function FrameHitSlot(String id) -> String
+    Explain {
+        Description: "Hit-test the center of one adopted slot.";
+        Input: id = "Slot name";
+        Processing: "Convert the stored device frame to a point and hit-test it.";
+        Output: "The front-most id at that point.";
+    } {
+        String frame = This.FrameStored(id);
+        Int x = This.FrameInt(frame, 0) + This.FrameInt(frame, 2) / 2;
+        Int y = This.FrameInt(frame, 1) + This.FrameInt(frame, 3) / 2;
+        Return This.FrameHit(x, y);
+    }
+
+    Public Function FramePointer(Int x, Int y) -> String
+    Explain {
+        Description: "Deliver a pointer press through the hit test.";
+        Input: x = "Device x", y = "Device y";
+        Processing: "Remember the target and mark it pressed. The event route stays outside this host.";
+        Output: "The target id.";
+    } {
+        String id = This.FrameHit(x, y);
+        This.target = id;
+        If (id != "") {
+            This.pressed = "Pressed";
+            This.pending = 1;
+        }
+        Return id;
+    }
+
+    Public Function FrameKey(String text) -> String
+    Explain {
+        Description: "Deliver a key to the pressed target.";
+        Input: text = "Key text";
+        Processing: "Append the key while a target is pressed.";
+        Output: "The keys accepted so far.";
+    } {
+        If (This.target == "" || text == "") {
+            Return This.keys;
+        }
+        This.keys = This.keys + text;
+        This.pending = 1;
+        Return This.keys;
+    }
+
+    Public Function FramePressed() -> String
+    Explain {
+        Description: "Read the property a pointer press changed.";
+        Input: None;
+        Processing: "Read the pressed marker.";
+        Output: "Pressed, or empty text.";
+    } {
+        Return This.pressed;
+    }
+
+    Public Function FrameKeys() -> String
+    Explain {
+        Description: "Read the keys accepted by the open frame.";
+        Input: None;
+        Processing: "Read the key buffer.";
+        Output: "The key text.";
+    } {
+        Return This.keys;
+    }
+
+    Public Function FrameTarget() -> String
+    Explain {
+        Description: "Read the last pointer target.";
+        Input: None;
+        Processing: "Read the stored id.";
+        Output: "The target id.";
+    } {
+        Return This.target;
+    }
+
+    Public Function FrameResize(LayoutEngine engine, String root, Int w, Int h) -> String
+    Explain {
+        Description: "Relayout after the client size changes.";
+        Input: engine = "Layout engine", root = "Root slot", w = "Client width", h = "Client height";
+        Processing: "Run Relayout and adopt the new display list.";
+        Output: "The root device frame.";
+    } {
+        engine.Relayout(root, w, h);
+        This.FrameAdopt(engine, root);
+        Return engine.FrameOf(root);
+    }
+
+    Public Function FramePresent(String path) -> Bool
+    Explain {
+        Description: "Hand the display list to a surface.";
+        Input: path = "List path, or empty when no display is attached";
+        Processing: "A missing display records RXU049 and stays headless. The document stays open.";
+        Output: "True when the list was written.";
+    } {
+        If (path == "" || This.phase != "Open") {
+            This.Messages.Add("RXU049", "No display is attached, so the frame stays headless.", "", 1, 1, 7, "a display surface", "missing", "Present through the headless buffer.");
+            Return False;
+        }
+        Return This.FrameWrite(path);
+    }
+
+    Public Function FrameClose() -> String
+    Explain {
+        Description: "Dispose the surface and stop the frame clock.";
+        Input: None;
+        Processing: "Mark the frame closed so later pumps raster nothing.";
+        Output: "Closed.";
+    } {
+        This.phase = "Closed";
+        This.pending = 0;
+        Return This.phase;
+    }
+
+    Public Function FramePhase() -> String
+    Explain {
+        Description: "Read the frame phase.";
+        Input: None;
+        Processing: "Return Open or Closed.";
+        Output: "The phase.";
+    } {
+        Return This.phase;
+    }
+
+    Private Function FrameCollect() -> Int {
+        This.hits = List<String>();
+        This.clips = List<String>();
+        This.clips.Add("0|0|" + This.width.ToString() + "|" + This.height.ToString());
+        Int index = 0;
+        While (index < This.commands.Count()) {
+            String command = This.commands[index];
+            String kind = This.FramePiece(command, " ", 0);
+            If (kind == "Clip") {
+                String clip = This.FramePiece(command, " ", 1) + "|" + This.FramePiece(command, " ", 2) + "|" + This.FramePiece(command, " ", 3) + "|" + This.FramePiece(command, " ", 4);
+                This.clips.Add(clip);
+            } Else {
+                If (kind == "Pop") {
+                    If (This.clips.Count() > 1) {
+                        List<String> kept = List<String>();
+                        Int cursor = 0;
+                        While (cursor < This.clips.Count() - 1) {
+                            kept.Add(This.clips[cursor]);
+                            cursor = cursor + 1;
+                        }
+                        This.clips = kept;
+                    }
+                } Else {
+                    String id = This.FramePiece(command, " ", 1);
+                    Int left = This.FrameInt(command, 2);
+                    Int top = This.FrameInt(command, 3);
+                    Int wide = This.FrameInt(command, 4);
+                    Int high = This.FrameInt(command, 5);
+                    String clip = This.clips[This.clips.Count() - 1];
+                    Int clipLeft = This.FrameInt(clip, 0);
+                    Int clipTop = This.FrameInt(clip, 1);
+                    Int clipRight = clipLeft + This.FrameInt(clip, 2);
+                    Int clipBottom = clipTop + This.FrameInt(clip, 3);
+                    Int right = left + wide;
+                    Int bottom = top + high;
+                    If (left < clipLeft) {
+                        left = clipLeft;
+                    }
+                    If (top < clipTop) {
+                        top = clipTop;
+                    }
+                    If (right > clipRight) {
+                        right = clipRight;
+                    }
+                    If (bottom > clipBottom) {
+                        bottom = clipBottom;
+                    }
+                    wide = right - left;
+                    high = bottom - top;
+                    If (wide > 0 && high > 0 && id != "") {
+                        This.hits.Add(id + "|" + left.ToString() + "|" + top.ToString() + "|" + wide.ToString() + "|" + high.ToString());
+                    }
+                }
+            }
+            index = index + 1;
+        }
+        Return This.hits.Count();
+    }
+
+    Private Function FrameStored(String id) -> String {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == id) {
+                Return This.frames[index];
+            }
+            index = index + 1;
+        }
+        Return "0,0,0,0";
+    }
+
+    Private Function FrameStore(String id, String frame) -> Int {
+        Int index = 0;
+        While (index < This.names.Count()) {
+            If (This.names[index] == id) {
+                This.frames[index] = frame + "";
+                Return 1;
+            }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function FrameInt(String text, Int item) -> Int {
+        String piece = This.FramePiece(text, ",", item);
+        If (piece == "") {
+            piece = This.FramePiece(text, " ", item);
+        }
+        If (piece == "") {
+            piece = This.FramePiece(text, "|", item);
+        }
+        If (piece == "" || piece == "-") {
+            Return 0;
+        }
+        Int index = 0;
+        Int value = 0;
+        Int sign = 1;
+        If (piece.GetChar(0) == "-") {
+            sign = -1;
+            index = 1;
+        }
+        While (index < piece.Length()) {
+            String character = piece.GetChar(index);
+            If (character < "0" || character > "9") {
+                Return 0;
+            }
+            value = value * 10 + character.ToInt();
+            index = index + 1;
+        }
+        Return sign * value;
+    }
+
+    Private Function FramePiece(String text, String separator, Int item) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            Bool boundary = index == text.Length();
+            If (!boundary) {
+                boundary = text.GetChar(index) == separator;
+            }
+            If (boundary) {
+                If (seen == item) {
+                    Return text.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+}
+

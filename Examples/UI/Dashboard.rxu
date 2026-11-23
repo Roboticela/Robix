@@ -1,0 +1,12 @@
+<Window Name="Home" Title="Dashboard" Width="800" Height="480">
+  <Grid Name="board" Columns="2" Rows="2">
+    <ScrollView Name="scroller">
+      <ListView Name="feed"/>
+    </ScrollView>
+    <Image Name="mark" Source="arm.png"/>
+    <Text Name="heading" Content="Arm"/>
+    <View Name="stage">
+      <Panel Name="body"/>
+    </View>
+  </Grid>
+</Window>

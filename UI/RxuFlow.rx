@@ -1,0 +1,1020 @@
+// Declarative flow.
+Package Robix.UI;
+
+Import Robix.Core;
+
+Public Class FlowHost {
+    Private List<String> ids;
+    Private List<String> kinds;
+    Private List<String> names;
+    Private List<String> parents;
+    Private List<String> texts;
+    Private List<String> widths;
+    Private List<String> stamps;
+    Private List<String> visits;
+    Private List<String> generations;
+    Private List<String> attachedFlags;
+    Private List<String> slots;
+    Private List<String> locals;
+    Private List<String> links;
+    Private List<String> heard;
+    Private List<String> includes;
+    Private List<String> imports;
+    Private List<String> chain;
+    Private List<String> childIds;
+    Private Int serial;
+    Private Int generation;
+    Private Int visitSerial;
+    Private Int missing;
+    Private Int setMiss;
+    Private Int cycles;
+    Private Int detaches;
+    Private Int raising;
+
+    Public Constructor() {
+        This.ids = List<String>();
+        This.kinds = List<String>();
+        This.names = List<String>();
+        This.parents = List<String>();
+        This.texts = List<String>();
+        This.widths = List<String>();
+        This.stamps = List<String>();
+        This.visits = List<String>();
+        This.generations = List<String>();
+        This.attachedFlags = List<String>();
+        This.slots = List<String>();
+        This.locals = List<String>();
+        This.links = List<String>();
+        This.heard = List<String>();
+        This.includes = List<String>();
+        This.imports = List<String>();
+        This.chain = List<String>();
+        This.childIds = List<String>();
+        This.serial = 1;
+        This.generation = 0;
+        This.visitSerial = 0;
+        This.missing = 0;
+        This.setMiss = 0;
+        This.cycles = 0;
+        This.detaches = 0;
+        This.raising = 0;
+    }
+
+    Public Function FlowAssign(String name, String value) -> Bool
+    Explain {
+        Description: "Set one observable slot.";
+        Input: name = "Slot name", value = "New value";
+        Processing: "Store the slot used by conditions, repeats, and bindings.";
+        Output: "True when the name is present.";
+    } {
+        If (name == "") {
+            Return False;
+        }
+        This.FlowSlotSet(name, value);
+        Return True;
+    }
+
+    Public Function FlowLoad(RxuNode node) -> Int
+    Explain {
+        Description: "Reconcile the declarative tree against current state.";
+        Input: node = "Parsed document";
+        Processing: "Rebuild branches, repeats, locals, includes, and imports. Unvisited controls detach and keep their ids.";
+        Output: "The number of attached controls.";
+    } {
+        This.generation = This.generation + 1;
+        This.missing = 0;
+        This.setMiss = 0;
+        This.includes = List<String>();
+        This.imports = List<String>();
+        This.FlowWalk(node, "", "root");
+        This.FlowSweep();
+        Return This.FlowCount();
+    }
+
+    Public Function FlowUpdate(String name, String value) -> Bool
+    Explain {
+        Description: "Update a declared local, or a slot when no local exists.";
+        Input: name = "Name", value = "New value";
+        Processing: "A later refresh keeps a Let value and reapplies a Set. Bindings follow the change once.";
+        Output: "True when a local or slot was updated.";
+    } {
+        If (name == "") {
+            Return False;
+        }
+        If (This.FlowScopeHas("root", name)) {
+            This.FlowScopeSet("root", name, value);
+        } Else {
+            This.FlowSlotSet(name, value);
+        }
+        This.FlowPush(name, value);
+        Return True;
+    }
+
+    Public Function FlowRead(String id, String field) -> String
+    Explain {
+        Description: "Read one live control.";
+        Input: id = "Control id", field = "Text, Width, Name, Kind, or Id";
+        Processing: "Read the stored value.";
+        Output: "The value, or empty text.";
+    } {
+        Int node = This.FlowIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        If (field == "Text") {
+            Return This.texts[node];
+        }
+        If (field == "Width") {
+            Return This.widths[node];
+        }
+        If (field == "Name") {
+            Return This.names[node];
+        }
+        If (field == "Kind") {
+            Return This.kinds[node];
+        }
+        If (field == "Id") {
+            Return This.ids[node];
+        }
+        Return "";
+    }
+
+    Public Function FlowFind(String name) -> String
+    Explain {
+        Description: "Find the first attached control with a name.";
+        Input: name = "Control name";
+        Processing: "Scan attached controls.";
+        Output: "The id, or empty text.";
+    } {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.attachedFlags[index] == "true" && This.names[index] == name) {
+                Return This.ids[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Public Function FlowByText(String text) -> String
+    Explain {
+        Description: "Find the first attached control with text.";
+        Input: text = "Visible text";
+        Processing: "Scan attached controls.";
+        Output: "The id, or empty text.";
+    } {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.attachedFlags[index] == "true" && This.texts[index] == text) {
+                Return This.ids[index];
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Public Function FlowHasText(String text) -> Bool
+    Explain {
+        Description: "Report whether any attached control shows text.";
+        Input: text = "Visible text";
+        Processing: "Scan attached controls.";
+        Output: "True when the text is showing.";
+    } {
+        Return This.FlowByText(text) != "";
+    }
+
+    Public Function FlowAttached(String id) -> Bool
+    Explain {
+        Description: "Report whether a control is in the current reconciliation.";
+        Input: id = "Control id";
+        Processing: "Detached controls keep their id and stored edits.";
+        Output: "True when it is attached.";
+    } {
+        Int node = This.FlowIndex(id);
+        If (node < 0) {
+            Return False;
+        }
+        Return This.attachedFlags[node] == "true";
+    }
+
+    Public Function FlowCount() -> Int
+    Explain {
+        Description: "Count attached controls.";
+        Input: None;
+        Processing: "Scan the live records.";
+        Output: "The attached count.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.attachedFlags[index] == "true") {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function FlowParent(String id) -> String
+    Explain {
+        Description: "Return the parent id.";
+        Input: id = "Control id";
+        Processing: "Read the stored parent.";
+        Output: "The parent id, or empty text.";
+    } {
+        Int node = This.FlowIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.parents[node];
+    }
+
+    Public Function FlowChildCount(String id) -> Int
+    Explain {
+        Description: "Count attached children.";
+        Input: id = "Parent id";
+        Processing: "Collect attached children in visit order.";
+        Output: "The child count.";
+    } {
+        This.FlowKids(id);
+        Return This.childIds.Count();
+    }
+
+    Public Function FlowChildAt(String id, Int index) -> String
+    Explain {
+        Description: "Return one attached child.";
+        Input: id = "Parent id", index = "Zero-based index";
+        Processing: "Collect attached children in visit order.";
+        Output: "The child id, or empty text.";
+    } {
+        This.FlowKids(id);
+        If (index < 0 || index >= This.childIds.Count()) {
+            Return "";
+        }
+        Return This.childIds[index];
+    }
+
+    Public Function FlowPut(String id, String field, String value) -> Bool
+    Explain {
+        Description: "Edit one live property.";
+        Input: id = "Control id", field = "Width or Text", value = "New value";
+        Processing: "The edit survives a later reconciliation when the same id returns.";
+        Output: "True when the value was stored.";
+    } {
+        Int node = This.FlowIndex(id);
+        If (node < 0) {
+            Return False;
+        }
+        If (field == "Width") {
+            This.widths[node] = value + "";
+            Return True;
+        }
+        If (field == "Text") {
+            This.texts[node] = value + "";
+            Return True;
+        }
+        Return False;
+    }
+
+    Public Function FlowListen(String id, String eventName, String handler) -> Bool
+    Explain {
+        Description: "Listen for an event on a control or its descendants.";
+        Input: id = "Control id", eventName = "Event name", handler = "Handler name";
+        Processing: "Store the listener. A Loop handler cannot re-enter the same raise.";
+        Output: "True when the listener was stored.";
+    } {
+        If (id == "" || handler == "" || !eventName.StartsWith("On")) {
+            Return False;
+        }
+        This.heard.Add(id + "|" + eventName + "|" + handler);
+        Return True;
+    }
+
+    Public Function FlowRaise(String id, String eventName) -> Int
+    Explain {
+        Description: "Raise an event and notify ancestor listeners.";
+        Input: id = "Control id", eventName = "Event name";
+        Processing: "Walk parents. A repeated raise of the same target stops as a cycle.";
+        Output: "The number of listeners notified.";
+    } {
+        String mark = id + "|" + eventName;
+        If (This.FlowChainHas(mark)) {
+            This.cycles = This.cycles + 1;
+            Return 0;
+        }
+        This.chain.Add(mark);
+        This.raising = This.raising + 1;
+        Int count = 0;
+        String cursor = id + "";
+        Int guard = 0;
+        While (cursor != "" && guard < 32) {
+            Int index = 0;
+            While (index < This.heard.Count()) {
+                String row = This.heard[index];
+                String prefix = cursor + "|" + eventName + "|";
+                If (row.StartsWith(prefix)) {
+                    count = count + 1;
+                    String handler = "";
+                    If (row.Length() > prefix.Length()) {
+                        handler = row.Substring(prefix.Length());
+                    }
+                    If (handler == "Loop") {
+                        This.FlowRaise(id, eventName);
+                    }
+                }
+                index = index + 1;
+            }
+            cursor = This.FlowParent(cursor);
+            guard = guard + 1;
+        }
+        This.raising = This.raising - 1;
+        This.FlowChainDrop(mark);
+        Return count;
+    }
+
+    Public Function FlowLink(String source, String target) -> Bool
+    Explain {
+        Description: "Bind a source path to a target path.";
+        Input: source = "Slot or control path", target = "Slot or control path";
+        Processing: "A later push updates the target. A cycle stops instead of looping.";
+        Output: "True when both paths are present.";
+    } {
+        If (source == "" || target == "") {
+            Return False;
+        }
+        This.links.Add(source + ">" + target);
+        Return True;
+    }
+
+    Public Function FlowPush(String path, String value) -> Bool
+    Explain {
+        Description: "Write a path and update bindings.";
+        Input: path = "Slot, local, or id.field", value = "New value";
+        Processing: "If the path is already being written, record a cycle and stop.";
+        Output: "True when the write was applied.";
+    } {
+        If (path == "") {
+            Return False;
+        }
+        If (This.FlowChainHas(path)) {
+            This.cycles = This.cycles + 1;
+            Return False;
+        }
+        This.chain.Add(path);
+        This.FlowQuiet(path, value);
+        Int index = 0;
+        While (index < This.links.Count()) {
+            String row = This.links[index];
+            String prefix = path + ">";
+            If (row.StartsWith(prefix)) {
+                String target = "";
+                If (row.Length() > prefix.Length()) {
+                    target = row.Substring(prefix.Length());
+                }
+                This.FlowPush(target, value);
+            }
+            index = index + 1;
+        }
+        This.FlowChainDrop(path);
+        Return True;
+    }
+
+    Public Function FlowLocal(String name) -> String
+    Explain {
+        Description: "Read a root local.";
+        Input: name = "Local name";
+        Processing: "Read the root scope. Repeat item names stay in their own scope.";
+        Output: "The value, or empty text.";
+    } {
+        Return This.FlowScopeGet("root", name);
+    }
+
+    Public Function FlowSlot(String name) -> String
+    Explain {
+        Description: "Read an observable slot.";
+        Input: name = "Slot name";
+        Processing: "Read the slot store.";
+        Output: "The value, or empty text.";
+    } {
+        Return This.FlowSlotGet(name);
+    }
+
+    Public Function FlowMissing() -> Int
+    Explain {
+        Description: "Return how many repeat items had no key on the last reconcile.";
+        Input: None;
+        Processing: "Items without Key use an index key and are counted here.";
+        Output: "The missing-key count.";
+    } {
+        Return This.missing;
+    }
+
+    Public Function FlowSetMiss() -> Int
+    Explain {
+        Description: "Return how many Set names were not declared.";
+        Input: None;
+        Processing: "Set updates a Let. An unknown name is refused.";
+        Output: "The refused Set count.";
+    } {
+        Return This.setMiss;
+    }
+
+    Public Function FlowCycles() -> Int
+    Explain {
+        Description: "Return how many circular updates were stopped.";
+        Input: None;
+        Processing: "Bindings and Loop handlers do not recurse through an active path.";
+        Output: "The cycle count.";
+    } {
+        Return This.cycles;
+    }
+
+    Public Function FlowIncludes() -> Int
+    Explain {
+        Description: "Return how many Include files were expanded.";
+        Input: None;
+        Processing: "Include embeds markup into the tree.";
+        Output: "The include count.";
+    } {
+        Return This.includes.Count();
+    }
+
+    Public Function FlowImports() -> Int
+    Explain {
+        Description: "Return how many Import sources were recorded.";
+        Input: None;
+        Processing: "Import records a component file and does not instantiate it.";
+        Output: "The import count.";
+    } {
+        Return This.imports.Count();
+    }
+
+    Public Function FlowIncludeAt(Int index) -> String
+    Explain {
+        Description: "Return one included path.";
+        Input: index = "Zero-based include";
+        Processing: "Read the include list.";
+        Output: "The path, or empty text.";
+    } {
+        If (index < 0 || index >= This.includes.Count()) {
+            Return "";
+        }
+        Return This.includes[index];
+    }
+
+    Public Function FlowImportAt(Int index) -> String
+    Explain {
+        Description: "Return one imported source.";
+        Input: index = "Zero-based import";
+        Processing: "Read the import list.";
+        Output: "The source, or empty text.";
+    } {
+        If (index < 0 || index >= This.imports.Count()) {
+            Return "";
+        }
+        Return This.imports[index];
+    }
+
+    Public Function FlowDetachCount() -> Int
+    Explain {
+        Description: "Return how many controls have been detached.";
+        Input: None;
+        Processing: "A branch or repeat item that leaves the tree is detached, not reused as a new id.";
+        Output: "The detach count.";
+    } {
+        Return This.detaches;
+    }
+
+    Public Function FlowRepeatCount() -> Int
+    Explain {
+        Description: "Count attached controls created by a repeat.";
+        Input: None;
+        Processing: "Repeat controls have no name, so their ids start with gen-.";
+        Output: "The repeat count.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.attachedFlags[index] == "true" && This.ids[index].StartsWith("gen-")) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function FlowStamp(String id) -> String
+    Explain {
+        Description: "Return the stable creation stamp.";
+        Input: id = "Control id";
+        Processing: "The stamp survives detach and return.";
+        Output: "The stamp, or empty text.";
+    } {
+        Int node = This.FlowIndex(id);
+        If (node < 0) {
+            Return "";
+        }
+        Return This.stamps[node];
+    }
+
+    Public Function FlowWhileStatus() -> String
+    Explain {
+        Description: "Return whether bounded While is approved.";
+        Input: None;
+        Processing: "P00 has not approved While, so the parser still rejects it and the runtime does not run it.";
+        Output: "Rejected.";
+    } {
+        Return "Rejected";
+    }
+
+    Public Function FlowPhase() -> String
+    Explain {
+        Description: "Return the window phase.";
+        Input: None;
+        Processing: "Reconciliation does not close the window.";
+        Output: "Open.";
+    } {
+        Return "Open";
+    }
+
+    Private Function FlowWalk(RxuNode node, String parent, String scope) -> Int {
+        If (node.Kind != "Element") {
+            Int count = 0;
+            Int index = 0;
+            While (index < node.Children.Count()) {
+                count = count + This.FlowWalk(node.Children[index], parent, scope);
+                index = index + 1;
+            }
+            Return count;
+        }
+        String name = node.Name + "";
+        If (name == "Include") {
+            Return This.FlowInclude(node, parent, scope);
+        }
+        If (name == "Import") {
+            This.imports.Add(node.FindAttribute("Source").Text + "");
+            Return 0;
+        }
+        If (name == "Let") {
+            String localName = node.FindAttribute("Name").Text + "";
+            If (localName != "" && !This.FlowScopeHas(scope, localName)) {
+                This.FlowScopeSet(scope, localName, node.FindAttribute("Value").Text + "");
+            }
+            Return 0;
+        }
+        If (name == "Set") {
+            String localName = node.FindAttribute("Name").Text + "";
+            If (localName == "" || !This.FlowScopeHas(scope, localName)) {
+                This.setMiss = This.setMiss + 1;
+                Return 0;
+            }
+            This.FlowScopeSet(scope, localName, node.FindAttribute("Value").Text + "");
+            Return 0;
+        }
+        If (name == "Bind") {
+            String target = node.FindAttribute("Target").Text + "";
+            String source = node.FindAttribute("Source").Text + "";
+            If (target != "" && source != "") {
+                This.FlowLink(source, target + ".Text");
+                This.FlowQuiet(target + ".Text", This.FlowResolve(source, scope));
+            }
+            Return 0;
+        }
+        If (name == "If" || name == "ElseIf") {
+            Return This.FlowBranch(node, parent, scope);
+        }
+        If (name == "Choose" || name == "Switch") {
+            Return This.FlowChoice(node, parent, scope);
+        }
+        If (name == "Each" || name == "For" || name == "ForEach") {
+            Return This.FlowEach(node, parent, scope);
+        }
+        If (name == "Else" || name == "When" || name == "Default" || name == "Otherwise") {
+            Return 0;
+        }
+        String id = node.FindAttribute("Name").Text + "";
+        If (id == "") {
+            id = "gen-" + scope + "-" + name;
+        }
+        String text = This.FlowText(node, scope);
+        This.FlowMaterial(id, name, node.FindAttribute("Name").Text + "", parent, text);
+        Int count = 1;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            count = count + This.FlowWalk(node.Children[index], id, scope);
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function FlowBranch(RxuNode node, String parent, String scope) -> Int {
+        String condition = node.FindAttribute("Condition").Text + "";
+        If (This.FlowResolve(condition, scope) == "true") {
+            Return This.FlowBody(node, parent, scope);
+        }
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && child.Name == "ElseIf") {
+                String next = child.FindAttribute("Condition").Text + "";
+                If (This.FlowResolve(next, scope) == "true") {
+                    Return This.FlowBody(child, parent, scope);
+                }
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && child.Name == "Else") {
+                Return This.FlowBody(child, parent, scope);
+            }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function FlowChoice(RxuNode node, String parent, String scope) -> Int {
+        String value = This.FlowResolve(node.FindAttribute("Value").Text + "", scope);
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && child.Name == "When" && child.FindAttribute("Value").Text == value) {
+                Return This.FlowBody(child, parent, scope);
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind == "Element" && (child.Name == "Otherwise" || child.Name == "Default")) {
+                Return This.FlowBody(child, parent, scope);
+            }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function FlowBody(RxuNode node, String parent, String scope) -> Int {
+        Int count = 0;
+        Int index = 0;
+        While (index < node.Children.Count()) {
+            RxuNode child = node.Children[index];
+            If (child.Kind != "Element" || (child.Name != "Else" && child.Name != "ElseIf" && child.Name != "When" && child.Name != "Default" && child.Name != "Otherwise")) {
+                count = count + This.FlowWalk(child, parent, scope);
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function FlowEach(RxuNode node, String parent, String scope) -> Int {
+        String source = node.FindAttribute("Items").Text + "";
+        String asName = node.FindAttribute("As").Text + "";
+        String data = This.FlowResolve(source, scope);
+        Int parts = This.FlowPieces(data, ",");
+        String keyName = node.FindAttribute("Key").Text + "";
+        If (keyName == "") {
+            If (parts == 0) {
+                This.missing = This.missing + 1;
+            } Else {
+                This.missing = This.missing + parts;
+            }
+        }
+        Int count = 0;
+        Int index = 0;
+        While (index < parts) {
+            String item = This.FlowPiece(data, ",", index);
+            String key = item + "";
+            If (keyName == "") {
+                key = "#" + index.ToString();
+            } Else {
+                If (keyName != asName) {
+                    key = This.FlowResolve(keyName, scope);
+                }
+            }
+            If (key == "") {
+                This.missing = This.missing + 1;
+                key = "#" + index.ToString();
+            }
+            String itemScope = scope + "/" + asName + "/" + key;
+            If (asName != "") {
+                This.FlowScopeSet(itemScope, asName, item);
+            }
+            Int child = 0;
+            While (child < node.Children.Count()) {
+                count = count + This.FlowWalk(node.Children[child], parent, itemScope);
+                child = child + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function FlowInclude(RxuNode node, String parent, String scope) -> Int {
+        String path = node.FindAttribute("Source").Text + "";
+        This.includes.Add(path);
+        If (path == "" || !Files.Exists(path)) {
+            Return 0;
+        }
+        RxuParser parser = RxuParser();
+        RxuNode included = parser.Parse(path, Files.ReadText(path));
+        Int count = 0;
+        Int index = 0;
+        While (index < included.Children.Count()) {
+            count = count + This.FlowWalk(included.Children[index], parent, scope);
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function FlowText(RxuNode node, String scope) -> String {
+        String mode = node.FindAttribute("Value").Mode + "";
+        String text = node.FindAttribute("Value").Text + "";
+        If (text == "") {
+            mode = node.FindAttribute("Content").Mode + "";
+            text = node.FindAttribute("Content").Text + "";
+        }
+        If (mode == "Expression" || mode == "Binding") {
+            Return This.FlowResolve(text, scope);
+        }
+        Return text;
+    }
+
+    Private Function FlowMaterial(String id, String kind, String name, String parent, String text) -> Int {
+        Int node = This.FlowIndex(id);
+        This.visitSerial = This.visitSerial + 1;
+        If (node < 0) {
+            This.ids.Add(id);
+            This.kinds.Add(kind);
+            This.names.Add(name);
+            This.parents.Add(parent);
+            This.texts.Add(text);
+            This.widths.Add("Auto");
+            This.stamps.Add(This.serial.ToString());
+            This.serial = This.serial + 1;
+            This.visits.Add(This.visitSerial.ToString());
+            This.generations.Add(This.generation.ToString());
+            This.attachedFlags.Add("true");
+            Return 1;
+        }
+        This.kinds[node] = kind + "";
+        This.names[node] = name + "";
+        This.parents[node] = parent + "";
+        This.texts[node] = text + "";
+        This.visits[node] = This.visitSerial.ToString();
+        This.generations[node] = This.generation.ToString();
+        This.attachedFlags[node] = "true";
+        Return 1;
+    }
+
+    Private Function FlowResolve(String name, String scope) -> String {
+        String cursor = scope + "";
+        Int guard = 0;
+        While (cursor != "" && guard < 32) {
+            String value = This.FlowScopeGet(cursor, name);
+            If (value != "") {
+                Return value;
+            }
+            Int slash = cursor.IndexOf("/");
+            If (slash < 0) {
+                cursor = "";
+            } Else {
+                Int last = slash;
+                Int index = slash + 1;
+                While (index < cursor.Length()) {
+                    If (cursor.GetChar(index) == "/") {
+                        last = index;
+                    }
+                    index = index + 1;
+                }
+                If (last <= 0) {
+                    cursor = "";
+                } Else {
+                    cursor = cursor.Substring(0, last);
+                }
+            }
+            guard = guard + 1;
+        }
+        Return This.FlowSlotGet(name);
+    }
+
+    Private Function FlowSweep() -> Int {
+        Int index = 0;
+        Int count = 0;
+        String current = This.generation.ToString();
+        While (index < This.ids.Count()) {
+            If (This.attachedFlags[index] == "true" && This.generations[index] != current) {
+                This.attachedFlags[index] = "false";
+                This.detaches = This.detaches + 1;
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function FlowScopeGet(String scope, String name) -> String {
+        String key = scope + "|" + name + "=";
+        Int index = 0;
+        While (index < This.locals.Count()) {
+            String row = This.locals[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function FlowScopeHas(String scope, String name) -> Bool {
+        String key = scope + "|" + name + "=";
+        Int index = 0;
+        While (index < This.locals.Count()) {
+            If (This.locals[index].StartsWith(key)) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function FlowScopeSet(String scope, String name, String value) -> Int {
+        String key = scope + "|" + name + "=";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.locals.Count()) {
+            If (!This.locals[index].StartsWith(key)) {
+                kept.Add(This.locals[index]);
+            }
+            index = index + 1;
+        }
+        kept.Add(key + value);
+        This.locals = kept;
+        Return 1;
+    }
+
+    Private Function FlowSlotGet(String name) -> String {
+        String key = name + "=";
+        Int index = 0;
+        While (index < This.slots.Count()) {
+            String row = This.slots[index];
+            If (row.StartsWith(key)) {
+                If (row.Length() <= key.Length()) {
+                    Return "";
+                }
+                Return row.Substring(key.Length());
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function FlowSlotSet(String name, String value) -> Int {
+        String key = name + "=";
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.slots.Count()) {
+            If (!This.slots[index].StartsWith(key)) {
+                kept.Add(This.slots[index]);
+            }
+            index = index + 1;
+        }
+        kept.Add(key + value);
+        This.slots = kept;
+        Return 1;
+    }
+
+    Private Function FlowQuiet(String path, String value) -> Int {
+        Int dot = path.IndexOf(".");
+        If (dot > 0) {
+            String id = path.Substring(0, dot);
+            String field = "";
+            If (path.Length() > dot + 1) {
+                field = path.Substring(dot + 1);
+            }
+            Int node = This.FlowIndex(id);
+            If (node >= 0 && field == "Text") {
+                This.texts[node] = value + "";
+            }
+            If (node >= 0 && field == "Width") {
+                This.widths[node] = value + "";
+            }
+            Return 1;
+        }
+        If (This.FlowScopeHas("root", path)) {
+            This.FlowScopeSet("root", path, value);
+        }
+        This.FlowSlotSet(path, value);
+        Return 1;
+    }
+
+    Private Function FlowIndex(String id) -> Int {
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.ids[index] == id) {
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function FlowKids(String parent) -> Int {
+        This.childIds = List<String>();
+        Int index = 0;
+        While (index < This.ids.Count()) {
+            If (This.attachedFlags[index] == "true" && This.parents[index] == parent) {
+                This.childIds.Add(This.ids[index]);
+            }
+            index = index + 1;
+        }
+        Int slot = 0;
+        While (slot < This.childIds.Count()) {
+            Int best = slot;
+            Int other = slot + 1;
+            While (other < This.childIds.Count()) {
+                Int left = This.FlowIndex(This.childIds[best]);
+                Int right = This.FlowIndex(This.childIds[other]);
+                If (left >= 0 && right >= 0 && This.visits[right].ToInt() < This.visits[left].ToInt()) {
+                    best = other;
+                }
+                other = other + 1;
+            }
+            If (best != slot) {
+                String swap = This.childIds[slot] + "";
+                This.childIds[slot] = This.childIds[best];
+                This.childIds[best] = swap;
+            }
+            slot = slot + 1;
+        }
+        Return This.childIds.Count();
+    }
+
+    Private Function FlowChainHas(String path) -> Bool {
+        Int index = 0;
+        While (index < This.chain.Count()) {
+            If (This.chain[index] == path) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function FlowChainDrop(String path) -> Int {
+        List<String> kept = List<String>();
+        Int index = 0;
+        While (index < This.chain.Count()) {
+            If (This.chain[index] != path) {
+                kept.Add(This.chain[index]);
+            }
+            index = index + 1;
+        }
+        This.chain = kept;
+        Return 1;
+    }
+
+    Private Function FlowApplyLinks() -> Int {
+        Return This.links.Count();
+    }
+
+    Private Function FlowPieces(String text, String separator) -> Int {
+        If (text == "") {
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.GetChar(index) == separator) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function FlowPiece(String text, String separator, Int item) -> String {
+        Int seen = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            Bool boundary = index == text.Length();
+            If (!boundary) {
+                boundary = text.GetChar(index) == separator;
+            }
+            If (boundary) {
+                If (seen == item) {
+                    Return text.Substring(start, index - start);
+                }
+                seen = seen + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        Return "";
+    }
+}

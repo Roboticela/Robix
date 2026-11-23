@@ -1,0 +1,9 @@
+<Window Name="Home" Title="Kit">
+  <Import Source="Examples/UI/KitExtra.rxu"/>
+  <Import Source="Examples/UI/Kit.rxu"/>
+  <Badge Name="one" Caption="Shoulder"/>
+  <Badge Name="two" Caption="Elbow"/>
+  <Meter Name="meter" Value="3"/>
+  <Pin Name="bad"/>
+  <Pin Name="good" Id="7"/>
+</Window>

@@ -1,0 +1,4 @@
+<Panel Name="row" Tag="Stack" Width="200" Height="40" Orientation="Horizontal">
+    <Panel Name="a" Tag="Rect" Width="40" Height="20" VerticalAlignment="Start"/>
+    <Panel Name="b" Tag="Rect" Width="40" Height="20" VerticalAlignment="Start"/>
+</Panel>
