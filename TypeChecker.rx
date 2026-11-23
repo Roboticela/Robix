@@ -1,8 +1,5 @@
 // Strict type checks required before Robix can compile a module.
-Package Robix.Syntax
-Explain {
-    Description: "Strict type checks required before Robix can compile a module.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

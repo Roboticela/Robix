@@ -1,8 +1,5 @@
 // Runnable program using declarations, loops, arithmetic, and Main.
-Package Robotics.Hello
-Explain {
-    Description: "Runnable program using declarations, loops, arithmetic, and Main.";
-};
+Package Robotics.Hello;
 
 Import Robix.Core;
 

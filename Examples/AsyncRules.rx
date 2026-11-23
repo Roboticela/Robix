@@ -1,8 +1,5 @@
 // Await reads Task<T>. Detach runs a task without leaving it unobserved.
-Package Robotics.AsyncRules
-Explain {
-    Description: "Await reads Task<T>. Detach runs a task without leaving it unobserved.";
-};
+Package Robotics.AsyncRules;
 
 Import Robix.Core;
 

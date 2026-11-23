@@ -1,8 +1,5 @@
 // Standard exit codes, custom enum codes, and execution results.
-Package Robotics.Exit
-Explain {
-    Description: "Standard exit codes, custom enum codes, and execution results.";
-};
+Package Robotics.Exit;
 
 Import Robix.Core;
 

@@ -1,8 +1,5 @@
 // Robix.Async: tasks, promises, completion, and asynchronous state.
-Package Robix.Async
-Explain {
-    Description: "Tasks, promises, completion, and asynchronous state.";
-};
+Package Robix.Async;
 
 Import Robix.Core;
 

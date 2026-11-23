@@ -1,8 +1,5 @@
 // The runtime owns the console. The program only inspects it.
-Package Robotics.ConsoleApp
-Explain {
-    Description: "The runtime owns the console. The program only inspects it.";
-};
+Package Robotics.ConsoleApp;
 
 Import Robix.Core;
 

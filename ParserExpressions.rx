@@ -1,8 +1,5 @@
 // Expressions, types, and operator precedence for the Robix parser.
-Package Robix.Syntax
-Explain {
-    Description: "Expressions, types, and operator precedence for the Robix parser.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

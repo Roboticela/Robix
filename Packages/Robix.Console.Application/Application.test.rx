@@ -1,3 +1,5 @@
+Import Robix.Console.Application;
+
 Test ShouldPause {
     Constraint: AppDesk().ShouldPause() == 1;
     Processing: True;

@@ -2,10 +2,7 @@
 // Rich text uses {red}words{/}, {#rrggbb}words{/}, {rgb:255,128,0}words{/}, and roles
 // such as {success}, {warning}, {error}, {info}, {accent}, {muted}, and {bold}.
 // Print understands the same markup. SetInk changes the plain Write color. UseTheme changes the roles.
-Package Robix.Console
-Explain {
-    Description: "Terminal text. Colors come from Robix.Color. Themes come from Robix.Theme.";
-};
+Package Robix.Console;
 
 Import Robix.Core;
 Import Robix.Color;

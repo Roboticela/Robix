@@ -1,8 +1,5 @@
 // Visibility, constructor shorthand, many parameters, and inheritance conflicts.
-Package Robotics.Visibility
-Explain {
-    Description: "Visibility, constructor shorthand, many parameters, and inheritance conflicts.";
-};
+Package Robotics.Visibility;
 
 Import Robix.Core;
 

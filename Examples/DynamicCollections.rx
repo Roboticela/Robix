@@ -1,8 +1,5 @@
 // Lists, dictionaries, tuples, and sets without an element type.
-Package Robotics.DynamicCollections
-Explain {
-    Description: "Lists, dictionaries, tuples, and sets without an element type.";
-};
+Package Robotics.DynamicCollections;
 
 Import Robix.Core;
 

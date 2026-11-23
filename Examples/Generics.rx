@@ -1,8 +1,5 @@
 // Robix.Generics: type definitions, constraints, inference, and variance.
-Package Robotics.Generics
-Explain {
-    Description: "Robix.Generics: type definitions, constraints, inference, and variance.";
-};
+Package Robotics.Generics;
 
 Import Robix.Core;
 

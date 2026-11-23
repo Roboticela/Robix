@@ -1,8 +1,5 @@
 // Robix.Gradient: color stops and interpolation. Conversion stays in Robix.Color.
-Package Robix.Gradient
-Explain {
-    Description: "Color stops and interpolation. Conversion stays in Robix.Color.";
-};
+Package Robix.Gradient;
 
 Import Robix.Core;
 Import Robix.Color;

@@ -1,8 +1,5 @@
 // Allocate bytes, copy them, update volatile memory, and increment an atomic counter.
-Package Robotics.Memory
-Explain {
-    Description: "Allocate bytes, copy them, update volatile memory, and increment an atomic counter.";
-};
+Package Robotics.Memory;
 
 Import Robix.Core;
 

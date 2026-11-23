@@ -1,8 +1,5 @@
 // Any keeps the current value's type. Dynamic resolves members from that value.
-Package Robotics.AnyValues
-Explain {
-    Description: "Any keeps the current value's type. Dynamic resolves members from that value.";
-};
+Package Robotics.AnyValues;
 
 Import Robix.Core;
 

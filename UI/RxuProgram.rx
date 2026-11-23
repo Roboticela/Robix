@@ -1,8 +1,5 @@
 // Checks, the Arm console tour, and Main.
-Package Robix.UI
-Explain {
-    Description: "Checks, the Arm console tour, and Main.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

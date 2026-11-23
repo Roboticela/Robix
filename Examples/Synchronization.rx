@@ -1,8 +1,5 @@
 // Robix.Synchronization: mutexes, semaphores, reader-writer locks, barriers, and events.
-Package Robotics.Synchronization
-Explain {
-    Description: "Robix.Synchronization: mutexes, semaphores, reader-writer locks, barriers, and events.";
-};
+Package Robotics.Synchronization;
 
 Import Robix.Core;
 

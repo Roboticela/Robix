@@ -1,8 +1,5 @@
 // Markup tokens, nodes, lexer, and parser.
-Package Robix.UI
-Explain {
-    Description: "Markup tokens, nodes, lexer, and parser.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

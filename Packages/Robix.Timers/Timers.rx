@@ -1,8 +1,5 @@
 // Robix.Timers: timeouts, intervals, delays, and a stopwatch.
-Package Robix.Timers
-Explain {
-    Description: "Timeouts, intervals, delays, and a stopwatch.";
-};
+Package Robix.Timers;
 
 Import Robix.Core;
 

@@ -33,8 +33,12 @@ fi
 
 tool="$root/ProjectSystem.rx"
 if [ -f "$tool" ]; then
-    sed -i "0,/Print(\"Robix [0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\")/s//Print(\"Robix $next\")/" "$tool"
-    if ! grep -q "Print(\"Robix $next\")" "$tool"; then
+    if grep -q '{muted}[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*{/}' "$tool"; then
+        sed -i "0,/{muted}[0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*{\\/}/s//{muted}$next{\\/}/" "$tool"
+    else
+        sed -i "0,/Print(\"Robix [0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\")/s//Print(\"Robix $next\")/" "$tool"
+    fi
+    if ! grep -q "{muted}$next{/}" "$tool" && ! grep -q "Print(\"Robix $next\")" "$tool"; then
         echo "error: could not advance the tool version" >&2
         exit 1
     fi

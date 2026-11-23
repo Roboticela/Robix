@@ -1,8 +1,5 @@
 // Resources, styles, themes, and the project build.
-Package Robix.UI
-Explain {
-    Description: "Resources, styles, themes, and the project build.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

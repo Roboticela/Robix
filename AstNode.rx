@@ -1,8 +1,5 @@
 // Syntax tree for every Robix construct in the language reference.
-Package Robix.Syntax
-Explain {
-    Description: "Syntax tree for every Robix construct in the language reference.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

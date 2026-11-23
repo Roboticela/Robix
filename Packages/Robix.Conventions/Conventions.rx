@@ -1,8 +1,5 @@
 // Robix.Conventions: shared naming, async, cancellation, and documentation rules.
-Package Robix.Conventions
-Explain {
-    Description: "Shared naming, async, cancellation, and documentation rules.";
-};
+Package Robix.Conventions;
 
 Import Robix.Core;
 

@@ -1,8 +1,5 @@
 // Float<128> keeps the decimal spelling of a value wider than 64 bits.
-Package Robotics.WideFloat
-Explain {
-    Description: "Float<128> keeps the decimal spelling of a value wider than 64 bits.";
-};
+Package Robotics.WideFloat;
 
 Import Robix.Core;
 

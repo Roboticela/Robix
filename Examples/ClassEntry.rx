@@ -1,8 +1,5 @@
 // A class Main is the program entry when the file has no function Main.
-Package Robotics.ClassEntry
-Explain {
-    Description: "A class Main is the program entry when the file has no function Main.";
-};
+Package Robotics.ClassEntry;
 
 Import Robix.Core;
 

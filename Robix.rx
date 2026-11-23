@@ -1,8 +1,5 @@
 // robix runs a module or checks its syntax.
-Package Robix.Tools
-Explain {
-    Description: "Robix runs a module or checks its syntax.";
-};
+Package Robix.Tools;
 
 Import Robix.Core;
 Import Robix.Syntax;

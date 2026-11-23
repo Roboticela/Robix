@@ -1,8 +1,5 @@
 // Shifts, bitwise operators, words, ranges, queues, stacks, and options.
-Package Robotics.Operators
-Explain {
-    Description: "Shifts, bitwise operators, words, ranges, queues, stacks, and options.";
-};
+Package Robotics.Operators;
 
 Import Robix.Core;
 

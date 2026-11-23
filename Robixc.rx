@@ -1,8 +1,5 @@
 // robixc compiles a Strict Robix module into a binary package.
-Package Robix.Tools
-Explain {
-    Description: "Robixc compiles a Strict Robix module into a binary package.";
-};
+Package Robix.Tools;
 
 Import Robix.Core;
 Import Robix.Syntax;

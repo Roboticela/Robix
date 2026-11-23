@@ -1,8 +1,5 @@
 // Definite types, Any matching, and closed unions.
-Package Robotics.TypeSafety
-Explain {
-    Description: "Definite types, Any matching, and closed unions.";
-};
+Package Robotics.TypeSafety;
 
 Import Robix.Core;
 

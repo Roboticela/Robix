@@ -1,3 +1,5 @@
+Import Robix.Logging;
+
 Test Accept {
     Constraint: LogDesk().Accept(2, "ready") == 1;
     Processing: True;

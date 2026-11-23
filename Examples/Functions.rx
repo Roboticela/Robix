@@ -1,8 +1,5 @@
 // Explain blocks, default/named args, params, spread, generics, tuple returns, consteval, and lambdas.
-Package Robotics.Functions
-Explain {
-    Description: "Explain blocks, default/named args, params, spread, generics, tuple returns, consteval, and lambdas.";
-};
+Package Robotics.Functions;
 
 Import Robix.Core;
 

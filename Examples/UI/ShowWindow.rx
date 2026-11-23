@@ -1,8 +1,5 @@
 // Scene for the Arm console window. The interpreter prints it; the GTK host paints it.
-Package Robix.UI
-Explain {
-    Description: "Scene for the Arm console window. The interpreter prints it; the GTK host paints it.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

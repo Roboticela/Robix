@@ -3,10 +3,7 @@
 // Constants use CAPITAL_CASE.
 // Functions, types, type parameters, and filenames use PascalCase.
 // Abbreviations keep their conventional spelling.
-Package Robix.Syntax
-Explain {
-    Description: "Naming rules from the Robix reference.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

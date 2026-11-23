@@ -1,8 +1,5 @@
 // Strict types: declarations, unions, signatures, async, null, numbers, collections, interfaces, operators, match, results, and unsafe boundaries.
-Package Robotics.MandatoryTypes
-Explain {
-    Description: "Strict types: declarations, unions, signatures, async, null, numbers, collections, interfaces, operators, match, results, and unsafe boundaries.";
-};
+Package Robotics.MandatoryTypes;
 
 Import Robix.Core;
 

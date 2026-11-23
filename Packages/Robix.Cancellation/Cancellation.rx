@@ -1,8 +1,5 @@
 // Robix.Cancellation: tokens, linked sources, timeouts, groups, and scopes.
-Package Robix.Cancellation
-Explain {
-    Description: "Tokens, linked sources, timeouts, groups, and scopes.";
-};
+Package Robix.Cancellation;
 
 Import Robix.Core;
 

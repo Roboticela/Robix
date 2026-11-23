@@ -1,8 +1,5 @@
 // Delay, sleep, and yield finish immediately. Queued callbacks run in order.
-Package Robotics.Scheduler
-Explain {
-    Description: "Delay, sleep, and yield finish immediately. Queued callbacks run in order.";
-};
+Package Robotics.Scheduler;
 
 Import Robix.Core;
 

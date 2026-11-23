@@ -1,8 +1,5 @@
 // Recursive-descent parser for Robix modules and declarations.
-Package Robix.Syntax
-Explain {
-    Description: "Recursive-descent parser for Robix modules and declarations.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

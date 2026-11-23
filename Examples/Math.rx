@@ -1,8 +1,5 @@
 // Robix.Math: absolute value, roots, logarithms, rounding, and integer number theory.
-Package Robotics.Math
-Explain {
-    Description: "Robix.Math: absolute value, roots, logarithms, rounding, and integer number theory.";
-};
+Package Robotics.Math;
 
 Import Robix.Core;
 

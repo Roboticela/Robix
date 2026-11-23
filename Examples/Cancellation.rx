@@ -1,8 +1,5 @@
 // Cancellation is cooperative. Work that has already finished keeps its result.
-Package Robotics.Cancellation
-Explain {
-    Description: "Cancellation is cooperative. Work that has already finished keeps its result.";
-};
+Package Robotics.Cancellation;
 
 Import Robix.Core;
 

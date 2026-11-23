@@ -1,8 +1,5 @@
 // Robix.Math.Statistics: descriptive statistics, regression, and hypothesis tests.
-Package Robotics.Statistics
-Explain {
-    Description: "Robix.Math.Statistics: descriptive statistics, regression, and hypothesis tests.";
-};
+Package Robotics.Statistics;
 
 Import Robix.Core;
 

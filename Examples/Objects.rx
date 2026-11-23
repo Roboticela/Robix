@@ -1,8 +1,5 @@
 // Classes, inheritance, structs, enums, and services.
-Package Robotics.Objects
-Explain {
-    Description: "Classes, inheritance, structs, enums, and services.";
-};
+Package Robotics.Objects;
 
 Import Robix.Core;
 

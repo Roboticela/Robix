@@ -1,8 +1,5 @@
 // Rounding, formatted text, fallible parsing, and checked conversion.
-Package Robotics.Conversions
-Explain {
-    Description: "Rounding, formatted text, fallible parsing, and checked conversion.";
-};
+Package Robotics.Conversions;
 
 Import Robix.Core;
 

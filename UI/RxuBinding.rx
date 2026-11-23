@@ -1,8 +1,5 @@
 // Observables, expressions, and bindings.
-Package Robix.UI
-Explain {
-    Description: "Observables, expressions, and bindings.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

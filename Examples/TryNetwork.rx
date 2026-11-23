@@ -1,8 +1,5 @@
 // SendText succeeds, so Await stays in Try and returns Success.
-Package Robotics.TryNetwork
-Explain {
-    Description: "SendText succeeds, so Await stays in Try and returns Success.";
-};
+Package Robotics.TryNetwork;
 
 Import Robix.Core;
 

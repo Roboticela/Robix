@@ -1,8 +1,5 @@
 // Aliases, structs, data-carrying enums, and direct conversions.
-Package Robotics.Types
-Explain {
-    Description: "Aliases, structs, data-carrying enums, and direct conversions.";
-};
+Package Robotics.Types;
 
 Import Robix.Core;
 

@@ -1,8 +1,5 @@
 // Robix.Theme: named color roles for consoles and graphical surfaces.
-Package Robix.Theme
-Explain {
-    Description: "Named color roles for consoles and graphical surfaces.";
-};
+Package Robix.Theme;
 
 Import Robix.Core;
 Import Robix.Color;

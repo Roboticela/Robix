@@ -1,8 +1,5 @@
 // Robix.Tasks: create, run, schedule, and compose work items.
-Package Robotics.Tasks
-Explain {
-    Description: "Robix.Tasks: create, run, schedule, and compose work items.";
-};
+Package Robotics.Tasks;
 
 Import Robix.Core;
 

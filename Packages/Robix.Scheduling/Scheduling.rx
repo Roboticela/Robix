@@ -1,8 +1,5 @@
 // Robix.Scheduling: jobs, cron steps, and priority, round-robin, and fair selection.
-Package Robix.Scheduling
-Explain {
-    Description: "Jobs, cron steps, and priority, round-robin, and fair selection.";
-};
+Package Robix.Scheduling;
 
 Import Robix.Core;
 

@@ -1,7 +1,4 @@
-Package Robix.Tools
-Explain {
-    Description: "Check that each used package is imported, then run or check the source.";
-};
+Package Robix.Tools;
 
 Import Robix.Core;
 
@@ -169,16 +166,12 @@ Class ImportHost {
     }
 
     Private Function IsNameStart(String piece) -> Bool {
-        If (piece >= "A" && piece <= "Z") { Return True; }
-        If (piece >= "a" && piece <= "z") { Return True; }
-        If (piece == "_") { Return True; }
-        Return False;
+        Return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_".Contains(piece);
     }
 
     Private Function IsNamePart(String piece) -> Bool {
         If (This.IsNameStart(piece)) { Return True; }
-        If (piece >= "0" && piece <= "9") { Return True; }
-        Return False;
+        Return "0123456789".Contains(piece);
     }
 
     Private Function TypeCatalog() -> String {

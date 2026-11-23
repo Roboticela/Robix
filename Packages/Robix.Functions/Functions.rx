@@ -1,8 +1,5 @@
 // Robix.Functions: invocation, composition, binding, memoization, and expression trees.
-Package Robix.Functions
-Explain {
-    Description: "Invocation, composition, binding, memoization, and expression trees.";
-};
+Package Robix.Functions;
 
 Import Robix.Core;
 

@@ -1,8 +1,5 @@
 // Robix.Types: type descriptors, assignability, conversion, and registration.
-Package Robotics.Types
-Explain {
-    Description: "Robix.Types: type descriptors, assignability, conversion, and registration.";
-};
+Package Robotics.Types;
 
 Import Robix.Core;
 

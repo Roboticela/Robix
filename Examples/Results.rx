@@ -1,8 +1,5 @@
 // Robix.Results: success, failure, options, either, and validation.
-Package Robotics.Results
-Explain {
-    Description: "Robix.Results: success, failure, options, either, and validation.";
-};
+Package Robotics.Results;
 
 Import Robix.Core;
 

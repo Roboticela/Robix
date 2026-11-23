@@ -1,8 +1,5 @@
 // Built-in functions, assertions, conversions, string/collection helpers, and standard library.
-Package Robotics.Builtins
-Explain {
-    Description: "Built-in functions, assertions, conversions, string/collection helpers, and standard library.";
-};
+Package Robotics.Builtins;
 
 Import Robix.Core;
 Import Robix.Math As Math;

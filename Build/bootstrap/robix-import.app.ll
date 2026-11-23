@@ -2137,11 +2137,7 @@ merge89:
   ret i64 0
 }
 
-@.str.7.1 = private unnamed_addr constant [2 x i8] c"A\00"
-@.str.7.2 = private unnamed_addr constant [2 x i8] c"Z\00"
-@.str.7.3 = private unnamed_addr constant [2 x i8] c"a\00"
-@.str.7.4 = private unnamed_addr constant [2 x i8] c"z\00"
-@.str.7.5 = private unnamed_addr constant [2 x i8] c"_\00"
+@.str.7.1 = private unnamed_addr constant [54 x i8] c"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_\00"
 define i64 @rxm_ImportHost_IsNameStart(i64 %p_This, i64 %p_piece) {
 Lentry:
   %v1 = call i64 @Ownership_MarkDepth()
@@ -2157,106 +2153,19 @@ Lentry:
   %v5 = load i64, ptr %slot4
   call void @Ownership_Retain(i64 %v5)
   call void @Ownership_Give(i64 %v5)
-  %str6 = getelementptr [2 x i8], ptr @.str.7.1, i64 0, i64 0
+  %str6 = getelementptr [54 x i8], ptr @.str.7.1, i64 0, i64 0
   %v7 = ptrtoint ptr %str6 to i64
-  %v8 = icmp sge i64 %v5, %v7
-  %v9 = zext i1 %v8 to i64
-  %logic12 = alloca i64
-  %cond13 = icmp ne i64 %v9, 0
-  store i64 0, ptr %logic12
-  br i1 %cond13, label %rhs10, label %logic11
-rhs10:
-  %v14 = load i64, ptr %slot4
-  call void @Ownership_Retain(i64 %v14)
-  call void @Ownership_Give(i64 %v14)
-  %str15 = getelementptr [2 x i8], ptr @.str.7.2, i64 0, i64 0
-  %v16 = ptrtoint ptr %str15 to i64
-  %v17 = icmp sle i64 %v14, %v16
-  %v18 = zext i1 %v17 to i64
-  %cond19 = icmp ne i64 %v18, 0
-  %v20 = zext i1 %cond19 to i64
-  store i64 %v20, ptr %logic12
-  br label %logic11
-logic11:
-  %v21 = load i64, ptr %logic12
-  %cond22 = icmp ne i64 %v21, 0
-  br i1 %cond22, label %then23, label %else24
-then23:
-  call void @Ownership_PushScope()
-  %v26 = load i64, ptr %slot2
-  call void @Ownership_Unwind(i64 %v26)
-  %v27 = load i64, ptr %slot4
-  call void @Ownership_Release(i64 %v27)
-  %v28 = load i64, ptr %slot3
-  call void @Ownership_Release(i64 %v28)
-  ret i64 1
-else24:
-  br label %merge25
-merge25:
-  call void @Ownership_PopScope()
-  call void @Ownership_PushScope()
-  %v29 = load i64, ptr %slot4
-  call void @Ownership_Retain(i64 %v29)
-  call void @Ownership_Give(i64 %v29)
-  %str30 = getelementptr [2 x i8], ptr @.str.7.3, i64 0, i64 0
-  %v31 = ptrtoint ptr %str30 to i64
-  %v32 = icmp sge i64 %v29, %v31
-  %v33 = zext i1 %v32 to i64
-  %logic36 = alloca i64
-  %cond37 = icmp ne i64 %v33, 0
-  store i64 0, ptr %logic36
-  br i1 %cond37, label %rhs34, label %logic35
-rhs34:
-  %v38 = load i64, ptr %slot4
-  call void @Ownership_Retain(i64 %v38)
-  call void @Ownership_Give(i64 %v38)
-  %str39 = getelementptr [2 x i8], ptr @.str.7.4, i64 0, i64 0
-  %v40 = ptrtoint ptr %str39 to i64
-  %v41 = icmp sle i64 %v38, %v40
-  %v42 = zext i1 %v41 to i64
-  %cond43 = icmp ne i64 %v42, 0
-  %v44 = zext i1 %cond43 to i64
-  store i64 %v44, ptr %logic36
-  br label %logic35
-logic35:
-  %v45 = load i64, ptr %logic36
-  %cond46 = icmp ne i64 %v45, 0
-  br i1 %cond46, label %then47, label %else48
-then47:
-  call void @Ownership_PushScope()
-  %v50 = load i64, ptr %slot2
-  call void @Ownership_Unwind(i64 %v50)
-  ret i64 1
-else48:
-  br label %merge49
-merge49:
-  call void @Ownership_PopScope()
-  call void @Ownership_PushScope()
-  %v51 = load i64, ptr %slot4
-  call void @Ownership_Retain(i64 %v51)
-  call void @Ownership_Give(i64 %v51)
-  %str52 = getelementptr [2 x i8], ptr @.str.7.5, i64 0, i64 0
-  %v53 = ptrtoint ptr %str52 to i64
-  %v54 = call i64 @Text_Equals(i64 %v51, i64 %v53)
-  %cond55 = icmp ne i64 %v54, 0
-  br i1 %cond55, label %then56, label %else57
-then56:
-  call void @Ownership_PushScope()
-  %v59 = load i64, ptr %slot2
-  call void @Ownership_Unwind(i64 %v59)
-  ret i64 1
-else57:
-  br label %merge58
-merge58:
-  call void @Ownership_PopScope()
-  call void @Ownership_PushScope()
-  %v60 = load i64, ptr %slot2
-  call void @Ownership_Unwind(i64 %v60)
-  ret i64 0
+  %v8 = call i64 @Text_Contains(i64 %v7, i64 %v5)
+  %v9 = load i64, ptr %slot2
+  call void @Ownership_Unwind(i64 %v9)
+  %v10 = load i64, ptr %slot4
+  call void @Ownership_Release(i64 %v10)
+  %v11 = load i64, ptr %slot3
+  call void @Ownership_Release(i64 %v11)
+  ret i64 %v8
 }
 
-@.str.8.1 = private unnamed_addr constant [2 x i8] c"0\00"
-@.str.8.2 = private unnamed_addr constant [2 x i8] c"9\00"
+@.str.8.1 = private unnamed_addr constant [11 x i8] c"0123456789\00"
 define i64 @rxm_ImportHost_IsNamePart(i64 %p_This, i64 %p_piece) {
 Lentry:
   %v1 = call i64 @Ownership_MarkDepth()
@@ -2295,43 +2204,12 @@ merge11:
   %v15 = load i64, ptr %slot4
   call void @Ownership_Retain(i64 %v15)
   call void @Ownership_Give(i64 %v15)
-  %str16 = getelementptr [2 x i8], ptr @.str.8.1, i64 0, i64 0
+  %str16 = getelementptr [11 x i8], ptr @.str.8.1, i64 0, i64 0
   %v17 = ptrtoint ptr %str16 to i64
-  %v18 = icmp sge i64 %v15, %v17
-  %v19 = zext i1 %v18 to i64
-  %logic22 = alloca i64
-  %cond23 = icmp ne i64 %v19, 0
-  store i64 0, ptr %logic22
-  br i1 %cond23, label %rhs20, label %logic21
-rhs20:
-  %v24 = load i64, ptr %slot4
-  call void @Ownership_Retain(i64 %v24)
-  call void @Ownership_Give(i64 %v24)
-  %str25 = getelementptr [2 x i8], ptr @.str.8.2, i64 0, i64 0
-  %v26 = ptrtoint ptr %str25 to i64
-  %v27 = icmp sle i64 %v24, %v26
-  %v28 = zext i1 %v27 to i64
-  %cond29 = icmp ne i64 %v28, 0
-  %v30 = zext i1 %cond29 to i64
-  store i64 %v30, ptr %logic22
-  br label %logic21
-logic21:
-  %v31 = load i64, ptr %logic22
-  %cond32 = icmp ne i64 %v31, 0
-  br i1 %cond32, label %then33, label %else34
-then33:
-  call void @Ownership_PushScope()
-  %v36 = load i64, ptr %slot2
-  call void @Ownership_Unwind(i64 %v36)
-  ret i64 1
-else34:
-  br label %merge35
-merge35:
-  call void @Ownership_PopScope()
-  call void @Ownership_PushScope()
-  %v37 = load i64, ptr %slot2
-  call void @Ownership_Unwind(i64 %v37)
-  ret i64 0
+  %v18 = call i64 @Text_Contains(i64 %v17, i64 %v15)
+  %v19 = load i64, ptr %slot2
+  call void @Ownership_Unwind(i64 %v19)
+  ret i64 %v18
 }
 
 @.str.9.1 = private unnamed_addr constant [2 x i8] c";\00"

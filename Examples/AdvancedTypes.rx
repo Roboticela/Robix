@@ -1,8 +1,5 @@
 // Constants, final and partial types, macros, and extern functions.
-Package Robotics.Advanced
-Explain {
-    Description: "Constants, final and partial types, macros, and extern functions.";
-};
+Package Robotics.Advanced;
 
 Import Robix.Core;
 

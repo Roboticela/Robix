@@ -1,8 +1,5 @@
 // Executable summary of the language rules.
-Package Robotics.LanguageRules
-Explain {
-    Description: "Executable summary of the language rules.";
-};
+Package Robotics.LanguageRules;
 
 Import Robix.Core;
 

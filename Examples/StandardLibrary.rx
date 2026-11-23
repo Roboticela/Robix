@@ -1,8 +1,5 @@
 // Discoverable standard library namespaces.
-Package Robotics.StandardLibrary
-Explain {
-    Description: "Discoverable standard library namespaces.";
-};
+Package Robotics.StandardLibrary;
 
 Import Robix.Core;
 Import Robix.Math As Math;

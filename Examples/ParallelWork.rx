@@ -1,8 +1,5 @@
 // Task.WhenAll reads several completed tasks as one tuple.
-Package Robotics.ParallelWork
-Explain {
-    Description: "Task.WhenAll reads several completed tasks as one tuple.";
-};
+Package Robotics.ParallelWork;
 
 Import Robix.Core;
 

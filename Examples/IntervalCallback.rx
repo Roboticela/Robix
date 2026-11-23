@@ -1,8 +1,5 @@
 // SetInterval schedules a repeating callback. ClearInterval stops it before the first tick.
-Package Robotics.IntervalCallback
-Explain {
-    Description: "SetInterval schedules a repeating callback. ClearInterval stops it before the first tick.";
-};
+Package Robotics.IntervalCallback;
 
 Import Robix.Core;
 

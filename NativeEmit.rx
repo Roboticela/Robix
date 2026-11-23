@@ -1,8 +1,5 @@
 // Lower a type-checked Robix module to LLVM IR for the host Linux processor.
-Package Robix.Syntax
-Explain {
-    Description: "Lower a type-checked Robix module to LLVM IR for the host Linux processor.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

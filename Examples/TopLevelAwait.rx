@@ -1,8 +1,5 @@
 // An executable module can Await at the top level when it has no Main.
-Package Robotics.TopLevelAwait
-Explain {
-    Description: "An executable module can Await at the top level when it has no Main.";
-};
+Package Robotics.TopLevelAwait;
 
 Import Robix.Core;
 

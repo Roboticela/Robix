@@ -1,8 +1,5 @@
 // Task.Run accepts an anonymous Function lambda and runs it immediately.
-Package Robotics.AnonymousTask
-Explain {
-    Description: "Task.Run accepts an anonymous Function lambda and runs it immediately.";
-};
+Package Robotics.AnonymousTask;
 
 Import Robix.Core;
 

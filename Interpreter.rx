@@ -1,8 +1,5 @@
 // Tree-walk interpreter for Robix's executable syntax.
-Package Robix.Runtime
-Explain {
-    Description: "Tree-walk interpreter for Robix's executable syntax.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 Import Robix.Syntax;

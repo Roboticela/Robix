@@ -1,8 +1,5 @@
 // Navigation, overlays, and window lifetime.
-Package Robix.UI
-Explain {
-    Description: "Navigation, overlays, and window lifetime.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

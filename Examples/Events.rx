@@ -1,8 +1,5 @@
 // Robix.Events: listeners, one-shot handlers, filters, and a paused event queue.
-Package Robotics.Events
-Explain {
-    Description: "Robix.Events: listeners, one-shot handlers, filters, and a paused event queue.";
-};
+Package Robotics.Events;
 
 Import Robix.Core;
 

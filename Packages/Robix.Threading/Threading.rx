@@ -1,8 +1,5 @@
 // Robix.Threading: cooperative threads, a pool, and thread-local slots.
-Package Robix.Threading
-Explain {
-    Description: "Cooperative threads, a pool, and thread-local slots.";
-};
+Package Robix.Threading;
 
 Import Robix.Core;
 

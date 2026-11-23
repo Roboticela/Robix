@@ -1,8 +1,5 @@
 // WithTimeout keeps a completed result and accepts a timeout path.
-Package Robotics.Timeout
-Explain {
-    Description: "WithTimeout keeps a completed result and accepts a timeout path.";
-};
+Package Robotics.Timeout;
 
 Import Robix.Core;
 

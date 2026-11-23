@@ -1,8 +1,5 @@
 // A promise is fulfilled by resolve, Resolved, or Rejected, then Await reads it.
-Package Robotics.Promises
-Explain {
-    Description: "A promise is fulfilled by resolve, Resolved, or Rejected, then Await reads it.";
-};
+Package Robotics.Promises;
 
 Import Robix.Core;
 

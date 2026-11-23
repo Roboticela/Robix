@@ -1,8 +1,5 @@
 // Declarative flow.
-Package Robix.UI
-Explain {
-    Description: "Declarative flow.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

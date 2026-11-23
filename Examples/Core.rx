@@ -1,8 +1,5 @@
 // Robix.Core: values, conversion, comparison, ranges, versions, time, and identity.
-Package Robotics.Core
-Explain {
-    Description: "Robix.Core: values, conversion, comparison, ranges, versions, time, and identity.";
-};
+Package Robotics.Core;
 
 Import Robix.Core;
 

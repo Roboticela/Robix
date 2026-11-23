@@ -1,8 +1,5 @@
 // Unsigned 64-bit values, half precision, and explicit bit widths.
-Package Robotics.Widths
-Explain {
-    Description: "Unsigned 64-bit values, half precision, and explicit bit widths.";
-};
+Package Robotics.Widths;
 
 Import Robix.Core;
 

@@ -1,3 +1,5 @@
+Import Robix.Console.Screen;
+
 Test Width {
     Constraint: ScreenDesk().Width() == 80;
     Processing: True;

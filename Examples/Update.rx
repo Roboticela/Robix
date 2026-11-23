@@ -1,8 +1,5 @@
 // A Mut parameter writes back, and a mutable reference updates a string.
-Package Robotics.Update
-Explain {
-    Description: "A Mut parameter writes back, and a mutable reference updates a string.";
-};
+Package Robotics.Update;
 
 Import Robix.Core;
 

@@ -1,8 +1,5 @@
 // Statements, patterns, and blocks for the Robix parser.
-Package Robix.Syntax
-Explain {
-    Description: "Statements, patterns, and blocks for the Robix parser.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

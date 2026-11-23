@@ -1,8 +1,5 @@
 // Attributes on classes.
-Package Robotics.Attributes
-Explain {
-    Description: "Attributes on classes.";
-};
+Package Robotics.Attributes;
 
 Import Robix.Core;
 

@@ -1,8 +1,5 @@
 // FromCallback settles a promise from a success callback.
-Package Robotics.CallbackPromise
-Explain {
-    Description: "FromCallback settles a promise from a success callback.";
-};
+Package Robotics.CallbackPromise;
 
 Import Robix.Core;
 

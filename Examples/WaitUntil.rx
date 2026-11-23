@@ -1,8 +1,5 @@
 // WaitUntil polls once. The simulated network is already connected.
-Package Robotics.WaitUntil
-Explain {
-    Description: "WaitUntil polls once. The simulated network is already connected.";
-};
+Package Robotics.WaitUntil;
 
 Import Robix.Core;
 

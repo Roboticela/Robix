@@ -1,8 +1,5 @@
 // Control catalog.
-Package Robix.UI
-Explain {
-    Description: "Control catalog.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

@@ -1,3 +1,5 @@
+Import Robix.Theme;
+
 Test Apply {
     Constraint: ThemeDesk().Apply("dark") == 1;
     Processing: True;

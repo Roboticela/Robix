@@ -1,8 +1,5 @@
 // Robix.Reflection: assemblies, type members, attributes, and live invocation.
-Package Robix.Reflection
-Explain {
-    Description: "Assemblies, type members, attributes, and live invocation.";
-};
+Package Robix.Reflection;
 
 Import Robix.Core;
 

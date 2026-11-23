@@ -1,8 +1,5 @@
 // Robix.Math.Algebra: polynomials, equations, fractions, and complex numbers.
-Package Robotics.Algebra
-Explain {
-    Description: "Robix.Math.Algebra: polynomials, equations, fractions, and complex numbers.";
-};
+Package Robotics.Algebra;
 
 Import Robix.Core;
 

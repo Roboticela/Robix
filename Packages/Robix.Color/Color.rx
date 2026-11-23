@@ -1,8 +1,5 @@
 // Robix.Color: RGB, HEX, HSV, HSL, CMYK, and contrast for any package.
-Package Robix.Color
-Explain {
-    Description: "RGB, HEX, HSV, HSL, CMYK, and contrast for any package.";
-};
+Package Robix.Color;
 
 Import Robix.Core;
 

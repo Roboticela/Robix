@@ -1,8 +1,5 @@
 // Struct fields with a fixed width, and generic type aliases.
-Package Robotics.UserTypes
-Explain {
-    Description: "Struct fields with a fixed width, and generic type aliases.";
-};
+Package Robotics.UserTypes;
 
 Import Robix.Core;
 

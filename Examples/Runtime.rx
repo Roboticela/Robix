@@ -1,8 +1,5 @@
 // Robix.Runtime: lifecycle, host info, a small execution engine, and module loading.
-Package Robotics.Runtime
-Explain {
-    Description: "Robix.Runtime: lifecycle, host info, a small execution engine, and module loading.";
-};
+Package Robotics.Runtime;
 
 Import Robix.Core;
 

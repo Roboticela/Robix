@@ -1,8 +1,5 @@
 // Robix.Text: alignment, wrapping, and display width for any surface.
-Package Robix.Text
-Explain {
-    Description: "Alignment, wrapping, and display width for any surface.";
-};
+Package Robix.Text;
 
 Import Robix.Core;
 

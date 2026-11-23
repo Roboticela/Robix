@@ -1,8 +1,5 @@
 // Robix.Console.Screen: cursor, screen size, title, and capability flags.
-Package Robix.Console.Screen
-Explain {
-    Description: "Cursor, screen size, title, and capability flags.";
-};
+Package Robix.Console.Screen;
 
 Import Robix.Core;
 

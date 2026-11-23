@@ -1,8 +1,5 @@
 // Documents, instances, and the UI entry.
-Package Robix.UI
-Explain {
-    Description: "Documents, instances, and the UI entry.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

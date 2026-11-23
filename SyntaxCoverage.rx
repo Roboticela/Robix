@@ -1,8 +1,5 @@
 // Parses one snippet for every syntax area in the Robix reference.
-Package Robix.Syntax
-Explain {
-    Description: "Parses one snippet for every syntax area in the Robix reference.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

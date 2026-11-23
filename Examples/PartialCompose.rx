@@ -1,8 +1,5 @@
 // Partial binds the first argument. Compose applies the second function, then the first.
-Package Robotics.PartialCompose
-Explain {
-    Description: "Partial binds the first argument. Compose applies the second function, then the first.";
-};
+Package Robotics.PartialCompose;
 
 Import Robix.Core;
 

@@ -1,8 +1,5 @@
 // Typed element properties.
-Package Robix.UI
-Explain {
-    Description: "Typed element properties.";
-};
+Package Robix.UI;
 
 Import Robix.Core;
 

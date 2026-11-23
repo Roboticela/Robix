@@ -1,8 +1,5 @@
 // Robix.Math.Arithmetic: integers, primes, combinatorics, and modular arithmetic.
-Package Robix.Math.Arithmetic
-Explain {
-    Description: "Integers, primes, combinatorics, and modular arithmetic.";
-};
+Package Robix.Math.Arithmetic;
 
 Import Robix.Core;
 
