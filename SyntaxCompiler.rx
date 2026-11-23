@@ -35,6 +35,8 @@ Public Class SyntaxCompiler {
         Lexer lexer = Lexer(source, diagnostics);
         Parser parser = Parser(lexer.Tokenize(), diagnostics);
         AstNode module = parser.Parse();
+        Var loaded = List<String>();
+        This.LoadImports(module, loaded);
         NameChecker names = NameChecker(diagnostics, compile);
         names.Check(module, fileName);
         TypeChecker types = TypeChecker(diagnostics);
@@ -73,6 +75,47 @@ Public Class SyntaxCompiler {
             }
         }
         Return lines;
+    }
+
+    Private Function LoadImports(AstNode module, List<String> loaded) -> Void {
+        Var names = List<String>();
+        For child In module.Children {
+            If (child.Kind == AstKind.Import && child.Name != "") {
+                names.Add(child.Name);
+            }
+        }
+        For packageName In names {
+            This.LoadPackage(module, packageName, loaded);
+        }
+    }
+
+    Private Function LoadPackage(AstNode module, String packageName, List<String> loaded) -> Void {
+        For seen In loaded {
+            If (seen == packageName) { Return; }
+        }
+        loaded.Add(packageName);
+        String path = This.PackagePath(packageName);
+        If (path == "" || !Files.Exists(path)) { Return; }
+        DiagnosticBag diagnostics = DiagnosticBag();
+        Lexer lexer = Lexer(Files.ReadText(path), diagnostics);
+        Parser parser = Parser(lexer.Tokenize(), diagnostics);
+        AstNode imported = parser.Parse();
+        If (diagnostics.ErrorCount() > 0) { Return; }
+        This.LoadImports(imported, loaded);
+        For child In imported.Children {
+            If (child.Kind != AstKind.Import) {
+                module.Children.Add(child);
+            }
+        }
+    }
+
+    Private Function PackagePath(String packageName) -> String {
+        String leaf = packageName;
+        Int dot = packageName.LastIndexOf(".");
+        If (dot >= 0) { leaf = packageName.Substring(dot + 1); }
+        String path = "Packages/" + packageName + "/" + leaf + ".rx";
+        If (Files.Exists(path)) { Return path; }
+        Return "";
     }
 
     Private Function AttachDiagnostics(AstNode module, DiagnosticBag diagnostics) -> Void {

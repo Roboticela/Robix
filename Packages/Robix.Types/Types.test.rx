@@ -1,0 +1,5 @@
+Test Register {
+    Constraint: TypeRegistry().Register("Widget", "Object", "", "");
+    Processing: True;
+    Output: True;
+}

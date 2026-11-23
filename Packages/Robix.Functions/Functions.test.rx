@@ -1,0 +1,5 @@
+Test ApplyFree {
+    Constraint: ApplyFree("inc", 4) == 5;
+    Processing: True;
+    Output: True;
+}

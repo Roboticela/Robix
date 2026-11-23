@@ -1,0 +1,336 @@
+// Robix.Core: values, conversion, comparison, ranges, versions, time, and identity.
+Package Robix.Core;
+
+Import Robix.Core;
+
+
+Struct Unit {
+    Public Constructor() {
+    }
+}
+
+Struct CoreIndex {
+    Public Int Offset;
+    Public Int EndRelative;
+
+    Public Constructor(Int offset, Int endRelative) {
+        Offset = offset;
+        EndRelative = endRelative;
+    }
+}
+
+Struct CoreRange {
+    Public Int Start;
+    Public Int End;
+    Public Int Step;
+
+    Public Constructor(Int start, Int end, Int step) {
+        Start = start;
+        End = end;
+        Step = step;
+    }
+}
+
+Struct CoreVersion {
+    Public Int Major;
+    Public Int Minor;
+    Public Int Patch;
+
+    Public Constructor(Int major, Int minor, Int patch) {
+        Major = major;
+        Minor = minor;
+        Patch = patch;
+    }
+}
+
+Struct TimeSpan {
+    Public Int Milliseconds;
+
+    Public Constructor(Int milliseconds) {
+        Milliseconds = milliseconds;
+    }
+}
+
+Struct DateTime {
+    Public Int Year;
+    Public Int Month;
+    Public Int Day;
+
+    Public Constructor(Int year, Int month, Int day) {
+        Year = year;
+        Month = month;
+        Day = day;
+    }
+}
+
+Struct CultureInfo {
+    Public String Name;
+
+    Public Constructor(String name) {
+        Name = name;
+    }
+}
+
+Struct BigInteger {
+    Public String Digits;
+
+    Public Constructor(String digits) {
+        Digits = digits;
+    }
+}
+
+Struct Guid {
+    Public String Text;
+
+    Public Constructor(String text) {
+        Text = text;
+    }
+}
+
+Class Box {
+    Public Int Id;
+    Public String Text;
+    Private Bool disposed;
+
+    Public Constructor(Int id, String text) {
+        Id = id;
+        Text = text;
+        disposed = False;
+    }
+
+    Public Function Dispose() -> Bool
+    Explain {
+        Description: "Release the box.";
+        Input: "No parameters";
+        Processing: "Mark the box disposed.";
+        Output: "True after disposal.";
+    } {
+        disposed = True;
+        Return disposed;
+    }
+
+    Public Function IsDisposed() -> Bool
+    Explain {
+        Description: "Report whether the box was disposed.";
+        Input: "No parameters";
+        Processing: "Read the disposed flag.";
+        Output: "True when Dispose has run.";
+    } {
+        Return disposed;
+    }
+
+    Public Function Clone() -> Box
+    Explain {
+        Description: "Copy the box into a new identity.";
+        Input: "No parameters";
+        Processing: "Copy the text and assign a new id.";
+        Output: "The copy.";
+    } {
+        Return Box(Id + 1, Text);
+    }
+}
+
+Private Function UnitText() -> String {
+    Unit unit = Unit();
+    Return "()";
+}
+
+Private Function IsNullText(String? text) -> Bool {
+    If (text == Null) { Return True; }
+    Return False;
+}
+
+Private Function IsUndefined(Bool defined) -> Bool {
+    Return !defined;
+}
+
+Private Function EqualsInt(Int left, Int right) -> Bool {
+    Return left == right;
+}
+
+Private Function EqualsText(String left, String right) -> Bool {
+    Return left == right;
+}
+
+Private Function ReferenceEquals(Box left, Box right) -> Bool {
+    Return left.Id == right.Id;
+}
+
+Private Function HashText(String text) -> Int {
+    Int hash = 5381;
+    Int index = 0;
+    While (index < text.Length()) {
+        hash = hash * 33 + text.GetChar(index).ToInt();
+        index = index + 1;
+    }
+    If (hash < 0) { hash = 0 - hash; }
+    Return hash;
+}
+
+Private Function CompareInt(Int left, Int right) -> Int {
+    If (left < right) { Return -1; }
+    If (left > right) { Return 1; }
+    Return 0;
+}
+
+Private Function Min(Int left, Int right) -> Int {
+    If (left < right) { Return left; }
+    Return right;
+}
+
+Private Function Max(Int left, Int right) -> Int {
+    If (left > right) { Return left; }
+    Return right;
+}
+
+Private Function Clamp(Int value, Int minimum, Int maximum) -> Int {
+    If (value < minimum) { Return minimum; }
+    If (value > maximum) { Return maximum; }
+    Return value;
+}
+
+Private Function Swap(Int left, Int right) -> CoreRange {
+    Return CoreRange(right, left, 1);
+}
+
+Private Function ToBoolean(String text) -> Bool {
+    If (text == "true" || text == "True") { Return True; }
+    Return False;
+}
+
+Private Function ToByte(Int value) -> Int {
+    If (value < 0) { Return 0; }
+    If (value > 255) { Return 255; }
+    Return value;
+}
+
+Private Function ToInt32(Int value) -> Int {
+    Int limit = 2147483647;
+    If (value > limit) { Return limit; }
+    If (value < 0 - limit) { Return 0 - limit; }
+    Return value;
+}
+
+Private Function ToFloat64(Int value) -> Float {
+    Return value.ToFloat();
+}
+
+Private Function ToDecimalText(Int value) -> String {
+    Return value.ToString() + ".0";
+}
+
+Private Function ToChar(String text) -> String {
+    If (text.Length() == 0) { Return ""; }
+    Return text.Substring(0, 1);
+}
+
+Private Function ToBigInteger(String digits) -> BigInteger {
+    Return BigInteger(digits);
+}
+
+Private Function AddDigits(String left, String right) -> String {
+    Int leftIndex = left.Length() - 1;
+    Int rightIndex = right.Length() - 1;
+    Int carry = 0;
+    String result = "";
+    While (leftIndex >= 0 || rightIndex >= 0 || carry > 0) {
+        Int total = carry;
+        If (leftIndex >= 0) {
+            total = total + left.Substring(leftIndex, 1).ToInt();
+            leftIndex = leftIndex - 1;
+        }
+        If (rightIndex >= 0) {
+            total = total + right.Substring(rightIndex, 1).ToInt();
+            rightIndex = rightIndex - 1;
+        }
+        carry = total / 10;
+        result = (total % 10).ToString() + result;
+    }
+    If (result == "") { Return "0"; }
+    Return result;
+}
+
+Private Function MakeRange(Int start, Int end) -> CoreRange {
+    Return CoreRange(start, end, 1);
+}
+
+Private Function MakeRangeStep(Int start, Int end, Int step) -> CoreRange {
+    Return CoreRange(start, end, step);
+}
+
+Private Function SumRange(CoreRange range) -> Int {
+    Int total = 0;
+    Int cursor = range.Start;
+    Int step = range.Step;
+    If (step == 0) { step = 1; }
+    While (cursor < range.End) {
+        total = total + cursor;
+        cursor = cursor + step;
+    }
+    Return total;
+}
+
+Private Function FromEnd(Int index) -> CoreIndex {
+    Return CoreIndex(index, 1);
+}
+
+Private Function At(Int index) -> CoreIndex {
+    Return CoreIndex(index, 0);
+}
+
+Private Function GetOffset(CoreIndex index, Int length) -> Int {
+    If (index.EndRelative == 1) { Return length - index.Offset; }
+    Return index.Offset;
+}
+
+Private Function VersionText(CoreVersion version) -> String {
+    Return version.Major.ToString() + "." + version.Minor.ToString() + "." + version.Patch.ToString();
+}
+
+Private Function Pad2(Int value) -> String {
+    If (value < 10) { Return "0" + value.ToString(); }
+    Return value.ToString();
+}
+
+Private Function DateText(DateTime value) -> String {
+    Return value.Year.ToString() + "-" + Pad2(value.Month) + "-" + Pad2(value.Day);
+}
+
+Private Function HexDigit(Int value) -> String {
+    Int digit = value % 16;
+    If (digit < 0) { digit = 0 - digit; }
+    If (digit < 10) { Return digit.ToString(); }
+    If (digit == 10) { Return "a"; }
+    If (digit == 11) { Return "b"; }
+    If (digit == 12) { Return "c"; }
+    If (digit == 13) { Return "d"; }
+    If (digit == 14) { Return "e"; }
+    Return "f";
+}
+
+Private Function HexGroup(Int value, Int width) -> String {
+    String text = "";
+    Int count = 0;
+    Int current = value;
+    If (current < 0) { current = 0 - current; }
+    While (count < width) {
+        text = HexDigit(current) + text;
+        current = current / 16;
+        count = count + 1;
+    }
+    Return text;
+}
+
+Private Function MakeGuid(Int left, Int right) -> Guid {
+    String text = HexGroup(left, 8) + "-" + HexGroup(right, 4) + "-" + HexGroup(left / 3, 4) + "-" + HexGroup(right / 5, 4) + "-" + HexGroup(left + right, 12);
+    Return Guid(text);
+}
+
+Private Function ClonePair(Int first, Int second) -> Array<Int> {
+    Array<Int> copy = [first, second];
+    Return copy;
+}
+
+Private Function MemberwiseClone(CoreVersion source) -> CoreVersion {
+    Return CoreVersion(source.Major, source.Minor, source.Patch);
+}

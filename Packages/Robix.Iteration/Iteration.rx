@@ -1,0 +1,505 @@
+// Robix.Iteration: cursors, ranges, generators, buffering, and async steps.
+Package Robix.Iteration;
+
+Import Robix.Core;
+
+
+Class Walk {
+    Private Array<Int> values;
+    Private Int count;
+    Private Int index;
+    Private Int current;
+    Private Int alive;
+    Private Int cycle;
+    Private Int growing;
+    Private Int nextNumber;
+    Private Int produced;
+    Private Int limit;
+    Private Int useBuffer;
+    Private Int bufferAt;
+    Private Int bufferFilled;
+    Private Int buffer0;
+    Private Int buffer1;
+    Private Int fills;
+    Private String label;
+
+    Public Constructor() {
+        values = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+        index = 0;
+        current = -1;
+        alive = 1;
+        cycle = 0;
+        growing = 0;
+        nextNumber = 0;
+        produced = 0;
+        limit = 8;
+        useBuffer = 0;
+        bufferAt = 0;
+        bufferFilled = 0;
+        buffer0 = 0;
+        buffer1 = 0;
+        fills = 0;
+        label = "walk";
+    }
+
+    Public Function Store(Int value) -> Int
+    Explain {
+        Description: "Append one integer to the cursor.";
+        Input: value = "Integer to store";
+        Processing: "Write the next free slot.";
+        Output: "One when the value fits.";
+    } {
+        If (count >= 8) { Return 0; }
+        values[count] = value;
+        count = count + 1;
+        Return 1;
+    }
+
+    Public Function Load(Array<Int> source) -> Int
+    Explain {
+        Description: "Replace the cursor with an array.";
+        Input: source = "Yielded or stored integers";
+        Processing: "Copy up to eight integers and rewind the cursor.";
+        Output: "The number of integers copied.";
+    } {
+        count = 0;
+        index = 0;
+        current = -1;
+        Int cursor = 0;
+        While (cursor < source.Count() && count < 8) {
+            values[count] = source[cursor];
+            count = count + 1;
+            cursor = cursor + 1;
+        }
+        Return count;
+    }
+
+    Public Function Length() -> Int
+    Explain {
+        Description: "Return how many integers are stored.";
+        Input: "No parameters";
+        Processing: "Read the stored count.";
+        Output: "The count.";
+    } {
+        Return count;
+    }
+
+    Public Function At(Int slot) -> Int
+    Explain {
+        Description: "Read a stored integer without moving the cursor.";
+        Input: slot = "Stored index";
+        Processing: "Read the slot when it is in range.";
+        Output: "The integer, or -1.";
+    } {
+        If (slot < 0 || slot >= count) { Return -1; }
+        Return values[slot];
+    }
+
+    Public Function Configure(String name) -> String
+    Explain {
+        Description: "Name this iteration.";
+        Input: name = "Iteration label";
+        Processing: "Store the label.";
+        Output: "The stored label.";
+    } {
+        label = name;
+        Return label;
+    }
+
+    Public Function Next() -> Int
+    Explain {
+        Description: "Advance the cursor and return the next integer.";
+        Input: "No parameters";
+        Processing: "Read the next stored, buffered, cycling, or generated integer.";
+        Output: "The integer, or -1 when the cursor is finished.";
+    } {
+        If (alive == 0) { Return -1; }
+        If (growing == 1) {
+            If (produced >= limit) { Return -1; }
+            current = nextNumber;
+            nextNumber = nextNumber + 1;
+            produced = produced + 1;
+            Return current;
+        }
+        If (useBuffer == 1) {
+            If (bufferAt >= bufferFilled) {
+                bufferFilled = 0;
+                bufferAt = 0;
+                If (index < count) {
+                    buffer0 = values[index];
+                    index = index + 1;
+                    bufferFilled = 1;
+                }
+                If (index < count) {
+                    buffer1 = values[index];
+                    index = index + 1;
+                    bufferFilled = 2;
+                }
+                If (bufferFilled > 0) { fills = fills + 1; }
+            }
+            If (bufferAt >= bufferFilled) { Return -1; }
+            If (bufferAt == 0) { current = buffer0; }
+            If (bufferAt == 1) { current = buffer1; }
+            bufferAt = bufferAt + 1;
+            Return current;
+        }
+        If (index >= count && cycle == 1 && count > 0) { index = 0; }
+        If (index >= count) { Return -1; }
+        current = values[index];
+        index = index + 1;
+        Return current;
+    }
+
+    Public Function Current() -> Int
+    Explain {
+        Description: "Return the integer from the latest step.";
+        Input: "No parameters";
+        Processing: "Read the saved integer.";
+        Output: "The current integer, or -1.";
+    } {
+        Return current;
+    }
+
+    Public Function HasNext() -> Int
+    Explain {
+        Description: "Report whether another integer is available.";
+        Input: "No parameters";
+        Processing: "Check disposal, the buffer, the cycle, and the stored tail.";
+        Output: "One when another integer is available.";
+    } {
+        If (alive == 0) { Return 0; }
+        If (growing == 1) {
+            If (produced < limit) { Return 1; }
+            Return 0;
+        }
+        If (useBuffer == 1) {
+            If (bufferAt < bufferFilled) { Return 1; }
+            If (index < count) { Return 1; }
+            Return 0;
+        }
+        If (index < count) { Return 1; }
+        If (cycle == 1 && count > 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Reset() -> Int
+    Explain {
+        Description: "Rewind the cursor.";
+        Input: "No parameters";
+        Processing: "Clear the position, the buffer, and the generated count.";
+        Output: "Zero.";
+    } {
+        index = 0;
+        current = -1;
+        produced = 0;
+        bufferAt = 0;
+        bufferFilled = 0;
+        Return 0;
+    }
+
+    Public Function Dispose() -> Int
+    Explain {
+        Description: "Close the cursor.";
+        Input: "No parameters";
+        Processing: "Reject later steps.";
+        Output: "Zero.";
+    } {
+        alive = 0;
+        Return 0;
+    }
+
+    Public Function State() -> String
+    Explain {
+        Description: "Describe the cursor.";
+        Input: "No parameters";
+        Processing: "Report disposed, ready, or done.";
+        Output: "The state name.";
+    } {
+        If (alive == 0) { Return "disposed"; }
+        If (This.HasNext() == 1) { Return "ready"; }
+        Return "done";
+    }
+
+    Public Function Copy() -> Walk
+    Explain {
+        Description: "Copy the stored integers.";
+        Input: "No parameters";
+        Processing: "Append each integer to a new cursor.";
+        Output: "The copy.";
+    } {
+        Walk copy = Walk();
+        Int cursor = 0;
+        While (cursor < count) {
+            copy.Store(values[cursor]);
+            cursor = cursor + 1;
+        }
+        Return copy;
+    }
+
+    Public Function Take(Int amount) -> Walk
+    Explain {
+        Description: "Copy a prefix of the stored integers.";
+        Input: amount = "How many integers to keep";
+        Processing: "Copy from the front until the amount is reached.";
+        Output: "The limited cursor.";
+    } {
+        Walk copy = Walk();
+        Int cursor = 0;
+        While (cursor < amount && cursor < count) {
+            copy.Store(values[cursor]);
+            cursor = cursor + 1;
+        }
+        Return copy;
+    }
+
+    Public Function Skip(Int amount) -> Walk
+    Explain {
+        Description: "Copy the integers after a prefix.";
+        Input: amount = "How many integers to drop";
+        Processing: "Copy from that index to the end.";
+        Output: "The remaining cursor.";
+    } {
+        Walk copy = Walk();
+        Int cursor = amount;
+        While (cursor < count) {
+            copy.Store(values[cursor]);
+            cursor = cursor + 1;
+        }
+        Return copy;
+    }
+
+    Public Function TakeWhile(Int limitValue) -> Walk
+    Explain {
+        Description: "Copy the leading integers below a limit.";
+        Input: limitValue = "Exclusive upper bound";
+        Processing: "Stop at the first integer that is not below the limit.";
+        Output: "The accepted prefix.";
+    } {
+        Walk copy = Walk();
+        Int cursor = 0;
+        While (cursor < count && values[cursor] < limitValue) {
+            copy.Store(values[cursor]);
+            cursor = cursor + 1;
+        }
+        Return copy;
+    }
+
+    Public Function SkipWhile(Int limitValue) -> Walk
+    Explain {
+        Description: "Drop the leading integers below a limit.";
+        Input: limitValue = "Exclusive upper bound";
+        Processing: "Skip while the integer is below the limit, then copy the rest.";
+        Output: "The remaining cursor.";
+    } {
+        Walk copy = Walk();
+        Int cursor = 0;
+        While (cursor < count && values[cursor] < limitValue) { cursor = cursor + 1; }
+        While (cursor < count) {
+            copy.Store(values[cursor]);
+            cursor = cursor + 1;
+        }
+        Return copy;
+    }
+
+    Public Function Reversed() -> Walk
+    Explain {
+        Description: "Copy the integers from back to front.";
+        Input: "No parameters";
+        Processing: "Store the last integer first.";
+        Output: "The reversed cursor.";
+    } {
+        Walk copy = Walk();
+        Int cursor = count - 1;
+        While (cursor >= 0) {
+            copy.Store(values[cursor]);
+            cursor = cursor - 1;
+        }
+        Return copy;
+    }
+
+    Public Function EnableCycle() -> Int
+    Explain {
+        Description: "Repeat the stored integers forever.";
+        Input: "No parameters";
+        Processing: "Wrap the cursor after the last integer.";
+        Output: "One.";
+    } {
+        cycle = 1;
+        Return 1;
+    }
+
+    Public Function Peek() -> Int
+    Explain {
+        Description: "Read the next integer without advancing.";
+        Input: "No parameters";
+        Processing: "Look at the next slot, including the cycle wrap.";
+        Output: "The next integer, or -1.";
+    } {
+        If (alive == 0) { Return -1; }
+        If (growing == 1) {
+            If (produced >= limit) { Return -1; }
+            Return nextNumber;
+        }
+        Int look = index;
+        If (look >= count && cycle == 1 && count > 0) { look = 0; }
+        If (look >= count) { Return -1; }
+        Return values[look];
+    }
+
+    Public Function ZipText(Walk other) -> String
+    Explain {
+        Description: "Pair this cursor with another.";
+        Input: other = "Cursor of matching integers";
+        Processing: "Join each pair until either cursor runs out.";
+        Output: "The pairs as left:right text.";
+    } {
+        String text = "";
+        Int cursor = 0;
+        While (cursor < count && cursor < other.Length()) {
+            If (cursor > 0) { text = text + ","; }
+            text = text + This.IntText(values[cursor]) + ":" + This.IntText(other.At(cursor));
+            cursor = cursor + 1;
+        }
+        If (text == "") { Return "empty"; }
+        Return text;
+    }
+
+    Public Function EnumerateText() -> String
+    Explain {
+        Description: "Number the stored integers.";
+        Input: "No parameters";
+        Processing: "Join each index and integer.";
+        Output: "The numbered text.";
+    } {
+        If (count == 0) { Return "empty"; }
+        String text = "";
+        Int cursor = 0;
+        While (cursor < count) {
+            If (cursor > 0) { text = text + ","; }
+            text = text + This.IntText(cursor) + ":" + This.IntText(values[cursor]);
+            cursor = cursor + 1;
+        }
+        Return text;
+    }
+
+    Public Function EnableBuffer() -> Int
+    Explain {
+        Description: "Serve the integers through a two-slot buffer.";
+        Input: "No parameters";
+        Processing: "Refill two integers whenever the buffer is empty.";
+        Output: "One.";
+    } {
+        useBuffer = 1;
+        bufferAt = 0;
+        bufferFilled = 0;
+        Return 1;
+    }
+
+    Public Function Fills() -> Int
+    Explain {
+        Description: "Return how many times the buffer was filled.";
+        Input: "No parameters";
+        Processing: "Read the fill count.";
+        Output: "The fill count.";
+    } {
+        Return fills;
+    }
+
+    Public Function Unbounded(Int start) -> Int
+    Explain {
+        Description: "Generate integers upward from a start value.";
+        Input: start = "First generated integer";
+        Processing: "Leave the sequence open until Cap stops it.";
+        Output: "The start value.";
+    } {
+        growing = 1;
+        nextNumber = start;
+        produced = 0;
+        limit = 8;
+        Return start;
+    }
+
+    Public Function Cap(Int amount) -> Int
+    Explain {
+        Description: "Limit how many generated integers are produced.";
+        Input: amount = "Maximum steps";
+        Processing: "Store the step limit.";
+        Output: "The limit.";
+    } {
+        limit = amount;
+        Return limit;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int negative = 0;
+        Int remaining = value;
+        If (remaining < 0) {
+            negative = 1;
+            remaining = 0 - remaining;
+        }
+        String digits = "0123456789";
+        String text = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            text = digits.Substring(digit, 1) + text;
+            remaining = remaining / 10;
+        }
+        If (negative == 1) { Return "-" + text; }
+        Return text;
+    }
+}
+
+Public Iterator Function RangeValues(Int start, Int end) -> Int
+Explain {
+    Description: "Yield every integer in a half-open range.";
+    Input: start = "First integer", end = "Exclusive end";
+    Processing: "Yield each integer and then stop.";
+    Output: "The yielded integers.";
+} {
+    Int cursor = start;
+    While (cursor < end) {
+        Yield cursor;
+        cursor = cursor + 1;
+    }
+}
+
+Public Iterator Function GenerateSquares(Int amount) -> Int
+Explain {
+    Description: "Yield square numbers.";
+    Input: amount = "How many squares";
+    Processing: "Yield index times index.";
+    Output: "The squares.";
+} {
+    Int cursor = 0;
+    While (cursor < amount) {
+        Yield cursor * cursor;
+        cursor = cursor + 1;
+    }
+}
+
+Public Iterator Function GenerateStopped(Int end) -> Int
+Explain {
+    Description: "Yield integers until a stop value.";
+    Input: end = "First integer that is not yielded";
+    Processing: "Yield each integer and break at the stop value.";
+    Output: "The integers before the stop.";
+} {
+    Int cursor = 1;
+    While (cursor < 8) {
+        If (cursor == end) { Break; }
+        Yield cursor;
+        cursor = cursor + 1;
+    }
+}
+
+Public Async Function ReadAsync(Walk source) -> Task<Int>
+Explain {
+    Description: "Advance a cursor asynchronously.";
+    Input: source = "Cursor to advance";
+    Processing: "Take one step and return its integer.";
+    Output: "The next integer.";
+} {
+    Return source.Next();
+}

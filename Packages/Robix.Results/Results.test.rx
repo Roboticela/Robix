@@ -1,0 +1,5 @@
+Test Ok {
+    Constraint: Outcome().Ok(7) == 1;
+    Processing: True;
+    Output: True;
+}

@@ -1,0 +1,5 @@
+Test CreateThread {
+    Constraint: ThreadDesk().CreateThread("arm", 2, 2) == 0;
+    Processing: True;
+    Output: True;
+}

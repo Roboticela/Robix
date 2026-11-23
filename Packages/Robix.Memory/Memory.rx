@@ -1,0 +1,621 @@
+// Robix.Memory: blocks, copies, pools, and explicit release. There is no garbage collector.
+Package Robix.Memory;
+
+Import Robix.Core;
+
+
+Class MemoryManager {
+    Private Int budget;
+    Private Int used;
+    Private Int pendingBytes;
+    Private Int collections;
+    Private Int lastCollected;
+    Private Pointer<Byte> block0;
+    Private Pointer<Byte> block1;
+    Private Pointer<Byte> block2;
+    Private Pointer<Byte> block3;
+    Private Int size0;
+    Private Int size1;
+    Private Int size2;
+    Private Int size3;
+    Private Int state0;
+    Private Int state1;
+    Private Int state2;
+    Private Int state3;
+    Private Int align0;
+    Private Int align1;
+    Private Int align2;
+    Private Int align3;
+    Private Int rooted0;
+    Private Int rooted1;
+    Private Int rooted2;
+    Private Int rooted3;
+    Private Int poolCapacity;
+    Private Int poolCount;
+    Private Int rented;
+    Private Int pool0;
+    Private Int pool1;
+    Private Int pool2;
+    Private Int pool3;
+
+    Public Constructor() {
+        budget = 4096;
+        used = 0;
+        pendingBytes = 0;
+        collections = 0;
+        lastCollected = 0;
+        size0 = 0;
+        size1 = 0;
+        size2 = 0;
+        size3 = 0;
+        state0 = 0;
+        state1 = 0;
+        state2 = 0;
+        state3 = 0;
+        align0 = 1;
+        align1 = 1;
+        align2 = 1;
+        align3 = 1;
+        rooted0 = 0;
+        rooted1 = 0;
+        rooted2 = 0;
+        rooted3 = 0;
+        poolCapacity = 0;
+        poolCount = 0;
+        rented = 0;
+        pool0 = 0;
+        pool1 = 0;
+        pool2 = 0;
+        pool3 = 0;
+    }
+
+    Public Function Allocate(Int size) -> Int
+    Explain {
+        Description: "Allocate a block and mark its first byte.";
+        Input: size = "Number of bytes";
+        Processing: "Claim a free slot and allocate native bytes.";
+        Output: "The block slot, or -1.";
+    } {
+        Int slot = This.Claim(size, 1, 0);
+        If (slot < 0) { Return -1; }
+        This.WriteAt(slot, 0, 126);
+        Return slot;
+    }
+
+    Public Function AllocateZeroed(Int size) -> Int
+    Explain {
+        Description: "Allocate a block of zero bytes.";
+        Input: size = "Number of bytes";
+        Processing: "Claim a slot and leave the native zeros in place.";
+        Output: "The block slot, or -1.";
+    } {
+        Return This.Claim(size, 1, 1);
+    }
+
+    Public Function AllocateAligned(Int size, Int alignment) -> Int
+    Explain {
+        Description: "Allocate a block with a power-of-two alignment.";
+        Input: size = "Number of bytes", alignment = "Alignment in bytes";
+        Processing: "Reject an alignment that is not a power of two.";
+        Output: "The block slot, or -1.";
+    } {
+        If (alignment < 1 || This.PowerOfTwo(alignment) == 0) { Return -1; }
+        Int slot = This.Claim(size, alignment, 1);
+        Return slot;
+    }
+
+    Public Function Reallocate(Int slot, Int newSize) -> Int
+    Explain {
+        Description: "Grow or shrink a live block.";
+        Input: slot = "Block slot", newSize = "New size in bytes";
+        Processing: "Allocate a new block, copy the shared prefix, and free the old block.";
+        Output: "The new slot, or -1.";
+    } {
+        If (This.StateOf(slot) != 1 || newSize < 1) { Return -1; }
+        Int oldSize = This.SizeOf(slot);
+        Int slotNext = This.Claim(newSize, This.AlignOf(slot), 1);
+        If (slotNext < 0) { Return -1; }
+        Int count = oldSize;
+        If (newSize < count) { count = newSize; }
+        This.CopyRange(slot, 0, slotNext, 0, count);
+        This.Free(slot);
+        Return slotNext;
+    }
+
+    Public Function Free(Int slot) -> Int
+    Explain {
+        Description: "Release a live block at the next collection.";
+        Input: slot = "Block slot";
+        Processing: "Mark the block pending so Collect can return its bytes.";
+        Output: "One when the block was live.";
+    } {
+        If (This.StateOf(slot) != 1) { Return 0; }
+        Int size = This.SizeOf(slot);
+        used = used - size;
+        pendingBytes = pendingBytes + size;
+        This.SetState(slot, 2);
+        Return 1;
+    }
+
+    Public Function Read(Int slot, Int index) -> Int
+    Explain {
+        Description: "Read one byte from a live block.";
+        Input: slot = "Block slot", index = "Byte index";
+        Processing: "Walk to the index and read the byte.";
+        Output: "The byte, or -1.";
+    } {
+        If (This.StateOf(slot) != 1 || index < 0 || index >= This.SizeOf(slot)) { Return -1; }
+        Return This.ReadAt(slot, index);
+    }
+
+    Public Function Write(Int slot, Int index, Int value) -> Int
+    Explain {
+        Description: "Write one byte into a live block.";
+        Input: slot = "Block slot", index = "Byte index", value = "Byte value";
+        Processing: "Store the byte when the index is inside the block.";
+        Output: "One when the byte was stored.";
+    } {
+        If (This.StateOf(slot) != 1 || index < 0 || index >= This.SizeOf(slot)) { Return 0; }
+        This.WriteAt(slot, index, value);
+        Return 1;
+    }
+
+    Public Function Copy(Int source, Int destination, Int length) -> Int
+    Explain {
+        Description: "Copy bytes from one live block to another.";
+        Input: source = "Source slot", destination = "Destination slot", length = "Number of bytes";
+        Processing: "Copy from the start of each block.";
+        Output: "One when the copy fits.";
+    } {
+        Return This.CopyRange(source, 0, destination, 0, length);
+    }
+
+    Public Function Move(Int source, Int destination, Int length) -> Int
+    Explain {
+        Description: "Copy bytes and clear the source range.";
+        Input: source = "Source slot", destination = "Destination slot", length = "Number of bytes";
+        Processing: "Copy the range, then set the source bytes to zero.";
+        Output: "One when the move fits.";
+    } {
+        If (This.CopyRange(source, 0, destination, 0, length) == 0) { Return 0; }
+        Int index = 0;
+        While (index < length) {
+            This.WriteAt(source, index, 0);
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function Clear(Int slot) -> Int
+    Explain {
+        Description: "Set every byte in a block to zero.";
+        Input: slot = "Block slot";
+        Processing: "Write zero through the block.";
+        Output: "One when the block is live.";
+    } {
+        Return This.Fill(slot, 0);
+    }
+
+    Public Function Fill(Int slot, Int value) -> Int
+    Explain {
+        Description: "Fill a live block with one byte value.";
+        Input: slot = "Block slot", value = "Byte value";
+        Processing: "Write the value into every byte.";
+        Output: "One when the block is live.";
+    } {
+        If (This.StateOf(slot) != 1) { Return 0; }
+        Int index = 0;
+        While (index < This.SizeOf(slot)) {
+            This.WriteAt(slot, index, value);
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function Compare(Int left, Int right) -> Int
+    Explain {
+        Description: "Compare the bytes of two live blocks.";
+        Input: left = "First slot", right = "Second slot";
+        Processing: "Compare the shared prefix, then the lengths.";
+        Output: "Zero when the blocks match, otherwise negative or positive.";
+    } {
+        If (This.StateOf(left) != 1 || This.StateOf(right) != 1) { Return -2; }
+        Int count = This.SizeOf(left);
+        If (This.SizeOf(right) < count) { count = This.SizeOf(right); }
+        Int index = 0;
+        While (index < count) {
+            Int a = This.ReadAt(left, index);
+            Int b = This.ReadAt(right, index);
+            If (a < b) { Return -1; }
+            If (a > b) { Return 1; }
+            index = index + 1;
+        }
+        If (This.SizeOf(left) < This.SizeOf(right)) { Return -1; }
+        If (This.SizeOf(left) > This.SizeOf(right)) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Slice(Int slot, Int start, Int length) -> Int
+    Explain {
+        Description: "Allocate a block containing a range of another block.";
+        Input: slot = "Source slot", start = "First byte", length = "Number of bytes";
+        Processing: "Allocate a new block and copy the range into it.";
+        Output: "The new slot, or -1.";
+    } {
+        If (This.StateOf(slot) != 1 || start < 0 || length < 1 || start + length > This.SizeOf(slot)) { Return -1; }
+        Int slotNext = This.Claim(length, 1, 1);
+        If (slotNext < 0) { Return -1; }
+        This.CopyRange(slot, start, slotNext, 0, length);
+        Return slotNext;
+    }
+
+    Public Function CreatePool(Int capacity) -> Int
+    Explain {
+        Description: "Create an object pool.";
+        Input: capacity = "How many integers the pool can hold";
+        Processing: "Store up to four pooled integers.";
+        Output: "The capacity, or zero when it is too large.";
+    } {
+        If (capacity < 1 || capacity > 4) { Return 0; }
+        poolCapacity = capacity;
+        poolCount = 0;
+        rented = 0;
+        Return poolCapacity;
+    }
+
+    Public Function Rent() -> Int
+    Explain {
+        Description: "Rent an integer from the pool.";
+        Input: "No parameters";
+        Processing: "Reuse a returned value, or issue a new one.";
+        Output: "The rented value, or -1 when the pool is exhausted.";
+    } {
+        If (rented >= poolCapacity) { Return -1; }
+        rented = rented + 1;
+        If (poolCount > 0) {
+            poolCount = poolCount - 1;
+            Return This.PoolAt(poolCount);
+        }
+        Return rented;
+    }
+
+    Public Function ReturnItem(Int item) -> Int
+    Explain {
+        Description: "Return a rented integer to the pool.";
+        Input: item = "Rented value";
+        Processing: "Push the value back while the pool has room.";
+        Output: "One when the value was returned.";
+    } {
+        If (rented <= 0 || poolCount >= poolCapacity) { Return 0; }
+        This.SetPool(poolCount, item);
+        poolCount = poolCount + 1;
+        rented = rented - 1;
+        Return 1;
+    }
+
+    Public Function ClearPool() -> Int
+    Explain {
+        Description: "Drop every returned pool item.";
+        Input: "No parameters";
+        Processing: "Empty the returned stack and the rented count.";
+        Output: "Zero items remaining.";
+    } {
+        poolCount = 0;
+        rented = 0;
+        Return 0;
+    }
+
+    Public Function TrimPool() -> Int
+    Explain {
+        Description: "Shrink the pool to the items still rented.";
+        Input: "No parameters";
+        Processing: "Drop returned items and set capacity to the rented count.";
+        Output: "The new capacity.";
+    } {
+        poolCount = 0;
+        poolCapacity = rented;
+        Return poolCapacity;
+    }
+
+    Public Function Collect() -> Int
+    Explain {
+        Description: "Release blocks that have already been freed.";
+        Input: "No parameters";
+        Processing: "Return pending native bytes. Live blocks stay allocated.";
+        Output: "The number of blocks released.";
+    } {
+        Int released = 0;
+        released = released + This.Sweep(0);
+        released = released + This.Sweep(1);
+        released = released + This.Sweep(2);
+        released = released + This.Sweep(3);
+        collections = collections + 1;
+        lastCollected = released;
+        Return released;
+    }
+
+    Public Function GetGeneration(Int slot) -> Int
+    Explain {
+        Description: "Return the collection generation of a block.";
+        Input: slot = "Block slot";
+        Processing: "Robix has no garbage-collected generations, so every block is generation zero.";
+        Output: "Zero for a known block, otherwise -1.";
+    } {
+        If (This.StateOf(slot) == 0) { Return -1; }
+        Return 0;
+    }
+
+    Public Function AllocatedBytes() -> Int
+    Explain {
+        Description: "Return bytes still held by live or pending blocks.";
+        Input: "No parameters";
+        Processing: "Add live bytes and bytes waiting for Collect.";
+        Output: "The held byte count.";
+    } {
+        Return used + pendingBytes;
+    }
+
+    Public Function HeapSize() -> Int
+    Explain {
+        Description: "Return the fixed heap budget.";
+        Input: "No parameters";
+        Processing: "Read the budget.";
+        Output: "The budget in bytes.";
+    } {
+        Return budget;
+    }
+
+    Public Function FreeBytes() -> Int
+    Explain {
+        Description: "Return bytes still available in the budget.";
+        Input: "No parameters";
+        Processing: "Subtract held bytes from the budget.";
+        Output: "The free byte count.";
+    } {
+        Return budget - used - pendingBytes;
+    }
+
+    Public Function Pressure() -> String
+    Explain {
+        Description: "Describe how full the budget is.";
+        Input: "No parameters";
+        Processing: "Compare held bytes with the budget.";
+        Output: "low, medium, or high.";
+    } {
+        Int held = used + pendingBytes;
+        If (held * 2 >= budget) { Return "high"; }
+        If (held * 4 >= budget) { Return "medium"; }
+        Return "low";
+    }
+
+    Public Function ActiveCount() -> Int
+    Explain {
+        Description: "Count live blocks.";
+        Input: "No parameters";
+        Processing: "Count slots in the live state.";
+        Output: "The live block count.";
+    } {
+        Int count = 0;
+        If (state0 == 1) { count = count + 1; }
+        If (state1 == 1) { count = count + 1; }
+        If (state2 == 1) { count = count + 1; }
+        If (state3 == 1) { count = count + 1; }
+        Return count;
+    }
+
+    Public Function DetectLeaks() -> Int
+    Explain {
+        Description: "Count live blocks that are not rooted.";
+        Input: "No parameters";
+        Processing: "A live block is a leak because Robix has no garbage collector.";
+        Output: "The number of leaked blocks.";
+    } {
+        Int count = 0;
+        If (state0 == 1 && rooted0 == 0) { count = count + 1; }
+        If (state1 == 1 && rooted1 == 0) { count = count + 1; }
+        If (state2 == 1 && rooted2 == 0) { count = count + 1; }
+        If (state3 == 1 && rooted3 == 0) { count = count + 1; }
+        Return count;
+    }
+
+    Public Function SuppressFinalize(Int slot) -> Int
+    Explain {
+        Description: "Root a live block so leak detection skips it.";
+        Input: slot = "Block slot";
+        Processing: "Mark the block rooted. The caller still has to free it.";
+        Output: "One when the block was live.";
+    } {
+        If (This.StateOf(slot) != 1) { Return 0; }
+        This.SetRooted(slot, 1);
+        Return 1;
+    }
+
+    Public Function ReRegisterForFinalize(Int slot) -> Int
+    Explain {
+        Description: "Stop ignoring a rooted block during leak detection.";
+        Input: slot = "Block slot";
+        Processing: "Clear the rooted mark.";
+        Output: "One when the block is known.";
+    } {
+        If (This.StateOf(slot) == 0) { Return 0; }
+        This.SetRooted(slot, 0);
+        Return 1;
+    }
+
+    Public Function Size(Int slot) -> Int
+    Explain {
+        Description: "Return the size of a block.";
+        Input: slot = "Block slot";
+        Processing: "Read the stored size.";
+        Output: "The size, or zero.";
+    } {
+        Return This.SizeOf(slot);
+    }
+
+    Public Function Alignment(Int slot) -> Int
+    Explain {
+        Description: "Return the alignment of a block.";
+        Input: slot = "Block slot";
+        Processing: "Read the stored alignment.";
+        Output: "The alignment, or zero.";
+    } {
+        Return This.AlignOf(slot);
+    }
+
+    Private Function Claim(Int size, Int alignment, Int zeroed) -> Int {
+        If (size < 1 || used + pendingBytes + size > budget) { Return -1; }
+        Int slot = -1;
+        If (state0 == 0) { slot = 0; }
+        If (slot < 0 && state1 == 0) { slot = 1; }
+        If (slot < 0 && state2 == 0) { slot = 2; }
+        If (slot < 0 && state3 == 0) { slot = 3; }
+        If (slot < 0) { Return -1; }
+        Unsafe {
+            Pointer<Byte> memory = Memory.Allocate(size);
+            This.SetBlock(slot, memory);
+            If (zeroed == 0) { *memory = 126; }
+        }
+        This.SetSize(slot, size);
+        This.SetAlign(slot, alignment);
+        This.SetRooted(slot, 0);
+        This.SetState(slot, 1);
+        used = used + size;
+        Return slot;
+    }
+
+    Private Function CopyRange(Int source, Int sourceStart, Int destination, Int destinationStart, Int length) -> Int {
+        If (This.StateOf(source) != 1 || This.StateOf(destination) != 1) { Return 0; }
+        If (length < 0 || sourceStart < 0 || destinationStart < 0) { Return 0; }
+        If (sourceStart + length > This.SizeOf(source) || destinationStart + length > This.SizeOf(destination)) { Return 0; }
+        Int index = 0;
+        While (index < length) {
+            Int value = This.ReadAt(source, sourceStart + index);
+            This.WriteAt(destination, destinationStart + index, value);
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function Sweep(Int slot) -> Int {
+        If (This.StateOf(slot) != 2) { Return 0; }
+        Int size = This.SizeOf(slot);
+        Unsafe {
+            Memory.Free(This.BlockOf(slot));
+        }
+        pendingBytes = pendingBytes - size;
+        This.SetSize(slot, 0);
+        This.SetState(slot, 0);
+        This.SetRooted(slot, 0);
+        Return 1;
+    }
+
+    Private Function PowerOfTwo(Int value) -> Int {
+        Int cursor = 1;
+        While (cursor < value) { cursor = cursor * 2; }
+        If (cursor == value) { Return 1; }
+        Return 0;
+    }
+
+    Private Function ReadAt(Int slot, Int index) -> Int {
+        Int value = 0;
+        Unsafe {
+            Pointer<Byte> cell = This.BlockOf(slot);
+            Int cursor = 0;
+            While (cursor < index) {
+                cell = cell + 1;
+                cursor = cursor + 1;
+            }
+            value = *cell;
+        }
+        Return value;
+    }
+
+    Private Function WriteAt(Int slot, Int index, Int value) -> Void {
+        Unsafe {
+            Pointer<Byte> cell = This.BlockOf(slot);
+            Int cursor = 0;
+            While (cursor < index) {
+                cell = cell + 1;
+                cursor = cursor + 1;
+            }
+            *cell = value;
+        }
+    }
+
+    Private Function StateOf(Int slot) -> Int {
+        If (slot == 0) { Return state0; }
+        If (slot == 1) { Return state1; }
+        If (slot == 2) { Return state2; }
+        Return state3;
+    }
+
+    Private Function SetState(Int slot, Int value) -> Void {
+        If (slot == 0) { state0 = value; }
+        If (slot == 1) { state1 = value; }
+        If (slot == 2) { state2 = value; }
+        If (slot == 3) { state3 = value; }
+    }
+
+    Private Function SizeOf(Int slot) -> Int {
+        If (slot == 0) { Return size0; }
+        If (slot == 1) { Return size1; }
+        If (slot == 2) { Return size2; }
+        Return size3;
+    }
+
+    Private Function SetSize(Int slot, Int value) -> Void {
+        If (slot == 0) { size0 = value; }
+        If (slot == 1) { size1 = value; }
+        If (slot == 2) { size2 = value; }
+        If (slot == 3) { size3 = value; }
+    }
+
+    Private Function AlignOf(Int slot) -> Int {
+        If (slot == 0) { Return align0; }
+        If (slot == 1) { Return align1; }
+        If (slot == 2) { Return align2; }
+        Return align3;
+    }
+
+    Private Function SetAlign(Int slot, Int value) -> Void {
+        If (slot == 0) { align0 = value; }
+        If (slot == 1) { align1 = value; }
+        If (slot == 2) { align2 = value; }
+        If (slot == 3) { align3 = value; }
+    }
+
+    Private Function SetRooted(Int slot, Int value) -> Void {
+        If (slot == 0) { rooted0 = value; }
+        If (slot == 1) { rooted1 = value; }
+        If (slot == 2) { rooted2 = value; }
+        If (slot == 3) { rooted3 = value; }
+    }
+
+    Private Function BlockOf(Int slot) -> Pointer<Byte> {
+        If (slot == 0) { Return block0; }
+        If (slot == 1) { Return block1; }
+        If (slot == 2) { Return block2; }
+        Return block3;
+    }
+
+    Private Function SetBlock(Int slot, Pointer<Byte> memory) -> Void {
+        If (slot == 0) { block0 = memory; }
+        If (slot == 1) { block1 = memory; }
+        If (slot == 2) { block2 = memory; }
+        If (slot == 3) { block3 = memory; }
+    }
+
+    Private Function PoolAt(Int index) -> Int {
+        If (index == 0) { Return pool0; }
+        If (index == 1) { Return pool1; }
+        If (index == 2) { Return pool2; }
+        Return pool3;
+    }
+
+    Private Function SetPool(Int index, Int value) -> Void {
+        If (index == 0) { pool0 = value; }
+        If (index == 1) { pool1 = value; }
+        If (index == 2) { pool2 = value; }
+        If (index == 3) { pool3 = value; }
+    }
+}

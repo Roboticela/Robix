@@ -1,0 +1,624 @@
+// Robix.Results: success, failure, options, either, and validation.
+Package Robix.Results;
+
+Import Robix.Core;
+
+
+Class Outcome {
+    Private Int mode;
+    Private Int number;
+    Private String text;
+    Private Array<Int> flags;
+    Private Array<Int> values;
+    Private Array<String> faults;
+    Private Int stored;
+
+    Public Constructor() {
+        mode = 0;
+        number = 0;
+        text = "";
+        flags = [0, 0, 0, 0];
+        values = [0, 0, 0, 0];
+        faults = ["", "", "", ""];
+        stored = 0;
+    }
+
+    Public Function Ok(Int value) -> Int
+    Explain {
+        Description: "Store a successful result.";
+        Input: value = "Success value";
+        Processing: "Mark the result successful and store the value.";
+        Output: "One.";
+    } {
+        mode = 1;
+        number = value;
+        text = "";
+        Return 1;
+    }
+
+    Public Function Err(String message) -> Int
+    Explain {
+        Description: "Store a failed result.";
+        Input: message = "Error text";
+        Processing: "Mark the result failed and store the error.";
+        Output: "One.";
+    } {
+        mode = 2;
+        number = 0;
+        text = message;
+        Return 1;
+    }
+
+    Public Function Success(Int value) -> Int
+    Explain {
+        Description: "Store a successful result.";
+        Input: value = "Success value";
+        Processing: "Delegate to the success constructor.";
+        Output: "One.";
+    } {
+        Return This.Ok(value);
+    }
+
+    Public Function Failure(String message) -> Int
+    Explain {
+        Description: "Store a failed result.";
+        Input: message = "Error text";
+        Processing: "Delegate to the failure constructor.";
+        Output: "One.";
+    } {
+        Return This.Err(message);
+    }
+
+    Public Function IsSuccess() -> Int
+    Explain {
+        Description: "Report whether the result is successful.";
+        Input: "No parameters";
+        Processing: "Read the success flag.";
+        Output: "One when the result is successful.";
+    } {
+        If (mode == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsFailure() -> Int
+    Explain {
+        Description: "Report whether the result is a failure.";
+        Input: "No parameters";
+        Processing: "Read the failure flag.";
+        Output: "One when the result is a failure.";
+    } {
+        If (mode == 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function GetValue() -> Int
+    Explain {
+        Description: "Return the success value.";
+        Input: "No parameters";
+        Processing: "Read the stored value when the result is successful.";
+        Output: "The value, or -1.";
+    } {
+        If (mode == 1) { Return number; }
+        Return -1;
+    }
+
+    Public Function GetError() -> String
+    Explain {
+        Description: "Return the failure text.";
+        Input: "No parameters";
+        Processing: "Read the stored error when the result is a failure.";
+        Output: "The error, or none.";
+    } {
+        If (mode == 2) { Return text; }
+        Return "none";
+    }
+
+    Public Function GetValueOrDefault(Int fallback) -> Int
+    Explain {
+        Description: "Return the success value or a fallback.";
+        Input: fallback = "Value used for a failure";
+        Processing: "Read the value when successful.";
+        Output: "The value, or the fallback.";
+    } {
+        If (mode == 1) { Return number; }
+        Return fallback;
+    }
+
+    Public Function Map(Int code) -> Int
+    Explain {
+        Description: "Transform a successful value.";
+        Input: code = "1 increments, 2 doubles";
+        Processing: "Change the value only when the result is successful.";
+        Output: "One when the value changed.";
+    } {
+        If (mode != 1) { Return 0; }
+        If (code == 1) { number = number + 1; }
+        If (code == 2) { number = number * 2; }
+        Return 1;
+    }
+
+    Public Function MapError(String suffix) -> Int
+    Explain {
+        Description: "Transform a failure message.";
+        Input: suffix = "Text appended to the error";
+        Processing: "Change the error only when the result is a failure.";
+        Output: "One when the error changed.";
+    } {
+        If (mode != 2) { Return 0; }
+        text = text + ":" + suffix;
+        Return 1;
+    }
+
+    Public Function FlatMap() -> Int
+    Explain {
+        Description: "Continue a success only for a positive value.";
+        Input: "No parameters";
+        Processing: "Double a positive value. A non-positive value becomes an error.";
+        Output: "One when the result stays successful.";
+    } {
+        If (mode != 1) { Return 0; }
+        If (number <= 0) {
+            mode = 2;
+            text = "nonpositive";
+            number = 0;
+            Return 0;
+        }
+        number = number * 2;
+        Return 1;
+    }
+
+    Public Function Bind() -> Int
+    Explain {
+        Description: "Continue a success only for an even value.";
+        Input: "No parameters";
+        Processing: "Halve an even value. An odd value becomes an error.";
+        Output: "One when the result stays successful.";
+    } {
+        If (mode != 1) { Return 0; }
+        Int half = number / 2;
+        If (half * 2 != number) {
+            mode = 2;
+            text = "odd";
+            number = 0;
+            Return 0;
+        }
+        number = half;
+        Return 1;
+    }
+
+    Public Function Keep(Int minimum) -> Int
+    Explain {
+        Description: "Keep a success only when it reaches a minimum.";
+        Input: minimum = "Smallest accepted value";
+        Processing: "Turn a smaller value into a filtered error.";
+        Output: "One when the value is kept.";
+    } {
+        If (mode != 1) { Return 0; }
+        If (number < minimum) {
+            mode = 2;
+            text = "filtered";
+            number = 0;
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Public Function PushOk(Int value) -> Int
+    Explain {
+        Description: "Append a successful result.";
+        Input: value = "Success value";
+        Processing: "Store the value in the next slot.";
+        Output: "One when the slot was stored.";
+    } {
+        If (stored >= 4) { Return 0; }
+        flags[stored] = 1;
+        values[stored] = value;
+        faults[stored] = "";
+        stored = stored + 1;
+        Return 1;
+    }
+
+    Public Function PushErr(String message) -> Int
+    Explain {
+        Description: "Append a failed result.";
+        Input: message = "Error text";
+        Processing: "Store the error in the next slot.";
+        Output: "One when the slot was stored.";
+    } {
+        If (stored >= 4) { Return 0; }
+        flags[stored] = 0;
+        values[stored] = 0;
+        faults[stored] = message;
+        stored = stored + 1;
+        Return 1;
+    }
+
+    Public Function Reset() -> Int
+    Explain {
+        Description: "Clear the stored results.";
+        Input: "No parameters";
+        Processing: "Set the stored count back to zero.";
+        Output: "Zero.";
+    } {
+        stored = 0;
+        Return 0;
+    }
+
+    Public Function Sequence() -> Int
+    Explain {
+        Description: "Combine stored results into one sum.";
+        Input: "No parameters";
+        Processing: "Sum every success. The first failure becomes the result.";
+        Output: "The sum, or -1.";
+    } {
+        Int index = 0;
+        Int sum = 0;
+        While (index < stored) {
+            If (flags[index] == 0) {
+                mode = 2;
+                number = 0;
+                text = faults[index];
+                Return -1;
+            }
+            sum = sum + values[index];
+            index = index + 1;
+        }
+        mode = 1;
+        number = sum;
+        text = "";
+        Return sum;
+    }
+
+    Public Function Combine() -> String
+    Explain {
+        Description: "Join stored successes with plus signs.";
+        Input: "No parameters";
+        Processing: "Build one text from every success. The first failure is returned.";
+        Output: "The joined text, or the error.";
+    } {
+        Int index = 0;
+        Int sum = 0;
+        String joined = "";
+        While (index < stored) {
+            If (flags[index] == 0) {
+                mode = 2;
+                number = 0;
+                text = faults[index];
+                Return text;
+            }
+            String piece = This.IntText(values[index]);
+            If (index == 0) { joined = piece; }
+            If (index > 0) { joined = joined + "+" + piece; }
+            sum = sum + values[index];
+            index = index + 1;
+        }
+        mode = 1;
+        number = sum;
+        text = "";
+        Return joined;
+    }
+
+    Public Function Traverse() -> Int
+    Explain {
+        Description: "Map every stored value by ten and sum the results.";
+        Input: "No parameters";
+        Processing: "A zero or a stored failure becomes an error.";
+        Output: "The scaled sum, or -1.";
+    } {
+        Int index = 0;
+        Int sum = 0;
+        While (index < stored) {
+            If (flags[index] == 0) {
+                mode = 2;
+                number = 0;
+                text = faults[index];
+                Return -1;
+            }
+            If (values[index] == 0) {
+                mode = 2;
+                number = 0;
+                text = "zero";
+                Return -1;
+            }
+            sum = sum + values[index] * 10;
+            index = index + 1;
+        }
+        mode = 1;
+        number = sum;
+        text = "";
+        Return sum;
+    }
+
+    Public Function Zip(Int leftOk, Int left, Int rightOk, Int right, String rightError) -> Int
+    Explain {
+        Description: "Add two results when both are successful.";
+        Input: leftOk = "One when the left result is successful", left = "Left value", rightOk = "One when the right result is successful", right = "Right value", rightError = "Right error";
+        Processing: "Add both values, or keep the right error.";
+        Output: "One when both results are successful.";
+    } {
+        If (leftOk == 0) {
+            mode = 2;
+            number = 0;
+            text = "left";
+            Return 0;
+        }
+        If (rightOk == 0) {
+            mode = 2;
+            number = 0;
+            text = rightError;
+            Return 0;
+        }
+        mode = 1;
+        number = left + right;
+        text = "";
+        Return 1;
+    }
+
+    Public Function Some(Int value) -> Int
+    Explain {
+        Description: "Store a present option.";
+        Input: value = "Present value";
+        Processing: "Mark the option present.";
+        Output: "One.";
+    } {
+        mode = 3;
+        number = value;
+        text = "";
+        Return 1;
+    }
+
+    Public Function None() -> Int
+    Explain {
+        Description: "Store a missing option.";
+        Input: "No parameters";
+        Processing: "Mark the option missing.";
+        Output: "One.";
+    } {
+        mode = 4;
+        number = 0;
+        text = "";
+        Return 1;
+    }
+
+    Public Function IsSome() -> Int
+    Explain {
+        Description: "Report whether the option is present.";
+        Input: "No parameters";
+        Processing: "Read the option flag.";
+        Output: "One when a value is present.";
+    } {
+        If (mode == 3) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsNone() -> Int
+    Explain {
+        Description: "Report whether the option is missing.";
+        Input: "No parameters";
+        Processing: "Read the option flag.";
+        Output: "One when the option is missing.";
+    } {
+        If (mode == 4) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Unwrap() -> Int
+    Explain {
+        Description: "Return the present option value.";
+        Input: "No parameters";
+        Processing: "Read the value when the option is present.";
+        Output: "The value, or -1.";
+    } {
+        If (mode == 3) { Return number; }
+        Return -1;
+    }
+
+    Public Function UnwrapOr(Int fallback) -> Int
+    Explain {
+        Description: "Return the option value or a fallback.";
+        Input: fallback = "Value used when the option is missing";
+        Processing: "Read the value when the option is present.";
+        Output: "The value, or the fallback.";
+    } {
+        If (mode == 3) { Return number; }
+        Return fallback;
+    }
+
+    Public Function MapOption(Int code) -> Int
+    Explain {
+        Description: "Transform a present option.";
+        Input: code = "1 increments the value";
+        Processing: "Change the value only when the option is present.";
+        Output: "One when the value changed.";
+    } {
+        If (mode != 3) { Return 0; }
+        If (code == 1) { number = number + 1; }
+        Return 1;
+    }
+
+    Public Function FlatMapOption() -> Int
+    Explain {
+        Description: "Continue a present option below ten.";
+        Input: "No parameters";
+        Processing: "Double a value below ten. A larger value becomes none.";
+        Output: "One when the option stays present.";
+    } {
+        If (mode != 3) { Return 0; }
+        If (number >= 10) {
+            mode = 4;
+            number = 0;
+            Return 0;
+        }
+        number = number * 2;
+        Return 1;
+    }
+
+    Public Function KeepOption(Int minimum) -> Int
+    Explain {
+        Description: "Keep an option only when it reaches a minimum.";
+        Input: minimum = "Smallest accepted value";
+        Processing: "A smaller value becomes none.";
+        Output: "One when the value is kept.";
+    } {
+        If (mode != 3) { Return 0; }
+        If (number < minimum) {
+            mode = 4;
+            number = 0;
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Public Function OrElse(Int fallback) -> Int
+    Explain {
+        Description: "Replace a missing option with a fallback.";
+        Input: fallback = "Value used when the option is missing";
+        Processing: "Store the fallback only when the option is missing.";
+        Output: "One.";
+    } {
+        If (mode == 4) {
+            mode = 3;
+            number = fallback;
+        }
+        Return 1;
+    }
+
+    Public Function Left(Int value) -> Int
+    Explain {
+        Description: "Store the left side of an either value.";
+        Input: value = "Left integer";
+        Processing: "Mark the either value as left.";
+        Output: "One.";
+    } {
+        mode = 5;
+        number = value;
+        text = "";
+        Return 1;
+    }
+
+    Public Function Right(String message) -> Int
+    Explain {
+        Description: "Store the right side of an either value.";
+        Input: message = "Right text";
+        Processing: "Mark the either value as right.";
+        Output: "One.";
+    } {
+        mode = 6;
+        number = 0;
+        text = message;
+        Return 1;
+    }
+
+    Public Function IsLeft() -> Int
+    Explain {
+        Description: "Report whether the either value is left.";
+        Input: "No parameters";
+        Processing: "Read the either side.";
+        Output: "One when the value is left.";
+    } {
+        If (mode == 5) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsRight() -> Int
+    Explain {
+        Description: "Report whether the either value is right.";
+        Input: "No parameters";
+        Processing: "Read the either side.";
+        Output: "One when the value is right.";
+    } {
+        If (mode == 6) { Return 1; }
+        Return 0;
+    }
+
+    Public Function LeftValue() -> Int
+    Explain {
+        Description: "Return the left integer.";
+        Input: "No parameters";
+        Processing: "Read the integer when the either value is left.";
+        Output: "The integer, or -1.";
+    } {
+        If (mode == 5) { Return number; }
+        Return -1;
+    }
+
+    Public Function RightText() -> String
+    Explain {
+        Description: "Return the right text.";
+        Input: "No parameters";
+        Processing: "Read the text when the either value is right.";
+        Output: "The text, or none.";
+    } {
+        If (mode == 6) { Return text; }
+        Return "none";
+    }
+
+    Public Function Validate(Int value, Int low, Int high) -> Int
+    Explain {
+        Description: "Accept a value inside a range.";
+        Input: value = "Value to check", low = "Smallest accepted value", high = "Largest accepted value";
+        Processing: "Store a success inside the range and a range error outside it.";
+        Output: "One when the value is inside the range.";
+    } {
+        If (value < low) {
+            mode = 2;
+            number = 0;
+            text = "range";
+            Return 0;
+        }
+        If (value > high) {
+            mode = 2;
+            number = 0;
+            text = "range";
+            Return 0;
+        }
+        mode = 1;
+        number = value;
+        text = "";
+        Return 1;
+    }
+
+    Public Function TryDivide(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide two integers and capture division by zero.";
+        Input: left = "Numerator", right = "Denominator";
+        Processing: "Store the quotient, or a divide error when the denominator is zero.";
+        Output: "One when the division succeeds.";
+    } {
+        If (right == 0) {
+            mode = 2;
+            number = 0;
+            text = "divide";
+            Return 0;
+        }
+        mode = 1;
+        number = left / right;
+        text = "";
+        Return 1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remaining = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            built = digits.Substring(digit, 1) + built;
+            remaining = remaining / 10;
+        }
+        Return built;
+    }
+}
+
+Public Async Function TryDivideAsync(Int left, Int right) -> Task<Int>
+Explain {
+    Description: "Divide two integers asynchronously.";
+    Input: left = "Numerator", right = "Denominator";
+    Processing: "Return the quotient when the denominator is not zero.";
+    Output: "The quotient, or -1.";
+} {
+    Int quotient = -1;
+    If (right != 0) { quotient = left / right; }
+    Return quotient;
+}

@@ -1,0 +1,5 @@
+Test Append {
+    Constraint: IntList().Append(4) == 1;
+    Processing: True;
+    Output: True;
+}

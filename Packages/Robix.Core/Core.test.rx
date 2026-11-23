@@ -1,0 +1,5 @@
+Test Dispose {
+    Constraint: Box(1, "arm").Dispose();
+    Processing: True;
+    Output: True;
+}

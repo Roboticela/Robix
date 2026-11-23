@@ -81,7 +81,7 @@ Public Class ProjectEngine {
             Return ExecutionResult(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("Robix 0.0.9");
+            Print("Robix 0.0.10");
             Return ExecutionResult(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();

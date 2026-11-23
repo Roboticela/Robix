@@ -1,0 +1,517 @@
+// Robix.Reflection: assemblies, type members, attributes, and live invocation.
+Package Robix.Reflection;
+
+Import Robix.Core;
+
+
+Class RobotUnit {
+    Private Int pace;
+    Private String caption;
+
+    Public Constructor() {
+        pace = 4;
+        caption = "arm";
+    }
+
+    Public Function Start() -> Int
+    Explain {
+        Description: "Start the unit.";
+        Input: "No parameters";
+        Processing: "Double the pace.";
+        Output: "The pace.";
+    } {
+        pace = pace * 2;
+        Return pace;
+    }
+
+    Public Function ReadPace() -> Int
+    Explain {
+        Description: "Read the pace.";
+        Input: "No parameters";
+        Processing: "Return the stored pace.";
+        Output: "The pace.";
+    } {
+        Return pace;
+    }
+
+    Public Function WritePace(Int value) -> Int
+    Explain {
+        Description: "Set the pace.";
+        Input: value = "New pace";
+        Processing: "Store the pace.";
+        Output: "The stored pace.";
+    } {
+        pace = value;
+        Return pace;
+    }
+
+    Public Function ReadCaption() -> String
+    Explain {
+        Description: "Read the caption.";
+        Input: "No parameters";
+        Processing: "Return the stored caption.";
+        Output: "The caption.";
+    } {
+        Return caption;
+    }
+
+    Public Function WriteCaption(String value) -> String
+    Explain {
+        Description: "Set the caption.";
+        Input: value = "New caption";
+        Processing: "Store the caption.";
+        Output: "The stored caption.";
+    } {
+        caption = value;
+        Return caption;
+    }
+}
+
+Class Mirror {
+    Private String catalog;
+    Private String name0;
+    Private String version0;
+    Private String module0;
+    Private Int live0;
+    Private String name1;
+    Private String version1;
+    Private String module1;
+    Private Int live1;
+    Private RobotUnit unit;
+    Private String problem;
+    Private String context;
+
+    Public Constructor() {
+        catalog = "T#Int#none#none#none";
+        catalog = catalog + "|T#RobotUnit#Object#Movable#none";
+        catalog = catalog + "|T#List#Object#none#T";
+        catalog = catalog + "|M#RobotUnit#constructor#RobotUnit#() -> RobotUnit#none";
+        catalog = catalog + "|M#RobotUnit#method#Start#() -> Int#Pure";
+        catalog = catalog + "|M#RobotUnit#method#ReadPace#() -> Int#Pure";
+        catalog = catalog + "|M#RobotUnit#method#WriteCaption#(String) -> String#none";
+        catalog = catalog + "|M#RobotUnit#field#pace#Int#none";
+        catalog = catalog + "|M#RobotUnit#property#Title#String#Required";
+        catalog = catalog + "|M#RobotUnit#event#Started#() -> Void#none";
+        catalog = catalog + "|M#RobotUnit#parameter#name#WriteCaption#String";
+        name0 = "";
+        version0 = "";
+        module0 = "";
+        live0 = 0;
+        name1 = "";
+        version1 = "";
+        module1 = "";
+        live1 = 0;
+        unit = RobotUnit();
+        problem = "none";
+        context = "default";
+    }
+
+    Public Function Configure(String name) -> String
+    Explain {
+        Description: "Set the reflection context.";
+        Input: name = "Context name";
+        Processing: "Store the context.";
+        Output: "The stored context.";
+    } {
+        context = name;
+        Return context;
+    }
+
+    Public Function Load(String assemblyName, String version, String moduleName) -> Int
+    Explain {
+        Description: "Load an assembly.";
+        Input: assemblyName = "Assembly name", version = "Assembly version", moduleName = "Module name";
+        Processing: "Store the assembly in a free slot.";
+        Output: "The slot, or -1 when both slots are full.";
+    } {
+        If (live0 == 0) {
+            name0 = assemblyName;
+            version0 = version;
+            module0 = moduleName;
+            live0 = 1;
+            problem = "none";
+            Return 0;
+        }
+        If (live1 == 0) {
+            name1 = assemblyName;
+            version1 = version;
+            module1 = moduleName;
+            live1 = 1;
+            problem = "none";
+            Return 1;
+        }
+        problem = "full";
+        Return -1;
+    }
+
+    Public Function Unload(String assemblyName) -> Int
+    Explain {
+        Description: "Unload an assembly.";
+        Input: assemblyName = "Assembly name";
+        Processing: "Clear the matching slot.";
+        Output: "One when an assembly was unloaded.";
+    } {
+        If (live0 == 1 && name0 == assemblyName) {
+            live0 = 0;
+            Return 1;
+        }
+        If (live1 == 1 && name1 == assemblyName) {
+            live1 = 0;
+            Return 1;
+        }
+        problem = "missing";
+        Return 0;
+    }
+
+    Public Function LoadedCount() -> Int
+    Explain {
+        Description: "Count loaded assemblies.";
+        Input: "No parameters";
+        Processing: "Count the live slots.";
+        Output: "The loaded count.";
+    } {
+        Int count = 0;
+        If (live0 == 1) { count = count + 1; }
+        If (live1 == 1) { count = count + 1; }
+        Return count;
+    }
+
+    Public Function HasAssembly(String assemblyName) -> Int
+    Explain {
+        Description: "Report whether an assembly is loaded.";
+        Input: assemblyName = "Assembly name";
+        Processing: "Compare the live slots.";
+        Output: "One when the assembly is loaded.";
+    } {
+        If (live0 == 1 && name0 == assemblyName) { Return 1; }
+        If (live1 == 1 && name1 == assemblyName) { Return 1; }
+        Return 0;
+    }
+
+    Public Function AssemblyName(Int slot) -> String
+    Explain {
+        Description: "Read an assembly name.";
+        Input: slot = "Assembly slot";
+        Processing: "Read the live slot.";
+        Output: "The name, or none.";
+    } {
+        If (slot == 0 && live0 == 1) { Return name0; }
+        If (slot == 1 && live1 == 1) { Return name1; }
+        Return "none";
+    }
+
+    Public Function AssemblyVersion(Int slot) -> String
+    Explain {
+        Description: "Read an assembly version.";
+        Input: slot = "Assembly slot";
+        Processing: "Read the live slot.";
+        Output: "The version, or none.";
+    } {
+        If (slot == 0 && live0 == 1) { Return version0; }
+        If (slot == 1 && live1 == 1) { Return version1; }
+        Return "none";
+    }
+
+    Public Function AssemblyModule(Int slot) -> String
+    Explain {
+        Description: "Read an assembly module.";
+        Input: slot = "Assembly slot";
+        Processing: "Read the live slot.";
+        Output: "The module name, or none.";
+    } {
+        If (slot == 0 && live0 == 1) { Return module0; }
+        If (slot == 1 && live1 == 1) { Return module1; }
+        Return "none";
+    }
+
+    Public Function RegisterType(String typeName, String parent, String interfaces, String genericName) -> Int
+    Explain {
+        Description: "Register a type.";
+        Input: typeName = "Type name", parent = "Base type", interfaces = "Interface list", genericName = "Generic parameter";
+        Processing: "Append a type record.";
+        Output: "One.";
+    } {
+        catalog = catalog + "|T#" + typeName + "#" + parent + "#" + interfaces + "#" + genericName;
+        Return 1;
+    }
+
+    Public Function HasType(String typeName) -> Int
+    Explain {
+        Description: "Report whether a type is registered.";
+        Input: typeName = "Type name";
+        Processing: "Search the type records.";
+        Output: "One when the type is present.";
+    } {
+        If (This.TypeRecord(typeName) == "") { Return 0; }
+        Return 1;
+    }
+
+    Public Function BaseType(String typeName) -> String
+    Explain {
+        Description: "Return the base type.";
+        Input: typeName = "Type name";
+        Processing: "Read the parent field.";
+        Output: "The base type, or none.";
+    } {
+        String record = This.TypeRecord(typeName);
+        If (record == "") { Return "none"; }
+        Return This.Field(record, 2);
+    }
+
+    Public Function Interfaces(String typeName) -> String
+    Explain {
+        Description: "Return the interfaces of a type.";
+        Input: typeName = "Type name";
+        Processing: "Read the interface field.";
+        Output: "The interface list, or none.";
+    } {
+        String record = This.TypeRecord(typeName);
+        If (record == "") { Return "none"; }
+        Return This.Field(record, 3);
+    }
+
+    Public Function GenericParameter(String typeName) -> String
+    Explain {
+        Description: "Return the generic parameter name.";
+        Input: typeName = "Type name";
+        Processing: "Read the generic field.";
+        Output: "The parameter name, or none.";
+    } {
+        String record = This.TypeRecord(typeName);
+        If (record == "") { Return "none"; }
+        Return This.Field(record, 4);
+    }
+
+    Public Function Members(String typeName, String kind) -> String
+    Explain {
+        Description: "List member names of one kind.";
+        Input: typeName = "Type name", kind = "method, field, property, event, constructor, or parameter";
+        Processing: "Collect matching member records.";
+        Output: "The comma-separated names, or none.";
+    } {
+        String text = "";
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "M" && This.Field(record, 1) == typeName && This.Field(record, 2) == kind) {
+                If (text != "") { text = text + ","; }
+                text = text + This.Field(record, 3);
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        If (text == "") { Return "none"; }
+        Return text;
+    }
+
+    Public Function MemberCount(String typeName, String kind) -> Int
+    Explain {
+        Description: "Count members of one kind.";
+        Input: typeName = "Type name", kind = "Member kind";
+        Processing: "Count matching member records.";
+        Output: "The count.";
+    } {
+        Int count = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "M" && This.Field(record, 1) == typeName && This.Field(record, 2) == kind) {
+                count = count + 1;
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        Return count;
+    }
+
+    Public Function Signature(String typeName, String memberName) -> String
+    Explain {
+        Description: "Return a member signature.";
+        Input: typeName = "Type name", memberName = "Member name";
+        Processing: "Read the signature field.";
+        Output: "The signature, or none.";
+    } {
+        String record = This.MemberRecord(typeName, memberName);
+        If (record == "") { Return "none"; }
+        Return This.Field(record, 4);
+    }
+
+    Public Function Attributes(String typeName, String memberName) -> String
+    Explain {
+        Description: "Return the attributes of a member.";
+        Input: typeName = "Type name", memberName = "Member name";
+        Processing: "Read the attribute field.";
+        Output: "The attribute text, or none.";
+    } {
+        String record = This.MemberRecord(typeName, memberName);
+        If (record == "") { Return "none"; }
+        Return This.Field(record, 5);
+    }
+
+    Public Function HasAttribute(String typeName, String memberName, String attributeName) -> Int
+    Explain {
+        Description: "Report whether a member has an attribute.";
+        Input: typeName = "Type name", memberName = "Member name", attributeName = "Attribute name";
+        Processing: "Search the attribute tokens.";
+        Output: "One when the attribute is present.";
+    } {
+        String record = This.MemberRecord(typeName, memberName);
+        If (record == "") { Return 0; }
+        Return This.HasToken(This.Field(record, 5), attributeName);
+    }
+
+    Public Function InvokeMethod(String memberName) -> Int
+    Explain {
+        Description: "Invoke a method on the live unit.";
+        Input: memberName = "Method name";
+        Processing: "Call Start or ReadPace on the unit.";
+        Output: "The method result, or -1.";
+    } {
+        If (memberName == "Start") {
+            problem = "none";
+            Return unit.Start();
+        }
+        If (memberName == "ReadPace") {
+            problem = "none";
+            Return unit.ReadPace();
+        }
+        problem = "missing";
+        Return -1;
+    }
+
+    Public Function ReadField(String memberName) -> Int
+    Explain {
+        Description: "Read a field on the live unit.";
+        Input: memberName = "Field name";
+        Processing: "Read the pace field.";
+        Output: "The field value, or -1.";
+    } {
+        If (memberName == "pace") { Return unit.ReadPace(); }
+        problem = "missing";
+        Return -1;
+    }
+
+    Public Function WriteField(String memberName, Int value) -> Int
+    Explain {
+        Description: "Write a field on the live unit.";
+        Input: memberName = "Field name", value = "New integer";
+        Processing: "Write the pace field.";
+        Output: "One when the field was written.";
+    } {
+        If (memberName == "pace") {
+            unit.WritePace(value);
+            Return 1;
+        }
+        problem = "missing";
+        Return 0;
+    }
+
+    Public Function ReadProperty(String memberName) -> String
+    Explain {
+        Description: "Read a property on the live unit.";
+        Input: memberName = "Property name";
+        Processing: "Read the Title property.";
+        Output: "The property text, or none.";
+    } {
+        If (memberName == "Title") { Return unit.ReadCaption(); }
+        Return "none";
+    }
+
+    Public Function WriteProperty(String memberName, String value) -> Int
+    Explain {
+        Description: "Write a property on the live unit.";
+        Input: memberName = "Property name", value = "New text";
+        Processing: "Write the Title property.";
+        Output: "One when the property was written.";
+    } {
+        If (memberName == "Title") {
+            unit.WriteCaption(value);
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function Error() -> String
+    Explain {
+        Description: "Return the latest reflection error.";
+        Input: "No parameters";
+        Processing: "Read the stored problem.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function TypeRecord(String typeName) -> String {
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "T" && This.Field(record, 1) == typeName) { Return record; }
+            If (end >= catalog.Length()) { Return ""; }
+            index = end + 1;
+        }
+        Return "";
+    }
+
+    Private Function MemberRecord(String typeName, String memberName) -> String {
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "M" && This.Field(record, 1) == typeName && This.Field(record, 3) == memberName) {
+                Return record;
+            }
+            If (end >= catalog.Length()) { Return ""; }
+            index = end + 1;
+        }
+        Return "";
+    }
+
+    Private Function Field(String record, Int position) -> String {
+        Int current = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index < record.Length()) {
+            If (This.CharAt(record, index) == "#") {
+                If (current == position) { Return record.Substring(start, index - start); }
+                current = current + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (current == position) { Return record.Substring(start, record.Length() - start); }
+        Return "";
+    }
+
+    Private Function CharAt(String text, Int index) -> String {
+        Return text.Substring(index, 1);
+    }
+
+    Private Function HasToken(String text, String token) -> Int {
+        String wrapped = "," + text + ",";
+        String needle = "," + token + ",";
+        Int limit = wrapped.Length() - needle.Length();
+        Int index = 0;
+        While (index <= limit) {
+            If (wrapped.Substring(index, needle.Length()) == needle) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+}
+
+Public Async Function LoadAsync(Mirror mirror, String assemblyName, String version, String moduleName) -> Task<Int>
+Explain {
+    Description: "Load an assembly asynchronously.";
+    Input: mirror = "Reflection mirror", assemblyName = "Assembly name", version = "Assembly version", moduleName = "Module name";
+    Processing: "Load the assembly.";
+    Output: "The assembly slot.";
+} {
+    Return mirror.Load(assemblyName, version, moduleName);
+}

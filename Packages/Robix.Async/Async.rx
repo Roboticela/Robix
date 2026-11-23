@@ -1,0 +1,328 @@
+// Robix.Async: tasks, promises, completion, and asynchronous state.
+Package Robix.Async;
+
+Import Robix.Core;
+
+
+Class Flow {
+    Private Int state;
+    Private Int number;
+    Private String problem;
+    Private Int local;
+    Private Int permits;
+    Private Int armed;
+    Private Int capture;
+    Private Int cleanups;
+    Private Int marked;
+
+    Public Constructor() {
+        state = 0;
+        number = 0;
+        problem = "";
+        local = 0;
+        permits = 1;
+        armed = 0;
+        capture = 1;
+        cleanups = 0;
+        marked = 0;
+    }
+
+    Public Function Start() -> Int
+    Explain {
+        Description: "Move the task to running.";
+        Input: "No parameters";
+        Processing: "Store the running state.";
+        Output: "One.";
+    } {
+        state = 1;
+        Return 1;
+    }
+
+    Public Function Complete(Int amount) -> Int
+    Explain {
+        Description: "Complete the task with a value.";
+        Input: amount = "Completed value";
+        Processing: "Store the value and mark the task completed.";
+        Output: "The completed value.";
+    } {
+        state = 2;
+        number = amount;
+        problem = "";
+        Return number;
+    }
+
+    Public Function Fail(String text) -> Int
+    Explain {
+        Description: "Fail the task.";
+        Input: text = "Error text";
+        Processing: "Mark the task faulted.";
+        Output: "One.";
+    } {
+        state = 3;
+        problem = text;
+        Return 1;
+    }
+
+    Public Function Cancel() -> Int
+    Explain {
+        Description: "Cancel the task.";
+        Input: "No parameters";
+        Processing: "Mark the task canceled.";
+        Output: "One.";
+    } {
+        state = 4;
+        Return 1;
+    }
+
+    Public Function Resolve(Int amount) -> Int
+    Explain {
+        Description: "Resolve a promise.";
+        Input: amount = "Resolved value";
+        Processing: "Complete the task with the value.";
+        Output: "The resolved value.";
+    } {
+        Return This.Complete(amount);
+    }
+
+    Public Function Reject(String text) -> Int
+    Explain {
+        Description: "Reject a promise.";
+        Input: text = "Error text";
+        Processing: "Fail the task.";
+        Output: "One.";
+    } {
+        Return This.Fail(text);
+    }
+
+    Public Function State() -> String
+    Explain {
+        Description: "Return the task state name.";
+        Input: "No parameters";
+        Processing: "Map the stored state.";
+        Output: "pending, running, completed, faulted, or canceled.";
+    } {
+        If (state == 1) { Return "running"; }
+        If (state == 2) { Return "completed"; }
+        If (state == 3) { Return "faulted"; }
+        If (state == 4) { Return "canceled"; }
+        Return "pending";
+    }
+
+    Public Function Value() -> Int
+    Explain {
+        Description: "Return the current value.";
+        Input: "No parameters";
+        Processing: "Read the stored value.";
+        Output: "The value.";
+    } {
+        Return number;
+    }
+
+    Public Function Error() -> String
+    Explain {
+        Description: "Return the current error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error, or none.";
+    } {
+        If (problem == "") { Return "none"; }
+        Return problem;
+    }
+
+    Public Function Result() -> String
+    Explain {
+        Description: "Describe the task result.";
+        Input: "No parameters";
+        Processing: "Join the state to its value or error.";
+        Output: "The result text.";
+    } {
+        If (state == 2) { Return "completed:" + This.IntText(number); }
+        If (state == 3) { Return "faulted:" + problem; }
+        If (state == 4) { Return "canceled"; }
+        If (state == 1) { Return "running"; }
+        Return "pending";
+    }
+
+    Public Function Then(Int amount) -> Int
+    Explain {
+        Description: "Add to a completed value.";
+        Input: amount = "Amount to add";
+        Processing: "Add only when the task is completed.";
+        Output: "The current value.";
+    } {
+        If (state != 2) { Return number; }
+        number = number + amount;
+        Return number;
+    }
+
+    Public Function Map(Int code) -> Int
+    Explain {
+        Description: "Transform a completed value.";
+        Input: code = "2 doubles the value";
+        Processing: "Change the value only when the task is completed.";
+        Output: "The current value.";
+    } {
+        If (state != 2) { Return number; }
+        If (code == 2) { number = number * 2; }
+        Return number;
+    }
+
+    Public Function FlatMap() -> Int
+    Explain {
+        Description: "Continue a positive completed value.";
+        Input: "No parameters";
+        Processing: "Add one to a positive value. A non-positive value fails.";
+        Output: "The continued value, or zero.";
+    } {
+        If (state != 2) { Return 0; }
+        If (number <= 0) {
+            state = 3;
+            problem = "empty";
+            Return 0;
+        }
+        number = number + 1;
+        Return number;
+    }
+
+    Public Function Catch() -> Int
+    Explain {
+        Description: "Recover from a fault.";
+        Input: "No parameters";
+        Processing: "Replace a fault with the completed value 7.";
+        Output: "The recovered value, or the current value.";
+    } {
+        If (state != 3) { Return number; }
+        state = 2;
+        number = 7;
+        problem = "";
+        Return number;
+    }
+
+    Public Function Finally() -> Int
+    Explain {
+        Description: "Record a finally step.";
+        Input: "No parameters";
+        Processing: "Increment the cleanup count.";
+        Output: "The cleanup count.";
+    } {
+        cleanups = cleanups + 1;
+        Return cleanups;
+    }
+
+    Public Function Configure(Int flag) -> Int
+    Explain {
+        Description: "Choose whether await captures the context.";
+        Input: flag = "One to capture the context";
+        Processing: "Store the capture flag.";
+        Output: "The stored flag.";
+    } {
+        capture = flag;
+        Return capture;
+    }
+
+    Public Function SetLocal(Int amount) -> Int
+    Explain {
+        Description: "Store an async-local value.";
+        Input: amount = "Local value";
+        Processing: "Store the value for this flow.";
+        Output: "The stored value.";
+    } {
+        local = amount;
+        Return local;
+    }
+
+    Public Function GetLocal() -> Int
+    Explain {
+        Description: "Read the async-local value.";
+        Input: "No parameters";
+        Processing: "Read the stored value.";
+        Output: "The local value.";
+    } {
+        Return local;
+    }
+
+    Public Function WaitPermit() -> Int
+    Explain {
+        Description: "Take an async semaphore permit.";
+        Input: "No parameters";
+        Processing: "Take a permit when one is available.";
+        Output: "One when a permit was taken.";
+    } {
+        If (permits <= 0) { Return 0; }
+        permits = permits - 1;
+        Return 1;
+    }
+
+    Public Function ReleasePermit() -> Int
+    Explain {
+        Description: "Release an async semaphore permit.";
+        Input: "No parameters";
+        Processing: "Return one permit.";
+        Output: "The permit count.";
+    } {
+        If (permits >= 1) { Return permits; }
+        permits = permits + 1;
+        Return permits;
+    }
+
+    Public Function Arm() -> Int
+    Explain {
+        Description: "Signal the async event.";
+        Input: "No parameters";
+        Processing: "Mark the event as signaled.";
+        Output: "One.";
+    } {
+        armed = 1;
+        Return armed;
+    }
+
+    Public Function WaitEvent() -> Int
+    Explain {
+        Description: "Wait for the async event.";
+        Input: "No parameters";
+        Processing: "Consume the signal when it is present.";
+        Output: "One when the event was signaled.";
+    } {
+        If (armed == 0) { Return 0; }
+        armed = 0;
+        Return 1;
+    }
+
+    Public Function WithCancellation(Int amount, Int canceled) -> Int
+    Explain {
+        Description: "Complete a value unless it is canceled.";
+        Input: amount = "Value to complete", canceled = "One when the token is canceled";
+        Processing: "Cancel instead of completing when the flag is set.";
+        Output: "The completed value, or zero.";
+    } {
+        If (canceled == 1) {
+            state = 4;
+            Return 0;
+        }
+        Return This.Complete(amount);
+    }
+
+    Public Function MarkHeld() -> Int
+    Explain {
+        Description: "Record that the async lock is held.";
+        Input: "No parameters";
+        Processing: "Set the held flag.";
+        Output: "One.";
+    } {
+        marked = 1;
+        Return marked;
+    }
+
+    Private Function IntText(Int amount) -> String {
+        If (amount == 0) { Return "0"; }
+        Int remaining = amount;
+        String digits = "0123456789";
+        String built = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            built = digits.Substring(digit, 1) + built;
+            remaining = remaining / 10;
+        }
+        Return built;
+    }
+}

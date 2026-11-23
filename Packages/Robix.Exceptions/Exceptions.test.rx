@@ -1,0 +1,5 @@
+Test Known {
+    Constraint: FaultDesk().Known("DivideByZeroException") == 1;
+    Processing: True;
+    Output: True;
+}

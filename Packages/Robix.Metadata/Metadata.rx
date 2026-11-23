@@ -1,0 +1,548 @@
+// Robix.Metadata: attribute definitions, annotations, and validated entries.
+Package Robix.Metadata;
+
+Import Robix.Core;
+
+
+Class MetaStore {
+    Private String catalog;
+    Private String problem;
+    Private String warning;
+    Private String context;
+
+    Public Constructor() {
+        catalog = "D#AttributeUsage#any#0";
+        catalog = catalog + "|D#Obsolete#any#1";
+        catalog = catalog + "|D#Deprecated#any#1";
+        catalog = catalog + "|D#Serializable#type#0";
+        catalog = catalog + "|D#NonSerializable#type#0";
+        catalog = catalog + "|D#Required#field#0";
+        catalog = catalog + "|D#Optional#field#0";
+        catalog = catalog + "|D#Nullable#field#0";
+        catalog = catalog + "|D#NotNull#field#0";
+        catalog = catalog + "|D#Pure#method#0";
+        catalog = catalog + "|D#ThreadSafe#method#0";
+        catalog = catalog + "|D#Immutable#type#0";
+        catalog = catalog + "|D#Mutable#type#0";
+        catalog = catalog + "|D#Experimental#any#0";
+        catalog = catalog + "|D#Internal#any#0";
+        catalog = catalog + "|D#Public#any#0";
+        catalog = catalog + "|D#Private#any#0";
+        catalog = catalog + "|D#Protected#any#0";
+        catalog = catalog + "|D#Static#method#0";
+        catalog = catalog + "|D#Async#method#0";
+        catalog = catalog + "|D#Inline#method#0";
+        catalog = catalog + "|D#NoInline#method#0";
+        catalog = catalog + "|D#Native#method#0";
+        catalog = catalog + "|D#Export#type#0";
+        catalog = catalog + "|D#Import#type#0";
+        problem = "none";
+        warning = "none";
+        context = "default";
+    }
+
+    Public Function Configure(String name) -> String
+    Explain {
+        Description: "Set the metadata context.";
+        Input: name = "Context name";
+        Processing: "Store the context.";
+        Output: "The stored context.";
+    } {
+        context = name;
+        Return context;
+    }
+
+    Public Function DefinitionCount() -> Int
+    Explain {
+        Description: "Count registered attribute types.";
+        Input: "No parameters";
+        Processing: "Count definition records.";
+        Output: "The definition count.";
+    } {
+        Return This.CountKind("D");
+    }
+
+    Public Function Known(String attributeName) -> Int
+    Explain {
+        Description: "Report whether an attribute type is registered.";
+        Input: attributeName = "Attribute type name";
+        Processing: "Search the definition records.";
+        Output: "One when the attribute type is registered.";
+    } {
+        If (This.Definition(attributeName) == "") { Return 0; }
+        Return 1;
+    }
+
+    Public Function Define(String attributeName, String usage) -> Int
+    Explain {
+        Description: "Register an attribute type.";
+        Input: attributeName = "Attribute type name", usage = "type, method, field, or any";
+        Processing: "Append a definition when the name is new.";
+        Output: "One when the attribute type was added.";
+    } {
+        If (This.Known(attributeName) == 1) { Return 0; }
+        This.Append("D#" + attributeName + "#" + usage + "#0");
+        Return 1;
+    }
+
+    Public Function Forget(String attributeName) -> Int
+    Explain {
+        Description: "Unregister an attribute type.";
+        Input: attributeName = "Attribute type name";
+        Processing: "Remove its definition record.";
+        Output: "One when the definition was removed.";
+    } {
+        If (This.Known(attributeName) == 0) { Return 0; }
+        This.Without(2, attributeName, "", "");
+        Return 1;
+    }
+
+    Public Function Attach(String target, String kind, String memberName, String attributeName) -> Int
+    Explain {
+        Description: "Attach an attribute to a member.";
+        Input: target = "Target name", kind = "type, method, or field", memberName = "Member name", attributeName = "Attribute type name";
+        Processing: "Reject an unknown attribute or the wrong usage, and warn when it is deprecated.";
+        Output: "One when the attribute was attached.";
+    } {
+        warning = "none";
+        String definition = This.Definition(attributeName);
+        If (definition == "") {
+            problem = "missing";
+            Return 0;
+        }
+        String usage = This.Field(definition, 2);
+        If (usage != "any" && usage != kind) {
+            problem = "usage";
+            Return 0;
+        }
+        If (This.Field(definition, 3) == "1") { warning = "deprecated"; }
+        If (This.HasMark(target, memberName, attributeName) == 1) {
+            problem = "none";
+            Return 1;
+        }
+        This.Append("B#" + target + "#" + memberName + "#" + attributeName);
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function AttributeList(String target, String memberName) -> String
+    Explain {
+        Description: "List the attributes on a member.";
+        Input: target = "Target name", memberName = "Member name";
+        Processing: "Collect matching annotation records.";
+        Output: "The comma-separated attribute names, or none.";
+    } {
+        String text = "";
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "B" && This.Field(record, 1) == target && This.Field(record, 2) == memberName) {
+                If (text != "") { text = text + ","; }
+                text = text + This.Field(record, 3);
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        If (text == "") { Return "none"; }
+        Return text;
+    }
+
+    Public Function HasMark(String target, String memberName, String attributeName) -> Int
+    Explain {
+        Description: "Report whether a member has an attribute.";
+        Input: target = "Target name", memberName = "Member name", attributeName = "Attribute type name";
+        Processing: "Search the annotation records.";
+        Output: "One when the attribute is present.";
+    } {
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "B" && This.Field(record, 1) == target && This.Field(record, 2) == memberName && This.Field(record, 3) == attributeName) {
+                Return 1;
+            }
+            If (end >= catalog.Length()) { Return 0; }
+            index = end + 1;
+        }
+        Return 0;
+    }
+
+    Public Function Put(String target, String key, String value) -> Int
+    Explain {
+        Description: "Store a metadata entry.";
+        Input: target = "Target name", key = "Metadata key", value = "Metadata value";
+        Processing: "Replace an existing key or append a public entry.";
+        Output: "One.";
+    } {
+        Return This.PutIn(target, key, value, "public");
+    }
+
+    Public Function PutIn(String target, String key, String value, String scope) -> Int
+    Explain {
+        Description: "Store a metadata entry in a scope.";
+        Input: target = "Target name", key = "Metadata key", value = "Metadata value", scope = "Metadata scope";
+        Processing: "Replace an existing key or append the entry.";
+        Output: "One.";
+    } {
+        This.Without(0, target, key, "");
+        This.Append("E#" + target + "#" + key + "#" + value + "#" + scope);
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function Read(String target, String key) -> String
+    Explain {
+        Description: "Read a metadata value.";
+        Input: target = "Target name", key = "Metadata key";
+        Processing: "Find the entry.";
+        Output: "The value, or none.";
+    } {
+        String record = This.Entry(target, key);
+        If (record == "") { Return "none"; }
+        Return This.Field(record, 3);
+    }
+
+    Public Function ScopeOf(String target, String key) -> String
+    Explain {
+        Description: "Read the scope of a metadata entry.";
+        Input: target = "Target name", key = "Metadata key";
+        Processing: "Find the entry.";
+        Output: "The scope, or none.";
+    } {
+        String record = This.Entry(target, key);
+        If (record == "") { Return "none"; }
+        Return This.Field(record, 4);
+    }
+
+    Public Function HasKey(String target, String key) -> Int
+    Explain {
+        Description: "Report whether a target has a metadata key.";
+        Input: target = "Target name", key = "Metadata key";
+        Processing: "Search the entry records.";
+        Output: "One when the key is present.";
+    } {
+        If (This.Entry(target, key) == "") { Return 0; }
+        Return 1;
+    }
+
+    Public Function RemoveKey(String target, String key) -> Int
+    Explain {
+        Description: "Remove one metadata entry.";
+        Input: target = "Target name", key = "Metadata key";
+        Processing: "Drop the matching entry.";
+        Output: "One when an entry was removed.";
+    } {
+        If (This.HasKey(target, key) == 0) { Return 0; }
+        This.Without(0, target, key, "");
+        Return 1;
+    }
+
+    Public Function Entries(String target) -> String
+    Explain {
+        Description: "List the metadata entries on a target.";
+        Input: target = "Target name";
+        Processing: "Join keys and values.";
+        Output: "The entries, or none.";
+    } {
+        String text = "";
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "E" && This.Field(record, 1) == target) {
+                If (text != "") { text = text + ","; }
+                text = text + This.Field(record, 2) + "=" + This.Field(record, 3);
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        If (text == "") { Return "none"; }
+        Return text;
+    }
+
+    Public Function KeysStarting(String target, String prefix) -> String
+    Explain {
+        Description: "List keys that start with a prefix.";
+        Input: target = "Target name", prefix = "Key prefix";
+        Processing: "Keep keys with that prefix.";
+        Output: "The matching keys, or none.";
+    } {
+        String text = "";
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "E" && This.Field(record, 1) == target && This.Starts(This.Field(record, 2), prefix) == 1) {
+                If (text != "") { text = text + ","; }
+                text = text + This.Field(record, 2);
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        If (text == "") { Return "none"; }
+        Return text;
+    }
+
+    Public Function CopyTo(String source, String destination) -> Int
+    Explain {
+        Description: "Copy one target's metadata over another.";
+        Input: source = "Source target", destination = "Destination target";
+        Processing: "Clear the destination and copy every source entry.";
+        Output: "The number of entries copied.";
+    } {
+        String packed = This.Export(source);
+        Int count = This.Pieces(packed);
+        This.Without(3, destination, "", "");
+        This.Import(destination, packed);
+        Return count;
+    }
+
+    Public Function MergeTo(String source, String destination) -> Int
+    Explain {
+        Description: "Merge source metadata onto a destination.";
+        Input: source = "Source target", destination = "Destination target";
+        Processing: "Write each source entry onto the destination.";
+        Output: "The number of entries merged.";
+    } {
+        String packed = This.Export(source);
+        Int count = This.Pieces(packed);
+        This.Import(destination, packed);
+        Return count;
+    }
+
+    Public Function Require(String key) -> Int
+    Explain {
+        Description: "Mark a metadata key as required.";
+        Input: key = "Metadata key";
+        Processing: "Store a required schema rule.";
+        Output: "One.";
+    } {
+        This.Without(4, key, "", "");
+        This.Append("S#" + key + "#required");
+        Return 1;
+    }
+
+    Public Function Allow(String key) -> Int
+    Explain {
+        Description: "Mark a metadata key as optional.";
+        Input: key = "Metadata key";
+        Processing: "Store an optional schema rule.";
+        Output: "One.";
+    } {
+        This.Without(4, key, "", "");
+        This.Append("S#" + key + "#optional");
+        Return 1;
+    }
+
+    Public Function Validate(String target) -> Int
+    Explain {
+        Description: "Validate a target against the schema.";
+        Input: target = "Target name";
+        Processing: "Fail when a required key is missing.";
+        Output: "One when every required key is present.";
+    } {
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "S" && This.Field(record, 2) == "required" && This.HasKey(target, This.Field(record, 1)) == 0) {
+                problem = "required:" + This.Field(record, 1);
+                Return 0;
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function Warning() -> String
+    Explain {
+        Description: "Return the latest attribute warning.";
+        Input: "No parameters";
+        Processing: "Read the stored warning.";
+        Output: "The warning text.";
+    } {
+        Return warning;
+    }
+
+    Public Function Error() -> String
+    Explain {
+        Description: "Return the latest metadata error.";
+        Input: "No parameters";
+        Processing: "Read the stored problem.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Append(String record) -> Void {
+        If (catalog.Length() == 0) { catalog = record; }
+        If (catalog.Length() > 0 && catalog != record) { catalog = catalog + "|" + record; }
+    }
+
+    Private Function Export(String target) -> String {
+        String packed = "";
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "E" && This.Field(record, 1) == target) {
+                If (packed != "") { packed = packed + "|"; }
+                packed = packed + This.Field(record, 2) + "#" + This.Field(record, 3) + "#" + This.Field(record, 4);
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        Return packed;
+    }
+
+    Private Function Import(String target, String packed) -> Int {
+        If (packed.Length() == 0) { Return 0; }
+        Int count = This.Pieces(packed);
+        Int cursor = 0;
+        While (cursor < count) {
+            String piece = This.Piece(packed, cursor);
+            String key = This.Field(piece, 0);
+            String value = This.Field(piece, 1);
+            String scope = This.Field(piece, 2);
+            This.PutIn(target, key, value, scope);
+            cursor = cursor + 1;
+        }
+        Return count;
+    }
+
+    Private Function Without(Int mode, String first, String second, String third) -> Int {
+        String next = "";
+        Int removed = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            Int drop = 0;
+            If (record.Length() > 0 && This.Drops(record, mode, first, second, third) == 1) {
+                drop = 1;
+                removed = removed + 1;
+            }
+            If (drop == 0 && record.Length() > 0) {
+                If (next.Length() > 0) { next = next + "|"; }
+                next = next + record;
+            }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        catalog = next;
+        Return removed;
+    }
+
+    Private Function Drops(String record, Int mode, String first, String second, String third) -> Int {
+        If (mode == 0 && This.Field(record, 0) == "E" && This.Field(record, 1) == first && This.Field(record, 2) == second) { Return 1; }
+        If (mode == 1 && This.Field(record, 0) == "B" && This.Field(record, 1) == first && This.Field(record, 2) == second && This.Field(record, 3) == third) { Return 1; }
+        If (mode == 2 && This.Field(record, 0) == "D" && This.Field(record, 1) == first) { Return 1; }
+        If (mode == 3 && This.Field(record, 0) == "E" && This.Field(record, 1) == first) { Return 1; }
+        If (mode == 4 && This.Field(record, 0) == "S" && This.Field(record, 1) == first) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Definition(String attributeName) -> String {
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "D" && This.Field(record, 1) == attributeName) { Return record; }
+            If (end >= catalog.Length()) { Return ""; }
+            index = end + 1;
+        }
+        Return "";
+    }
+
+    Private Function Entry(String target, String key) -> String {
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == "E" && This.Field(record, 1) == target && This.Field(record, 2) == key) { Return record; }
+            If (end >= catalog.Length()) { Return ""; }
+            index = end + 1;
+        }
+        Return "";
+    }
+
+    Private Function CountKind(String kind) -> Int {
+        Int count = 0;
+        Int index = 0;
+        While (index < catalog.Length()) {
+            Int end = index;
+            While (end < catalog.Length() && This.CharAt(catalog, end) != "|") { end = end + 1; }
+            String record = catalog.Substring(index, end - index);
+            If (This.Field(record, 0) == kind) { count = count + 1; }
+            If (end >= catalog.Length()) { index = catalog.Length(); }
+            If (end < catalog.Length()) { index = end + 1; }
+        }
+        Return count;
+    }
+
+    Private Function Pieces(String packed) -> Int {
+        If (packed.Length() == 0) { Return 0; }
+        Int count = 1;
+        Int index = 0;
+        While (index < packed.Length()) {
+            If (This.CharAt(packed, index) == "|") { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Piece(String packed, Int position) -> String {
+        Int index = 0;
+        Int current = 0;
+        Int start = 0;
+        While (index < packed.Length()) {
+            If (This.CharAt(packed, index) == "|") {
+                If (current == position) { Return packed.Substring(start, index - start); }
+                current = current + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (current == position) { Return packed.Substring(start, packed.Length() - start); }
+        Return "";
+    }
+
+    Private Function Field(String record, Int position) -> String {
+        Int current = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index < record.Length()) {
+            If (This.CharAt(record, index) == "#") {
+                If (current == position) { Return record.Substring(start, index - start); }
+                current = current + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (current == position) { Return record.Substring(start, record.Length() - start); }
+        Return "";
+    }
+
+    Private Function CharAt(String text, Int index) -> String {
+        Return text.Substring(index, 1);
+    }
+
+    Private Function Starts(String text, String prefix) -> Int {
+        If (prefix.Length() == 0) { Return 1; }
+        If (text.Length() < prefix.Length()) { Return 0; }
+        If (text.Substring(0, prefix.Length()) == prefix) { Return 1; }
+        Return 0;
+    }
+}

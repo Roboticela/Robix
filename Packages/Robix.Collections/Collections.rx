@@ -1,0 +1,1402 @@
+// Robix.Collections: lists, links, queues, maps, sets, bits, and a ring buffer.
+Package Robix.Collections;
+
+Import Robix.Core;
+
+
+Class IntList {
+    Private Array<Int> items;
+    Private Int count;
+
+    Public Constructor() {
+        items = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+    }
+
+    Public Function Append(Int value) -> Int
+    Explain {
+        Description: "Append an integer.";
+        Input: value = "Integer to append";
+        Processing: "Store it in the next free slot.";
+        Output: "One when the value fits.";
+    } {
+        If (count >= 8) { Return 0; }
+        items[count] = value;
+        count = count + 1;
+        Return 1;
+    }
+
+    Public Function Insert(Int index, Int value) -> Int
+    Explain {
+        Description: "Insert an integer at an index.";
+        Input: index = "Insertion index", value = "Integer to insert";
+        Processing: "Shift the tail right and write the value.";
+        Output: "One when the value fits.";
+    } {
+        If (index < 0 || index > count || count >= 8) { Return 0; }
+        Int cursor = count;
+        While (cursor > index) {
+            items[cursor] = items[cursor - 1];
+            cursor = cursor - 1;
+        }
+        items[index] = value;
+        count = count + 1;
+        Return 1;
+    }
+
+    Public Function RemoveAt(Int index) -> Int
+    Explain {
+        Description: "Remove the integer at an index.";
+        Input: index = "Index to remove";
+        Processing: "Shift the tail left.";
+        Output: "The removed integer, or -1.";
+    } {
+        If (index < 0 || index >= count) { Return -1; }
+        Int value = items[index];
+        Int cursor = index;
+        While (cursor < count - 1) {
+            items[cursor] = items[cursor + 1];
+            cursor = cursor + 1;
+        }
+        count = count - 1;
+        Return value;
+    }
+
+    Public Function Remove(Int value) -> Int
+    Explain {
+        Description: "Remove the first matching integer.";
+        Input: value = "Integer to remove";
+        Processing: "Find it and remove that index.";
+        Output: "One when a match was removed.";
+    } {
+        Int index = This.IndexOf(value);
+        If (index < 0) { Return 0; }
+        This.RemoveAt(index);
+        Return 1;
+    }
+
+    Public Function Clear() -> Int
+    Explain {
+        Description: "Remove every integer.";
+        Input: "No parameters";
+        Processing: "Set the count to zero.";
+        Output: "Zero.";
+    } {
+        count = 0;
+        Return 0;
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Return how many integers are stored.";
+        Input: "No parameters";
+        Processing: "Read the count.";
+        Output: "The count.";
+    } {
+        Return count;
+    }
+
+    Public Function IsEmpty() -> Int
+    Explain {
+        Description: "Report whether the list is empty.";
+        Input: "No parameters";
+        Processing: "Compare the count with zero.";
+        Output: "One when the list is empty.";
+    } {
+        If (count == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Get(Int index) -> Int
+    Explain {
+        Description: "Read an integer.";
+        Input: index = "Index to read";
+        Processing: "Return the slot when it is in range.";
+        Output: "The integer, or -1.";
+    } {
+        If (index < 0 || index >= count) { Return -1; }
+        Return items[index];
+    }
+
+    Public Function PutAt(Int index, Int value) -> Int
+    Explain {
+        Description: "Replace an integer.";
+        Input: index = "Index to replace", value = "New integer";
+        Processing: "Write the slot when it is in range.";
+        Output: "One when the slot was written.";
+    } {
+        If (index < 0 || index >= count) { Return 0; }
+        items[index] = value;
+        Return 1;
+    }
+
+    Public Function Holds(Int value) -> Int
+    Explain {
+        Description: "Report whether an integer is present.";
+        Input: value = "Integer to find";
+        Processing: "Scan the stored integers.";
+        Output: "One when it is present.";
+    } {
+        If (This.IndexOf(value) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IndexOf(Int value) -> Int
+    Explain {
+        Description: "Find the first index of an integer.";
+        Input: value = "Integer to find";
+        Processing: "Scan from the front.";
+        Output: "The index, or -1.";
+    } {
+        Int index = 0;
+        While (index < count) {
+            If (items[index] == value) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Public Function LastIndexOf(Int value) -> Int
+    Explain {
+        Description: "Find the last index of an integer.";
+        Input: value = "Integer to find";
+        Processing: "Scan from the back.";
+        Output: "The index, or -1.";
+    } {
+        Int index = count - 1;
+        While (index >= 0) {
+            If (items[index] == value) { Return index; }
+            index = index - 1;
+        }
+        Return -1;
+    }
+
+    Public Function Copy() -> IntList
+    Explain {
+        Description: "Copy the list.";
+        Input: "No parameters";
+        Processing: "Append every integer to a new list.";
+        Output: "The copy.";
+    } {
+        IntList copy = IntList();
+        Int index = 0;
+        While (index < count) {
+            copy.Append(items[index]);
+            index = index + 1;
+        }
+        Return copy;
+    }
+
+    Public Function Plus(Int value) -> IntList
+    Explain {
+        Description: "Return a copy with one more integer.";
+        Input: value = "Integer to append";
+        Processing: "Copy the list and append the value.";
+        Output: "The new list.";
+    } {
+        IntList copy = This.Copy();
+        copy.Append(value);
+        Return copy;
+    }
+
+    Public Function Reverse() -> Int
+    Explain {
+        Description: "Reverse the list in place.";
+        Input: "No parameters";
+        Processing: "Swap items from the outside inward.";
+        Output: "The count.";
+    } {
+        Int left = 0;
+        Int right = count - 1;
+        While (left < right) {
+            Int swap = items[left];
+            items[left] = items[right];
+            items[right] = swap;
+            left = left + 1;
+            right = right - 1;
+        }
+        Return count;
+    }
+
+    Public Function Sort() -> Int
+    Explain {
+        Description: "Sort the list in ascending order.";
+        Input: "No parameters";
+        Processing: "Insert each integer into the sorted prefix.";
+        Output: "The count.";
+    } {
+        Int index = 1;
+        While (index < count) {
+            Int value = items[index];
+            Int cursor = index - 1;
+            While (cursor >= 0 && items[cursor] > value) {
+                items[cursor + 1] = items[cursor];
+                cursor = cursor - 1;
+            }
+            items[cursor + 1] = value;
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function Shuffle(Int seed) -> Int
+    Explain {
+        Description: "Reorder the list with a fixed seed.";
+        Input: seed = "Shuffle seed";
+        Processing: "Swap each index with a seeded earlier index.";
+        Output: "The count.";
+    } {
+        Int index = count - 1;
+        Int state = seed;
+        While (index > 0) {
+            state = state * 17 + 3;
+            If (state < 0) { state = 0 - state; }
+            Int pick = state % (index + 1);
+            Int swap = items[index];
+            items[index] = items[pick];
+            items[pick] = swap;
+            index = index - 1;
+        }
+        Return count;
+    }
+
+    Public Function BinarySearch(Int value) -> Int
+    Explain {
+        Description: "Find a value in a sorted list.";
+        Input: value = "Integer to find";
+        Processing: "Halve the search range until the value is found.";
+        Output: "The index, or -1.";
+    } {
+        Int low = 0;
+        Int high = count - 1;
+        While (low <= high) {
+            Int mid = (low + high) / 2;
+            If (items[mid] == value) { Return mid; }
+            If (items[mid] < value) { low = mid + 1; }
+            If (items[mid] > value) { high = mid - 1; }
+        }
+        Return -1;
+    }
+
+    Public Function Find(Int mode) -> Int
+    Explain {
+        Description: "Find the first integer matching a mode.";
+        Input: mode = "Zero for even, one for greater than five";
+        Processing: "Scan until a match.";
+        Output: "The index, or -1.";
+    } {
+        Int index = 0;
+        While (index < count) {
+            If (This.Matches(items[index], mode) == 1) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Public Function CountWhere(Int mode) -> Int
+    Explain {
+        Description: "Count integers matching a mode.";
+        Input: mode = "Zero for even, one for greater than five";
+        Processing: "Count the matches.";
+        Output: "The match count.";
+    } {
+        Int found = 0;
+        Int index = 0;
+        While (index < count) {
+            If (This.Matches(items[index], mode) == 1) { found = found + 1; }
+            index = index + 1;
+        }
+        Return found;
+    }
+
+    Public Function Filter(Int mode) -> IntList
+    Explain {
+        Description: "Copy the integers matching a mode.";
+        Input: mode = "Zero for even, one for greater than five";
+        Processing: "Append each match to a new list.";
+        Output: "The filtered list.";
+    } {
+        IntList copy = IntList();
+        Int index = 0;
+        While (index < count) {
+            If (This.Matches(items[index], mode) == 1) { copy.Append(items[index]); }
+            index = index + 1;
+        }
+        Return copy;
+    }
+
+    Public Function MapValues(Int mode) -> IntList
+    Explain {
+        Description: "Map every integer to a new value.";
+        Input: mode = "Zero to double, one to square";
+        Processing: "Append the mapped value to a new list.";
+        Output: "The mapped list.";
+    } {
+        IntList copy = IntList();
+        Int index = 0;
+        While (index < count) {
+            Int value = items[index];
+            If (mode == 0) { value = value * 2; }
+            If (mode == 1) { value = value * value; }
+            copy.Append(value);
+            index = index + 1;
+        }
+        Return copy;
+    }
+
+    Public Function Distinct() -> IntList
+    Explain {
+        Description: "Copy the integers without duplicates.";
+        Input: "No parameters";
+        Processing: "Keep the first occurrence of each integer.";
+        Output: "The distinct list.";
+    } {
+        IntList copy = IntList();
+        Int index = 0;
+        While (index < count) {
+            If (copy.Holds(items[index]) == 0) { copy.Append(items[index]); }
+            index = index + 1;
+        }
+        Return copy;
+    }
+
+    Public Function Chunk(Int size) -> String
+    Explain {
+        Description: "Split the list into fixed-size groups.";
+        Input: size = "Group size";
+        Processing: "Join groups with a bar and values with a comma.";
+        Output: "The grouped text.";
+    } {
+        If (size < 1 || count == 0) { Return "empty"; }
+        String text = "";
+        Int index = 0;
+        While (index < count) {
+            If (index > 0 && index % size == 0) { text = text + "|"; }
+            If (index % size != 0) { text = text + ","; }
+            text = text + This.IntText(items[index]);
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Public Function GroupText() -> String
+    Explain {
+        Description: "Group negative and non-negative integers.";
+        Input: "No parameters";
+        Processing: "Write the negative group, then the other group.";
+        Output: "The grouped text.";
+    } {
+        String negative = "";
+        String positive = "";
+        Int index = 0;
+        While (index < count) {
+            If (items[index] < 0) {
+                If (negative != "") { negative = negative + ","; }
+                negative = negative + This.IntText(items[index]);
+            }
+            If (items[index] >= 0) {
+                If (positive != "") { positive = positive + ","; }
+                positive = positive + This.IntText(items[index]);
+            }
+            index = index + 1;
+        }
+        If (negative == "") { negative = "none"; }
+        If (positive == "") { positive = "none"; }
+        Return negative + "|" + positive;
+    }
+
+    Public Function Flatten(IntList other) -> IntList
+    Explain {
+        Description: "Append another list onto a copy.";
+        Input: other = "List to append";
+        Processing: "Copy this list, then append the other list.";
+        Output: "The combined list.";
+    } {
+        IntList copy = This.Copy();
+        Int index = 0;
+        While (index < other.Count()) {
+            copy.Append(other.Get(index));
+            index = index + 1;
+        }
+        Return copy;
+    }
+
+    Public Function ContainsAny(IntList other) -> Int
+    Explain {
+        Description: "Report whether any integer from another list is present.";
+        Input: other = "List of candidates";
+        Processing: "Scan the candidates.";
+        Output: "One when any candidate is present.";
+    } {
+        Int index = 0;
+        While (index < other.Count()) {
+            If (This.Holds(other.Get(index)) == 1) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function ContainsAll(IntList other) -> Int
+    Explain {
+        Description: "Report whether every integer from another list is present.";
+        Input: other = "List of required integers";
+        Processing: "Scan the required integers.";
+        Output: "One when all of them are present.";
+    } {
+        Int index = 0;
+        While (index < other.Count()) {
+            If (This.Holds(other.Get(index)) == 0) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function Sum() -> Int
+    Explain {
+        Description: "Add every integer.";
+        Input: "No parameters";
+        Processing: "Accumulate the slots.";
+        Output: "The sum.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < count) {
+            total = total + items[index];
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function AverageText() -> String
+    Explain {
+        Description: "Format the average with one decimal place.";
+        Input: "No parameters";
+        Processing: "Divide the sum by the count.";
+        Output: "The average text, or empty.";
+    } {
+        If (count == 0) { Return "empty"; }
+        Int total = This.Sum();
+        Int whole = total / count;
+        Int tenth = ((total * 10) / count) % 10;
+        If (tenth < 0) { tenth = 0 - tenth; }
+        Return This.IntText(whole) + "." + This.IntText(tenth);
+    }
+
+    Public Function Min() -> Int
+    Explain {
+        Description: "Return the smallest integer.";
+        Input: "No parameters";
+        Processing: "Scan the slots.";
+        Output: "The smallest integer, or -1 when empty.";
+    } {
+        If (count == 0) { Return -1; }
+        Int best = items[0];
+        Int index = 1;
+        While (index < count) {
+            If (items[index] < best) { best = items[index]; }
+            index = index + 1;
+        }
+        Return best;
+    }
+
+    Public Function Max() -> Int
+    Explain {
+        Description: "Return the largest integer.";
+        Input: "No parameters";
+        Processing: "Scan the slots.";
+        Output: "The largest integer, or -1 when empty.";
+    } {
+        If (count == 0) { Return -1; }
+        Int best = items[0];
+        Int index = 1;
+        While (index < count) {
+            If (items[index] > best) { best = items[index]; }
+            index = index + 1;
+        }
+        Return best;
+    }
+
+    Public Function Aggregate() -> Int
+    Explain {
+        Description: "Return the sum of squares.";
+        Input: "No parameters";
+        Processing: "Square each integer and add the squares.";
+        Output: "The sum of squares.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < count) {
+            total = total + items[index] * items[index];
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function Any(Int mode) -> Int
+    Explain {
+        Description: "Report whether any integer matches a mode.";
+        Input: mode = "Zero for even, one for greater than five";
+        Processing: "Stop at the first match.";
+        Output: "One when a match exists.";
+    } {
+        If (This.Find(mode) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function All(Int mode) -> Int
+    Explain {
+        Description: "Report whether every integer matches a mode.";
+        Input: mode = "Zero for even, one for greater than five";
+        Processing: "Compare the match count with the count.";
+        Output: "One when every integer matches.";
+    } {
+        If (count == 0) { Return 1; }
+        If (This.CountWhere(mode) == count) { Return 1; }
+        Return 0;
+    }
+
+    Public Function First() -> Int
+    Explain {
+        Description: "Return the first integer.";
+        Input: "No parameters";
+        Processing: "Read index zero.";
+        Output: "The first integer, or -1.";
+    } {
+        Return This.Get(0);
+    }
+
+    Public Function Last() -> Int
+    Explain {
+        Description: "Return the last integer.";
+        Input: "No parameters";
+        Processing: "Read the final index.";
+        Output: "The last integer, or -1.";
+    } {
+        Return This.Get(count - 1);
+    }
+
+    Public Function ToText() -> String
+    Explain {
+        Description: "Join the integers with commas.";
+        Input: "No parameters";
+        Processing: "Write each integer into one string.";
+        Output: "The joined text, or empty.";
+    } {
+        If (count == 0) { Return "empty"; }
+        String text = "";
+        Int index = 0;
+        While (index < count) {
+            If (index > 0) { text = text + ","; }
+            text = text + This.IntText(items[index]);
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Private Function Matches(Int value, Int mode) -> Int {
+        If (mode == 0 && value % 2 == 0) { Return 1; }
+        If (mode == 1 && value > 5) { Return 1; }
+        Return 0;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int negative = 0;
+        Int remaining = value;
+        If (remaining < 0) {
+            negative = 1;
+            remaining = 0 - remaining;
+        }
+        String digits = "0123456789";
+        String text = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            text = digits.Substring(digit, 1) + text;
+            remaining = remaining / 10;
+        }
+        If (negative == 1) { Return "-" + text; }
+        Return text;
+    }
+}
+
+Class LinkedInts {
+    Private Array<Int> values;
+    Private Array<Int> nexts;
+    Private Array<Int> prevs;
+    Private Int head;
+    Private Int tail;
+    Private Int free;
+    Private Int count;
+
+    Public Constructor() {
+        values = [0, 0, 0, 0, 0, 0, 0, 0];
+        nexts = [1, 2, 3, 4, 5, 6, 7, -1];
+        prevs = [-1, -1, -1, -1, -1, -1, -1, -1];
+        head = -1;
+        tail = -1;
+        free = 0;
+        count = 0;
+    }
+
+    Public Function AddLast(Int value) -> Int
+    Explain {
+        Description: "Link an integer at the tail.";
+        Input: value = "Integer to link";
+        Processing: "Take a free node and attach it after the tail.";
+        Output: "One when a node was free.";
+    } {
+        If (free < 0) { Return 0; }
+        Int node = free;
+        free = nexts[node];
+        values[node] = value;
+        nexts[node] = -1;
+        prevs[node] = tail;
+        If (tail >= 0) { nexts[tail] = node; }
+        If (tail < 0) { head = node; }
+        tail = node;
+        count = count + 1;
+        Return 1;
+    }
+
+    Public Function AddFirst(Int value) -> Int
+    Explain {
+        Description: "Link an integer at the head.";
+        Input: value = "Integer to link";
+        Processing: "Take a free node and attach it before the head.";
+        Output: "One when a node was free.";
+    } {
+        If (free < 0) { Return 0; }
+        Int node = free;
+        free = nexts[node];
+        values[node] = value;
+        prevs[node] = -1;
+        nexts[node] = head;
+        If (head >= 0) { prevs[head] = node; }
+        If (head < 0) { tail = node; }
+        head = node;
+        count = count + 1;
+        Return 1;
+    }
+
+    Public Function RemoveFirst() -> Int
+    Explain {
+        Description: "Unlink the head.";
+        Input: "No parameters";
+        Processing: "Return the head node to the free list.";
+        Output: "The removed integer, or -1.";
+    } {
+        If (head < 0) { Return -1; }
+        Int node = head;
+        Int value = values[node];
+        head = nexts[node];
+        If (head >= 0) { prevs[head] = -1; }
+        If (head < 0) { tail = -1; }
+        nexts[node] = free;
+        free = node;
+        count = count - 1;
+        Return value;
+    }
+
+    Public Function First() -> Int
+    Explain {
+        Description: "Read the head.";
+        Input: "No parameters";
+        Processing: "Read the head node.";
+        Output: "The head integer, or -1.";
+    } {
+        If (head < 0) { Return -1; }
+        Return values[head];
+    }
+
+    Public Function Last() -> Int
+    Explain {
+        Description: "Read the tail.";
+        Input: "No parameters";
+        Processing: "Read the tail node.";
+        Output: "The tail integer, or -1.";
+    } {
+        If (tail < 0) { Return -1; }
+        Return values[tail];
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Return the linked count.";
+        Input: "No parameters";
+        Processing: "Read the count.";
+        Output: "The count.";
+    } {
+        Return count;
+    }
+}
+
+Class IntStack {
+    Private IntList items;
+
+    Public Constructor() {
+        items = IntList();
+    }
+
+    Public Function Push(Int value) -> Int
+    Explain {
+        Description: "Push an integer.";
+        Input: value = "Integer to push";
+        Processing: "Append it to the stack.";
+        Output: "One when it fits.";
+    } {
+        Return items.Append(value);
+    }
+
+    Public Function Pop() -> Int
+    Explain {
+        Description: "Pop the top integer.";
+        Input: "No parameters";
+        Processing: "Remove the last integer.";
+        Output: "The top integer, or -1.";
+    } {
+        Return items.RemoveAt(items.Count() - 1);
+    }
+
+    Public Function Peek() -> Int
+    Explain {
+        Description: "Read the top integer.";
+        Input: "No parameters";
+        Processing: "Read the last integer.";
+        Output: "The top integer, or -1.";
+    } {
+        Return items.Get(items.Count() - 1);
+    }
+}
+
+Class IntQueue {
+    Private IntList items;
+
+    Public Constructor() {
+        items = IntList();
+    }
+
+    Public Function Enqueue(Int value) -> Int
+    Explain {
+        Description: "Enqueue an integer.";
+        Input: value = "Integer to enqueue";
+        Processing: "Append it to the queue.";
+        Output: "One when it fits.";
+    } {
+        Return items.Append(value);
+    }
+
+    Public Function Dequeue() -> Int
+    Explain {
+        Description: "Dequeue the oldest integer.";
+        Input: "No parameters";
+        Processing: "Remove index zero.";
+        Output: "The oldest integer, or -1.";
+    } {
+        Return items.RemoveAt(0);
+    }
+}
+
+Class IntDeque {
+    Private IntList items;
+
+    Public Constructor() {
+        items = IntList();
+    }
+
+    Public Function PushFront(Int value) -> Int
+    Explain {
+        Description: "Push an integer at the front.";
+        Input: value = "Integer to push";
+        Processing: "Insert it at index zero.";
+        Output: "One when it fits.";
+    } {
+        Return items.Insert(0, value);
+    }
+
+    Public Function PushBack(Int value) -> Int
+    Explain {
+        Description: "Push an integer at the back.";
+        Input: value = "Integer to push";
+        Processing: "Append it.";
+        Output: "One when it fits.";
+    } {
+        Return items.Append(value);
+    }
+
+    Public Function PopFront() -> Int
+    Explain {
+        Description: "Pop the front integer.";
+        Input: "No parameters";
+        Processing: "Remove index zero.";
+        Output: "The front integer, or -1.";
+    } {
+        Return items.RemoveAt(0);
+    }
+
+    Public Function PopBack() -> Int
+    Explain {
+        Description: "Pop the back integer.";
+        Input: "No parameters";
+        Processing: "Remove the last integer.";
+        Output: "The back integer, or -1.";
+    } {
+        Return items.RemoveAt(items.Count() - 1);
+    }
+}
+
+Class PriorityList {
+    Private Array<Int> values;
+    Private Array<Int> priorities;
+    Private Int count;
+
+    Public Constructor() {
+        values = [0, 0, 0, 0, 0, 0, 0, 0];
+        priorities = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+    }
+
+    Public Function Enqueue(Int value, Int priority) -> Int
+    Explain {
+        Description: "Enqueue an integer with a priority.";
+        Input: value = "Integer to store", priority = "Higher values come out first";
+        Processing: "Append the pair.";
+        Output: "One when it fits.";
+    } {
+        If (count >= 8) { Return 0; }
+        values[count] = value;
+        priorities[count] = priority;
+        count = count + 1;
+        Return 1;
+    }
+
+    Public Function Dequeue() -> Int
+    Explain {
+        Description: "Remove the highest-priority integer.";
+        Input: "No parameters";
+        Processing: "Select the highest priority and close the gap.";
+        Output: "The selected integer, or -1.";
+    } {
+        If (count == 0) { Return -1; }
+        Int best = 0;
+        Int index = 1;
+        While (index < count) {
+            If (priorities[index] > priorities[best]) { best = index; }
+            index = index + 1;
+        }
+        Int value = values[best];
+        Int cursor = best;
+        While (cursor < count - 1) {
+            values[cursor] = values[cursor + 1];
+            priorities[cursor] = priorities[cursor + 1];
+            cursor = cursor + 1;
+        }
+        count = count - 1;
+        Return value;
+    }
+}
+
+Class TextMap {
+    Private Array<String> keys;
+    Private Array<Int> values;
+    Private Int count;
+
+    Public Constructor() {
+        keys = ["", "", "", "", "", "", "", ""];
+        values = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+    }
+
+    Public Function Put(String key, Int value) -> Int
+    Explain {
+        Description: "Store an integer by text key.";
+        Input: key = "Map key", value = "Integer value";
+        Processing: "Replace an existing key or append a new one in sorted order.";
+        Output: "One when the key fits.";
+    } {
+        Int index = This.Locate(key);
+        If (index >= 0) {
+            values[index] = value;
+            Return 1;
+        }
+        If (count >= 8) { Return 0; }
+        Int cursor = count;
+        While (cursor > 0 && This.Compare(keys[cursor - 1], key) > 0) {
+            keys[cursor] = keys[cursor - 1];
+            values[cursor] = values[cursor - 1];
+            cursor = cursor - 1;
+        }
+        keys[cursor] = key;
+        values[cursor] = value;
+        count = count + 1;
+        Return 1;
+    }
+
+    Public Function Get(String key) -> Int
+    Explain {
+        Description: "Read an integer by text key.";
+        Input: key = "Map key";
+        Processing: "Find the key.";
+        Output: "The integer, or -1.";
+    } {
+        Int index = This.Locate(key);
+        If (index < 0) { Return -1; }
+        Return values[index];
+    }
+
+    Public Function Contains(String key) -> Int
+    Explain {
+        Description: "Report whether a key is present.";
+        Input: key = "Map key";
+        Processing: "Find the key.";
+        Output: "One when the key is present.";
+    } {
+        If (This.Locate(key) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Remove(String key) -> Int
+    Explain {
+        Description: "Remove a key.";
+        Input: key = "Map key";
+        Processing: "Close the gap when the key exists.";
+        Output: "One when the key was removed.";
+    } {
+        Int index = This.Locate(key);
+        If (index < 0) { Return 0; }
+        Int cursor = index;
+        While (cursor < count - 1) {
+            keys[cursor] = keys[cursor + 1];
+            values[cursor] = values[cursor + 1];
+            cursor = cursor + 1;
+        }
+        count = count - 1;
+        Return 1;
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Return the number of keys.";
+        Input: "No parameters";
+        Processing: "Read the count.";
+        Output: "The count.";
+    } {
+        Return count;
+    }
+
+    Public Function KeyAt(Int index) -> String
+    Explain {
+        Description: "Read a key by sorted index.";
+        Input: index = "Sorted index";
+        Processing: "Read the key slot.";
+        Output: "The key, or empty.";
+    } {
+        If (index < 0 || index >= count) { Return "empty"; }
+        Return keys[index];
+    }
+
+    Private Function Locate(String key) -> Int {
+        Int index = 0;
+        While (index < count) {
+            If (keys[index] == key) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Compare(String left, String right) -> Int {
+        If (left == right) { Return 0; }
+        Int limit = left.Length();
+        If (right.Length() < limit) { limit = right.Length(); }
+        Int index = 0;
+        While (index < limit) {
+            Int a = left.GetChar(index).ToInt();
+            Int b = right.GetChar(index).ToInt();
+            If (a < b) { Return -1; }
+            If (a > b) { Return 1; }
+            index = index + 1;
+        }
+        If (left.Length() < right.Length()) { Return -1; }
+        If (left.Length() > right.Length()) { Return 1; }
+        Return 0;
+    }
+}
+
+Class IntSet {
+    Private IntList items;
+
+    Public Constructor() {
+        items = IntList();
+    }
+
+    Public Function Add(Int value) -> Int
+    Explain {
+        Description: "Add an integer once, in sorted order.";
+        Input: value = "Integer to add";
+        Processing: "Skip a duplicate and otherwise insert in order.";
+        Output: "One when the integer was new.";
+    } {
+        Int index = 0;
+        While (index < items.Count() && items.Get(index) < value) { index = index + 1; }
+        If (index < items.Count() && items.Get(index) == value) { Return 0; }
+        Return items.Insert(index, value);
+    }
+
+    Public Function Contains(Int value) -> Int
+    Explain {
+        Description: "Report whether the set contains an integer.";
+        Input: value = "Integer to find";
+        Processing: "Scan the sorted integers.";
+        Output: "One when it is present.";
+    } {
+        Return items.Holds(value);
+    }
+
+    Public Function Count() -> Int
+    Explain {
+        Description: "Return the set size.";
+        Input: "No parameters";
+        Processing: "Read the list count.";
+        Output: "The size.";
+    } {
+        Return items.Count();
+    }
+
+    Public Function ToText() -> String
+    Explain {
+        Description: "Join the set in sorted order.";
+        Input: "No parameters";
+        Processing: "Read the underlying list text.";
+        Output: "The joined text.";
+    } {
+        Return items.ToText();
+    }
+
+    Public Function Union(IntSet other) -> IntSet
+    Explain {
+        Description: "Return the integers present in either set.";
+        Input: other = "Other set";
+        Processing: "Add both sets to a new set.";
+        Output: "The union.";
+    } {
+        IntSet result = IntSet();
+        This.AddAll(result);
+        other.AddAll(result);
+        Return result;
+    }
+
+    Public Function Intersect(IntSet other) -> IntSet
+    Explain {
+        Description: "Return the integers present in both sets.";
+        Input: other = "Other set";
+        Processing: "Keep integers contained by the other set.";
+        Output: "The intersection.";
+    } {
+        IntSet result = IntSet();
+        Int index = 0;
+        While (index < items.Count()) {
+            Int value = items.Get(index);
+            If (other.Contains(value) == 1) { result.Add(value); }
+            index = index + 1;
+        }
+        Return result;
+    }
+
+    Public Function Except(IntSet other) -> IntSet
+    Explain {
+        Description: "Return the integers present only in this set.";
+        Input: other = "Other set";
+        Processing: "Skip integers contained by the other set.";
+        Output: "The difference.";
+    } {
+        IntSet result = IntSet();
+        Int index = 0;
+        While (index < items.Count()) {
+            Int value = items.Get(index);
+            If (other.Contains(value) == 0) { result.Add(value); }
+            index = index + 1;
+        }
+        Return result;
+    }
+
+    Public Function Symmetric(IntSet other) -> IntSet
+    Explain {
+        Description: "Return the integers present in only one set.";
+        Input: other = "Other set";
+        Processing: "Combine both differences.";
+        Output: "The symmetric difference.";
+    } {
+        IntSet left = This.Except(other);
+        IntSet right = other.Except(This);
+        Return left.Union(right);
+    }
+
+    Public Function IsSubset(IntSet other) -> Int
+    Explain {
+        Description: "Report whether every integer is in the other set.";
+        Input: other = "Other set";
+        Processing: "Scan this set.";
+        Output: "One when this set is a subset.";
+    } {
+        Int index = 0;
+        While (index < items.Count()) {
+            If (other.Contains(items.Get(index)) == 0) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function IsSuperset(IntSet other) -> Int
+    Explain {
+        Description: "Report whether this set contains the other set.";
+        Input: other = "Other set";
+        Processing: "Ask whether the other set is a subset.";
+        Output: "One when this set is a superset.";
+    } {
+        Return other.IsSubset(This);
+    }
+
+    Public Function Overlaps(IntSet other) -> Int
+    Explain {
+        Description: "Report whether the sets share an integer.";
+        Input: other = "Other set";
+        Processing: "Scan for the first shared integer.";
+        Output: "One when they overlap.";
+    } {
+        Int index = 0;
+        While (index < items.Count()) {
+            If (other.Contains(items.Get(index)) == 1) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function AddAll(IntSet target) -> Int
+    Explain {
+        Description: "Add every integer to another set.";
+        Input: target = "Set that receives the integers";
+        Processing: "Add each stored integer.";
+        Output: "The number of integers visited.";
+    } {
+        Int index = 0;
+        While (index < items.Count()) {
+            target.Add(items.Get(index));
+            index = index + 1;
+        }
+        Return index;
+    }
+}
+
+Class BitSet {
+    Private Int storedBits;
+
+    Public Constructor() {
+        storedBits = 0;
+    }
+
+    Public Function SetBit(Int index) -> Int
+    Explain {
+        Description: "Set one of sixteen bits.";
+        Input: index = "Bit index from zero to fifteen";
+        Processing: "Turn that bit on.";
+        Output: "One when the index is valid.";
+    } {
+        If (index < 0 || index > 15) { Return 0; }
+        storedBits = storedBits + This.Mask(index);
+        Return 1;
+    }
+
+    Public Function GetBit(Int index) -> Int
+    Explain {
+        Description: "Read one bit.";
+        Input: index = "Bit index";
+        Processing: "Test the mask.";
+        Output: "One when the bit is on.";
+    } {
+        If (index < 0 || index > 15) { Return 0; }
+        Int mask = This.Mask(index);
+        If ((storedBits / mask) % 2 == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function CountBits() -> Int
+    Explain {
+        Description: "Count the bits that are on.";
+        Input: "No parameters";
+        Processing: "Test all sixteen bits.";
+        Output: "The count.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < 16) {
+            total = total + This.GetBit(index);
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Private Function Mask(Int index) -> Int {
+        Int mask = 1;
+        Int cursor = 0;
+        While (cursor < index) {
+            mask = mask * 2;
+            cursor = cursor + 1;
+        }
+        Return mask;
+    }
+}
+
+Class BloomSet {
+    Private Int storedBits;
+
+    Public Constructor() {
+        storedBits = 0;
+    }
+
+    Public Function Add(String text) -> Int
+    Explain {
+        Description: "Record a text value in the filter.";
+        Input: text = "Text to record";
+        Processing: "Set two hash bits.";
+        Output: "One.";
+    } {
+        storedBits = storedBits + This.Missing(text);
+        Return 1;
+    }
+
+    Public Function MightContain(String text) -> Int
+    Explain {
+        Description: "Test whether a text value might have been recorded.";
+        Input: text = "Text to test";
+        Processing: "Check both hash bits.";
+        Output: "One when both bits are on.";
+    } {
+        If (This.Missing(text) == 0) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Missing(String text) -> Int {
+        Int hash = This.Hash(text);
+        Int first = hash % 16;
+        Int second = (hash / 16) % 16;
+        If (second < 0) { second = 0 - second; }
+        If (first < 0) { first = 0 - first; }
+        Int mask = 0;
+        If (This.Bit(first) == 0) { mask = mask + This.Mask(first); }
+        If (second != first && This.Bit(second) == 0) { mask = mask + This.Mask(second); }
+        Return mask;
+    }
+
+    Private Function Bit(Int index) -> Int {
+        Int mask = This.Mask(index);
+        If ((storedBits / mask) % 2 == 1) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Mask(Int index) -> Int {
+        Int mask = 1;
+        Int cursor = 0;
+        While (cursor < index) {
+            mask = mask * 2;
+            cursor = cursor + 1;
+        }
+        Return mask;
+    }
+
+    Private Function Hash(String text) -> Int {
+        Int hash = 5381;
+        Int index = 0;
+        While (index < text.Length()) {
+            hash = hash * 33 + text.GetChar(index).ToInt();
+            index = index + 1;
+        }
+        If (hash < 0) { hash = 0 - hash; }
+        Return hash;
+    }
+}
+
+Class RingBuffer {
+    Private Array<Int> items;
+    Private Int head;
+    Private Int count;
+
+    Public Constructor() {
+        items = [0, 0, 0, 0];
+        head = 0;
+        count = 0;
+    }
+
+    Public Function Write(Int value) -> Int
+    Explain {
+        Description: "Write an integer, dropping the oldest when full.";
+        Input: value = "Integer to write";
+        Processing: "Advance the head when the four slots are full.";
+        Output: "The stored count.";
+    } {
+        If (count == 4) {
+            head = (head + 1) % 4;
+            count = count - 1;
+        }
+        Int slot = (head + count) % 4;
+        items[slot] = value;
+        count = count + 1;
+        Return count;
+    }
+
+    Public Function Read() -> Int
+    Explain {
+        Description: "Read the oldest integer.";
+        Input: "No parameters";
+        Processing: "Advance the head.";
+        Output: "The oldest integer, or -1.";
+    } {
+        If (count == 0) { Return -1; }
+        Int value = items[head];
+        head = (head + 1) % 4;
+        count = count - 1;
+        Return value;
+    }
+}
+
+Class WatchList {
+    Private IntList items;
+    Private Int changes;
+
+    Public Constructor() {
+        items = IntList();
+        changes = 0;
+    }
+
+    Public Function Add(Int value) -> Int
+    Explain {
+        Description: "Append an integer and record the change.";
+        Input: value = "Integer to append";
+        Processing: "Add it and increment the change count.";
+        Output: "One when it fits.";
+    } {
+        Int added = items.Append(value);
+        If (added == 1) { changes = changes + 1; }
+        Return added;
+    }
+
+    Public Function Remove(Int value) -> Int
+    Explain {
+        Description: "Remove an integer and record the change.";
+        Input: value = "Integer to remove";
+        Processing: "Remove it and increment the change count.";
+        Output: "One when it was removed.";
+    } {
+        Int removed = items.Remove(value);
+        If (removed == 1) { changes = changes + 1; }
+        Return removed;
+    }
+
+    Public Function Changes() -> Int
+    Explain {
+        Description: "Return how many changes were recorded.";
+        Input: "No parameters";
+        Processing: "Read the change count.";
+        Output: "The change count.";
+    } {
+        Return changes;
+    }
+}

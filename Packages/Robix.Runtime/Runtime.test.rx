@@ -1,0 +1,5 @@
+Test Start {
+    Constraint: RuntimeHost().Initialize("lab", "jit").Ok == 1;
+    Processing: True;
+    Output: True;
+}

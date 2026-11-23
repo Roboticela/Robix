@@ -1,0 +1,5 @@
+Test Info {
+    Constraint: DiagnosticLog().Info("RX10", "ready", "Diagnostics.rx", 2, 1) == 1;
+    Processing: True;
+    Output: True;
+}

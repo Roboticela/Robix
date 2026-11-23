@@ -1,0 +1,532 @@
+// Robix.Functions: invocation, composition, binding, memoization, and expression trees.
+Package Robix.Functions;
+
+Import Robix.Core;
+
+
+Var lastAction = "none";
+
+Public Function Note(String text) -> Void
+Explain {
+    Description: "Record an action.";
+    Input: text = "Action name";
+    Processing: "Store the name.";
+    Output: "No return value.";
+} {
+    lastAction = text;
+}
+
+Public Function ApplyFree(String op, Int value) -> Int
+Explain {
+    Description: "Apply a unary operation.";
+    Input: op = "Operation name", value = "Input integer";
+    Processing: "Increment, double, square, or negate the integer.";
+    Output: "The result, or -1 when the operation is missing.";
+} {
+    If (op == "inc") { Return value + 1; }
+    If (op == "twice") { Return value * 2; }
+    If (op == "square") { Return value * value; }
+    If (op == "negate") { Return 0 - value; }
+    Return -1;
+}
+
+Public Function ApplyFree2(String op, Int left, Int right) -> Int
+Explain {
+    Description: "Apply a binary operation.";
+    Input: op = "Operation name", left = "Left integer", right = "Right integer";
+    Processing: "Add, subtract, or multiply.";
+    Output: "The result, or -1 when the operation is missing.";
+} {
+    If (op == "add") { Return left + right; }
+    If (op == "sub") { Return left - right; }
+    If (op == "mul") { Return left * right; }
+    Return -1;
+}
+
+Public Function AddPair(Int left, Int right) -> Int
+Explain {
+    Description: "Add two integers.";
+    Input: left = "Left integer", right = "Right integer";
+    Processing: "Add the integers.";
+    Output: "The sum.";
+} {
+    Return left + right;
+}
+
+Class Toolbox {
+    Private Int boundLeft;
+    Private String boundOp;
+    Private Int boundOn;
+    Private Int memoKey;
+    Private Int memoValue;
+    Private String memoOp;
+    Private Int memoOn;
+    Private Int onceOn;
+    Private Int onceValue;
+    Private Int lastTick;
+    Private Int throttleValue;
+    Private String pendingOp;
+    Private Int pendingValue;
+    Private Int pendingTick;
+    Private Int debounceGap;
+    Private Int calls;
+    Private String problem;
+
+    Public Constructor() {
+        boundLeft = 0;
+        boundOp = "";
+        boundOn = 0;
+        memoKey = 0;
+        memoValue = 0;
+        memoOp = "";
+        memoOn = 0;
+        onceOn = 0;
+        onceValue = 0;
+        lastTick = -1;
+        throttleValue = 0;
+        pendingOp = "";
+        pendingValue = 0;
+        pendingTick = 0;
+        debounceGap = 0;
+        calls = 0;
+        problem = "none";
+    }
+
+    Public Function Invoke(String op, Int value) -> Int
+    Explain {
+        Description: "Invoke a unary operation.";
+        Input: op = "Operation name", value = "Input integer";
+        Processing: "Apply the operation and count the call.";
+        Output: "The result, or -1.";
+    } {
+        Int result = ApplyFree(op, value);
+        If (result == -1) { problem = "missing"; }
+        If (result != -1) {
+            problem = "none";
+            calls = calls + 1;
+        }
+        Return result;
+    }
+
+    Public Function Invoke2(String op, Int left, Int right) -> Int
+    Explain {
+        Description: "Invoke a binary operation.";
+        Input: op = "Operation name", left = "Left integer", right = "Right integer";
+        Processing: "Apply the operation and count the call.";
+        Output: "The result, or -1.";
+    } {
+        Int result = ApplyFree2(op, left, right);
+        If (result == -1) { problem = "missing"; }
+        If (result != -1) {
+            problem = "none";
+            calls = calls + 1;
+        }
+        Return result;
+    }
+
+    Public Function Pipe(Int value, String first, String second) -> Int
+    Explain {
+        Description: "Feed one operation into another.";
+        Input: value = "Input integer", first = "First operation", second = "Second operation";
+        Processing: "Apply the first operation, then the second.";
+        Output: "The piped result.";
+    } {
+        Return ApplyFree(second, ApplyFree(first, value));
+    }
+
+    Public Function Compose(String outer, String inner, Int value) -> Int
+    Explain {
+        Description: "Compose two operations.";
+        Input: outer = "Operation applied last", inner = "Operation applied first", value = "Input integer";
+        Processing: "Apply the inner operation, then the outer operation.";
+        Output: "The composed result.";
+    } {
+        Return ApplyFree(outer, ApplyFree(inner, value));
+    }
+
+    Public Function Chain(Int value, String first, String second, String third) -> Int
+    Explain {
+        Description: "Chain three operations.";
+        Input: value = "Input integer", first = "First operation", second = "Second operation", third = "Third operation";
+        Processing: "Apply the operations from first to third.";
+        Output: "The chained result.";
+    } {
+        Int current = ApplyFree(first, value);
+        current = ApplyFree(second, current);
+        Return ApplyFree(third, current);
+    }
+
+    Public Function Bind(String op, Int left) -> Int
+    Explain {
+        Description: "Bind the left argument of a binary operation.";
+        Input: op = "Operation name", left = "Bound left integer";
+        Processing: "Store the operation and the left integer.";
+        Output: "One.";
+    } {
+        boundOp = op;
+        boundLeft = left;
+        boundOn = 1;
+        Return 1;
+    }
+
+    Public Function CallBound(Int right) -> Int
+    Explain {
+        Description: "Call the bound operation with the remaining argument.";
+        Input: right = "Right integer";
+        Processing: "Apply the stored operation.";
+        Output: "The result, or -1 when nothing is bound.";
+    } {
+        If (boundOn == 0) { Return -1; }
+        calls = calls + 1;
+        Return ApplyFree2(boundOp, boundLeft, right);
+    }
+
+    Public Function Curry(String op, Int left) -> Int
+    Explain {
+        Description: "Start a curried binary operation.";
+        Input: op = "Operation name", left = "Left integer";
+        Processing: "Store the operation and the left integer.";
+        Output: "The left integer.";
+    } {
+        boundOp = op;
+        boundLeft = left;
+        boundOn = 1;
+        Return left;
+    }
+
+    Public Function Uncurry(Int right) -> Int
+    Explain {
+        Description: "Finish the curried operation.";
+        Input: right = "Right integer";
+        Processing: "Apply both stored arguments.";
+        Output: "The result.";
+    } {
+        Return This.CallBound(right);
+    }
+
+    Public Function Memoize(String op, Int value) -> Int
+    Explain {
+        Description: "Cache the last unary result.";
+        Input: op = "Operation name", value = "Input integer";
+        Processing: "Reuse the result when the operation and input match.";
+        Output: "The cached or new result.";
+    } {
+        If (memoOn == 1 && memoOp == op && memoKey == value) { Return memoValue; }
+        memoOp = op;
+        memoKey = value;
+        memoValue = ApplyFree(op, value);
+        memoOn = 1;
+        calls = calls + 1;
+        Return memoValue;
+    }
+
+    Public Function Once(String op, Int value) -> Int
+    Explain {
+        Description: "Run an operation only on the first call.";
+        Input: op = "Operation name", value = "Input integer";
+        Processing: "Later calls return the first result.";
+        Output: "The first result.";
+    } {
+        If (onceOn == 1) { Return onceValue; }
+        onceValue = ApplyFree(op, value);
+        onceOn = 1;
+        calls = calls + 1;
+        Return onceValue;
+    }
+
+    Public Function Throttle(String op, Int value, Int tick, Int gap) -> Int
+    Explain {
+        Description: "Run an operation only after enough ticks.";
+        Input: op = "Operation name", value = "Input integer", tick = "Current tick", gap = "Minimum tick gap";
+        Processing: "Return the previous result when the gap has not elapsed.";
+        Output: "The accepted result.";
+    } {
+        If (lastTick >= 0 && tick - lastTick < gap) { Return throttleValue; }
+        lastTick = tick;
+        throttleValue = ApplyFree(op, value);
+        calls = calls + 1;
+        Return throttleValue;
+    }
+
+    Public Function Debounce(String op, Int value, Int tick, Int gap) -> Int
+    Explain {
+        Description: "Remember the latest call until the ticks go quiet.";
+        Input: op = "Operation name", value = "Input integer", tick = "Current tick", gap = "Quiet tick gap";
+        Processing: "Store the latest call and wait for Flush.";
+        Output: "Zero while the call is waiting.";
+    } {
+        pendingOp = op;
+        pendingValue = value;
+        pendingTick = tick;
+        debounceGap = gap;
+        Return 0;
+    }
+
+    Public Function Flush(Int tick) -> Int
+    Explain {
+        Description: "Run the debounced call after the quiet gap.";
+        Input: tick = "Current tick";
+        Processing: "Apply the stored call when enough ticks have passed.";
+        Output: "The result, or zero when it is still waiting.";
+    } {
+        If (pendingOp == "") { Return 0; }
+        If (tick - pendingTick < debounceGap) { Return 0; }
+        Int result = ApplyFree(pendingOp, pendingValue);
+        pendingOp = "";
+        calls = calls + 1;
+        Return result;
+    }
+
+    Public Function Signature(String op) -> String
+    Explain {
+        Description: "Return the signature text of an operation.";
+        Input: op = "Operation name";
+        Processing: "Choose a unary or binary signature.";
+        Output: "The signature text.";
+    } {
+        If (This.Kind(op) == "binary") { Return "(Int, Int) -> Int"; }
+        If (This.Kind(op) == "unary") { Return "(Int) -> Int"; }
+        Return "() -> Void";
+    }
+
+    Public Function Parameters(String op) -> String
+    Explain {
+        Description: "Return the parameter names.";
+        Input: op = "Operation name";
+        Processing: "Choose the unary or binary parameter list.";
+        Output: "The parameter text.";
+    } {
+        If (This.Kind(op) == "binary") { Return "left,right"; }
+        If (This.Kind(op) == "unary") { Return "value"; }
+        Return "none";
+    }
+
+    Public Function ReturnType(String op) -> String
+    Explain {
+        Description: "Return the result type name.";
+        Input: op = "Operation name";
+        Processing: "Known operations return Int.";
+        Output: "Int or Void.";
+    } {
+        If (This.Kind(op) == "missing") { Return "Void"; }
+        Return "Int";
+    }
+
+    Public Function FunctionName(String op) -> String
+    Explain {
+        Description: "Return the operation handle.";
+        Input: op = "Operation name";
+        Processing: "Keep the name as the function handle.";
+        Output: "The operation name.";
+    } {
+        Return op;
+    }
+
+    Public Function Metadata(String op) -> String
+    Explain {
+        Description: "Return unary, binary, or missing.";
+        Input: op = "Operation name";
+        Processing: "Classify the operation.";
+        Output: "The classification.";
+    } {
+        Return This.Kind(op);
+    }
+
+    Public Function Calls() -> Int
+    Explain {
+        Description: "Return how many operations actually ran.";
+        Input: "No parameters";
+        Processing: "Read the call count.";
+        Output: "The call count.";
+    } {
+        Return calls;
+    }
+
+    Public Function Error() -> String
+    Explain {
+        Description: "Return the latest function error.";
+        Input: "No parameters";
+        Processing: "Read the stored problem.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Evaluate(String expression) -> Int
+    Explain {
+        Description: "Evaluate a stack expression.";
+        Input: expression = "Comma-separated numbers and operations";
+        Processing: "Push numbers and apply add, sub, and mul.";
+        Output: "The expression result, or -1.";
+    } {
+        Int slot0 = 0;
+        Int slot1 = 0;
+        Int slot2 = 0;
+        Int slot3 = 0;
+        Int depth = 0;
+        Int count = This.Visit(expression);
+        Int cursor = 0;
+        While (cursor < count) {
+            String token = This.Token(expression, cursor);
+            If (This.IsNumber(token) == 1) {
+                If (depth == 0) { slot0 = This.Number(token); }
+                If (depth == 1) { slot1 = This.Number(token); }
+                If (depth == 2) { slot2 = This.Number(token); }
+                If (depth == 3) { slot3 = This.Number(token); }
+                If (depth >= 4) {
+                    problem = "stack";
+                    Return -1;
+                }
+                depth = depth + 1;
+            }
+            If (This.IsNumber(token) == 0) {
+                If (depth < 2) {
+                    problem = "stack";
+                    Return -1;
+                }
+                Int right = slot0;
+                Int left = slot0;
+                If (depth == 2) {
+                    left = slot0;
+                    right = slot1;
+                }
+                If (depth == 3) {
+                    left = slot1;
+                    right = slot2;
+                }
+                If (depth == 4) {
+                    left = slot2;
+                    right = slot3;
+                }
+                Int result = ApplyFree2(token, left, right);
+                depth = depth - 1;
+                If (depth == 1) { slot0 = result; }
+                If (depth == 2) { slot1 = result; }
+                If (depth == 3) { slot2 = result; }
+            }
+            cursor = cursor + 1;
+        }
+        If (depth != 1) {
+            problem = "stack";
+            Return -1;
+        }
+        problem = "none";
+        Return slot0;
+    }
+
+    Public Function Visit(String expression) -> Int
+    Explain {
+        Description: "Count the tokens in an expression.";
+        Input: expression = "Comma-separated expression";
+        Processing: "Count the commas and the tokens around them.";
+        Output: "The token count.";
+    } {
+        If (expression.Length() == 0) { Return 0; }
+        Int count = 1;
+        Int index = 0;
+        While (index < expression.Length()) {
+            If (expression.Substring(index, 1) == ",") { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Public Function Transform(String expression, String from, String to) -> String
+    Explain {
+        Description: "Replace one operation token.";
+        Input: expression = "Comma-separated expression", from = "Token to replace", to = "Replacement token";
+        Processing: "Rewrite matching tokens and keep the others.";
+        Output: "The rewritten expression.";
+    } {
+        Int count = This.Visit(expression);
+        String text = "";
+        Int cursor = 0;
+        While (cursor < count) {
+            If (cursor > 0) { text = text + ","; }
+            String token = This.Token(expression, cursor);
+            If (token == from) { text = text + to; }
+            If (token != from) { text = text + token; }
+            cursor = cursor + 1;
+        }
+        Return text;
+    }
+
+    Public Function Combine(String leftOp, String rightOp, Int value) -> String
+    Explain {
+        Description: "Run two operations on one integer.";
+        Input: leftOp = "First operation", rightOp = "Second operation", value = "Input integer";
+        Processing: "Apply both operations.";
+        Output: "Both results joined by a comma.";
+    } {
+        Int left = ApplyFree(leftOp, value);
+        Int right = ApplyFree(rightOp, value);
+        calls = calls + 2;
+        Return This.IntText(left) + "," + This.IntText(right);
+    }
+
+    Private Function Kind(String op) -> String {
+        If (op == "inc" || op == "twice" || op == "square" || op == "negate") { Return "unary"; }
+        If (op == "add" || op == "sub" || op == "mul") { Return "binary"; }
+        Return "missing";
+    }
+
+    Private Function Token(String expression, Int position) -> String {
+        Int index = 0;
+        Int current = 0;
+        Int start = 0;
+        While (index < expression.Length()) {
+            If (expression.Substring(index, 1) == ",") {
+                If (current == position) { Return expression.Substring(start, index - start); }
+                current = current + 1;
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        If (current == position) { Return expression.Substring(start, expression.Length() - start); }
+        Return "";
+    }
+
+    Private Function IsNumber(String token) -> Int {
+        If (token.Length() == 0) { Return 0; }
+        Int index = 0;
+        While (index < token.Length()) {
+            Int digit = token.GetChar(index).ToInt();
+            If (digit < 0 || digit > 9) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function Number(String token) -> Int {
+        Int total = 0;
+        Int index = 0;
+        While (index < token.Length()) {
+            total = total * 10 + token.GetChar(index).ToInt();
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remaining = value;
+        String digits = "0123456789";
+        String text = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            text = digits.Substring(digit, 1) + text;
+            remaining = remaining / 10;
+        }
+        Return text;
+    }
+}
+
+Public Async Function InvokeAsync(String op, Int value) -> Task<Int>
+Explain {
+    Description: "Invoke a unary operation asynchronously.";
+    Input: op = "Operation name", value = "Input integer";
+    Processing: "Apply the operation.";
+    Output: "The result.";
+} {
+    Return ApplyFree(op, value);
+}

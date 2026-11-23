@@ -1,0 +1,325 @@
+// Robix.Exceptions: typed failures, inner exceptions, and Try/Catch/Finally.
+Package Robix.Exceptions;
+
+Import Robix.Core;
+
+
+Class FaultDesk {
+    Private String kinds;
+    Private String kindName;
+    Private String detail;
+    Private String innerKind;
+    Private String innerDetail;
+    Private String trace;
+    Private String savedKind;
+    Private String savedDetail;
+    Private String savedInnerKind;
+    Private String savedInnerDetail;
+    Private String savedTrace;
+    Private Int captured;
+    Private Int handled;
+    Private Int cleaned;
+    Private String problem;
+
+    Public Constructor() {
+        kinds = "|Exception|SystemException|RuntimeException|ApplicationException|ArgumentException|ArgumentNullException|ArgumentOutOfRangeException|InvalidOperationException|InvalidCastException|FormatException|OverflowException|DivideByZeroException|NullReferenceException|IndexOutOfRangeException|KeyNotFoundException|NotSupportedException|NotImplementedException|TimeoutException|OperationCanceledException|OutOfMemoryException|StackOverflowException|IOException|TypeException|SecurityException|AggregateException|ReflectionException|SerializationException|PlatformNotSupportedException|ObjectDisposedException|ResourceUnavailableException|";
+        kindName = "";
+        detail = "";
+        innerKind = "";
+        innerDetail = "";
+        trace = "";
+        savedKind = "";
+        savedDetail = "";
+        savedInnerKind = "";
+        savedInnerDetail = "";
+        savedTrace = "";
+        captured = 0;
+        handled = 0;
+        cleaned = 0;
+        problem = "none";
+    }
+
+    Public Function Known(String name) -> Int
+    Explain {
+        Description: "Report whether a name is a known exception type.";
+        Input: name = "Exception type name";
+        Processing: "Search the built-in exception names.";
+        Output: "One when the name is known.";
+    } {
+        String needle = "|" + name + "|";
+        Int limit = kinds.Length() - needle.Length();
+        Int index = 0;
+        While (index <= limit) {
+            If (kinds.Substring(index, needle.Length()) == needle) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function ThrowIf(Int condition, String name, String text) -> Int
+    Explain {
+        Description: "Prepare an exception when a condition is true.";
+        Input: condition = "One to throw", name = "Exception type", text = "Exception message";
+        Processing: "Store the exception only when the condition is true.";
+        Output: "One when the caller should throw.";
+    } {
+        If (condition == 0) { Return 0; }
+        Return This.Prepare(name, text);
+    }
+
+    Public Function ThrowIfNull(String text) -> Int
+    Explain {
+        Description: "Prepare an argument-null exception for empty text.";
+        Input: text = "Text that must be present";
+        Processing: "Prepare ArgumentNullException when the text is empty.";
+        Output: "One when the caller should throw.";
+    } {
+        If (text.Length() > 0) { Return 0; }
+        Return This.Prepare("ArgumentNullException", "null");
+    }
+
+    Public Function Prepare(String name, String text) -> Int
+    Explain {
+        Description: "Prepare a known exception.";
+        Input: name = "Exception type", text = "Exception message";
+        Processing: "Store the type and message and clear any inner exception.";
+        Output: "One when the type is known.";
+    } {
+        If (This.Known(name) == 0) {
+            problem = "unknown";
+            Return 0;
+        }
+        kindName = name;
+        detail = text;
+        innerKind = "";
+        innerDetail = "";
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function RaiseWithInner(String name, String text, String cause, String causeText) -> Int
+    Explain {
+        Description: "Prepare an exception with an inner exception.";
+        Input: name = "Outer exception type", text = "Outer message", cause = "Inner exception type", causeText = "Inner message";
+        Processing: "Store both exceptions when both types are known.";
+        Output: "One when the caller should throw.";
+    } {
+        If (This.Prepare(name, text) == 0) { Return 0; }
+        If (This.Known(cause) == 0) {
+            problem = "unknown";
+            Return 0;
+        }
+        innerKind = cause;
+        innerDetail = causeText;
+        Return 1;
+    }
+
+    Public Function Enter(String name, String fileName, Int line) -> Int
+    Explain {
+        Description: "Record the frame that raises an exception.";
+        Input: name = "Function name", fileName = "Source file", line = "Line";
+        Processing: "Store one stack frame.";
+        Output: "One.";
+    } {
+        trace = name + "@" + fileName + ":" + This.IntText(line);
+        Return 1;
+    }
+
+    Public Function Kind() -> String
+    Explain {
+        Description: "Return the current exception type.";
+        Input: "No parameters";
+        Processing: "Read the stored type.";
+        Output: "The type, or none.";
+    } {
+        If (kindName == "") { Return "none"; }
+        Return kindName;
+    }
+
+    Public Function Message() -> String
+    Explain {
+        Description: "Return the current exception message.";
+        Input: "No parameters";
+        Processing: "Read the stored message.";
+        Output: "The message, or none.";
+    } {
+        If (detail == "") { Return "none"; }
+        Return detail;
+    }
+
+    Public Function Inner() -> String
+    Explain {
+        Description: "Return the inner exception type.";
+        Input: "No parameters";
+        Processing: "Read the inner type.";
+        Output: "The inner type, or none.";
+    } {
+        If (innerKind == "") { Return "none"; }
+        Return innerKind;
+    }
+
+    Public Function Chain() -> String
+    Explain {
+        Description: "Return the outer and inner exception types.";
+        Input: "No parameters";
+        Processing: "Join the outer type to the inner type.";
+        Output: "The chain, or the outer type.";
+    } {
+        If (kindName == "") { Return "none"; }
+        If (innerKind == "") { Return kindName; }
+        Return kindName + "<-" + innerKind;
+    }
+
+    Public Function Info() -> String
+    Explain {
+        Description: "Return the exception type and message.";
+        Input: "No parameters";
+        Processing: "Join the type and the message.";
+        Output: "The exception info, or none.";
+    } {
+        If (kindName == "") { Return "none"; }
+        Return kindName + ": " + detail;
+    }
+
+    Public Function Stack() -> String
+    Explain {
+        Description: "Return the exception stack frame.";
+        Input: "No parameters";
+        Processing: "Read the stored frame.";
+        Output: "The frame, or none.";
+    } {
+        If (trace == "") { Return "none"; }
+        Return trace;
+    }
+
+    Public Function Capture() -> Int
+    Explain {
+        Description: "Capture the current exception for rethrow.";
+        Input: "No parameters";
+        Processing: "Copy the current exception into the dispatch slot.";
+        Output: "One when an exception was captured.";
+    } {
+        If (kindName == "") { Return 0; }
+        savedKind = kindName;
+        savedDetail = detail;
+        savedInnerKind = innerKind;
+        savedInnerDetail = innerDetail;
+        savedTrace = trace;
+        captured = 1;
+        Return 1;
+    }
+
+    Public Function Restore() -> Int
+    Explain {
+        Description: "Restore a captured exception.";
+        Input: "No parameters";
+        Processing: "Copy the dispatch slot back to the current exception.";
+        Output: "One when an exception was restored.";
+    } {
+        If (captured == 0) { Return 0; }
+        kindName = savedKind;
+        detail = savedDetail;
+        innerKind = savedInnerKind;
+        innerDetail = savedInnerDetail;
+        trace = savedTrace;
+        Return 1;
+    }
+
+    Public Function IsCancellation() -> Int
+    Explain {
+        Description: "Report whether the current exception is cancellation.";
+        Input: "No parameters";
+        Processing: "Compare the type with OperationCanceledException.";
+        Output: "One when the exception is cancellation.";
+    } {
+        If (kindName == "OperationCanceledException") { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsRecoverable() -> Int
+    Explain {
+        Description: "Report whether the current exception can be handled.";
+        Input: "No parameters";
+        Processing: "Memory and stack exhaustion are fatal.";
+        Output: "One when the exception is recoverable.";
+    } {
+        If (kindName == "OutOfMemoryException") { Return 0; }
+        If (kindName == "StackOverflowException") { Return 0; }
+        If (kindName == "") { Return 0; }
+        Return 1;
+    }
+
+    Public Function Handle(String filter) -> Int
+    Explain {
+        Description: "Handle the current exception when it matches a filter.";
+        Input: filter = "Exception type, or Exception for any type";
+        Processing: "Match the filter and reject a fatal exception.";
+        Output: "One when the exception was handled.";
+    } {
+        Int matches = 0;
+        If (filter == "Exception") { matches = 1; }
+        If (filter == kindName) { matches = 1; }
+        If (matches == 0) { Return 0; }
+        If (This.IsRecoverable() == 0) {
+            problem = "fatal";
+            Return 0;
+        }
+        handled = 1;
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function NoteCleanup() -> Int
+    Explain {
+        Description: "Record that a Finally block ran.";
+        Input: "No parameters";
+        Processing: "Increment the cleanup count.";
+        Output: "The cleanup count.";
+    } {
+        cleaned = cleaned + 1;
+        Return cleaned;
+    }
+
+    Public Function Cleaned() -> Int
+    Explain {
+        Description: "Return how many Finally blocks ran.";
+        Input: "No parameters";
+        Processing: "Read the cleanup count.";
+        Output: "The cleanup count.";
+    } {
+        Return cleaned;
+    }
+
+    Public Function WasHandled() -> Int
+    Explain {
+        Description: "Report whether an exception was handled.";
+        Input: "No parameters";
+        Processing: "Read the handled flag.";
+        Output: "One when an exception was handled.";
+    } {
+        Return handled;
+    }
+
+    Public Function Error() -> String
+    Explain {
+        Description: "Return the latest exception error.";
+        Input: "No parameters";
+        Processing: "Read the stored problem.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remaining = value;
+        String digits = "0123456789";
+        String text = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            text = digits.Substring(digit, 1) + text;
+            remaining = remaining / 10;
+        }
+        Return text;
+    }
+}

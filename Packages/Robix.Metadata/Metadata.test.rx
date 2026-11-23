@@ -1,0 +1,5 @@
+Test Known {
+    Constraint: MetaStore().Known("Pure") == 1;
+    Processing: True;
+    Output: True;
+}

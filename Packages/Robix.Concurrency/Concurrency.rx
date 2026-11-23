@@ -1,0 +1,799 @@
+// Robix.Concurrency: parallel work, locked collections, atomics, and channels.
+Package Robix.Concurrency;
+
+Import Robix.Core;
+
+
+Class Lane {
+    Private Array<Int> items;
+    Private Int count;
+    Private Int stopped;
+    Private Int degree;
+    Private Int invokeTotal;
+    Private Array<Int> qitems;
+    Private Int qcount;
+    Private Array<Int> sitems;
+    Private Int scount;
+    Private Array<String> keys;
+    Private Array<Int> vals;
+    Private Int mapCount;
+    Private Array<Int> bag;
+    Private Int bagCount;
+    Private Array<Int> members;
+    Private Int memberCount;
+    Private Array<Int> slots;
+    Private Int head;
+    Private Int tail;
+    Private Int filled;
+    Private Int closed;
+    Private Int parties;
+    Private Int arrived;
+    Private Int generation;
+    Private Int left;
+    Private Int permits;
+    Private Int spin;
+    Private Int cell;
+    Private Array<Int> blocked;
+    Private Int blockCount;
+    Private Int blockCap;
+    Private Array<Int> produced;
+    Private Int producedCount;
+    Private Int marked;
+
+    Public Constructor() {
+        items = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+        stopped = 0;
+        degree = 1;
+        invokeTotal = 0;
+        qitems = [0, 0, 0, 0];
+        qcount = 0;
+        sitems = [0, 0, 0, 0];
+        scount = 0;
+        keys = ["", "", "", ""];
+        vals = [0, 0, 0, 0];
+        mapCount = 0;
+        bag = [0, 0, 0, 0];
+        bagCount = 0;
+        members = [0, 0, 0, 0];
+        memberCount = 0;
+        slots = [0, 0, 0, 0];
+        head = 0;
+        tail = 0;
+        filled = 0;
+        closed = 0;
+        parties = 2;
+        arrived = 0;
+        generation = 0;
+        left = 3;
+        permits = 2;
+        spin = 0;
+        cell = 0;
+        blocked = [0, 0, 0, 0];
+        blockCount = 0;
+        blockCap = 2;
+        produced = [0, 0, 0, 0];
+        producedCount = 0;
+        marked = 0;
+    }
+
+    Public Function SetDegree(Int value) -> Int
+    Explain {
+        Description: "Set the parallel degree.";
+        Input: value = "Maximum parallel workers";
+        Processing: "Store the degree.";
+        Output: "The stored degree.";
+    } {
+        degree = value;
+        Return degree;
+    }
+
+    Public Function RunFor(Int start, Int end) -> Int
+    Explain {
+        Description: "Sum a half-open integer range.";
+        Input: start = "First index", end = "Index just past the last";
+        Processing: "Add every index from the start up to the end.";
+        Output: "The sum.";
+    } {
+        Int cursor = start;
+        Int sum = 0;
+        While (cursor < end) {
+            sum = sum + cursor;
+            cursor = cursor + 1;
+        }
+        Return sum;
+    }
+
+    Public Function BreakFor(Int start, Int end, Int stopAt) -> Int
+    Explain {
+        Description: "Sum a range until a stop index.";
+        Input: start = "First index", end = "Index just past the last", stopAt = "Index that stops the loop";
+        Processing: "Add indexes and stop when the stop index is reached.";
+        Output: "The partial sum.";
+    } {
+        Int cursor = start;
+        Int sum = 0;
+        stopped = 0;
+        While (cursor < end) {
+            If (cursor == stopAt) {
+                stopped = 1;
+                Return sum;
+            }
+            sum = sum + cursor;
+            cursor = cursor + 1;
+        }
+        Return sum;
+    }
+
+    Public Function Stopped() -> Int
+    Explain {
+        Description: "Report whether the parallel loop stopped early.";
+        Input: "No parameters";
+        Processing: "Read the stop flag.";
+        Output: "One when the loop stopped early.";
+    } {
+        Return stopped;
+    }
+
+    Public Function Load3(Int first, Int second, Int third) -> Int
+    Explain {
+        Description: "Load three integers.";
+        Input: first = "First value", second = "Second value", third = "Third value";
+        Processing: "Store the three values.";
+        Output: "Three.";
+    } {
+        items[0] = first;
+        items[1] = second;
+        items[2] = third;
+        count = 3;
+        Return count;
+    }
+
+    Public Function Load4(Int first, Int second, Int third, Int fourth) -> Int
+    Explain {
+        Description: "Load four integers.";
+        Input: first = "First value", second = "Second value", third = "Third value", fourth = "Fourth value";
+        Processing: "Store the four values.";
+        Output: "Four.";
+    } {
+        items[0] = first;
+        items[1] = second;
+        items[2] = third;
+        items[3] = fourth;
+        count = 4;
+        Return count;
+    }
+
+    Public Function Each() -> Int
+    Explain {
+        Description: "Sum the loaded integers.";
+        Input: "No parameters";
+        Processing: "Add every loaded integer.";
+        Output: "The sum.";
+    } {
+        Int index = 0;
+        Int sum = 0;
+        While (index < count) {
+            sum = sum + items[index];
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Public Function Scale() -> Int
+    Explain {
+        Description: "Double every loaded integer.";
+        Input: "No parameters";
+        Processing: "Multiply each integer by two and sum the results.";
+        Output: "The scaled sum.";
+    } {
+        Int index = 0;
+        Int sum = 0;
+        While (index < count) {
+            items[index] = items[index] * 2;
+            sum = sum + items[index];
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Public Function Keep(Int minimum) -> Int
+    Explain {
+        Description: "Keep loaded integers that reach a minimum.";
+        Input: minimum = "Smallest kept value";
+        Processing: "Drop smaller values.";
+        Output: "How many values remain.";
+    } {
+        Int index = 0;
+        Int dest = 0;
+        While (index < count) {
+            If (items[index] >= minimum) {
+                items[dest] = items[index];
+                dest = dest + 1;
+            }
+            index = index + 1;
+        }
+        count = dest;
+        Return count;
+    }
+
+    Public Function Total() -> Int
+    Explain {
+        Description: "Reduce the loaded integers by addition.";
+        Input: "No parameters";
+        Processing: "Add the remaining integers.";
+        Output: "The total.";
+    } {
+        Return This.Each();
+    }
+
+    Public Function First() -> Int
+    Explain {
+        Description: "Return the first loaded integer.";
+        Input: "No parameters";
+        Processing: "Read the first slot.";
+        Output: "The first integer, or -1.";
+    } {
+        If (count == 0) { Return -1; }
+        Return items[0];
+    }
+
+    Public Function Last() -> Int
+    Explain {
+        Description: "Return the last loaded integer.";
+        Input: "No parameters";
+        Processing: "Read the last stored slot.";
+        Output: "The last integer, or -1.";
+    } {
+        If (count == 0) { Return -1; }
+        Return items[count - 1];
+    }
+
+    Public Function Invoke() -> Int
+    Explain {
+        Description: "Run two additions.";
+        Input: "No parameters";
+        Processing: "Add five and then one.";
+        Output: "Six.";
+    } {
+        invokeTotal = 0;
+        invokeTotal = invokeTotal + 5;
+        invokeTotal = invokeTotal + 1;
+        Return invokeTotal;
+    }
+
+    Public Function Push(Int value) -> Int
+    Explain {
+        Description: "Push a queue value.";
+        Input: value = "Queued integer";
+        Processing: "Store the integer at the back.";
+        Output: "One when it is stored.";
+    } {
+        If (qcount >= 4) { Return 0; }
+        qitems[qcount] = value;
+        qcount = qcount + 1;
+        Return 1;
+    }
+
+    Public Function Pop() -> Int
+    Explain {
+        Description: "Pop the front queue value.";
+        Input: "No parameters";
+        Processing: "Remove the oldest integer.";
+        Output: "The integer, or -1.";
+    } {
+        If (qcount == 0) { Return -1; }
+        Int value = qitems[0];
+        Int index = 0;
+        While (index + 1 < qcount) {
+            qitems[index] = qitems[index + 1];
+            index = index + 1;
+        }
+        qcount = qcount - 1;
+        Return value;
+    }
+
+    Public Function QSize() -> Int
+    Explain {
+        Description: "Return the queue size.";
+        Input: "No parameters";
+        Processing: "Read the queue count.";
+        Output: "The size.";
+    } {
+        Return qcount;
+    }
+
+    Public Function StackPush(Int value) -> Int
+    Explain {
+        Description: "Push a stack value.";
+        Input: value = "Stacked integer";
+        Processing: "Store the integer on top.";
+        Output: "One when it is stored.";
+    } {
+        If (scount >= 4) { Return 0; }
+        sitems[scount] = value;
+        scount = scount + 1;
+        Return 1;
+    }
+
+    Public Function StackPop() -> Int
+    Explain {
+        Description: "Pop the top stack value.";
+        Input: "No parameters";
+        Processing: "Remove the newest integer.";
+        Output: "The integer, or -1.";
+    } {
+        If (scount == 0) { Return -1; }
+        scount = scount - 1;
+        Return sitems[scount];
+    }
+
+    Public Function Put(String key, Int value) -> Int
+    Explain {
+        Description: "Store a dictionary entry.";
+        Input: key = "Entry name", value = "Entry value";
+        Processing: "Replace an existing name or append a new one.";
+        Output: "One when the entry is stored.";
+    } {
+        Int index = This.Locate(key);
+        If (index >= 0) {
+            vals[index] = value;
+            Return 1;
+        }
+        If (mapCount >= 4) { Return 0; }
+        keys[mapCount] = key;
+        vals[mapCount] = value;
+        mapCount = mapCount + 1;
+        Return 1;
+    }
+
+    Public Function Get(String key) -> Int
+    Explain {
+        Description: "Read a dictionary entry.";
+        Input: key = "Entry name";
+        Processing: "Find the name.";
+        Output: "The value, or -1.";
+    } {
+        Int index = This.Locate(key);
+        If (index < 0) { Return -1; }
+        Return vals[index];
+    }
+
+    Public Function BagAdd(Int value) -> Int
+    Explain {
+        Description: "Add a bag value.";
+        Input: value = "Bag integer";
+        Processing: "Append the integer.";
+        Output: "One when it is stored.";
+    } {
+        If (bagCount >= 4) { Return 0; }
+        bag[bagCount] = value;
+        bagCount = bagCount + 1;
+        Return 1;
+    }
+
+    Public Function BagSize() -> Int
+    Explain {
+        Description: "Return the bag size.";
+        Input: "No parameters";
+        Processing: "Read the bag count.";
+        Output: "The size.";
+    } {
+        Return bagCount;
+    }
+
+    Public Function BagHolds(Int value) -> Int
+    Explain {
+        Description: "Report whether the bag holds a value.";
+        Input: value = "Integer to find";
+        Processing: "Scan the bag.";
+        Output: "One when the value is present.";
+    } {
+        Int index = 0;
+        While (index < bagCount) {
+            If (bag[index] == value) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function SetAdd(Int value) -> Int
+    Explain {
+        Description: "Add a set value.";
+        Input: value = "Integer to add";
+        Processing: "Reject a duplicate.";
+        Output: "One when the value is new.";
+    } {
+        Int index = 0;
+        While (index < memberCount) {
+            If (members[index] == value) { Return 0; }
+            index = index + 1;
+        }
+        If (memberCount >= 4) { Return 0; }
+        members[memberCount] = value;
+        memberCount = memberCount + 1;
+        Return 1;
+    }
+
+    Public Function SetSize() -> Int
+    Explain {
+        Description: "Return the set size.";
+        Input: "No parameters";
+        Processing: "Read the set count.";
+        Output: "The size.";
+    } {
+        Return memberCount;
+    }
+
+    Public Function SetHolds(Int value) -> Int
+    Explain {
+        Description: "Report whether the set holds a value.";
+        Input: value = "Integer to find";
+        Processing: "Scan the set.";
+        Output: "One when the value is present.";
+    } {
+        Int index = 0;
+        While (index < memberCount) {
+            If (members[index] == value) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function TryWrite(Int value) -> Int
+    Explain {
+        Description: "Write a channel value when there is room.";
+        Input: value = "Channel integer";
+        Processing: "Reject a write after completion or when the channel is full.";
+        Output: "One when the value is written.";
+    } {
+        If (closed == 1) { Return 0; }
+        If (filled >= 4) { Return 0; }
+        slots[tail] = value;
+        tail = tail + 1;
+        If (tail >= 4) { tail = 0; }
+        filled = filled + 1;
+        Return 1;
+    }
+
+    Public Function TryRead() -> Int
+    Explain {
+        Description: "Read a channel value when one is present.";
+        Input: "No parameters";
+        Processing: "Remove the oldest channel integer.";
+        Output: "The integer, or -1.";
+    } {
+        If (filled == 0) { Return -1; }
+        Int value = slots[head];
+        head = head + 1;
+        If (head >= 4) { head = 0; }
+        filled = filled - 1;
+        Return value;
+    }
+
+    Public Function Complete() -> Int
+    Explain {
+        Description: "Complete the channel.";
+        Input: "No parameters";
+        Processing: "Reject later writes.";
+        Output: "One.";
+    } {
+        closed = 1;
+        Return 1;
+    }
+
+    Public Function Filled() -> Int
+    Explain {
+        Description: "Return how many channel values are waiting.";
+        Input: "No parameters";
+        Processing: "Read the filled count.";
+        Output: "The count.";
+    } {
+        Return filled;
+    }
+
+    Public Function Arrive() -> Int
+    Explain {
+        Description: "Arrive at the barrier.";
+        Input: "No parameters";
+        Processing: "Open the barrier when every party has arrived.";
+        Output: "One when the barrier opens.";
+    } {
+        arrived = arrived + 1;
+        If (arrived >= parties) {
+            arrived = 0;
+            generation = generation + 1;
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function Generation() -> Int
+    Explain {
+        Description: "Return the barrier generation.";
+        Input: "No parameters";
+        Processing: "Read how many times the barrier has opened.";
+        Output: "The generation.";
+    } {
+        Return generation;
+    }
+
+    Public Function Signal() -> Int
+    Explain {
+        Description: "Signal the countdown.";
+        Input: "No parameters";
+        Processing: "Decrease the remaining count.";
+        Output: "The remaining count.";
+    } {
+        If (left > 0) { left = left - 1; }
+        Return left;
+    }
+
+    Public Function Left() -> Int
+    Explain {
+        Description: "Return the countdown remaining.";
+        Input: "No parameters";
+        Processing: "Read the remaining count.";
+        Output: "The remaining count.";
+    } {
+        Return left;
+    }
+
+    Public Function IsSet() -> Int
+    Explain {
+        Description: "Report whether the countdown has reached zero.";
+        Input: "No parameters";
+        Processing: "Compare the remaining count with zero.";
+        Output: "One when the countdown is complete.";
+    } {
+        If (left == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Wait() -> Int
+    Explain {
+        Description: "Take one semaphore permit.";
+        Input: "No parameters";
+        Processing: "Take a permit when one is available.";
+        Output: "One when a permit was taken.";
+    } {
+        If (permits <= 0) { Return 0; }
+        permits = permits - 1;
+        Return 1;
+    }
+
+    Public Function Release() -> Int
+    Explain {
+        Description: "Release one semaphore permit.";
+        Input: "No parameters";
+        Processing: "Return a permit up to the maximum of two.";
+        Output: "The permit count.";
+    } {
+        If (permits >= 2) { Return permits; }
+        permits = permits + 1;
+        Return permits;
+    }
+
+    Public Function Enter() -> Int
+    Explain {
+        Description: "Enter the spin lock.";
+        Input: "No parameters";
+        Processing: "Take the lock when it is free.";
+        Output: "One when the lock was taken.";
+    } {
+        If (spin == 1) { Return 0; }
+        spin = 1;
+        Return 1;
+    }
+
+    Public Function Leave() -> Int
+    Explain {
+        Description: "Leave the spin lock.";
+        Input: "No parameters";
+        Processing: "Release the lock.";
+        Output: "One.";
+    } {
+        spin = 0;
+        Return 1;
+    }
+
+    Public Function CellAdd(Int amount) -> Int
+    Explain {
+        Description: "Add to the atomic cell.";
+        Input: amount = "Amount to add";
+        Processing: "Increment the real atomic cell once for each unit.";
+        Output: "The cell value.";
+    } {
+        Int step = 0;
+        While (step < amount) {
+            Atomic<Int> counter = Atomic<Int>(cell);
+            cell = counter.Increment();
+            step = step + 1;
+        }
+        Return cell;
+    }
+
+    Public Function CellSub(Int amount) -> Int
+    Explain {
+        Description: "Subtract from the atomic cell.";
+        Input: amount = "Amount to subtract";
+        Processing: "Subtract under the cell lock.";
+        Output: "The cell value.";
+    } {
+        Var gate = "cell";
+        Lock gate {
+            cell = cell - amount;
+        }
+        Return cell;
+    }
+
+    Public Function Exchange(Int value) -> Int
+    Explain {
+        Description: "Replace the atomic cell.";
+        Input: value = "Replacement value";
+        Processing: "Swap the cell under the lock and return the old value.";
+        Output: "The previous value.";
+    } {
+        Int previous = 0;
+        Var gate = "cell";
+        Lock gate {
+            previous = cell;
+            cell = value;
+        }
+        Return previous;
+    }
+
+    Public Function CompareExchange(Int expected, Int replacement) -> Int
+    Explain {
+        Description: "Replace the atomic cell when it matches.";
+        Input: expected = "Required current value", replacement = "New value";
+        Processing: "Store the replacement only when the cell matches.";
+        Output: "The value seen in the cell.";
+    } {
+        Int seen = 0;
+        Var gate = "cell";
+        Lock gate {
+            seen = cell;
+            If (cell == expected) { cell = replacement; }
+        }
+        Return seen;
+    }
+
+    Public Function CellIncrement() -> Int
+    Explain {
+        Description: "Increment the atomic cell.";
+        Input: "No parameters";
+        Processing: "Use the real atomic increment.";
+        Output: "The cell value.";
+    } {
+        Atomic<Int> counter = Atomic<Int>(cell);
+        cell = counter.Increment();
+        Return cell;
+    }
+
+    Public Function CellDecrement() -> Int
+    Explain {
+        Description: "Decrement the atomic cell.";
+        Input: "No parameters";
+        Processing: "Subtract one under the cell lock.";
+        Output: "The cell value.";
+    } {
+        Return This.CellSub(1);
+    }
+
+    Public Function CellRead() -> Int
+    Explain {
+        Description: "Read the atomic cell.";
+        Input: "No parameters";
+        Processing: "Read the stored value.";
+        Output: "The cell value.";
+    } {
+        Return cell;
+    }
+
+    Public Function CellWrite(Int value) -> Int
+    Explain {
+        Description: "Write the atomic cell.";
+        Input: value = "New value";
+        Processing: "Store the value under the cell lock.";
+        Output: "The stored value.";
+    } {
+        Var gate = "cell";
+        Lock gate {
+            cell = value;
+        }
+        Return cell;
+    }
+
+    Public Function BlockAdd(Int value) -> Int
+    Explain {
+        Description: "Add to the blocking collection.";
+        Input: value = "Integer to add";
+        Processing: "Reject an add when the collection is at capacity.";
+        Output: "One when the value is stored.";
+    } {
+        If (blockCount >= blockCap) { Return 0; }
+        blocked[blockCount] = value;
+        blockCount = blockCount + 1;
+        Return 1;
+    }
+
+    Public Function BlockTake() -> Int
+    Explain {
+        Description: "Take the oldest blocking value.";
+        Input: "No parameters";
+        Processing: "Remove the oldest integer.";
+        Output: "The integer, or -1.";
+    } {
+        If (blockCount == 0) { Return -1; }
+        Int value = blocked[0];
+        Int index = 0;
+        While (index + 1 < blockCount) {
+            blocked[index] = blocked[index + 1];
+            index = index + 1;
+        }
+        blockCount = blockCount - 1;
+        Return value;
+    }
+
+    Public Function BlockSize() -> Int
+    Explain {
+        Description: "Return the blocking collection size.";
+        Input: "No parameters";
+        Processing: "Read the stored count.";
+        Output: "The size.";
+    } {
+        Return blockCount;
+    }
+
+    Public Function Produce(Int value) -> Int
+    Explain {
+        Description: "Produce a value.";
+        Input: value = "Produced integer";
+        Processing: "Store the integer for a later consumer.";
+        Output: "One when it is stored.";
+    } {
+        If (producedCount >= 4) { Return 0; }
+        produced[producedCount] = value;
+        producedCount = producedCount + 1;
+        Return 1;
+    }
+
+    Public Function Consume() -> Int
+    Explain {
+        Description: "Consume the oldest produced value.";
+        Input: "No parameters";
+        Processing: "Remove the oldest integer.";
+        Output: "The integer, or -1.";
+    } {
+        If (producedCount == 0) { Return -1; }
+        Int value = produced[0];
+        Int index = 0;
+        While (index + 1 < producedCount) {
+            produced[index] = produced[index + 1];
+            index = index + 1;
+        }
+        producedCount = producedCount - 1;
+        Return value;
+    }
+
+    Public Function MarkHeld() -> Int
+    Explain {
+        Description: "Record that the async lock is held.";
+        Input: "No parameters";
+        Processing: "Set the held flag.";
+        Output: "One.";
+    } {
+        marked = 1;
+        Return marked;
+    }
+
+    Private Function Locate(String key) -> Int {
+        Int index = 0;
+        While (index < mapCount) {
+            If (keys[index] == key) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+}

@@ -1,0 +1,5 @@
+Test RunFor {
+    Constraint: Lane().RunFor(1, 5) == 10;
+    Processing: True;
+    Output: True;
+}

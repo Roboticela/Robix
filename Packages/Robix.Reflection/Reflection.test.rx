@@ -1,0 +1,5 @@
+Test Load {
+    Constraint: Mirror().Load("Robotics.Core", "1.0.0", "Core") == 0;
+    Processing: True;
+    Output: True;
+}

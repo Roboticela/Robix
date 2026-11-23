@@ -1,0 +1,5 @@
+Test Store {
+    Constraint: Walk().Store(4) == 1;
+    Processing: True;
+    Output: True;
+}

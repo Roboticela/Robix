@@ -1,0 +1,5 @@
+Test Allocate {
+    Constraint: MemoryManager().Allocate(8) == 0;
+    Processing: True;
+    Output: True;
+}
