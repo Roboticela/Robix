@@ -1,0 +1,5 @@
+Test Z {
+    Constraint: StatsDesk().Z(9.0, 5.0, 2.0) == 2.0;
+    Processing: True;
+    Output: True;
+}

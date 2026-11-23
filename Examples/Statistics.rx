@@ -1,0 +1,1765 @@
+// Robix.Math.Statistics: descriptive statistics, regression, and hypothesis tests.
+Package Robotics.Statistics;
+
+Import Robix.Core;
+
+
+Class StatsDesk {
+    Private Array<Int> values;
+    Private Array<Int> seconds;
+    Private Array<Int> thirds;
+    Private Array<Int> weights;
+    Private Array<Int> ordered;
+    Private Int count;
+    Private Int secondCount;
+    Private Int thirdCount;
+    Private Int seed;
+    Private Float slope;
+    Private Float intercept;
+    Private Float coef0;
+    Private Float coef1;
+    Private Float coef2;
+    Private Float bandLow;
+    Private Float bandHigh;
+    Private Float margin;
+    Private Float error;
+    Private String problem;
+
+    Public Constructor() {
+        values = [0, 0, 0, 0, 0, 0, 0, 0];
+        seconds = [0, 0, 0, 0, 0, 0, 0, 0];
+        thirds = [0, 0, 0, 0, 0, 0, 0, 0];
+        weights = [1, 1, 1, 1, 1, 1, 1, 1];
+        ordered = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+        secondCount = 0;
+        thirdCount = 0;
+        seed = 1;
+        slope = 0.0;
+        intercept = 0.0;
+        coef0 = 0.0;
+        coef1 = 0.0;
+        coef2 = 0.0;
+        bandLow = 0.0;
+        bandHigh = 0.0;
+        margin = 0.0;
+        error = 0.0;
+        problem = "none";
+    }
+
+    Public Function Place(Int value) -> Int
+    Explain {
+        Description: "Store a sample value.";
+        Input: value = "Observation";
+        Processing: "Append it with a unit weight, up to eight values.";
+        Output: "The index, or -1 when the sample is full.";
+    } {
+        If (count >= 8) { Return -1; }
+        values[count] = value;
+        weights[count] = 1;
+        count = count + 1;
+        Return count - 1;
+    }
+
+    Public Function Pair(Int x, Int y) -> Int
+    Explain {
+        Description: "Store a paired observation.";
+        Input: x = "First variable", y = "Second variable";
+        Processing: "Append both values.";
+        Output: "The index, or -1 when the sample is full.";
+    } {
+        If (count >= 8) { Return -1; }
+        values[count] = x;
+        seconds[count] = y;
+        weights[count] = 1;
+        count = count + 1;
+        secondCount = count;
+        Return count - 1;
+    }
+
+    Public Function PlaceSecond(Int value) -> Int
+    Explain {
+        Description: "Store a value in the second sample.";
+        Input: value = "Observation";
+        Processing: "Append it to the second sample.";
+        Output: "The index, or -1 when the sample is full.";
+    } {
+        If (secondCount >= 8) { Return -1; }
+        seconds[secondCount] = value;
+        secondCount = secondCount + 1;
+        Return secondCount - 1;
+    }
+
+    Public Function PlaceThird(Int value) -> Int
+    Explain {
+        Description: "Store a value in the third sample.";
+        Input: value = "Observation";
+        Processing: "Append it to the third sample.";
+        Output: "The index, or -1 when the sample is full.";
+    } {
+        If (thirdCount >= 8) { Return -1; }
+        thirds[thirdCount] = value;
+        thirdCount = thirdCount + 1;
+        Return thirdCount - 1;
+    }
+
+    Public Function Weight(Int index, Int value) -> Int
+    Explain {
+        Description: "Set a sample weight.";
+        Input: index = "Sample index", value = "Weight";
+        Processing: "Replace the weight at the index.";
+        Output: "One when the index is stored.";
+    } {
+        If (index < 0 || index >= count) { Return 0; }
+        weights[index] = value;
+        Return 1;
+    }
+
+    Public Function Reset() -> Int
+    Explain {
+        Description: "Clear the stored samples.";
+        Input: "No parameters";
+        Processing: "Drop every sample and the fitted model.";
+        Output: "Zero.";
+    } {
+        count = 0;
+        secondCount = 0;
+        thirdCount = 0;
+        slope = 0.0;
+        intercept = 0.0;
+        coef0 = 0.0;
+        coef1 = 0.0;
+        coef2 = 0.0;
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function Size() -> Int
+    Explain {
+        Description: "Return the sample size.";
+        Input: "No parameters";
+        Processing: "Read the stored count.";
+        Output: "The number of observations.";
+    } {
+        Return count;
+    }
+
+    Public Function Mean() -> Float
+    Explain {
+        Description: "Return the arithmetic mean.";
+        Input: "No parameters";
+        Processing: "Divide the sum by the sample size.";
+        Output: "The mean.";
+    } {
+        If (count == 0) {
+            problem = "empty";
+            Return 0.0;
+        }
+        Return This.Total(values, count) / count.ToFloat();
+    }
+
+    Public Function Weighted() -> Float
+    Explain {
+        Description: "Return the weighted mean.";
+        Input: "No parameters";
+        Processing: "Divide the weighted sum by the total weight.";
+        Output: "The weighted mean.";
+    } {
+        If (count == 0) {
+            problem = "empty";
+            Return 0.0;
+        }
+        Float sum = 0.0;
+        Float mass = 0.0;
+        Int index = 0;
+        While (index < count) {
+            sum = sum + values[index].ToFloat() * weights[index].ToFloat();
+            mass = mass + weights[index].ToFloat();
+            index = index + 1;
+        }
+        If (This.Near(mass, 0.0) == 1) {
+            problem = "singular";
+            Return 0.0;
+        }
+        Return sum / mass;
+    }
+
+    Public Function Median() -> Float
+    Explain {
+        Description: "Return the median.";
+        Input: "No parameters";
+        Processing: "Average the two central values when the size is even.";
+        Output: "The median.";
+    } {
+        If (count == 0) { Return 0.0; }
+        This.SortInto(values, count);
+        Return This.Middle(0, count - 1);
+    }
+
+    Public Function Mode() -> Int
+    Explain {
+        Description: "Return the most frequent value.";
+        Input: "No parameters";
+        Processing: "Break ties by choosing the smaller value.";
+        Output: "The mode.";
+    } {
+        If (count == 0) { Return 0; }
+        Int best = values[0];
+        Int bestTimes = 0;
+        Int index = 0;
+        While (index < count) {
+            Int times = This.Times(values[index]);
+            If (times > bestTimes) {
+                bestTimes = times;
+                best = values[index];
+            }
+            If (times == bestTimes && values[index] < best) { best = values[index]; }
+            index = index + 1;
+        }
+        Return best;
+    }
+
+    Public Function Geometric() -> Float
+    Explain {
+        Description: "Return the geometric mean.";
+        Input: "No parameters";
+        Processing: "Exponentiate the mean of the logarithms.";
+        Output: "The geometric mean, or zero when a value is not positive.";
+    } {
+        If (count == 0) { Return 0.0; }
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            If (values[index] <= 0) {
+                problem = "domain";
+                Return 0.0;
+            }
+            sum = sum + This.Ln(values[index].ToFloat());
+            index = index + 1;
+        }
+        Return This.Exp(sum / count.ToFloat());
+    }
+
+    Public Function Harmonic() -> Float
+    Explain {
+        Description: "Return the harmonic mean.";
+        Input: "No parameters";
+        Processing: "Divide the size by the sum of reciprocals.";
+        Output: "The harmonic mean, or zero when a value is zero.";
+    } {
+        If (count == 0) { Return 0.0; }
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            If (values[index] == 0) {
+                problem = "singular";
+                Return 0.0;
+            }
+            sum = sum + 1.0 / values[index].ToFloat();
+            index = index + 1;
+        }
+        Return count.ToFloat() / sum;
+    }
+
+    Public Function Trimmed(Int drop) -> Float
+    Explain {
+        Description: "Return a trimmed mean.";
+        Input: drop = "Values removed from each end";
+        Processing: "Average the values that remain after the trim.";
+        Output: "The trimmed mean.";
+    } {
+        If (count == 0 || drop * 2 >= count) {
+            problem = "empty";
+            Return 0.0;
+        }
+        This.SortInto(values, count);
+        Float sum = 0.0;
+        Int index = drop;
+        While (index < count - drop) {
+            sum = sum + ordered[index].ToFloat();
+            index = index + 1;
+        }
+        Return sum / (count - drop * 2).ToFloat();
+    }
+
+    Public Function PopVariance() -> Float
+    Explain {
+        Description: "Return the population variance.";
+        Input: "No parameters";
+        Processing: "Divide the squared deviations by the sample size.";
+        Output: "The population variance.";
+    } {
+        If (count == 0) { Return 0.0; }
+        Return This.SquaredDeviations() / count.ToFloat();
+    }
+
+    Public Function SampleVariance() -> Float
+    Explain {
+        Description: "Return the sample variance.";
+        Input: "No parameters";
+        Processing: "Divide the squared deviations by one less than the sample size.";
+        Output: "The sample variance.";
+    } {
+        If (count < 2) { Return 0.0; }
+        Return This.SquaredDeviations() / (count - 1).ToFloat();
+    }
+
+    Public Function PopDeviation() -> Float
+    Explain {
+        Description: "Return the population standard deviation.";
+        Input: "No parameters";
+        Processing: "Take the square root of the population variance.";
+        Output: "The population standard deviation.";
+    } {
+        Return This.Sqrt(This.PopVariance());
+    }
+
+    Public Function SampleDeviation() -> Float
+    Explain {
+        Description: "Return the sample standard deviation.";
+        Input: "No parameters";
+        Processing: "Take the square root of the sample variance.";
+        Output: "The sample standard deviation.";
+    } {
+        Return This.Sqrt(This.SampleVariance());
+    }
+
+    Public Function Spread() -> Int
+    Explain {
+        Description: "Return the range.";
+        Input: "No parameters";
+        Processing: "Subtract the minimum from the maximum.";
+        Output: "The range.";
+    } {
+        If (count == 0) { Return 0; }
+        Return This.HighValue() - This.LowValue();
+    }
+
+    Public Function Iqr() -> Float
+    Explain {
+        Description: "Return the interquartile range.";
+        Input: "No parameters";
+        Processing: "Subtract the first quartile from the third.";
+        Output: "The interquartile range.";
+    } {
+        Return This.Quartile(3) - This.Quartile(1);
+    }
+
+    Public Function MeanAbsolute() -> Float
+    Explain {
+        Description: "Return the mean absolute deviation.";
+        Input: "No parameters";
+        Processing: "Average the absolute deviations from the mean.";
+        Output: "The mean absolute deviation.";
+    } {
+        If (count == 0) { Return 0.0; }
+        Float center = This.Mean();
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            sum = sum + This.Abs(values[index].ToFloat() - center);
+            index = index + 1;
+        }
+        Return sum / count.ToFloat();
+    }
+
+    Public Function MedianAbsolute() -> Float
+    Explain {
+        Description: "Return the median absolute deviation.";
+        Input: "No parameters";
+        Processing: "Take the median of the absolute deviations from the median.";
+        Output: "The median absolute deviation.";
+    } {
+        If (count == 0) { Return 0.0; }
+        Float center = This.Median();
+        Int index = 0;
+        While (index < count) {
+            Float diff = values[index].ToFloat() - center;
+            If (diff < 0.0) { diff = 0.0 - diff; }
+            ordered[index] = This.Scale(diff);
+            index = index + 1;
+        }
+        This.SortOrdered();
+        Return This.Middle(0, count - 1) / 2.0;
+    }
+
+    Public Function Variation() -> Float
+    Explain {
+        Description: "Return the coefficient of variation.";
+        Input: "No parameters";
+        Processing: "Divide the population standard deviation by the mean.";
+        Output: "The coefficient of variation.";
+    } {
+        Float center = This.Mean();
+        If (This.Near(center, 0.0) == 1) {
+            problem = "singular";
+            Return 0.0;
+        }
+        Return This.PopDeviation() / center;
+    }
+
+    Public Function Percent(Int percent) -> Float
+    Explain {
+        Description: "Return a percentile by linear interpolation.";
+        Input: percent = "Percent from 0 through 100";
+        Processing: "Interpolate between the surrounding order statistics.";
+        Output: "The percentile.";
+    } {
+        If (count == 0) { Return 0.0; }
+        If (percent <= 0) { Return This.LowValue().ToFloat(); }
+        If (percent >= 100) { Return This.HighValue().ToFloat(); }
+        This.SortInto(values, count);
+        Float rank = percent.ToFloat() / 100.0 * (count - 1).ToFloat();
+        Int low = rank.ToInt();
+        Float fraction = rank - low.ToFloat();
+        Int high = low + 1;
+        If (high >= count) { high = count - 1; }
+        Float rise = ordered[high].ToFloat() - ordered[low].ToFloat();
+        Return ordered[low].ToFloat() + fraction * rise;
+    }
+
+    Public Function Quantile(Float probability) -> Float
+    Explain {
+        Description: "Return a quantile.";
+        Input: probability = "Probability from 0 through 1";
+        Processing: "Convert the probability to a percentile.";
+        Output: "The quantile.";
+    } {
+        Int percent = (probability * 100.0).ToInt();
+        Return This.Percent(percent);
+    }
+
+    Public Function Quartile(Int which) -> Float
+    Explain {
+        Description: "Return a quartile from the halved sample.";
+        Input: which = "1, 2, or 3";
+        Processing: "The second quartile is the median. The others are medians of the halves.";
+        Output: "The quartile.";
+    } {
+        If (count == 0) { Return 0.0; }
+        This.SortInto(values, count);
+        If (which == 2) { Return This.Middle(0, count - 1); }
+        Int half = count / 2;
+        If (which == 1) { Return This.Middle(0, half - 1); }
+        Return This.Middle(count - half, count - 1);
+    }
+
+    Public Function Decile(Int which) -> Float
+    Explain {
+        Description: "Return a decile.";
+        Input: which = "Decile from 1 through 10";
+        Processing: "Use the matching percentile.";
+        Output: "The decile.";
+    } {
+        Return This.Percent(which * 10);
+    }
+
+    Public Function Times(Int value) -> Int
+    Explain {
+        Description: "Count occurrences of a value.";
+        Input: value = "Value";
+        Processing: "Scan the sample.";
+        Output: "The frequency.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < count) {
+            If (values[index] == value) { total = total + 1; }
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function Share(Int value) -> Float
+    Explain {
+        Description: "Return a relative frequency.";
+        Input: value = "Value";
+        Processing: "Divide the frequency by the sample size.";
+        Output: "The relative frequency.";
+    } {
+        If (count == 0) { Return 0.0; }
+        Return This.Times(value).ToFloat() / count.ToFloat();
+    }
+
+    Public Function Cover(Int value) -> Int
+    Explain {
+        Description: "Return a cumulative frequency.";
+        Input: value = "Upper value";
+        Processing: "Count the observations at or below the value.";
+        Output: "The cumulative frequency.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < count) {
+            If (values[index] <= value) { total = total + 1; }
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function Order(Int value) -> Float
+    Explain {
+        Description: "Return the average rank of a value.";
+        Input: value = "Value";
+        Processing: "Average the one-based positions of every match.";
+        Output: "The average rank, or zero when the value is absent.";
+    } {
+        This.SortInto(values, count);
+        Int seen = 0;
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            If (ordered[index] == value) {
+                seen = seen + 1;
+                sum = sum + (index + 1).ToFloat();
+            }
+            index = index + 1;
+        }
+        If (seen == 0) { Return 0.0; }
+        Return sum / seen.ToFloat();
+    }
+
+    Public Function Z(Float value, Float center, Float deviation) -> Float
+    Explain {
+        Description: "Return a z-score.";
+        Input: value = "Observation", center = "Mean", deviation = "Standard deviation";
+        Processing: "Subtract the mean and divide by the standard deviation.";
+        Output: "The z-score.";
+    } {
+        If (This.Near(deviation, 0.0) == 1) {
+            problem = "singular";
+            Return 0.0;
+        }
+        Return (value - center) / deviation;
+    }
+
+    Public Function ZSample(Int value) -> Float
+    Explain {
+        Description: "Return a z-score against the stored sample.";
+        Input: value = "Observation";
+        Processing: "Use the sample mean and population standard deviation.";
+        Output: "The z-score.";
+    } {
+        Return This.Z(value.ToFloat(), This.Mean(), This.PopDeviation());
+    }
+
+    Public Function LowValue() -> Int
+    Explain {
+        Description: "Return the minimum.";
+        Input: "No parameters";
+        Processing: "Scan the sample.";
+        Output: "The minimum.";
+    } {
+        If (count == 0) { Return 0; }
+        Int best = values[0];
+        Int index = 1;
+        While (index < count) {
+            If (values[index] < best) { best = values[index]; }
+            index = index + 1;
+        }
+        Return best;
+    }
+
+    Public Function HighValue() -> Int
+    Explain {
+        Description: "Return the maximum.";
+        Input: "No parameters";
+        Processing: "Scan the sample.";
+        Output: "The maximum.";
+    } {
+        If (count == 0) { Return 0; }
+        Int best = values[0];
+        Int index = 1;
+        While (index < count) {
+            If (values[index] > best) { best = values[index]; }
+            index = index + 1;
+        }
+        Return best;
+    }
+
+    Public Function Cov() -> Float
+    Explain {
+        Description: "Return the population covariance.";
+        Input: "No parameters";
+        Processing: "Average the products of paired deviations.";
+        Output: "The covariance.";
+    } {
+        If (count == 0 || secondCount != count) { Return 0.0; }
+        Float mx = This.Mean();
+        Float my = This.Total(seconds, count) / count.ToFloat();
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            Float dx = values[index].ToFloat() - mx;
+            Float dy = seconds[index].ToFloat() - my;
+            sum = sum + dx * dy;
+            index = index + 1;
+        }
+        Return sum / count.ToFloat();
+    }
+
+    Public Function Pearson() -> Float
+    Explain {
+        Description: "Return the Pearson correlation.";
+        Input: "No parameters";
+        Processing: "Divide the covariance by the two population standard deviations.";
+        Output: "The correlation.";
+    } {
+        Float sx = This.PopDeviation();
+        Float sy = This.DeviationOf(seconds, count);
+        If (This.Near(sx, 0.0) == 1 || This.Near(sy, 0.0) == 1) { Return 0.0; }
+        Return This.Cov() / (sx * sy);
+    }
+
+    Public Function Spearman() -> Float
+    Explain {
+        Description: "Return the Spearman correlation.";
+        Input: "No parameters";
+        Processing: "Apply Pearson correlation to the average ranks.";
+        Output: "The rank correlation.";
+    } {
+        If (count == 0 || secondCount != count) { Return 0.0; }
+        Float mx = 0.0;
+        Float my = 0.0;
+        Int index = 0;
+        While (index < count) {
+            mx = mx + This.RankOf(values, values[index]);
+            my = my + This.RankOf(seconds, seconds[index]);
+            index = index + 1;
+        }
+        mx = mx / count.ToFloat();
+        my = my / count.ToFloat();
+        Float sum = 0.0;
+        Float vx = 0.0;
+        Float vy = 0.0;
+        index = 0;
+        While (index < count) {
+            Float dx = This.RankOf(values, values[index]) - mx;
+            Float dy = This.RankOf(seconds, seconds[index]) - my;
+            sum = sum + dx * dy;
+            vx = vx + dx * dx;
+            vy = vy + dy * dy;
+            index = index + 1;
+        }
+        If (This.Near(vx, 0.0) == 1 || This.Near(vy, 0.0) == 1) { Return 0.0; }
+        Return sum / This.Sqrt(vx * vy);
+    }
+
+    Public Function Kendall() -> Float
+    Explain {
+        Description: "Return Kendall's tau.";
+        Input: "No parameters";
+        Processing: "Compare concordant and discordant pairs.";
+        Output: "The tau coefficient.";
+    } {
+        If (count < 2 || secondCount != count) { Return 0.0; }
+        Int agree = 0;
+        Int disagree = 0;
+        Int left = 0;
+        While (left < count) {
+            Int right = left + 1;
+            While (right < count) {
+                Int dx = values[right] - values[left];
+                Int dy = seconds[right] - seconds[left];
+                Int product = dx * dy;
+                If (product > 0) { agree = agree + 1; }
+                If (product < 0) { disagree = disagree + 1; }
+                right = right + 1;
+            }
+            left = left + 1;
+        }
+        Int total = agree + disagree;
+        If (total == 0) { Return 0.0; }
+        Return (agree - disagree).ToFloat() / total.ToFloat();
+    }
+
+    Public Function Fit() -> Float
+    Explain {
+        Description: "Fit a least-squares line.";
+        Input: "No parameters";
+        Processing: "Store the slope and intercept.";
+        Output: "The slope.";
+    } {
+        If (count < 2 || secondCount != count) { Return 0.0; }
+        Float mx = This.Mean();
+        Float my = This.Total(seconds, count) / count.ToFloat();
+        Float xy = 0.0;
+        Float xx = 0.0;
+        Int index = 0;
+        While (index < count) {
+            Float dx = values[index].ToFloat() - mx;
+            xy = xy + dx * (seconds[index].ToFloat() - my);
+            xx = xx + dx * dx;
+            index = index + 1;
+        }
+        If (This.Near(xx, 0.0) == 1) {
+            problem = "singular";
+            slope = 0.0;
+            intercept = my;
+            Return 0.0;
+        }
+        slope = xy / xx;
+        intercept = my - slope * mx;
+        coef0 = intercept;
+        coef1 = slope;
+        coef2 = 0.0;
+        Return slope;
+    }
+
+    Public Function Slope() -> Float
+    Explain {
+        Description: "Return the fitted slope.";
+        Input: "No parameters";
+        Processing: "Read the latest line.";
+        Output: "The slope.";
+    } {
+        Return slope;
+    }
+
+    Public Function Intercept() -> Float
+    Explain {
+        Description: "Return the fitted intercept.";
+        Input: "No parameters";
+        Processing: "Read the latest line.";
+        Output: "The intercept.";
+    } {
+        Return intercept;
+    }
+
+    Public Function Predict(Float x) -> Float
+    Explain {
+        Description: "Predict a response from the fitted line.";
+        Input: x = "Predictor";
+        Processing: "Apply the slope and intercept.";
+        Output: "The prediction.";
+    } {
+        Return intercept + slope * x;
+    }
+
+    Public Function Residuals() -> Float
+    Explain {
+        Description: "Return the residual sum of squares.";
+        Input: "No parameters";
+        Processing: "Add the squared line residuals.";
+        Output: "The residual sum of squares.";
+    } {
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count && index < secondCount) {
+            Float gap = seconds[index].ToFloat() - This.Predict(values[index].ToFloat());
+            sum = sum + gap * gap;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Public Function Determination() -> Float
+    Explain {
+        Description: "Return the coefficient of determination.";
+        Input: "No parameters";
+        Processing: "Compare the residual sum of squares with the total sum of squares.";
+        Output: "R squared.";
+    } {
+        If (secondCount != count || count == 0) { Return 0.0; }
+        Float center = This.Total(seconds, count) / count.ToFloat();
+        Float total = 0.0;
+        Int index = 0;
+        While (index < count) {
+            Float gap = seconds[index].ToFloat() - center;
+            total = total + gap * gap;
+            index = index + 1;
+        }
+        If (This.Near(total, 0.0) == 1) { Return 1.0; }
+        Return 1.0 - This.Residuals() / total;
+    }
+
+    Public Function Adjusted() -> Float
+    Explain {
+        Description: "Return the adjusted coefficient of determination.";
+        Input: "No parameters";
+        Processing: "Adjust R squared for one predictor.";
+        Output: "The adjusted R squared.";
+    } {
+        If (count < 3) { Return This.Determination(); }
+        Float score = This.Determination();
+        Return 1.0 - (1.0 - score) * (count - 1).ToFloat() / (count - 2).ToFloat();
+    }
+
+    Public Function FitError() -> Float
+    Explain {
+        Description: "Return the regression standard error.";
+        Input: "No parameters";
+        Processing: "Take the square root of the residual variance.";
+        Output: "The standard error.";
+    } {
+        If (count < 3) { Return 0.0; }
+        Return This.Sqrt(This.Residuals() / (count - 2).ToFloat());
+    }
+
+    Public Function Poly(Int degree) -> Float
+    Explain {
+        Description: "Fit a polynomial of degree 1 or 2.";
+        Input: degree = "1 or 2";
+        Processing: "Solve the normal equations.";
+        Output: "The constant term.";
+    } {
+        If (degree <= 1) {
+            This.Fit();
+            Return coef0;
+        }
+        If (count < 3 || secondCount != count) { Return 0.0; }
+        Float s0 = count.ToFloat();
+        Float s1 = 0.0;
+        Float s2 = 0.0;
+        Float s3 = 0.0;
+        Float s4 = 0.0;
+        Float t0 = 0.0;
+        Float t1 = 0.0;
+        Float t2 = 0.0;
+        Int index = 0;
+        While (index < count) {
+            Float x = values[index].ToFloat();
+            Float y = seconds[index].ToFloat();
+            Float x2 = x * x;
+            s1 = s1 + x;
+            s2 = s2 + x2;
+            s3 = s3 + x2 * x;
+            s4 = s4 + x2 * x2;
+            t0 = t0 + y;
+            t1 = t1 + x * y;
+            t2 = t2 + x2 * y;
+            index = index + 1;
+        }
+        This.Solve3(s0, s1, s2, t0, s1, s2, s3, t1, s2, s3, s4, t2);
+        slope = coef1;
+        intercept = coef0;
+        Return coef0;
+    }
+
+    Public Function Coef(Int index) -> Float
+    Explain {
+        Description: "Return a polynomial coefficient.";
+        Input: index = "0 for the constant, then ascending powers";
+        Processing: "Read the latest polynomial.";
+        Output: "The coefficient.";
+    } {
+        If (index == 1) { Return coef1; }
+        If (index == 2) { Return coef2; }
+        Return coef0;
+    }
+
+    Public Function PolyPredict(Float x) -> Float
+    Explain {
+        Description: "Predict a response from the polynomial.";
+        Input: x = "Predictor";
+        Processing: "Evaluate the stored quadratic.";
+        Output: "The prediction.";
+    } {
+        Return coef0 + coef1 * x + coef2 * x * x;
+    }
+
+    Public Function Systematic(Int size) -> String
+    Explain {
+        Description: "Take a systematic sample.";
+        Input: size = "Sample size";
+        Processing: "Step evenly through the stored order.";
+        Output: "The sample text.";
+    } {
+        If (count == 0 || size <= 0) { Return "none"; }
+        Int step = count / size;
+        If (step < 1) { step = 1; }
+        String built = "";
+        Int index = 0;
+        Int taken = 0;
+        While (taken < size && index < count) {
+            If (built != "") { built = built + ","; }
+            built = built + This.IntText(values[index]);
+            index = index + step;
+            taken = taken + 1;
+        }
+        Return built;
+    }
+
+    Public Function Draw(Int size) -> String
+    Explain {
+        Description: "Draw a sample with replacement.";
+        Input: size = "Sample size";
+        Processing: "Use the deterministic generator.";
+        Output: "The sample text.";
+    } {
+        If (count == 0 || size <= 0) { Return "none"; }
+        String built = "";
+        Int taken = 0;
+        While (taken < size) {
+            Int pick = This.Next() % count;
+            If (pick < 0) { pick = 0 - pick; }
+            If (built != "") { built = built + ","; }
+            built = built + This.IntText(values[pick]);
+            taken = taken + 1;
+        }
+        Return built;
+    }
+
+    Public Function DrawUnique(Int size) -> String
+    Explain {
+        Description: "Draw a sample without replacement.";
+        Input: size = "Sample size";
+        Processing: "Shuffle the stored order with the deterministic generator.";
+        Output: "The sample text.";
+    } {
+        If (count == 0 || size <= 0) { Return "none"; }
+        Int limit = size;
+        If (limit > count) { limit = count; }
+        Int index = 0;
+        While (index < count) {
+            ordered[index] = index;
+            index = index + 1;
+        }
+        index = count - 1;
+        While (index > 0) {
+            Int pick = This.Next() % (index + 1);
+            If (pick < 0) { pick = 0 - pick; }
+            Int swap = ordered[index];
+            ordered[index] = ordered[pick];
+            ordered[pick] = swap;
+            index = index - 1;
+        }
+        String built = "";
+        index = 0;
+        While (index < limit) {
+            If (built != "") { built = built + ","; }
+            built = built + This.IntText(values[ordered[index]]);
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Public Function Stratified(Int size) -> String
+    Explain {
+        Description: "Take a stratified sample from the two halves.";
+        Input: size = "Total sample size";
+        Processing: "Take the same number from the first half and the second half.";
+        Output: "The sample text.";
+    } {
+        If (count < 2 || size <= 0) { Return "none"; }
+        Int each = size / 2;
+        If (each < 1) { each = 1; }
+        Int half = count / 2;
+        String built = "";
+        Int index = 0;
+        While (index < each && index < half) {
+            If (built != "") { built = built + ","; }
+            built = built + This.IntText(values[index]);
+            index = index + 1;
+        }
+        index = 0;
+        While (index < each && half + index < count) {
+            built = built + "," + This.IntText(values[half + index]);
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Public Function Bootstrap(Int iterations) -> Float
+    Explain {
+        Description: "Return the mean of bootstrap sample means.";
+        Input: iterations = "Number of resamples";
+        Processing: "Resample the stored values with replacement.";
+        Output: "The average bootstrap mean.";
+    } {
+        If (count == 0 || iterations <= 0) { Return 0.0; }
+        Float sum = 0.0;
+        Int round = 0;
+        While (round < iterations) {
+            Float inner = 0.0;
+            Int taken = 0;
+            While (taken < count) {
+                Int pick = This.Next() % count;
+                If (pick < 0) { pick = 0 - pick; }
+                inner = inner + values[pick].ToFloat();
+                taken = taken + 1;
+            }
+            sum = sum + inner / count.ToFloat();
+            round = round + 1;
+        }
+        Return sum / iterations.ToFloat();
+    }
+
+    Public Function Level(Float critical) -> Float
+    Explain {
+        Description: "Store a normal confidence interval for the mean.";
+        Input: critical = "Normal critical value, such as 1.96";
+        Processing: "Use the sample standard error.";
+        Output: "The lower bound.";
+    } {
+        Float center = This.Mean();
+        error = 0.0;
+        If (count > 0) { error = This.SampleDeviation() / This.Sqrt(count.ToFloat()); }
+        margin = critical * error;
+        bandLow = center - margin;
+        bandHigh = center + margin;
+        Return bandLow;
+    }
+
+    Public Function BandHigh() -> Float
+    Explain {
+        Description: "Return the stored upper confidence bound.";
+        Input: "No parameters";
+        Processing: "Read the latest interval.";
+        Output: "The upper bound.";
+    } {
+        Return bandHigh;
+    }
+
+    Public Function Error() -> Float
+    Explain {
+        Description: "Return the stored standard error.";
+        Input: "No parameters";
+        Processing: "Read the latest interval.";
+        Output: "The standard error.";
+    } {
+        Return error;
+    }
+
+    Public Function Margin() -> Float
+    Explain {
+        Description: "Return the stored margin of error.";
+        Input: "No parameters";
+        Processing: "Read the latest interval.";
+        Output: "The margin.";
+    } {
+        Return margin;
+    }
+
+    Public Function CompareT() -> Float
+    Explain {
+        Description: "Return the two-sample t statistic.";
+        Input: "No parameters";
+        Processing: "Compare the first sample with the second using a pooled variance.";
+        Output: "The t statistic.";
+    } {
+        If (count < 2 || secondCount < 2) { Return 0.0; }
+        Float m1 = This.Total(values, count) / count.ToFloat();
+        Float m2 = This.Total(seconds, secondCount) / secondCount.ToFloat();
+        Float v1 = This.SampleVarianceOf(values, count);
+        Float v2 = This.SampleVarianceOf(seconds, secondCount);
+        Float pooled = ((count - 1).ToFloat() * v1 + (secondCount - 1).ToFloat() * v2) / (count + secondCount - 2).ToFloat();
+        Float se = This.Sqrt(pooled * (1.0 / count.ToFloat() + 1.0 / secondCount.ToFloat()));
+        If (This.Near(se, 0.0) == 1) { Return 0.0; }
+        Return (m1 - m2) / se;
+    }
+
+    Public Function PairedT() -> Float
+    Explain {
+        Description: "Return the paired t statistic.";
+        Input: "No parameters";
+        Processing: "Test the mean paired difference.";
+        Output: "The t statistic.";
+    } {
+        If (count < 2 || secondCount != count) { Return 0.0; }
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            sum = sum + (values[index] - seconds[index]).ToFloat();
+            index = index + 1;
+        }
+        Float center = sum / count.ToFloat();
+        Float squares = 0.0;
+        index = 0;
+        While (index < count) {
+            Float gap = (values[index] - seconds[index]).ToFloat() - center;
+            squares = squares + gap * gap;
+            index = index + 1;
+        }
+        Float deviation = This.Sqrt(squares / (count - 1).ToFloat());
+        Float se = deviation / This.Sqrt(count.ToFloat());
+        If (This.Near(se, 0.0) == 1) { Return 0.0; }
+        Return center / se;
+    }
+
+    Public Function ZTest(Float mu) -> Float
+    Explain {
+        Description: "Return a one-sample z statistic.";
+        Input: mu = "Hypothesized mean";
+        Processing: "Use the population standard deviation of the stored sample.";
+        Output: "The z statistic.";
+    } {
+        Float se = This.PopDeviation() / This.Sqrt(count.ToFloat());
+        If (This.Near(se, 0.0) == 1) { Return 0.0; }
+        Return (This.Mean() - mu) / se;
+    }
+
+    Public Function Chi() -> Float
+    Explain {
+        Description: "Return a chi-square goodness-of-fit statistic.";
+        Input: "No parameters";
+        Processing: "The first sample is observed and the second is expected.";
+        Output: "The chi-square statistic.";
+    } {
+        If (count == 0 || secondCount != count) { Return 0.0; }
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            If (seconds[index] == 0) {
+                problem = "singular";
+                Return 0.0;
+            }
+            Float gap = (values[index] - seconds[index]).ToFloat();
+            sum = sum + gap * gap / seconds[index].ToFloat();
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Public Function Anova() -> Float
+    Explain {
+        Description: "Return a one-way ANOVA F statistic.";
+        Input: "No parameters";
+        Processing: "Compare up to three stored groups.";
+        Output: "The F statistic.";
+    } {
+        Int groups = 0;
+        If (count > 0) { groups = groups + 1; }
+        If (secondCount > 0) { groups = groups + 1; }
+        If (thirdCount > 0) { groups = groups + 1; }
+        Int totalCount = count + secondCount + thirdCount;
+        If (groups < 2 || totalCount <= groups) { Return 0.0; }
+        Float grand = (This.Total(values, count) + This.Total(seconds, secondCount) + This.Total(thirds, thirdCount)) / totalCount.ToFloat();
+        Float between = 0.0;
+        If (count > 0) {
+            Float gap = This.Total(values, count) / count.ToFloat() - grand;
+            between = between + count.ToFloat() * gap * gap;
+        }
+        If (secondCount > 0) {
+            Float gap2 = This.Total(seconds, secondCount) / secondCount.ToFloat() - grand;
+            between = between + secondCount.ToFloat() * gap2 * gap2;
+        }
+        If (thirdCount > 0) {
+            Float gap3 = This.Total(thirds, thirdCount) / thirdCount.ToFloat() - grand;
+            between = between + thirdCount.ToFloat() * gap3 * gap3;
+        }
+        Float within = This.Within(values, count) + This.Within(seconds, secondCount) + This.Within(thirds, thirdCount);
+        If (This.Near(within, 0.0) == 1) { Return 0.0; }
+        Float msb = between / (groups - 1).ToFloat();
+        Float msw = within / (totalCount - groups).ToFloat();
+        Return msb / msw;
+    }
+
+    Public Function Mann() -> Int
+    Explain {
+        Description: "Return the Mann-Whitney U statistic of the first sample.";
+        Input: "No parameters";
+        Processing: "Count how often the first sample ranks above the second.";
+        Output: "The U statistic.";
+    } {
+        If (count == 0 || secondCount == 0) { Return 0; }
+        Int rankSum = 0;
+        Int index = 0;
+        While (index < count) {
+            rankSum = rankSum + This.CombinedRank(values[index]);
+            index = index + 1;
+        }
+        Int adjust = count * (count + 1) / 2;
+        Return rankSum - adjust;
+    }
+
+    Public Function Wilcoxon() -> Int
+    Explain {
+        Description: "Return the positive Wilcoxon signed-rank sum.";
+        Input: "No parameters";
+        Processing: "Rank the paired absolute differences.";
+        Output: "The positive rank sum.";
+    } {
+        If (count == 0 || secondCount != count) { Return 0; }
+        Int sum = 0;
+        Int index = 0;
+        While (index < count) {
+            Int diff = values[index] - seconds[index];
+            If (diff > 0) { sum = sum + This.SignedRank(index); }
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Public Function DistanceKS() -> Float
+    Explain {
+        Description: "Return the Kolmogorov-Smirnov distance.";
+        Input: "No parameters";
+        Processing: "Find the largest gap between the two empirical distribution functions.";
+        Output: "The distance.";
+    } {
+        If (count == 0 || secondCount == 0) { Return 0.0; }
+        Float best = 0.0;
+        Int index = 0;
+        While (index < count) {
+            Float gap = This.Abs(This.Portion(values, count, values[index]) - This.Portion(seconds, secondCount, values[index]));
+            If (gap > best) { best = gap; }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < secondCount) {
+            Float gap2 = This.Abs(This.Portion(values, count, seconds[index]) - This.Portion(seconds, secondCount, seconds[index]));
+            If (gap2 > best) { best = gap2; }
+            index = index + 1;
+        }
+        Return best;
+    }
+
+    Public Function Shapiro() -> Float
+    Explain {
+        Description: "Return the Shapiro-Wilk W statistic.";
+        Input: "No parameters";
+        Processing: "Use the standard coefficients for a sample of up to eight values.";
+        Output: "The W statistic.";
+    } {
+        If (count < 3) { Return 0.0; }
+        This.SortInto(values, count);
+        Float b = 0.0;
+        Int index = 0;
+        Int half = count / 2;
+        While (index < half) {
+            Float weight = This.ShapiroWeight(count, index);
+            Float gap = ordered[count - 1 - index].ToFloat() - ordered[index].ToFloat();
+            b = b + weight * gap;
+            index = index + 1;
+        }
+        Float scale = This.SquaredDeviations();
+        If (This.Near(scale, 0.0) == 1) { Return 1.0; }
+        Return b * b / scale;
+    }
+
+    Public Function PValue(Float statistic, Int freedom) -> Float
+    Explain {
+        Description: "Return a two-tailed normal p-value.";
+        Input: statistic = "Test statistic", freedom = "Stored for the caller. Zero selects the normal curve.";
+        Processing: "Integrate the standard normal tail.";
+        Output: "The p-value.";
+    } {
+        Float z = statistic;
+        If (z < 0.0) { z = 0.0 - z; }
+        Float phi = 0.5 + 0.5 * This.Erf(z / 1.4142135623730951);
+        Float tail = 1.0 - phi;
+        Float p = tail * 2.0;
+        If (p < 0.0) { p = 0.0; }
+        If (p > 1.0) { p = 1.0; }
+        Return p;
+    }
+
+    Public Function Outside(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is outside the Tukey fences.";
+        Input: value = "Candidate";
+        Processing: "Compare it with the first and third quartiles extended by 1.5 interquartile ranges.";
+        Output: "One when the value is an outlier.";
+    } {
+        Float low = This.Quartile(1) - 1.5 * This.Iqr();
+        Float high = This.Quartile(3) + 1.5 * This.Iqr();
+        If (value.ToFloat() < low || value.ToFloat() > high) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Kept() -> Int
+    Explain {
+        Description: "Count the stored values inside the Tukey fences.";
+        Input: "No parameters";
+        Processing: "Reject outliers.";
+        Output: "The number of values that remain.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < count) {
+            If (This.Outside(values[index]) == 0) { total = total + 1; }
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function Reseed(Int value) -> Int
+    Explain {
+        Description: "Set the sample generator seed.";
+        Input: value = "Seed";
+        Processing: "Store the seed.";
+        Output: "The seed.";
+    } {
+        seed = value;
+        Return seed;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest statistics error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Total(Array<Int> source, Int size) -> Float {
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < size) {
+            sum = sum + source[index].ToFloat();
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function SquaredDeviations() -> Float {
+        Float center = This.Mean();
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            Float gap = values[index].ToFloat() - center;
+            sum = sum + gap * gap;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function SampleVarianceOf(Array<Int> source, Int size) -> Float {
+        If (size < 2) { Return 0.0; }
+        Float center = This.Total(source, size) / size.ToFloat();
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < size) {
+            Float gap = source[index].ToFloat() - center;
+            sum = sum + gap * gap;
+            index = index + 1;
+        }
+        Return sum / (size - 1).ToFloat();
+    }
+
+    Private Function DeviationOf(Array<Int> source, Int size) -> Float {
+        If (size == 0) { Return 0.0; }
+        Float center = This.Total(source, size) / size.ToFloat();
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < size) {
+            Float gap = source[index].ToFloat() - center;
+            sum = sum + gap * gap;
+            index = index + 1;
+        }
+        Return This.Sqrt(sum / size.ToFloat());
+    }
+
+    Private Function Within(Array<Int> source, Int size) -> Float {
+        If (size == 0) { Return 0.0; }
+        Float center = This.Total(source, size) / size.ToFloat();
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < size) {
+            Float gap = source[index].ToFloat() - center;
+            sum = sum + gap * gap;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function SortInto(Array<Int> source, Int size) -> Int {
+        Int index = 0;
+        While (index < size) {
+            ordered[index] = source[index];
+            index = index + 1;
+        }
+        Return This.SortOrdered();
+    }
+
+    Private Function SortOrdered() -> Int {
+        Int index = 1;
+        While (index < count) {
+            Int cursor = index;
+            While (cursor > 0) {
+                Int earlier = 0;
+                If (ordered[cursor] < ordered[cursor - 1]) { earlier = 1; }
+                If (earlier == 0) { cursor = 0; }
+                If (earlier == 1) {
+                    Int swap = ordered[cursor];
+                    ordered[cursor] = ordered[cursor - 1];
+                    ordered[cursor - 1] = swap;
+                    cursor = cursor - 1;
+                }
+            }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Middle(Int start, Int end) -> Float {
+        Int span = end - start + 1;
+        If (span <= 0) { Return 0.0; }
+        If (span % 2 == 1) { Return ordered[start + span / 2].ToFloat(); }
+        Int right = start + span / 2;
+        Int left = right - 1;
+        Return (ordered[left].ToFloat() + ordered[right].ToFloat()) / 2.0;
+    }
+
+    Private Function RankOf(Array<Int> source, Int value) -> Float {
+        This.SortInto(source, count);
+        Int seen = 0;
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < count) {
+            If (ordered[index] == value) {
+                seen = seen + 1;
+                sum = sum + (index + 1).ToFloat();
+            }
+            index = index + 1;
+        }
+        If (seen == 0) { Return 0.0; }
+        Return sum / seen.ToFloat();
+    }
+
+    Private Function CombinedRank(Int value) -> Int {
+        Int rank = 1;
+        Int index = 0;
+        While (index < count) {
+            If (values[index] < value) { rank = rank + 1; }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < secondCount) {
+            If (seconds[index] < value) { rank = rank + 1; }
+            index = index + 1;
+        }
+        Return rank;
+    }
+
+    Private Function SignedRank(Int slot) -> Int {
+        Int target = values[slot] - seconds[slot];
+        If (target < 0) { target = 0 - target; }
+        Int smaller = 0;
+        Int index = 0;
+        While (index < count) {
+            Int other = values[index] - seconds[index];
+            If (other < 0) { other = 0 - other; }
+            If (other > 0 && other < target) { smaller = smaller + 1; }
+            index = index + 1;
+        }
+        Return smaller + 1;
+    }
+
+    Private Function Portion(Array<Int> source, Int size, Int value) -> Float {
+        Int total = 0;
+        Int index = 0;
+        While (index < size) {
+            If (source[index] <= value) { total = total + 1; }
+            index = index + 1;
+        }
+        Return total.ToFloat() / size.ToFloat();
+    }
+
+    Private Function ShapiroWeight(Int size, Int index) -> Float {
+        If (size == 8 && index == 0) { Return 0.6052; }
+        If (size == 8 && index == 1) { Return 0.3164; }
+        If (size == 8 && index == 2) { Return 0.1743; }
+        If (size == 8 && index == 3) { Return 0.0561; }
+        If (size == 4 && index == 0) { Return 0.6872; }
+        If (size == 4 && index == 1) { Return 0.1677; }
+        If (size == 3 && index == 0) { Return 0.7071; }
+        Return 0.0;
+    }
+
+    Private Function Solve3(Float a00, Float a01, Float a02, Float b0, Float a10, Float a11, Float a12, Float b1, Float a20, Float a21, Float a22, Float b2) -> Int {
+        Float p10 = a10;
+        Float p11 = a11;
+        Float p12 = a12;
+        Float q1 = b1;
+        Float p20 = a20;
+        Float p21 = a21;
+        Float p22 = a22;
+        Float q2 = b2;
+        If (This.Near(a00, 0.0) == 0) {
+            Float s1 = p10 / a00;
+            p11 = p11 - s1 * a01;
+            p12 = p12 - s1 * a02;
+            q1 = q1 - s1 * b0;
+            p10 = 0.0;
+            Float s2 = p20 / a00;
+            p21 = p21 - s2 * a01;
+            p22 = p22 - s2 * a02;
+            q2 = q2 - s2 * b0;
+            p20 = 0.0;
+        }
+        If (This.Near(p11, 0.0) == 0) {
+            Float s3 = p21 / p11;
+            p22 = p22 - s3 * p12;
+            q2 = q2 - s3 * q1;
+            p21 = 0.0;
+        }
+        coef2 = 0.0;
+        If (This.Near(p22, 0.0) == 0) { coef2 = q2 / p22; }
+        coef1 = 0.0;
+        If (This.Near(p11, 0.0) == 0) { coef1 = (q1 - p12 * coef2) / p11; }
+        coef0 = 0.0;
+        If (This.Near(a00, 0.0) == 0) { coef0 = (b0 - a01 * coef1 - a02 * coef2) / a00; }
+        Return 1;
+    }
+
+    Private Function Scale(Float value) -> Int {
+        Float doubled = value * 2.0;
+        Int whole = doubled.ToInt();
+        If (doubled - whole.ToFloat() >= 0.5) { whole = whole + 1; }
+        Return whole;
+    }
+
+    Private Function Next() -> Int {
+        seed = seed * 1103515245 + 12345;
+        Int modulus = 2147483647;
+        seed = seed % modulus;
+        If (seed < 0) { seed = 0 - seed; }
+        Return seed;
+    }
+
+    Private Function Abs(Float value) -> Float {
+        If (value < 0.0) { Return 0.0 - value; }
+        Return value;
+    }
+
+    Private Function Near(Float value, Float target) -> Int {
+        Float diff = value - target;
+        If (diff < 0.0) { diff = 0.0 - diff; }
+        If (diff <= 0.000001) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Sqrt(Float value) -> Float {
+        If (value < 0.0) { Return 0.0; }
+        If (This.Near(value, 0.0) == 1) { Return 0.0; }
+        Int whole = value.ToInt();
+        If (whole.ToFloat() == value) {
+            Int root = 0;
+            Int found = 0;
+            While (found == 0 && root < 100000) {
+                Int next = root + 1;
+                If (next * next > whole) {
+                    If (root * root == whole) { Return root.ToFloat(); }
+                    found = 1;
+                }
+                If (next * next <= whole) { root = next; }
+            }
+        }
+        Float guess = value;
+        Int index = 0;
+        While (index < 24) {
+            guess = (guess + value / guess) / 2.0;
+            index = index + 1;
+        }
+        Return guess;
+    }
+
+    Private Function Exp(Float value) -> Float {
+        Float term = 1.0;
+        Float sum = 1.0;
+        Int index = 1;
+        While (index < 24) {
+            term = term * value / index.ToFloat();
+            sum = sum + term;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function Ln(Float value) -> Float {
+        If (value <= 0.0) { Return 0.0; }
+        Float scaled = value;
+        Int extra = 0;
+        While (scaled >= 2.0) {
+            scaled = scaled / 2.0;
+            extra = extra + 1;
+        }
+        While (scaled < 1.0) {
+            scaled = scaled * 2.0;
+            extra = extra - 1;
+        }
+        Float y = (scaled - 1.0) / (scaled + 1.0);
+        Float power = y;
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < 24) {
+            sum = sum + power / (index * 2 + 1).ToFloat();
+            power = power * y * y;
+            index = index + 1;
+        }
+        Return 2.0 * sum + extra.ToFloat() * 0.6931471805599453;
+    }
+
+    Private Function Erf(Float value) -> Float {
+        Float sign = 1.0;
+        Float x = value;
+        If (x < 0.0) {
+            sign = -1.0;
+            x = 0.0 - x;
+        }
+        Float term = x;
+        Float sum = x;
+        Int index = 1;
+        While (index < 24) {
+            term = term * (0.0 - x) * x / index.ToFloat();
+            sum = sum + term / (index * 2 + 1).ToFloat();
+            index = index + 1;
+        }
+        Return sign * 1.1283791670955126 * sum;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        Int negative = 0;
+        If (remainingValue < 0) {
+            negative = 1;
+            remainingValue = 0 - remainingValue;
+        }
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        If (negative == 1) { Return "-" + built; }
+        Return built;
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Summarize a sample, fit a line, and run hypothesis tests.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the statistics desk and print each result.";
+    Output: "The statistics report.";
+} {
+    StatsDesk desk = StatsDesk();
+    Print(desk.Place(2));
+    Print(desk.Place(4));
+    Print(desk.Place(4));
+    Print(desk.Place(4));
+    Print(desk.Place(5));
+    Print(desk.Place(5));
+    Print(desk.Place(7));
+    Print(desk.Place(9));
+    Print(desk.Size());
+    Print(desk.Mean());
+    Print(desk.Weighted());
+    Print(desk.Median());
+    Print(desk.Mode());
+    Print(desk.PopVariance());
+    Print(desk.SampleVariance());
+    Print(desk.PopDeviation());
+    Print(desk.SampleDeviation());
+    Print(desk.Spread());
+    Print(desk.LowValue());
+    Print(desk.HighValue());
+    Print(desk.Quartile(1));
+    Print(desk.Quartile(2));
+    Print(desk.Quartile(3));
+    Print(desk.Iqr());
+    Print(desk.Percent(25));
+    Print(desk.Percent(50));
+    Print(desk.Percent(75));
+    Print(desk.Quantile(0.5));
+    Print(desk.Decile(10));
+    Print(desk.MeanAbsolute());
+    Print(desk.MedianAbsolute());
+    Print(desk.Variation());
+    Print(desk.Z(9.0, 5.0, 2.0));
+    Print(desk.ZSample(9));
+    Print(desk.ZSample(2));
+    Print(desk.Times(4));
+    Print(desk.Share(4));
+    Print(desk.Cover(4));
+    Print(desk.Order(4));
+    Print(desk.Order(7));
+    Print(desk.Trimmed(1));
+    Print(desk.Geometric());
+    Print(desk.Harmonic());
+    Print(desk.Outside(0));
+    Print(desk.Outside(5));
+    Print(desk.Outside(10));
+    Print(desk.Kept());
+    Print(desk.Shapiro());
+    Print(desk.Systematic(4));
+    Print(desk.Stratified(4));
+    Print(desk.Level(1.96));
+    Print(desk.BandHigh());
+    Print(desk.Error());
+    Print(desk.Margin());
+    Print(desk.ZTest(5.0));
+    Print(desk.ZTest(3.0));
+    Print(desk.Reseed(1));
+    Print(desk.Draw(4));
+    Print(desk.Reseed(1));
+    Print(desk.DrawUnique(4));
+    Print(desk.Reseed(1));
+    Print(desk.Bootstrap(1));
+    Print(desk.Fault());
+    Print(desk.Reset());
+    Print(desk.Pair(1, 2));
+    Print(desk.Pair(2, 4));
+    Print(desk.Pair(3, 6));
+    Print(desk.Pair(4, 8));
+    Print(desk.Cov());
+    Print(desk.Pearson());
+    Print(desk.Spearman());
+    Print(desk.Kendall());
+    Print(desk.Fit());
+    Print(desk.Slope());
+    Print(desk.Intercept());
+    Print(desk.Predict(5.0));
+    Print(desk.Residuals());
+    Print(desk.Determination());
+    Print(desk.Adjusted());
+    Print(desk.FitError());
+    Print(desk.Reset());
+    Print(desk.Pair(0, 1));
+    Print(desk.Pair(1, 3));
+    Print(desk.Pair(2, 7));
+    Print(desk.Poly(2));
+    Print(desk.Coef(0));
+    Print(desk.Coef(1));
+    Print(desk.Coef(2));
+    Print(desk.PolyPredict(3.0));
+    Print(desk.Reset());
+    Print(desk.Place(10));
+    Print(desk.Place(20));
+    Print(desk.Place(30));
+    Print(desk.PlaceSecond(20));
+    Print(desk.PlaceSecond(20));
+    Print(desk.PlaceSecond(20));
+    Print(desk.Chi());
+    Print(desk.Reset());
+    Print(desk.Place(1));
+    Print(desk.Place(2));
+    Print(desk.Place(3));
+    Print(desk.PlaceSecond(1));
+    Print(desk.PlaceSecond(2));
+    Print(desk.PlaceSecond(3));
+    Print(desk.PlaceThird(1));
+    Print(desk.PlaceThird(2));
+    Print(desk.PlaceThird(3));
+    Print(desk.Anova());
+    Print(desk.CompareT());
+    Print(desk.PairedT());
+    Print(desk.Wilcoxon());
+    Print(desk.DistanceKS());
+    Print(desk.Reset());
+    Print(desk.Place(1));
+    Print(desk.Place(2));
+    Print(desk.Place(3));
+    Print(desk.PlaceSecond(4));
+    Print(desk.PlaceSecond(5));
+    Print(desk.PlaceSecond(6));
+    Print(desk.Mann());
+    Print(desk.DistanceKS());
+    Print(desk.CompareT());
+    Print(desk.Reset());
+    Print(desk.Pair(2, 1));
+    Print(desk.Pair(4, 2));
+    Print(desk.Pair(6, 3));
+    Print(desk.Wilcoxon());
+    Print(desk.PairedT());
+    Print(desk.PValue(0.0, 0));
+    Print(desk.PValue(1.96, 0));
+    Print(desk.Fault());
+    Return 0;
+}
