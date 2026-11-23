@@ -1,0 +1,413 @@
+// Robix.Delegates: bound calls, predicates, comparisons, and multicast invocation.
+Package Robix.Delegates;
+
+Import Robix.Core;
+
+
+Class DelegateDesk {
+    Private Array<Int> used;
+    Private Array<Int> kind;
+    Private Array<Int> op;
+    Private Array<Int> bound;
+    Private Array<Int> calls;
+    Private Array<Int> options;
+    Private Array<Int> listCount;
+    Private Array<Int> child0;
+    Private Array<Int> child1;
+    Private Array<Int> child2;
+    Private Array<Int> child3;
+    Private Array<String> names;
+    Private Int lastNote;
+    Private Int made;
+    Private Int ran;
+    Private Int combined;
+    Private String problem;
+
+    Public Constructor() {
+        used = [0, 0, 0, 0, 0, 0, 0, 0];
+        kind = [0, 0, 0, 0, 0, 0, 0, 0];
+        op = [0, 0, 0, 0, 0, 0, 0, 0];
+        bound = [0, 0, 0, 0, 0, 0, 0, 0];
+        calls = [0, 0, 0, 0, 0, 0, 0, 0];
+        options = [0, 0, 0, 0, 0, 0, 0, 0];
+        listCount = [0, 0, 0, 0, 0, 0, 0, 0];
+        child0 = [-1, -1, -1, -1, -1, -1, -1, -1];
+        child1 = [-1, -1, -1, -1, -1, -1, -1, -1];
+        child2 = [-1, -1, -1, -1, -1, -1, -1, -1];
+        child3 = [-1, -1, -1, -1, -1, -1, -1, -1];
+        names = ["", "", "", "", "", "", "", ""];
+        lastNote = 0;
+        made = 0;
+        ran = 0;
+        combined = 0;
+        problem = "none";
+    }
+
+    Public Function Create(String delegateName, Int delegateKind, Int operation, Int boundValue) -> Int
+    Explain {
+        Description: "Create a delegate.";
+        Input: delegateName = "Delegate name", delegateKind = "0 action, 1 func, 2 predicate, 3 comparison, 4 converter", operation = "0 add, 1 multiply, 2 note, 3 greater, 4 compare", boundValue = "Bound value";
+        Processing: "Store the delegate and its bound value.";
+        Output: "The delegate slot, or -1.";
+    } {
+        Return This.Arm(delegateName, delegateKind, operation, boundValue);
+    }
+
+    Public Function CreateAsync(String delegateName, Int operation, Int boundValue) -> Int
+    Explain {
+        Description: "Create an async delegate.";
+        Input: delegateName = "Delegate name", operation = "0 add, 1 multiply, 2 note, 3 greater, 4 compare", boundValue = "Bound value";
+        Processing: "Store an async delegate. Invocation finishes on this turn.";
+        Output: "The delegate slot, or -1.";
+    } {
+        Return This.Arm(delegateName, 5, operation, boundValue);
+    }
+
+    Public Function Bind(Int slot, Int boundValue) -> Int
+    Explain {
+        Description: "Bind a new target value.";
+        Input: slot = "Delegate slot", boundValue = "Bound value";
+        Processing: "Replace the bound value.";
+        Output: "The delegate slot, or -1.";
+    } {
+        If (This.Known(slot) == 0) { Return -1; }
+        bound[slot] = boundValue;
+        Return slot;
+    }
+
+    Public Function Invoke(Int slot, Int argument) -> Int
+    Explain {
+        Description: "Invoke a delegate.";
+        Input: slot = "Delegate slot", argument = "Argument value";
+        Processing: "A multicast delegate invokes each target and returns the last result.";
+        Output: "The result.";
+    } {
+        If (This.Known(slot) == 0) {
+            problem = "missing";
+            Return 0;
+        }
+        If (kind[slot] == 6) {
+            Int last = 0;
+            Int index = 0;
+            While (index < listCount[slot]) {
+                last = This.Invoke(This.Child(slot, index), argument);
+                index = index + 1;
+            }
+            calls[slot] = calls[slot] + 1;
+            ran = ran + 1;
+            Return last;
+        }
+        Int result = This.Apply(slot, argument);
+        calls[slot] = calls[slot] + 1;
+        ran = ran + 1;
+        Return result;
+    }
+
+    Public Function InvokeAsync(Int slot, Int argument) -> Int
+    Explain {
+        Description: "Invoke an async delegate.";
+        Input: slot = "Delegate slot", argument = "Argument value";
+        Processing: "The call finishes on this turn.";
+        Output: "The result.";
+    } {
+        Return This.Invoke(slot, argument);
+    }
+
+    Public Function Dynamic(Int slot, Int argument) -> Int
+    Explain {
+        Description: "Invoke a delegate without a static result type.";
+        Input: slot = "Delegate slot", argument = "Argument value";
+        Processing: "Run the same call as Invoke.";
+        Output: "The result.";
+    } {
+        Return This.Invoke(slot, argument);
+    }
+
+    Public Function Combine(Int left, Int right) -> Int
+    Explain {
+        Description: "Combine two delegates.";
+        Input: left = "First delegate", right = "Second delegate";
+        Processing: "Store a multicast delegate that calls left, then right.";
+        Output: "The multicast slot, or -1.";
+    } {
+        If (This.Known(left) == 0 || This.Known(right) == 0) {
+            problem = "missing";
+            Return -1;
+        }
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        used[slot] = 1;
+        kind[slot] = 6;
+        op[slot] = 0;
+        bound[slot] = 0;
+        calls[slot] = 0;
+        options[slot] = 0;
+        listCount[slot] = 2;
+        child0[slot] = left;
+        child1[slot] = right;
+        child2[slot] = -1;
+        child3[slot] = -1;
+        names[slot] = "group";
+        made = made + 1;
+        combined = combined + 1;
+        Return slot;
+    }
+
+    Public Function Remove(Int slot, Int target) -> Int
+    Explain {
+        Description: "Remove a target from a multicast delegate.";
+        Input: slot = "Multicast slot", target = "Target slot";
+        Processing: "Keep every child except the target.";
+        Output: "The multicast slot, or -1.";
+    } {
+        If (This.Known(slot) == 0) { Return -1; }
+        Int kept0 = -1;
+        Int kept1 = -1;
+        Int kept2 = -1;
+        Int kept3 = -1;
+        Int kept = 0;
+        Int index = 0;
+        While (index < listCount[slot]) {
+            Int child = This.Child(slot, index);
+            If (child != target) {
+                If (kept == 0) { kept0 = child; }
+                If (kept == 1) { kept1 = child; }
+                If (kept == 2) { kept2 = child; }
+                If (kept == 3) { kept3 = child; }
+                kept = kept + 1;
+            }
+            index = index + 1;
+        }
+        child0[slot] = kept0;
+        child1[slot] = kept1;
+        child2[slot] = kept2;
+        child3[slot] = kept3;
+        listCount[slot] = kept;
+        Return slot;
+    }
+
+    Public Function Clear(Int slot) -> Int
+    Explain {
+        Description: "Clear a multicast invocation list.";
+        Input: slot = "Delegate slot";
+        Processing: "Remove every child.";
+        Output: "One when the list is cleared.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        listCount[slot] = 0;
+        child0[slot] = -1;
+        child1[slot] = -1;
+        child2[slot] = -1;
+        child3[slot] = -1;
+        Return 1;
+    }
+
+    Public Function Size(Int slot) -> Int
+    Explain {
+        Description: "Return the invocation list size.";
+        Input: slot = "Delegate slot";
+        Processing: "Read the child count.";
+        Output: "The child count.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return listCount[slot];
+    }
+
+    Public Function At(Int slot, Int index) -> Int
+    Explain {
+        Description: "Return one invocation target.";
+        Input: slot = "Delegate slot", index = "Child index";
+        Processing: "Read the child slot.";
+        Output: "The child slot, or -1.";
+    } {
+        If (This.Known(slot) == 0) { Return -1; }
+        If (index < 0 || index >= listCount[slot]) { Return -1; }
+        Return This.Child(slot, index);
+    }
+
+    Public Function TypeName(Int slot) -> String
+    Explain {
+        Description: "Return the delegate type name.";
+        Input: slot = "Delegate slot";
+        Processing: "Map the stored kind.";
+        Output: "action, func, predicate, comparison, converter, async, multicast, or none.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        If (kind[slot] == 1) { Return "func"; }
+        If (kind[slot] == 2) { Return "predicate"; }
+        If (kind[slot] == 3) { Return "comparison"; }
+        If (kind[slot] == 4) { Return "converter"; }
+        If (kind[slot] == 5) { Return "async"; }
+        If (kind[slot] == 6) { Return "multicast"; }
+        Return "action";
+    }
+
+    Public Function Target(Int slot) -> Int
+    Explain {
+        Description: "Return the bound target value.";
+        Input: slot = "Delegate slot";
+        Processing: "Read the bound value.";
+        Output: "The bound value.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return bound[slot];
+    }
+
+    Public Function Method(Int slot) -> String
+    Explain {
+        Description: "Return the delegate name.";
+        Input: slot = "Delegate slot";
+        Processing: "Read the stored name.";
+        Output: "The delegate name.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        Return names[slot];
+    }
+
+    Public Function Calls(Int slot) -> Int
+    Explain {
+        Description: "Return how many times a delegate has run.";
+        Input: slot = "Delegate slot";
+        Processing: "Read the call count.";
+        Output: "The call count.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return calls[slot];
+    }
+
+    Public Function IsMulticast(Int slot) -> Int
+    Explain {
+        Description: "Report whether a delegate has several targets.";
+        Input: slot = "Delegate slot";
+        Processing: "A multicast delegate has at least two children.";
+        Output: "One when the list has two or more children.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (listCount[slot] >= 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SetOption(Int slot, Int flag) -> Int
+    Explain {
+        Description: "Store a delegate option.";
+        Input: slot = "Delegate slot", flag = "Option value";
+        Processing: "Store the flag.";
+        Output: "One when the option is stored.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        options[slot] = flag;
+        Return 1;
+    }
+
+    Public Function Option(Int slot) -> Int
+    Explain {
+        Description: "Return a delegate option.";
+        Input: slot = "Delegate slot";
+        Processing: "Read the stored flag.";
+        Output: "The option value.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return options[slot];
+    }
+
+    Public Function LastNote() -> Int
+    Explain {
+        Description: "Return the argument last seen by an action.";
+        Input: "No parameters";
+        Processing: "Read the stored argument.";
+        Output: "The argument.";
+    } {
+        Return lastNote;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest delegate error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the delegate desk.";
+        Input: "No parameters";
+        Processing: "Report created delegates, calls, and combinations.";
+        Output: "The statistics.";
+    } {
+        Return "created=" + This.IntText(made) + ",calls=" + This.IntText(ran) + ",combined=" + This.IntText(combined);
+    }
+
+    Private Function Arm(String delegateName, Int delegateKind, Int operation, Int boundValue) -> Int {
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        used[slot] = 1;
+        kind[slot] = delegateKind;
+        op[slot] = operation;
+        bound[slot] = boundValue;
+        calls[slot] = 0;
+        options[slot] = 0;
+        listCount[slot] = 0;
+        child0[slot] = -1;
+        child1[slot] = -1;
+        child2[slot] = -1;
+        child3[slot] = -1;
+        names[slot] = delegateName;
+        made = made + 1;
+        Return slot;
+    }
+
+    Private Function Apply(Int slot, Int argument) -> Int {
+        If (op[slot] == 0) { Return argument + bound[slot]; }
+        If (op[slot] == 1) { Return argument * bound[slot]; }
+        If (op[slot] == 2) {
+            lastNote = argument;
+            Return 0;
+        }
+        If (op[slot] == 3) {
+            If (argument > bound[slot]) { Return 1; }
+            Return 0;
+        }
+        If (argument > bound[slot]) { Return 1; }
+        If (argument == bound[slot]) { Return 0; }
+        Return -1;
+    }
+
+    Private Function Child(Int slot, Int index) -> Int {
+        If (index == 0) { Return child0[slot]; }
+        If (index == 1) { Return child1[slot]; }
+        If (index == 2) { Return child2[slot]; }
+        If (index == 3) { Return child3[slot]; }
+        Return -1;
+    }
+
+    Private Function Known(Int slot) -> Int {
+        If (slot < 0 || slot > 7) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Claim() -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (used[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

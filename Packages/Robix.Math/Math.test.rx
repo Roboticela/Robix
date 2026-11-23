@@ -1,0 +1,5 @@
+Test Gcd {
+    Constraint: MathDesk().Gcd(48, 18) == 6;
+    Processing: True;
+    Output: True;
+}

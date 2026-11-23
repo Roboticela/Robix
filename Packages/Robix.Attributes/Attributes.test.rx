@@ -1,0 +1,5 @@
+Test Known {
+    Constraint: AttributeDesk().Known("Obsolete") == 1;
+    Processing: True;
+    Output: True;
+}

@@ -1,0 +1,558 @@
+// Robix.Services: shared contracts, errors, configuration, versions, resources, and logs.
+Package Robix.Services;
+
+Import Robix.Core;
+
+
+Class ServiceDesk {
+    Private Array<Int> contractUsed;
+    Private Array<String> contractNames;
+    Private Int contracts;
+    Private Array<Int> configUsed;
+    Private Array<String> configKeys;
+    Private Array<String> configValues;
+    Private Array<Int> featureUsed;
+    Private Array<String> featureNames;
+    Private Array<Int> resourceUsed;
+    Private Array<String> resourceNames;
+    Private Array<Int> grantUsed;
+    Private Array<String> grantNames;
+    Private Array<String> grantPermits;
+    Private Int major;
+    Private Int minor;
+    Private Int patch;
+    Private String platform;
+    Private String arch;
+    Private Int minimum;
+    Private String lastMessage;
+    Private Int entries;
+    Private Int pending;
+    Private Int outcome;
+    Private String problem;
+
+    Public Constructor() {
+        contractUsed = [1, 1, 1, 1, 0, 0, 0, 0];
+        contractNames = ["Disposable", "Comparable", "Equatable", "Enumerable", "", "", "", ""];
+        contracts = 4;
+        configUsed = [0, 0, 0, 0, 0, 0, 0, 0];
+        configKeys = ["", "", "", "", "", "", "", ""];
+        configValues = ["", "", "", "", "", "", "", ""];
+        featureUsed = [0, 0, 0, 0];
+        featureNames = ["", "", "", ""];
+        resourceUsed = [0, 0, 0, 0];
+        resourceNames = ["", "", "", ""];
+        grantUsed = [0, 0, 0, 0];
+        grantNames = ["", "", "", ""];
+        grantPermits = ["", "", "", ""];
+        major = 0;
+        minor = 0;
+        patch = 0;
+        platform = "none";
+        arch = "none";
+        minimum = 0;
+        lastMessage = "none";
+        entries = 0;
+        pending = 0;
+        outcome = 0;
+        problem = "none";
+    }
+
+    Public Function Contract(String contractName) -> Int
+    Explain {
+        Description: "Report whether a shared contract is registered.";
+        Input: contractName = "Contract name";
+        Processing: "Search the contract table.";
+        Output: "One when the contract is registered.";
+    } {
+        If (This.FindContract(contractName) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Register(String contractName) -> Int
+    Explain {
+        Description: "Register a shared contract.";
+        Input: contractName = "Contract name";
+        Processing: "Store the contract when it is new.";
+        Output: "The contract slot, or -1.";
+    } {
+        Int existing = This.FindContract(contractName);
+        If (existing >= 0) { Return existing; }
+        Int slot = 0;
+        While (slot < 8) {
+            If (contractUsed[slot] == 0) {
+                contractUsed[slot] = 1;
+                contractNames[slot] = contractName;
+                contracts = contracts + 1;
+                Return slot;
+            }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Public Function ErrorName(Int code) -> String
+    Explain {
+        Description: "Return the standard error name.";
+        Input: code = "Error code";
+        Processing: "Map the code.";
+        Output: "none, not-found, invalid, unauthorized, conflict, or unknown.";
+    } {
+        If (code == 0) { Return "none"; }
+        If (code == 1) { Return "not-found"; }
+        If (code == 2) { Return "invalid"; }
+        If (code == 3) { Return "unauthorized"; }
+        If (code == 4) { Return "conflict"; }
+        Return "unknown";
+    }
+
+    Public Function ErrorCode(String errorName) -> Int
+    Explain {
+        Description: "Return the standard error code.";
+        Input: errorName = "Error name";
+        Processing: "Map the name.";
+        Output: "The error code, or zero.";
+    } {
+        If (errorName == "not-found") { Return 1; }
+        If (errorName == "invalid") { Return 2; }
+        If (errorName == "unauthorized") { Return 3; }
+        If (errorName == "conflict") { Return 4; }
+        Return 0;
+    }
+
+    Public Function Clamp(Int value, Int low, Int high) -> Int
+    Explain {
+        Description: "Clamp a value to a range.";
+        Input: value = "Value", low = "Low bound", high = "High bound";
+        Processing: "Values outside the range become the nearest bound.";
+        Output: "The clamped value.";
+    } {
+        If (value < low) { Return low; }
+        If (value > high) { Return high; }
+        Return value;
+    }
+
+    Public Function Span(Int low, Int high) -> Int
+    Explain {
+        Description: "Return the distance between two bounds.";
+        Input: low = "Low bound", high = "High bound";
+        Processing: "Subtract the low bound from the high bound.";
+        Output: "The distance, or zero when the range is reversed.";
+    } {
+        If (high < low) { Return 0; }
+        Return high - low;
+    }
+
+    Public Function Store(String key, String value) -> Int
+    Explain {
+        Description: "Store a configuration value.";
+        Input: key = "Configuration key", value = "Configuration value";
+        Processing: "Replace an existing key or claim a free slot.";
+        Output: "The configuration slot, or -1.";
+    } {
+        Int existing = This.FindConfig(key);
+        If (existing >= 0) {
+            configValues[existing] = value;
+            Return existing;
+        }
+        Int slot = 0;
+        While (slot < 8) {
+            If (configUsed[slot] == 0) {
+                configUsed[slot] = 1;
+                configKeys[slot] = key;
+                configValues[slot] = value;
+                Return slot;
+            }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Public Function Get(String key) -> String
+    Explain {
+        Description: "Read a configuration value.";
+        Input: key = "Configuration key";
+        Processing: "Search the configuration table.";
+        Output: "The value, or none.";
+    } {
+        Int slot = This.FindConfig(key);
+        If (slot < 0) { Return "none"; }
+        Return configValues[slot];
+    }
+
+    Public Function Require(String text) -> Int
+    Explain {
+        Description: "Require a non-empty value.";
+        Input: text = "Value to check";
+        Processing: "An empty value fails.";
+        Output: "One when the value is present.";
+    } {
+        If (text.Length() == 0) {
+            problem = "required";
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Public Function InRange(Int value, Int low, Int high) -> Int
+    Explain {
+        Description: "Validate a value against a range.";
+        Input: value = "Value", low = "Low bound", high = "High bound";
+        Processing: "Accept a value on either bound.";
+        Output: "One when the value is inside the range.";
+    } {
+        If (value < low || value > high) {
+            problem = "range";
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Public Function Pack(String name, String value) -> String
+    Explain {
+        Description: "Serialize a name and a value.";
+        Input: name = "Record name", value = "Record value";
+        Processing: "Join them with a hash mark.";
+        Output: "The packed record.";
+    } {
+        Return name + "#" + value;
+    }
+
+    Public Function SetVersion(Int nextMajor, Int nextMinor, Int nextPatch) -> Int
+    Explain {
+        Description: "Store the service version.";
+        Input: nextMajor = "Major", nextMinor = "Minor", nextPatch = "Patch";
+        Processing: "Store the three version parts.";
+        Output: "One.";
+    } {
+        major = nextMajor;
+        minor = nextMinor;
+        patch = nextPatch;
+        Return 1;
+    }
+
+    Public Function VersionText() -> String
+    Explain {
+        Description: "Return the service version.";
+        Input: "No parameters";
+        Processing: "Join the major, minor, and patch.";
+        Output: "The version text.";
+    } {
+        Return This.IntText(major) + "." + This.IntText(minor) + "." + This.IntText(patch);
+    }
+
+    Public Function Compare(Int otherMajor, Int otherMinor, Int otherPatch) -> Int
+    Explain {
+        Description: "Compare the stored version with another version.";
+        Input: otherMajor = "Major", otherMinor = "Minor", otherPatch = "Patch";
+        Processing: "Compare major, then minor, then patch.";
+        Output: "1 when the stored version is newer, 0 when equal, -1 when older.";
+    } {
+        If (major > otherMajor) { Return 1; }
+        If (major < otherMajor) { Return -1; }
+        If (minor > otherMinor) { Return 1; }
+        If (minor < otherMinor) { Return -1; }
+        If (patch > otherPatch) { Return 1; }
+        If (patch < otherPatch) { Return -1; }
+        Return 0;
+    }
+
+    Public Function Compatible(Int requiredMajor, Int requiredMinor) -> Int
+    Explain {
+        Description: "Check version compatibility.";
+        Input: requiredMajor = "Required major", requiredMinor = "Required minor";
+        Processing: "The major must match and the minor must be at least the required minor.";
+        Output: "One when the stored version is compatible.";
+    } {
+        If (major != requiredMajor) { Return 0; }
+        If (minor < requiredMinor) { Return 0; }
+        Return 1;
+    }
+
+    Public Function SetPlatform(String platformName, String archName) -> Int
+    Explain {
+        Description: "Store the platform capability.";
+        Input: platformName = "Platform name", archName = "Architecture name";
+        Processing: "Store both names.";
+        Output: "One.";
+    } {
+        platform = platformName;
+        arch = archName;
+        Return 1;
+    }
+
+    Public Function Platform() -> String
+    Explain {
+        Description: "Return the platform name.";
+        Input: "No parameters";
+        Processing: "Read the stored platform.";
+        Output: "The platform name.";
+    } {
+        Return platform;
+    }
+
+    Public Function Arch() -> String
+    Explain {
+        Description: "Return the architecture name.";
+        Input: "No parameters";
+        Processing: "Read the stored architecture.";
+        Output: "The architecture name.";
+    } {
+        Return arch;
+    }
+
+    Public Function Enable(String featureName) -> Int
+    Explain {
+        Description: "Enable a capability.";
+        Input: featureName = "Feature name";
+        Processing: "Store the feature when it is new.";
+        Output: "One when the feature is enabled.";
+    } {
+        If (This.Has(featureName) == 1) { Return 1; }
+        Int slot = 0;
+        While (slot < 4) {
+            If (featureUsed[slot] == 0) {
+                featureUsed[slot] = 1;
+                featureNames[slot] = featureName;
+                Return 1;
+            }
+            slot = slot + 1;
+        }
+        Return 0;
+    }
+
+    Public Function Has(String featureName) -> Int
+    Explain {
+        Description: "Report whether a capability is enabled.";
+        Input: featureName = "Feature name";
+        Processing: "Search the feature table.";
+        Output: "One when the feature is enabled.";
+    } {
+        Int slot = 0;
+        While (slot < 4) {
+            If (featureUsed[slot] == 1 && featureNames[slot] == featureName) { Return 1; }
+            slot = slot + 1;
+        }
+        Return 0;
+    }
+
+    Public Function Acquire(String resourceName) -> Int
+    Explain {
+        Description: "Acquire a shared resource.";
+        Input: resourceName = "Resource name";
+        Processing: "Claim a live resource slot.";
+        Output: "The resource slot, or -1.";
+    } {
+        Int slot = 0;
+        While (slot < 4) {
+            If (resourceUsed[slot] == 0) {
+                resourceUsed[slot] = 1;
+                resourceNames[slot] = resourceName;
+                Return slot;
+            }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Public Function Release(Int slot) -> Int
+    Explain {
+        Description: "Release a shared resource.";
+        Input: slot = "Resource slot";
+        Processing: "Mark the resource free.";
+        Output: "One when the resource is released.";
+    } {
+        If (slot < 0 || slot > 3) { Return 0; }
+        If (resourceUsed[slot] != 1) { Return 0; }
+        resourceUsed[slot] = 0;
+        Return 1;
+    }
+
+    Public Function LiveCount() -> Int
+    Explain {
+        Description: "Return the number of live resources.";
+        Input: "No parameters";
+        Processing: "Count the live resource slots.";
+        Output: "The live count.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 4) {
+            If (resourceUsed[slot] == 1) { count = count + 1; }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function Grant(String name, String permission) -> Int
+    Explain {
+        Description: "Grant a permission.";
+        Input: name = "Subject name", permission = "Permission name";
+        Processing: "Store or replace the subject's permission.";
+        Output: "One when the permission is stored.";
+    } {
+        Int slot = 0;
+        While (slot < 4) {
+            If (grantUsed[slot] == 1 && grantNames[slot] == name) {
+                grantPermits[slot] = permission;
+                Return 1;
+            }
+            slot = slot + 1;
+        }
+        slot = 0;
+        While (slot < 4) {
+            If (grantUsed[slot] == 0) {
+                grantUsed[slot] = 1;
+                grantNames[slot] = name;
+                grantPermits[slot] = permission;
+                Return 1;
+            }
+            slot = slot + 1;
+        }
+        Return 0;
+    }
+
+    Public Function Allowed(String name, String permission) -> Int
+    Explain {
+        Description: "Check a permission.";
+        Input: name = "Subject name", permission = "Permission name";
+        Processing: "Match the subject and the permission.";
+        Output: "One when the permission is granted.";
+    } {
+        Int slot = 0;
+        While (slot < 4) {
+            If (grantUsed[slot] == 1 && grantNames[slot] == name && grantPermits[slot] == permission) {
+                Return 1;
+            }
+            slot = slot + 1;
+        }
+        Return 0;
+    }
+
+    Public Function SetLevel(Int level) -> Int
+    Explain {
+        Description: "Set the minimum log level.";
+        Input: level = "0 debug, 1 info, 2 error";
+        Processing: "Store the minimum level.";
+        Output: "One.";
+    } {
+        minimum = level;
+        Return 1;
+    }
+
+    Public Function Log(Int level, String message) -> Int
+    Explain {
+        Description: "Write a log entry.";
+        Input: level = "Entry level", message = "Entry text";
+        Processing: "Entries below the minimum level are dropped.";
+        Output: "One when the entry is stored.";
+    } {
+        If (level < minimum) { Return 0; }
+        lastMessage = message;
+        entries = entries + 1;
+        Return 1;
+    }
+
+    Public Function Last() -> String
+    Explain {
+        Description: "Return the latest log entry.";
+        Input: "No parameters";
+        Processing: "Read the stored message.";
+        Output: "The message.";
+    } {
+        Return lastMessage;
+    }
+
+    Public Function Entries() -> Int
+    Explain {
+        Description: "Return the number of stored log entries.";
+        Input: "No parameters";
+        Processing: "Read the entry count.";
+        Output: "The entry count.";
+    } {
+        Return entries;
+    }
+
+    Public Function Start() -> Int
+    Explain {
+        Description: "Start a shared async operation.";
+        Input: "No parameters";
+        Processing: "Mark the operation pending.";
+        Output: "One.";
+    } {
+        pending = 1;
+        Return 1;
+    }
+
+    Public Function Pending() -> Int
+    Explain {
+        Description: "Report whether the async operation is pending.";
+        Input: "No parameters";
+        Processing: "Read the pending flag.";
+        Output: "One when the operation is pending.";
+    } {
+        Return pending;
+    }
+
+    Public Function Complete(Int value) -> Int
+    Explain {
+        Description: "Complete the async operation.";
+        Input: value = "Result value";
+        Processing: "The operation finishes on this turn.";
+        Output: "The result.";
+    } {
+        pending = 0;
+        outcome = value;
+        Return outcome;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest service error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the shared services.";
+        Input: "No parameters";
+        Processing: "Report contracts, live resources, and log entries.";
+        Output: "The statistics.";
+    } {
+        Return "contracts=" + This.IntText(contracts) + ",resources=" + This.IntText(This.LiveCount()) + ",logs=" + This.IntText(entries);
+    }
+
+    Private Function FindContract(String contractName) -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (contractUsed[slot] == 1 && contractNames[slot] == contractName) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function FindConfig(String key) -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (configUsed[slot] == 1 && configKeys[slot] == key) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

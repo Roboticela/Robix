@@ -1,0 +1,423 @@
+// Robix.Conventions: shared naming, async, cancellation, and documentation rules.
+Package Robix.Conventions;
+
+Import Robix.Core;
+
+
+Class ConventionDesk {
+    Private Int passed;
+    Private Int failed;
+    Private Int disposed;
+    Private Int connected;
+    Private Int sent;
+    Private Int outcome;
+    Private String note;
+    Private String error;
+    Private String problem;
+
+    Public Constructor() {
+        passed = 0;
+        failed = 0;
+        disposed = 0;
+        connected = 0;
+        sent = 0;
+        outcome = 0;
+        note = "";
+        error = "none";
+        problem = "none";
+    }
+
+    Public Function CheckName(String name) -> Int
+    Explain {
+        Description: "Check a PascalCase name.";
+        Input: name = "Type or member name";
+        Processing: "The first character is uppercase and the rest are letters or digits.";
+        Output: "One when the name follows PascalCase.";
+    } {
+        Return This.Mark(This.Pascal(name));
+    }
+
+    Public Function CheckAcronym(String name) -> Int
+    Explain {
+        Description: "Check conventional acronym capitalization.";
+        Input: name = "Name or acronym";
+        Processing: "HTTP, TLS, SSH, and JSON stay uppercase. A name without an acronym is accepted.";
+        Output: "One when the capitalization is conventional.";
+    } {
+        If (name == "HTTP" || name == "TLS" || name == "SSH" || name == "JSON") { Return This.Mark(1); }
+        If (name == "Http" || name == "Tls" || name == "Ssh" || name == "Json") { Return This.Mark(0); }
+        Return This.Mark(1);
+    }
+
+    Public Function CheckGeneric(String name) -> Int
+    Explain {
+        Description: "Check a generic type name.";
+        Input: name = "Type name such as List<T>";
+        Processing: "The name contains type arguments inside angle brackets.";
+        Output: "One when the generic shape is present.";
+    } {
+        If (name.Length() < 4) { Return This.Mark(0); }
+        String last = name.Substring(name.Length() - 1, 1);
+        If (last != ">") { Return This.Mark(0); }
+        Return This.Mark(This.HasOpen(name));
+    }
+
+    Public Function CheckAsync(String name) -> Int
+    Explain {
+        Description: "Check an explicit async method name.";
+        Input: name = "Method name";
+        Processing: "The name ends with Async.";
+        Output: "One when the name ends with Async.";
+    } {
+        If (name.Length() < 5) { Return This.Mark(0); }
+        String tail = name.Substring(name.Length() - 5, 5);
+        If (tail == "Async") { Return This.Mark(1); }
+        Return This.Mark(0);
+    }
+
+    Public Function CheckVisibility(String name) -> Int
+    Explain {
+        Description: "Check a visibility keyword.";
+        Input: name = "Public, Private, Protected, or Internal";
+        Processing: "Accept the four official visibilities.";
+        Output: "One when the visibility is official.";
+    } {
+        If (name == "Public" || name == "Private" || name == "Protected" || name == "Internal") { Return This.Mark(1); }
+        Return This.Mark(0);
+    }
+
+    Public Function CheckCollection(String name) -> Int
+    Explain {
+        Description: "Check a standard collection interface.";
+        Input: name = "Interface name";
+        Processing: "Accept the standard enumerable and list interfaces.";
+        Output: "One when the name is a standard collection interface.";
+    } {
+        If (name == "IEnumerable" || name == "IEnumerator" || name == "IAsyncEnumerable" || name == "IAsyncEnumerator" || name == "ICollection" || name == "IList") {
+            Return This.Mark(1);
+        }
+        Return This.Mark(0);
+    }
+
+    Public Function CheckType(String name) -> Int
+    Explain {
+        Description: "Check a strict official type name.";
+        Input: name = "Type name";
+        Processing: "Official names use PascalCase.";
+        Output: "One when the type name is official.";
+    } {
+        If (name == "Int" || name == "String" || name == "Bool" || name == "Float" || name == "Char" || name == "Object") {
+            Return This.Mark(1);
+        }
+        Return This.Mark(0);
+    }
+
+    Public Function RequireDoc(String description) -> Int
+    Explain {
+        Description: "Require documentation text.";
+        Input: description = "Documentation text";
+        Processing: "An empty description fails.";
+        Output: "One when documentation is present.";
+    } {
+        If (description.Length() == 0) {
+            problem = "documentation";
+            Return This.Mark(0);
+        }
+        Return This.Mark(1);
+    }
+
+    Public Function CheckNull(String text) -> Int
+    Explain {
+        Description: "Reject a null value.";
+        Input: text = "Value to check";
+        Processing: "An empty value is null.";
+        Output: "One when the value is present.";
+    } {
+        If (text.Length() == 0 || text == "Null") {
+            problem = "null";
+            Return This.Mark(0);
+        }
+        Return This.Mark(1);
+    }
+
+    Public Function Accept(Int token, Int value) -> Int
+    Explain {
+        Description: "Accept a value unless cancellation was requested.";
+        Input: token = "One when canceled", value = "Value to keep";
+        Processing: "A canceled token drops the value.";
+        Output: "The value, or -1 when canceled.";
+    } {
+        If (token != 0) {
+            problem = "canceled";
+            This.Mark(0);
+            Return -1;
+        }
+        This.Mark(1);
+        Return value;
+    }
+
+    Public Function CheckResource() -> Int
+    Explain {
+        Description: "Report whether the resource is still open.";
+        Input: "No parameters";
+        Processing: "A disposed resource fails the resource rule.";
+        Output: "One when the resource is open.";
+    } {
+        If (disposed == 1) { Return This.Mark(0); }
+        Return This.Mark(1);
+    }
+
+    Public Function Ok(Int value) -> Int
+    Explain {
+        Description: "Store a successful result.";
+        Input: value = "Result value";
+        Processing: "Clear the error and store the value.";
+        Output: "One.";
+    } {
+        outcome = value;
+        error = "none";
+        Return 1;
+    }
+
+    Public Function Fail(String message) -> Int
+    Explain {
+        Description: "Store a failed result.";
+        Input: message = "Error message";
+        Processing: "Store the typed error.";
+        Output: "Zero.";
+    } {
+        error = message;
+        Return 0;
+    }
+
+    Public Function Value() -> Int
+    Explain {
+        Description: "Return the successful result.";
+        Input: "No parameters";
+        Processing: "Read the stored value.";
+        Output: "The stored value.";
+    } {
+        Return outcome;
+    }
+
+    Public Function Error() -> String
+    Explain {
+        Description: "Return the typed error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return error;
+    }
+
+    Public Function Note() -> String
+    Explain {
+        Description: "Return the stored text.";
+        Input: "No parameters";
+        Processing: "Read the note written by the async text methods.";
+        Output: "The stored text, or none.";
+    } {
+        If (note == "") { Return "none"; }
+        Return note;
+    }
+
+    Public Async Function ReadFile() -> Task<Int>
+    Explain {
+        Description: "Read the stored text.";
+        Input: "No parameters";
+        Processing: "Return the length of the stored note. The method is async without an Async suffix.";
+        Output: "The text length.";
+    } {
+        Int size = note.Length();
+        Return size;
+    }
+
+    Public Async Function ReadTextAsync(String name) -> Task<Int>
+    Explain {
+        Description: "Read text by name.";
+        Input: name = "Text name";
+        Processing: "Return the stored length, or the name length when nothing is stored.";
+        Output: "The text length.";
+    } {
+        Int size = name.Length();
+        If (note != "") { size = note.Length(); }
+        Return size;
+    }
+
+    Public Async Function WriteTextAsync(String name, String text) -> Task<Int>
+    Explain {
+        Description: "Write text.";
+        Input: name = "Text name", text = "Text to store";
+        Processing: "Store the text and return its length.";
+        Output: "The text length.";
+    } {
+        note = text;
+        Int size = note.Length();
+        Return size;
+    }
+
+    Public Async Function ConnectAsync(String host) -> Task<Int>
+    Explain {
+        Description: "Connect to a host.";
+        Input: host = "Host name";
+        Processing: "An empty host does not connect.";
+        Output: "One when connected.";
+    } {
+        Int opened = 0;
+        If (host.Length() > 0) {
+            connected = 1;
+            opened = 1;
+        }
+        Return opened;
+    }
+
+    Public Async Function SendAsync(Int value) -> Task<Int>
+    Explain {
+        Description: "Send a value.";
+        Input: value = "Value to send";
+        Processing: "Store the value.";
+        Output: "The sent value.";
+    } {
+        sent = value;
+        Int outgoing = sent;
+        Return outgoing;
+    }
+
+    Public Async Function ReceiveAsync() -> Task<Int>
+    Explain {
+        Description: "Receive the last sent value.";
+        Input: "No parameters";
+        Processing: "Read the stored value.";
+        Output: "The received value.";
+    } {
+        Int incoming = sent;
+        Return incoming;
+    }
+
+    Public Function Dispose() -> Int
+    Explain {
+        Description: "Dispose the resource.";
+        Input: "No parameters";
+        Processing: "Mark the resource disposed.";
+        Output: "One.";
+    } {
+        disposed = 1;
+        Return 1;
+    }
+
+    Public Async Function DisposeAsync() -> Task<Int>
+    Explain {
+        Description: "Dispose the resource asynchronously.";
+        Input: "No parameters";
+        Processing: "Mark the resource disposed on this turn.";
+        Output: "One.";
+    } {
+        Int released = 1;
+        disposed = released;
+        Return released;
+    }
+
+    Public Function Disposed() -> Int
+    Explain {
+        Description: "Report whether the resource is disposed.";
+        Input: "No parameters";
+        Processing: "Read the disposed flag.";
+        Output: "One when the resource is disposed.";
+    } {
+        Return disposed;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest convention error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the convention checks.";
+        Input: "No parameters";
+        Processing: "Report passed and failed checks.";
+        Output: "The statistics.";
+    } {
+        Return "passed=" + This.IntText(passed) + ",failed=" + This.IntText(failed);
+    }
+
+    Private Function Mark(Int ok) -> Int {
+        If (ok == 1) {
+            passed = passed + 1;
+            Return 1;
+        }
+        failed = failed + 1;
+        Return 0;
+    }
+
+    Private Function Pascal(String name) -> Int {
+        If (name.Length() == 0) { Return 0; }
+        If (This.Upper(name.Substring(0, 1)) == 0) { Return 0; }
+        Int index = 1;
+        While (index < name.Length()) {
+            String piece = name.Substring(index, 1);
+            If (This.Letter(piece) == 0 && This.Digit(piece) == 0) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function HasOpen(String name) -> Int {
+        Int index = 0;
+        While (index < name.Length()) {
+            If (name.Substring(index, 1) == "<") { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function Upper(String piece) -> Int {
+        String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        Int index = 0;
+        While (index < 26) {
+            If (letters.Substring(index, 1) == piece) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function Letter(String piece) -> Int {
+        If (This.Upper(piece) == 1) { Return 1; }
+        String letters = "abcdefghijklmnopqrstuvwxyz";
+        Int index = 0;
+        While (index < 26) {
+            If (letters.Substring(index, 1) == piece) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function Digit(String piece) -> Int {
+        String digits = "0123456789";
+        Int index = 0;
+        While (index < 10) {
+            If (digits.Substring(index, 1) == piece) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

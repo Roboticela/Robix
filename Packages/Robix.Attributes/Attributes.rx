@@ -1,0 +1,367 @@
+// Robix.Attributes: attribute definitions, targets, and usage checks.
+Package Robix.Attributes;
+
+Import Robix.Core;
+
+
+Class AttributeDesk {
+    Private Array<Int> defined;
+    Private Array<String> names;
+    Private Array<String> usage;
+    Private Array<Int> used;
+    Private Array<String> targets;
+    Private Array<String> kinds;
+    Private Array<String> members;
+    Private Array<Int> attribute;
+    Private Array<String> arguments;
+    Private Array<Int> low;
+    Private Array<Int> high;
+    Private Int definitions;
+    Private Int active;
+    Private Int rejected;
+    Private String problem;
+
+    Public Constructor() {
+        defined = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0];
+        names = ["AttributeUsage", "Obsolete", "Deprecated", "Experimental", "Required", "Optional", "Nullable", "NotNull", "Pure", "ThreadSafe", "Immutable", "Mutable", "Inline", "Serializable", "", ""];
+        usage = ["any", "any", "any", "any", "field", "field", "any", "any", "method", "type", "type", "type", "method", "type", "", ""];
+        used = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        targets = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        kinds = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        members = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        attribute = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        arguments = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        low = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        high = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        definitions = 14;
+        active = 0;
+        rejected = 0;
+        problem = "none";
+    }
+
+    Public Function Known(String attributeName) -> Int
+    Explain {
+        Description: "Report whether an attribute is defined.";
+        Input: attributeName = "Attribute name";
+        Processing: "Search the definition table.";
+        Output: "One when the attribute is defined.";
+    } {
+        If (This.Find(attributeName) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Define(String attributeName, String targetUsage) -> Int
+    Explain {
+        Description: "Define an attribute.";
+        Input: attributeName = "Attribute name", targetUsage = "type, method, field, or any";
+        Processing: "Store the attribute and where it may be applied.";
+        Output: "The definition slot, or -1.";
+    } {
+        Int existing = This.Find(attributeName);
+        If (existing >= 0) { Return existing; }
+        Int slot = 0;
+        While (slot < 16) {
+            If (defined[slot] == 0) {
+                defined[slot] = 1;
+                names[slot] = attributeName;
+                usage[slot] = targetUsage;
+                definitions = definitions + 1;
+                Return slot;
+            }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Public Function Unregister(Int slot) -> Int
+    Explain {
+        Description: "Remove an attribute definition.";
+        Input: slot = "Definition slot";
+        Processing: "Clear the definition.";
+        Output: "One when the definition is removed.";
+    } {
+        If (slot < 0 || slot > 15) { Return 0; }
+        If (defined[slot] != 1) { Return 0; }
+        defined[slot] = 0;
+        names[slot] = "";
+        usage[slot] = "";
+        definitions = definitions - 1;
+        Return 1;
+    }
+
+    Public Function Targets(Int slot) -> String
+    Explain {
+        Description: "Return the allowed targets.";
+        Input: slot = "Definition slot";
+        Processing: "Read the usage.";
+        Output: "type, method, field, any, or none.";
+    } {
+        If (slot < 0 || slot > 15) { Return "none"; }
+        If (defined[slot] != 1) { Return "none"; }
+        Return usage[slot];
+    }
+
+    Public Function Apply(String target, String kind, String memberName, String attributeName, String argument) -> Int
+    Explain {
+        Description: "Apply an attribute to a target.";
+        Input: target = "Target name", kind = "type, method, or field", memberName = "Member name", attributeName = "Attribute name", argument = "Attribute argument";
+        Processing: "Store the application. Validation is separate.";
+        Output: "The application slot, or -1.";
+    } {
+        Int definition = This.Find(attributeName);
+        If (definition < 0) {
+            problem = "missing";
+            Return -1;
+        }
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        used[slot] = 1;
+        targets[slot] = target;
+        kinds[slot] = kind;
+        members[slot] = memberName;
+        attribute[slot] = definition;
+        arguments[slot] = argument;
+        low[slot] = 0;
+        high[slot] = 0;
+        active = active + 1;
+        Return slot;
+    }
+
+    Public Function ApplyRange(String target, String kind, String memberName, String attributeName, Int rangeLow, Int rangeHigh) -> Int
+    Explain {
+        Description: "Apply a ranged attribute.";
+        Input: target = "Target name", kind = "type, method, or field", memberName = "Member name", attributeName = "Attribute name", rangeLow = "Low bound", rangeHigh = "High bound";
+        Processing: "Store the application and both bounds.";
+        Output: "The application slot, or -1.";
+    } {
+        Int slot = This.Apply(target, kind, memberName, attributeName, "");
+        If (slot < 0) { Return -1; }
+        low[slot] = rangeLow;
+        high[slot] = rangeHigh;
+        Return slot;
+    }
+
+    Public Function Validate(Int slot) -> Int
+    Explain {
+        Description: "Validate an attribute against its target.";
+        Input: slot = "Application slot";
+        Processing: "The usage must be any or must match the target kind.";
+        Output: "One when the usage allows the target.";
+    } {
+        If (This.Live(slot) == 0) { Return 0; }
+        Int definition = attribute[slot];
+        If (usage[definition] == "any" || usage[definition] == kinds[slot]) { Return 1; }
+        problem = "usage";
+        rejected = rejected + 1;
+        Return 0;
+    }
+
+    Public Function CheckRange(Int slot) -> Int
+    Explain {
+        Description: "Validate a range attribute.";
+        Input: slot = "Application slot";
+        Processing: "The low bound must not exceed the high bound.";
+        Output: "One when the range is ordered.";
+    } {
+        If (This.Live(slot) == 0) { Return 0; }
+        If (low[slot] <= high[slot]) { Return 1; }
+        problem = "range";
+        rejected = rejected + 1;
+        Return 0;
+    }
+
+    Public Function Has(String target, String memberName, String attributeName) -> Int
+    Explain {
+        Description: "Report whether a target has an attribute.";
+        Input: target = "Target name", memberName = "Member name", attributeName = "Attribute name";
+        Processing: "Search the applications.";
+        Output: "One when the attribute is present.";
+    } {
+        Int definition = This.Find(attributeName);
+        If (definition < 0) { Return 0; }
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 1 && targets[slot] == target && members[slot] == memberName && attribute[slot] == definition) {
+                Return 1;
+            }
+            slot = slot + 1;
+        }
+        Return 0;
+    }
+
+    Public Function Argument(Int slot) -> String
+    Explain {
+        Description: "Return an attribute argument.";
+        Input: slot = "Application slot";
+        Processing: "Read the stored argument.";
+        Output: "The argument, or none.";
+    } {
+        If (This.Live(slot) == 0) { Return "none"; }
+        Return arguments[slot];
+    }
+
+    Public Function Replace(Int slot, String argument) -> Int
+    Explain {
+        Description: "Replace an attribute argument.";
+        Input: slot = "Application slot", argument = "New argument";
+        Processing: "Store the new argument.";
+        Output: "One when the argument is replaced.";
+    } {
+        If (This.Live(slot) == 0) { Return 0; }
+        arguments[slot] = argument;
+        Return 1;
+    }
+
+    Public Function Remove(Int slot) -> Int
+    Explain {
+        Description: "Remove one applied attribute.";
+        Input: slot = "Application slot";
+        Processing: "Clear the application.";
+        Output: "One when the application is removed.";
+    } {
+        If (This.Live(slot) == 0) { Return 0; }
+        used[slot] = 0;
+        active = active - 1;
+        Return 1;
+    }
+
+    Public Function CopyTo(String source, String destination) -> Int
+    Explain {
+        Description: "Copy attributes from one target to another.";
+        Input: source = "Source target", destination = "Destination target";
+        Processing: "Duplicate each application onto the destination.";
+        Output: "The number of attributes copied.";
+    } {
+        Int copied = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 1 && targets[slot] == source) {
+                Int created = This.Claim();
+                If (created >= 0) {
+                    used[created] = 1;
+                    targets[created] = destination;
+                    kinds[created] = kinds[slot];
+                    members[created] = members[slot];
+                    attribute[created] = attribute[slot];
+                    arguments[created] = arguments[slot];
+                    low[created] = low[slot];
+                    high[created] = high[slot];
+                    active = active + 1;
+                    copied = copied + 1;
+                }
+            }
+            slot = slot + 1;
+        }
+        Return copied;
+    }
+
+    Public Function Clear(String target) -> Int
+    Explain {
+        Description: "Remove every attribute on a target.";
+        Input: target = "Target name";
+        Processing: "Clear matching applications.";
+        Output: "One.";
+    } {
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 1 && targets[slot] == target) {
+                used[slot] = 0;
+                active = active - 1;
+            }
+            slot = slot + 1;
+        }
+        Return 1;
+    }
+
+    Public Function Applied(String target) -> Int
+    Explain {
+        Description: "Return how many attributes a target has.";
+        Input: target = "Target name";
+        Processing: "Count matching applications.";
+        Output: "The application count.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 1 && targets[slot] == target) { count = count + 1; }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function NameAt(String target, Int index) -> String
+    Explain {
+        Description: "Return the name of one applied attribute.";
+        Input: target = "Target name", index = "Application index";
+        Processing: "Walk the applications for the target.";
+        Output: "The attribute name, or none.";
+    } {
+        Int seen = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 1 && targets[slot] == target) {
+                If (seen == index) { Return names[attribute[slot]]; }
+                seen = seen + 1;
+            }
+            slot = slot + 1;
+        }
+        Return "none";
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest attribute error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the attribute desk.";
+        Input: "No parameters";
+        Processing: "Report definitions, applications, and rejections.";
+        Output: "The statistics.";
+    } {
+        Return "defined=" + This.IntText(definitions) + ",applied=" + This.IntText(active) + ",rejected=" + This.IntText(rejected);
+    }
+
+    Private Function Find(String attributeName) -> Int {
+        Int slot = 0;
+        While (slot < 16) {
+            If (defined[slot] == 1 && names[slot] == attributeName) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Claim() -> Int {
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Live(Int slot) -> Int {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

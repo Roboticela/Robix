@@ -1,0 +1,336 @@
+// Robix.Interfaces: the standard disposable, comparable, enumerable, and factory contracts.
+Package Robix.Interfaces;
+
+Import Robix.Core;
+
+
+Public Interface IDisposable {
+    Public Function Dispose() -> Void
+    Explain {
+        Description: "Release the object.";
+        Input: "No parameters";
+        Processing: "Free the held resource.";
+        Output: "No return value.";
+    };
+}
+
+Public Interface IAsyncDisposable {
+    Public Async Function DisposeAsync() -> Task<Void>
+    Explain {
+        Description: "Release the object asynchronously.";
+        Input: "No parameters";
+        Processing: "Free the held resource on this turn.";
+        Output: "No return value.";
+    };
+}
+
+Public Interface IComparable<T> {
+    Public Function CompareTo(T other) -> Int
+    Explain {
+        Description: "Compare this value with another.";
+        Input: other = "The other value";
+        Processing: "Return the ordering.";
+        Output: "1 when greater, 0 when equal, -1 when less.";
+    };
+}
+
+Public Interface IEquatable<T> {
+    Public Function Equals(T other) -> Int
+    Explain {
+        Description: "Test this value for equality.";
+        Input: other = "The other value";
+        Processing: "Compare the current value.";
+        Output: "One when the values are equal.";
+    };
+}
+
+Public Interface IEnumerable<T> {
+    Public Function GetEnumerator() -> Int
+    Explain {
+        Description: "Return the number of items that can be enumerated.";
+        Input: "No parameters";
+        Processing: "Read the stored count.";
+        Output: "The item count.";
+    };
+}
+
+Public Interface IEnumerator<T> {
+    Public Function Current() -> T
+    Explain {
+        Description: "Return the current item.";
+        Input: "No parameters";
+        Processing: "Read the item at the cursor.";
+        Output: "The current item.";
+    };
+
+    Public Function MoveNext() -> Int
+    Explain {
+        Description: "Advance to the next item.";
+        Input: "No parameters";
+        Processing: "Move the cursor forward.";
+        Output: "One when an item is available.";
+    };
+
+    Public Function Reset() -> Void
+    Explain {
+        Description: "Reset the cursor.";
+        Input: "No parameters";
+        Processing: "Place the cursor before the first item.";
+        Output: "No return value.";
+    };
+}
+
+Public Interface IAsyncEnumerable<T> {
+    Public Function GetAsyncEnumerator(Int token) -> Int
+    Explain {
+        Description: "Return the item count for an async enumeration.";
+        Input: token = "Cancellation flag, zero when not canceled";
+        Processing: "Read the stored count.";
+        Output: "The item count.";
+    };
+}
+
+Public Interface IAsyncEnumerator<T> {
+    Public Function Current() -> T
+    Explain {
+        Description: "Return the current async item.";
+        Input: "No parameters";
+        Processing: "Read the item at the cursor.";
+        Output: "The current item.";
+    };
+
+    Public Async Function MoveNextAsync() -> Task<Int>
+    Explain {
+        Description: "Advance the async cursor.";
+        Input: "No parameters";
+        Processing: "Move the cursor forward on this turn.";
+        Output: "One when an item is available.";
+    };
+
+    Public Async Function DisposeAsync() -> Task<Void>
+    Explain {
+        Description: "Release the async cursor.";
+        Input: "No parameters";
+        Processing: "Mark the cursor disposed.";
+        Output: "No return value.";
+    };
+}
+
+Public Interface ICloneable<T> {
+    Public Function Clone() -> T
+    Explain {
+        Description: "Clone the current value.";
+        Input: "No parameters";
+        Processing: "Return a copy of the current item.";
+        Output: "The copy.";
+    };
+}
+
+Public Interface IValidator<T> {
+    Public Function Validate(T value) -> Int
+    Explain {
+        Description: "Validate a value.";
+        Input: value = "Value to check";
+        Processing: "Accept a value greater than zero.";
+        Output: "One when the value is valid.";
+    };
+}
+
+Public Interface IFactory<T> {
+    Public Function Create() -> T
+    Explain {
+        Description: "Create a value.";
+        Input: "No parameters";
+        Processing: "Produce the factory value.";
+        Output: "The new value.";
+    };
+}
+
+Public Class IntCursor : IDisposable, IAsyncDisposable, IComparable<Int>, IEquatable<Int>, IEnumerable<Int>, IEnumerator<Int>, IAsyncEnumerable<Int>, IAsyncEnumerator<Int>, ICloneable<Int>, IValidator<Int>, IFactory<Int> {
+    Private Array<Int> values;
+    Private Int count;
+    Private Int index;
+    Private Int disposed;
+
+    Public Constructor() {
+        values = [0, 0, 0, 0];
+        count = 0;
+        index = -1;
+        disposed = 0;
+    }
+
+    Public Function Store(Int value) -> Int
+    Explain {
+        Description: "Store an item.";
+        Input: value = "Item value";
+        Processing: "Append the item while the cursor is open.";
+        Output: "The item count, or -1.";
+    } {
+        If (disposed == 1 || count > 3) { Return -1; }
+        values[count] = value;
+        count = count + 1;
+        Return count;
+    }
+
+    Public Function GetEnumerator() -> Int
+    Explain {
+        Description: "Return the item count.";
+        Input: "No parameters";
+        Processing: "Read the stored count.";
+        Output: "The item count.";
+    } {
+        Return count;
+    }
+
+    Public Function GetAsyncEnumerator(Int token) -> Int
+    Explain {
+        Description: "Return the item count unless canceled.";
+        Input: token = "One when canceled";
+        Processing: "A canceled token returns zero.";
+        Output: "The item count.";
+    } {
+        If (token != 0) { Return 0; }
+        Return count;
+    }
+
+    Public Function MoveNext() -> Int
+    Explain {
+        Description: "Advance to the next item.";
+        Input: "No parameters";
+        Processing: "Move the cursor forward until the items are exhausted.";
+        Output: "One when an item is available.";
+    } {
+        Return This.Step();
+    }
+
+    Public Async Function MoveNextAsync() -> Task<Int>
+    Explain {
+        Description: "Advance the cursor asynchronously.";
+        Input: "No parameters";
+        Processing: "Move the cursor forward on this turn.";
+        Output: "One when an item is available.";
+    } {
+        Int step = This.Step();
+        Return step;
+    }
+
+    Public Function Current() -> Int
+    Explain {
+        Description: "Return the current item.";
+        Input: "No parameters";
+        Processing: "Read the item at the cursor.";
+        Output: "The current item, or zero.";
+    } {
+        Return This.Item();
+    }
+
+    Public Function Reset() -> Void
+    Explain {
+        Description: "Reset the cursor.";
+        Input: "No parameters";
+        Processing: "Place the cursor before the first item.";
+        Output: "No return value.";
+    } {
+        index = -1;
+        Return;
+    }
+
+    Public Function CompareTo(Int other) -> Int
+    Explain {
+        Description: "Compare the current item with another value.";
+        Input: other = "The other value";
+        Processing: "Order the current item against the other value.";
+        Output: "1 when greater, 0 when equal, -1 when less.";
+    } {
+        Int item = This.Item();
+        If (item > other) { Return 1; }
+        If (item < other) { Return -1; }
+        Return 0;
+    }
+
+    Public Function Equals(Int other) -> Int
+    Explain {
+        Description: "Test the current item for equality.";
+        Input: other = "The other value";
+        Processing: "Compare the current item.";
+        Output: "One when the values are equal.";
+    } {
+        If (This.Item() == other) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Clone() -> Int
+    Explain {
+        Description: "Clone the current item.";
+        Input: "No parameters";
+        Processing: "Return the current item.";
+        Output: "The copied value.";
+    } {
+        Return This.Item();
+    }
+
+    Public Function Validate(Int value) -> Int
+    Explain {
+        Description: "Validate a value.";
+        Input: value = "Value to check";
+        Processing: "Accept a value greater than zero.";
+        Output: "One when the value is valid.";
+    } {
+        If (value > 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Create() -> Int
+    Explain {
+        Description: "Create the factory value.";
+        Input: "No parameters";
+        Processing: "The factory produces four.";
+        Output: "Four.";
+    } {
+        Return 4;
+    }
+
+    Public Function Dispose() -> Void
+    Explain {
+        Description: "Release the cursor.";
+        Input: "No parameters";
+        Processing: "Mark the cursor disposed.";
+        Output: "No return value.";
+    } {
+        disposed = 1;
+        Return;
+    }
+
+    Public Async Function DisposeAsync() -> Task<Void>
+    Explain {
+        Description: "Release the cursor asynchronously.";
+        Input: "No parameters";
+        Processing: "Mark the cursor disposed on this turn.";
+        Output: "No return value.";
+    } {
+        disposed = 1;
+        Return;
+    }
+
+    Private Function Item() -> Int {
+        If (index < 0 || index >= count) { Return 0; }
+        Return values[index];
+    }
+
+    Private Function Step() -> Int {
+        If (disposed == 1) { Return 0; }
+        If (index + 1 >= count) { Return 0; }
+        index = index + 1;
+        Return 1;
+    }
+
+    Public Function Disposed() -> Int
+    Explain {
+        Description: "Report whether the cursor is disposed.";
+        Input: "No parameters";
+        Processing: "Read the disposed flag.";
+        Output: "One when the cursor is disposed.";
+    } {
+        Return disposed;
+    }
+}

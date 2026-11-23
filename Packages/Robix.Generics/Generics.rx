@@ -1,0 +1,414 @@
+// Robix.Generics: type definitions, constraints, inference, and variance.
+Package Robix.Generics;
+
+Import Robix.Core;
+
+
+Class GenericDesk {
+    Private Array<Int> usedType;
+    Private Array<Int> shape;
+    Private Array<Int> canNew;
+    Private Array<String> typeNames;
+    Private Array<String> interfaces;
+    Private Array<Int> usedDef;
+    Private Array<Int> paramCount;
+    Private Array<Int> variance0;
+    Private Array<Int> variance1;
+    Private Array<String> defNames;
+    Private Array<String> param0;
+    Private Array<String> param1;
+    Private Array<String> constraint0;
+    Private Array<String> constraint1;
+    Private Array<Int> usedClosed;
+    Private Array<Int> closedDef;
+    Private Array<String> closedText;
+    Private Array<String> arg0;
+    Private Array<String> arg1;
+    Private Array<Int> usedMethod;
+    Private Array<Int> methodDef;
+    Private Array<String> methodNames;
+    Private Array<String> methodReturn;
+    Private Int definitions;
+    Private Int closed;
+    Private Int rejected;
+    Private String context;
+    Private String problem;
+
+    Public Constructor() {
+        usedType = [0, 0, 0, 0, 0, 0, 0, 0];
+        shape = [0, 0, 0, 0, 0, 0, 0, 0];
+        canNew = [0, 0, 0, 0, 0, 0, 0, 0];
+        typeNames = ["", "", "", "", "", "", "", ""];
+        interfaces = ["", "", "", "", "", "", "", ""];
+        usedDef = [0, 0, 0, 0, 0, 0, 0, 0];
+        paramCount = [0, 0, 0, 0, 0, 0, 0, 0];
+        variance0 = [0, 0, 0, 0, 0, 0, 0, 0];
+        variance1 = [0, 0, 0, 0, 0, 0, 0, 0];
+        defNames = ["", "", "", "", "", "", "", ""];
+        param0 = ["", "", "", "", "", "", "", ""];
+        param1 = ["", "", "", "", "", "", "", ""];
+        constraint0 = ["", "", "", "", "", "", "", ""];
+        constraint1 = ["", "", "", "", "", "", "", ""];
+        usedClosed = [0, 0, 0, 0, 0, 0, 0, 0];
+        closedDef = [0, 0, 0, 0, 0, 0, 0, 0];
+        closedText = ["", "", "", "", "", "", "", ""];
+        arg0 = ["", "", "", "", "", "", "", ""];
+        arg1 = ["", "", "", "", "", "", "", ""];
+        usedMethod = [0, 0, 0, 0, 0, 0, 0, 0];
+        methodDef = [0, 0, 0, 0, 0, 0, 0, 0];
+        methodNames = ["", "", "", "", "", "", "", ""];
+        methodReturn = ["", "", "", "", "", "", "", ""];
+        definitions = 0;
+        closed = 0;
+        rejected = 0;
+        context = "none";
+        problem = "none";
+    }
+
+    Public Function RegisterType(String typeName, Int typeShape, Int construct, String interfaceName) -> Int
+    Explain {
+        Description: "Register a type used by constraints.";
+        Input: typeName = "Type name", typeShape = "0 struct, 1 class", construct = "One when the type has a default constructor", interfaceName = "Interface name, or none";
+        Processing: "Store the type facts.";
+        Output: "The type slot, or -1.";
+    } {
+        Int slot = This.Claim(usedType, 0);
+        If (slot < 0) { Return -1; }
+        usedType[slot] = 1;
+        shape[slot] = typeShape;
+        canNew[slot] = construct;
+        typeNames[slot] = typeName;
+        interfaces[slot] = interfaceName;
+        Return slot;
+    }
+
+    Public Function RegisterDefinition(String definitionName, Int parameters) -> Int
+    Explain {
+        Description: "Register a generic definition.";
+        Input: definitionName = "Definition name", parameters = "1 or 2 type parameters";
+        Processing: "Store the open definition.";
+        Output: "The definition slot, or -1.";
+    } {
+        If (parameters < 1 || parameters > 2) {
+            problem = "arity";
+            rejected = rejected + 1;
+            Return -1;
+        }
+        Int slot = This.Claim(usedDef, 1);
+        If (slot < 0) { Return -1; }
+        usedDef[slot] = 1;
+        paramCount[slot] = parameters;
+        variance0[slot] = 0;
+        variance1[slot] = 0;
+        defNames[slot] = definitionName;
+        param0[slot] = "";
+        param1[slot] = "";
+        constraint0[slot] = "";
+        constraint1[slot] = "";
+        definitions = definitions + 1;
+        Return slot;
+    }
+
+    Public Function SetParameter(Int definition, Int index, String paramName, Int variance, String constraint) -> Int
+    Explain {
+        Description: "Describe one type parameter.";
+        Input: definition = "Definition slot", index = "0 or 1", paramName = "Parameter name", variance = "0 invariant, 1 covariant, 2 contravariant", constraint = "Constraint name, or empty";
+        Processing: "Store the name, variance, and constraint.";
+        Output: "One when the parameter is stored.";
+    } {
+        If (This.Known(usedDef, definition) == 0) { Return 0; }
+        If (index < 0 || index >= paramCount[definition]) { Return 0; }
+        If (index == 0) {
+            param0[definition] = paramName;
+            variance0[definition] = variance;
+            constraint0[definition] = constraint;
+        } Else {
+            param1[definition] = paramName;
+            variance1[definition] = variance;
+            constraint1[definition] = constraint;
+        }
+        Return 1;
+    }
+
+    Public Function RemoveConstraint(Int definition, Int index) -> Int
+    Explain {
+        Description: "Remove a parameter constraint.";
+        Input: definition = "Definition slot", index = "0 or 1";
+        Processing: "Clear the constraint.";
+        Output: "One when the constraint is cleared.";
+    } {
+        If (This.Known(usedDef, definition) == 0) { Return 0; }
+        If (index == 0) {
+            constraint0[definition] = "";
+            Return 1;
+        }
+        If (index == 1) {
+            constraint1[definition] = "";
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function Close(Int definition, String first, String second) -> Int
+    Explain {
+        Description: "Close a generic definition.";
+        Input: definition = "Definition slot", first = "First type argument", second = "Second type argument, or empty";
+        Processing: "Reject the wrong arity or a failed constraint.";
+        Output: "The closed slot, or -1.";
+    } {
+        If (This.Known(usedDef, definition) == 0) { Return -1; }
+        If (first == "") {
+            problem = "arity";
+            rejected = rejected + 1;
+            Return -1;
+        }
+        If (paramCount[definition] == 2 && second == "") {
+            problem = "arity";
+            rejected = rejected + 1;
+            Return -1;
+        }
+        If (This.Satisfies(first, constraint0[definition]) == 0) {
+            problem = "constraint";
+            rejected = rejected + 1;
+            Return -1;
+        }
+        If (paramCount[definition] == 2 && This.Satisfies(second, constraint1[definition]) == 0) {
+            problem = "constraint";
+            rejected = rejected + 1;
+            Return -1;
+        }
+        Int slot = This.Claim(usedClosed, 2);
+        If (slot < 0) { Return -1; }
+        usedClosed[slot] = 1;
+        closedDef[slot] = definition;
+        arg0[slot] = first;
+        arg1[slot] = second;
+        If (paramCount[definition] == 2) {
+            closedText[slot] = defNames[definition] + "<" + first + "," + second + ">";
+        } Else {
+            closedText[slot] = defNames[definition] + "<" + first + ">";
+        }
+        closed = closed + 1;
+        Return slot;
+    }
+
+    Public Function Infer(Int definition, String first, String second) -> Int
+    Explain {
+        Description: "Infer a closed type from argument types.";
+        Input: definition = "Definition slot", first = "First type argument", second = "Second type argument, or empty";
+        Processing: "Close the definition when the arguments satisfy its constraints.";
+        Output: "The closed slot, or -1.";
+    } {
+        Return This.Close(definition, first, second);
+    }
+
+    Public Function Text(Int closedSlot) -> String
+    Explain {
+        Description: "Return the closed type text.";
+        Input: closedSlot = "Closed slot";
+        Processing: "Read the constructed name.";
+        Output: "The closed type, or none.";
+    } {
+        If (This.Known(usedClosed, closedSlot) == 0) { Return "none"; }
+        Return closedText[closedSlot];
+    }
+
+    Public Function Validate(String typeName, String constraint) -> Int
+    Explain {
+        Description: "Validate a type against a constraint.";
+        Input: typeName = "Type name", constraint = "struct, class, new, an interface, or a type name";
+        Processing: "Compare the type facts with the constraint.";
+        Output: "One when the type satisfies the constraint.";
+    } {
+        Return This.Satisfies(typeName, constraint);
+    }
+
+    Public Function RegisterMethod(String methodName, Int definition, String returnType) -> Int
+    Explain {
+        Description: "Register a generic method.";
+        Input: methodName = "Method name", definition = "Definition slot", returnType = "Return type or parameter name";
+        Processing: "Store the open return type.";
+        Output: "The method slot, or -1.";
+    } {
+        If (This.Known(usedDef, definition) == 0) { Return -1; }
+        Int slot = This.Claim(usedMethod, 3);
+        If (slot < 0) { Return -1; }
+        usedMethod[slot] = 1;
+        methodDef[slot] = definition;
+        methodNames[slot] = methodName;
+        methodReturn[slot] = returnType;
+        Return slot;
+    }
+
+    Public Function MethodText(Int methodSlot, Int closedSlot) -> String
+    Explain {
+        Description: "Substitute a closed type into a method.";
+        Input: methodSlot = "Method slot", closedSlot = "Closed slot";
+        Processing: "Replace a parameter name with its type argument.";
+        Output: "The substituted return type.";
+    } {
+        If (This.Known(usedMethod, methodSlot) == 0) { Return "none"; }
+        If (This.Known(usedClosed, closedSlot) == 0) { Return "none"; }
+        Int definition = closedDef[closedSlot];
+        If (methodReturn[methodSlot] == param0[definition]) { Return arg0[closedSlot]; }
+        If (methodReturn[methodSlot] == param1[definition]) { Return arg1[closedSlot]; }
+        Return methodReturn[methodSlot];
+    }
+
+    Public Function Variance(Int definition, Int index) -> Int
+    Explain {
+        Description: "Return the variance code.";
+        Input: definition = "Definition slot", index = "0 or 1";
+        Processing: "Read the stored variance.";
+        Output: "0 invariant, 1 covariant, 2 contravariant.";
+    } {
+        If (This.Known(usedDef, definition) == 0) { Return 0; }
+        If (index == 1) { Return variance1[definition]; }
+        Return variance0[definition];
+    }
+
+    Public Function VarianceName(Int definition, Int index) -> String
+    Explain {
+        Description: "Return the variance name.";
+        Input: definition = "Definition slot", index = "0 or 1";
+        Processing: "Map the variance code.";
+        Output: "invariant, out, or in.";
+    } {
+        Int code = This.Variance(definition, index);
+        If (code == 1) { Return "out"; }
+        If (code == 2) { Return "in"; }
+        Return "invariant";
+    }
+
+    Public Function IsCovariant(Int definition, Int index) -> Int
+    Explain {
+        Description: "Report covariant variance.";
+        Input: definition = "Definition slot", index = "0 or 1";
+        Processing: "Covariant variance is out.";
+        Output: "One when the parameter is covariant.";
+    } {
+        If (This.Variance(definition, index) == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsContravariant(Int definition, Int index) -> Int
+    Explain {
+        Description: "Report contravariant variance.";
+        Input: definition = "Definition slot", index = "0 or 1";
+        Processing: "Contravariant variance is in.";
+        Output: "One when the parameter is contravariant.";
+    } {
+        If (This.Variance(definition, index) == 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsInvariant(Int definition, Int index) -> Int
+    Explain {
+        Description: "Report invariant variance.";
+        Input: definition = "Definition slot", index = "0 or 1";
+        Processing: "Invariant variance is the default.";
+        Output: "One when the parameter is invariant.";
+    } {
+        If (This.Variance(definition, index) == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SetContext(String name) -> Int
+    Explain {
+        Description: "Store the generic context.";
+        Input: name = "Context name";
+        Processing: "Store the name.";
+        Output: "One.";
+    } {
+        context = name;
+        Return 1;
+    }
+
+    Public Function Context() -> String
+    Explain {
+        Description: "Return the generic context.";
+        Input: "No parameters";
+        Processing: "Read the context name.";
+        Output: "The context name.";
+    } {
+        Return context;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest generic error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the generic desk.";
+        Input: "No parameters";
+        Processing: "Report definitions, closed types, and rejections.";
+        Output: "The statistics.";
+    } {
+        Return "definitions=" + This.IntText(definitions) + ",closed=" + This.IntText(closed) + ",rejected=" + This.IntText(rejected);
+    }
+
+    Private Function Satisfies(String typeName, String constraint) -> Int {
+        If (constraint == "") { Return 1; }
+        Int slot = This.FindType(typeName);
+        If (slot < 0) { Return 0; }
+        If (constraint == "struct") {
+            If (shape[slot] == 0) { Return 1; }
+            Return 0;
+        }
+        If (constraint == "class") {
+            If (shape[slot] == 1) { Return 1; }
+            Return 0;
+        }
+        If (constraint == "new") {
+            If (canNew[slot] == 1) { Return 1; }
+            Return 0;
+        }
+        If (constraint == typeNames[slot]) { Return 1; }
+        If (constraint == interfaces[slot]) { Return 1; }
+        Return 0;
+    }
+
+    Private Function FindType(String typeName) -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (usedType[slot] == 1 && typeNames[slot] == typeName) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Claim(Array<Int> flags, Int kind) -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (flags[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Known(Array<Int> flags, Int slot) -> Int {
+        If (slot < 0 || slot > 7) { Return 0; }
+        If (flags[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

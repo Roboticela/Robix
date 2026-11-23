@@ -1,0 +1,5 @@
+Test Store {
+    Constraint: IntCursor().Store(2) == 1;
+    Processing: True;
+    Output: True;
+}

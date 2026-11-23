@@ -1,0 +1,5 @@
+Test SolveLinear {
+    Constraint: AlgebraDesk().SolveLinear(2, -8) == 4;
+    Processing: True;
+    Output: True;
+}

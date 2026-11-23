@@ -1,0 +1,5 @@
+Test RegisterDefinition {
+    Constraint: GenericDesk().RegisterDefinition("List", 1) == 0;
+    Processing: True;
+    Output: True;
+}

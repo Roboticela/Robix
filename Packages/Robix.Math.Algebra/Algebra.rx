@@ -1,0 +1,795 @@
+// Robix.Math.Algebra: polynomials, equations, fractions, and complex numbers.
+Package Robix.Math.Algebra;
+
+Import Robix.Core;
+
+
+Class AlgebraDesk {
+    Private Array<Int> used;
+    Private Array<Int> c0;
+    Private Array<Int> c1;
+    Private Array<Int> c2;
+    Private Array<Int> c3;
+    Private Array<Int> fnum;
+    Private Array<Int> fden;
+    Private Array<Int> fused;
+    Private Int scan;
+    Private Int scanValue;
+    Private Int root0;
+    Private Int root1;
+    Private Int solvedX;
+    Private Int solvedY;
+    Private Int realPart;
+    Private Int imagPart;
+    Private String problem;
+
+    Public Constructor() {
+        used = [0, 0, 0, 0, 0, 0, 0, 0];
+        c0 = [0, 0, 0, 0, 0, 0, 0, 0];
+        c1 = [0, 0, 0, 0, 0, 0, 0, 0];
+        c2 = [0, 0, 0, 0, 0, 0, 0, 0];
+        c3 = [0, 0, 0, 0, 0, 0, 0, 0];
+        fnum = [0, 0, 0, 0, 0, 0, 0, 0];
+        fden = [1, 1, 1, 1, 1, 1, 1, 1];
+        fused = [0, 0, 0, 0, 0, 0, 0, 0];
+        scan = 0;
+        scanValue = 0;
+        root0 = 0;
+        root1 = 0;
+        solvedX = 0;
+        solvedY = 0;
+        realPart = 0;
+        imagPart = 0;
+        problem = "none";
+    }
+
+    Public Function Parse(String text) -> Int
+    Explain {
+        Description: "Parse a polynomial.";
+        Input: text = "Polynomial text such as x^2-5x+6";
+        Processing: "Read constants and powers of x.";
+        Output: "The polynomial slot, or -1.";
+    } {
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        This.Clear(slot);
+        scan = 0;
+        Int sign = 1;
+        While (scan < text.Length()) {
+            String piece = text.Substring(scan, 1);
+            If (piece == "+") {
+                sign = 1;
+                scan = scan + 1;
+            }
+            If (piece == "-") {
+                sign = -1;
+                scan = scan + 1;
+            }
+            If (scan < text.Length()) {
+                Int seen = This.PullNumber(text);
+                Int number = scanValue;
+                Int power = 0;
+                If (scan < text.Length()) {
+                    String mark = text.Substring(scan, 1);
+                    If (mark == "x") {
+                        power = 1;
+                        scan = scan + 1;
+                        If (seen == 0) { number = 1; }
+                        If (scan < text.Length()) {
+                            String caret = text.Substring(scan, 1);
+                            If (caret == "^") {
+                                scan = scan + 1;
+                                This.PullNumber(text);
+                                power = scanValue;
+                            }
+                        }
+                    }
+                }
+                If (power >= 0 && power <= 3) {
+                    Int current = This.Coeff(slot, power);
+                    This.Put(slot, power, current + sign * number);
+                }
+                sign = 1;
+            }
+        }
+        Return slot;
+    }
+
+    Public Function Create(Int constant, Int linear, Int square, Int cubic) -> Int
+    Explain {
+        Description: "Create a polynomial from coefficients.";
+        Input: constant = "Constant term", linear = "Coefficient of x", square = "Coefficient of x^2", cubic = "Coefficient of x^3";
+        Processing: "Store the four coefficients.";
+        Output: "The polynomial slot, or -1.";
+    } {
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        c0[slot] = constant;
+        c1[slot] = linear;
+        c2[slot] = square;
+        c3[slot] = cubic;
+        Return slot;
+    }
+
+    Public Function Format(Int slot) -> String
+    Explain {
+        Description: "Format a polynomial.";
+        Input: slot = "Polynomial slot";
+        Processing: "Write terms from the highest power.";
+        Output: "The polynomial text.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        String built = "";
+        Int power = 3;
+        While (power >= 0) {
+            Int coeff = This.Coeff(slot, power);
+            If (coeff != 0) {
+                Int first = 0;
+                If (built.Length() == 0) { first = 1; }
+                built = built + This.Term(coeff, power, first);
+            }
+            power = power - 1;
+        }
+        If (built == "") { Return "0"; }
+        Return built;
+    }
+
+    Public Function Eval(Int slot, Int x) -> Int
+    Explain {
+        Description: "Evaluate a polynomial.";
+        Input: slot = "Polynomial slot", x = "Input value";
+        Processing: "Add each coefficient times the matching power of x.";
+        Output: "The value.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Int result = 0;
+        Int power = 0;
+        Int scale = 1;
+        While (power <= 3) {
+            result = result + This.Coeff(slot, power) * scale;
+            scale = scale * x;
+            power = power + 1;
+        }
+        Return result;
+    }
+
+    Public Function Degree(Int slot) -> Int
+    Explain {
+        Description: "Return the polynomial degree.";
+        Input: slot = "Polynomial slot";
+        Processing: "Find the highest nonzero coefficient.";
+        Output: "The degree, or -1 for the zero polynomial.";
+    } {
+        If (c3[slot] != 0) { Return 3; }
+        If (c2[slot] != 0) { Return 2; }
+        If (c1[slot] != 0) { Return 1; }
+        If (c0[slot] != 0) { Return 0; }
+        Return -1;
+    }
+
+    Public Function Plus(Int left, Int right) -> Int
+    Explain {
+        Description: "Add two polynomials.";
+        Input: left = "First polynomial", right = "Second polynomial";
+        Processing: "Add matching coefficients.";
+        Output: "The sum slot, or -1.";
+    } {
+        Return This.Combine(left, right, 1);
+    }
+
+    Public Function Minus(Int left, Int right) -> Int
+    Explain {
+        Description: "Subtract two polynomials.";
+        Input: left = "First polynomial", right = "Second polynomial";
+        Processing: "Subtract matching coefficients.";
+        Output: "The difference slot, or -1.";
+    } {
+        Return This.Combine(left, right, -1);
+    }
+
+    Public Function Times(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two polynomials.";
+        Input: left = "First polynomial", right = "Second polynomial";
+        Processing: "Multiply every pair of terms up to x^3.";
+        Output: "The product slot, or -1.";
+    } {
+        If (This.Known(left) == 0 || This.Known(right) == 0) { Return -1; }
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        This.Clear(slot);
+        Int i = 0;
+        While (i <= 3) {
+            Int j = 0;
+            While (j <= 3) {
+                Int power = i + j;
+                If (power <= 3) {
+                    Int product = This.Coeff(left, i) * This.Coeff(right, j);
+                    This.Put(slot, power, This.Coeff(slot, power) + product);
+                }
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        Return slot;
+    }
+
+    Public Function Differentiate(Int slot) -> Int
+    Explain {
+        Description: "Differentiate a polynomial.";
+        Input: slot = "Polynomial slot";
+        Processing: "Multiply each coefficient by its power and lower the power.";
+        Output: "The derivative slot, or -1.";
+    } {
+        If (This.Known(slot) == 0) { Return -1; }
+        Int created = This.Claim();
+        If (created < 0) { Return -1; }
+        c0[created] = c1[slot];
+        c1[created] = c2[slot] * 2;
+        c2[created] = c3[slot] * 3;
+        c3[created] = 0;
+        Return created;
+    }
+
+    Public Function Integrate(Int slot) -> Int
+    Explain {
+        Description: "Integrate a polynomial with a zero constant.";
+        Input: slot = "Polynomial slot";
+        Processing: "Divide each coefficient by its new power when the division is exact.";
+        Output: "The integral slot, or -1.";
+    } {
+        If (This.Known(slot) == 0) { Return -1; }
+        If (c0[slot] % 1 != 0) { problem = "fraction"; }
+        If (c1[slot] % 2 != 0 || c2[slot] % 3 != 0) { problem = "fraction"; }
+        Int created = This.Claim();
+        If (created < 0) { Return -1; }
+        c0[created] = 0;
+        c1[created] = c0[slot];
+        c2[created] = c1[slot] / 2;
+        c3[created] = c2[slot] / 3;
+        Return created;
+    }
+
+    Public Function Factor(Int slot) -> String
+    Explain {
+        Description: "Factor a monic quadratic with integer roots.";
+        Input: slot = "Polynomial slot";
+        Processing: "Solve the quadratic and write the factors.";
+        Output: "The factor text, or none.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        If (c3[slot] != 0 || c2[slot] != 1) { Return "none"; }
+        Int count = This.SolveQuadratic(c2[slot], c1[slot], c0[slot]);
+        If (count != 2) { Return "none"; }
+        Return "(x" + This.FactorSign(root0) + ")(x" + This.FactorSign(root1) + ")";
+    }
+
+    Public Function SolveLinear(Int scale, Int constant) -> Int
+    Explain {
+        Description: "Solve scale x + constant = 0.";
+        Input: scale = "Coefficient of x", constant = "Constant term";
+        Processing: "Divide the negated constant by the coefficient.";
+        Output: "The solution, or zero when there is no unique solution.";
+    } {
+        If (scale == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        solvedX = (0 - constant) / scale;
+        Return solvedX;
+    }
+
+    Public Function SolveQuadratic(Int square, Int linear, Int constant) -> Int
+    Explain {
+        Description: "Solve a quadratic equation.";
+        Input: square = "Coefficient of x^2", linear = "Coefficient of x", constant = "Constant term";
+        Processing: "Use the discriminant. Integer roots are stored in order.";
+        Output: "The number of real integer roots.";
+    } {
+        If (square == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        Int disc = linear * linear - 4 * square * constant;
+        If (disc < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int root = This.WholeSqrt(disc);
+        If (root * root != disc) {
+            problem = "domain";
+            Return 0;
+        }
+        Int left = (0 - linear) - root;
+        Int right = (0 - linear) + root;
+        If (left % (2 * square) != 0 || right % (2 * square) != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        root0 = left / (2 * square);
+        root1 = right / (2 * square);
+        If (root0 > root1) {
+            Int swap = root0;
+            root0 = root1;
+            root1 = swap;
+        }
+        If (root0 == root1) { Return 1; }
+        Return 2;
+    }
+
+    Public Function Root(Int index) -> Int
+    Explain {
+        Description: "Return a stored quadratic root.";
+        Input: index = "0 or 1";
+        Processing: "Read the root stored by the latest quadratic solve.";
+        Output: "The root.";
+    } {
+        If (index == 1) { Return root1; }
+        Return root0;
+    }
+
+    Public Function CheckSolution(Int square, Int linear, Int constant, Int x) -> Int
+    Explain {
+        Description: "Check a quadratic solution.";
+        Input: square = "Coefficient of x^2", linear = "Coefficient of x", constant = "Constant term", x = "Candidate solution";
+        Processing: "Substitute the candidate.";
+        Output: "One when the candidate satisfies the equation.";
+    } {
+        Int value = square * x * x + linear * x + constant;
+        If (value == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SolveSystem(Int a1, Int b1, Int c1, Int a2, Int b2, Int c2) -> Int
+    Explain {
+        Description: "Solve two linear equations.";
+        Input: a1 = "First x coefficient", b1 = "First y coefficient", c1 = "First result", a2 = "Second x coefficient", b2 = "Second y coefficient", c2 = "Second result";
+        Processing: "Use Cramer's rule when the determinant divides both results.";
+        Output: "One when a unique integer solution is stored.";
+    } {
+        Int det = a1 * b2 - a2 * b1;
+        If (det == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        Int xnum = c1 * b2 - c2 * b1;
+        Int ynum = a1 * c2 - a2 * c1;
+        If (xnum % det != 0 || ynum % det != 0) {
+            problem = "fraction";
+            Return 0;
+        }
+        solvedX = xnum / det;
+        solvedY = ynum / det;
+        Return 1;
+    }
+
+    Public Function SolutionX() -> Int
+    Explain {
+        Description: "Return the stored x solution.";
+        Input: "No parameters";
+        Processing: "Read the latest system solution.";
+        Output: "The x value.";
+    } {
+        Return solvedX;
+    }
+
+    Public Function SolutionY() -> Int
+    Explain {
+        Description: "Return the stored y solution.";
+        Input: "No parameters";
+        Processing: "Read the latest system solution.";
+        Output: "The y value.";
+    } {
+        Return solvedY;
+    }
+
+    Public Function Fraction(Int numerator, Int denominator) -> Int
+    Explain {
+        Description: "Create a reduced fraction.";
+        Input: numerator = "Numerator", denominator = "Denominator";
+        Processing: "Divide both parts by their greatest common divisor.";
+        Output: "The fraction slot, or -1.";
+    } {
+        If (denominator == 0) {
+            problem = "singular";
+            Return -1;
+        }
+        Int slot = This.ClaimFraction();
+        If (slot < 0) { Return -1; }
+        Int num = numerator;
+        Int den = denominator;
+        If (den < 0) {
+            den = 0 - den;
+            num = 0 - num;
+        }
+        Int divisor = This.GcdInt(num, den);
+        If (divisor < 0) { divisor = 0 - divisor; }
+        If (divisor == 0) { divisor = 1; }
+        fnum[slot] = num / divisor;
+        fden[slot] = den / divisor;
+        Return slot;
+    }
+
+    Public Function PlusFraction(Int left, Int right) -> Int
+    Explain {
+        Description: "Add two fractions.";
+        Input: left = "First fraction", right = "Second fraction";
+        Processing: "Add over the common denominator and reduce.";
+        Output: "The sum slot, or -1.";
+    } {
+        If (This.KnownFraction(left) == 0 || This.KnownFraction(right) == 0) { Return -1; }
+        Int num = fnum[left] * fden[right] + fnum[right] * fden[left];
+        Int den = fden[left] * fden[right];
+        Return This.Fraction(num, den);
+    }
+
+    Public Function MinusFraction(Int left, Int right) -> Int
+    Explain {
+        Description: "Subtract two fractions.";
+        Input: left = "First fraction", right = "Second fraction";
+        Processing: "Subtract over the common denominator and reduce.";
+        Output: "The difference slot, or -1.";
+    } {
+        If (This.KnownFraction(left) == 0 || This.KnownFraction(right) == 0) { Return -1; }
+        Int num = fnum[left] * fden[right] - fnum[right] * fden[left];
+        Int den = fden[left] * fden[right];
+        Return This.Fraction(num, den);
+    }
+
+    Public Function TimesFraction(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two fractions.";
+        Input: left = "First fraction", right = "Second fraction";
+        Processing: "Multiply the parts and reduce.";
+        Output: "The product slot, or -1.";
+    } {
+        If (This.KnownFraction(left) == 0 || This.KnownFraction(right) == 0) { Return -1; }
+        Return This.Fraction(fnum[left] * fnum[right], fden[left] * fden[right]);
+    }
+
+    Public Function DivideFraction(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide two fractions.";
+        Input: left = "First fraction", right = "Second fraction";
+        Processing: "Multiply by the reciprocal and reduce.";
+        Output: "The quotient slot, or -1.";
+    } {
+        If (This.KnownFraction(left) == 0 || This.KnownFraction(right) == 0) { Return -1; }
+        If (fnum[right] == 0) {
+            problem = "singular";
+            Return -1;
+        }
+        Return This.Fraction(fnum[left] * fden[right], fden[left] * fnum[right]);
+    }
+
+    Public Function Numerator(Int slot) -> Int
+    Explain {
+        Description: "Return a fraction numerator.";
+        Input: slot = "Fraction slot";
+        Processing: "Read the reduced numerator.";
+        Output: "The numerator.";
+    } {
+        If (This.KnownFraction(slot) == 0) { Return 0; }
+        Return fnum[slot];
+    }
+
+    Public Function Denominator(Int slot) -> Int
+    Explain {
+        Description: "Return a fraction denominator.";
+        Input: slot = "Fraction slot";
+        Processing: "Read the reduced denominator.";
+        Output: "The denominator.";
+    } {
+        If (This.KnownFraction(slot) == 0) { Return 0; }
+        Return fden[slot];
+    }
+
+    Public Function Decimal(Int slot) -> Float
+    Explain {
+        Description: "Return a fraction as a decimal.";
+        Input: slot = "Fraction slot";
+        Processing: "Divide the numerator by the denominator.";
+        Output: "The decimal value.";
+    } {
+        If (This.KnownFraction(slot) == 0) { Return 0.0; }
+        Return fnum[slot].ToFloat() / fden[slot].ToFloat();
+    }
+
+    Public Function PlusComplex(Int r1, Int i1, Int r2, Int i2) -> Int
+    Explain {
+        Description: "Add two complex numbers.";
+        Input: r1 = "First real part", i1 = "First imaginary part", r2 = "Second real part", i2 = "Second imaginary part";
+        Processing: "Add the real parts and the imaginary parts.";
+        Output: "The real part. The imaginary part is stored.";
+    } {
+        realPart = r1 + r2;
+        imagPart = i1 + i2;
+        Return realPart;
+    }
+
+    Public Function TimesComplex(Int r1, Int i1, Int r2, Int i2) -> Int
+    Explain {
+        Description: "Multiply two complex numbers.";
+        Input: r1 = "First real part", i1 = "First imaginary part", r2 = "Second real part", i2 = "Second imaginary part";
+        Processing: "Use i^2 = -1.";
+        Output: "The real part. The imaginary part is stored.";
+    } {
+        realPart = r1 * r2 - i1 * i2;
+        imagPart = r1 * i2 + i1 * r2;
+        Return realPart;
+    }
+
+    Public Function Imag() -> Int
+    Explain {
+        Description: "Return the stored imaginary part.";
+        Input: "No parameters";
+        Processing: "Read the latest complex operation.";
+        Output: "The imaginary part.";
+    } {
+        Return imagPart;
+    }
+
+    Public Function IsGroup(String name) -> Int
+    Explain {
+        Description: "Report whether a named structure is a group.";
+        Input: name = "integers or rationals";
+        Processing: "Integers and rationals are groups under addition.";
+        Output: "One when the structure is a group.";
+    } {
+        If (name == "integers" || name == "rationals") { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsRing(String name) -> Int
+    Explain {
+        Description: "Report whether a named structure is a ring.";
+        Input: name = "integers or rationals";
+        Processing: "Integers and rationals are rings.";
+        Output: "One when the structure is a ring.";
+    } {
+        If (name == "integers" || name == "rationals") { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsField(String name) -> Int
+    Explain {
+        Description: "Report whether a named structure is a field.";
+        Input: name = "integers or rationals";
+        Processing: "Rationals are a field. Integers are not.";
+        Output: "One when the structure is a field.";
+    } {
+        If (name == "rationals") { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsCommutative(String name) -> Int
+    Explain {
+        Description: "Report whether a named operation is commutative.";
+        Input: name = "add or mul";
+        Processing: "Integer addition and multiplication commute.";
+        Output: "One when the operation commutes.";
+    } {
+        If (name == "add" || name == "mul") { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsAssociative(String name) -> Int
+    Explain {
+        Description: "Report whether a named operation is associative.";
+        Input: name = "add or mul";
+        Processing: "Integer addition and multiplication associate.";
+        Output: "One when the operation associates.";
+    } {
+        If (name == "add" || name == "mul") { Return 1; }
+        Return 0;
+    }
+
+    Public Function Identity(String name) -> Int
+    Explain {
+        Description: "Return an identity element.";
+        Input: name = "add or mul";
+        Processing: "Addition uses zero and multiplication uses one.";
+        Output: "The identity, or zero when the operation is unknown.";
+    } {
+        If (name == "mul") { Return 1; }
+        Return 0;
+    }
+
+    Public Function Inverse(Int value, String name) -> Int
+    Explain {
+        Description: "Return an inverse element.";
+        Input: value = "Value", name = "add or mul";
+        Processing: "Addition negates the value. Multiplication accepts one and negative one.";
+        Output: "The inverse, or zero when it is not an integer.";
+    } {
+        If (name == "add") { Return 0 - value; }
+        If (value == 1 || value == -1) { Return value; }
+        problem = "inverse";
+        Return 0;
+    }
+
+    Public Function Holds(Int low, Int high, Int value) -> Int
+    Explain {
+        Description: "Report whether a value lies in an interval.";
+        Input: low = "Low bound", high = "High bound", value = "Value";
+        Processing: "Include both bounds.";
+        Output: "One when the value is inside.";
+    } {
+        If (value < low || value > high) { Return 0; }
+        Return 1;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest algebra error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Combine(Int left, Int right, Int scale) -> Int {
+        If (This.Known(left) == 0 || This.Known(right) == 0) { Return -1; }
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        c0[slot] = c0[left] + scale * c0[right];
+        c1[slot] = c1[left] + scale * c1[right];
+        c2[slot] = c2[left] + scale * c2[right];
+        c3[slot] = c3[left] + scale * c3[right];
+        Return slot;
+    }
+
+    Private Function Term(Int coeff, Int power, Int first) -> String {
+        Int magnitude = coeff;
+        Int negative = 0;
+        If (magnitude < 0) {
+            magnitude = 0 - magnitude;
+            negative = 1;
+        }
+        String body = "";
+        If (power == 0) { body = This.IntText(magnitude); }
+        If (power == 1) {
+            If (magnitude == 1) { body = "x"; }
+            If (magnitude != 1) { body = This.IntText(magnitude) + "x"; }
+        }
+        If (power > 1) {
+            If (magnitude == 1) { body = "x^" + This.IntText(power); }
+            If (magnitude != 1) { body = This.IntText(magnitude) + "x^" + This.IntText(power); }
+        }
+        If (first == 1) {
+            If (negative == 1) { Return "-" + body; }
+            Return body;
+        }
+        If (negative == 1) { Return "-" + body; }
+        Return "+" + body;
+    }
+
+    Private Function FactorSign(Int root) -> String {
+        If (root < 0) { Return "+" + This.IntText(0 - root); }
+        Return "-" + This.IntText(root);
+    }
+
+    Private Function WholeSqrt(Int value) -> Int {
+        Int guess = 0;
+        While (guess < 100000) {
+            Int next = guess + 1;
+            If (next * next > value) { Return guess; }
+            guess = next;
+        }
+        Return guess;
+    }
+
+    Private Function PullNumber(String text) -> Int {
+        scanValue = 0;
+        Int seen = 0;
+        While (scan < text.Length()) {
+            Int digit = This.DigitValue(text.Substring(scan, 1));
+            If (digit < 0) { Return seen; }
+            scanValue = scanValue * 10 + digit;
+            scan = scan + 1;
+            seen = 1;
+        }
+        Return seen;
+    }
+
+    Private Function DigitValue(String piece) -> Int {
+        If (piece == "0") { Return 0; }
+        If (piece == "1") { Return 1; }
+        If (piece == "2") { Return 2; }
+        If (piece == "3") { Return 3; }
+        If (piece == "4") { Return 4; }
+        If (piece == "5") { Return 5; }
+        If (piece == "6") { Return 6; }
+        If (piece == "7") { Return 7; }
+        If (piece == "8") { Return 8; }
+        If (piece == "9") { Return 9; }
+        Return -1;
+    }
+
+    Private Function Coeff(Int slot, Int power) -> Int {
+        If (power == 1) { Return c1[slot]; }
+        If (power == 2) { Return c2[slot]; }
+        If (power == 3) { Return c3[slot]; }
+        Return c0[slot];
+    }
+
+    Private Function Put(Int slot, Int power, Int value) -> Int {
+        If (power == 1) { c1[slot] = value; }
+        If (power == 2) { c2[slot] = value; }
+        If (power == 3) { c3[slot] = value; }
+        If (power == 0) { c0[slot] = value; }
+        Return value;
+    }
+
+    Private Function Clear(Int slot) -> Int {
+        c0[slot] = 0;
+        c1[slot] = 0;
+        c2[slot] = 0;
+        c3[slot] = 0;
+        used[slot] = 1;
+        Return slot;
+    }
+
+    Private Function GcdInt(Int left, Int right) -> Int {
+        Int a = left;
+        Int b = right;
+        If (a < 0) { a = 0 - a; }
+        If (b < 0) { b = 0 - b; }
+        While (b != 0) {
+            Int next = a % b;
+            a = b;
+            b = next;
+        }
+        Return a;
+    }
+
+    Private Function Known(Int slot) -> Int {
+        If (slot < 0 || slot > 7) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function KnownFraction(Int slot) -> Int {
+        If (slot < 0 || slot > 7) { Return 0; }
+        If (fused[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Claim() -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (used[slot] == 0) {
+                used[slot] = 1;
+                Return slot;
+            }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function ClaimFraction() -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (fused[slot] == 0) {
+                fused[slot] = 1;
+                Return slot;
+            }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

@@ -1,0 +1,5 @@
+Test CheckName {
+    Constraint: ConventionDesk().CheckName("Robot") == 1;
+    Processing: True;
+    Output: True;
+}

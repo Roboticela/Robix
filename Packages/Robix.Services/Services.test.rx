@@ -1,0 +1,5 @@
+Test Contract {
+    Constraint: ServiceDesk().Contract("Disposable") == 1;
+    Processing: True;
+    Output: True;
+}

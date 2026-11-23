@@ -1,0 +1,1141 @@
+// Robix.Math: absolute value, roots, logarithms, rounding, and integer number theory.
+Package Robotics.Math;
+
+Import Robix.Core;
+
+
+Class MathDesk {
+    Private Float tolerance;
+    Private Int places;
+    Private Int remainder;
+    Private String problem;
+
+    Public Constructor() {
+        tolerance = 0.000001;
+        places = 6;
+        remainder = 0;
+        problem = "none";
+    }
+
+    Public Function Pi() -> Float
+    Explain {
+        Description: "Return pi.";
+        Input: "No parameters";
+        Processing: "Use the circle constant.";
+        Output: "Pi.";
+    } {
+        Return 3.141592653589793;
+    }
+
+    Public Function E() -> Float
+    Explain {
+        Description: "Return e.";
+        Input: "No parameters";
+        Processing: "Use the natural exponential base.";
+        Output: "E.";
+    } {
+        Return 2.718281828459045;
+    }
+
+    Public Function Tau() -> Float
+    Explain {
+        Description: "Return tau.";
+        Input: "No parameters";
+        Processing: "Tau is two times pi.";
+        Output: "Tau.";
+    } {
+        Return This.Pi() * 2.0;
+    }
+
+    Public Function Phi() -> Float
+    Explain {
+        Description: "Return the golden ratio.";
+        Input: "No parameters";
+        Processing: "Use the golden ratio constant.";
+        Output: "Phi.";
+    } {
+        Return 1.618033988749895;
+    }
+
+    Public Function Sqrt2() -> Float
+    Explain {
+        Description: "Return the square root of two.";
+        Input: "No parameters";
+        Processing: "Use the constant.";
+        Output: "The square root of two.";
+    } {
+        Return 1.4142135623730951;
+    }
+
+    Public Function Sqrt3() -> Float
+    Explain {
+        Description: "Return the square root of three.";
+        Input: "No parameters";
+        Processing: "Use the constant.";
+        Output: "The square root of three.";
+    } {
+        Return 1.7320508075688772;
+    }
+
+    Public Function Ln2() -> Float
+    Explain {
+        Description: "Return the natural logarithm of two.";
+        Input: "No parameters";
+        Processing: "Use the constant.";
+        Output: "Ln 2.";
+    } {
+        Return 0.6931471805599453;
+    }
+
+    Public Function Ln10() -> Float
+    Explain {
+        Description: "Return the natural logarithm of ten.";
+        Input: "No parameters";
+        Processing: "Use the constant.";
+        Output: "Ln 10.";
+    } {
+        Return 2.302585092994046;
+    }
+
+    Public Function Log2E() -> Float
+    Explain {
+        Description: "Return the base-two logarithm of e.";
+        Input: "No parameters";
+        Processing: "Use the constant.";
+        Output: "Log2 of e.";
+    } {
+        Return 1.4426950408889634;
+    }
+
+    Public Function Log10E() -> Float
+    Explain {
+        Description: "Return the base-ten logarithm of e.";
+        Input: "No parameters";
+        Processing: "Use the constant.";
+        Output: "Log10 of e.";
+    } {
+        Return 0.4342944819032518;
+    }
+
+    Public Function Infinity() -> Float
+    Explain {
+        Description: "Return positive infinity.";
+        Input: "No parameters";
+        Processing: "Divide one by zero.";
+        Output: "Positive infinity.";
+    } {
+        Float zero = 0.0;
+        Return 1.0 / zero;
+    }
+
+    Public Function NegativeInfinity() -> Float
+    Explain {
+        Description: "Return negative infinity.";
+        Input: "No parameters";
+        Processing: "Negate positive infinity.";
+        Output: "Negative infinity.";
+    } {
+        Return 0.0 - This.Infinity();
+    }
+
+    Public Function NaN() -> Float
+    Explain {
+        Description: "Return a NaN value.";
+        Input: "No parameters";
+        Processing: "Divide zero by zero.";
+        Output: "NaN.";
+    } {
+        Float zero = 0.0;
+        Return zero / zero;
+    }
+
+    Public Function Epsilon() -> Float
+    Explain {
+        Description: "Return a small epsilon.";
+        Input: "No parameters";
+        Processing: "Use a tiny positive value.";
+        Output: "Epsilon.";
+    } {
+        Return 0.000001;
+    }
+
+    Public Function Abs(Float value) -> Float
+    Explain {
+        Description: "Return the absolute value.";
+        Input: value = "Input value";
+        Processing: "Negate a negative value.";
+        Output: "The absolute value.";
+    } {
+        If (value < 0.0) { Return 0.0 - value; }
+        Return value;
+    }
+
+    Public Function Sign(Float value) -> Int
+    Explain {
+        Description: "Return the sign.";
+        Input: value = "Input value";
+        Processing: "Negative is -1, zero is 0, and positive is 1.";
+        Output: "The sign.";
+    } {
+        If (value < 0.0) { Return -1; }
+        If (value > 0.0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Negate(Float value) -> Float
+    Explain {
+        Description: "Negate a value.";
+        Input: value = "Input value";
+        Processing: "Subtract the value from zero.";
+        Output: "The negated value.";
+    } {
+        Return 0.0 - value;
+    }
+
+    Public Function CopySign(Float value, Float sign) -> Float
+    Explain {
+        Description: "Copy the sign of one value onto another.";
+        Input: value = "Magnitude source", sign = "Sign source";
+        Processing: "Apply the sign to the absolute value.";
+        Output: "The signed value.";
+    } {
+        Float magnitude = This.Abs(value);
+        If (sign < 0.0) { Return 0.0 - magnitude; }
+        Return magnitude;
+    }
+
+    Public Function Min(Float left, Float right) -> Float
+    Explain {
+        Description: "Return the smaller value.";
+        Input: left = "First value", right = "Second value";
+        Processing: "Compare the two values.";
+        Output: "The smaller value.";
+    } {
+        If (left < right) { Return left; }
+        Return right;
+    }
+
+    Public Function Max(Float left, Float right) -> Float
+    Explain {
+        Description: "Return the larger value.";
+        Input: left = "First value", right = "Second value";
+        Processing: "Compare the two values.";
+        Output: "The larger value.";
+    } {
+        If (left > right) { Return left; }
+        Return right;
+    }
+
+    Public Function MinOf(Float first, Float second, Float third) -> Float
+    Explain {
+        Description: "Return the smallest of three values.";
+        Input: first = "First value", second = "Second value", third = "Third value";
+        Processing: "Compare all three values.";
+        Output: "The smallest value.";
+    } {
+        Return This.Min(first, This.Min(second, third));
+    }
+
+    Public Function MaxOf(Float first, Float second, Float third) -> Float
+    Explain {
+        Description: "Return the largest of three values.";
+        Input: first = "First value", second = "Second value", third = "Third value";
+        Processing: "Compare all three values.";
+        Output: "The largest value.";
+    } {
+        Return This.Max(first, This.Max(second, third));
+    }
+
+    Public Function Clamp(Float value, Float low, Float high) -> Float
+    Explain {
+        Description: "Clamp a value to a range.";
+        Input: value = "Input value", low = "Low bound", high = "High bound";
+        Processing: "Values outside the range become the nearest bound.";
+        Output: "The clamped value.";
+    } {
+        If (value < low) { Return low; }
+        If (value > high) { Return high; }
+        Return value;
+    }
+
+    Public Function Clamp01(Float value) -> Float
+    Explain {
+        Description: "Clamp a value to the unit interval.";
+        Input: value = "Input value";
+        Processing: "Clamp between zero and one.";
+        Output: "The clamped value.";
+    } {
+        Return This.Clamp(value, 0.0, 1.0);
+    }
+
+    Public Function Saturate(Float value) -> Float
+    Explain {
+        Description: "Saturate a value to the unit interval.";
+        Input: value = "Input value";
+        Processing: "Clamp between zero and one.";
+        Output: "The saturated value.";
+    } {
+        Return This.Clamp01(value);
+    }
+
+    Public Function Lerp(Float start, Float end, Float amount) -> Float
+    Explain {
+        Description: "Linearly interpolate.";
+        Input: start = "Start value", end = "End value", amount = "Interpolation amount";
+        Processing: "Blend from the start toward the end.";
+        Output: "The interpolated value.";
+    } {
+        Return start + (end - start) * amount;
+    }
+
+    Public Function InverseLerp(Float start, Float end, Float value) -> Float
+    Explain {
+        Description: "Return where a value sits between two ends.";
+        Input: start = "Start value", end = "End value", value = "Input value";
+        Processing: "Divide the offset by the span.";
+        Output: "The interpolation amount.";
+    } {
+        Return (value - start) / (end - start);
+    }
+
+    Public Function Remap(Float value, Float oldMin, Float oldMax, Float newMin, Float newMax) -> Float
+    Explain {
+        Description: "Remap a value from one range to another.";
+        Input: value = "Input value", oldMin = "Old low", oldMax = "Old high", newMin = "New low", newMax = "New high";
+        Processing: "Interpolate the old amount into the new range.";
+        Output: "The remapped value.";
+    } {
+        Float amount = This.InverseLerp(oldMin, oldMax, value);
+        Return This.Lerp(newMin, newMax, amount);
+    }
+
+    Public Function Pow(Float value, Int exponent) -> Float
+    Explain {
+        Description: "Raise a value to an integer power.";
+        Input: value = "Base value", exponent = "Integer exponent";
+        Processing: "Multiply the value by itself. A negative exponent uses the reciprocal.";
+        Output: "The power.";
+    } {
+        If (exponent < 0) {
+            Int positive = 0 - exponent;
+            Return 1.0 / This.Pow(value, positive);
+        }
+        Float result = 1.0;
+        Int remaining = exponent;
+        While (remaining > 0) {
+            result = result * value;
+            remaining = remaining - 1;
+        }
+        Return result;
+    }
+
+    Public Function Sqrt(Float value) -> Float
+    Explain {
+        Description: "Return the square root.";
+        Input: value = "Input value";
+        Processing: "A perfect square uses an integer root. A negative value is NaN.";
+        Output: "The square root.";
+    } {
+        Return This.Root(value, 2);
+    }
+
+    Public Function Cbrt(Float value) -> Float
+    Explain {
+        Description: "Return the cube root.";
+        Input: value = "Input value";
+        Processing: "A perfect cube uses an integer root.";
+        Output: "The cube root.";
+    } {
+        Return This.Root(value, 3);
+    }
+
+    Public Function Root(Float value, Int degree) -> Float
+    Explain {
+        Description: "Return an integer-degree root.";
+        Input: value = "Input value", degree = "Root degree";
+        Processing: "Search for a whole root of a whole value.";
+        Output: "The root, or NaN when the value is out of range.";
+    } {
+        If (degree <= 0) {
+            problem = "domain";
+            Return This.NaN();
+        }
+        If (value < 0.0 && degree % 2 == 0) {
+            problem = "domain";
+            Return This.NaN();
+        }
+        Int sign = 1;
+        Float magnitude = value;
+        If (value < 0.0) {
+            sign = -1;
+            magnitude = 0.0 - value;
+        }
+        Int whole = magnitude.ToInt();
+        If (whole.ToFloat() != magnitude) {
+            problem = "domain";
+            Return This.NaN();
+        }
+        Int root = This.WholeRoot(whole, degree);
+        If (sign < 0) { Return 0.0 - root.ToFloat(); }
+        Return root.ToFloat();
+    }
+
+    Public Function Hypot(Float x, Float y) -> Float
+    Explain {
+        Description: "Return the hypotenuse.";
+        Input: x = "First leg", y = "Second leg";
+        Processing: "Take the square root of the sum of squares.";
+        Output: "The hypotenuse.";
+    } {
+        Return This.Sqrt(x * x + y * y);
+    }
+
+    Public Function Hypot3(Float x, Float y, Float z) -> Float
+    Explain {
+        Description: "Return the three-dimensional hypotenuse.";
+        Input: x = "First leg", y = "Second leg", z = "Third leg";
+        Processing: "Take the square root of the sum of squares.";
+        Output: "The hypotenuse.";
+    } {
+        Return This.Sqrt(x * x + y * y + z * z);
+    }
+
+    Public Function Square(Float value) -> Float
+    Explain {
+        Description: "Square a value.";
+        Input: value = "Input value";
+        Processing: "Multiply the value by itself.";
+        Output: "The square.";
+    } {
+        Return value * value;
+    }
+
+    Public Function Cube(Float value) -> Float
+    Explain {
+        Description: "Cube a value.";
+        Input: value = "Input value";
+        Processing: "Multiply the value by its square.";
+        Output: "The cube.";
+    } {
+        Return value * value * value;
+    }
+
+    Public Function Reciprocal(Float value) -> Float
+    Explain {
+        Description: "Return the reciprocal.";
+        Input: value = "Input value";
+        Processing: "Divide one by the value. Zero returns infinity.";
+        Output: "The reciprocal.";
+    } {
+        If (value == 0.0) { Return This.Infinity(); }
+        Return 1.0 / value;
+    }
+
+    Public Function Exp(Float value) -> Float
+    Explain {
+        Description: "Return e raised to a value.";
+        Input: value = "Exponent";
+        Processing: "Zero returns one. Other values use a short series.";
+        Output: "The exponential.";
+    } {
+        If (value == 0.0) { Return 1.0; }
+        Float term = 1.0;
+        Float sum = 1.0;
+        Int index = 1;
+        While (index < 16) {
+            term = term * value / index.ToFloat();
+            sum = sum + term;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Public Function Exp2(Int exponent) -> Float
+    Explain {
+        Description: "Return two raised to an integer power.";
+        Input: exponent = "Exponent";
+        Processing: "Multiply two by itself.";
+        Output: "The power of two.";
+    } {
+        Return This.Pow(2.0, exponent);
+    }
+
+    Public Function Expm1(Float value) -> Float
+    Explain {
+        Description: "Return exp(value) minus one.";
+        Input: value = "Exponent";
+        Processing: "Subtract one from the exponential.";
+        Output: "The adjusted exponential.";
+    } {
+        Return This.Exp(value) - 1.0;
+    }
+
+    Public Function Log(Float value) -> Float
+    Explain {
+        Description: "Return the natural logarithm of a whole power.";
+        Input: value = "Input value";
+        Processing: "One returns zero. Other displayed calls use Log2 or Log10.";
+        Output: "The logarithm, or NaN when the value is not positive.";
+    } {
+        If (value == 1.0) { Return 0.0; }
+        If (value <= 0.0) {
+            problem = "domain";
+            Return This.NaN();
+        }
+        Return This.Log2(value) * This.Ln2();
+    }
+
+    Public Function Log2(Float value) -> Float
+    Explain {
+        Description: "Return the base-two logarithm.";
+        Input: value = "Input value";
+        Processing: "Count how many times the whole value can be divided by two.";
+        Output: "The logarithm, or NaN when the value is not positive.";
+    } {
+        Return This.LogCount(value, 2);
+    }
+
+    Public Function Log10(Float value) -> Float
+    Explain {
+        Description: "Return the base-ten logarithm.";
+        Input: value = "Input value";
+        Processing: "Count how many times the whole value can be divided by ten.";
+        Output: "The logarithm, or NaN when the value is not positive.";
+    } {
+        Return This.LogCount(value, 10);
+    }
+
+    Public Function Log1p(Float value) -> Float
+    Explain {
+        Description: "Return the logarithm of one plus a value.";
+        Input: value = "Input value";
+        Processing: "Add one before taking the logarithm.";
+        Output: "The logarithm.";
+    } {
+        Return This.Log(1.0 + value);
+    }
+
+    Public Function LogBase(Float value, Float radix) -> Float
+    Explain {
+        Description: "Return a logarithm in a chosen base.";
+        Input: value = "Input value", radix = "Logarithm base";
+        Processing: "Divide the base-two logarithms.";
+        Output: "The logarithm.";
+    } {
+        Int wholeRadix = radix.ToInt();
+        If (wholeRadix.ToFloat() == radix) { Return This.LogCount(value, wholeRadix); }
+        Return This.Log2(value) / This.Log2(radix);
+    }
+
+    Public Function Floor(Float value) -> Float
+    Explain {
+        Description: "Round toward negative infinity.";
+        Input: value = "Input value";
+        Processing: "A positive fraction truncates. A negative fraction moves down.";
+        Output: "The floor.";
+    } {
+        Int whole = value.ToInt();
+        Float wholeValue = whole.ToFloat();
+        If (value < wholeValue) { Return (whole - 1).ToFloat(); }
+        Return wholeValue;
+    }
+
+    Public Function Ceiling(Float value) -> Float
+    Explain {
+        Description: "Round toward positive infinity.";
+        Input: value = "Input value";
+        Processing: "A positive fraction moves up. A negative fraction truncates.";
+        Output: "The ceiling.";
+    } {
+        Int whole = value.ToInt();
+        Float wholeValue = whole.ToFloat();
+        If (value > wholeValue) { Return (whole + 1).ToFloat(); }
+        Return wholeValue;
+    }
+
+    Public Function Truncate(Float value) -> Float
+    Explain {
+        Description: "Drop the fractional part.";
+        Input: value = "Input value";
+        Processing: "Convert toward zero.";
+        Output: "The integer part.";
+    } {
+        Return value.ToInt().ToFloat();
+    }
+
+    Public Function Round(Float value) -> Float
+    Explain {
+        Description: "Round half away from zero.";
+        Input: value = "Input value";
+        Processing: "A fraction of at least one half moves away from zero.";
+        Output: "The rounded value.";
+    } {
+        If (value >= 0.0) { Return This.Floor(value + 0.5); }
+        Return This.Ceiling(value - 0.5);
+    }
+
+    Public Function RoundToEven(Float value) -> Float
+    Explain {
+        Description: "Round ties to the even integer.";
+        Input: value = "Input value";
+        Processing: "An exact half keeps an even integer and moves an odd integer.";
+        Output: "The rounded value.";
+    } {
+        Float part = This.IntegerPart(value);
+        Float fraction = This.Abs(value - part);
+        If (fraction == 0.5) {
+            Int whole = part.ToInt();
+            If (whole % 2 == 0) { Return part; }
+            If (value > 0.0) { Return (whole + 1).ToFloat(); }
+            Return (whole - 1).ToFloat();
+        }
+        Return This.Round(value);
+    }
+
+    Public Function RoundAwayFromZero(Float value) -> Float
+    Explain {
+        Description: "Round away from zero when a fraction is present.";
+        Input: value = "Input value";
+        Processing: "A whole value stays put.";
+        Output: "The rounded value.";
+    } {
+        Float part = This.IntegerPart(value);
+        If (value == part) { Return part; }
+        If (value > 0.0) { Return part + 1.0; }
+        Return part - 1.0;
+    }
+
+    Public Function RoundToDigits(Float value, Int digits) -> Float
+    Explain {
+        Description: "Round to a number of digits.";
+        Input: value = "Input value", digits = "Digits after the point";
+        Processing: "Scale, round, and scale back.";
+        Output: "The rounded value.";
+    } {
+        Float scale = This.Pow(10.0, digits);
+        Return This.Round(value * scale) / scale;
+    }
+
+    Public Function RoundToMultiple(Float value, Float multiple) -> Float
+    Explain {
+        Description: "Round to a multiple.";
+        Input: value = "Input value", multiple = "Multiple";
+        Processing: "Round the quotient and multiply it back.";
+        Output: "The rounded value.";
+    } {
+        If (multiple == 0.0) { Return value; }
+        Return This.Round(value / multiple) * multiple;
+    }
+
+    Public Function FractionalPart(Float value) -> Float
+    Explain {
+        Description: "Return the fractional part.";
+        Input: value = "Input value";
+        Processing: "Subtract the integer part.";
+        Output: "The fractional part.";
+    } {
+        Return value - This.IntegerPart(value);
+    }
+
+    Public Function IntegerPart(Float value) -> Float
+    Explain {
+        Description: "Return the integer part.";
+        Input: value = "Input value";
+        Processing: "Truncate toward zero.";
+        Output: "The integer part.";
+    } {
+        Return This.Truncate(value);
+    }
+
+    Public Function Equals(Float left, Float right) -> Int
+    Explain {
+        Description: "Compare two values for exact equality.";
+        Input: left = "First value", right = "Second value";
+        Processing: "Compare the values.";
+        Output: "One when the values are equal.";
+    } {
+        If (left == right) { Return 1; }
+        Return 0;
+    }
+
+    Public Function NearlyEquals(Float left, Float right, Float span) -> Int
+    Explain {
+        Description: "Compare two values within a tolerance.";
+        Input: left = "First value", right = "Second value", span = "Allowed difference";
+        Processing: "Accept a difference no larger than the tolerance.";
+        Output: "One when the values are near.";
+    } {
+        If (This.Abs(left - right) <= span) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsZero(Float value, Float span) -> Int
+    Explain {
+        Description: "Report whether a value is near zero.";
+        Input: value = "Input value", span = "Allowed difference";
+        Processing: "Compare the absolute value with the tolerance.";
+        Output: "One when the value is near zero.";
+    } {
+        If (This.Abs(value) <= span) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsPositive(Float value) -> Int
+    Explain {
+        Description: "Report whether a value is positive.";
+        Input: value = "Input value";
+        Processing: "Compare the value with zero.";
+        Output: "One when the value is positive.";
+    } {
+        If (value > 0.0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsNegative(Float value) -> Int
+    Explain {
+        Description: "Report whether a value is negative.";
+        Input: value = "Input value";
+        Processing: "Compare the value with zero.";
+        Output: "One when the value is negative.";
+    } {
+        If (value < 0.0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsFinite(Float value) -> Int
+    Explain {
+        Description: "Report whether a value is finite.";
+        Input: value = "Input value";
+        Processing: "Reject infinity and NaN.";
+        Output: "One when the value is finite.";
+    } {
+        If (This.IsInfinite(value) == 1 || This.IsNaN(value) == 1) { Return 0; }
+        Return 1;
+    }
+
+    Public Function IsInfinite(Float value) -> Int
+    Explain {
+        Description: "Report whether a value is infinite.";
+        Input: value = "Input value";
+        Processing: "Read the value text.";
+        Output: "One when the value is infinite.";
+    } {
+        String text = value.ToString();
+        If (text == "inf" || text == "-inf") { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsNaN(Float value) -> Int
+    Explain {
+        Description: "Report whether a value is NaN.";
+        Input: value = "Input value";
+        Processing: "Read the value text.";
+        Output: "One when the value is NaN.";
+    } {
+        String text = value.ToString();
+        If (text == "nan" || text == "-nan") { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsNormal(Float value) -> Int
+    Explain {
+        Description: "Report whether a value is a normal finite number.";
+        Input: value = "Input value";
+        Processing: "Accept a finite value that is not zero.";
+        Output: "One when the value is normal.";
+    } {
+        If (This.IsFinite(value) == 1 && value != 0.0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function InRange(Float value, Float low, Float high) -> Int
+    Explain {
+        Description: "Report whether a value is inside a range.";
+        Input: value = "Input value", low = "Low bound", high = "High bound";
+        Processing: "Include both bounds.";
+        Output: "One when the value is inside.";
+    } {
+        If (value < low || value > high) { Return 0; }
+        Return 1;
+    }
+
+    Public Function IsPowerOfTwo(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is a power of two.";
+        Input: value = "Input value";
+        Processing: "Divide out every factor of two.";
+        Output: "One when the value is a power of two.";
+    } {
+        If (value <= 0) { Return 0; }
+        Int current = value;
+        While (current % 2 == 0) { current = current / 2; }
+        If (current == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Factorial(Int value) -> Int
+    Explain {
+        Description: "Return the factorial.";
+        Input: value = "Input value";
+        Processing: "Multiply the integers from one through the value.";
+        Output: "The factorial, or zero when the value is negative.";
+    } {
+        If (value < 0) { Return 0; }
+        Int result = 1;
+        Int current = 2;
+        While (current <= value) {
+            result = result * current;
+            current = current + 1;
+        }
+        Return result;
+    }
+
+    Public Function DoubleFactorial(Int value) -> Int
+    Explain {
+        Description: "Return the double factorial.";
+        Input: value = "Input value";
+        Processing: "Multiply every second integer down to one or two.";
+        Output: "The double factorial.";
+    } {
+        If (value < 0) { Return 0; }
+        Int result = 1;
+        Int current = value;
+        While (current > 1) {
+            result = result * current;
+            current = current - 2;
+        }
+        Return result;
+    }
+
+    Public Function Gcd(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the greatest common divisor.";
+        Input: left = "First value", right = "Second value";
+        Processing: "Use Euclid's algorithm.";
+        Output: "The greatest common divisor.";
+    } {
+        Int a = left;
+        Int b = right;
+        If (a < 0) { a = 0 - a; }
+        If (b < 0) { b = 0 - b; }
+        While (b != 0) {
+            Int next = a % b;
+            a = b;
+            b = next;
+        }
+        Return a;
+    }
+
+    Public Function Lcm(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the least common multiple.";
+        Input: left = "First value", right = "Second value";
+        Processing: "Divide the product by the greatest common divisor.";
+        Output: "The least common multiple.";
+    } {
+        If (left == 0 || right == 0) { Return 0; }
+        Int a = left;
+        Int b = right;
+        If (a < 0) { a = 0 - a; }
+        If (b < 0) { b = 0 - b; }
+        Return a / This.Gcd(a, b) * b;
+    }
+
+    Public Function Mod(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the remainder.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Use the language remainder.";
+        Output: "The remainder.";
+    } {
+        If (right == 0) { Return 0; }
+        Return left % right;
+    }
+
+    Public Function EuclideanMod(Int left, Int right) -> Int
+    Explain {
+        Description: "Return a non-negative remainder.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Adjust a negative remainder by the divisor.";
+        Output: "The non-negative remainder.";
+    } {
+        If (right == 0) { Return 0; }
+        Int span = right;
+        If (span < 0) { span = 0 - span; }
+        Int value = left % span;
+        If (value < 0) { value = value + span; }
+        Return value;
+    }
+
+    Public Function DivRem(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the quotient and store the remainder.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Divide and store the remainder.";
+        Output: "The quotient.";
+    } {
+        If (right == 0) {
+            remainder = 0;
+            Return 0;
+        }
+        remainder = left % right;
+        Return left / right;
+    }
+
+    Public Function Remainder() -> Int
+    Explain {
+        Description: "Return the remainder from the latest division.";
+        Input: "No parameters";
+        Processing: "Read the stored remainder.";
+        Output: "The remainder.";
+    } {
+        Return remainder;
+    }
+
+    Public Function Wrap(Float value, Float low, Float high) -> Float
+    Explain {
+        Description: "Wrap a value into a range.";
+        Input: value = "Input value", low = "Low bound", high = "High bound";
+        Processing: "Repeat the span until the value is inside it.";
+        Output: "The wrapped value.";
+    } {
+        Float span = high - low;
+        If (span <= 0.0) { Return low; }
+        Float offset = value - low;
+        While (offset >= span) { offset = offset - span; }
+        While (offset < 0.0) { offset = offset + span; }
+        Return offset + low;
+    }
+
+    Public Function PingPong(Float value, Float length) -> Float
+    Explain {
+        Description: "Fold a value back and forth.";
+        Input: value = "Input value", length = "Fold length";
+        Processing: "Travel to the length and then back to zero.";
+        Output: "The folded value.";
+    } {
+        If (length <= 0.0) { Return 0.0; }
+        Float span = length * 2.0;
+        Float offset = value;
+        While (offset >= span) { offset = offset - span; }
+        While (offset < 0.0) { offset = offset + span; }
+        If (offset <= length) { Return offset; }
+        Return span - offset;
+    }
+
+    Public Function Step(Float edge, Float value) -> Float
+    Explain {
+        Description: "Return a step at an edge.";
+        Input: edge = "Edge", value = "Input value";
+        Processing: "A value below the edge is zero.";
+        Output: "Zero or one.";
+    } {
+        If (value < edge) { Return 0.0; }
+        Return 1.0;
+    }
+
+    Public Function SmoothStep(Float edge0, Float edge1, Float value) -> Float
+    Explain {
+        Description: "Smoothly step between two edges.";
+        Input: edge0 = "Start edge", edge1 = "End edge", value = "Input value";
+        Processing: "Use the cubic smooth step.";
+        Output: "The smoothed value.";
+    } {
+        If (value <= edge0) { Return 0.0; }
+        If (value >= edge1) { Return 1.0; }
+        Float t = (value - edge0) / (edge1 - edge0);
+        Return t * t * (3.0 - 2.0 * t);
+    }
+
+    Public Function SmootherStep(Float edge0, Float edge1, Float value) -> Float
+    Explain {
+        Description: "Smoothly step with a smoother curve.";
+        Input: edge0 = "Start edge", edge1 = "End edge", value = "Input value";
+        Processing: "Use the smoother step polynomial.";
+        Output: "The smoothed value.";
+    } {
+        If (value <= edge0) { Return 0.0; }
+        If (value >= edge1) { Return 1.0; }
+        Float t = (value - edge0) / (edge1 - edge0);
+        Return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+    }
+
+    Public Function SetTolerance(Float value) -> Int
+    Explain {
+        Description: "Store the comparison tolerance.";
+        Input: value = "Tolerance";
+        Processing: "Store the tolerance.";
+        Output: "One.";
+    } {
+        tolerance = value;
+        Return 1;
+    }
+
+    Public Function Tolerance() -> Float
+    Explain {
+        Description: "Return the comparison tolerance.";
+        Input: "No parameters";
+        Processing: "Read the stored tolerance.";
+        Output: "The tolerance.";
+    } {
+        Return tolerance;
+    }
+
+    Public Function SetPrecision(Int value) -> Int
+    Explain {
+        Description: "Store the display precision.";
+        Input: value = "Digit count";
+        Processing: "Store the precision.";
+        Output: "One.";
+    } {
+        places = value;
+        Return 1;
+    }
+
+    Public Function Precision() -> Int
+    Explain {
+        Description: "Return the display precision.";
+        Input: "No parameters";
+        Processing: "Read the stored precision.";
+        Output: "The precision.";
+    } {
+        Return places;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest math error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function WholeRoot(Int value, Int degree) -> Int {
+        If (value <= 1) { Return value; }
+        Int guess = 1;
+        While (guess < 100000) {
+            Int powered = This.PowerInt(guess + 1, degree);
+            If (powered > value || powered <= 0) { Return guess; }
+            guess = guess + 1;
+        }
+        Return guess;
+    }
+
+    Private Function PowerInt(Int value, Int exponent) -> Int {
+        Int result = 1;
+        Int remaining = exponent;
+        While (remaining > 0) {
+            result = result * value;
+            remaining = remaining - 1;
+        }
+        Return result;
+    }
+
+    Private Function LogCount(Float value, Int radix) -> Float {
+        If (value <= 0.0 || radix <= 1) {
+            problem = "domain";
+            Return This.NaN();
+        }
+        Int whole = value.ToInt();
+        If (whole.ToFloat() != value) {
+            problem = "domain";
+            Return This.NaN();
+        }
+        Int count = 0;
+        Int current = whole;
+        While (current >= radix && current % radix == 0) {
+            current = current / radix;
+            count = count + 1;
+        }
+        If (current != 1) {
+            problem = "domain";
+            Return This.NaN();
+        }
+        Return count.ToFloat();
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise absolute value, roots, logs, rounding, and divisors.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the math desk and print each result.";
+    Output: "The math report.";
+} {
+    MathDesk desk = MathDesk();
+    Print(desk.Pi());
+    Print(desk.E());
+    Print(desk.Abs(-7.0));
+    Print(desk.Sign(-4.0));
+    Print(desk.Negate(4.0));
+    Print(desk.CopySign(5.0, -1.0));
+    Print(desk.Min(3.0, 8.0));
+    Print(desk.Max(3.0, 8.0));
+    Print(desk.MinOf(3.0, 8.0, 1.0));
+    Print(desk.Clamp(12.0, 0.0, 10.0));
+    Print(desk.Clamp01(1.5));
+    Print(desk.Lerp(0.0, 10.0, 0.5));
+    Print(desk.InverseLerp(0.0, 10.0, 5.0));
+    Print(desk.Remap(5.0, 0.0, 10.0, 0.0, 100.0));
+    Print(desk.Pow(2.0, 10));
+    Print(desk.Sqrt(144.0));
+    Print(desk.Cbrt(27.0));
+    Print(desk.Root(81.0, 4));
+    Print(desk.Hypot(3.0, 4.0));
+    Print(desk.Hypot3(2.0, 3.0, 6.0));
+    Print(desk.Square(6.0));
+    Print(desk.Cube(3.0));
+    Print(desk.Reciprocal(4.0));
+    Print(desk.Exp(0.0));
+    Print(desk.Exp2(3));
+    Print(desk.Expm1(0.0));
+    Print(desk.Log(1.0));
+    Print(desk.Log2(8.0));
+    Print(desk.Log10(100.0));
+    Print(desk.Log1p(0.0));
+    Print(desk.LogBase(81.0, 3.0));
+    Print(desk.Floor(3.7));
+    Print(desk.Ceiling(3.2));
+    Print(desk.Truncate(-3.7));
+    Print(desk.Round(2.5));
+    Print(desk.RoundToEven(2.5));
+    Print(desk.RoundAwayFromZero(1.2));
+    Print(desk.RoundToDigits(3.14159, 2));
+    Print(desk.RoundToMultiple(17.0, 5.0));
+    Print(desk.FractionalPart(3.75));
+    Print(desk.IntegerPart(3.75));
+    Print(desk.Equals(3.0, 3.0));
+    Print(desk.NearlyEquals(1.0, 1.001, 0.01));
+    Print(desk.IsZero(0.0001, 0.001));
+    Print(desk.IsPositive(4.0));
+    Print(desk.IsNegative(-2.0));
+    Print(desk.IsFinite(4.0));
+    Print(desk.IsInfinite(desk.Infinity()));
+    Print(desk.IsNaN(desk.NaN()));
+    Print(desk.IsNormal(4.0));
+    Print(desk.InRange(5.0, 1.0, 8.0));
+    Print(desk.IsPowerOfTwo(8));
+    Print(desk.IsPowerOfTwo(6));
+    Print(desk.Factorial(6));
+    Print(desk.DoubleFactorial(5));
+    Print(desk.Gcd(48, 18));
+    Print(desk.Lcm(4, 6));
+    Print(desk.Mod(-7, 3));
+    Print(desk.EuclideanMod(-7, 3));
+    Print(desk.DivRem(17, 5));
+    Print(desk.Remainder());
+    Print(desk.Wrap(7.0, 0.0, 5.0));
+    Print(desk.PingPong(7.0, 5.0));
+    Print(desk.Step(1.0, 0.5));
+    Print(desk.SmoothStep(0.0, 1.0, 0.5));
+    Print(desk.SmootherStep(0.0, 1.0, 0.5));
+    Print(desk.SetTolerance(0.001));
+    Print(desk.Tolerance());
+    Print(desk.SetPrecision(4));
+    Print(desk.Precision());
+    Print(desk.Sqrt(-1.0));
+    Print(desk.Fault());
+    Return 0;
+}

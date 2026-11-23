@@ -1,0 +1,5 @@
+Test Create {
+    Constraint: DelegateDesk().Create("add", 1, 0, 10) == 0;
+    Processing: True;
+    Output: True;
+}
