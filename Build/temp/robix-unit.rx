@@ -1,495 +1,1116 @@
-Import Robix.Color;
+Package Robotics.Probability;
+
+Import Robix.Math.Probability;
+
 
 Public Function Main(Args<String> args) -> Int
 Explain {
-    Description: "Use the color package.";
-    Input: args = "Arguments";
-    Processing: "Read a packed color.";
-    Output: "The packed color.";
+    Description: "Exercise probability, distributions, and a Markov chain.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the probability desk.";
+    Output: "The probability report.";
 } {
-    ColorDesk desk = ColorDesk();
-    Print(desk.Rgb(255, 0, 0));
+    ProbabilityDesk desk = ProbabilityDesk();
+    Print(desk.CalculateProbability(1, 2));
+    Print(desk.Complement(0.25));
+    Print(desk.JointProbability(0.5, 0.5));
+    Print(desk.ConditionalProbability(0.25, 0.5));
+    Print(desk.Independent(0.25, 0.5, 0.5));
+    Print(desk.MutuallyExclusive(0.0));
+    Print(desk.BayesTheorem(0.5, 0.8, 0.5));
+    Print(desk.TotalProbability(0.2, 0.3, 0.5));
+    Print(desk.Place(0, 500));
+    Print(desk.Place(2, 500));
+    Print(desk.ExpectedValue());
+    Print(desk.Variance());
+    Print(desk.Categorical(1));
+    Print(desk.BernoulliPmf(1, 0.5));
+    Print(desk.BernoulliVariance(0.5));
+    Print(desk.BinomialPmf(2, 1, 0.5));
+    Print(desk.BinomialMean(10, 0.5));
+    Print(desk.BinomialVariance(10, 0.5));
+    Print(desk.GeometricPmf(1, 0.5));
+    Print(desk.GeometricPmf(2, 0.5));
+    Print(desk.NegativeBinomialPmf(0, 1, 0.5));
+    Print(desk.PoissonPmf(0, 1.0));
+    Print(desk.HypergeometricPmf(10, 5, 4, 2));
+    Print(desk.DiscreteUniformPmf(1, 6));
+    Print(desk.MultinomialPmf(1, 1, 0.5, 0.5));
+    Print(desk.UniformPdf(0.0, 2.0, 1.0));
+    Print(desk.UniformCdf(0.0, 2.0, 1.0));
+    Print(desk.InverseCdf(0.0, 2.0, 0.25));
+    Print(desk.StandardNormalPdf(0.0));
+    Print(desk.StandardNormalCdf(0.0));
+    Print(desk.ExponentialPdf(1.0, 0.0));
+    Print(desk.ExponentialQuantile(1.0, 0.5));
+    Print(desk.ErlangPdf(2, 1.0, 0.0));
+    Print(desk.BetaPdf(2, 2, 0.5));
+    Print(desk.ChiSquarePdf(2, 0.0));
+    Print(desk.StudentTPdf(1, 0.0));
+    Print(desk.FPdf(2, 2, 1.0));
+    Print(desk.WeibullPdf(1.0, 1.0, 0.0));
+    Print(desk.LogNormalPdf(0.0, 1.0, 1.0));
+    Print(desk.ParetoPdf(1.0, 2.0, 1.0));
+    Print(desk.CauchyPdf(0.0));
+    Print(desk.LaplacePdf(0.0));
+    Print(desk.LogisticPdf(0.0));
+    Print(desk.RayleighPdf(0.0));
+    Print(desk.TriangularPdf(0.0, 1.0, 0.5, 0.5));
+    Print(desk.SurvivalFunction(0.25));
+    Print(desk.HazardFunction(0.5, 0.0));
+    Print(desk.LogPmf(0.5));
+    Print(desk.Observe(2));
+    Print(desk.Observe(4));
+    Print(desk.Observe(4));
+    Print(desk.Observe(6));
+    Print(desk.MaximumLikelihoodEstimate());
+    Print(desk.FitVariance());
+    Print(desk.MaximumLikelihoodBernoulli(3, 4));
+    Print(desk.MaximumAPosterioriEstimate(3, 4, 2, 2));
+    Print(desk.UpdateBelief(0.5, 0.8, 0.5));
+    Print(desk.SetChain(0, 1000, 1000, 0));
+    Print(desk.TransitionProbability(0, 1));
+    Print(desk.SteadyState());
+    Print(desk.SimulateMarkovChain(0, 2));
+    Print(desk.SimulateProcess(0, 4));
+    Print(desk.SetSeed(1));
+    Print(desk.MonteCarloEstimate(4, 0.5));
+    Print(desk.Fault());
     Return 0;
 }
 
-// Robix.Color: RGB, HEX, HSV, HSL, CMYK, and contrast for any package.
-Package Robix.Color;
+// Robix.Math.Probability: events, distributions, Bayes, and Markov chains.
+Package Robix.Math.Probability;
 
 Import Robix.Core;
 
 
-Class ColorDesk {
-    Private Int red;
-    Private Int green;
-    Private Int blue;
-    Private Int alpha;
-    Private Int hue;
-    Private Int saturation;
-    Private Int value;
-    Private Int lightness;
+Class ProbabilityDesk {
+    Private Array<Int> points;
+    Private Array<Int> masses;
+    Private Array<Int> observations;
+    Private Int massCount;
+    Private Int observationCount;
+    Private Int stay0;
+    Private Int leave0;
+    Private Int leave1;
+    Private Int stay1;
+    Private Int seed;
     Private String problem;
 
     Public Constructor() {
-        red = 0;
-        green = 0;
-        blue = 0;
-        alpha = 255;
-        hue = 0;
-        saturation = 0;
-        value = 0;
-        lightness = 0;
+        points = [0, 0, 0, 0, 0, 0, 0, 0];
+        masses = [0, 0, 0, 0, 0, 0, 0, 0];
+        observations = [0, 0, 0, 0, 0, 0, 0, 0];
+        massCount = 0;
+        observationCount = 0;
+        stay0 = 500;
+        leave0 = 500;
+        leave1 = 500;
+        stay1 = 500;
+        seed = 1;
         problem = "none";
     }
 
-    Public Function Rgb(Int r, Int g, Int b) -> Int
+    Public Function CalculateProbability(Int favorable, Int total) -> Float
     Explain {
-        Description: "Store an RGB color.";
-        Input: r = "Red", g = "Green", b = "Blue";
-        Processing: "Clamp each channel and derive the other models.";
-        Output: "The packed color.";
+        Description: "Return the probability of favorable outcomes.";
+        Input: favorable = "Favorable outcomes", total = "Outcomes in the sample space";
+        Processing: "Divide the favorable count by the total.";
+        Output: "The probability, or zero when the total is not positive.";
     } {
-        Return This.Store(r, g, b, 255);
+        If (total <= 0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return favorable.ToFloat() / total.ToFloat();
     }
 
-    Public Function Rgba(Int r, Int g, Int b, Int a) -> Int
+    Public Function Complement(Float probability) -> Float
     Explain {
-        Description: "Store an RGB color and an alpha.";
-        Input: r = "Red", g = "Green", b = "Blue", a = "Alpha";
-        Processing: "Clamp each channel. Terminal drawing composites the alpha later.";
-        Output: "The packed color.";
+        Description: "Return the complementary probability.";
+        Input: probability = "A probability from 0 through 1";
+        Processing: "Subtract it from one.";
+        Output: "One minus the probability.";
     } {
-        Return This.Store(r, g, b, a);
+        If (probability < 0.0 || probability > 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return 1.0 - probability;
     }
 
-    Public Function Hex(String text) -> Int
+    Public Function JointProbability(Float first, Float second) -> Float
     Explain {
-        Description: "Store a color from HEX text.";
-        Input: text = "RRGGBB, with an optional leading hash";
-        Processing: "Read three channel pairs.";
-        Output: "The packed color, or zero when the text is not a color.";
+        Description: "Return the joint probability of two independent events.";
+        Input: first = "First probability", second = "Second probability";
+        Processing: "Multiply the probabilities.";
+        Output: "The joint probability.";
     } {
+        Return first * second;
+    }
+
+    Public Function ConditionalProbability(Float joint, Float condition) -> Float
+    Explain {
+        Description: "Return a conditional probability.";
+        Input: joint = "Joint probability", condition = "Conditioning probability";
+        Processing: "Divide the joint probability by the condition.";
+        Output: "The conditional probability, or zero when the condition is not positive.";
+    } {
+        If (condition <= 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return joint / condition;
+    }
+
+    Public Function Independent(Float joint, Float first, Float second) -> Int
+    Explain {
+        Description: "Report whether two events are independent.";
+        Input: joint = "Joint probability", first = "First probability", second = "Second probability";
+        Processing: "Compare the joint probability with the product.";
+        Output: "One when the events are independent.";
+    } {
+        If (This.Near(joint, first * second) == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function MutuallyExclusive(Float joint) -> Int
+    Explain {
+        Description: "Report whether events are mutually exclusive.";
+        Input: joint = "Joint probability";
+        Processing: "A joint probability of zero means the events cannot occur together.";
+        Output: "One when the joint probability is zero.";
+    } {
+        If (This.Near(joint, 0.0) == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function BayesTheorem(Float prior, Float likelihood, Float evidence) -> Float
+    Explain {
+        Description: "Apply Bayes' theorem.";
+        Input: prior = "Prior probability", likelihood = "Likelihood", evidence = "Marginal evidence";
+        Processing: "Multiply the prior by the likelihood and divide by the evidence.";
+        Output: "The posterior probability.";
+    } {
+        If (evidence <= 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return prior * likelihood / evidence;
+    }
+
+    Public Function TotalProbability(Float first, Float second, Float third) -> Float
+    Explain {
+        Description: "Return the total probability of three disjoint pieces.";
+        Input: first = "First piece", second = "Second piece", third = "Third piece";
+        Processing: "Add the three probabilities.";
+        Output: "The total.";
+    } {
+        Return first + second + third;
+    }
+
+    Public Function Place(Int point, Int mass) -> Int
+    Explain {
+        Description: "Store one point of a discrete distribution.";
+        Input: point = "Outcome", mass = "Weight in thousandths";
+        Processing: "Keep up to eight weighted outcomes.";
+        Output: "The index, or -1 when the table is full.";
+    } {
+        If (massCount >= 8) { Return -1; }
+        points[massCount] = point;
+        masses[massCount] = mass;
+        massCount = massCount + 1;
+        Return massCount - 1;
+    }
+
+    Public Function ExpectedValue() -> Float
+    Explain {
+        Description: "Return the expected value of the stored distribution.";
+        Input: "No parameters";
+        Processing: "Weight each stored outcome by its thousandths.";
+        Output: "The mean.";
+    } {
+        If (massCount <= 0) {
+            problem = "empty";
+            Return 0.0;
+        }
+        Int weighted = 0;
         Int index = 0;
-        If (text.Length() > 0) {
-            String mark = text.Substring(0, 1);
-            If (mark == "#") { index = 1; }
+        While (index < massCount) {
+            weighted = weighted + points[index] * masses[index];
+            index = index + 1;
         }
-        If (text.Length() < index + 6) {
-            problem = "hex";
-            Return 0;
+        Return weighted.ToFloat() / 1000.0;
+    }
+
+    Public Function Variance() -> Float
+    Explain {
+        Description: "Return the variance of the stored distribution.";
+        Input: "No parameters";
+        Processing: "Subtract the squared mean from the second moment.";
+        Output: "The variance.";
+    } {
+        If (massCount <= 0) {
+            problem = "empty";
+            Return 0.0;
         }
-        Int r = This.Pair(text, index);
-        Int g = This.Pair(text, index + 2);
-        Int b = This.Pair(text, index + 4);
-        If (r < 0 || g < 0 || b < 0) {
-            problem = "hex";
-            Return 0;
+        Int second = 0;
+        Int index = 0;
+        While (index < massCount) {
+            Int point = points[index];
+            second = second + point * point * masses[index];
+            index = index + 1;
         }
-        Return This.Store(r, g, b, 255);
+        Float mean = This.ExpectedValue();
+        Return second.ToFloat() / 1000.0 - mean * mean;
     }
 
-    Public Function FromHsv(Int h, Int s, Int v) -> Int
+    Public Function Categorical(Int index) -> Float
     Explain {
-        Description: "Store a color from HSV.";
-        Input: h = "Hue from 0 through 360", s = "Saturation from 0 through 100", v = "Value from 0 through 100";
-        Processing: "Convert the cone to RGB.";
-        Output: "The packed color.";
+        Description: "Return one stored categorical probability.";
+        Input: index = "Outcome index";
+        Processing: "Read that outcome's thousandths.";
+        Output: "The probability.";
     } {
-        Int turn = h;
-        While (turn >= 360) { turn = turn - 360; }
-        While (turn < 0) { turn = turn + 360; }
-        Int sector = turn / 60;
-        Int offset = turn % 60;
-        Int chroma = v * s / 100;
-        Int cross = chroma * offset / 60;
-        Int rest = chroma - cross;
-        Int rr = 0;
-        Int gg = 0;
-        Int bb = 0;
-        If (sector == 0) { rr = chroma; gg = cross; }
-        If (sector == 1) { rr = rest; gg = chroma; }
-        If (sector == 2) { gg = chroma; bb = cross; }
-        If (sector == 3) { gg = rest; bb = chroma; }
-        If (sector == 4) { rr = cross; bb = chroma; }
-        If (sector == 5) { rr = chroma; bb = rest; }
-        Int lift = v - chroma;
-        Return This.Store(This.Scale(rr + lift), This.Scale(gg + lift), This.Scale(bb + lift), 255);
-    }
-
-    Public Function FromHsl(Int h, Int s, Int l) -> Int
-    Explain {
-        Description: "Store a color from HSL.";
-        Input: h = "Hue from 0 through 360", s = "Saturation from 0 through 100", l = "Lightness from 0 through 100";
-        Processing: "Convert lightness to a value and use HSV.";
-        Output: "The packed color.";
-    } {
-        Int opposite = 2 * l - 100;
-        If (opposite < 0) { opposite = 0 - opposite; }
-        Int chroma = (100 - opposite) * s / 100;
-        Int peak = l + chroma / 2;
-        Int sat = 0;
-        If (peak != 0) { sat = chroma * 100 / peak; }
-        Return This.FromHsv(h, sat, peak);
-    }
-
-    Public Function FromCmyk(Int cyan, Int magenta, Int yellow, Int key) -> Int
-    Explain {
-        Description: "Store a color from CMYK.";
-        Input: cyan = "Cyan percent", magenta = "Magenta percent", yellow = "Yellow percent", key = "Black percent";
-        Processing: "Convert the ink amounts to RGB.";
-        Output: "The packed color.";
-    } {
-        Int r = 255 * (100 - cyan) * (100 - key) / 10000;
-        Int g = 255 * (100 - magenta) * (100 - key) / 10000;
-        Int b = 255 * (100 - yellow) * (100 - key) / 10000;
-        Return This.Store(r, g, b, 255);
-    }
-
-    Public Function From256(Int index) -> Int
-    Explain {
-        Description: "Store a 256-color palette entry.";
-        Input: index = "Palette index from 0 through 255";
-        Processing: "Use the basic colors, the color cube, or the gray ramp.";
-        Output: "The packed color.";
-    } {
-        If (index < 0 || index > 255) {
-            problem = "palette";
-            Return 0;
+        If (index < 0 || index >= massCount) {
+            problem = "range";
+            Return 0.0;
         }
-        If (index < 16) { Return This.AnsiIndex(index); }
-        If (index >= 232) {
-            Int gray = 8 + (index - 232) * 10;
-            Return This.Store(gray, gray, gray, 255);
+        Return masses[index].ToFloat() / 1000.0;
+    }
+
+    Public Function BernoulliPmf(Int success, Float probability) -> Float
+    Explain {
+        Description: "Return a Bernoulli probability.";
+        Input: success = "One for success and zero for failure", probability = "Success probability";
+        Processing: "Success returns the probability and failure returns its complement.";
+        Output: "The point probability.";
+    } {
+        If (success == 1) { Return probability; }
+        If (success == 0) { Return 1.0 - probability; }
+        problem = "domain";
+        Return 0.0;
+    }
+
+    Public Function BernoulliMean(Float probability) -> Float
+    Explain {
+        Description: "Return the Bernoulli mean.";
+        Input: probability = "Success probability";
+        Processing: "The mean equals the success probability.";
+        Output: "The mean.";
+    } {
+        Return probability;
+    }
+
+    Public Function BernoulliVariance(Float probability) -> Float
+    Explain {
+        Description: "Return the Bernoulli variance.";
+        Input: probability = "Success probability";
+        Processing: "Multiply the probability by its complement.";
+        Output: "The variance.";
+    } {
+        Return probability * (1.0 - probability);
+    }
+
+    Public Function BinomialPmf(Int trials, Int successes, Float probability) -> Float
+    Explain {
+        Description: "Return a binomial probability.";
+        Input: trials = "Number of trials", successes = "Number of successes", probability = "Success probability";
+        Processing: "Multiply the combination count by the success and failure powers.";
+        Output: "The point probability.";
+    } {
+        Int ways = This.Choose(trials, successes);
+        Float hit = This.Power(probability, successes);
+        Float miss = This.Power(1.0 - probability, trials - successes);
+        Return ways.ToFloat() * hit * miss;
+    }
+
+    Public Function BinomialMean(Int trials, Float probability) -> Float
+    Explain {
+        Description: "Return the binomial mean.";
+        Input: trials = "Number of trials", probability = "Success probability";
+        Processing: "Multiply the trial count by the probability.";
+        Output: "The mean.";
+    } {
+        Return trials.ToFloat() * probability;
+    }
+
+    Public Function BinomialVariance(Int trials, Float probability) -> Float
+    Explain {
+        Description: "Return the binomial variance.";
+        Input: trials = "Number of trials", probability = "Success probability";
+        Processing: "Multiply the mean by the failure probability.";
+        Output: "The variance.";
+    } {
+        Return trials.ToFloat() * probability * (1.0 - probability);
+    }
+
+    Public Function GeometricPmf(Int trials, Float probability) -> Float
+    Explain {
+        Description: "Return the probability that the first success occurs on a trial.";
+        Input: trials = "Trial number of the first success", probability = "Success probability";
+        Processing: "Raise the failure probability to the preceding trials and multiply by the success probability.";
+        Output: "The point probability.";
+    } {
+        If (trials < 1) {
+            problem = "domain";
+            Return 0.0;
         }
-        Int cube = index - 16;
-        Int rr = cube / 36;
-        Int gg = (cube % 36) / 6;
-        Int bb = cube % 6;
-        Return This.Store(This.Cube(rr), This.Cube(gg), This.Cube(bb), 255);
+        Return This.Power(1.0 - probability, trials - 1) * probability;
     }
 
-    Public Function FromAnsi(String name) -> Int
+    Public Function NegativeBinomialPmf(Int failures, Int successes, Float probability) -> Float
     Explain {
-        Description: "Store a named ANSI color.";
-        Input: name = "black, red, green, yellow, blue, magenta, cyan, white, or gray";
-        Processing: "Map the name to its channel values.";
-        Output: "The packed color, or zero when the name is unknown.";
+        Description: "Return the probability of a failure count before the required successes.";
+        Input: failures = "Failures before the successes", successes = "Required successes", probability = "Success probability";
+        Processing: "Use the negative-binomial combination.";
+        Output: "The point probability.";
     } {
-        If (name == "black") { Return This.Store(0, 0, 0, 255); }
-        If (name == "red") { Return This.Store(255, 0, 0, 255); }
-        If (name == "green") { Return This.Store(0, 255, 0, 255); }
-        If (name == "yellow") { Return This.Store(255, 255, 0, 255); }
-        If (name == "blue") { Return This.Store(0, 0, 255, 255); }
-        If (name == "magenta") { Return This.Store(255, 0, 255, 255); }
-        If (name == "cyan") { Return This.Store(0, 255, 255, 255); }
-        If (name == "white") { Return This.Store(255, 255, 255, 255); }
-        If (name == "gray") { Return This.Store(128, 128, 128, 255); }
-        problem = "name";
-        Return 0;
+        Int ways = This.Choose(failures + successes - 1, failures);
+        Return ways.ToFloat() * This.Power(probability, successes) * This.Power(1.0 - probability, failures);
     }
 
-    Public Function ToHex() -> String
+    Public Function PoissonPmf(Int count, Float lambda) -> Float
     Explain {
-        Description: "Return the stored color as HEX.";
-        Input: "No parameters";
-        Processing: "Write two digits for each channel.";
-        Output: "Six uppercase hex digits.";
+        Description: "Return a Poisson probability.";
+        Input: count = "Event count", lambda = "Mean rate";
+        Processing: "Multiply the exponential decay by the rate power and divide by the factorial.";
+        Output: "The point probability.";
     } {
-        Return This.ByteText(red) + This.ByteText(green) + This.ByteText(blue);
-    }
-
-    Public Function Red() -> Int
-    Explain {
-        Description: "Return the red channel.";
-        Input: "No parameters";
-        Processing: "Read the stored channel.";
-        Output: "Red from 0 through 255.";
-    } {
-        Return red;
-    }
-
-    Public Function Green() -> Int
-    Explain {
-        Description: "Return the green channel.";
-        Input: "No parameters";
-        Processing: "Read the stored channel.";
-        Output: "Green from 0 through 255.";
-    } {
-        Return green;
-    }
-
-    Public Function Blue() -> Int
-    Explain {
-        Description: "Return the blue channel.";
-        Input: "No parameters";
-        Processing: "Read the stored channel.";
-        Output: "Blue from 0 through 255.";
-    } {
-        Return blue;
-    }
-
-    Public Function Alpha() -> Int
-    Explain {
-        Description: "Return the alpha channel.";
-        Input: "No parameters";
-        Processing: "Read the stored alpha.";
-        Output: "Alpha from 0 through 255.";
-    } {
-        Return alpha;
-    }
-
-    Public Function Hue() -> Int
-    Explain {
-        Description: "Return the hue.";
-        Input: "No parameters";
-        Processing: "Read the hue derived from the stored RGB color.";
-        Output: "Hue from 0 through 359.";
-    } {
-        Return hue;
-    }
-
-    Public Function Saturation() -> Int
-    Explain {
-        Description: "Return the HSV saturation.";
-        Input: "No parameters";
-        Processing: "Read the saturation derived from the stored RGB color.";
-        Output: "Saturation from 0 through 100.";
-    } {
-        Return saturation;
-    }
-
-    Public Function Value() -> Int
-    Explain {
-        Description: "Return the HSV value.";
-        Input: "No parameters";
-        Processing: "Read the value derived from the stored RGB color.";
-        Output: "Value from 0 through 100.";
-    } {
-        Return value;
-    }
-
-    Public Function Lightness() -> Int
-    Explain {
-        Description: "Return the HSL lightness.";
-        Input: "No parameters";
-        Processing: "Read the lightness derived from the stored RGB color.";
-        Output: "Lightness from 0 through 100.";
-    } {
-        Return lightness;
-    }
-
-    Public Function Lighten(Int percent) -> Int
-    Explain {
-        Description: "Lighten the stored color.";
-        Input: percent = "Amount from 0 through 100";
-        Processing: "Move each channel toward white.";
-        Output: "The packed color.";
-    } {
-        Int r = red + (255 - red) * percent / 100;
-        Int g = green + (255 - green) * percent / 100;
-        Int b = blue + (255 - blue) * percent / 100;
-        Return This.Store(r, g, b, alpha);
-    }
-
-    Public Function Darken(Int percent) -> Int
-    Explain {
-        Description: "Darken the stored color.";
-        Input: percent = "Amount from 0 through 100";
-        Processing: "Move each channel toward black.";
-        Output: "The packed color.";
-    } {
-        Int r = red * (100 - percent) / 100;
-        Int g = green * (100 - percent) / 100;
-        Int b = blue * (100 - percent) / 100;
-        Return This.Store(r, g, b, alpha);
-    }
-
-    Public Function Mix(Int r, Int g, Int b, Int percent) -> Int
-    Explain {
-        Description: "Mix the stored color toward another color.";
-        Input: r = "Other red", g = "Other green", b = "Other blue", percent = "Weight of the other color";
-        Processing: "Blend the channels.";
-        Output: "The packed color.";
-    } {
-        Int rr = (red * (100 - percent) + r * percent) / 100;
-        Int gg = (green * (100 - percent) + g * percent) / 100;
-        Int bb = (blue * (100 - percent) + b * percent) / 100;
-        Return This.Store(rr, gg, bb, alpha);
-    }
-
-    Public Function Invert() -> Int
-    Explain {
-        Description: "Invert the stored color.";
-        Input: "No parameters";
-        Processing: "Subtract each channel from 255.";
-        Output: "The packed color.";
-    } {
-        Return This.Store(255 - red, 255 - green, 255 - blue, alpha);
-    }
-
-    Public Function Grayscale() -> Int
-    Explain {
-        Description: "Return the grayscale level of the stored color.";
-        Input: "No parameters";
-        Processing: "Weight the channels.";
-        Output: "A level from 0 through 255.";
-    } {
-        Return (red * 30 + green * 59 + blue * 11) / 100;
-    }
-
-    Public Function WithAlpha(Int a) -> Int
-    Explain {
-        Description: "Store a new alpha.";
-        Input: a = "Alpha";
-        Processing: "Keep the RGB channels.";
-        Output: "The packed color.";
-    } {
-        alpha = This.Clamp(a);
-        Return red * 65536 + green * 256 + blue;
-    }
-
-    Public Function IsDark() -> Int
-    Explain {
-        Description: "Report whether the stored color is dark.";
-        Input: "No parameters";
-        Processing: "Compare the grayscale level with 128.";
-        Output: "One when the color is dark.";
-    } {
-        If (This.Grayscale() < 128) { Return 1; }
-        Return 0;
-    }
-
-    Public Function IsLight() -> Int
-    Explain {
-        Description: "Report whether the stored color is light.";
-        Input: "No parameters";
-        Processing: "Compare the grayscale level with 128.";
-        Output: "One when the color is light.";
-    } {
-        If (This.Grayscale() >= 128) { Return 1; }
-        Return 0;
-    }
-
-    Public Function Contrast(Int r, Int g, Int b, Int otherR, Int otherG, Int otherB) -> Int
-    Explain {
-        Description: "Return the contrast ratio of two colors.";
-        Input: r = "First red", g = "First green", b = "First blue", otherR = "Second red", otherG = "Second green", otherB = "Second blue";
-        Processing: "Divide the lighter luminance by the darker luminance.";
-        Output: "The ratio rounded to an integer. Black on white is 21.";
-    } {
-        Int left = (r * 30 + g * 59 + b * 11) / 100;
-        Int right = (otherR * 30 + otherG * 59 + otherB * 11) / 100;
-        Float hi = left.ToFloat() / 255.0;
-        Float lo = right.ToFloat() / 255.0;
-        If (right > left) {
-            hi = right.ToFloat() / 255.0;
-            lo = left.ToFloat() / 255.0;
+        If (lambda < 0.0 || count < 0) {
+            problem = "domain";
+            Return 0.0;
         }
-        Float ratio = (hi + 0.05) / (lo + 0.05);
-        Int whole = ratio.ToInt();
-        If (ratio - whole.ToFloat() >= 0.5) { whole = whole + 1; }
-        Return whole;
+        Float series = This.Exp(0.0 - lambda);
+        Return series * This.Power(lambda, count) / This.Factorial(count).ToFloat();
+    }
+
+    Public Function HypergeometricPmf(Int population, Int successStates, Int draws, Int observed) -> Float
+    Explain {
+        Description: "Return a hypergeometric probability.";
+        Input: population = "Population size", successStates = "Success states in the population", draws = "Draws", observed = "Observed successes";
+        Processing: "Divide the product of combinations by the population combination.";
+        Output: "The point probability.";
+    } {
+        Int numerator = This.Choose(successStates, observed) * This.Choose(population - successStates, draws - observed);
+        Int denominator = This.Choose(population, draws);
+        If (denominator == 0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return numerator.ToFloat() / denominator.ToFloat();
+    }
+
+    Public Function DiscreteUniformPmf(Int low, Int high) -> Float
+    Explain {
+        Description: "Return a discrete uniform probability.";
+        Input: low = "Lowest integer", high = "Highest integer";
+        Processing: "Each integer in the closed range is equally likely.";
+        Output: "The point probability.";
+    } {
+        If (high < low) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return 1.0 / (high - low + 1).ToFloat();
+    }
+
+    Public Function MultinomialPmf(Int first, Int second, Float firstProbability, Float secondProbability) -> Float
+    Explain {
+        Description: "Return a two-category multinomial probability.";
+        Input: first = "Count in the first category", second = "Count in the second category", firstProbability = "First probability", secondProbability = "Second probability";
+        Processing: "Use the multinomial coefficient for two categories.";
+        Output: "The point probability.";
+    } {
+        Int total = first + second;
+        Int ways = This.Choose(total, first);
+        Return ways.ToFloat() * This.Power(firstProbability, first) * This.Power(secondProbability, second);
+    }
+
+    Public Function UniformPdf(Float low, Float high, Float point) -> Float
+    Explain {
+        Description: "Return a continuous uniform density.";
+        Input: low = "Lower bound", high = "Upper bound", point = "Point";
+        Processing: "The density is constant inside the open interval.";
+        Output: "The density.";
+    } {
+        If (high <= low || point < low || point > high) { Return 0.0; }
+        Return 1.0 / (high - low);
+    }
+
+    Public Function UniformCdf(Float low, Float high, Float point) -> Float
+    Explain {
+        Description: "Return a continuous uniform distribution function.";
+        Input: low = "Lower bound", high = "Upper bound", point = "Point";
+        Processing: "Scale the point into the interval.";
+        Output: "The cumulative probability.";
+    } {
+        If (point <= low) { Return 0.0; }
+        If (point >= high) { Return 1.0; }
+        Return (point - low) / (high - low);
+    }
+
+    Public Function InverseCdf(Float low, Float high, Float probability) -> Float
+    Explain {
+        Description: "Return a uniform quantile.";
+        Input: low = "Lower bound", high = "Upper bound", probability = "Probability";
+        Processing: "Scale the probability across the interval.";
+        Output: "The quantile.";
+    } {
+        Return low + (high - low) * probability;
+    }
+
+    Public Function NormalPdf(Float mean, Float deviation, Float point) -> Float
+    Explain {
+        Description: "Return a normal density.";
+        Input: mean = "Mean", deviation = "Standard deviation", point = "Point";
+        Processing: "Evaluate the normal curve.";
+        Output: "The density.";
+    } {
+        If (deviation <= 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Float z = (point - mean) / deviation;
+        Return 0.398942280401433 / deviation * This.Exp(0.0 - 0.5 * z * z);
+    }
+
+    Public Function NormalCdf(Float mean, Float deviation, Float point) -> Float
+    Explain {
+        Description: "Return a normal distribution function.";
+        Input: mean = "Mean", deviation = "Standard deviation", point = "Point";
+        Processing: "Integrate the standard normal curve through the error function.";
+        Output: "The cumulative probability.";
+    } {
+        If (deviation <= 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Float z = (point - mean) / deviation;
+        If (This.Near(z, 0.0) == 1) { Return 0.5; }
+        Float phi = 0.5 + 0.5 * This.Erf(z / 1.4142135623730951);
+        If (phi < 0.0) { Return 0.0; }
+        If (phi > 1.0) { Return 1.0; }
+        Return phi;
+    }
+
+    Public Function StandardNormalPdf(Float point) -> Float
+    Explain {
+        Description: "Return the standard normal density.";
+        Input: point = "Point";
+        Processing: "Use mean zero and deviation one.";
+        Output: "The density.";
+    } {
+        Return This.NormalPdf(0.0, 1.0, point);
+    }
+
+    Public Function StandardNormalCdf(Float point) -> Float
+    Explain {
+        Description: "Return the standard normal distribution function.";
+        Input: point = "Point";
+        Processing: "Use mean zero and deviation one.";
+        Output: "The cumulative probability.";
+    } {
+        Return This.NormalCdf(0.0, 1.0, point);
+    }
+
+    Public Function ExponentialPdf(Float rate, Float point) -> Float
+    Explain {
+        Description: "Return an exponential density.";
+        Input: rate = "Rate", point = "Point";
+        Processing: "Multiply the rate by the exponential decay.";
+        Output: "The density.";
+    } {
+        If (rate <= 0.0 || point < 0.0) { Return 0.0; }
+        Return rate * This.Exp(0.0 - rate * point);
+    }
+
+    Public Function ExponentialCdf(Float rate, Float point) -> Float
+    Explain {
+        Description: "Return an exponential distribution function.";
+        Input: rate = "Rate", point = "Point";
+        Processing: "Subtract the survival term from one.";
+        Output: "The cumulative probability.";
+    } {
+        If (point <= 0.0) { Return 0.0; }
+        Return 1.0 - This.Exp(0.0 - rate * point);
+    }
+
+    Public Function ExponentialQuantile(Float rate, Float probability) -> Float
+    Explain {
+        Description: "Return an exponential quantile.";
+        Input: rate = "Rate", probability = "Probability";
+        Processing: "Take the logarithm of the complementary probability.";
+        Output: "The quantile.";
+    } {
+        If (rate <= 0.0 || probability <= 0.0 || probability >= 1.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return 0.0 - This.Ln(1.0 - probability) / rate;
+    }
+
+    Public Function ErlangPdf(Int shape, Float rate, Float point) -> Float
+    Explain {
+        Description: "Return an Erlang density.";
+        Input: shape = "Integer shape", rate = "Rate", point = "Point";
+        Processing: "Use the integer-shape gamma density.";
+        Output: "The density.";
+    } {
+        If (shape < 1 || rate <= 0.0 || point < 0.0) { Return 0.0; }
+        Float power = This.Power(rate, shape) * This.Power(point, shape - 1);
+        Return power * This.Exp(0.0 - rate * point) / This.Factorial(shape - 1).ToFloat();
+    }
+
+    Public Function BetaPdf(Int alpha, Int beta, Float point) -> Float
+    Explain {
+        Description: "Return a beta density for positive integer parameters.";
+        Input: alpha = "First parameter", beta = "Second parameter", point = "Point from 0 through 1";
+        Processing: "Divide the monomial by the beta function.";
+        Output: "The density.";
+    } {
+        If (alpha < 1 || beta < 1 || point < 0.0 || point > 1.0) { Return 0.0; }
+        Float coefficient = This.Factorial(alpha + beta - 1).ToFloat() / (This.Factorial(alpha - 1).ToFloat() * This.Factorial(beta - 1).ToFloat());
+        Return coefficient * This.Power(point, alpha - 1) * This.Power(1.0 - point, beta - 1);
+    }
+
+    Public Function ChiSquarePdf(Int freedom, Float point) -> Float
+    Explain {
+        Description: "Return a chi-square density for an even degree of freedom.";
+        Input: freedom = "Even degrees of freedom", point = "Point";
+        Processing: "Use the gamma density with shape equal to half the degrees of freedom.";
+        Output: "The density.";
+    } {
+        If (freedom < 2 || freedom % 2 != 0 || point < 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.ErlangPdf(freedom / 2, 0.5, point);
+    }
+
+    Public Function StudentTPdf(Int freedom, Float point) -> Float
+    Explain {
+        Description: "Return a Student t density for one or two degrees of freedom.";
+        Input: freedom = "Degrees of freedom", point = "Point";
+        Processing: "Use the closed form for one and two degrees of freedom.";
+        Output: "The density.";
+    } {
+        If (freedom == 1) { Return 1.0 / (This.Pi() * (1.0 + point * point)); }
+        If (freedom == 2) {
+            Float scale = 1.0 + point * point / 2.0;
+            Return 0.353553390593274 / (scale * This.Sqrt(scale));
+        }
+        problem = "freedom";
+        Return 0.0;
+    }
+
+    Public Function FPdf(Int firstFreedom, Int secondFreedom, Float point) -> Float
+    Explain {
+        Description: "Return an F density for positive even degrees of freedom.";
+        Input: firstFreedom = "Numerator degrees of freedom", secondFreedom = "Denominator degrees of freedom", point = "Point";
+        Processing: "Evaluate the F curve through the integer beta function.";
+        Output: "The density.";
+    } {
+        If (point <= 0.0 || firstFreedom < 2 || secondFreedom < 2 || firstFreedom % 2 != 0 || secondFreedom % 2 != 0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Int a = firstFreedom / 2;
+        Int b = secondFreedom / 2;
+        Float beta = This.Factorial(a - 1).ToFloat() * This.Factorial(b - 1).ToFloat() / This.Factorial(a + b - 1).ToFloat();
+        Float ratio = firstFreedom.ToFloat() / secondFreedom.ToFloat();
+        Float lead = This.Power(ratio, a) * This.Power(point, a - 1);
+        Float span = 1.0 + ratio * point;
+        Return lead / (beta * This.Power(span, a + b));
+    }
+
+    Public Function WeibullPdf(Float shape, Float scale, Float point) -> Float
+    Explain {
+        Description: "Return a Weibull density.";
+        Input: shape = "Shape", scale = "Scale", point = "Point";
+        Processing: "Evaluate the Weibull curve.";
+        Output: "The density.";
+    } {
+        If (shape <= 0.0 || scale <= 0.0 || point < 0.0) { Return 0.0; }
+        Float ratio = point / scale;
+        Return shape / scale * This.Power(ratio, shape.ToInt() - 1) * This.Exp(0.0 - This.Power(ratio, shape.ToInt()));
+    }
+
+    Public Function LogNormalPdf(Float mean, Float deviation, Float point) -> Float
+    Explain {
+        Description: "Return a log-normal density.";
+        Input: mean = "Mean of the logarithm", deviation = "Deviation of the logarithm", point = "Positive point";
+        Processing: "Evaluate the log-normal curve.";
+        Output: "The density.";
+    } {
+        If (deviation <= 0.0 || point <= 0.0) { Return 0.0; }
+        Float z = (This.Ln(point) - mean) / deviation;
+        Return 0.398942280401433 / (point * deviation) * This.Exp(0.0 - 0.5 * z * z);
+    }
+
+    Public Function ParetoPdf(Float minimum, Float alpha, Float point) -> Float
+    Explain {
+        Description: "Return a Pareto density.";
+        Input: minimum = "Minimum value", alpha = "Shape", point = "Point";
+        Processing: "Evaluate the Pareto curve at and above the minimum.";
+        Output: "The density.";
+    } {
+        If (minimum <= 0.0 || alpha <= 0.0 || point < minimum) { Return 0.0; }
+        Return alpha * This.Power(minimum, alpha.ToInt()) / This.Power(point, alpha.ToInt() + 1);
+    }
+
+    Public Function CauchyPdf(Float point) -> Float
+    Explain {
+        Description: "Return the standard Cauchy density.";
+        Input: point = "Point";
+        Processing: "Use the arctangent distribution with location zero and scale one.";
+        Output: "The density.";
+    } {
+        Return 1.0 / (This.Pi() * (1.0 + point * point));
+    }
+
+    Public Function LaplacePdf(Float point) -> Float
+    Explain {
+        Description: "Return the standard Laplace density.";
+        Input: point = "Point";
+        Processing: "Use location zero and scale one.";
+        Output: "The density.";
+    } {
+        Float distance = point;
+        If (distance < 0.0) { distance = 0.0 - distance; }
+        Return 0.5 * This.Exp(0.0 - distance);
+    }
+
+    Public Function LogisticPdf(Float point) -> Float
+    Explain {
+        Description: "Return the standard logistic density.";
+        Input: point = "Point";
+        Processing: "Use location zero and scale one.";
+        Output: "The density.";
+    } {
+        Float decay = This.Exp(0.0 - point);
+        Float denom = 1.0 + decay;
+        Return decay / (denom * denom);
+    }
+
+    Public Function RayleighPdf(Float point) -> Float
+    Explain {
+        Description: "Return the standard Rayleigh density.";
+        Input: point = "Point";
+        Processing: "Use scale one.";
+        Output: "The density.";
+    } {
+        If (point < 0.0) { Return 0.0; }
+        Return point * This.Exp(0.0 - 0.5 * point * point);
+    }
+
+    Public Function TriangularPdf(Float low, Float high, Float mode, Float point) -> Float
+    Explain {
+        Description: "Return a triangular density.";
+        Input: low = "Lower bound", high = "Upper bound", mode = "Mode", point = "Point";
+        Processing: "Rise from the lower bound to the mode and fall to the upper bound.";
+        Output: "The density.";
+    } {
+        If (point < low || point > high || high <= low || mode < low || mode > high) { Return 0.0; }
+        If (point <= mode && mode > low) { Return 2.0 * (point - low) / ((high - low) * (mode - low)); }
+        If (high > mode) { Return 2.0 * (high - point) / ((high - low) * (high - mode)); }
+        Return 0.0;
+    }
+
+    Public Function SurvivalFunction(Float cdf) -> Float
+    Explain {
+        Description: "Return the survival probability.";
+        Input: cdf = "Cumulative probability";
+        Processing: "Subtract the cumulative probability from one.";
+        Output: "The survival probability.";
+    } {
+        Return 1.0 - cdf;
+    }
+
+    Public Function HazardFunction(Float pdf, Float cdf) -> Float
+    Explain {
+        Description: "Return a hazard value.";
+        Input: pdf = "Density", cdf = "Cumulative probability";
+        Processing: "Divide the density by the survival probability.";
+        Output: "The hazard.";
+    } {
+        Float survival = 1.0 - cdf;
+        If (survival <= 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return pdf / survival;
+    }
+
+    Public Function LogPmf(Float mass) -> Float
+    Explain {
+        Description: "Return the natural logarithm of a positive probability.";
+        Input: mass = "Probability or density";
+        Processing: "Take the natural logarithm.";
+        Output: "The logarithm.";
+    } {
+        If (mass <= 0.0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return This.Ln(mass);
+    }
+
+    Public Function Observe(Int value) -> Int
+    Explain {
+        Description: "Store one observation for fitting.";
+        Input: value = "Observation";
+        Processing: "Keep up to eight observations.";
+        Output: "The index, or -1 when the sample is full.";
+    } {
+        If (observationCount >= 8) { Return -1; }
+        observations[observationCount] = value;
+        observationCount = observationCount + 1;
+        Return observationCount - 1;
+    }
+
+    Public Function MaximumLikelihoodEstimate() -> Float
+    Explain {
+        Description: "Return the sample mean.";
+        Input: "No parameters";
+        Processing: "Average the stored observations.";
+        Output: "The maximum-likelihood mean.";
+    } {
+        If (observationCount <= 0) {
+            problem = "empty";
+            Return 0.0;
+        }
+        Int total = 0;
+        Int index = 0;
+        While (index < observationCount) {
+            total = total + observations[index];
+            index = index + 1;
+        }
+        Return total.ToFloat() / observationCount.ToFloat();
+    }
+
+    Public Function MaximumLikelihoodBernoulli(Int successes, Int trials) -> Float
+    Explain {
+        Description: "Return the Bernoulli maximum-likelihood estimate.";
+        Input: successes = "Success count", trials = "Trial count";
+        Processing: "Divide successes by trials.";
+        Output: "The estimate.";
+    } {
+        If (trials <= 0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return successes.ToFloat() / trials.ToFloat();
+    }
+
+    Public Function MaximumAPosterioriEstimate(Int successes, Int trials, Int alpha, Int beta) -> Float
+    Explain {
+        Description: "Return a beta-Bernoulli posterior mode.";
+        Input: successes = "Success count", trials = "Trial count", alpha = "Prior alpha", beta = "Prior beta";
+        Processing: "Add the prior counts and take the mode.";
+        Output: "The posterior mode.";
+    } {
+        Int denominator = trials + alpha + beta - 2;
+        If (denominator == 0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return (successes + alpha - 1).ToFloat() / denominator.ToFloat();
+    }
+
+    Public Function UpdateBelief(Float prior, Float likelihood, Float evidence) -> Float
+    Explain {
+        Description: "Update a belief from evidence.";
+        Input: prior = "Prior", likelihood = "Likelihood", evidence = "Evidence";
+        Processing: "Apply Bayes' theorem.";
+        Output: "The posterior.";
+    } {
+        Return This.BayesTheorem(prior, likelihood, evidence);
+    }
+
+    Public Function FitVariance() -> Float
+    Explain {
+        Description: "Return the population variance of the stored observations.";
+        Input: "No parameters";
+        Processing: "Subtract the squared mean from the mean square.";
+        Output: "The variance.";
+    } {
+        If (observationCount <= 0) {
+            problem = "empty";
+            Return 0.0;
+        }
+        Float mean = This.MaximumLikelihoodEstimate();
+        Int second = 0;
+        Int index = 0;
+        While (index < observationCount) {
+            Int value = observations[index];
+            second = second + value * value;
+            index = index + 1;
+        }
+        Return second.ToFloat() / observationCount.ToFloat() - mean * mean;
+    }
+
+    Public Function SetChain(Int remain0, Int move0, Int move1, Int remain1) -> Int
+    Explain {
+        Description: "Store a two-state Markov chain in thousandths.";
+        Input: remain0 = "Stay in state zero", move0 = "Leave state zero", move1 = "Leave state one", remain1 = "Stay in state one";
+        Processing: "Store the four transition weights.";
+        Output: "One after the chain is stored.";
+    } {
+        stay0 = remain0;
+        leave0 = move0;
+        leave1 = move1;
+        stay1 = remain1;
+        Return 1;
+    }
+
+    Public Function TransitionProbability(Int fromState, Int toState) -> Float
+    Explain {
+        Description: "Return one stored transition probability.";
+        Input: fromState = "Starting state", toState = "Destination state";
+        Processing: "Read the matching thousandths.";
+        Output: "The transition probability.";
+    } {
+        Int weight = 0;
+        If (fromState == 0 && toState == 0) { weight = stay0; }
+        If (fromState == 0 && toState == 1) { weight = leave0; }
+        If (fromState == 1 && toState == 0) { weight = leave1; }
+        If (fromState == 1 && toState == 1) { weight = stay1; }
+        Return weight.ToFloat() / 1000.0;
+    }
+
+    Public Function SteadyState() -> Float
+    Explain {
+        Description: "Return the steady-state probability of state zero.";
+        Input: "No parameters";
+        Processing: "Balance the two leaving probabilities.";
+        Output: "The probability of state zero.";
+    } {
+        Int leaving = leave0 + leave1;
+        If (leaving == 0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Return leave1.ToFloat() / leaving.ToFloat();
+    }
+
+    Public Function SimulateMarkovChain(Int start, Int steps) -> Int
+    Explain {
+        Description: "Walk a Markov chain.";
+        Input: start = "Starting state", steps = "Number of transitions";
+        Processing: "Follow a certain transition when its weight is one, otherwise draw.";
+        Output: "The final state.";
+    } {
+        Int state = start;
+        Int index = 0;
+        While (index < steps) {
+            state = This.Move(state);
+            index = index + 1;
+        }
+        Return state;
+    }
+
+    Public Function SimulateProcess(Int start, Int steps) -> Int
+    Explain {
+        Description: "Count visits to state one.";
+        Input: start = "Starting state", steps = "Number of transitions";
+        Processing: "Walk the chain and count landings on state one.";
+        Output: "The number of visits.";
+    } {
+        Int state = start;
+        Int visits = 0;
+        Int index = 0;
+        While (index < steps) {
+            state = This.Move(state);
+            If (state == 1) { visits = visits + 1; }
+            index = index + 1;
+        }
+        Return visits;
+    }
+
+    Public Function SetSeed(Int value) -> Int
+    Explain {
+        Description: "Set the sampling seed.";
+        Input: value = "Seed";
+        Processing: "Store a positive seed.";
+        Output: "The stored seed.";
+    } {
+        seed = value;
+        If (seed < 0) { seed = 0 - seed; }
+        If (seed == 0) { seed = 1; }
+        Return seed;
+    }
+
+    Public Function MonteCarloEstimate(Int draws, Float probability) -> Float
+    Explain {
+        Description: "Estimate a Bernoulli mean by sampling.";
+        Input: draws = "Number of draws", probability = "Success probability";
+        Processing: "Average seeded Bernoulli draws.";
+        Output: "The sample mean.";
+    } {
+        If (draws <= 0) {
+            problem = "domain";
+            Return 0.0;
+        }
+        Int hits = 0;
+        Int index = 0;
+        Int threshold = (probability * 1000.0).ToInt();
+        While (index < draws) {
+            Int draw = This.NextSeed() % 1000;
+            If (draw < 0) { draw = 0 - draw; }
+            If (draw < threshold) { hits = hits + 1; }
+            index = index + 1;
+        }
+        Return hits.ToFloat() / draws.ToFloat();
     }
 
     Public Function Fault() -> String
     Explain {
-        Description: "Return the latest color error.";
+        Description: "Return the latest fault.";
         Input: "No parameters";
-        Processing: "Read the stored error.";
-        Output: "The error text.";
+        Processing: "Read the stored fault.";
+        Output: "The fault name, or none.";
     } {
         Return problem;
     }
 
-    Private Function Store(Int r, Int g, Int b, Int a) -> Int {
-        red = This.Clamp(r);
-        green = This.Clamp(g);
-        blue = This.Clamp(b);
-        alpha = This.Clamp(a);
-        Int max = red;
-        Int min = red;
-        If (green > max) { max = green; }
-        If (blue > max) { max = blue; }
-        If (green < min) { min = green; }
-        If (blue < min) { min = blue; }
-        Int delta = max - min;
-        value = max * 100 / 255;
-        lightness = (max + min) * 100 / 510;
-        saturation = 0;
-        hue = 0;
-        If (max != 0) { saturation = delta * 100 / max; }
-        If (delta != 0 && max == red) {
-            hue = 60 * (green - blue) / delta;
-            If (hue < 0) { hue = hue + 360; }
+    Private Function Move(Int state) -> Int {
+        Int remain = stay0;
+        Int move = leave0;
+        If (state == 1) {
+            remain = stay1;
+            move = leave1;
         }
-        If (delta != 0 && max != red && max == green) { hue = 120 + 60 * (blue - red) / delta; }
-        If (delta != 0 && max != red && max != green) { hue = 240 + 60 * (red - green) / delta; }
-        If (hue < 0) { hue = hue + 360; }
-        Return red * 65536 + green * 256 + blue;
+        If (remain >= 1000) { Return state; }
+        If (move >= 1000) {
+            If (state == 0) { Return 1; }
+            Return 0;
+        }
+        Int draw = This.NextSeed() % 1000;
+        If (draw < 0) { draw = 0 - draw; }
+        If (draw < remain) { Return state; }
+        If (state == 0) { Return 1; }
+        Return 0;
     }
 
-    Private Function Scale(Int amount) -> Int {
-        Return This.Clamp(amount * 255 / 100);
+    Private Function Choose(Int n, Int k) -> Int {
+        If (k < 0 || n < 0 || k > n) { Return 0; }
+        Int use = k;
+        If (n - k < k) { use = n - k; }
+        Int result = 1;
+        Int index = 1;
+        While (index <= use) {
+            result = result * (n - use + index) / index;
+            index = index + 1;
+        }
+        Return result;
     }
 
-    Private Function Cube(Int level) -> Int {
-        If (level <= 0) { Return 0; }
-        If (level == 1) { Return 95; }
-        If (level == 2) { Return 135; }
-        If (level == 3) { Return 175; }
-        If (level == 4) { Return 215; }
-        Return 255;
+    Private Function Factorial(Int value) -> Int {
+        If (value < 0) { Return 0; }
+        Int result = 1;
+        Int current = 2;
+        While (current <= value) {
+            result = result * current;
+            current = current + 1;
+        }
+        Return result;
     }
 
-    Private Function AnsiIndex(Int index) -> Int {
-        If (index == 1 || index == 9) { Return This.Store(255, 0, 0, 255); }
-        If (index == 2 || index == 10) { Return This.Store(0, 255, 0, 255); }
-        If (index == 3 || index == 11) { Return This.Store(255, 255, 0, 255); }
-        If (index == 4 || index == 12) { Return This.Store(0, 0, 255, 255); }
-        If (index == 5 || index == 13) { Return This.Store(255, 0, 255, 255); }
-        If (index == 6 || index == 14) { Return This.Store(0, 255, 255, 255); }
-        If (index == 7 || index == 15) { Return This.Store(255, 255, 255, 255); }
-        If (index == 8) { Return This.Store(128, 128, 128, 255); }
-        Return This.Store(0, 0, 0, 255);
+    Private Function Power(Float value, Int exponent) -> Float {
+        Float result = 1.0;
+        Int index = 0;
+        Int count = exponent;
+        If (count < 0) { count = 0; }
+        While (index < count) {
+            result = result * value;
+            index = index + 1;
+        }
+        Return result;
     }
 
-    Private Function Pair(String text, Int index) -> Int {
-        Int high = This.HexDigit(text.Substring(index, 1));
-        Int low = This.HexDigit(text.Substring(index + 1, 1));
-        If (high < 0 || low < 0) { Return -1; }
-        Return high * 16 + low;
+    Private Function Exp(Float value) -> Float {
+        Float term = 1.0;
+        Float sum = 1.0;
+        Int index = 1;
+        While (index < 24) {
+            term = term * value / index.ToFloat();
+            sum = sum + term;
+            index = index + 1;
+        }
+        Return sum;
     }
 
-    Private Function HexDigit(String piece) -> Int {
-        If (piece == "0") { Return 0; }
-        If (piece == "1") { Return 1; }
-        If (piece == "2") { Return 2; }
-        If (piece == "3") { Return 3; }
-        If (piece == "4") { Return 4; }
-        If (piece == "5") { Return 5; }
-        If (piece == "6") { Return 6; }
-        If (piece == "7") { Return 7; }
-        If (piece == "8") { Return 8; }
-        If (piece == "9") { Return 9; }
-        If (piece == "a" || piece == "A") { Return 10; }
-        If (piece == "b" || piece == "B") { Return 11; }
-        If (piece == "c" || piece == "C") { Return 12; }
-        If (piece == "d" || piece == "D") { Return 13; }
-        If (piece == "e" || piece == "E") { Return 14; }
-        If (piece == "f" || piece == "F") { Return 15; }
-        Return -1;
+    Private Function Ln(Float value) -> Float {
+        If (value <= 0.0) { Return 0.0; }
+        Float scaled = value;
+        Int extra = 0;
+        While (scaled >= 2.0) {
+            scaled = scaled / 2.0;
+            extra = extra + 1;
+        }
+        While (scaled < 1.0) {
+            scaled = scaled * 2.0;
+            extra = extra - 1;
+        }
+        Float y = (scaled - 1.0) / (scaled + 1.0);
+        Float power = y;
+        Float sum = 0.0;
+        Int index = 0;
+        While (index < 24) {
+            sum = sum + power / (index * 2 + 1).ToFloat();
+            power = power * y * y;
+            index = index + 1;
+        }
+        Return 2.0 * sum + extra.ToFloat() * 0.6931471805599453;
     }
 
-    Private Function ByteText(Int channel) -> String {
-        String digits = "0123456789ABCDEF";
-        Int high = channel / 16;
-        Int low = channel % 16;
-        Return digits.Substring(high, 1) + digits.Substring(low, 1);
+    Private Function Erf(Float value) -> Float {
+        Float sign = 1.0;
+        Float x = value;
+        If (x < 0.0) {
+            sign = -1.0;
+            x = 0.0 - x;
+        }
+        Float term = x;
+        Float sum = x;
+        Int index = 1;
+        While (index < 24) {
+            term = term * (0.0 - x) * x / index.ToFloat();
+            sum = sum + term / (index * 2 + 1).ToFloat();
+            index = index + 1;
+        }
+        Return sign * 1.1283791670955126 * sum;
     }
 
-    Private Function Clamp(Int channel) -> Int {
-        If (channel < 0) { Return 0; }
-        If (channel > 255) { Return 255; }
-        Return channel;
+    Private Function Sqrt(Float value) -> Float {
+        If (value <= 0.0) { Return 0.0; }
+        Float guess = value;
+        Int index = 0;
+        While (index < 24) {
+            guess = (guess + value / guess) / 2.0;
+            index = index + 1;
+        }
+        Return guess;
+    }
+
+    Private Function Pi() -> Float {
+        Return 3.141592653589793;
+    }
+
+    Private Function Near(Float value, Float target) -> Int {
+        Float diff = value - target;
+        If (diff < 0.0) { diff = 0.0 - diff; }
+        If (diff <= 0.000001) { Return 1; }
+        Return 0;
+    }
+
+    Private Function NextSeed() -> Int {
+        seed = seed * 1103515245 + 12345;
+        seed = seed % 2147483647;
+        If (seed < 0) { seed = 0 - seed; }
+        Return seed;
     }
 }
 

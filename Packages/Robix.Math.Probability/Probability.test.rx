@@ -1,0 +1,5 @@
+Test Complement {
+    Constraint: ProbabilityDesk().Complement(0.25) == 0.75;
+    Processing: True;
+    Output: True;
+}

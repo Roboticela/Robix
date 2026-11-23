@@ -1,0 +1,80 @@
+Package Robotics.Probability;
+
+Import Robix.Math.Probability;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise probability, distributions, and a Markov chain.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the probability desk.";
+    Output: "The probability report.";
+} {
+    ProbabilityDesk desk = ProbabilityDesk();
+    Print(desk.CalculateProbability(1, 2));
+    Print(desk.Complement(0.25));
+    Print(desk.JointProbability(0.5, 0.5));
+    Print(desk.ConditionalProbability(0.25, 0.5));
+    Print(desk.Independent(0.25, 0.5, 0.5));
+    Print(desk.MutuallyExclusive(0.0));
+    Print(desk.BayesTheorem(0.5, 0.8, 0.5));
+    Print(desk.TotalProbability(0.2, 0.3, 0.5));
+    Print(desk.Place(0, 500));
+    Print(desk.Place(2, 500));
+    Print(desk.ExpectedValue());
+    Print(desk.Variance());
+    Print(desk.Categorical(1));
+    Print(desk.BernoulliPmf(1, 0.5));
+    Print(desk.BernoulliVariance(0.5));
+    Print(desk.BinomialPmf(2, 1, 0.5));
+    Print(desk.BinomialMean(10, 0.5));
+    Print(desk.BinomialVariance(10, 0.5));
+    Print(desk.GeometricPmf(1, 0.5));
+    Print(desk.GeometricPmf(2, 0.5));
+    Print(desk.NegativeBinomialPmf(0, 1, 0.5));
+    Print(desk.PoissonPmf(0, 1.0));
+    Print(desk.HypergeometricPmf(10, 5, 4, 2));
+    Print(desk.DiscreteUniformPmf(1, 6));
+    Print(desk.MultinomialPmf(1, 1, 0.5, 0.5));
+    Print(desk.UniformPdf(0.0, 2.0, 1.0));
+    Print(desk.UniformCdf(0.0, 2.0, 1.0));
+    Print(desk.InverseCdf(0.0, 2.0, 0.25));
+    Print(desk.StandardNormalPdf(0.0));
+    Print(desk.StandardNormalCdf(0.0));
+    Print(desk.ExponentialPdf(1.0, 0.0));
+    Print(desk.ExponentialQuantile(1.0, 0.5));
+    Print(desk.ErlangPdf(2, 1.0, 0.0));
+    Print(desk.BetaPdf(2, 2, 0.5));
+    Print(desk.ChiSquarePdf(2, 0.0));
+    Print(desk.StudentTPdf(1, 0.0));
+    Print(desk.FPdf(2, 2, 1.0));
+    Print(desk.WeibullPdf(1.0, 1.0, 0.0));
+    Print(desk.LogNormalPdf(0.0, 1.0, 1.0));
+    Print(desk.ParetoPdf(1.0, 2.0, 1.0));
+    Print(desk.CauchyPdf(0.0));
+    Print(desk.LaplacePdf(0.0));
+    Print(desk.LogisticPdf(0.0));
+    Print(desk.RayleighPdf(0.0));
+    Print(desk.TriangularPdf(0.0, 1.0, 0.5, 0.5));
+    Print(desk.SurvivalFunction(0.25));
+    Print(desk.HazardFunction(0.5, 0.0));
+    Print(desk.LogPmf(0.5));
+    Print(desk.Observe(2));
+    Print(desk.Observe(4));
+    Print(desk.Observe(4));
+    Print(desk.Observe(6));
+    Print(desk.MaximumLikelihoodEstimate());
+    Print(desk.FitVariance());
+    Print(desk.MaximumLikelihoodBernoulli(3, 4));
+    Print(desk.MaximumAPosterioriEstimate(3, 4, 2, 2));
+    Print(desk.UpdateBelief(0.5, 0.8, 0.5));
+    Print(desk.SetChain(0, 1000, 1000, 0));
+    Print(desk.TransitionProbability(0, 1));
+    Print(desk.SteadyState());
+    Print(desk.SimulateMarkovChain(0, 2));
+    Print(desk.SimulateProcess(0, 4));
+    Print(desk.SetSeed(1));
+    Print(desk.MonteCarloEstimate(4, 0.5));
+    Print(desk.Fault());
+    Return 0;
+}
