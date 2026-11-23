@@ -1,0 +1,558 @@
+// Robix.Synchronization: mutexes, semaphores, reader-writer locks, barriers, and events.
+Package Robix.Synchronization;
+
+Import Robix.Core;
+
+
+Class SyncDesk {
+    Private Int owner;
+    Private Int permits;
+    Private Int permitMax;
+    Private Int readers;
+    Private Int writer;
+    Private Int parties;
+    Private Int arrived;
+    Private Int generation;
+    Private Int opened;
+    Private Int down;
+    Private Int manual;
+    Private Int auto;
+    Private Int waiters;
+    Private Int asyncHeld;
+    Private Int spinHeld;
+    Private Int acquires;
+    Private Int releases;
+    Private Int signals;
+    Private String context;
+    Private String problem;
+
+    Public Constructor() {
+        owner = 0;
+        permits = 2;
+        permitMax = 2;
+        readers = 0;
+        writer = 0;
+        parties = 2;
+        arrived = 0;
+        generation = 0;
+        opened = 0;
+        down = 2;
+        manual = 0;
+        auto = 0;
+        waiters = 0;
+        asyncHeld = 0;
+        spinHeld = 0;
+        acquires = 0;
+        releases = 0;
+        signals = 0;
+        context = "none";
+        problem = "none";
+    }
+
+    Public Function Acquire(Int worker) -> Int
+    Explain {
+        Description: "Acquire the mutex for a worker.";
+        Input: worker = "Worker id";
+        Processing: "Take the mutex when it is free.";
+        Output: "One when the worker owns the mutex.";
+    } {
+        If (owner != 0) { Return 0; }
+        owner = worker;
+        acquires = acquires + 1;
+        Return 1;
+    }
+
+    Public Function TryAcquire(Int worker) -> Int
+    Explain {
+        Description: "Try to acquire the mutex.";
+        Input: worker = "Worker id";
+        Processing: "Take the mutex when it is free.";
+        Output: "One when the worker owns the mutex.";
+    } {
+        Return This.Acquire(worker);
+    }
+
+    Public Function AcquireFor(Int worker, Int ticks) -> Int
+    Explain {
+        Description: "Try to acquire the mutex within a timeout.";
+        Input: worker = "Worker id", ticks = "Timeout in ticks";
+        Processing: "A busy mutex fails immediately.";
+        Output: "One when the worker owns the mutex.";
+    } {
+        If (ticks < 0) { Return 0; }
+        Return This.Acquire(worker);
+    }
+
+    Public Function Release(Int worker) -> Int
+    Explain {
+        Description: "Release the mutex.";
+        Input: worker = "Worker id";
+        Processing: "Only the owner can release the mutex.";
+        Output: "One when the mutex is released.";
+    } {
+        If (owner == 0) {
+            problem = "free";
+            Return 0;
+        }
+        If (owner != worker) {
+            problem = "owner";
+            Return 0;
+        }
+        owner = 0;
+        releases = releases + 1;
+        Return 1;
+    }
+
+    Public Function IsLocked() -> Int
+    Explain {
+        Description: "Report whether the mutex is held.";
+        Input: "No parameters";
+        Processing: "Read the owner.";
+        Output: "One when a worker owns the mutex.";
+    } {
+        If (owner != 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Owner() -> Int
+    Explain {
+        Description: "Return the mutex owner.";
+        Input: "No parameters";
+        Processing: "Read the owner.";
+        Output: "The worker id, or zero.";
+    } {
+        Return owner;
+    }
+
+    Public Function WaitSem() -> Int
+    Explain {
+        Description: "Take one semaphore permit.";
+        Input: "No parameters";
+        Processing: "Decrease the permit count when one is available.";
+        Output: "One when a permit is taken.";
+    } {
+        If (permits <= 0) { Return 0; }
+        permits = permits - 1;
+        acquires = acquires + 1;
+        Return 1;
+    }
+
+    Public Function TryWait() -> Int
+    Explain {
+        Description: "Try to take one semaphore permit.";
+        Input: "No parameters";
+        Processing: "Decrease the permit count when one is available.";
+        Output: "One when a permit is taken.";
+    } {
+        Return This.WaitSem();
+    }
+
+    Public Function ReleaseSem() -> Int
+    Explain {
+        Description: "Return one semaphore permit.";
+        Input: "No parameters";
+        Processing: "Increase the permit count up to the maximum.";
+        Output: "The permit count, or zero when it is already full.";
+    } {
+        If (permits >= permitMax) { Return 0; }
+        permits = permits + 1;
+        releases = releases + 1;
+        Return permits;
+    }
+
+    Public Function SemCount() -> Int
+    Explain {
+        Description: "Return the semaphore permit count.";
+        Input: "No parameters";
+        Processing: "Read the permit count.";
+        Output: "The permit count.";
+    } {
+        Return permits;
+    }
+
+    Public Function EnterRead() -> Int
+    Explain {
+        Description: "Enter a reader lock.";
+        Input: "No parameters";
+        Processing: "Readers enter while no writer holds the lock.";
+        Output: "One when the reader enters.";
+    } {
+        If (writer != 0) { Return 0; }
+        readers = readers + 1;
+        acquires = acquires + 1;
+        Return 1;
+    }
+
+    Public Function ExitRead() -> Int
+    Explain {
+        Description: "Leave a reader lock.";
+        Input: "No parameters";
+        Processing: "Decrease the reader count.";
+        Output: "One when a reader leaves.";
+    } {
+        If (readers <= 0) { Return 0; }
+        readers = readers - 1;
+        releases = releases + 1;
+        Return 1;
+    }
+
+    Public Function EnterWrite() -> Int
+    Explain {
+        Description: "Enter a writer lock.";
+        Input: "No parameters";
+        Processing: "A writer enters when there are no readers and no writer.";
+        Output: "One when the writer enters.";
+    } {
+        If (writer != 0 || readers != 0) { Return 0; }
+        writer = 1;
+        acquires = acquires + 1;
+        Return 1;
+    }
+
+    Public Function ExitWrite() -> Int
+    Explain {
+        Description: "Leave a writer lock.";
+        Input: "No parameters";
+        Processing: "Clear the writer.";
+        Output: "One when the writer leaves.";
+    } {
+        If (writer == 0) { Return 0; }
+        writer = 0;
+        releases = releases + 1;
+        Return 1;
+    }
+
+    Public Function TryRead() -> Int
+    Explain {
+        Description: "Try to enter a reader lock.";
+        Input: "No parameters";
+        Processing: "Readers enter while no writer holds the lock.";
+        Output: "One when the reader enters.";
+    } {
+        Return This.EnterRead();
+    }
+
+    Public Function TryWrite() -> Int
+    Explain {
+        Description: "Try to enter a writer lock.";
+        Input: "No parameters";
+        Processing: "A writer enters when there are no readers and no writer.";
+        Output: "One when the writer enters.";
+    } {
+        Return This.EnterWrite();
+    }
+
+    Public Function Readers() -> Int
+    Explain {
+        Description: "Return the reader count.";
+        Input: "No parameters";
+        Processing: "Read the reader count.";
+        Output: "The reader count.";
+    } {
+        Return readers;
+    }
+
+    Public Function Signal() -> Int
+    Explain {
+        Description: "Arrive at the barrier.";
+        Input: "No parameters";
+        Processing: "The last party opens the barrier.";
+        Output: "One when the barrier opens.";
+    } {
+        signals = signals + 1;
+        arrived = arrived + 1;
+        If (arrived >= parties) {
+            arrived = 0;
+            generation = generation + 1;
+            opened = 1;
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function SignalAndWait() -> Int
+    Explain {
+        Description: "Arrive at the barrier and report whether it opened.";
+        Input: "No parameters";
+        Processing: "Signal the barrier.";
+        Output: "One when the barrier opens.";
+    } {
+        Return This.Signal();
+    }
+
+    Public Function WaitGate() -> Int
+    Explain {
+        Description: "Report whether the barrier is open.";
+        Input: "No parameters";
+        Processing: "Read the barrier.";
+        Output: "One when the barrier is open.";
+    } {
+        Return opened;
+    }
+
+    Public Function Generation() -> Int
+    Explain {
+        Description: "Return the barrier generation.";
+        Input: "No parameters";
+        Processing: "Read the generation.";
+        Output: "The generation.";
+    } {
+        Return generation;
+    }
+
+    Public Function TickDown() -> Int
+    Explain {
+        Description: "Signal the countdown.";
+        Input: "No parameters";
+        Processing: "Decrease the remaining count.";
+        Output: "The remaining count.";
+    } {
+        If (down <= 0) { Return 0; }
+        down = down - 1;
+        signals = signals + 1;
+        Return down;
+    }
+
+    Public Function Down() -> Int
+    Explain {
+        Description: "Return the countdown remaining.";
+        Input: "No parameters";
+        Processing: "Read the countdown.";
+        Output: "The remaining count.";
+    } {
+        Return down;
+    }
+
+    Public Function SetEvent() -> Int
+    Explain {
+        Description: "Set the manual event.";
+        Input: "No parameters";
+        Processing: "The event stays set until it is reset.";
+        Output: "One.";
+    } {
+        manual = 1;
+        signals = signals + 1;
+        Return 1;
+    }
+
+    Public Function ResetEvent() -> Int
+    Explain {
+        Description: "Reset the manual event.";
+        Input: "No parameters";
+        Processing: "Clear the manual event.";
+        Output: "One.";
+    } {
+        manual = 0;
+        Return 1;
+    }
+
+    Public Function WaitOne() -> Int
+    Explain {
+        Description: "Wait for the manual event.";
+        Input: "No parameters";
+        Processing: "Read the manual event.";
+        Output: "One when the event is set.";
+    } {
+        Return manual;
+    }
+
+    Public Function SetAuto() -> Int
+    Explain {
+        Description: "Set the auto-reset event.";
+        Input: "No parameters";
+        Processing: "The next wait consumes the event.";
+        Output: "One.";
+    } {
+        auto = 1;
+        signals = signals + 1;
+        Return 1;
+    }
+
+    Public Function WaitAuto() -> Int
+    Explain {
+        Description: "Wait for the auto-reset event.";
+        Input: "No parameters";
+        Processing: "A set event is consumed.";
+        Output: "One when the event was set.";
+    } {
+        If (auto == 0) { Return 0; }
+        auto = 0;
+        Return 1;
+    }
+
+    Public Function WaitAll() -> Int
+    Explain {
+        Description: "Wait for both events.";
+        Input: "No parameters";
+        Processing: "Both the manual event and the auto event must be set.";
+        Output: "One when both are set.";
+    } {
+        If (manual == 1 && auto == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function WaitAny() -> Int
+    Explain {
+        Description: "Return the first set event.";
+        Input: "No parameters";
+        Processing: "The manual event is index zero and the auto event is index one.";
+        Output: "The event index, or -1.";
+    } {
+        If (manual == 1) { Return 0; }
+        If (auto == 1) { Return 1; }
+        Return -1;
+    }
+
+    Public Function WaitCond() -> Int
+    Explain {
+        Description: "Join the condition waiters.";
+        Input: "No parameters";
+        Processing: "Increase the waiter count.";
+        Output: "The waiter count.";
+    } {
+        waiters = waiters + 1;
+        Return waiters;
+    }
+
+    Public Function SignalCond() -> Int
+    Explain {
+        Description: "Wake one condition waiter.";
+        Input: "No parameters";
+        Processing: "Decrease the waiter count.";
+        Output: "One when a waiter is woken.";
+    } {
+        If (waiters <= 0) { Return 0; }
+        waiters = waiters - 1;
+        signals = signals + 1;
+        Return 1;
+    }
+
+    Public Function Broadcast() -> Int
+    Explain {
+        Description: "Wake every condition waiter.";
+        Input: "No parameters";
+        Processing: "Clear the waiter count.";
+        Output: "The number of waiters woken.";
+    } {
+        Int woken = waiters;
+        waiters = 0;
+        If (woken > 0) { signals = signals + 1; }
+        Return woken;
+    }
+
+    Public Function Waiters() -> Int
+    Explain {
+        Description: "Return the condition waiter count.";
+        Input: "No parameters";
+        Processing: "Read the waiter count.";
+        Output: "The waiter count.";
+    } {
+        Return waiters;
+    }
+
+    Public Function TakeAsync() -> Int
+    Explain {
+        Description: "Acquire the async lock.";
+        Input: "No parameters";
+        Processing: "Take the lock when it is free.";
+        Output: "One when the lock is held.";
+    } {
+        If (asyncHeld != 0) { Return 0; }
+        asyncHeld = 1;
+        acquires = acquires + 1;
+        Return 1;
+    }
+
+    Public Function DropAsync() -> Int
+    Explain {
+        Description: "Release the async lock.";
+        Input: "No parameters";
+        Processing: "Clear the lock.";
+        Output: "One when the lock is released.";
+    } {
+        If (asyncHeld == 0) { Return 0; }
+        asyncHeld = 0;
+        releases = releases + 1;
+        Return 1;
+    }
+
+    Public Function EnterSpin() -> Int
+    Explain {
+        Description: "Enter the spin lock.";
+        Input: "No parameters";
+        Processing: "Take the lock when it is free.";
+        Output: "One when the lock is held.";
+    } {
+        If (spinHeld != 0) { Return 0; }
+        spinHeld = 1;
+        acquires = acquires + 1;
+        Return 1;
+    }
+
+    Public Function ExitSpin() -> Int
+    Explain {
+        Description: "Leave the spin lock.";
+        Input: "No parameters";
+        Processing: "Clear the lock.";
+        Output: "One when the lock is released.";
+    } {
+        If (spinHeld == 0) { Return 0; }
+        spinHeld = 0;
+        releases = releases + 1;
+        Return 1;
+    }
+
+    Public Function SetContext(String name) -> Int
+    Explain {
+        Description: "Store the synchronization context.";
+        Input: name = "Context name";
+        Processing: "Store the name.";
+        Output: "One.";
+    } {
+        context = name;
+        Return 1;
+    }
+
+    Public Function Context() -> String
+    Explain {
+        Description: "Return the synchronization context.";
+        Input: "No parameters";
+        Processing: "Read the context name.";
+        Output: "The context name.";
+    } {
+        Return context;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest synchronization error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the synchronization desk.";
+        Input: "No parameters";
+        Processing: "Report acquires, releases, and signals.";
+        Output: "The statistics.";
+    } {
+        Return "acquires=" + This.IntText(acquires) + ",releases=" + This.IntText(releases) + ",signals=" + This.IntText(signals);
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

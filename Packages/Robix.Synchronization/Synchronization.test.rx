@@ -1,0 +1,5 @@
+Test Acquire {
+    Constraint: SyncDesk().Acquire(1) == 1;
+    Processing: True;
+    Output: True;
+}

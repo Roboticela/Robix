@@ -1,0 +1,451 @@
+// Robix.Cancellation: tokens, linked sources, timeouts, groups, and scopes.
+Package Robix.Cancellation;
+
+Import Robix.Core;
+
+
+Class CancelDesk {
+    Private Array<Int> used;
+    Private Array<Int> state;
+    Private Array<Int> link;
+    Private Array<Int> due;
+    Private Array<Int> callbacks;
+    Private Array<Int> groups;
+    Private Array<Int> scopes;
+    Private Array<Int> policy;
+    Private Array<String> names;
+    Private Array<String> causes;
+    Private Array<String> labels;
+    Private Int clock;
+    Private Int nextGroup;
+    Private Int nextScope;
+    Private String problem;
+
+    Public Constructor() {
+        used = [0, 0, 0, 0, 0, 0, 0, 0];
+        state = [0, 0, 0, 0, 0, 0, 0, 0];
+        link = [-1, -1, -1, -1, -1, -1, -1, -1];
+        due = [-1, -1, -1, -1, -1, -1, -1, -1];
+        callbacks = [0, 0, 0, 0, 0, 0, 0, 0];
+        groups = [0, 0, 0, 0, 0, 0, 0, 0];
+        scopes = [0, 0, 0, 0, 0, 0, 0, 0];
+        policy = [0, 0, 0, 0, 0, 0, 0, 0];
+        names = ["", "", "", "", "", "", "", ""];
+        causes = ["", "", "", "", "", "", "", ""];
+        labels = ["", "", "", "", "", "", "", ""];
+        clock = 0;
+        nextGroup = 1;
+        nextScope = 1;
+        problem = "none";
+    }
+
+    Public Function Create(String sourceName) -> Int
+    Explain {
+        Description: "Create an open cancellation source.";
+        Input: sourceName = "Source name";
+        Processing: "Store the source and return its slot.";
+        Output: "The source slot, or -1.";
+    } {
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        used[slot] = 1;
+        state[slot] = 1;
+        link[slot] = -1;
+        due[slot] = -1;
+        callbacks[slot] = 0;
+        groups[slot] = 0;
+        scopes[slot] = 0;
+        policy[slot] = 0;
+        names[slot] = sourceName;
+        causes[slot] = "";
+        labels[slot] = "";
+        Return slot;
+    }
+
+    Public Function Cancel(Int slot, String why) -> Int
+    Explain {
+        Description: "Cancel a source and every source linked to it.";
+        Input: slot = "Source slot", why = "Cancellation reason";
+        Processing: "Mark the source canceled, then mark open children.";
+        Output: "One when the source is canceled.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 3) {
+            problem = "disposed";
+            Return 0;
+        }
+        If (state[slot] == 1) { This.Mark(slot, why); }
+        Int other = 0;
+        While (other < 8) {
+            If (used[other] == 1 && link[other] == slot && state[other] == 1) {
+                This.Mark(other, why);
+            }
+            other = other + 1;
+        }
+        Return 1;
+    }
+
+    Public Function CancelAfter(Int slot, Int ticks) -> Int
+    Explain {
+        Description: "Cancel a source after a number of ticks.";
+        Input: slot = "Source slot", ticks = "Ticks to wait";
+        Processing: "Store the deadline. Advance cancels the source.";
+        Output: "The deadline tick, or -1.";
+    } {
+        If (This.Known(slot) == 0) { Return -1; }
+        If (state[slot] == 3) {
+            problem = "disposed";
+            Return -1;
+        }
+        due[slot] = clock + ticks;
+        Return due[slot];
+    }
+
+    Public Function Advance(Int ticks) -> Int
+    Explain {
+        Description: "Advance the clock and fire due timeouts.";
+        Input: ticks = "Ticks to add";
+        Processing: "Cancel each open source whose deadline has arrived.";
+        Output: "The clock.";
+    } {
+        clock = clock + ticks;
+        Int slot = 0;
+        While (slot < 8) {
+            If (used[slot] == 1 && state[slot] == 1 && due[slot] >= 0 && due[slot] <= clock) {
+                This.Mark(slot, "timeout");
+            }
+            slot = slot + 1;
+        }
+        Return clock;
+    }
+
+    Public Function Reset(Int slot) -> Int
+    Explain {
+        Description: "Reopen a canceled source.";
+        Input: slot = "Source slot";
+        Processing: "Clear the reason and the deadline.";
+        Output: "One when the source is open again.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 3) { Return 0; }
+        state[slot] = 1;
+        causes[slot] = "";
+        due[slot] = -1;
+        Return 1;
+    }
+
+    Public Function Dispose(Int slot) -> Int
+    Explain {
+        Description: "Dispose a cancellation source.";
+        Input: slot = "Source slot";
+        Processing: "Mark the source disposed.";
+        Output: "One.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        state[slot] = 3;
+        Return 1;
+    }
+
+    Public Function Requested(Int slot) -> Int
+    Explain {
+        Description: "Report whether cancellation was requested.";
+        Input: slot = "Source slot";
+        Processing: "Read the source state.";
+        Output: "One when the source is canceled.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function ThrowIf(Int slot) -> Int
+    Explain {
+        Description: "Report a requested cancellation.";
+        Input: slot = "Source slot";
+        Processing: "A canceled source returns one. An open source returns zero.";
+        Output: "One when cancellation was requested.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Register(Int slot, String label) -> Int
+    Explain {
+        Description: "Register a cancellation callback.";
+        Input: slot = "Source slot", label = "Callback name";
+        Processing: "Store the label and increase the callback count.";
+        Output: "The callback count, or 0.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 3) { Return 0; }
+        callbacks[slot] = callbacks[slot] + 1;
+        labels[slot] = label;
+        Return callbacks[slot];
+    }
+
+    Public Function Unregister(Int slot) -> Int
+    Explain {
+        Description: "Remove one cancellation callback.";
+        Input: slot = "Source slot";
+        Processing: "Decrease the callback count.";
+        Output: "One when a callback was removed.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (callbacks[slot] <= 0) { Return 0; }
+        callbacks[slot] = callbacks[slot] - 1;
+        Return 1;
+    }
+
+    Public Function Callbacks(Int slot) -> Int
+    Explain {
+        Description: "Return the callback count.";
+        Input: slot = "Source slot";
+        Processing: "Read the stored count.";
+        Output: "The callback count.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return callbacks[slot];
+    }
+
+    Public Function Reason(Int slot) -> String
+    Explain {
+        Description: "Return the cancellation reason.";
+        Input: slot = "Source slot";
+        Processing: "Read the stored reason.";
+        Output: "The reason, or none.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        If (causes[slot] == "") { Return "none"; }
+        Return causes[slot];
+    }
+
+    Public Function State(Int slot) -> String
+    Explain {
+        Description: "Return the source state name.";
+        Input: slot = "Source slot";
+        Processing: "Map the stored state.";
+        Output: "open, canceled, disposed, or empty.";
+    } {
+        If (This.Known(slot) == 0) { Return "empty"; }
+        If (state[slot] == 1) { Return "open"; }
+        If (state[slot] == 2) { Return "canceled"; }
+        If (state[slot] == 3) { Return "disposed"; }
+        Return "empty";
+    }
+
+    Public Function Link(Int parent, Int child) -> Int
+    Explain {
+        Description: "Link a child source to a parent.";
+        Input: parent = "Parent slot", child = "Child slot";
+        Processing: "Canceling the parent also cancels the child.";
+        Output: "One when the link is stored.";
+    } {
+        If (This.Known(parent) == 0) { Return 0; }
+        If (This.Known(child) == 0) { Return 0; }
+        link[child] = parent;
+        If (state[parent] == 2 && state[child] == 1) {
+            This.Mark(child, causes[parent]);
+        }
+        Return 1;
+    }
+
+    Public Function Group() -> Int
+    Explain {
+        Description: "Create a cancellation group.";
+        Input: "No parameters";
+        Processing: "Return the next group id.";
+        Output: "The group id.";
+    } {
+        Int id = nextGroup;
+        nextGroup = nextGroup + 1;
+        Return id;
+    }
+
+    Public Function Join(Int slot, Int groupId) -> Int
+    Explain {
+        Description: "Add a source to a group.";
+        Input: slot = "Source slot", groupId = "Group id";
+        Processing: "Store the group on the source.";
+        Output: "One when the source joins.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        groups[slot] = groupId;
+        Return 1;
+    }
+
+    Public Function CancelAll(Int groupId) -> Int
+    Explain {
+        Description: "Cancel every open source in a group.";
+        Input: groupId = "Group id";
+        Processing: "Mark each matching source canceled.";
+        Output: "The number of sources canceled.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 8) {
+            If (used[slot] == 1 && groups[slot] == groupId && state[slot] == 1) {
+                This.Mark(slot, "group");
+                count = count + 1;
+            }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function Scope() -> Int
+    Explain {
+        Description: "Create a cancellation scope.";
+        Input: "No parameters";
+        Processing: "Return the next scope id.";
+        Output: "The scope id.";
+    } {
+        Int id = nextScope;
+        nextScope = nextScope + 1;
+        Return id;
+    }
+
+    Public Function Enter(Int slot, Int scopeId) -> Int
+    Explain {
+        Description: "Place a source in a scope.";
+        Input: slot = "Source slot", scopeId = "Scope id";
+        Processing: "Store the scope on the source.";
+        Output: "One when the source enters.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        scopes[slot] = scopeId;
+        Return 1;
+    }
+
+    Public Function CancelScope(Int scopeId) -> Int
+    Explain {
+        Description: "Cancel every open source in a scope.";
+        Input: scopeId = "Scope id";
+        Processing: "Mark each matching source canceled.";
+        Output: "The number of sources canceled.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 8) {
+            If (used[slot] == 1 && scopes[slot] == scopeId && state[slot] == 1) {
+                This.Mark(slot, "scope");
+                count = count + 1;
+            }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function WithCancel(Int slot, Int amount) -> Int
+    Explain {
+        Description: "Keep a result unless the source is canceled.";
+        Input: slot = "Source slot", amount = "Result to keep";
+        Processing: "A canceled source drops the result.";
+        Output: "The amount, or -1 when canceled.";
+    } {
+        If (This.Known(slot) == 0) { Return -1; }
+        If (state[slot] == 2) { Return -1; }
+        Return amount;
+    }
+
+    Public Function WhenCanceled(Int slot) -> Int
+    Explain {
+        Description: "Report whether a wait for cancellation is done.";
+        Input: slot = "Source slot";
+        Processing: "The wait finishes when the source is canceled.";
+        Output: "One when the source is canceled.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SetPolicy(Int slot, Int mode) -> Int
+    Explain {
+        Description: "Store a cancellation policy.";
+        Input: slot = "Source slot", mode = "0 cooperative, 1 throw, 2 ignore";
+        Processing: "Store the mode.";
+        Output: "One when the policy is stored.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        policy[slot] = mode;
+        Return 1;
+    }
+
+    Public Function PolicyName(Int slot) -> String
+    Explain {
+        Description: "Return the policy name.";
+        Input: slot = "Source slot";
+        Processing: "Map the stored policy.";
+        Output: "cooperative, throw, or ignore.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        If (policy[slot] == 1) { Return "throw"; }
+        If (policy[slot] == 2) { Return "ignore"; }
+        Return "cooperative";
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest cancellation error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the sources.";
+        Input: "No parameters";
+        Processing: "Count open, canceled, and disposed sources.";
+        Output: "The statistics.";
+    } {
+        Int open = 0;
+        Int canceled = 0;
+        Int disposed = 0;
+        Int slot = 0;
+        While (slot < 8) {
+            If (state[slot] == 1) { open = open + 1; }
+            If (state[slot] == 2) { canceled = canceled + 1; }
+            If (state[slot] == 3) { disposed = disposed + 1; }
+            slot = slot + 1;
+        }
+        Return "open=" + This.IntText(open) + ",canceled=" + This.IntText(canceled) + ",disposed=" + This.IntText(disposed);
+    }
+
+    Private Function Mark(Int slot, String why) -> Int {
+        state[slot] = 2;
+        causes[slot] = why;
+        Return 1;
+    }
+
+    Private Function Known(Int slot) -> Int {
+        If (slot < 0 || slot > 7) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Claim() -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (used[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

@@ -1,0 +1,670 @@
+// Robix.Tasks: create, run, schedule, and compose work items.
+Package Robotics.Tasks;
+
+Import Robix.Core;
+
+
+Class TaskDesk {
+    Private Array<Int> used;
+    Private Array<Int> state;
+    Private Array<Int> rank;
+    Private Array<Int> payload;
+    Private Array<Int> outcome;
+    Private Array<Int> depends;
+    Private Array<Int> whenAt;
+    Private Array<Int> gap;
+    Private Array<Int> limit;
+    Private Array<Int> started;
+    Private Array<Int> tries;
+    Private Array<Int> groups;
+    Private Array<String> names;
+    Private Array<String> faults;
+    Private Int clock;
+    Private Int made;
+    Private Int ran;
+    Private Int canceled;
+    Private Int retried;
+    Private Int nextGroup;
+    Private Int graphId;
+    Private Int policyTries;
+    Private String workerName;
+
+    Public Constructor() {
+        used = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        state = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        rank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        payload = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        outcome = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        depends = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+        whenAt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        gap = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        limit = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        started = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        tries = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        groups = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        names = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        faults = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        clock = 0;
+        made = 0;
+        ran = 0;
+        canceled = 0;
+        retried = 0;
+        nextGroup = 1;
+        graphId = 0;
+        policyTries = 1;
+        workerName = "worker";
+    }
+
+    Public Function Create(String taskName, Int taskRank, Int amount) -> Int
+    Explain {
+        Description: "Create a task.";
+        Input: taskName = "Task name", taskRank = "Priority", amount = "Work value";
+        Processing: "Store the task in the first free slot.";
+        Output: "The slot, or -1.";
+    } {
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        used[slot] = 1;
+        state[slot] = 1;
+        rank[slot] = taskRank;
+        payload[slot] = amount;
+        outcome[slot] = 0;
+        depends[slot] = -1;
+        whenAt[slot] = 0;
+        gap[slot] = 0;
+        limit[slot] = 0;
+        started[slot] = 0;
+        tries[slot] = 0;
+        groups[slot] = 0;
+        names[slot] = taskName;
+        faults[slot] = "";
+        made = made + 1;
+        Return slot;
+    }
+
+    Public Function Start(Int slot) -> Int
+    Explain {
+        Description: "Start a task whose dependencies and schedule are ready.";
+        Input: slot = "Task slot";
+        Processing: "Mark a created or scheduled task running.";
+        Output: "One when the task starts.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        If (state[slot] != 1 && state[slot] != 6) { Return 0; }
+        If (This.Ready(slot) == 0) { Return 0; }
+        state[slot] = 2;
+        started[slot] = clock;
+        Return 1;
+    }
+
+    Public Function Run(Int slot) -> Int
+    Explain {
+        Description: "Run a task to completion.";
+        Input: slot = "Task slot";
+        Processing: "Start the task when it is ready and store its work value.";
+        Output: "The result, zero when it is not ready, or -1 when it cannot run.";
+    } {
+        If (slot < 0 || slot > 11) { Return -1; }
+        If (state[slot] == 3) { Return outcome[slot]; }
+        If (state[slot] == 4 || state[slot] == 5) { Return -1; }
+        If (state[slot] == 1 || state[slot] == 6) {
+            If (This.Start(slot) == 0) { Return 0; }
+        }
+        If (limit[slot] > 0 && clock - started[slot] > limit[slot]) {
+            state[slot] = 4;
+            faults[slot] = "timeout";
+            canceled = canceled + 1;
+            Return -1;
+        }
+        outcome[slot] = payload[slot];
+        ran = ran + 1;
+        If (gap[slot] > 0) {
+            state[slot] = 6;
+            whenAt[slot] = clock + gap[slot];
+            Return outcome[slot];
+        }
+        state[slot] = 3;
+        Return outcome[slot];
+    }
+
+    Public Function Cancel(Int slot) -> Int
+    Explain {
+        Description: "Cancel a task that has not completed.";
+        Input: slot = "Task slot";
+        Processing: "Mark the task canceled.";
+        Output: "One when the task is canceled.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (state[slot] == 3 || state[slot] == 4 || state[slot] == 0) { Return 0; }
+        state[slot] = 4;
+        canceled = canceled + 1;
+        Return 1;
+    }
+
+    Public Function Wait(Int slot) -> Int
+    Explain {
+        Description: "Wait for a task result.";
+        Input: slot = "Task slot";
+        Processing: "Return a completed result, or run a task that is still pending.";
+        Output: "The result, or -1.";
+    } {
+        If (slot < 0 || slot > 11) { Return -1; }
+        If (state[slot] == 3) { Return outcome[slot]; }
+        If (state[slot] == 4 || state[slot] == 5) { Return -1; }
+        Return This.Run(slot);
+    }
+
+    Public Function WaitAll(Int left, Int right) -> Int
+    Explain {
+        Description: "Wait for two tasks.";
+        Input: left = "First slot", right = "Second slot";
+        Processing: "Add both results when both tasks have completed.";
+        Output: "The sum, or -1.";
+    } {
+        Int first = This.Wait(left);
+        Int second = This.Wait(right);
+        If (first < 0 || second < 0) { Return -1; }
+        Return first + second;
+    }
+
+    Public Function WaitAny(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the first completed task.";
+        Input: left = "First slot", right = "Second slot";
+        Processing: "Prefer the left task when it has completed.";
+        Output: "The first result, or -1.";
+    } {
+        If (left >= 0 && left <= 11 && state[left] == 3) { Return outcome[left]; }
+        If (right >= 0 && right <= 11 && state[right] == 3) { Return outcome[right]; }
+        Return This.Wait(left);
+    }
+
+    Public Function ContinueWith(Int slot) -> Int
+    Explain {
+        Description: "Create the next task from a result.";
+        Input: slot = "Completed task";
+        Processing: "Store one more than the result when the task has completed.";
+        Output: "The continuation slot, or -1.";
+    } {
+        If (slot < 0 || slot > 11) { Return -1; }
+        Int amount = payload[slot];
+        If (state[slot] == 3) { amount = outcome[slot] + 1; }
+        Int next = This.Create(names[slot] + "+", rank[slot], amount);
+        If (next < 0) { Return -1; }
+        If (state[slot] == 3) {
+            state[next] = 3;
+            outcome[next] = amount;
+            ran = ran + 1;
+            Return next;
+        }
+        depends[next] = slot;
+        Return next;
+    }
+
+    Public Function AddDependency(Int slot, Int needed) -> Int
+    Explain {
+        Description: "Require another task to finish first.";
+        Input: slot = "Dependent task", needed = "Task that must finish";
+        Processing: "Store the dependency.";
+        Output: "One when it is stored.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        depends[slot] = needed;
+        Return 1;
+    }
+
+    Public Function RemoveDependency(Int slot) -> Int
+    Explain {
+        Description: "Remove a task dependency.";
+        Input: slot = "Task slot";
+        Processing: "Clear the dependency.";
+        Output: "One.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        depends[slot] = -1;
+        Return 1;
+    }
+
+    Public Function CreateGroup() -> Int
+    Explain {
+        Description: "Create a task group.";
+        Input: "No parameters";
+        Processing: "Allocate the next group id.";
+        Output: "The group id.";
+    } {
+        Int group = nextGroup;
+        nextGroup = nextGroup + 1;
+        Return group;
+    }
+
+    Public Function JoinGroup(Int slot, Int group) -> Int
+    Explain {
+        Description: "Add a task to a group.";
+        Input: slot = "Task slot", group = "Group id";
+        Processing: "Store the group on the task.";
+        Output: "One.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        groups[slot] = group;
+        Return 1;
+    }
+
+    Public Function GroupSize(Int group) -> Int
+    Explain {
+        Description: "Count tasks in a group.";
+        Input: group = "Group id";
+        Processing: "Count matching tasks.";
+        Output: "The count.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (groups[slot] == group) { count = count + 1; }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function CreateGraph() -> Int
+    Explain {
+        Description: "Open the task graph.";
+        Input: "No parameters";
+        Processing: "Mark the graph as available.";
+        Output: "One.";
+    } {
+        graphId = 1;
+        Return graphId;
+    }
+
+    Public Function GraphEdges() -> Int
+    Explain {
+        Description: "Count dependency edges.";
+        Input: "No parameters";
+        Processing: "Count tasks that still have a dependency.";
+        Output: "The edge count.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (depends[slot] >= 0) { count = count + 1; }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function Schedule(Int slot, Int time) -> Int
+    Explain {
+        Description: "Schedule a task at a clock time.";
+        Input: slot = "Task slot", time = "Clock time";
+        Processing: "Mark the task scheduled.";
+        Output: "The scheduled time.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        state[slot] = 6;
+        whenAt[slot] = time;
+        Return time;
+    }
+
+    Public Function ScheduleAfter(Int slot, Int delay) -> Int
+    Explain {
+        Description: "Schedule a task after a delay.";
+        Input: slot = "Task slot", delay = "Ticks from now";
+        Processing: "Schedule the task at the clock plus the delay.";
+        Output: "The scheduled time.";
+    } {
+        Return This.Schedule(slot, clock + delay);
+    }
+
+    Public Function ScheduleAt(Int slot, Int time) -> Int
+    Explain {
+        Description: "Schedule a task at an absolute time.";
+        Input: slot = "Task slot", time = "Clock time";
+        Processing: "Schedule the task at that time.";
+        Output: "The scheduled time.";
+    } {
+        Return This.Schedule(slot, time);
+    }
+
+    Public Function ScheduleRepeated(Int slot, Int interval) -> Int
+    Explain {
+        Description: "Schedule a repeating task.";
+        Input: slot = "Task slot", interval = "Ticks between runs";
+        Processing: "Store the interval and schedule the first run.";
+        Output: "The interval.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        gap[slot] = interval;
+        This.Schedule(slot, clock + interval);
+        Return interval;
+    }
+
+    Public Function Advance(Int ticks) -> Int
+    Explain {
+        Description: "Advance the scheduler clock and run due tasks.";
+        Input: ticks = "Ticks to add";
+        Processing: "Run every scheduled task whose time has arrived.";
+        Output: "The clock.";
+    } {
+        clock = clock + ticks;
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 1 && state[slot] == 6 && whenAt[slot] <= clock) {
+                This.Run(slot);
+            }
+            slot = slot + 1;
+        }
+        Return clock;
+    }
+
+    Public Function Pipe(Int slot) -> Int
+    Explain {
+        Description: "Add one to a completed result.";
+        Input: slot = "Task slot";
+        Processing: "Change the result only when the task has completed.";
+        Output: "The result.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (state[slot] != 3) { Return outcome[slot]; }
+        outcome[slot] = outcome[slot] + 1;
+        Return outcome[slot];
+    }
+
+    Public Function MapValue(Int slot) -> Int
+    Explain {
+        Description: "Double a completed result.";
+        Input: slot = "Task slot";
+        Processing: "Change the result only when the task has completed.";
+        Output: "The result.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (state[slot] != 3) { Return outcome[slot]; }
+        outcome[slot] = outcome[slot] * 2;
+        Return outcome[slot];
+    }
+
+    Public Function FlatMapValue(Int slot) -> Int
+    Explain {
+        Description: "Continue a positive result.";
+        Input: slot = "Task slot";
+        Processing: "Add one to a positive result. A non-positive result fails.";
+        Output: "The result, or zero.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (state[slot] != 3) { Return 0; }
+        If (outcome[slot] <= 0) {
+            state[slot] = 5;
+            faults[slot] = "empty";
+            Return 0;
+        }
+        outcome[slot] = outcome[slot] + 1;
+        Return outcome[slot];
+    }
+
+    Public Function Retry(Int slot) -> Int
+    Explain {
+        Description: "Retry a failed task.";
+        Input: slot = "Task slot";
+        Processing: "Return the task to created while retries remain.";
+        Output: "One when the task is retried.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (state[slot] != 5) { Return 0; }
+        If (tries[slot] >= policyTries) { Return 0; }
+        tries[slot] = tries[slot] + 1;
+        state[slot] = 1;
+        faults[slot] = "";
+        retried = retried + 1;
+        Return 1;
+    }
+
+    Public Function Timeout(Int slot, Int ticks) -> Int
+    Explain {
+        Description: "Cancel a running task that exceeded its time.";
+        Input: slot = "Task slot", ticks = "Allowed ticks";
+        Processing: "Cancel the task when the clock is past the limit.";
+        Output: "One when the task is canceled.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        limit[slot] = ticks;
+        If (state[slot] == 2 && ticks > 0 && clock - started[slot] > ticks) {
+            state[slot] = 4;
+            faults[slot] = "timeout";
+            canceled = canceled + 1;
+            Return 1;
+        }
+        Return 0;
+    }
+
+    Public Function Batch(Int left, Int right) -> Int
+    Explain {
+        Description: "Add two completed results.";
+        Input: left = "First slot", right = "Second slot";
+        Processing: "Add the results when both tasks have completed.";
+        Output: "The sum, or -1.";
+    } {
+        If (left < 0 || right < 0 || left > 11 || right > 11) { Return -1; }
+        If (state[left] != 3 || state[right] != 3) { Return -1; }
+        Return outcome[left] + outcome[right];
+    }
+
+    Public Function SetPriority(Int slot, Int taskRank) -> Int
+    Explain {
+        Description: "Change a task priority.";
+        Input: slot = "Task slot", taskRank = "New priority";
+        Processing: "Store the priority.";
+        Output: "The stored priority.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        rank[slot] = taskRank;
+        Return rank[slot];
+    }
+
+    Public Function Priority(Int slot) -> Int
+    Explain {
+        Description: "Return a task priority.";
+        Input: slot = "Task slot";
+        Processing: "Read the stored priority.";
+        Output: "The priority.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        Return rank[slot];
+    }
+
+    Public Function Status(Int slot) -> String
+    Explain {
+        Description: "Return the task status name.";
+        Input: slot = "Task slot";
+        Processing: "Map the stored state.";
+        Output: "created, running, completed, canceled, faulted, scheduled, or empty.";
+    } {
+        If (slot < 0 || slot > 11) { Return "empty"; }
+        If (state[slot] == 1) { Return "created"; }
+        If (state[slot] == 2) { Return "running"; }
+        If (state[slot] == 3) { Return "completed"; }
+        If (state[slot] == 4) { Return "canceled"; }
+        If (state[slot] == 5) { Return "faulted"; }
+        If (state[slot] == 6) { Return "scheduled"; }
+        Return "empty";
+    }
+
+    Public Function Result(Int slot) -> Int
+    Explain {
+        Description: "Return the stored result.";
+        Input: slot = "Task slot";
+        Processing: "Read the outcome.";
+        Output: "The result.";
+    } {
+        If (slot < 0 || slot > 11) { Return 0; }
+        Return outcome[slot];
+    }
+
+    Public Function Fault(Int slot) -> String
+    Explain {
+        Description: "Return the task error.";
+        Input: slot = "Task slot";
+        Processing: "Read the stored error.";
+        Output: "The error, or none.";
+    } {
+        If (slot < 0 || slot > 11 || faults[slot] == "") { Return "none"; }
+        Return faults[slot];
+    }
+
+    Public Function SetWorker(String name) -> Int
+    Explain {
+        Description: "Name the worker that runs tasks.";
+        Input: name = "Worker name";
+        Processing: "Store the worker name.";
+        Output: "One.";
+    } {
+        workerName = name;
+        Return 1;
+    }
+
+    Public Function Worker() -> String
+    Explain {
+        Description: "Return the worker name.";
+        Input: "No parameters";
+        Processing: "Read the stored name.";
+        Output: "The worker name.";
+    } {
+        Return workerName;
+    }
+
+    Public Function SetPolicy(Int retries, Int ticks) -> Int
+    Explain {
+        Description: "Set the retry and timeout policy.";
+        Input: retries = "Allowed retries", ticks = "Default timeout";
+        Processing: "Store both limits.";
+        Output: "One.";
+    } {
+        policyTries = retries;
+        Return 1;
+    }
+
+    Public Function Clock() -> Int
+    Explain {
+        Description: "Return the scheduler clock.";
+        Input: "No parameters";
+        Processing: "Read the clock.";
+        Output: "The clock.";
+    } {
+        Return clock;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe task activity.";
+        Input: "No parameters";
+        Processing: "Join created, ran, canceled, and retried counts.";
+        Output: "The statistics.";
+    } {
+        Return "created=" + This.IntText(made) + ",ran=" + This.IntText(ran) + ",canceled=" + This.IntText(canceled) + ",retried=" + This.IntText(retried);
+    }
+
+    Private Function Claim() -> Int {
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Ready(Int slot) -> Int {
+        Int needed = depends[slot];
+        If (needed >= 0 && state[needed] != 3) { Return 0; }
+        If (state[slot] == 6 && clock < whenAt[slot]) { Return 0; }
+        Return 1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remaining = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remaining > 0) {
+            Int digit = remaining % 10;
+            built = digits.Substring(digit, 1) + built;
+            remaining = remaining / 10;
+        }
+        Return built;
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Create, run, schedule, and compose tasks.";
+    Input: args = "Command-line arguments";
+    Processing: "Exercise the task desk and print each result.";
+    Output: "The task report.";
+} {
+    TaskDesk desk = TaskDesk();
+    Print(desk.Create("arm", 2, 10));
+    Print(desk.Status(0));
+    Print(desk.Priority(0));
+    Print(desk.Start(0));
+    Print(desk.Run(0));
+    Print(desk.Status(0));
+    Print(desk.Wait(0));
+    Print(desk.Create("leg", 1, 4));
+    Print(desk.Wait(1));
+    Print(desk.Create("wheel", 0, 3));
+    Print(desk.Cancel(2));
+    Print(desk.Status(2));
+    Print(desk.Wait(2));
+    Print(desk.Create("alpha", 1, 2));
+    Print(desk.Run(3));
+    Print(desk.Create("beta", 1, 5));
+    Print(desk.Run(4));
+    Print(desk.WaitAll(3, 4));
+    Print(desk.WaitAny(3, 4));
+    Print(desk.ContinueWith(3));
+    Print(desk.Result(5));
+    Print(desk.Status(5));
+    Print(desk.Create("saved", 1, 8));
+    Print(desk.AddDependency(6, 3));
+    Print(desk.Start(6));
+    Print(desk.Run(6));
+    Print(desk.Create("blocked", 1, 1));
+    Print(desk.AddDependency(7, 2));
+    Print(desk.Start(7));
+    Print(desk.RemoveDependency(7));
+    Print(desk.Start(7));
+    Print(desk.CreateGroup());
+    Print(desk.JoinGroup(7, 1));
+    Print(desk.GroupSize(1));
+    Print(desk.CreateGraph());
+    Print(desk.GraphEdges());
+    Print(desk.Create("later", 1, 6));
+    Print(desk.ScheduleAt(8, 5));
+    Print(desk.Run(8));
+    Print(desk.Advance(5));
+    Print(desk.Result(8));
+    Print(desk.Create("soon", 1, 9));
+    Print(desk.ScheduleAfter(9, 2));
+    Print(desk.Advance(2));
+    Print(desk.Result(9));
+    Print(desk.Pipe(3));
+    Print(desk.MapValue(3));
+    Print(desk.FlatMapValue(3));
+    Print(desk.Create("zero", 1, 0));
+    Print(desk.Run(10));
+    Print(desk.FlatMapValue(10));
+    Print(desk.Status(10));
+    Print(desk.Fault(10));
+    Print(desk.Retry(10));
+    Print(desk.Status(10));
+    Print(desk.Create("slow", 1, 1));
+    Print(desk.Start(11));
+    Print(desk.Advance(3));
+    Print(desk.Timeout(11, 1));
+    Print(desk.Status(11));
+    Print(desk.Fault(11));
+    Print(desk.Batch(0, 1));
+    Print(desk.SetWorker("pool"));
+    Print(desk.Worker());
+    Print(desk.SetPolicy(2, 5));
+    Print(desk.Stats());
+    Return 0;
+}

@@ -1,0 +1,5 @@
+Test SetTimeout {
+    Constraint: TimerDesk().SetTimeout("arm", 5) == 0;
+    Processing: True;
+    Output: True;
+}

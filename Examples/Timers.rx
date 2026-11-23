@@ -1,0 +1,557 @@
+// Robix.Timers: timeouts, intervals, delays, and a stopwatch.
+Package Robotics.Timers;
+
+Import Robix.Core;
+
+
+Class TimerDesk {
+    Private Array<Int> used;
+    Private Array<Int> state;
+    Private Array<Int> kind;
+    Private Array<Int> span;
+    Private Array<Int> elapsed;
+    Private Array<Int> remaining;
+    Private Array<Int> fires;
+    Private Array<String> names;
+    Private Int clock;
+    Private Int totalFires;
+    Private Int swOn;
+    Private Int swElapsed;
+    Private String problem;
+
+    Public Constructor() {
+        used = [0, 0, 0, 0];
+        state = [0, 0, 0, 0];
+        kind = [0, 0, 0, 0];
+        span = [0, 0, 0, 0];
+        elapsed = [0, 0, 0, 0];
+        remaining = [0, 0, 0, 0];
+        fires = [0, 0, 0, 0];
+        names = ["", "", "", ""];
+        clock = 0;
+        totalFires = 0;
+        swOn = 0;
+        swElapsed = 0;
+        problem = "none";
+    }
+
+    Public Function SetTimeout(String timerName, Int ticks) -> Int
+    Explain {
+        Description: "Start a one-shot timer.";
+        Input: timerName = "Timer name", ticks = "Ticks until it fires";
+        Processing: "Store a running timeout.";
+        Output: "The timer slot, or -1.";
+    } {
+        Return This.Arm(timerName, 0, ticks, 2);
+    }
+
+    Public Function ClearTimeout(Int slot) -> Int
+    Explain {
+        Description: "Clear a timeout.";
+        Input: slot = "Timer slot";
+        Processing: "Stop the timer.";
+        Output: "One when the timer is cleared.";
+    } {
+        Return This.Halt(slot);
+    }
+
+    Public Function SetInterval(String timerName, Int ticks) -> Int
+    Explain {
+        Description: "Start a repeating timer.";
+        Input: timerName = "Timer name", ticks = "Ticks between fires";
+        Processing: "Store a running interval.";
+        Output: "The timer slot, or -1.";
+    } {
+        Return This.Arm(timerName, 1, ticks, 2);
+    }
+
+    Public Function ClearInterval(Int slot) -> Int
+    Explain {
+        Description: "Clear an interval.";
+        Input: slot = "Timer slot";
+        Processing: "Stop the timer.";
+        Output: "One when the timer is cleared.";
+    } {
+        Return This.Halt(slot);
+    }
+
+    Public Function SetDelay(String timerName, Int ticks) -> Int
+    Explain {
+        Description: "Start a delay.";
+        Input: timerName = "Timer name", ticks = "Ticks to wait";
+        Processing: "Store a running delay.";
+        Output: "The timer slot, or -1.";
+    } {
+        Return This.Arm(timerName, 2, ticks, 2);
+    }
+
+    Public Function Create(String timerName, Int timerKind, Int ticks) -> Int
+    Explain {
+        Description: "Create a timer without starting it.";
+        Input: timerName = "Timer name", timerKind = "0 timeout, 1 interval, 2 delay", ticks = "Timer length";
+        Processing: "Store the timer in the created state.";
+        Output: "The timer slot, or -1.";
+    } {
+        Return This.Arm(timerName, timerKind, ticks, 1);
+    }
+
+    Public Function Start(Int slot) -> Int
+    Explain {
+        Description: "Start a created or stopped timer.";
+        Input: slot = "Timer slot";
+        Processing: "Mark the timer running and restore its remaining time.";
+        Output: "One when the timer starts.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 5) {
+            problem = "disposed";
+            Return 0;
+        }
+        If (state[slot] != 1 && state[slot] != 4) { Return 0; }
+        If (remaining[slot] <= 0) { remaining[slot] = span[slot]; }
+        state[slot] = 2;
+        Return 1;
+    }
+
+    Public Function Stop(Int slot) -> Int
+    Explain {
+        Description: "Stop a running or paused timer.";
+        Input: slot = "Timer slot";
+        Processing: "Mark the timer stopped.";
+        Output: "One when the timer stops.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] != 2 && state[slot] != 3) { Return 0; }
+        state[slot] = 4;
+        Return 1;
+    }
+
+    Public Function Pause(Int slot) -> Int
+    Explain {
+        Description: "Pause a running timer.";
+        Input: slot = "Timer slot";
+        Processing: "Mark the timer paused.";
+        Output: "One when the timer pauses.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] != 2) { Return 0; }
+        state[slot] = 3;
+        Return 1;
+    }
+
+    Public Function Resume(Int slot) -> Int
+    Explain {
+        Description: "Resume a paused timer.";
+        Input: slot = "Timer slot";
+        Processing: "Mark the timer running.";
+        Output: "One when the timer resumes.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] != 3) { Return 0; }
+        state[slot] = 2;
+        Return 1;
+    }
+
+    Public Function Restart(Int slot) -> Int
+    Explain {
+        Description: "Restart a timer from its full duration.";
+        Input: slot = "Timer slot";
+        Processing: "Clear the elapsed time and mark the timer running.";
+        Output: "One when the timer restarts.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 5) {
+            problem = "disposed";
+            Return 0;
+        }
+        elapsed[slot] = 0;
+        remaining[slot] = span[slot];
+        state[slot] = 2;
+        Return 1;
+    }
+
+    Public Function Reset(Int slot) -> Int
+    Explain {
+        Description: "Reset a timer without starting it.";
+        Input: slot = "Timer slot";
+        Processing: "Clear the elapsed time and mark the timer created.";
+        Output: "One when the timer resets.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 5) { Return 0; }
+        elapsed[slot] = 0;
+        remaining[slot] = span[slot];
+        state[slot] = 1;
+        Return 1;
+    }
+
+    Public Function Dispose(Int slot) -> Int
+    Explain {
+        Description: "Dispose a timer.";
+        Input: slot = "Timer slot";
+        Processing: "Mark the timer disposed.";
+        Output: "One.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        state[slot] = 5;
+        Return 1;
+    }
+
+    Public Function Tick(Int ticks) -> Int
+    Explain {
+        Description: "Advance running timers and the stopwatch.";
+        Input: ticks = "Ticks to add";
+        Processing: "Fire a timeout once. An interval reloads its duration.";
+        Output: "The clock.";
+    } {
+        clock = clock + ticks;
+        If (swOn == 1) { swElapsed = swElapsed + ticks; }
+        Int slot = 0;
+        While (slot < 4) {
+            If (used[slot] == 1 && state[slot] == 2) {
+                elapsed[slot] = elapsed[slot] + ticks;
+                remaining[slot] = remaining[slot] - ticks;
+                If (remaining[slot] <= 0) {
+                    fires[slot] = fires[slot] + 1;
+                    totalFires = totalFires + 1;
+                    If (kind[slot] == 1) {
+                        remaining[slot] = span[slot];
+                    } Else {
+                        remaining[slot] = 0;
+                        state[slot] = 4;
+                    }
+                }
+            }
+            slot = slot + 1;
+        }
+        Return clock;
+    }
+
+    Public Function IsRunning(Int slot) -> Int
+    Explain {
+        Description: "Report whether a timer is running.";
+        Input: slot = "Timer slot";
+        Processing: "Read the timer state.";
+        Output: "One when the timer is running.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 2) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsPaused(Int slot) -> Int
+    Explain {
+        Description: "Report whether a timer is paused.";
+        Input: slot = "Timer slot";
+        Processing: "Read the timer state.";
+        Output: "One when the timer is paused.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 3) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Elapsed(Int slot) -> Int
+    Explain {
+        Description: "Return the elapsed ticks.";
+        Input: slot = "Timer slot";
+        Processing: "Read the elapsed time.";
+        Output: "The elapsed ticks.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return elapsed[slot];
+    }
+
+    Public Function Remaining(Int slot) -> Int
+    Explain {
+        Description: "Return the remaining ticks.";
+        Input: slot = "Timer slot";
+        Processing: "Read the remaining time.";
+        Output: "The remaining ticks.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return remaining[slot];
+    }
+
+    Public Function Fires(Int slot) -> Int
+    Explain {
+        Description: "Return how many times a timer has fired.";
+        Input: slot = "Timer slot";
+        Processing: "Read the fire count.";
+        Output: "The fire count.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return fires[slot];
+    }
+
+    Public Function State(Int slot) -> String
+    Explain {
+        Description: "Return the timer state name.";
+        Input: slot = "Timer slot";
+        Processing: "Map the stored state.";
+        Output: "created, running, paused, stopped, disposed, or empty.";
+    } {
+        If (This.Known(slot) == 0) { Return "empty"; }
+        If (state[slot] == 1) { Return "created"; }
+        If (state[slot] == 2) { Return "running"; }
+        If (state[slot] == 3) { Return "paused"; }
+        If (state[slot] == 4) { Return "stopped"; }
+        If (state[slot] == 5) { Return "disposed"; }
+        Return "empty";
+    }
+
+    Public Function KindName(Int slot) -> String
+    Explain {
+        Description: "Return the timer kind.";
+        Input: slot = "Timer slot";
+        Processing: "Map the stored kind.";
+        Output: "timeout, interval, or delay.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        If (kind[slot] == 1) { Return "interval"; }
+        If (kind[slot] == 2) { Return "delay"; }
+        Return "timeout";
+    }
+
+    Public Function Precision() -> Int
+    Explain {
+        Description: "Return the timer precision in ticks.";
+        Input: "No parameters";
+        Processing: "The desk advances one tick at a time.";
+        Output: "One.";
+    } {
+        Return 1;
+    }
+
+    Public Function Resolution() -> Int
+    Explain {
+        Description: "Return the timer resolution in ticks.";
+        Input: "No parameters";
+        Processing: "The desk advances one tick at a time.";
+        Output: "One.";
+    } {
+        Return 1;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest timer error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function SwStart() -> Int
+    Explain {
+        Description: "Start the stopwatch.";
+        Input: "No parameters";
+        Processing: "Mark the stopwatch running.";
+        Output: "One.";
+    } {
+        swOn = 1;
+        Return 1;
+    }
+
+    Public Function SwStop() -> Int
+    Explain {
+        Description: "Stop the stopwatch.";
+        Input: "No parameters";
+        Processing: "Mark the stopwatch stopped.";
+        Output: "One.";
+    } {
+        swOn = 0;
+        Return 1;
+    }
+
+    Public Function SwReset() -> Int
+    Explain {
+        Description: "Reset the stopwatch.";
+        Input: "No parameters";
+        Processing: "Clear the elapsed time and stop the stopwatch.";
+        Output: "One.";
+    } {
+        swOn = 0;
+        swElapsed = 0;
+        Return 1;
+    }
+
+    Public Function SwRestart() -> Int
+    Explain {
+        Description: "Restart the stopwatch.";
+        Input: "No parameters";
+        Processing: "Clear the elapsed time and start the stopwatch.";
+        Output: "One.";
+    } {
+        swElapsed = 0;
+        swOn = 1;
+        Return 1;
+    }
+
+    Public Function SwElapsed() -> Int
+    Explain {
+        Description: "Return the stopwatch elapsed ticks.";
+        Input: "No parameters";
+        Processing: "Read the stopwatch.";
+        Output: "The elapsed ticks.";
+    } {
+        Return swElapsed;
+    }
+
+    Public Function SwMillis() -> Int
+    Explain {
+        Description: "Return the stopwatch elapsed milliseconds.";
+        Input: "No parameters";
+        Processing: "Each tick is one millisecond.";
+        Output: "The elapsed milliseconds.";
+    } {
+        Return swElapsed;
+    }
+
+    Public Function SwTicks() -> Int
+    Explain {
+        Description: "Return the stopwatch elapsed ticks.";
+        Input: "No parameters";
+        Processing: "Read the stopwatch.";
+        Output: "The elapsed ticks.";
+    } {
+        Return swElapsed;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the timers.";
+        Input: "No parameters";
+        Processing: "Count running timers, paused timers, and fires.";
+        Output: "The statistics.";
+    } {
+        Int running = 0;
+        Int paused = 0;
+        Int slot = 0;
+        While (slot < 4) {
+            If (state[slot] == 2) { running = running + 1; }
+            If (state[slot] == 3) { paused = paused + 1; }
+            slot = slot + 1;
+        }
+        Return "running=" + This.IntText(running) + ",paused=" + This.IntText(paused) + ",fires=" + This.IntText(totalFires);
+    }
+
+    Private Function Arm(String timerName, Int timerKind, Int ticks, Int initial) -> Int {
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        used[slot] = 1;
+        state[slot] = initial;
+        kind[slot] = timerKind;
+        span[slot] = ticks;
+        elapsed[slot] = 0;
+        remaining[slot] = ticks;
+        fires[slot] = 0;
+        names[slot] = timerName;
+        Return slot;
+    }
+
+    Private Function Halt(Int slot) -> Int {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 5) { Return 0; }
+        state[slot] = 4;
+        Return 1;
+    }
+
+    Private Function Known(Int slot) -> Int {
+        If (slot < 0 || slot > 3) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Claim() -> Int {
+        Int slot = 0;
+        While (slot < 4) {
+            If (used[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Run timeouts, intervals, a delay, and a stopwatch.";
+    Input: args = "Command-line arguments";
+    Processing: "Advance the timer desk and cancel a runtime timeout.";
+    Output: "The timer report.";
+} {
+    TimerDesk desk = TimerDesk();
+    Print(desk.SetTimeout("arm", 5));
+    Print(desk.State(0));
+    Print(desk.Remaining(0));
+    Print(desk.Tick(3));
+    Print(desk.Elapsed(0));
+    Print(desk.Remaining(0));
+    Print(desk.IsRunning(0));
+    Print(desk.Tick(2));
+    Print(desk.State(0));
+    Print(desk.Fires(0));
+    Print(desk.ClearTimeout(0));
+    Print(desk.SetInterval("beat", 4));
+    Print(desk.Tick(4));
+    Print(desk.Fires(1));
+    Print(desk.IsRunning(1));
+    Print(desk.Tick(4));
+    Print(desk.Fires(1));
+    Print(desk.Pause(1));
+    Print(desk.IsPaused(1));
+    Print(desk.Tick(4));
+    Print(desk.Fires(1));
+    Print(desk.Resume(1));
+    Print(desk.ClearInterval(1));
+    Print(desk.State(1));
+    Print(desk.Create("wait", 2, 6));
+    Print(desk.State(2));
+    Print(desk.Start(2));
+    Print(desk.Remaining(2));
+    Print(desk.Stop(2));
+    Print(desk.Restart(2));
+    Print(desk.Elapsed(2));
+    Print(desk.State(2));
+    Print(desk.Reset(2));
+    Print(desk.State(2));
+    Print(desk.Dispose(2));
+    Print(desk.Start(2));
+    Print(desk.Fault());
+    Print(desk.SwStart());
+    Print(desk.Tick(7));
+    Print(desk.SwElapsed());
+    Print(desk.SwStop());
+    Print(desk.Tick(3));
+    Print(desk.SwElapsed());
+    Print(desk.SwRestart());
+    Print(desk.Tick(2));
+    Print(desk.SwElapsed());
+    Print(desk.SwMillis());
+    Print(desk.SwTicks());
+    Print(desk.SwReset());
+    Print(desk.SwElapsed());
+    Print(desk.Precision());
+    Print(desk.Resolution());
+    Print(desk.KindName(0));
+    Print(desk.KindName(1));
+    Print(desk.KindName(2));
+    Print(desk.Stats());
+    TimerHandle handle = Timer.SetTimeout(() => Print("once"), Duration.Milliseconds(1));
+    handle.Cancel();
+    Return 0;
+}

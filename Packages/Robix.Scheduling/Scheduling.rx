@@ -1,0 +1,642 @@
+// Robix.Scheduling: jobs, cron steps, and priority, round-robin, and fair selection.
+Package Robix.Scheduling;
+
+Import Robix.Core;
+
+
+Class JobDesk {
+    Private Array<Int> used;
+    Private Array<Int> state;
+    Private Array<Int> kind;
+    Private Array<Int> rank;
+    Private Array<Int> payload;
+    Private Array<Int> outcome;
+    Private Array<Int> whenAt;
+    Private Array<Int> gap;
+    Private Array<Int> history;
+    Private Array<Int> depends;
+    Private Array<String> names;
+    Private Int clock;
+    Private Int phase;
+    Private Int mode;
+    Private Int turn;
+    Private Int made;
+    Private Int ran;
+    Private Int canceled;
+    Private String problem;
+
+    Public Constructor() {
+        used = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        state = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        kind = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        rank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        payload = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        outcome = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        whenAt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        gap = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        history = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        depends = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+        names = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        clock = 0;
+        phase = 0;
+        mode = 0;
+        turn = 0;
+        made = 0;
+        ran = 0;
+        canceled = 0;
+        problem = "none";
+    }
+
+    Public Function Schedule(String jobName, Int whenTick, Int amount) -> Int
+    Explain {
+        Description: "Schedule a one-time job.";
+        Input: jobName = "Job name", whenTick = "Tick when it runs", amount = "Result value";
+        Processing: "Store the job until that tick.";
+        Output: "The job slot, or -1.";
+    } {
+        Return This.Arm(jobName, 0, whenTick, amount, 1, 0);
+    }
+
+    Public Function ScheduleOnce(String jobName, Int whenTick, Int amount) -> Int
+    Explain {
+        Description: "Schedule a job that runs once.";
+        Input: jobName = "Job name", whenTick = "Tick when it runs", amount = "Result value";
+        Processing: "Store the job until that tick.";
+        Output: "The job slot, or -1.";
+    } {
+        Return This.Arm(jobName, 0, whenTick, amount, 1, 0);
+    }
+
+    Public Function ScheduleAfter(String jobName, Int delay, Int amount) -> Int
+    Explain {
+        Description: "Schedule a job after a delay.";
+        Input: jobName = "Job name", delay = "Ticks to wait", amount = "Result value";
+        Processing: "Store the job at the clock plus the delay.";
+        Output: "The job slot, or -1.";
+    } {
+        Return This.Arm(jobName, 1, clock + delay, amount, 1, 0);
+    }
+
+    Public Function ScheduleEvery(String jobName, Int interval, Int amount) -> Int
+    Explain {
+        Description: "Schedule a repeating job.";
+        Input: jobName = "Job name", interval = "Ticks between runs", amount = "Result value";
+        Processing: "Store the job and reload its next tick after each run.";
+        Output: "The job slot, or -1.";
+    } {
+        Return This.Arm(jobName, 2, clock + interval, amount, 1, interval);
+    }
+
+    Public Function ScheduleCron(String jobName, String expression, Int amount) -> Int
+    Explain {
+        Description: "Schedule a job from a cron step.";
+        Input: jobName = "Job name", expression = "A number or */number", amount = "Result value";
+        Processing: "Parse the step and store the next tick.";
+        Output: "The job slot, or -1 when the expression is invalid.";
+    } {
+        Int step = This.StepOf(expression);
+        If (step <= 0) {
+            problem = "cron";
+            Return -1;
+        }
+        Return This.Arm(jobName, 3, clock + step, amount, 1, step);
+    }
+
+    Public Function ScheduleRecurring(String jobName, Int interval, Int amount) -> Int
+    Explain {
+        Description: "Schedule a recurring job.";
+        Input: jobName = "Job name", interval = "Ticks between runs", amount = "Result value";
+        Processing: "Store the job and reload its next tick after each run.";
+        Output: "The job slot, or -1.";
+    } {
+        Return This.Arm(jobName, 4, clock + interval, amount, 1, interval);
+    }
+
+    Public Function ScheduleRank(String jobName, Int whenTick, Int amount, Int jobRank) -> Int
+    Explain {
+        Description: "Schedule a one-time job with a priority.";
+        Input: jobName = "Job name", whenTick = "Tick when it runs", amount = "Result value", jobRank = "Priority";
+        Processing: "Store the job and its rank.";
+        Output: "The job slot, or -1.";
+    } {
+        Return This.Arm(jobName, 0, whenTick, amount, jobRank, 0);
+    }
+
+    Public Function StartJob(Int slot) -> Int
+    Explain {
+        Description: "Start a created or stopped job.";
+        Input: slot = "Job slot";
+        Processing: "Mark the job running.";
+        Output: "One when the job starts.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] != 1 && state[slot] != 4) { Return 0; }
+        state[slot] = 2;
+        Return 1;
+    }
+
+    Public Function StopJob(Int slot) -> Int
+    Explain {
+        Description: "Stop a running or paused job.";
+        Input: slot = "Job slot";
+        Processing: "Mark the job stopped.";
+        Output: "One when the job stops.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] != 2 && state[slot] != 3) { Return 0; }
+        state[slot] = 4;
+        Return 1;
+    }
+
+    Public Function PauseJob(Int slot) -> Int
+    Explain {
+        Description: "Pause a running job.";
+        Input: slot = "Job slot";
+        Processing: "Mark the job paused.";
+        Output: "One when the job pauses.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] != 2) { Return 0; }
+        state[slot] = 3;
+        Return 1;
+    }
+
+    Public Function ResumeJob(Int slot) -> Int
+    Explain {
+        Description: "Resume a paused job.";
+        Input: slot = "Job slot";
+        Processing: "Mark the job running.";
+        Output: "One when the job resumes.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] != 3) { Return 0; }
+        state[slot] = 2;
+        Return 1;
+    }
+
+    Public Function CancelJob(Int slot) -> Int
+    Explain {
+        Description: "Cancel a job.";
+        Input: slot = "Job slot";
+        Processing: "Mark the job canceled.";
+        Output: "One when the job is canceled.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 5 || state[slot] == 6 || state[slot] == 7) { Return 0; }
+        state[slot] = 5;
+        canceled = canceled + 1;
+        Return 1;
+    }
+
+    Public Function RestartJob(Int slot) -> Int
+    Explain {
+        Description: "Restart a job.";
+        Input: slot = "Job slot";
+        Processing: "Mark the job running and make it due now.";
+        Output: "One when the job restarts.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (state[slot] == 7) { Return 0; }
+        state[slot] = 2;
+        whenAt[slot] = clock;
+        Return 1;
+    }
+
+    Public Function DeleteJob(Int slot) -> Int
+    Explain {
+        Description: "Delete a job.";
+        Input: slot = "Job slot";
+        Processing: "Mark the job deleted.";
+        Output: "One.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        state[slot] = 7;
+        Return 1;
+    }
+
+    Public Function Start() -> Int
+    Explain {
+        Description: "Start the scheduler.";
+        Input: "No parameters";
+        Processing: "Mark the scheduler running.";
+        Output: "One.";
+    } {
+        phase = 1;
+        Return 1;
+    }
+
+    Public Function Stop() -> Int
+    Explain {
+        Description: "Stop the scheduler.";
+        Input: "No parameters";
+        Processing: "Mark the scheduler stopped.";
+        Output: "One.";
+    } {
+        phase = 0;
+        Return 1;
+    }
+
+    Public Function Pause() -> Int
+    Explain {
+        Description: "Pause the scheduler.";
+        Input: "No parameters";
+        Processing: "Due jobs wait until the scheduler resumes.";
+        Output: "One.";
+    } {
+        phase = 2;
+        Return 1;
+    }
+
+    Public Function Resume() -> Int
+    Explain {
+        Description: "Resume the scheduler.";
+        Input: "No parameters";
+        Processing: "Mark the scheduler running.";
+        Output: "One.";
+    } {
+        phase = 1;
+        Return 1;
+    }
+
+    Public Function Advance(Int ticks) -> Int
+    Explain {
+        Description: "Advance the clock and run one due job.";
+        Input: ticks = "Ticks to add";
+        Processing: "A running scheduler runs the job selected by the current mode.";
+        Output: "The clock.";
+    } {
+        clock = clock + ticks;
+        If (phase != 1) { Return clock; }
+        Int slot = This.Choose();
+        If (slot >= 0) { This.Fire(slot); }
+        Return clock;
+    }
+
+    Public Function Choose() -> Int
+    Explain {
+        Description: "Choose the next due job.";
+        Input: "No parameters";
+        Processing: "Priority uses rank. Round-robin rotates. Fair uses the smallest history.";
+        Output: "The job slot, or -1.";
+    } {
+        If (mode == 1) { Return This.ChooseRound(); }
+        If (mode == 2) { Return This.ChooseFair(); }
+        Return This.ChooseRank();
+    }
+
+    Public Function AddDependency(Int slot, Int parent) -> Int
+    Explain {
+        Description: "Make a job wait for another job.";
+        Input: slot = "Job slot", parent = "Parent slot";
+        Processing: "The job runs after the parent has completed.";
+        Output: "One when the dependency is stored.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        If (This.Known(parent) == 0) { Return 0; }
+        depends[slot] = parent;
+        Return 1;
+    }
+
+    Public Function RemoveDependency(Int slot) -> Int
+    Explain {
+        Description: "Remove a job dependency.";
+        Input: slot = "Job slot";
+        Processing: "Clear the parent slot.";
+        Output: "One when the dependency is removed.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        depends[slot] = -1;
+        Return 1;
+    }
+
+    Public Function Validate(String expression) -> Int
+    Explain {
+        Description: "Validate a cron step.";
+        Input: expression = "A number or */number";
+        Processing: "Accept digits and a star-slash step.";
+        Output: "One when the expression is valid.";
+    } {
+        If (This.StepOf(expression) > 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function NextCron(String expression, Int fromTick) -> Int
+    Explain {
+        Description: "Return the next cron tick.";
+        Input: expression = "A number or */number", fromTick = "Starting tick";
+        Processing: "Add the parsed step.";
+        Output: "The next tick, or -1.";
+    } {
+        Int step = This.StepOf(expression);
+        If (step <= 0) { Return -1; }
+        Return fromTick + step;
+    }
+
+    Public Function PrevCron(String expression, Int fromTick) -> Int
+    Explain {
+        Description: "Return the previous cron tick.";
+        Input: expression = "A number or */number", fromTick = "Starting tick";
+        Processing: "Subtract the parsed step.";
+        Output: "The previous tick, or zero when that would be negative.";
+    } {
+        Int step = This.StepOf(expression);
+        If (step <= 0) { Return -1; }
+        If (fromTick < step) { Return 0; }
+        Return fromTick - step;
+    }
+
+    Public Function Status(Int slot) -> String
+    Explain {
+        Description: "Return the job status.";
+        Input: slot = "Job slot";
+        Processing: "Map the stored state.";
+        Output: "created, running, paused, stopped, canceled, completed, deleted, or empty.";
+    } {
+        If (This.Known(slot) == 0) { Return "empty"; }
+        If (state[slot] == 1) { Return "created"; }
+        If (state[slot] == 2) { Return "running"; }
+        If (state[slot] == 3) { Return "paused"; }
+        If (state[slot] == 4) { Return "stopped"; }
+        If (state[slot] == 5) { Return "canceled"; }
+        If (state[slot] == 6) { Return "completed"; }
+        If (state[slot] == 7) { Return "deleted"; }
+        Return "empty";
+    }
+
+    Public Function KindName(Int slot) -> String
+    Explain {
+        Description: "Return the job kind.";
+        Input: slot = "Job slot";
+        Processing: "Map the stored kind.";
+        Output: "once, after, every, cron, or recurring.";
+    } {
+        If (This.Known(slot) == 0) { Return "none"; }
+        If (kind[slot] == 1) { Return "after"; }
+        If (kind[slot] == 2) { Return "every"; }
+        If (kind[slot] == 3) { Return "cron"; }
+        If (kind[slot] == 4) { Return "recurring"; }
+        Return "once";
+    }
+
+    Public Function History(Int slot) -> Int
+    Explain {
+        Description: "Return how many times a job has run.";
+        Input: slot = "Job slot";
+        Processing: "Read the run count.";
+        Output: "The run count.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return history[slot];
+    }
+
+    Public Function Outcome(Int slot) -> Int
+    Explain {
+        Description: "Return the latest job result.";
+        Input: slot = "Job slot";
+        Processing: "Read the stored result.";
+        Output: "The result.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return outcome[slot];
+    }
+
+    Public Function NextAt(Int slot) -> Int
+    Explain {
+        Description: "Return the next run tick.";
+        Input: slot = "Job slot";
+        Processing: "Read the stored tick.";
+        Output: "The tick.";
+    } {
+        If (This.Known(slot) == 0) { Return 0; }
+        Return whenAt[slot];
+    }
+
+    Public Function State() -> String
+    Explain {
+        Description: "Return the scheduler state.";
+        Input: "No parameters";
+        Processing: "Map the scheduler phase.";
+        Output: "stopped, running, or paused.";
+    } {
+        If (phase == 1) { Return "running"; }
+        If (phase == 2) { Return "paused"; }
+        Return "stopped";
+    }
+
+    Public Function Jobs() -> Int
+    Explain {
+        Description: "Return the number of jobs that are not deleted.";
+        Input: "No parameters";
+        Processing: "Count used jobs whose state is not deleted.";
+        Output: "The job count.";
+    } {
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 1 && state[slot] != 7) { count = count + 1; }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function SetMode(Int nextMode) -> Int
+    Explain {
+        Description: "Select the scheduling mode.";
+        Input: nextMode = "0 priority, 1 round-robin, 2 fair";
+        Processing: "Store the mode.";
+        Output: "One when the mode is stored.";
+    } {
+        If (nextMode < 0 || nextMode > 2) { Return 0; }
+        mode = nextMode;
+        Return 1;
+    }
+
+    Public Function Mode() -> String
+    Explain {
+        Description: "Return the scheduling mode.";
+        Input: "No parameters";
+        Processing: "Map the stored mode.";
+        Output: "priority, round, or fair.";
+    } {
+        If (mode == 1) { Return "round"; }
+        If (mode == 2) { Return "fair"; }
+        Return "priority";
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest scheduler error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the scheduler.";
+        Input: "No parameters";
+        Processing: "Report created jobs, runs, and cancellations.";
+        Output: "The statistics.";
+    } {
+        Return "created=" + This.IntText(made) + ",ran=" + This.IntText(ran) + ",canceled=" + This.IntText(canceled);
+    }
+
+    Private Function Arm(String jobName, Int jobKind, Int whenTick, Int amount, Int jobRank, Int jobGap) -> Int {
+        Int slot = This.Claim();
+        If (slot < 0) { Return -1; }
+        used[slot] = 1;
+        state[slot] = 1;
+        kind[slot] = jobKind;
+        rank[slot] = jobRank;
+        payload[slot] = amount;
+        outcome[slot] = 0;
+        whenAt[slot] = whenTick;
+        gap[slot] = jobGap;
+        history[slot] = 0;
+        depends[slot] = -1;
+        names[slot] = jobName;
+        made = made + 1;
+        Return slot;
+    }
+
+    Private Function Fire(Int slot) -> Int {
+        outcome[slot] = payload[slot];
+        history[slot] = history[slot] + 1;
+        ran = ran + 1;
+        If (kind[slot] == 2 || kind[slot] == 3 || kind[slot] == 4) {
+            whenAt[slot] = clock + gap[slot];
+            state[slot] = 2;
+        } Else {
+            state[slot] = 6;
+        }
+        Return outcome[slot];
+    }
+
+    Private Function ChooseRank() -> Int {
+        Int best = -1;
+        Int bestRank = -1;
+        Int slot = 0;
+        While (slot < 12) {
+            If (This.Due(slot) == 1 && rank[slot] > bestRank) {
+                best = slot;
+                bestRank = rank[slot];
+            }
+            slot = slot + 1;
+        }
+        Return best;
+    }
+
+    Private Function ChooseRound() -> Int {
+        Int pick = -1;
+        Int slot = turn;
+        Int seen = 0;
+        While (seen < 12) {
+            If (slot > 11) { slot = 0; }
+            If (This.Due(slot) == 1) {
+                pick = slot;
+                seen = 12;
+            } Else {
+                slot = slot + 1;
+                seen = seen + 1;
+            }
+        }
+        If (pick >= 0) {
+            turn = pick + 1;
+            If (turn > 11) { turn = 0; }
+        }
+        Return pick;
+    }
+
+    Private Function ChooseFair() -> Int {
+        Int best = -1;
+        Int bestHistory = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (This.Due(slot) == 1) {
+                If (best < 0 || history[slot] < bestHistory) {
+                    best = slot;
+                    bestHistory = history[slot];
+                }
+            }
+            slot = slot + 1;
+        }
+        Return best;
+    }
+
+    Private Function Due(Int slot) -> Int {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        If (state[slot] != 1 && state[slot] != 2) { Return 0; }
+        If (whenAt[slot] > clock) { Return 0; }
+        Return This.Ready(slot);
+    }
+
+    Private Function Ready(Int slot) -> Int {
+        If (depends[slot] < 0) { Return 1; }
+        If (depends[slot] > 11) { Return 0; }
+        If (state[depends[slot]] == 6) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Known(Int slot) -> Int {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (used[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Claim() -> Int {
+        Int slot = 0;
+        While (slot < 12) {
+            If (used[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function StepOf(String expression) -> Int {
+        If (expression.Length() == 0) { Return 0; }
+        Int start = 0;
+        If (expression.Length() >= 3 && expression.Substring(0, 2) == "*/") {
+            start = 2;
+        }
+        If (start >= expression.Length()) { Return 0; }
+        Int value = 0;
+        Int index = start;
+        While (index < expression.Length()) {
+            Int digit = This.DigitValue(expression.Substring(index, 1));
+            If (digit < 0) { Return 0; }
+            value = value * 10 + digit;
+            index = index + 1;
+        }
+        Return value;
+    }
+
+    Private Function DigitValue(String piece) -> Int {
+        If (piece == "0") { Return 0; }
+        If (piece == "1") { Return 1; }
+        If (piece == "2") { Return 2; }
+        If (piece == "3") { Return 3; }
+        If (piece == "4") { Return 4; }
+        If (piece == "5") { Return 5; }
+        If (piece == "6") { Return 6; }
+        If (piece == "7") { Return 7; }
+        If (piece == "8") { Return 8; }
+        If (piece == "9") { Return 9; }
+        Return -1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}

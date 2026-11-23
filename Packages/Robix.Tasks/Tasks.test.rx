@@ -1,0 +1,5 @@
+Test Create {
+    Constraint: TaskDesk().Create("arm", 2, 10) == 0;
+    Processing: True;
+    Output: True;
+}

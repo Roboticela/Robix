@@ -1,0 +1,5 @@
+Test Open {
+    Constraint: EventDesk().Open("arm") == 0;
+    Processing: True;
+    Output: True;
+}

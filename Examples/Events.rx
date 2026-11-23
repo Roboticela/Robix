@@ -1,0 +1,618 @@
+// Robix.Events: listeners, one-shot handlers, filters, and a paused event queue.
+Package Robotics.Events;
+
+Import Robix.Core;
+
+
+Class EventDesk {
+    Private Array<Int> usedEvent;
+    Private Array<Int> seen;
+    Private Array<Int> lastValue;
+    Private Array<Int> route;
+    Private Array<String> eventNames;
+    Private Array<Int> usedListener;
+    Private Array<Int> eventOf;
+    Private Array<Int> once;
+    Private Array<Int> rank;
+    Private Array<Int> calls;
+    Private Array<String> listenerNames;
+    Private Array<Int> queuedEvent;
+    Private Array<Int> queuedValue;
+    Private Int queued;
+    Private Int paused;
+    Private Int filterOn;
+    Private Int filterMin;
+    Private Int transform;
+    Private Int middleware;
+    Private Int delivered;
+    Private Int dropped;
+    Private String heard;
+    Private String context;
+    Private String problem;
+
+    Public Constructor() {
+        usedEvent = [0, 0, 0, 0, 0, 0, 0, 0];
+        seen = [0, 0, 0, 0, 0, 0, 0, 0];
+        lastValue = [0, 0, 0, 0, 0, 0, 0, 0];
+        route = [0, 0, 0, 0, 0, 0, 0, 0];
+        eventNames = ["", "", "", "", "", "", "", ""];
+        usedListener = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        eventOf = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        once = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        rank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        calls = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        listenerNames = ["", "", "", "", "", "", "", "", "", "", "", ""];
+        queuedEvent = [0, 0, 0, 0, 0, 0, 0, 0];
+        queuedValue = [0, 0, 0, 0, 0, 0, 0, 0];
+        queued = 0;
+        paused = 0;
+        filterOn = 0;
+        filterMin = 0;
+        transform = 0;
+        middleware = 0;
+        delivered = 0;
+        dropped = 0;
+        heard = "";
+        context = "none";
+        problem = "none";
+    }
+
+    Public Function Open(String eventName) -> Int
+    Explain {
+        Description: "Open an event.";
+        Input: eventName = "Event name";
+        Processing: "Store the event and return its slot.";
+        Output: "The event slot, or -1.";
+    } {
+        Int slot = This.ClaimEvent();
+        If (slot < 0) { Return -1; }
+        usedEvent[slot] = 1;
+        seen[slot] = 0;
+        lastValue[slot] = 0;
+        route[slot] = 0;
+        eventNames[slot] = eventName;
+        Return slot;
+    }
+
+    Public Function Subscribe(Int eventSlot, String listenerName, Int listenerRank) -> Int
+    Explain {
+        Description: "Subscribe a listener.";
+        Input: eventSlot = "Event slot", listenerName = "Listener name", listenerRank = "Priority, higher first";
+        Processing: "Store the listener on the event.";
+        Output: "The listener slot, or -1.";
+    } {
+        Return This.Bind(eventSlot, listenerName, listenerRank, 0);
+    }
+
+    Public Function Once(Int eventSlot, String listenerName) -> Int
+    Explain {
+        Description: "Subscribe a one-shot listener.";
+        Input: eventSlot = "Event slot", listenerName = "Listener name";
+        Processing: "The listener is removed after it runs once.";
+        Output: "The listener slot, or -1.";
+    } {
+        Return This.Bind(eventSlot, listenerName, 1, 1);
+    }
+
+    Public Function Remove(Int listenerSlot) -> Int
+    Explain {
+        Description: "Remove a listener.";
+        Input: listenerSlot = "Listener slot";
+        Processing: "Clear the listener.";
+        Output: "One when the listener is removed.";
+    } {
+        If (This.KnownListener(listenerSlot) == 0) { Return 0; }
+        usedListener[listenerSlot] = 0;
+        Return 1;
+    }
+
+    Public Function Emit(Int eventSlot, Int payload) -> Int
+    Explain {
+        Description: "Emit an event.";
+        Input: eventSlot = "Event slot", payload = "Event value";
+        Processing: "A paused desk queues the event. Otherwise listeners run, higher priority first.";
+        Output: "The number of listeners that ran.";
+    } {
+        Return This.Accept(eventSlot, payload);
+    }
+
+    Public Function Dispatch(Int eventSlot, Int payload) -> Int
+    Explain {
+        Description: "Dispatch an event.";
+        Input: eventSlot = "Event slot", payload = "Event value";
+        Processing: "Deliver the event to its listeners.";
+        Output: "The number of listeners that ran.";
+    } {
+        Return This.Accept(eventSlot, payload);
+    }
+
+    Public Function Publish(Int eventSlot, Int payload) -> Int
+    Explain {
+        Description: "Publish an event.";
+        Input: eventSlot = "Event slot", payload = "Event value";
+        Processing: "Deliver the event to its listeners.";
+        Output: "The number of listeners that ran.";
+    } {
+        Return This.Accept(eventSlot, payload);
+    }
+
+    Public Function DispatchAsync(Int eventSlot, Int payload) -> Int
+    Explain {
+        Description: "Dispatch an event and finish immediately.";
+        Input: eventSlot = "Event slot", payload = "Event value";
+        Processing: "Deliver the event on this turn.";
+        Output: "The number of listeners that ran.";
+    } {
+        Return This.Accept(eventSlot, payload);
+    }
+
+    Public Function Broadcast(Int payload) -> Int
+    Explain {
+        Description: "Emit every open event.";
+        Input: payload = "Event value";
+        Processing: "Deliver the value to each open event.";
+        Output: "The total number of listeners that ran.";
+    } {
+        Int total = 0;
+        Int slot = 0;
+        While (slot < 8) {
+            If (usedEvent[slot] == 1) {
+                total = total + This.Accept(slot, payload);
+            }
+            slot = slot + 1;
+        }
+        Return total;
+    }
+
+    Public Function HasListeners(Int eventSlot) -> Int
+    Explain {
+        Description: "Report whether an event has listeners.";
+        Input: eventSlot = "Event slot";
+        Processing: "Count the live listeners.";
+        Output: "One when at least one listener is live.";
+    } {
+        If (This.ListenerCount(eventSlot) > 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function ListenerCount(Int eventSlot) -> Int
+    Explain {
+        Description: "Return the listener count.";
+        Input: eventSlot = "Event slot";
+        Processing: "Count live listeners for the event.";
+        Output: "The listener count.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return 0; }
+        Int count = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (usedListener[slot] == 1 && eventOf[slot] == eventSlot) {
+                count = count + 1;
+            }
+            slot = slot + 1;
+        }
+        Return count;
+    }
+
+    Public Function ListenerAt(Int eventSlot, Int index) -> String
+    Explain {
+        Description: "Return a listener name.";
+        Input: eventSlot = "Event slot", index = "Listener index in subscription order";
+        Processing: "Walk the live listeners.";
+        Output: "The listener name, or none.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return "none"; }
+        Int seenListeners = 0;
+        Int slot = 0;
+        While (slot < 12) {
+            If (usedListener[slot] == 1 && eventOf[slot] == eventSlot) {
+                If (seenListeners == index) { Return listenerNames[slot]; }
+                seenListeners = seenListeners + 1;
+            }
+            slot = slot + 1;
+        }
+        Return "none";
+    }
+
+    Public Function Last(Int eventSlot) -> Int
+    Explain {
+        Description: "Return the latest delivered value.";
+        Input: eventSlot = "Event slot";
+        Processing: "The value includes the transform.";
+        Output: "The latest value.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return 0; }
+        Return lastValue[eventSlot];
+    }
+
+    Public Function LastListener() -> String
+    Explain {
+        Description: "Return the listener that ran most recently.";
+        Input: "No parameters";
+        Processing: "Read the stored listener name.";
+        Output: "The listener name.";
+    } {
+        If (heard == "") { Return "none"; }
+        Return heard;
+    }
+
+    Public Function Calls(Int listenerSlot) -> Int
+    Explain {
+        Description: "Return how many times a listener has run.";
+        Input: listenerSlot = "Listener slot";
+        Processing: "Read the call count.";
+        Output: "The call count.";
+    } {
+        If (listenerSlot < 0 || listenerSlot > 11) { Return 0; }
+        Return calls[listenerSlot];
+    }
+
+    Public Function Pause() -> Int
+    Explain {
+        Description: "Pause event delivery.";
+        Input: "No parameters";
+        Processing: "Later emits are queued.";
+        Output: "One.";
+    } {
+        paused = 1;
+        Return 1;
+    }
+
+    Public Function Resume() -> Int
+    Explain {
+        Description: "Resume event delivery.";
+        Input: "No parameters";
+        Processing: "New emits run immediately. Queued events wait for a flush.";
+        Output: "One.";
+    } {
+        paused = 0;
+        Return 1;
+    }
+
+    Public Function Flush() -> Int
+    Explain {
+        Description: "Deliver queued events.";
+        Input: "No parameters";
+        Processing: "Run each queued event in order.";
+        Output: "The number of queued events delivered.";
+    } {
+        Int pending = queued;
+        Int index = 0;
+        queued = 0;
+        While (index < pending) {
+            This.Deliver(queuedEvent[index], queuedValue[index]);
+            index = index + 1;
+        }
+        Return pending;
+    }
+
+    Public Function Depth() -> Int
+    Explain {
+        Description: "Return the queued event count.";
+        Input: "No parameters";
+        Processing: "Read the queue size.";
+        Output: "The queue size.";
+    } {
+        Return queued;
+    }
+
+    Public Function ClearListeners(Int eventSlot) -> Int
+    Explain {
+        Description: "Remove every listener from an event.";
+        Input: eventSlot = "Event slot";
+        Processing: "Clear listeners for that event.";
+        Output: "One when the event exists.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return 0; }
+        Int slot = 0;
+        While (slot < 12) {
+            If (usedListener[slot] == 1 && eventOf[slot] == eventSlot) {
+                usedListener[slot] = 0;
+            }
+            slot = slot + 1;
+        }
+        Return 1;
+    }
+
+    Public Function ClearAll() -> Int
+    Explain {
+        Description: "Remove every listener.";
+        Input: "No parameters";
+        Processing: "Clear the listener table.";
+        Output: "One.";
+    } {
+        Int slot = 0;
+        While (slot < 12) {
+            usedListener[slot] = 0;
+            slot = slot + 1;
+        }
+        Return 1;
+    }
+
+    Public Function SetFilter(Int minimum) -> Int
+    Explain {
+        Description: "Drop payloads below a minimum.";
+        Input: minimum = "Smallest accepted payload";
+        Processing: "Store the filter.";
+        Output: "One.";
+    } {
+        filterOn = 1;
+        filterMin = minimum;
+        Return 1;
+    }
+
+    Public Function SetTransform(Int addend) -> Int
+    Explain {
+        Description: "Add a value to every delivered payload.";
+        Input: addend = "Value to add";
+        Processing: "Store the transform.";
+        Output: "One.";
+    } {
+        transform = addend;
+        Return 1;
+    }
+
+    Public Function SetMiddleware(Int enabled) -> Int
+    Explain {
+        Description: "Reject an empty payload.";
+        Input: enabled = "One to reject zero";
+        Processing: "Store the middleware flag.";
+        Output: "One.";
+    } {
+        middleware = enabled;
+        Return 1;
+    }
+
+    Public Function SetRoute(Int eventSlot, Int channel) -> Int
+    Explain {
+        Description: "Route an event to a channel.";
+        Input: eventSlot = "Event slot", channel = "Channel id";
+        Processing: "Store the channel.";
+        Output: "One when the route is stored.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return 0; }
+        route[eventSlot] = channel;
+        Return 1;
+    }
+
+    Public Function Route(Int eventSlot) -> Int
+    Explain {
+        Description: "Return the event channel.";
+        Input: eventSlot = "Event slot";
+        Processing: "Read the channel.";
+        Output: "The channel id.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return 0; }
+        Return route[eventSlot];
+    }
+
+    Public Function SetContext(String name) -> Int
+    Explain {
+        Description: "Store the event context.";
+        Input: name = "Context name";
+        Processing: "Store the name.";
+        Output: "One.";
+    } {
+        context = name;
+        Return 1;
+    }
+
+    Public Function Context() -> String
+    Explain {
+        Description: "Return the event context.";
+        Input: "No parameters";
+        Processing: "Read the context name.";
+        Output: "The context name.";
+    } {
+        Return context;
+    }
+
+    Public Function WaitFor(Int eventSlot) -> Int
+    Explain {
+        Description: "Report whether an event has been delivered.";
+        Input: eventSlot = "Event slot";
+        Processing: "Read the seen flag.";
+        Output: "One when the event has been delivered.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return 0; }
+        Return seen[eventSlot];
+    }
+
+    Public Function Meta(Int eventSlot) -> String
+    Explain {
+        Description: "Describe an event.";
+        Input: eventSlot = "Event slot";
+        Processing: "Join the name, listener count, and latest value.";
+        Output: "The metadata text.";
+    } {
+        If (This.KnownEvent(eventSlot) == 0) { Return "none"; }
+        Return eventNames[eventSlot] + "#" + This.IntText(This.ListenerCount(eventSlot)) + "#" + This.IntText(lastValue[eventSlot]);
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest event error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Public Function Stats() -> String
+    Explain {
+        Description: "Describe the event desk.";
+        Input: "No parameters";
+        Processing: "Report deliveries, drops, and the current queue.";
+        Output: "The statistics.";
+    } {
+        Return "delivered=" + This.IntText(delivered) + ",dropped=" + This.IntText(dropped) + ",queued=" + This.IntText(queued);
+    }
+
+    Private Function Bind(Int eventSlot, String listenerName, Int listenerRank, Int oneShot) -> Int {
+        If (This.KnownEvent(eventSlot) == 0) { Return -1; }
+        Int slot = This.ClaimListener();
+        If (slot < 0) { Return -1; }
+        usedListener[slot] = 1;
+        eventOf[slot] = eventSlot;
+        once[slot] = oneShot;
+        rank[slot] = listenerRank;
+        calls[slot] = 0;
+        listenerNames[slot] = listenerName;
+        Return slot;
+    }
+
+    Private Function Accept(Int eventSlot, Int payload) -> Int {
+        If (This.KnownEvent(eventSlot) == 0) { Return 0; }
+        If (middleware == 1 && payload <= 0) {
+            problem = "empty";
+            dropped = dropped + 1;
+            Return 0;
+        }
+        If (filterOn == 1 && payload < filterMin) {
+            dropped = dropped + 1;
+            Return 0;
+        }
+        If (paused == 1) {
+            If (queued > 7) { Return 0; }
+            queuedEvent[queued] = eventSlot;
+            queuedValue[queued] = payload;
+            queued = queued + 1;
+            Return 0;
+        }
+        Return This.Deliver(eventSlot, payload);
+    }
+
+    Private Function Deliver(Int eventSlot, Int payload) -> Int {
+        Int value = payload + transform;
+        lastValue[eventSlot] = value;
+        seen[eventSlot] = 1;
+        Int called = 0;
+        Int pass = 0;
+        While (pass < 2) {
+            Int slot = 0;
+            While (slot < 12) {
+                If (usedListener[slot] == 1 && eventOf[slot] == eventSlot) {
+                    Int high = 0;
+                    If (rank[slot] >= 2) { high = 1; }
+                    If ((pass == 0 && high == 1) || (pass == 1 && high == 0)) {
+                        calls[slot] = calls[slot] + 1;
+                        heard = listenerNames[slot];
+                        delivered = delivered + 1;
+                        called = called + 1;
+                        If (once[slot] == 1) { usedListener[slot] = 0; }
+                    }
+                }
+                slot = slot + 1;
+            }
+            pass = pass + 1;
+        }
+        Return called;
+    }
+
+    Private Function KnownEvent(Int slot) -> Int {
+        If (slot < 0 || slot > 7) { Return 0; }
+        If (usedEvent[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function KnownListener(Int slot) -> Int {
+        If (slot < 0 || slot > 11) { Return 0; }
+        If (usedListener[slot] != 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function ClaimEvent() -> Int {
+        Int slot = 0;
+        While (slot < 8) {
+            If (usedEvent[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function ClaimListener() -> Int {
+        Int slot = 0;
+        While (slot < 12) {
+            If (usedListener[slot] == 0) { Return slot; }
+            slot = slot + 1;
+        }
+        Return -1;
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value == 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Subscribe listeners and dispatch events.";
+    Input: args = "Command-line arguments";
+    Processing: "Emit, pause, filter, transform, and broadcast events.";
+    Output: "The event report.";
+} {
+    EventDesk desk = EventDesk();
+    Print(desk.Open("arm"));
+    Print(desk.Subscribe(0, "log", 1));
+    Print(desk.Subscribe(0, "hud", 2));
+    Print(desk.HasListeners(0));
+    Print(desk.ListenerCount(0));
+    Print(desk.ListenerAt(0, 0));
+    Print(desk.ListenerAt(0, 1));
+    Print(desk.Emit(0, 10));
+    Print(desk.Last(0));
+    Print(desk.LastListener());
+    Print(desk.Calls(1));
+    Print(desk.Calls(0));
+    Print(desk.Once(0, "beep"));
+    Print(desk.Emit(0, 4));
+    Print(desk.LastListener());
+    Print(desk.Emit(0, 4));
+    Print(desk.LastListener());
+    Print(desk.Calls(2));
+    Print(desk.Remove(0));
+    Print(desk.ListenerCount(0));
+    Print(desk.Pause());
+    Print(desk.Publish(0, 7));
+    Print(desk.Depth());
+    Print(desk.Resume());
+    Print(desk.Flush());
+    Print(desk.Last(0));
+    Print(desk.SetFilter(5));
+    Print(desk.Dispatch(0, 3));
+    Print(desk.Last(0));
+    Print(desk.SetTransform(2));
+    Print(desk.Dispatch(0, 8));
+    Print(desk.Last(0));
+    Print(desk.SetMiddleware(1));
+    Print(desk.DispatchAsync(0, 0));
+    Print(desk.Fault());
+    Print(desk.Open("leg"));
+    Print(desk.Subscribe(1, "wheel", 1));
+    Print(desk.SetRoute(1, 3));
+    Print(desk.Route(1));
+    Print(desk.Broadcast(6));
+    Print(desk.Last(0));
+    Print(desk.Last(1));
+    Print(desk.Meta(0));
+    Print(desk.ClearListeners(0));
+    Print(desk.HasListeners(0));
+    Print(desk.WaitFor(0));
+    Print(desk.WaitFor(1));
+    Print(desk.ClearAll());
+    Print(desk.ListenerCount(1));
+    Print(desk.SetContext("bus"));
+    Print(desk.Context());
+    Print(desk.Stats());
+    Return 0;
+}

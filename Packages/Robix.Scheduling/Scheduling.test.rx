@@ -1,0 +1,5 @@
+Test Schedule {
+    Constraint: JobDesk().Schedule("arm", 5, 10) == 0;
+    Processing: True;
+    Output: True;
+}
