@@ -1,0 +1,205 @@
+// Robix.Text: alignment, wrapping, and display width for any surface.
+Package Robotics.Text;
+
+Import Robix.Core;
+
+
+Class TextDesk {
+    Private String wrapped;
+    Private Int split;
+    Private String problem;
+
+    Public Constructor() {
+        wrapped = "";
+        split = 0;
+        problem = "none";
+    }
+
+    Public Function Measure(String text) -> Int
+    Explain {
+        Description: "Return the display width.";
+        Input: text = "Text";
+        Processing: "Count the characters. ASCII characters occupy one column.";
+        Output: "The width.";
+    } {
+        Return text.Length();
+    }
+
+    Public Function Center(String text, Int width) -> String
+    Explain {
+        Description: "Center text in a field.";
+        Input: text = "Text", width = "Field width";
+        Processing: "Pad both sides with spaces.";
+        Output: "The centered text.";
+    } {
+        If (text.Length() >= width) { Return text; }
+        Int pad = width - text.Length();
+        Int left = pad / 2;
+        Int right = pad - left;
+        Return This.Spaces(left) + text + This.Spaces(right);
+    }
+
+    Public Function AlignLeft(String text, Int width) -> String
+    Explain {
+        Description: "Align text to the left.";
+        Input: text = "Text", width = "Field width";
+        Processing: "Pad the right side.";
+        Output: "The aligned text.";
+    } {
+        If (text.Length() >= width) { Return text; }
+        Return text + This.Spaces(width - text.Length());
+    }
+
+    Public Function AlignRight(String text, Int width) -> String
+    Explain {
+        Description: "Align text to the right.";
+        Input: text = "Text", width = "Field width";
+        Processing: "Pad the left side.";
+        Output: "The aligned text.";
+    } {
+        If (text.Length() >= width) { Return text; }
+        Return This.Spaces(width - text.Length()) + text;
+    }
+
+    Public Function Truncate(String text, Int width) -> String
+    Explain {
+        Description: "Truncate text to a width.";
+        Input: text = "Text", width = "Maximum width";
+        Processing: "Keep the leading characters.";
+        Output: "The truncated text.";
+    } {
+        If (width <= 0) { Return ""; }
+        If (text.Length() <= width) { Return text; }
+        Return text.Substring(0, width);
+    }
+
+    Public Function Repeat(String text, Int times) -> String
+    Explain {
+        Description: "Repeat text.";
+        Input: text = "Text", times = "Repetitions";
+        Processing: "Append the text.";
+        Output: "The repeated text.";
+    } {
+        String built = "";
+        Int index = 0;
+        While (index < times) {
+            built = built + text;
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Public Function Wrap(String text, Int width) -> Int
+    Explain {
+        Description: "Wrap text into lines.";
+        Input: text = "Text", width = "Line width";
+        Processing: "Break on spaces when a word would pass the width.";
+        Output: "The number of lines.";
+    } {
+        wrapped = "";
+        split = 0;
+        String line = "";
+        String word = "";
+        Int lines = 0;
+        Int index = 0;
+        While (index <= text.Length()) {
+            String piece = "";
+            If (index < text.Length()) { piece = text.Substring(index, 1); }
+            Int boundary = 0;
+            If (piece == " " || index == text.Length()) { boundary = 1; }
+            If (boundary == 0) { word = word + piece; }
+            If (boundary == 1 && word != "") {
+                Int needed = word.Length();
+                If (line != "") { needed = needed + 1 + word.Length(); }
+                If (line != "" && needed > width) {
+                    If (wrapped != "") { wrapped = wrapped + "\n"; }
+                    wrapped = wrapped + line;
+                    lines = lines + 1;
+                    line = word;
+                }
+                If (line == "" || needed <= width) {
+                    If (line == "") { line = word; }
+                    If (line != word) { line = line + " " + word; }
+                }
+                word = "";
+            }
+            index = index + 1;
+        }
+        If (line != "") {
+            If (wrapped != "") { wrapped = wrapped + "\n"; }
+            wrapped = wrapped + line;
+            lines = lines + 1;
+        }
+        split = 0;
+        Int cursor = 0;
+        While (cursor < wrapped.Length()) {
+            If (wrapped.Substring(cursor, 1) == "\n") { split = cursor; cursor = wrapped.Length(); }
+            If (cursor < wrapped.Length()) { cursor = cursor + 1; }
+        }
+        Return lines;
+    }
+
+    Public Function FirstLine() -> String
+    Explain {
+        Description: "Return the first wrapped line.";
+        Input: "No parameters";
+        Processing: "Read up to the first break.";
+        Output: "The line.";
+    } {
+        If (split == 0) { Return wrapped; }
+        Return wrapped.Substring(0, split);
+    }
+
+    Public Function NextLine() -> String
+    Explain {
+        Description: "Return the text after the first wrapped line.";
+        Input: "No parameters";
+        Processing: "Read after the first break.";
+        Output: "The remaining text.";
+    } {
+        If (split == 0 || split + 1 >= wrapped.Length()) { Return ""; }
+        Return wrapped.Substring(split + 1, wrapped.Length() - split - 1);
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest text error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Spaces(Int count) -> String {
+        String built = "";
+        Int index = 0;
+        While (index < count) {
+            built = built + " ";
+            index = index + 1;
+        }
+        Return built;
+    }
+}
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Align and wrap text.";
+    Input: args = "Command-line arguments";
+    Processing: "Exercise the text desk.";
+    Output: "The text report.";
+} {
+    TextDesk desk = TextDesk();
+    Print(desk.Measure("Robix"));
+    Print(desk.Center("Robix", 10));
+    Print(desk.AlignLeft("Robix", 8));
+    Print(desk.AlignRight("Robix", 8));
+    Print(desk.Truncate("Roboticela", 6));
+    Print(desk.Repeat("ab", 3));
+    Print(desk.Wrap("one two three", 7));
+    Print(desk.FirstLine());
+    Print(desk.NextLine());
+    Print(desk.Fault());
+    Return 0;
+}

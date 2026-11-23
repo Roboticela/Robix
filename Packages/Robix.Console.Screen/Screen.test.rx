@@ -1,0 +1,5 @@
+Test Width {
+    Constraint: ScreenDesk().Width() == 80;
+    Processing: True;
+    Output: True;
+}

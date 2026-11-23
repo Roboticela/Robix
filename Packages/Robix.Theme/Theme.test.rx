@@ -1,0 +1,5 @@
+Test Apply {
+    Constraint: ThemeDesk().Apply("dark") == 1;
+    Processing: True;
+    Output: True;
+}

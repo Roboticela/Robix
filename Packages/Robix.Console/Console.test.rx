@@ -1,0 +1,5 @@
+Test WriteLine {
+    Constraint: ConsoleDesk().WriteLine("Robix") == 6;
+    Processing: True;
+    Output: True;
+}

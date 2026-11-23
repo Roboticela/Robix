@@ -4,7 +4,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const { tokenize, keywordCaseEdits, nameCaseEdits } = require("../lib/scanner");
-const { declarationNameTokens, toPascal } = require("../lib/names");
+const { declarationNameTokens, toPascal, namingDiagnostic } = require("../lib/names");
 const { formatRobix, formatProject } = require("../lib/format");
 const { analyze } = require("../lib/analyze");
 const { complete, hover, signature: signatureHelp, definition, semanticSpans } = require("../lib/intellisense");
@@ -87,6 +87,27 @@ check("package, function, and class names become PascalCase", () => {
     assert.deepStrictEqual(structName.map((edit) => edit.text), ["Point"]);
     assert.strictEqual(nameCaseEdits("var myValue =", "var myValue ".length, "=").length, 0);
     assert.strictEqual(nameCaseEdits("function main", 12, "n").length, 0);
+});
+
+check("variables become camelCase while functions stay PascalCase", () => {
+    const field = "Private List<String> PageTitles;";
+    assert.deepStrictEqual(nameCaseEdits(field, field.length - 1, ";").map((edit) => edit.text), ["pageTitles"]);
+    const local = nameCaseEdits("Var Total =", "Var Total".length, " =");
+    assert.deepStrictEqual(local.map((edit) => edit.text), ["total"]);
+    const loop = nameCaseEdits("For Index In", "For Index".length, " ");
+    assert.deepStrictEqual(loop.map((edit) => edit.text), ["index"]);
+    const param = "Function Main(String FileName)";
+    assert.deepStrictEqual(nameCaseEdits(param, param.length - 1, ")").map((edit) => edit.text), ["fileName"]);
+    assert.strictEqual(nameCaseEdits("Const MAX_SIZE =", "Const MAX_SIZE".length, " =").length, 0);
+    assert.deepStrictEqual(nameCaseEdits("function main(", "function main".length, "(").map((edit) => edit.text), ["Main"]);
+    const camelField = namingDiagnostic("RX032", "Field 'pageTitles' should use PascalCase.");
+    assert.strictEqual(camelField.drop, true);
+    const otherField = namingDiagnostic("RX032", "Field 'page_titles' should use PascalCase.");
+    assert.strictEqual(otherField.code, "RX031");
+    assert.strictEqual(otherField.message, "Field 'page_titles' should use camelCase.");
+    const fn = namingDiagnostic("RX032", "Function 'main' should use PascalCase.");
+    assert.strictEqual(fn.drop, false);
+    assert.strictEqual(fn.code, "RX032");
 });
 
 check("functions and known packages are colored, unknown packages are not", () => {
@@ -271,10 +292,38 @@ check("wrong case still suggests the PascalCase package, function, and class", (
     assert.ok(fn.some((item) => item.label === "Main" && item.insert === "Main"));
     const typeName = complete("class navHost", "class navHost".length).items;
     assert.ok(typeName.some((item) => item.label === "NavHost" && item.insert === "NavHost"));
+    const variable = complete("Var PageTitles", "Var PageTitles".length).items;
+    assert.ok(variable.some((item) => item.label === "pageTitles" && item.insert === "pageTitles"));
+    const typed = complete("String FileName", "String FileName".length).items;
+    assert.ok(typed.some((item) => item.label === "fileName" && item.insert === "fileName"));
     const call = complete("print", "print".length).items;
     assert.ok(call.some((item) => item.label === "Print" && item.filter.startsWith("print")));
     const members = complete("math.ab", "math.ab".length).items.map((item) => item.label);
     assert.ok(members.includes("Abs"), members.join(", "));
+});
+
+check("unimported functions stay below local names and bring their package", () => {
+    const source = "Package Demo;\n\nPublic Function Main() -> Int {\n    Var total = 0;\n    Return \n}\n";
+    const offset = source.indexOf("Return ") + "Return ".length;
+    const items = complete(source, offset).items;
+    const total = items.find((item) => item.label === "total");
+    const main = items.find((item) => item.label === "Main" && item.kind === "function");
+    const abs = items.find((item) => item.label === "Abs");
+    assert.ok(total && main && abs);
+    assert.ok(total.sort < main.sort, `${total.sort} ${main.sort}`);
+    assert.ok(main.sort < abs.sort, `${main.sort} ${abs.sort}`);
+    assert.ok(abs.documentation.includes("Explain {"));
+    assert.ok(abs.documentation.includes("Absolute value"));
+    assert.ok(abs.importEdit && abs.importEdit.text.includes("Import Robix.Math;"));
+    const imported = "Package Demo;\nImport Robix.Math;\n\nPublic Function Main() -> Int {\n    Return \n}\n";
+    const known = complete(imported, imported.indexOf("Return ") + "Return ".length).items.find((item) => item.label === "Abs");
+    assert.ok(known);
+    assert.ok(!known.importEdit);
+    assert.ok(known.sort < abs.sort);
+    const hello = fs.readFileSync(path.join(root, "Examples/HelloRobot.rx"), "utf8");
+    const explained = hover(hello, hello.indexOf("Function Main") + "Function ".length);
+    assert.ok(explained.contents.includes("Explain {"));
+    assert.ok(explained.contents.includes("Greet the operator"));
 });
 
 check("user names are not recased", () => {

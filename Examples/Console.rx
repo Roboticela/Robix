@@ -1,0 +1,183 @@
+// Robix.Console: terminal text. Colors come from Robix.Color. Themes come from Robix.Theme.
+Package Robotics.Console;
+
+Import Robix.Core;
+Import Robix.Color;
+Import Robix.Theme;
+
+
+Class ConsoleDesk {
+    Private String transcript;
+    Private Int colorOn;
+    Private String problem;
+
+    Public Constructor() {
+        transcript = "";
+        colorOn = 0;
+        problem = "none";
+    }
+
+    Public Function UseColor(Int enabled) -> Int
+    Explain {
+        Description: "Enable true-color text.";
+        Input: enabled = "One to emit color sequences";
+        Processing: "Store the color mode.";
+        Output: "The mode.";
+    } {
+        colorOn = 0;
+        If (enabled != 0) { colorOn = 1; }
+        Return colorOn;
+    }
+
+    Public Function Write(String text) -> Int
+    Explain {
+        Description: "Write text.";
+        Input: text = "Text";
+        Processing: "Append it to the transcript.";
+        Output: "The transcript length.";
+    } {
+        transcript = transcript + text;
+        Return transcript.Length();
+    }
+
+    Public Function WriteLine(String text) -> Int
+    Explain {
+        Description: "Write text and a newline.";
+        Input: text = "Text";
+        Processing: "Append the text and a newline.";
+        Output: "The transcript length.";
+    } {
+        transcript = transcript + text + "\n";
+        Return transcript.Length();
+    }
+
+    Public Function WriteInfo(String text) -> Int
+    Explain {
+        Description: "Write an information line.";
+        Input: text = "Text";
+        Processing: "Prefix the information role.";
+        Output: "The transcript length.";
+    } {
+        Return This.WriteRole("info", text, 80, 180, 255);
+    }
+
+    Public Function WriteSuccess(String text) -> Int
+    Explain {
+        Description: "Write a success line.";
+        Input: text = "Text";
+        Processing: "Prefix the success role.";
+        Output: "The transcript length.";
+    } {
+        Return This.WriteRole("success", text, 0, 200, 0);
+    }
+
+    Public Function WriteWarning(String text) -> Int
+    Explain {
+        Description: "Write a warning line.";
+        Input: text = "Text";
+        Processing: "Prefix the warning role.";
+        Output: "The transcript length.";
+    } {
+        Return This.WriteRole("warning", text, 255, 200, 0);
+    }
+
+    Public Function WriteError(String text) -> Int
+    Explain {
+        Description: "Write an error line.";
+        Input: text = "Text";
+        Processing: "Prefix the error role.";
+        Output: "The transcript length.";
+    } {
+        Return This.WriteRole("error", text, 255, 60, 60);
+    }
+
+    Public Function WriteColored(String text, Int red, Int green, Int blue) -> Int
+    Explain {
+        Description: "Write colored text.";
+        Input: text = "Text", red = "Red", green = "Green", blue = "Blue";
+        Processing: "Emit a true-color sequence when color is enabled.";
+        Output: "The transcript length.";
+    } {
+        If (colorOn == 0) {
+            transcript = transcript + text;
+            Return transcript.Length();
+        }
+        String esc = "\u001b";
+        transcript = transcript + esc + "[38;2;" + This.IntText(red) + ";" + This.IntText(green) + ";" + This.IntText(blue) + "m" + text + esc + "[0m";
+        Return transcript.Length();
+    }
+
+    Public Function Transcript() -> String
+    Explain {
+        Description: "Return the written text.";
+        Input: "No parameters";
+        Processing: "Read the transcript.";
+        Output: "The transcript.";
+    } {
+        Return transcript;
+    }
+
+    Public Function ClearOutput() -> Int
+    Explain {
+        Description: "Clear the transcript.";
+        Input: "No parameters";
+        Processing: "Drop the written text.";
+        Output: "Zero.";
+    } {
+        transcript = "";
+        Return 0;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest console error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function WriteRole(String role, String text, Int red, Int green, Int blue) -> Int {
+        String body = role + ": " + text;
+        If (colorOn == 0) { Return This.WriteLine(body); }
+        This.WriteColored(body, red, green, blue);
+        transcript = transcript + "\n";
+        Return transcript.Length();
+    }
+
+    Private Function IntText(Int value) -> String {
+        If (value <= 0) { Return "0"; }
+        Int remainingValue = value;
+        String digits = "0123456789";
+        String built = "";
+        While (remainingValue > 0) {
+            Int digit = remainingValue % 10;
+            built = digits.Substring(digit, 1) + built;
+            remainingValue = remainingValue / 10;
+        }
+        Return built;
+    }
+}
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Write plain and colored console text.";
+    Input: args = "Command-line arguments";
+    Processing: "Exercise the console desk.";
+    Output: "The console report.";
+} {
+    ConsoleDesk desk = ConsoleDesk();
+    Print(desk.WriteLine("Welcome"));
+    Print(desk.WriteSuccess("started"));
+    Print(desk.WriteWarning("careful"));
+    Print(desk.WriteError("failed"));
+    Print(desk.Transcript());
+    Print(desk.ClearOutput());
+    Print(desk.UseColor(1));
+    Print(desk.WriteColored("Robix", 255, 87, 51));
+    Print(desk.Transcript());
+    Print(desk.Fault());
+    Return 0;
+}

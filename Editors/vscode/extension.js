@@ -6,6 +6,7 @@ const fs = require("fs");
 const os = require("os");
 const { spawn } = require("child_process");
 const { keywordCaseEdits, nameCaseEdits, tokenize } = require("./lib/scanner");
+const { namingDiagnostic } = require("./lib/names");
 const { formatRobix, formatProject } = require("./lib/format");
 const { analyze } = require("./lib/analyze");
 const { complete, hover, signature, definition, referencesIn, semanticSpans } = require("./lib/intellisense");
@@ -227,6 +228,12 @@ function completionProvider() {
                 completion.commitCharacters = [];
                 completion.insertText = item.snippet ? new vscode.SnippetString(item.insert) : item.insert;
                 completion.range = new vscode.Range(document.positionAt(result.replaceStart), document.positionAt(result.replaceEnd));
+                if (item.importEdit) {
+                    completion.additionalTextEdits = [vscode.TextEdit.replace(
+                        new vscode.Range(document.positionAt(item.importEdit.start), document.positionAt(item.importEdit.end)),
+                        item.importEdit.text
+                    )];
+                }
                 return completion;
             });
         }
@@ -591,8 +598,13 @@ function parseToolOutput(document, text) {
             match[5],
             severity(match[1])
         );
+        const naming = namingDiagnostic(match[2], match[5]);
+        if (naming.drop) {
+            continue;
+        }
         diagnostic.source = "Robix";
-        diagnostic.code = match[2];
+        diagnostic.code = naming.code;
+        diagnostic.message = naming.message;
         found.push(diagnostic);
     }
     return found;

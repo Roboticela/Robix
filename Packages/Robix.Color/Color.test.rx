@@ -1,0 +1,5 @@
+Test Contrast {
+    Constraint: ColorDesk().Contrast(0, 0, 0, 255, 255, 255) == 21;
+    Processing: True;
+    Output: True;
+}

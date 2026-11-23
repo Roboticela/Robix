@@ -1,7 +1,7 @@
 "use strict";
 
 const { KEYWORDS, keywordInfo, modifierMask } = require("./keywords");
-const { declarationNameTokens, toPascal } = require("./names");
+const { declarationNameTokens, toPascal, variableNameTokens, toCamel } = require("./names");
 
 const OPERATORS = [
     "...", "..=", "..", "=>", "->", "?.", "??", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>",
@@ -514,12 +514,25 @@ function nameCaseEdits(text, changeOffset, inserted) {
     const regionStart = changeOffset;
     const regionEnd = changeOffset + inserted.length;
     const boundaryOnly = /^[^A-Za-z0-9_]+$/.test(inserted);
-    const edits = [];
+    const chosen = new Map();
     for (const token of declarationNameTokens(tokens)) {
         const corrected = toPascal(token.text);
-        if (!token.text || corrected === token.text) {
+        if (token.text && corrected !== token.text) {
+            chosen.set(token.start, { token, text: corrected });
+        }
+    }
+    for (const token of variableNameTokens(tokens)) {
+        if (chosen.has(token.start)) {
             continue;
         }
+        const corrected = toCamel(token.text);
+        if (token.text && corrected !== token.text) {
+            chosen.set(token.start, { token, text: corrected });
+        }
+    }
+    const edits = [];
+    for (const item of chosen.values()) {
+        const token = item.token;
         const nextChar = text[token.end];
         const closed = token.end >= text.length || !/[A-Za-z0-9_]/.test(nextChar || "");
         if (!closed) {
@@ -529,7 +542,7 @@ function nameCaseEdits(text, changeOffset, inserted) {
             ? token.end === changeOffset
             : token.start >= regionStart && token.end <= regionEnd;
         if (hit) {
-            edits.push({ start: token.start, end: token.end, text: corrected });
+            edits.push({ start: token.start, end: token.end, text: item.text });
         }
     }
     return edits;

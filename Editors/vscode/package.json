@@ -2,7 +2,7 @@
     "name": "Robix",
     "displayName": "Robix",
     "description": "Robix is Roboticela's type-safe language: PascalCase you can read aloud, the control of C, an interpreter to run it, and a compiler that builds a native executable.",
-    "version": "0.0.14",
+    "version": "0.0.15",
     "publisher": "Roboticela",
     "author": {
         "name": "Roboticela"
@@ -113,7 +113,7 @@
                 "robix.autoCorrectKeywords": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Rewrite keywords, package names, and function and class names to PascalCase when a word is finished. Variables stay as you wrote them."
+                    "description": "Rewrite keywords, package names, and function and class names to PascalCase, and variable names to camelCase, when a word is finished."
                 },
                 "robix.format.indentSize": {
                     "type": "number",

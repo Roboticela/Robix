@@ -22,8 +22,9 @@ function analyze(source, externalNames) {
     const diagnostics = scanned.diagnostics.filter((item) => item.code !== "RX005");
     const symbols = [];
     const known = externalNames instanceof Set ? externalNames : new Set(externalNames || []);
+    let parsed = null;
     try {
-        parseFile(text, scanned.tokens, symbols, diagnostics, known);
+        parsed = parseFile(text, scanned.tokens, symbols, diagnostics, known);
     } catch (error) {
         diagnostics.push({
             severity: "warning",
@@ -35,7 +36,14 @@ function analyze(source, externalNames) {
             end: 0
         });
     }
-    return { source: text, tokens: scanned.tokens, symbols, diagnostics };
+    return {
+        source: text,
+        tokens: scanned.tokens,
+        symbols,
+        diagnostics,
+        imports: parsed && parsed.importNames ? parsed.importNames : [],
+        packageName: parsed && parsed.packageName ? parsed.packageName : ""
+    };
 }
 
 function parseFile(source, tokens, symbols, diagnostics, known) {
@@ -53,7 +61,9 @@ function parseFile(source, tokens, symbols, diagnostics, known) {
         container: "",
         fuel: 0,
         localStack: [[]],
-        imports: new Set()
+        imports: new Set(),
+        importNames: [],
+        packageName: ""
     };
     checkDelimiters(state);
     while (!done(state)) {
@@ -65,6 +75,7 @@ function parseFile(source, tokens, symbols, diagnostics, known) {
     }
     colorImportedUses(state);
     reportUnknown(state);
+    return state;
 }
 
 function checkDelimiters(state) {
@@ -462,6 +473,7 @@ function parsePackage(state) {
     const symbol = addSymbol(state, symbolAt(keyword, name || "Package", "namespace", name, true, true));
     paint(keyword, "keyword", [], "");
     if (name) {
+        state.packageName = name;
         symbol.detail = `Package ${name}`;
     }
     if (peek(state) && peek(state).text === "{") {
@@ -474,6 +486,7 @@ function parsePackage(state) {
 function parseImport(state) {
     const keyword = eat(state);
     const dotted = readDotted(state, "namespace", false);
+    noteImport(state, dotted);
     let alias = dotted.split(".").pop();
     if (peek(state) && peek(state).text === ".") {
         eat(state);
@@ -555,7 +568,20 @@ function isKnownPackage(state, name) {
     return false;
 }
 
+function noteImport(state, name) {
+    if (!name) {
+        return;
+    }
+    if (!state.importNames.some((item) => item.toLowerCase() === name.toLowerCase())) {
+        state.importNames.push(name);
+    }
+}
+
 function rememberImport(state, name) {
+    noteImport(state, name);
+    if (!name) {
+        return;
+    }
     for (const part of String(name).split(".")) {
         if (part) {
             state.imports.add(part);
@@ -615,6 +641,7 @@ function parseFunction(state, mods, isMethod) {
         container: state.container,
         member: isMethod,
         fileWide: !isMethod,
+        packageName: state.packageName || "",
         detail: `${mods.join(" ")}${mods.length ? " " : ""}${keyword.canonical} ${name}(${params.map((param) => param.label).join(", ")}) -> ${result}`.trim()
     });
     if (nameToken) {
@@ -639,7 +666,7 @@ function parseFunction(state, mods, isMethod) {
         state.asyncDepth += 1;
     }
     if (peek(state) && textOf(peek(state)) === "Explain") {
-        parseExplain(state);
+        symbol.explain = parseExplain(state);
     }
     if (peek(state) && peek(state).text === "{") {
         parseBlock(state, false);
@@ -758,20 +785,30 @@ function parseOneParameter(state) {
 }
 
 function parseExplain(state) {
+    const keyword = peek(state);
+    const start = keyword ? keyword.start : state.source.length;
     eat(state);
+    const fields = {};
     if (!peek(state) || peek(state).text !== "{") {
-        return;
+        return { text: state.source.slice(start, keyword ? keyword.end : start), description: "", input: "", processing: "", output: "" };
     }
     eat(state);
     while (peek(state) && peek(state).text !== "}" && peek(state).kind !== "eof") {
         const field = peek(state);
+        let key = "";
         if (field.kind === "identifier" || field.kind === "keyword") {
+            key = field.text;
             paint(field, "property", ["declaration"], "property");
             eat(state);
         }
         if (peek(state) && peek(state).text === ":") {
             eat(state);
+            const valueStart = peek(state) ? peek(state).start : state.source.length;
             scanExpression(state, () => peek(state) && (peek(state).text === ";" || peek(state).text === "}"));
+            const valueEnd = peek(state) ? peek(state).start : state.source.length;
+            if (key) {
+                fields[key] = state.source.slice(valueStart, valueEnd).trim();
+            }
         }
         if (peek(state) && peek(state).text === ";") {
             eat(state);
@@ -779,9 +816,18 @@ function parseExplain(state) {
             eat(state);
         }
     }
+    let end = state.source.length;
     if (peek(state) && peek(state).text === "}") {
+        end = peek(state).end;
         eat(state);
     }
+    return {
+        text: state.source.slice(start, end),
+        description: fields.Description || "",
+        input: fields.Input || "",
+        processing: fields.Processing || "",
+        output: fields.Output || ""
+    };
 }
 
 function parseTypeDecl(state, mods, keyword) {

@@ -1,0 +1,208 @@
+// Robix.Console.Input: a virtual line, prompt, and menu backend.
+Package Robix.Console.Input;
+
+Import Robix.Core;
+
+
+Class InputDesk {
+    Private String buffer;
+    Private Array<String> items;
+    Private Int itemCount;
+    Private Int selected;
+    Private String problem;
+
+    Public Constructor() {
+        buffer = "";
+        items = ["", "", "", "", "", "", "", ""];
+        itemCount = 0;
+        selected = 0;
+        problem = "none";
+    }
+
+    Public Function Feed(String text) -> Int
+    Explain {
+        Description: "Feed a line into the virtual terminal.";
+        Input: text = "Input text";
+        Processing: "Store the line for the next read.";
+        Output: "The text length.";
+    } {
+        buffer = text;
+        Return buffer.Length();
+    }
+
+    Public Function ReadLine() -> String
+    Explain {
+        Description: "Read the fed line.";
+        Input: "No parameters";
+        Processing: "Return the stored line.";
+        Output: "The line.";
+    } {
+        Return buffer;
+    }
+
+    Public Function ReadInteger() -> Int
+    Explain {
+        Description: "Read an integer from the fed line.";
+        Input: "No parameters";
+        Processing: "Scan an optional sign and digits.";
+        Output: "The integer, or zero when the line is not an integer.";
+    } {
+        If (buffer.Length() == 0) {
+            problem = "empty";
+            Return 0;
+        }
+        Int index = 0;
+        Int sign = 1;
+        String piece = buffer.Substring(0, 1);
+        If (piece == "-") {
+            sign = -1;
+            index = 1;
+        }
+        Int value = 0;
+        Int seen = 0;
+        While (index < buffer.Length()) {
+            Int digit = This.Digit(buffer.Substring(index, 1));
+            If (digit < 0) {
+                problem = "integer";
+                Return 0;
+            }
+            value = value * 10 + digit;
+            seen = 1;
+            index = index + 1;
+        }
+        If (seen == 0) {
+            problem = "integer";
+            Return 0;
+        }
+        Return sign * value;
+    }
+
+    Public Function ReadBoolean() -> Int
+    Explain {
+        Description: "Read a Boolean from the fed line.";
+        Input: "No parameters";
+        Processing: "Accept yes, true, and 1.";
+        Output: "One for yes and zero for no.";
+    } {
+        If (buffer == "yes" || buffer == "true" || buffer == "1") { Return 1; }
+        If (buffer == "no" || buffer == "false" || buffer == "0") { Return 0; }
+        problem = "boolean";
+        Return 0;
+    }
+
+    Public Function Confirm() -> Int
+    Explain {
+        Description: "Read a confirmation.";
+        Input: "No parameters";
+        Processing: "Use the Boolean reader.";
+        Output: "One when the answer is yes.";
+    } {
+        Return This.ReadBoolean();
+    }
+
+    Public Function Password() -> String
+    Explain {
+        Description: "Return a mask for the fed line.";
+        Input: "No parameters";
+        Processing: "Replace every character with a star.";
+        Output: "The mask.";
+    } {
+        String built = "";
+        Int index = 0;
+        While (index < buffer.Length()) {
+            built = built + "*";
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Public Function AddItem(String label) -> Int
+    Explain {
+        Description: "Add a menu item.";
+        Input: label = "Item label";
+        Processing: "Append the item.";
+        Output: "The item index, or -1 when the menu is full.";
+    } {
+        If (itemCount >= 8) { Return -1; }
+        items[itemCount] = label;
+        itemCount = itemCount + 1;
+        Return itemCount - 1;
+    }
+
+    Public Function Choose(Int index) -> Int
+    Explain {
+        Description: "Choose a menu item.";
+        Input: index = "Item index";
+        Processing: "Store the selection.";
+        Output: "One when the index exists.";
+    } {
+        If (index < 0 || index >= itemCount) {
+            problem = "menu";
+            Return 0;
+        }
+        selected = index;
+        Return 1;
+    }
+
+    Public Function Selected() -> Int
+    Explain {
+        Description: "Return the selected index.";
+        Input: "No parameters";
+        Processing: "Read the selection.";
+        Output: "The index.";
+    } {
+        Return selected;
+    }
+
+    Public Function Choice() -> String
+    Explain {
+        Description: "Return the selected label.";
+        Input: "No parameters";
+        Processing: "Read the selected item.";
+        Output: "The label.";
+    } {
+        If (itemCount == 0) { Return "none"; }
+        Return items[selected];
+    }
+
+    Public Function Key(String name) -> String
+    Explain {
+        Description: "Return the canonical key name.";
+        Input: name = "enter, escape, up, down, left, or right";
+        Processing: "Map the name.";
+        Output: "The key name, or none when it is unknown.";
+    } {
+        If (name == "enter") { Return "Enter"; }
+        If (name == "escape") { Return "Escape"; }
+        If (name == "up") { Return "Up"; }
+        If (name == "down") { Return "Down"; }
+        If (name == "left") { Return "Left"; }
+        If (name == "right") { Return "Right"; }
+        problem = "key";
+        Return "none";
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest input error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Digit(String piece) -> Int {
+        If (piece == "0") { Return 0; }
+        If (piece == "1") { Return 1; }
+        If (piece == "2") { Return 2; }
+        If (piece == "3") { Return 3; }
+        If (piece == "4") { Return 4; }
+        If (piece == "5") { Return 5; }
+        If (piece == "6") { Return 6; }
+        If (piece == "7") { Return 7; }
+        If (piece == "8") { Return 8; }
+        If (piece == "9") { Return 9; }
+        Return -1;
+    }
+}

@@ -1,0 +1,165 @@
+// Robix.Theme: named color roles for consoles and graphical surfaces.
+Package Robix.Theme;
+
+Import Robix.Core;
+Import Robix.Color;
+
+
+Class ThemeDesk {
+    Private Int primaryR;
+    Private Int primaryG;
+    Private Int primaryB;
+    Private Int secondaryR;
+    Private Int secondaryG;
+    Private Int secondaryB;
+    Private Int successR;
+    Private Int successG;
+    Private Int successB;
+    Private Int warningR;
+    Private Int warningG;
+    Private Int warningB;
+    Private Int errorR;
+    Private Int errorG;
+    Private Int errorB;
+    Private Int backgroundR;
+    Private Int backgroundG;
+    Private Int backgroundB;
+    Private Int textR;
+    Private Int textG;
+    Private Int textB;
+    Private String active;
+    Private String problem;
+
+    Public Constructor() {
+        primaryR = 0;
+        primaryG = 0;
+        primaryB = 0;
+        secondaryR = 0;
+        secondaryG = 0;
+        secondaryB = 0;
+        successR = 0;
+        successG = 0;
+        successB = 0;
+        warningR = 0;
+        warningG = 0;
+        warningB = 0;
+        errorR = 0;
+        errorG = 0;
+        errorB = 0;
+        backgroundR = 0;
+        backgroundG = 0;
+        backgroundB = 0;
+        textR = 0;
+        textG = 0;
+        textB = 0;
+        active = "none";
+        problem = "none";
+    }
+
+    Public Function Apply(String name) -> Int
+    Explain {
+        Description: "Apply a built-in theme.";
+        Input: name = "dark or light";
+        Processing: "Store the role colors.";
+        Output: "One when the theme is known.";
+    } {
+        If (name == "dark") {
+            primaryR = 0; primaryG = 255; primaryB = 255;
+            secondaryR = 128; secondaryG = 128; secondaryB = 128;
+            successR = 0; successG = 200; successB = 0;
+            warningR = 255; warningG = 200; warningB = 0;
+            errorR = 255; errorG = 60; errorB = 60;
+            backgroundR = 16; backgroundG = 16; backgroundB = 16;
+            textR = 255; textG = 255; textB = 255;
+            active = "dark";
+            Return 1;
+        }
+        If (name == "light") {
+            primaryR = 0; primaryG = 100; primaryB = 180;
+            secondaryR = 80; secondaryG = 80; secondaryB = 80;
+            successR = 0; successG = 140; successB = 0;
+            warningR = 180; warningG = 120; warningB = 0;
+            errorR = 180; errorG = 0; errorB = 0;
+            backgroundR = 255; backgroundG = 255; backgroundB = 255;
+            textR = 0; textG = 0; textB = 0;
+            active = "light";
+            Return 1;
+        }
+        problem = "theme";
+        Return 0;
+    }
+
+    Public Function RoleRed(String role) -> Int
+    Explain {
+        Description: "Return the red channel of a role.";
+        Input: role = "primary, secondary, success, warning, error, background, or text";
+        Processing: "Read the stored role.";
+        Output: "The red channel.";
+    } {
+        If (role == "primary") { Return primaryR; }
+        If (role == "secondary") { Return secondaryR; }
+        If (role == "success") { Return successR; }
+        If (role == "warning") { Return warningR; }
+        If (role == "error") { Return errorR; }
+        If (role == "background") { Return backgroundR; }
+        If (role == "text") { Return textR; }
+        problem = "role";
+        Return 0;
+    }
+
+    Public Function RoleGreen(String role) -> Int
+    Explain {
+        Description: "Return the green channel of a role.";
+        Input: role = "primary, secondary, success, warning, error, background, or text";
+        Processing: "Read the stored role.";
+        Output: "The green channel.";
+    } {
+        If (role == "primary") { Return primaryG; }
+        If (role == "secondary") { Return secondaryG; }
+        If (role == "success") { Return successG; }
+        If (role == "warning") { Return warningG; }
+        If (role == "error") { Return errorG; }
+        If (role == "background") { Return backgroundG; }
+        If (role == "text") { Return textG; }
+        problem = "role";
+        Return 0;
+    }
+
+    Public Function RoleBlue(String role) -> Int
+    Explain {
+        Description: "Return the blue channel of a role.";
+        Input: role = "primary, secondary, success, warning, error, background, or text";
+        Processing: "Read the stored role.";
+        Output: "The blue channel.";
+    } {
+        If (role == "primary") { Return primaryB; }
+        If (role == "secondary") { Return secondaryB; }
+        If (role == "success") { Return successB; }
+        If (role == "warning") { Return warningB; }
+        If (role == "error") { Return errorB; }
+        If (role == "background") { Return backgroundB; }
+        If (role == "text") { Return textB; }
+        problem = "role";
+        Return 0;
+    }
+
+    Public Function Active() -> String
+    Explain {
+        Description: "Return the active theme name.";
+        Input: "No parameters";
+        Processing: "Read the latest applied theme.";
+        Output: "The theme name.";
+    } {
+        Return active;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest theme error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+}

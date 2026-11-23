@@ -1,0 +1,100 @@
+// Robix.Logging: levels, filtering, and formatted records.
+Package Robix.Logging;
+
+Import Robix.Core;
+
+
+Class LogDesk {
+    Private Int minimum;
+    Private Int kept;
+    Private Int dropped;
+    Private String last;
+    Private String problem;
+
+    Public Constructor() {
+        minimum = 2;
+        kept = 0;
+        dropped = 0;
+        last = "none";
+        problem = "none";
+    }
+
+    Public Function SetLevel(Int level) -> Int
+    Explain {
+        Description: "Set the minimum level that is kept.";
+        Input: level = "0 trace through 6 critical";
+        Processing: "Store the threshold.";
+        Output: "The threshold.";
+    } {
+        minimum = level;
+        If (minimum < 0) { minimum = 0; }
+        If (minimum > 6) { minimum = 6; }
+        Return minimum;
+    }
+
+    Public Function Accept(Int level, String message) -> Int
+    Explain {
+        Description: "Record a message when it meets the level.";
+        Input: level = "Message level", message = "Message";
+        Processing: "Drop quieter messages.";
+        Output: "One when the record is kept.";
+    } {
+        If (level < minimum) {
+            dropped = dropped + 1;
+            Return 0;
+        }
+        last = This.LevelName(level) + " " + message;
+        kept = kept + 1;
+        Return 1;
+    }
+
+    Public Function Last() -> String
+    Explain {
+        Description: "Return the latest kept record.";
+        Input: "No parameters";
+        Processing: "Read the formatted record.";
+        Output: "The record.";
+    } {
+        Return last;
+    }
+
+    Public Function Kept() -> Int
+    Explain {
+        Description: "Return how many records were kept.";
+        Input: "No parameters";
+        Processing: "Read the counter.";
+        Output: "The count.";
+    } {
+        Return kept;
+    }
+
+    Public Function Dropped() -> Int
+    Explain {
+        Description: "Return how many records were dropped.";
+        Input: "No parameters";
+        Processing: "Read the counter.";
+        Output: "The count.";
+    } {
+        Return dropped;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest logging error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function LevelName(Int level) -> String {
+        If (level <= 0) { Return "TRACE"; }
+        If (level == 1) { Return "DEBUG"; }
+        If (level == 2) { Return "INFO"; }
+        If (level == 3) { Return "SUCCESS"; }
+        If (level == 4) { Return "WARNING"; }
+        If (level == 5) { Return "ERROR"; }
+        Return "CRITICAL";
+    }
+}

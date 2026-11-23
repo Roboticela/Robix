@@ -1,7 +1,7 @@
 "use strict";
 
 const { analyze } = require("./analyze");
-const { toPascal, toPascalName } = require("./names");
+const { toPascal, toPascalName, toCamel, isConstantCase, variablePartial } = require("./names");
 const {
     KEYWORD_WORDS,
     KEYWORDS,
@@ -90,6 +90,12 @@ function complete(source, offset, external) {
         if (corrected !== declared.partial) {
             addCorrection(items, corrected, declared.kind);
         }
+    } else {
+        const variable = variablePartial(line);
+        const corrected = toCamel(variable);
+        if (variable && corrected !== variable && !isConstantCase(variable)) {
+            addCorrection(items, corrected, "variable");
+        }
     }
     return {
         items,
@@ -123,7 +129,7 @@ function addCorrection(items, label, kind) {
     items.unshift({
         label,
         kind,
-        detail: "PascalCase",
+        detail: kind === "variable" ? "camelCase" : "PascalCase",
         documentation: `The name is written ${label}.`,
         insert: label,
         filter: `${label.toLowerCase()} ${label}`,
@@ -150,6 +156,148 @@ function lineStart(source, offset) {
 function trailingName(line) {
     const match = line.match(/[A-Za-z_][A-Za-z0-9_.]*$/);
     return match ? match[0] : "";
+}
+
+function localSort(symbol) {
+    if (symbol.kind === "variable" || symbol.kind === "parameter" || symbol.kind === "property" || symbol.kind === "enumMember") {
+        return "1";
+    }
+    if (symbol.kind === "function" || symbol.kind === "method" || symbol.kind === "macro") {
+        return "2";
+    }
+    return "4";
+}
+
+function packageOfNamespace(name) {
+    const found = PACKAGES.find((item) => item.split(".").pop().toLowerCase() === String(name || "").toLowerCase());
+    return found || `Robix.${name}`;
+}
+
+function libraryFunctions() {
+    const items = [];
+    for (const builtin of BUILTIN_FUNCTIONS) {
+        items.push({
+            name: builtin[0],
+            signature: builtin[1],
+            summary: builtin[2],
+            namespace: "Core",
+            packageName: "Robix.Core",
+            kind: "function"
+        });
+    }
+    for (const namespace of Object.keys(NAMESPACES)) {
+        const packageName = packageOfNamespace(namespace);
+        for (const entry of NAMESPACES[namespace]) {
+            const signature = entry[1] || "";
+            items.push({
+                name: entry[0],
+                signature,
+                summary: entry[2] || "",
+                namespace,
+                packageName,
+                kind: signature.includes("(") ? "function" : "field"
+            });
+        }
+    }
+    return items;
+}
+
+function packageImported(doc, packageName) {
+    const names = new Set((doc.imports || []).map((item) => String(item).toLowerCase()));
+    const lower = String(packageName || "").toLowerCase();
+    if (!lower) {
+        return false;
+    }
+    if (sameText(doc.packageName, packageName) || names.has(lower)) {
+        return true;
+    }
+    return names.has(lower.split(".").pop());
+}
+
+function importInsertion(source, packageName) {
+    if (!packageName) {
+        return null;
+    }
+    const pattern = new RegExp(`(^|\\n)\\s*Import\\s+${packageName.replace(/\./g, "\\.")}\\b`, "i");
+    if (pattern.test(source)) {
+        return null;
+    }
+    const lines = String(source).split("\n");
+    let anchor = -1;
+    for (let index = 0; index < lines.length; index += 1) {
+        if (/^\s*Package\b/i.test(lines[index]) || /^\s*Import\b/i.test(lines[index])) {
+            anchor = index;
+        }
+    }
+    const text = `Import ${packageName};\n`;
+    if (anchor < 0) {
+        return { start: 0, end: 0, text: `${text}\n` };
+    }
+    const start = lines.slice(0, anchor + 1).join("\n").length + 1;
+    return { start, end: start, text };
+}
+
+function signatureParts(signature) {
+    const text = String(signature || "");
+    const arrow = text.lastIndexOf("->");
+    const output = arrow >= 0 ? text.slice(arrow + 2).trim() : "Void";
+    const open = text.indexOf("(");
+    const close = text.lastIndexOf(")");
+    const inside = open >= 0 && close > open ? text.slice(open + 1, close).trim() : "";
+    return { input: inside || "None", output: output || "Void" };
+}
+
+function quoteField(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+        return '""';
+    }
+    if (text.startsWith("\"") || text.includes("=")) {
+        return text;
+    }
+    return `"${text.replace(/"/g, "\\\"")}"`;
+}
+
+function explainDocument(symbol) {
+    if (!symbol) {
+        return "";
+    }
+    if (symbol.explain && symbol.explain.text) {
+        const lines = [`**${symbol.name}**`];
+        if (symbol.detail) {
+            lines.push("", symbol.detail);
+        }
+        if (symbol.packageName) {
+            lines.push("", `Package \`${symbol.packageName}\``);
+        }
+        lines.push("", "```robix", symbol.explain.text, "```");
+        return lines.join("\n");
+    }
+    if (symbol.summary || symbol.signature) {
+        return libraryDocument(symbol);
+    }
+    return "";
+}
+
+function libraryDocument(library) {
+    const parts = signatureParts(library.signature);
+    const description = library.summary || library.explain && library.explain.description || "";
+    const lines = [`**${library.name}** \`${library.signature || ""}\``.trim()];
+    if (library.packageName) {
+        lines.push("", `Package \`${library.packageName}\``);
+    }
+    lines.push(
+        "",
+        "```robix",
+        "Explain {",
+        `    Description: ${quoteField(description)};`,
+        `    Input: ${quoteField(parts.input)};`,
+        `    Processing: ${quoteField(description)};`,
+        `    Output: ${quoteField(parts.output)};`,
+        "}",
+        "```"
+    );
+    return lines.join("\n");
 }
 
 function scopeItems(doc, offset, external) {
@@ -193,17 +341,19 @@ function scopeItems(doc, offset, external) {
         });
     }
     for (const symbol of visibleSymbols(doc, offset)) {
-        add(symbolItem(symbol, "1"));
+        add(symbolItem(symbol, localSort(symbol)));
     }
-    for (const builtin of BUILTIN_FUNCTIONS) {
+    for (const library of libraryFunctions()) {
+        const imported = packageImported(doc, library.packageName);
         add({
-            label: builtin[0],
-            kind: "function",
-            detail: builtin[1],
-            documentation: builtin[2],
-            insert: builtin[0],
-            filter: `${builtin[0].toLowerCase()} ${builtin[0]}`,
-            sort: "2"
+            label: library.name,
+            kind: library.kind,
+            detail: `${library.packageName} ${library.signature}`,
+            documentation: libraryDocument(library),
+            insert: library.name,
+            filter: `${library.name.toLowerCase()} ${library.name}`,
+            sort: imported ? "3" : "7",
+            importEdit: imported ? null : importInsertion(doc.source, library.packageName)
         });
     }
     for (const typeName of BUILTIN_TYPES) {
@@ -229,9 +379,23 @@ function scopeItems(doc, offset, external) {
         });
     }
     for (const symbol of external || []) {
-        if (symbol.exported || symbol.kind === "namespace" || symbol.kind === "package") {
-            add(symbolItem(symbol, "5"));
+        if (!(symbol.exported || symbol.fileWide || symbol.kind === "namespace" || symbol.kind === "package")) {
+            continue;
         }
+        const callable = symbol.kind === "function" || symbol.kind === "method" || symbol.kind === "macro";
+        if (!callable) {
+            add(symbolItem(symbol, "5"));
+            continue;
+        }
+        const imported = !symbol.packageName || packageImported(doc, symbol.packageName) || sameText(doc.packageName, symbol.packageName);
+        const item = symbolItem(symbol, imported ? "3" : "7");
+        if (symbol.explain) {
+            item.documentation = explainDocument(symbol);
+        }
+        if (symbol.packageName && !imported) {
+            item.importEdit = importInsertion(doc.source, symbol.packageName);
+        }
+        add(item);
     }
     return items;
 }
@@ -246,7 +410,7 @@ function symbolItem(symbol, sort) {
         label: symbol.name,
         kind,
         detail: symbol.detail || symbol.kind,
-        documentation: symbol.detail || "",
+        documentation: explainDocument(symbol) || symbol.detail || "",
         insert: symbol.name,
         filter: `${symbol.name.toLowerCase()} ${symbol.name}`,
         sort
@@ -298,7 +462,12 @@ function memberItems(doc, receiver, offset, external) {
     }
     for (const table of tables) {
         for (const entry of table) {
-            add(entry[0], entry[1], entry[2], "method");
+            add(entry[0], entry[1], libraryDocument({
+                name: entry[0],
+                signature: entry[1],
+                summary: entry[2],
+                packageName: ""
+            }), "method");
         }
     }
     const pools = doc.symbols.concat(external || []);
@@ -306,11 +475,16 @@ function memberItems(doc, receiver, offset, external) {
         if (!symbol.member || !sameText(symbol.container, receiver) && !sameText(symbol.container, typeName)) {
             continue;
         }
-        add(symbol.name, symbol.detail || symbol.kind, symbol.detail, symbol.kind === "property" || symbol.kind === "enumMember" ? "field" : "method");
+        add(symbol.name, symbol.detail || symbol.kind, explainDocument(symbol) || symbol.detail, symbol.kind === "property" || symbol.kind === "enumMember" ? "field" : "method");
     }
     if (items.length === 0) {
         for (const entry of TYPE_METHODS.Any) {
-            add(entry[0], entry[1], entry[2], "method");
+            add(entry[0], entry[1], libraryDocument({
+                name: entry[0],
+                signature: entry[1],
+                summary: entry[2],
+                packageName: ""
+            }), "method");
         }
     }
     return items;
@@ -404,14 +578,14 @@ function hover(source, offset) {
     }
     const declaration = declarationAt(doc, token, offset);
     if (!declaration) {
-        const builtin = BUILTIN_FUNCTIONS.find((item) => item[0] === token.text);
-        if (builtin) {
-            return { contents: `**${builtin[0]}** ${builtin[1]}\n\n${builtin[2]}`, start: token.start, end: token.end };
+        const library = libraryFunctions().find((item) => sameText(item.name, token.text));
+        if (!library) {
+            return null;
         }
-        return null;
+        return { contents: libraryDocument(library), start: token.start, end: token.end };
     }
     return {
-        contents: `**${declaration.detail || declaration.name}**${declaration.container ? `\n\nIn ${declaration.container}` : ""}`,
+        contents: explainDocument(declaration) || `**${declaration.detail || declaration.name}**${declaration.container ? `\n\nIn ${declaration.container}` : ""}`,
         start: token.start,
         end: token.end
     };

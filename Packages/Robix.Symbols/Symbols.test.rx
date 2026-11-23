@@ -1,0 +1,5 @@
+Test AsciiCheck {
+    Constraint: SymbolDesk().UseAscii(1) == 1;
+    Processing: True;
+    Output: True;
+}

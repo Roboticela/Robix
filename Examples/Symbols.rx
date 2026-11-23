@@ -1,0 +1,145 @@
+// Robix.Symbols: semantic marks with Unicode and ASCII forms.
+Package Robotics.Symbols;
+
+Import Robix.Core;
+
+
+Class SymbolDesk {
+    Private Int ascii;
+    Private String problem;
+
+    Public Constructor() {
+        ascii = 0;
+        problem = "none";
+    }
+
+    Public Function UseAscii(Int enabled) -> Int
+    Explain {
+        Description: "Choose the ASCII symbol set.";
+        Input: enabled = "One for ASCII and zero for Unicode";
+        Processing: "Store the symbol set.";
+        Output: "The selected set.";
+    } {
+        ascii = 0;
+        If (enabled != 0) { ascii = 1; }
+        Return ascii;
+    }
+
+    Public Function Glyph(String name) -> String
+    Explain {
+        Description: "Return a named symbol.";
+        Input: name = "check, cross, warning, arrow, bullet, or star";
+        Processing: "Use the selected symbol set.";
+        Output: "The symbol, or none when the name is unknown.";
+    } {
+        If (name == "check") { Return This.Check(); }
+        If (name == "cross") { Return This.Cross(); }
+        If (name == "warning") { Return This.Warning(); }
+        If (name == "arrow") { Return This.Arrow(); }
+        If (name == "bullet") { Return This.Bullet(); }
+        If (name == "star") { Return This.Star(); }
+        problem = "name";
+        Return "none";
+    }
+
+    Public Function Check() -> String
+    Explain {
+        Description: "Return the check symbol.";
+        Input: "No parameters";
+        Processing: "Use the selected symbol set.";
+        Output: "The symbol.";
+    } {
+        If (ascii == 1) { Return "+"; }
+        Return "✓";
+    }
+
+    Public Function Cross() -> String
+    Explain {
+        Description: "Return the cross symbol.";
+        Input: "No parameters";
+        Processing: "Use the selected symbol set.";
+        Output: "The symbol.";
+    } {
+        If (ascii == 1) { Return "x"; }
+        Return "✗";
+    }
+
+    Public Function Warning() -> String
+    Explain {
+        Description: "Return the warning symbol.";
+        Input: "No parameters";
+        Processing: "Use the selected symbol set.";
+        Output: "The symbol.";
+    } {
+        If (ascii == 1) { Return "!"; }
+        Return "⚠";
+    }
+
+    Public Function Arrow() -> String
+    Explain {
+        Description: "Return the arrow symbol.";
+        Input: "No parameters";
+        Processing: "Use the selected symbol set.";
+        Output: "The symbol.";
+    } {
+        If (ascii == 1) { Return ">"; }
+        Return "→";
+    }
+
+    Public Function Bullet() -> String
+    Explain {
+        Description: "Return the bullet symbol.";
+        Input: "No parameters";
+        Processing: "Use the selected symbol set.";
+        Output: "The symbol.";
+    } {
+        If (ascii == 1) { Return "*"; }
+        Return "•";
+    }
+
+    Public Function Star() -> String
+    Explain {
+        Description: "Return the star symbol.";
+        Input: "No parameters";
+        Processing: "Use the selected symbol set.";
+        Output: "The symbol.";
+    } {
+        If (ascii == 1) { Return "*"; }
+        Return "★";
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest symbol error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+}
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Show Unicode and ASCII symbols.";
+    Input: args = "Command-line arguments";
+    Processing: "Exercise the symbol desk.";
+    Output: "The symbol report.";
+} {
+    SymbolDesk desk = SymbolDesk();
+    Print(desk.Check());
+    Print(desk.Cross());
+    Print(desk.Warning());
+    Print(desk.Arrow());
+    Print(desk.Bullet());
+    Print(desk.Star());
+    Print(desk.UseAscii(1));
+    Print(desk.Check());
+    Print(desk.Cross());
+    Print(desk.Warning());
+    Print(desk.Arrow());
+    Print(desk.Glyph("star"));
+    Print(desk.Fault());
+    Return 0;
+}

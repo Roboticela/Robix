@@ -1,0 +1,269 @@
+// Robix.Console.Widget: progress, loading, tables, panels, and a live line.
+Package Robotics.Widget;
+
+Import Robix.Core;
+
+
+Class WidgetDesk {
+    Private String label;
+    Private Int value;
+    Private Int total;
+    Private Int state;
+    Private String status;
+    Private String leftHeader;
+    Private String rightHeader;
+    Private Array<String> leftCells;
+    Private Array<String> rightCells;
+    Private Int rows;
+    Private String liveText;
+    Private String problem;
+
+    Public Constructor() {
+        label = "";
+        value = 0;
+        total = 0;
+        state = 0;
+        status = "idle";
+        leftHeader = "";
+        rightHeader = "";
+        leftCells = ["", "", "", "", "", "", "", ""];
+        rightCells = ["", "", "", "", "", "", "", ""];
+        rows = 0;
+        liveText = "";
+        problem = "none";
+    }
+
+    Public Function Start(String name, Int amount) -> Int
+    Explain {
+        Description: "Start a progress operation.";
+        Input: name = "Label", amount = "Total";
+        Processing: "Store a running operation.";
+        Output: "One.";
+    } {
+        label = name;
+        total = amount;
+        value = 0;
+        state = 1;
+        status = "running";
+        Return 1;
+    }
+
+    Public Function SetValue(Int next) -> Int
+    Explain {
+        Description: "Set the progress value.";
+        Input: next = "Completed amount";
+        Processing: "Keep the value inside the total.";
+        Output: "The stored value.";
+    } {
+        value = next;
+        If (value < 0) { value = 0; }
+        If (total > 0 && value > total) { value = total; }
+        Return value;
+    }
+
+    Public Function Percent() -> Int
+    Explain {
+        Description: "Return the completion percentage.";
+        Input: "No parameters";
+        Processing: "Divide the value by the total.";
+        Output: "The percentage.";
+    } {
+        If (total <= 0) { Return 0; }
+        Return value * 100 / total;
+    }
+
+    Public Function Bar() -> String
+    Explain {
+        Description: "Return a ten-cell progress bar.";
+        Input: "No parameters";
+        Processing: "Fill one cell for each ten percent.";
+        Output: "The bar.";
+    } {
+        Int filled = This.Percent() / 10;
+        String built = "";
+        Int index = 0;
+        While (index < 10) {
+            If (index < filled) { built = built + "#"; }
+            If (index >= filled) { built = built + "-"; }
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Public Function Complete(String message) -> String
+    Explain {
+        Description: "Mark the operation complete.";
+        Input: message = "Completion message";
+        Processing: "Store the success status.";
+        Output: "The status line.";
+    } {
+        state = 2;
+        status = "done: " + message;
+        If (total > 0) { value = total; }
+        Return status;
+    }
+
+    Public Function Fail(String message) -> String
+    Explain {
+        Description: "Mark the operation failed.";
+        Input: message = "Failure message";
+        Processing: "Store the failure status.";
+        Output: "The status line.";
+    } {
+        state = 3;
+        status = "failed: " + message;
+        Return status;
+    }
+
+    Public Function Succeed(String message) -> String
+    Explain {
+        Description: "Mark a loading operation successful.";
+        Input: message = "Success message";
+        Processing: "Use the completion status.";
+        Output: "The status line.";
+    } {
+        Return This.Complete(message);
+    }
+
+    Public Function Status() -> String
+    Explain {
+        Description: "Return the status line.";
+        Input: "No parameters";
+        Processing: "Read the latest status.";
+        Output: "The status.";
+    } {
+        Return status;
+    }
+
+    Public Function AddColumn(String left, String right) -> Int
+    Explain {
+        Description: "Set the table headers.";
+        Input: left = "Left header", right = "Right header";
+        Processing: "Store the headers.";
+        Output: "One.";
+    } {
+        leftHeader = left;
+        rightHeader = right;
+        Return 1;
+    }
+
+    Public Function AddRow(String left, String right) -> Int
+    Explain {
+        Description: "Add a table row.";
+        Input: left = "Left cell", right = "Right cell";
+        Processing: "Append the row.";
+        Output: "The row index, or -1 when the table is full.";
+    } {
+        If (rows >= 8) { Return -1; }
+        leftCells[rows] = left;
+        rightCells[rows] = right;
+        rows = rows + 1;
+        Return rows - 1;
+    }
+
+    Public Function Table() -> String
+    Explain {
+        Description: "Render the table.";
+        Input: "No parameters";
+        Processing: "Pad each cell to eight columns.";
+        Output: "The table text.";
+    } {
+        String built = This.Pad(leftHeader) + This.Pad(rightHeader);
+        Int index = 0;
+        While (index < rows) {
+            built = built + "\n" + This.Pad(leftCells[index]) + This.Pad(rightCells[index]);
+            index = index + 1;
+        }
+        Return built;
+    }
+
+    Public Function Panel(String title, String content) -> String
+    Explain {
+        Description: "Render a panel.";
+        Input: title = "Title", content = "Content";
+        Processing: "Draw a single-line box around the wider line.";
+        Output: "The panel.";
+    } {
+        Int width = title.Length();
+        If (content.Length() > width) { width = content.Length(); }
+        String rule = This.Rule(width + 2);
+        Return rule + "\n| " + This.PadWidth(title, width) + " |\n| " + This.PadWidth(content, width) + " |\n" + rule;
+    }
+
+    Public Function Live(String text) -> Int
+    Explain {
+        Description: "Replace the live line.";
+        Input: text = "Current text";
+        Processing: "Store one replaceable line.";
+        Output: "The text length.";
+    } {
+        liveText = text;
+        Return liveText.Length();
+    }
+
+    Public Function LiveText() -> String
+    Explain {
+        Description: "Return the live line.";
+        Input: "No parameters";
+        Processing: "Read the current line.";
+        Output: "The line.";
+    } {
+        Return liveText;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest widget error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Pad(String text) -> String {
+        Return This.PadWidth(text, 8);
+    }
+
+    Private Function PadWidth(String text, Int width) -> String {
+        String built = text;
+        While (built.Length() < width) { built = built + " "; }
+        Return built;
+    }
+
+    Private Function Rule(Int width) -> String {
+        String built = "+";
+        Int index = 0;
+        While (index < width) {
+            built = built + "-";
+            index = index + 1;
+        }
+        Return built + "+";
+    }
+}
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Draw progress, a table, and a panel.";
+    Input: args = "Command-line arguments";
+    Processing: "Exercise the widget desk.";
+    Output: "The widget report.";
+} {
+    WidgetDesk desk = WidgetDesk();
+    Print(desk.Start("Downloading", 100));
+    Print(desk.SetValue(40));
+    Print(desk.Percent());
+    Print(desk.Bar());
+    Print(desk.Complete("saved"));
+    Print(desk.Status());
+    Print(desk.AddColumn("Name", "Version"));
+    Print(desk.AddRow("Robix", "1.0"));
+    Print(desk.Table());
+    Print(desk.Panel("Welcome", "Hello"));
+    Print(desk.Live("Installing"));
+    Print(desk.LiveText());
+    Print(desk.Fail("stopped"));
+    Print(desk.Fault());
+    Return 0;
+}

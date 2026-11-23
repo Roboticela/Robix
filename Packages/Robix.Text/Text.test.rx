@@ -1,0 +1,5 @@
+Test Measure {
+    Constraint: TextDesk().Measure("Robix") == 6;
+    Processing: True;
+    Output: True;
+}
