@@ -1535,7 +1535,7 @@ Public Class Interpreter {
             Return This.RunConstructor(member, arguments, This.BlankObject(member));
         }
         If (This.PackageFunction(packageName, member)) {
-            AstNode? function = This.FindFunction(member);
+            AstNode? function = This.FindCallable(member, arguments.Count());
             If (function != Null) {
                 Return This.CallFunction(function, arguments);
             }
@@ -1981,7 +1981,7 @@ Public Class Interpreter {
                 Return This.CallFunction(thisFunc, arguments);
             }
         }
-        AstNode? function = This.FindFunction(name);
+        AstNode? function = This.FindCallable(name, arguments.Count());
         If (function == Null && node.Left != Null && node.Left.Kind == AstKind.Name && This.HasName(name)) {
             Value value = This.Lookup(name);
             If (value.Kind == ValueKind.Function) {
@@ -2611,12 +2611,18 @@ Public Class Interpreter {
     }
 
     Private Function FindFunction(String name) -> AstNode? {
+        Return This.FindCallable(name, -1);
+    }
+
+    Private Function FindCallable(String name, Int arity) -> AstNode? {
+        AstNode? fallback = Null;
         For function In This.functions {
             If (function.Name == name) {
-                Return function;
+                If (arity >= 0 && function.Parameters.Count() == arity) { Return function; }
+                If (fallback == Null) { fallback = function; }
             }
         }
-        Return Null;
+        Return fallback;
     }
 
     Private Function Define(String name, Value value) -> Void {

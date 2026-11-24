@@ -13,7 +13,7 @@ const LIBRARY_PACKAGES = {
     "Robix.Console.Screen": "Cursor, screen size, title, and capability flags.",
     "Robix.Console.Widget": "Progress, loading, tables, panels, and a live line.",
     "Robix.Conventions": "Shared naming, async, cancellation, and documentation rules.",
-    "Robix.Core": "Values, conversion, comparison, ranges, versions, time, and identity.",
+    "Robix.Core": "Fundamental language and runtime functionality: values, conversion, comparison, ranges, indexes, and identity.",
     "Robix.Delegates": "Bound calls, predicates, comparisons, and multicast invocation.",
     "Robix.Diagnostics": "Reports, stack frames, runtime facts, and listeners.",
     "Robix.Events": "Listeners, one-shot handlers, filters, and a paused event queue.",

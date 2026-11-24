@@ -1,5 +1,8 @@
-// Robix.Core: values, conversion, comparison, ranges, versions, time, and identity.
-Package Robix.Core;
+// Robix.Core: values, input, conversion, comparison, ranges, versions, time, and identity.
+Package Robix.Core
+Explain {
+    Description: "Fundamental language and runtime functionality: values, conversion, comparison, ranges, indexes, and identity.";
+};
 
 Import Robix.Core;
 
@@ -55,11 +58,17 @@ Struct DateTime {
     Public Int Year;
     Public Int Month;
     Public Int Day;
+    Public Int Hour;
+    Public Int Minute;
+    Public Int Second;
 
     Public Constructor(Int year, Int month, Int day) {
         Year = year;
         Month = month;
         Day = day;
+        Hour = 0;
+        Minute = 0;
+        Second = 0;
     }
 }
 
@@ -86,6 +95,148 @@ Struct Guid {
         Text = text;
     }
 }
+
+Struct ParseOutcome {
+    Public Int Ok;
+    Public Int Integer;
+    Public Float Number;
+    Public String Text;
+
+    Public Constructor(Int ok, Int integer, Float number, String text) {
+        Ok = ok;
+        Integer = integer;
+        Number = number;
+        Text = text;
+    }
+}
+
+Struct ConversionError {
+    Public String Message;
+
+    Public Constructor(String message) {
+        Message = message;
+    }
+}
+
+Class Object {
+    Public Int Id;
+    Public String Name;
+
+    Public Constructor(Int id, String name) {
+        Id = id;
+        Name = name;
+    }
+}
+
+Class Value {
+    Public String KindName;
+    Public String Text;
+    Public Int Integer;
+    Public Float Number;
+
+    Public Constructor(String kindName, String text, Int integer, Float number) {
+        KindName = kindName;
+        Text = text;
+        Integer = integer;
+        Number = number;
+    }
+}
+
+Struct Undefined {
+    Public Int Missing;
+
+    Public Constructor() {
+        Missing = 1;
+    }
+}
+
+Class Type {
+    Public String Name;
+
+    Public Constructor(String name) {
+        Name = name;
+    }
+}
+
+Class ObjectReference {
+    Public Int Id;
+    Public String Name;
+
+    Public Constructor(Int id, String name) {
+        Id = id;
+        Name = name;
+    }
+}
+
+Class ValueType {
+    Public String Name;
+
+    Public Constructor(String name) {
+        Name = name;
+    }
+}
+
+Class Enum {
+    Public String Name;
+    Public Int Ordinal;
+
+    Public Constructor(String name, Int ordinal) {
+        Name = name;
+        Ordinal = ordinal;
+    }
+}
+
+Struct Range {
+    Public Int Start;
+    Public Int End;
+    Public Int Step;
+
+    Public Constructor(Int start, Int end) {
+        Start = start;
+        End = end;
+        Step = 1;
+    }
+
+    Public Constructor(Int start, Int end, Int step) {
+        Start = start;
+        End = end;
+        Step = step;
+        If (Step == 0) { Step = 1; }
+    }
+}
+
+Struct Index {
+    Public Int Offset;
+    Public Int EndRelative;
+
+    Public Constructor(Int offset, Int endRelative) {
+        Offset = offset;
+        EndRelative = endRelative;
+    }
+}
+
+Struct Version {
+    Public Int Major;
+    Public Int Minor;
+    Public Int Patch;
+
+    Public Constructor(Int major, Int minor, Int patch) {
+        Major = major;
+        Minor = minor;
+        Patch = patch;
+    }
+}
+
+Type Boolean = Bool;
+Type SByte = Int;
+Type Int16 = Int;
+Type UInt16 = Int;
+Type Int32 = Int;
+Type UInt32 = Int;
+Type Int64 = Int;
+Type UInt64 = Int;
+Type Float32 = Float;
+Type Float64 = Float;
 
 Class Box {
     Public Int Id;
@@ -130,170 +281,116 @@ Class Box {
     }
 }
 
-Private Function UnitText() -> String {
-    Unit unit = Unit();
-    Return "()";
+Public Interface IComparable<T> {
+    Public Function CompareTo(T other) -> Int
+    Explain {
+        Description: "Compare this value with another.";
+        Input: other = "The other value";
+        Processing: "Return the ordering.";
+        Output: "-1, 0, or 1.";
+    };
 }
 
-Private Function IsNullText(String? text) -> Bool {
-    If (text == Null) { Return True; }
-    Return False;
+Public Interface IEquatable<T> {
+    Public Function Equals(T other) -> Bool
+    Explain {
+        Description: "Test this value for equality.";
+        Input: other = "The other value";
+        Processing: "Compare the current value.";
+        Output: "True when the values are equal.";
+    };
 }
 
-Private Function IsUndefined(Bool defined) -> Bool {
-    Return !defined;
+Public Interface ICloneable<T> {
+    Public Function Clone() -> T
+    Explain {
+        Description: "Copy this value.";
+        Input: "No parameters";
+        Processing: "Return a copy.";
+        Output: "The copy.";
+    };
 }
 
-Private Function EqualsInt(Int left, Int right) -> Bool {
-    Return left == right;
+Public Interface IDisposable {
+    Public Function Dispose() -> Void
+    Explain {
+        Description: "Release the object.";
+        Input: "No parameters";
+        Processing: "Free the held resource.";
+        Output: "No return value.";
+    };
 }
 
-Private Function EqualsText(String left, String right) -> Bool {
-    Return left == right;
+Public Interface IAsyncDisposable {
+    Public Async Function DisposeAsync() -> Task<Void>
+    Explain {
+        Description: "Release the object asynchronously.";
+        Input: "No parameters";
+        Processing: "Free the held resource on this turn.";
+        Output: "No return value.";
+    };
 }
 
-Private Function ReferenceEquals(Box left, Box right) -> Bool {
-    Return left.Id == right.Id;
+Private Function Clean(String text) -> String {
+    If (text == Null) { Return ""; }
+    Return text.Trim();
 }
 
-Private Function HashText(String text) -> Int {
-    Int hash = 5381;
+Private Function Digit(String piece) -> Int {
+    If (piece.Length() != 1) { Return -1; }
+    Int code = piece.GetChar(0).ToInt();
+    If (code < 48 || code > 57) { Return -1; }
+    Return code - 48;
+}
+
+Private Function IsIntText(String text) -> Bool {
+    If (text.Length() == 0) { Return False; }
     Int index = 0;
+    String sign = text.Substring(0, 1);
+    If (sign == "+" || sign == "-") { index = 1; }
+    If (index >= text.Length()) { Return False; }
     While (index < text.Length()) {
-        hash = hash * 33 + text.GetChar(index).ToInt();
+        If (Digit(text.Substring(index, 1)) < 0) { Return False; }
         index = index + 1;
     }
-    If (hash < 0) { hash = 0 - hash; }
-    Return hash;
+    Return True;
 }
 
-Private Function CompareInt(Int left, Int right) -> Int {
-    If (left < right) { Return -1; }
-    If (left > right) { Return 1; }
-    Return 0;
+Private Function IsFloatText(String text) -> Bool {
+    If (text.Length() == 0) { Return False; }
+    Int index = 0;
+    Int dots = 0;
+    Int digits = 0;
+    String sign = text.Substring(0, 1);
+    If (sign == "+" || sign == "-") { index = 1; }
+    If (index >= text.Length()) { Return False; }
+    While (index < text.Length()) {
+        String piece = text.Substring(index, 1);
+        If (piece == ".") {
+            dots = dots + 1;
+            If (dots > 1) { Return False; }
+        } Else {
+            If (Digit(piece) < 0) { Return False; }
+            digits = digits + 1;
+        }
+        index = index + 1;
+    }
+    Return digits > 0;
 }
 
-Private Function Min(Int left, Int right) -> Int {
-    If (left < right) { Return left; }
-    Return right;
-}
-
-Private Function Max(Int left, Int right) -> Int {
-    If (left > right) { Return left; }
-    Return right;
-}
-
-Private Function Clamp(Int value, Int minimum, Int maximum) -> Int {
-    If (value < minimum) { Return minimum; }
-    If (value > maximum) { Return maximum; }
-    Return value;
-}
-
-Private Function Swap(Int left, Int right) -> CoreRange {
-    Return CoreRange(right, left, 1);
-}
-
-Private Function ToBoolean(String text) -> Bool {
-    If (text == "true" || text == "True") { Return True; }
+Private Function IsBoolText(String text) -> Bool {
+    String lower = text.ToLower();
+    If (lower == "true" || lower == "false") { Return True; }
+    If (lower == "yes" || lower == "no") { Return True; }
+    If (lower == "1" || lower == "0") { Return True; }
     Return False;
-}
-
-Private Function ToByte(Int value) -> Int {
-    If (value < 0) { Return 0; }
-    If (value > 255) { Return 255; }
-    Return value;
-}
-
-Private Function ToInt32(Int value) -> Int {
-    Int limit = 2147483647;
-    If (value > limit) { Return limit; }
-    If (value < 0 - limit) { Return 0 - limit; }
-    Return value;
-}
-
-Private Function ToFloat64(Int value) -> Float {
-    Return value.ToFloat();
-}
-
-Private Function ToDecimalText(Int value) -> String {
-    Return value.ToString() + ".0";
-}
-
-Private Function ToChar(String text) -> String {
-    If (text.Length() == 0) { Return ""; }
-    Return text.Substring(0, 1);
-}
-
-Private Function ToBigInteger(String digits) -> BigInteger {
-    Return BigInteger(digits);
-}
-
-Private Function AddDigits(String left, String right) -> String {
-    Int leftIndex = left.Length() - 1;
-    Int rightIndex = right.Length() - 1;
-    Int carry = 0;
-    String result = "";
-    While (leftIndex >= 0 || rightIndex >= 0 || carry > 0) {
-        Int total = carry;
-        If (leftIndex >= 0) {
-            total = total + left.Substring(leftIndex, 1).ToInt();
-            leftIndex = leftIndex - 1;
-        }
-        If (rightIndex >= 0) {
-            total = total + right.Substring(rightIndex, 1).ToInt();
-            rightIndex = rightIndex - 1;
-        }
-        carry = total / 10;
-        result = (total % 10).ToString() + result;
-    }
-    If (result == "") { Return "0"; }
-    Return result;
-}
-
-Private Function MakeRange(Int start, Int end) -> CoreRange {
-    Return CoreRange(start, end, 1);
-}
-
-Private Function MakeRangeStep(Int start, Int end, Int step) -> CoreRange {
-    Return CoreRange(start, end, step);
-}
-
-Private Function SumRange(CoreRange range) -> Int {
-    Int total = 0;
-    Int cursor = range.Start;
-    Int step = range.Step;
-    If (step == 0) { step = 1; }
-    While (cursor < range.End) {
-        total = total + cursor;
-        cursor = cursor + step;
-    }
-    Return total;
-}
-
-Private Function FromEnd(Int index) -> CoreIndex {
-    Return CoreIndex(index, 1);
-}
-
-Private Function At(Int index) -> CoreIndex {
-    Return CoreIndex(index, 0);
-}
-
-Private Function GetOffset(CoreIndex index, Int length) -> Int {
-    If (index.EndRelative == 1) { Return length - index.Offset; }
-    Return index.Offset;
-}
-
-Private Function VersionText(CoreVersion version) -> String {
-    Return version.Major.ToString() + "." + version.Minor.ToString() + "." + version.Patch.ToString();
 }
 
 Private Function Pad2(Int value) -> String {
-    If (value < 10) { Return "0" + value.ToString(); }
-    Return value.ToString();
-}
-
-Private Function DateText(DateTime value) -> String {
-    Return value.Year.ToString() + "-" + Pad2(value.Month) + "-" + Pad2(value.Day);
+    Int current = value;
+    If (current < 0) { current = 0 - current; }
+    If (current < 10) { Return "0" + current.ToString(); }
+    Return current.ToString();
 }
 
 Private Function HexDigit(Int value) -> String {
@@ -308,29 +405,1640 @@ Private Function HexDigit(Int value) -> String {
     Return "f";
 }
 
-Private Function HexGroup(Int value, Int width) -> String {
-    String text = "";
-    Int count = 0;
+Private Function HexValue(String piece) -> Int {
+    String lower = piece.ToLower();
+    Int digit = Digit(lower);
+    If (digit >= 0) { Return digit; }
+    If (lower == "a") { Return 10; }
+    If (lower == "b") { Return 11; }
+    If (lower == "c") { Return 12; }
+    If (lower == "d") { Return 13; }
+    If (lower == "e") { Return 14; }
+    If (lower == "f") { Return 15; }
+    Return -1;
+}
+
+Public Function UnitText() -> String
+Explain {
+    Description: "Render the unit value.";
+    Input: "No parameters";
+    Processing: "The unit has no stored data.";
+    Output: "()";
+} {
+    Return "()";
+}
+
+Public Function IsNullText(String? text) -> Bool
+Explain {
+    Description: "Report whether a text value is null.";
+    Input: text = "Text value, which may be null";
+    Processing: "Compare the value with Null.";
+    Output: "True when the value is null.";
+} {
+    If (text == Null) { Return True; }
+    Return False;
+}
+
+Public Function IsBlank(String text) -> Bool
+Explain {
+    Description: "Report whether input text is empty after trimming.";
+    Input: text = "Input text";
+    Processing: "Trim spaces and test the length.";
+    Output: "True when nothing remains.";
+} {
+    Return Clean(text).Length() == 0;
+}
+
+Public Function IsDefined(Bool defined) -> Bool
+Explain {
+    Description: "Report whether a flag says the value is present.";
+    Input: defined = "Presence flag";
+    Processing: "Read the flag.";
+    Output: "The same flag.";
+} {
+    Return defined;
+}
+
+Public Function IsUndefined(String? value) -> Bool
+Explain {
+    Description: "Report whether a value is null, missing, or blank.";
+    Input: value = "Value to test";
+    Processing: "Treat null and blank text as undefined.";
+    Output: "True when the value is undefined.";
+} {
+    If (value == Null) { Return True; }
+    Return Clean(value).Length() == 0;
+}
+
+Public Function IsNull(String? value) -> Bool
+Explain {
+    Description: "Report whether a reference is absent.";
+    Input: value = "Reference to test";
+    Processing: "Compare the reference with Null.";
+    Output: "True when the reference is null.";
+} {
+    If (value == Null) { Return True; }
+    Return False;
+}
+
+Public Function GetType(Any value) -> Type
+Explain {
+    Description: "Return the type descriptor of a value.";
+    Input: value = "Any value";
+    Processing: "Classify the value text as Empty, Bool, Int, Float, or String.";
+    Output: "The type descriptor.";
+} {
+    Return Type(Kind(value.ToString()));
+}
+
+Public Function ToString(Any value) -> String
+Explain {
+    Description: "Render any value as text.";
+    Input: value = "Any value";
+    Processing: "Use the value's text form.";
+    Output: "The text.";
+} {
+    Return value.ToString();
+}
+
+Public Function Equals(Any left, Any right) -> Bool
+Explain {
+    Description: "Compare two values for equality.";
+    Input: left = "Left value", right = "Right value";
+    Processing: "Compare their text forms.";
+    Output: "True when the values are equal.";
+} {
+    Return left.ToString() == right.ToString();
+}
+
+Public Function GetHashCode(Any value) -> Int
+Explain {
+    Description: "Return a hash code for a value.";
+    Input: value = "Any value";
+    Processing: "Hash the value text.";
+    Output: "The hash code.";
+} {
+    Return HashText(value.ToString());
+}
+
+Public Function Clone<T>(T value) -> T
+Explain {
+    Description: "Copy a value.";
+    Input: value = "Value to copy";
+    Processing: "Return the value. Value types are copied by the call.";
+    Output: "The copy.";
+} {
+    Return value;
+}
+
+Public Function Is<T>(String value) -> Bool
+Explain {
+    Description: "Report whether a value has a usable representation.";
+    Input: value = "Value text";
+    Processing: "Reject null and blank text.";
+    Output: "True when the value is present.";
+} {
+    Return !IsUndefined(value);
+}
+
+Public Function As<T>(String value) -> String
+Explain {
+    Description: "Return a value when it is present.";
+    Input: value = "Value text";
+    Processing: "Trim the text. Blank text stays empty.";
+    Output: "The value text, or empty when it is absent.";
+} {
+    If (IsUndefined(value)) { Return ""; }
+    Return Clean(value);
+}
+
+Public Function Default<T>() -> Int
+Explain {
+    Description: "Return the default integer value.";
+    Input: "No parameters";
+    Processing: "The default number is zero.";
+    Output: "Zero.";
+} {
+    Return 0;
+}
+
+Public Function Compare(Int left, Int right) -> Int
+Explain {
+    Description: "Order two integers.";
+    Input: left = "Left integer", right = "Right integer";
+    Processing: "Compare the values.";
+    Output: "-1, 0, or 1.";
+} {
+    Return CompareInt(left, right);
+}
+
+Public Function TryConvert<T>(String value) -> ParseOutcome
+Explain {
+    Description: "Try to convert text to a number or boolean.";
+    Input: value = "Value text";
+    Processing: "Accept an integer, a float, or a boolean. Record the failure otherwise.";
+    Output: "Ok is 1 when the conversion succeeded.";
+} {
+    String clean = Clean(value);
+    If (IsIntText(clean)) {
+        Int integer = clean.ToInt();
+        Return ParseOutcome(1, integer, integer.ToFloat(), clean);
+    }
+    If (IsFloatText(clean)) { Return ParseOutcome(1, 0, clean.ToFloat(), clean); }
+    If (IsBoolText(clean)) { Return ParseOutcome(1, 0, 0.0, BoolText(ReadBool(clean))); }
+    Return ParseOutcome(0, 0, 0.0, clean);
+}
+
+Public Function ConvertChecked<T>(String value) -> String
+Explain {
+    Description: "Convert text when the form is known.";
+    Input: value = "Value text";
+    Processing: "Accept an integer, float, or boolean. Reject every other form.";
+    Output: "The normalized text, or empty when the conversion is rejected.";
+} {
+    ParseOutcome parsed = TryConvert(value);
+    If (parsed.Ok == 0) { Return ""; }
+    Return parsed.Text;
+}
+
+Public Function ConvertUnchecked<T>(String value) -> String
+Explain {
+    Description: "Convert text, keeping the original when the form is unknown.";
+    Input: value = "Value text";
+    Processing: "Use the checked conversion, then fall back to the trimmed text.";
+    Output: "The converted text, or the original trimmed text.";
+} {
+    String converted = ConvertChecked(value);
+    If (converted.Length() == 0) { Return Clean(value); }
+    Return converted;
+}
+
+Public Function Kind(String text) -> String
+Explain {
+    Description: "Classify input text as empty, boolean, integer, float, or string.";
+    Input: text = "Input text";
+    Processing: "Trim the text and test the boolean, integer, and float forms.";
+    Output: "Empty, Bool, Int, Float, or String.";
+} {
+    String clean = Clean(text);
+    If (clean.Length() == 0) { Return "Empty"; }
+    If (IsBoolText(clean)) { Return "Bool"; }
+    If (IsIntText(clean)) { Return "Int"; }
+    If (IsFloatText(clean)) { Return "Float"; }
+    Return "String";
+}
+
+Public Function HasInput(String text) -> Bool
+Explain {
+    Description: "Report whether input text contains a value.";
+    Input: text = "Input text";
+    Processing: "Trim the text and test the length.";
+    Output: "True when a value is present.";
+} {
+    Return !IsBlank(text);
+}
+
+Public Function Input() -> String
+Explain {
+    Description: "Read one line from standard input.";
+    Input: "No parameters";
+    Processing: "Wait for a line from the program input.";
+    Output: "The line, without a trailing newline.";
+} {
+    Return Input();
+}
+
+Public Function InputLine() -> String
+Explain {
+    Description: "Read one trimmed line from standard input.";
+    Input: "No parameters";
+    Processing: "Read a line and trim surrounding space.";
+    Output: "The trimmed line.";
+} {
+    Return Clean(Input());
+}
+
+Public Function InputInt() -> Int
+Explain {
+    Description: "Read an integer from standard input.";
+    Input: "No parameters";
+    Processing: "Read a line and parse a signed integer.";
+    Output: "The integer, or zero when the line is not an integer.";
+} {
+    Return ReadInt(Input());
+}
+
+Public Function InputFloat() -> Float
+Explain {
+    Description: "Read a float from standard input.";
+    Input: "No parameters";
+    Processing: "Read a line and parse a number.";
+    Output: "The float, or zero when the line is not numeric.";
+} {
+    Return ReadFloat(Input());
+}
+
+Public Function InputBool() -> Bool
+Explain {
+    Description: "Read a boolean from standard input.";
+    Input: "No parameters";
+    Processing: "Read a line and accept true, false, yes, no, 1, or 0.";
+    Output: "The boolean value.";
+} {
+    Return ReadBool(Input());
+}
+
+Public Function InputChar() -> String
+Explain {
+    Description: "Read the first character from standard input.";
+    Input: "No parameters";
+    Processing: "Read a line and take its first character.";
+    Output: "The character, or empty when the line is blank.";
+} {
+    Return ReadChar(Input());
+}
+
+Public Function InputKey() -> String
+Explain {
+    Description: "Read a key name or a short line from standard input.";
+    Input: "No parameters";
+    Processing: "Read one line and keep its text, including words such as enter or escape.";
+    Output: "The entered key text.";
+} {
+    Return Clean(Input());
+}
+
+Public Function InputPassword() -> String
+Explain {
+    Description: "Read a password line from standard input.";
+    Input: "No parameters";
+    Processing: "Read one line. The runtime returns the characters that were entered.";
+    Output: "The password line.";
+} {
+    Return Input();
+}
+
+Public Function Prompt(String message) -> String
+Explain {
+    Description: "Show a prompt and read one line.";
+    Input: message = "Prompt text";
+    Processing: "Print the message, then read one line.";
+    Output: "The entered line.";
+} {
+    Print(message);
+    Return Input();
+}
+
+Public Function PromptInt(String message) -> Int
+Explain {
+    Description: "Show a prompt and read an integer.";
+    Input: message = "Prompt text";
+    Processing: "Print the message, then parse the entered line as an integer.";
+    Output: "The integer, or zero when the line is not an integer.";
+} {
+    Return ReadInt(Prompt(message));
+}
+
+Public Function PromptFloat(String message) -> Float
+Explain {
+    Description: "Show a prompt and read a float.";
+    Input: message = "Prompt text";
+    Processing: "Print the message, then parse the entered line as a float.";
+    Output: "The float, or zero when the line is not numeric.";
+} {
+    Return ReadFloat(Prompt(message));
+}
+
+Public Function PromptBool(String message) -> Bool
+Explain {
+    Description: "Show a prompt and read a boolean.";
+    Input: message = "Prompt text";
+    Processing: "Print the message, then parse the entered line as a boolean.";
+    Output: "The boolean value.";
+} {
+    Return ReadBool(Prompt(message));
+}
+
+Public Function Confirm(String message) -> Bool
+Explain {
+    Description: "Show a yes-or-no prompt.";
+    Input: message = "Question text";
+    Processing: "Print the question and accept yes, true, or 1.";
+    Output: "True when the answer is affirmative.";
+} {
+    Return ReadBool(Prompt(message));
+}
+
+Public Function Accepted(String text, String kind) -> Bool
+Explain {
+    Description: "Report whether input text matches a requested kind.";
+    Input: text = "Input text", kind = "Int, Float, Bool, or Text";
+    Processing: "Trim the text and test it against the kind.";
+    Output: "True when the input is accepted.";
+} {
+    String clean = Clean(text);
+    String name = kind.ToLower();
+    If (name == "int") { Return IsIntText(clean); }
+    If (name == "float") { Return IsFloatText(clean); }
+    If (name == "bool") { Return IsBoolText(clean); }
+    If (name == "text") { Return clean.Length() > 0; }
+    Return False;
+}
+
+Public Function ReadText(String text) -> String
+Explain {
+    Description: "Read text from input.";
+    Input: text = "Input text";
+    Processing: "Trim surrounding space.";
+    Output: "The trimmed text.";
+} {
+    Return Clean(text);
+}
+
+Public Function ReadLine(String text) -> String
+Explain {
+    Description: "Read one input line.";
+    Input: text = "Input line";
+    Processing: "Trim surrounding space and keep the inner text.";
+    Output: "The line.";
+} {
+    Return Clean(text);
+}
+
+Public Function ReadInt(String text) -> Int
+Explain {
+    Description: "Read an integer from input text.";
+    Input: text = "Input text with an optional sign and digits";
+    Processing: "Trim the text and accept only a signed integer.";
+    Output: "The integer, or zero when the text is not an integer.";
+} {
+    String clean = Clean(text);
+    If (!IsIntText(clean)) { Return 0; }
+    Return clean.ToInt();
+}
+
+Public Function ReadFloat(String text) -> Float
+Explain {
+    Description: "Read a float from input text.";
+    Input: text = "Input text with digits and an optional decimal point";
+    Processing: "Trim the text and accept an integer or decimal form.";
+    Output: "The float, or zero when the text is not a number.";
+} {
+    String clean = Clean(text);
+    If (!IsFloatText(clean)) { Return 0.0; }
+    Return clean.ToFloat();
+}
+
+Public Function ReadBool(String text) -> Bool
+Explain {
+    Description: "Read a boolean from input text.";
+    Input: text = "true, false, yes, no, 1, or 0";
+    Processing: "Trim the text and compare it with the boolean words.";
+    Output: "True for true, yes, and 1. False otherwise.";
+} {
+    String clean = Clean(text);
+    If (!IsBoolText(clean)) { Return False; }
+    String lower = clean.ToLower();
+    If (lower == "true" || lower == "yes" || lower == "1") { Return True; }
+    Return False;
+}
+
+Public Function ReadChar(String text) -> String
+Explain {
+    Description: "Read the first character from input text.";
+    Input: text = "Input text";
+    Processing: "Trim the text and take the first character.";
+    Output: "The character, or empty when the input is blank.";
+} {
+    String clean = Clean(text);
+    If (clean.Length() == 0) { Return ""; }
+    Return clean.Substring(0, 1);
+}
+
+Public Function TryReadInt(String text) -> ParseOutcome
+Explain {
+    Description: "Try to read an integer from input text.";
+    Input: text = "Input text";
+    Processing: "Accept a signed integer and record whether it parsed.";
+    Output: "Ok is 1 when the integer was read.";
+} {
+    String clean = Clean(text);
+    If (!IsIntText(clean)) { Return ParseOutcome(0, 0, 0.0, clean); }
+    Int value = clean.ToInt();
+    Return ParseOutcome(1, value, value.ToFloat(), clean);
+}
+
+Public Function TryReadFloat(String text) -> ParseOutcome
+Explain {
+    Description: "Try to read a float from input text.";
+    Input: text = "Input text";
+    Processing: "Accept an integer or decimal form and record whether it parsed.";
+    Output: "Ok is 1 when the float was read.";
+} {
+    String clean = Clean(text);
+    If (!IsFloatText(clean)) { Return ParseOutcome(0, 0, 0.0, clean); }
+    Float value = clean.ToFloat();
+    Return ParseOutcome(1, value.ToInt(), value, clean);
+}
+
+Public Function TryReadBool(String text) -> ParseOutcome
+Explain {
+    Description: "Try to read a boolean from input text.";
+    Input: text = "Input text";
+    Processing: "Accept a boolean word and record whether it parsed.";
+    Output: "Ok is 1 when the boolean was read. Integer is 1 for true.";
+} {
+    String clean = Clean(text);
+    If (!IsBoolText(clean)) { Return ParseOutcome(0, 0, 0.0, clean); }
+    If (ReadBool(clean)) { Return ParseOutcome(1, 1, 1.0, clean); }
+    Return ParseOutcome(1, 0, 0.0, clean);
+}
+
+Public Function ToBoolean(String text) -> Bool
+Explain {
+    Description: "Convert text to a boolean.";
+    Input: text = "true, false, yes, no, 1, or 0";
+    Processing: "Use the boolean input reader.";
+    Output: "The boolean value.";
+} {
+    Return ReadBool(text);
+}
+
+Public Function ToByte(Int value) -> Int
+Explain {
+    Description: "Convert an integer to the byte range.";
+    Input: value = "Integer value";
+    Processing: "Clamp the value to 0 through 255.";
+    Output: "The byte value.";
+} {
+    If (value < 0) { Return 0; }
+    If (value > 255) { Return 255; }
+    Return value;
+}
+
+Public Function ToInt32(Int value) -> Int
+Explain {
+    Description: "Convert an integer to the 32-bit signed range.";
+    Input: value = "Integer value";
+    Processing: "Clamp the value to the signed 32-bit limits.";
+    Output: "The clamped integer.";
+} {
+    Int limit = 2147483647;
+    If (value > limit) { Return limit; }
+    If (value < 0 - limit) { Return 0 - limit; }
+    Return value;
+}
+
+Public Function ToInt(String text) -> Int
+Explain {
+    Description: "Convert text to an integer.";
+    Input: text = "Integer text";
+    Processing: "Accept an optional sign and digits.";
+    Output: "The integer, or zero when the text is not an integer.";
+} {
+    Return ReadInt(text);
+}
+
+Public Function ToFloat64(Int value) -> Float
+Explain {
+    Description: "Convert an integer to a float.";
+    Input: value = "Integer value";
+    Processing: "Widen the integer.";
+    Output: "The float value.";
+} {
+    Return value.ToFloat();
+}
+
+Public Function ToFloat(String text) -> Float
+Explain {
+    Description: "Convert text to a float.";
+    Input: text = "Numeric text";
+    Processing: "Accept an integer or decimal form.";
+    Output: "The float, or zero when the text is not numeric.";
+} {
+    Return ReadFloat(text);
+}
+
+Public Function ToDecimalText(Int value) -> String
+Explain {
+    Description: "Convert an integer to decimal text.";
+    Input: value = "Integer value";
+    Processing: "Render the integer and append a decimal place.";
+    Output: "Decimal text such as 12.0.";
+} {
+    Return value.ToString() + ".0";
+}
+
+Public Function ToChar(String text) -> String
+Explain {
+    Description: "Convert text to its first character.";
+    Input: text = "Source text";
+    Processing: "Take the first character after trimming.";
+    Output: "The character, or empty text.";
+} {
+    Return ReadChar(text);
+}
+
+Public Function ToBigInteger(String digits) -> BigInteger
+Explain {
+    Description: "Convert digit text to a big integer.";
+    Input: digits = "Decimal digits";
+    Processing: "Store the digits as the integer text.";
+    Output: "The big integer.";
+} {
+    Return BigInteger(Clean(digits));
+}
+
+Public Function ToHex(Int value) -> String
+Explain {
+    Description: "Convert an integer to hexadecimal text.";
+    Input: value = "Integer value";
+    Processing: "Render the absolute value in base 16.";
+    Output: "Lowercase hexadecimal text.";
+} {
+    If (value == 0) { Return "0"; }
     Int current = value;
     If (current < 0) { current = 0 - current; }
-    While (count < width) {
+    String text = "";
+    While (current > 0) {
         text = HexDigit(current) + text;
         current = current / 16;
-        count = count + 1;
     }
     Return text;
 }
 
-Private Function MakeGuid(Int left, Int right) -> Guid {
-    String text = HexGroup(left, 8) + "-" + HexGroup(right, 4) + "-" + HexGroup(left / 3, 4) + "-" + HexGroup(right / 5, 4) + "-" + HexGroup(left + right, 12);
+Public Function ToInt16(Int value) -> Int
+Explain {
+    Description: "Convert an integer to the signed 16-bit range.";
+    Input: value = "Integer value";
+    Processing: "Clamp the value to -32768 through 32767.";
+    Output: "The clamped integer.";
+} {
+    If (value < -32768) { Return -32768; }
+    If (value > 32767) { Return 32767; }
+    Return value;
+}
+
+Public Function ToUInt16(Int value) -> Int
+Explain {
+    Description: "Convert an integer to the unsigned 16-bit range.";
+    Input: value = "Integer value";
+    Processing: "Clamp the value to 0 through 65535.";
+    Output: "The clamped integer.";
+} {
+    If (value < 0) { Return 0; }
+    If (value > 65535) { Return 65535; }
+    Return value;
+}
+
+Public Function ToUInt32(Int value) -> Int
+Explain {
+    Description: "Convert an integer to the unsigned 32-bit range.";
+    Input: value = "Integer value";
+    Processing: "Clamp the value to 0 through 4294967295.";
+    Output: "The clamped integer.";
+} {
+    If (value < 0) { Return 0; }
+    If (value > 4294967295) { Return 4294967295; }
+    Return value;
+}
+
+Public Function ToInt64(Int value) -> Int
+Explain {
+    Description: "Convert an integer to the language integer width.";
+    Input: value = "Integer value";
+    Processing: "Keep the value. The language integer is the wide integer.";
+    Output: "The integer.";
+} {
+    Return value;
+}
+
+Public Function ToUInt64(Int value) -> Int
+Explain {
+    Description: "Convert an integer to a non-negative wide integer.";
+    Input: value = "Integer value";
+    Processing: "Replace a negative value with zero.";
+    Output: "The non-negative integer.";
+} {
+    If (value < 0) { Return 0; }
+    Return value;
+}
+
+Public Function ToFloat32(Int value) -> Float
+Explain {
+    Description: "Convert an integer to a float.";
+    Input: value = "Integer value";
+    Processing: "Widen the integer.";
+    Output: "The float value.";
+} {
+    Return value.ToFloat();
+}
+
+Public Function ParseInteger(String text) -> Int
+Explain {
+    Description: "Parse integer text.";
+    Input: text = "Integer text";
+    Processing: "Accept an optional sign and digits.";
+    Output: "The integer, or zero when the text is not an integer.";
+} {
+    Return ToInt(text);
+}
+
+Public Function ParseFloatingPoint(String text) -> Float
+Explain {
+    Description: "Parse floating-point text.";
+    Input: text = "Numeric text";
+    Processing: "Accept an integer or decimal form.";
+    Output: "The float, or zero when the text is not numeric.";
+} {
+    Return ToFloat(text);
+}
+
+Public Function ParseBoolean(String text) -> Bool
+Explain {
+    Description: "Parse boolean text.";
+    Input: text = "true, false, yes, no, 1, or 0";
+    Processing: "Compare the text with the boolean words.";
+    Output: "The boolean value.";
+} {
+    Return ToBoolean(text);
+}
+
+Public Function CanConvert(String source, String target) -> Bool
+Explain {
+    Description: "Report whether Core can convert one kind of value to another.";
+    Input: source = "Source kind", target = "Target kind";
+    Processing: "Compare the kind names with the conversions this package provides.";
+    Output: "True when the conversion is available.";
+} {
+    String left = source.ToLower();
+    String right = target.ToLower();
+    If (left == right) { Return True; }
+    If (left == "int" && (right == "float" || right == "string" || right == "bool" || right == "byte" || right == "hex" || right == "binary")) { Return True; }
+    If (left == "string" && (right == "int" || right == "float" || right == "bool" || right == "guid" || right == "version" || right == "date" || right == "base64")) { Return True; }
+    If (left == "bool" && (right == "int" || right == "string")) { Return True; }
+    If (left == "float" && (right == "int" || right == "string")) { Return True; }
+    Return False;
+}
+
+Public Function ToBinary(Int value) -> String
+Explain {
+    Description: "Convert an integer to binary text.";
+    Input: value = "Integer value";
+    Processing: "Render the value in base 2.";
+    Output: "Binary text.";
+} {
+    Return ToBase(value, 2);
+}
+
+Public Function FromBinary(String text) -> Int
+Explain {
+    Description: "Convert binary text to an integer.";
+    Input: text = "Binary text";
+    Processing: "Read the text as base 2.";
+    Output: "The integer, or zero when the text is not binary.";
+} {
+    Return FromBase(text, 2);
+}
+
+Public Function ToBase(Int value, Int radix) -> String
+Explain {
+    Description: "Convert an integer to text in a radix from 2 through 36.";
+    Input: value = "Integer value", radix = "Radix from 2 through 36";
+    Processing: "Divide by the radix and write the remainders.";
+    Output: "The converted text, or empty when the radix is outside 2 through 36.";
+} {
+    If (radix < 2 || radix > 36) { Return ""; }
+    If (value == 0) { Return "0"; }
+    Int current = value;
+    String sign = "";
+    If (current < 0) {
+        sign = "-";
+        current = 0 - current;
+    }
+    String alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+    String text = "";
+    While (current > 0) {
+        text = alphabet.Substring(current % radix, 1) + text;
+        current = current / radix;
+    }
+    Return sign + text;
+}
+
+Public Function FromBase(String text, Int radix) -> Int
+Explain {
+    Description: "Convert text in a radix from 2 through 36 to an integer.";
+    Input: text = "Digits for the radix", radix = "Radix from 2 through 36";
+    Processing: "Accumulate each digit.";
+    Output: "The integer, or zero when the text or radix is invalid.";
+} {
+    If (radix < 2 || radix > 36) { Return 0; }
+    String clean = Clean(text).ToLower();
+    If (clean.Length() == 0) { Return 0; }
+    Int index = 0;
+    Int sign = 1;
+    If (clean.Substring(0, 1) == "-") {
+        sign = -1;
+        index = 1;
+    }
+    If (index >= clean.Length()) { Return 0; }
+    String alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+    Int value = 0;
+    While (index < clean.Length()) {
+        Int digit = alphabet.IndexOf(clean.Substring(index, 1));
+        If (digit < 0 || digit >= radix) { Return 0; }
+        value = value * radix + digit;
+        index = index + 1;
+    }
+    Return sign * value;
+}
+
+Public Function ToBase64(String text) -> String
+Explain {
+    Description: "Encode text as Base64.";
+    Input: text = "Text to encode";
+    Processing: "Group the character codes into 6-bit Base64 digits.";
+    Output: "The Base64 text.";
+} {
+    String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    String result = "";
+    Int index = 0;
+    While (index < text.Length()) {
+        Int first = text.GetChar(index).ToInt();
+        Int second = 0;
+        Int third = 0;
+        Int count = 1;
+        If (index + 1 < text.Length()) {
+            second = text.GetChar(index + 1).ToInt();
+            count = 2;
+        }
+        If (index + 2 < text.Length()) {
+            third = text.GetChar(index + 2).ToInt();
+            count = 3;
+        }
+        Int bundle = first * 65536 + second * 256 + third;
+        result = result + alphabet.Substring((bundle / 262144) % 64, 1);
+        result = result + alphabet.Substring((bundle / 4096) % 64, 1);
+        If (count < 2) {
+            result = result + "==";
+        } Else {
+            result = result + alphabet.Substring((bundle / 64) % 64, 1);
+            If (count < 3) {
+                result = result + "=";
+            } Else {
+                result = result + alphabet.Substring(bundle % 64, 1);
+            }
+        }
+        index = index + 3;
+    }
+    Return result;
+}
+
+Public Function FromBase64(String text) -> String
+Explain {
+    Description: "Decode Base64 text.";
+    Input: text = "Base64 text";
+    Processing: "Turn each group of four Base64 digits back into characters.";
+    Output: "The decoded text, or empty when the text is not Base64.";
+} {
+    String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    String result = "";
+    Int index = 0;
+    While (index + 1 < text.Length()) {
+        Int firstDigit = alphabet.IndexOf(text.Substring(index, 1));
+        Int secondDigit = alphabet.IndexOf(text.Substring(index + 1, 1));
+        If (firstDigit < 0 || secondDigit < 0) { Return ""; }
+        Int thirdDigit = -1;
+        Int fourthDigit = -1;
+        If (index + 2 < text.Length() && text.Substring(index + 2, 1) != "=") {
+            thirdDigit = alphabet.IndexOf(text.Substring(index + 2, 1));
+            If (thirdDigit < 0) { Return ""; }
+        }
+        If (index + 3 < text.Length() && text.Substring(index + 3, 1) != "=") {
+            fourthDigit = alphabet.IndexOf(text.Substring(index + 3, 1));
+            If (fourthDigit < 0) { Return ""; }
+        }
+        result = result + Character((firstDigit * 4) + (secondDigit / 16));
+        If (thirdDigit >= 0) {
+            result = result + Character(((secondDigit % 16) * 16) + (thirdDigit / 4));
+        }
+        If (fourthDigit >= 0 && thirdDigit >= 0) {
+            result = result + Character(((thirdDigit % 4) * 64) + fourthDigit);
+        }
+        index = index + 4;
+    }
+    Return result;
+}
+
+Private Function Character(Int code) -> String {
+    If (code < 32 || code > 126) { Return ""; }
+    String printable = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+    Return printable.Substring(code - 32, 1);
+}
+
+Public Function FromHex(String text) -> Int
+Explain {
+    Description: "Convert hexadecimal text to an integer.";
+    Input: text = "Hexadecimal text, with an optional 0x prefix";
+    Processing: "Read each hex digit into an integer.";
+    Output: "The integer, or zero when the text is not hexadecimal.";
+} {
+    String clean = Clean(text).ToLower();
+    If (clean.StartsWith("0x")) { clean = clean.Substring(2); }
+    If (clean.Length() == 0) { Return 0; }
+    Int value = 0;
+    Int index = 0;
+    While (index < clean.Length()) {
+        Int digit = HexValue(clean.Substring(index, 1));
+        If (digit < 0) { Return 0; }
+        value = value * 16 + digit;
+        index = index + 1;
+    }
+    Return value;
+}
+
+Public Function IntText(Int value) -> String
+Explain {
+    Description: "Convert an integer to text.";
+    Input: value = "Integer value";
+    Processing: "Render the integer.";
+    Output: "The decimal text.";
+} {
+    Return value.ToString();
+}
+
+Public Function FloatText(Float value) -> String
+Explain {
+    Description: "Convert a float to text.";
+    Input: value = "Float value";
+    Processing: "Render the float.";
+    Output: "The numeric text.";
+} {
+    Return value.ToString();
+}
+
+Public Function BoolText(Bool value) -> String
+Explain {
+    Description: "Convert a boolean to text.";
+    Input: value = "Boolean value";
+    Processing: "Choose True or False.";
+    Output: "True or False.";
+} {
+    If (value) { Return "True"; }
+    Return "False";
+}
+
+Public Function AddDigits(String left, String right) -> String
+Explain {
+    Description: "Add two non-negative integers written as digits.";
+    Input: left = "Left digits", right = "Right digits";
+    Processing: "Add the digits from right to left and keep the carry.";
+    Output: "The sum as digits.";
+} {
+    Int leftIndex = left.Length() - 1;
+    Int rightIndex = right.Length() - 1;
+    Int carry = 0;
+    String result = "";
+    While (leftIndex >= 0 || rightIndex >= 0 || carry > 0) {
+        Int total = carry;
+        If (leftIndex >= 0) {
+            total = total + Digit(left.Substring(leftIndex, 1));
+            leftIndex = leftIndex - 1;
+        }
+        If (rightIndex >= 0) {
+            total = total + Digit(right.Substring(rightIndex, 1));
+            rightIndex = rightIndex - 1;
+        }
+        If (total < 0) { total = 0; }
+        carry = total / 10;
+        result = (total % 10).ToString() + result;
+    }
+    If (result == "") { Return "0"; }
+    Return result;
+}
+
+Public Function EqualsInt(Int left, Int right) -> Bool
+Explain {
+    Description: "Compare two integers for equality.";
+    Input: left = "Left integer", right = "Right integer";
+    Processing: "Compare the values.";
+    Output: "True when the integers are equal.";
+} {
+    Return left == right;
+}
+
+Public Function EqualsText(String left, String right) -> Bool
+Explain {
+    Description: "Compare two strings for equality.";
+    Input: left = "Left text", right = "Right text";
+    Processing: "Compare the characters.";
+    Output: "True when the strings are equal.";
+} {
+    Return left == right;
+}
+
+Public Function EqualsFloat(Float left, Float right) -> Bool
+Explain {
+    Description: "Compare two floats for equality.";
+    Input: left = "Left float", right = "Right float";
+    Processing: "Compare the values.";
+    Output: "True when the floats are equal.";
+} {
+    Return CompareFloat(left, right) == 0;
+}
+
+Public Function CompareInt(Int left, Int right) -> Int
+Explain {
+    Description: "Order two integers.";
+    Input: left = "Left integer", right = "Right integer";
+    Processing: "Compare the values.";
+    Output: "-1 when left is smaller, 1 when left is larger, and 0 when equal.";
+} {
+    If (left < right) { Return -1; }
+    If (left > right) { Return 1; }
+    Return 0;
+}
+
+Public Function CompareText(String left, String right) -> Int
+Explain {
+    Description: "Order two strings.";
+    Input: left = "Left text", right = "Right text";
+    Processing: "Compare characters from the left, then the lengths.";
+    Output: "-1, 0, or 1.";
+} {
+    Int index = 0;
+    Int limit = left.Length();
+    If (right.Length() < limit) { limit = right.Length(); }
+    While (index < limit) {
+        Int leftCode = left.GetChar(index).ToInt();
+        Int rightCode = right.GetChar(index).ToInt();
+        If (leftCode < rightCode) { Return -1; }
+        If (leftCode > rightCode) { Return 1; }
+        index = index + 1;
+    }
+    If (left.Length() < right.Length()) { Return -1; }
+    If (left.Length() > right.Length()) { Return 1; }
+    Return 0;
+}
+
+Public Function CompareFloat(Float left, Float right) -> Int
+Explain {
+    Description: "Order two floats.";
+    Input: left = "Left float", right = "Right float";
+    Processing: "Compare the values.";
+    Output: "-1, 0, or 1.";
+} {
+    If (left < right) { Return -1; }
+    If (left > right) { Return 1; }
+    Return 0;
+}
+
+Public Function Min(Int left, Int right) -> Int
+Explain {
+    Description: "Choose the smaller integer.";
+    Input: left = "Left integer", right = "Right integer";
+    Processing: "Compare the values.";
+    Output: "The smaller integer.";
+} {
+    If (left < right) { Return left; }
+    Return right;
+}
+
+Public Function Max(Int left, Int right) -> Int
+Explain {
+    Description: "Choose the larger integer.";
+    Input: left = "Left integer", right = "Right integer";
+    Processing: "Compare the values.";
+    Output: "The larger integer.";
+} {
+    If (left > right) { Return left; }
+    Return right;
+}
+
+Public Function Absolute(Int value) -> Int
+Explain {
+    Description: "Return the absolute value of an integer.";
+    Input: value = "Integer value";
+    Processing: "Drop the sign.";
+    Output: "The non-negative integer.";
+} {
+    If (value < 0) { Return 0 - value; }
+    Return value;
+}
+
+Public Function Sign(Int value) -> Int
+Explain {
+    Description: "Return the sign of an integer.";
+    Input: value = "Integer value";
+    Processing: "Compare the value with zero.";
+    Output: "-1, 0, or 1.";
+} {
+    If (value < 0) { Return -1; }
+    If (value > 0) { Return 1; }
+    Return 0;
+}
+
+Public Function Between(Int value, Int minimum, Int maximum) -> Bool
+Explain {
+    Description: "Report whether an integer lies inside a closed interval.";
+    Input: value = "Integer value", minimum = "Lower bound", maximum = "Upper bound";
+    Processing: "Compare the value with both bounds.";
+    Output: "True when the value is inside the interval.";
+} {
+    Return value >= minimum && value <= maximum;
+}
+
+Public Function Clamp(Int value, Int minimum, Int maximum) -> Int
+Explain {
+    Description: "Clamp an integer to a range.";
+    Input: value = "Integer value", minimum = "Lower bound", maximum = "Upper bound";
+    Processing: "Raise the value to the minimum and lower it to the maximum.";
+    Output: "The clamped integer.";
+} {
+    If (value < minimum) { Return minimum; }
+    If (value > maximum) { Return maximum; }
+    Return value;
+}
+
+Public Function HashText(String text) -> Int
+Explain {
+    Description: "Hash text to a stable integer.";
+    Input: text = "Text to hash";
+    Processing: "Fold each character into a positive hash.";
+    Output: "The hash.";
+} {
+    Int hash = 5381;
+    Int index = 0;
+    While (index < text.Length()) {
+        hash = hash * 33 + text.GetChar(index).ToInt();
+        index = index + 1;
+    }
+    If (hash < 0) { hash = 0 - hash; }
+    Return hash;
+}
+
+Public Function ReferenceEquals(Box left, Box right) -> Bool
+Explain {
+    Description: "Compare two boxes by identity.";
+    Input: left = "Left box", right = "Right box";
+    Processing: "Compare the box ids.";
+    Output: "True when the ids match.";
+} {
+    Return left.Id == right.Id;
+}
+
+Public Function MakeRange(Int start, Int end) -> CoreRange
+Explain {
+    Description: "Make a range with a step of one.";
+    Input: start = "Inclusive start", end = "Exclusive end";
+    Processing: "Store the bounds and a step of 1.";
+    Output: "The range.";
+} {
+    Return CoreRange(start, end, 1);
+}
+
+Public Function MakeRangeStep(Int start, Int end, Int step) -> CoreRange
+Explain {
+    Description: "Make a range with an explicit step.";
+    Input: start = "Inclusive start", end = "Exclusive end", step = "Step size";
+    Processing: "Store the bounds and the step.";
+    Output: "The range.";
+} {
+    Return CoreRange(start, end, step);
+}
+
+Public Function SumRange(CoreRange range) -> Int
+Explain {
+    Description: "Sum the integers in a range.";
+    Input: range = "Range to walk";
+    Processing: "Add each value from the start until the end, using the step.";
+    Output: "The sum.";
+} {
+    Int total = 0;
+    Int cursor = range.Start;
+    Int step = range.Step;
+    If (step == 0) { step = 1; }
+    If (step < 0) { step = 0 - step; }
+    While (cursor < range.End) {
+        total = total + cursor;
+        cursor = cursor + step;
+    }
+    Return total;
+}
+
+Public Function RangeCount(CoreRange range) -> Int
+Explain {
+    Description: "Count the integers in a range.";
+    Input: range = "Range to walk";
+    Processing: "Count each value from the start until the end, using the step.";
+    Output: "The count.";
+} {
+    Int count = 0;
+    Int cursor = range.Start;
+    Int step = range.Step;
+    If (step == 0) { step = 1; }
+    If (step < 0) { step = 0 - step; }
+    While (cursor < range.End) {
+        count = count + 1;
+        cursor = cursor + step;
+    }
+    Return count;
+}
+
+Public Function RangeContains(CoreRange range, Int value) -> Bool
+Explain {
+    Description: "Report whether a range contains an integer.";
+    Input: range = "Range to test", value = "Integer value";
+    Processing: "Test the bounds and whether the step lands on the value.";
+    Output: "True when the value is in the range.";
+} {
+    Int step = range.Step;
+    If (step == 0) { step = 1; }
+    If (step < 0) { step = 0 - step; }
+    If (value < range.Start || value >= range.End) { Return False; }
+    Int delta = value - range.Start;
+    Return delta % step == 0;
+}
+
+Public Function At(Int index) -> Index
+Explain {
+    Description: "Make an index counted from the start.";
+    Input: index = "Offset from the start";
+    Processing: "Store the offset as a start-relative index.";
+    Output: "The index.";
+} {
+    Return Index(index, 0);
+}
+
+Public Function FromEnd(Int index) -> Index
+Explain {
+    Description: "Make an index counted from the end.";
+    Input: index = "Offset from the end";
+    Processing: "Store the offset as an end-relative index.";
+    Output: "The index.";
+} {
+    Return Index(index, 1);
+}
+
+Public Function GetOffset(Index index, Int length) -> Int
+Explain {
+    Description: "Resolve an index against a length.";
+    Input: index = "Start-relative or end-relative index", length = "Collection length";
+    Processing: "Subtract an end-relative offset from the length.";
+    Output: "The resolved offset.";
+} {
+    If (index.EndRelative == 1) { Return length - index.Offset; }
+    Return index.Offset;
+}
+
+Public Function Swap(Int left, Int right) -> CoreRange
+Explain {
+    Description: "Swap two integers into a range.";
+    Input: left = "First integer", right = "Second integer";
+    Processing: "Place the second integer at the start and the first at the end.";
+    Output: "A range with a step of one.";
+} {
+    Return CoreRange(right, left, 1);
+}
+
+Public Function VersionText(CoreVersion version) -> String
+Explain {
+    Description: "Render a version as major.minor.patch.";
+    Input: version = "Version value";
+    Processing: "Join the three numbers with dots.";
+    Output: "The version text.";
+} {
+    Return version.Major.ToString() + "." + version.Minor.ToString() + "." + version.Patch.ToString();
+}
+
+Public Function ParseVersion(String text) -> CoreVersion
+Explain {
+    Description: "Parse major.minor.patch text.";
+    Input: text = "Version text";
+    Processing: "Read up to three dot-separated integers. Missing parts are zero.";
+    Output: "The version.";
+} {
+    String clean = Clean(text);
+    Int major = 0;
+    Int minor = 0;
+    Int patch = 0;
+    Int part = 0;
+    Int value = 0;
+    Int seen = 0;
+    Int index = 0;
+    While (index <= clean.Length()) {
+        Bool boundary = index == clean.Length();
+        String piece = "";
+        If (!boundary) { piece = clean.Substring(index, 1); }
+        If (boundary || piece == ".") {
+            If (seen == 1) {
+                If (part == 0) { major = value; }
+                If (part == 1) { minor = value; }
+                If (part == 2) { patch = value; }
+                part = part + 1;
+            }
+            value = 0;
+            seen = 0;
+        } Else {
+            Int digit = Digit(piece);
+            If (digit >= 0) {
+                value = value * 10 + digit;
+                seen = 1;
+            }
+        }
+        index = index + 1;
+    }
+    Return CoreVersion(major, minor, patch);
+}
+
+Public Function CompareVersion(CoreVersion left, CoreVersion right) -> Int
+Explain {
+    Description: "Order two versions.";
+    Input: left = "Left version", right = "Right version";
+    Processing: "Compare major, then minor, then patch.";
+    Output: "-1, 0, or 1.";
+} {
+    Int major = CompareInt(left.Major, right.Major);
+    If (major != 0) { Return major; }
+    Int minor = CompareInt(left.Minor, right.Minor);
+    If (minor != 0) { Return minor; }
+    Return CompareInt(left.Patch, right.Patch);
+}
+
+Public Function SameVersion(CoreVersion left, CoreVersion right) -> Bool
+Explain {
+    Description: "Report whether two versions are the same.";
+    Input: left = "Left version", right = "Right version";
+    Processing: "Compare major, minor, and patch.";
+    Output: "True when all three numbers match.";
+} {
+    Return CompareVersion(left, right) == 0;
+}
+
+Public Function IsCompatible(CoreVersion current, CoreVersion required) -> Bool
+Explain {
+    Description: "Report whether a version satisfies a required version in the same major line.";
+    Input: current = "Available version", required = "Required version";
+    Processing: "Require the same major and a current version that is at least the required version.";
+    Output: "True when the versions are compatible.";
+} {
+    If (current.Major != required.Major) { Return False; }
+    Return CompareVersion(current, required) >= 0;
+}
+
+Public Function BumpMajor(CoreVersion version) -> CoreVersion
+Explain {
+    Description: "Increase the major version and reset the rest.";
+    Input: version = "Version value";
+    Processing: "Add one to the major number.";
+    Output: "The next major version.";
+} {
+    Return CoreVersion(version.Major + 1, 0, 0);
+}
+
+Public Function BumpMinor(CoreVersion version) -> CoreVersion
+Explain {
+    Description: "Increase the minor version and reset the patch.";
+    Input: version = "Version value";
+    Processing: "Add one to the minor number.";
+    Output: "The next minor version.";
+} {
+    Return CoreVersion(version.Major, version.Minor + 1, 0);
+}
+
+Public Function BumpPatch(CoreVersion version) -> CoreVersion
+Explain {
+    Description: "Increase the patch version.";
+    Input: version = "Version value";
+    Processing: "Add one to the patch number.";
+    Output: "The next patch version.";
+} {
+    Return CoreVersion(version.Major, version.Minor, version.Patch + 1);
+}
+
+Public Function Milliseconds(Int value) -> TimeSpan
+Explain {
+    Description: "Make a time span from milliseconds.";
+    Input: value = "Millisecond count";
+    Processing: "Store the count.";
+    Output: "The time span.";
+} {
+    Return TimeSpan(value);
+}
+
+Public Function Seconds(Int value) -> TimeSpan
+Explain {
+    Description: "Make a time span from seconds.";
+    Input: value = "Second count";
+    Processing: "Convert seconds to milliseconds.";
+    Output: "The time span.";
+} {
+    Return TimeSpan(value * 1000);
+}
+
+Public Function Minutes(Int value) -> TimeSpan
+Explain {
+    Description: "Make a time span from minutes.";
+    Input: value = "Minute count";
+    Processing: "Convert minutes to milliseconds.";
+    Output: "The time span.";
+} {
+    Return TimeSpan(value * 60000);
+}
+
+Public Function Hours(Int value) -> TimeSpan
+Explain {
+    Description: "Make a time span from hours.";
+    Input: value = "Hour count";
+    Processing: "Convert hours to milliseconds.";
+    Output: "The time span.";
+} {
+    Return TimeSpan(value * 3600000);
+}
+
+Public Function Days(Int value) -> TimeSpan
+Explain {
+    Description: "Make a time span from days.";
+    Input: value = "Day count";
+    Processing: "Convert days to milliseconds.";
+    Output: "The time span.";
+} {
+    Return TimeSpan(value * 86400000);
+}
+
+Public Function TotalSeconds(TimeSpan span) -> Int
+Explain {
+    Description: "Convert a time span to whole seconds.";
+    Input: span = "Time span";
+    Processing: "Divide the milliseconds by 1000.";
+    Output: "The whole seconds.";
+} {
+    Return span.Milliseconds / 1000;
+}
+
+Public Function AddSpan(TimeSpan left, TimeSpan right) -> TimeSpan
+Explain {
+    Description: "Add two time spans.";
+    Input: left = "Left span", right = "Right span";
+    Processing: "Add the millisecond counts.";
+    Output: "The sum.";
+} {
+    Return TimeSpan(left.Milliseconds + right.Milliseconds);
+}
+
+Public Function SubtractSpan(TimeSpan left, TimeSpan right) -> TimeSpan
+Explain {
+    Description: "Subtract one time span from another.";
+    Input: left = "Left span", right = "Right span";
+    Processing: "Subtract the millisecond counts.";
+    Output: "The difference.";
+} {
+    Return TimeSpan(left.Milliseconds - right.Milliseconds);
+}
+
+Public Function DateText(DateTime value) -> String
+Explain {
+    Description: "Render a date as year-month-day.";
+    Input: value = "Date value";
+    Processing: "Join the year, month, and day with dashes.";
+    Output: "The date text.";
+} {
+    Return value.Year.ToString() + "-" + Pad2(value.Month) + "-" + Pad2(value.Day);
+}
+
+Public Function ParseDate(String text) -> DateTime
+Explain {
+    Description: "Parse year-month-day text.";
+    Input: text = "Date text such as 2026-11-24";
+    Processing: "Read the year, month, and day around the dashes.";
+    Output: "The date, or year 1 when the text does not match.";
+} {
+    String clean = Clean(text);
+    If (clean.Length() < 10) { Return DateTime(1, 1, 1); }
+    If (clean.Substring(4, 1) != "-" || clean.Substring(7, 1) != "-") { Return DateTime(1, 1, 1); }
+    Int year = clean.Substring(0, 4).ToInt();
+    Int month = clean.Substring(5, 2).ToInt();
+    Int day = clean.Substring(8, 2).ToInt();
+    Return DateTime(year, month, day);
+}
+
+Public Function IsLeapYear(Int year) -> Bool
+Explain {
+    Description: "Report whether a year has a leap day.";
+    Input: year = "Year number";
+    Processing: "A leap year is divisible by 4, except centuries that are not divisible by 400.";
+    Output: "True for a leap year.";
+} {
+    If (year % 4 != 0) { Return False; }
+    If (year % 100 != 0) { Return True; }
+    Return year % 400 == 0;
+}
+
+Public Function DaysInMonth(Int year, Int month) -> Int
+Explain {
+    Description: "Return the number of days in a month.";
+    Input: year = "Year number", month = "Month from 1 through 12";
+    Processing: "Use the calendar length and the leap-year rule for February.";
+    Output: "The day count, or zero when the month is outside 1 through 12.";
+} {
+    If (month < 1 || month > 12) { Return 0; }
+    If (month == 2) {
+        If (IsLeapYear(year)) { Return 29; }
+        Return 28;
+    }
+    If (month == 4 || month == 6 || month == 9 || month == 11) { Return 30; }
+    Return 31;
+}
+
+Public Function AddDays(DateTime value, Int days) -> DateTime
+Explain {
+    Description: "Add a number of days to a date.";
+    Input: value = "Start date", days = "Day count, which may be negative";
+    Processing: "Walk month lengths, including leap days.";
+    Output: "The resulting date.";
+} {
+    Int year = value.Year;
+    Int month = value.Month;
+    Int day = value.Day + days;
+    While (day > DaysInMonth(year, month)) {
+        day = day - DaysInMonth(year, month);
+        month = month + 1;
+        If (month > 12) {
+            month = 1;
+            year = year + 1;
+        }
+    }
+    While (day < 1) {
+        month = month - 1;
+        If (month < 1) {
+            month = 12;
+            year = year - 1;
+        }
+        day = day + DaysInMonth(year, month);
+    }
+    DateTime result = DateTime(year, month, day);
+    result.Hour = value.Hour;
+    result.Minute = value.Minute;
+    result.Second = value.Second;
+    Return result;
+}
+
+Public Function CompareDate(DateTime left, DateTime right) -> Int
+Explain {
+    Description: "Order two dates.";
+    Input: left = "Left date", right = "Right date";
+    Processing: "Compare year, month, day, then the time of day.";
+    Output: "-1, 0, or 1.";
+} {
+    Int year = CompareInt(left.Year, right.Year);
+    If (year != 0) { Return year; }
+    Int month = CompareInt(left.Month, right.Month);
+    If (month != 0) { Return month; }
+    Int day = CompareInt(left.Day, right.Day);
+    If (day != 0) { Return day; }
+    Int hour = CompareInt(left.Hour, right.Hour);
+    If (hour != 0) { Return hour; }
+    Int minute = CompareInt(left.Minute, right.Minute);
+    If (minute != 0) { Return minute; }
+    Return CompareInt(left.Second, right.Second);
+}
+
+Public Function NowMillis() -> Int
+Explain {
+    Description: "Read the clock in milliseconds.";
+    Input: "No parameters";
+    Processing: "Read the runtime clock.";
+    Output: "Milliseconds since the clock started.";
+} {
+    Return ClockMillis();
+}
+
+Public Function MakeGuid(Int left, Int right) -> Guid
+Explain {
+    Description: "Make a deterministic identity from two integers.";
+    Input: left = "Left integer", right = "Right integer";
+    Processing: "Render the integers as hexadecimal groups.";
+    Output: "The identity.";
+} {
+    String text = ToHex(left) + "-" + ToHex(right) + "-" + ToHex(left + right);
     Return Guid(text);
 }
 
-Private Function ClonePair(Int first, Int second) -> Array<Int> {
+Public Function ParseGuid(String text) -> Guid
+Explain {
+    Description: "Parse identity text.";
+    Input: text = "Hexadecimal identity text, with optional dashes";
+    Processing: "Accept hex digits and dashes. Reject any other character.";
+    Output: "The identity, or the empty identity when the text is invalid.";
+} {
+    String clean = Clean(text).ToLower();
+    If (clean.Length() == 0) { Return EmptyGuid(); }
+    Int index = 0;
+    While (index < clean.Length()) {
+        String piece = clean.Substring(index, 1);
+        If (piece != "-" && HexValue(piece) < 0) { Return EmptyGuid(); }
+        index = index + 1;
+    }
+    Return Guid(clean);
+}
+
+Public Function EmptyGuid() -> Guid
+Explain {
+    Description: "Make the empty identity.";
+    Input: "No parameters";
+    Processing: "Use the zero identity text.";
+    Output: "The empty identity.";
+} {
+    Return Guid("00000000-0000-0000-0000-000000000000");
+}
+
+Public Function GuidText(Guid value) -> String
+Explain {
+    Description: "Render an identity as text.";
+    Input: value = "Identity value";
+    Processing: "Read the stored text.";
+    Output: "The identity text.";
+} {
+    Return value.Text;
+}
+
+Public Function SameGuid(Guid left, Guid right) -> Bool
+Explain {
+    Description: "Compare two identities.";
+    Input: left = "Left identity", right = "Right identity";
+    Processing: "Compare the identity text.";
+    Output: "True when the identities match.";
+} {
+    Return left.Text == right.Text;
+}
+
+Public Function MemberwiseClone<T>(T value) -> T
+Explain {
+    Description: "Copy a value member by member.";
+    Input: value = "Value to copy";
+    Processing: "Return the value. Value types are copied by the call.";
+    Output: "The copy.";
+} {
+    Return value;
+}
+
+Public Function ClonePair(Int first, Int second) -> Array<Int>
+Explain {
+    Description: "Copy two integers into a new array.";
+    Input: first = "First integer", second = "Second integer";
+    Processing: "Store the integers in a new array.";
+    Output: "The copy.";
+} {
     Array<Int> copy = [first, second];
     Return copy;
 }
 
-Private Function MemberwiseClone(CoreVersion source) -> CoreVersion {
-    Return CoreVersion(source.Major, source.Minor, source.Patch);
+Public Function CultureName(CultureInfo culture) -> String
+Explain {
+    Description: "Read the name of a culture.";
+    Input: culture = "Culture value";
+    Processing: "Read the stored name.";
+    Output: "The culture name.";
+} {
+    Return culture.Name;
 }

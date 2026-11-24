@@ -860,7 +860,7 @@ function parseTypeDecl(state, mods, keyword) {
     const typeParams = [];
     const nameToken = peek(state);
     let name = keyword;
-    if (nameToken && nameToken.kind === "identifier") {
+    if (nameToken && (nameToken.kind === "identifier" || (nameToken.kind === "keyword" && /^[A-Za-z]/.test(nameToken.text)))) {
         name = nameToken.text;
         eat(state);
         const sem = keyword === "Enum" ? "enum" : keyword === "Interface" ? "interface" : keyword === "Struct" ? "struct" : "class";
@@ -1180,6 +1180,7 @@ function parseTypeAlias(state) {
     }
     addSymbol(state, {
         ...symbolAt(name, name.text, "type", target, true, true),
+        packageName: state.packageName || "",
         detail: `Type ${name.text}${target ? ` = ${target}` : ""}`
     });
 }

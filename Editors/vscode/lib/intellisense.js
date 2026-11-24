@@ -461,18 +461,21 @@ function memberItems(doc, receiver, offset, external) {
     }
     const qualifier = packageQualifier(doc, receiver, offset);
     if (qualifier) {
+        const declared = new Set(["class", "struct", "enum", "interface", "trait", "service", "function", "macro", "type"]);
+        for (const symbol of doc.symbols.concat(external || [])) {
+            if (symbol.member || !declared.has(symbol.kind) || !sameText(symbol.packageName, qualifier)) {
+                continue;
+            }
+            if ((symbol.kind === "function" || symbol.kind === "macro") && symbol.exported === false) {
+                continue;
+            }
+            add(symbol.name, symbol.detail || symbol.kind, explainDocument(symbol) || symbol.detail, symbol.kind === "function" || symbol.kind === "macro" ? "method" : "field");
+        }
         for (const entry of libraryFunctions()) {
             if (!sameText(entry.packageName, qualifier)) {
                 continue;
             }
             add(entry.name, entry.signature, libraryDocument(entry), entry.kind === "field" ? "field" : "method");
-        }
-        const declared = new Set(["class", "struct", "enum", "interface", "trait", "service", "function", "macro"]);
-        for (const symbol of doc.symbols.concat(external || [])) {
-            if (symbol.member || !declared.has(symbol.kind) || !sameText(symbol.packageName, qualifier)) {
-                continue;
-            }
-            add(symbol.name, symbol.detail || symbol.kind, explainDocument(symbol) || symbol.detail, symbol.kind === "function" || symbol.kind === "macro" ? "method" : "field");
         }
         return items;
     }

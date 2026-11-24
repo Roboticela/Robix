@@ -1,5 +1,265 @@
+Import Robix.Core;
+
+Test UnitText {
+    Constraint: UnitText() == "()";
+    Processing: True;
+    Output: True;
+}
+
+Test ReadInt {
+    Constraint: ReadInt(" 42") == 42;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadIntRejectsText {
+    Constraint: ReadInt("no") == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test ReadBool {
+    Constraint: ReadBool("yes") == True;
+    Processing: True;
+    Output: True;
+}
+
+Test Kind {
+    Constraint: Kind("3.5") == "Float";
+    Processing: True;
+    Output: True;
+}
+
+Test Accepted {
+    Constraint: Accepted("42", "Int") == True;
+    Processing: True;
+    Output: True;
+}
+
+Test ToByte {
+    Constraint: ToByte(300) == 255;
+    Processing: True;
+    Output: True;
+}
+
+Test ToHex {
+    Constraint: ToHex(255) == "ff";
+    Processing: True;
+    Output: True;
+}
+
+Test FromHex {
+    Constraint: FromHex("0x10") == 16;
+    Processing: True;
+    Output: True;
+}
+
+Test AddDigits {
+    Constraint: AddDigits("999", "1") == "1000";
+    Processing: True;
+    Output: True;
+}
+
+Test CompareInt {
+    Constraint: CompareInt(2, 5) == -1;
+    Processing: True;
+    Output: True;
+}
+
+Test Clamp {
+    Constraint: Clamp(42, 10, 30) == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test SumRange {
+    Constraint: SumRange(MakeRange(1, 5)) == 10;
+    Processing: True;
+    Output: True;
+}
+
+Test RangeContains {
+    Constraint: RangeContains(MakeRange(1, 5), 3) == True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetOffset {
+    Constraint: GetOffset(FromEnd(1), 5) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseVersion {
+    Constraint: VersionText(ParseVersion("1.2.3")) == "1.2.3";
+    Processing: True;
+    Output: True;
+}
+
+Test IsCompatible {
+    Constraint: IsCompatible(ParseVersion("1.4.0"), ParseVersion("1.2.0")) == True;
+    Processing: True;
+    Output: True;
+}
+
+Test BumpMinor {
+    Constraint: VersionText(BumpMinor(ParseVersion("1.2.3"))) == "1.3.0";
+    Processing: True;
+    Output: True;
+}
+
+Test Seconds {
+    Constraint: TotalSeconds(AddSpan(Seconds(1), Seconds(2))) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseDate {
+    Constraint: DateText(ParseDate("2026-11-24")) == "2026-11-24";
+    Processing: True;
+    Output: True;
+}
+
+Test AddDays {
+    Constraint: DateText(AddDays(ParseDate("2024-02-28"), 1)) == "2024-02-29";
+    Processing: True;
+    Output: True;
+}
+
+Test LeapDay {
+    Constraint: DaysInMonth(2024, 2) == 29;
+    Processing: True;
+    Output: True;
+}
+
+Test March {
+    Constraint: DateText(AddDays(ParseDate("2024-02-28"), 2)) == "2024-03-01";
+    Processing: True;
+    Output: True;
+}
+
+Test EmptyGuid {
+    Constraint: GuidText(EmptyGuid()) == "00000000-0000-0000-0000-000000000000";
+    Processing: True;
+    Output: True;
+}
+
+Test SameGuid {
+    Constraint: SameGuid(MakeGuid(1, 2), MakeGuid(1, 2)) == True;
+    Processing: True;
+    Output: True;
+}
+
+Test CultureName {
+    Constraint: CultureName(CultureInfo("en-US")) == "en-US";
+    Processing: True;
+    Output: True;
+}
+
 Test Dispose {
     Constraint: Box(1, "arm").Dispose();
+    Processing: True;
+    Output: True;
+}
+
+Test TryReadInt {
+    Constraint: TryReadInt("42").Ok == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test ToBinary {
+    Constraint: ToBinary(5) == "101";
+    Processing: True;
+    Output: True;
+}
+
+Test FromBinary {
+    Constraint: FromBinary("101") == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ToBase {
+    Constraint: ToBase(255, 16) == "ff";
+    Processing: True;
+    Output: True;
+}
+
+Test Base64 {
+    Constraint: FromBase64(ToBase64("Hi")) == "Hi";
+    Processing: True;
+    Output: True;
+}
+
+Test Absolute {
+    Constraint: Absolute(-4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test Between {
+    Constraint: Between(5, 1, 9) == True;
+    Processing: True;
+    Output: True;
+}
+
+Test ToInt16 {
+    Constraint: ToInt16(40000) == 32767;
+    Processing: True;
+    Output: True;
+}
+
+Test CanConvert {
+    Constraint: CanConvert("String", "Int") == True;
+    Processing: True;
+    Output: True;
+}
+
+Test GetType {
+    Constraint: GetType("42").Name == "Int";
+    Processing: True;
+    Output: True;
+}
+
+Test Equals {
+    Constraint: Equals("arm", "arm") == True;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNull {
+    Constraint: IsNull(Null) == True;
+    Processing: True;
+    Output: True;
+}
+
+Test RangeStart {
+    Constraint: Range(1, 5).Start == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test RangeStep {
+    Constraint: Range(0, 10, 2).Step == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test FromEndIndex {
+    Constraint: GetOffset(FromEnd(1), 5) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test DefaultValue {
+    Constraint: Default() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseGuid {
+    Constraint: GuidText(ParseGuid("00000000-0000-0000-0000-000000000000")) == "00000000-0000-0000-0000-000000000000";
     Processing: True;
     Output: True;
 }
