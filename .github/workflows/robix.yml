@@ -117,15 +117,8 @@ jobs:
             echo "error: Update-${version} archives were not found" >&2
             exit 1
           fi
-          gh release delete "${tag}" --cleanup-tag --yes || true
-          gh release create "${tag}" \
-            dist/robix-linux-x64.zip \
-            dist/robix-windows-x64.zip \
-            "${updates[@]}" \
-            dist/Roboticela.Robix.vsix \
-            --target "${GITHUB_SHA}" \
-            --title "${title}" \
-            --notes "$(cat <<EOF
+          notes="$(mktemp)"
+          cat > "${notes}" <<EOF
           ## Tools ${version}
 
           The version is written in \`Robix/VERSION.txt\`.
@@ -161,4 +154,17 @@ jobs:
           In VS Code or Cursor, choose **Extensions: Install from VSIX** and select \`Roboticela.Robix.vsix\`.
           The editor finds \`Robix\` and \`Robixc\` on \`PATH\`.
           EOF
-          )"
+          sed -i 's/^          //' "${notes}"
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release delete "${tag}" --cleanup-tag --yes
+          fi
+          create_args=(--target "${GITHUB_SHA}" --title "${title}" --notes-file "${notes}")
+          if [ "${tag}" = "latest" ]; then
+            create_args+=(--latest)
+          fi
+          gh release create "${tag}" \
+            dist/robix-linux-x64.zip \
+            dist/robix-windows-x64.zip \
+            "${updates[@]}" \
+            dist/Roboticela.Robix.vsix \
+            "${create_args[@]}"

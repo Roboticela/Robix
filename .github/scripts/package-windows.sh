@@ -104,7 +104,7 @@ if [[ ! -f "$windows_tools/Robix.exe" || ! -f "$windows_tools/Compiler.exe" ]]; 
 fi
 cp -a "$windows_tools/Robix.exe" "$stage/Bin/Robix.exe"
 cp -a "$windows_tools/Compiler.exe" "$stage/Shared/Tools/Compiler.exe"
-cp -a "$windows_tools/Compiler.exe" "$stage/Bin/Robixc.exe"
+"$cross" -std=c++17 -O2 -static -o "$stage/Bin/Robixc.exe" "$root/.github/packaging/Robixc.cpp"
 "$cross" -std=c++17 -O2 -static -o "$stage/Shared/Tools/clang++.exe" "$root/.github/packaging/clang++.cpp"
 
 # Ensure NO .ps1 or .cmd files in Bin/
@@ -197,7 +197,7 @@ EOF
         echo "error: Robix.exe could not run HelloRobot.rx (exit ${run_status})" >&2
         exit 1
     fi
-    "$stage/Bin/Robixc.exe" "$smoke/HelloRobot.rx" "$smoke/Hello.exe"
+    "$stage/Bin/Robixc.exe" "$smoke" "$smoke/Hello.exe"
     if [[ ! -f "$smoke/Hello.exe" ]]; then
         echo "error: Robixc.exe did not write Hello.exe" >&2
         exit 1
