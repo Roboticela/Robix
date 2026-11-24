@@ -1,0 +1,21 @@
+// Build a list and return how many items it holds.
+Package Robotics.ScopeList
+Explain {
+    Description: "Build a list of two integers.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Add two integers to a list and return the count.";
+    Input: none = "No input";
+    Processing: "Append 10 and 20.";
+    Output: "Two.";
+} {
+    Var values = List<Int>();
+    values.Add(10);
+    values.Add(20);
+    Return values.Count();
+}

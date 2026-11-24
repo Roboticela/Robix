@@ -219,6 +219,20 @@ Test MovStoreRsp {
     }
 }
 
+Test MovLoadBase {
+    Case "rax from rbx" {
+        Input: dest = "rax", base = "rbx", displacement = 0;
+        Assert: Result[0] == 72 && Result[1] == 139 && Result[2] == 67 && Result[3] == 0;
+    }
+}
+
+Test MovStoreBase {
+    Case "rax into rbx plus eight" {
+        Input: base = "rbx", displacement = 8, source = "rax";
+        Assert: Result[0] == 72 && Result[1] == 137 && Result[2] == 67 && Result[3] == 8;
+    }
+}
+
 Test MovLoadRsp {
     Case "rax at zero" {
         Input: dest = "rax", displacement = 0;
@@ -228,6 +242,13 @@ Test MovLoadRsp {
 
 Test ProgramArgs {
     Case "xor rdi" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test RuntimeProgram {
+    Case "mmap syscall" {
         Input:;
         Assert: Result == 1;
     }
@@ -273,6 +294,7 @@ Test LabelAt { Output: True; }
 Test Append { Output: True; }
 Test AluImm { Output: True; }
 Test MovRsp { Output: True; }
+Test MovBase { Output: True; }
 Test EmitPrint { Output: True; }
 Test AddBody { Output: True; }
 Test FlushFunction { Output: True; }
@@ -284,3 +306,8 @@ Test IsMem { Output: True; }
 Test MemDisp { Output: True; }
 Test IsBracket { Output: True; }
 Test MemBase { Output: True; }
+Test EmitRuntime { Output: True; }
+Test IsBase { Output: True; }
+Test BaseReg { Output: True; }
+Test BaseDisp { Output: True; }
+Test BaseSize { Output: True; }

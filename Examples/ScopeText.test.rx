@@ -1,0 +1,5 @@
+// Tests for Examples/ScopeText.rx.
+
+Test Main {
+    Output: True;
+}

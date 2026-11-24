@@ -1,0 +1,28 @@
+// Tests for Runtime/Text.rx.
+
+Test From { Output: True; }
+Test Length { Output: True; }
+Test Equals { Output: True; }
+Test Concat { Output: True; }
+Test Substring { Output: True; }
+Test Character { Output: True; }
+Test StartsWith { Output: True; }
+Test EndsWith { Output: True; }
+Test Contains { Output: True; }
+Test IndexOf { Output: True; }
+Test FromInt { Output: True; }
+Test ToInt { Output: True; }
+
+Test SampleText {
+    Case "greeting and integer" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test Found { Output: True; }
+Test Reset { Output: True; }
+Test Ensure { Output: True; }
+Test Allocate { Output: True; }
+Test WriteU32 { Output: True; }
+Test ReadU32 { Output: True; }

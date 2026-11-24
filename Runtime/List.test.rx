@@ -1,0 +1,20 @@
+// Tests for Runtime/List.rx.
+
+Test Create { Output: True; }
+Test Count { Output: True; }
+Test Get { Output: True; }
+Test Add { Output: True; }
+Test Set { Output: True; }
+Test TakeBack { Output: True; }
+Test TakeFront { Output: True; }
+
+Test SampleList {
+    Case "two items" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test Reset { Output: True; }
+Test Ensure { Output: True; }
+Test Allocate { Output: True; }

@@ -1,0 +1,45 @@
+// Tests for Runtime/Ownership.rx.
+
+Test Allocate { Output: True; }
+Test AllocateAligned { Output: True; }
+Test PushScope { Output: True; }
+Test PopScope { Output: True; }
+Test Give { Output: True; }
+Test Keep { Output: True; }
+Test Copy { Output: True; }
+Test Free { Output: True; }
+Test Read { Output: True; }
+Test Write { Output: True; }
+Test Chunks { Output: True; }
+Test PageBytes { Output: True; }
+Test MmapNumber { Output: True; }
+Test MarkDepth { Output: True; }
+Test Unwind { Output: True; }
+Test Release { Output: True; }
+Test Retain { Output: True; }
+
+Test SampleReuse {
+    Case "watermark" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleKeep {
+    Case "promoted byte" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleMap {
+    Case "two chunks" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test Reset { Output: True; }
+Test Ensure { Output: True; }
+Test Grow { Output: True; }
+Test GrowTo { Output: True; }

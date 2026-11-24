@@ -1,0 +1,19 @@
+// Build a string and return its length.
+Package Robotics.ScopeText
+Explain {
+    Description: "Build one string from two pieces.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Concatenate a greeting and return how many characters it has.";
+    Input: none = "No input";
+    Processing: "Join Hello and , Robix.";
+    Output: "Twelve.";
+} {
+    String greeting = "Hello" + ", Robix";
+    Return greeting.Length();
+}

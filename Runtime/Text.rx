@@ -1,0 +1,313 @@
+// Length-prefixed text stored in a bump heap.
+Package Robix.Runtime
+Explain {
+    Description: "Text values stored in the bump heap.";
+};
+
+Import Robix.Core;
+
+
+Public Class Text {
+    Public List<Int> Heap;
+    Public Int Cursor;
+    Public Int Page;
+    Public Int Chunks;
+
+    Public Constructor() {
+        This.Ensure();
+    }
+
+    Public Function From(String text) -> Int
+    Explain {
+        Description: "Copy characters into a length-prefixed block.";
+        Input: text = "The characters";
+        Processing: "Store the length in four bytes, then the character codes.";
+        Output: "The offset of the block.";
+    } {
+        This.Ensure();
+        Int count = 0;
+        If (text != Null) { count = text.Length(); }
+        Int pointer = This.Allocate(4 + count);
+        This.WriteU32(pointer, count);
+        Int index = 0;
+        While (index < count) {
+            This.Heap[pointer + 4 + index] = text.GetChar(index).ToInt();
+            index = index + 1;
+        }
+        Return pointer;
+    }
+
+    Public Function Length(Int text) -> Int
+    Explain {
+        Description: "Read the length stored in front of the characters.";
+        Input: text = "The text offset";
+        Processing: "Decode the four-byte length.";
+        Output: "The number of characters.";
+    } {
+        This.Ensure();
+        Return This.ReadU32(text);
+    }
+
+    Public Function Equals(Int left, Int right) -> Int
+    Explain {
+        Description: "Compare two text blocks.";
+        Input: left = "The first offset", right = "The second offset";
+        Processing: "Compare the lengths and then each byte.";
+        Output: "One when the characters match.";
+    } {
+        This.Ensure();
+        Int count = This.ReadU32(left);
+        If (count != This.ReadU32(right)) { Return 0; }
+        Int index = 0;
+        While (index < count) {
+            If (This.Heap[left + 4 + index] != This.Heap[right + 4 + index]) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function Concat(Int left, Int right) -> Int
+    Explain {
+        Description: "Append two text blocks.";
+        Input: left = "The first offset", right = "The second offset";
+        Processing: "Allocate a new block and copy both character ranges.";
+        Output: "The offset of the combined text.";
+    } {
+        This.Ensure();
+        Int leftCount = This.ReadU32(left);
+        Int rightCount = This.ReadU32(right);
+        Int pointer = This.Allocate(4 + leftCount + rightCount);
+        This.WriteU32(pointer, leftCount + rightCount);
+        Int index = 0;
+        While (index < leftCount) {
+            This.Heap[pointer + 4 + index] = This.Heap[left + 4 + index];
+            index = index + 1;
+        }
+        Int cursor = 0;
+        While (cursor < rightCount) {
+            This.Heap[pointer + 4 + leftCount + cursor] = This.Heap[right + 4 + cursor];
+            cursor = cursor + 1;
+        }
+        Return pointer;
+    }
+
+    Public Function Substring(Int text, Int start, Int count) -> Int
+    Explain {
+        Description: "Copy a character range.";
+        Input: text = "The source offset", start = "The first character", count = "How many characters";
+        Processing: "Clamp the range to the stored length.";
+        Output: "The offset of the copy.";
+    } {
+        This.Ensure();
+        Int total = This.ReadU32(text);
+        Int from = start;
+        If (from < 0) { from = 0; }
+        If (from > total) { from = total; }
+        Int amount = count;
+        If (amount < 0) { amount = 0; }
+        If (from + amount > total) { amount = total - from; }
+        Int pointer = This.Allocate(4 + amount);
+        This.WriteU32(pointer, amount);
+        Int index = 0;
+        While (index < amount) {
+            This.Heap[pointer + 4 + index] = This.Heap[text + 4 + from + index];
+            index = index + 1;
+        }
+        Return pointer;
+    }
+
+    Public Function Character(Int text, Int index) -> Int
+    Explain {
+        Description: "Read one character code.";
+        Input: text = "The text offset", index = "The character index";
+        Processing: "Return zero when the index is outside the text.";
+        Output: "The character code.";
+    } {
+        This.Ensure();
+        Int total = This.ReadU32(text);
+        If (index < 0 || index >= total) { Return 0; }
+        Return This.Heap[text + 4 + index];
+    }
+
+    Public Function StartsWith(Int text, Int prefix) -> Int
+    Explain {
+        Description: "Report whether text begins with prefix.";
+        Input: text = "The text offset", prefix = "The prefix offset";
+        Processing: "Compare the leading bytes.";
+        Output: "One when the prefix matches.";
+    } {
+        This.Ensure();
+        Int count = This.ReadU32(prefix);
+        If (count > This.ReadU32(text)) { Return 0; }
+        Int index = 0;
+        While (index < count) {
+            If (This.Heap[text + 4 + index] != This.Heap[prefix + 4 + index]) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function EndsWith(Int text, Int suffix) -> Int
+    Explain {
+        Description: "Report whether text ends with suffix.";
+        Input: text = "The text offset", suffix = "The suffix offset";
+        Processing: "Compare the trailing bytes.";
+        Output: "One when the suffix matches.";
+    } {
+        This.Ensure();
+        Int total = This.ReadU32(text);
+        Int count = This.ReadU32(suffix);
+        If (count > total) { Return 0; }
+        Int index = 0;
+        While (index < count) {
+            If (This.Heap[text + 4 + total - count + index] != This.Heap[suffix + 4 + index]) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function Contains(Int text, Int needle) -> Int
+    Explain {
+        Description: "Report whether needle occurs in text.";
+        Input: text = "The text offset", needle = "The needle offset";
+        Processing: "Scan each starting offset.";
+        Output: "One when the needle occurs.";
+    } {
+        Return This.Found(text, needle, 0);
+    }
+
+    Public Function IndexOf(Int text, Int needle, Int start) -> Int
+    Explain {
+        Description: "Find the first occurrence of needle at or after start.";
+        Input: text = "The text offset", needle = "The needle offset", start = "The first index to try";
+        Processing: "Return -1 when the needle is absent.";
+        Output: "The character index.";
+    } {
+        This.Ensure();
+        Int total = This.ReadU32(text);
+        Int count = This.ReadU32(needle);
+        Int from = start;
+        If (from < 0) { from = 0; }
+        If (count == 0) { Return from; }
+        While (from + count <= total) {
+            Int index = 0;
+            Int same = 1;
+            While (index < count) {
+                If (This.Heap[text + 4 + from + index] != This.Heap[needle + 4 + index]) { same = 0; }
+                index = index + 1;
+            }
+            If (same == 1) { Return from; }
+            from = from + 1;
+        }
+        Return -1;
+    }
+
+    Public Function FromInt(Int value) -> Int
+    Explain {
+        Description: "Store the decimal spelling of an integer.";
+        Input: value = "The integer";
+        Processing: "Use the decimal digits, including a leading minus.";
+        Output: "The text offset.";
+    } {
+        Return This.From(value.ToString());
+    }
+
+    Public Function ToInt(Int text) -> Int
+    Explain {
+        Description: "Parse a decimal text block.";
+        Input: text = "The text offset";
+        Processing: "Rebuild the digits and parse them.";
+        Output: "The integer.";
+    } {
+        This.Ensure();
+        Int count = This.ReadU32(text);
+        String spelling = "";
+        Int index = 0;
+        While (index < count) {
+            spelling = spelling + String.From(Char.From(This.Heap[text + 4 + index]));
+            index = index + 1;
+        }
+        Return ParseInteger(spelling);
+    }
+
+    Public Function SampleText() -> Int
+    Explain {
+        Description: "Build a greeting in the bump heap and read it back.";
+        Input: none = "No input";
+        Processing: "Concatenate Hello and , Robix, then check the length, a slice, and the integer 15.";
+        Output: "One when the text and the integer round-trip.";
+    } {
+        This.Reset();
+        Int left = This.From("Hello");
+        Int right = This.From(", Robix");
+        Int both = This.Concat(left, right);
+        If (This.Length(both) != 12) { Return 0; }
+        If (This.Equals(both, This.From("Hello, Robix")) != 1) { Return 0; }
+        Int slice = This.Substring(both, 7, 5);
+        If (This.Equals(slice, This.From("Robix")) != 1) { Return 0; }
+        If (This.StartsWith(both, This.From("Hello")) != 1) { Return 0; }
+        If (This.EndsWith(both, This.From("Robix")) != 1) { Return 0; }
+        If (This.ToInt(This.FromInt(15)) != 15) { Return 0; }
+        If (This.ToInt(This.FromInt(-3)) != -3) { Return 0; }
+        If (This.Chunks < 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Found(Int text, Int needle, Int start) -> Int {
+        If (This.IndexOf(text, needle, start) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Reset() -> Void {
+        This.Heap = List<Int>();
+        This.Cursor = 0;
+        This.Page = 4096;
+        This.Chunks = 0;
+    }
+
+    Private Function Ensure() -> Void {
+        If (This.Heap == Null) { This.Heap = List<Int>(); }
+        If (This.Page == 0) { This.Reset(); }
+    }
+
+    Private Function Allocate(Int bytes) -> Int {
+        Int count = bytes;
+        If (count < 1) { count = 1; }
+        Int need = This.Cursor + count;
+        While (This.Heap.Count() < need) {
+            Int missing = need - This.Heap.Count();
+            If (missing < 1) { missing = 1; }
+            Int pages = (missing + This.Page - 1) / This.Page;
+            Int extra = pages * This.Page;
+            Int index = 0;
+            While (index < extra) {
+                This.Heap.Add(0);
+                index = index + 1;
+            }
+            This.Chunks = This.Chunks + 1;
+        }
+        Int pointer = This.Cursor;
+        This.Cursor = This.Cursor + count;
+        Return pointer;
+    }
+
+    Private Function WriteU32(Int pointer, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = 0; }
+        Int index = 0;
+        While (index < 4) {
+            This.Heap[pointer + index] = rest % 256;
+            rest = rest / 256;
+            index = index + 1;
+        }
+    }
+
+    Private Function ReadU32(Int pointer) -> Int {
+        If (pointer < 0 || pointer + 3 >= This.Heap.Count()) { Return 0; }
+        Int value = This.Heap[pointer];
+        value = value + This.Heap[pointer + 1] * 256;
+        value = value + This.Heap[pointer + 2] * 65536;
+        value = value + This.Heap[pointer + 3] * 16777216;
+        Return value;
+    }
+}

@@ -9,6 +9,7 @@ Project "Robix"
         Include: "*.rx";
         Include: "Compiler/**/*.rx";
         Include: "Interpreter/**/*.rx";
+        Include: "Runtime/**/*.rx";
         Exclude: "Examples/**";
         Exclude: "**/*.test.rx";
     }

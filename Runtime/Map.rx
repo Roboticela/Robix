@@ -1,0 +1,188 @@
+// Integer maps and sets stored in the bump heap.
+Package Robix.Runtime
+Explain {
+    Description: "Maps and sets stored in the bump heap.";
+};
+
+Import Robix.Core;
+
+
+Public Class MapHeap {
+    Public List<Int> Words;
+    Public Int Cursor;
+    Public Int Page;
+    Public Int Chunks;
+
+    Public Constructor() {
+        This.Ensure();
+    }
+
+    Public Function Create(Int kind) -> Int
+    Explain {
+        Description: "Create an empty map.";
+        Input: kind = "Zero for integer keys";
+        Processing: "Store the kind and empty key and value ranges.";
+        Output: "The header offset.";
+    } {
+        This.Ensure();
+        Int header = This.Allocate(5);
+        Int keys = This.Allocate(4);
+        Int values = This.Allocate(4);
+        This.Words[header] = 0;
+        This.Words[header + 1] = 4;
+        This.Words[header + 2] = keys;
+        This.Words[header + 3] = values;
+        This.Words[header + 4] = kind;
+        Return header;
+    }
+
+    Public Function Put(Int map, Int key, Int item) -> Int
+    Explain {
+        Description: "Store an item under a key.";
+        Input: map = "The header offset", key = "The key", item = "The item";
+        Processing: "Replace an equal key, or append and grow the ranges.";
+        Output: "The stored item.";
+    } {
+        This.Ensure();
+        Int found = This.Find(map, key);
+        Int keys = This.Words[map + 2];
+        Int values = This.Words[map + 3];
+        If (found >= 0) {
+            This.Words[values + found] = item;
+            Return item;
+        }
+        Int count = This.Words[map];
+        Int capacity = This.Words[map + 1];
+        If (count == capacity) {
+            Int biggerKeys = This.Allocate(capacity * 2);
+            Int biggerValues = This.Allocate(capacity * 2);
+            Int index = 0;
+            While (index < count) {
+                This.Words[biggerKeys + index] = This.Words[keys + index];
+                This.Words[biggerValues + index] = This.Words[values + index];
+                index = index + 1;
+            }
+            This.Words[map + 1] = capacity * 2;
+            This.Words[map + 2] = biggerKeys;
+            This.Words[map + 3] = biggerValues;
+            keys = biggerKeys;
+            values = biggerValues;
+        }
+        This.Words[keys + count] = key;
+        This.Words[values + count] = item;
+        This.Words[map] = count + 1;
+        Return item;
+    }
+
+    Public Function Get(Int map, Int key) -> Int
+    Explain {
+        Description: "Read the item stored under a key.";
+        Input: map = "The header offset", key = "The key";
+        Processing: "Return zero when the key is absent.";
+        Output: "The item.";
+    } {
+        This.Ensure();
+        Int found = This.Find(map, key);
+        If (found < 0) { Return 0; }
+        Int values = This.Words[map + 3];
+        Return This.Words[values + found];
+    }
+
+    Public Function AddToSet(Int list, Int item, Int kind) -> Int
+    Explain {
+        Description: "Add an item to a set when it is absent.";
+        Input: list = "The set header", item = "The item", kind = "Zero for integer items";
+        Processing: "Integer sets ignore a duplicate item.";
+        Output: "One when the item is present afterward.";
+    } {
+        This.Ensure();
+        If (kind != 0) { Return 0; }
+        If (This.SetHas(list, item, kind) == 1) { Return 1; }
+        This.Put(list, item, 1);
+        Return 1;
+    }
+
+    Public Function SetHas(Int list, Int item, Int kind) -> Int
+    Explain {
+        Description: "Report whether a set contains an item.";
+        Input: list = "The set header", item = "The item", kind = "Zero for integer items";
+        Processing: "Look for the item among the keys.";
+        Output: "One when the item is present.";
+    } {
+        This.Ensure();
+        If (kind != 0) { Return 0; }
+        If (This.Find(list, item) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SampleMap() -> Int
+    Explain {
+        Description: "Store 15 under the key 1 and build a two-item set.";
+        Input: none = "No input";
+        Processing: "Put, replace, and test set membership.";
+        Output: "One when the map and the set match.";
+    } {
+        This.Reset();
+        Int map = This.Create(0);
+        This.Put(map, 1, 15);
+        If (This.Get(map, 1) != 15) { Return 0; }
+        If (This.Get(map, 2) != 0) { Return 0; }
+        This.Put(map, 1, 16);
+        If (This.Get(map, 1) != 16) { Return 0; }
+        Int group = This.Create(0);
+        This.AddToSet(group, 3, 0);
+        This.AddToSet(group, 3, 0);
+        This.AddToSet(group, 4, 0);
+        If (This.SetHas(group, 3, 0) != 1) { Return 0; }
+        If (This.SetHas(group, 9, 0) != 0) { Return 0; }
+        If (This.Words[group] != 2) { Return 0; }
+        If (This.Chunks < 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Find(Int map, Int key) -> Int {
+        Int count = 0;
+        If (map >= 0 && map < This.Words.Count()) { count = This.Words[map]; }
+        Int keys = 0;
+        If (map + 2 < This.Words.Count()) { keys = This.Words[map + 2]; }
+        Int index = 0;
+        While (index < count) {
+            If (This.Words[keys + index] == key) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Reset() -> Void {
+        This.Words = List<Int>();
+        This.Cursor = 0;
+        This.Page = 64;
+        This.Chunks = 0;
+    }
+
+    Private Function Ensure() -> Void {
+        If (This.Words == Null) { This.Words = List<Int>(); }
+        If (This.Page == 0) { This.Reset(); }
+    }
+
+    Private Function Allocate(Int words) -> Int {
+        Int count = words;
+        If (count < 1) { count = 1; }
+        Int need = This.Cursor + count;
+        While (This.Words.Count() < need) {
+            Int missing = need - This.Words.Count();
+            If (missing < 1) { missing = 1; }
+            Int pages = (missing + This.Page - 1) / This.Page;
+            Int extra = pages * This.Page;
+            Int index = 0;
+            While (index < extra) {
+                This.Words.Add(0);
+                index = index + 1;
+            }
+            This.Chunks = This.Chunks + 1;
+        }
+        Int pointer = This.Cursor;
+        This.Cursor = This.Cursor + count;
+        Return pointer;
+    }
+}

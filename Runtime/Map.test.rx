@@ -1,0 +1,19 @@
+// Tests for Runtime/Map.rx.
+
+Test Create { Output: True; }
+Test Put { Output: True; }
+Test Get { Output: True; }
+Test AddToSet { Output: True; }
+Test SetHas { Output: True; }
+
+Test SampleMap {
+    Case "key and set" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test Find { Output: True; }
+Test Reset { Output: True; }
+Test Ensure { Output: True; }
+Test Allocate { Output: True; }

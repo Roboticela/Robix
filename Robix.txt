@@ -198,7 +198,7 @@ The tree walk and the bytecode machine are compared on `Examples` and on `Packag
 
 ## 8. Runtime written in Robix
 
-`Runtime/Runtime.cpp` is replaced function by function. The names `NativeEmit.rx` already calls are the ABI of the runtime (`Ownership_Allocate`, `Text_Length`, `List_Create`, `Process_Arguments`, and the rest of `RuntimeDeclarations`). Each name is reimplemented in Robix and assembled with the program. When a name is implemented, the compiler stops emitting a dependency on the C++ definition.
+`Runtime/Ownership.rx`, `Runtime/Text.rx`, `Runtime/List.rx`, and `Runtime/Map.rx` are the bump runtime. Chunks come from `mmap` (`Runtime/System/Linux.rx`, syscall 9, 4096-byte pages). A `linux-x64` program does not link `Runtime.cpp`; its `Ownership_Allocate` asks `mmap` for the next page. The names `NativeEmit.rx` already calls remain the ABI (`Ownership_Allocate`, `Text_Length`, `List_Create`, and the rest). `Files`, `Process`, `Object`, and the float helpers still come from `Runtime/Runtime.cpp` on the clang++ fallback, until those groups move.
 
 Memory:
 
@@ -227,7 +227,7 @@ Linux issues the `syscall` instruction. Windows calls `kernel32` through the imp
 
 `Platform/Linux/surface.c` and `Platform/Windows/surface.c` stay out of this pipeline. The window path is the raster buffer already in `Runtime/Raster`, blitted by one small host per system after the compiler emits native code. GTK and Win32 controls are not part of the language runtime.
 
-Strings, lists, and maps move to Robix in that order: `Text_*`, then `List_*`, then `Map_*`, then `Object_*`, then `Files` and `Process`. Float helpers (`rx_F64Parse` and the rest) move with `Float`. Until a group moves, the old object file may still supply it, and the link line contains only that group. The end state of phase 9 has no C++ file on the link line.
+`Text_*`, `List_*`, and `Map_*` are Robix. `Object_*`, then `Files` and `Process`, are still C++. Float helpers (`rx_F64Parse` and the rest) move with `Float`. Until a group moves, the old object file may still supply it. The end state of phase 9 has no C++ file on the link line.
 
 ## 9. Phases
 
@@ -235,9 +235,7 @@ Each phase ends when its exit test passes on Linux x86-64. Windows is phase 7 an
 
 **Phase 0. This plan is the specification.** New backend work follows it. No new LLVM intrinsics, no new `clang++` flags, no new code in `.github/packaging/Robixc.cpp`.
 
-**Phase 6. Runtime in Robix.** Ownership scopes, bump allocation, `Text`, `List`, and `Map` are Robix. `mmap` supplies chunks. Programs that build a list or a string no longer link those parts of `Runtime.cpp`.
-
-**Phase 7. Windows, same compiler.** `.target windows-x64` writes a PE. `_start` is replaced by the PE entry and `kernel32` imports. `Examples/ReturnZero.rx`, `Examples/HelloRobot.rx`, and the phase 6 programs print the same text and return the same codes on Windows. `Robixc.cpp` is no longer the driver users run. `Robixc.rx` is the driver on both systems.
+**Phase 7. Windows, same compiler.** `.target windows-x64` writes a PE. `_start` is replaced by the PE entry and `kernel32` imports. `Examples/ReturnZero.rx`, `Examples/HelloRobot.rx`, `Examples/ScopeText.rx`, and `Examples/ScopeList.rx` print the same text and return the same codes on Windows. `Robixc.cpp` is no longer the driver users run. `Robixc.rx` is the driver on both systems.
 
 **Phase 8. The performance passes.** Implement section 2 in this order: inlining, escape analysis to registers and stack, interprocedural clobbers, devirtualization, bounds elimination, then vectorization of arithmetic loops whose aliases and bounds are proven. After each pass, rerun the suite in section 10.
 
@@ -272,11 +270,6 @@ New Robix sources, compiled as part of the compiler once phase 9 allows it, inte
 | --- | --- |
 | `Compiler/Pe.rx` | PE32+ writer, import table, entry stub |
 | `Compiler/Target.rx` | `linux-x64`, `windows-x64`, later `macos-x64` and `linux-arm64` |
-| `Runtime/Ownership.rx` | Scopes and bump allocation |
-| `Runtime/Text.rx` | `Text_*` |
-| `Runtime/List.rx` | `List_*` |
-| `Runtime/Map.rx` | `Map_*` |
-| `Runtime/System/Linux.rx` | Syscalls |
 | `Runtime/System/Windows.rx` | `kernel32` imports |
 
 These stay and become the front end of both tools: `Parser.rx`, `ParserExpressions.rx`, `NameChecker.rx`, `TypeChecker.rx`, `SyntaxCompiler.rx`, `Robix.rx`, `Robixc.rx`.

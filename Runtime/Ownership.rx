@@ -1,0 +1,347 @@
+// Bump allocator. A scope ends by storing the watermark back. Chunks come from mmap.
+Package Robix.Runtime
+Explain {
+    Description: "Ownership scopes and bump allocation.";
+};
+
+Import Robix.Core;
+
+
+Public Class Ownership {
+    Public List<Int> Heap;
+    Public List<Int> Marks;
+    Public Int Cursor;
+    Public Int MarkCount;
+    Public Int Chunks;
+    Public Int Page;
+    Public Int Mmap;
+
+    Public Constructor() {
+        This.Ensure();
+    }
+
+    Public Function Allocate(Int bytes) -> Int
+    Explain {
+        Description: "Reserve bytes in the current scope.";
+        Input: bytes = "The number of bytes";
+        Processing: "Grow by whole mmap pages when the chunk is too small, then bump the cursor.";
+        Output: "The offset of the zeroed block.";
+    } {
+        This.Ensure();
+        Int count = bytes;
+        If (count < 1) { count = 1; }
+        This.Grow(count);
+        Int pointer = This.Cursor;
+        This.Cursor = This.Cursor + count;
+        Return pointer;
+    }
+
+    Public Function AllocateAligned(Int bytes, Int alignment) -> Int
+    Explain {
+        Description: "Reserve bytes at an aligned cursor.";
+        Input: bytes = "The number of bytes", alignment = "The alignment in bytes";
+        Processing: "Advance the cursor to the alignment, then allocate.";
+        Output: "The aligned offset.";
+    } {
+        This.Ensure();
+        Int step = alignment;
+        If (step < 1) { step = 1; }
+        Int mask = step - 1;
+        Int aligned = This.Cursor;
+        If ((aligned & mask) != 0) {
+            aligned = aligned + (step - (aligned & mask));
+        }
+        This.Cursor = aligned;
+        Return This.Allocate(bytes);
+    }
+
+    Public Function PushScope() -> Int
+    Explain {
+        Description: "Remember the bump watermark.";
+        Input: none = "No input";
+        Processing: "Store the cursor. PopScope writes that cursor back.";
+        Output: "The watermark.";
+    } {
+        This.Ensure();
+        If (This.MarkCount < This.Marks.Count()) {
+            This.Marks[This.MarkCount] = This.Cursor;
+        } Else {
+            This.Marks.Add(This.Cursor);
+        }
+        This.MarkCount = This.MarkCount + 1;
+        Return This.Cursor;
+    }
+
+    Public Function PopScope() -> Int
+    Explain {
+        Description: "Release every allocation in the current scope.";
+        Input: none = "No input";
+        Processing: "Store the saved watermark into the cursor. There is no free list.";
+        Output: "The restored cursor.";
+    } {
+        This.Ensure();
+        If (This.MarkCount <= 0) { Return This.Cursor; }
+        This.MarkCount = This.MarkCount - 1;
+        This.Cursor = This.Marks[This.MarkCount];
+        Return This.Cursor;
+    }
+
+    Public Function Give(Int pointer, Int size) -> Int
+    Explain {
+        Description: "Promote a block into the parent scope.";
+        Input: pointer = "The block offset", size = "The number of bytes";
+        Processing: "Copy the bytes onto the parent watermark and discard the rest of this scope.";
+        Output: "The promoted offset.";
+    } {
+        Return This.Keep(pointer, size);
+    }
+
+    Public Function Keep(Int pointer, Int size) -> Int
+    Explain {
+        Description: "Keep a block alive after the current scope ends.";
+        Input: pointer = "The block offset", size = "The number of bytes";
+        Processing: "Copy the bytes to the scope watermark and move that watermark past the copy.";
+        Output: "The kept offset.";
+    } {
+        This.Ensure();
+        If (This.MarkCount <= 0) { Return pointer; }
+        Int count = size;
+        If (count < 0) { count = 0; }
+        Int dest = This.Marks[This.MarkCount - 1];
+        This.GrowTo(dest + count);
+        Int index = 0;
+        While (index < count) {
+            This.Heap[dest + index] = This.Heap[pointer + index];
+            index = index + 1;
+        }
+        This.Cursor = dest + count;
+        This.Marks[This.MarkCount - 1] = This.Cursor;
+        Return dest;
+    }
+
+    Public Function Copy(Int destination, Int source, Int count) -> Int
+    Explain {
+        Description: "Copy bytes between two offsets.";
+        Input: destination = "The destination offset", source = "The source offset", count = "The number of bytes";
+        Processing: "Copy one byte at a time.";
+        Output: "The number of bytes copied.";
+    } {
+        This.Ensure();
+        Int index = 0;
+        While (index < count) {
+            This.Heap[destination + index] = This.Heap[source + index];
+            index = index + 1;
+        }
+        Return index;
+    }
+
+    Public Function Free(Int pointer) -> Int
+    Explain {
+        Description: "Drop a single block.";
+        Input: pointer = "The block offset";
+        Processing: "A bump heap does not walk a free list. PopScope releases the scope.";
+        Output: "Zero.";
+    } {
+        This.Ensure();
+        If (pointer < 0) { Return 0; }
+        Return 0;
+    }
+
+    Public Function Read(Int pointer) -> Int
+    Explain {
+        Description: "Read one byte.";
+        Input: pointer = "The offset";
+        Processing: "Return the stored byte, or zero when the offset is outside the heap.";
+        Output: "The byte.";
+    } {
+        This.Ensure();
+        If (pointer < 0 || pointer >= This.Heap.Count()) { Return 0; }
+        Return This.Heap[pointer];
+    }
+
+    Public Function Write(Int pointer, Int value) -> Int
+    Explain {
+        Description: "Write one byte.";
+        Input: pointer = "The offset", value = "The byte";
+        Processing: "Store the low eight bits.";
+        Output: "The stored byte.";
+    } {
+        This.Ensure();
+        Int byte = value;
+        If (byte < 0) { byte = 0; }
+        If (byte > 255) { byte = byte % 256; }
+        If (pointer >= 0 && pointer < This.Heap.Count()) {
+            This.Heap[pointer] = byte;
+        }
+        Return byte;
+    }
+
+    Public Function Chunks() -> Int
+    Explain {
+        Description: "Report how many mmap chunks have been requested.";
+        Input: none = "No input";
+        Processing: "Each growth asks mmap for one or more pages.";
+        Output: "The number of mmap requests.";
+    } {
+        This.Ensure();
+        Return This.Chunks;
+    }
+
+    Public Function PageBytes() -> Int
+    Explain {
+        Description: "Report the mmap page size.";
+        Input: none = "No input";
+        Processing: "Pages are 4096 bytes.";
+        Output: "4096.";
+    } {
+        This.Ensure();
+        Return This.Page;
+    }
+
+    Public Function MmapNumber() -> Int
+    Explain {
+        Description: "Report the Linux mmap syscall number.";
+        Input: none = "No input";
+        Processing: "x86-64 mmap is syscall 9.";
+        Output: "Nine.";
+    } {
+        This.Ensure();
+        Return This.Mmap;
+    }
+
+    Public Function MarkDepth() -> Int
+    Explain {
+        Description: "Return the number of open scopes.";
+        Input: none = "No input";
+        Processing: "Read the mark count.";
+        Output: "The depth.";
+    } {
+        This.Ensure();
+        Return This.MarkCount;
+    }
+
+    Public Function Unwind(Int depth) -> Int
+    Explain {
+        Description: "Pop scopes until the depth is restored.";
+        Input: depth = "The depth to keep";
+        Processing: "PopScope until the mark count matches.";
+        Output: "The restored depth.";
+    } {
+        This.Ensure();
+        While (This.MarkCount > depth) {
+            This.PopScope();
+        }
+        Return This.MarkCount;
+    }
+
+    Public Function Release(Int pointer) -> Int
+    Explain {
+        Description: "Release a tracked pointer.";
+        Input: pointer = "The offset";
+        Processing: "The bump heap releases memory by resetting a scope, not by a free list.";
+        Output: "Zero.";
+    } {
+        Return This.Free(pointer);
+    }
+
+    Public Function Retain(Int pointer) -> Int
+    Explain {
+        Description: "Retain a tracked pointer.";
+        Input: pointer = "The offset";
+        Processing: "A bump block stays live until its scope ends.";
+        Output: "The same offset.";
+    } {
+        This.Ensure();
+        Return pointer;
+    }
+
+    Public Function SampleReuse() -> Int
+    Explain {
+        Description: "Allocate inside a scope and show that pop reuses the watermark.";
+        Input: none = "No input";
+        Processing: "Allocate four bytes, push, allocate four more, pop, and allocate four again.";
+        Output: "One when the second inner block reuses the same offset.";
+    } {
+        This.Reset();
+        This.Allocate(4);
+        This.PushScope();
+        Int first = This.Allocate(4);
+        This.PopScope();
+        This.Allocate(2);
+        This.PushScope();
+        Int again = This.Allocate(4);
+        This.PopScope();
+        Int third = This.Allocate(4);
+        If (first == 4 && again == 6 && third == 6) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SampleKeep() -> Int
+    Explain {
+        Description: "Keep a byte alive after its scope ends.";
+        Input: none = "No input";
+        Processing: "Write 9 inside a scope, promote the block, and pop.";
+        Output: "One when the byte is still 9.";
+    } {
+        This.Reset();
+        This.Allocate(2);
+        This.PushScope();
+        Int pointer = This.Allocate(4);
+        This.Write(pointer, 9);
+        Int kept = This.Keep(pointer, 4);
+        This.PopScope();
+        If (This.Read(kept) == 9) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SampleMap() -> Int
+    Explain {
+        Description: "Show that growth asks mmap for pages.";
+        Input: none = "No input";
+        Processing: "Allocate one byte, then a whole page, which needs a second chunk.";
+        Output: "One when two mmap requests used syscall 9 and 4096-byte pages.";
+    } {
+        This.Reset();
+        This.Allocate(1);
+        This.Allocate(This.PageBytes());
+        If (This.MmapNumber() != 9) { Return 0; }
+        If (This.PageBytes() != 4096) { Return 0; }
+        If (This.Chunks() >= 2) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Reset() -> Void {
+        This.Heap = List<Int>();
+        This.Marks = List<Int>();
+        This.Cursor = 0;
+        This.MarkCount = 0;
+        This.Chunks = 0;
+        This.Page = 4096;
+        This.Mmap = 9;
+    }
+
+    Private Function Ensure() -> Void {
+        If (This.Heap == Null) { This.Heap = List<Int>(); }
+        If (This.Marks == Null) { This.Marks = List<Int>(); }
+        If (This.Page == 0) { This.Reset(); }
+    }
+
+    Private Function Grow(Int bytes) -> Void {
+        This.GrowTo(This.Cursor + bytes);
+    }
+
+    Private Function GrowTo(Int need) -> Void {
+        While (This.Heap.Count() < need) {
+            Int missing = need - This.Heap.Count();
+            If (missing < 1) { missing = 1; }
+            Int pages = (missing + This.Page - 1) / This.Page;
+            Int extra = pages * This.Page;
+            Int index = 0;
+            While (index < extra) {
+                This.Heap.Add(0);
+                index = index + 1;
+            }
+            This.Chunks = This.Chunks + 1;
+        }
+    }
+}

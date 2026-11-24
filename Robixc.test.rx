@@ -8,6 +8,18 @@ Test Main {
     }
 }
 
+Test RuntimeObject {
+    Case "linux carries the Robix runtime" {
+        Input: target = "linux-x64";
+        Assert: Result == "";
+    }
+    Case "host fallback" {
+        Input: target = "host";
+        Assert: Result == "Runtime/Runtime.cpp";
+    }
+}
+
+Test FinishRun { Output: True; }
 Test RunProcess {
     Constraint: True;
     Processing: True;

@@ -1,0 +1,14 @@
+// Tests for Runtime/System/Linux.rx.
+
+Test Mmap { Output: True; }
+Test Page { Output: True; }
+Test Prot { Output: True; }
+Test Flags { Output: True; }
+Test Round { Output: True; }
+
+Test Sample {
+    Case "mmap page" {
+        Input:;
+        Assert: Result == 1;
+    }
+}

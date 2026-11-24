@@ -12,7 +12,7 @@ Public Function Main(Args<String> args) -> ExecutionResult
 Explain {
     Description: "Compile one Robix source file into a Linux executable.";
     Input: args = "The source path and an optional output path";
-    Processing: "Parse the syntax, apply the always-strict type rules, and emit RXIR. --ir stops there. --asm writes RXASM. --target linux-x64 assembles an ELF. Otherwise clang++ still links the LLVM IR.";
+    Processing: "Parse the syntax, apply the always-strict type rules, and emit RXIR. --ir stops there. --asm writes RXASM. --target linux-x64 assembles an ELF and does not link Runtime.cpp. Otherwise clang++ still links the LLVM IR with the C++ runtime.";
     Output: "Success when the module is strict and type-safe.";
 } {
     Var positionals = List<String>();
@@ -98,7 +98,7 @@ Explain {
     }
     String llPath = outputPath + ".ll";
     Files.WriteText(llPath, result.NativeIr);
-    String runtime = "Runtime/Runtime.cpp";
+    String runtime = RuntimeObject("host");
     String command = "clang++ -std=c++17 -O3 -flto -fPIE -o \"" + outputPath + "\" \"" + llPath + "\" \"" + runtime + "\"";
     Int linkStart = ClockMillis();
     Int code = RunProcess(command);
@@ -109,6 +109,17 @@ Explain {
     }
     Print("{success}wrote{/}  {bold}" + outputPath + "{/}");
     Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
+}
+
+Public Function RuntimeObject(String target) -> String
+Explain {
+    Description: "Choose the C++ runtime file linked into a program.";
+    Input: target = "linux-x64 or host";
+    Processing: "A linux-x64 program carries the Robix bump runtime and does not link Runtime.cpp. The host fallback still links that file because Files and Process have not moved.";
+    Output: "The runtime path, or an empty string when no C++ runtime is linked.";
+} {
+    If (target == "linux-x64") { Return ""; }
+    Return "Runtime/Runtime.cpp";
 }
 
 Private Function FinishRun(Int code, String reason) -> ExecutionResult {

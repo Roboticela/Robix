@@ -1,0 +1,193 @@
+// A list header stays put. Growing the items allocates a new bump range and updates the header.
+Package Robix.Runtime
+Explain {
+    Description: "Lists stored in the bump heap.";
+};
+
+Import Robix.Core;
+
+
+Public Class ListHeap {
+    Public List<Int> Words;
+    Public Int Cursor;
+    Public Int Page;
+    Public Int Chunks;
+
+    Public Constructor() {
+        This.Ensure();
+    }
+
+    Public Function Create() -> Int
+    Explain {
+        Description: "Create an empty list.";
+        Input: none = "No input";
+        Processing: "Store the count, the capacity, and the offset of four item slots.";
+        Output: "The header offset.";
+    } {
+        This.Ensure();
+        Int header = This.Allocate(3);
+        Int items = This.Allocate(4);
+        This.Words[header] = 0;
+        This.Words[header + 1] = 4;
+        This.Words[header + 2] = items;
+        Return header;
+    }
+
+    Public Function Count(Int list) -> Int
+    Explain {
+        Description: "Read the number of items.";
+        Input: list = "The header offset";
+        Processing: "Read the first header word.";
+        Output: "The count.";
+    } {
+        This.Ensure();
+        If (list < 0 || list >= This.Words.Count()) { Return 0; }
+        Return This.Words[list];
+    }
+
+    Public Function Get(Int list, Int index) -> Int
+    Explain {
+        Description: "Read one item.";
+        Input: list = "The header offset", index = "The item index";
+        Processing: "Return zero when the index is outside the list.";
+        Output: "The item.";
+    } {
+        This.Ensure();
+        If (index < 0 || index >= This.Count(list)) { Return 0; }
+        Int items = This.Words[list + 2];
+        Return This.Words[items + index];
+    }
+
+    Public Function Add(Int list, Int item) -> Int
+    Explain {
+        Description: "Append an item.";
+        Input: list = "The header offset", item = "The item";
+        Processing: "When the item range is full, allocate a larger range and copy.";
+        Output: "The new count.";
+    } {
+        This.Ensure();
+        Int count = This.Words[list];
+        Int capacity = This.Words[list + 1];
+        Int items = This.Words[list + 2];
+        If (count == capacity) {
+            Int bigger = This.Allocate(capacity * 2);
+            Int index = 0;
+            While (index < count) {
+                This.Words[bigger + index] = This.Words[items + index];
+                index = index + 1;
+            }
+            This.Words[list + 1] = capacity * 2;
+            This.Words[list + 2] = bigger;
+            items = bigger;
+        }
+        This.Words[items + count] = item;
+        This.Words[list] = count + 1;
+        Return count + 1;
+    }
+
+    Public Function Set(Int list, Int index, Int item) -> Int
+    Explain {
+        Description: "Replace an item.";
+        Input: list = "The header offset", index = "The item index", item = "The new item";
+        Processing: "Write the item when the index is inside the list.";
+        Output: "The stored item.";
+    } {
+        This.Ensure();
+        If (index < 0 || index >= This.Count(list)) { Return 0; }
+        Int items = This.Words[list + 2];
+        This.Words[items + index] = item;
+        Return item;
+    }
+
+    Public Function TakeBack(Int list) -> Int
+    Explain {
+        Description: "Remove the last item.";
+        Input: list = "The header offset";
+        Processing: "Decrease the count and return the last item.";
+        Output: "The removed item, or zero when the list is empty.";
+    } {
+        This.Ensure();
+        Int count = This.Count(list);
+        If (count <= 0) { Return 0; }
+        Int items = This.Words[list + 2];
+        Int item = This.Words[items + count - 1];
+        This.Words[list] = count - 1;
+        Return item;
+    }
+
+    Public Function TakeFront(Int list) -> Int
+    Explain {
+        Description: "Remove the first item.";
+        Input: list = "The header offset";
+        Processing: "Shift the remaining items down one slot.";
+        Output: "The removed item, or zero when the list is empty.";
+    } {
+        This.Ensure();
+        Int count = This.Count(list);
+        If (count <= 0) { Return 0; }
+        Int items = This.Words[list + 2];
+        Int item = This.Words[items];
+        Int index = 0;
+        While (index + 1 < count) {
+            This.Words[items + index] = This.Words[items + index + 1];
+            index = index + 1;
+        }
+        This.Words[list] = count - 1;
+        Return item;
+    }
+
+    Public Function SampleList() -> Int
+    Explain {
+        Description: "Build a two-item list and read it back.";
+        Input: none = "No input";
+        Processing: "Add 10 and 20, replace the first item, and take the ends.";
+        Output: "One when the list holds 15 and 20 and then gives them back.";
+    } {
+        This.Reset();
+        Int list = This.Create();
+        This.Add(list, 10);
+        This.Add(list, 20);
+        If (This.Count(list) != 2) { Return 0; }
+        If (This.Get(list, 0) != 10 || This.Get(list, 1) != 20) { Return 0; }
+        This.Set(list, 0, 15);
+        If (This.Get(list, 0) != 15) { Return 0; }
+        If (This.TakeFront(list) != 15) { Return 0; }
+        If (This.TakeBack(list) != 20) { Return 0; }
+        If (This.Count(list) != 0) { Return 0; }
+        If (This.Chunks < 1) { Return 0; }
+        Return 1;
+    }
+
+    Private Function Reset() -> Void {
+        This.Words = List<Int>();
+        This.Cursor = 0;
+        This.Page = 64;
+        This.Chunks = 0;
+    }
+
+    Private Function Ensure() -> Void {
+        If (This.Words == Null) { This.Words = List<Int>(); }
+        If (This.Page == 0) { This.Reset(); }
+    }
+
+    Private Function Allocate(Int words) -> Int {
+        Int count = words;
+        If (count < 1) { count = 1; }
+        Int need = This.Cursor + count;
+        While (This.Words.Count() < need) {
+            Int missing = need - This.Words.Count();
+            If (missing < 1) { missing = 1; }
+            Int pages = (missing + This.Page - 1) / This.Page;
+            Int extra = pages * This.Page;
+            Int index = 0;
+            While (index < extra) {
+                This.Words.Add(0);
+                index = index + 1;
+            }
+            This.Chunks = This.Chunks + 1;
+        }
+        Int pointer = This.Cursor;
+        This.Cursor = This.Cursor + count;
+        Return pointer;
+    }
+}

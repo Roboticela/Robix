@@ -1,0 +1,5 @@
+// Tests for Examples/ScopeList.rx.
+
+Test Main {
+    Output: True;
+}

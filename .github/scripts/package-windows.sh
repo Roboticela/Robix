@@ -142,6 +142,11 @@ done
 place_bin "$root/Build/Compiler/Interpreter.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/Bytecode.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/Machine.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Ownership.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Text.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/List.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Map.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Linux.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
 place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
 

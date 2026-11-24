@@ -344,6 +344,26 @@ Public Class X64 {
         Return This.MovRsp(139, dest, displacement);
     }
 
+    Public Function MovLoadBase(String dest, String base, Int displacement) -> List<Int>
+    Explain {
+        Description: "Encode mov r64, [base+disp].";
+        Input: dest = "Destination register", base = "Address register", displacement = "Signed byte or 32-bit displacement";
+        Processing: "Write REX, opcode 8B, and a ModR/M displacement.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.MovBase(139, dest, base, displacement);
+    }
+
+    Public Function MovStoreBase(String base, Int displacement, String source) -> List<Int>
+    Explain {
+        Description: "Encode mov [base+disp], r64.";
+        Input: base = "Address register", displacement = "Signed byte or 32-bit displacement", source = "Source register";
+        Processing: "Write REX, opcode 89, and a ModR/M displacement.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.MovBase(137, source, base, displacement);
+    }
+
     Private Function Alu(Int opcode, String dest, String source) -> List<Int> {
         List<Int> bytes = List<Int>();
         bytes.Add(This.RexPair(dest, source));
@@ -448,6 +468,25 @@ Public Class X64 {
         This.AppendI32(bytes, displacement);
         Return bytes;
     }
+
+    Private Function MovBase(Int opcode, String reg, String base, Int displacement) -> List<Int> {
+        List<Int> bytes = List<Int>();
+        Int rex = 72;
+        If (This.RegHigh(reg) == 1) { rex = rex + 4; }
+        If (This.RegHigh(base) == 1) { rex = rex + 1; }
+        bytes.Add(rex);
+        bytes.Add(opcode);
+        Int fits = 0;
+        If (displacement >= -128 && displacement <= 127) { fits = 1; }
+        If (fits == 1) {
+            bytes.Add(64 + This.RegLow(reg) * 8 + This.RegLow(base));
+            bytes.Add(This.Low8(displacement));
+        } Else {
+            bytes.Add(128 + This.RegLow(reg) * 8 + This.RegLow(base));
+            This.AppendI32(bytes, displacement);
+        }
+        Return bytes;
+    }
 }
 
 Public Class RxAssembler {
@@ -469,6 +508,7 @@ Public Class RxAssembler {
     Public List<Int> Code;
     Public Bool InFunction;
     Public Bool NeedPrint;
+    Public Bool NeedRuntime;
     Public String FnSymbol;
     Public List<String> BodyLines;
     Public List<String> DataNames;
@@ -504,7 +544,7 @@ Public Class RxAssembler {
         Output: "RXASM text including _start.";
     } {
         If (rxasm.IndexOf("_start:") >= 0) { Return rxasm; }
-        String head = ".arch x86_64\n.target linux\n.section text\n.global _start\n_start:\n    xor rdi, rdi\n    call Main\n    mov rdi, rax\n    mov rax, 231\n    syscall\n";
+        String head = ".arch x86_64\n.target linux\n.section text\n.global _start\n_start:\n    xor rdi, rdi\n    xor rbx, rbx\n    call Main\n    mov rdi, rax\n    mov rax, 231\n    syscall\n";
         Return head + rxasm;
     }
 
@@ -603,6 +643,32 @@ Public Class RxAssembler {
         Return 1;
     }
 
+    Public Function RuntimeProgram() -> Int
+    Explain {
+        Description: "Assemble a program that allocates through mmap.";
+        Input: none = "No input";
+        Processing: "Ownership_Allocate asks Linux for a page with syscall 9 and bumps the cursor kept in rbx.";
+        Output: "One when the image contains that syscall and does not skip.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n%0 = const i64 16\n%1 = call i64 @Ownership_Allocate i64 %0\nret i64 %1\n";
+        String asm = This.Select(ir);
+        If (asm.IndexOf("; skip") >= 0) { Return -1; }
+        If (asm.IndexOf("Ownership_Allocate:") < 0) { Return -2; }
+        If (asm.IndexOf("syscall") < 0) { Return -3; }
+        List<Int> bytes = This.Assemble(asm);
+        If (bytes.Count() == 0) { Return -4; }
+        Int index = 0;
+        Int mapped = 0;
+        Int syscalls = 0;
+        While (index + 6 < bytes.Count()) {
+            If (bytes[index] == 72 && bytes[index + 1] == 199 && bytes[index + 2] == 192 && bytes[index + 3] == 9) { mapped = 1; }
+            If (bytes[index] == 15 && bytes[index + 1] == 5) { syscalls = syscalls + 1; }
+            index = index + 1;
+        }
+        If (mapped == 0 || syscalls < 1) { Return -5; }
+        Return 1;
+    }
+
     Public Function ProgramSyscall() -> Int
     Explain {
         Description: "Report whether the zero program contains the syscall opcode.";
@@ -638,6 +704,7 @@ Public Class RxAssembler {
         This.Pool = 0;
         This.InFunction = False;
         This.NeedPrint = False;
+        This.NeedRuntime = False;
         This.FnSymbol = "";
         This.AsmLines = List<String>();
         This.BodyLines = List<String>();
@@ -858,6 +925,7 @@ Public Class RxAssembler {
             arg = arg + 1;
             cursor = cursor + 2;
         }
+        If (symbol == "Ownership_Allocate") { This.NeedRuntime = True; }
         This.AddBody("    call " + symbol);
         String phys = This.Bind(dest);
         If (phys != "rax") { This.AddBody("    mov " + phys + ", rax"); }
@@ -896,6 +964,8 @@ Public Class RxAssembler {
             If (kind == "st8") { This.Append(encoder.MovMem8(This.Lefts[index], This.Rights[index])); }
             If (kind == "movload") { This.Append(encoder.MovLoadRsp(This.Lefts[index], ParseInteger(This.Rights[index]))); }
             If (kind == "movstore") { This.Append(encoder.MovStoreRsp(ParseInteger(This.Lefts[index]), This.Rights[index])); }
+            If (kind == "loadbase") { This.Append(encoder.MovLoadBase(This.Lefts[index], This.BaseReg(This.Rights[index]), This.BaseDisp(This.Rights[index]))); }
+            If (kind == "storebase") { This.Append(encoder.MovStoreBase(This.BaseReg(This.Lefts[index]), This.BaseDisp(This.Lefts[index]), This.Rights[index])); }
             If (kind == "ascii") {
                 String text = This.Rights[index];
                 Int cursor = 0;
@@ -974,6 +1044,8 @@ Public Class RxAssembler {
         }
         If (first == "mov" && This.IsMem(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("movstore", This.MemDisp(tokens[1]), tokens[2], 8); Return; }
         If (first == "mov" && This.IsReg(tokens[1]) && This.IsMem(tokens[2])) { This.AddOp("movload", tokens[1], This.MemDisp(tokens[2]), 8); Return; }
+        If (first == "mov" && This.IsReg(tokens[1]) && This.IsBase(tokens[2])) { This.AddOp("loadbase", tokens[1], tokens[2], This.BaseSize(tokens[2])); Return; }
+        If (first == "mov" && This.IsBase(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("storebase", tokens[1], tokens[2], This.BaseSize(tokens[1])); Return; }
         If (first == "mov" && tokens[1] == "al" && This.IsImm(tokens[2])) { This.AddOp("moval", "", tokens[2], 2); Return; }
         If (first == "mov" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("movreg", tokens[1], tokens[2], 3); Return; }
         If (first == "mov" && This.IsReg(tokens[1]) && This.IsImm(tokens[2])) { This.AddOp("movimm", tokens[1], tokens[2], 7); Return; }
@@ -1262,6 +1334,7 @@ Public Class RxAssembler {
             This.AddAsm("    add rsp, 40");
             This.AddAsm("    ret");
         }
+        If (This.NeedRuntime) { This.EmitRuntime(); }
         Int index = 0;
         While (index < This.DataNames.Count()) {
             This.AddAsm(This.DataNames[index] + ":");
@@ -1311,5 +1384,65 @@ Public Class RxAssembler {
 
     Private Function MemBase(String token) -> String {
         Return token.Substring(1, token.Length() - 2);
+    }
+
+    Private Function EmitRuntime() -> Void {
+        This.AddAsm("Ownership_Allocate:");
+        This.AddAsm("    cmp rbx, 0");
+        This.AddAsm("    jne .Lheap");
+        This.AddAsm("    sub rsp, 8");
+        This.AddAsm("    mov [rsp+0], rdi");
+        This.AddAsm("    xor rdi, rdi");
+        This.AddAsm("    mov rsi, 4096");
+        This.AddAsm("    mov rdx, 3");
+        This.AddAsm("    mov r10, 34");
+        This.AddAsm("    mov r8, -1");
+        This.AddAsm("    xor r9, r9");
+        This.AddAsm("    mov rax, 9");
+        This.AddAsm("    syscall");
+        This.AddAsm("    mov rbx, rax");
+        This.AddAsm("    mov rax, 24");
+        This.AddAsm("    mov [rbx+0], rax");
+        This.AddAsm("    mov rax, 4096");
+        This.AddAsm("    mov [rbx+8], rax");
+        This.AddAsm("    mov rdi, [rsp+0]");
+        This.AddAsm("    add rsp, 8");
+        This.AddAsm(".Lheap:");
+        This.AddAsm("    mov rax, [rbx+0]");
+        This.AddAsm("    mov rcx, rax");
+        This.AddAsm("    add rcx, rdi");
+        This.AddAsm("    mov rdx, [rbx+8]");
+        This.AddAsm("    cmp rcx, rdx");
+        This.AddAsm("    jle .Lfit");
+        This.AddAsm("    mov rax, 0");
+        This.AddAsm("    ret");
+        This.AddAsm(".Lfit:");
+        This.AddAsm("    mov [rbx+0], rcx");
+        This.AddAsm("    add rax, rbx");
+        This.AddAsm("    ret");
+    }
+
+    Private Function IsBase(String token) -> Bool {
+        If (token.Length() < 5) { Return False; }
+        If (token.GetChar(0) != '[') { Return False; }
+        If (token.GetChar(token.Length() - 1) != ']') { Return False; }
+        If (token.IndexOf("+") < 0) { Return False; }
+        Return True;
+    }
+
+    Private Function BaseReg(String token) -> String {
+        Int plus = token.IndexOf("+");
+        Return token.Substring(1, plus - 1);
+    }
+
+    Private Function BaseDisp(String token) -> Int {
+        Int plus = token.IndexOf("+");
+        Return ParseInteger(token.Substring(plus + 1, token.Length() - plus - 2));
+    }
+
+    Private Function BaseSize(String token) -> Int {
+        Int displacement = This.BaseDisp(token);
+        If (displacement >= -128 && displacement <= 127) { Return 4; }
+        Return 7;
     }
 }
