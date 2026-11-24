@@ -33,10 +33,10 @@ build_named() {
 }
 
 build_named "Robix" "$root/Build/Compiler/Robix.app"
-cp -a "$root/Build/Compiler/Robix.app" "$root/Build/bootstrap/robix-run.app"
-chmod 755 "$root/Build/bootstrap/robix-run.app"
+
+rm -f "$host"
+cp -a "$root/Build/Compiler/Robix.app" "$host"
+chmod 755 "$host"
 
 build_named "Robixc" "$root/Build/Compiler/Robixc.app"
-cp -a "$root/Build/Compiler/Robixc.app" "$root/Build/bootstrap/robixc.app"
-chmod 755 "$root/Build/bootstrap/robixc.app"
 echo "recompiled the Linux interpreter and compiler" >&2

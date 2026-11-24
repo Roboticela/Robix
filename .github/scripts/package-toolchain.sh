@@ -28,9 +28,10 @@ done
 
 bash "$root/.github/scripts/build-host.sh"
 
-install -m 755 "$root/Build/bootstrap/robix-run.app" "$stage/Bin/Robix"
-install -m 755 "$root/Build/bootstrap/robixc.app" "$stage/Shared/Tools/Compiler"
+install -m 755 "$root/Build/Compiler/Robix.app" "$stage/Bin/Robix"
+install -m 755 "$root/Build/Compiler/Robixc.app" "$stage/Shared/Tools/Compiler"
 install -m 755 "$root/.github/packaging/Robixc" "$stage/Bin/Robixc"
+rm -rf "$root/Build/bootstrap"
 
 place_bin() {
     local source="$1"

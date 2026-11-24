@@ -37,6 +37,20 @@ Public Class PeImage {
         Int importRaw = This.Align(imports.Count(), 512);
         Int imageSize = This.Align(importAt + imports.Count(), 4096);
         List<Int> image = List<Int>();
+        This.WriteHeaders(image, codeSize, textRaw, importRaw, importAt, imageSize, imports.Count());
+        This.WriteBody(image, text, imports, textRaw, importRaw);
+        Return This.CopyImage(image);
+    }
+
+    Private Function CopyImage(List<Int> source) -> List<Int> {
+        List<Int> image = List<Int>();
+        If (source != Null) {
+            For byte In source { This.AppendByte(image, byte); }
+        }
+        Return image;
+    }
+
+    Private Function WriteHeaders(List<Int> image, Int codeSize, Int textRaw, Int importRaw, Int importAt, Int imageSize, Int importCount) -> Void {
         This.AppendByte(image, 77);
         This.AppendByte(image, 90);
         This.AppendZeros(image, 58);
@@ -108,7 +122,7 @@ Public Class PeImage {
         This.AppendByte(image, 0);
         This.AppendByte(image, 96);
         This.AppendName(image, ".idata");
-        This.AppendU32(image, imports.Count());
+        This.AppendU32(image, importCount);
         This.AppendU32(image, importAt);
         This.AppendU32(image, importRaw);
         This.AppendU32(image, 512 + textRaw);
@@ -121,11 +135,16 @@ Public Class PeImage {
         This.AppendByte(image, 0);
         This.AppendByte(image, 192);
         While (image.Count() < 512) { This.AppendByte(image, 0); }
+    }
+
+    Private Function WriteBody(List<Int> image, List<Int> text, List<Int> imports, Int textRaw, Int importRaw) -> Void {
+        Int filled = 512;
         For byte In text { This.AppendByte(image, byte); }
-        While (image.Count() < 512 + textRaw) { This.AppendByte(image, 0); }
+        filled = 512 + textRaw;
+        While (image.Count() < filled) { This.AppendByte(image, 0); }
         For byte In imports { This.AppendByte(image, byte); }
-        While (image.Count() < 512 + textRaw + importRaw) { This.AppendByte(image, 0); }
-        Return image;
+        filled = filled + importRaw;
+        While (image.Count() < filled) { This.AppendByte(image, 0); }
     }
 
     Public Function Magic(List<Int> image) -> String
