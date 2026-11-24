@@ -45,7 +45,7 @@ Public Class Text {
         Return This.ReadU32(text);
     }
 
-    Public Function Equals(Int left, Int right) -> Int
+    Public Function SameChars(Int left, Int right) -> Int
     Explain {
         Description: "Compare two text blocks.";
         Input: left = "The first offset", right = "The second offset";
@@ -126,7 +126,7 @@ Public Class Text {
         Return This.Heap[text + 4 + index];
     }
 
-    Public Function StartsWith(Int text, Int prefix) -> Int
+    Public Function HasPrefix(Int text, Int prefix) -> Int
     Explain {
         Description: "Report whether text begins with prefix.";
         Input: text = "The text offset", prefix = "The prefix offset";
@@ -144,7 +144,7 @@ Public Class Text {
         Return 1;
     }
 
-    Public Function EndsWith(Int text, Int suffix) -> Int
+    Public Function HasSuffix(Int text, Int suffix) -> Int
     Explain {
         Description: "Report whether text ends with suffix.";
         Input: text = "The text offset", suffix = "The suffix offset";
@@ -163,7 +163,7 @@ Public Class Text {
         Return 1;
     }
 
-    Public Function Contains(Int text, Int needle) -> Int
+    Public Function HasNeedle(Int text, Int needle) -> Int
     Explain {
         Description: "Report whether needle occurs in text.";
         Input: text = "The text offset", needle = "The needle offset";
@@ -173,7 +173,7 @@ Public Class Text {
         Return This.Found(text, needle, 0);
     }
 
-    Public Function IndexOf(Int text, Int needle, Int start) -> Int
+    Public Function FindAt(Int text, Int needle, Int start) -> Int
     Explain {
         Description: "Find the first occurrence of needle at or after start.";
         Input: text = "The text offset", needle = "The needle offset", start = "The first index to try";
@@ -218,13 +218,18 @@ Public Class Text {
     } {
         This.Ensure();
         Int count = This.ReadU32(text);
-        String spelling = "";
-        Int index = 0;
-        While (index < count) {
-            spelling = spelling + String.From(Char.From(This.Heap[text + 4 + index]));
-            index = index + 1;
+        Int sign = 1;
+        Int cursor = 0;
+        If (count > 0 && This.Heap[text + 4] == 45) {
+            sign = -1;
+            cursor = 1;
         }
-        Return ParseInteger(spelling);
+        Int number = 0;
+        While (cursor < count) {
+            number = number * 10 + (This.Heap[text + 4 + cursor] - 48);
+            cursor = cursor + 1;
+        }
+        Return number * sign;
     }
 
     Public Function SampleText() -> Int
@@ -239,11 +244,11 @@ Public Class Text {
         Int right = This.From(", Robix");
         Int both = This.Concat(left, right);
         If (This.Length(both) != 12) { Return 0; }
-        If (This.Equals(both, This.From("Hello, Robix")) != 1) { Return 0; }
+        If (This.SameChars(both, This.From("Hello, Robix")) != 1) { Return 0; }
         Int slice = This.Slice(both, 7, 5);
-        If (This.Equals(slice, This.From("Robix")) != 1) { Return 0; }
-        If (This.StartsWith(both, This.From("Hello")) != 1) { Return 0; }
-        If (This.EndsWith(both, This.From("Robix")) != 1) { Return 0; }
+        If (This.SameChars(slice, This.From("Robix")) != 1) { Return 0; }
+        If (This.HasPrefix(both, This.From("Hello")) != 1) { Return 0; }
+        If (This.HasSuffix(both, This.From("Robix")) != 1) { Return 0; }
         If (This.ToInt(This.FromInt(15)) != 15) { Return 0; }
         If (This.ToInt(This.FromInt(-3)) != -3) { Return 0; }
         If (This.Chunks < 1) { Return 0; }
@@ -251,7 +256,7 @@ Public Class Text {
     }
 
     Private Function Found(Int text, Int needle, Int start) -> Int {
-        If (This.IndexOf(text, needle, start) >= 0) { Return 1; }
+        If (This.FindAt(text, needle, start) >= 0) { Return 1; }
         Return 0;
     }
 

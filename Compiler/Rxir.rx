@@ -784,18 +784,44 @@ Public Class RxProgram {
         }
         If (node.Kind == AstKind.IntegerLiteral) {
             String robix = "Int";
-            String suffix = NumericSuffix(node.Text);
+            String spelling = node.Text;
+            String suffix = "";
+            Int mark = 0;
+            Int hasLetter = 0;
+            While (mark < spelling.Length()) {
+                Char character = spelling.GetChar(mark);
+                If (character >= 'a' && character <= 'z') { hasLetter = 1; }
+                If (character >= 'A' && character <= 'Z') { hasLetter = 1; }
+                mark = mark + 1;
+            }
+            If (hasLetter == 1) {
+                suffix = NumericSuffix(spelling);
+                spelling = StripNumericSuffix(spelling);
+            }
             If (suffix != "") { robix = SuffixTypeName(suffix); }
             String machine = This.MachineType(robix);
-            String spelling = StripNumericSuffix(node.Text).Replace("_", "");
+            spelling = spelling.Replace("_", "");
             If (spelling == "") { spelling = "0"; }
             Return This.MakeValue(This.ConstName(spelling, machine), machine);
         }
         If (node.Kind == AstKind.FloatLiteral) {
             String machine = "f64";
-            String suffix = NumericSuffix(node.Text);
+            String spelling = node.Text;
+            String suffix = "";
+            Int mark = 0;
+            Int hasLetter = 0;
+            While (mark < spelling.Length()) {
+                Char character = spelling.GetChar(mark);
+                If (character >= 'a' && character <= 'z') { hasLetter = 1; }
+                If (character >= 'A' && character <= 'Z') { hasLetter = 1; }
+                mark = mark + 1;
+            }
+            If (hasLetter == 1) {
+                suffix = NumericSuffix(spelling);
+                spelling = StripNumericSuffix(spelling);
+            }
             If (suffix != "") { machine = This.MachineType(SuffixTypeName(suffix)); }
-            String spelling = StripNumericSuffix(node.Text).Replace("_", "");
+            spelling = spelling.Replace("_", "");
             If (spelling == "") { spelling = "0.0"; }
             Return This.MakeValue(This.ConstName(spelling, machine), machine);
         }

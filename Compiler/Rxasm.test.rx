@@ -1,5 +1,7 @@
 // Tests for Compiler/Rxasm.rx.
 
+Test Push { Output: True; }
+
 Test MovImm {
     Case "rax zero" {
         Input: dest = "rax", value = 0;

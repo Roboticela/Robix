@@ -89,7 +89,15 @@ if [[ "$mode" == "compile" ]]; then
         echo "error: the Robix compile step did not name an object and an IR file" >&2
         exit 1
     fi
-    "$cxx" --target=x86_64-w64-windows-gnu -O2 -c -o "$out" "$ll"
+    triple="x86_64-w64-windows-gnu"
+    if grep -q '^target triple = ' "$ll"; then
+        sed -i "s/^target triple = .*/target triple = \"$triple\"/" "$ll"
+    else
+        rewritten=$(mktemp)
+        printf 'target triple = "%s"\n' "$triple" | cat - "$ll" > "$rewritten"
+        mv "$rewritten" "$ll"
+    fi
+    "$cxx" --target="$triple" -O2 -c -o "$out" "$ll"
     printf '%s\n' "$out" >> "$list"
     exit 0
 fi
@@ -150,7 +158,7 @@ export PATH="$wrap:$PATH"
 
 probe="$work/probe"
 mkdir -p "$probe"
-printf '%s\n' 'define i32 @main() { ret i32 0 }' > "$probe/probe.ll"
+printf '%s\n' 'target triple = "x86_64-w64-windows-gnu"' 'define i32 @main() { ret i32 0 }' > "$probe/probe.ll"
 "$cxx" -c -o "$probe/probe.o" "$probe/probe.ll"
 
 backup="$work/Robix.rxp"

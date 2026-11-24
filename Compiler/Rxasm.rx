@@ -13,9 +13,9 @@ Public Class X64 {
         Output: "The instruction bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexB(dest));
-        bytes.Add(199);
-        bytes.Add(192 + This.RegLow(dest));
+        This.Push(bytes, This.RexB(dest));
+        This.Push(bytes, 199);
+        This.Push(bytes, 192 + This.RegLow(dest));
         This.AppendI32(bytes, value);
         Return bytes;
     }
@@ -88,10 +88,10 @@ Public Class X64 {
         Output: "The instruction bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexPair(source, dest));
-        bytes.Add(15);
-        bytes.Add(175);
-        bytes.Add(192 + This.RegLow(dest) * 8 + This.RegLow(source));
+        This.Push(bytes, This.RexPair(source, dest));
+        This.Push(bytes, 15);
+        This.Push(bytes, 175);
+        This.Push(bytes, 192 + This.RegLow(dest) * 8 + This.RegLow(source));
         Return bytes;
     }
 
@@ -113,15 +113,15 @@ Public Class X64 {
         Output: "The instruction bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexB(dest));
+        This.Push(bytes, This.RexB(dest));
         Int modrm = 248 + This.RegLow(dest);
         If (value >= -128 && value <= 127) {
-            bytes.Add(131);
-            bytes.Add(modrm);
-            bytes.Add(This.Low8(value));
+            This.Push(bytes, 131);
+            This.Push(bytes, modrm);
+            This.Push(bytes, This.Low8(value));
         } Else {
-            bytes.Add(129);
-            bytes.Add(modrm);
+            This.Push(bytes, 129);
+            This.Push(bytes, modrm);
             This.AppendI32(bytes, value);
         }
         Return bytes;
@@ -135,7 +135,7 @@ Public Class X64 {
         Output: "One byte.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(195);
+        This.Push(bytes, 195);
         Return bytes;
     }
 
@@ -147,8 +147,8 @@ Public Class X64 {
         Output: "Two bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(15);
-        bytes.Add(5);
+        This.Push(bytes, 15);
+        This.Push(bytes, 5);
         Return bytes;
     }
 
@@ -160,7 +160,7 @@ Public Class X64 {
         Output: "Five bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(232);
+        This.Push(bytes, 232);
         This.AppendI32(bytes, displacement);
         Return bytes;
     }
@@ -173,7 +173,7 @@ Public Class X64 {
         Output: "Five bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(233);
+        This.Push(bytes, 233);
         This.AppendI32(bytes, displacement);
         Return bytes;
     }
@@ -186,8 +186,8 @@ Public Class X64 {
         Output: "Six bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(15);
-        bytes.Add(This.JccOpcode(condition));
+        This.Push(bytes, 15);
+        This.Push(bytes, This.JccOpcode(condition));
         This.AppendI32(bytes, displacement);
         Return bytes;
     }
@@ -222,9 +222,9 @@ Public Class X64 {
         List<Int> bytes = List<Int>();
         Int rex = 72;
         If (This.RegHigh(dest) == 1) { rex = rex + 4; }
-        bytes.Add(rex);
-        bytes.Add(141);
-        bytes.Add(This.RegLow(dest) * 8 + 5);
+        This.Push(bytes, rex);
+        This.Push(bytes, 141);
+        This.Push(bytes, This.RegLow(dest) * 8 + 5);
         This.AppendI32(bytes, displacement);
         Return bytes;
     }
@@ -237,9 +237,9 @@ Public Class X64 {
         Output: "Three bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexB(dest));
-        bytes.Add(247);
-        bytes.Add(216 + This.RegLow(dest));
+        This.Push(bytes, This.RexB(dest));
+        This.Push(bytes, 247);
+        This.Push(bytes, 216 + This.RegLow(dest));
         Return bytes;
     }
 
@@ -251,8 +251,8 @@ Public Class X64 {
         Output: "Two bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(72);
-        bytes.Add(153);
+        This.Push(bytes, 72);
+        This.Push(bytes, 153);
         Return bytes;
     }
 
@@ -264,9 +264,9 @@ Public Class X64 {
         Output: "Three bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexB(dest));
-        bytes.Add(247);
-        bytes.Add(248 + This.RegLow(dest));
+        This.Push(bytes, This.RexB(dest));
+        This.Push(bytes, 247);
+        This.Push(bytes, 248 + This.RegLow(dest));
         Return bytes;
     }
 
@@ -278,9 +278,9 @@ Public Class X64 {
         Output: "Three bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexB(dest));
-        bytes.Add(255);
-        bytes.Add(200 + This.RegLow(dest));
+        This.Push(bytes, This.RexB(dest));
+        This.Push(bytes, 255);
+        This.Push(bytes, 200 + This.RegLow(dest));
         Return bytes;
     }
 
@@ -292,8 +292,8 @@ Public Class X64 {
         Output: "Two bytes.";
     } {
         List<Int> bytes = List<Int>();
-        bytes.Add(176);
-        bytes.Add(This.Low8(value));
+        This.Push(bytes, 176);
+        This.Push(bytes, This.Low8(value));
         Return bytes;
     }
 
@@ -315,9 +315,9 @@ Public Class X64 {
         If (byteReg == "cl") { low = 1; }
         If (byteReg == "dl") { low = 2; }
         If (byteReg == "bl") { low = 3; }
-        If (need == 1) { bytes.Add(rex); }
-        bytes.Add(136);
-        bytes.Add(low * 8 + This.RegLow(base));
+        If (need == 1) { This.Push(bytes, rex); }
+        This.Push(bytes, 136);
+        This.Push(bytes, low * 8 + This.RegLow(base));
         Return bytes;
     }
 
@@ -371,9 +371,9 @@ Public Class X64 {
         List<Int> bytes = List<Int>();
         Int rex = 72;
         If (This.RegHigh(dest) == 1) { rex = rex + 4; }
-        bytes.Add(rex);
-        bytes.Add(139);
-        bytes.Add(This.RegLow(dest) * 8 + 5);
+        This.Push(bytes, rex);
+        This.Push(bytes, 139);
+        This.Push(bytes, This.RegLow(dest) * 8 + 5);
         This.AppendI32(bytes, displacement);
         Return bytes;
     }
@@ -386,9 +386,9 @@ Public Class X64 {
         Output: "Two bytes for rax, or three when the register is r8 through r15.";
     } {
         List<Int> bytes = List<Int>();
-        If (This.RegHigh(target) == 1) { bytes.Add(65); }
-        bytes.Add(255);
-        bytes.Add(208 + This.RegLow(target));
+        If (This.RegHigh(target) == 1) { This.Push(bytes, 65); }
+        This.Push(bytes, 255);
+        This.Push(bytes, 208 + This.RegLow(target));
         Return bytes;
     }
 
@@ -404,18 +404,18 @@ Public Class X64 {
         If (dest.Length() > 3) { left = ParseInteger(dest.Substring(3, dest.Length() - 3)); }
         If (source.Length() > 3) { right = ParseInteger(source.Substring(3, source.Length() - 3)); }
         List<Int> bytes = List<Int>();
-        bytes.Add(102);
-        bytes.Add(15);
-        bytes.Add(254);
-        bytes.Add(192 + (left % 8) * 8 + (right % 8));
+        This.Push(bytes, 102);
+        This.Push(bytes, 15);
+        This.Push(bytes, 254);
+        This.Push(bytes, 192 + (left % 8) * 8 + (right % 8));
         Return bytes;
     }
 
     Private Function Alu(Int opcode, String dest, String source) -> List<Int> {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexPair(dest, source));
-        bytes.Add(opcode);
-        bytes.Add(192 + This.RegLow(source) * 8 + This.RegLow(dest));
+        This.Push(bytes, This.RexPair(dest, source));
+        This.Push(bytes, opcode);
+        This.Push(bytes, 192 + This.RegLow(source) * 8 + This.RegLow(dest));
         Return bytes;
     }
 
@@ -477,12 +477,16 @@ Public Class X64 {
         Return rest % 256;
     }
 
+    Private Function Push(List<Int> bytes, Int value) -> Void {
+        bytes.Add(value);
+    }
+
     Private Function AppendI32(List<Int> bytes, Int value) -> Void {
         Int rest = value;
         If (rest < 0) { rest = rest + 4294967296; }
         Int index = 0;
         While (index < 4) {
-            bytes.Add(rest % 256);
+            This.Push(bytes, rest % 256);
             rest = rest / 256;
             index = index + 1;
         }
@@ -490,15 +494,15 @@ Public Class X64 {
 
     Private Function AluImm(Int extension, String dest, Int value) -> List<Int> {
         List<Int> bytes = List<Int>();
-        bytes.Add(This.RexB(dest));
+        This.Push(bytes, This.RexB(dest));
         Int modrm = 192 + extension * 8 + This.RegLow(dest);
         If (value >= -128 && value <= 127) {
-            bytes.Add(131);
-            bytes.Add(modrm);
-            bytes.Add(This.Low8(value));
+            This.Push(bytes, 131);
+            This.Push(bytes, modrm);
+            This.Push(bytes, This.Low8(value));
         } Else {
-            bytes.Add(129);
-            bytes.Add(modrm);
+            This.Push(bytes, 129);
+            This.Push(bytes, modrm);
             This.AppendI32(bytes, value);
         }
         Return bytes;
@@ -508,10 +512,10 @@ Public Class X64 {
         List<Int> bytes = List<Int>();
         Int rex = 72;
         If (This.RegHigh(reg) == 1) { rex = rex + 4; }
-        bytes.Add(rex);
-        bytes.Add(opcode);
-        bytes.Add(128 + This.RegLow(reg) * 8 + 4);
-        bytes.Add(36);
+        This.Push(bytes, rex);
+        This.Push(bytes, opcode);
+        This.Push(bytes, 128 + This.RegLow(reg) * 8 + 4);
+        This.Push(bytes, 36);
         This.AppendI32(bytes, displacement);
         Return bytes;
     }
@@ -521,15 +525,15 @@ Public Class X64 {
         Int rex = 72;
         If (This.RegHigh(reg) == 1) { rex = rex + 4; }
         If (This.RegHigh(base) == 1) { rex = rex + 1; }
-        bytes.Add(rex);
-        bytes.Add(opcode);
+        This.Push(bytes, rex);
+        This.Push(bytes, opcode);
         Int fits = 0;
         If (displacement >= -128 && displacement <= 127) { fits = 1; }
         If (fits == 1) {
-            bytes.Add(64 + This.RegLow(reg) * 8 + This.RegLow(base));
-            bytes.Add(This.Low8(displacement));
+            This.Push(bytes, 64 + This.RegLow(reg) * 8 + This.RegLow(base));
+            This.Push(bytes, This.Low8(displacement));
         } Else {
-            bytes.Add(128 + This.RegLow(reg) * 8 + This.RegLow(base));
+            This.Push(bytes, 128 + This.RegLow(reg) * 8 + This.RegLow(base));
             This.AppendI32(bytes, displacement);
         }
         Return bytes;

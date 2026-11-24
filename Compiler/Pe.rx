@@ -28,7 +28,7 @@ Public Class PeImage {
     } {
         List<Int> text = List<Int>();
         If (code != Null) {
-            For byte In code { text.Add(byte); }
+            For byte In code { This.AppendByte(text, byte); }
         }
         Int codeSize = text.Count();
         Int textRaw = This.Align(codeSize, 512);
@@ -111,11 +111,11 @@ Public Class PeImage {
         This.AppendU16(image, 0);
         This.AppendU16(image, 0);
         This.AppendU32(image, 3221225536);
-        While (image.Count() < 512) { image.Add(0); }
-        For byte In text { image.Add(byte); }
-        While (image.Count() < 512 + textRaw) { image.Add(0); }
-        For byte In imports { image.Add(byte); }
-        While (image.Count() < 512 + textRaw + importRaw) { image.Add(0); }
+        While (image.Count() < 512) { This.AppendByte(image, 0); }
+        For byte In text { This.AppendByte(image, byte); }
+        While (image.Count() < 512 + textRaw) { This.AppendByte(image, 0); }
+        For byte In imports { This.AppendByte(image, byte); }
+        While (image.Count() < 512 + textRaw + importRaw) { This.AppendByte(image, 0); }
         Return image;
     }
 
@@ -218,25 +218,43 @@ Public Class PeImage {
     }
 
     Private Function Imports(Int importAt) -> List<Int> {
+        List<Int> names = List<Int>();
+        Int exitOffset = 104;
+        This.AppendHint(names, "ExitProcess");
+        Int standardOffset = 104 + names.Count();
+        This.AppendHint(names, "GetStdHandle");
+        Int writeOffset = 104 + names.Count();
+        This.AppendHint(names, "WriteFile");
+        Int libraryOffset = 104 + names.Count();
+        This.AppendText(names, "kernel32.dll");
         List<Int> data = List<Int>();
-        This.AppendZeros(data, 104);
-        Int exitAt = data.Count();
-        This.AppendHint(data, "ExitProcess");
-        Int standardAt = data.Count();
-        This.AppendHint(data, "GetStdHandle");
-        Int writeAt = data.Count();
-        This.AppendHint(data, "WriteFile");
-        Int libraryAt = data.Count();
-        This.AppendText(data, "kernel32.dll");
-        This.PokeU64(data, 0, importAt + exitAt);
-        This.PokeU64(data, 8, importAt + standardAt);
-        This.PokeU64(data, 16, importAt + writeAt);
-        This.PokeU64(data, 32, importAt + exitAt);
-        This.PokeU64(data, 40, importAt + standardAt);
-        This.PokeU64(data, 48, importAt + writeAt);
-        This.PokeU32(data, 64, importAt + 32);
-        This.PokeU32(data, 76, importAt + libraryAt);
-        This.PokeU32(data, 80, importAt);
+        This.AppendU32(data, importAt + exitOffset);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, importAt + standardOffset);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, importAt + writeOffset);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, importAt + exitOffset);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, importAt + standardOffset);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, importAt + writeOffset);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, importAt + 32);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, 0);
+        This.AppendU32(data, importAt + libraryOffset);
+        This.AppendU32(data, importAt);
+        This.AppendZeros(data, 20);
+        Int index = 0;
+        While (index < names.Count()) {
+            This.AppendByte(data, names[index]);
+            index = index + 1;
+        }
         Return data;
     }
 

@@ -2,14 +2,14 @@
 
 Test From { Output: True; }
 Test Length { Output: True; }
-Test Equals { Output: True; }
+Test SameChars { Output: True; }
 Test Concat { Output: True; }
 Test Slice { Output: True; }
 Test Character { Output: True; }
-Test StartsWith { Output: True; }
-Test EndsWith { Output: True; }
-Test Contains { Output: True; }
-Test IndexOf { Output: True; }
+Test HasPrefix { Output: True; }
+Test HasSuffix { Output: True; }
+Test HasNeedle { Output: True; }
+Test FindAt { Output: True; }
 Test FromInt { Output: True; }
 Test ToInt { Output: True; }
 
