@@ -8,50 +8,79 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-linux:
-    name: Build Linux
-    runs-on: ubuntu-latest
+  compile:
+    name: Compile ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            os: ubuntu-24.04
+            script: package-toolchain.sh
+          - platform: windows-x64
+            os: ubuntu-24.04
+            script: cross-compile-windows.sh
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install the host toolchain
         run: sudo apt-get update && sudo apt-get install -y clang llvm lld zip unzip xz-utils curl
 
-      - name: Compile the Linux toolchain
-        run: bash .github/scripts/package-toolchain.sh
+      - name: Compile ${{ matrix.platform }}
+        run: bash .github/scripts/${{ matrix.script }}
         env:
           SKIP_WINDOWS: "1"
 
-      - name: Cross-compile the Windows interpreter and compiler
-        run: bash .github/scripts/cross-compile-windows.sh
+      - name: Upload the Linux packages
+        if: matrix.platform == 'linux-x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: robix-packages-linux-x64
+          path: |
+            dist/*.zip
+          if-no-files-found: error
 
-      - name: Upload Windows language tools
+      - name: Upload the compiled packages
+        if: matrix.platform == 'linux-x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: robix-bins
+          path: Build/Compiler/*
+          if-no-files-found: error
+
+      - name: Upload the Windows language tools
+        if: matrix.platform == 'windows-x64'
         uses: actions/upload-artifact@v4
         with:
           name: robix-windows-tools
-          path: dist/windows-tools
+          path: dist/windows-tools/*
           if-no-files-found: error
+
+  editor:
+    name: Package editor
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
       - name: Package the VS Code extension
         run: node .github/scripts/package-vsix.js
 
-      - name: Upload Linux packages
+      - name: Upload the extension
         uses: actions/upload-artifact@v4
         with:
-          name: robix-linux-packages
-          path: |
-            dist/robix-linux-x64.zip
-            dist/Update-*-linux-x64.zip
-            dist/Roboticela.Robix.vsix
+          name: robix-packages-editor
+          path: dist/*.vsix
           if-no-files-found: error
 
-  build-windows:
-    name: Build Windows
-    needs: build-linux
+  package-windows:
+    name: Package windows-x64
+    needs: compile
     runs-on: windows-latest
     steps:
       - name: Check out the repository
@@ -66,38 +95,39 @@ jobs:
           name: robix-windows-tools
           path: dist/windows-tools
 
-      - name: Compile the Windows toolchain
+      - name: Download the compiled packages
+        uses: actions/download-artifact@v4
+        with:
+          name: robix-bins
+          path: Build/Compiler
+
+      - name: Package Windows
         shell: bash
         run: bash .github/scripts/package-windows.sh
 
-      - name: Upload Windows packages
+      - name: Upload the Windows packages
         uses: actions/upload-artifact@v4
         with:
-          name: robix-windows-packages
-          path: |
-            dist/robix-windows-x64.zip
-            dist/Update-*-windows-x64.zip
+          name: robix-packages-windows-x64
+          path: dist/*.zip
           if-no-files-found: error
 
   release:
     name: Publish Release
-    needs: [build-linux, build-windows]
-    runs-on: ubuntu-latest
+    needs: [compile, editor, package-windows]
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: write
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
 
-      - name: Download Linux packages
+      - name: Download the packages
         uses: actions/download-artifact@v4
         with:
-          name: robix-linux-packages
-          path: dist
-
-      - name: Download Windows packages
-        uses: actions/download-artifact@v4
-        with:
-          name: robix-windows-packages
+          pattern: robix-packages-*
+          merge-multiple: true
           path: dist
 
       - name: Publish the release
@@ -117,6 +147,13 @@ jobs:
             echo "error: Update-${version} archives were not found" >&2
             exit 1
           fi
+          for required in dist/robix-linux-x64.zip dist/robix-windows-x64.zip dist/Roboticela.Robix.vsix; do
+            if [ ! -f "$required" ]; then
+              echo "error: ${required} was not downloaded" >&2
+              find dist -type f >&2 || true
+              exit 1
+            fi
+          done
           notes="$(mktemp)"
           cat > "${notes}" <<EOF
           ## Tools ${version}

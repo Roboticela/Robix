@@ -26,6 +26,8 @@ for tool in llc clang++ ld.lld; do
     fi
 done
 
+bash "$root/.github/scripts/build-host.sh"
+
 bash "$root/.github/scripts/bundle-llvm.sh" "$stage/Shared/Tools/Llvm" "$stage/Library/Link"
 install -m 755 "$root/.github/packaging/clang++" "$stage/Shared/Tools/clang++"
 clang++ -std=c++17 -O3 -fPIC -c -o "$stage/Runtime/Runtime.o" "$root/Runtime/Runtime.cpp"

@@ -95,8 +95,11 @@ fi
 # The interpreter and the compiler engine are cross-compiled on Linux.
 # Static libc++ keeps them from requiring llvm-mingw DLLs at startup.
 windows_tools="$root/dist/windows-tools"
-if [[ ! -f "$windows_tools/Robix.exe" && -f "$windows_tools/windows-tools/Robix.exe" ]]; then
-    windows_tools="$windows_tools/windows-tools"
+if [[ ! -f "$windows_tools/Robix.exe" ]]; then
+    found=$(find "$root/dist" -name Robix.exe -type f -print -quit || true)
+    if [[ -n "$found" ]]; then
+        windows_tools="$(dirname "$found")"
+    fi
 fi
 if [[ ! -f "$windows_tools/Robix.exe" || ! -f "$windows_tools/Compiler.exe" ]]; then
     echo "error: dist/windows-tools/Robix.exe and Compiler.exe are missing. Run .github/scripts/cross-compile-windows.sh on Linux first." >&2

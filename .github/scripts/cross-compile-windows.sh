@@ -39,6 +39,7 @@ if [[ ! -x "$cxx" ]]; then
     echo "error: the mingw compiler was not found at $cxx" >&2
     exit 1
 fi
+bash "$root/.github/scripts/ensure-bootstrap.sh"
 if [[ ! -x "$root/Build/bootstrap/robix-run.app" ]]; then
     echo "error: Build/bootstrap/robix-run.app is missing" >&2
     exit 1
