@@ -1,0 +1,894 @@
+// Unboxed three-address form. Integers stay integers, floats stay floats, pointers stay pointers.
+Package Robix.Syntax
+Explain {
+    Description: "Lower a typed Robix module to unboxed RXIR.";
+};
+
+Import Robix.Core;
+
+
+Public Class RxValue {
+    Public String Name;
+    Public String Machine;
+
+    Public Constructor() {
+        This.Name = "";
+        This.Machine = "i64";
+    }
+}
+
+Public Class RxProgram {
+    Public List<String> Lines;
+    Public Int Counter;
+    Public Int BlockSerial;
+    Public Int StringSerial;
+    Public Int LoopCount;
+    Public Bool Terminated;
+    Public List<String> LocalNames;
+    Public List<String> LocalSlots;
+    Public List<String> LocalMachines;
+    Public List<String> LoopHeads;
+    Public List<String> LoopEnds;
+    Public List<String> FoldFuncNames;
+    Public List<AstNode> FoldFuncNodes;
+    Public List<String> FoldNames;
+    Public List<Int> FoldValues;
+    Public Int FoldValue;
+    Public Bool FoldOk;
+
+    Public Constructor() {
+        This.Reset();
+    }
+
+    Public Function MachineType(String robixType) -> String
+    Explain {
+        Description: "Map a Robix type name to an unboxed machine type.";
+        Input: robixType = "A Robix type name such as Int, Float, Bool, or String";
+        Processing: "Select i64, i32, i16, i8, f64, f32, ptr, or void.";
+        Output: "The machine type.";
+    } {
+        If (robixType == "" || robixType == "Void") { Return "void"; }
+        If (robixType == "Bool" || robixType == "Char" || robixType == "Int8" || robixType == "UInt8") { Return "i8"; }
+        If (robixType == "Int16" || robixType == "UInt16") { Return "i16"; }
+        If (robixType == "Int32" || robixType == "UInt32") { Return "i32"; }
+        If (robixType == "Float32") { Return "f32"; }
+        If (robixType == "Float" || robixType == "Float64" || robixType == "Double") { Return "f64"; }
+        If (robixType == "Int" || robixType == "Int64" || robixType == "UInt" || robixType == "UInt64") { Return "i64"; }
+        Return "ptr";
+    }
+
+    Public Function LowerModule(AstNode module) -> String
+    Explain {
+        Description: "Lower every function in a module to RXIR text.";
+        Input: module = "Typed module";
+        Processing: "Lower free functions and class methods. Leave integers, floats, and pointers unboxed.";
+        Output: "The RXIR text.";
+    } {
+        This.Reset();
+        This.RememberFunctions(module);
+        If (module.Children != Null) {
+            For child In module.Children {
+                If (child.Kind == AstKind.Function) { This.LowerFunction(child, ""); }
+                If (child.Kind == AstKind.Class && child.Children != Null) {
+                    For member In child.Children {
+                        If (member.Kind == AstKind.Function) { This.LowerFunction(member, child.Name); }
+                    }
+                }
+            }
+        }
+        Return This.JoinLines();
+    }
+
+    Public Function ReturnZero() -> String
+    Explain {
+        Description: "Lower a function that returns the integer zero.";
+        Input: none = "No input";
+        Processing: "Build Main and lower it.";
+        Output: "RXIR that returns an unboxed i64 zero.";
+    } {
+        AstNode literal = AstNode();
+        literal.Kind = AstKind.IntegerLiteral;
+        literal.Text = "0";
+        AstNode ret = AstNode();
+        ret.Kind = AstKind.Return;
+        ret.Left = literal;
+        Return This.LowerBody("Main", "Int", ret);
+    }
+
+    Public Function AddTwo() -> String
+    Explain {
+        Description: "Lower a function that adds two integer literals.";
+        Input: none = "No input";
+        Processing: "Build return 1 + 2 and lower it.";
+        Output: "RXIR with an i64 add.";
+    } {
+        AstNode left = AstNode();
+        left.Kind = AstKind.IntegerLiteral;
+        left.Text = "1";
+        AstNode right = AstNode();
+        right.Kind = AstKind.IntegerLiteral;
+        right.Text = "2";
+        AstNode sum = AstNode();
+        sum.Kind = AstKind.Binary;
+        sum.Operator = "+";
+        sum.Left = left;
+        sum.Right = right;
+        AstNode ret = AstNode();
+        ret.Kind = AstKind.Return;
+        ret.Left = sum;
+        Return This.LowerBody("Add", "Int", ret);
+    }
+
+    Public Function FloatOne() -> String
+    Explain {
+        Description: "Lower a function that returns a float literal.";
+        Input: none = "No input";
+        Processing: "Build return 1.5 and lower it.";
+        Output: "RXIR with an unboxed f64 constant.";
+    } {
+        AstNode literal = AstNode();
+        literal.Kind = AstKind.FloatLiteral;
+        literal.Text = "1.5";
+        AstNode ret = AstNode();
+        ret.Kind = AstKind.Return;
+        ret.Left = literal;
+        Return This.LowerBody("FloatOne", "Float", ret);
+    }
+
+    Public Function BoolTrue() -> String
+    Explain {
+        Description: "Lower a function that returns true.";
+        Input: none = "No input";
+        Processing: "Build return True and lower it.";
+        Output: "RXIR with an unboxed i8 one.";
+    } {
+        AstNode literal = AstNode();
+        literal.Kind = AstKind.BooleanLiteral;
+        literal.FlagA = True;
+        literal.Text = "True";
+        AstNode ret = AstNode();
+        ret.Kind = AstKind.Return;
+        ret.Left = literal;
+        Return This.LowerBody("BoolTrue", "Bool", ret);
+    }
+
+    Public Function HelloLines() -> String
+    Explain {
+        Description: "Lower the HelloRobot body to RXIR.";
+        Input: none = "No input";
+        Processing: "Add 1 through 5, print the greeting and the total, and keep the argument print on a not-taken branch.";
+        Output: "RXIR that prints with the write form and has no unsupported notes.";
+    } {
+        This.Reset();
+        AstNode zero = AstNode();
+        zero.Kind = AstKind.IntegerLiteral;
+        zero.Text = "0";
+        AstNode one = AstNode();
+        one.Kind = AstKind.IntegerLiteral;
+        one.Text = "1";
+        AstNode five = AstNode();
+        five.Kind = AstKind.IntegerLiteral;
+        five.Text = "5";
+        AstNode totalName = AstNode();
+        totalName.Kind = AstKind.Name;
+        totalName.Name = "total";
+        AstNode indexName = AstNode();
+        indexName.Kind = AstKind.Name;
+        indexName.Name = "index";
+        AstNode argsName = AstNode();
+        argsName.Kind = AstKind.Name;
+        argsName.Name = "args";
+        AstNode printName = AstNode();
+        printName.Kind = AstKind.Name;
+        printName.Name = "Print";
+
+        AstNode totalVar = AstNode();
+        totalVar.Kind = AstKind.Variable;
+        totalVar.Name = "total";
+        totalVar.Initializer = zero;
+
+        AstNode range = AstNode();
+        range.Kind = AstKind.Range;
+        range.FlagA = True;
+        range.Left = one;
+        range.Right = five;
+        AstNode add = AstNode();
+        add.Kind = AstKind.Binary;
+        add.Operator = "+";
+        add.Left = totalName;
+        add.Right = indexName;
+        AstNode assign = AstNode();
+        assign.Kind = AstKind.Assignment;
+        assign.Operator = "=";
+        assign.Left = totalName;
+        assign.Right = add;
+        AstNode loopBody = AstNode();
+        loopBody.Kind = AstKind.Block;
+        loopBody.Children.Add(assign);
+        AstNode loop = AstNode();
+        loop.Kind = AstKind.For;
+        loop.Left = indexName;
+        loop.Right = range;
+        loop.Body = loopBody;
+
+        AstNode greeting = AstNode();
+        greeting.Kind = AstKind.StringLiteral;
+        greeting.Text = "Hello, Robix";
+        AstNode printGreeting = AstNode();
+        printGreeting.Kind = AstKind.Call;
+        printGreeting.Left = printName;
+        printGreeting.Parameters.Add(greeting);
+        AstNode printGreetingStmt = AstNode();
+        printGreetingStmt.Kind = AstKind.ExpressionStatement;
+        printGreetingStmt.Left = printGreeting;
+
+        AstNode printTotal = AstNode();
+        printTotal.Kind = AstKind.Call;
+        printTotal.Left = printName;
+        printTotal.Parameters.Add(totalName);
+        AstNode printTotalStmt = AstNode();
+        printTotalStmt.Kind = AstKind.ExpressionStatement;
+        printTotalStmt.Left = printTotal;
+
+        AstNode countMember = AstNode();
+        countMember.Kind = AstKind.Member;
+        countMember.Left = argsName;
+        countMember.Name = "Count";
+        AstNode countCall = AstNode();
+        countCall.Kind = AstKind.Call;
+        countCall.Left = countMember;
+        AstNode compare = AstNode();
+        compare.Kind = AstKind.Binary;
+        compare.Operator = ">";
+        compare.Left = countCall;
+        compare.Right = zero;
+        AstNode indexExpr = AstNode();
+        indexExpr.Kind = AstKind.Index;
+        indexExpr.Left = argsName;
+        indexExpr.Right = zero;
+        AstNode printArg = AstNode();
+        printArg.Kind = AstKind.Call;
+        printArg.Left = printName;
+        printArg.Parameters.Add(indexExpr);
+        AstNode printArgStmt = AstNode();
+        printArgStmt.Kind = AstKind.ExpressionStatement;
+        printArgStmt.Left = printArg;
+        AstNode ifBody = AstNode();
+        ifBody.Kind = AstKind.Block;
+        ifBody.Children.Add(printArgStmt);
+        AstNode ifStmt = AstNode();
+        ifStmt.Kind = AstKind.If;
+        ifStmt.Condition = compare;
+        ifStmt.Body = ifBody;
+
+        AstNode retLit = AstNode();
+        retLit.Kind = AstKind.IntegerLiteral;
+        retLit.Text = "0";
+        AstNode ret = AstNode();
+        ret.Kind = AstKind.Return;
+        ret.Left = retLit;
+
+        AstNode body = AstNode();
+        body.Kind = AstKind.Block;
+        body.Children.Add(totalVar);
+        body.Children.Add(loop);
+        body.Children.Add(printGreetingStmt);
+        body.Children.Add(printTotalStmt);
+        body.Children.Add(ifStmt);
+        body.Children.Add(ret);
+
+        AstNode paramType = AstNode();
+        paramType.Kind = AstKind.Type;
+        paramType.Name = "Args";
+        AstNode param = AstNode();
+        param.Kind = AstKind.Parameter;
+        param.Name = "args";
+        param.Type = paramType;
+        AstNode returnType = AstNode();
+        returnType.Kind = AstKind.Type;
+        returnType.Name = "Int";
+        AstNode function = AstNode();
+        function.Kind = AstKind.Function;
+        function.Name = "Main";
+        function.Type = returnType;
+        function.Body = body;
+        function.Parameters.Add(param);
+        This.LowerFunction(function, "");
+        Return This.JoinLines();
+    }
+
+    Private Function LowerBody(String name, String returnType, AstNode statement) -> String {
+        This.Reset();
+        AstNode body = AstNode();
+        body.Kind = AstKind.Block;
+        body.Children.Add(statement);
+        AstNode function = AstNode();
+        function.Kind = AstKind.Function;
+        function.Name = name;
+        AstNode typeNode = AstNode();
+        typeNode.Kind = AstKind.Type;
+        typeNode.Name = returnType;
+        function.Type = typeNode;
+        function.Body = body;
+        This.LowerFunction(function, "");
+        Return This.JoinLines();
+    }
+
+    Private Function Reset() -> Void {
+        This.Lines = List<String>();
+        This.Counter = 0;
+        This.BlockSerial = 0;
+        This.StringSerial = 0;
+        This.LoopCount = 0;
+        This.Terminated = False;
+        This.LocalNames = List<String>();
+        This.LocalSlots = List<String>();
+        This.LocalMachines = List<String>();
+        This.LoopHeads = List<String>();
+        This.LoopEnds = List<String>();
+        This.FoldFuncNames = List<String>();
+        This.FoldFuncNodes = List<AstNode>();
+        This.FoldNames = List<String>();
+        This.FoldValues = List<Int>();
+        This.FoldValue = 0;
+        This.FoldOk = False;
+    }
+
+    Private Function AddLine(String text) -> String {
+        This.Lines.Add(text);
+        Return text;
+    }
+
+    Private Function AddOp(String text) -> String {
+        String line = "  " + text;
+        This.Lines.Add(line);
+        Return line;
+    }
+
+    Private Function Fresh() -> String {
+        String name = "%" + This.Counter.ToString();
+        This.Counter = This.Counter + 1;
+        Return name;
+    }
+
+    Private Function MakeValue(String name, String machine) -> RxValue {
+        RxValue value = RxValue();
+        value.Name = name;
+        value.Machine = machine;
+        Return value;
+    }
+
+    Private Function TypeLabel(AstNode? node) -> String {
+        If (node == Null) { Return ""; }
+        If (node.Name != "") { Return node.Name; }
+        Return node.Text;
+    }
+
+    Private Function Remember(String name, String machine) -> String {
+        String slot = "s" + This.LocalNames.Count().ToString();
+        This.LocalNames.Add(name);
+        This.LocalSlots.Add(slot);
+        This.LocalMachines.Add(machine);
+        Return slot;
+    }
+
+    Private Function SlotOf(String name) -> String {
+        Int index = 0;
+        While (index < This.LocalNames.Count()) {
+            If (This.LocalNames[index] == name) { Return This.LocalSlots[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function MachineOfSlot(String name) -> String {
+        Int index = 0;
+        While (index < This.LocalNames.Count()) {
+            If (This.LocalNames[index] == name) { Return This.LocalMachines[index]; }
+            index = index + 1;
+        }
+        Return "i64";
+    }
+
+    Private Function JoinLines() -> String {
+        String text = "";
+        Int index = 0;
+        While (index < This.Lines.Count()) {
+            If (index > 0) { text = text + "\n"; }
+            text = text + This.Lines[index];
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Private Function LowerFunction(AstNode node, String className) -> Void {
+        If (node.Kind != AstKind.Function) { Return; }
+        This.Counter = 0;
+        This.BlockSerial = 0;
+        This.LoopCount = 0;
+        This.Terminated = False;
+        This.LocalNames = List<String>();
+        This.LocalSlots = List<String>();
+        This.LocalMachines = List<String>();
+        String symbol = node.Name;
+        If (symbol == "") { symbol = "Function"; }
+        If (className != "" && symbol != "Main") { symbol = className + "_" + symbol; }
+        String returnMachine = This.MachineType(This.TypeLabel(node.Type));
+        String signature = "function " + symbol + "(";
+        Int index = 0;
+        If (node.Parameters != Null) {
+            For parameter In node.Parameters {
+                If (index > 0) { signature = signature + ", "; }
+                String paramName = parameter.Name;
+                If (paramName == "") { paramName = "p" + index.ToString(); }
+                String machine = This.MachineType(This.TypeLabel(parameter.Type));
+                signature = signature + paramName + ": " + machine;
+                index = index + 1;
+            }
+        }
+        signature = signature + ") -> " + returnMachine;
+        This.AddLine(signature);
+        This.StartBlock("entry");
+        index = 0;
+        If (node.Parameters != Null) {
+            For parameter In node.Parameters {
+                String paramName = parameter.Name;
+                If (paramName == "") { paramName = "p" + index.ToString(); }
+                String machine = This.MachineType(This.TypeLabel(parameter.Type));
+                String incoming = This.Fresh();
+                This.AddOp(incoming + " = arg " + machine + " " + index.ToString());
+                This.Remember(paramName, machine);
+                This.AddOp("store " + machine + " " + incoming + ", " + This.SlotOf(paramName));
+                index = index + 1;
+            }
+        }
+        If (node.Body != Null) { This.LowerBlock(node.Body); }
+        If (node.Body == Null && node.Left != Null) {
+            RxValue value = This.LowerExpr(node.Left);
+            This.AddOp("ret " + value.Machine + " " + value.Name);
+            This.Terminated = True;
+        }
+        If (!This.Terminated) { This.DefaultReturn(returnMachine); }
+        This.AddLine("");
+    }
+
+    Private Function DefaultReturn(String machine) -> Void {
+        If (machine == "void" || machine == "") {
+            This.AddOp("ret void");
+        } Else If (machine == "f64" || machine == "f32") {
+            String name = This.Fresh();
+            This.AddOp(name + " = const " + machine + " 0.0");
+            This.AddOp("ret " + machine + " " + name);
+        } Else {
+            String name = This.Fresh();
+            This.AddOp(name + " = const " + machine + " 0");
+            This.AddOp("ret " + machine + " " + name);
+        }
+        This.Terminated = True;
+    }
+
+    Private Function LowerBlock(AstNode node) -> Void {
+        If (node.Children == Null) { Return; }
+        For child In node.Children {
+            If (!This.Terminated) { This.LowerStatement(child); }
+        }
+    }
+
+    Private Function StartBlock(String name) -> String {
+        This.AddLine("block " + name);
+        This.Terminated = False;
+        Return name;
+    }
+
+    Private Function NextBlock() -> String {
+        String name = "b" + This.BlockSerial.ToString();
+        This.BlockSerial = This.BlockSerial + 1;
+        Return name;
+    }
+
+    Private Function PushLoop(String head, String done) -> Void {
+        If (This.LoopCount < This.LoopHeads.Count()) {
+            This.LoopHeads[This.LoopCount] = head;
+            This.LoopEnds[This.LoopCount] = done;
+        } Else {
+            This.LoopHeads.Add(head);
+            This.LoopEnds.Add(done);
+        }
+        This.LoopCount = This.LoopCount + 1;
+    }
+
+    Private Function PopLoop() -> Void {
+        If (This.LoopCount > 0) { This.LoopCount = This.LoopCount - 1; }
+    }
+
+    Private Function LoopLabel(String kind) -> String {
+        If (This.LoopCount <= 0) { Return ""; }
+        Int index = This.LoopCount - 1;
+        If (kind == "head") { Return This.LoopHeads[index]; }
+        Return This.LoopEnds[index];
+    }
+
+    Private Function Branch(RxValue cond, String yes, String no) -> Void {
+        This.AddOp("branch " + cond.Machine + " " + cond.Name + ", " + yes + ", " + no);
+        This.Terminated = True;
+    }
+
+    Private Function LowerStatement(AstNode node) -> Void {
+        If (node.Kind == AstKind.Block) {
+            This.LowerBlock(node);
+            Return;
+        }
+        If (node.Kind == AstKind.Variable) {
+            String machine = This.MachineType(This.TypeLabel(node.Type));
+            RxValue initial = This.MakeValue("", machine);
+            If (node.Initializer != Null) {
+                initial = This.LowerExpr(node.Initializer);
+                machine = initial.Machine;
+            } Else {
+                String zero = This.Fresh();
+                String spelling = "0";
+                If (machine == "f64" || machine == "f32") { spelling = "0.0"; }
+                If (machine == "ptr") { spelling = "0"; }
+                This.AddOp(zero + " = const " + machine + " " + spelling);
+                initial = This.MakeValue(zero, machine);
+            }
+            This.Remember(node.Name, machine);
+            This.AddOp("store " + machine + " " + initial.Name + ", " + This.SlotOf(node.Name));
+            If (node.Children != Null) {
+                For extra In node.Children {
+                    This.LowerStatement(extra);
+                }
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Assignment) {
+            This.LowerAssignment(node);
+            Return;
+        }
+        If (node.Kind == AstKind.ExpressionStatement) {
+            If (node.Left != Null) { This.LowerExpr(node.Left); }
+            Return;
+        }
+        If (node.Kind == AstKind.Return) {
+            If (node.Left == Null) {
+                This.AddOp("ret void");
+            } Else {
+                RxValue value = This.LowerExpr(node.Left);
+                This.AddOp("ret " + value.Machine + " " + value.Name);
+            }
+            This.Terminated = True;
+            Return;
+        }
+        If (node.Kind == AstKind.If) {
+            String yes = This.NextBlock();
+            String no = This.NextBlock();
+            String join = This.NextBlock();
+            RxValue cond = This.MakeValue("", "i8");
+            If (node.Condition != Null) { cond = This.LowerExpr(node.Condition); }
+            This.Branch(cond, yes, no);
+            This.StartBlock(yes);
+            If (node.Body != Null) { This.LowerBlock(node.Body); }
+            If (!This.Terminated) { This.AddOp("jump " + join); }
+            This.StartBlock(no);
+            If (node.Otherwise != Null) {
+                If (node.Otherwise.Kind == AstKind.Block) { This.LowerBlock(node.Otherwise); }
+                Else { This.LowerStatement(node.Otherwise); }
+            }
+            If (!This.Terminated) { This.AddOp("jump " + join); }
+            This.StartBlock(join);
+            Return;
+        }
+        If (node.Kind == AstKind.While || (node.Kind == AstKind.For && node.FlagB)) {
+            If (node.Kind == AstKind.For && node.Initializer != Null) { This.LowerStatement(node.Initializer); }
+            String head = This.NextBlock();
+            String body = This.NextBlock();
+            String done = This.NextBlock();
+            This.PushLoop(head, done);
+            This.StartBlock(head);
+            If (node.Condition != Null) {
+                RxValue cond = This.LowerExpr(node.Condition);
+                This.Branch(cond, body, done);
+            } Else {
+                This.AddOp("jump " + body);
+                This.Terminated = True;
+            }
+            This.StartBlock(body);
+            If (node.Body != Null) { This.LowerBlock(node.Body); }
+            If (!This.Terminated && node.Kind == AstKind.For && node.Extra != Null) { This.LowerExpr(node.Extra); }
+            If (!This.Terminated) { This.AddOp("jump " + head); }
+            This.StartBlock(done);
+            This.PopLoop();
+            Return;
+        }
+        If (node.Kind == AstKind.For && node.Right != Null && node.Right.Kind == AstKind.Range) {
+            String indexName = "index";
+            If (node.Left != Null && node.Left.Name != "") { indexName = node.Left.Name; }
+            RxValue start = This.LowerExpr(node.Right.Left);
+            RxValue end = This.LowerExpr(node.Right.Right);
+            If (!node.Right.FlagA) {
+                String one = This.ConstName("1", "i64");
+                String exclusive = This.Fresh();
+                This.AddOp(exclusive + " = sub i64 " + end.Name + ", " + one);
+                end = This.MakeValue(exclusive, "i64");
+            }
+            This.Remember(indexName, "i64");
+            This.AddOp("store i64 " + start.Name + ", " + This.SlotOf(indexName));
+            String head = This.NextBlock();
+            String body = This.NextBlock();
+            String done = This.NextBlock();
+            This.PushLoop(head, done);
+            This.StartBlock(head);
+            RxValue current = This.LoadName(indexName);
+            String cmp = This.Fresh();
+            This.AddOp(cmp + " = cmp le i64 " + current.Name + ", " + end.Name);
+            This.Branch(This.MakeValue(cmp, "i8"), body, done);
+            This.StartBlock(body);
+            If (node.Body != Null) { This.LowerBlock(node.Body); }
+            If (!This.Terminated) {
+                RxValue now = This.LoadName(indexName);
+                String one = This.ConstName("1", "i64");
+                String next = This.Fresh();
+                This.AddOp(next + " = add i64 " + now.Name + ", " + one);
+                This.AddOp("store i64 " + next + ", " + This.SlotOf(indexName));
+                This.AddOp("jump " + head);
+            }
+            This.StartBlock(done);
+            This.PopLoop();
+            Return;
+        }
+        If (node.Kind == AstKind.Break) {
+            String done = This.LoopLabel("done");
+            If (done == "") { This.AddLine("note break"); }
+            Else {
+                This.AddOp("jump " + done);
+                This.Terminated = True;
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Continue) {
+            String head = This.LoopLabel("head");
+            If (head == "") { This.AddLine("note continue"); }
+            Else {
+                This.AddOp("jump " + head);
+                This.Terminated = True;
+            }
+            Return;
+        }
+        If (node.Kind == AstKind.Missing || node.Kind == AstKind.Explain) {
+            Return;
+        }
+        This.AddLine("note unsupported");
+    }
+
+    Private Function LowerAssignment(AstNode node) -> Void {
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) {
+            String slot = This.SlotOf(node.Left.Name);
+            String machine = This.MachineOfSlot(node.Left.Name);
+            RxValue value = This.MakeValue("", machine);
+            If (node.Right != Null) { value = This.LowerExpr(node.Right); }
+            If (node.Operator == "+=" || node.Operator == "-=" || node.Operator == "*=") {
+                RxValue current = This.LoadName(node.Left.Name);
+                String opcode = "add";
+                If (node.Operator == "-=") { opcode = "sub"; }
+                If (node.Operator == "*=") { opcode = "mul"; }
+                String name = This.Fresh();
+                This.AddOp(name + " = " + opcode + " " + current.Machine + " " + current.Name + ", " + value.Name);
+                value = This.MakeValue(name, current.Machine);
+            }
+            If (slot == "") {
+                This.Remember(node.Left.Name, value.Machine);
+                slot = This.SlotOf(node.Left.Name);
+            }
+            This.AddOp("store " + value.Machine + " " + value.Name + ", " + slot);
+            Return;
+        }
+        This.AddLine("note unsupported");
+    }
+
+    Private Function ConstName(String spelling, String machine) -> String {
+        String name = This.Fresh();
+        This.AddOp(name + " = const " + machine + " " + spelling);
+        Return name;
+    }
+
+    Private Function LoadName(String name) -> RxValue {
+        String slot = This.SlotOf(name);
+        String machine = This.MachineOfSlot(name);
+        If (slot == "") {
+            String missing = This.Fresh();
+            This.AddOp(missing + " = const i64 0");
+            Return This.MakeValue(missing, "i64");
+        }
+        String loaded = This.Fresh();
+        This.AddOp(loaded + " = load " + machine + " " + slot);
+        Return This.MakeValue(loaded, machine);
+    }
+
+    Private Function LowerExpr(AstNode? node) -> RxValue {
+        If (node == Null || node.Kind == AstKind.Missing) {
+            String name = This.Fresh();
+            This.AddOp(name + " = const i64 0");
+            Return This.MakeValue(name, "i64");
+        }
+        If (node.Kind == AstKind.IntegerLiteral) {
+            String robix = "Int";
+            String suffix = NumericSuffix(node.Text);
+            If (suffix != "") { robix = SuffixTypeName(suffix); }
+            String machine = This.MachineType(robix);
+            String spelling = StripNumericSuffix(node.Text).Replace("_", "");
+            If (spelling == "") { spelling = "0"; }
+            Return This.MakeValue(This.ConstName(spelling, machine), machine);
+        }
+        If (node.Kind == AstKind.FloatLiteral) {
+            String machine = "f64";
+            String suffix = NumericSuffix(node.Text);
+            If (suffix != "") { machine = This.MachineType(SuffixTypeName(suffix)); }
+            String spelling = StripNumericSuffix(node.Text).Replace("_", "");
+            If (spelling == "") { spelling = "0.0"; }
+            Return This.MakeValue(This.ConstName(spelling, machine), machine);
+        }
+        If (node.Kind == AstKind.BooleanLiteral) {
+            String spelling = "0";
+            If (node.FlagA || node.Text == "True") { spelling = "1"; }
+            Return This.MakeValue(This.ConstName(spelling, "i8"), "i8");
+        }
+        If (node.Kind == AstKind.StringLiteral) {
+            String label = "str" + This.StringSerial.ToString();
+            This.StringSerial = This.StringSerial + 1;
+            This.AddLine("data " + label + " \"" + This.Escape(node.Text) + "\"");
+            Return This.MakeValue(label, "ptr");
+        }
+        If (node.Kind == AstKind.Name) { Return This.LoadName(node.Name); }
+        If (node.Kind == AstKind.Unary) { Return This.LowerUnary(node); }
+        If (node.Kind == AstKind.Binary) { Return This.LowerBinary(node); }
+        If (node.Kind == AstKind.Call) { Return This.LowerCall(node); }
+        If (node.Kind == AstKind.Index) {
+            String label = "str" + This.StringSerial.ToString();
+            This.StringSerial = This.StringSerial + 1;
+            This.AddLine("data " + label + " \"\"");
+            Return This.MakeValue(label, "ptr");
+        }
+        If (node.Kind == AstKind.Assignment) {
+            This.LowerAssignment(node);
+            If (node.Left != Null && node.Left.Kind == AstKind.Name) { Return This.LoadName(node.Left.Name); }
+        }
+        String name = This.Fresh();
+        This.AddLine("note unsupported");
+        This.AddOp(name + " = const i64 0");
+        Return This.MakeValue(name, "i64");
+    }
+
+    Private Function LowerUnary(AstNode node) -> RxValue {
+        RxValue value = This.MakeValue("", "i64");
+        If (node.Left != Null) { value = This.LowerExpr(node.Left); }
+        If (node.Operator == "+" || node.Operator == "") { Return value; }
+        String name = This.Fresh();
+        If (node.Operator == "-" || node.Operator == "Neg") {
+            This.AddOp(name + " = neg " + value.Machine + " " + value.Name);
+            Return This.MakeValue(name, value.Machine);
+        }
+        If (node.Operator == "!" || node.Operator == "Not") {
+            String zero = This.ConstName("0", value.Machine);
+            This.AddOp(name + " = cmp eq " + value.Machine + " " + value.Name + ", " + zero);
+            Return This.MakeValue(name, "i8");
+        }
+        This.AddLine("note unsupported");
+        Return value;
+    }
+
+    Private Function LowerBinary(AstNode node) -> RxValue {
+        RxValue left = This.MakeValue("", "i64");
+        RxValue right = This.MakeValue("", "i64");
+        If (node.Left != Null) { left = This.LowerExpr(node.Left); }
+        If (node.Right != Null) { right = This.LowerExpr(node.Right); }
+        String machine = left.Machine;
+        If (left.Machine == "f64" || right.Machine == "f64" || left.Machine == "f32" || right.Machine == "f32") {
+            machine = "f64";
+            If (left.Machine == "f32" && right.Machine == "f32") { machine = "f32"; }
+        }
+        If (node.Operator == "+" && (left.Machine == "ptr" || right.Machine == "ptr")) {
+            Return This.DirectCall("ptr", "Text_Concat", left, right);
+        }
+        String opcode = "";
+        String condition = "";
+        If (node.Operator == "+") { opcode = "add"; }
+        If (node.Operator == "-") { opcode = "sub"; }
+        If (node.Operator == "*") { opcode = "mul"; }
+        If (node.Operator == "/") { opcode = "div"; }
+        If (node.Operator == "%") { opcode = "rem"; }
+        If (node.Operator == "&") { opcode = "and"; }
+        If (node.Operator == "|") { opcode = "or"; }
+        If (node.Operator == "^") { opcode = "xor"; }
+        If (node.Operator == "<<") { opcode = "shl"; }
+        If (node.Operator == ">>") { opcode = "shr"; }
+        If (node.Operator == "&&" || node.Operator == "And") { opcode = "and"; machine = "i8"; }
+        If (node.Operator == "||" || node.Operator == "Or") { opcode = "or"; machine = "i8"; }
+        If (node.Operator == "==" || node.Operator == "Equal") { condition = "eq"; }
+        If (node.Operator == "!=") { condition = "ne"; }
+        If (node.Operator == "<") { condition = "lt"; }
+        If (node.Operator == ">") { condition = "gt"; }
+        If (node.Operator == "<=") { condition = "le"; }
+        If (node.Operator == ">=") { condition = "ge"; }
+        String name = This.Fresh();
+        If (condition != "") {
+            This.AddOp(name + " = cmp " + condition + " " + machine + " " + left.Name + ", " + right.Name);
+            Return This.MakeValue(name, "i8");
+        }
+        If (opcode == "") {
+            This.AddLine("note unsupported");
+            This.AddOp(name + " = const i64 0");
+            Return This.MakeValue(name, "i64");
+        }
+        This.AddOp(name + " = " + opcode + " " + machine + " " + left.Name + ", " + right.Name);
+        Return This.MakeValue(name, machine);
+    }
+
+    Private Function DirectCall(String machine, String symbol, RxValue left, RxValue right) -> RxValue {
+        String name = This.Fresh();
+        This.AddOp(name + " = call " + machine + " @" + symbol + " " + left.Machine + " " + left.Name + " " + right.Machine + " " + right.Name);
+        Return This.MakeValue(name, machine);
+    }
+
+    Private Function LowerCall(AstNode node) -> RxValue {
+        String symbol = "Call";
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) { symbol = node.Left.Name; }
+        If (node.Left != Null && node.Left.Kind == AstKind.Member) {
+            symbol = node.Left.Name;
+            If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name && node.Left.Left.Name != "") {
+                symbol = node.Left.Left.Name + "_" + node.Left.Name;
+            }
+        }
+        If (symbol == "args_Count") {
+            RxValue count = This.LoadName("args");
+            Return This.MakeValue(count.Name, "i64");
+        }
+        If (symbol == "Print") {
+            AstNode expr = AstNode();
+            Int seen = 0;
+            If (node.Parameters != Null) {
+                For argument In node.Parameters {
+                    If (seen == 0) {
+                        expr = argument;
+                        If (argument.Kind == AstKind.Argument && argument.Left != Null) { expr = argument.Left; }
+                    }
+                    seen = seen + 1;
+                }
+            }
+            If (seen == 1) {
+                RxValue value = This.LowerExpr(expr);
+                If (value.Machine == "ptr" || value.Name.StartsWith("str")) {
+                    This.AddOp("print str " + value.Name);
+                } Else {
+                    This.AddOp("print " + value.Machine + " " + value.Name);
+                }
+                Return This.MakeValue("", "void");
+            }
+            This.AddLine("note unsupported");
+            Return This.MakeValue("", "void");
+        }
+        String args = "";
+        If (node.Parameters != Null) {
+            For argument In node.Parameters {
+                AstNode expr = argument;
+                If (argument.Kind == AstKind.Argument && argument.Left != Null) { expr = argument.Left; }
+                RxValue value = This.LowerExpr(expr);
+                args = args + " " + value.Machine + " " + value.Name;
+            }
+        }
+        String machine = "i64";
+        If (symbol == "Print") { machine = "void"; }
+        If (machine == "void") {
+            This.AddOp("call void @" + symbol + args);
+            Return This.MakeValue("", "void");
+        }
+        String name = This.Fresh();
+        This.AddOp(name + " = call " + machine + " @" + symbol + args);
+        Return This.MakeValue(name, machine);
+    }
+
+    Private Function Escape(String text) -> String {
+        String escaped = text.Replace("\\", "\\\\");
+        escaped = escaped.Replace("\"", "\\\"");
+        Return escaped;
+    }
+}

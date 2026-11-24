@@ -12,17 +12,36 @@ Public Function Main(Args<String> args) -> ExecutionResult
 Explain {
     Description: "Compile one Robix source file into a Linux executable.";
     Input: args = "The source path and an optional output path";
-    Processing: "Parse the syntax, apply the always-strict type rules, emit LLVM IR, and let clang++ write the executable.";
+    Processing: "Parse the syntax, apply the always-strict type rules, and emit RXIR. --ir stops there. --asm writes RXASM. --target linux-x64 assembles an ELF. Otherwise clang++ still links the LLVM IR.";
     Output: "Success when the module is strict and type-safe.";
 } {
-    If (args.Count() == 0) {
-        Print("{warning}Usage{/}  {accent}robixc{/} {bold}Source.rx{/} {muted}Output.app{/}");
+    Var positionals = List<String>();
+    Bool irOnly = False;
+    Bool asmOnly = False;
+    String target = "";
+    Int index = 0;
+    While (index < args.Count()) {
+        String arg = args[index];
+        If (arg == "--ir") { irOnly = True; }
+        Else If (arg == "--asm") { asmOnly = True; }
+        Else If (arg == "--target" && index + 1 < args.Count()) {
+            index = index + 1;
+            target = args[index];
+        } Else If (arg.StartsWith("--target=")) {
+            target = arg.Substring(9);
+        } Else {
+            positionals.Add(arg);
+        }
+        index = index + 1;
+    }
+    If (positionals.Count() == 0) {
+        Print("{warning}Usage{/}  {accent}robixc{/} {bold}Source.rx{/} {muted}Output{/} {muted}[--ir | --asm | --target linux-x64]{/}");
         Return FinishRun(ExitCode.InvalidArguments, "A source file is required.");
     }
-    String sourcePath = args[0];
+    String sourcePath = positionals[0];
     String outputPath = "Build/Program.app";
-    If (args.Count() > 1) {
-        outputPath = args[1];
+    If (positionals.Count() > 1) {
+        outputPath = positionals[1];
     }
     Print("{accent}robixc{/} {bold}" + sourcePath + "{/}  {muted}->{/}  {bold}" + outputPath + "{/}");
     String source = Files.ReadText(sourcePath);
@@ -43,6 +62,39 @@ Explain {
     For line In tests.RequireTests(sourcePath, result.Module) {
         Print(line);
         Return FinishRun(ExitCode.ErrorExecution, "Compilation failed.");
+    }
+    If (irOnly) {
+        String irPath = outputPath;
+        If (!irPath.EndsWith(".rxir")) { irPath = outputPath + ".rxir"; }
+        Files.WriteText(irPath, result.Rxir);
+        Print("{success}wrote{/}  {bold}" + irPath + "{/}");
+        Return FinishRun(ExitCode.Success, "Wrote " + irPath + ".");
+    }
+    If (asmOnly || target == "linux-x64") {
+        RxAssembler assembler = RxAssembler();
+        String rxasm = assembler.WithStart(assembler.Select(result.Rxir));
+        String asmPath = outputPath;
+        If (asmPath.EndsWith(".rxs")) {
+            Files.WriteText(asmPath, rxasm);
+        } Else {
+            asmPath = outputPath + ".rxs";
+            Files.WriteText(asmPath, rxasm);
+        }
+        Print("{success}wrote{/}  {bold}" + asmPath + "{/}");
+        If (asmOnly) {
+            Return FinishRun(ExitCode.Success, "Wrote " + asmPath + ".");
+        }
+        If (rxasm.IndexOf("; skip") >= 0) {
+            Return FinishRun(ExitCode.ErrorExecution, "The assembler does not encode this program yet.");
+        }
+        List<Int> code = assembler.Assemble(rxasm);
+        If (code.Count() == 0) {
+            Return FinishRun(ExitCode.ErrorExecution, "Assembly failed.");
+        }
+        ElfImage elf = ElfImage();
+        Files.WriteBytes(outputPath, elf.Wrap(code));
+        Print("{success}wrote{/}  {bold}" + outputPath + "{/}");
+        Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
     }
     String llPath = outputPath + ".ll";
     Files.WriteText(llPath, result.NativeIr);

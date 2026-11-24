@@ -1,0 +1,205 @@
+// Tests for Compiler/Rxir.rx.
+
+Test MachineType {
+    Case "int" {
+        Input: robixType = "Int";
+        Assert: Result == "i64";
+    }
+    Case "float" {
+        Input: robixType = "Float";
+        Assert: Result == "f64";
+    }
+    Case "bool" {
+        Input: robixType = "Bool";
+        Assert: Result == "i8";
+    }
+    Case "string" {
+        Input: robixType = "String";
+        Assert: Result == "ptr";
+    }
+    Case "void" {
+        Input: robixType = "Void";
+        Assert: Result == "void";
+    }
+    Case "int32" {
+        Input: robixType = "Int32";
+        Assert: Result == "i32";
+    }
+}
+
+Test LowerModule {
+    Case "empty module" {
+        Input: module = AstNode();
+        Assert: Result == "";
+    }
+}
+
+Test ReturnZero {
+    Case "unboxed zero" {
+        Input:;
+        Assert: Result.IndexOf("const i64 0") >= 0 && Result.IndexOf("ret i64") >= 0 && Result.IndexOf("bitcast") < 0;
+    }
+}
+
+Test AddTwo {
+    Case "unboxed add" {
+        Input:;
+        Assert: Result.IndexOf("add i64") >= 0 && Result.IndexOf("bitcast") < 0;
+    }
+}
+
+Test FloatOne {
+    Case "unboxed float" {
+        Input:;
+        Assert: Result.IndexOf("const f64 1.5") >= 0 && Result.IndexOf("bitcast") < 0;
+    }
+}
+
+Test BoolTrue {
+    Case "unboxed bool" {
+        Input:;
+        Assert: Result.IndexOf("const i8 1") >= 0 && Result.IndexOf("ret i8") >= 0;
+    }
+}
+
+Test HelloLines {
+    Case "greeting and total" {
+        Input:;
+        Assert: Result.IndexOf("print str str0") >= 0 && Result.IndexOf("Hello, Robix") >= 0 && Result.IndexOf("print i64") >= 0 && Result.IndexOf("add i64") >= 0 && Result.IndexOf("cmp le") >= 0 && Result.IndexOf("note") < 0 && Result.IndexOf("call") < 0;
+    }
+}
+
+Test LowerBody {
+    Output: True;
+}
+
+Test Reset {
+    Output: True;
+}
+
+Test AddLine {
+    Case "keeps the line" {
+        Input: text = "function Main() -> i64";
+        Assert: Result == "function Main() -> i64";
+    }
+}
+
+Test AddOp {
+    Case "indents the instruction" {
+        Input: text = "ret void";
+        Assert: Result == "  ret void";
+    }
+}
+
+Test Fresh {
+    Case "first register" {
+        Input:;
+        Assert: Result == "%0";
+    }
+}
+
+Test MakeValue {
+    Output: True;
+}
+
+Test TypeLabel {
+    Output: True;
+}
+
+Test Remember {
+    Case "first slot" {
+        Input: name = "total", machine = "i64";
+        Assert: Result == "s0";
+    }
+}
+
+Test SlotOf {
+    Output: True;
+}
+
+Test MachineOfSlot {
+    Output: True;
+}
+
+Test JoinLines {
+    Output: True;
+}
+
+Test LowerFunction {
+    Output: True;
+}
+
+Test DefaultReturn {
+    Output: True;
+}
+
+Test LowerBlock {
+    Output: True;
+}
+
+Test StartBlock {
+    Output: True;
+}
+
+Test NextBlock {
+    Output: True;
+}
+
+Test PushLoop {
+    Output: True;
+}
+
+Test PopLoop {
+    Output: True;
+}
+
+Test LoopLabel {
+    Output: True;
+}
+
+Test Branch {
+    Output: True;
+}
+
+Test LowerStatement {
+    Output: True;
+}
+
+Test LowerAssignment {
+    Output: True;
+}
+
+Test ConstName {
+    Output: True;
+}
+
+Test LoadName {
+    Output: True;
+}
+
+Test LowerExpr {
+    Output: True;
+}
+
+Test LowerUnary {
+    Output: True;
+}
+
+Test LowerBinary {
+    Output: True;
+}
+
+Test DirectCall {
+    Output: True;
+}
+
+Test LowerCall {
+    Output: True;
+}
+
+Test Escape {
+    Case "plain text" {
+        Input: text = "Hello";
+        Assert: Result == "Hello";
+    }
+}

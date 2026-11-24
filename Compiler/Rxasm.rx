@@ -1,0 +1,1315 @@
+// RXIR to RXASM, then RXASM to x86-64 bytes.
+Package Robix.Syntax
+Explain {
+    Description: "Select x86-64 instructions and assemble them to bytes.";
+};
+
+Import Robix.Core;
+
+
+Public Class X64 {
+    Public Function MovImm(String dest, Int value) -> List<Int>
+    Explain {
+        Description: "Encode mov r64, imm32.";
+        Input: dest = "Destination register", value = "Signed immediate";
+        Processing: "Write REX, opcode C7, ModR/M, and four immediate bytes.";
+        Output: "The instruction bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexB(dest));
+        bytes.Add(199);
+        bytes.Add(192 + This.RegLow(dest));
+        This.AppendI32(bytes, value);
+        Return bytes;
+    }
+
+    Public Function MovReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode mov r64, r64.";
+        Input: dest = "Destination register", source = "Source register";
+        Processing: "Write REX and opcode 89.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.Alu(137, dest, source);
+    }
+
+    Public Function AddReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode add r64, r64.";
+        Input: dest = "Destination register", source = "Source register";
+        Processing: "Write REX and opcode 01.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.Alu(1, dest, source);
+    }
+
+    Public Function SubReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode sub r64, r64.";
+        Input: dest = "Destination register", source = "Source register";
+        Processing: "Write REX and opcode 29.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.Alu(41, dest, source);
+    }
+
+    Public Function AndReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode and r64, r64.";
+        Input: dest = "Destination register", source = "Source register";
+        Processing: "Write REX and opcode 21.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.Alu(33, dest, source);
+    }
+
+    Public Function OrReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode or r64, r64.";
+        Input: dest = "Destination register", source = "Source register";
+        Processing: "Write REX and opcode 09.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.Alu(9, dest, source);
+    }
+
+    Public Function XorReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode xor r64, r64.";
+        Input: dest = "Destination register", source = "Source register";
+        Processing: "Write REX and opcode 31.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.Alu(49, dest, source);
+    }
+
+    Public Function ImulReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode imul r64, r64.";
+        Input: dest = "Destination register", source = "Source register";
+        Processing: "Write REX and opcode 0F AF with the destination in the reg field.";
+        Output: "The instruction bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexPair(source, dest));
+        bytes.Add(15);
+        bytes.Add(175);
+        bytes.Add(192 + This.RegLow(dest) * 8 + This.RegLow(source));
+        Return bytes;
+    }
+
+    Public Function CmpReg(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode cmp r64, r64.";
+        Input: dest = "Register compared", source = "Register subtracted for the flags";
+        Processing: "Write REX and opcode 39.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.Alu(57, dest, source);
+    }
+
+    Public Function CmpImm(String dest, Int value) -> List<Int>
+    Explain {
+        Description: "Encode cmp r64, imm.";
+        Input: dest = "Register compared", value = "Immediate";
+        Processing: "Use the imm8 form when the value fits, otherwise imm32.";
+        Output: "The instruction bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexB(dest));
+        Int modrm = 248 + This.RegLow(dest);
+        If (value >= -128 && value <= 127) {
+            bytes.Add(131);
+            bytes.Add(modrm);
+            bytes.Add(This.Low8(value));
+        } Else {
+            bytes.Add(129);
+            bytes.Add(modrm);
+            This.AppendI32(bytes, value);
+        }
+        Return bytes;
+    }
+
+    Public Function RetBytes() -> List<Int>
+    Explain {
+        Description: "Encode ret.";
+        Input: none = "No input";
+        Processing: "Write opcode C3.";
+        Output: "One byte.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(195);
+        Return bytes;
+    }
+
+    Public Function SyscallBytes() -> List<Int>
+    Explain {
+        Description: "Encode syscall.";
+        Input: none = "No input";
+        Processing: "Write 0F 05.";
+        Output: "Two bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(15);
+        bytes.Add(5);
+        Return bytes;
+    }
+
+    Public Function CallRel(Int displacement) -> List<Int>
+    Explain {
+        Description: "Encode call rel32.";
+        Input: displacement = "Signed distance from the next instruction";
+        Processing: "Write E8 and four displacement bytes.";
+        Output: "Five bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(232);
+        This.AppendI32(bytes, displacement);
+        Return bytes;
+    }
+
+    Public Function JmpRel(Int displacement) -> List<Int>
+    Explain {
+        Description: "Encode jmp rel32.";
+        Input: displacement = "Signed distance from the next instruction";
+        Processing: "Write E9 and four displacement bytes.";
+        Output: "Five bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(233);
+        This.AppendI32(bytes, displacement);
+        Return bytes;
+    }
+
+    Public Function JccRel(String condition, Int displacement) -> List<Int>
+    Explain {
+        Description: "Encode a conditional jump with a rel32 displacement.";
+        Input: condition = "je, jne, jl, jg, jle, or jge", displacement = "Signed distance from the next instruction";
+        Processing: "Write 0F, the condition opcode, and four displacement bytes.";
+        Output: "Six bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(15);
+        bytes.Add(This.JccOpcode(condition));
+        This.AppendI32(bytes, displacement);
+        Return bytes;
+    }
+
+    Public Function AddImm(String dest, Int value) -> List<Int>
+    Explain {
+        Description: "Encode add r64, imm.";
+        Input: dest = "Destination register", value = "Immediate";
+        Processing: "Use the imm8 form when the value fits, otherwise imm32.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.AluImm(0, dest, value);
+    }
+
+    Public Function SubImm(String dest, Int value) -> List<Int>
+    Explain {
+        Description: "Encode sub r64, imm.";
+        Input: dest = "Destination register", value = "Immediate";
+        Processing: "Use the imm8 form when the value fits, otherwise imm32.";
+        Output: "The instruction bytes.";
+    } {
+        Return This.AluImm(5, dest, value);
+    }
+
+    Public Function LeaRip(String dest, Int displacement) -> List<Int>
+    Explain {
+        Description: "Encode lea r64, [rip+disp32].";
+        Input: dest = "Destination register", displacement = "Signed distance from the next instruction";
+        Processing: "Write REX, opcode 8D, a rip-relative ModR/M, and four displacement bytes.";
+        Output: "Seven bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        Int rex = 72;
+        If (This.RegHigh(dest) == 1) { rex = rex + 4; }
+        bytes.Add(rex);
+        bytes.Add(141);
+        bytes.Add(This.RegLow(dest) * 8 + 5);
+        This.AppendI32(bytes, displacement);
+        Return bytes;
+    }
+
+    Public Function NegReg(String dest) -> List<Int>
+    Explain {
+        Description: "Encode neg r64.";
+        Input: dest = "Register negated";
+        Processing: "Write REX and opcode F7 /3.";
+        Output: "Three bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexB(dest));
+        bytes.Add(247);
+        bytes.Add(216 + This.RegLow(dest));
+        Return bytes;
+    }
+
+    Public Function CqoBytes() -> List<Int>
+    Explain {
+        Description: "Encode cqo.";
+        Input: none = "No input";
+        Processing: "Sign-extend rax into rdx:rax.";
+        Output: "Two bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(72);
+        bytes.Add(153);
+        Return bytes;
+    }
+
+    Public Function IdivReg(String dest) -> List<Int>
+    Explain {
+        Description: "Encode idiv r64.";
+        Input: dest = "Divisor register";
+        Processing: "Write REX and opcode F7 /7. The dividend is rdx:rax.";
+        Output: "Three bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexB(dest));
+        bytes.Add(247);
+        bytes.Add(248 + This.RegLow(dest));
+        Return bytes;
+    }
+
+    Public Function DecReg(String dest) -> List<Int>
+    Explain {
+        Description: "Encode dec r64.";
+        Input: dest = "Register decremented";
+        Processing: "Write REX and opcode FF /1.";
+        Output: "Three bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexB(dest));
+        bytes.Add(255);
+        bytes.Add(200 + This.RegLow(dest));
+        Return bytes;
+    }
+
+    Public Function MovAl(Int value) -> List<Int>
+    Explain {
+        Description: "Encode mov al, imm8.";
+        Input: value = "The low byte stored in al";
+        Processing: "Write opcode B0 and one immediate byte.";
+        Output: "Two bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        bytes.Add(176);
+        bytes.Add(This.Low8(value));
+        Return bytes;
+    }
+
+    Public Function MovMem8(String base, String byteReg) -> List<Int>
+    Explain {
+        Description: "Encode mov byte [base], byteReg.";
+        Input: base = "Address register", byteReg = "al or dl";
+        Processing: "Write opcode 88 with a REX prefix when the address is r8 through r15.";
+        Output: "The instruction bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        Int rex = 64;
+        Int need = 0;
+        If (This.RegHigh(base) == 1) {
+            rex = rex + 1;
+            need = 1;
+        }
+        Int low = 0;
+        If (byteReg == "cl") { low = 1; }
+        If (byteReg == "dl") { low = 2; }
+        If (byteReg == "bl") { low = 3; }
+        If (need == 1) { bytes.Add(rex); }
+        bytes.Add(136);
+        bytes.Add(low * 8 + This.RegLow(base));
+        Return bytes;
+    }
+
+    Public Function MovStoreRsp(Int displacement, String source) -> List<Int>
+    Explain {
+        Description: "Encode mov [rsp+disp32], r64.";
+        Input: displacement = "Byte offset from rsp", source = "Source register";
+        Processing: "Write REX, opcode 89, a SIB for rsp, and four displacement bytes.";
+        Output: "Eight bytes.";
+    } {
+        Return This.MovRsp(137, source, displacement);
+    }
+
+    Public Function MovLoadRsp(String dest, Int displacement) -> List<Int>
+    Explain {
+        Description: "Encode mov r64, [rsp+disp32].";
+        Input: dest = "Destination register", displacement = "Byte offset from rsp";
+        Processing: "Write REX, opcode 8B, a SIB for rsp, and four displacement bytes.";
+        Output: "Eight bytes.";
+    } {
+        Return This.MovRsp(139, dest, displacement);
+    }
+
+    Private Function Alu(Int opcode, String dest, String source) -> List<Int> {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexPair(dest, source));
+        bytes.Add(opcode);
+        bytes.Add(192 + This.RegLow(source) * 8 + This.RegLow(dest));
+        Return bytes;
+    }
+
+    Private Function RexB(String dest) -> Int {
+        If (This.RegHigh(dest) == 1) { Return 73; }
+        Return 72;
+    }
+
+    Private Function RexPair(String rm, String reg) -> Int {
+        Int rex = 72;
+        If (This.RegHigh(reg) == 1) { rex = rex + 4; }
+        If (This.RegHigh(rm) == 1) { rex = rex + 1; }
+        Return rex;
+    }
+
+    Public Function RegLow(String name) -> Int
+    Explain {
+        Description: "Return the low three bits of a register name.";
+        Input: name = "An x86-64 register name";
+        Processing: "Map the name onto the ModR/M field.";
+        Output: "A number from 0 through 7.";
+    } {
+        If (name == "rax" || name == "eax" || name == "r8") { Return 0; }
+        If (name == "rcx" || name == "ecx" || name == "r9") { Return 1; }
+        If (name == "rdx" || name == "edx" || name == "r10") { Return 2; }
+        If (name == "rbx" || name == "ebx" || name == "r11") { Return 3; }
+        If (name == "rsp" || name == "esp" || name == "r12") { Return 4; }
+        If (name == "rbp" || name == "ebp" || name == "r13") { Return 5; }
+        If (name == "rsi" || name == "esi" || name == "r14") { Return 6; }
+        If (name == "rdi" || name == "edi" || name == "r15") { Return 7; }
+        Return 0;
+    }
+
+    Public Function RegHigh(String name) -> Int
+    Explain {
+        Description: "Report whether a register needs a REX extension.";
+        Input: name = "An x86-64 register name";
+        Processing: "r8 through r15 need the extension.";
+        Output: "One when the register is r8 through r15.";
+    } {
+        If (name == "r8" || name == "r9" || name == "r10" || name == "r11") { Return 1; }
+        If (name == "r12" || name == "r13" || name == "r14" || name == "r15") { Return 1; }
+        Return 0;
+    }
+
+    Private Function JccOpcode(String condition) -> Int {
+        If (condition == "je" || condition == "eq") { Return 132; }
+        If (condition == "jne" || condition == "ne") { Return 133; }
+        If (condition == "jl" || condition == "lt") { Return 140; }
+        If (condition == "jge" || condition == "ge") { Return 141; }
+        If (condition == "jle" || condition == "le") { Return 142; }
+        If (condition == "jg" || condition == "gt") { Return 143; }
+        Return 133;
+    }
+
+    Private Function Low8(Int value) -> Int {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 256; }
+        Return rest % 256;
+    }
+
+    Private Function AppendI32(List<Int> bytes, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 4294967296; }
+        Int index = 0;
+        While (index < 4) {
+            bytes.Add(rest % 256);
+            rest = rest / 256;
+            index = index + 1;
+        }
+    }
+
+    Private Function AluImm(Int extension, String dest, Int value) -> List<Int> {
+        List<Int> bytes = List<Int>();
+        bytes.Add(This.RexB(dest));
+        Int modrm = 192 + extension * 8 + This.RegLow(dest);
+        If (value >= -128 && value <= 127) {
+            bytes.Add(131);
+            bytes.Add(modrm);
+            bytes.Add(This.Low8(value));
+        } Else {
+            bytes.Add(129);
+            bytes.Add(modrm);
+            This.AppendI32(bytes, value);
+        }
+        Return bytes;
+    }
+
+    Private Function MovRsp(Int opcode, String reg, Int displacement) -> List<Int> {
+        List<Int> bytes = List<Int>();
+        Int rex = 72;
+        If (This.RegHigh(reg) == 1) { rex = rex + 4; }
+        bytes.Add(rex);
+        bytes.Add(opcode);
+        bytes.Add(128 + This.RegLow(reg) * 8 + 4);
+        bytes.Add(36);
+        This.AppendI32(bytes, displacement);
+        Return bytes;
+    }
+}
+
+Public Class RxAssembler {
+    Public Bool Failed;
+    Public Bool SawSkip;
+    Public Int Pool;
+    Public List<String> AsmLines;
+    Public List<String> VNames;
+    Public List<String> VRegs;
+    Public List<String> CNames;
+    Public List<String> CCodes;
+    Public List<String> Kinds;
+    Public List<String> Lefts;
+    Public List<String> Rights;
+    Public List<Int> Sizes;
+    Public List<Int> Offsets;
+    Public List<String> LabelNames;
+    Public List<Int> LabelOffsets;
+    Public List<Int> Code;
+    Public Bool InFunction;
+    Public Bool NeedPrint;
+    Public String FnSymbol;
+    Public List<String> BodyLines;
+    Public List<String> DataNames;
+    Public List<String> DataTexts;
+
+    Public Constructor() {
+        This.ClearAsm();
+        This.ClearCode();
+    }
+
+    Public Function Select(String rxir) -> String
+    Explain {
+        Description: "Lower RXIR text to RXASM text.";
+        Input: rxir = "Unboxed RXIR";
+        Processing: "Assign stack slots and print x86-64 instructions, including write for Print.";
+        Output: "RXASM text.";
+    } {
+        This.ClearAsm();
+        Var lines = rxir.Split("\n");
+        For line In lines {
+            This.SelectLine(This.Tokens(line));
+        }
+        This.FlushFunction();
+        This.EmitTail();
+        Return This.Join(This.AsmLines);
+    }
+
+    Public Function WithStart(String rxasm) -> String
+    Explain {
+        Description: "Place _start before a program that defines Main.";
+        Input: rxasm = "RXASM text";
+        Processing: "Zero rdi so Main sees an empty argument count, call Main, move the result to rdi, and exit_group.";
+        Output: "RXASM text including _start.";
+    } {
+        If (rxasm.IndexOf("_start:") >= 0) { Return rxasm; }
+        String head = ".arch x86_64\n.target linux\n.section text\n.global _start\n_start:\n    xor rdi, rdi\n    call Main\n    mov rdi, rax\n    mov rax, 231\n    syscall\n";
+        Return head + rxasm;
+    }
+
+    Public Function Assemble(String rxasm) -> List<Int>
+    Explain {
+        Description: "Assemble RXASM text to instruction bytes.";
+        Input: rxasm = "RXASM text";
+        Processing: "Resolve labels and encode the supported x86-64 instructions.";
+        Output: "The code bytes, or an empty list when an instruction or label cannot be encoded.";
+    } {
+        This.ClearCode();
+        Var lines = rxasm.Split("\n");
+        For line In lines {
+            This.Ingest(This.Tokens(line));
+        }
+        This.Place();
+        If (This.Failed) {
+            This.Code = List<Int>();
+            Return This.Code;
+        }
+        Return This.EmitCode();
+    }
+
+    Public Function ProgramZero() -> Int
+    Explain {
+        Description: "Assemble a program whose Main returns zero.";
+        Input: none = "No input";
+        Processing: "Select, link _start, and assemble. _start zeros rdi and then calls Main.";
+        Output: "The call opcode, or -1 when assembly fails.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n  %0 = const i64 0\n  ret i64 %0\n";
+        String asm = This.WithStart(This.Select(ir));
+        If (asm.IndexOf("; skip") >= 0) { Return -1; }
+        List<Int> bytes = This.Assemble(asm);
+        If (This.Failed || bytes.Count() == 0) { Return -1; }
+        Int index = 0;
+        While (index < bytes.Count()) {
+            If (bytes[index] == 232) { Return 232; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Public Function ProgramArgs() -> Int
+    Explain {
+        Description: "Report whether _start clears the argument count.";
+        Input: none = "No input";
+        Processing: "Assemble the zero program and read the opening xor rdi, rdi.";
+        Output: "One when the first instruction is xor rdi, rdi.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n  %0 = const i64 0\n  ret i64 %0\n";
+        String asm = This.WithStart(This.Select(ir));
+        List<Int> bytes = This.Assemble(asm);
+        If (bytes.Count() < 3) { Return 0; }
+        If (bytes[0] == 72 && bytes[1] == 49 && bytes[2] == 255) { Return 1; }
+        Return 0;
+    }
+
+    Public Function HelloProgram() -> Int
+    Explain {
+        Description: "Assemble a greeting, a total, and a not-taken argument print.";
+        Input: none = "No input";
+        Processing: "Select the HelloRobot shape, assemble it, and look for the greeting bytes and syscall.";
+        Output: "One when the program assembles and contains the greeting line.";
+    } {
+        String ir = "function Main(args: ptr) -> i64\nblock entry\n  %0 = arg ptr 0\n  store ptr %0, s0\n  %1 = const i64 0\n  store i64 %1, s1\n  %2 = const i64 1\n  %3 = const i64 5\n  store i64 %2, s2\nblock b0\n  %4 = load i64 s2\n  %5 = cmp le i64 %4, %3\n  branch i8 %5, b1, b2\nblock b1\n  %6 = load i64 s1\n  %7 = load i64 s2\n  %8 = add i64 %6, %7\n  store i64 %8, s1\n  %9 = load i64 s2\n  %10 = const i64 1\n  %11 = add i64 %9, %10\n  store i64 %11, s2\n  jump b0\nblock b2\ndata str0 \"Hello, Robix\"\n  print str str0\n  %12 = load i64 s1\n  print i64 %12\n  %13 = load ptr s0\n  %14 = const i64 0\n  %15 = cmp gt i64 %13, %14\n  branch i8 %15, b3, b4\nblock b3\ndata str1 \"\"\n  print str str1\n  jump b5\nblock b4\n  jump b5\nblock b5\n  %16 = const i64 0\n  ret i64 %16\n";
+        String asm = This.WithStart(This.Select(ir));
+        If (asm.IndexOf("; skip") >= 0) { Return -1; }
+        If (asm.IndexOf("lea rsi, str0") < 0) { Return -2; }
+        If (asm.IndexOf("rx_print_i64") < 0) { Return -3; }
+        List<Int> bytes = This.Assemble(asm);
+        If (This.Failed || bytes.Count() == 0) { Return -4; }
+        String greeting = "Hello, Robix";
+        Int start = 0;
+        Int found = 0;
+        While (start + greeting.Length() < bytes.Count()) {
+            Int offset = 0;
+            Int same = 1;
+            While (offset < greeting.Length()) {
+                Int at = start + offset;
+                If (bytes[at] != greeting.GetChar(offset).ToInt()) { same = 0; }
+                offset = offset + 1;
+            }
+            Int newlineAt = start + greeting.Length();
+            If (same == 1 && bytes[newlineAt] == 10) { found = 1; }
+            start = start + 1;
+        }
+        If (found == 0) { Return -5; }
+        Int index = 0;
+        Int syscalls = 0;
+        While (index + 1 < bytes.Count()) {
+            If (bytes[index] == 15 && bytes[index + 1] == 5) { syscalls = syscalls + 1; }
+            index = index + 1;
+        }
+        If (syscalls < 2) { Return -6; }
+        Return 1;
+    }
+
+    Public Function ProgramSyscall() -> Int
+    Explain {
+        Description: "Report whether the zero program contains the syscall opcode.";
+        Input: none = "No input";
+        Processing: "Assemble the zero program and search for 0F 05.";
+        Output: "One when syscall is present.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n  %0 = const i64 0\n  ret i64 %0\n";
+        String asm = This.WithStart(This.Select(ir));
+        List<Int> bytes = This.Assemble(asm);
+        Int index = 0;
+        While (index + 1 < bytes.Count()) {
+            If (bytes[index] == 15 && bytes[index + 1] == 5) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function RetCode() -> Int
+    Explain {
+        Description: "Assemble a single ret.";
+        Input: none = "No input";
+        Processing: "Encode ret.";
+        Output: "The ret opcode.";
+    } {
+        List<Int> bytes = This.Assemble("ret\n");
+        If (bytes.Count() == 0) { Return -1; }
+        Return bytes[0];
+    }
+
+    Private Function ClearAsm() -> Void {
+        This.SawSkip = False;
+        This.Pool = 0;
+        This.InFunction = False;
+        This.NeedPrint = False;
+        This.FnSymbol = "";
+        This.AsmLines = List<String>();
+        This.BodyLines = List<String>();
+        This.DataNames = List<String>();
+        This.DataTexts = List<String>();
+        This.VNames = List<String>();
+        This.VRegs = List<String>();
+        This.CNames = List<String>();
+        This.CCodes = List<String>();
+    }
+
+    Private Function ClearCode() -> Void {
+        This.Failed = False;
+        This.Kinds = List<String>();
+        This.Lefts = List<String>();
+        This.Rights = List<String>();
+        This.Sizes = List<Int>();
+        This.Offsets = List<Int>();
+        This.LabelNames = List<String>();
+        This.LabelOffsets = List<Int>();
+        This.Code = List<Int>();
+    }
+
+    Private Function SelectLine(List<String> tokens) -> Void {
+        If (tokens.Count() == 0) { Return; }
+        If (tokens[0] == "function") {
+            This.FlushFunction();
+            This.Pool = 0;
+            This.InFunction = True;
+            This.VNames = List<String>();
+            This.VRegs = List<String>();
+            This.CNames = List<String>();
+            This.CCodes = List<String>();
+            This.BodyLines = List<String>();
+            String symbol = "Function";
+            If (tokens.Count() > 1) { symbol = tokens[1]; }
+            This.FnSymbol = symbol;
+            Return;
+        }
+        If (tokens[0] == "block" && tokens.Count() > 1) {
+            This.AddBody(".L" + tokens[1] + ":");
+            Return;
+        }
+        If (tokens[0] == "data" && tokens.Count() > 2) {
+            This.DataNames.Add(tokens[1]);
+            This.DataTexts.Add(tokens[2]);
+            Return;
+        }
+        If (tokens[0] == "note") {
+            This.SawSkip = True;
+            This.AddBody("; skip note");
+            Return;
+        }
+        If (tokens[0] == "print" && tokens.Count() > 2) {
+            This.EmitPrint(tokens);
+            Return;
+        }
+        If (tokens[0] == "ret") {
+            If (tokens.Count() >= 3) {
+                String phys = This.Lookup(tokens[2]);
+                If (phys == "") {
+                    This.SawSkip = True;
+                    This.AddBody("; skip ret");
+                } Else If (phys != "rax") {
+                    This.AddBody("    mov rax, " + phys);
+                }
+            }
+            This.AddBody("@epilogue");
+            This.AddBody("    ret");
+            Return;
+        }
+        If (tokens[0] == "jump" && tokens.Count() > 1) {
+            This.AddBody("    jmp .L" + tokens[1]);
+            Return;
+        }
+        If (tokens[0] == "branch" && tokens.Count() > 4) {
+            This.EmitBranch(tokens[2], tokens[3], tokens[4]);
+            Return;
+        }
+        If (tokens[0] == "store" && tokens.Count() > 3) {
+            String slot = This.Bind(tokens[3]);
+            String value = This.Lookup(tokens[2]);
+            If (value == "") { value = This.Bind(tokens[2]); }
+            If (slot != value) {
+                This.AddBody("    mov rax, " + value);
+                This.AddBody("    mov " + slot + ", rax");
+            }
+            Return;
+        }
+        If (tokens[0] == "call") {
+            This.EmitVoidCall(tokens);
+            Return;
+        }
+        If (tokens.Count() < 3 || tokens[1] != "=") { Return; }
+        String dest = tokens[0];
+        String opcode = tokens[2];
+        If (opcode == "const") {
+            String machine = "i64";
+            String spelling = "0";
+            If (tokens.Count() > 3) { machine = tokens[3]; }
+            If (tokens.Count() > 4) { spelling = tokens[4]; }
+            If (machine == "f64" || machine == "f32" || machine == "ptr") {
+                This.SawSkip = True;
+                This.AddBody("; skip " + machine);
+                Return;
+            }
+            String slot = This.Bind(dest);
+            This.AddBody("    mov rax, " + spelling);
+            This.AddBody("    mov " + slot + ", rax");
+            Return;
+        }
+        If (opcode == "arg" && tokens.Count() > 4) {
+            This.BindFixed(dest, This.ArgReg(ParseInteger(tokens[4])));
+            Return;
+        }
+        If (opcode == "load" && tokens.Count() > 4) {
+            String loaded = This.Bind(dest);
+            String slot = This.Lookup(tokens[4]);
+            If (slot == "") { slot = This.Bind(tokens[4]); }
+            If (loaded != slot) {
+                This.AddBody("    mov rax, " + slot);
+                This.AddBody("    mov " + loaded + ", rax");
+            }
+            Return;
+        }
+        If (opcode == "cmp" && tokens.Count() > 6) {
+            This.RememberCond(dest, tokens[3]);
+            String left = This.Bind(tokens[5]);
+            String right = This.Bind(tokens[6]);
+            This.AddBody("    mov rax, " + left);
+            This.AddBody("    mov rcx, " + right);
+            This.AddBody("    cmp rax, rcx");
+            Return;
+        }
+        If (opcode == "call" && tokens.Count() > 4) {
+            This.EmitValueCall(dest, tokens);
+            Return;
+        }
+        If (tokens.Count() > 5 && (opcode == "add" || opcode == "sub" || opcode == "and" || opcode == "or" || opcode == "xor" || opcode == "mul")) {
+            String saved = This.Bind(dest);
+            String left = This.Bind(tokens[4]);
+            String right = This.Bind(tokens[5]);
+            This.AddBody("    mov rax, " + left);
+            This.AddBody("    mov rcx, " + right);
+            String mnemonic = opcode;
+            If (opcode == "mul") { mnemonic = "imul"; }
+            This.AddBody("    " + mnemonic + " rax, rcx");
+            This.AddBody("    mov " + saved + ", rax");
+            Return;
+        }
+        This.SawSkip = True;
+        This.AddBody("; skip " + opcode);
+    }
+
+    Private Function EmitBranch(String condName, String yes, String no) -> Void {
+        String cond = This.LookupCond(condName);
+        String jump = "jne";
+        If (cond == "eq") { jump = "je"; }
+        If (cond == "ne") { jump = "jne"; }
+        If (cond == "lt") { jump = "jl"; }
+        If (cond == "gt") { jump = "jg"; }
+        If (cond == "le") { jump = "jle"; }
+        If (cond == "ge") { jump = "jge"; }
+        If (cond == "") {
+            String phys = This.Lookup(condName);
+            If (phys != "") { This.AddBody("    cmp " + phys + ", 0"); }
+        }
+        This.AddBody("    " + jump + " .L" + yes);
+        This.AddBody("    jmp .L" + no);
+    }
+
+    Private Function EmitPrint(List<String> tokens) -> Void {
+        If (tokens[1] == "str") {
+            Int length = This.DataLength(tokens[2]);
+            If (length < 0) {
+                This.SawSkip = True;
+                This.AddBody("; skip print");
+                Return;
+            }
+            This.AddBody("    mov rax, 1");
+            This.AddBody("    mov rdi, 1");
+            This.AddBody("    lea rsi, " + tokens[2]);
+            This.AddBody("    mov rdx, " + length.ToString());
+            This.AddBody("    syscall");
+            Return;
+        }
+        String phys = This.Lookup(tokens[2]);
+        If (phys == "") { phys = This.Bind(tokens[2]); }
+        This.AddBody("    mov rdi, " + phys);
+        This.AddBody("    call rx_print_i64");
+        This.NeedPrint = True;
+    }
+
+    Private Function EmitVoidCall(List<String> tokens) -> Void {
+        String symbol = "Call";
+        If (tokens.Count() > 2) { symbol = This.Symbol(tokens[2]); }
+        Int cursor = 3;
+        Int arg = 0;
+        While (cursor + 1 < tokens.Count()) {
+            String phys = This.Lookup(tokens[cursor + 1]);
+            If (phys == "") { phys = This.Bind(tokens[cursor + 1]); }
+            This.AddBody("    mov " + This.ArgReg(arg) + ", " + phys);
+            arg = arg + 1;
+            cursor = cursor + 2;
+        }
+        This.AddBody("    call " + symbol);
+    }
+
+    Private Function EmitValueCall(String dest, List<String> tokens) -> Void {
+        String symbol = "Call";
+        If (tokens.Count() > 4) { symbol = This.Symbol(tokens[4]); }
+        Int cursor = 5;
+        Int arg = 0;
+        While (cursor + 1 < tokens.Count()) {
+            String phys = This.Lookup(tokens[cursor + 1]);
+            If (phys == "") { phys = This.Bind(tokens[cursor + 1]); }
+            This.AddBody("    mov " + This.ArgReg(arg) + ", " + phys);
+            arg = arg + 1;
+            cursor = cursor + 2;
+        }
+        This.AddBody("    call " + symbol);
+        String phys = This.Bind(dest);
+        If (phys != "rax") { This.AddBody("    mov " + phys + ", rax"); }
+    }
+
+    Private Function Symbol(String token) -> String {
+        If (token.StartsWith("@")) { Return token.Substring(1); }
+        Return token;
+    }
+
+    Private Function EmitCode() -> List<Int> {
+        X64 encoder = X64();
+        Int index = 0;
+        While (index < This.Kinds.Count()) {
+            String kind = This.Kinds[index];
+            Int origin = This.Offsets[index];
+            If (kind == "movimm") { This.Append(encoder.MovImm(This.Lefts[index], ParseInteger(This.Rights[index]))); }
+            If (kind == "movreg") { This.Append(encoder.MovReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "add") { This.Append(encoder.AddReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "sub") { This.Append(encoder.SubReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "and") { This.Append(encoder.AndReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "or") { This.Append(encoder.OrReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "xor") { This.Append(encoder.XorReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "imul") { This.Append(encoder.ImulReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "cmpreg") { This.Append(encoder.CmpReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "cmpimm") { This.Append(encoder.CmpImm(This.Lefts[index], ParseInteger(This.Rights[index]))); }
+            If (kind == "ret") { This.Append(encoder.RetBytes()); }
+            If (kind == "syscall") { This.Append(encoder.SyscallBytes()); }
+            If (kind == "addimm") { This.Append(encoder.AddImm(This.Lefts[index], ParseInteger(This.Rights[index]))); }
+            If (kind == "subimm") { This.Append(encoder.SubImm(This.Lefts[index], ParseInteger(This.Rights[index]))); }
+            If (kind == "neg") { This.Append(encoder.NegReg(This.Lefts[index])); }
+            If (kind == "dec") { This.Append(encoder.DecReg(This.Lefts[index])); }
+            If (kind == "idiv") { This.Append(encoder.IdivReg(This.Lefts[index])); }
+            If (kind == "cqo") { This.Append(encoder.CqoBytes()); }
+            If (kind == "moval") { This.Append(encoder.MovAl(ParseInteger(This.Rights[index]))); }
+            If (kind == "st8") { This.Append(encoder.MovMem8(This.Lefts[index], This.Rights[index])); }
+            If (kind == "movload") { This.Append(encoder.MovLoadRsp(This.Lefts[index], ParseInteger(This.Rights[index]))); }
+            If (kind == "movstore") { This.Append(encoder.MovStoreRsp(ParseInteger(This.Lefts[index]), This.Rights[index])); }
+            If (kind == "ascii") {
+                String text = This.Rights[index];
+                Int cursor = 0;
+                While (cursor < text.Length()) {
+                    This.Code.Add(text.GetChar(cursor).ToInt());
+                    cursor = cursor + 1;
+                }
+                This.Code.Add(10);
+            }
+            If (kind == "call" || kind == "jmp" || kind == "jcc" || kind == "lea") {
+                Int target = This.LabelAt(This.Rights[index]);
+                If (target < 0) { This.Failed = True; }
+                Int next = origin + This.Sizes[index];
+                Int displacement = target - next;
+                If (kind == "call") { This.Append(encoder.CallRel(displacement)); }
+                If (kind == "jmp") { This.Append(encoder.JmpRel(displacement)); }
+                If (kind == "jcc") { This.Append(encoder.JccRel(This.Lefts[index], displacement)); }
+                If (kind == "lea") { This.Append(encoder.LeaRip(This.Lefts[index], displacement)); }
+            }
+            index = index + 1;
+        }
+        If (This.Failed) { Return List<Int>(); }
+        Return This.Code;
+    }
+
+    Private Function Place() -> Void {
+        Int cursor = 0;
+        Int index = 0;
+        While (index < This.Kinds.Count()) {
+            This.Offsets.Add(cursor);
+            If (This.Kinds[index] == "label") {
+                This.LabelNames.Add(This.Lefts[index]);
+                This.LabelOffsets.Add(cursor);
+            }
+            cursor = cursor + This.Sizes[index];
+            index = index + 1;
+        }
+    }
+
+    Private Function Ingest(List<String> tokens) -> Void {
+        If (tokens.Count() == 0) { Return; }
+        String first = tokens[0];
+        If (first.StartsWith(".")) {
+            If (first.EndsWith(":")) {
+                This.AddOp("label", first.Substring(0, first.Length() - 1), "", 0);
+            }
+            Return;
+        }
+        If (first.EndsWith(":")) {
+            This.AddOp("label", first.Substring(0, first.Length() - 1), "", 0);
+            Return;
+        }
+        If (first == "ret") { This.AddOp("ret", "", "", 1); Return; }
+        If (first == "syscall") { This.AddOp("syscall", "", "", 2); Return; }
+        If (first == "cqo") { This.AddOp("cqo", "", "", 2); Return; }
+        If (first == "neg" && tokens.Count() > 1) { This.AddOp("neg", tokens[1], "", 3); Return; }
+        If (first == "dec" && tokens.Count() > 1) { This.AddOp("dec", tokens[1], "", 3); Return; }
+        If (first == "idiv" && tokens.Count() > 1) { This.AddOp("idiv", tokens[1], "", 3); Return; }
+        If (first == "ascii" && tokens.Count() > 1) {
+            This.AddOp("ascii", "", tokens[1], tokens[1].Length() + 1);
+            Return;
+        }
+        If (first == "call" && tokens.Count() > 1) { This.AddOp("call", "", tokens[1], 5); Return; }
+        If (first == "jmp" && tokens.Count() > 1) { This.AddOp("jmp", "", tokens[1], 5); Return; }
+        If (This.IsJcc(first) && tokens.Count() > 1) { This.AddOp("jcc", first, tokens[1], 6); Return; }
+        If (tokens.Count() < 3) {
+            This.Failed = True;
+            Return;
+        }
+        If (first == "mov" && This.IsBracket(tokens[1]) && (tokens[2] == "al" || tokens[2] == "cl" || tokens[2] == "dl" || tokens[2] == "bl")) {
+            String base = This.MemBase(tokens[1]);
+            Int size = 2;
+            If (This.RegHigh(base) == 1) { size = 3; }
+            This.AddOp("st8", base, tokens[2], size);
+            Return;
+        }
+        If (first == "mov" && This.IsMem(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("movstore", This.MemDisp(tokens[1]), tokens[2], 8); Return; }
+        If (first == "mov" && This.IsReg(tokens[1]) && This.IsMem(tokens[2])) { This.AddOp("movload", tokens[1], This.MemDisp(tokens[2]), 8); Return; }
+        If (first == "mov" && tokens[1] == "al" && This.IsImm(tokens[2])) { This.AddOp("moval", "", tokens[2], 2); Return; }
+        If (first == "mov" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("movreg", tokens[1], tokens[2], 3); Return; }
+        If (first == "mov" && This.IsReg(tokens[1]) && This.IsImm(tokens[2])) { This.AddOp("movimm", tokens[1], tokens[2], 7); Return; }
+        If (first == "add" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("add", tokens[1], tokens[2], 3); Return; }
+        If (first == "sub" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("sub", tokens[1], tokens[2], 3); Return; }
+        If (first == "add" && This.IsReg(tokens[1]) && This.IsImm(tokens[2])) { This.AddOp("addimm", tokens[1], tokens[2], This.ImmSize(tokens[2])); Return; }
+        If (first == "sub" && This.IsReg(tokens[1]) && This.IsImm(tokens[2])) { This.AddOp("subimm", tokens[1], tokens[2], This.ImmSize(tokens[2])); Return; }
+        If (first == "lea" && This.IsReg(tokens[1]) && tokens.Count() > 2) { This.AddOp("lea", tokens[1], tokens[2], 7); Return; }
+        If (first == "and" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("and", tokens[1], tokens[2], 3); Return; }
+        If (first == "or" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("or", tokens[1], tokens[2], 3); Return; }
+        If (first == "xor" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("xor", tokens[1], tokens[2], 3); Return; }
+        If (first == "imul" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("imul", tokens[1], tokens[2], 4); Return; }
+        If (first == "cmp" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("cmpreg", tokens[1], tokens[2], 3); Return; }
+        If (first == "cmp" && This.IsReg(tokens[1]) && This.IsImm(tokens[2])) {
+            Int size = 7;
+            Int value = ParseInteger(tokens[2]);
+            If (value >= -128 && value <= 127) { size = 4; }
+            This.AddOp("cmpimm", tokens[1], tokens[2], size);
+            Return;
+        }
+        This.Failed = True;
+    }
+
+    Private Function IsJcc(String name) -> Bool {
+        If (name == "je" || name == "jne" || name == "jl" || name == "jg" || name == "jle" || name == "jge") { Return True; }
+        Return False;
+    }
+
+    Private Function IsReg(String name) -> Bool {
+        If (This.RegLow(name) == 0 && name != "rax" && name != "eax" && name != "r8") { Return False; }
+        If (name == "rax" || name == "rcx" || name == "rdx" || name == "rbx" || name == "rsp" || name == "rbp" || name == "rsi" || name == "rdi") { Return True; }
+        If (name == "eax" || name == "ecx" || name == "edx" || name == "ebx" || name == "esi" || name == "edi") { Return True; }
+        If (name == "r8" || name == "r9" || name == "r10" || name == "r11" || name == "r12" || name == "r13" || name == "r14" || name == "r15") { Return True; }
+        Return False;
+    }
+
+    Private Function IsImm(String token) -> Bool {
+        If (token == "") { Return False; }
+        Int index = 0;
+        If (token.GetChar(0) == '-') {
+            If (token.Length() == 1) { Return False; }
+            index = 1;
+        }
+        While (index < token.Length()) {
+            Char character = token.GetChar(index);
+            If (character < '0' || character > '9') { Return False; }
+            index = index + 1;
+        }
+        Return True;
+    }
+
+    Private Function AddOp(String kind, String left, String right, Int size) -> Void {
+        This.Kinds.Add(kind);
+        This.Lefts.Add(left);
+        This.Rights.Add(right);
+        This.Sizes.Add(size);
+    }
+
+    Private Function AddAsm(String text) -> String {
+        This.AsmLines.Add(text);
+        Return text;
+    }
+
+    Private Function Join(List<String> lines) -> String {
+        String text = "";
+        Int index = 0;
+        While (index < lines.Count()) {
+            If (index > 0) { text = text + "\n"; }
+            text = text + lines[index];
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Private Function Tokens(String line) -> List<String> {
+        Var tokens = List<String>();
+        String current = "";
+        Int index = 0;
+        Int inQuote = 0;
+        While (index < line.Length()) {
+            Char character = line.GetChar(index);
+            If (inQuote == 1) {
+                If (character == '\\' && index + 1 < line.Length()) {
+                    Char next = line.GetChar(index + 1);
+                    If (next == '\\' || next == '"') {
+                        current = current + String.From(next);
+                        index = index + 2;
+                        Continue;
+                    }
+                }
+                If (character == '"') {
+                    tokens.Add(current);
+                    current = "";
+                    inQuote = 0;
+                    index = index + 1;
+                    Continue;
+                }
+                current = current + String.From(character);
+                index = index + 1;
+                Continue;
+            }
+            If (character == '"') {
+                If (current.Length() > 0) {
+                    tokens.Add(current);
+                    current = "";
+                }
+                inQuote = 1;
+                index = index + 1;
+                Continue;
+            }
+            If (character == ';') { Break; }
+            If (character == ' ' || character == '(' || character == ')' || character == ',') {
+                If (current.Length() > 0) {
+                    tokens.Add(current);
+                    current = "";
+                }
+                index = index + 1;
+                Continue;
+            }
+            current = current + String.From(character);
+            index = index + 1;
+        }
+        If (current.Length() > 0) { tokens.Add(current); }
+        Return tokens;
+    }
+
+    Private Function Bind(String name) -> String {
+        String existing = This.Lookup(name);
+        If (existing != "") { Return existing; }
+        Int offset = This.Pool * 8;
+        This.Pool = This.Pool + 1;
+        String phys = "[rsp+" + offset.ToString() + "]";
+        This.VNames.Add(name);
+        This.VRegs.Add(phys);
+        Return phys;
+    }
+
+    Private Function BindFixed(String name, String phys) -> String {
+        Int index = 0;
+        While (index < This.VNames.Count()) {
+            If (This.VNames[index] == name) {
+                This.VRegs[index] = phys;
+                Return phys;
+            }
+            index = index + 1;
+        }
+        This.VNames.Add(name);
+        This.VRegs.Add(phys);
+        Return phys;
+    }
+
+    Private Function Lookup(String name) -> String {
+        Int index = 0;
+        While (index < This.VNames.Count()) {
+            If (This.VNames[index] == name) { Return This.VRegs[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function RememberCond(String name, String condition) -> Void {
+        This.CNames.Add(name);
+        This.CCodes.Add(condition);
+    }
+
+    Private Function LookupCond(String name) -> String {
+        Int index = 0;
+        While (index < This.CNames.Count()) {
+            If (This.CNames[index] == name) { Return This.CCodes[index]; }
+            index = index + 1;
+        }
+        Return "";
+    }
+
+    Private Function ArgReg(Int index) -> String {
+        If (index == 0) { Return "rdi"; }
+        If (index == 1) { Return "rsi"; }
+        If (index == 2) { Return "rdx"; }
+        If (index == 3) { Return "rcx"; }
+        If (index == 4) { Return "r8"; }
+        If (index == 5) { Return "r9"; }
+        If (index == 6) { Return "r10"; }
+        If (index == 7) { Return "r11"; }
+        Return "rax";
+    }
+
+    Private Function LabelAt(String name) -> Int {
+        Int index = 0;
+        While (index < This.LabelNames.Count()) {
+            If (This.LabelNames[index] == name) { Return This.LabelOffsets[index]; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Append(List<Int> part) -> Void {
+        For byte In part {
+            This.Code.Add(byte);
+        }
+    }
+
+    Private Function RegLow(String name) -> Int {
+        X64 encoder = X64();
+        Return encoder.RegLow(name);
+    }
+
+    Private Function RegHigh(String name) -> Int {
+        X64 encoder = X64();
+        Return encoder.RegHigh(name);
+    }
+
+    Private Function AddBody(String text) -> String {
+        If (!This.InFunction) {
+            This.AsmLines.Add(text);
+            Return text;
+        }
+        This.BodyLines.Add(text);
+        Return text;
+    }
+
+    Private Function FlushFunction() -> Void {
+        If (!This.InFunction) { Return; }
+        Int frame = This.Pool * 8;
+        Int remainder = frame % 16;
+        If (remainder == 0) { frame = frame + 8; }
+        If (This.AsmLines.Count() == 0) {
+            This.AddAsm(".arch x86_64");
+            This.AddAsm(".target linux");
+            This.AddAsm(".section text");
+            This.AddAsm(".clobber rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11");
+        }
+        This.AddAsm(".global " + This.FnSymbol);
+        This.AddAsm(This.FnSymbol + ":");
+        This.AddAsm("    sub rsp, " + frame.ToString());
+        Int index = 0;
+        While (index < This.BodyLines.Count()) {
+            String line = This.BodyLines[index];
+            If (line == "@epilogue") {
+                This.AddAsm("    add rsp, " + frame.ToString());
+            } Else {
+                This.AddAsm(line);
+            }
+            index = index + 1;
+        }
+        This.InFunction = False;
+    }
+
+    Private Function EmitTail() -> Void {
+        If (This.NeedPrint) {
+            This.AddAsm("rx_print_i64:");
+            This.AddAsm("    sub rsp, 40");
+            This.AddAsm("    mov r10, rsp");
+            This.AddAsm("    add r10, 31");
+            This.AddAsm("    mov al, 10");
+            This.AddAsm("    mov [r10], al");
+            This.AddAsm("    xor r8, r8");
+            This.AddAsm("    cmp rdi, 0");
+            This.AddAsm("    jge .Ldigits");
+            This.AddAsm("    neg rdi");
+            This.AddAsm("    mov r8, 1");
+            This.AddAsm(".Ldigits:");
+            This.AddAsm("    mov rax, rdi");
+            This.AddAsm("    cqo");
+            This.AddAsm("    mov rcx, 10");
+            This.AddAsm("    idiv rcx");
+            This.AddAsm("    add rdx, 48");
+            This.AddAsm("    dec r10");
+            This.AddAsm("    mov [r10], dl");
+            This.AddAsm("    mov rdi, rax");
+            This.AddAsm("    cmp rax, 0");
+            This.AddAsm("    jne .Ldigits");
+            This.AddAsm("    cmp r8, 0");
+            This.AddAsm("    je .Lwrite");
+            This.AddAsm("    dec r10");
+            This.AddAsm("    mov al, 45");
+            This.AddAsm("    mov [r10], al");
+            This.AddAsm(".Lwrite:");
+            This.AddAsm("    mov rsi, r10");
+            This.AddAsm("    mov rax, rsp");
+            This.AddAsm("    add rax, 32");
+            This.AddAsm("    sub rax, r10");
+            This.AddAsm("    mov rdx, rax");
+            This.AddAsm("    mov rax, 1");
+            This.AddAsm("    mov rdi, 1");
+            This.AddAsm("    syscall");
+            This.AddAsm("    add rsp, 40");
+            This.AddAsm("    ret");
+        }
+        Int index = 0;
+        While (index < This.DataNames.Count()) {
+            This.AddAsm(This.DataNames[index] + ":");
+            This.AddAsm("ascii \"" + This.EscapeAsm(This.DataTexts[index]) + "\"");
+            index = index + 1;
+        }
+    }
+
+    Private Function DataLength(String label) -> Int {
+        Int index = 0;
+        While (index < This.DataNames.Count()) {
+            If (This.DataNames[index] == label) { Return This.DataTexts[index].Length() + 1; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function EscapeAsm(String text) -> String {
+        String escaped = text.Replace("\\", "\\\\");
+        escaped = escaped.Replace("\"", "\\\"");
+        Return escaped;
+    }
+
+    Private Function ImmSize(String token) -> Int {
+        Int value = ParseInteger(token);
+        If (value >= -128 && value <= 127) { Return 4; }
+        Return 7;
+    }
+
+    Private Function IsMem(String token) -> Bool {
+        If (token.Length() < 7) { Return False; }
+        If (!token.StartsWith("[rsp+")) { Return False; }
+        If (token.GetChar(token.Length() - 1) != ']') { Return False; }
+        Return True;
+    }
+
+    Private Function MemDisp(String token) -> String {
+        Return token.Substring(5, token.Length() - 6);
+    }
+
+    Private Function IsBracket(String token) -> Bool {
+        If (token.Length() < 3) { Return False; }
+        If (token.GetChar(0) != '[') { Return False; }
+        If (token.GetChar(token.Length() - 1) != ']') { Return False; }
+        Return True;
+    }
+
+    Private Function MemBase(String token) -> String {
+        Return token.Substring(1, token.Length() - 2);
+    }
+}

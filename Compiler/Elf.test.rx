@@ -1,0 +1,43 @@
+// Tests for Compiler/Elf.rx.
+
+Test Wrap {
+    Output: True;
+}
+
+Test Magic {
+    Output: True;
+}
+
+Test Sample {
+    Case "magic" {
+        Input:;
+        Assert: Result == "ELF";
+    }
+}
+
+Test SampleEntry {
+    Case "low byte" {
+        Input:;
+        Assert: Result == 120;
+    }
+}
+
+Test SampleCode {
+    Case "ret" {
+        Input:;
+        Assert: Result == 195;
+    }
+}
+
+Test SampleMachine {
+    Case "x86-64" {
+        Input:;
+        Assert: Result == 62;
+    }
+}
+
+Test AppendByte { Output: True; }
+Test AppendZeros { Output: True; }
+Test AppendU16 { Output: True; }
+Test AppendU32 { Output: True; }
+Test AppendU64 { Output: True; }

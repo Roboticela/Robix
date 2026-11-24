@@ -7,6 +7,8 @@ Project "Robix"
     Source
     {
         Include: "*.rx";
+        Include: "Compiler/**/*.rx";
+        Include: "Interpreter/**/*.rx";
         Exclude: "Examples/**";
         Exclude: "**/*.test.rx";
     }

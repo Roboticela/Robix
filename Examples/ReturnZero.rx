@@ -1,0 +1,18 @@
+// Integer program for the native assembler. Main returns zero.
+Package Robotics.ReturnZero
+Explain {
+    Description: "Return zero from Main.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Return zero.";
+    Input: none = "No input";
+    Processing: "Return the integer zero.";
+    Output: "Zero.";
+} {
+    Return 0;
+}

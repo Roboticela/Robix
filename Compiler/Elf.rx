@@ -1,0 +1,162 @@
+// ELF64 container for a static Linux x86-64 program. No C library.
+Package Robix.Syntax
+Explain {
+    Description: "Write a static ELF64 program around x86-64 code bytes.";
+};
+
+Import Robix.Core;
+
+
+Public Class ElfImage {
+    Public Function Wrap(List<Int> code) -> List<Int>
+    Explain {
+        Description: "Wrap code bytes in a static ELF64 executable.";
+        Input: code = "Machine-code bytes, entered at the first byte";
+        Processing: "Write one loadable segment at 0x400000 whose entry is the first code byte.";
+        Output: "The ELF bytes.";
+    } {
+        List<Int> image = List<Int>();
+        Int codeCount = 0;
+        If (code != Null) { codeCount = code.Count(); }
+        Int total = 120 + codeCount;
+        This.AppendByte(image, 127);
+        This.AppendByte(image, 69);
+        This.AppendByte(image, 76);
+        This.AppendByte(image, 70);
+        This.AppendByte(image, 2);
+        This.AppendByte(image, 1);
+        This.AppendByte(image, 1);
+        This.AppendByte(image, 0);
+        This.AppendZeros(image, 8);
+        This.AppendU16(image, 2);
+        This.AppendU16(image, 62);
+        This.AppendU32(image, 1);
+        This.AppendU64(image, 4194424);
+        This.AppendU64(image, 64);
+        This.AppendU64(image, 0);
+        This.AppendU32(image, 0);
+        This.AppendU16(image, 64);
+        This.AppendU16(image, 56);
+        This.AppendU16(image, 1);
+        This.AppendU16(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU32(image, 1);
+        This.AppendU32(image, 5);
+        This.AppendU64(image, 0);
+        This.AppendU64(image, 4194304);
+        This.AppendU64(image, 4194304);
+        This.AppendU64(image, total);
+        This.AppendU64(image, total);
+        This.AppendU64(image, 4096);
+        If (code != Null) {
+            For byte In code {
+                This.AppendByte(image, byte);
+            }
+        }
+        Return image;
+    }
+
+    Public Function Magic(List<Int> image) -> String
+    Explain {
+        Description: "Read the ELF magic as text.";
+        Input: image = "ELF bytes";
+        Processing: "Accept 0x7F ELF.";
+        Output: "ELF when the magic matches.";
+    } {
+        If (image == Null || image.Count() < 4) { Return ""; }
+        If (image[0] == 127 && image[1] == 69 && image[2] == 76 && image[3] == 70) { Return "ELF"; }
+        Return "";
+    }
+
+    Public Function Sample() -> String
+    Explain {
+        Description: "Wrap a one-byte ret and report the magic.";
+        Input: none = "No input";
+        Processing: "Build an ELF whose code is ret.";
+        Output: "ELF when the header is well formed.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        Return This.Magic(This.Wrap(code));
+    }
+
+    Public Function SampleEntry() -> Int
+    Explain {
+        Description: "Read the low byte of the sample entry point.";
+        Input: none = "No input";
+        Processing: "The entry is 0x400078, so the low byte is 120.";
+        Output: "The low entry byte.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (image.Count() < 27) { Return -1; }
+        Return image[24];
+    }
+
+    Public Function SampleCode() -> Int
+    Explain {
+        Description: "Read the first code byte of the sample ELF.";
+        Input: none = "No input";
+        Processing: "Code begins at file offset 120.";
+        Output: "The ret opcode.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (image.Count() < 121) { Return -1; }
+        Return image[120];
+    }
+
+    Public Function SampleMachine() -> Int
+    Explain {
+        Description: "Read the ELF machine id of the sample.";
+        Input: none = "No input";
+        Processing: "x86-64 is machine 62.";
+        Output: "The machine id.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (image.Count() < 19) { Return -1; }
+        Return image[18];
+    }
+
+    Private Function AppendByte(List<Int> bytes, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 256; }
+        bytes.Add(rest % 256);
+    }
+
+    Private Function AppendZeros(List<Int> bytes, Int count) -> Void {
+        Int index = 0;
+        While (index < count) {
+            bytes.Add(0);
+            index = index + 1;
+        }
+    }
+
+    Private Function AppendU16(List<Int> bytes, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = 0; }
+        bytes.Add(rest % 256);
+        bytes.Add((rest / 256) % 256);
+    }
+
+    Private Function AppendU32(List<Int> bytes, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 4294967296; }
+        Int index = 0;
+        While (index < 4) {
+            bytes.Add(rest % 256);
+            rest = rest / 256;
+            index = index + 1;
+        }
+    }
+
+    Private Function AppendU64(List<Int> bytes, Int value) -> Void {
+        This.AppendU32(bytes, value);
+        This.AppendU32(bytes, 0);
+    }
+}

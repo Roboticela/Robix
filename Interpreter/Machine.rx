@@ -1,0 +1,465 @@
+// Register virtual machine for an RBC1 image.
+Package Robix.Runtime
+Explain {
+    Description: "Execute RBC1 register bytecode.";
+};
+
+Import Robix.Core;
+
+
+Public Class RbcMachine {
+    Public List<Int> Image;
+    Public Int Cursor;
+    Public Bool Failed;
+    Public List<Int> ConstTag;
+    Public List<Int> ConstInt;
+    Public List<String> ConstText;
+    Public List<String> FnName;
+    Public List<Int> FnRegs;
+    Public List<Int> FnStart;
+    Public List<Int> FnLen;
+    Public List<Int> Op;
+    Public List<Int> Aa;
+    Public List<Int> Bb;
+    Public List<Int> Cc;
+    Public List<Int> Imm;
+    Public List<Int> Mem;
+    Public List<Int> MemKind;
+    Public Int Top;
+    Public List<String> Out;
+    Public List<Int> SaveBase;
+    Public List<Int> SavePc;
+    Public List<Int> SaveFunc;
+    Public List<Int> SaveDest;
+    Public List<Int> SaveTop;
+    Public Int Depth;
+
+    Public Constructor() {
+        This.Reset();
+    }
+
+    Public Function Run(List<Int> image) -> Int
+    Explain {
+        Description: "Run an RBC1 image and return Main's integer result.";
+        Input: image = "RBC1 bytes";
+        Processing: "Decode the constant pool and functions, then execute Main on a register machine.";
+        Output: "The value returned from Main, or -1 when the image is not RBC1.";
+    } {
+        This.Reset();
+        If (image == Null) { Return -1; }
+        This.Image = image;
+        If (!This.Decode()) { Return -1; }
+        Return This.Execute();
+    }
+
+    Public Function Lines() -> List<String>
+    Explain {
+        Description: "Return the lines written by PRINT.";
+        Input: none = "No input";
+        Processing: "Read the lines captured during Run.";
+        Output: "The output lines in order.";
+    } {
+        Return This.Out;
+    }
+
+    Public Function SampleReturn() -> Int
+    Explain {
+        Description: "Run a program that returns zero.";
+        Input: none = "No input";
+        Processing: "Build movi and ret, then run them.";
+        Output: "The returned integer.";
+    } {
+        List<Int> code = List<Int>();
+        This.OpInto(code, 2, 0, 0, 0, 0);
+        This.OpInto(code, 12, 0, 0, 0, 0);
+        Return This.Run(This.Wrap("Main", 1, code, List<String>()));
+    }
+
+    Public Function SampleAdd() -> Int
+    Explain {
+        Description: "Run a program that adds one and two.";
+        Input: none = "No input";
+        Processing: "Move the immediates, add, copy the sum, and return it.";
+        Output: "The sum.";
+    } {
+        List<Int> code = List<Int>();
+        This.OpInto(code, 2, 0, 0, 0, 1);
+        This.OpInto(code, 2, 1, 0, 0, 2);
+        This.OpInto(code, 4, 2, 0, 1, 0);
+        This.OpInto(code, 1, 0, 2, 0, 0);
+        This.OpInto(code, 12, 0, 0, 0, 0);
+        Return This.Run(This.Wrap("Main", 3, code, List<String>()));
+    }
+
+    Public Function SamplePrint() -> Int
+    Explain {
+        Description: "Run a program that prints a greeting and an integer.";
+        Input: none = "No input";
+        Processing: "Print a pooled string and the integer 15.";
+        Output: "One when both lines match.";
+    } {
+        List<Int> code = List<Int>();
+        This.OpInto(code, 3, 0, 0, 0, 0);
+        This.OpInto(code, 13, 0, 0, 0, 1);
+        This.OpInto(code, 2, 1, 0, 0, 15);
+        This.OpInto(code, 13, 1, 0, 0, 0);
+        This.OpInto(code, 2, 2, 0, 0, 0);
+        This.OpInto(code, 12, 2, 0, 0, 0);
+        List<String> texts = List<String>();
+        texts.Add("Hello, Robix");
+        Int codeResult = This.Run(This.Wrap("Main", 3, code, texts));
+        If (codeResult != 0 || This.Out.Count() != 2) { Return 0; }
+        If (This.Out[0] != "Hello, Robix" || This.Out[1] != "15") { Return 0; }
+        Return 1;
+    }
+
+    Public Function SampleLoop() -> Int
+    Explain {
+        Description: "Run a loop that totals 1 through 5.";
+        Input: none = "No input";
+        Processing: "Compare, add, and jump until the index passes 5.";
+        Output: "The total.";
+    } {
+        List<Int> code = List<Int>();
+        This.OpInto(code, 2, 0, 0, 0, 0);
+        This.OpInto(code, 2, 1, 0, 0, 1);
+        This.OpInto(code, 2, 2, 0, 0, 5);
+        This.OpInto(code, 8, 3, 1, 2, 4);
+        This.OpInto(code, 10, 3, 0, 0, 9);
+        This.OpInto(code, 4, 0, 0, 1, 0);
+        This.OpInto(code, 2, 4, 0, 0, 1);
+        This.OpInto(code, 4, 1, 1, 4, 0);
+        This.OpInto(code, 9, 0, 0, 0, 3);
+        This.OpInto(code, 12, 0, 0, 0, 0);
+        Return This.Run(This.Wrap("Main", 5, code, List<String>()));
+    }
+
+    Private Function Reset() -> Void {
+        This.Image = List<Int>();
+        This.Cursor = 0;
+        This.Failed = False;
+        This.ConstTag = List<Int>();
+        This.ConstInt = List<Int>();
+        This.ConstText = List<String>();
+        This.FnName = List<String>();
+        This.FnRegs = List<Int>();
+        This.FnStart = List<Int>();
+        This.FnLen = List<Int>();
+        This.Op = List<Int>();
+        This.Aa = List<Int>();
+        This.Bb = List<Int>();
+        This.Cc = List<Int>();
+        This.Imm = List<Int>();
+        This.Mem = List<Int>();
+        This.MemKind = List<Int>();
+        This.Top = 0;
+        This.Out = List<String>();
+        This.SaveBase = List<Int>();
+        This.SavePc = List<Int>();
+        This.SaveFunc = List<Int>();
+        This.SaveDest = List<Int>();
+        This.SaveTop = List<Int>();
+        This.Depth = 0;
+    }
+
+    Private Function Decode() -> Bool {
+        If (This.Image.Count() < 8) { Return False; }
+        If (This.Image[0] != 82 || This.Image[1] != 66 || This.Image[2] != 67 || This.Image[3] != 49) { Return False; }
+        This.Cursor = 4;
+        Int constCount = This.ReadU32();
+        Int index = 0;
+        While (index < constCount) {
+            If (This.Failed) { Return False; }
+            Int tag = This.ReadByte();
+            This.ConstTag.Add(tag);
+            If (tag == 3) {
+                This.ConstInt.Add(0);
+                This.ConstText.Add(This.ReadText(This.ReadU32()));
+            } Else {
+                Int low = This.ReadU32();
+                Int high = This.ReadU32();
+                This.ConstInt.Add(low + high * 4294967296);
+                This.ConstText.Add("");
+            }
+            index = index + 1;
+        }
+        Int funcCount = This.ReadU32();
+        index = 0;
+        While (index < funcCount) {
+            If (This.Failed) { Return False; }
+            String name = This.ReadText(This.ReadU32());
+            Int regs = This.ReadU32();
+            Int byteLen = This.ReadU32();
+            Int start = This.Op.Count();
+            Int count = byteLen / 11;
+            Int step = 0;
+            While (step < count) {
+                This.Op.Add(This.ReadByte());
+                This.Aa.Add(This.ReadU16());
+                This.Bb.Add(This.ReadU16());
+                This.Cc.Add(This.ReadU16());
+                This.Imm.Add(This.ReadI32());
+                step = step + 1;
+            }
+            This.FnName.Add(name);
+            This.FnRegs.Add(regs);
+            This.FnStart.Add(start);
+            This.FnLen.Add(count);
+            index = index + 1;
+        }
+        If (This.Failed) { Return False; }
+        Return True;
+    }
+
+    Private Function Execute() -> Int {
+        Int func = This.Find("Main");
+        If (func < 0) { Return -1; }
+        Int base = This.Enter(This.FnRegs[func]);
+        Int pc = 0;
+        Int steps = 0;
+        Int result = 0;
+        While (steps < 100000) {
+            steps = steps + 1;
+            Int length = This.FnLen[func];
+            If (pc >= length) { Return result; }
+            Int at = This.FnStart[func] + pc;
+            Int op = This.Op[at];
+            Int a = This.Aa[at];
+            Int b = This.Bb[at];
+            Int c = This.Cc[at];
+            Int imm = This.Imm[at];
+            Bool jumped = False;
+            If (op == 1) {
+                This.Mem[base + a] = This.Mem[base + b];
+                This.MemKind[base + a] = This.MemKind[base + b];
+            }
+            If (op == 2) {
+                This.Mem[base + a] = imm;
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 3) {
+                If (imm >= 0 && imm < This.ConstTag.Count() && This.ConstTag[imm] == 3) {
+                    This.Mem[base + a] = imm;
+                    This.MemKind[base + a] = 1;
+                } Else {
+                    Int value = 0;
+                    If (imm >= 0 && imm < This.ConstInt.Count()) { value = This.ConstInt[imm]; }
+                    This.Mem[base + a] = value;
+                    This.MemKind[base + a] = 0;
+                }
+            }
+            If (op == 4) {
+                This.Mem[base + a] = This.Mem[base + b] + This.Mem[base + c];
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 5) {
+                This.Mem[base + a] = This.Mem[base + b] - This.Mem[base + c];
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 6) {
+                This.Mem[base + a] = This.Mem[base + b] * This.Mem[base + c];
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 7) {
+                Int right = This.Mem[base + c];
+                Int value = 0;
+                If (right != 0) { value = This.Mem[base + b] / right; }
+                This.Mem[base + a] = value;
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 8) {
+                Int left = This.Mem[base + b];
+                Int right = This.Mem[base + c];
+                Int ok = 0;
+                If (imm == 0 && left == right) { ok = 1; }
+                If (imm == 1 && left != right) { ok = 1; }
+                If (imm == 2 && left < right) { ok = 1; }
+                If (imm == 3 && left > right) { ok = 1; }
+                If (imm == 4 && left <= right) { ok = 1; }
+                If (imm == 5 && left >= right) { ok = 1; }
+                This.Mem[base + a] = ok;
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 9) {
+                pc = imm;
+                jumped = True;
+            }
+            If (op == 10 && This.Mem[base + a] == 0) {
+                pc = imm;
+                jumped = True;
+            }
+            If (op == 11) {
+                This.SaveBase.Add(base);
+                This.SavePc.Add(pc);
+                This.SaveFunc.Add(func);
+                This.SaveDest.Add(a);
+                This.SaveTop.Add(This.Top);
+                This.Depth = This.Depth + 1;
+                Int caller = base;
+                func = b;
+                base = This.Enter(This.FnRegs[func]);
+                Int arg = 0;
+                While (arg < c) {
+                    This.Mem[base + arg] = This.Mem[caller + imm + arg];
+                    This.MemKind[base + arg] = This.MemKind[caller + imm + arg];
+                    arg = arg + 1;
+                }
+                pc = 0;
+                jumped = True;
+            }
+            If (op == 12) {
+                Int value = This.Mem[base + a];
+                If (This.Depth == 0) {
+                    result = value;
+                    Return result;
+                }
+                This.Depth = This.Depth - 1;
+                Int frame = This.Depth;
+                base = This.SaveBase[frame];
+                pc = This.SavePc[frame] + 1;
+                func = This.SaveFunc[frame];
+                This.Mem[base + This.SaveDest[frame]] = value;
+                This.MemKind[base + This.SaveDest[frame]] = 0;
+                This.Top = This.SaveTop[frame];
+                jumped = True;
+            }
+            If (op == 13) {
+                If (imm == 1 || This.MemKind[base + a] == 1) {
+                    Int pool = This.Mem[base + a];
+                    String text = "";
+                    If (pool >= 0 && pool < This.ConstText.Count()) { text = This.ConstText[pool]; }
+                    This.Out.Add(text);
+                } Else {
+                    This.Out.Add(This.Mem[base + a].ToString());
+                }
+            }
+            If (!jumped) { pc = pc + 1; }
+        }
+        Return result;
+    }
+
+    Private Function Enter(Int count) -> Int {
+        Int base = This.Top;
+        Int need = base + count;
+        While (This.Mem.Count() < need) {
+            This.Mem.Add(0);
+            This.MemKind.Add(0);
+        }
+        Int index = 0;
+        While (index < count) {
+            This.Mem[base + index] = 0;
+            This.MemKind[base + index] = 0;
+            index = index + 1;
+        }
+        This.Top = need;
+        Return base;
+    }
+
+    Private Function Find(String name) -> Int {
+        Int index = 0;
+        While (index < This.FnName.Count()) {
+            If (This.FnName[index] == name) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function ReadByte() -> Int {
+        If (This.Cursor >= This.Image.Count()) {
+            This.Failed = True;
+            Return 0;
+        }
+        Int value = This.Image[This.Cursor];
+        This.Cursor = This.Cursor + 1;
+        Return value;
+    }
+
+    Private Function ReadU16() -> Int {
+        Int low = This.ReadByte();
+        Int high = This.ReadByte();
+        Return low + high * 256;
+    }
+
+    Private Function ReadU32() -> Int {
+        Int b0 = This.ReadByte();
+        Int b1 = This.ReadByte();
+        Int b2 = This.ReadByte();
+        Int b3 = This.ReadByte();
+        Return b0 + b1 * 256 + b2 * 65536 + b3 * 16777216;
+    }
+
+    Private Function ReadI32() -> Int {
+        Int value = This.ReadU32();
+        If (value >= 2147483648) { value = value - 4294967296; }
+        Return value;
+    }
+
+    Private Function ReadText(Int length) -> String {
+        String text = "";
+        Int index = 0;
+        While (index < length) {
+            text = text + String.From(This.ReadByte());
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Private Function Wrap(String name, Int regs, List<Int> code, List<String> texts) -> List<Int> {
+        List<Int> image = List<Int>();
+        image.Add(82);
+        image.Add(66);
+        image.Add(67);
+        image.Add(49);
+        This.PushU32(image, texts.Count());
+        Int index = 0;
+        While (index < texts.Count()) {
+            image.Add(3);
+            This.PushU32(image, texts[index].Length());
+            Int charAt = 0;
+            While (charAt < texts[index].Length()) {
+                image.Add(texts[index].GetChar(charAt).ToInt());
+                charAt = charAt + 1;
+            }
+            index = index + 1;
+        }
+        This.PushU32(image, 1);
+        This.PushU32(image, name.Length());
+        index = 0;
+        While (index < name.Length()) {
+            image.Add(name.GetChar(index).ToInt());
+            index = index + 1;
+        }
+        This.PushU32(image, regs);
+        This.PushU32(image, code.Count());
+        For byte In code {
+            image.Add(byte);
+        }
+        Return image;
+    }
+
+    Private Function OpInto(List<Int> code, Int op, Int a, Int b, Int c, Int imm) -> Void {
+        code.Add(op);
+        This.PushU16(code, a);
+        This.PushU16(code, b);
+        This.PushU16(code, c);
+        This.PushU32(code, imm);
+    }
+
+    Private Function PushU16(List<Int> target, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 65536; }
+        target.Add(rest % 256);
+        target.Add((rest / 256) % 256);
+    }
+
+    Private Function PushU32(List<Int> target, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 4294967296; }
+        Int index = 0;
+        While (index < 4) {
+            target.Add(rest % 256);
+            rest = rest / 256;
+            index = index + 1;
+        }
+    }
+}

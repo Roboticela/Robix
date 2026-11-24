@@ -133,6 +133,7 @@ syntax=(
     Lexer.bin Parser.bin ParserExpressions.bin ParserStatements.bin
     Token.bin TokenKind.bin TypeChecker.bin NameChecker.bin
     NativeEmit.bin Emitter.bin SyntaxCompiler.bin Diagnostic.bin
+    Rxir.bin Rxasm.bin Elf.bin
     AstNode.bin TextConvert.bin SyntaxCoverage.bin
 )
 for name in "${syntax[@]}"; do

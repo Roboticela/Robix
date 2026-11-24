@@ -66,6 +66,24 @@ Explain {
         Else { programArguments.Add(arg); }
         index = index + 1;
     }
+    RbcProgram bytecode = RbcProgram();
+    List<Int> image = bytecode.Compile(result.Module);
+    If (bytecode.Covered()) {
+        Int runStart = ClockMillis();
+        Int exitCode = bytecode.Run(image);
+        Int runTime = ClockMillis() - runStart;
+        If (bytecode.Lines().Count() > 0) {
+            Print("{muted}──────── output ────────{/}");
+        }
+        For line In bytecode.Lines() {
+            Print(line);
+        }
+        Print("{muted}run{/}  {accent}" + runTime.ToString() + " ms{/}");
+        If (exitCode != 0) {
+            Return FinishRun(exitCode, "The module returned a non-zero code.");
+        }
+        Return FinishRun(ExitCode.Success, "Program completed successfully.");
+    }
     Interpreter interpreter = Interpreter();
     interpreter.SetConsole(consoleOn, consolePort);
     Int runStart = ClockMillis();

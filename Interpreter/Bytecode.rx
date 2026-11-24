@@ -1,0 +1,1062 @@
+// RBC1 image. A register machine, not a stack machine.
+Package Robix.Runtime
+Explain {
+    Description: "Compile a Robix module to RBC1 and run it.";
+};
+
+Import Robix.Core;
+Import Robix.Syntax;
+
+
+Public Class RbcProgram {
+    Public Bool Complete;
+    Public Int FoldValue;
+    Public List<Int> Bytes;
+    Public List<String> FnNames;
+    Public List<AstNode> FnNodes;
+    Public List<Int> FnRegs;
+    Public List<Int> FnCodeStart;
+    Public List<Int> FnCodeLen;
+    Public List<Int> CodeBytes;
+    Public List<Int> ConstTag;
+    Public List<String> ConstText;
+    Public List<Int> ConstInt;
+    Public List<Int> Ops;
+    Public List<Int> Aa;
+    Public List<Int> Bb;
+    Public List<Int> Cc;
+    Public List<Int> Imms;
+    Public List<String> RegNames;
+    Public List<Int> RegKinds;
+    Public Bool Stop;
+    Public List<Int> Image;
+    Public Int Cursor;
+    Public Bool Failed;
+    Public List<Int> PoolTag;
+    Public List<Int> PoolInt;
+    Public List<String> PoolText;
+    Public List<String> VmName;
+    Public List<Int> VmRegs;
+    Public List<Int> VmStart;
+    Public List<Int> VmLen;
+    Public List<Int> VmOp;
+    Public List<Int> VmA;
+    Public List<Int> VmB;
+    Public List<Int> VmC;
+    Public List<Int> VmImm;
+    Public List<Int> Mem;
+    Public List<Int> MemKind;
+    Public Int Top;
+    Public List<String> Out;
+    Public List<Int> SaveBase;
+    Public List<Int> SavePc;
+    Public List<Int> SaveFunc;
+    Public List<Int> SaveDest;
+    Public List<Int> SaveTop;
+    Public Int Depth;
+
+    Public Constructor() {
+        This.Reset();
+    }
+
+    Public Function Compile(AstNode module) -> List<Int>
+    Explain {
+        Description: "Compile a module to an RBC1 image.";
+        Input: module = "Typed module";
+        Processing: "Compile functions the register machine can run. Mark anything else uncovered.";
+        Output: "The RBC1 bytes.";
+    } {
+        This.Reset();
+        If (module != Null && module.Children != Null) {
+            For child In module.Children {
+                If (child.Kind == AstKind.Class || child.Kind == AstKind.Variable) { This.Complete = False; }
+                If (child.Kind == AstKind.Function) {
+                    String name = child.Name;
+                    If (name == "") { name = "Function"; }
+                    This.FnNames.Add(name);
+                    This.FnNodes.Add(child);
+                }
+            }
+        }
+        Int index = 0;
+        While (index < This.FnNodes.Count()) {
+            This.CompileFunction(This.FnNodes[index]);
+            index = index + 1;
+        }
+        Return This.Finish();
+    }
+
+    Public Function Covered() -> Bool
+    Explain {
+        Description: "Report whether the last module was fully compiled.";
+        Input: none = "No input";
+        Processing: "Read the flag set while compiling.";
+        Output: "True when every statement was encoded.";
+    } {
+        Return This.Complete;
+    }
+
+    Public Function Run(List<Int> image) -> Int
+    Explain {
+        Description: "Run an RBC1 image.";
+        Input: image = "RBC1 bytes";
+        Processing: "Decode the image and execute Main.";
+        Output: "The integer returned from Main, or -1 when the image is not RBC1.";
+    } {
+        This.ClearVm();
+        If (image == Null) { Return -1; }
+        This.Image = image;
+        If (!This.Decode()) { Return -1; }
+        Return This.Execute();
+    }
+
+    Public Function Lines() -> List<String>
+    Explain {
+        Description: "Return lines written by PRINT.";
+        Input: none = "No input";
+        Processing: "Read the captured lines.";
+        Output: "The output lines in order.";
+    } {
+        Return This.Out;
+    }
+
+    Public Function ReturnResult() -> Int
+    Explain {
+        Description: "Compile and run a function that returns zero.";
+        Input: none = "No input";
+        Processing: "Build Main, compile it, and run the image.";
+        Output: "The returned integer.";
+    } {
+        AstNode literal = AstNode();
+        literal.Kind = AstKind.IntegerLiteral;
+        literal.Text = "0";
+        AstNode ret = AstNode();
+        ret.Kind = AstKind.Return;
+        ret.Left = literal;
+        AstNode body = AstNode();
+        body.Kind = AstKind.Block;
+        body.Children.Add(ret);
+        AstNode function = AstNode();
+        function.Kind = AstKind.Function;
+        function.Name = "Main";
+        function.Body = body;
+        AstNode module = AstNode();
+        module.Kind = AstKind.Module;
+        module.Children.Add(function);
+        List<Int> image = This.Compile(module);
+        If (!This.Complete) { Return -1; }
+        Return This.Run(image);
+    }
+
+    Public Function AddResult() -> Int
+    Explain {
+        Description: "Compile and run a pure addition called with constants.";
+        Input: none = "No input";
+        Processing: "Main calls Add(1, 2).";
+        Output: "The sum.";
+    } {
+        AstNode aName = AstNode();
+        aName.Kind = AstKind.Name;
+        aName.Name = "a";
+        AstNode bName = AstNode();
+        bName.Kind = AstKind.Name;
+        bName.Name = "b";
+        AstNode sum = AstNode();
+        sum.Kind = AstKind.Binary;
+        sum.Operator = "+";
+        sum.Left = aName;
+        sum.Right = bName;
+        AstNode addRet = AstNode();
+        addRet.Kind = AstKind.Return;
+        addRet.Left = sum;
+        AstNode addBody = AstNode();
+        addBody.Kind = AstKind.Block;
+        addBody.Children.Add(addRet);
+        AstNode paramA = AstNode();
+        paramA.Kind = AstKind.Parameter;
+        paramA.Name = "a";
+        AstNode paramB = AstNode();
+        paramB.Kind = AstKind.Parameter;
+        paramB.Name = "b";
+        AstNode add = AstNode();
+        add.Kind = AstKind.Function;
+        add.Name = "Add";
+        add.Body = addBody;
+        add.Parameters.Add(paramA);
+        add.Parameters.Add(paramB);
+        AstNode one = AstNode();
+        one.Kind = AstKind.IntegerLiteral;
+        one.Text = "1";
+        AstNode two = AstNode();
+        two.Kind = AstKind.IntegerLiteral;
+        two.Text = "2";
+        AstNode callName = AstNode();
+        callName.Kind = AstKind.Name;
+        callName.Name = "Add";
+        AstNode call = AstNode();
+        call.Kind = AstKind.Call;
+        call.Left = callName;
+        call.Parameters.Add(one);
+        call.Parameters.Add(two);
+        AstNode mainRet = AstNode();
+        mainRet.Kind = AstKind.Return;
+        mainRet.Left = call;
+        AstNode mainBody = AstNode();
+        mainBody.Kind = AstKind.Block;
+        mainBody.Children.Add(mainRet);
+        AstNode main = AstNode();
+        main.Kind = AstKind.Function;
+        main.Name = "Main";
+        main.Body = mainBody;
+        AstNode module = AstNode();
+        module.Kind = AstKind.Module;
+        module.Children.Add(add);
+        module.Children.Add(main);
+        List<Int> image = This.Compile(module);
+        If (!This.Complete) { Return -1; }
+        Return This.Run(image);
+    }
+
+    Public Function HelloResult() -> Int
+    Explain {
+        Description: "Compile and run the HelloRobot body.";
+        Input: none = "No input";
+        Processing: "Total 1 through 5, print the greeting and the total, and skip the empty argument.";
+        Output: "One when the lines are Hello, Robix and 15 and the exit code is zero.";
+    } {
+        List<Int> image = This.Compile(This.HelloModule());
+        If (!This.Complete) { Return -1; }
+        If (image.Count() < 4 || image[0] != 82 || image[1] != 66 || image[2] != 67 || image[3] != 49) { Return -1; }
+        Int code = This.Run(image);
+        If (code != 0 || This.Out.Count() != 2) { Return 0; }
+        If (This.Out[0] != "Hello, Robix" || This.Out[1] != "15") { Return 0; }
+        Return 1;
+    }
+
+    Private Function Reset() -> Void {
+        This.Complete = True;
+        This.FoldValue = 0;
+        This.Bytes = List<Int>();
+        This.FnNames = List<String>();
+        This.FnNodes = List<AstNode>();
+        This.FnRegs = List<Int>();
+        This.FnCodeStart = List<Int>();
+        This.FnCodeLen = List<Int>();
+        This.CodeBytes = List<Int>();
+        This.ConstTag = List<Int>();
+        This.ConstText = List<String>();
+        This.ConstInt = List<Int>();
+        This.Ops = List<Int>();
+        This.Aa = List<Int>();
+        This.Bb = List<Int>();
+        This.Cc = List<Int>();
+        This.Imms = List<Int>();
+        This.RegNames = List<String>();
+        This.RegKinds = List<Int>();
+        This.Stop = False;
+        This.ClearVm();
+    }
+
+    Private Function ClearVm() -> Void {
+        This.Image = List<Int>();
+        This.Cursor = 0;
+        This.Failed = False;
+        This.PoolTag = List<Int>();
+        This.PoolInt = List<Int>();
+        This.PoolText = List<String>();
+        This.VmName = List<String>();
+        This.VmRegs = List<Int>();
+        This.VmStart = List<Int>();
+        This.VmLen = List<Int>();
+        This.VmOp = List<Int>();
+        This.VmA = List<Int>();
+        This.VmB = List<Int>();
+        This.VmC = List<Int>();
+        This.VmImm = List<Int>();
+        This.Mem = List<Int>();
+        This.MemKind = List<Int>();
+        This.Top = 0;
+        This.Out = List<String>();
+        This.SaveBase = List<Int>();
+        This.SavePc = List<Int>();
+        This.SaveFunc = List<Int>();
+        This.SaveDest = List<Int>();
+        This.SaveTop = List<Int>();
+        This.Depth = 0;
+    }
+
+    Private Function CompileFunction(AstNode node) -> Void {
+        This.Ops = List<Int>();
+        This.Aa = List<Int>();
+        This.Bb = List<Int>();
+        This.Cc = List<Int>();
+        This.Imms = List<Int>();
+        This.RegNames = List<String>();
+        This.RegKinds = List<Int>();
+        This.Stop = False;
+        If (node.Parameters != Null) {
+            For parameter In node.Parameters {
+                String paramName = parameter.Name;
+                If (paramName == "") { paramName = "p" + This.RegNames.Count().ToString(); }
+                This.Reg(paramName);
+            }
+        }
+        If (node.Body != Null) { This.Block(node.Body); }
+        If (!This.Stop) {
+            Int zero = This.Fresh();
+            This.Emit(2, zero, 0, 0, 0);
+            This.Emit(12, zero, 0, 0, 0);
+        }
+        Int start = This.CodeBytes.Count();
+        Int index = 0;
+        While (index < This.Ops.Count()) {
+            This.CodeBytes.Add(This.Ops[index]);
+            This.PushU16(This.CodeBytes, This.Aa[index]);
+            This.PushU16(This.CodeBytes, This.Bb[index]);
+            This.PushU16(This.CodeBytes, This.Cc[index]);
+            This.PushU32(This.CodeBytes, This.Imms[index]);
+            index = index + 1;
+        }
+        This.FnRegs.Add(This.RegNames.Count());
+        This.FnCodeStart.Add(start);
+        This.FnCodeLen.Add(This.CodeBytes.Count() - start);
+    }
+
+    Private Function Block(AstNode node) -> Void {
+        If (node.Children == Null) { Return; }
+        For child In node.Children {
+            If (!This.Stop) { This.Statement(child); }
+        }
+    }
+
+    Private Function Statement(AstNode node) -> Void {
+        If (node.Kind == AstKind.Block) {
+            This.Block(node);
+            Return;
+        }
+        If (node.Kind == AstKind.Variable) {
+            Int dest = This.Reg(node.Name);
+            Int src = 0;
+            If (node.Initializer != Null) { src = This.Eval(node.Initializer); }
+            Else {
+                src = This.Fresh();
+                This.Emit(2, src, 0, 0, 0);
+            }
+            If (src != dest) { This.Emit(1, dest, src, 0, 0); }
+            This.SetKind(dest, This.KindOf(src));
+            Return;
+        }
+        If (node.Kind == AstKind.Assignment && node.Left != Null && node.Left.Kind == AstKind.Name) {
+            Int src = 0;
+            If (node.Right != Null) { src = This.Eval(node.Right); }
+            Int dest = This.Reg(node.Left.Name);
+            If (src != dest) { This.Emit(1, dest, src, 0, 0); }
+            This.SetKind(dest, This.KindOf(src));
+            Return;
+        }
+        If (node.Kind == AstKind.ExpressionStatement) {
+            If (node.Left != Null) { This.Eval(node.Left); }
+            Return;
+        }
+        If (node.Kind == AstKind.Return) {
+            Int src = 0;
+            If (node.Left != Null) { src = This.Eval(node.Left); }
+            Else {
+                src = This.Fresh();
+                This.Emit(2, src, 0, 0, 0);
+            }
+            This.Emit(12, src, 0, 0, 0);
+            This.Stop = True;
+            Return;
+        }
+        If (node.Kind == AstKind.If) {
+            Int cond = 0;
+            If (node.Condition != Null) { cond = This.Eval(node.Condition); }
+            Else {
+                cond = This.Fresh();
+                This.Emit(2, cond, 0, 0, 0);
+            }
+            Int jz = This.Emit(10, cond, 0, 0, 0);
+            This.Stop = False;
+            If (node.Body != Null) { This.Block(node.Body); }
+            Int jump = -1;
+            If (!This.Stop) { jump = This.Emit(9, 0, 0, 0, 0); }
+            This.Patch(jz, This.Here());
+            This.Stop = False;
+            If (node.Otherwise != Null) {
+                If (node.Otherwise.Kind == AstKind.Block) { This.Block(node.Otherwise); }
+                Else { This.Statement(node.Otherwise); }
+            }
+            If (jump >= 0) { This.Patch(jump, This.Here()); }
+            This.Stop = False;
+            Return;
+        }
+        If (node.Kind == AstKind.While) {
+            Int head = This.Here();
+            Int cond = 0;
+            If (node.Condition != Null) { cond = This.Eval(node.Condition); }
+            Else {
+                cond = This.Fresh();
+                This.Emit(2, cond, 0, 0, 1);
+            }
+            Int jz = This.Emit(10, cond, 0, 0, 0);
+            This.Stop = False;
+            If (node.Body != Null) { This.Block(node.Body); }
+            If (!This.Stop) { This.Emit(9, 0, 0, 0, head); }
+            This.Patch(jz, This.Here());
+            This.Stop = False;
+            Return;
+        }
+        If (node.Kind == AstKind.For && node.Right != Null && node.Right.Kind == AstKind.Range) {
+            String indexName = "index";
+            If (node.Left != Null && node.Left.Name != "") { indexName = node.Left.Name; }
+            Int index = This.Reg(indexName);
+            Int start = 0;
+            Int end = 0;
+            If (node.Right.Left != Null) { start = This.Eval(node.Right.Left); }
+            If (node.Right.Right != Null) { end = This.Eval(node.Right.Right); }
+            If (!node.Right.FlagA) {
+                Int one = This.Fresh();
+                This.Emit(2, one, 0, 0, 1);
+                Int dec = This.Fresh();
+                This.Emit(5, dec, end, one, 0);
+                end = dec;
+            }
+            If (start != index) { This.Emit(1, index, start, 0, 0); }
+            Int head = This.Here();
+            Int cond = This.Fresh();
+            This.Emit(8, cond, index, end, 4);
+            Int jz = This.Emit(10, cond, 0, 0, 0);
+            This.Stop = False;
+            If (node.Body != Null) { This.Block(node.Body); }
+            If (!This.Stop) {
+                Int one = This.Fresh();
+                This.Emit(2, one, 0, 0, 1);
+                Int next = This.Fresh();
+                This.Emit(4, next, index, one, 0);
+                This.Emit(1, index, next, 0, 0);
+                This.Emit(9, 0, 0, 0, head);
+            }
+            This.Patch(jz, This.Here());
+            This.Stop = False;
+            Return;
+        }
+        If (node.Kind == AstKind.Missing || node.Kind == AstKind.Explain) { Return; }
+        This.Complete = False;
+    }
+
+    Private Function Eval(AstNode node) -> Int {
+        If (node.Kind == AstKind.IntegerLiteral) {
+            Int dest = This.Fresh();
+            String spelling = node.Text.Replace("_", "");
+            If (spelling == "") { spelling = "0"; }
+            This.Emit(2, dest, 0, 0, ParseInteger(spelling));
+            This.SetKind(dest, 0);
+            Return dest;
+        }
+        If (node.Kind == AstKind.StringLiteral) {
+            Int dest = This.Fresh();
+            Int pool = This.AddString(node.Text);
+            This.Emit(3, dest, 0, 0, pool);
+            This.SetKind(dest, 1);
+            Return dest;
+        }
+        If (node.Kind == AstKind.BooleanLiteral) {
+            Int dest = This.Fresh();
+            Int value = 0;
+            If (node.FlagA || node.Text == "True") { value = 1; }
+            This.Emit(2, dest, 0, 0, value);
+            This.SetKind(dest, 0);
+            Return dest;
+        }
+        If (node.Kind == AstKind.Name) { Return This.Reg(node.Name); }
+        If (node.Kind == AstKind.Binary) {
+            Int left = 0;
+            Int right = 0;
+            If (node.Left != Null) { left = This.Eval(node.Left); }
+            If (node.Right != Null) { right = This.Eval(node.Right); }
+            Int dest = This.Fresh();
+            Int opcode = 0;
+            Int cond = -1;
+            If (node.Operator == "+") { opcode = 4; }
+            If (node.Operator == "-") { opcode = 5; }
+            If (node.Operator == "*") { opcode = 6; }
+            If (node.Operator == "/") { opcode = 7; }
+            If (node.Operator == "==" || node.Operator == "Equal") { cond = 0; }
+            If (node.Operator == "!=") { cond = 1; }
+            If (node.Operator == "<") { cond = 2; }
+            If (node.Operator == ">") { cond = 3; }
+            If (node.Operator == "<=") { cond = 4; }
+            If (node.Operator == ">=") { cond = 5; }
+            If (cond >= 0) { This.Emit(8, dest, left, right, cond); }
+            Else If (opcode != 0) { This.Emit(opcode, dest, left, right, 0); }
+            Else {
+                This.Complete = False;
+                This.Emit(2, dest, 0, 0, 0);
+            }
+            This.SetKind(dest, 0);
+            Return dest;
+        }
+        If (node.Kind == AstKind.Call) { Return This.EvalCall(node); }
+        If (node.Kind == AstKind.Index) {
+            Int dest = This.Fresh();
+            Int pool = This.AddString("");
+            This.Emit(3, dest, 0, 0, pool);
+            This.SetKind(dest, 1);
+            Return dest;
+        }
+        This.Complete = False;
+        Int dest = This.Fresh();
+        This.Emit(2, dest, 0, 0, 0);
+        Return dest;
+    }
+
+    Private Function EvalCall(AstNode node) -> Int {
+        If (node.Left != Null && node.Left.Kind == AstKind.Member && node.Left.Name == "Count") {
+            If (node.Left.Left != Null && node.Left.Left.Kind == AstKind.Name) {
+                Return This.Reg(node.Left.Left.Name);
+            }
+        }
+        If (node.Left != Null && node.Left.Kind == AstKind.Name && node.Left.Name == "Print") {
+            Int src = 0;
+            If (node.Parameters != Null) {
+                For argument In node.Parameters {
+                    AstNode expr = argument;
+                    If (argument.Kind == AstKind.Argument && argument.Left != Null) { expr = argument.Left; }
+                    src = This.Eval(expr);
+                }
+            }
+            This.Emit(13, src, 0, 0, This.KindOf(src));
+            Return src;
+        }
+        String symbol = "";
+        If (node.Left != Null && node.Left.Kind == AstKind.Name) { symbol = node.Left.Name; }
+        List<Int> args = List<Int>();
+        If (node.Parameters != Null) {
+            For argument In node.Parameters {
+                AstNode expr = argument;
+                If (argument.Kind == AstKind.Argument && argument.Left != Null) { expr = argument.Left; }
+                args.Add(This.Eval(expr));
+            }
+        }
+        Int func = This.FindName(symbol);
+        If (func < 0) {
+            This.Complete = False;
+            Int missing = This.Fresh();
+            This.Emit(2, missing, 0, 0, 0);
+            Return missing;
+        }
+        Int first = 0;
+        If (args.Count() > 0) {
+            first = This.Fresh();
+            Int extra = args.Count() - 1;
+            While (extra > 0) {
+                This.Fresh();
+                extra = extra - 1;
+            }
+            Int index = 0;
+            While (index < args.Count()) {
+                If (args[index] != first + index) { This.Emit(1, first + index, args[index], 0, 0); }
+                index = index + 1;
+            }
+        }
+        Int dest = This.Fresh();
+        This.Emit(11, dest, func, args.Count(), first);
+        This.SetKind(dest, 0);
+        Return dest;
+    }
+
+    Private Function Finish() -> List<Int> {
+        This.Bytes = List<Int>();
+        This.Bytes.Add(82);
+        This.Bytes.Add(66);
+        This.Bytes.Add(67);
+        This.Bytes.Add(49);
+        This.PushU32(This.Bytes, This.ConstTag.Count());
+        Int index = 0;
+        While (index < This.ConstTag.Count()) {
+            This.Bytes.Add(This.ConstTag[index]);
+            If (This.ConstTag[index] == 3) {
+                String text = This.ConstText[index];
+                This.PushU32(This.Bytes, text.Length());
+                Int charAt = 0;
+                While (charAt < text.Length()) {
+                    This.Bytes.Add(text.GetChar(charAt).ToInt());
+                    charAt = charAt + 1;
+                }
+            } Else {
+                This.PushU32(This.Bytes, This.ConstInt[index]);
+                This.PushU32(This.Bytes, 0);
+            }
+            index = index + 1;
+        }
+        This.PushU32(This.Bytes, This.FnNames.Count());
+        index = 0;
+        While (index < This.FnNames.Count()) {
+            String name = This.FnNames[index];
+            This.PushU32(This.Bytes, name.Length());
+            Int charAt = 0;
+            While (charAt < name.Length()) {
+                This.Bytes.Add(name.GetChar(charAt).ToInt());
+                charAt = charAt + 1;
+            }
+            Int regs = 0;
+            If (index < This.FnRegs.Count()) { regs = This.FnRegs[index]; }
+            This.PushU32(This.Bytes, regs);
+            Int length = 0;
+            If (index < This.FnCodeLen.Count()) { length = This.FnCodeLen[index]; }
+            This.PushU32(This.Bytes, length);
+            Int start = 0;
+            If (index < This.FnCodeStart.Count()) { start = This.FnCodeStart[index]; }
+            Int cursor = 0;
+            While (cursor < length) {
+                This.Bytes.Add(This.CodeBytes[start + cursor]);
+                cursor = cursor + 1;
+            }
+            index = index + 1;
+        }
+        Return This.Bytes;
+    }
+
+    Private Function AddString(String text) -> Int {
+        Int at = This.ConstTag.Count();
+        This.ConstTag.Add(3);
+        This.ConstText.Add(text);
+        This.ConstInt.Add(0);
+        Return at;
+    }
+
+    Private Function Emit(Int op, Int a, Int b, Int c, Int imm) -> Int {
+        Int at = This.Ops.Count();
+        This.Ops.Add(op);
+        This.Aa.Add(a);
+        This.Bb.Add(b);
+        This.Cc.Add(c);
+        This.Imms.Add(imm);
+        Return at;
+    }
+
+    Private Function Patch(Int at, Int imm) -> Void {
+        This.Imms[at] = imm;
+    }
+
+    Private Function Here() -> Int {
+        Return This.Ops.Count();
+    }
+
+    Private Function Reg(String name) -> Int {
+        Int index = 0;
+        While (index < This.RegNames.Count()) {
+            If (This.RegNames[index] == name) { Return index; }
+            index = index + 1;
+        }
+        This.RegNames.Add(name);
+        This.RegKinds.Add(0);
+        Return This.RegNames.Count() - 1;
+    }
+
+    Private Function Fresh() -> Int {
+        Int at = This.RegNames.Count();
+        This.RegNames.Add("%" + at.ToString());
+        This.RegKinds.Add(0);
+        Return at;
+    }
+
+    Private Function SetKind(Int reg, Int kind) -> Void {
+        This.RegKinds[reg] = kind;
+    }
+
+    Private Function KindOf(Int reg) -> Int {
+        If (reg < 0 || reg >= This.RegKinds.Count()) { Return 0; }
+        Return This.RegKinds[reg];
+    }
+
+    Private Function FindName(String name) -> Int {
+        Int index = 0;
+        While (index < This.FnNames.Count()) {
+            If (This.FnNames[index] == name) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function HelloModule() -> AstNode {
+        AstNode zero = AstNode();
+        zero.Kind = AstKind.IntegerLiteral;
+        zero.Text = "0";
+        AstNode one = AstNode();
+        one.Kind = AstKind.IntegerLiteral;
+        one.Text = "1";
+        AstNode five = AstNode();
+        five.Kind = AstKind.IntegerLiteral;
+        five.Text = "5";
+        AstNode totalName = AstNode();
+        totalName.Kind = AstKind.Name;
+        totalName.Name = "total";
+        AstNode indexName = AstNode();
+        indexName.Kind = AstKind.Name;
+        indexName.Name = "index";
+        AstNode argsName = AstNode();
+        argsName.Kind = AstKind.Name;
+        argsName.Name = "args";
+        AstNode printName = AstNode();
+        printName.Kind = AstKind.Name;
+        printName.Name = "Print";
+        AstNode totalVar = AstNode();
+        totalVar.Kind = AstKind.Variable;
+        totalVar.Name = "total";
+        totalVar.Initializer = zero;
+        AstNode range = AstNode();
+        range.Kind = AstKind.Range;
+        range.FlagA = True;
+        range.Left = one;
+        range.Right = five;
+        AstNode add = AstNode();
+        add.Kind = AstKind.Binary;
+        add.Operator = "+";
+        add.Left = totalName;
+        add.Right = indexName;
+        AstNode assign = AstNode();
+        assign.Kind = AstKind.Assignment;
+        assign.Operator = "=";
+        assign.Left = totalName;
+        assign.Right = add;
+        AstNode loopBody = AstNode();
+        loopBody.Kind = AstKind.Block;
+        loopBody.Children.Add(assign);
+        AstNode loop = AstNode();
+        loop.Kind = AstKind.For;
+        loop.Left = indexName;
+        loop.Right = range;
+        loop.Body = loopBody;
+        AstNode greeting = AstNode();
+        greeting.Kind = AstKind.StringLiteral;
+        greeting.Text = "Hello, Robix";
+        AstNode printGreeting = AstNode();
+        printGreeting.Kind = AstKind.Call;
+        printGreeting.Left = printName;
+        printGreeting.Parameters.Add(greeting);
+        AstNode printGreetingStmt = AstNode();
+        printGreetingStmt.Kind = AstKind.ExpressionStatement;
+        printGreetingStmt.Left = printGreeting;
+        AstNode printTotal = AstNode();
+        printTotal.Kind = AstKind.Call;
+        printTotal.Left = printName;
+        printTotal.Parameters.Add(totalName);
+        AstNode printTotalStmt = AstNode();
+        printTotalStmt.Kind = AstKind.ExpressionStatement;
+        printTotalStmt.Left = printTotal;
+        AstNode countMember = AstNode();
+        countMember.Kind = AstKind.Member;
+        countMember.Left = argsName;
+        countMember.Name = "Count";
+        AstNode countCall = AstNode();
+        countCall.Kind = AstKind.Call;
+        countCall.Left = countMember;
+        AstNode compare = AstNode();
+        compare.Kind = AstKind.Binary;
+        compare.Operator = ">";
+        compare.Left = countCall;
+        compare.Right = zero;
+        AstNode indexExpr = AstNode();
+        indexExpr.Kind = AstKind.Index;
+        indexExpr.Left = argsName;
+        indexExpr.Right = zero;
+        AstNode printArg = AstNode();
+        printArg.Kind = AstKind.Call;
+        printArg.Left = printName;
+        printArg.Parameters.Add(indexExpr);
+        AstNode printArgStmt = AstNode();
+        printArgStmt.Kind = AstKind.ExpressionStatement;
+        printArgStmt.Left = printArg;
+        AstNode ifBody = AstNode();
+        ifBody.Kind = AstKind.Block;
+        ifBody.Children.Add(printArgStmt);
+        AstNode ifStmt = AstNode();
+        ifStmt.Kind = AstKind.If;
+        ifStmt.Condition = compare;
+        ifStmt.Body = ifBody;
+        AstNode retLit = AstNode();
+        retLit.Kind = AstKind.IntegerLiteral;
+        retLit.Text = "0";
+        AstNode ret = AstNode();
+        ret.Kind = AstKind.Return;
+        ret.Left = retLit;
+        AstNode body = AstNode();
+        body.Kind = AstKind.Block;
+        body.Children.Add(totalVar);
+        body.Children.Add(loop);
+        body.Children.Add(printGreetingStmt);
+        body.Children.Add(printTotalStmt);
+        body.Children.Add(ifStmt);
+        body.Children.Add(ret);
+        AstNode param = AstNode();
+        param.Kind = AstKind.Parameter;
+        param.Name = "args";
+        AstNode function = AstNode();
+        function.Kind = AstKind.Function;
+        function.Name = "Main";
+        function.Body = body;
+        function.Parameters.Add(param);
+        AstNode module = AstNode();
+        module.Kind = AstKind.Module;
+        module.Children.Add(function);
+        Return module;
+    }
+
+    Private Function Decode() -> Bool {
+        If (This.Image.Count() < 8) { Return False; }
+        If (This.Image[0] != 82 || This.Image[1] != 66 || This.Image[2] != 67 || This.Image[3] != 49) { Return False; }
+        This.Cursor = 4;
+        Int constCount = This.ReadU32();
+        Int index = 0;
+        While (index < constCount) {
+            If (This.Failed) { Return False; }
+            Int tag = This.ReadByte();
+            This.PoolTag.Add(tag);
+            If (tag == 3) {
+                This.PoolInt.Add(0);
+                This.PoolText.Add(This.ReadText(This.ReadU32()));
+            } Else {
+                Int low = This.ReadU32();
+                Int high = This.ReadU32();
+                This.PoolInt.Add(low + high * 4294967296);
+                This.PoolText.Add("");
+            }
+            index = index + 1;
+        }
+        Int funcCount = This.ReadU32();
+        index = 0;
+        While (index < funcCount) {
+            If (This.Failed) { Return False; }
+            String name = This.ReadText(This.ReadU32());
+            Int regs = This.ReadU32();
+            Int byteLen = This.ReadU32();
+            Int start = This.VmOp.Count();
+            Int count = byteLen / 11;
+            Int step = 0;
+            While (step < count) {
+                This.VmOp.Add(This.ReadByte());
+                This.VmA.Add(This.ReadU16());
+                This.VmB.Add(This.ReadU16());
+                This.VmC.Add(This.ReadU16());
+                This.VmImm.Add(This.ReadI32());
+                step = step + 1;
+            }
+            This.VmName.Add(name);
+            This.VmRegs.Add(regs);
+            This.VmStart.Add(start);
+            This.VmLen.Add(count);
+            index = index + 1;
+        }
+        If (This.Failed) { Return False; }
+        Return True;
+    }
+
+    Private Function Execute() -> Int {
+        Int func = This.FindVm("Main");
+        If (func < 0) { Return -1; }
+        Int base = This.Enter(This.VmRegs[func]);
+        Int pc = 0;
+        Int steps = 0;
+        Int result = 0;
+        While (steps < 100000) {
+            steps = steps + 1;
+            If (pc >= This.VmLen[func]) { Return result; }
+            Int at = This.VmStart[func] + pc;
+            Int op = This.VmOp[at];
+            Int a = This.VmA[at];
+            Int b = This.VmB[at];
+            Int c = This.VmC[at];
+            Int imm = This.VmImm[at];
+            Bool jumped = False;
+            If (op == 1) {
+                This.Mem[base + a] = This.Mem[base + b];
+                This.MemKind[base + a] = This.MemKind[base + b];
+            }
+            If (op == 2) {
+                This.Mem[base + a] = imm;
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 3) {
+                If (imm >= 0 && imm < This.PoolTag.Count() && This.PoolTag[imm] == 3) {
+                    This.Mem[base + a] = imm;
+                    This.MemKind[base + a] = 1;
+                } Else {
+                    Int value = 0;
+                    If (imm >= 0 && imm < This.PoolInt.Count()) { value = This.PoolInt[imm]; }
+                    This.Mem[base + a] = value;
+                    This.MemKind[base + a] = 0;
+                }
+            }
+            If (op == 4) {
+                This.Mem[base + a] = This.Mem[base + b] + This.Mem[base + c];
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 5) {
+                This.Mem[base + a] = This.Mem[base + b] - This.Mem[base + c];
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 6) {
+                This.Mem[base + a] = This.Mem[base + b] * This.Mem[base + c];
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 7) {
+                Int right = This.Mem[base + c];
+                Int value = 0;
+                If (right != 0) { value = This.Mem[base + b] / right; }
+                This.Mem[base + a] = value;
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 8) {
+                Int left = This.Mem[base + b];
+                Int right = This.Mem[base + c];
+                Int ok = 0;
+                If (imm == 0 && left == right) { ok = 1; }
+                If (imm == 1 && left != right) { ok = 1; }
+                If (imm == 2 && left < right) { ok = 1; }
+                If (imm == 3 && left > right) { ok = 1; }
+                If (imm == 4 && left <= right) { ok = 1; }
+                If (imm == 5 && left >= right) { ok = 1; }
+                This.Mem[base + a] = ok;
+                This.MemKind[base + a] = 0;
+            }
+            If (op == 9) {
+                pc = imm;
+                jumped = True;
+            }
+            If (op == 10 && This.Mem[base + a] == 0) {
+                pc = imm;
+                jumped = True;
+            }
+            If (op == 11) {
+                This.SaveBase.Add(base);
+                This.SavePc.Add(pc);
+                This.SaveFunc.Add(func);
+                This.SaveDest.Add(a);
+                This.SaveTop.Add(This.Top);
+                This.Depth = This.Depth + 1;
+                Int caller = base;
+                func = b;
+                base = This.Enter(This.VmRegs[func]);
+                Int arg = 0;
+                While (arg < c) {
+                    This.Mem[base + arg] = This.Mem[caller + imm + arg];
+                    This.MemKind[base + arg] = This.MemKind[caller + imm + arg];
+                    arg = arg + 1;
+                }
+                pc = 0;
+                jumped = True;
+            }
+            If (op == 12) {
+                Int value = This.Mem[base + a];
+                If (This.Depth == 0) { Return value; }
+                This.Depth = This.Depth - 1;
+                Int frame = This.Depth;
+                base = This.SaveBase[frame];
+                pc = This.SavePc[frame] + 1;
+                func = This.SaveFunc[frame];
+                This.Mem[base + This.SaveDest[frame]] = value;
+                This.MemKind[base + This.SaveDest[frame]] = 0;
+                This.Top = This.SaveTop[frame];
+                jumped = True;
+            }
+            If (op == 13) {
+                If (imm == 1 || This.MemKind[base + a] == 1) {
+                    Int pool = This.Mem[base + a];
+                    String text = "";
+                    If (pool >= 0 && pool < This.PoolText.Count()) { text = This.PoolText[pool]; }
+                    This.Out.Add(text);
+                } Else {
+                    This.Out.Add(This.Mem[base + a].ToString());
+                }
+            }
+            If (!jumped) { pc = pc + 1; }
+        }
+        Return result;
+    }
+
+    Private Function Enter(Int count) -> Int {
+        Int base = This.Top;
+        Int need = base + count;
+        While (This.Mem.Count() < need) {
+            This.Mem.Add(0);
+            This.MemKind.Add(0);
+        }
+        Int index = 0;
+        While (index < count) {
+            This.Mem[base + index] = 0;
+            This.MemKind[base + index] = 0;
+            index = index + 1;
+        }
+        This.Top = need;
+        Return base;
+    }
+
+    Private Function FindVm(String name) -> Int {
+        Int index = 0;
+        While (index < This.VmName.Count()) {
+            If (This.VmName[index] == name) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function ReadByte() -> Int {
+        If (This.Cursor >= This.Image.Count()) {
+            This.Failed = True;
+            Return 0;
+        }
+        Int value = This.Image[This.Cursor];
+        This.Cursor = This.Cursor + 1;
+        Return value;
+    }
+
+    Private Function ReadU16() -> Int {
+        Int low = This.ReadByte();
+        Int high = This.ReadByte();
+        Return low + high * 256;
+    }
+
+    Private Function ReadU32() -> Int {
+        Int b0 = This.ReadByte();
+        Int b1 = This.ReadByte();
+        Int b2 = This.ReadByte();
+        Int b3 = This.ReadByte();
+        Return b0 + b1 * 256 + b2 * 65536 + b3 * 16777216;
+    }
+
+    Private Function ReadI32() -> Int {
+        Int value = This.ReadU32();
+        If (value >= 2147483648) { value = value - 4294967296; }
+        Return value;
+    }
+
+    Private Function ReadText(Int length) -> String {
+        String text = "";
+        Int index = 0;
+        While (index < length) {
+            text = text + String.From(This.ReadByte());
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Private Function PushU16(List<Int> target, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 65536; }
+        target.Add(rest % 256);
+        target.Add((rest / 256) % 256);
+    }
+
+    Private Function PushU32(List<Int> target, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 4294967296; }
+        Int index = 0;
+        While (index < 4) {
+            target.Add(rest % 256);
+            rest = rest / 256;
+            index = index + 1;
+        }
+    }
+}

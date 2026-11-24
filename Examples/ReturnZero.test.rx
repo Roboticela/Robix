@@ -1,0 +1,7 @@
+// Tests for Examples/ReturnZero.rx.
+
+Test Main {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}

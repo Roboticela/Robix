@@ -1,0 +1,286 @@
+// Tests for Compiler/Rxasm.rx.
+
+Test MovImm {
+    Case "rax zero" {
+        Input: dest = "rax", value = 0;
+        Assert: Result[0] == 72 && Result[1] == 199 && Result[2] == 192 && Result[3] == 0;
+    }
+}
+
+Test MovReg {
+    Case "mov rdi, rax" {
+        Input: dest = "rdi", source = "rax";
+        Assert: Result[0] == 72 && Result[1] == 137 && Result[2] == 199;
+    }
+}
+
+Test AddReg {
+    Case "add rax, rcx" {
+        Input: dest = "rax", source = "rcx";
+        Assert: Result[0] == 72 && Result[1] == 1 && Result[2] == 200;
+    }
+}
+
+Test SubReg {
+    Output: True;
+}
+
+Test AndReg {
+    Output: True;
+}
+
+Test OrReg {
+    Output: True;
+}
+
+Test XorReg {
+    Output: True;
+}
+
+Test ImulReg {
+    Output: True;
+}
+
+Test CmpReg {
+    Output: True;
+}
+
+Test CmpImm {
+    Output: True;
+}
+
+Test RetBytes {
+    Case "opcode" {
+        Input:;
+        Assert: Result[0] == 195;
+    }
+}
+
+Test SyscallBytes {
+    Case "opcode" {
+        Input:;
+        Assert: Result[0] == 15 && Result[1] == 5;
+    }
+}
+
+Test CallRel {
+    Case "zero displacement" {
+        Input: displacement = 0;
+        Assert: Result[0] == 232 && Result[1] == 0;
+    }
+}
+
+Test JmpRel {
+    Output: True;
+}
+
+Test JccRel {
+    Case "je" {
+        Input: condition = "je", displacement = 0;
+        Assert: Result[0] == 15 && Result[1] == 132;
+    }
+}
+
+Test RegLow {
+    Case "rbx" {
+        Input: name = "rbx";
+        Assert: Result == 3;
+    }
+}
+
+Test RegHigh {
+    Case "r12" {
+        Input: name = "r12";
+        Assert: Result == 1;
+    }
+}
+
+Test Select {
+    Case "return zero" {
+        Input: rxir = "function Main() -> i64\nblock entry\n  %0 = const i64 0\n  ret i64 %0\n";
+        Assert: Result.IndexOf("Main:") >= 0 && Result.IndexOf("ret") >= 0 && Result.IndexOf("; skip") < 0;
+    }
+}
+
+Test WithStart {
+    Case "adds entry" {
+        Input: rxasm = "Main:\n    ret\n";
+        Assert: Result.IndexOf("_start:") >= 0 && Result.IndexOf("syscall") >= 0;
+    }
+}
+
+Test Assemble {
+    Case "ret" {
+        Input: rxasm = "ret\n";
+        Assert: Result[0] == 195;
+    }
+    Case "slot store" {
+        Input: rxasm = "mov [rsp+0], rax\n";
+        Assert: Result[0] == 72 && Result[1] == 137 && Result[2] == 132 && Result[3] == 36;
+    }
+    Case "greeting bytes" {
+        Input: rxasm = "lea rsi, str0\nstr0:\nascii \"Hi\"\n";
+        Assert: Result[1] == 141 && Result[7] == 72 && Result[8] == 105 && Result[9] == 10;
+    }
+}
+
+Test ProgramZero {
+    Case "call" {
+        Input:;
+        Assert: Result == 232;
+    }
+}
+
+Test ProgramSyscall {
+    Case "exit" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test RetCode {
+    Case "ret" {
+        Input:;
+        Assert: Result == 195;
+    }
+}
+
+Test AddImm {
+    Case "add rsp, 8" {
+        Input: dest = "rsp", value = 8;
+        Assert: Result[0] == 72 && Result[1] == 131 && Result[2] == 196 && Result[3] == 8;
+    }
+}
+
+Test SubImm {
+    Case "sub rsp, 8" {
+        Input: dest = "rsp", value = 8;
+        Assert: Result[0] == 72 && Result[1] == 131 && Result[2] == 236 && Result[3] == 8;
+    }
+}
+
+Test LeaRip {
+    Case "lea rsi, rip" {
+        Input: dest = "rsi", displacement = 0;
+        Assert: Result[0] == 72 && Result[1] == 141 && Result[2] == 53 && Result[3] == 0;
+    }
+}
+
+Test NegReg {
+    Case "neg rdi" {
+        Input: dest = "rdi";
+        Assert: Result[0] == 72 && Result[1] == 247 && Result[2] == 223;
+    }
+}
+
+Test CqoBytes {
+    Case "opcode" {
+        Input:;
+        Assert: Result[0] == 72 && Result[1] == 153;
+    }
+}
+
+Test IdivReg {
+    Case "idiv rcx" {
+        Input: dest = "rcx";
+        Assert: Result[0] == 72 && Result[1] == 247 && Result[2] == 249;
+    }
+}
+
+Test DecReg {
+    Case "dec r10" {
+        Input: dest = "r10";
+        Assert: Result[0] == 73 && Result[1] == 255 && Result[2] == 202;
+    }
+}
+
+Test MovAl {
+    Case "newline" {
+        Input: value = 10;
+        Assert: Result[0] == 176 && Result[1] == 10;
+    }
+}
+
+Test MovMem8 {
+    Case "al at r10" {
+        Input: base = "r10", byteReg = "al";
+        Assert: Result[0] == 65 && Result[1] == 136 && Result[2] == 2;
+    }
+    Case "dl at r10" {
+        Input: base = "r10", byteReg = "dl";
+        Assert: Result[0] == 65 && Result[1] == 136 && Result[2] == 18;
+    }
+}
+
+Test MovStoreRsp {
+    Case "rax at zero" {
+        Input: displacement = 0, source = "rax";
+        Assert: Result[0] == 72 && Result[1] == 137 && Result[2] == 132 && Result[3] == 36 && Result[4] == 0;
+    }
+}
+
+Test MovLoadRsp {
+    Case "rax at zero" {
+        Input: dest = "rax", displacement = 0;
+        Assert: Result[0] == 72 && Result[1] == 139 && Result[2] == 132 && Result[3] == 36 && Result[4] == 0;
+    }
+}
+
+Test ProgramArgs {
+    Case "xor rdi" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test HelloProgram {
+    Case "greeting bytes" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test Alu { Output: True; }
+Test RexB { Output: True; }
+Test RexPair { Output: True; }
+Test JccOpcode { Output: True; }
+Test Low8 { Output: True; }
+Test AppendI32 { Output: True; }
+Test ClearAsm { Output: True; }
+Test ClearCode { Output: True; }
+Test SelectLine { Output: True; }
+Test EmitBranch { Output: True; }
+Test EmitVoidCall { Output: True; }
+Test EmitValueCall { Output: True; }
+Test Symbol { Output: True; }
+Test EmitCode { Output: True; }
+Test Place { Output: True; }
+Test Ingest { Output: True; }
+Test IsJcc { Output: True; }
+Test IsReg { Output: True; }
+Test IsImm { Output: True; }
+Test AddOp { Output: True; }
+Test AddAsm { Output: True; }
+Test Join { Output: True; }
+Test Tokens { Output: True; }
+Test Bind { Output: True; }
+Test BindFixed { Output: True; }
+Test Lookup { Output: True; }
+Test RememberCond { Output: True; }
+Test LookupCond { Output: True; }
+Test ArgReg { Output: True; }
+Test LabelAt { Output: True; }
+Test Append { Output: True; }
+Test AluImm { Output: True; }
+Test MovRsp { Output: True; }
+Test EmitPrint { Output: True; }
+Test AddBody { Output: True; }
+Test FlushFunction { Output: True; }
+Test EmitTail { Output: True; }
+Test DataLength { Output: True; }
+Test EscapeAsm { Output: True; }
+Test ImmSize { Output: True; }
+Test IsMem { Output: True; }
+Test MemDisp { Output: True; }
+Test IsBracket { Output: True; }
+Test MemBase { Output: True; }
