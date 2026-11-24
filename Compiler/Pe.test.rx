@@ -1,5 +1,7 @@
 // Tests for Compiler/Pe.rx.
 
+Test Low32 { Output: True; }
+
 Test ImportRva {
     Case "next page" {
         Input: codeSize = 1;

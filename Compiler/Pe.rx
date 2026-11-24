@@ -28,7 +28,11 @@ Public Class PeImage {
     } {
         List<Int> text = List<Int>();
         If (code != Null) {
-            For byte In code { This.AppendByte(text, byte); }
+            Int index = 0;
+            While (index < code.Count()) {
+                This.AppendByte(text, code[index]);
+                index = index + 1;
+            }
         }
         Int codeSize = text.Count();
         Int textRaw = This.Align(codeSize, 512);
@@ -61,7 +65,10 @@ Public Class PeImage {
         This.AppendU32(image, 0);
         This.AppendU32(image, 4096);
         This.AppendU32(image, 4096);
-        This.AppendU32(image, 1073741824);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 64);
         This.AppendU32(image, 1);
         This.AppendU32(image, 4096);
         This.AppendU32(image, 512);
@@ -100,7 +107,10 @@ Public Class PeImage {
         This.AppendU32(image, 0);
         This.AppendU16(image, 0);
         This.AppendU16(image, 0);
-        This.AppendU32(image, 1610612768);
+        This.AppendByte(image, 32);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 96);
         This.AppendName(image, ".idata");
         This.AppendU32(image, imports.Count());
         This.AppendU32(image, importAt);
@@ -110,13 +120,22 @@ Public Class PeImage {
         This.AppendU32(image, 0);
         This.AppendU16(image, 0);
         This.AppendU16(image, 0);
-        Int idataFlags = 2000000000;
-        idataFlags = idataFlags + 1221225536;
-        This.AppendU32(image, idataFlags);
+        This.AppendByte(image, 64);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 192);
         While (image.Count() < 512) { This.AppendByte(image, 0); }
-        For byte In text { This.AppendByte(image, byte); }
+        Int textIndex = 0;
+        While (textIndex < text.Count()) {
+            This.AppendByte(image, text[textIndex]);
+            textIndex = textIndex + 1;
+        }
         While (image.Count() < 512 + textRaw) { This.AppendByte(image, 0); }
-        For byte In imports { This.AppendByte(image, byte); }
+        Int importIndex = 0;
+        While (importIndex < imports.Count()) {
+            This.AppendByte(image, imports[importIndex]);
+            importIndex = importIndex + 1;
+        }
         While (image.Count() < 512 + textRaw + importRaw) { This.AppendByte(image, 0); }
         Return image;
     }
@@ -260,6 +279,17 @@ Public Class PeImage {
         Return data;
     }
 
+    Private Function Low32(Int value) -> Int {
+        Int rest = value;
+        If (rest < 0) {
+            rest = rest + 2147483647;
+            rest = rest + 1;
+            rest = rest + 2147483647;
+            rest = rest + 1;
+        }
+        Return rest;
+    }
+
     Private Function Align(Int value, Int boundary) -> Int {
         Int size = value;
         If (size < 0) { size = 0; }
@@ -312,7 +342,7 @@ Public Class PeImage {
 
     Private Function PokeU32(List<Int> bytes, Int at, Int value) -> Void {
         Int rest = value;
-        If (rest < 0) { rest = rest + 4294967296; }
+        If (rest < 0) { rest = This.Low32(rest); }
         Int index = 0;
         While (index < 4) {
             bytes[at + index] = rest % 256;
@@ -349,7 +379,7 @@ Public Class PeImage {
 
     Private Function AppendU32(List<Int> bytes, Int value) -> Void {
         Int rest = value;
-        If (rest < 0) { rest = rest + 4294967296; }
+        If (rest < 0) { rest = This.Low32(rest); }
         Int index = 0;
         While (index < 4) {
             bytes.Add(rest % 256);
