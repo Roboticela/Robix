@@ -4,7 +4,7 @@ Test From { Output: True; }
 Test Length { Output: True; }
 Test Equals { Output: True; }
 Test Concat { Output: True; }
-Test Substring { Output: True; }
+Test Slice { Output: True; }
 Test Character { Output: True; }
 Test StartsWith { Output: True; }
 Test EndsWith { Output: True; }

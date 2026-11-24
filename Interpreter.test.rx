@@ -1,5 +1,17 @@
 // Tests for Interpreter.rx.
 
+Test CollectImportAliases { Output: True; }
+Test WalkPackage { Output: True; }
+Test PackageFunction { Output: True; }
+Test PackageLeaf { Output: True; }
+Test ImportPackage { Output: True; }
+Test CoreMember { Output: True; }
+Test CallPackage { Output: True; }
+Test FindCallable { Output: True; }
+Test NumericMax { Output: True; }
+Test SaturatingAdd { Output: True; }
+Test WrapAdd { Output: True; }
+
 Test FieldDefault {
     Case "plain field" {
         Input: field = AstNode();

@@ -88,7 +88,7 @@ Public Class Text {
         Return pointer;
     }
 
-    Public Function Substring(Int text, Int start, Int count) -> Int
+    Public Function Slice(Int text, Int start, Int count) -> Int
     Explain {
         Description: "Copy a character range.";
         Input: text = "The source offset", start = "The first character", count = "How many characters";
@@ -240,7 +240,7 @@ Public Class Text {
         Int both = This.Concat(left, right);
         If (This.Length(both) != 12) { Return 0; }
         If (This.Equals(both, This.From("Hello, Robix")) != 1) { Return 0; }
-        Int slice = This.Substring(both, 7, 5);
+        Int slice = This.Slice(both, 7, 5);
         If (This.Equals(slice, This.From("Robix")) != 1) { Return 0; }
         If (This.StartsWith(both, This.From("Hello")) != 1) { Return 0; }
         If (This.EndsWith(both, This.From("Robix")) != 1) { Return 0; }

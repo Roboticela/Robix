@@ -1,5 +1,37 @@
 // Tests for TypeChecker.rx.
 
+Test RequirePackageDescription { Output: True; }
+Test CollectImportAliases { Output: True; }
+Test PackageLeaf { Output: True; }
+Test ImportPackage { Output: True; }
+Test SamePackage { Output: True; }
+Test PackageMemberType { Output: True; }
+Test NoteTypeNarrowing { Output: True; }
+Test NarrowedType { Output: True; }
+Test CopyInit { Output: True; }
+Test RestoreInit { Output: True; }
+Test MergeInit { Output: True; }
+Test IsDynamic { Output: True; }
+Test RejectDynamic { Output: True; }
+Test MapKey { Output: True; }
+Test IsHashable { Output: True; }
+Test TypeKindOf { Output: True; }
+Test UnionParts { Output: True; }
+Test MatchResultType { Output: True; }
+Test CheckOperatorShape { Output: True; }
+Test OperatorResult { Output: True; }
+Test TypeParameterNames { Output: True; }
+Test CallTypeArguments { Output: True; }
+Test CheckConstraints { Output: True; }
+Test Satisfies { Output: True; }
+Test IsCopyable { Output: True; }
+Test IsComparable { Output: True; }
+Test CheckArgumentTypes { Output: True; }
+Test FindArgument { Output: True; }
+Test IsOpenType { Output: True; }
+Test SignatureOf { Output: True; }
+Test CheckImplementations { Output: True; }
+
 Test DefineTypeFields {
     Case "no current type" {
         Input:;
