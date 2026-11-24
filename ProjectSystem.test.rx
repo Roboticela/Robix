@@ -560,13 +560,6 @@ Test IsApplication {
     }
 }
 
-Test RuntimeFile {
-    Case "runtime c++ file" {
-        Input:;
-        Assert: Result.Contains("Runtime.cpp");
-    }
-}
-
 Test DeletePath {
     Case "delete nonexistent" {
         Input: path = "nonexistent_temp_file_12345";
@@ -618,7 +611,7 @@ Test Clean {
 
 Test CompileOne {
     Case "dry run or mock compile" {
-        Input: project = ProjectNode(), relative = "a.rx", entry = False, native = NativeProgram(), module = AstNode();
+        Input: project = ProjectNode(), relative = "a.rx", entry = False;
         Assert: Result == False;
     }
 }
@@ -684,10 +677,4 @@ Test ExecuteProject {
         Input: args = ["help"];
         Assert: True;
     }
-}
-
-Test RunProcess {
-    Constraint: True;
-    Processing: True;
-    Output: True;
 }

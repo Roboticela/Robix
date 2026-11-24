@@ -4,101 +4,35 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/.." && pwd)
 ENGINE="$ROOT/Shared/Tools/Compiler"
-export PATH="$ROOT/Shared/Tools:$PATH"
 
 if [ "$#" -lt 2 ] || [ ! -x "$ENGINE" ]; then
-    echo "Robixc compiles every Robix file in a folder into one program." >&2
-    echo "Usage: Robixc <Folder> <Output>" >&2
-    echo "       Robixc <File.rx> [More.rx ...] <Output>" >&2
+    echo "Robixc compiles a Robix file into a machine-code program." >&2
+    echo "Usage: Robixc <File.rx> <Output>" >&2
+    echo "       Robixc <Folder> <Output>" >&2
     exit 1
 fi
 
-work=""
-list=$(mktemp)
-trap 'rm -f "$list"; if [ -n "$work" ]; then rm -rf "$work"; fi' EXIT
-
-if [ -d "$1" ]; then
-    if [ "$#" -ne 2 ]; then
-        echo "error: a folder compile takes the folder and the output program" >&2
-        exit 1
-    fi
-    find "$1" -maxdepth 1 -type f -name '*.rx' ! -name '*.test.rx' | sort > "$list"
-    output=$2
-else
-    index=1
-    while [ "$index" -lt "$#" ]; do
-        argument=$(eval "printf '%s' \"\${$index}\"")
-        if [ ! -f "$argument" ]; then
-            echo "error: source was not found: $argument" >&2
-            exit 1
+source=$1
+output=$2
+if [ -d "$source" ]; then
+    found=$(find "$source" -maxdepth 1 -type f -name '*.rx' ! -name '*.test.rx' | sort)
+    source=""
+    for file in $found; do
+        if grep -q 'Function Main' "$file"; then
+            source=$file
+            break
         fi
-        printf '%s\n' "$argument" >> "$list"
-        index=$((index + 1))
     done
-    output=$(eval "printf '%s' \"\${$#}\"")
+    if [ -z "$source" ]; then
+        echo "error: the folder has no Robix program" >&2
+        exit 1
+    fi
 fi
 
-if [ ! -s "$list" ]; then
-    echo "error: the folder has no Robix files" >&2
+if [ ! -f "$source" ]; then
+    echo "error: source was not found: $source" >&2
     exit 1
 fi
 
-output_dir=$(CDPATH= cd -- "$(dirname "$output")" && pwd)
-output="$output_dir/$(basename "$output")"
-
-entry=""
-while IFS= read -r source; do
-    if grep -q 'Function Main' "$source"; then
-        entry=$source
-        break
-    fi
-done < "$list"
-if [ -z "$entry" ]; then
-    entry=$(head -n 1 "$list")
-fi
-
-work=$(mktemp -d)
-index=0
-while IFS= read -r source; do
-    index=$((index + 1))
-    stem=$(basename "$source" .rx)
-    object="$work/${index}-${stem}.o"
-    keep=0
-    if [ "$source" = "$entry" ]; then
-        keep=1
-    fi
-    log="$work/${index}.log"
-    if ! ROBIX_OBJECT_ONLY=1 ROBIX_KEEP_MAIN="$keep" "$ENGINE" "$source" "$object" >"$log" 2>&1; then
-        cat "$log" >&2
-        if ! grep -qi '^error' "$log"; then
-            echo "error: $source did not compile" >&2
-        fi
-        exit 1
-    fi
-    if grep -qi '^error' "$log"; then
-        cat "$log" >&2
-        exit 1
-    fi
-    printf '%s\n' "$object" >> "$work/objects.txt"
-done < "$list"
-
-lld="$ROOT/Shared/Tools/Llvm/bin/ld.lld"
-if [ ! -x "$lld" ]; then
-    echo "error: the bundled lld is missing" >&2
-    exit 1
-fi
-export LD_LIBRARY_PATH="$ROOT/Shared/Tools/Llvm/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-
-# shellcheck disable=SC2046
-"$lld" -m elf_x86_64 -pie -dynamic-linker /lib64/ld-linux-x86-64.so.2 \
-    -o "$output" \
-    "$ROOT/Library/Link/Scrt1.o" \
-    "$ROOT/Library/Link/crti.o" \
-    "$ROOT/Library/Link/crtbeginS.o" \
-    $(cat "$work/objects.txt") \
-    "$ROOT/Library/Runtime.lib" \
-    -L"$ROOT/Library/Link" \
-    -lstdc++ -lm -lc -lgcc -lgcc_s \
-    "$ROOT/Library/Link/crtendS.o" \
-    "$ROOT/Library/Link/crtn.o"
+"$ENGINE" "$source" "$output" --target linux-x64
 chmod +x "$output"

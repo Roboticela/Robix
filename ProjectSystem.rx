@@ -519,7 +519,6 @@ Public Class ProjectEngine {
         }
         String entry = This.EntryFile(project, files);
         Var names = List<String>();
-        Var modules = List<AstNode>();
         Bool ok = True;
         SyntaxCompiler compiler = SyntaxCompiler();
         For relative In files {
@@ -547,28 +546,16 @@ Public Class ProjectEngine {
                     ok = False;
                 } Else {
                     names.Add(relative);
-                    modules.Add(result.Module);
                 }
             }
         }
         If (!ok) { Return False; }
-        NativeProgram native = NativeProgram();
-        native.Collect(names, modules);
         Int index = 0;
-        For relative In names {
-            If (relative != entry) {
-                If (!This.CompileOne(project, relative, False, native, modules[index])) { ok = False; }
-            }
+        While (index < names.Count()) {
+            Bool isEntry = False;
+            If (names[index] == entry) { isEntry = True; }
+            If (!This.CompileOne(project, names[index], isEntry)) { ok = False; }
             index = index + 1;
-        }
-        If (entry != "" && ok) {
-            index = 0;
-            For relative In names {
-                If (relative == entry) {
-                    If (!This.CompileOne(project, relative, True, native, modules[index])) { ok = False; }
-                }
-                index = index + 1;
-            }
         }
         Print("{success}compiled{/}  {accent}" + This.CompiledCount.ToString() + "{/} {muted}file(s), skipped{/} {accent}" + This.SkippedCount.ToString() + "{/} {muted}unchanged{/}");
         If (ok && !This.DryRun) {
@@ -577,48 +564,40 @@ Public Class ProjectEngine {
         Return ok;
     }
 
-    Private Function CompileOne(ProjectNode project, String relative, Bool entry, NativeProgram native, AstNode module) -> Bool {
+    Private Function CompileOne(ProjectNode project, String relative, Bool entry) -> Bool {
         String full = This.Join(This.ProjectDirectory, relative);
         String output = This.OutputPath(project, relative, entry);
         String source = Files.ReadText(full);
-        String hash = This.Fingerprint(source);
-        If (!This.NoCache && !This.DryRun && Files.Exists(output) && This.Cached(relative) == hash) {
-            This.SkippedCount = This.SkippedCount + 1;
-            If (This.Verbose) { Print("Unchanged " + relative); }
-            Return True;
+        If (source == Null || source == "") {
+            This.Diagnostics.Add(relative + " failed to compile.");
+            Return False;
         }
         If (This.DryRun) {
             Print("Compile " + relative + " -> " + output);
             Return True;
         }
-        String ir = native.EmitFile(relative, module, entry);
-        String stem = This.FileStem(relative);
-        String llPath = This.IntermediateDirectory(project) + "/" + stem + ".ll";
-        String objectPath = This.IntermediateDirectory(project) + "/" + stem + ".o";
-        Files.WriteText(llPath, ir);
-        String flags = This.OptimizeFlag() + " " + This.DebugFlag();
-        String compile = "clang++ " + flags + " -fPIC -c -o \"" + objectPath + "\" \"" + llPath + "\"";
-        If (RunProcess(compile) != 0) {
+        SyntaxCompiler compiler = SyntaxCompiler();
+        CompileResult result = compiler.CompileSource(source, relative, True);
+        If (!result.Succeeded) {
             This.Diagnostics.Add(relative + " failed to compile.");
             Return False;
         }
-        String link = "";
-        If (entry && This.IsApplication(project)) {
-            String libs = "";
-            For item In Directory.Files(This.OutputDirectory(project)) {
-                If (item.EndsWith(".bin") && !item.StartsWith("Compiler/") && !item.Contains("/Compiler/")) {
-                    libs = libs + " \"" + This.OutputDirectory(project) + "/" + item + "\"";
-                }
-            }
-            link = "clang++ -std=c++17 " + flags + " -fPIE -Wl,--export-dynamic -o \"" + output + "\" \"" + objectPath + "\" \"" + This.RuntimeFile() + "\"" + libs + " -Wl,-rpath,'$ORIGIN'";
-        } Else {
-            link = "clang++ " + flags + " -shared -Wl,-soname," + stem + ".bin -o \"" + output + "\" \"" + objectPath + "\"";
-        }
-        If (RunProcess(link) != 0) {
-            This.Diagnostics.Add(relative + " failed to compile.");
+        RxPass passes = RxPass();
+        String rxir = passes.Optimize(result.Rxir);
+        RxAssembler assembler = RxAssembler();
+        assembler.Target = "linux-x64";
+        String rxasm = assembler.WithStart(assembler.Select(rxir));
+        If (rxasm.IndexOf("; skip") >= 0) {
+            This.Diagnostics.Add(relative + " is not encodable yet.");
             Return False;
         }
-        This.Remember(relative, hash);
+        List<Int> code = assembler.Assemble(rxasm);
+        If (code.Count() == 0) {
+            This.Diagnostics.Add(relative + " failed to assemble.");
+            Return False;
+        }
+        ElfImage elf = ElfImage();
+        Files.WriteBytes(output, elf.Wrap(code));
         This.CompiledCount = This.CompiledCount + 1;
         If (This.Verbose) { Print("Compiled " + output); }
         Return True;
@@ -811,10 +790,6 @@ Public Class ProjectEngine {
     Private Function DebugFlag() -> String {
         If (This.Configuration == "Release") { Return ""; }
         Return "-g";
-    }
-
-    Private Function RuntimeFile() -> String {
-        Return This.Join(This.ProjectDirectory, "Runtime/Runtime.cpp");
     }
 
     Private Function DeletePath(String path) -> Bool {
@@ -1360,8 +1335,6 @@ Public Class ProjectEngine {
         Return This.Position >= This.SourceText.Length();
     }
 }
-
-Private Extern Function RunProcess(String command) -> Int;
 
 Public Function ExecuteProject(List<String> args) -> ExecutionResult
 Explain {

@@ -12,7 +12,7 @@ Public Function Main(Args<String> args) -> ExecutionResult
 Explain {
     Description: "Compile one Robix source file into a Linux executable.";
     Input: args = "The source path and an optional output path";
-    Processing: "Parse the syntax, apply the always-strict type rules, and emit RXIR. --ir, --asm, and the native targets then run the performance passes. --asm writes RXASM. --target linux-x64 writes an ELF. --target windows-x64 writes a PE. Neither links Runtime.cpp. Otherwise clang++ still links the LLVM IR with the C++ runtime.";
+        Processing: "Parse the syntax, apply the always-strict type rules, and emit RXIR. The performance passes run, then RXASM is assembled. The default target is linux-x64 and writes an ELF. --target windows-x64 writes a PE. No C++ runtime is linked.";
     Output: "Success when the module is strict and type-safe.";
 } {
     Var positionals = List<String>();
@@ -35,7 +35,7 @@ Explain {
         index = index + 1;
     }
     If (positionals.Count() == 0) {
-        Print("{warning}Usage{/}  {accent}robixc{/} {bold}Source.rx{/} {muted}Output{/} {muted}[--ir | --asm | --target linux-x64 | --target windows-x64]{/}");
+        Print("{warning}Usage{/}  {accent}robixc{/} {bold}Source.rx{/} {muted}Output{/} {muted}[--ir | --asm | --target windows-x64]{/}");
         Return FinishRun(ExitCode.InvalidArguments, "A source file is required.");
     }
     String sourcePath = positionals[0];
@@ -63,11 +63,10 @@ Explain {
         Print(line);
         Return FinishRun(ExitCode.ErrorExecution, "Compilation failed.");
     }
+    If (target == "") { target = "linux-x64"; }
     String rxir = result.Rxir;
-    If (irOnly || asmOnly || target == "linux-x64" || target == "windows-x64") {
-        RxPass passes = RxPass();
-        rxir = passes.Optimize(rxir);
-    }
+    RxPass passes = RxPass();
+    rxir = passes.Optimize(rxir);
     If (irOnly) {
         String irPath = outputPath;
         If (!irPath.EndsWith(".rxir")) { irPath = outputPath + ".rxir"; }
@@ -110,30 +109,18 @@ Explain {
         Print("{success}wrote{/}  {bold}" + outputPath + "{/}");
         Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
     }
-    String llPath = outputPath + ".ll";
-    Files.WriteText(llPath, result.NativeIr);
-    String runtime = RuntimeObject("host");
-    String command = "clang++ -std=c++17 -O3 -flto -fPIE -o \"" + outputPath + "\" \"" + llPath + "\" \"" + runtime + "\"";
-    Int linkStart = ClockMillis();
-    Int code = RunProcess(command);
-    Int linkTime = ClockMillis() - linkStart;
-    Print("{muted}link{/}  {accent}" + linkTime.ToString() + " ms{/}");
-    If (code != 0) {
-        Return FinishRun(ExitCode.ErrorExecution, "Clang failed.");
-    }
-    Print("{success}wrote{/}  {bold}" + outputPath + "{/}");
-    Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
+    Return FinishRun(ExitCode.ErrorExecution, "The target is not supported.");
 }
 
 Public Function RuntimeObject(String target) -> String
 Explain {
-    Description: "Choose the C++ runtime file linked into a program.";
-    Input: target = "linux-x64 or host";
-    Processing: "A linux-x64 program carries the Robix bump runtime and does not link Runtime.cpp. The host fallback still links that file because Files and Process have not moved.";
-    Output: "The runtime path, or an empty string when no C++ runtime is linked.";
+    Description: "Report that no C++ runtime file is linked.";
+    Input: target = "linux-x64, windows-x64, or host";
+    Processing: "Every target carries the Robix bump runtime.";
+    Output: "An empty string.";
 } {
-    If (target == "linux-x64" || target == "windows-x64") { Return ""; }
-    Return "Runtime/Runtime.cpp";
+    If (target == "none") { Return ""; }
+    Return "";
 }
 
 Private Function FinishRun(Int code, String reason) -> ExecutionResult {
@@ -150,5 +137,3 @@ Private Function FinishRun(Int code, String reason) -> ExecutionResult {
     Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason);
     Return ExecutionResult(code, reason);
 }
-
-Private Extern Function RunProcess(String command) -> Int;

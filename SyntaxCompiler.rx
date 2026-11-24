@@ -51,13 +51,6 @@ Public Class SyntaxCompiler {
         result.Errors = diagnostics.ErrorCount();
         If (result.Errors == 0) {
             If (compile) {
-                NativeProgram native = NativeProgram();
-                Var names = List<String>();
-                names.Add(fileName);
-                Var modules = List<AstNode>();
-                modules.Add(module);
-                native.Collect(names, modules);
-                result.NativeIr = native.EmitFile(fileName, module, True);
                 RxProgram rxir = RxProgram();
                 result.Rxir = rxir.LowerModule(module);
             }

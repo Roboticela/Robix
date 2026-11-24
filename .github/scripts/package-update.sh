@@ -12,25 +12,14 @@ temp="$root/dist/update-${platform}"
 rm -rf "$temp"
 mkdir -p "$temp"
 cp -a "$stage" "$temp/Robix"
-linker_src="$temp/Robix/Shared/Tools/Llvm/bin/robix-clang++.exe"
-linker_copy=""
-if [[ -f "$linker_src" ]]; then
-    linker_copy="$temp/robix-clang++.exe"
-    cp -a "$linker_src" "$linker_copy"
-fi
 rm -rf "$temp/Robix/Shared/Tools/Llvm" "$temp/Robix/Library/Link"
-if [[ -n "$linker_copy" ]]; then
-    mkdir -p "$temp/Robix/Shared/Tools/Llvm/bin"
-    cp -a "$linker_copy" "$temp/Robix/Shared/Tools/Llvm/bin/robix-clang++.exe"
-fi
 
 cat > "$temp/Robix/UPDATE.txt" <<EOF
 Robix update ${version} (${platform})
 
 Unzip this archive over the folder that already contains Robix.
-It replaces the interpreter, compiler, runtime, packages, shared files, README.md, and LICENSE.
-It does not replace Shared/Tools/Llvm or Library/Link. Those stay in place, including their licenses.
-The Windows update also adds Shared/Tools/Llvm/bin/robix-clang++.exe, which links a compiled program.
+It replaces the interpreter, compiler, packages, shared files, README.md, and LICENSE.
+The compiler writes machine code itself. This update does not include LLVM or a C++ runtime.
 
 Linux:
 
@@ -50,7 +39,7 @@ if [[ "$file_list" == *"Library/Link/"* ]]; then
     echo "error: ${archive} still contains link libraries" >&2
     exit 1
 fi
-llvm_extra=$(printf '%s\n' "$file_list" | grep 'Shared/Tools/Llvm/' | grep -v 'robix-clang++\.exe' | grep -v '/$' || true)
+llvm_extra=$(printf '%s\n' "$file_list" | grep 'Shared/Tools/Llvm/' | grep -v '/$' || true)
 if [[ -n "$llvm_extra" ]]; then
     echo "error: ${archive} still contains LLVM files" >&2
     printf '%s\n' "$llvm_extra" >&2

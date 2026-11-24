@@ -17,15 +17,10 @@ Test RuntimeObject {
         Input: target = "windows-x64";
         Assert: Result == "";
     }
-    Case "host fallback" {
+    Case "host carries the Robix runtime" {
         Input: target = "host";
-        Assert: Result == "Runtime/Runtime.cpp";
+        Assert: Result == "";
     }
 }
 
 Test FinishRun { Output: True; }
-Test RunProcess {
-    Constraint: True;
-    Processing: True;
-    Output: True;
-}

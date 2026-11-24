@@ -13,7 +13,7 @@ The goal is a single Robix pipeline that produces the same machine code on every
 
 ## 1. What the pipeline becomes
 
-Today `NativeEmit.rx` prints LLVM IR in which integers, pointers, and objects are `i64`, and the entry point is a C `main(i32, ptr)`. `Robixc.rx` then runs `clang++` on that text plus `Runtime/Runtime.cpp`. The Windows driver in `.github/packaging/Robixc.cpp` is a second compiler: it starts `Compiler.exe` and links with `robix-clang++.exe` against `Runtime/Runtime.o`. Those paths choose the processor, the calling convention, and the object format on the host. They are the reason one source does not compile the same way everywhere, and they are the reason the generated code cannot beat C: a value that should be a register or a float is boxed through `i64`, and a C++ compiler finishes the job.
+`robixc` lowers a typed module to RXIR, prints RXASM, and assembles x86-64 bytes into an ELF or a PE. The default target is `linux-x64`. `--target windows-x64` selects the PE and the kernel32 edge. No clang++, LLVM IR, or C++ runtime is on that path.
 
 The replacement has two products and one front end.
 
@@ -198,7 +198,7 @@ The tree walk and the bytecode machine are compared on `Examples` and on `Packag
 
 ## 8. Runtime written in Robix
 
-`Runtime/Ownership.rx`, `Runtime/Text.rx`, `Runtime/List.rx`, and `Runtime/Map.rx` are the bump runtime. Chunks come from `mmap` (`Runtime/System/Linux.rx`, syscall 9, 4096-byte pages). A `linux-x64` program does not link `Runtime.cpp`; its `Ownership_Allocate` asks `mmap` for the next page. The names `NativeEmit.rx` already calls remain the ABI (`Ownership_Allocate`, `Text_Length`, `List_Create`, and the rest). `Files`, `Process`, `Object`, and the float helpers still come from `Runtime/Runtime.cpp` on the clang++ fallback, until those groups move.
+`Runtime/Ownership.rx`, `Runtime/Text.rx`, `Runtime/List.rx`, and `Runtime/Map.rx` are the bump runtime. Chunks come from `mmap` (`Runtime/System/Linux.rx`, syscall 9, 4096-byte pages). A native program does not link a C++ runtime; its `Ownership_Allocate` asks `mmap` for the next page on Linux and uses the kernel32 edge on Windows.
 
 Memory:
 
@@ -227,15 +227,13 @@ Linux issues the `syscall` instruction. Windows calls `kernel32` through the imp
 
 `Platform/Linux/surface.c` and `Platform/Windows/surface.c` stay out of this pipeline. The window path is the raster buffer already in `Runtime/Raster`, blitted by one small host per system after the compiler emits native code. GTK and Win32 controls are not part of the language runtime.
 
-`Text_*`, `List_*`, and `Map_*` are Robix. `Object_*`, then `Files` and `Process`, are still C++. Float helpers (`rx_F64Parse` and the rest) move with `Float`. Until a group moves, the old object file may still supply it. The end state of phase 9 has no C++ file on the link line.
+`Text_*`, `List_*`, and `Map_*` are Robix. The compiler link line has no C++ file. UI hosts in `Platform/` and `Runtime/Raster/` may remain small C until a raster host is written in Robix. They are not on the compiler link line.
 
 ## 9. Phases
 
 Each phase ends when its exit test passes on Linux x86-64. Windows is phase 7 and uses the same tests.
 
-**Phase 0. This plan is the specification.** New backend work follows it. No new LLVM intrinsics, no new `clang++` flags, no new code in `.github/packaging/Robixc.cpp`.
-
-**Phase 9. Self-host and delete the C++ path.** `robixc` compiles `Robixc.rx` and the interpreter. The resulting binary compiles the suite and itself. Remove `Runtime/Runtime.cpp` from the link, remove the `clang++` invocation from `Robixc.rx`, and remove the LLVM and mingw packaging from the compiler path. UI hosts may remain small C until a later raster host is written in Robix; they are not on the compiler link line.
+**Phase 0. This plan is the specification.** New backend work follows it. The compiler path does not gain a C++ runtime, an LLVM module, or a clang++ link.
 
 **Phase 10. More processors.** AArch64 RXASM, then macOS Mach-O with `libSystem` as that platform's edge. RXIR, the interpreter, and the runtime stay as they are.
 
@@ -262,11 +260,11 @@ A row that misses its bar blocks phase 8 and phase 9. The fix is an assembly dif
 
 New Robix sources, compiled as part of the compiler once phase 9 allows it, interpreted by the bootstrap until then:
 
-The sources through phase 8 are in the tree. Phase 10 adds the AArch64 dialect.
+The sources through phase 9 are in the tree. Phase 10 adds the AArch64 dialect.
 
 These stay and become the front end of both tools: `Parser.rx`, `ParserExpressions.rx`, `NameChecker.rx`, `TypeChecker.rx`, `SyntaxCompiler.rx`, `Robix.rx`, `Robixc.rx`.
 
-`NativeEmit.rx` still feeds the clang++ path for programs the assembler cannot encode yet. It is removed in phase 9. `Emitter.rx` (the `RBX1` syntax image) can feed tools that want a syntax package; the interpreter ships `RBC1`.
+`Emitter.rx` (the `RBX1` syntax image) can feed tools that want a syntax package; the interpreter ships `RBC1`.
 
 ## 12. Rules for the work
 
@@ -277,7 +275,7 @@ These stay and become the front end of both tools: `Parser.rx`, `ParserExpressio
 - The runtime edge is the table in section 8. New operating-system work is a new row in that table, not a new compiler.
 - Examples land in `Examples/` for each language feature the phases touch, and the performance rows land in `Bench/`.
 - A performance change lands with the suite result it changed.
-- Phase 9 is the moment LLVM, `clang++`, `Runtime.cpp`, and `.github/packaging/Robixc.cpp` leave the compiler path.
+- The compiler path has no LLVM module, no `clang++` link, and no `Runtime.cpp`.
 
 
 # Robix Built-in Package Catalogue

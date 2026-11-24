@@ -28,11 +28,6 @@ done
 
 bash "$root/.github/scripts/build-host.sh"
 
-bash "$root/.github/scripts/bundle-llvm.sh" "$stage/Shared/Tools/Llvm" "$stage/Library/Link"
-install -m 755 "$root/.github/packaging/clang++" "$stage/Shared/Tools/clang++"
-clang++ -std=c++17 -O3 -fPIC -c -o "$stage/Runtime/Runtime.o" "$root/Runtime/Runtime.cpp"
-ar rcs "$stage/Library/Runtime.lib" "$stage/Runtime/Runtime.o"
-
 install -m 755 "$root/Build/bootstrap/robix-run.app" "$stage/Bin/Robix"
 install -m 755 "$root/Build/bootstrap/robixc.app" "$stage/Shared/Tools/Compiler"
 install -m 755 "$root/.github/packaging/Robixc" "$stage/Bin/Robixc"
@@ -54,7 +49,7 @@ place_bin() {
 syntax=(
     Lexer.bin Parser.bin ParserExpressions.bin ParserStatements.bin
     Token.bin TokenKind.bin TypeChecker.bin NameChecker.bin
-    NativeEmit.bin Emitter.bin SyntaxCompiler.bin Diagnostic.bin
+    Emitter.bin SyntaxCompiler.bin Diagnostic.bin
     Rxir.bin Passes.bin Rxasm.bin Elf.bin Pe.bin Target.bin
     AstNode.bin TextConvert.bin SyntaxCoverage.bin
 )
