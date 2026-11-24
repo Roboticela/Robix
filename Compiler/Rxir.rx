@@ -1,8 +1,5 @@
 // Unboxed three-address form. Integers stay integers, floats stay floats, pointers stay pointers.
-Package Robix.Syntax
-Explain {
-    Description: "Lower a typed Robix module to unboxed RXIR.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 
@@ -205,11 +202,11 @@ Public Class RxProgram {
         AstNode loopBody = AstNode();
         loopBody.Kind = AstKind.Block;
         loopBody.Children.Add(assign);
-        AstNode loop = AstNode();
-        loop.Kind = AstKind.For;
-        loop.Left = indexName;
-        loop.Right = range;
-        loop.Body = loopBody;
+        AstNode loopNode = AstNode();
+        loopNode.Kind = AstKind.For;
+        loopNode.Left = indexName;
+        loopNode.Right = range;
+        loopNode.Body = loopBody;
 
         AstNode greeting = AstNode();
         greeting.Kind = AstKind.StringLiteral;
@@ -271,7 +268,7 @@ Public Class RxProgram {
         AstNode body = AstNode();
         body.Kind = AstKind.Block;
         body.Children.Add(totalVar);
-        body.Children.Add(loop);
+        body.Children.Add(loopNode);
         body.Children.Add(printGreetingStmt);
         body.Children.Add(printTotalStmt);
         body.Children.Add(ifStmt);

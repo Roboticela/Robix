@@ -1,8 +1,5 @@
 // PE32+ container for a Windows x86-64 program. The only import is kernel32.
-Package Robix.Syntax
-Explain {
-    Description: "Write a PE32+ program around x86-64 code bytes.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

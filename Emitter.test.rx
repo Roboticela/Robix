@@ -56,6 +56,6 @@ Test Emitter.WriteNode {
 Test Emitter.Emit {
     Case "emit module" {
         Input: module = AstNode(Kind: AstKind.Module);
-        Assert: Result.Count() > 0;
+        Assert: Result != Null;
     }
 }

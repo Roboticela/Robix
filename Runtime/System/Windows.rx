@@ -1,8 +1,5 @@
 // kernel32 names used by the PE entry and by print.
-Package Robix.Runtime
-Explain {
-    Description: "kernel32 imports for the Windows edge.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 

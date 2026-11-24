@@ -1491,7 +1491,7 @@ Public Class Interpreter {
         }
         If (node.Kind == AstKind.Function && This.walkPackage != "") {
             This.packageFunctionNames.Add(node.Name);
-            This.packageFunctionPackages.Add(This.walkPackage);
+            This.packageFunctionPackages.Add(This.walkPackage + "");
         }
         If (node.Kind == AstKind.Class || node.Kind == AstKind.Function) { Return; }
         For child In node.Children {

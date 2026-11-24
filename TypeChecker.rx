@@ -2242,7 +2242,7 @@ Public Class TypeChecker {
         If (node.Kind == AstKind.Function) {
             If (This.packageFunctionDepth == 0 && This.currentPackage != "") {
                 This.packageFunctionNames.Add(node.Name);
-                This.packageFunctionPackages.Add(This.currentPackage);
+                This.packageFunctionPackages.Add(This.currentPackage + "");
                 String result = "Void";
                 If (node.Type != Null) { result = This.TypeText(node.Type); }
                 This.packageFunctionReturns.Add(result);

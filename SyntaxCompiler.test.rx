@@ -14,6 +14,27 @@ Test SyntaxCompiler.DiagnosticsOf {
     }
 }
 
+Test LoadImports { Output: True; }
+Test LoadPackage { Output: True; }
+Test ImportLine { Output: True; }
+Test ImportColumn { Output: True; }
+Test RequireUses { Output: True; }
+Test IsBinder { Output: True; }
+Test IsNameStart { Output: True; }
+Test IsNamePart { Output: True; }
+Test TypeCatalog { Output: True; }
+Test PackageName { Output: True; }
+Test CollectTypes { Output: True; }
+Test TypeNameOn { Output: True; }
+Test DirectImports { Output: True; }
+Test DeclaredNames { Output: True; }
+Test ImportName { Output: True; }
+Test CatalogPackage { Output: True; }
+Test BeforeMark { Output: True; }
+Test TrimLeft { Output: True; }
+Test TrimEdge { Output: True; }
+Test PackagePath { Output: True; }
+
 Test SyntaxCompiler.AttachDiagnostics {
     Case "attaches diagnostics" {
         Input: module = AstNode(), diagnostics = DiagnosticBag();

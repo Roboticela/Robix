@@ -1,8 +1,5 @@
 // RXIR to RXASM, then RXASM to x86-64 bytes.
-Package Robix.Syntax
-Explain {
-    Description: "Select x86-64 instructions and assemble them to bytes.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

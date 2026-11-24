@@ -1,8 +1,5 @@
 // RBC1 image. A register machine, not a stack machine.
-Package Robix.Runtime
-Explain {
-    Description: "Compile a Robix module to RBC1 and run it.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 Import Robix.Syntax;
@@ -724,11 +721,11 @@ Public Class RbcProgram {
         AstNode loopBody = AstNode();
         loopBody.Kind = AstKind.Block;
         loopBody.Children.Add(assign);
-        AstNode loop = AstNode();
-        loop.Kind = AstKind.For;
-        loop.Left = indexName;
-        loop.Right = range;
-        loop.Body = loopBody;
+        AstNode loopNode = AstNode();
+        loopNode.Kind = AstKind.For;
+        loopNode.Left = indexName;
+        loopNode.Right = range;
+        loopNode.Body = loopBody;
         AstNode greeting = AstNode();
         greeting.Kind = AstKind.StringLiteral;
         greeting.Text = "Hello, Robix";
@@ -785,7 +782,7 @@ Public Class RbcProgram {
         AstNode body = AstNode();
         body.Kind = AstKind.Block;
         body.Children.Add(totalVar);
-        body.Children.Add(loop);
+        body.Children.Add(loopNode);
         body.Children.Add(printGreetingStmt);
         body.Children.Add(printTotalStmt);
         body.Children.Add(ifStmt);
@@ -935,13 +932,13 @@ Public Class RbcProgram {
                     This.SavePc[This.Depth] = pc;
                     This.SaveFunc[This.Depth] = func;
                     This.SaveDest[This.Depth] = a;
-                    This.SaveTop[This.Depth] = This.Top;
+                    This.SaveTop[This.Depth] = This.Top + 0;
                 } Else {
                     This.SaveBase.Add(base);
                     This.SavePc.Add(pc);
                     This.SaveFunc.Add(func);
                     This.SaveDest.Add(a);
-                    This.SaveTop.Add(This.Top);
+                    This.SaveTop.Add(This.Top + 0);
                 }
                 This.Depth = This.Depth + 1;
                 Int caller = base;

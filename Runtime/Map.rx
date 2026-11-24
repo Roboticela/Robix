@@ -1,8 +1,5 @@
 // Integer maps and sets stored in the bump heap.
-Package Robix.Runtime
-Explain {
-    Description: "Maps and sets stored in the bump heap.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 

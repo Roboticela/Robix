@@ -1,8 +1,5 @@
 // A list header stays put. Growing the items allocates a new bump range and updates the header.
-Package Robix.Runtime
-Explain {
-    Description: "Lists stored in the bump heap.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 

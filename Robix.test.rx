@@ -1,5 +1,7 @@
 // Tests for Robix.rx.
 
+Test FinishRun { Output: True; }
+
 Test Main {
     Constraint: True;
     Processing: True;

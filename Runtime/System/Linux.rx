@@ -1,8 +1,5 @@
 // Linux syscall numbers for the Robix runtime edge.
-Package Robix.Runtime
-Explain {
-    Description: "Linux x86-64 syscall numbers used by the bump runtime.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 

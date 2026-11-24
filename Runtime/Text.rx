@@ -1,8 +1,5 @@
 // Length-prefixed text stored in a bump heap.
-Package Robix.Runtime
-Explain {
-    Description: "Text values stored in the bump heap.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 

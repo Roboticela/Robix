@@ -1,8 +1,5 @@
 // ELF64 container for a static Linux x86-64 program. No C library.
-Package Robix.Syntax
-Explain {
-    Description: "Write a static ELF64 program around x86-64 code bytes.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

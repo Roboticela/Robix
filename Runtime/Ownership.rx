@@ -1,8 +1,5 @@
 // Bump allocator. A scope ends by storing the watermark back. Chunks come from mmap.
-Package Robix.Runtime
-Explain {
-    Description: "Ownership scopes and bump allocation.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 
@@ -64,9 +61,9 @@ Public Class Ownership {
     } {
         This.Ensure();
         If (This.MarkCount < This.Marks.Count()) {
-            This.Marks[This.MarkCount] = This.Cursor;
+            This.Marks[This.MarkCount] = This.Cursor + 0;
         } Else {
-            This.Marks.Add(This.Cursor);
+            This.Marks.Add(This.Cursor + 0);
         }
         This.MarkCount = This.MarkCount + 1;
         Return This.Cursor;
@@ -115,7 +112,7 @@ Public Class Ownership {
             index = index + 1;
         }
         This.Cursor = dest + count;
-        This.Marks[This.MarkCount - 1] = This.Cursor;
+        This.Marks[This.MarkCount - 1] = This.Cursor + 0;
         Return dest;
     }
 

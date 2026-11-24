@@ -1,8 +1,5 @@
 // RXIR passes. Each one rewrites text and leaves the assembler a simpler function.
-Package Robix.Syntax
-Explain {
-    Description: "Inlining, escape notes, clobbers, devirtualization, bounds proofs, and vectorization.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 
@@ -111,9 +108,11 @@ Public Class RxPass {
     } {
         List<String> lines = This.Lines(ir);
         List<String> names = List<String>();
-        For line In lines {
-            String name = This.NameAt(line);
+        Int lineIndex = 0;
+        While (lineIndex < lines.Count()) {
+            String name = This.NameAt(lines[lineIndex]);
             If (name != "" && !name.StartsWith("virtual")) { names.Add(name); }
+            lineIndex = lineIndex + 1;
         }
         String text = ir;
         Int guard = 0;
@@ -136,11 +135,14 @@ Public Class RxPass {
             String suffix = "_" + method;
             String concrete = "";
             Int count = 0;
-            For name In names {
-                If (This.EndsWith(name, suffix)) {
+            Int nameIndex = 0;
+            While (nameIndex < names.Count()) {
+                String found = names[nameIndex];
+                If (This.EndsWith(found, suffix)) {
                     count = count + 1;
-                    concrete = name;
+                    concrete = found;
                 }
+                nameIndex = nameIndex + 1;
             }
             If (count != 1) { Break; }
             text = text.Replace("@virtual_" + method, "@" + concrete);
@@ -335,8 +337,9 @@ Public Class RxPass {
         List<String> out = List<String>();
         List<String> names = List<String>();
         List<Int> values = List<Int>();
-        For line In lines {
-            String current = line;
+        Int lineIndex = 0;
+        While (lineIndex < lines.Count()) {
+            String current = lines[lineIndex];
             If (This.NameAt(current) != "") {
                 names = List<String>();
                 values = List<Int>();
@@ -364,6 +367,7 @@ Public Class RxPass {
                 }
             }
             out.Add(current);
+            lineIndex = lineIndex + 1;
         }
         Return This.Join(out);
     }
@@ -504,8 +508,10 @@ Public Class RxPass {
     }
 
     Private Function HasName(List<String> names, String name) -> Bool {
-        For item In names {
-            If (item == name) { Return True; }
+        Int index = 0;
+        While (index < names.Count()) {
+            If (names[index] == name) { Return True; }
+            index = index + 1;
         }
         Return False;
     }

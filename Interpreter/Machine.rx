@@ -1,8 +1,5 @@
 // Register virtual machine for an RBC1 image.
-Package Robix.Runtime
-Explain {
-    Description: "Execute RBC1 register bytecode.";
-};
+Package Robix.Runtime;
 
 Import Robix.Core;
 
@@ -294,13 +291,13 @@ Public Class RbcMachine {
                     This.SavePc[This.Depth] = pc;
                     This.SaveFunc[This.Depth] = func;
                     This.SaveDest[This.Depth] = a;
-                    This.SaveTop[This.Depth] = This.Top;
+                    This.SaveTop[This.Depth] = This.Top + 0;
                 } Else {
                     This.SaveBase.Add(base);
                     This.SavePc.Add(pc);
                     This.SaveFunc.Add(func);
                     This.SaveDest.Add(a);
-                    This.SaveTop.Add(This.Top);
+                    This.SaveTop.Add(This.Top + 0);
                 }
                 This.Depth = This.Depth + 1;
                 Int caller = base;

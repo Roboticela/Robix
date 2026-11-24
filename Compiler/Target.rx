@@ -1,8 +1,5 @@
 // The operating-system record. One compiler, two containers.
-Package Robix.Syntax
-Explain {
-    Description: "Name the container and the exit call for each target.";
-};
+Package Robix.Syntax;
 
 Import Robix.Core;
 

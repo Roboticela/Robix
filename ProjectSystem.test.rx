@@ -1,5 +1,7 @@
 // Tests for ProjectSystem.rx.
 
+Test Report { Output: True; }
+
 Test CanonicalTask {
     Case "build" {
         Input: command = "build";
