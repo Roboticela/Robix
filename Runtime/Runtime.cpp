@@ -1809,6 +1809,9 @@ void Files::Walk(int64_t list, const char *root, const char *relative) {
         if (strcmp(found.cFileName, ".") == 0 || strcmp(found.cFileName, "..") == 0) {
             continue;
         }
+        if (strcmp(found.cFileName, "dist") == 0 || strcmp(found.cFileName, "Build") == 0 || strcmp(found.cFileName, "build") == 0 || strcmp(found.cFileName, ".git") == 0 || strcmp(found.cFileName, "node_modules") == 0) {
+            continue;
+        }
         char childRel[4096];
         if (relative[0] == 0) {
             snprintf(childRel, sizeof(childRel), "%s", found.cFileName);
@@ -1830,6 +1833,9 @@ void Files::Walk(int64_t list, const char *root, const char *relative) {
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (strcmp(entry->d_name, "dist") == 0 || strcmp(entry->d_name, "Build") == 0 || strcmp(entry->d_name, "build") == 0 || strcmp(entry->d_name, ".git") == 0 || strcmp(entry->d_name, "node_modules") == 0) {
             continue;
         }
         char childRel[4096];

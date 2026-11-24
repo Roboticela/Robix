@@ -190,6 +190,7 @@ Public Class ProjectEngine {
     }
 
     Private Function FindProject() -> String {
+        If (Files.Exists("Robix.rxp")) { Return "Robix.rxp"; }
         Var matches = List<String>();
         For relative In Directory.Files(".") {
             If (relative.EndsWith(".rxp") && !relative.Contains("/")) {
@@ -642,6 +643,7 @@ Public Class ProjectEngine {
             included.Add("**/*.rx");
         }
         Var files = List<String>();
+        If (This.ProjectDirectory == Null || This.ProjectDirectory == "") { Return files; }
         For relative In Directory.Files(This.ProjectDirectory) {
             If (!relative.EndsWith(".rx")) { Continue; }
             If (This.MatchesAny(relative, excluded)) { Continue; }
@@ -773,9 +775,11 @@ Public Class ProjectEngine {
             Return True;
         }
         Directory.Delete(temp);
-        For relative In Directory.Files(directory) {
-            If (relative.EndsWith(".app") || relative.EndsWith(".bin")) {
-                Files.Delete(directory + "/" + relative);
+        If (Directory.Exists(directory)) {
+            For relative In Directory.Files(directory) {
+                If (relative.EndsWith(".app") || relative.EndsWith(".bin")) {
+                    Files.Delete(directory + "/" + relative);
+                }
             }
         }
         Print("{success}cleaned{/}  {muted}" + directory + "{/}");
@@ -836,6 +840,7 @@ Public Class ProjectEngine {
     }
 
     Private Function RunTests(ProjectNode project, String pattern) -> Bool {
+        If (This.ProjectDirectory == Null || This.ProjectDirectory == "") { Return True; }
         Int passed = 0;
         Int failed = 0;
         For relative In Directory.Files(This.ProjectDirectory) {

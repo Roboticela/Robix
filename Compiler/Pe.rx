@@ -28,11 +28,7 @@ Public Class PeImage {
     } {
         List<Int> text = List<Int>();
         If (code != Null) {
-            Int index = 0;
-            While (index < code.Count()) {
-                This.AppendByte(text, code[index]);
-                index = index + 1;
-            }
+            For byte In code { This.AppendByte(text, byte); }
         }
         Int codeSize = text.Count();
         Int textRaw = This.Align(codeSize, 512);
@@ -125,17 +121,9 @@ Public Class PeImage {
         This.AppendByte(image, 0);
         This.AppendByte(image, 192);
         While (image.Count() < 512) { This.AppendByte(image, 0); }
-        Int textIndex = 0;
-        While (textIndex < text.Count()) {
-            This.AppendByte(image, text[textIndex]);
-            textIndex = textIndex + 1;
-        }
+        For byte In text { This.AppendByte(image, byte); }
         While (image.Count() < 512 + textRaw) { This.AppendByte(image, 0); }
-        Int importIndex = 0;
-        While (importIndex < imports.Count()) {
-            This.AppendByte(image, imports[importIndex]);
-            importIndex = importIndex + 1;
-        }
+        For byte In imports { This.AppendByte(image, byte); }
         While (image.Count() < 512 + textRaw + importRaw) { This.AppendByte(image, 0); }
         Return image;
     }
