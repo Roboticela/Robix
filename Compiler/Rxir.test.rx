@@ -69,6 +69,13 @@ Test HelloLines {
     }
 }
 
+Test FoldTwo {
+    Case "constant three" {
+        Input:;
+        Assert: Result.IndexOf("const i64 3") >= 0 && Result.IndexOf("call") < 0;
+    }
+}
+
 Test LowerBody {
     Output: True;
 }
@@ -197,6 +204,9 @@ Test LowerCall {
     Output: True;
 }
 
+Test RememberFunctions { Output: True; }
+Test TryFold { Output: True; }
+Test EvalFold { Output: True; }
 Test Escape {
     Case "plain text" {
         Input: text = "Hello";

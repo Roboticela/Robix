@@ -1,0 +1,57 @@
+// Tests for Interpreter/Bytecode.rx.
+
+Test Compile { Output: True; }
+Test Covered { Output: True; }
+Test Run { Output: True; }
+Test Lines { Output: True; }
+
+Test ReturnResult {
+    Case "zero" {
+        Input:;
+        Assert: Result == 0;
+    }
+}
+
+Test AddResult {
+    Case "one plus two" {
+        Input:;
+        Assert: Result == 3;
+    }
+}
+
+Test HelloResult {
+    Case "greeting and total" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test Reset { Output: True; }
+Test ClearVm { Output: True; }
+Test CompileFunction { Output: True; }
+Test Block { Output: True; }
+Test Statement { Output: True; }
+Test Eval { Output: True; }
+Test EvalCall { Output: True; }
+Test Finish { Output: True; }
+Test AddString { Output: True; }
+Test Emit { Output: True; }
+Test Patch { Output: True; }
+Test Here { Output: True; }
+Test Reg { Output: True; }
+Test Fresh { Output: True; }
+Test SetKind { Output: True; }
+Test KindOf { Output: True; }
+Test FindName { Output: True; }
+Test HelloModule { Output: True; }
+Test Decode { Output: True; }
+Test Execute { Output: True; }
+Test Enter { Output: True; }
+Test FindVm { Output: True; }
+Test ReadByte { Output: True; }
+Test ReadU16 { Output: True; }
+Test ReadU32 { Output: True; }
+Test ReadI32 { Output: True; }
+Test ReadText { Output: True; }
+Test PushU16 { Output: True; }
+Test PushU32 { Output: True; }

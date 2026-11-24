@@ -68,7 +68,7 @@ Explain {
     }
     RbcProgram bytecode = RbcProgram();
     List<Int> image = bytecode.Compile(result.Module);
-    If (bytecode.Covered()) {
+    If (bytecode.Covered() && programArguments.Count() == 0) {
         Int runStart = ClockMillis();
         Int exitCode = bytecode.Run(image);
         Int runTime = ClockMillis() - runStart;

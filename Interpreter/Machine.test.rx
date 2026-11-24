@@ -1,0 +1,47 @@
+// Tests for Interpreter/Machine.rx.
+
+Test Run { Output: True; }
+Test Lines { Output: True; }
+
+Test SampleReturn {
+    Case "zero" {
+        Input:;
+        Assert: Result == 0;
+    }
+}
+
+Test SampleAdd {
+    Case "one plus two" {
+        Input:;
+        Assert: Result == 3;
+    }
+}
+
+Test SamplePrint {
+    Case "two lines" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleLoop {
+    Case "total" {
+        Input:;
+        Assert: Result == 15;
+    }
+}
+
+Test Reset { Output: True; }
+Test Decode { Output: True; }
+Test Execute { Output: True; }
+Test Enter { Output: True; }
+Test Find { Output: True; }
+Test ReadByte { Output: True; }
+Test ReadU16 { Output: True; }
+Test ReadU32 { Output: True; }
+Test ReadI32 { Output: True; }
+Test ReadText { Output: True; }
+Test Wrap { Output: True; }
+Test OpInto { Output: True; }
+Test PushU16 { Output: True; }
+Test PushU32 { Output: True; }

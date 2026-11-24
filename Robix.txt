@@ -181,7 +181,7 @@ The same `.rxs` for `Main` is assembled into both containers. Only `_start` vers
 
 ## 7. The interpreter, written in Robix
 
-`Interpreter.rx` is a tree walk over `AstNode`. It stays as the bootstrap oracle until the bytecode machine matches it on every file in `Examples`. Then `robix` runs the bytecode machine.
+`Interpreter.rx` is a tree walk over `AstNode`. `robix` runs RBC1 when the bytecode compiler covers the module, and runs this tree walk for every other module.
 
 Bytecode image, magic bytes `R B C 1`:
 
@@ -235,8 +235,6 @@ Each phase ends when its exit test passes on Linux x86-64. Windows is phase 7 an
 
 **Phase 0. This plan is the specification.** New backend work follows it. No new LLVM intrinsics, no new `clang++` flags, no new code in `.github/packaging/Robixc.cpp`.
 
-**Phase 5. Bytecode interpreter in Robix.** `robix file.rx` executes RBC1. Its results match the tree walk on `Examples` and on `Packages`. Compile-time evaluation folds a constant pure call in RXIR.
-
 **Phase 6. Runtime in Robix.** Ownership scopes, bump allocation, `Text`, `List`, and `Map` are Robix. `mmap` supplies chunks. Programs that build a list or a string no longer link those parts of `Runtime.cpp`.
 
 **Phase 7. Windows, same compiler.** `.target windows-x64` writes a PE. `_start` is replaced by the PE entry and `kernel32` imports. `Examples/ReturnZero.rx`, `Examples/HelloRobot.rx`, and the phase 6 programs print the same text and return the same codes on Windows. `Robixc.cpp` is no longer the driver users run. `Robixc.rx` is the driver on both systems.
@@ -274,8 +272,6 @@ New Robix sources, compiled as part of the compiler once phase 9 allows it, inte
 | --- | --- |
 | `Compiler/Pe.rx` | PE32+ writer, import table, entry stub |
 | `Compiler/Target.rx` | `linux-x64`, `windows-x64`, later `macos-x64` and `linux-arm64` |
-| `Interpreter/Bytecode.rx` | RBC1 image |
-| `Interpreter/Machine.rx` | Register virtual machine |
 | `Runtime/Ownership.rx` | Scopes and bump allocation |
 | `Runtime/Text.rx` | `Text_*` |
 | `Runtime/List.rx` | `List_*` |

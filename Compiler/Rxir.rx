@@ -297,6 +297,81 @@ Public Class RxProgram {
         Return This.JoinLines();
     }
 
+    Public Function FoldTwo() -> String
+    Explain {
+        Description: "Fold a pure call of one plus two.";
+        Input: none = "No input";
+        Processing: "Compile Add(a, b) = a + b and Main returning Add(1, 2).";
+        Output: "RXIR whose Main returns the constant 3.";
+    } {
+        AstNode aName = AstNode();
+        aName.Kind = AstKind.Name;
+        aName.Name = "a";
+        AstNode bName = AstNode();
+        bName.Kind = AstKind.Name;
+        bName.Name = "b";
+        AstNode sum = AstNode();
+        sum.Kind = AstKind.Binary;
+        sum.Operator = "+";
+        sum.Left = aName;
+        sum.Right = bName;
+        AstNode addRet = AstNode();
+        addRet.Kind = AstKind.Return;
+        addRet.Left = sum;
+        AstNode addBody = AstNode();
+        addBody.Kind = AstKind.Block;
+        addBody.Children.Add(addRet);
+        AstNode paramA = AstNode();
+        paramA.Kind = AstKind.Parameter;
+        paramA.Name = "a";
+        AstNode paramB = AstNode();
+        paramB.Kind = AstKind.Parameter;
+        paramB.Name = "b";
+        AstNode addType = AstNode();
+        addType.Kind = AstKind.Type;
+        addType.Name = "Int";
+        AstNode add = AstNode();
+        add.Kind = AstKind.Function;
+        add.Name = "Add";
+        add.Type = addType;
+        add.Body = addBody;
+        add.Parameters.Add(paramA);
+        add.Parameters.Add(paramB);
+        AstNode one = AstNode();
+        one.Kind = AstKind.IntegerLiteral;
+        one.Text = "1";
+        AstNode two = AstNode();
+        two.Kind = AstKind.IntegerLiteral;
+        two.Text = "2";
+        AstNode callName = AstNode();
+        callName.Kind = AstKind.Name;
+        callName.Name = "Add";
+        AstNode call = AstNode();
+        call.Kind = AstKind.Call;
+        call.Left = callName;
+        call.Parameters.Add(one);
+        call.Parameters.Add(two);
+        AstNode mainRet = AstNode();
+        mainRet.Kind = AstKind.Return;
+        mainRet.Left = call;
+        AstNode mainBody = AstNode();
+        mainBody.Kind = AstKind.Block;
+        mainBody.Children.Add(mainRet);
+        AstNode mainType = AstNode();
+        mainType.Kind = AstKind.Type;
+        mainType.Name = "Int";
+        AstNode main = AstNode();
+        main.Kind = AstKind.Function;
+        main.Name = "Main";
+        main.Type = mainType;
+        main.Body = mainBody;
+        AstNode module = AstNode();
+        module.Kind = AstKind.Module;
+        module.Children.Add(add);
+        module.Children.Add(main);
+        Return This.LowerModule(module);
+    }
+
     Private Function LowerBody(String name, String returnType, AstNode statement) -> String {
         This.Reset();
         AstNode body = AstNode();
@@ -842,6 +917,9 @@ Public Class RxProgram {
             RxValue count = This.LoadName("args");
             Return This.MakeValue(count.Name, "i64");
         }
+        If (This.TryFold(symbol, node)) {
+            Return This.MakeValue(This.ConstName(This.FoldValue.ToString(), "i64"), "i64");
+        }
         If (symbol == "Print") {
             AstNode expr = AstNode();
             Int seen = 0;
@@ -884,6 +962,79 @@ Public Class RxProgram {
         String name = This.Fresh();
         This.AddOp(name + " = call " + machine + " @" + symbol + args);
         Return This.MakeValue(name, machine);
+    }
+
+    Private Function RememberFunctions(AstNode module) -> Void {
+        If (module.Children == Null) { Return; }
+        For child In module.Children {
+            If (child.Kind == AstKind.Function) {
+                This.FoldFuncNames.Add(child.Name);
+                This.FoldFuncNodes.Add(child);
+            }
+        }
+    }
+
+    Private Function TryFold(String symbol, AstNode call) -> Bool {
+        This.FoldOk = False;
+        Int found = -1;
+        Int index = 0;
+        While (index < This.FoldFuncNames.Count()) {
+            If (This.FoldFuncNames[index] == symbol) { found = index; }
+            index = index + 1;
+        }
+        If (found < 0) { Return False; }
+        AstNode Function = This.FoldFuncNodes[found];
+        If (Function.Body == Null || Function.Body.Children == Null) { Return False; }
+        If (Function.Body.Children.Count() != 1) { Return False; }
+        AstNode statement = Function.Body.Children[0];
+        If (statement.Kind != AstKind.Return || statement.Left == Null) { Return False; }
+        Int count = 0;
+        If (Function.Parameters != Null) { count = Function.Parameters.Count(); }
+        If (call.Parameters == Null || call.Parameters.Count() != count) { Return False; }
+        This.FoldNames = List<String>();
+        This.FoldValues = List<Int>();
+        index = 0;
+        While (index < count) {
+            AstNode arg = call.Parameters[index];
+            If (arg.Kind == AstKind.Argument && arg.Left != Null) { arg = arg.Left; }
+            If (arg.Kind != AstKind.IntegerLiteral) { Return False; }
+            This.FoldNames.Add(Function.Parameters[index].Name);
+            This.FoldValues.Add(ParseInteger(arg.Text));
+            index = index + 1;
+        }
+        This.FoldOk = True;
+        Int value = This.EvalFold(statement.Left);
+        If (!This.FoldOk) { Return False; }
+        This.FoldValue = value;
+        Return True;
+    }
+
+    Private Function EvalFold(AstNode node) -> Int {
+        If (!This.FoldOk) { Return 0; }
+        If (node.Kind == AstKind.IntegerLiteral) { Return ParseInteger(node.Text); }
+        If (node.Kind == AstKind.Name) {
+            Int index = 0;
+            While (index < This.FoldNames.Count()) {
+                If (This.FoldNames[index] == node.Name) { Return This.FoldValues[index]; }
+                index = index + 1;
+            }
+            This.FoldOk = False;
+            Return 0;
+        }
+        If (node.Kind == AstKind.Binary) {
+            Int left = 0;
+            Int right = 0;
+            If (node.Left != Null) { left = This.EvalFold(node.Left); }
+            If (node.Right != Null) { right = This.EvalFold(node.Right); }
+            If (!This.FoldOk) { Return 0; }
+            If (node.Operator == "+") { Return left + right; }
+            If (node.Operator == "-") { Return left - right; }
+            If (node.Operator == "*") { Return left * right; }
+            This.FoldOk = False;
+            Return 0;
+        }
+        This.FoldOk = False;
+        Return 0;
     }
 
     Private Function Escape(String text) -> String {

@@ -60,6 +60,8 @@ for name in "${syntax[@]}"; do
     place_bin "$root/Build/Compiler/$name" Syntax Robix.Syntax
 done
 place_bin "$root/Build/Compiler/Interpreter.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Bytecode.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Machine.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
 place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
 
