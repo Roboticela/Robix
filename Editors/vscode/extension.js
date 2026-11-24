@@ -12,6 +12,7 @@ const { analyze } = require("./lib/analyze");
 const { complete, hover, signature, definition, referencesIn, semanticSpans } = require("./lib/intellisense");
 const { extractTests, functionNames, selectTests, buildCompanion, caseTitles } = require("./lib/run-target");
 const { findTool } = require("./lib/tools");
+const { setPackageRoot, clearPackageCache } = require("./lib/packages");
 const { SEMANTIC_TYPES, SEMANTIC_MODIFIERS } = require("./lib/keywords");
 
 const legend = new vscode.SemanticTokensLegend(SEMANTIC_TYPES, SEMANTIC_MODIFIERS);
@@ -67,6 +68,9 @@ function activate(context) {
             scheduleCheck(event.document, 400);
         }),
         vscode.workspace.onDidSaveTextDocument((document) => {
+            if (String(document.uri.fsPath || "").includes(`${path.sep}Packages${path.sep}`)) {
+                clearPackageCache();
+            }
             if (isRobix(document)) {
                 remember(document);
                 scheduleCheck(document, 0);
@@ -82,6 +86,7 @@ function activate(context) {
 
     context.subscriptions.push(diagnostics());
     updateStatus();
+    bindPackageRoot();
     indexWorkspace();
     for (const document of vscode.workspace.textDocuments) {
         if (isRobix(document)) {
@@ -216,6 +221,7 @@ function externals(document) {
 function completionProvider() {
     return {
         provideCompletionItems(document, position) {
+            bindPackageRoot(document.uri.fsPath);
             const offset = document.offsetAt(position);
             const result = complete(document.getText(), offset, externals(document));
             return result.items.map((item) => {
@@ -261,6 +267,7 @@ function completionKind(kind) {
 function hoverProvider() {
     return {
         provideHover(document, position) {
+            bindPackageRoot(document.uri.fsPath);
             const result = hover(document.getText(), document.offsetAt(position));
             if (!result) {
                 return null;
@@ -276,6 +283,7 @@ function hoverProvider() {
 function signatureProvider() {
     return {
         provideSignatureHelp(document, position) {
+            bindPackageRoot(document.uri.fsPath);
             const result = signature(document.getText(), document.offsetAt(position));
             if (!result) {
                 return null;
@@ -294,6 +302,7 @@ function signatureProvider() {
 function definitionProvider() {
     return {
         async provideDefinition(document, position) {
+            bindPackageRoot(document.uri.fsPath);
             const hits = definition(document.getText(), document.offsetAt(position), externals(document));
             const locations = [];
             for (const symbol of hits) {
@@ -871,6 +880,24 @@ function compilerPath(document) {
         root: projectRoot(document.uri.fsPath),
         relatives: ["Build/bootstrap/robixc.app", "Build/Compiler/Robixc.bin"]
     });
+}
+
+function bindPackageRoot(filePath) {
+    const root = filePath ? projectRoot(filePath) : workspacePackageRoot();
+    if (root && fs.existsSync(path.join(root, "Packages"))) {
+        setPackageRoot(root);
+    }
+}
+
+function workspacePackageRoot() {
+    const folders = vscode.workspace.workspaceFolders || [];
+    for (const folder of folders) {
+        const root = projectRoot(path.join(folder.uri.fsPath, "Robix.rx"));
+        if (fs.existsSync(path.join(root, "Packages"))) {
+            return root;
+        }
+    }
+    return "";
 }
 
 function projectRoot(filePath) {

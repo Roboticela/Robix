@@ -507,7 +507,7 @@ function parseImport(state) {
     if (peek(state) && textOf(peek(state)) === "As") {
         eat(state);
         const aliasToken = peek(state);
-        if (aliasToken && aliasToken.kind === "identifier") {
+        if (aliasToken && (aliasToken.kind === "identifier" || (aliasToken.kind === "keyword" && /^[A-Za-z]/.test(aliasToken.text)))) {
             alias = aliasToken.text;
             const known = isKnownPackage(state, dotted);
             paint(aliasToken, known ? "namespace" : "variable", known ? ["declaration", "defaultLibrary"] : [], known ? "decl" : "use");
@@ -632,7 +632,7 @@ function colorImportedUses(state) {
 function parseFunction(state, mods, isMethod) {
     const keyword = eat(state);
     let nameToken = null;
-    if (peek(state) && peek(state).kind === "identifier") {
+    if (peek(state) && (peek(state).kind === "identifier" || (peek(state).kind === "keyword" && /^[A-Za-z]/.test(peek(state).text)))) {
         nameToken = eat(state);
     }
     const typeParams = parseTypeParameters(state, null);

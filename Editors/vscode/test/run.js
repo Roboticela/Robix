@@ -298,8 +298,30 @@ check("wrong case still suggests the PascalCase package, function, and class", (
     assert.ok(typed.some((item) => item.label === "fileName" && item.insert === "fileName"));
     const call = complete("print", "print".length).items;
     assert.ok(call.some((item) => item.label === "Print" && item.filter.startsWith("print")));
-    const members = complete("math.ab", "math.ab".length).items.map((item) => item.label);
-    assert.ok(members.includes("Abs"), members.join(", "));
+    const members = complete("math.", "math.".length).items.map((item) => item.label);
+    assert.ok(members.includes("MathDesk"), members.join(", "));
+    const methods = complete("MathDesk.ab", "MathDesk.ab".length).items.map((item) => item.label);
+    assert.ok(methods.includes("Abs"), methods.join(", "));
+    assert.ok(methods.includes("Pi"), methods.join(", "));
+});
+
+check("package completion comes from the compiler package path", () => {
+    const mathSource = "Import Robix.Math As Calc;\nCalc.";
+    const math = complete(mathSource, mathSource.length).items;
+    const labels = math.map((item) => item.label);
+    assert.ok(labels.includes("MathDesk"), labels.slice(0, 30).join(", "));
+    assert.ok(!labels.includes("Length"));
+    const desk = "Import Robix.Math;\nMathDesk.";
+    const methods = complete(desk, desk.length).items;
+    assert.ok(methods.some((item) => item.label === "Pi" && item.documentation.includes("Return pi.")));
+    assert.ok(methods.some((item) => item.label === "Abs"));
+    const consoleSource = "Import Robix.Console As Term;\nTerm.";
+    const shown = complete(consoleSource, consoleSource.length).items.map((item) => item.label);
+    assert.ok(shown.includes("ConsoleDesk"), shown.slice(0, 30).join(", "));
+    const consoleDesk = "Import Robix.Console;\nConsoleDesk.";
+    const consoleMethods = complete(consoleDesk, consoleDesk.length).items.map((item) => item.label);
+    assert.ok(consoleMethods.includes("WriteColored"), consoleMethods.slice(0, 20).join(", "));
+    assert.ok(consoleMethods.includes("WriteLine"));
 });
 
 check("unimported functions stay below local names and bring their package", () => {
@@ -313,7 +335,7 @@ check("unimported functions stay below local names and bring their package", () 
     assert.ok(total.sort < main.sort, `${total.sort} ${main.sort}`);
     assert.ok(main.sort < abs.sort, `${main.sort} ${abs.sort}`);
     assert.ok(abs.documentation.includes("Explain {"));
-    assert.ok(abs.documentation.includes("Absolute value"));
+    assert.ok(/absolute value/i.test(abs.documentation));
     assert.ok(abs.importEdit && abs.importEdit.text.includes("Import Robix.Math;"));
     const imported = "Package Demo;\nImport Robix.Math;\n\nPublic Function Main() -> Int {\n    Return \n}\n";
     const known = complete(imported, imported.indexOf("Return ") + "Return ".length).items.find((item) => item.label === "Abs");
@@ -367,7 +389,7 @@ check("an import alias completes that package", () => {
     assert.ok(readInt.documentation.includes("Input"), readInt.documentation);
     const math = "Package Demo\nExplain {\n    Description: \"Demo.\";\n};\nImport Robix.Math As Calc;\nPublic Function Main() -> Int {\n    Calc.\n    Return 0;\n}\n";
     const mathLabels = complete(math, math.indexOf("Calc.") + 5).items.map((item) => item.label);
-    assert.ok(mathLabels.includes("Abs"), mathLabels.join(", "));
+    assert.ok(mathLabels.includes("MathDesk"), mathLabels.join(", "));
     assert.ok(!mathLabels.includes("Length"), mathLabels.join(", "));
     const plain = "Package Demo\nExplain {\n    Description: \"Demo.\";\n};\nImport Robix.Core;\nPublic Function Main() -> Int {\n    Core.\n    Return 0;\n}\n";
     const coreLabels = complete(plain, plain.indexOf("Core.") + 5).items.map((item) => item.label);

@@ -75,7 +75,7 @@ The cursor line is a clear frame: the fill is transparent, and a thin border sit
 
 ### Completion
 
-Suggestions appear as you type. They include keywords, snippets, your functions, variables, parameters, types, imported packages, and names from the standard library. A function from a package you have not imported is still offered, below the variables, functions, and imported packages already in the file. Accepting it inserts `Import` for that package. Each function shows its `Explain` block: description, input, processing, and output. Typing `function` still offers `Function`. Typing `robix.core`, `main`, or `navHost` offers `Robix.Core`, `Main`, and `NavHost`, so the PascalCase form is what gets inserted.
+Suggestions appear as you type. They include keywords, snippets, your functions, variables, parameters, types, imported packages, and the public types and functions of every package on the compiler's package path (`Packages/<Package.Name>/<Leaf>.rx`). A function from a package you have not imported is still offered, below the variables, functions, and imported packages already in the file. Accepting it inserts `Import` for that package. Each function shows its `Explain` block: description, input, processing, and output. Typing `function` still offers `Function`. Typing `robix.core`, `main`, or `navHost` offers `Robix.Core`, `Main`, and `NavHost`, so the PascalCase form is what gets inserted.
 
 | Action | Shortcut |
 | --- | --- |

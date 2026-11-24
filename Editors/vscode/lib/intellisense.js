@@ -2,6 +2,7 @@
 
 const { analyze } = require("./analyze");
 const { toPascal, toPascalName, toCamel, isConstantCase, variablePartial } = require("./names");
+const { packageNames, packageByName, packageSummary, catalogSymbols } = require("./packages");
 const {
     KEYWORD_WORDS,
     KEYWORDS,
@@ -80,7 +81,7 @@ function complete(source, offset, external) {
         const receiver = dot[1];
         const partial = dot[2] || "";
         return {
-            items: memberItems(doc, receiver, left, external),
+            items: memberItems(doc, receiver, left, withLibraries(external)),
             replaceStart: left - partial.length,
             replaceEnd: left
         };
@@ -186,6 +187,11 @@ function libraryFunctions() {
             kind: "function"
         });
     }
+    const real = realLibrary();
+    if (real.length) {
+        items.push(...real);
+        return items;
+    }
     for (const namespace of Object.keys(NAMESPACES)) {
         const packageName = packageOfNamespace(namespace);
         for (const entry of NAMESPACES[namespace]) {
@@ -201,6 +207,43 @@ function libraryFunctions() {
         }
     }
     return items;
+}
+
+function realLibrary() {
+    const offered = new Set(["class", "struct", "enum", "interface", "trait", "service", "type", "function", "method", "macro"]);
+    const items = [];
+    for (const symbol of catalogSymbols()) {
+        if (!symbol.name || symbol.kind === "namespace" || !offered.has(symbol.kind)) {
+            continue;
+        }
+        if ((symbol.kind === "function" || symbol.kind === "method" || symbol.kind === "macro") && symbol.exported === false) {
+            continue;
+        }
+        items.push({
+            name: symbol.name,
+            signature: symbol.detail || symbol.kind,
+            detail: symbol.detail || symbol.kind,
+            summary: symbol.explain && symbol.explain.description || symbol.summary || "",
+            namespace: symbol.packageName,
+            packageName: symbol.packageName,
+            kind: symbol.kind === "method" || symbol.kind === "function" || symbol.kind === "macro" ? symbol.kind : "field",
+            params: symbol.params || [],
+            explain: symbol.explain,
+            symbol
+        });
+    }
+    return items;
+}
+
+function withLibraries(external) {
+    return (external || []).concat(catalogSymbols());
+}
+
+function libraryDocumentation(library) {
+    if (library.symbol && library.symbol.explain) {
+        return explainDocument(library.symbol);
+    }
+    return libraryDocument(library);
 }
 
 function packageImported(doc, packageName) {
@@ -361,7 +404,7 @@ function scopeItems(doc, offset, external) {
             label: library.name,
             kind: library.kind,
             detail: `${library.packageName} ${library.signature}`,
-            documentation: libraryDocument(library),
+            documentation: libraryDocumentation(library),
             insert: library.name,
             filter: `${library.name.toLowerCase()} ${library.name}`,
             sort: imported ? "3" : "7",
@@ -379,12 +422,15 @@ function scopeItems(doc, offset, external) {
             sort: "3"
         });
     }
-    for (const name of Object.keys(NAMESPACES)) {
+    const discovered = packageNames();
+    const namespaces = discovered.length ? discovered : Object.keys(NAMESPACES);
+    for (const name of namespaces) {
+        const summary = packageSummary(name);
         add({
             label: name,
             kind: "namespace",
-            detail: "namespace",
-            documentation: `${name} is part of the Robix standard library.`,
+            detail: "package",
+            documentation: summary ? `**${name}**\n\n${summary}` : `${name} is a Robix package.`,
             insert: name,
             filter: `${name.toLowerCase()} ${name}`,
             sort: "3"
@@ -459,7 +505,7 @@ function memberItems(doc, receiver, offset, external) {
             sort: "1"
         });
     }
-    const qualifier = packageQualifier(doc, receiver, offset);
+    const qualifier = packageQualifier(doc, receiver, offset) || openPackage(doc, receiver, offset);
     if (qualifier) {
         const declared = new Set(["class", "struct", "enum", "interface", "trait", "service", "function", "macro", "type"]);
         for (const symbol of doc.symbols.concat(external || [])) {
@@ -472,10 +518,10 @@ function memberItems(doc, receiver, offset, external) {
             add(symbol.name, symbol.detail || symbol.kind, explainDocument(symbol) || symbol.detail, symbol.kind === "function" || symbol.kind === "macro" ? "method" : "field");
         }
         for (const entry of libraryFunctions()) {
-            if (!sameText(entry.packageName, qualifier)) {
+            if (!sameText(entry.packageName, qualifier) || entry.kind === "method" || (entry.symbol && entry.symbol.member)) {
                 continue;
             }
-            add(entry.name, entry.signature, libraryDocument(entry), entry.kind === "field" ? "field" : "method");
+            add(entry.name, entry.signature, libraryDocumentation(entry), entry.kind === "field" ? "field" : "method");
         }
         return items;
     }
@@ -537,6 +583,14 @@ function canonicalKey(table, name) {
     return Object.keys(table).find((key) => key.toLowerCase() === lower) || "";
 }
 
+function openPackage(doc, name, offset) {
+    const local = doc.symbols.find((symbol) => sameText(symbol.name, name) && !symbol.member && symbol.kind !== "namespace" && (symbol.fileWide || (offset >= symbol.visibleFrom && offset <= symbol.visibleTo)));
+    if (local) {
+        return "";
+    }
+    return packageByName(name);
+}
+
 function packageQualifier(doc, name, offset) {
     const matches = doc.symbols.filter((symbol) => {
         if (symbol.kind !== "namespace" || symbol.member || !sameText(symbol.name, name)) {
@@ -565,7 +619,8 @@ function resolveType(doc, name, offset) {
 }
 
 function packageItems(external) {
-    const names = new Set(PACKAGES);
+    const discovered = packageNames();
+    const names = new Set(discovered.length ? discovered : PACKAGES);
     for (const symbol of external || []) {
         if (symbol.kind === "namespace" || symbol.kind === "package") {
             if (symbol.detail && symbol.detail.startsWith("Package ")) {
@@ -580,7 +635,7 @@ function packageItems(external) {
         label: name,
         kind: "namespace",
         detail: "package",
-        documentation: LIBRARY_PACKAGES[name] ? `**${name}**\n\n${LIBRARY_PACKAGES[name]}` : `Package ${name}`,
+        documentation: packageBlurb(name),
         insert: name,
         filter: `${name.toLowerCase()} ${name}`,
         sort: "1"
@@ -634,7 +689,7 @@ function hover(source, offset) {
         if (!library) {
             return null;
         }
-        return { contents: libraryDocument(library), start: token.start, end: token.end };
+        return { contents: libraryDocumentation(library), start: token.start, end: token.end };
     }
     return {
         contents: explainDocument(declaration) || `**${declaration.detail || declaration.name}**${declaration.container ? `\n\nIn ${declaration.container}` : ""}`,
@@ -664,10 +719,26 @@ function dottedPackageAt(doc, token) {
     return parts.join(".");
 }
 
+function packageBlurb(name) {
+    const summary = packageSummary(name);
+    if (summary) {
+        return `**${name}**\n\n${summary}`;
+    }
+    const key = LIBRARY_PACKAGES[name] ? name : Object.keys(LIBRARY_PACKAGES).find((item) => sameText(item, name));
+    if (key && LIBRARY_PACKAGES[key]) {
+        return `**${key}**\n\n${LIBRARY_PACKAGES[key]}`;
+    }
+    return `Package ${name}`;
+}
+
 function packageDocument(doc, name) {
     const symbol = doc.symbols.find((item) => item.kind === "namespace" && (sameText(item.name, name) || sameText(item.typeName, name)) && (item.explain || item.summary));
     if (symbol) {
         return explainDocument(symbol);
+    }
+    const summary = packageSummary(name);
+    if (summary) {
+        return `**${name}**\n\nPackage \`${name}\`\n\n${summary}`;
     }
     const key = Object.keys(LIBRARY_PACKAGES).find((item) => sameText(item, name));
     if (!key) {
@@ -744,16 +815,18 @@ function signature(source, offset) {
     }
     const symbol = doc.symbols.find((item) => item.name === name && item.params && item.params.length)
         || null;
-    const builtin = knownCall(name);
-    if (!symbol && !builtin) {
+    const library = symbol ? null : libraryFunctions().find((item) => sameText(item.name, name) && ((item.params && item.params.length) || item.signature));
+    if (!symbol && !library) {
         return null;
     }
     const parameters = symbol
         ? symbol.params.map((param) => ({ label: param.label || param.name }))
-        : splitSignature(builtin[1]);
+        : library.params && library.params.length
+            ? library.params.map((param) => ({ label: param.label || param.name }))
+            : splitSignature(library.signature || "()");
     return {
-        label: symbol ? symbol.detail : `${builtin[0]}${builtin[1]}`,
-        documentation: symbol ? symbol.detail : builtin[2],
+        label: symbol ? symbol.detail : (library.detail || `${library.name}${library.signature || ""}`),
+        documentation: symbol ? symbol.detail : libraryDocumentation(library),
         parameters,
         active
     };
@@ -788,7 +861,18 @@ function definition(source, offset, external) {
     if (local && local.token) {
         return [local];
     }
-    return (external || []).filter((symbol) => symbol.name === token.text && (symbol.exported || symbol.fileWide || symbol.kind === "namespace"));
+    let pool = withLibraries(external);
+    const previous = previousToken(doc.tokens, token);
+    if (previous && (previous.text === "." || previous.text === "?.")) {
+        const receiver = previousToken(doc.tokens, previous);
+        const qualifier = receiver ? (packageQualifier(doc, receiver.text, offset) || packageByName(receiver.text)) : "";
+        if (qualifier) {
+            pool = pool.filter((symbol) => sameText(symbol.packageName, qualifier));
+        } else if (receiver) {
+            pool = pool.filter((symbol) => symbol.member && sameText(symbol.container, receiver.text));
+        }
+    }
+    return pool.filter((symbol) => symbol.name === token.text && (symbol.exported !== false || symbol.fileWide || symbol.kind === "namespace"));
 }
 
 function referencesIn(source, name, limit, options) {
