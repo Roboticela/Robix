@@ -110,7 +110,9 @@ Public Class PeImage {
         This.AppendU32(image, 0);
         This.AppendU16(image, 0);
         This.AppendU16(image, 0);
-        This.AppendU32(image, 3221225536);
+        Int idataFlags = 2000000000;
+        idataFlags = idataFlags + 1221225536;
+        This.AppendU32(image, idataFlags);
         While (image.Count() < 512) { This.AppendByte(image, 0); }
         For byte In text { This.AppendByte(image, byte); }
         While (image.Count() < 512 + textRaw) { This.AppendByte(image, 0); }

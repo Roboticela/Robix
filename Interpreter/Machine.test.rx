@@ -1,5 +1,6 @@
 // Tests for Interpreter/Machine.rx.
 
+Test PushByte { Output: True; }
 Test Run { Output: True; }
 Test Lines { Output: True; }
 

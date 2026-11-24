@@ -973,6 +973,7 @@ Public Class RxAssembler {
         String dest = tokens[0];
         String opcode = tokens[2];
         If (opcode == "vector") {
+            This.Bind(dest);
             This.AddBody("    paddd xmm0, xmm1");
             Return;
         }

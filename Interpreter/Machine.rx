@@ -411,18 +411,18 @@ Public Class RbcMachine {
 
     Private Function Wrap(String name, Int regs, List<Int> code, List<String> texts) -> List<Int> {
         List<Int> image = List<Int>();
-        image.Add(82);
-        image.Add(66);
-        image.Add(67);
-        image.Add(49);
+        This.PushByte(image, 82);
+        This.PushByte(image, 66);
+        This.PushByte(image, 67);
+        This.PushByte(image, 49);
         This.PushU32(image, texts.Count());
         Int index = 0;
         While (index < texts.Count()) {
-            image.Add(3);
+            This.PushByte(image, 3);
             This.PushU32(image, texts[index].Length());
             Int charAt = 0;
             While (charAt < texts[index].Length()) {
-                image.Add(texts[index].GetChar(charAt).ToInt());
+                This.PushByte(image, texts[index].GetChar(charAt).ToInt());
                 charAt = charAt + 1;
             }
             index = index + 1;
@@ -431,15 +431,19 @@ Public Class RbcMachine {
         This.PushU32(image, name.Length());
         index = 0;
         While (index < name.Length()) {
-            image.Add(name.GetChar(index).ToInt());
+            This.PushByte(image, name.GetChar(index).ToInt());
             index = index + 1;
         }
         This.PushU32(image, regs);
         This.PushU32(image, code.Count());
         For byte In code {
-            image.Add(byte);
+            This.PushByte(image, byte);
         }
         Return image;
+    }
+
+    Private Function PushByte(List<Int> target, Int value) -> Void {
+        target.Add(value);
     }
 
     Private Function OpInto(List<Int> code, Int op, Int a, Int b, Int c, Int imm) -> Void {
