@@ -1,0 +1,27 @@
+// Sum a generic list. The list body is in this compilation.
+Package Bench.ListSum
+Explain {
+    Description: "Sum a list of the integers from 1 through 1000.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Fill a list and add its items.";
+    Input: none = "No input";
+    Processing: "Add each index, then add the stored items.";
+    Output: "Zero after the total is printed.";
+} {
+    Var values = List<Int>();
+    For index In 1..=1000 {
+        values.Add(index);
+    }
+    Var total = 0;
+    For index In 0..=999 {
+        total = total + values[index];
+    }
+    Print(total);
+    Return 0;
+}

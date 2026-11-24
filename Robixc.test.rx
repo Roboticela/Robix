@@ -13,6 +13,10 @@ Test RuntimeObject {
         Input: target = "linux-x64";
         Assert: Result == "";
     }
+    Case "windows carries the Robix runtime" {
+        Input: target = "windows-x64";
+        Assert: Result == "";
+    }
     Case "host fallback" {
         Input: target = "host";
         Assert: Result == "Runtime/Runtime.cpp";

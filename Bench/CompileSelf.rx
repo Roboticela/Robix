@@ -1,0 +1,28 @@
+// A stand-in for front-end work: count the braces in a fixed source text.
+Package Bench.CompileSelf
+Explain {
+    Description: "Scan a source text and count braces.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Count the brace characters.";
+    Input: none = "No input";
+    Processing: "Walk the text once.";
+    Output: "Zero after the count is printed.";
+} {
+    Var text = "function Main() -> Int { Return 0; }";
+    Var count = 0;
+    Var index = 0;
+    While (index < text.Length()) {
+        Var character = text.GetChar(index);
+        If (character == '{') { count = count + 1; }
+        If (character == '}') { count = count + 1; }
+        index = index + 1;
+    }
+    Print(count);
+    Return 0;
+}

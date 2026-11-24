@@ -1,0 +1,23 @@
+// Tight f64 loop. The add stays an f64 add so the value can live in xmm.
+Package Bench.FloatSum
+Explain {
+    Description: "Add 1.5 one million times.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Accumulate a float and return whether it is positive.";
+    Input: none = "No input";
+    Processing: "Add 1.5 on each iteration.";
+    Output: "One when the total is positive.";
+} {
+    Var total = 0.0;
+    For index In 1..=1000000 {
+        total = total + 1.5;
+    }
+    If (total > 0.0) { Return 1; }
+    Return 0;
+}

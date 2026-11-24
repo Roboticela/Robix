@@ -1,0 +1,343 @@
+// PE32+ container for a Windows x86-64 program. The only import is kernel32.
+Package Robix.Syntax
+Explain {
+    Description: "Write a PE32+ program around x86-64 code bytes.";
+};
+
+Import Robix.Core;
+
+
+Public Class PeImage {
+    Public Function ImportRva(Int codeSize) -> Int
+    Explain {
+        Description: "Return the virtual address of the import address table.";
+        Input: codeSize = "The number of code bytes";
+        Processing: "Code starts at 4096. The import table starts at the next page.";
+        Output: "The import virtual address.";
+    } {
+        Int size = codeSize;
+        If (size < 1) { size = 1; }
+        Int remainder = size % 4096;
+        If (remainder != 0) { size = size + (4096 - remainder); }
+        Return 4096 + size;
+    }
+
+    Public Function Wrap(List<Int> code) -> List<Int>
+    Explain {
+        Description: "Wrap code bytes in a console PE32+.";
+        Input: code = "Machine-code bytes, entered at the first byte";
+        Processing: "Write headers, a code section at virtual address 4096, and a kernel32 import section.";
+        Output: "The PE bytes.";
+    } {
+        List<Int> text = List<Int>();
+        If (code != Null) {
+            For byte In code { text.Add(byte); }
+        }
+        Int codeSize = text.Count();
+        Int textRaw = This.Align(codeSize, 512);
+        Int importAt = This.ImportRva(codeSize);
+        List<Int> imports = This.Imports(importAt);
+        Int importRaw = This.Align(imports.Count(), 512);
+        Int imageSize = This.Align(importAt + imports.Count(), 4096);
+        List<Int> image = List<Int>();
+        This.AppendByte(image, 77);
+        This.AppendByte(image, 90);
+        This.AppendZeros(image, 58);
+        This.AppendU32(image, 128);
+        This.AppendZeros(image, 64);
+        This.AppendByte(image, 80);
+        This.AppendByte(image, 69);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 0);
+        This.AppendU16(image, 34404);
+        This.AppendU16(image, 2);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 0);
+        This.AppendU16(image, 240);
+        This.AppendU16(image, 34);
+        This.AppendU16(image, 523);
+        This.AppendByte(image, 0);
+        This.AppendByte(image, 0);
+        This.AppendU32(image, textRaw);
+        This.AppendU32(image, importRaw);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 4096);
+        This.AppendU32(image, 4096);
+        This.AppendU32(image, 1073741824);
+        This.AppendU32(image, 1);
+        This.AppendU32(image, 4096);
+        This.AppendU32(image, 512);
+        This.AppendU16(image, 6);
+        This.AppendU16(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU16(image, 6);
+        This.AppendU16(image, 0);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, imageSize);
+        This.AppendU32(image, 512);
+        This.AppendU32(image, 0);
+        This.AppendU16(image, 3);
+        This.AppendU16(image, 0);
+        This.AppendU32(image, 1048576);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 4096);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 1048576);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 4096);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 16);
+        This.AppendZeros(image, 8);
+        This.AppendU32(image, importAt + 64);
+        This.AppendU32(image, 40);
+        This.AppendZeros(image, 112);
+        This.AppendName(image, ".text");
+        This.AppendU32(image, codeSize);
+        This.AppendU32(image, 4096);
+        This.AppendU32(image, textRaw);
+        This.AppendU32(image, 512);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU32(image, 1610612768);
+        This.AppendName(image, ".idata");
+        This.AppendU32(image, imports.Count());
+        This.AppendU32(image, importAt);
+        This.AppendU32(image, importRaw);
+        This.AppendU32(image, 512 + textRaw);
+        This.AppendU32(image, 0);
+        This.AppendU32(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU16(image, 0);
+        This.AppendU32(image, 3221225536);
+        While (image.Count() < 512) { image.Add(0); }
+        For byte In text { image.Add(byte); }
+        While (image.Count() < 512 + textRaw) { image.Add(0); }
+        For byte In imports { image.Add(byte); }
+        While (image.Count() < 512 + textRaw + importRaw) { image.Add(0); }
+        Return image;
+    }
+
+    Public Function Magic(List<Int> image) -> String
+    Explain {
+        Description: "Read the PE magic as text.";
+        Input: image = "PE bytes";
+        Processing: "Accept MZ and the PE signature.";
+        Output: "PE when the header matches.";
+    } {
+        If (image == Null || image.Count() < 132) { Return ""; }
+        If (image[0] != 77 || image[1] != 90) { Return ""; }
+        If (image[128] == 80 && image[129] == 69 && image[130] == 0 && image[131] == 0) { Return "PE"; }
+        Return "";
+    }
+
+    Public Function Sample() -> String
+    Explain {
+        Description: "Wrap a one-byte ret and report the magic.";
+        Input: none = "No input";
+        Processing: "Build a PE whose code is ret.";
+        Output: "PE when the header is well formed.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        Return This.Magic(This.Wrap(code));
+    }
+
+    Public Function SampleMachine() -> Int
+    Explain {
+        Description: "Read the PE machine id of the sample.";
+        Input: none = "No input";
+        Processing: "AMD64 is 34404.";
+        Output: "The machine id.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (image.Count() < 134) { Return -1; }
+        Return image[132] + image[133] * 256;
+    }
+
+    Public Function SampleEntry() -> Int
+    Explain {
+        Description: "Read the entry virtual address of the sample.";
+        Input: none = "No input";
+        Processing: "The entry is the first code byte at 4096.";
+        Output: "4096.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (image.Count() < 172) { Return -1; }
+        Return image[168] + image[169] * 256 + image[170] * 65536 + image[171] * 16777216;
+    }
+
+    Public Function SampleSubsystem() -> Int
+    Explain {
+        Description: "Read the subsystem of the sample.";
+        Input: none = "No input";
+        Processing: "A console program uses subsystem 3.";
+        Output: "Three.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (image.Count() < 222) { Return -1; }
+        Return image[220] + image[221] * 256;
+    }
+
+    Public Function SampleImport() -> Int
+    Explain {
+        Description: "Find kernel32 and ExitProcess in the sample.";
+        Input: none = "No input";
+        Processing: "The import section names kernel32.dll and ExitProcess.";
+        Output: "One when both names are present.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (This.FindText(image, "kernel32.dll") < 0) { Return 0; }
+        If (This.FindText(image, "ExitProcess") < 0) { Return 0; }
+        If (This.FindText(image, "WriteFile") < 0) { Return 0; }
+        If (image.Count() < 513 || image[512] != 195) { Return 0; }
+        Return 1;
+    }
+
+    Public Function SampleCode() -> Int
+    Explain {
+        Description: "Read the first code byte of the sample PE.";
+        Input: none = "No input";
+        Processing: "Code begins at file offset 512.";
+        Output: "The ret opcode.";
+    } {
+        List<Int> code = List<Int>();
+        code.Add(195);
+        List<Int> image = This.Wrap(code);
+        If (image.Count() < 513) { Return -1; }
+        Return image[512];
+    }
+
+    Private Function Imports(Int importAt) -> List<Int> {
+        List<Int> data = List<Int>();
+        This.AppendZeros(data, 104);
+        Int exitAt = data.Count();
+        This.AppendHint(data, "ExitProcess");
+        Int standardAt = data.Count();
+        This.AppendHint(data, "GetStdHandle");
+        Int writeAt = data.Count();
+        This.AppendHint(data, "WriteFile");
+        Int libraryAt = data.Count();
+        This.AppendText(data, "kernel32.dll");
+        This.PokeU64(data, 0, importAt + exitAt);
+        This.PokeU64(data, 8, importAt + standardAt);
+        This.PokeU64(data, 16, importAt + writeAt);
+        This.PokeU64(data, 32, importAt + exitAt);
+        This.PokeU64(data, 40, importAt + standardAt);
+        This.PokeU64(data, 48, importAt + writeAt);
+        This.PokeU32(data, 64, importAt + 32);
+        This.PokeU32(data, 76, importAt + libraryAt);
+        This.PokeU32(data, 80, importAt);
+        Return data;
+    }
+
+    Private Function Align(Int value, Int boundary) -> Int {
+        Int size = value;
+        If (size < 0) { size = 0; }
+        Int remainder = size % boundary;
+        If (remainder == 0) { Return size; }
+        Return size + (boundary - remainder);
+    }
+
+    Private Function FindText(List<Int> image, String text) -> Int {
+        If (image == Null || text == Null) { Return -1; }
+        Int limit = image.Count() - text.Length();
+        Int start = 0;
+        While (start <= limit) {
+            Int index = 0;
+            Int same = 1;
+            While (index < text.Length()) {
+                If (image[start + index] != text.GetChar(index).ToInt()) { same = 0; }
+                index = index + 1;
+            }
+            If (same == 1) { Return start; }
+            start = start + 1;
+        }
+        Return -1;
+    }
+
+    Private Function AppendHint(List<Int> bytes, String name) -> Void {
+        This.AppendU16(bytes, 0);
+        This.AppendText(bytes, name);
+        If (bytes.Count() % 2 != 0) { bytes.Add(0); }
+    }
+
+    Private Function AppendText(List<Int> bytes, String text) -> Void {
+        Int index = 0;
+        While (index < text.Length()) {
+            bytes.Add(text.GetChar(index).ToInt());
+            index = index + 1;
+        }
+        bytes.Add(0);
+    }
+
+    Private Function AppendName(List<Int> bytes, String name) -> Void {
+        Int index = 0;
+        While (index < 8) {
+            Int value = 0;
+            If (index < name.Length()) { value = name.GetChar(index).ToInt(); }
+            bytes.Add(value);
+            index = index + 1;
+        }
+    }
+
+    Private Function PokeU32(List<Int> bytes, Int at, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 4294967296; }
+        Int index = 0;
+        While (index < 4) {
+            bytes[at + index] = rest % 256;
+            rest = rest / 256;
+            index = index + 1;
+        }
+    }
+
+    Private Function PokeU64(List<Int> bytes, Int at, Int value) -> Void {
+        This.PokeU32(bytes, at, value);
+        This.PokeU32(bytes, at + 4, 0);
+    }
+
+    Private Function AppendByte(List<Int> bytes, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 256; }
+        bytes.Add(rest % 256);
+    }
+
+    Private Function AppendZeros(List<Int> bytes, Int count) -> Void {
+        Int index = 0;
+        While (index < count) {
+            bytes.Add(0);
+            index = index + 1;
+        }
+    }
+
+    Private Function AppendU16(List<Int> bytes, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 65536; }
+        bytes.Add(rest % 256);
+        bytes.Add((rest / 256) % 256);
+    }
+
+    Private Function AppendU32(List<Int> bytes, Int value) -> Void {
+        Int rest = value;
+        If (rest < 0) { rest = rest + 4294967296; }
+        Int index = 0;
+        While (index < 4) {
+            bytes.Add(rest % 256);
+            rest = rest / 256;
+            index = index + 1;
+        }
+    }
+}

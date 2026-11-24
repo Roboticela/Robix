@@ -53,7 +53,7 @@ syntax=(
     Lexer.bin Parser.bin ParserExpressions.bin ParserStatements.bin
     Token.bin TokenKind.bin TypeChecker.bin NameChecker.bin
     NativeEmit.bin Emitter.bin SyntaxCompiler.bin Diagnostic.bin
-    Rxir.bin Rxasm.bin Elf.bin
+    Rxir.bin Passes.bin Rxasm.bin Elf.bin Pe.bin Target.bin
     AstNode.bin TextConvert.bin SyntaxCoverage.bin
 )
 for name in "${syntax[@]}"; do
@@ -67,6 +67,7 @@ place_bin "$root/Build/Compiler/Text.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/List.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/Map.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/Linux.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Windows.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
 place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
 

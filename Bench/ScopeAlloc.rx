@@ -1,0 +1,25 @@
+// Allocate and drop a list on every iteration. Popping the scope resets the bump pointer.
+Package Bench.ScopeAlloc
+Explain {
+    Description: "Allocate a short list inside a loop and drop it.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Allocate and drop one thousand lists.";
+    Input: none = "No input";
+    Processing: "Each list holds one integer and then ends.";
+    Output: "Zero after the count is printed.";
+} {
+    Var count = 0;
+    For index In 1..=1000 {
+        Var values = List<Int>();
+        values.Add(index);
+        count = count + values.Count();
+    }
+    Print(count);
+    Return 0;
+}

@@ -235,17 +235,13 @@ Each phase ends when its exit test passes on Linux x86-64. Windows is phase 7 an
 
 **Phase 0. This plan is the specification.** New backend work follows it. No new LLVM intrinsics, no new `clang++` flags, no new code in `.github/packaging/Robixc.cpp`.
 
-**Phase 7. Windows, same compiler.** `.target windows-x64` writes a PE. `_start` is replaced by the PE entry and `kernel32` imports. `Examples/ReturnZero.rx`, `Examples/HelloRobot.rx`, `Examples/ScopeText.rx`, and `Examples/ScopeList.rx` print the same text and return the same codes on Windows. `Robixc.cpp` is no longer the driver users run. `Robixc.rx` is the driver on both systems.
-
-**Phase 8. The performance passes.** Implement section 2 in this order: inlining, escape analysis to registers and stack, interprocedural clobbers, devirtualization, bounds elimination, then vectorization of arithmetic loops whose aliases and bounds are proven. After each pass, rerun the suite in section 10.
-
 **Phase 9. Self-host and delete the C++ path.** `robixc` compiles `Robixc.rx` and the interpreter. The resulting binary compiles the suite and itself. Remove `Runtime/Runtime.cpp` from the link, remove the `clang++` invocation from `Robixc.rx`, and remove the LLVM and mingw packaging from the compiler path. UI hosts may remain small C until a later raster host is written in Robix; they are not on the compiler link line.
 
 **Phase 10. More processors.** AArch64 RXASM, then macOS Mach-O with `libSystem` as that platform's edge. RXIR, the interpreter, and the runtime stay as they are.
 
 ## 10. Benchmark suite
 
-Create `Bench/` with one Robix program and an idiomatic C program and C++ program for each row. Same algorithm, same data sizes, no hand-written SIMD in the C or C++ unless the Robix program is also allowed an `Asm` block. Build C and C++ with `clang -O3` and `g++ -O3`, no profile data, LTO off for the "typical" column and LTO on for the "best effort" column. Robix is always one whole-program compilation. Report the median of five runs and the geometric mean.
+`Bench/` has one Robix program and an idiomatic C program and C++ program for each row. Same algorithm, same data sizes, no hand-written SIMD in the C or C++ unless the Robix program is also allowed an `Asm` block. Build C and C++ with `clang -O3` and `g++ -O3`, no profile data, LTO off for the "typical" column and LTO on for the "best effort" column. Robix is always one whole-program compilation. `Bench/run.sh` reports the median of five runs and the geometric mean when those compilers are installed.
 
 | Bench | What it measures | Required result |
 | --- | --- | --- |
@@ -266,11 +262,7 @@ A row that misses its bar blocks phase 8 and phase 9. The fix is an assembly dif
 
 New Robix sources, compiled as part of the compiler once phase 9 allows it, interpreted by the bootstrap until then:
 
-| File | Role |
-| --- | --- |
-| `Compiler/Pe.rx` | PE32+ writer, import table, entry stub |
-| `Compiler/Target.rx` | `linux-x64`, `windows-x64`, later `macos-x64` and `linux-arm64` |
-| `Runtime/System/Windows.rx` | `kernel32` imports |
+The sources through phase 8 are in the tree. Phase 10 adds the AArch64 dialect.
 
 These stay and become the front end of both tools: `Parser.rx`, `ParserExpressions.rx`, `NameChecker.rx`, `TypeChecker.rx`, `SyntaxCompiler.rx`, `Robix.rx`, `Robixc.rx`.
 

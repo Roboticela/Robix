@@ -364,6 +364,56 @@ Public Class X64 {
         Return This.MovBase(137, source, base, displacement);
     }
 
+    Public Function MovLoadRip(String dest, Int displacement) -> List<Int>
+    Explain {
+        Description: "Encode mov r64, [rip+disp32].";
+        Input: dest = "Destination register", displacement = "Signed distance from the next instruction";
+        Processing: "Write REX, opcode 8B, a rip-relative ModR/M, and four displacement bytes.";
+        Output: "Seven bytes.";
+    } {
+        List<Int> bytes = List<Int>();
+        Int rex = 72;
+        If (This.RegHigh(dest) == 1) { rex = rex + 4; }
+        bytes.Add(rex);
+        bytes.Add(139);
+        bytes.Add(This.RegLow(dest) * 8 + 5);
+        This.AppendI32(bytes, displacement);
+        Return bytes;
+    }
+
+    Public Function CallReg(String target) -> List<Int>
+    Explain {
+        Description: "Encode call r64.";
+        Input: target = "Register holding the address";
+        Processing: "Write opcode FF /2.";
+        Output: "Two bytes for rax, or three when the register is r8 through r15.";
+    } {
+        List<Int> bytes = List<Int>();
+        If (This.RegHigh(target) == 1) { bytes.Add(65); }
+        bytes.Add(255);
+        bytes.Add(208 + This.RegLow(target));
+        Return bytes;
+    }
+
+    Public Function Paddd(String dest, String source) -> List<Int>
+    Explain {
+        Description: "Encode paddd xmm, xmm.";
+        Input: dest = "Destination xmm register", source = "Source xmm register";
+        Processing: "Write the 66 0F FE prefix and a register ModR/M.";
+        Output: "Four bytes.";
+    } {
+        Int left = 0;
+        Int right = 0;
+        If (dest.Length() > 3) { left = ParseInteger(dest.Substring(3, dest.Length() - 3)); }
+        If (source.Length() > 3) { right = ParseInteger(source.Substring(3, source.Length() - 3)); }
+        List<Int> bytes = List<Int>();
+        bytes.Add(102);
+        bytes.Add(15);
+        bytes.Add(254);
+        bytes.Add(192 + (left % 8) * 8 + (right % 8));
+        Return bytes;
+    }
+
     Private Function Alu(Int opcode, String dest, String source) -> List<Int> {
         List<Int> bytes = List<Int>();
         bytes.Add(This.RexPair(dest, source));
@@ -509,12 +559,15 @@ Public Class RxAssembler {
     Public Bool InFunction;
     Public Bool NeedPrint;
     Public Bool NeedRuntime;
+    Public Bool NeedKernel;
+    Public String Target;
     Public String FnSymbol;
     Public List<String> BodyLines;
     Public List<String> DataNames;
     Public List<String> DataTexts;
 
     Public Constructor() {
+        This.Target = "linux-x64";
         This.ClearAsm();
         This.ClearCode();
     }
@@ -526,7 +579,9 @@ Public Class RxAssembler {
         Processing: "Assign stack slots and print x86-64 instructions, including write for Print.";
         Output: "RXASM text.";
     } {
+        String saved = This.Target;
         This.ClearAsm();
+        This.Target = saved;
         Var lines = rxir.Split("\n");
         For line In lines {
             This.SelectLine(This.Tokens(line));
@@ -546,6 +601,107 @@ Public Class RxAssembler {
         If (rxasm.IndexOf("_start:") >= 0) { Return rxasm; }
         String head = ".arch x86_64\n.target linux\n.section text\n.global _start\n_start:\n    xor rdi, rdi\n    xor rbx, rbx\n    call Main\n    mov rdi, rax\n    mov rax, 231\n    syscall\n";
         Return head + rxasm;
+    }
+
+    Public Function WithWindows(String rxasm) -> String
+    Explain {
+        Description: "Place the PE entry before a program that defines Main.";
+        Input: rxasm = "RXASM text";
+        Processing: "Zero rdi and rbx, call Main, and call ExitProcess through kernel32.";
+        Output: "RXASM text including start.";
+    } {
+        If (rxasm.IndexOf("start:") >= 0) { Return rxasm; }
+        String head = ".arch x86_64\n.target windows\n.section text\n.global start\nstart:\n    xor rdi, rdi\n    xor rbx, rbx\n    call Main\n    mov rcx, rax\n    call rx_ExitProcess\n";
+        Return head + rxasm;
+    }
+
+    Public Function ImportRva(Int codeSize) -> Int
+    Explain {
+        Description: "Return the virtual address of the kernel32 import table.";
+        Input: codeSize = "The number of code bytes";
+        Processing: "Use the same page split as the PE writer.";
+        Output: "The import virtual address.";
+    } {
+        Int size = codeSize;
+        If (size < 1) { size = 1; }
+        Int remainder = size % 4096;
+        If (remainder != 0) { size = size + (4096 - remainder); }
+        Return 4096 + size;
+    }
+
+    Public Function WindowsZero() -> Int
+    Explain {
+        Description: "Assemble a Windows program that returns zero.";
+        Input: none = "No input";
+        Processing: "The entry calls Main and then ExitProcess. It does not use exit_group.";
+        Output: "One when the exit import is encoded.";
+    } {
+        This.Target = "windows-x64";
+        String ir = "function Main() -> i64\nblock entry\n%0 = const i64 0\nret i64 %0\n";
+        String asm = This.WithWindows(This.Select(ir));
+        If (asm.IndexOf("call rx_ExitProcess") < 0) { Return -1; }
+        If (asm.IndexOf("k32 rax, 0") < 0) { Return -2; }
+        If (asm.IndexOf("mov rax, 231") >= 0) { Return -3; }
+        List<Int> bytes = This.Assemble(asm);
+        If (bytes.Count() == 0) { Return -4; }
+        Int index = 0;
+        Int indirect = 0;
+        While (index + 1 < bytes.Count()) {
+            If (bytes[index] == 255 && bytes[index + 1] == 208) { indirect = 1; }
+            index = index + 1;
+        }
+        If (indirect == 0) { Return -5; }
+        Return 1;
+    }
+
+    Public Function WindowsHello() -> Int
+    Explain {
+        Description: "Assemble a Windows program that prints the greeting.";
+        Input: none = "No input";
+        Processing: "Print uses WriteFile through kernel32 instead of a Linux syscall.";
+        Output: "One when the greeting and the write import are present.";
+    } {
+        This.Target = "windows-x64";
+        String ir = "function Main() -> i64\nblock entry\ndata str0 \"Hello, Robix\"\nprint str str0\n%0 = const i64 0\nret i64 %0\n";
+        String asm = This.WithWindows(This.Select(ir));
+        If (asm.IndexOf("; skip") >= 0) { Return -1; }
+        If (asm.IndexOf("call rx_write") < 0) { Return -2; }
+        If (asm.IndexOf("k32 rax, 2") < 0) { Return -3; }
+        If (asm.IndexOf("syscall") >= 0) { Return -4; }
+        List<Int> bytes = This.Assemble(asm);
+        If (bytes.Count() == 0) { Return -5; }
+        Int index = 0;
+        Int found = 0;
+        While (index + 4 < bytes.Count()) {
+            If (bytes[index] == 72 && bytes[index + 1] == 101 && bytes[index + 2] == 108 && bytes[index + 3] == 108 && bytes[index + 4] == 111) { found = 1; }
+            index = index + 1;
+        }
+        If (found == 0) { Return -6; }
+        Return 1;
+    }
+
+    Public Function VectorBytes() -> Int
+    Explain {
+        Description: "Assemble a proven arithmetic loop as paddd.";
+        Input: none = "No input";
+        Processing: "Escape and clobber notes stay out of the encoding. The vector add becomes paddd.";
+        Output: "One when the paddd opcode is present and nothing was skipped.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n  escape reg\n  clobber rax\n  alias none\n  vector ok\n  %0 = const i64 1\n  %1 = const i64 2\n  %2 = vector add i64 %0, %1\n  ret i64 %2\n";
+        String asm = This.Select(ir);
+        If (asm.IndexOf("; skip") >= 0) { Return -1; }
+        If (asm.IndexOf("paddd xmm0, xmm1") < 0) { Return -2; }
+        If (asm.IndexOf(".clobber rax") < 0) { Return -3; }
+        List<Int> bytes = This.Assemble(asm);
+        If (bytes.Count() == 0) { Return -4; }
+        Int index = 0;
+        Int found = 0;
+        While (index + 2 < bytes.Count()) {
+            If (bytes[index] == 102 && bytes[index + 1] == 15 && bytes[index + 2] == 254) { found = 1; }
+            index = index + 1;
+        }
+        If (found == 0) { Return -5; }
+        Return 1;
     }
 
     Public Function Assemble(String rxasm) -> List<Int>
@@ -705,6 +861,7 @@ Public Class RxAssembler {
         This.InFunction = False;
         This.NeedPrint = False;
         This.NeedRuntime = False;
+        This.NeedKernel = False;
         This.FnSymbol = "";
         This.AsmLines = List<String>();
         This.BodyLines = List<String>();
@@ -751,6 +908,19 @@ Public Class RxAssembler {
         If (tokens[0] == "data" && tokens.Count() > 2) {
             This.DataNames.Add(tokens[1]);
             This.DataTexts.Add(tokens[2]);
+            Return;
+        }
+        If (tokens[0] == "escape" || tokens[0] == "alias" || tokens[0] == "check" || tokens[0] == "proof" || tokens[0] == "impl" || tokens[0] == "vector") { Return; }
+        If (tokens[0] == "clobber") {
+            String listed = "none";
+            Int slot = 1;
+            If (tokens.Count() > 1) { listed = ""; }
+            While (slot < tokens.Count()) {
+                If (slot > 1) { listed = listed + ", "; }
+                listed = listed + tokens[slot];
+                slot = slot + 1;
+            }
+            This.AddBody("    .clobber " + listed);
             Return;
         }
         If (tokens[0] == "note") {
@@ -801,6 +971,10 @@ Public Class RxAssembler {
         If (tokens.Count() < 3 || tokens[1] != "=") { Return; }
         String dest = tokens[0];
         String opcode = tokens[2];
+        If (opcode == "vector") {
+            This.AddBody("    paddd xmm0, xmm1");
+            Return;
+        }
         If (opcode == "const") {
             String machine = "i64";
             String spelling = "0";
@@ -884,11 +1058,16 @@ Public Class RxAssembler {
                 This.AddBody("; skip print");
                 Return;
             }
-            This.AddBody("    mov rax, 1");
-            This.AddBody("    mov rdi, 1");
             This.AddBody("    lea rsi, " + tokens[2]);
             This.AddBody("    mov rdx, " + length.ToString());
-            This.AddBody("    syscall");
+            If (This.Target == "windows-x64") {
+                This.AddBody("    call rx_write");
+                This.NeedKernel = True;
+            } Else {
+                This.AddBody("    mov rax, 1");
+                This.AddBody("    mov rdi, 1");
+                This.AddBody("    syscall");
+            }
             Return;
         }
         String phys = This.Lookup(tokens[2]);
@@ -950,6 +1129,7 @@ Public Class RxAssembler {
             If (kind == "or") { This.Append(encoder.OrReg(This.Lefts[index], This.Rights[index])); }
             If (kind == "xor") { This.Append(encoder.XorReg(This.Lefts[index], This.Rights[index])); }
             If (kind == "imul") { This.Append(encoder.ImulReg(This.Lefts[index], This.Rights[index])); }
+            If (kind == "paddd") { This.Append(encoder.Paddd(This.Lefts[index], This.Rights[index])); }
             If (kind == "cmpreg") { This.Append(encoder.CmpReg(This.Lefts[index], This.Rights[index])); }
             If (kind == "cmpimm") { This.Append(encoder.CmpImm(This.Lefts[index], ParseInteger(This.Rights[index]))); }
             If (kind == "ret") { This.Append(encoder.RetBytes()); }
@@ -964,6 +1144,8 @@ Public Class RxAssembler {
             If (kind == "st8") { This.Append(encoder.MovMem8(This.Lefts[index], This.Rights[index])); }
             If (kind == "movload") { This.Append(encoder.MovLoadRsp(This.Lefts[index], ParseInteger(This.Rights[index]))); }
             If (kind == "movstore") { This.Append(encoder.MovStoreRsp(ParseInteger(This.Lefts[index]), This.Rights[index])); }
+            If (kind == "k32") { This.Append(encoder.MovLoadRip(This.Lefts[index], This.KernelDisp(This.CodeSize(), This.Offsets[index], ParseInteger(This.Rights[index])))); }
+            If (kind == "callreg") { This.Append(encoder.CallReg(This.Lefts[index])); }
             If (kind == "loadbase") { This.Append(encoder.MovLoadBase(This.Lefts[index], This.BaseReg(This.Rights[index]), This.BaseDisp(This.Rights[index]))); }
             If (kind == "storebase") { This.Append(encoder.MovStoreBase(This.BaseReg(This.Lefts[index]), This.BaseDisp(This.Lefts[index]), This.Rights[index])); }
             If (kind == "ascii") {
@@ -1029,6 +1211,8 @@ Public Class RxAssembler {
             Return;
         }
         If (first == "call" && tokens.Count() > 1) { This.AddOp("call", "", tokens[1], 5); Return; }
+        If (first == "callreg" && tokens.Count() > 1) { This.AddOp("callreg", tokens[1], "", 2); Return; }
+        If (first == "k32" && tokens.Count() > 2) { This.AddOp("k32", tokens[1], tokens[2], 7); Return; }
         If (first == "jmp" && tokens.Count() > 1) { This.AddOp("jmp", "", tokens[1], 5); Return; }
         If (This.IsJcc(first) && tokens.Count() > 1) { This.AddOp("jcc", first, tokens[1], 6); Return; }
         If (tokens.Count() < 3) {
@@ -1058,6 +1242,7 @@ Public Class RxAssembler {
         If (first == "or" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("or", tokens[1], tokens[2], 3); Return; }
         If (first == "xor" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("xor", tokens[1], tokens[2], 3); Return; }
         If (first == "imul" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("imul", tokens[1], tokens[2], 4); Return; }
+        If (first == "paddd" && tokens.Count() > 2) { This.AddOp("paddd", tokens[1], tokens[2], 4); Return; }
         If (first == "cmp" && This.IsReg(tokens[1]) && This.IsReg(tokens[2])) { This.AddOp("cmpreg", tokens[1], tokens[2], 3); Return; }
         If (first == "cmp" && This.IsReg(tokens[1]) && This.IsImm(tokens[2])) {
             Int size = 7;
@@ -1273,7 +1458,9 @@ Public Class RxAssembler {
         If (remainder == 0) { frame = frame + 8; }
         If (This.AsmLines.Count() == 0) {
             This.AddAsm(".arch x86_64");
-            This.AddAsm(".target linux");
+            String dialect = "linux";
+            If (This.Target == "windows-x64") { dialect = "windows"; }
+            This.AddAsm(".target " + dialect);
             This.AddAsm(".section text");
             This.AddAsm(".clobber rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11");
         }
@@ -1328,13 +1515,19 @@ Public Class RxAssembler {
             This.AddAsm("    add rax, 32");
             This.AddAsm("    sub rax, r10");
             This.AddAsm("    mov rdx, rax");
-            This.AddAsm("    mov rax, 1");
-            This.AddAsm("    mov rdi, 1");
-            This.AddAsm("    syscall");
+            If (This.Target == "windows-x64") {
+                This.AddAsm("    call rx_write");
+                This.NeedKernel = True;
+            } Else {
+                This.AddAsm("    mov rax, 1");
+                This.AddAsm("    mov rdi, 1");
+                This.AddAsm("    syscall");
+            }
             This.AddAsm("    add rsp, 40");
             This.AddAsm("    ret");
         }
         If (This.NeedRuntime) { This.EmitRuntime(); }
+        If (This.Target == "windows-x64") { This.EmitKernel(); }
         Int index = 0;
         While (index < This.DataNames.Count()) {
             This.AddAsm(This.DataNames[index] + ":");
@@ -1420,6 +1613,44 @@ Public Class RxAssembler {
         This.AddAsm("    mov [rbx+0], rcx");
         This.AddAsm("    add rax, rbx");
         This.AddAsm("    ret");
+    }
+
+    Private Function EmitKernel() -> Void {
+        This.AddAsm("rx_ExitProcess:");
+        This.AddAsm("    k32 rax, 0");
+        This.AddAsm("    sub rsp, 40");
+        This.AddAsm("    callreg rax");
+        This.AddAsm("    add rsp, 40");
+        This.AddAsm("    ret");
+        This.AddAsm("rx_write:");
+        This.AddAsm("    sub rsp, 56");
+        This.AddAsm("    mov [rsp+32], rsi");
+        This.AddAsm("    mov [rsp+40], rdx");
+        This.AddAsm("    mov rcx, -11");
+        This.AddAsm("    k32 rax, 1");
+        This.AddAsm("    callreg rax");
+        This.AddAsm("    mov rcx, rax");
+        This.AddAsm("    mov rdx, [rsp+32]");
+        This.AddAsm("    mov r8, [rsp+40]");
+        This.AddAsm("    mov r9, rsp");
+        This.AddAsm("    add r9, 48");
+        This.AddAsm("    mov rax, 0");
+        This.AddAsm("    mov [rsp+32], rax");
+        This.AddAsm("    k32 rax, 2");
+        This.AddAsm("    callreg rax");
+        This.AddAsm("    add rsp, 56");
+        This.AddAsm("    ret");
+    }
+
+    Private Function CodeSize() -> Int {
+        If (This.Kinds.Count() == 0) { Return 0; }
+        Int last = This.Kinds.Count() - 1;
+        Return This.Offsets[last] + This.Sizes[last];
+    }
+
+    Private Function KernelDisp(Int codeSize, Int offset, Int slot) -> Int {
+        Int next = 4096 + offset + 7;
+        Return This.ImportRva(codeSize) + slot * 8 - next;
     }
 
     Private Function IsBase(String token) -> Bool {

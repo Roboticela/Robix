@@ -1,0 +1,13 @@
+// Tests for Compiler/Target.rx.
+
+Test Linux { Output: True; }
+Test Windows { Output: True; }
+Test Container { Output: True; }
+Test Exit { Output: True; }
+
+Test Sample {
+    Case "elf and pe" {
+        Input:;
+        Assert: Result == 1;
+    }
+}

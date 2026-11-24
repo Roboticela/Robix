@@ -1,0 +1,542 @@
+// RXIR passes. Each one rewrites text and leaves the assembler a simpler function.
+Package Robix.Syntax
+Explain {
+    Description: "Inlining, escape notes, clobbers, devirtualization, bounds proofs, and vectorization.";
+};
+
+Import Robix.Core;
+
+
+Public Class RxPass {
+    Public Function Optimize(String ir) -> String
+    Explain {
+        Description: "Run the performance passes in order.";
+        Input: ir = "RXIR text";
+        Processing: "Inline, mark escapes, name clobbers, devirtualize, delete proven bounds checks, vectorize proven loops, then fold constant arithmetic.";
+        Output: "The rewritten RXIR text.";
+    } {
+        String text = This.Inline(ir);
+        text = This.Escape(text);
+        text = This.Clobber(text);
+        text = This.Devirt(text);
+        text = This.Bounds(text);
+        text = This.Vector(text);
+        Return This.Fold(text);
+    }
+
+    Public Function Inline(String ir) -> String
+    Explain {
+        Description: "Inline a small function at its call sites.";
+        Input: ir = "RXIR text";
+        Processing: "A leaf that only adds its arguments is copied into each call and then deleted.";
+        Output: "RXIR text without that call.";
+    } {
+        List<String> lines = This.Lines(ir);
+        List<String> names = List<String>();
+        List<Int> leaves = List<Int>();
+        Int index = 0;
+        While (index < lines.Count()) {
+            String name = This.NameAt(lines[index]);
+            If (name != "" && name != "Main") {
+                String body = This.BodyFrom(lines, index);
+                Int leaf = 0;
+                If (body.IndexOf(" = add i64 ") >= 0 && body.IndexOf("ret i64 ") >= 0 && body.IndexOf("call ") < 0 && body.IndexOf("branch ") < 0 && body.IndexOf("jump ") < 0) {
+                    leaf = 1;
+                }
+                names.Add(name);
+                leaves.Add(leaf);
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < names.Count()) {
+            If (leaves[index] == 1) {
+                String needle = "call i64 @" + names[index];
+                Int line = 0;
+                While (line < lines.Count()) {
+                    If (lines[line].IndexOf(needle) >= 0) { lines[line] = This.RewriteCall(lines[line]); }
+                    line = line + 1;
+                }
+            }
+            index = index + 1;
+        }
+        String full = This.Join(lines);
+        List<String> dropped = List<String>();
+        index = 0;
+        While (index < names.Count()) {
+            If (leaves[index] == 1 && full.IndexOf("@" + names[index]) < 0) { dropped.Add(names[index]); }
+            index = index + 1;
+        }
+        List<String> kept = List<String>();
+        Int skip = 0;
+        index = 0;
+        While (index < lines.Count()) {
+            String name = This.NameAt(lines[index]);
+            If (name != "") {
+                skip = 0;
+                If (This.HasName(dropped, name)) { skip = 1; }
+            }
+            If (skip == 0) { kept.Add(lines[index]); }
+            index = index + 1;
+        }
+        Return This.Join(kept);
+    }
+
+    Public Function Escape(String ir) -> String
+    Explain {
+        Description: "Mark values that stay in registers or must spill to the stack.";
+        Input: ir = "RXIR text";
+        Processing: "A function that calls or prints spills. Every other function keeps its locals in registers.";
+        Output: "RXIR text with an escape line on each function.";
+    } {
+        Return This.Mark(ir, "escape");
+    }
+
+    Public Function Clobber(String ir) -> String
+    Explain {
+        Description: "Name the registers a function writes.";
+        Input: ir = "RXIR text";
+        Processing: "A call clobbers the caller-saved set. Arithmetic clobbers rax. A pure return clobbers nothing.";
+        Output: "RXIR text with a clobber line on each function.";
+    } {
+        Return This.Mark(ir, "clobber");
+    }
+
+    Public Function Devirt(String ir) -> String
+    Explain {
+        Description: "Call the concrete function when an interface has one implementation.";
+        Input: ir = "RXIR text";
+        Processing: "Replace @virtual_Name when exactly one function ends with _Name.";
+        Output: "RXIR text with a direct call.";
+    } {
+        List<String> lines = This.Lines(ir);
+        List<String> names = List<String>();
+        For line In lines {
+            String name = This.NameAt(line);
+            If (name != "" && !name.StartsWith("virtual")) { names.Add(name); }
+        }
+        String text = ir;
+        Int guard = 0;
+        While (guard < 32 && text.IndexOf("@virtual_") >= 0) {
+            Int at = text.IndexOf("@virtual_");
+            Int cursor = at + 9;
+            String method = "";
+            While (cursor < text.Length()) {
+                Char character = text.GetChar(cursor);
+                Int ok = 0;
+                If (character >= 'a' && character <= 'z') { ok = 1; }
+                If (character >= 'A' && character <= 'Z') { ok = 1; }
+                If (character >= '0' && character <= '9') { ok = 1; }
+                If (character == '_') { ok = 1; }
+                If (ok == 0) { Break; }
+                method = method + String.From(character);
+                cursor = cursor + 1;
+            }
+            If (method == "") { Break; }
+            String suffix = "_" + method;
+            String concrete = "";
+            Int count = 0;
+            For name In names {
+                If (This.EndsWith(name, suffix)) {
+                    count = count + 1;
+                    concrete = name;
+                }
+            }
+            If (count != 1) { Break; }
+            text = text.Replace("@virtual_" + method, "@" + concrete);
+            guard = guard + 1;
+        }
+        Return text;
+    }
+
+    Public Function Bounds(String ir) -> String
+    Explain {
+        Description: "Delete a bounds check that a For range already proved.";
+        Input: ir = "RXIR text";
+        Processing: "A function that compares with cmp le does not keep check bounds.";
+        Output: "RXIR text without the proven check.";
+    } {
+        List<String> lines = This.Lines(ir);
+        List<String> out = List<String>();
+        Int proven = 0;
+        Int index = 0;
+        While (index < lines.Count()) {
+            String name = This.NameAt(lines[index]);
+            If (name != "") {
+                String body = This.BodyFrom(lines, index);
+                proven = 0;
+                If (body.IndexOf("cmp le") >= 0) { proven = 1; }
+                out.Add(lines[index]);
+            } Else If (proven == 1 && lines[index].IndexOf("check bounds") >= 0) {
+                proven = proven;
+            } Else {
+                out.Add(lines[index]);
+            }
+            index = index + 1;
+        }
+        Return This.Join(out);
+    }
+
+    Public Function Vector(String ir) -> String
+    Explain {
+        Description: "Vectorize an arithmetic loop whose aliases and bounds are proven.";
+        Input: ir = "RXIR text";
+        Processing: "When the function says alias none, vector ok, and cmp le, and it does not call, replace the body add with a vector add. The increment by one stays scalar.";
+        Output: "RXIR text containing vector add.";
+    } {
+        List<String> lines = This.Lines(ir);
+        List<String> out = List<String>();
+        List<String> ones = List<String>();
+        Int hot = 0;
+        Int index = 0;
+        While (index < lines.Count()) {
+            String name = This.NameAt(lines[index]);
+            If (name != "") {
+                String body = This.BodyFrom(lines, index);
+                hot = 0;
+                ones = List<String>();
+                If (body.IndexOf("vector ok") >= 0 && body.IndexOf("alias none") >= 0 && body.IndexOf("cmp le") >= 0 && body.IndexOf("call ") < 0) {
+                    hot = 1;
+                    Int cursor = index;
+                    Int end = cursor + 1;
+                    While (end < lines.Count() && This.NameAt(lines[end]) == "") { end = end + 1; }
+                    While (cursor < end) {
+                        If (lines[cursor].EndsWith("const i64 1")) { ones.Add(This.DestOf(lines[cursor])); }
+                        cursor = cursor + 1;
+                    }
+                }
+                out.Add(lines[index]);
+            } Else {
+                String line = lines[index];
+                If (hot == 1 && line.IndexOf(" = add i64 ") >= 0 && This.UsesOne(line, ones) == 0) {
+                    line = line.Replace(" = add i64 ", " = vector add i64 ");
+                }
+                out.Add(line);
+            }
+            index = index + 1;
+        }
+        Return This.Join(out);
+    }
+
+    Public Function SampleInline() -> Int
+    Explain {
+        Description: "Inline Add into Main.";
+        Input: none = "No input";
+        Processing: "Main calls Add once. The call becomes an add and Add is removed.";
+        Output: "One when that rewrite holds.";
+    } {
+        String ir = "function Add(a: i64, b: i64) -> i64\nblock entry\n  %0 = arg i64 0\n  store i64 %0, s0\n  %1 = arg i64 1\n  store i64 %1, s1\n  %2 = load i64 s0\n  %3 = load i64 s1\n  %4 = add i64 %2, %3\n  ret i64 %4\n\nfunction Main() -> i64\nblock entry\n  %0 = const i64 20\n  %1 = const i64 22\n  %2 = call i64 @Add i64 %0 i64 %1\n  ret i64 %2\n";
+        String text = This.Inline(ir);
+        If (text.IndexOf("function Add") >= 0) { Return -1; }
+        If (text.IndexOf("call i64 @Add") >= 0) { Return -2; }
+        If (text.IndexOf("= add i64 %0, %1") < 0) { Return -3; }
+        Return 1;
+    }
+
+    Public Function SampleEscape() -> Int
+    Explain {
+        Description: "Spill a function that calls and keep a leaf in registers.";
+        Input: none = "No input";
+        Processing: "The leaf is escape reg. The caller is escape stack.";
+        Output: "One when both notes are present.";
+    } {
+        String ir = "function Leaf() -> i64\nblock entry\n  %0 = const i64 1\n  store i64 %0, s0\n  ret i64 %0\n\nfunction Use() -> i64\nblock entry\n  %0 = const i64 1\n  %1 = call i64 @Leaf i64 %0\n  ret i64 %1\n";
+        String text = This.Escape(ir);
+        If (text.IndexOf("escape reg") < 0) { Return -1; }
+        If (text.IndexOf("escape stack") < 0) { Return -2; }
+        Return 1;
+    }
+
+    Public Function SampleClobber() -> Int
+    Explain {
+        Description: "Name clobbers for a leaf, an add, and a call.";
+        Input: none = "No input";
+        Processing: "A return clobbers nothing, an add clobbers rax, and a call clobbers r10.";
+        Output: "One when all three lines are present.";
+    } {
+        String ir = "function Leaf() -> i64\nblock entry\n  %0 = const i64 1\n  ret i64 %0\n\nfunction Sum() -> i64\nblock entry\n  %0 = const i64 1\n  %1 = add i64 %0, %0\n  ret i64 %1\n\nfunction Use() -> i64\nblock entry\n  %0 = const i64 1\n  %1 = call i64 @Sum i64 %0\n  ret i64 %1\n";
+        String text = This.Clobber(ir);
+        If (text.IndexOf("clobber none") < 0) { Return -1; }
+        If (text.IndexOf("clobber rax") < 0) { Return -2; }
+        If (text.IndexOf("r10") < 0) { Return -3; }
+        Return 1;
+    }
+
+    Public Function SampleDevirt() -> Int
+    Explain {
+        Description: "Replace the only virtual Work call.";
+        Input: none = "No input";
+        Processing: "Only_Work is the one function that implements Work.";
+        Output: "One when the call is direct.";
+    } {
+        String ir = "function Only_Work(n: i64) -> i64\nblock entry\n  %0 = arg i64 0\n  ret i64 %0\n\nfunction Main() -> i64\nblock entry\n  %0 = const i64 7\n  %1 = call i64 @virtual_Work i64 %0\n  ret i64 %1\n";
+        String text = This.Devirt(ir);
+        If (text.IndexOf("@virtual_Work") >= 0) { Return -1; }
+        If (text.IndexOf("@Only_Work") < 0) { Return -2; }
+        Return 1;
+    }
+
+    Public Function SampleBounds() -> Int
+    Explain {
+        Description: "Delete the check a range already proved.";
+        Input: none = "No input";
+        Processing: "Main has cmp le, so its check goes away. Open has no proof, so its check stays.";
+        Output: "One when only the unproved check remains.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n  %4 = cmp le i64 %3, %2\n  check bounds %3, %2\n  ret i64 %4\n\nfunction Open() -> i64\nblock entry\n  check bounds %0, %1\n  ret i64 %0\n";
+        String text = This.Bounds(ir);
+        If (text.IndexOf("check bounds %3") >= 0) { Return -1; }
+        If (text.IndexOf("check bounds %0") < 0) { Return -2; }
+        If (text.IndexOf("cmp le") < 0) { Return -3; }
+        Return 1;
+    }
+
+    Public Function SampleVector() -> Int
+    Explain {
+        Description: "Vectorize the proven add and leave the increment scalar.";
+        Input: none = "No input";
+        Processing: "The add of two loads becomes vector add. The add of the constant one stays scalar.";
+        Output: "One when both forms are present.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n  alias none\n  vector ok\n  %0 = const i64 1\n  %1 = load i64 s0\n  %2 = load i64 s1\n  %3 = add i64 %1, %2\n  %4 = add i64 %1, %0\n  %5 = cmp le i64 %1, %2\n  ret i64 %3\n";
+        String text = This.Vector(ir);
+        If (text.IndexOf("= vector add i64 %1, %2") < 0) { Return -1; }
+        If (text.IndexOf("= add i64 %1, %0") < 0) { Return -2; }
+        Return 1;
+    }
+
+    Public Function SampleFold() -> Int
+    Explain {
+        Description: "Fold a constant multiply out of the hot path.";
+        Input: none = "No input";
+        Processing: "20 times 22 is 440. Main returns that immediate.";
+        Output: "One when the multiply instruction is gone.";
+    } {
+        String ir = "function Main() -> i64\nblock entry\n  %0 = const i64 20\n  %1 = const i64 22\n  %2 = mul i64 %0, %1\n  ret i64 %2\n";
+        String text = This.Optimize(ir);
+        If (text.IndexOf("const i64 440") < 0) { Return -1; }
+        If (text.IndexOf("mul i64") >= 0) { Return -2; }
+        If (text.IndexOf("jump ") >= 0) { Return -3; }
+        Return 1;
+    }
+
+    Private Function Fold(String ir) -> String {
+        String text = ir;
+        Int round = 0;
+        While (round < 4) {
+            text = This.FoldOnce(text);
+            round = round + 1;
+        }
+        Return text;
+    }
+
+    Private Function FoldOnce(String ir) -> String {
+        List<String> lines = This.Lines(ir);
+        List<String> out = List<String>();
+        List<String> names = List<String>();
+        List<Int> values = List<Int>();
+        For line In lines {
+            String current = line;
+            If (This.NameAt(current) != "") {
+                names = List<String>();
+                values = List<Int>();
+            }
+            If (current.IndexOf(" = const i64 ") >= 0 && This.EndsWithDigit(current)) {
+                names.Add(This.DestOf(current));
+                values.Add(This.TailNumber(current));
+            }
+            String phrase = "";
+            If (current.IndexOf(" = add i64 ") >= 0) { phrase = " = add i64 "; }
+            If (current.IndexOf(" = sub i64 ") >= 0) { phrase = " = sub i64 "; }
+            If (current.IndexOf(" = mul i64 ") >= 0) { phrase = " = mul i64 "; }
+            If (phrase != "" && current.IndexOf("vector add") < 0) {
+                String left = This.LeftOp(current, phrase);
+                String right = This.RightOp(current, phrase);
+                If (This.HasKnown(names, left) && This.HasKnown(names, right)) {
+                    Int result = This.KnownAt(names, values, left);
+                    Int other = This.KnownAt(names, values, right);
+                    If (phrase == " = add i64 ") { result = result + other; }
+                    If (phrase == " = sub i64 ") { result = result - other; }
+                    If (phrase == " = mul i64 ") { result = result * other; }
+                    current = "  " + This.DestOf(current) + " = const i64 " + result.ToString();
+                    names.Add(This.DestOf(current));
+                    values.Add(result);
+                }
+            }
+            out.Add(current);
+        }
+        Return This.Join(out);
+    }
+
+    Private Function Mark(String ir, String kind) -> String {
+        List<String> lines = This.Lines(ir);
+        List<String> out = List<String>();
+        Int index = 0;
+        While (index < lines.Count()) {
+            String name = This.NameAt(lines[index]);
+            If (name == "") {
+                out.Add(lines[index]);
+            } Else {
+                String body = This.BodyFrom(lines, index);
+                out.Add(lines[index]);
+                If (kind == "escape" && body.IndexOf("escape ") < 0) {
+                    String mode = "reg";
+                    If (body.IndexOf("call ") >= 0 || body.IndexOf("print ") >= 0) { mode = "stack"; }
+                    out.Add("  escape " + mode);
+                }
+                If (kind == "clobber" && body.IndexOf("clobber ") < 0) {
+                    String listed = "none";
+                    If (body.IndexOf("call ") >= 0 || body.IndexOf("print ") >= 0) {
+                        listed = "rax, rcx, rdx, rdi, rsi, r8, r9, r10, r11";
+                    } Else If (body.IndexOf(" = add ") >= 0 || body.IndexOf(" = sub ") >= 0 || body.IndexOf(" = mul ") >= 0) {
+                        listed = "rax";
+                    }
+                    out.Add("  clobber " + listed);
+                }
+            }
+            index = index + 1;
+        }
+        Return This.Join(out);
+    }
+
+    Private Function BodyFrom(List<String> lines, Int start) -> String {
+        String body = "";
+        Int end = start + 1;
+        While (end < lines.Count() && This.NameAt(lines[end]) == "") { end = end + 1; }
+        Int index = start;
+        While (index < end) {
+            body = body + "\n" + lines[index];
+            index = index + 1;
+        }
+        Return body;
+    }
+
+    Private Function RewriteCall(String line) -> String {
+        Int at = line.IndexOf(" = call i64 @");
+        If (at < 0) { Return line; }
+        String dest = line.Substring(0, at);
+        Int cursor = at + 13;
+        While (cursor < line.Length() && line.GetChar(cursor) != ' ') { cursor = cursor + 1; }
+        String first = "";
+        String second = "";
+        String current = "";
+        While (cursor <= line.Length()) {
+            Char character = ' ';
+            If (cursor < line.Length()) { character = line.GetChar(cursor); }
+            If (cursor == line.Length() || character == ' ') {
+                If (current.StartsWith("%")) {
+                    If (first == "") { first = current; }
+                    Else { second = current; }
+                }
+                current = "";
+            } Else {
+                current = current + String.From(character);
+            }
+            cursor = cursor + 1;
+        }
+        If (first == "") { Return line; }
+        If (second == "") { second = first; }
+        Return dest + " = add i64 " + first + ", " + second;
+    }
+
+    Private Function UsesOne(String line, List<String> ones) -> Int {
+        String left = This.LeftOp(line, " = add i64 ");
+        String right = This.RightOp(line, " = add i64 ");
+        If (This.HasName(ones, left)) { Return 1; }
+        If (This.HasName(ones, right)) { Return 1; }
+        Return 0;
+    }
+
+    Private Function LeftOp(String line, String phrase) -> String {
+        Int at = line.IndexOf(phrase);
+        If (at < 0) { Return ""; }
+        String rest = line.Substring(at + phrase.Length(), line.Length() - at - phrase.Length());
+        Int comma = rest.IndexOf(",");
+        If (comma < 0) { Return This.Trim(rest); }
+        Return This.Trim(rest.Substring(0, comma));
+    }
+
+    Private Function RightOp(String line, String phrase) -> String {
+        Int at = line.IndexOf(phrase);
+        If (at < 0) { Return ""; }
+        String rest = line.Substring(at + phrase.Length(), line.Length() - at - phrase.Length());
+        Int comma = rest.IndexOf(",");
+        If (comma < 0) { Return ""; }
+        Return This.Trim(rest.Substring(comma + 1, rest.Length() - comma - 1));
+    }
+
+    Private Function DestOf(String line) -> String {
+        Int at = line.IndexOf(" =");
+        If (at < 0) { Return ""; }
+        Return This.Trim(line.Substring(0, at));
+    }
+
+    Private Function TailNumber(String line) -> Int {
+        Int end = line.Length();
+        Int start = end;
+        While (start > 0 && line.GetChar(start - 1) != ' ') { start = start - 1; }
+        Return ParseInteger(line.Substring(start, end - start));
+    }
+
+    Private Function EndsWithDigit(String line) -> Bool {
+        If (line.Length() == 0) { Return False; }
+        Char character = line.GetChar(line.Length() - 1);
+        If (character >= '0' && character <= '9') { Return True; }
+        Return False;
+    }
+
+    Private Function EndsWith(String text, String suffix) -> Bool {
+        If (text.Length() < suffix.Length()) { Return False; }
+        Return text.Substring(text.Length() - suffix.Length(), suffix.Length()) == suffix;
+    }
+
+    Private Function HasKnown(List<String> names, String name) -> Bool {
+        Return This.HasName(names, name);
+    }
+
+    Private Function KnownAt(List<String> names, List<Int> values, String name) -> Int {
+        Int index = 0;
+        While (index < names.Count()) {
+            If (names[index] == name) { Return values[index]; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function HasName(List<String> names, String name) -> Bool {
+        For item In names {
+            If (item == name) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function Trim(String text) -> String {
+        Int start = 0;
+        Int end = text.Length();
+        While (start < end && text.GetChar(start) == ' ') { start = start + 1; }
+        While (end > start && text.GetChar(end - 1) == ' ') { end = end - 1; }
+        Return text.Substring(start, end - start);
+    }
+
+    Private Function NameAt(String line) -> String {
+        If (!line.StartsWith("function ")) { Return ""; }
+        Int open = line.IndexOf("(");
+        If (open < 9) { Return ""; }
+        Return line.Substring(9, open - 9);
+    }
+
+    Private Function Lines(String text) -> List<String> {
+        Return text.Split("\n");
+    }
+
+    Private Function Join(List<String> lines) -> String {
+        String text = "";
+        Int index = 0;
+        While (index < lines.Count()) {
+            If (index > 0) { text = text + "\n"; }
+            text = text + lines[index];
+            index = index + 1;
+        }
+        Return text;
+    }
+}

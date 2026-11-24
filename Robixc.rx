@@ -12,7 +12,7 @@ Public Function Main(Args<String> args) -> ExecutionResult
 Explain {
     Description: "Compile one Robix source file into a Linux executable.";
     Input: args = "The source path and an optional output path";
-    Processing: "Parse the syntax, apply the always-strict type rules, and emit RXIR. --ir stops there. --asm writes RXASM. --target linux-x64 assembles an ELF and does not link Runtime.cpp. Otherwise clang++ still links the LLVM IR with the C++ runtime.";
+    Processing: "Parse the syntax, apply the always-strict type rules, and emit RXIR. --ir, --asm, and the native targets then run the performance passes. --asm writes RXASM. --target linux-x64 writes an ELF. --target windows-x64 writes a PE. Neither links Runtime.cpp. Otherwise clang++ still links the LLVM IR with the C++ runtime.";
     Output: "Success when the module is strict and type-safe.";
 } {
     Var positionals = List<String>();
@@ -35,7 +35,7 @@ Explain {
         index = index + 1;
     }
     If (positionals.Count() == 0) {
-        Print("{warning}Usage{/}  {accent}robixc{/} {bold}Source.rx{/} {muted}Output{/} {muted}[--ir | --asm | --target linux-x64]{/}");
+        Print("{warning}Usage{/}  {accent}robixc{/} {bold}Source.rx{/} {muted}Output{/} {muted}[--ir | --asm | --target linux-x64 | --target windows-x64]{/}");
         Return FinishRun(ExitCode.InvalidArguments, "A source file is required.");
     }
     String sourcePath = positionals[0];
@@ -63,16 +63,25 @@ Explain {
         Print(line);
         Return FinishRun(ExitCode.ErrorExecution, "Compilation failed.");
     }
+    String rxir = result.Rxir;
+    If (irOnly || asmOnly || target == "linux-x64" || target == "windows-x64") {
+        RxPass passes = RxPass();
+        rxir = passes.Optimize(rxir);
+    }
     If (irOnly) {
         String irPath = outputPath;
         If (!irPath.EndsWith(".rxir")) { irPath = outputPath + ".rxir"; }
-        Files.WriteText(irPath, result.Rxir);
+        Files.WriteText(irPath, rxir);
         Print("{success}wrote{/}  {bold}" + irPath + "{/}");
         Return FinishRun(ExitCode.Success, "Wrote " + irPath + ".");
     }
-    If (asmOnly || target == "linux-x64") {
+    If (asmOnly || target == "linux-x64" || target == "windows-x64") {
         RxAssembler assembler = RxAssembler();
-        String rxasm = assembler.WithStart(assembler.Select(result.Rxir));
+        assembler.Target = "linux-x64";
+        If (target == "windows-x64") { assembler.Target = "windows-x64"; }
+        String selected = assembler.Select(rxir);
+        String rxasm = assembler.WithStart(selected);
+        If (target == "windows-x64") { rxasm = assembler.WithWindows(selected); }
         String asmPath = outputPath;
         If (asmPath.EndsWith(".rxs")) {
             Files.WriteText(asmPath, rxasm);
@@ -91,8 +100,13 @@ Explain {
         If (code.Count() == 0) {
             Return FinishRun(ExitCode.ErrorExecution, "Assembly failed.");
         }
-        ElfImage elf = ElfImage();
-        Files.WriteBytes(outputPath, elf.Wrap(code));
+        If (target == "windows-x64") {
+            PeImage pe = PeImage();
+            Files.WriteBytes(outputPath, pe.Wrap(code));
+        } Else {
+            ElfImage elf = ElfImage();
+            Files.WriteBytes(outputPath, elf.Wrap(code));
+        }
         Print("{success}wrote{/}  {bold}" + outputPath + "{/}");
         Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
     }
@@ -118,7 +132,7 @@ Explain {
     Processing: "A linux-x64 program carries the Robix bump runtime and does not link Runtime.cpp. The host fallback still links that file because Files and Process have not moved.";
     Output: "The runtime path, or an empty string when no C++ runtime is linked.";
 } {
-    If (target == "linux-x64") { Return ""; }
+    If (target == "linux-x64" || target == "windows-x64") { Return ""; }
     Return "Runtime/Runtime.cpp";
 }
 

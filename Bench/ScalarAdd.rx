@@ -1,0 +1,23 @@
+// Tight integer loop. The trip count is a value, so the passes leave the adds in the hot path.
+Package Bench.ScalarAdd
+Explain {
+    Description: "Add the integers from 1 through 1000000.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Add the inclusive range.";
+    Input: none = "No input";
+    Processing: "Add each index into a total and print it.";
+    Output: "Zero after the total is printed.";
+} {
+    Var total = 0;
+    For index In 1..=1000000 {
+        total = total + index;
+    }
+    Print(total);
+    Return 0;
+}

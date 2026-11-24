@@ -1,0 +1,68 @@
+// The operating-system record. One compiler, two containers.
+Package Robix.Syntax
+Explain {
+    Description: "Name the container and the exit call for each target.";
+};
+
+Import Robix.Core;
+
+
+Public Class TargetRecord {
+    Public Function Linux() -> String
+    Explain {
+        Description: "Return the Linux x86-64 target name.";
+        Input: none = "No input";
+        Processing: "The first container is ELF.";
+        Output: "linux-x64.";
+    } {
+        Return "linux-x64";
+    }
+
+    Public Function Windows() -> String
+    Explain {
+        Description: "Return the Windows x86-64 target name.";
+        Input: none = "No input";
+        Processing: "The second container is PE.";
+        Output: "windows-x64.";
+    } {
+        Return "windows-x64";
+    }
+
+    Public Function Container(String name) -> String
+    Explain {
+        Description: "Choose the file container for a target.";
+        Input: name = "linux-x64 or windows-x64";
+        Processing: "Linux is an ELF. Windows is a PE.";
+        Output: "elf, pe, or an empty string.";
+    } {
+        If (name == "linux-x64") { Return "elf"; }
+        If (name == "windows-x64") { Return "pe"; }
+        Return "";
+    }
+
+    Public Function Exit(String name) -> String
+    Explain {
+        Description: "Choose the exit call for a target.";
+        Input: name = "linux-x64 or windows-x64";
+        Processing: "Linux uses exit_group. Windows uses ExitProcess.";
+        Output: "The exit symbol.";
+    } {
+        If (name == "linux-x64") { Return "exit_group"; }
+        If (name == "windows-x64") { Return "ExitProcess"; }
+        Return "";
+    }
+
+    Public Function Sample() -> Int
+    Explain {
+        Description: "Check the two target records.";
+        Input: none = "No input";
+        Processing: "Linux is an ELF that exits with exit_group. Windows is a PE that exits with ExitProcess.";
+        Output: "One when both records match.";
+    } {
+        If (This.Container(This.Linux()) != "elf") { Return 0; }
+        If (This.Container(This.Windows()) != "pe") { Return 0; }
+        If (This.Exit(This.Linux()) != "exit_group") { Return 0; }
+        If (This.Exit(This.Windows()) != "ExitProcess") { Return 0; }
+        Return 1;
+    }
+}

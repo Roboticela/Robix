@@ -1,0 +1,74 @@
+// Tests for Compiler/Pe.rx.
+
+Test ImportRva {
+    Case "next page" {
+        Input: codeSize = 1;
+        Assert: Result == 8192;
+    }
+    Case "full page" {
+        Input: codeSize = 4096;
+        Assert: Result == 8192;
+    }
+    Case "second page" {
+        Input: codeSize = 4097;
+        Assert: Result == 12288;
+    }
+}
+
+Test Wrap { Output: True; }
+Test Magic { Output: True; }
+
+Test Sample {
+    Case "magic" {
+        Input:;
+        Assert: Result == "PE";
+    }
+}
+
+Test SampleMachine {
+    Case "amd64" {
+        Input:;
+        Assert: Result == 34404;
+    }
+}
+
+Test SampleEntry {
+    Case "code address" {
+        Input:;
+        Assert: Result == 4096;
+    }
+}
+
+Test SampleSubsystem {
+    Case "console" {
+        Input:;
+        Assert: Result == 3;
+    }
+}
+
+Test SampleImport {
+    Case "kernel32" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleCode {
+    Case "ret" {
+        Input:;
+        Assert: Result == 195;
+    }
+}
+
+Test Imports { Output: True; }
+Test Align { Output: True; }
+Test FindText { Output: True; }
+Test AppendHint { Output: True; }
+Test AppendText { Output: True; }
+Test AppendName { Output: True; }
+Test PokeU32 { Output: True; }
+Test PokeU64 { Output: True; }
+Test AppendByte { Output: True; }
+Test AppendZeros { Output: True; }
+Test AppendU16 { Output: True; }
+Test AppendU32 { Output: True; }

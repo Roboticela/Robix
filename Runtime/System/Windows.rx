@@ -1,0 +1,86 @@
+// kernel32 names used by the PE entry and by print.
+Package Robix.Runtime
+Explain {
+    Description: "kernel32 imports for the Windows edge.";
+};
+
+Import Robix.Core;
+
+
+Public Class Kernel32 {
+    Public Function ExitProcess() -> String
+    Explain {
+        Description: "Return the exit import.";
+        Input: none = "No input";
+        Processing: "The entry stub calls ExitProcess with Main's result.";
+        Output: "ExitProcess.";
+    } {
+        Return "ExitProcess";
+    }
+
+    Public Function GetStdHandle() -> String
+    Explain {
+        Description: "Return the standard-handle import.";
+        Input: none = "No input";
+        Processing: "Print asks for the output handle.";
+        Output: "GetStdHandle.";
+    } {
+        Return "GetStdHandle";
+    }
+
+    Public Function WriteFile() -> String
+    Explain {
+        Description: "Return the write import.";
+        Input: none = "No input";
+        Processing: "Print writes through WriteFile.";
+        Output: "WriteFile.";
+    } {
+        Return "WriteFile";
+    }
+
+    Public Function VirtualAlloc() -> String
+    Explain {
+        Description: "Return the heap-chunk import.";
+        Input: none = "No input";
+        Processing: "Windows chunks come from VirtualAlloc, as Linux chunks come from mmap.";
+        Output: "VirtualAlloc.";
+    } {
+        Return "VirtualAlloc";
+    }
+
+    Public Function Library() -> String
+    Explain {
+        Description: "Return the import library.";
+        Input: none = "No input";
+        Processing: "The edge imports kernel32.dll.";
+        Output: "kernel32.dll.";
+    } {
+        Return "kernel32.dll";
+    }
+
+    Public Function StdOutput() -> Int
+    Explain {
+        Description: "Return the output-handle constant.";
+        Input: none = "No input";
+        Processing: "STD_OUTPUT_HANDLE is -11.";
+        Output: "Negative eleven.";
+    } {
+        Return -11;
+    }
+
+    Public Function Sample() -> Int
+    Explain {
+        Description: "Check the kernel32 edge used by print and exit.";
+        Input: none = "No input";
+        Processing: "Exit, the output handle, and WriteFile come from kernel32.dll.";
+        Output: "One when the names and the handle agree.";
+    } {
+        If (This.Library() != "kernel32.dll") { Return 0; }
+        If (This.ExitProcess() != "ExitProcess") { Return 0; }
+        If (This.GetStdHandle() != "GetStdHandle") { Return 0; }
+        If (This.WriteFile() != "WriteFile") { Return 0; }
+        If (This.VirtualAlloc() != "VirtualAlloc") { Return 0; }
+        If (This.StdOutput() != -11) { Return 0; }
+        Return 1;
+    }
+}

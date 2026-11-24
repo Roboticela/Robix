@@ -1,0 +1,15 @@
+// Tests for Runtime/System/Windows.rx.
+
+Test ExitProcess { Output: True; }
+Test GetStdHandle { Output: True; }
+Test WriteFile { Output: True; }
+Test VirtualAlloc { Output: True; }
+Test Library { Output: True; }
+Test StdOutput { Output: True; }
+
+Test Sample {
+    Case "kernel32" {
+        Input:;
+        Assert: Result == 1;
+    }
+}

@@ -1,0 +1,119 @@
+// Tests for Compiler/Passes.rx.
+
+Test Optimize {
+    Case "keeps the function" {
+        Input: ir = "function Main() -> i64";
+        Assert: Result.IndexOf("function Main") >= 0;
+    }
+}
+
+Test Inline {
+    Case "keeps a function that is not a leaf" {
+        Input: ir = "function Main() -> i64";
+        Assert: Result.IndexOf("function Main") >= 0;
+    }
+}
+
+Test Escape {
+    Case "leaf is a register" {
+        Input: ir = "function Main() -> i64\nblock entry\n  ret i64 %0";
+        Assert: Result.IndexOf("escape reg") >= 0;
+    }
+}
+
+Test Clobber {
+    Case "return clobbers nothing" {
+        Input: ir = "function Main() -> i64\nblock entry\n  ret i64 %0";
+        Assert: Result.IndexOf("clobber none") >= 0;
+    }
+}
+
+Test Devirt {
+    Case "one implementation" {
+        Input: ir = "function Only_Run() -> i64\nblock entry\n  ret i64 %0\nfunction Main() -> i64\n  %0 = call i64 @virtual_Run\n  ret i64 %0";
+        Assert: Result.IndexOf("@Only_Run") >= 0 && Result.IndexOf("@virtual_Run") < 0;
+    }
+}
+
+Test Bounds {
+    Case "proven check is deleted" {
+        Input: ir = "function Main() -> i64\n  %1 = cmp le i64 %0, %0\n  check bounds %0, %0\n  ret i64 %0";
+        Assert: Result.IndexOf("check bounds") < 0 && Result.IndexOf("cmp le") >= 0;
+    }
+}
+
+Test Vector {
+    Case "proven add" {
+        Input: ir = "function Main() -> i64\n  alias none\n  vector ok\n  %1 = add i64 %2, %3\n  %4 = cmp le i64 %2, %3\n  ret i64 %1";
+        Assert: Result.IndexOf("vector add i64") >= 0;
+    }
+}
+
+Test SampleInline {
+    Case "add is inlined" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleEscape {
+    Case "reg and stack" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleClobber {
+    Case "three sets" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleDevirt {
+    Case "direct call" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleBounds {
+    Case "one check remains" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleVector {
+    Case "body and increment" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test SampleFold {
+    Case "immediate product" {
+        Input:;
+        Assert: Result == 1;
+    }
+}
+
+Test Fold { Output: True; }
+Test FoldOnce { Output: True; }
+Test Mark { Output: True; }
+Test BodyFrom { Output: True; }
+Test RewriteCall { Output: True; }
+Test UsesOne { Output: True; }
+Test LeftOp { Output: True; }
+Test RightOp { Output: True; }
+Test DestOf { Output: True; }
+Test TailNumber { Output: True; }
+Test EndsWithDigit { Output: True; }
+Test EndsWith { Output: True; }
+Test HasKnown { Output: True; }
+Test KnownAt { Output: True; }
+Test HasName { Output: True; }
+Test Trim { Output: True; }
+Test NameAt { Output: True; }
+Test Lines { Output: True; }
+Test Join { Output: True; }

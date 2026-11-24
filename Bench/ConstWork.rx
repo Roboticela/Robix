@@ -1,0 +1,29 @@
+// Pure arithmetic on constants. Main's hot path is the folded immediate.
+Package Bench.ConstWork
+Explain {
+    Description: "Fold a pure call of constant arguments.";
+};
+
+Import Robix.Core;
+
+
+Public Function Work(Int left, Int right) -> Int
+Explain {
+    Description: "Combine two integers.";
+    Input: left = "The left value", right = "The right value";
+    Processing: "Multiply the left value by 1000 and add the right value.";
+    Output: "The combined integer.";
+} {
+    Return left * 1000 + right;
+}
+
+Public Function Main() -> Int
+Explain {
+    Description: "Print the folded value.";
+    Input: none = "No input";
+    Processing: "Call Work with 20 and 22.";
+    Output: "Zero after the value is printed.";
+} {
+    Print(Work(20, 22));
+    Return 0;
+}

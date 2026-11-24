@@ -1,0 +1,23 @@
+// Append one character on each iteration.
+Package Bench.StringBuild
+Explain {
+    Description: "Build a string of one thousand characters.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Append and print the length.";
+    Input: none = "No input";
+    Processing: "Concatenate one character per iteration.";
+    Output: "Zero after the length is printed.";
+} {
+    Var text = "";
+    For index In 1..=1000 {
+        text = text + "a";
+    }
+    Print(text.Length());
+    Return 0;
+}

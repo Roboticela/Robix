@@ -1,0 +1,46 @@
+// One concrete implementation. The pass turns a virtual call into this direct call.
+Package Bench.OneInterface
+Explain {
+    Description: "Call the only implementation of Work.";
+};
+
+Import Robix.Core;
+
+
+Public Interface Work {
+    Public Function Step(Int value) -> Int
+    Explain {
+        Description: "Advance one value.";
+        Input: value = "The current value";
+        Processing: "Add one.";
+        Output: "The next value.";
+    };
+}
+
+Public Class OnlyWork : Work {
+    Public Function Step(Int value) -> Int
+    Explain {
+        Description: "Add one to the value.";
+        Input: value = "The current value";
+        Processing: "Add one.";
+        Output: "The next value.";
+    } {
+        Return value + 1;
+    }
+}
+
+Public Function Main() -> Int
+Explain {
+    Description: "Call the only Work implementation one thousand times.";
+    Input: none = "No input";
+    Processing: "Start at zero and step.";
+    Output: "Zero after the total is printed.";
+} {
+    Var worker = OnlyWork();
+    Var total = 0;
+    For index In 1..=1000 {
+        total = worker.Step(total);
+    }
+    Print(total);
+    Return 0;
+}

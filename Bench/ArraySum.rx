@@ -1,0 +1,29 @@
+// Sum a sequence passed as one value. The C side takes a pointer and must assume it may alias.
+Package Bench.ArraySum
+Explain {
+    Description: "Sum the integers from 0 through 1023.";
+};
+
+Import Robix.Core;
+
+
+Public Function Main() -> Int
+Explain {
+    Description: "Build the sequence and add it.";
+    Input: none = "No input";
+    Processing: "Store each index, then add the stored values.";
+    Output: "Zero after the total is printed.";
+} {
+    Var left = List<Int>();
+    Var right = List<Int>();
+    For index In 0..=1023 {
+        left.Add(index);
+        right.Add(index);
+    }
+    Var total = 0;
+    For index In 0..=1023 {
+        total = total + left[index] + right[index];
+    }
+    Print(total);
+    Return 0;
+}

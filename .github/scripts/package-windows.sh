@@ -104,7 +104,7 @@ if [[ ! -f "$windows_tools/Robix.exe" || ! -f "$windows_tools/Compiler.exe" ]]; 
 fi
 cp -a "$windows_tools/Robix.exe" "$stage/Bin/Robix.exe"
 cp -a "$windows_tools/Compiler.exe" "$stage/Shared/Tools/Compiler.exe"
-"$cross" -std=c++17 -O2 -static -o "$stage/Bin/Robixc.exe" "$root/.github/packaging/Robixc.cpp"
+cp -a "$windows_tools/Compiler.exe" "$stage/Bin/Robixc.exe"
 "$cross" -std=c++17 -O2 -static -o "$stage/Shared/Tools/clang++.exe" "$root/.github/packaging/clang++.cpp"
 
 # Ensure NO .ps1 or .cmd files in Bin/
@@ -133,7 +133,7 @@ syntax=(
     Lexer.bin Parser.bin ParserExpressions.bin ParserStatements.bin
     Token.bin TokenKind.bin TypeChecker.bin NameChecker.bin
     NativeEmit.bin Emitter.bin SyntaxCompiler.bin Diagnostic.bin
-    Rxir.bin Rxasm.bin Elf.bin
+    Rxir.bin Passes.bin Rxasm.bin Elf.bin Pe.bin Target.bin
     AstNode.bin TextConvert.bin SyntaxCoverage.bin
 )
 for name in "${syntax[@]}"; do
@@ -147,6 +147,7 @@ place_bin "$root/Build/Compiler/Text.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/List.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/Map.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/Linux.bin" Runtime Robix.Runtime
+place_bin "$root/Build/Compiler/Windows.bin" Runtime Robix.Runtime
 place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
 place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
 
@@ -196,7 +197,7 @@ EOF
         echo "error: Robix.exe could not run HelloRobot.rx (exit ${run_status})" >&2
         exit 1
     fi
-    "$stage/Bin/Robixc.exe" "$smoke" "$smoke/Hello.exe"
+    "$stage/Bin/Robixc.exe" "$smoke/HelloRobot.rx" "$smoke/Hello.exe"
     if [[ ! -f "$smoke/Hello.exe" ]]; then
         echo "error: Robixc.exe did not write Hello.exe" >&2
         exit 1

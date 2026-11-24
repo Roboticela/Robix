@@ -1,0 +1,41 @@
+// Read two hot values on every iteration. Field order is free unless Layout is set.
+Package Bench.FieldLoop
+Explain {
+    Description: "Add two fields across many rows.";
+};
+
+Import Robix.Core;
+
+
+Public Class Row {
+    Public Int Hot;
+    Public Int Also;
+
+    Public Function Read() -> Int
+    Explain {
+        Description: "Add the two hot fields.";
+        Input: none = "No input";
+        Processing: "Add Hot and Also.";
+        Output: "The sum of the two fields.";
+    } {
+        Return This.Hot + This.Also;
+    }
+}
+
+Public Function Main() -> Int
+Explain {
+    Description: "Add the two fields of one thousand rows.";
+    Input: none = "No input";
+    Processing: "Each row contributes 3.";
+    Output: "Zero after the total is printed.";
+} {
+    Var total = 0;
+    For index In 1..=1000 {
+        Var row = Row();
+        row.Hot = 1;
+        row.Also = 2;
+        total = total + row.Read();
+    }
+    Print(total);
+    Return 0;
+}
