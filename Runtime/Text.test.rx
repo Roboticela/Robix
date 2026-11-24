@@ -1,7 +1,8 @@
 // Tests for Runtime/Text.rx.
 
 Test From { Output: True; }
-Test Length { Output: True; }
+Test StoredCount { Output: True; }
+Test CodeAt { Output: True; }
 Test SameChars { Output: True; }
 Test Concat { Output: True; }
 Test Slice { Output: True; }

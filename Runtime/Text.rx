@@ -28,13 +28,13 @@ Public Class Text {
         This.WriteU32(pointer, count);
         Int index = 0;
         While (index < count) {
-            This.Heap[pointer + 4 + index] = text.GetChar(index).ToInt();
+            This.Heap[pointer + 4 + index] = This.CodeAt(text, index);
             index = index + 1;
         }
         Return pointer;
     }
 
-    Public Function Length(Int text) -> Int
+    Public Function StoredCount(Int text) -> Int
     Explain {
         Description: "Read the length stored in front of the characters.";
         Input: text = "The text offset";
@@ -243,7 +243,7 @@ Public Class Text {
         Int left = This.From("Hello");
         Int right = This.From(", Robix");
         Int both = This.Concat(left, right);
-        If (This.Length(both) != 12) { Return 0; }
+        If (This.StoredCount(both) != 12) { Return 0; }
         If (This.SameChars(both, This.From("Hello, Robix")) != 1) { Return 0; }
         Int slice = This.Slice(both, 7, 5);
         If (This.SameChars(slice, This.From("Robix")) != 1) { Return 0; }
@@ -253,6 +253,14 @@ Public Class Text {
         If (This.ToInt(This.FromInt(-3)) != -3) { Return 0; }
         If (This.Chunks < 1) { Return 0; }
         Return 1;
+    }
+
+    Private Function CodeAt(String text, Int index) -> Int {
+        If (text == Null || index < 0 || index >= text.Length()) { Return 0; }
+        String table = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+        Int found = table.IndexOf(text.Substring(index, 1));
+        If (found < 0) { Return 0; }
+        Return 32 + found;
     }
 
     Private Function Found(Int text, Int needle, Int start) -> Int {
