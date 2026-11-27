@@ -162,9 +162,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: robix-packages-${{ matrix.target }}
-          path: |
-            dist/robix-*.zip
-            dist/Update-*.zip
+          path: dist/robix-*.zip
           if-no-files-found: error
 
   release:
@@ -197,11 +195,6 @@ jobs:
           fi
           title="Robix ${version}"
           shopt -s nullglob
-          updates=(dist/Update-*.zip)
-          if [ "${#updates[@]}" -eq 0 ]; then
-            echo "error: Update-${version} archives were not found" >&2
-            exit 1
-          fi
           for required in \
             dist/robix-linux-x64.zip dist/robix-linux-arm64.zip dist/robix-linux-arm.zip \
             dist/robix-linux-riscv64.zip dist/robix-linux-ppc64le.zip dist/robix-linux-s390x.zip \
@@ -212,14 +205,6 @@ jobs:
             if [ ! -f "$required" ]; then
               echo "error: ${required} was not downloaded" >&2
               find dist -type f >&2 || true
-              exit 1
-            fi
-          done
-          for archive in dist/robix-*.zip; do
-            name="$(basename "$archive" .zip)"
-            name="${name#robix-}"
-            if [ ! -f "dist/Update-${version}-${name}.zip" ]; then
-              echo "error: dist/Update-${version}-${name}.zip was not downloaded" >&2
               exit 1
             fi
           done
@@ -249,10 +234,6 @@ jobs:
           Robixc.exe SourceFolder Program.exe
           \`\`\`
 
-          ## Update
-
-          \`Update-${version}-<system>-<arch>.zip\` contains the same Robix files without LLVM. Unzip the matching archive over an existing \`Robix\` folder. \`Shared/Tools/Llvm\` and \`Library/Link\` stay where they are.
-
           ## Editor
 
           In VS Code or Cursor, choose **Extensions: Install from VSIX** and select \`Roboticela.Robix.vsix\`.
@@ -266,7 +247,7 @@ jobs:
           if [ "${tag}" = "latest" ]; then
             create_args+=(--latest)
           fi
-          mapfile -t archives < <(printf '%s\n' dist/robix-*.zip dist/Update-*.zip | sort)
+          mapfile -t archives < <(printf '%s\n' dist/robix-*.zip | sort)
           gh release create "${tag}" \
             "${archives[@]}" \
             dist/Roboticela.Robix.vsix \

@@ -3,82 +3,12 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 stage="$root/dist/Robix"
-rm -rf "$stage"
-mkdir -p "$stage/Bin" "$stage/Packages/Builtin" "$stage/Packages/Installed" \
-    "$stage/Library" "$stage/Runtime" "$stage/Shared/Tools" \
-    "$stage/Shared/Syntax" "$stage/Shared/Runtime" "$stage/Shared/Build" "$stage/Shared/UI"
-
-shopt -s nullglob
-for tool in llc clang++ ld.lld; do
-    if command -v "$tool" >/dev/null 2>&1; then
-        continue
-    fi
-    for candidate in /usr/bin/"$tool"-* /usr/lib/llvm-*/bin/"$tool"; do
-        if [[ -x "$candidate" ]]; then
-            ln -sfn "$candidate" "/tmp/$tool"
-            export PATH="/tmp:$PATH"
-            break
-        fi
-    done
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        echo "error: $tool was not found on the build machine" >&2
-        exit 1
-    fi
-done
-
 bash "$root/.github/scripts/build-host.sh"
-
-install -m 755 "$root/Build/Compiler/Robix.app" "$stage/Bin/Robix"
-install -m 755 "$root/Build/Compiler/Robixc.app" "$stage/Shared/Tools/Compiler"
-install -m 755 "$root/.github/packaging/Robixc" "$stage/Bin/Robixc"
-install -m 755 "$root/Build/bootstrap/robix-run.app" "$stage/Bin/RobixBootstrap"
+bash "$root/.github/scripts/stage-layout.sh" "$stage" linux-x64 \
+    "$root/Build/Compiler/Robix.app" \
+    "$root/Build/Compiler/Robixc.app" \
+    "$root/Build/bootstrap/robix-run.app"
 rm -rf "$root/Build/bootstrap"
-
-place_bin() {
-    local source="$1"
-    local area="$2"
-    local package="$3"
-    local name
-    name="$(basename "$source")"
-    if [[ ! -f "$source" ]]; then
-        return 0
-    fi
-    install -m 644 "$source" "$stage/Shared/$area/$name"
-    mkdir -p "$stage/Packages/Builtin/$package"
-    install -m 644 "$source" "$stage/Packages/Builtin/$package/$name"
-}
-
-syntax=(
-    Lexer.bin Parser.bin ParserExpressions.bin ParserStatements.bin
-    Token.bin TokenKind.bin TypeChecker.bin NameChecker.bin
-    Emitter.bin SyntaxCompiler.bin Diagnostic.bin
-    Rxir.bin Passes.bin Rxasm.bin Elf.bin Pe.bin Target.bin
-    AstNode.bin TextConvert.bin SyntaxCoverage.bin
-)
-for name in "${syntax[@]}"; do
-    place_bin "$root/Build/Compiler/$name" Syntax Robix.Syntax
-done
-place_bin "$root/Build/Compiler/Interpreter.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/Bytecode.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/Machine.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/Ownership.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/Text.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/List.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/Map.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/Linux.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/Windows.bin" Runtime Robix.Runtime
-place_bin "$root/Build/Compiler/ProjectSystem.bin" Build Robix.Build
-place_bin "$root/Build/Compiler/Robixc.bin" Tools Robix.Tools
-
-mkdir -p "$stage/Packages/Builtin/Robix.UI" "$stage/Shared/UI"
-
-if find "$stage" \( -path '*/Llvm/*' -o -path '*/Link/*' \) -prune -o \( -name '*.cpp' -o -name '*.cc' -o -name '*.rx' \) -print | grep -q .; then
-    echo "error: the package still contains source files" >&2
-    find "$stage" -name '*.cpp' -o -name '*.cc' -o -name '*.rx'
-    exit 1
-fi
-
-bash "$root/.github/scripts/install-docs.sh" "$stage"
 
 hello="$root/Examples/HelloRobot.rx"
 "$stage/Bin/Robix" run "$hello" | grep -q "Hello, Robix"
@@ -106,12 +36,11 @@ Test Extra {
 EOF
 (
     cd "$folder"
-    "$stage/Bin/Robixc" "$folder" "$folder/Hello"
+    "$stage/Bin/Robixc" HelloRobot.rx Hello --target linux-x64
 )
+chmod +x "$folder/Hello"
 "$folder/Hello" | grep -q "Hello, Robix"
 rm -rf "$folder"
-
-bash "$root/.github/scripts/package-update.sh" "$stage" linux-x64
 
 archive="$root/dist/robix-linux-x64.zip"
 rm -f "$archive"
@@ -120,7 +49,7 @@ rm -f "$archive"
     zip -r "robix-linux-x64.zip" Robix
 )
 file_list=$(unzip -l "$archive" | tr '\\' '/')
-for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Shared/Tools/Llvm/LLVM-LICENSE' 'Robix/Library/Link/LICENSE-GCC' 'Robix/Library/Link/LICENSE-GLIBC'; do
+for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Bin/Robix' 'Robix/Bin/Robixc' 'Robix/Library/Lexer.o' 'Robix/Packages/Builtin/Robix.Core/Robix.Core.rx' 'Robix/Packages/Builtin/Robix.Core/Robix.Core.o' 'Robix/Documentation/'; do
     if [[ "$file_list" != *"$required"* ]]; then
         echo "error: ${archive} is missing ${required}" >&2
         exit 1

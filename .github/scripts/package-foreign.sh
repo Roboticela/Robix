@@ -58,28 +58,7 @@ fi
 
 stage_root="$root/dist/stage-$target"
 stage="$stage_root/Robix"
-rm -rf "$stage_root"
-mkdir -p "$stage/Bin" "$stage/Packages/Builtin" "$stage/Packages/Installed" \
-    "$stage/Library" "$stage/Runtime" "$stage/Shared/Tools" \
-    "$stage/Shared/Syntax" "$stage/Shared/Runtime" "$stage/Shared/Build" "$stage/Shared/UI" \
-    "$stage/Packages/Builtin/Robix.Syntax" "$stage/Packages/Builtin/Robix.Runtime" \
-    "$stage/Packages/Builtin/Robix.Build" "$stage/Packages/Builtin/Robix.Tools" \
-    "$stage/Packages/Builtin/Robix.UI"
-
-if [[ "$target" == windows-* ]]; then
-    cp -a "$interpreter" "$stage/Bin/Robix.exe"
-    cp -a "$engine" "$stage/Shared/Tools/Compiler.exe"
-    cp -a "$engine" "$stage/Bin/Robixc.exe"
-    cp -a "$bootstrap" "$stage/Bin/RobixBootstrap.exe"
-else
-    install -m 755 "$interpreter" "$stage/Bin/Robix"
-    install -m 755 "$engine" "$stage/Shared/Tools/Compiler"
-    install -m 755 "$root/.github/packaging/Robixc" "$stage/Bin/Robixc"
-    install -m 755 "$bootstrap" "$stage/Bin/RobixBootstrap"
-fi
-
-bash "$root/.github/scripts/install-docs.sh" "$stage"
-bash "$root/.github/scripts/package-update.sh" "$stage" "$target"
+bash "$root/.github/scripts/stage-layout.sh" "$stage" "$target" "$interpreter" "$engine" "$bootstrap"
 
 archive="$root/dist/robix-$target.zip"
 rm -f "$archive"
@@ -91,9 +70,9 @@ rm -rf "$stage_root"
 
 file_list=$(unzip -l "$archive" | tr '\\' '/')
 if [[ "$target" == windows-* ]]; then
-    required=('Robix/Bin/Robix.exe' 'Robix/Bin/Robixc.exe' 'Robix/Bin/RobixBootstrap.exe' 'Robix/LICENSE')
+    required=('Robix/Bin/Robix.exe' 'Robix/Bin/Robixc.exe' 'Robix/Bin/RobixBootstrap.exe' 'Robix/Library/Lexer.dll' 'Robix/Packages/Builtin/Robix.Core/Robix.Core.rx' 'Robix/Documentation/')
 else
-    required=('Robix/Bin/Robix' 'Robix/Bin/Robixc' 'Robix/Bin/RobixBootstrap' 'Robix/Library/Link/LICENSE-GCC' 'Robix/LICENSE')
+    required=('Robix/Bin/Robix' 'Robix/Bin/Robixc' 'Robix/Bin/RobixBootstrap' 'Robix/Library/Lexer.o' 'Robix/Packages/Builtin/Robix.Core/Robix.Core.rx' 'Robix/Documentation/')
 fi
 for name in "${required[@]}"; do
     if [[ "$file_list" != *"$name"* ]]; then
