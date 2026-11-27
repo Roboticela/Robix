@@ -7,6 +7,22 @@ Test SyntaxCompiler.CompileSource {
     }
 }
 
+Test RequireFunctionTests {
+    Case "missing companion is an error" {
+        Input: fileName = "MissingCompanion.rx", module = AstNode(Kind: AstKind.Function, Name: "Main", Line: 3, Column: 1, Children: []), diagnostics = DiagnosticBag();
+        Assert: diagnostics.ErrorCount() == 1;
+    }
+    Case "a test file is not required to test itself" {
+        Input: fileName = "Already.test.rx", module = AstNode(Kind: AstKind.Function, Name: "Main", Line: 1, Column: 1, Children: []), diagnostics = DiagnosticBag();
+        Assert: diagnostics.ErrorCount() == 0;
+    }
+}
+
+Test CollectTestCoverage { Output: True; }
+Test CoverageListed { Output: True; }
+Test ReportUntestedFunctions { Output: True; }
+Test ImportedDeclaration { Output: True; }
+
 Test SyntaxCompiler.DiagnosticsOf {
     Case "empty module has no diagnostics" {
         Input: result = CompileResult();

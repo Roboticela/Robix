@@ -1,0 +1,23 @@
+Test ToByte {
+    Constraint: ConversionsDesk().ToByte(300) == 255;
+    Processing: True;
+    Output: True;
+}
+
+Test ParseInteger {
+    Constraint: ConversionsDesk().ParseInteger("-42") == -42;
+    Processing: True;
+    Output: True;
+}
+
+Test FromHex {
+    Constraint: ConversionsDesk().FromHex("ff") == 255;
+    Processing: True;
+    Output: True;
+}
+
+Test FromBinary {
+    Constraint: ConversionsDesk().FromBinary("1101") == 13;
+    Processing: True;
+    Output: True;
+}

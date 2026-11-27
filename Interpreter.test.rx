@@ -660,6 +660,10 @@ Test RequireTests {
         Input: sourcePath = "empty.test.rx", module = AstNode(Children: []);
         Assert: Result.Count() == 0;
     }
+    Case "interpreter ignores a missing companion" {
+        Input: sourcePath = "no-such-source.rx", module = AstNode(Kind: AstKind.Function, Name: "Main", Children: []);
+        Assert: Result.Count() == 0;
+    }
 }
 
 Test Lines {

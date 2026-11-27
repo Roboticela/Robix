@@ -1,0 +1,1257 @@
+// Robix.Conversions: widths, text, bases, and registered converters.
+Package Robix.Conversions;
+
+Import Robix.Core;
+
+
+Class ConversionsDesk {
+    Private Int overflowMode;
+    Private Int roundingMode;
+    Private Int problemCode;
+    Private Int stored;
+    Private Int count;
+    Private Array<Int> items;
+    Private Array<Int> sourceCode;
+    Private Array<Int> targetCode;
+    Private Array<Int> used;
+    Private Array<String> names;
+    Private String problem;
+
+    Public Constructor() {
+        overflowMode = 1;
+        roundingMode = 0;
+        problemCode = 0;
+        stored = 0;
+        count = 0;
+        items = [0, 0, 0, 0, 0, 0, 0, 0];
+        sourceCode = [0, 0, 0, 0, 0, 0, 0, 0];
+        targetCode = [0, 0, 0, 0, 0, 0, 0, 0];
+        used = [0, 0, 0, 0, 0, 0, 0, 0];
+        names = ["", "", "", "", "", "", "", ""];
+        problem = "none";
+    }
+
+    Public Function SetOverflow(Int mode) -> Int
+    Explain {
+        Description: "Select the overflow policy.";
+        Input: mode = "0 checked, 1 saturating, 2 truncating";
+        Processing: "Store the policy used by the width conversions.";
+        Output: "The mode, or zero when it is unknown.";
+    } {
+        If (mode < 0 || mode > 2) {
+            problem = "mode";
+            Return 0;
+        }
+        overflowMode = mode;
+        problem = "none";
+        Return mode;
+    }
+
+    Public Function SetRounding(Int mode) -> Int
+    Explain {
+        Description: "Select the rounding policy.";
+        Input: mode = "0 nearest, 1 toward zero, 2 floor";
+        Processing: "Store the policy.";
+        Output: "The mode, or zero when it is unknown.";
+    } {
+        If (mode < 0 || mode > 2) {
+            problem = "mode";
+            Return 0;
+        }
+        roundingMode = mode;
+        problem = "none";
+        Return mode;
+    }
+
+    Public Function Convert(Int value, Int target) -> Int
+    Explain {
+        Description: "Convert an integer into a width.";
+        Input: value = "Value", target = "0 byte, 1 sbyte, 2 int16, 3 uint16, 4 int32, 5 uint32, 6 int64";
+        Processing: "Apply the overflow policy to the target limits.";
+        Output: "The converted value, or zero when a checked conversion overflows.";
+    } {
+        Int low = 0;
+        Int high = 0;
+        Int bits = 0;
+        If (target == 0) { low = 0; high = 255; bits = 8; }
+        If (target == 1) { low = -128; high = 127; bits = 8; }
+        If (target == 2) { low = -32768; high = 32767; bits = 16; }
+        If (target == 3) { low = 0; high = 65535; bits = 16; }
+        If (target == 4) { low = -2147483647; high = 2147483647; bits = 32; }
+        If (target == 5) { low = 0; high = 2147483647; bits = 32; }
+        If (target == 6) { low = value; high = value; bits = 64; }
+        If (bits == 0) {
+            problem = "type";
+            Return 0;
+        }
+        If (target == 6) {
+            problem = "none";
+            stored = value;
+            Return value;
+        }
+        If (overflowMode == 2) { Return This.Truncate(value, bits, low); }
+        If (value < low || value > high) {
+            If (overflowMode == 0) {
+                problem = "overflow";
+                problemCode = 1;
+                Return 0;
+            }
+            problem = "none";
+            If (value < low) { Return low; }
+            Return high;
+        }
+        problem = "none";
+        stored = value;
+        Return value;
+    }
+
+    Public Function TryConvert(Int value, Int target) -> Int
+    Explain {
+        Description: "Try a checked conversion.";
+        Input: value = "Value", target = "Width code";
+        Processing: "Force the checked policy for this call, then restore the previous policy.";
+        Output: "The value, or zero on overflow.";
+    } {
+        Int previous = overflowMode;
+        overflowMode = 0;
+        Int result = This.Convert(value, target);
+        overflowMode = previous;
+        Return result;
+    }
+
+    Public Function ConvertChecked(Int value, Int target) -> Int
+    Explain {
+        Description: "Convert and reject an out-of-range value.";
+        Input: value = "Value", target = "Width code";
+        Processing: "Use the checked policy.";
+        Output: "The value, or zero on overflow.";
+    } {
+        Return This.TryConvert(value, target);
+    }
+
+    Public Function ConvertSaturating(Int value, Int target) -> Int
+    Explain {
+        Description: "Convert by saturating at the limits.";
+        Input: value = "Value", target = "Width code";
+        Processing: "Use the saturating policy.";
+        Output: "The converted value.";
+    } {
+        Int previous = overflowMode;
+        overflowMode = 1;
+        Int result = This.Convert(value, target);
+        overflowMode = previous;
+        Return result;
+    }
+
+    Public Function ConvertTruncating(Int value, Int target) -> Int
+    Explain {
+        Description: "Convert by keeping the low bits.";
+        Input: value = "Value", target = "Width code";
+        Processing: "Use the truncating policy.";
+        Output: "The converted value.";
+    } {
+        Int previous = overflowMode;
+        overflowMode = 2;
+        Int result = This.Convert(value, target);
+        overflowMode = previous;
+        Return result;
+    }
+
+    Public Function ConvertOrDefault(Int value, Int target, Int fallback) -> Int
+    Explain {
+        Description: "Convert or return a fallback.";
+        Input: value = "Value", target = "Width code", fallback = "Fallback";
+        Processing: "A checked failure returns the fallback.";
+        Output: "The converted value or the fallback.";
+    } {
+        Int result = This.TryConvert(value, target);
+        If (problem == "overflow") { Return fallback; }
+        Return result;
+    }
+
+    Public Function ConvertOrThrow(Int value, Int target) -> Int
+    Explain {
+        Description: "Convert and record an overflow as an error.";
+        Input: value = "Value", target = "Width code";
+        Processing: "Checked overflow stores the error instead of substituting a limit.";
+        Output: "The converted value, or zero on overflow.";
+    } {
+        Return This.TryConvert(value, target);
+    }
+
+    Public Function CanConvert(Int source, Int target) -> Int
+    Explain {
+        Description: "Report whether two width codes can convert.";
+        Input: source = "Source width", target = "Target width";
+        Processing: "Builtin integer widths convert to each other. A registered pair is also accepted.";
+        Output: "One when the conversion exists.";
+    } {
+        If (source >= 0 && source <= 6 && target >= 0 && target <= 6) { Return 1; }
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 1 && names[index] == "" && sourceCode[index] == source && targetCode[index] == target) { Return 1; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function GetConversion(Int source, Int target) -> Int
+    Explain {
+        Description: "Return one when a conversion exists.";
+        Input: source = "Source width", target = "Target width";
+        Processing: "Use the capability test.";
+        Output: "One when the conversion exists.";
+    } {
+        Return This.CanConvert(source, target);
+    }
+
+    Public Function ToByte(Int value) -> Int
+    Explain {
+        Description: "Convert to a byte.";
+        Input: value = "Value";
+        Processing: "Apply the overflow policy to 0 through 255.";
+        Output: "The byte.";
+    } {
+        Return This.Convert(value, 0);
+    }
+
+    Public Function ToSByte(Int value) -> Int
+    Explain {
+        Description: "Convert to a signed byte.";
+        Input: value = "Value";
+        Processing: "Apply the overflow policy to -128 through 127.";
+        Output: "The signed byte.";
+    } {
+        Return This.Convert(value, 1);
+    }
+
+    Public Function ToInt16(Int value) -> Int
+    Explain {
+        Description: "Convert to a 16-bit integer.";
+        Input: value = "Value";
+        Processing: "Apply the overflow policy.";
+        Output: "The 16-bit integer.";
+    } {
+        Return This.Convert(value, 2);
+    }
+
+    Public Function ToUInt16(Int value) -> Int
+    Explain {
+        Description: "Convert to an unsigned 16-bit integer.";
+        Input: value = "Value";
+        Processing: "Apply the overflow policy.";
+        Output: "The unsigned 16-bit integer.";
+    } {
+        Return This.Convert(value, 3);
+    }
+
+    Public Function ToInt32(Int value) -> Int
+    Explain {
+        Description: "Convert to a 32-bit integer.";
+        Input: value = "Value";
+        Processing: "Apply the overflow policy.";
+        Output: "The 32-bit integer.";
+    } {
+        Return This.Convert(value, 4);
+    }
+
+    Public Function ToUInt32(Int value) -> Int
+    Explain {
+        Description: "Convert to an unsigned 32-bit integer.";
+        Input: value = "Value";
+        Processing: "Negative values saturate to zero unless the policy truncates.";
+        Output: "The unsigned value.";
+    } {
+        Return This.Convert(value, 5);
+    }
+
+    Public Function ToInt64(Int value) -> Int
+    Explain {
+        Description: "Convert to a wide integer.";
+        Input: value = "Value";
+        Processing: "The desk integer already has the wide width.";
+        Output: "The value.";
+    } {
+        Return This.Convert(value, 6);
+    }
+
+    Public Function ToUInt64(Int value) -> Int
+    Explain {
+        Description: "Convert to a nonnegative wide integer.";
+        Input: value = "Value";
+        Processing: "A negative value becomes zero.";
+        Output: "The nonnegative value.";
+    } {
+        If (value < 0) { Return 0; }
+        Return value;
+    }
+
+    Public Function ToInt128(Int value) -> Int
+    Explain {
+        Description: "Widen an integer without changing it.";
+        Input: value = "Value";
+        Processing: "The value already fits.";
+        Output: "The value.";
+    } {
+        Return value;
+    }
+
+    Public Function ToUInt128(Int value) -> Int
+    Explain {
+        Description: "Convert to a nonnegative widened integer.";
+        Input: value = "Value";
+        Processing: "A negative value becomes zero.";
+        Output: "The nonnegative value.";
+    } {
+        Return This.ToUInt64(value);
+    }
+
+    Public Function ToFloat32(Int value) -> Int
+    Explain {
+        Description: "Accept an integer as a whole float.";
+        Input: value = "Value";
+        Processing: "A whole number is already exact.";
+        Output: "The value.";
+    } {
+        Return value;
+    }
+
+    Public Function ToFloat64(Int value) -> Int
+    Explain {
+        Description: "Accept an integer as a wide whole float.";
+        Input: value = "Value";
+        Processing: "A whole number is already exact.";
+        Output: "The value.";
+    } {
+        Return value;
+    }
+
+    Public Function ToDecimal(Int value) -> Int
+    Explain {
+        Description: "Scale an integer to two decimal digits.";
+        Input: value = "Whole number";
+        Processing: "Multiply by 100.";
+        Output: "The scaled coefficient.";
+    } {
+        Return value * 100;
+    }
+
+    Public Function ToBigInteger(Int value) -> Int
+    Explain {
+        Description: "Accept an integer as a big integer.";
+        Input: value = "Value";
+        Processing: "Store the value.";
+        Output: "The value.";
+    } {
+        stored = value;
+        Return value;
+    }
+
+    Public Function ToBigDecimal(Int value) -> Int
+    Explain {
+        Description: "Scale an integer as a big decimal.";
+        Input: value = "Whole number";
+        Processing: "Use two decimal digits.";
+        Output: "The scaled coefficient.";
+    } {
+        Return This.ToDecimal(value);
+    }
+
+    Public Function ToText(Int value) -> String
+    Explain {
+        Description: "Format an integer as text.";
+        Input: value = "Value";
+        Processing: "Use the decimal text.";
+        Output: "The text.";
+    } {
+        Return value.ToString();
+    }
+
+    Public Function ToChar(Int value) -> Int
+    Explain {
+        Description: "Convert a code point in the byte range.";
+        Input: value = "Code point";
+        Processing: "Saturate to 0 through 255.";
+        Output: "The code point.";
+    } {
+        Return This.ConvertSaturating(value, 0);
+    }
+
+    Public Function ToBoolean(Int value) -> Int
+    Explain {
+        Description: "Convert zero and one to a boolean.";
+        Input: value = "0 or 1";
+        Processing: "Zero is false and one is true.";
+        Output: "Zero or one, or zero when the value is neither.";
+    } {
+        If (value == 0 || value == 1) {
+            problem = "none";
+            Return value;
+        }
+        problem = "boolean";
+        Return 0;
+    }
+
+    Public Function ParseInteger(String text) -> Int
+    Explain {
+        Description: "Parse a decimal integer.";
+        Input: text = "Digits with an optional sign";
+        Processing: "Read the sign and the digits.";
+        Output: "The integer, or zero when the text is not an integer.";
+    } {
+        If (text.Length() == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Int index = 0;
+        Int sign = 1;
+        String mark = text.Substring(0, 1);
+        If (mark == "-") {
+            sign = -1;
+            index = 1;
+        }
+        If (mark == "+") { index = 1; }
+        If (index >= text.Length()) {
+            problem = "parse";
+            Return 0;
+        }
+        Int total = 0;
+        While (index < text.Length()) {
+            Int digit = This.Digit(text.Substring(index, 1));
+            If (digit < 0) {
+                problem = "parse";
+                Return 0;
+            }
+            total = total * 10 + digit;
+            index = index + 1;
+        }
+        problem = "none";
+        Return sign * total;
+    }
+
+    Public Function ParseDecimal(String text) -> Int
+    Explain {
+        Description: "Parse a decimal with up to two fraction digits.";
+        Input: text = "A number such as 1.50";
+        Processing: "Return the coefficient at scale 100.";
+        Output: "The coefficient, or zero when the text is not a decimal.";
+    } {
+        Int whole = 0;
+        Int frac = 0;
+        Int digits = 0;
+        Int index = 0;
+        Int sign = 1;
+        Int dotted = 0;
+        If (text.Length() == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        String mark = text.Substring(0, 1);
+        If (mark == "-") {
+            sign = -1;
+            index = 1;
+        }
+        While (index < text.Length()) {
+            String piece = text.Substring(index, 1);
+            If (piece == "." && dotted == 0) {
+                dotted = 1;
+            } Else {
+                Int digit = This.Digit(piece);
+                If (digit < 0) {
+                    problem = "parse";
+                    Return 0;
+                }
+                If (dotted == 0) { whole = whole * 10 + digit; }
+                If (dotted == 1 && digits < 2) {
+                    frac = frac * 10 + digit;
+                    digits = digits + 1;
+                }
+            }
+            index = index + 1;
+        }
+        While (digits < 2) {
+            frac = frac * 10;
+            digits = digits + 1;
+        }
+        problem = "none";
+        Return sign * (whole * 100 + frac);
+    }
+
+    Public Function ParseFloatingPoint(String text) -> Int
+    Explain {
+        Description: "Parse a floating literal as a scaled decimal.";
+        Input: text = "Numeric text";
+        Processing: "Use the two-digit decimal parser.";
+        Output: "The coefficient.";
+    } {
+        Return This.ParseDecimal(text);
+    }
+
+    Public Function ParseBoolean(String text) -> Int
+    Explain {
+        Description: "Parse a boolean word.";
+        Input: text = "true, false, yes, no, 1, or 0";
+        Processing: "Accept the six spellings.";
+        Output: "One or zero, or zero when the word is unknown.";
+    } {
+        If (text == "true" || text == "yes" || text == "1") { Return 1; }
+        If (text == "false" || text == "no" || text == "0") { Return 0; }
+        problem = "boolean";
+        Return 0;
+    }
+
+    Public Function ParseDateTime(String text) -> Int
+    Explain {
+        Description: "Parse a Y-M-D date.";
+        Input: text = "YYYY-MM-DD";
+        Processing: "Pack the date as year times 10000 plus month times 100 plus day.";
+        Output: "The packed date, or zero when the text is not a date.";
+    } {
+        If (text.Length() != 10) {
+            problem = "parse";
+            Return 0;
+        }
+        Int year = This.ParseInteger(text.Substring(0, 4));
+        Int month = This.ParseInteger(text.Substring(5, 2));
+        Int day = This.ParseInteger(text.Substring(8, 2));
+        If (month < 1 || month > 12 || day < 1 || day > 31) {
+            problem = "parse";
+            Return 0;
+        }
+        problem = "none";
+        stored = year * 10000 + month * 100 + day;
+        Return stored;
+    }
+
+    Public Function ToDateTime(Int packed) -> Int
+    Explain {
+        Description: "Accept a packed date.";
+        Input: packed = "Year, month, and day packed together";
+        Processing: "Store the packed value.";
+        Output: "The packed date.";
+    } {
+        stored = packed;
+        Return packed;
+    }
+
+    Public Function ToTimeSpan(String text) -> Int
+    Explain {
+        Description: "Parse hours and minutes into minutes.";
+        Input: text = "H:MM or HH:MM";
+        Processing: "Find the colon and add hours times 60 to the minutes.";
+        Output: "The total minutes, or zero when the text is not a span.";
+    } {
+        Int colon = -1;
+        Int index = 0;
+        While (index < text.Length()) {
+            If (text.Substring(index, 1) == ":") { colon = index; }
+            index = index + 1;
+        }
+        If (colon <= 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Int hours = This.ParseInteger(text.Substring(0, colon));
+        Int minutes = This.ParseInteger(text.Substring(colon + 1, text.Length() - colon - 1));
+        If (minutes < 0 || minutes > 59) {
+            problem = "parse";
+            Return 0;
+        }
+        problem = "none";
+        Return hours * 60 + minutes;
+    }
+
+    Public Function ParseGuid(String text) -> Int
+    Explain {
+        Description: "Parse the first eight hexadecimal digits of a guid.";
+        Input: text = "Eight hex digits";
+        Processing: "Read the hex integer.";
+        Output: "The integer, or zero when the text is not hex.";
+    } {
+        If (text.Length() < 8) {
+            problem = "parse";
+            Return 0;
+        }
+        Return This.FromHex(text.Substring(0, 8));
+    }
+
+    Public Function ToGuid(Int value) -> Int
+    Explain {
+        Description: "Store an integer guid prefix.";
+        Input: value = "Value";
+        Processing: "Keep the value.";
+        Output: "The value.";
+    } {
+        stored = value;
+        Return value;
+    }
+
+    Public Function RegisterEnum(Int slot, String name) -> Int
+    Explain {
+        Description: "Register an enumeration name.";
+        Input: slot = "Value from 0 through 7", name = "Name";
+        Processing: "Store the name at that value.";
+        Output: "The slot, or -1.";
+    } {
+        If (slot < 0 || slot > 7) {
+            problem = "size";
+            Return -1;
+        }
+        names[slot] = name;
+        used[slot] = 1;
+        Return slot;
+    }
+
+    Public Function ParseEnum(String text) -> Int
+    Explain {
+        Description: "Parse a registered enumeration name.";
+        Input: text = "Name";
+        Processing: "Find the stored name.";
+        Output: "The value, or -1 when it is missing.";
+    } {
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 1 && names[index] == text) { Return index; }
+            index = index + 1;
+        }
+        problem = "enum";
+        Return -1;
+    }
+
+    Public Function ToEnum(Int value) -> Int
+    Explain {
+        Description: "Accept an enumeration value that has a name.";
+        Input: value = "Value";
+        Processing: "Reject a value with no registered name.";
+        Output: "The value, or -1.";
+    } {
+        If (value < 0 || value > 7 || used[value] == 0) {
+            problem = "enum";
+            Return -1;
+        }
+        Return value;
+    }
+
+    Public Function ToBinary(Int value) -> String
+    Explain {
+        Description: "Format a nonnegative integer as binary text.";
+        Input: value = "Value";
+        Processing: "Emit bits from high to low without leading zeros.";
+        Output: "The binary text. Zero is 0.";
+    } {
+        If (value == 0) { Return "0"; }
+        Int magnitude = value;
+        If (magnitude < 0) { magnitude = 0 - magnitude; }
+        String text = "";
+        Int started = 0;
+        Int bit = 31;
+        While (bit >= 0) {
+            Int mask = 1;
+            Int index = 0;
+            While (index < bit) {
+                mask = mask * 2;
+                index = index + 1;
+            }
+            Int on = 0;
+            If (magnitude >= mask) {
+                on = 1;
+                magnitude = magnitude - mask;
+            }
+            If (on == 1) { started = 1; }
+            If (started == 1) {
+                If (on == 1) { text = text + "1"; }
+                If (on == 0) { text = text + "0"; }
+            }
+            bit = bit - 1;
+        }
+        Return text;
+    }
+
+    Public Function FromBinary(String text) -> Int
+    Explain {
+        Description: "Parse binary text.";
+        Input: text = "Bits";
+        Processing: "Shift in each bit.";
+        Output: "The integer, or zero when a character is not a bit.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        If (text.Length() == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        While (index < text.Length()) {
+            String piece = text.Substring(index, 1);
+            If (piece != "0" && piece != "1") {
+                problem = "parse";
+                Return 0;
+            }
+            total = total * 2;
+            If (piece == "1") { total = total + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Public Function ToHex(Int value) -> String
+    Explain {
+        Description: "Format a nonnegative integer as hexadecimal text.";
+        Input: value = "Value";
+        Processing: "Emit nibbles from high to low without leading zeros.";
+        Output: "The hex text. Zero is 0.";
+    } {
+        If (value == 0) { Return "0"; }
+        Int magnitude = value;
+        If (magnitude < 0) { magnitude = 0 - magnitude; }
+        String text = "";
+        Int started = 0;
+        Int shift = 7;
+        While (shift >= 0) {
+            Int place = 1;
+            Int index = 0;
+            While (index < shift) {
+                place = place * 16;
+                index = index + 1;
+            }
+            Int nibble = magnitude / place;
+            magnitude = magnitude - nibble * place;
+            If (nibble != 0) { started = 1; }
+            If (started == 1) { text = text + This.HexChar(nibble); }
+            shift = shift - 1;
+        }
+        Return text;
+    }
+
+    Public Function FromHex(String text) -> Int
+    Explain {
+        Description: "Parse hexadecimal text.";
+        Input: text = "Hex digits";
+        Processing: "Shift in each nibble.";
+        Output: "The integer, or zero when a character is not hex.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        If (text.Length() == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        While (index < text.Length()) {
+            Int nibble = This.HexValue(text.Substring(index, 1));
+            If (nibble < 0) {
+                problem = "parse";
+                Return 0;
+            }
+            total = total * 16 + nibble;
+            index = index + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Public Function ToBase16(Int value) -> String
+    Explain {
+        Description: "Format an integer as base-16 text.";
+        Input: value = "Value";
+        Processing: "Use hexadecimal text.";
+        Output: "The text.";
+    } {
+        Return This.ToHex(value);
+    }
+
+    Public Function FromBase16(String text) -> Int
+    Explain {
+        Description: "Parse base-16 text.";
+        Input: text = "Hex digits";
+        Processing: "Use the hex parser.";
+        Output: "The integer.";
+    } {
+        Return This.FromHex(text);
+    }
+
+    Public Function ToBase64(Int value) -> String
+    Explain {
+        Description: "Encode one byte as base64 text.";
+        Input: value = "Byte";
+        Processing: "Emit two digits and padding.";
+        Output: "The base64 text, or an empty string when the value is outside a byte.";
+    } {
+        If (value < 0 || value > 255) {
+            problem = "size";
+            Return "";
+        }
+        Int first = value / 4;
+        Int second = (value - first * 4) * 16;
+        Return This.Base64Char(first) + This.Base64Char(second) + "==";
+    }
+
+    Public Function FromBase64(String text) -> Int
+    Explain {
+        Description: "Decode a two-digit base64 byte.";
+        Input: text = "Two base64 digits, optionally padded";
+        Processing: "Rebuild the first byte.";
+        Output: "The byte, or zero when the text is too short.";
+    } {
+        If (text.Length() < 2) {
+            problem = "parse";
+            Return 0;
+        }
+        Int first = This.Base64Value(text.Substring(0, 1));
+        Int second = This.Base64Value(text.Substring(1, 1));
+        If (first < 0 || second < 0) {
+            problem = "parse";
+            Return 0;
+        }
+        problem = "none";
+        Return first * 4 + second / 16;
+    }
+
+    Public Function ToBase32(Int value) -> String
+    Explain {
+        Description: "Encode one byte as base32 text.";
+        Input: value = "Byte";
+        Processing: "Emit two base32 digits.";
+        Output: "The text.";
+    } {
+        If (value < 0 || value > 255) {
+            problem = "size";
+            Return "";
+        }
+        Int first = value / 8;
+        Int second = (value - first * 8) * 4;
+        Return This.Base32Char(first) + This.Base32Char(second);
+    }
+
+    Public Function FromBase32(String text) -> Int
+    Explain {
+        Description: "Decode two base32 digits into a byte.";
+        Input: text = "Two base32 digits";
+        Processing: "Rebuild the byte.";
+        Output: "The byte.";
+    } {
+        If (text.Length() < 2) {
+            problem = "parse";
+            Return 0;
+        }
+        Int first = This.Base32Value(text.Substring(0, 1));
+        Int second = This.Base32Value(text.Substring(1, 1));
+        If (first < 0 || second < 0) {
+            problem = "parse";
+            Return 0;
+        }
+        problem = "none";
+        Return first * 8 + second / 4;
+    }
+
+    Public Function ToBytes(Int value) -> Int
+    Explain {
+        Description: "Store the low byte of an integer.";
+        Input: value = "Value";
+        Processing: "Keep the low 8 bits and the following zero bytes.";
+        Output: "The low byte.";
+    } {
+        items[0] = This.LowBits(value, 8);
+        items[1] = 0;
+        count = 1;
+        Return items[0];
+    }
+
+    Public Function FromBytes(Int low, Int high) -> Int
+    Explain {
+        Description: "Build an integer from two bytes.";
+        Input: low = "Low byte", high = "High byte";
+        Processing: "Add the high byte shifted by 8.";
+        Output: "The integer.";
+    } {
+        Return This.LowBits(low, 8) + This.LowBits(high, 8) * 256;
+    }
+
+    Public Function SetItem(Int index, Int value) -> Int
+    Explain {
+        Description: "Store one collection item.";
+        Input: index = "Slot", value = "Value";
+        Processing: "Keep up to eight items.";
+        Output: "The slot, or -1.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return -1;
+        }
+        items[index] = value;
+        If (index >= count) { count = index + 1; }
+        Return index;
+    }
+
+    Public Function ToArray() -> Int
+    Explain {
+        Description: "Return the stored collection count.";
+        Input: "No parameters";
+        Processing: "The items are the array.";
+        Output: "The count.";
+    } {
+        Return count;
+    }
+
+    Public Function ToList() -> Int
+    Explain {
+        Description: "Return the stored collection count.";
+        Input: "No parameters";
+        Processing: "The items are the list.";
+        Output: "The count.";
+    } {
+        Return count;
+    }
+
+    Public Function ToDictionary() -> Int
+    Explain {
+        Description: "Pair stored items into dictionary entries.";
+        Input: "No parameters";
+        Processing: "Every two items are one entry.";
+        Output: "The number of pairs.";
+    } {
+        Return count / 2;
+    }
+
+    Public Function ItemAt(Int index) -> Int
+    Explain {
+        Description: "Read a stored item.";
+        Input: index = "Slot";
+        Processing: "Read the collection.";
+        Output: "The item.";
+    } {
+        If (index < 0 || index > 7) { Return 0; }
+        Return items[index];
+    }
+
+    Public Function ConvertCollection(Int target) -> Int
+    Explain {
+        Description: "Convert every stored item into a width.";
+        Input: target = "Width code";
+        Processing: "Replace each item with its conversion.";
+        Output: "The first converted item.";
+    } {
+        If (count <= 0) { Return 0; }
+        Int index = 0;
+        While (index < count) {
+            items[index] = This.Convert(items[index], target);
+            index = index + 1;
+        }
+        Return items[0];
+    }
+
+    Public Function ToNullable(Int value) -> Int
+    Explain {
+        Description: "Wrap a value as present.";
+        Input: value = "Value";
+        Processing: "Store the value. It is present.";
+        Output: "The value.";
+    } {
+        stored = value;
+        problem = "none";
+        Return value;
+    }
+
+    Public Function ToNonNullable(Int value, Int missing) -> Int
+    Explain {
+        Description: "Reject a missing sentinel.";
+        Input: value = "Value", missing = "Missing sentinel";
+        Processing: "A value equal to the sentinel is missing.";
+        Output: "The value, or zero when it is missing.";
+    } {
+        If (value == missing) {
+            problem = "null";
+            Return 0;
+        }
+        problem = "none";
+        Return value;
+    }
+
+    Public Function ToUnit(Int value, Int numerator, Int denominator) -> Int
+    Explain {
+        Description: "Scale a value by a unit factor.";
+        Input: value = "Value", numerator = "Numerator", denominator = "Denominator";
+        Processing: "Multiply and divide when the division is exact.";
+        Output: "The scaled value, or zero when it is not exact.";
+    } {
+        If (denominator == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        Int product = value * numerator;
+        If ((product / denominator) * denominator != product) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return product / denominator;
+    }
+
+    Public Function ConvertObject(Int value, Int target) -> Int
+    Explain {
+        Description: "Convert one object value by width.";
+        Input: value = "Value", target = "Width code";
+        Processing: "Use the width conversion.";
+        Output: "The converted value.";
+    } {
+        Return This.Convert(value, target);
+    }
+
+    Public Function RegisterConverter(Int source, Int target) -> Int
+    Explain {
+        Description: "Register a conversion pair.";
+        Input: source = "Source code", target = "Target code";
+        Processing: "Store up to eight pairs.";
+        Output: "The slot, or -1 when the table is full.";
+    } {
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 0) {
+                used[index] = 1;
+                sourceCode[index] = source;
+                targetCode[index] = target;
+                Return index;
+            }
+            index = index + 1;
+        }
+        problem = "size";
+        Return -1;
+    }
+
+    Public Function UnregisterConverter(Int source, Int target) -> Int
+    Explain {
+        Description: "Remove a registered conversion.";
+        Input: source = "Source code", target = "Target code";
+        Processing: "Clear the matching slot.";
+        Output: "One when a slot was cleared.";
+    } {
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 1 && names[index] == "" && sourceCode[index] == source && targetCode[index] == target) {
+                used[index] = 0;
+                Return 1;
+            }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Public Function FindConverter(Int source, Int target) -> Int
+    Explain {
+        Description: "Find a registered conversion.";
+        Input: source = "Source code", target = "Target code";
+        Processing: "Return the slot.";
+        Output: "The slot, or -1.";
+    } {
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 1 && names[index] == "" && sourceCode[index] == source && targetCode[index] == target) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Public Function GetConversionPath(Int source, Int target) -> Int
+    Explain {
+        Description: "Return the number of steps in a conversion.";
+        Input: source = "Source code", target = "Target code";
+        Processing: "A direct builtin or registered pair is one step.";
+        Output: "One when a path exists, otherwise zero.";
+    } {
+        Return This.CanConvert(source, target);
+    }
+
+    Public Function ValidateConversion(Int value, Int target) -> Int
+    Explain {
+        Description: "Report whether a value fits in a width.";
+        Input: value = "Value", target = "Width code";
+        Processing: "Try a checked conversion.";
+        Output: "One when the value fits.";
+    } {
+        This.TryConvert(value, target);
+        If (problem == "none") { Return 1; }
+        Return 0;
+    }
+
+    Public Function ListConverters() -> Int
+    Explain {
+        Description: "Count the registered converters.";
+        Input: "No parameters";
+        Processing: "Count the used slots.";
+        Output: "The count.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 1 && names[index] == "") { total = total + 1; }
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest conversion error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Truncate(Int value, Int bits, Int low) -> Int {
+        Int magnitude = value;
+        If (magnitude < 0) { magnitude = 0 - magnitude; }
+        Int mask = 1;
+        Int index = 0;
+        While (index < bits) {
+            mask = mask * 2;
+            index = index + 1;
+        }
+        Int wrapped = magnitude - (magnitude / mask) * mask;
+        If (low < 0 && wrapped >= mask / 2) { Return wrapped - mask; }
+        problem = "none";
+        Return wrapped;
+    }
+
+    Private Function LowBits(Int value, Int bits) -> Int {
+        Return This.Truncate(value, bits, 0);
+    }
+
+    Private Function Digit(String piece) -> Int {
+        If (piece == "0") { Return 0; }
+        If (piece == "1") { Return 1; }
+        If (piece == "2") { Return 2; }
+        If (piece == "3") { Return 3; }
+        If (piece == "4") { Return 4; }
+        If (piece == "5") { Return 5; }
+        If (piece == "6") { Return 6; }
+        If (piece == "7") { Return 7; }
+        If (piece == "8") { Return 8; }
+        If (piece == "9") { Return 9; }
+        Return -1;
+    }
+
+    Private Function HexValue(String piece) -> Int {
+        Int digit = This.Digit(piece);
+        If (digit >= 0) { Return digit; }
+        If (piece == "a" || piece == "A") { Return 10; }
+        If (piece == "b" || piece == "B") { Return 11; }
+        If (piece == "c" || piece == "C") { Return 12; }
+        If (piece == "d" || piece == "D") { Return 13; }
+        If (piece == "e" || piece == "E") { Return 14; }
+        If (piece == "f" || piece == "F") { Return 15; }
+        Return -1;
+    }
+
+    Private Function HexChar(Int nibble) -> String {
+        If (nibble == 0) { Return "0"; }
+        If (nibble == 1) { Return "1"; }
+        If (nibble == 2) { Return "2"; }
+        If (nibble == 3) { Return "3"; }
+        If (nibble == 4) { Return "4"; }
+        If (nibble == 5) { Return "5"; }
+        If (nibble == 6) { Return "6"; }
+        If (nibble == 7) { Return "7"; }
+        If (nibble == 8) { Return "8"; }
+        If (nibble == 9) { Return "9"; }
+        If (nibble == 10) { Return "A"; }
+        If (nibble == 11) { Return "B"; }
+        If (nibble == 12) { Return "C"; }
+        If (nibble == 13) { Return "D"; }
+        If (nibble == 14) { Return "E"; }
+        Return "F";
+    }
+
+    Private Function Base64Value(String piece) -> Int {
+        Int digit = This.Digit(piece);
+        If (digit >= 0) { Return digit + 52; }
+        If (piece == "+") { Return 62; }
+        If (piece == "/") { Return 63; }
+        Int code = piece.GetChar(0).ToInt();
+        If (code >= 65 && code <= 90) { Return code - 65; }
+        If (code >= 97 && code <= 122) { Return code - 97 + 26; }
+        Return -1;
+    }
+
+    Private Function Base64Char(Int value) -> String {
+        If (value < 26) { Return This.Letter(value, 65); }
+        If (value < 52) { Return This.Letter(value - 26, 97); }
+        If (value < 62) { Return (value - 52).ToString(); }
+        If (value == 62) { Return "+"; }
+        Return "/";
+    }
+
+    Private Function Base32Value(String piece) -> Int {
+        If (piece == "2") { Return 26; }
+        If (piece == "3") { Return 27; }
+        If (piece == "4") { Return 28; }
+        If (piece == "5") { Return 29; }
+        If (piece == "6") { Return 30; }
+        If (piece == "7") { Return 31; }
+        Int code = piece.GetChar(0).ToInt();
+        If (code >= 65 && code <= 90) { Return code - 65; }
+        If (code >= 97 && code <= 122) { Return code - 97; }
+        Return -1;
+    }
+
+    Private Function Base32Char(Int value) -> String {
+        If (value < 26) { Return This.Letter(value, 65); }
+        Return (value - 24).ToString();
+    }
+
+    Private Function Letter(Int offset, Int origin) -> String {
+        Int code = origin + offset;
+        If (code == 65) { Return "A"; }
+        If (code == 66) { Return "B"; }
+        If (code == 67) { Return "C"; }
+        If (code == 68) { Return "D"; }
+        If (code == 69) { Return "E"; }
+        If (code == 70) { Return "F"; }
+        If (code == 71) { Return "G"; }
+        If (code == 72) { Return "H"; }
+        If (code == 73) { Return "I"; }
+        If (code == 74) { Return "J"; }
+        If (code == 75) { Return "K"; }
+        If (code == 76) { Return "L"; }
+        If (code == 77) { Return "M"; }
+        If (code == 78) { Return "N"; }
+        If (code == 79) { Return "O"; }
+        If (code == 80) { Return "P"; }
+        If (code == 81) { Return "Q"; }
+        If (code == 82) { Return "R"; }
+        If (code == 83) { Return "S"; }
+        If (code == 84) { Return "T"; }
+        If (code == 85) { Return "U"; }
+        If (code == 86) { Return "V"; }
+        If (code == 87) { Return "W"; }
+        If (code == 88) { Return "X"; }
+        If (code == 89) { Return "Y"; }
+        If (code == 90) { Return "Z"; }
+        If (code == 97) { Return "a"; }
+        If (code == 98) { Return "b"; }
+        If (code == 99) { Return "c"; }
+        If (code == 100) { Return "d"; }
+        If (code == 101) { Return "e"; }
+        If (code == 102) { Return "f"; }
+        If (code == 103) { Return "g"; }
+        If (code == 104) { Return "h"; }
+        If (code == 105) { Return "i"; }
+        If (code == 106) { Return "j"; }
+        If (code == 107) { Return "k"; }
+        If (code == 108) { Return "l"; }
+        If (code == 109) { Return "m"; }
+        If (code == 110) { Return "n"; }
+        If (code == 111) { Return "o"; }
+        If (code == 112) { Return "p"; }
+        If (code == 113) { Return "q"; }
+        If (code == 114) { Return "r"; }
+        If (code == 115) { Return "s"; }
+        If (code == 116) { Return "t"; }
+        If (code == 117) { Return "u"; }
+        If (code == 118) { Return "v"; }
+        If (code == 119) { Return "w"; }
+        If (code == 120) { Return "x"; }
+        If (code == 121) { Return "y"; }
+        Return "z";
+    }
+}

@@ -185,10 +185,10 @@ Public Class Interpreter {
 
     Public Function RequireTests(String sourcePath, AstNode module) -> List<String>
     Explain {
-        Description: "Require a companion test file and run its function tests.";
+        Description: "Run the companion tests for a source file.";
         Input: sourcePath = "Source file path", module = "Parsed source module";
-        Processing: "The interpreter ignores a missing companion. The compiler reports a missing file or a function without a test, then runs every test.";
-        Output: "Error lines. An empty list means the tests passed or this run is not enforcing them.";
+        Processing: "The interpreter ignores a missing companion and a function that has no test. When the companion exists, it runs every test. The compiler reports missing tests itself.";
+        Output: "Error lines from tests that ran. An empty list means nothing failed or there was nothing to run.";
     } {
         Var errors = List<String>();
         If (sourcePath.EndsWith(".test.rx") || !sourcePath.EndsWith(".rx")) {
@@ -196,7 +196,6 @@ Public Class Interpreter {
         }
         String companion = sourcePath.Substring(0, sourcePath.Length() - 3) + ".test.rx";
         If (!Files.Exists(companion)) {
-            errors.Add("error RX120 " + sourcePath + " requires " + companion + ".");
             Return errors;
         }
         DiagnosticBag diagnostics = DiagnosticBag();
@@ -207,18 +206,6 @@ Public Class Interpreter {
             For item In diagnostics.All() {
                 errors.Add(FormatDiagnostic(item));
             }
-            Return errors;
-        }
-        Var functions = List<String>();
-        This.CollectTestNames(module, AstKind.Function, functions);
-        Var covered = List<String>();
-        This.CollectTestNames(tests, AstKind.Test, covered);
-        For name In functions {
-            If (!This.HasTestName(covered, name)) {
-                errors.Add("error RX120 " + companion + " has no test for '" + name + "'.");
-            }
-        }
-        If (errors.Count() > 0) {
             Return errors;
         }
         This.PushScope();

@@ -1,0 +1,1404 @@
+// Robix.Math.Optimization: exact integer minimization, linear programs, and Pareto fronts.
+Package Robix.Math.Optimization;
+
+Import Robix.Core;
+
+
+Class OptimizationDesk {
+    Private Array<Int> history;
+    Private Int historyCount;
+    Private Int iterations;
+    Private Int sense;
+    Private Int shapeCode;
+    Private Int lowerBound;
+    Private Int upperBound;
+    Private Int guess;
+    Private Int variables;
+    Private Int constraints;
+    Private Int tolerance;
+    Private Int rate;
+    Private Int bestX;
+    Private Int bestY;
+    Private Int optimum;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        history = [0, 0, 0, 0, 0, 0, 0, 0];
+        historyCount = 0;
+        iterations = 0;
+        sense = 0;
+        shapeCode = 0;
+        lowerBound = 0;
+        upperBound = 0;
+        guess = 0;
+        variables = 0;
+        constraints = 0;
+        tolerance = 0;
+        rate = 1;
+        bestX = 0;
+        bestY = 0;
+        optimum = 0;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function CreateProblem(Int shape) -> Int
+    Explain {
+        Description: "Store a minimization problem for a sample objective.";
+        Input: shape = "0 x squared, 1 (x-3) squared, 2 6x-x squared, 3 absolute distance from 3";
+        Processing: "Remember the shape and clear the stored bounds.";
+        Output: "One when the shape is known, otherwise zero.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        shapeCode = shape;
+        sense = 0;
+        lowerBound = 0;
+        upperBound = 0;
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function CreateMinimizationProblem(Int shape) -> Int
+    Explain {
+        Description: "Store a minimization problem.";
+        Input: shape = "Sample objective";
+        Processing: "Remember the shape with a minimizing sense.";
+        Output: "One when the shape is known, otherwise zero.";
+    } {
+        Return This.CreateProblem(shape);
+    }
+
+    Public Function CreateMaximizationProblem(Int shape) -> Int
+    Explain {
+        Description: "Store a maximization problem.";
+        Input: shape = "Sample objective";
+        Processing: "Remember the shape with a maximizing sense.";
+        Output: "One when the shape is known, otherwise zero.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        shapeCode = shape;
+        sense = 1;
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function AddVariable(Int lower) -> Int
+    Explain {
+        Description: "Add one bounded variable slot.";
+        Input: lower = "Lower bound remembered as the initial guess";
+        Processing: "Count the variable and keep the latest lower bound.";
+        Output: "The number of variables stored on this desk.";
+    } {
+        variables = variables + 1;
+        guess = lower;
+        problem = "none";
+        Return variables;
+    }
+
+    Public Function AddConstraint(Int limit) -> Int
+    Explain {
+        Description: "Record one constraint limit.";
+        Input: limit = "A right-hand side";
+        Processing: "Count the constraint and keep the latest limit.";
+        Output: "The number of constraints stored on this desk.";
+    } {
+        constraints = constraints + 1;
+        optimum = limit;
+        problem = "none";
+        Return constraints;
+    }
+
+    Public Function SetBounds(Int lower, Int upper) -> Int
+    Explain {
+        Description: "Store an inclusive search interval.";
+        Input: lower = "Lower bound", upper = "Upper bound";
+        Processing: "Reject an interval whose lower bound is above its upper bound.";
+        Output: "One when the interval is ordered, otherwise zero.";
+    } {
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        lowerBound = lower;
+        upperBound = upper;
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function SetInitialGuess(Int value) -> Int
+    Explain {
+        Description: "Store a starting parameter.";
+        Input: value = "Initial guess";
+        Processing: "Remember the guess.";
+        Output: "The stored guess.";
+    } {
+        guess = value;
+        problem = "none";
+        Return guess;
+    }
+
+    Public Function SetObjective(Int shape) -> Int
+    Explain {
+        Description: "Replace the stored objective.";
+        Input: shape = "Sample objective";
+        Processing: "Remember the shape when it is known.";
+        Output: "The shape, or zero when it is unknown.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        shapeCode = shape;
+        problem = "none";
+        Return shape;
+    }
+
+    Public Function ValidateProblem(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Check that a sample problem is ready to solve.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Require a known shape and an ordered interval.";
+        Output: "One when the problem is valid, otherwise zero.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function Minimize(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Minimize a sample objective on an integer interval.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan the interval and keep the smallest value.";
+        Output: "The minimizing parameter.";
+    } {
+        Return This.ArgMin(shape, lower, upper);
+    }
+
+    Public Function Maximize(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Maximize a sample objective on an integer interval.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan the interval and keep the largest value.";
+        Output: "The maximizing parameter.";
+    } {
+        Return This.ArgMax(shape, lower, upper);
+    }
+
+    Public Function Optimize(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Solve a sample problem by exhaustive integer search.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Minimize when the stored sense is zero and maximize otherwise.";
+        Output: "The optimal parameter.";
+    } {
+        If (sense == 1) { Return This.ArgMax(shape, lower, upper); }
+        Return This.ArgMin(shape, lower, upper);
+    }
+
+    Public Function OptimizeAsync(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Solve a sample problem and return the same exact result as the synchronous solver.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Use the synchronous integer search.";
+        Output: "The optimal parameter.";
+    } {
+        Return This.Optimize(shape, lower, upper);
+    }
+
+    Public Function FindMinimum(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find a minimizing parameter.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan the interval.";
+        Output: "The minimizing parameter.";
+    } {
+        Return This.ArgMin(shape, lower, upper);
+    }
+
+    Public Function FindMaximum(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find a maximizing parameter.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan the interval.";
+        Output: "The maximizing parameter.";
+    } {
+        Return This.ArgMax(shape, lower, upper);
+    }
+
+    Public Function FindGlobalMinimum(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find the global integer minimum on a bounded interval.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan every integer in the interval.";
+        Output: "The minimizing parameter.";
+    } {
+        Return This.ArgMin(shape, lower, upper);
+    }
+
+    Public Function FindGlobalMaximum(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find the global integer maximum on a bounded interval.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan every integer in the interval.";
+        Output: "The maximizing parameter.";
+    } {
+        Return This.ArgMax(shape, lower, upper);
+    }
+
+    Public Function GradientDescent(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Walk opposite the gradient by an integer learning rate.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "Step opposite the slope and snap to the stationary point when a step would cross it.";
+        Output: "The parameter where the slope is zero, or the last point.";
+    } {
+        Return This.Walk(shape, start, learningRate);
+    }
+
+    Public Function StochasticGradientDescent(Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Descend on the mean of the fixed samples 0, 2, 4, and 6.";
+        Input: start = "Initial parameter", learningRate = "Positive step";
+        Processing: "The sample mean is 3, so the loss is (x-3) squared.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.Walk(1, start, learningRate);
+    }
+
+    Public Function MiniBatchGradientDescent(Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Descend on the mean of the mini-batch 0 and 2.";
+        Input: start = "Initial parameter", learningRate = "Positive step";
+        Processing: "The batch mean is 1. Step toward that target.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.Approach(1, start, learningRate);
+    }
+
+    Public Function Momentum(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Step opposite the slope, using the slope as the momentum velocity.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "On these quadratics the velocity sign matches the gradient sign.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.Walk(shape, start, learningRate);
+    }
+
+    Public Function AdaGrad(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Descend while recording squared gradients.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "The accepted integer step stays the learning rate on these quadratics.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.Walk(shape, start, learningRate);
+    }
+
+    Public Function RMSProp(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Descend with a fixed integer step on a smooth quadratic.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "Step opposite the slope and snap across the stationary point.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.Walk(shape, start, learningRate);
+    }
+
+    Public Function Adam(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Descend with a fixed integer step on a smooth quadratic.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "The first moment keeps the sign of the slope, so the step matches gradient descent.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.Walk(shape, start, learningRate);
+    }
+
+    Public Function AdamW(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Descend with zero weight decay.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "Weight decay is zero, so the walk matches Adam.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.Walk(shape, start, learningRate);
+    }
+
+    Public Function BFGS(Int shape, Int start) -> Int
+    Explain {
+        Description: "Take the exact Newton step when the curvature divides the slope.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "A one-dimensional quadratic reaches its stationary point in one step.";
+        Output: "The stationary parameter, or zero when the step is not exact.";
+    } {
+        Return This.NewtonMethod(shape, start);
+    }
+
+    Public Function LBFGS(Int shape, Int start) -> Int
+    Explain {
+        Description: "Take the exact Newton step for a one-dimensional quadratic.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "The limited history is the current slope and curvature.";
+        Output: "The stationary parameter, or zero when the step is not exact.";
+    } {
+        Return This.NewtonMethod(shape, start);
+    }
+
+    Public Function NewtonMethod(Int shape, Int start) -> Int
+    Explain {
+        Description: "Apply one Newton step.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "Subtract slope divided by curvature when that quotient is an integer.";
+        Output: "The updated parameter. Zero when the curvature is zero or the quotient is not exact.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int slope = This.Slope(shape, start);
+        Int curve = This.Curve(shape);
+        If (curve == 0) {
+            problem = "singular";
+            last = start;
+            Return start;
+        }
+        Int quote = slope / curve;
+        If (quote * curve != slope) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        last = start - quote;
+        iterations = 1;
+        Return last;
+    }
+
+    Public Function ConjugateGradient(Int shape, Int start) -> Int
+    Explain {
+        Description: "Solve a one-dimensional quadratic by an exact line search along the gradient.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "The exact step is the Newton step.";
+        Output: "The stationary parameter.";
+    } {
+        Return This.NewtonMethod(shape, start);
+    }
+
+    Public Function ComputeGradient(Int shape, Int point) -> Int
+    Explain {
+        Description: "Evaluate the derivative of a sample objective.";
+        Input: shape = "Sample objective", point = "Parameter";
+        Processing: "Use the closed form of the sample.";
+        Output: "The slope, or zero when the shape is unknown.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        problem = "none";
+        Return This.Slope(shape, point);
+    }
+
+    Public Function ComputeHessian(Int shape, Int point) -> Int
+    Explain {
+        Description: "Evaluate the second derivative of a sample objective.";
+        Input: shape = "Sample objective", point = "Parameter";
+        Processing: "Use the closed form of the sample.";
+        Output: "The curvature, or zero when the shape is unknown.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        problem = "none";
+        Return This.Curve(shape, point);
+    }
+
+    Public Function ComputeJacobian(Int shape, Int point) -> Int
+    Explain {
+        Description: "Evaluate the scalar Jacobian of a sample objective.";
+        Input: shape = "Sample objective", point = "Parameter";
+        Processing: "The scalar Jacobian is the slope.";
+        Output: "The slope.";
+    } {
+        Return This.ComputeGradient(shape, point);
+    }
+
+    Public Function LineSearch(Int shape, Int point, Int direction) -> Int
+    Explain {
+        Description: "Search integer steps along a direction.";
+        Input: shape = "Sample objective", point = "Start", direction = "Step direction";
+        Processing: "Try steps 0 through 16 and keep the lowest value.";
+        Output: "The best step, or zero when the direction is zero.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (direction == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int bestStep = 0;
+        Int best = This.Value(shape, point);
+        Int step = 1;
+        While (step <= 16) {
+            Int value = This.Value(shape, point + step * direction);
+            If (value < best) {
+                best = value;
+                bestStep = step;
+            }
+            step = step + 1;
+        }
+        problem = "none";
+        last = bestStep;
+        Return bestStep;
+    }
+
+    Public Function BacktrackingLineSearch(Int shape, Int point, Int direction) -> Int
+    Explain {
+        Description: "Halve a trial step until the objective decreases.";
+        Input: shape = "Sample objective", point = "Start", direction = "Step direction";
+        Processing: "Start at step 8 and halve it while the trial value is not strictly smaller.";
+        Output: "The accepted step, or zero when no step improves the value.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (direction == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int base = This.Value(shape, point);
+        Int step = 8;
+        While (step > 0) {
+            Int value = This.Value(shape, point + step * direction);
+            If (value < base) {
+                problem = "none";
+                last = step;
+                Return step;
+            }
+            step = step / 2;
+        }
+        problem = "exact";
+        Return 0;
+    }
+
+    Public Function GoldenSectionSearch(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Shrink a unimodal bracket by integer thirds.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Compare the one-third and two-third points, then scan the final bracket.";
+        Output: "The minimizing parameter inside the final bracket.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int left = lower;
+        Int right = upper;
+        Int guard = 0;
+        While (guard < 32 && right - left > 1) {
+            Int span = right - left;
+            Int lowProbe = left + span / 3;
+            Int highProbe = right - span / 3;
+            If (lowProbe >= highProbe) { guard = 32; }
+            If (lowProbe < highProbe) {
+                Int nextLeft = left;
+                Int nextRight = right;
+                If (This.Value(shape, lowProbe) <= This.Value(shape, highProbe)) { nextRight = highProbe; }
+                If (This.Value(shape, lowProbe) > This.Value(shape, highProbe)) { nextLeft = lowProbe; }
+                If (nextLeft == left && nextRight == right) { guard = 32; }
+                If (nextLeft != left || nextRight != right) {
+                    left = nextLeft;
+                    right = nextRight;
+                }
+            }
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return This.ArgMin(shape, left, right);
+    }
+
+    Public Function BrentSearch(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Use the exact vertex when it lies inside the bracket.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Accept the stationary point of a convex quadratic. Otherwise scan the bracket.";
+        Output: "The minimizing parameter.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int curve = This.Curve(shape);
+        Int vertex = This.Stationary(shape);
+        If (curve > 0 && vertex >= lower && vertex <= upper) {
+            problem = "none";
+            last = vertex;
+            optimum = This.Value(shape, vertex);
+            Return vertex;
+        }
+        Return This.ArgMin(shape, lower, upper);
+    }
+
+    Public Function CoordinateSearch(Int shape, Int start) -> Int
+    Explain {
+        Description: "Move one integer at a time while the value decreases.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "Step opposite the slope until the value stops decreasing.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.CoordinateDescent(shape, start);
+    }
+
+    Public Function EstimateOptimalStepSize(Int shape, Int point) -> Int
+    Explain {
+        Description: "Measure the integer distance to the stationary point.";
+        Input: shape = "Sample objective", point = "Current parameter";
+        Processing: "Subtract the parameter from the closed-form stationary point.";
+        Output: "The absolute distance, or zero when the shape is unknown.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int gap = This.Stationary(shape) - point;
+        If (gap < 0) { gap = 0 - gap; }
+        problem = "none";
+        Return gap;
+    }
+
+    Public Function NelderMead(Int shape, Int start) -> Int
+    Explain {
+        Description: "Reflect the worse endpoint of a two-point simplex.";
+        Input: shape = "Sample objective", start = "First simplex point";
+        Processing: "Reflect while that improves the worse point, otherwise contract.";
+        Output: "The better simplex point.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int left = start;
+        Int right = start + 1;
+        Int guard = 0;
+        While (guard < 24) {
+            Int best = left;
+            Int worst = right;
+            If (This.Value(shape, right) < This.Value(shape, left)) {
+                best = right;
+                worst = left;
+            }
+            Int reflected = best + best - worst;
+            If (This.Value(shape, reflected) < This.Value(shape, worst)) {
+                If (worst == left) { left = reflected; }
+                If (worst == right) { right = reflected; }
+            }
+            If (This.Value(shape, reflected) >= This.Value(shape, worst)) {
+                Int distance = best - worst;
+                If (distance < 0) { distance = 0 - distance; }
+                If (distance <= 1) {
+                    problem = "none";
+                    last = best;
+                    Return best;
+                }
+                Int mid = worst + distance / 2;
+                If (best < worst) { mid = best + distance / 2; }
+                If (mid == worst || mid == best) {
+                    problem = "none";
+                    last = best;
+                    Return best;
+                }
+                If (worst == left) { left = mid; }
+                If (worst == right) { right = mid; }
+            }
+            guard = guard + 1;
+        }
+        problem = "exact";
+        Return left;
+    }
+
+    Public Function Powell(Int shape, Int start) -> Int
+    Explain {
+        Description: "Search along the single coordinate axis.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "Use coordinate descent.";
+        Output: "The parameter reached from the start.";
+    } {
+        Return This.CoordinateDescent(shape, start);
+    }
+
+    Public Function SimulatedAnnealing(Int shape, Int start) -> Int
+    Explain {
+        Description: "Cool a deterministic downhill walk.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "Accept a neighbor only when it does not increase the value.";
+        Output: "The parameter reached from the start.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int x = start;
+        Int temperature = 8;
+        Int guard = 0;
+        While (guard < 32) {
+            If (This.Slope(shape, x) == 0) {
+                problem = "none";
+                last = x;
+                iterations = guard;
+                Return x;
+            }
+            Int next = x + 1;
+            If (This.Slope(shape, x) > 0) { next = x - 1; }
+            If (This.Value(shape, next) <= This.Value(shape, x)) { x = next; }
+            If (temperature > 0) { temperature = temperature - 1; }
+            guard = guard + 1;
+        }
+        problem = "exact";
+        last = x;
+        Return x;
+    }
+
+    Public Function GeneticOptimize(Int shape) -> Int
+    Explain {
+        Description: "Pick the best member of the population 0 through 7.";
+        Input: shape = "Sample objective";
+        Processing: "Score each of the eight candidates.";
+        Output: "The candidate with the smallest value.";
+    } {
+        Return This.PopulationBest(shape);
+    }
+
+    Public Function ParticleSwarmOptimize(Int shape) -> Int
+    Explain {
+        Description: "Return the best particle on the grid 0 through 7.";
+        Input: shape = "Sample objective";
+        Processing: "The swarm's global best is the lowest sample value.";
+        Output: "The best particle.";
+    } {
+        Return This.PopulationBest(shape);
+    }
+
+    Public Function DifferentialEvolution(Int shape) -> Int
+    Explain {
+        Description: "Return the best individual on the grid 0 through 7.";
+        Input: shape = "Sample objective";
+        Processing: "Score the eight candidates.";
+        Output: "The best individual.";
+    } {
+        Return This.PopulationBest(shape);
+    }
+
+    Public Function BayesianOptimize(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Search an integer grid for the lowest sample.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Observe every integer in the interval.";
+        Output: "The minimizing parameter.";
+    } {
+        Return This.ArgMin(shape, lower, upper);
+    }
+
+    Public Function EvolutionStrategy(Int shape) -> Int
+    Explain {
+        Description: "Select the best of eight integer candidates.";
+        Input: shape = "Sample objective";
+        Processing: "Score the population 0 through 7.";
+        Output: "The best candidate.";
+    } {
+        Return This.PopulationBest(shape);
+    }
+
+    Public Function SolveLinearProgram(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Maximize cx x + cy y on the standard two-variable program.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Search x and y from 0 through 6 with x+y <= 4 and 2x+y <= 6.";
+        Output: "The optimal objective.";
+    } {
+        Return This.BestLinear(cx, cy);
+    }
+
+    Public Function SolveQuadraticProgram(Int targetX, Int targetY) -> Int
+    Explain {
+        Description: "Minimize squared distance to a target on x+y >= 5.";
+        Input: targetX = "Target x", targetY = "Target y";
+        Processing: "Search the integer box 0 through 6 and keep the closest feasible point.";
+        Output: "The smallest squared distance.";
+    } {
+        Int found = 0;
+        Int best = 0;
+        Int x = 0;
+        bestX = 0;
+        bestY = 0;
+        While (x <= 6) {
+            Int y = 0;
+            While (y <= 6) {
+                If (x + y >= 5) {
+                    Int dx = x - targetX;
+                    Int dy = y - targetY;
+                    Int cost = dx * dx + dy * dy;
+                    If (found == 0 || cost < best) {
+                        found = 1;
+                        best = cost;
+                        bestX = x;
+                        bestY = y;
+                    }
+                }
+                y = y + 1;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        problem = "none";
+        Return best;
+    }
+
+    Public Function SolveIntegerProgram(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Solve the standard program on the integer grid.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Every feasible vertex of this program is an integer, so the search is exact.";
+        Output: "The optimal objective.";
+    } {
+        Return This.BestLinear(cx, cy);
+    }
+
+    Public Function SolveMixedIntegerProgram(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Solve the standard program with both variables integral.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Use the same bounded integer search.";
+        Output: "The optimal objective.";
+    } {
+        Return This.BestLinear(cx, cy);
+    }
+
+    Public Function SolveWithConstraints(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Maximize a linear objective on the standard constraint set.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Use the bounded integer search.";
+        Output: "The optimal objective.";
+    } {
+        Return This.BestLinear(cx, cy);
+    }
+
+    Public Function Simplex(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Solve the standard linear program by enumerating its integer vertices.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Keep the feasible point with the largest objective.";
+        Output: "The optimal objective.";
+    } {
+        Return This.BestLinear(cx, cy);
+    }
+
+    Public Function InteriorPoint(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Solve the standard linear program on its integer feasible set.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "The integer optimum is a vertex of this bounded program.";
+        Output: "The optimal objective.";
+    } {
+        Return This.BestLinear(cx, cy);
+    }
+
+    Public Function BranchAndBound(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Solve the standard integer program by a bounded search.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Search every feasible integer in the box.";
+        Output: "The optimal objective.";
+    } {
+        Return This.BestLinear(cx, cy);
+    }
+
+    Public Function ApplyPenaltyFunction(Int shape, Int weight) -> Int
+    Explain {
+        Description: "Minimize a sample plus a penalty for exceeding 2.";
+        Input: shape = "Sample objective", weight = "Penalty weight";
+        Processing: "Add weight times (x-2) squared whenever x is greater than 2, and scan 0 through 6.";
+        Output: "The minimizing parameter.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (weight < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int x = 0;
+        Int bestPoint = 0;
+        Int best = This.Penalized(shape, 0, weight);
+        While (x <= 6) {
+            Int cost = This.Penalized(shape, x, weight);
+            If (cost < best) {
+                best = cost;
+                bestPoint = x;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        last = bestPoint;
+        problem = "none";
+        Return bestPoint;
+    }
+
+    Public Function CheckConstraintSatisfaction(Int x, Int y) -> Int
+    Explain {
+        Description: "Test the standard linear constraints.";
+        Input: x = "First variable", y = "Second variable";
+        Processing: "Require 0 <= x,y <= 6, x+y <= 4, and 2x+y <= 6.";
+        Output: "One when the point is feasible, otherwise zero.";
+    } {
+        problem = "none";
+        Return This.Feasible(x, y);
+    }
+
+    Public Function IsConverged(Int shape, Int point) -> Int
+    Explain {
+        Description: "Report whether the slope is zero.";
+        Input: shape = "Sample objective", point = "Parameter";
+        Processing: "Compare the slope with zero.";
+        Output: "One at a stationary point, otherwise zero.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (This.Slope(shape, point) == 0) {
+            problem = "none";
+            Return 1;
+        }
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function ConvergenceHistory(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Sum the parameters visited by gradient descent.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "Walk opposite the slope and add each accepted parameter.";
+        Output: "The sum of the visited parameters.";
+    } {
+        This.Walk(shape, start, learningRate);
+        Int sum = 0;
+        Int index = 0;
+        While (index < historyCount) {
+            sum = sum + history[index];
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Public Function GetOptimalValue(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Return the smallest sample value on an interval.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan the interval.";
+        Output: "The minimum value.";
+    } {
+        This.ArgMin(shape, lower, upper);
+        Return optimum;
+    }
+
+    Public Function OptimalParameter(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Return the minimizing parameter on an interval.";
+        Input: shape = "Sample objective", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan the interval.";
+        Output: "The minimizing parameter.";
+    } {
+        Return This.ArgMin(shape, lower, upper);
+    }
+
+    Public Function IterationCount(Int shape, Int start, Int learningRate) -> Int
+    Explain {
+        Description: "Count the gradient steps from a start.";
+        Input: shape = "Sample objective", start = "Initial parameter", learningRate = "Positive step";
+        Processing: "Walk opposite the slope.";
+        Output: "The number of accepted steps.";
+    } {
+        This.Walk(shape, start, learningRate);
+        Return iterations;
+    }
+
+    Public Function GetGradientNorm(Int shape, Int point) -> Int
+    Explain {
+        Description: "Return the absolute slope.";
+        Input: shape = "Sample objective", point = "Parameter";
+        Processing: "Take the absolute value of the derivative.";
+        Output: "The absolute slope.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int slope = This.Slope(shape, point);
+        If (slope < 0) { slope = 0 - slope; }
+        problem = "none";
+        Return slope;
+    }
+
+    Public Function EstimateOptimalityGap(Int shape, Int point) -> Int
+    Explain {
+        Description: "Measure the value above the stationary minimum.";
+        Input: shape = "Convex sample 0 or 1", point = "Parameter";
+        Processing: "Subtract the vertex value from the sample value.";
+        Output: "The gap, or zero when the shape is not a convex quadratic.";
+    } {
+        If (shape != 0 && shape != 1) {
+            problem = "shape";
+            Return 0;
+        }
+        Int gap = This.Value(shape, point) - This.Value(shape, This.Stationary(shape));
+        problem = "none";
+        Return gap;
+    }
+
+    Public Function CompareOptimizers(Int shape, Int start) -> Int
+    Explain {
+        Description: "Compare Newton and gradient descent.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "Run both methods. Gradient descent uses learning rate 1.";
+        Output: "One when they return the same parameter, otherwise zero.";
+    } {
+        Int newton = This.NewtonMethod(shape, start);
+        Int walked = This.GradientDescent(shape, start, 1);
+        If (newton == walked) {
+            problem = "none";
+            Return 1;
+        }
+        problem = "exact";
+        Return 0;
+    }
+
+    Public Function ParetoFront(Int lower, Int upper) -> Int
+    Explain {
+        Description: "Count the non-dominated integers for two squared distances.";
+        Input: lower = "Lower candidate", upper = "Upper candidate";
+        Processing: "Minimize (x-1) squared and (x-4) squared together.";
+        Output: "The number of non-dominated candidates.";
+    } {
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int count = 0;
+        Int x = lower;
+        While (x <= upper) {
+            Int dominated = 0;
+            Int y = lower;
+            While (y <= upper) {
+                If (y != x && This.Dominates(y, x) == 1) { dominated = 1; }
+                y = y + 1;
+            }
+            If (dominated == 0) { count = count + 1; }
+            x = x + 1;
+        }
+        problem = "none";
+        last = count;
+        Return count;
+    }
+
+    Public Function NSGA2(Int lower, Int upper) -> Int
+    Explain {
+        Description: "Return the size of the first non-dominated front.";
+        Input: lower = "Lower candidate", upper = "Upper candidate";
+        Processing: "Use the two squared-distance objectives.";
+        Output: "The front size.";
+    } {
+        Return This.ParetoFront(lower, upper);
+    }
+
+    Public Function NSGA3(Int lower, Int upper) -> Int
+    Explain {
+        Description: "Return the size of the first non-dominated front.";
+        Input: lower = "Lower candidate", upper = "Upper candidate";
+        Processing: "Use the two squared-distance objectives.";
+        Output: "The front size.";
+    } {
+        Return This.ParetoFront(lower, upper);
+    }
+
+    Public Function Dominates(Int left, Int right) -> Int
+    Explain {
+        Description: "Test dominance for the two squared-distance objectives.";
+        Input: left = "First candidate", right = "Second candidate";
+        Processing: "Left dominates right when both objectives are no worse and one is better.";
+        Output: "One when left dominates right, otherwise zero.";
+    } {
+        Int leftFirst = This.SquareDistance(left, 1);
+        Int leftSecond = This.SquareDistance(left, 4);
+        Int rightFirst = This.SquareDistance(right, 1);
+        Int rightSecond = This.SquareDistance(right, 4);
+        If (leftFirst <= rightFirst && leftSecond <= rightSecond) {
+            If (leftFirst < rightFirst || leftSecond < rightSecond) {
+                problem = "none";
+                Return 1;
+            }
+        }
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function ObjectiveVector(Int point) -> Int
+    Explain {
+        Description: "Add the two squared-distance objectives.";
+        Input: point = "Candidate";
+        Processing: "Add distance to 1 and distance to 4, both squared.";
+        Output: "The scalarized objective.";
+    } {
+        problem = "none";
+        Return This.SquareDistance(point, 1) + This.SquareDistance(point, 4);
+    }
+
+    Public Function MultiObjectiveOptimize(Int lower, Int upper) -> Int
+    Explain {
+        Description: "Minimize the sum of the two squared-distance objectives.";
+        Input: lower = "Lower candidate", upper = "Upper candidate";
+        Processing: "Scan the interval. Ties keep the smaller parameter.";
+        Output: "The minimizing parameter.";
+    } {
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int bestPoint = lower;
+        Int best = This.ObjectiveVector(lower);
+        Int x = lower + 1;
+        While (x <= upper) {
+            Int value = This.ObjectiveVector(x);
+            If (value < best) {
+                best = value;
+                bestPoint = x;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        last = bestPoint;
+        problem = "none";
+        Return bestPoint;
+    }
+
+    Public Function MinimizeRegularized(Int shape, Int weight, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Minimize a sample plus weight times x squared.";
+        Input: shape = "Sample objective", weight = "Nonnegative weight", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Scan the interval.";
+        Output: "The minimizing parameter.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (weight < 0 || lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int bestPoint = lower;
+        Int best = This.Value(shape, lower) + weight * lower * lower;
+        Int x = lower + 1;
+        While (x <= upper) {
+            Int value = This.Value(shape, x) + weight * x * x;
+            If (value < best) {
+                best = value;
+                bestPoint = x;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        last = bestPoint;
+        problem = "none";
+        Return bestPoint;
+    }
+
+    Public Function OptimalLinearX(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Return the x coordinate of the standard linear program.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Solve the program and read the stored x coordinate.";
+        Output: "The optimal x.";
+    } {
+        This.BestLinear(cx, cy);
+        Return bestX;
+    }
+
+    Public Function OptimalLinearY(Int cx, Int cy) -> Int
+    Explain {
+        Description: "Return the y coordinate of the standard linear program.";
+        Input: cx = "Coefficient of x", cy = "Coefficient of y";
+        Processing: "Solve the program and read the stored y coordinate.";
+        Output: "The optimal y.";
+    } {
+        This.BestLinear(cx, cy);
+        Return bestY;
+    }
+
+    Public Function SetLearningRate(Int learningRate) -> Int
+    Explain {
+        Description: "Store a learning rate.";
+        Input: learningRate = "Positive step";
+        Processing: "Reject a nonpositive rate.";
+        Output: "The stored rate, or zero when it is rejected.";
+    } {
+        If (learningRate <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        rate = learningRate;
+        problem = "none";
+        Return rate;
+    }
+
+    Public Function SetTolerance(Int band) -> Int
+    Explain {
+        Description: "Store a slope tolerance.";
+        Input: band = "Nonnegative tolerance";
+        Processing: "Reject a negative band.";
+        Output: "The stored tolerance, or zero when it is rejected.";
+    } {
+        If (band < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        tolerance = band;
+        problem = "none";
+        Return tolerance;
+    }
+
+    Public Function ConvergedWithin(Int shape, Int point, Int band) -> Int
+    Explain {
+        Description: "Report whether the absolute slope is inside a band.";
+        Input: shape = "Sample objective", point = "Parameter", band = "Nonnegative tolerance";
+        Processing: "Compare the absolute slope with the band.";
+        Output: "One when the slope is inside the band, otherwise zero.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (band < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int slope = This.GetGradientNorm(shape, point);
+        If (slope <= band) { Return 1; }
+        Return 0;
+    }
+
+    Public Function CoordinateDescent(Int shape, Int start) -> Int
+    Explain {
+        Description: "Step by one while the sample value decreases.";
+        Input: shape = "Sample objective", start = "Initial parameter";
+        Processing: "Move opposite the slope.";
+        Output: "The parameter reached from the start.";
+    } {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int x = start;
+        Int guard = 0;
+        While (guard < 32) {
+            Int slope = This.Slope(shape, x);
+            If (slope == 0) {
+                problem = "none";
+                last = x;
+                iterations = guard;
+                Return x;
+            }
+            Int next = x + 1;
+            If (slope > 0) { next = x - 1; }
+            If (This.Value(shape, next) >= This.Value(shape, x)) {
+                problem = "none";
+                last = x;
+                iterations = guard;
+                Return x;
+            }
+            x = next;
+            guard = guard + 1;
+        }
+        problem = "exact";
+        last = x;
+        Return x;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest problem token.";
+        Input: "None";
+        Processing: "Read the stored token.";
+        Output: "none, shape, domain, exact, or singular.";
+    } {
+        Return problem;
+    }
+
+    Private Function Known(Int shape) -> Int {
+        If (shape >= 0 && shape <= 3) { Return 1; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Private Function Value(Int shape, Int x) -> Int {
+        If (shape == 0) { Return x * x; }
+        If (shape == 1) {
+            Int delta = x - 3;
+            Return delta * delta;
+        }
+        If (shape == 2) { Return 6 * x - x * x; }
+        If (shape == 3) {
+            If (x >= 3) { Return x - 3; }
+            Return 3 - x;
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Private Function Slope(Int shape, Int x) -> Int {
+        If (shape == 0) { Return 2 * x; }
+        If (shape == 1) { Return 2 * (x - 3); }
+        If (shape == 2) { Return 6 - 2 * x; }
+        If (shape == 3) {
+            If (x > 3) { Return 1; }
+            If (x < 3) { Return -1; }
+            Return 0;
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Private Function Curve(Int shape) -> Int {
+        If (shape == 0 || shape == 1) { Return 2; }
+        If (shape == 2) { Return -2; }
+        Return 0;
+    }
+
+    Private Function Stationary(Int shape) -> Int {
+        If (shape == 0) { Return 0; }
+        Return 3;
+    }
+
+    Private Function Approach(Int target, Int start, Int learningRate) -> Int {
+        If (learningRate <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int x = start;
+        iterations = 0;
+        historyCount = 0;
+        Int guard = 0;
+        While (guard < 32) {
+            Int slope = 2 * (x - target);
+            If (slope == 0) {
+                problem = "none";
+                last = x;
+                Return x;
+            }
+            Int next = x + learningRate;
+            If (slope > 0) { next = x - learningRate; }
+            Int later = 2 * (next - target);
+            If (slope > 0 && later < 0) { next = target; }
+            If (slope < 0 && later > 0) { next = target; }
+            x = next;
+            If (historyCount < 8) {
+                history[historyCount] = x;
+                historyCount = historyCount + 1;
+            }
+            iterations = iterations + 1;
+            guard = guard + 1;
+        }
+        problem = "exact";
+        last = x;
+        Return x;
+    }
+
+    Private Function Walk(Int shape, Int start, Int learningRate) -> Int {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int target = This.Stationary(shape);
+        If (shape == 2) {
+            problem = "exact";
+            Return start;
+        }
+        Return This.Approach(target, start, learningRate);
+    }
+
+    Private Function ArgMin(Int shape, Int lower, Int upper) -> Int {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int bestPoint = lower;
+        Int best = This.Value(shape, lower);
+        Int x = lower + 1;
+        While (x <= upper) {
+            Int value = This.Value(shape, x);
+            If (value < best) {
+                best = value;
+                bestPoint = x;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        last = bestPoint;
+        problem = "none";
+        Return bestPoint;
+    }
+
+    Private Function ArgMax(Int shape, Int lower, Int upper) -> Int {
+        If (This.Known(shape) == 0) { Return 0; }
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int bestPoint = lower;
+        Int best = This.Value(shape, lower);
+        Int x = lower + 1;
+        While (x <= upper) {
+            Int value = This.Value(shape, x);
+            If (value > best) {
+                best = value;
+                bestPoint = x;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        last = bestPoint;
+        problem = "none";
+        Return bestPoint;
+    }
+
+    Private Function PopulationBest(Int shape) -> Int {
+        If (This.Known(shape) == 0) { Return 0; }
+        Int bestPoint = 0;
+        Int best = This.Value(shape, 0);
+        Int x = 1;
+        While (x < 8) {
+            Int value = This.Value(shape, x);
+            If (value < best) {
+                best = value;
+                bestPoint = x;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        last = bestPoint;
+        problem = "none";
+        Return bestPoint;
+    }
+
+    Private Function Feasible(Int x, Int y) -> Int {
+        If (x < 0 || y < 0 || x > 6 || y > 6) { Return 0; }
+        If (x + y > 4) { Return 0; }
+        If (2 * x + y > 6) { Return 0; }
+        Return 1;
+    }
+
+    Private Function BestLinear(Int cx, Int cy) -> Int {
+        Int best = 0;
+        bestX = 0;
+        bestY = 0;
+        Int x = 0;
+        While (x <= 6) {
+            Int y = 0;
+            While (y <= 6) {
+                If (This.Feasible(x, y) == 1) {
+                    Int value = cx * x + cy * y;
+                    If (value > best) {
+                        best = value;
+                        bestX = x;
+                        bestY = y;
+                    }
+                }
+                y = y + 1;
+            }
+            x = x + 1;
+        }
+        optimum = best;
+        problem = "none";
+        Return best;
+    }
+
+    Private Function Penalized(Int shape, Int x, Int weight) -> Int {
+        Int cost = This.Value(shape, x);
+        If (x > 2) {
+            Int over = x - 2;
+            cost = cost + weight * over * over;
+        }
+        Return cost;
+    }
+
+    Private Function SquareDistance(Int point, Int center) -> Int {
+        Int delta = point - center;
+        Return delta * delta;
+    }
+}

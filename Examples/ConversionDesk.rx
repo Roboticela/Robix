@@ -1,0 +1,87 @@
+// Robix.Conversions: widths, text, bases, and registered converters.
+Package Robotics.ConversionDesk;
+
+Import Robix.Core;
+Import Robix.Conversions;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise width, text, and base conversions.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the conversions desk.";
+    Output: "The conversion report.";
+} {
+    ConversionsDesk desk = ConversionsDesk();
+    Print(desk.SetOverflow(1));
+    Print(desk.SetRounding(0));
+    Print(desk.ToByte(300));
+    Print(desk.ToSByte(200));
+    Print(desk.ToInt16(40000));
+    Print(desk.ToUInt16(-1));
+    Print(desk.ToInt32(42));
+    Print(desk.ToUInt32(42));
+    Print(desk.ToInt64(42));
+    Print(desk.ToUInt64(-3));
+    Print(desk.ToInt128(42));
+    Print(desk.ToUInt128(42));
+    Print(desk.ToFloat32(42));
+    Print(desk.ToFloat64(42));
+    Print(desk.ToDecimal(19));
+    Print(desk.ToBigInteger(19));
+    Print(desk.ToBigDecimal(19));
+    Print(desk.ConvertSaturating(300, 0));
+    Print(desk.ConvertTruncating(300, 0));
+    Print(desk.ConvertChecked(300, 0));
+    Print(desk.ConvertOrDefault(300, 0, 7));
+    Print(desk.TryConvert(20, 0));
+    Print(desk.CanConvert(0, 2));
+    Print(desk.GetConversion(0, 2));
+    Print(desk.ToText(42));
+    Print(desk.ToChar(65));
+    Print(desk.ToBoolean(1));
+    Print(desk.ParseInteger("-42"));
+    Print(desk.ParseDecimal("1.50"));
+    Print(desk.ParseFloatingPoint("2.5"));
+    Print(desk.ParseBoolean("yes"));
+    Print(desk.ParseDateTime("2026-11-27"));
+    Print(desk.ToDateTime(20261127));
+    Print(desk.ToTimeSpan("1:30"));
+    Print(desk.ParseGuid("AABBCCDD"));
+    Print(desk.ToGuid(255));
+    Print(desk.RegisterEnum(1, "yes"));
+    Print(desk.ParseEnum("yes"));
+    Print(desk.ToEnum(1));
+    Print(desk.ToBinary(13));
+    Print(desk.FromBinary("1101"));
+    Print(desk.ToHex(255));
+    Print(desk.FromHex("ff"));
+    Print(desk.ToBase16(255));
+    Print(desk.FromBase16("10"));
+    Print(desk.ToBase64(65));
+    Print(desk.FromBase64("QQ=="));
+    Print(desk.ToBase32(65));
+    Print(desk.FromBase32("IE"));
+    Print(desk.ToBytes(300));
+    Print(desk.FromBytes(44, 1));
+    Print(desk.SetItem(0, 300));
+    Print(desk.SetItem(1, 20));
+    Print(desk.ToArray());
+    Print(desk.ToList());
+    Print(desk.ToDictionary());
+    Print(desk.ConvertCollection(0));
+    Print(desk.ItemAt(0));
+    Print(desk.ToNullable(5));
+    Print(desk.ToNonNullable(5, -1));
+    Print(desk.ToNonNullable(-1, -1));
+    Print(desk.ToUnit(1000, 1, 100));
+    Print(desk.ConvertObject(42, 0));
+    Print(desk.RegisterConverter(8, 9));
+    Print(desk.FindConverter(8, 9));
+    Print(desk.GetConversionPath(8, 9));
+    Print(desk.ValidateConversion(20, 0));
+    Print(desk.ListConverters());
+    Print(desk.UnregisterConverter(8, 9));
+    Print(desk.Fault());
+    Return 0;
+}

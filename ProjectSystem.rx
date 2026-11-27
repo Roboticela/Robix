@@ -86,7 +86,7 @@ Public Class ProjectEngine {
             Return This.Report(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("{accent}Robix{/} {muted}0.0.39{/}");
+            Print("{accent}Robix{/} {muted}0.0.40{/}");
             Return This.Report(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
@@ -544,10 +544,18 @@ Public Class ProjectEngine {
                 ok = False;
             } Else {
                 Print("Checking " + relative);
-                Interpreter tests = Interpreter();
-                For line In tests.RequireTests(full, result.Module) {
-                    Print(line);
+                DiagnosticBag coverage = DiagnosticBag();
+                compiler.RequireFunctionTests(full, result.Module, coverage);
+                For item In coverage.All() {
+                    Print(FormatDiagnostic(item));
                     failed = True;
+                }
+                If (!failed) {
+                    Interpreter tests = Interpreter();
+                    For line In tests.RequireTests(full, result.Module) {
+                        Print(line);
+                        failed = True;
+                    }
                 }
                 If (failed) {
                     This.Diagnostics.Add(relative + " failed its function tests.");

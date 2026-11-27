@@ -28,8 +28,8 @@ Public Class SyntaxCompiler {
     Public Function CompileSource(String source, String fileName, Bool compile) -> CompileResult
     Explain {
         Description: "Lex, parse, name-check, and type-check Robix source.";
-        Input: source = "Robix source text", fileName = "File name used for naming diagnostics", compile = "True to emit a package image";
-        Processing: "Parse the syntax and apply the always-strict type rules. Emit a package when compile is true.";
+        Input: source = "Robix source text", fileName = "File name used for naming diagnostics", compile = "True to emit a package image and require a test for every function";
+        Processing: "Parse the syntax and apply the always-strict type rules. When compile is true, require a companion test for every function, then emit a package. The interpreter leaves compile false and ignores missing tests.";
         Output: "The module, diagnostics outcome, and package bytes when compilation succeeds.";
     } {
         DiagnosticBag diagnostics = DiagnosticBag();
@@ -45,6 +45,9 @@ Public Class SyntaxCompiler {
             names.Check(module, fileName);
             TypeChecker types = TypeChecker(diagnostics);
             types.Check(module);
+        }
+        If (compile && diagnostics.SyntaxErrorCount() == 0) {
+            This.RequireFunctionTests(fileName, module, diagnostics);
         }
         result.Module = module;
         result.SyntaxErrors = diagnostics.SyntaxErrorCount();
@@ -109,6 +112,83 @@ Public Class SyntaxCompiler {
         result.Module.Number = diagnostics.Count();
         This.AttachDiagnostics(result.Module, diagnostics);
         Return result;
+    }
+
+    Public Function RequireFunctionTests(String fileName, AstNode module, DiagnosticBag diagnostics) -> Void
+    Explain {
+        Description: "Require every function in a compiled file to have its own test.";
+        Input: fileName = "Source path ending in .rx", module = "Parsed module", diagnostics = "Bag that receives RX120 errors";
+        Processing: "The compiler reports a missing companion or a function with no matching Test. Test files are skipped. The interpreter does not call this.";
+        Output: "No return value. Errors are stored in diagnostics.";
+    } {
+        If (!fileName.EndsWith(".rx") || fileName.EndsWith(".test.rx")) {
+            Return;
+        }
+        String companion = fileName.Substring(0, fileName.Length() - 3) + ".test.rx";
+        If (!Files.Exists(companion)) {
+            diagnostics.Error("RX120", fileName + " requires " + companion + ".", 1, 1);
+            Return;
+        }
+        DiagnosticBag parsed = DiagnosticBag();
+        Lexer lexer = Lexer(Files.ReadText(companion), parsed);
+        Parser parser = Parser(lexer.Tokenize(), parsed);
+        AstNode tests = parser.Parse();
+        If (parsed.ErrorCount() > 0) {
+            For item In parsed.All() {
+                If (item.Severity == DiagnosticSeverity.Error) {
+                    diagnostics.Error("RX120", companion + " " + item.Message, item.Line, item.Column);
+                }
+            }
+            Return;
+        }
+        Var covered = List<String>();
+        This.CollectTestCoverage(tests, covered);
+        This.ReportUntestedFunctions(module, covered, companion, diagnostics);
+    }
+
+    Private Function CollectTestCoverage(AstNode node, List<String> covered) -> Void {
+        If (node.Kind == AstKind.Test && node.Name != "" && !This.CoverageListed(covered, node.Name)) {
+            covered.Add(node.Name);
+        }
+        For child In node.Children {
+            This.CollectTestCoverage(child, covered);
+        }
+        If (node.Body != Null) {
+            This.CollectTestCoverage(node.Body, covered);
+        }
+    }
+
+    Private Function CoverageListed(List<String> covered, String name) -> Bool {
+        For existing In covered {
+            If (existing == name) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function ReportUntestedFunctions(AstNode node, List<String> covered, String companion, DiagnosticBag diagnostics) -> Void {
+        If (This.ImportedDeclaration(node)) {
+            Return;
+        }
+        If (node.Kind == AstKind.Function && node.Name != "" && !This.CoverageListed(covered, node.Name)) {
+            Int line = node.Line;
+            Int column = node.Column;
+            If (line < 1) { line = 1; }
+            If (column < 1) { column = 1; }
+            diagnostics.Error("RX120", companion + " has no test for '" + node.Name + "'.", line, column);
+        }
+        For child In node.Children {
+            This.ReportUntestedFunctions(child, covered, companion, diagnostics);
+        }
+        If (node.Body != Null) {
+            This.ReportUntestedFunctions(node.Body, covered, companion, diagnostics);
+        }
+    }
+
+    Private Function ImportedDeclaration(AstNode node) -> Bool {
+        For modifier In node.Modifiers {
+            If (modifier == "Imported") { Return True; }
+        }
+        Return False;
     }
 
     Public Function DiagnosticsOf(CompileResult result) -> List<String>
