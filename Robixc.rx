@@ -10,6 +10,7 @@ Import Robix.Runtime;
 
 Private Extern Function ClockMillis() -> Int;
 Private Extern Function ToolchainPath() -> String;
+Private Extern Function ParallelRun(String script) -> String;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
@@ -162,6 +163,26 @@ Explain {
     If (assembler == "" && !analyze) {
         Return FinishRun(ExitCode.ErrorExecution, "The assembler does not encode " + target + " yet.");
     }
+    If (parallel) {
+        String units = ListedSources(args);
+        If (CountLines(units) <= 1) {
+            String projectPath = "";
+            If (source.EndsWith(".rxp")) { projectPath = source; }
+            If (projectPath == "" && (kind == "build" || kind == "rebuild")) { projectPath = CompilerProject(); }
+            If (projectPath != "" && Files.Exists(projectPath)) { units = ProjectUnits(Files.ReadText(projectPath)); }
+        }
+        If (CountLines(units) > 1) {
+            String flags = "";
+            If (skipTests) { flags = flags + " --SkipTests"; }
+            If (noCache) { flags = flags + " --NoCache"; }
+            If (!optimize) { flags = flags + " --Debug"; }
+            If (writeSymbols) { flags = flags + " --Symbols"; }
+            If (mode == "asm") { flags = flags + " --Asm"; }
+            If (mode == "ir") { flags = flags + " --Ir"; }
+            If (analyze) { flags = flags + " --Analyze"; }
+            Return CompileTogether(units, target, flags);
+        }
+    }
     Return CompileUnit(source, output, assembler, mode, skipTests, noCache, optimize, showStats, profileBuild, analyze, parallel, writeSymbols);
 }
 
@@ -240,7 +261,7 @@ Explain {
     Processing: "List compile, output, and target commands in PascalCase.";
     Output: "The help text.";
 } {
-    Return "{blue}ROBIXC{/}\nNative compiler and linker\n\n{blue}USAGE{/}\n  Robixc [Command] [File] [Options]\n\n{blue}COMPILE{/}\n  Robixc Main.rx                 Compile one file and its imports\n  Robixc Compile Main.rx         Same compile\n  Robixc Build                   Compile the project entry\n  Robixc Build App.rxp           Compile that project\n  Robixc Analyze                 Print checker and optimizer findings\n  Robixc Analyze Main.rx         Analyze that file\n\n{blue}OUTPUT{/}\n  Build/Main/LinuxX64/Main\n  Build/Main/WindowsX64/Main.exe\n  --Output Name                  Extension follows the target\n  --Asm                          Write RXASM (.rxasm)\n  Robixc Toolchain               Show the toolchain directories\n  Robixc Link                    Report whether objects were linked\n  Robixc Disassemble             Print the saved .rxasm listing\n  Robixc Symbols                 Print the symbol file\n  Robixc Dependencies            Print link dependencies\n  Robixc Explain                 Read the latest diagnostic\n  Robixc Report                  Write the build report\n  Robixc Cache Stats             Count compile hits and misses\n  --Ir                           Write RXIR\n\n{blue}TARGETS{/}\n  --Target LinuxX64              Default ELF\n  --Target WindowsX64            PE\n  --Target LinuxARM64            Not encoded yet\n  --Target WindowsARM64          Not encoded yet\n\n{blue}OPTIONS{/}\n  --Debug --Release --Profile --NoOptimize --SkipTests --NoCache --Rebuild\n  --Analyze                      Print findings and skip the binary\n  --Parallel                     This compiler builds one file at a time\n  -h, --Help                     Help\n  -v, --Version                  Version\n";
+    Return "{blue}ROBIXC{/}\nNative compiler and linker\n\n{blue}USAGE{/}\n  Robixc [Command] [File] [Options]\n\n{blue}COMPILE{/}\n  Robixc Main.rx                 Compile one file and its imports\n  Robixc Compile Main.rx         Same compile\n  Robixc Build                   Compile the project entry\n  Robixc Build App.rxp           Compile that project\n  Robixc Analyze                 Print checker and optimizer findings\n  Robixc Analyze Main.rx         Analyze that file\n\n{blue}OUTPUT{/}\n  Build/Main/LinuxX64/Main\n  Build/Main/WindowsX64/Main.exe\n  --Output Name                  Extension follows the target\n  --Asm                          Write RXASM (.rxasm)\n  Robixc Toolchain               Show the toolchain directories\n  Robixc Link                    Report whether objects were linked\n  Robixc Disassemble             Print the saved .rxasm listing\n  Robixc Symbols                 Print the symbol file\n  Robixc Dependencies            Print link dependencies\n  Robixc Explain                 Read the latest diagnostic\n  Robixc Report                  Write the build report\n  Robixc Cache Stats             Count compile hits and misses\n  --Ir                           Write RXIR\n\n{blue}TARGETS{/}\n  --Target LinuxX64              Default ELF\n  --Target WindowsX64            PE\n  --Target LinuxARM64            Not encoded yet\n  --Target WindowsARM64          Not encoded yet\n\n{blue}OPTIONS{/}\n  --Debug --Release --Profile --NoOptimize --SkipTests --NoCache --Rebuild\n  --Analyze                      Print findings and skip the binary\n  --Parallel                     Compile independent files together\n  -h, --Help                     Help\n  -v, --Version                  Version\n";
 }
 
 Public Function CompilerVersion(String kind) -> String
@@ -436,6 +457,267 @@ Explain {
     Return "";
 }
 
+Public Function CountLines(String text) -> Int
+Explain {
+    Description: "Count non-empty lines.";
+    Input: text = "Line-separated text";
+    Processing: "Skip blank lines.";
+    Output: "The line count.";
+} {
+    Int count = 0;
+    Int start = 0;
+    Int index = 0;
+    While (index <= text.Length()) {
+        Bool boundary = index == text.Length();
+        If (!boundary && text.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) { count = count + 1; }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return count;
+}
+
+Public Function ListedSources(List<String> args) -> String
+Explain {
+    Description: "Collect the source files named on the command line.";
+    Input: args = "Compiler arguments";
+    Processing: "Keep each .rx path that is not a test file.";
+    Output: "The paths, one per line.";
+} {
+    String files = "";
+    Bool skip = False;
+    For arg In args {
+        If (skip) {
+            skip = False;
+            Continue;
+        }
+        String lower = arg.ToLower();
+        If (lower == "--target" || lower == "--output") {
+            skip = True;
+            Continue;
+        }
+        If (arg.StartsWith("-")) { Continue; }
+        If (lower == "compile" || lower == "build" || lower == "check" || lower == "analyze" || lower == "clean" || lower == "rebuild") { Continue; }
+        If (arg.EndsWith(".rx") && !arg.EndsWith(".test.rx")) { files = files + arg + "\n"; }
+    }
+    Return files;
+}
+
+Public Function UnitMatch(String path, String pattern) -> Bool
+Explain {
+    Description: "Match a project include or exclude pattern.";
+    Input: path = "A relative source path", pattern = "A project pattern";
+    Processing: "Honor a leading star, a directory star, and a trailing directory star.";
+    Output: "True when the path matches.";
+} {
+    String file = path;
+    String rule = pattern;
+    While (file.Contains("\\")) {
+        Int slash = file.IndexOf("\\");
+        file = file.Substring(0, slash) + "/" + file.Substring(slash + 1);
+    }
+    While (rule.Contains("\\")) {
+        Int slash = rule.IndexOf("\\");
+        rule = rule.Substring(0, slash) + "/" + rule.Substring(slash + 1);
+    }
+    If (rule.EndsWith("/**")) {
+        String prefix = rule.Substring(0, rule.Length() - 3);
+        If (file == prefix || file.StartsWith(prefix + "/")) { Return True; }
+        Return False;
+    }
+    If (rule.StartsWith("**/")) {
+        String suffix = rule.Substring(3);
+        If (suffix.StartsWith("*.")) { Return file.EndsWith(suffix.Substring(1)); }
+        If (file == suffix || file.EndsWith("/" + suffix)) { Return True; }
+        Return False;
+    }
+    Int middle = rule.IndexOf("/**/");
+    If (middle >= 0) {
+        String prefix = rule.Substring(0, middle);
+        String suffix = rule.Substring(middle + 4);
+        If (!file.StartsWith(prefix + "/")) { Return False; }
+        If (suffix.StartsWith("*.")) { Return file.EndsWith(suffix.Substring(1)); }
+        If (file.EndsWith("/" + suffix)) { Return True; }
+        Return False;
+    }
+    If (rule.StartsWith("*.")) { Return !file.Contains("/") && file.EndsWith(rule.Substring(1)); }
+    Return file == rule;
+}
+
+Public Function ProjectUnits(String project) -> String
+Explain {
+    Description: "List the source files a project builds.";
+    Input: project = ".rxp text";
+    Processing: "Apply Include and Exclude. Skip Build and test files.";
+    Output: "The source paths, one per line.";
+} {
+    String includes = "";
+    String excludes = "";
+    Int start = 0;
+    Int index = 0;
+    While (index <= project.Length()) {
+        Bool boundary = index == project.Length();
+        If (!boundary && project.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = project.Substring(start, index - start);
+            While (line.StartsWith(" ") || line.StartsWith("\t")) { line = line.Substring(1); }
+            String kind = "";
+            If (line.StartsWith("Include:")) { kind = "include"; line = line.Substring(8); }
+            If (line.StartsWith("Exclude:")) { kind = "exclude"; line = line.Substring(8); }
+            If (kind != "") {
+                While (line.StartsWith(" ")) { line = line.Substring(1); }
+                If (line.StartsWith("\"")) { line = line.Substring(1); }
+                If (line.EndsWith(";")) { line = line.Substring(0, line.Length() - 1); }
+                If (line.EndsWith("\"")) { line = line.Substring(0, line.Length() - 1); }
+                If (kind == "include") { includes = includes + line + "\n"; }
+                If (kind == "exclude") { excludes = excludes + line + "\n"; }
+            }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    If (includes == "") { includes = "**/*.rx\n"; }
+    String units = "";
+    For relative In Directory.Files(".") {
+        If (!relative.EndsWith(".rx") || relative.EndsWith(".test.rx")) { Continue; }
+        If (relative.StartsWith("Build/") || relative.StartsWith("Build\\")) { Continue; }
+        Bool wanted = False;
+        Int ruleStart = 0;
+        Int ruleIndex = 0;
+        While (ruleIndex <= includes.Length()) {
+            Bool ruleBoundary = ruleIndex == includes.Length();
+            If (!ruleBoundary && includes.Substring(ruleIndex, 1) == "\n") { ruleBoundary = True; }
+            If (ruleBoundary && ruleIndex > ruleStart && UnitMatch(relative, includes.Substring(ruleStart, ruleIndex - ruleStart))) { wanted = True; }
+            If (ruleBoundary) { ruleStart = ruleIndex + 1; }
+            ruleIndex = ruleIndex + 1;
+        }
+        Bool blocked = False;
+        Int excludeStart = 0;
+        Int excludeIndex = 0;
+        While (excludeIndex <= excludes.Length()) {
+            Bool excludeBoundary = excludeIndex == excludes.Length();
+            If (!excludeBoundary && excludes.Substring(excludeIndex, 1) == "\n") { excludeBoundary = True; }
+            If (excludeBoundary && excludeIndex > excludeStart && UnitMatch(relative, excludes.Substring(excludeStart, excludeIndex - excludeStart))) { blocked = True; }
+            If (excludeBoundary) { excludeStart = excludeIndex + 1; }
+            excludeIndex = excludeIndex + 1;
+        }
+        If (wanted && !blocked) { units = units + relative + "\n"; }
+    }
+    Return units;
+}
+
+Public Function PackageFile(String packageName) -> String
+Explain {
+    Description: "Find the source file for an imported package.";
+    Input: packageName = "A package name such as Robix.Core";
+    Processing: "Look in Packages, then Builtin, then Installed. The first file that exists wins.";
+    Output: "The source path, or empty.";
+} {
+    String leaf = packageName;
+    Int dot = packageName.LastIndexOf(".");
+    If (dot >= 0) { leaf = packageName.Substring(dot + 1); }
+    String direct = "Packages/" + packageName + "/" + leaf + ".rx";
+    If (Files.Exists(direct)) { Return direct; }
+    String builtin = "Packages/Builtin/" + packageName + "/" + leaf + ".rx";
+    If (Files.Exists(builtin)) { Return builtin; }
+    String flat = "Packages/Builtin/" + packageName + "/" + packageName + ".rx";
+    If (Files.Exists(flat)) { Return flat; }
+    String installed = "Packages/Installed/" + packageName;
+    If (Directory.Exists(installed)) {
+        For relative In Directory.Files(installed) {
+            If (relative.EndsWith("/" + leaf + ".rx") || relative.EndsWith("\\" + leaf + ".rx") || relative == leaf + ".rx") {
+                Return installed + "/" + relative;
+            }
+        }
+    }
+    Return "";
+}
+
+Public Function ImportBundle(String source) -> String
+Explain {
+    Description: "Hash material for every imported package.";
+    Input: source = "Source text";
+    Processing: "Read each Import and append the resolved file, its text, and a package manifest when one exists.";
+    Output: "The import text that belongs in a cache key.";
+} {
+    String bundle = "";
+    Int start = 0;
+    Int index = 0;
+    While (index <= source.Length()) {
+        Bool boundary = index == source.Length();
+        If (!boundary && source.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = source.Substring(start, index - start);
+            If (line.StartsWith("Import ")) {
+                String name = line.Substring(7);
+                If (name.EndsWith(";")) { name = name.Substring(0, name.Length() - 1); }
+                String path = PackageFile(name);
+                String text = "";
+                String manifest = "";
+                If (path != "") {
+                    text = Files.ReadText(path);
+                    Int slash = path.LastIndexOf("/");
+                    If (slash > 0) {
+                        String manifestPath = path.Substring(0, slash) + "/package.rxm";
+                        If (Files.Exists(manifestPath)) { manifest = Files.ReadText(manifestPath); }
+                    }
+                }
+                bundle = bundle + name + "\n" + path + "\n" + manifest + "\n" + text + "\n";
+            }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return bundle;
+}
+
+Public Function CompileCommand(String file, String output, Bool check) -> String
+Explain {
+    Description: "Build one Robixc command for a project file.";
+    Input: file = "Source path", output = "Destination path", check = "True to type-check and test inside that compile";
+    Processing: "Target Linux x64 and write the requested output. Skip the test gate only when the project already checked the file.";
+    Output: "The compiler arguments.";
+} {
+    String command = file + " --Target LinuxX64 --Output " + output;
+    If (!check) { command = command + " --SkipTests"; }
+    Return command;
+}
+
+Public Function ParallelScript(String files, String target, String flags) -> String
+Explain {
+    Description: "Build one compiler command per source file.";
+    Input: files = "Source paths, one per line", target = "Canonical target", flags = "Extra options, or empty";
+    Processing: "Give each file the target and the flags. Do not pass --Parallel, so the children do not start more children.";
+    Output: "The command lines.";
+} {
+    String script = "";
+    Int start = 0;
+    Int index = 0;
+    While (index <= files.Length()) {
+        Bool boundary = index == files.Length();
+        If (!boundary && files.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            script = script + files.Substring(start, index - start) + " --Target " + target + flags + "\n";
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return script;
+}
+
+Public Function CompileTogether(String files, String target, String flags) -> ExecutionResult
+Explain {
+    Description: "Compile independent files at the same time.";
+    Input: files = "Source paths, one per line", target = "Canonical target", flags = "Extra options, or empty";
+    Processing: "Start one compiler process per file and wait for all of them.";
+    Output: "Success when every file compiles.";
+} {
+    String output = ParallelRun(ParallelScript(files, target, flags));
+    Print(output);
+    If (output.Contains("Failed ")) { Return FinishRun(ExitCode.ErrorExecution, "A parallel compile failed."); }
+    Return FinishRun(ExitCode.Success, "Parallel compile finished.");
+}
+
 Public Function CompilerOption(List<String> args) -> String
 Explain {
     Description: "Validate compiler options.";
@@ -481,7 +763,7 @@ Explain {
 Public Function CompileUnit(String sourcePath, String outputPath, String assembler, String mode, Bool skipTests, Bool noCache, Bool optimize, Bool showStats, Bool profileBuild, Bool analyze, Bool parallel, Bool writeSymbols) -> ExecutionResult
 Explain {
     Description: "Compile one source file to the requested output.";
-    Input: sourcePath = "Source file", outputPath = "Destination", assembler = "linux-x64 or windows-x64", mode = "program, asm, or ir", skipTests = "True to pass the test gate with a warning", noCache = "True to ignore the input hash", optimize = "True to run the optimizer", showStats = "True to print the duration", profileBuild = "True to label the build Profile", analyze = "True to print findings and skip the binary", parallel = "True to say this compiler builds one file", writeSymbols = "True to write a symbol file";
+    Input: sourcePath = "Source file", outputPath = "Destination", assembler = "linux-x64 or windows-x64", mode = "program, asm, or ir", skipTests = "True to pass the test gate with a warning", noCache = "True to ignore the input hash", optimize = "True to run the optimizer", showStats = "True to print the duration", profileBuild = "True to label the build Profile", analyze = "True to print findings and skip the binary", parallel = "True when this file is one of a parallel build", writeSymbols = "True to write a symbol file";
     Processing: "Reuse a matching hash. Otherwise test, lower RXIR, and assemble. Analysis stops after the optimizer. A program build also fills Bin, Libraries, Objects, and Symbols.";
     Output: "The compile result.";
 } {
@@ -499,8 +781,12 @@ Explain {
     String profile = "Release";
     If (!optimize) { profile = "Debug"; }
     If (profileBuild) { profile = "Profile"; }
-    If (parallel) { Print("{info}This compiler builds one file at a time.{/}"); }
-    String current = OutputHash(source + "\n" + tests + "\n" + assembler + "\n" + mode + "\n" + profile + "\n0.0.48");
+    String projectText = "";
+    String projectPath = CompilerProject();
+    If (projectPath != "" && Files.Exists(projectPath)) { projectText = Files.ReadText(projectPath); }
+    String together = "single";
+    If (parallel) { together = "parallel"; }
+    String current = OutputHash(source + "\n" + tests + "\n" + ImportBundle(source) + "\n" + projectText + "\n" + assembler + "\n" + mode + "\n" + profile + "\n" + together + "\n0.0.48");
     String cache = CacheFile(outputPath);
     String saved = "";
     If (!noCache && Files.Exists(cache)) { saved = Files.ReadText(cache); }

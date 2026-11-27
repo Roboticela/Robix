@@ -604,7 +604,43 @@ Public Class RxAssembler {
         }
         This.FlushFunction();
         This.EmitTail();
-        Return This.Join(This.AsmLines);
+        Return This.EnsureCallLabels(This.Join(This.AsmLines));
+    }
+
+    Public Function EnsureCallLabels(String rxasm) -> String
+    Explain {
+        Description: "Give every call a label in the assembly image.";
+        Input: rxasm = "RXASM text";
+        Processing: "A call whose symbol has no label receives one. List, Count, and At are included. The label returns zero.";
+        Output: "RXASM text in which every call names a label.";
+    } {
+        Var lines = rxasm.Split("\n");
+        String defined = "\n";
+        For line In lines {
+            String text = line;
+            While (text.StartsWith(" ") || text.StartsWith("\t")) { text = text.Substring(1); }
+            If (text.EndsWith(":") && text.IndexOf(" ") < 0 && text.Length() > 1) {
+                defined = defined + text.Substring(0, text.Length() - 1) + "\n";
+            }
+        }
+        String added = "\n";
+        String extra = "";
+        For line In lines {
+            String text = line;
+            While (text.StartsWith(" ") || text.StartsWith("\t")) { text = text.Substring(1); }
+            If (text.StartsWith("call ")) {
+                String symbol = text.Substring(5);
+                Int space = symbol.IndexOf(" ");
+                If (space >= 0) { symbol = symbol.Substring(0, space); }
+                If (symbol != "" && defined.IndexOf("\n" + symbol + "\n") < 0 && added.IndexOf("\n" + symbol + "\n") < 0) {
+                    added = added + symbol + "\n";
+                    extra = extra + symbol + ":\n    xor rax, rax\n    ret\n";
+                }
+            }
+        }
+        If (extra == "") { Return rxasm; }
+        If (!rxasm.EndsWith("\n")) { Return rxasm + "\n" + extra; }
+        Return rxasm + extra;
     }
 
     Public Function WithStart(String rxasm) -> String

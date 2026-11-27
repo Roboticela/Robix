@@ -672,6 +672,35 @@ Test ImportVersion {
     }
 }
 
+Test PackageFile {
+    Case "core" {
+        Input: packageName = "Robix.Core";
+        Output: "Packages/Robix.Core/Core.rx";
+    }
+    Case "missing" {
+        Input: packageName = "Missing.Pack";
+        Output: "";
+    }
+}
+
+Test ImportBundle {
+    Case "names the file" {
+        Input: source = "Import Robix.Core;\n";
+        Contains: Result, "Packages/Robix.Core/Core.rx";
+    }
+}
+
+Test CompileCommand {
+    Case "already checked" {
+        Input: file = "Main.rx", output = "Build/Compiler/Main.app", check = False;
+        Output: "Main.rx --Target LinuxX64 --Output Build/Compiler/Main.app --SkipTests";
+    }
+    Case "check inside the compile" {
+        Input: file = "Main.rx", output = "Build/Compiler/Main.app", check = True;
+        Output: "Main.rx --Target LinuxX64 --Output Build/Compiler/Main.app";
+    }
+}
+
 Test RenderMap { Output: True; }
 Test MappedEnd { Output: True; }
 Test LastPiece { Output: True; }

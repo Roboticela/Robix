@@ -147,6 +147,74 @@ Test SourceIgnored {
     }
 }
 
+Test CountLines {
+    Case "two files" {
+        Input: text = "A.rx\nB.rx\n";
+        Output: 2;
+    }
+}
+
+Test ListedSources {
+    Case "two sources" {
+        Input: args = ["A.rx", "B.rx", "--Parallel"];
+        Output: "A.rx\nB.rx\n";
+    }
+}
+
+Test UnitMatch {
+    Case "top level" {
+        Input: path = "Main.rx", pattern = "*.rx";
+        Output: True;
+    }
+    Case "nested" {
+        Input: path = "Compiler/Elf.rx", pattern = "Compiler/**/*.rx";
+        Output: True;
+    }
+    Case "excluded test" {
+        Input: path = "Main.test.rx", pattern = "**/*.test.rx";
+        Output: True;
+    }
+    Case "other directory" {
+        Input: path = "Main.rx", pattern = "Examples/**";
+        Output: False;
+    }
+}
+
+Test ParallelScript {
+    Case "two commands" {
+        Input: files = "A.rx\nB.rx\n", target = "LinuxX64", flags = " --SkipTests";
+        Output: "A.rx --Target LinuxX64 --SkipTests\nB.rx --Target LinuxX64 --SkipTests\n";
+    }
+}
+
+Test PackageFile {
+    Case "core" {
+        Input: packageName = "Robix.Core";
+        Output: "Packages/Robix.Core/Core.rx";
+    }
+}
+
+Test ImportBundle {
+    Case "names the file" {
+        Input: source = "Import Robix.Core;\n";
+        Contains: Result, "Packages/Robix.Core/Core.rx";
+    }
+}
+
+Test CompileCommand {
+    Case "already checked" {
+        Input: file = "Main.rx", output = "Build/Compiler/Main.app", check = False;
+        Output: "Main.rx --Target LinuxX64 --Output Build/Compiler/Main.app --SkipTests";
+    }
+    Case "check inside the compile" {
+        Input: file = "Main.rx", output = "Build/Compiler/Main.app", check = True;
+        Output: "Main.rx --Target LinuxX64 --Output Build/Compiler/Main.app";
+    }
+}
+
+Test ProjectUnits { Output: True; }
+Test CompileTogether { Output: True; }
+
 Test PlaceBuildTree { Output: True; }
 Test CacheSummary { Output: True; }
 Test ShowToolchain { Output: True; }

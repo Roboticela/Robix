@@ -643,8 +643,7 @@ inline std::string ExecutablePath() {
 #endif
 }
 
-inline String ParallelRun(String script) {
-    std::string text = script.null ? "" : script.text;
+inline std::string RunLines(const std::string& executable, const std::string& text) {
     std::vector<std::string> lines;
     std::string current;
     for (char mark : text) {
@@ -656,7 +655,6 @@ inline String ParallelRun(String script) {
         }
     }
     if (!current.empty()) lines.push_back(current);
-    std::string executable = ExecutablePath();
     std::vector<std::future<std::pair<int, std::string>>> jobs;
     for (const std::string& line : lines) {
         jobs.push_back(std::async(std::launch::async, [executable, line]() {
@@ -672,7 +670,30 @@ inline String ParallelRun(String script) {
         output += result.second;
         output += "\n";
     }
-    return String::Lit(output);
+    return output;
+}
+
+inline String ParallelRun(String script) {
+    return String::Lit(RunLines(ExecutablePath(), script.null ? "" : script.text));
+}
+
+inline String ToolPath(String name) {
+    std::string tool = name.null ? "" : name.text;
+#ifdef _WIN32
+    std::string tail = tool.size() >= 4 ? tool.substr(tool.size() - 4) : "";
+    for (char& mark : tail) mark = static_cast<char>(std::tolower(static_cast<unsigned char>(mark)));
+    if (tail != ".exe") tool += ".exe";
+#endif
+    std::string executable = ExecutablePath();
+    std::string::size_type slash = executable.find_last_of("\\/");
+    std::string directory = slash == std::string::npos ? "" : executable.substr(0, slash + 1);
+    return String::Lit(directory + tool);
+}
+
+inline String ParallelTool(String tool, String script) {
+    std::string executable = tool.null ? "" : tool.text;
+    if (executable.empty() || !std::filesystem::exists(executable)) return String::Lit("Failed missing tool\n");
+    return String::Lit(RunLines(executable, script.null ? "" : script.text));
 }
 
 inline int64_t BitAnd(int64_t left, int64_t right) {

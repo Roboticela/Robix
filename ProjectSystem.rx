@@ -7,6 +7,8 @@ Import Robix.Runtime;
 
 Private Extern Function ClockMillis() -> Int;
 Private Extern Function ParallelRun(String script) -> String;
+Private Extern Function ToolPath(String name) -> String;
+Private Extern Function ParallelTool(String tool, String script) -> String;
 Private Extern Function UnicodeTerminal() -> Bool;
 
 
@@ -600,6 +602,12 @@ Public Class ProjectEngine {
             Directory.Create(This.IntermediateDirectory(project));
         }
         String entry = This.EntryFile(project, files);
+        If (This.Parallel && !This.DryRun && !This.WarningsAsErrors && files.Count() > 1) {
+            Bool together = This.CompileParallel(project, files, entry);
+            Print("{success}compiled{/}  {accent}" + This.CompiledCount.ToString() + "{/} {muted}file(s), skipped{/} {accent}" + This.SkippedCount.ToString() + "{/} {muted}unchanged{/}");
+            If (together) { Directory.Delete(This.IntermediateDirectory(project)); }
+            Return together;
+        }
         Var names = List<String>();
         Bool ok = True;
         SyntaxCompiler compiler = SyntaxCompiler();
@@ -746,6 +754,47 @@ Public Class ProjectEngine {
         ElfImage elf = ElfImage();
         Files.WriteBytes(output, elf.Wrap(code));
         Print("{success}wrote{/}  {bold}" + output + "{/}");
+        Return True;
+    }
+
+    Private Function CompileParallel(ProjectNode project, List<String> names, String entry) -> Bool {
+        String tool = ToolPath("Robixc");
+        If (!Files.Exists(tool)) {
+            This.Diagnostics.Add("Robixc was not found beside Robix.");
+            Return False;
+        }
+        String script = "";
+        Int index = 0;
+        While (index < names.Count()) {
+            Bool isEntry = False;
+            If (names[index] == entry) { isEntry = True; }
+            String output = This.OutputPath(project, names[index], isEntry);
+            String full = This.Join(This.ProjectDirectory, names[index]);
+            script = script + CompileCommand(full, output, True) + "\n";
+            index = index + 1;
+        }
+        String result = ParallelTool(tool, script);
+        Print(result);
+        Int passed = 0;
+        Int failed = 0;
+        Int start = 0;
+        Int cursor = 0;
+        While (cursor <= result.Length()) {
+            Bool boundary = cursor == result.Length();
+            If (!boundary && result.Substring(cursor, 1) == "\n") { boundary = True; }
+            If (boundary && cursor > start) {
+                String line = result.Substring(start, cursor - start);
+                If (line.StartsWith("Passed ")) { passed = passed + 1; }
+                If (line.StartsWith("Failed ")) { failed = failed + 1; }
+            }
+            If (boundary) { start = cursor + 1; }
+            cursor = cursor + 1;
+        }
+        This.CompiledCount = passed;
+        If (failed > 0) {
+            This.Diagnostics.Add("A parallel compile failed.");
+            Return False;
+        }
         Return True;
     }
 
@@ -1039,7 +1088,7 @@ Public Class ProjectEngine {
                 String companionPath = full.Substring(0, full.Length() - 3) + ".test.rx";
                 If (Files.Exists(companionPath)) { companion = Files.ReadText(companionPath); }
             }
-            String key = source + "\n" + companion + "\n" + This.SourceText + "\n0.0.48\n" + This.Configuration + "\n" + This.Filter + "\n" + This.TestTarget;
+            String key = source + "\n" + companion + "\n" + ImportBundle(source) + "\n" + This.SourceText + "\n0.0.48\n" + This.Configuration + "\n" + This.Filter + "\n" + This.TestTarget;
             String hash = This.Fingerprint(key);
             If (!This.NoCache && This.Cached(relative) == hash && hash != "") {
                 Print("Tests Skipped - No Relevant Changes");

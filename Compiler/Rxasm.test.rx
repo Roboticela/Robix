@@ -97,6 +97,17 @@ Test RegHigh {
     }
 }
 
+Test EnsureCallLabels {
+    Case "list count and at" {
+        Input: rxasm = "Main:\n    call List\n    call Count\n    call At\n    ret\n";
+        Output: "Main:\n    call List\n    call Count\n    call At\n    ret\nList:\n    xor rax, rax\n    ret\nCount:\n    xor rax, rax\n    ret\nAt:\n    xor rax, rax\n    ret\n";
+    }
+    Case "existing label stays" {
+        Input: rxasm = "Count:\n    ret\nMain:\n    call Count\n";
+        Output: "Count:\n    ret\nMain:\n    call Count\n";
+    }
+}
+
 Test Select {
     Case "return zero" {
         Input: rxir = "function Main() -> i64\nblock entry\n  %0 = const i64 0\n  ret i64 %0\n";

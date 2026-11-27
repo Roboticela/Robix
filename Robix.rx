@@ -917,6 +917,83 @@ Explain {
     Return "Import " + name + "  " + version;
 }
 
+Public Function PackageFile(String packageName) -> String
+Explain {
+    Description: "Find the source file for an imported package.";
+    Input: packageName = "A package name such as Robix.Core";
+    Processing: "Look in Packages, then Builtin, then Installed. The first file that exists wins.";
+    Output: "The source path, or empty.";
+} {
+    String leaf = packageName;
+    Int dot = packageName.LastIndexOf(".");
+    If (dot >= 0) { leaf = packageName.Substring(dot + 1); }
+    String direct = "Packages/" + packageName + "/" + leaf + ".rx";
+    If (Files.Exists(direct)) { Return direct; }
+    String builtin = "Packages/Builtin/" + packageName + "/" + leaf + ".rx";
+    If (Files.Exists(builtin)) { Return builtin; }
+    String flat = "Packages/Builtin/" + packageName + "/" + packageName + ".rx";
+    If (Files.Exists(flat)) { Return flat; }
+    String installed = "Packages/Installed/" + packageName;
+    If (Directory.Exists(installed)) {
+        For relative In Directory.Files(installed) {
+            If (relative.EndsWith("/" + leaf + ".rx") || relative.EndsWith("\\" + leaf + ".rx") || relative == leaf + ".rx") {
+                Return installed + "/" + relative;
+            }
+        }
+    }
+    Return "";
+}
+
+Public Function ImportBundle(String source) -> String
+Explain {
+    Description: "Hash material for every imported package.";
+    Input: source = "Source text";
+    Processing: "Read each Import and append the resolved file, its text, and a package manifest when one exists.";
+    Output: "The import text that belongs in a cache key.";
+} {
+    String bundle = "";
+    Int start = 0;
+    Int index = 0;
+    While (index <= source.Length()) {
+        Bool boundary = index == source.Length();
+        If (!boundary && source.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = source.Substring(start, index - start);
+            If (line.StartsWith("Import ")) {
+                String name = line.Substring(7);
+                If (name.EndsWith(";")) { name = name.Substring(0, name.Length() - 1); }
+                String path = PackageFile(name);
+                String text = "";
+                String manifest = "";
+                If (path != "") {
+                    text = Files.ReadText(path);
+                    Int slash = path.LastIndexOf("/");
+                    If (slash > 0) {
+                        String manifestPath = path.Substring(0, slash) + "/package.rxm";
+                        If (Files.Exists(manifestPath)) { manifest = Files.ReadText(manifestPath); }
+                    }
+                }
+                bundle = bundle + name + "\n" + path + "\n" + manifest + "\n" + text + "\n";
+            }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return bundle;
+}
+
+Public Function CompileCommand(String file, String output, Bool check) -> String
+Explain {
+    Description: "Build one Robixc command for a project file.";
+    Input: file = "Source path", output = "Destination path", check = "True to type-check and test inside that compile";
+    Processing: "Target Linux x64 and write the requested output. Skip the test gate only when the project already checked the file.";
+    Output: "The compiler arguments.";
+} {
+    String command = file + " --Target LinuxX64 --Output " + output;
+    If (!check) { command = command + " --SkipTests"; }
+    Return command;
+}
+
 Public Function FindFrom(String text, Int start, String needle) -> Int
 Explain {
     Description: "Find a string at or after a start index.";

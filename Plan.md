@@ -22,7 +22,7 @@ Shipped targets:
 - [x] Compile the compiler sources into one module, twice: once without `Robixc.rx` for the interpreter, and once without `Robix.rx` for the compiler. `Robix self` keeps the 32 compiler, interpreter, and runtime sources.
 - [x] Clear the strict checker. Both images report 0 errors. Partial classes such as `Parser` are merged before type checking.
 - [x] Lower the module to RXIR and encode every x86-64 opcode it uses. Neither image emits a `; skip` instruction. The text optimizer stays off until it is linear.
-- [ ] Give every call a label in the image, including `List`, `Count`, and `At`, and write `Build/Self/Robix.app` and `Build/Self/Robixc.app` as Linux x86-64 ELFs.
+- [x] Give every call a label in the image, including `List`, `Count`, and `At`, and write `Build/Self/Robix.app` and `Build/Self/Robixc.app` as Linux x86-64 ELFs.
 - [ ] The runtime those binaries use, including objects, lists, strings, and print, is Robix code lowered to RXASM. It does not call into a C++ runtime.
 - [ ] `Build/Self/Robix.app run Examples/HelloRobot.rx` prints `Hello, Robix`.
 - [ ] `Build/Self/Robixc.app` compiles `Examples/HelloRobot.rx` into an ELF that prints `Hello, Robix` and `15`.
