@@ -1,5 +1,217 @@
+// Tests for Diagnostics.rx. Each call uses a fresh log.
+
+Test Configure {
+    Constraint: DiagnosticLog().Configure("build") == "build";
+    Processing: DiagnosticLog().Configure("build");
+    Output: "build";
+}
+
 Test Info {
-    Constraint: DiagnosticLog().Info("RX10", "ready", "Diagnostics.rx", 2, 1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: DiagnosticLog().Info("RX1", "hi", "App.rx", 2, 3) == 1;
+    Processing: DiagnosticLog().Info("RX1", "hi", "App.rx", 2, 3);
+    Output: 1;
+}
+
+Test Warning {
+    Constraint: DiagnosticLog().Warning("RX2", "hi", "App.rx", 2, 3) == 1;
+    Processing: DiagnosticLog().Warning("RX2", "hi", "App.rx", 2, 3);
+    Output: 1;
+}
+
+Test Error {
+    Constraint: DiagnosticLog().Error("RX3", "hi", "App.rx", 2, 3) == 1;
+    Processing: DiagnosticLog().Error("RX3", "hi", "App.rx", 2, 3);
+    Output: 1;
+}
+
+Test Critical {
+    Constraint: DiagnosticLog().Critical("RX4", "hi", "App.rx", 2, 3) == 1;
+    Processing: DiagnosticLog().Critical("RX4", "hi", "App.rx", 2, 3);
+    Output: 1;
+}
+
+Test Count {
+    Constraint: DiagnosticLog().Count() == 0;
+    Processing: DiagnosticLog().Count();
+    Output: 0;
+}
+
+Test CountLevel {
+    Constraint: DiagnosticLog().CountLevel(0) == 0;
+    Processing: DiagnosticLog().CountLevel(0);
+    Output: 0;
+}
+
+Test At {
+    Constraint: DiagnosticLog().At(0) == "none";
+    Processing: DiagnosticLog().At(0);
+    Output: "none";
+}
+
+Test Snapshot {
+    Constraint: DiagnosticLog().Snapshot() == "info=0,warning=0,error=0,critical=0";
+    Processing: DiagnosticLog().Snapshot();
+    Output: "info=0,warning=0,error=0,critical=0";
+}
+
+Test Clear {
+    Constraint: DiagnosticLog().Clear() == 0;
+    Processing: DiagnosticLog().Clear();
+    Output: 0;
+}
+
+Test Enter {
+    Constraint: DiagnosticLog().Enter("Main", "App.rx", 4) == 1;
+    Processing: DiagnosticLog().Enter("Main", "App.rx", 4);
+    Output: 1;
+}
+
+Test Leave {
+    Constraint: DiagnosticLog().Leave() == 0;
+    Processing: DiagnosticLog().Leave();
+    Output: 0;
+}
+
+Test Depth {
+    Constraint: DiagnosticLog().Depth() == 0;
+    Processing: DiagnosticLog().Depth();
+    Output: 0;
+}
+
+Test Current {
+    Constraint: DiagnosticLog().Current() == "none";
+    Processing: DiagnosticLog().Current();
+    Output: "none";
+}
+
+Test Caller {
+    Constraint: DiagnosticLog().Caller() == "none";
+    Processing: DiagnosticLog().Caller();
+    Output: "none";
+}
+
+Test Trace {
+    Constraint: DiagnosticLog().Trace() == "none";
+    Processing: DiagnosticLog().Trace();
+    Output: "none";
+}
+
+Test RuntimeText {
+    Constraint: DiagnosticLog().RuntimeText() == "linux/x86_64 1";
+    Processing: DiagnosticLog().RuntimeText();
+    Output: "linux/x86_64 1";
+}
+
+Test ArgumentCount {
+    Constraint: DiagnosticLog().ArgumentCount() == 0;
+    Processing: DiagnosticLog().ArgumentCount();
+    Output: 0;
+}
+
+Test Failure {
+    Constraint: DiagnosticLog().Failure() == "none";
+    Processing: DiagnosticLog().Failure();
+    Output: "none";
+}
+
+Test OpenSource {
+    Constraint: DiagnosticLog().OpenSource("log") == 1;
+    Processing: DiagnosticLog().OpenSource("log");
+    Output: 1;
+}
+
+Test Listen {
+    Constraint: DiagnosticLog().Listen("log", "console") == 0;
+    Processing: DiagnosticLog().Listen("log", "console");
+    Output: 0;
+}
+
+Test Ignore {
+    Constraint: DiagnosticLog().Ignore("log", "console") == 0;
+    Processing: DiagnosticLog().Ignore("log", "console");
+    Output: 0;
+}
+
+Test Write {
+    Constraint: DiagnosticLog().Write("log", "RX1", "hi") == 0;
+    Processing: DiagnosticLog().Write("log", "RX1", "hi");
+    Output: 0;
+}
+
+Test Heard {
+    Constraint: DiagnosticLog().Heard() == "none";
+    Processing: DiagnosticLog().Heard();
+    Output: "none";
+}
+
+Test ListenerCount {
+    Constraint: DiagnosticLog().ListenerCount() == 0;
+    Processing: DiagnosticLog().ListenerCount();
+    Output: 0;
+}
+
+Test Metrics {
+    Constraint: DiagnosticLog().Metrics() == "reports=0,depth=0,listeners=0,steps=0";
+    Processing: DiagnosticLog().Metrics();
+    Output: "reports=0,depth=0,listeners=0,steps=0";
+}
+
+Test Report {
+    Constraint: DiagnosticLog().Report(0, "RX1", "hi", "App.rx", 2, 3) == 1;
+    Processing: DiagnosticLog().Report(0, "RX1", "hi", "App.rx", 2, 3);
+    Output: 1;
+}
+
+Test LevelName {
+    Constraint: DiagnosticLog().LevelName(0) == "info";
+    Processing: DiagnosticLog().LevelName(0);
+    Output: "info";
+}
+
+Test LevelDigit {
+    Constraint: DiagnosticLog().LevelDigit(2) == "2";
+    Processing: DiagnosticLog().LevelDigit(2);
+    Output: "2";
+}
+
+Test Number {
+    Constraint: DiagnosticLog().Number("3") == 3;
+    Processing: DiagnosticLog().Number("3");
+    Output: 3;
+}
+
+Test DropLast {
+    Constraint: DiagnosticLog().DropLast("") == "";
+    Processing: DiagnosticLog().DropLast("");
+    Output: "";
+}
+
+Test Pieces {
+    Constraint: DiagnosticLog().Pieces("") == 0;
+    Processing: DiagnosticLog().Pieces("");
+    Output: 0;
+}
+
+Test Piece {
+    Constraint: DiagnosticLog().Piece("a|b", 1) == "b";
+    Processing: DiagnosticLog().Piece("a|b", 1);
+    Output: "b";
+}
+
+Test Field {
+    Constraint: DiagnosticLog().Field("0#RX#file", 1) == "RX";
+    Processing: DiagnosticLog().Field("0#RX#file", 1);
+    Output: "RX";
+}
+
+Test CharAt {
+    Constraint: DiagnosticLog().CharAt("ab", 1) == "b";
+    Processing: DiagnosticLog().CharAt("ab", 1);
+    Output: "b";
+}
+
+Test IntText {
+    Constraint: DiagnosticLog().IntText(4) == "4";
+    Processing: DiagnosticLog().IntText(4);
+    Output: "4";
 }

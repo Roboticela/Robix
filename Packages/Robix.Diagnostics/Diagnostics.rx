@@ -1,5 +1,8 @@
 // Robix.Diagnostics: reports, stack frames, runtime facts, and listeners.
-Package Robix.Diagnostics;
+Package Robix.Diagnostics
+Explain {
+    Description: "Reports, stack frames, runtime facts, and listeners.";
+};
 
 Import Robix.Core;
 
@@ -99,7 +102,7 @@ Class DiagnosticLog {
         Processing: "Count matching records.";
         Output: "The count.";
     } {
-        String digit = This.Digit(level);
+        String digit = This.LevelDigit(level);
         Int count = 0;
         Int index = 0;
         Int total = This.Pieces(records);
@@ -372,7 +375,7 @@ Class DiagnosticLog {
 
     Private Function Report(Int level, String code, String message, String fileName, Int line, Int column) -> Int {
         String formatted = Diagnostics.Format(code, message);
-        String record = This.Digit(level) + "#" + code + "#" + fileName + "#" + This.IntText(line) + "#" + This.IntText(column) + "#" + formatted;
+        String record = This.LevelDigit(level) + "#" + code + "#" + fileName + "#" + This.IntText(line) + "#" + This.IntText(column) + "#" + formatted;
         If (records.Length() == 0) { records = record; }
         If (records.Length() > 0 && records != record) { records = records + "|" + record; }
         operations = operations + 1;
@@ -386,7 +389,7 @@ Class DiagnosticLog {
         Return "critical";
     }
 
-    Private Function Digit(Int level) -> String {
+    Private Function LevelDigit(Int level) -> String {
         If (level == 0) { Return "0"; }
         If (level == 1) { Return "1"; }
         If (level == 2) { Return "2"; }

@@ -1,5 +1,163 @@
+// Tests for Delegates.rx. Each call uses a fresh desk.
+
 Test Create {
-    Constraint: DelegateDesk().Create("add", 1, 0, 10) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: DelegateDesk().Create("Add", 0, 0, 2) == 0;
+    Processing: DelegateDesk().Create("Add", 0, 0, 2);
+    Output: 0;
+}
+
+Test CreateAsync {
+    Constraint: DelegateDesk().CreateAsync("Run", 0, 1) == 0;
+    Processing: DelegateDesk().CreateAsync("Run", 0, 1);
+    Output: 0;
+}
+
+Test Bind {
+    Constraint: DelegateDesk().Bind(0, 4) == -1;
+    Processing: DelegateDesk().Bind(0, 4);
+    Output: -1;
+}
+
+Test Invoke {
+    Constraint: DelegateDesk().Invoke(0, 3) == 0;
+    Processing: DelegateDesk().Invoke(0, 3);
+    Output: 0;
+}
+
+Test InvokeAsync {
+    Constraint: DelegateDesk().InvokeAsync(0, 3) == 0;
+    Processing: DelegateDesk().InvokeAsync(0, 3);
+    Output: 0;
+}
+
+Test Dynamic {
+    Constraint: DelegateDesk().Dynamic(0, 3) == 0;
+    Processing: DelegateDesk().Dynamic(0, 3);
+    Output: 0;
+}
+
+Test Combine {
+    Constraint: DelegateDesk().Combine(0, 1) == -1;
+    Processing: DelegateDesk().Combine(0, 1);
+    Output: -1;
+}
+
+Test Remove {
+    Constraint: DelegateDesk().Remove(0, 1) == -1;
+    Processing: DelegateDesk().Remove(0, 1);
+    Output: -1;
+}
+
+Test Clear {
+    Constraint: DelegateDesk().Clear(0) == 0;
+    Processing: DelegateDesk().Clear(0);
+    Output: 0;
+}
+
+Test Size {
+    Constraint: DelegateDesk().Size(0) == 0;
+    Processing: DelegateDesk().Size(0);
+    Output: 0;
+}
+
+Test At {
+    Constraint: DelegateDesk().At(0, 0) == -1;
+    Processing: DelegateDesk().At(0, 0);
+    Output: -1;
+}
+
+Test TypeName {
+    Constraint: DelegateDesk().TypeName(0) == "none";
+    Processing: DelegateDesk().TypeName(0);
+    Output: "none";
+}
+
+Test Target {
+    Constraint: DelegateDesk().Target(0) == 0;
+    Processing: DelegateDesk().Target(0);
+    Output: 0;
+}
+
+Test Method {
+    Constraint: DelegateDesk().Method(0) == "none";
+    Processing: DelegateDesk().Method(0);
+    Output: "none";
+}
+
+Test Calls {
+    Constraint: DelegateDesk().Calls(0) == 0;
+    Processing: DelegateDesk().Calls(0);
+    Output: 0;
+}
+
+Test IsMulticast {
+    Constraint: DelegateDesk().IsMulticast(0) == 0;
+    Processing: DelegateDesk().IsMulticast(0);
+    Output: 0;
+}
+
+Test SetOption {
+    Constraint: DelegateDesk().SetOption(0, 1) == 0;
+    Processing: DelegateDesk().SetOption(0, 1);
+    Output: 0;
+}
+
+Test Option {
+    Constraint: DelegateDesk().Option(0) == 0;
+    Processing: DelegateDesk().Option(0);
+    Output: 0;
+}
+
+Test LastNote {
+    Constraint: DelegateDesk().LastNote() == 0;
+    Processing: DelegateDesk().LastNote();
+    Output: 0;
+}
+
+Test Fault {
+    Constraint: DelegateDesk().Fault() == "none";
+    Processing: DelegateDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: DelegateDesk().Stats() == "created=0,calls=0,combined=0";
+    Processing: DelegateDesk().Stats();
+    Output: "created=0,calls=0,combined=0";
+}
+
+Test Arm {
+    Constraint: DelegateDesk().Arm("Add", 0, 0, 2) == 0;
+    Processing: DelegateDesk().Arm("Add", 0, 0, 2);
+    Output: 0;
+}
+
+Test Apply {
+    Constraint: DelegateDesk().Apply(0, 3) == 3;
+    Processing: DelegateDesk().Apply(0, 3);
+    Output: 3;
+}
+
+Test Child {
+    Constraint: DelegateDesk().Child(0, 0) == -1;
+    Processing: DelegateDesk().Child(0, 0);
+    Output: -1;
+}
+
+Test Known {
+    Constraint: DelegateDesk().Known(0) == 0;
+    Processing: DelegateDesk().Known(0);
+    Output: 0;
+}
+
+Test Claim {
+    Constraint: DelegateDesk().Claim() == 0;
+    Processing: DelegateDesk().Claim();
+    Output: 0;
+}
+
+Test IntText {
+    Constraint: DelegateDesk().IntText(9) == "9";
+    Processing: DelegateDesk().IntText(9);
+    Output: "9";
 }

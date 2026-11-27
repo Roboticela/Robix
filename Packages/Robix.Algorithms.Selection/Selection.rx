@@ -1,0 +1,871 @@
+// Robix.Algorithms.Selection: exact order statistics on eight integers.
+Package Robix.Algorithms.Selection
+Explain {
+    Description: "Exact order statistics on eight integers.";
+};
+
+Import Robix.Core;
+
+
+Class SelectionDesk {
+    Private Array<Int> samples;
+    Private Array<Int> other;
+    Private String problem;
+
+    Public Constructor() {
+        samples = [0, 0, 0, 0, 0, 0, 0, 0];
+        other = [0, 0, 0, 0, 0, 0, 0, 0];
+        problem = "none";
+    }
+
+    Public Function Select(Int rank) -> Int
+    Explain {
+        Description: "Return the 0-based order statistic of 4, 2, 7, 1, 5, 3, 8, 6.";
+        Input: rank = "0 returns the minimum and 7 returns the maximum.";
+        Processing: "Sort the eight samples and read that rank.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[rank];
+    }
+
+    Public Function SelectMinimum() -> Int
+    Explain {
+        Description: "Return the smallest of the eight mixed samples.";
+        Input: "None.";
+        Processing: "Sort and read rank 0.";
+        Output: "1.";
+    } {
+        problem = "none";
+        This.Order();
+        Return samples[0];
+    }
+
+    Public Function SelectMaximum() -> Int
+    Explain {
+        Description: "Return the largest of the eight mixed samples.";
+        Input: "None.";
+        Processing: "Sort and read rank 7.";
+        Output: "8.";
+    } {
+        problem = "none";
+        This.Order();
+        Return samples[7];
+    }
+
+    Public Function SelectNth(Int n) -> Int
+    Explain {
+        Description: "Return the 1-based order statistic.";
+        Input: n = "1 returns the minimum and 8 returns the maximum.";
+        Processing: "Sort and read index n - 1.";
+        Output: "The nth value, or 0 when n is outside 1 through 8.";
+    } {
+        If (n < 1 || n > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[n - 1];
+    }
+
+    Public Function SelectKthSmallest(Int k) -> Int
+    Explain {
+        Description: "Return the kth smallest sample, counting from 1.";
+        Input: k = "1 through 8.";
+        Processing: "Sort and read index k - 1.";
+        Output: "The kth smallest value, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[k - 1];
+    }
+
+    Public Function SelectKthLargest(Int k) -> Int
+    Explain {
+        Description: "Return the kth largest sample, counting from 1.";
+        Input: k = "1 through 8.";
+        Processing: "Sort and read index 8 - k.";
+        Output: "The kth largest value, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[8 - k];
+    }
+
+    Public Function SelectMedian() -> Int
+    Explain {
+        Description: "Return the lower median of the eight samples.";
+        Input: "None.";
+        Processing: "Sort and read rank 3.";
+        Output: "4.";
+    } {
+        problem = "none";
+        This.Order();
+        Return samples[3];
+    }
+
+    Public Function SelectLowerMedian() -> Int
+    Explain {
+        Description: "Return the lower of the two middle samples.";
+        Input: "None.";
+        Processing: "Sort and read rank 3.";
+        Output: "4.";
+    } {
+        problem = "none";
+        This.Order();
+        Return samples[3];
+    }
+
+    Public Function SelectUpperMedian() -> Int
+    Explain {
+        Description: "Return the upper of the two middle samples.";
+        Input: "None.";
+        Processing: "Sort and read rank 4.";
+        Output: "5.";
+    } {
+        problem = "none";
+        This.Order();
+        Return samples[4];
+    }
+
+    Public Function QuickSelect(Int rank) -> Int
+    Explain {
+        Description: "Select with Lomuto partitioning around the last sample.";
+        Input: rank = "0-based rank from 0 through 7.";
+        Processing: "Partition until the pivot lands on the requested rank.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.Quick(rank);
+    }
+
+    Public Function RandomizedQuickSelect(Int rank) -> Int
+    Explain {
+        Description: "Select with a fixed last-sample pivot so the result stays exact.";
+        Input: rank = "0-based rank from 0 through 7.";
+        Processing: "Use the same partition as QuickSelect.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.Quick(rank);
+    }
+
+    Public Function MedianOfMedians(Int rank) -> Int
+    Explain {
+        Description: "Select after taking the median of two group medians as the pivot.";
+        Input: rank = "0-based rank from 0 through 7.";
+        Processing: "Sort a group of five and a group of three, move that pivot to the end, then partition.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.FillMixed();
+        This.SortSpan(0, 5);
+        This.SortSpan(5, 8);
+        This.PlacePivot(samples[2]);
+        Return This.QuickFrom(0, 7, rank);
+    }
+
+    Public Function IntroSelect(Int rank) -> Int
+    Explain {
+        Description: "Select with quickselect while the span still shrinks.";
+        Input: rank = "0-based rank from 0 through 7.";
+        Processing: "Partition around the last sample.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.Quick(rank);
+    }
+
+    Public Function HeapSelect(Int rank) -> Int
+    Explain {
+        Description: "Select by extracting minima from a binary heap.";
+        Input: rank = "0-based rank from 0 through 7.";
+        Processing: "Heapify, then pop the minimum rank + 1 times.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Heapify();
+        Int size = 8;
+        Int step = 0;
+        Int found = 0;
+        While (step <= rank) {
+            found = This.PopMin(size);
+            size = size - 1;
+            step = step + 1;
+        }
+        Return found;
+    }
+
+    Public Function TournamentSelect(Int rank) -> Int
+    Explain {
+        Description: "Select by repeating a minimum tournament.";
+        Input: rank = "0-based rank from 0 through 7.";
+        Processing: "Take the current minimum rank + 1 times.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.FillMixed();
+        Int step = 0;
+        Int found = 0;
+        While (step <= rank) {
+            found = This.TakeMin();
+            step = step + 1;
+        }
+        Return found;
+    }
+
+    Public Function FloydRivestSelect(Int rank) -> Int
+    Explain {
+        Description: "Select using the median of the first, middle, and last samples as the pivot.";
+        Input: rank = "0-based rank from 0 through 7.";
+        Processing: "Move that median to the end, then partition.";
+        Output: "The value at that rank, or 0 when the rank is outside 0 through 7.";
+    } {
+        If (rank < 0 || rank > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.FillMixed();
+        This.PlacePivot(This.MedianOfThree());
+        Return This.QuickFrom(0, 7, rank);
+    }
+
+    Public Function TopK(Int k) -> Int
+    Explain {
+        Description: "Sum the k largest samples.";
+        Input: k = "How many largest values to add, from 1 through 8.";
+        Processing: "Sort and add the high end.";
+        Output: "The sum, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.SumHigh(k);
+    }
+
+    Public Function BottomK(Int k) -> Int
+    Explain {
+        Description: "Sum the k smallest samples.";
+        Input: k = "How many smallest values to add, from 1 through 8.";
+        Processing: "Sort and add the low end.";
+        Output: "The sum, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.SumLow(k);
+    }
+
+    Public Function TopKSorted(Int k) -> Int
+    Explain {
+        Description: "Return the smallest of the k largest samples.";
+        Input: k = "1 through 8.";
+        Processing: "Sort and read index 8 - k.";
+        Output: "That cutoff, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[8 - k];
+    }
+
+    Public Function BottomKSorted(Int k) -> Int
+    Explain {
+        Description: "Return the largest of the k smallest samples.";
+        Input: k = "1 through 8.";
+        Processing: "Sort and read index k - 1.";
+        Output: "That cutoff, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[k - 1];
+    }
+
+    Public Function TopKBy(Int k, Int selector) -> Int
+    Explain {
+        Description: "Sum the k extreme samples under a selector.";
+        Input: k = "1 through 8."; selector = "0 sums the largest and 1 sums the smallest.";
+        Processing: "Sort, then add the chosen end.";
+        Output: "The sum, or 0 when the arguments are rejected.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        If (selector != 0 && selector != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Int total = This.SumHigh(k);
+        If (selector == 1) { total = This.SumLow(k); }
+        Return total;
+    }
+
+    Public Function TopKDistinct(Int k) -> Int
+    Explain {
+        Description: "Sum the k largest distinct samples.";
+        Input: k = "1 through 8.";
+        Processing: "The mixed buffer has no duplicates, so this is the high-end sum.";
+        Output: "The sum, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.SumHigh(k);
+    }
+
+    Public Function StreamingTopK(Int k) -> Int
+    Explain {
+        Description: "Sum the k largest values in the stream 1 through 8.";
+        Input: k = "1 through 8.";
+        Processing: "Add (9 - k) through 8.";
+        Output: "The exact sum, or 0 when k is outside 1 through 8.";
+    } {
+        If (k < 1 || k > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        Int product = k * (17 - k);
+        Int quote = product / 2;
+        If (quote * 2 != product) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return quote;
+    }
+
+    Public Function SelectPercentile(Int percentile) -> Int
+    Explain {
+        Description: "Read a percentile of the ordered mixed samples.";
+        Input: percentile = "0 through 100. The index is percentile * 7 / 100.";
+        Processing: "Sort and read that truncated index.";
+        Output: "The sample, or 0 when the percentile is outside 0 through 100.";
+    } {
+        If (percentile < 0 || percentile > 100) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[(percentile * 7) / 100];
+    }
+
+    Public Function SelectQuantile(Int probability) -> Int
+    Explain {
+        Description: "Read a quantile on the same 0 through 100 scale as a percentile.";
+        Input: probability = "0 through 100.";
+        Processing: "Sort and read probability * 7 / 100.";
+        Output: "The sample, or 0 when the probability is outside 0 through 100.";
+    } {
+        If (probability < 0 || probability > 100) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[(probability * 7) / 100];
+    }
+
+    Public Function SelectQuartile(Int quartile) -> Int
+    Explain {
+        Description: "Read quartile 1, 2, or 3.";
+        Input: quartile = "1, 2, or 3. The index is quartile * 7 / 4.";
+        Processing: "Sort and read that index.";
+        Output: "The sample, or 0 when the quartile is outside 1 through 3.";
+    } {
+        If (quartile < 1 || quartile > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[(quartile * 7) / 4];
+    }
+
+    Public Function SelectDecile(Int decile) -> Int
+    Explain {
+        Description: "Read decile 1 through 10.";
+        Input: decile = "1 through 10. The index is decile * 7 / 10.";
+        Processing: "Sort and read that index.";
+        Output: "The sample, or 0 when the decile is outside 1 through 10.";
+    } {
+        If (decile < 1 || decile > 10) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[(decile * 7) / 10];
+    }
+
+    Public Function WeightedMedian() -> Int
+    Explain {
+        Description: "Return the weighted median when every weight is 1.";
+        Input: "None.";
+        Processing: "Walk until the cumulative weight reaches half of 8.";
+        Output: "4.";
+    } {
+        problem = "none";
+        Return This.WeightedAt(4);
+    }
+
+    Public Function WeightedQuantile(Int probability) -> Int
+    Explain {
+        Description: "Return the weighted quantile for equal weights.";
+        Input: probability = "0 through 100. The threshold is probability * 8 / 100.";
+        Processing: "Walk the ordered samples until the cumulative weight reaches that threshold.";
+        Output: "The sample, or 0 when the probability is outside 0 through 100.";
+    } {
+        If (probability < 0 || probability > 100) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Int threshold = (probability * 8) / 100;
+        If (threshold < 1) { threshold = 1; }
+        Return This.WeightedAt(threshold);
+    }
+
+    Public Function Rank(Int target) -> Int
+    Explain {
+        Description: "Return the 1-based rank of a target in the mixed samples.";
+        Input: target = "A value from the mixed buffer.";
+        Processing: "Sort and return the first matching index plus 1.";
+        Output: "The rank, or -1 when the target is absent.";
+    } {
+        problem = "none";
+        Int index = This.Locate(target);
+        If (index < 0) { Return -1; }
+        Return index + 1;
+    }
+
+    Public Function DenseRank(Int target) -> Int
+    Explain {
+        Description: "Return the dense rank of a target in 1, 2, 2, 2, 4, 4, 7, 9.";
+        Input: target = "A value from that buffer.";
+        Processing: "Count the distinct values below the target, then add 1.";
+        Output: "The dense rank, or 0 when the target is absent.";
+    } {
+        This.FillDuplicates();
+        This.SortSpan(0, 8);
+        Int found = 0;
+        Int dense = 0;
+        Int previous = 0;
+        Int seen = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] == target) { found = 1; }
+            If (samples[index] < target) {
+                Int fresh = 1;
+                If (seen == 1 && samples[index] == previous) { fresh = 0; }
+                If (fresh == 1) { dense = dense + 1; }
+            }
+            previous = samples[index];
+            seen = 1;
+            index = index + 1;
+        }
+        If (found == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return dense + 1;
+    }
+
+    Public Function CompetitionRank(Int target) -> Int
+    Explain {
+        Description: "Return the minimum 1-based rank of a target in the duplicate buffer.";
+        Input: target = "A value from 1, 2, 2, 2, 4, 4, 7, 9.";
+        Processing: "Sort and return the first matching index plus 1.";
+        Output: "The competition rank, or 0 when the target is absent.";
+    } {
+        This.FillDuplicates();
+        This.SortSpan(0, 8);
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] == target) {
+                problem = "none";
+                Return index + 1;
+            }
+            index = index + 1;
+        }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function FractionalRank(Int target) -> Int
+    Explain {
+        Description: "Return the average 1-based rank of every copy of the target.";
+        Input: target = "A value from the duplicate buffer.";
+        Processing: "Average the matching ranks and require an exact quotient.";
+        Output: "The average rank, or 0 when the target is absent or the average is not an integer.";
+    } {
+        This.FillDuplicates();
+        This.SortSpan(0, 8);
+        Int count = 0;
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] == target) {
+                count = count + 1;
+                sum = sum + index + 1;
+            }
+            index = index + 1;
+        }
+        If (count == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int quote = sum / count;
+        If (quote * count != sum) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return quote;
+    }
+
+    Public Function FindRank(Int target) -> Int
+    Explain {
+        Description: "Find the 1-based rank of a target in the mixed samples.";
+        Input: target = "A value from the mixed buffer.";
+        Processing: "Sort and return the first matching index plus 1.";
+        Output: "The rank, or -1 when the target is absent.";
+    } {
+        problem = "none";
+        Int index = This.Locate(target);
+        If (index < 0) { Return -1; }
+        Return index + 1;
+    }
+
+    Public Function FindOrderStatistic(Int rank) -> Int
+    Explain {
+        Description: "Return the 1-based order statistic of the mixed samples.";
+        Input: rank = "1 through 8.";
+        Processing: "Sort and read index rank - 1.";
+        Output: "The value, or 0 when the rank is outside 1 through 8.";
+    } {
+        If (rank < 1 || rank > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        This.Order();
+        Return samples[rank - 1];
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the selection problem token.";
+        Input: "None.";
+        Processing: "Read the token left by the last call.";
+        Output: "none, domain, exact, or timeout.";
+    } {
+        Return problem;
+    }
+
+    Private Function FillMixed() -> Int {
+        samples[0] = 4;
+        samples[1] = 2;
+        samples[2] = 7;
+        samples[3] = 1;
+        samples[4] = 5;
+        samples[5] = 3;
+        samples[6] = 8;
+        samples[7] = 6;
+        Return samples[0];
+    }
+
+    Private Function FillDuplicates() -> Int {
+        samples[0] = 1;
+        samples[1] = 2;
+        samples[2] = 2;
+        samples[3] = 2;
+        samples[4] = 4;
+        samples[5] = 4;
+        samples[6] = 7;
+        samples[7] = 9;
+        Return samples[1];
+    }
+
+    Private Function FillWeights() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            other[index] = 1;
+            index = index + 1;
+        }
+        Return other[0];
+    }
+
+    Private Function Order() -> Int {
+        This.FillMixed();
+        Return This.SortSpan(0, 8);
+    }
+
+    Private Function SortSpan(Int low, Int high) -> Int {
+        Int index = low + 1;
+        While (index < high) {
+            Int key = samples[index];
+            Int hole = index - 1;
+            Int moving = 1;
+            While (moving == 1) {
+                If (hole < low) { moving = 0; }
+                If (moving == 1) {
+                    Int greater = 0;
+                    If (samples[hole] > key) { greater = 1; }
+                    If (greater == 1) {
+                        samples[hole + 1] = samples[hole];
+                        hole = hole - 1;
+                    }
+                    If (greater == 0) { moving = 0; }
+                }
+            }
+            samples[hole + 1] = key;
+            index = index + 1;
+        }
+        Return samples[low];
+    }
+
+    Private Function Partition(Int low, Int high) -> Int {
+        Int pivot = samples[high];
+        Int slot = low;
+        Int index = low;
+        While (index < high) {
+            Int take = 0;
+            If (samples[index] <= pivot) { take = 1; }
+            If (take == 1) {
+                Int saved = samples[slot];
+                samples[slot] = samples[index];
+                samples[index] = saved;
+                slot = slot + 1;
+            }
+            index = index + 1;
+        }
+        Int saved = samples[slot];
+        samples[slot] = samples[high];
+        samples[high] = saved;
+        Return slot;
+    }
+
+    Private Function Quick(Int target) -> Int {
+        This.FillMixed();
+        Return This.QuickFrom(0, 7, target);
+    }
+
+    Private Function QuickFrom(Int low, Int high, Int target) -> Int {
+        Int guard = 0;
+        While (low < high) {
+            guard = guard + 1;
+            If (guard > 16) {
+                problem = "timeout";
+                Return 0;
+            }
+            Int pivot = This.Partition(low, high);
+            If (pivot == target) { low = high; }
+            If (pivot > target) { high = pivot - 1; }
+            If (pivot < target) { low = pivot + 1; }
+        }
+        Return samples[target];
+    }
+
+    Private Function Heapify() -> Int {
+        This.FillMixed();
+        Int start = 3;
+        While (start >= 0) {
+            This.Sift(start, 8);
+            start = start - 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function Sift(Int index, Int size) -> Int {
+        Int moving = 1;
+        While (moving == 1) {
+            Int left = index * 2 + 1;
+            Int right = left + 1;
+            Int best = index;
+            If (left < size) {
+                If (samples[left] < samples[best]) { best = left; }
+            }
+            If (right < size) {
+                If (samples[right] < samples[best]) { best = right; }
+            }
+            Int swap = 0;
+            If (best != index) { swap = 1; }
+            If (swap == 1) {
+                Int saved = samples[index];
+                samples[index] = samples[best];
+                samples[best] = saved;
+                index = best;
+            }
+            If (swap == 0) { moving = 0; }
+        }
+        Return samples[0];
+    }
+
+    Private Function PopMin(Int size) -> Int {
+        Int value = samples[0];
+        Int last = size - 1;
+        samples[0] = samples[last];
+        samples[last] = value;
+        If (last > 0) { This.Sift(0, last); }
+        Return value;
+    }
+
+    Private Function TakeMin() -> Int {
+        Int best = 0;
+        Int index = 1;
+        While (index < 8) {
+            If (samples[index] < samples[best]) { best = index; }
+            index = index + 1;
+        }
+        Int value = samples[best];
+        samples[best] = 99;
+        Return value;
+    }
+
+    Private Function MedianOfThree() -> Int {
+        Int a = samples[0];
+        Int b = samples[3];
+        Int c = samples[7];
+        If (a > b) {
+            Int saved = a;
+            a = b;
+            b = saved;
+        }
+        If (b > c) {
+            Int saved = b;
+            b = c;
+            c = saved;
+        }
+        If (a > b) {
+            Int saved = a;
+            a = b;
+            b = saved;
+        }
+        Return b;
+    }
+
+    Private Function PlacePivot(Int pivot) -> Int {
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] == pivot) {
+                Int saved = samples[index];
+                samples[index] = samples[7];
+                samples[7] = saved;
+                Return index;
+            }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function SumHigh(Int count) -> Int {
+        This.Order();
+        Int total = 0;
+        Int index = 8 - count;
+        While (index < 8) {
+            total = total + samples[index];
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Private Function SumLow(Int count) -> Int {
+        This.Order();
+        Int total = 0;
+        Int index = 0;
+        While (index < count) {
+            total = total + samples[index];
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Private Function Locate(Int target) -> Int {
+        This.Order();
+        Int index = 0;
+        Int found = -1;
+        While (index < 8) {
+            If (found < 0 && samples[index] == target) { found = index; }
+            index = index + 1;
+        }
+        Return found;
+    }
+
+    Private Function WeightedAt(Int threshold) -> Int {
+        This.Order();
+        This.FillWeights();
+        If (threshold < 1) { threshold = 1; }
+        Int cumulative = 0;
+        Int index = 0;
+        Int chosen = samples[0];
+        Int moving = 1;
+        While (moving == 1) {
+            cumulative = cumulative + other[index];
+            If (cumulative >= threshold) {
+                chosen = samples[index];
+                moving = 0;
+            }
+            If (moving == 1) {
+                index = index + 1;
+                If (index >= 8) { moving = 0; }
+            }
+        }
+        Return chosen;
+    }
+}

@@ -1,0 +1,325 @@
+// Tests for Selection.rx. Each call uses a fresh desk.
+
+Test Select {
+    Constraint: SelectionDesk().Select(4) == 5;
+    Processing: SelectionDesk().Select(4);
+    Output: 5;
+}
+
+Test SelectMinimum {
+    Constraint: SelectionDesk().SelectMinimum() == 1;
+    Processing: SelectionDesk().SelectMinimum();
+    Output: 1;
+}
+
+Test SelectMaximum {
+    Constraint: SelectionDesk().SelectMaximum() == 8;
+    Processing: SelectionDesk().SelectMaximum();
+    Output: 8;
+}
+
+Test SelectNth {
+    Constraint: SelectionDesk().SelectNth(4) == 4;
+    Processing: SelectionDesk().SelectNth(4);
+    Output: 4;
+}
+
+Test SelectKthSmallest {
+    Constraint: SelectionDesk().SelectKthSmallest(1) == 1;
+    Processing: SelectionDesk().SelectKthSmallest(1);
+    Output: 1;
+}
+
+Test SelectKthLargest {
+    Constraint: SelectionDesk().SelectKthLargest(3) == 6;
+    Processing: SelectionDesk().SelectKthLargest(3);
+    Output: 6;
+}
+
+Test SelectMedian {
+    Constraint: SelectionDesk().SelectMedian() == 4;
+    Processing: SelectionDesk().SelectMedian();
+    Output: 4;
+}
+
+Test SelectLowerMedian {
+    Constraint: SelectionDesk().SelectLowerMedian() == 4;
+    Processing: SelectionDesk().SelectLowerMedian();
+    Output: 4;
+}
+
+Test SelectUpperMedian {
+    Constraint: SelectionDesk().SelectUpperMedian() == 5;
+    Processing: SelectionDesk().SelectUpperMedian();
+    Output: 5;
+}
+
+Test QuickSelect {
+    Constraint: SelectionDesk().QuickSelect(4) == 5;
+    Processing: SelectionDesk().QuickSelect(4);
+    Output: 5;
+}
+
+Test RandomizedQuickSelect {
+    Constraint: SelectionDesk().RandomizedQuickSelect(4) == 5;
+    Processing: SelectionDesk().RandomizedQuickSelect(4);
+    Output: 5;
+}
+
+Test MedianOfMedians {
+    Constraint: SelectionDesk().MedianOfMedians(4) == 5;
+    Processing: SelectionDesk().MedianOfMedians(4);
+    Output: 5;
+}
+
+Test IntroSelect {
+    Constraint: SelectionDesk().IntroSelect(4) == 5;
+    Processing: SelectionDesk().IntroSelect(4);
+    Output: 5;
+}
+
+Test HeapSelect {
+    Constraint: SelectionDesk().HeapSelect(4) == 5;
+    Processing: SelectionDesk().HeapSelect(4);
+    Output: 5;
+}
+
+Test TournamentSelect {
+    Constraint: SelectionDesk().TournamentSelect(4) == 5;
+    Processing: SelectionDesk().TournamentSelect(4);
+    Output: 5;
+}
+
+Test FloydRivestSelect {
+    Constraint: SelectionDesk().FloydRivestSelect(4) == 5;
+    Processing: SelectionDesk().FloydRivestSelect(4);
+    Output: 5;
+}
+
+Test TopK {
+    Constraint: SelectionDesk().TopK(3) == 21;
+    Processing: SelectionDesk().TopK(3);
+    Output: 21;
+}
+
+Test BottomK {
+    Constraint: SelectionDesk().BottomK(3) == 6;
+    Processing: SelectionDesk().BottomK(3);
+    Output: 6;
+}
+
+Test TopKSorted {
+    Constraint: SelectionDesk().TopKSorted(3) == 6;
+    Processing: SelectionDesk().TopKSorted(3);
+    Output: 6;
+}
+
+Test BottomKSorted {
+    Constraint: SelectionDesk().BottomKSorted(3) == 3;
+    Processing: SelectionDesk().BottomKSorted(3);
+    Output: 3;
+}
+
+Test TopKBy {
+    Constraint: SelectionDesk().TopKBy(3, 0) == 21;
+    Processing: SelectionDesk().TopKBy(3, 0);
+    Output: 21;
+}
+
+Test TopKDistinct {
+    Constraint: SelectionDesk().TopKDistinct(3) == 21;
+    Processing: SelectionDesk().TopKDistinct(3);
+    Output: 21;
+}
+
+Test StreamingTopK {
+    Constraint: SelectionDesk().StreamingTopK(3) == 21;
+    Processing: SelectionDesk().StreamingTopK(3);
+    Output: 21;
+}
+
+Test SelectPercentile {
+    Constraint: SelectionDesk().SelectPercentile(50) == 4;
+    Processing: SelectionDesk().SelectPercentile(50);
+    Output: 4;
+}
+
+Test SelectQuantile {
+    Constraint: SelectionDesk().SelectQuantile(100) == 8;
+    Processing: SelectionDesk().SelectQuantile(100);
+    Output: 8;
+}
+
+Test SelectQuartile {
+    Constraint: SelectionDesk().SelectQuartile(1) == 2;
+    Processing: SelectionDesk().SelectQuartile(1);
+    Output: 2;
+}
+
+Test SelectDecile {
+    Constraint: SelectionDesk().SelectDecile(5) == 4;
+    Processing: SelectionDesk().SelectDecile(5);
+    Output: 4;
+}
+
+Test WeightedMedian {
+    Constraint: SelectionDesk().WeightedMedian() == 4;
+    Processing: SelectionDesk().WeightedMedian();
+    Output: 4;
+}
+
+Test WeightedQuantile {
+    Constraint: SelectionDesk().WeightedQuantile(100) == 8;
+    Processing: SelectionDesk().WeightedQuantile(100);
+    Output: 8;
+}
+
+Test Rank {
+    Constraint: SelectionDesk().Rank(4) == 4;
+    Processing: SelectionDesk().Rank(4);
+    Output: 4;
+}
+
+Test DenseRank {
+    Constraint: SelectionDesk().DenseRank(4) == 3;
+    Processing: SelectionDesk().DenseRank(4);
+    Output: 3;
+}
+
+Test CompetitionRank {
+    Constraint: SelectionDesk().CompetitionRank(4) == 5;
+    Processing: SelectionDesk().CompetitionRank(4);
+    Output: 5;
+}
+
+Test FractionalRank {
+    Constraint: SelectionDesk().FractionalRank(2) == 3;
+    Processing: SelectionDesk().FractionalRank(2);
+    Output: 3;
+}
+
+Test FindRank {
+    Constraint: SelectionDesk().FindRank(5) == 5;
+    Processing: SelectionDesk().FindRank(5);
+    Output: 5;
+}
+
+Test FindOrderStatistic {
+    Constraint: SelectionDesk().FindOrderStatistic(4) == 4;
+    Processing: SelectionDesk().FindOrderStatistic(4);
+    Output: 4;
+}
+
+Test Fault {
+    Constraint: SelectionDesk().Fault() == "none";
+    Processing: SelectionDesk().Fault();
+    Output: "none";
+}
+
+Test FillMixed {
+    Constraint: SelectionDesk().FillMixed() == 4;
+    Processing: SelectionDesk().FillMixed();
+    Output: 4;
+}
+
+Test FillDuplicates {
+    Constraint: SelectionDesk().FillDuplicates() == 2;
+    Processing: SelectionDesk().FillDuplicates();
+    Output: 2;
+}
+
+Test FillWeights {
+    Constraint: SelectionDesk().FillWeights() == 1;
+    Processing: SelectionDesk().FillWeights();
+    Output: 1;
+}
+
+Test Order {
+    Constraint: SelectionDesk().Order() == 1;
+    Processing: SelectionDesk().Order();
+    Output: 1;
+}
+
+Test SortSpan {
+    Constraint: SelectionDesk().SortSpan(0, 8) == 0;
+    Processing: SelectionDesk().SortSpan(0, 8);
+    Output: 0;
+}
+
+Test Partition {
+    Constraint: SelectionDesk().Partition(0, 7) == 7;
+    Processing: SelectionDesk().Partition(0, 7);
+    Output: 7;
+}
+
+Test Quick {
+    Constraint: SelectionDesk().Quick(4) == 5;
+    Processing: SelectionDesk().Quick(4);
+    Output: 5;
+}
+
+Test QuickFrom {
+    Constraint: SelectionDesk().QuickFrom(0, 7, 4) == 0;
+    Processing: SelectionDesk().QuickFrom(0, 7, 4);
+    Output: 0;
+}
+
+Test Heapify {
+    Constraint: SelectionDesk().Heapify() == 1;
+    Processing: SelectionDesk().Heapify();
+    Output: 1;
+}
+
+Test Sift {
+    Constraint: SelectionDesk().Sift(0, 8) == 0;
+    Processing: SelectionDesk().Sift(0, 8);
+    Output: 0;
+}
+
+Test PopMin {
+    Constraint: SelectionDesk().PopMin(8) == 0;
+    Processing: SelectionDesk().PopMin(8);
+    Output: 0;
+}
+
+Test TakeMin {
+    Constraint: SelectionDesk().TakeMin() == 0;
+    Processing: SelectionDesk().TakeMin();
+    Output: 0;
+}
+
+Test MedianOfThree {
+    Constraint: SelectionDesk().MedianOfThree() == 0;
+    Processing: SelectionDesk().MedianOfThree();
+    Output: 0;
+}
+
+Test PlacePivot {
+    Constraint: SelectionDesk().PlacePivot(0) == 0;
+    Processing: SelectionDesk().PlacePivot(0);
+    Output: 0;
+}
+
+Test SumHigh {
+    Constraint: SelectionDesk().SumHigh(3) == 21;
+    Processing: SelectionDesk().SumHigh(3);
+    Output: 21;
+}
+
+Test SumLow {
+    Constraint: SelectionDesk().SumLow(3) == 6;
+    Processing: SelectionDesk().SumLow(3);
+    Output: 6;
+}
+
+Test Locate {
+    Constraint: SelectionDesk().Locate(4) == 3;
+    Processing: SelectionDesk().Locate(4);
+    Output: 3;
+}
+
+Test WeightedAt {
+    Constraint: SelectionDesk().WeightedAt(4) == 4;
+    Processing: SelectionDesk().WeightedAt(4);
+    Output: 4;
+}

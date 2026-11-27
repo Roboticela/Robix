@@ -1,5 +1,241 @@
+// Tests for Events.rx. Each call uses a fresh desk.
+
 Test Open {
-    Constraint: EventDesk().Open("arm") == 0;
-    Processing: True;
-    Output: True;
+    Constraint: EventDesk().Open("tick") == 0;
+    Processing: EventDesk().Open("tick");
+    Output: 0;
+}
+
+Test Subscribe {
+    Constraint: EventDesk().Subscribe(0, "ui", 1) == -1;
+    Processing: EventDesk().Subscribe(0, "ui", 1);
+    Output: -1;
+}
+
+Test Once {
+    Constraint: EventDesk().Once(0, "ui") == -1;
+    Processing: EventDesk().Once(0, "ui");
+    Output: -1;
+}
+
+Test Remove {
+    Constraint: EventDesk().Remove(0) == 0;
+    Processing: EventDesk().Remove(0);
+    Output: 0;
+}
+
+Test Emit {
+    Constraint: EventDesk().Emit(0, 4) == 0;
+    Processing: EventDesk().Emit(0, 4);
+    Output: 0;
+}
+
+Test Dispatch {
+    Constraint: EventDesk().Dispatch(0, 4) == 0;
+    Processing: EventDesk().Dispatch(0, 4);
+    Output: 0;
+}
+
+Test Publish {
+    Constraint: EventDesk().Publish(0, 4) == 0;
+    Processing: EventDesk().Publish(0, 4);
+    Output: 0;
+}
+
+Test DispatchAsync {
+    Constraint: EventDesk().DispatchAsync(0, 4) == 0;
+    Processing: EventDesk().DispatchAsync(0, 4);
+    Output: 0;
+}
+
+Test Broadcast {
+    Constraint: EventDesk().Broadcast(4) == 0;
+    Processing: EventDesk().Broadcast(4);
+    Output: 0;
+}
+
+Test HasListeners {
+    Constraint: EventDesk().HasListeners(0) == 0;
+    Processing: EventDesk().HasListeners(0);
+    Output: 0;
+}
+
+Test ListenerCount {
+    Constraint: EventDesk().ListenerCount(0) == 0;
+    Processing: EventDesk().ListenerCount(0);
+    Output: 0;
+}
+
+Test ListenerAt {
+    Constraint: EventDesk().ListenerAt(0, 0) == "none";
+    Processing: EventDesk().ListenerAt(0, 0);
+    Output: "none";
+}
+
+Test Last {
+    Constraint: EventDesk().Last(0) == 0;
+    Processing: EventDesk().Last(0);
+    Output: 0;
+}
+
+Test LastListener {
+    Constraint: EventDesk().LastListener() == "none";
+    Processing: EventDesk().LastListener();
+    Output: "none";
+}
+
+Test Calls {
+    Constraint: EventDesk().Calls(0) == 0;
+    Processing: EventDesk().Calls(0);
+    Output: 0;
+}
+
+Test Pause {
+    Constraint: EventDesk().Pause() == 1;
+    Processing: EventDesk().Pause();
+    Output: 1;
+}
+
+Test Resume {
+    Constraint: EventDesk().Resume() == 1;
+    Processing: EventDesk().Resume();
+    Output: 1;
+}
+
+Test Flush {
+    Constraint: EventDesk().Flush() == 0;
+    Processing: EventDesk().Flush();
+    Output: 0;
+}
+
+Test Depth {
+    Constraint: EventDesk().Depth() == 0;
+    Processing: EventDesk().Depth();
+    Output: 0;
+}
+
+Test ClearListeners {
+    Constraint: EventDesk().ClearListeners(0) == 0;
+    Processing: EventDesk().ClearListeners(0);
+    Output: 0;
+}
+
+Test ClearAll {
+    Constraint: EventDesk().ClearAll() == 1;
+    Processing: EventDesk().ClearAll();
+    Output: 1;
+}
+
+Test SetFilter {
+    Constraint: EventDesk().SetFilter(2) == 1;
+    Processing: EventDesk().SetFilter(2);
+    Output: 1;
+}
+
+Test SetTransform {
+    Constraint: EventDesk().SetTransform(1) == 1;
+    Processing: EventDesk().SetTransform(1);
+    Output: 1;
+}
+
+Test SetMiddleware {
+    Constraint: EventDesk().SetMiddleware(1) == 1;
+    Processing: EventDesk().SetMiddleware(1);
+    Output: 1;
+}
+
+Test SetRoute {
+    Constraint: EventDesk().SetRoute(0, 2) == 0;
+    Processing: EventDesk().SetRoute(0, 2);
+    Output: 0;
+}
+
+Test Route {
+    Constraint: EventDesk().Route(0) == 0;
+    Processing: EventDesk().Route(0);
+    Output: 0;
+}
+
+Test SetContext {
+    Constraint: EventDesk().SetContext("ui") == 1;
+    Processing: EventDesk().SetContext("ui");
+    Output: 1;
+}
+
+Test Context {
+    Constraint: EventDesk().Context() == "none";
+    Processing: EventDesk().Context();
+    Output: "none";
+}
+
+Test WaitFor {
+    Constraint: EventDesk().WaitFor(0) == 0;
+    Processing: EventDesk().WaitFor(0);
+    Output: 0;
+}
+
+Test Meta {
+    Constraint: EventDesk().Meta(0) == "none";
+    Processing: EventDesk().Meta(0);
+    Output: "none";
+}
+
+Test Fault {
+    Constraint: EventDesk().Fault() == "none";
+    Processing: EventDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: EventDesk().Stats() == "delivered=0,dropped=0,queued=0";
+    Processing: EventDesk().Stats();
+    Output: "delivered=0,dropped=0,queued=0";
+}
+
+Test Bind {
+    Constraint: EventDesk().Bind(0, "ui", 1, 0) == -1;
+    Processing: EventDesk().Bind(0, "ui", 1, 0);
+    Output: -1;
+}
+
+Test Accept {
+    Constraint: EventDesk().Accept(0, 4) == 0;
+    Processing: EventDesk().Accept(0, 4);
+    Output: 0;
+}
+
+Test Deliver {
+    Constraint: EventDesk().Deliver(0, 4) == 0;
+    Processing: EventDesk().Deliver(0, 4);
+    Output: 0;
+}
+
+Test KnownEvent {
+    Constraint: EventDesk().KnownEvent(0) == 0;
+    Processing: EventDesk().KnownEvent(0);
+    Output: 0;
+}
+
+Test KnownListener {
+    Constraint: EventDesk().KnownListener(0) == 0;
+    Processing: EventDesk().KnownListener(0);
+    Output: 0;
+}
+
+Test ClaimEvent {
+    Constraint: EventDesk().ClaimEvent() == 0;
+    Processing: EventDesk().ClaimEvent();
+    Output: 0;
+}
+
+Test ClaimListener {
+    Constraint: EventDesk().ClaimListener() == 0;
+    Processing: EventDesk().ClaimListener();
+    Output: 0;
+}
+
+Test IntText {
+    Constraint: EventDesk().IntText(6) == "6";
+    Processing: EventDesk().IntText(6);
+    Output: "6";
 }

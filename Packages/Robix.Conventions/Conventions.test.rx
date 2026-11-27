@@ -1,5 +1,289 @@
+// Tests for Conventions.rx. Each call uses a fresh desk.
+
 Test CheckName {
-    Constraint: ConventionDesk().CheckName("Robot") == 1;
-    Processing: True;
-    Output: True;
+    Case "pascal" {
+        Constraint: ConventionDesk().CheckName("Flow") == 1;
+        Processing: ConventionDesk().CheckName("Flow");
+        Output: 1;
+    }
+    Case "lower" {
+        Constraint: ConventionDesk().CheckName("flow") == 0;
+        Processing: ConventionDesk().CheckName("flow");
+        Output: 0;
+    }
+}
+
+Test CheckAcronym {
+    Case "uppercase" {
+        Constraint: ConventionDesk().CheckAcronym("HTTP") == 1;
+        Processing: ConventionDesk().CheckAcronym("HTTP");
+        Output: 1;
+    }
+    Case "mixed" {
+        Constraint: ConventionDesk().CheckAcronym("Http") == 0;
+        Processing: ConventionDesk().CheckAcronym("Http");
+        Output: 0;
+    }
+}
+
+Test CheckGeneric {
+    Case "brackets" {
+        Constraint: ConventionDesk().CheckGeneric("List<T>") == 1;
+        Processing: ConventionDesk().CheckGeneric("List<T>");
+        Output: 1;
+    }
+    Case "plain" {
+        Constraint: ConventionDesk().CheckGeneric("List") == 0;
+        Processing: ConventionDesk().CheckGeneric("List");
+        Output: 0;
+    }
+}
+
+Test CheckAsync {
+    Case "suffix" {
+        Constraint: ConventionDesk().CheckAsync("ReadAsync") == 1;
+        Processing: ConventionDesk().CheckAsync("ReadAsync");
+        Output: 1;
+    }
+    Case "short" {
+        Constraint: ConventionDesk().CheckAsync("Read") == 0;
+        Processing: ConventionDesk().CheckAsync("Read");
+        Output: 0;
+    }
+}
+
+Test CheckVisibility {
+    Case "public" {
+        Constraint: ConventionDesk().CheckVisibility("Public") == 1;
+        Processing: ConventionDesk().CheckVisibility("Public");
+        Output: 1;
+    }
+    Case "open" {
+        Constraint: ConventionDesk().CheckVisibility("Open") == 0;
+        Processing: ConventionDesk().CheckVisibility("Open");
+        Output: 0;
+    }
+}
+
+Test CheckCollection {
+    Case "list" {
+        Constraint: ConventionDesk().CheckCollection("IList") == 1;
+        Processing: ConventionDesk().CheckCollection("IList");
+        Output: 1;
+    }
+    Case "array" {
+        Constraint: ConventionDesk().CheckCollection("Array") == 0;
+        Processing: ConventionDesk().CheckCollection("Array");
+        Output: 0;
+    }
+}
+
+Test CheckType {
+    Case "int" {
+        Constraint: ConventionDesk().CheckType("Int") == 1;
+        Processing: ConventionDesk().CheckType("Int");
+        Output: 1;
+    }
+    Case "lower" {
+        Constraint: ConventionDesk().CheckType("int") == 0;
+        Processing: ConventionDesk().CheckType("int");
+        Output: 0;
+    }
+}
+
+Test RequireDoc {
+    Case "present" {
+        Constraint: ConventionDesk().RequireDoc("ready") == 1;
+        Processing: ConventionDesk().RequireDoc("ready");
+        Output: 1;
+    }
+    Case "empty" {
+        Constraint: ConventionDesk().RequireDoc("") == 0;
+        Processing: ConventionDesk().RequireDoc("");
+        Output: 0;
+    }
+}
+
+Test CheckNull {
+    Case "present" {
+        Constraint: ConventionDesk().CheckNull("x") == 1;
+        Processing: ConventionDesk().CheckNull("x");
+        Output: 1;
+    }
+    Case "empty" {
+        Constraint: ConventionDesk().CheckNull("") == 0;
+        Processing: ConventionDesk().CheckNull("");
+        Output: 0;
+    }
+}
+
+Test Accept {
+    Case "kept" {
+        Constraint: ConventionDesk().Accept(0, 5) == 5;
+        Processing: ConventionDesk().Accept(0, 5);
+        Output: 5;
+    }
+    Case "canceled" {
+        Constraint: ConventionDesk().Accept(1, 5) == -1;
+        Processing: ConventionDesk().Accept(1, 5);
+        Output: -1;
+    }
+}
+
+Test CheckResource {
+    Constraint: ConventionDesk().CheckResource() == 1;
+    Processing: ConventionDesk().CheckResource();
+    Output: 1;
+}
+
+Test Ok {
+    Constraint: ConventionDesk().Ok(4) == 1;
+    Processing: ConventionDesk().Ok(4);
+    Output: 1;
+}
+
+Test Fail {
+    Constraint: ConventionDesk().Fail("bad") == 0;
+    Processing: ConventionDesk().Fail("bad");
+    Output: 0;
+}
+
+Test Value {
+    Constraint: ConventionDesk().Value() == 0;
+    Processing: ConventionDesk().Value();
+    Output: 0;
+}
+
+Test Error {
+    Constraint: ConventionDesk().Error() == "none";
+    Processing: ConventionDesk().Error();
+    Output: "none";
+}
+
+Test Note {
+    Constraint: ConventionDesk().Note() == "none";
+    Processing: ConventionDesk().Note();
+    Output: "none";
+}
+
+Test ReadFile {
+    Constraint: ConventionDesk().ReadFile() == 0;
+    Processing: ConventionDesk().ReadFile();
+    Output: 0;
+}
+
+Test ReadTextAsync {
+    Constraint: ConventionDesk().ReadTextAsync("Name") == 4;
+    Processing: ConventionDesk().ReadTextAsync("Name");
+    Output: 4;
+}
+
+Test WriteTextAsync {
+    Constraint: ConventionDesk().WriteTextAsync("a", "hi") == 2;
+    Processing: ConventionDesk().WriteTextAsync("a", "hi");
+    Output: 2;
+}
+
+Test ConnectAsync {
+    Case "host" {
+        Constraint: ConventionDesk().ConnectAsync("local") == 1;
+        Processing: ConventionDesk().ConnectAsync("local");
+        Output: 1;
+    }
+    Case "empty" {
+        Constraint: ConventionDesk().ConnectAsync("") == 0;
+        Processing: ConventionDesk().ConnectAsync("");
+        Output: 0;
+    }
+}
+
+Test SendAsync {
+    Constraint: ConventionDesk().SendAsync(6) == 6;
+    Processing: ConventionDesk().SendAsync(6);
+    Output: 6;
+}
+
+Test ReceiveAsync {
+    Constraint: ConventionDesk().ReceiveAsync() == 0;
+    Processing: ConventionDesk().ReceiveAsync();
+    Output: 0;
+}
+
+Test Dispose {
+    Constraint: ConventionDesk().Dispose() == 1;
+    Processing: ConventionDesk().Dispose();
+    Output: 1;
+}
+
+Test DisposeAsync {
+    Constraint: ConventionDesk().DisposeAsync() == 1;
+    Processing: ConventionDesk().DisposeAsync();
+    Output: 1;
+}
+
+Test Disposed {
+    Constraint: ConventionDesk().Disposed() == 0;
+    Processing: ConventionDesk().Disposed();
+    Output: 0;
+}
+
+Test Fault {
+    Constraint: ConventionDesk().Fault() == "none";
+    Processing: ConventionDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: ConventionDesk().Stats() == "passed=0,failed=0";
+    Processing: ConventionDesk().Stats();
+    Output: "passed=0,failed=0";
+}
+
+Test Mark {
+    Case "pass" {
+        Constraint: ConventionDesk().Mark(1) == 1;
+        Processing: ConventionDesk().Mark(1);
+        Output: 1;
+    }
+    Case "fail" {
+        Constraint: ConventionDesk().Mark(0) == 0;
+        Processing: ConventionDesk().Mark(0);
+        Output: 0;
+    }
+}
+
+Test Pascal {
+    Constraint: ConventionDesk().Pascal("Flow") == 1;
+    Processing: ConventionDesk().Pascal("Flow");
+    Output: 1;
+}
+
+Test HasOpen {
+    Constraint: ConventionDesk().HasOpen("A<T>") == 1;
+    Processing: ConventionDesk().HasOpen("A<T>");
+    Output: 1;
+}
+
+Test Upper {
+    Constraint: ConventionDesk().Upper("A") == 1;
+    Processing: ConventionDesk().Upper("A");
+    Output: 1;
+}
+
+Test Letter {
+    Constraint: ConventionDesk().Letter("b") == 1;
+    Processing: ConventionDesk().Letter("b");
+    Output: 1;
+}
+
+Test Digit {
+    Constraint: ConventionDesk().Digit("4") == 1;
+    Processing: ConventionDesk().Digit("4");
+    Output: 1;
+}
+
+Test IntText {
+    Constraint: ConventionDesk().IntText(8) == "8";
+    Processing: ConventionDesk().IntText(8);
+    Output: "8";
 }

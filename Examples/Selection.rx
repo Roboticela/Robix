@@ -1,0 +1,54 @@
+// Robix.Algorithms.Selection: exact order statistics on eight integers.
+Package Robotics.Selection;
+
+Import Robix.Core;
+Import Robix.Algorithms.Selection;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise order statistics on eight integer samples.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the selection desk.";
+    Output: "The selection report.";
+} {
+    SelectionDesk desk = SelectionDesk();
+    Print(desk.Select(4));
+    Print(desk.SelectMinimum());
+    Print(desk.SelectMaximum());
+    Print(desk.SelectNth(4));
+    Print(desk.SelectKthSmallest(1));
+    Print(desk.SelectKthLargest(3));
+    Print(desk.SelectMedian());
+    Print(desk.SelectLowerMedian());
+    Print(desk.SelectUpperMedian());
+    Print(desk.QuickSelect(4));
+    Print(desk.RandomizedQuickSelect(4));
+    Print(desk.MedianOfMedians(4));
+    Print(desk.IntroSelect(4));
+    Print(desk.HeapSelect(4));
+    Print(desk.TournamentSelect(4));
+    Print(desk.FloydRivestSelect(4));
+    Print(desk.TopK(3));
+    Print(desk.BottomK(3));
+    Print(desk.TopKSorted(3));
+    Print(desk.BottomKSorted(3));
+    Print(desk.TopKBy(3, 0));
+    Print(desk.TopKDistinct(3));
+    Print(desk.StreamingTopK(3));
+    Print(desk.SelectPercentile(50));
+    Print(desk.SelectQuantile(100));
+    Print(desk.SelectQuartile(1));
+    Print(desk.SelectDecile(5));
+    Print(desk.WeightedMedian());
+    Print(desk.WeightedQuantile(100));
+    Print(desk.Rank(4));
+    Print(desk.DenseRank(4));
+    Print(desk.CompetitionRank(4));
+    Print(desk.FractionalRank(2));
+    Print(desk.FindRank(5));
+    Print(desk.FindOrderStatistic(4));
+    Print(desk.Select(4));
+    Print(desk.Fault());
+    Return 0;
+}
