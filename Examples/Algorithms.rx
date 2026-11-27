@@ -1,0 +1,88 @@
+// Robix.Algorithms: integer execution, pipelines, and sequence utilities.
+Package Robotics.Algorithms;
+
+Import Robix.Core;
+Import Robix.Algorithms;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise algorithm execution and sequence utilities.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the algorithm desk.";
+    Output: "The algorithm report.";
+} {
+    AlgorithmDesk desk = AlgorithmDesk();
+    Print(desk.Execute(0, 21));
+    Print(desk.Execute(1, 21));
+    Print(desk.Execute(2, 5));
+    Print(desk.Execute(3, -7));
+    Print(desk.Execute(4, 5));
+    Print(desk.Execute(5, 21));
+    Print(desk.Execute(6, 12));
+    Print(desk.Execute(7, 5));
+    Print(desk.ExecuteAsync(1, 21));
+    Print(desk.TryExecute(1, 21));
+    Print(desk.ExecuteBatch(1));
+    Print(desk.ExecuteParallel(1));
+    Print(desk.ExecuteStreaming(1));
+    Print(desk.ExecuteWithTimeout(7, 5, 5));
+    Print(desk.ExecuteWithTimeout(7, 5, 4));
+    Print(desk.ExecuteWithCancellation(1, 21, 1));
+    Print(desk.ExecuteWithCancellation(1, 21, 0));
+    Print(desk.ListAlgorithms());
+    Print(desk.FindAlgorithm(5));
+    Print(desk.GetAlgorithm(5));
+    Print(desk.RegisterAlgorithm(5));
+    Print(desk.UnregisterAlgorithm(5));
+    Print(desk.GetAlgorithmMetadata(7));
+    Print(desk.GetAlgorithmVersion(1));
+    Print(desk.GetSupportedInputTypes(1));
+    Print(desk.GetSupportedOutputTypes(1));
+    Print(desk.AnalyzeComplexity(7));
+    Print(desk.EstimateTimeComplexity(7, 8));
+    Print(desk.EstimateSpaceComplexity(7, 8));
+    Print(desk.Benchmark(7, 5));
+    Print(desk.ProfileAlgorithm(7, 5));
+    Print(desk.TraceAlgorithm(7, 5));
+    Print(desk.ValidateAlgorithm(7));
+    Print(desk.VerifyOutput(1, 21, 42));
+    Print(desk.CompareAlgorithms(0, 1, 5));
+    Print(desk.SelectAlgorithm(2));
+    Print(desk.SelectFastest(7, 1));
+    Print(desk.SelectLowestMemory(7, 1));
+    Print(desk.ComposeAlgorithms(1, 5, 21));
+    Print(desk.CreatePipeline());
+    Print(desk.AddPipelineStage(1));
+    Print(desk.AddPipelineStage(5));
+    Print(desk.ExecutePipeline(21));
+    Print(desk.RemovePipelineStage(5));
+    Print(desk.Swap(3, 8));
+    Print(desk.Compare(3, 8));
+    Print(desk.Reverse());
+    Print(desk.Rotate(3));
+    Print(desk.Partition(5));
+    Print(desk.StablePartition(5));
+    Print(desk.IsSorted(0));
+    Print(desk.IsSorted(1));
+    Print(desk.IsSortedDescending(1));
+    Print(desk.IsPartitioned(5));
+    Print(desk.IsPermutation(0));
+    Print(desk.IsPermutation(1));
+    Print(desk.GeneratePermutation(0));
+    Print(desk.GeneratePermutation(1));
+    Print(desk.NextPermutation());
+    Print(desk.PreviousPermutation());
+    Print(desk.CountInversions());
+    Print(desk.MeasureComparisons());
+    Print(desk.MeasureSwaps());
+    Print(desk.SetPolicy(0));
+    Print(desk.SetMutation(1));
+    Print(desk.SetDeterminism(1));
+    Print(desk.IsDeterministic(1));
+    Print(desk.ReportProgress(7, 5));
+    Print(desk.Status(1));
+    Print(desk.Execute(1, 21));
+    Print(desk.Fault());
+    Return 0;
+}

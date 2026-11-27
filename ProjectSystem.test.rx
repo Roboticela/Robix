@@ -38,6 +38,14 @@ Test CommandOf {
         Input: args = ["--Configuration", "Release", "clean"];
         Output: "clean";
     }
+    Case "test file keeps the command" {
+        Input: args = ["test", "File.rx", "Main"];
+        Output: "test";
+    }
+    Case "function flag is not the command" {
+        Input: args = ["test", "--Function", "Main"];
+        Output: "test";
+    }
 }
 
 Test ParentDirectory {
@@ -650,6 +658,9 @@ Test RunTests {
         Assert: Result == True;
     }
 }
+
+Test RunCompanionTests { Output: True; }
+Test CompanionScope { Output: True; }
 
 Test RunTask {
     Case "run empty task" {

@@ -666,6 +666,69 @@ Test RequireTests {
     }
 }
 
+Test RunScopedTests {
+    Case "a function test ignores a missing companion" {
+        Input: sourcePath = "no-such-source.rx", module = AstNode(Children: []), scope = "function", name = "Main", reportMissing = False;
+        Assert: Result.Count() == 0;
+    }
+    Case "a file test reports a missing companion" {
+        Input: sourcePath = "no-such-source.rx", module = AstNode(Children: []), scope = "file", name = "", reportMissing = True;
+        Assert: Result.Count() == 1;
+    }
+}
+
+Test MatchedTests {
+    Case "starts at zero" {
+        Input:;
+        Output: 0;
+    }
+}
+
+Test TargetKind {
+    Case "empty name is the whole file" {
+        Input: module = AstNode(Children: []), name = "";
+        Output: "file";
+    }
+    Case "dotted name is one function" {
+        Input: module = AstNode(Children: []), name = "Desk.Add";
+        Output: "function";
+    }
+    Case "class name is the class" {
+        Input: module = AstNode(Children: [AstNode(Kind: AstKind.Class, Name: "Desk")]), name = "Desk";
+        Output: "class";
+    }
+    Case "other name is one function" {
+        Input: module = AstNode(Children: []), name = "Main";
+        Output: "function";
+    }
+}
+
+Test SelectedTest {
+    Case "file scope runs every test" {
+        Input: test = AstNode(Name: "Main", Suffix: ""), scope = "file", name = "";
+        Output: True;
+    }
+    Case "function scope matches the name" {
+        Input: test = AstNode(Name: "Helper", Suffix: ""), scope = "function", name = "Helper";
+        Output: True;
+    }
+    Case "function scope skips another name" {
+        Input: test = AstNode(Name: "Main", Suffix: ""), scope = "function", name = "Helper";
+        Output: False;
+    }
+    Case "class scope matches the owner" {
+        Input: test = AstNode(Name: "Add", Suffix: "Desk"), scope = "class", name = "Desk";
+        Output: True;
+    }
+    Case "method scope matches class and name" {
+        Input: test = AstNode(Name: "Add", Suffix: "Desk"), scope = "function", name = "Desk.Add";
+        Output: True;
+    }
+}
+
+Test ClassOwnsFunction { Output: True; }
+Test DeclaresType { Output: True; }
+
 Test Lines {
     Case "initial lines" {
         Input:;

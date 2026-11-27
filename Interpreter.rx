@@ -60,6 +60,9 @@ Public Class Interpreter {
     Private List<String> operatorKeys;
     Private List<AstNode> operatorNodes;
     Private Bool inTests;
+    Private String testScope;
+    Private String testName;
+    Private Int testsMatched;
     Private Bool consoleEnabled;
     Private Int consolePort;
     Private List<String> programArguments;
@@ -89,6 +92,9 @@ Public Class Interpreter {
         This.operatorKeys = List<String>();
         This.operatorNodes = List<AstNode>();
         This.inTests = False;
+        This.testScope = "";
+        This.testName = "";
+        This.testsMatched = 0;
         This.consoleEnabled = True;
         This.consolePort = 0;
         This.programArguments = List<String>();
@@ -190,12 +196,28 @@ Public Class Interpreter {
         Processing: "The interpreter ignores a missing companion and a function that has no test. When the companion exists, it runs every test. The compiler reports missing tests itself.";
         Output: "Error lines from tests that ran. An empty list means nothing failed or there was nothing to run.";
     } {
+        Return This.RunScopedTests(sourcePath, module, "file", "", False);
+    }
+
+    Public Function RunScopedTests(String sourcePath, AstNode module, String scope, String name, Bool reportMissing) -> List<String>
+    Explain {
+        Description: "Run tests for one function, one class, or one whole file.";
+        Input: sourcePath = "Source file path", module = "Parsed source module", scope = "file, function, or class", name = "Function, Class, or Class.Function. Empty for the whole file", reportMissing = "True when a missing companion is an error";
+        Processing: "Load the companion test file and run the tests selected by scope. A file runs every test. A function runs that test. A class runs every test for that type.";
+        Output: "Error lines from the tests that ran.";
+    } {
+        This.testScope = scope;
+        This.testName = name;
+        This.testsMatched = 0;
         Var errors = List<String>();
         If (sourcePath.EndsWith(".test.rx") || !sourcePath.EndsWith(".rx")) {
             Return errors;
         }
         String companion = sourcePath.Substring(0, sourcePath.Length() - 3) + ".test.rx";
         If (!Files.Exists(companion)) {
+            If (reportMissing) {
+                errors.Add("error RX120 " + sourcePath + " requires " + companion + ".");
+            }
             Return errors;
         }
         DiagnosticBag diagnostics = DiagnosticBag();
@@ -226,6 +248,29 @@ Public Class Interpreter {
         This.inTests = False;
         This.PopScope();
         Return errors;
+    }
+
+    Public Function MatchedTests() -> Int
+    Explain {
+        Description: "Return how many tests the last scoped run executed.";
+        Input: None;
+        Processing: "Read the counter updated while tests ran.";
+        Output: "The number of selected tests that ran.";
+    } {
+        Return This.testsMatched;
+    }
+
+    Public Function TargetKind(AstNode module, String name) -> String
+    Explain {
+        Description: "Decide whether a test target is a file, a class, or a function.";
+        Input: module = "Parsed source module", name = "Empty, a type name, a function name, or Class.Function";
+        Processing: "An empty name tests the file. A dotted name tests one method. A declared class, struct, interface, or enum tests that type. Any other name tests one function.";
+        Output: "file, class, or function.";
+    } {
+        If (name == "") { Return "file"; }
+        If (name.IndexOf(".") >= 0) { Return "function"; }
+        If (This.DeclaresType(module, name)) { Return "class"; }
+        Return "function";
     }
 
     Public Function RuntimeErrors() -> List<String>
@@ -273,7 +318,8 @@ Public Class Interpreter {
             For child In node.Children {
                 If (child.Kind == AstKind.Test && child.FlagB) { hasCase = True; }
             }
-            If (node.FlagB || !hasCase) {
+            If ((node.FlagB || !hasCase) && This.SelectedTest(node, This.testScope, This.testName)) {
+                This.testsMatched = This.testsMatched + 1;
                 String failure = This.RunOneTest(node);
                 If (failure != "") { errors.Add(failure); }
             }
@@ -284,6 +330,46 @@ Public Class Interpreter {
         If (node.Body != Null) {
             This.RunParsedTests(node.Body, errors);
         }
+    }
+
+    Private Function SelectedTest(AstNode test, String scope, String name) -> Bool {
+        If (scope == "" || scope == "file") { Return True; }
+        If (scope == "function") {
+            Int dot = name.IndexOf(".");
+            If (dot >= 0) {
+                String owner = name.Substring(0, dot);
+                String member = name.Substring(dot + 1);
+                If (test.Suffix != "" && test.Suffix != owner) { Return False; }
+                Return test.Name == member;
+            }
+            Return test.Name == name;
+        }
+        If (scope == "class") {
+            If (test.Suffix == name) { Return True; }
+            If (test.Suffix != "") { Return False; }
+            Return This.ClassOwnsFunction(name, test.Name);
+        }
+        Return True;
+    }
+
+    Private Function ClassOwnsFunction(String className, String functionName) -> Bool {
+        Int index = 0;
+        While (index < This.functions.Count()) {
+            If (This.functionOwners[index] == className && This.functions[index].Name == functionName) {
+                Return True;
+            }
+            index = index + 1;
+        }
+        Return False;
+    }
+
+    Private Function DeclaresType(AstNode node, String name) -> Bool {
+        If (node.Kind == AstKind.Class && node.Name == name) { Return True; }
+        For child In node.Children {
+            If (This.DeclaresType(child, name)) { Return True; }
+        }
+        If (node.Body != Null) { Return This.DeclaresType(node.Body, name); }
+        Return False;
     }
 
     Private Function RunOneTest(AstNode test) -> String {

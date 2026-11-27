@@ -39,6 +39,9 @@ Public Class ProjectEngine {
     Private Bool NoCache;
     Private Bool DryRun;
     Private String Filter;
+    Private String TestFile;
+    Private String TestTarget;
+    Private String TestScope;
     Private String ProjectPath;
     Private String ProjectDirectory;
     Private Bool WarningsAsErrors;
@@ -61,6 +64,9 @@ Public Class ProjectEngine {
         This.NoCache = False;
         This.DryRun = False;
         This.Filter = "";
+        This.TestFile = "";
+        This.TestTarget = "";
+        This.TestScope = "";
         This.ProjectPath = "";
         This.ProjectDirectory = ".";
         This.WarningsAsErrors = False;
@@ -74,7 +80,7 @@ Public Class ProjectEngine {
     Public Function Run(List<String> args) -> ExecutionResult
     Explain {
         Description: "Build, run, test, or inspect the Robix project in the working directory.";
-        Input: args = "A task name and optional --Configuration, --Verbose, --NoCache, --DryRun, and --Filter options";
+        Input: args = "A task name and optional --Configuration, --Verbose, --NoCache, --DryRun, --Filter, --File, --Function, and --Class options";
         Processing: "Find the .rxp file, parse it, and execute the requested task. The default task is Build.";
         Output: "Success when the task finishes, or an execution error when the project is invalid.";
     } {
@@ -86,10 +92,17 @@ Public Class ProjectEngine {
             Return This.Report(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("{accent}Robix{/} {muted}0.0.40{/}");
+            Print("{accent}Robix{/} {muted}0.0.41{/}");
             Return This.Report(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
+        If (projectPath == "" && command == "test" && This.TestFile != "") {
+            If (!This.RunCompanionTests(ProjectNode())) {
+                This.PrintDiagnostics();
+                Return This.Report(ExitCode.ErrorExecution, "Tests failed.");
+            }
+            Return This.Report(ExitCode.Success, "Tests passed.");
+        }
         If (projectPath == "") {
             Print("{error}No .rxp project file was found.{/}");
             Return This.Report(ExitCode.InvalidArguments, "A .rxp project is required.");
@@ -125,6 +138,13 @@ Public Class ProjectEngine {
                 Return This.Report(ExitCode.ErrorExecution, "The compiler did not rebuild itself.");
             }
             Return This.Report(ExitCode.Success, "Rebuilt Robix and Robixc.");
+        }
+        If (command == "test") {
+            If (!This.RunCompanionTests(root)) {
+                This.PrintDiagnostics();
+                Return This.Report(ExitCode.ErrorExecution, "Tests failed.");
+            }
+            Return This.Report(ExitCode.Success, "Tests passed.");
         }
         If (command == "rebuild") {
             This.ExecuteTask(root, "Clean");
@@ -165,7 +185,38 @@ Public Class ProjectEngine {
                 index = index + 1;
                 This.Filter = args[index];
             }
+            If (arg == "--File" && index + 1 < args.Count()) {
+                index = index + 1;
+                This.TestFile = args[index];
+            }
+            If (arg == "--Function" && index + 1 < args.Count()) {
+                index = index + 1;
+                This.TestTarget = args[index];
+                This.TestScope = "function";
+            }
+            If (arg == "--Class" && index + 1 < args.Count()) {
+                index = index + 1;
+                This.TestTarget = args[index];
+                This.TestScope = "class";
+            }
             index = index + 1;
+        }
+        Var positionals = List<String>();
+        Int cursor = 0;
+        While (cursor < args.Count()) {
+            String arg = args[cursor];
+            If (arg == "--Configuration" || arg == "--Filter" || arg == "--File" || arg == "--Function" || arg == "--Class") {
+                cursor = cursor + 1;
+            } Else If (!arg.StartsWith("--")) {
+                positionals.Add(arg);
+            }
+            cursor = cursor + 1;
+        }
+        If (positionals.Count() >= 2 && This.TestFile == "") {
+            This.TestFile = positionals[1];
+        }
+        If (positionals.Count() >= 3 && This.TestTarget == "") {
+            This.TestTarget = positionals[2];
         }
         This.DefineVariable("Configuration", This.Configuration);
     }
@@ -177,7 +228,7 @@ Public Class ProjectEngine {
             If (!arg.StartsWith("--")) {
                 Return arg.ToLower();
             }
-            If (arg == "--Configuration" || arg == "--Filter") {
+            If (arg == "--Configuration" || arg == "--Filter" || arg == "--File" || arg == "--Function" || arg == "--Class") {
                 index = index + 1;
             }
             index = index + 1;
@@ -346,7 +397,10 @@ Public Class ProjectEngine {
         Print("robix Rebuild          Clean and build");
         Print("robix Run              Build and run the project");
         Print("robix run File.rx      Run one source file");
-        Print("robix Test             Run the test task");
+        Print("robix Test             Test every source file in the project");
+        Print("robix test File.rx     Test one file");
+        Print("robix test File.rx Name   Test one function, or one class when Name is a type");
+        Print("robix test File.rx Type.Name   Test one method");
         Print("robix Restore          Use the project file");
         Print("robix Publish          Package the output");
         Print("robix Pack             Package the output");
@@ -357,7 +411,7 @@ Public Class ProjectEngine {
         Print("robix Help             Show this help");
         Print("robix Version          Show the tool version");
         Print("robix cover            Parse every syntax area");
-        Print("Options: --Configuration Debug|Release|Development --Verbose --NoCache --DryRun --Filter text");
+        Print("Options: --Configuration Debug|Release|Development --Verbose --NoCache --DryRun --Filter text --File path --Function name --Class name");
     }
 
     Private Function PrintInfo(ProjectNode root) -> Void {
@@ -916,6 +970,70 @@ Public Class ProjectEngine {
     Private Function Restore(ProjectNode project) -> Bool {
         This.FindChild(project, "Dependencies");
         Return True;
+    }
+
+    Private Function RunCompanionTests(ProjectNode project) -> Bool {
+        Var files = List<String>();
+        If (This.TestFile != "") {
+            files.Add(This.TestFile);
+        } Else {
+            For relative In This.SourceFiles(project) {
+                If (relative.EndsWith(".test.rx")) { Continue; }
+                If (This.Filter != "" && !relative.Contains(This.Filter)) { Continue; }
+                files.Add(relative);
+            }
+        }
+        Int passed = 0;
+        Int failed = 0;
+        Int matched = 0;
+        For relative In files {
+            String full = relative;
+            If (!Files.Exists(full)) {
+                full = This.Join(This.ProjectDirectory, relative);
+            }
+            If (!Files.Exists(full)) {
+                Print("FAIL " + relative);
+                This.Diagnostics.Add(relative + " was not found.");
+                failed = failed + 1;
+                Continue;
+            }
+            String source = Files.ReadText(full);
+            SyntaxCompiler compiler = SyntaxCompiler();
+            CompileResult result = compiler.CompileSource(source, full, False);
+            If (result.Errors > 0) {
+                For line In compiler.DiagnosticsOf(result) { Print(line); }
+                Print("FAIL " + relative);
+                failed = failed + 1;
+                Continue;
+            }
+            String scope = This.CompanionScope(result.Module);
+            Bool reportMissing = This.TestFile != "" || This.TestTarget == "";
+            Interpreter tests = Interpreter();
+            List<String> errors = tests.RunScopedTests(full, result.Module, scope, This.TestTarget, reportMissing);
+            Int ran = tests.MatchedTests();
+            matched = matched + ran;
+            For line In errors { Print(line); }
+            If (errors.Count() > 0) {
+                Print("FAIL " + relative);
+                failed = failed + 1;
+            } Else If (This.TestTarget == "" || ran > 0) {
+                Print("PASS " + relative);
+                passed = passed + 1;
+            }
+        }
+        If (This.TestTarget != "" && matched == 0) {
+            This.Diagnostics.Add("No test matched '" + This.TestTarget + "'.");
+            failed = failed + 1;
+        }
+        Print("{success}passed{/} {accent}" + passed.ToString() + "{/}  {error}failed{/} {accent}" + failed.ToString() + "{/}");
+        Return failed == 0;
+    }
+
+    Private Function CompanionScope(AstNode module) -> String {
+        If (This.TestScope != "") { Return This.TestScope; }
+        If (This.TestTarget == "") { Return "file"; }
+        Interpreter interpreter = Interpreter();
+        Return interpreter.TargetKind(module, This.TestTarget);
     }
 
     Private Function RunDiscoveredTests(ProjectNode project) -> Bool {

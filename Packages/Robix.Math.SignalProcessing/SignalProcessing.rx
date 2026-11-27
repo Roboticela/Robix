@@ -1,0 +1,1916 @@
+// Robix.Math.SignalProcessing: eight-sample waves, integer filters, and Walsh-Hadamard spectra.
+Package Robix.Math.SignalProcessing;
+
+Import Robix.Core;
+
+
+Class SignalDesk {
+    Private Array<Int> samples;
+    Private Array<Int> spectrum;
+    Private Array<Int> other;
+    Private Int rate;
+    Private Int channels;
+    Private Int delay;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        samples = [0, 0, 0, 0, 0, 0, 0, 0];
+        spectrum = [0, 0, 0, 0, 0, 0, 0, 0];
+        other = [0, 0, 0, 0, 0, 0, 0, 0];
+        rate = 8;
+        channels = 1;
+        delay = 0;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function CreateSignal(Int sampleRate) -> Int
+    Explain {
+        Description: "Store a mono rate for an eight-sample buffer.";
+        Input: sampleRate = "Samples per cycle, from 1 through 8";
+        Processing: "Reject a rate outside the buffer.";
+        Output: "The stored rate, or zero when it is rejected.";
+    } {
+        If (sampleRate < 1 || sampleRate > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        rate = sampleRate;
+        problem = "none";
+        Return rate;
+    }
+
+    Public Function CreateSineWave(Int frequency, Int amplitude, Int duration, Int sampleRate) -> Int
+    Explain {
+        Description: "Sum the absolute samples of an eight-point sine.";
+        Input: frequency = "Cycles in the buffer", amplitude = "Even peak", duration = "Sample count", sampleRate = "Must be 8";
+        Processing: "Round the eighth-turn sine to 0, 1, 2, 1 and scale it.";
+        Output: "The absolute sum, or zero when the wave is not an integer.";
+    } {
+        Return This.WaveSum(0, frequency, amplitude, duration, sampleRate);
+    }
+
+    Public Function CreateCosineWave(Int frequency, Int amplitude, Int duration, Int sampleRate) -> Int
+    Explain {
+        Description: "Sum the absolute samples of the quarter-shifted sine.";
+        Input: frequency = "Cycles in the buffer", amplitude = "Even peak", duration = "Sample count", sampleRate = "Must be 8";
+        Processing: "Shift the eight-point sine by two samples.";
+        Output: "The absolute sum.";
+    } {
+        Return This.WaveSum(1, frequency, amplitude, duration, sampleRate);
+    }
+
+    Public Function CreateSquareWave(Int frequency, Int amplitude, Int duration, Int sampleRate) -> Int
+    Explain {
+        Description: "Sum the absolute samples of a square wave.";
+        Input: frequency = "1, 2, or 4", amplitude = "Peak", duration = "Sample count", sampleRate = "Must be 8";
+        Processing: "Hold the peak for half of the period, then its negation.";
+        Output: "The absolute sum.";
+    } {
+        Return This.WaveSum(2, frequency, amplitude, duration, sampleRate);
+    }
+
+    Public Function CreateTriangleWave(Int frequency, Int amplitude, Int duration, Int sampleRate) -> Int
+    Explain {
+        Description: "Sum the absolute samples of a triangle wave.";
+        Input: frequency = "Must be 1", amplitude = "Even peak", duration = "Sample count", sampleRate = "Must be 8";
+        Processing: "Rise and fall in integer steps.";
+        Output: "The absolute sum.";
+    } {
+        Return This.WaveSum(3, frequency, amplitude, duration, sampleRate);
+    }
+
+    Public Function CreateSawtoothWave(Int frequency, Int amplitude, Int duration, Int sampleRate) -> Int
+    Explain {
+        Description: "Sum the absolute samples of a sawtooth wave.";
+        Input: frequency = "Must be 1", amplitude = "Multiple of 4", duration = "Sample count", sampleRate = "Must be 8";
+        Processing: "Step from the negative peak up to the positive side.";
+        Output: "The absolute sum.";
+    } {
+        Return This.WaveSum(4, frequency, amplitude, duration, sampleRate);
+    }
+
+    Public Function CreateImpulseSignal(Int length, Int position) -> Int
+    Explain {
+        Description: "Place a unit impulse in the buffer.";
+        Input: length = "Must be 8", position = "Index from 0 through 7";
+        Processing: "Store one at that index and zeros elsewhere.";
+        Output: "The impulse energy, which is one.";
+    } {
+        If (length != 8 || position < 0 || position > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillImpulse(position);
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function CreateWhiteNoise(Int length) -> Int
+    Explain {
+        Description: "Draw the first sample of the shared generator.";
+        Input: length = "Must be 8";
+        Processing: "Step the multiplier 17 and addend 13 from seed 1.";
+        Output: "The first draw, 30.";
+    } {
+        If (length != 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.Draw();
+    }
+
+    Public Function CreatePinkNoise(Int length) -> Int
+    Explain {
+        Description: "Halve the first white draw.";
+        Input: length = "Must be 8";
+        Processing: "The first draw is even, so the half is exact.";
+        Output: "15.";
+    } {
+        If (length != 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.Exact(This.Draw(), 2);
+    }
+
+    Public Function CreateBrownNoise(Int length) -> Int
+    Explain {
+        Description: "Start a random walk from the first white draw.";
+        Input: length = "Must be 8";
+        Processing: "Use the draw modulo 5, then subtract 2.";
+        Output: "The first step, -2.";
+    } {
+        If (length != 8) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.Draw() % 5 - 2;
+    }
+
+    Public Function GenerateSignal(Int kind) -> Int
+    Explain {
+        Description: "Build one of the desk's stock signals.";
+        Input: kind = "0 square peak, 1 ramp sum, 2 white draw, 3 impulse energy";
+        Processing: "Select the stock signal.";
+        Output: "Its characteristic integer.";
+    } {
+        If (kind == 0) { Return This.SquareSample(1, 1, 8, 0); }
+        If (kind == 1) {
+            This.FillEven();
+            Return This.Sum();
+        }
+        If (kind == 2) { Return This.CreateWhiteNoise(8); }
+        If (kind == 3) { Return This.CreateImpulseSignal(8, 0); }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function SquareSample(Int frequency, Int amplitude, Int sampleRate, Int index) -> Int
+    Explain {
+        Description: "Read one square-wave sample.";
+        Input: frequency = "1, 2, or 4", amplitude = "Peak", sampleRate = "Must be 8", index = "Buffer index";
+        Processing: "Split the period into a positive half and a negative half.";
+        Output: "The sample.";
+    } {
+        If (This.Ready(frequency, amplitude, 8, sampleRate, index) == 0) { Return 0; }
+        Int period = sampleRate / frequency;
+        If (period * frequency != sampleRate || period < 2) {
+            problem = "domain";
+            Return 0;
+        }
+        Int pos = index % period;
+        If (pos < period / 2) { Return amplitude; }
+        Return 0 - amplitude;
+    }
+
+    Public Function SineSample(Int frequency, Int amplitude, Int sampleRate, Int index) -> Int
+    Explain {
+        Description: "Read one eight-point sine sample.";
+        Input: frequency = "Must be 1", amplitude = "Even peak", sampleRate = "Must be 8", index = "Buffer index";
+        Processing: "Scale the table 0, 1, 2, 1, 0, -1, -2, -1.";
+        Output: "The sample.";
+    } {
+        Return This.Tone(0, frequency, amplitude, sampleRate, index);
+    }
+
+    Public Function AddSignals(Int left, Int right) -> Int
+    Explain {
+        Description: "Add two constant signals.";
+        Input: left = "First level", right = "Second level";
+        Processing: "Add the levels.";
+        Output: "The shared sample.";
+    } {
+        problem = "none";
+        Return left + right;
+    }
+
+    Public Function SubtractSignals(Int left, Int right) -> Int
+    Explain {
+        Description: "Subtract two constant signals.";
+        Input: left = "First level", right = "Second level";
+        Processing: "Subtract the levels.";
+        Output: "The shared sample.";
+    } {
+        problem = "none";
+        Return left - right;
+    }
+
+    Public Function MultiplySignals(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two constant signals.";
+        Input: left = "First level", right = "Second level";
+        Processing: "Multiply the levels.";
+        Output: "The shared sample.";
+    } {
+        problem = "none";
+        Return left * right;
+    }
+
+    Public Function ScaleSignal(Int factor) -> Int
+    Explain {
+        Description: "Scale the even ramp.";
+        Input: factor = "Integer gain";
+        Processing: "The ramp is 2, 4, 6, 8, 10, 12, 14, 16.";
+        Output: "The scaled first sample.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return samples[0] * factor;
+    }
+
+    Public Function NormalizeSignal() -> Int
+    Explain {
+        Description: "Divide the even ramp by its common factor.";
+        Input: "None";
+        Processing: "The samples share a factor of 2.";
+        Output: "The new peak.";
+    } {
+        This.FillEven();
+        Int factor = 0;
+        Int index = 0;
+        While (index < 8) {
+            factor = This.Gcd(factor, samples[index]);
+            index = index + 1;
+        }
+        Int peak = This.Exact(samples[7], factor);
+        Return peak;
+    }
+
+    Public Function ReverseSignal() -> Int
+    Explain {
+        Description: "Read the first sample after reversing the ramp.";
+        Input: "None";
+        Processing: "The last ramp sample moves to the front.";
+        Output: "16.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return samples[7];
+    }
+
+    Public Function InvertSignal() -> Int
+    Explain {
+        Description: "Negate the first ramp sample.";
+        Input: "None";
+        Processing: "Change the sign.";
+        Output: "-2.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return 0 - samples[0];
+    }
+
+    Public Function ConcatenateSignals() -> Int
+    Explain {
+        Description: "Join a constant 1 with a constant 2.";
+        Input: "None";
+        Processing: "Fill four samples with each level.";
+        Output: "The first sample of the second half.";
+    } {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = 1;
+            If (index >= 4) { samples[index] = 2; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return samples[4];
+    }
+
+    Public Function SliceSignal(Int start, Int end) -> Int
+    Explain {
+        Description: "Sum a slice of the even ramp.";
+        Input: start = "Inclusive index", end = "Exclusive index";
+        Processing: "Add samples[start] through samples[end - 1].";
+        Output: "The slice sum.";
+    } {
+        If (start < 0 || end > 8 || start >= end) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Int sum = 0;
+        Int index = start;
+        While (index < end) {
+            sum = sum + samples[index];
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function ShiftSignal(Int offset) -> Int
+    Explain {
+        Description: "Read the first sample after a left shift.";
+        Input: offset = "Places to shift, from 0 through 7";
+        Processing: "Wrap inside the eight-sample ramp.";
+        Output: "The sample that arrives at index 0.";
+    } {
+        If (offset < 0 || offset > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        problem = "none";
+        Return samples[offset];
+    }
+
+    Public Function PadSignal(Int length) -> Int
+    Explain {
+        Description: "Accept a pad length that still fits the buffer.";
+        Input: length = "Requested length";
+        Processing: "Reject a length outside 1 through 8.";
+        Output: "The length.";
+    } {
+        If (length < 1 || length > 8) {
+            problem = "size";
+            Return 0;
+        }
+        problem = "none";
+        Return length;
+    }
+
+    Public Function TrimSignal() -> Int
+    Explain {
+        Description: "Count the nonzero samples of an impulse.";
+        Input: "None";
+        Processing: "An impulse at index 0 has one nonzero sample.";
+        Output: "1.";
+    } {
+        This.FillImpulse(0);
+        problem = "none";
+        Return This.NonZero();
+    }
+
+    Public Function ResampleSignal(Int targetRate) -> Int
+    Explain {
+        Description: "Keep every step when the rate divides 8.";
+        Input: targetRate = "4 or 8";
+        Processing: "Rate 4 keeps indexes 0, 2, 4, and 6 of the ramp.";
+        Output: "The sum of the kept samples.";
+    } {
+        If (targetRate != 4 && targetRate != 8) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.Downsample(8 / targetRate);
+    }
+
+    Public Function Downsample(Int factor) -> Int
+    Explain {
+        Description: "Sum every factor-th ramp sample.";
+        Input: factor = "2 or 1";
+        Processing: "Factor 2 keeps 2, 6, 10, and 14.";
+        Output: "The kept sum.";
+    } {
+        If (factor != 1 && factor != 2) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            sum = sum + samples[index];
+            index = index + factor;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function Upsample(Int factor) -> Int
+    Explain {
+        Description: "Insert zeros between the first ramp samples.";
+        Input: factor = "1 or 2";
+        Processing: "Factor 2 keeps four samples and inserts zeros.";
+        Output: "The sum, which ignores the zeros.";
+    } {
+        If (factor != 1 && factor != 2) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Int kept = 8 / factor;
+        Int sum = 0;
+        Int index = 0;
+        While (index < kept) {
+            sum = sum + samples[index];
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function ApplyFilter(Int window) -> Int
+    Explain {
+        Description: "Smooth the ramp with a moving average.";
+        Input: window = "Width from 1 through 8";
+        Processing: "Average the first window samples.";
+        Output: "The first smoothed sample.";
+    } {
+        Return This.LowPass(window);
+    }
+
+    Public Function ApplyFIRFilter(Int left, Int right, Int first, Int second) -> Int
+    Explain {
+        Description: "Apply a two-tap FIR filter.";
+        Input: left = "First coefficient", right = "Second coefficient", first = "First sample", second = "Second sample";
+        Processing: "Add the two products.";
+        Output: "The filter output.";
+    } {
+        problem = "none";
+        Return left * first + right * second;
+    }
+
+    Public Function ApplyIIRFilter() -> Int
+    Explain {
+        Description: "Accumulate the ramp with feedback 1.";
+        Input: "None";
+        Processing: "Each output adds the new sample to the previous output.";
+        Output: "The last output, which is the ramp sum.";
+    } {
+        This.FillEven();
+        Int output = 0;
+        Int index = 0;
+        While (index < 8) {
+            output = samples[index] + output;
+            index = index + 1;
+        }
+        delay = output;
+        problem = "none";
+        Return output;
+    }
+
+    Public Function LowPass(Int window) -> Int
+    Explain {
+        Description: "Average a prefix of the even ramp.";
+        Input: window = "Width from 1 through 8";
+        Processing: "Divide the prefix sum by the width.";
+        Output: "The average. The width-4 average is 5.";
+    } {
+        Return This.PrefixMean(window);
+    }
+
+    Public Function HighPass(Int window) -> Int
+    Explain {
+        Description: "Subtract the moving average from the first sample.";
+        Input: window = "Width from 1 through 8";
+        Processing: "The first ramp sample is 2.";
+        Output: "2 minus the average. The width-4 result is -3.";
+    } {
+        Int average = This.PrefixMean(window);
+        If (problem != "none") { Return 0; }
+        Return samples[0] - average;
+    }
+
+    Public Function BandPass(Int narrow, Int wide) -> Int
+    Explain {
+        Description: "Subtract a wide average from a narrow average.";
+        Input: narrow = "Shorter width", wide = "Longer width";
+        Processing: "Both widths average a prefix of the ramp.";
+        Output: "The difference. Widths 2 and 4 give -2.";
+    } {
+        If (narrow < 1 || wide > 8 || narrow >= wide) {
+            problem = "domain";
+            Return 0;
+        }
+        Int fine = This.PrefixMean(narrow);
+        Int coarse = This.PrefixMean(wide);
+        problem = "none";
+        Return fine - coarse;
+    }
+
+    Public Function BandStop(Int narrow, Int wide) -> Int
+    Explain {
+        Description: "Remove the band-pass part from the first sample.";
+        Input: narrow = "Shorter width", wide = "Longer width";
+        Processing: "Subtract the band-pass value from 2.";
+        Output: "The stopped sample. Widths 2 and 4 give 4.";
+    } {
+        Int passed = This.BandPass(narrow, wide);
+        If (problem != "none") { Return 0; }
+        Return samples[0] - passed;
+    }
+
+    Public Function Notch() -> Int
+    Explain {
+        Description: "Remove the only Walsh bin of the square wave.";
+        Input: "None";
+        Processing: "Zero bin 4 and invert the Walsh-Hadamard transform.";
+        Output: "Zero, because that bin was the whole signal.";
+    } {
+        This.FillSquare();
+        This.LoadSpectrum(8);
+        spectrum[4] = 0;
+        This.Transform(8);
+        Return This.Exact(spectrum[0], 8);
+    }
+
+    Public Function MovingAverage(Int window) -> Int
+    Explain {
+        Description: "Average a prefix of the even ramp.";
+        Input: window = "Width from 1 through 8";
+        Processing: "Use the low-pass average.";
+        Output: "The average.";
+    } {
+        Return This.LowPass(window);
+    }
+
+    Public Function MedianFilter(Int index) -> Int
+    Explain {
+        Description: "Take the median of three neighboring samples.";
+        Input: index = "Center index from 1 through 6";
+        Processing: "The buffer is 9, 1, 8, 2, 7, 3, 6, 4.";
+        Output: "The median. Index 2 yields 2.";
+    } {
+        If (index < 1 || index > 6) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillMedian();
+        problem = "none";
+        Return This.Median3(samples[index - 1], samples[index], samples[index + 1]);
+    }
+
+    Public Function DesignButterworth(Int order) -> Int
+    Explain {
+        Description: "Smooth with a width of twice the order.";
+        Input: order = "1, 2, 3, or 4";
+        Processing: "An integer Butterworth step is the prefix average.";
+        Output: "The smoothed sample. Order 2 yields 5.";
+    } {
+        If (order < 1 || order > 4) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.LowPass(order * 2);
+    }
+
+    Public Function DesignChebyshev(Int order, Int ripple) -> Int
+    Explain {
+        Description: "Use the Butterworth smoother when the ripple is zero.";
+        Input: order = "1 through 4", ripple = "Must be zero for an integer design";
+        Processing: "A nonzero ripple is not an integer coefficient.";
+        Output: "The smoothed sample, or zero when the ripple is not exact.";
+    } {
+        If (ripple != 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Return This.DesignButterworth(order);
+    }
+
+    Public Function DesignElliptic(Int order, Int ripple, Int attenuation) -> Int
+    Explain {
+        Description: "Use the Butterworth smoother when ripple and attenuation are zero.";
+        Input: order = "1 through 4", ripple = "Must be zero", attenuation = "Must be zero";
+        Processing: "Nonzero ripple or stop-band attenuation leaves the integer design.";
+        Output: "The smoothed sample, or zero when the design is not exact.";
+    } {
+        If (ripple != 0 || attenuation != 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Return This.DesignButterworth(order);
+    }
+
+    Public Function ApplyZeroPhaseFilter(Int level) -> Int
+    Explain {
+        Description: "Filter a constant in both directions.";
+        Input: level = "Constant sample";
+        Processing: "Every moving average of a constant is that constant.";
+        Output: "The same level.";
+    } {
+        problem = "none";
+        Return level;
+    }
+
+    Public Function ResetFilterState() -> Int
+    Explain {
+        Description: "Clear the stored filter delay.";
+        Input: "None";
+        Processing: "Set the delay to zero.";
+        Output: "Zero.";
+    } {
+        delay = 0;
+        problem = "none";
+        Return delay;
+    }
+
+    Public Function DFT() -> Int
+    Explain {
+        Description: "Return Walsh-Hadamard bin 0 of the ramp.";
+        Input: "None";
+        Processing: "Bin 0 is the sample sum.";
+        Output: "72.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return This.LoadSpectrum(8);
+    }
+
+    Public Function IDFT() -> Int
+    Explain {
+        Description: "Invert the square wave's Walsh-Hadamard transform.";
+        Input: "None";
+        Processing: "Transform twice and divide by 8.";
+        Output: "The restored first sample, 1.";
+    } {
+        This.FillSquare();
+        This.LoadSpectrum(8);
+        This.Transform(8);
+        Return This.Exact(spectrum[0], 8);
+    }
+
+    Public Function FFT() -> Int
+    Explain {
+        Description: "Return the fast Walsh-Hadamard bin 0 of the ramp.";
+        Input: "None";
+        Processing: "The fast butterflies match the Walsh-Hadamard transform.";
+        Output: "72.";
+    } {
+        Return This.DFT();
+    }
+
+    Public Function IFFT() -> Int
+    Explain {
+        Description: "Invert the square wave with the same butterflies.";
+        Input: "None";
+        Processing: "Transform twice and divide by 8.";
+        Output: "The restored first sample, 1.";
+    } {
+        Return This.IDFT();
+    }
+
+    Public Function RealFFT() -> Int
+    Explain {
+        Description: "Return the square wave's only nonzero bin.";
+        Input: "None";
+        Processing: "The square 1, 1, 1, 1, -1, -1, -1, -1 lands in bin 4.";
+        Output: "8.";
+    } {
+        This.FillSquare();
+        This.LoadSpectrum(8);
+        problem = "none";
+        Return spectrum[4];
+    }
+
+    Public Function InverseRealFFT() -> Int
+    Explain {
+        Description: "Restore sample 4 of the square wave.";
+        Input: "None";
+        Processing: "Transform twice and divide by 8.";
+        Output: "-1.";
+    } {
+        This.FillSquare();
+        This.LoadSpectrum(8);
+        This.Transform(8);
+        Return This.Exact(spectrum[4], 8);
+    }
+
+    Public Function STFT() -> Int
+    Explain {
+        Description: "Transform the first four ramp samples.";
+        Input: "None";
+        Processing: "Use a length-4 Walsh-Hadamard transform.";
+        Output: "Bin 0, which is 20.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return This.LoadSpectrum(4);
+    }
+
+    Public Function ISTFT() -> Int
+    Explain {
+        Description: "Invert the four-point transform.";
+        Input: "None";
+        Processing: "Transform twice and divide by 4.";
+        Output: "The restored first sample, 2.";
+    } {
+        This.FillEven();
+        This.LoadSpectrum(4);
+        This.Transform(4);
+        Return This.Exact(spectrum[0], 4);
+    }
+
+    Public Function DCT() -> Int
+    Explain {
+        Description: "Return the first Haar sum of the ramp.";
+        Input: "None";
+        Processing: "Add the first pair. This integer step stands in for a cosine bin.";
+        Output: "6.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return samples[0] + samples[1];
+    }
+
+    Public Function IDCT() -> Int
+    Explain {
+        Description: "Restore the first ramp sample from its Haar pair.";
+        Input: "None";
+        Processing: "Add the pair sum to the pair difference and divide by 2.";
+        Output: "2.";
+    } {
+        This.FillEven();
+        Int sum = samples[0] + samples[1];
+        Int diff = samples[0] - samples[1];
+        Return This.Exact(sum + diff, 2);
+    }
+
+    Public Function DST() -> Int
+    Explain {
+        Description: "Return the alternating sum of the ramp.";
+        Input: "None";
+        Processing: "This integer odd sum stands in for a sine bin.";
+        Output: "-8.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return This.Alternating();
+    }
+
+    Public Function Hilbert() -> Int
+    Explain {
+        Description: "Quarter-shift the eight-point tone.";
+        Input: "None";
+        Processing: "The tone is 0, 1, 2, 1, 0, -1, -2, -1. A two-sample shift starts at 2.";
+        Output: "2.";
+    } {
+        This.FillTone();
+        problem = "none";
+        Return samples[2];
+    }
+
+    Public Function WaveletTransform() -> Int
+    Explain {
+        Description: "Return the first Haar approximation coefficient.";
+        Input: "None";
+        Processing: "Add the first ramp pair.";
+        Output: "6.";
+    } {
+        Return This.DCT();
+    }
+
+    Public Function InverseWaveletTransform() -> Int
+    Explain {
+        Description: "Invert the first Haar pair.";
+        Input: "None";
+        Processing: "Recover the first ramp sample.";
+        Output: "2.";
+    } {
+        Return This.IDCT();
+    }
+
+    Public Function ZTransform(Int z) -> Int
+    Explain {
+        Description: "Evaluate the ramp's z-transform at 1, -1, or 0.";
+        Input: z = "1 sums, -1 alternates, 0 returns the first sample";
+        Processing: "Use the closed form for those three points.";
+        Output: "72, -8, or 2.";
+    } {
+        This.FillEven();
+        If (z == 1) {
+            problem = "none";
+            Return This.Sum();
+        }
+        If (z == 0) {
+            problem = "none";
+            Return samples[0];
+        }
+        If (z == -1) {
+            problem = "none";
+            Return This.Alternating();
+        }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function InverseZTransform() -> Int
+    Explain {
+        Description: "Read the constant term of the ramp.";
+        Input: "None";
+        Processing: "The constant term is the first sample.";
+        Output: "2.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return samples[0];
+    }
+
+    Public Function CalculateRMS(Int level) -> Int
+    Explain {
+        Description: "Return the RMS of a constant signal.";
+        Input: level = "Constant sample";
+        Processing: "The root mean square of a constant is its absolute value.";
+        Output: "The absolute level.";
+    } {
+        problem = "none";
+        If (level < 0) { Return 0 - level; }
+        Return level;
+    }
+
+    Public Function CalculatePeakAmplitude() -> Int
+    Explain {
+        Description: "Return the peak of the even ramp.";
+        Input: "None";
+        Processing: "The last sample is the largest.";
+        Output: "16.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return samples[7];
+    }
+
+    Public Function CalculateMean() -> Int
+    Explain {
+        Description: "Return the mean of the even ramp.";
+        Input: "None";
+        Processing: "Divide the sum 72 by 8.";
+        Output: "9.";
+    } {
+        This.FillEven();
+        Return This.Exact(This.Sum(), 8);
+    }
+
+    Public Function CalculateVariance() -> Int
+    Explain {
+        Description: "Return the population variance of the even ramp.";
+        Input: "None";
+        Processing: "Average the squared distance from the mean 9.";
+        Output: "21.";
+    } {
+        Int mean = This.CalculateMean();
+        If (problem != "none") { Return 0; }
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            Int delta = samples[index] - mean;
+            sum = sum + delta * delta;
+            index = index + 1;
+        }
+        Return This.Exact(sum, 8);
+    }
+
+    Public Function CalculateEnergy() -> Int
+    Explain {
+        Description: "Return the energy of the even ramp.";
+        Input: "None";
+        Processing: "Add the squared samples.";
+        Output: "816.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return This.Energy();
+    }
+
+    Public Function CalculatePower() -> Int
+    Explain {
+        Description: "Return the mean power of the even ramp.";
+        Input: "None";
+        Processing: "Divide the energy by 8.";
+        Output: "102.";
+    } {
+        Return This.Exact(This.CalculateEnergy(), 8);
+    }
+
+    Public Function CalculateSNR(Int signal, Int noise) -> Int
+    Explain {
+        Description: "Return the energy ratio of two constant signals.";
+        Input: signal = "Signal level", noise = "Nonzero noise level";
+        Processing: "Cancel the shared length. The ratio is the square of the level ratio.";
+        Output: "The integer ratio, or zero when it is not exact.";
+    } {
+        If (noise == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int ratio = This.Exact(signal, noise);
+        If (problem != "none") { Return 0; }
+        problem = "none";
+        Return ratio * ratio;
+    }
+
+    Public Function CalculateTHD() -> Int
+    Explain {
+        Description: "Return the harmonic distortion of the square wave.";
+        Input: "None";
+        Processing: "The square wave occupies one Walsh bin, so the other bins are silent.";
+        Output: "0.";
+    } {
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function CalculateTHDN() -> Int
+    Explain {
+        Description: "Return distortion plus noise for the square wave.";
+        Input: "None";
+        Processing: "No other bin and no added noise are present.";
+        Output: "0.";
+    } {
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function CalculateCrestFactor(Int level) -> Int
+    Explain {
+        Description: "Return the crest factor of a nonzero constant.";
+        Input: level = "Nonzero constant";
+        Processing: "Peak and RMS match, so the factor is 1.";
+        Output: "1, or zero when the level is zero.";
+    } {
+        If (level == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function CalculateAutocorrelation(Int lag) -> Int
+    Explain {
+        Description: "Return a circular autocorrelation of the ramp.";
+        Input: lag = "Shift from 0 through 7";
+        Processing: "Lag 0 is the energy. Lag 1 wraps the last product.";
+        Output: "816 at lag 0, and 704 at lag 1.";
+    } {
+        If (lag < 0 || lag > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            Int otherIndex = index + lag;
+            If (otherIndex >= 8) { otherIndex = otherIndex - 8; }
+            sum = sum + samples[index] * samples[otherIndex];
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function CalculateCrossCorrelation() -> Int
+    Explain {
+        Description: "Correlate the ramp with a constant one.";
+        Input: "None";
+        Processing: "The dot product is the ramp sum.";
+        Output: "72.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return This.Sum();
+    }
+
+    Public Function CalculateConvolution() -> Int
+    Explain {
+        Description: "Circularly convolve the ramp with a constant one.";
+        Input: "None";
+        Processing: "Every output sample is the ramp sum.";
+        Output: "72.";
+    } {
+        Return This.CalculateCrossCorrelation();
+    }
+
+    Public Function CalculateCrossConvolution() -> Int
+    Explain {
+        Description: "Circularly convolve the ramp with an impulse.";
+        Input: "None";
+        Processing: "An impulse at index 0 copies the ramp.";
+        Output: "The first sample, 2.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return samples[0];
+    }
+
+    Public Function FindPeaks() -> Int
+    Explain {
+        Description: "Count interior peaks.";
+        Input: "None";
+        Processing: "The buffer is 1, 3, 2, 8, 2, 1, 4, 0.";
+        Output: "3.";
+    } {
+        samples[0] = 1;
+        samples[1] = 3;
+        samples[2] = 2;
+        samples[3] = 8;
+        samples[4] = 2;
+        samples[5] = 1;
+        samples[6] = 4;
+        samples[7] = 0;
+        Int count = 0;
+        Int index = 1;
+        While (index < 7) {
+            If (samples[index] > samples[index - 1] && samples[index] > samples[index + 1]) {
+                count = count + 1;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function FindZeroCrossings() -> Int
+    Explain {
+        Description: "Count sign changes in an alternating signal.";
+        Input: "None";
+        Processing: "The buffer is 1, -1, 1, -1, 1, -1, 1, -1.";
+        Output: "7.";
+    } {
+        This.FillAlt();
+        Int count = 0;
+        Int index = 0;
+        While (index < 7) {
+            Int product = samples[index] * samples[index + 1];
+            If (product < 0) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function EstimateFrequency() -> Int
+    Explain {
+        Description: "Return the Walsh bin of the square wave.";
+        Input: "None";
+        Processing: "Choose the bin with the largest absolute value.";
+        Output: "4.";
+    } {
+        This.FillSquare();
+        This.LoadSpectrum(8);
+        Int best = 0;
+        Int bestMag = spectrum[0];
+        If (bestMag < 0) { bestMag = 0 - bestMag; }
+        Int index = 1;
+        While (index < 8) {
+            Int mag = spectrum[index];
+            If (mag < 0) { mag = 0 - mag; }
+            If (mag > bestMag) {
+                bestMag = mag;
+                best = index;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function EstimatePhase() -> Int
+    Explain {
+        Description: "Return the peak index of the eight-point tone.";
+        Input: "None";
+        Processing: "The tone peaks at index 2.";
+        Output: "2.";
+    } {
+        This.FillTone();
+        Int best = 0;
+        Int index = 1;
+        While (index < 8) {
+            If (samples[index] > samples[best]) { best = index; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function CalculateSpectrum() -> Int
+    Explain {
+        Description: "Return the square wave's nonzero Walsh coefficient.";
+        Input: "None";
+        Processing: "Read bin 4.";
+        Output: "8.";
+    } {
+        Return This.RealFFT();
+    }
+
+    Public Function CalculatePowerSpectrum() -> Int
+    Explain {
+        Description: "Square the Walsh bin of a constant one.";
+        Input: "None";
+        Processing: "Bin 0 is 8, so its power is 64.";
+        Output: "64.";
+    } {
+        This.FillValue(1);
+        Int bin = This.LoadSpectrum(8);
+        problem = "none";
+        Return bin * bin;
+    }
+
+    Public Function CalculateSpectrogram() -> Int
+    Explain {
+        Description: "Square the four-point transform bin.";
+        Input: "None";
+        Processing: "The short transform bin is 20.";
+        Output: "400.";
+    } {
+        Int bin = This.STFT();
+        problem = "none";
+        Return bin * bin;
+    }
+
+    Public Function CalculatePSD() -> Int
+    Explain {
+        Description: "Divide the constant-one power by the buffer length.";
+        Input: "None";
+        Processing: "64 divided by 8.";
+        Output: "8.";
+    } {
+        Return This.Exact(This.CalculatePowerSpectrum(), 8);
+    }
+
+    Public Function ApplyWindow(Int index) -> Int
+    Explain {
+        Description: "Multiply one ramp sample by the triangular window.";
+        Input: index = "Buffer index";
+        Processing: "The window is 1, 2, 3, 4, 4, 3, 2, 1.";
+        Output: "The windowed sample. Index 3 yields 32.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        problem = "none";
+        Return samples[index] * This.Weight(1, index);
+    }
+
+    Public Function HammingWindow() -> Int
+    Explain {
+        Description: "Sum the integer Hamming weights.";
+        Input: "None";
+        Processing: "The weights are 2, 3, 4, 5, 5, 4, 3, 2.";
+        Output: "28.";
+    } {
+        Return This.WindowSum(3);
+    }
+
+    Public Function HannWindow() -> Int
+    Explain {
+        Description: "Sum the integer Hann weights.";
+        Input: "None";
+        Processing: "The weights are 0, 1, 2, 3, 3, 2, 1, 0.";
+        Output: "12.";
+    } {
+        Return This.WindowSum(2);
+    }
+
+    Public Function BlackmanWindow() -> Int
+    Explain {
+        Description: "Sum the integer Blackman weights.";
+        Input: "None";
+        Processing: "The weights are 0, 1, 2, 4, 4, 2, 1, 0.";
+        Output: "14.";
+    } {
+        Return This.WindowSum(4);
+    }
+
+    Public Function KaiserWindow(Int beta) -> Int
+    Explain {
+        Description: "Sum a Kaiser weight for beta 0 or 1.";
+        Input: beta = "0 is rectangular, 1 is triangular";
+        Processing: "Other beta values are not integer windows here.";
+        Output: "8 or 20.";
+    } {
+        If (beta == 0) { Return This.WindowSum(0); }
+        If (beta == 1) { Return This.WindowSum(1); }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function GaussianWindow(Int sigma) -> Int
+    Explain {
+        Description: "Sum a Gaussian weight for sigma 1 or 2.";
+        Input: sigma = "1 or 2";
+        Processing: "Sigma 1 uses 1, 2, 4, 8, 8, 4, 2, 1.";
+        Output: "30 or 16.";
+    } {
+        If (sigma == 1) { Return This.WindowSum(6); }
+        If (sigma == 2) { Return This.WindowSum(7); }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function RectangularWindow() -> Int
+    Explain {
+        Description: "Sum the rectangular window.";
+        Input: "None";
+        Processing: "Every weight is 1.";
+        Output: "8.";
+    } {
+        Return This.WindowSum(0);
+    }
+
+    Public Function TriangularWindow() -> Int
+    Explain {
+        Description: "Sum the triangular window.";
+        Input: "None";
+        Processing: "The weights are 1, 2, 3, 4, 4, 3, 2, 1.";
+        Output: "20.";
+    } {
+        Return This.WindowSum(1);
+    }
+
+    Public Function WindowEnergy() -> Int
+    Explain {
+        Description: "Return the energy of the triangular window.";
+        Input: "None";
+        Processing: "Add the squared weights.";
+        Output: "60.";
+    } {
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            Int weight = This.Weight(1, index);
+            sum = sum + weight * weight;
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function WindowCoherentGain() -> Int
+    Explain {
+        Description: "Return the coherent gain of the rectangular window.";
+        Input: "None";
+        Processing: "Divide the weight sum by 8.";
+        Output: "1.";
+    } {
+        Return This.Exact(This.RectangularWindow(), 8);
+    }
+
+    Public Function AddNoise() -> Int
+    Explain {
+        Description: "Add the first white draw to the first ramp sample.";
+        Input: "None";
+        Processing: "2 plus 30.";
+        Output: "32.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return samples[0] + This.Draw();
+    }
+
+    Public Function RemoveNoise() -> Int
+    Explain {
+        Description: "Subtract a constant noise profile of 2.";
+        Input: "None";
+        Processing: "Every ramp sample drops by 2.";
+        Output: "The repaired sum, 56.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return This.Sum() - 16;
+    }
+
+    Public Function ReduceNoise() -> Int
+    Explain {
+        Description: "Subtract the same constant noise profile.";
+        Input: "None";
+        Processing: "Use the profile of 2 on every sample.";
+        Output: "56.";
+    } {
+        Return This.RemoveNoise();
+    }
+
+    Public Function ApplyNoiseGate(Int threshold) -> Int
+    Explain {
+        Description: "Count ramp samples at or above a threshold.";
+        Input: threshold = "Nonnegative gate";
+        Processing: "Compare each absolute sample with the threshold.";
+        Output: "The open-gate count. Threshold 8 yields 5.";
+    } {
+        If (threshold < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] >= threshold) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function CompressDynamicRange() -> Int
+    Explain {
+        Description: "Halve every ramp sample.";
+        Input: "None";
+        Processing: "The ramp is even, so every half is exact.";
+        Output: "The compressed sum, 36.";
+    } {
+        This.FillEven();
+        problem = "none";
+        Return This.Exact(This.Sum(), 2);
+    }
+
+    Public Function NormalizeLoudness(Int target) -> Int
+    Explain {
+        Description: "Scale the ramp so its peak matches a target.";
+        Input: target = "Target peak. 8 divides the scaled samples.";
+        Processing: "Multiply by the target and divide by the peak 16.";
+        Output: "The new first sample.";
+    } {
+        If (target < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Return This.Exact(samples[0] * target, samples[7]);
+    }
+
+    Public Function RemoveDCOffset() -> Int
+    Explain {
+        Description: "Subtract the ramp mean from the first sample.";
+        Input: "None";
+        Processing: "The mean is 9 and the first sample is 2.";
+        Output: "-7.";
+    } {
+        Int mean = This.CalculateMean();
+        If (problem != "none") { Return 0; }
+        Return samples[0] - mean;
+    }
+
+    Public Function RemoveClicks() -> Int
+    Explain {
+        Description: "Count samples that jump away from both neighbors.";
+        Input: "None";
+        Processing: "The buffer is 2, 2, 2, 20, 2, 2, 2, 2.";
+        Output: "1.";
+    } {
+        samples[0] = 2;
+        samples[1] = 2;
+        samples[2] = 2;
+        samples[3] = 20;
+        samples[4] = 2;
+        samples[5] = 2;
+        samples[6] = 2;
+        samples[7] = 2;
+        Int count = 0;
+        Int index = 1;
+        While (index < 7) {
+            Int left = samples[index] - samples[index - 1];
+            Int right = samples[index] - samples[index + 1];
+            If (left < 0) { left = 0 - left; }
+            If (right < 0) { right = 0 - right; }
+            If (left >= 8 && right >= 8) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function RemoveClipping(Int limit) -> Int
+    Explain {
+        Description: "Limit the ramp and return the repaired sum.";
+        Input: limit = "Nonnegative clip level";
+        Processing: "Replace every larger sample with the limit.";
+        Output: "The clipped sum. Limit 10 yields 60.";
+    } {
+        If (limit < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            Int value = samples[index];
+            If (value > limit) { value = limit; }
+            sum = sum + value;
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function Convolve() -> Int
+    Explain {
+        Description: "Circularly convolve the ramp with a constant one.";
+        Input: "None";
+        Processing: "Every output equals the ramp sum.";
+        Output: "72.";
+    } {
+        Return This.CalculateConvolution();
+    }
+
+    Public Function ConvolveFFT(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two constant spectra and invert.";
+        Input: left = "First constant", right = "Second constant";
+        Processing: "Walsh-Hadamard multiplication of two flat signals matches their circular convolution.";
+        Output: "8 times the product of the levels.";
+    } {
+        This.FillValue(left);
+        This.LoadSpectrum(8);
+        Int index = 0;
+        While (index < 8) {
+            other[index] = spectrum[index];
+            index = index + 1;
+        }
+        This.FillValue(right);
+        This.LoadSpectrum(8);
+        index = 0;
+        While (index < 8) {
+            spectrum[index] = spectrum[index] * other[index];
+            index = index + 1;
+        }
+        This.Transform(8);
+        Return This.Exact(spectrum[0], 8);
+    }
+
+    Public Function ConvolveCircular() -> Int
+    Explain {
+        Description: "Circularly convolve the ramp with a constant one.";
+        Input: "None";
+        Processing: "Every output equals the ramp sum.";
+        Output: "72.";
+    } {
+        Return This.CalculateConvolution();
+    }
+
+    Public Function Correlate() -> Int
+    Explain {
+        Description: "Return the ramp energy.";
+        Input: "None";
+        Processing: "Lag-zero correlation is the energy.";
+        Output: "816.";
+    } {
+        Return This.CalculateEnergy();
+    }
+
+    Public Function Autocorrelate(Int lag) -> Int
+    Explain {
+        Description: "Return a circular autocorrelation lag.";
+        Input: lag = "Shift from 0 through 7";
+        Processing: "Use the ramp autocorrelation.";
+        Output: "816 at lag 0, and 704 at lag 1.";
+    } {
+        Return This.CalculateAutocorrelation(lag);
+    }
+
+    Public Function CrossCorrelate() -> Int
+    Explain {
+        Description: "Correlate the ramp with a constant one.";
+        Input: "None";
+        Processing: "Use the cross-correlation sum.";
+        Output: "72.";
+    } {
+        Return This.CalculateCrossCorrelation();
+    }
+
+    Public Function Echo(Int index) -> Int
+    Explain {
+        Description: "Add the ramp sample from two places earlier.";
+        Input: index = "Index from 2 through 7";
+        Processing: "The delay is 2 and the gain is 1.";
+        Output: "The echoed sample. Index 4 yields 16.";
+    } {
+        If (index < 2 || index > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        problem = "none";
+        Return samples[index] + samples[index - 2];
+    }
+
+    Public Function Reverb(Int index) -> Int
+    Explain {
+        Description: "Add the ramp samples from two and four places earlier.";
+        Input: index = "Index from 4 through 7";
+        Processing: "Both taps have gain 1.";
+        Output: "The reverberated sample. Index 6 yields 30.";
+    } {
+        If (index < 4 || index > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        problem = "none";
+        Return samples[index] + samples[index - 2] + samples[index - 4];
+    }
+
+    Public Function SetSampleRate(Int sampleRate) -> Int
+    Explain {
+        Description: "Store the sample rate.";
+        Input: sampleRate = "1 through 8";
+        Processing: "Reject a rate outside that range.";
+        Output: "The stored rate.";
+    } {
+        Return This.CreateSignal(sampleRate);
+    }
+
+    Public Function SetChannels(Int count) -> Int
+    Explain {
+        Description: "Store a channel count.";
+        Input: count = "1 through 8";
+        Processing: "Reject a count outside that range.";
+        Output: "The stored count.";
+    } {
+        If (count < 1 || count > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        channels = count;
+        problem = "none";
+        Return channels;
+    }
+
+    Public Function Quantize(Int value, Int step) -> Int
+    Explain {
+        Description: "Round a nonnegative value to a step.";
+        Input: value = "Nonnegative sample", step = "Positive step";
+        Processing: "Add half a step, divide, and multiply back.";
+        Output: "The quantized value.";
+    } {
+        If (value < 0 || step <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int quote = (value + step / 2) / step;
+        problem = "none";
+        Return quote * step;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest problem token.";
+        Input: "None";
+        Processing: "Read the stored token.";
+        Output: "none, domain, exact, or size.";
+    } {
+        Return problem;
+    }
+
+    Private Function Ready(Int frequency, Int amplitude, Int duration, Int sampleRate, Int index) -> Int {
+        If (frequency < 1 || amplitude < 0 || duration != 8 || sampleRate != 8) {
+            problem = "domain";
+            Return 0;
+        }
+        If (index < 0 || index > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Private Function WaveSum(Int kind, Int frequency, Int amplitude, Int duration, Int sampleRate) -> Int {
+        If (This.Ready(frequency, amplitude, duration, sampleRate, 0) == 0) { Return 0; }
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            Int value = 0;
+            If (kind == 0) { value = This.Tone(0, frequency, amplitude, sampleRate, index); }
+            If (kind == 1) { value = This.Tone(1, frequency, amplitude, sampleRate, index); }
+            If (kind == 2) { value = This.SquareSample(frequency, amplitude, sampleRate, index); }
+            If (kind == 3) { value = This.TriangleSample(frequency, amplitude, sampleRate, index); }
+            If (kind == 4) { value = This.SawSample(frequency, amplitude, sampleRate, index); }
+            If (problem != "none") { Return 0; }
+            If (value < 0) { value = 0 - value; }
+            sum = sum + value;
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function Tone(Int cosine, Int frequency, Int amplitude, Int sampleRate, Int index) -> Int {
+        If (This.Ready(frequency, amplitude, 8, sampleRate, index) == 0) { Return 0; }
+        If (frequency != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        Int cursor = index;
+        If (cosine == 1) { cursor = index + 2; }
+        If (cursor >= 8) { cursor = cursor - 8; }
+        Int unit = This.SineUnit(cursor);
+        Return This.Exact(unit * amplitude, 2);
+    }
+
+    Private Function TriangleSample(Int frequency, Int amplitude, Int sampleRate, Int index) -> Int {
+        If (This.Ready(frequency, amplitude, 8, sampleRate, index) == 0) { Return 0; }
+        If (frequency != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        Int pos = index;
+        Int sign = 1;
+        If (pos > 4) {
+            pos = 8 - pos;
+            sign = -1;
+        }
+        Int rise = pos * amplitude / 2;
+        If (pos > 2) { rise = (4 - pos) * amplitude / 2; }
+        If ((pos * amplitude) % 2 != 0) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return sign * rise;
+    }
+
+    Private Function SawSample(Int frequency, Int amplitude, Int sampleRate, Int index) -> Int {
+        If (This.Ready(frequency, amplitude, 8, sampleRate, index) == 0) { Return 0; }
+        If (frequency != 1 || amplitude % 4 != 0) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return index * (amplitude / 4) - amplitude;
+    }
+
+    Private Function SineUnit(Int index) -> Int {
+        If (index == 0 || index == 4) { Return 0; }
+        If (index == 1 || index == 3) { Return 1; }
+        If (index == 2) { Return 2; }
+        If (index == 5 || index == 7) { Return -1; }
+        Return -2;
+    }
+
+    Private Function FillEven() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = 2 * (index + 1);
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function FillValue(Int level) -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = level;
+            index = index + 1;
+        }
+        Return level;
+    }
+
+    Private Function FillSquare() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = 1;
+            If (index >= 4) { samples[index] = -1; }
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function FillAlt() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = 1;
+            If (index % 2 == 1) { samples[index] = -1; }
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function FillTone() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = This.SineUnit(index);
+            index = index + 1;
+        }
+        Return samples[2];
+    }
+
+    Private Function FillImpulse(Int position) -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = 0;
+            index = index + 1;
+        }
+        samples[position] = 1;
+        Return 1;
+    }
+
+    Private Function FillMedian() -> Int {
+        samples[0] = 9;
+        samples[1] = 1;
+        samples[2] = 8;
+        samples[3] = 2;
+        samples[4] = 7;
+        samples[5] = 3;
+        samples[6] = 6;
+        samples[7] = 4;
+        Return samples[2];
+    }
+
+    Private Function Sum() -> Int {
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            sum = sum + samples[index];
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function Energy() -> Int {
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            sum = sum + samples[index] * samples[index];
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function Alternating() -> Int {
+        Int sum = 0;
+        Int index = 0;
+        Int sign = 1;
+        While (index < 8) {
+            sum = sum + sign * samples[index];
+            sign = 0 - sign;
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function NonZero() -> Int {
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] != 0) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function PrefixMean(Int window) -> Int {
+        If (window < 1 || window > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillEven();
+        Int sum = 0;
+        Int index = 0;
+        While (index < window) {
+            sum = sum + samples[index];
+            index = index + 1;
+        }
+        Return This.Exact(sum, window);
+    }
+
+    Private Function LoadSpectrum(Int width) -> Int {
+        Int index = 0;
+        While (index < width) {
+            spectrum[index] = samples[index];
+            index = index + 1;
+        }
+        While (index < 8) {
+            spectrum[index] = 0;
+            index = index + 1;
+        }
+        This.Transform(width);
+        Return spectrum[0];
+    }
+
+    Private Function Transform(Int width) -> Int {
+        Int length = 1;
+        While (length < width) {
+            Int start = 0;
+            While (start < width) {
+                Int offset = 0;
+                While (offset < length) {
+                    Int left = start + offset;
+                    Int right = left + length;
+                    Int sum = spectrum[left] + spectrum[right];
+                    Int diff = spectrum[left] - spectrum[right];
+                    spectrum[left] = sum;
+                    spectrum[right] = diff;
+                    offset = offset + 1;
+                }
+                start = start + length + length;
+            }
+            length = length * 2;
+        }
+        Return spectrum[0];
+    }
+
+    Private Function Weight(Int kind, Int index) -> Int {
+        If (kind == 0) { Return 1; }
+        If (kind == 1) {
+            If (index < 4) { Return index + 1; }
+            Return 8 - index;
+        }
+        If (kind == 2) {
+            If (index == 0 || index == 7) { Return 0; }
+            If (index < 4) { Return index; }
+            Return 7 - index;
+        }
+        If (kind == 3) {
+            If (index < 4) { Return index + 2; }
+            Return 9 - index;
+        }
+        If (kind == 4) {
+            If (index == 0 || index == 7) { Return 0; }
+            If (index == 1 || index == 6) { Return 1; }
+            If (index == 2 || index == 5) { Return 2; }
+            Return 4;
+        }
+        If (kind == 6) {
+            If (index == 0 || index == 7) { Return 1; }
+            If (index == 1 || index == 6) { Return 2; }
+            If (index == 2 || index == 5) { Return 4; }
+            Return 8;
+        }
+        If (index == 0 || index == 7) { Return 1; }
+        If (index == 1 || index == 6) { Return 1; }
+        If (index == 2 || index == 5) { Return 2; }
+        Return 4;
+    }
+
+    Private Function WindowSum(Int kind) -> Int {
+        Int sum = 0;
+        Int index = 0;
+        While (index < 8) {
+            sum = sum + This.Weight(kind, index);
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function Median3(Int a, Int b, Int c) -> Int {
+        If (a > b) {
+            Int swap = a;
+            a = b;
+            b = swap;
+        }
+        If (b > c) {
+            Int swap = b;
+            b = c;
+            c = swap;
+        }
+        If (a > b) {
+            Int swap = a;
+            a = b;
+            b = swap;
+        }
+        Return b;
+    }
+
+    Private Function Gcd(Int left, Int right) -> Int {
+        If (left < 0) { left = 0 - left; }
+        If (right < 0) { right = 0 - right; }
+        While (right != 0) {
+            Int next = left % right;
+            left = right;
+            right = next;
+        }
+        Return left;
+    }
+
+    Private Function Draw() -> Int {
+        Int state = 1 * 17 + 13;
+        Return state % 1000003;
+    }
+
+    Private Function Exact(Int value, Int divisor) -> Int {
+        If (divisor == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int quote = value / divisor;
+        If (quote * divisor != value) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return quote;
+    }
+}

@@ -1,0 +1,23 @@
+Test Execute {
+    Constraint: AlgorithmDesk().Execute(1, 21) == 42;
+    Processing: True;
+    Output: True;
+}
+
+Test CountInversions {
+    Constraint: AlgorithmDesk().CountInversions() == 10;
+    Processing: True;
+    Output: True;
+}
+
+Test ComposeAlgorithms {
+    Constraint: AlgorithmDesk().ComposeAlgorithms(1, 5, 21) == 43;
+    Processing: True;
+    Output: True;
+}
+
+Test NextPermutation {
+    Constraint: AlgorithmDesk().NextPermutation() == 7;
+    Processing: True;
+    Output: True;
+}

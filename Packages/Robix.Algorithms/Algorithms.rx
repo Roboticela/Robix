@@ -1,0 +1,1133 @@
+// Robix.Algorithms: integer execution, pipelines, and sequence utilities.
+Package Robix.Algorithms;
+
+Import Robix.Core;
+
+
+Class AlgorithmDesk {
+    Private Array<Int> samples;
+    Private Array<Int> other;
+    Private Array<Int> used;
+    Private Array<Int> codes;
+    Private Array<Int> stages;
+    Private Int stageCount;
+    Private Int policy;
+    Private Int mutation;
+    Private Int determinism;
+    Private Int steps;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        samples = [0, 0, 0, 0, 0, 0, 0, 0];
+        other = [0, 0, 0, 0, 0, 0, 0, 0];
+        used = [1, 1, 1, 1, 1, 1, 1, 1];
+        codes = [0, 1, 2, 3, 4, 5, 6, 7];
+        stages = [0, 0, 0, 0, 0, 0, 0, 0];
+        stageCount = 0;
+        policy = 0;
+        mutation = 1;
+        determinism = 1;
+        steps = 0;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function Execute(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Run one registered integer algorithm.";
+        Input: algorithm = "0 identity, 1 double, 2 square, 3 absolute, 4 negate, 5 increment, 6 clamp 0 through 9, 7 factorial", input = "Integer input";
+        Processing: "Apply the closed form and record one or more steps.";
+        Output: "The result, or zero when the algorithm or input is rejected.";
+    } {
+        Return This.Apply(algorithm, input);
+    }
+
+    Public Function ExecuteAsync(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Run one algorithm and return the same integer as the synchronous call.";
+        Input: algorithm = "Algorithm id", input = "Integer input";
+        Processing: "Use the synchronous closed form.";
+        Output: "The result.";
+    } {
+        Return This.Apply(algorithm, input);
+    }
+
+    Public Function TryExecute(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Run one algorithm, leaving a problem token when it cannot.";
+        Input: algorithm = "Algorithm id", input = "Integer input";
+        Processing: "Use the same closed form as Execute.";
+        Output: "The result, or zero when it is rejected.";
+    } {
+        Return This.Apply(algorithm, input);
+    }
+
+    Public Function ExecuteBatch(Int algorithm) -> Int
+    Explain {
+        Description: "Apply one algorithm to the inputs 1 through 8 and add the results.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Fold the eight results into a sum.";
+        Output: "The sum. Doubling yields 72.";
+    } {
+        Return This.Fold(algorithm, 0);
+    }
+
+    Public Function ExecuteParallel(Int algorithm) -> Int
+    Explain {
+        Description: "Reduce the inputs 1 through 8 with a deterministic sum.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Parallel execution uses the same integer reduction as the batch.";
+        Output: "The sum.";
+    } {
+        policy = 1;
+        Return This.Fold(algorithm, 0);
+    }
+
+    Public Function ExecuteStreaming(Int algorithm) -> Int
+    Explain {
+        Description: "Stream the inputs 1 through 8 and keep the last result.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Apply the algorithm in order.";
+        Output: "The result for input 8. Doubling yields 16.";
+    } {
+        Return This.Fold(algorithm, 1);
+    }
+
+    Public Function ExecuteWithTimeout(Int algorithm, Int input, Int timeout) -> Int
+    Explain {
+        Description: "Run one algorithm when the timeout covers its step cost.";
+        Input: algorithm = "Algorithm id", input = "Integer input", timeout = "Allowed steps";
+        Processing: "Factorial costs its input. Every other algorithm costs one step.";
+        Output: "The result, or zero when the timeout is too small.";
+    } {
+        If (timeout < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int cost = This.TimeOf(algorithm, input);
+        If (problem != "none") { Return 0; }
+        If (timeout < cost) {
+            problem = "timeout";
+            Return 0;
+        }
+        Return This.Apply(algorithm, input);
+    }
+
+    Public Function ExecuteWithCancellation(Int algorithm, Int input, Int token) -> Int
+    Explain {
+        Description: "Run one algorithm unless the token is cancelled.";
+        Input: algorithm = "Algorithm id", input = "Integer input", token = "Zero cancels the run";
+        Processing: "A zero token does not call the algorithm.";
+        Output: "The result, or zero when the run is cancelled.";
+    } {
+        If (token == 0) {
+            problem = "cancel";
+            Return 0;
+        }
+        Return This.Apply(algorithm, input);
+    }
+
+    Public Function RegisterAlgorithm(Int algorithm) -> Int
+    Explain {
+        Description: "Register an algorithm id in a free slot.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Return the existing slot when the id is already registered.";
+        Output: "The slot, or -1 when the registry cannot store it.";
+    } {
+        Int slot = This.Search(algorithm);
+        If (slot >= 0) {
+            problem = "none";
+            Return slot;
+        }
+        If (algorithm < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int free = 0;
+        While (free < 8) {
+            If (used[free] == 0) {
+                used[free] = 1;
+                codes[free] = algorithm;
+                problem = "none";
+                Return free;
+            }
+            free = free + 1;
+        }
+        problem = "size";
+        Return -1;
+    }
+
+    Public Function UnregisterAlgorithm(Int algorithm) -> Int
+    Explain {
+        Description: "Remove one algorithm id from the registry.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Clear its slot and count the slots that remain.";
+        Output: "The remaining count, or -1 when the id is absent.";
+    } {
+        Int slot = This.Search(algorithm);
+        If (slot < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        used[slot] = 0;
+        problem = "none";
+        Return This.CountUsed();
+    }
+
+    Public Function FindAlgorithm(Int algorithm) -> Int
+    Explain {
+        Description: "Find the slot that stores an algorithm id.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Scan the eight registry slots.";
+        Output: "The slot, or -1 when it is absent.";
+    } {
+        Int slot = This.Search(algorithm);
+        If (slot < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        problem = "none";
+        Return slot;
+    }
+
+    Public Function GetAlgorithm(Int slot) -> Int
+    Explain {
+        Description: "Read the algorithm id stored in a slot.";
+        Input: slot = "Registry slot from 0 through 7";
+        Processing: "Reject an empty or out-of-range slot.";
+        Output: "The id, or -1 when the slot is empty.";
+    } {
+        If (slot < 0 || slot > 7 || used[slot] == 0) {
+            problem = "domain";
+            Return -1;
+        }
+        problem = "none";
+        Return codes[slot];
+    }
+
+    Public Function ListAlgorithms() -> Int
+    Explain {
+        Description: "Count the registered algorithms.";
+        Input: "None";
+        Processing: "A fresh desk registers ids 0 through 7.";
+        Output: "The count.";
+    } {
+        problem = "none";
+        Return This.CountUsed();
+    }
+
+    Public Function GetAlgorithmMetadata(Int algorithm) -> Int
+    Explain {
+        Description: "Return the complexity class of an algorithm.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Factorial is linear. The others are constant.";
+        Output: "0 for constant, 1 for linear, or -1 when the id is unknown.";
+    } {
+        Return This.AnalyzeComplexity(algorithm);
+    }
+
+    Public Function GetAlgorithmVersion(Int algorithm) -> Int
+    Explain {
+        Description: "Return the version of a known algorithm.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Every built-in algorithm is version 1.";
+        Output: "1, or zero when the id is unknown.";
+    } {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function GetSupportedInputTypes(Int algorithm) -> Int
+    Explain {
+        Description: "Report that the algorithm accepts an integer.";
+        Input: algorithm = "Algorithm id";
+        Processing: "The only supported input code is 1.";
+        Output: "1, or zero when the id is unknown.";
+    } {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function GetSupportedOutputTypes(Int algorithm) -> Int
+    Explain {
+        Description: "Report that the algorithm returns an integer.";
+        Input: algorithm = "Algorithm id";
+        Processing: "The only supported output code is 1.";
+        Output: "1, or zero when the id is unknown.";
+    } {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function AnalyzeComplexity(Int algorithm) -> Int
+    Explain {
+        Description: "Classify an algorithm's step growth.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Factorial grows with its input. The others do not.";
+        Output: "0, 1, or -1.";
+    } {
+        If (This.Known(algorithm) == 0) { Return -1; }
+        problem = "none";
+        If (algorithm == 7) { Return 1; }
+        Return 0;
+    }
+
+    Public Function EstimateTimeComplexity(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Estimate the integer step cost.";
+        Input: algorithm = "Algorithm id", input = "Input used as the factorial size";
+        Processing: "Factorial costs the input when it is positive. Other algorithms cost one.";
+        Output: "The step cost, or zero when the id is unknown.";
+    } {
+        Return This.TimeOf(algorithm, input);
+    }
+
+    Public Function EstimateSpaceComplexity(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Estimate the integer cell cost.";
+        Input: algorithm = "Algorithm id", input = "Size used by factorial";
+        Processing: "Factorial keeps one cell per step. Other algorithms keep one cell.";
+        Output: "The cell cost.";
+    } {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        problem = "none";
+        If (algorithm == 7 && input > 1) { Return input; }
+        Return 1;
+    }
+
+    Public Function Benchmark(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Return the modeled step count of a run.";
+        Input: algorithm = "Algorithm id", input = "Integer input";
+        Processing: "Use the time estimate and remember it.";
+        Output: "The step count.";
+    } {
+        steps = This.TimeOf(algorithm, input);
+        Return steps;
+    }
+
+    Public Function ProfileAlgorithm(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Return the step count recorded for a run.";
+        Input: algorithm = "Algorithm id", input = "Integer input";
+        Processing: "Use the same model as the benchmark.";
+        Output: "The step count.";
+    } {
+        Return This.Benchmark(algorithm, input);
+    }
+
+    Public Function TraceAlgorithm(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Run an algorithm and keep its result as the trace value.";
+        Input: algorithm = "Algorithm id", input = "Integer input";
+        Processing: "Apply the closed form.";
+        Output: "The result.";
+    } {
+        last = This.Apply(algorithm, input);
+        Return last;
+    }
+
+    Public Function ValidateAlgorithm(Int algorithm) -> Int
+    Explain {
+        Description: "Accept a built-in algorithm id.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Built-in ids run from 0 through 7.";
+        Output: "1 when the id is known, otherwise zero.";
+    } {
+        If (algorithm < 0 || algorithm > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function VerifyOutput(Int algorithm, Int input, Int result) -> Int
+    Explain {
+        Description: "Check a claimed result.";
+        Input: algorithm = "Algorithm id", input = "Integer input", result = "Claimed result";
+        Processing: "Run the algorithm and compare.";
+        Output: "1 when the claim matches, otherwise zero.";
+    } {
+        Int actual = This.Apply(algorithm, input);
+        If (problem != "none") { Return 0; }
+        If (actual == result) { Return 1; }
+        Return 0;
+    }
+
+    Public Function CompareAlgorithms(Int left, Int right, Int input) -> Int
+    Explain {
+        Description: "Report whether two algorithms agree on an input.";
+        Input: left = "First algorithm", right = "Second algorithm", input = "Integer input";
+        Processing: "Compare their results.";
+        Output: "1 when the results match, otherwise zero.";
+    } {
+        Int first = This.Apply(left, input);
+        If (problem != "none") { Return 0; }
+        Int second = This.Apply(right, input);
+        If (problem != "none") { Return 0; }
+        If (first == second) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SelectAlgorithm(Int problemCode) -> Int
+    Explain {
+        Description: "Choose an algorithm for a small problem code.";
+        Input: problemCode = "0 copy, 1 scale, 2 heavy product";
+        Processing: "Map those codes to identity, double, and factorial.";
+        Output: "The algorithm id, or -1 when the code is unknown.";
+    } {
+        If (problemCode == 0) {
+            problem = "none";
+            Return 0;
+        }
+        If (problemCode == 1) {
+            problem = "none";
+            Return 1;
+        }
+        If (problemCode == 2) {
+            problem = "none";
+            Return 7;
+        }
+        problem = "domain";
+        Return -1;
+    }
+
+    Public Function SelectFastest(Int left, Int right) -> Int
+    Explain {
+        Description: "Choose the algorithm with the smaller step model at size 8.";
+        Input: left = "First algorithm", right = "Second algorithm";
+        Processing: "Ties keep the first id.";
+        Output: "The chosen id, or -1 when either id is unknown.";
+    } {
+        Int leftCost = This.TimeOf(left, 8);
+        If (problem != "none") { Return -1; }
+        Int rightCost = This.TimeOf(right, 8);
+        If (problem != "none") { Return -1; }
+        If (leftCost <= rightCost) { Return left; }
+        Return right;
+    }
+
+    Public Function SelectLowestMemory(Int left, Int right) -> Int
+    Explain {
+        Description: "Choose the algorithm with the smaller cell model at size 8.";
+        Input: left = "First algorithm", right = "Second algorithm";
+        Processing: "Ties keep the first id.";
+        Output: "The chosen id.";
+    } {
+        Int leftCost = This.EstimateSpaceComplexity(left, 8);
+        If (problem != "none") { Return -1; }
+        Int rightCost = This.EstimateSpaceComplexity(right, 8);
+        If (problem != "none") { Return -1; }
+        If (leftCost <= rightCost) { Return left; }
+        Return right;
+    }
+
+    Public Function ComposeAlgorithms(Int first, Int second, Int input) -> Int
+    Explain {
+        Description: "Feed one algorithm's result into another.";
+        Input: first = "First algorithm", second = "Second algorithm", input = "Integer input";
+        Processing: "Double then increment turns 21 into 43.";
+        Output: "The second result.";
+    } {
+        Int mid = This.Apply(first, input);
+        If (problem != "none") { Return 0; }
+        Return This.Apply(second, mid);
+    }
+
+    Public Function CreatePipeline() -> Int
+    Explain {
+        Description: "Clear the pipeline.";
+        Input: "None";
+        Processing: "Drop every stored stage.";
+        Output: "Zero, the empty length.";
+    } {
+        stageCount = 0;
+        problem = "none";
+        Return stageCount;
+    }
+
+    Public Function AddPipelineStage(Int algorithm) -> Int
+    Explain {
+        Description: "Append one stage.";
+        Input: algorithm = "Algorithm id";
+        Processing: "The pipeline holds at most eight stages.";
+        Output: "The new length, or zero when the stage is rejected.";
+    } {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        If (stageCount >= 8) {
+            problem = "size";
+            Return 0;
+        }
+        stages[stageCount] = algorithm;
+        stageCount = stageCount + 1;
+        problem = "none";
+        Return stageCount;
+    }
+
+    Public Function RemovePipelineStage(Int algorithm) -> Int
+    Explain {
+        Description: "Remove the first stage with an algorithm id.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Shift the later stages down.";
+        Output: "The new length, or zero when that stage is absent.";
+    } {
+        Int index = 0;
+        While (index < stageCount) {
+            If (stages[index] == algorithm) {
+                Int cursor = index;
+                While (cursor + 1 < stageCount) {
+                    stages[cursor] = stages[cursor + 1];
+                    cursor = cursor + 1;
+                }
+                stageCount = stageCount - 1;
+                problem = "none";
+                Return stageCount;
+            }
+            index = index + 1;
+        }
+        problem = "size";
+        Return 0;
+    }
+
+    Public Function ExecutePipeline(Int input) -> Int
+    Explain {
+        Description: "Run the stored stages from left to right.";
+        Input: input = "Integer input";
+        Processing: "An empty pipeline returns the input unchanged.";
+        Output: "The last stage's result.";
+    } {
+        Int value = input;
+        Int index = 0;
+        While (index < stageCount) {
+            value = This.Apply(stages[index], value);
+            If (problem != "none") { Return 0; }
+            index = index + 1;
+        }
+        problem = "none";
+        last = value;
+        Return value;
+    }
+
+    Public Function Swap(Int left, Int right) -> Int
+    Explain {
+        Description: "Exchange two values.";
+        Input: left = "First value", right = "Second value";
+        Processing: "The first position receives the second value.";
+        Output: "The value now in the first position.";
+    } {
+        samples[0] = left;
+        samples[1] = right;
+        Int swap = samples[0];
+        samples[0] = samples[1];
+        samples[1] = swap;
+        problem = "none";
+        Return samples[0];
+    }
+
+    Public Function Compare(Int left, Int right) -> Int
+    Explain {
+        Description: "Compare two integers.";
+        Input: left = "First value", right = "Second value";
+        Processing: "Order them numerically.";
+        Output: "-1 when left is smaller, 0 when they match, 1 when left is larger.";
+    } {
+        problem = "none";
+        If (left < right) { Return -1; }
+        If (left > right) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Reverse() -> Int
+    Explain {
+        Description: "Reverse the sequence 1 through 8.";
+        Input: "None";
+        Processing: "Swap four pairs.";
+        Output: "The new first value, 8.";
+    } {
+        This.FillSorted();
+        This.ReverseRange(0);
+        problem = "none";
+        Return samples[0];
+    }
+
+    Public Function Rotate(Int offset) -> Int
+    Explain {
+        Description: "Rotate 1 through 8 to the left.";
+        Input: offset = "Places from 0 through 7";
+        Processing: "The value at the offset becomes the first sample.";
+        Output: "The new first value. Offset 3 yields 4.";
+    } {
+        If (offset < 0 || offset > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillSorted();
+        Int index = 0;
+        While (index < 8) {
+            Int source = index + offset;
+            If (source >= 8) { source = source - 8; }
+            other[index] = samples[source];
+            index = index + 1;
+        }
+        This.CopyBack();
+        problem = "none";
+        Return samples[0];
+    }
+
+    Public Function Partition(Int pivot) -> Int
+    Explain {
+        Description: "Split 4, 2, 7, 1, 5, 3, 8, 6 around a pivot.";
+        Input: pivot = "Values below the pivot move first";
+        Processing: "Keep the original order inside each side.";
+        Output: "The split index. Pivot 5 yields 4.";
+    } {
+        Return This.Split(pivot);
+    }
+
+    Public Function StablePartition(Int pivot) -> Int
+    Explain {
+        Description: "Split the mixed sequence without reordering either side.";
+        Input: pivot = "Values below the pivot move first";
+        Processing: "Use the same ordered split.";
+        Output: "The split index.";
+    } {
+        Return This.Split(pivot);
+    }
+
+    Public Function IsSorted(Int pattern) -> Int
+    Explain {
+        Description: "Test whether a stock sequence increases.";
+        Input: pattern = "0 is 1 through 8, 1 is 8 through 1";
+        Processing: "Compare adjacent samples.";
+        Output: "1 when every adjacent pair increases, otherwise zero.";
+    } {
+        If (This.FillPattern(pattern) == 0) { Return 0; }
+        Int index = 0;
+        While (index < 7) {
+            If (samples[index] > samples[index + 1]) {
+                problem = "none";
+                Return 0;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function IsSortedDescending(Int pattern) -> Int
+    Explain {
+        Description: "Test whether a stock sequence decreases.";
+        Input: pattern = "0 is 1 through 8, 1 is 8 through 1";
+        Processing: "Compare adjacent samples.";
+        Output: "1 when every adjacent pair decreases, otherwise zero.";
+    } {
+        If (This.FillPattern(pattern) == 0) { Return 0; }
+        Int index = 0;
+        While (index < 7) {
+            If (samples[index] < samples[index + 1]) {
+                problem = "none";
+                Return 0;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function IsPartitioned(Int pivot) -> Int
+    Explain {
+        Description: "Test the ascending sequence against a pivot.";
+        Input: pivot = "Split value";
+        Processing: "Once a sample is not below the pivot, no later sample may be below it.";
+        Output: "1 when 1 through 8 is partitioned, otherwise zero.";
+    } {
+        This.FillSorted();
+        Int seen = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] < pivot && seen == 1) {
+                problem = "none";
+                Return 0;
+            }
+            If (samples[index] >= pivot) { seen = 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function IsPermutation(Int pattern) -> Int
+    Explain {
+        Description: "Test whether a stock sequence is a permutation of 1 through 8.";
+        Input: pattern = "0 reverses 1 through 8, 1 repeats 7 and drops 8";
+        Processing: "Each of 1 through 8 must appear once.";
+        Output: "1 for the reversal, zero for the duplicate.";
+    } {
+        If (pattern == 0) { This.FillReverse(); }
+        If (pattern == 1) { This.FillDuplicate(); }
+        If (pattern != 0 && pattern != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        Int expected = 1;
+        While (expected <= 8) {
+            Int found = 0;
+            Int index = 0;
+            While (index < 8) {
+                If (samples[index] == expected) { found = found + 1; }
+                index = index + 1;
+            }
+            If (found != 1) {
+                problem = "none";
+                Return 0;
+            }
+            expected = expected + 1;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function GeneratePermutation(Int index) -> Int
+    Explain {
+        Description: "Build one of the first two permutations of 1 through 8.";
+        Input: index = "0 keeps the sequence, 1 advances it once";
+        Processing: "The first advance swaps the last pair.";
+        Output: "1 for the identity's first sample, or 7 for the advanced last sample.";
+    } {
+        This.FillSorted();
+        If (index == 0) {
+            problem = "none";
+            Return samples[0];
+        }
+        If (index == 1) { Return This.StepNext(); }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function NextPermutation() -> Int
+    Explain {
+        Description: "Advance 1 through 8 to the next lexicographic permutation.";
+        Input: "None";
+        Processing: "Swap the final pair. The suffix after the pivot has one sample.";
+        Output: "The new last sample, 7.";
+    } {
+        This.FillSorted();
+        Return This.StepNext();
+    }
+
+    Public Function PreviousPermutation() -> Int
+    Explain {
+        Description: "Step back from 1, 2, 3, 4, 5, 6, 8, 7.";
+        Input: "None";
+        Processing: "Swap 8 with 7 and restore 1 through 8.";
+        Output: "The restored last sample, 8.";
+    } {
+        This.FillAlmost();
+        Return This.StepPrevious();
+    }
+
+    Public Function CountInversions() -> Int
+    Explain {
+        Description: "Count inverted pairs in 4, 2, 7, 1, 5, 3, 8, 6.";
+        Input: "None";
+        Processing: "Count pairs where an earlier sample is larger.";
+        Output: "10.";
+    } {
+        This.FillMixed();
+        Int count = 0;
+        Int left = 0;
+        While (left < 8) {
+            Int right = left + 1;
+            While (right < 8) {
+                If (samples[left] > samples[right]) { count = count + 1; }
+                right = right + 1;
+            }
+            left = left + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function MeasureComparisons() -> Int
+    Explain {
+        Description: "Count the adjacent comparisons that confirm 1 through 8 is sorted.";
+        Input: "None";
+        Processing: "Seven adjacent pairs are compared.";
+        Output: "7.";
+    } {
+        This.FillSorted();
+        Int count = 0;
+        Int index = 0;
+        While (index < 7) {
+            If (samples[index] <= samples[index + 1]) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function MeasureSwaps() -> Int
+    Explain {
+        Description: "Count the swaps used to reverse 1 through 8.";
+        Input: "None";
+        Processing: "Four pairs are exchanged.";
+        Output: "4.";
+    } {
+        This.Reverse();
+        problem = "none";
+        Return 4;
+    }
+
+    Public Function SetPolicy(Int value) -> Int
+    Explain {
+        Description: "Store the execution policy.";
+        Input: value = "0 sequential, 1 parallel";
+        Processing: "Reject any other value.";
+        Output: "The stored policy, or zero when it is rejected.";
+    } {
+        If (value != 0 && value != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        policy = value;
+        problem = "none";
+        Return policy;
+    }
+
+    Public Function SetMutation(Int value) -> Int
+    Explain {
+        Description: "Store the mutation policy.";
+        Input: value = "0 in place, 1 on a copy";
+        Processing: "Sequence helpers already write a desk-local buffer.";
+        Output: "The stored policy.";
+    } {
+        If (value != 0 && value != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        mutation = value;
+        problem = "none";
+        Return mutation;
+    }
+
+    Public Function SetDeterminism(Int value) -> Int
+    Explain {
+        Description: "Store the determinism policy.";
+        Input: value = "1 requires deterministic results";
+        Processing: "Every built-in algorithm is deterministic.";
+        Output: "The stored policy.";
+    } {
+        If (value != 0 && value != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        determinism = value;
+        problem = "none";
+        Return determinism;
+    }
+
+    Public Function IsDeterministic(Int algorithm) -> Int
+    Explain {
+        Description: "Report whether an algorithm is deterministic.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Every built-in algorithm returns one integer for each input.";
+        Output: "1 when the id is known, otherwise zero.";
+    } {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function ReportProgress(Int algorithm, Int input) -> Int
+    Explain {
+        Description: "Return the number of steps a run would complete.";
+        Input: algorithm = "Algorithm id", input = "Integer input";
+        Processing: "Use the time model.";
+        Output: "The step count.";
+    } {
+        Return This.TimeOf(algorithm, input);
+    }
+
+    Public Function Status(Int algorithm) -> Int
+    Explain {
+        Description: "Classify an algorithm id.";
+        Input: algorithm = "Algorithm id";
+        Processing: "Known ids are ready.";
+        Output: "1 when the id is known, otherwise 2.";
+    } {
+        If (This.Known(algorithm) == 0) { Return 2; }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest problem token.";
+        Input: "None";
+        Processing: "Read the stored token.";
+        Output: "none, domain, size, timeout, cancel, or overflow.";
+    } {
+        Return problem;
+    }
+
+    Private Function Known(Int algorithm) -> Int {
+        If (algorithm >= 0 && algorithm <= 7) { Return 1; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Private Function Apply(Int algorithm, Int input) -> Int {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        steps = 1;
+        If (algorithm == 0) {
+            problem = "none";
+            Return input;
+        }
+        If (algorithm == 1) {
+            problem = "none";
+            Return input * 2;
+        }
+        If (algorithm == 2) {
+            problem = "none";
+            Return input * input;
+        }
+        If (algorithm == 3) {
+            problem = "none";
+            If (input < 0) { Return 0 - input; }
+            Return input;
+        }
+        If (algorithm == 4) {
+            problem = "none";
+            Return 0 - input;
+        }
+        If (algorithm == 5) {
+            problem = "none";
+            Return input + 1;
+        }
+        If (algorithm == 6) {
+            problem = "none";
+            If (input < 0) { Return 0; }
+            If (input > 9) { Return 9; }
+            Return input;
+        }
+        If (input < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        If (input > 12) {
+            problem = "overflow";
+            Return 0;
+        }
+        Int result = 1;
+        Int cursor = 2;
+        While (cursor <= input) {
+            result = result * cursor;
+            cursor = cursor + 1;
+            steps = steps + 1;
+        }
+        problem = "none";
+        Return result;
+    }
+
+    Private Function TimeOf(Int algorithm, Int input) -> Int {
+        If (This.Known(algorithm) == 0) { Return 0; }
+        problem = "none";
+        If (algorithm == 7 && input > 1) { Return input; }
+        Return 1;
+    }
+
+    Private Function Fold(Int algorithm, Int lastOnly) -> Int {
+        Int sum = 0;
+        Int latest = 0;
+        Int input = 1;
+        While (input <= 8) {
+            latest = This.Apply(algorithm, input);
+            If (problem != "none") { Return 0; }
+            sum = sum + latest;
+            input = input + 1;
+        }
+        If (lastOnly == 1) { Return latest; }
+        Return sum;
+    }
+
+    Private Function Search(Int algorithm) -> Int {
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 1 && codes[index] == algorithm) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function CountUsed() -> Int {
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (used[index] == 1) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function FillSorted() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = index + 1;
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function FillReverse() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = 8 - index;
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function FillMixed() -> Int {
+        samples[0] = 4;
+        samples[1] = 2;
+        samples[2] = 7;
+        samples[3] = 1;
+        samples[4] = 5;
+        samples[5] = 3;
+        samples[6] = 8;
+        samples[7] = 6;
+        Return samples[0];
+    }
+
+    Private Function FillDuplicate() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = index + 1;
+            index = index + 1;
+        }
+        samples[7] = 7;
+        Return samples[7];
+    }
+
+    Private Function FillAlmost() -> Int {
+        This.FillSorted();
+        samples[6] = 8;
+        samples[7] = 7;
+        Return samples[7];
+    }
+
+    Private Function FillPattern(Int pattern) -> Int {
+        If (pattern == 0) {
+            This.FillSorted();
+            Return 1;
+        }
+        If (pattern == 1) {
+            This.FillReverse();
+            Return 1;
+        }
+        problem = "domain";
+        Return 0;
+    }
+
+    Private Function CopyBack() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = other[index];
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function ReverseRange(Int start) -> Int {
+        Int left = start;
+        Int right = 7;
+        While (left < right) {
+            Int swap = samples[left];
+            samples[left] = samples[right];
+            samples[right] = swap;
+            left = left + 1;
+            right = right - 1;
+        }
+        Return samples[start];
+    }
+
+    Private Function StepNext() -> Int {
+        Int pivot = -1;
+        Int index = 0;
+        While (index < 7) {
+            If (samples[index] < samples[index + 1]) { pivot = index; }
+            index = index + 1;
+        }
+        If (pivot < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int successor = pivot + 1;
+        index = pivot + 1;
+        While (index < 8) {
+            If (samples[index] > samples[pivot]) { successor = index; }
+            index = index + 1;
+        }
+        Int swap = samples[pivot];
+        samples[pivot] = samples[successor];
+        samples[successor] = swap;
+        This.ReverseRange(pivot + 1);
+        problem = "none";
+        Return samples[7];
+    }
+
+    Private Function StepPrevious() -> Int {
+        Int pivot = -1;
+        Int index = 0;
+        While (index < 7) {
+            If (samples[index] > samples[index + 1]) { pivot = index; }
+            index = index + 1;
+        }
+        If (pivot < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int successor = pivot + 1;
+        index = pivot + 1;
+        While (index < 8) {
+            If (samples[index] < samples[pivot]) { successor = index; }
+            index = index + 1;
+        }
+        Int swap = samples[pivot];
+        samples[pivot] = samples[successor];
+        samples[successor] = swap;
+        This.ReverseRange(pivot + 1);
+        problem = "none";
+        Return samples[7];
+    }
+
+    Private Function Split(Int pivot) -> Int {
+        This.FillMixed();
+        Int low = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] < pivot) {
+                other[low] = samples[index];
+                low = low + 1;
+            }
+            index = index + 1;
+        }
+        Int high = low;
+        index = 0;
+        While (index < 8) {
+            If (samples[index] >= pivot) {
+                other[high] = samples[index];
+                high = high + 1;
+            }
+            index = index + 1;
+        }
+        This.CopyBack();
+        problem = "none";
+        Return low;
+    }
+}

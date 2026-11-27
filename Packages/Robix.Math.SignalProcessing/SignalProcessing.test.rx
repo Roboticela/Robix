@@ -1,0 +1,23 @@
+Test SquareSample {
+    Constraint: SignalDesk().SquareSample(1, 3, 8, 4) == -3;
+    Processing: True;
+    Output: True;
+}
+
+Test RemoveDCOffset {
+    Constraint: SignalDesk().RemoveDCOffset() == -7;
+    Processing: True;
+    Output: True;
+}
+
+Test Autocorrelation {
+    Constraint: SignalDesk().CalculateAutocorrelation(1) == 704;
+    Processing: True;
+    Output: True;
+}
+
+Test HighPass {
+    Constraint: SignalDesk().HighPass(4) == -3;
+    Processing: True;
+    Output: True;
+}
