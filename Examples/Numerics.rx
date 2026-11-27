@@ -1,0 +1,69 @@
+// Robix.Numerics: widths, limits, checked arithmetic, and numeric predicates.
+Package Robotics.Numerics;
+
+Import Robix.Core;
+Import Robix.Numerics;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise numeric types and checked arithmetic.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the numerics desk.";
+    Output: "The numerics report.";
+} {
+    NumericsDesk desk = NumericsDesk();
+    Print(desk.Use(1));
+    Print(desk.GetNumericInfo());
+    Print(desk.GetNumericLimits());
+    Print(desk.GetNumericCategory());
+    Print(desk.IsInteger());
+    Print(desk.IsFloatingPoint());
+    Print(desk.IsDecimal());
+    Print(desk.IsSigned());
+    Print(desk.IsUnsigned());
+    Print(desk.IsExact());
+    Print(desk.IsArbitraryPrecision());
+    Print(desk.Add(20, 22));
+    Print(desk.Subtract(50, 8));
+    Print(desk.Multiply(6, 7));
+    Print(desk.Divide(84, 2));
+    Print(desk.Remainder(17, 5));
+    Print(desk.Negate(4));
+    Print(desk.Increment(41));
+    Print(desk.Decrement(43));
+    Print(desk.Abs(-12));
+    Print(desk.Min(3, 8));
+    Print(desk.Max(3, 8));
+    Print(desk.Clamp(5, 0, 3));
+    Print(desk.Compare(3, 8));
+    Print(desk.AddChecked(30000, 30000));
+    Print(desk.Overflowed());
+    Print(desk.AddChecked(20, 22));
+    Print(desk.Convert(40000));
+    Print(desk.ConvertChecked(10));
+    Print(desk.ConvertSaturating(-40000));
+    Print(desk.ConvertTruncating(65537));
+    Print(desk.TryConvert(10));
+    Print(desk.Parse("-42"));
+    Print(desk.TryParse("15"));
+    Print(desk.Format(15));
+    Print(desk.IsFinite(15));
+    Print(desk.IsInfinity(15));
+    Print(desk.IsNaN(15));
+    Print(desk.IsZero(0));
+    Print(desk.IsEven(4));
+    Print(desk.IsOdd(5));
+    Print(desk.IsNegative(-1));
+    Print(desk.IsPositive(1));
+    Print(desk.IsNormal(1));
+    Print(desk.IsSubnormal(1));
+    Print(desk.MinValue());
+    Print(desk.MaxValue());
+    Print(desk.Epsilon());
+    Print(desk.MachinePrecision());
+    Print(desk.Use(4));
+    Print(desk.IsFloatingPoint());
+    Print(desk.Fault());
+    Return 0;
+}

@@ -1,0 +1,793 @@
+// Robix.Decimal: scaled integers, rounding, and financial arithmetic.
+Package Robix.Decimal;
+
+Import Robix.Core;
+
+
+Class DecimalDesk {
+    Private Int scale;
+    Private Int mode;
+    Private Int factor;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        scale = 2;
+        mode = 0;
+        factor = 100;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function SetScale(Int digits) -> Int
+    Explain {
+        Description: "Set the number of stored fraction digits.";
+        Input: digits = "Digits from 0 through 6";
+        Processing: "Store the scale and its power of ten.";
+        Output: "The scale, or zero when it is outside the range.";
+    } {
+        If (digits < 0 || digits > 6) {
+            problem = "scale";
+            Return 0;
+        }
+        scale = digits;
+        factor = 1;
+        Int index = 0;
+        While (index < digits) {
+            factor = factor * 10;
+            index = index + 1;
+        }
+        problem = "none";
+        Return scale;
+    }
+
+    Public Function GetScale(Int value) -> Int
+    Explain {
+        Description: "Return the active scale.";
+        Input: value = "Ignored coefficient";
+        Processing: "The scale belongs to the desk, not to one coefficient.";
+        Output: "The scale.";
+    } {
+        last = value;
+        Return scale;
+    }
+
+    Public Function GetPrecision() -> Int
+    Explain {
+        Description: "Return the active scale.";
+        Input: "No parameters";
+        Processing: "The stored fraction digits are the working precision.";
+        Output: "The scale.";
+    } {
+        Return scale;
+    }
+
+    Public Function SetPrecision(Int digits) -> Int
+    Explain {
+        Description: "Set the working precision.";
+        Input: digits = "Fraction digits";
+        Processing: "Use the scale.";
+        Output: "The scale.";
+    } {
+        Return This.SetScale(digits);
+    }
+
+    Public Function SetRoundingMode(Int roundingMode) -> Int
+    Explain {
+        Description: "Select a rounding mode.";
+        Input: roundingMode = "0 half up, 1 half even, 2 down, 3 toward zero, 4 ceiling, 5 floor";
+        Processing: "Store the mode used by Round.";
+        Output: "The mode, or zero when it is unknown.";
+    } {
+        If (roundingMode < 0 || roundingMode > 5) {
+            problem = "mode";
+            Return 0;
+        }
+        mode = roundingMode;
+        problem = "none";
+        Return mode;
+    }
+
+    Public Function GetRoundingMode() -> Int
+    Explain {
+        Description: "Read the rounding mode.";
+        Input: "No parameters";
+        Processing: "Read the stored mode.";
+        Output: "The mode.";
+    } {
+        Return mode;
+    }
+
+    Public Function Add(Int left, Int right) -> Int
+    Explain {
+        Description: "Add two scaled integers.";
+        Input: left = "Left coefficient", right = "Right coefficient";
+        Processing: "Add coefficients that share the active scale.";
+        Output: "The sum.";
+    } {
+        Return left + right;
+    }
+
+    Public Function Subtract(Int left, Int right) -> Int
+    Explain {
+        Description: "Subtract two scaled integers.";
+        Input: left = "Left coefficient", right = "Right coefficient";
+        Processing: "Subtract coefficients that share the active scale.";
+        Output: "The difference.";
+    } {
+        Return left - right;
+    }
+
+    Public Function Multiply(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two scaled integers.";
+        Input: left = "Left coefficient", right = "Right coefficient";
+        Processing: "Divide the raw product by the scale factor so the result keeps the active scale.";
+        Output: "The product.";
+    } {
+        Return This.DivideScaled(left * right, factor);
+    }
+
+    Public Function Divide(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide two scaled integers.";
+        Input: left = "Numerator", right = "Denominator";
+        Processing: "Multiply by the scale factor before dividing so the result keeps the active scale.";
+        Output: "The quotient, or zero when the denominator is zero.";
+    } {
+        If (right == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        problem = "none";
+        Return This.DivideScaled(left * factor, right);
+    }
+
+    Public Function Remainder(Int left, Int right) -> Int
+    Explain {
+        Description: "Return a scaled remainder.";
+        Input: left = "Numerator", right = "Denominator";
+        Processing: "Subtract the exact quotient times the denominator.";
+        Output: "The remainder.";
+    } {
+        If (right == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        Int quote = This.Divide(left, right);
+        Return left - This.Multiply(quote, right);
+    }
+
+    Public Function Modulo(Int left, Int right) -> Int
+    Explain {
+        Description: "Return a nonnegative remainder.";
+        Input: left = "Numerator", right = "Denominator";
+        Processing: "Add the denominator while the remainder is negative.";
+        Output: "The remainder.";
+    } {
+        Int value = This.Remainder(left, right);
+        If (right < 0) { right = 0 - right; }
+        While (value < 0) { value = value + right; }
+        Return value;
+    }
+
+    Public Function DivRem(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide and store the remainder.";
+        Input: left = "Numerator", right = "Denominator";
+        Processing: "The quotient is returned and the remainder is stored.";
+        Output: "The quotient.";
+    } {
+        Int quote = This.Divide(left, right);
+        last = left - This.Multiply(quote, right);
+        Return quote;
+    }
+
+    Public Function RemainderOf() -> Int
+    Explain {
+        Description: "Read the remainder from the latest division.";
+        Input: "No parameters";
+        Processing: "Read the stored remainder.";
+        Output: "The remainder.";
+    } {
+        Return last;
+    }
+
+    Public Function Negate(Int value) -> Int
+    Explain {
+        Description: "Negate a coefficient.";
+        Input: value = "Coefficient";
+        Processing: "Subtract it from zero.";
+        Output: "The negation.";
+    } {
+        Return 0 - value;
+    }
+
+    Public Function Abs(Int value) -> Int
+    Explain {
+        Description: "Return the absolute coefficient.";
+        Input: value = "Coefficient";
+        Processing: "Negate a negative value.";
+        Output: "The absolute value.";
+    } {
+        If (value < 0) { Return 0 - value; }
+        Return value;
+    }
+
+    Public Function Min(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the smaller coefficient.";
+        Input: left = "Left", right = "Right";
+        Processing: "Compare the coefficients.";
+        Output: "The smaller value.";
+    } {
+        If (left < right) { Return left; }
+        Return right;
+    }
+
+    Public Function Max(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the larger coefficient.";
+        Input: left = "Left", right = "Right";
+        Processing: "Compare the coefficients.";
+        Output: "The larger value.";
+    } {
+        If (left > right) { Return left; }
+        Return right;
+    }
+
+    Public Function Clamp(Int value, Int low, Int high) -> Int
+    Explain {
+        Description: "Clamp a coefficient.";
+        Input: value = "Value", low = "Low", high = "High";
+        Processing: "Pull the value into the range.";
+        Output: "The clamped value.";
+    } {
+        If (value < low) { Return low; }
+        If (value > high) { Return high; }
+        Return value;
+    }
+
+    Public Function Compare(Int left, Int right) -> Int
+    Explain {
+        Description: "Compare two coefficients.";
+        Input: left = "Left", right = "Right";
+        Processing: "Return the comparison sign.";
+        Output: "Negative, zero, or positive.";
+    } {
+        If (left < right) { Return -1; }
+        If (left > right) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Rescale(Int value, Int digits) -> Int
+    Explain {
+        Description: "Change the scale of a coefficient.";
+        Input: value = "Coefficient", digits = "New scale";
+        Processing: "Multiply or divide by the ratio of the scale factors, rounding when digits are removed.";
+        Output: "The rescaled coefficient.";
+    } {
+        If (digits < 0 || digits > 6) {
+            problem = "scale";
+            Return 0;
+        }
+        Int gap = digits - scale;
+        Int power = 1;
+        Int steps = gap;
+        If (steps < 0) { steps = 0 - steps; }
+        Int index = 0;
+        While (index < steps) {
+            power = power * 10;
+            index = index + 1;
+        }
+        Int next = value * power;
+        If (gap < 0) { next = This.DivideScaled(value, power); }
+        This.SetScale(digits);
+        Return next;
+    }
+
+    Public Function Quantize(Int value, Int exponent) -> Int
+    Explain {
+        Description: "Quantize to a power of ten.";
+        Input: value = "Coefficient", exponent = "Fraction digits to keep";
+        Processing: "Rescale to that many digits and back to the active scale.";
+        Output: "The quantized coefficient.";
+    } {
+        Int current = scale;
+        Int changed = This.Rescale(value, exponent);
+        Int restored = This.Rescale(changed, current);
+        Return restored;
+    }
+
+    Public Function Normalize(Int value) -> Int
+    Explain {
+        Description: "Strip trailing zeros by lowering the scale.";
+        Input: value = "Coefficient";
+        Processing: "While the coefficient is divisible by ten and the scale is positive, drop a digit.";
+        Output: "The normalized coefficient.";
+    } {
+        Int current = value;
+        While (scale > 0 && current % 10 == 0) {
+            current = current / 10;
+            This.SetScale(scale - 1);
+        }
+        Return current;
+    }
+
+    Public Function StripTrailingZeros(Int value) -> Int
+    Explain {
+        Description: "Strip trailing zeros.";
+        Input: value = "Coefficient";
+        Processing: "Normalize the coefficient.";
+        Output: "The normalized coefficient.";
+    } {
+        Return This.Normalize(value);
+    }
+
+    Public Function Round(Int value, Int digits) -> Int
+    Explain {
+        Description: "Round to a number of fraction digits.";
+        Input: value = "Coefficient", digits = "Fraction digits";
+        Processing: "Use the active rounding mode, then restore the original scale.";
+        Output: "The rounded coefficient at the original scale.";
+    } {
+        If (digits < 0 || digits > scale) {
+            problem = "scale";
+            Return 0;
+        }
+        Int current = scale;
+        Int changed = This.Rescale(value, digits);
+        Return This.Rescale(changed, current);
+    }
+
+    Public Function RoundToEven(Int value, Int digits) -> Int
+    Explain {
+        Description: "Round half to even.";
+        Input: value = "Coefficient", digits = "Fraction digits";
+        Processing: "Select half-even rounding.";
+        Output: "The rounded coefficient.";
+    } {
+        This.SetRoundingMode(1);
+        Return This.Round(value, digits);
+    }
+
+    Public Function RoundAwayFromZero(Int value, Int digits) -> Int
+    Explain {
+        Description: "Round halves away from zero.";
+        Input: value = "Coefficient", digits = "Fraction digits";
+        Processing: "Select half-up rounding.";
+        Output: "The rounded coefficient.";
+    } {
+        This.SetRoundingMode(0);
+        Return This.Round(value, digits);
+    }
+
+    Public Function RoundTowardZero(Int value, Int digits) -> Int
+    Explain {
+        Description: "Round toward zero.";
+        Input: value = "Coefficient", digits = "Fraction digits";
+        Processing: "Select toward-zero rounding.";
+        Output: "The rounded coefficient.";
+    } {
+        This.SetRoundingMode(3);
+        Return This.Round(value, digits);
+    }
+
+    Public Function RoundTowardPositive(Int value, Int digits) -> Int
+    Explain {
+        Description: "Round toward positive infinity.";
+        Input: value = "Coefficient", digits = "Fraction digits";
+        Processing: "Select ceiling rounding.";
+        Output: "The rounded coefficient.";
+    } {
+        This.SetRoundingMode(4);
+        Return This.Round(value, digits);
+    }
+
+    Public Function RoundTowardNegative(Int value, Int digits) -> Int
+    Explain {
+        Description: "Round toward negative infinity.";
+        Input: value = "Coefficient", digits = "Fraction digits";
+        Processing: "Select floor rounding.";
+        Output: "The rounded coefficient.";
+    } {
+        This.SetRoundingMode(5);
+        Return This.Round(value, digits);
+    }
+
+    Public Function Floor(Int value) -> Int
+    Explain {
+        Description: "Round toward negative infinity to a whole unit.";
+        Input: value = "Coefficient";
+        Processing: "Use floor rounding at zero fraction digits.";
+        Output: "The rounded coefficient.";
+    } {
+        Return This.RoundTowardNegative(value, 0);
+    }
+
+    Public Function Ceiling(Int value) -> Int
+    Explain {
+        Description: "Round toward positive infinity to a whole unit.";
+        Input: value = "Coefficient";
+        Processing: "Use ceiling rounding at zero fraction digits.";
+        Output: "The rounded coefficient.";
+    } {
+        Return This.RoundTowardPositive(value, 0);
+    }
+
+    Public Function Truncate(Int value) -> Int
+    Explain {
+        Description: "Drop the fraction.";
+        Input: value = "Coefficient";
+        Processing: "Round toward zero at zero fraction digits.";
+        Output: "The truncated coefficient.";
+    } {
+        Return This.RoundTowardZero(value, 0);
+    }
+
+    Public Function Pow(Int value, Int exponent) -> Int
+    Explain {
+        Description: "Raise a scaled integer to a small power.";
+        Input: value = "Base", exponent = "Exponent from 0 through 6";
+        Processing: "Repeated scaled multiplication. Exponent zero is one at the active scale.";
+        Output: "The power.";
+    } {
+        If (exponent < 0 || exponent > 6) {
+            problem = "domain";
+            Return 0;
+        }
+        Int result = factor;
+        Int index = 0;
+        While (index < exponent) {
+            result = This.Multiply(result, value);
+            index = index + 1;
+        }
+        problem = "none";
+        Return result;
+    }
+
+    Public Function Sqrt(Int value) -> Int
+    Explain {
+        Description: "Return an integer square root of a perfect scaled square.";
+        Input: value = "Coefficient";
+        Processing: "Search an integer root of the unscaled value, then scale it.";
+        Output: "The root, or zero when it is not an integer.";
+    } {
+        If (value < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int unscaled = value / factor;
+        Int guess = 0;
+        While (guess < 46340 && guess * guess < unscaled) { guess = guess + 1; }
+        If (guess * guess != unscaled) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return guess * factor;
+    }
+
+    Public Function Gcd(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the greatest common divisor of two coefficients.";
+        Input: left = "Left", right = "Right";
+        Processing: "Use Euclid's algorithm on the absolute coefficients.";
+        Output: "The divisor.";
+    } {
+        Int a = This.Abs(left);
+        Int b = This.Abs(right);
+        While (b != 0) {
+            Int next = a - (a / b) * b;
+            a = b;
+            b = next;
+        }
+        Return a;
+    }
+
+    Public Function Lcm(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the least common multiple.";
+        Input: left = "Left", right = "Right";
+        Processing: "Divide the product by the greatest common divisor.";
+        Output: "The multiple.";
+    } {
+        If (left == 0 || right == 0) { Return 0; }
+        Return This.Abs(left / This.Gcd(left, right) * right);
+    }
+
+    Public Function Parse(String text) -> Int
+    Explain {
+        Description: "Parse a decimal literal into the active scale.";
+        Input: text = "A number such as 1.50 or -2";
+        Processing: "Read the sign, the whole part, and up to the active number of fraction digits.";
+        Output: "The coefficient, or zero when the text is not a decimal.";
+    } {
+        If (text.Length() == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Int index = 0;
+        Int sign = 1;
+        String mark = text.Substring(0, 1);
+        If (mark == "-") {
+            sign = -1;
+            index = 1;
+        }
+        Int whole = 0;
+        Int seen = 0;
+        While (index < text.Length()) {
+            String piece = text.Substring(index, 1);
+            If (piece == ".") {
+                index = index + 1;
+                Int frac = 0;
+                Int digits = 0;
+                While (index < text.Length() && digits < scale) {
+                    Int digit = This.Digit(text.Substring(index, 1));
+                    If (digit < 0) {
+                        problem = "parse";
+                        Return 0;
+                    }
+                    frac = frac * 10 + digit;
+                    digits = digits + 1;
+                    index = index + 1;
+                }
+                While (digits < scale) {
+                    frac = frac * 10;
+                    digits = digits + 1;
+                }
+                problem = "none";
+                Return sign * (whole * factor + frac);
+            }
+            Int digit = This.Digit(piece);
+            If (digit < 0) {
+                problem = "parse";
+                Return 0;
+            }
+            whole = whole * 10 + digit;
+            seen = 1;
+            index = index + 1;
+        }
+        If (seen == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        problem = "none";
+        Return sign * whole * factor;
+    }
+
+    Public Function TryParse(String text) -> Int
+    Explain {
+        Description: "Try to parse a decimal literal.";
+        Input: text = "Text";
+        Processing: "Use the decimal parser.";
+        Output: "The coefficient, or zero when parsing fails.";
+    } {
+        Return This.Parse(text);
+    }
+
+    Public Function FromInteger(Int value) -> Int
+    Explain {
+        Description: "Scale an integer.";
+        Input: value = "Whole number";
+        Processing: "Multiply by the scale factor.";
+        Output: "The coefficient.";
+    } {
+        Return value * factor;
+    }
+
+    Public Function ToInteger(Int value) -> Int
+    Explain {
+        Description: "Convert a coefficient to a whole number toward zero.";
+        Input: value = "Coefficient";
+        Processing: "Divide by the scale factor.";
+        Output: "The whole number.";
+    } {
+        Return value / factor;
+    }
+
+    Public Function ToInt32(Int value) -> Int
+    Explain {
+        Description: "Convert a coefficient to a whole number.";
+        Input: value = "Coefficient";
+        Processing: "Truncate toward zero.";
+        Output: "The whole number.";
+    } {
+        Return This.ToInteger(value);
+    }
+
+    Public Function ToInt64(Int value) -> Int
+    Explain {
+        Description: "Convert a coefficient to a wide whole number.";
+        Input: value = "Coefficient";
+        Processing: "Truncate toward zero.";
+        Output: "The whole number.";
+    } {
+        Return This.ToInteger(value);
+    }
+
+    Public Function SimpleInterest(Int principal, Int rate, Int periods) -> Int
+    Explain {
+        Description: "Compute simple interest.";
+        Input: principal = "Principal at the active scale", rate = "Rate in basis points", periods = "Periods";
+        Processing: "Interest is principal times rate times periods, divided by 10000.";
+        Output: "The interest.";
+    } {
+        Return This.DivideScaled(principal * rate * periods, 10000);
+    }
+
+    Public Function CompoundInterest(Int principal, Int rate, Int periods) -> Int
+    Explain {
+        Description: "Compute compound interest for a few periods.";
+        Input: principal = "Principal", rate = "Rate in basis points", periods = "Periods from 0 through 6";
+        Processing: "Multiply by one plus the rate for each period, then subtract the principal.";
+        Output: "The interest.";
+    } {
+        If (periods < 0 || periods > 6) {
+            problem = "domain";
+            Return 0;
+        }
+        Int amount = principal;
+        Int index = 0;
+        While (index < periods) {
+            amount = amount + This.DivideScaled(amount * rate, 10000);
+            index = index + 1;
+        }
+        problem = "none";
+        Return amount - principal;
+    }
+
+    Public Function CalculateInterest(Int principal, Int rate, Int periods) -> Int
+    Explain {
+        Description: "Compute simple interest.";
+        Input: principal = "Principal", rate = "Rate in basis points", periods = "Periods";
+        Processing: "Use the simple-interest formula.";
+        Output: "The interest.";
+    } {
+        Return This.SimpleInterest(principal, rate, periods);
+    }
+
+    Public Function CalculateDiscount(Int price, Int percentage) -> Int
+    Explain {
+        Description: "Compute a percentage discount.";
+        Input: price = "Price", percentage = "Percent";
+        Processing: "Multiply the price by the percent and divide by 100.";
+        Output: "The discount.";
+    } {
+        Return This.DivideScaled(price * percentage, 100);
+    }
+
+    Public Function CalculateTax(Int amount, Int rate) -> Int
+    Explain {
+        Description: "Compute a tax.";
+        Input: amount = "Amount", rate = "Percent";
+        Processing: "Use the same percentage formula as a discount.";
+        Output: "The tax.";
+    } {
+        Return This.CalculateDiscount(amount, rate);
+    }
+
+    Public Function CalculatePercentage(Int value, Int percentage) -> Int
+    Explain {
+        Description: "Take a percentage.";
+        Input: value = "Value", percentage = "Percent";
+        Processing: "Multiply and divide by 100.";
+        Output: "The percentage of the value.";
+    } {
+        Return This.DivideScaled(value * percentage, 100);
+    }
+
+    Public Function CalculatePercentageChange(Int oldValue, Int newValue) -> Int
+    Explain {
+        Description: "Return a percentage change.";
+        Input: oldValue = "Old value", newValue = "New value";
+        Processing: "Divide 100 times the difference by the old value.";
+        Output: "The percent change, or zero when the old value is zero.";
+    } {
+        If (oldValue == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        problem = "none";
+        Return This.DivideScaled((newValue - oldValue) * 100, oldValue);
+    }
+
+    Public Function CalculateInstallment(Int principal, Int rate, Int periods) -> Int
+    Explain {
+        Description: "Split a principal into equal installments.";
+        Input: principal = "Principal", rate = "Unused rate", periods = "Positive period count";
+        Processing: "Divide the principal by the period count. The rate is accepted so the call matches a loan signature.";
+        Output: "One installment.";
+    } {
+        If (periods <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        last = rate;
+        problem = "none";
+        Return This.DivideScaled(principal, periods);
+    }
+
+    Public Function PresentValue(Int futureValue, Int rate, Int periods) -> Int
+    Explain {
+        Description: "Discount a future value for a few periods.";
+        Input: futureValue = "Future value", rate = "Rate in basis points", periods = "Periods from 0 through 6";
+        Processing: "Divide by one plus the rate for each period.";
+        Output: "The present value.";
+    } {
+        If (periods < 0 || periods > 6) {
+            problem = "domain";
+            Return 0;
+        }
+        Int amount = futureValue;
+        Int index = 0;
+        While (index < periods) {
+            amount = This.DivideScaled(amount * 10000, 10000 + rate);
+            index = index + 1;
+        }
+        problem = "none";
+        Return amount;
+    }
+
+    Public Function FutureValue(Int presentValue, Int rate, Int periods) -> Int
+    Explain {
+        Description: "Compound a present value.";
+        Input: presentValue = "Present value", rate = "Rate in basis points", periods = "Periods";
+        Processing: "Add the compound interest to the present value.";
+        Output: "The future value.";
+    } {
+        Return presentValue + This.CompoundInterest(presentValue, rate, periods);
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest decimal error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function DivideScaled(Int value, Int divisor) -> Int {
+        If (divisor == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        Int sign = 1;
+        Int magnitude = value;
+        If (magnitude < 0) {
+            sign = -1;
+            magnitude = 0 - magnitude;
+        }
+        Int quote = magnitude / divisor;
+        Int remainder = magnitude - quote * divisor;
+        Int digit = remainder * 2 / divisor;
+        If (mode == 3) { digit = 0; }
+        If (mode == 4 && remainder != 0) { digit = 1; }
+        If (mode == 5) { digit = 0; }
+        If (mode == 1 && digit == 1 && quote % 2 == 0) { digit = 0; }
+        If (mode == 2) { digit = 0; }
+        If (digit >= 1) { quote = quote + 1; }
+        If (sign < 0 && mode == 5 && remainder != 0) { quote = quote + 1; }
+        If (sign < 0 && mode == 4) {
+            Return 0 - (magnitude / divisor);
+        }
+        problem = "none";
+        Return sign * quote;
+    }
+
+    Private Function Digit(String piece) -> Int {
+        If (piece == "0") { Return 0; }
+        If (piece == "1") { Return 1; }
+        If (piece == "2") { Return 2; }
+        If (piece == "3") { Return 3; }
+        If (piece == "4") { Return 4; }
+        If (piece == "5") { Return 5; }
+        If (piece == "6") { Return 6; }
+        If (piece == "7") { Return 7; }
+        If (piece == "8") { Return 8; }
+        If (piece == "9") { Return 9; }
+        Return -1;
+    }
+}

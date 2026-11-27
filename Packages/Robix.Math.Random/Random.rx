@@ -1,0 +1,774 @@
+// Robix.Math.Random: deterministic generators, samples, and distributions.
+Package Robix.Math.Random;
+
+Import Robix.Core;
+
+
+Class RandomDesk {
+    Private Array<Int> items;
+    Private Array<Int> weights;
+    Private Array<Int> drawn;
+    Private Int count;
+    Private Int drawnCount;
+    Private Int seed;
+    Private Int state;
+    Private Int spare;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        items = [0, 0, 0, 0, 0, 0, 0, 0];
+        weights = [1, 1, 1, 1, 1, 1, 1, 1];
+        drawn = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+        drawnCount = 0;
+        seed = 1;
+        state = 1;
+        spare = 0;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function CreateGenerator(Int value) -> Int
+    Explain {
+        Description: "Start a generator from a seed.";
+        Input: value = "Seed";
+        Processing: "A zero seed becomes one so the stream is not stuck.";
+        Output: "The stored seed.";
+    } {
+        seed = value;
+        If (seed == 0) { seed = 1; }
+        state = seed;
+        spare = state;
+        Return seed;
+    }
+
+    Public Function CreateDefaultGenerator() -> Int
+    Explain {
+        Description: "Start the default generator.";
+        Input: "No parameters";
+        Processing: "Use seed one.";
+        Output: "The seed.";
+    } {
+        Return This.CreateGenerator(1);
+    }
+
+    Public Function CreateGeneratorFromState(Int value) -> Int
+    Explain {
+        Description: "Restore a generator state.";
+        Input: value = "State";
+        Processing: "The state becomes the current stream position and the seed.";
+        Output: "The state.";
+    } {
+        Return This.CreateGenerator(value);
+    }
+
+    Public Function SetSeed(Int value) -> Int
+    Explain {
+        Description: "Set the seed.";
+        Input: value = "Seed";
+        Processing: "Restart the stream.";
+        Output: "The seed.";
+    } {
+        Return This.CreateGenerator(value);
+    }
+
+    Public Function GetState() -> Int
+    Explain {
+        Description: "Read the current stream state.";
+        Input: "No parameters";
+        Processing: "Read the stored state.";
+        Output: "The state.";
+    } {
+        Return state;
+    }
+
+    Public Function SetState(Int value) -> Int
+    Explain {
+        Description: "Jump the stream to a saved state.";
+        Input: value = "State";
+        Processing: "Replace the current state without changing the original seed.";
+        Output: "The state.";
+    } {
+        state = value;
+        If (state == 0) { state = 1; }
+        Return state;
+    }
+
+    Public Function ForkStream() -> Int
+    Explain {
+        Description: "Fork the stream.";
+        Input: "No parameters";
+        Processing: "Keep a copy of the state, then step once.";
+        Output: "The forked state.";
+    } {
+        spare = state;
+        This.Step();
+        Return spare;
+    }
+
+    Public Function SplitStream() -> Int
+    Explain {
+        Description: "Split a child stream from the current state.";
+        Input: "No parameters";
+        Processing: "Mix the state into a new seed and store it as the spare stream.";
+        Output: "The child seed.";
+    } {
+        spare = state * 17 + 13;
+        If (spare < 0) { spare = 0 - spare; }
+        If (spare == 0) { spare = 1; }
+        Return spare;
+    }
+
+    Public Function ResetGenerator() -> Int
+    Explain {
+        Description: "Reset the stream to its seed.";
+        Input: "No parameters";
+        Processing: "Copy the seed back into the state.";
+        Output: "The seed.";
+    } {
+        state = seed;
+        Return state;
+    }
+
+    Public Function NextInt() -> Int
+    Explain {
+        Description: "Draw the next raw integer.";
+        Input: "No parameters";
+        Processing: "Step the linear congruential generator.";
+        Output: "The next value.";
+    } {
+        Return This.Step();
+    }
+
+    Public Function NextInRange(Int low, Int high) -> Int
+    Explain {
+        Description: "Draw an integer from a closed range.";
+        Input: low = "Low bound", high = "High bound";
+        Processing: "Reduce the next raw value into the range.";
+        Output: "The value, or the low bound when the range is empty.";
+    } {
+        If (high < low) {
+            problem = "domain";
+            Return low;
+        }
+        Int span = high - low + 1;
+        Int raw = This.Step();
+        Return low + raw % span;
+    }
+
+    Public Function NextInt64() -> Int
+    Explain {
+        Description: "Draw a wide integer from the same stream.";
+        Input: "No parameters";
+        Processing: "The desk stores one integer state, so this is the next raw value.";
+        Output: "The next value.";
+    } {
+        Return This.Step();
+    }
+
+    Public Function NextUInt() -> Int
+    Explain {
+        Description: "Draw a nonnegative integer.";
+        Input: "No parameters";
+        Processing: "The generator step is kept nonnegative.";
+        Output: "The next value.";
+    } {
+        Return This.Step();
+    }
+
+    Public Function NextUInt64() -> Int
+    Explain {
+        Description: "Draw a wide nonnegative integer.";
+        Input: "No parameters";
+        Processing: "Use the next raw value.";
+        Output: "The next value.";
+    } {
+        Return This.Step();
+    }
+
+    Public Function NextUnit() -> Int
+    Explain {
+        Description: "Draw an integer from 0 through 999.";
+        Input: "No parameters";
+        Processing: "Reduce the next raw value.";
+        Output: "The unit.";
+    } {
+        Return This.Step() % 1000;
+    }
+
+    Public Function NextBoolean() -> Int
+    Explain {
+        Description: "Draw a bit.";
+        Input: "No parameters";
+        Processing: "The low bit of the next value is the result.";
+        Output: "One when the bit is set.";
+    } {
+        Return This.Step() % 2;
+    }
+
+    Public Function NextByte() -> Int
+    Explain {
+        Description: "Draw a byte.";
+        Input: "No parameters";
+        Processing: "Reduce the next value to 0 through 255.";
+        Output: "The byte.";
+    } {
+        Return This.Step() % 256;
+    }
+
+    Public Function NextBytes(Int length) -> Int
+    Explain {
+        Description: "Fill the draw buffer with bytes.";
+        Input: length = "Count from 1 through 8";
+        Processing: "Draw that many bytes.";
+        Output: "The first byte, or zero when the length is outside.";
+    } {
+        If (length < 1 || length > 8) {
+            problem = "size";
+            Return 0;
+        }
+        drawnCount = length;
+        Int index = 0;
+        While (index < length) {
+            drawn[index] = This.NextByte();
+            index = index + 1;
+        }
+        Return drawn[0];
+    }
+
+    Public Function DrawnAt(Int index) -> Int
+    Explain {
+        Description: "Read one stored draw.";
+        Input: index = "Slot";
+        Processing: "Read the draw buffer.";
+        Output: "The value.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return 0;
+        }
+        Return drawn[index];
+    }
+
+    Public Function Range(Int low, Int high) -> Int
+    Explain {
+        Description: "Draw from a closed range.";
+        Input: low = "Low bound", high = "High bound";
+        Processing: "Use the inclusive range draw.";
+        Output: "The value.";
+    } {
+        Return This.NextInRange(low, high);
+    }
+
+    Public Function RangeInclusive(Int low, Int high) -> Int
+    Explain {
+        Description: "Draw from a closed range.";
+        Input: low = "Low bound", high = "High bound";
+        Processing: "Include both ends.";
+        Output: "The value.";
+    } {
+        Return This.NextInRange(low, high);
+    }
+
+    Public Function RangeExclusive(Int low, Int high) -> Int
+    Explain {
+        Description: "Draw from a half-open range.";
+        Input: low = "Low bound", high = "Excluded high bound";
+        Processing: "The high bound is not included.";
+        Output: "The value.";
+    } {
+        If (high <= low) {
+            problem = "domain";
+            Return low;
+        }
+        Return This.NextInRange(low, high - 1);
+    }
+
+    Public Function SetItem(Int index, Int value, Int weight) -> Int
+    Explain {
+        Description: "Store one choice and its weight.";
+        Input: index = "Slot", value = "Value", weight = "Positive weight";
+        Processing: "Keep up to eight choices.";
+        Output: "The slot, or -1.";
+    } {
+        If (index < 0 || index > 7 || weight <= 0) {
+            problem = "domain";
+            Return -1;
+        }
+        items[index] = value;
+        weights[index] = weight;
+        If (index >= count) { count = index + 1; }
+        Return index;
+    }
+
+    Public Function Choose() -> Int
+    Explain {
+        Description: "Choose one stored item uniformly.";
+        Input: "No parameters";
+        Processing: "Reduce the next raw value modulo the item count.";
+        Output: "The item, or zero when nothing is stored.";
+    } {
+        If (count <= 0) {
+            problem = "size";
+            Return 0;
+        }
+        Return items[This.Step() % count];
+    }
+
+    Public Function ChooseWeighted() -> Int
+    Explain {
+        Description: "Choose one stored item by weight.";
+        Input: "No parameters";
+        Processing: "Walk the weights until the draw falls inside one of them.";
+        Output: "The item.";
+    } {
+        If (count <= 0) {
+            problem = "size";
+            Return 0;
+        }
+        Int total = 0;
+        Int index = 0;
+        While (index < count) {
+            total = total + weights[index];
+            index = index + 1;
+        }
+        Int ticket = This.Step() % total;
+        index = 0;
+        Int cursor = 0;
+        While (index < count) {
+            cursor = cursor + weights[index];
+            If (ticket < cursor) { Return items[index]; }
+            index = index + 1;
+        }
+        Return items[count - 1];
+    }
+
+    Public Function ChooseMultiple(Int amount) -> Int
+    Explain {
+        Description: "Draw several items with replacement.";
+        Input: amount = "Count";
+        Processing: "Store the draws.";
+        Output: "The first draw.";
+    } {
+        If (amount < 1 || amount > 8) {
+            problem = "size";
+            Return 0;
+        }
+        drawnCount = amount;
+        Int index = 0;
+        While (index < amount) {
+            drawn[index] = This.Choose();
+            index = index + 1;
+        }
+        Return drawn[0];
+    }
+
+    Public Function Shuffle() -> Int
+    Explain {
+        Description: "Shuffle the stored items.";
+        Input: "No parameters";
+        Processing: "Fisher-Yates using the stream.";
+        Output: "The first item after the shuffle.";
+    } {
+        If (count <= 0) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = count - 1;
+        While (index > 0) {
+            Int swap = This.Step() % (index + 1);
+            Int value = items[index];
+            items[index] = items[swap];
+            items[swap] = value;
+            index = index - 1;
+        }
+        Return items[0];
+    }
+
+    Public Function Sample(Int amount) -> Int
+    Explain {
+        Description: "Sample without replacement.";
+        Input: amount = "Count";
+        Processing: "Shuffle a copy by swapping inside the item array, then keep the prefix.";
+        Output: "The first sample.";
+    } {
+        If (amount < 1 || amount > count) {
+            problem = "size";
+            Return 0;
+        }
+        This.Shuffle();
+        drawnCount = amount;
+        Int index = 0;
+        While (index < amount) {
+            drawn[index] = items[index];
+            index = index + 1;
+        }
+        Return drawn[0];
+    }
+
+    Public Function SampleWithReplacement(Int amount) -> Int
+    Explain {
+        Description: "Sample with replacement.";
+        Input: amount = "Count";
+        Processing: "Choose that many times.";
+        Output: "The first sample.";
+    } {
+        Return This.ChooseMultiple(amount);
+    }
+
+    Public Function SampleWithoutReplacement(Int amount) -> Int
+    Explain {
+        Description: "Sample without replacement.";
+        Input: amount = "Count";
+        Processing: "Use the shuffle sample.";
+        Output: "The first sample.";
+    } {
+        Return This.Sample(amount);
+    }
+
+    Public Function ReservoirSample(Int amount) -> Int
+    Explain {
+        Description: "Keep a reservoir of the stored items.";
+        Input: amount = "Reservoir size";
+        Processing: "The first items fill the reservoir. Later items replace a random earlier slot.";
+        Output: "The first reservoir value.";
+    } {
+        If (amount < 1 || amount > count) {
+            problem = "size";
+            Return 0;
+        }
+        drawnCount = amount;
+        Int index = 0;
+        While (index < amount) {
+            drawn[index] = items[index];
+            index = index + 1;
+        }
+        While (index < count) {
+            Int slot = This.Step() % (index + 1);
+            If (slot < amount) { drawn[slot] = items[index]; }
+            index = index + 1;
+        }
+        Return drawn[0];
+    }
+
+    Public Function NextNormal(Int mean, Int scale) -> Int
+    Explain {
+        Description: "Draw from a discrete normal approximation.";
+        Input: mean = "Mean", scale = "Positive scale";
+        Processing: "Center the sum of two unit draws and scale it.";
+        Output: "The draw.";
+    } {
+        If (scale < 0) {
+            problem = "domain";
+            Return mean;
+        }
+        Int first = This.NextUnit() - 500;
+        Int second = This.NextUnit() - 500;
+        Return mean + (first + second) * scale / 1000;
+    }
+
+    Public Function NextExponential(Int rate) -> Int
+    Explain {
+        Description: "Draw a discrete exponential value.";
+        Input: rate = "Positive rate";
+        Processing: "Invert a unit draw. A zero unit becomes one.";
+        Output: "The draw.";
+    } {
+        If (rate <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int unit = This.NextUnit();
+        If (unit == 0) { unit = 1; }
+        Return 1000 / (rate * unit);
+    }
+
+    Public Function NextPoisson(Int lambda) -> Int
+    Explain {
+        Description: "Draw a small Poisson count.";
+        Input: lambda = "Mean from 0 through 8";
+        Processing: "Use a unit draw against the mean on a scale of 1000, capped by the mean.";
+        Output: "A count from 0 through the mean.";
+    } {
+        If (lambda < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int unit = This.NextUnit();
+        Return unit * lambda / 1000;
+    }
+
+    Public Function NextBinomial(Int trials, Int probability) -> Int
+    Explain {
+        Description: "Draw a binomial count.";
+        Input: trials = "Trial count from 0 through 8", probability = "Probability in thousandths";
+        Processing: "Count the trials whose unit draw falls below the probability.";
+        Output: "The number of successes.";
+    } {
+        If (trials < 0 || trials > 8 || probability < 0 || probability > 1000) {
+            problem = "domain";
+            Return 0;
+        }
+        Int hits = 0;
+        Int index = 0;
+        While (index < trials) {
+            If (This.NextUnit() < probability) { hits = hits + 1; }
+            index = index + 1;
+        }
+        last = hits;
+        Return hits;
+    }
+
+    Public Function NextBernoulli(Int probability) -> Int
+    Explain {
+        Description: "Draw a Bernoulli bit.";
+        Input: probability = "Probability in thousandths";
+        Processing: "Compare one unit draw with the probability.";
+        Output: "One on success.";
+    } {
+        Return This.NextBinomial(1, probability);
+    }
+
+    Public Function NextGamma(Int shape, Int scale) -> Int
+    Explain {
+        Description: "Draw a discrete gamma value for an integer shape.";
+        Input: shape = "Shape from 1 through 4", scale = "Scale";
+        Processing: "Add that many exponential draws.";
+        Output: "The sum.";
+    } {
+        If (shape < 1 || shape > 4) {
+            problem = "domain";
+            Return 0;
+        }
+        Int total = 0;
+        Int index = 0;
+        While (index < shape) {
+            total = total + This.NextExponential(1) * scale;
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function NextBeta(Int alpha, Int beta) -> Int
+    Explain {
+        Description: "Draw a beta sample in thousandths.";
+        Input: alpha = "Alpha weight", beta = "Beta weight";
+        Processing: "Split a unit draw in the ratio of the two weights.";
+        Output: "The sample in thousandths.";
+    } {
+        If (alpha <= 0 || beta <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.Exact(This.NextUnit() * alpha, alpha + beta);
+    }
+
+    Public Function NextWeibull(Int shape, Int scale) -> Int
+    Explain {
+        Description: "Draw a discrete Weibull value.";
+        Input: shape = "Positive shape", scale = "Scale";
+        Processing: "Scale a unit draw. Shape one matches the exponential scale.";
+        Output: "The draw.";
+    } {
+        If (shape <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.NextUnit() * scale / shape;
+    }
+
+    Public Function NextLogNormal(Int mean, Int scale) -> Int
+    Explain {
+        Description: "Draw a positive log-normal approximation.";
+        Input: mean = "Center", scale = "Scale";
+        Processing: "Shift the discrete normal and keep it positive.";
+        Output: "The draw.";
+    } {
+        Int value = This.NextNormal(mean, scale);
+        If (value < 1) { Return 1; }
+        Return value;
+    }
+
+    Public Function NextCauchy(Int location, Int scale) -> Int
+    Explain {
+        Description: "Draw a discrete Cauchy value.";
+        Input: location = "Location", scale = "Scale";
+        Processing: "Fold a centered unit draw by the scale.";
+        Output: "The draw.";
+    } {
+        Return location + (This.NextUnit() - 500) * scale / 250;
+    }
+
+    Public Function NextTriangular(Int low, Int mode, Int high) -> Int
+    Explain {
+        Description: "Draw from a triangular distribution.";
+        Input: low = "Low bound", mode = "Mode", high = "High bound";
+        Processing: "Split the range at the mode and pick the half selected by a bit.";
+        Output: "The mode when the bounds are ordered, otherwise zero.";
+    } {
+        If (low > mode || mode > high) {
+            problem = "domain";
+            Return 0;
+        }
+        If (This.NextBoolean() == 0) { Return low + This.NextInRange(0, mode - low); }
+        Return mode + This.NextInRange(0, high - mode);
+    }
+
+    Public Function RandomIntegers(Int amount, Int low, Int high) -> Int
+    Explain {
+        Description: "Fill the buffer with integers.";
+        Input: amount = "Count", low = "Low bound", high = "High bound";
+        Processing: "Draw that many range values.";
+        Output: "The first value.";
+    } {
+        If (amount < 1 || amount > 8) {
+            problem = "size";
+            Return 0;
+        }
+        drawnCount = amount;
+        Int index = 0;
+        While (index < amount) {
+            drawn[index] = This.NextInRange(low, high);
+            index = index + 1;
+        }
+        Return drawn[0];
+    }
+
+    Public Function RandomFloats(Int amount, Int low, Int high) -> Int
+    Explain {
+        Description: "Fill the buffer with values from a range.";
+        Input: amount = "Count", low = "Low bound", high = "High bound";
+        Processing: "Use the integer range. The values stand in for the float samples.";
+        Output: "The first value.";
+    } {
+        Return This.RandomIntegers(amount, low, high);
+    }
+
+    Public Function RandomBooleans(Int amount) -> Int
+    Explain {
+        Description: "Fill the buffer with bits.";
+        Input: amount = "Count";
+        Processing: "Draw that many bits.";
+        Output: "The first bit.";
+    } {
+        If (amount < 1 || amount > 8) {
+            problem = "size";
+            Return 0;
+        }
+        drawnCount = amount;
+        Int index = 0;
+        While (index < amount) {
+            drawn[index] = This.NextBoolean();
+            index = index + 1;
+        }
+        Return drawn[0];
+    }
+
+    Public Function RandomBytes(Int amount) -> Int
+    Explain {
+        Description: "Fill the buffer with bytes.";
+        Input: amount = "Count";
+        Processing: "Use the byte draw.";
+        Output: "The first byte.";
+    } {
+        Return This.NextBytes(amount);
+    }
+
+    Public Function RandomPermutation(Int amount) -> Int
+    Explain {
+        Description: "Store a permutation of 0 through amount minus one.";
+        Input: amount = "Length from 1 through 8";
+        Processing: "Fill the identity, then shuffle it.";
+        Output: "The first entry.";
+    } {
+        If (amount < 1 || amount > 8) {
+            problem = "size";
+            Return 0;
+        }
+        count = amount;
+        Int index = 0;
+        While (index < amount) {
+            items[index] = index;
+            weights[index] = 1;
+            index = index + 1;
+        }
+        Return This.Shuffle();
+    }
+
+    Public Function RandomMatrix(Int rows, Int columns) -> Int
+    Explain {
+        Description: "Draw the first entry of a small random matrix.";
+        Input: rows = "Rows", columns = "Columns";
+        Processing: "The entry count is the product, capped at eight. The first entry is returned.";
+        Output: "The first entry.";
+    } {
+        If (rows < 1 || columns < 1) {
+            problem = "size";
+            Return 0;
+        }
+        Int amount = rows * columns;
+        If (amount > 8) { amount = 8; }
+        Return This.RandomIntegers(amount, 0, 9);
+    }
+
+    Public Function RandomVector(Int size) -> Int
+    Explain {
+        Description: "Draw the first entry of a random vector.";
+        Input: size = "Length";
+        Processing: "Fill the draw buffer.";
+        Output: "The first entry.";
+    } {
+        Return This.RandomIntegers(size, 0, 9);
+    }
+
+    Public Function RandomChoiceSequence(Int amount) -> Int
+    Explain {
+        Description: "Draw a sequence of stored choices.";
+        Input: amount = "Count";
+        Processing: "Choose with replacement.";
+        Output: "The first choice.";
+    } {
+        Return This.ChooseMultiple(amount);
+    }
+
+    Public Function ItemAt(Int index) -> Int
+    Explain {
+        Description: "Read a stored item.";
+        Input: index = "Slot";
+        Processing: "Read the item array.";
+        Output: "The item.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return 0;
+        }
+        Return items[index];
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest random error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Step() -> Int {
+        state = state * 17 + 13;
+        If (state < 0) { state = 0 - state; }
+        state = state % 1000003;
+        If (state == 0) { state = 1; }
+        Return state;
+    }
+
+    Private Function Exact(Int value, Int divisor) -> Int {
+        If (divisor == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return value / divisor;
+    }
+}

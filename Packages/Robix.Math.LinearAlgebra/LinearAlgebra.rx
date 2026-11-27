@@ -1,0 +1,2206 @@
+// Robix.Math.LinearAlgebra: vectors, matrices, decompositions, and linear systems.
+Package Robix.Math.LinearAlgebra;
+
+Import Robix.Core;
+
+
+Class LinearAlgebraDesk {
+    Private Int a00;
+    Private Int a01;
+    Private Int a02;
+    Private Int a10;
+    Private Int a11;
+    Private Int a12;
+    Private Int a20;
+    Private Int a21;
+    Private Int a22;
+    Private Int b00;
+    Private Int b01;
+    Private Int b02;
+    Private Int b10;
+    Private Int b11;
+    Private Int b12;
+    Private Int b20;
+    Private Int b21;
+    Private Int b22;
+    Private Int c00;
+    Private Int c01;
+    Private Int c02;
+    Private Int c10;
+    Private Int c11;
+    Private Int c12;
+    Private Int c20;
+    Private Int c21;
+    Private Int c22;
+    Private Int vx;
+    Private Int vy;
+    Private Int vz;
+    Private Int vw;
+    Private Int rx;
+    Private Int ry;
+    Private Int rz;
+    Private Int tx;
+    Private Int ty;
+    Private Int tz;
+    Private Int rows;
+    Private Int cols;
+    Private Int vectorSize;
+    Private Int ev0;
+    Private Int ev1;
+    Private Int ev2;
+    Private Int seed;
+    Private Int tensorRank;
+    Private Int tensorCount;
+    Private Int sparseCount;
+    Private Array<Int> low;
+    Private Array<Int> high;
+    Private Array<Int> cells;
+    Private Array<Int> srow;
+    Private Array<Int> scol;
+    Private Array<Int> sval;
+    Private String problem;
+
+    Public Constructor() {
+        a00 = 0;
+        a01 = 0;
+        a02 = 0;
+        a10 = 0;
+        a11 = 0;
+        a12 = 0;
+        a20 = 0;
+        a21 = 0;
+        a22 = 0;
+        b00 = 0;
+        b01 = 0;
+        b02 = 0;
+        b10 = 0;
+        b11 = 0;
+        b12 = 0;
+        b20 = 0;
+        b21 = 0;
+        b22 = 0;
+        c00 = 0;
+        c01 = 0;
+        c02 = 0;
+        c10 = 0;
+        c11 = 0;
+        c12 = 0;
+        c20 = 0;
+        c21 = 0;
+        c22 = 0;
+        vx = 0;
+        vy = 0;
+        vz = 0;
+        vw = 0;
+        rx = 0;
+        ry = 0;
+        rz = 0;
+        tx = 0;
+        ty = 0;
+        tz = 0;
+        rows = 3;
+        cols = 3;
+        vectorSize = 3;
+        ev0 = 0;
+        ev1 = 0;
+        ev2 = 0;
+        seed = 1;
+        tensorRank = 1;
+        tensorCount = 0;
+        sparseCount = 0;
+        low = [0, 0, 0, 0, 0, 0, 0, 0];
+        high = [0, 0, 0, 0, 0, 0, 0, 0];
+        cells = [0, 0, 0, 0, 0, 0, 0, 0];
+        srow = [0, 0, 0, 0, 0, 0, 0, 0];
+        scol = [0, 0, 0, 0, 0, 0, 0, 0];
+        sval = [0, 0, 0, 0, 0, 0, 0, 0];
+        problem = "none";
+    }
+
+    Public Function CreateVector(Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Store a three-component vector.";
+        Input: x = "X", y = "Y", z = "Z";
+        Processing: "Keep the components.";
+        Output: "The component count.";
+    } {
+        vx = x;
+        vy = y;
+        vz = z;
+        vw = 0;
+        vectorSize = 3;
+        Return 3;
+    }
+
+    Public Function CreateVector4(Int x, Int y, Int z, Int w) -> Int
+    Explain {
+        Description: "Store a four-component vector.";
+        Input: x = "X", y = "Y", z = "Z", w = "W";
+        Processing: "Keep the components.";
+        Output: "The component count.";
+    } {
+        vx = x;
+        vy = y;
+        vz = z;
+        vw = w;
+        vectorSize = 4;
+        Return 4;
+    }
+
+    Public Function ZeroVector(Int size) -> Int
+    Explain {
+        Description: "Store a zero vector.";
+        Input: size = "Component count, from 1 through 4";
+        Processing: "Clear the components.";
+        Output: "Zero, or zero and an error when the size is outside the range.";
+    } {
+        If (size < 1 || size > 4) {
+            problem = "size";
+            Return 0;
+        }
+        vx = 0;
+        vy = 0;
+        vz = 0;
+        vw = 0;
+        vectorSize = size;
+        Return 0;
+    }
+
+    Public Function UnitVector(Int size, Int index) -> Int
+    Explain {
+        Description: "Store a unit axis vector.";
+        Input: size = "Component count", index = "Axis, starting at 0";
+        Processing: "Place a one on the requested axis.";
+        Output: "One, or zero when the axis is outside the vector.";
+    } {
+        This.ZeroVector(size);
+        If (problem == "size") { Return 0; }
+        If (index < 0 || index >= size) {
+            problem = "domain";
+            Return 0;
+        }
+        If (index == 0) { vx = 1; }
+        If (index == 1) { vy = 1; }
+        If (index == 2) { vz = 1; }
+        If (index == 3) { vw = 1; }
+        Return 1;
+    }
+
+    Public Function Component(Int index) -> Int
+    Explain {
+        Description: "Read a stored vector component.";
+        Input: index = "Axis, starting at 0";
+        Processing: "Read the stored vector.";
+        Output: "The component, or zero when the axis is missing.";
+    } {
+        If (index == 0) { Return vx; }
+        If (index == 1) { Return vy; }
+        If (index == 2) { Return vz; }
+        If (index == 3) { Return vw; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function Result(Int index) -> Int
+    Explain {
+        Description: "Read a component of the latest vector result.";
+        Input: index = "Axis, starting at 0";
+        Processing: "Read the result vector.";
+        Output: "The component, or zero when the axis is missing.";
+    } {
+        If (index == 0) { Return rx; }
+        If (index == 1) { Return ry; }
+        If (index == 2) { Return rz; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function AddVectors(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Add two vectors.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Add matching components.";
+        Output: "The x component of the sum.";
+    } {
+        rx = x1 + x2;
+        ry = y1 + y2;
+        rz = z1 + z2;
+        Return rx;
+    }
+
+    Public Function SubtractVectors(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Subtract two vectors.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Subtract matching components.";
+        Output: "The x component of the difference.";
+    } {
+        rx = x1 - x2;
+        ry = y1 - y2;
+        rz = z1 - z2;
+        Return rx;
+    }
+
+    Public Function MultiplyVector(Int x, Int y, Int z, Int scalar) -> Int
+    Explain {
+        Description: "Scale a vector.";
+        Input: x = "X", y = "Y", z = "Z", scalar = "Scale";
+        Processing: "Multiply each component.";
+        Output: "The scaled x component.";
+    } {
+        rx = x * scalar;
+        ry = y * scalar;
+        rz = z * scalar;
+        Return rx;
+    }
+
+    Public Function DivideVector(Int x, Int y, Int z, Int scalar) -> Int
+    Explain {
+        Description: "Divide a vector by an integer.";
+        Input: x = "X", y = "Y", z = "Z", scalar = "Divisor";
+        Processing: "Divide when every component divides exactly.";
+        Output: "The x component, or zero when the division is not exact.";
+    } {
+        If (This.Divides(x, scalar) == 0 || This.Divides(y, scalar) == 0 || This.Divides(z, scalar) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rx = x / scalar;
+        ry = y / scalar;
+        rz = z / scalar;
+        Return rx;
+    }
+
+    Public Function DotProduct(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Return the dot product.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Add the products of matching components.";
+        Output: "The dot product.";
+    } {
+        Return x1 * x2 + y1 * y2 + z1 * z2;
+    }
+
+    Public Function CrossProduct(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Return the cross product.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Use the right-hand rule.";
+        Output: "The x component. The other components stay in the result.";
+    } {
+        rx = y1 * z2 - z1 * y2;
+        ry = z1 * x2 - x1 * z2;
+        rz = x1 * y2 - y1 * x2;
+        Return rx;
+    }
+
+    Public Function VectorNorm(Int x, Int y, Int z, Int normType) -> Int
+    Explain {
+        Description: "Return a vector norm.";
+        Input: x = "X", y = "Y", z = "Z", normType = "0 Euclidean, 1 taxicab, 2 maximum";
+        Processing: "Euclidean is returned only when it is an integer.";
+        Output: "The norm, or -1 when the Euclidean norm is not an integer.";
+    } {
+        If (normType == 1) { Return This.AbsInt(x) + This.AbsInt(y) + This.AbsInt(z); }
+        If (normType == 2) { Return This.Max3(This.AbsInt(x), This.AbsInt(y), This.AbsInt(z)); }
+        Return This.Root(x * x + y * y + z * z);
+    }
+
+    Public Function Normalize(Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Store a unit vector.";
+        Input: x = "X", y = "Y", z = "Z";
+        Processing: "Divide by the integer length.";
+        Output: "One when the length is a positive integer.";
+    } {
+        Int length = This.Root(x * x + y * y + z * z);
+        If (length <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DivideVector(x, y, z, length);
+    }
+
+    Public Function VectorDistance(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Return the distance between two points.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Take the Euclidean norm of the difference.";
+        Output: "The distance, or -1 when it is not an integer.";
+    } {
+        Int dx = x2 - x1;
+        Int dy = y2 - y1;
+        Int dz = z2 - z1;
+        Return This.VectorNorm(dx, dy, dz, 0);
+    }
+
+    Public Function VectorAngle(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Return the angle between two vectors in degrees.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Recognize parallel and perpendicular integer vectors.";
+        Output: "0, 90, or 180, or -1 when the angle is not one of those.";
+    } {
+        If (This.IsOrthogonal(x1, y1, z1, x2, y2, z2) == 1) { Return 90; }
+        Int dot = This.DotProduct(x1, y1, z1, x2, y2, z2);
+        If (This.IsParallel(x1, y1, z1, x2, y2, z2) == 0) { Return -1; }
+        If (dot > 0) { Return 0; }
+        If (dot < 0) { Return 180; }
+        Return 90;
+    }
+
+    Public Function ProjectVector(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Project the first vector onto the second.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Scale the second vector by the exact projection coefficient.";
+        Output: "The x component, or zero when the projection is not an integer vector.";
+    } {
+        problem = "none";
+        Int base = This.DotProduct(x2, y2, z2, x2, y2, z2);
+        Int dot = This.DotProduct(x1, y1, z1, x2, y2, z2);
+        If (This.Divides(dot, base) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Return This.MultiplyVector(x2, y2, z2, dot / base);
+    }
+
+    Public Function RejectVector(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Reject the first vector from the second.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Subtract the projection from the first vector.";
+        Output: "The x component of the rejection.";
+    } {
+        This.ProjectVector(x1, y1, z1, x2, y2, z2);
+        If (problem == "exact") { Return 0; }
+        rx = x1 - rx;
+        ry = y1 - ry;
+        rz = z1 - rz;
+        Return rx;
+    }
+
+    Public Function HadamardProduct(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Multiply vectors component by component.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Multiply matching components.";
+        Output: "The x component.";
+    } {
+        rx = x1 * x2;
+        ry = y1 * y2;
+        rz = z1 * z2;
+        Return rx;
+    }
+
+    Public Function OuterProduct(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Store the outer product as a matrix.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "Each entry is a product of one component from each vector.";
+        Output: "The first matrix entry.";
+    } {
+        This.Load(x1 * x2, x1 * y2, x1 * z2, y1 * x2, y1 * y2, y1 * z2, z1 * x2, z1 * y2, z1 * z2);
+        Return a00;
+    }
+
+    Public Function IsOrthogonal(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Report whether two vectors are orthogonal.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "A zero dot product is perpendicular. A zero vector is not.";
+        Output: "One when the vectors are orthogonal.";
+    } {
+        If (x1 == 0 && y1 == 0 && z1 == 0) { Return 0; }
+        If (x2 == 0 && y2 == 0 && z2 == 0) { Return 0; }
+        If (This.DotProduct(x1, y1, z1, x2, y2, z2) == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsParallel(Int x1, Int y1, Int z1, Int x2, Int y2, Int z2) -> Int
+    Explain {
+        Description: "Report whether two vectors are parallel.";
+        Input: x1 = "First x", y1 = "First y", z1 = "First z", x2 = "Second x", y2 = "Second y", z2 = "Second z";
+        Processing: "A zero cross product means the vectors share a line.";
+        Output: "One when the vectors are parallel.";
+    } {
+        If (x1 == 0 && y1 == 0 && z1 == 0) { Return 0; }
+        If (x2 == 0 && y2 == 0 && z2 == 0) { Return 0; }
+        This.CrossProduct(x1, y1, z1, x2, y2, z2);
+        If (rx == 0 && ry == 0 && rz == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Load(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2) -> Int
+    Explain {
+        Description: "Load a 3 by 3 matrix.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2";
+        Processing: "Replace the working matrix.";
+        Output: "The first entry.";
+    } {
+        a00 = r0c0;
+        a01 = r0c1;
+        a02 = r0c2;
+        a10 = r1c0;
+        a11 = r1c1;
+        a12 = r1c2;
+        a20 = r2c0;
+        a21 = r2c1;
+        a22 = r2c2;
+        rows = 3;
+        cols = 3;
+        Return a00;
+    }
+
+    Public Function CreateMatrix(Int rowCount, Int columnCount) -> Int
+    Explain {
+        Description: "Create a zero matrix.";
+        Input: rowCount = "Rows, from 1 through 3", columnCount = "Columns, from 1 through 3";
+        Processing: "Clear every entry.";
+        Output: "Zero, or zero and an error when a dimension is too large.";
+    } {
+        problem = "none";
+        If (rowCount < 1 || columnCount < 1 || rowCount > 3 || columnCount > 3) {
+            problem = "size";
+            Return 0;
+        }
+        This.Load(0, 0, 0, 0, 0, 0, 0, 0, 0);
+        rows = rowCount;
+        cols = columnCount;
+        Return 0;
+    }
+
+    Public Function Identity(Int size) -> Int
+    Explain {
+        Description: "Store an identity matrix.";
+        Input: size = "Order, from 1 through 3";
+        Processing: "Put ones on the diagonal.";
+        Output: "One, or zero when the size is outside the range.";
+    } {
+        If (size < 1 || size > 3) {
+            problem = "size";
+            Return 0;
+        }
+        This.Load(1, 0, 0, 0, 1, 0, 0, 0, 1);
+        If (size < 3) { a22 = 0; }
+        If (size < 2) { a11 = 0; }
+        rows = size;
+        cols = size;
+        Return 1;
+    }
+
+    Public Function Zeros(Int rowCount, Int columnCount) -> Int
+    Explain {
+        Description: "Store a zero matrix.";
+        Input: rowCount = "Rows", columnCount = "Columns";
+        Processing: "Clear the working matrix.";
+        Output: "Zero.";
+    } {
+        Return This.CreateMatrix(rowCount, columnCount);
+    }
+
+    Public Function Ones(Int rowCount, Int columnCount) -> Int
+    Explain {
+        Description: "Store a matrix of ones.";
+        Input: rowCount = "Rows", columnCount = "Columns";
+        Processing: "Fill the used entries with one.";
+        Output: "One, or zero when the shape is rejected.";
+    } {
+        If (This.CreateMatrix(rowCount, columnCount) == 0 && problem == "size") { Return 0; }
+        If (rowCount > 0 && columnCount > 0) { a00 = 1; }
+        If (rowCount > 0 && columnCount > 1) { a01 = 1; }
+        If (rowCount > 0 && columnCount > 2) { a02 = 1; }
+        If (rowCount > 1 && columnCount > 0) { a10 = 1; }
+        If (rowCount > 1 && columnCount > 1) { a11 = 1; }
+        If (rowCount > 1 && columnCount > 2) { a12 = 1; }
+        If (rowCount > 2 && columnCount > 0) { a20 = 1; }
+        If (rowCount > 2 && columnCount > 1) { a21 = 1; }
+        If (rowCount > 2 && columnCount > 2) { a22 = 1; }
+        Return 1;
+    }
+
+    Public Function Diagonal(Int d0, Int d1, Int d2) -> Int
+    Explain {
+        Description: "Store a diagonal matrix.";
+        Input: d0 = "First diagonal entry", d1 = "Second diagonal entry", d2 = "Third diagonal entry";
+        Processing: "Clear the other entries.";
+        Output: "The first diagonal entry.";
+    } {
+        This.Load(d0, 0, 0, 0, d1, 0, 0, 0, d2);
+        Return d0;
+    }
+
+    Public Function Set(Int row, Int column, Int value) -> Int
+    Explain {
+        Description: "Set one matrix entry.";
+        Input: row = "Row", column = "Column", value = "Value";
+        Processing: "Write the entry when it is inside the 3 by 3 matrix.";
+        Output: "The value, or zero when the position is outside.";
+    } {
+        If (row < 0 || column < 0 || row > 2 || column > 2) {
+            problem = "size";
+            Return 0;
+        }
+        If (row == 0 && column == 0) { a00 = value; }
+        If (row == 0 && column == 1) { a01 = value; }
+        If (row == 0 && column == 2) { a02 = value; }
+        If (row == 1 && column == 0) { a10 = value; }
+        If (row == 1 && column == 1) { a11 = value; }
+        If (row == 1 && column == 2) { a12 = value; }
+        If (row == 2 && column == 0) { a20 = value; }
+        If (row == 2 && column == 1) { a21 = value; }
+        If (row == 2 && column == 2) { a22 = value; }
+        Return value;
+    }
+
+    Public Function Get(Int row, Int column) -> Int
+    Explain {
+        Description: "Read one matrix entry.";
+        Input: row = "Row", column = "Column";
+        Processing: "Read the working matrix.";
+        Output: "The entry, or zero when the position is outside.";
+    } {
+        If (row == 0 && column == 0) { Return a00; }
+        If (row == 0 && column == 1) { Return a01; }
+        If (row == 0 && column == 2) { Return a02; }
+        If (row == 1 && column == 0) { Return a10; }
+        If (row == 1 && column == 1) { Return a11; }
+        If (row == 1 && column == 2) { Return a12; }
+        If (row == 2 && column == 0) { Return a20; }
+        If (row == 2 && column == 1) { Return a21; }
+        If (row == 2 && column == 2) { Return a22; }
+        problem = "size";
+        Return 0;
+    }
+
+    Public Function FromRow(Int row, Int c0, Int c1, Int c2) -> Int
+    Explain {
+        Description: "Write one matrix row.";
+        Input: row = "Row", c0 = "Column 0", c1 = "Column 1", c2 = "Column 2";
+        Processing: "Write three entries.";
+        Output: "The first written value.";
+    } {
+        This.Set(row, 0, c0);
+        This.Set(row, 1, c1);
+        This.Set(row, 2, c2);
+        Return c0;
+    }
+
+    Public Function FromColumn(Int column, Int r0, Int r1, Int r2) -> Int
+    Explain {
+        Description: "Write one matrix column.";
+        Input: column = "Column", r0 = "Row 0", r1 = "Row 1", r2 = "Row 2";
+        Processing: "Write three entries.";
+        Output: "The first written value.";
+    } {
+        This.Set(0, column, r0);
+        This.Set(1, column, r1);
+        This.Set(2, column, r2);
+        Return r0;
+    }
+
+    Public Function RandomMatrix(Int rowCount, Int columnCount, Int generator) -> Int
+    Explain {
+        Description: "Fill a matrix from a deterministic generator.";
+        Input: rowCount = "Rows", columnCount = "Columns", generator = "Seed";
+        Processing: "Step a linear congruential generator. Entries stay in 0 through 9.";
+        Output: "The first entry.";
+    } {
+        If (This.CreateMatrix(rowCount, columnCount) == 0 && problem == "size") { Return 0; }
+        seed = generator;
+        If (seed == 0) { seed = 1; }
+        Int row = 0;
+        While (row < rowCount) {
+            Int column = 0;
+            While (column < columnCount) {
+                seed = seed * 17 + 13;
+                If (seed < 0) { seed = 0 - seed; }
+                This.Set(row, column, seed % 10);
+                column = column + 1;
+            }
+            row = row + 1;
+        }
+        Return a00;
+    }
+
+    Public Function SetSparse(Int index, Int row, Int column, Int value) -> Int
+    Explain {
+        Description: "Store one sparse entry.";
+        Input: index = "Entry slot", row = "Row", column = "Column", value = "Value";
+        Processing: "Keep up to eight entries.";
+        Output: "The slot, or -1 when the slot or position is outside the matrix.";
+    } {
+        If (index < 0 || index > 7 || row < 0 || column < 0 || row > 2 || column > 2) {
+            problem = "size";
+            Return -1;
+        }
+        srow[index] = row;
+        scol[index] = column;
+        sval[index] = value;
+        If (index >= sparseCount) { sparseCount = index + 1; }
+        Return index;
+    }
+
+    Public Function Sparse(Int rowCount, Int columnCount) -> Int
+    Explain {
+        Description: "Build the working matrix from sparse entries.";
+        Input: rowCount = "Rows", columnCount = "Columns";
+        Processing: "Clear the matrix, then write the stored entries.";
+        Output: "The number of written entries.";
+    } {
+        If (This.CreateMatrix(rowCount, columnCount) == 0 && problem == "size") { Return 0; }
+        Int index = 0;
+        While (index < sparseCount) {
+            This.Set(srow[index], scol[index], sval[index]);
+            index = index + 1;
+        }
+        Return sparseCount;
+    }
+
+    Public Function AddMatrices(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2) -> Int
+    Explain {
+        Description: "Add a matrix to the working matrix.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2";
+        Processing: "Add matching entries.";
+        Output: "The first entry of the sum.";
+    } {
+        a00 = a00 + r0c0;
+        a01 = a01 + r0c1;
+        a02 = a02 + r0c2;
+        a10 = a10 + r1c0;
+        a11 = a11 + r1c1;
+        a12 = a12 + r1c2;
+        a20 = a20 + r2c0;
+        a21 = a21 + r2c1;
+        a22 = a22 + r2c2;
+        Return a00;
+    }
+
+    Public Function SubtractMatrices(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2) -> Int
+    Explain {
+        Description: "Subtract a matrix from the working matrix.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2";
+        Processing: "Subtract matching entries.";
+        Output: "The first entry of the difference.";
+    } {
+        a00 = a00 - r0c0;
+        a01 = a01 - r0c1;
+        a02 = a02 - r0c2;
+        a10 = a10 - r1c0;
+        a11 = a11 - r1c1;
+        a12 = a12 - r1c2;
+        a20 = a20 - r2c0;
+        a21 = a21 - r2c1;
+        a22 = a22 - r2c2;
+        Return a00;
+    }
+
+    Public Function ScaleMatrix(Int scalar) -> Int
+    Explain {
+        Description: "Scale the working matrix.";
+        Input: scalar = "Scale";
+        Processing: "Multiply every entry.";
+        Output: "The first entry.";
+    } {
+        a00 = a00 * scalar;
+        a01 = a01 * scalar;
+        a02 = a02 * scalar;
+        a10 = a10 * scalar;
+        a11 = a11 * scalar;
+        a12 = a12 * scalar;
+        a20 = a20 * scalar;
+        a21 = a21 * scalar;
+        a22 = a22 * scalar;
+        Return a00;
+    }
+
+    Public Function DivideMatrix(Int scalar) -> Int
+    Explain {
+        Description: "Divide the working matrix by an integer.";
+        Input: scalar = "Divisor";
+        Processing: "Divide every entry when the division is exact.";
+        Output: "The first entry, or zero when an entry does not divide.";
+    } {
+        If (This.Divides(a00, scalar) == 0 || This.Divides(a01, scalar) == 0 || This.Divides(a02, scalar) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        If (This.Divides(a10, scalar) == 0 || This.Divides(a11, scalar) == 0 || This.Divides(a12, scalar) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        If (This.Divides(a20, scalar) == 0 || This.Divides(a21, scalar) == 0 || This.Divides(a22, scalar) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        a00 = a00 / scalar;
+        a01 = a01 / scalar;
+        a02 = a02 / scalar;
+        a10 = a10 / scalar;
+        a11 = a11 / scalar;
+        a12 = a12 / scalar;
+        a20 = a20 / scalar;
+        a21 = a21 / scalar;
+        a22 = a22 / scalar;
+        Return a00;
+    }
+
+    Public Function MultiplyMatrices(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2) -> Int
+    Explain {
+        Description: "Multiply the working matrix by another matrix.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2";
+        Processing: "Use the row-column product.";
+        Output: "The first entry of the product.";
+    } {
+        Int n00 = a00 * r0c0 + a01 * r1c0 + a02 * r2c0;
+        Int n01 = a00 * r0c1 + a01 * r1c1 + a02 * r2c1;
+        Int n02 = a00 * r0c2 + a01 * r1c2 + a02 * r2c2;
+        Int n10 = a10 * r0c0 + a11 * r1c0 + a12 * r2c0;
+        Int n11 = a10 * r0c1 + a11 * r1c1 + a12 * r2c1;
+        Int n12 = a10 * r0c2 + a11 * r1c2 + a12 * r2c2;
+        Int n20 = a20 * r0c0 + a21 * r1c0 + a22 * r2c0;
+        Int n21 = a20 * r0c1 + a21 * r1c1 + a22 * r2c1;
+        Int n22 = a20 * r0c2 + a21 * r1c2 + a22 * r2c2;
+        This.Load(n00, n01, n02, n10, n11, n12, n20, n21, n22);
+        Return a00;
+    }
+
+    Public Function MultiplyMatrixVector(Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Multiply the working matrix by a vector.";
+        Input: x = "X", y = "Y", z = "Z";
+        Processing: "Use the row-column product.";
+        Output: "The x component of the product.";
+    } {
+        rx = a00 * x + a01 * y + a02 * z;
+        ry = a10 * x + a11 * y + a12 * z;
+        rz = a20 * x + a21 * y + a22 * z;
+        Return rx;
+    }
+
+    Public Function Transpose() -> Int
+    Explain {
+        Description: "Transpose the working matrix.";
+        Input: "No parameters";
+        Processing: "Swap entries across the diagonal.";
+        Output: "The first entry.";
+    } {
+        Int swap = a01;
+        a01 = a10;
+        a10 = swap;
+        swap = a02;
+        a02 = a20;
+        a20 = swap;
+        swap = a12;
+        a12 = a21;
+        a21 = swap;
+        swap = rows;
+        rows = cols;
+        cols = swap;
+        Return a00;
+    }
+
+    Public Function Conjugate() -> Int
+    Explain {
+        Description: "Conjugate the working matrix.";
+        Input: "No parameters";
+        Processing: "Real entries are their own conjugates.";
+        Output: "The first entry.";
+    } {
+        Return a00;
+    }
+
+    Public Function ConjugateTranspose() -> Int
+    Explain {
+        Description: "Conjugate-transpose the working matrix.";
+        Input: "No parameters";
+        Processing: "Transpose the real matrix.";
+        Output: "The first entry.";
+    } {
+        Return This.Transpose();
+    }
+
+    Public Function Trace() -> Int
+    Explain {
+        Description: "Return the trace.";
+        Input: "No parameters";
+        Processing: "Add the diagonal.";
+        Output: "The trace.";
+    } {
+        Return a00 + a11 + a22;
+    }
+
+    Public Function Determinant() -> Int
+    Explain {
+        Description: "Return the determinant of the working matrix.";
+        Input: "No parameters";
+        Processing: "Use the rule of Sarrus.";
+        Output: "The determinant.";
+    } {
+        Int first = a00 * (a11 * a22 - a12 * a21);
+        Int second = a01 * (a10 * a22 - a12 * a20);
+        Int third = a02 * (a10 * a21 - a11 * a20);
+        Return first - second + third;
+    }
+
+    Public Function DeterminantOf(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2) -> Int
+    Explain {
+        Description: "Load a matrix and return its determinant.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2";
+        Processing: "Load the matrix, then apply the rule of Sarrus.";
+        Output: "The determinant.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        Return This.Determinant();
+    }
+
+    Public Function Minor(Int row, Int column) -> Int
+    Explain {
+        Description: "Return a minor.";
+        Input: row = "Removed row", column = "Removed column";
+        Processing: "Take the determinant of the remaining 2 by 2 matrix.";
+        Output: "The minor, or zero when the position is outside.";
+    } {
+        If (row < 0 || column < 0 || row > 2 || column > 2) {
+            problem = "size";
+            Return 0;
+        }
+        Int x0 = 0;
+        Int y0 = 0;
+        Int x1 = 0;
+        Int y1 = 0;
+        Int seen = 0;
+        Int r = 0;
+        While (r < 3) {
+            If (r != row) {
+                Int c = 0;
+                While (c < 3) {
+                    If (c != column) {
+                        Int value = This.Get(r, c);
+                        If (seen == 0) { x0 = value; }
+                        If (seen == 1) { y0 = value; }
+                        If (seen == 2) { x1 = value; }
+                        If (seen == 3) { y1 = value; }
+                        seen = seen + 1;
+                    }
+                    c = c + 1;
+                }
+            }
+            r = r + 1;
+        }
+        Return x0 * y1 - y0 * x1;
+    }
+
+    Public Function Cofactor(Int row, Int column) -> Int
+    Explain {
+        Description: "Return a cofactor.";
+        Input: row = "Row", column = "Column";
+        Processing: "Apply the checkerboard sign to the minor.";
+        Output: "The cofactor.";
+    } {
+        Int minor = This.Minor(row, column);
+        Int sign = (row + column) % 2;
+        If (sign == 0) { Return minor; }
+        Return 0 - minor;
+    }
+
+    Public Function Adjugate() -> Int
+    Explain {
+        Description: "Replace the working matrix with its adjugate.";
+        Input: "No parameters";
+        Processing: "Transpose the cofactor matrix.";
+        Output: "The determinant.";
+    } {
+        Int d = This.Determinant();
+        Int n00 = This.Cofactor(0, 0);
+        Int n01 = This.Cofactor(1, 0);
+        Int n02 = This.Cofactor(2, 0);
+        Int n10 = This.Cofactor(0, 1);
+        Int n11 = This.Cofactor(1, 1);
+        Int n12 = This.Cofactor(2, 1);
+        Int n20 = This.Cofactor(0, 2);
+        Int n21 = This.Cofactor(1, 2);
+        Int n22 = This.Cofactor(2, 2);
+        This.Load(n00, n01, n02, n10, n11, n12, n20, n21, n22);
+        Return d;
+    }
+
+    Public Function Inverse() -> Int
+    Explain {
+        Description: "Replace the working matrix with its inverse.";
+        Input: "No parameters";
+        Processing: "Divide the adjugate by the determinant when every entry divides.";
+        Output: "One when the inverse is an integer matrix.";
+    } {
+        Int d = This.Adjugate();
+        If (d == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        If (This.DivideMatrix(d) == 0 && problem == "exact") { Return 0; }
+        Return 1;
+    }
+
+    Public Function PseudoInverse() -> Int
+    Explain {
+        Description: "Store the Moore-Penrose inverse when it is an integer matrix.";
+        Input: "No parameters";
+        Processing: "A square invertible integer inverse is accepted. A diagonal matrix uses exact reciprocals of its nonzero entries.";
+        Output: "One when the stored matrix is the pseudoinverse.";
+    } {
+        If (This.IsInvertible() == 1) { Return This.Inverse(); }
+        If (This.IsDiagonal() == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        If (a00 != 0 && a00 != 1 && a00 != -1) {
+            problem = "exact";
+            Return 0;
+        }
+        If (a11 != 0 && a11 != 1 && a11 != -1) {
+            problem = "exact";
+            Return 0;
+        }
+        If (a22 != 0 && a22 != 1 && a22 != -1) {
+            problem = "exact";
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Public Function Rank() -> Int
+    Explain {
+        Description: "Return the rank of the working matrix.";
+        Input: "No parameters";
+        Processing: "Use the determinant and the minors.";
+        Output: "The rank.";
+    } {
+        If (This.Determinant() != 0) { Return 3; }
+        Int row = 0;
+        While (row < 3) {
+            Int column = 0;
+            While (column < 3) {
+                If (This.Minor(row, column) != 0) { Return 2; }
+                column = column + 1;
+            }
+            row = row + 1;
+        }
+        If (a00 != 0 || a01 != 0 || a02 != 0) { Return 1; }
+        If (a10 != 0 || a11 != 0 || a12 != 0) { Return 1; }
+        If (a20 != 0 || a21 != 0 || a22 != 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Nullity() -> Int
+    Explain {
+        Description: "Return the nullity of the working matrix.";
+        Input: "No parameters";
+        Processing: "Subtract the rank from the column count.";
+        Output: "The dimension of the null space.";
+    } {
+        Return cols - This.Rank();
+    }
+
+    Public Function MatrixPower(Int exponent) -> Int
+    Explain {
+        Description: "Raise the working matrix to a nonnegative power.";
+        Input: exponent = "Exponent";
+        Processing: "Repeated multiplication. Exponent zero is the identity.";
+        Output: "The first entry, or zero when the exponent is negative.";
+    } {
+        If (exponent < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        If (exponent == 0) { Return This.Identity(3); }
+        This.CopyToC();
+        Int step = 1;
+        While (step < exponent) {
+            This.MultiplyMatrices(c00, c01, c02, c10, c11, c12, c20, c21, c22);
+            step = step + 1;
+        }
+        Return a00;
+    }
+
+    Public Function MatrixExponential() -> Int
+    Explain {
+        Description: "Store the exponential of a nilpotent or zero matrix.";
+        Input: "No parameters";
+        Processing: "Add the series while the powers divide the factorials.";
+        Output: "One when the exponential is an integer matrix.";
+    } {
+        This.CopyToC();
+        This.Identity(3);
+        This.CopyToB();
+        Int factorial = 1;
+        Int step = 1;
+        While (step <= 6) {
+            This.MultiplyB(c00, c01, c02, c10, c11, c12, c20, c21, c22);
+            factorial = factorial * step;
+            If (This.BDivides(factorial) == 0) {
+                problem = "exact";
+                Return 0;
+            }
+            a00 = a00 + b00 / factorial;
+            a01 = a01 + b01 / factorial;
+            a02 = a02 + b02 / factorial;
+            a10 = a10 + b10 / factorial;
+            a11 = a11 + b11 / factorial;
+            a12 = a12 + b12 / factorial;
+            a20 = a20 + b20 / factorial;
+            a21 = a21 + b21 / factorial;
+            a22 = a22 + b22 / factorial;
+            step = step + 1;
+        }
+        Return 1;
+    }
+
+    Public Function HadamardMatrices(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2) -> Int
+    Explain {
+        Description: "Take the entrywise product with another matrix.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2";
+        Processing: "Multiply matching entries.";
+        Output: "The first entry.";
+    } {
+        a00 = a00 * r0c0;
+        a01 = a01 * r0c1;
+        a02 = a02 * r0c2;
+        a10 = a10 * r1c0;
+        a11 = a11 * r1c1;
+        a12 = a12 * r1c2;
+        a20 = a20 * r2c0;
+        a21 = a21 * r2c1;
+        a22 = a22 * r2c2;
+        Return a00;
+    }
+
+    Public Function KroneckerProduct(Int p00, Int p01, Int p10, Int p11) -> Int
+    Explain {
+        Description: "Store the Kronecker product of the top-left 2 by 2 block with another 2 by 2 matrix.";
+        Input: p00 = "First entry", p01 = "Second entry", p10 = "Third entry", p11 = "Fourth entry";
+        Processing: "Write the 4 by 4 product in row-major order.";
+        Output: "The first entry.";
+    } {
+        low[0] = a00 * p00;
+        low[1] = a00 * p01;
+        low[2] = a01 * p00;
+        low[3] = a01 * p01;
+        low[4] = a00 * p10;
+        low[5] = a00 * p11;
+        low[6] = a01 * p10;
+        low[7] = a01 * p11;
+        high[0] = a10 * p00;
+        high[1] = a10 * p01;
+        high[2] = a11 * p00;
+        high[3] = a11 * p01;
+        high[4] = a10 * p10;
+        high[5] = a10 * p11;
+        high[6] = a11 * p10;
+        high[7] = a11 * p11;
+        Return low[0];
+    }
+
+    Public Function KroneckerEntry(Int index) -> Int
+    Explain {
+        Description: "Read one entry of the latest Kronecker product.";
+        Input: index = "Row-major index from 0 through 15";
+        Processing: "Read the stored 4 by 4 product.";
+        Output: "The entry, or zero when the index is outside.";
+    } {
+        If (index < 0 || index > 15) {
+            problem = "size";
+            Return 0;
+        }
+        If (index < 8) { Return low[index]; }
+        Return high[index - 8];
+    }
+
+    Public Function SolveLinearSystem(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a 3 by 3 linear system.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Gaussian elimination with exact integer division.";
+        Output: "The first unknown, or zero when the system is singular or not exact.";
+    } {
+        Return This.SolveGaussian(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2, e0, e1, e2);
+    }
+
+    Public Function SolveGaussian(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a system by Gaussian elimination.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Eliminate below the pivots, then back-substitute.";
+        Output: "The first unknown.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        Return This.Eliminate(0, e0, e1, e2);
+    }
+
+    Public Function SolveGaussJordan(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a system by Gauss-Jordan elimination.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Clear above and below the pivots, then divide.";
+        Output: "The first unknown.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        Return This.Eliminate(1, e0, e1, e2);
+    }
+
+    Public Function SolveLU(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a system from its LU factorization.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Factor, solve the lower system, then the upper system.";
+        Output: "The first unknown.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        If (This.LU() == 0) { Return 0; }
+        Int y0 = e0;
+        Int y1 = e1 - b10 * y0;
+        Int y2 = e2 - b20 * y0 - b21 * y1;
+        If (This.Divides(y2, c22) == 0 || This.Divides(y1 - c12 * (y2 / c22), c11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rz = y2 / c22;
+        ry = (y1 - c12 * rz) / c11;
+        If (This.Divides(y0 - c01 * ry - c02 * rz, c00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rx = (y0 - c01 * ry - c02 * rz) / c00;
+        Return rx;
+    }
+
+    Public Function SolveQR(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a system from its QR factorization.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Factor by Gram-Schmidt, then back-substitute.";
+        Output: "The first unknown.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        If (This.QR() == 0) { Return 0; }
+        Int q0 = b00 * e0 + b10 * e1 + b20 * e2;
+        Int q1 = b01 * e0 + b11 * e1 + b21 * e2;
+        Int q2 = b02 * e0 + b12 * e1 + b22 * e2;
+        If (This.Divides(q2, c22) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rz = q2 / c22;
+        If (This.Divides(q1 - c12 * rz, c11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        ry = (q1 - c12 * rz) / c11;
+        If (This.Divides(q0 - c01 * ry - c02 * rz, c00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rx = (q0 - c01 * ry - c02 * rz) / c00;
+        Return rx;
+    }
+
+    Public Function SolveCholesky(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a positive definite system by Cholesky.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Factor, solve the lower system, then the upper system.";
+        Output: "The first unknown.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        If (This.Cholesky() == 0) { Return 0; }
+        If (This.Divides(e0, b00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int y0 = e0 / b00;
+        If (This.Divides(e1 - b10 * y0, b11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int y1 = (e1 - b10 * y0) / b11;
+        If (This.Divides(e2 - b20 * y0 - b21 * y1, b22) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int y2 = (e2 - b20 * y0 - b21 * y1) / b22;
+        If (This.Divides(y2, b22) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rz = y2 / b22;
+        If (This.Divides(y1 - b21 * rz, b11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        ry = (y1 - b21 * rz) / b11;
+        If (This.Divides(y0 - b10 * ry - b20 * rz, b00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rx = (y0 - b10 * ry - b20 * rz) / b00;
+        Return rx;
+    }
+
+    Public Function SolveLeastSquares(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve the normal equations.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Form A transpose A and A transpose b, then eliminate.";
+        Output: "The first unknown.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        Int n00 = a00 * a00 + a10 * a10 + a20 * a20;
+        Int n01 = a00 * a01 + a10 * a11 + a20 * a21;
+        Int n02 = a00 * a02 + a10 * a12 + a20 * a22;
+        Int n11 = a01 * a01 + a11 * a11 + a21 * a21;
+        Int n12 = a01 * a02 + a11 * a12 + a21 * a22;
+        Int n22 = a02 * a02 + a12 * a12 + a22 * a22;
+        Int f0 = a00 * e0 + a10 * e1 + a20 * e2;
+        Int f1 = a01 * e0 + a11 * e1 + a21 * e2;
+        Int f2 = a02 * e0 + a12 * e1 + a22 * e2;
+        Return This.SolveGaussian(n00, n01, n02, n01, n11, n12, n02, n12, n22, f0, f1, f2);
+    }
+
+    Public Function SolveSparse(Int d0, Int d1, Int d2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a diagonal system.";
+        Input: d0 = "First diagonal entry", d1 = "Second diagonal entry", d2 = "Third diagonal entry", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Divide each right-hand value by its diagonal entry.";
+        Output: "The first unknown.";
+    } {
+        This.Diagonal(d0, d1, d2);
+        If (This.Divides(e0, d0) == 0 || This.Divides(e1, d1) == 0 || This.Divides(e2, d2) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rx = e0 / d0;
+        ry = e1 / d1;
+        rz = e2 / d2;
+        Return rx;
+    }
+
+    Public Function SolveStoredSparse(Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve the system stored by the sparse entries.";
+        Input: e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Build the dense matrix, then eliminate.";
+        Output: "The first unknown.";
+    } {
+        This.Sparse(3, 3);
+        Return This.Eliminate(0, e0, e1, e2);
+    }
+
+    Public Function SolveIterative(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Solve a system by Jacobi iteration.";
+        Input: r0c0 = "Row 0 column 0", r0c1 = "Row 0 column 1", r0c2 = "Row 0 column 2", r1c0 = "Row 1 column 0", r1c1 = "Row 1 column 1", r1c2 = "Row 1 column 2", r2c0 = "Row 2 column 0", r2c1 = "Row 2 column 1", r2c2 = "Row 2 column 2", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Update each unknown from the other unknowns. Stop at an exact solution or after eight passes.";
+        Output: "The first unknown.";
+    } {
+        This.Load(r0c0, r0c1, r0c2, r1c0, r1c1, r1c2, r2c0, r2c1, r2c2);
+        If (a00 == 0 || a11 == 0 || a22 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        rx = 0;
+        ry = 0;
+        rz = 0;
+        Int pass = 0;
+        While (pass < 8) {
+            Int n0 = e0 - a01 * ry - a02 * rz;
+            Int n1 = e1 - a10 * rx - a12 * rz;
+            Int n2 = e2 - a20 * rx - a21 * ry;
+            If (This.Divides(n0, a00) == 0 || This.Divides(n1, a11) == 0 || This.Divides(n2, a22) == 0) {
+                problem = "exact";
+                Return 0;
+            }
+            Int next0 = n0 / a00;
+            Int next1 = n1 / a11;
+            Int next2 = n2 / a22;
+            Int same = 0;
+            If (next0 == rx && next1 == ry && next2 == rz) { same = 1; }
+            rx = next0;
+            ry = next1;
+            rz = next2;
+            If (same == 1) { Return rx; }
+            pass = pass + 1;
+        }
+        Return rx;
+    }
+
+    Public Function ComputeResidual(Int x, Int y, Int z, Int e0, Int e1, Int e2) -> Int
+    Explain {
+        Description: "Return the taxicab residual of Ax minus b.";
+        Input: x = "First unknown", y = "Second unknown", z = "Third unknown", e0 = "First right-hand value", e1 = "Second right-hand value", e2 = "Third right-hand value";
+        Processing: "Apply the working matrix and subtract the right-hand side.";
+        Output: "The sum of absolute residuals.";
+    } {
+        Int f0 = a00 * x + a01 * y + a02 * z - e0;
+        Int f1 = a10 * x + a11 * y + a12 * z - e1;
+        Int f2 = a20 * x + a21 * y + a22 * z - e2;
+        Return This.AbsInt(f0) + This.AbsInt(f1) + This.AbsInt(f2);
+    }
+
+    Public Function LU() -> Int
+    Explain {
+        Description: "Factor the working matrix into L and U.";
+        Input: "No parameters";
+        Processing: "Doolittle factorization. L is stored as the lower factor and U as the upper factor.";
+        Output: "One when every multiplier is an integer.";
+    } {
+        If (a00 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        c00 = a00;
+        c01 = a01;
+        c02 = a02;
+        c20 = 0;
+        b00 = 1;
+        b01 = 0;
+        b02 = 0;
+        b11 = 1;
+        b12 = 0;
+        b22 = 1;
+        If (This.Divides(a10, a00) == 0 || This.Divides(a20, a00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        b10 = a10 / a00;
+        b20 = a20 / a00;
+        c11 = a11 - b10 * c01;
+        c12 = a12 - b10 * c02;
+        Int below = a21 - b20 * c01;
+        If (c11 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        If (This.Divides(below, c11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        b21 = below / c11;
+        c21 = 0;
+        c22 = a22 - b20 * c02 - b21 * c12;
+        If (c22 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Public Function QR() -> Int
+    Explain {
+        Description: "Factor the working matrix into Q and R.";
+        Input: "No parameters";
+        Processing: "Classical Gram-Schmidt. Q is stored by columns and R is upper triangular.";
+        Output: "One when the columns have integer orthonormal directions.";
+    } {
+        Int u0x = a00;
+        Int u0y = a10;
+        Int u0z = a20;
+        Int r00 = This.Root(u0x * u0x + u0y * u0y + u0z * u0z);
+        If (r00 <= 0 || This.Divides(u0x, r00) == 0 || This.Divides(u0y, r00) == 0 || This.Divides(u0z, r00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int q0x = u0x / r00;
+        Int q0y = u0y / r00;
+        Int q0z = u0z / r00;
+        Int r01 = q0x * a01 + q0y * a11 + q0z * a21;
+        Int u1x = a01 - q0x * r01;
+        Int u1y = a11 - q0y * r01;
+        Int u1z = a21 - q0z * r01;
+        Int r11 = This.Root(u1x * u1x + u1y * u1y + u1z * u1z);
+        If (r11 <= 0 || This.Divides(u1x, r11) == 0 || This.Divides(u1y, r11) == 0 || This.Divides(u1z, r11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int q1x = u1x / r11;
+        Int q1y = u1y / r11;
+        Int q1z = u1z / r11;
+        Int r02 = q0x * a02 + q0y * a12 + q0z * a22;
+        Int r12 = q1x * a02 + q1y * a12 + q1z * a22;
+        Int u2x = a02 - q0x * r02 - q1x * r12;
+        Int u2y = a12 - q0y * r02 - q1y * r12;
+        Int u2z = a22 - q0z * r02 - q1z * r12;
+        Int r22 = This.Root(u2x * u2x + u2y * u2y + u2z * u2z);
+        If (r22 <= 0 || This.Divides(u2x, r22) == 0 || This.Divides(u2y, r22) == 0 || This.Divides(u2z, r22) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        b00 = q0x;
+        b10 = q0y;
+        b20 = q0z;
+        b01 = q1x;
+        b11 = q1y;
+        b21 = q1z;
+        b02 = u2x / r22;
+        b12 = u2y / r22;
+        b22 = u2z / r22;
+        c00 = r00;
+        c01 = r01;
+        c02 = r02;
+        c10 = 0;
+        c11 = r11;
+        c12 = r12;
+        c20 = 0;
+        c21 = 0;
+        c22 = r22;
+        Return 1;
+    }
+
+    Public Function Cholesky() -> Int
+    Explain {
+        Description: "Factor a symmetric matrix into L L transpose.";
+        Input: "No parameters";
+        Processing: "Take integer square roots on the diagonal updates.";
+        Output: "One when the factor is an integer lower-triangular matrix.";
+    } {
+        If (This.IsSymmetric() == 0) {
+            problem = "shape";
+            Return 0;
+        }
+        Int l00 = This.Root(a00);
+        If (l00 <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        If (This.Divides(a10, l00) == 0 || This.Divides(a20, l00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int l10 = a10 / l00;
+        Int l20 = a20 / l00;
+        Int l11 = This.Root(a11 - l10 * l10);
+        If (l11 <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        If (This.Divides(a21 - l20 * l10, l11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int l21 = (a21 - l20 * l10) / l11;
+        Int l22 = This.Root(a22 - l20 * l20 - l21 * l21);
+        If (l22 <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        b00 = l00;
+        b10 = l10;
+        b20 = l20;
+        b01 = 0;
+        b11 = l11;
+        b21 = l21;
+        b02 = 0;
+        b12 = 0;
+        b22 = l22;
+        Return 1;
+    }
+
+    Public Function SVD() -> Int
+    Explain {
+        Description: "Decompose a diagonal matrix into singular values.";
+        Input: "No parameters";
+        Processing: "The singular values are the absolute diagonal entries. Signs are stored on the left factor.";
+        Output: "The largest singular value, or zero when the matrix is not diagonal.";
+    } {
+        If (This.IsDiagonal() == 0) {
+            problem = "shape";
+            Return 0;
+        }
+        ev0 = This.AbsInt(a00);
+        ev1 = This.AbsInt(a11);
+        ev2 = This.AbsInt(a22);
+        b00 = This.SignInt(a00);
+        b11 = This.SignInt(a11);
+        b22 = This.SignInt(a22);
+        b01 = 0;
+        b02 = 0;
+        b10 = 0;
+        b12 = 0;
+        b20 = 0;
+        b21 = 0;
+        c00 = ev0;
+        c11 = ev1;
+        c22 = ev2;
+        c01 = 0;
+        c02 = 0;
+        c10 = 0;
+        c12 = 0;
+        c20 = 0;
+        c21 = 0;
+        Return This.Max3(ev0, ev1, ev2);
+    }
+
+    Public Function EigenDecompose() -> Int
+    Explain {
+        Description: "Decompose a diagonal matrix or a detached symmetric 2 by 2 block.";
+        Input: "No parameters";
+        Processing: "Read a diagonal matrix directly. Otherwise solve the quadratic for a symmetric block.";
+        Output: "The first eigenvalue, or zero when the decomposition is not an integer.";
+    } {
+        If (This.IsDiagonal() == 1) {
+            ev0 = a00;
+            ev1 = a11;
+            ev2 = a22;
+            Return ev0;
+        }
+        If (a01 != a10 || a02 != 0 || a20 != 0 || a12 != 0 || a21 != 0) {
+            problem = "shape";
+            Return 0;
+        }
+        Int disc = (a00 - a11) * (a00 - a11) + 4 * a01 * a01;
+        Int root = This.Root(disc);
+        If (root < 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int sum = a00 + a11;
+        If (This.Divides(sum + root, 2) == 0 || This.Divides(sum - root, 2) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        ev0 = (sum + root) / 2;
+        ev1 = (sum - root) / 2;
+        ev2 = a22;
+        Return ev0;
+    }
+
+    Public Function Eigenvalue(Int index) -> Int
+    Explain {
+        Description: "Read an eigenvalue or singular value from the latest decomposition.";
+        Input: index = "Index 0, 1, or 2";
+        Processing: "Read the stored spectrum.";
+        Output: "The value, or zero when the index is outside.";
+    } {
+        If (index == 0) { Return ev0; }
+        If (index == 1) { Return ev1; }
+        If (index == 2) { Return ev2; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function Schur() -> Int
+    Explain {
+        Description: "Accept an upper-triangular matrix as its Schur form.";
+        Input: "No parameters";
+        Processing: "A real Schur form of an upper-triangular matrix is the matrix itself.";
+        Output: "One when the working matrix is upper triangular.";
+    } {
+        If (a10 == 0 && a20 == 0 && a21 == 0) { Return 1; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function PolarDecomposition() -> Int
+    Explain {
+        Description: "Decompose a symmetric positive definite matrix.";
+        Input: "No parameters";
+        Processing: "The unitary factor is the identity and the positive factor is the matrix.";
+        Output: "One when the matrix is symmetric and positive definite.";
+    } {
+        If (This.IsPositiveDefinite() == 0) {
+            problem = "shape";
+            Return 0;
+        }
+        This.CopyToB();
+        b00 = 1;
+        b01 = 0;
+        b02 = 0;
+        b10 = 0;
+        b11 = 1;
+        b12 = 0;
+        b20 = 0;
+        b21 = 0;
+        b22 = 1;
+        Return 1;
+    }
+
+    Public Function Factor(Int side, Int row, Int column) -> Int
+    Explain {
+        Description: "Read an entry from the latest factor.";
+        Input: side = "0 left factor, 1 right factor", row = "Row", column = "Column";
+        Processing: "The left factor is L, Q, or U. The right factor is U, R, or the singular values.";
+        Output: "The entry, or zero when the position is outside.";
+    } {
+        If (row < 0 || column < 0 || row > 2 || column > 2) {
+            problem = "size";
+            Return 0;
+        }
+        If (side == 0 && row == 0 && column == 0) { Return b00; }
+        If (side == 0 && row == 0 && column == 1) { Return b01; }
+        If (side == 0 && row == 0 && column == 2) { Return b02; }
+        If (side == 0 && row == 1 && column == 0) { Return b10; }
+        If (side == 0 && row == 1 && column == 1) { Return b11; }
+        If (side == 0 && row == 1 && column == 2) { Return b12; }
+        If (side == 0 && row == 2 && column == 0) { Return b20; }
+        If (side == 0 && row == 2 && column == 1) { Return b21; }
+        If (side == 0 && row == 2 && column == 2) { Return b22; }
+        If (side == 1 && row == 0 && column == 0) { Return c00; }
+        If (side == 1 && row == 0 && column == 1) { Return c01; }
+        If (side == 1 && row == 0 && column == 2) { Return c02; }
+        If (side == 1 && row == 1 && column == 0) { Return c10; }
+        If (side == 1 && row == 1 && column == 1) { Return c11; }
+        If (side == 1 && row == 1 && column == 2) { Return c12; }
+        If (side == 1 && row == 2 && column == 0) { Return c20; }
+        If (side == 1 && row == 2 && column == 1) { Return c21; }
+        If (side == 1 && row == 2 && column == 2) { Return c22; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function IsSquare() -> Int
+    Explain {
+        Description: "Report whether the working matrix is square.";
+        Input: "No parameters";
+        Processing: "Compare the row count with the column count.";
+        Output: "One when the matrix is square.";
+    } {
+        If (rows == cols) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsSymmetric() -> Int
+    Explain {
+        Description: "Report whether the working matrix is symmetric.";
+        Input: "No parameters";
+        Processing: "Compare entries across the diagonal.";
+        Output: "One when the matrix is symmetric.";
+    } {
+        If (a01 == a10 && a02 == a20 && a12 == a21) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsHermitian() -> Int
+    Explain {
+        Description: "Report whether a real matrix is Hermitian.";
+        Input: "No parameters";
+        Processing: "A real Hermitian matrix is symmetric.";
+        Output: "One when the matrix is Hermitian.";
+    } {
+        Return This.IsSymmetric();
+    }
+
+    Public Function IsDiagonal() -> Int
+    Explain {
+        Description: "Report whether the working matrix is diagonal.";
+        Input: "No parameters";
+        Processing: "Every off-diagonal entry must be zero.";
+        Output: "One when the matrix is diagonal.";
+    } {
+        If (a01 == 0 && a02 == 0 && a10 == 0 && a12 == 0 && a20 == 0 && a21 == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsTriangular() -> Int
+    Explain {
+        Description: "Report whether the working matrix is triangular.";
+        Input: "No parameters";
+        Processing: "Accept an upper- or lower-triangular matrix.";
+        Output: "One when the matrix is triangular.";
+    } {
+        Int upper = 0;
+        Int lower = 0;
+        If (a10 == 0 && a20 == 0 && a21 == 0) { upper = 1; }
+        If (a01 == 0 && a02 == 0 && a12 == 0) { lower = 1; }
+        If (upper == 1 || lower == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsOrthogonalMatrix() -> Int
+    Explain {
+        Description: "Report whether the columns form an orthonormal set.";
+        Input: "No parameters";
+        Processing: "The product of the transpose and the matrix must be the identity.";
+        Output: "One when the matrix is orthogonal.";
+    } {
+        Int n00 = a00 * a00 + a10 * a10 + a20 * a20;
+        Int n01 = a00 * a01 + a10 * a11 + a20 * a21;
+        Int n02 = a00 * a02 + a10 * a12 + a20 * a22;
+        Int n11 = a01 * a01 + a11 * a11 + a21 * a21;
+        Int n12 = a01 * a02 + a11 * a12 + a21 * a22;
+        Int n22 = a02 * a02 + a12 * a12 + a22 * a22;
+        If (n00 == 1 && n11 == 1 && n22 == 1 && n01 == 0 && n02 == 0 && n12 == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsUnitary() -> Int
+    Explain {
+        Description: "Report whether a real matrix is unitary.";
+        Input: "No parameters";
+        Processing: "A real unitary matrix is orthogonal.";
+        Output: "One when the matrix is unitary.";
+    } {
+        Return This.IsOrthogonalMatrix();
+    }
+
+    Public Function IsPositiveDefinite() -> Int
+    Explain {
+        Description: "Report whether the working matrix is positive definite.";
+        Input: "No parameters";
+        Processing: "Require symmetry and positive leading minors.";
+        Output: "One when the matrix is positive definite.";
+    } {
+        If (This.IsSymmetric() == 0) { Return 0; }
+        If (a00 <= 0) { Return 0; }
+        If (a00 * a11 - a01 * a10 <= 0) { Return 0; }
+        If (This.Determinant() <= 0) { Return 0; }
+        Return 1;
+    }
+
+    Public Function IsSingular() -> Int
+    Explain {
+        Description: "Report whether the working matrix is singular.";
+        Input: "No parameters";
+        Processing: "A zero determinant is singular.";
+        Output: "One when the matrix is singular.";
+    } {
+        If (This.Determinant() == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsInvertible() -> Int
+    Explain {
+        Description: "Report whether the working matrix is invertible.";
+        Input: "No parameters";
+        Processing: "A nonzero determinant is invertible over the rationals.";
+        Output: "One when the determinant is nonzero.";
+    } {
+        If (This.Determinant() != 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function ConditionNumber() -> Int
+    Explain {
+        Description: "Return the infinity-norm condition number.";
+        Input: "No parameters";
+        Processing: "For a diagonal matrix, divide the largest absolute diagonal entry by the smallest.";
+        Output: "The condition number, or zero when a diagonal entry is zero or the matrix is not diagonal.";
+    } {
+        If (This.IsDiagonal() == 0) {
+            problem = "shape";
+            Return 0;
+        }
+        If (a00 == 0 || a11 == 0 || a22 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        Int highValue = This.Max3(This.AbsInt(a00), This.AbsInt(a11), This.AbsInt(a22));
+        Int lowValue = This.Min3(This.AbsInt(a00), This.AbsInt(a11), This.AbsInt(a22));
+        If (This.Divides(highValue, lowValue) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Return highValue / lowValue;
+    }
+
+    Public Function MatrixNorm(Int normType) -> Int
+    Explain {
+        Description: "Return a matrix norm.";
+        Input: normType = "0 Frobenius, 1 maximum column sum, 2 maximum row sum";
+        Processing: "The Frobenius norm is returned only when it is an integer.";
+        Output: "The norm, or -1 when the Frobenius norm is not an integer.";
+    } {
+        If (normType == 1) { Return This.Max3(This.ColumnSum(0), This.ColumnSum(1), This.ColumnSum(2)); }
+        If (normType == 2) { Return This.Max3(This.RowSum(0), This.RowSum(1), This.RowSum(2)); }
+        Return This.FrobeniusNorm();
+    }
+
+    Public Function FrobeniusNorm() -> Int
+    Explain {
+        Description: "Return the Frobenius norm.";
+        Input: "No parameters";
+        Processing: "Take the square root of the sum of squared entries.";
+        Output: "The norm, or -1 when it is not an integer.";
+    } {
+        Int sum = a00 * a00 + a01 * a01 + a02 * a02;
+        sum = sum + a10 * a10 + a11 * a11 + a12 * a12;
+        sum = sum + a20 * a20 + a21 * a21 + a22 * a22;
+        Return This.Root(sum);
+    }
+
+    Public Function SetTensor(Int index, Int value) -> Int
+    Explain {
+        Description: "Store one tensor cell.";
+        Input: index = "Cell from 0 through 7", value = "Value";
+        Processing: "Keep eight cells.";
+        Output: "The value, or zero when the index is outside.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return 0;
+        }
+        cells[index] = value;
+        If (index >= tensorCount) { tensorCount = index + 1; }
+        Return value;
+    }
+
+    Public Function TensorAt(Int index) -> Int
+    Explain {
+        Description: "Read one tensor cell.";
+        Input: index = "Cell";
+        Processing: "Read the stored cells.";
+        Output: "The cell, or zero when the index is outside.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return 0;
+        }
+        Return cells[index];
+    }
+
+    Public Function TensorShape(Int rank) -> Int
+    Explain {
+        Description: "Store the tensor rank.";
+        Input: rank = "Rank from 1 through 3";
+        Processing: "A vector has rank 1, a matrix rank 2, and a higher tensor rank 3.";
+        Output: "The rank, or zero when it is outside the range.";
+    } {
+        If (rank < 1 || rank > 3) {
+            problem = "size";
+            Return 0;
+        }
+        tensorRank = rank;
+        Return rank;
+    }
+
+    Public Function TensorSum() -> Int
+    Explain {
+        Description: "Add the stored tensor cells.";
+        Input: "No parameters";
+        Processing: "Sum the filled prefix.";
+        Output: "The sum.";
+    } {
+        Int total = 0;
+        Int index = 0;
+        While (index < tensorCount) {
+            total = total + cells[index];
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Public Function SetShift(Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Store the translation of an affine transform.";
+        Input: x = "X shift", y = "Y shift", z = "Z shift";
+        Processing: "Keep the translation beside the working matrix.";
+        Output: "The x shift.";
+    } {
+        tx = x;
+        ty = y;
+        tz = z;
+        Return tx;
+    }
+
+    Public Function ApplyAffine(Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Apply the working matrix and the translation.";
+        Input: x = "X", y = "Y", z = "Z";
+        Processing: "Multiply, then add the shift.";
+        Output: "The transformed x.";
+    } {
+        This.MultiplyMatrixVector(x, y, z);
+        rx = rx + tx;
+        ry = ry + ty;
+        rz = rz + tz;
+        Return rx;
+    }
+
+    Public Function RotationMatrix(Int quarterTurns) -> Int
+    Explain {
+        Description: "Store a rotation about the z axis.";
+        Input: quarterTurns = "Number of quarter turns";
+        Processing: "Reduce the turn count modulo 4.";
+        Output: "The first entry.";
+    } {
+        Int turn = quarterTurns % 4;
+        If (turn < 0) { turn = turn + 4; }
+        If (turn == 0) { Return This.Load(1, 0, 0, 0, 1, 0, 0, 0, 1); }
+        If (turn == 1) { Return This.Load(0, -1, 0, 1, 0, 0, 0, 0, 1); }
+        If (turn == 2) { Return This.Load(-1, 0, 0, 0, -1, 0, 0, 0, 1); }
+        Return This.Load(0, 1, 0, -1, 0, 0, 0, 0, 1);
+    }
+
+    Public Function LinearTransform(Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Apply the working matrix as a linear transform.";
+        Input: x = "X", y = "Y", z = "Z";
+        Processing: "Multiply the matrix by the vector.";
+        Output: "The transformed x.";
+    } {
+        Return This.MultiplyMatrixVector(x, y, z);
+    }
+
+    Public Function TransformationMatrix(Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Apply the affine transform.";
+        Input: x = "X", y = "Y", z = "Z";
+        Processing: "Use the working matrix and the stored translation.";
+        Output: "The transformed x.";
+    } {
+        Return This.ApplyAffine(x, y, z);
+    }
+
+    Public Function RankOfTensor() -> Int
+    Explain {
+        Description: "Return the stored tensor rank.";
+        Input: "No parameters";
+        Processing: "Read the rank set for the tensor.";
+        Output: "The rank.";
+    } {
+        Return tensorRank;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest linear algebra error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Eliminate(Int jordan, Int e0, Int e1, Int e2) -> Int {
+        Int p00 = a00;
+        Int p01 = a01;
+        Int p02 = a02;
+        Int p10 = a10;
+        Int p11 = a11;
+        Int p12 = a12;
+        Int p20 = a20;
+        Int p21 = a21;
+        Int p22 = a22;
+        If (p00 == 0 && p10 != 0) {
+            Int swap = p00;
+            p00 = p10;
+            p10 = swap;
+            swap = p01;
+            p01 = p11;
+            p11 = swap;
+            swap = p02;
+            p02 = p12;
+            p12 = swap;
+            swap = e0;
+            e0 = e1;
+            e1 = swap;
+        }
+        If (p00 == 0 && p20 != 0) {
+            Int swap = p00;
+            p00 = p20;
+            p20 = swap;
+            swap = p01;
+            p01 = p21;
+            p21 = swap;
+            swap = p02;
+            p02 = p22;
+            p22 = swap;
+            swap = e0;
+            e0 = e2;
+            e2 = swap;
+        }
+        If (p00 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        If (This.ClearRow(p10, p00) == 0) { Return 0; }
+        p11 = p11 - (p10 / p00) * p01;
+        p12 = p12 - (p10 / p00) * p02;
+        e1 = e1 - (p10 / p00) * e0;
+        p10 = 0;
+        If (This.ClearRow(p20, p00) == 0) { Return 0; }
+        p21 = p21 - (p20 / p00) * p01;
+        p22 = p22 - (p20 / p00) * p02;
+        e2 = e2 - (p20 / p00) * e0;
+        p20 = 0;
+        If (p11 == 0 && p21 != 0) {
+            Int swap = p11;
+            p11 = p21;
+            p21 = swap;
+            swap = p12;
+            p12 = p22;
+            p22 = swap;
+            swap = e1;
+            e1 = e2;
+            e2 = swap;
+            swap = p10;
+            p10 = p20;
+            p20 = swap;
+        }
+        If (p11 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        If (This.ClearRow(p21, p11) == 0) { Return 0; }
+        p22 = p22 - (p21 / p11) * p12;
+        e2 = e2 - (p21 / p11) * e1;
+        p21 = 0;
+        If (jordan == 1) {
+            If (This.ClearRow(p01, p11) == 0) { Return 0; }
+            p02 = p02 - (p01 / p11) * p12;
+            e0 = e0 - (p01 / p11) * e1;
+            p01 = 0;
+        }
+        If (p22 == 0) {
+            problem = "singular";
+            Return 0;
+        }
+        If (jordan == 1) {
+            If (This.ClearRow(p02, p22) == 0 || This.ClearRow(p12, p22) == 0) { Return 0; }
+            e0 = e0 - (p02 / p22) * e2;
+            e1 = e1 - (p12 / p22) * e2;
+            p02 = 0;
+            p12 = 0;
+            If (This.Divides(e0, p00) == 0 || This.Divides(e1, p11) == 0 || This.Divides(e2, p22) == 0) {
+                problem = "exact";
+                Return 0;
+            }
+            rx = e0 / p00;
+            ry = e1 / p11;
+            rz = e2 / p22;
+            Return rx;
+        }
+        If (This.Divides(e2, p22) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rz = e2 / p22;
+        If (This.Divides(e1 - p12 * rz, p11) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        ry = (e1 - p12 * rz) / p11;
+        If (This.Divides(e0 - p01 * ry - p02 * rz, p00) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        rx = (e0 - p01 * ry - p02 * rz) / p00;
+        Return rx;
+    }
+
+    Private Function ClearRow(Int value, Int pivot) -> Int {
+        If (value == 0) { Return 1; }
+        If (This.Divides(value, pivot) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Private Function CopyToC() -> Int {
+        c00 = a00;
+        c01 = a01;
+        c02 = a02;
+        c10 = a10;
+        c11 = a11;
+        c12 = a12;
+        c20 = a20;
+        c21 = a21;
+        c22 = a22;
+        Return c00;
+    }
+
+    Private Function CopyToB() -> Int {
+        b00 = a00;
+        b01 = a01;
+        b02 = a02;
+        b10 = a10;
+        b11 = a11;
+        b12 = a12;
+        b20 = a20;
+        b21 = a21;
+        b22 = a22;
+        Return b00;
+    }
+
+    Private Function MultiplyB(Int r0c0, Int r0c1, Int r0c2, Int r1c0, Int r1c1, Int r1c2, Int r2c0, Int r2c1, Int r2c2) -> Int {
+        Int n00 = b00 * r0c0 + b01 * r1c0 + b02 * r2c0;
+        Int n01 = b00 * r0c1 + b01 * r1c1 + b02 * r2c1;
+        Int n02 = b00 * r0c2 + b01 * r1c2 + b02 * r2c2;
+        Int n10 = b10 * r0c0 + b11 * r1c0 + b12 * r2c0;
+        Int n11 = b10 * r0c1 + b11 * r1c1 + b12 * r2c1;
+        Int n12 = b10 * r0c2 + b11 * r1c2 + b12 * r2c2;
+        Int n20 = b20 * r0c0 + b21 * r1c0 + b22 * r2c0;
+        Int n21 = b20 * r0c1 + b21 * r1c1 + b22 * r2c1;
+        Int n22 = b20 * r0c2 + b21 * r1c2 + b22 * r2c2;
+        b00 = n00;
+        b01 = n01;
+        b02 = n02;
+        b10 = n10;
+        b11 = n11;
+        b12 = n12;
+        b20 = n20;
+        b21 = n21;
+        b22 = n22;
+        Return b00;
+    }
+
+    Private Function BDivides(Int divisor) -> Int {
+        If (This.Divides(b00, divisor) == 0 || This.Divides(b01, divisor) == 0 || This.Divides(b02, divisor) == 0) { Return 0; }
+        If (This.Divides(b10, divisor) == 0 || This.Divides(b11, divisor) == 0 || This.Divides(b12, divisor) == 0) { Return 0; }
+        If (This.Divides(b20, divisor) == 0 || This.Divides(b21, divisor) == 0 || This.Divides(b22, divisor) == 0) { Return 0; }
+        Return 1;
+    }
+
+    Private Function RowSum(Int row) -> Int {
+        If (row == 0) { Return This.AbsInt(a00) + This.AbsInt(a01) + This.AbsInt(a02); }
+        If (row == 1) { Return This.AbsInt(a10) + This.AbsInt(a11) + This.AbsInt(a12); }
+        Return This.AbsInt(a20) + This.AbsInt(a21) + This.AbsInt(a22);
+    }
+
+    Private Function ColumnSum(Int column) -> Int {
+        If (column == 0) { Return This.AbsInt(a00) + This.AbsInt(a10) + This.AbsInt(a20); }
+        If (column == 1) { Return This.AbsInt(a01) + This.AbsInt(a11) + This.AbsInt(a21); }
+        Return This.AbsInt(a02) + This.AbsInt(a12) + This.AbsInt(a22);
+    }
+
+    Private Function Divides(Int value, Int divisor) -> Int {
+        If (divisor == 0) { Return 0; }
+        Int quote = value / divisor;
+        If (quote * divisor == value) { Return 1; }
+        Return 0;
+    }
+
+    Private Function AbsInt(Int value) -> Int {
+        If (value < 0) { Return 0 - value; }
+        Return value;
+    }
+
+    Private Function SignInt(Int value) -> Int {
+        If (value < 0) { Return -1; }
+        If (value > 0) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Max3(Int first, Int second, Int third) -> Int {
+        Int best = first;
+        If (second > best) { best = second; }
+        If (third > best) { best = third; }
+        Return best;
+    }
+
+    Private Function Min3(Int first, Int second, Int third) -> Int {
+        Int best = first;
+        If (second < best) { best = second; }
+        If (third < best) { best = third; }
+        Return best;
+    }
+
+    Private Function Root(Int value) -> Int {
+        If (value < 0) { Return -1; }
+        Int guess = 0;
+        While (guess < 46340 && guess * guess < value) {
+            guess = guess + 1;
+        }
+        If (guess * guess == value) { Return guess; }
+        Return -1;
+    }
+}

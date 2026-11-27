@@ -1,0 +1,826 @@
+// Robix.Math.Calculus: derivatives, integrals, series, and differential equations.
+Package Robix.Math.Calculus;
+
+Import Robix.Core;
+
+
+Class CalculusDesk {
+    Private Int c0;
+    Private Int c1;
+    Private Int c2;
+    Private Int c3;
+    Private Int center;
+    Private Int order;
+    Private Int last;
+    Private Int lastY;
+    Private Int steps;
+    Private Int radius;
+    Private String problem;
+
+    Public Constructor() {
+        c0 = 0;
+        c1 = 0;
+        c2 = 0;
+        c3 = 0;
+        center = 0;
+        order = 0;
+        last = 0;
+        lastY = 0;
+        steps = 1;
+        radius = -1;
+        problem = "none";
+    }
+
+    Public Function Evaluate(Int shape, Int x) -> Int
+    Explain {
+        Description: "Evaluate a built-in sample function.";
+        Input: shape = "0 x, 1 x squared, 2 x cubed, 3 constant one", x = "Point";
+        Processing: "Use the polynomial for that shape.";
+        Output: "The value, or zero when the shape is unknown.";
+    } {
+        If (shape == 0) { Return x; }
+        If (shape == 1) { Return x * x; }
+        If (shape == 2) { Return x * x * x; }
+        If (shape == 3) { Return 1; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function Differentiate(Int shape) -> Int
+    Explain {
+        Description: "Store the derivative of a sample polynomial.";
+        Input: shape = "0 x, 1 x squared, 2 x cubed, 3 constant one";
+        Processing: "Differentiate the monomial and store the resulting polynomial.";
+        Output: "The degree of the derivative.";
+    } {
+        c0 = 0;
+        c1 = 0;
+        c2 = 0;
+        c3 = 0;
+        If (shape == 0) { c0 = 1; Return 0; }
+        If (shape == 1) { c1 = 2; Return 1; }
+        If (shape == 2) { c2 = 3; Return 2; }
+        If (shape == 3) { Return 0; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function DerivativeAt(Int shape, Int point) -> Int
+    Explain {
+        Description: "Evaluate a derivative.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "Differentiate, then evaluate.";
+        Output: "The derivative.";
+    } {
+        If (shape == 0) { Return 1; }
+        If (shape == 1) { Return 2 * point; }
+        If (shape == 2) { Return 3 * point * point; }
+        If (shape == 3) { Return 0; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function NthDerivative(Int shape, Int point, Int derivativeOrder) -> Int
+    Explain {
+        Description: "Evaluate a higher derivative.";
+        Input: shape = "Sample function", point = "Point", derivativeOrder = "Order";
+        Processing: "Repeated differentiation. Orders past the degree are zero.";
+        Output: "The derivative.";
+    } {
+        If (derivativeOrder < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        If (derivativeOrder == 0) { Return This.Evaluate(shape, point); }
+        If (derivativeOrder == 1) { Return This.DerivativeAt(shape, point); }
+        If (shape == 1 && derivativeOrder == 2) { Return 2; }
+        If (shape == 2 && derivativeOrder == 2) { Return 6 * point; }
+        If (shape == 2 && derivativeOrder == 3) { Return 6; }
+        Return 0;
+    }
+
+    Public Function PartialDifferentiate(Int variable, Int x, Int y) -> Int
+    Explain {
+        Description: "Differentiate x squared plus y squared.";
+        Input: variable = "0 for x, 1 for y", x = "X", y = "Y";
+        Processing: "The partial derivatives are 2x and 2y.";
+        Output: "The partial derivative.";
+    } {
+        If (variable == 0) { Return 2 * x; }
+        If (variable == 1) { Return 2 * y; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function MixedPartialDerivative(Int x, Int y) -> Int
+    Explain {
+        Description: "Return the mixed partial of x times y.";
+        Input: x = "X", y = "Y";
+        Processing: "Both mixed partials of xy are 1.";
+        Output: "One.";
+    } {
+        last = x;
+        lastY = y;
+        Return 1;
+    }
+
+    Public Function Gradient(Int x, Int y) -> Int
+    Explain {
+        Description: "Store the gradient of x squared plus y squared.";
+        Input: x = "X", y = "Y";
+        Processing: "The gradient is (2x, 2y).";
+        Output: "The x component.";
+    } {
+        last = 2 * x;
+        lastY = 2 * y;
+        Return last;
+    }
+
+    Public Function GradientY() -> Int
+    Explain {
+        Description: "Read the y component of the latest gradient or curl.";
+        Input: "No parameters";
+        Processing: "Read the stored second component.";
+        Output: "The y component.";
+    } {
+        Return lastY;
+    }
+
+    Public Function Jacobian(Int x, Int y) -> Int
+    Explain {
+        Description: "Return the Jacobian entry of a scalar function.";
+        Input: x = "X", y = "Y";
+        Processing: "A scalar function has the gradient as its Jacobian.";
+        Output: "The first Jacobian entry.";
+    } {
+        Return This.Gradient(x, y);
+    }
+
+    Public Function Hessian(Int x, Int y) -> Int
+    Explain {
+        Description: "Return a diagonal Hessian entry of x squared plus y squared.";
+        Input: x = "X", y = "Y";
+        Processing: "Both pure second partials are 2.";
+        Output: "Two.";
+    } {
+        last = x;
+        lastY = y;
+        Return 2;
+    }
+
+    Public Function NumericalDerivative(Int shape, Int point, Int step) -> Int
+    Explain {
+        Description: "Approximate a derivative with a central difference.";
+        Input: shape = "Sample function", point = "Point", step = "Positive step";
+        Processing: "Divide the central rise by twice the step when the quotient is an integer.";
+        Output: "The approximation.";
+    } {
+        Return This.CentralDifference(shape, point, step);
+    }
+
+    Public Function CentralDifference(Int shape, Int point, Int step) -> Int
+    Explain {
+        Description: "Return a central difference.";
+        Input: shape = "Sample function", point = "Point", step = "Positive step";
+        Processing: "Subtract the left sample from the right sample and divide by twice the step.";
+        Output: "The quotient, or zero when it is not an integer.";
+    } {
+        If (step <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int rise = This.Evaluate(shape, point + step) - This.Evaluate(shape, point - step);
+        Return This.Exact(rise, 2 * step);
+    }
+
+    Public Function ForwardDifference(Int shape, Int point, Int step) -> Int
+    Explain {
+        Description: "Return a forward difference.";
+        Input: shape = "Sample function", point = "Point", step = "Positive step";
+        Processing: "Divide the forward rise by the step.";
+        Output: "The quotient, or zero when it is not an integer.";
+    } {
+        If (step <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int rise = This.Evaluate(shape, point + step) - This.Evaluate(shape, point);
+        Return This.Exact(rise, step);
+    }
+
+    Public Function BackwardDifference(Int shape, Int point, Int step) -> Int
+    Explain {
+        Description: "Return a backward difference.";
+        Input: shape = "Sample function", point = "Point", step = "Positive step";
+        Processing: "Divide the backward rise by the step.";
+        Output: "The quotient, or zero when it is not an integer.";
+    } {
+        If (step <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int rise = This.Evaluate(shape, point) - This.Evaluate(shape, point - step);
+        Return This.Exact(rise, step);
+    }
+
+    Public Function Integrate(Int shape) -> Int
+    Explain {
+        Description: "Store an antiderivative.";
+        Input: shape = "Sample function";
+        Processing: "Integrate the monomial. The constant of integration is zero.";
+        Output: "The degree of the antiderivative, or zero when a coefficient is not an integer.";
+    } {
+        c0 = 0;
+        c1 = 0;
+        c2 = 0;
+        c3 = 0;
+        If (shape == 3) {
+            c1 = 1;
+            Return 1;
+        }
+        If (shape == 0 || shape == 1 || shape == 2) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function DefiniteIntegrate(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Integrate a sample function on a closed interval.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Use the antiderivative when the coefficients divide.";
+        Output: "The definite integral.";
+    } {
+        If (shape == 3) { Return upper - lower; }
+        If (shape == 0) { Return This.Exact(upper * upper - lower * lower, 2); }
+        If (shape == 1) { Return This.Exact(upper * upper * upper - lower * lower * lower, 3); }
+        If (shape == 2) {
+            Int high = upper * upper * upper * upper;
+            Int low = lower * lower * lower * lower;
+            Return This.Exact(high - low, 4);
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function IndefiniteIntegrate(Int shape, Int point) -> Int
+    Explain {
+        Description: "Evaluate an antiderivative with constant zero.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "Evaluate the antiderivative when it is an integer.";
+        Output: "The antiderivative.";
+    } {
+        Return This.DefiniteIntegrate(shape, 0, point);
+    }
+
+    Public Function DoubleIntegrate(Int width, Int height) -> Int
+    Explain {
+        Description: "Integrate the constant one over a rectangle.";
+        Input: width = "Width", height = "Height";
+        Processing: "The integral is the area.";
+        Output: "The area, or zero when a side is negative.";
+    } {
+        If (width < 0 || height < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return width * height;
+    }
+
+    Public Function TripleIntegrate(Int width, Int height, Int depth) -> Int
+    Explain {
+        Description: "Integrate the constant one over a box.";
+        Input: width = "Width", height = "Height", depth = "Depth";
+        Processing: "The integral is the volume.";
+        Output: "The volume, or zero when a side is negative.";
+    } {
+        If (width < 0 || height < 0 || depth < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return width * height * depth;
+    }
+
+    Public Function LineIntegrate(Int field, Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Integrate a field along the segment from the origin.";
+        Input: field = "5 for (x, y, z), 6 for (-y, x, 0)", x = "End x", y = "End y", z = "End z";
+        Processing: "A conservative field uses the potential. The circulating field is integrated on the straight segment.";
+        Output: "The line integral.";
+    } {
+        If (field == 5) { Return This.PotentialFunction(5, x, y, z); }
+        If (field == 6) { Return 0; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function SurfaceIntegrate(Int field, Int width, Int height) -> Int
+    Explain {
+        Description: "Integrate flux through a horizontal rectangle.";
+        Input: field = "7 for the constant upward field", width = "Width", height = "Height";
+        Processing: "The upward unit field has flux equal to the area.";
+        Output: "The flux.";
+    } {
+        If (field != 7) {
+            problem = "shape";
+            Return 0;
+        }
+        Return This.DoubleIntegrate(width, height);
+    }
+
+    Public Function NumericalIntegrate(Int shape, Int lower, Int upper, Int intervals) -> Int
+    Explain {
+        Description: "Integrate with the composite trapezoidal rule.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound", intervals = "Positive interval count";
+        Processing: "Average the samples. A linear function is exact.";
+        Output: "The approximation when it is an integer.";
+    } {
+        If (intervals <= 0 || upper < lower) {
+            problem = "domain";
+            Return 0;
+        }
+        If (This.Divides(upper - lower, intervals) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int step = (upper - lower) / intervals;
+        Int total = This.Evaluate(shape, lower) + This.Evaluate(shape, upper);
+        Int index = 1;
+        While (index < intervals) {
+            total = total + 2 * This.Evaluate(shape, lower + index * step);
+            index = index + 1;
+        }
+        Return This.Exact(total * step, 2);
+    }
+
+    Public Function AdaptiveIntegrate(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Integrate exactly when the antiderivative permits it.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Use the closed-form integral for the sample polynomials.";
+        Output: "The integral.";
+    } {
+        Return This.DefiniteIntegrate(shape, lower, upper);
+    }
+
+    Public Function ImproperIntegrate(Int shape) -> Int
+    Explain {
+        Description: "Integrate a decaying sample from one to infinity.";
+        Input: shape = "Only the zero function is accepted";
+        Processing: "The zero function has improper integral zero. A nonzero polynomial diverges.";
+        Output: "Zero, with an error when the integral diverges.";
+    } {
+        If (shape == 3) {
+            problem = "unbounded";
+            Return 0;
+        }
+        If (shape == 0 || shape == 1 || shape == 2) {
+            problem = "unbounded";
+            Return 0;
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function LimitAt(Int shape, Int point) -> Int
+    Explain {
+        Description: "Return the limit at a point.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "Each sample polynomial is continuous.";
+        Output: "The function value.";
+    } {
+        Return This.Evaluate(shape, point);
+    }
+
+    Public Function LeftLimit(Int shape, Int point) -> Int
+    Explain {
+        Description: "Return the left-hand limit.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "Polynomials agree from both sides.";
+        Output: "The function value.";
+    } {
+        Return This.Evaluate(shape, point);
+    }
+
+    Public Function RightLimit(Int shape, Int point) -> Int
+    Explain {
+        Description: "Return the right-hand limit.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "Polynomials agree from both sides.";
+        Output: "The function value.";
+    } {
+        Return This.Evaluate(shape, point);
+    }
+
+    Public Function LimitAtInfinity(Int shape) -> Int
+    Explain {
+        Description: "Return a limit at infinity.";
+        Input: shape = "Sample function";
+        Processing: "A constant has itself as the limit. Any positive-degree polynomial is unbounded.";
+        Output: "The limit, or zero when it is unbounded.";
+    } {
+        If (shape == 3) { Return 1; }
+        If (shape == 0 || shape == 1 || shape == 2) {
+            problem = "unbounded";
+            Return 0;
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function IsContinuous(Int shape, Int point) -> Int
+    Explain {
+        Description: "Report whether a sample is continuous.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "The sample polynomials are continuous everywhere.";
+        Output: "One for a known polynomial.";
+    } {
+        If (shape < 0 || shape > 3) {
+            problem = "shape";
+            Return 0;
+        }
+        last = point;
+        Return 1;
+    }
+
+    Public Function IsDifferentiable(Int shape, Int point) -> Int
+    Explain {
+        Description: "Report whether a sample is differentiable.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "The sample polynomials are differentiable everywhere.";
+        Output: "One for a known polynomial.";
+    } {
+        Return This.IsContinuous(shape, point);
+    }
+
+    Public Function TaylorExpand(Int shape, Int point, Int seriesOrder) -> Int
+    Explain {
+        Description: "Store a Taylor polynomial.";
+        Input: shape = "Sample function", point = "Center", seriesOrder = "Highest power";
+        Processing: "Store powers of (x minus the center).";
+        Output: "The constant term.";
+    } {
+        If (seriesOrder < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        center = point;
+        order = seriesOrder;
+        radius = -1;
+        c0 = This.Evaluate(shape, point);
+        c1 = 0;
+        c2 = 0;
+        c3 = 0;
+        If (seriesOrder >= 1) { c1 = This.DerivativeAt(shape, point); }
+        If (seriesOrder >= 2 && shape == 1) { c2 = 1; }
+        If (seriesOrder >= 2 && shape == 2) { c2 = 3 * point; }
+        If (seriesOrder >= 3 && shape == 2) { c3 = 1; }
+        Return c0;
+    }
+
+    Public Function MaclaurinExpand(Int shape, Int seriesOrder) -> Int
+    Explain {
+        Description: "Store a Maclaurin polynomial.";
+        Input: shape = "Sample function", seriesOrder = "Highest power";
+        Processing: "Expand at zero.";
+        Output: "The constant term.";
+    } {
+        Return This.TaylorExpand(shape, 0, seriesOrder);
+    }
+
+    Public Function FourierExpand(Int shape, Int period, Int terms) -> Int
+    Explain {
+        Description: "Store the constant Fourier coefficient.";
+        Input: shape = "Sample function", period = "Period", terms = "Number of modes";
+        Processing: "A constant function has itself as the constant mode and no higher modes.";
+        Output: "The constant coefficient, or zero when the function is not constant.";
+    } {
+        If (period <= 0 || terms < 1) {
+            problem = "domain";
+            Return 0;
+        }
+        order = terms;
+        If (shape == 3) {
+            c0 = 1;
+            c1 = 0;
+            c2 = 0;
+            c3 = 0;
+            Return 1;
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function EvaluateSeries(Int x) -> Int
+    Explain {
+        Description: "Evaluate the stored Taylor polynomial.";
+        Input: x = "Point";
+        Processing: "Accumulate powers of the distance from the center.";
+        Output: "The polynomial value.";
+    } {
+        Int h = x - center;
+        Int total = c0;
+        If (order >= 1) { total = total + c1 * h; }
+        If (order >= 2) { total = total + c2 * h * h; }
+        If (order >= 3) { total = total + c3 * h * h * h; }
+        Return total;
+    }
+
+    Public Function SeriesSum(Int start, Int end) -> Int
+    Explain {
+        Description: "Add stored Taylor coefficients.";
+        Input: start = "First power", end = "Last power";
+        Processing: "Add the coefficients whose powers lie in the range.";
+        Output: "The sum.";
+    } {
+        Int total = 0;
+        If (start <= 0 && end >= 0) { total = total + c0; }
+        If (start <= 1 && end >= 1) { total = total + c1; }
+        If (start <= 2 && end >= 2) { total = total + c2; }
+        If (start <= 3 && end >= 3) { total = total + c3; }
+        Return total;
+    }
+
+    Public Function SeriesConverges(Int shape) -> Int
+    Explain {
+        Description: "Report whether a sample series converges everywhere.";
+        Input: shape = "Sample function";
+        Processing: "A polynomial Taylor series converges for every input.";
+        Output: "One for a known polynomial.";
+    } {
+        If (shape < 0 || shape > 3) {
+            problem = "shape";
+            Return 0;
+        }
+        radius = -1;
+        Return 1;
+    }
+
+    Public Function FindRadiusOfConvergence(Int shape) -> Int
+    Explain {
+        Description: "Return the radius of convergence.";
+        Input: shape = "Sample function";
+        Processing: "Polynomials use -1 for an infinite radius.";
+        Output: "Negative one when the radius is infinite.";
+    } {
+        If (This.SeriesConverges(shape) == 0) { Return 0; }
+        Return radius;
+    }
+
+    Public Function FindIntervalOfConvergence(Int shape) -> Int
+    Explain {
+        Description: "Report whether the interval of convergence is the whole line.";
+        Input: shape = "Sample function";
+        Processing: "An infinite radius covers every real input.";
+        Output: "One when the interval is the whole line.";
+    } {
+        If (This.FindRadiusOfConvergence(shape) == -1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Divergence(Int field, Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Return the divergence of a sample field.";
+        Input: field = "5 for (x, y, z), 6 for (-y, x, 0)", x = "X", y = "Y", z = "Z";
+        Processing: "Add the partial derivatives of the components.";
+        Output: "The divergence.";
+    } {
+        last = x + y + z;
+        If (field == 5) { Return 3; }
+        If (field == 6) { Return 0; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function Curl(Int field, Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Store the curl of a sample field.";
+        Input: field = "5 for (x, y, z), 6 for (-y, x, 0)", x = "X", y = "Y", z = "Z";
+        Processing: "The radial field has curl zero. The circulating field has curl (0, 0, 2).";
+        Output: "The z component of the curl.";
+    } {
+        last = x;
+        lastY = y;
+        If (field == 5) { Return 0; }
+        If (field == 6) {
+            last = z;
+            Return 2;
+        }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function Laplacian(Int x, Int y) -> Int
+    Explain {
+        Description: "Return the Laplacian of x squared plus y squared.";
+        Input: x = "X", y = "Y";
+        Processing: "Add the pure second partials.";
+        Output: "Four.";
+    } {
+        last = x;
+        lastY = y;
+        Return 4;
+    }
+
+    Public Function DirectionalDerivative(Int x, Int y, Int dx, Int dy) -> Int
+    Explain {
+        Description: "Return a directional derivative of x squared plus y squared.";
+        Input: x = "X", y = "Y", dx = "Direction x", dy = "Direction y";
+        Processing: "Take the dot product of the gradient and the direction.";
+        Output: "The directional derivative.";
+    } {
+        Return 2 * x * dx + 2 * y * dy;
+    }
+
+    Public Function Flux(Int field, Int width, Int height) -> Int
+    Explain {
+        Description: "Return the flux through a horizontal rectangle.";
+        Input: field = "Field code", width = "Width", height = "Height";
+        Processing: "Use the surface integral.";
+        Output: "The flux.";
+    } {
+        Return This.SurfaceIntegrate(field, width, height);
+    }
+
+    Public Function PotentialFunction(Int field, Int x, Int y, Int z) -> Int
+    Explain {
+        Description: "Evaluate a scalar potential.";
+        Input: field = "5 for (x, y, z)", x = "X", y = "Y", z = "Z";
+        Processing: "The potential of (x, y, z) is half the squared length when that half is an integer.";
+        Output: "The potential, or zero when the field is not conservative.";
+    } {
+        If (field != 5) {
+            problem = "shape";
+            Return 0;
+        }
+        Return This.Exact(x * x + y * y + z * z, 2);
+    }
+
+    Public Function IsConservative(Int field) -> Int
+    Explain {
+        Description: "Report whether a sample field is conservative.";
+        Input: field = "Field code";
+        Processing: "A zero curl on these polynomial fields means a potential exists.";
+        Output: "One when the field is conservative.";
+    } {
+        If (field == 5) { Return 1; }
+        If (field == 6) { Return 0; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function SolveODE(Int equation, Int initialValue, Int stepSize) -> Int
+    Explain {
+        Description: "Take one explicit step of an ordinary differential equation.";
+        Input: equation = "0 for y prime equals y, 1 for y prime equals 2", initialValue = "Initial value", stepSize = "Step";
+        Processing: "Use the classical fourth-order Runge-Kutta step.";
+        Output: "The next value.";
+    } {
+        Return This.RungeKutta4(equation, initialValue, stepSize);
+    }
+
+    Public Function SolvePDE(Int left, Int right) -> Int
+    Explain {
+        Description: "Solve the midpoint of a linear boundary-value problem.";
+        Input: left = "Value at the left end", right = "Value at the right end";
+        Processing: "The second derivative is zero, so the solution is the average when the sum is even.";
+        Output: "The midpoint value.";
+    } {
+        Return This.Exact(left + right, 2);
+    }
+
+    Public Function SolveInitialValueProblem(Int equation, Int initialValue, Int stepSize) -> Int
+    Explain {
+        Description: "Solve one step of an initial-value problem.";
+        Input: equation = "Equation code", initialValue = "Initial value", stepSize = "Step";
+        Processing: "Use the same step as the ordinary differential solver.";
+        Output: "The next value.";
+    } {
+        Return This.SolveODE(equation, initialValue, stepSize);
+    }
+
+    Public Function SolveBoundaryValueProblem(Int left, Int right) -> Int
+    Explain {
+        Description: "Solve a two-point boundary-value problem.";
+        Input: left = "Left boundary", right = "Right boundary";
+        Processing: "Use the linear solution of a zero second derivative.";
+        Output: "The midpoint value.";
+    } {
+        Return This.SolvePDE(left, right);
+    }
+
+    Public Function EulerMethod(Int equation, Int initialValue, Int stepSize) -> Int
+    Explain {
+        Description: "Take one forward Euler step.";
+        Input: equation = "0 for y prime equals y, 1 for y prime equals 2", initialValue = "Initial value", stepSize = "Step";
+        Processing: "Add the slope times the step.";
+        Output: "The next value.";
+    } {
+        If (equation == 0) { Return initialValue + stepSize * initialValue; }
+        If (equation == 1) { Return initialValue + 2 * stepSize; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function RungeKutta4(Int equation, Int initialValue, Int stepSize) -> Int
+    Explain {
+        Description: "Take one classical Runge-Kutta step.";
+        Input: equation = "0 for y prime equals y, 1 for y prime equals 2", initialValue = "Initial value", stepSize = "Step";
+        Processing: "Average the four slopes. The update is returned only when it is an integer.";
+        Output: "The next value.";
+    } {
+        If (equation == 1) { Return initialValue + 2 * stepSize; }
+        If (equation != 0) {
+            problem = "shape";
+            Return 0;
+        }
+        If (This.Divides(stepSize, 2) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int half = stepSize / 2;
+        Int y = initialValue;
+        Int k1 = y;
+        Int k2 = y + half * k1;
+        Int k3 = y + half * k2;
+        Int k4 = y + stepSize * k3;
+        Int weighted = k1 + 2 * k2 + 2 * k3 + k4;
+        Int increment = This.Exact(weighted, 6);
+        If (problem == "exact") { Return 0; }
+        Return y + increment * stepSize;
+    }
+
+    Public Function AdaptiveRungeKutta(Int equation, Int initialValue, Int stepSize) -> Int
+    Explain {
+        Description: "Take an adaptive Runge-Kutta step.";
+        Input: equation = "Equation code", initialValue = "Initial value", stepSize = "Suggested step";
+        Processing: "The sample equations are smooth, so the suggested step is accepted.";
+        Output: "The next value.";
+    } {
+        steps = 1;
+        Return This.RungeKutta4(equation, initialValue, stepSize);
+    }
+
+    Public Function FiniteDifferenceSolve(Int left, Int right) -> Int
+    Explain {
+        Description: "Solve a two-point problem on three grid points.";
+        Input: left = "Left boundary", right = "Right boundary";
+        Processing: "The interior point of a linear solution is the average.";
+        Output: "The interior value.";
+    } {
+        Return This.SolvePDE(left, right);
+    }
+
+    Public Function FiniteElementSolve(Int left, Int right) -> Int
+    Explain {
+        Description: "Solve a two-point problem with one linear element.";
+        Input: left = "Left boundary", right = "Right boundary";
+        Processing: "The midpoint of a linear element is the average of the ends.";
+        Output: "The midpoint value.";
+    } {
+        Return This.SolvePDE(left, right);
+    }
+
+    Public Function Coefficient(Int power) -> Int
+    Explain {
+        Description: "Read a stored series coefficient.";
+        Input: power = "Power from 0 through 3";
+        Processing: "Read the latest Taylor or Fourier coefficient.";
+        Output: "The coefficient.";
+    } {
+        If (power == 0) { Return c0; }
+        If (power == 1) { Return c1; }
+        If (power == 2) { Return c2; }
+        If (power == 3) { Return c3; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest calculus error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Divides(Int value, Int divisor) -> Int {
+        If (divisor == 0) { Return 0; }
+        Int quote = value / divisor;
+        If (quote * divisor == value) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Exact(Int value, Int divisor) -> Int {
+        If (This.Divides(value, divisor) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return value / divisor;
+    }
+}

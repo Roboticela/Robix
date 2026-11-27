@@ -1,0 +1,80 @@
+// Robix.Math.Calculus: derivatives, integrals, series, and differential equations.
+Package Robotics.Calculus;
+
+Import Robix.Core;
+Import Robix.Math.Calculus;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise derivatives, integrals, and differential equations.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the calculus desk.";
+    Output: "The calculus report.";
+} {
+    CalculusDesk desk = CalculusDesk();
+    Print(desk.Evaluate(1, 4));
+    Print(desk.Differentiate(1));
+    Print(desk.Coefficient(1));
+    Print(desk.DerivativeAt(1, 3));
+    Print(desk.NthDerivative(1, 3, 2));
+    Print(desk.PartialDifferentiate(0, 3, 4));
+    Print(desk.PartialDifferentiate(1, 3, 4));
+    Print(desk.MixedPartialDerivative(3, 4));
+    Print(desk.Gradient(3, 4));
+    Print(desk.GradientY());
+    Print(desk.Jacobian(3, 4));
+    Print(desk.Hessian(3, 4));
+    Print(desk.NumericalDerivative(1, 3, 1));
+    Print(desk.CentralDifference(1, 3, 1));
+    Print(desk.ForwardDifference(1, 3, 1));
+    Print(desk.BackwardDifference(1, 3, 1));
+    Print(desk.Integrate(3));
+    Print(desk.DefiniteIntegrate(0, 0, 4));
+    Print(desk.DefiniteIntegrate(1, 0, 3));
+    Print(desk.IndefiniteIntegrate(3, 5));
+    Print(desk.DoubleIntegrate(3, 4));
+    Print(desk.TripleIntegrate(2, 3, 4));
+    Print(desk.LineIntegrate(5, 2, 0, 0));
+    Print(desk.SurfaceIntegrate(7, 3, 4));
+    Print(desk.NumericalIntegrate(0, 0, 4, 2));
+    Print(desk.AdaptiveIntegrate(3, 1, 6));
+    Print(desk.ImproperIntegrate(0));
+    Print(desk.LimitAt(1, 4));
+    Print(desk.LeftLimit(1, 4));
+    Print(desk.RightLimit(1, 4));
+    Print(desk.LimitAtInfinity(3));
+    Print(desk.IsContinuous(1, 4));
+    Print(desk.IsDifferentiable(1, 4));
+    Print(desk.TaylorExpand(1, 3, 2));
+    Print(desk.Coefficient(1));
+    Print(desk.EvaluateSeries(4));
+    Print(desk.MaclaurinExpand(1, 2));
+    Print(desk.EvaluateSeries(4));
+    Print(desk.FourierExpand(3, 4, 2));
+    Print(desk.SeriesSum(0, 1));
+    Print(desk.SeriesConverges(1));
+    Print(desk.FindRadiusOfConvergence(1));
+    Print(desk.FindIntervalOfConvergence(1));
+    Print(desk.Divergence(5, 1, 2, 3));
+    Print(desk.Curl(6, 1, 2, 3));
+    Print(desk.Laplacian(3, 4));
+    Print(desk.DirectionalDerivative(3, 4, 1, 0));
+    Print(desk.Flux(7, 3, 4));
+    Print(desk.PotentialFunction(5, 2, 0, 0));
+    Print(desk.IsConservative(5));
+    Print(desk.IsConservative(6));
+    Print(desk.EulerMethod(0, 1, 1));
+    Print(desk.EulerMethod(1, 1, 3));
+    Print(desk.RungeKutta4(0, 6, 2));
+    Print(desk.RungeKutta4(1, 1, 3));
+    Print(desk.AdaptiveRungeKutta(1, 1, 3));
+    Print(desk.SolveODE(1, 1, 3));
+    Print(desk.SolveInitialValueProblem(1, 1, 3));
+    Print(desk.SolvePDE(0, 4));
+    Print(desk.SolveBoundaryValueProblem(0, 4));
+    Print(desk.FiniteDifferenceSolve(0, 4));
+    Print(desk.FiniteElementSolve(0, 4));
+    Print(desk.Fault());
+    Return 0;
+}

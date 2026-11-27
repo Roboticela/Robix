@@ -1,0 +1,11 @@
+Test NextInt {
+    Constraint: RandomDesk().NextInt() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test NextInRange {
+    Constraint: RandomDesk().NextInRange(0, 9) == 0;
+    Processing: True;
+    Output: True;
+}

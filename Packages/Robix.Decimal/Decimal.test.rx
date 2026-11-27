@@ -1,0 +1,17 @@
+Test Parse {
+    Constraint: DecimalDesk().Parse("1.50") == 150;
+    Processing: True;
+    Output: True;
+}
+
+Test Add {
+    Constraint: DecimalDesk().Add(150, 225) == 375;
+    Processing: True;
+    Output: True;
+}
+
+Test SimpleInterest {
+    Constraint: DecimalDesk().SimpleInterest(10000, 500, 1) == 500;
+    Processing: True;
+    Output: True;
+}

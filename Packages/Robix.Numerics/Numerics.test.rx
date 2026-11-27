@@ -1,0 +1,17 @@
+Test Clamp {
+    Constraint: NumericsDesk().Clamp(5, 0, 3) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test Parse {
+    Constraint: NumericsDesk().Parse("-42") == -42;
+    Processing: True;
+    Output: True;
+}
+
+Test Use {
+    Constraint: NumericsDesk().Use(0) == 8;
+    Processing: True;
+    Output: True;
+}

@@ -1,0 +1,72 @@
+// Robix.Decimal: scaled integers, rounding, and financial arithmetic.
+Package Robotics.Decimal;
+
+Import Robix.Core;
+Import Robix.Decimal;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise scaled decimals and interest.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the decimal desk.";
+    Output: "The decimal report.";
+} {
+    DecimalDesk desk = DecimalDesk();
+    Print(desk.Parse("1.50"));
+    Print(desk.TryParse("2"));
+    Print(desk.GetScale(150));
+    Print(desk.GetPrecision());
+    Print(desk.Add(150, 225));
+    Print(desk.Subtract(375, 150));
+    Print(desk.Multiply(150, 200));
+    Print(desk.Divide(150, 200));
+    Print(desk.DivRem(150, 200));
+    Print(desk.RemainderOf());
+    Print(desk.Remainder(150, 200));
+    Print(desk.Modulo(150, 200));
+    Print(desk.Negate(150));
+    Print(desk.Abs(-150));
+    Print(desk.Min(150, 225));
+    Print(desk.Max(150, 225));
+    Print(desk.Clamp(500, 0, 250));
+    Print(desk.Compare(150, 225));
+    Print(desk.FromInteger(3));
+    Print(desk.ToInteger(250));
+    Print(desk.ToInt32(250));
+    Print(desk.ToInt64(250));
+    Print(desk.Pow(200, 2));
+    Print(desk.Sqrt(400));
+    Print(desk.Gcd(120, 80));
+    Print(desk.Lcm(4, 6));
+    Print(desk.SetRoundingMode(0));
+    Print(desk.GetRoundingMode());
+    Print(desk.Round(150, 0));
+    Print(desk.RoundAwayFromZero(150, 0));
+    Print(desk.RoundToEven(250, 0));
+    Print(desk.RoundTowardZero(150, 0));
+    Print(desk.RoundTowardPositive(150, 0));
+    Print(desk.RoundTowardNegative(-150, 0));
+    Print(desk.Floor(150));
+    Print(desk.Ceiling(150));
+    Print(desk.Truncate(150));
+    Print(desk.Quantize(150, 0));
+    Print(desk.Normalize(1500));
+    Print(desk.SetScale(2));
+    Print(desk.StripTrailingZeros(1500));
+    Print(desk.SetScale(2));
+    Print(desk.Rescale(150, 3));
+    Print(desk.SetPrecision(2));
+    Print(desk.SimpleInterest(10000, 500, 1));
+    Print(desk.CalculateInterest(10000, 500, 1));
+    Print(desk.CompoundInterest(10000, 500, 1));
+    Print(desk.CalculateDiscount(20000, 10));
+    Print(desk.CalculateTax(20000, 10));
+    Print(desk.CalculatePercentage(20000, 15));
+    Print(desk.CalculatePercentageChange(200, 250));
+    Print(desk.CalculateInstallment(10000, 0, 4));
+    Print(desk.PresentValue(10500, 500, 1));
+    Print(desk.FutureValue(10000, 500, 1));
+    Print(desk.Fault());
+    Return 0;
+}

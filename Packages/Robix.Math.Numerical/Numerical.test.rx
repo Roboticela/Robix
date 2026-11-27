@@ -1,0 +1,17 @@
+Test Bisection {
+    Constraint: NumericalDesk().Bisection(1, 0, 5) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test NewtonInterpolate {
+    Constraint: NumericalDesk().NewtonInterpolate(0, 0, 1, 1, 2, 4, 3) == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test TrapezoidalRule {
+    Constraint: NumericalDesk().TrapezoidalRule(0, 0, 4) == 8;
+    Processing: True;
+    Output: True;
+}

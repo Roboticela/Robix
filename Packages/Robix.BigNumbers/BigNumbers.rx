@@ -1,0 +1,777 @@
+// Robix.BigNumbers: base-1000 integers, powers, and factorials.
+Package Robix.BigNumbers;
+
+Import Robix.Core;
+
+
+Class BigNumbersDesk {
+    Private Array<Int> limbs;
+    Private Array<Int> other;
+    Private Int length;
+    Private Int otherLength;
+    Private Int sign;
+    Private Int base;
+    Private String problem;
+
+    Public Constructor() {
+        limbs = [0, 0, 0, 0, 0, 0, 0, 0];
+        other = [0, 0, 0, 0, 0, 0, 0, 0];
+        length = 1;
+        otherLength = 1;
+        sign = 1;
+        base = 1000;
+        problem = "none";
+    }
+
+    Public Function FromInt(Int value) -> Int
+    Explain {
+        Description: "Store an integer.";
+        Input: value = "Integer";
+        Processing: "Split it into base-1000 limbs.";
+        Output: "The value.";
+    } {
+        sign = 1;
+        Int magnitude = value;
+        If (magnitude < 0) {
+            sign = -1;
+            magnitude = 0 - magnitude;
+        }
+        Int index = 0;
+        While (index < 8) {
+            limbs[index] = 0;
+            index = index + 1;
+        }
+        length = 1;
+        index = 0;
+        While (magnitude > 0 && index < 8) {
+            limbs[index] = magnitude % base;
+            magnitude = magnitude / base;
+            index = index + 1;
+        }
+        If (index > 0) { length = index; }
+        problem = "none";
+        Return This.Value();
+    }
+
+    Public Function Value() -> Int
+    Explain {
+        Description: "Read the stored integer when it fits in eight limbs.";
+        Input: "No parameters";
+        Processing: "Combine the base-1000 limbs.";
+        Output: "The signed value.";
+    } {
+        Int total = 0;
+        Int place = 1;
+        Int index = 0;
+        While (index < length) {
+            total = total + limbs[index] * place;
+            place = place * base;
+            index = index + 1;
+        }
+        If (sign < 0) { Return 0 - total; }
+        Return total;
+    }
+
+    Public Function Limb(Int index) -> Int
+    Explain {
+        Description: "Read one limb.";
+        Input: index = "Limb index";
+        Processing: "Read the base-1000 digit.";
+        Output: "The limb, or zero when the index is outside.";
+    } {
+        If (index < 0 || index > 7) { Return 0; }
+        Return limbs[index];
+    }
+
+    Public Function Add(Int left, Int right) -> Int
+    Explain {
+        Description: "Add two integers.";
+        Input: left = "Left", right = "Right";
+        Processing: "Add the values and store the sum.";
+        Output: "The sum.";
+    } {
+        Return This.FromInt(left + right);
+    }
+
+    Public Function Subtract(Int left, Int right) -> Int
+    Explain {
+        Description: "Subtract two integers.";
+        Input: left = "Left", right = "Right";
+        Processing: "Subtract and store the difference.";
+        Output: "The difference.";
+    } {
+        Return This.FromInt(left - right);
+    }
+
+    Public Function Multiply(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two integers.";
+        Input: left = "Left", right = "Right";
+        Processing: "Multiply by schoolbook arithmetic on the limbs.";
+        Output: "The product.";
+    } {
+        This.FromInt(left);
+        Return This.MulSmall(right);
+    }
+
+    Public Function Divide(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide two integers.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Divide toward zero.";
+        Output: "The quotient, or zero when the divisor is zero.";
+    } {
+        If (right == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        problem = "none";
+        Return This.FromInt(left / right);
+    }
+
+    Public Function DivRem(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide and store the remainder.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "The quotient is stored. The remainder is kept beside it.";
+        Output: "The quotient.";
+    } {
+        If (right == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        other[0] = left - (left / right) * right;
+        otherLength = 1;
+        problem = "none";
+        Return This.FromInt(left / right);
+    }
+
+    Public Function Remainder(Int left, Int right) -> Int
+    Explain {
+        Description: "Return a remainder.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Use truncating division.";
+        Output: "The remainder.";
+    } {
+        This.DivRem(left, right);
+        Return other[0];
+    }
+
+    Public Function Mod(Int left, Int right) -> Int
+    Explain {
+        Description: "Return a nonnegative remainder.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Add the divisor while the remainder is negative.";
+        Output: "The remainder.";
+    } {
+        Int value = This.Remainder(left, right);
+        Int divisor = right;
+        If (divisor < 0) { divisor = 0 - divisor; }
+        While (value < 0) { value = value + divisor; }
+        Return value;
+    }
+
+    Public Function Pow(Int baseValue, Int exponent) -> Int
+    Explain {
+        Description: "Raise an integer to a small power.";
+        Input: baseValue = "Base", exponent = "Exponent from 0 through 12";
+        Processing: "Repeated multiplication.";
+        Output: "The power.";
+    } {
+        If (exponent < 0 || exponent > 12) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FromInt(1);
+        Int index = 0;
+        While (index < exponent) {
+            This.MulSmall(baseValue);
+            index = index + 1;
+        }
+        problem = "none";
+        Return This.Value();
+    }
+
+    Public Function PowMod(Int baseValue, Int exponent, Int modulus) -> Int
+    Explain {
+        Description: "Raise an integer to a power modulo another integer.";
+        Input: baseValue = "Base", exponent = "Exponent", modulus = "Modulus";
+        Processing: "Square and multiply, reducing after each step.";
+        Output: "The residue, or zero when the modulus is not positive.";
+    } {
+        If (modulus <= 0 || exponent < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int result = 1;
+        Int cursor = baseValue % modulus;
+        If (cursor < 0) { cursor = cursor + modulus; }
+        Int bits = exponent;
+        While (bits > 0) {
+            If (bits % 2 == 1) { result = (result * cursor) % modulus; }
+            cursor = (cursor * cursor) % modulus;
+            bits = bits / 2;
+        }
+        problem = "none";
+        Return This.FromInt(result);
+    }
+
+    Public Function Sqrt(Int value) -> Int
+    Explain {
+        Description: "Return an integer square root.";
+        Input: value = "Value";
+        Processing: "Search the integer root. A non-square returns the floor only when the square matches.";
+        Output: "The root, or -1 when the value is negative or not a perfect square.";
+    } {
+        If (value < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int guess = 0;
+        While (guess < 46340 && guess * guess < value) { guess = guess + 1; }
+        If (guess * guess != value) {
+            problem = "exact";
+            Return -1;
+        }
+        problem = "none";
+        Return This.FromInt(guess);
+    }
+
+    Public Function Cbrt(Int value) -> Int
+    Explain {
+        Description: "Return an integer cube root.";
+        Input: value = "Value";
+        Processing: "Search a nonnegative perfect cube.";
+        Output: "The root, or -1 when it is not a perfect cube.";
+    } {
+        If (value < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int guess = 0;
+        While (guess < 1000 && guess * guess * guess < value) { guess = guess + 1; }
+        If (guess * guess * guess != value) {
+            problem = "exact";
+            Return -1;
+        }
+        problem = "none";
+        Return This.FromInt(guess);
+    }
+
+    Public Function Gcd(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the greatest common divisor.";
+        Input: left = "Left", right = "Right";
+        Processing: "Use Euclid's algorithm.";
+        Output: "The divisor.";
+    } {
+        Int a = left;
+        Int b = right;
+        If (a < 0) { a = 0 - a; }
+        If (b < 0) { b = 0 - b; }
+        While (b != 0) {
+            Int next = a % b;
+            a = b;
+            b = next;
+        }
+        Return This.FromInt(a);
+    }
+
+    Public Function Lcm(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the least common multiple.";
+        Input: left = "Left", right = "Right";
+        Processing: "Divide the product by the greatest common divisor.";
+        Output: "The multiple.";
+    } {
+        If (left == 0 || right == 0) { Return This.FromInt(0); }
+        Int divisor = This.Gcd(left, right);
+        Return This.FromInt(This.Abs(left / divisor * right));
+    }
+
+    Public Function Factorial(Int n) -> Int
+    Explain {
+        Description: "Return n factorial.";
+        Input: n = "A value from 0 through 12";
+        Processing: "Multiply the integers from 1 through n.";
+        Output: "The factorial.";
+    } {
+        If (n < 0 || n > 12) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FromInt(1);
+        Int index = 2;
+        While (index <= n) {
+            This.MulSmall(index);
+            index = index + 1;
+        }
+        problem = "none";
+        Return This.Value();
+    }
+
+    Public Function Binomial(Int n, Int k) -> Int
+    Explain {
+        Description: "Return a binomial coefficient.";
+        Input: n = "Upper index", k = "Lower index";
+        Processing: "Multiply the falling factorial and divide by k factorial.";
+        Output: "The coefficient, or zero when the arguments are out of range.";
+    } {
+        If (n < 0 || k < 0 || k > n || n > 12) {
+            problem = "domain";
+            Return 0;
+        }
+        Int result = 1;
+        Int index = 1;
+        While (index <= k) {
+            result = result * (n - k + index) / index;
+            index = index + 1;
+        }
+        problem = "none";
+        Return This.FromInt(result);
+    }
+
+    Public Function IsPrime(Int value) -> Int
+    Explain {
+        Description: "Test a small integer for primality.";
+        Input: value = "Value";
+        Processing: "Trial division up to the square root.";
+        Output: "One when the value is prime.";
+    } {
+        If (value <= 1) { Return 0; }
+        If (value <= 3) { Return 1; }
+        If (value % 2 == 0) { Return 0; }
+        Int divisor = 3;
+        While (divisor * divisor <= value) {
+            If (value % divisor == 0) { Return 0; }
+            divisor = divisor + 2;
+        }
+        Return 1;
+    }
+
+    Public Function NextPrime(Int value) -> Int
+    Explain {
+        Description: "Return the next prime.";
+        Input: value = "Start";
+        Processing: "Search upward.";
+        Output: "The next prime.";
+    } {
+        Int cursor = value + 1;
+        While (This.IsPrime(cursor) == 0) { cursor = cursor + 1; }
+        Return cursor;
+    }
+
+    Public Function PreviousPrime(Int value) -> Int
+    Explain {
+        Description: "Return the previous prime.";
+        Input: value = "Start";
+        Processing: "Search downward. There is no prime below 2.";
+        Output: "The previous prime, or zero.";
+    } {
+        Int cursor = value - 1;
+        While (cursor >= 2 && This.IsPrime(cursor) == 0) { cursor = cursor - 1; }
+        If (cursor < 2) { Return 0; }
+        Return cursor;
+    }
+
+    Public Function ModInverse(Int value, Int modulus) -> Int
+    Explain {
+        Description: "Return a modular inverse.";
+        Input: value = "Value", modulus = "Positive modulus";
+        Processing: "Search a residue whose product is one.";
+        Output: "The inverse, or zero when none exists.";
+    } {
+        If (modulus <= 1) {
+            problem = "domain";
+            Return 0;
+        }
+        Int residue = value % modulus;
+        If (residue < 0) { residue = residue + modulus; }
+        Int cursor = 1;
+        While (cursor < modulus) {
+            If ((residue * cursor) % modulus == 1) {
+                problem = "none";
+                Return cursor;
+            }
+            cursor = cursor + 1;
+        }
+        problem = "inverse";
+        Return 0;
+    }
+
+    Public Function ExtendedGcd(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the greatest common divisor and store Bézout coefficients.";
+        Input: left = "Left", right = "Right";
+        Processing: "The extended Euclidean algorithm stores the coefficients in the spare limbs.";
+        Output: "The divisor.";
+    } {
+        Int oldR = left;
+        Int r = right;
+        Int oldS = 1;
+        Int s = 0;
+        Int oldT = 0;
+        Int t = 1;
+        While (r != 0) {
+            Int quote = oldR / r;
+            Int nextR = oldR - quote * r;
+            Int nextS = oldS - quote * s;
+            Int nextT = oldT - quote * t;
+            oldR = r;
+            r = nextR;
+            oldS = s;
+            s = nextS;
+            oldT = t;
+            t = nextT;
+        }
+        other[0] = oldS;
+        other[1] = oldT;
+        otherLength = 2;
+        Return This.FromInt(oldR);
+    }
+
+    Public Function Bezout(Int index) -> Int
+    Explain {
+        Description: "Read a Bézout coefficient.";
+        Input: index = "0 or 1";
+        Processing: "Read the coefficient from the latest extended gcd.";
+        Output: "The coefficient.";
+    } {
+        If (index == 0) { Return other[0]; }
+        If (index == 1) { Return other[1]; }
+        Return 0;
+    }
+
+    Public Function BitLength(Int value) -> Int
+    Explain {
+        Description: "Return the number of bits in an integer.";
+        Input: value = "Value";
+        Processing: "Count shifts until the magnitude is zero.";
+        Output: "The bit length.";
+    } {
+        Int magnitude = value;
+        If (magnitude < 0) { magnitude = 0 - magnitude; }
+        Int bits = 0;
+        While (magnitude > 0) {
+            magnitude = magnitude / 2;
+            bits = bits + 1;
+        }
+        Return bits;
+    }
+
+    Public Function PopulationCount(Int value) -> Int
+    Explain {
+        Description: "Count set bits.";
+        Input: value = "Nonnegative value";
+        Processing: "Test the low bit and shift.";
+        Output: "The number of one bits.";
+    } {
+        Int magnitude = value;
+        If (magnitude < 0) { magnitude = 0 - magnitude; }
+        Int count = 0;
+        While (magnitude > 0) {
+            If (magnitude % 2 == 1) { count = count + 1; }
+            magnitude = magnitude / 2;
+        }
+        Return count;
+    }
+
+    Public Function IsPowerOfTwo(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is a power of two.";
+        Input: value = "Value";
+        Processing: "A positive power of two has one set bit.";
+        Output: "One when the value is a power of two.";
+    } {
+        If (value <= 0) { Return 0; }
+        If (This.PopulationCount(value) == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function And(Int left, Int right) -> Int
+    Explain {
+        Description: "Combine two integers with bitwise and.";
+        Input: left = "Left", right = "Right";
+        Processing: "Compare bits from low to high.";
+        Output: "The combination.";
+    } {
+        Return This.Bits(left, right, 0);
+    }
+
+    Public Function Or(Int left, Int right) -> Int
+    Explain {
+        Description: "Combine two integers with bitwise or.";
+        Input: left = "Left", right = "Right";
+        Processing: "Compare bits from low to high.";
+        Output: "The combination.";
+    } {
+        Return This.Bits(left, right, 1);
+    }
+
+    Public Function Xor(Int left, Int right) -> Int
+    Explain {
+        Description: "Combine two integers with bitwise exclusive or.";
+        Input: left = "Left", right = "Right";
+        Processing: "Compare bits from low to high.";
+        Output: "The combination.";
+    } {
+        Return This.Bits(left, right, 2);
+    }
+
+    Public Function ShiftLeft(Int value, Int count) -> Int
+    Explain {
+        Description: "Shift an integer left.";
+        Input: value = "Value", count = "Bit count from 0 through 16";
+        Processing: "Multiply by a power of two.";
+        Output: "The shifted value.";
+    } {
+        If (count < 0 || count > 16) {
+            problem = "domain";
+            Return 0;
+        }
+        Int result = value;
+        Int index = 0;
+        While (index < count) {
+            result = result * 2;
+            index = index + 1;
+        }
+        problem = "none";
+        Return This.FromInt(result);
+    }
+
+    Public Function ShiftRight(Int value, Int count) -> Int
+    Explain {
+        Description: "Shift an integer right.";
+        Input: value = "Value", count = "Bit count from 0 through 16";
+        Processing: "Divide by a power of two toward zero.";
+        Output: "The shifted value.";
+    } {
+        If (count < 0 || count > 16) {
+            problem = "domain";
+            Return 0;
+        }
+        Int result = value;
+        Int index = 0;
+        While (index < count) {
+            result = result / 2;
+            index = index + 1;
+        }
+        problem = "none";
+        Return This.FromInt(result);
+    }
+
+    Public Function TestBit(Int value, Int index) -> Int
+    Explain {
+        Description: "Read one bit.";
+        Input: value = "Value", index = "Bit index";
+        Processing: "Shift right and test the low bit.";
+        Output: "One when the bit is set.";
+    } {
+        Return This.ShiftRight(value, index) % 2;
+    }
+
+    Public Function CreateRational(Int numerator, Int denominator) -> Int
+    Explain {
+        Description: "Store a reduced rational.";
+        Input: numerator = "Numerator", denominator = "Denominator";
+        Processing: "Divide both parts by their greatest common divisor.";
+        Output: "The numerator.";
+    } {
+        If (denominator == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        Int divisor = This.Gcd(numerator, denominator);
+        Int num = numerator / divisor;
+        Int den = denominator / divisor;
+        If (den < 0) {
+            den = 0 - den;
+            num = 0 - num;
+        }
+        other[0] = den;
+        otherLength = 1;
+        problem = "none";
+        Return This.FromInt(num);
+    }
+
+    Public Function Denominator() -> Int
+    Explain {
+        Description: "Read the denominator of the latest rational.";
+        Input: "No parameters";
+        Processing: "Read the stored denominator.";
+        Output: "The denominator.";
+    } {
+        Return other[0];
+    }
+
+    Public Function AddRational(Int n1, Int d1, Int n2, Int d2) -> Int
+    Explain {
+        Description: "Add two rationals.";
+        Input: n1 = "First numerator", d1 = "First denominator", n2 = "Second numerator", d2 = "Second denominator";
+        Processing: "Use a common denominator and reduce.";
+        Output: "The numerator.";
+    } {
+        Return This.CreateRational(n1 * d2 + n2 * d1, d1 * d2);
+    }
+
+    Public Function SubtractRational(Int n1, Int d1, Int n2, Int d2) -> Int
+    Explain {
+        Description: "Subtract two rationals.";
+        Input: n1 = "First numerator", d1 = "First denominator", n2 = "Second numerator", d2 = "Second denominator";
+        Processing: "Use a common denominator and reduce.";
+        Output: "The numerator.";
+    } {
+        Return This.CreateRational(n1 * d2 - n2 * d1, d1 * d2);
+    }
+
+    Public Function MultiplyRational(Int n1, Int d1, Int n2, Int d2) -> Int
+    Explain {
+        Description: "Multiply two rationals.";
+        Input: n1 = "First numerator", d1 = "First denominator", n2 = "Second numerator", d2 = "Second denominator";
+        Processing: "Multiply the parts and reduce.";
+        Output: "The numerator.";
+    } {
+        Return This.CreateRational(n1 * n2, d1 * d2);
+    }
+
+    Public Function DivideRational(Int n1, Int d1, Int n2, Int d2) -> Int
+    Explain {
+        Description: "Divide two rationals.";
+        Input: n1 = "First numerator", d1 = "First denominator", n2 = "Second numerator", d2 = "Second denominator";
+        Processing: "Multiply by the reciprocal and reduce.";
+        Output: "The numerator.";
+    } {
+        Return This.CreateRational(n1 * d2, d1 * n2);
+    }
+
+    Public Function ParseBigInteger(String text) -> Int
+    Explain {
+        Description: "Parse a decimal integer.";
+        Input: text = "Digits with an optional sign";
+        Processing: "Accumulate the digits.";
+        Output: "The integer, or zero when the text is not an integer.";
+    } {
+        If (text.Length() == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Int index = 0;
+        Int parsedSign = 1;
+        String mark = text.Substring(0, 1);
+        If (mark == "-") {
+            parsedSign = -1;
+            index = 1;
+        }
+        Int total = 0;
+        If (index >= text.Length()) {
+            problem = "parse";
+            Return 0;
+        }
+        While (index < text.Length()) {
+            Int digit = This.Digit(text.Substring(index, 1));
+            If (digit < 0) {
+                problem = "parse";
+                Return 0;
+            }
+            total = total * 10 + digit;
+            index = index + 1;
+        }
+        problem = "none";
+        Return This.FromInt(parsedSign * total);
+    }
+
+    Public Function TryParseBigInteger(String text) -> Int
+    Explain {
+        Description: "Try to parse a decimal integer.";
+        Input: text = "Text";
+        Processing: "Use the integer parser.";
+        Output: "The integer, or zero when parsing fails.";
+    } {
+        Return This.ParseBigInteger(text);
+    }
+
+    Public Function ToDecimalString(Int value) -> String
+    Explain {
+        Description: "Format an integer as decimal text.";
+        Input: value = "Value";
+        Processing: "Use the integer text and store the value.";
+        Output: "The text.";
+    } {
+        This.FromInt(value);
+        Return value.ToString();
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest big-number error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function MulSmall(Int factor) -> Int {
+        Int factorSign = 1;
+        Int magnitude = factor;
+        If (magnitude < 0) {
+            factorSign = -1;
+            magnitude = 0 - magnitude;
+        }
+        sign = sign * factorSign;
+        Int carry = 0;
+        Int index = 0;
+        While (index < 8) {
+            Int product = limbs[index] * magnitude + carry;
+            limbs[index] = product % base;
+            carry = product / base;
+            index = index + 1;
+        }
+        length = 8;
+        While (length > 1 && limbs[length - 1] == 0) { length = length - 1; }
+        Return This.Value();
+    }
+
+    Private Function Bits(Int left, Int right, Int kind) -> Int {
+        Int result = 0;
+        Int place = 1;
+        Int a = left;
+        Int b = right;
+        If (a < 0) { a = 0 - a; }
+        If (b < 0) { b = 0 - b; }
+        Int index = 0;
+        While (index < 16) {
+            Int bitA = a % 2;
+            Int bitB = b % 2;
+            Int bit = 0;
+            If (kind == 0 && bitA == 1 && bitB == 1) { bit = 1; }
+            If (kind == 1 && (bitA == 1 || bitB == 1)) { bit = 1; }
+            If (kind == 2 && bitA != bitB) { bit = 1; }
+            result = result + bit * place;
+            a = a / 2;
+            b = b / 2;
+            place = place * 2;
+            index = index + 1;
+        }
+        Return This.FromInt(result);
+    }
+
+    Private Function Abs(Int value) -> Int {
+        If (value < 0) { Return 0 - value; }
+        Return value;
+    }
+
+    Private Function Digit(String piece) -> Int {
+        If (piece == "0") { Return 0; }
+        If (piece == "1") { Return 1; }
+        If (piece == "2") { Return 2; }
+        If (piece == "3") { Return 3; }
+        If (piece == "4") { Return 4; }
+        If (piece == "5") { Return 5; }
+        If (piece == "6") { Return 6; }
+        If (piece == "7") { Return 7; }
+        If (piece == "8") { Return 8; }
+        If (piece == "9") { Return 9; }
+        Return -1;
+    }
+}

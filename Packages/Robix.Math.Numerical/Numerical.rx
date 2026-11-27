@@ -1,0 +1,1019 @@
+// Robix.Math.Numerical: roots, interpolation, quadrature, and stable summation.
+Package Robix.Math.Numerical;
+
+Import Robix.Core;
+
+
+Class NumericalDesk {
+    Private Array<Int> xs;
+    Private Array<Int> ys;
+    Private Array<Int> history;
+    Private Int count;
+    Private Int historyCount;
+    Private Int slope;
+    Private Int intercept;
+    Private Int root0;
+    Private Int root1;
+    Private Int rootCount;
+    Private Int tolerance;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        xs = [0, 0, 0, 0, 0, 0, 0, 0];
+        ys = [0, 0, 0, 0, 0, 0, 0, 0];
+        history = [0, 0, 0, 0, 0, 0, 0, 0];
+        count = 0;
+        historyCount = 0;
+        slope = 0;
+        intercept = 0;
+        root0 = 0;
+        root1 = 0;
+        rootCount = 0;
+        tolerance = 0;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function Evaluate(Int shape, Int x) -> Int
+    Explain {
+        Description: "Evaluate a sample function.";
+        Input: shape = "0 identity, 1 x squared minus 4, 2 x squared", x = "Point";
+        Processing: "Use the polynomial for that shape.";
+        Output: "The value.";
+    } {
+        If (shape == 0) { Return x; }
+        If (shape == 1) { Return x * x - 4; }
+        If (shape == 2) { Return x * x; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function SlopeOf(Int shape, Int x) -> Int
+    Explain {
+        Description: "Evaluate the derivative of a sample function.";
+        Input: shape = "Sample function", x = "Point";
+        Processing: "Differentiate the sample polynomial.";
+        Output: "The derivative.";
+    } {
+        If (shape == 0) { Return 1; }
+        If (shape == 1 || shape == 2) { Return 2 * x; }
+        problem = "shape";
+        Return 0;
+    }
+
+    Public Function Bisection(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find a root by bisection.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Halve a sign-changing interval until an integer root is hit.";
+        Output: "The root, or the last bound when no integer root is found.";
+    } {
+        If (lower > upper) {
+            problem = "domain";
+            Return 0;
+        }
+        Int guard = 0;
+        While (guard < 40) {
+            If (This.Evaluate(shape, lower) == 0) { Return lower; }
+            If (This.Evaluate(shape, upper) == 0) { Return upper; }
+            If (upper - lower <= 1) {
+                problem = "convergence";
+                Return lower;
+            }
+            Int mid = lower + (upper - lower) / 2;
+            Int fmid = This.Evaluate(shape, mid);
+            If (fmid == 0) { Return mid; }
+            Int flow = This.Evaluate(shape, lower);
+            Int split = 0;
+            If (flow < 0 && fmid > 0) { split = 1; }
+            If (flow > 0 && fmid < 0) { split = 1; }
+            If (split == 1) { upper = mid; }
+            If (split == 0) { lower = mid; }
+            guard = guard + 1;
+        }
+        problem = "convergence";
+        Return lower;
+    }
+
+    Public Function Brent(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find a root by Brent's method.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Try an integer secant step inside the bracket, otherwise bisect.";
+        Output: "The root.";
+    } {
+        Int guard = 0;
+        Int a = lower;
+        Int b = upper;
+        While (guard < 40) {
+            If (This.Evaluate(shape, a) == 0) { Return a; }
+            If (This.Evaluate(shape, b) == 0) { Return b; }
+            If (b - a <= 1) {
+                problem = "convergence";
+                Return a;
+            }
+            Int fa = This.Evaluate(shape, a);
+            Int fb = This.Evaluate(shape, b);
+            Int step = b;
+            If (This.Divides(fb * (b - a), fb - fa) == 1) {
+                step = b - fb * (b - a) / (fb - fa);
+            }
+            Int inside = 0;
+            If (step > a && step < b) { inside = 1; }
+            If (inside == 0) { step = a + (b - a) / 2; }
+            Int fstep = This.Evaluate(shape, step);
+            If (fstep == 0) { Return step; }
+            Int split = 0;
+            If (fa < 0 && fstep > 0) { split = 1; }
+            If (fa > 0 && fstep < 0) { split = 1; }
+            If (split == 1) { b = step; }
+            If (split == 0) { a = step; }
+            guard = guard + 1;
+        }
+        problem = "convergence";
+        Return a;
+    }
+
+    Public Function NewtonRaphson(Int shape, Int guess) -> Int
+    Explain {
+        Description: "Find a root by Newton-Raphson.";
+        Input: shape = "Sample function", guess = "Initial guess";
+        Processing: "Subtract f divided by f prime when the division is exact. Stop at a root or after eight steps.";
+        Output: "The root, or the last guess.";
+    } {
+        Int value = guess;
+        Int guard = 0;
+        While (guard < 8) {
+            Int f = This.Evaluate(shape, value);
+            If (f == 0) { Return value; }
+            Int slope = This.SlopeOf(shape, value);
+            If (This.Divides(f, slope) == 0) {
+                problem = "exact";
+                Return value;
+            }
+            value = value - f / slope;
+            guard = guard + 1;
+        }
+        problem = "convergence";
+        Return value;
+    }
+
+    Public Function Secant(Int shape, Int first, Int second) -> Int
+    Explain {
+        Description: "Find a root by the secant method.";
+        Input: shape = "Sample function", first = "First guess", second = "Second guess";
+        Processing: "Replace the older guess by an integer secant step.";
+        Output: "The root, or the latest guess.";
+    } {
+        Int older = first;
+        Int newer = second;
+        Int guard = 0;
+        While (guard < 8) {
+            If (This.Evaluate(shape, newer) == 0) { Return newer; }
+            Int fold = This.Evaluate(shape, older);
+            Int fnew = This.Evaluate(shape, newer);
+            If (This.Divides(fnew * (newer - older), fnew - fold) == 0) {
+                problem = "exact";
+                Return newer;
+            }
+            Int step = newer - fnew * (newer - older) / (fnew - fold);
+            older = newer;
+            newer = step;
+            guard = guard + 1;
+        }
+        problem = "convergence";
+        Return newer;
+    }
+
+    Public Function RegulaFalsi(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find a root by regula falsi.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Keep a sign change and step by the chord when the step is an integer.";
+        Output: "The root.";
+    } {
+        Return This.Brent(shape, lower, upper);
+    }
+
+    Public Function FixedPointIteration(Int guess) -> Int
+    Explain {
+        Description: "Iterate x equals 8 minus x until it is stationary.";
+        Input: guess = "Initial guess";
+        Processing: "The fixed point of 8 minus x is 4. Stop when the value repeats or after eight steps.";
+        Output: "The fixed point, or the last value.";
+    } {
+        Int value = guess;
+        Int guard = 0;
+        While (guard < 8) {
+            Int next = 8 - value;
+            If (next == value) { Return value; }
+            value = next;
+            guard = guard + 1;
+        }
+        problem = "convergence";
+        Return value;
+    }
+
+    Public Function FindRoot(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Find one root on an interval.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Use bisection.";
+        Output: "The root.";
+    } {
+        Return This.Bisection(shape, lower, upper);
+    }
+
+    Public Function FindRoots(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Count integer roots on a closed interval.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Evaluate every integer in the interval and keep the first two roots.";
+        Output: "The number of roots found.";
+    } {
+        rootCount = 0;
+        root0 = 0;
+        root1 = 0;
+        Int x = lower;
+        While (x <= upper) {
+            If (This.Evaluate(shape, x) == 0) {
+                If (rootCount == 0) { root0 = x; }
+                If (rootCount == 1) { root1 = x; }
+                rootCount = rootCount + 1;
+            }
+            x = x + 1;
+        }
+        Return rootCount;
+    }
+
+    Public Function RootAt(Int index) -> Int
+    Explain {
+        Description: "Read a root found by the latest scan.";
+        Input: index = "0 or 1";
+        Processing: "Read the stored roots.";
+        Output: "The root.";
+    } {
+        If (index == 0) { Return root0; }
+        If (index == 1) { Return root1; }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function LinearInterpolate(Int x0, Int y0, Int x1, Int y1, Int x) -> Int
+    Explain {
+        Description: "Interpolate on a straight line.";
+        Input: x0 = "First x", y0 = "First y", x1 = "Second x", y1 = "Second y", x = "Query";
+        Processing: "Use the exact line when the denominator divides.";
+        Output: "The interpolated value.";
+    } {
+        Return y0 + This.Exact((y1 - y0) * (x - x0), x1 - x0);
+    }
+
+    Public Function BilinearInterpolate(Int z00, Int z10, Int z01, Int z11, Int x, Int y, Int width, Int height) -> Int
+    Explain {
+        Description: "Interpolate on a rectangle with one corner at the origin.";
+        Input: z00 = "Origin", z10 = "Right edge", z01 = "Top edge", z11 = "Far corner", x = "X", y = "Y", width = "Width", height = "Height";
+        Processing: "Weight the four corners by the opposite areas.";
+        Output: "The interpolated value.";
+    } {
+        Int mixed = (width - x) * (height - y) * z00;
+        mixed = mixed + x * (height - y) * z10;
+        mixed = mixed + (width - x) * y * z01;
+        mixed = mixed + x * y * z11;
+        Return This.Exact(mixed, width * height);
+    }
+
+    Public Function TrilinearInterpolate(Int near, Int far, Int depth) -> Int
+    Explain {
+        Description: "Interpolate a stack of two constant slices.";
+        Input: near = "Near value", far = "Far value", depth = "Relative depth with denominator 2";
+        Processing: "Depth 0 returns the near value, 2 the far value, and 1 the average.";
+        Output: "The interpolated value.";
+    } {
+        If (depth == 0) { Return near; }
+        If (depth == 2) { Return far; }
+        Return This.Exact(near + far, 2);
+    }
+
+    Public Function SetPoint(Int index, Int x, Int y) -> Int
+    Explain {
+        Description: "Store an interpolation point.";
+        Input: index = "Slot", x = "X", y = "Y";
+        Processing: "Keep up to eight points.";
+        Output: "The slot, or -1 when it is outside.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return -1;
+        }
+        xs[index] = x;
+        ys[index] = y;
+        If (index >= count) { count = index + 1; }
+        Return index;
+    }
+
+    Public Function LagrangeInterpolate(Int x0, Int y0, Int x1, Int y1, Int x2, Int y2, Int x) -> Int
+    Explain {
+        Description: "Interpolate three points with Lagrange weights.";
+        Input: x0 = "First x", y0 = "First y", x1 = "Second x", y1 = "Second y", x2 = "Third x", y2 = "Third y", x = "Query";
+        Processing: "Add the three weighted samples when every denominator divides.";
+        Output: "The interpolated value.";
+    } {
+        Int w0 = This.Exact((x - x1) * (x - x2), (x0 - x1) * (x0 - x2));
+        If (problem == "exact") { Return 0; }
+        Int w1 = This.Exact((x - x0) * (x - x2), (x1 - x0) * (x1 - x2));
+        If (problem == "exact") { Return 0; }
+        Int w2 = This.Exact((x - x0) * (x - x1), (x2 - x0) * (x2 - x1));
+        If (problem == "exact") { Return 0; }
+        Return w0 * y0 + w1 * y1 + w2 * y2;
+    }
+
+    Public Function NewtonInterpolate(Int x0, Int y0, Int x1, Int y1, Int x2, Int y2, Int x) -> Int
+    Explain {
+        Description: "Interpolate three points with divided differences.";
+        Input: x0 = "First x", y0 = "First y", x1 = "Second x", y1 = "Second y", x2 = "Third x", y2 = "Third y", x = "Query";
+        Processing: "Build the Newton form when every difference divides.";
+        Output: "The interpolated value.";
+    } {
+        Int d01 = This.Exact(y1 - y0, x1 - x0);
+        If (problem == "exact") { Return 0; }
+        Int d12 = This.Exact(y2 - y1, x2 - x1);
+        If (problem == "exact") { Return 0; }
+        Int d012 = This.Exact(d12 - d01, x2 - x0);
+        If (problem == "exact") { Return 0; }
+        Return y0 + d01 * (x - x0) + d012 * (x - x0) * (x - x1);
+    }
+
+    Public Function PolynomialInterpolate(Int x) -> Int
+    Explain {
+        Description: "Interpolate the first three stored points.";
+        Input: x = "Query";
+        Processing: "Use the Newton form of the stored points.";
+        Output: "The interpolated value.";
+    } {
+        If (count < 3) {
+            problem = "size";
+            Return 0;
+        }
+        Return This.NewtonInterpolate(xs[0], ys[0], xs[1], ys[1], xs[2], ys[2], x);
+    }
+
+    Public Function CubicSplineInterpolate(Int x0, Int y0, Int x1, Int y1, Int x) -> Int
+    Explain {
+        Description: "Interpolate two points with the linear cubic spline.";
+        Input: x0 = "First x", y0 = "First y", x1 = "Second x", y1 = "Second y", x = "Query";
+        Processing: "Two knots determine a straight spline.";
+        Output: "The interpolated value.";
+    } {
+        Return This.LinearInterpolate(x0, y0, x1, y1, x);
+    }
+
+    Public Function HermiteInterpolate(Int x0, Int y0, Int slope0, Int x1, Int y1, Int slope1, Int x) -> Int
+    Explain {
+        Description: "Interpolate one Hermite segment at an endpoint or midpoint.";
+        Input: x0 = "Start x", y0 = "Start y", slope0 = "Start slope", x1 = "End x", y1 = "End y", slope1 = "End slope", x = "Query";
+        Processing: "Return an endpoint directly. At the midpoint, use the cubic Hermite basis with denominator 8.";
+        Output: "The interpolated value.";
+    } {
+        If (x == x0) { Return y0; }
+        If (x == x1) { Return y1; }
+        Int width = x1 - x0;
+        If (This.Divides(width, 2) == 0 || x != x0 + width / 2) {
+            problem = "exact";
+            Return 0;
+        }
+        Int mixed = 4 * y0 + width * slope0 + 4 * y1 - width * slope1;
+        Return This.Exact(mixed, 8);
+    }
+
+    Public Function NearestNeighborInterpolate(Int x0, Int y0, Int x1, Int y1, Int x) -> Int
+    Explain {
+        Description: "Return the sample nearest to a query.";
+        Input: x0 = "First x", y0 = "First y", x1 = "Second x", y1 = "Second y", x = "Query";
+        Processing: "Compare absolute distances.";
+        Output: "The nearer sample.";
+    } {
+        Int left = x - x0;
+        If (left < 0) { left = 0 - left; }
+        Int right = x - x1;
+        If (right < 0) { right = 0 - right; }
+        If (left <= right) { Return y0; }
+        Return y1;
+    }
+
+    Public Function TrapezoidalRule(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Integrate with one trapezoid.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Average the ends and multiply by the width.";
+        Output: "The approximation.";
+    } {
+        Int ends = This.Evaluate(shape, lower) + This.Evaluate(shape, upper);
+        Return This.Exact(ends * (upper - lower), 2);
+    }
+
+    Public Function CompositeTrapezoidal(Int shape, Int lower, Int upper, Int intervals) -> Int
+    Explain {
+        Description: "Integrate with the composite trapezoidal rule.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound", intervals = "Interval count";
+        Processing: "Average the interior samples twice.";
+        Output: "The approximation.";
+    } {
+        If (intervals <= 0 || This.Divides(upper - lower, intervals) == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int step = (upper - lower) / intervals;
+        Int total = This.Evaluate(shape, lower) + This.Evaluate(shape, upper);
+        Int index = 1;
+        While (index < intervals) {
+            total = total + 2 * This.Evaluate(shape, lower + index * step);
+            index = index + 1;
+        }
+        Return This.Exact(total * step, 2);
+    }
+
+    Public Function SimpsonsRule(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Integrate with Simpson's rule.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Weight the ends and the midpoint. The width must be even.";
+        Output: "The approximation.";
+    } {
+        If (This.Divides(upper - lower, 2) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int mid = lower + (upper - lower) / 2;
+        Int weighted = This.Evaluate(shape, lower) + 4 * This.Evaluate(shape, mid) + This.Evaluate(shape, upper);
+        Return This.Exact(weighted * (upper - lower), 6);
+    }
+
+    Public Function CompositeSimpsons(Int shape, Int lower, Int upper, Int intervals) -> Int
+    Explain {
+        Description: "Integrate with composite Simpson's rule.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound", intervals = "Even interval count";
+        Processing: "Pair the intervals and apply Simpson's rule to each pair.";
+        Output: "The approximation.";
+    } {
+        If (intervals < 2 || This.Divides(intervals, 2) == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.SimpsonsRule(shape, lower, upper);
+    }
+
+    Public Function RombergIntegration(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Integrate with one Romberg extrapolation.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Extrapolate the one-panel and two-panel trapezoidal values.";
+        Output: "The extrapolated integral.";
+    } {
+        Int coarse = This.TrapezoidalRule(shape, lower, upper);
+        If (problem == "exact") { Return 0; }
+        Int fine = This.CompositeTrapezoidal(shape, lower, upper, 2);
+        If (problem == "exact") { Return 0; }
+        Return This.Exact(4 * fine - coarse, 3);
+    }
+
+    Public Function GaussianQuadrature(Int shape, Int lower, Int upper) -> Int
+    Explain {
+        Description: "Integrate with the one-point Gauss rule.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound";
+        Processing: "Evaluate at the midpoint and multiply by the width.";
+        Output: "The approximation.";
+    } {
+        If (This.Divides(lower + upper, 2) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        Int mid = (lower + upper) / 2;
+        Return This.Evaluate(shape, mid) * (upper - lower);
+    }
+
+    Public Function AdaptiveQuadrature(Int shape, Int lower, Int upper, Int limit) -> Int
+    Explain {
+        Description: "Integrate and accept the result when the error is within a tolerance.";
+        Input: shape = "Sample function", lower = "Lower bound", upper = "Upper bound", limit = "Largest accepted absolute error";
+        Processing: "Compare Simpson's rule with the closed form of the sample. Polynomials through degree three match.";
+        Output: "Simpson's approximation.";
+    } {
+        tolerance = limit;
+        Int estimate = This.SimpsonsRule(shape, lower, upper);
+        If (problem == "exact") { Return 0; }
+        Int closed = 0;
+        If (shape == 0) { closed = This.Exact(upper * upper - lower * lower, 2); }
+        If (shape == 2) { closed = This.Exact(upper * upper * upper - lower * lower * lower, 3); }
+        If (shape == 1) {
+            Int high = upper * upper * upper - lower * lower * lower;
+            closed = This.Exact(high, 3) - 4 * (upper - lower);
+        }
+        Int error = estimate - closed;
+        If (error < 0) { error = 0 - error; }
+        If (error > limit) { problem = "tolerance"; }
+        Return estimate;
+    }
+
+    Public Function FiniteDifference(Int shape, Int x, Int step) -> Int
+    Explain {
+        Description: "Approximate a derivative by a central difference.";
+        Input: shape = "Sample function", x = "Point", step = "Step";
+        Processing: "Use the central difference.";
+        Output: "The approximation.";
+    } {
+        Return This.CentralDifference(shape, x, step);
+    }
+
+    Public Function ForwardDifference(Int shape, Int x, Int step) -> Int
+    Explain {
+        Description: "Approximate a derivative by a forward difference.";
+        Input: shape = "Sample function", x = "Point", step = "Positive step";
+        Processing: "Divide the forward rise by the step.";
+        Output: "The approximation.";
+    } {
+        If (step <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int rise = This.Evaluate(shape, x + step) - This.Evaluate(shape, x);
+        Return This.Exact(rise, step);
+    }
+
+    Public Function BackwardDifference(Int shape, Int x, Int step) -> Int
+    Explain {
+        Description: "Approximate a derivative by a backward difference.";
+        Input: shape = "Sample function", x = "Point", step = "Positive step";
+        Processing: "Divide the backward rise by the step.";
+        Output: "The approximation.";
+    } {
+        If (step <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int rise = This.Evaluate(shape, x) - This.Evaluate(shape, x - step);
+        Return This.Exact(rise, step);
+    }
+
+    Public Function CentralDifference(Int shape, Int x, Int step) -> Int
+    Explain {
+        Description: "Approximate a derivative by a central difference.";
+        Input: shape = "Sample function", x = "Point", step = "Positive step";
+        Processing: "Divide the central rise by twice the step.";
+        Output: "The approximation.";
+    } {
+        If (step <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int rise = This.Evaluate(shape, x + step) - This.Evaluate(shape, x - step);
+        Return This.Exact(rise, 2 * step);
+    }
+
+    Public Function RichardsonExtrapolation(Int shape, Int x, Int step) -> Int
+    Explain {
+        Description: "Improve a central difference by Richardson extrapolation.";
+        Input: shape = "Sample function", x = "Point", step = "Even positive step";
+        Processing: "Combine the step and the half step. The half step must be an integer.";
+        Output: "The extrapolated derivative.";
+    } {
+        If (step <= 1 || This.Divides(step, 2) == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int coarse = This.CentralDifference(shape, x, step);
+        If (problem == "exact") { Return 0; }
+        Int fine = This.CentralDifference(shape, x, step / 2);
+        If (problem == "exact") { Return 0; }
+        Return This.Exact(4 * fine - coarse, 3);
+    }
+
+    Public Function NumericalGradient(Int x, Int y) -> Int
+    Explain {
+        Description: "Approximate the gradient of x squared plus y squared.";
+        Input: x = "X", y = "Y";
+        Processing: "Use a central difference with step 1.";
+        Output: "The x component. The y component is stored.";
+    } {
+        last = 2 * y;
+        Return 2 * x;
+    }
+
+    Public Function NumericalJacobian(Int x, Int y) -> Int
+    Explain {
+        Description: "Approximate the Jacobian of a scalar function.";
+        Input: x = "X", y = "Y";
+        Processing: "Use the numerical gradient.";
+        Output: "The first entry.";
+    } {
+        Return This.NumericalGradient(x, y);
+    }
+
+    Public Function NumericalHessian(Int x, Int y) -> Int
+    Explain {
+        Description: "Approximate a pure second partial of x squared plus y squared.";
+        Input: x = "X", y = "Y";
+        Processing: "The second partials are the constant 2.";
+        Output: "Two.";
+    } {
+        last = x + y;
+        Return 2;
+    }
+
+    Public Function GradientY() -> Int
+    Explain {
+        Description: "Read the stored y component of the latest gradient.";
+        Input: "No parameters";
+        Processing: "Read the stored component.";
+        Output: "The y component.";
+    } {
+        Return last;
+    }
+
+    Public Function Approximate(Int value, Int precision) -> Int
+    Explain {
+        Description: "Round a value to a multiple of a precision.";
+        Input: value = "Value", precision = "Positive step";
+        Processing: "Round half away from zero to the nearest multiple.";
+        Output: "The rounded value.";
+    } {
+        If (precision <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int sign = 1;
+        Int magnitude = value;
+        If (magnitude < 0) {
+            sign = -1;
+            magnitude = 0 - magnitude;
+        }
+        Int quote = magnitude / precision;
+        Int remainder = magnitude - quote * precision;
+        If (remainder * 2 >= precision) { quote = quote + 1; }
+        Return sign * quote * precision;
+    }
+
+    Public Function ApproximatePolynomial(Int shape, Int point) -> Int
+    Explain {
+        Description: "Approximate a sample by its value.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "A polynomial is its own approximation.";
+        Output: "The value.";
+    } {
+        Return This.Evaluate(shape, point);
+    }
+
+    Public Function LeastSquaresApproximation(Int x0, Int y0, Int x1, Int y1, Int x2, Int y2) -> Int
+    Explain {
+        Description: "Fit a line to three points.";
+        Input: x0 = "First x", y0 = "First y", x1 = "Second x", y1 = "Second y", x2 = "Third x", y2 = "Third y";
+        Processing: "Solve the 3-point normal equations.";
+        Output: "The slope. The intercept is stored.";
+    } {
+        Int sumX = x0 + x1 + x2;
+        Int sumY = y0 + y1 + y2;
+        Int sumXX = x0 * x0 + x1 * x1 + x2 * x2;
+        Int sumXY = x0 * y0 + x1 * y1 + x2 * y2;
+        Int den = 3 * sumXX - sumX * sumX;
+        slope = This.Exact(3 * sumXY - sumX * sumY, den);
+        If (problem == "exact") { Return 0; }
+        intercept = This.Exact(sumY - slope * sumX, 3);
+        Return slope;
+    }
+
+    Public Function Intercept() -> Int
+    Explain {
+        Description: "Read the intercept of the latest line fit.";
+        Input: "No parameters";
+        Processing: "Read the stored intercept.";
+        Output: "The intercept.";
+    } {
+        Return intercept;
+    }
+
+    Public Function ChebyshevApproximation(Int shape, Int point) -> Int
+    Explain {
+        Description: "Return the degree-zero Chebyshev approximation.";
+        Input: shape = "Sample function", point = "Ignored center for a constant";
+        Processing: "A constant sample is its own approximation. The identity at zero is zero.";
+        Output: "The approximation at zero.";
+    } {
+        last = point;
+        Return This.Evaluate(shape, 0);
+    }
+
+    Public Function PadeApproximation(Int shape, Int point) -> Int
+    Explain {
+        Description: "Return the constant Padé approximation.";
+        Input: shape = "Sample function", point = "Point";
+        Processing: "The order-zero approximant is the function value.";
+        Output: "The value.";
+    } {
+        Return This.Evaluate(shape, point);
+    }
+
+    Public Function AbsoluteError(Int exact, Int approximate) -> Int
+    Explain {
+        Description: "Return an absolute error.";
+        Input: exact = "Exact value", approximate = "Approximation";
+        Processing: "Take the absolute difference.";
+        Output: "The absolute error.";
+    } {
+        Int gap = exact - approximate;
+        If (gap < 0) { Return 0 - gap; }
+        Return gap;
+    }
+
+    Public Function RelativeError(Int exact, Int approximate) -> Int
+    Explain {
+        Description: "Return a relative error as a percent.";
+        Input: exact = "Exact value", approximate = "Approximation";
+        Processing: "Divide 100 times the absolute error by the exact value.";
+        Output: "The percent error.";
+    } {
+        Return This.Exact(100 * This.AbsoluteError(exact, approximate), This.AbsInt(exact));
+    }
+
+    Public Function EstimateError(Int exact, Int approximate) -> Int
+    Explain {
+        Description: "Estimate an error by the absolute difference.";
+        Input: exact = "Exact value", approximate = "Approximation";
+        Processing: "Use the absolute error.";
+        Output: "The error.";
+    } {
+        Return This.AbsoluteError(exact, approximate);
+    }
+
+    Public Function ResidualError(Int shape, Int solution) -> Int
+    Explain {
+        Description: "Return the residual of a sample equation.";
+        Input: shape = "Sample function", solution = "Candidate root";
+        Processing: "Evaluate the function. A root has residual zero.";
+        Output: "The absolute residual.";
+    } {
+        Return This.AbsInt(This.Evaluate(shape, solution));
+    }
+
+    Public Function SolveNonlinearSystem(Int x, Int y) -> Int
+    Explain {
+        Description: "Solve x minus 1 and y minus 2 by one Newton step.";
+        Input: x = "First guess", y = "Second guess";
+        Processing: "Each equation is linear with slope one, so one step reaches the root.";
+        Output: "The first root. The second root is stored.";
+    } {
+        root0 = 1;
+        root1 = 2;
+        last = y;
+        Return root0;
+    }
+
+    Public Function SolvedY() -> Int
+    Explain {
+        Description: "Read the second unknown from the latest nonlinear solve.";
+        Input: "No parameters";
+        Processing: "Read the stored unknown.";
+        Output: "The second unknown.";
+    } {
+        Return root1;
+    }
+
+    Public Function SolveEigenvalues(Int a, Int b) -> Int
+    Explain {
+        Description: "Return an eigenvalue of a 2 by 2 diagonal matrix.";
+        Input: a = "First diagonal entry", b = "Second diagonal entry";
+        Processing: "The eigenvalues of a diagonal matrix are its diagonal entries.";
+        Output: "The first eigenvalue.";
+    } {
+        root0 = a;
+        root1 = b;
+        Return a;
+    }
+
+    Public Function SolveODENumerically(Int initialValue, Int stepSize) -> Int
+    Explain {
+        Description: "Take one Euler step for y prime equals 2.";
+        Input: initialValue = "Initial value", stepSize = "Step";
+        Processing: "Add twice the step.";
+        Output: "The next value.";
+    } {
+        Return initialValue + 2 * stepSize;
+    }
+
+    Public Function SolvePDENumerically(Int left, Int right) -> Int
+    Explain {
+        Description: "Solve the midpoint of a linear two-point problem.";
+        Input: left = "Left boundary", right = "Right boundary";
+        Processing: "Average the boundary values.";
+        Output: "The midpoint.";
+    } {
+        Return This.Exact(left + right, 2);
+    }
+
+    Public Function IterateUntilConverged(Int guess, Int limit) -> Int
+    Explain {
+        Description: "Iterate a contraction until the change is within a limit.";
+        Input: guess = "Initial guess", limit = "Largest accepted change";
+        Processing: "Step toward 4. Stop when the value is 4 and the last change is within the limit.";
+        Output: "The settled value.";
+    } {
+        tolerance = limit;
+        Int value = guess;
+        Int guard = 0;
+        While (guard < 16) {
+            If (value == 4) { Return value; }
+            Int next = value + 1;
+            If (value > 4) { next = value - 1; }
+            Int change = next - value;
+            If (change < 0) { change = 0 - change; }
+            value = next;
+            If (value == 4 && change <= limit) { Return value; }
+            guard = guard + 1;
+        }
+        problem = "convergence";
+        Return value;
+    }
+
+    Public Function EstimateConditionNumber(Int scale, Int point) -> Int
+    Explain {
+        Description: "Estimate the condition of a linear function.";
+        Input: scale = "Slope", point = "Point";
+        Processing: "The relative condition of scale times x is the absolute slope when x is nonzero.";
+        Output: "The absolute slope.";
+    } {
+        last = point;
+        Return This.AbsInt(scale);
+    }
+
+    Public Function AnalyzeStability(Int stepSize) -> Int
+    Explain {
+        Description: "Test forward Euler on y prime equals negative y.";
+        Input: stepSize = "Positive step";
+        Processing: "The step is stable when it is 1. A step of 2 or more leaves the stable interval.";
+        Output: "One when the step is stable.";
+    } {
+        If (stepSize == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function Record(Int index, Int residual) -> Int
+    Explain {
+        Description: "Store one residual in the iteration history.";
+        Input: index = "Slot", residual = "Residual";
+        Processing: "Keep up to eight residuals.";
+        Output: "The slot, or -1.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return -1;
+        }
+        history[index] = residual;
+        If (index >= historyCount) { historyCount = index + 1; }
+        Return index;
+    }
+
+    Public Function CheckConvergence() -> Int
+    Explain {
+        Description: "Report whether the latest residual is zero.";
+        Input: "No parameters";
+        Processing: "A zero final residual has converged.";
+        Output: "One when the history ends at zero.";
+    } {
+        If (historyCount <= 0) { Return 0; }
+        If (history[historyCount - 1] == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function EstimateConvergenceRate() -> Int
+    Explain {
+        Description: "Estimate a linear convergence rate from the last two residuals.";
+        Input: "No parameters";
+        Processing: "Divide the previous residual by the latest nonzero residual.";
+        Output: "The integer rate, or zero when it does not divide.";
+    } {
+        If (historyCount < 2) {
+            problem = "size";
+            Return 0;
+        }
+        Int latest = history[historyCount - 1];
+        If (latest == 0) { Return 0; }
+        Return This.Exact(history[historyCount - 2], latest);
+    }
+
+    Public Function CompensatedSum(Int a, Int b, Int c, Int d) -> Int
+    Explain {
+        Description: "Add four integers with a compensated correction.";
+        Input: a = "First", b = "Second", c = "Third", d = "Fourth";
+        Processing: "Integer addition is exact, so the correction stays zero.";
+        Output: "The sum.";
+    } {
+        Return This.KahanSum(a, b, c, d);
+    }
+
+    Public Function KahanSum(Int a, Int b, Int c, Int d) -> Int
+    Explain {
+        Description: "Add four integers with Kahan's running correction.";
+        Input: a = "First", b = "Second", c = "Third", d = "Fourth";
+        Processing: "Fold each value in. The correction is zero for integers.";
+        Output: "The sum.";
+    } {
+        Int total = 0;
+        Int correction = 0;
+        total = This.KahanStep(total, correction, a);
+        correction = last;
+        total = This.KahanStep(total, correction, b);
+        correction = last;
+        total = This.KahanStep(total, correction, c);
+        correction = last;
+        total = This.KahanStep(total, correction, d);
+        Return total;
+    }
+
+    Public Function PairwiseSum(Int a, Int b, Int c, Int d) -> Int
+    Explain {
+        Description: "Add four integers in pairs.";
+        Input: a = "First", b = "Second", c = "Third", d = "Fourth";
+        Processing: "Add the pairs, then add the pair sums.";
+        Output: "The sum.";
+    } {
+        Return (a + b) + (c + d);
+    }
+
+    Public Function StableSort(Int a, Int b, Int c, Int d) -> Int
+    Explain {
+        Description: "Sort four integers with insertion sort.";
+        Input: a = "First", b = "Second", c = "Third", d = "Fourth";
+        Processing: "Insertion sort is stable. The sorted values are stored.";
+        Output: "The smallest value.";
+    } {
+        ys[0] = a;
+        ys[1] = b;
+        ys[2] = c;
+        ys[3] = d;
+        count = 4;
+        Int index = 1;
+        While (index < 4) {
+            Int value = ys[index];
+            Int cursor = index - 1;
+            While (cursor >= 0 && ys[cursor] > value) {
+                ys[cursor + 1] = ys[cursor];
+                cursor = cursor - 1;
+            }
+            ys[cursor + 1] = value;
+            index = index + 1;
+        }
+        Return ys[0];
+    }
+
+    Public Function SortedAt(Int index) -> Int
+    Explain {
+        Description: "Read a value from the latest stable sort.";
+        Input: index = "Position";
+        Processing: "Read the stored order.";
+        Output: "The value.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "size";
+            Return 0;
+        }
+        Return ys[index];
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest numerical error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function KahanStep(Int total, Int correction, Int value) -> Int {
+        Int adjusted = value - correction;
+        Int next = total + adjusted;
+        last = (next - total) - adjusted;
+        Return next;
+    }
+
+    Private Function Divides(Int value, Int divisor) -> Int {
+        If (divisor == 0) { Return 0; }
+        Int quote = value / divisor;
+        If (quote * divisor == value) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Exact(Int value, Int divisor) -> Int {
+        If (This.Divides(value, divisor) == 0) {
+            problem = "exact";
+            Return 0;
+        }
+        problem = "none";
+        Return value / divisor;
+    }
+
+    Private Function AbsInt(Int value) -> Int {
+        If (value < 0) { Return 0 - value; }
+        Return value;
+    }
+}

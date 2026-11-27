@@ -1,0 +1,657 @@
+// Robix.Numerics: widths, limits, checked arithmetic, and numeric predicates.
+Package Robix.Numerics;
+
+Import Robix.Core;
+
+
+Class NumericsDesk {
+    Private Int bits;
+    Private Int signed;
+    Private Int category;
+    Private Int minimum;
+    Private Int maximum;
+    Private Int overflow;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        bits = 32;
+        signed = 1;
+        category = 0;
+        minimum = -2147483647;
+        maximum = 2147483647;
+        overflow = 0;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function Use(Int typeCode) -> Int
+    Explain {
+        Description: "Select a numeric type.";
+        Input: typeCode = "0 byte, 1 int16, 2 int32, 3 uint32, 4 float";
+        Processing: "Store the width, sign, category, and limits.";
+        Output: "The bit width, or zero when the code is unknown.";
+    } {
+        problem = "none";
+        signed = 1;
+        category = 0;
+        If (typeCode == 0) {
+            bits = 8;
+            minimum = 0;
+            maximum = 255;
+            signed = 0;
+            Return bits;
+        }
+        If (typeCode == 1) {
+            bits = 16;
+            minimum = -32768;
+            maximum = 32767;
+            Return bits;
+        }
+        If (typeCode == 2) {
+            bits = 32;
+            minimum = -2147483647;
+            maximum = 2147483647;
+            Return bits;
+        }
+        If (typeCode == 3) {
+            bits = 32;
+            minimum = 0;
+            maximum = 2147483647;
+            signed = 0;
+            Return bits;
+        }
+        If (typeCode == 4) {
+            bits = 64;
+            minimum = 0;
+            maximum = 0;
+            category = 1;
+            Return bits;
+        }
+        problem = "type";
+        Return 0;
+    }
+
+    Public Function GetNumericInfo() -> Int
+    Explain {
+        Description: "Return the bit width of the selected type.";
+        Input: "No parameters";
+        Processing: "Read the stored width.";
+        Output: "The bit width.";
+    } {
+        Return bits;
+    }
+
+    Public Function GetNumericLimits() -> Int
+    Explain {
+        Description: "Return the maximum of the selected type.";
+        Input: "No parameters";
+        Processing: "Read the stored maximum. A float reports zero here and is classified separately.";
+        Output: "The maximum.";
+    } {
+        Return maximum;
+    }
+
+    Public Function GetNumericCategory() -> Int
+    Explain {
+        Description: "Return the category of the selected type.";
+        Input: "No parameters";
+        Processing: "Zero is an integer and one is a float.";
+        Output: "The category.";
+    } {
+        Return category;
+    }
+
+    Public Function IsInteger() -> Int
+    Explain {
+        Description: "Report whether the selected type is an integer.";
+        Input: "No parameters";
+        Processing: "Read the category.";
+        Output: "One for an integer type.";
+    } {
+        If (category == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsFloatingPoint() -> Int
+    Explain {
+        Description: "Report whether the selected type is floating point.";
+        Input: "No parameters";
+        Processing: "Read the category.";
+        Output: "One for a float.";
+    } {
+        If (category == 1) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsDecimal() -> Int
+    Explain {
+        Description: "Report whether the selected type is a decimal.";
+        Input: "No parameters";
+        Processing: "This desk selects integers and binary floats. Decimals live in Robix.Decimal.";
+        Output: "Zero.";
+    } {
+        Return 0;
+    }
+
+    Public Function IsSigned() -> Int
+    Explain {
+        Description: "Report whether the selected type is signed.";
+        Input: "No parameters";
+        Processing: "Read the sign flag.";
+        Output: "One when the type is signed.";
+    } {
+        Return signed;
+    }
+
+    Public Function IsUnsigned() -> Int
+    Explain {
+        Description: "Report whether the selected type is unsigned.";
+        Input: "No parameters";
+        Processing: "Invert the sign flag.";
+        Output: "One when the type is unsigned.";
+    } {
+        If (signed == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsExact() -> Int
+    Explain {
+        Description: "Report whether the selected type is exact.";
+        Input: "No parameters";
+        Processing: "Integers are exact.";
+        Output: "One for an integer type.";
+    } {
+        Return This.IsInteger();
+    }
+
+    Public Function IsArbitraryPrecision() -> Int
+    Explain {
+        Description: "Report whether the selected type has arbitrary precision.";
+        Input: "No parameters";
+        Processing: "The fixed widths in this desk are not arbitrary precision.";
+        Output: "Zero.";
+    } {
+        Return 0;
+    }
+
+    Public Function Add(Int left, Int right) -> Int
+    Explain {
+        Description: "Add two integers.";
+        Input: left = "Left", right = "Right";
+        Processing: "Add the values.";
+        Output: "The sum.";
+    } {
+        overflow = 0;
+        Return left + right;
+    }
+
+    Public Function Subtract(Int left, Int right) -> Int
+    Explain {
+        Description: "Subtract two integers.";
+        Input: left = "Left", right = "Right";
+        Processing: "Subtract the right value.";
+        Output: "The difference.";
+    } {
+        overflow = 0;
+        Return left - right;
+    }
+
+    Public Function Multiply(Int left, Int right) -> Int
+    Explain {
+        Description: "Multiply two integers.";
+        Input: left = "Left", right = "Right";
+        Processing: "Multiply the values.";
+        Output: "The product.";
+    } {
+        overflow = 0;
+        Return left * right;
+    }
+
+    Public Function Divide(Int left, Int right) -> Int
+    Explain {
+        Description: "Divide two integers.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Divide toward zero.";
+        Output: "The quotient, or zero when the divisor is zero.";
+    } {
+        If (right == 0) {
+            problem = "divide";
+            overflow = 0;
+            Return 0;
+        }
+        problem = "none";
+        Return left / right;
+    }
+
+    Public Function Remainder(Int left, Int right) -> Int
+    Explain {
+        Description: "Return a remainder.";
+        Input: left = "Dividend", right = "Divisor";
+        Processing: "Use the truncating remainder.";
+        Output: "The remainder, or zero when the divisor is zero.";
+    } {
+        If (right == 0) {
+            problem = "divide";
+            Return 0;
+        }
+        problem = "none";
+        Return left - (left / right) * right;
+    }
+
+    Public Function Negate(Int value) -> Int
+    Explain {
+        Description: "Negate an integer.";
+        Input: value = "Value";
+        Processing: "Subtract the value from zero.";
+        Output: "The negation.";
+    } {
+        Return 0 - value;
+    }
+
+    Public Function Increment(Int value) -> Int
+    Explain {
+        Description: "Add one.";
+        Input: value = "Value";
+        Processing: "Add one.";
+        Output: "The next value.";
+    } {
+        Return value + 1;
+    }
+
+    Public Function Decrement(Int value) -> Int
+    Explain {
+        Description: "Subtract one.";
+        Input: value = "Value";
+        Processing: "Subtract one.";
+        Output: "The previous value.";
+    } {
+        Return value - 1;
+    }
+
+    Public Function Abs(Int value) -> Int
+    Explain {
+        Description: "Return the absolute value.";
+        Input: value = "Value";
+        Processing: "Negate a negative value.";
+        Output: "The absolute value.";
+    } {
+        If (value < 0) { Return 0 - value; }
+        Return value;
+    }
+
+    Public Function Min(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the smaller integer.";
+        Input: left = "Left", right = "Right";
+        Processing: "Compare the values.";
+        Output: "The smaller value.";
+    } {
+        If (left < right) { Return left; }
+        Return right;
+    }
+
+    Public Function Max(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the larger integer.";
+        Input: left = "Left", right = "Right";
+        Processing: "Compare the values.";
+        Output: "The larger value.";
+    } {
+        If (left > right) { Return left; }
+        Return right;
+    }
+
+    Public Function Clamp(Int value, Int low, Int high) -> Int
+    Explain {
+        Description: "Clamp an integer to a closed range.";
+        Input: value = "Value", low = "Low bound", high = "High bound";
+        Processing: "Pull the value inside the range.";
+        Output: "The clamped value.";
+    } {
+        If (value < low) { Return low; }
+        If (value > high) { Return high; }
+        Return value;
+    }
+
+    Public Function Compare(Int left, Int right) -> Int
+    Explain {
+        Description: "Compare two integers.";
+        Input: left = "Left", right = "Right";
+        Processing: "Negative means less, zero means equal, and positive means greater.";
+        Output: "The comparison sign.";
+    } {
+        If (left < right) { Return -1; }
+        If (left > right) { Return 1; }
+        Return 0;
+    }
+
+    Public Function AddChecked(Int left, Int right) -> Int
+    Explain {
+        Description: "Add and reject a sum outside the selected limits.";
+        Input: left = "Left", right = "Right";
+        Processing: "Return the sum when it lies inside the selected type.";
+        Output: "The sum, or zero on overflow.";
+    } {
+        Int sum = left + right;
+        If (sum < minimum || sum > maximum) {
+            overflow = 1;
+            problem = "overflow";
+            Return 0;
+        }
+        overflow = 0;
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function Convert(Int value) -> Int
+    Explain {
+        Description: "Convert an integer into the selected type by truncation.";
+        Input: value = "Value";
+        Processing: "Values outside the type become the nearest limit only when saturating is requested. This conversion wraps into range by clamping.";
+        Output: "The converted value.";
+    } {
+        Return This.Clamp(value, minimum, maximum);
+    }
+
+    Public Function ConvertChecked(Int value) -> Int
+    Explain {
+        Description: "Convert an integer and reject values outside the type.";
+        Input: value = "Value";
+        Processing: "Fail when the value is outside the selected limits.";
+        Output: "The value, or zero on overflow.";
+    } {
+        If (value < minimum || value > maximum) {
+            overflow = 1;
+            problem = "overflow";
+            Return 0;
+        }
+        overflow = 0;
+        problem = "none";
+        Return value;
+    }
+
+    Public Function ConvertSaturating(Int value) -> Int
+    Explain {
+        Description: "Convert an integer by saturating at the limits.";
+        Input: value = "Value";
+        Processing: "Clamp to the selected type.";
+        Output: "The converted value.";
+    } {
+        overflow = 0;
+        Return This.Clamp(value, minimum, maximum);
+    }
+
+    Public Function ConvertTruncating(Int value) -> Int
+    Explain {
+        Description: "Convert an integer by keeping the low bits of a byte or 16-bit type.";
+        Input: value = "Value";
+        Processing: "Mask to the width when the type is unsigned or 16-bit. A wider signed type is clamped.";
+        Output: "The converted value.";
+    } {
+        If (bits == 8) {
+            Int magnitude = value;
+            If (magnitude < 0) { magnitude = 0 - magnitude; }
+            Return magnitude % 256;
+        }
+        If (bits == 16) {
+            Int masked = value % 65536;
+            If (masked < 0) { masked = masked + 65536; }
+            If (signed == 1 && masked >= 32768) { Return masked - 65536; }
+            Return masked;
+        }
+        Return value;
+    }
+
+    Public Function TryConvert(Int value) -> Int
+    Explain {
+        Description: "Try to convert an integer.";
+        Input: value = "Value";
+        Processing: "Use the checked conversion.";
+        Output: "The value, or zero on overflow.";
+    } {
+        Return This.ConvertChecked(value);
+    }
+
+    Public Function Parse(String text) -> Int
+    Explain {
+        Description: "Parse an integer.";
+        Input: text = "Decimal text";
+        Processing: "Read an optional sign and digits.";
+        Output: "The integer, or zero when the text is not an integer.";
+    } {
+        If (text.Length() == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Int index = 0;
+        Int sign = 1;
+        String mark = text.Substring(0, 1);
+        If (mark == "-") {
+            sign = -1;
+            index = 1;
+        }
+        If (mark == "+") { index = 1; }
+        If (index >= text.Length()) {
+            problem = "parse";
+            Return 0;
+        }
+        Int total = 0;
+        While (index < text.Length()) {
+            String piece = text.Substring(index, 1);
+            Int digit = This.Digit(piece);
+            If (digit < 0) {
+                problem = "parse";
+                Return 0;
+            }
+            total = total * 10 + digit;
+            index = index + 1;
+        }
+        problem = "none";
+        Return sign * total;
+    }
+
+    Public Function TryParse(String text) -> Int
+    Explain {
+        Description: "Try to parse an integer.";
+        Input: text = "Decimal text";
+        Processing: "Use the integer parser.";
+        Output: "The integer, or zero when parsing fails.";
+    } {
+        Return This.Parse(text);
+    }
+
+    Public Function Format(Int value) -> String
+    Explain {
+        Description: "Format an integer as decimal text.";
+        Input: value = "Value";
+        Processing: "Use the integer text.";
+        Output: "The text.";
+    } {
+        Return value.ToString();
+    }
+
+    Public Function IsFinite(Int value) -> Int
+    Explain {
+        Description: "Report whether an integer is finite.";
+        Input: value = "Value";
+        Processing: "Every integer stored by this desk is finite.";
+        Output: "One.";
+    } {
+        last = value;
+        Return 1;
+    }
+
+    Public Function IsInfinity(Int value) -> Int
+    Explain {
+        Description: "Report whether an integer is infinite.";
+        Input: value = "Value";
+        Processing: "Integers are not infinite.";
+        Output: "Zero.";
+    } {
+        last = value;
+        Return 0;
+    }
+
+    Public Function IsNaN(Int value) -> Int
+    Explain {
+        Description: "Report whether an integer is not a number.";
+        Input: value = "Value";
+        Processing: "Integers are numbers.";
+        Output: "Zero.";
+    } {
+        last = value;
+        Return 0;
+    }
+
+    Public Function IsZero(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is zero.";
+        Input: value = "Value";
+        Processing: "Compare with zero.";
+        Output: "One when the value is zero.";
+    } {
+        If (value == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsEven(Int value) -> Int
+    Explain {
+        Description: "Report whether an integer is even.";
+        Input: value = "Value";
+        Processing: "The remainder on division by two is zero.";
+        Output: "One when the value is even.";
+    } {
+        If (value % 2 == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsOdd(Int value) -> Int
+    Explain {
+        Description: "Report whether an integer is odd.";
+        Input: value = "Value";
+        Processing: "Invert the even test.";
+        Output: "One when the value is odd.";
+    } {
+        If (This.IsEven(value) == 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsNegative(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is negative.";
+        Input: value = "Value";
+        Processing: "Compare with zero.";
+        Output: "One when the value is negative.";
+    } {
+        If (value < 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsPositive(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is positive.";
+        Input: value = "Value";
+        Processing: "Compare with zero.";
+        Output: "One when the value is positive.";
+    } {
+        If (value > 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsNormal(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is a normal number.";
+        Input: value = "Value";
+        Processing: "A nonzero integer is treated as normal.";
+        Output: "One when the value is nonzero.";
+    } {
+        If (value != 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsSubnormal(Int value) -> Int
+    Explain {
+        Description: "Report whether a value is subnormal.";
+        Input: value = "Value";
+        Processing: "Integers are not subnormal.";
+        Output: "Zero.";
+    } {
+        last = value;
+        Return 0;
+    }
+
+    Public Function MinValue() -> Int
+    Explain {
+        Description: "Return the minimum of the selected type.";
+        Input: "No parameters";
+        Processing: "Read the stored minimum.";
+        Output: "The minimum.";
+    } {
+        Return minimum;
+    }
+
+    Public Function MaxValue() -> Int
+    Explain {
+        Description: "Return the maximum of the selected type.";
+        Input: "No parameters";
+        Processing: "Read the stored maximum.";
+        Output: "The maximum.";
+    } {
+        Return maximum;
+    }
+
+    Public Function Epsilon() -> Int
+    Explain {
+        Description: "Return the integer unit in the last place.";
+        Input: "No parameters";
+        Processing: "Integer types step by one.";
+        Output: "One.";
+    } {
+        Return 1;
+    }
+
+    Public Function MachinePrecision() -> Int
+    Explain {
+        Description: "Return the machine unit for the selected integer type.";
+        Input: "No parameters";
+        Processing: "Integer arithmetic is exact to one unit.";
+        Output: "One.";
+    } {
+        Return 1;
+    }
+
+    Public Function Overflowed() -> Int
+    Explain {
+        Description: "Report whether the latest checked operation overflowed.";
+        Input: "No parameters";
+        Processing: "Read the overflow flag.";
+        Output: "One when the latest checked operation overflowed.";
+    } {
+        Return overflow;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest numeric error.";
+        Input: "No parameters";
+        Processing: "Read the stored error.";
+        Output: "The error text.";
+    } {
+        Return problem;
+    }
+
+    Private Function Digit(String piece) -> Int {
+        If (piece == "0") { Return 0; }
+        If (piece == "1") { Return 1; }
+        If (piece == "2") { Return 2; }
+        If (piece == "3") { Return 3; }
+        If (piece == "4") { Return 4; }
+        If (piece == "5") { Return 5; }
+        If (piece == "6") { Return 6; }
+        If (piece == "7") { Return 7; }
+        If (piece == "8") { Return 8; }
+        If (piece == "9") { Return 9; }
+        Return -1;
+    }
+}
