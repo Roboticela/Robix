@@ -25,6 +25,12 @@ Public Class CompileResult {
 }
 
 Public Class SyntaxCompiler {
+    Public Bool GateTests;
+
+    Public Constructor() {
+        This.GateTests = True;
+    }
+
     Public Function CompileSource(String source, String fileName, Bool compile) -> CompileResult
     Explain {
         Description: "Lex, parse, name-check, and type-check Robix source.";
@@ -46,7 +52,7 @@ Public Class SyntaxCompiler {
             TypeChecker types = TypeChecker(diagnostics);
             types.Check(module);
         }
-        If (compile && diagnostics.SyntaxErrorCount() == 0) {
+        If (compile && This.GateTests && diagnostics.SyntaxErrorCount() == 0) {
             This.RequireFunctionTests(fileName, module, diagnostics);
         }
         result.Module = module;

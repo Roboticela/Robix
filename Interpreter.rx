@@ -1,5 +1,8 @@
 // Tree-walk interpreter for Robix's executable syntax.
-Package Robix.Runtime;
+Package Robix.Runtime
+Explain {
+    Description: "Tree-walk interpreter for Robix."
+};
 
 Import Robix.Core;
 Import Robix.Syntax;
@@ -71,6 +74,14 @@ Public Class Interpreter {
     Private List<String> packageFunctionNames;
     Private List<String> packageFunctionPackages;
     Private String walkPackage;
+    Private Int spanStart;
+    Private Int spanEnd;
+    Private Int breakLine;
+    Private Bool stepping;
+    Private Bool stopArmed;
+    Private Int statementCount;
+    Private String coverageText;
+    Private String callStackText;
 
     Public Constructor() {
         This.names = List<String>();
@@ -103,6 +114,14 @@ Public Class Interpreter {
         This.packageFunctionNames = List<String>();
         This.packageFunctionPackages = List<String>();
         This.walkPackage = "";
+        This.spanStart = 0;
+        This.spanEnd = 0;
+        This.breakLine = 0;
+        This.stepping = False;
+        This.stopArmed = True;
+        This.statementCount = 0;
+        This.coverageText = "\n";
+        This.callStackText = "";
     }
 
     Public Function SetConsole(Bool enabled, Int port) -> Void
@@ -114,6 +133,82 @@ Public Class Interpreter {
     } {
         This.consoleEnabled = enabled;
         This.consolePort = port;
+    }
+
+    Public Function SetRunGate(Int startLine, Int endLine, Int breakLine, Bool trace) -> Void
+    Explain {
+        Description: "Limit execution to a line span and arm a breakpoint.";
+        Input: startLine = "First line to run, or zero for the whole file", endLine = "Last line to run, or zero for the whole file", breakLine = "Line that stops, or zero", trace = "True to stop at every statement";
+        Processing: "Store the span, the breakpoint, and the step flag. Definitions outside the span still run.";
+        Output: "No return value.";
+    } {
+        This.spanStart = startLine;
+        This.spanEnd = endLine;
+        This.breakLine = breakLine;
+        This.stepping = trace;
+        This.stopArmed = True;
+    }
+
+    Public Function StatementCount() -> Int
+    Explain {
+        Description: "Return how many statements this run visited.";
+        Input: None;
+        Processing: "Read the counter updated while the module runs.";
+        Output: "The statement count.";
+    } {
+        Return This.statementCount;
+    }
+
+    Public Function CoverageText() -> String
+    Explain {
+        Description: "Return the source lines this run executed.";
+        Input: None;
+        Processing: "Read the line numbers recorded while statements ran.";
+        Output: "One line number per line.";
+    } {
+        String covered = "";
+        If (This.coverageText != Null) { covered = This.coverageText; }
+        String text = "";
+        Int start = 0;
+        Int index = 0;
+        While (index <= covered.Length()) {
+            Bool boundary = index == covered.Length();
+            If (!boundary && covered.Substring(index, 1) == "\n") { boundary = True; }
+            If (boundary && index > start) {
+                String line = covered.Substring(start, index - start);
+                If (line != "") { text = text + line + "\n"; }
+            }
+            If (boundary) { start = index + 1; }
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Public Function ScopeText() -> String
+    Explain {
+        Description: "List the names in the current scope.";
+        Input: None;
+        Processing: "Read the names defined for the running program.";
+        Output: "One name per line.";
+    } {
+        String text = "";
+        Int index = 0;
+        While (index < This.names.Count()) {
+            text = text + This.names[index] + "\n";
+            index = index + 1;
+        }
+        Return text;
+    }
+
+    Public Function StackText() -> String
+    Explain {
+        Description: "Return the current call stack.";
+        Input: None;
+        Processing: "Read the function names entered and not yet left.";
+        Output: "One function name per line, most recent first.";
+    } {
+        If (This.callStackText == Null) { Return ""; }
+        Return This.callStackText;
     }
 
     Public Function Execute(AstNode module, List<String> arguments) -> Int
@@ -859,6 +954,67 @@ Public Class Interpreter {
         }
     }
 
+    Private Function SkipEffect(AstNode node) -> Bool {
+        If (node.Line > 0) {
+            String covered = "";
+            If (This.coverageText != Null) { covered = This.coverageText; }
+            String mark = "\n" + node.Line.ToString() + "\n";
+            If (!covered.Contains(mark)) { This.coverageText = covered + mark; }
+        }
+        If (This.StopHere(node)) { This.DebugStop(node); }
+        If (This.spanEnd < 1) { Return False; }
+        If (node.Line < 1) { Return False; }
+        If (node.Line >= This.spanStart && node.Line <= This.spanEnd) { Return False; }
+        If (node.Kind == AstKind.ExpressionStatement) { Return True; }
+        If (node.Kind == AstKind.Return) { Return True; }
+        If (node.Kind == AstKind.Throw) { Return True; }
+        If (node.Kind == AstKind.Assignment) { Return True; }
+        If (node.Kind == AstKind.Break) { Return True; }
+        If (node.Kind == AstKind.Continue) { Return True; }
+        Return False;
+    }
+
+    Private Function StopHere(AstNode node) -> Bool {
+        If (!This.stopArmed) { Return False; }
+        If (node.Line < 1) { Return False; }
+        Bool statement = node.Kind == AstKind.ExpressionStatement || node.Kind == AstKind.Assignment || node.Kind == AstKind.Return || node.Kind == AstKind.Variable;
+        If (!statement) { Return False; }
+        If (This.breakLine > 0 && node.Line == This.breakLine) { Return True; }
+        If (This.stepping) { Return True; }
+        Return False;
+    }
+
+    Private Function DebugStop(AstNode node) -> Void {
+        This.stopArmed = False;
+        Print("{debug}break{/}  line " + node.Line.ToString());
+        String stack = "";
+        If (This.callStackText != Null) { stack = This.callStackText; }
+        If (stack != "") { Print(stack); }
+        If (This.inTests) {
+            This.stopArmed = True;
+            Return;
+        }
+        While (True) {
+            String command = ReadConsoleLine().ToLower();
+            If (command == "" || command == "continue" || command == ":continue") {
+                This.stepping = False;
+                Break;
+            }
+            If (command == "step" || command == ":step") {
+                This.stepping = True;
+                Break;
+            }
+            If (command == "stop" || command == ":stop") {
+                This.stepping = False;
+                This.signal = "return";
+                Break;
+            }
+            If (command == "variables" || command == ":variables") { Print(This.ScopeText()); }
+            If (command == "stack" || command == ":stack") { Print(stack); }
+        }
+        This.stopArmed = True;
+    }
+
     Private Function ExecuteNode(AstNode node) -> Value {
         If (This.signal.StartsWith("goto:")) {
             If (node.Kind == AstKind.Label && This.signal == "goto:" + node.Name) {
@@ -869,6 +1025,8 @@ Public Class Interpreter {
         If (This.signal.Length() > 0 && node.Kind != AstKind.Function) {
             Return This.MakeVoid();
         }
+        If (This.SkipEffect(node)) { Return This.MakeVoid(); }
+        This.statementCount = This.statementCount + 1;
         If (node.Kind == AstKind.Using) {
             Value lease = This.MakeVoid();
             If (node.Initializer != Null) { lease = This.Evaluate(node.Initializer); }
@@ -2643,6 +2801,9 @@ Public Class Interpreter {
         }
         This.signal = "";
         This.returnValue = This.MakeVoid();
+        String previousStack = "";
+        If (This.callStackText != Null) { previousStack = This.callStackText; }
+        This.callStackText = function.Name + "\n" + previousStack;
         If (function.Body != Null) {
             This.ExecuteNode(function.Body);
         } Else If (function.Left != Null) {
@@ -2656,6 +2817,7 @@ Public Class Interpreter {
         }
         This.signal = previous;
         This.returnValue = previousReturn;
+        This.callStackText = previousStack;
         This.PopScope();
         Return result;
     }
@@ -4134,6 +4296,7 @@ Private Extern Function U64Parse(String text) -> Int;
 Private Extern Function F16Parse(String text) -> Int;
 Private Extern Function ReadLine() -> String;
 Private Extern Function ClockMillis() -> Int;
+Private Extern Function ReadConsoleLine() -> String;
 Private Extern Function BitAnd(Int left, Int right) -> Int;
 Private Extern Function BitOr(Int left, Int right) -> Int;
 Private Extern Function BitXor(Int left, Int right) -> Int;

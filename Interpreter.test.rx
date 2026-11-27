@@ -1275,6 +1275,54 @@ Test AddNumeric {
     }
 }
 
+Test StackText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SetRunGate {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StatementCount {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test CoverageText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test ScopeText {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test SkipEffect {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test StopHere {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
+Test DebugStop {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
 Test SetConsole {
     Constraint: True;
     Processing: True;

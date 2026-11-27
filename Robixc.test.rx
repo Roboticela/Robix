@@ -173,6 +173,18 @@ Test CompilerOption {
         Input: args = ["--Nope"];
         Output: "Unknown option --Nope.";
     }
+    Case "profile" {
+        Input: args = ["--Profile"];
+        Output: "";
+    }
+    Case "analyze" {
+        Input: args = ["--Analyze"];
+        Output: "";
+    }
+    Case "parallel" {
+        Input: args = ["--Parallel"];
+        Output: "";
+    }
 }
 
 Test OptionText {

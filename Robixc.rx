@@ -1,7 +1,7 @@
 // robixc compiles a Robix module into a native executable.
 Package Robix.Tools
 Explain {
-    Description: "Commands for the Robix native compiler.";
+    Description: "Commands for the Robix native compiler."
 };
 
 Import Robix.Core;
@@ -65,7 +65,9 @@ Explain {
         If (lower == "--ir") { mode = "ir"; }
     }
     String requested = CompilerOutput(args);
-    If (kind == "build") {
+    Bool projectBuild = kind == "build";
+    If (kind == "analyze" && (source == "" || source.EndsWith(".rxp"))) { projectBuild = True; }
+    If (projectBuild) {
         String projectPath = source;
         If (projectPath == "" || !projectPath.EndsWith(".rxp")) { projectPath = CompilerProject(); }
         If (projectPath == "" || !Files.Exists(projectPath)) {
@@ -73,8 +75,24 @@ Explain {
         }
         String project = Files.ReadText(projectPath);
         String entry = ProjectEntry(project);
-        If (entry == "") { Return FinishRun(ExitCode.ErrorExecution, "The project has no entry file."); }
         String title = ProjectHeading(project);
+        If (title == "") { title = "Program"; }
+        If (entry == "") {
+            String preferred = title + ".rx";
+            If (Files.Exists(preferred)) { entry = preferred; }
+        }
+        If (entry == "") {
+            For relative In Directory.Files(".") {
+                Bool sourceFile = relative.EndsWith(".rx") && !relative.EndsWith(".test.rx");
+                If (sourceFile && !relative.Contains("/") && !relative.Contains("\\")) {
+                    If (Files.ReadText(relative).Contains("Function Main")) {
+                        entry = relative;
+                        Break;
+                    }
+                }
+            }
+        }
+        If (entry == "") { Return FinishRun(ExitCode.ErrorExecution, "The project has no entry file."); }
         If (title == "") { title = OutputStem(entry); }
         source = entry;
         stem = title;
@@ -108,6 +126,9 @@ Explain {
     Bool noCache = kind == "rebuild";
     Bool optimize = True;
     Bool showStats = False;
+    Bool profileBuild = False;
+    Bool analyze = kind == "analyze";
+    Bool parallel = False;
     For arg In args {
         String lower = arg.ToLower();
         If (lower == "--skiptests") { skipTests = True; }
@@ -115,12 +136,15 @@ Explain {
         If (lower == "--debug" || lower == "--nooptimize") { optimize = False; }
         If (lower == "--release" || lower == "--optimize") { optimize = True; }
         If (lower == "--stats") { showStats = True; }
+        If (lower == "--profile") { profileBuild = True; }
+        If (lower == "--analyze") { analyze = True; }
+        If (lower == "--parallel") { parallel = True; }
     }
     String assembler = AssemblerTarget(target);
-    If (assembler == "") {
+    If (assembler == "" && !analyze) {
         Return FinishRun(ExitCode.ErrorExecution, "The assembler does not encode " + target + " yet.");
     }
-    Return CompileUnit(source, output, assembler, mode, skipTests, noCache, optimize, showStats);
+    Return CompileUnit(source, output, assembler, mode, skipTests, noCache, optimize, showStats, profileBuild, analyze, parallel);
 }
 
 Public Function ClassifyRobixc(List<String> args) -> String
@@ -169,6 +193,7 @@ Explain {
     If (first == "clean") { Return "clean"; }
     If (first == "rebuild") { Return "rebuild"; }
     If (first == "check") { Return "check"; }
+    If (first == "analyze") { Return "analyze"; }
     If (first.EndsWith(".test.rx")) { Return "reject-test"; }
     If (first == "build") { Return "build"; }
     If (first == "compile") {
@@ -190,7 +215,7 @@ Explain {
     Processing: "List compile, output, and target commands in PascalCase.";
     Output: "The help text.";
 } {
-    Return "{blue}ROBIXC{/}\nNative compiler and linker\n\n{blue}USAGE{/}\n  Robixc [Command] [File] [Options]\n\n{blue}COMPILE{/}\n  Robixc Main.rx                 Compile one file and its imports\n  Robixc Compile Main.rx         Same compile\n  Robixc Build                   Compile the project entry\n  Robixc Build App.rxp           Compile that project\n\n{blue}OUTPUT{/}\n  Build/Main/LinuxX64/Main\n  Build/Main/WindowsX64/Main.exe\n  --Output Name                  Extension follows the target\n  --Asm                          Write RXASM (.rxs)\n  --Ir                           Write RXIR\n\n{blue}TARGETS{/}\n  --Target LinuxX64              Default ELF\n  --Target WindowsX64            PE\n  --Target LinuxARM64            Not encoded yet\n  --Target WindowsARM64          Not encoded yet\n\n{blue}OPTIONS{/}\n  --Debug --Release --NoOptimize --SkipTests --NoCache --Rebuild\n  -h, --Help                     Help\n  -v, --Version                  Version\n";
+    Return "{blue}ROBIXC{/}\nNative compiler and linker\n\n{blue}USAGE{/}\n  Robixc [Command] [File] [Options]\n\n{blue}COMPILE{/}\n  Robixc Main.rx                 Compile one file and its imports\n  Robixc Compile Main.rx         Same compile\n  Robixc Build                   Compile the project entry\n  Robixc Build App.rxp           Compile that project\n  Robixc Analyze                 Print checker and optimizer findings\n  Robixc Analyze Main.rx         Analyze that file\n\n{blue}OUTPUT{/}\n  Build/Main/LinuxX64/Main\n  Build/Main/WindowsX64/Main.exe\n  --Output Name                  Extension follows the target\n  --Asm                          Write RXASM (.rxs)\n  --Ir                           Write RXIR\n\n{blue}TARGETS{/}\n  --Target LinuxX64              Default ELF\n  --Target WindowsX64            PE\n  --Target LinuxARM64            Not encoded yet\n  --Target WindowsARM64          Not encoded yet\n\n{blue}OPTIONS{/}\n  --Debug --Release --Profile --NoOptimize --SkipTests --NoCache --Rebuild\n  --Analyze                      Print findings and skip the binary\n  --Parallel                     This compiler builds one file at a time\n  -h, --Help                     Help\n  -v, --Version                  Version\n";
 }
 
 Public Function CompilerVersion(String kind) -> String
@@ -350,7 +375,7 @@ Explain {
             Continue;
         }
         If (arg.StartsWith("-")) { Continue; }
-        If (lower == "compile" || lower == "build" || lower == "check" || lower == "clean" || lower == "rebuild" || lower == "info" || lower == "cache") { Continue; }
+        If (lower == "compile" || lower == "build" || lower == "check" || lower == "analyze" || lower == "clean" || lower == "rebuild" || lower == "info" || lower == "cache") { Continue; }
         If (arg.EndsWith(".rx") || arg.EndsWith(".rxp")) { Return arg; }
     }
     Return "";
@@ -378,7 +403,7 @@ Explain {
             Continue;
         }
         If (arg.StartsWith("-")) { Continue; }
-        If (lower == "compile" || lower == "build" || lower == "check" || lower == "clean" || lower == "rebuild") { Continue; }
+        If (lower == "compile" || lower == "build" || lower == "check" || lower == "analyze" || lower == "clean" || lower == "rebuild") { Continue; }
         files = files + 1;
         If (files == 2 && !arg.EndsWith(".rx") && !arg.EndsWith(".rxp")) { Return arg; }
     }
@@ -399,11 +424,9 @@ Explain {
         If (lower == "--skiptests" || lower == "--nocache" || lower == "--verbose" || lower == "--debug") { Continue; }
         If (lower == "--release" || lower == "--optimize" || lower == "--nooptimize" || lower == "--symbols" || lower == "--nosymbols") { Continue; }
         If (lower == "--clean" || lower == "--rebuild" || lower == "--stats" || lower == "--help" || lower == "--version") { Continue; }
+        If (lower == "--parallel" || lower == "--profile" || lower == "--analyze") { Continue; }
         If (lower == "-h" || lower == "-v") { Continue; }
         If (lower.StartsWith("--target=") || lower.StartsWith("--output=")) { Continue; }
-        If (lower == "--parallel") { Return "Robixc --Parallel is not available yet."; }
-        If (lower == "--profile") { Return "Robixc --Profile is not available yet."; }
-        If (lower == "--analyze") { Return "Robixc --Analyze is not available yet."; }
         Return "Unknown option " + arg + ".";
     }
     Return "";
@@ -429,11 +452,11 @@ Explain {
     Return "";
 }
 
-Public Function CompileUnit(String sourcePath, String outputPath, String assembler, String mode, Bool skipTests, Bool noCache, Bool optimize, Bool showStats) -> ExecutionResult
+Public Function CompileUnit(String sourcePath, String outputPath, String assembler, String mode, Bool skipTests, Bool noCache, Bool optimize, Bool showStats, Bool profileBuild, Bool analyze, Bool parallel) -> ExecutionResult
 Explain {
     Description: "Compile one source file to the requested output.";
-    Input: sourcePath = "Source file", outputPath = "Destination", assembler = "linux-x64 or windows-x64", mode = "program, asm, or ir", skipTests = "True to pass the test gate with a warning", noCache = "True to ignore the input hash", optimize = "True to run the optimizer", showStats = "True to print the duration";
-    Processing: "Reuse a matching hash. Otherwise test, lower RXIR, and assemble.";
+    Input: sourcePath = "Source file", outputPath = "Destination", assembler = "linux-x64 or windows-x64", mode = "program, asm, or ir", skipTests = "True to pass the test gate with a warning", noCache = "True to ignore the input hash", optimize = "True to run the optimizer", showStats = "True to print the duration", profileBuild = "True to label the build Profile", analyze = "True to print findings and skip the binary", parallel = "True to say this compiler builds one file";
+    Processing: "Reuse a matching hash. Otherwise test, lower RXIR, and assemble. Analysis stops after the optimizer.";
     Output: "The compile result.";
 } {
     If (!Files.Exists(sourcePath)) { Return FinishRun(ExitCode.InvalidArguments, "The source file was not found."); }
@@ -446,6 +469,8 @@ Explain {
     }
     String profile = "Release";
     If (!optimize) { profile = "Debug"; }
+    If (profileBuild) { profile = "Profile"; }
+    If (parallel) { Print("{info}This compiler builds one file at a time.{/}"); }
     String current = OutputHash(source + "\n" + tests + "\n" + assembler + "\n" + mode + "\n" + profile);
     String cache = CacheFile(outputPath);
     String saved = "";
@@ -457,6 +482,7 @@ Explain {
     }
     Int compileStart = ClockMillis();
     SyntaxCompiler compiler = SyntaxCompiler();
+    If (skipTests) { compiler.GateTests = False; }
     CompileResult result = compiler.CompileSource(source, sourcePath, True);
     Int warnings = 0;
     For line In compiler.DiagnosticsOf(result) {
@@ -474,9 +500,15 @@ Explain {
         }
     }
     String rxir = result.Rxir;
-    If (optimize) {
+    If (optimize || profileBuild || analyze) {
         RxPass passes = RxPass();
         rxir = passes.Optimize(rxir);
+    }
+    If (analyze) {
+        Int elapsed = ClockMillis() - compileStart;
+        Print("{muted}compile{/}  {blue}" + elapsed.ToString() + " ms{/}  {muted}warnings{/} " + warnings.ToString());
+        Print("{info}checker and optimizer{/}  findings are printed above");
+        Return FinishRun(ExitCode.Success, "Analysis finished.");
     }
     EnsureFolder(outputPath);
     If (mode == "ir") {
@@ -512,7 +544,7 @@ Explain {
     Files.WriteText(cache, current);
     Files.WriteText(InfoFile(outputPath), "Target: " + assembler + "\nProfile: " + profile + "\nOutput: " + outputPath + "\n");
     Print("{success}compiled{/}  {bold}" + outputPath + "{/}");
-    If (showStats) {
+    If (showStats || profileBuild) {
         Int elapsed = ClockMillis() - compileStart;
         Print("{muted}compile{/}  {blue}" + elapsed.ToString() + " ms{/}  {muted}warnings{/} " + warnings.ToString());
     }

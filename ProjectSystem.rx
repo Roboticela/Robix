@@ -49,6 +49,10 @@ Public Class ProjectEngine {
     Private Int SkippedCount;
     Private Bool ConsoleEnabled;
     Private Int ConsolePort;
+    Private Bool StopOnFailure;
+    Private Bool WriteReport;
+    Private Bool UpdateSnapshots;
+    Private Bool FailedOnly;
     Private Int Started;
 
     Public Constructor() {
@@ -74,6 +78,10 @@ Public Class ProjectEngine {
         This.SkippedCount = 0;
         This.ConsoleEnabled = True;
         This.ConsolePort = 0;
+        This.StopOnFailure = False;
+        This.WriteReport = False;
+        This.UpdateSnapshots = False;
+        This.FailedOnly = False;
         This.Started = 0;
     }
 
@@ -199,6 +207,12 @@ Public Class ProjectEngine {
                 This.TestTarget = args[index];
                 This.TestScope = "class";
             }
+            String lower = arg.ToLower();
+            If (lower == "--stoponfailure") { This.StopOnFailure = True; }
+            If (lower == "--report") { This.WriteReport = True; }
+            If (lower == "--updatesnapshots") { This.UpdateSnapshots = True; }
+            If (lower == "--failed") { This.FailedOnly = True; }
+            If (lower == "--parallel") { Print("{info}Tests run one file at a time in this interpreter.{/}"); }
             index = index + 1;
         }
         Var positionals = List<String>();
@@ -988,15 +1002,21 @@ Public Class ProjectEngine {
         Int passed = 0;
         Int failed = 0;
         Int matched = 0;
+        String previousReport = "";
+        If (This.FailedOnly && Files.Exists(".robix/test-report.txt")) { previousReport = Files.ReadText(".robix/test-report.txt"); }
+        String report = "";
         For relative In files {
+            If (This.FailedOnly && previousReport != "" && !previousReport.Contains("FAIL " + relative)) { Continue; }
             String full = relative;
             If (!Files.Exists(full)) {
                 full = This.Join(This.ProjectDirectory, relative);
             }
             If (!Files.Exists(full)) {
                 Print("FAIL " + relative);
+                report = report + "FAIL " + relative + "\n";
                 This.Diagnostics.Add(relative + " was not found.");
                 failed = failed + 1;
+                If (This.StopOnFailure) { Break; }
                 Continue;
             }
             String source = Files.ReadText(full);
@@ -1005,7 +1025,9 @@ Public Class ProjectEngine {
             If (result.Errors > 0) {
                 For line In compiler.DiagnosticsOf(result) { Print(line); }
                 Print("FAIL " + relative);
+                report = report + "FAIL " + relative + "\n";
                 failed = failed + 1;
+                If (This.StopOnFailure) { Break; }
                 Continue;
             }
             String scope = This.CompanionScope(result.Module);
@@ -1017,9 +1039,12 @@ Public Class ProjectEngine {
             For line In errors { Print(line); }
             If (errors.Count() > 0) {
                 Print("FAIL " + relative);
+                report = report + "FAIL " + relative + "\n";
                 failed = failed + 1;
+                If (This.StopOnFailure) { Break; }
             } Else If (This.TestTarget == "" || ran > 0) {
                 Print("PASS " + relative);
+                report = report + "PASS " + relative + "\n";
                 passed = passed + 1;
             }
         }
@@ -1028,6 +1053,22 @@ Public Class ProjectEngine {
             failed = failed + 1;
         }
         Print("{success}passed{/} {accent}" + passed.ToString() + "{/}  {error}failed{/} {accent}" + failed.ToString() + "{/}");
+        If (This.WriteReport || This.UpdateSnapshots) {
+            Directory.Create(".robix");
+            If (This.WriteReport) { Files.WriteText(".robix/test-report.txt", report); }
+            If (This.UpdateSnapshots) {
+                Directory.Create(".robix/snapshots");
+                Files.WriteText(".robix/snapshots/report.txt", report);
+            }
+        }
+        If (!This.UpdateSnapshots && Files.Exists(".robix/snapshots/report.txt")) {
+            String saved = Files.ReadText(".robix/snapshots/report.txt");
+            If (saved != report) {
+                Print("{warning}snapshot differs{/}  .robix/snapshots/report.txt");
+                This.Diagnostics.Add("The test snapshot differs. Run Robix Test --UpdateSnapshots to accept it.");
+                failed = failed + 1;
+            }
+        }
         Return failed == 0;
     }
 

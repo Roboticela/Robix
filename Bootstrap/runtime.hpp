@@ -12,7 +12,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
-#include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 #ifndef _WIN32
@@ -490,6 +490,11 @@ inline void Print(const String& text) {
     std::cout << FormatConsole(text.null ? "" : text.text) << std::endl;
 }
 
+inline void SleepMillis(int64_t millis) {
+    if (millis < 0) millis = 0;
+    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<uint64_t>(millis)));
+}
+
 inline int64_t ClockMillis() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
@@ -503,6 +508,10 @@ inline String ReadLine() {
 
 inline String Input() {
     return ReadLine();
+}
+
+inline String ReadConsoleLine() {
+    return Input();
 }
 
 inline int64_t BitAnd(int64_t left, int64_t right) {

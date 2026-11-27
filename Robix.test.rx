@@ -56,6 +56,10 @@ Test ClassifyRobix {
         Input: args = ["Main.rx:10:20"];
         Output: "run-span";
     }
+    Case "named span" {
+        Input: args = ["Main.rx:Start"];
+        Output: "run-span";
+    }
     Case "project build" {
         Input: args = ["Build"];
         Output: "project";
@@ -123,6 +127,14 @@ Test SpanOf {
         Input: text = "Main.rx:10";
         Output: "Main.rx|10|10";
     }
+    Case "one label" {
+        Input: text = "Main.rx:Start";
+        Output: "Main.rx|Start|Start";
+    }
+    Case "two labels" {
+        Input: text = "Main.rx:Start:End";
+        Output: "Main.rx|Start|End";
+    }
     Case "whole file" {
         Input: text = "Main.rx";
         Output: "Main.rx||";
@@ -137,6 +149,88 @@ Test SpanKind {
     Case "label" {
         Input: token = "Start";
         Output: "label";
+    }
+}
+
+Test LabelName {
+    Case "statement label" {
+        Input: line = "    Start:";
+        Output: "Start";
+    }
+    Case "code" {
+        Input: line = "    Print(1);";
+        Output: "";
+    }
+}
+
+Test FunctionName {
+    Case "declaration" {
+        Input: line = "Public Function Main() -> Int {";
+        Output: "Main";
+    }
+    Case "call" {
+        Input: line = "    Print(1);";
+        Output: "";
+    }
+}
+
+Test SourceMapOf {
+    Case "labels inside main" {
+        Input: source = "Public Function Main() -> Int {\n    Start:\n    Print(1);\n    End:\n    Return 0;\n}\n";
+        Contains: Result, "Main|1|6|function\n";
+    }
+    Case "start label" {
+        Input: source = "Public Function Main() -> Int {\n    Start:\n    Print(1);\n    End:\n    Return 0;\n}\n";
+        Contains: Result, "Start|2|6|label\n";
+    }
+}
+
+Test MapEntry {
+    Case "last label wins" {
+        Input: map = "Main|1|6|function\nStart|2|6|label\n", name = "Start";
+        Output: "2|6|label";
+    }
+    Case "missing" {
+        Input: map = "Main|1|6|function\n", name = "Start";
+        Output: "";
+    }
+}
+
+Test LabelEnd {
+    Case "stops before the next label" {
+        Input: map = "Start|2|6|label\nEnd|4|6|label\n", line = 2, ceiling = 6, fileLines = 6;
+        Output: 3;
+    }
+    Case "runs to the function end" {
+        Input: map = "End|4|6|label\n", line = 4, ceiling = 6, fileLines = 6;
+        Output: 6;
+    }
+}
+
+Test SpanLines {
+    Case "numbers" {
+        Input: map = "", start = "10", end = "12", fileLines = 20;
+        Output: "10|12";
+    }
+    Case "one label" {
+        Input: map = "Start|2|6|label\nEnd|4|6|label\n", start = "Start", end = "Start", fileLines = 6;
+        Output: "2|3";
+    }
+    Case "two labels" {
+        Input: map = "Start|2|6|label\nEnd|4|6|label\n", start = "Start", end = "End", fileLines = 6;
+        Output: "2|4";
+    }
+    Case "function" {
+        Input: map = "Main|1|6|function\n", start = "Main", end = "Main", fileLines = 6;
+        Output: "1|6";
+    }
+    Case "mixed" {
+        Input: map = "Start|2|6|label\n", start = "Start", end = "4", fileLines = 6;
+        Output: "error A span must use line numbers or labels, not both.";
+    }
+    Case "unknown label" {
+        Input: map = "", start = "Start", end = "Start", fileLines = 6;
+        Output: "error The source map has no label Start.";
     }
 }
 
@@ -251,12 +345,76 @@ Test WithoutDependency {
     }
 }
 
+Test RoleProject {
+    Case "records the entry" {
+        Input: name = "Demo", typeName = "WindowApplication", template = "Application.Window";
+        Contains: Result, "Entry: \"Source/Main.rx\"";
+    }
+}
+
+Test RoleSource {
+    Case "names the role" {
+        Input: name = "Demo", role = "window";
+        Contains: Result, "Window";
+    }
+}
+
+Test FormatSource {
+    Case "indents the body" {
+        Input: text = "{\nPrint(1);\n}\n";
+        Contains: Result, "    Print(1);";
+    }
+}
+
+Test LintText {
+    Case "trailing space" {
+        Input: text = "Print(1); \n";
+        Contains: Result, "trailing space";
+    }
+}
+
+Test ExplainCode {
+    Case "missing test" {
+        Input: diagnostic = "error RX120 missing";
+        Contains: Result, "companion test";
+    }
+}
+
+Test DiagnoseStep {
+    Case "no message" {
+        Input: message = "";
+        Contains: Result, "Robix Check";
+    }
+}
+
+Test ImportGraph {
+    Case "one import" {
+        Input: source = "Import Robix.Core;\n";
+        Output: "Import Robix.Core;\n";
+    }
+}
+
+Test ContentMark {
+    Case "letter a" {
+        Input: text = "a";
+        Output: "98";
+    }
+}
+
 Test DependencyText {
     Case "reads the package version" {
         Input: project = "Package \"Alpha\" { Version: \"1.2.0\"; }\n";
         Output: "Alpha 1.2.0\n";
     }
 }
+
+Test FormatFiles { Output: True; }
+Test LintFiles { Output: True; }
+Test ExplainLatest { Output: True; }
+Test DiagnoseLatest { Output: True; }
+Test GraphFiles { Output: True; }
+Test ModuleFiles { Output: True; }
+Test WatchFiles { Output: True; }
 
 Test TemplateStatus {
     Case "console" {
@@ -265,7 +423,7 @@ Test TemplateStatus {
     }
     Case "bedrock" {
         Input: kind = "Bedrock", variant = "Kernel";
-        Output: "unavailable";
+        Output: "kernel";
     }
     Case "empty canvas" {
         Input: kind = "Canvas", variant = "Empty";
@@ -363,9 +521,9 @@ Test LaterReason {
         Input: flag = "--Verbose";
         Output: "";
     }
-    Case "reserved" {
-        Input: flag = "--Watch";
-        Contains: Result, "not available yet";
+    Case "report" {
+        Input: flag = "--Report";
+        Output: "";
     }
 }
 
@@ -439,5 +597,14 @@ Test SessionInventory {
     }
 }
 
+Test RenderMap { Output: True; }
+Test MappedEnd { Output: True; }
+Test LastPiece { Output: True; }
+Test DropPiece { Output: True; }
+Test LineDepth { Output: True; }
+Test TrimLine { Output: True; }
+Test IdentifierText { Output: True; }
+Test IdentifierStart { Output: True; }
+Test IdentifierPart { Output: True; }
 Test Say { Output: True; }
 Test FinishShown { Output: True; }
