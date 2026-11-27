@@ -107,20 +107,56 @@ Test PlannedOutput {
     }
     Case "assembly" {
         Input: stem = "Main", target = "LinuxX64", requested = "", mode = "asm";
-        Output: "Build/Main/LinuxX64/Main.rxs";
+        Output: "Build/Main/LinuxX64/Main.rxasm";
     }
 }
 
 Test CacheStatus {
     Case "same hash" {
-        Input: saved = "12", current = "12";
+        Input: saved = "12", current = "12", present = True;
         Output: "Skipped";
     }
     Case "different hash" {
-        Input: saved = "12", current = "13";
+        Input: saved = "12", current = "13", present = False;
         Output: "Compiled";
     }
+    Case "replaced output" {
+        Input: saved = "12", current = "13", present = True;
+        Output: "Recompiled";
+    }
 }
+
+Test BuildLeaf {
+    Case "bin folder" {
+        Input: outputPath = "Build/Main/LinuxX64/Main", folderName = "Bin";
+        Output: "Build/Main/LinuxX64/Bin/Main";
+    }
+}
+
+Test DeclarationLines {
+    Case "import" {
+        Input: source = "Import Robix.Core;\nFunction Main() -> Int { Return 0; }\n", needle = "Import ";
+        Output: "Import Robix.Core;\n";
+    }
+}
+
+Test SourceIgnored {
+    Case "build directory" {
+        Input: path = "Build/Main.rx", rules = "Build/\n";
+        Output: True;
+    }
+}
+
+Test PlaceBuildTree { Output: True; }
+Test CacheSummary { Output: True; }
+Test ShowToolchain { Output: True; }
+Test ShowLink { Output: True; }
+Test ShowListing { Output: True; }
+Test ShowSymbols { Output: True; }
+Test ShowDependencies { Output: True; }
+Test ShowExplain { Output: True; }
+Test ShowReport { Output: True; }
+Test NoteCache { Output: True; }
 
 Test OutputHash {
     Case "two letters" {

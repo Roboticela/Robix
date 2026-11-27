@@ -12,6 +12,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <future>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -23,6 +24,8 @@ extern "C" {
 __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long);
 __declspec(dllimport) int __stdcall GetConsoleMode(void*, unsigned long*);
 __declspec(dllimport) int __stdcall SetConsoleMode(void*, unsigned long);
+__declspec(dllimport) unsigned long __stdcall GetModuleFileNameA(void*, char*, unsigned long);
+__declspec(dllimport) unsigned int __stdcall GetConsoleOutputCP(void);
 }
 #endif
 
@@ -353,63 +356,130 @@ inline int HexDigit(char character) {
     return -1;
 }
 
-inline std::string PaintColor(int red, int green, int blue) {
-    return "\033[38;2;" + std::to_string(red) + ";" + std::to_string(green) + ";" + std::to_string(blue) + "m";
+inline int ColorLevel() {
+    const char* colorterm = std::getenv("COLORTERM");
+    if (colorterm != nullptr) {
+        std::string value(colorterm);
+        if (value.find("truecolor") != std::string::npos || value.find("24bit") != std::string::npos) return 2;
+    }
+    const char* session = std::getenv("WT_SESSION");
+    if (session != nullptr && session[0] != '\0') return 2;
+    const char* term = std::getenv("TERM");
+    if (term != nullptr && std::string(term).find("256") != std::string::npos) return 1;
+    return 0;
 }
 
-inline bool RoleColor(const std::string& tag, int& red, int& green, int& blue) {
+inline int Approx256(int red, int green, int blue) {
+    int scaledRed = red * 5 / 255;
+    int scaledGreen = green * 5 / 255;
+    int scaledBlue = blue * 5 / 255;
+    return 16 + 36 * scaledRed + 6 * scaledGreen + scaledBlue;
+}
+
+inline int Approx16(int red, int green, int blue) {
+    int best = 37;
+    int bestDistance = 1 << 30;
+    const int sampleRed[8] = {239, 22, 234, 59, 6, 168, 229, 148};
+    const int sampleGreen[8] = {68, 163, 179, 130, 182, 85, 231, 163};
+    const int sampleBlue[8] = {68, 74, 8, 246, 212, 247, 235, 184};
+    const int sampleCode[8] = {31, 32, 33, 34, 36, 35, 37, 90};
+    for (int index = 0; index < 8; index++) {
+        int deltaRed = red - sampleRed[index];
+        int deltaGreen = green - sampleGreen[index];
+        int deltaBlue = blue - sampleBlue[index];
+        int distance = deltaRed * deltaRed + deltaGreen * deltaGreen + deltaBlue * deltaBlue;
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = sampleCode[index];
+        }
+    }
+    return best;
+}
+
+inline std::string PaintColor(int red, int green, int blue, int index256, int code16) {
+    int level = ColorLevel();
+    if (level >= 2) return "\033[38;2;" + std::to_string(red) + ";" + std::to_string(green) + ";" + std::to_string(blue) + "m";
+    if (level == 1) {
+        int index = index256 >= 0 ? index256 : Approx256(red, green, blue);
+        return "\033[38;5;" + std::to_string(index) + "m";
+    }
+    int code = code16 >= 0 ? code16 : Approx16(red, green, blue);
+    return "\033[" + std::to_string(code) + "m";
+}
+
+inline bool RoleColor(const std::string& tag, int& red, int& green, int& blue, int& index256, int& code16) {
+    index256 = -1;
+    code16 = -1;
     if (tag == "red" || tag == "error") {
         red = 239;
         green = 68;
         blue = 68;
+        index256 = 203;
+        code16 = 31;
         return true;
     }
     if (tag == "green" || tag == "success" || tag == "accent" || tag == "primary") {
         red = 22;
         green = 163;
         blue = 74;
+        index256 = 34;
+        code16 = 32;
         return true;
     }
     if (tag == "yellow" || tag == "warning") {
         red = 234;
         green = 179;
         blue = 8;
+        index256 = 178;
+        code16 = 33;
         return true;
     }
     if (tag == "blue") {
         red = 59;
         green = 130;
         blue = 246;
+        index256 = 69;
+        code16 = 34;
         return true;
     }
     if (tag == "cyan" || tag == "info") {
         red = 6;
         green = 182;
         blue = 212;
+        index256 = 38;
+        code16 = 36;
         return true;
     }
     if (tag == "magenta" || tag == "package") {
         red = 168;
         green = 85;
         blue = 247;
+        index256 = 141;
+        code16 = 35;
         return true;
     }
     if (tag == "orange" || tag == "debug") {
         red = 249;
         green = 115;
         blue = 22;
+        index256 = 208;
+        code16 = 33;
         return true;
     }
     if (tag == "white" || tag == "text") {
         red = 229;
         green = 231;
         blue = 235;
+        index256 = 254;
+        code16 = 37;
         return true;
     }
     if (tag == "gray" || tag == "grey" || tag == "muted" || tag == "secondary") {
         red = 148;
         green = 163;
         blue = 184;
+        index256 = 248;
+        code16 = 90;
         return true;
     }
     if (tag.size() == 7 && tag[0] == '#') {
@@ -477,8 +547,10 @@ inline std::string FormatConsole(const std::string& text) {
             int red = 0;
             int green = 0;
             int blue = 0;
-            if (!RoleColor(tag, red, green, blue)) built.append(text, index, close - index + 1);
-            else if (color) built += PaintColor(red, green, blue);
+            int index256 = -1;
+            int code16 = -1;
+            if (!RoleColor(tag, red, green, blue, index256, code16)) built.append(text, index, close - index + 1);
+            else if (color) built += PaintColor(red, green, blue, index256, code16);
         }
         index = close + 1;
     }
@@ -512,6 +584,95 @@ inline String Input() {
 
 inline String ReadConsoleLine() {
     return Input();
+}
+
+inline void ClearScreen() {
+    std::cout << "\033[2J\033[H" << std::flush;
+}
+
+inline String HostSystem() {
+#ifdef _WIN32
+    return String::Lit("Windows");
+#else
+    return String::Lit("Linux");
+#endif
+}
+
+inline String HostArchitecture() {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    return String::Lit("ARM64");
+#else
+    return String::Lit("x64");
+#endif
+}
+
+inline String ToolchainPath() {
+    return String::Lit(std::filesystem::current_path().string());
+}
+
+inline String UserConfigPath() {
+    const char* home = std::getenv("USERPROFILE");
+    if (home == nullptr || home[0] == '\0') home = std::getenv("HOME");
+    if (home == nullptr || home[0] == '\0') return String::Lit(".robix/config");
+    return String::Lit(std::string(home) + "/.robix/config");
+}
+
+inline bool UnicodeTerminal() {
+    const char* language = std::getenv("LANG");
+    if (language != nullptr && std::string(language).find("UTF") != std::string::npos) return true;
+    const char* session = std::getenv("WT_SESSION");
+    if (session != nullptr && session[0] != '\0') return true;
+#ifdef _WIN32
+    if (GetConsoleOutputCP() == 65001) return true;
+#endif
+    return false;
+}
+
+inline std::string ExecutablePath() {
+#ifdef _WIN32
+    char buffer[4096];
+    unsigned long count = GetModuleFileNameA(nullptr, buffer, 4096);
+    if (count == 0 || count >= 4096) return "Robix.exe";
+    return std::string(buffer, count);
+#else
+    char buffer[4096];
+    ssize_t count = ::readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+    if (count <= 0) return "Robix";
+    buffer[count] = '\0';
+    return std::string(buffer);
+#endif
+}
+
+inline String ParallelRun(String script) {
+    std::string text = script.null ? "" : script.text;
+    std::vector<std::string> lines;
+    std::string current;
+    for (char mark : text) {
+        if (mark == '\n') {
+            if (!current.empty()) lines.push_back(current);
+            current.clear();
+        } else if (mark != '\r') {
+            current.push_back(mark);
+        }
+    }
+    if (!current.empty()) lines.push_back(current);
+    std::string executable = ExecutablePath();
+    std::vector<std::future<std::pair<int, std::string>>> jobs;
+    for (const std::string& line : lines) {
+        jobs.push_back(std::async(std::launch::async, [executable, line]() {
+            std::string command = "\"" + executable + "\" " + line;
+            int code = std::system(command.c_str());
+            return std::make_pair(code, line);
+        }));
+    }
+    std::string output;
+    for (std::future<std::pair<int, std::string>>& job : jobs) {
+        std::pair<int, std::string> result = job.get();
+        output += result.first == 0 ? "Passed " : "Failed ";
+        output += result.second;
+        output += "\n";
+    }
+    return String::Lit(output);
 }
 
 inline int64_t BitAnd(int64_t left, int64_t right) {

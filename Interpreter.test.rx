@@ -1329,6 +1329,12 @@ Test SetConsole {
     Output: True;
 }
 
+Test SetDebugView {
+    Constraint: True;
+    Processing: True;
+    Output: True;
+}
+
 Test StandardLibrary {
     Constraint: True;
     Processing: True;

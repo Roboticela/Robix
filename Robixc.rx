@@ -9,6 +9,7 @@ Import Robix.Syntax;
 Import Robix.Runtime;
 
 Private Extern Function ClockMillis() -> Int;
+Private Extern Function ToolchainPath() -> String;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
@@ -104,15 +105,29 @@ Explain {
         Return FinishRun(ExitCode.Success, "Build information printed.");
     }
     If (kind == "cache") {
-        String cache = CacheFile(output);
+        Bool stats = False;
         Bool clear = False;
         For arg In args {
-            If (arg.ToLower() == "clear") { clear = True; }
+            String lower = arg.ToLower();
+            If (lower == "clear") { clear = True; }
+            If (lower == "stats") { stats = True; }
         }
+        If (stats) {
+            Print(CacheSummary());
+            Return FinishRun(ExitCode.Success, "Cache statistics printed.");
+        }
+        String cache = CacheFile(output);
         If (clear && Files.Exists(cache)) { Files.Delete(cache); }
         Print(cache);
         Return FinishRun(ExitCode.Success, "Cache command finished.");
     }
+    If (kind == "toolchain") { Return ShowToolchain(); }
+    If (kind == "link") { Return ShowLink(output); }
+    If (kind == "disassemble") { Return ShowListing(output); }
+    If (kind == "symbols") { Return ShowSymbols(output); }
+    If (kind == "dependencies") { Return ShowDependencies(output); }
+    If (kind == "explain") { Return ShowExplain(); }
+    If (kind == "report") { Return ShowReport(output); }
     If (kind == "clean" || kind == "rebuild") {
         String cache = CacheFile(output);
         If (Files.Exists(cache)) { Files.Delete(cache); }
@@ -129,6 +144,7 @@ Explain {
     Bool profileBuild = False;
     Bool analyze = kind == "analyze";
     Bool parallel = False;
+    Bool writeSymbols = False;
     For arg In args {
         String lower = arg.ToLower();
         If (lower == "--skiptests") { skipTests = True; }
@@ -139,12 +155,14 @@ Explain {
         If (lower == "--profile") { profileBuild = True; }
         If (lower == "--analyze") { analyze = True; }
         If (lower == "--parallel") { parallel = True; }
+        If (lower == "--symbols") { writeSymbols = True; }
+        If (lower == "--nosymbols") { writeSymbols = False; }
     }
     String assembler = AssemblerTarget(target);
     If (assembler == "" && !analyze) {
         Return FinishRun(ExitCode.ErrorExecution, "The assembler does not encode " + target + " yet.");
     }
-    Return CompileUnit(source, output, assembler, mode, skipTests, noCache, optimize, showStats, profileBuild, analyze, parallel);
+    Return CompileUnit(source, output, assembler, mode, skipTests, noCache, optimize, showStats, profileBuild, analyze, parallel, writeSymbols);
 }
 
 Public Function ClassifyRobixc(List<String> args) -> String
@@ -189,6 +207,13 @@ Explain {
     If (first == "targets") { Return "targets"; }
     If (first == "doctor") { Return "doctor"; }
     If (first == "cache") { Return "cache"; }
+    If (first == "toolchain") { Return "toolchain"; }
+    If (first == "link") { Return "link"; }
+    If (first == "disassemble") { Return "disassemble"; }
+    If (first == "symbols") { Return "symbols"; }
+    If (first == "dependencies") { Return "dependencies"; }
+    If (first == "explain") { Return "explain"; }
+    If (first == "report") { Return "report"; }
     If (first == "info") { Return "info"; }
     If (first == "clean") { Return "clean"; }
     If (first == "rebuild") { Return "rebuild"; }
@@ -215,7 +240,7 @@ Explain {
     Processing: "List compile, output, and target commands in PascalCase.";
     Output: "The help text.";
 } {
-    Return "{blue}ROBIXC{/}\nNative compiler and linker\n\n{blue}USAGE{/}\n  Robixc [Command] [File] [Options]\n\n{blue}COMPILE{/}\n  Robixc Main.rx                 Compile one file and its imports\n  Robixc Compile Main.rx         Same compile\n  Robixc Build                   Compile the project entry\n  Robixc Build App.rxp           Compile that project\n  Robixc Analyze                 Print checker and optimizer findings\n  Robixc Analyze Main.rx         Analyze that file\n\n{blue}OUTPUT{/}\n  Build/Main/LinuxX64/Main\n  Build/Main/WindowsX64/Main.exe\n  --Output Name                  Extension follows the target\n  --Asm                          Write RXASM (.rxs)\n  --Ir                           Write RXIR\n\n{blue}TARGETS{/}\n  --Target LinuxX64              Default ELF\n  --Target WindowsX64            PE\n  --Target LinuxARM64            Not encoded yet\n  --Target WindowsARM64          Not encoded yet\n\n{blue}OPTIONS{/}\n  --Debug --Release --Profile --NoOptimize --SkipTests --NoCache --Rebuild\n  --Analyze                      Print findings and skip the binary\n  --Parallel                     This compiler builds one file at a time\n  -h, --Help                     Help\n  -v, --Version                  Version\n";
+    Return "{blue}ROBIXC{/}\nNative compiler and linker\n\n{blue}USAGE{/}\n  Robixc [Command] [File] [Options]\n\n{blue}COMPILE{/}\n  Robixc Main.rx                 Compile one file and its imports\n  Robixc Compile Main.rx         Same compile\n  Robixc Build                   Compile the project entry\n  Robixc Build App.rxp           Compile that project\n  Robixc Analyze                 Print checker and optimizer findings\n  Robixc Analyze Main.rx         Analyze that file\n\n{blue}OUTPUT{/}\n  Build/Main/LinuxX64/Main\n  Build/Main/WindowsX64/Main.exe\n  --Output Name                  Extension follows the target\n  --Asm                          Write RXASM (.rxasm)\n  Robixc Toolchain               Show the toolchain directories\n  Robixc Link                    Report whether objects were linked\n  Robixc Disassemble             Print the saved .rxasm listing\n  Robixc Symbols                 Print the symbol file\n  Robixc Dependencies            Print link dependencies\n  Robixc Explain                 Read the latest diagnostic\n  Robixc Report                  Write the build report\n  Robixc Cache Stats             Count compile hits and misses\n  --Ir                           Write RXIR\n\n{blue}TARGETS{/}\n  --Target LinuxX64              Default ELF\n  --Target WindowsX64            PE\n  --Target LinuxARM64            Not encoded yet\n  --Target WindowsARM64          Not encoded yet\n\n{blue}OPTIONS{/}\n  --Debug --Release --Profile --NoOptimize --SkipTests --NoCache --Rebuild\n  --Analyze                      Print findings and skip the binary\n  --Parallel                     This compiler builds one file at a time\n  -h, --Help                     Help\n  -v, --Version                  Version\n";
 }
 
 Public Function CompilerVersion(String kind) -> String
@@ -266,8 +291,8 @@ Explain {
     String base = requested;
     If (base == "") { base = "Build/" + stem + "/" + target + "/" + stem; }
     If (mode == "asm") {
-        If (base.EndsWith(".rxs")) { Return base; }
-        Return base + ".rxs";
+        If (base.EndsWith(".rxasm") || base.EndsWith(".rxs")) { Return base; }
+        Return base + ".rxasm";
     }
     If (mode == "ir") {
         If (base.EndsWith(".rxir")) { Return base; }
@@ -281,14 +306,15 @@ Explain {
     Return base;
 }
 
-Public Function CacheStatus(String saved, String current) -> String
+Public Function CacheStatus(String saved, String current, Bool present) -> String
 Explain {
     Description: "Decide whether a compiled artifact can be reused.";
-    Input: saved = "The stored hash", current = "The hash of the current inputs";
-    Processing: "Reuse the artifact only when both hashes exist and match.";
-    Output: "Skipped or Compiled.";
+    Input: saved = "The stored hash", current = "The hash of the current inputs", present = "True when the output file exists";
+    Processing: "A matching hash with an output is Skipped. A different hash with an output is Recompiled. Anything else is Compiled.";
+    Output: "Skipped, Recompiled, or Compiled.";
 } {
-    If (saved != "" && saved == current) { Return "Skipped"; }
+    If (saved != "" && saved == current && present) { Return "Skipped"; }
+    If (saved != "" && saved != current && present) { Return "Recompiled"; }
     Return "Compiled";
 }
 
@@ -452,16 +478,19 @@ Explain {
     Return "";
 }
 
-Public Function CompileUnit(String sourcePath, String outputPath, String assembler, String mode, Bool skipTests, Bool noCache, Bool optimize, Bool showStats, Bool profileBuild, Bool analyze, Bool parallel) -> ExecutionResult
+Public Function CompileUnit(String sourcePath, String outputPath, String assembler, String mode, Bool skipTests, Bool noCache, Bool optimize, Bool showStats, Bool profileBuild, Bool analyze, Bool parallel, Bool writeSymbols) -> ExecutionResult
 Explain {
     Description: "Compile one source file to the requested output.";
-    Input: sourcePath = "Source file", outputPath = "Destination", assembler = "linux-x64 or windows-x64", mode = "program, asm, or ir", skipTests = "True to pass the test gate with a warning", noCache = "True to ignore the input hash", optimize = "True to run the optimizer", showStats = "True to print the duration", profileBuild = "True to label the build Profile", analyze = "True to print findings and skip the binary", parallel = "True to say this compiler builds one file";
-    Processing: "Reuse a matching hash. Otherwise test, lower RXIR, and assemble. Analysis stops after the optimizer.";
+    Input: sourcePath = "Source file", outputPath = "Destination", assembler = "linux-x64 or windows-x64", mode = "program, asm, or ir", skipTests = "True to pass the test gate with a warning", noCache = "True to ignore the input hash", optimize = "True to run the optimizer", showStats = "True to print the duration", profileBuild = "True to label the build Profile", analyze = "True to print findings and skip the binary", parallel = "True to say this compiler builds one file", writeSymbols = "True to write a symbol file";
+    Processing: "Reuse a matching hash. Otherwise test, lower RXIR, and assemble. Analysis stops after the optimizer. A program build also fills Bin, Libraries, Objects, and Symbols.";
     Output: "The compile result.";
 } {
     If (!Files.Exists(sourcePath)) { Return FinishRun(ExitCode.InvalidArguments, "The source file was not found."); }
     Print("{blue}robixc{/}  {bold}" + sourcePath + "{/}  {muted}->{/}  {bold}" + outputPath + "{/}");
     String source = Files.ReadText(sourcePath);
+    String rules = "";
+    If (Files.Exists(".robixignore")) { rules = Files.ReadText(".robixignore"); }
+    If (SourceIgnored(sourcePath, rules)) { Return FinishRun(ExitCode.InvalidArguments, "The source is excluded by .robixignore."); }
     String tests = "";
     If (sourcePath.EndsWith(".rx")) {
         String companion = sourcePath.Substring(0, sourcePath.Length() - 3) + ".test.rx";
@@ -471,15 +500,20 @@ Explain {
     If (!optimize) { profile = "Debug"; }
     If (profileBuild) { profile = "Profile"; }
     If (parallel) { Print("{info}This compiler builds one file at a time.{/}"); }
-    String current = OutputHash(source + "\n" + tests + "\n" + assembler + "\n" + mode + "\n" + profile);
+    String current = OutputHash(source + "\n" + tests + "\n" + assembler + "\n" + mode + "\n" + profile + "\n0.0.48");
     String cache = CacheFile(outputPath);
     String saved = "";
     If (!noCache && Files.Exists(cache)) { saved = Files.ReadText(cache); }
-    If (CacheStatus(saved, current) == "Skipped" && Files.Exists(outputPath)) {
+    Bool hadOutput = Files.Exists(outputPath);
+    String status = CacheStatus(saved, current, hadOutput);
+    If (status == "Skipped") {
+        NoteCache("hit");
         Print("{info}Tests Skipped - No Relevant Changes{/}");
+        Print("Skipped");
         Print("{blue}skipped{/}  {bold}" + outputPath + "{/}");
         Return FinishRun(ExitCode.Success, "Skipped " + outputPath + ".");
     }
+    NoteCache("miss");
     Int compileStart = ClockMillis();
     SyntaxCompiler compiler = SyntaxCompiler();
     If (skipTests) { compiler.GateTests = False; }
@@ -489,13 +523,17 @@ Explain {
         Print(line);
         If (line.StartsWith("warning")) { warnings = warnings + 1; }
     }
-    If (!result.Succeeded) { Return FinishRun(ExitCode.ErrorExecution, "Compilation failed."); }
+    If (!result.Succeeded) {
+        Print("Failed");
+        Return FinishRun(ExitCode.ErrorExecution, "Compilation failed.");
+    }
     If (skipTests) {
         Print("{warning}--SkipTests{/}  tests were not run.");
     } Else {
         Interpreter tester = Interpreter();
         For line In tester.RequireTests(sourcePath, result.Module) {
             Print(line);
+            Print("Failed");
             Return FinishRun(ExitCode.ErrorExecution, "Compilation failed.");
         }
     }
@@ -514,6 +552,8 @@ Explain {
     If (mode == "ir") {
         Files.WriteText(outputPath, rxir);
         Files.WriteText(cache, current);
+        PlaceBuildTree(outputPath, rxir, DeclarationLines(source, "Import "), DeclarationLines(source, "Function "), writeSymbols);
+        Print(status);
         Print("{success}compiled{/}  {bold}" + outputPath + "{/}");
         Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
     }
@@ -526,14 +566,20 @@ Explain {
     If (mode == "asm") {
         Files.WriteText(outputPath, rxasm);
         Files.WriteText(cache, current);
+        PlaceBuildTree(outputPath, rxasm, DeclarationLines(source, "Import "), DeclarationLines(source, "Function "), writeSymbols);
+        Print(status);
         Print("{success}compiled{/}  {bold}" + outputPath + "{/}");
         Return FinishRun(ExitCode.Success, "Wrote " + outputPath + ".");
     }
     If (rxasm.IndexOf("; skip") >= 0) {
+        Print("Failed");
         Return FinishRun(ExitCode.ErrorExecution, "The assembler does not encode this program yet.");
     }
     List<Int> code = assemblerTool.Assemble(rxasm);
-    If (code.Count() == 0) { Return FinishRun(ExitCode.ErrorExecution, "Assembly failed."); }
+    If (code.Count() == 0) {
+        Print("Failed");
+        Return FinishRun(ExitCode.ErrorExecution, "Assembly failed.");
+    }
     If (assembler == "windows-x64") {
         PeImage pe = PeImage();
         Files.WriteBytes(outputPath, pe.Wrap(code));
@@ -543,6 +589,18 @@ Explain {
     }
     Files.WriteText(cache, current);
     Files.WriteText(InfoFile(outputPath), "Target: " + assembler + "\nProfile: " + profile + "\nOutput: " + outputPath + "\n");
+    String listingPath = outputPath + ".rxasm";
+    Files.WriteText(listingPath, rxasm);
+    PlaceBuildTree(outputPath, rxasm, DeclarationLines(source, "Import "), DeclarationLines(source, "Function "), writeSymbols);
+    If (assembler == "windows-x64") {
+        PeImage binImage = PeImage();
+        Files.WriteBytes(BuildLeaf(outputPath, "Bin"), binImage.Wrap(code));
+    } Else {
+        ElfImage binImage = ElfImage();
+        Files.WriteBytes(BuildLeaf(outputPath, "Bin"), binImage.Wrap(code));
+    }
+    Print(status);
+    Print("Linked");
     Print("{success}compiled{/}  {bold}" + outputPath + "{/}");
     If (showStats || profileBuild) {
         Int elapsed = ClockMillis() - compileStart;
@@ -638,5 +696,250 @@ Private Function FinishRun(Int code, String reason) -> ExecutionResult {
     If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
     Print("{muted}────────────────────────────────{/}");
     Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason);
+    Directory.Create(".robix");
+    Files.WriteText(".robix/last.txt", reason);
     Return ExecutionResult(code, reason);
+}
+
+Public Function BuildLeaf(String outputPath, String folderName) -> String
+Explain {
+    Description: "Place a file inside a build folder.";
+    Input: outputPath = "The compiled file", folderName = "Bin, Libraries, Objects, or Symbols";
+    Processing: "Keep the file name and move it under the named folder.";
+    Output: "The folder path.";
+} {
+    Int slash = outputPath.LastIndexOf("/");
+    String folder = ".";
+    String leaf = outputPath;
+    If (slash >= 0) {
+        folder = outputPath.Substring(0, slash);
+        leaf = outputPath.Substring(slash + 1);
+    }
+    Return folder + "/" + folderName + "/" + leaf;
+}
+
+Public Function DeclarationLines(String source, String needle) -> String
+Explain {
+    Description: "Collect source lines that contain a word.";
+    Input: source = "Source text", needle = "Import or Function";
+    Processing: "Keep each line that contains the word.";
+    Output: "The matching lines.";
+} {
+    String found = "";
+    Int start = 0;
+    Int index = 0;
+    While (index <= source.Length()) {
+        Bool boundary = index == source.Length();
+        If (!boundary && source.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = source.Substring(start, index - start);
+            If (line.Contains(needle)) { found = found + line + "\n"; }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return found;
+}
+
+Public Function SourceIgnored(String path, String rules) -> Bool
+Explain {
+    Description: "Decide whether a compiler input is excluded.";
+    Input: path = "A source path", rules = "The ignore file text";
+    Processing: "Match a directory rule, an exact path, or a trailing star.";
+    Output: "True when the path is excluded.";
+} {
+    String normalized = path;
+    While (normalized.Contains("\\")) {
+        Int slash = normalized.IndexOf("\\");
+        normalized = normalized.Substring(0, slash) + "/" + normalized.Substring(slash + 1);
+    }
+    Int start = 0;
+    Int index = 0;
+    While (index <= rules.Length()) {
+        Bool boundary = index == rules.Length();
+        If (!boundary && rules.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String rule = rules.Substring(start, index - start);
+            If (rule != "" && !rule.StartsWith("#")) {
+                If (rule.EndsWith("/")) { rule = rule.Substring(0, rule.Length() - 1); }
+                If (rule.EndsWith("*")) {
+                    String prefix = rule.Substring(0, rule.Length() - 1);
+                    If (prefix != "" && normalized.StartsWith(prefix)) { Return True; }
+                }
+                If (normalized == rule || normalized.StartsWith(rule + "/") || normalized.Contains("/" + rule + "/")) { Return True; }
+            }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return False;
+}
+
+Public Function PlaceBuildTree(String outputPath, String listing, String imports, String symbols, Bool writeSymbols) -> Int
+Explain {
+    Description: "Write the build folders beside a compiler output.";
+    Input: outputPath = "The compiled file", listing = "RXASM or RXIR text", imports = "Import lines", symbols = "Function lines", writeSymbols = "True to write the symbol file";
+    Processing: "Create Bin, Libraries, Objects, and Symbols. Write the listing, the link list, and the symbol file when requested.";
+    Output: "1 after the folders exist.";
+} {
+    Int slash = outputPath.LastIndexOf("/");
+    String folder = ".";
+    String leaf = outputPath;
+    If (slash >= 0) {
+        folder = outputPath.Substring(0, slash);
+        leaf = outputPath.Substring(slash + 1);
+    }
+    If (leaf.EndsWith(".rxasm")) { leaf = leaf.Substring(0, leaf.Length() - 6); }
+    If (leaf.EndsWith(".rxir")) { leaf = leaf.Substring(0, leaf.Length() - 5); }
+    Directory.Create(folder);
+    Directory.Create(folder + "/Bin");
+    Directory.Create(folder + "/Libraries");
+    Directory.Create(folder + "/Objects");
+    Directory.Create(folder + "/Symbols");
+    Files.WriteText(folder + "/Objects/" + leaf + ".rxasm", listing);
+    Files.WriteText(folder + "/Libraries/link.txt", imports);
+    If (writeSymbols) { Files.WriteText(folder + "/Symbols/" + leaf + ".sym", symbols); }
+    Return 1;
+}
+
+Private Function NoteCache(String word) -> Void {
+    Directory.Create(".robix");
+    String prior = "";
+    If (Files.Exists(".robix/compile-stats.txt")) { prior = Files.ReadText(".robix/compile-stats.txt"); }
+    Files.WriteText(".robix/compile-stats.txt", prior + word + "\n");
+}
+
+Public Function CacheSummary() -> String
+Explain {
+    Description: "Count compile cache hits and misses.";
+    Input: None;
+    Processing: "Read .robix/compile-stats.txt. A missing file reports zero.";
+    Output: "Hits, misses, and the file size in lines.";
+} {
+    String text = "";
+    If (Files.Exists(".robix/compile-stats.txt")) { text = Files.ReadText(".robix/compile-stats.txt"); }
+    Int hits = 0;
+    Int misses = 0;
+    Int lines = 0;
+    Int start = 0;
+    Int index = 0;
+    While (index <= text.Length()) {
+        Bool boundary = index == text.Length();
+        If (!boundary && text.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = text.Substring(start, index - start);
+            lines = lines + 1;
+            If (line == "hit") { hits = hits + 1; }
+            If (line == "miss") { misses = misses + 1; }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return "Hits " + hits.ToString() + "\nMisses " + misses.ToString() + "\nLines " + lines.ToString() + "\n";
+}
+
+Public Function ShowToolchain() -> ExecutionResult
+Explain {
+    Description: "Print the toolchain directories.";
+    Input: None;
+    Processing: "Report Bin, Library, Shared, and Packages, plus the toolchain path.";
+    Output: "The toolchain result.";
+} {
+    Print("Toolchain " + ToolchainPath());
+    If (Directory.Exists("Bin")) { Print("Bin"); } Else { Print("Bin missing"); }
+    If (Directory.Exists("Library")) { Print("Library"); } Else { Print("Library missing"); }
+    If (Directory.Exists("Shared")) { Print("Shared"); } Else { Print("Shared missing"); }
+    If (Directory.Exists("Packages")) { Print("Packages"); } Else { Print("Packages missing"); }
+    Return FinishRun(ExitCode.Success, "Toolchain printed.");
+}
+
+Public Function ShowLink(String outputPath) -> ExecutionResult
+Explain {
+    Description: "Report whether a program was linked.";
+    Input: outputPath = "The compiled file";
+    Processing: "A present output is Linked. An empty Objects folder has nothing to link.";
+    Output: "The link result.";
+} {
+    If (Files.Exists(outputPath)) {
+        Print("Linked");
+        Return FinishRun(ExitCode.Success, "Linked " + outputPath + ".");
+    }
+    Return FinishRun(ExitCode.ErrorExecution, "There is nothing to link.");
+}
+
+Public Function ShowListing(String outputPath) -> ExecutionResult
+Explain {
+    Description: "Print a saved assembly listing.";
+    Input: outputPath = "The compiled file";
+    Processing: "Read the .rxasm file beside the output, then Objects.";
+    Output: "The listing result.";
+} {
+    String listing = outputPath;
+    If (!listing.EndsWith(".rxasm")) { listing = outputPath + ".rxasm"; }
+    If (!Files.Exists(listing)) { listing = BuildLeaf(outputPath, "Objects"); }
+    If (!listing.EndsWith(".rxasm")) { listing = listing + ".rxasm"; }
+    If (!Files.Exists(listing)) { Return FinishRun(ExitCode.InvalidArguments, "No assembly listing was saved."); }
+    Print(Files.ReadText(listing));
+    Return FinishRun(ExitCode.Success, "Assembly listing printed.");
+}
+
+Public Function ShowSymbols(String outputPath) -> ExecutionResult
+Explain {
+    Description: "Print a saved symbol file.";
+    Input: outputPath = "The compiled file";
+    Processing: "Read Symbols/name.sym beside the output.";
+    Output: "The symbol result.";
+} {
+    String path = BuildLeaf(outputPath, "Symbols");
+    If (path.EndsWith(".rxasm")) { path = path.Substring(0, path.Length() - 6); }
+    If (!path.EndsWith(".sym")) { path = path + ".sym"; }
+    If (!Files.Exists(path)) { Return FinishRun(ExitCode.InvalidArguments, "No symbol file was saved. Pass --Symbols."); }
+    Print(Files.ReadText(path));
+    Return FinishRun(ExitCode.Success, "Symbols printed.");
+}
+
+Public Function ShowDependencies(String outputPath) -> ExecutionResult
+Explain {
+    Description: "Print recorded link dependencies.";
+    Input: outputPath = "The compiled file";
+    Processing: "Read Libraries/link.txt beside the output.";
+    Output: "The dependency result.";
+} {
+    Int slash = outputPath.LastIndexOf("/");
+    String folder = ".";
+    If (slash >= 0) { folder = outputPath.Substring(0, slash); }
+    String path = folder + "/Libraries/link.txt";
+    If (!Files.Exists(path)) { Return FinishRun(ExitCode.InvalidArguments, "No link dependencies were saved."); }
+    Print(Files.ReadText(path));
+    Return FinishRun(ExitCode.Success, "Dependencies printed.");
+}
+
+Public Function ShowExplain() -> ExecutionResult
+Explain {
+    Description: "Explain the latest compiler diagnostic.";
+    Input: None;
+    Processing: "Read .robix/last.txt. A missing file says there is nothing to explain.";
+    Output: "The explanation result.";
+} {
+    If (!Files.Exists(".robix/last.txt")) { Return FinishRun(ExitCode.InvalidArguments, "There is no diagnostic to explain."); }
+    String text = Files.ReadText(".robix/last.txt");
+    Print(text);
+    Return FinishRun(ExitCode.Success, "Explanation printed.");
+}
+
+Public Function ShowReport(String outputPath) -> ExecutionResult
+Explain {
+    Description: "Write a build report.";
+    Input: outputPath = "The compiled file";
+    Processing: "Copy BuildInfo into .robix/build-report.txt.";
+    Output: "The report result.";
+} {
+    String info = "";
+    String infoPath = InfoFile(outputPath);
+    If (Files.Exists(infoPath)) { info = Files.ReadText(infoPath); }
+    If (info == "") { info = "No build information.\n"; }
+    Directory.Create(".robix");
+    Files.WriteText(".robix/build-report.txt", info);
+    Print(info);
+    Return FinishRun(ExitCode.Success, "Build report written.");
 }

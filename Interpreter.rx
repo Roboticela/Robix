@@ -78,6 +78,8 @@ Public Class Interpreter {
     Private Int spanEnd;
     Private Int breakLine;
     Private Bool stepping;
+    Private Bool showVariables;
+    Private Bool showStack;
     Private Bool stopArmed;
     Private Int statementCount;
     Private String coverageText;
@@ -118,6 +120,8 @@ Public Class Interpreter {
         This.spanEnd = 0;
         This.breakLine = 0;
         This.stepping = False;
+        This.showVariables = False;
+        This.showStack = False;
         This.stopArmed = True;
         This.statementCount = 0;
         This.coverageText = "\n";
@@ -147,6 +151,17 @@ Public Class Interpreter {
         This.breakLine = breakLine;
         This.stepping = trace;
         This.stopArmed = True;
+    }
+
+    Public Function SetDebugView(Bool variables, Bool stack) -> Void
+    Explain {
+        Description: "Choose what a debugger stop prints.";
+        Input: variables = "True to print the symbol table", stack = "True to print the call stack";
+        Processing: "Store the flags. A stop reads them before waiting for a command.";
+        Output: "No return value.";
+    } {
+        This.showVariables = variables;
+        This.showStack = stack;
     }
 
     Public Function StatementCount() -> Int
@@ -987,9 +1002,10 @@ Public Class Interpreter {
     Private Function DebugStop(AstNode node) -> Void {
         This.stopArmed = False;
         Print("{debug}break{/}  line " + node.Line.ToString());
+        If (This.showVariables) { Print(This.ScopeText()); }
         String stack = "";
         If (This.callStackText != Null) { stack = This.callStackText; }
-        If (stack != "") { Print(stack); }
+        If (This.showStack && stack != "") { Print(stack); }
         If (This.inTests) {
             This.stopArmed = True;
             Return;

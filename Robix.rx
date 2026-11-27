@@ -11,6 +11,12 @@ Import Robix.Runtime;
 Private Extern Function ClockMillis() -> Int;
 Private Extern Function Input() -> String;
 Private Extern Function SleepMillis(Int millis) -> Void;
+Private Extern Function ClearScreen() -> Void;
+Private Extern Function HostSystem() -> String;
+Private Extern Function HostArchitecture() -> String;
+Private Extern Function ToolchainPath() -> String;
+Private Extern Function UserConfigPath() -> String;
+Private Extern Function ParallelRun(String script) -> String;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
@@ -38,7 +44,8 @@ Explain {
     If (words.Count() == 0) {
         For arg In args {
             String lower = arg.ToLower();
-            If (lower == "-h" || lower == "--help") { Return "help"; }
+            If (lower == "-h") { Return "help-short"; }
+            If (lower == "--help") { Return "help"; }
             If (lower == "--version") { Return "version-detail"; }
             If (lower == "-v") { Return "version"; }
         }
@@ -98,7 +105,54 @@ Explain {
     If (first.Contains(".rx:")) { Return "run-span"; }
     If (first.EndsWith(".test.rx")) { Return "test-file"; }
     If (first.EndsWith(".rx")) { Return "run-file"; }
-    Return "project";
+    If (first == "build" || first == "clean" || first == "restore" || first == "self" || first == "pack" || first == "publish") { Return "project"; }
+    Return "unknown";
+}
+
+Private Function CommandScore(String guess, String command) -> Int {
+    String left = guess.ToLower();
+    String right = command.ToLower();
+    Int same = 0;
+    Int index = 0;
+    Int limit = left.Length();
+    If (right.Length() < limit) { limit = right.Length(); }
+    While (index < limit) {
+        If (left.Substring(index, 1) == right.Substring(index, 1)) { same = same + 1; }
+        index = index + 1;
+    }
+    Int gap = left.Length() - right.Length();
+    If (gap < 0) { gap = 0 - gap; }
+    Return same * 3 - gap;
+}
+
+Public Function ClosestCommand(String word) -> String
+Explain {
+    Description: "Name the Robix command closest to an unknown word.";
+    Input: word = "The word that was not a command";
+    Processing: "Score each command by shared leading letters and length. A weak score returns empty.";
+    Output: "The PascalCase command, or empty.";
+} {
+    String names = "help\nversion\nrun\ntest\ndebug\nconfig\nnew\ninit\nopen\nstructure\nvalidate\ntasks\ndoctor\nenvironment\ncompletion\ninstall\nremove\nupdate\nlist\nsearch\noutdated\nverify\nlock\ncache\nformat\nlint\nexplain\ndiagnose\ngraph\nmodules\nwatch\nprofile\ncheck\ninfo\nclean\nrestore\nself\npack\npublish\nbuild\n";
+    String best = "";
+    Int bestScore = 0;
+    Int start = 0;
+    Int index = 0;
+    While (index <= names.Length()) {
+        Bool boundary = index == names.Length();
+        If (!boundary && names.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String command = names.Substring(start, index - start);
+            Int score = CommandScore(word, command);
+            If (score > bestScore) {
+                best = command;
+                bestScore = score;
+            }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    If (bestScore < 3) { Return ""; }
+    Return PascalName(best);
 }
 
 Public Function TopicOf(List<String> args) -> String
@@ -125,6 +179,9 @@ Explain {
 } {
     String name = topic.ToLower();
     String usage = "{accent}ROBIX{/}\nInterpreter, packages, tests, projects\n\n{info}USAGE{/}\n  Robix [Command] [Arguments] [Options]\n\n";
+    If (name == "short") {
+        Return usage + "{info}FAMILIES{/}\n  Help Version Run Test Debug Config New Install Format Check\n\n{info}OPTIONS{/}\n  --Verbose --Quiet --Force --NoColor\n  -h                         Short help\n  --Help                     Full help\n";
+    }
     String execution = "{accent}EXECUTION{/}\n  Robix                         Start the REPL\n  Robix Main.rx                 Run one source file\n  Robix Run .                   Run the project entry\n  Robix Run Main.rx -- …        Pass arguments after --\n\n";
     String testing = "{info}TESTING{/}\n  Robix Test                    Test the project\n  Robix User.test.rx            Test one file\n  Robix Test A.test.rx B.test.rx  Test several files\n  Robix Test FunctionName       Test one function\n  Robix Test --Class ClassName  Test one class\n\n";
     String packages = "{package}PACKAGES{/}\n  Robix Install                 Install dependencies from the .rxp\n  Robix Install PackageA@1.2.0  Install one version\n  Robix Remove PackageA         Drop it from the project\n  Robix List                    List project dependencies\n  Robix List --Global           List Packages/Installed\n  Robix Update                  Report versions in the .rxp\n\n";
@@ -148,10 +205,10 @@ Public Function VersionText(String kind) -> String
 Explain {
     Description: "Format the Robix version line.";
     Input: kind = "short or detail";
-    Processing: "Print the toolchain version. Detail adds the toolchain label.";
+    Processing: "Print the toolchain version. Detail adds the host, the architecture, and the toolchain path.";
     Output: "The version text.";
 } {
-    If (kind == "detail") { Return "Robix 0.0.48\nToolchain\n"; }
+    If (kind == "detail") { Return "Robix 0.0.48\n" + HostSystem() + " " + HostArchitecture() + "\nToolchain " + ToolchainPath() + "\n"; }
     Return "Robix 0.0.48";
 }
 
@@ -722,6 +779,142 @@ Explain {
         index = index + 1;
     }
     Return "";
+}
+
+Public Function StoredFlag(String text, String key) -> String
+Explain {
+    Description: "Read a setting only when that file stores it.";
+    Input: text = "Settings text", key = "Setting name";
+    Processing: "Do not substitute the defaults. An absent key returns empty.";
+    Output: "The stored value, or empty.";
+} {
+    String stored = CanonicalKey(key);
+    If (stored == "" || text == "") { Return ""; }
+    String prefix = stored + "=";
+    Int start = 0;
+    Int index = 0;
+    While (index <= text.Length()) {
+        Bool boundary = index == text.Length();
+        If (!boundary && text.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = text.Substring(start, index - start);
+            If (line.StartsWith(prefix)) { Return line.Substring(prefix.Length()); }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return "";
+}
+
+Public Function ActiveScope(String key, String projectText, String userText) -> String
+Explain {
+    Description: "Name the scope that supplies a setting.";
+    Input: key = "Setting name", projectText = "Project .robix/config", userText = "User config";
+    Processing: "Prefer the project file, then the user file, then the built-in default.";
+    Output: "project, user, or default.";
+} {
+    If (StoredFlag(projectText, key) != "") { Return "project"; }
+    If (StoredFlag(userText, key) != "") { Return "user"; }
+    Return "default";
+}
+
+Public Function ActiveValue(String key, String projectText, String userText) -> String
+Explain {
+    Description: "Read a setting through the scope chain.";
+    Input: key = "Setting name", projectText = "Project .robix/config", userText = "User config";
+    Processing: "Use the project value, then the user value, then the default.";
+    Output: "The active value.";
+} {
+    String projectValue = StoredFlag(projectText, key);
+    If (projectValue != "") { Return projectValue; }
+    String userValue = StoredFlag(userText, key);
+    If (userValue != "") { Return userValue; }
+    Return ConfigFlag(DefaultConfig(), key);
+}
+
+Public Function ConfigReport(String projectText, String userText) -> String
+Explain {
+    Description: "Show every setting and the scope that supplied it.";
+    Input: projectText = "Project .robix/config", userText = "User config";
+    Processing: "List Time, ExitCode, ExitMessage, Colors, Verbose, Progress, and Unicode.";
+    Output: "One Key=Value and scope per line.";
+} {
+    String keys = "Time\nExitCode\nExitMessage\nColors\nVerbose\nProgress\nUnicode\n";
+    String report = "";
+    Int start = 0;
+    Int index = 0;
+    While (index <= keys.Length()) {
+        Bool boundary = index == keys.Length();
+        If (!boundary && keys.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String key = keys.Substring(start, index - start);
+            report = report + key + "=" + ActiveValue(key, projectText, userText) + "  " + ActiveScope(key, projectText, userText) + "\n";
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return report;
+}
+
+Public Function Ignored(String path, String rules) -> Bool
+Explain {
+    Description: "Decide whether a path is excluded by .robixignore.";
+    Input: path = "A source path", rules = "The ignore file text";
+    Processing: "Match a directory rule, an exact path, or a trailing star.";
+    Output: "True when the path is excluded.";
+} {
+    String normalized = path;
+    While (normalized.Contains("\\")) {
+        Int slash = normalized.IndexOf("\\");
+        normalized = normalized.Substring(0, slash) + "/" + normalized.Substring(slash + 1);
+    }
+    Int start = 0;
+    Int index = 0;
+    While (index <= rules.Length()) {
+        Bool boundary = index == rules.Length();
+        If (!boundary && rules.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String rule = rules.Substring(start, index - start);
+            If (rule != "" && !rule.StartsWith("#")) {
+                If (rule.EndsWith("/")) { rule = rule.Substring(0, rule.Length() - 1); }
+                If (rule.EndsWith("*")) {
+                    String prefix = rule.Substring(0, rule.Length() - 1);
+                    If (prefix != "" && normalized.StartsWith(prefix)) { Return True; }
+                }
+                If (normalized == rule || normalized.StartsWith(rule + "/") || normalized.Contains("/" + rule + "/")) { Return True; }
+            }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return False;
+}
+
+Public Function ImportVersion(String line, String versions) -> String
+Explain {
+    Description: "Attach a package version to an import line.";
+    Input: line = "An Import statement", versions = "Name and version lines from the project file";
+    Processing: "Read the package name and look it up. A missing pin stays unpinned.";
+    Output: "The import with its version.";
+} {
+    String name = line;
+    If (name.StartsWith("Import ")) { name = name.Substring(7); }
+    If (name.EndsWith(";")) { name = name.Substring(0, name.Length() - 1); }
+    String version = "unpinned";
+    Int start = 0;
+    Int index = 0;
+    While (index <= versions.Length()) {
+        Bool boundary = index == versions.Length();
+        If (!boundary && versions.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String recorded = versions.Substring(start, index - start);
+            Int space = recorded.IndexOf(" ");
+            If (space > 0 && recorded.Substring(0, space) == name) { version = recorded.Substring(space + 1); }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    Return "Import " + name + "  " + version;
 }
 
 Public Function FindFrom(String text, Int start, String needle) -> Int
@@ -1305,9 +1498,12 @@ Explain {
     Output: "The command result.";
 } {
     String blocked = FirstProblem(args);
-    String config = DefaultConfig();
+    String config = "";
     If (Files.Exists(".robix/config")) { config = Files.ReadText(".robix/config"); }
-    Bool useColor = ConfigFlag(config, "Colors") != "Off";
+    String userText = "";
+    String userPath = UserConfigPath();
+    If (userPath != "" && Files.Exists(userPath)) { userText = Files.ReadText(userPath); }
+    Bool useColor = ActiveValue("Colors", config, userText) != "Off";
     For arg In args {
         If (arg.ToLower() == "--nocolor") { useColor = False; }
     }
@@ -1316,7 +1512,7 @@ Explain {
         If (blocked.StartsWith("Unknown")) { blockedCode = 4; }
         Return FinishShown(blockedCode, blocked, useColor);
     }
-    Bool showTime = ConfigFlag(config, "Time") != "Off";
+    Bool showTime = ActiveValue("Time", config, userText) != "Off";
     Bool quiet = False;
     Bool force = False;
     For arg In args {
@@ -1325,8 +1521,11 @@ Explain {
     }
     String kind = ClassifyRobix(args);
     If (kind == "repl") { Return RunSession(useColor, showTime); }
-    If (kind == "help" || kind == "help-topic") {
-        Say(HelpText(TopicOf(args)), useColor);
+    If (kind == "help" || kind == "help-topic" || kind == "help-short") {
+        String topic = "full";
+        If (kind == "help-short") { topic = "short"; }
+        If (kind == "help-topic") { topic = TopicOf(args); }
+        Say(HelpText(topic), useColor);
         Return FinishShown(ExitCode.Success, "Printed Robix help.", useColor);
     }
     If (kind == "version" || kind == "version-detail") {
@@ -1404,14 +1603,34 @@ Explain {
         Var profile = kind == "profile";
         Var coverage = False;
         Var trace = False;
+        Var dryRun = False;
+        Var consoleOn = True;
+        Var port = 0;
+        Var showVariables = False;
+        Var showStack = False;
+        Var halt = False;
+        Var portSet = False;
         For arg In args {
             String lower = arg.ToLower();
             If (lower == "--profile") { profile = True; }
             If (lower == "--coverage") { coverage = True; }
-            If (lower == "--trace") { trace = True; }
+            If (lower == "--trace" || lower == "--step") { trace = True; }
+            If (lower == "--continue") { trace = False; }
+            If (lower == "--variables") { showVariables = True; }
+            If (lower == "--stack") { showStack = True; }
+            If (lower == "--stop") { halt = True; }
+            If (lower == "--dryrun") { dryRun = True; }
+            If (lower == "--console=off") { consoleOn = False; }
+            If (lower == "--console=on") { consoleOn = True; }
+            If (lower.StartsWith("--port=")) {
+                port = lower.Substring(7).ToInt();
+                portSet = True;
+            }
         }
+        If (halt) { Return FinishShown(ExitCode.Success, "Debug session stopped.", useColor); }
+        If (portSet && (port < 1 || port > 65535)) { Return FinishShown(ExitCode.InvalidArguments, "The console port must be from 1 to 65535.", useColor); }
         Bool checkOnly = kind == "check-file";
-        Return RunSource(file, ProgramArgText(args), checkOnly, useColor, quiet, showTime, spanStart, spanEnd, breakLine, profile, coverage, trace);
+        Return RunSource(file, ProgramArgText(args), checkOnly, useColor, quiet, showTime, spanStart, spanEnd, breakLine, profile, coverage, trace, dryRun, consoleOn, port, showVariables, showStack);
     }
     If (kind == "test-file") {
         String file = SourcePath(args);
@@ -1432,7 +1651,6 @@ Explain {
             If (lower == "--parallel") { parallel = True; }
             If (lower == "--stoponfailure") { stopOnFailure = True; }
         }
-        If (parallel) { Say("{info}Tests run one file at a time in this interpreter.{/}", useColor); }
         Var files = List<String>();
         Var names = List<String>();
         For arg In args {
@@ -1449,6 +1667,16 @@ Explain {
                 If (arg.StartsWith("--")) { one.Add(arg); }
             }
             Return ExecuteProject(one);
+        }
+        If (parallel && files.Count() > 1) {
+            String script = "";
+            For file In files {
+                script = script + "test --File " + file + "\n";
+            }
+            String output = ParallelRun(script);
+            Say(output, useColor);
+            If (output.Contains("Failed ")) { Return FinishShown(ExitCode.ErrorExecution, "A parallel test failed.", useColor); }
+            Return FinishShown(ExitCode.Success, "Tests passed.", useColor);
         }
         ExecutionResult last = ExecutionResult(ExitCode.Success, "Tests passed.");
         For file In files {
@@ -1501,7 +1729,17 @@ Explain {
     If (kind == "install" || kind == "remove" || kind == "lock" || kind == "cache") {
         Return PackageCommand(kind, args, useColor, force);
     }
-    Return FinishShown(ExitCode.InvalidArguments, "The command was not recognized.", useColor);
+    String guess = "";
+    For arg In args {
+        If (!arg.StartsWith("-")) {
+            guess = arg;
+            Break;
+        }
+    }
+    String near = ClosestCommand(guess);
+    String message = "The command was not recognized.";
+    If (near != "") { message = message + " The closest command is " + near + "."; }
+    Return FinishShown(ExitCode.InvalidArguments, message, useColor);
 }
 
 Public Function WriteConfig(List<String> args, String config, Bool useColor) -> ExecutionResult
@@ -1516,7 +1754,12 @@ Explain {
         If (!arg.StartsWith("-")) { words.Add(arg); }
     }
     If (words.Count() < 2 || words[1].ToLower() == "show") {
-        Say(config, useColor);
+        String projectText = "";
+        If (Files.Exists(".robix/config")) { projectText = Files.ReadText(".robix/config"); }
+        String userText = "";
+        String userPath = UserConfigPath();
+        If (userPath != "" && Files.Exists(userPath)) { userText = Files.ReadText(userPath); }
+        Say(ConfigReport(projectText, userText), useColor);
         Return FinishShown(ExitCode.Success, "Configuration printed.", useColor);
     }
     Directory.Create(".robix");
@@ -1590,6 +1833,9 @@ Explain {
     String status = TemplateStatus(kind, variant);
     If (status == "unknown") {
         Return FinishShown(ExitCode.InvalidArguments, "The project kind or variant is not recognized.", useColor);
+    }
+    If (status != "console" && status != "empty") {
+        Return FinishShown(ExitCode.WarningExecution, PascalName(status) + " creates nothing until its runtime exists.", useColor);
     }
     String root = directory;
     If (root == ".") { root = ""; }
@@ -1888,9 +2134,11 @@ Explain {
     For arg In args {
         If (!arg.StartsWith("-") && arg.ToLower() != "format" && arg.EndsWith(".rx")) { files.Add(arg); }
     }
+    String rules = "";
+    If (Files.Exists(".robixignore")) { rules = Files.ReadText(".robixignore"); }
     If (files.Count() == 0) {
         For relative In Directory.Files(".") {
-            If (relative.EndsWith(".rx") && !relative.Contains("Build/") && !relative.Contains("Build\\")) { files.Add(relative); }
+            If (relative.EndsWith(".rx") && !Ignored(relative, rules)) { files.Add(relative); }
         }
     }
     If (!force) {
@@ -1899,6 +2147,10 @@ Explain {
         If (answer != "yes" && answer != "y") { Return FinishShown(ExitCode.Success, "Format cancelled.", useColor); }
     }
     For file In files {
+        If (Ignored(file, rules)) {
+            Say("{muted}ignored{/}  " + file, useColor);
+            Continue;
+        }
         If (Files.Exists(file)) {
             Files.WriteText(file, FormatSource(Files.ReadText(file)));
             Say("{success}formatted{/}  " + file, useColor);
@@ -1918,13 +2170,16 @@ Explain {
     For arg In args {
         If (!arg.StartsWith("-") && arg.ToLower() != "lint" && arg.EndsWith(".rx")) { files.Add(arg); }
     }
+    String rules = "";
+    If (Files.Exists(".robixignore")) { rules = Files.ReadText(".robixignore"); }
     If (files.Count() == 0) {
         For relative In Directory.Files(".") {
-            If (relative.EndsWith(".rx") && !relative.Contains("Build/") && !relative.Contains("Build\\")) { files.Add(relative); }
+            If (relative.EndsWith(".rx") && !Ignored(relative, rules)) { files.Add(relative); }
         }
     }
     Bool found = False;
     For file In files {
+        If (Ignored(file, rules)) { Continue; }
         If (Files.Exists(file)) {
             String findings = LintText(Files.ReadText(file));
             If (findings != "") {
@@ -2008,9 +2263,11 @@ Explain {
     Processing: "Read each .rx file outside Build and print its Package line.";
     Output: "The module list result.";
 } {
+    String rules = "";
+    If (Files.Exists(".robixignore")) { rules = Files.ReadText(".robixignore"); }
     For relative In Directory.Files(".") {
         If (!relative.EndsWith(".rx") || relative.EndsWith(".test.rx")) { Continue; }
-        If (relative.Contains("Build/") || relative.Contains("Build\\")) { Continue; }
+        If (Ignored(relative, rules)) { Continue; }
         String source = Files.ReadText(relative);
         String packageName = "";
         Int at = source.IndexOf("Package ");
@@ -2040,17 +2297,17 @@ Explain {
         String now = ContentMark(Files.ReadText(path));
         If (now != previous) {
             previous = now;
-            RunSource(path, "", False, useColor, quiet, showTime, 0, 0, 0, False, False, False);
+            RunSource(path, "", False, useColor, quiet, showTime, 0, 0, 0, False, False, False, False, True, 0, False, False);
         }
     }
     Return FinishShown(ExitCode.Success, "Watch finished.", useColor);
 }
 
-Public Function RunSource(String path, String programArgText, Bool checkOnly, Bool useColor, Bool quiet, Bool showTime, Int spanStart, Int spanEnd, Int breakLine, Bool profile, Bool coverage, Bool trace) -> ExecutionResult
+Public Function RunSource(String path, String programArgText, Bool checkOnly, Bool useColor, Bool quiet, Bool showTime, Int spanStart, Int spanEnd, Int breakLine, Bool profile, Bool coverage, Bool trace, Bool dryRun, Bool consoleOn, Int port, Bool showVariables, Bool showStack) -> ExecutionResult
 Explain {
     Description: "Check or run one Robix source file.";
-    Input: path = "Source path", programArgText = "Program arguments, one per line", checkOnly = "True to type-check and stop", useColor = "True when color is enabled", quiet = "True to hide tool banners", showTime = "True to print durations", spanStart = "First line of a span, or zero", spanEnd = "Last line of a span, or zero", breakLine = "Breakpoint line, or zero", profile = "True to print the statement count", coverage = "True to print executed lines", trace = "True to stop at every statement";
-    Processing: "Parse and type-check the file, then interpret it unless this is only a check.";
+    Input: path = "Source path", programArgText = "Program arguments, one per line", checkOnly = "True to type-check and stop", useColor = "True when color is enabled", quiet = "True to hide tool banners", showTime = "True to print durations", spanStart = "First line of a span, or zero", spanEnd = "Last line of a span, or zero", breakLine = "Breakpoint line, or zero", profile = "True to print the statement count", coverage = "True to write and print executed lines", trace = "True to stop at every statement", dryRun = "True to print the file and its imports without running", consoleOn = "False hides program output", port = "Console port, or zero", showVariables = "True to print variables at a stop", showStack = "True to print the stack at a stop";
+    Processing: "Parse and type-check the file, then interpret it unless this is only a check or a dry run.";
     Output: "The run or check result.";
 } {
     If (!Files.Exists(path)) { Return FinishShown(ExitCode.InvalidArguments, "The source file was not found.", useColor); }
@@ -2073,6 +2330,22 @@ Explain {
         Return FinishShown(ExitCode.Success, "Check passed.", useColor);
     }
     If (result.Errors > 0) { Return FinishShown(ExitCode.ErrorExecution, "The module has syntax or type errors.", useColor); }
+    If (dryRun) {
+        Say(path, useColor);
+        Int importStart = 0;
+        Int importIndex = 0;
+        While (importIndex <= source.Length()) {
+            Bool importBoundary = importIndex == source.Length();
+            If (!importBoundary && source.Substring(importIndex, 1) == "\n") { importBoundary = True; }
+            If (importBoundary && importIndex > importStart) {
+                String importLine = source.Substring(importStart, importIndex - importStart);
+                If (importLine.StartsWith("Import ")) { Say(importLine, useColor); }
+            }
+            If (importBoundary) { importStart = importIndex + 1; }
+            importIndex = importIndex + 1;
+        }
+        Return FinishShown(ExitCode.Success, "Dry run finished.", useColor);
+    }
     Var programArguments = List<String>();
     Int start = 0;
     Int index = 0;
@@ -2084,7 +2357,9 @@ Explain {
         index = index + 1;
     }
     Interpreter interpreter = Interpreter();
+    interpreter.SetConsole(consoleOn, port);
     interpreter.SetRunGate(spanStart, spanEnd, breakLine, trace);
+    interpreter.SetDebugView(showVariables, showStack);
     Int runStart = ClockMillis();
     Int exitCode = interpreter.Execute(result.Module, programArguments);
     Int runTime = ClockMillis() - runStart;
@@ -2092,7 +2367,12 @@ Explain {
     For line In interpreter.RuntimeErrors() { Say("{error}" + line + "{/}", useColor); }
     If (showTime && !quiet) { Say("{muted}run{/}  {accent}" + runTime.ToString() + " ms{/}", useColor); }
     If (profile) { Say("{debug}statements{/}  " + interpreter.StatementCount().ToString(), useColor); }
-    If (coverage) { Say(interpreter.CoverageText(), useColor); }
+    If (coverage) {
+        Directory.Create(".robix");
+        Files.WriteText(".robix/coverage.txt", interpreter.CoverageText());
+        Say(interpreter.CoverageText(), useColor);
+        Say("{debug}coverage{/}  .robix/coverage.txt", useColor);
+    }
     If (exitCode != 0) { Return FinishShown(exitCode, "The module returned a non-zero code.", useColor); }
     Return FinishShown(ExitCode.Success, "Program completed successfully.", useColor);
 }
@@ -2107,35 +2387,53 @@ Explain {
     Say("{accent}ROBIX{/}  {muted}Write a line or a block. :Help lists session commands.{/}", useColor);
     String kept = "";
     String pending = "";
+    String history = "";
+    String scopeSymbols = "";
     Bool sessionTime = showTime;
+    Bool debugNext = False;
     While (True) {
         String line = Input();
+        history = history + line + "\n";
         String trimmed = line;
         If (pending == "" && BraceDepth(kept) == 0) {
             String lower = trimmed.ToLower();
             If (lower == ":exit" || lower == ":quit") { Return FinishShown(ExitCode.Success, "Left the REPL.", useColor); }
             If (lower == ":help") {
-                Say(":Help :Exit :Quit :Clear :Reset :History :Save :Load :Run :Debug :Time On :Time Off :Variables :Functions :Classes :Imports", useColor);
+                Say(":Help :Exit :Quit :Clear :Reset :History :ClearHistory :Save :Load :Run :Debug :Time On :Time Off :Variables :Functions :Classes :Imports", useColor);
                 Continue;
             }
             If (lower == ":clear") {
-                Say("", useColor);
+                ClearScreen();
+                Continue;
+            }
+            If (lower == ":clearhistory") {
+                history = "";
+                Say("{muted}history cleared{/}", useColor);
                 Continue;
             }
             If (lower == ":reset") {
                 kept = "";
                 pending = "";
+                scopeSymbols = "";
                 Say("{muted}reset{/}", useColor);
                 Continue;
             }
             If (lower == ":history") {
-                Say(kept, useColor);
+                Say(history, useColor);
                 Continue;
             }
             If (lower == ":time on") { sessionTime = True; Continue; }
             If (lower == ":time off") { sessionTime = False; Continue; }
             If (lower.StartsWith(":save ")) {
                 String savePath = trimmed.Substring(6);
+                If (Files.Exists(savePath)) {
+                    Say("{warning}Replace " + savePath + "? Type yes.{/}", useColor);
+                    String answer = Input().ToLower();
+                    If (answer != "yes" && answer != "y") {
+                        Say("{muted}save cancelled{/}", useColor);
+                        Continue;
+                    }
+                }
                 Files.WriteText(savePath, SessionProgram(kept, "Session"));
                 Say("{success}saved{/}  " + savePath, useColor);
                 Continue;
@@ -2146,15 +2444,19 @@ Explain {
                     Say("{error}missing{/}  " + loadPath, useColor);
                     Continue;
                 }
-                RunSource(loadPath, "", False, useColor, True, sessionTime, 0, 0, 0, False, False, False);
+                RunSource(loadPath, "", False, useColor, True, sessionTime, 0, 0, 0, False, False, False, False, True, 0, False, False);
                 Continue;
             }
             If (lower.StartsWith(":run ")) {
-                RunSource(trimmed.Substring(5), "", False, useColor, True, sessionTime, 0, 0, 0, False, False, False);
+                RunSource(trimmed.Substring(5), "", False, useColor, True, sessionTime, 0, 0, 0, False, False, False, False, True, 0, False, False);
                 Continue;
             }
             If (lower == ":debug" || lower == ":variables" || lower == ":functions" || lower == ":classes" || lower == ":imports") {
-                Say(SessionInventory(kept, lower), useColor);
+                If (lower == ":debug") { debugNext = True; }
+                String versions = "";
+                String projectPath = FindProjectFile();
+                If (projectPath != "" && Files.Exists(projectPath)) { versions = DependencyText(Files.ReadText(projectPath)); }
+                Say(SessionInventory(kept, lower, scopeSymbols, versions), useColor);
                 Continue;
             }
         }
@@ -2170,30 +2472,58 @@ Explain {
         }
         Int runStart = ClockMillis();
         Interpreter interpreter = Interpreter();
+        If (debugNext) {
+            interpreter.SetRunGate(0, 0, 0, True);
+            debugNext = False;
+        }
         Int exitCode = interpreter.Execute(result.Module, List<String>());
         For item In interpreter.Lines() { Print(item); }
         For item In interpreter.RuntimeErrors() { Say("{error}" + item + "{/}", useColor); }
         Int sessionRun = ClockMillis() - runStart;
         If (sessionTime) { Say("{muted}run{/}  {accent}" + sessionRun.ToString() + " ms{/}", useColor); }
-        If (exitCode == 0 && interpreter.RuntimeErrors().Count() == 0) { kept = kept + pending; }
+        If (exitCode == 0 && interpreter.RuntimeErrors().Count() == 0) {
+            kept = kept + pending;
+            scopeSymbols = interpreter.ScopeText();
+        }
         pending = "";
     }
     Return FinishShown(ExitCode.Success, "Left the REPL.", useColor);
 }
 
-Public Function SessionInventory(String source, String command) -> String
+Public Function SessionInventory(String source, String command, String scope, String versions) -> String
 Explain {
-    Description: "List declarations in the REPL buffer.";
-    Input: source = "Statements accepted by the session", command = "The session command";
-    Processing: "Scan the buffer for imports, functions, classes, and variables.";
-    Output: "The matching declaration lines.";
+    Description: "List symbols from the REPL session.";
+    Input: source = "Statements accepted by the session", command = "The session command", scope = "Variable names from the last successful run", versions = "Package name and version lines";
+    Processing: "Prefer the saved symbol table. Functions come from the source map. Imports include the project version.";
+    Output: "The matching symbols.";
 } {
+    If (command == ":debug") { Return "Debug waits for the next complete entry. The interpreter then runs that session."; }
+    If (command == ":variables" && scope != "") { Return scope; }
+    If (command == ":functions") {
+        String map = SourceMapOf(source);
+        String functions = "";
+        Int mapStart = 0;
+        Int mapIndex = 0;
+        While (mapIndex <= map.Length()) {
+            Bool mapBoundary = mapIndex == map.Length();
+            If (!mapBoundary && map.Substring(mapIndex, 1) == "\n") { mapBoundary = True; }
+            If (mapBoundary && mapIndex > mapStart) {
+                String mapLine = map.Substring(mapStart, mapIndex - mapStart);
+                If (mapLine.EndsWith("|function")) {
+                    Int bar = mapLine.IndexOf("|");
+                    If (bar > 0) { functions = functions + "Function " + mapLine.Substring(0, bar) + "\n"; }
+                }
+            }
+            If (mapBoundary) { mapStart = mapIndex + 1; }
+            mapIndex = mapIndex + 1;
+        }
+        If (functions != "") { Return functions; }
+    }
     String needle = "";
     If (command == ":variables") { needle = "Var "; }
     If (command == ":functions") { needle = "Function "; }
     If (command == ":classes") { needle = "Class "; }
     If (command == ":imports") { needle = "Import "; }
-    If (command == ":debug") { Return "Debug waits for the next complete entry. The interpreter then runs that session."; }
     String found = "";
     Int start = 0;
     Int index = 0;
@@ -2202,7 +2532,10 @@ Explain {
         If (!boundary && source.Substring(index, 1) == "\n") { boundary = True; }
         If (boundary && index > start) {
             String line = source.Substring(start, index - start);
-            If (needle != "" && line.Contains(needle)) { found = found + line + "\n"; }
+            If (needle != "" && line.Contains(needle)) {
+                If (command == ":imports") { found = found + ImportVersion(line, versions) + "\n"; }
+                Else { found = found + line + "\n"; }
+            }
         }
         If (boundary) { start = index + 1; }
         index = index + 1;
@@ -2220,12 +2553,15 @@ Private Function FinishRun(Int code, String reason) -> ExecutionResult {
 }
 
 Private Function FinishShown(Int code, String reason, Bool useColor) -> ExecutionResult {
-    String config = DefaultConfig();
-    If (Files.Exists(".robix/config")) { config = Files.ReadText(".robix/config"); }
+    String projectText = "";
+    If (Files.Exists(".robix/config")) { projectText = Files.ReadText(".robix/config"); }
+    String userText = "";
+    String userPath = UserConfigPath();
+    If (userPath != "" && Files.Exists(userPath)) { userText = Files.ReadText(userPath); }
     Bool color = useColor;
-    If (ConfigFlag(config, "Colors") == "Off") { color = False; }
-    Bool showCode = ConfigFlag(config, "ExitCode") != "Off";
-    Bool showMessage = ConfigFlag(config, "ExitMessage") != "Off";
+    If (ActiveValue("Colors", projectText, userText) == "Off") { color = False; }
+    Bool showCode = ActiveValue("ExitCode", projectText, userText) != "Off";
+    Bool showMessage = ActiveValue("ExitMessage", projectText, userText) != "Off";
     String tone = "success";
     String name = "success";
     If (code == 1) { tone = "warning"; name = "warning"; }

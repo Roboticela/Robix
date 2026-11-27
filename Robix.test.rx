@@ -82,6 +82,10 @@ Test TopicOf {
 }
 
 Test HelpText {
+    Case "short page" {
+        Input: topic = "short";
+        Contains: Result, "-h";
+    }
     Case "names the test command" {
         Input: topic = "full";
         Contains: Result, "Robix Test";
@@ -592,8 +596,79 @@ Test RunSession { Output: True; }
 
 Test SessionInventory {
     Case "finds a variable" {
-        Input: source = "Var speed = 1;\n", command = ":variables";
+        Input: source = "Var speed = 1;\n", command = ":variables", scope = "", versions = "";
         Contains: Result, "Var speed";
+    }
+    Case "uses the symbol table" {
+        Input: source = "Var speed = 1;\n", command = ":variables", scope = "speed = 1\n", versions = "";
+        Contains: Result, "speed = 1";
+    }
+    Case "shows an import version" {
+        Input: source = "Import Robix.Core;\n", command = ":imports", scope = "", versions = "Robix.Core 1.0.0\n";
+        Contains: Result, "Robix.Core  1.0.0";
+    }
+}
+
+Test ClosestCommand {
+    Case "format typo" {
+        Input: word = "formt";
+        Output: "Format";
+    }
+}
+
+Test CommandScore { Output: True; }
+
+Test StoredFlag {
+    Case "absent key" {
+        Input: text = "Time=Off\n", key = "Colors";
+        Output: "";
+    }
+    Case "stored key" {
+        Input: text = "Colors=Off\n", key = "Colors";
+        Output: "Off";
+    }
+}
+
+Test ActiveScope {
+    Case "project wins" {
+        Input: key = "Colors", projectText = "Colors=Off\n", userText = "Colors=On\n";
+        Output: "project";
+    }
+    Case "default" {
+        Input: key = "Colors", projectText = "", userText = "";
+        Output: "default";
+    }
+}
+
+Test ActiveValue {
+    Case "user value" {
+        Input: key = "Colors", projectText = "", userText = "Colors=Off\n";
+        Output: "Off";
+    }
+}
+
+Test ConfigReport {
+    Case "names the scope" {
+        Input: projectText = "Colors=Off\n", userText = "";
+        Contains: Result, "Colors=Off  project";
+    }
+}
+
+Test Ignored {
+    Case "build directory" {
+        Input: path = "Build/Main.rx", rules = "Build/\n";
+        Output: True;
+    }
+    Case "source stays" {
+        Input: path = "Main.rx", rules = "Build/\n";
+        Output: False;
+    }
+}
+
+Test ImportVersion {
+    Case "pinned" {
+        Input: line = "Import Robix.Core;", versions = "Robix.Core 1.0.0\n";
+        Output: "Import Robix.Core  1.0.0";
     }
 }
 

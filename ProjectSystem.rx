@@ -6,6 +6,8 @@ Import Robix.Syntax;
 Import Robix.Runtime;
 
 Private Extern Function ClockMillis() -> Int;
+Private Extern Function ParallelRun(String script) -> String;
+Private Extern Function UnicodeTerminal() -> Bool;
 
 
 Public Class ProjectNode {
@@ -53,6 +55,7 @@ Public Class ProjectEngine {
     Private Bool WriteReport;
     Private Bool UpdateSnapshots;
     Private Bool FailedOnly;
+    Private Bool Parallel;
     Private Int Started;
 
     Public Constructor() {
@@ -82,6 +85,7 @@ Public Class ProjectEngine {
         This.WriteReport = False;
         This.UpdateSnapshots = False;
         This.FailedOnly = False;
+        This.Parallel = False;
         This.Started = 0;
     }
 
@@ -212,7 +216,7 @@ Public Class ProjectEngine {
             If (lower == "--report") { This.WriteReport = True; }
             If (lower == "--updatesnapshots") { This.UpdateSnapshots = True; }
             If (lower == "--failed") { This.FailedOnly = True; }
-            If (lower == "--parallel") { Print("{info}Tests run one file at a time in this interpreter.{/}"); }
+            If (lower == "--parallel") { This.Parallel = True; }
             index = index + 1;
         }
         Var positionals = List<String>();
@@ -999,6 +1003,16 @@ Public Class ProjectEngine {
                 files.Add(relative);
             }
         }
+        If (This.Parallel && files.Count() > 1) {
+            String script = "";
+            For relative In files {
+                script = script + "test --File " + relative + "\n";
+            }
+            String output = ParallelRun(script);
+            Print(output);
+            If (output.Contains("Failed ")) { Return False; }
+            Return True;
+        }
         Int passed = 0;
         Int failed = 0;
         Int matched = 0;
@@ -1006,26 +1020,40 @@ Public Class ProjectEngine {
         If (This.FailedOnly && Files.Exists(".robix/test-report.txt")) { previousReport = Files.ReadText(".robix/test-report.txt"); }
         String report = "";
         For relative In files {
-            If (This.FailedOnly && previousReport != "" && !previousReport.Contains("FAIL " + relative)) { Continue; }
+            If (This.FailedOnly && previousReport != "" && !previousReport.Contains("Failed " + relative) && !previousReport.Contains("FAIL " + relative)) { Continue; }
             String full = relative;
             If (!Files.Exists(full)) {
                 full = This.Join(This.ProjectDirectory, relative);
             }
             If (!Files.Exists(full)) {
-                Print("FAIL " + relative);
-                report = report + "FAIL " + relative + "\n";
+                Print(This.ResultMark(False) + relative);
+                report = report + This.ResultMark(False) + relative + "\n";
                 This.Diagnostics.Add(relative + " was not found.");
                 failed = failed + 1;
                 If (This.StopOnFailure) { Break; }
                 Continue;
             }
             String source = Files.ReadText(full);
+            String companion = "";
+            If (full.EndsWith(".rx")) {
+                String companionPath = full.Substring(0, full.Length() - 3) + ".test.rx";
+                If (Files.Exists(companionPath)) { companion = Files.ReadText(companionPath); }
+            }
+            String key = source + "\n" + companion + "\n" + This.SourceText + "\n0.0.48\n" + This.Configuration + "\n" + This.Filter + "\n" + This.TestTarget;
+            String hash = This.Fingerprint(key);
+            If (!This.NoCache && This.Cached(relative) == hash && hash != "") {
+                Print("Tests Skipped - No Relevant Changes");
+                Print(This.ResultMark(True) + relative);
+                report = report + This.ResultMark(True) + relative + "\n";
+                passed = passed + 1;
+                Continue;
+            }
             SyntaxCompiler compiler = SyntaxCompiler();
             CompileResult result = compiler.CompileSource(source, full, False);
             If (result.Errors > 0) {
                 For line In compiler.DiagnosticsOf(result) { Print(line); }
-                Print("FAIL " + relative);
-                report = report + "FAIL " + relative + "\n";
+                Print(This.ResultMark(False) + relative);
+                report = report + This.ResultMark(False) + relative + "\n";
                 failed = failed + 1;
                 If (This.StopOnFailure) { Break; }
                 Continue;
@@ -1037,14 +1065,35 @@ Public Class ProjectEngine {
             Int ran = tests.MatchedTests();
             matched = matched + ran;
             For line In errors { Print(line); }
+            String shown = "";
+            For line In tests.Lines() { shown = shown + line + "\n"; }
+            String snapName = relative;
+            While (snapName.Contains("/")) {
+                Int slash = snapName.IndexOf("/");
+                snapName = snapName.Substring(0, slash) + "_" + snapName.Substring(slash + 1);
+            }
+            While (snapName.Contains("\\")) {
+                Int slash = snapName.IndexOf("\\");
+                snapName = snapName.Substring(0, slash) + "_" + snapName.Substring(slash + 1);
+            }
+            String snapPath = ".robix/snapshots/" + snapName + ".txt";
+            If (This.UpdateSnapshots) {
+                Directory.Create(".robix/snapshots");
+                Files.WriteText(snapPath, shown);
+            } Else If (Files.Exists(snapPath) && Files.ReadText(snapPath) != shown) {
+                Print("{warning}snapshot differs{/}  " + snapPath);
+                This.Diagnostics.Add("The output snapshot differs. Run Robix Test --UpdateSnapshots to accept it.");
+                errors.Add("snapshot");
+            }
             If (errors.Count() > 0) {
-                Print("FAIL " + relative);
-                report = report + "FAIL " + relative + "\n";
+                Print(This.ResultMark(False) + relative);
+                report = report + This.ResultMark(False) + relative + "\n";
                 failed = failed + 1;
                 If (This.StopOnFailure) { Break; }
             } Else If (This.TestTarget == "" || ran > 0) {
-                Print("PASS " + relative);
-                report = report + "PASS " + relative + "\n";
+                If (!This.NoCache) { This.Remember(relative, hash); }
+                Print(This.ResultMark(True) + relative);
+                report = report + This.ResultMark(True) + relative + "\n";
                 passed = passed + 1;
             }
         }
@@ -1053,21 +1102,9 @@ Public Class ProjectEngine {
             failed = failed + 1;
         }
         Print("{success}passed{/} {accent}" + passed.ToString() + "{/}  {error}failed{/} {accent}" + failed.ToString() + "{/}");
-        If (This.WriteReport || This.UpdateSnapshots) {
+        If (This.WriteReport) {
             Directory.Create(".robix");
-            If (This.WriteReport) { Files.WriteText(".robix/test-report.txt", report); }
-            If (This.UpdateSnapshots) {
-                Directory.Create(".robix/snapshots");
-                Files.WriteText(".robix/snapshots/report.txt", report);
-            }
-        }
-        If (!This.UpdateSnapshots && Files.Exists(".robix/snapshots/report.txt")) {
-            String saved = Files.ReadText(".robix/snapshots/report.txt");
-            If (saved != report) {
-                Print("{warning}snapshot differs{/}  .robix/snapshots/report.txt");
-                This.Diagnostics.Add("The test snapshot differs. Run Robix Test --UpdateSnapshots to accept it.");
-                failed = failed + 1;
-            }
+            Files.WriteText(".robix/test-report.txt", report);
         }
         Return failed == 0;
     }
@@ -1110,22 +1147,43 @@ Public Class ProjectEngine {
         SyntaxCompiler compiler = SyntaxCompiler();
         CompileResult result = compiler.CompileSource(source, relative, True);
         If (!result.Succeeded) {
-            Print("FAIL " + relative);
+            Print(This.ResultMark(False) + relative);
             Return False;
         }
         If (!source.Contains("Function Main")) {
-            Print("PASS " + relative);
+            Print(This.ResultMark(True) + relative);
             Return True;
         }
         Interpreter interpreter = Interpreter();
         Int exitCode = interpreter.Execute(result.Module, List<String>());
         For line In interpreter.Lines() { Print(line); }
         If (exitCode != 0 || interpreter.RuntimeErrors().Count() > 0) {
-            Print("FAIL " + relative);
+            Print(This.ResultMark(False) + relative);
             Return False;
         }
-        Print("PASS " + relative);
+        Print(This.ResultMark(True) + relative);
         Return True;
+    }
+
+    Private Function ResultMark(Bool passed) -> String {
+        String mode = "Automatic";
+        If (Files.Exists(".robix/config")) {
+            String text = Files.ReadText(".robix/config");
+            Int mark = text.IndexOf("Unicode=");
+            If (mark >= 0) {
+                String value = text.Substring(mark + 8);
+                Int end = value.IndexOf("\n");
+                If (end >= 0) { value = value.Substring(0, end); }
+                mode = value;
+            }
+        }
+        Bool marks = False;
+        If (mode == "On") { marks = True; }
+        If (mode == "Automatic" && UnicodeTerminal()) { marks = True; }
+        If (passed && marks) { Return "✓ "; }
+        If (!passed && marks) { Return "✗ "; }
+        If (passed) { Return "Passed "; }
+        Return "Failed ";
     }
 
     Private Function RunEntry(ProjectNode project) -> Bool {
@@ -1198,7 +1256,13 @@ Public Class ProjectEngine {
         Directory.Create(This.ParentDirectory(path));
         String prior = "";
         If (Files.Exists(path)) { prior = Files.ReadText(path); }
-        Files.WriteText(path, prior + relative + " " + hash + "\n");
+        String kept = "";
+        Var lines = This.SplitLines(prior);
+        For line In lines {
+            Int space = line.IndexOf(" ");
+            If (space <= 0 || line.Substring(0, space) != relative) { kept = kept + line + "\n"; }
+        }
+        Files.WriteText(path, kept + relative + " " + hash + "\n");
     }
 
     Private Function SplitLines(String text) -> List<String> {
