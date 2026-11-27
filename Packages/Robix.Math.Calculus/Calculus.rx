@@ -1,5 +1,8 @@
 // Robix.Math.Calculus: derivatives, integrals, series, and differential equations.
-Package Robix.Math.Calculus;
+Package Robix.Math.Calculus
+Explain {
+    Description: "Derivatives, integrals, series, and differential equations.";
+};
 
 Import Robix.Core;
 

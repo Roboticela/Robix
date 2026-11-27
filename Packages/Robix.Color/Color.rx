@@ -442,13 +442,13 @@ Class ColorDesk {
     }
 
     Private Function Pair(String text, Int index) -> Int {
-        Int high = This.HexDigit(text.Substring(index, 1));
-        Int low = This.HexDigit(text.Substring(index + 1, 1));
+        Int high = This.Nibble(text.Substring(index, 1));
+        Int low = This.Nibble(text.Substring(index + 1, 1));
         If (high < 0 || low < 0) { Return -1; }
         Return high * 16 + low;
     }
 
-    Private Function HexDigit(String piece) -> Int {
+    Private Function Nibble(String piece) -> Int {
         If (piece == "0") { Return 0; }
         If (piece == "1") { Return 1; }
         If (piece == "2") { Return 2; }

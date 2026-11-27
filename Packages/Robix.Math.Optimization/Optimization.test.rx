@@ -1,551 +1,553 @@
+// Tests for Optimization.rx. Shape 0 is x squared, shape 1 is (x-3) squared, and shape 2 is 6x minus x squared.
+
 Test CreateProblem {
-    Constraint: OptimizationDesk().CreateProblem(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().CreateProblem(0) == 1;
+    Processing: OptimizationDesk().CreateProblem(0);
+    Output: 1;
 }
 
 Test CreateMinimizationProblem {
-    Constraint: OptimizationDesk().CreateMinimizationProblem(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().CreateMinimizationProblem(0) == 1;
+    Processing: OptimizationDesk().CreateMinimizationProblem(0);
+    Output: 1;
 }
 
 Test CreateMaximizationProblem {
-    Constraint: OptimizationDesk().CreateMaximizationProblem(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().CreateMaximizationProblem(2) == 1;
+    Processing: OptimizationDesk().CreateMaximizationProblem(2);
+    Output: 1;
 }
 
 Test AddVariable {
-    Constraint: OptimizationDesk().AddVariable(0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().AddVariable(4) == 1;
+    Processing: OptimizationDesk().AddVariable(4);
+    Output: 1;
 }
 
 Test AddConstraint {
-    Constraint: OptimizationDesk().AddConstraint(4) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().AddConstraint(5) == 1;
+    Processing: OptimizationDesk().AddConstraint(5);
+    Output: 1;
 }
 
 Test SetBounds {
-    Constraint: OptimizationDesk().SetBounds(0, 6) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SetBounds(0, 4) == 1;
+    Processing: OptimizationDesk().SetBounds(0, 4);
+    Output: 1;
 }
 
 Test SetInitialGuess {
-    Constraint: OptimizationDesk().SetInitialGuess(0) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SetInitialGuess(2) == 2;
+    Processing: OptimizationDesk().SetInitialGuess(2);
+    Output: 2;
 }
 
 Test SetObjective {
     Constraint: OptimizationDesk().SetObjective(1) == 1;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().SetObjective(1);
+    Output: 1;
 }
 
 Test ValidateProblem {
-    Constraint: OptimizationDesk().ValidateProblem(1, 0, 6) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ValidateProblem(0, 0, 4) == 1;
+    Processing: OptimizationDesk().ValidateProblem(0, 0, 4);
+    Output: 1;
 }
 
 Test Minimize {
-    Constraint: OptimizationDesk().Minimize(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Minimize(0, -2, 2) == 0;
+    Processing: OptimizationDesk().Minimize(0, -2, 2);
+    Output: 0;
 }
 
 Test Maximize {
-    Constraint: OptimizationDesk().Maximize(2, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Maximize(0, -2, 2) == -2;
+    Processing: OptimizationDesk().Maximize(0, -2, 2);
+    Output: -2;
 }
 
 Test Optimize {
-    Constraint: OptimizationDesk().Optimize(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Optimize(0, -2, 2) == 0;
+    Processing: OptimizationDesk().Optimize(0, -2, 2);
+    Output: 0;
 }
 
 Test OptimizeAsync {
-    Constraint: OptimizationDesk().OptimizeAsync(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().OptimizeAsync(0, -2, 2) == 0;
+    Processing: OptimizationDesk().OptimizeAsync(0, -2, 2);
+    Output: 0;
 }
 
 Test FindMinimum {
     Constraint: OptimizationDesk().FindMinimum(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().FindMinimum(1, 0, 6);
+    Output: 3;
 }
 
 Test FindMaximum {
     Constraint: OptimizationDesk().FindMaximum(2, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().FindMaximum(2, 0, 6);
+    Output: 3;
 }
 
 Test FindGlobalMinimum {
-    Constraint: OptimizationDesk().FindGlobalMinimum(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().FindGlobalMinimum(0, 0, 3) == 0;
+    Processing: OptimizationDesk().FindGlobalMinimum(0, 0, 3);
+    Output: 0;
 }
 
 Test FindGlobalMaximum {
     Constraint: OptimizationDesk().FindGlobalMaximum(2, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().FindGlobalMaximum(2, 0, 6);
+    Output: 3;
 }
 
 Test GradientDescent {
-    Constraint: OptimizationDesk().GradientDescent(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().GradientDescent(0, 2, 1) == 0;
+    Processing: OptimizationDesk().GradientDescent(0, 2, 1);
+    Output: 0;
 }
 
 Test StochasticGradientDescent {
-    Constraint: OptimizationDesk().StochasticGradientDescent(0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().StochasticGradientDescent(3, 1) == 3;
+    Processing: OptimizationDesk().StochasticGradientDescent(3, 1);
+    Output: 3;
 }
 
 Test MiniBatchGradientDescent {
-    Constraint: OptimizationDesk().MiniBatchGradientDescent(0, 1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().MiniBatchGradientDescent(1, 1) == 1;
+    Processing: OptimizationDesk().MiniBatchGradientDescent(1, 1);
+    Output: 1;
 }
 
 Test Momentum {
-    Constraint: OptimizationDesk().Momentum(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Momentum(0, 2, 1) == 0;
+    Processing: OptimizationDesk().Momentum(0, 2, 1);
+    Output: 0;
 }
 
 Test AdaGrad {
-    Constraint: OptimizationDesk().AdaGrad(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().AdaGrad(0, 2, 1) == 0;
+    Processing: OptimizationDesk().AdaGrad(0, 2, 1);
+    Output: 0;
 }
 
 Test RMSProp {
-    Constraint: OptimizationDesk().RMSProp(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().RMSProp(0, 2, 1) == 0;
+    Processing: OptimizationDesk().RMSProp(0, 2, 1);
+    Output: 0;
 }
 
 Test Adam {
-    Constraint: OptimizationDesk().Adam(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Adam(0, 2, 1) == 0;
+    Processing: OptimizationDesk().Adam(0, 2, 1);
+    Output: 0;
 }
 
 Test AdamW {
-    Constraint: OptimizationDesk().AdamW(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().AdamW(0, 2, 1) == 0;
+    Processing: OptimizationDesk().AdamW(0, 2, 1);
+    Output: 0;
 }
 
 Test BFGS {
-    Constraint: OptimizationDesk().BFGS(1, 10) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().BFGS(0, 4) == 0;
+    Processing: OptimizationDesk().BFGS(0, 4);
+    Output: 0;
 }
 
 Test LBFGS {
-    Constraint: OptimizationDesk().LBFGS(1, 10) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().LBFGS(0, 4) == 0;
+    Processing: OptimizationDesk().LBFGS(0, 4);
+    Output: 0;
 }
 
 Test NewtonMethod {
-    Constraint: OptimizationDesk().NewtonMethod(1, 10) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().NewtonMethod(0, 4) == 0;
+    Processing: OptimizationDesk().NewtonMethod(0, 4);
+    Output: 0;
 }
 
 Test ConjugateGradient {
-    Constraint: OptimizationDesk().ConjugateGradient(1, 10) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ConjugateGradient(0, 4) == 0;
+    Processing: OptimizationDesk().ConjugateGradient(0, 4);
+    Output: 0;
 }
 
 Test ComputeGradient {
-    Constraint: OptimizationDesk().ComputeGradient(1, 5) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ComputeGradient(0, 3) == 6;
+    Processing: OptimizationDesk().ComputeGradient(0, 3);
+    Output: 6;
 }
 
 Test ComputeHessian {
-    Constraint: OptimizationDesk().ComputeHessian(1, 0) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ComputeHessian(0, 1) == 2;
+    Processing: OptimizationDesk().ComputeHessian(0, 1);
+    Output: 2;
 }
 
 Test ComputeJacobian {
-    Constraint: OptimizationDesk().ComputeJacobian(1, 5) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ComputeJacobian(0, 3) == 6;
+    Processing: OptimizationDesk().ComputeJacobian(0, 3);
+    Output: 6;
 }
 
 Test LineSearch {
-    Constraint: OptimizationDesk().LineSearch(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().LineSearch(0, 2, -1) == 2;
+    Processing: OptimizationDesk().LineSearch(0, 2, -1);
+    Output: 2;
 }
 
 Test BacktrackingLineSearch {
-    Constraint: OptimizationDesk().BacktrackingLineSearch(1, 0, 1) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().BacktrackingLineSearch(0, 2, -1) == 2;
+    Processing: OptimizationDesk().BacktrackingLineSearch(0, 2, -1);
+    Output: 2;
 }
 
 Test GoldenSectionSearch {
-    Constraint: OptimizationDesk().GoldenSectionSearch(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().GoldenSectionSearch(0, -3, 3) == 0;
+    Processing: OptimizationDesk().GoldenSectionSearch(0, -3, 3);
+    Output: 0;
 }
 
 Test BrentSearch {
-    Constraint: OptimizationDesk().BrentSearch(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().BrentSearch(0, -3, 3) == 0;
+    Processing: OptimizationDesk().BrentSearch(0, -3, 3);
+    Output: 0;
 }
 
 Test CoordinateSearch {
-    Constraint: OptimizationDesk().CoordinateSearch(1, 0) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().CoordinateSearch(0, 2) == 0;
+    Processing: OptimizationDesk().CoordinateSearch(0, 2);
+    Output: 0;
 }
 
 Test EstimateOptimalStepSize {
-    Constraint: OptimizationDesk().EstimateOptimalStepSize(1, 0) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().EstimateOptimalStepSize(0, 4) == 4;
+    Processing: OptimizationDesk().EstimateOptimalStepSize(0, 4);
+    Output: 4;
 }
 
 Test NelderMead {
-    Constraint: OptimizationDesk().NelderMead(1, 3) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().NelderMead(0, 0) == 0;
+    Processing: OptimizationDesk().NelderMead(0, 0);
+    Output: 0;
 }
 
 Test Powell {
-    Constraint: OptimizationDesk().Powell(1, 0) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Powell(0, 2) == 0;
+    Processing: OptimizationDesk().Powell(0, 2);
+    Output: 0;
 }
 
 Test SimulatedAnnealing {
-    Constraint: OptimizationDesk().SimulatedAnnealing(1, 0) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SimulatedAnnealing(0, 2) == 0;
+    Processing: OptimizationDesk().SimulatedAnnealing(0, 2);
+    Output: 0;
 }
 
 Test GeneticOptimize {
-    Constraint: OptimizationDesk().GeneticOptimize(1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().GeneticOptimize(0) == 0;
+    Processing: OptimizationDesk().GeneticOptimize(0);
+    Output: 0;
 }
 
 Test ParticleSwarmOptimize {
     Constraint: OptimizationDesk().ParticleSwarmOptimize(1) == 3;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().ParticleSwarmOptimize(1);
+    Output: 3;
 }
 
 Test DifferentialEvolution {
     Constraint: OptimizationDesk().DifferentialEvolution(1) == 3;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().DifferentialEvolution(1);
+    Output: 3;
 }
 
 Test BayesianOptimize {
-    Constraint: OptimizationDesk().BayesianOptimize(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().BayesianOptimize(0, 0, 3) == 0;
+    Processing: OptimizationDesk().BayesianOptimize(0, 0, 3);
+    Output: 0;
 }
 
 Test EvolutionStrategy {
-    Constraint: OptimizationDesk().EvolutionStrategy(1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().EvolutionStrategy(0) == 0;
+    Processing: OptimizationDesk().EvolutionStrategy(0);
+    Output: 0;
 }
 
 Test SolveLinearProgram {
-    Constraint: OptimizationDesk().SolveLinearProgram(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SolveLinearProgram(1, 0) == 3;
+    Processing: OptimizationDesk().SolveLinearProgram(1, 0);
+    Output: 3;
 }
 
 Test SolveQuadraticProgram {
-    Constraint: OptimizationDesk().SolveQuadraticProgram(3, 1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SolveQuadraticProgram(0, 5) == 0;
+    Processing: OptimizationDesk().SolveQuadraticProgram(0, 5);
+    Output: 0;
 }
 
 Test SolveIntegerProgram {
-    Constraint: OptimizationDesk().SolveIntegerProgram(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SolveIntegerProgram(1, 0) == 3;
+    Processing: OptimizationDesk().SolveIntegerProgram(1, 0);
+    Output: 3;
 }
 
 Test SolveMixedIntegerProgram {
-    Constraint: OptimizationDesk().SolveMixedIntegerProgram(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SolveMixedIntegerProgram(1, 0) == 3;
+    Processing: OptimizationDesk().SolveMixedIntegerProgram(1, 0);
+    Output: 3;
 }
 
 Test SolveWithConstraints {
-    Constraint: OptimizationDesk().SolveWithConstraints(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SolveWithConstraints(1, 0) == 3;
+    Processing: OptimizationDesk().SolveWithConstraints(1, 0);
+    Output: 3;
 }
 
 Test Simplex {
-    Constraint: OptimizationDesk().Simplex(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Simplex(1, 0) == 3;
+    Processing: OptimizationDesk().Simplex(1, 0);
+    Output: 3;
 }
 
 Test InteriorPoint {
-    Constraint: OptimizationDesk().InteriorPoint(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().InteriorPoint(1, 0) == 3;
+    Processing: OptimizationDesk().InteriorPoint(1, 0);
+    Output: 3;
 }
 
 Test BranchAndBound {
-    Constraint: OptimizationDesk().BranchAndBound(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().BranchAndBound(1, 0) == 3;
+    Processing: OptimizationDesk().BranchAndBound(1, 0);
+    Output: 3;
 }
 
 Test ApplyPenaltyFunction {
     Constraint: OptimizationDesk().ApplyPenaltyFunction(0, 1) == 0;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().ApplyPenaltyFunction(0, 1);
+    Output: 0;
 }
 
 Test CheckConstraintSatisfaction {
-    Constraint: OptimizationDesk().CheckConstraintSatisfaction(2, 2) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().CheckConstraintSatisfaction(1, 1) == 1;
+    Processing: OptimizationDesk().CheckConstraintSatisfaction(1, 1);
+    Output: 1;
 }
 
 Test IsConverged {
-    Constraint: OptimizationDesk().IsConverged(1, 3) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().IsConverged(0, 0) == 1;
+    Processing: OptimizationDesk().IsConverged(0, 0);
+    Output: 1;
 }
 
 Test ConvergenceHistory {
-    Constraint: OptimizationDesk().ConvergenceHistory(1, 0, 1) == 6;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ConvergenceHistory(0, 2, 1) == 1;
+    Processing: OptimizationDesk().ConvergenceHistory(0, 2, 1);
+    Output: 1;
 }
 
 Test GetOptimalValue {
-    Constraint: OptimizationDesk().GetOptimalValue(1, 0, 6) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().GetOptimalValue(0, -2, 2) == 0;
+    Processing: OptimizationDesk().GetOptimalValue(0, -2, 2);
+    Output: 0;
 }
 
 Test OptimalParameter {
-    Constraint: OptimizationDesk().OptimalParameter(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().OptimalParameter(0, -2, 2) == 0;
+    Processing: OptimizationDesk().OptimalParameter(0, -2, 2);
+    Output: 0;
 }
 
 Test IterationCount {
-    Constraint: OptimizationDesk().IterationCount(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().IterationCount(0, 2, 1) == 2;
+    Processing: OptimizationDesk().IterationCount(0, 2, 1);
+    Output: 2;
 }
 
 Test GetGradientNorm {
-    Constraint: OptimizationDesk().GetGradientNorm(1, 5) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().GetGradientNorm(0, 3) == 6;
+    Processing: OptimizationDesk().GetGradientNorm(0, 3);
+    Output: 6;
 }
 
 Test EstimateOptimalityGap {
-    Constraint: OptimizationDesk().EstimateOptimalityGap(1, 5) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().EstimateOptimalityGap(0, 3) == 9;
+    Processing: OptimizationDesk().EstimateOptimalityGap(0, 3);
+    Output: 9;
 }
 
 Test CompareOptimizers {
-    Constraint: OptimizationDesk().CompareOptimizers(1, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().CompareOptimizers(0, 4) == 1;
+    Processing: OptimizationDesk().CompareOptimizers(0, 4);
+    Output: 1;
 }
 
 Test ParetoFront {
-    Constraint: OptimizationDesk().ParetoFront(0, 6) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ParetoFront(1, 4) == 4;
+    Processing: OptimizationDesk().ParetoFront(1, 4);
+    Output: 4;
 }
 
 Test NSGA2 {
-    Constraint: OptimizationDesk().NSGA2(0, 6) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().NSGA2(1, 4) == 4;
+    Processing: OptimizationDesk().NSGA2(1, 4);
+    Output: 4;
 }
 
 Test NSGA3 {
-    Constraint: OptimizationDesk().NSGA3(0, 6) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().NSGA3(1, 4) == 4;
+    Processing: OptimizationDesk().NSGA3(1, 4);
+    Output: 4;
 }
 
 Test Dominates {
     Constraint: OptimizationDesk().Dominates(2, 0) == 1;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().Dominates(2, 0);
+    Output: 1;
 }
 
 Test ObjectiveVector {
-    Constraint: OptimizationDesk().ObjectiveVector(3) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ObjectiveVector(1) == 9;
+    Processing: OptimizationDesk().ObjectiveVector(1);
+    Output: 9;
 }
 
 Test MultiObjectiveOptimize {
-    Constraint: OptimizationDesk().MultiObjectiveOptimize(0, 6) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().MultiObjectiveOptimize(0, 4) == 2;
+    Processing: OptimizationDesk().MultiObjectiveOptimize(0, 4);
+    Output: 2;
 }
 
 Test MinimizeRegularized {
-    Constraint: OptimizationDesk().MinimizeRegularized(0, 1, 0, 6) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().MinimizeRegularized(0, 1, -1, 1) == 0;
+    Processing: OptimizationDesk().MinimizeRegularized(0, 1, -1, 1);
+    Output: 0;
 }
 
 Test OptimalLinearX {
-    Constraint: OptimizationDesk().OptimalLinearX() == 0;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().OptimalLinearX(1, 0) == 3;
+    Processing: OptimizationDesk().OptimalLinearX(1, 0);
+    Output: 3;
 }
 
 Test OptimalLinearY {
-    Constraint: OptimizationDesk().OptimalLinearY() == 0;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().OptimalLinearY(1, 0) == 0;
+    Processing: OptimizationDesk().OptimalLinearY(1, 0);
+    Output: 0;
 }
 
 Test SetLearningRate {
     Constraint: OptimizationDesk().SetLearningRate(2) == 2;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().SetLearningRate(2);
+    Output: 2;
 }
 
 Test SetTolerance {
-    Constraint: OptimizationDesk().SetTolerance(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SetTolerance(0) == 0;
+    Processing: OptimizationDesk().SetTolerance(0);
+    Output: 0;
 }
 
 Test ConvergedWithin {
-    Constraint: OptimizationDesk().ConvergedWithin(1, 3, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ConvergedWithin(0, 0, 0) == 1;
+    Processing: OptimizationDesk().ConvergedWithin(0, 0, 0);
+    Output: 1;
 }
 
 Test CoordinateDescent {
-    Constraint: OptimizationDesk().CoordinateDescent(1, 0) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().CoordinateDescent(0, 2) == 0;
+    Processing: OptimizationDesk().CoordinateDescent(0, 2);
+    Output: 0;
 }
 
 Test Fault {
     Constraint: OptimizationDesk().Fault() == "none";
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().Fault();
+    Output: "none";
 }
 
 Test Known {
-    Constraint: OptimizationDesk().Known(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Known(0) == 1;
+    Processing: OptimizationDesk().Known(0);
+    Output: 1;
 }
 
 Test Value {
-    Constraint: OptimizationDesk().Value(1, 3) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Value(0, 3) == 9;
+    Processing: OptimizationDesk().Value(0, 3);
+    Output: 9;
 }
 
 Test Slope {
-    Constraint: OptimizationDesk().Slope(1, 5) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Slope(0, 3) == 6;
+    Processing: OptimizationDesk().Slope(0, 3);
+    Output: 6;
 }
 
 Test Curve {
-    Constraint: OptimizationDesk().Curve(1) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Curve(0) == 2;
+    Processing: OptimizationDesk().Curve(0);
+    Output: 2;
 }
 
 Test Stationary {
     Constraint: OptimizationDesk().Stationary(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().Stationary(0);
+    Output: 0;
 }
 
 Test Approach {
-    Constraint: OptimizationDesk().Approach(3, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Approach(0, 0, 1) == 0;
+    Processing: OptimizationDesk().Approach(0, 0, 1);
+    Output: 0;
 }
 
 Test Walk {
-    Constraint: OptimizationDesk().Walk(1, 0, 1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Walk(0, 0, 1) == 0;
+    Processing: OptimizationDesk().Walk(0, 0, 1);
+    Output: 0;
 }
 
 Test ArgMin {
-    Constraint: OptimizationDesk().ArgMin(1, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().ArgMin(0, -1, 1) == 0;
+    Processing: OptimizationDesk().ArgMin(0, -1, 1);
+    Output: 0;
 }
 
 Test ArgMax {
     Constraint: OptimizationDesk().ArgMax(2, 0, 6) == 3;
-    Processing: True;
-    Output: True;
+    Processing: OptimizationDesk().ArgMax(2, 0, 6);
+    Output: 3;
 }
 
 Test PopulationBest {
-    Constraint: OptimizationDesk().PopulationBest(1) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().PopulationBest(0) == 0;
+    Processing: OptimizationDesk().PopulationBest(0);
+    Output: 0;
 }
 
 Test Feasible {
-    Constraint: OptimizationDesk().Feasible(2, 2) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Feasible(1, 1) == 1;
+    Processing: OptimizationDesk().Feasible(1, 1);
+    Output: 1;
 }
 
 Test BestLinear {
-    Constraint: OptimizationDesk().BestLinear(3, 2) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().BestLinear(1, 0) == 3;
+    Processing: OptimizationDesk().BestLinear(1, 0);
+    Output: 3;
 }
 
 Test Penalized {
-    Constraint: OptimizationDesk().Penalized(0, 0, 1) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().Penalized(0, 3, 1) == 10;
+    Processing: OptimizationDesk().Penalized(0, 3, 1);
+    Output: 10;
 }
 
 Test SquareDistance {
-    Constraint: OptimizationDesk().SquareDistance(5, 3) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: OptimizationDesk().SquareDistance(5, 1) == 16;
+    Processing: OptimizationDesk().SquareDistance(5, 1);
+    Output: 16;
 }

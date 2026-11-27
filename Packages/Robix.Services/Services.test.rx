@@ -1,5 +1,300 @@
+// Tests for Services.rx. Each call uses a fresh desk.
+
 Test Contract {
-    Constraint: ServiceDesk().Contract("Disposable") == 1;
-    Processing: True;
-    Output: True;
+    Case "known" {
+        Constraint: ServiceDesk().Contract("Disposable") == 1;
+        Processing: ServiceDesk().Contract("Disposable");
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: ServiceDesk().Contract("Nope") == 0;
+        Processing: ServiceDesk().Contract("Nope");
+        Output: 0;
+    }
+}
+
+Test Register {
+    Case "existing" {
+        Constraint: ServiceDesk().Register("Disposable") == 0;
+        Processing: ServiceDesk().Register("Disposable");
+        Output: 0;
+    }
+    Case "new" {
+        Constraint: ServiceDesk().Register("Custom") == 4;
+        Processing: ServiceDesk().Register("Custom");
+        Output: 4;
+    }
+}
+
+Test ErrorName {
+    Case "invalid" {
+        Constraint: ServiceDesk().ErrorName(2) == "invalid";
+        Processing: ServiceDesk().ErrorName(2);
+        Output: "invalid";
+    }
+    Case "unknown" {
+        Constraint: ServiceDesk().ErrorName(9) == "unknown";
+        Processing: ServiceDesk().ErrorName(9);
+        Output: "unknown";
+    }
+}
+
+Test ErrorCode {
+    Case "conflict" {
+        Constraint: ServiceDesk().ErrorCode("conflict") == 4;
+        Processing: ServiceDesk().ErrorCode("conflict");
+        Output: 4;
+    }
+    Case "none" {
+        Constraint: ServiceDesk().ErrorCode("none") == 0;
+        Processing: ServiceDesk().ErrorCode("none");
+        Output: 0;
+    }
+}
+
+Test Clamp {
+    Case "high" {
+        Constraint: ServiceDesk().Clamp(12, 1, 9) == 9;
+        Processing: ServiceDesk().Clamp(12, 1, 9);
+        Output: 9;
+    }
+    Case "inside" {
+        Constraint: ServiceDesk().Clamp(5, 1, 9) == 5;
+        Processing: ServiceDesk().Clamp(5, 1, 9);
+        Output: 5;
+    }
+}
+
+Test Span {
+    Case "forward" {
+        Constraint: ServiceDesk().Span(1, 9) == 8;
+        Processing: ServiceDesk().Span(1, 9);
+        Output: 8;
+    }
+    Case "reversed" {
+        Constraint: ServiceDesk().Span(9, 1) == 0;
+        Processing: ServiceDesk().Span(9, 1);
+        Output: 0;
+    }
+}
+
+Test Store {
+    Constraint: ServiceDesk().Store("mode", "dev") == 0;
+    Processing: ServiceDesk().Store("mode", "dev");
+    Output: 0;
+}
+
+Test Get {
+    Constraint: ServiceDesk().Get("mode") == "none";
+    Processing: ServiceDesk().Get("mode");
+    Output: "none";
+}
+
+Test Require {
+    Case "present" {
+        Constraint: ServiceDesk().Require("ok") == 1;
+        Processing: ServiceDesk().Require("ok");
+        Output: 1;
+    }
+    Case "empty" {
+        Constraint: ServiceDesk().Require("") == 0;
+        Processing: ServiceDesk().Require("");
+        Output: 0;
+    }
+}
+
+Test InRange {
+    Case "inside" {
+        Constraint: ServiceDesk().InRange(5, 1, 9) == 1;
+        Processing: ServiceDesk().InRange(5, 1, 9);
+        Output: 1;
+    }
+    Case "below" {
+        Constraint: ServiceDesk().InRange(0, 1, 9) == 0;
+        Processing: ServiceDesk().InRange(0, 1, 9);
+        Output: 0;
+    }
+}
+
+Test Pack {
+    Constraint: ServiceDesk().Pack("mode", "dev") == "mode#dev";
+    Processing: ServiceDesk().Pack("mode", "dev");
+    Output: "mode#dev";
+}
+
+Test SetVersion {
+    Constraint: ServiceDesk().SetVersion(1, 2, 3) == 1;
+    Processing: ServiceDesk().SetVersion(1, 2, 3);
+    Output: 1;
+}
+
+Test VersionText {
+    Constraint: ServiceDesk().VersionText() == "0.0.0";
+    Processing: ServiceDesk().VersionText();
+    Output: "0.0.0";
+}
+
+Test Compare {
+    Case "equal" {
+        Constraint: ServiceDesk().Compare(0, 0, 0) == 0;
+        Processing: ServiceDesk().Compare(0, 0, 0);
+        Output: 0;
+    }
+    Case "older" {
+        Constraint: ServiceDesk().Compare(1, 0, 0) == -1;
+        Processing: ServiceDesk().Compare(1, 0, 0);
+        Output: -1;
+    }
+}
+
+Test Compatible {
+    Case "match" {
+        Constraint: ServiceDesk().Compatible(0, 0) == 1;
+        Processing: ServiceDesk().Compatible(0, 0);
+        Output: 1;
+    }
+    Case "major" {
+        Constraint: ServiceDesk().Compatible(1, 0) == 0;
+        Processing: ServiceDesk().Compatible(1, 0);
+        Output: 0;
+    }
+}
+
+Test SetPlatform {
+    Constraint: ServiceDesk().SetPlatform("linux", "x86_64") == 1;
+    Processing: ServiceDesk().SetPlatform("linux", "x86_64");
+    Output: 1;
+}
+
+Test Platform {
+    Constraint: ServiceDesk().Platform() == "none";
+    Processing: ServiceDesk().Platform();
+    Output: "none";
+}
+
+Test Arch {
+    Constraint: ServiceDesk().Arch() == "none";
+    Processing: ServiceDesk().Arch();
+    Output: "none";
+}
+
+Test Enable {
+    Constraint: ServiceDesk().Enable("log") == 1;
+    Processing: ServiceDesk().Enable("log");
+    Output: 1;
+}
+
+Test Has {
+    Constraint: ServiceDesk().Has("log") == 0;
+    Processing: ServiceDesk().Has("log");
+    Output: 0;
+}
+
+Test Acquire {
+    Constraint: ServiceDesk().Acquire("file") == 0;
+    Processing: ServiceDesk().Acquire("file");
+    Output: 0;
+}
+
+Test Release {
+    Constraint: ServiceDesk().Release(0) == 0;
+    Processing: ServiceDesk().Release(0);
+    Output: 0;
+}
+
+Test LiveCount {
+    Constraint: ServiceDesk().LiveCount() == 0;
+    Processing: ServiceDesk().LiveCount();
+    Output: 0;
+}
+
+Test Grant {
+    Constraint: ServiceDesk().Grant("user", "read") == 1;
+    Processing: ServiceDesk().Grant("user", "read");
+    Output: 1;
+}
+
+Test Allowed {
+    Constraint: ServiceDesk().Allowed("user", "read") == 0;
+    Processing: ServiceDesk().Allowed("user", "read");
+    Output: 0;
+}
+
+Test SetLevel {
+    Constraint: ServiceDesk().SetLevel(1) == 1;
+    Processing: ServiceDesk().SetLevel(1);
+    Output: 1;
+}
+
+Test Log {
+    Constraint: ServiceDesk().Log(0, "hi") == 1;
+    Processing: ServiceDesk().Log(0, "hi");
+    Output: 1;
+}
+
+Test Last {
+    Constraint: ServiceDesk().Last() == "none";
+    Processing: ServiceDesk().Last();
+    Output: "none";
+}
+
+Test Entries {
+    Constraint: ServiceDesk().Entries() == 0;
+    Processing: ServiceDesk().Entries();
+    Output: 0;
+}
+
+Test Start {
+    Constraint: ServiceDesk().Start() == 1;
+    Processing: ServiceDesk().Start();
+    Output: 1;
+}
+
+Test Pending {
+    Constraint: ServiceDesk().Pending() == 0;
+    Processing: ServiceDesk().Pending();
+    Output: 0;
+}
+
+Test Complete {
+    Constraint: ServiceDesk().Complete(8) == 8;
+    Processing: ServiceDesk().Complete(8);
+    Output: 8;
+}
+
+Test Fault {
+    Constraint: ServiceDesk().Fault() == "none";
+    Processing: ServiceDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: ServiceDesk().Stats() == "contracts=4,resources=0,logs=0";
+    Processing: ServiceDesk().Stats();
+    Output: "contracts=4,resources=0,logs=0";
+}
+
+Test FindContract {
+    Case "known" {
+        Constraint: ServiceDesk().FindContract("Disposable") == 0;
+        Processing: ServiceDesk().FindContract("Disposable");
+        Output: 0;
+    }
+    Case "unknown" {
+        Constraint: ServiceDesk().FindContract("Nope") == -1;
+        Processing: ServiceDesk().FindContract("Nope");
+        Output: -1;
+    }
+}
+
+Test FindConfig {
+    Constraint: ServiceDesk().FindConfig("mode") == -1;
+    Processing: ServiceDesk().FindConfig("mode");
+    Output: -1;
+}
+
+Test IntText {
+    Constraint: ServiceDesk().IntText(4) == "4";
+    Processing: ServiceDesk().IntText(4);
+    Output: "4";
 }

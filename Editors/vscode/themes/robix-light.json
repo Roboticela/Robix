@@ -113,7 +113,10 @@
         "string": "#A31515",
         "number": "#098658",
         "comment": "#008000",
-        "operator": "#000000"
+        "operator": "#000000",
+        "label": "#000000",
+        "*.documentation": { "foreground": "#008000" },
+        "*.public": { "fontStyle": "bold" }
     },
     "tokenColors": [
         {

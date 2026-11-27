@@ -1,5 +1,8 @@
 // Robix.Types: type descriptors, assignability, conversion, and registration.
-Package Robix.Types;
+Package Robix.Types
+Explain {
+    Description: "Type descriptors, assignability, conversion, and registration.";
+};
 
 Import Robix.Core;
 
@@ -41,8 +44,8 @@ Class TypeRegistry {
         Output: "The inferred type name.";
     } {
         If (sample == "true" || sample == "false" || sample == "True" || sample == "False") { Return "Bool"; }
-        If (This.IsFloatText(sample) == 1) { Return "Float"; }
-        If (This.IsIntText(sample) == 1) { Return "Int"; }
+        If (This.FloatText(sample) == 1) { Return "Float"; }
+        If (This.IntegerText(sample) == 1) { Return "Int"; }
         Return "String";
     }
 
@@ -270,13 +273,13 @@ Class TypeRegistry {
         }
         If (destination == "Float" && source == "Int") { Return TypeOutcome(1, value + ".0"); }
         If (destination == "Int") {
-            If (This.IsIntText(value) == 0) { Return TypeOutcome(0, "type-error"); }
+            If (This.IntegerText(value) == 0) { Return TypeOutcome(0, "type-error"); }
             Return TypeOutcome(1, value);
         }
         Return TypeOutcome(1, value);
     }
 
-    Public Function TryConvert(String source, String value, String destination) -> TypeOutcome
+    Public Function AttemptConvert(String source, String value, String destination) -> TypeOutcome
     Explain {
         Description: "Convert a value and report absence instead of throwing.";
         Input: source = "Source type", value = "Text form of the value", destination = "Destination type";
@@ -459,7 +462,7 @@ Class TypeRegistry {
         Return 0;
     }
 
-    Private Function IsIntText(String text) -> Int {
+    Private Function IntegerText(String text) -> Int {
         If (text.Length() == 0) { Return 0; }
         Int index = 0;
         If (This.CharAt(text, 0) == "-") {
@@ -474,7 +477,7 @@ Class TypeRegistry {
         Return 1;
     }
 
-    Private Function IsFloatText(String text) -> Int {
+    Private Function FloatText(String text) -> Int {
         Int dots = 0;
         Int digits = 0;
         Int index = 0;

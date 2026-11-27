@@ -1,5 +1,553 @@
+// Tests for Collections.rx. Each call uses a fresh collection.
+
 Test Append {
     Constraint: IntList().Append(4) == 1;
-    Processing: True;
-    Output: True;
+    Processing: IntList().Append(4);
+    Output: 1;
+}
+
+Test Insert {
+    Constraint: IntList().Insert(0, 4) == 1;
+    Processing: IntList().Insert(0, 4);
+    Output: 1;
+}
+
+Test RemoveAt {
+    Constraint: IntList().RemoveAt(0) == -1;
+    Processing: IntList().RemoveAt(0);
+    Output: -1;
+}
+
+Test Remove {
+    Case "list" {
+        Constraint: IntList().Remove(4) == 0;
+        Processing: IntList().Remove(4);
+        Output: 0;
+    }
+    Case "map" {
+        Constraint: TextMap().Remove("a") == 0;
+        Processing: TextMap().Remove("a");
+        Output: 0;
+    }
+    Case "watch" {
+        Constraint: WatchList().Remove(4) == 0;
+        Processing: WatchList().Remove(4);
+        Output: 0;
+    }
+}
+
+Test Clear {
+    Constraint: IntList().Clear() == 0;
+    Processing: IntList().Clear();
+    Output: 0;
+}
+
+Test Count {
+    Case "list" {
+        Constraint: IntList().Count() == 0;
+        Processing: IntList().Count();
+        Output: 0;
+    }
+    Case "links" {
+        Constraint: LinkedInts().Count() == 0;
+        Processing: LinkedInts().Count();
+        Output: 0;
+    }
+    Case "map" {
+        Constraint: TextMap().Count() == 0;
+        Processing: TextMap().Count();
+        Output: 0;
+    }
+    Case "set" {
+        Constraint: IntSet().Count() == 0;
+        Processing: IntSet().Count();
+        Output: 0;
+    }
+}
+
+Test IsEmpty {
+    Constraint: IntList().IsEmpty() == 1;
+    Processing: IntList().IsEmpty();
+    Output: 1;
+}
+
+Test Get {
+    Case "list" {
+        Constraint: IntList().Get(0) == -1;
+        Processing: IntList().Get(0);
+        Output: -1;
+    }
+    Case "map" {
+        Constraint: TextMap().Get("a") == -1;
+        Processing: TextMap().Get("a");
+        Output: -1;
+    }
+}
+
+Test PutAt {
+    Constraint: IntList().PutAt(0, 4) == 0;
+    Processing: IntList().PutAt(0, 4);
+    Output: 0;
+}
+
+Test Holds {
+    Constraint: IntList().Holds(4) == 0;
+    Processing: IntList().Holds(4);
+    Output: 0;
+}
+
+Test IndexOf {
+    Constraint: IntList().IndexOf(4) == -1;
+    Processing: IntList().IndexOf(4);
+    Output: -1;
+}
+
+Test LastIndexOf {
+    Constraint: IntList().LastIndexOf(4) == -1;
+    Processing: IntList().LastIndexOf(4);
+    Output: -1;
+}
+
+Test Copy {
+    Constraint: IntList().Copy().Count() == 0;
+    Processing: IntList().Copy().Count();
+    Output: 0;
+}
+
+Test Plus {
+    Constraint: IntList().Plus(4).Count() == 1;
+    Processing: IntList().Plus(4).Count();
+    Output: 1;
+}
+
+Test Reverse {
+    Constraint: IntList().Reverse() == 0;
+    Processing: IntList().Reverse();
+    Output: 0;
+}
+
+Test Sort {
+    Constraint: IntList().Sort() == 0;
+    Processing: IntList().Sort();
+    Output: 0;
+}
+
+Test Shuffle {
+    Constraint: IntList().Shuffle(3) == 0;
+    Processing: IntList().Shuffle(3);
+    Output: 0;
+}
+
+Test BinarySearch {
+    Constraint: IntList().BinarySearch(4) == -1;
+    Processing: IntList().BinarySearch(4);
+    Output: -1;
+}
+
+Test Find {
+    Constraint: IntList().Find(0) == -1;
+    Processing: IntList().Find(0);
+    Output: -1;
+}
+
+Test CountWhere {
+    Constraint: IntList().CountWhere(0) == 0;
+    Processing: IntList().CountWhere(0);
+    Output: 0;
+}
+
+Test Filter {
+    Constraint: IntList().Filter(0).Count() == 0;
+    Processing: IntList().Filter(0).Count();
+    Output: 0;
+}
+
+Test MapValues {
+    Constraint: IntList().MapValues(0).Count() == 0;
+    Processing: IntList().MapValues(0).Count();
+    Output: 0;
+}
+
+Test Distinct {
+    Constraint: IntList().Distinct().Count() == 0;
+    Processing: IntList().Distinct().Count();
+    Output: 0;
+}
+
+Test Chunk {
+    Constraint: IntList().Chunk(2) == "empty";
+    Processing: IntList().Chunk(2);
+    Output: "empty";
+}
+
+Test GroupText {
+    Constraint: IntList().GroupText() == "none|none";
+    Processing: IntList().GroupText();
+    Output: "none|none";
+}
+
+Test Flatten {
+    Constraint: IntList().Flatten(IntList()).Count() == 0;
+    Processing: IntList().Flatten(IntList()).Count();
+    Output: 0;
+}
+
+Test ContainsAny {
+    Constraint: IntList().ContainsAny(IntList()) == 0;
+    Processing: IntList().ContainsAny(IntList());
+    Output: 0;
+}
+
+Test ContainsAll {
+    Constraint: IntList().ContainsAll(IntList()) == 1;
+    Processing: IntList().ContainsAll(IntList());
+    Output: 1;
+}
+
+Test Sum {
+    Constraint: IntList().Sum() == 0;
+    Processing: IntList().Sum();
+    Output: 0;
+}
+
+Test AverageText {
+    Constraint: IntList().AverageText() == "empty";
+    Processing: IntList().AverageText();
+    Output: "empty";
+}
+
+Test Min {
+    Constraint: IntList().Min() == -1;
+    Processing: IntList().Min();
+    Output: -1;
+}
+
+Test Max {
+    Constraint: IntList().Max() == -1;
+    Processing: IntList().Max();
+    Output: -1;
+}
+
+Test Aggregate {
+    Constraint: IntList().Aggregate() == 0;
+    Processing: IntList().Aggregate();
+    Output: 0;
+}
+
+Test Any {
+    Constraint: IntList().Any(0) == 0;
+    Processing: IntList().Any(0);
+    Output: 0;
+}
+
+Test All {
+    Constraint: IntList().All(0) == 1;
+    Processing: IntList().All(0);
+    Output: 1;
+}
+
+Test First {
+    Case "list" {
+        Constraint: IntList().First() == -1;
+        Processing: IntList().First();
+        Output: -1;
+    }
+    Case "links" {
+        Constraint: LinkedInts().First() == -1;
+        Processing: LinkedInts().First();
+        Output: -1;
+    }
+}
+
+Test Last {
+    Case "list" {
+        Constraint: IntList().Last() == -1;
+        Processing: IntList().Last();
+        Output: -1;
+    }
+    Case "links" {
+        Constraint: LinkedInts().Last() == -1;
+        Processing: LinkedInts().Last();
+        Output: -1;
+    }
+}
+
+Test ToText {
+    Case "list" {
+        Constraint: IntList().ToText() == "empty";
+        Processing: IntList().ToText();
+        Output: "empty";
+    }
+    Case "set" {
+        Constraint: IntSet().ToText() == "empty";
+        Processing: IntSet().ToText();
+        Output: "empty";
+    }
+}
+
+Test Matches {
+    Constraint: IntList().Matches(4, 0) == 1;
+    Processing: IntList().Matches(4, 0);
+    Output: 1;
+}
+
+Test IntText {
+    Constraint: IntList().IntText(6) == "6";
+    Processing: IntList().IntText(6);
+    Output: "6";
+}
+
+Test AddLast {
+    Constraint: LinkedInts().AddLast(4) == 1;
+    Processing: LinkedInts().AddLast(4);
+    Output: 1;
+}
+
+Test AddFirst {
+    Constraint: LinkedInts().AddFirst(4) == 1;
+    Processing: LinkedInts().AddFirst(4);
+    Output: 1;
+}
+
+Test RemoveFirst {
+    Constraint: LinkedInts().RemoveFirst() == -1;
+    Processing: LinkedInts().RemoveFirst();
+    Output: -1;
+}
+
+Test Push {
+    Constraint: IntStack().Push(4) == 1;
+    Processing: IntStack().Push(4);
+    Output: 1;
+}
+
+Test Pop {
+    Constraint: IntStack().Pop() == -1;
+    Processing: IntStack().Pop();
+    Output: -1;
+}
+
+Test Peek {
+    Constraint: IntStack().Peek() == -1;
+    Processing: IntStack().Peek();
+    Output: -1;
+}
+
+Test Enqueue {
+    Case "queue" {
+        Constraint: IntQueue().Enqueue(4) == 1;
+        Processing: IntQueue().Enqueue(4);
+        Output: 1;
+    }
+    Case "priority" {
+        Constraint: PriorityList().Enqueue(4, 2) == 1;
+        Processing: PriorityList().Enqueue(4, 2);
+        Output: 1;
+    }
+}
+
+Test Dequeue {
+    Case "queue" {
+        Constraint: IntQueue().Dequeue() == -1;
+        Processing: IntQueue().Dequeue();
+        Output: -1;
+    }
+    Case "priority" {
+        Constraint: PriorityList().Dequeue() == -1;
+        Processing: PriorityList().Dequeue();
+        Output: -1;
+    }
+}
+
+Test PushFront {
+    Constraint: IntDeque().PushFront(4) == 1;
+    Processing: IntDeque().PushFront(4);
+    Output: 1;
+}
+
+Test PushBack {
+    Constraint: IntDeque().PushBack(4) == 1;
+    Processing: IntDeque().PushBack(4);
+    Output: 1;
+}
+
+Test PopFront {
+    Constraint: IntDeque().PopFront() == -1;
+    Processing: IntDeque().PopFront();
+    Output: -1;
+}
+
+Test PopBack {
+    Constraint: IntDeque().PopBack() == -1;
+    Processing: IntDeque().PopBack();
+    Output: -1;
+}
+
+Test Put {
+    Constraint: TextMap().Put("a", 3) == 1;
+    Processing: TextMap().Put("a", 3);
+    Output: 1;
+}
+
+Test Contains {
+    Case "map" {
+        Constraint: TextMap().Contains("a") == 0;
+        Processing: TextMap().Contains("a");
+        Output: 0;
+    }
+    Case "set" {
+        Constraint: IntSet().Contains(4) == 0;
+        Processing: IntSet().Contains(4);
+        Output: 0;
+    }
+}
+
+Test KeyAt {
+    Constraint: TextMap().KeyAt(0) == "empty";
+    Processing: TextMap().KeyAt(0);
+    Output: "empty";
+}
+
+Test Locate {
+    Constraint: TextMap().Locate("a") == -1;
+    Processing: TextMap().Locate("a");
+    Output: -1;
+}
+
+Test Compare {
+    Constraint: TextMap().Compare("a", "b") == -1;
+    Processing: TextMap().Compare("a", "b");
+    Output: -1;
+}
+
+Test Add {
+    Case "set" {
+        Constraint: IntSet().Add(4) == 1;
+        Processing: IntSet().Add(4);
+        Output: 1;
+    }
+    Case "bloom" {
+        Constraint: BloomSet().Add("a") == 1;
+        Processing: BloomSet().Add("a");
+        Output: 1;
+    }
+    Case "watch" {
+        Constraint: WatchList().Add(4) == 1;
+        Processing: WatchList().Add(4);
+        Output: 1;
+    }
+}
+
+Test Union {
+    Constraint: IntSet().Union(IntSet()).Count() == 0;
+    Processing: IntSet().Union(IntSet()).Count();
+    Output: 0;
+}
+
+Test Intersect {
+    Constraint: IntSet().Intersect(IntSet()).Count() == 0;
+    Processing: IntSet().Intersect(IntSet()).Count();
+    Output: 0;
+}
+
+Test Except {
+    Constraint: IntSet().Except(IntSet()).Count() == 0;
+    Processing: IntSet().Except(IntSet()).Count();
+    Output: 0;
+}
+
+Test Symmetric {
+    Constraint: IntSet().Symmetric(IntSet()).Count() == 0;
+    Processing: IntSet().Symmetric(IntSet()).Count();
+    Output: 0;
+}
+
+Test IsSubset {
+    Constraint: IntSet().IsSubset(IntSet()) == 1;
+    Processing: IntSet().IsSubset(IntSet());
+    Output: 1;
+}
+
+Test IsSuperset {
+    Constraint: IntSet().IsSuperset(IntSet()) == 1;
+    Processing: IntSet().IsSuperset(IntSet());
+    Output: 1;
+}
+
+Test Overlaps {
+    Constraint: IntSet().Overlaps(IntSet()) == 0;
+    Processing: IntSet().Overlaps(IntSet());
+    Output: 0;
+}
+
+Test AddAll {
+    Constraint: IntSet().AddAll(IntSet()) == 0;
+    Processing: IntSet().AddAll(IntSet());
+    Output: 0;
+}
+
+Test SetBit {
+    Constraint: BitSet().SetBit(0) == 1;
+    Processing: BitSet().SetBit(0);
+    Output: 1;
+}
+
+Test GetBit {
+    Constraint: BitSet().GetBit(0) == 0;
+    Processing: BitSet().GetBit(0);
+    Output: 0;
+}
+
+Test CountBits {
+    Constraint: BitSet().CountBits() == 0;
+    Processing: BitSet().CountBits();
+    Output: 0;
+}
+
+Test Mask {
+    Constraint: BitSet().Mask(3) == 8;
+    Processing: BitSet().Mask(3);
+    Output: 8;
+}
+
+Test MightContain {
+    Constraint: BloomSet().MightContain("a") == 0;
+    Processing: BloomSet().MightContain("a");
+    Output: 0;
+}
+
+Test Missing {
+    Constraint: BloomSet().Missing("a") == 65;
+    Processing: BloomSet().Missing("a");
+    Output: 65;
+}
+
+Test Bit {
+    Constraint: BloomSet().Bit(0) == 0;
+    Processing: BloomSet().Bit(0);
+    Output: 0;
+}
+
+Test Hash {
+    Constraint: BloomSet().Hash("a") == 177670;
+    Processing: BloomSet().Hash("a");
+    Output: 177670;
+}
+
+Test Write {
+    Constraint: RingBuffer().Write(4) == 1;
+    Processing: RingBuffer().Write(4);
+    Output: 1;
+}
+
+Test Read {
+    Constraint: RingBuffer().Read() == -1;
+    Processing: RingBuffer().Read();
+    Output: -1;
+}
+
+Test Changes {
+    Constraint: WatchList().Changes() == 0;
+    Processing: WatchList().Changes();
+    Output: 0;
 }

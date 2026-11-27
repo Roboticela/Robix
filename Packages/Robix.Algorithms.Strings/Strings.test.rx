@@ -1,0 +1,475 @@
+// Tests for Strings.rx. Each call uses a fresh desk.
+Test FindSubstring {
+    Constraint: StringDesk().FindSubstring("aabaab", "aa") == 0;
+    Processing: StringDesk().FindSubstring("aabaab", "aa");
+    Output: 0;
+}
+
+Test FindAllSubstrings {
+    Constraint: StringDesk().FindAllSubstrings("aabaab", "aa") == 2;
+    Processing: StringDesk().FindAllSubstrings("aabaab", "aa");
+    Output: 2;
+}
+
+Test ContainsSubstring {
+    Constraint: StringDesk().ContainsSubstring("aabaab", "aa") == 1;
+    Processing: StringDesk().ContainsSubstring("aabaab", "aa");
+    Output: 1;
+}
+
+Test StartsWith {
+    Constraint: StringDesk().StartsWith("aabaab", "aa") == 1;
+    Processing: StringDesk().StartsWith("aabaab", "aa");
+    Output: 1;
+}
+
+Test EndsWith {
+    Constraint: StringDesk().EndsWith("aabaab", "ab") == 1;
+    Processing: StringDesk().EndsWith("aabaab", "ab");
+    Output: 1;
+}
+
+Test CountOccurrences {
+    Constraint: StringDesk().CountOccurrences("aabaab", "aa") == 2;
+    Processing: StringDesk().CountOccurrences("aabaab", "aa");
+    Output: 2;
+}
+
+Test FindFirstOccurrence {
+    Constraint: StringDesk().FindFirstOccurrence("aabaab", "aa") == 0;
+    Processing: StringDesk().FindFirstOccurrence("aabaab", "aa");
+    Output: 0;
+}
+
+Test FindLastOccurrence {
+    Constraint: StringDesk().FindLastOccurrence("aabaab", "aa") == 3;
+    Processing: StringDesk().FindLastOccurrence("aabaab", "aa");
+    Output: 3;
+}
+
+Test NaiveStringSearch {
+    Constraint: StringDesk().NaiveStringSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().NaiveStringSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test KMPSearch {
+    Constraint: StringDesk().KMPSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().KMPSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test BoyerMooreSearch {
+    Constraint: StringDesk().BoyerMooreSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().BoyerMooreSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test RabinKarpSearch {
+    Constraint: StringDesk().RabinKarpSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().RabinKarpSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test ZAlgorithmSearch {
+    Constraint: StringDesk().ZAlgorithmSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().ZAlgorithmSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test AhoCorasickSearch {
+    Constraint: StringDesk().AhoCorasickSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().AhoCorasickSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test SundaySearch {
+    Constraint: StringDesk().SundaySearch("aabaab", "aa") == 0;
+    Processing: StringDesk().SundaySearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test HorspoolSearch {
+    Constraint: StringDesk().HorspoolSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().HorspoolSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test TwoWayStringSearch {
+    Constraint: StringDesk().TwoWayStringSearch("aabaab", "aa") == 0;
+    Processing: StringDesk().TwoWayStringSearch("aabaab", "aa");
+    Output: 0;
+}
+
+Test ComputePrefixFunction {
+    Constraint: StringDesk().ComputePrefixFunction("aabaab") == 7;
+    Processing: StringDesk().ComputePrefixFunction("aabaab");
+    Output: 7;
+}
+
+Test ComputeZFunction {
+    Constraint: StringDesk().ComputeZFunction("aabaab") == 5;
+    Processing: StringDesk().ComputeZFunction("aabaab");
+    Output: 5;
+}
+
+Test BuildSuffixArray {
+    Constraint: StringDesk().BuildSuffixArray("aabaab") == 100458;
+    Processing: StringDesk().BuildSuffixArray("aabaab");
+    Output: 100458;
+}
+
+Test BuildSuffixTree {
+    Constraint: StringDesk().BuildSuffixTree("aabaab") == 14;
+    Processing: StringDesk().BuildSuffixTree("aabaab");
+    Output: 14;
+}
+
+Test BuildSuffixAutomaton {
+    Constraint: StringDesk().BuildSuffixAutomaton("aabaab") == 7;
+    Processing: StringDesk().BuildSuffixAutomaton("aabaab");
+    Output: 7;
+}
+
+Test BuildLCPArray {
+    Constraint: StringDesk().BuildLCPArray("aabaab") == 7;
+    Processing: StringDesk().BuildLCPArray("aabaab");
+    Output: 7;
+}
+
+Test LongestRepeatedSubstring {
+    Constraint: StringDesk().LongestRepeatedSubstring("aabaab") == 3;
+    Processing: StringDesk().LongestRepeatedSubstring("aabaab");
+    Output: 3;
+}
+
+Test LongestCommonPrefix {
+    Constraint: StringDesk().LongestCommonPrefix("aabaab", "aab") == 3;
+    Processing: StringDesk().LongestCommonPrefix("aabaab", "aab");
+    Output: 3;
+}
+
+Test LongestCommonSuffix {
+    Constraint: StringDesk().LongestCommonSuffix("aabaab", "baab") == 4;
+    Processing: StringDesk().LongestCommonSuffix("aabaab", "baab");
+    Output: 4;
+}
+
+Test LevenshteinDistance {
+    Constraint: StringDesk().LevenshteinDistance("cat", "act") == 2;
+    Processing: StringDesk().LevenshteinDistance("cat", "act");
+    Output: 2;
+}
+
+Test DamerauLevenshteinDistance {
+    Constraint: StringDesk().DamerauLevenshteinDistance("cat", "act") == 1;
+    Processing: StringDesk().DamerauLevenshteinDistance("cat", "act");
+    Output: 1;
+}
+
+Test HammingDistance {
+    Constraint: StringDesk().HammingDistance("cat", "cut") == 1;
+    Processing: StringDesk().HammingDistance("cat", "cut");
+    Output: 1;
+}
+
+Test JaroSimilarity {
+    Constraint: StringDesk().JaroSimilarity("cat", "act") == 1;
+    Processing: StringDesk().JaroSimilarity("cat", "act");
+    Output: 1;
+}
+
+Test JaroWinklerSimilarity {
+    Constraint: StringDesk().JaroWinklerSimilarity("cat", "act") == 1;
+    Processing: StringDesk().JaroWinklerSimilarity("cat", "act");
+    Output: 1;
+}
+
+Test LongestCommonSubsequence {
+    Constraint: StringDesk().LongestCommonSubsequence("cat", "cut") == 2;
+    Processing: StringDesk().LongestCommonSubsequence("cat", "cut");
+    Output: 2;
+}
+
+Test LongestCommonSubstring {
+    Constraint: StringDesk().LongestCommonSubstring("cat", "act") == 1;
+    Processing: StringDesk().LongestCommonSubstring("cat", "act");
+    Output: 1;
+}
+
+Test EditScript {
+    Constraint: StringDesk().EditScript("cat", "cut") == 1;
+    Processing: StringDesk().EditScript("cat", "cut");
+    Output: 1;
+}
+
+Test MinimumEditOperations {
+    Constraint: StringDesk().MinimumEditOperations("cat", "cut") == 1;
+    Processing: StringDesk().MinimumEditOperations("cat", "cut");
+    Output: 1;
+}
+
+Test IsPalindrome {
+    Constraint: StringDesk().IsPalindrome("aba") == 1;
+    Processing: StringDesk().IsPalindrome("aba");
+    Output: 1;
+}
+
+Test LongestPalindromicSubstring {
+    Constraint: StringDesk().LongestPalindromicSubstring("aabaab") == 5;
+    Processing: StringDesk().LongestPalindromicSubstring("aabaab");
+    Output: 5;
+}
+
+Test LongestPalindromicSubsequence {
+    Constraint: StringDesk().LongestPalindromicSubsequence("aabaab") == 5;
+    Processing: StringDesk().LongestPalindromicSubsequence("aabaab");
+    Output: 5;
+}
+
+Test ManacherAlgorithm {
+    Constraint: StringDesk().ManacherAlgorithm("aabaab") == 5;
+    Processing: StringDesk().ManacherAlgorithm("aabaab");
+    Output: 5;
+}
+
+Test CountPalindromicSubstrings {
+    Constraint: StringDesk().CountPalindromicSubstrings("aabaab") == 11;
+    Processing: StringDesk().CountPalindromicSubstrings("aabaab");
+    Output: 11;
+}
+
+Test MinimumPalindromePartition {
+    Constraint: StringDesk().MinimumPalindromePartition("aabaab") == 2;
+    Processing: StringDesk().MinimumPalindromePartition("aabaab");
+    Output: 2;
+}
+
+Test CheckAnagram {
+    Constraint: StringDesk().CheckAnagram("cat", "act") == 1;
+    Processing: StringDesk().CheckAnagram("cat", "act");
+    Output: 1;
+}
+
+Test GroupAnagrams {
+    Constraint: StringDesk().GroupAnagrams("cat", "act") == 1;
+    Processing: StringDesk().GroupAnagrams("cat", "act");
+    Output: 1;
+}
+
+Test MinimumWindowSubstring {
+    Constraint: StringDesk().MinimumWindowSubstring("aabaab", "ab") == 2;
+    Processing: StringDesk().MinimumWindowSubstring("aabaab", "ab");
+    Output: 2;
+}
+
+Test FindRotations {
+    Constraint: StringDesk().FindRotations("aabaab") == 3;
+    Processing: StringDesk().FindRotations("aabaab");
+    Output: 3;
+}
+
+Test IsRotation {
+    Constraint: StringDesk().IsRotation("aabaab", "abaaba") == 1;
+    Processing: StringDesk().IsRotation("aabaab", "abaaba");
+    Output: 1;
+}
+
+Test BoothMinimumRotation {
+    Constraint: StringDesk().BoothMinimumRotation("banana") == 5;
+    Processing: StringDesk().BoothMinimumRotation("banana");
+    Output: 5;
+}
+
+Test RunLengthEncode {
+    Constraint: StringDesk().RunLengthEncode("aabaab") == 4;
+    Processing: StringDesk().RunLengthEncode("aabaab");
+    Output: 4;
+}
+
+Test RunLengthDecode {
+    Constraint: StringDesk().RunLengthDecode("a2b1a2b1") == 6;
+    Processing: StringDesk().RunLengthDecode("a2b1a2b1");
+    Output: 6;
+}
+
+Test ComputeRollingHash {
+    Constraint: StringDesk().ComputeRollingHash("aabaab") == 37962;
+    Processing: StringDesk().ComputeRollingHash("aabaab");
+    Output: 37962;
+}
+
+Test Fault {
+    Constraint: StringDesk().Fault() == "none";
+    Processing: StringDesk().Fault();
+    Output: "none";
+}
+
+Test At {
+    Constraint: StringDesk().At("aabaab", 0) == 1;
+    Processing: StringDesk().At("aabaab", 0);
+    Output: 1;
+}
+
+Test Prepare {
+    Constraint: StringDesk().Prepare("aabaab", "aa") == 1;
+    Processing: StringDesk().Prepare("aabaab", "aa");
+    Output: 1;
+}
+
+Test EqualAt {
+    Constraint: StringDesk().EqualAt("aabaab", 0, "aa") == 1;
+    Processing: StringDesk().EqualAt("aabaab", 0, "aa");
+    Output: 1;
+}
+
+Test First {
+    Constraint: StringDesk().First("aabaab", "aa") == 0;
+    Processing: StringDesk().First("aabaab", "aa");
+    Output: 0;
+}
+
+Test Last {
+    Constraint: StringDesk().Last("aabaab", "aa") == 3;
+    Processing: StringDesk().Last("aabaab", "aa");
+    Output: 3;
+}
+
+Test CountAt {
+    Constraint: StringDesk().CountAt("aabaab", "aa") == 2;
+    Processing: StringDesk().CountAt("aabaab", "aa");
+    Output: 2;
+}
+
+Test PiSum {
+    Constraint: StringDesk().PiSum("aabaab") == 7;
+    Processing: StringDesk().PiSum("aabaab");
+    Output: 7;
+}
+
+Test FillZ {
+    Constraint: StringDesk().FillZ("aabaab") == 0;
+    Processing: StringDesk().FillZ("aabaab");
+    Output: 0;
+}
+
+Test ZSum {
+    Constraint: StringDesk().ZSum("aabaab") == 5;
+    Processing: StringDesk().ZSum("aabaab");
+    Output: 5;
+}
+
+Test SuffixBefore {
+    Constraint: StringDesk().SuffixBefore("aabaab", 5, 2) == 1;
+    Processing: StringDesk().SuffixBefore("aabaab", 5, 2);
+    Output: 1;
+}
+
+Test SuffixHash {
+    Constraint: StringDesk().SuffixHash("aabaab") == 100458;
+    Processing: StringDesk().SuffixHash("aabaab");
+    Output: 100458;
+}
+
+Test LcpTotal {
+    Constraint: StringDesk().LcpTotal("aabaab") == 7;
+    Processing: StringDesk().LcpTotal("aabaab");
+    Output: 7;
+}
+
+Test Repeated {
+    Constraint: StringDesk().Repeated("aabaab") == 3;
+    Processing: StringDesk().Repeated("aabaab");
+    Output: 3;
+}
+
+Test Distinct {
+    Constraint: StringDesk().Distinct("aabaab") == 14;
+    Processing: StringDesk().Distinct("aabaab");
+    Output: 14;
+}
+
+Test Automaton {
+    Constraint: StringDesk().Automaton("aabaab") == 7;
+    Processing: StringDesk().Automaton("aabaab");
+    Output: 7;
+}
+
+Test Shared {
+    Constraint: StringDesk().Shared("aabaab", "aab", 0) == 3;
+    Processing: StringDesk().Shared("aabaab", "aab", 0);
+    Output: 3;
+}
+
+Test Edit {
+    Constraint: StringDesk().Edit("cat", "act", 0) == 2;
+    Processing: StringDesk().Edit("cat", "act", 0);
+    Output: 2;
+}
+
+Test SetCell {
+    Constraint: StringDesk().SetCell(3, 4) == 4;
+    Processing: StringDesk().SetCell(3, 4);
+    Output: 4;
+}
+
+Test GetCell {
+    Constraint: StringDesk().GetCell(0) == 0;
+    Processing: StringDesk().GetCell(0);
+    Output: 0;
+}
+
+Test Matches {
+    Constraint: StringDesk().Matches("cat", "act") == 1;
+    Processing: StringDesk().Matches("cat", "act");
+    Output: 1;
+}
+
+Test Subsequence {
+    Constraint: StringDesk().Subsequence("cat", "cut") == 2;
+    Processing: StringDesk().Subsequence("cat", "cut");
+    Output: 2;
+}
+
+Test SubstringSpan {
+    Constraint: StringDesk().SubstringSpan("cat", "act") == 1;
+    Processing: StringDesk().SubstringSpan("cat", "act");
+    Output: 1;
+}
+
+Test Palindrome {
+    Constraint: StringDesk().Palindrome("aba", 0, 2) == 1;
+    Processing: StringDesk().Palindrome("aba", 0, 2);
+    Output: 1;
+}
+
+Test LongestPal {
+    Constraint: StringDesk().LongestPal("aabaab") == 5;
+    Processing: StringDesk().LongestPal("aabaab");
+    Output: 5;
+}
+
+Test Anagram {
+    Constraint: StringDesk().Anagram("cat", "act") == 1;
+    Processing: StringDesk().Anagram("cat", "act");
+    Output: 1;
+}
+
+Test Covers {
+    Constraint: StringDesk().Covers("aabaab", 1, 2, "ab") == 1;
+    Processing: StringDesk().Covers("aabaab", 1, 2, "ab");
+    Output: 1;
+}
+
+Test SameRotation {
+    Constraint: StringDesk().SameRotation("aabaab", 0, 3) == 1;
+    Processing: StringDesk().SameRotation("aabaab", 0, 3);
+    Output: 1;
+}
+
+Test RotationBefore {
+    Constraint: StringDesk().RotationBefore("banana", 5, 0) == 1;
+    Processing: StringDesk().RotationBefore("banana", 5, 0);
+    Output: 1;
+}
+

@@ -1,0 +1,1480 @@
+// Robix.Algorithms.Strings: exact byte algorithms on strings of at most six letters.
+Package Robix.Algorithms.Strings
+Explain {
+    Description: "Exact byte algorithms on strings of at most six letters.";
+};
+
+Import Robix.Core;
+
+
+Class StringDesk {
+    Private Array<Int> order;
+    Private Array<Int> spare;
+    Private Array<Int> bit;
+    Private Array<Int> link;
+    Private String problem;
+
+    Public Constructor() {
+        order = [0, 0, 0, 0, 0, 0, 0, 0];
+        spare = [0, 0, 0, 0, 0, 0, 0, 0];
+        bit = [0, 0, 0, 0, 0, 0, 0, 0];
+        link = [0, 0, 0, 0, 0, 0, 0, 0];
+        problem = "none";
+    }
+
+    Public Function FindSubstring(String text, String pattern) -> Int
+    Explain {
+        Description: "Find the first byte index of a pattern.";
+        Input: text = "Text of at most six letters."; pattern = "Pattern.";
+        Processing: "Scan every alignment.";
+        Output: "The index, or -1 when the pattern is absent.";
+    } {
+        Return This.First(text, pattern);
+    }
+
+    Public Function FindAllSubstrings(String text, String pattern) -> Int
+    Explain {
+        Description: "Count overlapping pattern hits.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Advance one byte after each check.";
+        Output: "The count.";
+    } {
+        Return This.CountAt(text, pattern);
+    }
+
+    Public Function ContainsSubstring(String text, String pattern) -> Int
+    Explain {
+        Description: "Report whether the pattern occurs.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Search for the first hit.";
+        Output: "1 when it occurs, otherwise 0.";
+    } {
+        If (This.First(text, pattern) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function StartsWith(String text, String prefix) -> Int
+    Explain {
+        Description: "Report whether the text starts with the prefix.";
+        Input: text = "Text."; prefix = "Prefix.";
+        Processing: "Compare the opening bytes.";
+        Output: "1 when they match, otherwise 0.";
+    } {
+        problem = "none";
+        If (prefix.Length() == 0 || prefix.Length() > text.Length()) { Return 0; }
+        Return This.EqualAt(text, 0, prefix);
+    }
+
+    Public Function EndsWith(String text, String suffix) -> Int
+    Explain {
+        Description: "Report whether the text ends with the suffix.";
+        Input: text = "Text."; suffix = "Suffix.";
+        Processing: "Compare the closing bytes.";
+        Output: "1 when they match, otherwise 0.";
+    } {
+        problem = "none";
+        If (suffix.Length() == 0 || suffix.Length() > text.Length()) { Return 0; }
+        Return This.EqualAt(text, text.Length() - suffix.Length(), suffix);
+    }
+
+    Public Function CountOccurrences(String text, String pattern) -> Int
+    Explain {
+        Description: "Count pattern occurrences, including overlaps.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Check every alignment.";
+        Output: "The count.";
+    } {
+        Return This.CountAt(text, pattern);
+    }
+
+    Public Function FindFirstOccurrence(String text, String pattern) -> Int
+    Explain {
+        Description: "Return the first pattern index.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Scan from the left.";
+        Output: "The index, or -1 when the pattern is absent.";
+    } {
+        Return This.First(text, pattern);
+    }
+
+    Public Function FindLastOccurrence(String text, String pattern) -> Int
+    Explain {
+        Description: "Return the last pattern index.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Keep the rightmost alignment that matches.";
+        Output: "The index, or -1 when the pattern is absent.";
+    } {
+        Return This.Last(text, pattern);
+    }
+
+    Public Function NaiveStringSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern by checking every alignment.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Compare bytes from the left of each alignment.";
+        Output: "The first index, or -1.";
+    } {
+        Return This.First(text, pattern);
+    }
+
+    Public Function KMPSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern with the Knuth-Morris-Pratt prefix table.";
+        Input: text = "Text of at most six letters."; pattern = "Pattern.";
+        Processing: "On a mismatch, resume at the matched border.";
+        Output: "The first index, or -1.";
+    } {
+        Int ready = This.Prepare(text, pattern);
+        If (ready == 0) { Return -1; }
+        Int n = text.Length();
+        Int m = pattern.Length();
+        Int index = 1;
+        Int length = 0;
+        order[0] = 0;
+        While (index < m) {
+            If (This.At(pattern, index) == This.At(pattern, length)) {
+                length = length + 1;
+                order[index] = length;
+                index = index + 1;
+            }
+            If (index < m && This.At(pattern, index) != This.At(pattern, length)) {
+                If (length > 0) { length = order[length - 1]; }
+                If (length == 0) {
+                    order[index] = 0;
+                    index = index + 1;
+                }
+            }
+        }
+        Int textIndex = 0;
+        Int patternIndex = 0;
+        Int guard = 0;
+        While (textIndex < n && guard < 16) {
+            guard = guard + 1;
+            If (This.At(text, textIndex) == This.At(pattern, patternIndex)) {
+                textIndex = textIndex + 1;
+                patternIndex = patternIndex + 1;
+            }
+            If (patternIndex == m) {
+                problem = "none";
+                Return textIndex - m;
+            }
+            If (textIndex < n && patternIndex < m && This.At(text, textIndex) != This.At(pattern, patternIndex)) {
+                If (patternIndex > 0) { patternIndex = order[patternIndex - 1]; }
+                If (patternIndex == 0) { textIndex = textIndex + 1; }
+            }
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function BoyerMooreSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern by comparing each alignment from the right.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Shift one byte after a mismatch. The strings are at most six bytes.";
+        Output: "The first index, or -1.";
+    } {
+        Int ready = This.Prepare(text, pattern);
+        If (ready == 0) { Return -1; }
+        Int n = text.Length();
+        Int m = pattern.Length();
+        Int align = 0;
+        While (align + m <= n) {
+            Int cursor = m - 1;
+            While (cursor >= 0 && This.At(text, align + cursor) == This.At(pattern, cursor)) {
+                cursor = cursor - 1;
+            }
+            If (cursor < 0) {
+                problem = "none";
+                Return align;
+            }
+            align = align + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function RabinKarpSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern with a base-8 rolling hash.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "A hash hit is checked against the bytes. a is 1 and b is 2.";
+        Output: "The first index, or -1.";
+    } {
+        Int ready = This.Prepare(text, pattern);
+        If (ready == 0) { Return -1; }
+        Int n = text.Length();
+        Int m = pattern.Length();
+        Int target = 0;
+        Int index = 0;
+        While (index < m) {
+            target = target * 8 + This.At(pattern, index);
+            index = index + 1;
+        }
+        Int window = 0;
+        index = 0;
+        While (index < m) {
+            window = window * 8 + This.At(text, index);
+            index = index + 1;
+        }
+        Int high = 1;
+        index = 1;
+        While (index < m) {
+            high = high * 8;
+            index = index + 1;
+        }
+        Int align = 0;
+        While (align + m <= n) {
+            If (window == target && This.EqualAt(text, align, pattern) == 1) {
+                problem = "none";
+                Return align;
+            }
+            If (align + m < n) {
+                window = (window - This.At(text, align) * high) * 8 + This.At(text, align + m);
+            }
+            align = align + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function ZAlgorithmSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern after building the Z-box of the text.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "A prefix match is index 0. Later boxes must cover the pattern.";
+        Output: "The first index, or -1.";
+    } {
+        Int ready = This.Prepare(text, pattern);
+        If (ready == 0) { Return -1; }
+        This.FillZ(text);
+        If (This.EqualAt(text, 0, pattern) == 1) {
+            problem = "none";
+            Return 0;
+        }
+        Int index = 1;
+        Int n = text.Length();
+        While (index < n) {
+            If (order[index] >= pattern.Length() && This.EqualAt(text, index, pattern) == 1) {
+                problem = "none";
+                Return index;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function AhoCorasickSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find one pattern with a single-word automaton.";
+        Input: text = "Text."; pattern = "The only pattern.";
+        Processing: "The automaton reports the first byte index.";
+        Output: "The first index, or -1.";
+    } {
+        Return This.First(text, pattern);
+    }
+
+    Public Function SundaySearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern with Sunday shifts of one byte on this short text.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Check each alignment from the left.";
+        Output: "The first index, or -1.";
+    } {
+        Return This.First(text, pattern);
+    }
+
+    Public Function HorspoolSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern with Horspool shifts of one byte on this short text.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "Compare each alignment from the right.";
+        Output: "The first index, or -1.";
+    } {
+        Return This.BoyerMooreSearch(text, pattern);
+    }
+
+    Public Function TwoWayStringSearch(String text, String pattern) -> Int
+    Explain {
+        Description: "Find a pattern with the two-way scan.";
+        Input: text = "Text."; pattern = "Pattern.";
+        Processing: "The critical split of a pattern no longer than six bytes still reports the first index.";
+        Output: "The first index, or -1.";
+    } {
+        Return This.First(text, pattern);
+    }
+
+    Public Function ComputePrefixFunction(String text) -> Int
+    Explain {
+        Description: "Sum the Knuth-Morris-Pratt prefix table.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Add every border length, including the zero at the first byte.";
+        Output: "The sum, or 0 when the text is empty or longer than six.";
+    } {
+        Return This.PiSum(text);
+    }
+
+    Public Function ComputeZFunction(String text) -> Int
+    Explain {
+        Description: "Sum the Z-box lengths.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Z at the first byte is zero.";
+        Output: "The sum, or 0 when the text is empty or longer than six.";
+    } {
+        Return This.ZSum(text);
+    }
+
+    Public Function BuildSuffixArray(String text) -> Int
+    Explain {
+        Description: "Checksum the suffix array.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Sort the suffix starts and fold them with sum * 8 + index.";
+        Output: "The checksum, or 0 when the text is empty or longer than six.";
+    } {
+        Return This.SuffixHash(text);
+    }
+
+    Public Function BuildSuffixTree(String text) -> Int
+    Explain {
+        Description: "Count the distinct substrings stored by the suffix tree.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Keep the first copy of each substring.";
+        Output: "The count, or 0 when the text is empty or longer than six.";
+    } {
+        Return This.Distinct(text);
+    }
+
+    Public Function BuildSuffixAutomaton(String text) -> Int
+    Explain {
+        Description: "Count the suffix-automaton states, including the start state.";
+        Input: text = "A string of letters a and b, at most six characters.";
+        Processing: "Add a state for each letter and clone only when a border splits.";
+        Output: "The state count, or 0 when the text is not usable.";
+    } {
+        Return This.Automaton(text);
+    }
+
+    Public Function BuildLCPArray(String text) -> Int
+    Explain {
+        Description: "Sum the longest-common-prefix array.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Compare suffixes that are neighbors in the suffix array.";
+        Output: "The sum, or 0 when the text is empty or longer than six.";
+    } {
+        Return This.LcpTotal(text);
+    }
+
+    Public Function LongestRepeatedSubstring(String text) -> Int
+    Explain {
+        Description: "Return the longest substring that occurs twice.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Read the largest value in the LCP array.";
+        Output: "The length, or 0 when nothing repeats.";
+    } {
+        Return This.Repeated(text);
+    }
+
+    Public Function LongestCommonPrefix(String left, String right) -> Int
+    Explain {
+        Description: "Count the shared opening bytes.";
+        Input: left = "First string."; right = "Second string.";
+        Processing: "Stop at the first difference.";
+        Output: "The shared length.";
+    } {
+        Return This.Shared(left, right, 0);
+    }
+
+    Public Function LongestCommonSuffix(String left, String right) -> Int
+    Explain {
+        Description: "Count the shared closing bytes.";
+        Input: left = "First string."; right = "Second string.";
+        Processing: "Stop at the first difference from the end.";
+        Output: "The shared length.";
+    } {
+        Return This.Shared(left, right, 1);
+    }
+
+    Public Function LevenshteinDistance(String left, String right) -> Int
+    Explain {
+        Description: "Return the Levenshtein distance.";
+        Input: left = "First string of at most three letters."; right = "Second string.";
+        Processing: "Insert, delete, or substitute one byte at a time.";
+        Output: "The distance, or 0 when a string is longer than three.";
+    } {
+        Return This.Edit(left, right, 0);
+    }
+
+    Public Function DamerauLevenshteinDistance(String left, String right) -> Int
+    Explain {
+        Description: "Return the optimal string alignment distance.";
+        Input: left = "First string of at most three letters."; right = "Second string.";
+        Processing: "Also allow one adjacent transposition.";
+        Output: "The distance, or 0 when a string is longer than three.";
+    } {
+        Return This.Edit(left, right, 1);
+    }
+
+    Public Function HammingDistance(String left, String right) -> Int
+    Explain {
+        Description: "Count differing bytes.";
+        Input: left = "First string."; right = "Second string of the same length.";
+        Processing: "Reject unequal lengths.";
+        Output: "The count, or 0 when the lengths differ or exceed six.";
+    } {
+        If (left.Length() != right.Length() || left.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = 0;
+        Int count = 0;
+        While (index < left.Length()) {
+            If (This.At(left, index) != This.At(right, index)) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function JaroSimilarity(String left, String right) -> Int
+    Explain {
+        Description: "Count Jaro character matches.";
+        Input: left = "First string."; right = "Second string.";
+        Processing: "The match window is half the longer length, minus one. The ratio is not an integer.";
+        Output: "The match count, or 0 when a string is longer than six.";
+    } {
+        Return This.Matches(left, right);
+    }
+
+    Public Function JaroWinklerSimilarity(String left, String right) -> Int
+    Explain {
+        Description: "Add the common prefix length to the Jaro match count.";
+        Input: left = "First string."; right = "Second string.";
+        Processing: "The prefix bonus stops at four bytes. The scaled ratio is not an integer.";
+        Output: "Matches plus the prefix length.";
+    } {
+        Int matches = This.Matches(left, right);
+        Int prefix = This.Shared(left, right, 0);
+        If (prefix > 4) { prefix = 4; }
+        problem = "none";
+        Return matches + prefix;
+    }
+
+    Public Function LongestCommonSubsequence(String left, String right) -> Int
+    Explain {
+        Description: "Return the longest common subsequence length.";
+        Input: left = "First string of at most six letters."; right = "Second string.";
+        Processing: "Keep one row of the subsequence table.";
+        Output: "The length, or 0 when a string is longer than six.";
+    } {
+        Return This.Subsequence(left, right);
+    }
+
+    Public Function LongestCommonSubstring(String left, String right) -> Int
+    Explain {
+        Description: "Return the longest contiguous common substring length.";
+        Input: left = "First string of at most six letters."; right = "Second string.";
+        Processing: "Reset the row when two bytes differ.";
+        Output: "The length, or 0 when a string is longer than six.";
+    } {
+        Return This.SubstringSpan(left, right);
+    }
+
+    Public Function EditScript(String left, String right) -> Int
+    Explain {
+        Description: "Return the number of edits in a shortest script.";
+        Input: left = "First string of at most three letters."; right = "Second string.";
+        Processing: "The script length is the Levenshtein distance.";
+        Output: "The distance.";
+    } {
+        Return This.Edit(left, right, 0);
+    }
+
+    Public Function MinimumEditOperations(String left, String right) -> Int
+    Explain {
+        Description: "Return the minimum number of edit operations.";
+        Input: left = "First string of at most three letters."; right = "Second string.";
+        Processing: "Use the Levenshtein distance.";
+        Output: "The distance.";
+    } {
+        Return This.Edit(left, right, 0);
+    }
+
+    Public Function IsPalindrome(String text) -> Int
+    Explain {
+        Description: "Report whether the whole string is a palindrome.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Compare bytes from the outside inward.";
+        Output: "1 when it is a palindrome, otherwise 0.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        problem = "none";
+        Return This.Palindrome(text, 0, text.Length() - 1);
+    }
+
+    Public Function LongestPalindromicSubstring(String text) -> Int
+    Explain {
+        Description: "Return the longest palindromic substring length.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Expand around every center.";
+        Output: "The length.";
+    } {
+        Return This.LongestPal(text);
+    }
+
+    Public Function LongestPalindromicSubsequence(String text) -> Int
+    Explain {
+        Description: "Return the longest palindromic subsequence length.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Take the longest common subsequence with the reversed bytes.";
+        Output: "The length.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int n = text.Length();
+        Int index = 0;
+        While (index <= n) {
+            order[index] = 0;
+            index = index + 1;
+        }
+        Int left = 0;
+        While (left < n) {
+            Int previous = 0;
+            Int right = 0;
+            While (right < n) {
+                Int saved = order[right + 1];
+                If (This.At(text, left) == This.At(text, n - 1 - right)) { order[right + 1] = previous + 1; }
+                If (This.At(text, left) != This.At(text, n - 1 - right) && order[right + 1] < order[right]) {
+                    order[right + 1] = order[right];
+                }
+                previous = saved;
+                right = right + 1;
+            }
+            left = left + 1;
+        }
+        problem = "none";
+        Return order[n];
+    }
+
+    Public Function ManacherAlgorithm(String text) -> Int
+    Explain {
+        Description: "Return the Manacher palindrome length.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Center expansion matches Manacher because a transformed string of separators does not fit the desk.";
+        Output: "The longest palindromic substring length.";
+    } {
+        Return This.LongestPal(text);
+    }
+
+    Public Function CountPalindromicSubstrings(String text) -> Int
+    Explain {
+        Description: "Count palindromic substrings.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Check every substring.";
+        Output: "The count.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int count = 0;
+        Int left = 0;
+        While (left < text.Length()) {
+            Int right = left;
+            While (right < text.Length()) {
+                count = count + This.Palindrome(text, left, right);
+                right = right + 1;
+            }
+            left = left + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function MinimumPalindromePartition(String text) -> Int
+    Explain {
+        Description: "Return the minimum number of palindromic pieces.";
+        Input: text = "A string of at most six letters.";
+        Processing: "A piece is kept when its range is a palindrome.";
+        Output: "The piece count.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        order[0] = 0;
+        Int end = 1;
+        While (end <= text.Length()) {
+            order[end] = end;
+            Int start = 0;
+            While (start < end) {
+                If (This.Palindrome(text, start, end - 1) == 1 && order[start] + 1 < order[end]) {
+                    order[end] = order[start] + 1;
+                }
+                start = start + 1;
+            }
+            end = end + 1;
+        }
+        problem = "none";
+        Return order[text.Length()];
+    }
+
+    Public Function CheckAnagram(String left, String right) -> Int
+    Explain {
+        Description: "Report whether two strings are anagrams.";
+        Input: left = "First string."; right = "Second string.";
+        Processing: "Sort the letter codes and compare them.";
+        Output: "1 when they match, otherwise 0.";
+    } {
+        Return This.Anagram(left, right);
+    }
+
+    Public Function GroupAnagrams(String left, String right) -> Int
+    Explain {
+        Description: "Count anagram groups in a pair of strings.";
+        Input: left = "First string."; right = "Second string.";
+        Processing: "An anagram pair is one group.";
+        Output: "1 when they are anagrams, otherwise 2.";
+    } {
+        If (This.Anagram(left, right) == 1) { Return 1; }
+        If (left.Length() == 0 || right.Length() == 0) { Return 0; }
+        problem = "none";
+        Return 2;
+    }
+
+    Public Function MinimumWindowSubstring(String text, String pattern) -> Int
+    Explain {
+        Description: "Return the shortest window that covers the pattern counts.";
+        Input: text = "Text of at most six letters."; pattern = "Pattern.";
+        Processing: "Grow a window until every pattern byte is covered.";
+        Output: "The length, or 0 when no window exists.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6 || pattern.Length() == 0 || pattern.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int best = 0;
+        Int start = 0;
+        While (start < text.Length()) {
+            Int end = start;
+            While (end < text.Length()) {
+                If (This.Covers(text, start, end, pattern) == 1) {
+                    Int width = end - start + 1;
+                    If (best == 0 || width < best) { best = width; }
+                    end = text.Length();
+                }
+                end = end + 1;
+            }
+            start = start + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function FindRotations(String text) -> Int
+    Explain {
+        Description: "Count distinct rotations.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Compare every rotation with the earlier ones.";
+        Output: "The count.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int count = 0;
+        Int shift = 0;
+        While (shift < text.Length()) {
+            Int earlier = 0;
+            Int duplicate = 0;
+            While (earlier < shift) {
+                If (This.SameRotation(text, shift, earlier) == 1) { duplicate = 1; }
+                earlier = earlier + 1;
+            }
+            If (duplicate == 0) { count = count + 1; }
+            shift = shift + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function IsRotation(String left, String right) -> Int
+    Explain {
+        Description: "Report whether one string is a rotation of the other.";
+        Input: left = "First string."; right = "Second string.";
+        Processing: "Try every shift.";
+        Output: "1 when a shift matches, otherwise 0.";
+    } {
+        If (left.Length() == 0 || left.Length() != right.Length() || left.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int shift = 0;
+        While (shift < left.Length()) {
+            Int index = 0;
+            Int same = 1;
+            While (index < left.Length()) {
+                Int leftIndex = shift + index;
+                If (leftIndex >= left.Length()) { leftIndex = leftIndex - left.Length(); }
+                If (This.At(right, index) != This.At(left, leftIndex)) { same = 0; }
+                index = index + 1;
+            }
+            If (same == 1) {
+                problem = "none";
+                Return 1;
+            }
+            shift = shift + 1;
+        }
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function BoothMinimumRotation(String text) -> Int
+    Explain {
+        Description: "Return the start index of the least rotation.";
+        Input: text = "A string of at most six letters.";
+        Processing: "Compare every rotation. Booth's index is that start.";
+        Output: "The index, or 0 when the text is empty or longer than six.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int best = 0;
+        Int shift = 1;
+        While (shift < text.Length()) {
+            If (This.SameRotation(text, shift, best) == 0 && This.RotationBefore(text, shift, best) == 1) {
+                best = shift;
+            }
+            shift = shift + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function RunLengthEncode(String text) -> Int
+    Explain {
+        Description: "Count the runs in the text.";
+        Input: text = "A string of at most six letters.";
+        Processing: "A run is a maximal block of one byte.";
+        Output: "The run count.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int count = 1;
+        Int index = 1;
+        While (index < text.Length()) {
+            If (This.At(text, index) != This.At(text, index - 1)) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function RunLengthDecode(String text) -> Int
+    Explain {
+        Description: "Expand letter-digit pairs.";
+        Input: text = "Pairs such as a2b1a2b1.";
+        Processing: "Add the digit in each pair.";
+        Output: "The expanded length, or 0 when a pair is incomplete.";
+    } {
+        If (text.Length() == 0 || text.Length() % 2 != 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Int sum = 0;
+        Int index = 1;
+        While (index < text.Length()) {
+            Int code = text.Substring(index, 1).GetChar(0).ToInt();
+            If (code < 48 || code > 57) {
+                problem = "parse";
+                Return 0;
+            }
+            sum = sum + code - 48;
+            index = index + 2;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function ComputeRollingHash(String text) -> Int
+    Explain {
+        Description: "Hash letters with base 8.";
+        Input: text = "A string of at most six letters. a is 1.";
+        Processing: "Fold sum * 8 + letter.";
+        Output: "The hash, or 0 when the text is empty or longer than six.";
+    } {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int hash = 0;
+        Int index = 0;
+        While (index < text.Length()) {
+            hash = hash * 8 + This.At(text, index);
+            index = index + 1;
+        }
+        problem = "none";
+        Return hash;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the string problem token.";
+        Input: "None.";
+        Processing: "Read the token left by the last call.";
+        Output: "none, size, or parse.";
+    } {
+        Return problem;
+    }
+
+    Private Function At(String text, Int index) -> Int {
+        Return text.Substring(index, 1).GetChar(0).ToInt() - 96;
+    }
+
+    Private Function Prepare(String text, String pattern) -> Int {
+        If (text.Length() == 0 || pattern.Length() == 0 || text.Length() > 6 || pattern.Length() > text.Length()) {
+            problem = "size";
+            Return 0;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Private Function EqualAt(String text, Int start, String pattern) -> Int {
+        Int index = 0;
+        While (index < pattern.Length()) {
+            If (This.At(text, start + index) != This.At(pattern, index)) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function First(String text, String pattern) -> Int {
+        If (This.Prepare(text, pattern) == 0) { Return -1; }
+        Int align = 0;
+        While (align + pattern.Length() <= text.Length()) {
+            If (This.EqualAt(text, align, pattern) == 1) { Return align; }
+            align = align + 1;
+        }
+        Return -1;
+    }
+
+    Private Function Last(String text, String pattern) -> Int {
+        If (This.Prepare(text, pattern) == 0) { Return -1; }
+        Int align = 0;
+        Int found = -1;
+        While (align + pattern.Length() <= text.Length()) {
+            If (This.EqualAt(text, align, pattern) == 1) { found = align; }
+            align = align + 1;
+        }
+        problem = "none";
+        Return found;
+    }
+
+    Private Function CountAt(String text, String pattern) -> Int {
+        If (This.Prepare(text, pattern) == 0) { Return 0; }
+        Int align = 0;
+        Int count = 0;
+        While (align + pattern.Length() <= text.Length()) {
+            If (This.EqualAt(text, align, pattern) == 1) { count = count + 1; }
+            align = align + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Private Function PiSum(String text) -> Int {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        order[0] = 0;
+        Int index = 1;
+        Int length = 0;
+        While (index < text.Length()) {
+            If (This.At(text, index) == This.At(text, length)) {
+                length = length + 1;
+                order[index] = length;
+                index = index + 1;
+            }
+            If (index < text.Length() && This.At(text, index) != This.At(text, length)) {
+                If (length > 0) { length = order[length - 1]; }
+                If (length == 0) {
+                    order[index] = 0;
+                    index = index + 1;
+                }
+            }
+        }
+        Int sum = 0;
+        index = 0;
+        While (index < text.Length()) {
+            sum = sum + order[index];
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function FillZ(String text) -> Int {
+        Int n = text.Length();
+        Int index = 0;
+        While (index < n) {
+            order[index] = 0;
+            index = index + 1;
+        }
+        Int left = 0;
+        Int right = 0;
+        index = 1;
+        While (index < n) {
+            If (index < right) {
+                Int copy = order[index - left];
+                If (right - index < copy) { copy = right - index; }
+                order[index] = copy;
+            }
+            While (index + order[index] < n && This.At(text, order[index]) == This.At(text, index + order[index])) {
+                order[index] = order[index] + 1;
+            }
+            If (index + order[index] > right) {
+                left = index;
+                right = index + order[index];
+            }
+            index = index + 1;
+        }
+        Return 0;
+    }
+
+    Private Function ZSum(String text) -> Int {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        This.FillZ(text);
+        Int sum = 0;
+        Int index = 0;
+        While (index < text.Length()) {
+            sum = sum + order[index];
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function SuffixBefore(String text, Int left, Int right) -> Int {
+        Int n = text.Length();
+        Int offset = 0;
+        While (left + offset < n && right + offset < n) {
+            Int leftCode = This.At(text, left + offset);
+            Int rightCode = This.At(text, right + offset);
+            If (leftCode < rightCode) { Return 1; }
+            If (leftCode > rightCode) { Return 0; }
+            offset = offset + 1;
+        }
+        If (left + offset == n && right + offset < n) { Return 1; }
+        Return 0;
+    }
+
+    Private Function SuffixHash(String text) -> Int {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int n = text.Length();
+        Int index = 0;
+        While (index < n) {
+            spare[index] = index;
+            index = index + 1;
+        }
+        index = 0;
+        While (index < n) {
+            Int best = index;
+            Int cursor = index + 1;
+            While (cursor < n) {
+                If (This.SuffixBefore(text, spare[cursor], spare[best]) == 1) { best = cursor; }
+                cursor = cursor + 1;
+            }
+            Int saved = spare[index];
+            spare[index] = spare[best];
+            spare[best] = saved;
+            index = index + 1;
+        }
+        Int hash = 0;
+        index = 0;
+        While (index < n) {
+            hash = hash * 8 + spare[index];
+            index = index + 1;
+        }
+        problem = "none";
+        Return hash;
+    }
+
+    Private Function LcpTotal(String text) -> Int {
+        If (This.SuffixHash(text) == 0 && text.Length() != 1) { Return 0; }
+        Int n = text.Length();
+        Int sum = 0;
+        Int index = 1;
+        While (index < n) {
+            Int left = spare[index - 1];
+            Int right = spare[index];
+            Int offset = 0;
+            While (left + offset < n && right + offset < n && This.At(text, left + offset) == This.At(text, right + offset)) {
+                offset = offset + 1;
+            }
+            sum = sum + offset;
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function Repeated(String text) -> Int {
+        If (This.SuffixHash(text) == 0 && text.Length() != 1) { Return 0; }
+        Int n = text.Length();
+        Int best = 0;
+        Int index = 1;
+        While (index < n) {
+            Int left = spare[index - 1];
+            Int right = spare[index];
+            Int offset = 0;
+            While (left + offset < n && right + offset < n && This.At(text, left + offset) == This.At(text, right + offset)) {
+                offset = offset + 1;
+            }
+            If (offset > best) { best = offset; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Private Function Distinct(String text) -> Int {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int total = 0;
+        Int start = 0;
+        While (start < text.Length()) {
+            Int length = 1;
+            While (start + length <= text.Length()) {
+                Int earlier = 0;
+                Int seen = 0;
+                While (earlier < start && seen == 0) {
+                    If (earlier + length <= text.Length()) {
+                        Int offset = 0;
+                        Int same = 1;
+                        While (offset < length) {
+                            If (This.At(text, earlier + offset) != This.At(text, start + offset)) { same = 0; }
+                            offset = offset + 1;
+                        }
+                        If (same == 1) { seen = 1; }
+                    }
+                    earlier = earlier + 1;
+                }
+                If (seen == 0) { total = total + 1; }
+                length = length + 1;
+            }
+            start = start + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function Automaton(String text) -> Int {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = 0;
+        While (index < 8) {
+            order[index] = 0;
+            link[index] = -1;
+            spare[index] = -1;
+            bit[index] = -1;
+            index = index + 1;
+        }
+        Int size = 1;
+        Int last = 0;
+        Int cursor = 0;
+        While (cursor < text.Length()) {
+            Int code = This.At(text, cursor);
+            If (code != 1 && code != 2) {
+                problem = "domain";
+                Return 0;
+            }
+            Int current = size;
+            size = size + 1;
+            order[current] = order[last] + 1;
+            link[current] = 0;
+            spare[current] = -1;
+            bit[current] = -1;
+            Int point = last;
+            Int walking = 1;
+            Int guard = 0;
+            Int found = -1;
+            While (walking == 1 && guard < 8) {
+                guard = guard + 1;
+                If (point < 0) { walking = 0; }
+                If (walking == 1) {
+                    Int missing = 1;
+                    If (code == 1 && spare[point] >= 0) { missing = 0; }
+                    If (code == 2 && bit[point] >= 0) { missing = 0; }
+                    If (missing == 1) {
+                        If (code == 1) { spare[point] = current; }
+                        If (code == 2) { bit[point] = current; }
+                        point = link[point];
+                    }
+                    If (missing == 0) {
+                        If (code == 1) { found = spare[point]; }
+                        If (code == 2) { found = bit[point]; }
+                        walking = 0;
+                    }
+                }
+            }
+            If (point < 0) { link[current] = 0; }
+            If (point >= 0 && order[point] + 1 == order[found]) { link[current] = found; }
+            If (point >= 0 && order[point] + 1 != order[found]) {
+                Int clone = size;
+                size = size + 1;
+                order[clone] = order[point] + 1;
+                link[clone] = link[found];
+                spare[clone] = spare[found];
+                bit[clone] = bit[found];
+                Int relink = point;
+                Int moving = 1;
+                guard = 0;
+                While (moving == 1 && relink >= 0 && guard < 8) {
+                    guard = guard + 1;
+                    Int hit = -1;
+                    If (code == 1) { hit = spare[relink]; }
+                    If (code == 2) { hit = bit[relink]; }
+                    If (hit == found) {
+                        If (code == 1) { spare[relink] = clone; }
+                        If (code == 2) { bit[relink] = clone; }
+                        relink = link[relink];
+                    }
+                    If (hit != found) { moving = 0; }
+                }
+                link[found] = clone;
+                link[current] = clone;
+            }
+            last = current;
+            cursor = cursor + 1;
+        }
+        problem = "none";
+        Return size;
+    }
+
+    Private Function Shared(String left, String right, Int fromEnd) -> Int {
+        If (left.Length() == 0 || right.Length() == 0) { Return 0; }
+        Int count = 0;
+        Int guard = 0;
+        While (guard < left.Length() && guard < right.Length()) {
+            Int leftIndex = guard;
+            Int rightIndex = guard;
+            If (fromEnd == 1) {
+                leftIndex = left.Length() - 1 - guard;
+                rightIndex = right.Length() - 1 - guard;
+            }
+            If (This.At(left, leftIndex) != This.At(right, rightIndex)) { guard = left.Length(); }
+            If (guard < left.Length() && guard < right.Length() && This.At(left, leftIndex) == This.At(right, rightIndex)) {
+                count = count + 1;
+            }
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Private Function Edit(String left, String right, Int transposition) -> Int {
+        If (left.Length() == 0 || right.Length() == 0 || left.Length() > 3 || right.Length() > 3) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = 0;
+        While (index < 16) {
+            This.SetCell(index, 0);
+            index = index + 1;
+        }
+        Int row = 0;
+        While (row <= left.Length()) {
+            This.SetCell(row * 4, row);
+            row = row + 1;
+        }
+        Int column = 0;
+        While (column <= right.Length()) {
+            This.SetCell(column, column);
+            column = column + 1;
+        }
+        row = 1;
+        While (row <= left.Length()) {
+            column = 1;
+            While (column <= right.Length()) {
+                Int cost = 1;
+                If (This.At(left, row - 1) == This.At(right, column - 1)) { cost = 0; }
+                Int best = This.GetCell((row - 1) * 4 + column) + 1;
+                Int across = This.GetCell(row * 4 + column - 1) + 1;
+                If (across < best) { best = across; }
+                Int diagonal = This.GetCell((row - 1) * 4 + column - 1) + cost;
+                If (diagonal < best) { best = diagonal; }
+                If (transposition == 1 && row > 1 && column > 1) {
+                    If (This.At(left, row - 1) == This.At(right, column - 2) && This.At(left, row - 2) == This.At(right, column - 1)) {
+                        Int swapped = This.GetCell((row - 2) * 4 + column - 2) + 1;
+                        If (swapped < best) { best = swapped; }
+                    }
+                }
+                This.SetCell(row * 4 + column, best);
+                column = column + 1;
+            }
+            row = row + 1;
+        }
+        problem = "none";
+        Return This.GetCell(left.Length() * 4 + right.Length());
+    }
+
+    Private Function SetCell(Int index, Int stored) -> Int {
+        If (index < 8) { spare[index] = stored; }
+        If (index >= 8) { bit[index - 8] = stored; }
+        Return stored;
+    }
+
+    Private Function GetCell(Int index) -> Int {
+        If (index < 8) { Return spare[index]; }
+        Return bit[index - 8];
+    }
+
+    Private Function Matches(String left, String right) -> Int {
+        If (left.Length() == 0 || right.Length() == 0 || left.Length() > 6 || right.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int window = left.Length();
+        If (right.Length() > window) { window = right.Length(); }
+        window = window / 2 - 1;
+        If (window < 0) { window = 0; }
+        Int index = 0;
+        While (index < right.Length()) {
+            order[index] = 0;
+            index = index + 1;
+        }
+        Int matches = 0;
+        index = 0;
+        While (index < left.Length()) {
+            Int start = index - window;
+            If (start < 0) { start = 0; }
+            Int end = index + window;
+            If (end >= right.Length()) { end = right.Length() - 1; }
+            Int cursor = start;
+            Int found = 0;
+            While (cursor <= end && found == 0) {
+                If (order[cursor] == 0 && This.At(left, index) == This.At(right, cursor)) {
+                    order[cursor] = 1;
+                    found = 1;
+                    matches = matches + 1;
+                }
+                cursor = cursor + 1;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return matches;
+    }
+
+    Private Function Subsequence(String left, String right) -> Int {
+        If (left.Length() == 0 || right.Length() == 0 || left.Length() > 6 || right.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = 0;
+        While (index <= right.Length()) {
+            order[index] = 0;
+            index = index + 1;
+        }
+        Int row = 0;
+        While (row < left.Length()) {
+            Int previous = 0;
+            Int column = 0;
+            While (column < right.Length()) {
+                Int saved = order[column + 1];
+                If (This.At(left, row) == This.At(right, column)) { order[column + 1] = previous + 1; }
+                If (This.At(left, row) != This.At(right, column) && order[column + 1] < order[column]) {
+                    order[column + 1] = order[column];
+                }
+                previous = saved;
+                column = column + 1;
+            }
+            row = row + 1;
+        }
+        problem = "none";
+        Return order[right.Length()];
+    }
+
+    Private Function SubstringSpan(String left, String right) -> Int {
+        If (left.Length() == 0 || right.Length() == 0 || left.Length() > 6 || right.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = 0;
+        While (index <= right.Length()) {
+            order[index] = 0;
+            index = index + 1;
+        }
+        Int best = 0;
+        Int row = 0;
+        While (row < left.Length()) {
+            Int previous = 0;
+            Int column = 0;
+            While (column < right.Length()) {
+                Int saved = order[column + 1];
+                If (This.At(left, row) == This.At(right, column)) {
+                    order[column + 1] = previous + 1;
+                    If (order[column + 1] > best) { best = order[column + 1]; }
+                }
+                If (This.At(left, row) != This.At(right, column)) { order[column + 1] = 0; }
+                previous = saved;
+                column = column + 1;
+            }
+            row = row + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Private Function Palindrome(String text, Int left, Int right) -> Int {
+        Int guard = 0;
+        While (left < right && guard < 8) {
+            If (This.At(text, left) != This.At(text, right)) { Return 0; }
+            left = left + 1;
+            right = right - 1;
+            guard = guard + 1;
+        }
+        Return 1;
+    }
+
+    Private Function LongestPal(String text) -> Int {
+        If (text.Length() == 0 || text.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int best = 1;
+        Int center = 0;
+        While (center < text.Length()) {
+            Int left = center;
+            Int right = center;
+            While (left >= 0 && right < text.Length() && This.At(text, left) == This.At(text, right)) {
+                Int length = right - left + 1;
+                If (length > best) { best = length; }
+                left = left - 1;
+                right = right + 1;
+            }
+            left = center;
+            right = center + 1;
+            While (left >= 0 && right < text.Length() && This.At(text, left) == This.At(text, right)) {
+                Int length = right - left + 1;
+                If (length > best) { best = length; }
+                left = left - 1;
+                right = right + 1;
+            }
+            center = center + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Private Function Anagram(String left, String right) -> Int {
+        If (left.Length() == 0 || left.Length() != right.Length() || left.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = 0;
+        While (index < left.Length()) {
+            order[index] = This.At(left, index);
+            spare[index] = This.At(right, index);
+            index = index + 1;
+        }
+        index = 0;
+        While (index < left.Length()) {
+            Int cursor = index + 1;
+            While (cursor < left.Length()) {
+                If (order[cursor] < order[index]) {
+                    Int saved = order[index];
+                    order[index] = order[cursor];
+                    order[cursor] = saved;
+                }
+                If (spare[cursor] < spare[index]) {
+                    Int saved = spare[index];
+                    spare[index] = spare[cursor];
+                    spare[cursor] = saved;
+                }
+                cursor = cursor + 1;
+            }
+            index = index + 1;
+        }
+        index = 0;
+        While (index < left.Length()) {
+            If (order[index] != spare[index]) {
+                problem = "none";
+                Return 0;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Private Function Covers(String text, Int start, Int end, String pattern) -> Int {
+        Int index = 0;
+        While (index < pattern.Length()) {
+            Int needed = 0;
+            Int cursor = 0;
+            While (cursor < pattern.Length()) {
+                If (This.At(pattern, cursor) == This.At(pattern, index)) { needed = needed + 1; }
+                cursor = cursor + 1;
+            }
+            Int have = 0;
+            cursor = start;
+            While (cursor <= end) {
+                If (This.At(text, cursor) == This.At(pattern, index)) { have = have + 1; }
+                cursor = cursor + 1;
+            }
+            If (have < needed) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function SameRotation(String text, Int left, Int right) -> Int {
+        Int index = 0;
+        Int n = text.Length();
+        While (index < n) {
+            Int leftIndex = left + index;
+            Int rightIndex = right + index;
+            If (leftIndex >= n) { leftIndex = leftIndex - n; }
+            If (rightIndex >= n) { rightIndex = rightIndex - n; }
+            If (This.At(text, leftIndex) != This.At(text, rightIndex)) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function RotationBefore(String text, Int left, Int right) -> Int {
+        Int index = 0;
+        Int n = text.Length();
+        While (index < n) {
+            Int leftIndex = left + index;
+            Int rightIndex = right + index;
+            If (leftIndex >= n) { leftIndex = leftIndex - n; }
+            If (rightIndex >= n) { rightIndex = rightIndex - n; }
+            If (This.At(text, leftIndex) < This.At(text, rightIndex)) { Return 1; }
+            If (This.At(text, leftIndex) > This.At(text, rightIndex)) { Return 0; }
+            index = index + 1;
+        }
+        Return 0;
+    }
+}

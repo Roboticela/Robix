@@ -1,5 +1,396 @@
+// Tests for Algebra.rx. Each call uses a fresh desk.
+
+Test Parse {
+    Constraint: AlgebraDesk().Parse("x") == 0;
+    Processing: AlgebraDesk().Parse("x");
+    Output: 0;
+}
+
+Test Create {
+    Constraint: AlgebraDesk().Create(6, -5, 1, 0) == 0;
+    Processing: AlgebraDesk().Create(6, -5, 1, 0);
+    Output: 0;
+}
+
+Test Format {
+    Constraint: AlgebraDesk().Format(0) == "none";
+    Processing: AlgebraDesk().Format(0);
+    Output: "none";
+}
+
+Test Eval {
+    Constraint: AlgebraDesk().Eval(0, 2) == 0;
+    Processing: AlgebraDesk().Eval(0, 2);
+    Output: 0;
+}
+
+Test Degree {
+    Constraint: AlgebraDesk().Degree(0) == -1;
+    Processing: AlgebraDesk().Degree(0);
+    Output: -1;
+}
+
+Test Plus {
+    Constraint: AlgebraDesk().Plus(0, 1) == -1;
+    Processing: AlgebraDesk().Plus(0, 1);
+    Output: -1;
+}
+
+Test Minus {
+    Constraint: AlgebraDesk().Minus(0, 1) == -1;
+    Processing: AlgebraDesk().Minus(0, 1);
+    Output: -1;
+}
+
+Test Times {
+    Constraint: AlgebraDesk().Times(0, 1) == -1;
+    Processing: AlgebraDesk().Times(0, 1);
+    Output: -1;
+}
+
+Test Differentiate {
+    Constraint: AlgebraDesk().Differentiate(0) == -1;
+    Processing: AlgebraDesk().Differentiate(0);
+    Output: -1;
+}
+
+Test Integrate {
+    Constraint: AlgebraDesk().Integrate(0) == -1;
+    Processing: AlgebraDesk().Integrate(0);
+    Output: -1;
+}
+
+Test Factor {
+    Constraint: AlgebraDesk().Factor(0) == "none";
+    Processing: AlgebraDesk().Factor(0);
+    Output: "none";
+}
+
 Test SolveLinear {
-    Constraint: AlgebraDesk().SolveLinear(2, -8) == 4;
-    Processing: True;
-    Output: True;
+    Case "unique" {
+        Constraint: AlgebraDesk().SolveLinear(2, -6) == 3;
+        Processing: AlgebraDesk().SolveLinear(2, -6);
+        Output: 3;
+    }
+    Case "singular" {
+        Constraint: AlgebraDesk().SolveLinear(0, 1) == 0;
+        Processing: AlgebraDesk().SolveLinear(0, 1);
+        Output: 0;
+    }
+}
+
+Test SolveQuadratic {
+    Case "two roots" {
+        Constraint: AlgebraDesk().SolveQuadratic(1, -5, 6) == 2;
+        Processing: AlgebraDesk().SolveQuadratic(1, -5, 6);
+        Output: 2;
+    }
+    Case "not quadratic" {
+        Constraint: AlgebraDesk().SolveQuadratic(0, 1, 1) == 0;
+        Processing: AlgebraDesk().SolveQuadratic(0, 1, 1);
+        Output: 0;
+    }
+}
+
+Test Root {
+    Constraint: AlgebraDesk().Root(0) == 0;
+    Processing: AlgebraDesk().Root(0);
+    Output: 0;
+}
+
+Test CheckSolution {
+    Case "root" {
+        Constraint: AlgebraDesk().CheckSolution(1, -5, 6, 2) == 1;
+        Processing: AlgebraDesk().CheckSolution(1, -5, 6, 2);
+        Output: 1;
+    }
+    Case "miss" {
+        Constraint: AlgebraDesk().CheckSolution(1, 0, 1, 1) == 0;
+        Processing: AlgebraDesk().CheckSolution(1, 0, 1, 1);
+        Output: 0;
+    }
+}
+
+Test SolveSystem {
+    Case "unique" {
+        Constraint: AlgebraDesk().SolveSystem(1, 0, 3, 0, 1, 4) == 1;
+        Processing: AlgebraDesk().SolveSystem(1, 0, 3, 0, 1, 4);
+        Output: 1;
+    }
+    Case "singular" {
+        Constraint: AlgebraDesk().SolveSystem(0, 0, 1, 0, 0, 1) == 0;
+        Processing: AlgebraDesk().SolveSystem(0, 0, 1, 0, 0, 1);
+        Output: 0;
+    }
+}
+
+Test SolutionX {
+    Constraint: AlgebraDesk().SolutionX() == 0;
+    Processing: AlgebraDesk().SolutionX();
+    Output: 0;
+}
+
+Test SolutionY {
+    Constraint: AlgebraDesk().SolutionY() == 0;
+    Processing: AlgebraDesk().SolutionY();
+    Output: 0;
+}
+
+Test Fraction {
+    Case "reduced" {
+        Constraint: AlgebraDesk().Fraction(2, 4) == 0;
+        Processing: AlgebraDesk().Fraction(2, 4);
+        Output: 0;
+    }
+    Case "zero denominator" {
+        Constraint: AlgebraDesk().Fraction(1, 0) == -1;
+        Processing: AlgebraDesk().Fraction(1, 0);
+        Output: -1;
+    }
+}
+
+Test PlusFraction {
+    Constraint: AlgebraDesk().PlusFraction(0, 1) == -1;
+    Processing: AlgebraDesk().PlusFraction(0, 1);
+    Output: -1;
+}
+
+Test MinusFraction {
+    Constraint: AlgebraDesk().MinusFraction(0, 1) == -1;
+    Processing: AlgebraDesk().MinusFraction(0, 1);
+    Output: -1;
+}
+
+Test TimesFraction {
+    Constraint: AlgebraDesk().TimesFraction(0, 1) == -1;
+    Processing: AlgebraDesk().TimesFraction(0, 1);
+    Output: -1;
+}
+
+Test DivideFraction {
+    Constraint: AlgebraDesk().DivideFraction(0, 1) == -1;
+    Processing: AlgebraDesk().DivideFraction(0, 1);
+    Output: -1;
+}
+
+Test Numerator {
+    Constraint: AlgebraDesk().Numerator(0) == 0;
+    Processing: AlgebraDesk().Numerator(0);
+    Output: 0;
+}
+
+Test Denominator {
+    Constraint: AlgebraDesk().Denominator(0) == 0;
+    Processing: AlgebraDesk().Denominator(0);
+    Output: 0;
+}
+
+Test Decimal {
+    Constraint: AlgebraDesk().Decimal(0) == 0.0;
+    Processing: AlgebraDesk().Decimal(0);
+    Output: 0.0;
+}
+
+Test PlusComplex {
+    Constraint: AlgebraDesk().PlusComplex(1, 2, 3, 4) == 4;
+    Processing: AlgebraDesk().PlusComplex(1, 2, 3, 4);
+    Output: 4;
+}
+
+Test TimesComplex {
+    Constraint: AlgebraDesk().TimesComplex(1, 2, 3, 4) == -5;
+    Processing: AlgebraDesk().TimesComplex(1, 2, 3, 4);
+    Output: -5;
+}
+
+Test Imag {
+    Constraint: AlgebraDesk().Imag() == 0;
+    Processing: AlgebraDesk().Imag();
+    Output: 0;
+}
+
+Test IsGroup {
+    Case "integers" {
+        Constraint: AlgebraDesk().IsGroup("integers") == 1;
+        Processing: AlgebraDesk().IsGroup("integers");
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: AlgebraDesk().IsGroup("nope") == 0;
+        Processing: AlgebraDesk().IsGroup("nope");
+        Output: 0;
+    }
+}
+
+Test IsRing {
+    Constraint: AlgebraDesk().IsRing("rationals") == 1;
+    Processing: AlgebraDesk().IsRing("rationals");
+    Output: 1;
+}
+
+Test IsField {
+    Case "rationals" {
+        Constraint: AlgebraDesk().IsField("rationals") == 1;
+        Processing: AlgebraDesk().IsField("rationals");
+        Output: 1;
+    }
+    Case "integers" {
+        Constraint: AlgebraDesk().IsField("integers") == 0;
+        Processing: AlgebraDesk().IsField("integers");
+        Output: 0;
+    }
+}
+
+Test IsCommutative {
+    Constraint: AlgebraDesk().IsCommutative("add") == 1;
+    Processing: AlgebraDesk().IsCommutative("add");
+    Output: 1;
+}
+
+Test IsAssociative {
+    Constraint: AlgebraDesk().IsAssociative("mul") == 1;
+    Processing: AlgebraDesk().IsAssociative("mul");
+    Output: 1;
+}
+
+Test Identity {
+    Case "multiply" {
+        Constraint: AlgebraDesk().Identity("mul") == 1;
+        Processing: AlgebraDesk().Identity("mul");
+        Output: 1;
+    }
+    Case "add" {
+        Constraint: AlgebraDesk().Identity("add") == 0;
+        Processing: AlgebraDesk().Identity("add");
+        Output: 0;
+    }
+}
+
+Test Inverse {
+    Case "add" {
+        Constraint: AlgebraDesk().Inverse(4, "add") == -4;
+        Processing: AlgebraDesk().Inverse(4, "add");
+        Output: -4;
+    }
+    Case "not a unit" {
+        Constraint: AlgebraDesk().Inverse(2, "mul") == 0;
+        Processing: AlgebraDesk().Inverse(2, "mul");
+        Output: 0;
+    }
+}
+
+Test Holds {
+    Case "inside" {
+        Constraint: AlgebraDesk().Holds(1, 9, 5) == 1;
+        Processing: AlgebraDesk().Holds(1, 9, 5);
+        Output: 1;
+    }
+    Case "outside" {
+        Constraint: AlgebraDesk().Holds(1, 9, 0) == 0;
+        Processing: AlgebraDesk().Holds(1, 9, 0);
+        Output: 0;
+    }
+}
+
+Test Fault {
+    Constraint: AlgebraDesk().Fault() == "none";
+    Processing: AlgebraDesk().Fault();
+    Output: "none";
+}
+
+Test Combine {
+    Constraint: AlgebraDesk().Combine(0, 1, 1) == -1;
+    Processing: AlgebraDesk().Combine(0, 1, 1);
+    Output: -1;
+}
+
+Test Term {
+    Constraint: AlgebraDesk().Term(2, 1, 1) == "2x";
+    Processing: AlgebraDesk().Term(2, 1, 1);
+    Output: "2x";
+}
+
+Test FactorSign {
+    Case "negative root" {
+        Constraint: AlgebraDesk().FactorSign(-2) == "+2";
+        Processing: AlgebraDesk().FactorSign(-2);
+        Output: "+2";
+    }
+    Case "positive root" {
+        Constraint: AlgebraDesk().FactorSign(3) == "-3";
+        Processing: AlgebraDesk().FactorSign(3);
+        Output: "-3";
+    }
+}
+
+Test WholeSqrt {
+    Constraint: AlgebraDesk().WholeSqrt(10) == 3;
+    Processing: AlgebraDesk().WholeSqrt(10);
+    Output: 3;
+}
+
+Test PullNumber {
+    Constraint: AlgebraDesk().PullNumber("12") == 1;
+    Processing: AlgebraDesk().PullNumber("12");
+    Output: 1;
+}
+
+Test DigitValue {
+    Constraint: AlgebraDesk().DigitValue("4") == 4;
+    Processing: AlgebraDesk().DigitValue("4");
+    Output: 4;
+}
+
+Test Coeff {
+    Constraint: AlgebraDesk().Coeff(0, 0) == 0;
+    Processing: AlgebraDesk().Coeff(0, 0);
+    Output: 0;
+}
+
+Test Put {
+    Constraint: AlgebraDesk().Put(0, 0, 6) == 6;
+    Processing: AlgebraDesk().Put(0, 0, 6);
+    Output: 6;
+}
+
+Test Clear {
+    Constraint: AlgebraDesk().Clear(0) == 0;
+    Processing: AlgebraDesk().Clear(0);
+    Output: 0;
+}
+
+Test GcdInt {
+    Constraint: AlgebraDesk().GcdInt(8, 12) == 4;
+    Processing: AlgebraDesk().GcdInt(8, 12);
+    Output: 4;
+}
+
+Test Known {
+    Constraint: AlgebraDesk().Known(0) == 0;
+    Processing: AlgebraDesk().Known(0);
+    Output: 0;
+}
+
+Test KnownFraction {
+    Constraint: AlgebraDesk().KnownFraction(0) == 0;
+    Processing: AlgebraDesk().KnownFraction(0);
+    Output: 0;
+}
+
+Test Claim {
+    Constraint: AlgebraDesk().Claim() == 0;
+    Processing: AlgebraDesk().Claim();
+    Output: 0;
+}
+
+Test ClaimFraction {
+    Constraint: AlgebraDesk().ClaimFraction() == 0;
+    Processing: AlgebraDesk().ClaimFraction();
+    Output: 0;
+}
+
+Test IntText {
+    Constraint: AlgebraDesk().IntText(6) == "6";
+    Processing: AlgebraDesk().IntText(6);
+    Output: "6";
 }

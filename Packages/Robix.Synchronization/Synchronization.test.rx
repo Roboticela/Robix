@@ -1,5 +1,266 @@
+// Tests for Synchronization.rx. Each call uses a fresh desk.
+
 Test Acquire {
-    Constraint: SyncDesk().Acquire(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: SyncDesk().Acquire(3) == 1;
+    Processing: SyncDesk().Acquire(3);
+    Output: 1;
+}
+
+Test TryAcquire {
+    Constraint: SyncDesk().TryAcquire(3) == 1;
+    Processing: SyncDesk().TryAcquire(3);
+    Output: 1;
+}
+
+Test AcquireFor {
+    Case "ready" {
+        Constraint: SyncDesk().AcquireFor(3, 1) == 1;
+        Processing: SyncDesk().AcquireFor(3, 1);
+        Output: 1;
+    }
+    Case "negative" {
+        Constraint: SyncDesk().AcquireFor(3, -1) == 0;
+        Processing: SyncDesk().AcquireFor(3, -1);
+        Output: 0;
+    }
+}
+
+Test Release {
+    Constraint: SyncDesk().Release(3) == 0;
+    Processing: SyncDesk().Release(3);
+    Output: 0;
+}
+
+Test IsLocked {
+    Constraint: SyncDesk().IsLocked() == 0;
+    Processing: SyncDesk().IsLocked();
+    Output: 0;
+}
+
+Test Owner {
+    Constraint: SyncDesk().Owner() == 0;
+    Processing: SyncDesk().Owner();
+    Output: 0;
+}
+
+Test WaitSem {
+    Constraint: SyncDesk().WaitSem() == 1;
+    Processing: SyncDesk().WaitSem();
+    Output: 1;
+}
+
+Test TryWait {
+    Constraint: SyncDesk().TryWait() == 1;
+    Processing: SyncDesk().TryWait();
+    Output: 1;
+}
+
+Test ReleaseSem {
+    Constraint: SyncDesk().ReleaseSem() == 0;
+    Processing: SyncDesk().ReleaseSem();
+    Output: 0;
+}
+
+Test SemCount {
+    Constraint: SyncDesk().SemCount() == 2;
+    Processing: SyncDesk().SemCount();
+    Output: 2;
+}
+
+Test EnterRead {
+    Constraint: SyncDesk().EnterRead() == 1;
+    Processing: SyncDesk().EnterRead();
+    Output: 1;
+}
+
+Test ExitRead {
+    Constraint: SyncDesk().ExitRead() == 0;
+    Processing: SyncDesk().ExitRead();
+    Output: 0;
+}
+
+Test EnterWrite {
+    Constraint: SyncDesk().EnterWrite() == 1;
+    Processing: SyncDesk().EnterWrite();
+    Output: 1;
+}
+
+Test ExitWrite {
+    Constraint: SyncDesk().ExitWrite() == 0;
+    Processing: SyncDesk().ExitWrite();
+    Output: 0;
+}
+
+Test TryRead {
+    Constraint: SyncDesk().TryRead() == 1;
+    Processing: SyncDesk().TryRead();
+    Output: 1;
+}
+
+Test TryWrite {
+    Constraint: SyncDesk().TryWrite() == 1;
+    Processing: SyncDesk().TryWrite();
+    Output: 1;
+}
+
+Test Readers {
+    Constraint: SyncDesk().Readers() == 0;
+    Processing: SyncDesk().Readers();
+    Output: 0;
+}
+
+Test Signal {
+    Constraint: SyncDesk().Signal() == 0;
+    Processing: SyncDesk().Signal();
+    Output: 0;
+}
+
+Test SignalAndWait {
+    Constraint: SyncDesk().SignalAndWait() == 0;
+    Processing: SyncDesk().SignalAndWait();
+    Output: 0;
+}
+
+Test WaitGate {
+    Constraint: SyncDesk().WaitGate() == 0;
+    Processing: SyncDesk().WaitGate();
+    Output: 0;
+}
+
+Test Generation {
+    Constraint: SyncDesk().Generation() == 0;
+    Processing: SyncDesk().Generation();
+    Output: 0;
+}
+
+Test TickDown {
+    Constraint: SyncDesk().TickDown() == 1;
+    Processing: SyncDesk().TickDown();
+    Output: 1;
+}
+
+Test Down {
+    Constraint: SyncDesk().Down() == 2;
+    Processing: SyncDesk().Down();
+    Output: 2;
+}
+
+Test SetEvent {
+    Constraint: SyncDesk().SetEvent() == 1;
+    Processing: SyncDesk().SetEvent();
+    Output: 1;
+}
+
+Test ResetEvent {
+    Constraint: SyncDesk().ResetEvent() == 1;
+    Processing: SyncDesk().ResetEvent();
+    Output: 1;
+}
+
+Test WaitOne {
+    Constraint: SyncDesk().WaitOne() == 0;
+    Processing: SyncDesk().WaitOne();
+    Output: 0;
+}
+
+Test SetAuto {
+    Constraint: SyncDesk().SetAuto() == 1;
+    Processing: SyncDesk().SetAuto();
+    Output: 1;
+}
+
+Test WaitAuto {
+    Constraint: SyncDesk().WaitAuto() == 0;
+    Processing: SyncDesk().WaitAuto();
+    Output: 0;
+}
+
+Test WaitAll {
+    Constraint: SyncDesk().WaitAll() == 0;
+    Processing: SyncDesk().WaitAll();
+    Output: 0;
+}
+
+Test WaitAny {
+    Constraint: SyncDesk().WaitAny() == -1;
+    Processing: SyncDesk().WaitAny();
+    Output: -1;
+}
+
+Test WaitCond {
+    Constraint: SyncDesk().WaitCond() == 1;
+    Processing: SyncDesk().WaitCond();
+    Output: 1;
+}
+
+Test SignalCond {
+    Constraint: SyncDesk().SignalCond() == 0;
+    Processing: SyncDesk().SignalCond();
+    Output: 0;
+}
+
+Test Broadcast {
+    Constraint: SyncDesk().Broadcast() == 0;
+    Processing: SyncDesk().Broadcast();
+    Output: 0;
+}
+
+Test Waiters {
+    Constraint: SyncDesk().Waiters() == 0;
+    Processing: SyncDesk().Waiters();
+    Output: 0;
+}
+
+Test TakeAsync {
+    Constraint: SyncDesk().TakeAsync() == 1;
+    Processing: SyncDesk().TakeAsync();
+    Output: 1;
+}
+
+Test DropAsync {
+    Constraint: SyncDesk().DropAsync() == 0;
+    Processing: SyncDesk().DropAsync();
+    Output: 0;
+}
+
+Test EnterSpin {
+    Constraint: SyncDesk().EnterSpin() == 1;
+    Processing: SyncDesk().EnterSpin();
+    Output: 1;
+}
+
+Test ExitSpin {
+    Constraint: SyncDesk().ExitSpin() == 0;
+    Processing: SyncDesk().ExitSpin();
+    Output: 0;
+}
+
+Test SetContext {
+    Constraint: SyncDesk().SetContext("ui") == 1;
+    Processing: SyncDesk().SetContext("ui");
+    Output: 1;
+}
+
+Test Context {
+    Constraint: SyncDesk().Context() == "none";
+    Processing: SyncDesk().Context();
+    Output: "none";
+}
+
+Test Fault {
+    Constraint: SyncDesk().Fault() == "none";
+    Processing: SyncDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: SyncDesk().Stats() == "acquires=0,releases=0,signals=0";
+    Processing: SyncDesk().Stats();
+    Output: "acquires=0,releases=0,signals=0";
+}
+
+Test IntText {
+    Constraint: SyncDesk().IntText(6) == "6";
+    Processing: SyncDesk().IntText(6);
+    Output: "6";
 }

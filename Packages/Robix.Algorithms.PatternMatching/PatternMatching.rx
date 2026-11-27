@@ -1,0 +1,800 @@
+// Robix.Algorithms.PatternMatching: exact and limited patterns on strings of at most six letters.
+Package Robix.Algorithms.PatternMatching
+Explain {
+    Description: "Exact, wildcard, token, tree, graph, and edit-distance matching on short strings.";
+};
+
+Import Robix.Core;
+
+
+Class PatternDesk {
+    Private Array<Int> spare;
+    Private Array<Int> bit;
+    Private String problem;
+
+    Public Constructor() {
+        spare = [0, 0, 0, 0, 0, 0, 0, 0];
+        bit = [0, 0, 0, 0, 0, 0, 0, 0];
+        problem = "none";
+    }
+
+    Public Function Match(String input, String pattern) -> Int
+    Explain {
+        Description: "Find the first exact pattern index.";
+        Input: input = "Text of at most six letters."; pattern = "Literal pattern.";
+        Processing: "Compare each alignment.";
+        Output: "The index, or -1 when the pattern is absent.";
+    } {
+        Return This.First(input, pattern);
+    }
+
+    Public Function MatchAll(String input, String pattern) -> Int
+    Explain {
+        Description: "Count non-overlapping exact hits.";
+        Input: input = "Text."; pattern = "Literal pattern.";
+        Processing: "Advance by the pattern length after each hit.";
+        Output: "The count.";
+    } {
+        Return This.CountAt(input, pattern);
+    }
+
+    Public Function IsMatch(String input, String pattern) -> Int
+    Explain {
+        Description: "Report whether an exact pattern occurs.";
+        Input: input = "Text."; pattern = "Literal pattern.";
+        Processing: "Search for the first hit.";
+        Output: "1 when it occurs, otherwise 0.";
+    } {
+        If (This.First(input, pattern) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function FindMatch(String input, String pattern) -> Int
+    Explain {
+        Description: "Find the first exact hit.";
+        Input: input = "Text."; pattern = "Literal pattern.";
+        Processing: "Scan alignments from the start.";
+        Output: "The index, or -1.";
+    } {
+        Return This.First(input, pattern);
+    }
+
+    Public Function FindMatches(String input, String pattern) -> Int
+    Explain {
+        Description: "Count exact hits.";
+        Input: input = "Text."; pattern = "Literal pattern.";
+        Processing: "Count non-overlapping alignments.";
+        Output: "The count.";
+    } {
+        Return This.CountAt(input, pattern);
+    }
+
+    Public Function CountMatches(String input, String pattern) -> Int
+    Explain {
+        Description: "Count exact hits.";
+        Input: input = "Text."; pattern = "Literal pattern.";
+        Processing: "Count non-overlapping alignments.";
+        Output: "The count.";
+    } {
+        Return This.CountAt(input, pattern);
+    }
+
+    Public Function MatchAt(String input, String pattern, Int position) -> Int
+    Explain {
+        Description: "Test one alignment.";
+        Input: input = "Text."; pattern = "Literal pattern."; position = "Start index.";
+        Processing: "Compare the pattern at that index.";
+        Output: "1 when the bytes match, otherwise 0.";
+    } {
+        If (This.Prepare(input, pattern) == 0) { Return 0; }
+        If (position < 0 || position + pattern.Length() > input.Length()) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.EqualAt(input, position, pattern);
+    }
+
+    Public Function CompilePattern(String pattern) -> Int
+    Explain {
+        Description: "Compile a short pattern to its optimized length.";
+        Input: pattern = "Pattern of at most six bytes.";
+        Processing: "Validate, then collapse repeated stars.";
+        Output: "The optimized length, or 0 when the pattern is rejected.";
+    } {
+        If (This.Valid(pattern) == 0) { Return 0; }
+        Return This.Collapse(pattern);
+    }
+
+    Public Function ParsePattern(String text) -> Int
+    Explain {
+        Description: "Count the nodes in a pattern.";
+        Input: text = "Pattern text.";
+        Processing: "Validate, then count every byte.";
+        Output: "The node count, or 0 when the pattern is rejected.";
+    } {
+        If (This.Valid(text) == 0) { Return 0; }
+        Return text.Length();
+    }
+
+    Public Function ValidatePattern(String pattern) -> Int
+    Explain {
+        Description: "Accept a short pattern with balanced groups.";
+        Input: pattern = "Pattern text.";
+        Processing: "Check the length, the alphabet, and the parentheses.";
+        Output: "1 when the pattern is valid, otherwise 0.";
+    } {
+        Return This.Valid(pattern);
+    }
+
+    Public Function OptimizePattern(String pattern) -> Int
+    Explain {
+        Description: "Collapse repeated stars.";
+        Input: pattern = "Pattern text.";
+        Processing: "Count a run of stars as one star.";
+        Output: "The optimized length, or 0 when the pattern is rejected.";
+    } {
+        If (This.Valid(pattern) == 0) { Return 0; }
+        Return This.Collapse(pattern);
+    }
+
+    Public Function ExplainPattern(String pattern) -> Int
+    Explain {
+        Description: "Checksum the pattern kinds.";
+        Input: pattern = "Pattern text.";
+        Processing: "Add 1 for a letter, 2 for any-one, 3 for a star, and more for groups.";
+        Output: "The checksum, or 0 when the pattern is rejected.";
+    } {
+        If (This.Valid(pattern) == 0) { Return 0; }
+        Return This.Fold(pattern);
+    }
+
+    Public Function GetPatternCaptures(String pattern) -> Int
+    Explain {
+        Description: "Count capture groups.";
+        Input: pattern = "Pattern text.";
+        Processing: "Count opening parentheses.";
+        Output: "The group count, or 0 when the pattern is rejected.";
+    } {
+        If (This.Valid(pattern) == 0) { Return 0; }
+        Return This.Captures(pattern);
+    }
+
+    Public Function ExactMatch(String input, String pattern) -> Int
+    Explain {
+        Description: "Find an exact literal.";
+        Input: input = "Text."; pattern = "Literal pattern.";
+        Processing: "Scan alignments.";
+        Output: "The index, or -1.";
+    } {
+        Return This.First(input, pattern);
+    }
+
+    Public Function WildcardMatch(String input, String pattern) -> Int
+    Explain {
+        Description: "Match the whole text with one star and question marks.";
+        Input: input = "Text."; pattern = "Wildcard pattern.";
+        Processing: "Match a prefix, one star, and a suffix.";
+        Output: "1 when the whole text matches, otherwise 0.";
+    } {
+        Return This.Whole(input, pattern);
+    }
+
+    Public Function GlobMatch(String input, String pattern) -> Int
+    Explain {
+        Description: "Match the whole text as a glob.";
+        Input: input = "Text."; pattern = "Glob pattern.";
+        Processing: "Use the same whole-text wildcard match.";
+        Output: "1 when the whole text matches, otherwise 0.";
+    } {
+        Return This.Whole(input, pattern);
+    }
+
+    Public Function RegexMatch(String input, String pattern) -> Int
+    Explain {
+        Description: "Find a literal or dot pattern.";
+        Input: input = "Text."; pattern = "Pattern of letters and dots.";
+        Processing: "Slide a window and treat a dot as any letter.";
+        Output: "The index, or -1.";
+    } {
+        If (This.Prepare(input, pattern) == 0) { Return -1; }
+        If (pattern.Length() > input.Length()) { Return -1; }
+        Int start = 0;
+        While (start + pattern.Length() <= input.Length()) {
+            Int index = 0;
+            Int same = 1;
+            While (index < pattern.Length()) {
+                Int code = This.At(pattern, index);
+                If (code != 0 && code != This.At(input, start + index)) { same = 0; }
+                index = index + 1;
+            }
+            If (same == 1) { Return start; }
+            start = start + 1;
+        }
+        Return -1;
+    }
+
+    Public Function TokenMatch(String tokens, String pattern) -> Int
+    Explain {
+        Description: "Match a token pattern as a subsequence.";
+        Input: tokens = "Token letters."; pattern = "Letters in order.";
+        Processing: "Advance the pattern when the next token matches.";
+        Output: "1 when every pattern letter occurs in order, otherwise 0.";
+    } {
+        If (This.Prepare(tokens, pattern) == 0) { Return 0; }
+        Int textIndex = 0;
+        Int patternIndex = 0;
+        While (textIndex < tokens.Length() && patternIndex < pattern.Length()) {
+            If (This.At(tokens, textIndex) == This.At(pattern, patternIndex)) {
+                patternIndex = patternIndex + 1;
+            }
+            textIndex = textIndex + 1;
+        }
+        If (patternIndex == pattern.Length()) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SequenceMatch(String sequence, String pattern) -> Int
+    Explain {
+        Description: "Find a contiguous sequence.";
+        Input: sequence = "Text."; pattern = "Contiguous pattern.";
+        Processing: "Search for an exact alignment.";
+        Output: "The index, or -1.";
+    } {
+        Return This.First(sequence, pattern);
+    }
+
+    Public Function TreePatternMatch(String tree, String pattern) -> Int
+    Explain {
+        Description: "Match a prefix of a short heap listing.";
+        Input: tree = "Node digits, at most six."; pattern = "Expected prefix.";
+        Processing: "Compare the leading digits.";
+        Output: "1 when the prefix matches, otherwise 0.";
+    } {
+        Return This.PrefixOf(tree, pattern);
+    }
+
+    Public Function GraphPatternMatch(String graph, String pattern) -> Int
+    Explain {
+        Description: "Match one edge of the sample 4-vertex graph.";
+        Input: graph = "Vertex digits 0123."; pattern = "Two vertex digits.";
+        Processing: "Accept the sample edges and their reverse.";
+        Output: "1 when the edge exists, otherwise 0.";
+    } {
+        problem = "none";
+        If (graph.Length() != 4 || pattern.Length() != 2) {
+            problem = "size";
+            Return 0;
+        }
+        If (graph != "0123") {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.Edge(pattern);
+    }
+
+    Public Function StructuralMatch(String value, String pattern) -> Int
+    Explain {
+        Description: "Match two values of the same length.";
+        Input: value = "Text."; pattern = "Text of the same length.";
+        Processing: "Compare the lengths.";
+        Output: "1 when both lengths agree, otherwise 0.";
+    } {
+        problem = "none";
+        If (value.Length() == 0 || pattern.Length() == 0 || value.Length() > 6 || pattern.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        If (value.Length() == pattern.Length()) { Return 1; }
+        Return 0;
+    }
+
+    Public Function FuzzyMatch(String input, String pattern) -> Int
+    Explain {
+        Description: "Accept an edit distance of at most one.";
+        Input: input = "Text of at most three letters."; pattern = "Text of at most three letters.";
+        Processing: "Compute the edit distance.";
+        Output: "1 when the distance is 0 or 1, otherwise 0.";
+    } {
+        Return This.ApproximateMatch(input, pattern, 1);
+    }
+
+    Public Function ApproximateMatch(String input, String pattern, Int maxDistance) -> Int
+    Explain {
+        Description: "Accept an edit distance within a limit.";
+        Input: input = "Text."; pattern = "Text."; maxDistance = "Largest allowed distance.";
+        Processing: "Compare the edit distance with the limit.";
+        Output: "1 when the distance is within the limit, otherwise 0.";
+    } {
+        If (maxDistance < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int distance = This.Distance(input, pattern);
+        If (problem != "none") { Return 0; }
+        If (distance <= maxDistance) { Return 1; }
+        Return 0;
+    }
+
+    Public Function EditDistanceMatch(String input, String pattern, Int maxEdits) -> Int
+    Explain {
+        Description: "Accept an edit distance within a limit.";
+        Input: input = "Text."; pattern = "Text."; maxEdits = "Largest allowed distance.";
+        Processing: "Compare the edit distance with the limit.";
+        Output: "1 when the distance is within the limit, otherwise 0.";
+    } {
+        Return This.ApproximateMatch(input, pattern, maxEdits);
+    }
+
+    Public Function HammingMatch(String input, String pattern, Int maxDistance) -> Int
+    Explain {
+        Description: "Accept a Hamming distance within a limit.";
+        Input: input = "Text."; pattern = "Text of the same length."; maxDistance = "Largest allowed distance.";
+        Processing: "Count differing letters.";
+        Output: "1 when the distance is within the limit, otherwise 0.";
+    } {
+        If (maxDistance < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int distance = This.Ham(input, pattern);
+        If (problem != "none") { Return 0; }
+        If (distance <= maxDistance) { Return 1; }
+        Return 0;
+    }
+
+    Public Function MultiPatternMatch(String input, String patterns) -> Int
+    Explain {
+        Description: "Count which bar-separated patterns occur.";
+        Input: input = "Text."; patterns = "Patterns separated by a bar.";
+        Processing: "Search each piece.";
+        Output: "The number of pieces that occur.";
+    } {
+        If (This.Prepare(input, patterns) == 0) { Return 0; }
+        Int hits = 0;
+        Int start = 0;
+        Int index = 0;
+        While (index <= patterns.Length()) {
+            Int split = 0;
+            If (index == patterns.Length()) { split = 1; }
+            If (index < patterns.Length() && This.At(patterns, index) == -3) { split = 1; }
+            If (split == 1) {
+                Int width = index - start;
+                If (width > 0 && This.First(input, patterns.Substring(start, width)) >= 0) {
+                    hits = hits + 1;
+                }
+                start = index + 1;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return hits;
+    }
+
+    Public Function ReplaceMatches(String input, String pattern, String replacement) -> Int
+    Explain {
+        Description: "Measure the text after replacing every exact hit.";
+        Input: input = "Text."; pattern = "Literal pattern."; replacement = "Replacement text.";
+        Processing: "Add the replacement length for each hit and one for every other letter.";
+        Output: "The length of the replaced text.";
+    } {
+        Return This.Apply(input, pattern, replacement, 0);
+    }
+
+    Public Function ReplaceFirstMatch(String input, String pattern, String replacement) -> Int
+    Explain {
+        Description: "Measure the text after replacing the first exact hit.";
+        Input: input = "Text."; pattern = "Literal pattern."; replacement = "Replacement text.";
+        Processing: "Replace the first hit and keep the rest.";
+        Output: "The length of the replaced text.";
+    } {
+        Return This.Apply(input, pattern, replacement, 1);
+    }
+
+    Public Function ExtractMatches(String input, String pattern) -> Int
+    Explain {
+        Description: "Count extracted exact hits.";
+        Input: input = "Text."; pattern = "Literal pattern.";
+        Processing: "Count non-overlapping hits.";
+        Output: "The count.";
+    } {
+        Return This.CountAt(input, pattern);
+    }
+
+    Public Function ExtractGroups(String input, String pattern) -> Int
+    Explain {
+        Description: "Count captured hits.";
+        Input: input = "Text."; pattern = "Pattern with parentheses around the literal.";
+        Processing: "Match the letters and multiply by the group count.";
+        Output: "The number of captured hits.";
+    } {
+        Return This.Groups(input, pattern);
+    }
+
+    Public Function SplitByPattern(String input, String pattern) -> Int
+    Explain {
+        Description: "Count the non-empty pieces between exact hits.";
+        Input: input = "Text."; pattern = "Separator pattern.";
+        Processing: "Walk the gaps between non-overlapping hits.";
+        Output: "The number of non-empty pieces.";
+    } {
+        Return This.Pieces(input, pattern);
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Report the latest match problem.";
+        Input: None;
+        Processing: "Return the problem token.";
+        Output: "none, size, parse, or domain.";
+    } {
+        Return problem;
+    }
+
+    Private Function At(String text, Int index) -> Int {
+        If (index < 0 || index >= text.Length()) { Return -2; }
+        Int code = text.Substring(index, 1).GetChar(0).ToInt();
+        If (code == 42) { Return -1; }
+        If (code == 63 || code == 46) { Return 0; }
+        If (code == 124) { Return -3; }
+        If (code == 40) { Return -4; }
+        If (code == 41) { Return -5; }
+        If (code >= 97 && code <= 122) { Return code - 96; }
+        If (code >= 48 && code <= 57) { Return code - 48 + 100; }
+        Return -2;
+    }
+
+    Private Function Prepare(String text, String pattern) -> Int {
+        problem = "none";
+        If (text.Length() == 0 || pattern.Length() == 0 || text.Length() > 6 || pattern.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Private Function EqualAt(String text, Int start, String pattern) -> Int {
+        Int index = 0;
+        While (index < pattern.Length()) {
+            If (This.At(pattern, index) != This.At(text, start + index)) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function First(String text, String pattern) -> Int {
+        If (This.Prepare(text, pattern) == 0) { Return -1; }
+        If (pattern.Length() > text.Length()) { Return -1; }
+        Int start = 0;
+        While (start + pattern.Length() <= text.Length()) {
+            If (This.EqualAt(text, start, pattern) == 1) { Return start; }
+            start = start + 1;
+        }
+        Return -1;
+    }
+
+    Private Function CountAt(String text, String pattern) -> Int {
+        If (This.Prepare(text, pattern) == 0) { Return 0; }
+        If (pattern.Length() > text.Length()) { Return 0; }
+        Int count = 0;
+        Int start = 0;
+        While (start + pattern.Length() <= text.Length()) {
+            If (This.EqualAt(text, start, pattern) == 1) {
+                count = count + 1;
+                start = start + pattern.Length();
+            } Else {
+                start = start + 1;
+            }
+        }
+        Return count;
+    }
+
+    Private Function Stars(String pattern) -> Int {
+        Int count = 0;
+        Int index = 0;
+        While (index < pattern.Length()) {
+            If (This.At(pattern, index) == -1) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Captures(String pattern) -> Int {
+        Int count = 0;
+        Int index = 0;
+        While (index < pattern.Length()) {
+            If (This.At(pattern, index) == -4) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Valid(String pattern) -> Int {
+        problem = "none";
+        If (pattern.Length() == 0 || pattern.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int depth = 0;
+        Int index = 0;
+        While (index < pattern.Length()) {
+            Int code = This.At(pattern, index);
+            If (code == -2) {
+                problem = "parse";
+                Return 0;
+            }
+            If (code == -4) { depth = depth + 1; }
+            If (code == -5) {
+                depth = depth - 1;
+                If (depth < 0) {
+                    problem = "parse";
+                    Return 0;
+                }
+            }
+            index = index + 1;
+        }
+        If (depth != 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Return 1;
+    }
+
+    Private Function Collapse(String pattern) -> Int {
+        Int length = 0;
+        Int index = 0;
+        Int run = 0;
+        While (index < pattern.Length()) {
+            If (This.At(pattern, index) == -1) {
+                If (run == 0) { length = length + 1; }
+                run = 1;
+            } Else {
+                run = 0;
+                length = length + 1;
+            }
+            index = index + 1;
+        }
+        Return length;
+    }
+
+    Private Function Fold(String pattern) -> Int {
+        Int sum = 0;
+        Int index = 0;
+        While (index < pattern.Length()) {
+            Int code = This.At(pattern, index);
+            If (code > 0) { sum = sum + 1; }
+            If (code == 0) { sum = sum + 2; }
+            If (code == -1) { sum = sum + 3; }
+            If (code == -4) { sum = sum + 4; }
+            If (code == -5) { sum = sum + 5; }
+            If (code == -3) { sum = sum + 6; }
+            index = index + 1;
+        }
+        Return sum;
+    }
+
+    Private Function Whole(String text, String pattern) -> Int {
+        problem = "none";
+        If (text.Length() == 0 || pattern.Length() == 0 || text.Length() > 6 || pattern.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        If (This.Stars(pattern) > 1) {
+            problem = "size";
+            Return 0;
+        }
+        If (This.Stars(pattern) == 0) {
+            If (text.Length() != pattern.Length()) { Return 0; }
+            Int index = 0;
+            While (index < text.Length()) {
+                Int code = This.At(pattern, index);
+                If (code != 0 && code != This.At(text, index)) { Return 0; }
+                index = index + 1;
+            }
+            Return 1;
+        }
+        Int star = 0;
+        While (star < pattern.Length() && This.At(pattern, star) != -1) { star = star + 1; }
+        Int prefix = star;
+        Int suffix = pattern.Length() - star - 1;
+        If (prefix + suffix > text.Length()) { Return 0; }
+        Int index = 0;
+        While (index < prefix) {
+            Int code = This.At(pattern, index);
+            If (code != 0 && code != This.At(text, index)) { Return 0; }
+            index = index + 1;
+        }
+        Int tail = 0;
+        While (tail < suffix) {
+            Int code = This.At(pattern, star + 1 + tail);
+            If (code != 0 && code != This.At(text, text.Length() - suffix + tail)) { Return 0; }
+            tail = tail + 1;
+        }
+        Return 1;
+    }
+
+    Private Function Distance(String left, String right) -> Int {
+        problem = "none";
+        If (left.Length() == 0 || right.Length() == 0 || left.Length() > 3 || right.Length() > 3) {
+            problem = "size";
+            Return 0;
+        }
+        Int column = 0;
+        While (column <= right.Length()) {
+            spare[column] = column;
+            column = column + 1;
+        }
+        Int row = 1;
+        While (row <= left.Length()) {
+            bit[0] = row;
+            column = 1;
+            While (column <= right.Length()) {
+                Int cost = 1;
+                If (This.At(left, row - 1) == This.At(right, column - 1)) { cost = 0; }
+                Int best = spare[column] + 1;
+                If (bit[column - 1] + 1 < best) { best = bit[column - 1] + 1; }
+                If (spare[column - 1] + cost < best) { best = spare[column - 1] + cost; }
+                bit[column] = best;
+                column = column + 1;
+            }
+            column = 0;
+            While (column <= right.Length()) {
+                spare[column] = bit[column];
+                column = column + 1;
+            }
+            row = row + 1;
+        }
+        Return spare[right.Length()];
+    }
+
+    Private Function Ham(String left, String right) -> Int {
+        problem = "none";
+        If (left.Length() == 0 || left.Length() != right.Length() || left.Length() > 6) {
+            problem = "size";
+            Return 0;
+        }
+        Int count = 0;
+        Int index = 0;
+        While (index < left.Length()) {
+            If (This.At(left, index) != This.At(right, index)) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function Edge(String pair) -> Int {
+        Int left = This.Digit(pair, 0);
+        Int right = This.Digit(pair, 1);
+        If (left < 0 || right < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        If (left == 0 && right == 1) { Return 1; }
+        If (left == 1 && right == 0) { Return 1; }
+        If (left == 0 && right == 2) { Return 1; }
+        If (left == 2 && right == 0) { Return 1; }
+        If (left == 1 && right == 3) { Return 1; }
+        If (left == 3 && right == 1) { Return 1; }
+        If (left == 2 && right == 3) { Return 1; }
+        If (left == 3 && right == 2) { Return 1; }
+        Return 0;
+    }
+
+    Private Function Digit(String text, Int index) -> Int {
+        Int code = This.At(text, index);
+        If (code >= 100 && code <= 109) { Return code - 100; }
+        Return -1;
+    }
+
+    Private Function PrefixOf(String tree, String pattern) -> Int {
+        problem = "none";
+        If (tree.Length() == 0 || pattern.Length() == 0 || tree.Length() > 6 || pattern.Length() > tree.Length()) {
+            problem = "size";
+            Return 0;
+        }
+        Int index = 0;
+        While (index < pattern.Length()) {
+            If (This.At(tree, index) != This.At(pattern, index)) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function Apply(String input, String pattern, String replacement, Int firstOnly) -> Int {
+        If (This.Prepare(input, pattern) == 0) { Return 0; }
+        If (replacement.Length() == 0 || replacement.Length() > 6 || pattern.Length() > input.Length()) {
+            problem = "size";
+            Return 0;
+        }
+        Int length = 0;
+        Int start = 0;
+        Int replaced = 0;
+        While (start < input.Length()) {
+            Int hit = 0;
+            If (replaced == 0 || firstOnly == 0) {
+                If (start + pattern.Length() <= input.Length() && This.EqualAt(input, start, pattern) == 1) {
+                    hit = 1;
+                }
+            }
+            If (hit == 1) {
+                length = length + replacement.Length();
+                start = start + pattern.Length();
+                replaced = 1;
+            } Else {
+                length = length + 1;
+                start = start + 1;
+            }
+        }
+        Return length;
+    }
+
+    Private Function Groups(String input, String pattern) -> Int {
+        If (This.Prepare(input, pattern) == 0) { Return 0; }
+        Int caps = This.Captures(pattern);
+        Int letters = This.LetterCount(pattern);
+        If (caps == 0 || letters == 0) {
+            problem = "parse";
+            Return 0;
+        }
+        Int count = 0;
+        Int start = 0;
+        While (start + letters <= input.Length()) {
+            If (This.EqualLetters(input, start, pattern) == 1) {
+                count = count + 1;
+                start = start + letters;
+            } Else {
+                start = start + 1;
+            }
+        }
+        problem = "none";
+        Return count * caps;
+    }
+
+    Private Function LetterCount(String pattern) -> Int {
+        Int count = 0;
+        Int index = 0;
+        While (index < pattern.Length()) {
+            Int code = This.At(pattern, index);
+            If (code > 0 && code < 100) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function EqualLetters(String text, Int start, String pattern) -> Int {
+        Int textIndex = start;
+        Int index = 0;
+        While (index < pattern.Length()) {
+            Int code = This.At(pattern, index);
+            If (code > 0 && code < 100) {
+                If (textIndex >= text.Length() || This.At(text, textIndex) != code) { Return 0; }
+                textIndex = textIndex + 1;
+            }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function Pieces(String input, String pattern) -> Int {
+        If (This.Prepare(input, pattern) == 0) { Return 0; }
+        If (pattern.Length() > input.Length()) { Return 0; }
+        Int pieces = 0;
+        Int gap = 0;
+        Int start = 0;
+        While (start < input.Length()) {
+            Int hit = 0;
+            If (start + pattern.Length() <= input.Length() && This.EqualAt(input, start, pattern) == 1) {
+                hit = 1;
+            }
+            If (hit == 1) {
+                If (gap > 0) { pieces = pieces + 1; }
+                gap = 0;
+                start = start + pattern.Length();
+            } Else {
+                gap = gap + 1;
+                start = start + 1;
+            }
+        }
+        If (gap > 0) { pieces = pieces + 1; }
+        Return pieces;
+    }
+}

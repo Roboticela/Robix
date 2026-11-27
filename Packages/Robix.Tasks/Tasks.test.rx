@@ -1,5 +1,235 @@
+// Tests for Tasks.rx. Each call uses a fresh desk.
+
 Test Create {
-    Constraint: TaskDesk().Create("arm", 2, 10) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: TaskDesk().Create("work", 1, 8) == 0;
+    Processing: TaskDesk().Create("work", 1, 8);
+    Output: 0;
+}
+
+Test Start {
+    Constraint: TaskDesk().Start(0) == 0;
+    Processing: TaskDesk().Start(0);
+    Output: 0;
+}
+
+Test Run {
+    Constraint: TaskDesk().Run(0) == 0;
+    Processing: TaskDesk().Run(0);
+    Output: 0;
+}
+
+Test Cancel {
+    Constraint: TaskDesk().Cancel(0) == 0;
+    Processing: TaskDesk().Cancel(0);
+    Output: 0;
+}
+
+Test Wait {
+    Constraint: TaskDesk().Wait(0) == 0;
+    Processing: TaskDesk().Wait(0);
+    Output: 0;
+}
+
+Test WaitAll {
+    Constraint: TaskDesk().WaitAll(0, 1) == 0;
+    Processing: TaskDesk().WaitAll(0, 1);
+    Output: 0;
+}
+
+Test WaitAny {
+    Constraint: TaskDesk().WaitAny(0, 1) == 0;
+    Processing: TaskDesk().WaitAny(0, 1);
+    Output: 0;
+}
+
+Test ContinueWith {
+    Constraint: TaskDesk().ContinueWith(0) == 0;
+    Processing: TaskDesk().ContinueWith(0);
+    Output: 0;
+}
+
+Test AddDependency {
+    Constraint: TaskDesk().AddDependency(0, 1) == 1;
+    Processing: TaskDesk().AddDependency(0, 1);
+    Output: 1;
+}
+
+Test RemoveDependency {
+    Constraint: TaskDesk().RemoveDependency(0) == 1;
+    Processing: TaskDesk().RemoveDependency(0);
+    Output: 1;
+}
+
+Test CreateGroup {
+    Constraint: TaskDesk().CreateGroup() == 1;
+    Processing: TaskDesk().CreateGroup();
+    Output: 1;
+}
+
+Test JoinGroup {
+    Constraint: TaskDesk().JoinGroup(0, 1) == 1;
+    Processing: TaskDesk().JoinGroup(0, 1);
+    Output: 1;
+}
+
+Test GroupSize {
+    Constraint: TaskDesk().GroupSize(1) == 0;
+    Processing: TaskDesk().GroupSize(1);
+    Output: 0;
+}
+
+Test CreateGraph {
+    Constraint: TaskDesk().CreateGraph() == 1;
+    Processing: TaskDesk().CreateGraph();
+    Output: 1;
+}
+
+Test GraphEdges {
+    Constraint: TaskDesk().GraphEdges() == 0;
+    Processing: TaskDesk().GraphEdges();
+    Output: 0;
+}
+
+Test Schedule {
+    Constraint: TaskDesk().Schedule(0, 5) == 5;
+    Processing: TaskDesk().Schedule(0, 5);
+    Output: 5;
+}
+
+Test ScheduleAfter {
+    Constraint: TaskDesk().ScheduleAfter(0, 3) == 3;
+    Processing: TaskDesk().ScheduleAfter(0, 3);
+    Output: 3;
+}
+
+Test ScheduleAt {
+    Constraint: TaskDesk().ScheduleAt(0, 4) == 4;
+    Processing: TaskDesk().ScheduleAt(0, 4);
+    Output: 4;
+}
+
+Test ScheduleRepeated {
+    Constraint: TaskDesk().ScheduleRepeated(0, 2) == 2;
+    Processing: TaskDesk().ScheduleRepeated(0, 2);
+    Output: 2;
+}
+
+Test Advance {
+    Constraint: TaskDesk().Advance(3) == 3;
+    Processing: TaskDesk().Advance(3);
+    Output: 3;
+}
+
+Test Pipe {
+    Constraint: TaskDesk().Pipe(0) == 0;
+    Processing: TaskDesk().Pipe(0);
+    Output: 0;
+}
+
+Test MapValue {
+    Constraint: TaskDesk().MapValue(0) == 0;
+    Processing: TaskDesk().MapValue(0);
+    Output: 0;
+}
+
+Test FlatMapValue {
+    Constraint: TaskDesk().FlatMapValue(0) == 0;
+    Processing: TaskDesk().FlatMapValue(0);
+    Output: 0;
+}
+
+Test Retry {
+    Constraint: TaskDesk().Retry(0) == 0;
+    Processing: TaskDesk().Retry(0);
+    Output: 0;
+}
+
+Test Timeout {
+    Constraint: TaskDesk().Timeout(0, 4) == 0;
+    Processing: TaskDesk().Timeout(0, 4);
+    Output: 0;
+}
+
+Test Batch {
+    Constraint: TaskDesk().Batch(0, 1) == -1;
+    Processing: TaskDesk().Batch(0, 1);
+    Output: -1;
+}
+
+Test SetPriority {
+    Constraint: TaskDesk().SetPriority(0, 2) == 2;
+    Processing: TaskDesk().SetPriority(0, 2);
+    Output: 2;
+}
+
+Test Priority {
+    Constraint: TaskDesk().Priority(0) == 0;
+    Processing: TaskDesk().Priority(0);
+    Output: 0;
+}
+
+Test Status {
+    Constraint: TaskDesk().Status(0) == "empty";
+    Processing: TaskDesk().Status(0);
+    Output: "empty";
+}
+
+Test Result {
+    Constraint: TaskDesk().Result(0) == 0;
+    Processing: TaskDesk().Result(0);
+    Output: 0;
+}
+
+Test Fault {
+    Constraint: TaskDesk().Fault(0) == "none";
+    Processing: TaskDesk().Fault(0);
+    Output: "none";
+}
+
+Test SetWorker {
+    Constraint: TaskDesk().SetWorker("main") == 1;
+    Processing: TaskDesk().SetWorker("main");
+    Output: 1;
+}
+
+Test Worker {
+    Constraint: TaskDesk().Worker() == "worker";
+    Processing: TaskDesk().Worker();
+    Output: "worker";
+}
+
+Test SetPolicy {
+    Constraint: TaskDesk().SetPolicy(2, 5) == 1;
+    Processing: TaskDesk().SetPolicy(2, 5);
+    Output: 1;
+}
+
+Test Clock {
+    Constraint: TaskDesk().Clock() == 0;
+    Processing: TaskDesk().Clock();
+    Output: 0;
+}
+
+Test Stats {
+    Constraint: TaskDesk().Stats() == "created=0,ran=0,canceled=0,retried=0";
+    Processing: TaskDesk().Stats();
+    Output: "created=0,ran=0,canceled=0,retried=0";
+}
+
+Test Claim {
+    Constraint: TaskDesk().Claim() == 0;
+    Processing: TaskDesk().Claim();
+    Output: 0;
+}
+
+Test Ready {
+    Constraint: TaskDesk().Ready(0) == 1;
+    Processing: TaskDesk().Ready(0);
+    Output: 1;
+}
+
+Test IntText {
+    Constraint: TaskDesk().IntText(7) == "7";
+    Processing: TaskDesk().IntText(7);
+    Output: "7";
 }

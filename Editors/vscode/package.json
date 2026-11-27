@@ -2,7 +2,7 @@
     "name": "Robix",
     "displayName": "Robix",
     "description": "Robix is Roboticela's type-safe language: PascalCase you can read aloud, the control of C, an interpreter to run it, and a compiler that builds a native executable.",
-    "version": "0.0.45",
+    "version": "0.0.46",
     "publisher": "Roboticela",
     "author": {
         "name": "Roboticela"
@@ -28,9 +28,15 @@
     "scripts": {
         "test": "node test/run.js"
     },
+    "extensionKind": ["workspace"],
     "activationEvents": [
         "onLanguage:robix",
-        "onLanguage:robix-project"
+        "onLanguage:robix-project",
+        "onLanguage:robix-ui",
+        "onLanguage:robix-3d",
+        "onDebugResolve:robix",
+        "workspaceContains:**/*.rx",
+        "workspaceContains:**/*.rxp"
     ],
     "contributes": {
         "languages": [
@@ -58,6 +64,7 @@
                 "id": "robix-ui",
                 "aliases": ["Robix UI", "robix-ui"],
                 "extensions": [".rxu"],
+                "configuration": "./language-configuration-ui.json",
                 "icon": {
                     "light": "./icons/RobixUI.svg",
                     "dark": "./icons/RobixUI.svg"
@@ -67,6 +74,7 @@
                 "id": "robix-3d",
                 "aliases": ["Robix 3D", "robix-3d"],
                 "extensions": [".rx3d"],
+                "configuration": "./language-configuration-3d.json",
                 "icon": {
                     "light": "./icons/Robix3D.svg",
                     "dark": "./icons/Robix3D.svg"
@@ -83,7 +91,27 @@
                 "language": "robix-project",
                 "scopeName": "source.robix.project",
                 "path": "./syntaxes/robix-project.tmLanguage.json"
+            },
+            {
+                "language": "robix-ui",
+                "scopeName": "source.robix.ui",
+                "path": "./syntaxes/robix-ui.tmLanguage.json"
+            },
+            {
+                "language": "robix-3d",
+                "scopeName": "source.robix.3d",
+                "path": "./syntaxes/robix-3d.tmLanguage.json"
             }
+        ],
+        "snippets": [
+            {
+                "language": "robix",
+                "path": "./snippets/robix.code-snippets"
+            }
+        ],
+        "breakpoints": [
+            { "language": "robix" },
+            { "language": "robix-project" }
         ],
         "themes": [
             {
@@ -130,7 +158,76 @@
                     "type": "array",
                     "default": [],
                     "items": { "type": "string" },
-                    "description": "Extra arguments passed to a program started with Run."
+                    "description": "Extra arguments passed to a program started with Run or used when a launch configuration leaves args empty."
+                },
+                "robix.languageServer.path": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to robix-server. Leave empty to start the server shipped with this extension."
+                },
+                "robix.languageServer.trace": {
+                    "type": "string",
+                    "default": "Info",
+                    "enum": ["Error", "Warning", "Info", "Debug", "Trace"],
+                    "description": "Trace level written to the Robix Language channel."
+                },
+                "robix.packages.exclude": {
+                    "type": "array",
+                    "default": [],
+                    "items": { "type": "string" },
+                    "description": "Package names left out of completion."
+                },
+                "robix.files.exclude": {
+                    "type": "array",
+                    "default": ["**/Build/**", "**/node_modules/**"],
+                    "items": { "type": "string" },
+                    "description": "Glob patterns left out of the workspace scan."
+                },
+                "robix.maxFileSize": {
+                    "type": "number",
+                    "default": 1048576,
+                    "description": "Files larger than this many characters keep syntax coloring and skip the language service."
+                },
+                "robix.analysis.delay": {
+                    "type": "number",
+                    "default": 400,
+                    "description": "Milliseconds to wait after a keystroke before checking the file."
+                },
+                "robix.diagnostics.level": {
+                    "type": "string",
+                    "default": "Warning",
+                    "enum": ["Error", "Warning", "Information"],
+                    "description": "Lowest diagnostic severity to show."
+                },
+                "robix.suggest.autoImport": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Insert Import when a completion comes from a package this file has not imported."
+                },
+                "robix.suggest.commitCharacters": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Commit a completion when you type . or (."
+                },
+                "robix.inlayHints.parameterNames": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show parameter names at call sites."
+                },
+                "robix.inlayHints.types": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show inferred types on declarations that omit them."
+                },
+                "robix.format.onType": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Format the file when you type }, a semicolon, or a newline."
+                },
+                "robix.debug.justMyCode": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Hide stack frames that are not Robix source."
                 }
             }
         },
@@ -191,69 +288,60 @@
             }
         },
         "commands": [
-            {
-                "command": "robix.run",
-                "title": "Run",
-                "category": "Robix",
-                "icon": "$(play)"
-            },
-            {
-                "command": "robix.compile",
-                "title": "Compile",
-                "category": "Robix",
-                "icon": "$(tools)"
-            },
-            {
-                "command": "robix.release",
-                "title": "Release",
-                "category": "Robix",
-                "icon": "$(package)"
-            },
-            {
-                "command": "robix.check",
-                "title": "Check",
-                "category": "Robix",
-                "icon": "$(check)"
-            }
+            { "command": "robix.run", "title": "Run", "category": "Robix", "icon": "$(play)" },
+            { "command": "robix.compile", "title": "Compile", "category": "Robix", "icon": "$(tools)" },
+            { "command": "robix.build", "title": "Build", "category": "Robix", "icon": "$(tools)" },
+            { "command": "robix.rebuild", "title": "Rebuild", "category": "Robix" },
+            { "command": "robix.release", "title": "Release", "category": "Robix", "icon": "$(package)" },
+            { "command": "robix.check", "title": "Check", "category": "Robix", "icon": "$(check)" },
+            { "command": "robix.configure", "title": "Configure", "category": "Robix" },
+            { "command": "robix.clean", "title": "Clean", "category": "Robix" },
+            { "command": "robix.debug.start", "title": "Start Debugging", "category": "Robix", "icon": "$(debug)" },
+            { "command": "robix.selectConfiguration", "title": "Select a Configuration", "category": "Robix" },
+            { "command": "robix.editConfigurations", "title": "Edit Configurations (UI)", "category": "Robix" },
+            { "command": "robix.selectTarget", "title": "Select Target", "category": "Robix" },
+            { "command": "robix.selectMode", "title": "Select Mode", "category": "Robix" },
+            { "command": "robix.restartServer", "title": "Restart Language Server", "category": "Robix" },
+            { "command": "robix.rescan", "title": "Rescan Workspace", "category": "Robix" },
+            { "command": "robix.resetDatabase", "title": "Reset IntelliSense Database", "category": "Robix" },
+            { "command": "robix.logDiagnostics", "title": "Log Diagnostics", "category": "Robix" },
+            { "command": "robix.runCodeAnalysis", "title": "Run Code Analysis", "category": "Robix" },
+            { "command": "robix.fixAll", "title": "Fix All", "category": "Robix" },
+            { "command": "robix.switchSourceTest", "title": "Switch Source and Test", "category": "Robix" },
+            { "command": "robix.runTestsInFile", "title": "Run Tests in Current File", "category": "Robix" },
+            { "command": "robix.debugTestAtCursor", "title": "Debug Test at Cursor", "category": "Robix" },
+            { "command": "robix.preview", "title": "Preview", "category": "Robix" },
+            { "command": "robix.discoverToolchain", "title": "Discover Toolchain", "category": "Robix" },
+            { "command": "robix.selectProject", "title": "Select Project", "category": "Robix" }
         ],
         "keybindings": [
             {
                 "command": "robix.run",
-                "key": "f5",
+                "key": "ctrl+f6",
+                "mac": "cmd+f6",
                 "when": "editorTextFocus && (editorLangId == robix || editorLangId == robix-project)"
             },
             {
-                "command": "robix.compile",
-                "key": "ctrl+f5",
-                "mac": "cmd+f5",
-                "when": "editorTextFocus && (editorLangId == robix || editorLangId == robix-project)"
-            },
-            {
-                "command": "robix.release",
-                "key": "ctrl+shift+f5",
-                "mac": "cmd+shift+f5",
-                "when": "editorTextFocus && (editorLangId == robix || editorLangId == robix-project)"
-            },
-            {
-                "command": "robix.check",
-                "key": "shift+f5",
+                "command": "robix.switchSourceTest",
+                "key": "alt+o",
+                "mac": "alt+o",
                 "when": "editorTextFocus && editorLangId == robix"
             }
         ],
         "menus": {
             "editor/title": [
                 {
-                    "command": "robix.run",
+                    "command": "robix.configure",
                     "when": "editorLangId == robix || editorLangId == robix-project",
                     "group": "navigation@1"
                 },
                 {
-                    "command": "robix.compile",
+                    "command": "robix.build",
                     "when": "editorLangId == robix || editorLangId == robix-project",
                     "group": "navigation@2"
                 },
                 {
-                    "command": "robix.release",
+                    "command": "robix.debug.start",
                     "when": "editorLangId == robix || editorLangId == robix-project",
                     "group": "navigation@3"
                 }
@@ -276,23 +364,144 @@
                 }
             ],
             "commandPalette": [
-                {
-                    "command": "robix.run",
-                    "when": "editorLangId == robix || editorLangId == robix-project"
+                { "command": "robix.run", "when": "editorLangId == robix || editorLangId == robix-project" },
+                { "command": "robix.compile", "when": "editorLangId == robix || editorLangId == robix-project" },
+                { "command": "robix.build", "when": "editorLangId == robix || editorLangId == robix-project" },
+                { "command": "robix.release", "when": "editorLangId == robix || editorLangId == robix-project" },
+                { "command": "robix.check", "when": "editorLangId == robix" },
+                { "command": "robix.preview", "when": "editorLangId == robix-ui || editorLangId == robix-3d" }
+            ]
+        },
+        "taskDefinitions": [
+            {
+                "type": "robix",
+                "required": ["task"],
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "enum": ["Configure", "Build", "Rebuild", "Clean", "Release", "Check", "Run", "Test"]
+                    }
+                }
+            }
+        ],
+        "problemMatchers": [
+            {
+                "name": "robix",
+                "owner": "robixc",
+                "fileLocation": ["autoDetect", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(error|warning|info)\\s+(RX\\d+)\\s+(\\d+):(\\d+)\\s+(.*)$",
+                    "severity": 1,
+                    "code": 2,
+                    "line": 3,
+                    "column": 4,
+                    "message": 5
+                }
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "robix",
+                "label": "Robix",
+                "program": "./debug/adapter.js",
+                "runtime": "node",
+                "languages": ["robix", "robix-project"],
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [],
+                        "properties": {
+                            "program": { "type": "string", "description": "Robix source file or executable.", "default": "${file}" },
+                            "args": { "type": "array", "items": { "type": "string" }, "default": [] },
+                            "cwd": { "type": "string", "default": "${workspaceFolder}" },
+                            "stopOnEntry": { "type": "boolean", "default": false },
+                            "target": { "type": "string", "default": "linux-x64" },
+                            "mode": { "type": "string", "enum": ["Debug", "Release"], "default": "Debug" },
+                            "console": { "type": "string", "enum": ["integratedTerminal", "internalConsole"], "default": "integratedTerminal" },
+                            "justMyCode": { "type": "boolean", "default": true },
+                            "coreDumpPath": { "type": "string" }
+                        }
+                    },
+                    "attach": {
+                        "required": [],
+                        "properties": {
+                            "processId": { "type": "string" },
+                            "host": { "type": "string" },
+                            "port": { "type": "number" },
+                            "program": { "type": "string" }
+                        }
+                    }
                 },
+                "initialConfigurations": [
+                    {
+                        "type": "robix",
+                        "request": "launch",
+                        "name": "Robix",
+                        "program": "${file}",
+                        "cwd": "${workspaceFolder}",
+                        "stopOnEntry": false,
+                        "mode": "Debug"
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "Robix: Launch",
+                        "description": "Debug the active Robix file.",
+                        "body": {
+                            "type": "robix",
+                            "request": "launch",
+                            "name": "Robix",
+                            "program": "^\"\\${file}\"",
+                            "args": [],
+                            "cwd": "^\"\\${workspaceFolder}\"",
+                            "stopOnEntry": false,
+                            "target": "linux-x64",
+                            "mode": "Debug",
+                            "console": "integratedTerminal"
+                        }
+                    }
+                ]
+            }
+        ],
+        "views": {
+            "explorer": [
                 {
-                    "command": "robix.compile",
-                    "when": "editorLangId == robix || editorLangId == robix-project"
-                },
-                {
-                    "command": "robix.release",
-                    "when": "editorLangId == robix || editorLangId == robix-project"
-                },
-                {
-                    "command": "robix.check",
-                    "when": "editorLangId == robix"
+                    "id": "robix.project",
+                    "name": "Robix Project"
                 }
             ]
-        }
+        },
+        "walkthroughs": [
+            {
+                "id": "robix.start",
+                "title": "Get started with Robix",
+                "description": "Build, debug, and test a Robix program.",
+                "steps": [
+                    {
+                        "id": "open",
+                        "title": "Open a Robix file",
+                        "description": "A .rx file is a program. The status bar shows the configuration and the target.",
+                        "media": { "markdown": "walkthrough/start.md" }
+                    },
+                    {
+                        "id": "build",
+                        "title": "Build",
+                        "description": "Ctrl+Shift+B runs the build task after you trust the workspace.",
+                        "media": { "markdown": "walkthrough/start.md" }
+                    },
+                    {
+                        "id": "debug",
+                        "title": "Debug",
+                        "description": "F5 starts debugging. F9 sets a breakpoint. Ctrl+F5 runs without debugging.",
+                        "media": { "markdown": "walkthrough/start.md" }
+                    },
+                    {
+                        "id": "test",
+                        "title": "Run a test",
+                        "description": "The Testing view lists every Test. Alt+O switches the source and the companion test.",
+                        "media": { "markdown": "walkthrough/start.md" }
+                    }
+                ]
+            }
+        ]
     }
 }

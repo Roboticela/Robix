@@ -8,12 +8,14 @@ const { spawn } = require("child_process");
 const { keywordCaseEdits, nameCaseEdits, tokenize } = require("./lib/scanner");
 const { namingDiagnostic } = require("./lib/names");
 const { formatRobix, formatProject } = require("./lib/format");
+const { readFormatOptions, activeConfiguration } = require("./lib/features");
 const { analyze } = require("./lib/analyze");
 const { complete, hover, signature, definition, referencesIn, semanticSpans } = require("./lib/intellisense");
 const { extractTests, functionNames, selectTests, buildCompanion, caseTitles } = require("./lib/run-target");
 const { findTool } = require("./lib/tools");
 const { setPackageRoot, clearPackageCache } = require("./lib/packages");
 const { SEMANTIC_TYPES, SEMANTIC_MODIFIERS } = require("./lib/keywords");
+const host = require("./lib/host");
 
 const legend = new vscode.SemanticTokensLegend(SEMANTIC_TYPES, SEMANTIC_MODIFIERS);
 const index = new Map();
@@ -27,7 +29,7 @@ function activate(context) {
     status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     status.command = "robix.run";
     status.text = "$(play) Robix";
-    status.tooltip = "Run (F5)  ·  Compile (Ctrl+F5)  ·  Release (Ctrl+Shift+F5)  ·  Check (Shift+F5)";
+    status.tooltip = "Run (Ctrl+F6)  ·  Debug (F5)  ·  Build (Ctrl+Shift+B)";
     context.subscriptions.push(output, status);
 
     context.subscriptions.push(
@@ -65,7 +67,7 @@ function activate(context) {
             }
             correctKeywords(event);
             remember(event.document);
-            scheduleCheck(event.document, 400);
+            scheduleCheck(event.document, Number(config().get("analysis.delay")) || 400);
         }),
         vscode.workspace.onDidSaveTextDocument((document) => {
             if (String(document.uri.fsPath || "").includes(`${path.sep}Packages${path.sep}`)) {
@@ -85,6 +87,22 @@ function activate(context) {
     );
 
     context.subscriptions.push(diagnostics());
+    host.start(context, {
+        output: () => output,
+        diagnostics,
+        config,
+        projectRoot,
+        interpreterPath,
+        compilerPath,
+        runProcess,
+        scheduleCheck,
+        indexWorkspace,
+        clearIndex: () => index.clear(),
+        build: (release) => {
+            const document = activeDocument();
+            return document ? buildDocument(document, release) : undefined;
+        }
+    });
     updateStatus();
     bindPackageRoot();
     indexWorkspace();
@@ -224,14 +242,14 @@ function completionProvider() {
             bindPackageRoot(document.uri.fsPath);
             const offset = document.offsetAt(position);
             const result = complete(document.getText(), offset, externals(document));
-            return result.items.map((item) => {
+            const list = new vscode.CompletionList(result.items.map((item) => {
                 const completion = new vscode.CompletionItem(item.label, completionKind(item.kind));
                 completion.detail = item.detail;
                 completion.documentation = item.documentation ? new vscode.MarkdownString(item.documentation) : undefined;
                 completion.filterText = item.filter;
                 completion.sortText = item.snippet ? `z${item.label}` : `${item.sort || "9"}${item.label}`;
                 completion.preselect = false;
-                completion.commitCharacters = [];
+                completion.commitCharacters = config().get("suggest.commitCharacters") === false || item.snippet ? [] : [".", "("];
                 completion.insertText = item.snippet ? new vscode.SnippetString(item.insert) : item.insert;
                 completion.range = new vscode.Range(document.positionAt(result.replaceStart), document.positionAt(result.replaceEnd));
                 if (item.importEdit) {
@@ -241,7 +259,8 @@ function completionProvider() {
                     )];
                 }
                 return completion;
-            });
+            }), result.items.length === 0);
+            return list;
         }
     };
 }
@@ -289,11 +308,14 @@ function signatureProvider() {
                 return null;
             }
             const help = new vscode.SignatureHelp();
-            const info = new vscode.SignatureInformation(result.label, new vscode.MarkdownString(result.documentation || ""));
-            info.parameters = result.parameters.map((parameter) => new vscode.ParameterInformation(parameter.label));
-            help.signatures = [info];
+            const overloads = result.overloads && result.overloads.length ? result.overloads : [result];
+            help.signatures = overloads.map((entry) => {
+                const info = new vscode.SignatureInformation(entry.label, new vscode.MarkdownString(entry.documentation || ""));
+                info.parameters = (entry.parameters || []).map((parameter) => new vscode.ParameterInformation(parameter.label, new vscode.MarkdownString(parameter.label)));
+                return info;
+            });
             help.activeSignature = 0;
-            help.activeParameter = Math.min(result.active, Math.max(0, info.parameters.length - 1));
+            help.activeParameter = Math.min(result.active, Math.max(0, help.signatures[0].parameters.length - 1));
             return help;
         }
     };
@@ -481,7 +503,8 @@ function semanticProvider() {
 function formattingProvider(project) {
     return {
         provideDocumentFormattingEdits(document) {
-            const size = Number(config().get("format.indentSize")) || 4;
+            const options = readFormatOptions(projectRoot(document.uri.fsPath), config().get("format.indentSize"));
+            const size = options.indentSize;
             const text = project ? formatProject(document.getText(), { indentSize: size }) : formatRobix(document.getText(), { indentSize: size });
             const last = document.lineCount - 1;
             const range = new vscode.Range(0, 0, last, document.lineAt(last).text.length);
@@ -497,24 +520,39 @@ function codeLensProvider() {
             const lenses = [];
             for (const symbol of doc.symbols) {
                 const isTest = String(symbol.detail || "").startsWith("Test ");
-                const runnable = !isTest && symbol.name && (symbol.kind === "function" || symbol.kind === "method" || symbol.kind === "class");
+                const runnable = symbol.name && (isTest || symbol.kind === "function" || symbol.kind === "method" || symbol.kind === "class");
                 if (!runnable) {
                     continue;
                 }
                 const range = offsetRange(document, symbol.nameStart || symbol.start, symbol.nameEnd || symbol.end || symbol.start);
+                const mentions = document.getText().split(symbol.name).length - 1;
+                const target = {
+                    uri: document.uri.toString(),
+                    name: symbol.name,
+                    kind: symbol.kind,
+                    container: symbol.container || "",
+                    line: range.start.line,
+                    character: range.start.character
+                };
                 lenses.push(new vscode.CodeLens(range, {
-                    title: "$(play) Run",
+                    title: isTest ? "$(play) Run Test" : "$(play) Run",
                     command: "robix.runSymbol",
                     tooltip: `Run ${symbol.name} and its test cases`,
-                    arguments: [{
-                        uri: document.uri.toString(),
-                        name: symbol.name,
-                        kind: symbol.kind,
-                        container: symbol.container || "",
-                        line: range.start.line,
-                        character: range.start.character
-                    }]
+                    arguments: [target]
                 }));
+                lenses.push(new vscode.CodeLens(range, {
+                    title: isTest ? "$(debug) Debug Test" : "$(debug) Debug",
+                    command: isTest ? "robix.debugTestAtCursor" : "robix.debug.start",
+                    tooltip: `Debug ${symbol.name}`,
+                    arguments: []
+                }));
+                if (!isTest) {
+                    lenses.push(new vscode.CodeLens(range, {
+                        title: `${mentions} references`,
+                        command: "editor.action.referenceSearch.trigger",
+                        tooltip: `Find references to ${symbol.name}`
+                    }));
+                }
             }
             return lenses;
         }
@@ -522,6 +560,13 @@ function codeLensProvider() {
 }
 
 function scheduleCheck(document, delay) {
+    if (document.getText().length > (Number(config().get("maxFileSize")) || 1048576)) {
+        return;
+    }
+    if (host.ownsDiagnostics()) {
+        host.syncDocument(document);
+        return;
+    }
     if (document.languageId !== "robix" || !config().get("diagnostics.enable")) {
         return;
     }
@@ -547,10 +592,11 @@ async function checkDocument(document) {
             }
             found.push(toDiagnostic(document, item));
         }
+        found.push(...host.extraDiagnostics(document));
     } catch (error) {
         output.appendLine(String(error && error.stack || error));
     }
-    const tool = interpreterPath(document);
+    const tool = vscode.workspace.isTrusted === false ? "" : interpreterPath(document);
     const root = projectRoot(document.uri.fsPath);
     if (tool) {
         const directory = path.join(os.tmpdir(), "robix-check");
@@ -643,6 +689,10 @@ function dedupe(items) {
 }
 
 async function runActive(mode) {
+    if (vscode.workspace.isTrusted === false) {
+        vscode.window.showWarningMessage("Trust this workspace before Robix launches a toolchain.");
+        return;
+    }
     const document = activeDocument();
     if (!document) {
         return;
@@ -826,20 +876,28 @@ async function buildDocument(document, release) {
             missingTool("compiler");
             return;
         }
+        const configuration = activeConfiguration(path.join(root, ".vscode", "robix.json"));
         const stem = path.basename(document.uri.fsPath, ".rx");
         const destination = release
             ? path.join(root, "Build", "Release", stem)
-            : path.join(os.tmpdir(), "robix", `${stem}.app`);
+            : path.join(root, "Build", configuration.target || "linux-x64", stem);
         fs.mkdirSync(path.dirname(destination), { recursive: true });
-        output.appendLine(`$ ${path.basename(tool)} ${document.uri.fsPath} ${destination}`);
-        const result = await runProcess(tool, [document.uri.fsPath, destination], root);
+        const previous = diagnostics().get(document.uri) || [];
+        diagnostics().set(document.uri, [...previous].filter((item) => item.source !== "robixc"));
+        const args = [document.uri.fsPath, destination, "--target", configuration.target || "linux-x64"];
+        output.appendLine(`$ ${path.basename(tool)} ${args.join(" ")}`);
+        const result = await runProcess(tool, args, root);
         output.append(result.out);
         if (result.out && !result.out.endsWith("\n")) {
             output.appendLine("");
         }
         const problems = parseToolOutput(document, result.out);
+        for (const item of problems) {
+            item.source = "robixc";
+        }
         if (problems.length) {
-            diagnostics().set(document.uri, dedupe(problems));
+            const kept = [...(diagnostics().get(document.uri) || [])].filter((item) => item.source !== "robixc");
+            diagnostics().set(document.uri, dedupe(kept.concat(problems)));
         }
         if (result.code === 0) {
             vscode.window.showInformationMessage(release

@@ -1,5 +1,8 @@
 // Robix.Math.LinearAlgebra: vectors, matrices, decompositions, and linear systems.
-Package Robix.Math.LinearAlgebra;
+Package Robix.Math.LinearAlgebra
+Explain {
+    Description: "Vectors, matrices, decompositions, and linear systems.";
+};
 
 Import Robix.Core;
 
@@ -1979,6 +1982,9 @@ Class LinearAlgebraDesk {
         Int p20 = a20;
         Int p21 = a21;
         Int p22 = a22;
+        Int f0 = e0;
+        Int f1 = e1;
+        Int f2 = e2;
         If (p00 == 0 && p10 != 0) {
             Int swap = p00;
             p00 = p10;
@@ -1989,9 +1995,9 @@ Class LinearAlgebraDesk {
             swap = p02;
             p02 = p12;
             p12 = swap;
-            swap = e0;
-            e0 = e1;
-            e1 = swap;
+            swap = f0;
+            f0 = f1;
+            f1 = swap;
         }
         If (p00 == 0 && p20 != 0) {
             Int swap = p00;
@@ -2003,9 +2009,9 @@ Class LinearAlgebraDesk {
             swap = p02;
             p02 = p22;
             p22 = swap;
-            swap = e0;
-            e0 = e2;
-            e2 = swap;
+            swap = f0;
+            f0 = f2;
+            f2 = swap;
         }
         If (p00 == 0) {
             problem = "singular";
@@ -2014,12 +2020,12 @@ Class LinearAlgebraDesk {
         If (This.ClearRow(p10, p00) == 0) { Return 0; }
         p11 = p11 - (p10 / p00) * p01;
         p12 = p12 - (p10 / p00) * p02;
-        e1 = e1 - (p10 / p00) * e0;
+        f1 = f1 - (p10 / p00) * f0;
         p10 = 0;
         If (This.ClearRow(p20, p00) == 0) { Return 0; }
         p21 = p21 - (p20 / p00) * p01;
         p22 = p22 - (p20 / p00) * p02;
-        e2 = e2 - (p20 / p00) * e0;
+        f2 = f2 - (p20 / p00) * f0;
         p20 = 0;
         If (p11 == 0 && p21 != 0) {
             Int swap = p11;
@@ -2028,9 +2034,9 @@ Class LinearAlgebraDesk {
             swap = p12;
             p12 = p22;
             p22 = swap;
-            swap = e1;
-            e1 = e2;
-            e2 = swap;
+            swap = f1;
+            f1 = f2;
+            f2 = swap;
             swap = p10;
             p10 = p20;
             p20 = swap;
@@ -2041,12 +2047,12 @@ Class LinearAlgebraDesk {
         }
         If (This.ClearRow(p21, p11) == 0) { Return 0; }
         p22 = p22 - (p21 / p11) * p12;
-        e2 = e2 - (p21 / p11) * e1;
+        f2 = f2 - (p21 / p11) * f1;
         p21 = 0;
         If (jordan == 1) {
             If (This.ClearRow(p01, p11) == 0) { Return 0; }
             p02 = p02 - (p01 / p11) * p12;
-            e0 = e0 - (p01 / p11) * e1;
+            f0 = f0 - (p01 / p11) * f1;
             p01 = 0;
         }
         If (p22 == 0) {
@@ -2055,34 +2061,34 @@ Class LinearAlgebraDesk {
         }
         If (jordan == 1) {
             If (This.ClearRow(p02, p22) == 0 || This.ClearRow(p12, p22) == 0) { Return 0; }
-            e0 = e0 - (p02 / p22) * e2;
-            e1 = e1 - (p12 / p22) * e2;
+            f0 = f0 - (p02 / p22) * f2;
+            f1 = f1 - (p12 / p22) * f2;
             p02 = 0;
             p12 = 0;
-            If (This.Divides(e0, p00) == 0 || This.Divides(e1, p11) == 0 || This.Divides(e2, p22) == 0) {
+            If (This.Divides(f0, p00) == 0 || This.Divides(f1, p11) == 0 || This.Divides(f2, p22) == 0) {
                 problem = "exact";
                 Return 0;
             }
-            rx = e0 / p00;
-            ry = e1 / p11;
-            rz = e2 / p22;
+            rx = f0 / p00;
+            ry = f1 / p11;
+            rz = f2 / p22;
             Return rx;
         }
-        If (This.Divides(e2, p22) == 0) {
+        If (This.Divides(f2, p22) == 0) {
             problem = "exact";
             Return 0;
         }
-        rz = e2 / p22;
-        If (This.Divides(e1 - p12 * rz, p11) == 0) {
+        rz = f2 / p22;
+        If (This.Divides(f1 - p12 * rz, p11) == 0) {
             problem = "exact";
             Return 0;
         }
-        ry = (e1 - p12 * rz) / p11;
-        If (This.Divides(e0 - p01 * ry - p02 * rz, p00) == 0) {
+        ry = (f1 - p12 * rz) / p11;
+        If (This.Divides(f0 - p01 * ry - p02 * rz, p00) == 0) {
             problem = "exact";
             Return 0;
         }
-        rx = (e0 - p01 * ry - p02 * rz) / p00;
+        rx = (f0 - p01 * ry - p02 * rz) / p00;
         Return rx;
     }
 

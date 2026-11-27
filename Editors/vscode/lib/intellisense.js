@@ -824,11 +824,19 @@ function signature(source, offset) {
         : library.params && library.params.length
             ? library.params.map((param) => ({ label: param.label || param.name }))
             : splitSignature(library.signature || "()");
+    const overloads = doc.symbols
+        .filter((item) => item.name === name && item.params)
+        .map((item) => ({
+            label: item.detail || item.name,
+            documentation: explainDocument(item),
+            parameters: item.params.map((param) => ({ label: param.label || param.name }))
+        }));
     return {
         label: symbol ? symbol.detail : (library.detail || `${library.name}${library.signature || ""}`),
-        documentation: symbol ? symbol.detail : libraryDocumentation(library),
+        documentation: symbol ? explainDocument(symbol) : libraryDocumentation(library),
         parameters,
-        active
+        active,
+        overloads
     };
 }
 

@@ -1,0 +1,51 @@
+// Robix.Algorithms.PatternMatching: exact and limited patterns on short strings.
+Package Robotics.PatternMatching;
+
+Import Robix.Core;
+Import Robix.Algorithms.PatternMatching;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise exact, wildcard, and edit-distance matching.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the pattern desk.";
+    Output: "The pattern report.";
+} {
+    PatternDesk desk = PatternDesk();
+    Print(desk.Match("aabaab", "aa"));
+    Print(desk.MatchAll("aabaab", "aa"));
+    Print(desk.IsMatch("aabaab", "aa"));
+    Print(desk.FindMatch("aabaab", "aa"));
+    Print(desk.FindMatches("aabaab", "aa"));
+    Print(desk.CountMatches("aabaab", "aa"));
+    Print(desk.MatchAt("aabaab", "aa", 3));
+    Print(desk.CompilePattern("a**b"));
+    Print(desk.ParsePattern("a**b"));
+    Print(desk.ValidatePattern("(aa)"));
+    Print(desk.OptimizePattern("a**b"));
+    Print(desk.ExplainPattern("a*"));
+    Print(desk.GetPatternCaptures("(aa)"));
+    Print(desk.ExactMatch("aabaab", "aa"));
+    Print(desk.WildcardMatch("aabaab", "a*b"));
+    Print(desk.GlobMatch("aa", "a?"));
+    Print(desk.RegexMatch("aabaab", "a.b"));
+    Print(desk.TokenMatch("aabaab", "baa"));
+    Print(desk.SequenceMatch("aabaab", "baa"));
+    Print(desk.TreePatternMatch("426135", "426"));
+    Print(desk.GraphPatternMatch("0123", "01"));
+    Print(desk.StructuralMatch("cat", "act"));
+    Print(desk.FuzzyMatch("cat", "cut"));
+    Print(desk.ApproximateMatch("cat", "act", 2));
+    Print(desk.EditDistanceMatch("cat", "cut", 1));
+    Print(desk.HammingMatch("cat", "cut", 1));
+    Print(desk.MultiPatternMatch("aabaab", "aa|ab"));
+    Print(desk.ReplaceMatches("aabaab", "aa", "c"));
+    Print(desk.ReplaceFirstMatch("aabaab", "aa", "c"));
+    Print(desk.ExtractMatches("aabaab", "aa"));
+    Print(desk.ExtractGroups("aabaab", "(aa)"));
+    Print(desk.SplitByPattern("aabaab", "aa"));
+    Print(desk.Match("aabaab", "aa"));
+    Print(desk.Fault());
+    Return 0;
+}

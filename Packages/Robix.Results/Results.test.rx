@@ -1,5 +1,268 @@
+// Tests for Results.rx. Each call uses a fresh outcome.
+
 Test Ok {
-    Constraint: Outcome().Ok(7) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: Outcome().Ok(4) == 1;
+    Processing: Outcome().Ok(4);
+    Output: 1;
+}
+
+Test Err {
+    Constraint: Outcome().Err("bad") == 1;
+    Processing: Outcome().Err("bad");
+    Output: 1;
+}
+
+Test Success {
+    Constraint: Outcome().Success(4) == 1;
+    Processing: Outcome().Success(4);
+    Output: 1;
+}
+
+Test Failure {
+    Constraint: Outcome().Failure("bad") == 1;
+    Processing: Outcome().Failure("bad");
+    Output: 1;
+}
+
+Test IsSuccess {
+    Constraint: Outcome().IsSuccess() == 0;
+    Processing: Outcome().IsSuccess();
+    Output: 0;
+}
+
+Test IsFailure {
+    Constraint: Outcome().IsFailure() == 0;
+    Processing: Outcome().IsFailure();
+    Output: 0;
+}
+
+Test GetValue {
+    Constraint: Outcome().GetValue() == -1;
+    Processing: Outcome().GetValue();
+    Output: -1;
+}
+
+Test GetError {
+    Constraint: Outcome().GetError() == "none";
+    Processing: Outcome().GetError();
+    Output: "none";
+}
+
+Test GetValueOrDefault {
+    Constraint: Outcome().GetValueOrDefault(7) == 7;
+    Processing: Outcome().GetValueOrDefault(7);
+    Output: 7;
+}
+
+Test Map {
+    Constraint: Outcome().Map(1) == 0;
+    Processing: Outcome().Map(1);
+    Output: 0;
+}
+
+Test MapError {
+    Constraint: Outcome().MapError("x") == 0;
+    Processing: Outcome().MapError("x");
+    Output: 0;
+}
+
+Test FlatMap {
+    Constraint: Outcome().FlatMap() == 0;
+    Processing: Outcome().FlatMap();
+    Output: 0;
+}
+
+Test Bind {
+    Constraint: Outcome().Bind() == 0;
+    Processing: Outcome().Bind();
+    Output: 0;
+}
+
+Test Keep {
+    Constraint: Outcome().Keep(1) == 0;
+    Processing: Outcome().Keep(1);
+    Output: 0;
+}
+
+Test PushOk {
+    Constraint: Outcome().PushOk(3) == 1;
+    Processing: Outcome().PushOk(3);
+    Output: 1;
+}
+
+Test PushErr {
+    Constraint: Outcome().PushErr("bad") == 1;
+    Processing: Outcome().PushErr("bad");
+    Output: 1;
+}
+
+Test Reset {
+    Constraint: Outcome().Reset() == 0;
+    Processing: Outcome().Reset();
+    Output: 0;
+}
+
+Test Sequence {
+    Constraint: Outcome().Sequence() == 0;
+    Processing: Outcome().Sequence();
+    Output: 0;
+}
+
+Test Combine {
+    Constraint: Outcome().Combine() == "";
+    Processing: Outcome().Combine();
+    Output: "";
+}
+
+Test Traverse {
+    Constraint: Outcome().Traverse() == 0;
+    Processing: Outcome().Traverse();
+    Output: 0;
+}
+
+Test Zip {
+    Case "both" {
+        Constraint: Outcome().Zip(1, 2, 1, 3, "bad") == 1;
+        Processing: Outcome().Zip(1, 2, 1, 3, "bad");
+        Output: 1;
+    }
+    Case "left failed" {
+        Constraint: Outcome().Zip(0, 2, 1, 3, "bad") == 0;
+        Processing: Outcome().Zip(0, 2, 1, 3, "bad");
+        Output: 0;
+    }
+}
+
+Test Some {
+    Constraint: Outcome().Some(5) == 1;
+    Processing: Outcome().Some(5);
+    Output: 1;
+}
+
+Test None {
+    Constraint: Outcome().None() == 1;
+    Processing: Outcome().None();
+    Output: 1;
+}
+
+Test IsSome {
+    Constraint: Outcome().IsSome() == 0;
+    Processing: Outcome().IsSome();
+    Output: 0;
+}
+
+Test IsNone {
+    Constraint: Outcome().IsNone() == 0;
+    Processing: Outcome().IsNone();
+    Output: 0;
+}
+
+Test Unwrap {
+    Constraint: Outcome().Unwrap() == -1;
+    Processing: Outcome().Unwrap();
+    Output: -1;
+}
+
+Test UnwrapOr {
+    Constraint: Outcome().UnwrapOr(9) == 9;
+    Processing: Outcome().UnwrapOr(9);
+    Output: 9;
+}
+
+Test MapOption {
+    Constraint: Outcome().MapOption(1) == 0;
+    Processing: Outcome().MapOption(1);
+    Output: 0;
+}
+
+Test FlatMapOption {
+    Constraint: Outcome().FlatMapOption() == 0;
+    Processing: Outcome().FlatMapOption();
+    Output: 0;
+}
+
+Test KeepOption {
+    Constraint: Outcome().KeepOption(1) == 0;
+    Processing: Outcome().KeepOption(1);
+    Output: 0;
+}
+
+Test OrElse {
+    Constraint: Outcome().OrElse(4) == 1;
+    Processing: Outcome().OrElse(4);
+    Output: 1;
+}
+
+Test Left {
+    Constraint: Outcome().Left(3) == 1;
+    Processing: Outcome().Left(3);
+    Output: 1;
+}
+
+Test Right {
+    Constraint: Outcome().Right("bad") == 1;
+    Processing: Outcome().Right("bad");
+    Output: 1;
+}
+
+Test IsLeft {
+    Constraint: Outcome().IsLeft() == 0;
+    Processing: Outcome().IsLeft();
+    Output: 0;
+}
+
+Test IsRight {
+    Constraint: Outcome().IsRight() == 0;
+    Processing: Outcome().IsRight();
+    Output: 0;
+}
+
+Test LeftValue {
+    Constraint: Outcome().LeftValue() == -1;
+    Processing: Outcome().LeftValue();
+    Output: -1;
+}
+
+Test RightText {
+    Constraint: Outcome().RightText() == "none";
+    Processing: Outcome().RightText();
+    Output: "none";
+}
+
+Test Validate {
+    Case "inside" {
+        Constraint: Outcome().Validate(5, 1, 9) == 1;
+        Processing: Outcome().Validate(5, 1, 9);
+        Output: 1;
+    }
+    Case "below" {
+        Constraint: Outcome().Validate(0, 1, 9) == 0;
+        Processing: Outcome().Validate(0, 1, 9);
+        Output: 0;
+    }
+}
+
+Test TryDivide {
+    Case "quotient" {
+        Constraint: Outcome().TryDivide(8, 2) == 1;
+        Processing: Outcome().TryDivide(8, 2);
+        Output: 1;
+    }
+    Case "zero" {
+        Constraint: Outcome().TryDivide(8, 0) == 0;
+        Processing: Outcome().TryDivide(8, 0);
+        Output: 0;
+    }
+}
+
+Test IntText {
+    Constraint: Outcome().IntText(6) == "6";
+    Processing: Outcome().IntText(6);
+    Output: "6";
+}
+
+Test TryDivideAsync {
+    Constraint: TryDivideAsync(8, 2) == 4;
+    Processing: TryDivideAsync(8, 2);
+    Output: 4;
 }

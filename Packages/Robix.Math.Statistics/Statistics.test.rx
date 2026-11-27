@@ -1,5 +1,584 @@
+// Tests for Statistics.rx. Each call uses a fresh desk.
+
+Test Place {
+    Constraint: StatsDesk().Place(4) == 0;
+    Processing: StatsDesk().Place(4);
+    Output: 0;
+}
+
+Test Pair {
+    Constraint: StatsDesk().Pair(1, 2) == 0;
+    Processing: StatsDesk().Pair(1, 2);
+    Output: 0;
+}
+
+Test PlaceSecond {
+    Constraint: StatsDesk().PlaceSecond(4) == 0;
+    Processing: StatsDesk().PlaceSecond(4);
+    Output: 0;
+}
+
+Test PlaceThird {
+    Constraint: StatsDesk().PlaceThird(4) == 0;
+    Processing: StatsDesk().PlaceThird(4);
+    Output: 0;
+}
+
+Test Weight {
+    Constraint: StatsDesk().Weight(0, 2) == 0;
+    Processing: StatsDesk().Weight(0, 2);
+    Output: 0;
+}
+
+Test Reset {
+    Constraint: StatsDesk().Reset() == 0;
+    Processing: StatsDesk().Reset();
+    Output: 0;
+}
+
+Test Size {
+    Constraint: StatsDesk().Size() == 0;
+    Processing: StatsDesk().Size();
+    Output: 0;
+}
+
+Test Mean {
+    Constraint: StatsDesk().Mean() == 0.0;
+    Processing: StatsDesk().Mean();
+    Output: 0.0;
+}
+
+Test Weighted {
+    Constraint: StatsDesk().Weighted() == 0.0;
+    Processing: StatsDesk().Weighted();
+    Output: 0.0;
+}
+
+Test Median {
+    Constraint: StatsDesk().Median() == 0.0;
+    Processing: StatsDesk().Median();
+    Output: 0.0;
+}
+
+Test Mode {
+    Constraint: StatsDesk().Mode() == 0;
+    Processing: StatsDesk().Mode();
+    Output: 0;
+}
+
+Test Geometric {
+    Constraint: StatsDesk().Geometric() == 0.0;
+    Processing: StatsDesk().Geometric();
+    Output: 0.0;
+}
+
+Test Harmonic {
+    Constraint: StatsDesk().Harmonic() == 0.0;
+    Processing: StatsDesk().Harmonic();
+    Output: 0.0;
+}
+
+Test Trimmed {
+    Constraint: StatsDesk().Trimmed(1) == 0.0;
+    Processing: StatsDesk().Trimmed(1);
+    Output: 0.0;
+}
+
+Test PopVariance {
+    Constraint: StatsDesk().PopVariance() == 0.0;
+    Processing: StatsDesk().PopVariance();
+    Output: 0.0;
+}
+
+Test SampleVariance {
+    Constraint: StatsDesk().SampleVariance() == 0.0;
+    Processing: StatsDesk().SampleVariance();
+    Output: 0.0;
+}
+
+Test PopDeviation {
+    Constraint: StatsDesk().PopDeviation() == 0.0;
+    Processing: StatsDesk().PopDeviation();
+    Output: 0.0;
+}
+
+Test SampleDeviation {
+    Constraint: StatsDesk().SampleDeviation() == 0.0;
+    Processing: StatsDesk().SampleDeviation();
+    Output: 0.0;
+}
+
+Test Spread {
+    Constraint: StatsDesk().Spread() == 0;
+    Processing: StatsDesk().Spread();
+    Output: 0;
+}
+
+Test Iqr {
+    Constraint: StatsDesk().Iqr() == 0.0;
+    Processing: StatsDesk().Iqr();
+    Output: 0.0;
+}
+
+Test MeanAbsolute {
+    Constraint: StatsDesk().MeanAbsolute() == 0.0;
+    Processing: StatsDesk().MeanAbsolute();
+    Output: 0.0;
+}
+
+Test MedianAbsolute {
+    Constraint: StatsDesk().MedianAbsolute() == 0.0;
+    Processing: StatsDesk().MedianAbsolute();
+    Output: 0.0;
+}
+
+Test Variation {
+    Constraint: StatsDesk().Variation() == 0.0;
+    Processing: StatsDesk().Variation();
+    Output: 0.0;
+}
+
+Test Percent {
+    Constraint: StatsDesk().Percent(50) == 0.0;
+    Processing: StatsDesk().Percent(50);
+    Output: 0.0;
+}
+
+Test Quantile {
+    Constraint: StatsDesk().Quantile(0.5) == 0.0;
+    Processing: StatsDesk().Quantile(0.5);
+    Output: 0.0;
+}
+
+Test Quartile {
+    Constraint: StatsDesk().Quartile(2) == 0.0;
+    Processing: StatsDesk().Quartile(2);
+    Output: 0.0;
+}
+
+Test Decile {
+    Constraint: StatsDesk().Decile(5) == 0.0;
+    Processing: StatsDesk().Decile(5);
+    Output: 0.0;
+}
+
+Test Times {
+    Constraint: StatsDesk().Times(4) == 0;
+    Processing: StatsDesk().Times(4);
+    Output: 0;
+}
+
+Test Share {
+    Constraint: StatsDesk().Share(4) == 0.0;
+    Processing: StatsDesk().Share(4);
+    Output: 0.0;
+}
+
+Test Cover {
+    Constraint: StatsDesk().Cover(4) == 0;
+    Processing: StatsDesk().Cover(4);
+    Output: 0;
+}
+
+Test Order {
+    Constraint: StatsDesk().Order(4) == 0.0;
+    Processing: StatsDesk().Order(4);
+    Output: 0.0;
+}
+
 Test Z {
-    Constraint: StatsDesk().Z(9.0, 5.0, 2.0) == 2.0;
-    Processing: True;
-    Output: True;
+    Case "score" {
+        Constraint: StatsDesk().Z(4.0, 2.0, 2.0) == 1.0;
+        Processing: StatsDesk().Z(4.0, 2.0, 2.0);
+        Output: 1.0;
+    }
+    Case "zero deviation" {
+        Constraint: StatsDesk().Z(1.0, 1.0, 0.0) == 0.0;
+        Processing: StatsDesk().Z(1.0, 1.0, 0.0);
+        Output: 0.0;
+    }
+}
+
+Test ZSample {
+    Constraint: StatsDesk().ZSample(4) == 0.0;
+    Processing: StatsDesk().ZSample(4);
+    Output: 0.0;
+}
+
+Test LowValue {
+    Constraint: StatsDesk().LowValue() == 0;
+    Processing: StatsDesk().LowValue();
+    Output: 0;
+}
+
+Test HighValue {
+    Constraint: StatsDesk().HighValue() == 0;
+    Processing: StatsDesk().HighValue();
+    Output: 0;
+}
+
+Test Cov {
+    Constraint: StatsDesk().Cov() == 0.0;
+    Processing: StatsDesk().Cov();
+    Output: 0.0;
+}
+
+Test Pearson {
+    Constraint: StatsDesk().Pearson() == 0.0;
+    Processing: StatsDesk().Pearson();
+    Output: 0.0;
+}
+
+Test Spearman {
+    Constraint: StatsDesk().Spearman() == 0.0;
+    Processing: StatsDesk().Spearman();
+    Output: 0.0;
+}
+
+Test Kendall {
+    Constraint: StatsDesk().Kendall() == 0.0;
+    Processing: StatsDesk().Kendall();
+    Output: 0.0;
+}
+
+Test Fit {
+    Constraint: StatsDesk().Fit() == 0.0;
+    Processing: StatsDesk().Fit();
+    Output: 0.0;
+}
+
+Test Slope {
+    Constraint: StatsDesk().Slope() == 0.0;
+    Processing: StatsDesk().Slope();
+    Output: 0.0;
+}
+
+Test Intercept {
+    Constraint: StatsDesk().Intercept() == 0.0;
+    Processing: StatsDesk().Intercept();
+    Output: 0.0;
+}
+
+Test Predict {
+    Constraint: StatsDesk().Predict(2.0) == 0.0;
+    Processing: StatsDesk().Predict(2.0);
+    Output: 0.0;
+}
+
+Test Residuals {
+    Constraint: StatsDesk().Residuals() == 0.0;
+    Processing: StatsDesk().Residuals();
+    Output: 0.0;
+}
+
+Test Determination {
+    Constraint: StatsDesk().Determination() == 0.0;
+    Processing: StatsDesk().Determination();
+    Output: 0.0;
+}
+
+Test Adjusted {
+    Constraint: StatsDesk().Adjusted() == 0.0;
+    Processing: StatsDesk().Adjusted();
+    Output: 0.0;
+}
+
+Test FitError {
+    Constraint: StatsDesk().FitError() == 0.0;
+    Processing: StatsDesk().FitError();
+    Output: 0.0;
+}
+
+Test Poly {
+    Constraint: StatsDesk().Poly(2) == 0.0;
+    Processing: StatsDesk().Poly(2);
+    Output: 0.0;
+}
+
+Test Coef {
+    Constraint: StatsDesk().Coef(0) == 0.0;
+    Processing: StatsDesk().Coef(0);
+    Output: 0.0;
+}
+
+Test PolyPredict {
+    Constraint: StatsDesk().PolyPredict(2.0) == 0.0;
+    Processing: StatsDesk().PolyPredict(2.0);
+    Output: 0.0;
+}
+
+Test Systematic {
+    Constraint: StatsDesk().Systematic(2) == "none";
+    Processing: StatsDesk().Systematic(2);
+    Output: "none";
+}
+
+Test Draw {
+    Constraint: StatsDesk().Draw(2) == "none";
+    Processing: StatsDesk().Draw(2);
+    Output: "none";
+}
+
+Test DrawUnique {
+    Constraint: StatsDesk().DrawUnique(2) == "none";
+    Processing: StatsDesk().DrawUnique(2);
+    Output: "none";
+}
+
+Test Stratified {
+    Constraint: StatsDesk().Stratified(2) == "none";
+    Processing: StatsDesk().Stratified(2);
+    Output: "none";
+}
+
+Test Bootstrap {
+    Constraint: StatsDesk().Bootstrap(2) == 0.0;
+    Processing: StatsDesk().Bootstrap(2);
+    Output: 0.0;
+}
+
+Test Level {
+    Constraint: StatsDesk().Level(1.96) == 0.0;
+    Processing: StatsDesk().Level(1.96);
+    Output: 0.0;
+}
+
+Test BandHigh {
+    Constraint: StatsDesk().BandHigh() == 0.0;
+    Processing: StatsDesk().BandHigh();
+    Output: 0.0;
+}
+
+Test Error {
+    Constraint: StatsDesk().Error() == 0.0;
+    Processing: StatsDesk().Error();
+    Output: 0.0;
+}
+
+Test Margin {
+    Constraint: StatsDesk().Margin() == 0.0;
+    Processing: StatsDesk().Margin();
+    Output: 0.0;
+}
+
+Test CompareT {
+    Constraint: StatsDesk().CompareT() == 0.0;
+    Processing: StatsDesk().CompareT();
+    Output: 0.0;
+}
+
+Test PairedT {
+    Constraint: StatsDesk().PairedT() == 0.0;
+    Processing: StatsDesk().PairedT();
+    Output: 0.0;
+}
+
+Test ZTest {
+    Constraint: StatsDesk().ZTest(0.0) == 0.0;
+    Processing: StatsDesk().ZTest(0.0);
+    Output: 0.0;
+}
+
+Test Chi {
+    Constraint: StatsDesk().Chi() == 0.0;
+    Processing: StatsDesk().Chi();
+    Output: 0.0;
+}
+
+Test Anova {
+    Constraint: StatsDesk().Anova() == 0.0;
+    Processing: StatsDesk().Anova();
+    Output: 0.0;
+}
+
+Test Mann {
+    Constraint: StatsDesk().Mann() == 0;
+    Processing: StatsDesk().Mann();
+    Output: 0;
+}
+
+Test Wilcoxon {
+    Constraint: StatsDesk().Wilcoxon() == 0;
+    Processing: StatsDesk().Wilcoxon();
+    Output: 0;
+}
+
+Test DistanceKS {
+    Constraint: StatsDesk().DistanceKS() == 0.0;
+    Processing: StatsDesk().DistanceKS();
+    Output: 0.0;
+}
+
+Test Shapiro {
+    Constraint: StatsDesk().Shapiro() == 0.0;
+    Processing: StatsDesk().Shapiro();
+    Output: 0.0;
+}
+
+Test PValue {
+    Constraint: StatsDesk().PValue(0.0, 0) == 1.0;
+    Processing: StatsDesk().PValue(0.0, 0);
+    Output: 1.0;
+}
+
+Test Outside {
+    Constraint: StatsDesk().Outside(0) == 0;
+    Processing: StatsDesk().Outside(0);
+    Output: 0;
+}
+
+Test Kept {
+    Constraint: StatsDesk().Kept() == 0;
+    Processing: StatsDesk().Kept();
+    Output: 0;
+}
+
+Test Reseed {
+    Constraint: StatsDesk().Reseed(7) == 7;
+    Processing: StatsDesk().Reseed(7);
+    Output: 7;
+}
+
+Test Fault {
+    Constraint: StatsDesk().Fault() == "none";
+    Processing: StatsDesk().Fault();
+    Output: "none";
+}
+
+Test Total {
+    Constraint: StatsDesk().Total([4, 5], 0) == 0.0;
+    Processing: StatsDesk().Total([4, 5], 0);
+    Output: 0.0;
+}
+
+Test SquaredDeviations {
+    Constraint: StatsDesk().SquaredDeviations() == 0.0;
+    Processing: StatsDesk().SquaredDeviations();
+    Output: 0.0;
+}
+
+Test SampleVarianceOf {
+    Constraint: StatsDesk().SampleVarianceOf([4, 6], 0) == 0.0;
+    Processing: StatsDesk().SampleVarianceOf([4, 6], 0);
+    Output: 0.0;
+}
+
+Test DeviationOf {
+    Constraint: StatsDesk().DeviationOf([4], 0) == 0.0;
+    Processing: StatsDesk().DeviationOf([4], 0);
+    Output: 0.0;
+}
+
+Test Within {
+    Constraint: StatsDesk().Within([4], 0) == 0.0;
+    Processing: StatsDesk().Within([4], 0);
+    Output: 0.0;
+}
+
+Test SortInto {
+    Constraint: StatsDesk().SortInto([4], 0) == 0;
+    Processing: StatsDesk().SortInto([4], 0);
+    Output: 0;
+}
+
+Test SortOrdered {
+    Constraint: StatsDesk().SortOrdered() == 0;
+    Processing: StatsDesk().SortOrdered();
+    Output: 0;
+}
+
+Test Middle {
+    Constraint: StatsDesk().Middle(1, 0) == 0.0;
+    Processing: StatsDesk().Middle(1, 0);
+    Output: 0.0;
+}
+
+Test RankOf {
+    Constraint: StatsDesk().RankOf([4], 4) == 0.0;
+    Processing: StatsDesk().RankOf([4], 4);
+    Output: 0.0;
+}
+
+Test CombinedRank {
+    Constraint: StatsDesk().CombinedRank(4) == 1;
+    Processing: StatsDesk().CombinedRank(4);
+    Output: 1;
+}
+
+Test SignedRank {
+    Constraint: StatsDesk().SignedRank(0) == 1;
+    Processing: StatsDesk().SignedRank(0);
+    Output: 1;
+}
+
+Test Portion {
+    Constraint: StatsDesk().Portion([1], 1, 1) == 1.0;
+    Processing: StatsDesk().Portion([1], 1, 1);
+    Output: 1.0;
+}
+
+Test ShapiroWeight {
+    Constraint: StatsDesk().ShapiroWeight(3, 0) == 0.7071;
+    Processing: StatsDesk().ShapiroWeight(3, 0);
+    Output: 0.7071;
+}
+
+Test Solve3 {
+    Constraint: StatsDesk().Solve3(1.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 3.0, 0.0, 0.0, 1.0, 4.0) == 1;
+    Processing: StatsDesk().Solve3(1.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 3.0, 0.0, 0.0, 1.0, 4.0);
+    Output: 1;
+}
+
+Test Scale {
+    Constraint: StatsDesk().Scale(1.0) == 2;
+    Processing: StatsDesk().Scale(1.0);
+    Output: 2;
+}
+
+Test Next {
+    Constraint: StatsDesk().Next() == 1103527590;
+    Processing: StatsDesk().Next();
+    Output: 1103527590;
+}
+
+Test Abs {
+    Constraint: StatsDesk().Abs(-2.0) == 2.0;
+    Processing: StatsDesk().Abs(-2.0);
+    Output: 2.0;
+}
+
+Test Near {
+    Constraint: StatsDesk().Near(0.0, 0.0) == 1;
+    Processing: StatsDesk().Near(0.0, 0.0);
+    Output: 1;
+}
+
+Test Sqrt {
+    Constraint: StatsDesk().Sqrt(9.0) == 3.0;
+    Processing: StatsDesk().Sqrt(9.0);
+    Output: 3.0;
+}
+
+Test Exp {
+    Constraint: StatsDesk().Exp(0.0) == 1.0;
+    Processing: StatsDesk().Exp(0.0);
+    Output: 1.0;
+}
+
+Test Ln {
+    Constraint: StatsDesk().Ln(1.0) == 0.0;
+    Processing: StatsDesk().Ln(1.0);
+    Output: 0.0;
+}
+
+Test Erf {
+    Constraint: StatsDesk().Erf(0.0) == 0.0;
+    Processing: StatsDesk().Erf(0.0);
+    Output: 0.0;
+}
+
+Test IntText {
+    Constraint: StatsDesk().IntText(6) == "6";
+    Processing: StatsDesk().IntText(6);
+    Output: "6";
 }

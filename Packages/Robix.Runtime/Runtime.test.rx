@@ -1,5 +1,192 @@
+// Tests for Runtime.rx. Each call uses a fresh host.
+
+Test Initialize {
+    Constraint: RuntimeHost().Initialize("dev", "console").Message == "ready";
+    Processing: RuntimeHost().Initialize("dev", "console").Ok;
+    Output: 1;
+}
+
 Test Start {
-    Constraint: RuntimeHost().Initialize("lab", "jit").Ok == 1;
-    Processing: True;
-    Output: True;
+    Constraint: RuntimeHost().Start().Message == "not-ready";
+    Processing: RuntimeHost().Start().Ok;
+    Output: 0;
+}
+
+Test Stop {
+    Constraint: RuntimeHost().Stop().Message == "not-running";
+    Processing: RuntimeHost().Stop().Ok;
+    Output: 0;
+}
+
+Test Restart {
+    Constraint: RuntimeHost().Restart().Message == "not-ready";
+    Processing: RuntimeHost().Restart().Ok;
+    Output: 0;
+}
+
+Test Shutdown {
+    Constraint: RuntimeHost().Shutdown().Message == "shutdown";
+    Processing: RuntimeHost().Shutdown().Value;
+    Output: 4;
+}
+
+Test Dispose {
+    Constraint: RuntimeHost().Dispose().Message == "disposed";
+    Processing: RuntimeHost().Dispose().Value;
+    Output: 5;
+}
+
+Test IsRunning {
+    Constraint: RuntimeHost().IsRunning() == 0;
+    Processing: RuntimeHost().IsRunning();
+    Output: 0;
+}
+
+Test GetState {
+    Constraint: RuntimeHost().GetState() == "idle";
+    Processing: RuntimeHost().GetState();
+    Output: "idle";
+}
+
+Test GetVersion {
+    Constraint: RuntimeHost().GetVersion() == "1.0.0";
+    Processing: RuntimeHost().GetVersion();
+    Output: "1.0.0";
+}
+
+Test GetPlatform {
+    Constraint: RuntimeHost().GetPlatform() == "linux";
+    Processing: RuntimeHost().GetPlatform();
+    Output: "linux";
+}
+
+Test GetArchitecture {
+    Constraint: RuntimeHost().GetArchitecture() == "x86_64";
+    Processing: RuntimeHost().GetArchitecture();
+    Output: "x86_64";
+}
+
+Test GetConfiguration {
+    Constraint: RuntimeHost().GetConfiguration() == "";
+    Processing: RuntimeHost().GetConfiguration();
+    Output: "";
+}
+
+Test GetInfo {
+    Constraint: RuntimeHost().GetInfo() == "linux/x86_64 1.0.0";
+    Processing: RuntimeHost().GetInfo();
+    Output: "linux/x86_64 1.0.0";
+}
+
+Test IsFeatureSupported {
+    Constraint: RuntimeHost().IsFeatureSupported("console") == 0;
+    Processing: RuntimeHost().IsFeatureSupported("console");
+    Output: 0;
+}
+
+Test GetMetrics {
+    Constraint: RuntimeHost().GetMetrics() == "0 executions, 0 instructions, 0 restarts, 0 async";
+    Processing: RuntimeHost().GetMetrics();
+    Output: "0 executions, 0 instructions, 0 restarts, 0 async";
+}
+
+Test Execute {
+    Constraint: RuntimeHost().Execute("push,2,halt").Message == "not-running";
+    Processing: RuntimeHost().Execute("push,2,halt").Ok;
+    Output: 0;
+}
+
+Test ExecuteAsync {
+    Constraint: RuntimeHost().ExecuteAsync("push,2,halt").Message == "not-running";
+    Processing: RuntimeHost().ExecuteAsync("push,2,halt").Ok;
+    Output: 0;
+}
+
+Test LoadModule {
+    Constraint: RuntimeHost().LoadModule("Core", "push,1,halt").Message == "unavailable";
+    Processing: RuntimeHost().LoadModule("Core", "push,1,halt").Ok;
+    Output: 0;
+}
+
+Test FindModule {
+    Constraint: RuntimeHost().FindModule("Core") == 0;
+    Processing: RuntimeHost().FindModule("Core");
+    Output: 0;
+}
+
+Test LoadedCount {
+    Constraint: RuntimeHost().LoadedCount() == 0;
+    Processing: RuntimeHost().LoadedCount();
+    Output: 0;
+}
+
+Test ReloadModule {
+    Constraint: RuntimeHost().ReloadModule("Core", "push,1,halt").Message == "missing";
+    Processing: RuntimeHost().ReloadModule("Core", "push,1,halt").Ok;
+    Output: 0;
+}
+
+Test UnloadModule {
+    Constraint: RuntimeHost().UnloadModule("Core").Message == "missing";
+    Processing: RuntimeHost().UnloadModule("Core").Ok;
+    Output: 0;
+}
+
+Test ExecuteModule {
+    Constraint: RuntimeHost().ExecuteModule("Core").Message == "not-running";
+    Processing: RuntimeHost().ExecuteModule("Core").Ok;
+    Output: 0;
+}
+
+Test FrameName {
+    Constraint: RuntimeHost().FrameName() == "";
+    Processing: RuntimeHost().FrameName();
+    Output: "";
+}
+
+Test FrameDepth {
+    Constraint: RuntimeHost().FrameDepth() == 0;
+    Processing: RuntimeHost().FrameDepth();
+    Output: 0;
+}
+
+Test ResetStack {
+    Processing: RuntimeHost().ResetStack();
+    Assert: RuntimeHost().FrameDepth() == 0;
+}
+
+Test Push {
+    Constraint: RuntimeHost().Push(4) == 1;
+    Processing: RuntimeHost().Push(4);
+    Output: 1;
+}
+
+Test Pop {
+    Constraint: RuntimeHost().Pop() == 0;
+    Processing: RuntimeHost().Pop();
+    Output: 0;
+}
+
+Test ReadToken {
+    Constraint: RuntimeHost().ReadToken("push,2", 0) == "push";
+    Processing: RuntimeHost().ReadToken("push,2", 0);
+    Output: "push";
+}
+
+Test TokenEnd {
+    Constraint: RuntimeHost().TokenEnd("push,2", 0) == 5;
+    Processing: RuntimeHost().TokenEnd("push,2", 0);
+    Output: 5;
+}
+
+Test ParseInt {
+    Constraint: RuntimeHost().ParseInt("12") == 12;
+    Processing: RuntimeHost().ParseInt("12");
+    Output: 12;
+}
+
+Test RunProgram {
+    Constraint: RuntimeHost().RunProgram("push,2,halt", 0).Message == "ok";
+    Processing: RuntimeHost().RunProgram("push,2,halt", 0).Value;
+    Output: 2;
 }

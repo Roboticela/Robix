@@ -1,5 +1,8 @@
 // Robix.Math.SignalProcessing: eight-sample waves, integer filters, and Walsh-Hadamard spectra.
-Package Robix.Math.SignalProcessing;
+Package Robix.Math.SignalProcessing
+Explain {
+    Description: "Eight-sample waves, integer filters, and Walsh-Hadamard spectra.";
+};
 
 Import Robix.Core;
 
@@ -1866,33 +1869,38 @@ Class SignalDesk {
     }
 
     Private Function Median3(Int a, Int b, Int c) -> Int {
-        If (a > b) {
-            Int swap = a;
-            a = b;
-            b = swap;
+        Int first = a;
+        Int second = b;
+        Int third = c;
+        If (first > second) {
+            Int swap = first;
+            first = second;
+            second = swap;
         }
-        If (b > c) {
-            Int swap = b;
-            b = c;
-            c = swap;
+        If (second > third) {
+            Int swap = second;
+            second = third;
+            third = swap;
         }
-        If (a > b) {
-            Int swap = a;
-            a = b;
-            b = swap;
+        If (first > second) {
+            Int swap = first;
+            first = second;
+            second = swap;
         }
-        Return b;
+        Return second;
     }
 
     Private Function Gcd(Int left, Int right) -> Int {
-        If (left < 0) { left = 0 - left; }
-        If (right < 0) { right = 0 - right; }
-        While (right != 0) {
-            Int next = left % right;
-            left = right;
-            right = next;
+        Int a = left;
+        Int b = right;
+        If (a < 0) { a = 0 - a; }
+        If (b < 0) { b = 0 - b; }
+        While (b != 0) {
+            Int next = a % b;
+            a = b;
+            b = next;
         }
-        Return left;
+        Return a;
     }
 
     Private Function Draw() -> Int {

@@ -47,10 +47,10 @@ Struct CoreVersion {
 }
 
 Struct TimeSpan {
-    Public Int Milliseconds;
+    Public Int Duration;
 
     Public Constructor(Int milliseconds) {
-        Milliseconds = milliseconds;
+        Duration = milliseconds;
     }
 }
 
@@ -339,8 +339,9 @@ Private Function Clean(String text) -> String {
 Private Function Digit(String piece) -> Int {
     If (piece.Length() != 1) { Return -1; }
     Int code = piece.GetChar(0).ToInt();
-    If (code < 48 || code > 57) { Return -1; }
-    Return code - 48;
+    If (code >= 0 && code <= 9) { Return code; }
+    If (code >= 48 && code <= 57) { Return code - 48; }
+    Return -1;
 }
 
 Private Function IsIntText(String text) -> Bool {
@@ -1813,7 +1814,7 @@ Explain {
     Processing: "Divide the milliseconds by 1000.";
     Output: "The whole seconds.";
 } {
-    Return span.Milliseconds / 1000;
+    Return span.Duration / 1000;
 }
 
 Public Function AddSpan(TimeSpan left, TimeSpan right) -> TimeSpan
@@ -1823,7 +1824,7 @@ Explain {
     Processing: "Add the millisecond counts.";
     Output: "The sum.";
 } {
-    Return TimeSpan(left.Milliseconds + right.Milliseconds);
+    Return TimeSpan(left.Duration + right.Duration);
 }
 
 Public Function SubtractSpan(TimeSpan left, TimeSpan right) -> TimeSpan
@@ -1833,7 +1834,7 @@ Explain {
     Processing: "Subtract the millisecond counts.";
     Output: "The difference.";
 } {
-    Return TimeSpan(left.Milliseconds - right.Milliseconds);
+    Return TimeSpan(left.Duration - right.Duration);
 }
 
 Public Function DateText(DateTime value) -> String

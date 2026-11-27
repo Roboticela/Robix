@@ -1,5 +1,230 @@
+// Tests for Metadata.rx. Each call uses a fresh store.
+
+Test Configure {
+    Constraint: MetaStore().Configure("build") == "build";
+    Processing: MetaStore().Configure("build");
+    Output: "build";
+}
+
+Test DefinitionCount {
+    Constraint: MetaStore().DefinitionCount() == 25;
+    Processing: MetaStore().DefinitionCount();
+    Output: 25;
+}
+
 Test Known {
-    Constraint: MetaStore().Known("Pure") == 1;
-    Processing: True;
-    Output: True;
+    Case "obsolete" {
+        Constraint: MetaStore().Known("Obsolete") == 1;
+        Processing: MetaStore().Known("Obsolete");
+        Output: 1;
+    }
+    Case "missing" {
+        Constraint: MetaStore().Known("Nope") == 0;
+        Processing: MetaStore().Known("Nope");
+        Output: 0;
+    }
+}
+
+Test Define {
+    Constraint: MetaStore().Define("Custom", "method") == 1;
+    Processing: MetaStore().Define("Custom", "method");
+    Output: 1;
+}
+
+Test Forget {
+    Constraint: MetaStore().Forget("Nope") == 0;
+    Processing: MetaStore().Forget("Nope");
+    Output: 0;
+}
+
+Test Attach {
+    Case "pure method" {
+        Constraint: MetaStore().Attach("User", "method", "Run", "Pure") == 1;
+        Processing: MetaStore().Attach("User", "method", "Run", "Pure");
+        Output: 1;
+    }
+    Case "wrong usage" {
+        Constraint: MetaStore().Attach("User", "type", "Run", "Pure") == 0;
+        Processing: MetaStore().Attach("User", "type", "Run", "Pure");
+        Output: 0;
+    }
+}
+
+Test AttributeList {
+    Constraint: MetaStore().AttributeList("User", "Run") == "none";
+    Processing: MetaStore().AttributeList("User", "Run");
+    Output: "none";
+}
+
+Test HasMark {
+    Constraint: MetaStore().HasMark("User", "Run", "Pure") == 0;
+    Processing: MetaStore().HasMark("User", "Run", "Pure");
+    Output: 0;
+}
+
+Test Put {
+    Constraint: MetaStore().Put("User", "name", "ada") == 1;
+    Processing: MetaStore().Put("User", "name", "ada");
+    Output: 1;
+}
+
+Test PutIn {
+    Constraint: MetaStore().PutIn("User", "name", "ada", "public") == 1;
+    Processing: MetaStore().PutIn("User", "name", "ada", "public");
+    Output: 1;
+}
+
+Test Read {
+    Constraint: MetaStore().Read("User", "name") == "none";
+    Processing: MetaStore().Read("User", "name");
+    Output: "none";
+}
+
+Test ScopeOf {
+    Constraint: MetaStore().ScopeOf("User", "name") == "none";
+    Processing: MetaStore().ScopeOf("User", "name");
+    Output: "none";
+}
+
+Test HasKey {
+    Constraint: MetaStore().HasKey("User", "name") == 0;
+    Processing: MetaStore().HasKey("User", "name");
+    Output: 0;
+}
+
+Test RemoveKey {
+    Constraint: MetaStore().RemoveKey("User", "name") == 0;
+    Processing: MetaStore().RemoveKey("User", "name");
+    Output: 0;
+}
+
+Test Entries {
+    Constraint: MetaStore().Entries("User") == "none";
+    Processing: MetaStore().Entries("User");
+    Output: "none";
+}
+
+Test KeysStarting {
+    Constraint: MetaStore().KeysStarting("User", "n") == "none";
+    Processing: MetaStore().KeysStarting("User", "n");
+    Output: "none";
+}
+
+Test CopyTo {
+    Constraint: MetaStore().CopyTo("User", "Copy") == 0;
+    Processing: MetaStore().CopyTo("User", "Copy");
+    Output: 0;
+}
+
+Test MergeTo {
+    Constraint: MetaStore().MergeTo("User", "Copy") == 0;
+    Processing: MetaStore().MergeTo("User", "Copy");
+    Output: 0;
+}
+
+Test Require {
+    Constraint: MetaStore().Require("name") == 1;
+    Processing: MetaStore().Require("name");
+    Output: 1;
+}
+
+Test Allow {
+    Constraint: MetaStore().Allow("note") == 1;
+    Processing: MetaStore().Allow("note");
+    Output: 1;
+}
+
+Test Validate {
+    Constraint: MetaStore().Validate("User") == 1;
+    Processing: MetaStore().Validate("User");
+    Output: 1;
+}
+
+Test Warning {
+    Constraint: MetaStore().Warning() == "none";
+    Processing: MetaStore().Warning();
+    Output: "none";
+}
+
+Test Error {
+    Constraint: MetaStore().Error() == "none";
+    Processing: MetaStore().Error();
+    Output: "none";
+}
+
+Test Append {
+    Processing: MetaStore().Append("E#User#name#ada#public");
+    Assert: MetaStore().Error() == "none";
+}
+
+Test Export {
+    Constraint: MetaStore().Export("User") == "";
+    Processing: MetaStore().Export("User");
+    Output: "";
+}
+
+Test Import {
+    Constraint: MetaStore().Import("User", "") == 0;
+    Processing: MetaStore().Import("User", "");
+    Output: 0;
+}
+
+Test Without {
+    Constraint: MetaStore().Without(2, "Nope", "", "") == 0;
+    Processing: MetaStore().Without(2, "Nope", "", "");
+    Output: 0;
+}
+
+Test Drops {
+    Constraint: MetaStore().Drops("E#User#name#ada#public", 0, "User", "name", "") == 1;
+    Processing: MetaStore().Drops("E#User#name#ada#public", 0, "User", "name", "");
+    Output: 1;
+}
+
+Test Definition {
+    Constraint: MetaStore().Definition("Obsolete") == "D#Obsolete#any#1";
+    Processing: MetaStore().Definition("Obsolete");
+    Output: "D#Obsolete#any#1";
+}
+
+Test Entry {
+    Constraint: MetaStore().Entry("User", "name") == "";
+    Processing: MetaStore().Entry("User", "name");
+    Output: "";
+}
+
+Test CountKind {
+    Constraint: MetaStore().CountKind("D") == 25;
+    Processing: MetaStore().CountKind("D");
+    Output: 25;
+}
+
+Test Pieces {
+    Constraint: MetaStore().Pieces("") == 0;
+    Processing: MetaStore().Pieces("");
+    Output: 0;
+}
+
+Test Piece {
+    Constraint: MetaStore().Piece("a|b", 1) == "b";
+    Processing: MetaStore().Piece("a|b", 1);
+    Output: "b";
+}
+
+Test Field {
+    Constraint: MetaStore().Field("D#Obsolete#any", 1) == "Obsolete";
+    Processing: MetaStore().Field("D#Obsolete#any", 1);
+    Output: "Obsolete";
+}
+
+Test CharAt {
+    Constraint: MetaStore().CharAt("ab", 1) == "b";
+    Processing: MetaStore().CharAt("ab", 1);
+    Output: "b";
+}
+
+Test Starts {
+    Constraint: MetaStore().Starts("Obsolete", "Ob") == 1;
+    Processing: MetaStore().Starts("Obsolete", "Ob");
+    Output: 1;
 }

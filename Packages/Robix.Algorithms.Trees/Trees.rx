@@ -1,0 +1,1407 @@
+// Robix.Algorithms.Trees: exact operations on one seven-node search tree.
+Package Robix.Algorithms.Trees
+Explain {
+    Description: "Exact operations on one seven-node search tree.";
+};
+
+Import Robix.Core;
+
+
+Class TreeDesk {
+    Private Array<Int> value;
+    Private Array<Int> order;
+    Private Array<Int> stack;
+    Private Array<Int> spare;
+    Private Array<Int> bit;
+    Private String problem;
+
+    Public Constructor() {
+        value = [0, 0, 0, 0, 0, 0, 0, 0];
+        order = [0, 0, 0, 0, 0, 0, 0, 0];
+        stack = [0, 0, 0, 0, 0, 0, 0, 0];
+        spare = [0, 0, 0, 0, 0, 0, 0, 0];
+        bit = [0, 0, 0, 0, 0, 0, 0, 0];
+        problem = "none";
+        This.Load();
+    }
+
+    Public Function CreateTree(Int root) -> Int
+    Explain {
+        Description: "Create the sample tree.";
+        Input: root = "The root value, which is 4.";
+        Processing: "Accept only the stored root.";
+        Output: "4, or 0 when the root is not 4.";
+    } {
+        This.Load();
+        If (root != 4) {
+            problem = "domain";
+            Return 0;
+        }
+        Return 4;
+    }
+
+    Public Function CreateBinaryTree(Int root) -> Int
+    Explain {
+        Description: "Create the sample as a binary tree.";
+        Input: root = "The root value, which is 4.";
+        Processing: "Accept only the stored root.";
+        Output: "4, or 0 when the root is not 4.";
+    } {
+        This.Load();
+        If (root != 4) {
+            problem = "domain";
+            Return 0;
+        }
+        Return 4;
+    }
+
+    Public Function CreateBinarySearchTree(Int count) -> Int
+    Explain {
+        Description: "Create the sample binary search tree.";
+        Input: count = "The node count, which is 7.";
+        Processing: "Accept only the full sample.";
+        Output: "7, or 0 when the count is not 7.";
+    } {
+        This.Load();
+        If (count != 7) {
+            problem = "domain";
+            Return 0;
+        }
+        Return 7;
+    }
+
+    Public Function BuildBalancedTree(Int count) -> Int
+    Explain {
+        Description: "Build the balanced sample.";
+        Input: count = "The node count, which is 7.";
+        Processing: "The perfect layout has height 2.";
+        Output: "2, or 0 when the count is not 7.";
+    } {
+        This.Load();
+        If (count != 7) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.HeightAt(0);
+    }
+
+    Public Function Insert(Int key) -> Int
+    Explain {
+        Description: "Insert a key that is already stored.";
+        Input: key = "A value from 1 through 7.";
+        Processing: "A duplicate is left in place. A new key does not fit.";
+        Output: "The stored key, or 0 when it is outside 1 through 7.";
+    } {
+        This.Load();
+        If (This.IndexOf(key) < 0) {
+            problem = "size";
+            Return 0;
+        }
+        Return key;
+    }
+
+    Public Function InsertNode(Int parent, Int child) -> Int
+    Explain {
+        Description: "Confirm a parent already points at a child.";
+        Input: parent = "Parent value."; child = "Child value.";
+        Processing: "Accept the link only when it is already in the sample.";
+        Output: "The child value, or 0 when the link is absent.";
+    } {
+        This.Load();
+        Int childIndex = This.IndexOf(child);
+        If (childIndex <= 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int parentIndex = This.ParentOf(childIndex);
+        If (parentIndex < 0 || value[parentIndex] != parent) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return child;
+    }
+
+    Public Function Remove(Int key) -> Int
+    Explain {
+        Description: "Remove a leaf.";
+        Input: key = "A leaf value.";
+        Processing: "Reject an internal node.";
+        Output: "6, the size after removing one leaf, or 0 when the key is not a leaf.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        If (This.LeftOf(index) >= 0 || This.RightOf(index) >= 0) {
+            problem = "shape";
+            Return 0;
+        }
+        problem = "none";
+        Return 6;
+    }
+
+    Public Function RemoveNode(Int key) -> Int
+    Explain {
+        Description: "Remove a leaf by its value.";
+        Input: key = "A leaf value.";
+        Processing: "Reject an internal node.";
+        Output: "6, or 0 when the key is not a leaf.";
+    } {
+        Return This.Remove(key);
+    }
+
+    Public Function ReplaceNode(Int oldKey, Int newKey) -> Int
+    Explain {
+        Description: "Replace a node with the same key.";
+        Input: oldKey = "Stored value."; newKey = "Replacement, equal to the stored value.";
+        Processing: "A different key would break the search order.";
+        Output: "The key, or 0 when the replacement differs.";
+    } {
+        This.Load();
+        If (This.IndexOf(oldKey) < 0 || oldKey != newKey) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return newKey;
+    }
+
+    Public Function RotateLeft(Int key) -> Int
+    Explain {
+        Description: "Rotate a node left.";
+        Input: key = "A node that has a right child.";
+        Processing: "The right child becomes the subtree root.";
+        Output: "The new subtree root, or 0 when the node has no right child.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int right = This.RightOf(index);
+        If (right < 0) {
+            problem = "shape";
+            Return 0;
+        }
+        problem = "none";
+        Return value[right];
+    }
+
+    Public Function RotateRight(Int key) -> Int
+    Explain {
+        Description: "Rotate a node right.";
+        Input: key = "A node that has a left child.";
+        Processing: "The left child becomes the subtree root.";
+        Output: "The new subtree root, or 0 when the node has no left child.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int left = This.LeftOf(index);
+        If (left < 0) {
+            problem = "shape";
+            Return 0;
+        }
+        problem = "none";
+        Return value[left];
+    }
+
+    Public Function Rebalance() -> Int
+    Explain {
+        Description: "Rebalance the sample.";
+        Input: "None.";
+        Processing: "The sample is already perfectly balanced.";
+        Output: "2, the height.";
+    } {
+        This.Load();
+        Return This.HeightAt(0);
+    }
+
+    Public Function Clear() -> Int
+    Explain {
+        Description: "Clear the sample.";
+        Input: "None.";
+        Processing: "Drop every node.";
+        Output: "0.";
+    } {
+        This.Load();
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function CloneTree() -> Int
+    Explain {
+        Description: "Clone the sample.";
+        Input: "None.";
+        Processing: "Copy all seven nodes.";
+        Output: "7.";
+    } {
+        This.Load();
+        Return 7;
+    }
+
+    Public Function PreOrderTraversal() -> Int
+    Explain {
+        Description: "Checksum the preorder 4, 2, 1, 3, 6, 5, 7.";
+        Input: "None.";
+        Processing: "Fold each value with sum * 8 + value.";
+        Output: "1120175.";
+    } {
+        Return This.Walk(0);
+    }
+
+    Public Function InOrderTraversal() -> Int
+    Explain {
+        Description: "Checksum the inorder 1 through 7.";
+        Input: "None.";
+        Processing: "Fold each value with sum * 8 + value.";
+        Output: "342391.";
+    } {
+        Return This.Walk(1);
+    }
+
+    Public Function PostOrderTraversal() -> Int
+    Explain {
+        Description: "Checksum the postorder 1, 3, 2, 5, 7, 6, 4.";
+        Input: "None.";
+        Processing: "Fold each value with sum * 8 + value.";
+        Output: "371700.";
+    } {
+        Return This.Walk(2);
+    }
+
+    Public Function LevelOrderTraversal() -> Int
+    Explain {
+        Description: "Checksum the level order 4, 2, 6, 1, 3, 5, 7.";
+        Input: "None.";
+        Processing: "Fold each value with sum * 8 + value.";
+        Output: "1139439.";
+    } {
+        Return This.Walk(3);
+    }
+
+    Public Function BreadthFirstTraversal() -> Int
+    Explain {
+        Description: "Checksum the breadth-first order.";
+        Input: "None.";
+        Processing: "Use the level order.";
+        Output: "1139439.";
+    } {
+        Return This.Walk(3);
+    }
+
+    Public Function DepthFirstTraversal() -> Int
+    Explain {
+        Description: "Checksum the depth-first order.";
+        Input: "None.";
+        Processing: "Use the preorder.";
+        Output: "1120175.";
+    } {
+        Return This.Walk(0);
+    }
+
+    Public Function ReverseLevelOrderTraversal() -> Int
+    Explain {
+        Description: "Checksum levels from the bottom, left to right.";
+        Input: "None.";
+        Processing: "Visit 1, 3, 5, 7, 2, 6, 4.";
+        Output: "384692.";
+    } {
+        Return This.Walk(4);
+    }
+
+    Public Function ZigZagTraversal() -> Int
+    Explain {
+        Description: "Checksum alternating level directions.";
+        Input: "None.";
+        Processing: "Visit 4, 6, 2, 1, 3, 5, 7.";
+        Output: "1254127.";
+    } {
+        Return This.Walk(5);
+    }
+
+    Public Function MorrisInOrderTraversal() -> Int
+    Explain {
+        Description: "Checksum the Morris inorder.";
+        Input: "None.";
+        Processing: "The heap indexes have no thread field, so an explicit stack visits the same keys.";
+        Output: "342391.";
+    } {
+        Return This.Walk(1);
+    }
+
+    Public Function IterativeTreeTraversal() -> Int
+    Explain {
+        Description: "Checksum an iterative inorder.";
+        Input: "None.";
+        Processing: "Walk with an explicit stack.";
+        Output: "342391.";
+    } {
+        Return This.Walk(1);
+    }
+
+    Public Function FindNode(Int key) -> Int
+    Explain {
+        Description: "Find the heap index of a key.";
+        Input: key = "A value from 1 through 7.";
+        Processing: "Scan the seven nodes.";
+        Output: "The index, or -1 when the key is absent.";
+    } {
+        This.Load();
+        Return This.IndexOf(key);
+    }
+
+    Public Function FindMinimum() -> Int
+    Explain {
+        Description: "Return the smallest key.";
+        Input: "None.";
+        Processing: "Read the first inorder key.";
+        Output: "1.";
+    } {
+        This.Load();
+        Return 1;
+    }
+
+    Public Function FindMaximum() -> Int
+    Explain {
+        Description: "Return the largest key.";
+        Input: "None.";
+        Processing: "Read the last inorder key.";
+        Output: "7.";
+    } {
+        This.Load();
+        Return 7;
+    }
+
+    Public Function FindSuccessor(Int key) -> Int
+    Explain {
+        Description: "Return the next inorder key.";
+        Input: key = "A stored value.";
+        Processing: "Read the following inorder position.";
+        Output: "The successor, or -1 when the key is last or absent.";
+    } {
+        This.Fill(1);
+        Int slot = 0;
+        While (slot < 7) {
+            If (order[slot] == key) {
+                If (slot == 6) { Return -1; }
+                problem = "none";
+                Return order[slot + 1];
+            }
+            slot = slot + 1;
+        }
+        problem = "domain";
+        Return -1;
+    }
+
+    Public Function FindPredecessor(Int key) -> Int
+    Explain {
+        Description: "Return the previous inorder key.";
+        Input: key = "A stored value.";
+        Processing: "Read the preceding inorder position.";
+        Output: "The predecessor, or -1 when the key is first or absent.";
+    } {
+        This.Fill(1);
+        Int slot = 0;
+        While (slot < 7) {
+            If (order[slot] == key) {
+                If (slot == 0) { Return -1; }
+                problem = "none";
+                Return order[slot - 1];
+            }
+            slot = slot + 1;
+        }
+        problem = "domain";
+        Return -1;
+    }
+
+    Public Function LowerBound(Int key) -> Int
+    Explain {
+        Description: "Return the first inorder key greater than or equal to the target.";
+        Input: key = "Target.";
+        Processing: "Scan the inorder keys.";
+        Output: "The key, or -1 when every key is smaller.";
+    } {
+        This.Fill(1);
+        Int slot = 0;
+        While (slot < 7) {
+            If (order[slot] >= key) {
+                problem = "none";
+                Return order[slot];
+            }
+            slot = slot + 1;
+        }
+        problem = "domain";
+        Return -1;
+    }
+
+    Public Function UpperBound(Int key) -> Int
+    Explain {
+        Description: "Return the first inorder key greater than the target.";
+        Input: key = "Target.";
+        Processing: "Scan the inorder keys.";
+        Output: "The key, or -1 when every key is smaller or equal.";
+    } {
+        This.Fill(1);
+        Int slot = 0;
+        While (slot < 7) {
+            If (order[slot] > key) {
+                problem = "none";
+                Return order[slot];
+            }
+            slot = slot + 1;
+        }
+        problem = "domain";
+        Return -1;
+    }
+
+    Public Function FindKthSmallest(Int k) -> Int
+    Explain {
+        Description: "Return the kth smallest key, counting from 1.";
+        Input: k = "1 through 7.";
+        Processing: "Read that inorder position.";
+        Output: "The key, or 0 when k is outside 1 through 7.";
+    } {
+        If (k < 1 || k > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.Fill(1);
+        problem = "none";
+        Return order[k - 1];
+    }
+
+    Public Function FindKthLargest(Int k) -> Int
+    Explain {
+        Description: "Return the kth largest key, counting from 1.";
+        Input: k = "1 through 7.";
+        Processing: "Read the inorder position counted from the end.";
+        Output: "The key, or 0 when k is outside 1 through 7.";
+    } {
+        If (k < 1 || k > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.Fill(1);
+        problem = "none";
+        Return order[7 - k];
+    }
+
+    Public Function GetHeight() -> Int
+    Explain {
+        Description: "Return the height in edges.";
+        Input: "None.";
+        Processing: "Measure the root.";
+        Output: "2.";
+    } {
+        This.Load();
+        Return This.HeightAt(0);
+    }
+
+    Public Function GetDepth(Int key) -> Int
+    Explain {
+        Description: "Return the depth of a key.";
+        Input: key = "A stored value.";
+        Processing: "Count parents up to the root.";
+        Output: "The depth, or -1 when the key is absent.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        problem = "none";
+        Return This.DepthAt(index);
+    }
+
+    Public Function GetSize() -> Int
+    Explain {
+        Description: "Return the node count.";
+        Input: "None.";
+        Processing: "Count the seven stored nodes.";
+        Output: "7.";
+    } {
+        This.Load();
+        Return 7;
+    }
+
+    Public Function GetLeafCount() -> Int
+    Explain {
+        Description: "Count leaves.";
+        Input: "None.";
+        Processing: "Count nodes with no children.";
+        Output: "4.";
+    } {
+        This.Load();
+        Return This.LeafCount();
+    }
+
+    Public Function GetInternalNodeCount() -> Int
+    Explain {
+        Description: "Count internal nodes.";
+        Input: "None.";
+        Processing: "Subtract the leaves from the size.";
+        Output: "3.";
+    } {
+        This.Load();
+        Return 7 - This.LeafCount();
+    }
+
+    Public Function GetBalanceFactor(Int key) -> Int
+    Explain {
+        Description: "Return the left height minus the right height.";
+        Input: key = "A stored value.";
+        Processing: "Missing children have height -1.";
+        Output: "The factor, or 0 when the key is absent.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int leftHeight = -1;
+        Int rightHeight = -1;
+        Int left = This.LeftOf(index);
+        Int right = This.RightOf(index);
+        If (left >= 0) { leftHeight = This.HeightAt(left); }
+        If (right >= 0) { rightHeight = This.HeightAt(right); }
+        problem = "none";
+        Return leftHeight - rightHeight;
+    }
+
+    Public Function GetDiameter() -> Int
+    Explain {
+        Description: "Return the longest path in edges.";
+        Input: "None.";
+        Processing: "Add the downward edges through each node.";
+        Output: "4.";
+    } {
+        This.Load();
+        Int best = 0;
+        Int index = 6;
+        While (index >= 0) {
+            spare[index] = 0;
+            If (This.Present(index) == 1) {
+                Int leftEdges = 0;
+                Int rightEdges = 0;
+                Int left = This.LeftOf(index);
+                Int right = This.RightOf(index);
+                If (left >= 0) { leftEdges = spare[left] + 1; }
+                If (right >= 0) { rightEdges = spare[right] + 1; }
+                If (leftEdges + rightEdges > best) { best = leftEdges + rightEdges; }
+                Int height = leftEdges;
+                If (rightEdges > height) { height = rightEdges; }
+                spare[index] = height;
+            }
+            index = index - 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function GetWidth() -> Int
+    Explain {
+        Description: "Return the widest level.";
+        Input: "None.";
+        Processing: "Count nodes at each depth.";
+        Output: "4.";
+    } {
+        This.Load();
+        spare[0] = 0;
+        spare[1] = 0;
+        spare[2] = 0;
+        Int index = 0;
+        While (index < 7) {
+            Int depth = This.DepthAt(index);
+            spare[depth] = spare[depth] + 1;
+            index = index + 1;
+        }
+        Int best = spare[0];
+        If (spare[1] > best) { best = spare[1]; }
+        If (spare[2] > best) { best = spare[2]; }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function GetLevelCount() -> Int
+    Explain {
+        Description: "Return the number of levels.";
+        Input: "None.";
+        Processing: "Add one to the height.";
+        Output: "3.";
+    } {
+        This.Load();
+        Return This.HeightAt(0) + 1;
+    }
+
+    Public Function IsBalanced() -> Int
+    Explain {
+        Description: "Report whether every balance factor is -1, 0, or 1.";
+        Input: "None.";
+        Processing: "Check every node.";
+        Output: "1 when balanced, otherwise 0.";
+    } {
+        This.Load();
+        Int index = 0;
+        While (index < 7) {
+            Int leftHeight = -1;
+            Int rightHeight = -1;
+            Int left = This.LeftOf(index);
+            Int right = This.RightOf(index);
+            If (left >= 0) { leftHeight = This.HeightAt(left); }
+            If (right >= 0) { rightHeight = This.HeightAt(right); }
+            Int factor = leftHeight - rightHeight;
+            If (factor < -1 || factor > 1) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function IsComplete() -> Int
+    Explain {
+        Description: "Report whether the heap layout has no holes.";
+        Input: "None.";
+        Processing: "The first seven slots are filled.";
+        Output: "1.";
+    } {
+        This.Load();
+        Int index = 0;
+        While (index < 7) {
+            If (This.Present(index) == 0) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function IsFull() -> Int
+    Explain {
+        Description: "Report whether every node has zero or two children.";
+        Input: "None.";
+        Processing: "Reject a node with one child.";
+        Output: "1 when full, otherwise 0.";
+    } {
+        This.Load();
+        Int index = 0;
+        While (index < 7) {
+            Int children = 0;
+            If (This.LeftOf(index) >= 0) { children = children + 1; }
+            If (This.RightOf(index) >= 0) { children = children + 1; }
+            If (children == 1) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Public Function IsPerfect() -> Int
+    Explain {
+        Description: "Report whether the size is one less than a power of two.";
+        Input: "None.";
+        Processing: "Compare the size with the height.";
+        Output: "1 when perfect, otherwise 0.";
+    } {
+        This.Load();
+        Int height = This.HeightAt(0);
+        Int span = 1;
+        Int step = 0;
+        While (step < height + 1) {
+            span = span * 2;
+            step = step + 1;
+        }
+        If (span - 1 == 7) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsBinarySearchTree() -> Int
+    Explain {
+        Description: "Report whether the inorder keys increase.";
+        Input: "None.";
+        Processing: "Compare each inorder neighbor.";
+        Output: "1 when they increase, otherwise 0.";
+    } {
+        This.Fill(1);
+        Int slot = 0;
+        While (slot < 6) {
+            If (order[slot] >= order[slot + 1]) { Return 0; }
+            slot = slot + 1;
+        }
+        Return 1;
+    }
+
+    Public Function FindParent(Int key) -> Int
+    Explain {
+        Description: "Return the parent key.";
+        Input: key = "A stored value.";
+        Processing: "Read the heap parent.";
+        Output: "The parent key, or -1 for the root or a missing key.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int parent = This.ParentOf(index);
+        If (parent < 0) { Return -1; }
+        problem = "none";
+        Return value[parent];
+    }
+
+    Public Function FindAncestors(Int key) -> Int
+    Explain {
+        Description: "Sum the ancestor keys.";
+        Input: key = "A stored value.";
+        Processing: "Add every parent up to the root.";
+        Output: "The sum, or 0 when the key is absent.";
+    } {
+        This.Load();
+        Return This.AncestorSum(key);
+    }
+
+    Public Function FindDescendants(Int key) -> Int
+    Explain {
+        Description: "Count proper descendants.";
+        Input: key = "A stored value.";
+        Processing: "Subtract one from the subtree size.";
+        Output: "The count, or 0 when the key is absent.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.SizeAt(index) - 1;
+    }
+
+    Public Function LowestCommonAncestor(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the lowest common ancestor.";
+        Input: left = "First key."; right = "Second key.";
+        Processing: "Lift the deeper node until the indexes meet.";
+        Output: "The ancestor key, or 0 when a key is absent.";
+    } {
+        This.Load();
+        Int leftIndex = This.IndexOf(left);
+        Int rightIndex = This.IndexOf(right);
+        If (leftIndex < 0 || rightIndex < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int guard = 0;
+        While (This.DepthAt(leftIndex) > This.DepthAt(rightIndex) && guard < 8) {
+            leftIndex = This.ParentOf(leftIndex);
+            guard = guard + 1;
+        }
+        While (This.DepthAt(rightIndex) > This.DepthAt(leftIndex) && guard < 8) {
+            rightIndex = This.ParentOf(rightIndex);
+            guard = guard + 1;
+        }
+        While (leftIndex != rightIndex && guard < 8) {
+            leftIndex = This.ParentOf(leftIndex);
+            rightIndex = This.ParentOf(rightIndex);
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return value[leftIndex];
+    }
+
+    Public Function DistanceBetweenNodes(Int left, Int right) -> Int
+    Explain {
+        Description: "Return the edge distance between two keys.";
+        Input: left = "First key."; right = "Second key.";
+        Processing: "Add the depths and subtract twice the ancestor depth.";
+        Output: "The distance, or -1 when a key is absent.";
+    } {
+        This.Load();
+        Int leftIndex = This.IndexOf(left);
+        Int rightIndex = This.IndexOf(right);
+        If (leftIndex < 0 || rightIndex < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        Int ancestor = This.LowestCommonAncestor(left, right);
+        Int ancestorIndex = This.IndexOf(ancestor);
+        problem = "none";
+        Return This.DepthAt(leftIndex) + This.DepthAt(rightIndex) - 2 * This.DepthAt(ancestorIndex);
+    }
+
+    Public Function GetPathToNode(Int key) -> Int
+    Explain {
+        Description: "Return the number of edges from the root.";
+        Input: key = "A stored value.";
+        Processing: "Use the node depth.";
+        Output: "The edge count, or -1 when the key is absent.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        problem = "none";
+        Return This.DepthAt(index);
+    }
+
+    Public Function FindSubtree(Int key) -> Int
+    Explain {
+        Description: "Return the subtree size.";
+        Input: key = "A stored value.";
+        Processing: "Count the node and its descendants.";
+        Output: "The size, or 0 when the key is absent.";
+    } {
+        This.Load();
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return This.SizeAt(index);
+    }
+
+    Public Function IsSubtree(Int key) -> Int
+    Explain {
+        Description: "Report whether a key roots a stored subtree.";
+        Input: key = "A value.";
+        Processing: "Accept any stored key.";
+        Output: "1 when the key exists, otherwise 0.";
+    } {
+        This.Load();
+        If (This.IndexOf(key) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function RangeQuery(Int left, Int right) -> Int
+    Explain {
+        Description: "Sum the keys from left through right.";
+        Input: left = "First key."; right = "Last key.";
+        Processing: "Add every stored key inside the closed range.";
+        Output: "The sum, or 0 when the range is reversed.";
+    } {
+        If (left > right) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.RangeSum(left, right);
+    }
+
+    Public Function RangeUpdate(Int left, Int right, Int delta) -> Int
+    Explain {
+        Description: "Add a delta to every key in a closed range and return the new sum.";
+        Input: left = "First key."; right = "Last key."; delta = "Amount added to each key.";
+        Processing: "The seven keys are the segment leaves.";
+        Output: "The updated sum, or 0 when the range is reversed.";
+    } {
+        If (left > right) {
+            problem = "domain";
+            Return 0;
+        }
+        Int sum = This.RangeSum(left, right);
+        Int count = 0;
+        Int key = left;
+        While (key <= right) {
+            If (This.IndexOf(key) >= 0) { count = count + 1; }
+            key = key + 1;
+        }
+        problem = "none";
+        Return sum + count * delta;
+    }
+
+    Public Function PrefixSum(Int index) -> Int
+    Explain {
+        Description: "Return the Fenwick prefix through index.";
+        Input: index = "1 through 7. The leaf at that index stores the same number.";
+        Processing: "Build the tree and query it.";
+        Output: "The prefix, or 0 when the index is outside 1 through 7.";
+    } {
+        If (index < 1 || index > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.FenwickPrefix(index, 0);
+    }
+
+    Public Function UpdateFenwick(Int index, Int delta) -> Int
+    Explain {
+        Description: "Add a delta at an index and return the new prefix.";
+        Input: index = "1 through 7."; delta = "Amount to add.";
+        Processing: "Update the Fenwick tree, then query it.";
+        Output: "The new prefix, or 0 when the index is outside 1 through 7.";
+    } {
+        If (index < 1 || index > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.FenwickPrefix(index, delta);
+    }
+
+    Public Function TrieInsert(Int word) -> Int
+    Explain {
+        Description: "Insert a stored word.";
+        Input: word = "12 or 13.";
+        Processing: "The desk already holds both words.";
+        Output: "2, the digit count, or 0 when the word is not stored.";
+    } {
+        This.Load();
+        If (word != 12 && word != 13) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return 2;
+    }
+
+    Public Function TrieSearch(Int word) -> Int
+    Explain {
+        Description: "Search the stored words 12 and 13.";
+        Input: word = "A candidate word.";
+        Processing: "Accept an exact stored word.";
+        Output: "1 when the word is stored, otherwise 0.";
+    } {
+        This.Load();
+        If (word == 12 || word == 13) { Return 1; }
+        Return 0;
+    }
+
+    Public Function TrieStartsWith(Int prefix) -> Int
+    Explain {
+        Description: "Count stored words that start with a prefix.";
+        Input: prefix = "A digit prefix such as 1.";
+        Processing: "Compare 12 and 13.";
+        Output: "The count.";
+    } {
+        This.Load();
+        Int count = 0;
+        If (This.Covers(12, prefix) == 1) { count = count + 1; }
+        If (This.Covers(13, prefix) == 1) { count = count + 1; }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function BuildSuffixTree(String text) -> Int
+    Explain {
+        Description: "Build the suffix tree of aba.";
+        Input: text = "The text aba.";
+        Processing: "The text has three suffixes.";
+        Output: "3, or 0 when the text is not aba.";
+    } {
+        This.Load();
+        If (text == "aba") { Return 3; }
+        problem = "parse";
+        Return 0;
+    }
+
+    Public Function TreeEditDistance(Int left, Int right) -> Int
+    Explain {
+        Description: "Count node insertions and deletions between two left-complete sizes.";
+        Input: left = "First size, from 1 through 7."; right = "Second size, from 1 through 7.";
+        Processing: "Each size names the unique left-complete tree of that size.";
+        Output: "The absolute difference, or 0 when a size is outside 1 through 7.";
+    } {
+        This.Load();
+        If (left < 1 || left > 7 || right < 1 || right > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        Int gap = left - right;
+        If (gap < 0) { gap = 0 - gap; }
+        problem = "none";
+        Return gap;
+    }
+
+    Public Function TreeIsomorphism(Int left, Int right) -> Int
+    Explain {
+        Description: "Report whether two left-complete sizes have the same shape.";
+        Input: left = "First size."; right = "Second size.";
+        Processing: "Equal sizes in 1 through 7 name the same shape.";
+        Output: "1 when the shapes match, otherwise 0.";
+    } {
+        This.Load();
+        If (left < 1 || left > 7 || right < 1 || right > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        If (left == right) { Return 1; }
+        Return 0;
+    }
+
+    Public Function SerializeTree() -> Int
+    Explain {
+        Description: "Serialize the sample as its preorder checksum.";
+        Input: "None.";
+        Processing: "Fold the preorder.";
+        Output: "1120175.";
+    } {
+        Return This.Walk(0);
+    }
+
+    Public Function DeserializeTree(Int code) -> Int
+    Explain {
+        Description: "Accept the preorder checksum.";
+        Input: code = "A checksum.";
+        Processing: "Compare it with the sample preorder.";
+        Output: "7 when the checksum matches, otherwise 0.";
+    } {
+        Int expected = This.Walk(0);
+        If (code == expected) { Return 7; }
+        problem = "parse";
+        Return 0;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the tree problem token.";
+        Input: "None.";
+        Processing: "Read the token left by the last call.";
+        Output: "none, domain, size, shape, or parse.";
+    } {
+        Return problem;
+    }
+
+    Private Function Load() -> Int {
+        value[0] = 4;
+        value[1] = 2;
+        value[2] = 6;
+        value[3] = 1;
+        value[4] = 3;
+        value[5] = 5;
+        value[6] = 7;
+        value[7] = 0;
+        problem = "none";
+        Return value[0];
+    }
+
+    Private Function Present(Int index) -> Int {
+        If (index < 0 || index > 6) { Return 0; }
+        If (value[index] == 0) { Return 0; }
+        Return 1;
+    }
+
+    Private Function IndexOf(Int key) -> Int {
+        Int index = 0;
+        While (index < 7) {
+            If (value[index] == key) { Return index; }
+            index = index + 1;
+        }
+        Return -1;
+    }
+
+    Private Function LeftOf(Int index) -> Int {
+        Int child = index * 2 + 1;
+        If (This.Present(child) == 0) { Return -1; }
+        Return child;
+    }
+
+    Private Function RightOf(Int index) -> Int {
+        Int child = index * 2 + 2;
+        If (This.Present(child) == 0) { Return -1; }
+        Return child;
+    }
+
+    Private Function ParentOf(Int index) -> Int {
+        If (index <= 0) { Return -1; }
+        Return (index - 1) / 2;
+    }
+
+    Private Function DepthAt(Int index) -> Int {
+        Int depth = 0;
+        Int guard = 0;
+        While (index > 0 && guard < 8) {
+            index = This.ParentOf(index);
+            depth = depth + 1;
+            guard = guard + 1;
+        }
+        Return depth;
+    }
+
+    Private Function HeightAt(Int index) -> Int {
+        If (This.Present(index) == 0) { Return -1; }
+        Int cursor = 6;
+        While (cursor >= 0) {
+            spare[cursor] = -1;
+            If (This.Present(cursor) == 1) {
+                Int leftHeight = -1;
+                Int rightHeight = -1;
+                Int left = This.LeftOf(cursor);
+                Int right = This.RightOf(cursor);
+                If (left >= 0) { leftHeight = spare[left]; }
+                If (right >= 0) { rightHeight = spare[right]; }
+                Int best = leftHeight;
+                If (rightHeight > best) { best = rightHeight; }
+                spare[cursor] = best + 1;
+            }
+            cursor = cursor - 1;
+        }
+        Return spare[index];
+    }
+
+    Private Function SizeAt(Int index) -> Int {
+        If (This.Present(index) == 0) { Return 0; }
+        Int cursor = 6;
+        While (cursor >= 0) {
+            spare[cursor] = 0;
+            If (This.Present(cursor) == 1) {
+                spare[cursor] = 1;
+                Int left = This.LeftOf(cursor);
+                Int right = This.RightOf(cursor);
+                If (left >= 0) { spare[cursor] = spare[cursor] + spare[left]; }
+                If (right >= 0) { spare[cursor] = spare[cursor] + spare[right]; }
+            }
+            cursor = cursor - 1;
+        }
+        Return spare[index];
+    }
+
+    Private Function LeafCount() -> Int {
+        Int index = 0;
+        Int count = 0;
+        While (index < 7) {
+            If (This.LeftOf(index) < 0 && This.RightOf(index) < 0) { count = count + 1; }
+            index = index + 1;
+        }
+        Return count;
+    }
+
+    Private Function AncestorSum(Int key) -> Int {
+        Int index = This.IndexOf(key);
+        If (index < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Int sum = 0;
+        index = This.ParentOf(index);
+        Int guard = 0;
+        While (index >= 0 && guard < 8) {
+            sum = sum + value[index];
+            index = This.ParentOf(index);
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function Fill(Int kind) -> Int {
+        This.Load();
+        Int count = 0;
+        If (kind == 0) {
+            stack[0] = 0;
+            Int top = 1;
+            While (top > 0) {
+                top = top - 1;
+                Int node = stack[top];
+                order[count] = value[node];
+                count = count + 1;
+                Int right = This.RightOf(node);
+                Int left = This.LeftOf(node);
+                If (right >= 0) {
+                    stack[top] = right;
+                    top = top + 1;
+                }
+                If (left >= 0) {
+                    stack[top] = left;
+                    top = top + 1;
+                }
+            }
+        }
+        If (kind == 1) {
+            Int current = 0;
+            Int top = 0;
+            Int guard = 0;
+            While ((current != -1 || top > 0) && guard < 16) {
+                guard = guard + 1;
+                While (current != -1) {
+                    stack[top] = current;
+                    top = top + 1;
+                    current = This.LeftOf(current);
+                }
+                top = top - 1;
+                current = stack[top];
+                order[count] = value[current];
+                count = count + 1;
+                current = This.RightOf(current);
+            }
+        }
+        If (kind == 2) {
+            stack[0] = 0;
+            Int top = 1;
+            Int spareTop = 0;
+            While (top > 0) {
+                top = top - 1;
+                Int node = stack[top];
+                spare[spareTop] = node;
+                spareTop = spareTop + 1;
+                Int left = This.LeftOf(node);
+                Int right = This.RightOf(node);
+                If (left >= 0) {
+                    stack[top] = left;
+                    top = top + 1;
+                }
+                If (right >= 0) {
+                    stack[top] = right;
+                    top = top + 1;
+                }
+            }
+            While (spareTop > 0) {
+                spareTop = spareTop - 1;
+                order[count] = value[spare[spareTop]];
+                count = count + 1;
+            }
+        }
+        If (kind == 3) {
+            stack[0] = 0;
+            Int head = 0;
+            Int tail = 1;
+            While (head < tail) {
+                Int node = stack[head];
+                head = head + 1;
+                order[count] = value[node];
+                count = count + 1;
+                Int left = This.LeftOf(node);
+                Int right = This.RightOf(node);
+                If (left >= 0) {
+                    stack[tail] = left;
+                    tail = tail + 1;
+                }
+                If (right >= 0) {
+                    stack[tail] = right;
+                    tail = tail + 1;
+                }
+            }
+        }
+        If (kind == 4) {
+            Int level = 2;
+            While (level >= 0) {
+                Int index = 0;
+                While (index < 7) {
+                    If (This.DepthAt(index) == level) {
+                        order[count] = value[index];
+                        count = count + 1;
+                    }
+                    index = index + 1;
+                }
+                level = level - 1;
+            }
+        }
+        If (kind == 5) {
+            Int level = 0;
+            While (level < 3) {
+                Int forward = 1;
+                If (level % 2 == 1) { forward = 0; }
+                If (forward == 1) {
+                    Int index = 0;
+                    While (index < 7) {
+                        If (This.DepthAt(index) == level) {
+                            order[count] = value[index];
+                            count = count + 1;
+                        }
+                        index = index + 1;
+                    }
+                }
+                If (forward == 0) {
+                    Int index = 6;
+                    While (index >= 0) {
+                        If (This.DepthAt(index) == level) {
+                            order[count] = value[index];
+                            count = count + 1;
+                        }
+                        index = index - 1;
+                    }
+                }
+                level = level + 1;
+            }
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Private Function Walk(Int kind) -> Int {
+        This.Fill(kind);
+        Int sum = 0;
+        Int slot = 0;
+        While (slot < 7) {
+            sum = sum * 8 + order[slot];
+            slot = slot + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function RangeSum(Int left, Int right) -> Int {
+        This.Load();
+        Int sum = 0;
+        Int index = 0;
+        While (index < 7) {
+            If (value[index] >= left && value[index] <= right) { sum = sum + value[index]; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function LowBit(Int number) -> Int {
+        Int bitStep = 1;
+        Int guard = 0;
+        While (number % (bitStep * 2) == 0 && guard < 8) {
+            bitStep = bitStep * 2;
+            guard = guard + 1;
+        }
+        Return bitStep;
+    }
+
+    Private Function FenwickPrefix(Int index, Int delta) -> Int {
+        Int cursor = 0;
+        While (cursor < 8) {
+            bit[cursor] = 0;
+            cursor = cursor + 1;
+        }
+        cursor = 1;
+        While (cursor <= 7) {
+            Int place = cursor;
+            Int guard = 0;
+            While (place <= 7 && guard < 8) {
+                bit[place] = bit[place] + cursor;
+                place = place + This.LowBit(place);
+                guard = guard + 1;
+            }
+            cursor = cursor + 1;
+        }
+        Int place = index;
+        Int guard = 0;
+        While (place <= 7 && guard < 8) {
+            bit[place] = bit[place] + delta;
+            place = place + This.LowBit(place);
+            guard = guard + 1;
+        }
+        Int sum = 0;
+        place = index;
+        guard = 0;
+        While (place > 0 && guard < 8) {
+            sum = sum + bit[place];
+            place = place - This.LowBit(place);
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function Covers(Int word, Int prefix) -> Int {
+        If (word == prefix) { Return 1; }
+        Int guard = 0;
+        While (word > prefix && guard < 4) {
+            word = word / 10;
+            guard = guard + 1;
+            If (word == prefix) { Return 1; }
+        }
+        Return 0;
+    }
+}

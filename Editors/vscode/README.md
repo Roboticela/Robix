@@ -145,11 +145,11 @@ The outline lists the packages, functions, classes, methods, and fields in the f
 
 ### Problems
 
-The file is checked as you type. A mismatched brace, a duplicated name, a break outside a loop, or an unknown name is marked in the editor and listed in the Problems panel. When the Robix interpreter is available, its check is added too. `Shift+F5` runs that check on the file you are editing.
+The file is checked as you type. A mismatched brace, a duplicated name, a break outside a loop, an unknown name, or a function with no companion test (`RX120`) is marked in the editor and listed in the Problems panel. When the Robix interpreter is available and the workspace is trusted, its check is added too. **Robix: Check** runs that check on the file you are editing.
 
 | Action | Shortcut |
 | --- | --- |
-| Check the file | Shift+F5 |
+| Check the file | Robix: Check |
 | Open the Problems panel | Ctrl+Shift+M |
 | Go to the next problem | F8 |
 
@@ -161,11 +161,13 @@ Run uses the interpreter. It is the way you see what the program prints.
 
 | Action | Shortcut | What it does |
 | --- | --- | --- |
-| Run | F5 | Runs the open file with the interpreter. On a `.rxp` file, runs the project. |
-| Compile | Ctrl+F5 | Compiles the file to a temporary executable and does not install it. On a project, builds the Debug configuration. |
-| Release | Ctrl+Shift+F5 | Writes a production executable under `Build/Release`. On a project, publishes the Release configuration. |
+| Start debugging | F5 | Builds a Debug binary when the compiler is available and stops under gdb. On a `.rx` file with no binary, runs the interpreter. |
+| Run without debugging | Ctrl+F5 | Runs the program and does not wait for a breakpoint. |
+| Run with the interpreter | Ctrl+F6 | Runs the open file with the interpreter. On a `.rxp` file, runs the project. |
+| Build | Ctrl+Shift+B | Builds the Debug configuration through the Robix build task. |
+| Switch source and test | Alt+O | Opens the companion `.test.rx`, or the `.rx` file from a test. |
 
-The same three actions are on the editor title bar, in the right-click menu, and in the Command Palette as **Robix: Run**, **Robix: Compile**, and **Robix: Check**. The status bar shows **Robix** while a Robix file is active. Click it to run.
+The editor title bar shows **Configure**, **Build**, and **Start Debugging**. **Robix: Run**, **Robix: Compile**, **Robix: Release**, and **Robix: Check** stay in the Command Palette. The status bar shows the configuration, the target, and Debug or Release. Click it to change the target. **Robix** on the right still runs the interpreter.
 
 Extra arguments for a program started with Run go in `robix.run.arguments`.
 
@@ -181,7 +183,7 @@ A function, a method, and a class have a single **Run** button above the name.
 - On a method, it runs the tests named `Class.Method`.
 - On a class, it runs every test that belongs to that class.
 
-`PASS` or the failing case is written in the **Robix** output, and a failure is also marked on the name. If that symbol has no test cases, the run stops and says so. F5 still runs the whole file.
+`PASS` or the failing case is written in the **Robix** output, and a failure is also marked on the name. If that symbol has no test cases, the run stops and says so. Ctrl+F6 still runs the whole file. F5 debugs it.
 
 ### File icons
 

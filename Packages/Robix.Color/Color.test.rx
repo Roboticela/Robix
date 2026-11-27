@@ -225,15 +225,15 @@ Test Pair {
     Output: 255;
 }
 
-Test HexDigit {
+Test Nibble {
     Case "letter" {
-        Constraint: ColorDesk().HexDigit("A") == 10;
-        Processing: ColorDesk().HexDigit("A");
+        Constraint: ColorDesk().Nibble("A") == 10;
+        Processing: ColorDesk().Nibble("A");
         Output: 10;
     }
     Case "invalid" {
-        Constraint: ColorDesk().HexDigit("g") == -1;
-        Processing: ColorDesk().HexDigit("g");
+        Constraint: ColorDesk().Nibble("g") == -1;
+        Processing: ColorDesk().Nibble("g");
         Output: -1;
     }
 }

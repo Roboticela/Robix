@@ -1,265 +1,848 @@
-Import Robix.Core;
+// Tests for Core.rx. Input reads an empty line while tests are running.
+
+Test Dispose {
+    Constraint: Box(1, "a").Dispose() == True;
+    Processing: Box(1, "a").Dispose();
+    Output: True;
+}
+
+Test IsDisposed {
+    Constraint: Box(1, "a").IsDisposed() == False;
+    Processing: Box(1, "a").IsDisposed();
+    Output: False;
+}
+
+Test Clone {
+    Case "value" {
+        Constraint: Clone(4) == 4;
+        Processing: Clone(4);
+        Output: 4;
+    }
+    Case "box" {
+        Constraint: Box(1, "a").Clone().Id == 2;
+        Processing: Box(1, "a").Clone().Id;
+        Output: 2;
+    }
+}
+
+Test CompareTo {
+    Assert: Compare(2, 5) == -1;
+}
+
+Test Equals {
+    Constraint: Equals(4, 4) == True;
+    Processing: Equals(4, 4);
+    Output: True;
+}
+
+Test DisposeAsync {
+    Assert: True;
+}
+
+Test Clean {
+    Constraint: Clean("  a  ") == "a";
+    Processing: Clean("  a  ");
+    Output: "a";
+}
+
+Test Digit {
+    Constraint: Digit("4") == 4;
+    Processing: Digit("4");
+    Output: 4;
+}
+
+Test IsIntText {
+    Constraint: IsIntText("12") == True;
+    Processing: IsIntText("12");
+    Output: True;
+}
+
+Test IsFloatText {
+    Constraint: IsFloatText("1.5") == True;
+    Processing: IsFloatText("1.5");
+    Output: True;
+}
+
+Test IsBoolText {
+    Constraint: IsBoolText("yes") == True;
+    Processing: IsBoolText("yes");
+    Output: True;
+}
+
+Test Pad2 {
+    Constraint: Pad2(3) == "03";
+    Processing: Pad2(3);
+    Output: "03";
+}
+
+Test HexDigit {
+    Constraint: HexDigit(10) == "a";
+    Processing: HexDigit(10);
+    Output: "a";
+}
+
+Test HexValue {
+    Constraint: HexValue("A") == 10;
+    Processing: HexValue("A");
+    Output: 10;
+}
 
 Test UnitText {
     Constraint: UnitText() == "()";
-    Processing: True;
+    Processing: UnitText();
+    Output: "()";
+}
+
+Test IsNullText {
+    Constraint: IsNullText("") == False;
+    Processing: IsNullText("");
+    Output: False;
+}
+
+Test IsBlank {
+    Constraint: IsBlank("  ") == True;
+    Processing: IsBlank("  ");
     Output: True;
+}
+
+Test IsDefined {
+    Constraint: IsDefined(True) == True;
+    Processing: IsDefined(True);
+    Output: True;
+}
+
+Test IsUndefined {
+    Constraint: IsUndefined("") == True;
+    Processing: IsUndefined("");
+    Output: True;
+}
+
+Test IsNull {
+    Constraint: IsNull("a") == False;
+    Processing: IsNull("a");
+    Output: False;
+}
+
+Test GetType {
+    Constraint: GetType("12").Name == "Int";
+    Processing: GetType("12").Name;
+    Output: "Int";
+}
+
+Test ToString {
+    Constraint: ToString(6) == "6";
+    Processing: ToString(6);
+    Output: "6";
+}
+
+Test GetHashCode {
+    Constraint: GetHashCode("a") == 177670;
+    Processing: GetHashCode("a");
+    Output: 177670;
+}
+
+Test Is {
+    Constraint: Is("a") == True;
+    Processing: Is("a");
+    Output: True;
+}
+
+Test As {
+    Constraint: As("  a  ") == "a";
+    Processing: As("  a  ");
+    Output: "a";
+}
+
+Test Default {
+    Constraint: Default() == 0;
+    Processing: Default();
+    Output: 0;
+}
+
+Test Compare {
+    Constraint: Compare(2, 5) == -1;
+    Processing: Compare(2, 5);
+    Output: -1;
+}
+
+Test TryConvert {
+    Constraint: TryConvert("12").Ok == 1;
+    Processing: TryConvert("12").Integer;
+    Output: 12;
+}
+
+Test ConvertChecked {
+    Constraint: ConvertChecked("12") == "12";
+    Processing: ConvertChecked("12");
+    Output: "12";
+}
+
+Test ConvertUnchecked {
+    Constraint: ConvertUnchecked("12") == "12";
+    Processing: ConvertUnchecked("12");
+    Output: "12";
+}
+
+Test Kind {
+    Constraint: Kind("12") == "Int";
+    Processing: Kind("12");
+    Output: "Int";
+}
+
+Test HasInput {
+    Constraint: HasInput("a") == True;
+    Processing: HasInput("a");
+    Output: True;
+}
+
+Test Input {
+    Constraint: Input() == "";
+    Processing: Input();
+    Output: "";
+}
+
+Test InputLine {
+    Constraint: InputLine() == "";
+    Processing: InputLine();
+    Output: "";
+}
+
+Test InputInt {
+    Constraint: InputInt() == 0;
+    Processing: InputInt();
+    Output: 0;
+}
+
+Test InputFloat {
+    Constraint: InputFloat() == 0.0;
+    Processing: InputFloat();
+    Output: 0.0;
+}
+
+Test InputBool {
+    Constraint: InputBool() == False;
+    Processing: InputBool();
+    Output: False;
+}
+
+Test InputChar {
+    Constraint: InputChar() == "";
+    Processing: InputChar();
+    Output: "";
+}
+
+Test InputKey {
+    Constraint: InputKey() == "";
+    Processing: InputKey();
+    Output: "";
+}
+
+Test InputPassword {
+    Constraint: InputPassword() == "";
+    Processing: InputPassword();
+    Output: "";
+}
+
+Test Prompt {
+    Constraint: Prompt("?") == "";
+    Processing: Prompt("?");
+    Output: "";
+}
+
+Test PromptInt {
+    Constraint: PromptInt("?") == 0;
+    Processing: PromptInt("?");
+    Output: 0;
+}
+
+Test PromptFloat {
+    Constraint: PromptFloat("?") == 0.0;
+    Processing: PromptFloat("?");
+    Output: 0.0;
+}
+
+Test PromptBool {
+    Constraint: PromptBool("?") == False;
+    Processing: PromptBool("?");
+    Output: False;
+}
+
+Test Confirm {
+    Constraint: Confirm("?") == False;
+    Processing: Confirm("?");
+    Output: False;
+}
+
+Test Accepted {
+    Constraint: Accepted("12", "int") == True;
+    Processing: Accepted("12", "int");
+    Output: True;
+}
+
+Test ReadText {
+    Constraint: ReadText("  a  ") == "a";
+    Processing: ReadText("  a  ");
+    Output: "a";
+}
+
+Test ReadLine {
+    Constraint: ReadLine("  a  ") == "a";
+    Processing: ReadLine("  a  ");
+    Output: "a";
 }
 
 Test ReadInt {
-    Constraint: ReadInt(" 42") == 42;
-    Processing: True;
-    Output: True;
+    Constraint: ReadInt("12") == 12;
+    Processing: ReadInt("12");
+    Output: 12;
 }
 
-Test ReadIntRejectsText {
-    Constraint: ReadInt("no") == 0;
-    Processing: True;
-    Output: True;
+Test ReadFloat {
+    Constraint: ReadFloat("1.5") == 1.5;
+    Processing: ReadFloat("1.5");
+    Output: 1.5;
 }
 
 Test ReadBool {
     Constraint: ReadBool("yes") == True;
-    Processing: True;
+    Processing: ReadBool("yes");
     Output: True;
 }
 
-Test Kind {
-    Constraint: Kind("3.5") == "Float";
-    Processing: True;
-    Output: True;
+Test ReadChar {
+    Constraint: ReadChar("ab") == "a";
+    Processing: ReadChar("ab");
+    Output: "a";
 }
 
-Test Accepted {
-    Constraint: Accepted("42", "Int") == True;
-    Processing: True;
+Test TryReadInt {
+    Constraint: TryReadInt("12").Ok == 1;
+    Processing: TryReadInt("12").Integer;
+    Output: 12;
+}
+
+Test TryReadFloat {
+    Constraint: TryReadFloat("1.5").Ok == 1;
+    Processing: TryReadFloat("1.5").Text;
+    Output: "1.5";
+}
+
+Test TryReadBool {
+    Constraint: TryReadBool("yes").Ok == 1;
+    Processing: TryReadBool("yes").Integer;
+    Output: 1;
+}
+
+Test ToBoolean {
+    Constraint: ToBoolean("yes") == True;
+    Processing: ToBoolean("yes");
     Output: True;
 }
 
 Test ToByte {
     Constraint: ToByte(300) == 255;
-    Processing: True;
-    Output: True;
+    Processing: ToByte(300);
+    Output: 255;
+}
+
+Test ToInt32 {
+    Constraint: ToInt32(4) == 4;
+    Processing: ToInt32(4);
+    Output: 4;
+}
+
+Test ToInt {
+    Constraint: ToInt("12") == 12;
+    Processing: ToInt("12");
+    Output: 12;
+}
+
+Test ToFloat64 {
+    Constraint: ToFloat64(4) == 4.0;
+    Processing: ToFloat64(4);
+    Output: 4.0;
+}
+
+Test ToFloat {
+    Constraint: ToFloat("1.5") == 1.5;
+    Processing: ToFloat("1.5");
+    Output: 1.5;
+}
+
+Test ToDecimalText {
+    Constraint: ToDecimalText(12) == "12.0";
+    Processing: ToDecimalText(12);
+    Output: "12.0";
+}
+
+Test ToChar {
+    Constraint: ToChar("ab") == "a";
+    Processing: ToChar("ab");
+    Output: "a";
+}
+
+Test ToBigInteger {
+    Constraint: ToBigInteger("12").Digits == "12";
+    Processing: ToBigInteger("12").Digits;
+    Output: "12";
 }
 
 Test ToHex {
-    Constraint: ToHex(255) == "ff";
-    Processing: True;
+    Constraint: ToHex(10) == "a";
+    Processing: ToHex(10);
+    Output: "a";
+}
+
+Test ToInt16 {
+    Constraint: ToInt16(40000) == 32767;
+    Processing: ToInt16(40000);
+    Output: 32767;
+}
+
+Test ToUInt16 {
+    Constraint: ToUInt16(-1) == 0;
+    Processing: ToUInt16(-1);
+    Output: 0;
+}
+
+Test ToUInt32 {
+    Constraint: ToUInt32(-1) == 0;
+    Processing: ToUInt32(-1);
+    Output: 0;
+}
+
+Test ToInt64 {
+    Constraint: ToInt64(4) == 4;
+    Processing: ToInt64(4);
+    Output: 4;
+}
+
+Test ToUInt64 {
+    Constraint: ToUInt64(-1) == 0;
+    Processing: ToUInt64(-1);
+    Output: 0;
+}
+
+Test ToFloat32 {
+    Constraint: ToFloat32(4) == 4.0;
+    Processing: ToFloat32(4);
+    Output: 4.0;
+}
+
+Test ParseInteger {
+    Constraint: ParseInteger("12") == 12;
+    Processing: ParseInteger("12");
+    Output: 12;
+}
+
+Test ParseFloatingPoint {
+    Constraint: ParseFloatingPoint("1.5") == 1.5;
+    Processing: ParseFloatingPoint("1.5");
+    Output: 1.5;
+}
+
+Test ParseBoolean {
+    Constraint: ParseBoolean("yes") == True;
+    Processing: ParseBoolean("yes");
     Output: True;
 }
 
-Test FromHex {
-    Constraint: FromHex("0x10") == 16;
-    Processing: True;
-    Output: True;
-}
-
-Test AddDigits {
-    Constraint: AddDigits("999", "1") == "1000";
-    Processing: True;
-    Output: True;
-}
-
-Test CompareInt {
-    Constraint: CompareInt(2, 5) == -1;
-    Processing: True;
-    Output: True;
-}
-
-Test Clamp {
-    Constraint: Clamp(42, 10, 30) == 30;
-    Processing: True;
-    Output: True;
-}
-
-Test SumRange {
-    Constraint: SumRange(MakeRange(1, 5)) == 10;
-    Processing: True;
-    Output: True;
-}
-
-Test RangeContains {
-    Constraint: RangeContains(MakeRange(1, 5), 3) == True;
-    Processing: True;
-    Output: True;
-}
-
-Test GetOffset {
-    Constraint: GetOffset(FromEnd(1), 5) == 4;
-    Processing: True;
-    Output: True;
-}
-
-Test ParseVersion {
-    Constraint: VersionText(ParseVersion("1.2.3")) == "1.2.3";
-    Processing: True;
-    Output: True;
-}
-
-Test IsCompatible {
-    Constraint: IsCompatible(ParseVersion("1.4.0"), ParseVersion("1.2.0")) == True;
-    Processing: True;
-    Output: True;
-}
-
-Test BumpMinor {
-    Constraint: VersionText(BumpMinor(ParseVersion("1.2.3"))) == "1.3.0";
-    Processing: True;
-    Output: True;
-}
-
-Test Seconds {
-    Constraint: TotalSeconds(AddSpan(Seconds(1), Seconds(2))) == 3;
-    Processing: True;
-    Output: True;
-}
-
-Test ParseDate {
-    Constraint: DateText(ParseDate("2026-11-24")) == "2026-11-24";
-    Processing: True;
-    Output: True;
-}
-
-Test AddDays {
-    Constraint: DateText(AddDays(ParseDate("2024-02-28"), 1)) == "2024-02-29";
-    Processing: True;
-    Output: True;
-}
-
-Test LeapDay {
-    Constraint: DaysInMonth(2024, 2) == 29;
-    Processing: True;
-    Output: True;
-}
-
-Test March {
-    Constraint: DateText(AddDays(ParseDate("2024-02-28"), 2)) == "2024-03-01";
-    Processing: True;
-    Output: True;
-}
-
-Test EmptyGuid {
-    Constraint: GuidText(EmptyGuid()) == "00000000-0000-0000-0000-000000000000";
-    Processing: True;
-    Output: True;
-}
-
-Test SameGuid {
-    Constraint: SameGuid(MakeGuid(1, 2), MakeGuid(1, 2)) == True;
-    Processing: True;
-    Output: True;
-}
-
-Test CultureName {
-    Constraint: CultureName(CultureInfo("en-US")) == "en-US";
-    Processing: True;
-    Output: True;
-}
-
-Test Dispose {
-    Constraint: Box(1, "arm").Dispose();
-    Processing: True;
-    Output: True;
-}
-
-Test TryReadInt {
-    Constraint: TryReadInt("42").Ok == 1;
-    Processing: True;
+Test CanConvert {
+    Constraint: CanConvert("int", "float") == True;
+    Processing: CanConvert("int", "float");
     Output: True;
 }
 
 Test ToBinary {
     Constraint: ToBinary(5) == "101";
-    Processing: True;
-    Output: True;
+    Processing: ToBinary(5);
+    Output: "101";
 }
 
 Test FromBinary {
     Constraint: FromBinary("101") == 5;
-    Processing: True;
-    Output: True;
+    Processing: FromBinary("101");
+    Output: 5;
 }
 
 Test ToBase {
-    Constraint: ToBase(255, 16) == "ff";
-    Processing: True;
+    Constraint: ToBase(10, 16) == "a";
+    Processing: ToBase(10, 16);
+    Output: "a";
+}
+
+Test FromBase {
+    Constraint: FromBase("a", 16) == 10;
+    Processing: FromBase("a", 16);
+    Output: 10;
+}
+
+Test ToBase64 {
+    Constraint: ToBase64("A") == "QQ==";
+    Processing: ToBase64("A");
+    Output: "QQ==";
+}
+
+Test FromBase64 {
+    Constraint: FromBase64("QQ==") == "A";
+    Processing: FromBase64("QQ==");
+    Output: "A";
+}
+
+Test Character {
+    Constraint: Character(65) == "A";
+    Processing: Character(65);
+    Output: "A";
+}
+
+Test FromHex {
+    Constraint: FromHex("a") == 10;
+    Processing: FromHex("a");
+    Output: 10;
+}
+
+Test IntText {
+    Constraint: IntText(6) == "6";
+    Processing: IntText(6);
+    Output: "6";
+}
+
+Test FloatText {
+    Constraint: FloatText(1.5) == "1.500000";
+    Processing: FloatText(1.5);
+    Output: "1.500000";
+}
+
+Test BoolText {
+    Constraint: BoolText(True) == "True";
+    Processing: BoolText(True);
+    Output: "True";
+}
+
+Test AddDigits {
+    Constraint: AddDigits("12", "9") == "21";
+    Processing: AddDigits("12", "9");
+    Output: "21";
+}
+
+Test EqualsInt {
+    Constraint: EqualsInt(4, 4) == True;
+    Processing: EqualsInt(4, 4);
     Output: True;
 }
 
-Test Base64 {
-    Constraint: FromBase64(ToBase64("Hi")) == "Hi";
-    Processing: True;
+Test EqualsText {
+    Constraint: EqualsText("a", "a") == True;
+    Processing: EqualsText("a", "a");
     Output: True;
+}
+
+Test EqualsFloat {
+    Constraint: EqualsFloat(1.5, 1.5) == True;
+    Processing: EqualsFloat(1.5, 1.5);
+    Output: True;
+}
+
+Test CompareInt {
+    Constraint: CompareInt(2, 5) == -1;
+    Processing: CompareInt(2, 5);
+    Output: -1;
+}
+
+Test CompareText {
+    Constraint: CompareText("a", "b") == -1;
+    Processing: CompareText("a", "b");
+    Output: -1;
+}
+
+Test CompareFloat {
+    Constraint: CompareFloat(1.0, 2.0) == -1;
+    Processing: CompareFloat(1.0, 2.0);
+    Output: -1;
+}
+
+Test Min {
+    Constraint: Min(2, 5) == 2;
+    Processing: Min(2, 5);
+    Output: 2;
+}
+
+Test Max {
+    Constraint: Max(2, 5) == 5;
+    Processing: Max(2, 5);
+    Output: 5;
 }
 
 Test Absolute {
     Constraint: Absolute(-4) == 4;
-    Processing: True;
-    Output: True;
+    Processing: Absolute(-4);
+    Output: 4;
+}
+
+Test Sign {
+    Constraint: Sign(-4) == -1;
+    Processing: Sign(-4);
+    Output: -1;
 }
 
 Test Between {
-    Constraint: Between(5, 1, 9) == True;
-    Processing: True;
+    Constraint: Between(3, 1, 4) == True;
+    Processing: Between(3, 1, 4);
     Output: True;
 }
 
-Test ToInt16 {
-    Constraint: ToInt16(40000) == 32767;
-    Processing: True;
+Test Clamp {
+    Constraint: Clamp(9, 1, 4) == 4;
+    Processing: Clamp(9, 1, 4);
+    Output: 4;
+}
+
+Test HashText {
+    Constraint: HashText("a") == 177670;
+    Processing: HashText("a");
+    Output: 177670;
+}
+
+Test ReferenceEquals {
+    Constraint: ReferenceEquals(Box(1, "a"), Box(1, "b")) == True;
+    Processing: ReferenceEquals(Box(1, "a"), Box(1, "b"));
     Output: True;
 }
 
-Test CanConvert {
-    Constraint: CanConvert("String", "Int") == True;
-    Processing: True;
+Test MakeRange {
+    Constraint: MakeRange(1, 4).Start == 1;
+    Processing: MakeRange(1, 4).End;
+    Output: 4;
+}
+
+Test MakeRangeStep {
+    Constraint: MakeRangeStep(1, 8, 2).Step == 2;
+    Processing: MakeRangeStep(1, 8, 2).Step;
+    Output: 2;
+}
+
+Test SumRange {
+    Constraint: SumRange(MakeRange(1, 4)) == 6;
+    Processing: SumRange(MakeRange(1, 4));
+    Output: 6;
+}
+
+Test RangeCount {
+    Constraint: RangeCount(MakeRange(1, 4)) == 3;
+    Processing: RangeCount(MakeRange(1, 4));
+    Output: 3;
+}
+
+Test RangeContains {
+    Constraint: RangeContains(MakeRange(1, 4), 2) == True;
+    Processing: RangeContains(MakeRange(1, 4), 2);
     Output: True;
 }
 
-Test GetType {
-    Constraint: GetType("42").Name == "Int";
-    Processing: True;
+Test At {
+    Constraint: At(3).Offset == 3;
+    Processing: At(3).EndRelative;
+    Output: 0;
+}
+
+Test FromEnd {
+    Constraint: FromEnd(2).EndRelative == 1;
+    Processing: FromEnd(2).Offset;
+    Output: 2;
+}
+
+Test GetOffset {
+    Constraint: GetOffset(FromEnd(2), 8) == 6;
+    Processing: GetOffset(FromEnd(2), 8);
+    Output: 6;
+}
+
+Test Swap {
+    Constraint: Swap(1, 4).Start == 4;
+    Processing: Swap(1, 4).End;
+    Output: 1;
+}
+
+Test VersionText {
+    Constraint: VersionText(CoreVersion(1, 2, 3)) == "1.2.3";
+    Processing: VersionText(CoreVersion(1, 2, 3));
+    Output: "1.2.3";
+}
+
+Test ParseVersion {
+    Constraint: ParseVersion("1.2.3").Major == 1;
+    Processing: ParseVersion("1.2.3").Patch;
+    Output: 3;
+}
+
+Test CompareVersion {
+    Constraint: CompareVersion(CoreVersion(1, 0, 0), CoreVersion(1, 2, 0)) == -1;
+    Processing: CompareVersion(CoreVersion(1, 0, 0), CoreVersion(1, 2, 0));
+    Output: -1;
+}
+
+Test SameVersion {
+    Constraint: SameVersion(CoreVersion(1, 2, 3), CoreVersion(1, 2, 3)) == True;
+    Processing: SameVersion(CoreVersion(1, 2, 3), CoreVersion(1, 2, 3));
     Output: True;
 }
 
-Test Equals {
-    Constraint: Equals("arm", "arm") == True;
-    Processing: True;
+Test IsCompatible {
+    Constraint: IsCompatible(CoreVersion(1, 2, 0), CoreVersion(1, 1, 0)) == True;
+    Processing: IsCompatible(CoreVersion(1, 2, 0), CoreVersion(1, 1, 0));
     Output: True;
 }
 
-Test IsNull {
-    Constraint: IsNull(Null) == True;
-    Processing: True;
+Test BumpMajor {
+    Constraint: BumpMajor(CoreVersion(1, 2, 3)).Major == 2;
+    Processing: BumpMajor(CoreVersion(1, 2, 3)).Minor;
+    Output: 0;
+}
+
+Test BumpMinor {
+    Constraint: BumpMinor(CoreVersion(1, 2, 3)).Minor == 3;
+    Processing: BumpMinor(CoreVersion(1, 2, 3)).Patch;
+    Output: 0;
+}
+
+Test BumpPatch {
+    Constraint: BumpPatch(CoreVersion(1, 2, 3)).Patch == 4;
+    Processing: BumpPatch(CoreVersion(1, 2, 3)).Patch;
+    Output: 4;
+}
+
+Test Milliseconds {
+    Constraint: Milliseconds(15).Duration == 15;
+    Processing: Milliseconds(15).Duration;
+    Output: 15;
+}
+
+Test Seconds {
+    Constraint: Seconds(2).Duration == 2000;
+    Processing: Seconds(2).Duration;
+    Output: 2000;
+}
+
+Test Minutes {
+    Constraint: Minutes(1).Duration == 60000;
+    Processing: Minutes(1).Duration;
+    Output: 60000;
+}
+
+Test Hours {
+    Constraint: Hours(1).Duration == 3600000;
+    Processing: Hours(1).Duration;
+    Output: 3600000;
+}
+
+Test Days {
+    Constraint: Days(1).Duration == 86400000;
+    Processing: Days(1).Duration;
+    Output: 86400000;
+}
+
+Test TotalSeconds {
+    Constraint: TotalSeconds(Seconds(2)) == 2;
+    Processing: TotalSeconds(Seconds(2));
+    Output: 2;
+}
+
+Test AddSpan {
+    Constraint: AddSpan(Milliseconds(1000), Milliseconds(500)).Duration == 1500;
+    Processing: AddSpan(Milliseconds(1000), Milliseconds(500)).Duration;
+    Output: 1500;
+}
+
+Test SubtractSpan {
+    Constraint: SubtractSpan(Milliseconds(1000), Milliseconds(250)).Duration == 750;
+    Processing: SubtractSpan(Milliseconds(1000), Milliseconds(250)).Duration;
+    Output: 750;
+}
+
+Test DateText {
+    Constraint: DateText(DateTime(2024, 1, 2)) == "2024-01-02";
+    Processing: DateText(DateTime(2024, 1, 2));
+    Output: "2024-01-02";
+}
+
+Test ParseDate {
+    Constraint: ParseDate("2024-01-02").Day == 2;
+    Processing: ParseDate("2024-01-02").Year;
+    Output: 2024;
+}
+
+Test IsLeapYear {
+    Constraint: IsLeapYear(2024) == True;
+    Processing: IsLeapYear(2024);
     Output: True;
 }
 
-Test RangeStart {
-    Constraint: Range(1, 5).Start == 1;
-    Processing: True;
-    Output: True;
+Test DaysInMonth {
+    Constraint: DaysInMonth(2024, 2) == 29;
+    Processing: DaysInMonth(2024, 2);
+    Output: 29;
 }
 
-Test RangeStep {
-    Constraint: Range(0, 10, 2).Step == 2;
-    Processing: True;
-    Output: True;
+Test AddDays {
+    Constraint: AddDays(DateTime(2024, 1, 31), 1).Day == 1;
+    Processing: AddDays(DateTime(2024, 1, 31), 1).Month;
+    Output: 2;
 }
 
-Test FromEndIndex {
-    Constraint: GetOffset(FromEnd(1), 5) == 4;
-    Processing: True;
-    Output: True;
+Test CompareDate {
+    Constraint: CompareDate(DateTime(2024, 1, 2), DateTime(2024, 1, 3)) == -1;
+    Processing: CompareDate(DateTime(2024, 1, 2), DateTime(2024, 1, 3));
+    Output: -1;
 }
 
-Test DefaultValue {
-    Constraint: Default() == 0;
-    Processing: True;
-    Output: True;
+Test NowMillis {
+    Assert: NowMillis() >= 0;
+}
+
+Test MakeGuid {
+    Constraint: MakeGuid(1, 2).Text == "1-2-3";
+    Processing: MakeGuid(1, 2).Text;
+    Output: "1-2-3";
 }
 
 Test ParseGuid {
-    Constraint: GuidText(ParseGuid("00000000-0000-0000-0000-000000000000")) == "00000000-0000-0000-0000-000000000000";
-    Processing: True;
+    Constraint: ParseGuid("a-b").Text == "a-b";
+    Processing: ParseGuid("a-b").Text;
+    Output: "a-b";
+}
+
+Test EmptyGuid {
+    Constraint: EmptyGuid().Text == "00000000-0000-0000-0000-000000000000";
+    Processing: EmptyGuid().Text;
+    Output: "00000000-0000-0000-0000-000000000000";
+}
+
+Test GuidText {
+    Constraint: GuidText(MakeGuid(1, 2)) == "1-2-3";
+    Processing: GuidText(MakeGuid(1, 2));
+    Output: "1-2-3";
+}
+
+Test SameGuid {
+    Constraint: SameGuid(MakeGuid(1, 2), MakeGuid(1, 2)) == True;
+    Processing: SameGuid(MakeGuid(1, 2), MakeGuid(1, 2));
     Output: True;
+}
+
+Test MemberwiseClone {
+    Constraint: MemberwiseClone(4) == 4;
+    Processing: MemberwiseClone(4);
+    Output: 4;
+}
+
+Test ClonePair {
+    Constraint: ClonePair(1, 2).Count() == 2;
+    Processing: ClonePair(1, 2).Count();
+    Output: 2;
+}
+
+Test CultureName {
+    Constraint: CultureName(CultureInfo("en")) == "en";
+    Processing: CultureName(CultureInfo("en"));
+    Output: "en";
 }

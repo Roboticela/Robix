@@ -1,5 +1,8 @@
 // Robix.Numerics: widths, limits, checked arithmetic, and numeric predicates.
-Package Robix.Numerics;
+Package Robix.Numerics
+Explain {
+    Description: "Widths, limits, checked arithmetic, and numeric predicates.";
+};
 
 Import Robix.Core;
 
@@ -354,7 +357,7 @@ Class NumericsDesk {
         Return This.Clamp(value, minimum, maximum);
     }
 
-    Public Function ConvertChecked(Int value) -> Int
+    Public Function CheckedConvert(Int value) -> Int
     Explain {
         Description: "Convert an integer and reject values outside the type.";
         Input: value = "Value";
@@ -403,14 +406,14 @@ Class NumericsDesk {
         Return value;
     }
 
-    Public Function TryConvert(Int value) -> Int
+    Public Function AttemptConvert(Int value) -> Int
     Explain {
         Description: "Try to convert an integer.";
         Input: value = "Value";
         Processing: "Use the checked conversion.";
         Output: "The value, or zero on overflow.";
     } {
-        Return This.ConvertChecked(value);
+        Return This.CheckedConvert(value);
     }
 
     Public Function Parse(String text) -> Int

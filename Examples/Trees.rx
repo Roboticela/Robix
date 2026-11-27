@@ -1,0 +1,86 @@
+// Robix.Algorithms.Trees: exact operations on one seven-node search tree.
+Package Robotics.Trees;
+
+Import Robix.Core;
+Import Robix.Algorithms.Trees;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise the seven-node search tree.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the tree desk.";
+    Output: "The tree report.";
+} {
+    TreeDesk desk = TreeDesk();
+    Print(desk.CreateTree(4));
+    Print(desk.CreateBinaryTree(4));
+    Print(desk.CreateBinarySearchTree(7));
+    Print(desk.BuildBalancedTree(7));
+    Print(desk.Insert(3));
+    Print(desk.InsertNode(2, 3));
+    Print(desk.Remove(3));
+    Print(desk.RemoveNode(3));
+    Print(desk.ReplaceNode(3, 3));
+    Print(desk.RotateLeft(2));
+    Print(desk.RotateRight(6));
+    Print(desk.Rebalance());
+    Print(desk.Clear());
+    Print(desk.CloneTree());
+    Print(desk.PreOrderTraversal());
+    Print(desk.InOrderTraversal());
+    Print(desk.PostOrderTraversal());
+    Print(desk.LevelOrderTraversal());
+    Print(desk.BreadthFirstTraversal());
+    Print(desk.DepthFirstTraversal());
+    Print(desk.ReverseLevelOrderTraversal());
+    Print(desk.ZigZagTraversal());
+    Print(desk.MorrisInOrderTraversal());
+    Print(desk.IterativeTreeTraversal());
+    Print(desk.FindNode(1));
+    Print(desk.FindMinimum());
+    Print(desk.FindMaximum());
+    Print(desk.FindSuccessor(3));
+    Print(desk.FindPredecessor(4));
+    Print(desk.LowerBound(4));
+    Print(desk.UpperBound(4));
+    Print(desk.FindKthSmallest(4));
+    Print(desk.FindKthLargest(3));
+    Print(desk.GetHeight());
+    Print(desk.GetDepth(1));
+    Print(desk.GetSize());
+    Print(desk.GetLeafCount());
+    Print(desk.GetInternalNodeCount());
+    Print(desk.GetBalanceFactor(4));
+    Print(desk.GetDiameter());
+    Print(desk.GetWidth());
+    Print(desk.GetLevelCount());
+    Print(desk.IsBalanced());
+    Print(desk.IsComplete());
+    Print(desk.IsFull());
+    Print(desk.IsPerfect());
+    Print(desk.IsBinarySearchTree());
+    Print(desk.FindParent(1));
+    Print(desk.FindAncestors(1));
+    Print(desk.FindDescendants(2));
+    Print(desk.LowestCommonAncestor(1, 7));
+    Print(desk.DistanceBetweenNodes(1, 7));
+    Print(desk.GetPathToNode(1));
+    Print(desk.FindSubtree(2));
+    Print(desk.IsSubtree(2));
+    Print(desk.RangeQuery(2, 5));
+    Print(desk.RangeUpdate(2, 5, 1));
+    Print(desk.PrefixSum(4));
+    Print(desk.UpdateFenwick(4, 1));
+    Print(desk.TrieInsert(12));
+    Print(desk.TrieSearch(12));
+    Print(desk.TrieStartsWith(1));
+    Print(desk.BuildSuffixTree("aba"));
+    Print(desk.TreeEditDistance(7, 6));
+    Print(desk.TreeIsomorphism(7, 7));
+    Print(desk.SerializeTree());
+    Print(desk.DeserializeTree(1120175));
+    Print(desk.GetSize());
+    Print(desk.Fault());
+    Return 0;
+}

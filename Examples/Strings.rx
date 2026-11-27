@@ -1,0 +1,69 @@
+// Robix.Algorithms.Strings: exact byte algorithms on short strings.
+Package Robotics.Strings;
+
+Import Robix.Core;
+Import Robix.Algorithms.Strings;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise string algorithms on short byte strings.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the string desk.";
+    Output: "The string report.";
+} {
+    StringDesk desk = StringDesk();
+    Print(desk.FindSubstring("aabaab", "aa"));
+    Print(desk.FindAllSubstrings("aabaab", "aa"));
+    Print(desk.ContainsSubstring("aabaab", "aa"));
+    Print(desk.StartsWith("aabaab", "aa"));
+    Print(desk.EndsWith("aabaab", "ab"));
+    Print(desk.CountOccurrences("aabaab", "aa"));
+    Print(desk.FindFirstOccurrence("aabaab", "aa"));
+    Print(desk.FindLastOccurrence("aabaab", "aa"));
+    Print(desk.NaiveStringSearch("aabaab", "aa"));
+    Print(desk.KMPSearch("aabaab", "aa"));
+    Print(desk.BoyerMooreSearch("aabaab", "aa"));
+    Print(desk.RabinKarpSearch("aabaab", "aa"));
+    Print(desk.ZAlgorithmSearch("aabaab", "aa"));
+    Print(desk.AhoCorasickSearch("aabaab", "aa"));
+    Print(desk.SundaySearch("aabaab", "aa"));
+    Print(desk.HorspoolSearch("aabaab", "aa"));
+    Print(desk.TwoWayStringSearch("aabaab", "aa"));
+    Print(desk.ComputePrefixFunction("aabaab"));
+    Print(desk.ComputeZFunction("aabaab"));
+    Print(desk.BuildSuffixArray("aabaab"));
+    Print(desk.BuildSuffixTree("aabaab"));
+    Print(desk.BuildSuffixAutomaton("aabaab"));
+    Print(desk.BuildLCPArray("aabaab"));
+    Print(desk.LongestRepeatedSubstring("aabaab"));
+    Print(desk.LongestCommonPrefix("aabaab", "aab"));
+    Print(desk.LongestCommonSuffix("aabaab", "baab"));
+    Print(desk.LevenshteinDistance("cat", "act"));
+    Print(desk.DamerauLevenshteinDistance("cat", "act"));
+    Print(desk.HammingDistance("cat", "cut"));
+    Print(desk.JaroSimilarity("cat", "act"));
+    Print(desk.JaroWinklerSimilarity("cat", "act"));
+    Print(desk.LongestCommonSubsequence("cat", "cut"));
+    Print(desk.LongestCommonSubstring("cat", "act"));
+    Print(desk.EditScript("cat", "cut"));
+    Print(desk.MinimumEditOperations("cat", "cut"));
+    Print(desk.IsPalindrome("aba"));
+    Print(desk.LongestPalindromicSubstring("aabaab"));
+    Print(desk.LongestPalindromicSubsequence("aabaab"));
+    Print(desk.ManacherAlgorithm("aabaab"));
+    Print(desk.CountPalindromicSubstrings("aabaab"));
+    Print(desk.MinimumPalindromePartition("aabaab"));
+    Print(desk.CheckAnagram("cat", "act"));
+    Print(desk.GroupAnagrams("cat", "act"));
+    Print(desk.MinimumWindowSubstring("aabaab", "ab"));
+    Print(desk.FindRotations("aabaab"));
+    Print(desk.IsRotation("aabaab", "abaaba"));
+    Print(desk.BoothMinimumRotation("banana"));
+    Print(desk.RunLengthEncode("aabaab"));
+    Print(desk.RunLengthDecode("a2b1a2b1"));
+    Print(desk.ComputeRollingHash("aabaab"));
+    Print(desk.IsPalindrome("aba"));
+    Print(desk.Fault());
+    Return 0;
+}

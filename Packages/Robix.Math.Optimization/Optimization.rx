@@ -1,5 +1,8 @@
 // Robix.Math.Optimization: exact integer minimization, linear programs, and Pareto fronts.
-Package Robix.Math.Optimization;
+Package Robix.Math.Optimization
+Explain {
+    Description: "Exact integer minimization, linear programs, and Pareto fronts.";
+};
 
 Import Robix.Core;
 
@@ -405,7 +408,7 @@ Class OptimizationDesk {
     } {
         If (This.Known(shape) == 0) { Return 0; }
         problem = "none";
-        Return This.Curve(shape, point);
+        Return This.Curve(shape);
     }
 
     Public Function ComputeJacobian(Int shape, Int point) -> Int

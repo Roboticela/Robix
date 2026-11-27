@@ -1,5 +1,8 @@
 // Robix.Math.Trigonometry: circular functions, inverse functions, and hyperbolic functions.
-Package Robix.Math.Trigonometry;
+Package Robix.Math.Trigonometry
+Explain {
+    Description: "Circular functions, inverse functions, and hyperbolic functions.";
+};
 
 Import Robix.Core;
 

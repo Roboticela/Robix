@@ -1,5 +1,8 @@
 // Robix.Decimal: scaled integers, rounding, and financial arithmetic.
-Package Robix.Decimal;
+Package Robix.Decimal
+Explain {
+    Description: "Scaled integers, rounding, and financial arithmetic.";
+};
 
 Import Robix.Core;
 
@@ -166,8 +169,9 @@ Class DecimalDesk {
         Output: "The remainder.";
     } {
         Int value = This.Remainder(left, right);
-        If (right < 0) { right = 0 - right; }
-        While (value < 0) { value = value + right; }
+        Int span = right;
+        If (span < 0) { span = 0 - span; }
+        While (value < 0) { value = value + span; }
         Return value;
     }
 

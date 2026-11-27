@@ -1,5 +1,325 @@
+// Tests for Concurrency.rx. Each call uses a fresh lane.
+
+Test SetDegree {
+    Constraint: Lane().SetDegree(4) == 4;
+    Processing: Lane().SetDegree(4);
+    Output: 4;
+}
+
 Test RunFor {
-    Constraint: Lane().RunFor(1, 5) == 10;
-    Processing: True;
-    Output: True;
+    Constraint: Lane().RunFor(1, 4) == 6;
+    Processing: Lane().RunFor(1, 4);
+    Output: 6;
+}
+
+Test BreakFor {
+    Constraint: Lane().BreakFor(1, 5, 3) == 3;
+    Processing: Lane().BreakFor(1, 5, 3);
+    Output: 3;
+}
+
+Test Stopped {
+    Constraint: Lane().Stopped() == 0;
+    Processing: Lane().Stopped();
+    Output: 0;
+}
+
+Test Load3 {
+    Constraint: Lane().Load3(1, 2, 3) == 3;
+    Processing: Lane().Load3(1, 2, 3);
+    Output: 3;
+}
+
+Test Load4 {
+    Constraint: Lane().Load4(1, 2, 3, 4) == 4;
+    Processing: Lane().Load4(1, 2, 3, 4);
+    Output: 4;
+}
+
+Test Each {
+    Constraint: Lane().Each() == 0;
+    Processing: Lane().Each();
+    Output: 0;
+}
+
+Test Scale {
+    Constraint: Lane().Scale() == 0;
+    Processing: Lane().Scale();
+    Output: 0;
+}
+
+Test Keep {
+    Constraint: Lane().Keep(1) == 0;
+    Processing: Lane().Keep(1);
+    Output: 0;
+}
+
+Test Total {
+    Constraint: Lane().Total() == 0;
+    Processing: Lane().Total();
+    Output: 0;
+}
+
+Test First {
+    Constraint: Lane().First() == -1;
+    Processing: Lane().First();
+    Output: -1;
+}
+
+Test Last {
+    Constraint: Lane().Last() == -1;
+    Processing: Lane().Last();
+    Output: -1;
+}
+
+Test Invoke {
+    Constraint: Lane().Invoke() == 6;
+    Processing: Lane().Invoke();
+    Output: 6;
+}
+
+Test Push {
+    Constraint: Lane().Push(4) == 1;
+    Processing: Lane().Push(4);
+    Output: 1;
+}
+
+Test Pop {
+    Constraint: Lane().Pop() == -1;
+    Processing: Lane().Pop();
+    Output: -1;
+}
+
+Test QSize {
+    Constraint: Lane().QSize() == 0;
+    Processing: Lane().QSize();
+    Output: 0;
+}
+
+Test StackPush {
+    Constraint: Lane().StackPush(4) == 1;
+    Processing: Lane().StackPush(4);
+    Output: 1;
+}
+
+Test StackPop {
+    Constraint: Lane().StackPop() == -1;
+    Processing: Lane().StackPop();
+    Output: -1;
+}
+
+Test Put {
+    Constraint: Lane().Put("a", 3) == 1;
+    Processing: Lane().Put("a", 3);
+    Output: 1;
+}
+
+Test Get {
+    Constraint: Lane().Get("a") == -1;
+    Processing: Lane().Get("a");
+    Output: -1;
+}
+
+Test BagAdd {
+    Constraint: Lane().BagAdd(3) == 1;
+    Processing: Lane().BagAdd(3);
+    Output: 1;
+}
+
+Test BagSize {
+    Constraint: Lane().BagSize() == 0;
+    Processing: Lane().BagSize();
+    Output: 0;
+}
+
+Test BagHolds {
+    Constraint: Lane().BagHolds(3) == 0;
+    Processing: Lane().BagHolds(3);
+    Output: 0;
+}
+
+Test SetAdd {
+    Constraint: Lane().SetAdd(3) == 1;
+    Processing: Lane().SetAdd(3);
+    Output: 1;
+}
+
+Test SetSize {
+    Constraint: Lane().SetSize() == 0;
+    Processing: Lane().SetSize();
+    Output: 0;
+}
+
+Test SetHolds {
+    Constraint: Lane().SetHolds(3) == 0;
+    Processing: Lane().SetHolds(3);
+    Output: 0;
+}
+
+Test TryWrite {
+    Constraint: Lane().TryWrite(3) == 1;
+    Processing: Lane().TryWrite(3);
+    Output: 1;
+}
+
+Test TryRead {
+    Constraint: Lane().TryRead() == -1;
+    Processing: Lane().TryRead();
+    Output: -1;
+}
+
+Test Complete {
+    Constraint: Lane().Complete() == 1;
+    Processing: Lane().Complete();
+    Output: 1;
+}
+
+Test Filled {
+    Constraint: Lane().Filled() == 0;
+    Processing: Lane().Filled();
+    Output: 0;
+}
+
+Test Arrive {
+    Constraint: Lane().Arrive() == 0;
+    Processing: Lane().Arrive();
+    Output: 0;
+}
+
+Test Generation {
+    Constraint: Lane().Generation() == 0;
+    Processing: Lane().Generation();
+    Output: 0;
+}
+
+Test Signal {
+    Constraint: Lane().Signal() == 2;
+    Processing: Lane().Signal();
+    Output: 2;
+}
+
+Test Left {
+    Constraint: Lane().Left() == 3;
+    Processing: Lane().Left();
+    Output: 3;
+}
+
+Test IsSet {
+    Constraint: Lane().IsSet() == 0;
+    Processing: Lane().IsSet();
+    Output: 0;
+}
+
+Test Wait {
+    Constraint: Lane().Wait() == 1;
+    Processing: Lane().Wait();
+    Output: 1;
+}
+
+Test Release {
+    Constraint: Lane().Release() == 2;
+    Processing: Lane().Release();
+    Output: 2;
+}
+
+Test Enter {
+    Constraint: Lane().Enter() == 1;
+    Processing: Lane().Enter();
+    Output: 1;
+}
+
+Test Leave {
+    Constraint: Lane().Leave() == 1;
+    Processing: Lane().Leave();
+    Output: 1;
+}
+
+Test CellAdd {
+    Constraint: Lane().CellAdd(2) == 2;
+    Processing: Lane().CellAdd(2);
+    Output: 2;
+}
+
+Test CellSub {
+    Constraint: Lane().CellSub(1) == -1;
+    Processing: Lane().CellSub(1);
+    Output: -1;
+}
+
+Test Exchange {
+    Constraint: Lane().Exchange(4) == 0;
+    Processing: Lane().Exchange(4);
+    Output: 0;
+}
+
+Test CompareExchange {
+    Constraint: Lane().CompareExchange(0, 5) == 0;
+    Processing: Lane().CompareExchange(0, 5);
+    Output: 0;
+}
+
+Test CellIncrement {
+    Constraint: Lane().CellIncrement() == 1;
+    Processing: Lane().CellIncrement();
+    Output: 1;
+}
+
+Test CellDecrement {
+    Constraint: Lane().CellDecrement() == -1;
+    Processing: Lane().CellDecrement();
+    Output: -1;
+}
+
+Test CellRead {
+    Constraint: Lane().CellRead() == 0;
+    Processing: Lane().CellRead();
+    Output: 0;
+}
+
+Test CellWrite {
+    Constraint: Lane().CellWrite(7) == 7;
+    Processing: Lane().CellWrite(7);
+    Output: 7;
+}
+
+Test BlockAdd {
+    Constraint: Lane().BlockAdd(4) == 1;
+    Processing: Lane().BlockAdd(4);
+    Output: 1;
+}
+
+Test BlockTake {
+    Constraint: Lane().BlockTake() == -1;
+    Processing: Lane().BlockTake();
+    Output: -1;
+}
+
+Test BlockSize {
+    Constraint: Lane().BlockSize() == 0;
+    Processing: Lane().BlockSize();
+    Output: 0;
+}
+
+Test Produce {
+    Constraint: Lane().Produce(4) == 1;
+    Processing: Lane().Produce(4);
+    Output: 1;
+}
+
+Test Consume {
+    Constraint: Lane().Consume() == -1;
+    Processing: Lane().Consume();
+    Output: -1;
+}
+
+Test MarkHeld {
+    Constraint: Lane().MarkHeld() == 1;
+    Processing: Lane().MarkHeld();
+    Output: 1;
+}
+
+Test Locate {
+    Constraint: Lane().Locate("a") == -1;
+    Processing: Lane().Locate("a");
+    Output: -1;
 }

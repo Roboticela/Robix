@@ -1,0 +1,38 @@
+{
+    "name": "Robix UI",
+    "scopeName": "source.robix.ui",
+    "patterns": [
+        { "include": "#comment" },
+        { "include": "#expression" },
+        { "include": "#tag" },
+        { "include": "#string" }
+    ],
+    "repository": {
+        "comment": {
+            "begin": "<!--",
+            "end": "-->",
+            "name": "comment.block.robix"
+        },
+        "expression": {
+            "begin": "\\{",
+            "end": "\\}",
+            "name": "meta.embedded.robix",
+            "patterns": [
+                { "name": "variable.other.robix", "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b" },
+                { "name": "keyword.other.robix", "match": "\\b(?:Binding|Resource)\\b" }
+            ]
+        },
+        "tag": {
+            "match": "</?\\s*[A-Za-z_][\\w.]*",
+            "name": "entity.name.tag.robix"
+        },
+        "string": {
+            "name": "string.quoted.double.robix",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                { "name": "constant.character.escape.robix", "match": "\\\\." }
+            ]
+        }
+    }
+}

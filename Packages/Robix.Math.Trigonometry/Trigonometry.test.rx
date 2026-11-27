@@ -1,5 +1,380 @@
+// Tests for Trigonometry.rx. Each call uses a fresh desk.
+
+Test Pi {
+    Constraint: TrigDesk().Pi() == 3.141592653589793;
+    Processing: TrigDesk().Pi();
+    Output: 3.141592653589793;
+}
+
+Test Sin {
+    Constraint: TrigDesk().Sin(0.0) == 0.0;
+    Processing: TrigDesk().Sin(0.0);
+    Output: 0.0;
+}
+
+Test Cos {
+    Constraint: TrigDesk().Cos(0.0) == 1.0;
+    Processing: TrigDesk().Cos(0.0);
+    Output: 1.0;
+}
+
+Test Tan {
+    Constraint: TrigDesk().Tan(0.0) == 0.0;
+    Processing: TrigDesk().Tan(0.0);
+    Output: 0.0;
+}
+
+Test Cot {
+    Processing: TrigDesk().Cot(0.0);
+    Assert: TrigDesk().Cot(0.0) == TrigDesk().Infinity();
+}
+
+Test Sec {
+    Constraint: TrigDesk().Sec(0.0) == 1.0;
+    Processing: TrigDesk().Sec(0.0);
+    Output: 1.0;
+}
+
+Test Csc {
+    Processing: TrigDesk().Csc(0.0);
+    Assert: TrigDesk().Csc(0.0) == TrigDesk().Infinity();
+}
+
+Test Asin {
+    Constraint: TrigDesk().Asin(0.0) == 0.0;
+    Processing: TrigDesk().Asin(0.0);
+    Output: 0.0;
+}
+
+Test Acos {
+    Constraint: TrigDesk().Acos(1.0) == 0.0;
+    Processing: TrigDesk().Acos(1.0);
+    Output: 0.0;
+}
+
+Test Atan {
+    Constraint: TrigDesk().Atan(0.0) == 0.0;
+    Processing: TrigDesk().Atan(0.0);
+    Output: 0.0;
+}
+
+Test Atan2 {
+    Constraint: TrigDesk().Atan2(0.0, 1.0) == 0.0;
+    Processing: TrigDesk().Atan2(0.0, 1.0);
+    Output: 0.0;
+}
+
+Test Acot {
+    Processing: TrigDesk().Acot(0.0);
+    Assert: TrigDesk().Acot(0.0) == TrigDesk().Pi() / 2.0;
+}
+
+Test Asec {
+    Case "one" {
+        Constraint: TrigDesk().Asec(1.0) == 0.0;
+        Processing: TrigDesk().Asec(1.0);
+        Output: 0.0;
+    }
+    Case "inside" {
+        Constraint: TrigDesk().Asec(0.0) == 0.0;
+        Processing: TrigDesk().Asec(0.0);
+        Output: 0.0;
+    }
+}
+
+Test Acsc {
+    Constraint: TrigDesk().Acsc(0.0) == 0.0;
+    Processing: TrigDesk().Acsc(0.0);
+    Output: 0.0;
+}
+
+Test Sinh {
+    Constraint: TrigDesk().Sinh(0.0) == 0.0;
+    Processing: TrigDesk().Sinh(0.0);
+    Output: 0.0;
+}
+
+Test Cosh {
+    Constraint: TrigDesk().Cosh(0.0) == 1.0;
+    Processing: TrigDesk().Cosh(0.0);
+    Output: 1.0;
+}
+
+Test Tanh {
+    Constraint: TrigDesk().Tanh(0.0) == 0.0;
+    Processing: TrigDesk().Tanh(0.0);
+    Output: 0.0;
+}
+
+Test Coth {
+    Processing: TrigDesk().Coth(0.0);
+    Assert: TrigDesk().Coth(0.0) == TrigDesk().Infinity();
+}
+
+Test Sech {
+    Constraint: TrigDesk().Sech(0.0) == 1.0;
+    Processing: TrigDesk().Sech(0.0);
+    Output: 1.0;
+}
+
+Test Csch {
+    Processing: TrigDesk().Csch(0.0);
+    Assert: TrigDesk().Csch(0.0) == TrigDesk().Infinity();
+}
+
+Test Asinh {
+    Constraint: TrigDesk().Asinh(0.0) == 0.0;
+    Processing: TrigDesk().Asinh(0.0);
+    Output: 0.0;
+}
+
+Test Acosh {
+    Constraint: TrigDesk().Acosh(1.0) == 0.0;
+    Processing: TrigDesk().Acosh(1.0);
+    Output: 0.0;
+}
+
+Test Atanh {
+    Constraint: TrigDesk().Atanh(0.0) == 0.0;
+    Processing: TrigDesk().Atanh(0.0);
+    Output: 0.0;
+}
+
+Test Acoth {
+    Constraint: TrigDesk().Acoth(0.0) == 0.0;
+    Processing: TrigDesk().Acoth(0.0);
+    Output: 0.0;
+}
+
+Test Asech {
+    Constraint: TrigDesk().Asech(1.0) == 0.0;
+    Processing: TrigDesk().Asech(1.0);
+    Output: 0.0;
+}
+
+Test Acsch {
+    Constraint: TrigDesk().Acsch(0.0) == 0.0;
+    Processing: TrigDesk().Acsch(0.0);
+    Output: 0.0;
+}
+
+Test ToRadians {
+    Constraint: TrigDesk().ToRadians(0.0) == 0.0;
+    Processing: TrigDesk().ToRadians(0.0);
+    Output: 0.0;
+}
+
+Test ToDegrees {
+    Constraint: TrigDesk().ToDegrees(0.0) == 0.0;
+    Processing: TrigDesk().ToDegrees(0.0);
+    Output: 0.0;
+}
+
+Test ToGradians {
+    Constraint: TrigDesk().ToGradians(90.0) == 100.0;
+    Processing: TrigDesk().ToGradians(90.0);
+    Output: 100.0;
+}
+
+Test ToTurns {
+    Constraint: TrigDesk().ToTurns(180.0) == 0.5;
+    Processing: TrigDesk().ToTurns(180.0);
+    Output: 0.5;
+}
+
+Test NormalizeDegrees {
+    Constraint: TrigDesk().NormalizeDegrees(360.0) == 0.0;
+    Processing: TrigDesk().NormalizeDegrees(360.0);
+    Output: 0.0;
+}
+
+Test NormalizeRadians {
+    Constraint: TrigDesk().NormalizeRadians(0.0) == 0.0;
+    Processing: TrigDesk().NormalizeRadians(0.0);
+    Output: 0.0;
+}
+
+Test Convert {
+    Constraint: TrigDesk().Convert(90.0, "degrees", "gradians") == 100.0;
+    Processing: TrigDesk().Convert(90.0, "degrees", "gradians");
+    Output: 100.0;
+}
+
+Test SinCos {
+    Constraint: TrigDesk().SinCos(0.0) == 0.0;
+    Processing: TrigDesk().SinCos(0.0);
+    Output: 0.0;
+}
+
+Test CosValue {
+    Constraint: TrigDesk().CosValue() == 1.0;
+    Processing: TrigDesk().CosValue();
+    Output: 1.0;
+}
+
+Test SinPi {
+    Constraint: TrigDesk().SinPi(0.0) == 0.0;
+    Processing: TrigDesk().SinPi(0.0);
+    Output: 0.0;
+}
+
+Test CosPi {
+    Constraint: TrigDesk().CosPi(0.0) == 1.0;
+    Processing: TrigDesk().CosPi(0.0);
+    Output: 1.0;
+}
+
+Test TanPi {
+    Constraint: TrigDesk().TanPi(0.0) == 0.0;
+    Processing: TrigDesk().TanPi(0.0);
+    Output: 0.0;
+}
+
+Test Hypot {
+    Constraint: TrigDesk().Hypot(3.0, 4.0) == 5.0;
+    Processing: TrigDesk().Hypot(3.0, 4.0);
+    Output: 5.0;
+}
+
+Test LawOfSines {
+    Constraint: TrigDesk().LawOfSines(2.0, 30.0, 2.0) == 30.0;
+    Processing: TrigDesk().LawOfSines(2.0, 30.0, 2.0);
+    Output: 30.0;
+}
+
 Test LawOfCosines {
     Constraint: TrigDesk().LawOfCosines(3.0, 4.0, 90.0) == 5.0;
-    Processing: True;
-    Output: True;
+    Processing: TrigDesk().LawOfCosines(3.0, 4.0, 90.0);
+    Output: 5.0;
+}
+
+Test SolveRight {
+    Constraint: TrigDesk().SolveRight(3.0, 4.0) == 5.0;
+    Processing: TrigDesk().SolveRight(3.0, 4.0);
+    Output: 5.0;
+}
+
+Test AngleA {
+    Constraint: TrigDesk().AngleA() == 0.0;
+    Processing: TrigDesk().AngleA();
+    Output: 0.0;
+}
+
+Test AngleB {
+    Constraint: TrigDesk().AngleB() == 0.0;
+    Processing: TrigDesk().AngleB();
+    Output: 0.0;
+}
+
+Test Solve {
+    Case "sine" {
+        Constraint: TrigDesk().Solve("sin", 0.5) == 30.0;
+        Processing: TrigDesk().Solve("sin", 0.5);
+        Output: 30.0;
+    }
+    Case "cosine" {
+        Constraint: TrigDesk().Solve("cos", 1.0) == 0.0;
+        Processing: TrigDesk().Solve("cos", 1.0);
+        Output: 0.0;
+    }
+}
+
+Test Identity {
+    Constraint: TrigDesk().Identity(0.0) == 1.0;
+    Processing: TrigDesk().Identity(0.0);
+    Output: 1.0;
+}
+
+Test Fault {
+    Constraint: TrigDesk().Fault() == "none";
+    Processing: TrigDesk().Fault();
+    Output: "none";
+}
+
+Test Prepare {
+    Constraint: TrigDesk().Prepare(0.0) == 1;
+    Processing: TrigDesk().Prepare(0.0);
+    Output: 1;
+}
+
+Test SinRight {
+    Constraint: TrigDesk().SinRight(30.0) == 0.5;
+    Processing: TrigDesk().SinRight(30.0);
+    Output: 0.5;
+}
+
+Test CosRight {
+    Constraint: TrigDesk().CosRight(60.0) == 0.5;
+    Processing: TrigDesk().CosRight(60.0);
+    Output: 0.5;
+}
+
+Test AsinDegrees {
+    Constraint: TrigDesk().AsinDegrees(0.5) == 30.0;
+    Processing: TrigDesk().AsinDegrees(0.5);
+    Output: 30.0;
+}
+
+Test SinDegrees {
+    Constraint: TrigDesk().SinDegrees(90.0) == 1.0;
+    Processing: TrigDesk().SinDegrees(90.0);
+    Output: 1.0;
+}
+
+Test SinSeries {
+    Constraint: TrigDesk().SinSeries(0.0) == 0.0;
+    Processing: TrigDesk().SinSeries(0.0);
+    Output: 0.0;
+}
+
+Test CosSeries {
+    Constraint: TrigDesk().CosSeries(0.0) == 1.0;
+    Processing: TrigDesk().CosSeries(0.0);
+    Output: 1.0;
+}
+
+Test AtanSeries {
+    Constraint: TrigDesk().AtanSeries(0.0) == 0.0;
+    Processing: TrigDesk().AtanSeries(0.0);
+    Output: 0.0;
+}
+
+Test Exp {
+    Constraint: TrigDesk().Exp(0.0) == 1.0;
+    Processing: TrigDesk().Exp(0.0);
+    Output: 1.0;
+}
+
+Test Ln {
+    Constraint: TrigDesk().Ln(1.0) == 0.0;
+    Processing: TrigDesk().Ln(1.0);
+    Output: 0.0;
+}
+
+Test Sqrt {
+    Constraint: TrigDesk().Sqrt(4.0) == 2.0;
+    Processing: TrigDesk().Sqrt(4.0);
+    Output: 2.0;
+}
+
+Test Wrap {
+    Constraint: TrigDesk().Wrap(360.0) == 0.0;
+    Processing: TrigDesk().Wrap(360.0);
+    Output: 0.0;
+}
+
+Test Near {
+    Constraint: TrigDesk().Near(1.0, 1.0) == 1;
+    Processing: TrigDesk().Near(1.0, 1.0);
+    Output: 1;
+}
+
+Test Infinity {
+    Processing: TrigDesk().Infinity();
+    Assert: TrigDesk().Infinity() == 1.0 / 0.0;
+}
+
+Test NegativeInfinity {
+    Processing: TrigDesk().NegativeInfinity();
+    Assert: TrigDesk().NegativeInfinity() == 0.0 - TrigDesk().Infinity();
 }

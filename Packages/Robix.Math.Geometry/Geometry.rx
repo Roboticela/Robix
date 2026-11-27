@@ -1,5 +1,8 @@
 // Robix.Math.Geometry: points, vectors, shapes, intersections, and transforms.
-Package Robix.Math.Geometry;
+Package Robix.Math.Geometry
+Explain {
+    Description: "Points, vectors, shapes, intersections, and transforms.";
+};
 
 Import Robix.Core;
 
@@ -1057,6 +1060,7 @@ Class GeometryDesk {
     }
 
     Private Function Wrap(Int index) -> Int {
+        If (pointCount <= 0) { Return 0; }
         Int value = index;
         While (value >= pointCount) { value = value - pointCount; }
         Return value;

@@ -1,5 +1,8 @@
 // Robix.Math.Random: deterministic generators, samples, and distributions.
-Package Robix.Math.Random;
+Package Robix.Math.Random
+Explain {
+    Description: "Deterministic generators, samples, and distributions.";
+};
 
 Import Robix.Core;
 

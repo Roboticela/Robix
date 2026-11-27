@@ -1,701 +1,703 @@
+// Tests for LinearAlgebra.rx. A fresh desk is the zero matrix. Identity arguments are loaded by the call.
+
 Test CreateVector {
     Constraint: LinearAlgebraDesk().CreateVector(1, 2, 3) == 3;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().CreateVector(1, 2, 3);
+    Output: 3;
 }
 
 Test CreateVector4 {
     Constraint: LinearAlgebraDesk().CreateVector4(1, 2, 3, 4) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().CreateVector4(1, 2, 3, 4);
+    Output: 4;
 }
 
 Test ZeroVector {
     Constraint: LinearAlgebraDesk().ZeroVector(3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().ZeroVector(3);
+    Output: 0;
 }
 
 Test UnitVector {
     Constraint: LinearAlgebraDesk().UnitVector(3, 0) == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().UnitVector(3, 0);
+    Output: 1;
 }
 
 Test Component {
     Constraint: LinearAlgebraDesk().Component(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Component(0);
+    Output: 0;
 }
 
 Test Result {
     Constraint: LinearAlgebraDesk().Result(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Result(0);
+    Output: 0;
 }
 
 Test AddVectors {
     Constraint: LinearAlgebraDesk().AddVectors(1, 2, 3, 4, 5, 6) == 5;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().AddVectors(1, 2, 3, 4, 5, 6);
+    Output: 5;
 }
 
 Test SubtractVectors {
-    Constraint: LinearAlgebraDesk().SubtractVectors(4, 5, 6, 1, 2, 3) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SubtractVectors(5, 4, 3, 1, 1, 1) == 4;
+    Processing: LinearAlgebraDesk().SubtractVectors(5, 4, 3, 1, 1, 1);
+    Output: 4;
 }
 
 Test MultiplyVector {
     Constraint: LinearAlgebraDesk().MultiplyVector(2, 3, 4, 2) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().MultiplyVector(2, 3, 4, 2);
+    Output: 4;
 }
 
 Test DivideVector {
-    Constraint: LinearAlgebraDesk().DivideVector(2, 4, 6, 2) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().DivideVector(4, 6, 8, 2) == 2;
+    Processing: LinearAlgebraDesk().DivideVector(4, 6, 8, 2);
+    Output: 2;
 }
 
 Test DotProduct {
-    Constraint: LinearAlgebraDesk().DotProduct(1, 2, 3, 4, 5, 6) == 32;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().DotProduct(1, 0, 0, 4, 0, 0) == 4;
+    Processing: LinearAlgebraDesk().DotProduct(1, 0, 0, 4, 0, 0);
+    Output: 4;
 }
 
 Test CrossProduct {
-    Constraint: LinearAlgebraDesk().CrossProduct(0, 1, 0, 0, 0, 1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().CrossProduct(1, 0, 0, 0, 1, 0) == 0;
+    Processing: LinearAlgebraDesk().CrossProduct(1, 0, 0, 0, 1, 0);
+    Output: 0;
 }
 
 Test VectorNorm {
-    Constraint: LinearAlgebraDesk().VectorNorm(1, 2, 2, 0) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().VectorNorm(3, 4, 0, 0) == 5;
+    Processing: LinearAlgebraDesk().VectorNorm(3, 4, 0, 0);
+    Output: 5;
 }
 
 Test Normalize {
-    Constraint: LinearAlgebraDesk().Normalize(0, 3, 4) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().Normalize(3, 0, 0) == 1;
+    Processing: LinearAlgebraDesk().Normalize(3, 0, 0);
+    Output: 1;
 }
 
 Test VectorDistance {
-    Constraint: LinearAlgebraDesk().VectorDistance(0, 0, 0, 0, 3, 4) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().VectorDistance(0, 0, 0, 3, 4, 0) == 5;
+    Processing: LinearAlgebraDesk().VectorDistance(0, 0, 0, 3, 4, 0);
+    Output: 5;
 }
 
 Test VectorAngle {
     Constraint: LinearAlgebraDesk().VectorAngle(1, 0, 0, 0, 1, 0) == 90;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().VectorAngle(1, 0, 0, 0, 1, 0);
+    Output: 90;
 }
 
 Test ProjectVector {
     Constraint: LinearAlgebraDesk().ProjectVector(2, 0, 0, 1, 0, 0) == 2;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().ProjectVector(2, 0, 0, 1, 0, 0);
+    Output: 2;
 }
 
 Test RejectVector {
-    Constraint: LinearAlgebraDesk().RejectVector(2, 3, 0, 1, 0, 0) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().RejectVector(2, 0, 0, 1, 0, 0) == 0;
+    Processing: LinearAlgebraDesk().RejectVector(2, 0, 0, 1, 0, 0);
+    Output: 0;
 }
 
 Test HadamardProduct {
     Constraint: LinearAlgebraDesk().HadamardProduct(2, 3, 4, 5, 6, 7) == 10;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().HadamardProduct(2, 3, 4, 5, 6, 7);
+    Output: 10;
 }
 
 Test OuterProduct {
-    Constraint: LinearAlgebraDesk().OuterProduct(1, 0, 0, 2, 0, 0) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().OuterProduct(2, 0, 0, 3, 0, 0) == 6;
+    Processing: LinearAlgebraDesk().OuterProduct(2, 0, 0, 3, 0, 0);
+    Output: 6;
 }
 
 Test IsOrthogonal {
     Constraint: LinearAlgebraDesk().IsOrthogonal(1, 0, 0, 0, 1, 0) == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsOrthogonal(1, 0, 0, 0, 1, 0);
+    Output: 1;
 }
 
 Test IsParallel {
-    Constraint: LinearAlgebraDesk().IsParallel(2, 0, 0, 1, 0, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().IsParallel(2, 0, 0, 4, 0, 0) == 1;
+    Processing: LinearAlgebraDesk().IsParallel(2, 0, 0, 4, 0, 0);
+    Output: 1;
 }
 
 Test Load {
     Constraint: LinearAlgebraDesk().Load(1, 0, 0, 0, 1, 0, 0, 0, 1) == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Load(1, 0, 0, 0, 1, 0, 0, 0, 1);
+    Output: 1;
 }
 
 Test CreateMatrix {
     Constraint: LinearAlgebraDesk().CreateMatrix(3, 3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().CreateMatrix(3, 3);
+    Output: 0;
 }
 
 Test Identity {
     Constraint: LinearAlgebraDesk().Identity(3) == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Identity(3);
+    Output: 1;
 }
 
 Test Zeros {
     Constraint: LinearAlgebraDesk().Zeros(3, 3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Zeros(3, 3);
+    Output: 0;
 }
 
 Test Ones {
     Constraint: LinearAlgebraDesk().Ones(3, 3) == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Ones(3, 3);
+    Output: 1;
 }
 
 Test Diagonal {
-    Constraint: LinearAlgebraDesk().Diagonal(1, 2, 3) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().Diagonal(2, 3, 4) == 2;
+    Processing: LinearAlgebraDesk().Diagonal(2, 3, 4);
+    Output: 2;
 }
 
 Test Set {
-    Constraint: LinearAlgebraDesk().Set(0, 0, 5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().Set(0, 0, 4) == 4;
+    Processing: LinearAlgebraDesk().Set(0, 0, 4);
+    Output: 4;
 }
 
 Test Get {
     Constraint: LinearAlgebraDesk().Get(0, 0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Get(0, 0);
+    Output: 0;
 }
 
 Test FromRow {
-    Constraint: LinearAlgebraDesk().FromRow(0, 1, 2, 3) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().FromRow(0, 4, 5, 6) == 4;
+    Processing: LinearAlgebraDesk().FromRow(0, 4, 5, 6);
+    Output: 4;
 }
 
 Test FromColumn {
-    Constraint: LinearAlgebraDesk().FromColumn(0, 1, 2, 3) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().FromColumn(0, 4, 5, 6) == 4;
+    Processing: LinearAlgebraDesk().FromColumn(0, 4, 5, 6);
+    Output: 4;
 }
 
 Test RandomMatrix {
     Constraint: LinearAlgebraDesk().RandomMatrix(1, 1, 1) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().RandomMatrix(1, 1, 1);
+    Output: 0;
 }
 
 Test SetSparse {
-    Constraint: LinearAlgebraDesk().SetSparse(0, 0, 0, 5) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SetSparse(0, 0, 0, 4) == 0;
+    Processing: LinearAlgebraDesk().SetSparse(0, 0, 0, 4);
+    Output: 0;
 }
 
 Test Sparse {
     Constraint: LinearAlgebraDesk().Sparse(3, 3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Sparse(3, 3);
+    Output: 0;
 }
 
 Test AddMatrices {
-    Constraint: LinearAlgebraDesk().AddMatrices(1, 0, 0, 0, 0, 0, 0, 0, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().AddMatrices(4, 0, 0, 0, 0, 0, 0, 0, 0) == 4;
+    Processing: LinearAlgebraDesk().AddMatrices(4, 0, 0, 0, 0, 0, 0, 0, 0);
+    Output: 4;
 }
 
 Test SubtractMatrices {
-    Constraint: LinearAlgebraDesk().SubtractMatrices(1, 0, 0, 0, 0, 0, 0, 0, 0) == -1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SubtractMatrices(4, 0, 0, 0, 0, 0, 0, 0, 0) == -4;
+    Processing: LinearAlgebraDesk().SubtractMatrices(4, 0, 0, 0, 0, 0, 0, 0, 0);
+    Output: -4;
 }
 
 Test ScaleMatrix {
-    Constraint: LinearAlgebraDesk().ScaleMatrix(2) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().ScaleMatrix(3) == 0;
+    Processing: LinearAlgebraDesk().ScaleMatrix(3);
+    Output: 0;
 }
 
 Test DivideMatrix {
     Constraint: LinearAlgebraDesk().DivideMatrix(2) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().DivideMatrix(2);
+    Output: 0;
 }
 
 Test MultiplyMatrices {
     Constraint: LinearAlgebraDesk().MultiplyMatrices(1, 0, 0, 0, 1, 0, 0, 0, 1) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().MultiplyMatrices(1, 0, 0, 0, 1, 0, 0, 0, 1);
+    Output: 0;
 }
 
 Test MultiplyMatrixVector {
     Constraint: LinearAlgebraDesk().MultiplyMatrixVector(1, 2, 3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().MultiplyMatrixVector(1, 2, 3);
+    Output: 0;
 }
 
 Test Transpose {
     Constraint: LinearAlgebraDesk().Transpose() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Transpose();
+    Output: 0;
 }
 
 Test Conjugate {
     Constraint: LinearAlgebraDesk().Conjugate() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Conjugate();
+    Output: 0;
 }
 
 Test ConjugateTranspose {
     Constraint: LinearAlgebraDesk().ConjugateTranspose() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().ConjugateTranspose();
+    Output: 0;
 }
 
 Test Trace {
     Constraint: LinearAlgebraDesk().Trace() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Trace();
+    Output: 0;
 }
 
 Test Determinant {
     Constraint: LinearAlgebraDesk().Determinant() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Determinant();
+    Output: 0;
 }
 
 Test DeterminantOf {
-    Constraint: LinearAlgebraDesk().DeterminantOf(1, 2, 3, 0, 1, 4, 5, 6, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().DeterminantOf(1, 0, 0, 0, 1, 0, 0, 0, 1) == 1;
+    Processing: LinearAlgebraDesk().DeterminantOf(1, 0, 0, 0, 1, 0, 0, 0, 1);
+    Output: 1;
 }
 
 Test Minor {
     Constraint: LinearAlgebraDesk().Minor(0, 0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Minor(0, 0);
+    Output: 0;
 }
 
 Test Cofactor {
     Constraint: LinearAlgebraDesk().Cofactor(0, 0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Cofactor(0, 0);
+    Output: 0;
 }
 
 Test Adjugate {
     Constraint: LinearAlgebraDesk().Adjugate() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Adjugate();
+    Output: 0;
 }
 
 Test Inverse {
     Constraint: LinearAlgebraDesk().Inverse() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Inverse();
+    Output: 0;
 }
 
 Test PseudoInverse {
     Constraint: LinearAlgebraDesk().PseudoInverse() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().PseudoInverse();
+    Output: 1;
 }
 
 Test Rank {
     Constraint: LinearAlgebraDesk().Rank() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Rank();
+    Output: 0;
 }
 
 Test Nullity {
     Constraint: LinearAlgebraDesk().Nullity() == 3;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Nullity();
+    Output: 3;
 }
 
 Test MatrixPower {
     Constraint: LinearAlgebraDesk().MatrixPower(0) == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().MatrixPower(0);
+    Output: 1;
 }
 
 Test MatrixExponential {
     Constraint: LinearAlgebraDesk().MatrixExponential() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().MatrixExponential();
+    Output: 1;
 }
 
 Test HadamardMatrices {
-    Constraint: LinearAlgebraDesk().HadamardMatrices(1, 1, 1, 1, 1, 1, 1, 1, 1) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().HadamardMatrices(2, 0, 0, 0, 2, 0, 0, 0, 2) == 0;
+    Processing: LinearAlgebraDesk().HadamardMatrices(2, 0, 0, 0, 2, 0, 0, 0, 2);
+    Output: 0;
 }
 
 Test KroneckerProduct {
     Constraint: LinearAlgebraDesk().KroneckerProduct(1, 0, 0, 1) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().KroneckerProduct(1, 0, 0, 1);
+    Output: 0;
 }
 
 Test KroneckerEntry {
     Constraint: LinearAlgebraDesk().KroneckerEntry(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().KroneckerEntry(0);
+    Output: 0;
 }
 
 Test SolveLinearSystem {
     Constraint: LinearAlgebraDesk().SolveLinearSystem(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveLinearSystem(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test SolveGaussian {
     Constraint: LinearAlgebraDesk().SolveGaussian(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveGaussian(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test SolveGaussJordan {
     Constraint: LinearAlgebraDesk().SolveGaussJordan(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveGaussJordan(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test SolveLU {
     Constraint: LinearAlgebraDesk().SolveLU(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveLU(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test SolveQR {
     Constraint: LinearAlgebraDesk().SolveQR(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveQR(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test SolveCholesky {
     Constraint: LinearAlgebraDesk().SolveCholesky(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveCholesky(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test SolveLeastSquares {
     Constraint: LinearAlgebraDesk().SolveLeastSquares(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveLeastSquares(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test SolveSparse {
-    Constraint: LinearAlgebraDesk().SolveSparse(1, 1, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SolveSparse(2, 3, 4, 4, 6, 8) == 2;
+    Processing: LinearAlgebraDesk().SolveSparse(2, 3, 4, 4, 6, 8);
+    Output: 2;
 }
 
 Test SolveStoredSparse {
-    Constraint: LinearAlgebraDesk().SolveStoredSparse(4, 5, 6) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SolveStoredSparse(1, 2, 3) == 0;
+    Processing: LinearAlgebraDesk().SolveStoredSparse(1, 2, 3);
+    Output: 0;
 }
 
 Test SolveIterative {
     Constraint: LinearAlgebraDesk().SolveIterative(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SolveIterative(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6);
+    Output: 4;
 }
 
 Test ComputeResidual {
-    Constraint: LinearAlgebraDesk().ComputeResidual(0, 0, 0, 4, 5, 6) == 15;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().ComputeResidual(1, 2, 3, 1, 2, 3) == 6;
+    Processing: LinearAlgebraDesk().ComputeResidual(1, 2, 3, 1, 2, 3);
+    Output: 6;
 }
 
 Test LU {
     Constraint: LinearAlgebraDesk().LU() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().LU();
+    Output: 0;
 }
 
 Test QR {
     Constraint: LinearAlgebraDesk().QR() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().QR();
+    Output: 0;
 }
 
 Test Cholesky {
     Constraint: LinearAlgebraDesk().Cholesky() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Cholesky();
+    Output: 0;
 }
 
 Test SVD {
     Constraint: LinearAlgebraDesk().SVD() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().SVD();
+    Output: 0;
 }
 
 Test EigenDecompose {
     Constraint: LinearAlgebraDesk().EigenDecompose() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().EigenDecompose();
+    Output: 0;
 }
 
 Test Eigenvalue {
     Constraint: LinearAlgebraDesk().Eigenvalue(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Eigenvalue(0);
+    Output: 0;
 }
 
 Test Schur {
     Constraint: LinearAlgebraDesk().Schur() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Schur();
+    Output: 1;
 }
 
 Test PolarDecomposition {
     Constraint: LinearAlgebraDesk().PolarDecomposition() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().PolarDecomposition();
+    Output: 0;
 }
 
 Test Factor {
     Constraint: LinearAlgebraDesk().Factor(0, 0, 0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Factor(0, 0, 0);
+    Output: 0;
 }
 
 Test IsSquare {
     Constraint: LinearAlgebraDesk().IsSquare() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsSquare();
+    Output: 1;
 }
 
 Test IsSymmetric {
     Constraint: LinearAlgebraDesk().IsSymmetric() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsSymmetric();
+    Output: 1;
 }
 
 Test IsHermitian {
     Constraint: LinearAlgebraDesk().IsHermitian() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsHermitian();
+    Output: 1;
 }
 
 Test IsDiagonal {
     Constraint: LinearAlgebraDesk().IsDiagonal() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsDiagonal();
+    Output: 1;
 }
 
 Test IsTriangular {
     Constraint: LinearAlgebraDesk().IsTriangular() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsTriangular();
+    Output: 1;
 }
 
 Test IsOrthogonalMatrix {
     Constraint: LinearAlgebraDesk().IsOrthogonalMatrix() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsOrthogonalMatrix();
+    Output: 0;
 }
 
 Test IsUnitary {
     Constraint: LinearAlgebraDesk().IsUnitary() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsUnitary();
+    Output: 0;
 }
 
 Test IsPositiveDefinite {
     Constraint: LinearAlgebraDesk().IsPositiveDefinite() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsPositiveDefinite();
+    Output: 0;
 }
 
 Test IsSingular {
     Constraint: LinearAlgebraDesk().IsSingular() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsSingular();
+    Output: 1;
 }
 
 Test IsInvertible {
     Constraint: LinearAlgebraDesk().IsInvertible() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().IsInvertible();
+    Output: 0;
 }
 
 Test ConditionNumber {
     Constraint: LinearAlgebraDesk().ConditionNumber() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().ConditionNumber();
+    Output: 0;
 }
 
 Test MatrixNorm {
-    Constraint: LinearAlgebraDesk().MatrixNorm(0) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().MatrixNorm(1) == 0;
+    Processing: LinearAlgebraDesk().MatrixNorm(1);
+    Output: 0;
 }
 
 Test FrobeniusNorm {
     Constraint: LinearAlgebraDesk().FrobeniusNorm() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().FrobeniusNorm();
+    Output: 0;
 }
 
 Test SetTensor {
-    Constraint: LinearAlgebraDesk().SetTensor(0, 7) == 7;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SetTensor(0, 4) == 4;
+    Processing: LinearAlgebraDesk().SetTensor(0, 4);
+    Output: 4;
 }
 
 Test TensorAt {
     Constraint: LinearAlgebraDesk().TensorAt(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().TensorAt(0);
+    Output: 0;
 }
 
 Test TensorShape {
-    Constraint: LinearAlgebraDesk().TensorShape(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().TensorShape(2) == 2;
+    Processing: LinearAlgebraDesk().TensorShape(2);
+    Output: 2;
 }
 
 Test TensorSum {
     Constraint: LinearAlgebraDesk().TensorSum() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().TensorSum();
+    Output: 0;
 }
 
 Test SetShift {
-    Constraint: LinearAlgebraDesk().SetShift(3, 0, 0) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SetShift(3, 4, 5) == 3;
+    Processing: LinearAlgebraDesk().SetShift(3, 4, 5);
+    Output: 3;
 }
 
 Test ApplyAffine {
     Constraint: LinearAlgebraDesk().ApplyAffine(1, 2, 3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().ApplyAffine(1, 2, 3);
+    Output: 0;
 }
 
 Test RotationMatrix {
     Constraint: LinearAlgebraDesk().RotationMatrix(0) == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().RotationMatrix(0);
+    Output: 1;
 }
 
 Test LinearTransform {
     Constraint: LinearAlgebraDesk().LinearTransform(1, 2, 3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().LinearTransform(1, 2, 3);
+    Output: 0;
 }
 
 Test TransformationMatrix {
     Constraint: LinearAlgebraDesk().TransformationMatrix(1, 2, 3) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().TransformationMatrix(1, 2, 3);
+    Output: 0;
 }
 
 Test RankOfTensor {
     Constraint: LinearAlgebraDesk().RankOfTensor() == 1;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().RankOfTensor();
+    Output: 1;
 }
 
 Test Fault {
     Constraint: LinearAlgebraDesk().Fault() == "none";
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Fault();
+    Output: "none";
 }
 
 Test Eliminate {
-    Constraint: LinearAlgebraDesk().Eliminate(0, 4, 5, 6) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().Eliminate(0, 1, 2, 3) == 0;
+    Processing: LinearAlgebraDesk().Eliminate(0, 1, 2, 3);
+    Output: 0;
 }
 
 Test ClearRow {
-    Constraint: LinearAlgebraDesk().ClearRow(4, 2) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().ClearRow(6, 3) == 1;
+    Processing: LinearAlgebraDesk().ClearRow(6, 3);
+    Output: 1;
 }
 
 Test CopyToC {
     Constraint: LinearAlgebraDesk().CopyToC() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().CopyToC();
+    Output: 0;
 }
 
 Test CopyToB {
     Constraint: LinearAlgebraDesk().CopyToB() == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().CopyToB();
+    Output: 0;
 }
 
 Test MultiplyB {
     Constraint: LinearAlgebraDesk().MultiplyB(1, 0, 0, 0, 1, 0, 0, 0, 1) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().MultiplyB(1, 0, 0, 0, 1, 0, 0, 0, 1);
+    Output: 0;
 }
 
 Test BDivides {
-    Constraint: LinearAlgebraDesk().BDivides(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().BDivides(2) == 1;
+    Processing: LinearAlgebraDesk().BDivides(2);
+    Output: 1;
 }
 
 Test RowSum {
     Constraint: LinearAlgebraDesk().RowSum(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().RowSum(0);
+    Output: 0;
 }
 
 Test ColumnSum {
     Constraint: LinearAlgebraDesk().ColumnSum(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().ColumnSum(0);
+    Output: 0;
 }
 
 Test Divides {
-    Constraint: LinearAlgebraDesk().Divides(8, 2) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().Divides(6, 3) == 1;
+    Processing: LinearAlgebraDesk().Divides(6, 3);
+    Output: 1;
 }
 
 Test AbsInt {
     Constraint: LinearAlgebraDesk().AbsInt(-4) == 4;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().AbsInt(-4);
+    Output: 4;
 }
 
 Test SignInt {
-    Constraint: LinearAlgebraDesk().SignInt(-3) == -1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().SignInt(-4) == -1;
+    Processing: LinearAlgebraDesk().SignInt(-4);
+    Output: -1;
 }
 
 Test Max3 {
-    Constraint: LinearAlgebraDesk().Max3(1, 4, 2) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().Max3(1, 5, 3) == 5;
+    Processing: LinearAlgebraDesk().Max3(1, 5, 3);
+    Output: 5;
 }
 
 Test Min3 {
-    Constraint: LinearAlgebraDesk().Min3(1, 4, 2) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: LinearAlgebraDesk().Min3(1, 5, 3) == 1;
+    Processing: LinearAlgebraDesk().Min3(1, 5, 3);
+    Output: 1;
 }
 
 Test Root {
     Constraint: LinearAlgebraDesk().Root(9) == 3;
-    Processing: True;
-    Output: True;
+    Processing: LinearAlgebraDesk().Root(9);
+    Output: 3;
 }

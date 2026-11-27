@@ -1,5 +1,296 @@
+// Tests for Memory.rx. Each call uses a fresh manager.
+
 Test Allocate {
-    Constraint: MemoryManager().Allocate(8) == 0;
-    Processing: True;
-    Output: True;
+    Case "empty size" {
+        Constraint: MemoryManager().Allocate(0) == -1;
+        Processing: MemoryManager().Allocate(0);
+        Output: -1;
+    }
+    Case "four bytes" {
+        Constraint: MemoryManager().Allocate(4) == 0;
+        Processing: MemoryManager().Allocate(4);
+        Output: 0;
+    }
+}
+
+Test AllocateZeroed {
+    Constraint: MemoryManager().AllocateZeroed(0) == -1;
+    Processing: MemoryManager().AllocateZeroed(0);
+    Output: -1;
+}
+
+Test AllocateAligned {
+    Constraint: MemoryManager().AllocateAligned(4, 3) == -1;
+    Processing: MemoryManager().AllocateAligned(4, 3);
+    Output: -1;
+}
+
+Test Reallocate {
+    Constraint: MemoryManager().Reallocate(0, 4) == -1;
+    Processing: MemoryManager().Reallocate(0, 4);
+    Output: -1;
+}
+
+Test Free {
+    Constraint: MemoryManager().Free(0) == 0;
+    Processing: MemoryManager().Free(0);
+    Output: 0;
+}
+
+Test Read {
+    Constraint: MemoryManager().Read(0, 0) == -1;
+    Processing: MemoryManager().Read(0, 0);
+    Output: -1;
+}
+
+Test Write {
+    Constraint: MemoryManager().Write(0, 0, 1) == 0;
+    Processing: MemoryManager().Write(0, 0, 1);
+    Output: 0;
+}
+
+Test Copy {
+    Constraint: MemoryManager().Copy(0, 1, 1) == 0;
+    Processing: MemoryManager().Copy(0, 1, 1);
+    Output: 0;
+}
+
+Test Move {
+    Constraint: MemoryManager().Move(0, 1, 1) == 0;
+    Processing: MemoryManager().Move(0, 1, 1);
+    Output: 0;
+}
+
+Test Clear {
+    Constraint: MemoryManager().Clear(0) == 0;
+    Processing: MemoryManager().Clear(0);
+    Output: 0;
+}
+
+Test Fill {
+    Constraint: MemoryManager().Fill(0, 1) == 0;
+    Processing: MemoryManager().Fill(0, 1);
+    Output: 0;
+}
+
+Test Compare {
+    Constraint: MemoryManager().Compare(0, 1) == -2;
+    Processing: MemoryManager().Compare(0, 1);
+    Output: -2;
+}
+
+Test Slice {
+    Constraint: MemoryManager().Slice(0, 0, 1) == -1;
+    Processing: MemoryManager().Slice(0, 0, 1);
+    Output: -1;
+}
+
+Test CreatePool {
+    Case "two" {
+        Constraint: MemoryManager().CreatePool(2) == 2;
+        Processing: MemoryManager().CreatePool(2);
+        Output: 2;
+    }
+    Case "too large" {
+        Constraint: MemoryManager().CreatePool(9) == 0;
+        Processing: MemoryManager().CreatePool(9);
+        Output: 0;
+    }
+}
+
+Test Rent {
+    Constraint: MemoryManager().Rent() == -1;
+    Processing: MemoryManager().Rent();
+    Output: -1;
+}
+
+Test ReturnItem {
+    Constraint: MemoryManager().ReturnItem(1) == 0;
+    Processing: MemoryManager().ReturnItem(1);
+    Output: 0;
+}
+
+Test ClearPool {
+    Constraint: MemoryManager().ClearPool() == 0;
+    Processing: MemoryManager().ClearPool();
+    Output: 0;
+}
+
+Test TrimPool {
+    Constraint: MemoryManager().TrimPool() == 0;
+    Processing: MemoryManager().TrimPool();
+    Output: 0;
+}
+
+Test Collect {
+    Constraint: MemoryManager().Collect() == 0;
+    Processing: MemoryManager().Collect();
+    Output: 0;
+}
+
+Test GetGeneration {
+    Constraint: MemoryManager().GetGeneration(0) == -1;
+    Processing: MemoryManager().GetGeneration(0);
+    Output: -1;
+}
+
+Test AllocatedBytes {
+    Constraint: MemoryManager().AllocatedBytes() == 0;
+    Processing: MemoryManager().AllocatedBytes();
+    Output: 0;
+}
+
+Test HeapSize {
+    Constraint: MemoryManager().HeapSize() == 4096;
+    Processing: MemoryManager().HeapSize();
+    Output: 4096;
+}
+
+Test FreeBytes {
+    Constraint: MemoryManager().FreeBytes() == 4096;
+    Processing: MemoryManager().FreeBytes();
+    Output: 4096;
+}
+
+Test Pressure {
+    Constraint: MemoryManager().Pressure() == "low";
+    Processing: MemoryManager().Pressure();
+    Output: "low";
+}
+
+Test ActiveCount {
+    Constraint: MemoryManager().ActiveCount() == 0;
+    Processing: MemoryManager().ActiveCount();
+    Output: 0;
+}
+
+Test DetectLeaks {
+    Constraint: MemoryManager().DetectLeaks() == 0;
+    Processing: MemoryManager().DetectLeaks();
+    Output: 0;
+}
+
+Test SuppressFinalize {
+    Constraint: MemoryManager().SuppressFinalize(0) == 0;
+    Processing: MemoryManager().SuppressFinalize(0);
+    Output: 0;
+}
+
+Test ReRegisterForFinalize {
+    Constraint: MemoryManager().ReRegisterForFinalize(0) == 0;
+    Processing: MemoryManager().ReRegisterForFinalize(0);
+    Output: 0;
+}
+
+Test Size {
+    Constraint: MemoryManager().Size(0) == 0;
+    Processing: MemoryManager().Size(0);
+    Output: 0;
+}
+
+Test Alignment {
+    Constraint: MemoryManager().Alignment(0) == 1;
+    Processing: MemoryManager().Alignment(0);
+    Output: 1;
+}
+
+Test Claim {
+    Constraint: MemoryManager().Claim(0, 1, 0) == -1;
+    Processing: MemoryManager().Claim(0, 1, 0);
+    Output: -1;
+}
+
+Test CopyRange {
+    Constraint: MemoryManager().CopyRange(0, 0, 1, 0, 1) == 0;
+    Processing: MemoryManager().CopyRange(0, 0, 1, 0, 1);
+    Output: 0;
+}
+
+Test Sweep {
+    Constraint: MemoryManager().Sweep(0) == 0;
+    Processing: MemoryManager().Sweep(0);
+    Output: 0;
+}
+
+Test PowerOfTwo {
+    Case "four" {
+        Constraint: MemoryManager().PowerOfTwo(4) == 1;
+        Processing: MemoryManager().PowerOfTwo(4);
+        Output: 1;
+    }
+    Case "three" {
+        Constraint: MemoryManager().PowerOfTwo(3) == 0;
+        Processing: MemoryManager().PowerOfTwo(3);
+        Output: 0;
+    }
+}
+
+Test ReadAt {
+    Constraint: MemoryManager().StateOf(0) == 0;
+    Processing: MemoryManager().ReadAt(1, 0);
+    Output: 0;
+}
+
+Test WriteAt {
+    Processing: MemoryManager().WriteAt(1, 0, 1);
+    Assert: MemoryManager().StateOf(0) == 0;
+}
+
+Test StateOf {
+    Constraint: MemoryManager().StateOf(0) == 0;
+    Processing: MemoryManager().StateOf(0);
+    Output: 0;
+}
+
+Test SetState {
+    Processing: MemoryManager().SetState(0, 0);
+    Assert: MemoryManager().StateOf(0) == 0;
+}
+
+Test SizeOf {
+    Constraint: MemoryManager().SizeOf(0) == 0;
+    Processing: MemoryManager().SizeOf(0);
+    Output: 0;
+}
+
+Test SetSize {
+    Processing: MemoryManager().SetSize(0, 0);
+    Assert: MemoryManager().SizeOf(0) == 0;
+}
+
+Test AlignOf {
+    Constraint: MemoryManager().AlignOf(0) == 1;
+    Processing: MemoryManager().AlignOf(0);
+    Output: 1;
+}
+
+Test SetAlign {
+    Processing: MemoryManager().SetAlign(0, 1);
+    Assert: MemoryManager().AlignOf(0) == 1;
+}
+
+Test SetRooted {
+    Processing: MemoryManager().SetRooted(0, 0);
+    Assert: MemoryManager().DetectLeaks() == 0;
+}
+
+Test BlockOf {
+    Processing: MemoryManager().BlockOf(1);
+    Assert: MemoryManager().Size(1) == 0;
+}
+
+Test SetBlock {
+    Processing: MemoryManager().SetBlock(1, MemoryManager().BlockOf(1));
+    Assert: MemoryManager().Size(1) == 0;
+}
+
+Test PoolAt {
+    Constraint: MemoryManager().PoolAt(0) == 0;
+    Processing: MemoryManager().PoolAt(0);
+    Output: 0;
+}
+
+Test SetPool {
+    Processing: MemoryManager().SetPool(0, 0);
+    Assert: MemoryManager().PoolAt(0) == 0;
 }

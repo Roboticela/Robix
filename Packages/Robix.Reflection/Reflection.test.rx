@@ -1,5 +1,218 @@
+// Tests for Reflection.rx. Each call uses a fresh unit or mirror.
+
+Test Start {
+    Constraint: RobotUnit().Start() == 8;
+    Processing: RobotUnit().Start();
+    Output: 8;
+}
+
+Test ReadPace {
+    Constraint: RobotUnit().ReadPace() == 4;
+    Processing: RobotUnit().ReadPace();
+    Output: 4;
+}
+
+Test WritePace {
+    Constraint: RobotUnit().WritePace(9) == 9;
+    Processing: RobotUnit().WritePace(9);
+    Output: 9;
+}
+
+Test ReadCaption {
+    Constraint: RobotUnit().ReadCaption() == "arm";
+    Processing: RobotUnit().ReadCaption();
+    Output: "arm";
+}
+
+Test WriteCaption {
+    Constraint: RobotUnit().WriteCaption("hand") == "hand";
+    Processing: RobotUnit().WriteCaption("hand");
+    Output: "hand";
+}
+
+Test Configure {
+    Constraint: Mirror().Configure("build") == "build";
+    Processing: Mirror().Configure("build");
+    Output: "build";
+}
+
 Test Load {
-    Constraint: Mirror().Load("Robotics.Core", "1.0.0", "Core") == 0;
-    Processing: True;
-    Output: True;
+    Constraint: Mirror().Load("Robix", "1", "Core") == 0;
+    Processing: Mirror().Load("Robix", "1", "Core");
+    Output: 0;
+}
+
+Test Unload {
+    Constraint: Mirror().Unload("Robix") == 0;
+    Processing: Mirror().Unload("Robix");
+    Output: 0;
+}
+
+Test LoadedCount {
+    Constraint: Mirror().LoadedCount() == 0;
+    Processing: Mirror().LoadedCount();
+    Output: 0;
+}
+
+Test HasAssembly {
+    Constraint: Mirror().HasAssembly("Robix") == 0;
+    Processing: Mirror().HasAssembly("Robix");
+    Output: 0;
+}
+
+Test AssemblyName {
+    Constraint: Mirror().AssemblyName(0) == "none";
+    Processing: Mirror().AssemblyName(0);
+    Output: "none";
+}
+
+Test AssemblyVersion {
+    Constraint: Mirror().AssemblyVersion(0) == "none";
+    Processing: Mirror().AssemblyVersion(0);
+    Output: "none";
+}
+
+Test AssemblyModule {
+    Constraint: Mirror().AssemblyModule(0) == "none";
+    Processing: Mirror().AssemblyModule(0);
+    Output: "none";
+}
+
+Test RegisterType {
+    Constraint: Mirror().RegisterType("Point", "Object", "none", "none") == 1;
+    Processing: Mirror().RegisterType("Point", "Object", "none", "none");
+    Output: 1;
+}
+
+Test HasType {
+    Case "int" {
+        Constraint: Mirror().HasType("Int") == 1;
+        Processing: Mirror().HasType("Int");
+        Output: 1;
+    }
+    Case "missing" {
+        Constraint: Mirror().HasType("Nope") == 0;
+        Processing: Mirror().HasType("Nope");
+        Output: 0;
+    }
+}
+
+Test BaseType {
+    Constraint: Mirror().BaseType("RobotUnit") == "Object";
+    Processing: Mirror().BaseType("RobotUnit");
+    Output: "Object";
+}
+
+Test Interfaces {
+    Constraint: Mirror().Interfaces("RobotUnit") == "Movable";
+    Processing: Mirror().Interfaces("RobotUnit");
+    Output: "Movable";
+}
+
+Test GenericParameter {
+    Constraint: Mirror().GenericParameter("List") == "T";
+    Processing: Mirror().GenericParameter("List");
+    Output: "T";
+}
+
+Test Members {
+    Constraint: Mirror().Members("RobotUnit", "method") == "Start,ReadPace,WriteCaption";
+    Processing: Mirror().Members("RobotUnit", "method");
+    Output: "Start,ReadPace,WriteCaption";
+}
+
+Test MemberCount {
+    Constraint: Mirror().MemberCount("RobotUnit", "method") == 3;
+    Processing: Mirror().MemberCount("RobotUnit", "method");
+    Output: 3;
+}
+
+Test Signature {
+    Constraint: Mirror().Signature("RobotUnit", "Start") == "() -> Int";
+    Processing: Mirror().Signature("RobotUnit", "Start");
+    Output: "() -> Int";
+}
+
+Test Attributes {
+    Constraint: Mirror().Attributes("RobotUnit", "Start") == "Pure";
+    Processing: Mirror().Attributes("RobotUnit", "Start");
+    Output: "Pure";
+}
+
+Test HasAttribute {
+    Constraint: Mirror().HasAttribute("RobotUnit", "Start", "Pure") == 1;
+    Processing: Mirror().HasAttribute("RobotUnit", "Start", "Pure");
+    Output: 1;
+}
+
+Test InvokeMethod {
+    Constraint: Mirror().InvokeMethod("ReadPace") == 4;
+    Processing: Mirror().InvokeMethod("ReadPace");
+    Output: 4;
+}
+
+Test ReadField {
+    Constraint: Mirror().ReadField("pace") == 4;
+    Processing: Mirror().ReadField("pace");
+    Output: 4;
+}
+
+Test WriteField {
+    Constraint: Mirror().WriteField("pace", 6) == 1;
+    Processing: Mirror().WriteField("pace", 6);
+    Output: 1;
+}
+
+Test ReadProperty {
+    Constraint: Mirror().ReadProperty("Title") == "arm";
+    Processing: Mirror().ReadProperty("Title");
+    Output: "arm";
+}
+
+Test WriteProperty {
+    Constraint: Mirror().WriteProperty("Title", "hand") == 1;
+    Processing: Mirror().WriteProperty("Title", "hand");
+    Output: 1;
+}
+
+Test Error {
+    Constraint: Mirror().Error() == "none";
+    Processing: Mirror().Error();
+    Output: "none";
+}
+
+Test TypeRecord {
+    Constraint: Mirror().TypeRecord("Int") == "T#Int#none#none#none";
+    Processing: Mirror().TypeRecord("Int");
+    Output: "T#Int#none#none#none";
+}
+
+Test MemberRecord {
+    Constraint: Mirror().MemberRecord("RobotUnit", "Start") == "M#RobotUnit#method#Start#() -> Int#Pure";
+    Processing: Mirror().MemberRecord("RobotUnit", "Start");
+    Output: "M#RobotUnit#method#Start#() -> Int#Pure";
+}
+
+Test Field {
+    Constraint: Mirror().Field("T#Int#none", 1) == "Int";
+    Processing: Mirror().Field("T#Int#none", 1);
+    Output: "Int";
+}
+
+Test CharAt {
+    Constraint: Mirror().CharAt("ab", 0) == "a";
+    Processing: Mirror().CharAt("ab", 0);
+    Output: "a";
+}
+
+Test HasToken {
+    Constraint: Mirror().HasToken("Pure", "Pure") == 1;
+    Processing: Mirror().HasToken("Pure", "Pure");
+    Output: 1;
+}
+
+Test LoadAsync {
+    Constraint: LoadAsync(Mirror(), "Robix", "1", "Core") == 0;
+    Processing: LoadAsync(Mirror(), "Robix", "1", "Core");
+    Output: 0;
 }

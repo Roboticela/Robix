@@ -1,5 +1,8 @@
 // Robix.Conversions: widths, text, bases, and registered converters.
-Package Robix.Conversions;
+Package Robix.Conversions
+Explain {
+    Description: "Widths, text, bases, and registered converters.";
+};
 
 Import Robix.Core;
 
@@ -105,7 +108,7 @@ Class ConversionsDesk {
         Return value;
     }
 
-    Public Function TryConvert(Int value, Int target) -> Int
+    Public Function AttemptConvert(Int value, Int target) -> Int
     Explain {
         Description: "Try a checked conversion.";
         Input: value = "Value", target = "Width code";
@@ -119,14 +122,14 @@ Class ConversionsDesk {
         Return result;
     }
 
-    Public Function ConvertChecked(Int value, Int target) -> Int
+    Public Function CheckedConvert(Int value, Int target) -> Int
     Explain {
         Description: "Convert and reject an out-of-range value.";
         Input: value = "Value", target = "Width code";
         Processing: "Use the checked policy.";
         Output: "The value, or zero on overflow.";
     } {
-        Return This.TryConvert(value, target);
+        Return This.AttemptConvert(value, target);
     }
 
     Public Function ConvertSaturating(Int value, Int target) -> Int
@@ -164,7 +167,7 @@ Class ConversionsDesk {
         Processing: "A checked failure returns the fallback.";
         Output: "The converted value or the fallback.";
     } {
-        Int result = This.TryConvert(value, target);
+        Int result = This.AttemptConvert(value, target);
         If (problem == "overflow") { Return fallback; }
         Return result;
     }
@@ -176,7 +179,7 @@ Class ConversionsDesk {
         Processing: "Checked overflow stores the error instead of substituting a limit.";
         Output: "The converted value, or zero on overflow.";
     } {
-        Return This.TryConvert(value, target);
+        Return This.AttemptConvert(value, target);
     }
 
     Public Function CanConvert(Int source, Int target) -> Int
@@ -377,7 +380,7 @@ Class ConversionsDesk {
         Return This.ConvertSaturating(value, 0);
     }
 
-    Public Function ToBoolean(Int value) -> Int
+    Public Function BooleanOf(Int value) -> Int
     Explain {
         Description: "Convert zero and one to a boolean.";
         Input: value = "0 or 1";
@@ -1067,7 +1070,7 @@ Class ConversionsDesk {
         Processing: "Try a checked conversion.";
         Output: "One when the value fits.";
     } {
-        This.TryConvert(value, target);
+        This.AttemptConvert(value, target);
         If (problem == "none") { Return 1; }
         Return 0;
     }

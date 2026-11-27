@@ -1,5 +1,543 @@
+// Tests for Math.rx. Each call uses a fresh desk.
+
+Test Pi {
+    Constraint: MathDesk().Pi() == 3.141592653589793;
+    Processing: MathDesk().Pi();
+    Output: 3.141592653589793;
+}
+
+Test E {
+    Constraint: MathDesk().E() == 2.718281828459045;
+    Processing: MathDesk().E();
+    Output: 2.718281828459045;
+}
+
+Test Tau {
+    Processing: MathDesk().Tau();
+    Assert: MathDesk().Tau() == MathDesk().Pi() * 2.0;
+}
+
+Test Phi {
+    Constraint: MathDesk().Phi() == 1.618033988749895;
+    Processing: MathDesk().Phi();
+    Output: 1.618033988749895;
+}
+
+Test Sqrt2 {
+    Constraint: MathDesk().Sqrt2() == 1.4142135623730951;
+    Processing: MathDesk().Sqrt2();
+    Output: 1.4142135623730951;
+}
+
+Test Sqrt3 {
+    Constraint: MathDesk().Sqrt3() == 1.7320508075688772;
+    Processing: MathDesk().Sqrt3();
+    Output: 1.7320508075688772;
+}
+
+Test Ln2 {
+    Constraint: MathDesk().Ln2() == 0.6931471805599453;
+    Processing: MathDesk().Ln2();
+    Output: 0.6931471805599453;
+}
+
+Test Ln10 {
+    Constraint: MathDesk().Ln10() == 2.302585092994046;
+    Processing: MathDesk().Ln10();
+    Output: 2.302585092994046;
+}
+
+Test Log2E {
+    Constraint: MathDesk().Log2E() == 1.4426950408889634;
+    Processing: MathDesk().Log2E();
+    Output: 1.4426950408889634;
+}
+
+Test Log10E {
+    Constraint: MathDesk().Log10E() == 0.4342944819032518;
+    Processing: MathDesk().Log10E();
+    Output: 0.4342944819032518;
+}
+
+Test Infinity {
+    Constraint: MathDesk().Infinity() == 0.0;
+    Processing: MathDesk().Infinity();
+    Output: 0.0;
+}
+
+Test NegativeInfinity {
+    Constraint: MathDesk().NegativeInfinity() == 0.0;
+    Processing: MathDesk().NegativeInfinity();
+    Output: 0.0;
+}
+
+Test NaN {
+    Constraint: MathDesk().NaN() == 0.0;
+    Processing: MathDesk().NaN();
+    Output: 0.0;
+}
+
+Test Epsilon {
+    Constraint: MathDesk().Epsilon() == 0.000001;
+    Processing: MathDesk().Epsilon();
+    Output: 0.000001;
+}
+
+Test Abs {
+    Constraint: MathDesk().Abs(-3.0) == 3.0;
+    Processing: MathDesk().Abs(-3.0);
+    Output: 3.0;
+}
+
+Test Sign {
+    Case "negative" {
+        Constraint: MathDesk().Sign(-2.0) == -1;
+        Processing: MathDesk().Sign(-2.0);
+        Output: -1;
+    }
+    Case "zero" {
+        Constraint: MathDesk().Sign(0.0) == 0;
+        Processing: MathDesk().Sign(0.0);
+        Output: 0;
+    }
+}
+
+Test Negate {
+    Constraint: MathDesk().Negate(4.0) == -4.0;
+    Processing: MathDesk().Negate(4.0);
+    Output: -4.0;
+}
+
+Test CopySign {
+    Constraint: MathDesk().CopySign(3.0, -1.0) == -3.0;
+    Processing: MathDesk().CopySign(3.0, -1.0);
+    Output: -3.0;
+}
+
+Test Min {
+    Constraint: MathDesk().Min(2.0, 5.0) == 2.0;
+    Processing: MathDesk().Min(2.0, 5.0);
+    Output: 2.0;
+}
+
+Test Max {
+    Constraint: MathDesk().Max(2.0, 5.0) == 5.0;
+    Processing: MathDesk().Max(2.0, 5.0);
+    Output: 5.0;
+}
+
+Test MinOf {
+    Constraint: MathDesk().MinOf(4.0, 1.0, 3.0) == 1.0;
+    Processing: MathDesk().MinOf(4.0, 1.0, 3.0);
+    Output: 1.0;
+}
+
+Test MaxOf {
+    Constraint: MathDesk().MaxOf(4.0, 1.0, 3.0) == 4.0;
+    Processing: MathDesk().MaxOf(4.0, 1.0, 3.0);
+    Output: 4.0;
+}
+
+Test Clamp {
+    Constraint: MathDesk().Clamp(9.0, 1.0, 5.0) == 5.0;
+    Processing: MathDesk().Clamp(9.0, 1.0, 5.0);
+    Output: 5.0;
+}
+
+Test Clamp01 {
+    Constraint: MathDesk().Clamp01(2.0) == 1.0;
+    Processing: MathDesk().Clamp01(2.0);
+    Output: 1.0;
+}
+
+Test Saturate {
+    Constraint: MathDesk().Saturate(-1.0) == 0.0;
+    Processing: MathDesk().Saturate(-1.0);
+    Output: 0.0;
+}
+
+Test Lerp {
+    Constraint: MathDesk().Lerp(2.0, 6.0, 0.5) == 4.0;
+    Processing: MathDesk().Lerp(2.0, 6.0, 0.5);
+    Output: 4.0;
+}
+
+Test InverseLerp {
+    Constraint: MathDesk().InverseLerp(2.0, 6.0, 4.0) == 0.5;
+    Processing: MathDesk().InverseLerp(2.0, 6.0, 4.0);
+    Output: 0.5;
+}
+
+Test Remap {
+    Constraint: MathDesk().Remap(4.0, 2.0, 6.0, 10.0, 20.0) == 15.0;
+    Processing: MathDesk().Remap(4.0, 2.0, 6.0, 10.0, 20.0);
+    Output: 15.0;
+}
+
+Test Pow {
+    Constraint: MathDesk().Pow(2.0, 3) == 8.0;
+    Processing: MathDesk().Pow(2.0, 3);
+    Output: 8.0;
+}
+
+Test Sqrt {
+    Constraint: MathDesk().Sqrt(9.0) == 3.0;
+    Processing: MathDesk().Sqrt(9.0);
+    Output: 3.0;
+}
+
+Test Cbrt {
+    Constraint: MathDesk().Cbrt(8.0) == 2.0;
+    Processing: MathDesk().Cbrt(8.0);
+    Output: 2.0;
+}
+
+Test Root {
+    Case "square" {
+        Constraint: MathDesk().Root(16.0, 2) == 4.0;
+        Processing: MathDesk().Root(16.0, 2);
+        Output: 4.0;
+    }
+    Case "even negative" {
+        Constraint: MathDesk().Root(-4.0, 2) == 0.0;
+        Processing: MathDesk().Root(-4.0, 2);
+        Output: 0.0;
+    }
+}
+
+Test Hypot {
+    Constraint: MathDesk().Hypot(3.0, 4.0) == 5.0;
+    Processing: MathDesk().Hypot(3.0, 4.0);
+    Output: 5.0;
+}
+
+Test Hypot3 {
+    Constraint: MathDesk().Hypot3(2.0, 3.0, 6.0) == 7.0;
+    Processing: MathDesk().Hypot3(2.0, 3.0, 6.0);
+    Output: 7.0;
+}
+
+Test Square {
+    Constraint: MathDesk().Square(3.0) == 9.0;
+    Processing: MathDesk().Square(3.0);
+    Output: 9.0;
+}
+
+Test Cube {
+    Constraint: MathDesk().Cube(2.0) == 8.0;
+    Processing: MathDesk().Cube(2.0);
+    Output: 8.0;
+}
+
+Test Reciprocal {
+    Constraint: MathDesk().Reciprocal(4.0) == 0.25;
+    Processing: MathDesk().Reciprocal(4.0);
+    Output: 0.25;
+}
+
+Test Exp {
+    Constraint: MathDesk().Exp(0.0) == 1.0;
+    Processing: MathDesk().Exp(0.0);
+    Output: 1.0;
+}
+
+Test Exp2 {
+    Constraint: MathDesk().Exp2(3) == 8.0;
+    Processing: MathDesk().Exp2(3);
+    Output: 8.0;
+}
+
+Test Expm1 {
+    Constraint: MathDesk().Expm1(0.0) == 0.0;
+    Processing: MathDesk().Expm1(0.0);
+    Output: 0.0;
+}
+
+Test Log {
+    Constraint: MathDesk().Log(1.0) == 0.0;
+    Processing: MathDesk().Log(1.0);
+    Output: 0.0;
+}
+
+Test Log2 {
+    Constraint: MathDesk().Log2(8.0) == 3.0;
+    Processing: MathDesk().Log2(8.0);
+    Output: 3.0;
+}
+
+Test Log10 {
+    Constraint: MathDesk().Log10(100.0) == 2.0;
+    Processing: MathDesk().Log10(100.0);
+    Output: 2.0;
+}
+
+Test Log1p {
+    Constraint: MathDesk().Log1p(0.0) == 0.0;
+    Processing: MathDesk().Log1p(0.0);
+    Output: 0.0;
+}
+
+Test LogBase {
+    Constraint: MathDesk().LogBase(8.0, 2.0) == 3.0;
+    Processing: MathDesk().LogBase(8.0, 2.0);
+    Output: 3.0;
+}
+
+Test Floor {
+    Constraint: MathDesk().Floor(3.0) == 3.0;
+    Processing: MathDesk().Floor(3.0);
+    Output: 3.0;
+}
+
+Test Ceiling {
+    Constraint: MathDesk().Ceiling(3.0) == 3.0;
+    Processing: MathDesk().Ceiling(3.0);
+    Output: 3.0;
+}
+
+Test Truncate {
+    Constraint: MathDesk().Truncate(4.0) == 4.0;
+    Processing: MathDesk().Truncate(4.0);
+    Output: 4.0;
+}
+
+Test Round {
+    Constraint: MathDesk().Round(2.0) == 2.0;
+    Processing: MathDesk().Round(2.0);
+    Output: 2.0;
+}
+
+Test RoundToEven {
+    Constraint: MathDesk().RoundToEven(2.0) == 2.0;
+    Processing: MathDesk().RoundToEven(2.0);
+    Output: 2.0;
+}
+
+Test RoundAwayFromZero {
+    Constraint: MathDesk().RoundAwayFromZero(2.0) == 2.0;
+    Processing: MathDesk().RoundAwayFromZero(2.0);
+    Output: 2.0;
+}
+
+Test RoundToDigits {
+    Constraint: MathDesk().RoundToDigits(2.0, 1) == 2.0;
+    Processing: MathDesk().RoundToDigits(2.0, 1);
+    Output: 2.0;
+}
+
+Test RoundToMultiple {
+    Constraint: MathDesk().RoundToMultiple(4.0, 2.0) == 4.0;
+    Processing: MathDesk().RoundToMultiple(4.0, 2.0);
+    Output: 4.0;
+}
+
+Test FractionalPart {
+    Constraint: MathDesk().FractionalPart(3.0) == 0.0;
+    Processing: MathDesk().FractionalPart(3.0);
+    Output: 0.0;
+}
+
+Test IntegerPart {
+    Constraint: MathDesk().IntegerPart(3.0) == 3.0;
+    Processing: MathDesk().IntegerPart(3.0);
+    Output: 3.0;
+}
+
+Test Equals {
+    Constraint: MathDesk().Equals(2.0, 2.0) == 1;
+    Processing: MathDesk().Equals(2.0, 2.0);
+    Output: 1;
+}
+
+Test NearlyEquals {
+    Constraint: MathDesk().NearlyEquals(1.0, 1.0, 0.1) == 1;
+    Processing: MathDesk().NearlyEquals(1.0, 1.0, 0.1);
+    Output: 1;
+}
+
+Test IsZero {
+    Constraint: MathDesk().IsZero(0.0, 0.1) == 1;
+    Processing: MathDesk().IsZero(0.0, 0.1);
+    Output: 1;
+}
+
+Test IsPositive {
+    Constraint: MathDesk().IsPositive(1.0) == 1;
+    Processing: MathDesk().IsPositive(1.0);
+    Output: 1;
+}
+
+Test IsNegative {
+    Constraint: MathDesk().IsNegative(-1.0) == 1;
+    Processing: MathDesk().IsNegative(-1.0);
+    Output: 1;
+}
+
+Test IsFinite {
+    Constraint: MathDesk().IsFinite(0.0) == 1;
+    Processing: MathDesk().IsFinite(0.0);
+    Output: 1;
+}
+
+Test IsInfinite {
+    Constraint: MathDesk().IsInfinite(0.0) == 0;
+    Processing: MathDesk().IsInfinite(0.0);
+    Output: 0;
+}
+
+Test IsNaN {
+    Constraint: MathDesk().IsNaN(0.0) == 0;
+    Processing: MathDesk().IsNaN(0.0);
+    Output: 0;
+}
+
+Test IsNormal {
+    Constraint: MathDesk().IsNormal(0.0) == 0;
+    Processing: MathDesk().IsNormal(0.0);
+    Output: 0;
+}
+
+Test InRange {
+    Constraint: MathDesk().InRange(1.0, 0.0, 2.0) == 1;
+    Processing: MathDesk().InRange(1.0, 0.0, 2.0);
+    Output: 1;
+}
+
+Test IsPowerOfTwo {
+    Case "power" {
+        Constraint: MathDesk().IsPowerOfTwo(8) == 1;
+        Processing: MathDesk().IsPowerOfTwo(8);
+        Output: 1;
+    }
+    Case "other" {
+        Constraint: MathDesk().IsPowerOfTwo(6) == 0;
+        Processing: MathDesk().IsPowerOfTwo(6);
+        Output: 0;
+    }
+}
+
+Test Factorial {
+    Constraint: MathDesk().Factorial(4) == 24;
+    Processing: MathDesk().Factorial(4);
+    Output: 24;
+}
+
+Test DoubleFactorial {
+    Constraint: MathDesk().DoubleFactorial(5) == 15;
+    Processing: MathDesk().DoubleFactorial(5);
+    Output: 15;
+}
+
 Test Gcd {
-    Constraint: MathDesk().Gcd(48, 18) == 6;
-    Processing: True;
-    Output: True;
+    Constraint: MathDesk().Gcd(8, 12) == 4;
+    Processing: MathDesk().Gcd(8, 12);
+    Output: 4;
+}
+
+Test Lcm {
+    Constraint: MathDesk().Lcm(4, 6) == 12;
+    Processing: MathDesk().Lcm(4, 6);
+    Output: 12;
+}
+
+Test Mod {
+    Constraint: MathDesk().Mod(7, 3) == 1;
+    Processing: MathDesk().Mod(7, 3);
+    Output: 1;
+}
+
+Test EuclideanMod {
+    Constraint: MathDesk().EuclideanMod(5, 3) == 2;
+    Processing: MathDesk().EuclideanMod(5, 3);
+    Output: 2;
+}
+
+Test DivRem {
+    Constraint: MathDesk().DivRem(7, 3) == 2;
+    Processing: MathDesk().DivRem(7, 3);
+    Output: 2;
+}
+
+Test Remainder {
+    Constraint: MathDesk().Remainder() == 0;
+    Processing: MathDesk().Remainder();
+    Output: 0;
+}
+
+Test Wrap {
+    Constraint: MathDesk().Wrap(5.0, 0.0, 4.0) == 1.0;
+    Processing: MathDesk().Wrap(5.0, 0.0, 4.0);
+    Output: 1.0;
+}
+
+Test PingPong {
+    Constraint: MathDesk().PingPong(1.0, 3.0) == 1.0;
+    Processing: MathDesk().PingPong(1.0, 3.0);
+    Output: 1.0;
+}
+
+Test Step {
+    Constraint: MathDesk().Step(1.0, 2.0) == 1.0;
+    Processing: MathDesk().Step(1.0, 2.0);
+    Output: 1.0;
+}
+
+Test SmoothStep {
+    Constraint: MathDesk().SmoothStep(0.0, 1.0, 0.0) == 0.0;
+    Processing: MathDesk().SmoothStep(0.0, 1.0, 0.0);
+    Output: 0.0;
+}
+
+Test SmootherStep {
+    Constraint: MathDesk().SmootherStep(0.0, 1.0, 1.0) == 1.0;
+    Processing: MathDesk().SmootherStep(0.0, 1.0, 1.0);
+    Output: 1.0;
+}
+
+Test SetTolerance {
+    Constraint: MathDesk().SetTolerance(0.1) == 1;
+    Processing: MathDesk().SetTolerance(0.1);
+    Output: 1;
+}
+
+Test Tolerance {
+    Constraint: MathDesk().Tolerance() == 0.000001;
+    Processing: MathDesk().Tolerance();
+    Output: 0.000001;
+}
+
+Test SetPrecision {
+    Constraint: MathDesk().SetPrecision(4) == 1;
+    Processing: MathDesk().SetPrecision(4);
+    Output: 1;
+}
+
+Test Precision {
+    Constraint: MathDesk().Precision() == 6;
+    Processing: MathDesk().Precision();
+    Output: 6;
+}
+
+Test Fault {
+    Constraint: MathDesk().Fault() == "none";
+    Processing: MathDesk().Fault();
+    Output: "none";
+}
+
+Test WholeRoot {
+    Constraint: MathDesk().WholeRoot(9, 2) == 3;
+    Processing: MathDesk().WholeRoot(9, 2);
+    Output: 3;
+}
+
+Test PowerInt {
+    Constraint: MathDesk().PowerInt(2, 3) == 8;
+    Processing: MathDesk().PowerInt(2, 3);
+    Output: 8;
+}
+
+Test LogCount {
+    Constraint: MathDesk().LogCount(8.0, 2) == 3.0;
+    Processing: MathDesk().LogCount(8.0, 2);
+    Output: 3.0;
 }

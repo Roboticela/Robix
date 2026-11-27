@@ -1,0 +1,511 @@
+// Tests for Trees.rx. Each call uses a fresh desk.
+Test CreateTree {
+    Constraint: TreeDesk().CreateTree(4) == 4;
+    Processing: TreeDesk().CreateTree(4);
+    Output: 4;
+}
+
+Test CreateBinaryTree {
+    Constraint: TreeDesk().CreateBinaryTree(4) == 4;
+    Processing: TreeDesk().CreateBinaryTree(4);
+    Output: 4;
+}
+
+Test CreateBinarySearchTree {
+    Constraint: TreeDesk().CreateBinarySearchTree(7) == 7;
+    Processing: TreeDesk().CreateBinarySearchTree(7);
+    Output: 7;
+}
+
+Test BuildBalancedTree {
+    Constraint: TreeDesk().BuildBalancedTree(7) == 2;
+    Processing: TreeDesk().BuildBalancedTree(7);
+    Output: 2;
+}
+
+Test Insert {
+    Constraint: TreeDesk().Insert(3) == 3;
+    Processing: TreeDesk().Insert(3);
+    Output: 3;
+}
+
+Test InsertNode {
+    Constraint: TreeDesk().InsertNode(2, 3) == 3;
+    Processing: TreeDesk().InsertNode(2, 3);
+    Output: 3;
+}
+
+Test Remove {
+    Constraint: TreeDesk().Remove(3) == 6;
+    Processing: TreeDesk().Remove(3);
+    Output: 6;
+}
+
+Test RemoveNode {
+    Constraint: TreeDesk().RemoveNode(3) == 6;
+    Processing: TreeDesk().RemoveNode(3);
+    Output: 6;
+}
+
+Test ReplaceNode {
+    Constraint: TreeDesk().ReplaceNode(3, 3) == 3;
+    Processing: TreeDesk().ReplaceNode(3, 3);
+    Output: 3;
+}
+
+Test RotateLeft {
+    Constraint: TreeDesk().RotateLeft(2) == 3;
+    Processing: TreeDesk().RotateLeft(2);
+    Output: 3;
+}
+
+Test RotateRight {
+    Constraint: TreeDesk().RotateRight(6) == 5;
+    Processing: TreeDesk().RotateRight(6);
+    Output: 5;
+}
+
+Test Rebalance {
+    Constraint: TreeDesk().Rebalance() == 2;
+    Processing: TreeDesk().Rebalance();
+    Output: 2;
+}
+
+Test Clear {
+    Constraint: TreeDesk().Clear() == 0;
+    Processing: TreeDesk().Clear();
+    Output: 0;
+}
+
+Test CloneTree {
+    Constraint: TreeDesk().CloneTree() == 7;
+    Processing: TreeDesk().CloneTree();
+    Output: 7;
+}
+
+Test PreOrderTraversal {
+    Constraint: TreeDesk().PreOrderTraversal() == 1120175;
+    Processing: TreeDesk().PreOrderTraversal();
+    Output: 1120175;
+}
+
+Test InOrderTraversal {
+    Constraint: TreeDesk().InOrderTraversal() == 342391;
+    Processing: TreeDesk().InOrderTraversal();
+    Output: 342391;
+}
+
+Test PostOrderTraversal {
+    Constraint: TreeDesk().PostOrderTraversal() == 371700;
+    Processing: TreeDesk().PostOrderTraversal();
+    Output: 371700;
+}
+
+Test LevelOrderTraversal {
+    Constraint: TreeDesk().LevelOrderTraversal() == 1139439;
+    Processing: TreeDesk().LevelOrderTraversal();
+    Output: 1139439;
+}
+
+Test BreadthFirstTraversal {
+    Constraint: TreeDesk().BreadthFirstTraversal() == 1139439;
+    Processing: TreeDesk().BreadthFirstTraversal();
+    Output: 1139439;
+}
+
+Test DepthFirstTraversal {
+    Constraint: TreeDesk().DepthFirstTraversal() == 1120175;
+    Processing: TreeDesk().DepthFirstTraversal();
+    Output: 1120175;
+}
+
+Test ReverseLevelOrderTraversal {
+    Constraint: TreeDesk().ReverseLevelOrderTraversal() == 384692;
+    Processing: TreeDesk().ReverseLevelOrderTraversal();
+    Output: 384692;
+}
+
+Test ZigZagTraversal {
+    Constraint: TreeDesk().ZigZagTraversal() == 1254127;
+    Processing: TreeDesk().ZigZagTraversal();
+    Output: 1254127;
+}
+
+Test MorrisInOrderTraversal {
+    Constraint: TreeDesk().MorrisInOrderTraversal() == 342391;
+    Processing: TreeDesk().MorrisInOrderTraversal();
+    Output: 342391;
+}
+
+Test IterativeTreeTraversal {
+    Constraint: TreeDesk().IterativeTreeTraversal() == 342391;
+    Processing: TreeDesk().IterativeTreeTraversal();
+    Output: 342391;
+}
+
+Test FindNode {
+    Constraint: TreeDesk().FindNode(1) == 3;
+    Processing: TreeDesk().FindNode(1);
+    Output: 3;
+}
+
+Test FindMinimum {
+    Constraint: TreeDesk().FindMinimum() == 1;
+    Processing: TreeDesk().FindMinimum();
+    Output: 1;
+}
+
+Test FindMaximum {
+    Constraint: TreeDesk().FindMaximum() == 7;
+    Processing: TreeDesk().FindMaximum();
+    Output: 7;
+}
+
+Test FindSuccessor {
+    Constraint: TreeDesk().FindSuccessor(3) == 4;
+    Processing: TreeDesk().FindSuccessor(3);
+    Output: 4;
+}
+
+Test FindPredecessor {
+    Constraint: TreeDesk().FindPredecessor(4) == 3;
+    Processing: TreeDesk().FindPredecessor(4);
+    Output: 3;
+}
+
+Test LowerBound {
+    Constraint: TreeDesk().LowerBound(4) == 4;
+    Processing: TreeDesk().LowerBound(4);
+    Output: 4;
+}
+
+Test UpperBound {
+    Constraint: TreeDesk().UpperBound(4) == 5;
+    Processing: TreeDesk().UpperBound(4);
+    Output: 5;
+}
+
+Test FindKthSmallest {
+    Constraint: TreeDesk().FindKthSmallest(4) == 4;
+    Processing: TreeDesk().FindKthSmallest(4);
+    Output: 4;
+}
+
+Test FindKthLargest {
+    Constraint: TreeDesk().FindKthLargest(3) == 5;
+    Processing: TreeDesk().FindKthLargest(3);
+    Output: 5;
+}
+
+Test GetHeight {
+    Constraint: TreeDesk().GetHeight() == 2;
+    Processing: TreeDesk().GetHeight();
+    Output: 2;
+}
+
+Test GetDepth {
+    Constraint: TreeDesk().GetDepth(1) == 2;
+    Processing: TreeDesk().GetDepth(1);
+    Output: 2;
+}
+
+Test GetSize {
+    Constraint: TreeDesk().GetSize() == 7;
+    Processing: TreeDesk().GetSize();
+    Output: 7;
+}
+
+Test GetLeafCount {
+    Constraint: TreeDesk().GetLeafCount() == 4;
+    Processing: TreeDesk().GetLeafCount();
+    Output: 4;
+}
+
+Test GetInternalNodeCount {
+    Constraint: TreeDesk().GetInternalNodeCount() == 3;
+    Processing: TreeDesk().GetInternalNodeCount();
+    Output: 3;
+}
+
+Test GetBalanceFactor {
+    Constraint: TreeDesk().GetBalanceFactor(4) == 0;
+    Processing: TreeDesk().GetBalanceFactor(4);
+    Output: 0;
+}
+
+Test GetDiameter {
+    Constraint: TreeDesk().GetDiameter() == 4;
+    Processing: TreeDesk().GetDiameter();
+    Output: 4;
+}
+
+Test GetWidth {
+    Constraint: TreeDesk().GetWidth() == 4;
+    Processing: TreeDesk().GetWidth();
+    Output: 4;
+}
+
+Test GetLevelCount {
+    Constraint: TreeDesk().GetLevelCount() == 3;
+    Processing: TreeDesk().GetLevelCount();
+    Output: 3;
+}
+
+Test IsBalanced {
+    Constraint: TreeDesk().IsBalanced() == 1;
+    Processing: TreeDesk().IsBalanced();
+    Output: 1;
+}
+
+Test IsComplete {
+    Constraint: TreeDesk().IsComplete() == 1;
+    Processing: TreeDesk().IsComplete();
+    Output: 1;
+}
+
+Test IsFull {
+    Constraint: TreeDesk().IsFull() == 1;
+    Processing: TreeDesk().IsFull();
+    Output: 1;
+}
+
+Test IsPerfect {
+    Constraint: TreeDesk().IsPerfect() == 1;
+    Processing: TreeDesk().IsPerfect();
+    Output: 1;
+}
+
+Test IsBinarySearchTree {
+    Constraint: TreeDesk().IsBinarySearchTree() == 1;
+    Processing: TreeDesk().IsBinarySearchTree();
+    Output: 1;
+}
+
+Test FindParent {
+    Constraint: TreeDesk().FindParent(1) == 2;
+    Processing: TreeDesk().FindParent(1);
+    Output: 2;
+}
+
+Test FindAncestors {
+    Constraint: TreeDesk().FindAncestors(1) == 6;
+    Processing: TreeDesk().FindAncestors(1);
+    Output: 6;
+}
+
+Test FindDescendants {
+    Constraint: TreeDesk().FindDescendants(2) == 2;
+    Processing: TreeDesk().FindDescendants(2);
+    Output: 2;
+}
+
+Test LowestCommonAncestor {
+    Constraint: TreeDesk().LowestCommonAncestor(1, 7) == 4;
+    Processing: TreeDesk().LowestCommonAncestor(1, 7);
+    Output: 4;
+}
+
+Test DistanceBetweenNodes {
+    Constraint: TreeDesk().DistanceBetweenNodes(1, 7) == 4;
+    Processing: TreeDesk().DistanceBetweenNodes(1, 7);
+    Output: 4;
+}
+
+Test GetPathToNode {
+    Constraint: TreeDesk().GetPathToNode(1) == 2;
+    Processing: TreeDesk().GetPathToNode(1);
+    Output: 2;
+}
+
+Test FindSubtree {
+    Constraint: TreeDesk().FindSubtree(2) == 3;
+    Processing: TreeDesk().FindSubtree(2);
+    Output: 3;
+}
+
+Test IsSubtree {
+    Constraint: TreeDesk().IsSubtree(2) == 1;
+    Processing: TreeDesk().IsSubtree(2);
+    Output: 1;
+}
+
+Test RangeQuery {
+    Constraint: TreeDesk().RangeQuery(2, 5) == 14;
+    Processing: TreeDesk().RangeQuery(2, 5);
+    Output: 14;
+}
+
+Test RangeUpdate {
+    Constraint: TreeDesk().RangeUpdate(2, 5, 1) == 18;
+    Processing: TreeDesk().RangeUpdate(2, 5, 1);
+    Output: 18;
+}
+
+Test PrefixSum {
+    Constraint: TreeDesk().PrefixSum(4) == 10;
+    Processing: TreeDesk().PrefixSum(4);
+    Output: 10;
+}
+
+Test UpdateFenwick {
+    Constraint: TreeDesk().UpdateFenwick(4, 1) == 11;
+    Processing: TreeDesk().UpdateFenwick(4, 1);
+    Output: 11;
+}
+
+Test TrieInsert {
+    Constraint: TreeDesk().TrieInsert(12) == 2;
+    Processing: TreeDesk().TrieInsert(12);
+    Output: 2;
+}
+
+Test TrieSearch {
+    Constraint: TreeDesk().TrieSearch(12) == 1;
+    Processing: TreeDesk().TrieSearch(12);
+    Output: 1;
+}
+
+Test TrieStartsWith {
+    Constraint: TreeDesk().TrieStartsWith(1) == 2;
+    Processing: TreeDesk().TrieStartsWith(1);
+    Output: 2;
+}
+
+Test BuildSuffixTree {
+    Constraint: TreeDesk().BuildSuffixTree("aba") == 3;
+    Processing: TreeDesk().BuildSuffixTree("aba");
+    Output: 3;
+}
+
+Test TreeEditDistance {
+    Constraint: TreeDesk().TreeEditDistance(7, 6) == 1;
+    Processing: TreeDesk().TreeEditDistance(7, 6);
+    Output: 1;
+}
+
+Test TreeIsomorphism {
+    Constraint: TreeDesk().TreeIsomorphism(7, 7) == 1;
+    Processing: TreeDesk().TreeIsomorphism(7, 7);
+    Output: 1;
+}
+
+Test SerializeTree {
+    Constraint: TreeDesk().SerializeTree() == 1120175;
+    Processing: TreeDesk().SerializeTree();
+    Output: 1120175;
+}
+
+Test DeserializeTree {
+    Constraint: TreeDesk().DeserializeTree(1120175) == 7;
+    Processing: TreeDesk().DeserializeTree(1120175);
+    Output: 7;
+}
+
+Test Fault {
+    Constraint: TreeDesk().Fault() == "none";
+    Processing: TreeDesk().Fault();
+    Output: "none";
+}
+
+Test Load {
+    Constraint: TreeDesk().Load() == 4;
+    Processing: TreeDesk().Load();
+    Output: 4;
+}
+
+Test Present {
+    Constraint: TreeDesk().Present(6) == 1;
+    Processing: TreeDesk().Present(6);
+    Output: 1;
+}
+
+Test IndexOf {
+    Constraint: TreeDesk().IndexOf(1) == 3;
+    Processing: TreeDesk().IndexOf(1);
+    Output: 3;
+}
+
+Test LeftOf {
+    Constraint: TreeDesk().LeftOf(0) == 1;
+    Processing: TreeDesk().LeftOf(0);
+    Output: 1;
+}
+
+Test RightOf {
+    Constraint: TreeDesk().RightOf(0) == 2;
+    Processing: TreeDesk().RightOf(0);
+    Output: 2;
+}
+
+Test ParentOf {
+    Constraint: TreeDesk().ParentOf(3) == 1;
+    Processing: TreeDesk().ParentOf(3);
+    Output: 1;
+}
+
+Test DepthAt {
+    Constraint: TreeDesk().DepthAt(3) == 2;
+    Processing: TreeDesk().DepthAt(3);
+    Output: 2;
+}
+
+Test HeightAt {
+    Constraint: TreeDesk().HeightAt(0) == 2;
+    Processing: TreeDesk().HeightAt(0);
+    Output: 2;
+}
+
+Test SizeAt {
+    Constraint: TreeDesk().SizeAt(1) == 3;
+    Processing: TreeDesk().SizeAt(1);
+    Output: 3;
+}
+
+Test LeafCount {
+    Constraint: TreeDesk().LeafCount() == 4;
+    Processing: TreeDesk().LeafCount();
+    Output: 4;
+}
+
+Test AncestorSum {
+    Constraint: TreeDesk().AncestorSum(1) == 6;
+    Processing: TreeDesk().AncestorSum(1);
+    Output: 6;
+}
+
+Test Fill {
+    Constraint: TreeDesk().Fill(0) == 7;
+    Processing: TreeDesk().Fill(0);
+    Output: 7;
+}
+
+Test Walk {
+    Constraint: TreeDesk().Walk(1) == 342391;
+    Processing: TreeDesk().Walk(1);
+    Output: 342391;
+}
+
+Test RangeSum {
+    Constraint: TreeDesk().RangeSum(2, 5) == 14;
+    Processing: TreeDesk().RangeSum(2, 5);
+    Output: 14;
+}
+
+Test LowBit {
+    Constraint: TreeDesk().LowBit(4) == 4;
+    Processing: TreeDesk().LowBit(4);
+    Output: 4;
+}
+
+Test FenwickPrefix {
+    Constraint: TreeDesk().FenwickPrefix(4, 0) == 10;
+    Processing: TreeDesk().FenwickPrefix(4, 0);
+    Output: 10;
+}
+
+Test Covers {
+    Constraint: TreeDesk().Covers(12, 1) == 1;
+    Processing: TreeDesk().Covers(12, 1);
+    Output: 1;
+}
+

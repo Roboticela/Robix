@@ -1,0 +1,42 @@
+{
+    "name": "Robix 3D",
+    "scopeName": "source.robix.3d",
+    "patterns": [
+        { "include": "#comment" },
+        { "include": "#expression" },
+        { "include": "#tag" },
+        { "include": "#keyword" },
+        { "include": "#number" },
+        { "include": "#string" }
+    ],
+    "repository": {
+        "comment": {
+            "patterns": [
+                { "name": "comment.line.double-slash.robix", "match": "//.*" },
+                { "begin": "<!--", "end": "-->", "name": "comment.block.robix" }
+            ]
+        },
+        "expression": {
+            "begin": "\\{",
+            "end": "\\}",
+            "name": "meta.embedded.robix"
+        },
+        "tag": {
+            "match": "</?\\s*[A-Za-z_][\\w.]*",
+            "name": "entity.name.tag.robix"
+        },
+        "keyword": {
+            "name": "keyword.other.robix",
+            "match": "\\b(?:Scene|Node|Mesh|Camera|Light|Material|Cube|Sphere|Transform)\\b"
+        },
+        "number": {
+            "name": "constant.numeric.robix",
+            "match": "-?\\b\\d+(?:\\.\\d+)?\\b"
+        },
+        "string": {
+            "name": "string.quoted.double.robix",
+            "begin": "\"",
+            "end": "\""
+        }
+    }
+}

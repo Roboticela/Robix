@@ -1,479 +1,488 @@
+// Tests for Conversions.rx. Width 0 is a byte and width 6 is a wide integer.
+
 Test SetOverflow {
-    Constraint: ConversionsDesk().SetOverflow(1) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().SetOverflow(2) == 2;
+    Processing: ConversionsDesk().SetOverflow(2);
+    Output: 2;
 }
 
 Test SetRounding {
-    Constraint: ConversionsDesk().SetRounding(0) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().SetRounding(1) == 1;
+    Processing: ConversionsDesk().SetRounding(1);
+    Output: 1;
 }
 
 Test Convert {
-    Constraint: ConversionsDesk().Convert(300, 0) == 255;
-    Processing: True;
-    Output: True;
+    Case "byte" {
+        Constraint: ConversionsDesk().Convert(4, 0) == 4;
+        Processing: ConversionsDesk().Convert(4, 0);
+        Output: 4;
+    }
+    Case "unknown" {
+        Constraint: ConversionsDesk().Convert(4, 9) == 0;
+        Processing: ConversionsDesk().Convert(4, 9);
+        Output: 0;
+    }
 }
 
-Test TryConvert {
-    Constraint: ConversionsDesk().TryConvert(5, 0) == 5;
-    Processing: True;
-    Output: True;
+Test AttemptConvert {
+    Constraint: ConversionsDesk().AttemptConvert(4, 0) == 4;
+    Processing: ConversionsDesk().AttemptConvert(4, 0);
+    Output: 4;
 }
 
-Test ConvertChecked {
-    Constraint: ConversionsDesk().ConvertChecked(5, 0) == 5;
-    Processing: True;
-    Output: True;
+Test CheckedConvert {
+    Constraint: ConversionsDesk().CheckedConvert(4, 0) == 4;
+    Processing: ConversionsDesk().CheckedConvert(4, 0);
+    Output: 4;
 }
 
 Test ConvertSaturating {
     Constraint: ConversionsDesk().ConvertSaturating(300, 0) == 255;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ConvertSaturating(300, 0);
+    Output: 255;
 }
 
 Test ConvertTruncating {
-    Constraint: ConversionsDesk().ConvertTruncating(300, 0) == 44;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ConvertTruncating(256, 0) == 0;
+    Processing: ConversionsDesk().ConvertTruncating(256, 0);
+    Output: 0;
 }
 
 Test ConvertOrDefault {
-    Constraint: ConversionsDesk().ConvertOrDefault(300, 0, 7) == 7;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ConvertOrDefault(4, 0, 9) == 4;
+    Processing: ConversionsDesk().ConvertOrDefault(4, 0, 9);
+    Output: 4;
 }
 
 Test ConvertOrThrow {
-    Constraint: ConversionsDesk().ConvertOrThrow(5, 0) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ConvertOrThrow(4, 0) == 4;
+    Processing: ConversionsDesk().ConvertOrThrow(4, 0);
+    Output: 4;
 }
 
 Test CanConvert {
-    Constraint: ConversionsDesk().CanConvert(0, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().CanConvert(0, 1) == 1;
+    Processing: ConversionsDesk().CanConvert(0, 1);
+    Output: 1;
 }
 
 Test GetConversion {
-    Constraint: ConversionsDesk().GetConversion(0, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().GetConversion(0, 1) == 1;
+    Processing: ConversionsDesk().GetConversion(0, 1);
+    Output: 1;
 }
 
 Test ToByte {
-    Constraint: ConversionsDesk().ToByte(300) == 255;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToByte(4) == 4;
+    Processing: ConversionsDesk().ToByte(4);
+    Output: 4;
 }
 
 Test ToSByte {
-    Constraint: ConversionsDesk().ToSByte(200) == 127;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToSByte(4) == 4;
+    Processing: ConversionsDesk().ToSByte(4);
+    Output: 4;
 }
 
 Test ToInt16 {
-    Constraint: ConversionsDesk().ToInt16(300) == 300;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToInt16(4) == 4;
+    Processing: ConversionsDesk().ToInt16(4);
+    Output: 4;
 }
 
 Test ToUInt16 {
-    Constraint: ConversionsDesk().ToUInt16(300) == 300;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToUInt16(4) == 4;
+    Processing: ConversionsDesk().ToUInt16(4);
+    Output: 4;
 }
 
 Test ToInt32 {
-    Constraint: ConversionsDesk().ToInt32(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToInt32(4) == 4;
+    Processing: ConversionsDesk().ToInt32(4);
+    Output: 4;
 }
 
 Test ToUInt32 {
-    Constraint: ConversionsDesk().ToUInt32(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToUInt32(4) == 4;
+    Processing: ConversionsDesk().ToUInt32(4);
+    Output: 4;
 }
 
 Test ToInt64 {
-    Constraint: ConversionsDesk().ToInt64(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToInt64(4) == 4;
+    Processing: ConversionsDesk().ToInt64(4);
+    Output: 4;
 }
 
 Test ToUInt64 {
-    Constraint: ConversionsDesk().ToUInt64(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToUInt64(-1) == 0;
+    Processing: ConversionsDesk().ToUInt64(-1);
+    Output: 0;
 }
 
 Test ToInt128 {
-    Constraint: ConversionsDesk().ToInt128(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToInt128(4) == 4;
+    Processing: ConversionsDesk().ToInt128(4);
+    Output: 4;
 }
 
 Test ToUInt128 {
-    Constraint: ConversionsDesk().ToUInt128(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToUInt128(4) == 4;
+    Processing: ConversionsDesk().ToUInt128(4);
+    Output: 4;
 }
 
 Test ToFloat32 {
-    Constraint: ConversionsDesk().ToFloat32(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToFloat32(4) == 4;
+    Processing: ConversionsDesk().ToFloat32(4);
+    Output: 4;
 }
 
 Test ToFloat64 {
-    Constraint: ConversionsDesk().ToFloat64(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToFloat64(4) == 4;
+    Processing: ConversionsDesk().ToFloat64(4);
+    Output: 4;
 }
 
 Test ToDecimal {
-    Constraint: ConversionsDesk().ToDecimal(2) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToDecimal(3) == 300;
+    Processing: ConversionsDesk().ToDecimal(3);
+    Output: 300;
 }
 
 Test ToBigInteger {
-    Constraint: ConversionsDesk().ToBigInteger(5) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToBigInteger(4) == 4;
+    Processing: ConversionsDesk().ToBigInteger(4);
+    Output: 4;
 }
 
 Test ToBigDecimal {
-    Constraint: ConversionsDesk().ToBigDecimal(2) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToBigDecimal(3) == 300;
+    Processing: ConversionsDesk().ToBigDecimal(3);
+    Output: 300;
 }
 
 Test ToText {
-    Constraint: ConversionsDesk().ToText(12) == "12";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToText(6) == "6";
+    Processing: ConversionsDesk().ToText(6);
+    Output: "6";
 }
 
 Test ToChar {
     Constraint: ConversionsDesk().ToChar(65) == 65;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ToChar(65);
+    Output: 65;
 }
 
-Test ToBoolean {
-    Constraint: ConversionsDesk().ToBoolean(1) == 1;
-    Processing: True;
-    Output: True;
+Test BooleanOf {
+    Constraint: ConversionsDesk().BooleanOf(1) == 1;
+    Processing: ConversionsDesk().BooleanOf(1);
+    Output: 1;
 }
 
 Test ParseInteger {
-    Constraint: ConversionsDesk().ParseInteger("-42") == -42;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ParseInteger("12") == 12;
+    Processing: ConversionsDesk().ParseInteger("12");
+    Output: 12;
 }
 
 Test ParseDecimal {
-    Constraint: ConversionsDesk().ParseDecimal("1.50") == 150;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ParseDecimal("1.5") == 150;
+    Processing: ConversionsDesk().ParseDecimal("1.5");
+    Output: 150;
 }
 
 Test ParseFloatingPoint {
-    Constraint: ConversionsDesk().ParseFloatingPoint("1.50") == 150;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ParseFloatingPoint("1.5") == 150;
+    Processing: ConversionsDesk().ParseFloatingPoint("1.5");
+    Output: 150;
 }
 
 Test ParseBoolean {
     Constraint: ConversionsDesk().ParseBoolean("yes") == 1;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ParseBoolean("yes");
+    Output: 1;
 }
 
 Test ParseDateTime {
-    Constraint: ConversionsDesk().ParseDateTime("2026-11-27") == 20261127;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ParseDateTime("2024-01-02") == 20240102;
+    Processing: ConversionsDesk().ParseDateTime("2024-01-02");
+    Output: 20240102;
 }
 
 Test ToDateTime {
-    Constraint: ConversionsDesk().ToDateTime(20261127) == 20261127;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToDateTime(20240102) == 20240102;
+    Processing: ConversionsDesk().ToDateTime(20240102);
+    Output: 20240102;
 }
 
 Test ToTimeSpan {
-    Constraint: ConversionsDesk().ToTimeSpan("1:05") == 65;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToTimeSpan("1:30") == 90;
+    Processing: ConversionsDesk().ToTimeSpan("1:30");
+    Output: 90;
 }
 
 Test ParseGuid {
-    Constraint: ConversionsDesk().ParseGuid("000000ff") == 255;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ParseGuid("00000010") == 16;
+    Processing: ConversionsDesk().ParseGuid("00000010");
+    Output: 16;
 }
 
 Test ToGuid {
-    Constraint: ConversionsDesk().ToGuid(65) == 65;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToGuid(7) == 7;
+    Processing: ConversionsDesk().ToGuid(7);
+    Output: 7;
 }
 
 Test RegisterEnum {
-    Constraint: ConversionsDesk().RegisterEnum(0, "Red") == 0;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().RegisterEnum(1, "red") == 1;
+    Processing: ConversionsDesk().RegisterEnum(1, "red");
+    Output: 1;
 }
 
 Test ParseEnum {
-    Constraint: ConversionsDesk().ParseEnum("Red") == -1;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ParseEnum("missing") == -1;
+    Processing: ConversionsDesk().ParseEnum("missing");
+    Output: -1;
 }
 
 Test ToEnum {
     Constraint: ConversionsDesk().ToEnum(0) == -1;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ToEnum(0);
+    Output: -1;
 }
 
 Test ToBinary {
-    Constraint: ConversionsDesk().ToBinary(13) == "1101";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToBinary(0) == "0";
+    Processing: ConversionsDesk().ToBinary(0);
+    Output: "0";
 }
 
 Test FromBinary {
-    Constraint: ConversionsDesk().FromBinary("1101") == 13;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().FromBinary("101") == 5;
+    Processing: ConversionsDesk().FromBinary("101");
+    Output: 5;
 }
 
 Test ToHex {
-    Constraint: ConversionsDesk().ToHex(255) == "FF";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToHex(10) == "A";
+    Processing: ConversionsDesk().ToHex(10);
+    Output: "A";
 }
 
 Test FromHex {
-    Constraint: ConversionsDesk().FromHex("ff") == 255;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().FromHex("10") == 16;
+    Processing: ConversionsDesk().FromHex("10");
+    Output: 16;
 }
 
 Test ToBase16 {
-    Constraint: ConversionsDesk().ToBase16(255) == "FF";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToBase16(10) == "A";
+    Processing: ConversionsDesk().ToBase16(10);
+    Output: "A";
 }
 
 Test FromBase16 {
-    Constraint: ConversionsDesk().FromBase16("ff") == 255;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().FromBase16("A") == 10;
+    Processing: ConversionsDesk().FromBase16("A");
+    Output: 10;
 }
 
 Test ToBase64 {
-    Constraint: ConversionsDesk().ToBase64(65) == "QQ==";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToBase64(4) == "BA==";
+    Processing: ConversionsDesk().ToBase64(4);
+    Output: "BA==";
 }
 
 Test FromBase64 {
-    Constraint: ConversionsDesk().FromBase64("QQ") == 65;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().FromBase64("BA") == 4;
+    Processing: ConversionsDesk().FromBase64("BA");
+    Output: 4;
 }
 
 Test ToBase32 {
-    Constraint: ConversionsDesk().ToBase32(65) == "IE";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToBase32(8) == "BA";
+    Processing: ConversionsDesk().ToBase32(8);
+    Output: "BA";
 }
 
 Test FromBase32 {
-    Constraint: ConversionsDesk().FromBase32("IE") == 65;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().FromBase32("BA") == 8;
+    Processing: ConversionsDesk().FromBase32("BA");
+    Output: 8;
 }
 
 Test ToBytes {
     Constraint: ConversionsDesk().ToBytes(300) == 44;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ToBytes(300);
+    Output: 44;
 }
 
 Test FromBytes {
     Constraint: ConversionsDesk().FromBytes(1, 2) == 513;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().FromBytes(1, 2);
+    Output: 513;
 }
 
 Test SetItem {
-    Constraint: ConversionsDesk().SetItem(0, 7) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().SetItem(0, 4) == 0;
+    Processing: ConversionsDesk().SetItem(0, 4);
+    Output: 0;
 }
 
 Test ToArray {
     Constraint: ConversionsDesk().ToArray() == 0;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ToArray();
+    Output: 0;
 }
 
 Test ToList {
     Constraint: ConversionsDesk().ToList() == 0;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ToList();
+    Output: 0;
 }
 
 Test ToDictionary {
     Constraint: ConversionsDesk().ToDictionary() == 0;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ToDictionary();
+    Output: 0;
 }
 
 Test ItemAt {
     Constraint: ConversionsDesk().ItemAt(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ItemAt(0);
+    Output: 0;
 }
 
 Test ConvertCollection {
     Constraint: ConversionsDesk().ConvertCollection(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ConvertCollection(0);
+    Output: 0;
 }
 
 Test ToNullable {
     Constraint: ConversionsDesk().ToNullable(4) == 4;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ToNullable(4);
+    Output: 4;
 }
 
 Test ToNonNullable {
-    Constraint: ConversionsDesk().ToNonNullable(4, -1) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToNonNullable(4, 4) == 0;
+    Processing: ConversionsDesk().ToNonNullable(4, 4);
+    Output: 0;
 }
 
 Test ToUnit {
-    Constraint: ConversionsDesk().ToUnit(3, 2, 1) == 6;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ToUnit(6, 2, 3) == 4;
+    Processing: ConversionsDesk().ToUnit(6, 2, 3);
+    Output: 4;
 }
 
 Test ConvertObject {
-    Constraint: ConversionsDesk().ConvertObject(300, 0) == 255;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ConvertObject(4, 6) == 4;
+    Processing: ConversionsDesk().ConvertObject(4, 6);
+    Output: 4;
 }
 
 Test RegisterConverter {
-    Constraint: ConversionsDesk().RegisterConverter(0, 1) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().RegisterConverter(8, 9) == 0;
+    Processing: ConversionsDesk().RegisterConverter(8, 9);
+    Output: 0;
 }
 
 Test UnregisterConverter {
-    Constraint: ConversionsDesk().UnregisterConverter(9, 9) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().UnregisterConverter(8, 9) == 0;
+    Processing: ConversionsDesk().UnregisterConverter(8, 9);
+    Output: 0;
 }
 
 Test FindConverter {
-    Constraint: ConversionsDesk().FindConverter(9, 9) == -1;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().FindConverter(8, 9) == -1;
+    Processing: ConversionsDesk().FindConverter(8, 9);
+    Output: -1;
 }
 
 Test GetConversionPath {
-    Constraint: ConversionsDesk().GetConversionPath(0, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().GetConversionPath(0, 1) == 1;
+    Processing: ConversionsDesk().GetConversionPath(0, 1);
+    Output: 1;
 }
 
 Test ValidateConversion {
-    Constraint: ConversionsDesk().ValidateConversion(5, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().ValidateConversion(4, 0) == 1;
+    Processing: ConversionsDesk().ValidateConversion(4, 0);
+    Output: 1;
 }
 
 Test ListConverters {
     Constraint: ConversionsDesk().ListConverters() == 0;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().ListConverters();
+    Output: 0;
 }
 
 Test Fault {
     Constraint: ConversionsDesk().Fault() == "none";
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().Fault();
+    Output: "none";
 }
 
 Test Truncate {
     Constraint: ConversionsDesk().Truncate(300, 8, 0) == 44;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().Truncate(300, 8, 0);
+    Output: 44;
 }
 
 Test LowBits {
     Constraint: ConversionsDesk().LowBits(300, 8) == 44;
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().LowBits(300, 8);
+    Output: 44;
 }
 
 Test Digit {
-    Constraint: ConversionsDesk().Digit("7") == 7;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().Digit("4") == 4;
+    Processing: ConversionsDesk().Digit("4");
+    Output: 4;
 }
 
 Test HexValue {
-    Constraint: ConversionsDesk().HexValue("f") == 15;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().HexValue("A") == 10;
+    Processing: ConversionsDesk().HexValue("A");
+    Output: 10;
 }
 
 Test HexChar {
     Constraint: ConversionsDesk().HexChar(10) == "A";
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().HexChar(10);
+    Output: "A";
 }
 
 Test Base64Value {
-    Constraint: ConversionsDesk().Base64Value("Q") == 16;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().Base64Value("A") == 0;
+    Processing: ConversionsDesk().Base64Value("A");
+    Output: 0;
 }
 
 Test Base64Char {
-    Constraint: ConversionsDesk().Base64Char(16) == "Q";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().Base64Char(0) == "A";
+    Processing: ConversionsDesk().Base64Char(0);
+    Output: "A";
 }
 
 Test Base32Value {
-    Constraint: ConversionsDesk().Base32Value("I") == 8;
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().Base32Value("A") == 0;
+    Processing: ConversionsDesk().Base32Value("A");
+    Output: 0;
 }
 
 Test Base32Char {
-    Constraint: ConversionsDesk().Base32Char(8) == "I";
-    Processing: True;
-    Output: True;
+    Constraint: ConversionsDesk().Base32Char(0) == "A";
+    Processing: ConversionsDesk().Base32Char(0);
+    Output: "A";
 }
 
 Test Letter {
     Constraint: ConversionsDesk().Letter(0, 65) == "A";
-    Processing: True;
-    Output: True;
+    Processing: ConversionsDesk().Letter(0, 65);
+    Output: "A";
 }

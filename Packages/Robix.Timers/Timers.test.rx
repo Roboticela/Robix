@@ -1,5 +1,223 @@
+// Tests for Timers.rx. Each call uses a fresh desk.
+
 Test SetTimeout {
-    Constraint: TimerDesk().SetTimeout("arm", 5) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: TimerDesk().SetTimeout("tick", 5) == 0;
+    Processing: TimerDesk().SetTimeout("tick", 5);
+    Output: 0;
+}
+
+Test ClearTimeout {
+    Constraint: TimerDesk().ClearTimeout(0) == 0;
+    Processing: TimerDesk().ClearTimeout(0);
+    Output: 0;
+}
+
+Test SetInterval {
+    Constraint: TimerDesk().SetInterval("tick", 5) == 0;
+    Processing: TimerDesk().SetInterval("tick", 5);
+    Output: 0;
+}
+
+Test ClearInterval {
+    Constraint: TimerDesk().ClearInterval(0) == 0;
+    Processing: TimerDesk().ClearInterval(0);
+    Output: 0;
+}
+
+Test SetDelay {
+    Constraint: TimerDesk().SetDelay("tick", 5) == 0;
+    Processing: TimerDesk().SetDelay("tick", 5);
+    Output: 0;
+}
+
+Test Create {
+    Constraint: TimerDesk().Create("tick", 0, 5) == 0;
+    Processing: TimerDesk().Create("tick", 0, 5);
+    Output: 0;
+}
+
+Test Start {
+    Constraint: TimerDesk().Start(0) == 0;
+    Processing: TimerDesk().Start(0);
+    Output: 0;
+}
+
+Test Stop {
+    Constraint: TimerDesk().Stop(0) == 0;
+    Processing: TimerDesk().Stop(0);
+    Output: 0;
+}
+
+Test Pause {
+    Constraint: TimerDesk().Pause(0) == 0;
+    Processing: TimerDesk().Pause(0);
+    Output: 0;
+}
+
+Test Resume {
+    Constraint: TimerDesk().Resume(0) == 0;
+    Processing: TimerDesk().Resume(0);
+    Output: 0;
+}
+
+Test Restart {
+    Constraint: TimerDesk().Restart(0) == 0;
+    Processing: TimerDesk().Restart(0);
+    Output: 0;
+}
+
+Test Reset {
+    Constraint: TimerDesk().Reset(0) == 0;
+    Processing: TimerDesk().Reset(0);
+    Output: 0;
+}
+
+Test Dispose {
+    Constraint: TimerDesk().Dispose(0) == 0;
+    Processing: TimerDesk().Dispose(0);
+    Output: 0;
+}
+
+Test Tick {
+    Constraint: TimerDesk().Tick(3) == 3;
+    Processing: TimerDesk().Tick(3);
+    Output: 3;
+}
+
+Test IsRunning {
+    Constraint: TimerDesk().IsRunning(0) == 0;
+    Processing: TimerDesk().IsRunning(0);
+    Output: 0;
+}
+
+Test IsPaused {
+    Constraint: TimerDesk().IsPaused(0) == 0;
+    Processing: TimerDesk().IsPaused(0);
+    Output: 0;
+}
+
+Test Elapsed {
+    Constraint: TimerDesk().Elapsed(0) == 0;
+    Processing: TimerDesk().Elapsed(0);
+    Output: 0;
+}
+
+Test Remaining {
+    Constraint: TimerDesk().Remaining(0) == 0;
+    Processing: TimerDesk().Remaining(0);
+    Output: 0;
+}
+
+Test Fires {
+    Constraint: TimerDesk().Fires(0) == 0;
+    Processing: TimerDesk().Fires(0);
+    Output: 0;
+}
+
+Test State {
+    Constraint: TimerDesk().State(0) == "empty";
+    Processing: TimerDesk().State(0);
+    Output: "empty";
+}
+
+Test KindName {
+    Constraint: TimerDesk().KindName(0) == "none";
+    Processing: TimerDesk().KindName(0);
+    Output: "none";
+}
+
+Test Precision {
+    Constraint: TimerDesk().Precision() == 1;
+    Processing: TimerDesk().Precision();
+    Output: 1;
+}
+
+Test Resolution {
+    Constraint: TimerDesk().Resolution() == 1;
+    Processing: TimerDesk().Resolution();
+    Output: 1;
+}
+
+Test Fault {
+    Constraint: TimerDesk().Fault() == "none";
+    Processing: TimerDesk().Fault();
+    Output: "none";
+}
+
+Test SwStart {
+    Constraint: TimerDesk().SwStart() == 1;
+    Processing: TimerDesk().SwStart();
+    Output: 1;
+}
+
+Test SwStop {
+    Constraint: TimerDesk().SwStop() == 1;
+    Processing: TimerDesk().SwStop();
+    Output: 1;
+}
+
+Test SwReset {
+    Constraint: TimerDesk().SwReset() == 1;
+    Processing: TimerDesk().SwReset();
+    Output: 1;
+}
+
+Test SwRestart {
+    Constraint: TimerDesk().SwRestart() == 1;
+    Processing: TimerDesk().SwRestart();
+    Output: 1;
+}
+
+Test SwElapsed {
+    Constraint: TimerDesk().SwElapsed() == 0;
+    Processing: TimerDesk().SwElapsed();
+    Output: 0;
+}
+
+Test SwMillis {
+    Constraint: TimerDesk().SwMillis() == 0;
+    Processing: TimerDesk().SwMillis();
+    Output: 0;
+}
+
+Test SwTicks {
+    Constraint: TimerDesk().SwTicks() == 0;
+    Processing: TimerDesk().SwTicks();
+    Output: 0;
+}
+
+Test Stats {
+    Constraint: TimerDesk().Stats() == "running=0,paused=0,fires=0";
+    Processing: TimerDesk().Stats();
+    Output: "running=0,paused=0,fires=0";
+}
+
+Test Arm {
+    Constraint: TimerDesk().Arm("tick", 0, 5, 1) == 0;
+    Processing: TimerDesk().Arm("tick", 0, 5, 1);
+    Output: 0;
+}
+
+Test Halt {
+    Constraint: TimerDesk().Halt(0) == 0;
+    Processing: TimerDesk().Halt(0);
+    Output: 0;
+}
+
+Test Known {
+    Constraint: TimerDesk().Known(0) == 0;
+    Processing: TimerDesk().Known(0);
+    Output: 0;
+}
+
+Test Claim {
+    Constraint: TimerDesk().Claim() == 0;
+    Processing: TimerDesk().Claim();
+    Output: 0;
+}
+
+Test IntText {
+    Constraint: TimerDesk().IntText(4) == "4";
+    Processing: TimerDesk().IntText(4);
+    Output: "4";
 }

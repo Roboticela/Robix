@@ -1,5 +1,8 @@
 // Robix.BigNumbers: base-1000 integers, powers, and factorials.
-Package Robix.BigNumbers;
+Package Robix.BigNumbers
+Explain {
+    Description: "Base-1000 integers, powers, and factorials.";
+};
 
 Import Robix.Core;
 

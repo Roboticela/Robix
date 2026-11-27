@@ -1,5 +1,8 @@
 // Robix.Math.Probability: events, distributions, Bayes, and Markov chains.
-Package Robix.Math.Probability;
+Package Robix.Math.Probability
+Explain {
+    Description: "Events, distributions, Bayes, and Markov chains.";
+};
 
 Import Robix.Core;
 

@@ -1,5 +1,303 @@
+// Tests for Scheduling.rx. Each call uses a fresh desk.
+
 Test Schedule {
-    Constraint: JobDesk().Schedule("arm", 5, 10) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: JobDesk().Schedule("tick", 3, 8) == 0;
+    Processing: JobDesk().Schedule("tick", 3, 8);
+    Output: 0;
+}
+
+Test ScheduleOnce {
+    Constraint: JobDesk().ScheduleOnce("tick", 3, 8) == 0;
+    Processing: JobDesk().ScheduleOnce("tick", 3, 8);
+    Output: 0;
+}
+
+Test ScheduleAfter {
+    Constraint: JobDesk().ScheduleAfter("tick", 3, 8) == 0;
+    Processing: JobDesk().ScheduleAfter("tick", 3, 8);
+    Output: 0;
+}
+
+Test ScheduleEvery {
+    Constraint: JobDesk().ScheduleEvery("tick", 3, 8) == 0;
+    Processing: JobDesk().ScheduleEvery("tick", 3, 8);
+    Output: 0;
+}
+
+Test ScheduleCron {
+    Case "step" {
+        Constraint: JobDesk().ScheduleCron("tick", "*/5", 8) == 0;
+        Processing: JobDesk().ScheduleCron("tick", "*/5", 8);
+        Output: 0;
+    }
+    Case "invalid" {
+        Constraint: JobDesk().ScheduleCron("tick", "no", 8) == -1;
+        Processing: JobDesk().ScheduleCron("tick", "no", 8);
+        Output: -1;
+    }
+}
+
+Test ScheduleRecurring {
+    Constraint: JobDesk().ScheduleRecurring("tick", 3, 8) == 0;
+    Processing: JobDesk().ScheduleRecurring("tick", 3, 8);
+    Output: 0;
+}
+
+Test ScheduleRank {
+    Constraint: JobDesk().ScheduleRank("tick", 3, 8, 2) == 0;
+    Processing: JobDesk().ScheduleRank("tick", 3, 8, 2);
+    Output: 0;
+}
+
+Test StartJob {
+    Constraint: JobDesk().StartJob(0) == 0;
+    Processing: JobDesk().StartJob(0);
+    Output: 0;
+}
+
+Test StopJob {
+    Constraint: JobDesk().StopJob(0) == 0;
+    Processing: JobDesk().StopJob(0);
+    Output: 0;
+}
+
+Test PauseJob {
+    Constraint: JobDesk().PauseJob(0) == 0;
+    Processing: JobDesk().PauseJob(0);
+    Output: 0;
+}
+
+Test ResumeJob {
+    Constraint: JobDesk().ResumeJob(0) == 0;
+    Processing: JobDesk().ResumeJob(0);
+    Output: 0;
+}
+
+Test CancelJob {
+    Constraint: JobDesk().CancelJob(0) == 0;
+    Processing: JobDesk().CancelJob(0);
+    Output: 0;
+}
+
+Test RestartJob {
+    Constraint: JobDesk().RestartJob(0) == 0;
+    Processing: JobDesk().RestartJob(0);
+    Output: 0;
+}
+
+Test DeleteJob {
+    Constraint: JobDesk().DeleteJob(0) == 0;
+    Processing: JobDesk().DeleteJob(0);
+    Output: 0;
+}
+
+Test Start {
+    Constraint: JobDesk().Start() == 1;
+    Processing: JobDesk().Start();
+    Output: 1;
+}
+
+Test Stop {
+    Constraint: JobDesk().Stop() == 1;
+    Processing: JobDesk().Stop();
+    Output: 1;
+}
+
+Test Pause {
+    Constraint: JobDesk().Pause() == 1;
+    Processing: JobDesk().Pause();
+    Output: 1;
+}
+
+Test Resume {
+    Constraint: JobDesk().Resume() == 1;
+    Processing: JobDesk().Resume();
+    Output: 1;
+}
+
+Test Advance {
+    Constraint: JobDesk().Advance(2) == 2;
+    Processing: JobDesk().Advance(2);
+    Output: 2;
+}
+
+Test Choose {
+    Constraint: JobDesk().Choose() == -1;
+    Processing: JobDesk().Choose();
+    Output: -1;
+}
+
+Test AddDependency {
+    Constraint: JobDesk().AddDependency(0, 1) == 0;
+    Processing: JobDesk().AddDependency(0, 1);
+    Output: 0;
+}
+
+Test RemoveDependency {
+    Constraint: JobDesk().RemoveDependency(0) == 0;
+    Processing: JobDesk().RemoveDependency(0);
+    Output: 0;
+}
+
+Test Validate {
+    Constraint: JobDesk().Validate("*/5") == 1;
+    Processing: JobDesk().Validate("*/5");
+    Output: 1;
+}
+
+Test NextCron {
+    Constraint: JobDesk().NextCron("*/5", 3) == 8;
+    Processing: JobDesk().NextCron("*/5", 3);
+    Output: 8;
+}
+
+Test PrevCron {
+    Constraint: JobDesk().PrevCron("*/5", 3) == 0;
+    Processing: JobDesk().PrevCron("*/5", 3);
+    Output: 0;
+}
+
+Test Status {
+    Constraint: JobDesk().Status(0) == "empty";
+    Processing: JobDesk().Status(0);
+    Output: "empty";
+}
+
+Test KindName {
+    Constraint: JobDesk().KindName(0) == "none";
+    Processing: JobDesk().KindName(0);
+    Output: "none";
+}
+
+Test History {
+    Constraint: JobDesk().History(0) == 0;
+    Processing: JobDesk().History(0);
+    Output: 0;
+}
+
+Test Outcome {
+    Constraint: JobDesk().Outcome(0) == 0;
+    Processing: JobDesk().Outcome(0);
+    Output: 0;
+}
+
+Test NextAt {
+    Constraint: JobDesk().NextAt(0) == 0;
+    Processing: JobDesk().NextAt(0);
+    Output: 0;
+}
+
+Test State {
+    Constraint: JobDesk().State() == "stopped";
+    Processing: JobDesk().State();
+    Output: "stopped";
+}
+
+Test Jobs {
+    Constraint: JobDesk().Jobs() == 0;
+    Processing: JobDesk().Jobs();
+    Output: 0;
+}
+
+Test SetMode {
+    Case "round" {
+        Constraint: JobDesk().SetMode(1) == 1;
+        Processing: JobDesk().SetMode(1);
+        Output: 1;
+    }
+    Case "rejected" {
+        Constraint: JobDesk().SetMode(9) == 0;
+        Processing: JobDesk().SetMode(9);
+        Output: 0;
+    }
+}
+
+Test Mode {
+    Constraint: JobDesk().Mode() == "priority";
+    Processing: JobDesk().Mode();
+    Output: "priority";
+}
+
+Test Fault {
+    Constraint: JobDesk().Fault() == "none";
+    Processing: JobDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: JobDesk().Stats() == "created=0,ran=0,canceled=0";
+    Processing: JobDesk().Stats();
+    Output: "created=0,ran=0,canceled=0";
+}
+
+Test Arm {
+    Constraint: JobDesk().Arm("tick", 0, 3, 8, 1, 0) == 0;
+    Processing: JobDesk().Arm("tick", 0, 3, 8, 1, 0);
+    Output: 0;
+}
+
+Test Fire {
+    Constraint: JobDesk().Fire(0) == 0;
+    Processing: JobDesk().Fire(0);
+    Output: 0;
+}
+
+Test ChooseRank {
+    Constraint: JobDesk().ChooseRank() == -1;
+    Processing: JobDesk().ChooseRank();
+    Output: -1;
+}
+
+Test ChooseRound {
+    Constraint: JobDesk().ChooseRound() == -1;
+    Processing: JobDesk().ChooseRound();
+    Output: -1;
+}
+
+Test ChooseFair {
+    Constraint: JobDesk().ChooseFair() == -1;
+    Processing: JobDesk().ChooseFair();
+    Output: -1;
+}
+
+Test Due {
+    Constraint: JobDesk().Due(0) == 0;
+    Processing: JobDesk().Due(0);
+    Output: 0;
+}
+
+Test Ready {
+    Constraint: JobDesk().Ready(0) == 1;
+    Processing: JobDesk().Ready(0);
+    Output: 1;
+}
+
+Test Known {
+    Constraint: JobDesk().Known(0) == 0;
+    Processing: JobDesk().Known(0);
+    Output: 0;
+}
+
+Test Claim {
+    Constraint: JobDesk().Claim() == 0;
+    Processing: JobDesk().Claim();
+    Output: 0;
+}
+
+Test StepOf {
+    Constraint: JobDesk().StepOf("*/5") == 5;
+    Processing: JobDesk().StepOf("*/5");
+    Output: 5;
+}
+
+Test DigitValue {
+    Constraint: JobDesk().DigitValue("4") == 4;
+    Processing: JobDesk().DigitValue("4");
+    Output: 4;
+}
+
+Test IntText {
+    Constraint: JobDesk().IntText(6) == "6";
+    Processing: JobDesk().IntText(6);
+    Output: "6";
 }

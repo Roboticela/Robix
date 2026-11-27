@@ -1,5 +1,8 @@
 // Robix.Math.Numerical: roots, interpolation, quadrature, and stable summation.
-Package Robix.Math.Numerical;
+Package Robix.Math.Numerical
+Explain {
+    Description: "Roots, interpolation, quadrature, and stable summation.";
+};
 
 Import Robix.Core;
 
@@ -73,27 +76,29 @@ Class NumericalDesk {
             problem = "domain";
             Return 0;
         }
+        Int left = lower;
+        Int right = upper;
         Int guard = 0;
         While (guard < 40) {
-            If (This.Evaluate(shape, lower) == 0) { Return lower; }
-            If (This.Evaluate(shape, upper) == 0) { Return upper; }
-            If (upper - lower <= 1) {
+            If (This.Evaluate(shape, left) == 0) { Return left; }
+            If (This.Evaluate(shape, right) == 0) { Return right; }
+            If (right - left <= 1) {
                 problem = "convergence";
-                Return lower;
+                Return left;
             }
-            Int mid = lower + (upper - lower) / 2;
+            Int mid = left + (right - left) / 2;
             Int fmid = This.Evaluate(shape, mid);
             If (fmid == 0) { Return mid; }
-            Int flow = This.Evaluate(shape, lower);
+            Int flow = This.Evaluate(shape, left);
             Int split = 0;
             If (flow < 0 && fmid > 0) { split = 1; }
             If (flow > 0 && fmid < 0) { split = 1; }
-            If (split == 1) { upper = mid; }
-            If (split == 0) { lower = mid; }
+            If (split == 1) { right = mid; }
+            If (split == 0) { left = mid; }
             guard = guard + 1;
         }
         problem = "convergence";
-        Return lower;
+        Return left;
     }
 
     Public Function Brent(Int shape, Int lower, Int upper) -> Int

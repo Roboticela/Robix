@@ -185,6 +185,19 @@ Test ReadRgb {
     Output: 1;
 }
 
+Test FindMark {
+    Case "found" {
+        Constraint: ConsoleDesk().FindMark("a}b", "}", 0) == 1;
+        Processing: ConsoleDesk().FindMark("a}b", "}", 0);
+        Output: 1;
+    }
+    Case "missing" {
+        Constraint: ConsoleDesk().FindMark("abc", "}", 0) == -1;
+        Processing: ConsoleDesk().FindMark("abc", "}", 0);
+        Output: -1;
+    }
+}
+
 Test DigitOf {
     Case "digit" {
         Constraint: ConsoleDesk().DigitOf("4") == 4;

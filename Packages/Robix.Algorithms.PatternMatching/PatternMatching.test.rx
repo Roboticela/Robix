@@ -1,0 +1,325 @@
+// Tests for PatternMatching.rx. Each call uses a fresh desk.
+Test Match {
+    Constraint: PatternDesk().Match("aabaab", "aa") == 0;
+    Processing: PatternDesk().Match("aabaab", "aa");
+    Output: 0;
+}
+
+Test MatchAll {
+    Constraint: PatternDesk().MatchAll("aabaab", "aa") == 2;
+    Processing: PatternDesk().MatchAll("aabaab", "aa");
+    Output: 2;
+}
+
+Test IsMatch {
+    Constraint: PatternDesk().IsMatch("aabaab", "aa") == 1;
+    Processing: PatternDesk().IsMatch("aabaab", "aa");
+    Output: 1;
+}
+
+Test FindMatch {
+    Constraint: PatternDesk().FindMatch("aabaab", "aa") == 0;
+    Processing: PatternDesk().FindMatch("aabaab", "aa");
+    Output: 0;
+}
+
+Test FindMatches {
+    Constraint: PatternDesk().FindMatches("aabaab", "aa") == 2;
+    Processing: PatternDesk().FindMatches("aabaab", "aa");
+    Output: 2;
+}
+
+Test CountMatches {
+    Constraint: PatternDesk().CountMatches("aabaab", "aa") == 2;
+    Processing: PatternDesk().CountMatches("aabaab", "aa");
+    Output: 2;
+}
+
+Test MatchAt {
+    Constraint: PatternDesk().MatchAt("aabaab", "aa", 3) == 1;
+    Processing: PatternDesk().MatchAt("aabaab", "aa", 3);
+    Output: 1;
+}
+
+Test CompilePattern {
+    Constraint: PatternDesk().CompilePattern("a**b") == 3;
+    Processing: PatternDesk().CompilePattern("a**b");
+    Output: 3;
+}
+
+Test ParsePattern {
+    Constraint: PatternDesk().ParsePattern("a**b") == 4;
+    Processing: PatternDesk().ParsePattern("a**b");
+    Output: 4;
+}
+
+Test ValidatePattern {
+    Constraint: PatternDesk().ValidatePattern("(aa)") == 1;
+    Processing: PatternDesk().ValidatePattern("(aa)");
+    Output: 1;
+}
+
+Test OptimizePattern {
+    Constraint: PatternDesk().OptimizePattern("a**b") == 3;
+    Processing: PatternDesk().OptimizePattern("a**b");
+    Output: 3;
+}
+
+Test ExplainPattern {
+    Constraint: PatternDesk().ExplainPattern("a*") == 4;
+    Processing: PatternDesk().ExplainPattern("a*");
+    Output: 4;
+}
+
+Test GetPatternCaptures {
+    Constraint: PatternDesk().GetPatternCaptures("(aa)") == 1;
+    Processing: PatternDesk().GetPatternCaptures("(aa)");
+    Output: 1;
+}
+
+Test ExactMatch {
+    Constraint: PatternDesk().ExactMatch("aabaab", "aa") == 0;
+    Processing: PatternDesk().ExactMatch("aabaab", "aa");
+    Output: 0;
+}
+
+Test WildcardMatch {
+    Constraint: PatternDesk().WildcardMatch("aabaab", "a*b") == 1;
+    Processing: PatternDesk().WildcardMatch("aabaab", "a*b");
+    Output: 1;
+}
+
+Test GlobMatch {
+    Constraint: PatternDesk().GlobMatch("aa", "a?") == 1;
+    Processing: PatternDesk().GlobMatch("aa", "a?");
+    Output: 1;
+}
+
+Test RegexMatch {
+    Constraint: PatternDesk().RegexMatch("aabaab", "a.b") == 0;
+    Processing: PatternDesk().RegexMatch("aabaab", "a.b");
+    Output: 0;
+}
+
+Test TokenMatch {
+    Constraint: PatternDesk().TokenMatch("aabaab", "baa") == 1;
+    Processing: PatternDesk().TokenMatch("aabaab", "baa");
+    Output: 1;
+}
+
+Test SequenceMatch {
+    Constraint: PatternDesk().SequenceMatch("aabaab", "baa") == 2;
+    Processing: PatternDesk().SequenceMatch("aabaab", "baa");
+    Output: 2;
+}
+
+Test TreePatternMatch {
+    Constraint: PatternDesk().TreePatternMatch("426135", "426") == 1;
+    Processing: PatternDesk().TreePatternMatch("426135", "426");
+    Output: 1;
+}
+
+Test GraphPatternMatch {
+    Constraint: PatternDesk().GraphPatternMatch("0123", "01") == 1;
+    Processing: PatternDesk().GraphPatternMatch("0123", "01");
+    Output: 1;
+}
+
+Test StructuralMatch {
+    Constraint: PatternDesk().StructuralMatch("cat", "act") == 1;
+    Processing: PatternDesk().StructuralMatch("cat", "act");
+    Output: 1;
+}
+
+Test FuzzyMatch {
+    Constraint: PatternDesk().FuzzyMatch("cat", "cut") == 1;
+    Processing: PatternDesk().FuzzyMatch("cat", "cut");
+    Output: 1;
+}
+
+Test ApproximateMatch {
+    Constraint: PatternDesk().ApproximateMatch("cat", "act", 2) == 1;
+    Processing: PatternDesk().ApproximateMatch("cat", "act", 2);
+    Output: 1;
+}
+
+Test EditDistanceMatch {
+    Constraint: PatternDesk().EditDistanceMatch("cat", "cut", 1) == 1;
+    Processing: PatternDesk().EditDistanceMatch("cat", "cut", 1);
+    Output: 1;
+}
+
+Test HammingMatch {
+    Constraint: PatternDesk().HammingMatch("cat", "cut", 1) == 1;
+    Processing: PatternDesk().HammingMatch("cat", "cut", 1);
+    Output: 1;
+}
+
+Test MultiPatternMatch {
+    Constraint: PatternDesk().MultiPatternMatch("aabaab", "aa|ab") == 2;
+    Processing: PatternDesk().MultiPatternMatch("aabaab", "aa|ab");
+    Output: 2;
+}
+
+Test ReplaceMatches {
+    Constraint: PatternDesk().ReplaceMatches("aabaab", "aa", "c") == 4;
+    Processing: PatternDesk().ReplaceMatches("aabaab", "aa", "c");
+    Output: 4;
+}
+
+Test ReplaceFirstMatch {
+    Constraint: PatternDesk().ReplaceFirstMatch("aabaab", "aa", "c") == 5;
+    Processing: PatternDesk().ReplaceFirstMatch("aabaab", "aa", "c");
+    Output: 5;
+}
+
+Test ExtractMatches {
+    Constraint: PatternDesk().ExtractMatches("aabaab", "aa") == 2;
+    Processing: PatternDesk().ExtractMatches("aabaab", "aa");
+    Output: 2;
+}
+
+Test ExtractGroups {
+    Constraint: PatternDesk().ExtractGroups("aabaab", "(aa)") == 2;
+    Processing: PatternDesk().ExtractGroups("aabaab", "(aa)");
+    Output: 2;
+}
+
+Test SplitByPattern {
+    Constraint: PatternDesk().SplitByPattern("aabaab", "aa") == 2;
+    Processing: PatternDesk().SplitByPattern("aabaab", "aa");
+    Output: 2;
+}
+
+Test Fault {
+    Constraint: PatternDesk().Fault() == "none";
+    Processing: PatternDesk().Fault();
+    Output: "none";
+}
+
+Test At {
+    Constraint: PatternDesk().At("aabaab", 0) == 1;
+    Processing: PatternDesk().At("aabaab", 0);
+    Output: 1;
+}
+
+Test Prepare {
+    Constraint: PatternDesk().Prepare("aabaab", "aa") == 1;
+    Processing: PatternDesk().Prepare("aabaab", "aa");
+    Output: 1;
+}
+
+Test EqualAt {
+    Constraint: PatternDesk().EqualAt("aabaab", 0, "aa") == 1;
+    Processing: PatternDesk().EqualAt("aabaab", 0, "aa");
+    Output: 1;
+}
+
+Test First {
+    Constraint: PatternDesk().First("aabaab", "aa") == 0;
+    Processing: PatternDesk().First("aabaab", "aa");
+    Output: 0;
+}
+
+Test CountAt {
+    Constraint: PatternDesk().CountAt("aabaab", "aa") == 2;
+    Processing: PatternDesk().CountAt("aabaab", "aa");
+    Output: 2;
+}
+
+Test Stars {
+    Constraint: PatternDesk().Stars("a**b") == 2;
+    Processing: PatternDesk().Stars("a**b");
+    Output: 2;
+}
+
+Test Captures {
+    Constraint: PatternDesk().Captures("(aa)") == 1;
+    Processing: PatternDesk().Captures("(aa)");
+    Output: 1;
+}
+
+Test Valid {
+    Constraint: PatternDesk().Valid("(aa)") == 1;
+    Processing: PatternDesk().Valid("(aa)");
+    Output: 1;
+}
+
+Test Collapse {
+    Constraint: PatternDesk().Collapse("a**b") == 3;
+    Processing: PatternDesk().Collapse("a**b");
+    Output: 3;
+}
+
+Test Fold {
+    Constraint: PatternDesk().Fold("a*") == 4;
+    Processing: PatternDesk().Fold("a*");
+    Output: 4;
+}
+
+Test Whole {
+    Constraint: PatternDesk().Whole("aabaab", "a*b") == 1;
+    Processing: PatternDesk().Whole("aabaab", "a*b");
+    Output: 1;
+}
+
+Test Distance {
+    Constraint: PatternDesk().Distance("cat", "act") == 2;
+    Processing: PatternDesk().Distance("cat", "act");
+    Output: 2;
+}
+
+Test Ham {
+    Constraint: PatternDesk().Ham("cat", "cut") == 1;
+    Processing: PatternDesk().Ham("cat", "cut");
+    Output: 1;
+}
+
+Test Edge {
+    Constraint: PatternDesk().Edge("01") == 1;
+    Processing: PatternDesk().Edge("01");
+    Output: 1;
+}
+
+Test Digit {
+    Constraint: PatternDesk().Digit("01", 1) == 1;
+    Processing: PatternDesk().Digit("01", 1);
+    Output: 1;
+}
+
+Test PrefixOf {
+    Constraint: PatternDesk().PrefixOf("426135", "426") == 1;
+    Processing: PatternDesk().PrefixOf("426135", "426");
+    Output: 1;
+}
+
+Test Apply {
+    Constraint: PatternDesk().Apply("aabaab", "aa", "c", 0) == 4;
+    Processing: PatternDesk().Apply("aabaab", "aa", "c", 0);
+    Output: 4;
+}
+
+Test Groups {
+    Constraint: PatternDesk().Groups("aabaab", "(aa)") == 2;
+    Processing: PatternDesk().Groups("aabaab", "(aa)");
+    Output: 2;
+}
+
+Test LetterCount {
+    Constraint: PatternDesk().LetterCount("(aa)") == 2;
+    Processing: PatternDesk().LetterCount("(aa)");
+    Output: 2;
+}
+
+Test EqualLetters {
+    Constraint: PatternDesk().EqualLetters("aabaab", 0, "(aa)") == 1;
+    Processing: PatternDesk().EqualLetters("aabaab", 0, "(aa)");
+    Output: 1;
+}
+
+Test Pieces {
+    Constraint: PatternDesk().Pieces("aabaab", "aa") == 2;
+    Processing: PatternDesk().Pieces("aabaab", "aa");
+    Output: 2;
+}
+

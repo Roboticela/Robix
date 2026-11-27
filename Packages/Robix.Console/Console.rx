@@ -330,7 +330,7 @@ Class ConsoleDesk {
                 built = built + mark;
                 index = index + 1;
             } Else {
-                Int close = text.IndexOf("}", index);
+                Int close = This.FindMark(text, "}", index);
                 If (close < 0) {
                     built = built + text.Substring(index, text.Length() - index);
                     index = text.Length();
@@ -431,6 +431,16 @@ Class ConsoleDesk {
         tagGreen = second;
         tagBlue = third;
         Return 1;
+    }
+
+    Private Function FindMark(String text, String mark, Int start) -> Int {
+        Int cursor = start;
+        If (cursor < 0) { cursor = 0; }
+        While (cursor < text.Length()) {
+            If (text.Substring(cursor, 1) == mark) { Return cursor; }
+            cursor = cursor + 1;
+        }
+        Return -1;
     }
 
     Private Function DigitOf(String mark) -> Int {

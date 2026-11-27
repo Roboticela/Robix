@@ -570,7 +570,8 @@ const SEMANTIC_TYPES = [
 ];
 
 const SEMANTIC_MODIFIERS = [
-    "declaration", "readonly", "static", "async", "defaultLibrary", "control", "modifier", "abstract"
+    "declaration", "readonly", "static", "async", "defaultLibrary", "control", "modifier", "abstract",
+    "public", "private", "documentation"
 ];
 
 function modifierMask(names) {

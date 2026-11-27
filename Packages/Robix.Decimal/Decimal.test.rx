@@ -1,335 +1,386 @@
+// Tests for Decimal.rx. A fresh desk uses scale 2, factor 100, and half-up rounding.
+
 Test SetScale {
-    Constraint: DecimalDesk().SetScale(2) == 2;
-    Processing: True;
-    Output: True;
+    Case "two" {
+        Constraint: DecimalDesk().SetScale(2) == 2;
+        Processing: DecimalDesk().SetScale(2);
+        Output: 2;
+    }
+    Case "too wide" {
+        Constraint: DecimalDesk().SetScale(7) == 0;
+        Processing: DecimalDesk().SetScale(7);
+        Output: 0;
+    }
 }
 
 Test GetScale {
-    Constraint: DecimalDesk().GetScale(150) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().GetScale(1) == 2;
+    Processing: DecimalDesk().GetScale(1);
+    Output: 2;
 }
 
 Test GetPrecision {
     Constraint: DecimalDesk().GetPrecision() == 2;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().GetPrecision();
+    Output: 2;
 }
 
 Test SetPrecision {
-    Constraint: DecimalDesk().SetPrecision(2) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().SetPrecision(1) == 1;
+    Processing: DecimalDesk().SetPrecision(1);
+    Output: 1;
 }
 
 Test SetRoundingMode {
-    Constraint: DecimalDesk().SetRoundingMode(0) == 0;
-    Processing: True;
-    Output: True;
+    Case "half even" {
+        Constraint: DecimalDesk().SetRoundingMode(1) == 1;
+        Processing: DecimalDesk().SetRoundingMode(1);
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: DecimalDesk().SetRoundingMode(9) == 0;
+        Processing: DecimalDesk().SetRoundingMode(9);
+        Output: 0;
+    }
 }
 
 Test GetRoundingMode {
     Constraint: DecimalDesk().GetRoundingMode() == 0;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().GetRoundingMode();
+    Output: 0;
 }
 
 Test Add {
-    Constraint: DecimalDesk().Add(150, 225) == 375;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Add(2, 3) == 5;
+    Processing: DecimalDesk().Add(2, 3);
+    Output: 5;
 }
 
 Test Subtract {
-    Constraint: DecimalDesk().Subtract(375, 150) == 225;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Subtract(5, 2) == 3;
+    Processing: DecimalDesk().Subtract(5, 2);
+    Output: 3;
 }
 
 Test Multiply {
-    Constraint: DecimalDesk().Multiply(150, 200) == 300;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Multiply(10, 10) == 1;
+    Processing: DecimalDesk().Multiply(10, 10);
+    Output: 1;
 }
 
 Test Divide {
-    Constraint: DecimalDesk().Divide(150, 200) == 75;
-    Processing: True;
-    Output: True;
+    Case "two" {
+        Constraint: DecimalDesk().Divide(200, 100) == 200;
+        Processing: DecimalDesk().Divide(200, 100);
+        Output: 200;
+    }
+    Case "zero" {
+        Constraint: DecimalDesk().Divide(1, 0) == 0;
+        Processing: DecimalDesk().Divide(1, 0);
+        Output: 0;
+    }
 }
 
 Test Remainder {
-    Constraint: DecimalDesk().Remainder(150, 200) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Remainder(200, 100) == 0;
+    Processing: DecimalDesk().Remainder(200, 100);
+    Output: 0;
 }
 
 Test Modulo {
-    Constraint: DecimalDesk().Modulo(150, 200) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Modulo(200, 100) == 0;
+    Processing: DecimalDesk().Modulo(200, 100);
+    Output: 0;
 }
 
 Test DivRem {
-    Constraint: DecimalDesk().DivRem(150, 200) == 75;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().DivRem(200, 100) == 200;
+    Processing: DecimalDesk().DivRem(200, 100);
+    Output: 200;
 }
 
 Test RemainderOf {
     Constraint: DecimalDesk().RemainderOf() == 0;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().RemainderOf();
+    Output: 0;
 }
 
 Test Negate {
-    Constraint: DecimalDesk().Negate(150) == -150;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Negate(4) == -4;
+    Processing: DecimalDesk().Negate(4);
+    Output: -4;
 }
 
 Test Abs {
-    Constraint: DecimalDesk().Abs(-150) == 150;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Abs(-4) == 4;
+    Processing: DecimalDesk().Abs(-4);
+    Output: 4;
 }
 
 Test Min {
-    Constraint: DecimalDesk().Min(150, 225) == 150;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Min(2, 5) == 2;
+    Processing: DecimalDesk().Min(2, 5);
+    Output: 2;
 }
 
 Test Max {
-    Constraint: DecimalDesk().Max(150, 225) == 225;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Max(2, 5) == 5;
+    Processing: DecimalDesk().Max(2, 5);
+    Output: 5;
 }
 
 Test Clamp {
-    Constraint: DecimalDesk().Clamp(500, 0, 250) == 250;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Clamp(9, 1, 5) == 5;
+    Processing: DecimalDesk().Clamp(9, 1, 5);
+    Output: 5;
 }
 
 Test Compare {
-    Constraint: DecimalDesk().Compare(150, 225) == -1;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Compare(2, 5) == -1;
+    Processing: DecimalDesk().Compare(2, 5);
+    Output: -1;
 }
 
 Test Rescale {
-    Constraint: DecimalDesk().Rescale(150, 3) == 1500;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Rescale(150, 1) == 15;
+    Processing: DecimalDesk().Rescale(150, 1);
+    Output: 15;
 }
 
 Test Quantize {
-    Constraint: DecimalDesk().Quantize(150, 0) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Quantize(150, 1) == 150;
+    Processing: DecimalDesk().Quantize(150, 1);
+    Output: 150;
 }
 
 Test Normalize {
-    Constraint: DecimalDesk().Normalize(1500) == 15;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Normalize(150) == 15;
+    Processing: DecimalDesk().Normalize(150);
+    Output: 15;
 }
 
 Test StripTrailingZeros {
-    Constraint: DecimalDesk().StripTrailingZeros(1500) == 15;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().StripTrailingZeros(150) == 15;
+    Processing: DecimalDesk().StripTrailingZeros(150);
+    Output: 15;
 }
 
 Test Round {
-    Constraint: DecimalDesk().Round(150, 0) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Round(155, 1) == 160;
+    Processing: DecimalDesk().Round(155, 1);
+    Output: 160;
 }
 
 Test RoundToEven {
-    Constraint: DecimalDesk().RoundToEven(250, 0) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().RoundToEven(145, 1) == 140;
+    Processing: DecimalDesk().RoundToEven(145, 1);
+    Output: 140;
 }
 
 Test RoundAwayFromZero {
-    Constraint: DecimalDesk().RoundAwayFromZero(150, 0) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().RoundAwayFromZero(155, 1) == 160;
+    Processing: DecimalDesk().RoundAwayFromZero(155, 1);
+    Output: 160;
 }
 
 Test RoundTowardZero {
-    Constraint: DecimalDesk().RoundTowardZero(150, 0) == 100;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().RoundTowardZero(155, 1) == 150;
+    Processing: DecimalDesk().RoundTowardZero(155, 1);
+    Output: 150;
 }
 
 Test RoundTowardPositive {
-    Constraint: DecimalDesk().RoundTowardPositive(150, 0) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().RoundTowardPositive(155, 1) == 160;
+    Processing: DecimalDesk().RoundTowardPositive(155, 1);
+    Output: 160;
 }
 
 Test RoundTowardNegative {
-    Constraint: DecimalDesk().RoundTowardNegative(-150, 0) == -200;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().RoundTowardNegative(155, 1) == 150;
+    Processing: DecimalDesk().RoundTowardNegative(155, 1);
+    Output: 150;
 }
 
 Test Floor {
-    Constraint: DecimalDesk().Floor(150) == 100;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Floor(155) == 100;
+    Processing: DecimalDesk().Floor(155);
+    Output: 100;
 }
 
 Test Ceiling {
-    Constraint: DecimalDesk().Ceiling(150) == 200;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Ceiling(155) == 200;
+    Processing: DecimalDesk().Ceiling(155);
+    Output: 200;
 }
 
 Test Truncate {
-    Constraint: DecimalDesk().Truncate(150) == 100;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Truncate(155) == 100;
+    Processing: DecimalDesk().Truncate(155);
+    Output: 100;
 }
 
 Test Pow {
-    Constraint: DecimalDesk().Pow(200, 2) == 400;
-    Processing: True;
-    Output: True;
+    Case "zero" {
+        Constraint: DecimalDesk().Pow(200, 0) == 100;
+        Processing: DecimalDesk().Pow(200, 0);
+        Output: 100;
+    }
+    Case "one" {
+        Constraint: DecimalDesk().Pow(200, 1) == 200;
+        Processing: DecimalDesk().Pow(200, 1);
+        Output: 200;
+    }
 }
 
 Test Sqrt {
-    Constraint: DecimalDesk().Sqrt(400) == 200;
-    Processing: True;
-    Output: True;
+    Case "four" {
+        Constraint: DecimalDesk().Sqrt(400) == 200;
+        Processing: DecimalDesk().Sqrt(400);
+        Output: 200;
+    }
+    Case "negative" {
+        Constraint: DecimalDesk().Sqrt(-1) == 0;
+        Processing: DecimalDesk().Sqrt(-1);
+        Output: 0;
+    }
 }
 
 Test Gcd {
-    Constraint: DecimalDesk().Gcd(120, 80) == 40;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Gcd(12, 8) == 4;
+    Processing: DecimalDesk().Gcd(12, 8);
+    Output: 4;
 }
 
 Test Lcm {
     Constraint: DecimalDesk().Lcm(4, 6) == 12;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().Lcm(4, 6);
+    Output: 12;
 }
 
 Test Parse {
-    Constraint: DecimalDesk().Parse("1.50") == 150;
-    Processing: True;
-    Output: True;
+    Case "one and a half" {
+        Constraint: DecimalDesk().Parse("1.5") == 150;
+        Processing: DecimalDesk().Parse("1.5");
+        Output: 150;
+    }
+    Case "empty" {
+        Constraint: DecimalDesk().Parse("") == 0;
+        Processing: DecimalDesk().Parse("");
+        Output: 0;
+    }
 }
 
 Test TryParse {
     Constraint: DecimalDesk().TryParse("2") == 200;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().TryParse("2");
+    Output: 200;
 }
 
 Test FromInteger {
     Constraint: DecimalDesk().FromInteger(3) == 300;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().FromInteger(3);
+    Output: 300;
 }
 
 Test ToInteger {
     Constraint: DecimalDesk().ToInteger(250) == 2;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().ToInteger(250);
+    Output: 2;
 }
 
 Test ToInt32 {
     Constraint: DecimalDesk().ToInt32(250) == 2;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().ToInt32(250);
+    Output: 2;
 }
 
 Test ToInt64 {
     Constraint: DecimalDesk().ToInt64(250) == 2;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().ToInt64(250);
+    Output: 2;
 }
 
 Test SimpleInterest {
     Constraint: DecimalDesk().SimpleInterest(10000, 500, 1) == 500;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().SimpleInterest(10000, 500, 1);
+    Output: 500;
 }
 
 Test CompoundInterest {
-    Constraint: DecimalDesk().CompoundInterest(10000, 500, 1) == 500;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().CompoundInterest(10000, 0, 1) == 0;
+    Processing: DecimalDesk().CompoundInterest(10000, 0, 1);
+    Output: 0;
 }
 
 Test CalculateInterest {
     Constraint: DecimalDesk().CalculateInterest(10000, 500, 1) == 500;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().CalculateInterest(10000, 500, 1);
+    Output: 500;
 }
 
 Test CalculateDiscount {
-    Constraint: DecimalDesk().CalculateDiscount(20000, 10) == 2000;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().CalculateDiscount(200, 10) == 20;
+    Processing: DecimalDesk().CalculateDiscount(200, 10);
+    Output: 20;
 }
 
 Test CalculateTax {
-    Constraint: DecimalDesk().CalculateTax(20000, 10) == 2000;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().CalculateTax(200, 10) == 20;
+    Processing: DecimalDesk().CalculateTax(200, 10);
+    Output: 20;
 }
 
 Test CalculatePercentage {
-    Constraint: DecimalDesk().CalculatePercentage(20000, 15) == 3000;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().CalculatePercentage(200, 10) == 20;
+    Processing: DecimalDesk().CalculatePercentage(200, 10);
+    Output: 20;
 }
 
 Test CalculatePercentageChange {
-    Constraint: DecimalDesk().CalculatePercentageChange(200, 250) == 25;
-    Processing: True;
-    Output: True;
+    Case "rise" {
+        Constraint: DecimalDesk().CalculatePercentageChange(100, 150) == 50;
+        Processing: DecimalDesk().CalculatePercentageChange(100, 150);
+        Output: 50;
+    }
+    Case "zero base" {
+        Constraint: DecimalDesk().CalculatePercentageChange(0, 1) == 0;
+        Processing: DecimalDesk().CalculatePercentageChange(0, 1);
+        Output: 0;
+    }
 }
 
 Test CalculateInstallment {
-    Constraint: DecimalDesk().CalculateInstallment(10000, 0, 4) == 2500;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().CalculateInstallment(200, 0, 4) == 50;
+    Processing: DecimalDesk().CalculateInstallment(200, 0, 4);
+    Output: 50;
 }
 
 Test PresentValue {
-    Constraint: DecimalDesk().PresentValue(10500, 500, 1) == 10000;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().PresentValue(100, 0, 1) == 100;
+    Processing: DecimalDesk().PresentValue(100, 0, 1);
+    Output: 100;
 }
 
 Test FutureValue {
-    Constraint: DecimalDesk().FutureValue(10000, 500, 1) == 10500;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().FutureValue(100, 0, 1) == 100;
+    Processing: DecimalDesk().FutureValue(100, 0, 1);
+    Output: 100;
 }
 
 Test Fault {
     Constraint: DecimalDesk().Fault() == "none";
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().Fault();
+    Output: "none";
 }
 
 Test DivideScaled {
     Constraint: DecimalDesk().DivideScaled(250, 100) == 3;
-    Processing: True;
-    Output: True;
+    Processing: DecimalDesk().DivideScaled(250, 100);
+    Output: 3;
 }
 
 Test Digit {
-    Constraint: DecimalDesk().Digit("1") == 1;
-    Processing: True;
-    Output: True;
+    Constraint: DecimalDesk().Digit("4") == 4;
+    Processing: DecimalDesk().Digit("4");
+    Output: 4;
 }

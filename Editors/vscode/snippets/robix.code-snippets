@@ -1,0 +1,73 @@
+{
+    "Function": {
+        "prefix": "Function",
+        "body": [
+            "Function ${1:Name}(${2}) -> ${3:Int}",
+            "Explain {",
+            "    Description: \"${4:What this function does.}\";",
+            "    Input: ${5:None};",
+            "    Processing: \"${6:Steps.}\";",
+            "    Output: \"${7:Result.}\";",
+            "} {",
+            "    ${0}",
+            "}"
+        ],
+        "description": "A function with an Explain block"
+    },
+    "Class": {
+        "prefix": "Class",
+        "body": [
+            "Class ${1:Name} {",
+            "    ${0}",
+            "}"
+        ],
+        "description": "A class"
+    },
+    "Test": {
+        "prefix": "Test",
+        "body": [
+            "Test ${1:Name} {",
+            "    Constraint: ${2:True};",
+            "    Processing: ${3:True};",
+            "    Output: ${4:True};",
+            "}"
+        ],
+        "description": "A constraint test"
+    },
+    "If": {
+        "prefix": "If",
+        "body": [
+            "If (${1:True}) {",
+            "    ${0}",
+            "}"
+        ],
+        "description": "An If block"
+    },
+    "While": {
+        "prefix": "While",
+        "body": [
+            "While (${1:True}) {",
+            "    ${0}",
+            "}"
+        ],
+        "description": "A While loop"
+    },
+    "For": {
+        "prefix": "For",
+        "body": [
+            "For ${1:index} In ${2:1}..=${3:5} {",
+            "    ${0}",
+            "}"
+        ],
+        "description": "A For loop"
+    },
+    "Match": {
+        "prefix": "Match",
+        "body": [
+            "Match (${1:value}) {",
+            "    ${2:0}: { ${0} }",
+            "}"
+        ],
+        "description": "A Match"
+    }
+}

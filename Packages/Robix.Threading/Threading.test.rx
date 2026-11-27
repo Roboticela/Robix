@@ -1,5 +1,219 @@
+// Tests for Threading.rx. Each call uses a fresh desk.
+
 Test CreateThread {
-    Constraint: ThreadDesk().CreateThread("arm", 2, 2) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: ThreadDesk().CreateThread("main", 0, 1) == 0;
+    Processing: ThreadDesk().CreateThread("main", 0, 1);
+    Output: 0;
+}
+
+Test StartWith {
+    Constraint: ThreadDesk().StartWith(0, 4) == 0;
+    Processing: ThreadDesk().StartWith(0, 4);
+    Output: 0;
+}
+
+Test StartThread {
+    Constraint: ThreadDesk().StartThread(0) == 0;
+    Processing: ThreadDesk().StartThread(0);
+    Output: 0;
+}
+
+Test SleepFor {
+    Constraint: ThreadDesk().SleepFor(0, 2) == 0;
+    Processing: ThreadDesk().SleepFor(0, 2);
+    Output: 0;
+}
+
+Test JoinThread {
+    Constraint: ThreadDesk().JoinThread(0) == 0;
+    Processing: ThreadDesk().JoinThread(0);
+    Output: 0;
+}
+
+Test JoinFor {
+    Constraint: ThreadDesk().JoinFor(0, 1) == 0;
+    Processing: ThreadDesk().JoinFor(0, 1);
+    Output: 0;
+}
+
+Test AbortThread {
+    Constraint: ThreadDesk().AbortThread(0) == 1;
+    Processing: ThreadDesk().AbortThread(0);
+    Output: 1;
+}
+
+Test InterruptThread {
+    Constraint: ThreadDesk().InterruptThread(0) == 1;
+    Processing: ThreadDesk().InterruptThread(0);
+    Output: 1;
+}
+
+Test YieldThread {
+    Constraint: ThreadDesk().YieldThread() == 0;
+    Processing: ThreadDesk().YieldThread();
+    Output: 0;
+}
+
+Test ThreadAlive {
+    Constraint: ThreadDesk().ThreadAlive(0) == 0;
+    Processing: ThreadDesk().ThreadAlive(0);
+    Output: 0;
+}
+
+Test ThreadState {
+    Constraint: ThreadDesk().ThreadState(0) == "none";
+    Processing: ThreadDesk().ThreadState(0);
+    Output: "none";
+}
+
+Test ThreadId {
+    Constraint: ThreadDesk().ThreadId(0) == 0;
+    Processing: ThreadDesk().ThreadId(0);
+    Output: 0;
+}
+
+Test ThreadName {
+    Constraint: ThreadDesk().ThreadName(0) == "none";
+    Processing: ThreadDesk().ThreadName(0);
+    Output: "none";
+}
+
+Test SetThreadName {
+    Constraint: ThreadDesk().SetThreadName(0, "main") == 1;
+    Processing: ThreadDesk().SetThreadName(0, "main");
+    Output: 1;
+}
+
+Test ThreadPriority {
+    Constraint: ThreadDesk().ThreadPriority(0) == 0;
+    Processing: ThreadDesk().ThreadPriority(0);
+    Output: 0;
+}
+
+Test SetThreadPriority {
+    Constraint: ThreadDesk().SetThreadPriority(0, 2) == 2;
+    Processing: ThreadDesk().SetThreadPriority(0, 2);
+    Output: 2;
+}
+
+Test KindName {
+    Constraint: ThreadDesk().KindName(0) == "worker";
+    Processing: ThreadDesk().KindName(0);
+    Output: "worker";
+}
+
+Test CurrentThread {
+    Constraint: ThreadDesk().CurrentThread() == 0;
+    Processing: ThreadDesk().CurrentThread();
+    Output: 0;
+}
+
+Test Clock {
+    Constraint: ThreadDesk().Clock() == 0;
+    Processing: ThreadDesk().Clock();
+    Output: 0;
+}
+
+Test Result {
+    Constraint: ThreadDesk().Result(0) == 0;
+    Processing: ThreadDesk().Result(0);
+    Output: 0;
+}
+
+Test SetLocal {
+    Constraint: ThreadDesk().SetLocal(0, 4) == 4;
+    Processing: ThreadDesk().SetLocal(0, 4);
+    Output: 4;
+}
+
+Test GetLocal {
+    Constraint: ThreadDesk().GetLocal(0) == 0;
+    Processing: ThreadDesk().GetLocal(0);
+    Output: 0;
+}
+
+Test ClearLocal {
+    Constraint: ThreadDesk().ClearLocal(0) == 0;
+    Processing: ThreadDesk().ClearLocal(0);
+    Output: 0;
+}
+
+Test SetMinimum {
+    Case "accepted" {
+        Constraint: ThreadDesk().SetMinimum(2) == 1;
+        Processing: ThreadDesk().SetMinimum(2);
+        Output: 1;
+    }
+    Case "above maximum" {
+        Constraint: ThreadDesk().SetMinimum(9) == 0;
+        Processing: ThreadDesk().SetMinimum(9);
+        Output: 0;
+    }
+}
+
+Test SetMaximum {
+    Case "accepted" {
+        Constraint: ThreadDesk().SetMaximum(2) == 1;
+        Processing: ThreadDesk().SetMaximum(2);
+        Output: 1;
+    }
+    Case "below minimum" {
+        Constraint: ThreadDesk().SetMaximum(0) == 0;
+        Processing: ThreadDesk().SetMaximum(0);
+        Output: 0;
+    }
+}
+
+Test Busy {
+    Constraint: ThreadDesk().Busy() == 0;
+    Processing: ThreadDesk().Busy();
+    Output: 0;
+}
+
+Test Available {
+    Constraint: ThreadDesk().Available() == 4;
+    Processing: ThreadDesk().Available();
+    Output: 4;
+}
+
+Test QueueItem {
+    Constraint: ThreadDesk().QueueItem(3) == 3;
+    Processing: ThreadDesk().QueueItem(3);
+    Output: 3;
+}
+
+Test Shared {
+    Constraint: ThreadDesk().Shared() == 0;
+    Processing: ThreadDesk().Shared();
+    Output: 0;
+}
+
+Test Completed {
+    Constraint: ThreadDesk().Completed() == 0;
+    Processing: ThreadDesk().Completed();
+    Output: 0;
+}
+
+Test StoreQueued {
+    Constraint: ThreadDesk().StoreQueued(8) == 8;
+    Processing: ThreadDesk().StoreQueued(8);
+    Output: 8;
+}
+
+Test Info {
+    Constraint: ThreadDesk().Info(0) == "none none worker";
+    Processing: ThreadDesk().Info(0);
+    Output: "none none worker";
+}
+
+Test Stats {
+    Constraint: ThreadDesk().Stats() == "completed=0,busy=0,available=4,min=1,max=4";
+    Processing: ThreadDesk().Stats();
+    Output: "completed=0,busy=0,available=4,min=1,max=4";
+}
+
+Test IntText {
+    Constraint: ThreadDesk().IntText(6) == "6";
+    Processing: ThreadDesk().IntText(6);
+    Output: "6";
 }

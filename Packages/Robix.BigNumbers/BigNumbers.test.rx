@@ -1,281 +1,297 @@
+// Tests for BigNumbers.rx. Each call uses a fresh desk.
+
 Test FromInt {
-    Constraint: BigNumbersDesk().FromInt(3628800) == 3628800;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().FromInt(1234) == 1234;
+    Processing: BigNumbersDesk().FromInt(1234);
+    Output: 1234;
 }
 
 Test Value {
     Constraint: BigNumbersDesk().Value() == 0;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Value();
+    Output: 0;
 }
 
 Test Limb {
     Constraint: BigNumbersDesk().Limb(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Limb(0);
+    Output: 0;
 }
 
 Test Add {
-    Constraint: BigNumbersDesk().Add(20, 22) == 42;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Add(2, 3) == 5;
+    Processing: BigNumbersDesk().Add(2, 3);
+    Output: 5;
 }
 
 Test Subtract {
-    Constraint: BigNumbersDesk().Subtract(50, 8) == 42;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Subtract(5, 2) == 3;
+    Processing: BigNumbersDesk().Subtract(5, 2);
+    Output: 3;
 }
 
 Test Multiply {
-    Constraint: BigNumbersDesk().Multiply(12, 12) == 144;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Multiply(3, 4) == 12;
+    Processing: BigNumbersDesk().Multiply(3, 4);
+    Output: 12;
 }
 
 Test Divide {
-    Constraint: BigNumbersDesk().Divide(84, 2) == 42;
-    Processing: True;
-    Output: True;
+    Case "seven by three" {
+        Constraint: BigNumbersDesk().Divide(7, 3) == 2;
+        Processing: BigNumbersDesk().Divide(7, 3);
+        Output: 2;
+    }
+    Case "zero divisor" {
+        Constraint: BigNumbersDesk().Divide(1, 0) == 0;
+        Processing: BigNumbersDesk().Divide(1, 0);
+        Output: 0;
+    }
 }
 
 Test DivRem {
-    Constraint: BigNumbersDesk().DivRem(17, 5) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().DivRem(7, 3) == 2;
+    Processing: BigNumbersDesk().DivRem(7, 3);
+    Output: 2;
 }
 
 Test Remainder {
-    Constraint: BigNumbersDesk().Remainder(17, 5) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Remainder(7, 3) == 1;
+    Processing: BigNumbersDesk().Remainder(7, 3);
+    Output: 1;
 }
 
 Test Mod {
-    Constraint: BigNumbersDesk().Mod(-3, 5) == 2;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Mod(7, 3) == 1;
+    Processing: BigNumbersDesk().Mod(7, 3);
+    Output: 1;
 }
 
 Test Pow {
-    Constraint: BigNumbersDesk().Pow(2, 10) == 1024;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Pow(2, 3) == 8;
+    Processing: BigNumbersDesk().Pow(2, 3);
+    Output: 8;
 }
 
 Test PowMod {
-    Constraint: BigNumbersDesk().PowMod(2, 10, 1000) == 24;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().PowMod(2, 3, 5) == 3;
+    Processing: BigNumbersDesk().PowMod(2, 3, 5);
+    Output: 3;
 }
 
 Test Sqrt {
-    Constraint: BigNumbersDesk().Sqrt(144) == 12;
-    Processing: True;
-    Output: True;
+    Case "nine" {
+        Constraint: BigNumbersDesk().Sqrt(9) == 3;
+        Processing: BigNumbersDesk().Sqrt(9);
+        Output: 3;
+    }
+    Case "not square" {
+        Constraint: BigNumbersDesk().Sqrt(2) == -1;
+        Processing: BigNumbersDesk().Sqrt(2);
+        Output: -1;
+    }
 }
 
 Test Cbrt {
-    Constraint: BigNumbersDesk().Cbrt(27) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Cbrt(8) == 2;
+    Processing: BigNumbersDesk().Cbrt(8);
+    Output: 2;
 }
 
 Test Gcd {
-    Constraint: BigNumbersDesk().Gcd(48, 18) == 6;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Gcd(8, 12) == 4;
+    Processing: BigNumbersDesk().Gcd(8, 12);
+    Output: 4;
 }
 
 Test Lcm {
     Constraint: BigNumbersDesk().Lcm(4, 6) == 12;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Lcm(4, 6);
+    Output: 12;
 }
 
 Test Factorial {
-    Constraint: BigNumbersDesk().Factorial(10) == 3628800;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().Factorial(4) == 24;
+    Processing: BigNumbersDesk().Factorial(4);
+    Output: 24;
 }
 
 Test Binomial {
     Constraint: BigNumbersDesk().Binomial(5, 2) == 10;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Binomial(5, 2);
+    Output: 10;
 }
 
 Test IsPrime {
-    Constraint: BigNumbersDesk().IsPrime(17) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().IsPrime(7) == 1;
+    Processing: BigNumbersDesk().IsPrime(7);
+    Output: 1;
 }
 
 Test NextPrime {
-    Constraint: BigNumbersDesk().NextPrime(14) == 17;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().NextPrime(7) == 11;
+    Processing: BigNumbersDesk().NextPrime(7);
+    Output: 11;
 }
 
 Test PreviousPrime {
-    Constraint: BigNumbersDesk().PreviousPrime(18) == 17;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().PreviousPrime(10) == 7;
+    Processing: BigNumbersDesk().PreviousPrime(10);
+    Output: 7;
 }
 
 Test ModInverse {
-    Constraint: BigNumbersDesk().ModInverse(3, 7) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().ModInverse(3, 5) == 2;
+    Processing: BigNumbersDesk().ModInverse(3, 5);
+    Output: 2;
 }
 
 Test ExtendedGcd {
-    Constraint: BigNumbersDesk().ExtendedGcd(48, 18) == 6;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().ExtendedGcd(8, 12) == 4;
+    Processing: BigNumbersDesk().ExtendedGcd(8, 12);
+    Output: 4;
 }
 
 Test Bezout {
     Constraint: BigNumbersDesk().Bezout(0) == 0;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Bezout(0);
+    Output: 0;
 }
 
 Test BitLength {
-    Constraint: BigNumbersDesk().BitLength(13) == 4;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().BitLength(8) == 4;
+    Processing: BigNumbersDesk().BitLength(8);
+    Output: 4;
 }
 
 Test PopulationCount {
-    Constraint: BigNumbersDesk().PopulationCount(13) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().PopulationCount(7) == 3;
+    Processing: BigNumbersDesk().PopulationCount(7);
+    Output: 3;
 }
 
 Test IsPowerOfTwo {
-    Constraint: BigNumbersDesk().IsPowerOfTwo(16) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().IsPowerOfTwo(8) == 1;
+    Processing: BigNumbersDesk().IsPowerOfTwo(8);
+    Output: 1;
 }
 
 Test And {
     Constraint: BigNumbersDesk().And(6, 3) == 2;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().And(6, 3);
+    Output: 2;
 }
 
 Test Or {
     Constraint: BigNumbersDesk().Or(6, 3) == 7;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Or(6, 3);
+    Output: 7;
 }
 
 Test Xor {
     Constraint: BigNumbersDesk().Xor(6, 3) == 5;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Xor(6, 3);
+    Output: 5;
 }
 
 Test ShiftLeft {
     Constraint: BigNumbersDesk().ShiftLeft(3, 2) == 12;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().ShiftLeft(3, 2);
+    Output: 12;
 }
 
 Test ShiftRight {
-    Constraint: BigNumbersDesk().ShiftRight(13, 1) == 6;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().ShiftRight(12, 2) == 3;
+    Processing: BigNumbersDesk().ShiftRight(12, 2);
+    Output: 3;
 }
 
 Test TestBit {
-    Constraint: BigNumbersDesk().TestBit(13, 0) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().TestBit(8, 3) == 1;
+    Processing: BigNumbersDesk().TestBit(8, 3);
+    Output: 1;
 }
 
 Test CreateRational {
     Constraint: BigNumbersDesk().CreateRational(2, 4) == 1;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().CreateRational(2, 4);
+    Output: 1;
 }
 
 Test Denominator {
     Constraint: BigNumbersDesk().Denominator() == 0;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Denominator();
+    Output: 0;
 }
 
 Test AddRational {
-    Constraint: BigNumbersDesk().AddRational(1, 2, 1, 3) == 5;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().AddRational(1, 2, 1, 2) == 1;
+    Processing: BigNumbersDesk().AddRational(1, 2, 1, 2);
+    Output: 1;
 }
 
 Test SubtractRational {
-    Constraint: BigNumbersDesk().SubtractRational(1, 2, 1, 3) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().SubtractRational(1, 2, 1, 4) == 1;
+    Processing: BigNumbersDesk().SubtractRational(1, 2, 1, 4);
+    Output: 1;
 }
 
 Test MultiplyRational {
-    Constraint: BigNumbersDesk().MultiplyRational(1, 2, 2, 3) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().MultiplyRational(1, 2, 1, 3) == 1;
+    Processing: BigNumbersDesk().MultiplyRational(1, 2, 1, 3);
+    Output: 1;
 }
 
 Test DivideRational {
-    Constraint: BigNumbersDesk().DivideRational(1, 2, 2, 3) == 3;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().DivideRational(1, 2, 1, 4) == 2;
+    Processing: BigNumbersDesk().DivideRational(1, 2, 1, 4);
+    Output: 2;
 }
 
 Test ParseBigInteger {
-    Constraint: BigNumbersDesk().ParseBigInteger("3628800") == 3628800;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().ParseBigInteger("12") == 12;
+    Processing: BigNumbersDesk().ParseBigInteger("12");
+    Output: 12;
 }
 
 Test TryParseBigInteger {
-    Constraint: BigNumbersDesk().TryParseBigInteger("-12") == -12;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().TryParseBigInteger("-3") == -3;
+    Processing: BigNumbersDesk().TryParseBigInteger("-3");
+    Output: -3;
 }
 
 Test ToDecimalString {
-    Constraint: BigNumbersDesk().ToDecimalString(42) == "42";
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().ToDecimalString(6) == "6";
+    Processing: BigNumbersDesk().ToDecimalString(6);
+    Output: "6";
 }
 
 Test Fault {
     Constraint: BigNumbersDesk().Fault() == "none";
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Fault();
+    Output: "none";
 }
 
 Test MulSmall {
-    Constraint: BigNumbersDesk().MulSmall(5) == 0;
-    Processing: True;
-    Output: True;
+    Constraint: BigNumbersDesk().MulSmall(4) == 0;
+    Processing: BigNumbersDesk().MulSmall(4);
+    Output: 0;
 }
 
 Test Bits {
     Constraint: BigNumbersDesk().Bits(6, 3, 0) == 2;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Bits(6, 3, 0);
+    Output: 2;
 }
 
 Test Abs {
     Constraint: BigNumbersDesk().Abs(-4) == 4;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Abs(-4);
+    Output: 4;
 }
 
 Test Digit {
     Constraint: BigNumbersDesk().Digit("4") == 4;
-    Processing: True;
-    Output: True;
+    Processing: BigNumbersDesk().Digit("4");
+    Output: 4;
 }

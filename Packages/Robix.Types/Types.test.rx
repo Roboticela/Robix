@@ -1,5 +1,384 @@
+// Tests for Types.rx. Each call uses a fresh registry.
+
+Test Classify {
+    Case "bool" {
+        Constraint: TypeRegistry().Classify("true") == "Bool";
+        Processing: TypeRegistry().Classify("true");
+        Output: "Bool";
+    }
+    Case "float" {
+        Constraint: TypeRegistry().Classify("1.5") == "Float";
+        Processing: TypeRegistry().Classify("1.5");
+        Output: "Float";
+    }
+    Case "int" {
+        Constraint: TypeRegistry().Classify("12") == "Int";
+        Processing: TypeRegistry().Classify("12");
+        Output: "Int";
+    }
+    Case "text" {
+        Constraint: TypeRegistry().Classify("arm") == "String";
+        Processing: TypeRegistry().Classify("arm");
+        Output: "String";
+    }
+}
+
+Test GetTypeName {
+    Constraint: TypeRegistry().GetTypeName("12") == "Int";
+    Processing: TypeRegistry().GetTypeName("12");
+    Output: "Int";
+}
+
+Test GetFullName {
+    Case "known" {
+        Constraint: TypeRegistry().GetFullName("Int") == "Robix.Core.Int";
+        Processing: TypeRegistry().GetFullName("Int");
+        Output: "Robix.Core.Int";
+    }
+    Case "missing" {
+        Constraint: TypeRegistry().GetFullName("Nope") == "";
+        Processing: TypeRegistry().GetFullName("Nope");
+        Output: "";
+    }
+}
+
+Test GetNamespace {
+    Constraint: TypeRegistry().GetNamespace("Robot") == "Robotics.Types";
+    Processing: TypeRegistry().GetNamespace("Robot");
+    Output: "Robotics.Types";
+}
+
+Test GetBase {
+    Case "robot" {
+        Constraint: TypeRegistry().GetBase("Robot") == "Object";
+        Processing: TypeRegistry().GetBase("Robot");
+        Output: "Object";
+    }
+    Case "int" {
+        Constraint: TypeRegistry().GetBase("Int") == "none";
+        Processing: TypeRegistry().GetBase("Int");
+        Output: "none";
+    }
+}
+
+Test GetInterfaces {
+    Case "robot" {
+        Constraint: TypeRegistry().GetInterfaces("Robot") == "Movable";
+        Processing: TypeRegistry().GetInterfaces("Robot");
+        Output: "Movable";
+    }
+    Case "int" {
+        Constraint: TypeRegistry().GetInterfaces("Int") == "none";
+        Processing: TypeRegistry().GetInterfaces("Int");
+        Output: "none";
+    }
+}
+
+Test GetGenericArguments {
+    Case "union" {
+        Constraint: TypeRegistry().GetGenericArguments("IntOrString") == "Int+String";
+        Processing: TypeRegistry().GetGenericArguments("IntOrString");
+        Output: "Int+String";
+    }
+    Case "int" {
+        Constraint: TypeRegistry().GetGenericArguments("Int") == "none";
+        Processing: TypeRegistry().GetGenericArguments("Int");
+        Output: "none";
+    }
+}
+
+Test GetGenericParameters {
+    Case "list" {
+        Constraint: TypeRegistry().GetGenericParameters("List") == "T";
+        Processing: TypeRegistry().GetGenericParameters("List");
+        Output: "T";
+    }
+    Case "int" {
+        Constraint: TypeRegistry().GetGenericParameters("Int") == "none";
+        Processing: TypeRegistry().GetGenericParameters("Int");
+        Output: "none";
+    }
+}
+
+Test IsType {
+    Case "match" {
+        Constraint: TypeRegistry().IsType("12", "Int") == 1;
+        Processing: TypeRegistry().IsType("12", "Int");
+        Output: 1;
+    }
+    Case "mismatch" {
+        Constraint: TypeRegistry().IsType("12", "Float") == 0;
+        Processing: TypeRegistry().IsType("12", "Float");
+        Output: 0;
+    }
+}
+
+Test IsAssignable {
+    Case "widen" {
+        Constraint: TypeRegistry().IsAssignable("Int", "Float") == 1;
+        Processing: TypeRegistry().IsAssignable("Int", "Float");
+        Output: 1;
+    }
+    Case "narrow" {
+        Constraint: TypeRegistry().IsAssignable("Float", "Int") == 0;
+        Processing: TypeRegistry().IsAssignable("Float", "Int");
+        Output: 0;
+    }
+}
+
+Test IsCompatible {
+    Constraint: TypeRegistry().IsCompatible("Float", "Int") == 1;
+    Processing: TypeRegistry().IsCompatible("Float", "Int");
+    Output: 1;
+}
+
+Test IsNullable {
+    Constraint: TypeRegistry().IsNullable("Int") == 0;
+    Processing: TypeRegistry().IsNullable("Int");
+    Output: 0;
+}
+
+Test IsPrimitive {
+    Constraint: TypeRegistry().IsPrimitive("Int") == 1;
+    Processing: TypeRegistry().IsPrimitive("Int");
+    Output: 1;
+}
+
+Test IsNumeric {
+    Constraint: TypeRegistry().IsNumeric("String") == 0;
+    Processing: TypeRegistry().IsNumeric("String");
+    Output: 0;
+}
+
+Test IsReference {
+    Constraint: TypeRegistry().IsReference("String") == 1;
+    Processing: TypeRegistry().IsReference("String");
+    Output: 1;
+}
+
+Test IsValue {
+    Constraint: TypeRegistry().IsValue("Int") == 1;
+    Processing: TypeRegistry().IsValue("Int");
+    Output: 1;
+}
+
+Test IsGeneric {
+    Case "list" {
+        Constraint: TypeRegistry().IsGeneric("List") == 1;
+        Processing: TypeRegistry().IsGeneric("List");
+        Output: 1;
+    }
+    Case "int" {
+        Constraint: TypeRegistry().IsGeneric("Int") == 0;
+        Processing: TypeRegistry().IsGeneric("Int");
+        Output: 0;
+    }
+}
+
+Test CanConvert {
+    Case "to text" {
+        Constraint: TypeRegistry().CanConvert("Int", "String") == 1;
+        Processing: TypeRegistry().CanConvert("Int", "String");
+        Output: 1;
+    }
+    Case "bool to int" {
+        Constraint: TypeRegistry().CanConvert("Bool", "Int") == 0;
+        Processing: TypeRegistry().CanConvert("Bool", "Int");
+        Output: 0;
+    }
+}
+
+Test GetConversion {
+    Case "identity" {
+        Constraint: TypeRegistry().GetConversion("Int", "Int") == "identity";
+        Processing: TypeRegistry().GetConversion("Int", "Int");
+        Output: "identity";
+    }
+    Case "widen" {
+        Constraint: TypeRegistry().GetConversion("Int", "Float") == "widen";
+        Processing: TypeRegistry().GetConversion("Int", "Float");
+        Output: "widen";
+    }
+    Case "none" {
+        Constraint: TypeRegistry().GetConversion("Nope", "Robot") == "none";
+        Processing: TypeRegistry().GetConversion("Nope", "Robot");
+        Output: "none";
+    }
+}
+
+Test Convert {
+    Case "int to float" {
+        Constraint: TypeRegistry().Convert("Int", "3", "Float").Ok == 1;
+        Processing: TypeRegistry().Convert("Int", "3", "Float").Text;
+        Output: "3.0";
+    }
+    Case "rejected" {
+        Constraint: TypeRegistry().Convert("Bool", "maybe", "Int").Ok == 0;
+        Processing: TypeRegistry().Convert("Bool", "maybe", "Int").Text;
+        Output: "no-conversion";
+    }
+}
+
+Test AttemptConvert {
+    Case "to text" {
+        Constraint: TypeRegistry().AttemptConvert("Int", "3", "String").Ok == 1;
+        Processing: TypeRegistry().AttemptConvert("Int", "3", "String").Text;
+        Output: "3";
+    }
+    Case "rejected" {
+        Constraint: TypeRegistry().AttemptConvert("Bool", "x", "Int").Ok == 0;
+        Processing: TypeRegistry().AttemptConvert("Bool", "x", "Int").Text;
+        Output: "none";
+    }
+}
+
 Test Register {
-    Constraint: TypeRegistry().Register("Widget", "Object", "", "");
-    Processing: True;
-    Output: True;
+    Case "new" {
+        Constraint: TypeRegistry().Register("Nope", "class", "App", "") == 1;
+        Processing: TypeRegistry().Register("Nope", "class", "App", "");
+        Output: 1;
+    }
+    Case "existing" {
+        Constraint: TypeRegistry().Register("Int", "primitive", "Robix.Core", "") == 0;
+        Processing: TypeRegistry().Register("Int", "primitive", "Robix.Core", "");
+        Output: 0;
+    }
+}
+
+Test Unregister {
+    Case "missing" {
+        Constraint: TypeRegistry().Unregister("Nope") == 0;
+        Processing: TypeRegistry().Unregister("Nope");
+        Output: 0;
+    }
+    Case "known" {
+        Constraint: TypeRegistry().Unregister("Color") == 1;
+        Processing: TypeRegistry().Unregister("Color");
+        Output: 1;
+    }
+}
+
+Test Find {
+    Case "known" {
+        Constraint: TypeRegistry().Find("Int") == 1;
+        Processing: TypeRegistry().Find("Int");
+        Output: 1;
+    }
+    Case "missing" {
+        Constraint: TypeRegistry().Find("Nope") == 0;
+        Processing: TypeRegistry().Find("Nope");
+        Output: 0;
+    }
+}
+
+Test Count {
+    Constraint: TypeRegistry().Count() == 12;
+    Processing: TypeRegistry().Count();
+    Output: 12;
+}
+
+Test CreateArray {
+    Constraint: TypeRegistry().CreateArray("Int") == "Array<Int>";
+    Processing: TypeRegistry().CreateArray("Int");
+    Output: "Array<Int>";
+}
+
+Test CreateNullable {
+    Constraint: TypeRegistry().CreateNullable("Int") == "Int?";
+    Processing: TypeRegistry().CreateNullable("Int");
+    Output: "Int?";
+}
+
+Test CreateGeneric {
+    Constraint: TypeRegistry().CreateGeneric("List", "Int") == "List<Int>";
+    Processing: TypeRegistry().CreateGeneric("List", "Int");
+    Output: "List<Int>";
+}
+
+Test CreateFunction {
+    Constraint: TypeRegistry().CreateFunction("Int", "Bool") == "(Int) -> Bool";
+    Processing: TypeRegistry().CreateFunction("Int", "Bool");
+    Output: "(Int) -> Bool";
+}
+
+Test Add {
+    Processing: TypeRegistry().Add("Extra", "class", "App", "", "", "", "");
+    Assert: TypeRegistry().Find("Int") == 1;
+}
+
+Test CharAt {
+    Constraint: TypeRegistry().CharAt("ab", 1) == "b";
+    Processing: TypeRegistry().CharAt("ab", 1);
+    Output: "b";
+}
+
+Test Field {
+    Constraint: TypeRegistry().Field("Int#primitive", 1) == "primitive";
+    Processing: TypeRegistry().Field("Int#primitive", 1);
+    Output: "primitive";
+}
+
+Test FindRecord {
+    Case "known" {
+        Constraint: TypeRegistry().FindRecord("Int") == "Int#primitive,numeric,integer,value#Robix.Core####";
+        Processing: TypeRegistry().FindRecord("Int");
+        Output: "Int#primitive,numeric,integer,value#Robix.Core####";
+    }
+    Case "missing" {
+        Constraint: TypeRegistry().FindRecord("Nope") == "";
+        Processing: TypeRegistry().FindRecord("Nope");
+        Output: "";
+    }
+}
+
+Test HasFlag {
+    Case "present" {
+        Constraint: TypeRegistry().HasFlag("Int", "primitive") == 1;
+        Processing: TypeRegistry().HasFlag("Int", "primitive");
+        Output: 1;
+    }
+    Case "absent" {
+        Constraint: TypeRegistry().HasFlag("Int", "reference") == 0;
+        Processing: TypeRegistry().HasFlag("Int", "reference");
+        Output: 0;
+    }
+}
+
+Test Assignable {
+    Case "byte to float" {
+        Constraint: TypeRegistry().Assignable("Byte", "Float") == 1;
+        Processing: TypeRegistry().Assignable("Byte", "Float");
+        Output: 1;
+    }
+    Case "string to int" {
+        Constraint: TypeRegistry().Assignable("String", "Int") == 0;
+        Processing: TypeRegistry().Assignable("String", "Int");
+        Output: 0;
+    }
+}
+
+Test IntegerText {
+    Case "digits" {
+        Constraint: TypeRegistry().IntegerText("12") == 1;
+        Processing: TypeRegistry().IntegerText("12");
+        Output: 1;
+    }
+    Case "float" {
+        Constraint: TypeRegistry().IntegerText("1.2") == 0;
+        Processing: TypeRegistry().IntegerText("1.2");
+        Output: 0;
+    }
+}
+
+Test FloatText {
+    Case "float" {
+        Constraint: TypeRegistry().FloatText("1.2") == 1;
+        Processing: TypeRegistry().FloatText("1.2");
+        Output: 1;
+    }
+    Case "int" {
+        Constraint: TypeRegistry().FloatText("12") == 0;
+        Processing: TypeRegistry().FloatText("12");
+        Output: 0;
+    }
 }

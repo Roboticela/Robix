@@ -1,5 +1,479 @@
+// Tests for Geometry.rx. Each call uses a fresh desk.
+
+Test Pi {
+    Constraint: GeometryDesk().Pi() == 3.141592653589793;
+    Processing: GeometryDesk().Pi();
+    Output: 3.141592653589793;
+}
+
 Test Distance2 {
     Constraint: GeometryDesk().Distance2(0, 0, 3, 4) == 5;
-    Processing: True;
-    Output: True;
+    Processing: GeometryDesk().Distance2(0, 0, 3, 4);
+    Output: 5;
+}
+
+Test Distance3 {
+    Constraint: GeometryDesk().Distance3(0, 0, 0, 2, 3, 6) == 7;
+    Processing: GeometryDesk().Distance3(0, 0, 0, 2, 3, 6);
+    Output: 7;
+}
+
+Test Squared2 {
+    Constraint: GeometryDesk().Squared2(0, 0, 3, 4) == 25;
+    Processing: GeometryDesk().Squared2(0, 0, 3, 4);
+    Output: 25;
+}
+
+Test Midpoint {
+    Case "even" {
+        Constraint: GeometryDesk().Midpoint(0, 0, 4, 6) == 1;
+        Processing: GeometryDesk().Midpoint(0, 0, 4, 6);
+        Output: 1;
+    }
+    Case "odd" {
+        Constraint: GeometryDesk().Midpoint(0, 0, 1, 2) == 0;
+        Processing: GeometryDesk().Midpoint(0, 0, 1, 2);
+        Output: 0;
+    }
+}
+
+Test Dot2 {
+    Constraint: GeometryDesk().Dot2(1, 2, 3, 4) == 11;
+    Processing: GeometryDesk().Dot2(1, 2, 3, 4);
+    Output: 11;
+}
+
+Test Dot3 {
+    Constraint: GeometryDesk().Dot3(1, 0, 0, 4, 0, 0) == 4;
+    Processing: GeometryDesk().Dot3(1, 0, 0, 4, 0, 0);
+    Output: 4;
+}
+
+Test Cross2 {
+    Constraint: GeometryDesk().Cross2(1, 0, 0, 1) == 1;
+    Processing: GeometryDesk().Cross2(1, 0, 0, 1);
+    Output: 1;
+}
+
+Test Cross3 {
+    Constraint: GeometryDesk().Cross3(1, 0, 0, 0, 1, 0) == 0;
+    Processing: GeometryDesk().Cross3(1, 0, 0, 0, 1, 0);
+    Output: 0;
+}
+
+Test Length2 {
+    Constraint: GeometryDesk().Length2(3, 4) == 5;
+    Processing: GeometryDesk().Length2(3, 4);
+    Output: 5;
+}
+
+Test Normalize {
+    Constraint: GeometryDesk().Normalize(3, 4) == 5;
+    Processing: GeometryDesk().Normalize(3, 4);
+    Output: 5;
+}
+
+Test UnitX {
+    Constraint: GeometryDesk().UnitX() == 0.0;
+    Processing: GeometryDesk().UnitX();
+    Output: 0.0;
+}
+
+Test UnitY {
+    Constraint: GeometryDesk().UnitY() == 0.0;
+    Processing: GeometryDesk().UnitY();
+    Output: 0.0;
+}
+
+Test Plus2 {
+    Constraint: GeometryDesk().Plus2(1, 2, 3, 4) == 4;
+    Processing: GeometryDesk().Plus2(1, 2, 3, 4);
+    Output: 4;
+}
+
+Test Minus2 {
+    Constraint: GeometryDesk().Minus2(5, 3, 2, 1) == 3;
+    Processing: GeometryDesk().Minus2(5, 3, 2, 1);
+    Output: 3;
+}
+
+Test Scale2 {
+    Constraint: GeometryDesk().Scale2(2, 3, 4) == 8;
+    Processing: GeometryDesk().Scale2(2, 3, 4);
+    Output: 8;
+}
+
+Test Angle {
+    Case "right" {
+        Constraint: GeometryDesk().Angle(1, 0, 0, 1) == 90;
+        Processing: GeometryDesk().Angle(1, 0, 0, 1);
+        Output: 90;
+    }
+    Case "same" {
+        Constraint: GeometryDesk().Angle(1, 0, 2, 0) == 0;
+        Processing: GeometryDesk().Angle(1, 0, 2, 0);
+        Output: 0;
+    }
+}
+
+Test Project {
+    Constraint: GeometryDesk().Project(2, 0, 1, 0) == 1;
+    Processing: GeometryDesk().Project(2, 0, 1, 0);
+    Output: 1;
+}
+
+Test Reflect {
+    Constraint: GeometryDesk().Reflect(1, 0, 1, 0) == 1;
+    Processing: GeometryDesk().Reflect(1, 0, 1, 0);
+    Output: 1;
+}
+
+Test OnLine {
+    Case "on" {
+        Constraint: GeometryDesk().OnLine(1, 1, 0, 0, 2, 2) == 1;
+        Processing: GeometryDesk().OnLine(1, 1, 0, 0, 2, 2);
+        Output: 1;
+    }
+    Case "off" {
+        Constraint: GeometryDesk().OnLine(1, 0, 0, 0, 2, 2) == 0;
+        Processing: GeometryDesk().OnLine(1, 0, 0, 0, 2, 2);
+        Output: 0;
+    }
+}
+
+Test OnSegment {
+    Constraint: GeometryDesk().OnSegment(1, 1, 0, 0, 2, 2) == 1;
+    Processing: GeometryDesk().OnSegment(1, 1, 0, 0, 2, 2);
+    Output: 1;
+}
+
+Test Parallel {
+    Constraint: GeometryDesk().Parallel(1, 0, 2, 0) == 1;
+    Processing: GeometryDesk().Parallel(1, 0, 2, 0);
+    Output: 1;
+}
+
+Test Perpendicular {
+    Constraint: GeometryDesk().Perpendicular(1, 0, 0, 1) == 1;
+    Processing: GeometryDesk().Perpendicular(1, 0, 0, 1);
+    Output: 1;
+}
+
+Test Intersect {
+    Constraint: GeometryDesk().Intersect(0, 0, 1, 0, 0, 2, 0, 1) == 1;
+    Processing: GeometryDesk().Intersect(0, 0, 1, 0, 0, 2, 0, 1);
+    Output: 1;
+}
+
+Test LineDistance {
+    Constraint: GeometryDesk().LineDistance(0, 1, 0, 0, 2, 0) == 1;
+    Processing: GeometryDesk().LineDistance(0, 1, 0, 0, 2, 0);
+    Output: 1;
+}
+
+Test PlaneDistance {
+    Constraint: GeometryDesk().PlaneDistance(0, 0, 1, 0, 0, 0, 0, 0, 1) == 1;
+    Processing: GeometryDesk().PlaneDistance(0, 0, 1, 0, 0, 0, 0, 0, 1);
+    Output: 1;
+}
+
+Test HitPlane {
+    Constraint: GeometryDesk().HitPlane(0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 1) == 1;
+    Processing: GeometryDesk().HitPlane(0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 1);
+    Output: 1;
+}
+
+Test ProjectPlane {
+    Constraint: GeometryDesk().ProjectPlane(0, 0, 3, 0, 0, 0, 0, 0, 1) == 1;
+    Processing: GeometryDesk().ProjectPlane(0, 0, 3, 0, 0, 0, 0, 0, 1);
+    Output: 1;
+}
+
+Test RectArea {
+    Constraint: GeometryDesk().RectArea(3, 4) == 12;
+    Processing: GeometryDesk().RectArea(3, 4);
+    Output: 12;
+}
+
+Test RectPerimeter {
+    Constraint: GeometryDesk().RectPerimeter(3, 4) == 14;
+    Processing: GeometryDesk().RectPerimeter(3, 4);
+    Output: 14;
+}
+
+Test SquareArea {
+    Constraint: GeometryDesk().SquareArea(3) == 9;
+    Processing: GeometryDesk().SquareArea(3);
+    Output: 9;
+}
+
+Test TriangleArea {
+    Constraint: GeometryDesk().TriangleArea(3, 4, 5) == 6;
+    Processing: GeometryDesk().TriangleArea(3, 4, 5);
+    Output: 6;
+}
+
+Test TrapezoidArea {
+    Case "integer" {
+        Constraint: GeometryDesk().TrapezoidArea(2, 4, 3) == 9;
+        Processing: GeometryDesk().TrapezoidArea(2, 4, 3);
+        Output: 9;
+    }
+    Case "odd bases" {
+        Constraint: GeometryDesk().TrapezoidArea(1, 2, 3) == -1;
+        Processing: GeometryDesk().TrapezoidArea(1, 2, 3);
+        Output: -1;
+    }
+}
+
+Test ParallelogramArea {
+    Constraint: GeometryDesk().ParallelogramArea(3, 4) == 12;
+    Processing: GeometryDesk().ParallelogramArea(3, 4);
+    Output: 12;
+}
+
+Test CircleArea {
+    Processing: GeometryDesk().CircleArea(1);
+    Assert: GeometryDesk().CircleArea(1) == GeometryDesk().Pi();
+}
+
+Test Circumference {
+    Processing: GeometryDesk().Circumference(1);
+    Assert: GeometryDesk().Circumference(1) == GeometryDesk().Pi() * 2.0;
+}
+
+Test EllipseArea {
+    Processing: GeometryDesk().EllipseArea(1, 1);
+    Assert: GeometryDesk().EllipseArea(1, 1) == GeometryDesk().Pi();
+}
+
+Test SectorArea {
+    Processing: GeometryDesk().SectorArea(1, 180);
+    Assert: GeometryDesk().SectorArea(1, 180) == GeometryDesk().Pi() / 2.0;
+}
+
+Test CubeVolume {
+    Constraint: GeometryDesk().CubeVolume(2) == 8;
+    Processing: GeometryDesk().CubeVolume(2);
+    Output: 8;
+}
+
+Test CubeSurface {
+    Constraint: GeometryDesk().CubeSurface(2) == 24;
+    Processing: GeometryDesk().CubeSurface(2);
+    Output: 24;
+}
+
+Test CuboidVolume {
+    Constraint: GeometryDesk().CuboidVolume(2, 3, 4) == 24;
+    Processing: GeometryDesk().CuboidVolume(2, 3, 4);
+    Output: 24;
+}
+
+Test CuboidSurface {
+    Constraint: GeometryDesk().CuboidSurface(2, 3, 4) == 52;
+    Processing: GeometryDesk().CuboidSurface(2, 3, 4);
+    Output: 52;
+}
+
+Test SphereVolume {
+    Processing: GeometryDesk().SphereVolume(1);
+    Assert: GeometryDesk().SphereVolume(1) == 4.0 / 3.0 * GeometryDesk().Pi();
+}
+
+Test CylinderVolume {
+    Processing: GeometryDesk().CylinderVolume(1, 1);
+    Assert: GeometryDesk().CylinderVolume(1, 1) == GeometryDesk().Pi();
+}
+
+Test ConeVolume {
+    Processing: GeometryDesk().ConeVolume(1, 3);
+    Assert: GeometryDesk().ConeVolume(1, 3) == GeometryDesk().Pi();
+}
+
+Test PyramidVolume {
+    Constraint: GeometryDesk().PyramidVolume(6, 1) == 2;
+    Processing: GeometryDesk().PyramidVolume(6, 1);
+    Output: 2;
+}
+
+Test PrismVolume {
+    Constraint: GeometryDesk().PrismVolume(4, 3) == 12;
+    Processing: GeometryDesk().PrismVolume(4, 3);
+    Output: 12;
+}
+
+Test TetraVolume {
+    Constraint: GeometryDesk().TetraVolume(1, 0, 0, 0, 1, 0, 0, 0, 6) == 1;
+    Processing: GeometryDesk().TetraVolume(1, 0, 0, 0, 1, 0, 0, 0, 6);
+    Output: 1;
+}
+
+Test HoldsCircle {
+    Constraint: GeometryDesk().HoldsCircle(1, 1, 0, 0, 2) == 1;
+    Processing: GeometryDesk().HoldsCircle(1, 1, 0, 0, 2);
+    Output: 1;
+}
+
+Test HoldsRect {
+    Constraint: GeometryDesk().HoldsRect(1, 1, 0, 0, 2, 2) == 1;
+    Processing: GeometryDesk().HoldsRect(1, 1, 0, 0, 2, 2);
+    Output: 1;
+}
+
+Test OverlapRect {
+    Constraint: GeometryDesk().OverlapRect(0, 0, 2, 2, 1, 1, 3, 3) == 1;
+    Processing: GeometryDesk().OverlapRect(0, 0, 2, 2, 1, 1, 3, 3);
+    Output: 1;
+}
+
+Test OverlapCircle {
+    Constraint: GeometryDesk().OverlapCircle(0, 0, 1, 5, 0, 1) == 0;
+    Processing: GeometryDesk().OverlapCircle(0, 0, 1, 5, 0, 1);
+    Output: 0;
+}
+
+Test Closest {
+    Constraint: GeometryDesk().Closest(0, 1, 0, 0, 2, 0) == 1;
+    Processing: GeometryDesk().Closest(0, 1, 0, 0, 2, 0);
+    Output: 1;
+}
+
+Test Place {
+    Constraint: GeometryDesk().Place(1, 2) == 0;
+    Processing: GeometryDesk().Place(1, 2);
+    Output: 0;
+}
+
+Test Reset {
+    Constraint: GeometryDesk().Reset() == 0;
+    Processing: GeometryDesk().Reset();
+    Output: 0;
+}
+
+Test PolygonArea {
+    Constraint: GeometryDesk().PolygonArea() == -1;
+    Processing: GeometryDesk().PolygonArea();
+    Output: -1;
+}
+
+Test Bounds {
+    Constraint: GeometryDesk().Bounds() == 0;
+    Processing: GeometryDesk().Bounds();
+    Output: 0;
+}
+
+Test BoundHeight {
+    Constraint: GeometryDesk().BoundHeight() == 0;
+    Processing: GeometryDesk().BoundHeight();
+    Output: 0;
+}
+
+Test Convex {
+    Constraint: GeometryDesk().Convex() == 0;
+    Processing: GeometryDesk().Convex();
+    Output: 0;
+}
+
+Test Hull {
+    Constraint: GeometryDesk().Hull() == 0;
+    Processing: GeometryDesk().Hull();
+    Output: 0;
+}
+
+Test HullText {
+    Constraint: GeometryDesk().HullText() == "none";
+    Processing: GeometryDesk().HullText();
+    Output: "none";
+}
+
+Test ResultX {
+    Constraint: GeometryDesk().ResultX() == 0;
+    Processing: GeometryDesk().ResultX();
+    Output: 0;
+}
+
+Test ResultY {
+    Constraint: GeometryDesk().ResultY() == 0;
+    Processing: GeometryDesk().ResultY();
+    Output: 0;
+}
+
+Test ResultZ {
+    Constraint: GeometryDesk().ResultZ() == 0;
+    Processing: GeometryDesk().ResultZ();
+    Output: 0;
+}
+
+Test Translate {
+    Constraint: GeometryDesk().Translate(1, 2, 3, 4) == 4;
+    Processing: GeometryDesk().Translate(1, 2, 3, 4);
+    Output: 4;
+}
+
+Test Rotate {
+    Constraint: GeometryDesk().Rotate(1, 2) == -2;
+    Processing: GeometryDesk().Rotate(1, 2);
+    Output: -2;
+}
+
+Test Mirror {
+    Constraint: GeometryDesk().Mirror(1, 2, 1) == -1;
+    Processing: GeometryDesk().Mirror(1, 2, 1);
+    Output: -1;
+}
+
+Test Convert {
+    Constraint: GeometryDesk().Convert(1, 2, 10, 20, 3, 4) == 8;
+    Processing: GeometryDesk().Convert(1, 2, 10, 20, 3, 4);
+    Output: 8;
+}
+
+Test Fault {
+    Constraint: GeometryDesk().Fault() == "none";
+    Processing: GeometryDesk().Fault();
+    Output: "none";
+}
+
+Test Root {
+    Case "square" {
+        Constraint: GeometryDesk().Root(9) == 3;
+        Processing: GeometryDesk().Root(9);
+        Output: 3;
+    }
+    Case "not square" {
+        Constraint: GeometryDesk().Root(2) == -1;
+        Processing: GeometryDesk().Root(2);
+        Output: -1;
+    }
+}
+
+Test WholeSqrt {
+    Constraint: GeometryDesk().WholeSqrt(10) == 3;
+    Processing: GeometryDesk().WholeSqrt(10);
+    Output: 3;
+}
+
+Test Turn {
+    Constraint: GeometryDesk().Turn(0, 0, 1, 0, 0, 1) == 1;
+    Processing: GeometryDesk().Turn(0, 0, 1, 0, 0, 1);
+    Output: 1;
+}
+
+Test Wrap {
+    Constraint: GeometryDesk().Wrap(1) == 0;
+    Processing: GeometryDesk().Wrap(1);
+    Output: 0;
+}
+
+Test SortPoints {
+    Constraint: GeometryDesk().SortPoints() == 0;
+    Processing: GeometryDesk().SortPoints();
+    Output: 0;
+}
+
+Test IntText {
+    Constraint: GeometryDesk().IntText(6) == "6";
+    Processing: GeometryDesk().IntText(6);
+    Output: "6";
 }

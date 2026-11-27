@@ -1,5 +1,450 @@
+// Tests for Probability.rx. Each call uses a fresh desk.
+
+Test CalculateProbability {
+    Constraint: ProbabilityDesk().CalculateProbability(1, 4) == 0.25;
+    Processing: ProbabilityDesk().CalculateProbability(1, 4);
+    Output: 0.25;
+}
+
 Test Complement {
     Constraint: ProbabilityDesk().Complement(0.25) == 0.75;
-    Processing: True;
-    Output: True;
+    Processing: ProbabilityDesk().Complement(0.25);
+    Output: 0.75;
+}
+
+Test JointProbability {
+    Constraint: ProbabilityDesk().JointProbability(0.5, 0.5) == 0.25;
+    Processing: ProbabilityDesk().JointProbability(0.5, 0.5);
+    Output: 0.25;
+}
+
+Test ConditionalProbability {
+    Constraint: ProbabilityDesk().ConditionalProbability(0.25, 0.5) == 0.5;
+    Processing: ProbabilityDesk().ConditionalProbability(0.25, 0.5);
+    Output: 0.5;
+}
+
+Test Independent {
+    Constraint: ProbabilityDesk().Independent(0.25, 0.5, 0.5) == 1;
+    Processing: ProbabilityDesk().Independent(0.25, 0.5, 0.5);
+    Output: 1;
+}
+
+Test MutuallyExclusive {
+    Constraint: ProbabilityDesk().MutuallyExclusive(0.0) == 1;
+    Processing: ProbabilityDesk().MutuallyExclusive(0.0);
+    Output: 1;
+}
+
+Test BayesTheorem {
+    Constraint: ProbabilityDesk().BayesTheorem(0.5, 0.5, 0.5) == 0.5;
+    Processing: ProbabilityDesk().BayesTheorem(0.5, 0.5, 0.5);
+    Output: 0.5;
+}
+
+Test TotalProbability {
+    Constraint: ProbabilityDesk().TotalProbability(0.2, 0.3, 0.5) == 1.0;
+    Processing: ProbabilityDesk().TotalProbability(0.2, 0.3, 0.5);
+    Output: 1.0;
+}
+
+Test Place {
+    Constraint: ProbabilityDesk().Place(4, 1000) == 0;
+    Processing: ProbabilityDesk().Place(4, 1000);
+    Output: 0;
+}
+
+Test ExpectedValue {
+    Constraint: ProbabilityDesk().ExpectedValue() == 0.0;
+    Processing: ProbabilityDesk().ExpectedValue();
+    Output: 0.0;
+}
+
+Test Variance {
+    Constraint: ProbabilityDesk().Variance() == 0.0;
+    Processing: ProbabilityDesk().Variance();
+    Output: 0.0;
+}
+
+Test Categorical {
+    Constraint: ProbabilityDesk().Categorical(0) == 0.0;
+    Processing: ProbabilityDesk().Categorical(0);
+    Output: 0.0;
+}
+
+Test BernoulliPmf {
+    Constraint: ProbabilityDesk().BernoulliPmf(1, 0.25) == 0.25;
+    Processing: ProbabilityDesk().BernoulliPmf(1, 0.25);
+    Output: 0.25;
+}
+
+Test BernoulliMean {
+    Constraint: ProbabilityDesk().BernoulliMean(0.25) == 0.25;
+    Processing: ProbabilityDesk().BernoulliMean(0.25);
+    Output: 0.25;
+}
+
+Test BernoulliVariance {
+    Constraint: ProbabilityDesk().BernoulliVariance(0.5) == 0.25;
+    Processing: ProbabilityDesk().BernoulliVariance(0.5);
+    Output: 0.25;
+}
+
+Test BinomialPmf {
+    Constraint: ProbabilityDesk().BinomialPmf(1, 1, 1.0) == 1.0;
+    Processing: ProbabilityDesk().BinomialPmf(1, 1, 1.0);
+    Output: 1.0;
+}
+
+Test BinomialMean {
+    Constraint: ProbabilityDesk().BinomialMean(4, 0.25) == 1.0;
+    Processing: ProbabilityDesk().BinomialMean(4, 0.25);
+    Output: 1.0;
+}
+
+Test BinomialVariance {
+    Constraint: ProbabilityDesk().BinomialVariance(4, 0.5) == 1.0;
+    Processing: ProbabilityDesk().BinomialVariance(4, 0.5);
+    Output: 1.0;
+}
+
+Test GeometricPmf {
+    Constraint: ProbabilityDesk().GeometricPmf(1, 0.5) == 0.5;
+    Processing: ProbabilityDesk().GeometricPmf(1, 0.5);
+    Output: 0.5;
+}
+
+Test NegativeBinomialPmf {
+    Constraint: ProbabilityDesk().NegativeBinomialPmf(0, 1, 1.0) == 1.0;
+    Processing: ProbabilityDesk().NegativeBinomialPmf(0, 1, 1.0);
+    Output: 1.0;
+}
+
+Test PoissonPmf {
+    Constraint: ProbabilityDesk().PoissonPmf(-1, 1.0) == 0.0;
+    Processing: ProbabilityDesk().PoissonPmf(-1, 1.0);
+    Output: 0.0;
+}
+
+Test HypergeometricPmf {
+    Constraint: ProbabilityDesk().HypergeometricPmf(2, 2, 1, 1) == 1.0;
+    Processing: ProbabilityDesk().HypergeometricPmf(2, 2, 1, 1);
+    Output: 1.0;
+}
+
+Test DiscreteUniformPmf {
+    Constraint: ProbabilityDesk().DiscreteUniformPmf(1, 1) == 1.0;
+    Processing: ProbabilityDesk().DiscreteUniformPmf(1, 1);
+    Output: 1.0;
+}
+
+Test MultinomialPmf {
+    Constraint: ProbabilityDesk().MultinomialPmf(1, 0, 1.0, 0.0) == 1.0;
+    Processing: ProbabilityDesk().MultinomialPmf(1, 0, 1.0, 0.0);
+    Output: 1.0;
+}
+
+Test UniformPdf {
+    Constraint: ProbabilityDesk().UniformPdf(0.0, 2.0, 1.0) == 0.5;
+    Processing: ProbabilityDesk().UniformPdf(0.0, 2.0, 1.0);
+    Output: 0.5;
+}
+
+Test UniformCdf {
+    Constraint: ProbabilityDesk().UniformCdf(0.0, 2.0, 1.0) == 0.5;
+    Processing: ProbabilityDesk().UniformCdf(0.0, 2.0, 1.0);
+    Output: 0.5;
+}
+
+Test InverseCdf {
+    Constraint: ProbabilityDesk().InverseCdf(0.0, 4.0, 0.25) == 1.0;
+    Processing: ProbabilityDesk().InverseCdf(0.0, 4.0, 0.25);
+    Output: 1.0;
+}
+
+Test NormalPdf {
+    Constraint: ProbabilityDesk().NormalPdf(0.0, 0.0, 0.0) == 0.0;
+    Processing: ProbabilityDesk().NormalPdf(0.0, 0.0, 0.0);
+    Output: 0.0;
+}
+
+Test NormalCdf {
+    Constraint: ProbabilityDesk().NormalCdf(0.0, 0.0, 0.0) == 0.0;
+    Processing: ProbabilityDesk().NormalCdf(0.0, 0.0, 0.0);
+    Output: 0.0;
+}
+
+Test StandardNormalPdf {
+    Constraint: ProbabilityDesk().StandardNormalPdf(0.0) == 0.398942280401433;
+    Processing: ProbabilityDesk().StandardNormalPdf(0.0);
+    Output: 0.398942280401433;
+}
+
+Test StandardNormalCdf {
+    Constraint: ProbabilityDesk().StandardNormalCdf(0.0) == 0.5;
+    Processing: ProbabilityDesk().StandardNormalCdf(0.0);
+    Output: 0.5;
+}
+
+Test ExponentialPdf {
+    Constraint: ProbabilityDesk().ExponentialPdf(1.0, -1.0) == 0.0;
+    Processing: ProbabilityDesk().ExponentialPdf(1.0, -1.0);
+    Output: 0.0;
+}
+
+Test ExponentialCdf {
+    Constraint: ProbabilityDesk().ExponentialCdf(1.0, 0.0) == 0.0;
+    Processing: ProbabilityDesk().ExponentialCdf(1.0, 0.0);
+    Output: 0.0;
+}
+
+Test ExponentialQuantile {
+    Constraint: ProbabilityDesk().ExponentialQuantile(0.0, 0.5) == 0.0;
+    Processing: ProbabilityDesk().ExponentialQuantile(0.0, 0.5);
+    Output: 0.0;
+}
+
+Test ErlangPdf {
+    Constraint: ProbabilityDesk().ErlangPdf(0, 1.0, 1.0) == 0.0;
+    Processing: ProbabilityDesk().ErlangPdf(0, 1.0, 1.0);
+    Output: 0.0;
+}
+
+Test BetaPdf {
+    Constraint: ProbabilityDesk().BetaPdf(0, 1, 0.5) == 0.0;
+    Processing: ProbabilityDesk().BetaPdf(0, 1, 0.5);
+    Output: 0.0;
+}
+
+Test ChiSquarePdf {
+    Constraint: ProbabilityDesk().ChiSquarePdf(1, 1.0) == 0.0;
+    Processing: ProbabilityDesk().ChiSquarePdf(1, 1.0);
+    Output: 0.0;
+}
+
+Test StudentTPdf {
+    Constraint: ProbabilityDesk().StudentTPdf(3, 0.0) == 0.0;
+    Processing: ProbabilityDesk().StudentTPdf(3, 0.0);
+    Output: 0.0;
+}
+
+Test FPdf {
+    Constraint: ProbabilityDesk().FPdf(1, 2, 1.0) == 0.0;
+    Processing: ProbabilityDesk().FPdf(1, 2, 1.0);
+    Output: 0.0;
+}
+
+Test WeibullPdf {
+    Constraint: ProbabilityDesk().WeibullPdf(0.0, 1.0, 1.0) == 0.0;
+    Processing: ProbabilityDesk().WeibullPdf(0.0, 1.0, 1.0);
+    Output: 0.0;
+}
+
+Test LogNormalPdf {
+    Constraint: ProbabilityDesk().LogNormalPdf(0.0, 0.0, 1.0) == 0.0;
+    Processing: ProbabilityDesk().LogNormalPdf(0.0, 0.0, 1.0);
+    Output: 0.0;
+}
+
+Test ParetoPdf {
+    Constraint: ProbabilityDesk().ParetoPdf(0.0, 1.0, 1.0) == 0.0;
+    Processing: ProbabilityDesk().ParetoPdf(0.0, 1.0, 1.0);
+    Output: 0.0;
+}
+
+Test CauchyPdf {
+    Processing: ProbabilityDesk().CauchyPdf(0.0);
+    Assert: ProbabilityDesk().CauchyPdf(0.0) == 1.0 / ProbabilityDesk().Pi();
+}
+
+Test LaplacePdf {
+    Constraint: ProbabilityDesk().LaplacePdf(0.0) == 0.5;
+    Processing: ProbabilityDesk().LaplacePdf(0.0);
+    Output: 0.5;
+}
+
+Test LogisticPdf {
+    Constraint: ProbabilityDesk().LogisticPdf(0.0) == 0.25;
+    Processing: ProbabilityDesk().LogisticPdf(0.0);
+    Output: 0.25;
+}
+
+Test RayleighPdf {
+    Constraint: ProbabilityDesk().RayleighPdf(0.0) == 0.0;
+    Processing: ProbabilityDesk().RayleighPdf(0.0);
+    Output: 0.0;
+}
+
+Test TriangularPdf {
+    Constraint: ProbabilityDesk().TriangularPdf(0.0, 2.0, 1.0, -1.0) == 0.0;
+    Processing: ProbabilityDesk().TriangularPdf(0.0, 2.0, 1.0, -1.0);
+    Output: 0.0;
+}
+
+Test SurvivalFunction {
+    Constraint: ProbabilityDesk().SurvivalFunction(0.25) == 0.75;
+    Processing: ProbabilityDesk().SurvivalFunction(0.25);
+    Output: 0.75;
+}
+
+Test HazardFunction {
+    Constraint: ProbabilityDesk().HazardFunction(0.25, 0.5) == 0.5;
+    Processing: ProbabilityDesk().HazardFunction(0.25, 0.5);
+    Output: 0.5;
+}
+
+Test LogPmf {
+    Constraint: ProbabilityDesk().LogPmf(1.0) == 0.0;
+    Processing: ProbabilityDesk().LogPmf(1.0);
+    Output: 0.0;
+}
+
+Test Observe {
+    Constraint: ProbabilityDesk().Observe(4) == 0;
+    Processing: ProbabilityDesk().Observe(4);
+    Output: 0;
+}
+
+Test MaximumLikelihoodEstimate {
+    Constraint: ProbabilityDesk().MaximumLikelihoodEstimate() == 0.0;
+    Processing: ProbabilityDesk().MaximumLikelihoodEstimate();
+    Output: 0.0;
+}
+
+Test MaximumLikelihoodBernoulli {
+    Constraint: ProbabilityDesk().MaximumLikelihoodBernoulli(1, 4) == 0.25;
+    Processing: ProbabilityDesk().MaximumLikelihoodBernoulli(1, 4);
+    Output: 0.25;
+}
+
+Test MaximumAPosterioriEstimate {
+    Constraint: ProbabilityDesk().MaximumAPosterioriEstimate(1, 4, 1, 1) == 0.25;
+    Processing: ProbabilityDesk().MaximumAPosterioriEstimate(1, 4, 1, 1);
+    Output: 0.25;
+}
+
+Test UpdateBelief {
+    Constraint: ProbabilityDesk().UpdateBelief(0.5, 0.5, 0.5) == 0.5;
+    Processing: ProbabilityDesk().UpdateBelief(0.5, 0.5, 0.5);
+    Output: 0.5;
+}
+
+Test FitVariance {
+    Constraint: ProbabilityDesk().FitVariance() == 0.0;
+    Processing: ProbabilityDesk().FitVariance();
+    Output: 0.0;
+}
+
+Test SetChain {
+    Constraint: ProbabilityDesk().SetChain(1000, 0, 0, 1000) == 1;
+    Processing: ProbabilityDesk().SetChain(1000, 0, 0, 1000);
+    Output: 1;
+}
+
+Test TransitionProbability {
+    Constraint: ProbabilityDesk().TransitionProbability(0, 0) == 0.5;
+    Processing: ProbabilityDesk().TransitionProbability(0, 0);
+    Output: 0.5;
+}
+
+Test SteadyState {
+    Constraint: ProbabilityDesk().SteadyState() == 0.5;
+    Processing: ProbabilityDesk().SteadyState();
+    Output: 0.5;
+}
+
+Test SimulateMarkovChain {
+    Constraint: ProbabilityDesk().SimulateMarkovChain(0, 0) == 0;
+    Processing: ProbabilityDesk().SimulateMarkovChain(0, 0);
+    Output: 0;
+}
+
+Test SimulateProcess {
+    Constraint: ProbabilityDesk().SimulateProcess(0, 0) == 0;
+    Processing: ProbabilityDesk().SimulateProcess(0, 0);
+    Output: 0;
+}
+
+Test SetSeed {
+    Constraint: ProbabilityDesk().SetSeed(7) == 7;
+    Processing: ProbabilityDesk().SetSeed(7);
+    Output: 7;
+}
+
+Test MonteCarloEstimate {
+    Constraint: ProbabilityDesk().MonteCarloEstimate(0, 0.5) == 0.0;
+    Processing: ProbabilityDesk().MonteCarloEstimate(0, 0.5);
+    Output: 0.0;
+}
+
+Test Fault {
+    Constraint: ProbabilityDesk().Fault() == "none";
+    Processing: ProbabilityDesk().Fault();
+    Output: "none";
+}
+
+Test Move {
+    Constraint: ProbabilityDesk().Move(0) == 1;
+    Processing: ProbabilityDesk().Move(0);
+    Output: 1;
+}
+
+Test Choose {
+    Constraint: ProbabilityDesk().Choose(4, 2) == 6;
+    Processing: ProbabilityDesk().Choose(4, 2);
+    Output: 6;
+}
+
+Test Factorial {
+    Constraint: ProbabilityDesk().Factorial(4) == 24;
+    Processing: ProbabilityDesk().Factorial(4);
+    Output: 24;
+}
+
+Test Power {
+    Constraint: ProbabilityDesk().Power(2.0, 3) == 8.0;
+    Processing: ProbabilityDesk().Power(2.0, 3);
+    Output: 8.0;
+}
+
+Test Exp {
+    Constraint: ProbabilityDesk().Exp(0.0) == 1.0;
+    Processing: ProbabilityDesk().Exp(0.0);
+    Output: 1.0;
+}
+
+Test Ln {
+    Constraint: ProbabilityDesk().Ln(1.0) == 0.0;
+    Processing: ProbabilityDesk().Ln(1.0);
+    Output: 0.0;
+}
+
+Test Erf {
+    Constraint: ProbabilityDesk().Erf(0.0) == 0.0;
+    Processing: ProbabilityDesk().Erf(0.0);
+    Output: 0.0;
+}
+
+Test Sqrt {
+    Constraint: ProbabilityDesk().Sqrt(9.0) == 3.0;
+    Processing: ProbabilityDesk().Sqrt(9.0);
+    Output: 3.0;
+}
+
+Test Pi {
+    Constraint: ProbabilityDesk().Pi() == 3.141592653589793;
+    Processing: ProbabilityDesk().Pi();
+    Output: 3.141592653589793;
+}
+
+Test Near {
+    Constraint: ProbabilityDesk().Near(1.0, 1.0) == 1;
+    Processing: ProbabilityDesk().Near(1.0, 1.0);
+    Output: 1;
+}
+
+Test NextSeed {
+    Constraint: ProbabilityDesk().NextSeed() == 1103527590;
+    Processing: ProbabilityDesk().NextSeed();
+    Output: 1103527590;
 }
