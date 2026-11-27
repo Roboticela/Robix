@@ -130,44 +130,44 @@ This is the CMake Tools half of the C and C++ experience, aimed at `.rxp`.
 - [x] TextMate grammar for `.rxu` and `.rx3d`.
 - [ ] Semantic tokens cover keyword, control, type, class, struct, enum, interface, trait, function, method, constructor, parameter, variable, property, field, string, number, comment, operator, package, and the `Explain` labels.
 - [x] Modifiers: declaration, definition, public, private, async, documentation, defaultLibrary.
-- [ ] A name the checker has not resolved stays on the TextMate color.
+- [x] A name the checker has not resolved stays on the TextMate color.
 - [x] Inactive directive regions are dimmed, the way an `#if 0` block is dimmed.
 - [x] Both themes map every semantic token, in light and dark.
-- [ ] Sticky scroll pins the package, the type, and the function that contain the cursor.
+- [x] Sticky scroll pins the package, the type, and the function that contain the cursor.
 - [ ] Breadcrumbs show Package, type, function.
-- [ ] Bracket pairs match `()`, `[]`, `{}`, and the quote pairs the language configuration already closes.
-- [ ] On-type indent after `{`, and outdent on `}`.
+- [x] Bracket pairs match `()`, `[]`, `{}`, and the quote pairs the language configuration already closes.
+- [x] On-type indent after `{`, and outdent on `}`.
 - [x] Word pattern treats a package `Robix.Core` as one word for selection, and a method `Desk.Sort` as one word when the cursor is on either side of the dot.
 - [ ] Minimap section headers use the document symbols.
 - [ ] The formatter is the server. Document format and selection format both call it.
 - [x] Format on type handles `}`, `;`, and newline inside a block.
-- [ ] Format on save stays the default for `.rx` and `.rxp`.
+- [x] Format on save stays the default for `.rx` and `.rxp`.
 - [ ] Settings mirror a format file: indent size, brace position, space before parenthesis, blank line between functions.
 - [x] A project may carry `.robix-format` and the open folder wins over the user setting.
-- [ ] Case correction stays a client edit and does not fight the formatter: the formatter writes keywords, packages, functions, and classes in PascalCase, and leaves variable spelling alone.
-- [ ] Paste of a C-looking snippet is left as typed. Case correction runs when a word is finished, which is already the rule.
+- [x] Case correction stays a client edit and does not fight the formatter: the formatter writes keywords, packages, functions, and classes in PascalCase, and leaves variable spelling alone.
+- [x] Paste of a C-looking snippet is left as typed. Case correction runs when a word is finished, which is already the rule.
 
 ## 5. Completion, signature help, and hover
 
 - [ ] Completion is server-backed and includes keywords, snippets, locals, parameters, fields, methods, types, packages, and the public surface of every package on the package path.
-- [ ] Trigger characters are `.`, `(`, and the character that starts an import name.
-- [ ] After `.`, the list is the members of the receiver's type.
-- [ ] After `Import `, the list is packages, and accepting one inserts the full package name.
-- [ ] A completion from a package this file does not import inserts the `Import` line, once.
-- [ ] Each function item shows the signature and the `Explain` text.
+- [x] Trigger characters are `.`, `(`, and the character that starts an import name.
+- [x] After `.`, the list is the members of the receiver's type.
+- [x] After `Import `, the list is packages, and accepting one inserts the full package name.
+- [x] A completion from a package this file does not import inserts the `Import` line, once.
+- [x] Each function item shows the signature and the `Explain` text.
 - [ ] Items are sorted as locals, members, imported names, keywords, then packages that would add an import. Snippets sort with keywords and do not hide an exact keyword.
-- [ ] Commit characters follow the C/C++ habit: `.` and `(` commit a name when the setting says so.
-- [ ] `robix.suggest.autoImport` turns the inserted import on or off.
+- [x] Commit characters follow the C/C++ habit: `.` and `(` commit a name when the setting says so.
+- [x] `robix.suggest.autoImport` turns the inserted import on or off.
 - [ ] Incomplete results set `isIncomplete` so the editor asks again as the user types.
-- [ ] Signature help opens on `(` and advances on `,`, including nested calls.
+- [x] Signature help opens on `(` and advances on `,`, including nested calls.
 - [ ] The active parameter shows its name, its type, and the Input line from `Explain`.
-- [ ] Overloads are a list the user can move through.
+- [x] Overloads are a list the user can move through.
 - [ ] Hover on a name shows the kind, the signature, the type, the package, and `Explain`.
-- [ ] Hover on a keyword shows the one-line language note.
-- [ ] Hover on an operator shows the declared operator and its precedence.
-- [ ] Hover on a directive shows whether this configuration includes the region.
-- [ ] Hover on an error code shows the code, the message, and the sentence the compiler uses for that code.
-- [ ] Completion, signature help, and hover work in `.rx` and in `.test.rx`.
+- [x] Hover on a keyword shows the one-line language note.
+- [x] Hover on an operator shows the declared operator and its precedence.
+- [x] Hover on a directive shows whether this configuration includes the region.
+- [x] Hover on an error code shows the code, the message, and the sentence the compiler uses for that code.
+- [x] Completion, signature help, and hover work in `.rx` and in `.test.rx`.
 - [ ] They work inside a string only for the places the language allows interpolation. Elsewhere strings and comments stay quiet.
 
 ## 6. Diagnostics
@@ -183,24 +183,24 @@ C/C++ shows IntelliSense squiggles and build squiggles as two sources. Robix doe
 - [x] Saving or building clears that file's build diagnostics before the new ones arrive.
 - [ ] The Problems panel can filter to the open file.
 - [ ] F8 and Shift+F8 move through diagnostics.
-- [ ] `robix.diagnostics.enable` gates the live squiggles.
+- [x] `robix.diagnostics.enable` gates the live squiggles.
 - [x] `robix.diagnostics.level` is Error, Warning, or Information.
 - [ ] Command **Robix: Run Code Analysis** runs `Robix.CodeAnalysis.Rules` on the file or the project.
-- [ ] Each rule has a code, a default severity, and a setting to turn it off.
-- [ ] A project file `.robix-analysis` selects the rule set the way a clang-tidy file selects checks.
-- [ ] Analysis results use source `robix-analysis`.
+- [x] Each rule has a code, a default severity, and a setting to turn it off.
+- [x] A project file `.robix-analysis` selects the rule set the way a clang-tidy file selects checks.
+- [x] Analysis results use source `robix-analysis`.
 - [ ] The checker reports the cases this repository already cares about: unknown name, duplicate name, break outside a loop, mismatched brace, missing package description shape the workspace uses, and `RX120` when a function has no companion test.
-- [ ] An `RX121` failure from a test run is a diagnostic on the `Constraint` line after a test run, and it is cleared on the next successful run.
+- [x] An `RX121` failure from a test run is a diagnostic on the `Constraint` line after a test run, and it is cleared on the next successful run.
 
 ## 7. Navigation
 
-- [ ] Go to definition (F12) and peek definition (Alt+F12).
+- [x] Go to definition (F12) and peek definition (Alt+F12).
 - [x] Go to declaration and peek declaration, for a name whose declaration and body are in different files.
 - [x] Go to implementation for an `Interface` or `Trait` method, listing every implementing method.
 - [x] Go to type definition from a variable or parameter to the `Class`, `Struct`, `Enum`, `Interface`, or `Trait`.
-- [ ] Find all references (Shift+F12) across the workspace, including tests and examples.
+- [x] Find all references (Shift+F12) across the workspace, including tests and examples.
 - [ ] The references view groups results by file and shows the call site.
-- [ ] Document highlight marks the reads and writes of the symbol under the cursor.
+- [x] Document highlight marks the reads and writes of the symbol under the cursor.
 - [x] Workspace symbol search (Ctrl+T) finds packages, types, functions, methods, and tests.
 - [ ] Document symbol search (Ctrl+Shift+O) finds the same kinds inside the file.
 - [ ] Outline order is source order: package, imports, types, functions, tests.
@@ -224,8 +224,8 @@ C/C++ shows IntelliSense squiggles and build squiggles as two sources. Robix doe
 - [x] Code lens on a function, method, and class keeps Run and adds Debug.
 - [x] Code lens on a `Test` shows Run Test and Debug Test.
 - [x] A light bulb appears on every diagnostic that has a fix.
-- [ ] Quick fixes: add the missing `Import`, remove an unused `Import`, qualify a name, create a function from a call, create a test for a function that reports `RX120`, and fill an empty `Explain`.
-- [ ] Each fix previews the edit.
+- [x] Quick fixes: add the missing `Import`, remove an unused `Import`, qualify a name, create a function from a call, create a test for a function that reports `RX120`, and fill an empty `Explain`.
+- [x] Each fix previews the edit.
 - [x] **Robix: Fix All** in the file applies the safe fixes: imports and unused imports.
 - [ ] The light bulb also offers the refactors in the next section when the cursor is on a legal target.
 
@@ -354,7 +354,7 @@ The C and C++ test experience is a real Testing view, not only a code lens.
 - [ ] The tree is file, then test name, then `Case` when the test has cases.
 - [ ] A `Test` whose name matches a function is shown as that function's test, which is the `RX120` rule.
 - [x] Run, debug, and stop from the Testing view, for one case, one test, one file, or the workspace.
-- [ ] Continuous run is available on a file.
+- [x] Continuous run is available on a file.
 - [ ] A passing test marks the lens and the gutter. A failing test marks the `Constraint` and opens the message.
 - [ ] The Test Results view shows the expected value and the actual value.
 - [x] Code lens Run and Debug call the same controller.
@@ -362,7 +362,7 @@ The C and C++ test experience is a real Testing view, not only a code lens.
 - [x] Command **Robix: Debug Test at Cursor**.
 - [ ] A test binary is built with the Debug configuration before a debug run.
 - [ ] Coverage, when the compiler can emit it, paints the gutter and lists the percentage in the Testing view.
-- [ ] Discovery refreshes on save of a `.test.rx` file.
+- [x] Discovery refreshes on save of a `.test.rx` file.
 
 ## 13. `.rxu` and `.rx3d`
 

@@ -2,7 +2,7 @@
     "name": "Robix",
     "displayName": "Robix",
     "description": "Robix is Roboticela's type-safe language: PascalCase you can read aloud, the control of C, an interpreter to run it, and a compiler that builds a native executable.",
-    "version": "0.0.46",
+    "version": "0.0.47",
     "publisher": "Roboticela",
     "author": {
         "name": "Roboticela"
@@ -223,6 +223,18 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Format the file when you type }, a semicolon, or a newline."
+                },
+                "robix.analysis.lineLength": {
+                    "type": "string",
+                    "default": "Information",
+                    "enum": ["off", "Error", "Warning", "Information"],
+                    "description": "Severity of the long-line rule, or off."
+                },
+                "robix.analysis.explain": {
+                    "type": "string",
+                    "default": "Information",
+                    "enum": ["off", "Error", "Warning", "Information"],
+                    "description": "Severity of the missing Explain rule, or off."
                 },
                 "robix.debug.justMyCode": {
                     "type": "boolean",

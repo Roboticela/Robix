@@ -673,6 +673,16 @@ function hover(source, offset) {
             return { contents: described, start: token.start, end: token.end };
         }
     }
+    if (token.kind === "comment") {
+        const directive = /#if\s+(\S+)/.exec(token.text);
+        if (!directive) {
+            return null;
+        }
+        return { contents: `**#if ${directive[1]}**\n\nIncluded when the active configuration defines ${directive[1]}.`, start: token.start, end: token.end };
+    }
+    if (token.kind === "operator") {
+        return { contents: `**${token.text}**\n\nOperator.`, start: token.start, end: token.end };
+    }
     if (token.kind === "keyword") {
         const info = keywordInfo(token.canonical || token.text);
         if (!info) {
@@ -915,7 +925,7 @@ function semanticSpans(source) {
     let previousLine = 0;
     let previousCharacter = 0;
     for (const token of doc.tokens) {
-        if (!token.text || token.kind === "eof") {
+        if (!token.text || token.kind === "eof" || token.unresolved) {
             continue;
         }
         let offset = token.start;

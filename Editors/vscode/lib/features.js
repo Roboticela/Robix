@@ -356,8 +356,9 @@ function inactiveRegions(source, defines) {
     return regions;
 }
 
-function analysisRules(source, disabled) {
+function analysisRules(source, disabled, severity) {
     const off = new Set(disabled || []);
+    const level = severity || {};
     const diagnostics = [];
     if (!off.has("RX901")) {
         const doc = analyze(source);
@@ -369,7 +370,7 @@ function analysisRules(source, disabled) {
             if (!/Description\s*:/.test(body)) {
                 diagnostics.push({
                     code: "RX901",
-                    severity: "info",
+                    severity: level.RX901 || "info",
                     message: `${symbol.name} has no Explain description.`,
                     start: symbol.start,
                     end: symbol.nameEnd || symbol.start + symbol.name.length
@@ -383,7 +384,7 @@ function analysisRules(source, disabled) {
                 const start = String(source).split("\n").slice(0, index).join("\n").length + (index ? 1 : 0);
                 diagnostics.push({
                     code: "RX900",
-                    severity: "info",
+                    severity: level.RX900 || "info",
                     message: "Line is longer than 120 characters.",
                     start,
                     end: start + line.length

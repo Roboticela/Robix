@@ -112,6 +112,7 @@ function reportUnknown(state) {
         }
         if (token.role === "type") {
             if (!isKnownType(state, token.text, token.start)) {
+                token.unresolved = true;
                 diagnostic(state, "warning", "RX201", `Unknown type '${token.text}'.`, token);
             }
             continue;
@@ -126,6 +127,7 @@ function reportUnknown(state) {
                 continue;
             }
             if (!isKnown(state, token.text, token.start)) {
+                token.unresolved = true;
                 const kind = token.role === "call" ? "function or type" : "name";
                 diagnostic(state, "warning", "RX200", `Unknown ${kind} '${token.text}'.`, token);
             }

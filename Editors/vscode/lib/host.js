@@ -49,6 +49,7 @@ let activeProject = "";
 let previewPanel;
 let previewDocument;
 let configureTimer;
+let testController;
 const services = {};
 
 function registerConfigurationProvider(provider) {
@@ -95,6 +96,9 @@ function start(context, given) {
         vscode.workspace.onDidSaveTextDocument((document) => {
             refreshPreview(document);
             const file = document.uri.fsPath || "";
+            if (file.endsWith(".test.rx") && testController) {
+                discoverTests(testController);
+            }
             if (file.endsWith(".rxp") || file.includes(`${path.sep}Packages${path.sep}`)) {
                 clearTimeout(configureTimer);
                 configureTimer = setTimeout(() => configureProject(), 400);
@@ -451,11 +455,24 @@ function codeActions() {
                 if (item.code === "RX200") {
                     const found = /'([^']+)'/.exec(item.message);
                     const packageName = found ? packageExporting(found[1]) : "";
-                    if (packageName) {
+                    if (packageName && found) {
                         const action = new vscode.CodeAction(`Import ${packageName}`, vscode.CodeActionKind.QuickFix);
                         action.diagnostics = [item];
                         action.edit = importEdit(document, packageName);
                         actions.push(action);
+                        const qualify = new vscode.CodeAction(`Qualify ${found[1]}`, vscode.CodeActionKind.QuickFix);
+                        qualify.diagnostics = [item];
+                        qualify.edit = new vscode.WorkspaceEdit();
+                        qualify.edit.replace(document.uri, item.range, `${packageName}.${found[1]}`);
+                        actions.push(qualify);
+                    } else if (found && item.message.includes("function")) {
+                        const create = new vscode.CodeAction(`Create function ${found[1]}`, vscode.CodeActionKind.QuickFix);
+                        create.diagnostics = [item];
+                        create.edit = new vscode.WorkspaceEdit();
+                        const last = document.lineCount - 1;
+                        const end = document.lineAt(last).range.end;
+                        create.edit.insert(document.uri, end, `\nFunction ${found[1]}() -> Int\nExplain {\n    Description: \"${found[1]}.\";\n    Input: None;\n    Processing: \"Steps.\";\n    Output: \"Result.\";\n} {\n    Return 0;\n}\n`);
+                        actions.push(create);
                     }
                 }
             }
@@ -716,12 +733,15 @@ function registerTasks() {
 
 function registerTests() {
     const controller = vscode.tests.createTestController("robix.tests", "Robix");
+    testController = controller;
     controller.resolveHandler = async (item) => {
         if (!item) {
             await discoverTests(controller);
         }
     };
     controller.createRunProfile("Run", vscode.TestRunProfileKind.Run, (request, token) => executeTests(controller, request, token, false), true);
+    const continuous = controller.createRunProfile("Run Continuously", vscode.TestRunProfileKind.Run, (request, token) => executeTests(controller, request, token, false), false);
+    continuous.supportsContinuousRun = true;
     controller.createRunProfile("Debug", vscode.TestRunProfileKind.Debug, (request, token) => executeTests(controller, request, token, true));
     const watch = vscode.workspace.createFileSystemWatcher("**/*.test.rx");
     watch.onDidChange(() => discoverTests(controller));
@@ -1200,7 +1220,20 @@ async function runAnalysis() {
         return;
     }
     const disabled = loadRuleFile(path.join(workspaceRoot(), ".robix-analysis"));
-    const found = analysisRules(editor.document.getText(), disabled).map((item) => toDiagnostic(editor.document, item, "robix-analysis")).filter(Boolean);
+    if (services.config().get("analysis.lineLength") === "off") {
+        disabled.push("RX900");
+    }
+    if (services.config().get("analysis.explain") === "off") {
+        disabled.push("RX901");
+    }
+    const severity = {};
+    for (const [code, key] of [["RX900", "analysis.lineLength"], ["RX901", "analysis.explain"]]) {
+        const chosen = services.config().get(key);
+        if (chosen && chosen !== "off") {
+            severity[code] = String(chosen).toLowerCase() === "information" ? "info" : String(chosen).toLowerCase();
+        }
+    }
+    const found = analysisRules(editor.document.getText(), disabled, severity).map((item) => toDiagnostic(editor.document, item, "robix-analysis")).filter(Boolean);
     const previous = services.diagnostics().get(editor.document.uri) || [];
     services.diagnostics().set(editor.document.uri, [...previous].filter((item) => item.source !== "robix-analysis").concat(found));
 }

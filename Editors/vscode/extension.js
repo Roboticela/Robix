@@ -252,7 +252,7 @@ function completionProvider() {
                 completion.commitCharacters = config().get("suggest.commitCharacters") === false || item.snippet ? [] : [".", "("];
                 completion.insertText = item.snippet ? new vscode.SnippetString(item.insert) : item.insert;
                 completion.range = new vscode.Range(document.positionAt(result.replaceStart), document.positionAt(result.replaceEnd));
-                if (item.importEdit) {
+                if (item.importEdit && config().get("suggest.autoImport") !== false) {
                     completion.additionalTextEdits = [vscode.TextEdit.replace(
                         new vscode.Range(document.positionAt(item.importEdit.start), document.positionAt(item.importEdit.end)),
                         item.importEdit.text
@@ -288,15 +288,66 @@ function hoverProvider() {
         provideHover(document, position) {
             bindPackageRoot(document.uri.fsPath);
             const result = hover(document.getText(), document.offsetAt(position));
-            if (!result) {
+            const note = [directiveNote(document, position), diagnosticNote(document, position)].filter(Boolean).join("\n\n");
+            if (!result && !note) {
                 return null;
             }
-            return new vscode.Hover(
-                new vscode.MarkdownString(result.contents),
-                new vscode.Range(document.positionAt(result.start), document.positionAt(result.end))
-            );
+            const text = [result && result.contents, note].filter(Boolean).join("\n\n");
+            const range = result
+                ? new vscode.Range(document.positionAt(result.start), document.positionAt(result.end))
+                : document.getWordRangeAtPosition(position);
+            return new vscode.Hover(new vscode.MarkdownString(text), range);
         }
     };
+}
+
+const CODE_NOTES = {
+    RX006: "A closing bracket does not match the opening bracket.",
+    RX007: "A bracket, brace, or parenthesis was not closed.",
+    RX120: "Every function needs a Test of the same name in the companion file.",
+    RX121: "The constraint result and the expected output differ.",
+    RX200: "The name is not declared in this file or an imported package.",
+    RX201: "The type is not declared.",
+    RX202: "The import is never used.",
+    RX900: "The line is longer than 120 characters.",
+    RX901: "The function has no Explain description."
+};
+
+function diagnosticNote(document, position) {
+    const items = diagnostics().get(document.uri) || [];
+    const hit = [...items].find((item) => item.range.contains(position));
+    if (!hit || !hit.code) {
+        return "";
+    }
+    const sentence = CODE_NOTES[hit.code] || "";
+    return `**${hit.code}**\n\n${hit.message}${sentence ? `\n\n${sentence}` : ""}`;
+}
+
+function directiveNote(document, position) {
+    const match = /^\s*\/\/\s*#if\s+(\S+)/.exec(document.lineAt(position.line).text);
+    if (!match) {
+        return "";
+    }
+    const defines = activeConfiguration(path.join(projectRoot(document.uri.fsPath), ".vscode", "robix.json")).defines || [];
+    const included = defines.includes(match[1]);
+    return `**#if ${match[1]}**\n\nThis region is ${included ? "included" : "excluded"} by the active configuration.`;
+}
+
+function constraintDiagnostic(document, name, message) {
+    const text = document.getText();
+    const testAt = text.indexOf(`Test ${name}`);
+    let at = text.indexOf("Constraint:", testAt >= 0 ? testAt : 0);
+    if (at < 0) {
+        at = 0;
+    }
+    const diagnostic = new vscode.Diagnostic(
+        new vscode.Range(document.positionAt(at), document.positionAt(at + "Constraint".length)),
+        message,
+        vscode.DiagnosticSeverity.Error
+    );
+    diagnostic.source = "robix";
+    diagnostic.code = "RX121";
+    return diagnostic;
 }
 
 function signatureProvider() {
@@ -765,15 +816,10 @@ async function runSymbol(target) {
             const parsed = parseToolOutput(document, problems.join("\n"));
             if (parsed.length) {
                 found.push(...parsed);
-            } else {
-                const diagnostic = new vscode.Diagnostic(
-                    new vscode.Range(target.line || 0, target.character || 0, target.line || 0, (target.character || 0) + target.name.length),
-                    problems.join("\n"),
-                    vscode.DiagnosticSeverity.Error
-                );
-                diagnostic.source = "Robix";
-                diagnostic.code = "RX121";
-                found.push(diagnostic);
+            }
+            const constraint = constraintDiagnostic(document, target.name, problems.join("\n"));
+            if (!found.some((item) => item.code === "RX121")) {
+                found.push(constraint);
             }
             vscode.window.showErrorMessage(`${title} failed. See the Robix output.`);
         } else {
