@@ -91,7 +91,9 @@ PY
 }
 
 compile_cpp() {
-    local cxx="${ROBIX_CXX:-}"
+    # ROBIX_CXX is the compiler for the target being packaged. This binary
+    # has to run on the machine that is doing the build.
+    local cxx="${ROBIX_HOST_CXX:-}"
     if [[ -z "$cxx" ]]; then
         if command -v clang++ >/dev/null 2>&1; then
             cxx="clang++"
@@ -102,9 +104,13 @@ compile_cpp() {
             exit 1
         fi
     fi
-    echo "bootstrap: compiling Bootstrap/main.cpp" >&2
+    echo "bootstrap: compiling Bootstrap/main.cpp with ${cxx}" >&2
     "$cxx" -std=c++20 -O2 -o "$dest" "$root/Bootstrap/main.cpp"
     chmod 755 "$dest"
+    if ! "$dest" --targets >/dev/null 2>&1; then
+        echo "error: the bootstrap compiler cannot run on this machine" >&2
+        exit 1
+    fi
 }
 
 if ! try_release; then
