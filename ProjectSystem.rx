@@ -86,7 +86,7 @@ Public Class ProjectEngine {
             Return This.Report(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("{accent}Robix{/} {muted}0.0.34{/}");
+            Print("{accent}Robix{/} {muted}0.0.35{/}");
             Return This.Report(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
@@ -117,6 +117,14 @@ Public Class ProjectEngine {
         }
         If (command == "check") {
             Return This.Report(ExitCode.Success, "Project check passed.");
+        }
+        If (command == "self") {
+            Bool built = This.SelfCompile(root);
+            If (!built) {
+                This.PrintDiagnostics();
+                Return This.Report(ExitCode.ErrorExecution, "The compiler did not rebuild itself.");
+            }
+            Return This.Report(ExitCode.Success, "Rebuilt Robix and Robixc.");
         }
         If (command == "rebuild") {
             This.ExecuteTask(root, "Clean");
@@ -562,6 +570,91 @@ Public Class ProjectEngine {
             Directory.Delete(This.IntermediateDirectory(project));
         }
         Return ok;
+    }
+
+    Private Function SelfCompile(ProjectNode project) -> Bool {
+        Var files = List<String>();
+        For relative In Directory.Files(This.ProjectDirectory) {
+            If (This.IsCompilerSource(relative)) { files.Add(relative); }
+        }
+        Print("{muted}self{/}  {accent}" + files.Count().ToString() + "{/} {muted}compiler sources{/}");
+        Bool interpreter = This.SelfImage(project, files, "Robixc.rx", "Build/Self/Robix.app");
+        Bool compiler = This.SelfImage(project, files, "Robix.rx", "Build/Self/Robixc.app");
+        Return interpreter && compiler;
+    }
+
+    Private Function IsCompilerSource(String relative) -> Bool {
+        If (!relative.EndsWith(".rx") || relative.EndsWith(".test.rx")) { Return False; }
+        If (relative.StartsWith("Examples/") || relative.StartsWith("Packages/") || relative.StartsWith("UI/")) { Return False; }
+        If (relative.StartsWith("Bench/") || relative.StartsWith("Tools/") || relative.StartsWith("Editors/")) { Return False; }
+        If (relative.StartsWith("Build/") || relative.StartsWith("dist/")) { Return False; }
+        If (!relative.Contains("/")) { Return True; }
+        If (relative.StartsWith("Compiler/") || relative.StartsWith("Interpreter/") || relative.StartsWith("Runtime/")) { Return True; }
+        Return False;
+    }
+
+    Private Function SelfImage(ProjectNode project, List<String> files, String skip, String output) -> Bool {
+        Var sources = List<String>();
+        Var names = List<String>();
+        For relative In files {
+            If (relative == skip) { Continue; }
+            String full = This.Join(This.ProjectDirectory, relative);
+            String text = Files.ReadText(full);
+            If (text.Length() == 0) { Continue; }
+            Int first = text.GetChar(0);
+            If (first < 32 && first != 9 && first != 10 && first != 13) { Continue; }
+            sources.Add(text);
+            names.Add(relative);
+        }
+        SyntaxCompiler compiler = SyntaxCompiler();
+        CompileResult result = compiler.CompileProgram(sources, names, True);
+        Int errors = 0;
+        Int warnings = 0;
+        Int shown = 0;
+        For line In compiler.DiagnosticsOf(result) {
+            If (line.StartsWith("error")) {
+                errors = errors + 1;
+                If (shown < 20) {
+                    Print(line);
+                    shown = shown + 1;
+                }
+            }
+            If (line.StartsWith("warning")) { warnings = warnings + 1; }
+        }
+        Print("{error}" + errors.ToString() + "{/} {muted}errors{/}  {warning}" + warnings.ToString() + "{/} {muted}warnings{/}");
+        If (result.Rxir == "") {
+            This.Diagnostics.Add(output + " failed to compile.");
+            Return False;
+        }
+        RxPass passes = RxPass();
+        String rxir = passes.Optimize(result.Rxir);
+        RxAssembler assembler = RxAssembler();
+        assembler.Target = "linux-x64";
+        String rxasm = assembler.WithStart(assembler.Select(rxir));
+        Int skipAt = rxasm.IndexOf("; skip");
+        If (skipAt >= 0) {
+            Int start = skipAt;
+            While (start > 0 && rxasm.GetChar(start - 1) != 10) { start = start - 1; }
+            Int end = skipAt;
+            While (end < rxasm.Length() && rxasm.GetChar(end) != 10) { end = end + 1; }
+            Print(rxasm.Substring(start, end - start));
+            This.Diagnostics.Add(output + " is not encodable yet.");
+            Return False;
+        }
+        If (!result.Succeeded) {
+            This.Diagnostics.Add(output + " failed the strict checker.");
+            Return False;
+        }
+        List<Int> code = assembler.Assemble(rxasm);
+        If (code.Count() == 0) {
+            This.Diagnostics.Add(output + " failed to assemble.");
+            Return False;
+        }
+        Directory.Create("Build/Self");
+        ElfImage elf = ElfImage();
+        Files.WriteBytes(output, elf.Wrap(code));
+        Print("{success}wrote{/}  {bold}" + output + "{/}");
+        Return True;
     }
 
     Private Function CompileOne(ProjectNode project, String relative, Bool entry) -> Bool {

@@ -61,6 +61,56 @@ Public Class SyntaxCompiler {
         Return result;
     }
 
+    Public Function CompileProgram(List<String> sources, List<String> names, Bool compile) -> CompileResult
+    Explain {
+        Description: "Compile the compiler sources as one program.";
+        Input: sources = "Source text of each project file", names = "File name for each source", compile = "True to lower RXIR";
+        Processing: "Parse every file, keep the declarations, and type-check one module. Package imports are not loaded.";
+        Output: "The merged module and its RXIR when the strict check passes.";
+    } {
+        DiagnosticBag diagnostics = DiagnosticBag();
+        CompileResult result = CompileResult();
+        AstNode module = AstNode();
+        module.Kind = AstKind.Module;
+        module.Name = "Robix";
+        Int index = 0;
+        While (index < sources.Count()) {
+            String source = sources[index];
+            This.RequireUses(source, diagnostics);
+            Lexer lexer = Lexer(source, diagnostics);
+            Parser parser = Parser(lexer.Tokenize(), diagnostics);
+            AstNode parsed = parser.Parse();
+            If (parsed.Children != Null) {
+                For child In parsed.Children {
+                    If (child.Kind != AstKind.Import && child.Kind != AstKind.Package) {
+                        module.Children.Add(child);
+                    }
+                }
+            }
+            index = index + 1;
+        }
+        This.MergePartial(module);
+        If (diagnostics.ErrorCount() == 0) {
+            NameChecker checker = NameChecker(diagnostics, compile);
+            checker.Check(module, "Robix.rxp");
+            TypeChecker types = TypeChecker(diagnostics);
+            types.Check(module);
+        }
+        result.Module = module;
+        result.SyntaxErrors = diagnostics.SyntaxErrorCount();
+        result.Errors = diagnostics.ErrorCount();
+        If (result.Errors == 0) {
+            If (compile) {
+                RxProgram rxir = RxProgram();
+                result.Rxir = rxir.LowerModule(module);
+            }
+            result.Succeeded = True;
+        }
+        result.Module.Number = diagnostics.Count();
+        This.AttachDiagnostics(result.Module, diagnostics);
+        Return result;
+    }
+
     Public Function DiagnosticsOf(CompileResult result) -> List<String>
     Explain {
         Description: "Return formatted diagnostics stored on a compile result.";
@@ -75,6 +125,26 @@ Public Class SyntaxCompiler {
             }
         }
         Return lines;
+    }
+
+    Private Function MergePartial(AstNode module) -> Void {
+        If (module.Children == Null) { Return; }
+        Var kept = List<AstNode>();
+        For child In module.Children {
+            Bool merged = False;
+            If (child.Kind == AstKind.Class) {
+                For earlier In kept {
+                    If (earlier.Kind == AstKind.Class && earlier.Name == child.Name && earlier.Children != Null && child.Children != Null) {
+                        For member In child.Children {
+                            earlier.Children.Add(member);
+                        }
+                        merged = True;
+                    }
+                }
+            }
+            If (!merged) { kept.Add(child); }
+        }
+        module.Children = kept;
     }
 
     Private Function LoadImports(AstNode module, List<String> loaded, DiagnosticBag diagnostics) -> Void {
