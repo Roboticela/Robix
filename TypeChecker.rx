@@ -1248,6 +1248,11 @@ Public Class TypeChecker {
                     Return "Bool";
                 }
             }
+            If (owner == "Directory") {
+                If (node.Left.Name == "Exists") { Return "Bool"; }
+                If (node.Left.Name == "Files") { Return "List<String>"; }
+                If (node.Left.Name == "Create" || node.Left.Name == "Delete") { Return "Void"; }
+            }
             If (owner == "Paths") {
                 If (node.Left.Name == "Name" || node.Left.Name == "Join" || node.Left.Name == "Directory" || node.Left.Name == "Extension") { Return "String"; }
             }

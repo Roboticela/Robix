@@ -359,57 +359,57 @@ inline std::string PaintColor(int red, int green, int blue) {
 
 inline bool RoleColor(const std::string& tag, int& red, int& green, int& blue) {
     if (tag == "red" || tag == "error") {
-        red = 255;
-        green = 90;
-        blue = 90;
+        red = 239;
+        green = 68;
+        blue = 68;
         return true;
     }
-    if (tag == "green" || tag == "success") {
-        red = 80;
-        green = 220;
-        blue = 120;
+    if (tag == "green" || tag == "success" || tag == "accent" || tag == "primary") {
+        red = 22;
+        green = 163;
+        blue = 74;
         return true;
     }
     if (tag == "yellow" || tag == "warning") {
-        red = 255;
-        green = 196;
-        blue = 64;
+        red = 234;
+        green = 179;
+        blue = 8;
         return true;
     }
     if (tag == "blue") {
-        red = 80;
-        green = 180;
-        blue = 255;
+        red = 59;
+        green = 130;
+        blue = 246;
         return true;
     }
-    if (tag == "cyan") {
-        red = 80;
-        green = 220;
-        blue = 220;
+    if (tag == "cyan" || tag == "info") {
+        red = 6;
+        green = 182;
+        blue = 212;
         return true;
     }
-    if (tag == "magenta") {
-        red = 230;
-        green = 120;
-        blue = 220;
+    if (tag == "magenta" || tag == "package") {
+        red = 168;
+        green = 85;
+        blue = 247;
+        return true;
+    }
+    if (tag == "orange" || tag == "debug") {
+        red = 249;
+        green = 115;
+        blue = 22;
         return true;
     }
     if (tag == "white" || tag == "text") {
-        red = 240;
-        green = 240;
-        blue = 245;
+        red = 229;
+        green = 231;
+        blue = 235;
         return true;
     }
     if (tag == "gray" || tag == "grey" || tag == "muted" || tag == "secondary") {
-        red = 140;
-        green = 150;
-        blue = 165;
-        return true;
-    }
-    if (tag == "info" || tag == "accent" || tag == "primary") {
-        red = 180;
-        green = 140;
-        blue = 255;
+        red = 148;
+        green = 163;
+        blue = 184;
         return true;
     }
     if (tag.size() == 7 && tag[0] == '#') {
@@ -499,6 +499,10 @@ inline String ReadLine() {
     std::string line;
     if (!std::getline(std::cin, line)) return String::Lit("");
     return String::Lit(line);
+}
+
+inline String Input() {
+    return ReadLine();
 }
 
 inline int64_t BitAnd(int64_t left, int64_t right) {

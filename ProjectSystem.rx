@@ -391,8 +391,9 @@ Public Class ProjectEngine {
 
     Private Function PrintHelp() -> Void {
         Print("{accent}robix{/} {muted}commands{/}");
-        Print("robix                  Build the current project");
-        Print("robix Build            Build the project");
+        Print("robix                  Start the REPL");
+        Print("robix Build            Run the project Build task");
+        Print("robixc Build           Compile a native binary");
         Print("robix Clean            Remove generated files");
         Print("robix Rebuild          Clean and build");
         Print("robix Run              Build and run the project");
@@ -406,7 +407,8 @@ Public Class ProjectEngine {
         Print("robix Pack             Package the output");
         Print("robix Check            Validate the .rxp file");
         Print("robix check File.rx    Type-check one source file");
-        Print("robix List             List tasks");
+        Print("robix Tasks            List tasks");
+        Print("robix List             List packages");
         Print("robix Info             Show project information");
         Print("robix Help             Show this help");
         Print("robix Version          Show the tool version");

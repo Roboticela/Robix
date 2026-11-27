@@ -30,3 +30,414 @@ Test IsProjectCommand {
         Output: False;
     }
 }
+
+Test ClassifyRobix {
+    Case "repl" {
+        Input: args = [];
+        Output: "repl";
+    }
+    Case "help" {
+        Input: args = ["--Help"];
+        Output: "help";
+    }
+    Case "version detail" {
+        Input: args = ["--Version"];
+        Output: "version-detail";
+    }
+    Case "run file" {
+        Input: args = ["Run", "Main.rx"];
+        Output: "run-file";
+    }
+    Case "test file path" {
+        Input: args = ["User.test.rx"];
+        Output: "test-file";
+    }
+    Case "span" {
+        Input: args = ["Main.rx:10:20"];
+        Output: "run-span";
+    }
+    Case "project build" {
+        Input: args = ["Build"];
+        Output: "project";
+    }
+    Case "install" {
+        Input: args = ["install"];
+        Output: "install";
+    }
+}
+
+Test TopicOf {
+    Case "full" {
+        Input: args = ["Help"];
+        Output: "full";
+    }
+    Case "test topic" {
+        Input: args = ["Help", "Test"];
+        Output: "Test";
+    }
+}
+
+Test HelpText {
+    Case "names the test command" {
+        Input: topic = "full";
+        Contains: Result, "Robix Test";
+    }
+    Case "install section" {
+        Input: topic = "Install";
+        Contains: Result, "Robix Install";
+    }
+}
+
+Test VersionText {
+    Case "short" {
+        Input: kind = "short";
+        Output: "Robix 0.0.48";
+    }
+    Case "detail" {
+        Input: kind = "detail";
+        Contains: Result, "Toolchain";
+    }
+}
+
+Test PascalName {
+    Case "hyphenated words" {
+        Input: text = "hello-world";
+        Output: "HelloWorld";
+    }
+    Case "already pascal" {
+        Input: text = "HelloWorld";
+        Output: "HelloWorld";
+    }
+    Case "leading digit" {
+        Input: text = "3d";
+        Output: "";
+    }
+}
+
+Test SpanOf {
+    Case "range" {
+        Input: text = "Main.rx:10:20";
+        Output: "Main.rx|10|20";
+    }
+    Case "one line" {
+        Input: text = "Main.rx:10";
+        Output: "Main.rx|10|10";
+    }
+    Case "whole file" {
+        Input: text = "Main.rx";
+        Output: "Main.rx||";
+    }
+}
+
+Test SpanKind {
+    Case "digits" {
+        Input: token = "10";
+        Output: "line";
+    }
+    Case "label" {
+        Input: token = "Start";
+        Output: "label";
+    }
+}
+
+Test LineCount {
+    Case "two lines" {
+        Input: text = "a\nb";
+        Output: 2;
+    }
+    Case "empty" {
+        Input: text = "";
+        Output: 0;
+    }
+}
+
+Test StorePath {
+    Case "version directory" {
+        Input: name = "Alpha", version = "1.2.0";
+        Output: "Packages/Installed/Alpha/1.2.0";
+    }
+}
+
+Test PackageSpec {
+    Case "exact version" {
+        Input: text = "Alpha@1.2.0";
+        Output: "Alpha|1.2.0";
+    }
+    Case "missing version" {
+        Input: text = "Alpha";
+        Output: "Alpha|1.0.0";
+    }
+}
+
+Test DefaultConfig {
+    Case "timing starts on" {
+        Input:;
+        Contains: Result, "Time=On";
+    }
+}
+
+Test CanonicalKey {
+    Case "exit code" {
+        Input: key = "exitcode";
+        Output: "ExitCode";
+    }
+    Case "unknown" {
+        Input: key = "other";
+        Output: "";
+    }
+}
+
+Test CanonicalSwitch {
+    Case "off" {
+        Input: value = "off";
+        Output: "Off";
+    }
+}
+
+Test NextConfig {
+    Case "turns color off" {
+        Input: text = "", key = "Colors", value = "Off";
+        Contains: Result, "Colors=Off";
+    }
+}
+
+Test ConfigFlag {
+    Case "reads time" {
+        Input: text = "Time=Off\n", key = "Time";
+        Output: "Off";
+    }
+}
+
+Test FindFrom {
+    Case "later match" {
+        Input: text = "abba", start = 2, needle = "a";
+        Output: 3;
+    }
+    Case "absent" {
+        Input: text = "abba", start = 4, needle = "a";
+        Output: -1;
+    }
+}
+
+Test FindBefore {
+    Case "earlier line" {
+        Input: text = "ab\ncd", start = 3, needle = "\n";
+        Output: 2;
+    }
+    Case "none before" {
+        Input: text = "ab\ncd", start = 2, needle = "\n";
+        Output: -1;
+    }
+}
+
+Test StripColor {
+    Case "drops tags" {
+        Input: text = "{accent}Robix{/}";
+        Output: "Robix";
+    }
+}
+
+Test WithDependency {
+    Case "inserts the package" {
+        Input: project = "Project \"Demo\"\n{\n}\n", name = "Alpha", version = "1.2.0";
+        Contains: Result, "Alpha";
+    }
+}
+
+Test WithoutDependency {
+    Case "drops the package" {
+        Input: project = "Project \"Demo\"\n{\n    Package \"Alpha\" { Version: \"1.0.0\"; }\n}\n", name = "Alpha";
+        False: Result.Contains("Alpha");
+    }
+}
+
+Test DependencyText {
+    Case "reads the package version" {
+        Input: project = "Package \"Alpha\" { Version: \"1.2.0\"; }\n";
+        Output: "Alpha 1.2.0\n";
+    }
+}
+
+Test TemplateStatus {
+    Case "console" {
+        Input: kind = "Application", variant = "Console";
+        Output: "console";
+    }
+    Case "bedrock" {
+        Input: kind = "Bedrock", variant = "Kernel";
+        Output: "unavailable";
+    }
+    Case "empty canvas" {
+        Input: kind = "Canvas", variant = "Empty";
+        Output: "empty";
+    }
+}
+
+Test ConsoleProject {
+    Case "has an entry" {
+        Input: name = "Demo";
+        Contains: Result, "Entry: \"Source/Main.rx\"";
+    }
+}
+
+Test EmptyProject {
+    Case "has no entry" {
+        Input: name = "Demo";
+        False: Result.Contains("Entry:");
+    }
+}
+
+Test SourceText {
+    Case "greets the project" {
+        Input: name = "Demo";
+        Contains: Result, "Hello, Demo";
+    }
+}
+
+Test TestText {
+    Case "tests main" {
+        Input: name = "Demo";
+        Contains: Result, "Test Main";
+    }
+}
+
+Test EntryOf {
+    Case "quoted entry" {
+        Input: project = "Entry: \"Source/Main.rx\";\n";
+        Output: "Source/Main.rx";
+    }
+}
+
+Test ProjectTitle {
+    Case "quoted name" {
+        Input: project = "Project \"Demo\"\n";
+        Output: "Demo";
+    }
+}
+
+Test BraceDepth {
+    Case "matched" {
+        Input: text = "{}";
+        Output: 0;
+    }
+    Case "open" {
+        Input: text = "{";
+        Output: 1;
+    }
+    Case "quoted brace" {
+        Input: text = "\"{\"";
+        Output: 0;
+    }
+}
+
+Test SessionProgram {
+    Case "keeps the statement" {
+        Input: body = "Print(\"hi\");\n", name = "Session";
+        Contains: Result, "Print(\"hi\")";
+    }
+}
+
+Test DoctorReport {
+    Case "incomplete" {
+        Input: hasInterpreter = True, hasCompiler = True, hasPackages = False;
+        Contains: Result, "Installation: incomplete";
+    }
+}
+
+Test EnvironmentReport {
+    Case "packages present" {
+        Input: hasPackages = True, hasLibrary = False, hasShared = False;
+        Contains: Result, "Packages: present";
+    }
+}
+
+Test CompletionScript {
+    Case "lists install" {
+        Input:;
+        Contains: Result, "Install";
+    }
+}
+
+Test LaterReason {
+    Case "accepted" {
+        Input: flag = "--Verbose";
+        Output: "";
+    }
+    Case "reserved" {
+        Input: flag = "--Watch";
+        Contains: Result, "not available yet";
+    }
+}
+
+Test FirstProblem {
+    Case "unknown option" {
+        Input: args = ["--Nope"];
+        Output: "Unknown option --Nope.";
+    }
+    Case "clean command" {
+        Input: args = ["Run", "Main.rx"];
+        Output: "";
+    }
+}
+
+Test ProgramArgText {
+    Case "after the file" {
+        Input: args = ["Run", "Main.rx", "hello"];
+        Output: "hello\n";
+    }
+    Case "after dash dash" {
+        Input: args = ["Main.rx", "--", "a"];
+        Output: "a\n";
+    }
+}
+
+Test SourcePath {
+    Case "run verb" {
+        Input: args = ["Run", "Main.rx"];
+        Output: "Main.rx";
+    }
+}
+
+Test OptionText {
+    Case "following value" {
+        Input: args = ["--BreakAt", "20"], flag = "--BreakAt";
+        Output: "20";
+    }
+    Case "equals value" {
+        Input: args = ["--Target=LinuxX64"], flag = "--Target";
+        Output: "LinuxX64";
+    }
+}
+
+Test ApplyRobix { Output: True; }
+Test WriteConfig { Output: True; }
+Test AskProject { Output: True; }
+Test WriteProject { Output: True; }
+Test InspectCommand { Output: True; }
+Test PackageCommand { Output: True; }
+Test MaterializeDependencies { Output: True; }
+Test PlacePackage { Output: True; }
+Test StopResult {
+    Case "failure" {
+        Input: message = "Tests failed.";
+        Output: True;
+    }
+    Case "success" {
+        Input: message = "Tests passed.";
+        Output: False;
+    }
+}
+
+Test FindProjectFile { Output: True; }
+Test RunSource { Output: True; }
+Test RunSession { Output: True; }
+
+Test SessionInventory {
+    Case "finds a variable" {
+        Input: source = "Var speed = 1;\n", command = ":variables";
+        Contains: Result, "Var speed";
+    }
+}
+
+Test Say { Output: True; }
+Test FinishShown { Output: True; }

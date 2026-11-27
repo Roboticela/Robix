@@ -1,111 +1,1485 @@
-// robix runs a module or checks its syntax.
-Package Robix.Tools;
+// robix runs a module, a test, a project task, or an interactive session.
+Package Robix.Tools
+Explain {
+    Description: "Commands for the Robix interpreter.";
+};
 
 Import Robix.Core;
 Import Robix.Syntax;
 Import Robix.Runtime;
 
 Private Extern Function ClockMillis() -> Int;
+Private Extern Function Input() -> String;
 
 
 Public Function Main(Args<String> args) -> ExecutionResult
 Explain {
-    Description: "Run a Robix module or check that its syntax and types are accepted.";
-        Input: args = "A project task, or run <file>, check <file>, or cover";
-        Processing: "Build the .rxp project, or parse one source file and run or check it.";
-    Output: "A standard execution result.";
+    Description: "Dispatch a Robix command.";
+    Input: args = "The command line after the tool name";
+    Processing: "Start the REPL, run one file, test, configure, install, create a project, or forward a project task.";
+    Output: "The execution result of that command.";
 } {
-    If (args.Count() == 0) {
-        Return ExecuteProject(args);
+    Return ApplyRobix(args);
+}
+
+Public Function ClassifyRobix(List<String> args) -> String
+Explain {
+    Description: "Choose the Robix command family.";
+    Input: args = "Command arguments, in any letter case";
+    Processing: "Skip options and read the first command word or source path.";
+    Output: "The command family name.";
+} {
+    Var words = List<String>();
+    For arg In args {
+        If (arg == "--") { Break; }
+        If (!arg.StartsWith("-")) { words.Add(arg); }
     }
-    String command = args[0].ToLower();
-    If (command == "cover") {
-        Int failures = CoverSyntax();
-        If (failures > 0) {
-            Return FinishRun(ExitCode.ErrorExecution, "Syntax coverage reported failures.");
+    If (words.Count() == 0) {
+        For arg In args {
+            String lower = arg.ToLower();
+            If (lower == "-h" || lower == "--help") { Return "help"; }
+            If (lower == "--version") { Return "version-detail"; }
+            If (lower == "-v") { Return "version"; }
         }
-        Return FinishRun(ExitCode.Success, "Syntax coverage passed.");
+        Return "repl";
     }
-    If (IsProjectCommand(command, args)) {
-        Return ExecuteProject(args);
+    String first = words[0].ToLower();
+    If (first == "help") {
+        If (words.Count() > 1) { Return "help-topic"; }
+        Return "help";
     }
-    If (args.Count() < 2) {
-        Return ExecuteProject(args);
+    If (first == "version") {
+        For arg In args {
+            If (arg.ToLower() == "--version") { Return "version-detail"; }
+        }
+        Return "version";
     }
-    Print("{accent}robix{/} {muted}" + command + "{/} {bold}" + args[1] + "{/}");
-    String source = Files.ReadText(args[1]);
+    If (first == "cover") { Return "cover"; }
+    If (first == "run") {
+        If (words.Count() < 2 || words[1] == ".") { Return "run-project"; }
+        If (words[1].Contains(".rx:")) { Return "run-span"; }
+        If (words[1].EndsWith(".test.rx")) { Return "test-file"; }
+        If (words[1].EndsWith(".rx")) { Return "run-file"; }
+        Return "run-project";
+    }
+    If (first == "test") { Return "test"; }
+    If (first == "debug") { Return "debug"; }
+    If (first == "config") { Return "config"; }
+    If (first == "new") { Return "new"; }
+    If (first == "init") { Return "init"; }
+    If (first == "open") { Return "open"; }
+    If (first == "structure") { Return "structure"; }
+    If (first == "validate") { Return "validate"; }
+    If (first == "tasks") { Return "tasks"; }
+    If (first == "doctor") { Return "doctor"; }
+    If (first == "environment") { Return "environment"; }
+    If (first == "completion") { Return "completion"; }
+    If (first == "install") { Return "install"; }
+    If (first == "remove") { Return "remove"; }
+    If (first == "update") { Return "update"; }
+    If (first == "list") { Return "list"; }
+    If (first == "search") { Return "search"; }
+    If (first == "outdated") { Return "outdated"; }
+    If (first == "verify") { Return "verify"; }
+    If (first == "lock") { Return "lock"; }
+    If (first == "cache") { Return "cache"; }
+    If (first == "format" || first == "lint" || first == "explain" || first == "diagnose" || first == "graph" || first == "modules" || first == "unpublish") { Return "later"; }
+    If (first == "check" && words.Count() > 1 && words[1].EndsWith(".rx")) { Return "check-file"; }
+    If (first == "info" && words.Count() > 1 && !words[1].StartsWith("-")) { Return "package-info"; }
+    If (first.Contains(".rx:")) { Return "run-span"; }
+    If (first.EndsWith(".test.rx")) { Return "test-file"; }
+    If (first.EndsWith(".rx")) { Return "run-file"; }
+    Return "project";
+}
+
+Public Function TopicOf(List<String> args) -> String
+Explain {
+    Description: "Read the help topic from the command line.";
+    Input: args = "Command arguments";
+    Processing: "Use the word after Help. Use full when the word is absent.";
+    Output: "The topic name.";
+} {
+    Var words = List<String>();
+    For arg In args {
+        If (!arg.StartsWith("-")) { words.Add(arg); }
+    }
+    If (words.Count() >= 2 && words[0].ToLower() == "help") { Return words[1]; }
+    Return "full";
+}
+
+Public Function HelpText(String topic) -> String
+Explain {
+    Description: "Build the Robix help page.";
+    Input: topic = "full, or a command family such as Test or Install";
+    Processing: "Select the matching section. An unknown topic returns the full page after a notice.";
+    Output: "Help text with color tags and PascalCase commands.";
+} {
+    String name = topic.ToLower();
+    String usage = "{accent}ROBIX{/}\nInterpreter, packages, tests, projects\n\n{info}USAGE{/}\n  Robix [Command] [Arguments] [Options]\n\n";
+    String execution = "{accent}EXECUTION{/}\n  Robix                         Start the REPL\n  Robix Main.rx                 Run one source file\n  Robix Run .                   Run the project entry\n  Robix Run Main.rx -- …        Pass arguments after --\n\n";
+    String testing = "{info}TESTING{/}\n  Robix Test                    Test the project\n  Robix User.test.rx            Test one file\n  Robix Test A.test.rx B.test.rx  Test several files\n  Robix Test FunctionName       Test one function\n  Robix Test --Class ClassName  Test one class\n\n";
+    String packages = "{package}PACKAGES{/}\n  Robix Install                 Install dependencies from the .rxp\n  Robix Install PackageA@1.2.0  Install one version\n  Robix Remove PackageA         Drop it from the project\n  Robix List                    List project dependencies\n  Robix List --Global           List Packages/Installed\n  Robix Update                  Report versions in the .rxp\n\n";
+    String projects = "{accent}PROJECTS{/}\n  Robix New                     Ask for the kind, variant, and name\n  Robix New ProjectName Application Console\n  Robix New . ProjectName Canvas Empty\n  Robix Init                    Initialize this directory\n  Robix Tasks                   List project tasks\n  Robix Doctor                  Check the toolchain\n\n";
+    String debug = "{debug}DEBUG{/}\n  Robix Main.rx:10              Parse the file and run it, focused on that line\n  Robix Main.rx:10:20           Focus on a line range\n  Robix Debug Main.rx --BreakAt 20\n\n";
+    String config = "{warning}CONFIG{/}\n  Robix Config                  Show the active settings\n  Robix Config Time On          Show or hide execution timing\n  Robix Config ExitCode Off     Hide the exit code line\n  Robix Config ExitMessage Off  Hide the exit message\n  Robix Config Colors Off       Plain text\n  Robix Config Reset            Restore defaults\n\n";
+    String options = "{muted}OPTIONS{/}\n  -h, --Help                    Help\n  -v, --Version                 Version\n  --Verbose --Quiet --Force --NoColor\n  --Configuration Debug|Release|Development\n\nRobix Build, Clean, Restore, Self, and Pack stay project tasks.\nNative compilation is Robixc.\n";
+    String page = usage + execution + testing + packages + projects + debug + config + options;
+    If (name == "" || name == "full" || name == "all") { Return page; }
+    If (name == "run" || name == "execution" || name == "repl") { Return usage + execution; }
+    If (name == "test" || name == "testing") { Return usage + testing; }
+    If (name == "install" || name == "package" || name == "packages") { Return usage + packages; }
+    If (name == "new" || name == "project" || name == "projects") { Return usage + projects; }
+    If (name == "debug") { Return usage + debug; }
+    If (name == "config") { Return usage + config; }
+    Return "Unknown help topic " + topic + "\n" + page;
+}
+
+Public Function VersionText(String kind) -> String
+Explain {
+    Description: "Format the Robix version line.";
+    Input: kind = "short or detail";
+    Processing: "Print the toolchain version. Detail adds the toolchain label.";
+    Output: "The version text.";
+} {
+    If (kind == "detail") { Return "Robix 0.0.48\nToolchain\n"; }
+    Return "Robix 0.0.48";
+}
+
+Public Function PascalName(String text) -> String
+Explain {
+    Description: "Convert a project name to PascalCase.";
+    Input: text = "Words, hyphens, or an existing PascalCase name";
+    Processing: "Capitalize each word. Reject a name that does not start with a letter.";
+    Output: "The PascalCase name, or empty when the name is not usable.";
+} {
+    String lower = "abcdefghijklmnopqrstuvwxyz";
+    String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    String digits = "0123456789";
+    String result = "";
+    String word = "";
+    Int index = 0;
+    While (index <= text.Length()) {
+        String piece = "";
+        Bool ended = index == text.Length();
+        If (!ended) { piece = text.Substring(index, 1); }
+        Bool keep = False;
+        If (!ended && (lower.IndexOf(piece) >= 0 || upper.IndexOf(piece) >= 0 || digits.IndexOf(piece) >= 0)) { keep = True; }
+        If (keep) {
+            word = word + piece;
+        } Else If (word != "") {
+            String first = word.Substring(0, 1);
+            Int at = lower.IndexOf(first);
+            If (at >= 0) { first = upper.Substring(at, 1); }
+            String rest = "";
+            Bool innerUpper = False;
+            Int scan = 1;
+            While (scan < word.Length()) {
+                If (upper.IndexOf(word.Substring(scan, 1)) >= 0) { innerUpper = True; }
+                scan = scan + 1;
+            }
+            Int cursor = 1;
+            While (cursor < word.Length()) {
+                String letter = word.Substring(cursor, 1);
+                If (!innerUpper) {
+                    Int low = upper.IndexOf(letter);
+                    If (low >= 0) { letter = lower.Substring(low, 1); }
+                }
+                rest = rest + letter;
+                cursor = cursor + 1;
+            }
+            result = result + first + rest;
+            word = "";
+        }
+        index = index + 1;
+    }
+    If (result == "") { Return ""; }
+    If (digits.IndexOf(result.Substring(0, 1)) >= 0) { Return ""; }
+    Return result;
+}
+
+Public Function SpanOf(String text) -> String
+Explain {
+    Description: "Split a source path and an optional line span.";
+    Input: text = "Main.rx, Main.rx:10, or Main.rx:10:20";
+    Processing: "Read the path and the start and end tokens.";
+    Output: "path|start|end. A bare path has empty ends.";
+} {
+    Int marker = text.IndexOf(".rx:");
+    If (marker < 0) { Return text + "||"; }
+    String file = text.Substring(0, marker) + ".rx";
+    String rest = text.Substring(marker + 4);
+    Int colon = rest.IndexOf(":");
+    If (colon < 0) { Return file + "|" + rest + "|" + rest; }
+    Return file + "|" + rest.Substring(0, colon) + "|" + rest.Substring(colon + 1);
+}
+
+Public Function SpanKind(String token) -> String
+Explain {
+    Description: "Tell a line number from a debug label.";
+    Input: token = "A span token";
+    Processing: "Digits are a line number. Any other token is a label.";
+    Output: "line, label, or missing.";
+} {
+    If (token == "") { Return "missing"; }
+    String digits = "0123456789";
+    Int index = 0;
+    While (index < token.Length()) {
+        If (digits.IndexOf(token.Substring(index, 1)) < 0) { Return "label"; }
+        index = index + 1;
+    }
+    Return "line";
+}
+
+Public Function LineCount(String text) -> Int
+Explain {
+    Description: "Count lines in source text.";
+    Input: text = "Source text";
+    Processing: "Count newline separated lines. A trailing newline does not add an empty line.";
+    Output: "The line count.";
+} {
+    If (text.Length() == 0) { Return 0; }
+    Int count = 1;
+    Int index = 0;
+    While (index < text.Length()) {
+        If (text.Substring(index, 1) == "\n" && index + 1 < text.Length()) { count = count + 1; }
+        index = index + 1;
+    }
+    Return count;
+}
+
+Public Function StorePath(String name, String version) -> String
+Explain {
+    Description: "Build the global package directory.";
+    Input: name = "Package name", version = "Package version";
+    Processing: "Place each version in its own directory under Packages/Installed.";
+    Output: "The package directory.";
+} {
+    Return "Packages/Installed/" + name + "/" + version;
+}
+
+Public Function PackageSpec(String text) -> String
+Explain {
+    Description: "Split a package request into a name and a version.";
+    Input: text = "PackageA or PackageA@1.2.0";
+    Processing: "Use 1.0.0 when the version is omitted. No registry is consulted.";
+    Output: "name|version.";
+} {
+    Int at = text.IndexOf("@");
+    If (at < 0) { Return text + "|1.0.0"; }
+    If (at == 0 || at + 1 >= text.Length()) { Return "|"; }
+    Return text.Substring(0, at) + "|" + text.Substring(at + 1);
+}
+
+Public Function DefaultConfig() -> String
+Explain {
+    Description: "Return the default Robix settings.";
+    Input: None;
+    Processing: "Colors, timing, exit code, and exit message start enabled.";
+    Output: "The settings file text.";
+} {
+    Return "Time=On\nExitCode=On\nExitMessage=On\nColors=On\nVerbose=Off\nProgress=On\nUnicode=Automatic\n";
+}
+
+Public Function CanonicalKey(String key) -> String
+Explain {
+    Description: "Normalize a configuration key.";
+    Input: key = "A setting name in any letter case";
+    Processing: "Map the known keys to PascalCase.";
+    Output: "The stored key, or empty when the key is unknown.";
+} {
+    String lower = key.ToLower();
+    If (lower == "time") { Return "Time"; }
+    If (lower == "exitcode") { Return "ExitCode"; }
+    If (lower == "exitmessage") { Return "ExitMessage"; }
+    If (lower == "colors") { Return "Colors"; }
+    If (lower == "verbose") { Return "Verbose"; }
+    If (lower == "progress") { Return "Progress"; }
+    If (lower == "unicode") { Return "Unicode"; }
+    Return "";
+}
+
+Public Function CanonicalSwitch(String value) -> String
+Explain {
+    Description: "Normalize a configuration value.";
+    Input: value = "On, Off, True, False, or Automatic";
+    Processing: "Map the words to the stored form.";
+    Output: "On, Off, Automatic, or empty.";
+} {
+    String lower = value.ToLower();
+    If (lower == "on" || lower == "true") { Return "On"; }
+    If (lower == "off" || lower == "false") { Return "Off"; }
+    If (lower == "automatic") { Return "Automatic"; }
+    Return "";
+}
+
+Public Function NextConfig(String text, String key, String value) -> String
+Explain {
+    Description: "Change one configuration setting.";
+    Input: text = "Current settings, or empty for the defaults", key = "Setting name", value = "On or Off";
+    Processing: "Replace the matching line or append it. Unknown keys and values leave the text unchanged.";
+    Output: "The updated settings.";
+} {
+    String stored = CanonicalKey(key);
+    String shown = CanonicalSwitch(value);
+    If (stored == "" || shown == "") { Return text; }
+    String current = text;
+    If (current == "") { current = DefaultConfig(); }
+    String prefix = stored + "=";
+    String rebuilt = "";
+    Bool replaced = False;
+    Int start = 0;
+    Int index = 0;
+    While (index <= current.Length()) {
+        Bool boundary = index == current.Length();
+        If (!boundary && current.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary) {
+            String line = "";
+            If (index > start) { line = current.Substring(start, index - start); }
+            If (line.StartsWith(prefix)) {
+                line = prefix + shown;
+                replaced = True;
+            }
+            If (line != "" || index > start) { rebuilt = rebuilt + line + "\n"; }
+            start = index + 1;
+        }
+        index = index + 1;
+    }
+    If (!replaced) { rebuilt = rebuilt + prefix + shown + "\n"; }
+    Return rebuilt;
+}
+
+Public Function ConfigFlag(String text, String key) -> String
+Explain {
+    Description: "Read one configuration setting.";
+    Input: text = "Settings text", key = "Setting name";
+    Processing: "Find the stored line. An empty text uses the defaults.";
+    Output: "The stored value, or empty when the key is missing.";
+} {
+    String stored = CanonicalKey(key);
+    If (stored == "") { Return ""; }
+    String current = text;
+    If (current == "") { current = DefaultConfig(); }
+    String prefix = stored + "=";
+    Int start = 0;
+    Int index = 0;
+    While (index <= current.Length()) {
+        Bool boundary = index == current.Length();
+        If (!boundary && current.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary) {
+            String line = "";
+            If (index > start) { line = current.Substring(start, index - start); }
+            If (line.StartsWith(prefix)) { Return line.Substring(prefix.Length()); }
+            start = index + 1;
+        }
+        index = index + 1;
+    }
+    Return "";
+}
+
+Public Function FindFrom(String text, Int start, String needle) -> Int
+Explain {
+    Description: "Find a string at or after a start index.";
+    Input: text = "The text to search", start = "The first index that may match", needle = "The text to find";
+    Processing: "Search only the suffix that begins at the start index.";
+    Output: "The absolute index, or -1 when the text is absent.";
+} {
+    Var from = start;
+    If (from < 0) { from = 0; }
+    If (from > text.Length()) { Return -1; }
+    String tail = text.Substring(from);
+    Int relative = tail.IndexOf(needle);
+    If (relative < 0) { Return -1; }
+    Return from + relative;
+}
+
+Public Function FindBefore(String text, Int start, String needle) -> Int
+Explain {
+    Description: "Find the last match that begins before an index.";
+    Input: text = "The text to search", start = "The index the match must precede", needle = "The text to find";
+    Processing: "Search only the prefix that ends at the start index.";
+    Output: "The absolute index, or -1 when the text is absent.";
+} {
+    Var limit = start;
+    If (limit < 0) { Return -1; }
+    If (limit > text.Length()) { limit = text.Length(); }
+    String head = text.Substring(0, limit);
+    Return head.LastIndexOf(needle);
+}
+
+Public Function StripColor(String text) -> String
+Explain {
+    Description: "Remove printer color tags.";
+    Input: text = "Text that may contain {accent} tags";
+    Processing: "Drop each brace tag and keep the words.";
+    Output: "Plain text.";
+} {
+    String result = "";
+    Int index = 0;
+    While (index < text.Length()) {
+        String piece = text.Substring(index, 1);
+        If (piece == "{") {
+            Int end = FindFrom(text, index + 1, "}");
+            If (end < 0) {
+                result = result + piece;
+                index = index + 1;
+            } Else {
+                index = end + 1;
+            }
+        } Else {
+            result = result + piece;
+            index = index + 1;
+        }
+    }
+    Return result;
+}
+
+Public Function WithDependency(String project, String name, String version) -> String
+Explain {
+    Description: "Record a package in project text.";
+    Input: project = ".rxp text", name = "Package name", version = "Exact version";
+    Processing: "Replace an existing package entry or insert one before the closing brace.";
+    Output: "The updated project text.";
+} {
+    String marker = "Package \"" + name + "\"";
+    Int at = project.IndexOf(marker);
+    If (at >= 0) {
+        Int ver = FindFrom(project, at, "Version: \"");
+        If (ver >= 0) {
+            Int open = ver + 10;
+            Int close = FindFrom(project, open, "\"");
+            If (close > open) {
+                Return project.Substring(0, open) + version + project.Substring(close);
+            }
+        }
+    }
+    String entry = "    Dependencies\n    {\n        Package \"" + name + "\" { Version: \"" + version + "\"; }\n    }\n";
+    Int end = project.LastIndexOf("}");
+    If (end < 0) { Return project + "\n" + entry; }
+    Return project.Substring(0, end) + entry + project.Substring(end);
+}
+
+Public Function WithoutDependency(String project, String name) -> String
+Explain {
+    Description: "Remove a package entry from project text.";
+    Input: project = ".rxp text", name = "Package name";
+    Processing: "Drop the package line and leave the rest of the project.";
+    Output: "The updated project text.";
+} {
+    String marker = "Package \"" + name + "\"";
+    Int at = project.IndexOf(marker);
+    If (at < 0) { Return project; }
+    Int line = FindBefore(project, at, "\n");
+    If (line < 0) { line = 0; } Else { line = line + 1; }
+    Int next = FindFrom(project, at, "\n");
+    If (next < 0) { Return project.Substring(0, line); }
+    Return project.Substring(0, line) + project.Substring(next + 1);
+}
+
+Public Function DependencyText(String project) -> String
+Explain {
+    Description: "Read package names and versions from project text.";
+    Input: project = ".rxp text";
+    Processing: "Read each Package entry and its Version string.";
+    Output: "Lines of name and version.";
+} {
+    String lines = "";
+    Int cursor = 0;
+    While (cursor < project.Length()) {
+        Int at = FindFrom(project, cursor, "Package \"");
+        If (at < 0) { Break; }
+        Int nameStart = at + 9;
+        Int nameEnd = FindFrom(project, nameStart, "\"");
+        If (nameEnd < 0) { Break; }
+        String name = project.Substring(nameStart, nameEnd - nameStart);
+        Int ver = FindFrom(project, nameEnd, "Version: \"");
+        String version = "1.0.0";
+        If (ver >= 0) {
+            Int open = ver + 10;
+            Int close = FindFrom(project, open, "\"");
+            If (close > open) { version = project.Substring(open, close - open); }
+        }
+        lines = lines + name + " " + version + "\n";
+        cursor = nameEnd + 1;
+    }
+    Return lines;
+}
+
+Public Function TemplateStatus(String kind, String variant) -> String
+Explain {
+    Description: "Decide whether a project template can be written.";
+    Input: kind = "Application, Canvas, or Bedrock", variant = "Console, Empty, Window, or a Bedrock kind";
+    Processing: "Application Console and Canvas Empty are available. The other named kinds are reserved.";
+    Output: "console, empty, unavailable, or unknown.";
+} {
+    String kindName = kind.ToLower();
+    String variantName = variant.ToLower();
+    If (kindName == "application" && variantName == "console") { Return "console"; }
+    If (kindName == "canvas" && variantName == "empty") { Return "empty"; }
+    If (kindName == "application" && (variantName == "window" || variantName == "network")) { Return "unavailable"; }
+    If (kindName == "bedrock") { Return "unavailable"; }
+    Return "unknown";
+}
+
+Public Function ConsoleProject(String name) -> String
+Explain {
+    Description: "Build a console application project file.";
+    Input: name = "PascalCase project name";
+    Processing: "Point the entry at Source/Main.rx and leave the dependency block empty.";
+    Output: "The .rxp text.";
+} {
+    Return "Project \"" + name + "\"\n{\n    Type: ConsoleApplication;\n    Version: \"1.0.0\";\n    Template: \"Application.Console\";\n    Entry: \"Source/Main.rx\";\n    Source\n    {\n        Include: \"Source/**/*.rx\";\n        Exclude: \"**/*.test.rx\";\n    }\n    Tests\n    {\n        Include: \"Tests/**/*.test.rx\";\n    }\n    Dependencies\n    {\n    }\n}\n";
+}
+
+Public Function EmptyProject(String name) -> String
+Explain {
+    Description: "Build an empty canvas project file.";
+    Input: name = "PascalCase project name";
+    Processing: "Record the canvas template without an entry file.";
+    Output: "The .rxp text.";
+} {
+    Return "Project \"" + name + "\"\n{\n    Type: Canvas;\n    Version: \"1.0.0\";\n    Template: \"Canvas.Empty\";\n    Source\n    {\n        Include: \"Source/**/*.rx\";\n        Exclude: \"**/*.test.rx\";\n    }\n    Tests\n    {\n        Include: \"Tests/**/*.test.rx\";\n    }\n    Dependencies\n    {\n    }\n}\n";
+}
+
+Public Function SourceText(String name) -> String
+Explain {
+    Description: "Build the console entry source.";
+    Input: name = "Project name";
+    Processing: "Write a Main function that greets with the project name.";
+    Output: "The Main.rx text.";
+} {
+    Return "Package Robotics." + name + ";\n\nImport Robix.Core;\n\nPublic Function Main(Args<String> args) -> Int\nExplain {\n    Description: \"Start " + name + ".\";\n    Input: args = \"Command arguments\";\n    Processing: \"Print a greeting.\";\n    Output: \"Zero after the greeting.\";\n} {\n    Print(\"Hello, " + name + "\");\n    Return 0;\n}\n";
+}
+
+Public Function TestText(String name) -> String
+Explain {
+    Description: "Build the companion test for a new console project.";
+    Input: name = "Project name";
+    Processing: "Name the test after Main.";
+    Output: "The test file text.";
+} {
+    Return "// Tests for " + name + ".\n\nTest Main {\n    Constraint: True;\n    Processing: True;\n    Output: True;\n}\n";
+}
+
+Public Function EntryOf(String project) -> String
+Explain {
+    Description: "Read the entry path from project text.";
+    Input: project = ".rxp text";
+    Processing: "Read the quoted string after Entry.";
+    Output: "The entry path, or empty when the project has none.";
+} {
+    Int at = project.IndexOf("Entry: \"");
+    If (at < 0) { Return ""; }
+    Int open = at + 8;
+    Int close = FindFrom(project, open, "\"");
+    If (close <= open) { Return ""; }
+    Return project.Substring(open, close - open);
+}
+
+Public Function ProjectTitle(String project) -> String
+Explain {
+    Description: "Read the project name from project text.";
+    Input: project = ".rxp text";
+    Processing: "Read the quoted name after Project.";
+    Output: "The project name, or empty when it is missing.";
+} {
+    Int at = project.IndexOf("Project \"");
+    If (at < 0) { Return ""; }
+    Int open = at + 9;
+    Int close = FindFrom(project, open, "\"");
+    If (close <= open) { Return ""; }
+    Return project.Substring(open, close - open);
+}
+
+Public Function BraceDepth(String text) -> Int
+Explain {
+    Description: "Measure unmatched braces outside strings.";
+    Input: text = "A fragment of Robix source";
+    Processing: "Count braces that are not inside a quoted string.";
+    Output: "The open-brace depth.";
+} {
+    Int depth = 0;
+    Bool quote = False;
+    Int index = 0;
+    While (index < text.Length()) {
+        String piece = text.Substring(index, 1);
+        If (piece == "\\") {
+            index = index + 2;
+            Continue;
+        }
+        If (piece == "\"") { quote = !quote; }
+        If (!quote && piece == "{") { depth = depth + 1; }
+        If (!quote && piece == "}") { depth = depth - 1; }
+        index = index + 1;
+    }
+    Return depth;
+}
+
+Public Function SessionProgram(String body, String name) -> String
+Explain {
+    Description: "Wrap REPL statements in a runnable program.";
+    Input: body = "Statements collected in the session", name = "Session name";
+    Processing: "Place the statements inside Main.";
+    Output: "A complete Robix program.";
+} {
+    Return "Package Robotics." + name + ";\n\nImport Robix.Core;\n\nPublic Function Main(Args<String> args) -> Int\nExplain {\n    Description: \"Run the REPL session.\";\n    Input: args = \"Command arguments\";\n    Processing: \"Run the statements entered in the session.\";\n    Output: \"Zero when the statements finish.\";\n} {\n" + body + "    Return 0;\n}\n";
+}
+
+Public Function DoctorReport(Bool hasInterpreter, Bool hasCompiler, Bool hasPackages) -> String
+Explain {
+    Description: "Describe the toolchain checks.";
+    Input: hasInterpreter = "Robix source is present", hasCompiler = "Robixc source is present", hasPackages = "The Packages directory is present";
+    Processing: "Name each check and the overall result.";
+    Output: "The diagnosis text.";
+} {
+    String text = "";
+    If (hasInterpreter) { text = text + "Interpreter: ready\n"; } Else { text = text + "Interpreter: missing\n"; }
+    If (hasCompiler) { text = text + "Compiler: ready\n"; } Else { text = text + "Compiler: missing\n"; }
+    If (hasPackages) { text = text + "Packages: ready\n"; } Else { text = text + "Packages: missing\n"; }
+    If (hasInterpreter && hasCompiler && hasPackages) { text = text + "Installation: ready\n"; } Else { text = text + "Installation: incomplete\n"; }
+    Return text;
+}
+
+Public Function EnvironmentReport(Bool hasPackages, Bool hasLibrary, Bool hasShared) -> String
+Explain {
+    Description: "Describe the toolchain directories that are present.";
+    Input: hasPackages = "Packages exists", hasLibrary = "Library exists", hasShared = "Shared exists";
+    Processing: "Name each directory.";
+    Output: "The environment text.";
+} {
+    String text = "Packages: ";
+    If (hasPackages) { text = text + "present\n"; } Else { text = text + "absent\n"; }
+    text = text + "Library: ";
+    If (hasLibrary) { text = text + "present\n"; } Else { text = text + "absent\n"; }
+    text = text + "Shared: ";
+    If (hasShared) { text = text + "present\n"; } Else { text = text + "absent\n"; }
+    Return text;
+}
+
+Public Function CompletionScript() -> String
+Explain {
+    Description: "List the command words a shell can complete.";
+    Input: None;
+    Processing: "Print the canonical command names, one per line.";
+    Output: "The completion word list.";
+} {
+    Return "Robix\nRobixc\nHelp\nVersion\nRun\nTest\nInstall\nRemove\nUpdate\nList\nNew\nInit\nConfig\nDebug\nBuild\nCompile\n";
+}
+
+Public Function LaterReason(String flag) -> String
+Explain {
+    Description: "Classify a command option.";
+    Input: flag = "One argument that may be an option";
+    Processing: "Accept options the tools implement. Name options that are reserved. Reject the rest.";
+    Output: "Empty when the option is accepted, or a message.";
+} {
+    String lower = flag.ToLower();
+    If (lower == "--verbose" || lower == "--quiet" || lower == "--force" || lower == "--nocolor") { Return ""; }
+    If (lower == "--dryrun" || lower == "--nocache" || lower == "--sequential" || lower == "--global") { Return ""; }
+    If (lower == "--help" || lower == "--version" || lower == "-h" || lower == "-v") { Return ""; }
+    If (lower == "--configuration" || lower == "--filter" || lower == "--file" || lower == "--function" || lower == "--class" || lower == "--breakat") { Return ""; }
+    If (lower.StartsWith("--port=") || lower.StartsWith("--console=")) { Return ""; }
+    If (lower == "--watch") { Return "Robix Watch is not available yet."; }
+    If (lower == "--profile") { Return "Robix Profile is not available yet."; }
+    If (lower == "--failed") { Return "Robix Test --Failed is not available yet."; }
+    If (lower == "--coverage") { Return "Robix Test --Coverage is not available yet."; }
+    If (lower == "--parallel") { Return "Robix Test --Parallel is not available yet."; }
+    If (lower == "--stoponfailure") { Return "Robix Test --StopOnFailure is not available yet."; }
+    If (lower == "--report") { Return "Robix Test --Report is not available yet."; }
+    If (lower == "--updatesnapshots") { Return "Robix Test --UpdateSnapshots is not available yet."; }
+    If (flag.StartsWith("-")) { Return "Unknown option " + flag + "."; }
+    Return "";
+}
+
+Public Function FirstProblem(List<String> args) -> String
+Explain {
+    Description: "Find the first option the command cannot accept.";
+    Input: args = "Command arguments";
+    Processing: "Check each option. Stop at the first reserved or unknown option.";
+    Output: "A message, or empty when every option is accepted.";
+} {
+    For arg In args {
+        If (arg.StartsWith("-")) {
+            String reason = LaterReason(arg);
+            If (reason != "") { Return reason; }
+        }
+    }
+    Return "";
+}
+
+Public Function ProgramArgText(List<String> args) -> String
+Explain {
+    Description: "Collect arguments that belong to the user program.";
+    Input: args = "The Robix command line";
+    Processing: "Keep positionals after the source file, and keep everything after --.";
+    Output: "The program arguments, one per line.";
+} {
+    String text = "";
+    Bool take = False;
+    Bool skip = False;
+    Int seen = 0;
+    Int needed = 1;
+    Bool decided = False;
+    For arg In args {
+        If (skip) {
+            skip = False;
+            Continue;
+        }
+        If (arg == "--") {
+            take = True;
+            Continue;
+        }
+        If (take) {
+            text = text + arg + "\n";
+            Continue;
+        }
+        String lower = arg.ToLower();
+        If (lower == "--configuration" || lower == "--filter" || lower == "--file" || lower == "--function" || lower == "--class" || lower == "--breakat" || lower == "--output" || lower == "--target") {
+            skip = True;
+            Continue;
+        }
+        If (arg.StartsWith("-")) { Continue; }
+        If (!decided) {
+            decided = True;
+            If (lower == "run" || lower == "debug" || lower == "check") { needed = 2; }
+        }
+        seen = seen + 1;
+        If (seen > needed) { text = text + arg + "\n"; }
+    }
+    Return text;
+}
+
+Public Function SourcePath(List<String> args) -> String
+Explain {
+    Description: "Find the source path on the command line.";
+    Input: args = "Command arguments";
+    Processing: "Use the first positional path that names a source file, a test file, a span, or the project dot.";
+    Output: "The path, or empty when there is none.";
+} {
+    For arg In args {
+        If (arg.StartsWith("-") || arg == "--") { Continue; }
+        String lower = arg.ToLower();
+        If (lower == "run" || lower == "debug" || lower == "check" || lower == "test") { Continue; }
+        If (arg == "." || arg.EndsWith(".rx") || arg.Contains(".rx:")) { Return arg; }
+    }
+    Return "";
+}
+
+Public Function OptionText(List<String> args, String flag) -> String
+Explain {
+    Description: "Read the value of a named option.";
+    Input: args = "Command arguments", flag = "The option name, such as --BreakAt";
+    Processing: "Accept a following argument or an equals form.";
+    Output: "The value, or empty when the option is absent.";
+} {
+    String wanted = flag.ToLower();
+    Int index = 0;
+    While (index < args.Count()) {
+        String arg = args[index];
+        String lower = arg.ToLower();
+        Int equals = lower.IndexOf("=");
+        If (equals > 0 && lower.Substring(0, equals) == wanted) { Return arg.Substring(equals + 1); }
+        If (lower == wanted && index + 1 < args.Count()) { Return args[index + 1]; }
+        index = index + 1;
+    }
+    Return "";
+}
+
+Public Function ApplyRobix(List<String> args) -> ExecutionResult
+Explain {
+    Description: "Run the selected Robix command.";
+    Input: args = "Command arguments";
+    Processing: "Dispatch to the REPL, the interpreter, the project engine, or the package and project writers.";
+    Output: "The command result.";
+} {
+    String blocked = FirstProblem(args);
+    String config = DefaultConfig();
+    If (Files.Exists(".robix/config")) { config = Files.ReadText(".robix/config"); }
+    Bool useColor = ConfigFlag(config, "Colors") != "Off";
+    For arg In args {
+        If (arg.ToLower() == "--nocolor") { useColor = False; }
+    }
+    If (blocked != "") {
+        Int blockedCode = 2;
+        If (blocked.StartsWith("Unknown")) { blockedCode = 4; }
+        Return FinishShown(blockedCode, blocked, useColor);
+    }
+    Bool showTime = ConfigFlag(config, "Time") != "Off";
+    Bool quiet = False;
+    Bool force = False;
+    For arg In args {
+        If (arg.ToLower() == "--quiet") { quiet = True; }
+        If (arg.ToLower() == "--force") { force = True; }
+    }
+    String kind = ClassifyRobix(args);
+    If (kind == "repl") { Return RunSession(useColor, showTime); }
+    If (kind == "help" || kind == "help-topic") {
+        Say(HelpText(TopicOf(args)), useColor);
+        Return FinishShown(ExitCode.Success, "Printed Robix help.", useColor);
+    }
+    If (kind == "version" || kind == "version-detail") {
+        String mode = "short";
+        If (kind == "version-detail") { mode = "detail"; }
+        Say(VersionText(mode), useColor);
+        Return FinishShown(ExitCode.Success, "Printed the Robix version.", useColor);
+    }
+    If (kind == "cover") {
+        Int failures = CoverSyntax();
+        If (failures > 0) { Return FinishShown(ExitCode.ErrorExecution, "Syntax coverage reported failures.", useColor); }
+        Return FinishShown(ExitCode.Success, "Syntax coverage passed.", useColor);
+    }
+    If (kind == "later") {
+        Return FinishShown(ExitCode.ErrorExecution, "That Robix command is not available yet.", useColor);
+    }
+    If (kind == "run-file" || kind == "check-file" || kind == "debug" || kind == "run-span") {
+        String raw = SourcePath(args);
+        String span = SpanOf(raw);
+        Int firstBar = span.IndexOf("|");
+        Int secondBar = FindFrom(span, firstBar + 1, "|");
+        String file = span.Substring(0, firstBar);
+        String start = span.Substring(firstBar + 1, secondBar - firstBar - 1);
+        String end = span.Substring(secondBar + 1);
+        If (kind == "run-span") {
+            If (SpanKind(start) != "line" || SpanKind(end) != "line") {
+                Return FinishShown(ExitCode.ErrorExecution, "Named spans need a source map, which the interpreter does not have yet.", useColor);
+            }
+            If (!Files.Exists(file)) { Return FinishShown(ExitCode.InvalidArguments, "The source file was not found.", useColor); }
+            Int lines = LineCount(Files.ReadText(file));
+            Int startLine = start.ToInt();
+            Int endLine = end.ToInt();
+            If (startLine < 1 || endLine < startLine || endLine > lines) {
+                Return FinishShown(ExitCode.InvalidArguments, "The line span is outside the file.", useColor);
+            }
+            Say("{debug}focus{/}  {bold}" + file + ":" + start + ":" + end + "{/}", useColor);
+            Say("{debug}The file is parsed as a whole. The interpreter runs the whole module.{/}", useColor);
+        }
+        If (kind == "debug") {
+            String breakAt = OptionText(args, "--BreakAt");
+            If (breakAt != "") {
+                Say("{debug}breakpoint{/}  {bold}" + file + ":" + breakAt + "{/}", useColor);
+                Say("{debug}The breakpoint is recorded. The interpreter does not stop on that line yet.{/}", useColor);
+            }
+        }
+        Bool checkOnly = kind == "check-file";
+        Return RunSource(file, ProgramArgText(args), checkOnly, useColor, quiet, showTime);
+    }
+    If (kind == "test-file") {
+        String file = SourcePath(args);
+        Var testArgs = List<String>();
+        testArgs.Add("test");
+        testArgs.Add("--File");
+        testArgs.Add(file);
+        Return ExecuteProject(testArgs);
+    }
+    If (kind == "test") {
+        Var files = List<String>();
+        Var names = List<String>();
+        For arg In args {
+            If (arg.StartsWith("-") || arg.ToLower() == "test") { Continue; }
+            If (arg.EndsWith(".rx")) { files.Add(arg); } Else { names.Add(arg); }
+        }
+        If (files.Count() == 0 && names.Count() == 0) { Return ExecuteProject(args); }
+        If (files.Count() == 1 && names.Count() == 1) {
+            Var one = List<String>();
+            one.Add("test");
+            one.Add(files[0]);
+            one.Add(names[0]);
+            Return ExecuteProject(one);
+        }
+        ExecutionResult last = ExecutionResult(ExitCode.Success, "Tests passed.");
+        For file In files {
+            Var one = List<String>();
+            one.Add("test");
+            one.Add("--File");
+            one.Add(file);
+            last = ExecuteProject(one);
+            If (StopResult(last.Message)) { Return last; }
+        }
+        For target In names {
+            Var one = List<String>();
+            one.Add("test");
+            one.Add("--Function");
+            one.Add(target);
+            last = ExecuteProject(one);
+            If (StopResult(last.Message)) { Return last; }
+        }
+        Return last;
+    }
+    If (kind == "run-project" || kind == "project") { Return ExecuteProject(args); }
+    If (kind == "tasks") {
+        Var taskArgs = List<String>();
+        taskArgs.Add("list");
+        Return ExecuteProject(taskArgs);
+    }
+    If (kind == "config") { Return WriteConfig(args, config, useColor); }
+    If (kind == "new" || kind == "init") { Return AskProject(args, kind, useColor, force); }
+    If (kind == "doctor") {
+        Say(DoctorReport(Files.Exists("Robix.rx"), Files.Exists("Robixc.rx"), Directory.Exists("Packages")), useColor);
+        Return FinishShown(ExitCode.Success, "Diagnosis finished.", useColor);
+    }
+    If (kind == "environment") {
+        Say(EnvironmentReport(Directory.Exists("Packages"), Directory.Exists("Library"), Directory.Exists("Shared")), useColor);
+        Return FinishShown(ExitCode.Success, "Environment printed.", useColor);
+    }
+    If (kind == "completion") {
+        Say(CompletionScript(), useColor);
+        Return FinishShown(ExitCode.Success, "Completion words printed.", useColor);
+    }
+    If (kind == "open" || kind == "structure" || kind == "validate" || kind == "package-info" || kind == "list" || kind == "search" || kind == "outdated" || kind == "verify" || kind == "update") {
+        Return InspectCommand(kind, args, useColor);
+    }
+    If (kind == "install" || kind == "remove" || kind == "lock" || kind == "cache") {
+        Return PackageCommand(kind, args, useColor, force);
+    }
+    Return FinishShown(ExitCode.InvalidArguments, "The command was not recognized.", useColor);
+}
+
+Public Function WriteConfig(List<String> args, String config, Bool useColor) -> ExecutionResult
+Explain {
+    Description: "Show or change Robix settings.";
+    Input: args = "Config arguments", config = "The settings already read", useColor = "True when color tags should be printed";
+    Processing: "Show, reset, or replace one setting in .robix/config.";
+    Output: "The configuration result.";
+} {
+    Var words = List<String>();
+    For arg In args {
+        If (!arg.StartsWith("-")) { words.Add(arg); }
+    }
+    If (words.Count() < 2 || words[1].ToLower() == "show") {
+        Say(config, useColor);
+        Return FinishShown(ExitCode.Success, "Configuration printed.", useColor);
+    }
+    Directory.Create(".robix");
+    If (words[1].ToLower() == "reset") {
+        Files.WriteText(".robix/config", DefaultConfig());
+        Return FinishShown(ExitCode.Success, "Configuration restored.", useColor);
+    }
+    If (words.Count() < 3) { Return FinishShown(ExitCode.InvalidArguments, "Name the setting and On or Off.", useColor); }
+    If (CanonicalKey(words[1]) == "" || CanonicalSwitch(words[2]) == "") {
+        Return FinishShown(ExitCode.InvalidArguments, "The setting or value is not recognized.", useColor);
+    }
+    Files.WriteText(".robix/config", NextConfig(config, words[1], words[2]));
+    Return FinishShown(ExitCode.Success, "Configuration saved.", useColor);
+}
+
+Public Function AskProject(List<String> args, String kindName, Bool useColor, Bool force) -> ExecutionResult
+Explain {
+    Description: "Collect the answers for a new project and write it.";
+    Input: args = "New or Init arguments", kindName = "new or init", useColor = "True when color is enabled", force = "True to replace an existing project file";
+    Processing: "Ask for any missing name, kind, and variant, then write the available template.";
+    Output: "The project creation result.";
+} {
+    Var words = List<String>();
+    For arg In args {
+        If (!arg.StartsWith("-")) { words.Add(arg); }
+    }
+    String directory = ".";
+    String rawName = "";
+    String kind = "";
+    String variant = "";
+    If (kindName == "init") {
+        directory = ".";
+        If (words.Count() >= 2) { rawName = words[1]; }
+        If (words.Count() >= 3) { kind = words[2]; }
+        If (words.Count() >= 4) { variant = words[3]; }
+    } Else If (words.Count() >= 2 && words[1] != ".") {
+        rawName = words[1];
+        If (words.Count() >= 3) { kind = words[2]; }
+        If (words.Count() >= 4) { variant = words[3]; }
+    } Else {
+        directory = ".";
+        If (words.Count() >= 3) { rawName = words[2]; }
+        If (words.Count() >= 4) { kind = words[3]; }
+        If (words.Count() >= 5) { variant = words[4]; }
+    }
+    If (rawName == "") {
+        Say("{accent}Project name?{/}", useColor);
+        rawName = Input();
+    }
+    If (kind == "") {
+        Say("{accent}Kind?{/} Application, Canvas, or Bedrock", useColor);
+        kind = Input();
+    }
+    If (variant == "") {
+        Say("{accent}Variant?{/}", useColor);
+        variant = Input();
+    }
+    String name = PascalName(rawName);
+    If (name == "") { Return FinishShown(ExitCode.InvalidArguments, "The project name must start with a letter.", useColor); }
+    If (kindName == "new" && words.Count() >= 2 && words[1] != ".") { directory = name; }
+    Return WriteProject(name, kind, variant, directory, force, useColor);
+}
+
+Public Function WriteProject(String name, String kind, String variant, String directory, Bool force, Bool useColor) -> ExecutionResult
+Explain {
+    Description: "Write a project template.";
+    Input: name = "PascalCase project name", kind = "Project kind", variant = "Project variant", directory = "Destination directory or dot", force = "True to replace an existing project file", useColor = "True when color is enabled";
+    Processing: "Write Application Console or Canvas Empty. Reserved templates create no files.";
+    Output: "The creation result.";
+} {
+    String status = TemplateStatus(kind, variant);
+    If (status == "unavailable") {
+        Return FinishShown(ExitCode.ErrorExecution, "That template is not available yet.", useColor);
+    }
+    If (status == "unknown") {
+        Return FinishShown(ExitCode.InvalidArguments, "The project kind or variant is not recognized.", useColor);
+    }
+    String root = directory;
+    If (root == ".") { root = ""; }
+    String projectPath = name + ".rxp";
+    If (root != "") { projectPath = root + "/" + name + ".rxp"; }
+    If (Files.Exists(projectPath) && !force) {
+        Return FinishShown(ExitCode.InvalidArguments, "The project file already exists. Use --Force to replace it.", useColor);
+    }
+    If (root != "") { Directory.Create(root); }
+    String sourceDir = "Source";
+    String testDir = "Tests";
+    String buildDir = "Build";
+    String packageDir = "Packages";
+    If (root != "") {
+        sourceDir = root + "/Source";
+        testDir = root + "/Tests";
+        buildDir = root + "/Build";
+        packageDir = root + "/Packages";
+    }
+    Directory.Create(sourceDir);
+    Directory.Create(testDir);
+    Directory.Create(buildDir);
+    Directory.Create(packageDir);
+    String project = EmptyProject(name);
+    If (status == "console") { project = ConsoleProject(name); }
+    Files.WriteText(projectPath, project);
+    String ignore = ".robixignore";
+    If (root != "") { ignore = root + "/.robixignore"; }
+    Files.WriteText(ignore, "Build/\n");
+    If (status == "console") {
+        Files.WriteText(sourceDir + "/Main.rx", SourceText(name));
+        Files.WriteText(testDir + "/Main.test.rx", TestText(name));
+    }
+    Say("{success}created{/}  {bold}" + name + "{/}", useColor);
+    Return FinishShown(ExitCode.Success, "Created " + name + ".", useColor);
+}
+
+Public Function InspectCommand(String kind, List<String> args, Bool useColor) -> ExecutionResult
+Explain {
+    Description: "Print project, package, or environment information.";
+    Input: kind = "The inspection command", args = "Command arguments", useColor = "True when color is enabled";
+    Processing: "Read the project file or the local package directories.";
+    Output: "The inspection result.";
+} {
+    String projectPath = FindProjectFile();
+    String project = "";
+    If (projectPath != "") { project = Files.ReadText(projectPath); }
+    String packages = DependencyText(project);
+    If (kind == "open" || kind == "structure" || kind == "validate") {
+        If (projectPath == "") { Return FinishShown(ExitCode.InvalidArguments, "A .rxp project is required.", useColor); }
+        If (kind == "validate" && ProjectTitle(project) == "") {
+            Return FinishShown(ExitCode.ErrorExecution, "The project file has no name.", useColor);
+        }
+        Say("Project: " + ProjectTitle(project), useColor);
+        Say("File: " + projectPath, useColor);
+        String entry = EntryOf(project);
+        If (entry != "") { Say("Entry: " + entry, useColor); }
+        If (kind == "structure") {
+            Say("Source/", useColor);
+            Say("Tests/", useColor);
+            Say("Build/", useColor);
+            Say("Packages/", useColor);
+        }
+        Return FinishShown(ExitCode.Success, "Project inspected.", useColor);
+    }
+    If (kind == "package-info" || kind == "search") {
+        String query = "";
+        Var words = List<String>();
+        For arg In args {
+            If (!arg.StartsWith("-")) { words.Add(arg); }
+        }
+        If (words.Count() < 2) { Return FinishShown(ExitCode.InvalidArguments, "Name the package.", useColor); }
+        query = words[1];
+        Bool found = False;
+        If (Directory.Exists("Packages")) {
+            For relative In Directory.Files("Packages") {
+                If (relative.Contains(query)) {
+                    Say(relative, useColor);
+                    found = True;
+                }
+            }
+        }
+        String spec = PackageSpec(query);
+        Int bar = spec.IndexOf("|");
+        String name = spec.Substring(0, bar);
+        If (Directory.Exists(StorePath(name, "1.0.0"))) {
+            Say(StorePath(name, "1.0.0"), useColor);
+            found = True;
+        }
+        If (!found) { Return FinishShown(ExitCode.ErrorExecution, "No local package matched.", useColor); }
+        Return FinishShown(ExitCode.Success, "Package information printed.", useColor);
+    }
+    If (kind == "list") {
+        Bool global = False;
+        For arg In args {
+            If (arg.ToLower() == "--global") { global = True; }
+        }
+        If (global) {
+            If (Directory.Exists("Packages/Installed")) {
+                For relative In Directory.Files("Packages/Installed") { Say(relative, useColor); }
+            }
+            Return FinishShown(ExitCode.Success, "Global packages printed.", useColor);
+        }
+        If (packages == "") { Say("No project packages.", useColor); } Else { Say(packages, useColor); }
+        Return FinishShown(ExitCode.Success, "Project packages printed.", useColor);
+    }
+    If (kind == "outdated" || kind == "update") {
+        Say("No package registry is configured. Versions stay in the project file.", useColor);
+        If (packages != "") { Say(packages, useColor); }
+        Return FinishShown(ExitCode.Success, "Versions unchanged.", useColor);
+    }
+    If (kind == "verify") {
+        If (packages == "") { Return FinishShown(ExitCode.Success, "No project packages.", useColor); }
+        Bool missing = False;
+        Int start = 0;
+        Int index = 0;
+        While (index <= packages.Length()) {
+            Bool boundary = index == packages.Length();
+            If (!boundary && packages.Substring(index, 1) == "\n") { boundary = True; }
+            If (boundary && index > start) {
+                String line = packages.Substring(start, index - start);
+                Int space = line.IndexOf(" ");
+                If (space > 0) {
+                    String store = StorePath(line.Substring(0, space), line.Substring(space + 1));
+                    If (Directory.Exists(store)) { Say("{success}verified{/}  " + line, useColor); }
+                    Else {
+                        Say("{error}missing{/}  " + line, useColor);
+                        missing = True;
+                    }
+                }
+            }
+            If (boundary) { start = index + 1; }
+            index = index + 1;
+        }
+        If (missing) { Return FinishShown(ExitCode.ErrorExecution, "A project package is missing.", useColor); }
+        Return FinishShown(ExitCode.Success, "Project packages verified.", useColor);
+    }
+    Return FinishShown(ExitCode.InvalidArguments, "The command was not recognized.", useColor);
+}
+
+Public Function PackageCommand(String kind, List<String> args, Bool useColor, Bool force) -> ExecutionResult
+Explain {
+    Description: "Install, remove, or clean package files.";
+    Input: kind = "install, remove, lock, or cache", args = "Command arguments", useColor = "True when color is enabled", force = "True when replacement is confirmed";
+    Processing: "Update the project file and Packages/Installed/Name/Version. Versions stay in the .rxp.";
+    Output: "The package command result.";
+} {
+    String projectPath = FindProjectFile();
+    If (kind == "cache") {
+        If (Directory.Exists(".robix/cache")) { Directory.Delete(".robix/cache"); }
+        Directory.Create(".robix");
+        Directory.Create(".robix/cache");
+        Return FinishShown(ExitCode.Success, "Package cache cleared.", useColor);
+    }
+    If (projectPath == "") { Return FinishShown(ExitCode.InvalidArguments, "A .rxp project is required.", useColor); }
+    String project = Files.ReadText(projectPath);
+    If (kind == "lock") {
+        Say("Package versions are stored in the project file.", useColor);
+        String recorded = DependencyText(project);
+        If (recorded != "") { Say(recorded, useColor); }
+        Return FinishShown(ExitCode.Success, "Project dependencies recorded.", useColor);
+    }
+    Var words = List<String>();
+    For arg In args {
+        If (!arg.StartsWith("-")) { words.Add(arg); }
+    }
+    If (kind == "install" && words.Count() < 2) {
+        Return MaterializeDependencies(project, useColor);
+    }
+    If (words.Count() < 2) { Return FinishShown(ExitCode.InvalidArguments, "Name the package.", useColor); }
+    String spec = PackageSpec(words[1]);
+    Int bar = spec.IndexOf("|");
+    If (bar <= 0 || bar + 1 >= spec.Length()) {
+        Return FinishShown(ExitCode.InvalidArguments, "The package name is not valid.", useColor);
+    }
+    String name = spec.Substring(0, bar);
+    String version = spec.Substring(bar + 1);
+    If (kind == "remove") {
+        Files.WriteText(projectPath, WithoutDependency(project, name));
+        Say("{package}removed{/}  {bold}" + name + "{/} from the project. The installed copy stays for other projects.", useColor);
+        Return FinishShown(ExitCode.Success, "Package removed from the project.", useColor);
+    }
+    Files.WriteText(projectPath, WithDependency(project, name, version));
+    Int placed = PlacePackage(name, version, force);
+    If (placed == 0) {
+        Say("{warning}reserved{/}  {bold}" + name + " " + version + "{/}. No local source or registry was found.", useColor);
+        Return FinishShown(ExitCode.WarningExecution, "Package recorded without source.", useColor);
+    }
+    Say("{package}installed{/}  {bold}" + StorePath(name, version) + "{/}", useColor);
+    Return FinishShown(ExitCode.Success, "Package installed.", useColor);
+}
+
+Public Function MaterializeDependencies(String project, Bool useColor) -> ExecutionResult
+Explain {
+    Description: "Create a directory for every package named in the project.";
+    Input: project = ".rxp text", useColor = "True when color is enabled";
+    Processing: "Read each Package version from the project file and ensure its directory and manifest.";
+    Output: "Success when every package has a directory.";
+} {
+    String packages = DependencyText(project);
+    Bool warning = False;
+    Int start = 0;
+    Int index = 0;
+    While (index <= packages.Length()) {
+        Bool boundary = index == packages.Length();
+        If (!boundary && packages.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = packages.Substring(start, index - start);
+            Int space = line.IndexOf(" ");
+            If (space > 0) {
+                Int placed = PlacePackage(line.Substring(0, space), line.Substring(space + 1), False);
+                If (placed == 0) { warning = True; }
+            }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
+    }
+    If (warning) { Return FinishShown(ExitCode.WarningExecution, "A dependency was recorded without source.", useColor); }
+    Return FinishShown(ExitCode.Success, "Dependencies installed.", useColor);
+}
+
+Public Function PlacePackage(String name, String version, Bool force) -> Int
+Explain {
+    Description: "Create one versioned package directory.";
+    Input: name = "Package name", version = "Package version", force = "True to replace a copied source file";
+    Processing: "Write the manifest. Copy a local builtin or package source when one exists.";
+    Output: "1 when source was copied, otherwise 0.";
+} {
+    Directory.Create("Packages");
+    Directory.Create("Packages/Installed");
+    Directory.Create("Packages/Installed/" + name);
+    String store = StorePath(name, version);
+    Directory.Create(store);
+    Files.WriteText(store + "/package.rxm", "Name: " + name + "\nVersion: " + version + "\n");
+    String leaf = name;
+    Int dot = name.LastIndexOf(".");
+    If (dot >= 0) { leaf = name.Substring(dot + 1); }
+    String builtin = "Packages/Builtin/" + name + "/" + leaf + ".rx";
+    String legacy = "Packages/" + name + "/" + leaf + ".rx";
+    String source = "";
+    If (Files.Exists(builtin)) { source = builtin; }
+    If (source == "" && Files.Exists(legacy)) { source = legacy; }
+    If (source == "") { Return 0; }
+    String destination = store + "/" + leaf + ".rx";
+    If (!Files.Exists(destination) || force) { Files.WriteText(destination, Files.ReadText(source)); }
+    String testSource = source.Substring(0, source.Length() - 3) + ".test.rx";
+    If (Files.Exists(testSource)) {
+        String testDestination = store + "/" + leaf + ".test.rx";
+        If (!Files.Exists(testDestination) || force) { Files.WriteText(testDestination, Files.ReadText(testSource)); }
+    }
+    Return 1;
+}
+
+Public Function StopResult(String message) -> Bool
+Explain {
+    Description: "Decide whether a command result should stop a series.";
+    Input: message = "The result message";
+    Processing: "Stop on failure, a missing project, or invalid arguments.";
+    Output: "True when the series should stop.";
+} {
+    String lower = message.ToLower();
+    If (lower.Contains("fail")) { Return True; }
+    If (lower.Contains("required")) { Return True; }
+    If (lower.Contains("invalid")) { Return True; }
+    Return False;
+}
+
+Public Function FindProjectFile() -> String
+Explain {
+    Description: "Find the project file in the working directory.";
+    Input: None;
+    Processing: "Prefer Robix.rxp, then the first other .rxp file.";
+    Output: "The project path, or empty when none exists.";
+} {
+    If (Files.Exists("Robix.rxp")) { Return "Robix.rxp"; }
+    For relative In Directory.Files(".") {
+        If (relative.EndsWith(".rxp") && !relative.Contains("/") && !relative.Contains("\\")) { Return relative; }
+    }
+    Return "";
+}
+
+Public Function RunSource(String path, String programArgText, Bool checkOnly, Bool useColor, Bool quiet, Bool showTime) -> ExecutionResult
+Explain {
+    Description: "Check or run one Robix source file.";
+    Input: path = "Source path", programArgText = "Program arguments, one per line", checkOnly = "True to type-check and stop", useColor = "True when color is enabled", quiet = "True to hide tool banners", showTime = "True to print durations";
+    Processing: "Parse and type-check the file, then interpret it unless this is only a check.";
+    Output: "The run or check result.";
+} {
+    If (!Files.Exists(path)) { Return FinishShown(ExitCode.InvalidArguments, "The source file was not found.", useColor); }
+    If (!quiet) { Say("{accent}robix{/}  {bold}" + path + "{/}", useColor); }
+    String source = Files.ReadText(path);
     SyntaxCompiler compiler = SyntaxCompiler();
-    Bool compile = command == "check";
     Int compileStart = ClockMillis();
-    CompileResult result = compiler.CompileSource(source, args[1], compile);
+    CompileResult result = compiler.CompileSource(source, path, False);
     Int compileTime = ClockMillis() - compileStart;
     Int warnings = 0;
     For line In compiler.DiagnosticsOf(result) {
-        Print(line);
+        Say(line, useColor);
         If (line.StartsWith("warning")) { warnings = warnings + 1; }
     }
-    Print("{muted}compile{/}  {accent}" + compileTime.ToString() + " ms{/}  {muted}errors{/} {error}" + result.Errors.ToString() + "{/}  {muted}warnings{/} {warning}" + warnings.ToString() + "{/}");
-    If (command == "check") {
-        If (!result.Succeeded) {
-            Return FinishRun(ExitCode.ErrorExecution, "Check failed.");
-        }
-        Return FinishRun(ExitCode.Success, "Check passed.");
+    If (showTime && !quiet) {
+        Say("{muted}compile{/}  {accent}" + compileTime.ToString() + " ms{/}  {muted}errors{/} {error}" + result.Errors.ToString() + "{/}  {muted}warnings{/} {warning}" + warnings.ToString() + "{/}", useColor);
     }
-    If (result.Errors > 0) {
-        Return FinishRun(ExitCode.ErrorExecution, "The module has syntax or type errors.");
+    If (checkOnly) {
+        If (!result.Succeeded) { Return FinishShown(ExitCode.ErrorExecution, "Check failed.", useColor); }
+        Return FinishShown(ExitCode.Success, "Check passed.", useColor);
     }
+    If (result.Errors > 0) { Return FinishShown(ExitCode.ErrorExecution, "The module has syntax or type errors.", useColor); }
     Var programArguments = List<String>();
-    Int index = 2;
-    Bool consoleOn = True;
-    Int consolePort = 0;
-    While (index < args.Count()) {
-        String arg = args[index];
-        If (arg == "--console=off") { consoleOn = False; }
-        Else If (arg == "--console=on") { consoleOn = True; }
-        Else If (arg.StartsWith("--port=")) { consolePort = ParseInteger(arg.Substring(7)); }
-        Else { programArguments.Add(arg); }
+    Int start = 0;
+    Int index = 0;
+    While (index <= programArgText.Length()) {
+        Bool boundary = index == programArgText.Length();
+        If (!boundary && programArgText.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) { programArguments.Add(programArgText.Substring(start, index - start)); }
+        If (boundary) { start = index + 1; }
         index = index + 1;
     }
-    RbcProgram bytecode = RbcProgram();
-    List<Int> image = bytecode.Compile(result.Module);
-    If (bytecode.Covered() && programArguments.Count() == 0) {
-        Int runStart = ClockMillis();
-        Int exitCode = bytecode.Run(image);
-        Int runTime = ClockMillis() - runStart;
-        If (bytecode.Lines().Count() > 0) {
-            Print("{muted}──────── output ────────{/}");
-        }
-        For line In bytecode.Lines() {
-            Print(line);
-        }
-        Print("{muted}run{/}  {accent}" + runTime.ToString() + " ms{/}");
-        If (exitCode != 0) {
-            Return FinishRun(exitCode, "The module returned a non-zero code.");
-        }
-        Return FinishRun(ExitCode.Success, "Program completed successfully.");
-    }
     Interpreter interpreter = Interpreter();
-    interpreter.SetConsole(consoleOn, consolePort);
     Int runStart = ClockMillis();
     Int exitCode = interpreter.Execute(result.Module, programArguments);
     Int runTime = ClockMillis() - runStart;
-    If (interpreter.Lines().Count() > 0) {
-        Print("{muted}──────── output ────────{/}");
+    For line In interpreter.Lines() { Print(line); }
+    For line In interpreter.RuntimeErrors() { Say("{error}" + line + "{/}", useColor); }
+    If (showTime && !quiet) { Say("{muted}run{/}  {accent}" + runTime.ToString() + " ms{/}", useColor); }
+    If (exitCode != 0) { Return FinishShown(exitCode, "The module returned a non-zero code.", useColor); }
+    Return FinishShown(ExitCode.Success, "Program completed successfully.", useColor);
+}
+
+Public Function RunSession(Bool useColor, Bool showTime) -> ExecutionResult
+Explain {
+    Description: "Run the interactive Robix session.";
+    Input: useColor = "True when color is enabled", showTime = "True to print durations";
+    Processing: "Read lines, keep an open block together, and execute the accumulated session.";
+    Output: "The result of leaving the session.";
+} {
+    Say("{accent}ROBIX{/}  {muted}Write a line or a block. :Help lists session commands.{/}", useColor);
+    String kept = "";
+    String pending = "";
+    Bool sessionTime = showTime;
+    While (True) {
+        String line = Input();
+        String trimmed = line;
+        If (pending == "" && BraceDepth(kept) == 0) {
+            String lower = trimmed.ToLower();
+            If (lower == ":exit" || lower == ":quit") { Return FinishShown(ExitCode.Success, "Left the REPL.", useColor); }
+            If (lower == ":help") {
+                Say(":Help :Exit :Quit :Clear :Reset :History :Save :Load :Run :Debug :Time On :Time Off :Variables :Functions :Classes :Imports", useColor);
+                Continue;
+            }
+            If (lower == ":clear") {
+                Say("", useColor);
+                Continue;
+            }
+            If (lower == ":reset") {
+                kept = "";
+                pending = "";
+                Say("{muted}reset{/}", useColor);
+                Continue;
+            }
+            If (lower == ":history") {
+                Say(kept, useColor);
+                Continue;
+            }
+            If (lower == ":time on") { sessionTime = True; Continue; }
+            If (lower == ":time off") { sessionTime = False; Continue; }
+            If (lower.StartsWith(":save ")) {
+                String savePath = trimmed.Substring(6);
+                Files.WriteText(savePath, SessionProgram(kept, "Session"));
+                Say("{success}saved{/}  " + savePath, useColor);
+                Continue;
+            }
+            If (lower.StartsWith(":load ")) {
+                String loadPath = trimmed.Substring(6);
+                If (!Files.Exists(loadPath)) {
+                    Say("{error}missing{/}  " + loadPath, useColor);
+                    Continue;
+                }
+                RunSource(loadPath, "", False, useColor, True, sessionTime);
+                Continue;
+            }
+            If (lower.StartsWith(":run ")) {
+                RunSource(trimmed.Substring(5), "", False, useColor, True, sessionTime);
+                Continue;
+            }
+            If (lower == ":debug" || lower == ":variables" || lower == ":functions" || lower == ":classes" || lower == ":imports") {
+                Say(SessionInventory(kept, lower), useColor);
+                Continue;
+            }
+        }
+        pending = pending + line + "\n";
+        If (BraceDepth(kept + pending) != 0) { Continue; }
+        String program = SessionProgram(kept + pending, "Session");
+        SyntaxCompiler compiler = SyntaxCompiler();
+        CompileResult result = compiler.CompileSource(program, "Session.rx", False);
+        If (result.Errors > 0) {
+            For item In compiler.DiagnosticsOf(result) { Say(item, useColor); }
+            pending = "";
+            Continue;
+        }
+        Int runStart = ClockMillis();
+        Interpreter interpreter = Interpreter();
+        Int exitCode = interpreter.Execute(result.Module, List<String>());
+        For item In interpreter.Lines() { Print(item); }
+        For item In interpreter.RuntimeErrors() { Say("{error}" + item + "{/}", useColor); }
+        Int sessionRun = ClockMillis() - runStart;
+        If (sessionTime) { Say("{muted}run{/}  {accent}" + sessionRun.ToString() + " ms{/}", useColor); }
+        If (exitCode == 0 && interpreter.RuntimeErrors().Count() == 0) { kept = kept + pending; }
+        pending = "";
     }
-    For line In interpreter.Lines() {
-        Print(line);
+    Return FinishShown(ExitCode.Success, "Left the REPL.", useColor);
+}
+
+Public Function SessionInventory(String source, String command) -> String
+Explain {
+    Description: "List declarations in the REPL buffer.";
+    Input: source = "Statements accepted by the session", command = "The session command";
+    Processing: "Scan the buffer for imports, functions, classes, and variables.";
+    Output: "The matching declaration lines.";
+} {
+    String needle = "";
+    If (command == ":variables") { needle = "Var "; }
+    If (command == ":functions") { needle = "Function "; }
+    If (command == ":classes") { needle = "Class "; }
+    If (command == ":imports") { needle = "Import "; }
+    If (command == ":debug") { Return "Debug waits for the next complete entry. The interpreter then runs that session."; }
+    String found = "";
+    Int start = 0;
+    Int index = 0;
+    While (index <= source.Length()) {
+        Bool boundary = index == source.Length();
+        If (!boundary && source.Substring(index, 1) == "\n") { boundary = True; }
+        If (boundary && index > start) {
+            String line = source.Substring(start, index - start);
+            If (needle != "" && line.Contains(needle)) { found = found + line + "\n"; }
+        }
+        If (boundary) { start = index + 1; }
+        index = index + 1;
     }
-    For line In interpreter.RuntimeErrors() {
-        Print("{error}" + line + "{/}");
-    }
-    Print("{muted}run{/}  {accent}" + runTime.ToString() + " ms{/}");
-    If (exitCode != 0) {
-        Return FinishRun(exitCode, "The module returned a non-zero code.");
-    }
-    Return FinishRun(ExitCode.Success, "Program completed successfully.");
+    If (found == "") { Return "None."; }
+    Return found;
+}
+
+Private Function Say(String text, Bool useColor) -> Void {
+    If (useColor) { Print(text); } Else { Print(StripColor(text)); }
 }
 
 Private Function FinishRun(Int code, String reason) -> ExecutionResult {
+    Return FinishShown(code, reason, True);
+}
+
+Private Function FinishShown(Int code, String reason, Bool useColor) -> ExecutionResult {
+    String config = DefaultConfig();
+    If (Files.Exists(".robix/config")) { config = Files.ReadText(".robix/config"); }
+    Bool color = useColor;
+    If (ConfigFlag(config, "Colors") == "Off") { color = False; }
+    Bool showCode = ConfigFlag(config, "ExitCode") != "Off";
+    Bool showMessage = ConfigFlag(config, "ExitMessage") != "Off";
     String tone = "success";
     String name = "success";
     If (code == 1) { tone = "warning"; name = "warning"; }
@@ -115,8 +1489,16 @@ Private Function FinishRun(Int code, String reason) -> ExecutionResult {
     If (code == 5) { tone = "error"; name = "permission denied"; }
     If (code == 6) { tone = "error"; name = "resource unavailable"; }
     If (code > 6 || code < 0) { tone = "error"; name = "custom"; }
-    Print("{muted}────────────────────────────────{/}");
-    Print("{" + tone + "}exit " + code.ToString() + "{/}  {" + tone + "}" + name + "{/}  " + reason);
+    If (showCode || showMessage) {
+        String line = "";
+        If (showCode) { line = "exit " + code.ToString() + "  " + name; }
+        If (showMessage) {
+            If (line != "") { line = line + "  "; }
+            line = line + reason;
+        }
+        Say("{muted}────────────────────────────────{/}", color);
+        If (color) { Print("{" + tone + "}" + line + "{/}"); } Else { Print(line); }
+    }
     Return ExecutionResult(code, reason);
 }
 

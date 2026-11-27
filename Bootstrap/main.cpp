@@ -501,7 +501,8 @@ public:
         while (!Check(Tok::End)) {
             if (Match(Tok::Semi)) continue;
             if (Check(Tok::Package) || Check(Tok::Import)) {
-                while (!Check(Tok::End) && !Check(Tok::Semi)) Advance();
+                while (!Check(Tok::End) && !Check(Tok::Semi) && !Check(Tok::Explain)) Advance();
+                if (Match(Tok::Explain)) SkipBraces();
                 Match(Tok::Semi);
                 continue;
             }

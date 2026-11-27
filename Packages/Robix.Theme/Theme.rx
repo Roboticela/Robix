@@ -67,24 +67,24 @@ Class ThemeDesk {
         Output: "One when the theme is known.";
     } {
         If (name == "dark") {
-            primaryR = 0; primaryG = 255; primaryB = 255;
-            secondaryR = 128; secondaryG = 128; secondaryB = 128;
-            successR = 0; successG = 200; successB = 0;
-            warningR = 255; warningG = 200; warningB = 0;
-            errorR = 255; errorG = 60; errorB = 60;
+            primaryR = 22; primaryG = 163; primaryB = 74;
+            secondaryR = 148; secondaryG = 163; secondaryB = 184;
+            successR = 22; successG = 163; successB = 74;
+            warningR = 234; warningG = 179; warningB = 8;
+            errorR = 239; errorG = 68; errorB = 68;
             backgroundR = 16; backgroundG = 16; backgroundB = 16;
-            textR = 255; textG = 255; textB = 255;
+            textR = 229; textG = 231; textB = 235;
             active = "dark";
             Return 1;
         }
         If (name == "light") {
-            primaryR = 0; primaryG = 100; primaryB = 180;
-            secondaryR = 80; secondaryG = 80; secondaryB = 80;
-            successR = 0; successG = 140; successB = 0;
-            warningR = 180; warningG = 120; warningB = 0;
-            errorR = 180; errorG = 0; errorB = 0;
+            primaryR = 22; primaryG = 163; primaryB = 74;
+            secondaryR = 100; secondaryG = 116; secondaryB = 139;
+            successR = 22; successG = 163; successB = 74;
+            warningR = 161; warningG = 98; warningB = 7;
+            errorR = 185; errorG = 28; errorB = 28;
             backgroundR = 255; backgroundG = 255; backgroundB = 255;
-            textR = 0; textG = 0; textB = 0;
+            textR = 17; textG = 24; textB = 39;
             active = "light";
             Return 1;
         }

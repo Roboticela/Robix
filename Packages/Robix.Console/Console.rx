@@ -49,24 +49,24 @@ Class ConsoleDesk {
         inkR = 240;
         inkG = 240;
         inkB = 245;
-        primaryR = 180;
-        primaryG = 140;
-        primaryB = 255;
-        secondaryR = 140;
-        secondaryG = 150;
-        secondaryB = 165;
-        successR = 80;
-        successG = 220;
-        successB = 120;
-        warningR = 255;
-        warningG = 196;
-        warningB = 64;
-        errorR = 255;
-        errorG = 90;
-        errorB = 90;
-        textR = 240;
-        textG = 240;
-        textB = 245;
+        primaryR = 22;
+        primaryG = 163;
+        primaryB = 74;
+        secondaryR = 148;
+        secondaryG = 163;
+        secondaryB = 184;
+        successR = 22;
+        successG = 163;
+        successB = 74;
+        warningR = 234;
+        warningG = 179;
+        warningB = 8;
+        errorR = 239;
+        errorG = 68;
+        errorB = 68;
+        textR = 229;
+        textG = 231;
+        textB = 235;
         tagRed = 0;
         tagGreen = 0;
         tagBlue = 0;
@@ -368,20 +368,21 @@ Class ConsoleDesk {
     }
 
     Private Function TagChannels(String tag) -> Int {
-        If (tag == "red") { tagRed = 255; tagGreen = 90; tagBlue = 90; Return 1; }
-        If (tag == "green") { tagRed = 80; tagGreen = 220; tagBlue = 120; Return 1; }
-        If (tag == "yellow") { tagRed = 255; tagGreen = 196; tagBlue = 64; Return 1; }
-        If (tag == "blue") { tagRed = 80; tagGreen = 180; tagBlue = 255; Return 1; }
-        If (tag == "cyan") { tagRed = 80; tagGreen = 220; tagBlue = 220; Return 1; }
-        If (tag == "magenta") { tagRed = 230; tagGreen = 120; tagBlue = 220; Return 1; }
-        If (tag == "white") { tagRed = 240; tagGreen = 240; tagBlue = 245; Return 1; }
+        If (tag == "red") { tagRed = 239; tagGreen = 68; tagBlue = 68; Return 1; }
+        If (tag == "green") { tagRed = 22; tagGreen = 163; tagBlue = 74; Return 1; }
+        If (tag == "yellow") { tagRed = 234; tagGreen = 179; tagBlue = 8; Return 1; }
+        If (tag == "blue") { tagRed = 59; tagGreen = 130; tagBlue = 246; Return 1; }
+        If (tag == "cyan" || tag == "info") { tagRed = 6; tagGreen = 182; tagBlue = 212; Return 1; }
+        If (tag == "magenta" || tag == "package") { tagRed = 168; tagGreen = 85; tagBlue = 247; Return 1; }
+        If (tag == "orange" || tag == "debug") { tagRed = 249; tagGreen = 115; tagBlue = 22; Return 1; }
+        If (tag == "white") { tagRed = 229; tagGreen = 231; tagBlue = 235; Return 1; }
         If (tag == "gray" || tag == "grey" || tag == "muted" || tag == "secondary") {
             tagRed = secondaryR; tagGreen = secondaryG; tagBlue = secondaryB; Return 1;
         }
         If (tag == "error") { tagRed = errorR; tagGreen = errorG; tagBlue = errorB; Return 1; }
         If (tag == "warning") { tagRed = warningR; tagGreen = warningG; tagBlue = warningB; Return 1; }
         If (tag == "success") { tagRed = successR; tagGreen = successG; tagBlue = successB; Return 1; }
-        If (tag == "info" || tag == "accent" || tag == "primary") {
+        If (tag == "accent" || tag == "primary") {
             tagRed = primaryR; tagGreen = primaryG; tagBlue = primaryB; Return 1;
         }
         If (tag == "text") { tagRed = textR; tagGreen = textG; tagBlue = textB; Return 1; }

@@ -1,10 +1,14 @@
 // Tests for Robixc.rx.
 
 Test Main {
-    Case "requires source file when arguments are empty" {
+    Case "prints help when arguments are empty" {
         Input: args = [];
         Assert: Result != Null;
-        Equal: Result.Message, "A source file is required.";
+        Equal: Result.Message, "Printed Robixc help.";
+    }
+    Case "rejects a test file" {
+        Input: args = ["User.test.rx"];
+        Equal: Result.Message, "Test files are run with Robix Test. They are not compilation entries.";
     }
 }
 
@@ -24,3 +28,173 @@ Test RuntimeObject {
 }
 
 Test FinishRun { Output: True; }
+
+Test ClassifyRobixc {
+    Case "help" {
+        Input: args = [];
+        Output: "help";
+    }
+    Case "compile file" {
+        Input: args = ["Main.rx"];
+        Output: "compile-file";
+    }
+    Case "reject test" {
+        Input: args = ["User.test.rx"];
+        Output: "reject-test";
+    }
+    Case "build project" {
+        Input: args = ["Build", "App.rxp"];
+        Output: "build";
+    }
+}
+
+Test CompilerHelp {
+    Case "names the build command" {
+        Input:;
+        Contains: Result, "Robixc Build";
+    }
+}
+
+Test CompilerVersion {
+    Case "short" {
+        Input: kind = "short";
+        Output: "Robixc 0.0.48";
+    }
+}
+
+Test TargetName {
+    Case "kebab linux" {
+        Input: name = "linux-x64";
+        Output: "LinuxX64";
+    }
+    Case "windows" {
+        Input: name = "WindowsX64";
+        Output: "WindowsX64";
+    }
+    Case "unknown" {
+        Input: name = "nope";
+        Output: "";
+    }
+}
+
+Test AssemblerTarget {
+    Case "linux" {
+        Input: target = "LinuxX64";
+        Output: "linux-x64";
+    }
+    Case "arm is not encoded" {
+        Input: target = "LinuxARM64";
+        Output: "";
+    }
+}
+
+Test PlannedOutput {
+    Case "linux default" {
+        Input: stem = "Main", target = "LinuxX64", requested = "", mode = "program";
+        Output: "Build/Main/LinuxX64/Main";
+    }
+    Case "windows executable" {
+        Input: stem = "Main", target = "WindowsX64", requested = "", mode = "program";
+        Output: "Build/Main/WindowsX64/Main.exe";
+    }
+    Case "requested name gains exe" {
+        Input: stem = "Main", target = "WindowsX64", requested = "Out/App", mode = "program";
+        Output: "Out/App.exe";
+    }
+    Case "requested extension stays" {
+        Input: stem = "Main", target = "WindowsX64", requested = "Out/App.bin", mode = "program";
+        Output: "Out/App.bin";
+    }
+    Case "assembly" {
+        Input: stem = "Main", target = "LinuxX64", requested = "", mode = "asm";
+        Output: "Build/Main/LinuxX64/Main.rxs";
+    }
+}
+
+Test CacheStatus {
+    Case "same hash" {
+        Input: saved = "12", current = "12";
+        Output: "Skipped";
+    }
+    Case "different hash" {
+        Input: saved = "12", current = "13";
+        Output: "Compiled";
+    }
+}
+
+Test OutputHash {
+    Case "two letters" {
+        Input: text = "ab";
+        Output: "197";
+    }
+}
+
+Test OutputStem {
+    Case "source file" {
+        Input: path = "Source/Main.rx";
+        Output: "Main";
+    }
+}
+
+Test ProjectEntry {
+    Case "quoted entry" {
+        Input: project = "Entry: \"Source/Main.rx\";\n";
+        Output: "Source/Main.rx";
+    }
+}
+
+Test ProjectHeading {
+    Case "quoted name" {
+        Input: project = "Project \"Demo\"\n";
+        Output: "Demo";
+    }
+}
+
+Test CompilerSource {
+    Case "compile verb" {
+        Input: args = ["Compile", "Main.rx"];
+        Output: "Main.rx";
+    }
+}
+
+Test CompilerOutput {
+    Case "option" {
+        Input: args = ["Main.rx", "--Output", "Out/App"];
+        Output: "Out/App";
+    }
+}
+
+Test CompilerOption {
+    Case "accepted" {
+        Input: args = ["Main.rx", "--Asm"];
+        Output: "";
+    }
+    Case "unknown" {
+        Input: args = ["--Nope"];
+        Output: "Unknown option --Nope.";
+    }
+}
+
+Test OptionText {
+    Case "equals form" {
+        Input: args = ["--Target=WindowsX64"], flag = "--Target";
+        Output: "WindowsX64";
+    }
+}
+
+Test CompileUnit { Output: True; }
+Test CacheFile {
+    Case "beside the output" {
+        Input: outputPath = "Build/Main/LinuxX64/Main";
+        Output: "Build/Main/LinuxX64/Cache/input.hash";
+    }
+}
+Test InfoFile {
+    Case "beside the output" {
+        Input: outputPath = "Build/Main/LinuxX64/Main";
+        Output: "Build/Main/LinuxX64/BuildInfo";
+    }
+}
+Test CompilerProject { Output: True; }
+Test CheckSource { Output: True; }
+Test EnsureFolder { Output: True; }
