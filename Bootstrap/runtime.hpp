@@ -5,6 +5,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <filesystem>
@@ -14,6 +15,16 @@
 #include <string>
 #include <utility>
 #include <vector>
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#include <io.h>
+extern "C" {
+__declspec(dllimport) void* __stdcall GetStdHandle(unsigned long);
+__declspec(dllimport) int __stdcall GetConsoleMode(void*, unsigned long*);
+__declspec(dllimport) int __stdcall SetConsoleMode(void*, unsigned long);
+}
+#endif
 
 namespace rx {
 
@@ -286,8 +297,177 @@ constexpr int64_t PermissionDenied = 5;
 constexpr int64_t ResourceUnavailable = 6;
 }  // namespace ExitCode
 
+inline bool TerminalColor() {
+    static int enabled = -1;
+    if (enabled >= 0) return enabled == 1;
+    if (const char* noColor = std::getenv("NO_COLOR")) {
+        if (*noColor) {
+            enabled = 0;
+            return false;
+        }
+    }
+#ifdef _WIN32
+    void* handle = GetStdHandle(0xFFFFFFF5u);
+    unsigned long mode = 0;
+    if (handle == nullptr || handle == reinterpret_cast<void*>(-1) || !GetConsoleMode(handle, &mode)) {
+        enabled = 0;
+        return false;
+    }
+    mode |= 0x0004u;
+    if (!SetConsoleMode(handle, mode)) {
+        enabled = 0;
+        return false;
+    }
+    enabled = 1;
+    return true;
+#else
+    enabled = ::isatty(1) ? 1 : 0;
+    return enabled == 1;
+#endif
+}
+
+inline int HexDigit(char character) {
+    if (character >= '0' && character <= '9') return character - '0';
+    if (character >= 'a' && character <= 'f') return character - 'a' + 10;
+    if (character >= 'A' && character <= 'F') return character - 'A' + 10;
+    return -1;
+}
+
+inline std::string PaintColor(int red, int green, int blue) {
+    return "\033[38;2;" + std::to_string(red) + ";" + std::to_string(green) + ";" + std::to_string(blue) + "m";
+}
+
+inline bool RoleColor(const std::string& tag, int& red, int& green, int& blue) {
+    if (tag == "red" || tag == "error") {
+        red = 255;
+        green = 90;
+        blue = 90;
+        return true;
+    }
+    if (tag == "green" || tag == "success") {
+        red = 80;
+        green = 220;
+        blue = 120;
+        return true;
+    }
+    if (tag == "yellow" || tag == "warning") {
+        red = 255;
+        green = 196;
+        blue = 64;
+        return true;
+    }
+    if (tag == "blue") {
+        red = 80;
+        green = 180;
+        blue = 255;
+        return true;
+    }
+    if (tag == "cyan") {
+        red = 80;
+        green = 220;
+        blue = 220;
+        return true;
+    }
+    if (tag == "magenta") {
+        red = 230;
+        green = 120;
+        blue = 220;
+        return true;
+    }
+    if (tag == "white" || tag == "text") {
+        red = 240;
+        green = 240;
+        blue = 245;
+        return true;
+    }
+    if (tag == "gray" || tag == "grey" || tag == "muted" || tag == "secondary") {
+        red = 140;
+        green = 150;
+        blue = 165;
+        return true;
+    }
+    if (tag == "info" || tag == "accent" || tag == "primary") {
+        red = 180;
+        green = 140;
+        blue = 255;
+        return true;
+    }
+    if (tag.size() == 7 && tag[0] == '#') {
+        int channels[3] = {};
+        for (int channel = 0; channel < 3; channel++) {
+            int high = HexDigit(tag[1 + channel * 2]);
+            int low = HexDigit(tag[2 + channel * 2]);
+            if (high < 0 || low < 0) return false;
+            channels[channel] = high * 16 + low;
+        }
+        red = channels[0];
+        green = channels[1];
+        blue = channels[2];
+        return true;
+    }
+    if (tag.rfind("rgb:", 0) == 0) {
+        int channels[3] = {};
+        int slot = 0;
+        int value = 0;
+        bool seen = false;
+        for (size_t index = 4; index <= tag.size() && slot < 3; index++) {
+            char mark = index < tag.size() ? tag[index] : ',';
+            if (mark >= '0' && mark <= '9') {
+                value = value * 10 + (mark - '0');
+                if (value > 255) value = 255;
+                seen = true;
+            } else if (mark == ',' && seen) {
+                channels[slot++] = value;
+                value = 0;
+                seen = false;
+            } else {
+                return false;
+            }
+        }
+        if (slot != 3) return false;
+        red = channels[0];
+        green = channels[1];
+        blue = channels[2];
+        return true;
+    }
+    return false;
+}
+
+inline std::string FormatConsole(const std::string& text) {
+    bool color = TerminalColor();
+    std::string built;
+    built.reserve(text.size());
+    for (size_t index = 0; index < text.size();) {
+        if (text[index] != '{') {
+            built.push_back(text[index]);
+            index++;
+            continue;
+        }
+        size_t close = text.find('}', index + 1);
+        if (close == std::string::npos) {
+            built.append(text, index, std::string::npos);
+            break;
+        }
+        std::string tag = text.substr(index + 1, close - index - 1);
+        if (tag.empty() || tag == "/" || tag == "reset") {
+            if (color) built += "\033[0m";
+        } else if (tag == "bold") {
+            if (color) built += "\033[1m";
+        } else {
+            int red = 0;
+            int green = 0;
+            int blue = 0;
+            if (!RoleColor(tag, red, green, blue)) built.append(text, index, close - index + 1);
+            else if (color) built += PaintColor(red, green, blue);
+        }
+        index = close + 1;
+    }
+    if (color) built += "\033[0m";
+    return built;
+}
+
 inline void Print(const String& text) {
-    std::cout << (text.null ? "" : text.text) << std::endl;
+    std::cout << FormatConsole(text.null ? "" : text.text) << std::endl;
 }
 
 inline int64_t ClockMillis() {

@@ -46,7 +46,7 @@ The Robix license does not cover LLVM. The LLVM license does not cover Robix. An
 
 ## Install on Linux
 
-Unzip `robix-linux-x64.zip` and add `Bin` to `PATH`.
+Unzip the archive for this machine and add `Bin` to `PATH`. The Linux archives are `robix-linux-x64.zip`, `robix-linux-arm64.zip`, `robix-linux-arm.zip`, `robix-linux-riscv64.zip`, `robix-linux-ppc64le.zip`, `robix-linux-s390x.zip`, and `robix-linux-loongarch64.zip`.
 
 ```bash
 unzip robix-linux-x64.zip
@@ -59,7 +59,7 @@ Robixc SourceFolder Program
 
 ## Install on Windows
 
-Unzip `robix-windows-x64.zip`. The folders match the Linux toolchain. `Robix.exe` and `Robixc.exe` are in `Bin`. `llc.exe` and `ld.lld.exe` are in `Shared\Tools\Llvm\bin`.
+Unzip `robix-windows-x64.zip`, `robix-windows-arm64.zip`, or `robix-windows-x86.zip`. The folders match the Linux toolchain. `Robix.exe` and `Robixc.exe` are in `Bin`. `llc.exe` and `ld.lld.exe` are in `Shared\Tools\Llvm\bin`.
 
 Add `Bin` to `PATH` the same way you add any other folder.
 

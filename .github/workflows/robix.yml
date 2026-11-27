@@ -112,9 +112,64 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
 
+  architectures:
+    name: Package ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-arm64
+            packages: g++-aarch64-linux-gnu
+            cxx: aarch64-linux-gnu-g++
+          - target: linux-arm
+            packages: g++-arm-linux-gnueabihf
+            cxx: arm-linux-gnueabihf-g++
+          - target: linux-riscv64
+            packages: g++-riscv64-linux-gnu
+            cxx: riscv64-linux-gnu-g++
+          - target: linux-ppc64le
+            packages: g++-powerpc64le-linux-gnu
+            cxx: powerpc64le-linux-gnu-g++
+          - target: linux-s390x
+            packages: g++-s390x-linux-gnu
+            cxx: s390x-linux-gnu-g++
+          - target: linux-loongarch64
+            packages: g++-14-loongarch64-linux-gnu
+            cxx: loongarch64-linux-gnu-g++-14
+          - target: windows-arm64
+            packages: ""
+            cxx: aarch64-w64-mingw32-clang++
+          - target: windows-x86
+            packages: ""
+            cxx: i686-w64-mingw32-clang++
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the host toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zip unzip xz-utils curl ${{ matrix.packages }}
+
+      - name: Package ${{ matrix.target }}
+        run: bash .github/scripts/package-foreign.sh
+        env:
+          ROBIX_TARGET: ${{ matrix.target }}
+          ROBIX_CXX: ${{ matrix.cxx }}
+
+      - name: Upload ${{ matrix.target }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: robix-packages-${{ matrix.target }}
+          path: |
+            dist/robix-*.zip
+            dist/Update-*.zip
+          if-no-files-found: error
+
   release:
     name: Publish Release
-    needs: [compile, editor, package-windows]
+    needs: [compile, editor, package-windows, architectures]
     runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     permissions:
@@ -147,10 +202,24 @@ jobs:
             echo "error: Update-${version} archives were not found" >&2
             exit 1
           fi
-          for required in dist/robix-linux-x64.zip dist/robix-windows-x64.zip dist/Roboticela.Robix.vsix; do
+          for required in \
+            dist/robix-linux-x64.zip dist/robix-linux-arm64.zip dist/robix-linux-arm.zip \
+            dist/robix-linux-riscv64.zip dist/robix-linux-ppc64le.zip dist/robix-linux-s390x.zip \
+            dist/robix-linux-loongarch64.zip \
+            dist/robix-windows-x64.zip dist/robix-windows-arm64.zip dist/robix-windows-x86.zip \
+            dist/Roboticela.Robix.vsix
+          do
             if [ ! -f "$required" ]; then
               echo "error: ${required} was not downloaded" >&2
               find dist -type f >&2 || true
+              exit 1
+            fi
+          done
+          for archive in dist/robix-*.zip; do
+            name="$(basename "$archive" .zip)"
+            name="${name#robix-}"
+            if [ ! -f "dist/Update-${version}-${name}.zip" ]; then
+              echo "error: dist/Update-${version}-${name}.zip was not downloaded" >&2
               exit 1
             fi
           done
@@ -160,9 +229,11 @@ jobs:
 
           The version is written in \`Robix/VERSION.txt\`.
 
-          Unzip the full archive for a new install. llc and lld are already inside it.
+          Unzip the archive that matches the machine. Each archive contains \`Bin/RobixBootstrap\` for the next build on that architecture.
 
-          Linux:
+          Linux: \`robix-linux-x64.zip\`, \`robix-linux-arm64.zip\`, \`robix-linux-arm.zip\`, \`robix-linux-riscv64.zip\`, \`robix-linux-ppc64le.zip\`, \`robix-linux-s390x.zip\`, \`robix-linux-loongarch64.zip\`.
+
+          Windows: \`robix-windows-x64.zip\`, \`robix-windows-arm64.zip\`, \`robix-windows-x86.zip\`.
 
           \`\`\`bash
           unzip robix-linux-x64.zip
@@ -171,8 +242,6 @@ jobs:
           Robixc SourceFolder Program
           \`\`\`
 
-          Windows:
-
           \`\`\`powershell
           Expand-Archive robix-windows-x64.zip
           \$env:PATH = \"\$PWD\\Robix\\Bin;\$env:PATH\"
@@ -180,11 +249,9 @@ jobs:
           Robixc.exe SourceFolder Program.exe
           \`\`\`
 
-          \`Robix.exe\` and \`Robixc.exe\` are located in \`Robix\\Bin\`.
-
           ## Update
 
-          \`Update-${version}-linux-x64.zip\` and \`Update-${version}-windows-x64.zip\` contain the same Robix files without LLVM. Unzip the matching archive over an existing \`Robix\` folder. \`Shared/Tools/Llvm\` and \`Library/Link\` stay where they are.
+          \`Update-${version}-<system>-<arch>.zip\` contains the same Robix files without LLVM. Unzip the matching archive over an existing \`Robix\` folder. \`Shared/Tools/Llvm\` and \`Library/Link\` stay where they are.
 
           ## Editor
 
@@ -199,9 +266,8 @@ jobs:
           if [ "${tag}" = "latest" ]; then
             create_args+=(--latest)
           fi
+          mapfile -t archives < <(printf '%s\n' dist/robix-*.zip dist/Update-*.zip | sort)
           gh release create "${tag}" \
-            dist/robix-linux-x64.zip \
-            dist/robix-windows-x64.zip \
-            "${updates[@]}" \
+            "${archives[@]}" \
             dist/Roboticela.Robix.vsix \
             "${create_args[@]}"
