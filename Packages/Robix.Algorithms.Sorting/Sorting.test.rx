@@ -1,0 +1,23 @@
+Test Sort {
+    Constraint: SortingDesk().Sort() == 168;
+    Processing: True;
+    Output: True;
+}
+
+Test CountInversions {
+    Constraint: SortingDesk().CountInversions() == 10;
+    Processing: True;
+    Output: True;
+}
+
+Test NthElement {
+    Constraint: SortingDesk().NthElement(4) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test MeasureComparisons {
+    Constraint: SortingDesk().MeasureComparisons() == 15;
+    Processing: True;
+    Output: True;
+}

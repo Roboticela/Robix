@@ -1,5 +1,8 @@
 // Robix.Symbols: semantic marks with Unicode and ASCII forms.
-Package Robix.Symbols;
+Package Robix.Symbols
+Explain {
+    Description: "Semantic marks with Unicode and ASCII forms.";
+};
 
 Import Robix.Core;
 

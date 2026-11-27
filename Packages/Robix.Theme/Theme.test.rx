@@ -1,7 +1,56 @@
-Import Robix.Theme;
+// Tests for Theme.rx.
 
 Test Apply {
-    Constraint: ThemeDesk().Apply("dark") == 1;
-    Processing: True;
-    Output: True;
+    Case "dark" {
+        Constraint: ThemeDesk().Apply("dark") == 1;
+        Processing: ThemeDesk().Apply("dark");
+        Output: 1;
+    }
+    Case "light" {
+        Constraint: ThemeDesk().Apply("light") == 1;
+        Processing: ThemeDesk().Apply("light");
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: ThemeDesk().Apply("other") == 0;
+        Processing: ThemeDesk().Apply("other");
+        Output: 0;
+    }
+}
+
+Test RoleRed {
+    Case "unset primary" {
+        Constraint: ThemeDesk().RoleRed("primary") == 0;
+        Processing: ThemeDesk().RoleRed("primary");
+        Output: 0;
+    }
+    Case "unknown role" {
+        Constraint: ThemeDesk().RoleRed("missing") == 0;
+        Processing: ThemeDesk().RoleRed("missing");
+        Output: 0;
+    }
+}
+
+Test RoleGreen {
+    Constraint: ThemeDesk().RoleGreen("success") == 0;
+    Processing: ThemeDesk().RoleGreen("success");
+    Output: 0;
+}
+
+Test RoleBlue {
+    Constraint: ThemeDesk().RoleBlue("text") == 0;
+    Processing: ThemeDesk().RoleBlue("text");
+    Output: 0;
+}
+
+Test Active {
+    Constraint: ThemeDesk().Active() == "none";
+    Processing: ThemeDesk().Active();
+    Output: "none";
+}
+
+Test Fault {
+    Constraint: ThemeDesk().Fault() == "none";
+    Processing: ThemeDesk().Fault();
+    Output: "none";
 }

@@ -1,7 +1,74 @@
-Import Robix.Logging;
+// Tests for Logging.rx.
+
+Test SetLevel {
+    Case "stores a level" {
+        Constraint: LogDesk().SetLevel(4) == 4;
+        Processing: LogDesk().SetLevel(4);
+        Output: 4;
+    }
+    Case "clamps below zero" {
+        Constraint: LogDesk().SetLevel(-3) == 0;
+        Processing: LogDesk().SetLevel(-3);
+        Output: 0;
+    }
+    Case "clamps above critical" {
+        Constraint: LogDesk().SetLevel(9) == 6;
+        Processing: LogDesk().SetLevel(9);
+        Output: 6;
+    }
+}
 
 Test Accept {
-    Constraint: LogDesk().Accept(2, "ready") == 1;
-    Processing: True;
-    Output: True;
+    Case "keeps a message at the default level" {
+        Constraint: LogDesk().Accept(2, "ready") == 1;
+        Processing: LogDesk().Accept(2, "ready");
+        Output: 1;
+    }
+    Case "drops a quieter message" {
+        Constraint: LogDesk().Accept(1, "quiet") == 0;
+        Processing: LogDesk().Accept(1, "quiet");
+        Output: 0;
+    }
+}
+
+Test Last {
+    Constraint: LogDesk().Last() == "none";
+    Processing: LogDesk().Last();
+    Output: "none";
+}
+
+Test Kept {
+    Constraint: LogDesk().Kept() == 0;
+    Processing: LogDesk().Kept();
+    Output: 0;
+}
+
+Test Dropped {
+    Constraint: LogDesk().Dropped() == 0;
+    Processing: LogDesk().Dropped();
+    Output: 0;
+}
+
+Test Fault {
+    Constraint: LogDesk().Fault() == "none";
+    Processing: LogDesk().Fault();
+    Output: "none";
+}
+
+Test LevelName {
+    Case "info" {
+        Constraint: LogDesk().LevelName(2) == "INFO";
+        Processing: LogDesk().LevelName(2);
+        Output: "INFO";
+    }
+    Case "trace" {
+        Constraint: LogDesk().LevelName(0) == "TRACE";
+        Processing: LogDesk().LevelName(0);
+        Output: "TRACE";
+    }
+    Case "critical" {
+        Constraint: LogDesk().LevelName(8) == "CRITICAL";
+        Processing: LogDesk().LevelName(8);
+        Output: "CRITICAL";
+    }
 }

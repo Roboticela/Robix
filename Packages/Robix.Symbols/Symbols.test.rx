@@ -1,7 +1,69 @@
-Import Robix.Symbols;
+// Tests for Symbols.rx.
 
-Test AsciiCheck {
-    Constraint: SymbolDesk().UseAscii(1) == 1;
-    Processing: True;
-    Output: True;
+Test UseAscii {
+    Case "unicode" {
+        Constraint: SymbolDesk().UseAscii(0) == 0;
+        Processing: SymbolDesk().UseAscii(0);
+        Output: 0;
+    }
+    Case "ascii" {
+        Constraint: SymbolDesk().UseAscii(1) == 1;
+        Processing: SymbolDesk().UseAscii(1);
+        Output: 1;
+    }
+}
+
+Test Glyph {
+    Case "check" {
+        Constraint: SymbolDesk().Glyph("check") == "✓";
+        Processing: SymbolDesk().Glyph("check");
+        Output: "✓";
+    }
+    Case "unknown" {
+        Constraint: SymbolDesk().Glyph("missing") == "none";
+        Processing: SymbolDesk().Glyph("missing");
+        Output: "none";
+    }
+}
+
+Test Check {
+    Constraint: SymbolDesk().Check() == "✓";
+    Processing: SymbolDesk().Check();
+    Output: "✓";
+}
+
+Test Cross {
+    Constraint: SymbolDesk().Cross() == "✗";
+    Processing: SymbolDesk().Cross();
+    Output: "✗";
+}
+
+Test Warning {
+    Constraint: SymbolDesk().Warning() == "⚠";
+    Processing: SymbolDesk().Warning();
+    Output: "⚠";
+}
+
+Test Arrow {
+    Constraint: SymbolDesk().Arrow() == "→";
+    Processing: SymbolDesk().Arrow();
+    Output: "→";
+}
+
+Test Bullet {
+    Constraint: SymbolDesk().Bullet() == "•";
+    Processing: SymbolDesk().Bullet();
+    Output: "•";
+}
+
+Test Star {
+    Constraint: SymbolDesk().Star() == "★";
+    Processing: SymbolDesk().Star();
+    Output: "★";
+}
+
+Test Fault {
+    Constraint: SymbolDesk().Fault() == "none";
+    Processing: SymbolDesk().Fault();
+    Output: "none";
 }

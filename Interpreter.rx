@@ -453,7 +453,7 @@ Public Class Interpreter {
             }
         } Else If (hasProcessing && hasOutput && !This.Same(processing, expected)) {
             This.PopScope();
-            Return "error RX121 Test " + This.TestTitle(test) + " failed. Processing and Output do not match.";
+            Return "error RX121 Test " + This.TestTitle(test) + " failed. Processing returned <<" + This.Display(processing) + ">>.";
         }
         String checkFailure = This.RunChecks(test, actual, called);
         This.PopScope();

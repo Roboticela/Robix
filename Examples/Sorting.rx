@@ -1,0 +1,98 @@
+// Robix.Algorithms.Sorting: exact sorts of an eight-sample integer buffer.
+Package Robotics.Sorting;
+
+Import Robix.Core;
+Import Robix.Algorithms.Sorting;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise sorts of the mixed eight-sample buffer.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the sorting desk.";
+    Output: "The sorting report.";
+} {
+    SortingDesk desk = SortingDesk();
+    Print(desk.SetDirection(0));
+    Print(desk.Sort());
+    Print(desk.SortAscending());
+    Print(desk.SortDescending());
+    Print(desk.StableSort());
+    Print(desk.UnstableSort());
+    Print(desk.SortInPlace());
+    Print(desk.SortedCopy());
+    Print(desk.PartialSort(3));
+    Print(desk.BubbleSort());
+    Print(desk.OptimizedBubbleSort());
+    Print(desk.CocktailShakerSort());
+    Print(desk.CombSort());
+    Print(desk.SelectionSort());
+    Print(desk.DoubleSelectionSort());
+    Print(desk.InsertionSort());
+    Print(desk.BinaryInsertionSort());
+    Print(desk.ShellSort());
+    Print(desk.MergeSort());
+    Print(desk.BottomUpMergeSort());
+    Print(desk.NaturalMergeSort());
+    Print(desk.QuickSort());
+    Print(desk.RandomizedQuickSort());
+    Print(desk.ThreeWayQuickSort());
+    Print(desk.DualPivotQuickSort());
+    Print(desk.HeapSort());
+    Print(desk.IntroSort());
+    Print(desk.TimSort());
+    Print(desk.SmoothSort());
+    Print(desk.TreeSort());
+    Print(desk.TournamentSort());
+    Print(desk.CycleSort());
+    Print(desk.GnomeSort());
+    Print(desk.OddEvenSort());
+    Print(desk.PancakeSort());
+    Print(desk.CountingSort());
+    Print(desk.RadixSort());
+    Print(desk.LSDRadixSort());
+    Print(desk.MSDRadixSort());
+    Print(desk.BucketSort());
+    Print(desk.PigeonholeSort());
+    Print(desk.FlashSort());
+    Print(desk.AmericanFlagSort());
+    Print(desk.TopKSort(3));
+    Print(desk.NthElement(4));
+    Print(desk.SortNearlySorted());
+    Print(desk.SortLinkedList());
+    Print(desk.SortMatrixRows());
+    Print(desk.SortMatrixColumns());
+    Print(desk.LexicographicSort());
+    Print(desk.NaturalSort());
+    Print(desk.CaseInsensitiveSort());
+    Print(desk.LocaleAwareSort(0));
+    Print(desk.MultiKeySort());
+    Print(desk.ParallelMergeSort());
+    Print(desk.ParallelQuickSort());
+    Print(desk.ParallelRadixSort());
+    Print(desk.BitonicSort());
+    Print(desk.OddEvenMergeSort());
+    Print(desk.ExternalMergeSort());
+    Print(desk.ExternalSort());
+    Print(desk.MultiwayMerge());
+    Print(desk.KWayMerge());
+    Print(desk.IsSorted());
+    Print(desk.IsSortedAscending());
+    Print(desk.IsSortedDescending());
+    Print(desk.IsStableSort(0));
+    Print(desk.IsStableSort(1));
+    Print(desk.CountInversions());
+    Print(desk.VerifySort());
+    Print(desk.MeasureComparisons());
+    Print(desk.MeasureSwaps());
+    Print(desk.EstimateSortMemory(0));
+    Print(desk.EstimateSortMemory(3));
+    Print(desk.IsInPlace(0));
+    Print(desk.IsInPlace(3));
+    Print(desk.IsComparisonBased(0));
+    Print(desk.IsComparisonBased(6));
+    Print(desk.IsDeterministic(4));
+    Print(desk.Sort());
+    Print(desk.Fault());
+    Return 0;
+}

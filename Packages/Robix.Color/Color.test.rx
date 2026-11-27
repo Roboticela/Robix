@@ -1,7 +1,265 @@
-Import Robix.Color;
+// Tests for Color.rx.
+
+Test Rgb {
+    Constraint: ColorDesk().Rgb(255, 0, 0) == 16711680;
+    Processing: ColorDesk().Rgb(255, 0, 0);
+    Output: 16711680;
+}
+
+Test Rgba {
+    Constraint: ColorDesk().Rgba(0, 0, 255, 128) == 255;
+    Processing: ColorDesk().Rgba(0, 0, 255, 128);
+    Output: 255;
+}
+
+Test Hex {
+    Case "red" {
+        Constraint: ColorDesk().Hex("#FF0000") == 16711680;
+        Processing: ColorDesk().Hex("#FF0000");
+        Output: 16711680;
+    }
+    Case "too short" {
+        Constraint: ColorDesk().Hex("zz") == 0;
+        Processing: ColorDesk().Hex("zz");
+        Output: 0;
+    }
+}
+
+Test FromHsv {
+    Constraint: ColorDesk().FromHsv(0, 100, 100) == 16711680;
+    Processing: ColorDesk().FromHsv(0, 100, 100);
+    Output: 16711680;
+}
+
+Test FromHsl {
+    Constraint: ColorDesk().FromHsl(0, 0, 0) == 0;
+    Processing: ColorDesk().FromHsl(0, 0, 0);
+    Output: 0;
+}
+
+Test FromCmyk {
+    Constraint: ColorDesk().FromCmyk(0, 100, 100, 0) == 16711680;
+    Processing: ColorDesk().FromCmyk(0, 100, 100, 0);
+    Output: 16711680;
+}
+
+Test From256 {
+    Case "red" {
+        Constraint: ColorDesk().From256(1) == 16711680;
+        Processing: ColorDesk().From256(1);
+        Output: 16711680;
+    }
+    Case "out of range" {
+        Constraint: ColorDesk().From256(300) == 0;
+        Processing: ColorDesk().From256(300);
+        Output: 0;
+    }
+}
+
+Test FromAnsi {
+    Case "red" {
+        Constraint: ColorDesk().FromAnsi("red") == 16711680;
+        Processing: ColorDesk().FromAnsi("red");
+        Output: 16711680;
+    }
+    Case "unknown" {
+        Constraint: ColorDesk().FromAnsi("nope") == 0;
+        Processing: ColorDesk().FromAnsi("nope");
+        Output: 0;
+    }
+}
+
+Test ToHex {
+    Constraint: ColorDesk().ToHex() == "000000";
+    Processing: ColorDesk().ToHex();
+    Output: "000000";
+}
+
+Test Red {
+    Constraint: ColorDesk().Red() == 0;
+    Processing: ColorDesk().Red();
+    Output: 0;
+}
+
+Test Green {
+    Constraint: ColorDesk().Green() == 0;
+    Processing: ColorDesk().Green();
+    Output: 0;
+}
+
+Test Blue {
+    Constraint: ColorDesk().Blue() == 0;
+    Processing: ColorDesk().Blue();
+    Output: 0;
+}
+
+Test Alpha {
+    Constraint: ColorDesk().Alpha() == 255;
+    Processing: ColorDesk().Alpha();
+    Output: 255;
+}
+
+Test Hue {
+    Constraint: ColorDesk().Hue() == 0;
+    Processing: ColorDesk().Hue();
+    Output: 0;
+}
+
+Test Saturation {
+    Constraint: ColorDesk().Saturation() == 0;
+    Processing: ColorDesk().Saturation();
+    Output: 0;
+}
+
+Test Value {
+    Constraint: ColorDesk().Value() == 0;
+    Processing: ColorDesk().Value();
+    Output: 0;
+}
+
+Test Lightness {
+    Constraint: ColorDesk().Lightness() == 0;
+    Processing: ColorDesk().Lightness();
+    Output: 0;
+}
+
+Test Lighten {
+    Constraint: ColorDesk().Lighten(100) == 16777215;
+    Processing: ColorDesk().Lighten(100);
+    Output: 16777215;
+}
+
+Test Darken {
+    Constraint: ColorDesk().Darken(50) == 0;
+    Processing: ColorDesk().Darken(50);
+    Output: 0;
+}
+
+Test Mix {
+    Constraint: ColorDesk().Mix(255, 0, 0, 100) == 16711680;
+    Processing: ColorDesk().Mix(255, 0, 0, 100);
+    Output: 16711680;
+}
+
+Test Invert {
+    Constraint: ColorDesk().Invert() == 16777215;
+    Processing: ColorDesk().Invert();
+    Output: 16777215;
+}
+
+Test Grayscale {
+    Constraint: ColorDesk().Grayscale() == 0;
+    Processing: ColorDesk().Grayscale();
+    Output: 0;
+}
+
+Test WithAlpha {
+    Constraint: ColorDesk().WithAlpha(128) == 0;
+    Processing: ColorDesk().WithAlpha(128);
+    Output: 0;
+}
+
+Test IsDark {
+    Constraint: ColorDesk().IsDark() == 1;
+    Processing: ColorDesk().IsDark();
+    Output: 1;
+}
+
+Test IsLight {
+    Constraint: ColorDesk().IsLight() == 0;
+    Processing: ColorDesk().IsLight();
+    Output: 0;
+}
 
 Test Contrast {
     Constraint: ColorDesk().Contrast(0, 0, 0, 255, 255, 255) == 21;
-    Processing: True;
-    Output: True;
+    Processing: ColorDesk().Contrast(0, 0, 0, 255, 255, 255);
+    Output: 21;
+}
+
+Test Fault {
+    Constraint: ColorDesk().Fault() == "none";
+    Processing: ColorDesk().Fault();
+    Output: "none";
+}
+
+Test Store {
+    Constraint: ColorDesk().Store(300, -1, 10, 400) == 16711690;
+    Processing: ColorDesk().Store(300, -1, 10, 400);
+    Output: 16711690;
+}
+
+Test Scale {
+    Constraint: ColorDesk().Scale(100) == 255;
+    Processing: ColorDesk().Scale(100);
+    Output: 255;
+}
+
+Test Cube {
+    Case "zero" {
+        Constraint: ColorDesk().Cube(0) == 0;
+        Processing: ColorDesk().Cube(0);
+        Output: 0;
+    }
+    Case "one" {
+        Constraint: ColorDesk().Cube(1) == 95;
+        Processing: ColorDesk().Cube(1);
+        Output: 95;
+    }
+    Case "top" {
+        Constraint: ColorDesk().Cube(5) == 255;
+        Processing: ColorDesk().Cube(5);
+        Output: 255;
+    }
+}
+
+Test AnsiIndex {
+    Constraint: ColorDesk().AnsiIndex(1) == 16711680;
+    Processing: ColorDesk().AnsiIndex(1);
+    Output: 16711680;
+}
+
+Test Pair {
+    Constraint: ColorDesk().Pair("FF0000", 0) == 255;
+    Processing: ColorDesk().Pair("FF0000", 0);
+    Output: 255;
+}
+
+Test HexDigit {
+    Case "letter" {
+        Constraint: ColorDesk().HexDigit("A") == 10;
+        Processing: ColorDesk().HexDigit("A");
+        Output: 10;
+    }
+    Case "invalid" {
+        Constraint: ColorDesk().HexDigit("g") == -1;
+        Processing: ColorDesk().HexDigit("g");
+        Output: -1;
+    }
+}
+
+Test ByteText {
+    Case "full" {
+        Constraint: ColorDesk().ByteText(255) == "FF";
+        Processing: ColorDesk().ByteText(255);
+        Output: "FF";
+    }
+    Case "zero" {
+        Constraint: ColorDesk().ByteText(0) == "00";
+        Processing: ColorDesk().ByteText(0);
+        Output: "00";
+    }
+}
+
+Test Clamp {
+    Case "below zero" {
+        Constraint: ColorDesk().Clamp(-1) == 0;
+        Processing: ColorDesk().Clamp(-1);
+        Output: 0;
+    }
+    Case "above 255" {
+        Constraint: ColorDesk().Clamp(300) == 255;
+        Processing: ColorDesk().Clamp(300);
+        Output: 255;
+    }
 }

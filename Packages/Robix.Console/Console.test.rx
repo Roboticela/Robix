@@ -1,13 +1,199 @@
-Import Robix.Console;
+// Tests for Console.rx.
 
-Test WriteLine {
-    Constraint: ConsoleDesk().WriteLine("Robix") == 6;
-    Processing: True;
-    Output: True;
+Test UseColor {
+    Case "on" {
+        Constraint: ConsoleDesk().UseColor(1) == 1;
+        Processing: ConsoleDesk().UseColor(1);
+        Output: 1;
+    }
+    Case "off" {
+        Constraint: ConsoleDesk().UseColor(0) == 0;
+        Processing: ConsoleDesk().UseColor(0);
+        Output: 0;
+    }
 }
 
-Test PaintPlain {
-    Constraint: ConsoleDesk().Paint("{red}Hi{/} {green}Robix{/}") == "Hi Robix";
-    Processing: True;
-    Output: True;
+Test Write {
+    Constraint: ConsoleDesk().Write("hi") == 2;
+    Processing: ConsoleDesk().Write("hi");
+    Output: 2;
+}
+
+Test WriteLine {
+    Constraint: ConsoleDesk().WriteLine("hi") == 3;
+    Processing: ConsoleDesk().WriteLine("hi");
+    Output: 3;
+}
+
+Test WriteInfo {
+    Constraint: ConsoleDesk().WriteInfo("hi") == 9;
+    Processing: ConsoleDesk().WriteInfo("hi");
+    Output: 9;
+}
+
+Test WriteSuccess {
+    Constraint: ConsoleDesk().WriteSuccess("hi") == 12;
+    Processing: ConsoleDesk().WriteSuccess("hi");
+    Output: 12;
+}
+
+Test WriteWarning {
+    Constraint: ConsoleDesk().WriteWarning("hi") == 12;
+    Processing: ConsoleDesk().WriteWarning("hi");
+    Output: 12;
+}
+
+Test WriteError {
+    Constraint: ConsoleDesk().WriteError("hi") == 10;
+    Processing: ConsoleDesk().WriteError("hi");
+    Output: 10;
+}
+
+Test WriteColored {
+    Constraint: ConsoleDesk().WriteColored("hi", 255, 0, 0) == 2;
+    Processing: ConsoleDesk().WriteColored("hi", 255, 0, 0);
+    Output: 2;
+}
+
+Test Transcript {
+    Constraint: ConsoleDesk().Transcript() == "";
+    Processing: ConsoleDesk().Transcript();
+    Output: "";
+}
+
+Test ClearOutput {
+    Constraint: ConsoleDesk().ClearOutput() == 0;
+    Processing: ConsoleDesk().ClearOutput();
+    Output: 0;
+}
+
+Test Fault {
+    Constraint: ConsoleDesk().Fault() == "none";
+    Processing: ConsoleDesk().Fault();
+    Output: "none";
+}
+
+Test UseTheme {
+    Case "dark" {
+        Constraint: ConsoleDesk().UseTheme("dark") == 1;
+        Processing: ConsoleDesk().UseTheme("dark");
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: ConsoleDesk().UseTheme("other") == 0;
+        Processing: ConsoleDesk().UseTheme("other");
+        Output: 0;
+    }
+}
+
+Test SetInk {
+    Constraint: ConsoleDesk().SetInk(1, 2, 3) == 1;
+    Processing: ConsoleDesk().SetInk(1, 2, 3);
+    Output: 1;
+}
+
+Test Paint {
+    Constraint: ConsoleDesk().Paint("{bold}hi{/}") == "hi";
+    Processing: ConsoleDesk().Paint("{bold}hi{/}");
+    Output: "hi";
+}
+
+Test WriteRich {
+    Constraint: ConsoleDesk().WriteRich("{bold}hi{/}") == 2;
+    Processing: ConsoleDesk().WriteRich("{bold}hi{/}");
+    Output: 2;
+}
+
+Test Report {
+    Constraint: ConsoleDesk().Report("success", "Ok", "") == 3;
+    Processing: ConsoleDesk().Report("success", "Ok", "");
+    Output: 3;
+}
+
+Test WriteRole {
+    Constraint: ConsoleDesk().WriteRole("info", "hi", 1, 2, 3) == 9;
+    Processing: ConsoleDesk().WriteRole("info", "hi", 1, 2, 3);
+    Output: 9;
+}
+
+Test IntText {
+    Case "zero" {
+        Constraint: ConsoleDesk().IntText(0) == "0";
+        Processing: ConsoleDesk().IntText(0);
+        Output: "0";
+    }
+    Case "twelve" {
+        Constraint: ConsoleDesk().IntText(12) == "12";
+        Processing: ConsoleDesk().IntText(12);
+        Output: "12";
+    }
+}
+
+Test CopyTheme {
+    Constraint: ConsoleDesk().CopyTheme(ThemeDesk()) == 1;
+    Processing: ConsoleDesk().CopyTheme(ThemeDesk());
+    Output: 1;
+}
+
+Test Ink {
+    Constraint: ConsoleDesk().Ink("hi") == "hi";
+    Processing: ConsoleDesk().Ink("hi");
+    Output: "hi";
+}
+
+Test Render {
+    Constraint: ConsoleDesk().Render("ab") == "ab";
+    Processing: ConsoleDesk().Render("ab");
+    Output: "ab";
+}
+
+Test ApplyTag {
+    Case "bold while color is off" {
+        Constraint: ConsoleDesk().ApplyTag("bold") == "";
+        Processing: ConsoleDesk().ApplyTag("bold");
+        Output: "";
+    }
+    Case "unknown tag" {
+        Constraint: ConsoleDesk().ApplyTag("nope") == "?";
+        Processing: ConsoleDesk().ApplyTag("nope");
+        Output: "?";
+    }
+}
+
+Test Sequence {
+    Constraint: ConsoleDesk().Sequence(1, 2, 3) == "\u001b[38;2;1;2;3m";
+    Processing: ConsoleDesk().Sequence(1, 2, 3);
+    Output: "\u001b[38;2;1;2;3m";
+}
+
+Test TagChannels {
+    Case "red" {
+        Constraint: ConsoleDesk().TagChannels("red") == 1;
+        Processing: ConsoleDesk().TagChannels("red");
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: ConsoleDesk().TagChannels("nope") == 0;
+        Processing: ConsoleDesk().TagChannels("nope");
+        Output: 0;
+    }
+}
+
+Test ReadRgb {
+    Constraint: ConsoleDesk().ReadRgb("1,2,3") == 1;
+    Processing: ConsoleDesk().ReadRgb("1,2,3");
+    Output: 1;
+}
+
+Test DigitOf {
+    Case "digit" {
+        Constraint: ConsoleDesk().DigitOf("4") == 4;
+        Processing: ConsoleDesk().DigitOf("4");
+        Output: 4;
+    }
+    Case "letter" {
+        Constraint: ConsoleDesk().DigitOf("a") == -1;
+        Processing: ConsoleDesk().DigitOf("a");
+        Output: -1;
+    }
 }

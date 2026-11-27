@@ -1,7 +1,74 @@
-Import Robix.Text;
+// Tests for Text.rx.
 
 Test Measure {
-    Constraint: TextDesk().Measure("Robix") == 6;
-    Processing: True;
-    Output: True;
+    Constraint: TextDesk().Measure("ready") == 5;
+    Processing: TextDesk().Measure("ready");
+    Output: 5;
+}
+
+Test Center {
+    Constraint: TextDesk().Center("ab", 6) == "  ab  ";
+    Processing: TextDesk().Center("ab", 6);
+    Output: "  ab  ";
+}
+
+Test AlignLeft {
+    Constraint: TextDesk().AlignLeft("ab", 4) == "ab  ";
+    Processing: TextDesk().AlignLeft("ab", 4);
+    Output: "ab  ";
+}
+
+Test AlignRight {
+    Constraint: TextDesk().AlignRight("ab", 4) == "  ab";
+    Processing: TextDesk().AlignRight("ab", 4);
+    Output: "  ab";
+}
+
+Test Truncate {
+    Case "cuts the tail" {
+        Constraint: TextDesk().Truncate("abcdef", 3) == "abc";
+        Processing: TextDesk().Truncate("abcdef", 3);
+        Output: "abc";
+    }
+    Case "empty when the width is zero" {
+        Constraint: TextDesk().Truncate("ab", 0) == "";
+        Processing: TextDesk().Truncate("ab", 0);
+        Output: "";
+    }
+}
+
+Test Repeat {
+    Constraint: TextDesk().Repeat("ab", 3) == "ababab";
+    Processing: TextDesk().Repeat("ab", 3);
+    Output: "ababab";
+}
+
+Test Wrap {
+    Constraint: TextDesk().Wrap("hello world", 5) == 2;
+    Processing: TextDesk().Wrap("hello world", 5);
+    Output: 2;
+}
+
+Test FirstLine {
+    Constraint: TextDesk().FirstLine() == "";
+    Processing: TextDesk().FirstLine();
+    Output: "";
+}
+
+Test NextLine {
+    Constraint: TextDesk().NextLine() == "";
+    Processing: TextDesk().NextLine();
+    Output: "";
+}
+
+Test Fault {
+    Constraint: TextDesk().Fault() == "none";
+    Processing: TextDesk().Fault();
+    Output: "none";
+}
+
+Test Spaces {
+    Constraint: TextDesk().Spaces(3) == "   ";
+    Processing: TextDesk().Spaces(3);
+    Output: "   ";
 }

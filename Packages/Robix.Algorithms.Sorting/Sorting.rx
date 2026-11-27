@@ -1,0 +1,1453 @@
+// Robix.Algorithms.Sorting: exact sorts of an eight-sample integer buffer.
+Package Robix.Algorithms.Sorting;
+
+Import Robix.Core;
+
+
+Class SortingDesk {
+    Private Array<Int> samples;
+    Private Array<Int> other;
+    Private Int comparisons;
+    Private Int shifts;
+    Private Int direction;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        samples = [0, 0, 0, 0, 0, 0, 0, 0];
+        other = [0, 0, 0, 0, 0, 0, 0, 0];
+        comparisons = 0;
+        shifts = 0;
+        direction = 0;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function Sort() -> Int
+    Explain {
+        Description: "Sort 4, 2, 7, 1, 5, 3, 8, 6 into increasing order.";
+        Input: "None";
+        Processing: "Insert each sample into the ordered prefix.";
+        Output: "The index-weighted sum, 168.";
+    } {
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
+    }
+
+    Public Function SortAscending() -> Int
+    Explain {
+        Description: "Sort the mixed buffer into increasing order.";
+        Input: "None";
+        Processing: "Use insertion sort.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function SortDescending() -> Int
+    Explain {
+        Description: "Sort the mixed buffer into decreasing order.";
+        Input: "None";
+        Processing: "Sort increasing, then reverse the buffer.";
+        Output: "The index-weighted sum, 84.";
+    } {
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        This.Flip(7);
+        Return This.Score();
+    }
+
+    Public Function StableSort() -> Int
+    Explain {
+        Description: "Sort with a stable insertion pass.";
+        Input: "None";
+        Processing: "Equal keys would keep their earlier order.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function UnstableSort() -> Int
+    Explain {
+        Description: "Sort with selection, which may reorder equal keys.";
+        Input: "None";
+        Processing: "Repeatedly place the smallest remaining sample.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Select(0, 8);
+        Return This.Score();
+    }
+
+    Public Function SortInPlace() -> Int
+    Explain {
+        Description: "Sort inside the sample buffer.";
+        Input: "None";
+        Processing: "Use insertion sort.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function SortedCopy() -> Int
+    Explain {
+        Description: "Sort a copy of the mixed buffer.";
+        Input: "None";
+        Processing: "The desk buffer is that copy.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function PartialSort(Int count) -> Int
+    Explain {
+        Description: "Place the smallest samples at the front in order.";
+        Input: count = "How many leading samples to finish, from 1 through 8";
+        Processing: "Select the minimum that many times.";
+        Output: "The last finished sample. Count 3 yields 3.";
+    } {
+        If (count < 1 || count > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillMixed();
+        This.Select(0, count);
+        problem = "none";
+        Return samples[count - 1];
+    }
+
+    Public Function BubbleSort() -> Int
+    Explain {
+        Description: "Sort by adjacent swaps.";
+        Input: "None";
+        Processing: "Sweep the mixed buffer until the largest samples settle at the end.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Bubble(0);
+        Return This.Score();
+    }
+
+    Public Function OptimizedBubbleSort() -> Int
+    Explain {
+        Description: "Stop the bubble sweeps after a clean pass.";
+        Input: "None";
+        Processing: "Leave the buffer when a sweep makes no swap.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Bubble(1);
+        Return This.Score();
+    }
+
+    Public Function CocktailShakerSort() -> Int
+    Explain {
+        Description: "Bubble toward both ends.";
+        Input: "None";
+        Processing: "Alternate a left-to-right sweep with a right-to-left sweep.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Cocktail();
+        Return This.Score();
+    }
+
+    Public Function CombSort() -> Int
+    Explain {
+        Description: "Bubble across a shrinking gap.";
+        Input: "None";
+        Processing: "Multiply the gap by 10 and divide by 13 until a clean gap of 1.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Comb();
+        Return This.Score();
+    }
+
+    Public Function SelectionSort() -> Int
+    Explain {
+        Description: "Sort by selecting the next minimum.";
+        Input: "None";
+        Processing: "The minimum of the unsorted suffix moves to the front.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Select(0, 8);
+        Return This.Score();
+    }
+
+    Public Function DoubleSelectionSort() -> Int
+    Explain {
+        Description: "Place both the minimum and the maximum on each pass.";
+        Input: "None";
+        Processing: "Shrink the unsorted middle from both ends.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.DoubleSelect();
+        Return This.Score();
+    }
+
+    Public Function InsertionSort() -> Int
+    Explain {
+        Description: "Sort by inserting each sample into the ordered prefix.";
+        Input: "None";
+        Processing: "Shift larger prefix samples one place right.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function BinaryInsertionSort() -> Int
+    Explain {
+        Description: "Insert each sample at a binary-search position.";
+        Input: "None";
+        Processing: "Find the hole by halving, then shift the tail.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.BinaryInsert();
+        Return This.Score();
+    }
+
+    Public Function ShellSort() -> Int
+    Explain {
+        Description: "Insertion-sort across gaps 4, 2, and 1.";
+        Input: "None";
+        Processing: "The final gap is a full insertion sort.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Shell();
+        Return This.Score();
+    }
+
+    Public Function MergeSort() -> Int
+    Explain {
+        Description: "Sort by bottom-up merging.";
+        Input: "None";
+        Processing: "Merge runs of width 1, then 2, then 4.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.MergeUp();
+        Return This.Score();
+    }
+
+    Public Function BottomUpMergeSort() -> Int
+    Explain {
+        Description: "Merge adjacent runs from the bottom.";
+        Input: "None";
+        Processing: "Use the same widths as the merge sort.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function NaturalMergeSort() -> Int
+    Explain {
+        Description: "Merge the buffer with the bottom-up run schedule.";
+        Input: "None";
+        Processing: "Eight samples merge as widths 1, 2, and 4.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function QuickSort() -> Int
+    Explain {
+        Description: "Sort by partitioning around the last sample of each slice.";
+        Input: "None";
+        Processing: "Values no greater than the pivot move before it.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Quick();
+        Return This.Score();
+    }
+
+    Public Function RandomizedQuickSort() -> Int
+    Explain {
+        Description: "Sort with the deterministic last-sample pivot.";
+        Input: "None";
+        Processing: "This buffer does not draw a random pivot.";
+        Output: "168.";
+    } {
+        Return This.QuickSort();
+    }
+
+    Public Function ThreeWayQuickSort() -> Int
+    Explain {
+        Description: "Partition around the last sample.";
+        Input: "None";
+        Processing: "The mixed keys are distinct, so one pivot split is enough.";
+        Output: "168.";
+    } {
+        Return This.QuickSort();
+    }
+
+    Public Function DualPivotQuickSort() -> Int
+    Explain {
+        Description: "Sort with the same last-sample partition.";
+        Input: "None";
+        Processing: "The eight distinct keys finish in increasing order.";
+        Output: "168.";
+    } {
+        Return This.QuickSort();
+    }
+
+    Public Function HeapSort() -> Int
+    Explain {
+        Description: "Sort by extracting a max heap.";
+        Input: "None";
+        Processing: "Build the heap, then move the root to the end.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Heap();
+        Return This.Score();
+    }
+
+    Public Function IntroSort() -> Int
+    Explain {
+        Description: "Sort the short buffer with quicksort.";
+        Input: "None";
+        Processing: "The depth stays inside the limit, so the heap fallback is not used.";
+        Output: "168.";
+    } {
+        Return This.QuickSort();
+    }
+
+    Public Function TimSort() -> Int
+    Explain {
+        Description: "Merge the buffer from the bottom up.";
+        Input: "None";
+        Processing: "Runs of this fixed length use widths 1, 2, and 4.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function SmoothSort() -> Int
+    Explain {
+        Description: "Sort by heap extraction.";
+        Input: "None";
+        Processing: "The eight-sample heap is extracted from the root.";
+        Output: "168.";
+    } {
+        Return This.HeapSort();
+    }
+
+    Public Function TreeSort() -> Int
+    Explain {
+        Description: "Insert each sample into sorted order.";
+        Input: "None";
+        Processing: "The ordered prefix is the tree's in-order walk.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function TournamentSort() -> Int
+    Explain {
+        Description: "Select the next minimum as the tournament winner.";
+        Input: "None";
+        Processing: "Each pass scans the unsorted suffix.";
+        Output: "168.";
+    } {
+        Return This.SelectionSort();
+    }
+
+    Public Function CycleSort() -> Int
+    Explain {
+        Description: "Rotate each cycle into its sorted place.";
+        Input: "None";
+        Processing: "Follow the destination of the displaced sample.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Cycle();
+        Return This.Score();
+    }
+
+    Public Function GnomeSort() -> Int
+    Explain {
+        Description: "Swap a sample backward until it fits.";
+        Input: "None";
+        Processing: "Step forward only when the pair is ordered.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Gnome();
+        Return This.Score();
+    }
+
+    Public Function OddEvenSort() -> Int
+    Explain {
+        Description: "Alternate odd and even adjacent swaps.";
+        Input: "None";
+        Processing: "Eight phases are enough for eight samples.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.OddEven();
+        Return This.Score();
+    }
+
+    Public Function PancakeSort() -> Int
+    Explain {
+        Description: "Flip prefixes until each maximum sits at the end.";
+        Input: "None";
+        Processing: "Bring the maximum to the front, then flip it into place.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Pancake();
+        Return This.Score();
+    }
+
+    Public Function CountingSort() -> Int
+    Explain {
+        Description: "Place the samples by their values 1 through 8.";
+        Input: "None";
+        Processing: "Count each hole, then write the holes in order.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Count();
+        Return This.Score();
+    }
+
+    Public Function RadixSort() -> Int
+    Explain {
+        Description: "Sort the single decimal digit with counting.";
+        Input: "None";
+        Processing: "Every sample is already one digit.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function LSDRadixSort() -> Int
+    Explain {
+        Description: "Sort from the only digit.";
+        Input: "None";
+        Processing: "Use the counting holes.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function MSDRadixSort() -> Int
+    Explain {
+        Description: "Sort from the only digit.";
+        Input: "None";
+        Processing: "Use the counting holes.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function BucketSort() -> Int
+    Explain {
+        Description: "Drop each sample into the hole of its value.";
+        Input: "None";
+        Processing: "The holes are 1 through 8.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function PigeonholeSort() -> Int
+    Explain {
+        Description: "Sort by the eight pigeonholes.";
+        Input: "None";
+        Processing: "Use the counting holes.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function FlashSort() -> Int
+    Explain {
+        Description: "Classify the samples into the eight value holes.";
+        Input: "None";
+        Processing: "The values already name their holes.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function AmericanFlagSort() -> Int
+    Explain {
+        Description: "Sort the one-digit keys by their flag buckets.";
+        Input: "None";
+        Processing: "Use the counting holes.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function TopKSort(Int count) -> Int
+    Explain {
+        Description: "Add the largest samples.";
+        Input: count = "How many largest samples, from 1 through 8";
+        Processing: "Sort decreasing and add the prefix.";
+        Output: "The sum. The three largest add to 21.";
+    } {
+        If (count < 1 || count > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        This.Flip(7);
+        Int sum = 0;
+        Int index = 0;
+        While (index < count) {
+            sum = sum + samples[index];
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function NthElement(Int index) -> Int
+    Explain {
+        Description: "Return one sample from the sorted order.";
+        Input: index = "Zero-based rank from 0 through 7";
+        Processing: "Select the minimum through that rank.";
+        Output: "The sample. Rank 4 is 5.";
+    } {
+        If (index < 0 || index > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillMixed();
+        This.Select(0, index + 1);
+        problem = "none";
+        Return samples[index];
+    }
+
+    Public Function SortNearlySorted() -> Int
+    Explain {
+        Description: "Sort 1, 2, 3, 5, 4, 6, 7, 8.";
+        Input: "None";
+        Processing: "One adjacent pair is inverted. Insertion repairs it.";
+        Output: "168.";
+    } {
+        samples[0] = 1;
+        samples[1] = 2;
+        samples[2] = 3;
+        samples[3] = 5;
+        samples[4] = 4;
+        samples[5] = 6;
+        samples[6] = 7;
+        samples[7] = 8;
+        This.InsertRange(0, 8);
+        Return This.Score();
+    }
+
+    Public Function SortLinkedList() -> Int
+    Explain {
+        Description: "Sort the buffer as a list of eight samples.";
+        Input: "None";
+        Processing: "Use insertion sort.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function SortMatrixRows() -> Int
+    Explain {
+        Description: "Sort each row of a 2 by 4 layout.";
+        Input: "None";
+        Processing: "The rows are 4, 2, 7, 1 and 5, 3, 8, 6.";
+        Output: "The index-weighted sum, 160.";
+    } {
+        This.FillMixed();
+        This.InsertRange(0, 4);
+        This.InsertRange(4, 8);
+        Return This.Score();
+    }
+
+    Public Function SortMatrixColumns() -> Int
+    Explain {
+        Description: "Sort each column of the 2 by 4 layout.";
+        Input: "None";
+        Processing: "Each column already increases, so the buffer stays mixed.";
+        Output: "The index-weighted sum, 144.";
+    } {
+        This.FillMixed();
+        Int column = 0;
+        While (column < 4) {
+            If (samples[column] > samples[column + 4]) {
+                Int swap = samples[column];
+                samples[column] = samples[column + 4];
+                samples[column + 4] = swap;
+            }
+            column = column + 1;
+        }
+        problem = "none";
+        Return This.Score();
+    }
+
+    Public Function LexicographicSort() -> Int
+    Explain {
+        Description: "Sort the integer codes in numeric order.";
+        Input: "None";
+        Processing: "A single code is its own key.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function NaturalSort() -> Int
+    Explain {
+        Description: "Sort the integer codes in numeric order.";
+        Input: "None";
+        Processing: "There is no separate digit run to skip.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function CaseInsensitiveSort() -> Int
+    Explain {
+        Description: "Sort the integer codes.";
+        Input: "None";
+        Processing: "Codes have no letter case.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function LocaleAwareSort(Int locale) -> Int
+    Explain {
+        Description: "Sort the integer codes for locale 0.";
+        Input: locale = "Only locale 0 is accepted";
+        Processing: "Numeric order does not change with locale 0.";
+        Output: "168, or zero when the locale is rejected.";
+    } {
+        If (locale != 0) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.Sort();
+    }
+
+    Public Function MultiKeySort() -> Int
+    Explain {
+        Description: "Sort by the single integer key.";
+        Input: "None";
+        Processing: "Use insertion sort.";
+        Output: "168.";
+    } {
+        Return This.Sort();
+    }
+
+    Public Function ParallelMergeSort() -> Int
+    Explain {
+        Description: "Merge the buffer. The result matches the sequential merge.";
+        Input: "None";
+        Processing: "Eight samples have one deterministic merged order.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function ParallelQuickSort() -> Int
+    Explain {
+        Description: "Partition the buffer. The result matches the sequential quicksort.";
+        Input: "None";
+        Processing: "The pivot remains the last sample of each slice.";
+        Output: "168.";
+    } {
+        Return This.QuickSort();
+    }
+
+    Public Function ParallelRadixSort() -> Int
+    Explain {
+        Description: "Count the samples into holes.";
+        Input: "None";
+        Processing: "The holes are filled in value order.";
+        Output: "168.";
+    } {
+        Return This.CountingSort();
+    }
+
+    Public Function BitonicSort() -> Int
+    Explain {
+        Description: "Sort with the eight-wire bitonic network.";
+        Input: "None";
+        Processing: "Compare partners at distances 1, 2, and 4.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.Bitonic();
+        Return This.Score();
+    }
+
+    Public Function OddEvenMergeSort() -> Int
+    Explain {
+        Description: "Sort with odd-even adjacent phases.";
+        Input: "None";
+        Processing: "Eight phases cover eight samples.";
+        Output: "168.";
+    } {
+        This.FillMixed();
+        This.OddEven();
+        Return This.Score();
+    }
+
+    Public Function ExternalMergeSort() -> Int
+    Explain {
+        Description: "Merge the buffer as two runs at a time.";
+        Input: "None";
+        Processing: "The whole buffer fits, so the merge is the bottom-up merge.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function ExternalSort() -> Int
+    Explain {
+        Description: "Sort the buffer with the external merge schedule.";
+        Input: "None";
+        Processing: "Use bottom-up merging.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function MultiwayMerge() -> Int
+    Explain {
+        Description: "Merge the buffer two runs at a time.";
+        Input: "None";
+        Processing: "Use bottom-up merging.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function KWayMerge() -> Int
+    Explain {
+        Description: "Merge the buffer two runs at a time.";
+        Input: "None";
+        Processing: "Use bottom-up merging.";
+        Output: "168.";
+    } {
+        Return This.MergeSort();
+    }
+
+    Public Function IsSorted() -> Int
+    Explain {
+        Description: "Test the mixed buffer.";
+        Input: "None";
+        Processing: "The first pair is 4 then 2.";
+        Output: "0.";
+    } {
+        This.FillMixed();
+        problem = "none";
+        Return This.Ordered(0);
+    }
+
+    Public Function IsSortedAscending() -> Int
+    Explain {
+        Description: "Test 1 through 8.";
+        Input: "None";
+        Processing: "Each sample is one larger than the previous.";
+        Output: "1.";
+    } {
+        This.FillSorted();
+        problem = "none";
+        Return This.Ordered(0);
+    }
+
+    Public Function IsSortedDescending() -> Int
+    Explain {
+        Description: "Test 8 through 1.";
+        Input: "None";
+        Processing: "Each sample is one smaller than the previous.";
+        Output: "1.";
+    } {
+        This.FillReverse();
+        problem = "none";
+        Return This.Ordered(1);
+    }
+
+    Public Function IsStableSort(Int algorithm) -> Int
+    Explain {
+        Description: "Report whether an algorithm keeps equal keys in their original order.";
+        Input: algorithm = "0 insertion, 1 selection, 2 bubble, 3 merge, 4 quick, 5 heap, 6 counting, 7 radix";
+        Processing: "Insertion, bubble, merge, counting, and radix are stable.";
+        Output: "1 when it is stable, otherwise zero.";
+    } {
+        If (algorithm < 0 || algorithm > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        If (algorithm == 0 || algorithm == 2 || algorithm == 3 || algorithm == 6 || algorithm == 7) { Return 1; }
+        Return 0;
+    }
+
+    Public Function CountInversions() -> Int
+    Explain {
+        Description: "Count inverted pairs in the mixed buffer.";
+        Input: "None";
+        Processing: "An earlier larger sample forms one inversion.";
+        Output: "10.";
+    } {
+        This.FillMixed();
+        Int count = 0;
+        Int left = 0;
+        While (left < 8) {
+            Int right = left + 1;
+            While (right < 8) {
+                If (samples[left] > samples[right]) { count = count + 1; }
+                right = right + 1;
+            }
+            left = left + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function VerifySort() -> Int
+    Explain {
+        Description: "Check that sorting keeps the sum and finishes in order.";
+        Input: "None";
+        Processing: "The mixed sum is 36 and the sorted weighted sum is 168.";
+        Output: "1.";
+    } {
+        This.FillMixed();
+        Int before = This.Total();
+        This.InsertRange(0, 8);
+        If (before == 36 && This.Score() == 168 && This.Ordered(0) == 1) {
+            problem = "none";
+            Return 1;
+        }
+        problem = "exact";
+        Return 0;
+    }
+
+    Public Function MeasureComparisons() -> Int
+    Explain {
+        Description: "Count the insertion comparisons on the mixed buffer.";
+        Input: "None";
+        Processing: "Each inspected prefix sample counts once.";
+        Output: "15.";
+    } {
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return comparisons;
+    }
+
+    Public Function MeasureSwaps() -> Int
+    Explain {
+        Description: "Count the insertion shifts on the mixed buffer.";
+        Input: "None";
+        Processing: "Each inversion shifts one sample.";
+        Output: "10.";
+    } {
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return shifts;
+    }
+
+    Public Function EstimateSortMemory(Int algorithm) -> Int
+    Explain {
+        Description: "Return the cells used by an algorithm family.";
+        Input: algorithm = "3 merge or 6 counting use a second buffer";
+        Processing: "In-place families keep the eight samples. Merge and counting keep sixteen.";
+        Output: "8 or 16.";
+    } {
+        If (algorithm < 0 || algorithm > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        If (algorithm == 3 || algorithm == 6) { Return 16; }
+        Return 8;
+    }
+
+    Public Function IsInPlace(Int algorithm) -> Int
+    Explain {
+        Description: "Report whether an algorithm stays inside the sample buffer.";
+        Input: algorithm = "Algorithm family from 0 through 7";
+        Processing: "Merge and counting need the second buffer.";
+        Output: "1 when it is in place, otherwise zero.";
+    } {
+        If (algorithm < 0 || algorithm > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        If (algorithm == 3 || algorithm == 6) { Return 0; }
+        Return 1;
+    }
+
+    Public Function IsComparisonBased(Int algorithm) -> Int
+    Explain {
+        Description: "Report whether an algorithm compares keys.";
+        Input: algorithm = "6 counting and 7 radix do not";
+        Processing: "The other families compare samples.";
+        Output: "1 when it compares, otherwise zero.";
+    } {
+        If (algorithm < 0 || algorithm > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        If (algorithm == 6 || algorithm == 7) { Return 0; }
+        Return 1;
+    }
+
+    Public Function IsDeterministic(Int algorithm) -> Int
+    Explain {
+        Description: "Report whether an algorithm has one result for this buffer.";
+        Input: algorithm = "Algorithm family from 0 through 7";
+        Processing: "Every family here is deterministic.";
+        Output: "1, or zero when the family is unknown.";
+    } {
+        If (algorithm < 0 || algorithm > 7) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function SetDirection(Int value) -> Int
+    Explain {
+        Description: "Store the requested direction.";
+        Input: value = "0 increasing, 1 decreasing";
+        Processing: "The named sort functions choose their own direction.";
+        Output: "The stored direction.";
+    } {
+        If (value != 0 && value != 1) {
+            problem = "domain";
+            Return 0;
+        }
+        direction = value;
+        problem = "none";
+        Return direction;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest problem token.";
+        Input: "None";
+        Processing: "Read the stored token.";
+        Output: "none, domain, or exact.";
+    } {
+        Return problem;
+    }
+
+    Private Function FillMixed() -> Int {
+        samples[0] = 4;
+        samples[1] = 2;
+        samples[2] = 7;
+        samples[3] = 1;
+        samples[4] = 5;
+        samples[5] = 3;
+        samples[6] = 8;
+        samples[7] = 6;
+        Return samples[0];
+    }
+
+    Private Function FillSorted() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = index + 1;
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function FillReverse() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = 8 - index;
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function Score() -> Int {
+        Int total = 0;
+        Int index = 0;
+        While (index < 8) {
+            total = total + index * samples[index];
+            index = index + 1;
+        }
+        problem = "none";
+        last = total;
+        Return total;
+    }
+
+    Private Function Total() -> Int {
+        Int total = 0;
+        Int index = 0;
+        While (index < 8) {
+            total = total + samples[index];
+            index = index + 1;
+        }
+        Return total;
+    }
+
+    Private Function Ordered(Int decreasing) -> Int {
+        Int index = 0;
+        While (index < 7) {
+            If (decreasing == 0 && samples[index] > samples[index + 1]) { Return 0; }
+            If (decreasing == 1 && samples[index] < samples[index + 1]) { Return 0; }
+            index = index + 1;
+        }
+        Return 1;
+    }
+
+    Private Function Exchange(Int left, Int right) -> Int {
+        Int swap = samples[left];
+        samples[left] = samples[right];
+        samples[right] = swap;
+        Return samples[left];
+    }
+
+    Private Function Flip(Int last) -> Int {
+        Int left = 0;
+        Int right = last;
+        While (left < right) {
+            This.Exchange(left, right);
+            left = left + 1;
+            right = right - 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function InsertRange(Int start, Int end) -> Int {
+        comparisons = 0;
+        shifts = 0;
+        Int index = start + 1;
+        While (index < end) {
+            Int key = samples[index];
+            Int hole = index - 1;
+            Int moving = 1;
+            While (hole >= start && moving == 1) {
+                comparisons = comparisons + 1;
+                Int greater = 0;
+                If (samples[hole] > key) { greater = 1; }
+                If (greater == 1) {
+                    samples[hole + 1] = samples[hole];
+                    shifts = shifts + 1;
+                    hole = hole - 1;
+                }
+                If (greater == 0) { moving = 0; }
+            }
+            samples[hole + 1] = key;
+            index = index + 1;
+        }
+        problem = "none";
+        Return samples[start];
+    }
+
+    Private Function Bubble(Int early) -> Int {
+        Int pass = 0;
+        Int swapped = 1;
+        While (pass < 7 && swapped == 1) {
+            swapped = 0;
+            Int index = 0;
+            While (index < 7 - pass) {
+                If (samples[index] > samples[index + 1]) {
+                    This.Exchange(index, index + 1);
+                    swapped = 1;
+                }
+                index = index + 1;
+            }
+            If (early == 0) { swapped = 1; }
+            pass = pass + 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Cocktail() -> Int {
+        Int left = 0;
+        Int right = 7;
+        While (left < right) {
+            Int index = left;
+            While (index < right) {
+                If (samples[index] > samples[index + 1]) { This.Exchange(index, index + 1); }
+                index = index + 1;
+            }
+            right = right - 1;
+            index = right;
+            While (index > left) {
+                If (samples[index] < samples[index - 1]) { This.Exchange(index, index - 1); }
+                index = index - 1;
+            }
+            left = left + 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Comb() -> Int {
+        Int gap = 8;
+        Int swapped = 1;
+        While (gap > 1 || swapped == 1) {
+            gap = gap * 10 / 13;
+            If (gap < 1) { gap = 1; }
+            swapped = 0;
+            Int index = 0;
+            While (index + gap < 8) {
+                If (samples[index] > samples[index + gap]) {
+                    This.Exchange(index, index + gap);
+                    swapped = 1;
+                }
+                index = index + 1;
+            }
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Select(Int start, Int end) -> Int {
+        Int index = start;
+        While (index < end) {
+            Int best = index;
+            Int cursor = index + 1;
+            While (cursor < 8) {
+                If (samples[cursor] < samples[best]) { best = cursor; }
+                cursor = cursor + 1;
+            }
+            This.Exchange(index, best);
+            index = index + 1;
+        }
+        problem = "none";
+        Return samples[start];
+    }
+
+    Private Function DoubleSelect() -> Int {
+        Int left = 0;
+        Int right = 7;
+        While (left < right) {
+            Int low = left;
+            Int high = left;
+            Int index = left + 1;
+            While (index <= right) {
+                If (samples[index] < samples[low]) { low = index; }
+                If (samples[index] > samples[high]) { high = index; }
+                index = index + 1;
+            }
+            This.Exchange(left, low);
+            If (high == left) { high = low; }
+            This.Exchange(right, high);
+            left = left + 1;
+            right = right - 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function BinaryInsert() -> Int {
+        Int index = 1;
+        While (index < 8) {
+            Int key = samples[index];
+            Int low = 0;
+            Int high = index;
+            While (low < high) {
+                Int mid = (low + high) / 2;
+                If (samples[mid] <= key) { low = mid + 1; }
+                If (samples[mid] > key) { high = mid; }
+            }
+            Int hole = index;
+            While (hole > low) {
+                samples[hole] = samples[hole - 1];
+                hole = hole - 1;
+            }
+            samples[low] = key;
+            index = index + 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Shell() -> Int {
+        Int gap = 4;
+        While (gap > 0) {
+            Int index = gap;
+            While (index < 8) {
+                Int key = samples[index];
+                Int hole = index;
+                Int moving = 1;
+                While (hole >= gap && moving == 1) {
+                    Int greater = 0;
+                    If (samples[hole - gap] > key) { greater = 1; }
+                    If (greater == 1) {
+                        samples[hole] = samples[hole - gap];
+                        hole = hole - gap;
+                    }
+                    If (greater == 0) { moving = 0; }
+                }
+                samples[hole] = key;
+                index = index + 1;
+            }
+            gap = gap / 2;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function MergeUp() -> Int {
+        Int width = 1;
+        While (width < 8) {
+            Int start = 0;
+            While (start < 8) {
+                Int mid = start + width;
+                Int end = start + width + width;
+                If (mid > 8) { mid = 8; }
+                If (end > 8) { end = 8; }
+                Int left = start;
+                Int right = mid;
+                Int cursor = start;
+                While (left < mid && right < end) {
+                    Int takeLeft = 0;
+                    If (samples[left] <= samples[right]) { takeLeft = 1; }
+                    If (takeLeft == 1) {
+                        other[cursor] = samples[left];
+                        left = left + 1;
+                    }
+                    If (takeLeft == 0) {
+                        other[cursor] = samples[right];
+                        right = right + 1;
+                    }
+                    cursor = cursor + 1;
+                }
+                While (left < mid) {
+                    other[cursor] = samples[left];
+                    left = left + 1;
+                    cursor = cursor + 1;
+                }
+                While (right < end) {
+                    other[cursor] = samples[right];
+                    right = right + 1;
+                    cursor = cursor + 1;
+                }
+                start = start + width + width;
+            }
+            Int index = 0;
+            While (index < 8) {
+                samples[index] = other[index];
+                index = index + 1;
+            }
+            width = width * 2;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Quick() -> Int {
+        other[0] = 7;
+        Int depth = 1;
+        While (depth > 0) {
+            depth = depth - 1;
+            Int packed = other[depth];
+            Int high = packed % 8;
+            Int low = packed / 8;
+            If (low < high) {
+                Int pivot = samples[high];
+                Int slot = low;
+                Int index = low;
+                While (index < high) {
+                    If (samples[index] <= pivot) {
+                        This.Exchange(slot, index);
+                        slot = slot + 1;
+                    }
+                    index = index + 1;
+                }
+                This.Exchange(slot, high);
+                If (slot + 1 < high) {
+                    other[depth] = (slot + 1) * 8 + high;
+                    depth = depth + 1;
+                }
+                If (low < slot - 1) {
+                    other[depth] = low * 8 + (slot - 1);
+                    depth = depth + 1;
+                }
+            }
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Sift(Int index, Int size) -> Int {
+        Int cursor = index;
+        Int moving = 1;
+        While (moving == 1) {
+            Int left = cursor * 2 + 1;
+            Int right = left + 1;
+            Int best = cursor;
+            If (left < size && samples[left] > samples[best]) { best = left; }
+            If (right < size && samples[right] > samples[best]) { best = right; }
+            If (best == cursor) { moving = 0; }
+            If (best != cursor) {
+                This.Exchange(cursor, best);
+                cursor = best;
+            }
+        }
+        Return samples[index];
+    }
+
+    Private Function Heap() -> Int {
+        Int start = 3;
+        While (start >= 0) {
+            This.Sift(start, 8);
+            start = start - 1;
+        }
+        Int end = 7;
+        While (end > 0) {
+            This.Exchange(0, end);
+            This.Sift(0, end);
+            end = end - 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Cycle() -> Int {
+        Int start = 0;
+        While (start < 7) {
+            Int item = samples[start];
+            Int pos = start;
+            Int index = start + 1;
+            While (index < 8) {
+                If (samples[index] < item) { pos = pos + 1; }
+                index = index + 1;
+            }
+            If (pos != start) {
+                Int placed = 0;
+                While (placed == 0) {
+                    Int swap = item;
+                    item = samples[pos];
+                    samples[pos] = swap;
+                    If (pos == start) { placed = 1; }
+                    If (pos != start) {
+                        pos = start;
+                        index = start + 1;
+                        While (index < 8) {
+                            If (samples[index] < item) { pos = pos + 1; }
+                            index = index + 1;
+                        }
+                    }
+                }
+            }
+            start = start + 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Gnome() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            If (index == 0 || samples[index] >= samples[index - 1]) { index = index + 1; }
+            If (index > 0 && index < 8 && samples[index] < samples[index - 1]) {
+                This.Exchange(index, index - 1);
+                index = index - 1;
+            }
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function OddEven() -> Int {
+        Int phase = 0;
+        While (phase < 8) {
+            Int index = phase % 2;
+            While (index + 1 < 8) {
+                If (samples[index] > samples[index + 1]) { This.Exchange(index, index + 1); }
+                index = index + 2;
+            }
+            phase = phase + 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Pancake() -> Int {
+        Int size = 8;
+        While (size > 1) {
+            Int best = 0;
+            Int index = 1;
+            While (index < size) {
+                If (samples[index] > samples[best]) { best = index; }
+                index = index + 1;
+            }
+            If (best != size - 1) {
+                If (best > 0) { This.Flip(best); }
+                This.Flip(size - 1);
+            }
+            size = size - 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Count() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            other[index] = 0;
+            index = index + 1;
+        }
+        index = 0;
+        While (index < 8) {
+            Int hole = samples[index] - 1;
+            If (hole < 0 || hole > 7) {
+                problem = "domain";
+                Return 0;
+            }
+            other[hole] = other[hole] + 1;
+            index = index + 1;
+        }
+        Int value = 1;
+        index = 0;
+        While (value <= 8) {
+            While (other[value - 1] > 0) {
+                samples[index] = value;
+                index = index + 1;
+                other[value - 1] = other[value - 1] - 1;
+            }
+            value = value + 1;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+
+    Private Function Bitonic() -> Int {
+        Int span = 2;
+        While (span <= 8) {
+            Int step = span / 2;
+            While (step > 0) {
+                Int index = 0;
+                While (index < 8) {
+                    If ((index / step) % 2 == 0) {
+                        Int partner = index + step;
+                        If (partner < 8) {
+                            Int ascending = 0;
+                            If ((index / span) % 2 == 0) { ascending = 1; }
+                            If (ascending == 1 && samples[index] > samples[partner]) { This.Exchange(index, partner); }
+                            If (ascending == 0 && samples[index] < samples[partner]) { This.Exchange(index, partner); }
+                        }
+                    }
+                    index = index + 1;
+                }
+                step = step / 2;
+            }
+            span = span * 2;
+        }
+        problem = "none";
+        Return samples[0];
+    }
+}

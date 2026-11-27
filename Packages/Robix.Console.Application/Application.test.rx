@@ -1,7 +1,57 @@
-Import Robix.Console.Application;
+// Tests for Application.rx.
+
+Test SetBehavior {
+    Case "wait for enter" {
+        Constraint: AppDesk().SetBehavior(1) == 1;
+        Processing: AppDesk().SetBehavior(1);
+        Output: 1;
+    }
+    Case "unknown behavior" {
+        Constraint: AppDesk().SetBehavior(9) == -1;
+        Processing: AppDesk().SetBehavior(9);
+        Output: -1;
+    }
+}
+
+Test SetLaunch {
+    Case "terminal" {
+        Constraint: AppDesk().SetLaunch(1) == 1;
+        Processing: AppDesk().SetLaunch(1);
+        Output: 1;
+    }
+    Case "unknown launch" {
+        Constraint: AppDesk().SetLaunch(5) == -1;
+        Processing: AppDesk().SetLaunch(5);
+        Output: -1;
+    }
+}
+
+Test SetExitMessage {
+    Constraint: AppDesk().SetExitMessage("bye") == 3;
+    Processing: AppDesk().SetExitMessage("bye");
+    Output: 3;
+}
 
 Test ShouldPause {
     Constraint: AppDesk().ShouldPause() == 1;
-    Processing: True;
-    Output: True;
+    Processing: AppDesk().ShouldPause();
+    Output: 1;
+}
+
+Test ExitMessage {
+    Constraint: AppDesk().ExitMessage() == "Press any key to close...";
+    Processing: AppDesk().ExitMessage();
+    Output: "Press any key to close...";
+}
+
+Test IsInteractive {
+    Constraint: AppDesk().IsInteractive() == 1;
+    Processing: AppDesk().IsInteractive();
+    Output: 1;
+}
+
+Test Fault {
+    Constraint: AppDesk().Fault() == "none";
+    Processing: AppDesk().Fault();
+    Output: "none";
 }

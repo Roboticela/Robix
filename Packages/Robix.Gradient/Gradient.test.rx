@@ -1,7 +1,99 @@
-Import Robix.Gradient;
+// Tests for Gradient.rx.
+
+Test Stop {
+    Constraint: GradientDesk().Stop(10, 255, 0, 0) == 0;
+    Processing: GradientDesk().Stop(10, 255, 0, 0);
+    Output: 0;
+}
+
+Test At {
+    Constraint: GradientDesk().At(50) == 0;
+    Processing: GradientDesk().At(50);
+    Output: 0;
+}
 
 Test Linear {
-    Constraint: GradientDesk().Linear(255, 0, 0, 0, 0, 255, 0) == 16711680;
-    Processing: True;
-    Output: True;
+    Case "start color" {
+        Constraint: GradientDesk().Linear(255, 0, 0, 0, 0, 255, 0) == 16711680;
+        Processing: GradientDesk().Linear(255, 0, 0, 0, 0, 255, 0);
+        Output: 16711680;
+    }
+    Case "end color" {
+        Constraint: GradientDesk().Linear(255, 0, 0, 0, 0, 255, 100) == 255;
+        Processing: GradientDesk().Linear(255, 0, 0, 0, 0, 255, 100);
+        Output: 255;
+    }
+    Case "middle" {
+        Constraint: GradientDesk().Linear(255, 0, 0, 0, 0, 255, 50) == 8323199;
+        Processing: GradientDesk().Linear(255, 0, 0, 0, 0, 255, 50);
+        Output: 8323199;
+    }
+}
+
+Test Rainbow {
+    Constraint: GradientDesk().Rainbow(0) == 16711680;
+    Processing: GradientDesk().Rainbow(0);
+    Output: 16711680;
+}
+
+Test Clear {
+    Constraint: GradientDesk().Clear() == 0;
+    Processing: GradientDesk().Clear();
+    Output: 0;
+}
+
+Test Red {
+    Constraint: GradientDesk().Red() == 0;
+    Processing: GradientDesk().Red();
+    Output: 0;
+}
+
+Test Green {
+    Constraint: GradientDesk().Green() == 0;
+    Processing: GradientDesk().Green();
+    Output: 0;
+}
+
+Test Blue {
+    Constraint: GradientDesk().Blue() == 0;
+    Processing: GradientDesk().Blue();
+    Output: 0;
+}
+
+Test Fault {
+    Case "fresh desk" {
+        Constraint: GradientDesk().Fault() == "none";
+        Processing: GradientDesk().Fault();
+        Output: "none";
+    }
+}
+
+Test Blend {
+    Constraint: GradientDesk().Blend(0, 0, 0, 100, 0, 0, 50) == 3276800;
+    Processing: GradientDesk().Blend(0, 0, 0, 100, 0, 0, 50);
+    Output: 3276800;
+}
+
+Test Paint {
+    Constraint: GradientDesk().Paint(300, -1, 10) == 16711690;
+    Processing: GradientDesk().Paint(300, -1, 10);
+    Output: 16711690;
+}
+
+Test Clamp {
+    Case "below zero" {
+        Constraint: GradientDesk().Clamp(-4) == 0;
+        Processing: GradientDesk().Clamp(-4);
+        Output: 0;
+    }
+    Case "above 255" {
+        Constraint: GradientDesk().Clamp(300) == 255;
+        Processing: GradientDesk().Clamp(300);
+        Output: 255;
+    }
+    Case "in range" {
+        Constraint: GradientDesk().Clamp(10) == 10;
+        Processing: GradientDesk().Clamp(10);
+        Output: 10;
+    }
 }
