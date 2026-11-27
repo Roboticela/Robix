@@ -1,5 +1,181 @@
+// Tests for Cancellation.rx. Each call uses a fresh desk.
+
 Test Create {
-    Constraint: CancelDesk().Create("arm") == 0;
-    Processing: True;
-    Output: True;
+    Constraint: CancelDesk().Create("main") == 0;
+    Processing: CancelDesk().Create("main");
+    Output: 0;
+}
+
+Test Cancel {
+    Constraint: CancelDesk().Cancel(0, "stop") == 0;
+    Processing: CancelDesk().Cancel(0, "stop");
+    Output: 0;
+}
+
+Test CancelAfter {
+    Constraint: CancelDesk().CancelAfter(0, 3) == -1;
+    Processing: CancelDesk().CancelAfter(0, 3);
+    Output: -1;
+}
+
+Test Advance {
+    Constraint: CancelDesk().Advance(2) == 2;
+    Processing: CancelDesk().Advance(2);
+    Output: 2;
+}
+
+Test Reset {
+    Constraint: CancelDesk().Reset(0) == 0;
+    Processing: CancelDesk().Reset(0);
+    Output: 0;
+}
+
+Test Dispose {
+    Constraint: CancelDesk().Dispose(0) == 0;
+    Processing: CancelDesk().Dispose(0);
+    Output: 0;
+}
+
+Test Requested {
+    Constraint: CancelDesk().Requested(0) == 0;
+    Processing: CancelDesk().Requested(0);
+    Output: 0;
+}
+
+Test ThrowIf {
+    Constraint: CancelDesk().ThrowIf(0) == 0;
+    Processing: CancelDesk().ThrowIf(0);
+    Output: 0;
+}
+
+Test Register {
+    Constraint: CancelDesk().Register(0, "stop") == 0;
+    Processing: CancelDesk().Register(0, "stop");
+    Output: 0;
+}
+
+Test Unregister {
+    Constraint: CancelDesk().Unregister(0) == 0;
+    Processing: CancelDesk().Unregister(0);
+    Output: 0;
+}
+
+Test Callbacks {
+    Constraint: CancelDesk().Callbacks(0) == 0;
+    Processing: CancelDesk().Callbacks(0);
+    Output: 0;
+}
+
+Test Reason {
+    Constraint: CancelDesk().Reason(0) == "none";
+    Processing: CancelDesk().Reason(0);
+    Output: "none";
+}
+
+Test State {
+    Constraint: CancelDesk().State(0) == "empty";
+    Processing: CancelDesk().State(0);
+    Output: "empty";
+}
+
+Test Link {
+    Constraint: CancelDesk().Link(0, 1) == 0;
+    Processing: CancelDesk().Link(0, 1);
+    Output: 0;
+}
+
+Test Group {
+    Constraint: CancelDesk().Group() == 1;
+    Processing: CancelDesk().Group();
+    Output: 1;
+}
+
+Test Join {
+    Constraint: CancelDesk().Join(0, 1) == 0;
+    Processing: CancelDesk().Join(0, 1);
+    Output: 0;
+}
+
+Test CancelAll {
+    Constraint: CancelDesk().CancelAll(1) == 0;
+    Processing: CancelDesk().CancelAll(1);
+    Output: 0;
+}
+
+Test Scope {
+    Constraint: CancelDesk().Scope() == 1;
+    Processing: CancelDesk().Scope();
+    Output: 1;
+}
+
+Test Enter {
+    Constraint: CancelDesk().Enter(0, 1) == 0;
+    Processing: CancelDesk().Enter(0, 1);
+    Output: 0;
+}
+
+Test CancelScope {
+    Constraint: CancelDesk().CancelScope(1) == 0;
+    Processing: CancelDesk().CancelScope(1);
+    Output: 0;
+}
+
+Test WithCancel {
+    Constraint: CancelDesk().WithCancel(0, 9) == -1;
+    Processing: CancelDesk().WithCancel(0, 9);
+    Output: -1;
+}
+
+Test WhenCanceled {
+    Constraint: CancelDesk().WhenCanceled(0) == 0;
+    Processing: CancelDesk().WhenCanceled(0);
+    Output: 0;
+}
+
+Test SetPolicy {
+    Constraint: CancelDesk().SetPolicy(0, 1) == 0;
+    Processing: CancelDesk().SetPolicy(0, 1);
+    Output: 0;
+}
+
+Test PolicyName {
+    Constraint: CancelDesk().PolicyName(0) == "none";
+    Processing: CancelDesk().PolicyName(0);
+    Output: "none";
+}
+
+Test Fault {
+    Constraint: CancelDesk().Fault() == "none";
+    Processing: CancelDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: CancelDesk().Stats() == "open=0,canceled=0,disposed=0";
+    Processing: CancelDesk().Stats();
+    Output: "open=0,canceled=0,disposed=0";
+}
+
+Test Mark {
+    Constraint: CancelDesk().Mark(0, "why") == 1;
+    Processing: CancelDesk().Mark(0, "why");
+    Output: 1;
+}
+
+Test Known {
+    Constraint: CancelDesk().Known(0) == 0;
+    Processing: CancelDesk().Known(0);
+    Output: 0;
+}
+
+Test Claim {
+    Constraint: CancelDesk().Claim() == 0;
+    Processing: CancelDesk().Claim();
+    Output: 0;
+}
+
+Test IntText {
+    Constraint: CancelDesk().IntText(3) == "3";
+    Processing: CancelDesk().IntText(3);
+    Output: "3";
 }

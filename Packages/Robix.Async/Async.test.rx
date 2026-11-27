@@ -1,5 +1,165 @@
+// Tests for Async.rx. Each call uses a fresh flow.
+
+Test Start {
+    Constraint: Flow().Start() == 1;
+    Processing: Flow().Start();
+    Output: 1;
+}
+
 Test Complete {
-    Constraint: Flow().Complete(15) == 15;
-    Processing: True;
-    Output: True;
+    Constraint: Flow().Complete(8) == 8;
+    Processing: Flow().Complete(8);
+    Output: 8;
+}
+
+Test Fail {
+    Constraint: Flow().Fail("bad") == 1;
+    Processing: Flow().Fail("bad");
+    Output: 1;
+}
+
+Test Cancel {
+    Constraint: Flow().Cancel() == 1;
+    Processing: Flow().Cancel();
+    Output: 1;
+}
+
+Test Resolve {
+    Constraint: Flow().Resolve(8) == 8;
+    Processing: Flow().Resolve(8);
+    Output: 8;
+}
+
+Test Reject {
+    Constraint: Flow().Reject("bad") == 1;
+    Processing: Flow().Reject("bad");
+    Output: 1;
+}
+
+Test State {
+    Constraint: Flow().State() == "pending";
+    Processing: Flow().State();
+    Output: "pending";
+}
+
+Test Value {
+    Constraint: Flow().Value() == 0;
+    Processing: Flow().Value();
+    Output: 0;
+}
+
+Test Error {
+    Constraint: Flow().Error() == "none";
+    Processing: Flow().Error();
+    Output: "none";
+}
+
+Test Result {
+    Constraint: Flow().Result() == "pending";
+    Processing: Flow().Result();
+    Output: "pending";
+}
+
+Test Then {
+    Constraint: Flow().Then(3) == 0;
+    Processing: Flow().Then(3);
+    Output: 0;
+}
+
+Test Map {
+    Constraint: Flow().Map(2) == 0;
+    Processing: Flow().Map(2);
+    Output: 0;
+}
+
+Test FlatMap {
+    Constraint: Flow().FlatMap() == 0;
+    Processing: Flow().FlatMap();
+    Output: 0;
+}
+
+Test Catch {
+    Constraint: Flow().Catch() == 0;
+    Processing: Flow().Catch();
+    Output: 0;
+}
+
+Test Finally {
+    Constraint: Flow().Finally() == 1;
+    Processing: Flow().Finally();
+    Output: 1;
+}
+
+Test Configure {
+    Constraint: Flow().Configure(0) == 0;
+    Processing: Flow().Configure(0);
+    Output: 0;
+}
+
+Test SetLocal {
+    Constraint: Flow().SetLocal(4) == 4;
+    Processing: Flow().SetLocal(4);
+    Output: 4;
+}
+
+Test GetLocal {
+    Constraint: Flow().GetLocal() == 0;
+    Processing: Flow().GetLocal();
+    Output: 0;
+}
+
+Test WaitPermit {
+    Constraint: Flow().WaitPermit() == 1;
+    Processing: Flow().WaitPermit();
+    Output: 1;
+}
+
+Test ReleasePermit {
+    Constraint: Flow().ReleasePermit() == 1;
+    Processing: Flow().ReleasePermit();
+    Output: 1;
+}
+
+Test Arm {
+    Constraint: Flow().Arm() == 1;
+    Processing: Flow().Arm();
+    Output: 1;
+}
+
+Test WaitEvent {
+    Constraint: Flow().WaitEvent() == 0;
+    Processing: Flow().WaitEvent();
+    Output: 0;
+}
+
+Test WithCancellation {
+    Case "completes" {
+        Constraint: Flow().WithCancellation(8, 0) == 8;
+        Processing: Flow().WithCancellation(8, 0);
+        Output: 8;
+    }
+    Case "canceled" {
+        Constraint: Flow().WithCancellation(8, 1) == 0;
+        Processing: Flow().WithCancellation(8, 1);
+        Output: 0;
+    }
+}
+
+Test MarkHeld {
+    Constraint: Flow().MarkHeld() == 1;
+    Processing: Flow().MarkHeld();
+    Output: 1;
+}
+
+Test IntText {
+    Case "twelve" {
+        Constraint: Flow().IntText(12) == "12";
+        Processing: Flow().IntText(12);
+        Output: "12";
+    }
+    Case "zero" {
+        Constraint: Flow().IntText(0) == "0";
+        Processing: Flow().IntText(0);
+        Output: "0";
+    }
 }

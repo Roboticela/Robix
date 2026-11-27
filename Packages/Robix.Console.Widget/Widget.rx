@@ -1,5 +1,8 @@
 // Robix.Console.Widget: progress, loading, tables, panels, and a live line.
-Package Robix.Console.Widget;
+Package Robix.Console.Widget
+Explain {
+    Description: "Progress, loading, tables, panels, and a live line.";
+};
 
 Import Robix.Core;
 

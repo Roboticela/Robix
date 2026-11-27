@@ -1,5 +1,182 @@
+// Tests for Attributes.rx.
+
 Test Known {
-    Constraint: AttributeDesk().Known("Obsolete") == 1;
-    Processing: True;
-    Output: True;
+    Case "built in" {
+        Constraint: AttributeDesk().Known("Obsolete") == 1;
+        Processing: AttributeDesk().Known("Obsolete");
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: AttributeDesk().Known("Nope") == 0;
+        Processing: AttributeDesk().Known("Nope");
+        Output: 0;
+    }
+}
+
+Test Define {
+    Case "new attribute" {
+        Constraint: AttributeDesk().Define("Custom", "method") == 14;
+        Processing: AttributeDesk().Define("Custom", "method");
+        Output: 14;
+    }
+    Case "existing attribute" {
+        Constraint: AttributeDesk().Define("Obsolete", "any") == 1;
+        Processing: AttributeDesk().Define("Obsolete", "any");
+        Output: 1;
+    }
+}
+
+Test Unregister {
+    Case "built in slot" {
+        Constraint: AttributeDesk().Unregister(1) == 1;
+        Processing: AttributeDesk().Unregister(1);
+        Output: 1;
+    }
+    Case "empty slot" {
+        Constraint: AttributeDesk().Unregister(14) == 0;
+        Processing: AttributeDesk().Unregister(14);
+        Output: 0;
+    }
+}
+
+Test Targets {
+    Case "obsolete" {
+        Constraint: AttributeDesk().Targets(1) == "any";
+        Processing: AttributeDesk().Targets(1);
+        Output: "any";
+    }
+    Case "empty slot" {
+        Constraint: AttributeDesk().Targets(14) == "none";
+        Processing: AttributeDesk().Targets(14);
+        Output: "none";
+    }
+}
+
+Test Apply {
+    Case "pure method" {
+        Constraint: AttributeDesk().Apply("User", "method", "Run", "Pure", "x") == 0;
+        Processing: AttributeDesk().Apply("User", "method", "Run", "Pure", "x");
+        Output: 0;
+    }
+    Case "missing attribute" {
+        Constraint: AttributeDesk().Apply("User", "method", "Run", "Nope", "x") == -1;
+        Processing: AttributeDesk().Apply("User", "method", "Run", "Nope", "x");
+        Output: -1;
+    }
+}
+
+Test ApplyRange {
+    Constraint: AttributeDesk().ApplyRange("User", "field", "Age", "Required", 1, 9) == 0;
+    Processing: AttributeDesk().ApplyRange("User", "field", "Age", "Required", 1, 9);
+    Output: 0;
+}
+
+Test Validate {
+    Constraint: AttributeDesk().Validate(0) == 0;
+    Processing: AttributeDesk().Validate(0);
+    Output: 0;
+}
+
+Test CheckRange {
+    Constraint: AttributeDesk().CheckRange(0) == 0;
+    Processing: AttributeDesk().CheckRange(0);
+    Output: 0;
+}
+
+Test Has {
+    Constraint: AttributeDesk().Has("User", "Run", "Pure") == 0;
+    Processing: AttributeDesk().Has("User", "Run", "Pure");
+    Output: 0;
+}
+
+Test Argument {
+    Constraint: AttributeDesk().Argument(0) == "none";
+    Processing: AttributeDesk().Argument(0);
+    Output: "none";
+}
+
+Test Replace {
+    Constraint: AttributeDesk().Replace(0, "y") == 0;
+    Processing: AttributeDesk().Replace(0, "y");
+    Output: 0;
+}
+
+Test Remove {
+    Constraint: AttributeDesk().Remove(0) == 0;
+    Processing: AttributeDesk().Remove(0);
+    Output: 0;
+}
+
+Test CopyTo {
+    Constraint: AttributeDesk().CopyTo("User", "Copy") == 0;
+    Processing: AttributeDesk().CopyTo("User", "Copy");
+    Output: 0;
+}
+
+Test Clear {
+    Constraint: AttributeDesk().Clear("User") == 1;
+    Processing: AttributeDesk().Clear("User");
+    Output: 1;
+}
+
+Test Applied {
+    Constraint: AttributeDesk().Applied("User") == 0;
+    Processing: AttributeDesk().Applied("User");
+    Output: 0;
+}
+
+Test NameAt {
+    Constraint: AttributeDesk().NameAt("User", 0) == "none";
+    Processing: AttributeDesk().NameAt("User", 0);
+    Output: "none";
+}
+
+Test Fault {
+    Constraint: AttributeDesk().Fault() == "none";
+    Processing: AttributeDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: AttributeDesk().Stats() == "defined=14,applied=0,rejected=0";
+    Processing: AttributeDesk().Stats();
+    Output: "defined=14,applied=0,rejected=0";
+}
+
+Test Find {
+    Case "pure" {
+        Constraint: AttributeDesk().Find("Pure") == 8;
+        Processing: AttributeDesk().Find("Pure");
+        Output: 8;
+    }
+    Case "unknown" {
+        Constraint: AttributeDesk().Find("Nope") == -1;
+        Processing: AttributeDesk().Find("Nope");
+        Output: -1;
+    }
+}
+
+Test Claim {
+    Constraint: AttributeDesk().Claim() == 0;
+    Processing: AttributeDesk().Claim();
+    Output: 0;
+}
+
+Test Live {
+    Constraint: AttributeDesk().Live(0) == 0;
+    Processing: AttributeDesk().Live(0);
+    Output: 0;
+}
+
+Test IntText {
+    Case "fourteen" {
+        Constraint: AttributeDesk().IntText(14) == "14";
+        Processing: AttributeDesk().IntText(14);
+        Output: "14";
+    }
+    Case "zero" {
+        Constraint: AttributeDesk().IntText(0) == "0";
+        Processing: AttributeDesk().IntText(0);
+        Output: "0";
+    }
 }

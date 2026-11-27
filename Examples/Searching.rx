@@ -1,0 +1,73 @@
+// Robix.Algorithms.Searching: exact search over eight integer samples.
+Package Robotics.Searching;
+
+Import Robix.Core;
+Import Robix.Algorithms.Searching;
+
+
+Public Function Main(Args<String> args) -> Int
+Explain {
+    Description: "Exercise searches over eight integer samples.";
+    Input: args = "Command-line arguments";
+    Processing: "Call the searching desk.";
+    Output: "The search report.";
+} {
+    SearchingDesk desk = SearchingDesk();
+    Print(desk.Find(5));
+    Print(desk.FindFirst(0));
+    Print(desk.FindLast(0));
+    Print(desk.FindAll(0));
+    Print(desk.FindIndex(2));
+    Print(desk.FindLastIndex(2));
+    Print(desk.Contains(5));
+    Print(desk.ContainsAny(9, 8));
+    Print(desk.ContainsAll(1, 8));
+    Print(desk.ContainsAll(1, 9));
+    Print(desk.CountMatches(2));
+    Print(desk.LinearSearch(5));
+    Print(desk.SentinelLinearSearch(5));
+    Print(desk.BinarySearch(5));
+    Print(desk.RecursiveBinarySearch(5));
+    Print(desk.IterativeBinarySearch(5));
+    Print(desk.JumpSearch(5));
+    Print(desk.InterpolationSearch(5));
+    Print(desk.ExponentialSearch(5));
+    Print(desk.FibonacciSearch(5));
+    Print(desk.TernarySearch(0, 6));
+    Print(desk.MetaBinarySearch(5));
+    Print(desk.LowerBound(2));
+    Print(desk.UpperBound(2));
+    Print(desk.EqualRange(2));
+    Print(desk.BinarySearchFirst(2));
+    Print(desk.BinarySearchLast(2));
+    Print(desk.BinarySearchInsertionPoint(3));
+    Print(desk.SearchRotatedSortedArray(1));
+    Print(desk.SearchNearlySortedArray(4));
+    Print(desk.SearchInfiniteSortedSequence(5));
+    Print(desk.BuildSearchIndex());
+    Print(desk.RebuildSearchIndex());
+    Print(desk.SearchIndex(5));
+    Print(desk.InsertIntoIndex(5));
+    Print(desk.RemoveFromIndex(5));
+    Print(desk.UpdateIndex(5, 15));
+    Print(desk.RangeSearch(3, 6));
+    Print(desk.PrefixSearch(1));
+    Print(desk.SuffixSearch(6));
+    Print(desk.WildcardSearch(0));
+    Print(desk.NearestNeighbor(6));
+    Print(desk.KNearestNeighbors(6, 3));
+    Print(desk.RadiusSearch(6, 1));
+    Print(desk.SpatialRangeSearch(4, 10));
+    Print(desk.BoundingBoxSearch(4, 10));
+    Print(desk.ApproximateNearestNeighbor(6));
+    Print(desk.GallopingSearch(5));
+    Print(desk.BidirectionalSearch(0, 7));
+    Print(desk.BeamSearch(2));
+    Print(desk.BestFirstSearch());
+    Print(desk.IterativeDeepeningSearch(5));
+    Print(desk.UniformCostSearch(5));
+    Print(desk.SearchCost(5));
+    Print(desk.BinarySearch(5));
+    Print(desk.Fault());
+    Return 0;
+}

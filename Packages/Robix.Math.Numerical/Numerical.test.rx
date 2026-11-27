@@ -1,5 +1,95 @@
+Test Evaluate {
+    Constraint: NumericalDesk().Evaluate(1, 2) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SlopeOf {
+    Constraint: NumericalDesk().SlopeOf(1, 2) == 4;
+    Processing: True;
+    Output: True;
+}
+
 Test Bisection {
     Constraint: NumericalDesk().Bisection(1, 0, 5) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test Brent {
+    Constraint: NumericalDesk().Brent(1, 2, 5) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test NewtonRaphson {
+    Constraint: NumericalDesk().NewtonRaphson(1, 2) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test Secant {
+    Constraint: NumericalDesk().Secant(1, 0, 2) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test RegulaFalsi {
+    Constraint: NumericalDesk().RegulaFalsi(1, 2, 5) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test FixedPointIteration {
+    Constraint: NumericalDesk().FixedPointIteration(4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test FindRoot {
+    Constraint: NumericalDesk().FindRoot(1, 0, 5) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test FindRoots {
+    Constraint: NumericalDesk().FindRoots(1, 0, 5) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test RootAt {
+    Constraint: NumericalDesk().RootAt(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test LinearInterpolate {
+    Constraint: NumericalDesk().LinearInterpolate(0, 0, 2, 4, 1) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test BilinearInterpolate {
+    Constraint: NumericalDesk().BilinearInterpolate(0, 0, 0, 4, 1, 1, 2, 2) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test TrilinearInterpolate {
+    Constraint: NumericalDesk().TrilinearInterpolate(2, 8, 1) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test SetPoint {
+    Constraint: NumericalDesk().SetPoint(0, 1, 2) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test LagrangeInterpolate {
+    Constraint: NumericalDesk().LagrangeInterpolate(0, 0, 1, 1, 2, 4, 3) == 9;
     Processing: True;
     Output: True;
 }
@@ -10,8 +100,308 @@ Test NewtonInterpolate {
     Output: True;
 }
 
+Test PolynomialInterpolate {
+    Constraint: NumericalDesk().PolynomialInterpolate(3) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test CubicSplineInterpolate {
+    Constraint: NumericalDesk().CubicSplineInterpolate(0, 0, 2, 4, 1) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test HermiteInterpolate {
+    Constraint: NumericalDesk().HermiteInterpolate(0, 5, 1, 2, 9, 1, 0) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test NearestNeighborInterpolate {
+    Constraint: NumericalDesk().NearestNeighborInterpolate(0, 1, 4, 9, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
 Test TrapezoidalRule {
     Constraint: NumericalDesk().TrapezoidalRule(0, 0, 4) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test CompositeTrapezoidal {
+    Constraint: NumericalDesk().CompositeTrapezoidal(0, 0, 4, 2) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test SimpsonsRule {
+    Constraint: NumericalDesk().SimpsonsRule(0, 0, 4) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test CompositeSimpsons {
+    Constraint: NumericalDesk().CompositeSimpsons(0, 0, 4, 2) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test RombergIntegration {
+    Constraint: NumericalDesk().RombergIntegration(0, 0, 4) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test GaussianQuadrature {
+    Constraint: NumericalDesk().GaussianQuadrature(0, 0, 4) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test AdaptiveQuadrature {
+    Constraint: NumericalDesk().AdaptiveQuadrature(0, 0, 4, 1) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test FiniteDifference {
+    Constraint: NumericalDesk().FiniteDifference(0, 3, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test ForwardDifference {
+    Constraint: NumericalDesk().ForwardDifference(0, 3, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test BackwardDifference {
+    Constraint: NumericalDesk().BackwardDifference(0, 3, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test CentralDifference {
+    Constraint: NumericalDesk().CentralDifference(0, 3, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test RichardsonExtrapolation {
+    Constraint: NumericalDesk().RichardsonExtrapolation(0, 3, 2) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test NumericalGradient {
+    Constraint: NumericalDesk().NumericalGradient(3, 4) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test NumericalJacobian {
+    Constraint: NumericalDesk().NumericalJacobian(3, 4) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test NumericalHessian {
+    Constraint: NumericalDesk().NumericalHessian(1, 1) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test GradientY {
+    Constraint: NumericalDesk().GradientY() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Approximate {
+    Constraint: NumericalDesk().Approximate(25, 10) == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test ApproximatePolynomial {
+    Constraint: NumericalDesk().ApproximatePolynomial(0, 4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test LeastSquaresApproximation {
+    Constraint: NumericalDesk().LeastSquaresApproximation(0, 0, 1, 1, 2, 2) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Intercept {
+    Constraint: NumericalDesk().Intercept() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test ChebyshevApproximation {
+    Constraint: NumericalDesk().ChebyshevApproximation(1, 3) == -4;
+    Processing: True;
+    Output: True;
+}
+
+Test PadeApproximation {
+    Constraint: NumericalDesk().PadeApproximation(0, 4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test AbsoluteError {
+    Constraint: NumericalDesk().AbsoluteError(5, 2) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test RelativeError {
+    Constraint: NumericalDesk().RelativeError(10, 8) == 20;
+    Processing: True;
+    Output: True;
+}
+
+Test EstimateError {
+    Constraint: NumericalDesk().EstimateError(5, 2) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test ResidualError {
+    Constraint: NumericalDesk().ResidualError(1, 2) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SolveNonlinearSystem {
+    Constraint: NumericalDesk().SolveNonlinearSystem(1, 2) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SolvedY {
+    Constraint: NumericalDesk().SolvedY() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SolveEigenvalues {
+    Constraint: NumericalDesk().SolveEigenvalues(3, 5) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test SolveODENumerically {
+    Constraint: NumericalDesk().SolveODENumerically(6, 2) == 10;
+    Processing: True;
+    Output: True;
+}
+
+Test SolvePDENumerically {
+    Constraint: NumericalDesk().SolvePDENumerically(4, 6) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test IterateUntilConverged {
+    Constraint: NumericalDesk().IterateUntilConverged(0, 0) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test EstimateConditionNumber {
+    Constraint: NumericalDesk().EstimateConditionNumber(3, 1) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test AnalyzeStability {
+    Constraint: NumericalDesk().AnalyzeStability(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Record {
+    Constraint: NumericalDesk().Record(0, 0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test CheckConvergence {
+    Constraint: NumericalDesk().CheckConvergence() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test EstimateConvergenceRate {
+    Constraint: NumericalDesk().EstimateConvergenceRate() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test CompensatedSum {
+    Constraint: NumericalDesk().CompensatedSum(1, 2, 3, 4) == 10;
+    Processing: True;
+    Output: True;
+}
+
+Test KahanSum {
+    Constraint: NumericalDesk().KahanSum(1, 2, 3, 4) == 10;
+    Processing: True;
+    Output: True;
+}
+
+Test PairwiseSum {
+    Constraint: NumericalDesk().PairwiseSum(1, 2, 3, 4) == 10;
+    Processing: True;
+    Output: True;
+}
+
+Test StableSort {
+    Constraint: NumericalDesk().StableSort(4, 1, 3, 2) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SortedAt {
+    Constraint: NumericalDesk().SortedAt(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Fault {
+    Constraint: NumericalDesk().Fault() == "none";
+    Processing: True;
+    Output: True;
+}
+
+Test KahanStep {
+    Constraint: NumericalDesk().KahanStep(0, 0, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Divides {
+    Constraint: NumericalDesk().Divides(8, 2) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Exact {
+    Constraint: NumericalDesk().Exact(8, 2) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test AbsInt {
+    Constraint: NumericalDesk().AbsInt(-4) == 4;
     Processing: True;
     Output: True;
 }

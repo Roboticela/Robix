@@ -1,23 +1,827 @@
+Test CreateSignal {
+    Constraint: SignalProcessingDesk().CreateSignal(8) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateSineWave {
+    Constraint: SignalProcessingDesk().CreateSineWave(1, 2, 8, 8) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateCosineWave {
+    Constraint: SignalProcessingDesk().CreateCosineWave(1, 2, 8, 8) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateSquareWave {
+    Constraint: SignalProcessingDesk().CreateSquareWave(1, 3, 8, 8) == 24;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateTriangleWave {
+    Constraint: SignalProcessingDesk().CreateTriangleWave(1, 2, 8, 8) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateSawtoothWave {
+    Constraint: SignalProcessingDesk().CreateSawtoothWave(1, 4, 8, 8) == 16;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateImpulseSignal {
+    Constraint: SignalProcessingDesk().CreateImpulseSignal(8, 0) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateWhiteNoise {
+    Constraint: SignalProcessingDesk().CreateWhiteNoise(8) == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test CreatePinkNoise {
+    Constraint: SignalProcessingDesk().CreatePinkNoise(8) == 15;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateBrownNoise {
+    Constraint: SignalProcessingDesk().CreateBrownNoise(8) == -2;
+    Processing: True;
+    Output: True;
+}
+
+Test GenerateSignal {
+    Constraint: SignalProcessingDesk().GenerateSignal(1) == 72;
+    Processing: True;
+    Output: True;
+}
+
 Test SquareSample {
-    Constraint: SignalDesk().SquareSample(1, 3, 8, 4) == -3;
+    Constraint: SignalProcessingDesk().SquareSample(1, 3, 8, 4) == -3;
     Processing: True;
     Output: True;
 }
 
-Test RemoveDCOffset {
-    Constraint: SignalDesk().RemoveDCOffset() == -7;
+Test SineSample {
+    Constraint: SignalProcessingDesk().SineSample(1, 2, 8, 2) == 2;
     Processing: True;
     Output: True;
 }
 
-Test Autocorrelation {
-    Constraint: SignalDesk().CalculateAutocorrelation(1) == 704;
+Test AddSignals {
+    Constraint: SignalProcessingDesk().AddSignals(2, 3) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test SubtractSignals {
+    Constraint: SignalProcessingDesk().SubtractSignals(5, 2) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test MultiplySignals {
+    Constraint: SignalProcessingDesk().MultiplySignals(2, 3) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test ScaleSignal {
+    Constraint: SignalProcessingDesk().ScaleSignal(3) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test NormalizeSignal {
+    Constraint: SignalProcessingDesk().NormalizeSignal() == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test ReverseSignal {
+    Constraint: SignalProcessingDesk().ReverseSignal() == 16;
+    Processing: True;
+    Output: True;
+}
+
+Test InvertSignal {
+    Constraint: SignalProcessingDesk().InvertSignal() == -2;
+    Processing: True;
+    Output: True;
+}
+
+Test ConcatenateSignals {
+    Constraint: SignalProcessingDesk().ConcatenateSignals() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test SliceSignal {
+    Constraint: SignalProcessingDesk().SliceSignal(0, 2) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test ShiftSignal {
+    Constraint: SignalProcessingDesk().ShiftSignal(3) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test PadSignal {
+    Constraint: SignalProcessingDesk().PadSignal(4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test TrimSignal {
+    Constraint: SignalProcessingDesk().TrimSignal() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test ResampleSignal {
+    Constraint: SignalProcessingDesk().ResampleSignal(4) == 32;
+    Processing: True;
+    Output: True;
+}
+
+Test Downsample {
+    Constraint: SignalProcessingDesk().Downsample(2) == 32;
+    Processing: True;
+    Output: True;
+}
+
+Test Upsample {
+    Constraint: SignalProcessingDesk().Upsample(2) == 20;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyFilter {
+    Constraint: SignalProcessingDesk().ApplyFilter(4) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyFIRFilter {
+    Constraint: SignalProcessingDesk().ApplyFIRFilter(1, 1, 2, 3) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyIIRFilter {
+    Constraint: SignalProcessingDesk().ApplyIIRFilter() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test LowPass {
+    Constraint: SignalProcessingDesk().LowPass(4) == 5;
     Processing: True;
     Output: True;
 }
 
 Test HighPass {
-    Constraint: SignalDesk().HighPass(4) == -3;
+    Constraint: SignalProcessingDesk().HighPass(4) == -3;
+    Processing: True;
+    Output: True;
+}
+
+Test BandPass {
+    Constraint: SignalProcessingDesk().BandPass(2, 4) == -2;
+    Processing: True;
+    Output: True;
+}
+
+Test BandStop {
+    Constraint: SignalProcessingDesk().BandStop(2, 4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test Notch {
+    Constraint: SignalProcessingDesk().Notch() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test MovingAverage {
+    Constraint: SignalProcessingDesk().MovingAverage(4) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test MedianFilter {
+    Constraint: SignalProcessingDesk().MedianFilter(2) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test DesignButterworth {
+    Constraint: SignalProcessingDesk().DesignButterworth(2) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test DesignChebyshev {
+    Constraint: SignalProcessingDesk().DesignChebyshev(2, 0) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test DesignElliptic {
+    Constraint: SignalProcessingDesk().DesignElliptic(2, 0, 0) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyZeroPhaseFilter {
+    Constraint: SignalProcessingDesk().ApplyZeroPhaseFilter(4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test ResetFilterState {
+    Constraint: SignalProcessingDesk().ResetFilterState() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test DFT {
+    Constraint: SignalProcessingDesk().DFT() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test IDFT {
+    Constraint: SignalProcessingDesk().IDFT() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test FFT {
+    Constraint: SignalProcessingDesk().FFT() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test IFFT {
+    Constraint: SignalProcessingDesk().IFFT() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test RealFFT {
+    Constraint: SignalProcessingDesk().RealFFT() == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test InverseRealFFT {
+    Constraint: SignalProcessingDesk().InverseRealFFT() == -1;
+    Processing: True;
+    Output: True;
+}
+
+Test STFT {
+    Constraint: SignalProcessingDesk().STFT() == 20;
+    Processing: True;
+    Output: True;
+}
+
+Test ISTFT {
+    Constraint: SignalProcessingDesk().ISTFT() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test DCT {
+    Constraint: SignalProcessingDesk().DCT() == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test IDCT {
+    Constraint: SignalProcessingDesk().IDCT() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test DST {
+    Constraint: SignalProcessingDesk().DST() == -8;
+    Processing: True;
+    Output: True;
+}
+
+Test Hilbert {
+    Constraint: SignalProcessingDesk().Hilbert() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test WaveletTransform {
+    Constraint: SignalProcessingDesk().WaveletTransform() == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test InverseWaveletTransform {
+    Constraint: SignalProcessingDesk().InverseWaveletTransform() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test ZTransform {
+    Constraint: SignalProcessingDesk().ZTransform(1) == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test InverseZTransform {
+    Constraint: SignalProcessingDesk().InverseZTransform() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateRMS {
+    Constraint: SignalProcessingDesk().CalculateRMS(4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculatePeakAmplitude {
+    Constraint: SignalProcessingDesk().CalculatePeakAmplitude() == 16;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateMean {
+    Constraint: SignalProcessingDesk().CalculateMean() == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateVariance {
+    Constraint: SignalProcessingDesk().CalculateVariance() == 21;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateEnergy {
+    Constraint: SignalProcessingDesk().CalculateEnergy() == 816;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculatePower {
+    Constraint: SignalProcessingDesk().CalculatePower() == 102;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateSNR {
+    Constraint: SignalProcessingDesk().CalculateSNR(4, 2) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateTHD {
+    Constraint: SignalProcessingDesk().CalculateTHD() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateTHDN {
+    Constraint: SignalProcessingDesk().CalculateTHDN() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateCrestFactor {
+    Constraint: SignalProcessingDesk().CalculateCrestFactor(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateAutocorrelation {
+    Constraint: SignalProcessingDesk().CalculateAutocorrelation(1) == 704;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateCrossCorrelation {
+    Constraint: SignalProcessingDesk().CalculateCrossCorrelation() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateConvolution {
+    Constraint: SignalProcessingDesk().CalculateConvolution() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateCrossConvolution {
+    Constraint: SignalProcessingDesk().CalculateCrossConvolution() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test FindPeaks {
+    Constraint: SignalProcessingDesk().FindPeaks() == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test FindZeroCrossings {
+    Constraint: SignalProcessingDesk().FindZeroCrossings() == 7;
+    Processing: True;
+    Output: True;
+}
+
+Test EstimateFrequency {
+    Constraint: SignalProcessingDesk().EstimateFrequency() == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test EstimatePhase {
+    Constraint: SignalProcessingDesk().EstimatePhase() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateSpectrum {
+    Constraint: SignalProcessingDesk().CalculateSpectrum() == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculatePowerSpectrum {
+    Constraint: SignalProcessingDesk().CalculatePowerSpectrum() == 64;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateSpectrogram {
+    Constraint: SignalProcessingDesk().CalculateSpectrogram() == 400;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculatePSD {
+    Constraint: SignalProcessingDesk().CalculatePSD() == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyWindow {
+    Constraint: SignalProcessingDesk().ApplyWindow(3) == 32;
+    Processing: True;
+    Output: True;
+}
+
+Test HammingWindow {
+    Constraint: SignalProcessingDesk().HammingWindow() == 28;
+    Processing: True;
+    Output: True;
+}
+
+Test HannWindow {
+    Constraint: SignalProcessingDesk().HannWindow() == 12;
+    Processing: True;
+    Output: True;
+}
+
+Test BlackmanWindow {
+    Constraint: SignalProcessingDesk().BlackmanWindow() == 14;
+    Processing: True;
+    Output: True;
+}
+
+Test KaiserWindow {
+    Constraint: SignalProcessingDesk().KaiserWindow(0) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test GaussianWindow {
+    Constraint: SignalProcessingDesk().GaussianWindow(1) == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test RectangularWindow {
+    Constraint: SignalProcessingDesk().RectangularWindow() == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test TriangularWindow {
+    Constraint: SignalProcessingDesk().TriangularWindow() == 20;
+    Processing: True;
+    Output: True;
+}
+
+Test WindowEnergy {
+    Constraint: SignalProcessingDesk().WindowEnergy() == 60;
+    Processing: True;
+    Output: True;
+}
+
+Test WindowCoherentGain {
+    Constraint: SignalProcessingDesk().WindowCoherentGain() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test AddNoise {
+    Constraint: SignalProcessingDesk().AddNoise() == 32;
+    Processing: True;
+    Output: True;
+}
+
+Test RemoveNoise {
+    Constraint: SignalProcessingDesk().RemoveNoise() == 56;
+    Processing: True;
+    Output: True;
+}
+
+Test ReduceNoise {
+    Constraint: SignalProcessingDesk().ReduceNoise() == 56;
+    Processing: True;
+    Output: True;
+}
+
+Test ApplyNoiseGate {
+    Constraint: SignalProcessingDesk().ApplyNoiseGate(8) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test CompressDynamicRange {
+    Constraint: SignalProcessingDesk().CompressDynamicRange() == 36;
+    Processing: True;
+    Output: True;
+}
+
+Test NormalizeLoudness {
+    Constraint: SignalProcessingDesk().NormalizeLoudness(8) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test RemoveDCOffset {
+    Constraint: SignalProcessingDesk().RemoveDCOffset() == -7;
+    Processing: True;
+    Output: True;
+}
+
+Test RemoveClicks {
+    Constraint: SignalProcessingDesk().RemoveClicks() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test RemoveClipping {
+    Constraint: SignalProcessingDesk().RemoveClipping(10) == 60;
+    Processing: True;
+    Output: True;
+}
+
+Test Convolve {
+    Constraint: SignalProcessingDesk().Convolve() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvolveFFT {
+    Constraint: SignalProcessingDesk().ConvolveFFT(1, 1) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvolveCircular {
+    Constraint: SignalProcessingDesk().ConvolveCircular() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test Correlate {
+    Constraint: SignalProcessingDesk().Correlate() == 816;
+    Processing: True;
+    Output: True;
+}
+
+Test Autocorrelate {
+    Constraint: SignalProcessingDesk().Autocorrelate(0) == 816;
+    Processing: True;
+    Output: True;
+}
+
+Test CrossCorrelate {
+    Constraint: SignalProcessingDesk().CrossCorrelate() == 72;
+    Processing: True;
+    Output: True;
+}
+
+Test Echo {
+    Constraint: SignalProcessingDesk().Echo(4) == 16;
+    Processing: True;
+    Output: True;
+}
+
+Test Reverb {
+    Constraint: SignalProcessingDesk().Reverb(6) == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test SetSampleRate {
+    Constraint: SignalProcessingDesk().SetSampleRate(8) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test SetChannels {
+    Constraint: SignalProcessingDesk().SetChannels(2) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test Quantize {
+    Constraint: SignalProcessingDesk().Quantize(10, 4) == 12;
+    Processing: True;
+    Output: True;
+}
+
+Test Fault {
+    Constraint: SignalProcessingDesk().Fault() == "none";
+    Processing: True;
+    Output: True;
+}
+
+Test Ready {
+    Constraint: SignalProcessingDesk().Ready(1, 1, 8, 8, 0) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test WaveSum {
+    Constraint: SignalProcessingDesk().WaveSum(2, 1, 3, 8, 8) == 24;
+    Processing: True;
+    Output: True;
+}
+
+Test Tone {
+    Constraint: SignalProcessingDesk().Tone(0, 1, 2, 8, 2) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test TriangleSample {
+    Constraint: SignalProcessingDesk().TriangleSample(1, 2, 8, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SawSample {
+    Constraint: SignalProcessingDesk().SawSample(1, 4, 8, 0) == -4;
+    Processing: True;
+    Output: True;
+}
+
+Test SineUnit {
+    Constraint: SignalProcessingDesk().SineUnit(2) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test FillEven {
+    Constraint: SignalProcessingDesk().FillEven() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test FillValue {
+    Constraint: SignalProcessingDesk().FillValue(4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test FillSquare {
+    Constraint: SignalProcessingDesk().FillSquare() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test FillAlt {
+    Constraint: SignalProcessingDesk().FillAlt() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test FillTone {
+    Constraint: SignalProcessingDesk().FillTone() == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test FillImpulse {
+    Constraint: SignalProcessingDesk().FillImpulse(0) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test FillMedian {
+    Constraint: SignalProcessingDesk().FillMedian() == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test Sum {
+    Constraint: SignalProcessingDesk().Sum() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Energy {
+    Constraint: SignalProcessingDesk().Energy() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Alternating {
+    Constraint: SignalProcessingDesk().Alternating() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test NonZero {
+    Constraint: SignalProcessingDesk().NonZero() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test PrefixMean {
+    Constraint: SignalProcessingDesk().PrefixMean(4) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test LoadSpectrum {
+    Constraint: SignalProcessingDesk().LoadSpectrum(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Transform {
+    Constraint: SignalProcessingDesk().Transform(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Weight {
+    Constraint: SignalProcessingDesk().Weight(0, 3) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test WindowSum {
+    Constraint: SignalProcessingDesk().WindowSum(0) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test Median3 {
+    Constraint: SignalProcessingDesk().Median3(1, 4, 2) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test Gcd {
+    Constraint: SignalProcessingDesk().Gcd(48, 18) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test Draw {
+    Constraint: SignalProcessingDesk().Draw() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test Exact {
+    Constraint: SignalProcessingDesk().Exact(8, 2) == 4;
     Processing: True;
     Output: True;
 }

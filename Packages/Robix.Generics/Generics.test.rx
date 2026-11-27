@@ -1,5 +1,173 @@
+// Tests for Generics.rx.
+
+Test RegisterType {
+    Constraint: GenericDesk().RegisterType("Point", 0, 1, "none") == 0;
+    Processing: GenericDesk().RegisterType("Point", 0, 1, "none");
+    Output: 0;
+}
+
 Test RegisterDefinition {
-    Constraint: GenericDesk().RegisterDefinition("List", 1) == 0;
-    Processing: True;
-    Output: True;
+    Case "one parameter" {
+        Constraint: GenericDesk().RegisterDefinition("List", 1) == 0;
+        Processing: GenericDesk().RegisterDefinition("List", 1);
+        Output: 0;
+    }
+    Case "bad arity" {
+        Constraint: GenericDesk().RegisterDefinition("Map", 0) == -1;
+        Processing: GenericDesk().RegisterDefinition("Map", 0);
+        Output: -1;
+    }
+}
+
+Test SetParameter {
+    Constraint: GenericDesk().SetParameter(0, 0, "T", 0, "") == 0;
+    Processing: GenericDesk().SetParameter(0, 0, "T", 0, "");
+    Output: 0;
+}
+
+Test RemoveConstraint {
+    Constraint: GenericDesk().RemoveConstraint(0, 0) == 0;
+    Processing: GenericDesk().RemoveConstraint(0, 0);
+    Output: 0;
+}
+
+Test Close {
+    Constraint: GenericDesk().Close(0, "Int", "") == -1;
+    Processing: GenericDesk().Close(0, "Int", "");
+    Output: -1;
+}
+
+Test Infer {
+    Constraint: GenericDesk().Infer(0, "Int", "") == -1;
+    Processing: GenericDesk().Infer(0, "Int", "");
+    Output: -1;
+}
+
+Test Text {
+    Constraint: GenericDesk().Text(0) == "none";
+    Processing: GenericDesk().Text(0);
+    Output: "none";
+}
+
+Test Validate {
+    Case "empty constraint" {
+        Constraint: GenericDesk().Validate("Int", "") == 1;
+        Processing: GenericDesk().Validate("Int", "");
+        Output: 1;
+    }
+    Case "unknown type" {
+        Constraint: GenericDesk().Validate("Int", "struct") == 0;
+        Processing: GenericDesk().Validate("Int", "struct");
+        Output: 0;
+    }
+}
+
+Test RegisterMethod {
+    Constraint: GenericDesk().RegisterMethod("Get", 0, "T") == -1;
+    Processing: GenericDesk().RegisterMethod("Get", 0, "T");
+    Output: -1;
+}
+
+Test MethodText {
+    Constraint: GenericDesk().MethodText(0, 0) == "none";
+    Processing: GenericDesk().MethodText(0, 0);
+    Output: "none";
+}
+
+Test Variance {
+    Constraint: GenericDesk().Variance(0, 0) == 0;
+    Processing: GenericDesk().Variance(0, 0);
+    Output: 0;
+}
+
+Test VarianceName {
+    Constraint: GenericDesk().VarianceName(0, 0) == "invariant";
+    Processing: GenericDesk().VarianceName(0, 0);
+    Output: "invariant";
+}
+
+Test IsCovariant {
+    Constraint: GenericDesk().IsCovariant(0, 0) == 0;
+    Processing: GenericDesk().IsCovariant(0, 0);
+    Output: 0;
+}
+
+Test IsContravariant {
+    Constraint: GenericDesk().IsContravariant(0, 0) == 0;
+    Processing: GenericDesk().IsContravariant(0, 0);
+    Output: 0;
+}
+
+Test IsInvariant {
+    Constraint: GenericDesk().IsInvariant(0, 0) == 1;
+    Processing: GenericDesk().IsInvariant(0, 0);
+    Output: 1;
+}
+
+Test SetContext {
+    Constraint: GenericDesk().SetContext("parse") == 1;
+    Processing: GenericDesk().SetContext("parse");
+    Output: 1;
+}
+
+Test Context {
+    Constraint: GenericDesk().Context() == "none";
+    Processing: GenericDesk().Context();
+    Output: "none";
+}
+
+Test Fault {
+    Constraint: GenericDesk().Fault() == "none";
+    Processing: GenericDesk().Fault();
+    Output: "none";
+}
+
+Test Stats {
+    Constraint: GenericDesk().Stats() == "definitions=0,closed=0,rejected=0";
+    Processing: GenericDesk().Stats();
+    Output: "definitions=0,closed=0,rejected=0";
+}
+
+Test Satisfies {
+    Case "no constraint" {
+        Constraint: GenericDesk().Satisfies("Int", "") == 1;
+        Processing: GenericDesk().Satisfies("Int", "");
+        Output: 1;
+    }
+    Case "missing type" {
+        Constraint: GenericDesk().Satisfies("Int", "struct") == 0;
+        Processing: GenericDesk().Satisfies("Int", "struct");
+        Output: 0;
+    }
+}
+
+Test FindType {
+    Constraint: GenericDesk().FindType("Int") == -1;
+    Processing: GenericDesk().FindType("Int");
+    Output: -1;
+}
+
+Test Claim {
+    Constraint: GenericDesk().Claim([0, 0, 0, 0, 0, 0, 0, 0], 0) == 0;
+    Processing: GenericDesk().Claim([0, 0, 0, 0, 0, 0, 0, 0], 0);
+    Output: 0;
+}
+
+Test Known {
+    Case "empty slot" {
+        Constraint: GenericDesk().Known([0, 0, 0, 0, 0, 0, 0, 0], 0) == 0;
+        Processing: GenericDesk().Known([0, 0, 0, 0, 0, 0, 0, 0], 0);
+        Output: 0;
+    }
+    Case "used slot" {
+        Constraint: GenericDesk().Known([1, 0, 0, 0, 0, 0, 0, 0], 0) == 1;
+        Processing: GenericDesk().Known([1, 0, 0, 0, 0, 0, 0, 0], 0);
+        Output: 1;
+    }
+}
+
+Test IntText {
+    Constraint: GenericDesk().IntText(12) == "12";
+    Processing: GenericDesk().IntText(12);
+    Output: "12";
 }

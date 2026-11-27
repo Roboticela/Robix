@@ -1,0 +1,1132 @@
+// Robix.Algorithms.Searching: exact search over eight integer samples.
+Package Robix.Algorithms.Searching
+Explain {
+    Description: "Exact search over eight integer samples.";
+};
+
+Import Robix.Core;
+
+
+Class SearchingDesk {
+    Private Array<Int> samples;
+    Private Array<Int> other;
+    Private Int probes;
+    Private Int indexed;
+    Private Int last;
+    Private String problem;
+
+    Public Constructor() {
+        samples = [0, 0, 0, 0, 0, 0, 0, 0];
+        other = [0, 0, 0, 0, 0, 0, 0, 0];
+        probes = 0;
+        indexed = 8;
+        last = 0;
+        problem = "none";
+    }
+
+    Public Function Find(Int target) -> Int
+    Explain {
+        Description: "Find a target in 1 through 8.";
+        Input: target = "Value to find";
+        Processing: "Scan from the front.";
+        Output: "The index, or -1 when it is absent. 5 is at index 4.";
+    } {
+        This.FillSorted();
+        Return This.Scan(target);
+    }
+
+    Public Function FindFirst(Int code) -> Int
+    Explain {
+        Description: "Find the first sample matching a predicate.";
+        Input: code = "0 even, 1 odd, 2 greater than 5";
+        Processing: "Scan 1 through 8 from the front.";
+        Output: "The index. The first even sample is at index 1.";
+    } {
+        This.FillSorted();
+        Int index = 0;
+        While (index < 8) {
+            If (This.Matches(code, samples[index]) == 1) {
+                problem = "none";
+                Return index;
+            }
+            If (problem != "none") { Return -1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function FindLast(Int code) -> Int
+    Explain {
+        Description: "Find the last sample matching a predicate.";
+        Input: code = "0 even, 1 odd, 2 greater than 5";
+        Processing: "Scan 1 through 8 from the back.";
+        Output: "The index. The last even sample is at index 7.";
+    } {
+        This.FillSorted();
+        Int index = 7;
+        While (index >= 0) {
+            If (This.Matches(code, samples[index]) == 1) {
+                problem = "none";
+                Return index;
+            }
+            If (problem != "none") { Return -1; }
+            index = index - 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function FindAll(Int code) -> Int
+    Explain {
+        Description: "Count samples matching a predicate.";
+        Input: code = "0 even, 1 odd, 2 greater than 5";
+        Processing: "Scan 1 through 8.";
+        Output: "The count. Four samples are even.";
+    } {
+        Return This.CountMatches(code);
+    }
+
+    Public Function FindIndex(Int code) -> Int
+    Explain {
+        Description: "Return the first matching index.";
+        Input: code = "0 even, 1 odd, 2 greater than 5";
+        Processing: "Use the forward scan.";
+        Output: "The index.";
+    } {
+        Return This.FindFirst(code);
+    }
+
+    Public Function FindLastIndex(Int code) -> Int
+    Explain {
+        Description: "Return the last matching index.";
+        Input: code = "0 even, 1 odd, 2 greater than 5";
+        Processing: "Use the backward scan.";
+        Output: "The index.";
+    } {
+        Return This.FindLast(code);
+    }
+
+    Public Function Contains(Int target) -> Int
+    Explain {
+        Description: "Report whether 1 through 8 contains a target.";
+        Input: target = "Value to find";
+        Processing: "Scan the sorted buffer.";
+        Output: "1 when it is present, otherwise zero.";
+    } {
+        If (This.Find(target) >= 0) { Return 1; }
+        Return 0;
+    }
+
+    Public Function ContainsAny(Int first, Int second) -> Int
+    Explain {
+        Description: "Report whether either target is present.";
+        Input: first = "First value", second = "Second value";
+        Processing: "Scan 1 through 8 for each value.";
+        Output: "1 when at least one is present.";
+    } {
+        If (This.Find(first) >= 0) {
+            problem = "none";
+            Return 1;
+        }
+        If (This.Find(second) >= 0) {
+            problem = "none";
+            Return 1;
+        }
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function ContainsAll(Int first, Int second) -> Int
+    Explain {
+        Description: "Report whether both targets are present.";
+        Input: first = "First value", second = "Second value";
+        Processing: "Scan 1 through 8 for each value.";
+        Output: "1 when both are present.";
+    } {
+        If (This.Find(first) < 0) {
+            problem = "none";
+            Return 0;
+        }
+        If (This.Find(second) < 0) {
+            problem = "none";
+            Return 0;
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function CountMatches(Int code) -> Int
+    Explain {
+        Description: "Count samples matching a predicate.";
+        Input: code = "0 even, 1 odd, 2 greater than 5";
+        Processing: "Scan 1 through 8.";
+        Output: "The count. Values above 5 number 3.";
+    } {
+        This.FillSorted();
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (This.Matches(code, samples[index]) == 1) { count = count + 1; }
+            If (problem != "none") { Return 0; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function LinearSearch(Int target) -> Int
+    Explain {
+        Description: "Scan 1 through 8 for a target.";
+        Input: target = "Value to find";
+        Processing: "Compare each sample in order.";
+        Output: "The index, or -1. 5 is at index 4.";
+    } {
+        This.FillSorted();
+        Return This.Scan(target);
+    }
+
+    Public Function SentinelLinearSearch(Int target) -> Int
+    Explain {
+        Description: "Scan with the target planted at the end.";
+        Input: target = "Value to find";
+        Processing: "Restore the final sample after the scan.";
+        Output: "The index, or -1 when only the sentinel matched.";
+    } {
+        This.FillSorted();
+        Int saved = samples[7];
+        samples[7] = target;
+        Int index = 0;
+        While (samples[index] != target) { index = index + 1; }
+        samples[7] = saved;
+        If (index < 7 || saved == target) {
+            problem = "none";
+            Return index;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function BinarySearch(Int target) -> Int
+    Explain {
+        Description: "Halve 1 through 8 until the target is found.";
+        Input: target = "Value to find";
+        Processing: "The middle of 1 through 8 starts at 4.";
+        Output: "The index, or -1. 5 is at index 4.";
+    } {
+        This.FillSorted();
+        Return This.Halve(target);
+    }
+
+    Public Function RecursiveBinarySearch(Int target) -> Int
+    Explain {
+        Description: "Search by the same halving splits as a recursive search.";
+        Input: target = "Value to find";
+        Processing: "The splits are written as a loop.";
+        Output: "The index, or -1.";
+    } {
+        Return This.BinarySearch(target);
+    }
+
+    Public Function IterativeBinarySearch(Int target) -> Int
+    Explain {
+        Description: "Search 1 through 8 by halving.";
+        Input: target = "Value to find";
+        Processing: "Narrow the inclusive bounds.";
+        Output: "The index, or -1.";
+    } {
+        Return This.BinarySearch(target);
+    }
+
+    Public Function JumpSearch(Int target) -> Int
+    Explain {
+        Description: "Jump by two samples, then scan a block.";
+        Input: target = "Value to find";
+        Processing: "The block size is 2 on a buffer of 8.";
+        Output: "The index, or -1. 5 is at index 4.";
+    } {
+        This.FillSorted();
+        Int step = 2;
+        Int previous = 0;
+        While (step < 8 && samples[step] < target) {
+            previous = step;
+            step = step + 2;
+        }
+        Int index = previous;
+        Int stop = step;
+        If (stop > 7) { stop = 7; }
+        While (index <= stop) {
+            If (samples[index] == target) {
+                problem = "none";
+                Return index;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function InterpolationSearch(Int target) -> Int
+    Explain {
+        Description: "Probe 1 through 8 in proportion to the target.";
+        Input: target = "Value to find";
+        Processing: "The uniform keys put 5 at index 4 in one probe.";
+        Output: "The index, or -1.";
+    } {
+        This.FillSorted();
+        Int low = 0;
+        Int high = 7;
+        While (low <= high && target >= samples[low] && target <= samples[high]) {
+            If (samples[high] == samples[low]) {
+                If (samples[low] == target) {
+                    problem = "none";
+                    Return low;
+                }
+                problem = "none";
+                Return -1;
+            }
+            Int span = samples[high] - samples[low];
+            Int pos = low + ((target - samples[low]) * (high - low)) / span;
+            If (pos < low) { pos = low; }
+            If (pos > high) { pos = high; }
+            If (samples[pos] == target) {
+                problem = "none";
+                Return pos;
+            }
+            If (samples[pos] < target) { low = pos + 1; }
+            If (samples[pos] > target) { high = pos - 1; }
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function ExponentialSearch(Int target) -> Int
+    Explain {
+        Description: "Double the bound, then halve inside it.";
+        Input: target = "Value to find";
+        Processing: "The bound reaches index 4 for target 5.";
+        Output: "The index, or -1.";
+    } {
+        This.FillSorted();
+        If (samples[0] == target) {
+            problem = "none";
+            Return 0;
+        }
+        Int bound = 1;
+        While (bound < 8 && samples[bound] < target) { bound = bound * 2; }
+        Int low = bound / 2;
+        Int high = bound;
+        If (high > 7) { high = 7; }
+        Return This.HalveBetween(low, high, target);
+    }
+
+    Public Function FibonacciSearch(Int target) -> Int
+    Explain {
+        Description: "Split 1 through 8 with Fibonacci offsets.";
+        Input: target = "Value to find";
+        Processing: "The split of size 8 reaches index 4 for target 5.";
+        Output: "The index, or -1.";
+    } {
+        This.FillSorted();
+        Int second = 0;
+        Int first = 1;
+        Int fib = 1;
+        While (fib < 8) {
+            second = first;
+            first = fib;
+            fib = first + second;
+        }
+        Int offset = -1;
+        Int guard = 0;
+        While (fib > 1 && guard < 16) {
+            Int index = offset + second;
+            If (index >= 8) { index = 7; }
+            If (index < 0) { index = 0; }
+            If (samples[index] < target) {
+                fib = first;
+                first = second;
+                second = fib - first;
+                offset = index;
+            }
+            If (samples[index] > target) {
+                fib = second;
+                first = first - second;
+                second = fib - first;
+            }
+            If (samples[index] == target) {
+                problem = "none";
+                Return index;
+            }
+            guard = guard + 1;
+        }
+        If (offset + 1 < 8 && samples[offset + 1] == target) {
+            problem = "none";
+            Return offset + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function TernarySearch(Int left, Int right) -> Int
+    Explain {
+        Description: "Minimize (x - 3) squared on an integer interval.";
+        Input: left = "Lower bound", right = "Upper bound";
+        Processing: "Shrink by thirds, then scan the final bracket.";
+        Output: "The minimizing integer. From 0 through 6 it is 3.";
+    } {
+        If (left > right) {
+            problem = "domain";
+            Return 0;
+        }
+        Int low = left;
+        Int high = right;
+        Int guard = 0;
+        While (guard < 16 && high - low > 1) {
+            Int span = high - low;
+            Int leftThird = low + span / 3;
+            Int rightThird = high - span / 3;
+            If (leftThird >= rightThird) { guard = 16; }
+            If (leftThird < rightThird) {
+                Int nextLow = low;
+                Int nextHigh = high;
+                If (This.Valley(leftThird) <= This.Valley(rightThird)) { nextHigh = rightThird; }
+                If (This.Valley(leftThird) > This.Valley(rightThird)) { nextLow = leftThird; }
+                If (nextLow == low && nextHigh == high) { guard = 16; }
+                If (nextLow != low || nextHigh != high) {
+                    low = nextLow;
+                    high = nextHigh;
+                }
+            }
+            guard = guard + 1;
+        }
+        Int best = low;
+        Int index = low + 1;
+        While (index <= high) {
+            If (This.Valley(index) < This.Valley(best)) { best = index; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function MetaBinarySearch(Int target) -> Int
+    Explain {
+        Description: "Search 1 through 8 by halving.";
+        Input: target = "Value to find";
+        Processing: "Use the iterative binary search.";
+        Output: "The index, or -1.";
+    } {
+        Return This.BinarySearch(target);
+    }
+
+    Public Function LowerBound(Int target) -> Int
+    Explain {
+        Description: "Find the first index at or above a target.";
+        Input: target = "Boundary value";
+        Processing: "The buffer is 1, 2, 2, 2, 4, 4, 7, 9.";
+        Output: "The index. The first 2 is at index 1.";
+    } {
+        This.FillDuplicates();
+        Return This.Bound(target, 0);
+    }
+
+    Public Function UpperBound(Int target) -> Int
+    Explain {
+        Description: "Find the first index above a target.";
+        Input: target = "Boundary value";
+        Processing: "The buffer is 1, 2, 2, 2, 4, 4, 7, 9.";
+        Output: "The index. The first sample above 2 is at index 4.";
+    } {
+        This.FillDuplicates();
+        Return This.Bound(target, 1);
+    }
+
+    Public Function EqualRange(Int target) -> Int
+    Explain {
+        Description: "Count the samples equal to a target.";
+        Input: target = "Value to measure";
+        Processing: "Subtract the lower bound from the upper bound.";
+        Output: "The count. Three samples equal 2.";
+    } {
+        Int low = This.LowerBound(target);
+        Int high = This.UpperBound(target);
+        problem = "none";
+        Return high - low;
+    }
+
+    Public Function BinarySearchFirst(Int target) -> Int
+    Explain {
+        Description: "Find the first copy of a target.";
+        Input: target = "Value to find";
+        Processing: "Use the lower bound of the duplicate buffer.";
+        Output: "The index, or -1. The first 2 is at index 1.";
+    } {
+        Int index = This.LowerBound(target);
+        If (index < 8 && samples[index] == target) {
+            problem = "none";
+            Return index;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function BinarySearchLast(Int target) -> Int
+    Explain {
+        Description: "Find the last copy of a target.";
+        Input: target = "Value to find";
+        Processing: "Step one before the upper bound.";
+        Output: "The index, or -1. The last 2 is at index 3.";
+    } {
+        Int index = This.UpperBound(target) - 1;
+        If (index >= 0 && samples[index] == target) {
+            problem = "none";
+            Return index;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function BinarySearchInsertionPoint(Int target) -> Int
+    Explain {
+        Description: "Find where a target would be inserted.";
+        Input: target = "Value to place";
+        Processing: "Use the lower bound. 3 would land at index 4.";
+        Output: "The insertion index, from 0 through 8.";
+    } {
+        Return This.LowerBound(target);
+    }
+
+    Public Function SearchRotatedSortedArray(Int target) -> Int
+    Explain {
+        Description: "Search 4, 5, 6, 7, 8, 1, 2, 3.";
+        Input: target = "Value to find";
+        Processing: "Halve, then follow the sorted half that can hold the target.";
+        Output: "The index, or -1. 1 is at index 5.";
+    } {
+        This.FillRotated();
+        Int low = 0;
+        Int high = 7;
+        While (low <= high) {
+            Int mid = (low + high) / 2;
+            If (samples[mid] == target) {
+                problem = "none";
+                Return mid;
+            }
+            Int leftSorted = 0;
+            If (samples[low] <= samples[mid]) { leftSorted = 1; }
+            If (leftSorted == 1) {
+                Int goLeft = 0;
+                If (target >= samples[low] && target < samples[mid]) { goLeft = 1; }
+                If (goLeft == 1) { high = mid - 1; }
+                If (goLeft == 0) { low = mid + 1; }
+            }
+            If (leftSorted == 0) {
+                Int goRight = 0;
+                If (target > samples[mid] && target <= samples[high]) { goRight = 1; }
+                If (goRight == 1) { low = mid + 1; }
+                If (goRight == 0) { high = mid - 1; }
+            }
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function SearchNearlySortedArray(Int target) -> Int
+    Explain {
+        Description: "Search 1, 2, 4, 3, 5, 6, 8, 7.";
+        Input: target = "Value from the nearly ordered buffer";
+        Processing: "Check the sorted slot and its two neighbors.";
+        Output: "The index, or -1. 4 is at index 2.";
+    } {
+        This.FillNearly();
+        If (target < 1 || target > 8) {
+            problem = "none";
+            Return -1;
+        }
+        Int guess = target - 1;
+        If (samples[guess] == target) {
+            problem = "none";
+            Return guess;
+        }
+        If (guess > 0 && samples[guess - 1] == target) {
+            problem = "none";
+            Return guess - 1;
+        }
+        If (guess < 7 && samples[guess + 1] == target) {
+            problem = "none";
+            Return guess + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Public Function SearchInfiniteSortedSequence(Int target) -> Int
+    Explain {
+        Description: "Find a positive integer in the realized prefix 1 through 8.";
+        Input: target = "Positive integer";
+        Processing: "The index is one less than the value while the value fits.";
+        Output: "The index, or -1 when the target is outside the prefix.";
+    } {
+        If (target < 1 || target > 8) {
+            problem = "domain";
+            Return -1;
+        }
+        problem = "none";
+        Return target - 1;
+    }
+
+    Public Function BuildSearchIndex() -> Int
+    Explain {
+        Description: "Index 1 through 8 in sorted order.";
+        Input: "None";
+        Processing: "Store eight keys.";
+        Output: "8.";
+    } {
+        This.FillSorted();
+        indexed = 8;
+        problem = "none";
+        Return indexed;
+    }
+
+    Public Function RebuildSearchIndex() -> Int
+    Explain {
+        Description: "Rebuild the sorted index.";
+        Input: "None";
+        Processing: "Store 1 through 8 again.";
+        Output: "8.";
+    } {
+        Return This.BuildSearchIndex();
+    }
+
+    Public Function SearchIndex(Int key) -> Int
+    Explain {
+        Description: "Find a key in the sorted index.";
+        Input: key = "Value to find";
+        Processing: "Halve 1 through 8.";
+        Output: "The index, or -1.";
+    } {
+        Return This.BinarySearch(key);
+    }
+
+    Public Function InsertIntoIndex(Int key) -> Int
+    Explain {
+        Description: "Find a key that is already indexed.";
+        Input: key = "Value to insert";
+        Processing: "The eight slots are full, so a new key is rejected.";
+        Output: "The existing index, or -1 when the key is new.";
+    } {
+        This.FillSorted();
+        Int index = This.Halve(key);
+        If (index >= 0) { Return index; }
+        problem = "size";
+        Return -1;
+    }
+
+    Public Function RemoveFromIndex(Int key) -> Int
+    Explain {
+        Description: "Remove one key from 1 through 8.";
+        Input: key = "Value to remove";
+        Processing: "Shift the later samples left.";
+        Output: "The remaining count, 7, or -1 when the key is absent.";
+    } {
+        This.FillSorted();
+        Int index = This.Halve(key);
+        If (index < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        While (index < 7) {
+            samples[index] = samples[index + 1];
+            index = index + 1;
+        }
+        samples[7] = 0;
+        indexed = 7;
+        problem = "none";
+        Return indexed;
+    }
+
+    Public Function UpdateIndex(Int key, Int value) -> Int
+    Explain {
+        Description: "Replace one indexed key and restore sorted order.";
+        Input: key = "Existing key", value = "Replacement";
+        Processing: "Replacing 5 with 15 moves 15 to the end.";
+        Output: "The new index, or -1 when the key is absent.";
+    } {
+        This.FillSorted();
+        Int index = This.Halve(key);
+        If (index < 0) {
+            problem = "domain";
+            Return -1;
+        }
+        samples[index] = value;
+        This.OrderBuffer();
+        Return This.Scan(value);
+    }
+
+    Public Function RangeSearch(Int low, Int high) -> Int
+    Explain {
+        Description: "Count indexed values inside an inclusive range.";
+        Input: low = "Lower value", high = "Upper value";
+        Processing: "Scan 1 through 8.";
+        Output: "The count. 3 through 6 covers 4 values.";
+    } {
+        If (low > high) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillSorted();
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] >= low && samples[index] <= high) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function PrefixSearch(Int prefix) -> Int
+    Explain {
+        Description: "Count values whose leading digit is a prefix.";
+        Input: prefix = "Leading digit";
+        Processing: "Strip trailing digits, then compare.";
+        Output: "The count. One value in 1 through 8 starts with 1.";
+    } {
+        This.FillSorted();
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            Int digit = samples[index];
+            While (digit >= 10) { digit = digit / 10; }
+            If (digit == prefix) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function SuffixSearch(Int suffix) -> Int
+    Explain {
+        Description: "Count values whose final digit is a suffix.";
+        Input: suffix = "Final digit";
+        Processing: "Compare the value modulo 10.";
+        Output: "The count. One value in 1 through 8 ends with 6.";
+    } {
+        This.FillSorted();
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] % 10 == suffix) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function WildcardSearch(Int pattern) -> Int
+    Explain {
+        Description: "Match every sample, or one exact value.";
+        Input: pattern = "0 matches every sample; any other value is exact";
+        Processing: "Scan 1 through 8.";
+        Output: "The count. Pattern 0 yields 8.";
+    } {
+        This.FillSorted();
+        If (pattern == 0) {
+            problem = "none";
+            Return 8;
+        }
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] == pattern) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function NearestNeighbor(Int target) -> Int
+    Explain {
+        Description: "Find the point closest to a target.";
+        Input: target = "Query position";
+        Processing: "The points are 1, 3, 5, 7, 9, 11, 13, 15. Ties keep the smaller point.";
+        Output: "The point. The neighbor of 6 is 5.";
+    } {
+        This.FillPoints();
+        Int best = 0;
+        Int bestDist = This.Abs(samples[0] - target);
+        Int index = 1;
+        While (index < 8) {
+            Int dist = This.Abs(samples[index] - target);
+            Int closer = 0;
+            If (dist < bestDist) { closer = 1; }
+            If (dist == bestDist && samples[index] < samples[best]) { closer = 1; }
+            If (closer == 1) {
+                best = index;
+                bestDist = dist;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return samples[best];
+    }
+
+    Public Function KNearestNeighbors(Int target, Int count) -> Int
+    Explain {
+        Description: "Add the closest points.";
+        Input: target = "Query position", count = "How many points, from 1 through 8";
+        Processing: "Ties keep the smaller point. The three neighbors of 6 are 5, 7, and 3.";
+        Output: "Their sum, 15.";
+    } {
+        If (count < 1 || count > 8) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillPoints();
+        Int index = 0;
+        While (index < 8) {
+            other[index] = 0;
+            index = index + 1;
+        }
+        Int sum = 0;
+        Int chosen = 0;
+        While (chosen < count) {
+            Int best = -1;
+            Int bestDist = 0;
+            index = 0;
+            While (index < 8) {
+                If (other[index] == 0) {
+                    Int dist = This.Abs(samples[index] - target);
+                    Int closer = 0;
+                    If (best < 0) { closer = 1; }
+                    If (best >= 0 && dist < bestDist) { closer = 1; }
+                    If (best >= 0 && dist == bestDist && samples[index] < samples[best]) { closer = 1; }
+                    If (closer == 1) {
+                        best = index;
+                        bestDist = dist;
+                    }
+                }
+                index = index + 1;
+            }
+            other[best] = 1;
+            sum = sum + samples[best];
+            chosen = chosen + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function RadiusSearch(Int center, Int radius) -> Int
+    Explain {
+        Description: "Count points within a radius.";
+        Input: center = "Query position", radius = "Nonnegative distance";
+        Processing: "Compare absolute distance with the radius.";
+        Output: "The count. Two points lie within 1 of 6.";
+    } {
+        If (radius < 0) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillPoints();
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (This.Abs(samples[index] - center) <= radius) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function SpatialRangeSearch(Int low, Int high) -> Int
+    Explain {
+        Description: "Count points inside an inclusive interval.";
+        Input: low = "Lower position", high = "Upper position";
+        Processing: "Scan 1, 3, 5, 7, 9, 11, 13, 15.";
+        Output: "The count. 4 through 10 covers 5, 7, and 9.";
+    } {
+        If (low > high) {
+            problem = "domain";
+            Return 0;
+        }
+        This.FillPoints();
+        Int count = 0;
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] >= low && samples[index] <= high) { count = count + 1; }
+            index = index + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function BoundingBoxSearch(Int low, Int high) -> Int
+    Explain {
+        Description: "Count points inside an inclusive interval.";
+        Input: low = "Lower position", high = "Upper position";
+        Processing: "Use the same point set as the spatial range.";
+        Output: "The count.";
+    } {
+        Return This.SpatialRangeSearch(low, high);
+    }
+
+    Public Function ApproximateNearestNeighbor(Int target) -> Int
+    Explain {
+        Description: "Return the exact nearest point on this small line.";
+        Input: target = "Query position";
+        Processing: "The eight points are scanned.";
+        Output: "The nearest point.";
+    } {
+        Return This.NearestNeighbor(target);
+    }
+
+    Public Function GallopingSearch(Int target) -> Int
+    Explain {
+        Description: "Bound the target by doubling, then halve.";
+        Input: target = "Value to find";
+        Processing: "Use the exponential search.";
+        Output: "The index, or -1.";
+    } {
+        Return This.ExponentialSearch(target);
+    }
+
+    Public Function BidirectionalSearch(Int start, Int goal) -> Int
+    Explain {
+        Description: "Measure the distance along the line 0 through 7.";
+        Input: start = "Start node", goal = "Goal node";
+        Processing: "Both ends walk toward each other. The distance is the absolute gap.";
+        Output: "The distance, or -1 when a node is outside the line.";
+    } {
+        If (start < 0 || start > 7 || goal < 0 || goal > 7) {
+            problem = "domain";
+            Return -1;
+        }
+        problem = "none";
+        Return This.Abs(goal - start);
+    }
+
+    Public Function BeamSearch(Int width) -> Int
+    Explain {
+        Description: "Find the valley of (x - 3) squared.";
+        Input: width = "Positive beam width";
+        Processing: "The integer valley from 0 through 6 is searched exactly.";
+        Output: "3.";
+    } {
+        If (width < 1) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.TernarySearch(0, 6);
+    }
+
+    Public Function BestFirstSearch() -> Int
+    Explain {
+        Description: "Find the valley of (x - 3) squared.";
+        Input: "None";
+        Processing: "The lowest value from 0 through 6 is chosen.";
+        Output: "3.";
+    } {
+        Return This.TernarySearch(0, 6);
+    }
+
+    Public Function IterativeDeepeningSearch(Int goal) -> Int
+    Explain {
+        Description: "Deepen a walk from node 0 until the goal is reached.";
+        Input: goal = "Node from 0 through 7";
+        Processing: "Each new depth adds one edge on the line.";
+        Output: "The depth, which equals the goal.";
+    } {
+        If (goal < 0 || goal > 7) {
+            problem = "domain";
+            Return -1;
+        }
+        problem = "none";
+        Return goal;
+    }
+
+    Public Function UniformCostSearch(Int goal) -> Int
+    Explain {
+        Description: "Find the cheapest walk from node 0.";
+        Input: goal = "Node from 0 through 7";
+        Processing: "Every edge costs 1.";
+        Output: "The cost, which equals the goal.";
+    } {
+        Return This.IterativeDeepeningSearch(goal);
+    }
+
+    Public Function SearchCost(Int target) -> Int
+    Explain {
+        Description: "Count the probes in a binary search.";
+        Input: target = "Value to find";
+        Processing: "Each middle sample is one probe.";
+        Output: "The probe count. Finding 5 takes 3 probes.";
+    } {
+        This.BinarySearch(target);
+        Return probes;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the latest problem token.";
+        Input: "None";
+        Processing: "Read the stored token.";
+        Output: "none, domain, or size.";
+    } {
+        Return problem;
+    }
+
+    Private Function FillSorted() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = index + 1;
+            index = index + 1;
+        }
+        indexed = 8;
+        Return 8;
+    }
+
+    Private Function FillDuplicates() -> Int {
+        samples[0] = 1;
+        samples[1] = 2;
+        samples[2] = 2;
+        samples[3] = 2;
+        samples[4] = 4;
+        samples[5] = 4;
+        samples[6] = 7;
+        samples[7] = 9;
+        Return samples[1];
+    }
+
+    Private Function FillRotated() -> Int {
+        samples[0] = 4;
+        samples[1] = 5;
+        samples[2] = 6;
+        samples[3] = 7;
+        samples[4] = 8;
+        samples[5] = 1;
+        samples[6] = 2;
+        samples[7] = 3;
+        Return samples[5];
+    }
+
+    Private Function FillNearly() -> Int {
+        samples[0] = 1;
+        samples[1] = 2;
+        samples[2] = 4;
+        samples[3] = 3;
+        samples[4] = 5;
+        samples[5] = 6;
+        samples[6] = 8;
+        samples[7] = 7;
+        Return samples[2];
+    }
+
+    Private Function FillPoints() -> Int {
+        Int index = 0;
+        While (index < 8) {
+            samples[index] = index * 2 + 1;
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+
+    Private Function Scan(Int target) -> Int {
+        Int index = 0;
+        While (index < 8) {
+            If (samples[index] == target) {
+                problem = "none";
+                last = index;
+                Return index;
+            }
+            index = index + 1;
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Private Function Halve(Int target) -> Int {
+        probes = 0;
+        Return This.HalveBetween(0, 7, target);
+    }
+
+    Private Function HalveBetween(Int low, Int high, Int target) -> Int {
+        Int left = low;
+        Int right = high;
+        While (left <= right) {
+            Int mid = (left + right) / 2;
+            probes = probes + 1;
+            If (samples[mid] == target) {
+                problem = "none";
+                last = mid;
+                Return mid;
+            }
+            If (samples[mid] < target) { left = mid + 1; }
+            If (samples[mid] > target) { right = mid - 1; }
+        }
+        problem = "none";
+        Return -1;
+    }
+
+    Private Function Bound(Int target, Int upper) -> Int {
+        Int low = 0;
+        Int high = 8;
+        While (low < high) {
+            Int mid = (low + high) / 2;
+            Int move = 0;
+            If (upper == 0 && samples[mid] < target) { move = 1; }
+            If (upper == 1 && samples[mid] <= target) { move = 1; }
+            If (move == 1) { low = mid + 1; }
+            If (move == 0) { high = mid; }
+        }
+        problem = "none";
+        Return low;
+    }
+
+    Private Function Matches(Int code, Int value) -> Int {
+        If (code == 0) {
+            If (value % 2 == 0) { Return 1; }
+            Return 0;
+        }
+        If (code == 1) {
+            If (value % 2 == 1) { Return 1; }
+            Return 0;
+        }
+        If (code == 2) {
+            If (value > 5) { Return 1; }
+            Return 0;
+        }
+        problem = "domain";
+        Return 0;
+    }
+
+    Private Function Valley(Int point) -> Int {
+        Int delta = point - 3;
+        Return delta * delta;
+    }
+
+    Private Function Abs(Int value) -> Int {
+        If (value < 0) { Return 0 - value; }
+        Return value;
+    }
+
+    Private Function OrderBuffer() -> Int {
+        Int index = 1;
+        While (index < 8) {
+            Int key = samples[index];
+            Int hole = index - 1;
+            Int moving = 1;
+            While (hole >= 0 && moving == 1) {
+                Int greater = 0;
+                If (samples[hole] > key) { greater = 1; }
+                If (greater == 1) {
+                    samples[hole + 1] = samples[hole];
+                    hole = hole - 1;
+                }
+                If (greater == 0) { moving = 0; }
+            }
+            samples[hole + 1] = key;
+            index = index + 1;
+        }
+        Return samples[0];
+    }
+}

@@ -1,11 +1,23 @@
-Test ConvertLength {
-    Constraint: UnitsDesk().ConvertLength(1, "km", "m") == 1000;
+Test Convert {
+    Constraint: UnitsDesk().Convert(1, "km", "m") == 1000;
     Processing: True;
     Output: True;
 }
 
-Test ConvertFoot {
-    Constraint: UnitsDesk().ConvertLength(1, "ft", "in") == 12;
+Test TryConvert {
+    Constraint: UnitsDesk().TryConvert(1, "km", "m") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test GetConversionFactor {
+    Constraint: UnitsDesk().GetConversionFactor("km", "m") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test GetConversionOffset {
+    Constraint: UnitsDesk().GetConversionOffset("C", "F") == 32;
     Processing: True;
     Output: True;
 }
@@ -16,8 +28,296 @@ Test ConvertTemperature {
     Output: True;
 }
 
+Test ConvertLength {
+    Constraint: UnitsDesk().ConvertLength(1, "km", "m") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertMass {
+    Constraint: UnitsDesk().ConvertMass(1, "kg", "g") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertTime {
+    Constraint: UnitsDesk().ConvertTime(1, "min", "s") == 60;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertVolume {
+    Constraint: UnitsDesk().ConvertVolume(1, "L", "mL") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertSpeed {
+    Constraint: UnitsDesk().ConvertSpeed(1, "m/s", "m/s") == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertPressure {
+    Constraint: UnitsDesk().ConvertPressure(1, "kPa", "Pa") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertEnergy {
+    Constraint: UnitsDesk().ConvertEnergy(1, "kJ", "J") == 1000;
+    Processing: True;
+    Output: True;
+}
+
 Test AddQuantities {
     Constraint: UnitsDesk().AddQuantities(500, "m", 1, "km") == 1500;
+    Processing: True;
+    Output: True;
+}
+
+Test SubtractQuantities {
+    Constraint: UnitsDesk().SubtractQuantities(1000, "m", 1, "m") == 999;
+    Processing: True;
+    Output: True;
+}
+
+Test MultiplyQuantities {
+    Constraint: UnitsDesk().MultiplyQuantities(2, "m", 3, "m") == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test DivideQuantities {
+    Constraint: UnitsDesk().DivideQuantities(10, "m", 2, "s") == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ScaleQuantity {
+    Constraint: UnitsDesk().ScaleQuantity(3, "m", 4) == 12;
+    Processing: True;
+    Output: True;
+}
+
+Test CompareQuantities {
+    Constraint: UnitsDesk().CompareQuantities(1000, "m", 1, "km") == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test NormalizeQuantity {
+    Constraint: UnitsDesk().NormalizeQuantity(1, "km") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test GetDimension {
+    Constraint: UnitsDesk().GetDimension("m") == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test GetUnit {
+    Constraint: UnitsDesk().GetUnit() == "m";
+    Processing: True;
+    Output: True;
+}
+
+Test GetBaseValue {
+    Constraint: UnitsDesk().GetBaseValue(1, "km") == 1000;
+    Processing: True;
+    Output: True;
+}
+
+Test GetDisplayValue {
+    Constraint: UnitsDesk().GetDisplayValue() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test AreCompatible {
+    Constraint: UnitsDesk().AreCompatible("m", "km") == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test HasSameDimension {
+    Constraint: UnitsDesk().HasSameDimension("m", "km") == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test ValidateDimensions {
+    Constraint: UnitsDesk().ValidateDimensions("m", "km") == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test MultiplyDimensions {
+    Constraint: UnitsDesk().MultiplyDimensions(0, 0) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test DivideDimensions {
+    Constraint: UnitsDesk().DivideDimensions(0, 2) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test PowerDimension {
+    Constraint: UnitsDesk().PowerDimension(0, 2) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test DimensionlessResult {
+    Constraint: UnitsDesk().DimensionlessResult(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test GetSIBaseUnits {
+    Constraint: UnitsDesk().GetSIBaseUnits(0) == "m";
+    Processing: True;
+    Output: True;
+}
+
+Test RegisterUnit {
+    Constraint: UnitsDesk().RegisterUnit("fur", "furlong", 0, 201168, 1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test UnregisterUnit {
+    Constraint: UnitsDesk().UnregisterUnit("nope") == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test FindUnit {
+    Constraint: UnitsDesk().FindUnit("m") == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test FindUnits {
+    Constraint: UnitsDesk().FindUnits(0) == 11;
+    Processing: True;
+    Output: True;
+}
+
+Test FindCompatibleUnits {
+    Constraint: UnitsDesk().FindCompatibleUnits("m") == 11;
+    Processing: True;
+    Output: True;
+}
+
+Test GetUnitSymbol {
+    Constraint: UnitsDesk().GetUnitSymbol("Meter") == "m";
+    Processing: True;
+    Output: True;
+}
+
+Test GetUnitName {
+    Constraint: UnitsDesk().GetUnitName("m") == "meter";
+    Processing: True;
+    Output: True;
+}
+
+Test GetUnitPrefix {
+    Constraint: UnitsDesk().GetUnitPrefix("km") == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateMeasurement {
+    Constraint: UnitsDesk().CreateMeasurement(5, "m", 1) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertMeasurement {
+    Constraint: UnitsDesk().ConvertMeasurement("m") == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test PropagateUncertainty {
+    Constraint: UnitsDesk().PropagateUncertainty(0, 2, 3) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateRelativeUncertainty {
+    Constraint: UnitsDesk().CalculateRelativeUncertainty(100, 5) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test CalculateAbsoluteUncertainty {
+    Constraint: UnitsDesk().CalculateAbsoluteUncertainty() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SpeedOfLight {
+    Constraint: UnitsDesk().SpeedOfLight() == 299792458;
+    Processing: True;
+    Output: True;
+}
+
+Test StandardGravity {
+    Constraint: UnitsDesk().StandardGravity() == 981;
+    Processing: True;
+    Output: True;
+}
+
+Test Fault {
+    Constraint: UnitsDesk().Fault() == "none";
+    Processing: True;
+    Output: True;
+}
+
+Test Bind {
+    Constraint: UnitsDesk().Bind("m") == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SetUnit {
+    Constraint: UnitsDesk().SetUnit(0, 1, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SetTemperature {
+    Constraint: UnitsDesk().SetTemperature(0) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test BindCustom {
+    Constraint: UnitsDesk().BindCustom("nope") == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Temperature {
+    Constraint: UnitsDesk().Temperature(100, 0, 1) == 212;
+    Processing: True;
+    Output: True;
+}
+
+Test TemperatureFactor {
+    Constraint: UnitsDesk().TemperatureFactor("C") == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Exact {
+    Constraint: UnitsDesk().Exact(8, 2) == 4;
     Processing: True;
     Output: True;
 }

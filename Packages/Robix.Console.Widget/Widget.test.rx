@@ -1,7 +1,116 @@
-Import Robix.Console.Widget;
+// Tests for Widget.rx.
+
+Test Start {
+    Constraint: WidgetDesk().Start("load", 10) == 1;
+    Processing: WidgetDesk().Start("load", 10);
+    Output: 1;
+}
+
+Test SetValue {
+    Case "stores the value" {
+        Constraint: WidgetDesk().SetValue(4) == 4;
+        Processing: WidgetDesk().SetValue(4);
+        Output: 4;
+    }
+    Case "clamps below zero" {
+        Constraint: WidgetDesk().SetValue(-2) == 0;
+        Processing: WidgetDesk().SetValue(-2);
+        Output: 0;
+    }
+}
 
 Test Percent {
-    Constraint: WidgetDesk().Start("load", 10) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: WidgetDesk().Percent() == 0;
+    Processing: WidgetDesk().Percent();
+    Output: 0;
+}
+
+Test Bar {
+    Constraint: WidgetDesk().Bar() == "----------";
+    Processing: WidgetDesk().Bar();
+    Output: "----------";
+}
+
+Test Complete {
+    Constraint: WidgetDesk().Complete("ok") == "done: ok";
+    Processing: WidgetDesk().Complete("ok");
+    Output: "done: ok";
+}
+
+Test Fail {
+    Constraint: WidgetDesk().Fail("bad") == "failed: bad";
+    Processing: WidgetDesk().Fail("bad");
+    Output: "failed: bad";
+}
+
+Test Succeed {
+    Constraint: WidgetDesk().Succeed("ok") == "done: ok";
+    Processing: WidgetDesk().Succeed("ok");
+    Output: "done: ok";
+}
+
+Test Status {
+    Constraint: WidgetDesk().Status() == "idle";
+    Processing: WidgetDesk().Status();
+    Output: "idle";
+}
+
+Test AddColumn {
+    Constraint: WidgetDesk().AddColumn("Name", "Value") == 1;
+    Processing: WidgetDesk().AddColumn("Name", "Value");
+    Output: 1;
+}
+
+Test AddRow {
+    Constraint: WidgetDesk().AddRow("a", "b") == 0;
+    Processing: WidgetDesk().AddRow("a", "b");
+    Output: 0;
+}
+
+Test Table {
+    Constraint: WidgetDesk().Table() == "                ";
+    Processing: WidgetDesk().Table();
+    Output: "                ";
+}
+
+Test Panel {
+    Constraint: WidgetDesk().Panel("Hi", "There") == "+-------+\n| Hi    |\n| There |\n+-------+";
+    Processing: WidgetDesk().Panel("Hi", "There");
+    Output: "+-------+\n| Hi    |\n| There |\n+-------+";
+}
+
+Test Live {
+    Constraint: WidgetDesk().Live("go") == 2;
+    Processing: WidgetDesk().Live("go");
+    Output: 2;
+}
+
+Test LiveText {
+    Constraint: WidgetDesk().LiveText() == "";
+    Processing: WidgetDesk().LiveText();
+    Output: "";
+}
+
+Test Fault {
+    Constraint: WidgetDesk().Fault() == "none";
+    Processing: WidgetDesk().Fault();
+    Output: "none";
+}
+
+Test Pad {
+    Constraint: WidgetDesk().Pad("ab") == "ab      ";
+    Processing: WidgetDesk().Pad("ab");
+    Output: "ab      ";
+}
+
+Test PadWidth {
+    Constraint: WidgetDesk().PadWidth("ab", 4) == "ab  ";
+    Processing: WidgetDesk().PadWidth("ab", 4);
+    Output: "ab  ";
+}
+
+Test Rule {
+    Constraint: WidgetDesk().Rule(3) == "+---+";
+    Processing: WidgetDesk().Rule(3);
+    Output: "+---+";
 }

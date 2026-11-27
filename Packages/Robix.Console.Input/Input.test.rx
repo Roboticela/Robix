@@ -1,7 +1,106 @@
-Import Robix.Console.Input;
+// Tests for Input.rx.
+
+Test Feed {
+    Constraint: InputDesk().Feed("ready") == 5;
+    Processing: InputDesk().Feed("ready");
+    Output: 5;
+}
+
+Test ReadLine {
+    Constraint: InputDesk().ReadLine() == "";
+    Processing: InputDesk().ReadLine();
+    Output: "";
+}
+
+Test ReadInteger {
+    Constraint: InputDesk().ReadInteger() == 0;
+    Processing: InputDesk().ReadInteger();
+    Output: 0;
+}
+
+Test ReadBoolean {
+    Constraint: InputDesk().ReadBoolean() == 0;
+    Processing: InputDesk().ReadBoolean();
+    Output: 0;
+}
+
+Test Confirm {
+    Constraint: InputDesk().Confirm() == 0;
+    Processing: InputDesk().Confirm();
+    Output: 0;
+}
+
+Test Password {
+    Constraint: InputDesk().Password() == "";
+    Processing: InputDesk().Password();
+    Output: "";
+}
+
+Test Prompt {
+    Case "plain" {
+        Constraint: InputDesk().Prompt("") == "{info}> {/}";
+        Processing: InputDesk().Prompt("");
+        Output: "{info}> {/}";
+    }
+    Case "labeled" {
+        Constraint: InputDesk().Prompt("Name") == "{info}Name{/} {muted}> {/}";
+        Processing: InputDesk().Prompt("Name");
+        Output: "{info}Name{/} {muted}> {/}";
+    }
+}
+
+Test AddItem {
+    Constraint: InputDesk().AddItem("one") == 0;
+    Processing: InputDesk().AddItem("one");
+    Output: 0;
+}
+
+Test Choose {
+    Constraint: InputDesk().Choose(0) == 0;
+    Processing: InputDesk().Choose(0);
+    Output: 0;
+}
+
+Test Selected {
+    Constraint: InputDesk().Selected() == 0;
+    Processing: InputDesk().Selected();
+    Output: 0;
+}
+
+Test Choice {
+    Constraint: InputDesk().Choice() == "none";
+    Processing: InputDesk().Choice();
+    Output: "none";
+}
 
 Test Key {
-    Constraint: InputDesk().Key("enter") == "Enter";
-    Processing: True;
-    Output: True;
+    Case "enter" {
+        Constraint: InputDesk().Key("enter") == "Enter";
+        Processing: InputDesk().Key("enter");
+        Output: "Enter";
+    }
+    Case "unknown" {
+        Constraint: InputDesk().Key("nope") == "none";
+        Processing: InputDesk().Key("nope");
+        Output: "none";
+    }
+}
+
+Test Fault {
+    Constraint: InputDesk().Fault() == "none";
+    Processing: InputDesk().Fault();
+    Output: "none";
+}
+
+Test Digit {
+    Case "four" {
+        Constraint: InputDesk().Digit("4") == 4;
+        Processing: InputDesk().Digit("4");
+        Output: 4;
+    }
+    Case "letter" {
+        Constraint: InputDesk().Digit("a") == -1;
+        Processing: InputDesk().Digit("a");
+        Output: -1;
+    }
 }

@@ -1,5 +1,8 @@
 // Robix.Algorithms: integer execution, pipelines, and sequence utilities.
-Package Robix.Algorithms;
+Package Robix.Algorithms
+Explain {
+    Description: "Integer execution, pipelines, and sequence utilities.";
+};
 
 Import Robix.Core;
 
@@ -586,7 +589,7 @@ Class AlgorithmDesk {
         Processing: "Keep the original order inside each side.";
         Output: "The split index. Pivot 5 yields 4.";
     } {
-        Return This.Split(pivot);
+        Return This.Divide(pivot);
     }
 
     Public Function StablePartition(Int pivot) -> Int
@@ -596,7 +599,7 @@ Class AlgorithmDesk {
         Processing: "Use the same ordered split.";
         Output: "The split index.";
     } {
-        Return This.Split(pivot);
+        Return This.Divide(pivot);
     }
 
     Public Function IsSorted(Int pattern) -> Int
@@ -1106,7 +1109,7 @@ Class AlgorithmDesk {
         Return samples[7];
     }
 
-    Private Function Split(Int pivot) -> Int {
+    Private Function Divide(Int pivot) -> Int {
         This.FillMixed();
         Int low = 0;
         Int index = 0;

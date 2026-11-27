@@ -1,5 +1,8 @@
 // Robix.Attributes: attribute definitions, targets, and usage checks.
-Package Robix.Attributes;
+Package Robix.Attributes
+Explain {
+    Description: "Attribute definitions, targets, and usage checks.";
+};
 
 Import Robix.Core;
 

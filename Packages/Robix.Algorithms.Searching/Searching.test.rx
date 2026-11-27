@@ -1,0 +1,403 @@
+// Tests for Searching.rx. Each call uses a fresh desk.
+
+Test Find {
+    Constraint: SearchingDesk().Find(5) == 4;
+    Processing: SearchingDesk().Find(5);
+    Output: 4;
+}
+
+Test FindFirst {
+    Constraint: SearchingDesk().FindFirst(0) == 1;
+    Processing: SearchingDesk().FindFirst(0);
+    Output: 1;
+}
+
+Test FindLast {
+    Constraint: SearchingDesk().FindLast(0) == 7;
+    Processing: SearchingDesk().FindLast(0);
+    Output: 7;
+}
+
+Test FindAll {
+    Constraint: SearchingDesk().FindAll(0) == 4;
+    Processing: SearchingDesk().FindAll(0);
+    Output: 4;
+}
+
+Test FindIndex {
+    Constraint: SearchingDesk().FindIndex(2) == 5;
+    Processing: SearchingDesk().FindIndex(2);
+    Output: 5;
+}
+
+Test FindLastIndex {
+    Constraint: SearchingDesk().FindLastIndex(2) == 7;
+    Processing: SearchingDesk().FindLastIndex(2);
+    Output: 7;
+}
+
+Test Contains {
+    Constraint: SearchingDesk().Contains(5) == 1;
+    Processing: SearchingDesk().Contains(5);
+    Output: 1;
+}
+
+Test ContainsAny {
+    Constraint: SearchingDesk().ContainsAny(9, 8) == 1;
+    Processing: SearchingDesk().ContainsAny(9, 8);
+    Output: 1;
+}
+
+Test ContainsAll {
+    Constraint: SearchingDesk().ContainsAll(1, 8) == 1;
+    Processing: SearchingDesk().ContainsAll(1, 8);
+    Output: 1;
+}
+
+Test CountMatches {
+    Constraint: SearchingDesk().CountMatches(2) == 3;
+    Processing: SearchingDesk().CountMatches(2);
+    Output: 3;
+}
+
+Test LinearSearch {
+    Constraint: SearchingDesk().LinearSearch(5) == 4;
+    Processing: SearchingDesk().LinearSearch(5);
+    Output: 4;
+}
+
+Test SentinelLinearSearch {
+    Constraint: SearchingDesk().SentinelLinearSearch(5) == 4;
+    Processing: SearchingDesk().SentinelLinearSearch(5);
+    Output: 4;
+}
+
+Test BinarySearch {
+    Constraint: SearchingDesk().BinarySearch(5) == 4;
+    Processing: SearchingDesk().BinarySearch(5);
+    Output: 4;
+}
+
+Test RecursiveBinarySearch {
+    Constraint: SearchingDesk().RecursiveBinarySearch(5) == 4;
+    Processing: SearchingDesk().RecursiveBinarySearch(5);
+    Output: 4;
+}
+
+Test IterativeBinarySearch {
+    Constraint: SearchingDesk().IterativeBinarySearch(5) == 4;
+    Processing: SearchingDesk().IterativeBinarySearch(5);
+    Output: 4;
+}
+
+Test JumpSearch {
+    Constraint: SearchingDesk().JumpSearch(5) == 4;
+    Processing: SearchingDesk().JumpSearch(5);
+    Output: 4;
+}
+
+Test InterpolationSearch {
+    Constraint: SearchingDesk().InterpolationSearch(5) == 4;
+    Processing: SearchingDesk().InterpolationSearch(5);
+    Output: 4;
+}
+
+Test ExponentialSearch {
+    Constraint: SearchingDesk().ExponentialSearch(5) == 4;
+    Processing: SearchingDesk().ExponentialSearch(5);
+    Output: 4;
+}
+
+Test FibonacciSearch {
+    Constraint: SearchingDesk().FibonacciSearch(5) == 4;
+    Processing: SearchingDesk().FibonacciSearch(5);
+    Output: 4;
+}
+
+Test TernarySearch {
+    Constraint: SearchingDesk().TernarySearch(0, 6) == 3;
+    Processing: SearchingDesk().TernarySearch(0, 6);
+    Output: 3;
+}
+
+Test MetaBinarySearch {
+    Constraint: SearchingDesk().MetaBinarySearch(5) == 4;
+    Processing: SearchingDesk().MetaBinarySearch(5);
+    Output: 4;
+}
+
+Test LowerBound {
+    Constraint: SearchingDesk().LowerBound(2) == 1;
+    Processing: SearchingDesk().LowerBound(2);
+    Output: 1;
+}
+
+Test UpperBound {
+    Constraint: SearchingDesk().UpperBound(2) == 4;
+    Processing: SearchingDesk().UpperBound(2);
+    Output: 4;
+}
+
+Test EqualRange {
+    Constraint: SearchingDesk().EqualRange(2) == 3;
+    Processing: SearchingDesk().EqualRange(2);
+    Output: 3;
+}
+
+Test BinarySearchFirst {
+    Constraint: SearchingDesk().BinarySearchFirst(2) == 1;
+    Processing: SearchingDesk().BinarySearchFirst(2);
+    Output: 1;
+}
+
+Test BinarySearchLast {
+    Constraint: SearchingDesk().BinarySearchLast(2) == 3;
+    Processing: SearchingDesk().BinarySearchLast(2);
+    Output: 3;
+}
+
+Test BinarySearchInsertionPoint {
+    Constraint: SearchingDesk().BinarySearchInsertionPoint(3) == 4;
+    Processing: SearchingDesk().BinarySearchInsertionPoint(3);
+    Output: 4;
+}
+
+Test SearchRotatedSortedArray {
+    Constraint: SearchingDesk().SearchRotatedSortedArray(1) == 5;
+    Processing: SearchingDesk().SearchRotatedSortedArray(1);
+    Output: 5;
+}
+
+Test SearchNearlySortedArray {
+    Constraint: SearchingDesk().SearchNearlySortedArray(4) == 2;
+    Processing: SearchingDesk().SearchNearlySortedArray(4);
+    Output: 2;
+}
+
+Test SearchInfiniteSortedSequence {
+    Constraint: SearchingDesk().SearchInfiniteSortedSequence(5) == 4;
+    Processing: SearchingDesk().SearchInfiniteSortedSequence(5);
+    Output: 4;
+}
+
+Test BuildSearchIndex {
+    Constraint: SearchingDesk().BuildSearchIndex() == 8;
+    Processing: SearchingDesk().BuildSearchIndex();
+    Output: 8;
+}
+
+Test RebuildSearchIndex {
+    Constraint: SearchingDesk().RebuildSearchIndex() == 8;
+    Processing: SearchingDesk().RebuildSearchIndex();
+    Output: 8;
+}
+
+Test SearchIndex {
+    Constraint: SearchingDesk().SearchIndex(5) == 4;
+    Processing: SearchingDesk().SearchIndex(5);
+    Output: 4;
+}
+
+Test InsertIntoIndex {
+    Constraint: SearchingDesk().InsertIntoIndex(5) == 4;
+    Processing: SearchingDesk().InsertIntoIndex(5);
+    Output: 4;
+}
+
+Test RemoveFromIndex {
+    Constraint: SearchingDesk().RemoveFromIndex(5) == 7;
+    Processing: SearchingDesk().RemoveFromIndex(5);
+    Output: 7;
+}
+
+Test UpdateIndex {
+    Constraint: SearchingDesk().UpdateIndex(5, 15) == 7;
+    Processing: SearchingDesk().UpdateIndex(5, 15);
+    Output: 7;
+}
+
+Test RangeSearch {
+    Constraint: SearchingDesk().RangeSearch(3, 6) == 4;
+    Processing: SearchingDesk().RangeSearch(3, 6);
+    Output: 4;
+}
+
+Test PrefixSearch {
+    Constraint: SearchingDesk().PrefixSearch(1) == 1;
+    Processing: SearchingDesk().PrefixSearch(1);
+    Output: 1;
+}
+
+Test SuffixSearch {
+    Constraint: SearchingDesk().SuffixSearch(6) == 1;
+    Processing: SearchingDesk().SuffixSearch(6);
+    Output: 1;
+}
+
+Test WildcardSearch {
+    Constraint: SearchingDesk().WildcardSearch(0) == 8;
+    Processing: SearchingDesk().WildcardSearch(0);
+    Output: 8;
+}
+
+Test NearestNeighbor {
+    Constraint: SearchingDesk().NearestNeighbor(6) == 5;
+    Processing: SearchingDesk().NearestNeighbor(6);
+    Output: 5;
+}
+
+Test KNearestNeighbors {
+    Constraint: SearchingDesk().KNearestNeighbors(6, 3) == 15;
+    Processing: SearchingDesk().KNearestNeighbors(6, 3);
+    Output: 15;
+}
+
+Test RadiusSearch {
+    Constraint: SearchingDesk().RadiusSearch(6, 1) == 2;
+    Processing: SearchingDesk().RadiusSearch(6, 1);
+    Output: 2;
+}
+
+Test SpatialRangeSearch {
+    Constraint: SearchingDesk().SpatialRangeSearch(4, 10) == 3;
+    Processing: SearchingDesk().SpatialRangeSearch(4, 10);
+    Output: 3;
+}
+
+Test BoundingBoxSearch {
+    Constraint: SearchingDesk().BoundingBoxSearch(4, 10) == 3;
+    Processing: SearchingDesk().BoundingBoxSearch(4, 10);
+    Output: 3;
+}
+
+Test ApproximateNearestNeighbor {
+    Constraint: SearchingDesk().ApproximateNearestNeighbor(6) == 5;
+    Processing: SearchingDesk().ApproximateNearestNeighbor(6);
+    Output: 5;
+}
+
+Test GallopingSearch {
+    Constraint: SearchingDesk().GallopingSearch(5) == 4;
+    Processing: SearchingDesk().GallopingSearch(5);
+    Output: 4;
+}
+
+Test BidirectionalSearch {
+    Constraint: SearchingDesk().BidirectionalSearch(0, 7) == 7;
+    Processing: SearchingDesk().BidirectionalSearch(0, 7);
+    Output: 7;
+}
+
+Test BeamSearch {
+    Constraint: SearchingDesk().BeamSearch(2) == 3;
+    Processing: SearchingDesk().BeamSearch(2);
+    Output: 3;
+}
+
+Test BestFirstSearch {
+    Constraint: SearchingDesk().BestFirstSearch() == 3;
+    Processing: SearchingDesk().BestFirstSearch();
+    Output: 3;
+}
+
+Test IterativeDeepeningSearch {
+    Constraint: SearchingDesk().IterativeDeepeningSearch(5) == 5;
+    Processing: SearchingDesk().IterativeDeepeningSearch(5);
+    Output: 5;
+}
+
+Test UniformCostSearch {
+    Constraint: SearchingDesk().UniformCostSearch(5) == 5;
+    Processing: SearchingDesk().UniformCostSearch(5);
+    Output: 5;
+}
+
+Test SearchCost {
+    Constraint: SearchingDesk().SearchCost(5) == 3;
+    Processing: SearchingDesk().SearchCost(5);
+    Output: 3;
+}
+
+Test Fault {
+    Constraint: SearchingDesk().Fault() == "none";
+    Processing: SearchingDesk().Fault();
+    Output: "none";
+}
+
+Test FillSorted {
+    Constraint: SearchingDesk().FillSorted() == 8;
+    Processing: SearchingDesk().FillSorted();
+    Output: 8;
+}
+
+Test FillDuplicates {
+    Constraint: SearchingDesk().FillDuplicates() == 2;
+    Processing: SearchingDesk().FillDuplicates();
+    Output: 2;
+}
+
+Test FillRotated {
+    Constraint: SearchingDesk().FillRotated() == 1;
+    Processing: SearchingDesk().FillRotated();
+    Output: 1;
+}
+
+Test FillNearly {
+    Constraint: SearchingDesk().FillNearly() == 4;
+    Processing: SearchingDesk().FillNearly();
+    Output: 4;
+}
+
+Test FillPoints {
+    Constraint: SearchingDesk().FillPoints() == 1;
+    Processing: SearchingDesk().FillPoints();
+    Output: 1;
+}
+
+Test Scan {
+    Constraint: SearchingDesk().Scan(0) == 0;
+    Processing: SearchingDesk().Scan(0);
+    Output: 0;
+}
+
+Test Halve {
+    Constraint: SearchingDesk().Halve(0) == 3;
+    Processing: SearchingDesk().Halve(0);
+    Output: 3;
+}
+
+Test HalveBetween {
+    Constraint: SearchingDesk().HalveBetween(0, 7, 0) == 3;
+    Processing: SearchingDesk().HalveBetween(0, 7, 0);
+    Output: 3;
+}
+
+Test Bound {
+    Constraint: SearchingDesk().Bound(0, 0) == 0;
+    Processing: SearchingDesk().Bound(0, 0);
+    Output: 0;
+}
+
+Test Matches {
+    Constraint: SearchingDesk().Matches(0, 2) == 1;
+    Processing: SearchingDesk().Matches(0, 2);
+    Output: 1;
+}
+
+Test Valley {
+    Constraint: SearchingDesk().Valley(5) == 4;
+    Processing: SearchingDesk().Valley(5);
+    Output: 4;
+}
+
+Test Abs {
+    Constraint: SearchingDesk().Abs(-4) == 4;
+    Processing: SearchingDesk().Abs(-4);
+    Output: 4;
+}
+
+Test OrderBuffer {
+    Constraint: SearchingDesk().OrderBuffer() == 0;
+    Processing: SearchingDesk().OrderBuffer();
+    Output: 0;
+}

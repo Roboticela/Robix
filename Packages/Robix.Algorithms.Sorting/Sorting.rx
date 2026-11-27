@@ -1,5 +1,8 @@
 // Robix.Algorithms.Sorting: exact sorts of an eight-sample integer buffer.
-Package Robix.Algorithms.Sorting;
+Package Robix.Algorithms.Sorting
+Explain {
+    Description: "Exact sorts of an eight-sample integer buffer.";
+};
 
 Import Robix.Core;
 
@@ -42,7 +45,9 @@ Class SortingDesk {
         Processing: "Use insertion sort.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function SortDescending() -> Int
@@ -65,7 +70,9 @@ Class SortingDesk {
         Processing: "Equal keys would keep their earlier order.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function UnstableSort() -> Int
@@ -87,7 +94,9 @@ Class SortingDesk {
         Processing: "Use insertion sort.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function SortedCopy() -> Int
@@ -97,7 +106,9 @@ Class SortingDesk {
         Processing: "The desk buffer is that copy.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function PartialSort(Int count) -> Int
@@ -196,7 +207,9 @@ Class SortingDesk {
         Processing: "Shift larger prefix samples one place right.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function BinaryInsertionSort() -> Int
@@ -346,7 +359,9 @@ Class SortingDesk {
         Processing: "The ordered prefix is the tree's in-order walk.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function TournamentSort() -> Int
@@ -556,7 +571,9 @@ Class SortingDesk {
         Processing: "Use insertion sort.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function SortMatrixRows() -> Int
@@ -600,7 +617,9 @@ Class SortingDesk {
         Processing: "A single code is its own key.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function NaturalSort() -> Int
@@ -610,7 +629,9 @@ Class SortingDesk {
         Processing: "There is no separate digit run to skip.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function CaseInsensitiveSort() -> Int
@@ -620,7 +641,9 @@ Class SortingDesk {
         Processing: "Codes have no letter case.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function LocaleAwareSort(Int locale) -> Int
@@ -634,7 +657,9 @@ Class SortingDesk {
             problem = "domain";
             Return 0;
         }
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function MultiKeySort() -> Int
@@ -644,7 +669,9 @@ Class SortingDesk {
         Processing: "Use insertion sort.";
         Output: "168.";
     } {
-        Return This.Sort();
+        This.FillMixed();
+        This.InsertRange(0, 8);
+        Return This.Score();
     }
 
     Public Function ParallelMergeSort() -> Int

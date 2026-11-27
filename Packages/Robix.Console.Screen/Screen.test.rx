@@ -1,7 +1,142 @@
-Import Robix.Console.Screen;
+// Tests for Screen.rx.
+
+Test Move {
+    Case "inside the window" {
+        Constraint: ScreenDesk().Move(1, 2) == 1;
+        Processing: ScreenDesk().Move(1, 2);
+        Output: 1;
+    }
+    Case "outside the window" {
+        Constraint: ScreenDesk().Move(-1, 0) == 0;
+        Processing: ScreenDesk().Move(-1, 0);
+        Output: 0;
+    }
+}
+
+Test Column {
+    Constraint: ScreenDesk().Column() == 0;
+    Processing: ScreenDesk().Column();
+    Output: 0;
+}
+
+Test Row {
+    Constraint: ScreenDesk().Row() == 0;
+    Processing: ScreenDesk().Row();
+    Output: 0;
+}
+
+Test Home {
+    Constraint: ScreenDesk().Home() == 1;
+    Processing: ScreenDesk().Home();
+    Output: 1;
+}
+
+Test Hide {
+    Constraint: ScreenDesk().Hide() == 0;
+    Processing: ScreenDesk().Hide();
+    Output: 0;
+}
+
+Test Show {
+    Constraint: ScreenDesk().Show() == 1;
+    Processing: ScreenDesk().Show();
+    Output: 1;
+}
+
+Test Visible {
+    Constraint: ScreenDesk().Visible() == 1;
+    Processing: ScreenDesk().Visible();
+    Output: 1;
+}
+
+Test Clear {
+    Constraint: ScreenDesk().Clear() == 1;
+    Processing: ScreenDesk().Clear();
+    Output: 1;
+}
+
+Test Cleared {
+    Constraint: ScreenDesk().Cleared() == 0;
+    Processing: ScreenDesk().Cleared();
+    Output: 0;
+}
+
+Test Size {
+    Case "positive size" {
+        Constraint: ScreenDesk().Size(40, 12) == 1;
+        Processing: ScreenDesk().Size(40, 12);
+        Output: 1;
+    }
+    Case "empty size" {
+        Constraint: ScreenDesk().Size(0, 10) == 0;
+        Processing: ScreenDesk().Size(0, 10);
+        Output: 0;
+    }
+}
 
 Test Width {
     Constraint: ScreenDesk().Width() == 80;
-    Processing: True;
-    Output: True;
+    Processing: ScreenDesk().Width();
+    Output: 80;
+}
+
+Test Height {
+    Constraint: ScreenDesk().Height() == 24;
+    Processing: ScreenDesk().Height();
+    Output: 24;
+}
+
+Test SetTitle {
+    Constraint: ScreenDesk().SetTitle("Hi") == 2;
+    Processing: ScreenDesk().SetTitle("Hi");
+    Output: 2;
+}
+
+Test Title {
+    Constraint: ScreenDesk().Title() == "Robix";
+    Processing: ScreenDesk().Title();
+    Output: "Robix";
+}
+
+Test SetTrueColor {
+    Constraint: ScreenDesk().SetTrueColor(0) == 0;
+    Processing: ScreenDesk().SetTrueColor(0);
+    Output: 0;
+}
+
+Test SupportsTrueColor {
+    Constraint: ScreenDesk().SupportsTrueColor() == 1;
+    Processing: ScreenDesk().SupportsTrueColor();
+    Output: 1;
+}
+
+Test SupportsColor {
+    Constraint: ScreenDesk().SupportsColor() == 1;
+    Processing: ScreenDesk().SupportsColor();
+    Output: 1;
+}
+
+Test CursorSequence {
+    Constraint: ScreenDesk().CursorSequence() == "\u001b[1;1H";
+    Processing: ScreenDesk().CursorSequence();
+    Output: "\u001b[1;1H";
+}
+
+Test Fault {
+    Constraint: ScreenDesk().Fault() == "none";
+    Processing: ScreenDesk().Fault();
+    Output: "none";
+}
+
+Test IntText {
+    Case "zero" {
+        Constraint: ScreenDesk().IntText(0) == "0";
+        Processing: ScreenDesk().IntText(0);
+        Output: "0";
+    }
+    Case "twelve" {
+        Constraint: ScreenDesk().IntText(12) == "12";
+        Processing: ScreenDesk().IntText(12);
+        Output: "12";
+    }
 }

@@ -1,3 +1,57 @@
+Test CreateGenerator {
+    Constraint: RandomDesk().CreateGenerator(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateDefaultGenerator {
+    Constraint: RandomDesk().CreateDefaultGenerator() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test CreateGeneratorFromState {
+    Constraint: RandomDesk().CreateGeneratorFromState(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SetSeed {
+    Constraint: RandomDesk().SetSeed(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test GetState {
+    Constraint: RandomDesk().GetState() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SetState {
+    Constraint: RandomDesk().SetState(4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test ForkStream {
+    Constraint: RandomDesk().ForkStream() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SplitStream {
+    Constraint: RandomDesk().SplitStream() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test ResetGenerator {
+    Constraint: RandomDesk().ResetGenerator() == 1;
+    Processing: True;
+    Output: True;
+}
+
 Test NextInt {
     Constraint: RandomDesk().NextInt() == 30;
     Processing: True;
@@ -6,6 +60,264 @@ Test NextInt {
 
 Test NextInRange {
     Constraint: RandomDesk().NextInRange(0, 9) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test NextInt64 {
+    Constraint: RandomDesk().NextInt64() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test NextUInt {
+    Constraint: RandomDesk().NextUInt() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test NextUInt64 {
+    Constraint: RandomDesk().NextUInt64() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test NextUnit {
+    Constraint: RandomDesk().NextUnit() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test NextBoolean {
+    Constraint: RandomDesk().NextBoolean() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test NextByte {
+    Constraint: RandomDesk().NextByte() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test NextBytes {
+    Constraint: RandomDesk().NextBytes(1) == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test DrawnAt {
+    Constraint: RandomDesk().DrawnAt(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Range {
+    Constraint: RandomDesk().Range(0, 9) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RangeInclusive {
+    Constraint: RandomDesk().RangeInclusive(0, 9) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RangeExclusive {
+    Constraint: RandomDesk().RangeExclusive(0, 10) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SetItem {
+    Constraint: RandomDesk().SetItem(0, 7, 1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Choose {
+    Constraint: RandomDesk().Choose() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test ChooseWeighted {
+    Constraint: RandomDesk().ChooseWeighted() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test ChooseMultiple {
+    Constraint: RandomDesk().ChooseMultiple(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Shuffle {
+    Constraint: RandomDesk().Shuffle() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Sample {
+    Constraint: RandomDesk().Sample(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SampleWithReplacement {
+    Constraint: RandomDesk().SampleWithReplacement(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SampleWithoutReplacement {
+    Constraint: RandomDesk().SampleWithoutReplacement(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test ReservoirSample {
+    Constraint: RandomDesk().ReservoirSample(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test NextNormal {
+    Constraint: RandomDesk().NextNormal(0, 1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test NextExponential {
+    Constraint: RandomDesk().NextExponential(1) == 33;
+    Processing: True;
+    Output: True;
+}
+
+Test NextPoisson {
+    Constraint: RandomDesk().NextPoisson(2) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test NextBinomial {
+    Constraint: RandomDesk().NextBinomial(1, 100) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test NextBernoulli {
+    Constraint: RandomDesk().NextBernoulli(100) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test NextGamma {
+    Constraint: RandomDesk().NextGamma(1, 1) == 33;
+    Processing: True;
+    Output: True;
+}
+
+Test NextBeta {
+    Constraint: RandomDesk().NextBeta(1, 1) == 15;
+    Processing: True;
+    Output: True;
+}
+
+Test NextWeibull {
+    Constraint: RandomDesk().NextWeibull(1, 2) == 60;
+    Processing: True;
+    Output: True;
+}
+
+Test NextLogNormal {
+    Constraint: RandomDesk().NextLogNormal(0, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test NextCauchy {
+    Constraint: RandomDesk().NextCauchy(0, 1) == -1;
+    Processing: True;
+    Output: True;
+}
+
+Test NextTriangular {
+    Constraint: RandomDesk().NextTriangular(0, 0, 0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomIntegers {
+    Constraint: RandomDesk().RandomIntegers(1, 0, 9) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomFloats {
+    Constraint: RandomDesk().RandomFloats(1, 0, 9) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomBooleans {
+    Constraint: RandomDesk().RandomBooleans(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomBytes {
+    Constraint: RandomDesk().RandomBytes(1) == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomPermutation {
+    Constraint: RandomDesk().RandomPermutation(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomMatrix {
+    Constraint: RandomDesk().RandomMatrix(1, 1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomVector {
+    Constraint: RandomDesk().RandomVector(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test RandomChoiceSequence {
+    Constraint: RandomDesk().RandomChoiceSequence(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test ItemAt {
+    Constraint: RandomDesk().ItemAt(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Fault {
+    Constraint: RandomDesk().Fault() == "none";
+    Processing: True;
+    Output: True;
+}
+
+Test Step {
+    Constraint: RandomDesk().Step() == 30;
+    Processing: True;
+    Output: True;
+}
+
+Test Exact {
+    Constraint: RandomDesk().Exact(8, 2) == 4;
     Processing: True;
     Output: True;
 }

@@ -1,5 +1,8 @@
 // Robix.Exceptions: typed failures, inner exceptions, and Try/Catch/Finally.
-Package Robix.Exceptions;
+Package Robix.Exceptions
+Explain {
+    Description: "Typed failures, inner exceptions, and Try/Catch/Finally.";
+};
 
 Import Robix.Core;
 

@@ -1,5 +1,179 @@
+Test Use {
+    Constraint: NumericsDesk().Use(0) == 8;
+    Processing: True;
+    Output: True;
+}
+
+Test GetNumericInfo {
+    Constraint: NumericsDesk().GetNumericInfo() == 32;
+    Processing: True;
+    Output: True;
+}
+
+Test GetNumericLimits {
+    Constraint: NumericsDesk().GetNumericLimits() == 2147483647;
+    Processing: True;
+    Output: True;
+}
+
+Test GetNumericCategory {
+    Constraint: NumericsDesk().GetNumericCategory() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test IsInteger {
+    Constraint: NumericsDesk().IsInteger() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsFloatingPoint {
+    Constraint: NumericsDesk().IsFloatingPoint() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test IsDecimal {
+    Constraint: NumericsDesk().IsDecimal() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test IsSigned {
+    Constraint: NumericsDesk().IsSigned() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsUnsigned {
+    Constraint: NumericsDesk().IsUnsigned() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test IsExact {
+    Constraint: NumericsDesk().IsExact() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsArbitraryPrecision {
+    Constraint: NumericsDesk().IsArbitraryPrecision() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Add {
+    Constraint: NumericsDesk().Add(2, 3) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test Subtract {
+    Constraint: NumericsDesk().Subtract(5, 2) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test Multiply {
+    Constraint: NumericsDesk().Multiply(6, 7) == 42;
+    Processing: True;
+    Output: True;
+}
+
+Test Divide {
+    Constraint: NumericsDesk().Divide(8, 2) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test Remainder {
+    Constraint: NumericsDesk().Remainder(7, 3) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Negate {
+    Constraint: NumericsDesk().Negate(4) == -4;
+    Processing: True;
+    Output: True;
+}
+
+Test Increment {
+    Constraint: NumericsDesk().Increment(4) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test Decrement {
+    Constraint: NumericsDesk().Decrement(4) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test Abs {
+    Constraint: NumericsDesk().Abs(-4) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test Min {
+    Constraint: NumericsDesk().Min(2, 5) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test Max {
+    Constraint: NumericsDesk().Max(2, 5) == 5;
+    Processing: True;
+    Output: True;
+}
+
 Test Clamp {
     Constraint: NumericsDesk().Clamp(5, 0, 3) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test Compare {
+    Constraint: NumericsDesk().Compare(2, 5) == -1;
+    Processing: True;
+    Output: True;
+}
+
+Test AddChecked {
+    Constraint: NumericsDesk().AddChecked(2, 3) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test Convert {
+    Constraint: NumericsDesk().Convert(5) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertChecked {
+    Constraint: NumericsDesk().ConvertChecked(5) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertSaturating {
+    Constraint: NumericsDesk().ConvertSaturating(5) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test ConvertTruncating {
+    Constraint: NumericsDesk().ConvertTruncating(5) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test TryConvert {
+    Constraint: NumericsDesk().TryConvert(5) == 5;
     Processing: True;
     Output: True;
 }
@@ -10,8 +184,116 @@ Test Parse {
     Output: True;
 }
 
-Test Use {
-    Constraint: NumericsDesk().Use(0) == 8;
+Test TryParse {
+    Constraint: NumericsDesk().TryParse("-42") == -42;
+    Processing: True;
+    Output: True;
+}
+
+Test Format {
+    Constraint: NumericsDesk().Format(12) == "12";
+    Processing: True;
+    Output: True;
+}
+
+Test IsFinite {
+    Constraint: NumericsDesk().IsFinite(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsInfinity {
+    Constraint: NumericsDesk().IsInfinity(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNaN {
+    Constraint: NumericsDesk().IsNaN(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test IsZero {
+    Constraint: NumericsDesk().IsZero(0) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsEven {
+    Constraint: NumericsDesk().IsEven(4) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsOdd {
+    Constraint: NumericsDesk().IsOdd(3) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNegative {
+    Constraint: NumericsDesk().IsNegative(-1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsPositive {
+    Constraint: NumericsDesk().IsPositive(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsNormal {
+    Constraint: NumericsDesk().IsNormal(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsSubnormal {
+    Constraint: NumericsDesk().IsSubnormal(1) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test MinValue {
+    Constraint: NumericsDesk().MinValue() == -2147483647;
+    Processing: True;
+    Output: True;
+}
+
+Test MaxValue {
+    Constraint: NumericsDesk().MaxValue() == 2147483647;
+    Processing: True;
+    Output: True;
+}
+
+Test Epsilon {
+    Constraint: NumericsDesk().Epsilon() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test MachinePrecision {
+    Constraint: NumericsDesk().MachinePrecision() == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Overflowed {
+    Constraint: NumericsDesk().Overflowed() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Fault {
+    Constraint: NumericsDesk().Fault() == "none";
+    Processing: True;
+    Output: True;
+}
+
+Test Digit {
+    Constraint: NumericsDesk().Digit("7") == 7;
     Processing: True;
     Output: True;
 }

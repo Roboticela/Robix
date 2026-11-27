@@ -1,5 +1,95 @@
+Test Evaluate {
+    Constraint: CalculusDesk().Evaluate(1, 3) == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test Differentiate {
+    Constraint: CalculusDesk().Differentiate(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
 Test DerivativeAt {
     Constraint: CalculusDesk().DerivativeAt(1, 3) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test NthDerivative {
+    Constraint: CalculusDesk().NthDerivative(1, 3, 1) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test PartialDifferentiate {
+    Constraint: CalculusDesk().PartialDifferentiate(0, 3, 4) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test MixedPartialDerivative {
+    Constraint: CalculusDesk().MixedPartialDerivative(2, 4) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Gradient {
+    Constraint: CalculusDesk().Gradient(3, 4) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test GradientY {
+    Constraint: CalculusDesk().GradientY() == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Jacobian {
+    Constraint: CalculusDesk().Jacobian(3, 4) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test Hessian {
+    Constraint: CalculusDesk().Hessian(1, 1) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test NumericalDerivative {
+    Constraint: CalculusDesk().NumericalDerivative(1, 3, 1) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test CentralDifference {
+    Constraint: CalculusDesk().CentralDifference(1, 3, 1) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test ForwardDifference {
+    Constraint: CalculusDesk().ForwardDifference(1, 3, 1) == 7;
+    Processing: True;
+    Output: True;
+}
+
+Test BackwardDifference {
+    Constraint: CalculusDesk().BackwardDifference(1, 3, 1) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test Integrate {
+    Constraint: CalculusDesk().Integrate(3) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IndefiniteIntegrate {
+    Constraint: CalculusDesk().IndefiniteIntegrate(0, 4) == 8;
     Processing: True;
     Output: True;
 }
@@ -10,8 +100,248 @@ Test DefiniteIntegrate {
     Output: True;
 }
 
+Test DoubleIntegrate {
+    Constraint: CalculusDesk().DoubleIntegrate(2, 3) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test TripleIntegrate {
+    Constraint: CalculusDesk().TripleIntegrate(2, 3, 4) == 24;
+    Processing: True;
+    Output: True;
+}
+
+Test LineIntegrate {
+    Constraint: CalculusDesk().LineIntegrate(5, 2, 0, 0) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test SurfaceIntegrate {
+    Constraint: CalculusDesk().SurfaceIntegrate(7, 2, 3) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test NumericalIntegrate {
+    Constraint: CalculusDesk().NumericalIntegrate(3, 0, 4, 2) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test AdaptiveIntegrate {
+    Constraint: CalculusDesk().AdaptiveIntegrate(1, 0, 3) == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test ImproperIntegrate {
+    Constraint: CalculusDesk().ImproperIntegrate(3) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test LimitAt {
+    Constraint: CalculusDesk().LimitAt(1, 3) == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test LeftLimit {
+    Constraint: CalculusDesk().LeftLimit(1, 3) == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test RightLimit {
+    Constraint: CalculusDesk().RightLimit(1, 3) == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test LimitAtInfinity {
+    Constraint: CalculusDesk().LimitAtInfinity(3) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsContinuous {
+    Constraint: CalculusDesk().IsContinuous(1, 0) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test IsDifferentiable {
+    Constraint: CalculusDesk().IsDifferentiable(1, 0) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test TaylorExpand {
+    Constraint: CalculusDesk().TaylorExpand(1, 3, 1) == 9;
+    Processing: True;
+    Output: True;
+}
+
+Test MaclaurinExpand {
+    Constraint: CalculusDesk().MaclaurinExpand(3, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test FourierExpand {
+    Constraint: CalculusDesk().FourierExpand(3, 1, 1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test EvaluateSeries {
+    Constraint: CalculusDesk().EvaluateSeries(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SeriesSum {
+    Constraint: CalculusDesk().SeriesSum(0, 0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test SeriesConverges {
+    Constraint: CalculusDesk().SeriesConverges(1) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test FindRadiusOfConvergence {
+    Constraint: CalculusDesk().FindRadiusOfConvergence(3) == -1;
+    Processing: True;
+    Output: True;
+}
+
+Test FindIntervalOfConvergence {
+    Constraint: CalculusDesk().FindIntervalOfConvergence(3) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Divergence {
+    Constraint: CalculusDesk().Divergence(5, 0, 0, 0) == 3;
+    Processing: True;
+    Output: True;
+}
+
+Test Curl {
+    Constraint: CalculusDesk().Curl(5, 0, 0, 0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Laplacian {
+    Constraint: CalculusDesk().Laplacian(1, 1) == 4;
+    Processing: True;
+    Output: True;
+}
+
+Test DirectionalDerivative {
+    Constraint: CalculusDesk().DirectionalDerivative(3, 0, 1, 0) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test Flux {
+    Constraint: CalculusDesk().Flux(7, 2, 3) == 6;
+    Processing: True;
+    Output: True;
+}
+
+Test PotentialFunction {
+    Constraint: CalculusDesk().PotentialFunction(5, 2, 0, 0) == 2;
+    Processing: True;
+    Output: True;
+}
+
+Test IsConservative {
+    Constraint: CalculusDesk().IsConservative(5) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test SolveODE {
+    Constraint: CalculusDesk().SolveODE(0, 6, 2) == 42;
+    Processing: True;
+    Output: True;
+}
+
+Test SolvePDE {
+    Constraint: CalculusDesk().SolvePDE(4, 6) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test SolveInitialValueProblem {
+    Constraint: CalculusDesk().SolveInitialValueProblem(0, 6, 2) == 42;
+    Processing: True;
+    Output: True;
+}
+
+Test SolveBoundaryValueProblem {
+    Constraint: CalculusDesk().SolveBoundaryValueProblem(4, 6) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test EulerMethod {
+    Constraint: CalculusDesk().EulerMethod(1, 6, 2) == 10;
+    Processing: True;
+    Output: True;
+}
+
 Test RungeKutta4 {
     Constraint: CalculusDesk().RungeKutta4(0, 6, 2) == 42;
+    Processing: True;
+    Output: True;
+}
+
+Test AdaptiveRungeKutta {
+    Constraint: CalculusDesk().AdaptiveRungeKutta(0, 6, 2) == 42;
+    Processing: True;
+    Output: True;
+}
+
+Test FiniteDifferenceSolve {
+    Constraint: CalculusDesk().FiniteDifferenceSolve(4, 6) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test FiniteElementSolve {
+    Constraint: CalculusDesk().FiniteElementSolve(4, 6) == 5;
+    Processing: True;
+    Output: True;
+}
+
+Test Coefficient {
+    Constraint: CalculusDesk().Coefficient(0) == 0;
+    Processing: True;
+    Output: True;
+}
+
+Test Fault {
+    Constraint: CalculusDesk().Fault() == "none";
+    Processing: True;
+    Output: True;
+}
+
+Test Divides {
+    Constraint: CalculusDesk().Divides(8, 2) == 1;
+    Processing: True;
+    Output: True;
+}
+
+Test Exact {
+    Constraint: CalculusDesk().Exact(8, 2) == 4;
     Processing: True;
     Output: True;
 }

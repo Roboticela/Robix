@@ -1,5 +1,168 @@
+// Tests for Exceptions.rx.
+
 Test Known {
-    Constraint: FaultDesk().Known("DivideByZeroException") == 1;
-    Processing: True;
-    Output: True;
+    Case "format" {
+        Constraint: FaultDesk().Known("FormatException") == 1;
+        Processing: FaultDesk().Known("FormatException");
+        Output: 1;
+    }
+    Case "unknown" {
+        Constraint: FaultDesk().Known("Nope") == 0;
+        Processing: FaultDesk().Known("Nope");
+        Output: 0;
+    }
+}
+
+Test ThrowIf {
+    Case "quiet" {
+        Constraint: FaultDesk().ThrowIf(0, "Exception", "bad") == 0;
+        Processing: FaultDesk().ThrowIf(0, "Exception", "bad");
+        Output: 0;
+    }
+    Case "throws" {
+        Constraint: FaultDesk().ThrowIf(1, "Exception", "bad") == 1;
+        Processing: FaultDesk().ThrowIf(1, "Exception", "bad");
+        Output: 1;
+    }
+}
+
+Test ThrowIfNull {
+    Case "present" {
+        Constraint: FaultDesk().ThrowIfNull("name") == 0;
+        Processing: FaultDesk().ThrowIfNull("name");
+        Output: 0;
+    }
+    Case "empty" {
+        Constraint: FaultDesk().ThrowIfNull("") == 1;
+        Processing: FaultDesk().ThrowIfNull("");
+        Output: 1;
+    }
+}
+
+Test Prepare {
+    Case "known type" {
+        Constraint: FaultDesk().Prepare("FormatException", "bad") == 1;
+        Processing: FaultDesk().Prepare("FormatException", "bad");
+        Output: 1;
+    }
+    Case "unknown type" {
+        Constraint: FaultDesk().Prepare("Nope", "bad") == 0;
+        Processing: FaultDesk().Prepare("Nope", "bad");
+        Output: 0;
+    }
+}
+
+Test RaiseWithInner {
+    Case "both known" {
+        Constraint: FaultDesk().RaiseWithInner("Exception", "outer", "FormatException", "inner") == 1;
+        Processing: FaultDesk().RaiseWithInner("Exception", "outer", "FormatException", "inner");
+        Output: 1;
+    }
+    Case "unknown outer" {
+        Constraint: FaultDesk().RaiseWithInner("Nope", "outer", "Exception", "inner") == 0;
+        Processing: FaultDesk().RaiseWithInner("Nope", "outer", "Exception", "inner");
+        Output: 0;
+    }
+}
+
+Test Enter {
+    Constraint: FaultDesk().Enter("Main", "App.rx", 4) == 1;
+    Processing: FaultDesk().Enter("Main", "App.rx", 4);
+    Output: 1;
+}
+
+Test Kind {
+    Constraint: FaultDesk().Kind() == "none";
+    Processing: FaultDesk().Kind();
+    Output: "none";
+}
+
+Test Message {
+    Constraint: FaultDesk().Message() == "none";
+    Processing: FaultDesk().Message();
+    Output: "none";
+}
+
+Test Inner {
+    Constraint: FaultDesk().Inner() == "none";
+    Processing: FaultDesk().Inner();
+    Output: "none";
+}
+
+Test Chain {
+    Constraint: FaultDesk().Chain() == "none";
+    Processing: FaultDesk().Chain();
+    Output: "none";
+}
+
+Test Info {
+    Constraint: FaultDesk().Info() == "none";
+    Processing: FaultDesk().Info();
+    Output: "none";
+}
+
+Test Stack {
+    Constraint: FaultDesk().Stack() == "none";
+    Processing: FaultDesk().Stack();
+    Output: "none";
+}
+
+Test Capture {
+    Constraint: FaultDesk().Capture() == 0;
+    Processing: FaultDesk().Capture();
+    Output: 0;
+}
+
+Test Restore {
+    Constraint: FaultDesk().Restore() == 0;
+    Processing: FaultDesk().Restore();
+    Output: 0;
+}
+
+Test IsCancellation {
+    Constraint: FaultDesk().IsCancellation() == 0;
+    Processing: FaultDesk().IsCancellation();
+    Output: 0;
+}
+
+Test IsRecoverable {
+    Constraint: FaultDesk().IsRecoverable() == 0;
+    Processing: FaultDesk().IsRecoverable();
+    Output: 0;
+}
+
+Test Handle {
+    Constraint: FaultDesk().Handle("Exception") == 0;
+    Processing: FaultDesk().Handle("Exception");
+    Output: 0;
+}
+
+Test NoteCleanup {
+    Constraint: FaultDesk().NoteCleanup() == 1;
+    Processing: FaultDesk().NoteCleanup();
+    Output: 1;
+}
+
+Test Cleaned {
+    Constraint: FaultDesk().Cleaned() == 0;
+    Processing: FaultDesk().Cleaned();
+    Output: 0;
+}
+
+Test WasHandled {
+    Constraint: FaultDesk().WasHandled() == 0;
+    Processing: FaultDesk().WasHandled();
+    Output: 0;
+}
+
+Test Error {
+    Constraint: FaultDesk().Error() == "none";
+    Processing: FaultDesk().Error();
+    Output: "none";
+}
+
+Test IntText {
+    Constraint: FaultDesk().IntText(4) == "4";
+    Processing: FaultDesk().IntText(4);
+    Output: "4";
 }

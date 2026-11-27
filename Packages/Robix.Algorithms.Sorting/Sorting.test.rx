@@ -1,23 +1,620 @@
+// Tests for Sorting.rx. Each call uses a fresh desk.
+
 Test Sort {
     Constraint: SortingDesk().Sort() == 168;
-    Processing: True;
-    Output: True;
+    Processing: SortingDesk().Sort();
+    Output: 168;
 }
 
-Test CountInversions {
-    Constraint: SortingDesk().CountInversions() == 10;
-    Processing: True;
-    Output: True;
+Test SortAscending {
+    Constraint: SortingDesk().SortAscending() == 168;
+    Processing: SortingDesk().SortAscending();
+    Output: 168;
+}
+
+Test SortDescending {
+    Constraint: SortingDesk().SortDescending() == 84;
+    Processing: SortingDesk().SortDescending();
+    Output: 84;
+}
+
+Test StableSort {
+    Constraint: SortingDesk().StableSort() == 168;
+    Processing: SortingDesk().StableSort();
+    Output: 168;
+}
+
+Test UnstableSort {
+    Constraint: SortingDesk().UnstableSort() == 168;
+    Processing: SortingDesk().UnstableSort();
+    Output: 168;
+}
+
+Test SortInPlace {
+    Constraint: SortingDesk().SortInPlace() == 168;
+    Processing: SortingDesk().SortInPlace();
+    Output: 168;
+}
+
+Test SortedCopy {
+    Constraint: SortingDesk().SortedCopy() == 168;
+    Processing: SortingDesk().SortedCopy();
+    Output: 168;
+}
+
+Test PartialSort {
+    Constraint: SortingDesk().PartialSort(3) == 3;
+    Processing: SortingDesk().PartialSort(3);
+    Output: 3;
+}
+
+Test BubbleSort {
+    Constraint: SortingDesk().BubbleSort() == 168;
+    Processing: SortingDesk().BubbleSort();
+    Output: 168;
+}
+
+Test OptimizedBubbleSort {
+    Constraint: SortingDesk().OptimizedBubbleSort() == 168;
+    Processing: SortingDesk().OptimizedBubbleSort();
+    Output: 168;
+}
+
+Test CocktailShakerSort {
+    Constraint: SortingDesk().CocktailShakerSort() == 168;
+    Processing: SortingDesk().CocktailShakerSort();
+    Output: 168;
+}
+
+Test CombSort {
+    Constraint: SortingDesk().CombSort() == 168;
+    Processing: SortingDesk().CombSort();
+    Output: 168;
+}
+
+Test SelectionSort {
+    Constraint: SortingDesk().SelectionSort() == 168;
+    Processing: SortingDesk().SelectionSort();
+    Output: 168;
+}
+
+Test DoubleSelectionSort {
+    Constraint: SortingDesk().DoubleSelectionSort() == 168;
+    Processing: SortingDesk().DoubleSelectionSort();
+    Output: 168;
+}
+
+Test InsertionSort {
+    Constraint: SortingDesk().InsertionSort() == 168;
+    Processing: SortingDesk().InsertionSort();
+    Output: 168;
+}
+
+Test BinaryInsertionSort {
+    Constraint: SortingDesk().BinaryInsertionSort() == 168;
+    Processing: SortingDesk().BinaryInsertionSort();
+    Output: 168;
+}
+
+Test ShellSort {
+    Constraint: SortingDesk().ShellSort() == 168;
+    Processing: SortingDesk().ShellSort();
+    Output: 168;
+}
+
+Test MergeSort {
+    Constraint: SortingDesk().MergeSort() == 168;
+    Processing: SortingDesk().MergeSort();
+    Output: 168;
+}
+
+Test BottomUpMergeSort {
+    Constraint: SortingDesk().BottomUpMergeSort() == 168;
+    Processing: SortingDesk().BottomUpMergeSort();
+    Output: 168;
+}
+
+Test NaturalMergeSort {
+    Constraint: SortingDesk().NaturalMergeSort() == 168;
+    Processing: SortingDesk().NaturalMergeSort();
+    Output: 168;
+}
+
+Test QuickSort {
+    Constraint: SortingDesk().QuickSort() == 168;
+    Processing: SortingDesk().QuickSort();
+    Output: 168;
+}
+
+Test RandomizedQuickSort {
+    Constraint: SortingDesk().RandomizedQuickSort() == 168;
+    Processing: SortingDesk().RandomizedQuickSort();
+    Output: 168;
+}
+
+Test ThreeWayQuickSort {
+    Constraint: SortingDesk().ThreeWayQuickSort() == 168;
+    Processing: SortingDesk().ThreeWayQuickSort();
+    Output: 168;
+}
+
+Test DualPivotQuickSort {
+    Constraint: SortingDesk().DualPivotQuickSort() == 168;
+    Processing: SortingDesk().DualPivotQuickSort();
+    Output: 168;
+}
+
+Test HeapSort {
+    Constraint: SortingDesk().HeapSort() == 168;
+    Processing: SortingDesk().HeapSort();
+    Output: 168;
+}
+
+Test IntroSort {
+    Constraint: SortingDesk().IntroSort() == 168;
+    Processing: SortingDesk().IntroSort();
+    Output: 168;
+}
+
+Test TimSort {
+    Constraint: SortingDesk().TimSort() == 168;
+    Processing: SortingDesk().TimSort();
+    Output: 168;
+}
+
+Test SmoothSort {
+    Constraint: SortingDesk().SmoothSort() == 168;
+    Processing: SortingDesk().SmoothSort();
+    Output: 168;
+}
+
+Test TreeSort {
+    Constraint: SortingDesk().TreeSort() == 168;
+    Processing: SortingDesk().TreeSort();
+    Output: 168;
+}
+
+Test TournamentSort {
+    Constraint: SortingDesk().TournamentSort() == 168;
+    Processing: SortingDesk().TournamentSort();
+    Output: 168;
+}
+
+Test CycleSort {
+    Constraint: SortingDesk().CycleSort() == 168;
+    Processing: SortingDesk().CycleSort();
+    Output: 168;
+}
+
+Test GnomeSort {
+    Constraint: SortingDesk().GnomeSort() == 168;
+    Processing: SortingDesk().GnomeSort();
+    Output: 168;
+}
+
+Test OddEvenSort {
+    Constraint: SortingDesk().OddEvenSort() == 168;
+    Processing: SortingDesk().OddEvenSort();
+    Output: 168;
+}
+
+Test PancakeSort {
+    Constraint: SortingDesk().PancakeSort() == 168;
+    Processing: SortingDesk().PancakeSort();
+    Output: 168;
+}
+
+Test CountingSort {
+    Constraint: SortingDesk().CountingSort() == 168;
+    Processing: SortingDesk().CountingSort();
+    Output: 168;
+}
+
+Test RadixSort {
+    Constraint: SortingDesk().RadixSort() == 168;
+    Processing: SortingDesk().RadixSort();
+    Output: 168;
+}
+
+Test LSDRadixSort {
+    Constraint: SortingDesk().LSDRadixSort() == 168;
+    Processing: SortingDesk().LSDRadixSort();
+    Output: 168;
+}
+
+Test MSDRadixSort {
+    Constraint: SortingDesk().MSDRadixSort() == 168;
+    Processing: SortingDesk().MSDRadixSort();
+    Output: 168;
+}
+
+Test BucketSort {
+    Constraint: SortingDesk().BucketSort() == 168;
+    Processing: SortingDesk().BucketSort();
+    Output: 168;
+}
+
+Test PigeonholeSort {
+    Constraint: SortingDesk().PigeonholeSort() == 168;
+    Processing: SortingDesk().PigeonholeSort();
+    Output: 168;
+}
+
+Test FlashSort {
+    Constraint: SortingDesk().FlashSort() == 168;
+    Processing: SortingDesk().FlashSort();
+    Output: 168;
+}
+
+Test AmericanFlagSort {
+    Constraint: SortingDesk().AmericanFlagSort() == 168;
+    Processing: SortingDesk().AmericanFlagSort();
+    Output: 168;
+}
+
+Test TopKSort {
+    Constraint: SortingDesk().TopKSort(3) == 21;
+    Processing: SortingDesk().TopKSort(3);
+    Output: 21;
 }
 
 Test NthElement {
     Constraint: SortingDesk().NthElement(4) == 5;
-    Processing: True;
-    Output: True;
+    Processing: SortingDesk().NthElement(4);
+    Output: 5;
+}
+
+Test SortNearlySorted {
+    Constraint: SortingDesk().SortNearlySorted() == 168;
+    Processing: SortingDesk().SortNearlySorted();
+    Output: 168;
+}
+
+Test SortLinkedList {
+    Constraint: SortingDesk().SortLinkedList() == 168;
+    Processing: SortingDesk().SortLinkedList();
+    Output: 168;
+}
+
+Test SortMatrixRows {
+    Constraint: SortingDesk().SortMatrixRows() == 160;
+    Processing: SortingDesk().SortMatrixRows();
+    Output: 160;
+}
+
+Test SortMatrixColumns {
+    Constraint: SortingDesk().SortMatrixColumns() == 144;
+    Processing: SortingDesk().SortMatrixColumns();
+    Output: 144;
+}
+
+Test LexicographicSort {
+    Constraint: SortingDesk().LexicographicSort() == 168;
+    Processing: SortingDesk().LexicographicSort();
+    Output: 168;
+}
+
+Test NaturalSort {
+    Constraint: SortingDesk().NaturalSort() == 168;
+    Processing: SortingDesk().NaturalSort();
+    Output: 168;
+}
+
+Test CaseInsensitiveSort {
+    Constraint: SortingDesk().CaseInsensitiveSort() == 168;
+    Processing: SortingDesk().CaseInsensitiveSort();
+    Output: 168;
+}
+
+Test LocaleAwareSort {
+    Constraint: SortingDesk().LocaleAwareSort(0) == 168;
+    Processing: SortingDesk().LocaleAwareSort(0);
+    Output: 168;
+}
+
+Test MultiKeySort {
+    Constraint: SortingDesk().MultiKeySort() == 168;
+    Processing: SortingDesk().MultiKeySort();
+    Output: 168;
+}
+
+Test ParallelMergeSort {
+    Constraint: SortingDesk().ParallelMergeSort() == 168;
+    Processing: SortingDesk().ParallelMergeSort();
+    Output: 168;
+}
+
+Test ParallelQuickSort {
+    Constraint: SortingDesk().ParallelQuickSort() == 168;
+    Processing: SortingDesk().ParallelQuickSort();
+    Output: 168;
+}
+
+Test ParallelRadixSort {
+    Constraint: SortingDesk().ParallelRadixSort() == 168;
+    Processing: SortingDesk().ParallelRadixSort();
+    Output: 168;
+}
+
+Test BitonicSort {
+    Constraint: SortingDesk().BitonicSort() == 168;
+    Processing: SortingDesk().BitonicSort();
+    Output: 168;
+}
+
+Test OddEvenMergeSort {
+    Constraint: SortingDesk().OddEvenMergeSort() == 168;
+    Processing: SortingDesk().OddEvenMergeSort();
+    Output: 168;
+}
+
+Test ExternalMergeSort {
+    Constraint: SortingDesk().ExternalMergeSort() == 168;
+    Processing: SortingDesk().ExternalMergeSort();
+    Output: 168;
+}
+
+Test ExternalSort {
+    Constraint: SortingDesk().ExternalSort() == 168;
+    Processing: SortingDesk().ExternalSort();
+    Output: 168;
+}
+
+Test MultiwayMerge {
+    Constraint: SortingDesk().MultiwayMerge() == 168;
+    Processing: SortingDesk().MultiwayMerge();
+    Output: 168;
+}
+
+Test KWayMerge {
+    Constraint: SortingDesk().KWayMerge() == 168;
+    Processing: SortingDesk().KWayMerge();
+    Output: 168;
+}
+
+Test IsSorted {
+    Constraint: SortingDesk().IsSorted() == 0;
+    Processing: SortingDesk().IsSorted();
+    Output: 0;
+}
+
+Test IsSortedAscending {
+    Constraint: SortingDesk().IsSortedAscending() == 1;
+    Processing: SortingDesk().IsSortedAscending();
+    Output: 1;
+}
+
+Test IsSortedDescending {
+    Constraint: SortingDesk().IsSortedDescending() == 1;
+    Processing: SortingDesk().IsSortedDescending();
+    Output: 1;
+}
+
+Test IsStableSort {
+    Case "insertion" {
+        Constraint: SortingDesk().IsStableSort(0) == 1;
+        Processing: SortingDesk().IsStableSort(0);
+        Output: 1;
+    }
+    Case "selection" {
+        Constraint: SortingDesk().IsStableSort(1) == 0;
+        Processing: SortingDesk().IsStableSort(1);
+        Output: 0;
+    }
+}
+
+Test CountInversions {
+    Constraint: SortingDesk().CountInversions() == 10;
+    Processing: SortingDesk().CountInversions();
+    Output: 10;
+}
+
+Test VerifySort {
+    Constraint: SortingDesk().VerifySort() == 1;
+    Processing: SortingDesk().VerifySort();
+    Output: 1;
 }
 
 Test MeasureComparisons {
     Constraint: SortingDesk().MeasureComparisons() == 15;
-    Processing: True;
-    Output: True;
+    Processing: SortingDesk().MeasureComparisons();
+    Output: 15;
+}
+
+Test MeasureSwaps {
+    Constraint: SortingDesk().MeasureSwaps() == 10;
+    Processing: SortingDesk().MeasureSwaps();
+    Output: 10;
+}
+
+Test EstimateSortMemory {
+    Constraint: SortingDesk().EstimateSortMemory(3) == 16;
+    Processing: SortingDesk().EstimateSortMemory(3);
+    Output: 16;
+}
+
+Test IsInPlace {
+    Constraint: SortingDesk().IsInPlace(0) == 1;
+    Processing: SortingDesk().IsInPlace(0);
+    Output: 1;
+}
+
+Test IsComparisonBased {
+    Constraint: SortingDesk().IsComparisonBased(6) == 0;
+    Processing: SortingDesk().IsComparisonBased(6);
+    Output: 0;
+}
+
+Test IsDeterministic {
+    Constraint: SortingDesk().IsDeterministic(4) == 1;
+    Processing: SortingDesk().IsDeterministic(4);
+    Output: 1;
+}
+
+Test SetDirection {
+    Constraint: SortingDesk().SetDirection(1) == 1;
+    Processing: SortingDesk().SetDirection(1);
+    Output: 1;
+}
+
+Test Fault {
+    Constraint: SortingDesk().Fault() == "none";
+    Processing: SortingDesk().Fault();
+    Output: "none";
+}
+
+Test FillMixed {
+    Constraint: SortingDesk().FillMixed() == 4;
+    Processing: SortingDesk().FillMixed();
+    Output: 4;
+}
+
+Test FillSorted {
+    Constraint: SortingDesk().FillSorted() == 1;
+    Processing: SortingDesk().FillSorted();
+    Output: 1;
+}
+
+Test FillReverse {
+    Constraint: SortingDesk().FillReverse() == 8;
+    Processing: SortingDesk().FillReverse();
+    Output: 8;
+}
+
+Test Score {
+    Constraint: SortingDesk().Score() == 0;
+    Processing: SortingDesk().Score();
+    Output: 0;
+}
+
+Test Total {
+    Constraint: SortingDesk().Total() == 0;
+    Processing: SortingDesk().Total();
+    Output: 0;
+}
+
+Test Ordered {
+    Constraint: SortingDesk().Ordered(0) == 1;
+    Processing: SortingDesk().Ordered(0);
+    Output: 1;
+}
+
+Test Exchange {
+    Constraint: SortingDesk().Exchange(0, 1) == 0;
+    Processing: SortingDesk().Exchange(0, 1);
+    Output: 0;
+}
+
+Test Flip {
+    Constraint: SortingDesk().Flip(7) == 0;
+    Processing: SortingDesk().Flip(7);
+    Output: 0;
+}
+
+Test InsertRange {
+    Constraint: SortingDesk().InsertRange(0, 8) == 0;
+    Processing: SortingDesk().InsertRange(0, 8);
+    Output: 0;
+}
+
+Test Bubble {
+    Constraint: SortingDesk().Bubble(1) == 0;
+    Processing: SortingDesk().Bubble(1);
+    Output: 0;
+}
+
+Test Cocktail {
+    Constraint: SortingDesk().Cocktail() == 0;
+    Processing: SortingDesk().Cocktail();
+    Output: 0;
+}
+
+Test Comb {
+    Constraint: SortingDesk().Comb() == 0;
+    Processing: SortingDesk().Comb();
+    Output: 0;
+}
+
+Test Select {
+    Constraint: SortingDesk().Select(0, 8) == 0;
+    Processing: SortingDesk().Select(0, 8);
+    Output: 0;
+}
+
+Test DoubleSelect {
+    Constraint: SortingDesk().DoubleSelect() == 0;
+    Processing: SortingDesk().DoubleSelect();
+    Output: 0;
+}
+
+Test BinaryInsert {
+    Constraint: SortingDesk().BinaryInsert() == 0;
+    Processing: SortingDesk().BinaryInsert();
+    Output: 0;
+}
+
+Test Shell {
+    Constraint: SortingDesk().Shell() == 0;
+    Processing: SortingDesk().Shell();
+    Output: 0;
+}
+
+Test MergeUp {
+    Constraint: SortingDesk().MergeUp() == 0;
+    Processing: SortingDesk().MergeUp();
+    Output: 0;
+}
+
+Test Quick {
+    Constraint: SortingDesk().Quick() == 0;
+    Processing: SortingDesk().Quick();
+    Output: 0;
+}
+
+Test Sift {
+    Constraint: SortingDesk().Sift(0, 8) == 0;
+    Processing: SortingDesk().Sift(0, 8);
+    Output: 0;
+}
+
+Test Heap {
+    Constraint: SortingDesk().Heap() == 0;
+    Processing: SortingDesk().Heap();
+    Output: 0;
+}
+
+Test Cycle {
+    Constraint: SortingDesk().Cycle() == 0;
+    Processing: SortingDesk().Cycle();
+    Output: 0;
+}
+
+Test Gnome {
+    Constraint: SortingDesk().Gnome() == 0;
+    Processing: SortingDesk().Gnome();
+    Output: 0;
+}
+
+Test OddEven {
+    Constraint: SortingDesk().OddEven() == 0;
+    Processing: SortingDesk().OddEven();
+    Output: 0;
+}
+
+Test Pancake {
+    Constraint: SortingDesk().Pancake() == 0;
+    Processing: SortingDesk().Pancake();
+    Output: 0;
+}
+
+Test Count {
+    Constraint: SortingDesk().Count() == 0;
+    Processing: SortingDesk().Count();
+    Output: 0;
+}
+
+Test Bitonic {
+    Constraint: SortingDesk().Bitonic() == 0;
+    Processing: SortingDesk().Bitonic();
+    Output: 0;
 }

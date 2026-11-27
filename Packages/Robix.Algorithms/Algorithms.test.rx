@@ -1,23 +1,473 @@
+// Tests for Algorithms.rx. Each call uses a fresh desk.
+
 Test Execute {
     Constraint: AlgorithmDesk().Execute(1, 21) == 42;
-    Processing: True;
-    Output: True;
+    Processing: AlgorithmDesk().Execute(1, 21);
+    Output: 42;
 }
 
-Test CountInversions {
-    Constraint: AlgorithmDesk().CountInversions() == 10;
-    Processing: True;
-    Output: True;
+Test ExecuteAsync {
+    Constraint: AlgorithmDesk().ExecuteAsync(1, 21) == 42;
+    Processing: AlgorithmDesk().ExecuteAsync(1, 21);
+    Output: 42;
+}
+
+Test TryExecute {
+    Constraint: AlgorithmDesk().TryExecute(2, 6) == 36;
+    Processing: AlgorithmDesk().TryExecute(2, 6);
+    Output: 36;
+}
+
+Test ExecuteBatch {
+    Constraint: AlgorithmDesk().ExecuteBatch(1) == 72;
+    Processing: AlgorithmDesk().ExecuteBatch(1);
+    Output: 72;
+}
+
+Test ExecuteParallel {
+    Constraint: AlgorithmDesk().ExecuteParallel(1) == 72;
+    Processing: AlgorithmDesk().ExecuteParallel(1);
+    Output: 72;
+}
+
+Test ExecuteStreaming {
+    Constraint: AlgorithmDesk().ExecuteStreaming(1) == 16;
+    Processing: AlgorithmDesk().ExecuteStreaming(1);
+    Output: 16;
+}
+
+Test ExecuteWithTimeout {
+    Constraint: AlgorithmDesk().ExecuteWithTimeout(1, 21, 1) == 42;
+    Processing: AlgorithmDesk().ExecuteWithTimeout(1, 21, 1);
+    Output: 42;
+}
+
+Test ExecuteWithCancellation {
+    Case "runs" {
+        Constraint: AlgorithmDesk().ExecuteWithCancellation(1, 21, 1) == 42;
+        Processing: AlgorithmDesk().ExecuteWithCancellation(1, 21, 1);
+        Output: 42;
+    }
+    Case "cancelled" {
+        Constraint: AlgorithmDesk().ExecuteWithCancellation(1, 21, 0) == 0;
+        Processing: AlgorithmDesk().ExecuteWithCancellation(1, 21, 0);
+        Output: 0;
+    }
+}
+
+Test RegisterAlgorithm {
+    Case "already stored" {
+        Constraint: AlgorithmDesk().RegisterAlgorithm(1) == 1;
+        Processing: AlgorithmDesk().RegisterAlgorithm(1);
+        Output: 1;
+    }
+    Case "registry full" {
+        Constraint: AlgorithmDesk().RegisterAlgorithm(9) == -1;
+        Processing: AlgorithmDesk().RegisterAlgorithm(9);
+        Output: -1;
+    }
+}
+
+Test UnregisterAlgorithm {
+    Case "present" {
+        Constraint: AlgorithmDesk().UnregisterAlgorithm(0) == 7;
+        Processing: AlgorithmDesk().UnregisterAlgorithm(0);
+        Output: 7;
+    }
+    Case "absent" {
+        Constraint: AlgorithmDesk().UnregisterAlgorithm(9) == -1;
+        Processing: AlgorithmDesk().UnregisterAlgorithm(9);
+        Output: -1;
+    }
+}
+
+Test FindAlgorithm {
+    Constraint: AlgorithmDesk().FindAlgorithm(3) == 3;
+    Processing: AlgorithmDesk().FindAlgorithm(3);
+    Output: 3;
+}
+
+Test GetAlgorithm {
+    Constraint: AlgorithmDesk().GetAlgorithm(2) == 2;
+    Processing: AlgorithmDesk().GetAlgorithm(2);
+    Output: 2;
+}
+
+Test ListAlgorithms {
+    Constraint: AlgorithmDesk().ListAlgorithms() == 8;
+    Processing: AlgorithmDesk().ListAlgorithms();
+    Output: 8;
+}
+
+Test GetAlgorithmMetadata {
+    Constraint: AlgorithmDesk().GetAlgorithmMetadata(7) == 1;
+    Processing: AlgorithmDesk().GetAlgorithmMetadata(7);
+    Output: 1;
+}
+
+Test GetAlgorithmVersion {
+    Constraint: AlgorithmDesk().GetAlgorithmVersion(1) == 1;
+    Processing: AlgorithmDesk().GetAlgorithmVersion(1);
+    Output: 1;
+}
+
+Test GetSupportedInputTypes {
+    Constraint: AlgorithmDesk().GetSupportedInputTypes(1) == 1;
+    Processing: AlgorithmDesk().GetSupportedInputTypes(1);
+    Output: 1;
+}
+
+Test GetSupportedOutputTypes {
+    Constraint: AlgorithmDesk().GetSupportedOutputTypes(1) == 1;
+    Processing: AlgorithmDesk().GetSupportedOutputTypes(1);
+    Output: 1;
+}
+
+Test AnalyzeComplexity {
+    Constraint: AlgorithmDesk().AnalyzeComplexity(1) == 0;
+    Processing: AlgorithmDesk().AnalyzeComplexity(1);
+    Output: 0;
+}
+
+Test EstimateTimeComplexity {
+    Constraint: AlgorithmDesk().EstimateTimeComplexity(7, 4) == 4;
+    Processing: AlgorithmDesk().EstimateTimeComplexity(7, 4);
+    Output: 4;
+}
+
+Test EstimateSpaceComplexity {
+    Constraint: AlgorithmDesk().EstimateSpaceComplexity(7, 4) == 4;
+    Processing: AlgorithmDesk().EstimateSpaceComplexity(7, 4);
+    Output: 4;
+}
+
+Test Benchmark {
+    Constraint: AlgorithmDesk().Benchmark(1, 21) == 1;
+    Processing: AlgorithmDesk().Benchmark(1, 21);
+    Output: 1;
+}
+
+Test ProfileAlgorithm {
+    Constraint: AlgorithmDesk().ProfileAlgorithm(7, 4) == 4;
+    Processing: AlgorithmDesk().ProfileAlgorithm(7, 4);
+    Output: 4;
+}
+
+Test TraceAlgorithm {
+    Constraint: AlgorithmDesk().TraceAlgorithm(5, 21) == 22;
+    Processing: AlgorithmDesk().TraceAlgorithm(5, 21);
+    Output: 22;
+}
+
+Test ValidateAlgorithm {
+    Constraint: AlgorithmDesk().ValidateAlgorithm(4) == 1;
+    Processing: AlgorithmDesk().ValidateAlgorithm(4);
+    Output: 1;
+}
+
+Test VerifyOutput {
+    Constraint: AlgorithmDesk().VerifyOutput(1, 21, 42) == 1;
+    Processing: AlgorithmDesk().VerifyOutput(1, 21, 42);
+    Output: 1;
+}
+
+Test CompareAlgorithms {
+    Constraint: AlgorithmDesk().CompareAlgorithms(0, 1, 3) == 0;
+    Processing: AlgorithmDesk().CompareAlgorithms(0, 1, 3);
+    Output: 0;
+}
+
+Test SelectAlgorithm {
+    Constraint: AlgorithmDesk().SelectAlgorithm(1) == 1;
+    Processing: AlgorithmDesk().SelectAlgorithm(1);
+    Output: 1;
+}
+
+Test SelectFastest {
+    Constraint: AlgorithmDesk().SelectFastest(1, 7) == 1;
+    Processing: AlgorithmDesk().SelectFastest(1, 7);
+    Output: 1;
+}
+
+Test SelectLowestMemory {
+    Constraint: AlgorithmDesk().SelectLowestMemory(1, 7) == 1;
+    Processing: AlgorithmDesk().SelectLowestMemory(1, 7);
+    Output: 1;
 }
 
 Test ComposeAlgorithms {
     Constraint: AlgorithmDesk().ComposeAlgorithms(1, 5, 21) == 43;
-    Processing: True;
-    Output: True;
+    Processing: AlgorithmDesk().ComposeAlgorithms(1, 5, 21);
+    Output: 43;
+}
+
+Test CreatePipeline {
+    Constraint: AlgorithmDesk().CreatePipeline() == 0;
+    Processing: AlgorithmDesk().CreatePipeline();
+    Output: 0;
+}
+
+Test AddPipelineStage {
+    Constraint: AlgorithmDesk().AddPipelineStage(1) == 1;
+    Processing: AlgorithmDesk().AddPipelineStage(1);
+    Output: 1;
+}
+
+Test RemovePipelineStage {
+    Constraint: AlgorithmDesk().RemovePipelineStage(1) == 0;
+    Processing: AlgorithmDesk().RemovePipelineStage(1);
+    Output: 0;
+}
+
+Test ExecutePipeline {
+    Constraint: AlgorithmDesk().ExecutePipeline(21) == 21;
+    Processing: AlgorithmDesk().ExecutePipeline(21);
+    Output: 21;
+}
+
+Test Swap {
+    Constraint: AlgorithmDesk().Swap(3, 8) == 8;
+    Processing: AlgorithmDesk().Swap(3, 8);
+    Output: 8;
+}
+
+Test Compare {
+    Constraint: AlgorithmDesk().Compare(2, 5) == -1;
+    Processing: AlgorithmDesk().Compare(2, 5);
+    Output: -1;
+}
+
+Test Reverse {
+    Constraint: AlgorithmDesk().Reverse() == 8;
+    Processing: AlgorithmDesk().Reverse();
+    Output: 8;
+}
+
+Test Rotate {
+    Constraint: AlgorithmDesk().Rotate(3) == 4;
+    Processing: AlgorithmDesk().Rotate(3);
+    Output: 4;
+}
+
+Test Partition {
+    Constraint: AlgorithmDesk().Partition(5) == 4;
+    Processing: AlgorithmDesk().Partition(5);
+    Output: 4;
+}
+
+Test StablePartition {
+    Constraint: AlgorithmDesk().StablePartition(5) == 4;
+    Processing: AlgorithmDesk().StablePartition(5);
+    Output: 4;
+}
+
+Test IsSorted {
+    Constraint: AlgorithmDesk().IsSorted(0) == 1;
+    Processing: AlgorithmDesk().IsSorted(0);
+    Output: 1;
+}
+
+Test IsSortedDescending {
+    Constraint: AlgorithmDesk().IsSortedDescending(1) == 1;
+    Processing: AlgorithmDesk().IsSortedDescending(1);
+    Output: 1;
+}
+
+Test IsPartitioned {
+    Constraint: AlgorithmDesk().IsPartitioned(5) == 1;
+    Processing: AlgorithmDesk().IsPartitioned(5);
+    Output: 1;
+}
+
+Test IsPermutation {
+    Case "reversal" {
+        Constraint: AlgorithmDesk().IsPermutation(0) == 1;
+        Processing: AlgorithmDesk().IsPermutation(0);
+        Output: 1;
+    }
+    Case "duplicate" {
+        Constraint: AlgorithmDesk().IsPermutation(1) == 0;
+        Processing: AlgorithmDesk().IsPermutation(1);
+        Output: 0;
+    }
+}
+
+Test GeneratePermutation {
+    Constraint: AlgorithmDesk().GeneratePermutation(0) == 1;
+    Processing: AlgorithmDesk().GeneratePermutation(0);
+    Output: 1;
 }
 
 Test NextPermutation {
     Constraint: AlgorithmDesk().NextPermutation() == 7;
-    Processing: True;
-    Output: True;
+    Processing: AlgorithmDesk().NextPermutation();
+    Output: 7;
+}
+
+Test PreviousPermutation {
+    Constraint: AlgorithmDesk().PreviousPermutation() == 8;
+    Processing: AlgorithmDesk().PreviousPermutation();
+    Output: 8;
+}
+
+Test CountInversions {
+    Constraint: AlgorithmDesk().CountInversions() == 10;
+    Processing: AlgorithmDesk().CountInversions();
+    Output: 10;
+}
+
+Test MeasureComparisons {
+    Constraint: AlgorithmDesk().MeasureComparisons() == 7;
+    Processing: AlgorithmDesk().MeasureComparisons();
+    Output: 7;
+}
+
+Test MeasureSwaps {
+    Constraint: AlgorithmDesk().MeasureSwaps() == 4;
+    Processing: AlgorithmDesk().MeasureSwaps();
+    Output: 4;
+}
+
+Test SetPolicy {
+    Constraint: AlgorithmDesk().SetPolicy(1) == 1;
+    Processing: AlgorithmDesk().SetPolicy(1);
+    Output: 1;
+}
+
+Test SetMutation {
+    Constraint: AlgorithmDesk().SetMutation(0) == 0;
+    Processing: AlgorithmDesk().SetMutation(0);
+    Output: 0;
+}
+
+Test SetDeterminism {
+    Constraint: AlgorithmDesk().SetDeterminism(1) == 1;
+    Processing: AlgorithmDesk().SetDeterminism(1);
+    Output: 1;
+}
+
+Test IsDeterministic {
+    Constraint: AlgorithmDesk().IsDeterministic(1) == 1;
+    Processing: AlgorithmDesk().IsDeterministic(1);
+    Output: 1;
+}
+
+Test ReportProgress {
+    Constraint: AlgorithmDesk().ReportProgress(7, 4) == 4;
+    Processing: AlgorithmDesk().ReportProgress(7, 4);
+    Output: 4;
+}
+
+Test Status {
+    Constraint: AlgorithmDesk().Status(1) == 1;
+    Processing: AlgorithmDesk().Status(1);
+    Output: 1;
+}
+
+Test Fault {
+    Constraint: AlgorithmDesk().Fault() == "none";
+    Processing: AlgorithmDesk().Fault();
+    Output: "none";
+}
+
+Test Known {
+    Constraint: AlgorithmDesk().Known(7) == 1;
+    Processing: AlgorithmDesk().Known(7);
+    Output: 1;
+}
+
+Test Apply {
+    Constraint: AlgorithmDesk().Apply(3, -4) == 4;
+    Processing: AlgorithmDesk().Apply(3, -4);
+    Output: 4;
+}
+
+Test TimeOf {
+    Constraint: AlgorithmDesk().TimeOf(1, 8) == 1;
+    Processing: AlgorithmDesk().TimeOf(1, 8);
+    Output: 1;
+}
+
+Test Fold {
+    Constraint: AlgorithmDesk().Fold(1, 1) == 16;
+    Processing: AlgorithmDesk().Fold(1, 1);
+    Output: 16;
+}
+
+Test Search {
+    Constraint: AlgorithmDesk().Search(4) == 4;
+    Processing: AlgorithmDesk().Search(4);
+    Output: 4;
+}
+
+Test CountUsed {
+    Constraint: AlgorithmDesk().CountUsed() == 8;
+    Processing: AlgorithmDesk().CountUsed();
+    Output: 8;
+}
+
+Test FillSorted {
+    Constraint: AlgorithmDesk().FillSorted() == 1;
+    Processing: AlgorithmDesk().FillSorted();
+    Output: 1;
+}
+
+Test FillReverse {
+    Constraint: AlgorithmDesk().FillReverse() == 8;
+    Processing: AlgorithmDesk().FillReverse();
+    Output: 8;
+}
+
+Test FillMixed {
+    Constraint: AlgorithmDesk().FillMixed() == 4;
+    Processing: AlgorithmDesk().FillMixed();
+    Output: 4;
+}
+
+Test FillDuplicate {
+    Constraint: AlgorithmDesk().FillDuplicate() == 7;
+    Processing: AlgorithmDesk().FillDuplicate();
+    Output: 7;
+}
+
+Test FillAlmost {
+    Constraint: AlgorithmDesk().FillAlmost() == 7;
+    Processing: AlgorithmDesk().FillAlmost();
+    Output: 7;
+}
+
+Test FillPattern {
+    Constraint: AlgorithmDesk().FillPattern(0) == 1;
+    Processing: AlgorithmDesk().FillPattern(0);
+    Output: 1;
+}
+
+Test CopyBack {
+    Constraint: AlgorithmDesk().CopyBack() == 0;
+    Processing: AlgorithmDesk().CopyBack();
+    Output: 0;
+}
+
+Test ReverseRange {
+    Constraint: AlgorithmDesk().ReverseRange(0) == 0;
+    Processing: AlgorithmDesk().ReverseRange(0);
+    Output: 0;
+}
+
+Test StepNext {
+    Constraint: AlgorithmDesk().StepNext() == -1;
+    Processing: AlgorithmDesk().StepNext();
+    Output: -1;
+}
+
+Test StepPrevious {
+    Constraint: AlgorithmDesk().StepPrevious() == -1;
+    Processing: AlgorithmDesk().StepPrevious();
+    Output: -1;
+}
+
+Test Divide {
+    Constraint: AlgorithmDesk().Divide(5) == 4;
+    Processing: AlgorithmDesk().Divide(5);
+    Output: 4;
 }
