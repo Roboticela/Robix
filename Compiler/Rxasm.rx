@@ -608,11 +608,11 @@ Public Class RxAssembler {
     Explain {
         Description: "Place the PE entry before a program that defines Main.";
         Input: rxasm = "RXASM text";
-        Processing: "Zero rdi and rbx, call Main, and call ExitProcess through kernel32.";
+        Processing: "Zero rdi and rbx, call Main, align the stack, and call ExitProcess through kernel32.";
         Output: "RXASM text including start.";
     } {
         If (rxasm.IndexOf("start:") >= 0) { Return rxasm; }
-        String head = ".arch x86_64\n.target windows\n.section text\n.global start\nstart:\n    xor rdi, rdi\n    xor rbx, rbx\n    call Main\n    mov rcx, rax\n    call rx_ExitProcess\n";
+        String head = ".arch x86_64\n.target windows\n.section text\n.global start\nstart:\n    xor rdi, rdi\n    xor rbx, rbx\n    call Main\n    mov rcx, rax\n    sub rsp, 8\n    call rx_ExitProcess\n";
         Return head + rxasm;
     }
 
