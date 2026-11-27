@@ -1,5 +1,231 @@
+// Tests for Functions.rx.
+
+Test Note {
+    Processing: Note("saved");
+    Assert: lastAction == "saved";
+}
+
 Test ApplyFree {
-    Constraint: ApplyFree("inc", 4) == 5;
-    Processing: True;
-    Output: True;
+    Case "increment" {
+        Constraint: ApplyFree("inc", 4) == 5;
+        Processing: ApplyFree("inc", 4);
+        Output: 5;
+    }
+    Case "missing" {
+        Constraint: ApplyFree("nope", 1) == -1;
+        Processing: ApplyFree("nope", 1);
+        Output: -1;
+    }
+}
+
+Test ApplyFree2 {
+    Constraint: ApplyFree2("add", 2, 3) == 5;
+    Processing: ApplyFree2("add", 2, 3);
+    Output: 5;
+}
+
+Test AddPair {
+    Constraint: AddPair(2, 3) == 5;
+    Processing: AddPair(2, 3);
+    Output: 5;
+}
+
+Test Invoke {
+    Constraint: Toolbox().Invoke("inc", 4) == 5;
+    Processing: Toolbox().Invoke("inc", 4);
+    Output: 5;
+}
+
+Test Invoke2 {
+    Constraint: Toolbox().Invoke2("add", 2, 3) == 5;
+    Processing: Toolbox().Invoke2("add", 2, 3);
+    Output: 5;
+}
+
+Test Pipe {
+    Constraint: Toolbox().Pipe(3, "inc", "twice") == 8;
+    Processing: Toolbox().Pipe(3, "inc", "twice");
+    Output: 8;
+}
+
+Test Compose {
+    Constraint: Toolbox().Compose("twice", "inc", 3) == 8;
+    Processing: Toolbox().Compose("twice", "inc", 3);
+    Output: 8;
+}
+
+Test Chain {
+    Constraint: Toolbox().Chain(2, "inc", "inc", "twice") == 8;
+    Processing: Toolbox().Chain(2, "inc", "inc", "twice");
+    Output: 8;
+}
+
+Test Bind {
+    Constraint: Toolbox().Bind("add", 2) == 1;
+    Processing: Toolbox().Bind("add", 2);
+    Output: 1;
+}
+
+Test CallBound {
+    Constraint: Toolbox().CallBound(3) == -1;
+    Processing: Toolbox().CallBound(3);
+    Output: -1;
+}
+
+Test Curry {
+    Constraint: Toolbox().Curry("add", 2) == 2;
+    Processing: Toolbox().Curry("add", 2);
+    Output: 2;
+}
+
+Test Uncurry {
+    Constraint: Toolbox().Uncurry(3) == -1;
+    Processing: Toolbox().Uncurry(3);
+    Output: -1;
+}
+
+Test Memoize {
+    Constraint: Toolbox().Memoize("inc", 4) == 5;
+    Processing: Toolbox().Memoize("inc", 4);
+    Output: 5;
+}
+
+Test Once {
+    Constraint: Toolbox().Once("inc", 4) == 5;
+    Processing: Toolbox().Once("inc", 4);
+    Output: 5;
+}
+
+Test Throttle {
+    Constraint: Toolbox().Throttle("inc", 4, 0, 2) == 5;
+    Processing: Toolbox().Throttle("inc", 4, 0, 2);
+    Output: 5;
+}
+
+Test Debounce {
+    Constraint: Toolbox().Debounce("inc", 4, 0, 2) == 0;
+    Processing: Toolbox().Debounce("inc", 4, 0, 2);
+    Output: 0;
+}
+
+Test Flush {
+    Constraint: Toolbox().Flush(0) == 0;
+    Processing: Toolbox().Flush(0);
+    Output: 0;
+}
+
+Test Signature {
+    Case "unary" {
+        Constraint: Toolbox().Signature("inc") == "(Int) -> Int";
+        Processing: Toolbox().Signature("inc");
+        Output: "(Int) -> Int";
+    }
+    Case "missing" {
+        Constraint: Toolbox().Signature("nope") == "() -> Void";
+        Processing: Toolbox().Signature("nope");
+        Output: "() -> Void";
+    }
+}
+
+Test Parameters {
+    Constraint: Toolbox().Parameters("add") == "left,right";
+    Processing: Toolbox().Parameters("add");
+    Output: "left,right";
+}
+
+Test ReturnType {
+    Constraint: Toolbox().ReturnType("inc") == "Int";
+    Processing: Toolbox().ReturnType("inc");
+    Output: "Int";
+}
+
+Test FunctionName {
+    Constraint: Toolbox().FunctionName("inc") == "inc";
+    Processing: Toolbox().FunctionName("inc");
+    Output: "inc";
+}
+
+Test Metadata {
+    Constraint: Toolbox().Metadata("add") == "binary";
+    Processing: Toolbox().Metadata("add");
+    Output: "binary";
+}
+
+Test Calls {
+    Constraint: Toolbox().Calls() == 0;
+    Processing: Toolbox().Calls();
+    Output: 0;
+}
+
+Test Error {
+    Constraint: Toolbox().Error() == "none";
+    Processing: Toolbox().Error();
+    Output: "none";
+}
+
+Test Evaluate {
+    Constraint: Toolbox().Evaluate("2,3,add") == 5;
+    Processing: Toolbox().Evaluate("2,3,add");
+    Output: 5;
+}
+
+Test Visit {
+    Constraint: Toolbox().Visit("2,3,add") == 3;
+    Processing: Toolbox().Visit("2,3,add");
+    Output: 3;
+}
+
+Test Transform {
+    Constraint: Toolbox().Transform("2,add", "add", "sub") == "2,sub";
+    Processing: Toolbox().Transform("2,add", "add", "sub");
+    Output: "2,sub";
+}
+
+Test Combine {
+    Constraint: Toolbox().Combine("inc", "twice", 3) == "4,6";
+    Processing: Toolbox().Combine("inc", "twice", 3);
+    Output: "4,6";
+}
+
+Test Kind {
+    Constraint: Toolbox().Kind("inc") == "unary";
+    Processing: Toolbox().Kind("inc");
+    Output: "unary";
+}
+
+Test Token {
+    Constraint: Toolbox().Token("2,3", 1) == "3";
+    Processing: Toolbox().Token("2,3", 1);
+    Output: "3";
+}
+
+Test IsNumber {
+    Case "digits" {
+        Constraint: Toolbox().IsNumber("12") == 1;
+        Processing: Toolbox().IsNumber("12");
+        Output: 1;
+    }
+    Case "word" {
+        Constraint: Toolbox().IsNumber("add") == 0;
+        Processing: Toolbox().IsNumber("add");
+        Output: 0;
+    }
+}
+
+Test Number {
+    Constraint: Toolbox().Number("12") == 12;
+    Processing: Toolbox().Number("12");
+    Output: 12;
+}
+
+Test IntText {
+    Constraint: Toolbox().IntText(7) == "7";
+    Processing: Toolbox().IntText(7);
+    Output: "7";
+}
+
+Test InvokeAsync {
+    Constraint: InvokeAsync("inc", 4) == 5;
+    Processing: InvokeAsync("inc", 4);
+    Output: 5;
 }

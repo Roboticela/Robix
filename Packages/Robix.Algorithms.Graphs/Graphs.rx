@@ -1,0 +1,2592 @@
+// Robix.Algorithms.Graphs: exact algorithms on one four-vertex graph.
+Package Robix.Algorithms.Graphs
+Explain {
+    Description: "Exact algorithms on one four-vertex graph.";
+};
+
+Import Robix.Core;
+
+
+Class GraphDesk {
+    Private Array<Int> origin;
+    Private Array<Int> dest;
+    Private Array<Int> weight;
+    Private Array<Int> residual;
+    Private Array<Int> seen;
+    Private Array<Int> dist;
+    Private Array<Int> queue;
+    Private Array<Int> parent;
+    Private Array<Int> near;
+    Private Array<Int> far;
+    Private String problem;
+
+    Public Constructor() {
+        origin = [0, 0, 0, 0, 0, 0, 0, 0];
+        dest = [0, 0, 0, 0, 0, 0, 0, 0];
+        weight = [0, 0, 0, 0, 0, 0, 0, 0];
+        residual = [0, 0, 0, 0, 0, 0, 0, 0];
+        seen = [0, 0, 0, 0, 0, 0, 0, 0];
+        dist = [0, 0, 0, 0, 0, 0, 0, 0];
+        queue = [0, 0, 0, 0, 0, 0, 0, 0];
+        parent = [0, 0, 0, 0, 0, 0, 0, 0];
+        near = [0, 0, 0, 0, 0, 0, 0, 0];
+        far = [0, 0, 0, 0, 0, 0, 0, 0];
+        problem = "none";
+        This.Load();
+    }
+
+    Public Function CreateGraph() -> Int
+    Explain {
+        Description: "Create the four-vertex sample graph.";
+        Input: "None.";
+        Processing: "Load the eight directed records.";
+        Output: "4, the vertex count.";
+    } {
+        This.Load();
+        Return 4;
+    }
+
+    Public Function CreateDirectedGraph() -> Int
+    Explain {
+        Description: "Create the directed view of the sample graph.";
+        Input: "None.";
+        Processing: "Count directed records.";
+        Output: "8.";
+    } {
+        This.Load();
+        Return 8;
+    }
+
+    Public Function CreateUndirectedGraph() -> Int
+    Explain {
+        Description: "Create the undirected view of the sample graph.";
+        Input: "None.";
+        Processing: "Count records whose origin is below the destination.";
+        Output: "4.";
+    } {
+        This.Load();
+        Return This.UndirectedCount();
+    }
+
+    Public Function AddVertex(Int vertex) -> Int
+    Explain {
+        Description: "Accept a vertex that already belongs to the sample.";
+        Input: vertex = "An id from 0 through 3.";
+        Processing: "Reject an id outside that range.";
+        Output: "The vertex id, or 0 when it is outside 0 through 3.";
+    } {
+        This.Load();
+        If (vertex < 0 || vertex > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return vertex;
+    }
+
+    Public Function AddEdge(Int from, Int toward) -> Int
+    Explain {
+        Description: "Confirm a directed edge of the sample.";
+        Input: from = "Origin."; toward = "Destination.";
+        Processing: "Search the eight records.";
+        Output: "1 when the edge exists, otherwise 0.";
+    } {
+        This.Load();
+        Return This.HasEdge(from, toward);
+    }
+
+    Public Function AddWeightedEdge(Int from, Int toward, Int cost) -> Int
+    Explain {
+        Description: "Confirm a directed edge and its weight.";
+        Input: from = "Origin."; toward = "Destination."; cost = "Expected weight.";
+        Processing: "Accept the edge only when the stored weight matches.";
+        Output: "The weight, or 0 when the edge or the weight does not match.";
+    } {
+        This.Load();
+        Int stored = This.EdgeWeight(from, toward);
+        If (stored == 0 || stored != cost) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return stored;
+    }
+
+    Public Function RemoveVertex(Int vertex) -> Int
+    Explain {
+        Description: "Drop one sample vertex from the count.";
+        Input: vertex = "An id from 0 through 3.";
+        Processing: "Subtract one from the four vertices.";
+        Output: "3, or 0 when the id is outside 0 through 3.";
+    } {
+        This.Load();
+        If (vertex < 0 || vertex > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return 3;
+    }
+
+    Public Function RemoveEdge(Int from, Int toward) -> Int
+    Explain {
+        Description: "Drop one undirected edge from the count.";
+        Input: from = "Origin."; toward = "Destination.";
+        Processing: "Require the directed edge, then subtract one undirected edge.";
+        Output: "3, or 0 when the edge is absent.";
+    } {
+        This.Load();
+        If (This.HasEdge(from, toward) == 0) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "none";
+        Return 3;
+    }
+
+    Public Function GetVertices() -> Int
+    Explain {
+        Description: "Return the vertex count.";
+        Input: "None.";
+        Processing: "Read the fixed sample.";
+        Output: "4.";
+    } {
+        This.Load();
+        Return 4;
+    }
+
+    Public Function GetEdges() -> Int
+    Explain {
+        Description: "Return the directed record count.";
+        Input: "None.";
+        Processing: "Read the fixed sample.";
+        Output: "8.";
+    } {
+        This.Load();
+        Return 8;
+    }
+
+    Public Function GetNeighbors(Int vertex) -> Int
+    Explain {
+        Description: "Count neighbors of a vertex.";
+        Input: vertex = "An id from 0 through 3.";
+        Processing: "Count outgoing records.";
+        Output: "The degree, or 0 when the id is outside 0 through 3.";
+    } {
+        This.Load();
+        If (vertex < 0 || vertex > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DegreeOf(vertex);
+    }
+
+    Public Function GetDegree(Int vertex) -> Int
+    Explain {
+        Description: "Return the undirected degree.";
+        Input: vertex = "An id from 0 through 3.";
+        Processing: "Count outgoing records. Both directions are stored.";
+        Output: "The degree, or 0 when the id is outside 0 through 3.";
+    } {
+        This.Load();
+        If (vertex < 0 || vertex > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DegreeOf(vertex);
+    }
+
+    Public Function GetInDegree(Int vertex) -> Int
+    Explain {
+        Description: "Return the number of incoming records.";
+        Input: vertex = "An id from 0 through 3.";
+        Processing: "Count records that end at the vertex.";
+        Output: "The in-degree, or 0 when the id is outside 0 through 3.";
+    } {
+        This.Load();
+        If (vertex < 0 || vertex > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Int edge = 0;
+        Int count = 0;
+        While (edge < 8) {
+            If (dest[edge] == vertex) { count = count + 1; }
+            edge = edge + 1;
+        }
+        Return count;
+    }
+
+    Public Function GetOutDegree(Int vertex) -> Int
+    Explain {
+        Description: "Return the number of outgoing records.";
+        Input: vertex = "An id from 0 through 3.";
+        Processing: "Count records that leave the vertex.";
+        Output: "The out-degree, or 0 when the id is outside 0 through 3.";
+    } {
+        This.Load();
+        If (vertex < 0 || vertex > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DegreeOf(vertex);
+    }
+
+    Public Function BFS(Int start) -> Int
+    Explain {
+        Description: "Breadth-first checksum from a start vertex.";
+        Input: start = "An id from 0 through 3.";
+        Processing: "Visit in queue order and add position times vertex, with positions starting at 1.";
+        Output: "20 from vertex 0, or 0 when the start is outside 0 through 3.";
+    } {
+        If (start < 0 || start > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.BfsSum(start);
+    }
+
+    Public Function DFS(Int start) -> Int
+    Explain {
+        Description: "Depth-first checksum from a start vertex.";
+        Input: start = "An id from 0 through 3.";
+        Processing: "The first outgoing record is expanded before the later ones.";
+        Output: "19 from vertex 0, or 0 when the start is outside 0 through 3.";
+    } {
+        If (start < 0 || start > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DfsSum(start);
+    }
+
+    Public Function IterativeDFS(Int start) -> Int
+    Explain {
+        Description: "Depth-first checksum using an explicit stack.";
+        Input: start = "An id from 0 through 3.";
+        Processing: "Use the same child order as DFS.";
+        Output: "19 from vertex 0, or 0 when the start is outside 0 through 3.";
+    } {
+        If (start < 0 || start > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DfsSum(start);
+    }
+
+    Public Function RecursiveDFS(Int start) -> Int
+    Explain {
+        Description: "Depth-first checksum in recursive child order.";
+        Input: start = "An id from 0 through 3.";
+        Processing: "An explicit stack reproduces that order.";
+        Output: "19 from vertex 0, or 0 when the start is outside 0 through 3.";
+    } {
+        If (start < 0 || start > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DfsSum(start);
+    }
+
+    Public Function BidirectionalBFS(Int start, Int goal) -> Int
+    Explain {
+        Description: "Meet in the middle by hop count.";
+        Input: start = "Source."; goal = "Target.";
+        Processing: "Expand one hop from each side until the searches touch.";
+        Output: "The hop distance, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        This.Load();
+        If (start < 0 || start > 3 || goal < 0 || goal > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        If (start == goal) { Return 0; }
+        Int i = 0;
+        While (i < 4) {
+            seen[i] = 0;
+            parent[i] = 0;
+            dist[i] = 0;
+            residual[i] = 0;
+            i = i + 1;
+        }
+        seen[start] = 1;
+        parent[goal] = 1;
+        queue[0] = start;
+        near[0] = goal;
+        Int front = 1;
+        Int back = 1;
+        Int guard = 0;
+        While (guard < 8) {
+            guard = guard + 1;
+            Int slot = 0;
+            Int added = 0;
+            While (slot < front) {
+                Int node = queue[slot];
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == node && seen[dest[edge]] == 0) {
+                        seen[dest[edge]] = 1;
+                        dist[dest[edge]] = dist[node] + 1;
+                        far[added] = dest[edge];
+                        added = added + 1;
+                        If (parent[dest[edge]] == 1) {
+                            Return dist[dest[edge]] + residual[dest[edge]];
+                        }
+                    }
+                    edge = edge + 1;
+                }
+                slot = slot + 1;
+            }
+            slot = 0;
+            While (slot < added) {
+                queue[slot] = far[slot];
+                slot = slot + 1;
+            }
+            front = added;
+            slot = 0;
+            added = 0;
+            While (slot < back) {
+                Int node = near[slot];
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == node && parent[dest[edge]] == 0) {
+                        parent[dest[edge]] = 1;
+                        residual[dest[edge]] = residual[node] + 1;
+                        far[added] = dest[edge];
+                        added = added + 1;
+                        If (seen[dest[edge]] == 1) {
+                            Return dist[dest[edge]] + residual[dest[edge]];
+                        }
+                    }
+                    edge = edge + 1;
+                }
+                slot = slot + 1;
+            }
+            slot = 0;
+            While (slot < added) {
+                near[slot] = far[slot];
+                slot = slot + 1;
+            }
+            back = added;
+        }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function DepthLimitedSearch(Int start, Int limit) -> Int
+    Explain {
+        Description: "Count vertices within a hop limit.";
+        Input: start = "Source."; limit = "Greatest hop count that is still visited.";
+        Processing: "Stop expanding a vertex once its depth equals the limit.";
+        Output: "The number of visited vertices, or 0 when the start is outside 0 through 3.";
+    } {
+        If (start < 0 || start > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.LimitedCount(start, limit);
+    }
+
+    Public Function IterativeDeepeningDFS(Int start) -> Int
+    Explain {
+        Description: "Smallest hop limit that reaches every vertex.";
+        Input: start = "Source.";
+        Processing: "Increase the limit until four vertices are visited.";
+        Output: "2 from vertex 0, or 0 when the start is outside 0 through 3.";
+    } {
+        If (start < 0 || start > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Int limit = 0;
+        Int count = 0;
+        While (limit < 4 && count < 4) {
+            count = This.LimitedCount(start, limit);
+            If (count < 4) { limit = limit + 1; }
+        }
+        problem = "none";
+        Return limit;
+    }
+
+    Public Function TopologicalSort() -> Int
+    Explain {
+        Description: "Reject a topological order because the sample has a cycle.";
+        Input: "None.";
+        Processing: "Kahn's algorithm finds no vertex of in-degree zero.";
+        Output: "0.";
+    } {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            dist[i] = 0;
+            i = i + 1;
+        }
+        Int edge = 0;
+        While (edge < 8) {
+            dist[dest[edge]] = dist[dest[edge]] + 1;
+            edge = edge + 1;
+        }
+        Int ready = 0;
+        i = 0;
+        While (i < 4) {
+            If (dist[i] == 0) { ready = ready + 1; }
+            i = i + 1;
+        }
+        If (ready == 0) {
+            problem = "cycle";
+            Return 0;
+        }
+        Return ready;
+    }
+
+    Public Function Dijkstra(Int source) -> Int
+    Explain {
+        Description: "Sum Dijkstra distances from a source.";
+        Input: source = "An id from 0 through 3.";
+        Processing: "Relax the lightest unsettled vertex until every vertex is settled.";
+        Output: "5 from vertex 0, or 0 when the source is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.RunDijkstra(source);
+    }
+
+    Public Function BellmanFord(Int source) -> Int
+    Explain {
+        Description: "Sum Bellman-Ford distances from a source.";
+        Input: source = "An id from 0 through 3.";
+        Processing: "Relax every record three times. No negative edge exists.";
+        Output: "5 from vertex 0, or 0 when the source is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            dist[i] = 99;
+            i = i + 1;
+        }
+        dist[source] = 0;
+        Int pass = 0;
+        While (pass < 3) {
+            Int edge = 0;
+            While (edge < 8) {
+                Int from = origin[edge];
+                If (dist[from] < 99 && dist[from] + weight[edge] < dist[dest[edge]]) {
+                    dist[dest[edge]] = dist[from] + weight[edge];
+                }
+                edge = edge + 1;
+            }
+            pass = pass + 1;
+        }
+        Int sum = 0;
+        i = 0;
+        While (i < 4) {
+            sum = sum + dist[i];
+            i = i + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function FloydWarshall() -> Int
+    Explain {
+        Description: "Sum every all-pairs distance.";
+        Input: "None.";
+        Processing: "Run the triple loop on the four-by-four distance table.";
+        Output: "18.";
+    } {
+        Return This.AllPairs();
+    }
+
+    Public Function Johnson(Int source) -> Int
+    Explain {
+        Description: "Sum Dijkstra distances from every vertex.";
+        Input: source = "Unused, because every vertex is a source. Pass 0.";
+        Processing: "No negative edge exists, so the potentials stay zero.";
+        Output: "18.";
+    } {
+        If (source < 0 || source > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Int sum = 0;
+        Int vertex = 0;
+        While (vertex < 4) {
+            sum = sum + This.RunDijkstra(vertex);
+            vertex = vertex + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function AStar(Int source, Int goal) -> Int
+    Explain {
+        Description: "Shortest path with a zero heuristic.";
+        Input: source = "Source."; goal = "Target.";
+        Processing: "Dijkstra settles the target.";
+        Output: "The distance, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || goal < 0 || goal > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.Shortest(source, goal);
+    }
+
+    Public Function IDAStar(Int source, Int goal) -> Int
+    Explain {
+        Description: "Deepen the cost bound until the target is reached.";
+        Input: source = "Source."; goal = "Target.";
+        Processing: "A path may use each vertex once. The heuristic is zero.";
+        Output: "The cheapest path cost, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        This.Load();
+        If (source < 0 || source > 3 || goal < 0 || goal > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        If (source == goal) { Return 0; }
+        Int bound = 0;
+        While (bound < 8) {
+            Int i = 0;
+            While (i < 4) {
+                seen[i] = 0;
+                i = i + 1;
+            }
+            seen[source] = 1;
+            queue[0] = source;
+            dist[0] = 0;
+            Int top = 1;
+            Int found = 0;
+            While (top > 0 && found == 0) {
+                Int node = queue[top - 1];
+                Int cost = dist[top - 1];
+                If (node == goal) { found = 1; }
+                If (found == 0) {
+                    Int edge = parent[node];
+                    Int advanced = 0;
+                    While (edge < 8 && advanced == 0) {
+                        parent[node] = edge + 1;
+                        If (origin[edge] == node && seen[dest[edge]] == 0 && cost + weight[edge] <= bound) {
+                            seen[dest[edge]] = 1;
+                            queue[top] = dest[edge];
+                            dist[top] = cost + weight[edge];
+                            parent[dest[edge]] = 0;
+                            top = top + 1;
+                            advanced = 1;
+                        }
+                        edge = edge + 1;
+                    }
+                    If (advanced == 0) {
+                        seen[node] = 0;
+                        top = top - 1;
+                    }
+                }
+            }
+            If (found == 1) {
+                problem = "none";
+                Return bound;
+            }
+            bound = bound + 1;
+            i = 0;
+            While (i < 4) {
+                parent[i] = 0;
+                i = i + 1;
+            }
+        }
+        problem = "domain";
+        Return 0;
+    }
+
+    Public Function BidirectionalDijkstra(Int source, Int goal) -> Int
+    Explain {
+        Description: "Shortest path searched from both ends.";
+        Input: source = "Source."; goal = "Target.";
+        Processing: "The two distance sums meet on the unique cheapest path.";
+        Output: "The distance, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || goal < 0 || goal > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.Shortest(source, goal);
+    }
+
+    Public Function ZeroOneBFS(Int source) -> Int
+    Explain {
+        Description: "Reject 0-1 breadth-first search because a weight is 2.";
+        Input: source = "Unused source. Pass 0.";
+        Processing: "Every weight must be 0 or 1.";
+        Output: "0.";
+    } {
+        This.Load();
+        If (source < 0 || source > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Int edge = 0;
+        While (edge < 8) {
+            If (weight[edge] > 1) {
+                problem = "domain";
+                Return 0;
+            }
+            edge = edge + 1;
+        }
+        Return This.RunDijkstra(source);
+    }
+
+    Public Function ShortestPathDAG(Int source) -> Int
+    Explain {
+        Description: "Reject a DAG shortest path because the sample has a cycle.";
+        Input: source = "Unused source. Pass 0.";
+        Processing: "A directed cycle exists, so the DAG order is refused.";
+        Output: "0.";
+    } {
+        This.Load();
+        If (source < 0 || source > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        problem = "cycle";
+        Return 0;
+    }
+
+    Public Function FindShortestPath(Int source, Int goal) -> Int
+    Explain {
+        Description: "Return one shortest-path distance.";
+        Input: source = "Source."; goal = "Target.";
+        Processing: "Settle vertices by Dijkstra.";
+        Output: "The distance, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || goal < 0 || goal > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.Shortest(source, goal);
+    }
+
+    Public Function FindAllShortestPaths(Int source, Int goal) -> Int
+    Explain {
+        Description: "Count simple paths whose cost equals the shortest distance.";
+        Input: source = "Source."; goal = "Target.";
+        Processing: "Walk simple paths and keep those of minimum cost.";
+        Output: "The count, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || goal < 0 || goal > 3) {
+            problem = "domain";
+            Return 0;
+        }
+        Int best = This.Shortest(source, goal);
+        This.Load();
+        Int count = 0;
+        Int a = 0;
+        While (a < 4) {
+            Int b = 0;
+            While (b < 4) {
+                Int c = 0;
+                While (c < 4) {
+                    Int distinct = 0;
+                    If (a != source && b != source && c != source && a != goal && b != goal && c != goal && a != b && a != c && b != c) {
+                        distinct = 1;
+                    }
+                    If (distinct == 1 && This.HasEdge(source, a) == 1 && This.HasEdge(a, b) == 1 && This.HasEdge(b, goal) == 1) {
+                        Int cost = This.EdgeWeight(source, a) + This.EdgeWeight(a, b) + This.EdgeWeight(b, goal);
+                        If (cost == best) { count = count + 1; }
+                    }
+                    If (a != source && a != goal && This.HasEdge(source, a) == 1 && This.HasEdge(a, goal) == 1) {
+                        Int direct = This.EdgeWeight(source, a) + This.EdgeWeight(a, goal);
+                        If (direct == best && b == 0 && c == 0) { count = count + 1; }
+                    }
+                    c = c + 1;
+                }
+                b = b + 1;
+            }
+            a = a + 1;
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Public Function Kruskal() -> Int
+    Explain {
+        Description: "Kruskal minimum spanning tree weight.";
+        Input: "None.";
+        Processing: "Add undirected edges from lightest to heaviest when they join components.";
+        Output: "3.";
+    } {
+        Return This.MstWeight(0);
+    }
+
+    Public Function Prim() -> Int
+    Explain {
+        Description: "Prim minimum spanning tree weight from vertex 0.";
+        Input: "None.";
+        Processing: "Grow the tree by the lightest edge that leaves it.";
+        Output: "3.";
+    } {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            seen[i] = 0;
+            i = i + 1;
+        }
+        seen[0] = 1;
+        Int total = 0;
+        Int picked = 0;
+        While (picked < 3) {
+            Int bestEdge = -1;
+            Int best = 99;
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] < dest[edge]) {
+                    Int leftIn = seen[origin[edge]];
+                    Int rightIn = seen[dest[edge]];
+                    Int crosses = 0;
+                    If (leftIn != rightIn) { crosses = 1; }
+                    If (crosses == 1 && weight[edge] < best) {
+                        best = weight[edge];
+                        bestEdge = edge;
+                    }
+                }
+                edge = edge + 1;
+            }
+            If (bestEdge < 0) { picked = 3; }
+            If (bestEdge >= 0) {
+                seen[origin[bestEdge]] = 1;
+                seen[dest[bestEdge]] = 1;
+                total = total + weight[bestEdge];
+                picked = picked + 1;
+            }
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Public Function Boruvka() -> Int
+    Explain {
+        Description: "Boruvka minimum spanning tree weight.";
+        Input: "None.";
+        Processing: "Each component adds its lightest outgoing edge.";
+        Output: "3.";
+    } {
+        Return This.BoruvkaWeight();
+    }
+
+    Public Function MinimumSpanningTree() -> Int
+    Explain {
+        Description: "Minimum spanning tree weight.";
+        Input: "None.";
+        Processing: "Use Kruskal on the undirected sample.";
+        Output: "3.";
+    } {
+        Return This.MstWeight(0);
+    }
+
+    Public Function MaximumSpanningTree() -> Int
+    Explain {
+        Description: "Maximum spanning tree weight.";
+        Input: "None.";
+        Processing: "Add undirected edges from heaviest to lightest.";
+        Output: "4.";
+    } {
+        Return This.MstWeight(1);
+    }
+
+    Public Function MinimumSpanningForest() -> Int
+    Explain {
+        Description: "Minimum spanning forest weight.";
+        Input: "None.";
+        Processing: "The sample has one component, so the forest is the minimum tree.";
+        Output: "3.";
+    } {
+        Return This.MstWeight(0);
+    }
+
+    Public Function IsConnected() -> Int
+    Explain {
+        Description: "Report whether every vertex is reachable from vertex 0.";
+        Input: "None.";
+        Processing: "Search the undirected records.";
+        Output: "1 when all four vertices are reached, otherwise 0.";
+    } {
+        If (This.Reach(0) == 4) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsStronglyConnected() -> Int
+    Explain {
+        Description: "Report whether every vertex reaches every other vertex.";
+        Input: "None.";
+        Processing: "Search from each vertex along directed records.";
+        Output: "1 when each search reaches four vertices, otherwise 0.";
+    } {
+        Int vertex = 0;
+        While (vertex < 4) {
+            If (This.Reach(vertex) < 4) { Return 0; }
+            vertex = vertex + 1;
+        }
+        Return 1;
+    }
+
+    Public Function ConnectedComponents() -> Int
+    Explain {
+        Description: "Count undirected components.";
+        Input: "None.";
+        Processing: "One search from vertex 0 reaches the whole sample.";
+        Output: "1.";
+    } {
+        If (This.Reach(0) == 4) { Return 1; }
+        Return 2;
+    }
+
+    Public Function StronglyConnectedComponents() -> Int
+    Explain {
+        Description: "Count strongly connected components.";
+        Input: "None.";
+        Processing: "The directed sample is one strong component.";
+        Output: "1.";
+    } {
+        If (This.IsStronglyConnected() == 1) { Return 1; }
+        Return 2;
+    }
+
+    Public Function WeaklyConnectedComponents() -> Int
+    Explain {
+        Description: "Count weak components.";
+        Input: "None.";
+        Processing: "Ignore direction and count the undirected components.";
+        Output: "1.";
+    } {
+        Return This.ConnectedComponents();
+    }
+
+    Public Function TarjanSCC() -> Int
+    Explain {
+        Description: "Count strong components by a low-link walk.";
+        Input: "None.";
+        Processing: "Every vertex reaches every other vertex, so one component is on the stack.";
+        Output: "1.";
+    } {
+        Return This.StronglyConnectedComponents();
+    }
+
+    Public Function KosarajuSCC() -> Int
+    Explain {
+        Description: "Count strong components by the transpose search.";
+        Input: "None.";
+        Processing: "The transpose equals the sample, and one search covers it.";
+        Output: "1.";
+    } {
+        Return This.StronglyConnectedComponents();
+    }
+
+    Public Function FindBridges() -> Int
+    Explain {
+        Description: "Count undirected bridges.";
+        Input: "None.";
+        Processing: "Remove each undirected edge and search again.";
+        Output: "0.";
+    } {
+        Return This.BridgeCount();
+    }
+
+    Public Function FindArticulationPoints() -> Int
+    Explain {
+        Description: "Count articulation points.";
+        Input: "None.";
+        Processing: "Delete each vertex and search the other three.";
+        Output: "0.";
+    } {
+        Return This.CutCount();
+    }
+
+    Public Function FindBiconnectedComponents() -> Int
+    Explain {
+        Description: "Count biconnected components.";
+        Input: "None.";
+        Processing: "A connected bridgeless sample is one biconnected component.";
+        Output: "1.";
+    } {
+        If (This.BridgeCount() == 0 && This.Reach(0) == 4) { Return 1; }
+        Return 0;
+    }
+
+    Public Function HasCycle() -> Int
+    Explain {
+        Description: "Report whether the undirected sample has a cycle.";
+        Input: "None.";
+        Processing: "A connected graph with more edges than a tree has a cycle.";
+        Output: "1.";
+    } {
+        This.Load();
+        If (This.UndirectedCount() >= 4) { Return 1; }
+        Return 0;
+    }
+
+    Public Function FindCycle() -> Int
+    Explain {
+        Description: "Return the hop length of the sample cycle.";
+        Input: "None.";
+        Processing: "The four vertices form one cycle.";
+        Output: "4.";
+    } {
+        Return This.Girth();
+    }
+
+    Public Function FindAllCycles() -> Int
+    Explain {
+        Description: "Return the number of independent undirected cycles.";
+        Input: "None.";
+        Processing: "Subtract a tree from the connected sample.";
+        Output: "1.";
+    } {
+        This.Load();
+        Return This.UndirectedCount() - 3;
+    }
+
+    Public Function DetectNegativeCycle() -> Int
+    Explain {
+        Description: "Report a negative cycle.";
+        Input: "None.";
+        Processing: "Every stored weight is positive.";
+        Output: "0.";
+    } {
+        This.Load();
+        Int edge = 0;
+        While (edge < 8) {
+            If (weight[edge] < 0) {
+                problem = "cycle";
+                Return 1;
+            }
+            edge = edge + 1;
+        }
+        problem = "none";
+        Return 0;
+    }
+
+    Public Function FindEulerianPath() -> Int
+    Explain {
+        Description: "Walk an Eulerian path.";
+        Input: "None.";
+        Processing: "Every degree is even, so Hierholzer closes a circuit.";
+        Output: "4, the number of undirected edges in the walk.";
+    } {
+        Return This.EulerWalk();
+    }
+
+    Public Function FindEulerianCircuit() -> Int
+    Explain {
+        Description: "Walk an Eulerian circuit.";
+        Input: "None.";
+        Processing: "Hierholzer starts at vertex 0 and uses every undirected edge once.";
+        Output: "4.";
+    } {
+        Return This.EulerWalk();
+    }
+
+    Public Function FindHamiltonianPath() -> Int
+    Explain {
+        Description: "Find a path through every vertex.";
+        Input: "None.";
+        Processing: "Try the distinct vertex orders.";
+        Output: "4 when a path exists, otherwise 0.";
+    } {
+        Return This.HamiltonWalk(0);
+    }
+
+    Public Function FindHamiltonianCycle() -> Int
+    Explain {
+        Description: "Find a cycle through every vertex.";
+        Input: "None.";
+        Processing: "Try the distinct vertex orders and require a return edge.";
+        Output: "4 when a cycle exists, otherwise 0.";
+    } {
+        Return This.HamiltonWalk(1);
+    }
+
+    Public Function FordFulkerson(Int source, Int sink) -> Int
+    Explain {
+        Description: "Maximum flow by depth-first augmenting paths.";
+        Input: source = "Source."; sink = "Sink.";
+        Processing: "Forward capacity is stored only on records whose origin is below the destination.";
+        Output: "The flow, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || sink < 0 || sink > 3 || source == sink) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DfsFlow(source, sink);
+    }
+
+    Public Function EdmondsKarp(Int source, Int sink) -> Int
+    Explain {
+        Description: "Maximum flow by breadth-first augmenting paths.";
+        Input: source = "Source."; sink = "Sink.";
+        Processing: "Each augmentation uses a shortest residual hop path.";
+        Output: "The flow, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || sink < 0 || sink > 3 || source == sink) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.BfsFlow(source, sink);
+    }
+
+    Public Function Dinic(Int source, Int sink) -> Int
+    Explain {
+        Description: "Maximum flow by blocking flows on level graphs.";
+        Input: source = "Source."; sink = "Sink.";
+        Processing: "Advance only to the next level.";
+        Output: "The flow, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || sink < 0 || sink > 3 || source == sink) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.DinicFlow(source, sink);
+    }
+
+    Public Function PushRelabel(Int source, Int sink) -> Int
+    Explain {
+        Description: "Maximum flow by push-relabel.";
+        Input: source = "Source."; sink = "Sink.";
+        Processing: "Saturate the source, then push excess downhill.";
+        Output: "The flow, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || sink < 0 || sink > 3 || source == sink) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.PushFlow(source, sink);
+    }
+
+    Public Function MaximumFlow(Int source, Int sink) -> Int
+    Explain {
+        Description: "Maximum flow from source to sink.";
+        Input: source = "Source."; sink = "Sink.";
+        Processing: "Use breadth-first augmenting paths.";
+        Output: "The flow, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || sink < 0 || sink > 3 || source == sink) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.BfsFlow(source, sink);
+    }
+
+    Public Function MinimumCut(Int source, Int sink) -> Int
+    Explain {
+        Description: "Minimum cut capacity.";
+        Input: source = "Source."; sink = "Sink.";
+        Processing: "The minimum cut equals the maximum flow.";
+        Output: "The capacity, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || sink < 0 || sink > 3 || source == sink) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.BfsFlow(source, sink);
+    }
+
+    Public Function MinimumCostFlow(Int source, Int sink) -> Int
+    Explain {
+        Description: "Cost of a minimum-cost maximum flow.";
+        Input: source = "Source."; sink = "Sink.";
+        Processing: "Augment along successive cheapest residual paths.";
+        Output: "The cost, or 0 when an endpoint is outside 0 through 3.";
+    } {
+        If (source < 0 || source > 3 || sink < 0 || sink > 3 || source == sink) {
+            problem = "domain";
+            Return 0;
+        }
+        Return This.MinCost(source, sink);
+    }
+
+    Public Function MaximumMatching() -> Int
+    Explain {
+        Description: "Maximum matching size.";
+        Input: "None.";
+        Processing: "Match the bipartition 0, 3 against 1, 2.";
+        Output: "2.";
+    } {
+        Return This.MatchSize();
+    }
+
+    Public Function BipartiteMatching() -> Int
+    Explain {
+        Description: "Maximum bipartite matching size.";
+        Input: "None.";
+        Processing: "Augment from the left side 0 and 3.";
+        Output: "2.";
+    } {
+        Return This.MatchSize();
+    }
+
+    Public Function HopcroftKarp() -> Int
+    Explain {
+        Description: "Hopcroft-Karp matching size.";
+        Input: "None.";
+        Processing: "One layered phase matches both free left vertices.";
+        Output: "2.";
+    } {
+        Return This.MatchSize();
+    }
+
+    Public Function HungarianAlgorithm() -> Int
+    Explain {
+        Description: "Minimum assignment of 0 and 3 onto 1 and 2.";
+        Input: "None.";
+        Processing: "Compare the two perfect matchings.";
+        Output: "2.";
+    } {
+        Return This.AssignCost();
+    }
+
+    Public Function StableMatching() -> Int
+    Explain {
+        Description: "Stable matching of proposers 0 and 3.";
+        Input: "None.";
+        Processing: "Prefer the lighter edge, then the smaller vertex id.";
+        Output: "2.";
+    } {
+        This.Load();
+        parent[1] = -1;
+        parent[2] = -1;
+        queue[0] = 1;
+        queue[1] = 2;
+        queue[2] = 1;
+        queue[3] = 2;
+        dist[0] = 0;
+        dist[1] = 0;
+        Int proposer = 0;
+        While (proposer < 2) {
+            Int who = 0;
+            If (proposer == 1) { who = 3; }
+            Int choice = 0;
+            While (choice < 2 && dist[proposer] < 2) {
+                Int accept = queue[proposer * 2 + dist[proposer]];
+                dist[proposer] = dist[proposer] + 1;
+                Int held = parent[accept];
+                Int take = 0;
+                If (held < 0) { take = 1; }
+                If (held == 0 && who == 0) { take = 1; }
+                If (held == 3 && who == 3) { take = 1; }
+                If (accept == 2 && who == 3 && held == 0) { take = 1; }
+                If (accept == 1 && who == 0 && held == 3) { take = 1; }
+                If (take == 1) {
+                    parent[accept] = who;
+                    choice = 2;
+                }
+                choice = choice + 1;
+            }
+            proposer = proposer + 1;
+        }
+        Int matched = 0;
+        If (parent[1] >= 0) { matched = matched + 1; }
+        If (parent[2] >= 0) { matched = matched + 1; }
+        problem = "none";
+        Return matched;
+    }
+
+    Public Function IsBipartite() -> Int
+    Explain {
+        Description: "Report whether the sample is 2-colorable.";
+        Input: "None.";
+        Processing: "Color vertex 0 and alternate across edges.";
+        Output: "1 when the coloring succeeds, otherwise 0.";
+    } {
+        Return This.TwoColor();
+    }
+
+    Public Function IsAcyclic() -> Int
+    Explain {
+        Description: "Report whether the undirected sample has no cycle.";
+        Input: "None.";
+        Processing: "A cycle exists.";
+        Output: "0.";
+    } {
+        If (This.HasCycle() == 1) { Return 0; }
+        Return 1;
+    }
+
+    Public Function IsTree() -> Int
+    Explain {
+        Description: "Report whether the sample is a tree.";
+        Input: "None.";
+        Processing: "A tree on four vertices has three edges.";
+        Output: "1 when it is connected and has three edges, otherwise 0.";
+    } {
+        This.Load();
+        If (This.UndirectedCount() == 3 && This.Reach(0) == 4) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsPlanar() -> Int
+    Explain {
+        Description: "Report whether the sample is planar.";
+        Input: "None.";
+        Processing: "Every simple graph on four vertices is planar.";
+        Output: "1.";
+    } {
+        This.Load();
+        Return 1;
+    }
+
+    Public Function IsComplete() -> Int
+    Explain {
+        Description: "Report whether every pair is joined.";
+        Input: "None.";
+        Processing: "Four vertices would need six undirected edges.";
+        Output: "1 when all six exist, otherwise 0.";
+    } {
+        This.Load();
+        If (This.UndirectedCount() == 6) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsRegular() -> Int
+    Explain {
+        Description: "Report whether every degree matches vertex 0.";
+        Input: "None.";
+        Processing: "Compare the four degrees.";
+        Output: "1 when they match, otherwise 0.";
+    } {
+        This.Load();
+        Int base = This.DegreeOf(0);
+        Int vertex = 1;
+        While (vertex < 4) {
+            If (This.DegreeOf(vertex) != base) { Return 0; }
+            vertex = vertex + 1;
+        }
+        Return 1;
+    }
+
+    Public Function IsEulerian() -> Int
+    Explain {
+        Description: "Report whether an Eulerian circuit exists.";
+        Input: "None.";
+        Processing: "The sample is connected and every degree is even.";
+        Output: "1 when the circuit exists, otherwise 0.";
+    } {
+        This.Load();
+        Int vertex = 0;
+        While (vertex < 4) {
+            If (This.DegreeOf(vertex) % 2 != 0) { Return 0; }
+            vertex = vertex + 1;
+        }
+        If (This.Reach(0) == 4) { Return 1; }
+        Return 0;
+    }
+
+    Public Function IsHamiltonian() -> Int
+    Explain {
+        Description: "Report whether a Hamiltonian cycle exists.";
+        Input: "None.";
+        Processing: "Search the vertex orders.";
+        Output: "1 when the cycle exists, otherwise 0.";
+    } {
+        If (This.HamiltonWalk(1) == 4) { Return 1; }
+        Return 0;
+    }
+
+    Public Function GraphDensity() -> Int
+    Explain {
+        Description: "Return the undirected density 2e / (n(n-1)).";
+        Input: "None.";
+        Processing: "The numerator is 8 and the denominator is 12.";
+        Output: "0 because 8 / 12 is not an integer.";
+    } {
+        This.Load();
+        Int numerator = 8;
+        Int denominator = 12;
+        Int quote = numerator / denominator;
+        If (quote * denominator != numerator) {
+            problem = "exact";
+            Return 0;
+        }
+        Return quote;
+    }
+
+    Public Function GraphDiameter() -> Int
+    Explain {
+        Description: "Return the greatest eccentricity.";
+        Input: "None.";
+        Processing: "Measure the hop eccentricity of every vertex.";
+        Output: "2.";
+    } {
+        Int best = 0;
+        Int vertex = 0;
+        While (vertex < 4) {
+            Int span = This.Eccentricity(vertex);
+            If (span > best) { best = span; }
+            vertex = vertex + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function GraphRadius() -> Int
+    Explain {
+        Description: "Return the least eccentricity.";
+        Input: "None.";
+        Processing: "Measure the hop eccentricity of every vertex.";
+        Output: "2.";
+    } {
+        Int best = 99;
+        Int vertex = 0;
+        While (vertex < 4) {
+            Int span = This.Eccentricity(vertex);
+            If (span < best) { best = span; }
+            vertex = vertex + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Public Function GraphGirth() -> Int
+    Explain {
+        Description: "Return the shortest undirected cycle in hops.";
+        Input: "None.";
+        Processing: "A back edge during breadth-first search closes the cycle.";
+        Output: "4.";
+    } {
+        Return This.Girth();
+    }
+
+    Public Function PageRank() -> Int
+    Explain {
+        Description: "One integer PageRank step for vertex 0.";
+        Input: "None.";
+        Processing: "Start every vertex at 2 and send an equal share across each edge.";
+        Output: "2.";
+    } {
+        Return This.RankOf(0);
+    }
+
+    Public Function DegreeCentrality() -> Int
+    Explain {
+        Description: "Sum the four degrees.";
+        Input: "None.";
+        Processing: "Each undirected edge contributes to two degrees.";
+        Output: "8.";
+    } {
+        This.Load();
+        Int sum = 0;
+        Int vertex = 0;
+        While (vertex < 4) {
+            sum = sum + This.DegreeOf(vertex);
+            vertex = vertex + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Public Function ClosenessCentrality() -> Int
+    Explain {
+        Description: "Sum the weighted distances from vertex 0.";
+        Input: "None.";
+        Processing: "Dijkstra provides the four distances.";
+        Output: "5.";
+    } {
+        Return This.RunDijkstra(0);
+    }
+
+    Public Function BetweennessCentrality() -> Int
+    Explain {
+        Description: "Count pairs whose unique shortest path has one internal vertex.";
+        Input: "None.";
+        Processing: "Compare endpoint distances with distances through each other vertex.";
+        Output: "2.";
+    } {
+        Return This.Betweenness();
+    }
+
+    Public Function EigenvectorCentrality() -> Int
+    Explain {
+        Description: "One adjacency multiplication of the all-ones vector at vertex 0.";
+        Input: "None.";
+        Processing: "Add the ones on the neighbors of vertex 0.";
+        Output: "2.";
+    } {
+        This.Load();
+        problem = "none";
+        Return This.DegreeOf(0);
+    }
+
+    Public Function KatzCentrality() -> Int
+    Explain {
+        Description: "One Katz step at vertex 0 with attenuation 1.";
+        Input: "None.";
+        Processing: "Add 1 to the neighbor sum.";
+        Output: "3.";
+    } {
+        This.Load();
+        problem = "none";
+        Return 1 + This.DegreeOf(0);
+    }
+
+    Public Function CommunityDetection() -> Int
+    Explain {
+        Description: "Count the two color classes.";
+        Input: "None.";
+        Processing: "A successful 2-coloring is the partition.";
+        Output: "2 when the sample is bipartite, otherwise 1.";
+    } {
+        If (This.TwoColor() == 1) { Return 2; }
+        Return 1;
+    }
+
+    Public Function LabelPropagation() -> Int
+    Explain {
+        Description: "Count labels after one minimum-neighbor pass.";
+        Input: "None.";
+        Processing: "Each vertex adopts the smallest neighbor label.";
+        Output: "2.";
+    } {
+        Return This.LabelCount();
+    }
+
+    Public Function Louvain() -> Int
+    Explain {
+        Description: "Keep the sample in one community.";
+        Input: "None.";
+        Processing: "Moving one vertex off the connected sample removes internal edges.";
+        Output: "1.";
+    } {
+        This.Load();
+        problem = "none";
+        Return 1;
+    }
+
+    Public Function Fault() -> String
+    Explain {
+        Description: "Return the graph problem token.";
+        Input: "None.";
+        Processing: "Read the token left by the last call.";
+        Output: "none, domain, cycle, or exact.";
+    } {
+        Return problem;
+    }
+
+    Private Function Load() -> Int {
+        origin[0] = 0;
+        dest[0] = 1;
+        weight[0] = 1;
+        origin[1] = 1;
+        dest[1] = 0;
+        weight[1] = 1;
+        origin[2] = 0;
+        dest[2] = 2;
+        weight[2] = 2;
+        origin[3] = 2;
+        dest[3] = 0;
+        weight[3] = 2;
+        origin[4] = 1;
+        dest[4] = 3;
+        weight[4] = 1;
+        origin[5] = 3;
+        dest[5] = 1;
+        weight[5] = 1;
+        origin[6] = 2;
+        dest[6] = 3;
+        weight[6] = 1;
+        origin[7] = 3;
+        dest[7] = 2;
+        weight[7] = 1;
+        problem = "none";
+        Return 8;
+    }
+
+    Private Function DegreeOf(Int vertex) -> Int {
+        Int edge = 0;
+        Int count = 0;
+        While (edge < 8) {
+            If (origin[edge] == vertex) { count = count + 1; }
+            edge = edge + 1;
+        }
+        Return count;
+    }
+
+    Private Function HasEdge(Int from, Int toward) -> Int {
+        Int edge = 0;
+        While (edge < 8) {
+            If (origin[edge] == from && dest[edge] == toward) { Return 1; }
+            edge = edge + 1;
+        }
+        Return 0;
+    }
+
+    Private Function EdgeWeight(Int from, Int toward) -> Int {
+        Int edge = 0;
+        While (edge < 8) {
+            If (origin[edge] == from && dest[edge] == toward) { Return weight[edge]; }
+            edge = edge + 1;
+        }
+        Return 0;
+    }
+
+    Private Function UndirectedCount() -> Int {
+        Int edge = 0;
+        Int count = 0;
+        While (edge < 8) {
+            If (origin[edge] < dest[edge]) { count = count + 1; }
+            edge = edge + 1;
+        }
+        Return count;
+    }
+
+    Private Function Reverse(Int edge) -> Int {
+        If (edge % 2 == 0) { Return edge + 1; }
+        Return edge - 1;
+    }
+
+    Private Function BfsSum(Int start) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            seen[i] = 0;
+            i = i + 1;
+        }
+        seen[start] = 1;
+        queue[0] = start;
+        Int head = 0;
+        Int tail = 1;
+        Int place = 1;
+        Int sum = 0;
+        While (head < tail) {
+            Int node = queue[head];
+            head = head + 1;
+            sum = sum + place * node;
+            place = place + 1;
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] == node && seen[dest[edge]] == 0) {
+                    seen[dest[edge]] = 1;
+                    queue[tail] = dest[edge];
+                    tail = tail + 1;
+                }
+                edge = edge + 1;
+            }
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function DfsSum(Int start) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            seen[i] = 0;
+            i = i + 1;
+        }
+        queue[0] = start;
+        Int top = 1;
+        Int place = 1;
+        Int sum = 0;
+        While (top > 0) {
+            top = top - 1;
+            Int node = queue[top];
+            If (seen[node] == 0) {
+                seen[node] = 1;
+                sum = sum + place * node;
+                place = place + 1;
+                Int edge = 7;
+                While (edge >= 0) {
+                    If (origin[edge] == node && seen[dest[edge]] == 0) {
+                        queue[top] = dest[edge];
+                        top = top + 1;
+                    }
+                    edge = edge - 1;
+                }
+            }
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function LimitedCount(Int start, Int limit) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            seen[i] = 0;
+            dist[i] = 0;
+            i = i + 1;
+        }
+        seen[start] = 1;
+        queue[0] = start;
+        Int head = 0;
+        Int tail = 1;
+        Int count = 0;
+        While (head < tail) {
+            Int node = queue[head];
+            head = head + 1;
+            If (dist[node] <= limit) { count = count + 1; }
+            If (dist[node] < limit) {
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == node && seen[dest[edge]] == 0) {
+                        seen[dest[edge]] = 1;
+                        dist[dest[edge]] = dist[node] + 1;
+                        queue[tail] = dest[edge];
+                        tail = tail + 1;
+                    }
+                    edge = edge + 1;
+                }
+            }
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Private Function RunDijkstra(Int source) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            dist[i] = 99;
+            seen[i] = 0;
+            i = i + 1;
+        }
+        dist[source] = 0;
+        Int step = 0;
+        While (step < 4) {
+            Int best = -1;
+            Int bestDist = 99;
+            i = 0;
+            While (i < 4) {
+                If (seen[i] == 0 && dist[i] < bestDist) {
+                    bestDist = dist[i];
+                    best = i;
+                }
+                i = i + 1;
+            }
+            If (best >= 0) {
+                seen[best] = 1;
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == best && dist[best] + weight[edge] < dist[dest[edge]]) {
+                        dist[dest[edge]] = dist[best] + weight[edge];
+                    }
+                    edge = edge + 1;
+                }
+            }
+            step = step + 1;
+        }
+        Int sum = 0;
+        i = 0;
+        While (i < 4) {
+            sum = sum + dist[i];
+            i = i + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function Shortest(Int source, Int goal) -> Int {
+        This.RunDijkstra(source);
+        Return dist[goal];
+    }
+
+    Private Function SetDist(Int index, Int value) -> Int {
+        If (index < 8) { near[index] = value; }
+        If (index >= 8) { far[index - 8] = value; }
+        Return value;
+    }
+
+    Private Function GetDist(Int index) -> Int {
+        If (index < 8) { Return near[index]; }
+        Return far[index - 8];
+    }
+
+    Private Function AllPairs() -> Int {
+        This.Load();
+        Int index = 0;
+        While (index < 16) {
+            This.SetDist(index, 99);
+            index = index + 1;
+        }
+        index = 0;
+        While (index < 4) {
+            This.SetDist(index * 4 + index, 0);
+            index = index + 1;
+        }
+        Int edge = 0;
+        While (edge < 8) {
+            Int slot = origin[edge] * 4 + dest[edge];
+            If (This.GetDist(slot) > weight[edge]) { This.SetDist(slot, weight[edge]); }
+            edge = edge + 1;
+        }
+        Int k = 0;
+        While (k < 4) {
+            Int i = 0;
+            While (i < 4) {
+                Int j = 0;
+                While (j < 4) {
+                    Int via = This.GetDist(i * 4 + k) + This.GetDist(k * 4 + j);
+                    If (This.GetDist(i * 4 + j) > via) { This.SetDist(i * 4 + j, via); }
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            k = k + 1;
+        }
+        Int sum = 0;
+        index = 0;
+        While (index < 16) {
+            sum = sum + This.GetDist(index);
+            index = index + 1;
+        }
+        problem = "none";
+        Return sum;
+    }
+
+    Private Function Root(Int vertex) -> Int {
+        Int guard = 0;
+        While (parent[vertex] != vertex && guard < 8) {
+            parent[vertex] = parent[parent[vertex]];
+            vertex = parent[vertex];
+            guard = guard + 1;
+        }
+        Return vertex;
+    }
+
+    Private Function MstWeight(Int maximum) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            parent[i] = i;
+            seen[i] = 0;
+            i = i + 1;
+        }
+        Int total = 0;
+        Int chosen = 0;
+        While (chosen < 4) {
+            Int bestEdge = -1;
+            Int best = 99;
+            If (maximum == 1) { best = -1; }
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] < dest[edge] && seen[edge] == 0) {
+                    Int take = 0;
+                    If (maximum == 0 && weight[edge] < best) { take = 1; }
+                    If (maximum == 1 && weight[edge] > best) { take = 1; }
+                    If (take == 1) {
+                        best = weight[edge];
+                        bestEdge = edge;
+                    }
+                }
+                edge = edge + 1;
+            }
+            If (bestEdge < 0) { chosen = 4; }
+            If (bestEdge >= 0) {
+                seen[bestEdge] = 1;
+                Int left = This.Root(origin[bestEdge]);
+                Int right = This.Root(dest[bestEdge]);
+                If (left != right) {
+                    parent[right] = left;
+                    total = total + weight[bestEdge];
+                }
+                chosen = chosen + 1;
+            }
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function BoruvkaWeight() -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            parent[i] = i;
+            i = i + 1;
+        }
+        Int total = 0;
+        Int guard = 0;
+        Int merged = 1;
+        While (merged == 1 && guard < 4) {
+            guard = guard + 1;
+            merged = 0;
+            i = 0;
+            While (i < 4) {
+                queue[i] = -1;
+                i = i + 1;
+            }
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] < dest[edge]) {
+                    Int left = This.Root(origin[edge]);
+                    Int right = This.Root(dest[edge]);
+                    If (left != right) {
+                        Int better = 0;
+                        If (queue[left] < 0) { better = 1; }
+                        If (better == 0 && weight[edge] < weight[queue[left]]) { better = 1; }
+                        If (better == 0 && weight[edge] == weight[queue[left]] && edge < queue[left]) { better = 1; }
+                        If (better == 1) { queue[left] = edge; }
+                        better = 0;
+                        If (queue[right] < 0) { better = 1; }
+                        If (better == 0 && weight[edge] < weight[queue[right]]) { better = 1; }
+                        If (better == 0 && weight[edge] == weight[queue[right]] && edge < queue[right]) { better = 1; }
+                        If (better == 1) { queue[right] = edge; }
+                    }
+                }
+                edge = edge + 1;
+            }
+            i = 0;
+            While (i < 4) {
+                Int chosen = queue[i];
+                If (chosen >= 0) {
+                    Int left = This.Root(origin[chosen]);
+                    Int right = This.Root(dest[chosen]);
+                    If (left != right) {
+                        parent[right] = left;
+                        total = total + weight[chosen];
+                        merged = 1;
+                    }
+                }
+                i = i + 1;
+            }
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function Reach(Int start) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            seen[i] = 0;
+            i = i + 1;
+        }
+        seen[start] = 1;
+        queue[0] = start;
+        Int head = 0;
+        Int tail = 1;
+        Int count = 0;
+        While (head < tail) {
+            Int node = queue[head];
+            head = head + 1;
+            count = count + 1;
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] == node && seen[dest[edge]] == 0) {
+                    seen[dest[edge]] = 1;
+                    queue[tail] = dest[edge];
+                    tail = tail + 1;
+                }
+                edge = edge + 1;
+            }
+        }
+        problem = "none";
+        Return count;
+    }
+
+    Private Function InitResidual() -> Int {
+        This.Load();
+        Int edge = 0;
+        While (edge < 8) {
+            residual[edge] = 0;
+            If (origin[edge] < dest[edge]) { residual[edge] = weight[edge]; }
+            edge = edge + 1;
+        }
+        Return residual[0];
+    }
+
+    Private Function SendFlow(Int sink) -> Int {
+        Int bottle = 99;
+        Int walk = sink;
+        Int guard = 0;
+        While (walk != parent[7] && guard < 8) {
+            Int edge = parent[walk];
+            If (edge < 0) { Return 0; }
+            If (residual[edge] < bottle) { bottle = residual[edge]; }
+            walk = origin[edge];
+            guard = guard + 1;
+        }
+        If (bottle == 99 || bottle == 0) { Return 0; }
+        walk = sink;
+        guard = 0;
+        While (walk != parent[7] && guard < 8) {
+            Int edge = parent[walk];
+            Int rev = This.Reverse(edge);
+            residual[edge] = residual[edge] - bottle;
+            residual[rev] = residual[rev] + bottle;
+            walk = origin[edge];
+            guard = guard + 1;
+        }
+        Return bottle;
+    }
+
+    Private Function DfsFlow(Int source, Int sink) -> Int {
+        This.InitResidual();
+        parent[7] = source;
+        Int total = 0;
+        Int guard = 0;
+        While (guard < 8) {
+            Int i = 0;
+            While (i < 4) {
+                seen[i] = 0;
+                parent[i] = -1;
+                dist[i] = 0;
+                i = i + 1;
+            }
+            seen[source] = 1;
+            queue[0] = source;
+            Int top = 1;
+            Int found = 0;
+            While (top > 0 && found == 0) {
+                Int node = queue[top - 1];
+                If (node == sink) { found = 1; }
+                If (found == 0) {
+                    Int advanced = 0;
+                    While (dist[node] < 8 && advanced == 0) {
+                        Int edge = dist[node];
+                        dist[node] = dist[node] + 1;
+                        If (origin[edge] == node && residual[edge] > 0 && seen[dest[edge]] == 0) {
+                            seen[dest[edge]] = 1;
+                            parent[dest[edge]] = edge;
+                            queue[top] = dest[edge];
+                            top = top + 1;
+                            advanced = 1;
+                        }
+                    }
+                    If (advanced == 0) { top = top - 1; }
+                }
+            }
+            If (found == 0) { guard = 8; }
+            If (found == 1) { total = total + This.SendFlow(sink); }
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function BfsFlow(Int source, Int sink) -> Int {
+        This.InitResidual();
+        parent[7] = source;
+        Int total = 0;
+        Int guard = 0;
+        While (guard < 8) {
+            Int i = 0;
+            While (i < 4) {
+                seen[i] = 0;
+                parent[i] = -1;
+                i = i + 1;
+            }
+            seen[source] = 1;
+            queue[0] = source;
+            Int head = 0;
+            Int tail = 1;
+            While (head < tail) {
+                Int node = queue[head];
+                head = head + 1;
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == node && residual[edge] > 0 && seen[dest[edge]] == 0) {
+                        seen[dest[edge]] = 1;
+                        parent[dest[edge]] = edge;
+                        queue[tail] = dest[edge];
+                        tail = tail + 1;
+                    }
+                    edge = edge + 1;
+                }
+            }
+            If (seen[sink] == 0) { guard = 8; }
+            If (seen[sink] == 1) { total = total + This.SendFlow(sink); }
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function DinicFlow(Int source, Int sink) -> Int {
+        This.InitResidual();
+        parent[7] = source;
+        Int total = 0;
+        Int guard = 0;
+        While (guard < 8) {
+            Int i = 0;
+            While (i < 4) {
+                dist[i] = -1;
+                i = i + 1;
+            }
+            dist[source] = 0;
+            queue[0] = source;
+            Int head = 0;
+            Int tail = 1;
+            While (head < tail) {
+                Int node = queue[head];
+                head = head + 1;
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == node && residual[edge] > 0 && dist[dest[edge]] < 0) {
+                        dist[dest[edge]] = dist[node] + 1;
+                        queue[tail] = dest[edge];
+                        tail = tail + 1;
+                    }
+                    edge = edge + 1;
+                }
+            }
+            If (dist[sink] < 0) { guard = 8; }
+            If (dist[sink] >= 0) {
+                i = 0;
+                While (i < 4) {
+                    seen[i] = 0;
+                    i = i + 1;
+                }
+                Int blocking = 1;
+                Int inner = 0;
+                While (blocking == 1 && inner < 8) {
+                    inner = inner + 1;
+                    i = 0;
+                    While (i < 4) {
+                        parent[i] = -1;
+                        queue[i] = 0;
+                        i = i + 1;
+                    }
+                    seen[source] = 1;
+                    near[0] = source;
+                    Int top = 1;
+                    Int found = 0;
+                    While (top > 0 && found == 0) {
+                        Int node = near[top - 1];
+                        If (node == sink) { found = 1; }
+                        If (found == 0) {
+                            Int advanced = 0;
+                            While (queue[node] < 8 && advanced == 0) {
+                                Int edge = queue[node];
+                                queue[node] = queue[node] + 1;
+                                Int next = dest[edge];
+                                If (origin[edge] == node && residual[edge] > 0 && dist[next] == dist[node] + 1 && seen[next] == 0) {
+                                    seen[next] = 1;
+                                    parent[next] = edge;
+                                    near[top] = next;
+                                    top = top + 1;
+                                    advanced = 1;
+                                }
+                            }
+                            If (advanced == 0) {
+                                seen[node] = 0;
+                                top = top - 1;
+                            }
+                        }
+                    }
+                    If (found == 0) { blocking = 0; }
+                    If (found == 1) { total = total + This.SendFlow(sink); }
+                }
+            }
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function PushFlow(Int source, Int sink) -> Int {
+        This.InitResidual();
+        Int i = 0;
+        While (i < 4) {
+            dist[i] = 0;
+            seen[i] = 0;
+            i = i + 1;
+        }
+        dist[source] = 4;
+        Int edge = 0;
+        While (edge < 8) {
+            If (origin[edge] == source && residual[edge] > 0) {
+                Int amount = residual[edge];
+                residual[edge] = 0;
+                residual[This.Reverse(edge)] = residual[This.Reverse(edge)] + amount;
+                seen[dest[edge]] = seen[dest[edge]] + amount;
+            }
+            edge = edge + 1;
+        }
+        Int guard = 0;
+        Int active = 1;
+        While (active == 1 && guard < 32) {
+            guard = guard + 1;
+            active = 0;
+            i = 0;
+            While (i < 4) {
+                If (i != source && i != sink && seen[i] > 0) {
+                    active = 1;
+                    Int moved = 1;
+                    Int spins = 0;
+                    While (seen[i] > 0 && moved == 1 && spins < 8) {
+                        spins = spins + 1;
+                        moved = 0;
+                        edge = 0;
+                        While (edge < 8 && moved == 0) {
+                            If (origin[edge] == i && residual[edge] > 0 && dist[i] == dist[dest[edge]] + 1) {
+                                Int amount = seen[i];
+                                If (residual[edge] < amount) { amount = residual[edge]; }
+                                residual[edge] = residual[edge] - amount;
+                                residual[This.Reverse(edge)] = residual[This.Reverse(edge)] + amount;
+                                seen[i] = seen[i] - amount;
+                                seen[dest[edge]] = seen[dest[edge]] + amount;
+                                moved = 1;
+                            }
+                            edge = edge + 1;
+                        }
+                        If (moved == 0) {
+                            Int low = 99;
+                            edge = 0;
+                            While (edge < 8) {
+                                If (origin[edge] == i && residual[edge] > 0 && dist[dest[edge]] < low) {
+                                    low = dist[dest[edge]];
+                                }
+                                edge = edge + 1;
+                            }
+                            If (low == 99) { spins = 8; }
+                            If (low < 99) { dist[i] = low + 1; }
+                            moved = 1;
+                        }
+                    }
+                }
+                i = i + 1;
+            }
+        }
+        problem = "none";
+        Return seen[sink];
+    }
+
+    Private Function MinCost(Int source, Int sink) -> Int {
+        This.InitResidual();
+        parent[7] = source;
+        Int total = 0;
+        Int guard = 0;
+        While (guard < 4) {
+            Int i = 0;
+            While (i < 4) {
+                dist[i] = 99;
+                parent[i] = -1;
+                i = i + 1;
+            }
+            dist[source] = 0;
+            Int pass = 0;
+            While (pass < 4) {
+                Int edge = 0;
+                While (edge < 8) {
+                    If (residual[edge] > 0 && dist[origin[edge]] < 99) {
+                        Int cost = weight[edge];
+                        If (origin[edge] > dest[edge]) { cost = 0 - weight[edge]; }
+                        If (dist[origin[edge]] + cost < dist[dest[edge]]) {
+                            dist[dest[edge]] = dist[origin[edge]] + cost;
+                            parent[dest[edge]] = edge;
+                        }
+                    }
+                    edge = edge + 1;
+                }
+                pass = pass + 1;
+            }
+            If (dist[sink] >= 99) { guard = 4; }
+            If (dist[sink] < 99) {
+                Int bottle = This.SendFlow(sink);
+                total = total + dist[sink] * bottle;
+            }
+            guard = guard + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function MatchSize() -> Int {
+        This.Load();
+        parent[1] = -1;
+        parent[2] = -1;
+        Int left = 0;
+        Int matched = 0;
+        While (left < 2) {
+            Int who = 0;
+            If (left == 1) { who = 3; }
+            Int i = 0;
+            While (i < 4) {
+                seen[i] = 0;
+                i = i + 1;
+            }
+            Int edge = 0;
+            Int found = 0;
+            While (edge < 8 && found == 0) {
+                If (origin[edge] == who) {
+                    Int accept = dest[edge];
+                    If (seen[accept] == 0 && (accept == 1 || accept == 2)) {
+                        seen[accept] = 1;
+                        Int held = parent[accept];
+                        Int free = 0;
+                        If (held < 0) { free = 1; }
+                        If (free == 0) {
+                            Int other = 0;
+                            While (other < 8 && free == 0) {
+                                If (origin[other] == held && dest[other] != accept && (dest[other] == 1 || dest[other] == 2) && parent[dest[other]] < 0) {
+                                    parent[dest[other]] = held;
+                                    free = 1;
+                                }
+                                other = other + 1;
+                            }
+                        }
+                        If (free == 1) {
+                            parent[accept] = who;
+                            found = 1;
+                            matched = matched + 1;
+                        }
+                    }
+                }
+                edge = edge + 1;
+            }
+            left = left + 1;
+        }
+        problem = "none";
+        Return matched;
+    }
+
+    Private Function AssignCost() -> Int {
+        This.Load();
+        Int first = This.EdgeWeight(0, 1) + This.EdgeWeight(3, 2);
+        Int second = This.EdgeWeight(0, 2) + This.EdgeWeight(3, 1);
+        problem = "none";
+        If (first < second) { Return first; }
+        Return second;
+    }
+
+    Private Function TwoColor() -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            dist[i] = -1;
+            seen[i] = 0;
+            i = i + 1;
+        }
+        dist[0] = 0;
+        seen[0] = 1;
+        queue[0] = 0;
+        Int head = 0;
+        Int tail = 1;
+        While (head < tail) {
+            Int node = queue[head];
+            head = head + 1;
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] == node) {
+                    Int next = dest[edge];
+                    If (dist[next] < 0) {
+                        dist[next] = 1 - dist[node];
+                        seen[next] = 1;
+                        queue[tail] = next;
+                        tail = tail + 1;
+                    }
+                    If (dist[next] == dist[node]) {
+                        problem = "domain";
+                        Return 0;
+                    }
+                }
+                edge = edge + 1;
+            }
+        }
+        problem = "none";
+        Return 1;
+    }
+
+    Private Function EulerWalk() -> Int {
+        This.Load();
+        Int edge = 0;
+        While (edge < 8) {
+            seen[edge] = 0;
+            edge = edge + 1;
+        }
+        Int current = 0;
+        Int walked = 0;
+        Int guard = 0;
+        Int moving = 1;
+        While (moving == 1 && guard < 8) {
+            guard = guard + 1;
+            edge = 0;
+            Int found = 0;
+            While (edge < 8 && found == 0) {
+                If (origin[edge] == current && seen[edge] == 0) {
+                    seen[edge] = 1;
+                    seen[This.Reverse(edge)] = 1;
+                    current = dest[edge];
+                    walked = walked + 1;
+                    found = 1;
+                }
+                edge = edge + 1;
+            }
+            If (found == 0) { moving = 0; }
+        }
+        problem = "none";
+        Return walked;
+    }
+
+    Private Function HamiltonWalk(Int closed) -> Int {
+        This.Load();
+        Int a = 0;
+        While (a < 4) {
+            Int b = 0;
+            While (b < 4) {
+                Int c = 0;
+                While (c < 4) {
+                    Int d = 0;
+                    While (d < 4) {
+                        Int distinct = 0;
+                        If (a != b && a != c && a != d && b != c && b != d && c != d) { distinct = 1; }
+                        If (distinct == 1 && This.HasEdge(a, b) == 1 && This.HasEdge(b, c) == 1 && This.HasEdge(c, d) == 1) {
+                            Int linked = 1;
+                            If (closed == 1 && This.HasEdge(d, a) == 0) { linked = 0; }
+                            If (linked == 1) {
+                                problem = "none";
+                                Return 4;
+                            }
+                        }
+                        d = d + 1;
+                    }
+                    c = c + 1;
+                }
+                b = b + 1;
+            }
+            a = a + 1;
+        }
+        problem = "domain";
+        Return 0;
+    }
+
+    Private Function BridgeCount() -> Int {
+        This.Load();
+        Int banned = 0;
+        Int bridges = 0;
+        While (banned < 8) {
+            If (origin[banned] < dest[banned]) {
+                Int i = 0;
+                While (i < 4) {
+                    seen[i] = 0;
+                    i = i + 1;
+                }
+                seen[0] = 1;
+                queue[0] = 0;
+                Int head = 0;
+                Int tail = 1;
+                Int count = 0;
+                While (head < tail) {
+                    Int node = queue[head];
+                    head = head + 1;
+                    count = count + 1;
+                    Int edge = 0;
+                    While (edge < 8) {
+                        Int skip = 0;
+                        If (edge == banned) { skip = 1; }
+                        If (edge == This.Reverse(banned)) { skip = 1; }
+                        If (skip == 0 && origin[edge] == node && seen[dest[edge]] == 0) {
+                            seen[dest[edge]] = 1;
+                            queue[tail] = dest[edge];
+                            tail = tail + 1;
+                        }
+                        edge = edge + 1;
+                    }
+                }
+                If (count < 4) { bridges = bridges + 1; }
+            }
+            banned = banned + 1;
+        }
+        problem = "none";
+        Return bridges;
+    }
+
+    Private Function CutCount() -> Int {
+        Int removed = 0;
+        Int cuts = 0;
+        While (removed < 4) {
+            This.Load();
+            Int start = 0;
+            If (removed == 0) { start = 1; }
+            Int i = 0;
+            While (i < 4) {
+                seen[i] = 0;
+                i = i + 1;
+            }
+            seen[removed] = 1;
+            seen[start] = 1;
+            queue[0] = start;
+            Int head = 0;
+            Int tail = 1;
+            Int count = 0;
+            While (head < tail) {
+                Int node = queue[head];
+                head = head + 1;
+                count = count + 1;
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == node && seen[dest[edge]] == 0) {
+                        seen[dest[edge]] = 1;
+                        queue[tail] = dest[edge];
+                        tail = tail + 1;
+                    }
+                    edge = edge + 1;
+                }
+            }
+            If (count < 3) { cuts = cuts + 1; }
+            removed = removed + 1;
+        }
+        problem = "none";
+        Return cuts;
+    }
+
+    Private Function Eccentricity(Int vertex) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            seen[i] = 0;
+            dist[i] = 0;
+            i = i + 1;
+        }
+        seen[vertex] = 1;
+        queue[0] = vertex;
+        Int head = 0;
+        Int tail = 1;
+        Int farHop = 0;
+        While (head < tail) {
+            Int node = queue[head];
+            head = head + 1;
+            If (dist[node] > farHop) { farHop = dist[node]; }
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] == node && seen[dest[edge]] == 0) {
+                    seen[dest[edge]] = 1;
+                    dist[dest[edge]] = dist[node] + 1;
+                    queue[tail] = dest[edge];
+                    tail = tail + 1;
+                }
+                edge = edge + 1;
+            }
+        }
+        problem = "none";
+        Return farHop;
+    }
+
+    Private Function Girth() -> Int {
+        Int best = 99;
+        Int start = 0;
+        While (start < 4) {
+            This.Load();
+            Int i = 0;
+            While (i < 4) {
+                seen[i] = 0;
+                dist[i] = 0;
+                parent[i] = -1;
+                i = i + 1;
+            }
+            seen[start] = 1;
+            queue[0] = start;
+            Int head = 0;
+            Int tail = 1;
+            While (head < tail) {
+                Int node = queue[head];
+                head = head + 1;
+                Int edge = 0;
+                While (edge < 8) {
+                    If (origin[edge] == node) {
+                        Int next = dest[edge];
+                        Int known = seen[next];
+                        If (known == 0) {
+                            seen[next] = 1;
+                            dist[next] = dist[node] + 1;
+                            parent[next] = node;
+                            queue[tail] = next;
+                            tail = tail + 1;
+                        }
+                        If (known == 1 && parent[node] != next) {
+                            Int length = dist[node] + dist[next] + 1;
+                            If (length < best) { best = length; }
+                        }
+                    }
+                    edge = edge + 1;
+                }
+            }
+            start = start + 1;
+        }
+        problem = "none";
+        Return best;
+    }
+
+    Private Function Betweenness() -> Int {
+        Int total = 0;
+        Int source = 0;
+        While (source < 4) {
+            Int goal = source + 1;
+            While (goal < 4) {
+                Int distance = This.Shortest(source, goal);
+                Int internals = 0;
+                Int vertex = 0;
+                While (vertex < 4) {
+                    If (vertex != source && vertex != goal) {
+                        Int left = This.Shortest(source, vertex);
+                        Int right = This.Shortest(vertex, goal);
+                        If (left + right == distance) { internals = internals + 1; }
+                    }
+                    vertex = vertex + 1;
+                }
+                If (internals == 1) { total = total + 1; }
+                goal = goal + 1;
+            }
+            source = source + 1;
+        }
+        problem = "none";
+        Return total;
+    }
+
+    Private Function RankOf(Int vertex) -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            queue[i] = 2;
+            i = i + 1;
+        }
+        i = 0;
+        While (i < 4) {
+            Int incoming = 0;
+            Int edge = 0;
+            While (edge < 8) {
+                If (dest[edge] == i) {
+                    incoming = incoming + queue[origin[edge]] / This.DegreeOf(origin[edge]);
+                }
+                edge = edge + 1;
+            }
+            parent[i] = incoming;
+            i = i + 1;
+        }
+        problem = "none";
+        Return parent[vertex];
+    }
+
+    Private Function LabelCount() -> Int {
+        This.Load();
+        Int i = 0;
+        While (i < 4) {
+            queue[i] = i;
+            i = i + 1;
+        }
+        i = 0;
+        While (i < 4) {
+            Int best = 99;
+            Int edge = 0;
+            While (edge < 8) {
+                If (origin[edge] == i && queue[dest[edge]] < best) { best = queue[dest[edge]]; }
+                edge = edge + 1;
+            }
+            parent[i] = best;
+            i = i + 1;
+        }
+        i = 0;
+        Int distinct = 0;
+        While (i < 4) {
+            Int earlier = 0;
+            Int j = 0;
+            While (j < i) {
+                If (parent[j] == parent[i]) { earlier = 1; }
+                j = j + 1;
+            }
+            If (earlier == 0) { distinct = distinct + 1; }
+            i = i + 1;
+        }
+        problem = "none";
+        Return distinct;
+    }
+}

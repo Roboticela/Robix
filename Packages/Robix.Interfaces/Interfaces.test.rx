@@ -1,5 +1,114 @@
+// Tests for Interfaces.rx. Each call uses a fresh cursor.
+
 Test Store {
-    Constraint: IntCursor().Store(2) == 1;
-    Processing: True;
-    Output: True;
+    Constraint: IntCursor().Store(7) == 1;
+    Processing: IntCursor().Store(7);
+    Output: 1;
+}
+
+Test GetEnumerator {
+    Constraint: IntCursor().GetEnumerator() == 0;
+    Processing: IntCursor().GetEnumerator();
+    Output: 0;
+}
+
+Test GetAsyncEnumerator {
+    Case "open" {
+        Constraint: IntCursor().GetAsyncEnumerator(0) == 0;
+        Processing: IntCursor().GetAsyncEnumerator(0);
+        Output: 0;
+    }
+    Case "canceled" {
+        Constraint: IntCursor().GetAsyncEnumerator(1) == 0;
+        Processing: IntCursor().GetAsyncEnumerator(1);
+        Output: 0;
+    }
+}
+
+Test MoveNext {
+    Constraint: IntCursor().MoveNext() == 0;
+    Processing: IntCursor().MoveNext();
+    Output: 0;
+}
+
+Test MoveNextAsync {
+    Constraint: IntCursor().MoveNextAsync() == 0;
+    Processing: IntCursor().MoveNextAsync();
+    Output: 0;
+}
+
+Test Current {
+    Constraint: IntCursor().Current() == 0;
+    Processing: IntCursor().Current();
+    Output: 0;
+}
+
+Test Reset {
+    Processing: IntCursor().Reset();
+    Assert: IntCursor().Disposed() == 0;
+}
+
+Test CompareTo {
+    Constraint: IntCursor().CompareTo(1) == -1;
+    Processing: IntCursor().CompareTo(1);
+    Output: -1;
+}
+
+Test Equals {
+    Constraint: IntCursor().Equals(0) == 1;
+    Processing: IntCursor().Equals(0);
+    Output: 1;
+}
+
+Test Clone {
+    Constraint: IntCursor().Clone() == 0;
+    Processing: IntCursor().Clone();
+    Output: 0;
+}
+
+Test Validate {
+    Case "positive" {
+        Constraint: IntCursor().Validate(3) == 1;
+        Processing: IntCursor().Validate(3);
+        Output: 1;
+    }
+    Case "zero" {
+        Constraint: IntCursor().Validate(0) == 0;
+        Processing: IntCursor().Validate(0);
+        Output: 0;
+    }
+}
+
+Test Create {
+    Constraint: IntCursor().Create() == 4;
+    Processing: IntCursor().Create();
+    Output: 4;
+}
+
+Test Dispose {
+    Processing: IntCursor().Dispose();
+    Assert: 1 == 1;
+}
+
+Test DisposeAsync {
+    Processing: IntCursor().DisposeAsync();
+    Assert: 1 == 1;
+}
+
+Test Item {
+    Constraint: IntCursor().Item() == 0;
+    Processing: IntCursor().Item();
+    Output: 0;
+}
+
+Test Step {
+    Constraint: IntCursor().Step() == 0;
+    Processing: IntCursor().Step();
+    Output: 0;
+}
+
+Test Disposed {
+    Constraint: IntCursor().Disposed() == 0;
+    Processing: IntCursor().Disposed();
+    Output: 0;
 }

@@ -1,0 +1,769 @@
+// Tests for Graphs.rx. Each call uses a fresh desk.
+Test CreateGraph {
+    Constraint: GraphDesk().CreateGraph() == 4;
+    Processing: GraphDesk().CreateGraph();
+    Output: 4;
+}
+
+Test CreateDirectedGraph {
+    Constraint: GraphDesk().CreateDirectedGraph() == 8;
+    Processing: GraphDesk().CreateDirectedGraph();
+    Output: 8;
+}
+
+Test CreateUndirectedGraph {
+    Constraint: GraphDesk().CreateUndirectedGraph() == 4;
+    Processing: GraphDesk().CreateUndirectedGraph();
+    Output: 4;
+}
+
+Test AddVertex {
+    Constraint: GraphDesk().AddVertex(2) == 2;
+    Processing: GraphDesk().AddVertex(2);
+    Output: 2;
+}
+
+Test AddEdge {
+    Constraint: GraphDesk().AddEdge(0, 1) == 1;
+    Processing: GraphDesk().AddEdge(0, 1);
+    Output: 1;
+}
+
+Test AddWeightedEdge {
+    Constraint: GraphDesk().AddWeightedEdge(0, 2, 2) == 2;
+    Processing: GraphDesk().AddWeightedEdge(0, 2, 2);
+    Output: 2;
+}
+
+Test RemoveVertex {
+    Constraint: GraphDesk().RemoveVertex(3) == 3;
+    Processing: GraphDesk().RemoveVertex(3);
+    Output: 3;
+}
+
+Test RemoveEdge {
+    Constraint: GraphDesk().RemoveEdge(0, 1) == 3;
+    Processing: GraphDesk().RemoveEdge(0, 1);
+    Output: 3;
+}
+
+Test GetVertices {
+    Constraint: GraphDesk().GetVertices() == 4;
+    Processing: GraphDesk().GetVertices();
+    Output: 4;
+}
+
+Test GetEdges {
+    Constraint: GraphDesk().GetEdges() == 8;
+    Processing: GraphDesk().GetEdges();
+    Output: 8;
+}
+
+Test GetNeighbors {
+    Constraint: GraphDesk().GetNeighbors(0) == 2;
+    Processing: GraphDesk().GetNeighbors(0);
+    Output: 2;
+}
+
+Test GetDegree {
+    Constraint: GraphDesk().GetDegree(0) == 2;
+    Processing: GraphDesk().GetDegree(0);
+    Output: 2;
+}
+
+Test GetInDegree {
+    Constraint: GraphDesk().GetInDegree(0) == 2;
+    Processing: GraphDesk().GetInDegree(0);
+    Output: 2;
+}
+
+Test GetOutDegree {
+    Constraint: GraphDesk().GetOutDegree(0) == 2;
+    Processing: GraphDesk().GetOutDegree(0);
+    Output: 2;
+}
+
+Test BFS {
+    Constraint: GraphDesk().BFS(0) == 20;
+    Processing: GraphDesk().BFS(0);
+    Output: 20;
+}
+
+Test DFS {
+    Constraint: GraphDesk().DFS(0) == 19;
+    Processing: GraphDesk().DFS(0);
+    Output: 19;
+}
+
+Test IterativeDFS {
+    Constraint: GraphDesk().IterativeDFS(0) == 19;
+    Processing: GraphDesk().IterativeDFS(0);
+    Output: 19;
+}
+
+Test RecursiveDFS {
+    Constraint: GraphDesk().RecursiveDFS(0) == 19;
+    Processing: GraphDesk().RecursiveDFS(0);
+    Output: 19;
+}
+
+Test BidirectionalBFS {
+    Constraint: GraphDesk().BidirectionalBFS(0, 3) == 2;
+    Processing: GraphDesk().BidirectionalBFS(0, 3);
+    Output: 2;
+}
+
+Test DepthLimitedSearch {
+    Constraint: GraphDesk().DepthLimitedSearch(0, 1) == 3;
+    Processing: GraphDesk().DepthLimitedSearch(0, 1);
+    Output: 3;
+}
+
+Test IterativeDeepeningDFS {
+    Constraint: GraphDesk().IterativeDeepeningDFS(0) == 2;
+    Processing: GraphDesk().IterativeDeepeningDFS(0);
+    Output: 2;
+}
+
+Test TopologicalSort {
+    Constraint: GraphDesk().TopologicalSort() == 0;
+    Processing: GraphDesk().TopologicalSort();
+    Output: 0;
+}
+
+Test Dijkstra {
+    Constraint: GraphDesk().Dijkstra(0) == 5;
+    Processing: GraphDesk().Dijkstra(0);
+    Output: 5;
+}
+
+Test BellmanFord {
+    Constraint: GraphDesk().BellmanFord(0) == 5;
+    Processing: GraphDesk().BellmanFord(0);
+    Output: 5;
+}
+
+Test FloydWarshall {
+    Constraint: GraphDesk().FloydWarshall() == 18;
+    Processing: GraphDesk().FloydWarshall();
+    Output: 18;
+}
+
+Test Johnson {
+    Constraint: GraphDesk().Johnson(0) == 18;
+    Processing: GraphDesk().Johnson(0);
+    Output: 18;
+}
+
+Test AStar {
+    Constraint: GraphDesk().AStar(0, 3) == 2;
+    Processing: GraphDesk().AStar(0, 3);
+    Output: 2;
+}
+
+Test IDAStar {
+    Constraint: GraphDesk().IDAStar(0, 3) == 2;
+    Processing: GraphDesk().IDAStar(0, 3);
+    Output: 2;
+}
+
+Test BidirectionalDijkstra {
+    Constraint: GraphDesk().BidirectionalDijkstra(0, 3) == 2;
+    Processing: GraphDesk().BidirectionalDijkstra(0, 3);
+    Output: 2;
+}
+
+Test ZeroOneBFS {
+    Constraint: GraphDesk().ZeroOneBFS(0) == 0;
+    Processing: GraphDesk().ZeroOneBFS(0);
+    Output: 0;
+}
+
+Test ShortestPathDAG {
+    Constraint: GraphDesk().ShortestPathDAG(0) == 0;
+    Processing: GraphDesk().ShortestPathDAG(0);
+    Output: 0;
+}
+
+Test FindShortestPath {
+    Constraint: GraphDesk().FindShortestPath(0, 3) == 2;
+    Processing: GraphDesk().FindShortestPath(0, 3);
+    Output: 2;
+}
+
+Test FindAllShortestPaths {
+    Constraint: GraphDesk().FindAllShortestPaths(0, 3) == 1;
+    Processing: GraphDesk().FindAllShortestPaths(0, 3);
+    Output: 1;
+}
+
+Test Kruskal {
+    Constraint: GraphDesk().Kruskal() == 3;
+    Processing: GraphDesk().Kruskal();
+    Output: 3;
+}
+
+Test Prim {
+    Constraint: GraphDesk().Prim() == 3;
+    Processing: GraphDesk().Prim();
+    Output: 3;
+}
+
+Test Boruvka {
+    Constraint: GraphDesk().Boruvka() == 3;
+    Processing: GraphDesk().Boruvka();
+    Output: 3;
+}
+
+Test MinimumSpanningTree {
+    Constraint: GraphDesk().MinimumSpanningTree() == 3;
+    Processing: GraphDesk().MinimumSpanningTree();
+    Output: 3;
+}
+
+Test MaximumSpanningTree {
+    Constraint: GraphDesk().MaximumSpanningTree() == 4;
+    Processing: GraphDesk().MaximumSpanningTree();
+    Output: 4;
+}
+
+Test MinimumSpanningForest {
+    Constraint: GraphDesk().MinimumSpanningForest() == 3;
+    Processing: GraphDesk().MinimumSpanningForest();
+    Output: 3;
+}
+
+Test IsConnected {
+    Constraint: GraphDesk().IsConnected() == 1;
+    Processing: GraphDesk().IsConnected();
+    Output: 1;
+}
+
+Test IsStronglyConnected {
+    Constraint: GraphDesk().IsStronglyConnected() == 1;
+    Processing: GraphDesk().IsStronglyConnected();
+    Output: 1;
+}
+
+Test ConnectedComponents {
+    Constraint: GraphDesk().ConnectedComponents() == 1;
+    Processing: GraphDesk().ConnectedComponents();
+    Output: 1;
+}
+
+Test StronglyConnectedComponents {
+    Constraint: GraphDesk().StronglyConnectedComponents() == 1;
+    Processing: GraphDesk().StronglyConnectedComponents();
+    Output: 1;
+}
+
+Test WeaklyConnectedComponents {
+    Constraint: GraphDesk().WeaklyConnectedComponents() == 1;
+    Processing: GraphDesk().WeaklyConnectedComponents();
+    Output: 1;
+}
+
+Test TarjanSCC {
+    Constraint: GraphDesk().TarjanSCC() == 1;
+    Processing: GraphDesk().TarjanSCC();
+    Output: 1;
+}
+
+Test KosarajuSCC {
+    Constraint: GraphDesk().KosarajuSCC() == 1;
+    Processing: GraphDesk().KosarajuSCC();
+    Output: 1;
+}
+
+Test FindBridges {
+    Constraint: GraphDesk().FindBridges() == 0;
+    Processing: GraphDesk().FindBridges();
+    Output: 0;
+}
+
+Test FindArticulationPoints {
+    Constraint: GraphDesk().FindArticulationPoints() == 0;
+    Processing: GraphDesk().FindArticulationPoints();
+    Output: 0;
+}
+
+Test FindBiconnectedComponents {
+    Constraint: GraphDesk().FindBiconnectedComponents() == 1;
+    Processing: GraphDesk().FindBiconnectedComponents();
+    Output: 1;
+}
+
+Test HasCycle {
+    Constraint: GraphDesk().HasCycle() == 1;
+    Processing: GraphDesk().HasCycle();
+    Output: 1;
+}
+
+Test FindCycle {
+    Constraint: GraphDesk().FindCycle() == 4;
+    Processing: GraphDesk().FindCycle();
+    Output: 4;
+}
+
+Test FindAllCycles {
+    Constraint: GraphDesk().FindAllCycles() == 1;
+    Processing: GraphDesk().FindAllCycles();
+    Output: 1;
+}
+
+Test DetectNegativeCycle {
+    Constraint: GraphDesk().DetectNegativeCycle() == 0;
+    Processing: GraphDesk().DetectNegativeCycle();
+    Output: 0;
+}
+
+Test FindEulerianPath {
+    Constraint: GraphDesk().FindEulerianPath() == 4;
+    Processing: GraphDesk().FindEulerianPath();
+    Output: 4;
+}
+
+Test FindEulerianCircuit {
+    Constraint: GraphDesk().FindEulerianCircuit() == 4;
+    Processing: GraphDesk().FindEulerianCircuit();
+    Output: 4;
+}
+
+Test FindHamiltonianPath {
+    Constraint: GraphDesk().FindHamiltonianPath() == 4;
+    Processing: GraphDesk().FindHamiltonianPath();
+    Output: 4;
+}
+
+Test FindHamiltonianCycle {
+    Constraint: GraphDesk().FindHamiltonianCycle() == 4;
+    Processing: GraphDesk().FindHamiltonianCycle();
+    Output: 4;
+}
+
+Test FordFulkerson {
+    Constraint: GraphDesk().FordFulkerson(0, 3) == 2;
+    Processing: GraphDesk().FordFulkerson(0, 3);
+    Output: 2;
+}
+
+Test EdmondsKarp {
+    Constraint: GraphDesk().EdmondsKarp(0, 3) == 2;
+    Processing: GraphDesk().EdmondsKarp(0, 3);
+    Output: 2;
+}
+
+Test Dinic {
+    Constraint: GraphDesk().Dinic(0, 3) == 2;
+    Processing: GraphDesk().Dinic(0, 3);
+    Output: 2;
+}
+
+Test PushRelabel {
+    Constraint: GraphDesk().PushRelabel(0, 3) == 2;
+    Processing: GraphDesk().PushRelabel(0, 3);
+    Output: 2;
+}
+
+Test MaximumFlow {
+    Constraint: GraphDesk().MaximumFlow(0, 3) == 2;
+    Processing: GraphDesk().MaximumFlow(0, 3);
+    Output: 2;
+}
+
+Test MinimumCut {
+    Constraint: GraphDesk().MinimumCut(0, 3) == 2;
+    Processing: GraphDesk().MinimumCut(0, 3);
+    Output: 2;
+}
+
+Test MinimumCostFlow {
+    Constraint: GraphDesk().MinimumCostFlow(0, 3) == 5;
+    Processing: GraphDesk().MinimumCostFlow(0, 3);
+    Output: 5;
+}
+
+Test MaximumMatching {
+    Constraint: GraphDesk().MaximumMatching() == 2;
+    Processing: GraphDesk().MaximumMatching();
+    Output: 2;
+}
+
+Test BipartiteMatching {
+    Constraint: GraphDesk().BipartiteMatching() == 2;
+    Processing: GraphDesk().BipartiteMatching();
+    Output: 2;
+}
+
+Test HopcroftKarp {
+    Constraint: GraphDesk().HopcroftKarp() == 2;
+    Processing: GraphDesk().HopcroftKarp();
+    Output: 2;
+}
+
+Test HungarianAlgorithm {
+    Constraint: GraphDesk().HungarianAlgorithm() == 2;
+    Processing: GraphDesk().HungarianAlgorithm();
+    Output: 2;
+}
+
+Test StableMatching {
+    Constraint: GraphDesk().StableMatching() == 2;
+    Processing: GraphDesk().StableMatching();
+    Output: 2;
+}
+
+Test IsBipartite {
+    Constraint: GraphDesk().IsBipartite() == 1;
+    Processing: GraphDesk().IsBipartite();
+    Output: 1;
+}
+
+Test IsAcyclic {
+    Constraint: GraphDesk().IsAcyclic() == 0;
+    Processing: GraphDesk().IsAcyclic();
+    Output: 0;
+}
+
+Test IsTree {
+    Constraint: GraphDesk().IsTree() == 0;
+    Processing: GraphDesk().IsTree();
+    Output: 0;
+}
+
+Test IsPlanar {
+    Constraint: GraphDesk().IsPlanar() == 1;
+    Processing: GraphDesk().IsPlanar();
+    Output: 1;
+}
+
+Test IsComplete {
+    Constraint: GraphDesk().IsComplete() == 0;
+    Processing: GraphDesk().IsComplete();
+    Output: 0;
+}
+
+Test IsRegular {
+    Constraint: GraphDesk().IsRegular() == 1;
+    Processing: GraphDesk().IsRegular();
+    Output: 1;
+}
+
+Test IsEulerian {
+    Constraint: GraphDesk().IsEulerian() == 1;
+    Processing: GraphDesk().IsEulerian();
+    Output: 1;
+}
+
+Test IsHamiltonian {
+    Constraint: GraphDesk().IsHamiltonian() == 1;
+    Processing: GraphDesk().IsHamiltonian();
+    Output: 1;
+}
+
+Test GraphDensity {
+    Constraint: GraphDesk().GraphDensity() == 0;
+    Processing: GraphDesk().GraphDensity();
+    Output: 0;
+}
+
+Test GraphDiameter {
+    Constraint: GraphDesk().GraphDiameter() == 2;
+    Processing: GraphDesk().GraphDiameter();
+    Output: 2;
+}
+
+Test GraphRadius {
+    Constraint: GraphDesk().GraphRadius() == 2;
+    Processing: GraphDesk().GraphRadius();
+    Output: 2;
+}
+
+Test GraphGirth {
+    Constraint: GraphDesk().GraphGirth() == 4;
+    Processing: GraphDesk().GraphGirth();
+    Output: 4;
+}
+
+Test PageRank {
+    Constraint: GraphDesk().PageRank() == 2;
+    Processing: GraphDesk().PageRank();
+    Output: 2;
+}
+
+Test DegreeCentrality {
+    Constraint: GraphDesk().DegreeCentrality() == 8;
+    Processing: GraphDesk().DegreeCentrality();
+    Output: 8;
+}
+
+Test ClosenessCentrality {
+    Constraint: GraphDesk().ClosenessCentrality() == 5;
+    Processing: GraphDesk().ClosenessCentrality();
+    Output: 5;
+}
+
+Test BetweennessCentrality {
+    Constraint: GraphDesk().BetweennessCentrality() == 2;
+    Processing: GraphDesk().BetweennessCentrality();
+    Output: 2;
+}
+
+Test EigenvectorCentrality {
+    Constraint: GraphDesk().EigenvectorCentrality() == 2;
+    Processing: GraphDesk().EigenvectorCentrality();
+    Output: 2;
+}
+
+Test KatzCentrality {
+    Constraint: GraphDesk().KatzCentrality() == 3;
+    Processing: GraphDesk().KatzCentrality();
+    Output: 3;
+}
+
+Test CommunityDetection {
+    Constraint: GraphDesk().CommunityDetection() == 2;
+    Processing: GraphDesk().CommunityDetection();
+    Output: 2;
+}
+
+Test LabelPropagation {
+    Constraint: GraphDesk().LabelPropagation() == 2;
+    Processing: GraphDesk().LabelPropagation();
+    Output: 2;
+}
+
+Test Louvain {
+    Constraint: GraphDesk().Louvain() == 1;
+    Processing: GraphDesk().Louvain();
+    Output: 1;
+}
+
+Test Fault {
+    Constraint: GraphDesk().Fault() == "none";
+    Processing: GraphDesk().Fault();
+    Output: "none";
+}
+
+Test Load {
+    Constraint: GraphDesk().Load() == 8;
+    Processing: GraphDesk().Load();
+    Output: 8;
+}
+
+Test DegreeOf {
+    Constraint: GraphDesk().DegreeOf(0) == 2;
+    Processing: GraphDesk().DegreeOf(0);
+    Output: 2;
+}
+
+Test HasEdge {
+    Constraint: GraphDesk().HasEdge(0, 1) == 1;
+    Processing: GraphDesk().HasEdge(0, 1);
+    Output: 1;
+}
+
+Test EdgeWeight {
+    Constraint: GraphDesk().EdgeWeight(0, 2) == 2;
+    Processing: GraphDesk().EdgeWeight(0, 2);
+    Output: 2;
+}
+
+Test UndirectedCount {
+    Constraint: GraphDesk().UndirectedCount() == 4;
+    Processing: GraphDesk().UndirectedCount();
+    Output: 4;
+}
+
+Test Reverse {
+    Constraint: GraphDesk().Reverse(0) == 1;
+    Processing: GraphDesk().Reverse(0);
+    Output: 1;
+}
+
+Test BfsSum {
+    Constraint: GraphDesk().BfsSum(0) == 20;
+    Processing: GraphDesk().BfsSum(0);
+    Output: 20;
+}
+
+Test DfsSum {
+    Constraint: GraphDesk().DfsSum(0) == 19;
+    Processing: GraphDesk().DfsSum(0);
+    Output: 19;
+}
+
+Test LimitedCount {
+    Constraint: GraphDesk().LimitedCount(0, 1) == 3;
+    Processing: GraphDesk().LimitedCount(0, 1);
+    Output: 3;
+}
+
+Test RunDijkstra {
+    Constraint: GraphDesk().RunDijkstra(0) == 5;
+    Processing: GraphDesk().RunDijkstra(0);
+    Output: 5;
+}
+
+Test Shortest {
+    Constraint: GraphDesk().Shortest(0, 3) == 2;
+    Processing: GraphDesk().Shortest(0, 3);
+    Output: 2;
+}
+
+Test SetDist {
+    Constraint: GraphDesk().SetDist(3, 4) == 4;
+    Processing: GraphDesk().SetDist(3, 4);
+    Output: 4;
+}
+
+Test GetDist {
+    Constraint: GraphDesk().GetDist(0) == 0;
+    Processing: GraphDesk().GetDist(0);
+    Output: 0;
+}
+
+Test AllPairs {
+    Constraint: GraphDesk().AllPairs() == 18;
+    Processing: GraphDesk().AllPairs();
+    Output: 18;
+}
+
+Test Root {
+    Constraint: GraphDesk().Root(0) == 0;
+    Processing: GraphDesk().Root(0);
+    Output: 0;
+}
+
+Test MstWeight {
+    Constraint: GraphDesk().MstWeight(0) == 3;
+    Processing: GraphDesk().MstWeight(0);
+    Output: 3;
+}
+
+Test BoruvkaWeight {
+    Constraint: GraphDesk().BoruvkaWeight() == 3;
+    Processing: GraphDesk().BoruvkaWeight();
+    Output: 3;
+}
+
+Test Reach {
+    Constraint: GraphDesk().Reach(0) == 4;
+    Processing: GraphDesk().Reach(0);
+    Output: 4;
+}
+
+Test InitResidual {
+    Constraint: GraphDesk().InitResidual() == 1;
+    Processing: GraphDesk().InitResidual();
+    Output: 1;
+}
+
+Test SendFlow {
+    Constraint: GraphDesk().SendFlow(3) == 0;
+    Processing: GraphDesk().SendFlow(3);
+    Output: 0;
+}
+
+Test DfsFlow {
+    Constraint: GraphDesk().DfsFlow(0, 3) == 2;
+    Processing: GraphDesk().DfsFlow(0, 3);
+    Output: 2;
+}
+
+Test BfsFlow {
+    Constraint: GraphDesk().BfsFlow(0, 3) == 2;
+    Processing: GraphDesk().BfsFlow(0, 3);
+    Output: 2;
+}
+
+Test DinicFlow {
+    Constraint: GraphDesk().DinicFlow(0, 3) == 2;
+    Processing: GraphDesk().DinicFlow(0, 3);
+    Output: 2;
+}
+
+Test PushFlow {
+    Constraint: GraphDesk().PushFlow(0, 3) == 2;
+    Processing: GraphDesk().PushFlow(0, 3);
+    Output: 2;
+}
+
+Test MinCost {
+    Constraint: GraphDesk().MinCost(0, 3) == 5;
+    Processing: GraphDesk().MinCost(0, 3);
+    Output: 5;
+}
+
+Test MatchSize {
+    Constraint: GraphDesk().MatchSize() == 2;
+    Processing: GraphDesk().MatchSize();
+    Output: 2;
+}
+
+Test AssignCost {
+    Constraint: GraphDesk().AssignCost() == 2;
+    Processing: GraphDesk().AssignCost();
+    Output: 2;
+}
+
+Test TwoColor {
+    Constraint: GraphDesk().TwoColor() == 1;
+    Processing: GraphDesk().TwoColor();
+    Output: 1;
+}
+
+Test EulerWalk {
+    Constraint: GraphDesk().EulerWalk() == 4;
+    Processing: GraphDesk().EulerWalk();
+    Output: 4;
+}
+
+Test HamiltonWalk {
+    Constraint: GraphDesk().HamiltonWalk(0) == 4;
+    Processing: GraphDesk().HamiltonWalk(0);
+    Output: 4;
+}
+
+Test BridgeCount {
+    Constraint: GraphDesk().BridgeCount() == 0;
+    Processing: GraphDesk().BridgeCount();
+    Output: 0;
+}
+
+Test CutCount {
+    Constraint: GraphDesk().CutCount() == 0;
+    Processing: GraphDesk().CutCount();
+    Output: 0;
+}
+
+Test Eccentricity {
+    Constraint: GraphDesk().Eccentricity(0) == 2;
+    Processing: GraphDesk().Eccentricity(0);
+    Output: 2;
+}
+
+Test Girth {
+    Constraint: GraphDesk().Girth() == 4;
+    Processing: GraphDesk().Girth();
+    Output: 4;
+}
+
+Test Betweenness {
+    Constraint: GraphDesk().Betweenness() == 2;
+    Processing: GraphDesk().Betweenness();
+    Output: 2;
+}
+
+Test RankOf {
+    Constraint: GraphDesk().RankOf(0) == 2;
+    Processing: GraphDesk().RankOf(0);
+    Output: 2;
+}
+
+Test LabelCount {
+    Constraint: GraphDesk().LabelCount() == 2;
+    Processing: GraphDesk().LabelCount();
+    Output: 2;
+}
+

@@ -1,5 +1,181 @@
+// Tests for Iteration.rx. Each call uses a fresh cursor.
+
 Test Store {
     Constraint: Walk().Store(4) == 1;
-    Processing: True;
-    Output: True;
+    Processing: Walk().Store(4);
+    Output: 1;
+}
+
+Test Load {
+    Constraint: Walk().Load([1, 2]) == 2;
+    Processing: Walk().Load([1, 2]);
+    Output: 2;
+}
+
+Test Length {
+    Constraint: Walk().Length() == 0;
+    Processing: Walk().Length();
+    Output: 0;
+}
+
+Test At {
+    Constraint: Walk().At(0) == -1;
+    Processing: Walk().At(0);
+    Output: -1;
+}
+
+Test Configure {
+    Constraint: Walk().Configure("scan") == "scan";
+    Processing: Walk().Configure("scan");
+    Output: "scan";
+}
+
+Test Next {
+    Constraint: Walk().Next() == -1;
+    Processing: Walk().Next();
+    Output: -1;
+}
+
+Test Current {
+    Constraint: Walk().Current() == -1;
+    Processing: Walk().Current();
+    Output: -1;
+}
+
+Test HasNext {
+    Constraint: Walk().HasNext() == 0;
+    Processing: Walk().HasNext();
+    Output: 0;
+}
+
+Test Reset {
+    Constraint: Walk().Reset() == 0;
+    Processing: Walk().Reset();
+    Output: 0;
+}
+
+Test Dispose {
+    Constraint: Walk().Dispose() == 0;
+    Processing: Walk().Dispose();
+    Output: 0;
+}
+
+Test State {
+    Constraint: Walk().State() == "done";
+    Processing: Walk().State();
+    Output: "done";
+}
+
+Test Copy {
+    Constraint: Walk().Copy().Length() == 0;
+    Processing: Walk().Copy().Length();
+    Output: 0;
+}
+
+Test Take {
+    Constraint: Walk().Take(2).Length() == 0;
+    Processing: Walk().Take(2).Length();
+    Output: 0;
+}
+
+Test Skip {
+    Constraint: Walk().Skip(1).Length() == 0;
+    Processing: Walk().Skip(1).Length();
+    Output: 0;
+}
+
+Test TakeWhile {
+    Constraint: Walk().TakeWhile(3).Length() == 0;
+    Processing: Walk().TakeWhile(3).Length();
+    Output: 0;
+}
+
+Test SkipWhile {
+    Constraint: Walk().SkipWhile(3).Length() == 0;
+    Processing: Walk().SkipWhile(3).Length();
+    Output: 0;
+}
+
+Test Reversed {
+    Constraint: Walk().Reversed().Length() == 0;
+    Processing: Walk().Reversed().Length();
+    Output: 0;
+}
+
+Test EnableCycle {
+    Constraint: Walk().EnableCycle() == 1;
+    Processing: Walk().EnableCycle();
+    Output: 1;
+}
+
+Test Peek {
+    Constraint: Walk().Peek() == -1;
+    Processing: Walk().Peek();
+    Output: -1;
+}
+
+Test ZipText {
+    Constraint: Walk().ZipText(Walk()) == "empty";
+    Processing: Walk().ZipText(Walk());
+    Output: "empty";
+}
+
+Test EnumerateText {
+    Constraint: Walk().EnumerateText() == "empty";
+    Processing: Walk().EnumerateText();
+    Output: "empty";
+}
+
+Test EnableBuffer {
+    Constraint: Walk().EnableBuffer() == 1;
+    Processing: Walk().EnableBuffer();
+    Output: 1;
+}
+
+Test Fills {
+    Constraint: Walk().Fills() == 0;
+    Processing: Walk().Fills();
+    Output: 0;
+}
+
+Test Unbounded {
+    Constraint: Walk().Unbounded(3) == 3;
+    Processing: Walk().Unbounded(3);
+    Output: 3;
+}
+
+Test Cap {
+    Constraint: Walk().Cap(2) == 2;
+    Processing: Walk().Cap(2);
+    Output: 2;
+}
+
+Test IntText {
+    Constraint: Walk().IntText(7) == "7";
+    Processing: Walk().IntText(7);
+    Output: "7";
+}
+
+Test RangeValues {
+    Constraint: Walk().Load(RangeValues(1, 4)) == 3;
+    Processing: Walk().Load(RangeValues(1, 4));
+    Output: 3;
+}
+
+Test GenerateSquares {
+    Constraint: Walk().Load(GenerateSquares(3)) == 3;
+    Processing: Walk().Load(GenerateSquares(3));
+    Output: 3;
+}
+
+Test GenerateStopped {
+    Constraint: Walk().Load(GenerateStopped(3)) == 2;
+    Processing: Walk().Load(GenerateStopped(3));
+    Output: 2;
+}
+
+Test ReadAsync {
+    Constraint: ReadAsync(Walk()) == -1;
+    Processing: ReadAsync(Walk());
+    Output: -1;
 }

@@ -1,5 +1,8 @@
 // Robix.Interfaces: the standard disposable, comparable, enumerable, and factory contracts.
-Package Robix.Interfaces;
+Package Robix.Interfaces
+Explain {
+    Description: "Disposable, comparable, enumerable, and factory contracts.";
+};
 
 Import Robix.Core;
 
@@ -146,7 +149,7 @@ Public Interface IFactory<T> {
     };
 }
 
-Public Class IntCursor : IDisposable, IAsyncDisposable, IComparable<Int>, IEquatable<Int>, IEnumerable<Int>, IEnumerator<Int>, IAsyncEnumerable<Int>, IAsyncEnumerator<Int>, ICloneable<Int>, IValidator<Int>, IFactory<Int> {
+Public Class IntCursor : IDisposable, IAsyncDisposable {
     Private Array<Int> values;
     Private Int count;
     Private Int index;

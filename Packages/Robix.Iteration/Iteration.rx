@@ -1,5 +1,8 @@
 // Robix.Iteration: cursors, ranges, generators, buffering, and async steps.
-Package Robix.Iteration;
+Package Robix.Iteration
+Explain {
+    Description: "Cursors, ranges, generators, buffering, and async steps.";
+};
 
 Import Robix.Core;
 

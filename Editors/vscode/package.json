@@ -2,7 +2,7 @@
     "name": "Robix",
     "displayName": "Robix",
     "description": "Robix is Roboticela's type-safe language: PascalCase you can read aloud, the control of C, an interpreter to run it, and a compiler that builds a native executable.",
-    "version": "0.0.44",
+    "version": "0.0.45",
     "publisher": "Roboticela",
     "author": {
         "name": "Roboticela"
