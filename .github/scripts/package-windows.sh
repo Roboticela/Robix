@@ -32,6 +32,9 @@ fi
 cp -a "$windows_tools/Robix.exe" "$stage/Bin/Robix.exe"
 cp -a "$windows_tools/Compiler.exe" "$stage/Shared/Tools/Compiler.exe"
 cp -a "$windows_tools/Compiler.exe" "$stage/Bin/Robixc.exe"
+if [[ -f "$windows_tools/RobixBootstrap.exe" ]]; then
+    cp -a "$windows_tools/RobixBootstrap.exe" "$stage/Bin/RobixBootstrap.exe"
+fi
 
 rm -f "$stage/Bin/"*.ps1 "$stage/Bin/"*.cmd
 

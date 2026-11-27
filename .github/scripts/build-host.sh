@@ -1,42 +1,16 @@
 #!/usr/bin/env bash
-# Recompile the interpreter and the compiler engine for this source tree.
+# Rebuild the interpreter and the compiler with the C++ bootstrap.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 bash "$root/.github/scripts/ensure-bootstrap.sh"
-
-host="$(mktemp)"
-cp -a "$root/Build/bootstrap/robix-run.app" "$host"
-chmod 755 "$host"
-project="$root/Robix.rxp"
-backup="$(mktemp)"
-cp "$project" "$backup"
-restore_project() {
-    cp "$backup" "$project"
-    rm -f "$backup" "$host"
-}
-trap restore_project EXIT
-
-build_named() {
-    local name="$1"
-    local output="$2"
-    rm -f "$root/Build/temp"/*.o
-    sed "s/Name: \"Robix\";/Name: \"${name}\";/" "$backup" > "$project"
-    (
-        cd "$root"
-        "$host" Build --Configuration Development --NoCache
-    )
-    if [[ ! -x "$output" ]]; then
-        echo "error: the host build did not write ${output}" >&2
-        exit 1
-    fi
-}
-
-build_named "Robix" "$root/Build/Compiler/Robix.app"
-
-rm -f "$host"
-cp -a "$root/Build/Compiler/Robix.app" "$host"
-chmod 755 "$host"
-
-build_named "Robixc" "$root/Build/Compiler/Robixc.app"
+boot="$root/Build/bootstrap/robix-run.app"
+(
+    cd "$root"
+    "$boot" Build --emit Robix --emit Robixc --target host
+)
+if [[ ! -x "$root/Build/Compiler/Robix.app" || ! -x "$root/Build/Compiler/Robixc.app" ]]; then
+    echo "error: the host build did not write Robix.app and Robixc.app" >&2
+    exit 1
+fi
 echo "recompiled the Linux interpreter and compiler" >&2

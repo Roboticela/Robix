@@ -31,6 +31,7 @@ bash "$root/.github/scripts/build-host.sh"
 install -m 755 "$root/Build/Compiler/Robix.app" "$stage/Bin/Robix"
 install -m 755 "$root/Build/Compiler/Robixc.app" "$stage/Shared/Tools/Compiler"
 install -m 755 "$root/.github/packaging/Robixc" "$stage/Bin/Robixc"
+install -m 755 "$root/Build/bootstrap/robix-run.app" "$stage/Bin/RobixBootstrap"
 rm -rf "$root/Build/bootstrap"
 
 place_bin() {
@@ -103,7 +104,10 @@ Test Extra {
     Output: True;
 }
 EOF
-"$stage/Bin/Robixc" "$folder" "$folder/Hello"
+(
+    cd "$folder"
+    "$stage/Bin/Robixc" "$folder" "$folder/Hello"
+)
 "$folder/Hello" | grep -q "Hello, Robix"
 rm -rf "$folder"
 
