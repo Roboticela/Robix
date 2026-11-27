@@ -107,6 +107,7 @@ Public Class SyntaxCompiler {
         This.LoadImports(imported, loaded, diagnostics);
         For child In imported.Children {
             If (child.Kind != AstKind.Import) {
+                child.Modifiers.Add("Imported");
                 module.Children.Add(child);
             }
         }

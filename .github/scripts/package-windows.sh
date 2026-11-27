@@ -121,7 +121,10 @@ EOF
         echo "error: Robix.exe could not run HelloRobot.rx (exit ${run_status})" >&2
         exit 1
     fi
-    "$stage/Bin/Robixc.exe" "$smoke/HelloRobot.rx" "$smoke/Hello.exe" --target windows-x64
+    (
+        cd "$smoke"
+        "$stage/Bin/Robixc.exe" "HelloRobot.rx" "Hello.exe" --target windows-x64
+    )
     if [[ ! -f "$smoke/Hello.exe" ]]; then
         echo "error: Robixc.exe did not write Hello.exe" >&2
         exit 1

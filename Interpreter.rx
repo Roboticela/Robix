@@ -252,6 +252,9 @@ Public Class Interpreter {
     }
 
     Private Function CollectTestNames(AstNode node, AstKind kind, List<String> names) -> Void {
+        If (This.IsImported(node)) {
+            Return;
+        }
         If (node.Kind == kind && node.Name != "" && !This.HasTestName(names, node.Name)) {
             names.Add(node.Name);
         }
@@ -261,6 +264,13 @@ Public Class Interpreter {
         If (node.Body != Null) {
             This.CollectTestNames(node.Body, kind, names);
         }
+    }
+
+    Private Function IsImported(AstNode node) -> Bool {
+        For modifier In node.Modifiers {
+            If (modifier == "Imported") { Return True; }
+        }
+        Return False;
     }
 
     Private Function HasTestName(List<String> names, String name) -> Bool {
