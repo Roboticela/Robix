@@ -98,10 +98,52 @@ archive="$root/dist/robix-windows-x64.zip"
 rm -f "$archive"
 (
     cd "$root/dist/windows-stage"
-    zip -r "$archive" Robix
+    if command -v zip >/dev/null 2>&1; then
+        zip -r "$archive" Robix
+    else
+        py="python3"
+        if ! command -v python3 >/dev/null 2>&1; then
+            py="python"
+        fi
+        if ! command -v "$py" >/dev/null 2>&1; then
+            echo "error: zip and python are missing, so the Windows archive cannot be written" >&2
+            exit 1
+        fi
+        "$py" - "$archive" <<'PY'
+import os
+import sys
+import zipfile
+
+archive = sys.argv[1]
+with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as packed:
+    for dirpath, _dirnames, filenames in os.walk("Robix"):
+        relative = os.path.relpath(dirpath, ".")
+        if relative != ".":
+            packed.write(dirpath, relative.replace("\\", "/") + "/")
+        for name in filenames:
+            path = os.path.join(dirpath, name)
+            packed.write(path, os.path.relpath(path, ".").replace("\\", "/"))
+PY
+    fi
 )
 
-file_list=$(unzip -l "$archive" | tr '\\' '/')
+if command -v unzip >/dev/null 2>&1; then
+    file_list=$(unzip -l "$archive" | tr '\\' '/')
+else
+    py="python3"
+    if ! command -v python3 >/dev/null 2>&1; then
+        py="python"
+    fi
+    file_list=$("$py" - "$archive" <<'PY'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as packed:
+    for name in packed.namelist():
+        print(name.replace("\\", "/"))
+PY
+    )
+fi
 
 for required in 'Robix/README.md' 'Robix/LICENSE' 'Robix/Bin/Robix.exe' 'Robix/Bin/Robixc.exe' 'Robix/Library/Lexer.dll' 'Robix/Packages/Builtin/Robix.Core/Robix.Core.rx' 'Robix/Packages/Builtin/Robix.Core/Robix.Core.dll' 'Robix/Shared/kernel32.txt' 'Robix/Documentation/'; do
     if [[ "$file_list" != *"$required"* ]]; then

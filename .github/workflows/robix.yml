@@ -86,9 +86,6 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v4
 
-      - name: Install tools
-        run: choco install zip unzip -y
-
       - name: Download the Windows language tools
         uses: actions/download-artifact@v4
         with:

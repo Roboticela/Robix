@@ -92,7 +92,7 @@ Public Class ProjectEngine {
             Return This.Report(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("{accent}Robix{/} {muted}0.0.47{/}");
+            Print("{accent}Robix{/} {muted}0.0.48{/}");
             Return This.Report(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
