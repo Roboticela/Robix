@@ -926,7 +926,9 @@ Public Class RxAssembler {
         }
         If (tokens[0] == "note") {
             This.SawSkip = True;
-            This.AddBody("; skip note");
+            String detail = "note";
+            If (tokens.Count() > 1) { detail = "note " + tokens[1]; }
+            This.AddBody("; skip " + detail);
             Return;
         }
         If (tokens[0] == "print" && tokens.Count() > 2) {
@@ -982,9 +984,19 @@ Public Class RxAssembler {
             String spelling = "0";
             If (tokens.Count() > 3) { machine = tokens[3]; }
             If (tokens.Count() > 4) { spelling = tokens[4]; }
-            If (machine == "f64" || machine == "f32" || machine == "ptr") {
+            If (machine == "f64" || machine == "f32") {
                 This.SawSkip = True;
                 This.AddBody("; skip " + machine);
+                Return;
+            }
+            If (machine == "ptr") {
+                String slot = This.Bind(dest);
+                If (spelling.StartsWith("str")) {
+                    This.AddBody("    lea rax, " + spelling);
+                } Else {
+                    This.AddBody("    mov rax, 0");
+                }
+                This.AddBody("    mov " + slot + ", rax");
                 Return;
             }
             String slot = This.Bind(dest);
@@ -1017,6 +1029,26 @@ Public Class RxAssembler {
         }
         If (opcode == "call" && tokens.Count() > 4) {
             This.EmitValueCall(dest, tokens);
+            Return;
+        }
+        If (opcode == "neg" && tokens.Count() > 4) {
+            String saved = This.Bind(dest);
+            String source = This.Bind(tokens[4]);
+            This.AddBody("    mov rax, " + source);
+            This.AddBody("    neg rax");
+            This.AddBody("    mov " + saved + ", rax");
+            Return;
+        }
+        If ((opcode == "div" || opcode == "rem") && tokens.Count() > 5) {
+            String saved = This.Bind(dest);
+            String left = This.Bind(tokens[4]);
+            String right = This.Bind(tokens[5]);
+            This.AddBody("    mov rax, " + left);
+            This.AddBody("    xor rdx, rdx");
+            This.AddBody("    mov rcx, " + right);
+            This.AddBody("    idiv rcx");
+            If (opcode == "rem") { This.AddBody("    mov " + saved + ", rdx"); }
+            Else { This.AddBody("    mov " + saved + ", rax"); }
             Return;
         }
         If (tokens.Count() > 5 && (opcode == "add" || opcode == "sub" || opcode == "and" || opcode == "or" || opcode == "xor" || opcode == "mul")) {
@@ -1296,15 +1328,10 @@ Public Class RxAssembler {
         Return text;
     }
 
+    Private Extern Function JoinLines(List<String> lines) -> String;
+
     Private Function Join(List<String> lines) -> String {
-        String text = "";
-        Int index = 0;
-        While (index < lines.Count()) {
-            If (index > 0) { text = text + "\n"; }
-            text = text + lines[index];
-            index = index + 1;
-        }
-        Return text;
+        Return JoinLines(lines);
     }
 
     Private Function Tokens(String line) -> List<String> {

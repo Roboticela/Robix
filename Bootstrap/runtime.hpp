@@ -222,6 +222,26 @@ struct List {
     }
 };
 
+inline String JoinLines(List<String> lines) {
+    std::string text;
+    if (!lines.data) return String::Lit("");
+    size_t bytes = 0;
+    for (size_t index = 0; index < lines.data->size(); index++) {
+        if (index > 0) bytes++;
+        const String& line = (*lines.data)[index];
+        if (!line.null) bytes += line.text.size();
+    }
+    text.reserve(bytes);
+    for (size_t index = 0; index < lines.data->size(); index++) {
+        if (index > 0) text.push_back('\n');
+        const String& line = (*lines.data)[index];
+        if (!line.null) text += line.text;
+    }
+    return String::Lit(text);
+}
+
+inline String JoinText(List<String> lines) { return JoinLines(lines); }
+
 template <typename T>
 T& At(List<T>& list, int64_t index) {
     if (!list.data) list.data = std::make_shared<std::vector<T>>();

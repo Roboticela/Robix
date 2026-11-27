@@ -462,15 +462,10 @@ Public Class RxProgram {
         Return "i64";
     }
 
+    Private Extern Function JoinText(List<String> lines) -> String;
+
     Private Function JoinLines() -> String {
-        String text = "";
-        Int index = 0;
-        While (index < This.Lines.Count()) {
-            If (index > 0) { text = text + "\n"; }
-            text = text + This.Lines[index];
-            index = index + 1;
-        }
-        Return text;
+        Return JoinText(This.Lines);
     }
 
     Private Function LowerFunction(AstNode node, String className) -> Void {
@@ -708,6 +703,42 @@ Public Class RxProgram {
             This.PopLoop();
             Return;
         }
+        If (node.Kind == AstKind.For && node.Right != Null) {
+            String itemName = "item";
+            If (node.Left != Null && node.Left.Name != "") { itemName = node.Left.Name; }
+            RxValue list = This.LowerExpr(node.Right);
+            String countName = This.Fresh();
+            This.AddOp(countName + " = call i64 @Count " + list.Machine + " " + list.Name);
+            String indexName = itemName + "_i";
+            This.Remember(indexName, "i64");
+            This.AddOp("store i64 " + This.ConstName("0", "i64") + ", " + This.SlotOf(indexName));
+            This.Remember(itemName, "i64");
+            String head = This.NextBlock();
+            String body = This.NextBlock();
+            String done = This.NextBlock();
+            This.PushLoop(head, done);
+            This.StartBlock(head);
+            RxValue current = This.LoadName(indexName);
+            String cmp = This.Fresh();
+            This.AddOp(cmp + " = cmp lt i64 " + current.Name + ", " + countName);
+            This.Branch(This.MakeValue(cmp, "i8"), body, done);
+            This.StartBlock(body);
+            String item = This.Fresh();
+            This.AddOp(item + " = call i64 @At " + list.Machine + " " + list.Name + " i64 " + current.Name);
+            This.AddOp("store i64 " + item + ", " + This.SlotOf(itemName));
+            If (node.Body != Null) { This.LowerBlock(node.Body); }
+            If (!This.Terminated) {
+                RxValue now = This.LoadName(indexName);
+                String one = This.ConstName("1", "i64");
+                String next = This.Fresh();
+                This.AddOp(next + " = add i64 " + now.Name + ", " + one);
+                This.AddOp("store i64 " + next + ", " + This.SlotOf(indexName));
+                This.AddOp("jump " + head);
+            }
+            This.StartBlock(done);
+            This.PopLoop();
+            Return;
+        }
         If (node.Kind == AstKind.Break) {
             String done = This.LoopLabel("done");
             If (done == "") { This.AddLine("note break"); }
@@ -729,7 +760,20 @@ Public Class RxProgram {
         If (node.Kind == AstKind.Missing || node.Kind == AstKind.Explain) {
             Return;
         }
-        This.AddLine("note unsupported");
+        This.AddLine("note " + This.NoteLabel(node));
+    }
+
+    Private Function NoteLabel(AstNode node) -> String {
+        If (node.Kind == AstKind.Member) { Return "member"; }
+        If (node.Kind == AstKind.NullLiteral) { Return "null"; }
+        If (node.Kind == AstKind.Ternary) { Return "ternary"; }
+        If (node.Kind == AstKind.Cast) { Return "cast"; }
+        If (node.Kind == AstKind.TypeCheck) { Return "typecheck"; }
+        If (node.Kind == AstKind.Match) { Return "match"; }
+        If (node.Kind == AstKind.CharLiteral) { Return "char"; }
+        If (node.Kind == AstKind.ArrayLiteral) { Return "array"; }
+        If (node.Kind == AstKind.Lambda) { Return "lambda"; }
+        Return "other";
     }
 
     Private Function LowerAssignment(AstNode node) -> Void {
@@ -851,7 +895,7 @@ Public Class RxProgram {
             If (node.Left != Null && node.Left.Kind == AstKind.Name) { Return This.LoadName(node.Left.Name); }
         }
         String name = This.Fresh();
-        This.AddLine("note unsupported");
+        This.AddLine("note " + This.NoteLabel(node));
         This.AddOp(name + " = const i64 0");
         Return This.MakeValue(name, "i64");
     }

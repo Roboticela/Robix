@@ -65,6 +65,7 @@ Public Class TypeChecker {
     Private List<String> gotoNames;
     Private List<Int> gotoDepths;
     Private List<Int> gotoLines;
+    Private List<String> ProvenNonNull;
     Private String currentPackage;
     Private List<String> typeNames;
     Private List<String> typeFlags;
@@ -126,6 +127,7 @@ Public Class TypeChecker {
         This.gotoNames = List<String>();
         This.gotoDepths = List<Int>();
         This.gotoLines = List<Int>();
+        This.ProvenNonNull = List<String>();
         This.currentPackage = "";
         This.typeNames = List<String>();
         This.typeFlags = List<String>();
@@ -295,7 +297,13 @@ Public Class TypeChecker {
         If (node.Kind == AstKind.While || node.Kind == AstKind.DoWhile) {
             String condition = This.Infer(node.Condition);
             This.RequireBool(node.Condition, condition);
-            If (node.Body != Null) {
+            If (node.Kind == AstKind.While && node.Body != Null) {
+                Var savedProofs = List<String>();
+                For proof In This.ProvenNonNull { savedProofs.Add(proof); }
+                This.RememberProofs(node.Condition);
+                This.CheckScoped(node.Body);
+                This.ProvenNonNull = savedProofs;
+            } Else If (node.Body != Null) {
                 This.CheckScoped(node.Body);
             }
             Return;
@@ -482,7 +490,7 @@ Public Class TypeChecker {
             }
         }
         Bool spanLiteral = declared.StartsWith("Span<") && node.Initializer != Null && node.Initializer.Kind == AstKind.ArrayLiteral;
-        If (spanLiteral) {
+        If (spanLiteral && node.Initializer != Null) {
             String element = This.ElementName(declared);
             If (element == "") { element = "Byte"; }
             For child In node.Initializer.Children {
@@ -630,6 +638,9 @@ Public Class TypeChecker {
     Private Function CheckIf(AstNode node) -> Void {
         String condition = This.Infer(node.Condition);
         This.RequireBool(node.Condition, condition);
+        Var savedProofs = List<String>();
+        For proof In This.ProvenNonNull { savedProofs.Add(proof); }
+        This.RememberProofs(node.Condition);
         Symbol? narrowed = This.NoteNullNarrowing(node.Condition);
         Symbol? excluded = This.NoteNullExit(node.Condition);
         Symbol? typed = This.NoteTypeNarrowing(node.Condition);
@@ -659,6 +670,10 @@ Public Class TypeChecker {
         If (typed != Null) {
             typed.TypeName = savedType;
             typed.Nullable = savedNullable;
+        }
+        This.ProvenNonNull = savedProofs;
+        If (node.Otherwise == Null && node.Body != Null && This.ReturnsAlways(node.Body)) {
+            This.RememberExcluded(node.Condition);
         }
         If (node.Otherwise != Null) { This.CheckNode(node.Otherwise); }
         If (node.Otherwise == Null) {
@@ -762,6 +777,12 @@ Public Class TypeChecker {
         String actual = "";
         If (node.Right != Null) {
             actual = This.Infer(node.Right);
+        }
+        If (node.Left != Null && actual != "Null" && !actual.EndsWith("?")) {
+            String assigned = This.MemberPath(node.Left);
+            If (assigned != "" && !This.IsProven(assigned)) {
+                This.ProvenNonNull.Add(assigned);
+            }
         }
         If (node.Left != Null && node.Left.Kind == AstKind.TupleLiteral) {
             For target In node.Left.Children {
@@ -887,6 +908,9 @@ Public Class TypeChecker {
                 String signature = This.FunctionTypeOf(node.Name);
                 If (signature != "") { Return signature; }
             }
+            If (This.IsProven(node.Name)) {
+                Return This.StripOptional(symbol.TypeName);
+            }
             If (!symbol.Nullable && symbol.TypeName.EndsWith("?")) {
                 Return This.StripOptional(symbol.TypeName);
             }
@@ -916,6 +940,16 @@ Public Class TypeChecker {
             Return inner;
         }
         If (node.Kind == AstKind.Binary || node.Kind == AstKind.Range) {
+            If (node.Operator == "&&" || node.Operator == "And" || node.Operator == "||" || node.Operator == "Or") {
+                This.Infer(node.Left);
+                Var savedProofs = List<String>();
+                For proof In This.ProvenNonNull { savedProofs.Add(proof); }
+                If (node.Operator == "&&" || node.Operator == "And") { This.RememberProofs(node.Left); }
+                If (node.Operator == "||" || node.Operator == "Or") { This.RememberExcluded(node.Left); }
+                This.Infer(node.Right);
+                This.ProvenNonNull = savedProofs;
+                Return "Bool";
+            }
             String left = This.Infer(node.Left);
             String right = This.Infer(node.Right);
             If (node.Operator == "&&" || node.Operator == "||" || node.Operator == "And" || node.Operator == "Or" || node.Operator == "==" || node.Operator == "!=" || node.Operator == "<" || node.Operator == ">" || node.Operator == "<=" || node.Operator == ">=" || node.Operator == "Equal") {
@@ -984,6 +1018,10 @@ Public Class TypeChecker {
                 Return node.Left.Name;
             }
             String left = This.Infer(node.Left);
+            String provenPath = This.MemberPath(node.Left);
+            If (left.EndsWith("?") && provenPath != "" && This.IsProven(provenPath)) {
+                left = This.StripOptional(left);
+            }
             String accessOwner = This.AppliedOwner(left);
             If (node.Left != Null && node.Left.Kind == AstKind.Name && This.TypeFlagOf(node.Left.Name) != "") {
                 accessOwner = node.Left.Name;
@@ -996,6 +1034,10 @@ Public Class TypeChecker {
             If (node.Name == "ToFloat") { Return "Float"; }
             If (node.Name == "ToInt" || node.Name == "Length" || node.Name == "Count") { Return "Int"; }
             String fieldType = This.FieldTypeOf(left, node.Name);
+            String accessPath = This.MemberPath(node);
+            If (fieldType.EndsWith("?") && accessPath != "" && This.IsProven(accessPath)) {
+                fieldType = This.StripOptional(fieldType);
+            }
             If (fieldType != "") { Return fieldType; }
             If (node.Name == "Token") { Return "CancellationToken"; }
             If (node.Name == "Message") { Return "String"; }
@@ -1112,6 +1154,9 @@ Public Class TypeChecker {
         }
         If (symbolReturn == "T") {
             Return This.CallArgumentType(node);
+        }
+        If (name != "" && node.Parameters.Count() == 0 && This.IsDeclaredType(name)) {
+            Return name;
         }
         If (symbolReturn != "") {
             Return symbolReturn;
@@ -1316,6 +1361,9 @@ Public Class TypeChecker {
         If (This.SameElements(wanted, given)) {
             Return;
         }
+        If (This.ListForm(wanted) != "" && This.ListForm(wanted) == This.ListForm(given)) {
+            Return;
+        }
         If (wanted.StartsWith("Pointer<") && given == "Null") { Return; }
         If (wanted.Contains(" | ")) {
             Var parts = List<String>();
@@ -1378,6 +1426,61 @@ Public Class TypeChecker {
             Return;
         }
         This.diagnostics.TypeError("RX102", "'" + node.Name + "' is not declared.", node.Line, node.Column, "a declared name", node.Name, "Declare the variable before using it.");
+    }
+
+    Private Function MemberPath(AstNode? node) -> String {
+        If (node == Null) { Return ""; }
+        If (node.Kind == AstKind.Name) { Return node.Name; }
+        If (node.Kind == AstKind.Index) {
+            String indexed = This.MemberPath(node.Left);
+            If (indexed == "") { Return ""; }
+            String index = "";
+            If (node.Right != Null && node.Right.Kind == AstKind.IntegerLiteral) { index = node.Right.Text; }
+            Return indexed + "[" + index + "]";
+        }
+        If (node.Kind == AstKind.Member) {
+            String base = This.MemberPath(node.Left);
+            If (base == "") { Return ""; }
+            Return base + "." + node.Name;
+        }
+        Return "";
+    }
+
+    Private Function IsProven(String path) -> Bool {
+        For item In This.ProvenNonNull {
+            If (item == path) { Return True; }
+        }
+        Return False;
+    }
+
+    Private Function RememberExcluded(AstNode? condition) -> Void {
+        If (condition == Null) { Return; }
+        If (condition.Kind == AstKind.Binary && (condition.Operator == "||" || condition.Operator == "Or")) {
+            This.RememberExcluded(condition.Left);
+            This.RememberExcluded(condition.Right);
+            Return;
+        }
+        If (condition.Kind == AstKind.Binary && condition.Operator == "==" && condition.Right != Null && condition.Right.Kind == AstKind.NullLiteral) {
+            String path = This.MemberPath(condition.Left);
+            If (path != "" && !This.IsProven(path)) {
+                This.ProvenNonNull.Add(path);
+            }
+        }
+    }
+
+    Private Function RememberProofs(AstNode? condition) -> Void {
+        If (condition == Null) { Return; }
+        If (condition.Kind == AstKind.Binary && (condition.Operator == "&&" || condition.Operator == "And")) {
+            This.RememberProofs(condition.Left);
+            This.RememberProofs(condition.Right);
+            Return;
+        }
+        If (condition.Kind == AstKind.Binary && condition.Operator == "!=" && condition.Right != Null && condition.Right.Kind == AstKind.NullLiteral) {
+            String path = This.MemberPath(condition.Left);
+            If (path != "" && !This.IsProven(path)) {
+                This.ProvenNonNull.Add(path);
+            }
+        }
     }
 
     Private Function NoteNullNarrowing(AstNode? condition) -> Symbol? {
@@ -1995,6 +2098,13 @@ Public Class TypeChecker {
         Return typeName;
     }
 
+    Private Function ListForm(String typeName) -> String {
+        If (typeName.StartsWith("List<") || typeName.StartsWith("Args<")) {
+            Return "List<" + typeName.Substring(5);
+        }
+        Return "";
+    }
+
     Private Function WidensTo(String expected, String actual) -> Bool {
         If (expected == "Int" || expected == "Int64") {
             Return actual == "Int" || actual == "Int8" || actual == "Int16" || actual == "Int32" || actual == "Int64";
@@ -2220,6 +2330,13 @@ Public Class TypeChecker {
 
     Private Function IsNumeric(String typeName) -> Bool {
         Return typeName == "Int" || typeName == "UInt" || typeName == "Byte" || typeName == "Float" || typeName == "Double" || typeName == "Decimal" || typeName.StartsWith("Int") || typeName.StartsWith("UInt") || typeName.StartsWith("Float");
+    }
+
+    Private Function IsDeclaredType(String name) -> Bool {
+        For typeName In This.typeNames {
+            If (typeName == name) { Return True; }
+        }
+        Return False;
     }
 
     Private Function IsTypeName(String name) -> Bool {

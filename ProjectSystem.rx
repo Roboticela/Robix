@@ -86,7 +86,7 @@ Public Class ProjectEngine {
             Return This.Report(ExitCode.Success, "");
         }
         If (command == "version") {
-            Print("{accent}Robix{/} {muted}0.0.35{/}");
+            Print("{accent}Robix{/} {muted}0.0.36{/}");
             Return This.Report(ExitCode.Success, "");
         }
         String projectPath = This.FindProject();
@@ -610,27 +610,31 @@ Public Class ProjectEngine {
         CompileResult result = compiler.CompileProgram(sources, names, True);
         Int errors = 0;
         Int warnings = 0;
+        Int rx103 = 0;
+        Int rx110 = 0;
+        Int rx173 = 0;
         Int shown = 0;
         For line In compiler.DiagnosticsOf(result) {
             If (line.StartsWith("error")) {
                 errors = errors + 1;
-                If (shown < 20) {
+                If (line.Contains("RX103")) { rx103 = rx103 + 1; }
+                If (line.Contains("RX110")) { rx110 = rx110 + 1; }
+                If (line.Contains("RX173")) { rx173 = rx173 + 1; }
+                If (shown < 12) {
                     Print(line);
                     shown = shown + 1;
                 }
             }
             If (line.StartsWith("warning")) { warnings = warnings + 1; }
         }
-        Print("{error}" + errors.ToString() + "{/} {muted}errors{/}  {warning}" + warnings.ToString() + "{/} {muted}warnings{/}");
+        Print("{error}" + errors.ToString() + "{/} {muted}errors{/}  {warning}" + warnings.ToString() + "{/} {muted}warnings{/}  {muted}RX103{/} " + rx103.ToString() + "  {muted}RX110{/} " + rx110.ToString() + "  {muted}RX173{/} " + rx173.ToString());
         If (result.Rxir == "") {
             This.Diagnostics.Add(output + " failed to compile.");
             Return False;
         }
-        RxPass passes = RxPass();
-        String rxir = passes.Optimize(result.Rxir);
         RxAssembler assembler = RxAssembler();
         assembler.Target = "linux-x64";
-        String rxasm = assembler.WithStart(assembler.Select(rxir));
+        String rxasm = assembler.WithStart(assembler.Select(result.Rxir));
         Int skipAt = rxasm.IndexOf("; skip");
         If (skipAt >= 0) {
             Int start = skipAt;
@@ -638,6 +642,8 @@ Public Class ProjectEngine {
             Int end = skipAt;
             While (end < rxasm.Length() && rxasm.GetChar(end) != 10) { end = end + 1; }
             Print(rxasm.Substring(start, end - start));
+            Directory.Create("Build/Self");
+            Files.WriteText("Build/Self/skipped.rxasm", rxasm);
             This.Diagnostics.Add(output + " is not encodable yet.");
             Return False;
         }
